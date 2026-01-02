@@ -6,7 +6,7 @@
 Open-SSPM is a small “who has access to what” service. It syncs identities from Okta (IdP) and permissions from connected apps (GitHub, Datadog, AWS Identity Center), links accounts (auto by email + manual links), and renders a server-side UI.
 
 ## Features
-- Periodic background sync (`open-sspm serve`) + one-off sync (`open-sspm sync`) + in-app “Resync”.
+- HTTP server (`open-sspm serve`) + background sync worker (`open-sspm worker`) + one-off sync (`open-sspm sync`) + in-app “Resync”.
 - Okta: users, groups, apps, and assignments (IdP source).
 - GitHub: org members/teams/repo permissions (optional SCIM lookup for emails).
 - Datadog: users + role assignments.
@@ -27,7 +27,8 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 3. Run migrations: `make migrate`
 4. Install JS deps + build CSS: `npm install && make ui`
 5. Run the server: `make run`
-6. Open `http://localhost:8080`, configure connectors under Settings → Connectors, then run a sync (Settings → Resync, or `make sync`).
+6. Optional: run the background sync worker: `make worker`
+7. Open `http://localhost:8080`, configure connectors under Settings → Connectors, then run a sync (Settings → Resync, or `make sync`).
 
 ## Findings / rules (Okta benchmark)
 Rulesets are embedded from a pinned Open SSPM descriptor snapshot (`internal/opensspm/specassets/descriptor.v1.json`) and must be seeded into Postgres before they show up in the UI:
@@ -37,6 +38,7 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/okta-be
 
 ## Dev workflows
 - Live-reload server: `make dev` (requires `air` + `templ`)
+- Run background sync worker: `make worker`
 - Watch CSS: `make ui-watch`
 - Regenerate templ templates: `make templ` (watch: `make templ-watch`)
 - Regenerate SQLC code: `make sqlc` (generated code is checked in under `internal/db/gen`)

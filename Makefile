@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down migrate sqlc templ templ-watch test run sync ui ui-watch dev update-open-sspm-spec copy-db
+.PHONY: dev-up dev-down migrate sqlc templ templ-watch test run worker sync ui ui-watch dev update-open-sspm-spec copy-db
 
 dev-up:
 	docker compose up -d
@@ -23,6 +23,9 @@ test:
 
 run:
 	go run ./cmd/open-sspm serve
+
+worker:
+	go run ./cmd/open-sspm worker
 
 sync:
 	go run ./cmd/open-sspm sync
