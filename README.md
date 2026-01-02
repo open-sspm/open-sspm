@@ -1,3 +1,6 @@
+
+<p style="text-align:center;">Made with love in Paris 🇫🇷</p>
+
 # Open-SSPM
 
 Open-SSPM is a small “who has access to what” service. It syncs identities from Okta (IdP) and permissions from connected apps (GitHub, Datadog, AWS Identity Center), links accounts (auto by email + manual links), and renders a server-side UI.
