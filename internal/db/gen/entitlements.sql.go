@@ -69,7 +69,7 @@ func (q *Queries) InsertEntitlement(ctx context.Context, arg InsertEntitlementPa
 	return i, err
 }
 
-const listEntitlementAccessBySourceAndResource = `-- name: ListEntitlementAccessBySourceAndResource :many
+const listEntitlementAccessBySourceAndResourceRef = `-- name: ListEntitlementAccessBySourceAndResourceRef :many
 SELECT
   e.id AS entitlement_id,
   e.kind AS entitlement_kind,
@@ -96,8 +96,7 @@ LEFT JOIN identity_links il ON il.app_user_id = au.id
 LEFT JOIN idp_users iu ON iu.id = il.idp_user_id
 WHERE au.source_kind = $1::text
   AND au.source_name = $2::text
-  AND e.kind = ANY($3::text[])
-  AND e.resource = ANY($4::text[])
+  AND e.resource = $3::text
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
   AND e.expired_at IS NULL
@@ -105,14 +104,13 @@ WHERE au.source_kind = $1::text
 ORDER BY iu.email, au.external_id, e.permission, e.id
 `
 
-type ListEntitlementAccessBySourceAndResourceParams struct {
-	SourceKind string   `json:"source_kind"`
-	SourceName string   `json:"source_name"`
-	Kinds      []string `json:"kinds"`
-	Resources  []string `json:"resources"`
+type ListEntitlementAccessBySourceAndResourceRefParams struct {
+	SourceKind  string `json:"source_kind"`
+	SourceName  string `json:"source_name"`
+	ResourceRef string `json:"resource_ref"`
 }
 
-type ListEntitlementAccessBySourceAndResourceRow struct {
+type ListEntitlementAccessBySourceAndResourceRefRow struct {
 	EntitlementID         int64              `json:"entitlement_id"`
 	EntitlementKind       string             `json:"entitlement_kind"`
 	EntitlementResource   string             `json:"entitlement_resource"`
@@ -134,20 +132,15 @@ type ListEntitlementAccessBySourceAndResourceRow struct {
 	IdpUserStatus         pgtype.Text        `json:"idp_user_status"`
 }
 
-func (q *Queries) ListEntitlementAccessBySourceAndResource(ctx context.Context, arg ListEntitlementAccessBySourceAndResourceParams) ([]ListEntitlementAccessBySourceAndResourceRow, error) {
-	rows, err := q.db.Query(ctx, listEntitlementAccessBySourceAndResource,
-		arg.SourceKind,
-		arg.SourceName,
-		arg.Kinds,
-		arg.Resources,
-	)
+func (q *Queries) ListEntitlementAccessBySourceAndResourceRef(ctx context.Context, arg ListEntitlementAccessBySourceAndResourceRefParams) ([]ListEntitlementAccessBySourceAndResourceRefRow, error) {
+	rows, err := q.db.Query(ctx, listEntitlementAccessBySourceAndResourceRef, arg.SourceKind, arg.SourceName, arg.ResourceRef)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListEntitlementAccessBySourceAndResourceRow
+	var items []ListEntitlementAccessBySourceAndResourceRefRow
 	for rows.Next() {
-		var i ListEntitlementAccessBySourceAndResourceRow
+		var i ListEntitlementAccessBySourceAndResourceRefRow
 		if err := rows.Scan(
 			&i.EntitlementID,
 			&i.EntitlementKind,

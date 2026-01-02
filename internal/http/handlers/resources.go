@@ -35,21 +35,14 @@ func (h *Handlers) HandleResourceShow(c echo.Context) error {
 		}
 	}
 
-	entKinds := accessgraph.EntitlementKindsForResourceKind(sourceKind, resourceKind)
-	if len(entKinds) == 0 {
-		return RenderNotFound(c)
-	}
-	entResources := accessgraph.ResourceQueryValues(resourceKind, externalID)
-	if len(entResources) == 0 {
-		return RenderNotFound(c)
-	}
+	resourceKind = strings.ToLower(strings.TrimSpace(resourceKind))
+	resourceRef := resourceKind + ":" + externalID
 
 	ctx := c.Request().Context()
-	rows, err := h.Q.ListEntitlementAccessBySourceAndResource(ctx, gen.ListEntitlementAccessBySourceAndResourceParams{
-		SourceKind: sourceKind,
-		SourceName: sourceName,
-		Kinds:      entKinds,
-		Resources:  entResources,
+	rows, err := h.Q.ListEntitlementAccessBySourceAndResourceRef(ctx, gen.ListEntitlementAccessBySourceAndResourceRefParams{
+		SourceKind:  sourceKind,
+		SourceName:  sourceName,
+		ResourceRef: resourceRef,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -57,7 +50,7 @@ func (h *Handlers) HandleResourceShow(c echo.Context) error {
 
 	displayName := externalID
 	if len(rows) > 0 {
-		displayName = accessgraph.DisplayResourceLabel(rows[0].EntitlementKind, rows[0].EntitlementResource, rows[0].EntitlementRawJson)
+		displayName = accessgraph.DisplayResourceLabel(resourceRef, rows[0].EntitlementRawJson)
 	}
 
 	title := ConnectorDisplayName(sourceKind) + " resource"
@@ -127,7 +120,7 @@ func (h *Handlers) HandleResourceShow(c echo.Context) error {
 		SourceName:          sourceName,
 		SourceLabel:         ConnectorDisplayName(sourceKind),
 		SourceHref:          IntegratedAppHref(sourceKind),
-		ResourceKind:        strings.ToLower(strings.TrimSpace(resourceKind)),
+		ResourceKind:        resourceKind,
 		ResourceKindLabel:   resourceKindLabel,
 		ExternalID:          externalID,
 		DisplayName:         displayName,

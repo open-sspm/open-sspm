@@ -86,7 +86,7 @@ WHERE app_user_id = ANY(sqlc.arg(app_user_ids)::bigint[])
   AND last_observed_run_id IS NOT NULL
 ORDER BY app_user_id, resource;
 
--- name: ListEntitlementAccessBySourceAndResource :many
+-- name: ListEntitlementAccessBySourceAndResourceRef :many
 SELECT
   e.id AS entitlement_id,
   e.kind AS entitlement_kind,
@@ -113,8 +113,7 @@ LEFT JOIN identity_links il ON il.app_user_id = au.id
 LEFT JOIN idp_users iu ON iu.id = il.idp_user_id
 WHERE au.source_kind = sqlc.arg(source_kind)::text
   AND au.source_name = sqlc.arg(source_name)::text
-  AND e.kind = ANY(sqlc.arg(kinds)::text[])
-  AND e.resource = ANY(sqlc.arg(resources)::text[])
+  AND e.resource = sqlc.arg(resource_ref)::text
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
   AND e.expired_at IS NULL

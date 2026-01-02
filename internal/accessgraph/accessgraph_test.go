@@ -42,46 +42,6 @@ func TestParseCanonicalResourceRef(t *testing.T) {
 	}
 }
 
-func TestResourceRefFromEntitlement(t *testing.T) {
-	t.Parallel()
-
-	t.Run("canonical", func(t *testing.T) {
-		t.Parallel()
-		gotKind, gotExternal, ok := ResourceRefFromEntitlement("github_team_repo_permission", "github_repo:owner/repo")
-		if !ok {
-			t.Fatalf("expected ok")
-		}
-		if gotKind != ResourceKindGitHubRepo {
-			t.Fatalf("kind=%q, want %q", gotKind, ResourceKindGitHubRepo)
-		}
-		if gotExternal != "owner/repo" {
-			t.Fatalf("external=%q, want %q", gotExternal, "owner/repo")
-		}
-	})
-
-	t.Run("legacy", func(t *testing.T) {
-		t.Parallel()
-		gotKind, gotExternal, ok := ResourceRefFromEntitlement("github_team_repo_permission", "owner/repo")
-		if !ok {
-			t.Fatalf("expected ok")
-		}
-		if gotKind != ResourceKindGitHubRepo {
-			t.Fatalf("kind=%q, want %q", gotKind, ResourceKindGitHubRepo)
-		}
-		if gotExternal != "owner/repo" {
-			t.Fatalf("external=%q, want %q", gotExternal, "owner/repo")
-		}
-	})
-
-	t.Run("unknownKind", func(t *testing.T) {
-		t.Parallel()
-		_, _, ok := ResourceRefFromEntitlement("unknown_kind", "thing")
-		if ok {
-			t.Fatalf("expected !ok")
-		}
-	})
-}
-
 func TestBuildResourceHref(t *testing.T) {
 	t.Parallel()
 
@@ -92,10 +52,10 @@ func TestBuildResourceHref(t *testing.T) {
 	}
 }
 
-func TestBuildResourceHrefFromEntitlement(t *testing.T) {
+func TestBuildResourceHrefFromResourceRef(t *testing.T) {
 	t.Parallel()
 
-	got := BuildResourceHrefFromEntitlement("datadog", "datadoghq.com", "datadog_role", "datadog_role:abc123")
+	got := BuildResourceHrefFromResourceRef("datadog", "datadoghq.com", "datadog_role:abc123")
 	want := "/resources/datadog/datadoghq.com/datadog_role/abc123"
 	if got != want {
 		t.Fatalf("href=%q, want %q", got, want)
@@ -106,21 +66,8 @@ func TestDisplayResourceLabel(t *testing.T) {
 	t.Parallel()
 
 	raw := []byte(`{"role_id":"abc123","role_name":"Admin"}`)
-	got := DisplayResourceLabel("datadog_role", "datadog_role:abc123", raw)
+	got := DisplayResourceLabel("datadog_role:abc123", raw)
 	if got != "Admin" {
 		t.Fatalf("label=%q, want %q", got, "Admin")
-	}
-}
-
-func TestEntitlementKindsForResourceKind(t *testing.T) {
-	t.Parallel()
-
-	got := EntitlementKindsForResourceKind("github", "github_repo")
-	if len(got) != 1 || got[0] != "github_team_repo_permission" {
-		t.Fatalf("got=%v, want %v", got, []string{"github_team_repo_permission"})
-	}
-
-	if out := EntitlementKindsForResourceKind("github", "nope"); out != nil {
-		t.Fatalf("expected nil, got %v", out)
 	}
 }

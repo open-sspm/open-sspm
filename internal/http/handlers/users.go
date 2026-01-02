@@ -149,7 +149,7 @@ func (h *Handlers) HandleIdpUserShow(c echo.Context) error {
 	for _, app := range linked {
 		entitlementViews := make([]viewmodels.LinkedEntitlementView, 0, len(entitlementsByAppUserID[app.ID]))
 		for _, ent := range entitlementsByAppUserID[app.ID] {
-			resourceKind, resourceID, ok := accessgraph.ResourceRefFromEntitlement(ent.Kind, ent.Resource)
+			resourceKind, resourceID, ok := accessgraph.ParseCanonicalResourceRef(ent.Resource)
 			if !ok {
 				resourceID = strings.TrimSpace(ent.Resource)
 			}
@@ -157,7 +157,7 @@ func (h *Handlers) HandleIdpUserShow(c echo.Context) error {
 			if ok {
 				resourceHref = accessgraph.BuildResourceHref(app.SourceKind, app.SourceName, resourceKind, resourceID)
 			}
-			resourceLabel := accessgraph.DisplayResourceLabel(ent.Kind, ent.Resource, ent.RawJson)
+			resourceLabel := accessgraph.DisplayResourceLabel(ent.Resource, ent.RawJson)
 			if strings.TrimSpace(resourceLabel) == "" {
 				if ok {
 					resourceLabel = resourceID
@@ -1047,7 +1047,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c echo.Context) error {
 		var unmapped []accessTreeNode
 
 		for _, ent := range ents {
-			resourceKind, externalID, ok := accessgraph.ResourceRefFromEntitlement(ent.Kind, ent.Resource)
+			resourceKind, externalID, ok := accessgraph.ParseCanonicalResourceRef(ent.Resource)
 			if !ok {
 				label := strings.TrimSpace(ent.Resource)
 				if label == "" {
@@ -1078,7 +1078,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c echo.Context) error {
 				continue
 			}
 
-			label := accessgraph.DisplayResourceLabel(ent.Kind, ent.Resource, ent.RawJson)
+			label := accessgraph.DisplayResourceLabel(ent.Resource, ent.RawJson)
 			if strings.TrimSpace(label) == "" {
 				label = externalID
 			}
@@ -1178,7 +1178,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c echo.Context) error {
 
 		nodes := make([]accessTreeNode, 0, len(ents))
 		for _, ent := range ents {
-			kind, eid, ok := accessgraph.ResourceRefFromEntitlement(ent.Kind, ent.Resource)
+			kind, eid, ok := accessgraph.ParseCanonicalResourceRef(ent.Resource)
 			if !ok {
 				continue
 			}
