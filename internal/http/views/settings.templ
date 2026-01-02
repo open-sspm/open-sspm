@@ -32,7 +32,7 @@ templ SettingsPage(data viewmodels.SettingsViewData) {
 							@CSRFInput(data.Layout.CSRFToken)
 							<button type="submit" class="btn-primary" disabled?={ !data.ResyncEnabled }>Resync now</button>
 						</form>
-						<div class="text-sm text-muted-foreground">{ "Scheduled every " }{ data.SyncInterval }</div>
+						<div class="text-sm text-muted-foreground">{ "Worker interval (if running): " }{ data.SyncInterval }</div>
 					</div>
 				</section>
 			</article>

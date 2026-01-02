@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/config"
@@ -19,26 +17,26 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/okta"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/connectors/vault"
-	"github.com/open-sspm/open-sspm/internal/db/gen"
-	httpapp "github.com/open-sspm/open-sspm/internal/http"
-	"github.com/open-sspm/open-sspm/internal/http/handlers"
 	"github.com/open-sspm/open-sspm/internal/sync"
 	"github.com/spf13/cobra"
 )
 
-var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "Run the HTTP server.",
+var workerCmd = &cobra.Command{
+	Use:   "worker",
+	Short: "Run the background sync loop.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runServe()
+		return runWorker()
 	},
 }
 
-func runServe() error {
+func runWorker() error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
+	}
+	if cfg.SyncInterval <= 0 {
+		return errors.New("SYNC_INTERVAL must be > 0 to run the worker")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -49,8 +47,6 @@ func runServe() error {
 		return err
 	}
 	defer pool.Close()
-
-	queries := gen.New(pool)
 
 	reg := registry.NewRegistry()
 	if err := reg.Register(okta.NewDefinition(cfg.SyncOktaWorkers)); err != nil {
@@ -73,38 +69,10 @@ func runServe() error {
 	}
 
 	runner := sync.NewDBRunner(pool, reg)
+	runner.SetReporter(&sync.LogReporter{})
 
-	var syncer handlers.SyncRunner = runner
-	if !cfg.ResyncEnabled {
-		syncer = nil
-	}
-
-	srv, err := httpapp.NewEchoServer(cfg, queries, syncer, reg)
-	if err != nil {
-		return err
-	}
-
-	httpServer := &http.Server{
-		Addr:              cfg.HTTPAddr,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-
-	errCh := make(chan error, 1)
-	go func() {
-		log.Printf("listening on %s", cfg.HTTPAddr)
-		errCh <- srv.StartServer(httpServer)
-	}()
-
-	select {
-	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		_ = srv.Shutdown(shutdownCtx)
-		return nil
-	case err := <-errCh:
-		if !errors.Is(err, http.ErrServerClosed) {
-			return err
-		}
-		return nil
-	}
+	log.Printf("sync worker started (interval=%s)", cfg.SyncInterval.String())
+	scheduler := sync.Scheduler{Runner: runner, Interval: cfg.SyncInterval}
+	scheduler.Run(ctx)
+	return nil
 }

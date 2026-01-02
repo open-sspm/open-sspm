@@ -14,13 +14,14 @@
 - Watch templ templates: `make templ-watch`
 - Seed benchmark rules: `go run ./cmd/open-sspm seed-rules`
 - Sync once: `make sync`
-- Run server (includes background sync loop): `make run`
+- Run server: `make run`
+- Run background sync worker: `make worker`
 - Live-reload server (requires `air`): `make dev`
 - Run tests: `make test` (`go test ./...`)
 - Build CSS: `make ui` (watch: `make ui-watch`)
 
 ## Repo layout
-- CLI entrypoint: `cmd/open-sspm` (`serve`, `sync`, `migrate`, `seed-rules`)
+- CLI entrypoint: `cmd/open-sspm` (`serve`, `worker`, `sync`, `migrate`, `seed-rules`)
 - Config: `internal/config` (env loading + runtime settings)
 - HTTP server + templates: `internal/http` (`handlers`, `viewmodels`, `views/*.templ`)
 - Sync orchestration + scheduler: `internal/sync`
