@@ -14,7 +14,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/joho/godotenv v1.5.1
-	github.com/labstack/echo/v4 v4.14.0
+	github.com/labstack/echo/v4 v4.15.0
 	github.com/okta/okta-sdk-golang/v6 v6.0.2
 	github.com/open-sspm/open-sspm-spec v0.0.0-20260101152609-1c5cca899e79
 	github.com/spf13/cobra v1.10.2
