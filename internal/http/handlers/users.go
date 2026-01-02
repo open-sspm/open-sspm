@@ -464,19 +464,19 @@ func (h *Handlers) HandleDatadogUsers(c echo.Context) error {
 
 	rolesByUserID := make(map[int64][]string)
 	if len(appUserIDs) > 0 {
-		roles, err := h.Q.ListEntitlementResourcesByAppUserIDsAndKind(ctx, gen.ListEntitlementResourcesByAppUserIDsAndKindParams{
-			AppUserIds: appUserIDs,
-			EntKind:    "datadog_role",
-		})
+		ents, err := h.Q.ListEntitlementsForAppUserIDs(ctx, appUserIDs)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
-		for _, row := range roles {
-			name := strings.TrimSpace(row.Resource)
-			if name == "" {
+		for _, ent := range ents {
+			if strings.TrimSpace(ent.Kind) != "datadog_role" {
 				continue
 			}
-			rolesByUserID[row.AppUserID] = append(rolesByUserID[row.AppUserID], name)
+			label := strings.TrimSpace(accessgraph.DisplayResourceLabel(ent.Resource, ent.RawJson))
+			if label == "" {
+				continue
+			}
+			rolesByUserID[ent.AppUserID] = append(rolesByUserID[ent.AppUserID], label)
 		}
 	}
 

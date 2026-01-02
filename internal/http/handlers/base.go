@@ -141,7 +141,13 @@ func RenderNotFound(c echo.Context) error {
 
 // NormalizeConnectorKind normalizes connector kind strings.
 func NormalizeConnectorKind(kind string) string {
-	return strings.ToLower(strings.TrimSpace(kind))
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	switch kind {
+	case "aws":
+		return configstore.KindAWSIdentityCenter
+	default:
+		return kind
+	}
 }
 
 // ConnectorDisplayName returns the human-readable name for a connector kind.
@@ -176,7 +182,7 @@ func IsKnownConnectorKind(kind string) bool {
 
 // IntegratedAppHref returns the navigation href for an integrated app.
 func IntegratedAppHref(integrationKind string) string {
-	switch strings.ToLower(strings.TrimSpace(integrationKind)) {
+	switch NormalizeConnectorKind(integrationKind) {
 	case configstore.KindGitHub:
 		return "/github-users"
 	case configstore.KindDatadog:
