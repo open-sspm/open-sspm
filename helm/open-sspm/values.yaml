@@ -1,0 +1,86 @@
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/open-sspm/open-sspm
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  automountServiceAccountToken: true
+
+database:
+  existingSecret:
+    name: ""
+    key: DATABASE_URL
+
+config:
+  httpAddr: ":8080"
+  resyncEnabled: true
+  syncInterval: 15m
+  syncOktaWorkers: 3
+  syncGithubWorkers: 6
+  syncDatadogWorkers: 3
+
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: open-sspm.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+serve:
+  replicaCount: 1
+  podAnnotations: {}
+  podLabels: {}
+  extraEnv: []
+  extraEnvFrom: []
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+worker:
+  replicaCount: 1
+  podAnnotations: {}
+  podLabels: {}
+  extraEnv: []
+  extraEnvFrom: []
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+migrations:
+  enabled: true
+  configMap:
+    name: ""
+  job:
+    backoffLimit: 3
+    ttlSecondsAfterFinished: 300
+    resources: {}
+
+seedRules:
+  enabled: true
+  onUpgrade: false
+  job:
+    backoffLimit: 3
+    ttlSecondsAfterFinished: 300
+    resources: {}

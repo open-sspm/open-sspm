@@ -1,0 +1,12 @@
+-- Add last login metadata to users
+
+ALTER TABLE idp_users
+  ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS last_login_ip TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS last_login_region TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE app_users
+  ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS last_login_ip TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS last_login_region TEXT NOT NULL DEFAULT '';
+
