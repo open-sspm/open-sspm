@@ -69,6 +69,109 @@ func (q *Queries) InsertEntitlement(ctx context.Context, arg InsertEntitlementPa
 	return i, err
 }
 
+const listEntitlementAccessBySourceAndResourceRef = `-- name: ListEntitlementAccessBySourceAndResourceRef :many
+SELECT
+  e.id AS entitlement_id,
+  e.kind AS entitlement_kind,
+  e.resource AS entitlement_resource,
+  e.permission AS entitlement_permission,
+  e.raw_json AS entitlement_raw_json,
+  e.created_at AS entitlement_created_at,
+  e.updated_at AS entitlement_updated_at,
+  au.id AS app_user_id,
+  au.source_kind AS app_user_source_kind,
+  au.source_name AS app_user_source_name,
+  au.external_id AS app_user_external_id,
+  au.email AS app_user_email,
+  au.display_name AS app_user_display_name,
+  au.raw_json AS app_user_raw_json,
+  il.link_reason AS link_reason,
+  iu.id AS idp_user_id,
+  iu.email AS idp_user_email,
+  iu.display_name AS idp_user_display_name,
+  iu.status AS idp_user_status
+FROM entitlements e
+JOIN app_users au ON au.id = e.app_user_id
+LEFT JOIN identity_links il ON il.app_user_id = au.id
+LEFT JOIN idp_users iu ON iu.id = il.idp_user_id
+WHERE au.source_kind = $1::text
+  AND au.source_name = $2::text
+  AND e.resource = $3::text
+  AND au.expired_at IS NULL
+  AND au.last_observed_run_id IS NOT NULL
+  AND e.expired_at IS NULL
+  AND e.last_observed_run_id IS NOT NULL
+ORDER BY iu.email, au.external_id, e.permission, e.id
+`
+
+type ListEntitlementAccessBySourceAndResourceRefParams struct {
+	SourceKind  string `json:"source_kind"`
+	SourceName  string `json:"source_name"`
+	ResourceRef string `json:"resource_ref"`
+}
+
+type ListEntitlementAccessBySourceAndResourceRefRow struct {
+	EntitlementID         int64              `json:"entitlement_id"`
+	EntitlementKind       string             `json:"entitlement_kind"`
+	EntitlementResource   string             `json:"entitlement_resource"`
+	EntitlementPermission string             `json:"entitlement_permission"`
+	EntitlementRawJson    []byte             `json:"entitlement_raw_json"`
+	EntitlementCreatedAt  pgtype.Timestamptz `json:"entitlement_created_at"`
+	EntitlementUpdatedAt  pgtype.Timestamptz `json:"entitlement_updated_at"`
+	AppUserID             int64              `json:"app_user_id"`
+	AppUserSourceKind     string             `json:"app_user_source_kind"`
+	AppUserSourceName     string             `json:"app_user_source_name"`
+	AppUserExternalID     string             `json:"app_user_external_id"`
+	AppUserEmail          string             `json:"app_user_email"`
+	AppUserDisplayName    string             `json:"app_user_display_name"`
+	AppUserRawJson        []byte             `json:"app_user_raw_json"`
+	LinkReason            pgtype.Text        `json:"link_reason"`
+	IdpUserID             pgtype.Int8        `json:"idp_user_id"`
+	IdpUserEmail          pgtype.Text        `json:"idp_user_email"`
+	IdpUserDisplayName    pgtype.Text        `json:"idp_user_display_name"`
+	IdpUserStatus         pgtype.Text        `json:"idp_user_status"`
+}
+
+func (q *Queries) ListEntitlementAccessBySourceAndResourceRef(ctx context.Context, arg ListEntitlementAccessBySourceAndResourceRefParams) ([]ListEntitlementAccessBySourceAndResourceRefRow, error) {
+	rows, err := q.db.Query(ctx, listEntitlementAccessBySourceAndResourceRef, arg.SourceKind, arg.SourceName, arg.ResourceRef)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEntitlementAccessBySourceAndResourceRefRow
+	for rows.Next() {
+		var i ListEntitlementAccessBySourceAndResourceRefRow
+		if err := rows.Scan(
+			&i.EntitlementID,
+			&i.EntitlementKind,
+			&i.EntitlementResource,
+			&i.EntitlementPermission,
+			&i.EntitlementRawJson,
+			&i.EntitlementCreatedAt,
+			&i.EntitlementUpdatedAt,
+			&i.AppUserID,
+			&i.AppUserSourceKind,
+			&i.AppUserSourceName,
+			&i.AppUserExternalID,
+			&i.AppUserEmail,
+			&i.AppUserDisplayName,
+			&i.AppUserRawJson,
+			&i.LinkReason,
+			&i.IdpUserID,
+			&i.IdpUserEmail,
+			&i.IdpUserDisplayName,
+			&i.IdpUserStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEntitlementResourcesByAppUserIDsAndKind = `-- name: ListEntitlementResourcesByAppUserIDsAndKind :many
 SELECT
   app_user_id,
@@ -122,6 +225,50 @@ ORDER BY id
 
 func (q *Queries) ListEntitlementsForAppUser(ctx context.Context, appUserID int64) ([]Entitlement, error) {
 	rows, err := q.db.Query(ctx, listEntitlementsForAppUser, appUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Entitlement
+	for rows.Next() {
+		var i Entitlement
+		if err := rows.Scan(
+			&i.ID,
+			&i.AppUserID,
+			&i.Kind,
+			&i.Resource,
+			&i.Permission,
+			&i.RawJson,
+			&i.CreatedAt,
+			&i.SeenInRunID,
+			&i.SeenAt,
+			&i.LastObservedRunID,
+			&i.LastObservedAt,
+			&i.ExpiredAt,
+			&i.ExpiredRunID,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEntitlementsForAppUserIDs = `-- name: ListEntitlementsForAppUserIDs :many
+SELECT id, app_user_id, kind, resource, permission, raw_json, created_at, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, updated_at
+FROM entitlements
+WHERE app_user_id = ANY($1::bigint[])
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+ORDER BY app_user_id, id
+`
+
+func (q *Queries) ListEntitlementsForAppUserIDs(ctx context.Context, appUserIds []int64) ([]Entitlement, error) {
+	rows, err := q.db.Query(ctx, listEntitlementsForAppUserIDs, appUserIds)
 	if err != nil {
 		return nil, err
 	}

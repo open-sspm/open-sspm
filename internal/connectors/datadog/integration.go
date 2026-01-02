@@ -246,20 +246,22 @@ func (i *DatadogIntegration) Run(ctx context.Context, deps registry.IntegrationD
 			continue
 		}
 		for _, role := range dedupeDatadogRoles(rolesByUserExternalID[userID]) {
+			roleID := strings.TrimSpace(role.ID)
 			roleName := strings.TrimSpace(role.Name)
-			if roleName == "" {
-				roleName = strings.TrimSpace(role.ID)
+			externalID := roleID
+			if externalID == "" {
+				externalID = roleName
 			}
-			if roleName == "" {
+			if externalID == "" {
 				continue
 			}
 			entAppUserExternalIDs = append(entAppUserExternalIDs, userID)
 			entKinds = append(entKinds, "datadog_role")
-			entResources = append(entResources, roleName)
+			entResources = append(entResources, "datadog_role:"+externalID)
 			entPermissions = append(entPermissions, "member")
 			entRawJSONs = append(entRawJSONs, registry.MarshalJSON(map[string]string{
-				"role_id":   strings.TrimSpace(role.ID),
-				"role_name": strings.TrimSpace(role.Name),
+				"role_id":   roleID,
+				"role_name": roleName,
 			}))
 		}
 	}

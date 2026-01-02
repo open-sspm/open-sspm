@@ -44,6 +44,7 @@ func (es *EchoServer) registerRoutes() {
 	authed.GET("/idp-users", es.h.HandleIdpUsers)
 	authed.GET("/idp-users/*", es.h.HandleIdpUserShow)
 	authed.GET("/api/idp-users/:id/access-tree", es.h.HandleIdpUserAccessTree)
+	authed.GET("/resources/:sourceKind/:sourceName/:resourceKind/*", es.h.HandleResourceShow)
 	authed.GET("/findings", es.h.HandleFindings)
 	authed.GET("/findings/okta-benchmark", es.h.HandleFindingsOktaBenchmark) // legacy redirect
 	authed.GET("/findings/rulesets/:rulesetKey", es.h.HandleFindingsRuleset)
