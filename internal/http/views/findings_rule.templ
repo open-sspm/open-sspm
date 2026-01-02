@@ -1,0 +1,256 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "Findings", Href: "/findings"},
+			{Label: data.Ruleset.Name, Href: "/findings/rulesets/" + data.Ruleset.Key},
+			{Label: data.RuleKey},
+		}, "Rule details, evidence, overrides, and attestations.") {
+		}
+
+		if data.Alert != nil {
+			@Alert(data.Alert.Title, data.Alert.Destructive) {
+				<p>{ data.Alert.Message }</p>
+			}
+		}
+
+		<div class="grid gap-6 lg:grid-cols-3">
+			<article class="card lg:col-span-1">
+				<header>
+					<h2>Rule</h2>
+					<p class="text-muted-foreground">{ data.RuleKey }</p>
+				</header>
+				<section class="space-y-3">
+					<div class="space-y-1">
+						<div class="font-medium">{ data.RuleTitle }</div>
+						if data.RuleSummary != "" {
+							<div class="text-sm text-muted-foreground">{ data.RuleSummary }</div>
+						}
+					</div>
+
+					<div class="flex flex-wrap gap-2">
+						<span class="badge-outline">{ data.RuleSeverity }</span>
+						<span class={ RuleMonitoringBadgeClass(data.MonitoringStatus) }>{ data.MonitoringStatus }</span>
+						<span class={ RuleStatusBadgeClass(data.CurrentStatus) }>{ HumanizeRuleStatus(data.CurrentStatus) }</span>
+					</div>
+
+					if data.MonitoringReason != "" {
+						<p class="text-sm text-muted-foreground">{ data.MonitoringReason }</p>
+					}
+
+					if data.SourceName != "" {
+						<div class="text-sm text-muted-foreground">
+							<span class="font-medium text-foreground">Source:</span> { data.SourceName }
+						</div>
+					}
+				</section>
+			</article>
+
+			<article class="card lg:col-span-2">
+				<header>
+					<h2>Current result</h2>
+					<p class="text-muted-foreground">Latest evaluation stored in Postgres.</p>
+				</header>
+				<section class="space-y-4">
+					<div class="flex flex-wrap items-center gap-2">
+						<span class={ RuleStatusBadgeClass(data.CurrentStatus) }>{ HumanizeRuleStatus(data.CurrentStatus) }</span>
+						if data.CurrentErrorKind != "" {
+							<span class="badge-outline">{ data.CurrentErrorKind }</span>
+						}
+						if data.CurrentEvaluatedAt != "" {
+							<span class="text-sm text-muted-foreground">Evaluated { data.CurrentEvaluatedAt }</span>
+						}
+					</div>
+
+					if data.EvidenceSummary != "" {
+						<div class="text-sm text-muted-foreground">{ data.EvidenceSummary }</div>
+					}
+
+					if data.Evidence.IsEnvelopeV1 {
+						<div class="grid gap-4 md:grid-cols-2">
+							<div class="space-y-2">
+								<div class="text-sm font-medium">Check</div>
+								<div class="text-sm text-muted-foreground">{ data.Evidence.CheckType }</div>
+								if data.Evidence.Dataset != "" {
+									<div class="text-sm text-muted-foreground">Dataset: { data.Evidence.Dataset }</div>
+								}
+								if data.Evidence.Left.Dataset != "" || data.Evidence.Right.Dataset != "" {
+									<div class="text-sm text-muted-foreground">Left: { data.Evidence.Left.Dataset }</div>
+									<div class="text-sm text-muted-foreground">Right: { data.Evidence.Right.Dataset }</div>
+								}
+								if data.Evidence.SelectionTotal > 0 || data.Evidence.SelectionSelected > 0 {
+									<div class="text-sm text-muted-foreground">Selection: { FormatInt(data.Evidence.SelectionSelected) } / { FormatInt(data.Evidence.SelectionTotal) }</div>
+								}
+							</div>
+							<div class="space-y-2">
+								<div class="text-sm font-medium">Params</div>
+								if data.Evidence.ParamsPretty != "" {
+									<pre class="text-xs whitespace-pre-wrap rounded-md border border-border bg-muted p-3">{ data.Evidence.ParamsPretty }</pre>
+								} else {
+									<div class="text-sm text-muted-foreground">No parameters.</div>
+								}
+							</div>
+						</div>
+
+						if len(data.Evidence.Violations) > 0 {
+							<div class="space-y-2">
+								<div class="text-sm font-medium">Violations</div>
+								<div class="overflow-x-auto">
+									<table class="table">
+										<thead>
+											<tr>
+												<th>Resource</th>
+												<th>Display</th>
+											</tr>
+										</thead>
+										<tbody>
+											for _, v := range data.Evidence.Violations {
+												<tr>
+													<td class="text-muted-foreground">{ v.ResourceID }</td>
+													<td class="text-muted-foreground">{ v.Display }</td>
+												</tr>
+											}
+										</tbody>
+									</table>
+								</div>
+								if data.Evidence.ViolationsTruncated {
+									<div class="text-xs text-muted-foreground">Violations truncated.</div>
+								}
+							</div>
+						}
+					} else if data.Evidence.RawPretty != "" {
+						<div class="space-y-2">
+							<div class="text-sm font-medium">Evidence JSON</div>
+							<pre class="text-xs whitespace-pre-wrap rounded-md border border-border bg-muted p-3">{ data.Evidence.RawPretty }</pre>
+						</div>
+					}
+				</section>
+			</article>
+		</div>
+
+		<div class="grid gap-6 lg:grid-cols-2">
+			<article class="card">
+				<header>
+					<h2>Overrides</h2>
+					<p class="text-muted-foreground">Enable/disable the rule and override parameters.</p>
+				</header>
+				<section class="space-y-6">
+					<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" } class="flex items-center justify-between gap-3">
+						@CSRFInput(data.Layout.CSRFToken)
+						<div>
+							<div class="text-sm font-medium">Ruleset enabled</div>
+							<div class="text-xs text-muted-foreground">A disabled ruleset forces rules to not_applicable.</div>
+						</div>
+						if data.RulesetOverrideEnabled {
+							<input type="hidden" name="enabled" value="false"/>
+							<button type="submit" class="btn-outline">Disable</button>
+						} else {
+							<input type="hidden" name="enabled" value="true"/>
+							<button type="submit" class="btn-primary">Enable</button>
+						}
+					</form>
+
+					<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/override" } class="space-y-4">
+						@CSRFInput(data.Layout.CSRFToken)
+						<div class="flex items-center justify-between gap-3">
+							<div>
+								<div class="text-sm font-medium">Rule override enabled</div>
+								<div class="text-xs text-muted-foreground">Disable to mark rule not_applicable.</div>
+							</div>
+							<label class="inline-flex items-center gap-2">
+								<input type="checkbox" class="checkbox" name="enabled" value="true" checked?={ data.RuleOverride.Enabled }/>
+								<span class="text-sm">Enabled</span>
+							</label>
+						</div>
+
+						if data.RuleOverride.HasSchema {
+							<div class="space-y-3">
+								<div class="text-sm font-medium">Parameters</div>
+								<div class="space-y-3">
+									for _, f := range data.RuleOverride.Fields {
+										<div class="grid gap-2">
+											<label class="text-sm font-medium" for={ "param_" + f.Key }>{ f.Key }</label>
+											if f.Description != "" {
+												<div class="text-xs text-muted-foreground">{ f.Description }</div>
+											}
+											if f.Type == "boolean" {
+												<select id={ "param_" + f.Key } name={ "param_" + f.Key } class="select">
+													<option value="" selected?={ f.OverrideValue == "" }>Inherit</option>
+													<option value="true" selected?={ f.OverrideValue == "true" }>true</option>
+													<option value="false" selected?={ f.OverrideValue == "false" }>false</option>
+												</select>
+											} else {
+												<input id={ "param_" + f.Key } name={ "param_" + f.Key } class="input" value={ f.OverrideValue } placeholder={ f.DefaultValue }/>
+											}
+										</div>
+									}
+								</div>
+							</div>
+						}
+
+						<button type="submit" class="btn-primary">Save override</button>
+						if data.RuleOverride.CurrentParamsPretty != "" {
+							<pre class="text-xs whitespace-pre-wrap rounded-md border border-border bg-muted p-3">{ data.RuleOverride.CurrentParamsPretty }</pre>
+						}
+					</form>
+				</section>
+			</article>
+
+			<article class="card">
+				<header>
+					<h2>Attestation</h2>
+					<p class="text-muted-foreground">Record a manual attestation (expires automatically).</p>
+				</header>
+				<section class="space-y-4">
+					<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/attestation" } class="space-y-4">
+						@CSRFInput(data.Layout.CSRFToken)
+
+						<label class="space-y-1 block">
+							<div class="text-sm font-medium">Status</div>
+							<select class="select" name="status">
+								<option value="pass" selected?={ data.Attestation.Status == "pass" }>Pass</option>
+								<option value="fail" selected?={ data.Attestation.Status == "fail" }>Fail</option>
+								<option value="not_applicable" selected?={ data.Attestation.Status == "not_applicable" }>Not applicable</option>
+							</select>
+						</label>
+
+						<label class="space-y-1 block">
+							<div class="text-sm font-medium">Expires at</div>
+							<input class="input" type="datetime-local" name="expires_at" value={ data.Attestation.ExpiresAt }/>
+						</label>
+
+						<label class="space-y-1 block">
+							<div class="text-sm font-medium">Notes</div>
+							<textarea class="textarea" name="notes" rows="4">{ data.Attestation.Notes }</textarea>
+						</label>
+
+						<button type="submit" class="btn-primary">Save attestation</button>
+					</form>
+				</section>
+			</article>
+		</div>
+
+		if data.RemediationInstructions != "" {
+			<article class="card">
+				<header>
+					<h2>Remediation</h2>
+					<p class="text-muted-foreground">Steps to remediate this finding.</p>
+				</header>
+				<section class="space-y-4">
+					<div class="text-sm whitespace-pre-wrap">{ data.RemediationInstructions }</div>
+					if data.RemediationRisks != "" {
+						<div class="text-sm text-muted-foreground whitespace-pre-wrap">{ data.RemediationRisks }</div>
+					}
+					if data.RemediationEffort != "" {
+						<div class="text-sm text-muted-foreground">Effort: { data.RemediationEffort }</div>
+					}
+				</section>
+			</article>
+		}
+	}
+}
+

@@ -1,0 +1,70 @@
+---
+- name: Add SSH keys for deploy user
+  hosts: demo
+  become: true
+
+  vars:
+    deploy_user: deploy
+    # List of public key file paths on the Ansible control machine.
+    # Example:
+    # deploy_public_key_files:
+    #   - /Users/sardo/.ssh/id_deploy.pub
+    #   - /Users/sardo/.ssh/id_ansible.pub
+    deploy_public_key_files: []
+    # Alternatively, you can provide inline public key lines.
+    deploy_public_keys: []
+
+  tasks:
+    - name: Ensure deploy user exists
+      ansible.builtin.user:
+        name: "{{ deploy_user }}"
+        state: present
+        create_home: true
+        shell: /bin/bash
+
+    - name: Ensure deploy .ssh directory exists
+      ansible.builtin.file:
+        path: "/home/{{ deploy_user }}/.ssh"
+        state: directory
+        owner: "{{ deploy_user }}"
+        group: "{{ deploy_user }}"
+        mode: "0700"
+
+    - name: Normalize deploy key vars to lists
+      ansible.builtin.set_fact:
+        deploy_public_key_files_list: "{{ (deploy_public_key_files | from_yaml) if (deploy_public_key_files is string) else deploy_public_key_files }}"
+        deploy_public_keys_list: "{{ (deploy_public_keys | from_yaml) if (deploy_public_keys is string) else deploy_public_keys }}"
+
+    - name: Split deploy_public_key_files_list if still a string
+      ansible.builtin.set_fact:
+        deploy_public_key_files_list: "{{ deploy_public_key_files_list | split(',') | map('trim') | reject('equalto', '') | list }}"
+      when: deploy_public_key_files_list is string
+
+    - name: Split deploy_public_keys_list if still a string
+      ansible.builtin.set_fact:
+        deploy_public_keys_list: "{{ deploy_public_keys_list | split(',') | map('trim') | reject('equalto', '') | list }}"
+      when: deploy_public_keys_list is string
+
+    - name: Add authorized_keys entries from local public key files
+      ansible.builtin.lineinfile:
+        path: "/home/{{ deploy_user }}/.ssh/authorized_keys"
+        line: "{{ lookup('file', item) | trim }}"
+        create: true
+        owner: "{{ deploy_user }}"
+        group: "{{ deploy_user }}"
+        mode: "0600"
+        state: present
+      loop: "{{ deploy_public_key_files_list }}"
+      when: deploy_public_key_files_list | length > 0
+
+    - name: Add authorized_keys entries from inline keys
+      ansible.builtin.lineinfile:
+        path: "/home/{{ deploy_user }}/.ssh/authorized_keys"
+        line: "{{ item | trim }}"
+        create: true
+        owner: "{{ deploy_user }}"
+        group: "{{ deploy_user }}"
+        mode: "0600"
+        state: present
+      loop: "{{ deploy_public_keys_list }}"
+      when: deploy_public_keys_list | length > 0

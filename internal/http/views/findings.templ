@@ -1,0 +1,48 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ FindingsPage(data viewmodels.FindingsRulesetsViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "Findings"},
+		}, "Rulesets and checks across your integrations.") {
+		}
+
+		if data.HasRulesets {
+			@TableCard("Rulesets", "Rulesets loaded from Postgres (seeded from the rule registry).") {
+				<table class="table">
+					<thead>
+						<tr>
+							<th>Ruleset</th>
+							<th>Source</th>
+							<th>Version</th>
+							<th>Status</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, rs := range data.Rulesets {
+							<tr>
+								<td class="font-medium">
+									<a class="btn-sm-link" href={ rs.Href }>{ rs.Name }</a>
+									if rs.Description != "" {
+										<div class="text-sm text-muted-foreground">{ rs.Description }</div>
+									}
+								</td>
+								<td class="text-muted-foreground">{ rs.Source }</td>
+								<td class="text-muted-foreground">{ rs.SourceVersion }</td>
+								<td>
+									<span class="badge-outline">{ rs.Status }</span>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		} else {
+			@EmptyState("No rulesets found", "Run open-sspm seed-rules to load ruleset definitions into Postgres.") {
+			}
+		}
+	}
+}

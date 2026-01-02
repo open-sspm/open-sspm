@@ -1,0 +1,139 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ UnmatchedAWSPage(data viewmodels.UnmatchedAWSViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "Unmatched AWS Identity Center"},
+		}, "Match AWS Identity Center identities to Okta users for complete access coverage.") {
+			if data.Layout.AWSIdentityCenterConfigured {
+				<span class="badge-outline">{ data.Layout.AWSIdentityCenterName }</span>
+			} else {
+				<span class="badge-outline">Not configured</span>
+			}
+			<a class="btn-sm-outline" href="/idp-users">Okta users</a>
+		}
+
+		if data.Layout.AWSIdentityCenterConfigured && data.Layout.AWSIdentityCenterEnabled {
+			@Alert("Manual linking", false) {
+				<p>
+					Open-SSPM will auto-link identities by email when possible. Use this list to link users with missing or mismatched emails.
+				</p>
+			}
+		} else {
+			@Alert("AWS Identity Center sync disabled", true) {
+				<p>
+					{ data.EmptyStateMsg } <a class="btn-sm-link px-1" href={ data.EmptyStateHref }>Configure AWS Identity Center</a>.
+				</p>
+			}
+		}
+
+		<form method="get" class="card">
+			<header>
+				<h2>Search</h2>
+				<p>Filter unmatched AWS Identity Center users by email, name, or user ID.</p>
+			</header>
+			<section>
+				<div class="flex flex-col gap-4 sm:flex-row sm:items-end">
+					<label class="field w-full sm:max-w-md">
+						<span class="label">Query</span>
+						<input type="search" name="q" class="input" placeholder="Search users…" value={ data.Query }/>
+					</label>
+					<div class="button-group sm:ml-auto">
+						<button class="btn-sm-primary" type="submit">Search</button>
+						if data.Query != "" {
+							<a class="btn-sm-ghost" href="/unmatched/aws">Reset</a>
+						}
+					</div>
+				</div>
+			</section>
+		</form>
+
+		<article class="card">
+			<header>
+				<h2>Unmatched AWS Identity Center users</h2>
+				<span data-slot="card-action" class="badge-outline">
+					if data.TotalCount > 0 {
+						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "–" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+					} else {
+						{ "Showing 0" }
+					}
+				</span>
+			</header>
+			<section>
+				<div class="overflow-x-auto">
+					<table class="table">
+						<thead>
+							<tr>
+								<th>User</th>
+								<th>Email</th>
+								<th>User ID</th>
+								<th>Link</th>
+							</tr>
+						</thead>
+						<tbody>
+							if data.HasUsers {
+								for _, u := range data.Users {
+									<tr>
+										<td class="font-medium">{ u.DisplayName }</td>
+										<td>
+											if u.Email != "" {
+												{ u.Email }
+											} else {
+												<span class="text-muted-foreground">&mdash;</span>
+											}
+										</td>
+										<td class="text-muted-foreground">{ u.ExternalID }</td>
+										<td>
+											<form method="post" action="/links" class="flex flex-col gap-2 sm:flex-row sm:items-end">
+												@CSRFInput(data.Layout.CSRFToken)
+												<input type="hidden" name="app_user_id" value={ FormatInt64(u.ID) }/>
+												<label class="field w-full sm:w-32">
+													<span class="label sr-only">Okta user ID</span>
+													<input type="text" name="idp_user_id" placeholder="Okta ID" required class="input w-full"/>
+												</label>
+												<button type="submit" class="btn-sm-primary w-full sm:w-auto">Link</button>
+											</form>
+										</td>
+									</tr>
+								}
+							} else if data.Layout.AWSIdentityCenterConfigured && data.Layout.AWSIdentityCenterEnabled && data.Query == "" {
+								<tr>
+									<td colspan="4">
+										@EmptyState("All caught up", "No unmatched AWS Identity Center users found. All detected identities have been linked to an Okta user.")
+									</td>
+								</tr>
+							} else {
+								<tr>
+									<td colspan="4">
+										@EmptyState("No unmatched users", data.EmptyStateMsg)
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+				if data.TotalPages > 1 {
+					<div class="flex flex-wrap items-center gap-3 border-t py-3">
+						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
+						<div class="button-group ml-auto">
+							if data.Page > 1 {
+								<a class="btn-sm-outline" href={ ListURL("/unmatched/aws", data.Query, "", data.Page-1) }>Previous</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
+							}
+							if data.Page < data.TotalPages {
+								<a class="btn-sm-outline" href={ ListURL("/unmatched/aws", data.Query, "", data.Page+1) }>Next</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
+							}
+						</div>
+					</div>
+				}
+			</section>
+		</article>
+	}
+}
+

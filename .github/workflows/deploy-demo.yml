@@ -1,0 +1,115 @@
+name: Deploy demo (Scaleway VM)
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "SSH host (usually the VM public IP)"
+        required: true
+      user:
+        description: "SSH user"
+        required: true
+        default: "deploy"
+      port:
+        description: "SSH port"
+        required: true
+        default: "22"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Build CSS
+        run: |
+          npm ci
+          npm run build:css
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          cache: true
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build binaries (linux/amd64 + linux/arm64)
+        run: |
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/open-sspm-amd64 ./cmd/open-sspm
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o dist/open-sspm-arm64 ./cmd/open-sspm
+
+      - name: Package deploy artifact
+        run: |
+          tar -czf dist/open-sspm.tgz \
+            -C . db/migrations web/static \
+            -C dist open-sspm-amd64 open-sspm-arm64
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEMO_SSH_PRIVATE_KEY }}
+        run: |
+          if [ -z "${SSH_PRIVATE_KEY}" ]; then
+            echo "Missing required secret: DEMO_SSH_PRIVATE_KEY" >&2
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${{ inputs.port }}" -H "${{ inputs.host }}" >> ~/.ssh/known_hosts
+
+      - name: Upload artifact
+        run: |
+          scp -P "${{ inputs.port }}" dist/open-sspm.tgz "${{ inputs.user }}@${{ inputs.host }}:/tmp/open-sspm.tgz"
+
+      - name: Install and restart
+        shell: bash
+        run: |
+          ssh -p "${{ inputs.port }}" "${{ inputs.user }}@${{ inputs.host }}" "sudo bash -s" <<'EOF'
+          set -euo pipefail
+
+          tmp_dir="$(mktemp -d)"
+          cleanup() { rm -rf "$tmp_dir"; }
+          trap cleanup EXIT
+
+          tar -xzf /tmp/open-sspm.tgz -C "$tmp_dir"
+
+          arch="$(uname -m)"
+          case "$arch" in
+            x86_64) bin="$tmp_dir/open-sspm-amd64" ;;
+            aarch64|arm64) bin="$tmp_dir/open-sspm-arm64" ;;
+            *) echo "unsupported arch: $arch" >&2; exit 1 ;;
+          esac
+
+          install -m 0755 "$bin" /usr/local/bin/open-sspm
+
+          mkdir -p /opt/open-sspm/web/static /opt/open-sspm/db/migrations
+          rm -rf /opt/open-sspm/web/static/*
+          cp -a "$tmp_dir/web/static/." /opt/open-sspm/web/static/
+          rm -rf /opt/open-sspm/db/migrations/*
+          cp -a "$tmp_dir/db/migrations/." /opt/open-sspm/db/migrations/
+
+          set -a
+          source /etc/open-sspm.env
+          set +a
+
+          cd /opt/open-sspm
+          /usr/local/bin/open-sspm migrate
+          /usr/local/bin/open-sspm seed-rules
+
+          systemctl enable open-sspm
+          systemctl restart open-sspm
+          systemctl status open-sspm --no-pager -l || true
+          EOF

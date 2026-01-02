@@ -1,0 +1,36 @@
+# Node
+node_modules/
+web/static/app.css
+web/static/app.css.map
+tmp/
+air_errors.log
+.env
+
+# OS 
+.DS_Store
+
+# Cache
+.cache
+
+# IDE
+.vscode
+
+# Personal
+.agents/execplans
+plans/
+
+# Terraform / OpenTofu
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Ansible (demo)
+demo/infra/ansible/inventory.ini

@@ -1,0 +1,16 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "templ generate -path internal/http/views -lazy && go build -o ./tmp/open-sspm ./cmd/open-sspm"
+  bin = "tmp/open-sspm"
+  full_bin = "./tmp/open-sspm serve"
+  include_ext = ["go", "templ", "css"]
+  exclude_dir = ["tmp", "node_modules"]
+  exclude_regex = ["_test.go", "_templ.go"]
+  delay = 200
+  stop_on_error = true
+  log = "air_errors.log"
+
+[misc]
+  clean_on_exit = true

@@ -1,0 +1,121 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "GitHub users"},
+		}, "Synced GitHub accounts and their Okta links.") {
+			if data.Layout.GitHubConfigured && data.Layout.GitHubEnabled {
+				<a class="btn-sm-outline" href={ "/unmatched/github/" + data.Layout.GitHubOrg }>Unmatched</a>
+			} else {
+				<a class="btn-sm-outline" href="/settings/connectors?open=github">Configure</a>
+			}
+		}
+
+		if data.Layout.GitHubConfigured && data.Layout.GitHubEnabled {
+			@Alert("Linking", false) {
+				<p>
+					When a GitHub account is linked, you can jump straight to the Okta user page. Unlinked accounts show “—”. Use
+					<a class="btn-sm-link px-1" href={ "/unmatched/github/" + data.Layout.GitHubOrg }>Unmatched</a>
+					to link.
+				</p>
+			}
+		} else {
+			@Alert("GitHub sync disabled", true) {
+				<p>
+					{ data.EmptyStateMsg } <a class="btn-sm-link px-1" href={ data.EmptyStateHref }>Configure GitHub</a>.
+				</p>
+			}
+		}
+
+		<form method="get" class="card">
+			<header>
+				<h2>Search</h2>
+				<p>Filter GitHub users by login or name.</p>
+			</header>
+			<section>
+				<div class="flex flex-col gap-4 sm:flex-row sm:items-end">
+					<label class="field w-full sm:max-w-md">
+						<span class="label">Query</span>
+						<input type="search" name="q" class="input" placeholder="Search users…" value={ data.Query }/>
+					</label>
+					<div class="button-group sm:ml-auto">
+						<button class="btn-sm-primary" type="submit">Search</button>
+						if data.Query != "" {
+							<a class="btn-sm-ghost" href="/github-users">Reset</a>
+						}
+					</div>
+				</div>
+			</section>
+		</form>
+
+		<article class="card">
+			<header>
+				<h2>GitHub users</h2>
+				<span data-slot="card-action" class="badge-outline">
+					if data.TotalCount > 0 {
+						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "–" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+					} else {
+						{ "Showing 0" }
+					}
+				</span>
+			</header>
+			<section>
+				<div class="overflow-x-auto">
+					<table class="table">
+						<thead>
+							<tr>
+								<th>GitHub login</th>
+								<th>Name</th>
+								<th>Okta</th>
+							</tr>
+						</thead>
+						<tbody>
+							if data.HasUsers {
+								for _, u := range data.Users {
+									<tr>
+										<td class="font-medium">{ u.ExternalID }</td>
+										<td class="text-muted-foreground">{ u.DisplayName }</td>
+										<td>
+											if u.IdpUserID > 0 {
+												<a class="btn-sm-link" href={ "/idp-users/" + FormatInt64(u.IdpUserID) }>{ "Okta #" }{ FormatInt64(u.IdpUserID) }</a>
+											} else {
+												<span class="text-muted-foreground">&mdash;</span>
+											}
+										</td>
+									</tr>
+								}
+							} else {
+								<tr>
+									<td colspan="3">
+										@EmptyState("No users found", data.EmptyStateMsg)
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+				if data.TotalPages > 1 {
+					<div class="flex flex-wrap items-center gap-3 border-t py-3">
+						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
+						<div class="button-group ml-auto">
+							if data.Page > 1 {
+								<a class="btn-sm-outline" href={ ListURL("/github-users", data.Query, "", data.Page-1) }>Previous</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
+							}
+							if data.Page < data.TotalPages {
+								<a class="btn-sm-outline" href={ ListURL("/github-users", data.Query, "", data.Page+1) }>Next</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
+							}
+						</div>
+					</div>
+				}
+			</section>
+		</article>
+	}
+}

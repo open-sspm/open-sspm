@@ -1,0 +1,63 @@
+@import "tailwindcss";
+@import "basecoat-css";
+@source "../../../internal/http/views/**/*.templ";
+@source "../../../internal/http/views/helpers.go";
+
+@layer base {
+  a {
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+  }
+
+  a.btn,
+  a[class^="btn-"],
+  a[class*=" btn-"] {
+    text-decoration-line: none;
+  }
+
+  a.btn-link,
+  a.btn-sm-link,
+  a.btn-lg-link,
+  a.btn-icon-link,
+  a.btn-sm-icon-link,
+  a.btn-lg-icon-link {
+    text-decoration-line: underline;
+  }
+
+  .sidebar a {
+    text-decoration-line: none;
+  }
+
+  /* View Transitions (progressive enhancement). */
+  @view-transition {
+    navigation: auto;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    @view-transition {
+      navigation: none;
+    }
+  }
+}
+
+@layer components {
+  /* Command menu: remove underlines from links */
+  .command a {
+    text-decoration-line: none;
+  }
+
+  /* Command menu: hide results by default, show when input has content */
+  .command [role="menu"] {
+    display: none;
+  }
+
+  .command:has(> header input:not(:placeholder-shown)) [role="menu"] {
+    display: block;
+  }
+
+  /* Command menu: avoid a dangling divider line when closed */
+  .command:not(:has(> header input:not(:placeholder-shown))) > header {
+    border-bottom-width: 0;
+  }
+}

@@ -1,0 +1,20 @@
+package viewmodels
+
+type LayoutData struct {
+	Title                       string
+	CSRFToken                   string
+	GitHubOrg                   string
+	GitHubEnabled               bool
+	GitHubConfigured            bool
+	DatadogSite                 string
+	DatadogEnabled              bool
+	DatadogConfigured           bool
+	AWSIdentityCenterName       string
+	AWSIdentityCenterEnabled    bool
+	AWSIdentityCenterConfigured bool
+	EntraTenantID               string
+	EntraEnabled                bool
+	EntraConfigured             bool
+	NavbarEndBadge              string
+	ActivePath                  string
+}

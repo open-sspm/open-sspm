@@ -1,0 +1,228 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "Findings", Href: "/findings"},
+			{Label: data.Ruleset.Name},
+		}, "Rules and current results for this ruleset.") {
+			<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" } class="flex items-center gap-2">
+				@CSRFInput(data.Layout.CSRFToken)
+				if data.OverrideEnabled {
+					<input type="hidden" name="enabled" value="false"/>
+					<button type="submit" class="btn-outline">Disable ruleset</button>
+				} else {
+					<input type="hidden" name="enabled" value="true"/>
+					<button type="submit" class="btn-primary">Enable ruleset</button>
+				}
+			</form>
+		}
+
+		if data.Alert != nil {
+			@Alert(data.Alert.Title, data.Alert.Destructive) {
+				<p>{ data.Alert.Message }</p>
+			}
+		}
+
+		<div class="grid gap-6 lg:grid-cols-3">
+			<article class="card lg:col-span-1">
+				<header>
+					<h2>Ruleset</h2>
+					<p class="text-muted-foreground">{ data.Ruleset.Key }</p>
+				</header>
+				<section class="space-y-3">
+					if data.Ruleset.Description != "" {
+						<p class="text-sm text-muted-foreground whitespace-pre-wrap">{ data.Ruleset.Description }</p>
+					}
+					<div class="flex flex-wrap gap-2 text-sm">
+						<span class="badge-outline">{ data.Ruleset.ScopeKind }</span>
+						if data.Ruleset.ConnectorKind != "" {
+							<span class="badge-outline">{ data.Ruleset.ConnectorKind }</span>
+						}
+						<span class="badge-outline">{ data.Ruleset.Status }</span>
+					</div>
+					if data.SourceName != "" {
+						<div class="text-sm text-muted-foreground">
+							<span class="font-medium text-foreground">Source:</span> { data.SourceName }
+						</div>
+					} else if data.ConnectorHintHref != "" {
+						<div class="text-sm text-muted-foreground">
+							No connector instance selected. <a class="btn-sm-link" href={ data.ConnectorHintHref }>Configure connector</a>
+						</div>
+					}
+
+					if len(data.Tags) > 0 {
+						<div class="space-y-1">
+							<div class="text-sm font-medium">Tags</div>
+							<div class="flex flex-wrap gap-2">
+								for _, t := range data.Tags {
+									<span class="badge-outline">{ t }</span>
+								}
+							</div>
+						</div>
+					}
+
+					if data.OverrideExists {
+						if data.OverrideEnabled {
+							<div class="text-sm text-muted-foreground">Override: enabled</div>
+						} else {
+							<div class="text-sm text-muted-foreground">Override: disabled</div>
+						}
+					}
+				</section>
+			</article>
+
+			<article class="card lg:col-span-2">
+				<header>
+					<h2>Rules</h2>
+					<p class="text-muted-foreground">Filter and review the current results for this ruleset.</p>
+				</header>
+				<section class="space-y-4">
+					<form method="get" action={ "/findings/rulesets/" + data.Ruleset.Key } class="flex flex-wrap items-end gap-3">
+						<label class="space-y-1">
+							<div class="text-sm font-medium">Status</div>
+							<select class="select" name="status">
+								<option value="" selected?={ data.StatusFilter == "" }>All</option>
+								<option value="pass" selected?={ data.StatusFilter == "pass" }>Pass</option>
+								<option value="fail" selected?={ data.StatusFilter == "fail" }>Fail</option>
+								<option value="unknown" selected?={ data.StatusFilter == "unknown" }>Unknown</option>
+								<option value="error" selected?={ data.StatusFilter == "error" }>Error</option>
+								<option value="not_applicable" selected?={ data.StatusFilter == "not_applicable" }>Not applicable</option>
+							</select>
+						</label>
+						<label class="space-y-1">
+							<div class="text-sm font-medium">Severity</div>
+							<select class="select" name="severity">
+								<option value="" selected?={ data.SeverityFilter == "" }>All</option>
+								<option value="critical" selected?={ data.SeverityFilter == "critical" }>Critical</option>
+								<option value="high" selected?={ data.SeverityFilter == "high" }>High</option>
+								<option value="medium" selected?={ data.SeverityFilter == "medium" }>Medium</option>
+								<option value="low" selected?={ data.SeverityFilter == "low" }>Low</option>
+								<option value="info" selected?={ data.SeverityFilter == "info" }>Info</option>
+							</select>
+						</label>
+						<label class="space-y-1">
+							<div class="text-sm font-medium">Monitoring</div>
+							<select class="select" name="monitoring">
+								<option value="" selected?={ data.MonitoringFilter == "" }>All</option>
+								<option value="automated" selected?={ data.MonitoringFilter == "automated" }>Automated</option>
+								<option value="partial" selected?={ data.MonitoringFilter == "partial" }>Partial</option>
+								<option value="manual" selected?={ data.MonitoringFilter == "manual" }>Manual</option>
+								<option value="unsupported" selected?={ data.MonitoringFilter == "unsupported" }>Unsupported</option>
+							</select>
+						</label>
+						<button type="submit" class="btn-primary">Apply</button>
+					</form>
+
+					if data.HasRules {
+						<div class="overflow-x-auto">
+							<table class="table">
+								<thead>
+									<tr>
+										<th>Rule</th>
+										<th>Severity</th>
+										<th>Monitoring</th>
+										<th>Status</th>
+									</tr>
+								</thead>
+								<tbody>
+									for _, r := range data.Rules {
+										<tr>
+												<td class="font-medium">
+													<div class="space-y-0.5">
+													<a class="btn-sm-link block" href={ r.Href }>{ r.Key }</a>
+													if r.Title != "" && r.Title != r.Key {
+														<div class="text-sm text-muted-foreground">{ r.Title }</div>
+													} else if r.Summary != "" {
+														<div class="text-sm text-muted-foreground">{ r.Summary }</div>
+													}
+													if r.EvidenceSummary != "" && r.EvidenceSummary != "Manual check requires attestation" && r.EvidenceSummary != r.Summary && r.EvidenceSummary != r.Title {
+														<div class="text-sm text-muted-foreground">{ r.EvidenceSummary }</div>
+													}
+												</div>
+											</td>
+											<td><span class="badge-outline">{ r.Severity }</span></td>
+											<td><span class={ RuleMonitoringBadgeClass(r.MonitoringStatus) }>{ r.MonitoringStatus }</span></td>
+											<td>
+												<span class={ RuleStatusBadgeClass(r.Status) }>{ HumanizeRuleStatus(r.Status) }</span>
+												if r.ErrorKind != "" {
+													<div class="text-xs text-muted-foreground">{ r.ErrorKind }</div>
+												}
+												if r.EvaluatedAt != "" {
+													<div class="text-xs text-muted-foreground">{ r.EvaluatedAt }</div>
+												}
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					} else {
+						@EmptyState("No rules found", "This ruleset has no active rules.") {
+						}
+					}
+				</section>
+			</article>
+		</div>
+
+		if data.HasMetadata {
+			<article class="card">
+				<header>
+					<h2>Metadata</h2>
+					<p class="text-muted-foreground">Ruleset metadata from definition_json.</p>
+				</header>
+				<section class="space-y-6">
+					if len(data.References) > 0 {
+						<div class="space-y-2">
+							<h3 class="text-sm font-medium">References</h3>
+							<ul class="space-y-1 text-sm">
+								for _, ref := range data.References {
+									<li>
+										<a class="btn-sm-link" href={ ref.URL } target="_blank" rel="noreferrer">{ ref.Title }</a>
+										if ref.Type != "" {
+											<span class="text-muted-foreground">({ ref.Type })</span>
+										}
+									</li>
+								}
+							</ul>
+						</div>
+					}
+
+					if len(data.FrameworkMappings) > 0 {
+						<div class="space-y-2">
+							<h3 class="text-sm font-medium">Framework mappings</h3>
+							<div class="overflow-x-auto">
+								<table class="table">
+									<thead>
+										<tr>
+											<th>Framework</th>
+											<th>Control</th>
+											<th>Coverage</th>
+										</tr>
+									</thead>
+									<tbody>
+										for _, m := range data.FrameworkMappings {
+											<tr>
+												<td class="text-muted-foreground">
+													{ m.Framework }
+													if m.FrameworkVersion != "" {
+														<span class="text-muted-foreground"> { m.FrameworkVersion }</span>
+													}
+												</td>
+												<td class="text-muted-foreground">{ m.Control }</td>
+												<td class="text-muted-foreground">{ m.Coverage }</td>
+											</tr>
+										}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					}
+				</section>
+			</article>
+		}
+	}
+}

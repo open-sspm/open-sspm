@@ -1,0 +1,25 @@
+package views
+
+type Breadcrumb struct {
+	Label string
+	Href  string
+}
+
+templ Breadcrumbs(items []Breadcrumb) {
+	<nav class="breadcrumb text-sm text-muted-foreground" aria-label="Breadcrumb">
+		<ol class="flex flex-wrap items-center gap-2">
+			for i, item := range items {
+				if item.Href != "" && i < len(items)-1 {
+					<li class="flex items-center gap-2">
+						<a href={ item.Href } class="hover:text-foreground">{ item.Label }</a>
+						<span aria-hidden="true" class="text-muted-foreground/70">/</span>
+					</li>
+				} else if item.Href != "" {
+					<li class="font-medium text-foreground">{ item.Label }</li>
+				} else {
+					<li class="font-medium text-foreground">{ item.Label }</li>
+				}
+			}
+		</ol>
+	</nav>
+}

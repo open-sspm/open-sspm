@@ -1,0 +1,215 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "Okta users", Href: "/idp-users"},
+			{Label: "Okta user"},
+		}, data.User.Email)
+
+		<div class="tabs">
+			<div role="tablist" aria-label="Okta user">
+				<button role="tab" aria-controls="tab-summary" aria-selected="true" tabindex="0">Summary</button>
+				<button role="tab" aria-controls="tab-assignments" aria-selected="false" tabindex="-1">Assignments</button>
+				<button role="tab" aria-controls="tab-access-tree" aria-selected="false" tabindex="-1">Access tree</button>
+				<button role="tab" aria-controls="tab-linked" aria-selected="false" tabindex="-1">Linked accounts</button>
+			</div>
+
+			<section id="tab-summary" role="tabpanel">
+				<article class="card">
+					<header>
+						<h2>User summary</h2>
+						<p>Okta identity details.</p>
+					</header>
+						<section>
+							<dl class="space-y-4">
+								<div class="space-y-1">
+									<dt class="sr-only">ID</dt>
+									<dd class="text-sm font-medium text-muted-foreground">{ "ID " }{ FormatInt64(data.User.ID) }</dd>
+								</div>
+								<div class="space-y-1">
+									<dt class="text-xs font-medium text-muted-foreground">Status</dt>
+								<dd><span class={ OktaStatusBadgeClass(data.User.Status) }>{ data.User.Status }</span></dd>
+							</div>
+							<div class="space-y-1">
+								<dt class="text-xs font-medium text-muted-foreground">Email</dt>
+								<dd class="text-lg font-medium break-all">{ data.User.Email }</dd>
+							</div>
+							<div class="space-y-1">
+								<dt class="text-xs font-medium text-muted-foreground">Name</dt>
+								<dd class="text-lg font-medium break-words">{ data.User.DisplayName }</dd>
+							</div>
+						</dl>
+					</section>
+				</article>
+			</section>
+
+			<section id="tab-assignments" role="tabpanel" hidden>
+				<article class="card">
+					<header>
+						<h2>Okta assignments</h2>
+						<p>Apps and groups that grant access.</p>
+						<div data-slot="card-action">
+							<span class="badge-outline">{ FormatInt(data.OktaAppCount) }{ " apps" }</span>
+						</div>
+					</header>
+					<section>
+						<div class="overflow-x-auto">
+							<table class="table">
+								<thead>
+									<tr>
+										<th>App</th>
+										<th>Assigned via</th>
+										<th>Group(s)</th>
+										<th>Permissions</th>
+									</tr>
+								</thead>
+								<tbody>
+									if len(data.OktaAssignments) > 0 {
+										for _, a := range data.OktaAssignments {
+											<tr class="align-top">
+												<td>
+													if a.AppHref != "" {
+														<a class="btn-sm-link px-0 font-medium" href={ a.AppHref }>{ a.AppLabel }</a>
+													} else {
+														<div class="font-medium">{ a.AppLabel }</div>
+													}
+													if a.AppName != "" {
+														<div class="text-xs text-muted-foreground">{ a.AppName }</div>
+													}
+												</td>
+												<td>
+													<span class="badge-outline">{ a.AssignedVia }</span>
+												</td>
+												<td>
+													if len(a.Groups) > 0 {
+														<div class="flex flex-wrap gap-2">
+															for _, group := range a.Groups {
+																<span class="badge-outline">{ group }</span>
+															}
+														</div>
+													} else {
+														<span class="text-muted-foreground">&mdash;</span>
+													}
+												</td>
+												<td>
+													if len(a.Permissions) > 0 {
+														<div class="flex flex-wrap gap-2">
+															for _, p := range a.Permissions {
+																<span class="badge-outline">{ p.Text }</span>
+															}
+														</div>
+													} else {
+														<span class="text-muted-foreground">&mdash;</span>
+													}
+												</td>
+											</tr>
+										}
+									} else {
+										<tr>
+											<td colspan="4">
+												@EmptyState("No assignments found", "No Okta assignments synced yet.")
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					</section>
+				</article>
+			</section>
+
+			<section id="tab-access-tree" role="tabpanel" hidden>
+				<article class="card">
+					<header>
+						<h2>Access tree</h2>
+						<p>Expand nodes to lazy-load app access details.</p>
+					</header>
+					<section>
+						<div
+							id="access-tree"
+							data-idp-user-id={ FormatInt64(data.User.ID) }
+							data-idp-user-email={ data.User.Email }
+							data-idp-user-display-name={ data.User.DisplayName }
+						></div>
+						<noscript>
+							<p class="text-sm text-muted-foreground">This view requires JavaScript to expand nodes.</p>
+						</noscript>
+					</section>
+				</article>
+			</section>
+
+			<section id="tab-linked" role="tabpanel" hidden>
+				<div class="space-y-4">
+					<div class="flex flex-wrap items-center justify-between gap-3">
+						<h2 class="text-lg font-semibold">Linked accounts</h2>
+						<span class="badge-outline">{ FormatInt(data.LinkedAppsCount) }{ " connected" }</span>
+					</div>
+
+					if data.HasLinkedApps {
+						<div class="grid gap-4">
+							for _, app := range data.LinkedApps {
+								<article class="card">
+									<header>
+										<h2>{ app.AppUser.SourceName }</h2>
+										<p class="text-muted-foreground">{ "External ID " }{ app.AppUser.ExternalID }</p>
+										<div data-slot="card-action">
+											<span class="badge">{ app.AppUser.SourceKind }</span>
+										</div>
+									</header>
+									<section class="space-y-4">
+										<dl class="grid gap-4 md:grid-cols-2">
+											<div>
+												<dt class="text-xs font-medium text-muted-foreground">Email</dt>
+												<dd class="font-medium">{ app.AppUser.Email }</dd>
+											</div>
+											<div>
+												<dt class="text-xs font-medium text-muted-foreground">Name</dt>
+												<dd class="font-medium">{ app.AppUser.DisplayName }</dd>
+											</div>
+										</dl>
+
+										<div class="space-y-2">
+											<h3 class="text-sm font-semibold">Entitlements</h3>
+											<div class="overflow-x-auto">
+												<table class="table">
+													<thead>
+														<tr>
+															<th>Kind</th>
+															<th>Resource</th>
+															<th>Permission</th>
+														</tr>
+													</thead>
+													<tbody>
+														if len(app.Entitlements) > 0 {
+															for _, ent := range app.Entitlements {
+																<tr>
+																	<td><span class="badge-outline">{ ent.Kind }</span></td>
+																	<td class="font-medium">{ ent.Resource }</td>
+																	<td class="text-muted-foreground">{ ent.Permission }</td>
+																</tr>
+															}
+														} else {
+															<tr>
+																<td colspan="3" class="text-muted-foreground">No entitlements found.</td>
+															</tr>
+														}
+													</tbody>
+												</table>
+											</div>
+										</div>
+									</section>
+								</article>
+							}
+						</div>
+					} else {
+						@EmptyState("No linked app accounts yet", "Match identities to see entitlements here.")
+					}
+				</div>
+			</section>
+		</div>
+	}
+}

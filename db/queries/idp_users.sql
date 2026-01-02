@@ -1,0 +1,103 @@
+-- name: UpsertIdPUser :one
+INSERT INTO idp_users (external_id, email, display_name, status, raw_json, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now())
+ON CONFLICT (external_id) DO UPDATE SET
+  email = EXCLUDED.email,
+  display_name = EXCLUDED.display_name,
+  status = EXCLUDED.status,
+  raw_json = EXCLUDED.raw_json,
+  last_login_at = COALESCE(EXCLUDED.last_login_at, idp_users.last_login_at),
+  last_login_ip = CASE WHEN EXCLUDED.last_login_ip <> '' THEN EXCLUDED.last_login_ip ELSE idp_users.last_login_ip END,
+  last_login_region = CASE WHEN EXCLUDED.last_login_region <> '' THEN EXCLUDED.last_login_region ELSE idp_users.last_login_region END,
+  seen_in_run_id = EXCLUDED.seen_in_run_id,
+  seen_at = EXCLUDED.seen_at,
+  updated_at = now()
+RETURNING *;
+
+-- name: ListIdPUsers :many
+SELECT *
+FROM idp_users
+WHERE expired_at IS NULL AND last_observed_run_id IS NOT NULL
+ORDER BY id ASC;
+
+-- name: ListIdPUsersByStatus :many
+SELECT *
+FROM idp_users
+WHERE
+  expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND (
+  (COALESCE($1::text, '') = '')
+  OR ($1::text = 'active' AND status = 'ACTIVE')
+  OR ($1::text = 'inactive' AND status <> 'ACTIVE')
+  )
+ORDER BY id ASC;
+
+-- name: GetIdPUser :one
+SELECT *
+FROM idp_users
+WHERE id = $1 AND expired_at IS NULL AND last_observed_run_id IS NOT NULL;
+
+-- name: FindIdPUserByEmail :one
+SELECT *
+FROM idp_users
+WHERE lower(email) = lower($1) AND expired_at IS NULL AND last_observed_run_id IS NOT NULL
+LIMIT 1;
+
+-- name: CountIdPUsers :one
+SELECT count(*)
+FROM idp_users
+WHERE expired_at IS NULL AND last_observed_run_id IS NOT NULL;
+
+-- name: CountIdPUsersByQueryAndState :one
+SELECT count(*)
+FROM idp_users
+WHERE
+  expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND (
+    sqlc.arg(query)::text = ''
+    OR email ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+  )
+  AND (
+    sqlc.arg(state)::text = ''
+    OR (sqlc.arg(state)::text = 'active' AND status = 'ACTIVE')
+    OR (sqlc.arg(state)::text = 'inactive' AND status <> 'ACTIVE')
+  );
+
+-- name: ListIdPUsersPageByQueryAndState :many
+SELECT *
+FROM idp_users
+WHERE
+  expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND (
+    sqlc.arg(query)::text = ''
+    OR email ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+  )
+  AND (
+    sqlc.arg(state)::text = ''
+    OR (sqlc.arg(state)::text = 'active' AND status = 'ACTIVE')
+    OR (sqlc.arg(state)::text = 'inactive' AND status <> 'ACTIVE')
+  )
+ORDER BY id ASC
+LIMIT sqlc.arg(page_limit)::int
+OFFSET sqlc.arg(page_offset)::int;
+
+-- name: ListIdPUsersForCommand :many
+SELECT
+  id,
+  email,
+  display_name,
+  status
+FROM idp_users
+WHERE expired_at IS NULL AND last_observed_run_id IS NOT NULL
+ORDER BY
+  (status = 'ACTIVE') DESC,
+  lower(COALESCE(NULLIF(trim(display_name), ''), email)) ASC,
+  lower(email) ASC,
+  id ASC;

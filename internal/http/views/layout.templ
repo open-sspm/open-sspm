@@ -1,0 +1,107 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ Layout(data viewmodels.LayoutData) {
+	<!doctype html>
+	<html lang="en" class="light">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ data.Title }{ " · Open-SSPM" }</title>
+			<link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
+			<script>
+				(() => {
+					try {
+						const stored = localStorage.getItem('themeMode');
+						if (stored ? stored === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches) {
+							document.documentElement.classList.add('dark');
+						}
+					} catch (_) {}
+
+					const apply = dark => {
+						document.documentElement.classList.toggle('dark', dark);
+						try { localStorage.setItem('themeMode', dark ? 'dark' : 'light'); } catch (_) {}
+					};
+
+					document.addEventListener('basecoat:theme', (event) => {
+						const mode = event.detail?.mode;
+						apply(mode === 'dark' ? true : mode === 'light' ? false : !document.documentElement.classList.contains('dark'));
+					});
+				})();
+			</script>
+			<link rel="stylesheet" href="/static/app.css"/>
+		</head>
+		<body class="min-h-screen bg-background text-foreground">
+			<div class="flex min-h-screen">
+				<aside id="app-sidebar" class="sidebar" data-breakpoint="1024" data-initial-open="true" data-initial-mobile-open="false">
+					<nav>
+						<header>
+							<a href="/" class="flex items-center gap-3 rounded-md p-2 outline-none ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2">
+								<div class="grid h-9 w-9 place-items-center rounded-lg bg-background ring-1 ring-border">
+									<img src="/static/brand/shield.png" alt="Open-SSPM" class="h-6 w-6"/>
+								</div>
+								<span class="font-semibold tracking-tight">Open-SSPM</span>
+							</a>
+						</header>
+						<section class="scrollbar">
+							@Sidebar(data)
+						</section>
+					</nav>
+				</aside>
+
+				<div class="flex min-h-screen flex-1 flex-col">
+					<header class="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/90 px-4 py-3 backdrop-blur lg:px-8">
+						<button id="sidebar-toggle" type="button" class="btn-icon-ghost lg:hidden" aria-label="Toggle navigation" aria-controls="app-sidebar">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5" aria-hidden="true">
+								<path fill-rule="evenodd" d="M3 5.25A.75.75 0 0 1 3.75 4.5h12.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 5.25ZM3 10a.75.75 0 0 1 .75-.75h12.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 10Zm0 4.75a.75.75 0 0 1 .75-.75h12.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75Z" clip-rule="evenodd"/>
+							</svg>
+						</button>
+						<h1 class="text-base font-semibold tracking-tight md:text-lg">{ data.Title }</h1>
+						<div class="ml-auto flex items-center gap-3">
+							if data.NavbarEndBadge != "" {
+								<span class="badge-outline">{ data.NavbarEndBadge }</span>
+							}
+							<button type="button" aria-label="Toggle dark mode" data-tooltip="Toggle dark mode" data-side="bottom" onclick="document.dispatchEvent(new CustomEvent('basecoat:theme'))" class="btn-icon-outline size-8">
+								<span class="hidden dark:block">
+									<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<circle cx="12" cy="12" r="4"></circle>
+										<path d="M12 2v2"></path>
+										<path d="M12 20v2"></path>
+										<path d="m4.93 4.93 1.41 1.41"></path>
+										<path d="m17.66 17.66 1.41 1.41"></path>
+										<path d="M2 12h2"></path>
+										<path d="M20 12h2"></path>
+										<path d="m6.34 17.66-1.41 1.41"></path>
+										<path d="m19.07 4.93-1.41 1.41"></path>
+									</svg>
+								</span>
+								<span class="block dark:hidden">
+									<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+									</svg>
+								</span>
+							</button>
+						</div>
+					</header>
+					<main class="flex-1">
+						<div class="mx-auto w-full max-w-6xl px-4 py-6 lg:px-10 lg:py-10">
+							<section class="space-y-6">
+								{ children... }
+							</section>
+						</div>
+					</main>
+				</div>
+			</div>
+			<section id="toaster" class="toaster" data-align="end"></section>
+			<script type="importmap">
+				{
+					"imports": {
+						"basecoat": "/static/vendor/basecoat.all.min.js"
+					}
+				}
+			</script>
+			<script type="module" src="/static/app.entry.js"></script>
+		</body>
+	</html>
+}

@@ -1,0 +1,93 @@
+package views
+
+templ PageHeader(items []Breadcrumb, description string) {
+	<div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+		<div class="space-y-2">
+			if len(items) > 0 {
+				@Breadcrumbs(items)
+			}
+			if description != "" {
+				<p class="text-muted-foreground">{ description }</p>
+			}
+		</div>
+		<div class="flex flex-wrap items-center justify-start gap-2 md:justify-end empty:hidden">
+			{ children... }
+		</div>
+	</div>
+}
+
+templ Alert(title string, destructive bool) {
+	<div role="alert" class={ templ.Classes("alert", templ.KV("alert-destructive", destructive)) }>
+		if title != "" {
+			<h3>{ title }</h3>
+		}
+		<section class="empty:hidden">
+			{ children... }
+		</section>
+	</div>
+}
+
+templ EmptyState(title, description string) {
+	<div class="flex flex-col items-center justify-center gap-2 py-12 text-center">
+		<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 4h.01m-6.938 4h13.856C19.622 20 21 18.622 21 16.928V7.072C21 5.378 19.622 4 17.928 4H6.072C4.378 4 3 5.378 3 7.072v9.856C3 18.622 4.378 20 6.072 20z"/>
+		</svg>
+		<h2 class="text-lg font-semibold">{ title }</h2>
+		if description != "" {
+			<p class="max-w-md text-muted-foreground">{ description }</p>
+		}
+		<div class="pt-2 empty:hidden">
+			{ children... }
+		</div>
+	</div>
+}
+
+templ TableCard(title, description string) {
+	<article class="card">
+		if title != "" || description != "" {
+			<header>
+				if title != "" {
+					<h2>{ title }</h2>
+				}
+				if description != "" {
+					<p>{ description }</p>
+				}
+			</header>
+		}
+		<section>
+			<div class="overflow-x-auto">
+				{ children... }
+			</div>
+		</section>
+	</article>
+}
+
+templ CSRFInput(token string) {
+	<input type="hidden" name="csrf" value={ token }/>
+}
+
+templ FormDialog(id string, open bool, title string, description string, closeHref string, formAction string, submitLabel string, csrfToken string) {
+	<dialog id={ id } class="dialog" data-open?={ open } data-close-href={ closeHref }>
+		<form method="post" action={ formAction }>
+			@CSRFInput(csrfToken)
+			<button type="submit" formmethod="dialog" formnovalidate="true" class="btn-icon-ghost" aria-label="Close">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+					<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"/>
+				</svg>
+			</button>
+			<header>
+				<h2>{ title }</h2>
+				if description != "" {
+					<p>{ description }</p>
+				}
+			</header>
+			<section class="space-y-4">
+				{ children... }
+			</section>
+			<footer>
+				<button type="submit" formmethod="dialog" formnovalidate="true" class="btn-ghost">Cancel</button>
+				<button type="submit" class="btn-primary">{ submitLabel }</button>
+			</footer>
+		</form>
+	</dialog>
+}

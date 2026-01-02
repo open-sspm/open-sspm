@@ -1,0 +1,138 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ UnmatchedDatadogPage(data viewmodels.UnmatchedDatadogViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "Unmatched Datadog"},
+		}, "Match Datadog identities to Okta users for complete access coverage.") {
+			if data.Layout.DatadogConfigured {
+				<span class="badge-outline">{ data.Layout.DatadogSite }</span>
+			} else {
+				<span class="badge-outline">Not configured</span>
+			}
+			<a class="btn-sm-outline" href="/idp-users">Okta users</a>
+		}
+
+		if data.Layout.DatadogConfigured && data.Layout.DatadogEnabled {
+			@Alert("Manual linking", false) {
+				<p>
+					Use Okta user IDs from the Okta users list. Most Datadog users have an email that matches Okta, so auto-linking should cover the majority of cases.
+				</p>
+			}
+		} else {
+			@Alert("Datadog sync disabled", true) {
+				<p>
+					{ data.EmptyStateMsg } <a class="btn-sm-link px-1" href={ data.EmptyStateHref }>Configure Datadog</a>.
+				</p>
+			}
+		}
+
+		<form method="get" class="card">
+			<header>
+				<h2>Search</h2>
+				<p>Filter unmatched Datadog users by email, name, or Datadog ID.</p>
+			</header>
+			<section>
+				<div class="flex flex-col gap-4 sm:flex-row sm:items-end">
+					<label class="field w-full sm:max-w-md">
+						<span class="label">Query</span>
+						<input type="search" name="q" class="input" placeholder="Search users…" value={ data.Query }/>
+					</label>
+					<div class="button-group sm:ml-auto">
+						<button class="btn-sm-primary" type="submit">Search</button>
+						if data.Query != "" {
+							<a class="btn-sm-ghost" href={ "/unmatched/datadog/" + data.Layout.DatadogSite }>Reset</a>
+						}
+					</div>
+				</div>
+			</section>
+		</form>
+
+		<article class="card">
+			<header>
+				<h2>Unmatched Datadog users</h2>
+				<span data-slot="card-action" class="badge-outline">
+					if data.TotalCount > 0 {
+						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "–" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+					} else {
+						{ "Showing 0" }
+					}
+				</span>
+			</header>
+			<section>
+				<div class="overflow-x-auto">
+					<table class="table">
+						<thead>
+							<tr>
+								<th>Email</th>
+								<th>Name</th>
+								<th>Datadog ID</th>
+								<th>Link</th>
+							</tr>
+						</thead>
+						<tbody>
+							if data.HasUsers {
+								for _, u := range data.Users {
+									<tr>
+										<td class="font-medium">
+											if u.Email != "" {
+												{ u.Email }
+											} else {
+												<span class="text-muted-foreground">&mdash;</span>
+											}
+										</td>
+										<td class="text-muted-foreground">{ u.DisplayName }</td>
+										<td class="text-xs font-mono text-muted-foreground">{ u.ExternalID }</td>
+										<td>
+											<form method="post" action="/links" class="flex flex-col gap-2 sm:flex-row sm:items-end">
+												@CSRFInput(data.Layout.CSRFToken)
+												<input type="hidden" name="app_user_id" value={ FormatInt64(u.ID) }/>
+												<label class="field w-full sm:w-32">
+													<span class="label sr-only">Okta user ID</span>
+													<input type="text" name="idp_user_id" placeholder="Okta ID" required class="input w-full"/>
+												</label>
+												<button type="submit" class="btn-sm-primary w-full sm:w-auto">Link</button>
+											</form>
+										</td>
+									</tr>
+								}
+							} else if data.Layout.DatadogConfigured && data.Layout.DatadogEnabled && data.Query == "" {
+								<tr>
+									<td colspan="4">
+										@EmptyState("All caught up", "No unmatched Datadog users found. All detected accounts have been linked to an identity.")
+									</td>
+								</tr>
+							} else {
+								<tr>
+									<td colspan="4">
+										@EmptyState("No unmatched users", data.EmptyStateMsg)
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+				if data.TotalPages > 1 {
+					<div class="flex flex-wrap items-center gap-3 border-t py-3">
+						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
+						<div class="button-group ml-auto">
+							if data.Page > 1 {
+								<a class="btn-sm-outline" href={ ListURL("/unmatched/datadog/" + data.Layout.DatadogSite, data.Query, "", data.Page-1) }>Previous</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
+							}
+							if data.Page < data.TotalPages {
+								<a class="btn-sm-outline" href={ ListURL("/unmatched/datadog/" + data.Layout.DatadogSite, data.Query, "", data.Page+1) }>Next</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
+							}
+						</div>
+					</div>
+				}
+			</section>
+		</article>
+	}
+}

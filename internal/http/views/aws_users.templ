@@ -1,0 +1,142 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ AWSUsersPage(data viewmodels.AWSUsersViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "AWS Identity Center users"},
+		}, "Synced AWS Identity Center users and their account assignments.") {
+			if data.Layout.AWSIdentityCenterConfigured && data.Layout.AWSIdentityCenterEnabled {
+				<a class="btn-sm-outline" href="/unmatched/aws">Unmatched</a>
+			} else {
+				<a class="btn-sm-outline" href="/settings/connectors?open=aws_identity_center">Configure</a>
+			}
+		}
+
+		if data.Layout.AWSIdentityCenterConfigured && data.Layout.AWSIdentityCenterEnabled {
+			@Alert("Linking", false) {
+				<p>
+					Linked users let you jump straight to their Okta identity page. Unlinked users show “—”. Use
+					<a class="btn-sm-link px-1" href="/unmatched/aws">Unmatched</a>
+					to link.
+				</p>
+			}
+		} else {
+			@Alert("AWS Identity Center sync disabled", true) {
+				<p>
+					{ data.EmptyStateMsg } <a class="btn-sm-link px-1" href={ data.EmptyStateHref }>Configure AWS Identity Center</a>.
+				</p>
+			}
+		}
+
+		<form method="get" class="card">
+			<header>
+				<h2>Search</h2>
+				<p>Filter AWS Identity Center users by email, name, or user ID.</p>
+			</header>
+			<section>
+				<div class="flex flex-col gap-4 sm:flex-row sm:items-end">
+					<label class="field w-full sm:max-w-md">
+						<span class="label">Query</span>
+						<input type="search" name="q" class="input" placeholder="Search users…" value={ data.Query }/>
+					</label>
+					<div class="button-group sm:ml-auto">
+						<button class="btn-sm-primary" type="submit">Search</button>
+						if data.Query != "" {
+							<a class="btn-sm-ghost" href="/aws-users">Reset</a>
+						}
+					</div>
+				</div>
+			</section>
+		</form>
+
+		<article class="card">
+			<header>
+				<h2>AWS Identity Center users</h2>
+				<span data-slot="card-action" class="badge-outline">
+					if data.TotalCount > 0 {
+						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "–" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+					} else {
+						{ "Showing 0" }
+					}
+				</span>
+			</header>
+			<section>
+				<div class="overflow-x-auto">
+					<table class="table">
+						<thead>
+							<tr>
+								<th>User</th>
+								<th>Email</th>
+								<th>AWS accounts</th>
+								<th>Okta</th>
+							</tr>
+						</thead>
+						<tbody>
+							if data.HasUsers {
+								for _, u := range data.Users {
+									<tr>
+										<td>
+											<div class="space-y-1">
+												<div class="font-medium">{ u.DisplayName }</div>
+												if u.ExternalID != "" {
+													<div class="text-xs text-muted-foreground">{ u.ExternalID }</div>
+												}
+											</div>
+										</td>
+										<td>
+											if u.Email != "" {
+												{ u.Email }
+											} else {
+												<span class="text-muted-foreground">&mdash;</span>
+											}
+										</td>
+										<td>
+											<div class="space-y-1">
+												<span class="badge-outline">{ FormatInt(u.AccountCount) }</span>
+												<span class="block text-xs text-muted-foreground">{ FormatInt(u.AssignmentCount) }{ " assignments" }</span>
+											</div>
+										</td>
+										<td>
+											if u.IdpUserID > 0 {
+												<a class="btn-sm-link" href={ "/idp-users/" + FormatInt64(u.IdpUserID) }>{ "Okta #" }{ FormatInt64(u.IdpUserID) }</a>
+											} else {
+												<span class="text-muted-foreground">&mdash;</span>
+											}
+										</td>
+									</tr>
+								}
+							} else {
+								<tr>
+									<td colspan="4">
+										@EmptyState("No users found", data.EmptyStateMsg)
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+				if data.TotalPages > 1 {
+					<div class="flex flex-wrap items-center gap-3 border-t py-3">
+						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
+						<div class="button-group ml-auto">
+							if data.Page > 1 {
+								<a class="btn-sm-outline" href={ ListURL("/aws-users", data.Query, "", data.Page-1) }>Previous</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
+							}
+							if data.Page < data.TotalPages {
+								<a class="btn-sm-outline" href={ ListURL("/aws-users", data.Query, "", data.Page+1) }>Next</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
+							}
+						</div>
+					</div>
+				}
+			</section>
+		</article>
+	}
+}
+

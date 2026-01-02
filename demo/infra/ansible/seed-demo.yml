@@ -1,0 +1,41 @@
+---
+- name: Seed Open-SSPM demo data
+  hosts: demo
+  become: true
+
+  vars:
+    opensspm_db_name: opensspm
+    opensspm_demo_seed_src: "{{ playbook_dir }}/../../data/001_seed_demo.sql"
+    opensspm_demo_seed_dest: /opt/open-sspm/demo/001_seed_demo.sql
+
+  tasks:
+    - name: Ensure Postgres is running
+      ansible.builtin.service:
+        name: postgresql
+        state: started
+        enabled: true
+
+    - name: Ensure demo seed directory exists
+      ansible.builtin.file:
+        path: /opt/open-sspm/demo
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Upload demo seed SQL
+      ansible.builtin.copy:
+        src: "{{ opensspm_demo_seed_src }}"
+        dest: "{{ opensspm_demo_seed_dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Apply demo seed SQL (upsert-only)
+      become_user: postgres
+      ansible.builtin.command:
+        cmd: >
+          psql -v ON_ERROR_STOP=1
+          -d "{{ opensspm_db_name }}"
+          -f "{{ opensspm_demo_seed_dest }}"
+

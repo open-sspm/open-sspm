@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+AGENTS.md
+PROJECT.md
+README.md
+LICENSE
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build artifacts
+tmp/
+*.test
+*.out
+open-sspm
+
+# Air live-reload
+.air.toml
+
+# Environment files
+.env
+.env.*
+
+# Node modules (will be installed in container)
+node_modules/
+
+# Test coverage
+coverage/
+*.coverprofile
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Docker files (don't copy into build context)
+Dockerfile*
+docker-compose*.yml
+
+# Misc
+.opencode/
+.kilocode/
+.agents/

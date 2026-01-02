@@ -1,0 +1,16 @@
+{
+  "name": "open-sspm-ui",
+  "private": true,
+  "scripts": {
+    "build:css": "npx -y @tailwindcss/cli -i ./web/static/src/input.css -o ./web/static/app.css --minify",
+    "watch:css": "npx -y @tailwindcss/cli -i ./web/static/src/input.css -o ./web/static/app.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.12",
+    "basecoat-css": "^0.3.9",
+    "tailwindcss": "^4.1.12"
+  },
+  "dependencies": {
+    "@tabler/icons-webfont": "^3.36.0"
+  }
+}

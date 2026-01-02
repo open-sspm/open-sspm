@@ -1,0 +1,4 @@
+# project_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+# ssh_public_key = "ssh-ed25519 AAAA... you@laptop"
+# admin_cidr = "YOUR.PUBLIC.IP.ADDR/32"
+

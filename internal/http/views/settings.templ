@@ -1,0 +1,73 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ SettingsPage(data viewmodels.SettingsViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "Settings"},
+		}, "Operational controls for access data.") {
+			<a class="btn-sm-outline" href="/settings/connectors">Connectors</a>
+		}
+
+		if data.ResyncBanner != nil {
+			@Alert(data.ResyncBanner.Title, IsAlertDestructive(data.ResyncBanner.Class)) {
+				<p>{ data.ResyncBanner.Message }</p>
+			}
+		}
+
+		<section class="grid gap-6 lg:grid-cols-2">
+			<article class="card">
+				<header>
+					<h2>Resync data</h2>
+					<p>Run a sync immediately.</p>
+				</header>
+				<section class="space-y-3">
+					<p class="text-muted-foreground">
+						Trigger an immediate sync from Okta, GitHub, and Datadog. This can take a few minutes depending on org size.
+					</p>
+					<div class="flex flex-wrap items-center gap-4">
+						<form method="post" action="/settings/resync">
+							@CSRFInput(data.Layout.CSRFToken)
+							<button type="submit" class="btn-primary" disabled?={ !data.ResyncEnabled }>Resync now</button>
+						</form>
+						<div class="text-sm text-muted-foreground">{ "Scheduled every " }{ data.SyncInterval }</div>
+					</div>
+				</section>
+			</article>
+
+			<article class="card">
+				<header>
+					<h2>What happens</h2>
+					<p>Steps performed during sync.</p>
+				</header>
+				<section>
+					<ol class="space-y-4">
+						<li class="flex gap-3">
+							<span class="badge-outline">1</span>
+							<div class="space-y-1">
+								<div class="font-semibold">Fetch data</div>
+								<p class="text-sm text-muted-foreground">Pulls latest Okta users, GitHub members, and Datadog users.</p>
+							</div>
+						</li>
+						<li class="flex gap-3">
+							<span class="badge-outline">2</span>
+							<div class="space-y-1">
+								<div class="font-semibold">Refresh entitlements</div>
+								<p class="text-sm text-muted-foreground">Updates GitHub org/team/repo permissions and Datadog roles.</p>
+							</div>
+						</li>
+						<li class="flex gap-3">
+							<span class="badge-outline">3</span>
+							<div class="space-y-1">
+								<div class="font-semibold">Auto-link</div>
+								<p class="text-sm text-muted-foreground">Matches accounts by email where available.</p>
+							</div>
+						</li>
+					</ol>
+				</section>
+			</article>
+		</section>
+	}
+}

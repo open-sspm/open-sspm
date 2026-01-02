@@ -1,0 +1,163 @@
+---
+- name: Bootstrap Open-SSPM demo server
+  hosts: demo
+  become: true
+
+  vars:
+    opensspm_db_name: opensspm
+    opensspm_db_user: opensspm
+    opensspm_db_password: "change-me"
+    opensspm_server_name: "demo.opensspm.com"
+
+  tasks:
+    - name: Install system packages
+      ansible.builtin.apt:
+        name:
+          - nginx
+          - postgresql
+          - postgresql-contrib
+          - ca-certificates
+        update_cache: true
+
+    - name: Ensure Postgres is running
+      ansible.builtin.service:
+        name: postgresql
+        state: started
+        enabled: true
+
+    - name: Create database user
+      become_user: postgres
+      ansible.builtin.command:
+        cmd: >
+          psql -v ON_ERROR_STOP=1 -tAc
+          "DO $$BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='{{ opensspm_db_user }}') THEN
+              CREATE ROLE {{ opensspm_db_user }} LOGIN PASSWORD '{{ opensspm_db_password }}';
+            END IF;
+          END$$;"
+
+    - name: Create database
+      become_user: postgres
+      ansible.builtin.command:
+        cmd: >
+          psql -v ON_ERROR_STOP=1 -tAc
+          "SELECT 1 FROM pg_database WHERE datname='{{ opensspm_db_name }}'"
+      register: db_exists
+      changed_when: false
+
+    - name: Create database if missing
+      become_user: postgres
+      ansible.builtin.command:
+        cmd: createdb -O "{{ opensspm_db_user }}" "{{ opensspm_db_name }}"
+      when: db_exists.stdout | trim != "1"
+
+    - name: Create open-sspm system user
+      ansible.builtin.user:
+        name: open-sspm
+        system: true
+        create_home: false
+        shell: /usr/sbin/nologin
+
+    - name: Create open-sspm working directory
+      ansible.builtin.file:
+        path: /opt/open-sspm
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Create open-sspm asset directories (populated during deploy)
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - /opt/open-sspm/web/static
+        - /opt/open-sspm/db/migrations
+
+    - name: Create env file for open-sspm (placeholder)
+      ansible.builtin.copy:
+        dest: /etc/open-sspm.env
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          DATABASE_URL=postgres://{{ opensspm_db_user }}:{{ opensspm_db_password }}@localhost:5432/{{ opensspm_db_name }}?sslmode=disable
+          HTTP_ADDR=127.0.0.1:8080
+          SYNC_INTERVAL=0s
+          RESYNC_ENABLED=0
+
+    - name: Install nginx reverse proxy config
+      ansible.builtin.copy:
+        dest: /etc/nginx/sites-available/open-sspm.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          server {
+            listen 80;
+            server_name {{ opensspm_server_name }};
+
+            location / {
+              proxy_pass http://127.0.0.1:8080;
+              proxy_http_version 1.1;
+
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+            }
+          }
+
+    - name: Enable open-sspm nginx site
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/open-sspm.conf
+        dest: /etc/nginx/sites-enabled/open-sspm.conf
+        state: link
+
+    - name: Disable default nginx site (if present)
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Restart nginx
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
+        enabled: true
+
+    - name: Install systemd unit (placeholder)
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/open-sspm.service
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Open-SSPM
+          After=network-online.target postgresql.service
+          Wants=network-online.target
+
+          [Service]
+          User=open-sspm
+          Group=open-sspm
+          WorkingDirectory=/opt/open-sspm
+          EnvironmentFile=/etc/open-sspm.env
+          ExecStart=/usr/local/bin/open-sspm serve
+          Restart=on-failure
+          RestartSec=2
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Ensure open-sspm service is disabled until first deploy
+      ansible.builtin.service:
+        name: open-sspm
+        enabled: false
+        state: stopped

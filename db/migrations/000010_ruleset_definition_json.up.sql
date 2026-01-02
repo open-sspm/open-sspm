@@ -1,0 +1,5 @@
+ALTER TABLE rulesets
+ADD COLUMN IF NOT EXISTS definition_json JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE rules
+ADD COLUMN IF NOT EXISTS definition_json JSONB NOT NULL DEFAULT '{}'::jsonb;

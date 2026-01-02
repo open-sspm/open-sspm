@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 256" role="img" aria-label="Open-SSPM logo">
+  <!-- Icon -->
+  <g transform="translate(0,0)">
+    <path fill="#000" d="M128 16C96 36 66 44 40 48v88c0 54 38 94 88 112c50-18 88-58 88-112V48c-26-4-56-12-88-32z"/>
+    <path fill="#fff" d="M128 82c-16.6 0-30 13.4-30 30c0 12.2 7.3 22.7 17.8 27.4L110 186h36l-5.8-46.6c10.5-4.7 17.8-15.2 17.8-27.4c0-16.6-13.4-30-30-30z"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="260" y="160"
+        font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial"
+        font-size="72"
+        font-weight="800"
+        fill="#000"
+        letter-spacing="-1">
+    Open-SSPM
+  </text>
+</svg>

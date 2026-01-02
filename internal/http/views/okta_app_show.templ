@@ -1,0 +1,168 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "Apps", Href: "/apps"},
+			{Label: data.App.Label},
+		}, "Okta users assigned to this app.") {
+			<a class="btn-sm-outline" href="/apps">Back to apps</a>
+		}
+
+		<article class="card">
+			<header>
+				<h2>App summary</h2>
+				<p>Okta app details.</p>
+				<div data-slot="card-action">
+					<span class="badge-outline">{ "Okta ID " }{ data.App.ExternalID }</span>
+				</div>
+			</header>
+			<section>
+				<dl class="grid gap-4 md:grid-cols-2">
+					<div class="space-y-1">
+						<dt class="text-xs font-medium text-muted-foreground">Label</dt>
+						<dd class="font-medium break-words">{ data.App.Label }</dd>
+					</div>
+					if data.App.Name != "" {
+						<div class="space-y-1">
+							<dt class="text-xs font-medium text-muted-foreground">Name</dt>
+							<dd class="font-medium break-words">{ data.App.Name }</dd>
+						</div>
+					}
+					<div class="space-y-1">
+						<dt class="text-xs font-medium text-muted-foreground">Status</dt>
+						<dd><span class={ OktaStatusBadgeClass(data.App.Status) }>{ data.App.Status }</span></dd>
+					</div>
+					<div class="space-y-1">
+						<dt class="text-xs font-medium text-muted-foreground">Sign-on mode</dt>
+						<dd class="text-sm text-muted-foreground">{ data.App.SignOnMode }</dd>
+					</div>
+				</dl>
+			</section>
+		</article>
+
+		<form method="get" class="card">
+			<header>
+				<h2>Search</h2>
+				<p>Filter assigned users by name, email, Okta ID, and state.</p>
+			</header>
+			<section>
+				<div class="flex flex-col gap-4 sm:flex-row sm:items-end">
+					<label class="field w-full sm:max-w-md">
+						<span class="label">Query</span>
+						<input type="search" name="q" class="input" placeholder="Search users…" value={ data.Query }/>
+					</label>
+					<label class="field w-full sm:w-44">
+						<span class="label">State</span>
+						<select name="state" class="input">
+							<option value="" selected?={ data.State == "" }>All</option>
+							<option value="active" selected?={ data.State == "active" }>Active</option>
+							<option value="inactive" selected?={ data.State == "inactive" }>Inactive</option>
+						</select>
+					</label>
+					<div class="button-group sm:ml-auto">
+						<button class="btn-sm-primary" type="submit">Search</button>
+						if data.Query != "" || data.State != "" {
+							<a class="btn-sm-ghost" href={ "/apps/" + data.App.ExternalID }>Reset</a>
+						}
+					</div>
+				</div>
+			</section>
+		</form>
+
+		<article class="card">
+			<header>
+				<h2>Assigned users</h2>
+				<span data-slot="card-action" class="badge-outline">
+					if data.TotalCount > 0 {
+						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "–" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+					} else {
+						{ "Showing 0" }
+					}
+				</span>
+			</header>
+			<section>
+				<div class="overflow-x-auto">
+					<table class="table">
+						<thead>
+							<tr>
+								<th>User</th>
+								<th>Status</th>
+								<th>Assigned via</th>
+								<th>Group(s)</th>
+								<th>Attributes</th>
+							</tr>
+						</thead>
+						<tbody>
+							if data.HasUsers {
+								for _, u := range data.Users {
+									<tr class="align-top">
+										<td>
+											<a class="btn-sm-link px-0 font-medium" href={ u.UserHref }>{ u.UserDisplayName }</a>
+											if u.UserEmail != "" {
+												<div class="text-xs text-muted-foreground break-all">{ u.UserEmail }</div>
+											} else if u.UserExternalID != "" {
+												<div class="text-xs text-muted-foreground break-all">{ u.UserExternalID }</div>
+											}
+										</td>
+										<td><span class={ OktaStatusBadgeClass(u.UserStatus) }>{ u.UserStatus }</span></td>
+										<td><span class="badge-outline">{ u.AssignedVia }</span></td>
+										<td>
+											if len(u.Groups) > 0 {
+												<div class="flex flex-wrap gap-2">
+													for _, group := range u.Groups {
+														<span class="badge-outline">{ group }</span>
+													}
+												</div>
+											} else {
+												<span class="text-muted-foreground">&mdash;</span>
+											}
+										</td>
+										<td>
+											if len(u.Permissions) > 0 {
+												<div class="flex flex-wrap gap-2">
+													for _, p := range u.Permissions {
+														<span class="badge-outline">{ p.Text }</span>
+													}
+												</div>
+											} else {
+												<span class="text-muted-foreground">&mdash;</span>
+											}
+										</td>
+									</tr>
+								}
+							} else {
+								<tr>
+									<td colspan="5">
+										@EmptyState("No assigned users found", data.EmptyStateMsg)
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+
+				if data.TotalPages > 1 {
+					<div class="flex flex-wrap items-center gap-3 border-t py-3">
+						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
+						<div class="button-group ml-auto">
+							if data.Page > 1 {
+								<a class="btn-sm-outline" href={ ListURL("/apps/" + data.App.ExternalID, data.Query, data.State, data.Page-1) }>Previous</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
+							}
+							if data.Page < data.TotalPages {
+								<a class="btn-sm-outline" href={ ListURL("/apps/" + data.App.ExternalID, data.Query, data.State, data.Page+1) }>Next</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
+							}
+						</div>
+					</div>
+				}
+			</section>
+		</article>
+	}
+}
