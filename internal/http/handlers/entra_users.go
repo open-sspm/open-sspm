@@ -12,7 +12,7 @@ import (
 
 func (h *Handlers) HandleEntraUsers(c echo.Context) error {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Microsoft Entra ID Users", "")
+	layout, snap, err := h.LayoutData(ctx, c, "Microsoft Entra ID Users")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -164,7 +164,7 @@ func (h *Handlers) HandleEntraUsers(c echo.Context) error {
 
 func (h *Handlers) HandleUnmatchedEntra(c echo.Context) error {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Unmatched Microsoft Entra ID Users", "")
+	layout, snap, err := h.LayoutData(ctx, c, "Unmatched Microsoft Entra ID Users")
 	if err != nil {
 		return h.RenderError(c, err)
 	}

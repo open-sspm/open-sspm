@@ -26,7 +26,7 @@ const oktaRulesetKey = "cis.okta.idaas_stig.v1"
 func (h *Handlers) HandleFindings(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	layout, _, err := h.LayoutData(ctx, c, "Findings", "Findings")
+	layout, _, err := h.LayoutData(ctx, c, "Findings")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -113,7 +113,7 @@ func (h *Handlers) HandleFindingsRuleset(c echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	layout, _, err := h.LayoutData(ctx, c, strings.TrimSpace(rs.Name), "Findings")
+	layout, _, err := h.LayoutData(ctx, c, strings.TrimSpace(rs.Name))
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -144,10 +144,7 @@ func (h *Handlers) HandleFindingsRuleset(c echo.Context) error {
 
 	items := make([]viewmodels.FindingsRuleItem, 0, len(ruleRows))
 	for _, row := range ruleRows {
-		evaluatedAt := ""
-		if row.CurrentEvaluatedAt.Valid {
-			evaluatedAt = row.CurrentEvaluatedAt.Time.Format(time.RFC3339)
-		}
+		evaluatedAt := formatTimeTable(row.CurrentEvaluatedAt)
 
 		item := viewmodels.FindingsRuleItem{
 			Key:              strings.TrimSpace(row.Key),
@@ -351,7 +348,7 @@ func (h *Handlers) HandleFindingsRule(c echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	layout, _, err := h.LayoutData(ctx, c, strings.TrimSpace(rs.Name), "Findings")
+	layout, _, err := h.LayoutData(ctx, c, strings.TrimSpace(rs.Name))
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -566,6 +563,12 @@ func (h *Handlers) HandleFindingsRuleAttestation(c echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
+	setFlashToast(c, viewmodels.ToastViewData{
+		Category:    "success",
+		Title:       "Attestation saved",
+		Description: "Manual attestation updated.",
+	})
+
 	return c.Redirect(http.StatusSeeOther, "/findings/rulesets/"+rulesetKey+"/rules/"+ruleKey)
 }
 
@@ -617,6 +620,13 @@ func formatTimeRFC3339(t pgtype.Timestamptz) string {
 		return ""
 	}
 	return t.Time.Format(time.RFC3339)
+}
+
+func formatTimeTable(t pgtype.Timestamptz) string {
+	if !t.Valid {
+		return ""
+	}
+	return t.Time.Format("02-01-2006 15:04")
 }
 
 func normalizeRuleStatusFilter(v string) string {
@@ -1007,7 +1017,7 @@ func parseDatetimeLocal(v string) (pgtype.Timestamptz, error) {
 func (h *Handlers) renderRuleWithAlert(c echo.Context, rs gen.Ruleset, r gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow, scope findingsScope, alert viewmodels.FindingsAlert) error {
 	ctx := c.Request().Context()
 
-	layout, _, err := h.LayoutData(ctx, c, strings.TrimSpace(rs.Name), "Findings")
+	layout, _, err := h.LayoutData(ctx, c, strings.TrimSpace(rs.Name))
 	if err != nil {
 		return h.RenderError(c, err)
 	}

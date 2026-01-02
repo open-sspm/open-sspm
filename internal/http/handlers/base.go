@@ -89,7 +89,7 @@ func (h *Handlers) LoadConnectorSnapshot(ctx context.Context) (ConnectorSnapshot
 }
 
 // LayoutData builds the common layout data for page rendering.
-func (h *Handlers) LayoutData(ctx context.Context, c echo.Context, title, badge string) (viewmodels.LayoutData, ConnectorSnapshot, error) {
+func (h *Handlers) LayoutData(ctx context.Context, c echo.Context, title string) (viewmodels.LayoutData, ConnectorSnapshot, error) {
 	snap, err := h.LoadConnectorSnapshot(ctx)
 	if err != nil {
 		return viewmodels.LayoutData{}, snap, err
@@ -114,7 +114,7 @@ func (h *Handlers) LayoutData(ctx context.Context, c echo.Context, title, badge 
 		EntraTenantID:               snap.Entra.TenantID,
 		EntraEnabled:                snap.EntraEnabled,
 		EntraConfigured:             snap.EntraConfigured,
-		NavbarEndBadge:              badge,
+		Toast:                       popFlashToast(c),
 		ActivePath:                  c.Request().URL.Path,
 	}
 	return layout, snap, nil

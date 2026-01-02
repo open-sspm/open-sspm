@@ -1,6 +1,10 @@
 package views
 
-import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+import (
+	"strings"
+
+	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
+)
 
 templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 	@Layout(data.Layout) {
@@ -27,8 +31,8 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 			}
 		}
 
-		<div class="grid gap-6 lg:grid-cols-3">
-			<article class="card lg:col-span-1">
+		<div class="grid gap-6">
+			<article class="card">
 				<header>
 					<h2>Ruleset</h2>
 					<p class="text-muted-foreground">{ data.Ruleset.Key }</p>
@@ -75,7 +79,7 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 				</section>
 			</article>
 
-			<article class="card lg:col-span-2">
+			<article class="card">
 				<header>
 					<h2>Rules</h2>
 					<p class="text-muted-foreground">Filter and review the current results for this ruleset.</p>
@@ -131,15 +135,15 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 								<tbody>
 									for _, r := range data.Rules {
 										<tr>
-												<td class="font-medium">
+												<td>
 													<div class="space-y-0.5">
-													<a class="btn-sm-link block" href={ r.Href }>{ r.Key }</a>
+													<a class="btn-sm-link px-0 font-medium" href={ r.Href }>{ r.Key }</a>
 													if r.Title != "" && r.Title != r.Key {
 														<div class="text-sm text-muted-foreground">{ r.Title }</div>
 													} else if r.Summary != "" {
 														<div class="text-sm text-muted-foreground">{ r.Summary }</div>
 													}
-													if r.EvidenceSummary != "" && r.EvidenceSummary != "Manual check requires attestation" && r.EvidenceSummary != r.Summary && r.EvidenceSummary != r.Title {
+													if r.EvidenceSummary != "" && r.EvidenceSummary != "Manual check requires attestation" && !strings.HasPrefix(r.EvidenceSummary, "Demo seeded:") && r.EvidenceSummary != r.Summary && r.EvidenceSummary != r.Title {
 														<div class="text-sm text-muted-foreground">{ r.EvidenceSummary }</div>
 													}
 												</div>

@@ -24,8 +24,8 @@ templ FindingsPage(data viewmodels.FindingsRulesetsViewData) {
 					<tbody>
 						for _, rs := range data.Rulesets {
 							<tr>
-								<td class="font-medium">
-									<a class="btn-sm-link" href={ rs.Href }>{ rs.Name }</a>
+								<td>
+									<a class="btn-sm-link px-0 font-medium" href={ rs.Href }>{ rs.Name }</a>
 									if rs.Description != "" {
 										<div class="text-sm text-muted-foreground">{ rs.Description }</div>
 									}

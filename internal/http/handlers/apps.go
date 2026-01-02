@@ -20,7 +20,7 @@ import (
 // HandleApps renders the apps list page.
 func (h *Handlers) HandleApps(c echo.Context) error {
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Apps", "")
+	layout, _, err := h.LayoutData(ctx, c, "Apps")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -179,7 +179,7 @@ func (h *Handlers) HandleOktaAppShow(c echo.Context) error {
 		return c.Redirect(http.StatusSeeOther, integratedHref)
 	}
 
-	layout, _, err := h.LayoutData(ctx, c, "Okta App", "Okta")
+	layout, _, err := h.LayoutData(ctx, c, "Okta App")
 	if err != nil {
 		return h.RenderError(c, err)
 	}

@@ -17,7 +17,7 @@ import (
 
 // HandleSettings renders the settings page.
 func (h *Handlers) HandleSettings(c echo.Context) error {
-	layout, _, err := h.LayoutData(c.Request().Context(), c, "Settings", "Settings")
+	layout, _, err := h.LayoutData(c.Request().Context(), c, "Settings")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -352,7 +352,7 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c echo.Context, 
 		EntraTenantID:               data.Entra.TenantID,
 		EntraEnabled:                data.Entra.Enabled,
 		EntraConfigured:             data.Entra.Configured,
-		NavbarEndBadge:              "Settings",
+		Toast:                       popFlashToast(c),
 		ActivePath:                  c.Request().URL.Path,
 	}
 

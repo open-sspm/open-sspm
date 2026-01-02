@@ -21,7 +21,7 @@ import (
 // HandleIdpUsers renders the IdP users list page.
 func (h *Handlers) HandleIdpUsers(c echo.Context) error {
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Okta Users", "Okta")
+	layout, _, err := h.LayoutData(ctx, c, "Okta Users")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -117,7 +117,7 @@ func (h *Handlers) HandleIdpUserShow(c echo.Context) error {
 		return RenderNotFound(c)
 	}
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Okta User", "Okta")
+	layout, _, err := h.LayoutData(ctx, c, "Okta User")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -237,7 +237,7 @@ func (h *Handlers) HandleIdpUserShow(c echo.Context) error {
 // HandleGitHubUsers renders the GitHub users page.
 func (h *Handlers) HandleGitHubUsers(c echo.Context) error {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "GitHub Users", "")
+	layout, snap, err := h.LayoutData(ctx, c, "GitHub Users")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -342,7 +342,7 @@ func (h *Handlers) HandleGitHubUsers(c echo.Context) error {
 // HandleDatadogUsers renders the Datadog users page.
 func (h *Handlers) HandleDatadogUsers(c echo.Context) error {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Datadog Users", "")
+	layout, snap, err := h.LayoutData(ctx, c, "Datadog Users")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -503,7 +503,7 @@ func (h *Handlers) HandleDatadogUsers(c echo.Context) error {
 // HandleUnmatchedGitHub renders the unmatched GitHub accounts page.
 func (h *Handlers) HandleUnmatchedGitHub(c echo.Context) error {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Unmatched GitHub Accounts", "")
+	layout, snap, err := h.LayoutData(ctx, c, "Unmatched GitHub Accounts")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -615,7 +615,7 @@ func (h *Handlers) HandleUnmatchedGitHub(c echo.Context) error {
 // HandleUnmatchedDatadog renders the unmatched Datadog accounts page.
 func (h *Handlers) HandleUnmatchedDatadog(c echo.Context) error {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Unmatched Datadog Accounts", "")
+	layout, snap, err := h.LayoutData(ctx, c, "Unmatched Datadog Accounts")
 	if err != nil {
 		return h.RenderError(c, err)
 	}

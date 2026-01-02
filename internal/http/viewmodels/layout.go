@@ -15,6 +15,6 @@ type LayoutData struct {
 	EntraTenantID               string
 	EntraEnabled                bool
 	EntraConfigured             bool
-	NavbarEndBadge              string
+	Toast                       *ToastViewData
 	ActivePath                  string
 }

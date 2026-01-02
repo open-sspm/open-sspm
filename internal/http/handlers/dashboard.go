@@ -12,7 +12,7 @@ import (
 // HandleDashboard renders the dashboard page.
 func (h *Handlers) HandleDashboard(c echo.Context) error {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Dashboard", "")
+	layout, snap, err := h.LayoutData(ctx, c, "Dashboard")
 	if err != nil {
 		return h.RenderError(c, err)
 	}

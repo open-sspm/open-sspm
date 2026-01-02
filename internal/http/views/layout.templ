@@ -59,9 +59,6 @@ templ Layout(data viewmodels.LayoutData) {
 						</button>
 						<h1 class="text-base font-semibold tracking-tight md:text-lg">{ data.Title }</h1>
 						<div class="ml-auto flex items-center gap-3">
-							if data.NavbarEndBadge != "" {
-								<span class="badge-outline">{ data.NavbarEndBadge }</span>
-							}
 							<button type="button" aria-label="Toggle dark mode" data-tooltip="Toggle dark mode" data-side="bottom" onclick="document.dispatchEvent(new CustomEvent('basecoat:theme'))" class="btn-icon-outline size-8">
 								<span class="hidden dark:block">
 									<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -94,6 +91,9 @@ templ Layout(data viewmodels.LayoutData) {
 				</div>
 			</div>
 			<section id="toaster" class="toaster" data-align="end"></section>
+			if data.Toast != nil {
+				<div id="flash-toast" class="hidden" data-category={ data.Toast.Category } data-title={ data.Toast.Title } data-description={ data.Toast.Description }></div>
+			}
 			<script type="importmap">
 				{
 					"imports": {
