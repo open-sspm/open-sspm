@@ -86,8 +86,8 @@
     });
   };
 
-  const initIdpUserAccessTree = () => {
-    const container = document.getElementById("access-tree");
+  const initIdpUserAccessGraph = () => {
+    const container = document.getElementById("access-graph");
     if (!(container instanceof HTMLElement)) return;
 
     const userID = container.getAttribute("data-idp-user-id");
@@ -286,20 +286,8 @@
     const rootSubLabel = displayName && email ? email : "";
 
     const root = createNodeElement({ id: "root", label: rootLabel, subLabel: rootSubLabel, hasChildren: true }, 0);
-    const rootChildren = root.querySelector("[data-role='children']");
-    if (!(rootChildren instanceof HTMLElement)) {
-      container.textContent = "Failed to render access tree.";
-      return;
-    }
-
-    const apps = createNodeElement({ id: "apps", label: "Apps", hasChildren: true }, 1);
-
-    root.dataset.loaded = "true";
-    rootChildren.hidden = false;
-    setToggleExpanded(root, true);
-    rootChildren.append(apps);
-
     container.append(root);
+    void toggleNode(root);
 
     container.addEventListener("click", (event) => {
       const target = event.target;
@@ -318,6 +306,6 @@
     openServerDialogs();
     wireDialogCloseNavigation();
     wireAutosubmit();
-    initIdpUserAccessTree();
+    initIdpUserAccessGraph();
   });
 })();

@@ -396,7 +396,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 		orgEntJSON := registry.MarshalJSON(map[string]string{"org": i.org, "role": member.Role})
 		entAppUserExternalIDs = append(entAppUserExternalIDs, login)
 		entKinds = append(entKinds, "github_org_role")
-		entResources = append(entResources, i.org)
+		entResources = append(entResources, "github_org:"+i.org)
 		entPermissions = append(entPermissions, member.Role)
 		entRawJSONs = append(entRawJSONs, orgEntJSON)
 
@@ -408,7 +408,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 			teamJSON := registry.MarshalJSON(map[string]string{"team": teamSlug})
 			entAppUserExternalIDs = append(entAppUserExternalIDs, login)
 			entKinds = append(entKinds, "github_team_member")
-			entResources = append(entResources, teamSlug)
+			entResources = append(entResources, "github_team:"+i.org+"/"+teamSlug)
 			entPermissions = append(entPermissions, "member")
 			entRawJSONs = append(entRawJSONs, teamJSON)
 
@@ -424,7 +424,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 				})
 				entAppUserExternalIDs = append(entAppUserExternalIDs, login)
 				entKinds = append(entKinds, "github_team_repo_permission")
-				entResources = append(entResources, repoFullName)
+				entResources = append(entResources, "github_repo:"+repoFullName)
 				entPermissions = append(entPermissions, repo.Permission)
 				entRawJSONs = append(entRawJSONs, repoJSON)
 			}

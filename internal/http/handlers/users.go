@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"path"
 	"sort"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
+	"github.com/open-sspm/open-sspm/internal/accessgraph"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
@@ -129,13 +131,50 @@ func (h *Handlers) HandleIdpUserShow(c echo.Context) error {
 	if err != nil {
 		return h.RenderError(c, err)
 	}
-	var linkedApps []viewmodels.LinkedAppView
+	linkedIDs := make([]int64, 0, len(linked))
 	for _, app := range linked {
-		ents, err := h.Q.ListEntitlementsForAppUser(ctx, app.ID)
+		linkedIDs = append(linkedIDs, app.ID)
+	}
+	entitlementsByAppUserID := make(map[int64][]gen.Entitlement, len(linked))
+	if len(linkedIDs) > 0 {
+		ents, err := h.Q.ListEntitlementsForAppUserIDs(ctx, linkedIDs)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
-		linkedApps = append(linkedApps, viewmodels.LinkedAppView{AppUser: app, Entitlements: ents})
+		for _, ent := range ents {
+			entitlementsByAppUserID[ent.AppUserID] = append(entitlementsByAppUserID[ent.AppUserID], ent)
+		}
+	}
+	var linkedApps []viewmodels.LinkedAppView
+	for _, app := range linked {
+		entitlementViews := make([]viewmodels.LinkedEntitlementView, 0, len(entitlementsByAppUserID[app.ID]))
+		for _, ent := range entitlementsByAppUserID[app.ID] {
+			resourceKind, resourceID, ok := accessgraph.ResourceRefFromEntitlement(ent.Kind, ent.Resource)
+			if !ok {
+				resourceID = strings.TrimSpace(ent.Resource)
+			}
+			resourceHref := ""
+			if ok {
+				resourceHref = accessgraph.BuildResourceHref(app.SourceKind, app.SourceName, resourceKind, resourceID)
+			}
+			resourceLabel := accessgraph.DisplayResourceLabel(ent.Kind, ent.Resource, ent.RawJson)
+			if strings.TrimSpace(resourceLabel) == "" {
+				if ok {
+					resourceLabel = resourceID
+				} else {
+					resourceLabel = strings.TrimSpace(ent.Resource)
+				}
+			}
+			entitlementViews = append(entitlementViews, viewmodels.LinkedEntitlementView{
+				Kind:          strings.TrimSpace(ent.Kind),
+				ResourceKind:  resourceKind,
+				ResourceID:    resourceID,
+				ResourceLabel: resourceLabel,
+				ResourceHref:  resourceHref,
+				Permission:    strings.TrimSpace(ent.Permission),
+			})
+		}
+		linkedApps = append(linkedApps, viewmodels.LinkedAppView{AppUser: app, Entitlements: entitlementViews})
 	}
 
 	assignments, err := h.Q.ListOktaUserAppAssignmentsForIdpUser(ctx, user.ID)
@@ -783,16 +822,27 @@ func (h *Handlers) HandleIdpUserAccessTree(c echo.Context) error {
 		nodeID = "root"
 	}
 
+	encodeNodePart := func(v string) string {
+		return url.PathEscape(v)
+	}
+	decodeNodePart := func(v string) (string, error) {
+		return url.PathUnescape(v)
+	}
+
 	response := accessTreeResponse{Parent: nodeID}
 	switch {
 	case nodeID == "root":
-		response.Nodes = []accessTreeNode{{
-			ID:          "apps",
-			Label:       "Apps",
-			HasChildren: true,
-		}}
+		response.Nodes = []accessTreeNode{
+			{ID: "connector:okta", Label: "Okta", HasChildren: true},
+			{ID: "connector:github", Label: "GitHub", HasChildren: true},
+			{ID: "connector:datadog", Label: "Datadog", HasChildren: true},
+			{ID: "connector:aws", Label: "AWS Identity Center", HasChildren: true},
+		}
 		return c.JSON(http.StatusOK, response)
-	case nodeID == "apps":
+	case nodeID == "connector:okta":
+		response.Nodes = []accessTreeNode{{ID: "okta_apps", Label: "Apps", HasChildren: true}}
+		return c.JSON(http.StatusOK, response)
+	case nodeID == "okta_apps":
 		assignments, err := h.Q.ListOktaUserAppAssignmentsForIdpUser(ctx, id)
 		if err != nil {
 			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
@@ -848,6 +898,315 @@ func (h *Handlers) HandleIdpUserAccessTree(c echo.Context) error {
 				Label:       "No assigned apps found.",
 				HasChildren: false,
 			}}
+		}
+		response.Nodes = nodes
+		return c.JSON(http.StatusOK, response)
+	case nodeID == "connector:github" || nodeID == "connector:datadog" || nodeID == "connector:aws":
+		sourceKind := strings.TrimSpace(strings.TrimPrefix(nodeID, "connector:"))
+		if sourceKind == "" {
+			return jsonTreeError(c, http.StatusBadRequest, "invalid connector node")
+		}
+
+		linked, err := h.Q.ListLinkedAppUsersForIdPUser(ctx, id)
+		if err != nil {
+			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+		}
+
+		sourceCounts := make(map[string]int)
+		for _, app := range linked {
+			if strings.EqualFold(strings.TrimSpace(app.SourceKind), sourceKind) {
+				sourceCounts[app.SourceName]++
+			}
+		}
+
+		sourceNames := make([]string, 0, len(sourceCounts))
+		for name := range sourceCounts {
+			sourceNames = append(sourceNames, name)
+		}
+		sort.Strings(sourceNames)
+
+		nodes := make([]accessTreeNode, 0, len(sourceNames))
+		for _, name := range sourceNames {
+			count := sourceCounts[name]
+			badge := "1 account"
+			if count != 1 {
+				badge = fmt.Sprintf("%d accounts", count)
+			}
+			label := strings.TrimSpace(name)
+			if label == "" {
+				label = "(unknown)"
+			}
+			nodes = append(nodes, accessTreeNode{
+				ID:          "inst:" + strings.ToLower(sourceKind) + ":" + encodeNodePart(name),
+				Label:       label,
+				Badges:      []string{badge},
+				HasChildren: true,
+			})
+		}
+		if len(nodes) == 0 {
+			nodes = []accessTreeNode{{
+				ID:          sourceKind + "-empty",
+				Label:       "No linked accounts found.",
+				HasChildren: false,
+			}}
+		}
+		response.Nodes = nodes
+		return c.JSON(http.StatusOK, response)
+	case strings.HasPrefix(nodeID, "inst:"):
+		raw := strings.TrimSpace(strings.TrimPrefix(nodeID, "inst:"))
+		parts := strings.SplitN(raw, ":", 2)
+		if len(parts) != 2 {
+			return jsonTreeError(c, http.StatusBadRequest, "invalid instance node")
+		}
+		sourceKind := strings.TrimSpace(parts[0])
+		sourceName, err := decodeNodePart(parts[1])
+		if err != nil {
+			return jsonTreeError(c, http.StatusBadRequest, "invalid instance node")
+		}
+		if sourceKind == "" || sourceName == "" {
+			return jsonTreeError(c, http.StatusBadRequest, "invalid instance node")
+		}
+
+		linked, err := h.Q.ListLinkedAppUsersForIdPUser(ctx, id)
+		if err != nil {
+			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+		}
+
+		nodes := make([]accessTreeNode, 0, len(linked))
+		for _, app := range linked {
+			if !strings.EqualFold(strings.TrimSpace(app.SourceKind), sourceKind) {
+				continue
+			}
+			if app.SourceName != sourceName {
+				continue
+			}
+			label := strings.TrimSpace(app.DisplayName)
+			if label == "" {
+				label = strings.TrimSpace(app.ExternalID)
+			}
+			if label == "" {
+				label = "(unknown)"
+			}
+
+			subLabel := strings.TrimSpace(app.Email)
+			if subLabel == "" {
+				subLabel = strings.TrimSpace(app.ExternalID)
+			}
+
+			nodes = append(nodes, accessTreeNode{
+				ID:          "appuser:" + strconv.FormatInt(app.ID, 10),
+				Label:       label,
+				SubLabel:    subLabel,
+				HasChildren: true,
+			})
+		}
+		if len(nodes) == 0 {
+			nodes = []accessTreeNode{{ID: "inst-empty:" + raw, Label: "No linked accounts found.", HasChildren: false}}
+		}
+		response.Nodes = nodes
+		return c.JSON(http.StatusOK, response)
+	case strings.HasPrefix(nodeID, "appuser:"):
+		rawID := strings.TrimSpace(strings.TrimPrefix(nodeID, "appuser:"))
+		appUserID, err := strconv.ParseInt(rawID, 10, 64)
+		if err != nil || appUserID <= 0 {
+			return jsonTreeError(c, http.StatusBadRequest, "invalid app user node")
+		}
+
+		link, err := h.Q.GetIdentityLinkByAppUser(ctx, appUserID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return jsonTreeError(c, http.StatusNotFound, "app user not linked")
+			}
+			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+		}
+		if link.IdpUserID != id {
+			return jsonTreeError(c, http.StatusNotFound, "app user not linked")
+		}
+
+		appUser, err := h.Q.GetAppUser(ctx, appUserID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return jsonTreeError(c, http.StatusNotFound, "app user not found")
+			}
+			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+		}
+
+		ents, err := h.Q.ListEntitlementsForAppUser(ctx, appUserID)
+		if err != nil {
+			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+		}
+
+		type resourceGroup struct {
+			resourceKind string
+			externalID   string
+			label        string
+			count        int
+		}
+
+		resourceGroups := make(map[string]*resourceGroup)
+		var unmapped []accessTreeNode
+
+		for _, ent := range ents {
+			resourceKind, externalID, ok := accessgraph.ResourceRefFromEntitlement(ent.Kind, ent.Resource)
+			if !ok {
+				label := strings.TrimSpace(ent.Resource)
+				if label == "" {
+					label = strings.TrimSpace(ent.Kind)
+				}
+				if label == "" {
+					label = "(unknown)"
+				}
+				var badges []string
+				if kind := strings.TrimSpace(ent.Kind); kind != "" {
+					badges = append(badges, kind)
+				}
+				if perm := strings.TrimSpace(ent.Permission); perm != "" {
+					badges = append(badges, perm)
+				}
+				unmapped = append(unmapped, accessTreeNode{
+					ID:          "ent:" + strconv.FormatInt(ent.ID, 10),
+					Label:       label,
+					Badges:      badges,
+					HasChildren: false,
+				})
+				continue
+			}
+
+			key := resourceKind + "\x00" + externalID
+			if existing := resourceGroups[key]; existing != nil {
+				existing.count++
+				continue
+			}
+
+			label := accessgraph.DisplayResourceLabel(ent.Kind, ent.Resource, ent.RawJson)
+			if strings.TrimSpace(label) == "" {
+				label = externalID
+			}
+			resourceGroups[key] = &resourceGroup{
+				resourceKind: resourceKind,
+				externalID:   externalID,
+				label:        label,
+				count:        1,
+			}
+		}
+
+		keys := make([]string, 0, len(resourceGroups))
+		for key := range resourceGroups {
+			keys = append(keys, key)
+		}
+		sort.Slice(keys, func(i, j int) bool {
+			left := resourceGroups[keys[i]]
+			right := resourceGroups[keys[j]]
+			if left.resourceKind == right.resourceKind {
+				return strings.ToLower(left.label) < strings.ToLower(right.label)
+			}
+			return left.resourceKind < right.resourceKind
+		})
+
+		nodes := make([]accessTreeNode, 0, len(keys)+len(unmapped))
+		for _, key := range keys {
+			group := resourceGroups[key]
+			if group == nil {
+				continue
+			}
+			var badges []string
+			if kindLabel := humanizeResourceKind(group.resourceKind); kindLabel != "" {
+				badges = append(badges, kindLabel)
+			}
+			if group.count > 1 {
+				badges = append(badges, fmt.Sprintf("%d entitlements", group.count))
+			}
+
+			subLabel := ""
+			if group.label != group.externalID {
+				subLabel = group.externalID
+			}
+
+			nodes = append(nodes, accessTreeNode{
+				ID:          "res:" + strconv.FormatInt(appUserID, 10) + ":" + group.resourceKind + ":" + encodeNodePart(group.externalID),
+				Label:       group.label,
+				SubLabel:    subLabel,
+				Badges:      badges,
+				HasChildren: true,
+				Href:        accessgraph.BuildResourceHref(appUser.SourceKind, appUser.SourceName, group.resourceKind, group.externalID),
+			})
+		}
+
+		if len(unmapped) > 0 {
+			sort.Slice(unmapped, func(i, j int) bool {
+				return strings.ToLower(unmapped[i].Label) < strings.ToLower(unmapped[j].Label)
+			})
+			nodes = append(nodes, unmapped...)
+		}
+
+		if len(nodes) == 0 {
+			nodes = []accessTreeNode{{ID: "entitlements-empty:" + rawID, Label: "No entitlements found.", HasChildren: false}}
+		}
+		response.Nodes = nodes
+		return c.JSON(http.StatusOK, response)
+	case strings.HasPrefix(nodeID, "res:"):
+		raw := strings.TrimSpace(strings.TrimPrefix(nodeID, "res:"))
+		parts := strings.SplitN(raw, ":", 3)
+		if len(parts) != 3 {
+			return jsonTreeError(c, http.StatusBadRequest, "invalid resource node")
+		}
+		appUserID, err := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
+		if err != nil || appUserID <= 0 {
+			return jsonTreeError(c, http.StatusBadRequest, "invalid resource node")
+		}
+		resourceKind := strings.TrimSpace(parts[1])
+		externalID, err := decodeNodePart(parts[2])
+		if err != nil || resourceKind == "" || externalID == "" {
+			return jsonTreeError(c, http.StatusBadRequest, "invalid resource node")
+		}
+
+		link, err := h.Q.GetIdentityLinkByAppUser(ctx, appUserID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return jsonTreeError(c, http.StatusNotFound, "app user not linked")
+			}
+			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+		}
+		if link.IdpUserID != id {
+			return jsonTreeError(c, http.StatusNotFound, "app user not linked")
+		}
+
+		ents, err := h.Q.ListEntitlementsForAppUser(ctx, appUserID)
+		if err != nil {
+			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+		}
+
+		nodes := make([]accessTreeNode, 0, len(ents))
+		for _, ent := range ents {
+			kind, eid, ok := accessgraph.ResourceRefFromEntitlement(ent.Kind, ent.Resource)
+			if !ok {
+				continue
+			}
+			if kind != resourceKind || eid != externalID {
+				continue
+			}
+			label := strings.TrimSpace(ent.Permission)
+			if label == "" {
+				label = "(no permission)"
+			}
+			subLabel := strings.TrimSpace(ent.Kind)
+			if subLabel == "" {
+				subLabel = strings.TrimSpace(ent.Resource)
+			}
+			nodes = append(nodes, accessTreeNode{
+				ID:          "ent:" + strconv.FormatInt(ent.ID, 10),
+				Label:       label,
+				SubLabel:    subLabel,
+				HasChildren: false,
+			})
+		}
+
+		if len(nodes) == 0 {
+			nodes = []accessTreeNode{{ID: "perms-empty:" + raw, Label: "No permissions found.", HasChildren: false}}
+		} else {
+			sort.Slice(nodes, func(i, j int) bool {
+				return strings.ToLower(nodes[i].Label) < strings.ToLower(nodes[j].Label)
+			})
 		}
 		response.Nodes = nodes
 		return c.JSON(http.StatusOK, response)

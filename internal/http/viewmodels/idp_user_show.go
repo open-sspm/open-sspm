@@ -2,9 +2,18 @@ package viewmodels
 
 import "github.com/open-sspm/open-sspm/internal/db/gen"
 
+type LinkedEntitlementView struct {
+	Kind          string
+	ResourceKind  string
+	ResourceID    string
+	ResourceLabel string
+	ResourceHref  string
+	Permission    string
+}
+
 type LinkedAppView struct {
 	AppUser      gen.AppUser
-	Entitlements []gen.Entitlement
+	Entitlements []LinkedEntitlementView
 }
 
 type IdPUserShowViewData struct {

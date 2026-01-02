@@ -1,0 +1,137 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: data.SourceLabel, Href: data.SourceHref},
+			{Label: data.ResourceKindLabel},
+		}, data.SourceName) {
+			<span class="badge-outline">{ FormatInt(data.LinkedIdpUserCount) }{ " identities" }</span>
+			<span class="badge-outline">{ FormatInt(data.AppAccountCount) }{ " app accounts" }</span>
+			<span class="badge-outline">{ FormatInt(data.EntitlementCount) }{ " entitlements" }</span>
+			if data.ExternalConsoleHref != "" {
+				<a class="btn-sm-outline" href={ data.ExternalConsoleHref } target="_blank" rel="noopener noreferrer">Open in console</a>
+			}
+		}
+
+		<article class="card">
+			<header>
+				<h2>{ data.DisplayName }</h2>
+				<p>{ data.SourceLabel }{ " resource details." }</p>
+				<div data-slot="card-action">
+					<span class="badge">{ data.SourceLabel }</span>
+				</div>
+			</header>
+			<section>
+				<dl class="grid gap-4 md:grid-cols-2">
+					<div class="space-y-1">
+						<dt class="text-xs font-medium text-muted-foreground">Source</dt>
+						<dd class="font-medium break-words">{ data.SourceLabel }{ " · " }{ data.SourceName }</dd>
+					</div>
+					<div class="space-y-1">
+						<dt class="text-xs font-medium text-muted-foreground">Type</dt>
+						<dd class="font-medium break-words">{ data.ResourceKindLabel }</dd>
+					</div>
+					<div class="space-y-1">
+						<dt class="text-xs font-medium text-muted-foreground">External ID</dt>
+						<dd class="text-sm text-muted-foreground break-all">{ data.ExternalID }</dd>
+					</div>
+				</dl>
+			</section>
+		</article>
+
+		<article class="card">
+			<header>
+				<h2>Who has access</h2>
+				<p>IdP identities and app accounts with this entitlement.</p>
+			</header>
+			<section>
+				<div class="overflow-x-auto">
+					<table class="table">
+						<thead>
+							<tr>
+								<th>IdP user</th>
+								<th>App account</th>
+								<th>Permission</th>
+								<th>Kind</th>
+								<th>Link</th>
+							</tr>
+						</thead>
+						<tbody>
+							if data.HasRows {
+								for _, row := range data.Rows {
+									<tr class="align-top">
+										<td>
+											if row.IdpUserHref != "" {
+												<a class="btn-sm-link px-0 font-medium" href={ row.IdpUserHref }>
+													if row.IdpUserDisplayName != "" {
+														{ row.IdpUserDisplayName }
+													} else if row.IdpUserEmail != "" {
+														{ row.IdpUserEmail }
+													} else {
+														{ "User " }{ FormatInt64(row.IdpUserID) }
+													}
+												</a>
+												if row.IdpUserEmail != "" && row.IdpUserDisplayName != "" {
+													<div class="text-xs text-muted-foreground break-all">{ row.IdpUserEmail }</div>
+												}
+											} else {
+												<span class="text-muted-foreground">Unlinked</span>
+											}
+											if row.IdpUserStatus != "" {
+												<div class="pt-1">
+													<span class={ OktaStatusBadgeClass(row.IdpUserStatus) }>{ row.IdpUserStatus }</span>
+												</div>
+											}
+										</td>
+										<td>
+											<div class="font-medium break-words">
+												if row.AppUserDisplayName != "" {
+													{ row.AppUserDisplayName }
+												} else if row.AppUserEmail != "" {
+													{ row.AppUserEmail }
+												} else {
+													{ row.AppUserExternalID }
+												}
+											</div>
+											if row.AppUserEmail != "" {
+												<div class="text-xs text-muted-foreground break-all">{ row.AppUserEmail }</div>
+											} else if row.AppUserExternalID != "" {
+												<div class="text-xs text-muted-foreground break-all">{ row.AppUserExternalID }</div>
+											}
+										</td>
+										<td>
+											if row.EntitlementPermission != "" {
+												<span class="badge-outline">{ row.EntitlementPermission }</span>
+											} else {
+												<span class="text-muted-foreground">&mdash;</span>
+											}
+										</td>
+										<td><span class="badge-outline">{ row.EntitlementKind }</span></td>
+										<td>
+											if row.LinkReason != "" {
+												<span class="badge-outline">{ row.LinkReason }</span>
+											} else {
+												<span class="text-muted-foreground">&mdash;</span>
+											}
+										</td>
+									</tr>
+								}
+							} else {
+								<tr>
+									<td colspan="5">
+										@EmptyState("No access found", "No entitlements match this resource yet.")
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</article>
+	}
+}
+

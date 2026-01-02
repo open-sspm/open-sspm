@@ -14,7 +14,7 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 			<div role="tablist" aria-label="Okta user">
 				<button role="tab" aria-controls="tab-summary" aria-selected="true" tabindex="0">Summary</button>
 				<button role="tab" aria-controls="tab-assignments" aria-selected="false" tabindex="-1">Assignments</button>
-				<button role="tab" aria-controls="tab-access-tree" aria-selected="false" tabindex="-1">Access tree</button>
+				<button role="tab" aria-controls="tab-access-graph" aria-selected="false" tabindex="-1">Access graph</button>
 				<button role="tab" aria-controls="tab-linked" aria-selected="false" tabindex="-1">Linked accounts</button>
 			</div>
 
@@ -122,15 +122,15 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 				</article>
 			</section>
 
-			<section id="tab-access-tree" role="tabpanel" hidden>
+			<section id="tab-access-graph" role="tabpanel" hidden>
 				<article class="card">
 					<header>
-						<h2>Access tree</h2>
-						<p>Expand nodes to lazy-load app access details.</p>
+						<h2>Access graph</h2>
+						<p>Expand nodes to lazy-load access details across connectors.</p>
 					</header>
 					<section>
 						<div
-							id="access-tree"
+							id="access-graph"
 							data-idp-user-id={ FormatInt64(data.User.ID) }
 							data-idp-user-email={ data.User.Email }
 							data-idp-user-display-name={ data.User.DisplayName }
@@ -188,8 +188,23 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 															for _, ent := range app.Entitlements {
 																<tr>
 																	<td><span class="badge-outline">{ ent.Kind }</span></td>
-																	<td class="font-medium">{ ent.Resource }</td>
-																	<td class="text-muted-foreground">{ ent.Permission }</td>
+																	<td>
+																		if ent.ResourceHref != "" {
+																			<a class="btn-sm-link px-0 font-medium" href={ ent.ResourceHref }>{ ent.ResourceLabel }</a>
+																		} else {
+																			<div class="font-medium break-all">{ ent.ResourceLabel }</div>
+																		}
+																		if ent.ResourceID != "" && ent.ResourceID != ent.ResourceLabel {
+																			<div class="text-xs text-muted-foreground break-all">{ ent.ResourceID }</div>
+																		}
+																	</td>
+																	<td>
+																		if ent.Permission != "" {
+																			<span class="badge-outline">{ ent.Permission }</span>
+																		} else {
+																			<span class="text-muted-foreground">&mdash;</span>
+																		}
+																	</td>
 																</tr>
 															}
 														} else {

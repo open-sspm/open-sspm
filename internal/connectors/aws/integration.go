@@ -158,7 +158,7 @@ func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps)
 			}
 			entAppUserExternalIDs = append(entAppUserExternalIDs, userID)
 			entKinds = append(entKinds, "aws_permission_set")
-			entResources = append(entResources, strings.TrimSpace(fact.AccountID))
+			entResources = append(entResources, "aws_account:"+strings.TrimSpace(fact.AccountID))
 			entPermissions = append(entPermissions, permission)
 			entRawJSONs = append(entRawJSONs, registry.MarshalJSON(raw))
 		}
