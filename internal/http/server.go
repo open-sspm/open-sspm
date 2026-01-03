@@ -2,7 +2,10 @@ package httpapp
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -22,8 +25,67 @@ type EchoServer struct {
 func NewEchoServer(cfg config.Config, q *gen.Queries, syncer handlers.SyncRunner, reg *registry.ConnectorRegistry) (*EchoServer, error) {
 	h := &handlers.Handlers{Cfg: cfg, Q: q, Syncer: syncer, Registry: reg}
 	es := &EchoServer{h: h, e: echo.New()}
+	es.e.Use(middleware.RequestIDWithConfig(middleware.RequestIDConfig{
+		RequestIDHandler: func(c echo.Context, id string) {
+			id = normalizeRequestID(id)
+			if id == "" {
+				id = generateRequestID()
+				c.Response().Header().Set(echo.HeaderXRequestID, id)
+			}
+			c.Set(handlers.ContextKeyRequestID, id)
+		},
+	}))
+	es.e.HTTPErrorHandler = es.httpErrorHandler
 	es.registerRoutes()
 	return es, nil
+}
+
+func normalizeRequestID(id string) string {
+	id = strings.TrimSpace(id)
+	if id == "" || len(id) > 128 {
+		return ""
+	}
+	for _, r := range id {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= 'A' && r <= 'Z':
+		case r >= '0' && r <= '9':
+		case r == '-' || r == '_' || r == '.':
+		default:
+			return ""
+		}
+	}
+	return id
+}
+
+func generateRequestID() string {
+	var buf [16]byte
+	if _, err := rand.Read(buf[:]); err == nil {
+		return hex.EncodeToString(buf[:])
+	}
+	// Best-effort fallback; request ids are for debugging, not security.
+	return "unknown"
+}
+
+func (es *EchoServer) httpErrorHandler(err error, c echo.Context) {
+	if c.Response().Committed {
+		return
+	}
+
+	status := http.StatusInternalServerError
+	if httpErr, ok := err.(*echo.HTTPError); ok && httpErr != nil {
+		status = httpErr.Code
+	}
+
+	if status >= 500 {
+		_ = es.h.RenderError(c, err)
+		return
+	}
+	if status == http.StatusNotFound {
+		_ = handlers.RenderNotFound(c)
+		return
+	}
+	_ = c.String(status, http.StatusText(status))
 }
 
 func (es *EchoServer) registerRoutes() {
