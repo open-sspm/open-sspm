@@ -10,15 +10,17 @@ Thanks for helping improve Open-SSPM!
 
 ## PR title format (required)
 
-PR titles must follow Conventional Commits:
+PR titles must follow Conventional Commits (scope is optional):
 
 - `type(scope): summary`
+- `type: summary`
 - `type(scope)!: summary` for breaking changes
+- `type!: summary` for breaking changes
 
 Allowed `type` values:
 - `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `chore`
 
-Suggested `scope` values:
+Suggested `scope` values (optional):
 - `okta`, `github`, `datadog`, `aws`, `rules`, `sync`, `http`, `db`, `ui`, `helm`, `docker`
 
 Examples:
@@ -28,4 +30,3 @@ Examples:
 - `feat(api)!: change findings JSON output`
 
 If you use `!` (breaking change), include migration notes in the PR description.
-
