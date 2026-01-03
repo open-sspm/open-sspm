@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -71,7 +71,7 @@ func runWorker() error {
 	runner := sync.NewDBRunner(pool, reg)
 	runner.SetReporter(&sync.LogReporter{})
 
-	log.Printf("sync worker started (interval=%s)", cfg.SyncInterval.String())
+	slog.Info("sync worker started", "interval", cfg.SyncInterval)
 	scheduler := sync.Scheduler{Runner: runner, Interval: cfg.SyncInterval}
 	scheduler.Run(ctx)
 	return nil

@@ -3,7 +3,7 @@ package aws
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -41,7 +41,7 @@ func (i *AWSIntegration) InitEvents() []registry.Event {
 
 func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps) error {
 	started := time.Now()
-	log.Println("Syncing AWS Identity Center")
+	slog.Info("syncing AWS Identity Center")
 
 	runID, err := deps.Q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
 		SourceKind: "aws",
@@ -190,7 +190,7 @@ func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps)
 		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		return err
 	}
-	log.Printf("aws sync complete: %d users", len(users))
+	slog.Info("aws sync complete", "users", len(users))
 	return nil
 }
 

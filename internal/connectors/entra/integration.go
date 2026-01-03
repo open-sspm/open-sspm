@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -40,7 +40,7 @@ func (i *EntraIntegration) InitEvents() []registry.Event {
 
 func (i *EntraIntegration) Run(ctx context.Context, deps registry.IntegrationDeps) error {
 	started := time.Now()
-	log.Println("Syncing Microsoft Entra ID")
+	slog.Info("syncing Microsoft Entra ID")
 
 	runID, err := deps.Q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
 		SourceKind: "entra",
@@ -148,7 +148,7 @@ func (i *EntraIntegration) Run(ctx context.Context, deps registry.IntegrationDep
 		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		return err
 	}
-	log.Printf("entra sync complete: %d users", len(externalIDs))
+	slog.Info("entra sync complete", "users", len(externalIDs))
 	return nil
 }
 

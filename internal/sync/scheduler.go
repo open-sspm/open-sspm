@@ -2,7 +2,7 @@ package sync
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 )
 
@@ -18,7 +18,7 @@ func (s *Scheduler) Run(ctx context.Context) {
 
 	// Run immediately at startup.
 	if err := s.Runner.RunOnce(ctx); err != nil {
-		log.Println("initial sync failed:", err)
+		slog.Error("initial sync failed", "err", err)
 	}
 
 	ticker := time.NewTicker(s.Interval)
@@ -29,7 +29,7 @@ func (s *Scheduler) Run(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if err := s.Runner.RunOnce(ctx); err != nil {
-				log.Println("scheduled sync failed:", err)
+				slog.Error("scheduled sync failed", "err", err)
 			}
 		}
 	}

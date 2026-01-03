@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -91,7 +91,7 @@ func runServe() error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("listening on %s", cfg.HTTPAddr)
+		slog.Info("listening", "addr", cfg.HTTPAddr)
 		errCh <- srv.StartServer(httpServer)
 	}()
 

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -324,13 +324,13 @@ func mapUser(raw json.RawMessage) (User, error) {
 	}
 	lastLoginAt, err := parseOptionalRFC3339Time(payload.Attributes.LastLoginAt)
 	if err != nil {
-		log.Printf("datadog: user %s: last_login_at parse failed: %v", strings.TrimSpace(payload.ID), err)
+		slog.Warn("datadog user last_login_at parse failed", "user_id", strings.TrimSpace(payload.ID), "err", err)
 		lastLoginAt = nil
 	}
 	if lastLoginAt == nil {
 		lastLoginAt, err = parseOptionalRFC3339Time(payload.Attributes.LastLogin)
 		if err != nil {
-			log.Printf("datadog: user %s: last_login parse failed: %v", strings.TrimSpace(payload.ID), err)
+			slog.Warn("datadog user last_login parse failed", "user_id", strings.TrimSpace(payload.ID), "err", err)
 			lastLoginAt = nil
 		}
 	}
