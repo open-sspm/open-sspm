@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	runtimev1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v1"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
 )
@@ -24,7 +25,51 @@ type NormalizedProvider struct {
 	assignmentsErr  error
 }
 
-func (p *NormalizedProvider) GetDataset(ctx context.Context, datasetKey string, datasetVersion *int) ([]any, error) {
+func (p *NormalizedProvider) Capabilities(ctx context.Context) []runtimev1.DatasetRef {
+	_ = ctx
+	if p == nil {
+		return nil
+	}
+	out := make([]runtimev1.DatasetRef, 0, len(normalizedCapabilitiesV1))
+	for _, ds := range normalizedCapabilitiesV1 {
+		out = append(out, runtimev1.DatasetRef{Dataset: ds, Version: 1})
+	}
+	return out
+}
+
+func (p *NormalizedProvider) GetDataset(ctx context.Context, eval runtimev1.EvalContext, ref runtimev1.DatasetRef) runtimev1.DatasetResult {
+	_ = eval
+
+	if p == nil {
+		return runtimev1.DatasetResult{
+			Error: &runtimev1.DatasetError{
+				Kind:    runtimev1.DatasetErrorKind_MISSING_DATASET,
+				Message: "normalized dataset provider is nil",
+			},
+		}
+	}
+
+	datasetKey := strings.TrimSpace(ref.Dataset)
+	if datasetKey == "" {
+		return runtimev1.DatasetResult{
+			Error: &runtimev1.DatasetError{
+				Kind:    runtimev1.DatasetErrorKind_MISSING_DATASET,
+				Message: "dataset ref is missing dataset key",
+			},
+		}
+	}
+
+	version := ref.Version
+	var versionPtr *int
+	if version > 0 {
+		versionPtr = &version
+	}
+
+	rows, err := p.getDatasetRows(ctx, datasetKey, versionPtr)
+	return runtimeResultFromRowsOrError(rows, err)
+}
+
+func (p *NormalizedProvider) getDatasetRows(ctx context.Context, datasetKey string, datasetVersion *int) ([]any, error) {
 	if p == nil {
 		return nil, engine.DatasetError{Kind: engine.DatasetErrorMissingDataset, Err: errors.New("normalized dataset provider is nil")}
 	}

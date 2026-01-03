@@ -850,7 +850,34 @@ SELECT
   ctx.now_ts,
   ctx.run_id,
   CASE WHEN (p.rn % 2) = 0 THEN 'Demo seeded: failing control' ELSE 'Demo seeded: passing control' END,
-  jsonb_build_object('demo', true, 'rule_key', p.rule_key, 'seeded_at', ctx.now_ts),
+  jsonb_build_object(
+    'schema_version', 1,
+    'rule', jsonb_build_object(
+      'ruleset_key', 'cis.okta.idaas_stig.v1',
+      'rule_key', p.rule_key
+    ),
+    'check', jsonb_build_object(
+      'type', 'demo.seed'
+    ),
+    'params', jsonb_build_object(),
+    'result', jsonb_build_object(
+      'status', CASE WHEN (p.rn % 2) = 0 THEN 'fail' ELSE 'pass' END
+    ),
+    'selection', jsonb_build_object(
+      'total', 10,
+      'selected', CASE WHEN (p.rn % 2) = 0 THEN 2 ELSE 10 END
+    ),
+    'violations', CASE
+      WHEN (p.rn % 2) = 0 THEN jsonb_build_array(
+        jsonb_build_object('resource_id', 'demo:resource/1', 'display', 'Demo seeded violation #1'),
+        jsonb_build_object('resource_id', 'demo:resource/2', 'display', 'Demo seeded violation #2')
+      )
+      ELSE '[]'::jsonb
+    END,
+    'violations_truncated', false,
+    'demo', true,
+    'seeded_at', ctx.now_ts
+  ),
   '{}'::text[],
   ''::text
 FROM picked p

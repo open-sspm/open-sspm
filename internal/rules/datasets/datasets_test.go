@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	runtimev1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v1"
 	"github.com/open-sspm/open-sspm/internal/connectors/oktaapi"
-	"github.com/open-sspm/open-sspm/internal/rules/engine"
 )
 
 type stubOktaClient struct {
@@ -37,16 +37,12 @@ func (s stubOktaClient) GetAdminConsoleSettings(ctx context.Context) (oktaapi.Ad
 
 func TestRouterProviderMissingProvider(t *testing.T) {
 	p := RouterProvider{}
-	_, err := p.GetDataset(context.Background(), "okta:apps", nil)
-	if err == nil {
-		t.Fatalf("expected error")
+	res := p.GetDataset(context.Background(), runtimev1.EvalContext{}, runtimev1.DatasetRef{Dataset: "okta:apps", Version: 1})
+	if res.Error == nil {
+		t.Fatalf("expected error, got nil")
 	}
-	var de engine.DatasetError
-	if !errors.As(err, &de) {
-		t.Fatalf("expected dataset error, got %T", err)
-	}
-	if de.Kind != engine.DatasetErrorMissingDataset {
-		t.Fatalf("expected missing_dataset, got %q", de.Kind)
+	if res.Error.Kind != runtimev1.DatasetErrorKind_MISSING_DATASET {
+		t.Fatalf("expected missing_dataset, got %q", res.Error.Kind)
 	}
 }
 
@@ -54,31 +50,22 @@ func TestOktaProviderPermissionDeniedIsCategorized(t *testing.T) {
 	p := &OktaProvider{
 		Client: stubOktaClient{listPoliciesErr: &oktaapi.APIError{StatusCode: 403, Status: "403 Forbidden", Summary: "nope"}},
 	}
-	_, err := p.GetDataset(context.Background(), "okta:policies/sign-on", nil)
-	if err == nil {
-		t.Fatalf("expected error")
+	res := p.GetDataset(context.Background(), runtimev1.EvalContext{}, runtimev1.DatasetRef{Dataset: "okta:policies/sign-on", Version: 1})
+	if res.Error == nil {
+		t.Fatalf("expected error, got nil")
 	}
-	var de engine.DatasetError
-	if !errors.As(err, &de) {
-		t.Fatalf("expected dataset error, got %T", err)
-	}
-	if de.Kind != engine.DatasetErrorPermissionDenied {
-		t.Fatalf("expected permission_denied, got %q", de.Kind)
+	if res.Error.Kind != runtimev1.DatasetErrorKind_PERMISSION_DENIED {
+		t.Fatalf("expected permission_denied, got %q", res.Error.Kind)
 	}
 }
 
 func TestNormalizedProviderRejectsUnsupportedVersion(t *testing.T) {
-	v2 := 2
 	p := &NormalizedProvider{}
-	_, err := p.GetDataset(context.Background(), "normalized:identities", &v2)
-	if err == nil {
-		t.Fatalf("expected error")
+	res := p.GetDataset(context.Background(), runtimev1.EvalContext{}, runtimev1.DatasetRef{Dataset: "normalized:identities", Version: 2})
+	if res.Error == nil {
+		t.Fatalf("expected error, got nil")
 	}
-	var de engine.DatasetError
-	if !errors.As(err, &de) {
-		t.Fatalf("expected dataset error, got %T", err)
-	}
-	if de.Kind != engine.DatasetErrorMissingDataset {
-		t.Fatalf("expected missing_dataset, got %q", de.Kind)
+	if res.Error.Kind != runtimev1.DatasetErrorKind_MISSING_DATASET {
+		t.Fatalf("expected missing_dataset, got %q", res.Error.Kind)
 	}
 }

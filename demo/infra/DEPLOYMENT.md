@@ -31,14 +31,18 @@ Extract it on the server into `/opt/open-sspm/`.
    - `web/static/`
 4) Copy to the server over SSH (GitHub Actions secret key).
 5) Run on the server:
+   - stop `open-sspm` (if running)
+   - reset the demo database (drop + recreate)
    - `open-sspm migrate`
    - `open-sspm seed-rules`
-   - (optional) seed demo data via Ansible
+   - apply demo seed SQL (`demo/data/001_seed_demo.sql`)
    - restart `open-sspm` via systemd
 
 ## GitHub Actions workflow
 
 Workflow: `.github/workflows/deploy-demo.yml`
+
+Note: the demo deploy workflow **drops and recreates** the Postgres database on every deploy to guarantee a consistent demo dataset.
 
 Required GitHub secret:
 - `DEMO_SSH_PRIVATE_KEY` (SSH private key for the `deploy` user)
@@ -49,7 +53,9 @@ Run it via Actions → “Deploy demo (Scaleway VM)” and pass the VM IP as the
 
 This repo includes an **upsert-only** SQL seed at `demo/data/001_seed_demo.sql`.
 
-Apply it from your machine (not CI), after deploy:
+The deploy workflow resets the demo database and applies this seed on every deployment.
+
+You can also apply it manually from your machine, if you want to re-seed without redeploying:
 
 ```bash
 cd demo/infra/ansible

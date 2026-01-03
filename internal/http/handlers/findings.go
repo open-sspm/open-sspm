@@ -21,8 +21,6 @@ import (
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
 )
 
-const oktaRulesetKey = "cis.okta.idaas_stig.v1"
-
 func (h *Handlers) HandleFindings(c echo.Context) error {
 	ctx := c.Request().Context()
 
@@ -67,10 +65,6 @@ func (h *Handlers) HandleFindings(c echo.Context) error {
 	}
 
 	return h.RenderComponent(c, views.FindingsPage(data))
-}
-
-func (h *Handlers) HandleFindingsOktaBenchmark(c echo.Context) error {
-	return c.Redirect(http.StatusSeeOther, "/findings/rulesets/"+oktaRulesetKey)
 }
 
 func ruleSeverityRank(severity string) int {

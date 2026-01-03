@@ -23,10 +23,6 @@ Findings are server-rendered (Echo + templ) from DB rows:
 - `GET /findings/rulesets/:rulesetKey` — list active rules in a ruleset (with current status for the selected scope)
 - `GET /findings/rulesets/:rulesetKey/rules/:ruleKey` — rule detail (metadata + current evidence + override/attestation controls)
 
-Legacy route:
-
-- `GET /findings/okta-benchmark` — redirect to the Okta CIS ruleset detail page
-
 ## Status and error_kind
 
 ### Status
@@ -150,4 +146,3 @@ The UI uses this data for display and future filtering; it is not required to re
 ## Backwards/unknown evidence handling
 
 If `evidence_json.schema_version != 1`, the UI falls back to showing `evidence_json` as pretty-printed JSON without envelope-specific rendering.
-

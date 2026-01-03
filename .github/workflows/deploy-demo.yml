@@ -54,7 +54,7 @@ jobs:
       - name: Package deploy artifact
         run: |
           tar -czf dist/open-sspm.tgz \
-            -C . db/migrations web/static \
+            -C . db/migrations web/static demo/data/001_seed_demo.sql \
             -C dist open-sspm-amd64 open-sspm-arm64
 
       - name: Configure SSH
@@ -100,14 +100,40 @@ jobs:
           cp -a "$tmp_dir/web/static/." /opt/open-sspm/web/static/
           rm -rf /opt/open-sspm/db/migrations/*
           cp -a "$tmp_dir/db/migrations/." /opt/open-sspm/db/migrations/
+          mkdir -p /opt/open-sspm/demo
+          install -m 0644 "$tmp_dir/demo/data/001_seed_demo.sql" /opt/open-sspm/demo/001_seed_demo.sql
 
           set -a
           source /etc/open-sspm.env
           set +a
 
           cd /opt/open-sspm
+
+          systemctl stop open-sspm || true
+
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "DATABASE_URL is not set (expected in /etc/open-sspm.env)" >&2
+            exit 1
+          fi
+
+          db_name="${DATABASE_URL##*/}"
+          db_name="${db_name%%\?*}"
+          db_userpass_host="${DATABASE_URL#*://}"
+          db_auth="${db_userpass_host%%@*}"
+          db_user="${db_auth%%:*}"
+          if [ -z "${db_name}" ] || [ -z "${db_user}" ]; then
+            echo "Failed to parse database name/user from DATABASE_URL" >&2
+            exit 1
+          fi
+
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -d postgres -v db_name="${db_name}" -c \
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :'db_name' AND pid <> pg_backend_pid();"
+          sudo -u postgres dropdb --if-exists "${db_name}"
+          sudo -u postgres createdb -O "${db_user}" "${db_name}"
+
           /usr/local/bin/open-sspm migrate
           /usr/local/bin/open-sspm seed-rules
+          psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f /opt/open-sspm/demo/001_seed_demo.sql
 
           systemctl enable open-sspm
           systemctl restart open-sspm
