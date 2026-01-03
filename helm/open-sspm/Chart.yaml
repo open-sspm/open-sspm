@@ -2,5 +2,5 @@ apiVersion: v2
 name: open-sspm
 description: Open-SSPM "who has access to what" service
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "latest"

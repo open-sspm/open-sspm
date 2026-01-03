@@ -51,13 +51,13 @@ helm upgrade --install open-sspm ./helm/open-sspm \
   --set database.existingSecret.name=open-sspm-db
 ```
 
-### Migrations (ConfigMap-mounted)
+### Migrations (pre-install/pre-upgrade Job)
 
-Migrations are shipped with the chart under `helm/open-sspm/migrations/` and mounted into the migration Job via a ConfigMap hook.
+Migrations are bundled in the Open-SSPM container image under `db/migrations/` and executed by a Helm hook Job.
 
 Notes:
 - Hooks run `pre-install,pre-upgrade` (migrations) so the schema is updated before the app rolls.
-- Migrations are small (well under the ConfigMap size limit).
+- Build the image from this repo’s `Dockerfile` (it copies `db/migrations/` into the image).
 
 ### Seed rules (benchmark rulesets)
 

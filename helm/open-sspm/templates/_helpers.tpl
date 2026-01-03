@@ -40,7 +40,3 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- default "default" .Values.serviceAccount.name -}}
 {{- end -}}
 {{- end -}}
-
-{{- define "open-sspm.migrationsConfigMapName" -}}
-{{- default (printf "%s-migrations" (include "open-sspm.fullname" .)) .Values.migrations.configMap.name -}}
-{{- end -}}

@@ -70,8 +70,6 @@ worker:
 
 migrations:
   enabled: true
-  configMap:
-    name: ""
   job:
     backoffLimit: 3
     ttlSecondsAfterFinished: 300
