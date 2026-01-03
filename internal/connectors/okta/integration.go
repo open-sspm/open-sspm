@@ -3,7 +3,7 @@ package okta
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -103,7 +103,7 @@ func (i *OktaIntegration) Run(ctx context.Context, deps registry.IntegrationDeps
 		return err
 	}
 
-	log.Printf("okta sync complete: %d users", len(users))
+	slog.Info("okta sync complete", "users", len(users))
 	return nil
 }
 
@@ -141,7 +141,7 @@ func (i *OktaIntegration) EvaluateCompliance(ctx context.Context, deps registry.
 		EvaluatedAt: time.Now(),
 	}); err != nil {
 		err = fmt.Errorf("okta v1 ruleset evaluations: %w", err)
-		log.Println(err)
+		slog.Error("okta ruleset evaluations failed", "err", err)
 		deps.Report(registry.Event{Source: "okta", Stage: "evaluate-rules", Current: 1, Total: 1, Message: err.Error(), Err: err})
 		return nil
 	}

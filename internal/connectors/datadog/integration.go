@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	gosync "sync"
 	"sync/atomic"
@@ -49,7 +49,7 @@ func (i *DatadogIntegration) InitEvents() []registry.Event {
 
 func (i *DatadogIntegration) Run(ctx context.Context, deps registry.IntegrationDeps) error {
 	started := time.Now()
-	log.Println("Syncing Datadog")
+	slog.Info("syncing Datadog")
 
 	runID, err := deps.Q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
 		SourceKind: "datadog",
@@ -292,7 +292,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, deps registry.IntegrationD
 		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		return err
 	}
-	log.Printf("datadog sync complete: %d users", len(users))
+	slog.Info("datadog sync complete", "users", len(users))
 	return nil
 }
 

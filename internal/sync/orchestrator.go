@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"reflect"
 	"strings"
 	"sync"
@@ -115,7 +115,7 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 
 	autoLinkTotal := int64(len(apps))
 	if autoLinkTotal > 0 {
-		log.Printf("matching: auto-linking by email (apps=%d)", autoLinkTotal)
+		slog.Info("matching auto-linking by email", "apps", autoLinkTotal)
 		o.report(registry.Event{Source: "matching", Stage: "auto-link", Current: 0, Total: autoLinkTotal, Message: "auto-linking by email"})
 	}
 
@@ -142,7 +142,7 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 			if lockErr != nil {
 				err := lockErr
 				wrapped := fmt.Errorf("%s sync: %w", strings.TrimSpace(i.Kind()), err)
-				log.Println(wrapped)
+				slog.Error("integration sync failed", "kind", kind, "name", name, "err", lockErr)
 				mu.Lock()
 				errs = append(errs, wrapped)
 				mu.Unlock()
@@ -161,10 +161,10 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 			if err != nil {
 				err = fmt.Errorf("auto-link %s: %w", strings.TrimSpace(app.Kind()), err)
 				o.report(registry.Event{Source: "matching", Stage: "auto-link", Current: autoLinkDone, Total: autoLinkTotal, Message: err.Error(), Err: err})
-				log.Println(err)
+				slog.Error("matching auto-link failed", "kind", strings.TrimSpace(app.Kind()), "name", strings.TrimSpace(app.Name()), "err", err)
 				errs = append(errs, err)
 			} else {
-				log.Printf("matching: auto-link %s/%s: %d new links", strings.TrimSpace(app.Kind()), strings.TrimSpace(app.Name()), n)
+				slog.Info("matching auto-link complete", "kind", strings.TrimSpace(app.Kind()), "name", strings.TrimSpace(app.Name()), "new_links", n)
 				o.report(registry.Event{Source: "matching", Stage: "auto-link", Current: autoLinkDone, Total: autoLinkTotal, Message: fmt.Sprintf("%s auto-link: %d new links", strings.TrimSpace(app.Kind()), n)})
 			}
 		}
@@ -189,7 +189,7 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 		})
 		if err != nil {
 			wrapped := fmt.Errorf("%s compliance: %w", kind, err)
-			log.Println(wrapped)
+			slog.Error("integration compliance evaluation failed", "kind", kind, "name", name, "err", err)
 			errs = append(errs, wrapped)
 		}
 	}
@@ -209,7 +209,7 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 	}
 	if err := globalEngine.Run(ctx, engine.Context{ScopeKind: "global", EvaluatedAt: time.Now()}); err != nil {
 		wrapped := fmt.Errorf("global compliance: %w", err)
-		log.Println(wrapped)
+		slog.Error("global compliance evaluation failed", "err", err)
 		errs = append(errs, wrapped)
 	}
 

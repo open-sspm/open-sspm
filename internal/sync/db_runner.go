@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -70,7 +70,7 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 
 		def, ok := r.registry.Get(kind)
 		if !ok {
-			log.Printf("unknown connector kind %q skipped", kind)
+			slog.Warn("unknown connector kind skipped", "kind", kind)
 			skippedKinds = append(skippedKinds, kind)
 			continue
 		}

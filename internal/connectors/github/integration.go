@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	gosync "sync"
 	"sync/atomic"
@@ -54,7 +54,7 @@ func (i *GitHubIntegration) InitEvents() []registry.Event {
 
 func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDeps) error {
 	started := time.Now()
-	log.Println("Syncing Github")
+	slog.Info("syncing GitHub", "org", i.org)
 
 	runID, err := deps.Q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
 		SourceKind: "github",
@@ -95,13 +95,13 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 
 	samlIdentities, err := i.client.ListOrgSAMLExternalIdentities(ctx, i.org)
 	if err != nil {
-		log.Printf("github: saml external identities lookup failed (org=%s): %v", i.org, err)
+		slog.Warn("github saml external identities lookup failed", "org", i.org, "err", err)
 		deps.Report(registry.Event{Source: "github", Stage: "resolve-emails", Message: fmt.Sprintf("saml identity lookup failed: %v", err), Err: err})
 		if errors.Is(err, ErrNoSAMLIdentityProvider) && strings.TrimSpace(i.enterprise) != "" {
-			log.Printf("github: trying enterprise external identities (enterprise=%s org=%s)", i.enterprise, i.org)
+			slog.Info("github trying enterprise external identities", "enterprise", i.enterprise, "org", i.org)
 			samlIdentities, err = i.client.ListEnterpriseSAMLExternalIdentities(ctx, i.enterprise)
 			if err != nil {
-				log.Printf("github: enterprise external identities lookup failed (enterprise=%s): %v", i.enterprise, err)
+				slog.Warn("github enterprise external identities lookup failed", "enterprise", i.enterprise, "err", err)
 				deps.Report(registry.Event{Source: "github", Stage: "resolve-emails", Message: fmt.Sprintf("enterprise saml identity lookup failed: %v", err), Err: err})
 			} else {
 				for _, identity := range samlIdentities {
@@ -136,7 +136,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 	if i.scim {
 		scimUsers, err := i.client.ListOrgSCIMUsers(ctx, i.org)
 		if err != nil {
-			log.Printf("github: scim users lookup failed (org=%s): %v", i.org, err)
+			slog.Warn("github scim users lookup failed", "org", i.org, "err", err)
 			deps.Report(registry.Event{Source: "github", Stage: "resolve-emails", Message: fmt.Sprintf("scim user lookup failed: %v", err), Err: err})
 		} else {
 			for _, u := range scimUsers {
@@ -148,7 +148,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 				}
 			}
 			if len(scimUsers) == 0 {
-				log.Printf("github: scim enabled but returned 0 users (org=%s)", i.org)
+				slog.Warn("github scim enabled but returned 0 users", "org", i.org)
 			}
 		}
 	}
@@ -213,7 +213,14 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 		}
 	}
 	deps.Report(registry.Event{Source: "github", Stage: "resolve-emails", Current: 1, Total: 1, Message: fmt.Sprintf("resolved %d/%d member emails via SAML/SCIM (total_with_email=%d scim=%t external_identities=%d scim_users=%d)", resolvedEmails, len(members), emailsWithValue, i.scim, len(externalByLogin), len(scimByUserName))})
-	log.Printf("github: resolved %d/%d member emails via SAML/SCIM (total_with_email=%d scim=%t external_identities=%d scim_users=%d)", resolvedEmails, len(members), emailsWithValue, i.scim, len(externalByLogin), len(scimByUserName))
+	slog.Info("github resolved member emails via SAML/SCIM",
+		"resolved", resolvedEmails,
+		"total_members", len(members),
+		"total_with_email", emailsWithValue,
+		"scim", i.scim,
+		"external_identities", len(externalByLogin),
+		"scim_users", len(scimByUserName),
+	)
 
 	deps.Report(registry.Event{Source: "github", Stage: "list-members", Current: 1, Total: 1, Message: fmt.Sprintf("found %d members (%d with email)", len(members), emailsWithValue)})
 	deps.Report(registry.Event{Source: "github", Stage: "write-members", Current: 0, Total: int64(len(members)), Message: fmt.Sprintf("writing %d members", len(members))})
@@ -457,6 +464,6 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		return err
 	}
-	log.Printf("github sync complete: %d members", len(members))
+	slog.Info("github sync complete", "org", i.org, "members", len(members))
 	return nil
 }

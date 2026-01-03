@@ -1,20 +1,25 @@
 package sync
 
 import (
-	"log"
+	"log/slog"
 
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 )
 
-// LogReporter is a simple reporter that logs events to the standard logger.
+// LogReporter is a simple reporter that logs events to the default slog logger.
 type LogReporter struct{}
 
 func (r *LogReporter) Report(e registry.Event) {
 	if e.Message != "" {
+		attrs := []any{"source", e.Source}
+		if e.Stage != "" {
+			attrs = append(attrs, "stage", e.Stage)
+		}
 		if e.Err != nil {
-			log.Printf("[%s] %s: %v", e.Source, e.Message, e.Err)
+			attrs = append(attrs, "err", e.Err)
+			slog.Error(e.Message, attrs...)
 		} else {
-			log.Printf("[%s] %s", e.Source, e.Message)
+			slog.Info(e.Message, attrs...)
 		}
 	}
 }

@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	"log"
+	"log/slog"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -30,13 +30,13 @@ var migrateCmd = &cobra.Command{
 
 		if err := m.Up(); err != nil {
 			if errors.Is(err, migrate.ErrNoChange) {
-				log.Println("No changes to apply")
+				slog.Info("no changes to apply")
 				return nil
 			}
 			return err
 		}
 
-		log.Println("Migrations applied successfully")
+		slog.Info("migrations applied successfully")
 		return nil
 	},
 }

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"path"
@@ -1396,7 +1396,7 @@ func datadogUserStatus(appUserID int64, externalID string, rawJSON []byte) strin
 		Status string `json:"status"`
 	}
 	if err := json.Unmarshal(rawJSON, &payload); err != nil {
-		log.Printf("datadog: app_user_id=%d external_id=%s: unable to parse user raw_json: %v", appUserID, strings.TrimSpace(externalID), err)
+		slog.Warn("datadog user raw_json parse failed", "app_user_id", appUserID, "external_id", strings.TrimSpace(externalID), "err", err)
 		return ""
 	}
 	return strings.TrimSpace(payload.Status)

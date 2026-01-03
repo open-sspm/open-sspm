@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -63,7 +63,7 @@ func runSeedRules(ctx context.Context) error {
 		return err
 	}
 
-	log.Printf("seeded %d rulesets", len(loaded))
+	slog.Info("seeded rulesets", "count", len(loaded))
 	return nil
 }
 
@@ -260,7 +260,7 @@ func seedRuleset(ctx context.Context, q *gen.Queries, ls LoadedRuleset) error {
 		return fmt.Errorf("deactivate missing rules for ruleset %s: %w", def.Key, err)
 	}
 
-	log.Printf("seeded ruleset %s (%d rules)", def.Key, len(ls.Rules))
+	slog.Info("seeded ruleset", "key", def.Key, "rules", len(ls.Rules))
 	return nil
 }
 
