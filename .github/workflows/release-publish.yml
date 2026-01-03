@@ -1,13 +1,11 @@
 name: Publish release artifacts
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
-      - "v*.*.*-*"
+  release:
+    types: [published, prereleased]
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -16,10 +14,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
 
       - name: Parse version
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -44,6 +47,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image (multi-arch)
+        id: docker_build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -72,3 +76,76 @@ jobs:
 
       - name: Push chart (OCI)
         run: helm push "dist/open-sspm-${{ steps.version.outputs.version }}.tgz" oci://ghcr.io/open-sspm/charts
+
+      - name: Checksums
+        run: |
+          sha256sum "dist/open-sspm-${{ steps.version.outputs.version }}.tgz" > dist/checksums.txt
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          files: |
+            dist/open-sspm-${{ steps.version.outputs.version }}.tgz
+            dist/checksums.txt
+
+      - name: Update release notes
+        uses: actions/github-script@v7
+        env:
+          TAG_NAME: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          IMAGE: ghcr.io/open-sspm/open-sspm:${{ steps.version.outputs.version }}
+          IMAGE_DIGEST: ${{ steps.docker_build.outputs.digest }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const release = context.payload.release;
+
+            const tag = process.env.TAG_NAME;
+            const version = process.env.VERSION;
+            const image = process.env.IMAGE;
+            const imageDigest = process.env.IMAGE_DIGEST;
+
+            const notes = await github.rest.repos.generateReleaseNotes({
+              owner,
+              repo,
+              tag_name: tag,
+            });
+
+            const artifactsLines = [
+              `- Container image: \`${image}\`${imageDigest ? ` (digest: \`${imageDigest}\`)` : ""}`,
+              `- Helm chart (OCI): \`oci://ghcr.io/open-sspm/charts/open-sspm\` (version \`${version}\`)`,
+              `- Helm chart archive: \`open-sspm-${version}.tgz\` (attached to this release)`,
+              `- Checksums: \`checksums.txt\` (attached to this release)`,
+            ].join("\n");
+
+            const generatedStart = "<!-- open-sspm:generated:start -->";
+            const generatedEnd = "<!-- open-sspm:generated:end -->";
+            const artifactsStart = "<!-- open-sspm:artifacts:start -->";
+            const artifactsEnd = "<!-- open-sspm:artifacts:end -->";
+
+            const generatedSection = `${generatedStart}\n${notes.data.body}\n${generatedEnd}`;
+            const artifactsSection = `${artifactsStart}\n## Artifacts\n${artifactsLines}\n${artifactsEnd}`;
+
+            const stripSection = (body, start, end) => {
+              const pattern = new RegExp(`${start}[\\s\\S]*?${end}\\n?`, "g");
+              return body.replace(pattern, "").trim();
+            };
+
+            let body = release.body || "";
+            body = stripSection(body, generatedStart, generatedEnd);
+            body = stripSection(body, artifactsStart, artifactsEnd);
+
+            const newBody = [body, generatedSection, artifactsSection]
+              .filter((s) => s && s.trim())
+              .join("\n\n");
+
+            await github.rest.repos.updateRelease({
+              owner,
+              repo,
+              release_id: release.id,
+              body: newBody,
+            });
