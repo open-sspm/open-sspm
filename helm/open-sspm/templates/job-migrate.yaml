@@ -22,7 +22,7 @@ spec:
         app.kubernetes.io/component: migrate
     spec:
       restartPolicy: Never
-      {{- if not .Values.serviceAccount.create }}
+      {{- if or (not .Values.serviceAccount.create) (not .Release.IsInstall) }}
       serviceAccountName: {{ include "open-sspm.serviceAccountName" . }}
       {{- end }}
       {{- with .Values.imagePullSecrets }}

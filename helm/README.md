@@ -58,6 +58,7 @@ Migrations are bundled in the Open-SSPM container image under `db/migrations/` a
 Notes:
 - Hooks run `pre-install,pre-upgrade` (migrations) so the schema is updated before the app rolls.
 - Build the image from this repo’s `Dockerfile` (it copies `db/migrations/` into the image).
+- On a **first install**, Helm `pre-install` hooks run before non-hook resources (including this chart’s ServiceAccount) are created. If you need the migrate/seed hook Jobs to run under a specific ServiceAccount (IRSA, locked-down clusters), pre-create it and set `serviceAccount.create=false` + `serviceAccount.name=<existing-sa>`.
 
 ### Seed rules (benchmark rulesets)
 
