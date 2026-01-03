@@ -10,6 +10,52 @@ ON CONFLICT (external_id) DO UPDATE SET
   updated_at = now()
 RETURNING *;
 
+-- name: UpsertOktaGroupsBulk :execrows
+WITH input AS (
+  SELECT
+    i,
+    (sqlc.arg(external_ids)::text[])[i] AS external_id,
+    (sqlc.arg(names)::text[])[i] AS name,
+    (sqlc.arg(types)::text[])[i] AS type,
+    (sqlc.arg(raw_jsons)::jsonb[])[i] AS raw_json
+  FROM generate_subscripts(sqlc.arg(external_ids)::text[], 1) AS s(i)
+),
+dedup AS (
+  SELECT DISTINCT ON (external_id)
+    external_id,
+    name,
+    type,
+    raw_json
+  FROM input
+  ORDER BY external_id, i DESC
+)
+INSERT INTO okta_groups (
+  external_id,
+  name,
+  type,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  updated_at
+)
+SELECT
+  input.external_id,
+  input.name,
+  input.type,
+  input.raw_json,
+  sqlc.arg(seen_in_run_id)::bigint,
+  now(),
+  now()
+FROM dedup input
+ON CONFLICT (external_id) DO UPDATE SET
+  name = EXCLUDED.name,
+  type = EXCLUDED.type,
+  raw_json = EXCLUDED.raw_json,
+  seen_in_run_id = EXCLUDED.seen_in_run_id,
+  seen_at = EXCLUDED.seen_at,
+  updated_at = now()
+;
+
 -- name: UpsertOktaApp :one
 INSERT INTO okta_apps (external_id, label, name, status, sign_on_mode, raw_json, seen_in_run_id, seen_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())
@@ -24,6 +70,62 @@ ON CONFLICT (external_id) DO UPDATE SET
   updated_at = now()
 RETURNING *;
 
+-- name: UpsertOktaAppsBulk :execrows
+WITH input AS (
+  SELECT
+    i,
+    (sqlc.arg(external_ids)::text[])[i] AS external_id,
+    (sqlc.arg(labels)::text[])[i] AS label,
+    (sqlc.arg(names)::text[])[i] AS name,
+    (sqlc.arg(statuses)::text[])[i] AS status,
+    (sqlc.arg(sign_on_modes)::text[])[i] AS sign_on_mode,
+    (sqlc.arg(raw_jsons)::jsonb[])[i] AS raw_json
+  FROM generate_subscripts(sqlc.arg(external_ids)::text[], 1) AS s(i)
+),
+dedup AS (
+  SELECT DISTINCT ON (external_id)
+    external_id,
+    label,
+    name,
+    status,
+    sign_on_mode,
+    raw_json
+  FROM input
+  ORDER BY external_id, i DESC
+)
+INSERT INTO okta_apps (
+  external_id,
+  label,
+  name,
+  status,
+  sign_on_mode,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  updated_at
+)
+SELECT
+  input.external_id,
+  input.label,
+  input.name,
+  input.status,
+  input.sign_on_mode,
+  input.raw_json,
+  sqlc.arg(seen_in_run_id)::bigint,
+  now(),
+  now()
+FROM dedup input
+ON CONFLICT (external_id) DO UPDATE SET
+  label = EXCLUDED.label,
+  name = EXCLUDED.name,
+  status = EXCLUDED.status,
+  sign_on_mode = EXCLUDED.sign_on_mode,
+  raw_json = EXCLUDED.raw_json,
+  seen_in_run_id = EXCLUDED.seen_in_run_id,
+  seen_at = EXCLUDED.seen_at,
+  updated_at = now()
+;
+
 -- name: DeleteOktaUserGroupsForIdpUser :exec
 DELETE FROM okta_user_groups WHERE idp_user_id = $1;
 
@@ -33,6 +135,35 @@ VALUES ($1, $2, $3, now())
 ON CONFLICT (idp_user_id, okta_group_id) DO UPDATE SET
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at;
+
+-- name: UpsertOktaUserGroupsBulkByExternalIDs :execrows
+WITH input AS (
+  SELECT
+    i,
+    (sqlc.arg(idp_user_external_ids)::text[])[i] AS idp_user_external_id,
+    (sqlc.arg(okta_group_external_ids)::text[])[i] AS okta_group_external_id
+  FROM generate_subscripts(sqlc.arg(idp_user_external_ids)::text[], 1) AS s(i)
+),
+dedup AS (
+  SELECT DISTINCT ON (idp_user_external_id, okta_group_external_id)
+    idp_user_external_id,
+    okta_group_external_id
+  FROM input
+  ORDER BY idp_user_external_id, okta_group_external_id, i DESC
+)
+INSERT INTO okta_user_groups (idp_user_id, okta_group_id, seen_in_run_id, seen_at)
+SELECT
+  iu.id,
+  og.id,
+  sqlc.arg(seen_in_run_id)::bigint,
+  now()
+FROM dedup d
+JOIN idp_users iu ON iu.external_id = d.idp_user_external_id
+JOIN okta_groups og ON og.external_id = d.okta_group_external_id
+ON CONFLICT (idp_user_id, okta_group_id) DO UPDATE SET
+  seen_in_run_id = EXCLUDED.seen_in_run_id,
+  seen_at = EXCLUDED.seen_at
+;
 
 -- name: DeleteOktaUserAppAssignmentsForIdpUser :exec
 DELETE FROM okta_user_app_assignments WHERE idp_user_id = $1;
@@ -48,6 +179,58 @@ ON CONFLICT (idp_user_id, okta_app_id) DO UPDATE SET
   seen_at = EXCLUDED.seen_at,
   updated_at = now();
 
+-- name: UpsertOktaUserAppAssignmentsBulkByExternalIDs :execrows
+WITH input AS (
+  SELECT
+    i,
+    (sqlc.arg(idp_user_external_ids)::text[])[i] AS idp_user_external_id,
+    (sqlc.arg(okta_app_external_ids)::text[])[i] AS okta_app_external_id,
+    (sqlc.arg(scopes)::text[])[i] AS scope,
+    (sqlc.arg(profile_jsons)::jsonb[])[i] AS profile_json,
+    (sqlc.arg(raw_jsons)::jsonb[])[i] AS raw_json
+  FROM generate_subscripts(sqlc.arg(idp_user_external_ids)::text[], 1) AS s(i)
+),
+dedup AS (
+  SELECT DISTINCT ON (idp_user_external_id, okta_app_external_id)
+    idp_user_external_id,
+    okta_app_external_id,
+    scope,
+    profile_json,
+    raw_json
+  FROM input
+  ORDER BY idp_user_external_id, okta_app_external_id, i DESC
+)
+INSERT INTO okta_user_app_assignments (
+  idp_user_id,
+  okta_app_id,
+  scope,
+  profile_json,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  updated_at
+)
+SELECT
+  iu.id,
+  oa.id,
+  input.scope,
+  input.profile_json,
+  input.raw_json,
+  sqlc.arg(seen_in_run_id)::bigint,
+  now(),
+  now()
+FROM dedup input
+JOIN idp_users iu ON iu.external_id = input.idp_user_external_id
+JOIN okta_apps oa ON oa.external_id = input.okta_app_external_id
+ON CONFLICT (idp_user_id, okta_app_id) DO UPDATE SET
+  scope = EXCLUDED.scope,
+  profile_json = EXCLUDED.profile_json,
+  raw_json = EXCLUDED.raw_json,
+  seen_in_run_id = EXCLUDED.seen_in_run_id,
+  seen_at = EXCLUDED.seen_at,
+  updated_at = now()
+;
+
 -- name: DeleteOktaAppGroupAssignmentsForApp :exec
 DELETE FROM okta_app_group_assignments WHERE okta_app_id = $1;
 
@@ -61,6 +244,58 @@ ON CONFLICT (okta_app_id, okta_group_id) DO UPDATE SET
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
   updated_at = now();
+
+-- name: UpsertOktaAppGroupAssignmentsBulkByExternalIDs :execrows
+WITH input AS (
+  SELECT
+    i,
+    (sqlc.arg(okta_app_external_ids)::text[])[i] AS okta_app_external_id,
+    (sqlc.arg(okta_group_external_ids)::text[])[i] AS okta_group_external_id,
+    (sqlc.arg(priorities)::int[])[i] AS priority,
+    (sqlc.arg(profile_jsons)::jsonb[])[i] AS profile_json,
+    (sqlc.arg(raw_jsons)::jsonb[])[i] AS raw_json
+  FROM generate_subscripts(sqlc.arg(okta_app_external_ids)::text[], 1) AS s(i)
+),
+dedup AS (
+  SELECT DISTINCT ON (okta_app_external_id, okta_group_external_id)
+    okta_app_external_id,
+    okta_group_external_id,
+    priority,
+    profile_json,
+    raw_json
+  FROM input
+  ORDER BY okta_app_external_id, okta_group_external_id, i DESC
+)
+INSERT INTO okta_app_group_assignments (
+  okta_app_id,
+  okta_group_id,
+  priority,
+  profile_json,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  updated_at
+)
+SELECT
+  oa.id,
+  og.id,
+  input.priority,
+  input.profile_json,
+  input.raw_json,
+  sqlc.arg(seen_in_run_id)::bigint,
+  now(),
+  now()
+FROM dedup input
+JOIN okta_apps oa ON oa.external_id = input.okta_app_external_id
+JOIN okta_groups og ON og.external_id = input.okta_group_external_id
+ON CONFLICT (okta_app_id, okta_group_id) DO UPDATE SET
+  priority = EXCLUDED.priority,
+  profile_json = EXCLUDED.profile_json,
+  raw_json = EXCLUDED.raw_json,
+  seen_in_run_id = EXCLUDED.seen_in_run_id,
+  seen_at = EXCLUDED.seen_at,
+  updated_at = now()
+;
 
 -- name: ListOktaGroupsForIdpUser :many
 SELECT og.*

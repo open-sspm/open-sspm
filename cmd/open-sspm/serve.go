@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -72,10 +73,18 @@ func runServe() error {
 		return err
 	}
 
-	runner := sync.NewDBRunner(pool, reg)
+	dbRunner := sync.NewDBRunner(pool, reg)
+	dbRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
 
-	var syncer handlers.SyncRunner = runner
-	if !cfg.ResyncEnabled {
+	var syncer handlers.SyncRunner
+	if cfg.ResyncEnabled {
+		switch strings.ToLower(strings.TrimSpace(cfg.ResyncMode)) {
+		case "signal":
+			syncer = sync.NewResyncSignalRunner(pool)
+		default:
+			syncer = sync.NewTryRunOnceLockRunner(pool, dbRunner)
+		}
+	} else {
 		syncer = nil
 	}
 

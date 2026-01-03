@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
@@ -13,10 +14,30 @@ import (
 )
 
 type DBRunner struct {
-	pool     *pgxpool.Pool
-	q        *gen.Queries
-	registry *registry.ConnectorRegistry
-	reporter registry.Reporter
+	pool           *pgxpool.Pool
+	q              *gen.Queries
+	registry       *registry.ConnectorRegistry
+	reporter       registry.Reporter
+	policy         *RunPolicy
+	globalEvalMode string
+}
+
+type integrationCandidate struct {
+	integration registry.Integration
+	kind        string
+	runKind     string
+	runName     string
+}
+
+type syncRunHistoryKey struct {
+	kind string
+	name string
+}
+
+type syncRunHistory struct {
+	status          string
+	finishedAt      time.Time
+	finishedAtValid bool
 }
 
 func NewDBRunner(pool *pgxpool.Pool, reg *registry.ConnectorRegistry) *DBRunner {
@@ -30,6 +51,14 @@ func NewDBRunner(pool *pgxpool.Pool, reg *registry.ConnectorRegistry) *DBRunner 
 
 func (r *DBRunner) SetReporter(reporter registry.Reporter) {
 	r.reporter = reporter
+}
+
+func (r *DBRunner) SetRunPolicy(policy RunPolicy) {
+	r.policy = &policy
+}
+
+func (r *DBRunner) SetGlobalEvalMode(mode string) {
+	r.globalEvalMode = strings.TrimSpace(mode)
 }
 
 func (r *DBRunner) RunOnce(ctx context.Context) error {
@@ -46,14 +75,20 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 	if r.reporter != nil {
 		orchestrator.SetReporter(r.reporter)
 	}
+	if strings.TrimSpace(r.globalEvalMode) != "" {
+		orchestrator.SetGlobalEvalMode(r.globalEvalMode)
+	}
 
+	forcedSync := IsForcedSync(ctx)
 	var (
 		errList          []error
 		integrationCount int
 		enabledKinds     []string
 		disabledKinds    []string
 		skippedKinds     []string
+		deferred         []string
 		planned          []string
+		candidates       []integrationCandidate
 	)
 
 	for _, cfgRow := range configs {
@@ -101,13 +136,66 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 			continue
 		}
 
-		if err := orchestrator.AddIntegration(integration); err != nil {
+		runKind := strings.ToLower(strings.TrimSpace(integration.Kind()))
+		runName := strings.TrimSpace(integration.Name())
+		candidates = append(candidates, integrationCandidate{
+			integration: integration,
+			kind:        kind,
+			runKind:     runKind,
+			runName:     runName,
+		})
+	}
+
+	var historyBySource map[syncRunHistoryKey][]syncRunHistory
+	if r.policy != nil && !forcedSync && len(candidates) > 0 {
+		keys := make([]syncRunHistoryKey, 0, len(candidates))
+		for _, candidate := range candidates {
+			if candidate.runKind == "" || candidate.runName == "" {
+				continue
+			}
+			keys = append(keys, syncRunHistoryKey{kind: candidate.runKind, name: candidate.runName})
+		}
+		if len(keys) > 0 {
+			var historyErr error
+			historyBySource, historyErr = r.listRecentFinishedSyncRunsForSources(ctx, keys)
+			if historyErr != nil {
+				slog.Warn("sync history lookup failed; falling back to per-integration queries", "err", historyErr)
+				historyBySource = nil
+			}
+		}
+	}
+
+	for _, candidate := range candidates {
+		if r.policy != nil && !forcedSync {
+			var (
+				shouldRun bool
+				reason    string
+				err       error
+			)
+			if historyBySource != nil {
+				history := historyBySource[syncRunHistoryKey{kind: candidate.runKind, name: candidate.runName}]
+				shouldRun, reason, err = r.shouldRunIntegrationFromHistory(candidate.runKind, candidate.runName, history)
+			} else {
+				shouldRun, reason, err = r.shouldRunIntegration(ctx, candidate.runKind, candidate.runName)
+			}
+			if err != nil {
+				errList = append(errList, fmt.Errorf("%s scheduling: %w", candidate.kind, err))
+				skippedKinds = append(skippedKinds, candidate.kind)
+				continue
+			}
+			if !shouldRun {
+				deferred = append(deferred, fmt.Sprintf("%s/%s (%s)", candidate.runKind, candidate.runName, reason))
+				continue
+			}
+		}
+
+		if err := orchestrator.AddIntegration(candidate.integration); err != nil {
 			errList = append(errList, err)
-			skippedKinds = append(skippedKinds, kind)
+			skippedKinds = append(skippedKinds, candidate.kind)
 			continue
 		}
 		integrationCount++
-		planned = append(planned, strings.TrimSpace(integration.Kind())+"/"+strings.TrimSpace(integration.Name()))
+		planned = append(planned, strings.TrimSpace(candidate.integration.Kind())+"/"+strings.TrimSpace(candidate.integration.Name()))
 	}
 
 	if r.reporter != nil {
@@ -120,6 +208,9 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 		if len(skippedKinds) > 0 {
 			r.reporter.Report(registry.Event{Source: "sync", Stage: "plan", Message: "skipped connectors: " + strings.Join(skippedKinds, ", ")})
 		}
+		if len(deferred) > 0 {
+			r.reporter.Report(registry.Event{Source: "sync", Stage: "plan", Message: "deferred integrations: " + strings.Join(deferred, ", ")})
+		}
 		if len(planned) > 0 {
 			r.reporter.Report(registry.Event{Source: "sync", Stage: "plan", Message: "planned integrations: " + strings.Join(planned, ", ")})
 		}
@@ -129,6 +220,9 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 		if len(errList) > 0 {
 			return errors.Join(ErrNoEnabledConnectors, errors.Join(errList...))
 		}
+		if len(deferred) > 0 {
+			return ErrNoConnectorsDue
+		}
 		return ErrNoEnabledConnectors
 	}
 
@@ -137,4 +231,165 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 		return errors.Join(runErr, errors.Join(errList...))
 	}
 	return runErr
+}
+
+func (r *DBRunner) shouldRunIntegration(ctx context.Context, kind, name string) (bool, string, error) {
+	if r == nil || r.q == nil || r.policy == nil {
+		return true, "", nil
+	}
+	if IsForcedSync(ctx) {
+		return true, "", nil
+	}
+
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	name = strings.TrimSpace(name)
+	if kind == "" || name == "" {
+		return true, "", nil
+	}
+
+	history, err := r.q.ListRecentFinishedSyncRunsBySource(ctx, gen.ListRecentFinishedSyncRunsBySourceParams{
+		SourceKind: kind,
+		SourceName: name,
+		Limit:      r.policy.recentCap(),
+	})
+	if err != nil {
+		return false, "", err
+	}
+	parsed := make([]syncRunHistory, 0, len(history))
+	for _, run := range history {
+		parsed = append(parsed, syncRunHistory{
+			status:          run.Status,
+			finishedAt:      run.FinishedAt.Time,
+			finishedAtValid: run.FinishedAt.Valid,
+		})
+	}
+
+	return r.shouldRunIntegrationFromHistory(kind, name, parsed)
+}
+
+func (r *DBRunner) listRecentFinishedSyncRunsForSources(ctx context.Context, sources []syncRunHistoryKey) (map[syncRunHistoryKey][]syncRunHistory, error) {
+	if r == nil || r.q == nil || r.policy == nil {
+		return map[syncRunHistoryKey][]syncRunHistory{}, nil
+	}
+
+	unique := make(map[syncRunHistoryKey]struct{}, len(sources))
+	for _, source := range sources {
+		kind := strings.ToLower(strings.TrimSpace(source.kind))
+		name := strings.TrimSpace(source.name)
+		if kind == "" || name == "" {
+			continue
+		}
+		unique[syncRunHistoryKey{kind: kind, name: name}] = struct{}{}
+	}
+	if len(unique) == 0 {
+		return map[syncRunHistoryKey][]syncRunHistory{}, nil
+	}
+
+	sourceKinds := make([]string, 0, len(unique))
+	sourceNames := make([]string, 0, len(unique))
+	for key := range unique {
+		sourceKinds = append(sourceKinds, key.kind)
+		sourceNames = append(sourceNames, key.name)
+	}
+
+	rows, err := r.q.ListRecentFinishedSyncRunsForSources(ctx, gen.ListRecentFinishedSyncRunsForSourcesParams{
+		LimitRows:   r.policy.recentCap(),
+		SourceKinds: sourceKinds,
+		SourceNames: sourceNames,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	historyBySource := make(map[syncRunHistoryKey][]syncRunHistory, len(unique))
+	for _, row := range rows {
+		key := syncRunHistoryKey{kind: row.SourceKind, name: row.SourceName}
+		historyBySource[key] = append(historyBySource[key], syncRunHistory{
+			status:          row.Status,
+			finishedAt:      row.FinishedAt.Time,
+			finishedAtValid: row.FinishedAt.Valid,
+		})
+	}
+	return historyBySource, nil
+}
+
+func (r *DBRunner) shouldRunIntegrationFromHistory(kind, name string, history []syncRunHistory) (bool, string, error) {
+	if r == nil || r.policy == nil {
+		return true, "", nil
+	}
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	name = strings.TrimSpace(name)
+	if kind == "" || name == "" {
+		return true, "", nil
+	}
+
+	now := r.policy.now()
+	interval := r.policy.intervalForKind(kind)
+
+	if len(history) == 0 {
+		return true, "no history", nil
+	}
+
+	latest := history[0]
+	if !latest.finishedAtValid {
+		return true, "no finished_at", nil
+	}
+
+	var (
+		lastSuccessAt time.Time
+		failures      int
+	)
+	for _, run := range history {
+		if !run.finishedAtValid {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(run.status), "success") {
+			lastSuccessAt = run.finishedAt
+			break
+		}
+		failures++
+	}
+
+	var (
+		intervalDue  = true
+		intervalNext time.Time
+	)
+	if interval > 0 && failures == 0 && !lastSuccessAt.IsZero() {
+		intervalNext = lastSuccessAt.Add(interval)
+		intervalDue = !now.Before(intervalNext)
+	}
+
+	var (
+		backoffDue  = true
+		backoffNext time.Time
+	)
+	if failures > 0 && r.policy.FailureBackoffBase > 0 {
+		delay := failureBackoffDelay(r.policy.FailureBackoffBase, failures, r.policy.FailureBackoffMax)
+		if delay > 0 {
+			backoffNext = latest.finishedAt.Add(delay)
+			backoffDue = !now.Before(backoffNext)
+		}
+	}
+
+	if intervalDue && backoffDue {
+		return true, "due", nil
+	}
+
+	next := time.Time{}
+	if !intervalDue {
+		next = intervalNext
+	}
+	if !backoffDue {
+		if next.IsZero() || backoffNext.After(next) {
+			next = backoffNext
+		}
+	}
+
+	if !backoffDue && !next.IsZero() {
+		return false, fmt.Sprintf("backoff until %s (failures=%d)", next.Format(time.RFC3339), failures), nil
+	}
+	if !intervalDue && !next.IsZero() {
+		return false, fmt.Sprintf("not due until %s", next.Format(time.RFC3339)), nil
+	}
+	return false, "not due", nil
 }

@@ -7,6 +7,8 @@ package gen
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const acquireAdvisoryLock = `-- name: AcquireAdvisoryLock :exec
@@ -59,6 +61,157 @@ func (q *Queries) FailSyncRun(ctx context.Context, arg FailSyncRunParams) error 
 	return err
 }
 
+const getLatestFinishedSyncRunBySource = `-- name: GetLatestFinishedSyncRunBySource :one
+SELECT id, status, finished_at, error_kind
+FROM sync_runs
+WHERE source_kind = $1
+  AND source_name = $2
+  AND finished_at IS NOT NULL
+ORDER BY finished_at DESC
+LIMIT 1
+`
+
+type GetLatestFinishedSyncRunBySourceParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+}
+
+type GetLatestFinishedSyncRunBySourceRow struct {
+	ID         int64              `json:"id"`
+	Status     string             `json:"status"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	ErrorKind  string             `json:"error_kind"`
+}
+
+func (q *Queries) GetLatestFinishedSyncRunBySource(ctx context.Context, arg GetLatestFinishedSyncRunBySourceParams) (GetLatestFinishedSyncRunBySourceRow, error) {
+	row := q.db.QueryRow(ctx, getLatestFinishedSyncRunBySource, arg.SourceKind, arg.SourceName)
+	var i GetLatestFinishedSyncRunBySourceRow
+	err := row.Scan(
+		&i.ID,
+		&i.Status,
+		&i.FinishedAt,
+		&i.ErrorKind,
+	)
+	return i, err
+}
+
+const listRecentFinishedSyncRunsBySource = `-- name: ListRecentFinishedSyncRunsBySource :many
+SELECT id, status, finished_at, error_kind
+FROM sync_runs
+WHERE source_kind = $1
+  AND source_name = $2
+  AND finished_at IS NOT NULL
+ORDER BY finished_at DESC
+LIMIT $3
+`
+
+type ListRecentFinishedSyncRunsBySourceParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+	Limit      int32  `json:"limit"`
+}
+
+type ListRecentFinishedSyncRunsBySourceRow struct {
+	ID         int64              `json:"id"`
+	Status     string             `json:"status"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	ErrorKind  string             `json:"error_kind"`
+}
+
+func (q *Queries) ListRecentFinishedSyncRunsBySource(ctx context.Context, arg ListRecentFinishedSyncRunsBySourceParams) ([]ListRecentFinishedSyncRunsBySourceRow, error) {
+	rows, err := q.db.Query(ctx, listRecentFinishedSyncRunsBySource, arg.SourceKind, arg.SourceName, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRecentFinishedSyncRunsBySourceRow
+	for rows.Next() {
+		var i ListRecentFinishedSyncRunsBySourceRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Status,
+			&i.FinishedAt,
+			&i.ErrorKind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRecentFinishedSyncRunsForSources = `-- name: ListRecentFinishedSyncRunsForSources :many
+WITH requested AS (
+  SELECT k.kind AS source_kind, n.name AS source_name
+  FROM unnest($2::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($3::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+ranked AS (
+  SELECT
+    r.source_kind,
+    r.source_name,
+    r.id,
+    r.status,
+    r.finished_at,
+    r.error_kind,
+    row_number() OVER (PARTITION BY r.source_kind, r.source_name ORDER BY r.finished_at DESC) AS rn
+  FROM sync_runs r
+  JOIN requested q
+    ON r.source_kind = q.source_kind
+   AND r.source_name = q.source_name
+  WHERE r.finished_at IS NOT NULL
+)
+SELECT source_kind, source_name, id, status, finished_at, error_kind
+FROM ranked
+WHERE rn <= $1::int
+ORDER BY source_kind, source_name, finished_at DESC
+`
+
+type ListRecentFinishedSyncRunsForSourcesParams struct {
+	LimitRows   int32    `json:"limit_rows"`
+	SourceKinds []string `json:"source_kinds"`
+	SourceNames []string `json:"source_names"`
+}
+
+type ListRecentFinishedSyncRunsForSourcesRow struct {
+	SourceKind string             `json:"source_kind"`
+	SourceName string             `json:"source_name"`
+	ID         int64              `json:"id"`
+	Status     string             `json:"status"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	ErrorKind  string             `json:"error_kind"`
+}
+
+func (q *Queries) ListRecentFinishedSyncRunsForSources(ctx context.Context, arg ListRecentFinishedSyncRunsForSourcesParams) ([]ListRecentFinishedSyncRunsForSourcesRow, error) {
+	rows, err := q.db.Query(ctx, listRecentFinishedSyncRunsForSources, arg.LimitRows, arg.SourceKinds, arg.SourceNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRecentFinishedSyncRunsForSourcesRow
+	for rows.Next() {
+		var i ListRecentFinishedSyncRunsForSourcesRow
+		if err := rows.Scan(
+			&i.SourceKind,
+			&i.SourceName,
+			&i.ID,
+			&i.Status,
+			&i.FinishedAt,
+			&i.ErrorKind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markSyncRunSuccess = `-- name: MarkSyncRunSuccess :exec
 UPDATE sync_runs
 SET status = 'success', finished_at = now(), message = '', stats = $2, error_kind = ''
@@ -75,6 +228,15 @@ func (q *Queries) MarkSyncRunSuccess(ctx context.Context, arg MarkSyncRunSuccess
 	return err
 }
 
+const notifyResyncRequested = `-- name: NotifyResyncRequested :exec
+SELECT pg_notify('open_sspm_resync_requested', '')
+`
+
+func (q *Queries) NotifyResyncRequested(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, notifyResyncRequested)
+	return err
+}
+
 const releaseAdvisoryLock = `-- name: ReleaseAdvisoryLock :exec
 SELECT pg_advisory_unlock($1::bigint)
 `
@@ -82,4 +244,15 @@ SELECT pg_advisory_unlock($1::bigint)
 func (q *Queries) ReleaseAdvisoryLock(ctx context.Context, dollar_1 int64) error {
 	_, err := q.db.Exec(ctx, releaseAdvisoryLock, dollar_1)
 	return err
+}
+
+const tryAcquireAdvisoryLock = `-- name: TryAcquireAdvisoryLock :one
+SELECT pg_try_advisory_lock($1::bigint)
+`
+
+func (q *Queries) TryAcquireAdvisoryLock(ctx context.Context, dollar_1 int64) (bool, error) {
+	row := q.db.QueryRow(ctx, tryAcquireAdvisoryLock, dollar_1)
+	var pg_try_advisory_lock bool
+	err := row.Scan(&pg_try_advisory_lock)
+	return pg_try_advisory_lock, err
 }

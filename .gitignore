@@ -11,6 +11,7 @@ air_errors.log
 
 # Cache
 .cache
+.gocache/
 
 # IDE
 .vscode

@@ -31,6 +31,18 @@ func (h *Handlers) HandleSettings(c echo.Context) error {
 			Title:   "Resync complete",
 			Message: "The data sync finished successfully.",
 		}
+	case "queued":
+		banner = &viewmodels.ResyncBanner{
+			Class:   "alert-success",
+			Title:   "Resync queued",
+			Message: "A worker will pick up the sync shortly.",
+		}
+	case "busy":
+		banner = &viewmodels.ResyncBanner{
+			Class:   "alert-warning",
+			Title:   "Resync already running",
+			Message: "A sync is already in progress. Try again shortly.",
+		}
 	case "error":
 		banner = &viewmodels.ResyncBanner{
 			Class:   "alert-error",
@@ -426,6 +438,12 @@ func (h *Handlers) HandleResync(c echo.Context) error {
 		return c.Redirect(http.StatusSeeOther, "/settings?resync=disabled")
 	}
 	if err := h.Syncer.RunOnce(c.Request().Context()); err != nil {
+		if errors.Is(err, sync.ErrSyncQueued) {
+			return c.Redirect(http.StatusSeeOther, "/settings?resync=queued")
+		}
+		if errors.Is(err, sync.ErrSyncAlreadyRunning) {
+			return c.Redirect(http.StatusSeeOther, "/settings?resync=busy")
+		}
 		if errors.Is(err, sync.ErrNoEnabledConnectors) {
 			return c.Redirect(http.StatusSeeOther, "/settings?resync=disabled")
 		}

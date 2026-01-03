@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/matching"
 )
 
 type GitHubIntegration struct {
@@ -78,20 +79,6 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 		userEmail    string
 	}
 	externalByLogin := make(map[string]externalIdentity)
-	// Note: ListOrgSAMLExternalIdentities is not exported in Client?
-	// I need to check github.go again. It seems I missed some methods when reading github.go?
-	// Or maybe they are missing in the file I read?
-	// Let's assume they exist for now, or I'll fix it.
-	// Wait, I read github.go and it ended at line 590.
-	// ListOrgSAMLExternalIdentities was NOT in the output of read_file for github.go.
-	// It might be in another file in the same package?
-	// Let's check file list.
-
-	// For now, I will comment out the SAML/SCIM logic if methods are missing, or assume they are there.
-	// But wait, the original code used them. So they must exist.
-	// Maybe identity.go?
-
-	// Let's check internal/connectors/github/identity.go
 
 	samlIdentities, err := i.client.ListOrgSAMLExternalIdentities(ctx, i.org)
 	if err != nil {
@@ -349,7 +336,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 			display = externalID
 		}
 		externalIDs = append(externalIDs, externalID)
-		emails = append(emails, strings.TrimSpace(member.Email))
+		emails = append(emails, matching.NormalizeEmail(member.Email))
 		displayNames = append(displayNames, display)
 		rawJSONs = append(rawJSONs, member.RawJSON)
 		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
