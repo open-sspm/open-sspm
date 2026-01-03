@@ -26,16 +26,7 @@ jobs:
             build
             ci
             chore
-          scopes: |
-            okta
-            github
-            datadog
-            aws
-            rules
-            sync
-            http
-            db
-            ui
-            helm
-            docker
+
           requireScope: false
+          scopes: |
+            .*

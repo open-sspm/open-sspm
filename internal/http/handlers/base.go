@@ -19,6 +19,14 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
+const (
+	// ContextKeyRequestID stores the request id (X-Request-ID) for logging and client error references.
+	ContextKeyRequestID = "request_id"
+
+	// InternalErrorCode is a stable error code safe to return to clients.
+	InternalErrorCode = "INTERNAL_ERROR"
+)
+
 // SyncRunner is the interface for triggering manual syncs.
 type SyncRunner interface {
 	RunOnce(context.Context) error
@@ -131,7 +139,23 @@ func (h *Handlers) RenderComponent(c echo.Context, component templ.Component) er
 
 // RenderError returns a plain text error response.
 func (h *Handlers) RenderError(c echo.Context, err error) error {
-	return c.String(http.StatusInternalServerError, err.Error())
+	requestID, _ := c.Get(ContextKeyRequestID).(string)
+	path := ""
+	if req := c.Request(); req != nil && req.URL != nil {
+		path = req.URL.Path
+	}
+	method := ""
+	if req := c.Request(); req != nil {
+		method = req.Method
+	}
+	c.Logger().Errorf("http error: request_id=%s method=%s path=%s ip=%s: %v", requestID, method, path, c.RealIP(), err)
+
+	msg := "Internal server error."
+	if requestID != "" {
+		msg = fmt.Sprintf("%s Reference: %s.", msg, requestID)
+	}
+	msg = fmt.Sprintf("%s Code: %s.", msg, InternalErrorCode)
+	return c.String(http.StatusInternalServerError, msg)
 }
 
 // RenderNotFound returns a 404 response.

@@ -1,5 +1,5 @@
 
-<p style="text-align:center;">Made with love in Paris 🇫🇷</p>
+<div style="text-align: center;">Made with love in Paris 🇫🇷</div>
 
 # Open-SSPM
 
