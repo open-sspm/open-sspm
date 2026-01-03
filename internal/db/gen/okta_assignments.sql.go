@@ -81,33 +81,6 @@ func (q *Queries) CountOktaAppsByQuery(ctx context.Context, query string) (int64
 	return count, err
 }
 
-const deleteOktaAppGroupAssignmentsForApp = `-- name: DeleteOktaAppGroupAssignmentsForApp :exec
-DELETE FROM okta_app_group_assignments WHERE okta_app_id = $1
-`
-
-func (q *Queries) DeleteOktaAppGroupAssignmentsForApp(ctx context.Context, oktaAppID int64) error {
-	_, err := q.db.Exec(ctx, deleteOktaAppGroupAssignmentsForApp, oktaAppID)
-	return err
-}
-
-const deleteOktaUserAppAssignmentsForIdpUser = `-- name: DeleteOktaUserAppAssignmentsForIdpUser :exec
-DELETE FROM okta_user_app_assignments WHERE idp_user_id = $1
-`
-
-func (q *Queries) DeleteOktaUserAppAssignmentsForIdpUser(ctx context.Context, idpUserID int64) error {
-	_, err := q.db.Exec(ctx, deleteOktaUserAppAssignmentsForIdpUser, idpUserID)
-	return err
-}
-
-const deleteOktaUserGroupsForIdpUser = `-- name: DeleteOktaUserGroupsForIdpUser :exec
-DELETE FROM okta_user_groups WHERE idp_user_id = $1
-`
-
-func (q *Queries) DeleteOktaUserGroupsForIdpUser(ctx context.Context, idpUserID int64) error {
-	_, err := q.db.Exec(ctx, deleteOktaUserGroupsForIdpUser, idpUserID)
-	return err
-}
-
 const getOktaAppByExternalIDWithIntegration = `-- name: GetOktaAppByExternalIDWithIntegration :one
 SELECT
   oa.id,
@@ -220,91 +193,6 @@ func (q *Queries) GetOktaUserAppAssignmentForIdpUserByOktaAppExternalID(ctx cont
 		&i.IntegrationKind,
 	)
 	return i, err
-}
-
-const insertOktaAppGroupAssignment = `-- name: InsertOktaAppGroupAssignment :exec
-INSERT INTO okta_app_group_assignments (okta_app_id, okta_group_id, priority, profile_json, raw_json, seen_in_run_id, seen_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, now(), now())
-ON CONFLICT (okta_app_id, okta_group_id) DO UPDATE SET
-  priority = EXCLUDED.priority,
-  profile_json = EXCLUDED.profile_json,
-  raw_json = EXCLUDED.raw_json,
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at,
-  updated_at = now()
-`
-
-type InsertOktaAppGroupAssignmentParams struct {
-	OktaAppID   int64       `json:"okta_app_id"`
-	OktaGroupID int64       `json:"okta_group_id"`
-	Priority    int32       `json:"priority"`
-	ProfileJson []byte      `json:"profile_json"`
-	RawJson     []byte      `json:"raw_json"`
-	SeenInRunID pgtype.Int8 `json:"seen_in_run_id"`
-}
-
-func (q *Queries) InsertOktaAppGroupAssignment(ctx context.Context, arg InsertOktaAppGroupAssignmentParams) error {
-	_, err := q.db.Exec(ctx, insertOktaAppGroupAssignment,
-		arg.OktaAppID,
-		arg.OktaGroupID,
-		arg.Priority,
-		arg.ProfileJson,
-		arg.RawJson,
-		arg.SeenInRunID,
-	)
-	return err
-}
-
-const insertOktaUserAppAssignment = `-- name: InsertOktaUserAppAssignment :exec
-INSERT INTO okta_user_app_assignments (idp_user_id, okta_app_id, scope, profile_json, raw_json, seen_in_run_id, seen_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, now(), now())
-ON CONFLICT (idp_user_id, okta_app_id) DO UPDATE SET
-  scope = EXCLUDED.scope,
-  profile_json = EXCLUDED.profile_json,
-  raw_json = EXCLUDED.raw_json,
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at,
-  updated_at = now()
-`
-
-type InsertOktaUserAppAssignmentParams struct {
-	IdpUserID   int64       `json:"idp_user_id"`
-	OktaAppID   int64       `json:"okta_app_id"`
-	Scope       string      `json:"scope"`
-	ProfileJson []byte      `json:"profile_json"`
-	RawJson     []byte      `json:"raw_json"`
-	SeenInRunID pgtype.Int8 `json:"seen_in_run_id"`
-}
-
-func (q *Queries) InsertOktaUserAppAssignment(ctx context.Context, arg InsertOktaUserAppAssignmentParams) error {
-	_, err := q.db.Exec(ctx, insertOktaUserAppAssignment,
-		arg.IdpUserID,
-		arg.OktaAppID,
-		arg.Scope,
-		arg.ProfileJson,
-		arg.RawJson,
-		arg.SeenInRunID,
-	)
-	return err
-}
-
-const insertOktaUserGroup = `-- name: InsertOktaUserGroup :exec
-INSERT INTO okta_user_groups (idp_user_id, okta_group_id, seen_in_run_id, seen_at)
-VALUES ($1, $2, $3, now())
-ON CONFLICT (idp_user_id, okta_group_id) DO UPDATE SET
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at
-`
-
-type InsertOktaUserGroupParams struct {
-	IdpUserID   int64       `json:"idp_user_id"`
-	OktaGroupID int64       `json:"okta_group_id"`
-	SeenInRunID pgtype.Int8 `json:"seen_in_run_id"`
-}
-
-func (q *Queries) InsertOktaUserGroup(ctx context.Context, arg InsertOktaUserGroupParams) error {
-	_, err := q.db.Exec(ctx, insertOktaUserGroup, arg.IdpUserID, arg.OktaGroupID, arg.SeenInRunID)
-	return err
 }
 
 const listOktaAppGrantingGroupsForIdpUserByOktaAppExternalID = `-- name: ListOktaAppGrantingGroupsForIdpUserByOktaAppExternalID :many
@@ -533,49 +421,6 @@ func (q *Queries) ListOktaAppUserAssignmentsPageByQuery(ctx context.Context, arg
 			&i.IdpUserStatus,
 			&i.Scope,
 			&i.ProfileJson,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listOktaApps = `-- name: ListOktaApps :many
-SELECT id, external_id, label, name, status, sign_on_mode, raw_json, created_at, updated_at, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id
-FROM okta_apps
-WHERE expired_at IS NULL AND last_observed_run_id IS NOT NULL
-ORDER BY label, name, external_id
-`
-
-func (q *Queries) ListOktaApps(ctx context.Context) ([]OktaApp, error) {
-	rows, err := q.db.Query(ctx, listOktaApps)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []OktaApp
-	for rows.Next() {
-		var i OktaApp
-		if err := rows.Scan(
-			&i.ID,
-			&i.ExternalID,
-			&i.Label,
-			&i.Name,
-			&i.Status,
-			&i.SignOnMode,
-			&i.RawJson,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.SeenInRunID,
-			&i.SeenAt,
-			&i.LastObservedRunID,
-			&i.LastObservedAt,
-			&i.ExpiredAt,
-			&i.ExpiredRunID,
 		); err != nil {
 			return nil, err
 		}
@@ -876,62 +721,6 @@ func (q *Queries) ListOktaUserAppAssignmentsForIdpUser(ctx context.Context, idpU
 	return items, nil
 }
 
-const upsertOktaApp = `-- name: UpsertOktaApp :one
-INSERT INTO okta_apps (external_id, label, name, status, sign_on_mode, raw_json, seen_in_run_id, seen_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())
-ON CONFLICT (external_id) DO UPDATE SET
-  label = EXCLUDED.label,
-  name = EXCLUDED.name,
-  status = EXCLUDED.status,
-  sign_on_mode = EXCLUDED.sign_on_mode,
-  raw_json = EXCLUDED.raw_json,
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at,
-  updated_at = now()
-RETURNING id, external_id, label, name, status, sign_on_mode, raw_json, created_at, updated_at, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id
-`
-
-type UpsertOktaAppParams struct {
-	ExternalID  string      `json:"external_id"`
-	Label       string      `json:"label"`
-	Name        string      `json:"name"`
-	Status      string      `json:"status"`
-	SignOnMode  string      `json:"sign_on_mode"`
-	RawJson     []byte      `json:"raw_json"`
-	SeenInRunID pgtype.Int8 `json:"seen_in_run_id"`
-}
-
-func (q *Queries) UpsertOktaApp(ctx context.Context, arg UpsertOktaAppParams) (OktaApp, error) {
-	row := q.db.QueryRow(ctx, upsertOktaApp,
-		arg.ExternalID,
-		arg.Label,
-		arg.Name,
-		arg.Status,
-		arg.SignOnMode,
-		arg.RawJson,
-		arg.SeenInRunID,
-	)
-	var i OktaApp
-	err := row.Scan(
-		&i.ID,
-		&i.ExternalID,
-		&i.Label,
-		&i.Name,
-		&i.Status,
-		&i.SignOnMode,
-		&i.RawJson,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.SeenInRunID,
-		&i.SeenAt,
-		&i.LastObservedRunID,
-		&i.LastObservedAt,
-		&i.ExpiredAt,
-		&i.ExpiredRunID,
-	)
-	return i, err
-}
-
 const upsertOktaAppGroupAssignmentsBulkByExternalIDs = `-- name: UpsertOktaAppGroupAssignmentsBulkByExternalIDs :execrows
 WITH input AS (
   SELECT
@@ -1088,54 +877,6 @@ func (q *Queries) UpsertOktaAppsBulk(ctx context.Context, arg UpsertOktaAppsBulk
 		return 0, err
 	}
 	return result.RowsAffected(), nil
-}
-
-const upsertOktaGroup = `-- name: UpsertOktaGroup :one
-INSERT INTO okta_groups (external_id, name, type, raw_json, seen_in_run_id, seen_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, now(), now())
-ON CONFLICT (external_id) DO UPDATE SET
-  name = EXCLUDED.name,
-  type = EXCLUDED.type,
-  raw_json = EXCLUDED.raw_json,
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at,
-  updated_at = now()
-RETURNING id, external_id, name, type, raw_json, created_at, updated_at, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id
-`
-
-type UpsertOktaGroupParams struct {
-	ExternalID  string      `json:"external_id"`
-	Name        string      `json:"name"`
-	Type        string      `json:"type"`
-	RawJson     []byte      `json:"raw_json"`
-	SeenInRunID pgtype.Int8 `json:"seen_in_run_id"`
-}
-
-func (q *Queries) UpsertOktaGroup(ctx context.Context, arg UpsertOktaGroupParams) (OktaGroup, error) {
-	row := q.db.QueryRow(ctx, upsertOktaGroup,
-		arg.ExternalID,
-		arg.Name,
-		arg.Type,
-		arg.RawJson,
-		arg.SeenInRunID,
-	)
-	var i OktaGroup
-	err := row.Scan(
-		&i.ID,
-		&i.ExternalID,
-		&i.Name,
-		&i.Type,
-		&i.RawJson,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.SeenInRunID,
-		&i.SeenAt,
-		&i.LastObservedRunID,
-		&i.LastObservedAt,
-		&i.ExpiredAt,
-		&i.ExpiredRunID,
-	)
-	return i, err
 }
 
 const upsertOktaGroupsBulk = `-- name: UpsertOktaGroupsBulk :execrows

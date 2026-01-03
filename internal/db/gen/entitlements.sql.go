@@ -11,64 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const deleteEntitlementsForAppUser = `-- name: DeleteEntitlementsForAppUser :exec
-DELETE FROM entitlements WHERE app_user_id = $1
-`
-
-func (q *Queries) DeleteEntitlementsForAppUser(ctx context.Context, appUserID int64) error {
-	_, err := q.db.Exec(ctx, deleteEntitlementsForAppUser, appUserID)
-	return err
-}
-
-const insertEntitlement = `-- name: InsertEntitlement :one
-INSERT INTO entitlements (app_user_id, kind, resource, permission, raw_json, seen_in_run_id, seen_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, now(), now())
-ON CONFLICT (app_user_id, kind, resource, permission) DO UPDATE SET
-  raw_json = EXCLUDED.raw_json,
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at,
-  updated_at = now()
-RETURNING id, app_user_id, kind, resource, permission, raw_json, created_at, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, updated_at
-`
-
-type InsertEntitlementParams struct {
-	AppUserID   int64       `json:"app_user_id"`
-	Kind        string      `json:"kind"`
-	Resource    string      `json:"resource"`
-	Permission  string      `json:"permission"`
-	RawJson     []byte      `json:"raw_json"`
-	SeenInRunID pgtype.Int8 `json:"seen_in_run_id"`
-}
-
-func (q *Queries) InsertEntitlement(ctx context.Context, arg InsertEntitlementParams) (Entitlement, error) {
-	row := q.db.QueryRow(ctx, insertEntitlement,
-		arg.AppUserID,
-		arg.Kind,
-		arg.Resource,
-		arg.Permission,
-		arg.RawJson,
-		arg.SeenInRunID,
-	)
-	var i Entitlement
-	err := row.Scan(
-		&i.ID,
-		&i.AppUserID,
-		&i.Kind,
-		&i.Resource,
-		&i.Permission,
-		&i.RawJson,
-		&i.CreatedAt,
-		&i.SeenInRunID,
-		&i.SeenAt,
-		&i.LastObservedRunID,
-		&i.LastObservedAt,
-		&i.ExpiredAt,
-		&i.ExpiredRunID,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const listEntitlementAccessBySourceAndResourceRef = `-- name: ListEntitlementAccessBySourceAndResourceRef :many
 SELECT
   e.id AS entitlement_id,

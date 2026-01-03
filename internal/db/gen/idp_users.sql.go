@@ -55,38 +55,6 @@ func (q *Queries) CountIdPUsersByQueryAndState(ctx context.Context, arg CountIdP
 	return count, err
 }
 
-const findIdPUserByEmail = `-- name: FindIdPUserByEmail :one
-SELECT id, external_id, email, display_name, status, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id
-FROM idp_users
-WHERE email = $1 AND expired_at IS NULL AND last_observed_run_id IS NOT NULL
-LIMIT 1
-`
-
-func (q *Queries) FindIdPUserByEmail(ctx context.Context, email string) (IdpUser, error) {
-	row := q.db.QueryRow(ctx, findIdPUserByEmail, email)
-	var i IdpUser
-	err := row.Scan(
-		&i.ID,
-		&i.ExternalID,
-		&i.Email,
-		&i.DisplayName,
-		&i.Status,
-		&i.RawJson,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.LastLoginAt,
-		&i.LastLoginIp,
-		&i.LastLoginRegion,
-		&i.SeenInRunID,
-		&i.SeenAt,
-		&i.LastObservedRunID,
-		&i.LastObservedAt,
-		&i.ExpiredAt,
-		&i.ExpiredRunID,
-	)
-	return i, err
-}
-
 const getIdPUser = `-- name: GetIdPUser :one
 SELECT id, external_id, email, display_name, status, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id
 FROM idp_users
@@ -127,58 +95,6 @@ ORDER BY id ASC
 
 func (q *Queries) ListIdPUsers(ctx context.Context) ([]IdpUser, error) {
 	rows, err := q.db.Query(ctx, listIdPUsers)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []IdpUser
-	for rows.Next() {
-		var i IdpUser
-		if err := rows.Scan(
-			&i.ID,
-			&i.ExternalID,
-			&i.Email,
-			&i.DisplayName,
-			&i.Status,
-			&i.RawJson,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.LastLoginAt,
-			&i.LastLoginIp,
-			&i.LastLoginRegion,
-			&i.SeenInRunID,
-			&i.SeenAt,
-			&i.LastObservedRunID,
-			&i.LastObservedAt,
-			&i.ExpiredAt,
-			&i.ExpiredRunID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listIdPUsersByStatus = `-- name: ListIdPUsersByStatus :many
-SELECT id, external_id, email, display_name, status, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id
-FROM idp_users
-WHERE
-  expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-  AND (
-  (COALESCE($1::text, '') = '')
-  OR ($1::text = 'active' AND status = 'ACTIVE')
-  OR ($1::text = 'inactive' AND status <> 'ACTIVE')
-  )
-ORDER BY id ASC
-`
-
-func (q *Queries) ListIdPUsersByStatus(ctx context.Context, dollar_1 string) ([]IdpUser, error) {
-	rows, err := q.db.Query(ctx, listIdPUsersByStatus, dollar_1)
 	if err != nil {
 		return nil, err
 	}
@@ -332,82 +248,6 @@ func (q *Queries) ListIdPUsersPageByQueryAndState(ctx context.Context, arg ListI
 		return nil, err
 	}
 	return items, nil
-}
-
-const upsertIdPUser = `-- name: UpsertIdPUser :one
-INSERT INTO idp_users (external_id, email, display_name, status, raw_json, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, updated_at)
-VALUES (
-  $1::text,
-  lower(trim($2::text)),
-  $3::text,
-  $4::text,
-  $5::jsonb,
-  $6::timestamptz,
-  $7::text,
-  $8::text,
-  $9::bigint,
-  now(),
-  now()
-)
-ON CONFLICT (external_id) DO UPDATE SET
-  email = EXCLUDED.email,
-  display_name = EXCLUDED.display_name,
-  status = EXCLUDED.status,
-  raw_json = EXCLUDED.raw_json,
-  last_login_at = COALESCE(EXCLUDED.last_login_at, idp_users.last_login_at),
-  last_login_ip = COALESCE(NULLIF(EXCLUDED.last_login_ip, ''), idp_users.last_login_ip),
-  last_login_region = COALESCE(NULLIF(EXCLUDED.last_login_region, ''), idp_users.last_login_region),
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at,
-  updated_at = now()
-RETURNING id, external_id, email, display_name, status, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id
-`
-
-type UpsertIdPUserParams struct {
-	ExternalID      string             `json:"external_id"`
-	Email           string             `json:"email"`
-	DisplayName     string             `json:"display_name"`
-	Status          string             `json:"status"`
-	RawJson         []byte             `json:"raw_json"`
-	LastLoginAt     pgtype.Timestamptz `json:"last_login_at"`
-	LastLoginIp     string             `json:"last_login_ip"`
-	LastLoginRegion string             `json:"last_login_region"`
-	SeenInRunID     int64              `json:"seen_in_run_id"`
-}
-
-func (q *Queries) UpsertIdPUser(ctx context.Context, arg UpsertIdPUserParams) (IdpUser, error) {
-	row := q.db.QueryRow(ctx, upsertIdPUser,
-		arg.ExternalID,
-		arg.Email,
-		arg.DisplayName,
-		arg.Status,
-		arg.RawJson,
-		arg.LastLoginAt,
-		arg.LastLoginIp,
-		arg.LastLoginRegion,
-		arg.SeenInRunID,
-	)
-	var i IdpUser
-	err := row.Scan(
-		&i.ID,
-		&i.ExternalID,
-		&i.Email,
-		&i.DisplayName,
-		&i.Status,
-		&i.RawJson,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.LastLoginAt,
-		&i.LastLoginIp,
-		&i.LastLoginRegion,
-		&i.SeenInRunID,
-		&i.SeenAt,
-		&i.LastObservedRunID,
-		&i.LastObservedAt,
-		&i.ExpiredAt,
-		&i.ExpiredRunID,
-	)
-	return i, err
 }
 
 const upsertIdPUsersBulk = `-- name: UpsertIdPUsersBulk :execrows

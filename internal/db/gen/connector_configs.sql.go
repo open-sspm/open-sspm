@@ -109,32 +109,3 @@ func (q *Queries) UpdateConnectorConfigEnabled(ctx context.Context, arg UpdateCo
 	)
 	return i, err
 }
-
-const upsertConnectorConfig = `-- name: UpsertConnectorConfig :one
-INSERT INTO connector_configs (kind, enabled, config)
-VALUES ($1, $2, $3)
-ON CONFLICT (kind) DO UPDATE
-SET enabled = EXCLUDED.enabled,
-    config = EXCLUDED.config,
-    updated_at = now()
-RETURNING kind, enabled, config, created_at, updated_at
-`
-
-type UpsertConnectorConfigParams struct {
-	Kind    string `json:"kind"`
-	Enabled bool   `json:"enabled"`
-	Config  []byte `json:"config"`
-}
-
-func (q *Queries) UpsertConnectorConfig(ctx context.Context, arg UpsertConnectorConfigParams) (ConnectorConfig, error) {
-	row := q.db.QueryRow(ctx, upsertConnectorConfig, arg.Kind, arg.Enabled, arg.Config)
-	var i ConnectorConfig
-	err := row.Scan(
-		&i.Kind,
-		&i.Enabled,
-		&i.Config,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}

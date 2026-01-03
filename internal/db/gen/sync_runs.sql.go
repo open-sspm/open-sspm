@@ -61,40 +61,6 @@ func (q *Queries) FailSyncRun(ctx context.Context, arg FailSyncRunParams) error 
 	return err
 }
 
-const getLatestFinishedSyncRunBySource = `-- name: GetLatestFinishedSyncRunBySource :one
-SELECT id, status, finished_at, error_kind
-FROM sync_runs
-WHERE source_kind = $1
-  AND source_name = $2
-  AND finished_at IS NOT NULL
-ORDER BY finished_at DESC
-LIMIT 1
-`
-
-type GetLatestFinishedSyncRunBySourceParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
-}
-
-type GetLatestFinishedSyncRunBySourceRow struct {
-	ID         int64              `json:"id"`
-	Status     string             `json:"status"`
-	FinishedAt pgtype.Timestamptz `json:"finished_at"`
-	ErrorKind  string             `json:"error_kind"`
-}
-
-func (q *Queries) GetLatestFinishedSyncRunBySource(ctx context.Context, arg GetLatestFinishedSyncRunBySourceParams) (GetLatestFinishedSyncRunBySourceRow, error) {
-	row := q.db.QueryRow(ctx, getLatestFinishedSyncRunBySource, arg.SourceKind, arg.SourceName)
-	var i GetLatestFinishedSyncRunBySourceRow
-	err := row.Scan(
-		&i.ID,
-		&i.Status,
-		&i.FinishedAt,
-		&i.ErrorKind,
-	)
-	return i, err
-}
-
 const listRecentFinishedSyncRunsBySource = `-- name: ListRecentFinishedSyncRunsBySource :many
 SELECT id, status, finished_at, error_kind
 FROM sync_runs

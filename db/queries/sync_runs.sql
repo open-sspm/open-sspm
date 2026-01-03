@@ -3,15 +3,6 @@ INSERT INTO sync_runs (source_kind, source_name, status, started_at)
 VALUES ($1, $2, 'running', now())
 RETURNING id;
 
--- name: GetLatestFinishedSyncRunBySource :one
-SELECT id, status, finished_at, error_kind
-FROM sync_runs
-WHERE source_kind = $1
-  AND source_name = $2
-  AND finished_at IS NOT NULL
-ORDER BY finished_at DESC
-LIMIT 1;
-
 -- name: ListRecentFinishedSyncRunsBySource :many
 SELECT id, status, finished_at, error_kind
 FROM sync_runs
