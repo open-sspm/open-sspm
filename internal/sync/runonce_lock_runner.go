@@ -40,7 +40,7 @@ func (r *runOnceLockRunner) RunOnce(ctx context.Context) error {
 	locked := false
 	defer func() {
 		if locked {
-			unlockCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			unlockCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 			defer cancel()
 			_ = lockQ.ReleaseAdvisoryLock(unlockCtx, globalRunOnceLockKey)
 		}

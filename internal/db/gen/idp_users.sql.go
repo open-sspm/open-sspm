@@ -355,8 +355,8 @@ ON CONFLICT (external_id) DO UPDATE SET
   status = EXCLUDED.status,
   raw_json = EXCLUDED.raw_json,
   last_login_at = COALESCE(EXCLUDED.last_login_at, idp_users.last_login_at),
-  last_login_ip = CASE WHEN EXCLUDED.last_login_ip <> '' THEN EXCLUDED.last_login_ip ELSE idp_users.last_login_ip END,
-  last_login_region = CASE WHEN EXCLUDED.last_login_region <> '' THEN EXCLUDED.last_login_region ELSE idp_users.last_login_region END,
+  last_login_ip = COALESCE(NULLIF(EXCLUDED.last_login_ip, ''), idp_users.last_login_ip),
+  last_login_region = COALESCE(NULLIF(EXCLUDED.last_login_region, ''), idp_users.last_login_region),
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
   updated_at = now()
@@ -469,8 +469,8 @@ ON CONFLICT (external_id) DO UPDATE SET
   status = EXCLUDED.status,
   raw_json = EXCLUDED.raw_json,
   last_login_at = COALESCE(EXCLUDED.last_login_at, idp_users.last_login_at),
-  last_login_ip = CASE WHEN EXCLUDED.last_login_ip <> '' THEN EXCLUDED.last_login_ip ELSE idp_users.last_login_ip END,
-  last_login_region = CASE WHEN EXCLUDED.last_login_region <> '' THEN EXCLUDED.last_login_region ELSE idp_users.last_login_region END,
+  last_login_ip = COALESCE(NULLIF(EXCLUDED.last_login_ip, ''), idp_users.last_login_ip),
+  last_login_region = COALESCE(NULLIF(EXCLUDED.last_login_region, ''), idp_users.last_login_region),
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
   updated_at = now()

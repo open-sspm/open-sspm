@@ -360,20 +360,27 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps regis
 	if err != nil {
 		return nil, fmt.Errorf("okta list apps: %w", err)
 	}
-	deps.Report(registry.Event{Source: "okta", Stage: "sync-app-assignments", Current: 0, Total: int64(len(apps)), Message: fmt.Sprintf("syncing %d apps", len(apps))})
+	validApps := make([]App, 0, len(apps))
+	for _, app := range apps {
+		if strings.TrimSpace(app.ID) == "" {
+			continue
+		}
+		validApps = append(validApps, app)
+	}
+	deps.Report(registry.Event{Source: "okta", Stage: "sync-app-assignments", Current: 0, Total: int64(len(validApps)), Message: fmt.Sprintf("syncing %d apps", len(validApps))})
 
-	appExternalIDs := make([]string, 0, len(apps))
-	if len(apps) == 0 {
+	appExternalIDs := make([]string, 0, len(validApps))
+	if len(validApps) == 0 {
 		return appExternalIDs, nil
 	}
 
 	const batchSize = 500
-	for start := 0; start < len(apps); start += batchSize {
+	for start := 0; start < len(validApps); start += batchSize {
 		end := start + batchSize
-		if end > len(apps) {
-			end = len(apps)
+		if end > len(validApps) {
+			end = len(validApps)
 		}
-		batch := apps[start:end]
+		batch := validApps[start:end]
 
 		externalIDs := make([]string, 0, len(batch))
 		labels := make([]string, 0, len(batch))
@@ -412,8 +419,8 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps regis
 	}
 
 	workers := i.workers
-	if len(apps) < workers {
-		workers = len(apps)
+	if len(validApps) < workers {
+		workers = len(validApps)
 	}
 	if workers < 1 {
 		workers = 1
@@ -425,7 +432,7 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps regis
 	var firstErr error
 	var errOnce sync.Once
 	var wg sync.WaitGroup
-	jobs := make(chan App, len(apps))
+	jobs := make(chan App, len(validApps))
 	var done int64
 
 	worker := func() {
@@ -448,8 +455,8 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps regis
 					Source:  "okta",
 					Stage:   "sync-app-assignments",
 					Current: n,
-					Total:   int64(len(apps)),
-					Message: fmt.Sprintf("apps %d/%d", n, len(apps)),
+					Total:   int64(len(validApps)),
+					Message: fmt.Sprintf("apps %d/%d", n, len(validApps)),
 				})
 				continue
 			}
@@ -500,8 +507,8 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps regis
 				Source:  "okta",
 				Stage:   "sync-app-assignments",
 				Current: n,
-				Total:   int64(len(apps)),
-				Message: fmt.Sprintf("apps %d/%d", n, len(apps)),
+				Total:   int64(len(validApps)),
+				Message: fmt.Sprintf("apps %d/%d", n, len(validApps)),
 			})
 		}
 	}
@@ -511,10 +518,7 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps regis
 		go worker()
 	}
 
-	for _, app := range apps {
-		if strings.TrimSpace(app.ID) == "" {
-			continue
-		}
+	for _, app := range validApps {
 		jobs <- app
 	}
 	close(jobs)

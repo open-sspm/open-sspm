@@ -21,6 +21,32 @@ WHERE source_kind = $1
 ORDER BY finished_at DESC
 LIMIT $3;
 
+-- name: ListRecentFinishedSyncRunsForSources :many
+WITH requested AS (
+  SELECT k.kind AS source_kind, n.name AS source_name
+  FROM unnest(sqlc.arg(source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest(sqlc.arg(source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+ranked AS (
+  SELECT
+    r.source_kind,
+    r.source_name,
+    r.id,
+    r.status,
+    r.finished_at,
+    r.error_kind,
+    row_number() OVER (PARTITION BY r.source_kind, r.source_name ORDER BY r.finished_at DESC) AS rn
+  FROM sync_runs r
+  JOIN requested q
+    ON r.source_kind = q.source_kind
+   AND r.source_name = q.source_name
+  WHERE r.finished_at IS NOT NULL
+)
+SELECT source_kind, source_name, id, status, finished_at, error_kind
+FROM ranked
+WHERE rn <= sqlc.arg(limit_rows)::int
+ORDER BY source_kind, source_name, finished_at DESC;
+
 -- name: FailSyncRun :exec
 UPDATE sync_runs
 SET status = $2, finished_at = now(), message = $3, error_kind = $4
