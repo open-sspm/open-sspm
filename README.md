@@ -51,3 +51,7 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/okta-be
 ## Security notes
 - There is no in-app authentication layer right now; run on a trusted network or behind your own auth proxy.
 - Avoid logging connector secrets; tokens are stored in Postgres.
+
+## Contributing
+
+See `CONTRIBUTING.md`.

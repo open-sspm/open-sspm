@@ -27,3 +27,21 @@ jobs:
 
       - name: Test
         run: go test ./...
+
+  helm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Helm lint
+        run: helm lint ./helm/open-sspm --set database.existingSecret.name=dummy
+
+      - name: Helm template
+        run: helm template open-sspm ./helm/open-sspm --set database.existingSecret.name=dummy >/dev/null
