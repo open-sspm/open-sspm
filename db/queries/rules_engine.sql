@@ -205,13 +205,6 @@ WHERE ruleset_id = $1
   AND source_kind = $3
   AND source_name = $4;
 
--- name: DeleteRulesetOverride :exec
-DELETE FROM ruleset_overrides
-WHERE ruleset_id = $1
-  AND scope_kind = $2
-  AND source_kind = $3
-  AND source_name = $4;
-
 -- name: UpsertRuleOverride :one
 INSERT INTO rule_overrides (rule_id, scope_kind, source_kind, source_name, params, enabled)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -224,13 +217,6 @@ RETURNING id, rule_id, scope_kind, source_kind, source_name, params, enabled, cr
 -- name: GetRuleOverride :one
 SELECT id, rule_id, scope_kind, source_kind, source_name, params, enabled, created_at, updated_at
 FROM rule_overrides
-WHERE rule_id = $1
-  AND scope_kind = $2
-  AND source_kind = $3
-  AND source_name = $4;
-
--- name: DeleteRuleOverride :exec
-DELETE FROM rule_overrides
 WHERE rule_id = $1
   AND scope_kind = $2
   AND source_kind = $3
@@ -249,13 +235,6 @@ RETURNING id, rule_id, scope_kind, source_kind, source_name, status, notes, expi
 -- name: GetRuleAttestation :one
 SELECT id, rule_id, scope_kind, source_kind, source_name, status, notes, expires_at, created_at, updated_at
 FROM rule_attestations
-WHERE rule_id = $1
-  AND scope_kind = $2
-  AND source_kind = $3
-  AND source_name = $4;
-
--- name: DeleteRuleAttestation :exec
-DELETE FROM rule_attestations
 WHERE rule_id = $1
   AND scope_kind = $2
   AND source_kind = $3

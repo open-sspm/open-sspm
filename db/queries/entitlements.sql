@@ -1,13 +1,3 @@
--- name: InsertEntitlement :one
-INSERT INTO entitlements (app_user_id, kind, resource, permission, raw_json, seen_in_run_id, seen_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, now(), now())
-ON CONFLICT (app_user_id, kind, resource, permission) DO UPDATE SET
-  raw_json = EXCLUDED.raw_json,
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at,
-  updated_at = now()
-RETURNING *;
-
 -- name: UpsertEntitlementsBulkBySource :execrows
 WITH input AS (
   SELECT
@@ -119,6 +109,3 @@ WHERE au.source_kind = sqlc.arg(source_kind)::text
   AND e.expired_at IS NULL
   AND e.last_observed_run_id IS NOT NULL
 ORDER BY iu.email, au.external_id, e.permission, e.id;
-
--- name: DeleteEntitlementsForAppUser :exec
-DELETE FROM entitlements WHERE app_user_id = $1;

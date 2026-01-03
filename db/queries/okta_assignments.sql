@@ -1,15 +1,3 @@
--- name: UpsertOktaGroup :one
-INSERT INTO okta_groups (external_id, name, type, raw_json, seen_in_run_id, seen_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, now(), now())
-ON CONFLICT (external_id) DO UPDATE SET
-  name = EXCLUDED.name,
-  type = EXCLUDED.type,
-  raw_json = EXCLUDED.raw_json,
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at,
-  updated_at = now()
-RETURNING *;
-
 -- name: UpsertOktaGroupsBulk :execrows
 WITH input AS (
   SELECT
@@ -55,20 +43,6 @@ ON CONFLICT (external_id) DO UPDATE SET
   seen_at = EXCLUDED.seen_at,
   updated_at = now()
 ;
-
--- name: UpsertOktaApp :one
-INSERT INTO okta_apps (external_id, label, name, status, sign_on_mode, raw_json, seen_in_run_id, seen_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())
-ON CONFLICT (external_id) DO UPDATE SET
-  label = EXCLUDED.label,
-  name = EXCLUDED.name,
-  status = EXCLUDED.status,
-  sign_on_mode = EXCLUDED.sign_on_mode,
-  raw_json = EXCLUDED.raw_json,
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at,
-  updated_at = now()
-RETURNING *;
 
 -- name: UpsertOktaAppsBulk :execrows
 WITH input AS (
@@ -126,16 +100,6 @@ ON CONFLICT (external_id) DO UPDATE SET
   updated_at = now()
 ;
 
--- name: DeleteOktaUserGroupsForIdpUser :exec
-DELETE FROM okta_user_groups WHERE idp_user_id = $1;
-
--- name: InsertOktaUserGroup :exec
-INSERT INTO okta_user_groups (idp_user_id, okta_group_id, seen_in_run_id, seen_at)
-VALUES ($1, $2, $3, now())
-ON CONFLICT (idp_user_id, okta_group_id) DO UPDATE SET
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at;
-
 -- name: UpsertOktaUserGroupsBulkByExternalIDs :execrows
 WITH input AS (
   SELECT
@@ -164,20 +128,6 @@ ON CONFLICT (idp_user_id, okta_group_id) DO UPDATE SET
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at
 ;
-
--- name: DeleteOktaUserAppAssignmentsForIdpUser :exec
-DELETE FROM okta_user_app_assignments WHERE idp_user_id = $1;
-
--- name: InsertOktaUserAppAssignment :exec
-INSERT INTO okta_user_app_assignments (idp_user_id, okta_app_id, scope, profile_json, raw_json, seen_in_run_id, seen_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, now(), now())
-ON CONFLICT (idp_user_id, okta_app_id) DO UPDATE SET
-  scope = EXCLUDED.scope,
-  profile_json = EXCLUDED.profile_json,
-  raw_json = EXCLUDED.raw_json,
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at,
-  updated_at = now();
 
 -- name: UpsertOktaUserAppAssignmentsBulkByExternalIDs :execrows
 WITH input AS (
@@ -230,20 +180,6 @@ ON CONFLICT (idp_user_id, okta_app_id) DO UPDATE SET
   seen_at = EXCLUDED.seen_at,
   updated_at = now()
 ;
-
--- name: DeleteOktaAppGroupAssignmentsForApp :exec
-DELETE FROM okta_app_group_assignments WHERE okta_app_id = $1;
-
--- name: InsertOktaAppGroupAssignment :exec
-INSERT INTO okta_app_group_assignments (okta_app_id, okta_group_id, priority, profile_json, raw_json, seen_in_run_id, seen_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, now(), now())
-ON CONFLICT (okta_app_id, okta_group_id) DO UPDATE SET
-  priority = EXCLUDED.priority,
-  profile_json = EXCLUDED.profile_json,
-  raw_json = EXCLUDED.raw_json,
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at,
-  updated_at = now();
 
 -- name: UpsertOktaAppGroupAssignmentsBulkByExternalIDs :execrows
 WITH input AS (
@@ -346,12 +282,6 @@ WHERE oga.okta_app_id = ANY($1::bigint[])
   AND oga.expired_at IS NULL
   AND oga.last_observed_run_id IS NOT NULL
 ORDER BY oga.okta_app_id, og.name, og.external_id;
-
--- name: ListOktaApps :many
-SELECT *
-FROM okta_apps
-WHERE expired_at IS NULL AND last_observed_run_id IS NOT NULL
-ORDER BY label, name, external_id;
 
 -- name: CountOktaApps :one
 SELECT count(*)

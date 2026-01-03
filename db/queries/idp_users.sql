@@ -1,31 +1,3 @@
--- name: UpsertIdPUser :one
-INSERT INTO idp_users (external_id, email, display_name, status, raw_json, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, updated_at)
-VALUES (
-  sqlc.arg(external_id)::text,
-  lower(trim(sqlc.arg(email)::text)),
-  sqlc.arg(display_name)::text,
-  sqlc.arg(status)::text,
-  sqlc.arg(raw_json)::jsonb,
-  sqlc.arg(last_login_at)::timestamptz,
-  sqlc.arg(last_login_ip)::text,
-  sqlc.arg(last_login_region)::text,
-  sqlc.arg(seen_in_run_id)::bigint,
-  now(),
-  now()
-)
-ON CONFLICT (external_id) DO UPDATE SET
-  email = EXCLUDED.email,
-  display_name = EXCLUDED.display_name,
-  status = EXCLUDED.status,
-  raw_json = EXCLUDED.raw_json,
-  last_login_at = COALESCE(EXCLUDED.last_login_at, idp_users.last_login_at),
-  last_login_ip = COALESCE(NULLIF(EXCLUDED.last_login_ip, ''), idp_users.last_login_ip),
-  last_login_region = COALESCE(NULLIF(EXCLUDED.last_login_region, ''), idp_users.last_login_region),
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at,
-  updated_at = now()
-RETURNING *;
-
 -- name: UpsertIdPUsersBulk :execrows
 WITH input AS (
   SELECT
@@ -98,29 +70,10 @@ FROM idp_users
 WHERE expired_at IS NULL AND last_observed_run_id IS NOT NULL
 ORDER BY id ASC;
 
--- name: ListIdPUsersByStatus :many
-SELECT *
-FROM idp_users
-WHERE
-  expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-  AND (
-  (COALESCE($1::text, '') = '')
-  OR ($1::text = 'active' AND status = 'ACTIVE')
-  OR ($1::text = 'inactive' AND status <> 'ACTIVE')
-  )
-ORDER BY id ASC;
-
 -- name: GetIdPUser :one
 SELECT *
 FROM idp_users
 WHERE id = $1 AND expired_at IS NULL AND last_observed_run_id IS NOT NULL;
-
--- name: FindIdPUserByEmail :one
-SELECT *
-FROM idp_users
-WHERE email = $1 AND expired_at IS NULL AND last_observed_run_id IS NOT NULL
-LIMIT 1;
 
 -- name: CountIdPUsers :one
 SELECT count(*)
