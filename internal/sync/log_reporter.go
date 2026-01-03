@@ -109,13 +109,6 @@ func (r *LogReporter) shouldLogEvent(now time.Time, e registry.Event) bool {
 		return true
 	}
 
-	// Stage start/end should always log for known totals.
-	if total > 1 && (current <= 0 || current >= total) {
-		r.recordProgress(now, e, step)
-		return true
-	}
-
-	// Throttle progress logs.
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.state == nil {
@@ -123,6 +116,21 @@ func (r *LogReporter) shouldLogEvent(now time.Time, e registry.Event) bool {
 	}
 	key := logReporterKey{source: e.Source, stage: e.Stage}
 	state := r.state[key]
+	// Stage start/end should always log for known totals.
+	if total > 1 && (current <= 0 || current >= total) {
+		percent := progressPercent(current, total)
+		if percent > 0 && step > 0 {
+			percent = (percent / step) * step
+		}
+		r.state[key] = logReporterState{
+			lastLoggedAt:      now,
+			lastLoggedPercent: percent,
+			lastLoggedCurrent: current,
+		}
+		return true
+	}
+
+	// Throttle progress logs.
 	if !state.lastLoggedAt.IsZero() {
 		if now.Sub(state.lastLoggedAt) < interval {
 			if total > 1 {
@@ -146,25 +154,6 @@ func (r *LogReporter) shouldLogEvent(now time.Time, e registry.Event) bool {
 		lastLoggedCurrent: current,
 	}
 	return true
-}
-
-func (r *LogReporter) recordProgress(now time.Time, e registry.Event, step int64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.state == nil {
-		r.state = make(map[logReporterKey]logReporterState)
-	}
-	key := logReporterKey{source: e.Source, stage: e.Stage}
-	state := r.state[key]
-
-	percent := progressPercent(e.Current, e.Total)
-	if percent > 0 && step > 0 {
-		percent = (percent / step) * step
-	}
-	state.lastLoggedAt = now
-	state.lastLoggedPercent = percent
-	state.lastLoggedCurrent = e.Current
-	r.state[key] = state
 }
 
 func progressPercent(current, total int64) int64 {

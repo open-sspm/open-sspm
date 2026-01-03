@@ -60,8 +60,10 @@ func TestLogReporterThrottlesProgress(t *testing.T) {
 	}
 	reporter.Report(registry.Event{Source: "okta", Stage: "sync-users", Current: total, Total: total, Message: "sync complete"})
 
-	if got := handler.Count(); got > 30 {
-		t.Fatalf("expected throttled logging, got %d logs", got)
+	step := reporter.ProgressPercentStep
+	expected := 2 + int(int64(99)/step) // 0% + each step (excluding 100%) + 100%
+	if got := handler.Count(); got != expected {
+		t.Fatalf("expected %d logs, got %d", expected, got)
 	}
 }
 

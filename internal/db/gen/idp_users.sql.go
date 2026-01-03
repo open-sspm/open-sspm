@@ -336,7 +336,19 @@ func (q *Queries) ListIdPUsersPageByQueryAndState(ctx context.Context, arg ListI
 
 const upsertIdPUser = `-- name: UpsertIdPUser :one
 INSERT INTO idp_users (external_id, email, display_name, status, raw_json, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, updated_at)
-VALUES ($1, lower(trim($2)), $3, $4, $5, $6, $7, $8, $9, now(), now())
+VALUES (
+  $1::text,
+  lower(trim($2::text)),
+  $3::text,
+  $4::text,
+  $5::jsonb,
+  $6::timestamptz,
+  $7::text,
+  $8::text,
+  $9::bigint,
+  now(),
+  now()
+)
 ON CONFLICT (external_id) DO UPDATE SET
   email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
@@ -353,20 +365,20 @@ RETURNING id, external_id, email, display_name, status, raw_json, created_at, up
 
 type UpsertIdPUserParams struct {
 	ExternalID      string             `json:"external_id"`
-	Btrim           string             `json:"btrim"`
+	Email           string             `json:"email"`
 	DisplayName     string             `json:"display_name"`
 	Status          string             `json:"status"`
 	RawJson         []byte             `json:"raw_json"`
 	LastLoginAt     pgtype.Timestamptz `json:"last_login_at"`
 	LastLoginIp     string             `json:"last_login_ip"`
 	LastLoginRegion string             `json:"last_login_region"`
-	SeenInRunID     pgtype.Int8        `json:"seen_in_run_id"`
+	SeenInRunID     int64              `json:"seen_in_run_id"`
 }
 
 func (q *Queries) UpsertIdPUser(ctx context.Context, arg UpsertIdPUserParams) (IdpUser, error) {
 	row := q.db.QueryRow(ctx, upsertIdPUser,
 		arg.ExternalID,
-		arg.Btrim,
+		arg.Email,
 		arg.DisplayName,
 		arg.Status,
 		arg.RawJson,

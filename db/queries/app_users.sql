@@ -1,6 +1,19 @@
 -- name: UpsertAppUser :one
 INSERT INTO app_users (source_kind, source_name, external_id, email, display_name, raw_json, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, updated_at)
-VALUES ($1, $2, $3, lower(trim($4)), $5, $6, $7, $8, $9, $10, now(), now())
+VALUES (
+  sqlc.arg(source_kind)::text,
+  sqlc.arg(source_name)::text,
+  sqlc.arg(external_id)::text,
+  lower(trim(sqlc.arg(email)::text)),
+  sqlc.arg(display_name)::text,
+  sqlc.arg(raw_json)::jsonb,
+  sqlc.arg(last_login_at)::timestamptz,
+  sqlc.arg(last_login_ip)::text,
+  sqlc.arg(last_login_region)::text,
+  sqlc.arg(seen_in_run_id)::bigint,
+  now(),
+  now()
+)
 ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
   email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
