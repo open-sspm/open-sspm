@@ -1,0 +1,19 @@
+1) Create a Secret containing DATABASE_URL
+
+   Example:
+     kubectl create secret generic open-sspm-db \
+       --from-literal=DATABASE_URL='postgres://USER:PASSWORD@HOST:5432/opensspm?sslmode=require'
+
+2) Install the chart
+
+   helm upgrade --install {{ .Release.Name }} ./helm/open-sspm \
+     --set database.existingSecret.name=open-sspm-db \
+     --set database.existingSecret.key=DATABASE_URL
+
+3) Access the service
+
+   If ingress is disabled:
+     kubectl port-forward svc/{{ include "open-sspm.fullname" . }} 8080:{{ .Values.service.port }}
+
+   Then open:
+     http://localhost:8080

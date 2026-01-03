@@ -61,6 +61,9 @@ COPY --from=builder --chown=appuser:appgroup /open-sspm /usr/local/bin/open-sspm
 # Copy static assets from frontend stage (contains built CSS)
 COPY --from=frontend --chown=appuser:appgroup /app/web/static /home/appuser/web/static
 
+# Copy DB migrations for `open-sspm migrate`
+COPY --from=builder --chown=appuser:appgroup /app/db/migrations /home/appuser/db/migrations
+
 # Switch to non-root user
 USER appuser
 
