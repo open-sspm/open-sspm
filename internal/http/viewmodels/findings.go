@@ -60,4 +60,3 @@ type FindingsAlert struct {
 	Message     string
 	Destructive bool
 }
-

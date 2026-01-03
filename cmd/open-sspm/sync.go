@@ -64,8 +64,10 @@ func runSync() error {
 		return err
 	}
 
-	runner := sync.NewDBRunner(pool, reg)
-	runner.SetReporter(&sync.LogReporter{})
+	dbRunner := sync.NewDBRunner(pool, reg)
+	dbRunner.SetReporter(&sync.LogReporter{})
+	dbRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
+	runner := sync.NewBlockingRunOnceLockRunner(pool, dbRunner)
 
 	syncErr := runner.RunOnce(ctx)
 	if syncErr == nil {

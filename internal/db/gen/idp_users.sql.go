@@ -58,12 +58,12 @@ func (q *Queries) CountIdPUsersByQueryAndState(ctx context.Context, arg CountIdP
 const findIdPUserByEmail = `-- name: FindIdPUserByEmail :one
 SELECT id, external_id, email, display_name, status, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id
 FROM idp_users
-WHERE lower(email) = lower($1) AND expired_at IS NULL AND last_observed_run_id IS NOT NULL
+WHERE email = $1 AND expired_at IS NULL AND last_observed_run_id IS NOT NULL
 LIMIT 1
 `
 
-func (q *Queries) FindIdPUserByEmail(ctx context.Context, lower string) (IdpUser, error) {
-	row := q.db.QueryRow(ctx, findIdPUserByEmail, lower)
+func (q *Queries) FindIdPUserByEmail(ctx context.Context, email string) (IdpUser, error) {
+	row := q.db.QueryRow(ctx, findIdPUserByEmail, email)
 	var i IdpUser
 	err := row.Scan(
 		&i.ID,
@@ -396,4 +396,100 @@ func (q *Queries) UpsertIdPUser(ctx context.Context, arg UpsertIdPUserParams) (I
 		&i.ExpiredRunID,
 	)
 	return i, err
+}
+
+const upsertIdPUsersBulk = `-- name: UpsertIdPUsersBulk :execrows
+WITH input AS (
+  SELECT
+    i,
+    ($2::text[])[i] AS external_id,
+    ($3::text[])[i] AS email,
+    ($4::text[])[i] AS display_name,
+    ($5::text[])[i] AS status,
+    ($6::jsonb[])[i] AS raw_json,
+    ($7::timestamptz[])[i] AS last_login_at,
+    ($8::text[])[i] AS last_login_ip,
+    ($9::text[])[i] AS last_login_region
+  FROM generate_subscripts($2::text[], 1) AS s(i)
+),
+dedup AS (
+  SELECT DISTINCT ON (external_id)
+    external_id,
+    email,
+    display_name,
+    status,
+    raw_json,
+    last_login_at,
+    last_login_ip,
+    last_login_region
+  FROM input
+  ORDER BY external_id, i DESC
+)
+INSERT INTO idp_users (
+  external_id,
+  email,
+  display_name,
+  status,
+  raw_json,
+  last_login_at,
+  last_login_ip,
+  last_login_region,
+  seen_in_run_id,
+  seen_at,
+  updated_at
+)
+SELECT
+  input.external_id,
+  input.email,
+  input.display_name,
+  input.status,
+  input.raw_json,
+  input.last_login_at,
+  input.last_login_ip,
+  input.last_login_region,
+  $1::bigint,
+  now(),
+  now()
+FROM dedup input
+ON CONFLICT (external_id) DO UPDATE SET
+  email = EXCLUDED.email,
+  display_name = EXCLUDED.display_name,
+  status = EXCLUDED.status,
+  raw_json = EXCLUDED.raw_json,
+  last_login_at = COALESCE(EXCLUDED.last_login_at, idp_users.last_login_at),
+  last_login_ip = CASE WHEN EXCLUDED.last_login_ip <> '' THEN EXCLUDED.last_login_ip ELSE idp_users.last_login_ip END,
+  last_login_region = CASE WHEN EXCLUDED.last_login_region <> '' THEN EXCLUDED.last_login_region ELSE idp_users.last_login_region END,
+  seen_in_run_id = EXCLUDED.seen_in_run_id,
+  seen_at = EXCLUDED.seen_at,
+  updated_at = now()
+`
+
+type UpsertIdPUsersBulkParams struct {
+	SeenInRunID      int64                `json:"seen_in_run_id"`
+	ExternalIds      []string             `json:"external_ids"`
+	Emails           []string             `json:"emails"`
+	DisplayNames     []string             `json:"display_names"`
+	Statuses         []string             `json:"statuses"`
+	RawJsons         [][]byte             `json:"raw_jsons"`
+	LastLoginAts     []pgtype.Timestamptz `json:"last_login_ats"`
+	LastLoginIps     []string             `json:"last_login_ips"`
+	LastLoginRegions []string             `json:"last_login_regions"`
+}
+
+func (q *Queries) UpsertIdPUsersBulk(ctx context.Context, arg UpsertIdPUsersBulkParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertIdPUsersBulk,
+		arg.SeenInRunID,
+		arg.ExternalIds,
+		arg.Emails,
+		arg.DisplayNames,
+		arg.Statuses,
+		arg.RawJsons,
+		arg.LastLoginAts,
+		arg.LastLoginIps,
+		arg.LastLoginRegions,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

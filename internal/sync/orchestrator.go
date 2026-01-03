@@ -26,9 +26,10 @@ type integrationKey struct {
 }
 
 type Orchestrator struct {
-	pool     *pgxpool.Pool
-	q        *gen.Queries
-	reporter registry.Reporter
+	pool           *pgxpool.Pool
+	q              *gen.Queries
+	reporter       registry.Reporter
+	globalEvalMode string
 
 	mu           sync.Mutex
 	integrations []registry.Integration
@@ -36,8 +37,18 @@ type Orchestrator struct {
 	idp          registry.Integration
 }
 
+const (
+	globalEvalModeBestEffort = "best_effort"
+	globalEvalModeStrict     = "strict"
+)
+
 func NewOrchestrator(pool *pgxpool.Pool) *Orchestrator {
-	return &Orchestrator{pool: pool, q: gen.New(pool), keys: make(map[integrationKey]struct{})}
+	return &Orchestrator{
+		pool:           pool,
+		q:              gen.New(pool),
+		keys:           make(map[integrationKey]struct{}),
+		globalEvalMode: globalEvalModeBestEffort,
+	}
 }
 
 func (o *Orchestrator) AddIntegration(i registry.Integration) error {
@@ -86,6 +97,14 @@ func (o *Orchestrator) AddIntegration(i registry.Integration) error {
 
 func (o *Orchestrator) SetReporter(r registry.Reporter) {
 	o.reporter = r
+}
+
+func (o *Orchestrator) SetGlobalEvalMode(mode string) {
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	if mode == "" {
+		mode = globalEvalModeBestEffort
+	}
+	o.globalEvalMode = mode
 }
 
 func (o *Orchestrator) report(e registry.Event) {
@@ -196,6 +215,14 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 
 	// Evaluate global-scope rulesets (normalized datasets) after connector syncs and
 	// per-integration compliance evaluations have completed.
+	anySyncErrors := false
+	for _, err := range runErrByKey {
+		if err != nil {
+			anySyncErrors = true
+			break
+		}
+	}
+
 	router := datasets.RouterProvider{
 		Normalized: &datasets.NormalizedProvider{Q: o.q},
 	}
@@ -207,10 +234,15 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 		},
 		Now: time.Now,
 	}
-	if err := globalEngine.Run(ctx, engine.Context{ScopeKind: "global", EvaluatedAt: time.Now()}); err != nil {
-		wrapped := fmt.Errorf("global compliance: %w", err)
-		slog.Error("global compliance evaluation failed", "err", err)
-		errs = append(errs, wrapped)
+	if o.globalEvalMode == globalEvalModeStrict && anySyncErrors {
+		slog.Info("skipping global compliance evaluation due to integration errors")
+		o.report(registry.Event{Source: "rules", Stage: "global", Message: "skipping global compliance evaluation due to integration errors"})
+	} else {
+		if err := globalEngine.Run(ctx, engine.Context{ScopeKind: "global", EvaluatedAt: time.Now()}); err != nil {
+			wrapped := fmt.Errorf("global compliance: %w", err)
+			slog.Error("global compliance evaluation failed", "err", err)
+			errs = append(errs, wrapped)
+		}
 	}
 
 	err := errors.Join(errs...)

@@ -2,13 +2,16 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"log/slog"
+	"math/rand"
 	"time"
 )
 
 type Scheduler struct {
 	Runner   Runner
 	Interval time.Duration
+	Trigger  <-chan struct{}
 }
 
 func (s *Scheduler) Run(ctx context.Context) {
@@ -16,21 +19,70 @@ func (s *Scheduler) Run(ctx context.Context) {
 		return
 	}
 
-	// Run immediately at startup.
-	if err := s.Runner.RunOnce(ctx); err != nil {
-		slog.Error("initial sync failed", "err", err)
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	runOnce := func(label string, runCtx context.Context) error {
+		started := time.Now()
+		err := s.Runner.RunOnce(runCtx)
+		if err != nil {
+			if errors.Is(err, ErrNoConnectorsDue) {
+				slog.Info(label+" sync skipped", "reason", err, "duration", time.Since(started))
+				return nil
+			}
+			slog.Error(label+" sync failed", "err", err, "duration", time.Since(started))
+			return err
+		}
+		slog.Info(label+" sync succeeded", "duration", time.Since(started))
+		return nil
 	}
 
-	ticker := time.NewTicker(s.Interval)
-	defer ticker.Stop()
+	// Run immediately at startup.
+	_ = runOnce("initial", ctx)
+
+	timer := time.NewTimer(s.nextDelay(rng))
+	defer timer.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			if err := s.Runner.RunOnce(ctx); err != nil {
-				slog.Error("scheduled sync failed", "err", err)
-			}
+		case <-timer.C:
+			_ = runOnce("scheduled", ctx)
+			resetTimer(timer, s.nextDelay(rng))
+		case <-s.Trigger:
+			_ = runOnce("triggered", WithForcedSync(ctx))
+			resetTimer(timer, s.nextDelay(rng))
 		}
 	}
+}
+
+func resetTimer(timer *time.Timer, d time.Duration) {
+	if timer == nil {
+		return
+	}
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+	timer.Reset(d)
+}
+
+func (s *Scheduler) nextDelay(rng *rand.Rand) time.Duration {
+	base := s.Interval
+	if base <= 0 {
+		return 0
+	}
+	delay := base
+	jitter := base / 10
+	if jitter > 5*time.Minute {
+		jitter = 5 * time.Minute
+	}
+	if jitter <= 0 || rng == nil {
+		return delay
+	}
+	// Spread evenly in [0, +jitter].
+	delta := time.Duration(rng.Int63n(int64(jitter) + 1))
+	return delay + delta
 }

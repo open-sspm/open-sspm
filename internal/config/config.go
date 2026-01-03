@@ -20,13 +20,21 @@ const (
 )
 
 type Config struct {
-	DatabaseURL        string
-	HTTPAddr           string
-	SyncInterval       time.Duration
-	SyncOktaWorkers    int
-	SyncGitHubWorkers  int
-	SyncDatadogWorkers int
-	ResyncEnabled      bool
+	DatabaseURL           string
+	HTTPAddr              string
+	SyncInterval          time.Duration
+	SyncOktaInterval      time.Duration
+	SyncEntraInterval     time.Duration
+	SyncGitHubInterval    time.Duration
+	SyncDatadogInterval   time.Duration
+	SyncAWSInterval       time.Duration
+	SyncFailureBackoffMax time.Duration
+	SyncOktaWorkers       int
+	SyncGitHubWorkers     int
+	SyncDatadogWorkers    int
+	ResyncEnabled         bool
+	ResyncMode            string
+	GlobalEvalMode        string
 }
 
 type LoadOptions struct {
@@ -57,11 +65,43 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		SyncGitHubWorkers:  getenvIntDefault("SYNC_GITHUB_WORKERS", defaultSyncGitHubWorkers),
 		SyncDatadogWorkers: getenvIntDefault("SYNC_DATADOG_WORKERS", defaultSyncDatadogWorkers),
 		ResyncEnabled:      getenvBoolDefault("RESYNC_ENABLED", true),
+		ResyncMode:         getenvDefault("RESYNC_MODE", "inline"),
+		GlobalEvalMode:     strings.ToLower(strings.TrimSpace(getenvDefault("GLOBAL_EVAL_MODE", "best_effort"))),
 	}
 
 	if v := os.Getenv("SYNC_INTERVAL"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			cfg.SyncInterval = d
+		}
+	}
+	if v := os.Getenv("SYNC_OKTA_INTERVAL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			cfg.SyncOktaInterval = d
+		}
+	}
+	if v := os.Getenv("SYNC_ENTRA_INTERVAL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			cfg.SyncEntraInterval = d
+		}
+	}
+	if v := os.Getenv("SYNC_GITHUB_INTERVAL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			cfg.SyncGitHubInterval = d
+		}
+	}
+	if v := os.Getenv("SYNC_DATADOG_INTERVAL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			cfg.SyncDatadogInterval = d
+		}
+	}
+	if v := os.Getenv("SYNC_AWS_INTERVAL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			cfg.SyncAWSInterval = d
+		}
+	}
+	if v := os.Getenv("SYNC_FAILURE_BACKOFF_MAX"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			cfg.SyncFailureBackoffMax = d
 		}
 	}
 

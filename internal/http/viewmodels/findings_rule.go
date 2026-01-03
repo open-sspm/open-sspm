@@ -27,11 +27,11 @@ type FindingsRuleViewData struct {
 
 	RequiredData []string
 
-	CurrentStatus     string
+	CurrentStatus      string
 	CurrentEvaluatedAt string
-	CurrentErrorKind  string
-	EvidenceSummary   string
-	Evidence          FindingsEvidenceViewData
+	CurrentErrorKind   string
+	EvidenceSummary    string
+	Evidence           FindingsEvidenceViewData
 
 	RulesetOverrideExists  bool
 	RulesetOverrideEnabled bool
@@ -52,7 +52,7 @@ type FindingsEvidenceViewData struct {
 
 	ParamsPretty string
 
-	ResultStatus   string
+	ResultStatus    string
 	ResultErrorKind string
 
 	SelectionTotal    int
@@ -61,8 +61,8 @@ type FindingsEvidenceViewData struct {
 	JoinUnmatchedLeft   int
 	JoinOnUnmatchedLeft string
 
-	Violations           []FindingsEvidenceViolation
-	ViolationsTruncated  bool
+	Violations          []FindingsEvidenceViolation
+	ViolationsTruncated bool
 
 	RawPretty string
 }
@@ -102,4 +102,3 @@ type FindingsRuleAttestationViewData struct {
 	Notes     string
 	ExpiresAt string
 }
-

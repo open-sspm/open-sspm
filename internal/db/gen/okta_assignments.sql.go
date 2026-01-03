@@ -932,6 +932,164 @@ func (q *Queries) UpsertOktaApp(ctx context.Context, arg UpsertOktaAppParams) (O
 	return i, err
 }
 
+const upsertOktaAppGroupAssignmentsBulkByExternalIDs = `-- name: UpsertOktaAppGroupAssignmentsBulkByExternalIDs :execrows
+WITH input AS (
+  SELECT
+    i,
+    ($2::text[])[i] AS okta_app_external_id,
+    ($3::text[])[i] AS okta_group_external_id,
+    ($4::int[])[i] AS priority,
+    ($5::jsonb[])[i] AS profile_json,
+    ($6::jsonb[])[i] AS raw_json
+  FROM generate_subscripts($2::text[], 1) AS s(i)
+),
+dedup AS (
+  SELECT DISTINCT ON (okta_app_external_id, okta_group_external_id)
+    okta_app_external_id,
+    okta_group_external_id,
+    priority,
+    profile_json,
+    raw_json
+  FROM input
+  ORDER BY okta_app_external_id, okta_group_external_id, i DESC
+)
+INSERT INTO okta_app_group_assignments (
+  okta_app_id,
+  okta_group_id,
+  priority,
+  profile_json,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  updated_at
+)
+SELECT
+  oa.id,
+  og.id,
+  input.priority,
+  input.profile_json,
+  input.raw_json,
+  $1::bigint,
+  now(),
+  now()
+FROM dedup input
+JOIN okta_apps oa ON oa.external_id = input.okta_app_external_id
+JOIN okta_groups og ON og.external_id = input.okta_group_external_id
+ON CONFLICT (okta_app_id, okta_group_id) DO UPDATE SET
+  priority = EXCLUDED.priority,
+  profile_json = EXCLUDED.profile_json,
+  raw_json = EXCLUDED.raw_json,
+  seen_in_run_id = EXCLUDED.seen_in_run_id,
+  seen_at = EXCLUDED.seen_at,
+  updated_at = now()
+`
+
+type UpsertOktaAppGroupAssignmentsBulkByExternalIDsParams struct {
+	SeenInRunID          int64    `json:"seen_in_run_id"`
+	OktaAppExternalIds   []string `json:"okta_app_external_ids"`
+	OktaGroupExternalIds []string `json:"okta_group_external_ids"`
+	Priorities           []int32  `json:"priorities"`
+	ProfileJsons         [][]byte `json:"profile_jsons"`
+	RawJsons             [][]byte `json:"raw_jsons"`
+}
+
+func (q *Queries) UpsertOktaAppGroupAssignmentsBulkByExternalIDs(ctx context.Context, arg UpsertOktaAppGroupAssignmentsBulkByExternalIDsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertOktaAppGroupAssignmentsBulkByExternalIDs,
+		arg.SeenInRunID,
+		arg.OktaAppExternalIds,
+		arg.OktaGroupExternalIds,
+		arg.Priorities,
+		arg.ProfileJsons,
+		arg.RawJsons,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const upsertOktaAppsBulk = `-- name: UpsertOktaAppsBulk :execrows
+WITH input AS (
+  SELECT
+    i,
+    ($2::text[])[i] AS external_id,
+    ($3::text[])[i] AS label,
+    ($4::text[])[i] AS name,
+    ($5::text[])[i] AS status,
+    ($6::text[])[i] AS sign_on_mode,
+    ($7::jsonb[])[i] AS raw_json
+  FROM generate_subscripts($2::text[], 1) AS s(i)
+),
+dedup AS (
+  SELECT DISTINCT ON (external_id)
+    external_id,
+    label,
+    name,
+    status,
+    sign_on_mode,
+    raw_json
+  FROM input
+  ORDER BY external_id, i DESC
+)
+INSERT INTO okta_apps (
+  external_id,
+  label,
+  name,
+  status,
+  sign_on_mode,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  updated_at
+)
+SELECT
+  input.external_id,
+  input.label,
+  input.name,
+  input.status,
+  input.sign_on_mode,
+  input.raw_json,
+  $1::bigint,
+  now(),
+  now()
+FROM dedup input
+ON CONFLICT (external_id) DO UPDATE SET
+  label = EXCLUDED.label,
+  name = EXCLUDED.name,
+  status = EXCLUDED.status,
+  sign_on_mode = EXCLUDED.sign_on_mode,
+  raw_json = EXCLUDED.raw_json,
+  seen_in_run_id = EXCLUDED.seen_in_run_id,
+  seen_at = EXCLUDED.seen_at,
+  updated_at = now()
+`
+
+type UpsertOktaAppsBulkParams struct {
+	SeenInRunID int64    `json:"seen_in_run_id"`
+	ExternalIds []string `json:"external_ids"`
+	Labels      []string `json:"labels"`
+	Names       []string `json:"names"`
+	Statuses    []string `json:"statuses"`
+	SignOnModes []string `json:"sign_on_modes"`
+	RawJsons    [][]byte `json:"raw_jsons"`
+}
+
+func (q *Queries) UpsertOktaAppsBulk(ctx context.Context, arg UpsertOktaAppsBulkParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertOktaAppsBulk,
+		arg.SeenInRunID,
+		arg.ExternalIds,
+		arg.Labels,
+		arg.Names,
+		arg.Statuses,
+		arg.SignOnModes,
+		arg.RawJsons,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const upsertOktaGroup = `-- name: UpsertOktaGroup :one
 INSERT INTO okta_groups (external_id, name, type, raw_json, seen_in_run_id, seen_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, now(), now())
@@ -978,4 +1136,191 @@ func (q *Queries) UpsertOktaGroup(ctx context.Context, arg UpsertOktaGroupParams
 		&i.ExpiredRunID,
 	)
 	return i, err
+}
+
+const upsertOktaGroupsBulk = `-- name: UpsertOktaGroupsBulk :execrows
+WITH input AS (
+  SELECT
+    i,
+    ($2::text[])[i] AS external_id,
+    ($3::text[])[i] AS name,
+    ($4::text[])[i] AS type,
+    ($5::jsonb[])[i] AS raw_json
+  FROM generate_subscripts($2::text[], 1) AS s(i)
+),
+dedup AS (
+  SELECT DISTINCT ON (external_id)
+    external_id,
+    name,
+    type,
+    raw_json
+  FROM input
+  ORDER BY external_id, i DESC
+)
+INSERT INTO okta_groups (
+  external_id,
+  name,
+  type,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  updated_at
+)
+SELECT
+  input.external_id,
+  input.name,
+  input.type,
+  input.raw_json,
+  $1::bigint,
+  now(),
+  now()
+FROM dedup input
+ON CONFLICT (external_id) DO UPDATE SET
+  name = EXCLUDED.name,
+  type = EXCLUDED.type,
+  raw_json = EXCLUDED.raw_json,
+  seen_in_run_id = EXCLUDED.seen_in_run_id,
+  seen_at = EXCLUDED.seen_at,
+  updated_at = now()
+`
+
+type UpsertOktaGroupsBulkParams struct {
+	SeenInRunID int64    `json:"seen_in_run_id"`
+	ExternalIds []string `json:"external_ids"`
+	Names       []string `json:"names"`
+	Types       []string `json:"types"`
+	RawJsons    [][]byte `json:"raw_jsons"`
+}
+
+func (q *Queries) UpsertOktaGroupsBulk(ctx context.Context, arg UpsertOktaGroupsBulkParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertOktaGroupsBulk,
+		arg.SeenInRunID,
+		arg.ExternalIds,
+		arg.Names,
+		arg.Types,
+		arg.RawJsons,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const upsertOktaUserAppAssignmentsBulkByExternalIDs = `-- name: UpsertOktaUserAppAssignmentsBulkByExternalIDs :execrows
+WITH input AS (
+  SELECT
+    i,
+    ($2::text[])[i] AS idp_user_external_id,
+    ($3::text[])[i] AS okta_app_external_id,
+    ($4::text[])[i] AS scope,
+    ($5::jsonb[])[i] AS profile_json,
+    ($6::jsonb[])[i] AS raw_json
+  FROM generate_subscripts($2::text[], 1) AS s(i)
+),
+dedup AS (
+  SELECT DISTINCT ON (idp_user_external_id, okta_app_external_id)
+    idp_user_external_id,
+    okta_app_external_id,
+    scope,
+    profile_json,
+    raw_json
+  FROM input
+  ORDER BY idp_user_external_id, okta_app_external_id, i DESC
+)
+INSERT INTO okta_user_app_assignments (
+  idp_user_id,
+  okta_app_id,
+  scope,
+  profile_json,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  updated_at
+)
+SELECT
+  iu.id,
+  oa.id,
+  input.scope,
+  input.profile_json,
+  input.raw_json,
+  $1::bigint,
+  now(),
+  now()
+FROM dedup input
+JOIN idp_users iu ON iu.external_id = input.idp_user_external_id
+JOIN okta_apps oa ON oa.external_id = input.okta_app_external_id
+ON CONFLICT (idp_user_id, okta_app_id) DO UPDATE SET
+  scope = EXCLUDED.scope,
+  profile_json = EXCLUDED.profile_json,
+  raw_json = EXCLUDED.raw_json,
+  seen_in_run_id = EXCLUDED.seen_in_run_id,
+  seen_at = EXCLUDED.seen_at,
+  updated_at = now()
+`
+
+type UpsertOktaUserAppAssignmentsBulkByExternalIDsParams struct {
+	SeenInRunID        int64    `json:"seen_in_run_id"`
+	IdpUserExternalIds []string `json:"idp_user_external_ids"`
+	OktaAppExternalIds []string `json:"okta_app_external_ids"`
+	Scopes             []string `json:"scopes"`
+	ProfileJsons       [][]byte `json:"profile_jsons"`
+	RawJsons           [][]byte `json:"raw_jsons"`
+}
+
+func (q *Queries) UpsertOktaUserAppAssignmentsBulkByExternalIDs(ctx context.Context, arg UpsertOktaUserAppAssignmentsBulkByExternalIDsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertOktaUserAppAssignmentsBulkByExternalIDs,
+		arg.SeenInRunID,
+		arg.IdpUserExternalIds,
+		arg.OktaAppExternalIds,
+		arg.Scopes,
+		arg.ProfileJsons,
+		arg.RawJsons,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const upsertOktaUserGroupsBulkByExternalIDs = `-- name: UpsertOktaUserGroupsBulkByExternalIDs :execrows
+WITH input AS (
+  SELECT
+    i,
+    ($2::text[])[i] AS idp_user_external_id,
+    ($3::text[])[i] AS okta_group_external_id
+  FROM generate_subscripts($2::text[], 1) AS s(i)
+),
+dedup AS (
+  SELECT DISTINCT ON (idp_user_external_id, okta_group_external_id)
+    idp_user_external_id,
+    okta_group_external_id
+  FROM input
+  ORDER BY idp_user_external_id, okta_group_external_id, i DESC
+)
+INSERT INTO okta_user_groups (idp_user_id, okta_group_id, seen_in_run_id, seen_at)
+SELECT
+  iu.id,
+  og.id,
+  $1::bigint,
+  now()
+FROM dedup d
+JOIN idp_users iu ON iu.external_id = d.idp_user_external_id
+JOIN okta_groups og ON og.external_id = d.okta_group_external_id
+ON CONFLICT (idp_user_id, okta_group_id) DO UPDATE SET
+  seen_in_run_id = EXCLUDED.seen_in_run_id,
+  seen_at = EXCLUDED.seen_at
+`
+
+type UpsertOktaUserGroupsBulkByExternalIDsParams struct {
+	SeenInRunID          int64    `json:"seen_in_run_id"`
+	IdpUserExternalIds   []string `json:"idp_user_external_ids"`
+	OktaGroupExternalIds []string `json:"okta_group_external_ids"`
+}
+
+func (q *Queries) UpsertOktaUserGroupsBulkByExternalIDs(ctx context.Context, arg UpsertOktaUserGroupsBulkByExternalIDsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertOktaUserGroupsBulkByExternalIDs, arg.SeenInRunID, arg.IdpUserExternalIds, arg.OktaGroupExternalIds)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

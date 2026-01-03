@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/matching"
 )
 
 type DatadogIntegration struct {
@@ -194,7 +195,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, deps registry.IntegrationD
 			userName = externalID
 		}
 		externalIDs = append(externalIDs, externalID)
-		emails = append(emails, userName)
+		emails = append(emails, matching.NormalizeEmail(userName))
 		displayNames = append(displayNames, userName)
 		rawJSONs = append(rawJSONs, registry.NormalizeJSON(user.RawJSON))
 		lastLoginAts = append(lastLoginAts, registry.PgTimestamptzPtr(user.LastLoginAt))

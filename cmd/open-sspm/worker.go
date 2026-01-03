@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/config"
@@ -68,11 +69,35 @@ func runWorker() error {
 		return err
 	}
 
-	runner := sync.NewDBRunner(pool, reg)
-	runner.SetReporter(&sync.LogReporter{})
+	dbRunner := sync.NewDBRunner(pool, reg)
+	dbRunner.SetReporter(&sync.LogReporter{})
+	dbRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
+	backoffMax := cfg.SyncFailureBackoffMax
+	if backoffMax <= 0 {
+		backoffMax = cfg.SyncInterval * 10
+	}
+	dbRunner.SetRunPolicy(sync.RunPolicy{
+		IntervalByKind: map[string]time.Duration{
+			"okta":    cfg.SyncOktaInterval,
+			"entra":   cfg.SyncEntraInterval,
+			"github":  cfg.SyncGitHubInterval,
+			"datadog": cfg.SyncDatadogInterval,
+			"aws":     cfg.SyncAWSInterval,
+		},
+		FailureBackoffBase:   cfg.SyncInterval,
+		FailureBackoffMax:    backoffMax,
+		RecentFinishedRunCap: 10,
+	})
+	runner := sync.NewBlockingRunOnceLockRunner(pool, dbRunner)
 
 	slog.Info("sync worker started", "interval", cfg.SyncInterval)
-	scheduler := sync.Scheduler{Runner: runner, Interval: cfg.SyncInterval}
+	triggers := make(chan struct{}, 1)
+	go func() {
+		if err := sync.ListenForResyncRequests(ctx, pool, triggers); err != nil && !errors.Is(err, context.Canceled) {
+			slog.Error("resync listener failed", "err", err)
+		}
+	}()
+	scheduler := sync.Scheduler{Runner: runner, Interval: cfg.SyncInterval, Trigger: triggers}
 	scheduler.Run(ctx)
 	return nil
 }

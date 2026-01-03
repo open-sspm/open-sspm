@@ -16,7 +16,7 @@ SELECT DISTINCT ON (au.id)
   au.id,
   'auto_email'
 FROM app_users au
-JOIN idp_users iu ON lower(iu.email) = lower(au.email)
+JOIN idp_users iu ON iu.email = au.email
 LEFT JOIN identity_links il ON il.app_user_id = au.id
 WHERE au.source_kind = $1
   AND au.source_name = $2

@@ -31,4 +31,3 @@ type FindingsRulesetViewData struct {
 
 	Alert *FindingsAlert
 }
-

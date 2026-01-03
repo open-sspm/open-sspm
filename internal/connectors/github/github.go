@@ -7,10 +7,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 )
+
+const defaultTimeout = 30 * time.Second
+const maxRetries = 3
+
+const maxRetryAfter = 30 * time.Second
 
 type Client struct {
 	BaseURL string
@@ -67,8 +75,23 @@ func New(baseURL, token string) (*Client, error) {
 	return &Client{
 		BaseURL: base,
 		Token:   token,
-		HTTP:    &http.Client{},
+		HTTP:    &http.Client{Timeout: defaultTimeout},
 	}, nil
+}
+
+func (c *Client) httpClient() (*http.Client, error) {
+	if c.BaseURL == "" || c.Token == "" {
+		return nil, errors.New("github base URL and token are required")
+	}
+	if c.HTTP == nil {
+		return &http.Client{Timeout: defaultTimeout}, nil
+	}
+	if c.HTTP.Timeout > 0 {
+		return c.HTTP, nil
+	}
+	copy := *c.HTTP
+	copy.Timeout = defaultTimeout
+	return &copy, nil
 }
 
 func (c *Client) ListOrgMembers(ctx context.Context, org string) ([]Member, error) {
@@ -396,6 +419,10 @@ func (c *Client) doGraphQL(ctx context.Context, query string, variables map[stri
 	if endpoint == "" {
 		return errors.New("github graphql endpoint is not configured")
 	}
+	httpClient, err := c.httpClient()
+	if err != nil {
+		return err
+	}
 
 	reqBody, err := json.Marshal(map[string]any{
 		"query":     query,
@@ -405,35 +432,59 @@ func (c *Client) doGraphQL(ctx context.Context, query string, variables map[stri
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(reqBody))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+c.Token)
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	req.Header.Set("User-Agent", "open-sspm")
+	var resp *http.Response
+	var body []byte
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 
-	resp, err := c.HTTP.Do(req)
-	if err != nil {
-		return err
-	}
-	body, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return formatGitHubAPIError("github graphql failed", endpoint, resp, body)
-	}
-	if out == nil {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(reqBody))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+		req.Header.Set("Accept", "application/vnd.github+json")
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+		req.Header.Set("User-Agent", "open-sspm")
+
+		resp, err = httpClient.Do(req)
+		if err != nil {
+			if attempt < maxRetries && shouldRetryError(ctx, err) {
+				if err := sleepWithContext(ctx, backoffDelay(attempt)); err != nil {
+					return err
+				}
+				continue
+			}
+			return err
+		}
+
+		body, err = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return err
+		}
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			if attempt < maxRetries && shouldRetryStatus(resp) {
+				if err := sleepWithContext(ctx, retryDelay(resp, attempt)); err != nil {
+					return err
+				}
+				continue
+			}
+			return formatGitHubAPIError("github graphql failed", endpoint, resp, body)
+		}
+
+		if out == nil {
+			return nil
+		}
+		if err := json.Unmarshal(body, out); err != nil {
+			return err
+		}
 		return nil
 	}
-	if err := json.Unmarshal(body, out); err != nil {
-		return err
-	}
-	return nil
+	return formatGitHubAPIError("github graphql failed", endpoint, resp, body)
 }
 
 func (c *Client) graphQLEndpoint() string {
@@ -463,18 +514,48 @@ func (c *Client) graphQLEndpoint() string {
 }
 
 func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, error) {
-	if c.BaseURL == "" || c.Token == "" {
-		return nil, errors.New("github base URL and token are required")
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	httpClient, err := c.httpClient()
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.Token)
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	req.Header.Set("User-Agent", "open-sspm")
-	return c.HTTP.Do(req)
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+		req.Header.Set("Accept", "application/vnd.github+json")
+		req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+		req.Header.Set("User-Agent", "open-sspm")
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			if attempt < maxRetries && shouldRetryError(ctx, err) {
+				if err := sleepWithContext(ctx, backoffDelay(attempt)); err != nil {
+					return nil, err
+				}
+				continue
+			}
+			return nil, err
+		}
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return resp, nil
+		}
+		if attempt < maxRetries && shouldRetryStatus(resp) {
+			drainAndClose(resp.Body)
+			if err := sleepWithContext(ctx, retryDelay(resp, attempt)); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		return resp, nil
+	}
+	return nil, errors.New("github request failed after retries")
 }
 
 func formatGitHubAPIError(prefix, reqURL string, resp *http.Response, body []byte) error {
@@ -587,4 +668,104 @@ func parseNextLink(linkHeader string) string {
 		}
 	}
 	return ""
+}
+
+func shouldRetryStatus(resp *http.Response) bool {
+	if resp == nil {
+		return false
+	}
+	switch resp.StatusCode {
+	case http.StatusTooManyRequests, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+		return true
+	default:
+		return false
+	}
+}
+
+func shouldRetryError(ctx context.Context, err error) bool {
+	if err == nil {
+		return false
+	}
+	if ctx != nil && ctx.Err() != nil {
+		return false
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return netErr.Timeout()
+	}
+	return false
+}
+
+func retryDelay(resp *http.Response, attempt int) time.Duration {
+	if resp == nil {
+		return backoffDelay(attempt)
+	}
+	if d := retryAfter(resp); d > 0 {
+		return d
+	}
+	return backoffDelay(attempt)
+}
+
+func retryAfter(resp *http.Response) time.Duration {
+	if resp == nil {
+		return 0
+	}
+	v := strings.TrimSpace(resp.Header.Get("Retry-After"))
+	if v == "" {
+		return 0
+	}
+	if secs, err := strconv.Atoi(v); err == nil {
+		d := time.Duration(secs) * time.Second
+		if d > maxRetryAfter {
+			return maxRetryAfter
+		}
+		return d
+	}
+	if t, err := http.ParseTime(v); err == nil {
+		d := time.Until(t)
+		if d < 0 {
+			return 0
+		}
+		if d > maxRetryAfter {
+			return maxRetryAfter
+		}
+		return d
+	}
+	return 0
+}
+
+func backoffDelay(attempt int) time.Duration {
+	if attempt < 0 {
+		return 0
+	}
+	d := 200 * time.Millisecond
+	for i := 0; i < attempt; i++ {
+		d *= 2
+		if d >= 5*time.Second {
+			return 5 * time.Second
+		}
+	}
+	return d
+}
+
+func sleepWithContext(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func drainAndClose(r io.ReadCloser) {
+	if r == nil {
+		return
+	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(r, 1<<20))
+	_ = r.Close()
 }
