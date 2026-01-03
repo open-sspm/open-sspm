@@ -1,6 +1,6 @@
 -- name: UpsertIdPUser :one
 INSERT INTO idp_users (external_id, email, display_name, status, raw_json, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now())
+VALUES ($1, lower(trim($2)), $3, $4, $5, $6, $7, $8, $9, now(), now())
 ON CONFLICT (external_id) DO UPDATE SET
   email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
@@ -19,7 +19,7 @@ WITH input AS (
   SELECT
     i,
     (sqlc.arg(external_ids)::text[])[i] AS external_id,
-    (sqlc.arg(emails)::text[])[i] AS email,
+    lower(trim((sqlc.arg(emails)::text[])[i])) AS email,
     (sqlc.arg(display_names)::text[])[i] AS display_name,
     (sqlc.arg(statuses)::text[])[i] AS status,
     (sqlc.arg(raw_jsons)::jsonb[])[i] AS raw_json,

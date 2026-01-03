@@ -336,7 +336,7 @@ func (q *Queries) ListIdPUsersPageByQueryAndState(ctx context.Context, arg ListI
 
 const upsertIdPUser = `-- name: UpsertIdPUser :one
 INSERT INTO idp_users (external_id, email, display_name, status, raw_json, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now())
+VALUES ($1, lower(trim($2)), $3, $4, $5, $6, $7, $8, $9, now(), now())
 ON CONFLICT (external_id) DO UPDATE SET
   email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
@@ -353,7 +353,7 @@ RETURNING id, external_id, email, display_name, status, raw_json, created_at, up
 
 type UpsertIdPUserParams struct {
 	ExternalID      string             `json:"external_id"`
-	Email           string             `json:"email"`
+	Btrim           string             `json:"btrim"`
 	DisplayName     string             `json:"display_name"`
 	Status          string             `json:"status"`
 	RawJson         []byte             `json:"raw_json"`
@@ -366,7 +366,7 @@ type UpsertIdPUserParams struct {
 func (q *Queries) UpsertIdPUser(ctx context.Context, arg UpsertIdPUserParams) (IdpUser, error) {
 	row := q.db.QueryRow(ctx, upsertIdPUser,
 		arg.ExternalID,
-		arg.Email,
+		arg.Btrim,
 		arg.DisplayName,
 		arg.Status,
 		arg.RawJson,
@@ -403,7 +403,7 @@ WITH input AS (
   SELECT
     i,
     ($2::text[])[i] AS external_id,
-    ($3::text[])[i] AS email,
+    lower(trim(($3::text[])[i])) AS email,
     ($4::text[])[i] AS display_name,
     ($5::text[])[i] AS status,
     ($6::jsonb[])[i] AS raw_json,

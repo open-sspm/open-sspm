@@ -708,7 +708,7 @@ func (q *Queries) ListUnmatchedAppUsersPageBySourceAndQuery(ctx context.Context,
 
 const upsertAppUser = `-- name: UpsertAppUser :one
 INSERT INTO app_users (source_kind, source_name, external_id, email, display_name, raw_json, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now())
+VALUES ($1, $2, $3, lower(trim($4)), $5, $6, $7, $8, $9, $10, now(), now())
 ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
   email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
@@ -726,7 +726,7 @@ type UpsertAppUserParams struct {
 	SourceKind      string             `json:"source_kind"`
 	SourceName      string             `json:"source_name"`
 	ExternalID      string             `json:"external_id"`
-	Email           string             `json:"email"`
+	Btrim           string             `json:"btrim"`
 	DisplayName     string             `json:"display_name"`
 	RawJson         []byte             `json:"raw_json"`
 	LastLoginAt     pgtype.Timestamptz `json:"last_login_at"`
@@ -740,7 +740,7 @@ func (q *Queries) UpsertAppUser(ctx context.Context, arg UpsertAppUserParams) (A
 		arg.SourceKind,
 		arg.SourceName,
 		arg.ExternalID,
-		arg.Email,
+		arg.Btrim,
 		arg.DisplayName,
 		arg.RawJson,
 		arg.LastLoginAt,
@@ -777,7 +777,7 @@ WITH input AS (
   SELECT
     i,
     ($4::text[])[i] AS external_id,
-    ($5::text[])[i] AS email,
+    lower(trim(($5::text[])[i])) AS email,
     ($6::text[])[i] AS display_name,
     ($7::jsonb[])[i] AS raw_json,
     ($8::timestamptz[])[i] AS last_login_at,
