@@ -3,4 +3,4 @@ name: open-sspm
 description: Open-SSPM "who has access to what" service
 type: application
 version: 0.1.1
-appVersion: "latest"
+appVersion: "0.1.1"
