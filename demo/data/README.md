@@ -8,7 +8,7 @@ Goals:
   - Okta users / groups / app assignments
   - GitHub users + entitlements
   - Datadog users + roles
-  - Some Findings (pass/fail)
+  - Some Findings (pass/fail, with `schema_version=1` evidence envelope)
 
 ## Apply (locally)
 
@@ -25,4 +25,3 @@ From `demo/infra/ansible`:
 ```bash
 ansible-playbook -i inventory.ini seed-demo.yml
 ```
-

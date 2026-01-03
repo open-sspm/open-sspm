@@ -13,7 +13,6 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/matching"
-	"github.com/open-sspm/open-sspm/internal/opensspm"
 	"github.com/open-sspm/open-sspm/internal/rules/datasets"
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
 )
@@ -127,12 +126,9 @@ func (i *OktaIntegration) EvaluateCompliance(ctx context.Context, deps registry.
 		Okta: oktaProvider,
 	}
 	e := engine.Engine{
-		Q: deps.Q,
-		Datasets: opensspm.RuntimeDatasetProviderAdapter{
-			Provider:      router,
-			CapabilitiesV: datasets.RuntimeCapabilities(router),
-		},
-		Now: time.Now,
+		Q:        deps.Q,
+		Datasets: router,
+		Now:      time.Now,
 	}
 	if err := e.Run(ctx, engine.Context{
 		ScopeKind:   "connector_instance",

@@ -14,7 +14,6 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/matching"
-	"github.com/open-sspm/open-sspm/internal/opensspm"
 	"github.com/open-sspm/open-sspm/internal/rules/datasets"
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
 	"golang.org/x/sync/errgroup"
@@ -227,12 +226,9 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 		Normalized: &datasets.NormalizedProvider{Q: o.q},
 	}
 	globalEngine := engine.Engine{
-		Q: o.q,
-		Datasets: opensspm.RuntimeDatasetProviderAdapter{
-			Provider:      router,
-			CapabilitiesV: datasets.RuntimeCapabilities(router),
-		},
-		Now: time.Now,
+		Q:        o.q,
+		Datasets: router,
+		Now:      time.Now,
 	}
 	if o.globalEvalMode == globalEvalModeStrict && anySyncErrors {
 		slog.Info("skipping global compliance evaluation due to integration errors")

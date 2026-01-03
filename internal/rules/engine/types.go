@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"context"
 	"time"
 
 	runtimev1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v1"
@@ -14,10 +13,6 @@ type Context struct {
 	SourceName  string
 	SyncRunID   *int64
 	EvaluatedAt time.Time
-}
-
-type DatasetProvider interface {
-	GetDataset(ctx context.Context, datasetKey string, datasetVersion *int) ([]any, error)
 }
 
 type Engine struct {
