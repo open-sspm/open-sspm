@@ -87,15 +87,19 @@ templ UnmatchedEntraPage(data viewmodels.UnmatchedEntraViewData) {
 										</td>
 										<td class="text-muted-foreground">{ u.ExternalID }</td>
 										<td>
-											<form method="post" action="/links" class="flex flex-col gap-2 sm:flex-row sm:items-end">
-												@CSRFInput(data.Layout.CSRFToken)
-												<input type="hidden" name="app_user_id" value={ FormatInt64(u.ID) }/>
-												<label class="field w-full sm:w-32">
-													<span class="label sr-only">Okta user ID</span>
-													<input type="text" name="idp_user_id" placeholder="Okta ID" required class="input w-full"/>
-												</label>
-												<button type="submit" class="btn-sm-primary w-full sm:w-auto">Link</button>
-											</form>
+											if data.Layout.IsAdmin {
+												<form method="post" action="/links" class="flex flex-col gap-2 sm:flex-row sm:items-end">
+													@CSRFInput(data.Layout.CSRFToken)
+													<input type="hidden" name="app_user_id" value={ FormatInt64(u.ID) }/>
+													<label class="field w-full sm:w-32">
+														<span class="label sr-only">Okta user ID</span>
+														<input type="text" name="idp_user_id" placeholder="Okta ID" required class="input w-full"/>
+													</label>
+													<button type="submit" class="btn-sm-primary w-full sm:w-auto">Link</button>
+												</form>
+											} else {
+												<span class="text-sm text-muted-foreground">Admin required</span>
+											}
 										</td>
 									</tr>
 								}
@@ -136,4 +140,3 @@ templ UnmatchedEntraPage(data viewmodels.UnmatchedEntraViewData) {
 		</article>
 	}
 }
-

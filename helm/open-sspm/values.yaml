@@ -21,6 +21,11 @@ database:
 
 config:
   httpAddr: ":8080"
+  # When true, session & CSRF cookies are marked Secure (required for HTTPS ingress).
+  # Keep false for plain HTTP / port-forward.
+  authCookieSecure: false
+  # Dev-only convenience: seeds admin@admin.com / admin if no auth_users exist.
+  devSeedAdmin: false
   resyncEnabled: true
   syncInterval: 15m
   syncOktaWorkers: 3
@@ -78,6 +83,20 @@ migrations:
 seedRules:
   enabled: true
   onUpgrade: false
+  job:
+    backoffLimit: 3
+    ttlSecondsAfterFinished: 300
+    resources: {}
+
+# Optionally bootstrap the first admin user via a Helm hook Job.
+# Credentials are read from an existing Kubernetes Secret (do not put passwords in Helm values).
+bootstrapAdmin:
+  enabled: false
+  onUpgrade: false
+  existingSecret:
+    name: ""
+    emailKey: ADMIN_EMAIL
+    passwordKey: ADMIN_PASSWORD
   job:
     backoffLimit: 3
     ttlSecondsAfterFinished: 300

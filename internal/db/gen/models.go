@@ -29,6 +29,18 @@ type AppUser struct {
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
 }
 
+type AuthUser struct {
+	ID           int64              `json:"id"`
+	Email        string             `json:"email"`
+	PasswordHash string             `json:"password_hash"`
+	Role         string             `json:"role"`
+	IsActive     bool               `json:"is_active"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	LastLoginAt  pgtype.Timestamptz `json:"last_login_at"`
+	LastLoginIp  string             `json:"last_login_ip"`
+}
+
 type ConnectorConfig struct {
 	Kind      string             `json:"kind"`
 	Enabled   bool               `json:"enabled"`
@@ -272,6 +284,12 @@ type RulesetOverride struct {
 	Enabled    bool               `json:"enabled"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Session struct {
+	Token  string             `json:"token"`
+	Data   []byte             `json:"data"`
+	Expiry pgtype.Timestamptz `json:"expiry"`
 }
 
 type SyncRun struct {

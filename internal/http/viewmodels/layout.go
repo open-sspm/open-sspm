@@ -3,6 +3,9 @@ package viewmodels
 type LayoutData struct {
 	Title                       string
 	CSRFToken                   string
+	UserEmail                   string
+	UserRole                    string
+	IsAdmin                     bool
 	GitHubOrg                   string
 	GitHubEnabled               bool
 	GitHubConfigured            bool

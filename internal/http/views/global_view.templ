@@ -8,7 +8,9 @@ templ GlobalViewPage(data viewmodels.GlobalViewData) {
 			{Label: "Dashboard", Href: "/"},
 			{Label: "Global View"},
 		}, "Per-application overview of connector coverage and identity linking.") {
-			<a class="btn-sm-outline" href="/settings/connectors">Manage connectors</a>
+			if data.Layout.IsAdmin {
+				<a class="btn-sm-outline" href="/settings/connectors">Manage connectors</a>
+			}
 		}
 
 		<section class="grid gap-6">

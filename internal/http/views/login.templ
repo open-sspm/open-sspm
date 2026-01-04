@@ -1,0 +1,51 @@
+package views
+
+import (
+	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
+)
+
+templ LoginPage(data viewmodels.LoginViewData) {
+	@PublicLayout("Sign in", data.Toast) {
+		<div class="mx-auto w-full max-w-md">
+			<article class="card">
+				<header>
+					<h1>Sign in</h1>
+					<p>Sign in to manage and view your Open-SSPM workspace.</p>
+				</header>
+				<section class="space-y-4">
+					if data.SetupRequired {
+						@Alert("Setup required", false) {
+							<p>No login users exist yet.</p>
+							<p class="text-sm text-muted-foreground">Run this on the server to create the first admin user:</p>
+							<pre class="text-xs whitespace-pre-wrap rounded-md border border-border bg-muted p-3"><code>open-sspm users bootstrap-admin --email you@example.com</code></pre>
+							<p class="text-sm text-muted-foreground">For local development you can also set <span class="font-mono">DEV_SEED_ADMIN=1</span>.</p>
+						}
+					} else {
+						if data.ErrorMessage != "" {
+							@Alert("Sign in failed", true) {
+								<p>{ data.ErrorMessage }</p>
+							}
+						}
+						<form method="post" action="/login" class="space-y-4">
+							@CSRFInput(data.CSRFToken)
+							<input type="hidden" name="next" value={ data.Next }/>
+
+							<label class="field">
+								<span class="label">Email</span>
+								<input type="email" name="email" class="input" autocomplete="username" required value={ data.Email }/>
+							</label>
+
+							<label class="field">
+								<span class="label">Password</span>
+								<input type="password" name="password" class="input" autocomplete="current-password" required/>
+							</label>
+
+							<button type="submit" class="btn-primary w-full">Sign in</button>
+						</form>
+					}
+				</section>
+			</article>
+		</div>
+	}
+}
+

@@ -13,16 +13,18 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 			{Label: "Findings", Href: "/findings"},
 			{Label: data.Ruleset.Name},
 		}, "Rules and current results for this ruleset.") {
-			<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" } class="flex items-center gap-2">
-				@CSRFInput(data.Layout.CSRFToken)
-				if data.OverrideEnabled {
-					<input type="hidden" name="enabled" value="false"/>
-					<button type="submit" class="btn-outline">Disable ruleset</button>
-				} else {
-					<input type="hidden" name="enabled" value="true"/>
-					<button type="submit" class="btn-primary">Enable ruleset</button>
-				}
-			</form>
+			if data.Layout.IsAdmin {
+				<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" } class="flex items-center gap-2">
+					@CSRFInput(data.Layout.CSRFToken)
+					if data.OverrideEnabled {
+						<input type="hidden" name="enabled" value="false"/>
+						<button type="submit" class="btn-outline">Disable ruleset</button>
+					} else {
+						<input type="hidden" name="enabled" value="true"/>
+						<button type="submit" class="btn-primary">Enable ruleset</button>
+					}
+				</form>
+			}
 		}
 
 		if data.Alert != nil {

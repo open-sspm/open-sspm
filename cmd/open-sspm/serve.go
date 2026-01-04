@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/auth"
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/aws"
 	"github.com/open-sspm/open-sspm/internal/connectors/datadog"
@@ -53,6 +54,12 @@ func runServe() error {
 
 	queries := gen.New(pool)
 
+	if cfg.DevSeedAdmin {
+		if err := maybeSeedDevAdmin(ctx, queries); err != nil {
+			return err
+		}
+	}
+
 	reg := registry.NewRegistry()
 	if err := reg.Register(okta.NewDefinition(cfg.SyncOktaWorkers)); err != nil {
 		return err
@@ -88,7 +95,7 @@ func runServe() error {
 		syncer = nil
 	}
 
-	srv, err := httpapp.NewEchoServer(cfg, queries, syncer, reg)
+	srv, err := httpapp.NewEchoServer(cfg, pool, queries, syncer, reg)
 	if err != nil {
 		return err
 	}
@@ -116,4 +123,31 @@ func runServe() error {
 		}
 		return nil
 	}
+}
+
+func maybeSeedDevAdmin(ctx context.Context, q *gen.Queries) error {
+	count, err := q.CountAuthUsers(ctx)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+
+	hash, err := auth.HashPassword("admin")
+	if err != nil {
+		return err
+	}
+
+	_, err = q.CreateAuthUser(ctx, gen.CreateAuthUserParams{
+		Email:        "admin@admin.com",
+		PasswordHash: hash,
+		Role:         auth.RoleAdmin,
+		IsActive:     true,
+	})
+	if err != nil {
+		return err
+	}
+	slog.Warn("seeded dev admin user (DEV_SEED_ADMIN=1)", "email", "admin@admin.com")
+	return nil
 }

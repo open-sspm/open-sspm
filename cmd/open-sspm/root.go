@@ -14,5 +14,5 @@ func Execute() error {
 }
 
 func init() {
-	rootCmd.AddCommand(serveCmd, workerCmd, syncCmd, migrateCmd, seedRulesCmd, validateRulesCmd, specVersionCmd)
+	rootCmd.AddCommand(serveCmd, workerCmd, syncCmd, migrateCmd, seedRulesCmd, validateRulesCmd, specVersionCmd, usersCmd)
 }

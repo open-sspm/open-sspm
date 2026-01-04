@@ -55,6 +55,12 @@ This repo includes an **upsert-only** SQL seed at `demo/data/001_seed_demo.sql`.
 
 The deploy workflow resets the demo database and applies this seed on every deployment.
 
+## Demo login
+
+Default demo credentials (bootstrapped automatically during deploy):
+- email: `admin@admin.com`
+- password: `admin`
+
 You can also apply it manually from your machine, if you want to re-seed without redeploying:
 
 ```bash

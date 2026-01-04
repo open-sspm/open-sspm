@@ -6,6 +6,9 @@ toolchain go1.25.5
 
 require (
 	github.com/a-h/templ v0.3.977
+	github.com/alexedwards/argon2id v1.0.0
+	github.com/alexedwards/scs/pgxstore v0.0.0-20251002162104-209de6e426de
+	github.com/alexedwards/scs/v2 v2.9.0
 	github.com/aws/aws-sdk-go-v2 v1.41.0
 	github.com/aws/aws-sdk-go-v2/config v1.32.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.6
@@ -19,6 +22,7 @@ require (
 	github.com/open-sspm/open-sspm-spec v0.0.0-20260101152609-1c5cca899e79
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/sync v0.19.0
+	golang.org/x/term v0.38.0
 )
 
 require (
@@ -43,7 +47,6 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.4 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect

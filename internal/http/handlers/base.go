@@ -10,12 +10,14 @@ import (
 	"strings"
 
 	"github.com/a-h/templ"
+	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/authn"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
@@ -36,6 +38,7 @@ type SyncRunner interface {
 type Handlers struct {
 	Cfg      config.Config
 	Q        *gen.Queries
+	Sessions *scs.SessionManager
 	Syncer   SyncRunner
 	Registry *registry.ConnectorRegistry
 }
@@ -102,6 +105,7 @@ func (h *Handlers) LayoutData(ctx context.Context, c echo.Context, title string)
 	if err != nil {
 		return viewmodels.LayoutData{}, snap, err
 	}
+	principal, ok := authn.PrincipalFromContext(c)
 	csrfToken, _ := c.Get(middleware.DefaultCSRFConfig.ContextKey).(string)
 	awsName := strings.TrimSpace(snap.AWSIdentityCenter.Name)
 	if awsName == "" {
@@ -110,6 +114,9 @@ func (h *Handlers) LayoutData(ctx context.Context, c echo.Context, title string)
 	layout := viewmodels.LayoutData{
 		Title:                       title,
 		CSRFToken:                   csrfToken,
+		UserEmail:                   principal.Email,
+		UserRole:                    principal.Role,
+		IsAdmin:                     ok && principal.IsAdmin(),
 		GitHubOrg:                   snap.GitHub.Org,
 		GitHubEnabled:               snap.GitHubEnabled,
 		GitHubConfigured:            snap.GitHubConfigured,

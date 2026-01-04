@@ -1,0 +1,87 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ PublicLayout(title string, toast *viewmodels.ToastViewData) {
+	<!doctype html>
+	<html lang="en" class="light">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title }{ " · Open-SSPM" }</title>
+			<link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
+			<script>
+				(() => {
+					try {
+						const stored = localStorage.getItem('themeMode');
+						if (stored ? stored === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches) {
+							document.documentElement.classList.add('dark');
+						}
+					} catch (_) {}
+
+					const apply = dark => {
+						document.documentElement.classList.toggle('dark', dark);
+						try { localStorage.setItem('themeMode', dark ? 'dark' : 'light'); } catch (_) {}
+					};
+
+					document.addEventListener('basecoat:theme', (event) => {
+						const mode = event.detail?.mode;
+						apply(mode === 'dark' ? true : mode === 'light' ? false : !document.documentElement.classList.contains('dark'));
+					});
+				})();
+			</script>
+			<link rel="stylesheet" href="/static/app.css"/>
+		</head>
+		<body class="min-h-screen bg-background text-foreground">
+			<div class="min-h-screen flex flex-col">
+				<header class="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/90 px-4 py-3 backdrop-blur lg:px-8">
+					<div class="flex items-center gap-3">
+						<div class="grid h-9 w-9 place-items-center rounded-lg bg-background ring-1 ring-border">
+							<img src="/static/brand/shield.png" alt="Open-SSPM" class="h-6 w-6"/>
+						</div>
+						<span class="font-semibold tracking-tight">Open-SSPM</span>
+					</div>
+					<div class="ml-auto flex items-center gap-3">
+						<button type="button" aria-label="Toggle dark mode" data-tooltip="Toggle dark mode" data-side="bottom" data-align="end" onclick="document.dispatchEvent(new CustomEvent('basecoat:theme'))" class="btn-icon-outline size-8">
+							<span class="hidden dark:block">
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<circle cx="12" cy="12" r="4"></circle>
+									<path d="M12 2v2"></path>
+									<path d="M12 20v2"></path>
+									<path d="m4.93 4.93 1.41 1.41"></path>
+									<path d="m17.66 17.66 1.41 1.41"></path>
+									<path d="M2 12h2"></path>
+									<path d="M20 12h2"></path>
+									<path d="m6.34 17.66-1.41 1.41"></path>
+									<path d="m19.07 4.93-1.41 1.41"></path>
+								</svg>
+							</span>
+							<span class="block dark:hidden">
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+								</svg>
+							</span>
+						</button>
+					</div>
+				</header>
+				<main class="flex flex-1 items-center">
+					<div class="mx-auto w-full max-w-6xl px-4 py-8 lg:px-10 lg:py-12">
+						{ children... }
+					</div>
+				</main>
+			</div>
+			<section id="toaster" class="toaster" data-align="end"></section>
+			if toast != nil {
+				<div id="flash-toast" class="hidden" data-category={ toast.Category } data-title={ toast.Title } data-description={ toast.Description }></div>
+			}
+			<script type="importmap">
+				{
+					"imports": {
+						"basecoat": "/static/vendor/basecoat.all.min.js"
+					}
+				}
+			</script>
+			<script type="module" src="/static/app.entry.js"></script>
+		</body>
+	</html>
+}
