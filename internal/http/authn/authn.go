@@ -109,8 +109,28 @@ func SanitizeNext(next string) string {
 	if next == "" || len(next) > 2048 {
 		return ""
 	}
-	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+	if strings.ContainsAny(next, "\r\n") {
 		return ""
+	}
+
+	if next[0] != '/' {
+		return ""
+	}
+	if len(next) < 2 {
+		return ""
+	}
+	if next[1] == '/' || next[1] == '\\' {
+		return ""
+	}
+	if next[1] == '%' && len(next) >= 4 {
+		hi, okHi := fromHex(next[2])
+		lo, okLo := fromHex(next[3])
+		if okHi && okLo {
+			decoded := (hi << 4) | lo
+			if decoded == '/' || decoded == '\\' {
+				return ""
+			}
+		}
 	}
 
 	u, err := url.Parse(next)
@@ -124,4 +144,17 @@ func SanitizeNext(next string) string {
 		return ""
 	}
 	return next
+}
+
+func fromHex(b byte) (byte, bool) {
+	switch {
+	case b >= '0' && b <= '9':
+		return b - '0', true
+	case b >= 'a' && b <= 'f':
+		return b - 'a' + 10, true
+	case b >= 'A' && b <= 'F':
+		return b - 'A' + 10, true
+	default:
+		return 0, false
+	}
 }
