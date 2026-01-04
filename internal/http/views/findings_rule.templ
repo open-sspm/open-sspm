@@ -1,6 +1,10 @@
 package views
 
-import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+import (
+	"strings"
+
+	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
+)
 
 templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 	@Layout(data.Layout) {
@@ -139,64 +143,89 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 					<p class="text-muted-foreground">Enable/disable the rule and override parameters.</p>
 				</header>
 				<section class="space-y-6">
-					<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" } class="flex items-center justify-between gap-3">
-						@CSRFInput(data.Layout.CSRFToken)
-						<div>
-							<div class="text-sm font-medium">Ruleset enabled</div>
-							<div class="text-xs text-muted-foreground">A disabled ruleset forces rules to not_applicable.</div>
-						</div>
-						if data.RulesetOverrideEnabled {
-							<input type="hidden" name="enabled" value="false"/>
-							<button type="submit" class="btn-outline">Disable</button>
-						} else {
-							<input type="hidden" name="enabled" value="true"/>
-							<button type="submit" class="btn-primary">Enable</button>
-						}
-					</form>
-
-					<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/override" } class="space-y-4">
-						@CSRFInput(data.Layout.CSRFToken)
-						<div class="flex items-center justify-between gap-3">
+					if data.Layout.IsAdmin {
+						<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" } class="flex items-center justify-between gap-3">
+							@CSRFInput(data.Layout.CSRFToken)
 							<div>
-								<div class="text-sm font-medium">Rule override enabled</div>
-								<div class="text-xs text-muted-foreground">Disable to mark rule not_applicable.</div>
+								<div class="text-sm font-medium">Ruleset enabled</div>
+								<div class="text-xs text-muted-foreground">A disabled ruleset forces rules to not_applicable.</div>
 							</div>
-							<label class="inline-flex items-center gap-2">
-								<input type="checkbox" class="checkbox" name="enabled" value="true" checked?={ data.RuleOverride.Enabled }/>
-								<span class="text-sm">Enabled</span>
-							</label>
-						</div>
+							if data.RulesetOverrideEnabled {
+								<input type="hidden" name="enabled" value="false"/>
+								<button type="submit" class="btn-outline">Disable</button>
+							} else {
+								<input type="hidden" name="enabled" value="true"/>
+								<button type="submit" class="btn-primary">Enable</button>
+							}
+						</form>
 
-						if data.RuleOverride.HasSchema {
-							<div class="space-y-3">
-								<div class="text-sm font-medium">Parameters</div>
-								<div class="space-y-3">
-									for _, f := range data.RuleOverride.Fields {
-										<div class="grid gap-2">
-											<label class="text-sm font-medium" for={ "param_" + f.Key }>{ f.Key }</label>
-											if f.Description != "" {
-												<div class="text-xs text-muted-foreground">{ f.Description }</div>
-											}
-											if f.Type == "boolean" {
-												<select id={ "param_" + f.Key } name={ "param_" + f.Key } class="select">
-													<option value="" selected?={ f.OverrideValue == "" }>Inherit</option>
-													<option value="true" selected?={ f.OverrideValue == "true" }>true</option>
-													<option value="false" selected?={ f.OverrideValue == "false" }>false</option>
-												</select>
-											} else {
-												<input id={ "param_" + f.Key } name={ "param_" + f.Key } class="input" value={ f.OverrideValue } placeholder={ f.DefaultValue }/>
-											}
-										</div>
-									}
+						<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/override" } class="space-y-4">
+							@CSRFInput(data.Layout.CSRFToken)
+							<div class="flex items-center justify-between gap-3">
+								<div>
+									<div class="text-sm font-medium">Rule override enabled</div>
+									<div class="text-xs text-muted-foreground">Disable to mark rule not_applicable.</div>
 								</div>
+								<label class="inline-flex items-center gap-2">
+									<input type="checkbox" class="checkbox" name="enabled" value="true" checked?={ data.RuleOverride.Enabled }/>
+									<span class="text-sm">Enabled</span>
+								</label>
 							</div>
-						}
 
-						<button type="submit" class="btn-primary">Save override</button>
-						if data.RuleOverride.CurrentParamsPretty != "" {
-							<pre class="text-xs whitespace-pre-wrap rounded-md border border-border bg-muted p-3">{ data.RuleOverride.CurrentParamsPretty }</pre>
-						}
-					</form>
+							if data.RuleOverride.HasSchema {
+								<div class="space-y-3">
+									<div class="text-sm font-medium">Parameters</div>
+									<div class="space-y-3">
+										for _, f := range data.RuleOverride.Fields {
+											<div class="grid gap-2">
+												<label class="text-sm font-medium" for={ "param_" + f.Key }>{ f.Key }</label>
+												if f.Description != "" {
+													<div class="text-xs text-muted-foreground">{ f.Description }</div>
+												}
+												if f.Type == "boolean" {
+													<select id={ "param_" + f.Key } name={ "param_" + f.Key } class="select">
+														<option value="" selected?={ f.OverrideValue == "" }>Inherit</option>
+														<option value="true" selected?={ f.OverrideValue == "true" }>true</option>
+														<option value="false" selected?={ f.OverrideValue == "false" }>false</option>
+													</select>
+												} else {
+													<input id={ "param_" + f.Key } name={ "param_" + f.Key } class="input" value={ f.OverrideValue } placeholder={ f.DefaultValue }/>
+												}
+											</div>
+										}
+									</div>
+								</div>
+							}
+
+							<button type="submit" class="btn-primary">Save override</button>
+							if data.RuleOverride.CurrentParamsPretty != "" {
+								<pre class="text-xs whitespace-pre-wrap rounded-md border border-border bg-muted p-3">{ data.RuleOverride.CurrentParamsPretty }</pre>
+							}
+						</form>
+					} else {
+						<div class="space-y-2 text-sm text-muted-foreground">
+							<div>Overrides can only be changed by an admin.</div>
+							<div>
+								<span class="font-medium text-foreground">Ruleset enabled:</span>
+								if data.RulesetOverrideEnabled {
+									{ " yes" }
+								} else {
+									{ " no" }
+								}
+							</div>
+							<div>
+								<span class="font-medium text-foreground">Rule override enabled:</span>
+								if data.RuleOverride.Enabled {
+									{ " yes" }
+								} else {
+									{ " no" }
+								}
+							</div>
+							if data.RuleOverride.CurrentParamsPretty != "" {
+								<pre class="text-xs whitespace-pre-wrap rounded-md border border-border bg-muted p-3">{ data.RuleOverride.CurrentParamsPretty }</pre>
+							}
+						</div>
+					}
 				</section>
 			</article>
 
@@ -206,30 +235,53 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 					<p class="text-muted-foreground">Record a manual attestation (expires automatically).</p>
 				</header>
 				<section class="space-y-4">
-					<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/attestation" } class="space-y-4">
-						@CSRFInput(data.Layout.CSRFToken)
+					if data.Layout.IsAdmin {
+						<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/attestation" } class="space-y-4">
+							@CSRFInput(data.Layout.CSRFToken)
 
-						<label class="space-y-1 block">
-							<div class="text-sm font-medium">Status</div>
-							<select class="select" name="status">
-								<option value="pass" selected?={ data.Attestation.Status == "pass" }>Pass</option>
-								<option value="fail" selected?={ data.Attestation.Status == "fail" }>Fail</option>
-								<option value="not_applicable" selected?={ data.Attestation.Status == "not_applicable" }>Not applicable</option>
-							</select>
-						</label>
+							<label class="space-y-1 block">
+								<div class="text-sm font-medium">Status</div>
+								<select class="select" name="status">
+									<option value="pass" selected?={ data.Attestation.Status == "pass" }>Pass</option>
+									<option value="fail" selected?={ data.Attestation.Status == "fail" }>Fail</option>
+									<option value="not_applicable" selected?={ data.Attestation.Status == "not_applicable" }>Not applicable</option>
+								</select>
+							</label>
 
-						<label class="space-y-1 block">
-							<div class="text-sm font-medium">Expires at</div>
-							<input class="input" type="datetime-local" name="expires_at" value={ data.Attestation.ExpiresAt }/>
-						</label>
+							<label class="space-y-1 block">
+								<div class="text-sm font-medium">Expires at</div>
+								<input class="input" type="datetime-local" name="expires_at" value={ data.Attestation.ExpiresAt }/>
+							</label>
 
-						<label class="space-y-1 block">
-							<div class="text-sm font-medium">Notes</div>
-							<textarea class="textarea" name="notes" rows="4">{ data.Attestation.Notes }</textarea>
-						</label>
+							<label class="space-y-1 block">
+								<div class="text-sm font-medium">Notes</div>
+								<textarea class="textarea" name="notes" rows="4">{ data.Attestation.Notes }</textarea>
+							</label>
 
-						<button type="submit" class="btn-primary">Save attestation</button>
-					</form>
+							<button type="submit" class="btn-primary">Save attestation</button>
+						</form>
+					} else {
+						<div class="space-y-2 text-sm text-muted-foreground">
+							<div>Attestations can only be changed by an admin.</div>
+							if data.Attestation.Status != "" {
+								<div>
+									<span class="font-medium text-foreground">Status:</span> { strings.ToUpper(data.Attestation.Status) }
+								</div>
+								if data.Attestation.ExpiresAt != "" {
+									<div>
+										<span class="font-medium text-foreground">Expires at:</span> { data.Attestation.ExpiresAt }
+									</div>
+								}
+								if data.Attestation.Notes != "" {
+									<div>
+										<span class="font-medium text-foreground">Notes:</span> { data.Attestation.Notes }
+									</div>
+								}
+							} else {
+								<div>No attestation recorded.</div>
+							}
+						</div>
+					}
 				</section>
 			</article>
 		</div>
@@ -253,4 +305,3 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 		}
 	}
 }
-

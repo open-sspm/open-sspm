@@ -22,6 +22,8 @@ const (
 type Config struct {
 	DatabaseURL           string
 	HTTPAddr              string
+	AuthCookieSecure      bool
+	DevSeedAdmin          bool
 	SyncInterval          time.Duration
 	SyncOktaInterval      time.Duration
 	SyncEntraInterval     time.Duration
@@ -60,6 +62,8 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 	cfg := Config{
 		DatabaseURL:        os.Getenv("DATABASE_URL"),
 		HTTPAddr:           getenvDefault("HTTP_ADDR", defaultHTTPAddr),
+		AuthCookieSecure:   getenvBoolDefault("AUTH_COOKIE_SECURE", false),
+		DevSeedAdmin:       getenvBoolDefault("DEV_SEED_ADMIN", false),
 		SyncInterval:       defaultSyncInterval,
 		SyncOktaWorkers:    getenvIntDefault("SYNC_OKTA_WORKERS", defaultSyncOktaWorkers),
 		SyncGitHubWorkers:  getenvIntDefault("SYNC_GITHUB_WORKERS", defaultSyncGitHubWorkers),

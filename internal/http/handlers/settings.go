@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/authn"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 	"github.com/open-sspm/open-sspm/internal/sync"
@@ -349,9 +350,13 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c echo.Context, 
 	if awsName == "" {
 		awsName = strings.TrimSpace(data.AWSIdentityCenter.Region)
 	}
+	principal, ok := authn.PrincipalFromContext(c)
 	layout := viewmodels.LayoutData{
 		Title:                       "Connectors",
 		CSRFToken:                   csrfToken,
+		UserEmail:                   principal.Email,
+		UserRole:                    principal.Role,
+		IsAdmin:                     ok && principal.IsAdmin(),
 		GitHubOrg:                   data.GitHub.Org,
 		GitHubEnabled:               data.GitHub.Enabled,
 		GitHubConfigured:            data.GitHub.Configured,

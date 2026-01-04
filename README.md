@@ -1,9 +1,12 @@
-
-<div style="text-align: center;">Made with love in Paris 🇫🇷</div>
+<p align="center">Made with love in Paris 🇫🇷</p>
 
 # Open-SSPM
 
 Open-SSPM is a small “who has access to what” service. It syncs identities from Okta (IdP) and permissions from connected apps (GitHub, Datadog, AWS Identity Center), links accounts (auto by email + manual links), and renders a server-side UI.
+
+## Demo
+- URL: `https://demo.opensspm.com`
+- Login: `admin@admin.com` / `admin`
 
 ## Features
 - HTTP server (`open-sspm serve`) + background sync worker (`open-sspm worker`) + one-off sync (`open-sspm sync`) + in-app “Resync”.
@@ -49,7 +52,7 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 - AWS Identity Center uses the AWS SDK default credentials chain (env/shared config/role), not DB-stored keys.
 
 ## Security notes
-- There is no in-app authentication layer right now; run on a trusted network or behind your own auth proxy.
+- Open-SSPM includes in-app authentication (email/password) using server-side sessions stored in Postgres.
 - Avoid logging connector secrets; tokens are stored in Postgres.
 
 ## Contributing

@@ -10,7 +10,18 @@
      --set database.existingSecret.name=open-sspm-db \
      --set database.existingSecret.key=DATABASE_URL
 
-3) Access the service
+3) Create the first admin user
+
+   {{- if .Values.bootstrapAdmin.enabled }}
+   The chart will bootstrap the first admin user via a Helm hook Job.
+   It reads `ADMIN_EMAIL` and `ADMIN_PASSWORD` from the Secret: {{ .Values.bootstrapAdmin.existingSecret.name }}
+
+   {{- else }}
+   No admin bootstrap is configured. After install, open `/login` and follow the setup instructions,
+   or run `open-sspm users bootstrap-admin` inside the cluster.
+   {{- end }}
+
+4) Access the service
 
    If ingress is disabled:
      kubectl port-forward svc/{{ include "open-sspm.fullname" . }} 8080:{{ .Values.service.port }}

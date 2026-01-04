@@ -9,9 +9,10 @@ Location: `helm/open-sspm`
 Deploys:
 - `open-sspm serve` (HTTP/UI) as a Deployment + Service (+ optional Ingress)
 - `open-sspm worker` (background sync loop) as a Deployment
-- DB bootstrap hooks:
+- Helm hook Jobs:
   - `open-sspm migrate` as a pre-install/pre-upgrade Job
   - `open-sspm seed-rules` as a pre-install Job (optionally also pre-upgrade)
+  - `open-sspm users bootstrap-admin` as a pre-install Job (optionally also pre-upgrade; disabled by default)
 
 This chart assumes a **managed Postgres** (RDS, Cloud SQL, etc). It does **not** deploy Postgres.
 
@@ -122,6 +123,38 @@ kubectl get svc
 kubectl port-forward svc/<service-name> 8080:80
 ```
 
-### Security note
+### UI authentication
 
-Open-SSPM currently has **no in-app authentication**; deploy behind your auth proxy / private ingress.
+Open-SSPM includes in-app authentication (email/password) using server-side sessions stored in Postgres.
+
+On a fresh install there are **no users**. You must create the first admin user.
+
+Recommended (Helm hook Job):
+
+1) Create a Secret with the initial admin credentials:
+```bash
+kubectl create secret generic open-sspm-admin \
+  --from-literal=ADMIN_EMAIL='admin@example.com' \
+  --from-literal=ADMIN_PASSWORD='change-me'
+```
+
+2) Enable the bootstrap hook:
+```bash
+helm upgrade --install open-sspm ./helm/open-sspm \
+  --set bootstrapAdmin.enabled=true \
+  --set bootstrapAdmin.existingSecret.name=open-sspm-admin \
+  --set database.existingSecret.name=open-sspm-db
+```
+
+Notes:
+- The bootstrap runs `open-sspm users bootstrap-admin` and is **idempotent** (it exits successfully if an admin already exists).
+- Avoid putting passwords directly in Helm values (`--set`), since Helm stores release values.
+
+### Cookie security (`AUTH_COOKIE_SECURE`)
+
+Set `config.authCookieSecure=true` when users access the UI over HTTPS (Ingress TLS termination, etc.).
+Keep it `false` for plain HTTP / port-forward, otherwise the browser will not store session/CSRF cookies.
+
+### Dev-only seeding (`DEV_SEED_ADMIN`)
+
+For development only, you can set `config.devSeedAdmin=true` to seed `admin@admin.com` / `admin` **only if** no UI users exist yet.

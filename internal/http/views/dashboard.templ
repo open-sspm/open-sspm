@@ -7,7 +7,9 @@ templ DashboardPage(data viewmodels.DashboardViewData) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard"},
 		}, "Overview of synced identities and access data.") {
-			<a class="btn-sm-outline" href="/settings/connectors">Manage connectors</a>
+			if data.Layout.IsAdmin {
+				<a class="btn-sm-outline" href="/settings/connectors">Manage connectors</a>
+			}
 		}
 
 		<article class="card">

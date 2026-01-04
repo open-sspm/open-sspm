@@ -1,0 +1,12 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ ForbiddenPage(layout viewmodels.LayoutData) {
+	@Layout(layout) {
+		@EmptyState("Forbidden", "You don't have access to this page.") {
+			<a class="btn-outline" href="/">Go to dashboard</a>
+		}
+	}
+}
+

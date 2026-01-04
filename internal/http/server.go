@@ -6,12 +6,18 @@ import (
 	"encoding/hex"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/alexedwards/scs/pgxstore"
+	"github.com/alexedwards/scs/v2"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/open-sspm/open-sspm/internal/auth"
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/authn"
 	"github.com/open-sspm/open-sspm/internal/http/handlers"
 )
 
@@ -22,8 +28,19 @@ type EchoServer struct {
 }
 
 // NewEchoServer creates a new HTTP server.
-func NewEchoServer(cfg config.Config, q *gen.Queries, syncer handlers.SyncRunner, reg *registry.ConnectorRegistry) (*EchoServer, error) {
-	h := &handlers.Handlers{Cfg: cfg, Q: q, Syncer: syncer, Registry: reg}
+func NewEchoServer(cfg config.Config, pool *pgxpool.Pool, q *gen.Queries, syncer handlers.SyncRunner, reg *registry.ConnectorRegistry) (*EchoServer, error) {
+	sessions := scs.New()
+	sessions.Store = pgxstore.New(pool)
+	sessions.HashTokenInStore = true
+	sessions.IdleTimeout = 12 * time.Hour
+	sessions.Lifetime = 14 * 24 * time.Hour
+	sessions.Cookie.Name = "oss_session"
+	sessions.Cookie.HttpOnly = true
+	sessions.Cookie.Path = "/"
+	sessions.Cookie.SameSite = http.SameSiteLaxMode
+	sessions.Cookie.Secure = cfg.AuthCookieSecure
+
+	h := &handlers.Handlers{Cfg: cfg, Q: q, Syncer: syncer, Registry: reg, Sessions: sessions}
 	es := &EchoServer{h: h, e: echo.New()}
 	es.e.Use(middleware.RequestIDWithConfig(middleware.RequestIDConfig{
 		RequestIDHandler: func(c echo.Context, id string) {
@@ -34,6 +51,14 @@ func NewEchoServer(cfg config.Config, q *gen.Queries, syncer handlers.SyncRunner
 			}
 			c.Set(handlers.ContextKeyRequestID, id)
 		},
+	}))
+	es.e.Use(echo.WrapMiddleware(sessions.LoadAndSave))
+	es.e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
+		TokenLookup:    "header:" + echo.HeaderXCSRFToken + ",form:csrf",
+		CookiePath:     "/",
+		CookieHTTPOnly: true,
+		CookieSameSite: http.SameSiteLaxMode,
+		CookieSecure:   cfg.AuthCookieSecure,
 	}))
 	es.e.HTTPErrorHandler = es.httpErrorHandler
 	es.registerRoutes()
@@ -85,6 +110,10 @@ func (es *EchoServer) httpErrorHandler(err error, c echo.Context) {
 		_ = handlers.RenderNotFound(c)
 		return
 	}
+	if status == http.StatusForbidden {
+		_ = es.h.RenderForbidden(c)
+		return
+	}
 	_ = c.String(status, http.StatusText(status))
 }
 
@@ -92,16 +121,26 @@ func (es *EchoServer) registerRoutes() {
 	es.e.GET("/healthz", es.h.HandleHealthz)
 
 	authed := es.e.Group("")
-	authed.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
-		TokenLookup:    "header:" + echo.HeaderXCSRFToken + ",form:csrf",
-		CookiePath:     "/",
-		CookieHTTPOnly: true,
-		CookieSameSite: http.SameSiteLaxMode,
+
+	es.e.GET("/login", es.h.HandleLoginGet)
+	es.e.POST("/login", es.h.HandleLoginPost, middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+		Store: middleware.NewRateLimiterMemoryStoreWithConfig(middleware.RateLimiterMemoryStoreConfig{
+			Rate:      0.5,
+			Burst:     10,
+			ExpiresIn: 10 * time.Minute,
+		}),
+		IdentifierExtractor: func(c echo.Context) (string, error) {
+			return c.RealIP(), nil
+		},
+		DenyHandler: func(c echo.Context, identifier string, err error) error {
+			return c.String(http.StatusTooManyRequests, "too many login attempts")
+		},
 	}))
+
+	authed.Use(authn.RequireAuth(es.h.Sessions, es.h.Q))
 	authed.GET("/", es.h.HandleDashboard)
 	authed.GET("/global-view", es.h.HandleGlobalView)
 	authed.GET("/apps", es.h.HandleApps)
-	authed.POST("/apps/map", es.h.HandleAppsMap)
 	authed.GET("/apps/*", es.h.HandleOktaAppShow)
 	authed.GET("/idp-users", es.h.HandleIdpUsers)
 	authed.GET("/idp-users/*", es.h.HandleIdpUserShow)
@@ -109,10 +148,7 @@ func (es *EchoServer) registerRoutes() {
 	authed.GET("/resources/:sourceKind/:sourceName/:resourceKind/*", es.h.HandleResourceShow)
 	authed.GET("/findings", es.h.HandleFindings)
 	authed.GET("/findings/rulesets/:rulesetKey", es.h.HandleFindingsRuleset)
-	authed.POST("/findings/rulesets/:rulesetKey/override", es.h.HandleFindingsRulesetOverride)
 	authed.GET("/findings/rulesets/:rulesetKey/rules/:ruleKey", es.h.HandleFindingsRule)
-	authed.POST("/findings/rulesets/:rulesetKey/rules/:ruleKey/override", es.h.HandleFindingsRuleOverride)
-	authed.POST("/findings/rulesets/:rulesetKey/rules/:ruleKey/attestation", es.h.HandleFindingsRuleAttestation)
 	authed.GET("/github-users", es.h.HandleGitHubUsers)
 	authed.GET("/entra-users", es.h.HandleEntraUsers)
 	authed.GET("/aws-users", es.h.HandleAWSUsers)
@@ -121,11 +157,19 @@ func (es *EchoServer) registerRoutes() {
 	authed.GET("/unmatched/entra", es.h.HandleUnmatchedEntra)
 	authed.GET("/unmatched/aws", es.h.HandleUnmatchedAWS)
 	authed.GET("/unmatched/datadog/*", es.h.HandleUnmatchedDatadog)
-	authed.POST("/links", es.h.HandleCreateLink)
-	authed.GET("/settings", es.h.HandleSettings)
-	authed.GET("/settings/connectors", es.h.HandleConnectors)
-	authed.POST("/settings/connectors/*", es.h.HandleConnectorAction)
-	authed.POST("/settings/resync", es.h.HandleResync)
+	authed.POST("/logout", es.h.HandleLogoutPost)
+
+	admin := authed.Group("")
+	admin.Use(authn.RequireRole(auth.RoleAdmin))
+	admin.POST("/apps/map", es.h.HandleAppsMap)
+	admin.POST("/links", es.h.HandleCreateLink)
+	admin.POST("/findings/rulesets/:rulesetKey/override", es.h.HandleFindingsRulesetOverride)
+	admin.POST("/findings/rulesets/:rulesetKey/rules/:ruleKey/override", es.h.HandleFindingsRuleOverride)
+	admin.POST("/findings/rulesets/:rulesetKey/rules/:ruleKey/attestation", es.h.HandleFindingsRuleAttestation)
+	admin.GET("/settings", es.h.HandleSettings)
+	admin.GET("/settings/connectors", es.h.HandleConnectors)
+	admin.POST("/settings/connectors/*", es.h.HandleConnectorAction)
+	admin.POST("/settings/resync", es.h.HandleResync)
 
 	es.e.Static("/static", "web/static")
 }
