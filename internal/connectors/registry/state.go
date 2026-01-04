@@ -2,7 +2,6 @@ package registry
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
@@ -204,15 +203,6 @@ func (s *ConnectorState) SecondaryLabel() string {
 			return "Unmatched"
 		case "aws_identity_center":
 			return "Unmatched"
-		}
-	}
-	return ""
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return strings.TrimSpace(v)
 		}
 	}
 	return ""
