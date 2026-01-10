@@ -55,7 +55,6 @@ templ IdPUsersPage(data viewmodels.IdPUsersViewData) {
 					<table class="table">
 						<thead>
 							<tr>
-								<th>ID</th>
 								<th>Email</th>
 								<th>Name</th>
 								<th>Status</th>
@@ -65,10 +64,9 @@ templ IdPUsersPage(data viewmodels.IdPUsersViewData) {
 							if data.HasUsers {
 								for _, u := range data.Users {
 									<tr>
-										<td>
-											<a class="btn-sm-link" href={ "/idp-users/" + FormatInt64(u.ID) }>#{ FormatInt64(u.ID) }</a>
+										<td class="font-medium">
+											<a class="btn-sm-link" href={ "/idp-users/" + FormatInt64(u.ID) }>{ u.Email }</a>
 										</td>
-										<td class="font-medium">{ u.Email }</td>
 										<td class="text-muted-foreground">{ u.DisplayName }</td>
 										<td>
 											<span class={ OktaStatusBadgeClass(u.Status) }>{ u.Status }</span>
@@ -77,7 +75,7 @@ templ IdPUsersPage(data viewmodels.IdPUsersViewData) {
 								}
 							} else {
 								<tr>
-									<td colspan="4">
+									<td colspan="3">
 										@EmptyState("No users found", data.EmptyStateMsg)
 									</td>
 								</tr>

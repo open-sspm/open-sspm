@@ -131,4 +131,5 @@ ORDER BY
   (status = 'ACTIVE') DESC,
   lower(COALESCE(NULLIF(trim(display_name), ''), email)) ASC,
   lower(email) ASC,
-  id ASC;
+  id ASC
+LIMIT 200;

@@ -51,20 +51,6 @@ func (c Config) Validate() error {
 	return nil
 }
 
-// Merge returns a new config by merging an update into an existing config.
-// Keys are only updated if the update value is non-empty.
-func Merge(existing Config, update Config) Config {
-	merged := existing
-	merged.Site = strings.TrimSpace(update.Site)
-	if key := strings.TrimSpace(update.APIKey); key != "" {
-		merged.APIKey = key
-	}
-	if key := strings.TrimSpace(update.AppKey); key != "" {
-		merged.AppKey = key
-	}
-	return merged
-}
-
 func normalizeSite(raw string) string {
 	site := strings.TrimSpace(raw)
 	if site == "" {

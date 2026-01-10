@@ -19,7 +19,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.15.0
 	github.com/okta/okta-sdk-golang/v6 v6.0.2
-	github.com/open-sspm/open-sspm-spec v0.0.0-20260101152609-1c5cca899e79
+	github.com/open-sspm/open-sspm-spec v0.0.0-20260102111256-7062c3dfcef1
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/sync v0.19.0
 	golang.org/x/term v0.38.0

@@ -45,17 +45,3 @@ func (c Config) Validate() error {
 	}
 	return nil
 }
-
-// Merge returns a new config by merging an update into an existing config.
-// Token is only updated if the update value is non-empty.
-func Merge(existing Config, update Config) Config {
-	merged := existing
-	merged.Org = strings.TrimSpace(update.Org)
-	merged.APIBase = strings.TrimSpace(update.APIBase)
-	merged.Enterprise = strings.TrimSpace(update.Enterprise)
-	merged.SCIMEnabled = update.SCIMEnabled
-	if token := strings.TrimSpace(update.Token); token != "" {
-		merged.Token = token
-	}
-	return merged
-}

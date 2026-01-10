@@ -31,13 +31,3 @@ func (c Config) Validate() error {
 	}
 	return nil
 }
-
-// Merge returns a new config by merging an update into an existing config.
-func Merge(existing Config, update Config) Config {
-	merged := existing
-	merged.Region = strings.TrimSpace(update.Region)
-	merged.Name = strings.TrimSpace(update.Name)
-	merged.InstanceARN = strings.TrimSpace(update.InstanceARN)
-	merged.IdentityStoreID = strings.TrimSpace(update.IdentityStoreID)
-	return merged
-}

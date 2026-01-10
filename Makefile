@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down migrate sqlc templ templ-watch test run worker sync ui ui-watch dev update-open-sspm-spec copy-db
+.PHONY: dev-up dev-down migrate sqlc templ templ-watch test run worker sync validate-rules ui ui-watch dev update-open-sspm-spec
 
 dev-up:
 	docker compose up -d
@@ -30,6 +30,9 @@ worker:
 sync:
 	go run ./cmd/open-sspm sync
 
+validate-rules:
+	go run ./cmd/open-sspm validate-rules
+
 ui:
 	npm run build:css
 
@@ -43,6 +46,3 @@ dev:
 
 update-open-sspm-spec:
 	bash scripts/update-open-sspm-spec.sh
-
-copy-db:
-	bash scripts/copy-db-quiouquoi-to-opensspm.sh

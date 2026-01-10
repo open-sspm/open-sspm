@@ -21,6 +21,21 @@ func (h *Handlers) HandleDashboard(c echo.Context) error {
 	if err != nil {
 		return h.RenderError(c, err)
 	}
+	activeUserCount, err := h.Q.CountIdPUsersByQueryAndState(ctx, gen.CountIdPUsersByQueryAndStateParams{
+		Query: "",
+		State: "active",
+	})
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	appCount, err := h.Q.CountOktaApps(ctx)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	connectedAppCount, err := h.Q.CountConnectedOktaApps(ctx)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
 
 	var ghCount int64
 	var ddCount int64
@@ -47,46 +62,6 @@ func (h *Handlers) HandleDashboard(c echo.Context) error {
 		if err != nil {
 			return h.RenderError(c, err)
 		}
-	}
-
-	commandUsersRaw, err := h.Q.ListIdPUsersForCommand(ctx)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-	commandUsers := make([]viewmodels.DashboardCommandUserItem, 0, len(commandUsersRaw))
-	for _, u := range commandUsersRaw {
-		status := strings.TrimSpace(u.Status)
-		if status == "" {
-			status = "—"
-		}
-		commandUsers = append(commandUsers, viewmodels.DashboardCommandUserItem{
-			ID:          u.ID,
-			Email:       strings.TrimSpace(u.Email),
-			DisplayName: strings.TrimSpace(u.DisplayName),
-			Status:      status,
-		})
-	}
-
-	commandAppsRaw, err := h.Q.ListOktaAppsForCommand(ctx)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-	commandApps := make([]viewmodels.DashboardCommandAppItem, 0, len(commandAppsRaw))
-	for _, app := range commandAppsRaw {
-		label := strings.TrimSpace(app.Label)
-		if label == "" {
-			label = strings.TrimSpace(app.ExternalID)
-		}
-		status := strings.TrimSpace(app.Status)
-		if status == "" {
-			status = "—"
-		}
-		commandApps = append(commandApps, viewmodels.DashboardCommandAppItem{
-			ExternalID: strings.TrimSpace(app.ExternalID),
-			Label:      label,
-			Name:       strings.TrimSpace(app.Name),
-			Status:     status,
-		})
 	}
 
 	sourceNameByKind := map[string]string{}
@@ -181,15 +156,16 @@ func (h *Handlers) HandleDashboard(c echo.Context) error {
 	}
 
 	data := viewmodels.DashboardViewData{
-		Layout:           layout,
-		OktaCount:        oktaCount,
-		GitHubCount:      ghCount,
-		DatadogCount:     ddCount,
-		MatchedCount:     matched,
-		UnmatchedCount:   unmatched,
-		CommandUsers:     commandUsers,
-		CommandApps:      commandApps,
-		FrameworkPosture: frameworkPosture,
+		Layout:            layout,
+		ActiveUserCount:   activeUserCount,
+		AppCount:          appCount,
+		ConnectedAppCount: connectedAppCount,
+		OktaCount:         oktaCount,
+		GitHubCount:       ghCount,
+		DatadogCount:      ddCount,
+		MatchedCount:      matched,
+		UnmatchedCount:    unmatched,
+		FrameworkPosture:  frameworkPosture,
 	}
 
 	return h.RenderComponent(c, views.DashboardPage(data))

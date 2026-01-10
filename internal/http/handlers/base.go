@@ -111,6 +111,47 @@ func (h *Handlers) LayoutData(ctx context.Context, c echo.Context, title string)
 	if awsName == "" {
 		awsName = strings.TrimSpace(snap.AWSIdentityCenter.Region)
 	}
+
+	commandUsersRaw, err := h.Q.ListIdPUsersForCommand(ctx)
+	if err != nil {
+		return viewmodels.LayoutData{}, snap, err
+	}
+	commandUsers := make([]viewmodels.DashboardCommandUserItem, 0, len(commandUsersRaw))
+	for _, u := range commandUsersRaw {
+		status := strings.TrimSpace(u.Status)
+		if status == "" {
+			status = "—"
+		}
+		commandUsers = append(commandUsers, viewmodels.DashboardCommandUserItem{
+			ID:          u.ID,
+			Email:       strings.TrimSpace(u.Email),
+			DisplayName: strings.TrimSpace(u.DisplayName),
+			Status:      status,
+		})
+	}
+
+	commandAppsRaw, err := h.Q.ListOktaAppsForCommand(ctx)
+	if err != nil {
+		return viewmodels.LayoutData{}, snap, err
+	}
+	commandApps := make([]viewmodels.DashboardCommandAppItem, 0, len(commandAppsRaw))
+	for _, app := range commandAppsRaw {
+		label := strings.TrimSpace(app.Label)
+		if label == "" {
+			label = strings.TrimSpace(app.ExternalID)
+		}
+		status := strings.TrimSpace(app.Status)
+		if status == "" {
+			status = "—"
+		}
+		commandApps = append(commandApps, viewmodels.DashboardCommandAppItem{
+			ExternalID: strings.TrimSpace(app.ExternalID),
+			Label:      label,
+			Name:       strings.TrimSpace(app.Name),
+			Status:     status,
+		})
+	}
+
 	layout := viewmodels.LayoutData{
 		Title:                       title,
 		CSRFToken:                   csrfToken,
@@ -131,6 +172,8 @@ func (h *Handlers) LayoutData(ctx context.Context, c echo.Context, title string)
 		EntraConfigured:             snap.EntraConfigured,
 		Toast:                       popFlashToast(c),
 		ActivePath:                  c.Request().URL.Path,
+		CommandUsers:                commandUsers,
+		CommandApps:                 commandApps,
 	}
 	return layout, snap, nil
 }
