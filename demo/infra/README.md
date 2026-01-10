@@ -42,6 +42,14 @@ ansible-playbook -i inventory.ini site.yml
 ansible-playbook -i inventory.ini seed-demo.yml
 ```
 
+## Deploy runtime assets via Ansible
+
+```bash
+make ui
+cd demo/infra/ansible
+ansible-playbook -i inventory.ini deploy.yml
+```
+
 ## Notes
 
 - Secrets (Scaleway API keys, SSH private keys, DB passwords, Basic Auth credentials) must **not** be committed.

@@ -47,6 +47,31 @@ templ Layout(data viewmodels.LayoutData) {
 						<section class="scrollbar">
 							@Sidebar(data)
 						</section>
+					if data.UserEmail != "" {
+						<footer>
+							<div class="popover user-menu w-full" data-keep-mobile-sidebar-open>
+							<button type="button" id="user-menu-trigger" class="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 cursor-pointer select-none" aria-controls="user-menu-popover" aria-expanded="false">
+								<span class="flex min-w-0 flex-1 flex-col items-start gap-0.5 cursor-pointer">
+									<span class="truncate font-medium cursor-pointer">{ data.UserEmail }</span>
+									if data.IsAdmin {
+										<span class="text-xs text-muted-foreground cursor-pointer">Admin</span>
+									} else if data.UserRole != "" {
+										<span class="text-xs text-muted-foreground cursor-pointer">Viewer</span>
+									}
+								</span>
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 text-muted-foreground transition-transform cursor-pointer" data-chevron aria-hidden="true">
+									<path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z" clip-rule="evenodd"/>
+								</svg>
+							</button>
+								<div id="user-menu-popover" data-popover data-side="top" data-align="start" aria-hidden="true">
+									<form method="post" action="/logout">
+										@CSRFInput(data.CSRFToken)
+										<button type="submit" class="btn w-full">Sign out</button>
+									</form>
+								</div>
+							</div>
+						</footer>
+					}
 					</nav>
 				</aside>
 
@@ -62,20 +87,6 @@ templ Layout(data viewmodels.LayoutData) {
 							@CommandSearch(data)
 						</div>
 						<div class="flex items-center gap-3">
-							if data.UserEmail != "" {
-								<div class="hidden items-center gap-2 md:flex">
-									<span class="text-sm text-muted-foreground">{ data.UserEmail }</span>
-									if data.IsAdmin {
-										<span class="badge-outline">Admin</span>
-									} else if data.UserRole != "" {
-										<span class="badge-outline">Viewer</span>
-									}
-								</div>
-								<form method="post" action="/logout" class="inline-flex">
-									@CSRFInput(data.CSRFToken)
-									<button type="submit" class="btn-sm-outline">Sign out</button>
-								</form>
-							}
 							<button type="button" aria-label="Toggle dark mode" data-tooltip="Toggle dark mode" data-side="bottom" data-align="end" onclick="document.dispatchEvent(new CustomEvent('basecoat:theme'))" class="btn-icon-outline size-8">
 								<span class="hidden dark:block">
 									<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
