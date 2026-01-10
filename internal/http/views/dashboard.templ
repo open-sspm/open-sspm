@@ -103,37 +103,36 @@ templ DashboardPage(data viewmodels.DashboardViewData) {
 			</footer>
 		</article>
 
-			<article class="card">
-				<header class="border-b">
-					<h2 class="text-xl font-semibold tracking-wide">Compliance Frameworks</h2>
-				</header>
+		<article class="card">
+			<header class="border-b">
+				<h2 class="text-xl font-semibold tracking-wide">Compliance Frameworks</h2>
+			</header>
 			<section>
 				if len(data.FrameworkPosture) == 0 {
 					@EmptyState("No findings yet", "Run a sync to evaluate compliance frameworks and populate posture data.") {
 						<a class="btn-sm-outline" href="/findings">Browse findings</a>
 					}
 				} else {
-					<div class="space-y-6">
-						for _, fw := range data.FrameworkPosture {
-							<div class="flex items-start gap-4">
-								<div class="grid size-10 shrink-0 place-items-center rounded-full border border-border bg-background text-xs font-semibold text-muted-foreground">
-									{ fw.BadgeLabel }
-								</div>
-								<div class="min-w-0 flex-1 space-y-2">
-									<div class="grid gap-2 sm:grid-cols-[minmax(0,18rem)_1fr] sm:items-center sm:gap-6">
-										<div class="min-w-0">
-											<div class="truncate font-medium">{ fw.Name }</div>
-										</div>
-										<div class="space-y-2">
-											<div class="text-sm text-muted-foreground">{ FormatInt64(fw.PassedCount) }/{ FormatInt64(fw.TotalCount) } passed</div>
-											<div class="h-3 w-full overflow-hidden rounded-full bg-destructive">
-												<div class="h-full bg-emerald-600 dark:bg-emerald-500" style={ "width: " + FormatInt(fw.PassPercent) + "%" }></div>
-											</div>
+					<div class="rounded-lg border border-border bg-background p-6 sm:p-8 lg:p-10 min-h-[240px] sm:min-h-[280px] lg:min-h-[360px]">
+						<div class="space-y-6">
+							for _, fw := range data.FrameworkPosture {
+								<div class="grid gap-4 sm:grid-cols-[minmax(0,10rem)_1fr] sm:items-center sm:gap-6">
+									<div class="min-w-0 truncate text-sm font-medium text-muted-foreground">{ fw.Name }</div>
+									<div
+										class="relative h-7 w-full overflow-hidden rounded-sm border border-border bg-background"
+										role="progressbar"
+										aria-valuemin="0"
+										aria-valuemax="100"
+										aria-valuenow={ FormatInt(fw.PassPercent) }
+									>
+										<div class="h-full bg-sky-800 dark:bg-sky-100" style={ "width: " + FormatInt(fw.PassPercent) + "%" }></div>
+										<div class="pointer-events-none absolute inset-0 flex items-center justify-center text-xs font-semibold text-foreground">
+											{ FormatInt64(fw.PassedCount) }/{ FormatInt64(fw.TotalCount) } pass
 										</div>
 									</div>
 								</div>
-							</div>
-						}
+							}
+						</div>
 					</div>
 				}
 			</section>
