@@ -1,14 +1,15 @@
 package viewmodels
 
 type DashboardViewData struct {
-	Layout         LayoutData
-	OktaCount      int64
-	GitHubCount    int64
-	DatadogCount   int64
-	MatchedCount   int64
-	UnmatchedCount int64
-	CommandUsers   []DashboardCommandUserItem
-	CommandApps    []DashboardCommandAppItem
+	Layout           LayoutData
+	OktaCount        int64
+	GitHubCount      int64
+	DatadogCount     int64
+	MatchedCount     int64
+	UnmatchedCount   int64
+	CommandUsers     []DashboardCommandUserItem
+	CommandApps      []DashboardCommandAppItem
+	FrameworkPosture []DashboardFrameworkPostureItem
 }
 
 type DashboardCommandUserItem struct {
@@ -23,4 +24,14 @@ type DashboardCommandAppItem struct {
 	Label      string
 	Name       string
 	Status     string
+}
+
+type DashboardFrameworkPostureItem struct {
+	Key         string
+	Name        string
+	PassedCount int64
+	TotalCount  int64
+	PassPercent int
+	BadgeLabel  string
+	Href        string
 }
