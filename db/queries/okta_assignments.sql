@@ -288,6 +288,12 @@ SELECT count(*)
 FROM okta_apps
 WHERE expired_at IS NULL AND last_observed_run_id IS NOT NULL;
 
+-- name: CountConnectedOktaApps :one
+SELECT count(*)
+FROM okta_apps oa
+JOIN integration_okta_app_map m ON m.okta_app_external_id = oa.external_id
+WHERE oa.expired_at IS NULL AND oa.last_observed_run_id IS NOT NULL;
+
 -- name: ListOktaAppsPage :many
 SELECT
   oa.external_id,

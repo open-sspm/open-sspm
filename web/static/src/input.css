@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "basecoat-css";
+@import "../../../node_modules/@tabler/icons-webfont/dist/tabler-icons-outline.min.css";
 @source "../../../internal/http/views/**/*.templ";
 @source "../../../internal/http/views/helpers.go";
 

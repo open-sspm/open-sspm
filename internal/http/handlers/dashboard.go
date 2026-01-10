@@ -21,6 +21,21 @@ func (h *Handlers) HandleDashboard(c echo.Context) error {
 	if err != nil {
 		return h.RenderError(c, err)
 	}
+	activeUserCount, err := h.Q.CountIdPUsersByQueryAndState(ctx, gen.CountIdPUsersByQueryAndStateParams{
+		Query: "",
+		State: "active",
+	})
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	appCount, err := h.Q.CountOktaApps(ctx)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	connectedAppCount, err := h.Q.CountConnectedOktaApps(ctx)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
 
 	var ghCount int64
 	var ddCount int64
@@ -181,15 +196,18 @@ func (h *Handlers) HandleDashboard(c echo.Context) error {
 	}
 
 	data := viewmodels.DashboardViewData{
-		Layout:           layout,
-		OktaCount:        oktaCount,
-		GitHubCount:      ghCount,
-		DatadogCount:     ddCount,
-		MatchedCount:     matched,
-		UnmatchedCount:   unmatched,
-		CommandUsers:     commandUsers,
-		CommandApps:      commandApps,
-		FrameworkPosture: frameworkPosture,
+		Layout:            layout,
+		ActiveUserCount:   activeUserCount,
+		AppCount:          appCount,
+		ConnectedAppCount: connectedAppCount,
+		OktaCount:         oktaCount,
+		GitHubCount:       ghCount,
+		DatadogCount:      ddCount,
+		MatchedCount:      matched,
+		UnmatchedCount:    unmatched,
+		CommandUsers:      commandUsers,
+		CommandApps:       commandApps,
+		FrameworkPosture:  frameworkPosture,
 	}
 
 	return h.RenderComponent(c, views.DashboardPage(data))
