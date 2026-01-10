@@ -1,0 +1,71 @@
+---
+- name: Deploy Open-SSPM runtime assets
+  hosts: demo
+  become: true
+
+  vars:
+    opensspm_repo_root: "{{ playbook_dir }}/../../.."
+    opensspm_static_src: "{{ opensspm_repo_root }}/web/static"
+    opensspm_static_dest: /opt/open-sspm/web/static
+    opensspm_migrations_src: "{{ opensspm_repo_root }}/db/migrations"
+    opensspm_migrations_dest: /opt/open-sspm/db/migrations
+
+  pre_tasks:
+    - name: Verify built CSS exists on control machine
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.stat:
+        path: "{{ opensspm_static_src }}/app.css"
+      register: app_css
+
+    - name: Fail if CSS is missing
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.fail:
+        msg: "web/static/app.css not found. Run `make ui` (or `npm run build:css`) before deploying."
+      when: not app_css.stat.exists
+
+  tasks:
+    - name: Reset static assets directory
+      ansible.builtin.file:
+        path: "{{ opensspm_static_dest }}"
+        state: absent
+
+    - name: Recreate static assets directory
+      ansible.builtin.file:
+        path: "{{ opensspm_static_dest }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Reset migrations directory
+      ansible.builtin.file:
+        path: "{{ opensspm_migrations_dest }}"
+        state: absent
+
+    - name: Recreate migrations directory
+      ansible.builtin.file:
+        path: "{{ opensspm_migrations_dest }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Copy static assets
+      ansible.builtin.copy:
+        src: "{{ opensspm_static_src }}/"
+        dest: "{{ opensspm_static_dest }}/"
+        owner: root
+        group: root
+        mode: "0644"
+        directory_mode: "0755"
+
+    - name: Copy migrations
+      ansible.builtin.copy:
+        src: "{{ opensspm_migrations_src }}/"
+        dest: "{{ opensspm_migrations_dest }}/"
+        owner: root
+        group: root
+        mode: "0644"
+        directory_mode: "0755"

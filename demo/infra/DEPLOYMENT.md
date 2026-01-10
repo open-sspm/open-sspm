@@ -38,6 +38,16 @@ Extract it on the server into `/opt/open-sspm/`.
    - apply demo seed SQL (`demo/data/001_seed_demo.sql`)
    - restart `open-sspm` via systemd
 
+## Ansible deploy (local build + sync)
+
+If you deploy via Ansible, you still must build CSS on the control machine so `web/static/app.css` exists.
+
+```bash
+make ui
+cd demo/infra/ansible
+ansible-playbook -i inventory.ini deploy.yml
+```
+
 ## GitHub Actions workflow
 
 Workflow: `.github/workflows/deploy-demo.yml`

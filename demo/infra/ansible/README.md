@@ -38,3 +38,17 @@ If you want to re-seed without redeploying, after the app has been deployed (mig
 ```bash
 ansible-playbook -i inventory.ini seed-demo.yml
 ```
+
+## Deploy runtime assets (CSS + static + migrations)
+
+Build CSS on the control machine first:
+
+```bash
+make ui
+```
+
+Then sync runtime assets:
+
+```bash
+ansible-playbook -i inventory.ini deploy.yml
+```
