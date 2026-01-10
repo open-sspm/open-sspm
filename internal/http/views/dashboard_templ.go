@@ -401,7 +401,7 @@ func DashboardPage(data viewmodels.DashboardViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<div class=\"rounded-lg border border-border bg-background p-6 sm:p-8 lg:p-10 min-h-[240px] sm:min-h-[280px] lg:min-h-[360px]\"><div class=\"space-y-6\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<div class=\"rounded-lg border border-border bg-background p-6 sm:p-8 lg:p-10\"><div class=\"space-y-6\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
