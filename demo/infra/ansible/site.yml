@@ -86,6 +86,7 @@
         content: |
           DATABASE_URL=postgres://{{ opensspm_db_user }}:{{ opensspm_db_password }}@localhost:5432/{{ opensspm_db_name }}?sslmode=disable
           HTTP_ADDR=127.0.0.1:8080
+          STATIC_DIR=/opt/open-sspm/web/static
           SYNC_INTERVAL=0s
           RESYNC_ENABLED=0
 

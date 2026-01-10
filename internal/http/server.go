@@ -4,7 +4,10 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -92,6 +95,55 @@ func generateRequestID() string {
 	return "unknown"
 }
 
+func resolveStaticDir(preferred string) (resolved string, ok bool) {
+	preferred = strings.TrimSpace(preferred)
+	candidates := make([]string, 0, 6)
+	if preferred != "" {
+		candidates = append(candidates, preferred)
+	}
+
+	candidates = append(candidates, "web/static")
+
+	if exe, err := os.Executable(); err == nil && strings.TrimSpace(exe) != "" {
+		exeDir := filepath.Dir(exe)
+		if exeDir != "" && exeDir != "." {
+			candidates = append(candidates,
+				filepath.Join(exeDir, "web/static"),
+				filepath.Join(filepath.Dir(exeDir), "web/static"),
+			)
+		}
+	}
+
+	// Common demo/packaging location.
+	candidates = append(candidates, "/opt/open-sspm/web/static")
+
+	seen := map[string]struct{}{}
+	unique := make([]string, 0, len(candidates))
+	for _, c := range candidates {
+		if c == "" {
+			continue
+		}
+		c = filepath.Clean(c)
+		if _, exists := seen[c]; exists {
+			continue
+		}
+		seen[c] = struct{}{}
+		unique = append(unique, c)
+	}
+
+	for _, c := range unique {
+		if info, err := os.Stat(c); err == nil && info.IsDir() {
+			return c, true
+		}
+	}
+
+	// Best-effort fallback; static handler will return 404s.
+	if preferred != "" {
+		return filepath.Clean(preferred), false
+	}
+	return "web/static", false
+}
+
 func (es *EchoServer) httpErrorHandler(err error, c echo.Context) {
 	if c.Response().Committed {
 		return
@@ -171,7 +223,14 @@ func (es *EchoServer) registerRoutes() {
 	admin.POST("/settings/connectors/*", es.h.HandleConnectorAction)
 	admin.POST("/settings/resync", es.h.HandleResync)
 
-	es.e.Static("/static", "web/static")
+	staticDir, ok := resolveStaticDir(es.h.Cfg.StaticDir)
+	if ok {
+		slog.Info("serving static assets", "dir", staticDir)
+	} else {
+		wd, _ := os.Getwd()
+		slog.Warn("static assets directory not found; /static may return 404s", "dir", staticDir, "cwd", wd)
+	}
+	es.e.Static("/static", staticDir)
 }
 
 // Start starts the HTTP server.
