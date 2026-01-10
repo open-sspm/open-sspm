@@ -143,6 +143,8 @@ github.com/okta/okta-sdk-golang/v6 v6.0.2 h1:eaKjSSjlS5YnuG7jX4P4BFZLfIriZuq4ro/
 github.com/okta/okta-sdk-golang/v6 v6.0.2/go.mod h1:EzV8yrIDarJfL8lAwUmfcuVQmaXe7gbhWyzKoCSb/WU=
 github.com/open-sspm/open-sspm-spec v0.0.0-20260101152609-1c5cca899e79 h1:LHQAlwaX745WOjmRCQm8rMNUkTuVM0Boc2LFS6/jKIk=
 github.com/open-sspm/open-sspm-spec v0.0.0-20260101152609-1c5cca899e79/go.mod h1:YlCY2pQYGINlJR2E6HaKCliyzvhVUQf1D1+cyAQpARI=
+github.com/open-sspm/open-sspm-spec v0.0.0-20260102111256-7062c3dfcef1 h1:7S0lOE6FHNlMvex846v6RBPFM0Uxh4owfwtkwNoeTp0=
+github.com/open-sspm/open-sspm-spec v0.0.0-20260102111256-7062c3dfcef1/go.mod h1:YlCY2pQYGINlJR2E6HaKCliyzvhVUQf1D1+cyAQpARI=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.0 h1:8SG7/vwALn54lVB/0yZ/MMwhFrPYtpEHQb2IpWsCzug=
