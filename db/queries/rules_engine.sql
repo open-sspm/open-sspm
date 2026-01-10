@@ -49,6 +49,20 @@ SELECT *
 FROM rulesets
 WHERE key = $1;
 
+-- name: GetRulesetPostureCounts :one
+SELECT
+  COUNT(*)::bigint AS total_rules,
+  COUNT(*) FILTER (WHERE rrc.status = 'pass')::bigint AS passed_rules,
+  COUNT(rrc.status)::bigint AS evaluated_rules
+FROM rules r
+LEFT JOIN rule_results_current rrc
+  ON rrc.rule_id = r.id
+  AND rrc.scope_kind = $2
+  AND rrc.source_kind = $3
+  AND rrc.source_name = $4
+WHERE r.ruleset_id = $1
+  AND r.is_active = true;
+
 -- name: UpsertRule :one
 INSERT INTO rules (
   ruleset_id,

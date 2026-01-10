@@ -70,28 +70,28 @@ templ Sidebar(data viewmodels.LayoutData) {
 							if data.GitHubConfigured && data.GitHubEnabled {
 								<a href={ "/unmatched/github/" + data.GitHubOrg } aria-current={ AriaCurrent(data.ActivePath, "/unmatched/github/") }><span>GitHub</span></a>
 							} else {
-								<a href="/settings/connectors?open=github"><span>GitHub (configure)</span></a>
+								<a href="/settings/connectors?open=github" data-ignore-current><span>GitHub (configure)</span></a>
 							}
 						</li>
 						<li>
 							if data.EntraConfigured && data.EntraEnabled {
 								<a href="/unmatched/entra" aria-current={ AriaCurrent(data.ActivePath, "/unmatched/entra") }><span>Microsoft Entra</span></a>
 							} else {
-								<a href="/settings/connectors?open=entra"><span>Microsoft Entra (configure)</span></a>
+								<a href="/settings/connectors?open=entra" data-ignore-current><span>Microsoft Entra (configure)</span></a>
 							}
 						</li>
 						<li>
 							if data.AWSIdentityCenterConfigured && data.AWSIdentityCenterEnabled {
 								<a href="/unmatched/aws" aria-current={ AriaCurrent(data.ActivePath, "/unmatched/aws") }><span>AWS Identity Center</span></a>
 							} else {
-								<a href="/settings/connectors?open=aws_identity_center"><span>AWS Identity Center (configure)</span></a>
+								<a href="/settings/connectors?open=aws_identity_center" data-ignore-current><span>AWS Identity Center (configure)</span></a>
 							}
 						</li>
 						<li>
 							if data.DatadogConfigured && data.DatadogEnabled {
 								<a href={ "/unmatched/datadog/" + data.DatadogSite } aria-current={ AriaCurrent(data.ActivePath, "/unmatched/datadog/") }><span>Datadog</span></a>
 							} else {
-								<a href="/settings/connectors?open=datadog"><span>Datadog (configure)</span></a>
+								<a href="/settings/connectors?open=datadog" data-ignore-current><span>Datadog (configure)</span></a>
 							}
 						</li>
 					</ul>

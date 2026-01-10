@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.41.0
 	github.com/aws/aws-sdk-go-v2/config v1.32.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.6
-	github.com/aws/aws-sdk-go-v2/service/identitystore v1.35.2
+	github.com/aws/aws-sdk-go-v2/service/identitystore v1.36.0
 	github.com/aws/aws-sdk-go-v2/service/ssoadmin v1.36.13
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/jackc/pgx/v5 v5.8.0

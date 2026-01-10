@@ -259,6 +259,46 @@ func (q *Queries) GetRulesetOverride(ctx context.Context, arg GetRulesetOverride
 	return i, err
 }
 
+const getRulesetPostureCounts = `-- name: GetRulesetPostureCounts :one
+SELECT
+  COUNT(*)::bigint AS total_rules,
+  COUNT(*) FILTER (WHERE rrc.status = 'pass')::bigint AS passed_rules,
+  COUNT(rrc.status)::bigint AS evaluated_rules
+FROM rules r
+LEFT JOIN rule_results_current rrc
+  ON rrc.rule_id = r.id
+  AND rrc.scope_kind = $2
+  AND rrc.source_kind = $3
+  AND rrc.source_name = $4
+WHERE r.ruleset_id = $1
+  AND r.is_active = true
+`
+
+type GetRulesetPostureCountsParams struct {
+	RulesetID  int64  `json:"ruleset_id"`
+	ScopeKind  string `json:"scope_kind"`
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+}
+
+type GetRulesetPostureCountsRow struct {
+	TotalRules     int64 `json:"total_rules"`
+	PassedRules    int64 `json:"passed_rules"`
+	EvaluatedRules int64 `json:"evaluated_rules"`
+}
+
+func (q *Queries) GetRulesetPostureCounts(ctx context.Context, arg GetRulesetPostureCountsParams) (GetRulesetPostureCountsRow, error) {
+	row := q.db.QueryRow(ctx, getRulesetPostureCounts,
+		arg.RulesetID,
+		arg.ScopeKind,
+		arg.SourceKind,
+		arg.SourceName,
+	)
+	var i GetRulesetPostureCountsRow
+	err := row.Scan(&i.TotalRules, &i.PassedRules, &i.EvaluatedRules)
+	return i, err
+}
+
 const insertRuleEvaluation = `-- name: InsertRuleEvaluation :one
 INSERT INTO rule_evaluations (
   rule_id,
