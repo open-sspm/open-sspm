@@ -5,9 +5,11 @@ Target:
 - `open-sspm` runs as a systemd service and serves HTTP on `127.0.0.1:8080`
 - nginx listens on `:80` and reverse-proxies to `open-sspm`
 
-This repo currently expects **runtime files** to exist next to the binary:
+This repo expects **runtime files** to exist on disk:
 - static assets: `web/static/` (CSS build output must be present)
 - migrations: `db/migrations/` (used by `open-sspm migrate`)
+
+By default the server serves static assets from `web/static` relative to its working directory, or you can set `STATIC_DIR` (recommended for systemd installs).
 
 The Ansible bootstrap creates an empty working directory at:
 - `/opt/open-sspm/web/static`

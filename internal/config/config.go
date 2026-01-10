@@ -22,6 +22,7 @@ const (
 type Config struct {
 	DatabaseURL           string
 	HTTPAddr              string
+	StaticDir             string
 	AuthCookieSecure      bool
 	DevSeedAdmin          bool
 	SyncInterval          time.Duration
@@ -62,6 +63,7 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 	cfg := Config{
 		DatabaseURL:        os.Getenv("DATABASE_URL"),
 		HTTPAddr:           getenvDefault("HTTP_ADDR", defaultHTTPAddr),
+		StaticDir:          strings.TrimSpace(os.Getenv("STATIC_DIR")),
 		AuthCookieSecure:   getenvBoolDefault("AUTH_COOKIE_SECURE", false),
 		DevSeedAdmin:       getenvBoolDefault("DEV_SEED_ADMIN", false),
 		SyncInterval:       defaultSyncInterval,
