@@ -144,6 +144,7 @@ ORDER BY
   lower(COALESCE(NULLIF(trim(display_name), ''), email)) ASC,
   lower(email) ASC,
   id ASC
+LIMIT 200
 `
 
 type ListIdPUsersForCommandRow struct {

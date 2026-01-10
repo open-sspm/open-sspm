@@ -458,6 +458,7 @@ FROM okta_apps oa
 LEFT JOIN integration_okta_app_map m ON m.okta_app_external_id = oa.external_id
 WHERE oa.expired_at IS NULL AND oa.last_observed_run_id IS NOT NULL
 ORDER BY (m.integration_kind IS NULL), oa.label, oa.name, oa.external_id
+LIMIT 200
 `
 
 type ListOktaAppsForCommandRow struct {
