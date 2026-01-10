@@ -10,8 +10,6 @@ type DashboardViewData struct {
 	DatadogCount      int64
 	MatchedCount      int64
 	UnmatchedCount    int64
-	CommandUsers      []DashboardCommandUserItem
-	CommandApps       []DashboardCommandAppItem
 	FrameworkPosture  []DashboardFrameworkPostureItem
 }
 

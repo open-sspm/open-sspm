@@ -7,10 +7,8 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	"github.com/open-sspm/open-sspm/internal/http/authn"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 	"github.com/open-sspm/open-sspm/internal/sync"
@@ -345,32 +343,9 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c echo.Context, 
 		}
 	}
 
-	csrfToken, _ := c.Get(middleware.DefaultCSRFConfig.ContextKey).(string)
-	awsName := strings.TrimSpace(data.AWSIdentityCenter.Name)
-	if awsName == "" {
-		awsName = strings.TrimSpace(data.AWSIdentityCenter.Region)
-	}
-	principal, ok := authn.PrincipalFromContext(c)
-	layout := viewmodels.LayoutData{
-		Title:                       "Connectors",
-		CSRFToken:                   csrfToken,
-		UserEmail:                   principal.Email,
-		UserRole:                    principal.Role,
-		IsAdmin:                     ok && principal.IsAdmin(),
-		GitHubOrg:                   data.GitHub.Org,
-		GitHubEnabled:               data.GitHub.Enabled,
-		GitHubConfigured:            data.GitHub.Configured,
-		DatadogSite:                 data.Datadog.Site,
-		DatadogEnabled:              data.Datadog.Enabled,
-		DatadogConfigured:           data.Datadog.Configured,
-		AWSIdentityCenterName:       awsName,
-		AWSIdentityCenterEnabled:    data.AWSIdentityCenter.Enabled,
-		AWSIdentityCenterConfigured: data.AWSIdentityCenter.Configured,
-		EntraTenantID:               data.Entra.TenantID,
-		EntraEnabled:                data.Entra.Enabled,
-		EntraConfigured:             data.Entra.Configured,
-		Toast:                       popFlashToast(c),
-		ActivePath:                  c.Request().URL.Path,
+	layout, _, err := h.LayoutData(ctx, c, "Connectors")
+	if err != nil {
+		return viewmodels.ConnectorsViewData{}, err
 	}
 
 	if !IsKnownConnectorKind(openKind) {

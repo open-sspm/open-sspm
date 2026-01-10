@@ -165,8 +165,6 @@ func (h *Handlers) HandleDashboard(c echo.Context) error {
 		DatadogCount:      ddCount,
 		MatchedCount:      matched,
 		UnmatchedCount:    unmatched,
-		CommandUsers:      layout.CommandUsers,
-		CommandApps:       layout.CommandApps,
 		FrameworkPosture:  frameworkPosture,
 	}
 
