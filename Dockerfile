@@ -12,6 +12,7 @@ RUN npm ci
 
 # Copy static source and build CSS
 COPY web/static ./web/static
+COPY internal/http/views ./internal/http/views
 RUN npm run build:css
 
 # ============================================

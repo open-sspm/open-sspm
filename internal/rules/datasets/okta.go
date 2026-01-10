@@ -267,7 +267,7 @@ func (p *OktaProvider) loadSignOnPolicies(ctx context.Context) ([]any, error) {
 
 		session := map[string]any{}
 		if r.Session.MaxSessionIdleMinutes != nil {
-			session["max_session_idle_minutes"] = int(*r.Session.MaxSessionIdleMinutes)
+			session["maxSessionIdleMinutes"] = int(*r.Session.MaxSessionIdleMinutes)
 		}
 		if r.Session.MaxSessionLifetimeMinutes != nil {
 			v := int(*r.Session.MaxSessionLifetimeMinutes)
@@ -276,10 +276,10 @@ func (p *OktaProvider) loadSignOnPolicies(ctx context.Context) ([]any, error) {
 			if v == 0 {
 				v = 1000000
 			}
-			session["max_session_lifetime_minutes"] = v
+			session["maxSessionLifetimeMinutes"] = v
 		}
 		if r.Session.UsePersistentCookie != nil {
-			session["use_persistent_cookie"] = *r.Session.UsePersistentCookie
+			session["usePersistentCookie"] = *r.Session.UsePersistentCookie
 		}
 
 		system := false
@@ -305,7 +305,11 @@ func (p *OktaProvider) loadSignOnPolicies(ctx context.Context) ([]any, error) {
 			"priority":    priority,
 			"system":      system,
 			"is_top_rule": strings.TrimSpace(r.ID) != "" && strings.TrimSpace(r.ID) == topRuleID,
-			"session":     session,
+			"actions": map[string]any{
+				"signon": map[string]any{
+					"session": session,
+				},
+			},
 		}
 		rows = append(rows, row)
 	}
@@ -346,27 +350,31 @@ func (p *OktaProvider) loadPasswordPolicies(ctx context.Context) ([]any, error) 
 
 		complexity := map[string]any{}
 		if pol.Settings.Complexity.MinLength != nil {
-			complexity["min_length"] = int(*pol.Settings.Complexity.MinLength)
+			complexity["minLength"] = int(*pol.Settings.Complexity.MinLength)
 		}
 		if pol.Settings.Complexity.MinUpperCase != nil {
-			complexity["min_uppercase"] = int(*pol.Settings.Complexity.MinUpperCase)
+			complexity["minUpperCase"] = int(*pol.Settings.Complexity.MinUpperCase)
 		}
 		if pol.Settings.Complexity.MinLowerCase != nil {
-			complexity["min_lowercase"] = int(*pol.Settings.Complexity.MinLowerCase)
+			complexity["minLowerCase"] = int(*pol.Settings.Complexity.MinLowerCase)
 		}
 		if pol.Settings.Complexity.MinNumber != nil {
-			complexity["min_number"] = int(*pol.Settings.Complexity.MinNumber)
+			complexity["minNumber"] = int(*pol.Settings.Complexity.MinNumber)
 		}
 		if pol.Settings.Complexity.MinSymbol != nil {
-			complexity["min_symbol"] = int(*pol.Settings.Complexity.MinSymbol)
+			complexity["minSymbol"] = int(*pol.Settings.Complexity.MinSymbol)
 		}
 		if pol.Settings.Complexity.CommonDictionaryExclude != nil {
-			complexity["common_dictionary_exclude"] = *pol.Settings.Complexity.CommonDictionaryExclude
+			complexity["dictionary"] = map[string]any{
+				"common": map[string]any{
+					"exclude": *pol.Settings.Complexity.CommonDictionaryExclude,
+				},
+			}
 		}
 
 		age := map[string]any{}
 		if pol.Settings.Age.MinAgeMinutes != nil {
-			age["min_age_minutes"] = int(*pol.Settings.Age.MinAgeMinutes)
+			age["minAgeMinutes"] = int(*pol.Settings.Age.MinAgeMinutes)
 		}
 		if pol.Settings.Age.MaxAgeDays != nil {
 			v := int(*pol.Settings.Age.MaxAgeDays)
@@ -375,10 +383,10 @@ func (p *OktaProvider) loadPasswordPolicies(ctx context.Context) ([]any, error) 
 			if v == 0 {
 				v = 1000000
 			}
-			age["max_age_days"] = v
+			age["maxAgeDays"] = v
 		}
 		if pol.Settings.Age.HistoryCount != nil {
-			age["history_count"] = int(*pol.Settings.Age.HistoryCount)
+			age["historyCount"] = int(*pol.Settings.Age.HistoryCount)
 		}
 
 		lockout := map[string]any{}
@@ -389,16 +397,18 @@ func (p *OktaProvider) loadPasswordPolicies(ctx context.Context) ([]any, error) 
 			if v == 0 {
 				v = 1000000
 			}
-			lockout["max_attempts"] = v
+			lockout["maxAttempts"] = v
 		}
 		if pol.Settings.Lockout.AutoUnlockMinutes != nil {
-			lockout["auto_unlock_minutes"] = int(*pol.Settings.Lockout.AutoUnlockMinutes)
+			lockout["autoUnlockMinutes"] = int(*pol.Settings.Lockout.AutoUnlockMinutes)
 		}
 
 		row["settings"] = map[string]any{
-			"complexity": complexity,
-			"age":        age,
-			"lockout":    lockout,
+			"password": map[string]any{
+				"complexity": complexity,
+				"age":        age,
+				"lockout":    lockout,
+			},
 		}
 
 		rows = append(rows, row)

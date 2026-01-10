@@ -10,14 +10,17 @@ Row fields (selected):
 
 - `/resource_id` (string) — `okta_policy_rule:<rule_id>`
 - `/display` (string) — rule name
-- `/policy_id` (string)
-- `/policy_name` (string)
+- `/id` (string) — policy rule id
+- `/name` (string) — policy rule name
+- `/status` (string, optional) — rule status (vendor-defined)
 - `/is_top_rule` (bool)
 - `/system` (bool)
 - `/priority` (number)
-- `/session/max_session_idle_minutes` (number, optional)
-- `/session/max_session_lifetime_minutes` (number, optional)
-- `/session/use_persistent_cookie` (bool, optional)
+- `/policy/id` (string) — parent policy id
+- `/policy/name` (string) — parent policy name
+- `/actions/signon/session/maxSessionIdleMinutes` (number, optional)
+- `/actions/signon/session/maxSessionLifetimeMinutes` (number, optional)
+- `/actions/signon/session/usePersistentCookie` (bool, optional)
 
 ## `okta:policies/password` (v1)
 
@@ -30,17 +33,17 @@ Row fields (selected):
 - `/status` (string)
 - `/priority` (number)
 - `/system` (bool)
-- `/settings/complexity/min_length` (number|null)
-- `/settings/complexity/min_uppercase` (number|null)
-- `/settings/complexity/min_lowercase` (number|null)
-- `/settings/complexity/min_number` (number|null)
-- `/settings/complexity/min_symbol` (number|null)
-- `/settings/complexity/common_dictionary_exclude` (bool)
-- `/settings/age/min_age_minutes` (number, optional)
-- `/settings/age/max_age_days` (number, optional)
-- `/settings/age/history_count` (number, optional)
-- `/settings/lockout/max_attempts` (number, optional)
-- `/settings/lockout/auto_unlock_minutes` (number, optional)
+- `/settings/password/complexity/minLength` (number, optional)
+- `/settings/password/complexity/minUpperCase` (number, optional)
+- `/settings/password/complexity/minLowerCase` (number, optional)
+- `/settings/password/complexity/minNumber` (number, optional)
+- `/settings/password/complexity/minSymbol` (number, optional)
+- `/settings/password/complexity/dictionary/common/exclude` (bool, optional)
+- `/settings/password/age/minAgeMinutes` (number, optional)
+- `/settings/password/age/maxAgeDays` (number, optional)
+- `/settings/password/age/historyCount` (number, optional)
+- `/settings/password/lockout/maxAttempts` (number, optional)
+- `/settings/password/lockout/autoUnlockMinutes` (number, optional)
 
 ## `okta:policies/app-signin` (v1)
 
