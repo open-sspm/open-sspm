@@ -20,4 +20,6 @@ type LayoutData struct {
 	EntraConfigured             bool
 	Toast                       *ToastViewData
 	ActivePath                  string
+	CommandUsers                []DashboardCommandUserItem
+	CommandApps                 []DashboardCommandAppItem
 }

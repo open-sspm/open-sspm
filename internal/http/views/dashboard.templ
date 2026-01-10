@@ -14,97 +14,6 @@ templ DashboardPage(data viewmodels.DashboardViewData) {
 
 		<article class="card">
 			<header class="border-b">
-				<h2>Search</h2>
-				<p>Quickly jump to Okta users and apps. Use ↑↓ and Enter.</p>
-			</header>
-			<section>
-				<div class="rounded-lg border bg-background overflow-hidden">
-					<div class="command">
-						<header>
-							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-							<path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l2.828 2.829a1 1 0 0 1-1.414 1.414l-2.829-2.828A7 7 0 0 1 2 9Z" clip-rule="evenodd"/>
-						</svg>
-							<input type="text" placeholder="Search users and apps…" autocomplete="off" aria-label="Search users and apps"/>
-						</header>
-						<div role="menu" data-empty="No matches." class="max-h-[420px] lg:max-h-[520px]">
-							<div role="group">
-								<div role="heading">Users</div>
-								if len(data.CommandUsers) > 0 {
-									for _, u := range data.CommandUsers {
-										<a
-											role="menuitem"
-											id={ "cmd-user-" + FormatInt64(u.ID) }
-											href={ "/idp-users/" + FormatInt64(u.ID) }
-											data-filter={ u.DisplayName + " " + u.Email }
-											data-keywords={ u.Email }
-										>
-											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="h-5 w-5 text-muted-foreground">
-												<path d="M10 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/>
-												<path fill-rule="evenodd" d="M.5 17.5a9.5 9.5 0 1 1 19 0 1 1 0 0 1-1 1h-17a1 1 0 0 1-1-1ZM10 12a7.5 7.5 0 0 0-7.468 6.5h14.936A7.5 7.5 0 0 0 10 12Z" clip-rule="evenodd"/>
-											</svg>
-											<div class="flex min-w-0 flex-1 flex-col">
-												if u.DisplayName != "" {
-													<span class="truncate font-medium">{ u.DisplayName }</span>
-													if u.Email != "" {
-														<span class="truncate text-xs text-muted-foreground">{ u.Email }</span>
-													}
-												} else {
-													<span class="truncate font-medium">{ u.Email }</span>
-												}
-											</div>
-											<span class={ OktaStatusBadgeClass(u.Status) + " shrink-0" }>{ u.Status }</span>
-										</a>
-									}
-								} else {
-									<div role="menuitem" aria-disabled="true">
-										<span class="text-muted-foreground">No Okta users synced yet.</span>
-									</div>
-								}
-							</div>
-							<hr role="separator"/>
-							<div role="group">
-								<div role="heading">Apps</div>
-								if len(data.CommandApps) > 0 {
-									for _, a := range data.CommandApps {
-										<a
-											role="menuitem"
-											id={ "cmd-app-" + a.ExternalID }
-											href={ "/apps?q=" + QueryEscape(a.ExternalID) }
-											data-filter={ a.Label + " " + a.Name + " " + a.ExternalID }
-											data-keywords={ a.ExternalID }
-										>
-											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="h-5 w-5 text-muted-foreground">
-												<path fill-rule="evenodd" d="M1 4.25A2.25 2.25 0 0 1 3.25 2h13.5A2.25 2.25 0 0 1 19 4.25v11.5A2.25 2.25 0 0 1 16.75 18H3.25A2.25 2.25 0 0 1 1 15.75V4.25Zm2.25-.75a.75.75 0 0 0-.75.75V5h14v-.75a.75.75 0 0 0-.75-.75H3.25ZM16.5 6.5h-14v9.25c0 .414.336.75.75.75h13.5a.75.75 0 0 0 .75-.75V6.5Z" clip-rule="evenodd"/>
-											</svg>
-											<div class="flex min-w-0 flex-1 flex-col">
-												<span class="truncate font-medium">{ a.Label }</span>
-												if a.Name != "" {
-													<span class="truncate text-xs text-muted-foreground">{ a.Name }</span>
-												}
-											</div>
-											<span class={ OktaStatusBadgeClass(a.Status) + " shrink-0" }>{ a.Status }</span>
-										</a>
-									}
-								} else {
-									<div role="menuitem" aria-disabled="true">
-										<span class="text-muted-foreground">No Okta apps synced yet.</span>
-									</div>
-								}
-							</div>
-						</div>
-					</div>
-				</div>
-			</section>
-			<footer class="border-t">
-				<div class="flex flex-wrap items-center gap-2">
-					<a class="btn-sm-outline" href="/idp-users">Browse users</a>
-					<a class="btn-sm-outline" href="/apps">Browse apps</a>
-				</div>
-			</footer>
-		</article>
-
-		<article class="card">
-			<header class="border-b">
 				<h2 class="text-xl font-semibold tracking-wide">Compliance Frameworks</h2>
 			</header>
 			<section>
@@ -113,29 +22,27 @@ templ DashboardPage(data viewmodels.DashboardViewData) {
 						<a class="btn-sm-outline" href="/findings">Browse findings</a>
 					}
 				} else {
-					<div class="rounded-lg border border-border bg-background p-6 sm:p-8 lg:p-10">
-						<div class="space-y-6">
-							for _, fw := range data.FrameworkPosture {
-								<div class="space-y-2">
-									<div class="flex items-center justify-between gap-4">
-										<div class="min-w-0 truncate text-sm font-medium text-muted-foreground">{ fw.Name }</div>
-										<div class="shrink-0 text-sm font-medium text-muted-foreground">
-											{ FormatInt64(fw.PassedCount) } / { FormatInt64(fw.TotalCount) } pass
-										</div>
-										</div>
-										<div
-											class="bg-primary/20 relative h-2 w-full overflow-hidden rounded-full"
-											role="progressbar"
-											aria-valuemin="0"
-											aria-valuemax="100"
-											aria-valuenow={ FormatInt(fw.PassPercent) }
-										>
-											<div class="bg-primary h-full w-full flex-1 transition-all" style={ "width: " + FormatInt(fw.PassPercent) + "%" }></div>
-										</div>
+					<div class="space-y-6">
+						for _, fw := range data.FrameworkPosture {
+							<div class="space-y-2">
+								<div class="flex items-center justify-between gap-4">
+									<div class="min-w-0 truncate text-sm font-medium text-muted-foreground">{ fw.Name }</div>
+									<div class="shrink-0 text-sm font-medium text-muted-foreground">
+										{ FormatInt64(fw.PassedCount) } / { FormatInt64(fw.TotalCount) } pass
 									</div>
-								}
-							</div>
-					</div>
+									</div>
+									<div
+										class="bg-primary/20 relative h-2 w-full overflow-hidden rounded-full"
+										role="progressbar"
+										aria-valuemin="0"
+										aria-valuemax="100"
+										aria-valuenow={ FormatInt(fw.PassPercent) }
+									>
+										<div class="bg-primary h-full w-full flex-1 transition-all" style={ "width: " + FormatInt(fw.PassPercent) + "%" }></div>
+									</div>
+								</div>
+							}
+						</div>
 				}
 			</section>
 		</article>

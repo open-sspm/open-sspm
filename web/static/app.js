@@ -307,5 +307,15 @@
     wireDialogCloseNavigation();
     wireAutosubmit();
     initIdpUserAccessGraph();
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "/" && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
+        e.preventDefault();
+        const searchInput = document.getElementById("command-search-input");
+        if (searchInput) {
+          searchInput.focus();
+        }
+      }
+    });
   });
 })();
