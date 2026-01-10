@@ -14,10 +14,10 @@ air_errors.log
 .gocache/
 
 # IDE
-.vscode
+.vscode/
+.idea/
 
 # Personal
-.agents/execplans
 plans/
 
 # Terraform / OpenTofu
