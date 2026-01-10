@@ -26,6 +26,11 @@
       when: not app_css.stat.exists
 
   tasks:
+    - name: Stop open-sspm service before deployment
+      ansible.builtin.service:
+        name: open-sspm
+        state: stopped
+
     - name: Reset static assets directory
       ansible.builtin.file:
         path: "{{ opensspm_static_dest }}"
@@ -60,6 +65,7 @@
         group: root
         mode: "0644"
         directory_mode: "0755"
+      register: static_copy
 
     - name: Copy migrations
       ansible.builtin.copy:
@@ -69,3 +75,10 @@
         group: root
         mode: "0644"
         directory_mode: "0755"
+      register: migrations_copy
+
+    - name: Restart open-sspm service
+      ansible.builtin.service:
+        name: open-sspm
+        state: restarted
+      when: static_copy.changed or migrations_copy.changed
