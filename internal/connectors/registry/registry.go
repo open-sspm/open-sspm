@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/open-sspm/open-sspm/internal/db/gen"
@@ -93,11 +94,14 @@ func (r *ConnectorRegistry) loadStatesInternal(ctx context.Context, q *gen.Queri
 
 		if withMetrics && state.Configured && state.Enabled {
 			if provider := def.MetricsProvider(); provider != nil {
-				metrics, err := provider.FetchMetrics(ctx, q, state.SourceName)
+				m, err := provider.FetchMetrics(ctx, q, state.SourceName)
 				if err != nil {
-					return nil, fmt.Errorf("fetch metrics for %s: %w", kind, err)
+					// Don't fail the whole request if metrics fail; just log (or ignore) and continue.
+					slog.Warn("connector metrics fetch failed", "kind", kind, "name", state.SourceName, "err", err)
+					// We'll leave Metrics as nil.
+				} else {
+					state.Metrics = &m
 				}
-				state.Metrics = &metrics
 			}
 		}
 

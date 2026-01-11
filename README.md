@@ -51,6 +51,10 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 - Connector credentials: configured in-app under Settings → Connectors and stored in Postgres.
 - AWS Identity Center uses the AWS SDK default credentials chain (env/shared config/role), not DB-stored keys.
 
+## Metrics
+- Metrics are served on a dedicated listener (`METRICS_ADDR`) and are best-effort.
+- Metrics collection failures after successful syncs are tracked in `opensspm_sync_metrics_collection_failures_total`.
+
 ## Security notes
 - Open-SSPM includes in-app authentication (email/password) using server-side sessions stored in Postgres.
 - Avoid logging connector secrets; tokens are stored in Postgres.

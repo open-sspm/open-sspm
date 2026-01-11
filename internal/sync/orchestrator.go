@@ -14,6 +14,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/matching"
+	"github.com/open-sspm/open-sspm/internal/metrics"
 	"github.com/open-sspm/open-sspm/internal/rules/datasets"
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
 	"golang.org/x/sync/errgroup"
@@ -27,6 +28,7 @@ type integrationKey struct {
 type Orchestrator struct {
 	pool           *pgxpool.Pool
 	q              *gen.Queries
+	registry       *registry.ConnectorRegistry
 	reporter       registry.Reporter
 	globalEvalMode string
 
@@ -41,10 +43,11 @@ const (
 	globalEvalModeStrict     = "strict"
 )
 
-func NewOrchestrator(pool *pgxpool.Pool) *Orchestrator {
+func NewOrchestrator(pool *pgxpool.Pool, reg *registry.ConnectorRegistry) *Orchestrator {
 	return &Orchestrator{
 		pool:           pool,
 		q:              gen.New(pool),
+		registry:       reg,
 		keys:           make(map[integrationKey]struct{}),
 		globalEvalMode: globalEvalModeBestEffort,
 	}
@@ -150,13 +153,24 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 		g.Go(func() error {
 			kind := strings.TrimSpace(i.Kind())
 			name := strings.TrimSpace(i.Name())
+			start := time.Now()
 
 			lockErr := o.withConnectorLock(ctx, kind, name, func() error {
 				return i.Run(ctx, registry.IntegrationDeps{Q: o.q, Pool: o.pool, Report: o.report})
 			})
+			duration := time.Since(start).Seconds()
+			metrics.SyncDuration.WithLabelValues(kind, name).Observe(duration)
+
+			status := "success"
+			if lockErr != nil {
+				status = "failure"
+			}
+			metrics.SyncRunsTotal.WithLabelValues(kind, name, status).Inc()
+
 			mu.Lock()
 			runErrByKey[integrationKey{kind: kind, name: name}] = lockErr
 			mu.Unlock()
+
 			if lockErr != nil {
 				err := lockErr
 				wrapped := fmt.Errorf("%s sync: %w", strings.TrimSpace(i.Kind()), err)
@@ -164,6 +178,33 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 				mu.Lock()
 				errs = append(errs, wrapped)
 				mu.Unlock()
+			} else {
+				metrics.SyncLastSuccessTimestamp.WithLabelValues(kind, name).Set(float64(time.Now().Unix()))
+
+				// Collect resource metrics if registry is available
+				if o.registry == nil {
+					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(kind, name, "registry_missing").Inc()
+					return nil
+				}
+				def, ok := o.registry.Get(kind)
+				if !ok {
+					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(kind, name, "definition_missing").Inc()
+					return nil
+				}
+				provider := def.MetricsProvider()
+				if provider == nil {
+					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(kind, name, "provider_missing").Inc()
+					return nil
+				}
+				m, err := provider.FetchMetrics(ctx, o.q, name)
+				if err != nil {
+					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(kind, name, "fetch_error").Inc()
+					slog.Warn("failed to fetch metrics after sync", "kind", kind, "name", name, "err", err)
+					return nil
+				}
+				metrics.ResourcesTotal.WithLabelValues(kind, name, "total").Set(float64(m.Total))
+				metrics.ResourcesTotal.WithLabelValues(kind, name, "matched").Set(float64(m.Matched))
+				metrics.ResourcesTotal.WithLabelValues(kind, name, "unmatched").Set(float64(m.Unmatched))
 			}
 			return nil
 		})
@@ -182,6 +223,7 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 				slog.Error("matching auto-link failed", "kind", strings.TrimSpace(app.Kind()), "name", strings.TrimSpace(app.Name()), "err", err)
 				errs = append(errs, err)
 			} else {
+				metrics.AutoLinksTotal.WithLabelValues(app.Kind(), app.Name()).Add(float64(n))
 				slog.Info("matching auto-link complete", "kind", strings.TrimSpace(app.Kind()), "name", strings.TrimSpace(app.Name()), "new_links", n)
 				o.report(registry.Event{Source: "matching", Stage: "auto-link", Current: autoLinkDone, Total: autoLinkTotal, Message: fmt.Sprintf("%s auto-link: %d new links", strings.TrimSpace(app.Kind()), n)})
 			}

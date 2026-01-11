@@ -39,12 +39,7 @@ func (h *Handlers) HandleIdpUsers(c echo.Context) error {
 	default:
 		state = ""
 	}
-	page := 1
-	if rawPage := strings.TrimSpace(c.QueryParam("page")); rawPage != "" {
-		if parsed, err := strconv.Atoi(rawPage); err == nil && parsed > 0 {
-			page = parsed
-		}
-	}
+	page := parsePageParam(c)
 
 	totalCount, err := h.Q.CountIdPUsersByQueryAndState(ctx, gen.CountIdPUsersByQueryAndStateParams{
 		Query: query,
@@ -54,15 +49,7 @@ func (h *Handlers) HandleIdpUsers(c echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	totalPages := int((totalCount + perPage - 1) / perPage)
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-
-	offset := (page - 1) * perPage
+	page, totalPages, offset := paginate(totalCount, page, perPage)
 	users, err := h.Q.ListIdPUsersPageByQueryAndState(ctx, gen.ListIdPUsersPageByQueryAndStateParams{
 		Query:      query,
 		State:      state,
@@ -74,15 +61,7 @@ func (h *Handlers) HandleIdpUsers(c echo.Context) error {
 	}
 
 	showingCount := len(users)
-	showingFrom := 0
-	showingTo := 0
-	if totalCount > 0 && showingCount > 0 {
-		showingFrom = offset + 1
-		showingTo = offset + showingCount
-		if int64(showingTo) > totalCount {
-			showingTo = int(totalCount)
-		}
-	}
+	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
 	emptyState := "No Okta users synced yet."
 	if query != "" || state != "" {
@@ -283,12 +262,7 @@ func (h *Handlers) HandleGitHubUsers(c echo.Context) error {
 
 	const perPage = 20
 	query := strings.TrimSpace(c.QueryParam("q"))
-	page := 1
-	if rawPage := strings.TrimSpace(c.QueryParam("page")); rawPage != "" {
-		if parsed, err := strconv.Atoi(rawPage); err == nil && parsed > 0 {
-			page = parsed
-		}
-	}
+	page := parsePageParam(c)
 
 	if !snap.GitHubConfigured || !snap.GitHubEnabled {
 		message := "GitHub is not configured yet. Add credentials in Connectors."
@@ -323,15 +297,7 @@ func (h *Handlers) HandleGitHubUsers(c echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	totalPages := int((totalCount + perPage - 1) / perPage)
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-
-	offset := (page - 1) * perPage
+	page, totalPages, offset := paginate(totalCount, page, perPage)
 	users, err := h.Q.ListAppUsersWithLinkPageBySourceAndQuery(ctx, gen.ListAppUsersWithLinkPageBySourceAndQueryParams{
 		SourceKind: "github",
 		SourceName: snap.GitHub.Org,
@@ -344,15 +310,7 @@ func (h *Handlers) HandleGitHubUsers(c echo.Context) error {
 	}
 
 	showingCount := len(users)
-	showingFrom := 0
-	showingTo := 0
-	if totalCount > 0 && showingCount > 0 {
-		showingFrom = offset + 1
-		showingTo = offset + showingCount
-		if int64(showingTo) > totalCount {
-			showingTo = int(totalCount)
-		}
-	}
+	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
 	emptyState := "No GitHub users synced yet."
 	if query != "" {
@@ -394,12 +352,7 @@ func (h *Handlers) HandleDatadogUsers(c echo.Context) error {
 	default:
 		state = ""
 	}
-	page := 1
-	if rawPage := strings.TrimSpace(c.QueryParam("page")); rawPage != "" {
-		if parsed, err := strconv.Atoi(rawPage); err == nil && parsed > 0 {
-			page = parsed
-		}
-	}
+	page := parsePageParam(c)
 
 	if !snap.DatadogConfigured || !snap.DatadogEnabled {
 		message := "Datadog is not configured yet. Add credentials in Connectors."
@@ -436,15 +389,7 @@ func (h *Handlers) HandleDatadogUsers(c echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	totalPages := int((totalCount + perPage - 1) / perPage)
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-
-	offset := (page - 1) * perPage
+	page, totalPages, offset := paginate(totalCount, page, perPage)
 	users, err := h.Q.ListAppUsersPageBySourceAndQueryAndState(ctx, gen.ListAppUsersPageBySourceAndQueryAndStateParams{
 		SourceKind: "datadog",
 		SourceName: snap.Datadog.Site,
@@ -504,15 +449,7 @@ func (h *Handlers) HandleDatadogUsers(c echo.Context) error {
 	}
 
 	showingCount := len(items)
-	showingFrom := 0
-	showingTo := 0
-	if totalCount > 0 && showingCount > 0 {
-		showingFrom = offset + 1
-		showingTo = offset + showingCount
-		if int64(showingTo) > totalCount {
-			showingTo = int(totalCount)
-		}
-	}
+	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
 	emptyState := "No Datadog users synced yet."
 	if query != "" || state != "" {
@@ -549,12 +486,7 @@ func (h *Handlers) HandleUnmatchedGitHub(c echo.Context) error {
 
 	const perPage = 20
 	query := strings.TrimSpace(c.QueryParam("q"))
-	page := 1
-	if rawPage := strings.TrimSpace(c.QueryParam("page")); rawPage != "" {
-		if parsed, err := strconv.Atoi(rawPage); err == nil && parsed > 0 {
-			page = parsed
-		}
-	}
+	page := parsePageParam(c)
 
 	if !snap.GitHubConfigured || !snap.GitHubEnabled {
 		message := "GitHub is not configured yet. Add credentials in Connectors."
@@ -596,15 +528,7 @@ func (h *Handlers) HandleUnmatchedGitHub(c echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	totalPages := int((totalCount + perPage - 1) / perPage)
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-
-	offset := (page - 1) * perPage
+	page, totalPages, offset := paginate(totalCount, page, perPage)
 	users, err := h.Q.ListUnmatchedAppUsersPageBySourceAndQuery(ctx, gen.ListUnmatchedAppUsersPageBySourceAndQueryParams{
 		SourceKind: "github",
 		SourceName: org,
@@ -617,15 +541,7 @@ func (h *Handlers) HandleUnmatchedGitHub(c echo.Context) error {
 	}
 
 	showingCount := len(users)
-	showingFrom := 0
-	showingTo := 0
-	if totalCount > 0 && showingCount > 0 {
-		showingFrom = offset + 1
-		showingTo = offset + showingCount
-		if int64(showingTo) > totalCount {
-			showingTo = int(totalCount)
-		}
-	}
+	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
 	emptyState := "No unmatched GitHub accounts."
 	if query != "" {
@@ -661,12 +577,7 @@ func (h *Handlers) HandleUnmatchedDatadog(c echo.Context) error {
 
 	const perPage = 20
 	query := strings.TrimSpace(c.QueryParam("q"))
-	page := 1
-	if rawPage := strings.TrimSpace(c.QueryParam("page")); rawPage != "" {
-		if parsed, err := strconv.Atoi(rawPage); err == nil && parsed > 0 {
-			page = parsed
-		}
-	}
+	page := parsePageParam(c)
 
 	if !snap.DatadogConfigured || !snap.DatadogEnabled {
 		message := "Datadog is not configured yet. Add credentials in Connectors."
@@ -708,15 +619,7 @@ func (h *Handlers) HandleUnmatchedDatadog(c echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	totalPages := int((totalCount + perPage - 1) / perPage)
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-
-	offset := (page - 1) * perPage
+	page, totalPages, offset := paginate(totalCount, page, perPage)
 	users, err := h.Q.ListUnmatchedAppUsersPageBySourceAndQuery(ctx, gen.ListUnmatchedAppUsersPageBySourceAndQueryParams{
 		SourceKind: "datadog",
 		SourceName: site,
@@ -729,15 +632,7 @@ func (h *Handlers) HandleUnmatchedDatadog(c echo.Context) error {
 	}
 
 	showingCount := len(users)
-	showingFrom := 0
-	showingTo := 0
-	if totalCount > 0 && showingCount > 0 {
-		showingFrom = offset + 1
-		showingTo = offset + showingCount
-		if int64(showingTo) > totalCount {
-			showingTo = int(totalCount)
-		}
-	}
+	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
 	emptyState := "No unmatched Datadog accounts."
 	if query != "" {

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"path"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -27,12 +26,7 @@ func (h *Handlers) HandleApps(c echo.Context) error {
 
 	const perPage = 20
 	query := strings.TrimSpace(c.QueryParam("q"))
-	page := 1
-	if rawPage := strings.TrimSpace(c.QueryParam("page")); rawPage != "" {
-		if parsed, err := strconv.Atoi(rawPage); err == nil && parsed > 0 {
-			page = parsed
-		}
-	}
+	page := parsePageParam(c)
 
 	var totalCount int64
 	if query == "" {
@@ -47,15 +41,7 @@ func (h *Handlers) HandleApps(c echo.Context) error {
 		}
 	}
 
-	totalPages := int((totalCount + perPage - 1) / perPage)
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-
-	offset := (page - 1) * perPage
+	page, totalPages, offset := paginate(totalCount, page, perPage)
 	makeItem := func(externalID, label, name, status, signOnMode, integrationKind string) viewmodels.AppListItem {
 		label = strings.TrimSpace(label)
 		if label == "" {
@@ -121,15 +107,7 @@ func (h *Handlers) HandleApps(c echo.Context) error {
 	}
 
 	showingCount := len(items)
-	showingFrom := 0
-	showingTo := 0
-	if totalCount > 0 && showingCount > 0 {
-		showingFrom = offset + 1
-		showingTo = offset + showingCount
-		if int64(showingTo) > totalCount {
-			showingTo = int(totalCount)
-		}
-	}
+	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
 	data := viewmodels.AppsViewData{
 		Layout:       layout,
@@ -192,12 +170,7 @@ func (h *Handlers) HandleOktaAppShow(c echo.Context) error {
 	default:
 		state = ""
 	}
-	page := 1
-	if rawPage := strings.TrimSpace(c.QueryParam("page")); rawPage != "" {
-		if parsed, err := strconv.Atoi(rawPage); err == nil && parsed > 0 {
-			page = parsed
-		}
-	}
+	page := parsePageParam(c)
 
 	totalCount, err := h.Q.CountOktaAppUserAssignmentsByQuery(ctx, gen.CountOktaAppUserAssignmentsByQueryParams{
 		OktaAppID: app.ID,
@@ -208,15 +181,7 @@ func (h *Handlers) HandleOktaAppShow(c echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	totalPages := int((totalCount + perPage - 1) / perPage)
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-
-	offset := (page - 1) * perPage
+	page, totalPages, offset := paginate(totalCount, page, perPage)
 	assignments, err := h.Q.ListOktaAppUserAssignmentsPageByQuery(ctx, gen.ListOktaAppUserAssignmentsPageByQueryParams{
 		OktaAppID:  app.ID,
 		State:      state,
@@ -315,15 +280,7 @@ func (h *Handlers) HandleOktaAppShow(c echo.Context) error {
 	}
 
 	showingCount := len(items)
-	showingFrom := 0
-	showingTo := 0
-	if totalCount > 0 && showingCount > 0 {
-		showingFrom = offset + 1
-		showingTo = offset + showingCount
-		if int64(showingTo) > totalCount {
-			showingTo = int(totalCount)
-		}
-	}
+	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
 	data := viewmodels.OktaAppShowViewData{
 		Layout: layout,
