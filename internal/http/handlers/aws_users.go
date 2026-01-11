@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -19,12 +18,7 @@ func (h *Handlers) HandleAWSUsers(c echo.Context) error {
 
 	const perPage = 20
 	query := strings.TrimSpace(c.QueryParam("q"))
-	page := 1
-	if rawPage := strings.TrimSpace(c.QueryParam("page")); rawPage != "" {
-		if parsed, err := strconv.Atoi(rawPage); err == nil && parsed > 0 {
-			page = parsed
-		}
-	}
+	page := parsePageParam(c)
 
 	sourceName := strings.TrimSpace(snap.AWSIdentityCenter.Name)
 	if sourceName == "" {
@@ -64,15 +58,7 @@ func (h *Handlers) HandleAWSUsers(c echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	totalPages := int((totalCount + perPage - 1) / perPage)
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-
-	offset := (page - 1) * perPage
+	page, totalPages, offset := paginate(totalCount, page, perPage)
 	users, err := h.Q.ListAppUsersWithLinkPageBySourceAndQuery(ctx, gen.ListAppUsersWithLinkPageBySourceAndQueryParams{
 		SourceKind: "aws",
 		SourceName: sourceName,
@@ -85,15 +71,7 @@ func (h *Handlers) HandleAWSUsers(c echo.Context) error {
 	}
 
 	showingCount := len(users)
-	showingFrom := 0
-	showingTo := 0
-	if totalCount > 0 && showingCount > 0 {
-		showingFrom = offset + 1
-		showingTo = offset + showingCount
-		if int64(showingTo) > totalCount {
-			showingTo = int(totalCount)
-		}
-	}
+	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
 	appUserIDs := make([]int64, 0, len(users))
 	for _, user := range users {
@@ -186,12 +164,7 @@ func (h *Handlers) HandleUnmatchedAWS(c echo.Context) error {
 
 	const perPage = 20
 	query := strings.TrimSpace(c.QueryParam("q"))
-	page := 1
-	if rawPage := strings.TrimSpace(c.QueryParam("page")); rawPage != "" {
-		if parsed, err := strconv.Atoi(rawPage); err == nil && parsed > 0 {
-			page = parsed
-		}
-	}
+	page := parsePageParam(c)
 
 	sourceName := strings.TrimSpace(snap.AWSIdentityCenter.Name)
 	if sourceName == "" {
@@ -230,15 +203,7 @@ func (h *Handlers) HandleUnmatchedAWS(c echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	totalPages := int((totalCount + perPage - 1) / perPage)
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-
-	offset := (page - 1) * perPage
+	page, totalPages, offset := paginate(totalCount, page, perPage)
 	users, err := h.Q.ListUnmatchedAppUsersPageBySourceAndQuery(ctx, gen.ListUnmatchedAppUsersPageBySourceAndQueryParams{
 		SourceKind: "aws",
 		SourceName: sourceName,
@@ -251,15 +216,7 @@ func (h *Handlers) HandleUnmatchedAWS(c echo.Context) error {
 	}
 
 	showingCount := len(users)
-	showingFrom := 0
-	showingTo := 0
-	if totalCount > 0 && showingCount > 0 {
-		showingFrom = offset + 1
-		showingTo = offset + showingCount
-		if int64(showingTo) > totalCount {
-			showingTo = int(totalCount)
-		}
-	}
+	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
 	emptyState := "No unmatched AWS Identity Center users."
 	if query != "" {

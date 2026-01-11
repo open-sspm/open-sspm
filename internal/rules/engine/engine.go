@@ -14,6 +14,7 @@ import (
 	runtimev1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v1"
 	osspecv1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v1"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/metrics"
 )
 
 type Evaluation struct {
@@ -96,6 +97,22 @@ func (e *Engine) Run(ctx context.Context, evalCtx Context) error {
 }
 
 func (e *Engine) EvaluateRule(ctx context.Context, ruleset gen.Ruleset, rule gen.Rule, evalCtx Context) (*Evaluation, error) {
+	start := time.Now()
+	ev, err := e.evaluateRuleInternal(ctx, ruleset, rule, evalCtx)
+	metrics.RuleEvaluationDuration.WithLabelValues(ruleset.Key).Observe(time.Since(start).Seconds())
+
+	status := "error"
+	if err == nil && ev != nil {
+		status = ev.Status
+	} else if err == nil && ev == nil {
+		status = "skipped"
+	}
+	metrics.RuleEvaluationsTotal.WithLabelValues(ruleset.Key, status).Inc()
+
+	return ev, err
+}
+
+func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, rule gen.Rule, evalCtx Context) (*Evaluation, error) {
 	if e == nil {
 		return nil, errors.New("engine: nil")
 	}

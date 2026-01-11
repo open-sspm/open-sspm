@@ -71,7 +71,7 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 		return err
 	}
 
-	orchestrator := NewOrchestrator(r.pool)
+	orchestrator := NewOrchestrator(r.pool, r.registry)
 	if r.reporter != nil {
 		orchestrator.SetReporter(r.reporter)
 	}

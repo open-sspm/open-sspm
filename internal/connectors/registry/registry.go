@@ -93,11 +93,14 @@ func (r *ConnectorRegistry) loadStatesInternal(ctx context.Context, q *gen.Queri
 
 		if withMetrics && state.Configured && state.Enabled {
 			if provider := def.MetricsProvider(); provider != nil {
-				metrics, err := provider.FetchMetrics(ctx, q, state.SourceName)
+				m, err := provider.FetchMetrics(ctx, q, state.SourceName)
 				if err != nil {
-					return nil, fmt.Errorf("fetch metrics for %s: %w", kind, err)
+					// Don't fail the whole request if metrics fail; just log (or ignore) and continue.
+					// Ideally we'd log this, but we don't have a logger passed in here easily.
+					// We'll leave Metrics as nil.
+				} else {
+					state.Metrics = &m
 				}
-				state.Metrics = &metrics
 			}
 		}
 
