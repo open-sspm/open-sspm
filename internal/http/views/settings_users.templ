@@ -7,7 +7,7 @@ templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
 			{Label: "Settings", Href: "/settings"},
-			{Label: "Users"},
+			{Label: "Team Management"},
 		}, "Manage local users that can sign into Open-SSPM.") {
 			<a class="btn-sm-primary" href="/settings/users?open=add">Add user</a>
 		}
@@ -20,7 +20,7 @@ templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
 
 		<article class="card">
 			<header>
-				<h2>Users</h2>
+				<h2>Team Management</h2>
 			</header>
 			<section>
 				<table class="table">

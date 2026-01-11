@@ -64,7 +64,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 			templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
 				{Label: "Settings", Href: "/settings"},
-				{Label: "Users"},
+				{Label: "Team Management"},
 			}, "Manage local users that can sign into Open-SSPM.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -110,7 +110,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " <article class=\"card\"><header><h2>Users</h2></header><section><table class=\"table\"><thead><tr><th>Email</th><th>Group</th><th>Status</th><th></th></tr></thead> <tbody>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " <article class=\"card\"><header><h2>Team Management</h2></header><section><table class=\"table\"><thead><tr><th>Email</th><th>Group</th><th>Status</th><th></th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
