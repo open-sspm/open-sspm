@@ -99,7 +99,7 @@ func runWorker() error {
 		}
 	}()
 	scheduler := sync.Scheduler{Runner: runner, Interval: cfg.SyncInterval, Trigger: triggers}
-	metricsServer, metricsErrCh := metrics.StartServer(cfg.MetricsAddr)
+	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr)
 	doneCh := make(chan struct{})
 	go func() {
 		scheduler.Run(ctx)
@@ -107,15 +107,22 @@ func runWorker() error {
 	}()
 
 	var metricsErr error
-	select {
-	case <-ctx.Done():
-	case err := <-metricsErrCh:
-		if err != nil {
-			metricsErr = err
-			slog.Error("metrics server failed", "err", err)
-			stop()
+	if metricsErrCh == nil {
+		select {
+		case <-ctx.Done():
+		case <-doneCh:
 		}
-	case <-doneCh:
+	} else {
+		select {
+		case <-ctx.Done():
+		case err := <-metricsErrCh:
+			if err != nil {
+				metricsErr = err
+				slog.Error("metrics server failed", "err", err)
+				stop()
+			}
+		case <-doneCh:
+		}
 	}
 
 	<-doneCh

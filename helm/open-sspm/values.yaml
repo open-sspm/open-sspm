@@ -22,8 +22,8 @@ database:
 config:
   httpAddr: ":8080"
   # Internal metrics listener (set to "off" to disable).
-  # Use ":9090" when exposing metrics via Service.
-  metricsAddr: "127.0.0.1:9090"
+  # Use ":9090" to expose metrics on all interfaces in Kubernetes.
+  metricsAddr: ":9090"
   # When true, session & CSRF cookies are marked Secure (required for HTTPS ingress).
   # Keep false for plain HTTP / port-forward.
   authCookieSecure: false

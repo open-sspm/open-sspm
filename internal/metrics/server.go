@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -12,7 +13,7 @@ import (
 
 const metricsReadHeaderTimeout = 5 * time.Second
 
-func StartServer(addr string) (*http.Server, <-chan error) {
+func StartServer(ctx context.Context, addr string) (*http.Server, <-chan error) {
 	addr = strings.TrimSpace(addr)
 	if addr == "" {
 		return nil, nil
@@ -20,6 +21,10 @@ func StartServer(addr string) (*http.Server, <-chan error) {
 	switch strings.ToLower(addr) {
 	case "off", "disabled", "false":
 		return nil, nil
+	}
+
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	mux := http.NewServeMux()
@@ -37,6 +42,12 @@ func StartServer(addr string) (*http.Server, <-chan error) {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
+	}()
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(shutdownCtx)
 	}()
 
 	return srv, errCh

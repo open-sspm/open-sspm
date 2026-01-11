@@ -32,6 +32,12 @@ var (
 		Help:      "Unix timestamp of the last successful sync.",
 	}, []string{"connector_kind", "connector_name"})
 
+	SyncMetricsCollectionFailuresTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "sync_metrics_collection_failures_total",
+		Help:      "Count of metrics collection failures after successful syncs.",
+	}, []string{"connector_kind", "connector_name", "reason"})
+
 	// Resource Metrics
 	ResourcesTotal = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,

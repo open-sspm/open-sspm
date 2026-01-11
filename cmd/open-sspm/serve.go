@@ -107,7 +107,7 @@ func runServe() error {
 	}
 
 	errCh := make(chan error, 1)
-	metricsServer, metricsErrCh := metrics.StartServer(cfg.MetricsAddr)
+	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr)
 	go func() {
 		slog.Info("listening", "addr", cfg.HTTPAddr)
 		if err := srv.StartServer(httpServer); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -115,30 +115,35 @@ func runServe() error {
 		}
 	}()
 
+	shutdown := func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if metricsServer != nil {
+			_ = metricsServer.Shutdown(shutdownCtx)
+		}
+		_ = srv.Shutdown(shutdownCtx)
+	}
+
+	if metricsErrCh == nil {
+		select {
+		case <-ctx.Done():
+			shutdown()
+			return nil
+		case err := <-errCh:
+			shutdown()
+			return err
+		}
+	}
+
 	select {
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if metricsServer != nil {
-			_ = metricsServer.Shutdown(shutdownCtx)
-		}
-		_ = srv.Shutdown(shutdownCtx)
+		shutdown()
 		return nil
 	case err := <-errCh:
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if metricsServer != nil {
-			_ = metricsServer.Shutdown(shutdownCtx)
-		}
-		_ = srv.Shutdown(shutdownCtx)
+		shutdown()
 		return err
 	case err := <-metricsErrCh:
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if metricsServer != nil {
-			_ = metricsServer.Shutdown(shutdownCtx)
-		}
-		_ = srv.Shutdown(shutdownCtx)
+		shutdown()
 		return err
 	}
 }

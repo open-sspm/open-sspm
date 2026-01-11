@@ -182,20 +182,29 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 				metrics.SyncLastSuccessTimestamp.WithLabelValues(kind, name).Set(float64(time.Now().Unix()))
 
 				// Collect resource metrics if registry is available
-				if o.registry != nil {
-					if def, ok := o.registry.Get(kind); ok {
-						if provider := def.MetricsProvider(); provider != nil {
-							m, err := provider.FetchMetrics(ctx, o.q, name)
-							if err == nil {
-								metrics.ResourcesTotal.WithLabelValues(kind, name, "total").Set(float64(m.Total))
-								metrics.ResourcesTotal.WithLabelValues(kind, name, "matched").Set(float64(m.Matched))
-								metrics.ResourcesTotal.WithLabelValues(kind, name, "unmatched").Set(float64(m.Unmatched))
-							} else {
-								slog.Warn("failed to fetch metrics after sync", "kind", kind, "name", name, "err", err)
-							}
-						}
-					}
+				if o.registry == nil {
+					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(kind, name, "registry_missing").Inc()
+					return nil
 				}
+				def, ok := o.registry.Get(kind)
+				if !ok {
+					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(kind, name, "definition_missing").Inc()
+					return nil
+				}
+				provider := def.MetricsProvider()
+				if provider == nil {
+					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(kind, name, "provider_missing").Inc()
+					return nil
+				}
+				m, err := provider.FetchMetrics(ctx, o.q, name)
+				if err != nil {
+					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(kind, name, "fetch_error").Inc()
+					slog.Warn("failed to fetch metrics after sync", "kind", kind, "name", name, "err", err)
+					return nil
+				}
+				metrics.ResourcesTotal.WithLabelValues(kind, name, "total").Set(float64(m.Total))
+				metrics.ResourcesTotal.WithLabelValues(kind, name, "matched").Set(float64(m.Matched))
+				metrics.ResourcesTotal.WithLabelValues(kind, name, "unmatched").Set(float64(m.Unmatched))
 			}
 			return nil
 		})
