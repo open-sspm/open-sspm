@@ -44,7 +44,8 @@
 
 @layer components {
   /* Command menu: remove underlines from links */
-  .command a {
+  .command a,
+  .dropdown-menu a {
     text-decoration-line: none;
   }
 

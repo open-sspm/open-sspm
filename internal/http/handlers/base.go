@@ -11,6 +11,7 @@ import (
 
 	"github.com/a-h/templ"
 	"github.com/alexedwards/scs/v2"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/open-sspm/open-sspm/internal/config"
@@ -38,6 +39,7 @@ type SyncRunner interface {
 type Handlers struct {
 	Cfg      config.Config
 	Q        *gen.Queries
+	Pool     *pgxpool.Pool
 	Sessions *scs.SessionManager
 	Syncer   SyncRunner
 	Registry *registry.ConnectorRegistry

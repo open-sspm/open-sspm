@@ -43,7 +43,7 @@ func NewEchoServer(cfg config.Config, pool *pgxpool.Pool, q *gen.Queries, syncer
 	sessions.Cookie.SameSite = http.SameSiteLaxMode
 	sessions.Cookie.Secure = cfg.AuthCookieSecure
 
-	h := &handlers.Handlers{Cfg: cfg, Q: q, Syncer: syncer, Registry: reg, Sessions: sessions}
+	h := &handlers.Handlers{Cfg: cfg, Q: q, Pool: pool, Syncer: syncer, Registry: reg, Sessions: sessions}
 	es := &EchoServer{h: h, e: echo.New()}
 	es.e.Use(middleware.RequestIDWithConfig(middleware.RequestIDConfig{
 		RequestIDHandler: func(c echo.Context, id string) {
@@ -221,6 +221,10 @@ func (es *EchoServer) registerRoutes() {
 	admin.GET("/settings", es.h.HandleSettings)
 	admin.GET("/settings/connectors", es.h.HandleConnectors)
 	admin.POST("/settings/connectors/*", es.h.HandleConnectorAction)
+	admin.GET("/settings/users", es.h.HandleSettingsUsers)
+	admin.POST("/settings/users", es.h.HandleSettingsUsersCreate)
+	admin.POST("/settings/users/:id", es.h.HandleSettingsUserUpdate)
+	admin.POST("/settings/users/:id/delete", es.h.HandleSettingsUserDelete)
 	admin.POST("/settings/resync", es.h.HandleResync)
 
 	staticDir, ok := resolveStaticDir(es.h.Cfg.StaticDir)

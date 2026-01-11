@@ -85,6 +85,16 @@ func (q *Queries) CreateAuthUser(ctx context.Context, arg CreateAuthUserParams) 
 	return i, err
 }
 
+const deleteAuthUser = `-- name: DeleteAuthUser :exec
+DELETE FROM auth_users
+WHERE id = $1
+`
+
+func (q *Queries) DeleteAuthUser(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteAuthUser, id)
+	return err
+}
+
 const getAuthUser = `-- name: GetAuthUser :one
 SELECT id, email, password_hash, role, is_active, created_at, updated_at, last_login_at, last_login_ip
 FROM auth_users
@@ -131,6 +141,93 @@ func (q *Queries) GetAuthUserByEmail(ctx context.Context, btrim string) (AuthUse
 	return i, err
 }
 
+const getAuthUserForUpdate = `-- name: GetAuthUserForUpdate :one
+SELECT id, email, password_hash, role, is_active, created_at, updated_at, last_login_at, last_login_ip
+FROM auth_users
+WHERE id = $1
+FOR UPDATE
+`
+
+func (q *Queries) GetAuthUserForUpdate(ctx context.Context, id int64) (AuthUser, error) {
+	row := q.db.QueryRow(ctx, getAuthUserForUpdate, id)
+	var i AuthUser
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Role,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LastLoginAt,
+		&i.LastLoginIp,
+	)
+	return i, err
+}
+
+const listActiveAuthAdminsForUpdate = `-- name: ListActiveAuthAdminsForUpdate :many
+SELECT id
+FROM auth_users
+WHERE role = 'admin' AND is_active = true
+FOR UPDATE
+`
+
+func (q *Queries) ListActiveAuthAdminsForUpdate(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listActiveAuthAdminsForUpdate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAuthUsers = `-- name: ListAuthUsers :many
+SELECT id, email, password_hash, role, is_active, created_at, updated_at, last_login_at, last_login_ip
+FROM auth_users
+ORDER BY email ASC
+`
+
+func (q *Queries) ListAuthUsers(ctx context.Context) ([]AuthUser, error) {
+	rows, err := q.db.Query(ctx, listAuthUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuthUser
+	for rows.Next() {
+		var i AuthUser
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.PasswordHash,
+			&i.Role,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LastLoginAt,
+			&i.LastLoginIp,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateAuthUserLoginMeta = `-- name: UpdateAuthUserLoginMeta :exec
 UPDATE auth_users
 SET
@@ -148,5 +245,41 @@ type UpdateAuthUserLoginMetaParams struct {
 
 func (q *Queries) UpdateAuthUserLoginMeta(ctx context.Context, arg UpdateAuthUserLoginMetaParams) error {
 	_, err := q.db.Exec(ctx, updateAuthUserLoginMeta, arg.LastLoginAt, arg.LastLoginIp, arg.ID)
+	return err
+}
+
+const updateAuthUserPasswordHash = `-- name: UpdateAuthUserPasswordHash :exec
+UPDATE auth_users
+SET
+  password_hash = $1::text,
+  updated_at = now()
+WHERE id = $2::bigint
+`
+
+type UpdateAuthUserPasswordHashParams struct {
+	PasswordHash string `json:"password_hash"`
+	ID           int64  `json:"id"`
+}
+
+func (q *Queries) UpdateAuthUserPasswordHash(ctx context.Context, arg UpdateAuthUserPasswordHashParams) error {
+	_, err := q.db.Exec(ctx, updateAuthUserPasswordHash, arg.PasswordHash, arg.ID)
+	return err
+}
+
+const updateAuthUserRole = `-- name: UpdateAuthUserRole :exec
+UPDATE auth_users
+SET
+  role = $1::text,
+  updated_at = now()
+WHERE id = $2::bigint
+`
+
+type UpdateAuthUserRoleParams struct {
+	Role string `json:"role"`
+	ID   int64  `json:"id"`
+}
+
+func (q *Queries) UpdateAuthUserRole(ctx context.Context, arg UpdateAuthUserRoleParams) error {
+	_, err := q.db.Exec(ctx, updateAuthUserRole, arg.Role, arg.ID)
 	return err
 }
