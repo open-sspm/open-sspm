@@ -12,6 +12,7 @@ import (
 
 const (
 	defaultHTTPAddr     = ":8080"
+	defaultMetricsAddr  = "127.0.0.1:9090"
 	defaultSyncInterval = 15 * time.Minute
 
 	defaultSyncOktaWorkers    = 3
@@ -22,6 +23,7 @@ const (
 type Config struct {
 	DatabaseURL           string
 	HTTPAddr              string
+	MetricsAddr           string
 	StaticDir             string
 	AuthCookieSecure      bool
 	DevSeedAdmin          bool
@@ -63,6 +65,7 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 	cfg := Config{
 		DatabaseURL:        os.Getenv("DATABASE_URL"),
 		HTTPAddr:           getenvDefault("HTTP_ADDR", defaultHTTPAddr),
+		MetricsAddr:        defaultMetricsAddr,
 		StaticDir:          strings.TrimSpace(os.Getenv("STATIC_DIR")),
 		AuthCookieSecure:   getenvBoolDefault("AUTH_COOKIE_SECURE", false),
 		DevSeedAdmin:       getenvBoolDefault("DEV_SEED_ADMIN", false),
@@ -73,6 +76,14 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		ResyncEnabled:      getenvBoolDefault("RESYNC_ENABLED", true),
 		ResyncMode:         getenvDefault("RESYNC_MODE", "inline"),
 		GlobalEvalMode:     strings.ToLower(strings.TrimSpace(getenvDefault("GLOBAL_EVAL_MODE", "best_effort"))),
+	}
+
+	if v, ok := os.LookupEnv("METRICS_ADDR"); ok {
+		cfg.MetricsAddr = strings.TrimSpace(v)
+	}
+	switch strings.ToLower(strings.TrimSpace(cfg.MetricsAddr)) {
+	case "off", "disabled", "false":
+		cfg.MetricsAddr = ""
 	}
 
 	if v := os.Getenv("SYNC_INTERVAL"); v != "" {
