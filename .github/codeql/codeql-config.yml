@@ -1,0 +1,4 @@
+name: "Open-SSPM CodeQL config"
+paths-ignore:
+  - "**/*_templ.go"
+  - "internal/db/gen/**/*.go"
