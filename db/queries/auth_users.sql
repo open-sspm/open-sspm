@@ -7,6 +7,12 @@ SELECT count(*)
 FROM auth_users
 WHERE role = 'admin' AND is_active = true;
 
+-- name: ListActiveAuthAdminsForUpdate :many
+SELECT id
+FROM auth_users
+WHERE role = 'admin' AND is_active = true
+FOR UPDATE;
+
 -- name: GetAuthUser :one
 SELECT *
 FROM auth_users

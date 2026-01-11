@@ -218,12 +218,32 @@ func (h *Handlers) HandleSettingsUserUpdate(c echo.Context) error {
 			})
 		}
 
-		adminCount, err := h.Q.CountAuthAdmins(ctx)
+		if h.Pool == nil {
+			return h.RenderError(c, errors.New("database pool not configured"))
+		}
+
+		tx, err := h.Pool.Begin(ctx)
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		defer tx.Rollback(ctx)
+
+		qtx := h.Q.WithTx(tx)
+
+		currentUser, err := qtx.GetAuthUser(ctx, userID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return RenderNotFound(c)
+			}
+			return h.RenderError(c, err)
+		}
+
+		adminIDs, err := qtx.ListActiveAuthAdminsForUpdate(ctx)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
 
-		if user.IsActive && strings.ToLower(strings.TrimSpace(user.Role)) == auth.RoleAdmin && adminCount == 1 && role != auth.RoleAdmin {
+		if currentUser.IsActive && strings.ToLower(strings.TrimSpace(currentUser.Role)) == auth.RoleAdmin && len(adminIDs) == 1 && role != auth.RoleAdmin {
 			return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 				openEdit:   true,
 				editUserID: userID,
@@ -236,7 +256,11 @@ func (h *Handlers) HandleSettingsUserUpdate(c echo.Context) error {
 			})
 		}
 
-		if err := h.Q.UpdateAuthUserRole(ctx, gen.UpdateAuthUserRoleParams{ID: userID, Role: role}); err != nil {
+		if err := qtx.UpdateAuthUserRole(ctx, gen.UpdateAuthUserRoleParams{ID: userID, Role: role}); err != nil {
+			return h.RenderError(c, err)
+		}
+
+		if err := tx.Commit(ctx); err != nil {
 			return h.RenderError(c, err)
 		}
 	}
@@ -339,11 +363,31 @@ func (h *Handlers) HandleSettingsUserDelete(c echo.Context) error {
 		return c.Redirect(http.StatusSeeOther, "/settings/users")
 	}
 
-	adminCount, err := h.Q.CountAuthAdmins(ctx)
+	if h.Pool == nil {
+		return h.RenderError(c, errors.New("database pool not configured"))
+	}
+
+	tx, err := h.Pool.Begin(ctx)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
-	if user.IsActive && strings.ToLower(strings.TrimSpace(user.Role)) == auth.RoleAdmin && adminCount == 1 {
+	defer tx.Rollback(ctx)
+
+	qtx := h.Q.WithTx(tx)
+
+	currentUser, err := qtx.GetAuthUser(ctx, userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return RenderNotFound(c)
+		}
+		return h.RenderError(c, err)
+	}
+
+	adminIDs, err := qtx.ListActiveAuthAdminsForUpdate(ctx)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	if currentUser.IsActive && strings.ToLower(strings.TrimSpace(currentUser.Role)) == auth.RoleAdmin && len(adminIDs) == 1 {
 		setFlashToast(c, viewmodels.ToastViewData{
 			Category:    "error",
 			Title:       "Delete not allowed",
@@ -352,14 +396,18 @@ func (h *Handlers) HandleSettingsUserDelete(c echo.Context) error {
 		return c.Redirect(http.StatusSeeOther, "/settings/users")
 	}
 
-	if err := h.Q.DeleteAuthUser(ctx, userID); err != nil {
+	if err := qtx.DeleteAuthUser(ctx, userID); err != nil {
+		return h.RenderError(c, err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		return h.RenderError(c, err)
 	}
 
 	setFlashToast(c, viewmodels.ToastViewData{
 		Category:    "success",
 		Title:       "User deleted",
-		Description: strings.TrimSpace(user.Email),
+		Description: strings.TrimSpace(currentUser.Email),
 	})
 	return c.Redirect(http.StatusSeeOther, "/settings/users")
 }

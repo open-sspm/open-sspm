@@ -141,6 +141,33 @@ func (q *Queries) GetAuthUserByEmail(ctx context.Context, btrim string) (AuthUse
 	return i, err
 }
 
+const listActiveAuthAdminsForUpdate = `-- name: ListActiveAuthAdminsForUpdate :many
+SELECT id
+FROM auth_users
+WHERE role = 'admin' AND is_active = true
+FOR UPDATE
+`
+
+func (q *Queries) ListActiveAuthAdminsForUpdate(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listActiveAuthAdminsForUpdate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAuthUsers = `-- name: ListAuthUsers :many
 SELECT id, email, password_hash, role, is_active, created_at, updated_at, last_login_at, last_login_ip
 FROM auth_users
