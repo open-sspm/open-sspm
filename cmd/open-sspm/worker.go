@@ -107,10 +107,12 @@ func runWorker() error {
 	}()
 
 	var metricsErr error
+	schedulerDone := false
 	if metricsErrCh == nil {
 		select {
 		case <-ctx.Done():
 		case <-doneCh:
+			schedulerDone = true
 		}
 	} else {
 		select {
@@ -122,10 +124,13 @@ func runWorker() error {
 				stop()
 			}
 		case <-doneCh:
+			schedulerDone = true
 		}
 	}
 
-	<-doneCh
+	if !schedulerDone {
+		<-doneCh
+	}
 	if metricsServer != nil {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
