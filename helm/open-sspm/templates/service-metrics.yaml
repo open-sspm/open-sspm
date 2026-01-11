@@ -1,0 +1,24 @@
+{{- if .Values.metrics.service.enabled -}}
+{{- $component := default "worker" .Values.metrics.service.component -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ printf "%s-metrics" (include "open-sspm.fullname" .) | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "open-sspm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+  {{- with .Values.metrics.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: {{ default .Values.metrics.port .Values.metrics.service.port }}
+      protocol: TCP
+      targetPort: metrics
+  selector:
+    {{- include "open-sspm.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+{{- end }}

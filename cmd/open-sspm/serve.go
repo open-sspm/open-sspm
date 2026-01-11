@@ -24,6 +24,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	httpapp "github.com/open-sspm/open-sspm/internal/http"
 	"github.com/open-sspm/open-sspm/internal/http/handlers"
+	"github.com/open-sspm/open-sspm/internal/metrics"
 	"github.com/open-sspm/open-sspm/internal/sync"
 	"github.com/spf13/cobra"
 )
@@ -106,22 +107,39 @@ func runServe() error {
 	}
 
 	errCh := make(chan error, 1)
+	metricsServer, metricsErrCh := metrics.StartServer(cfg.MetricsAddr)
 	go func() {
 		slog.Info("listening", "addr", cfg.HTTPAddr)
-		errCh <- srv.StartServer(httpServer)
+		if err := srv.StartServer(httpServer); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
 	}()
 
 	select {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
+		if metricsServer != nil {
+			_ = metricsServer.Shutdown(shutdownCtx)
+		}
 		_ = srv.Shutdown(shutdownCtx)
 		return nil
 	case err := <-errCh:
-		if !errors.Is(err, http.ErrServerClosed) {
-			return err
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if metricsServer != nil {
+			_ = metricsServer.Shutdown(shutdownCtx)
 		}
-		return nil
+		_ = srv.Shutdown(shutdownCtx)
+		return err
+	case err := <-metricsErrCh:
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if metricsServer != nil {
+			_ = metricsServer.Shutdown(shutdownCtx)
+		}
+		_ = srv.Shutdown(shutdownCtx)
+		return err
 	}
 }
 

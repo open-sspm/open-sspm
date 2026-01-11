@@ -39,6 +39,10 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - worker
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
           env:
             - name: DATABASE_URL
               valueFrom:
@@ -47,6 +51,8 @@ spec:
                   key: {{ required "database.existingSecret.key is required" .Values.database.existingSecret.key }}
             - name: HTTP_ADDR
               value: {{ .Values.config.httpAddr | quote }}
+            - name: METRICS_ADDR
+              value: {{ .Values.config.metricsAddr | quote }}
             - name: AUTH_COOKIE_SECURE
               value: {{ ternary "1" "0" .Values.config.authCookieSecure | quote }}
             - name: DEV_SEED_ADMIN

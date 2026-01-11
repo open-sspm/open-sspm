@@ -12,7 +12,7 @@ import (
 
 const (
 	defaultHTTPAddr     = ":8080"
-	defaultMetricsAddr  = "127.0.0.1:9090"
+	defaultMetricsAddr  = ""
 	defaultSyncInterval = 15 * time.Minute
 
 	defaultSyncOktaWorkers    = 3

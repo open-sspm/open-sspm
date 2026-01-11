@@ -10,12 +10,14 @@ const (
 )
 
 var (
+	syncDurationBuckets = []float64{1, 2, 5, 10, 30, 60, 120, 300, 600, 1200, 1800, 3600}
+
 	// Sync Metrics
 	SyncDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: namespace,
 		Name:      "sync_duration_seconds",
 		Help:      "Time taken for a connector sync to complete.",
-		Buckets:   prometheus.DefBuckets,
+		Buckets:   syncDurationBuckets,
 	}, []string{"connector_kind", "connector_name"})
 
 	SyncRunsTotal = promauto.NewCounterVec(prometheus.CounterOpts{

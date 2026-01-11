@@ -43,6 +43,9 @@ spec:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
           livenessProbe:
             httpGet:
               path: /healthz
@@ -59,6 +62,8 @@ spec:
                   key: {{ required "database.existingSecret.key is required" .Values.database.existingSecret.key }}
             - name: HTTP_ADDR
               value: {{ .Values.config.httpAddr | quote }}
+            - name: METRICS_ADDR
+              value: {{ .Values.config.metricsAddr | quote }}
             - name: AUTH_COOKIE_SECURE
               value: {{ ternary "1" "0" .Values.config.authCookieSecure | quote }}
             - name: DEV_SEED_ADMIN

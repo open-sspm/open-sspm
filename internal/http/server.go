@@ -22,7 +22,6 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/authn"
 	"github.com/open-sspm/open-sspm/internal/http/handlers"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // EchoServer is the HTTP server wrapper.
@@ -172,7 +171,6 @@ func (es *EchoServer) httpErrorHandler(err error, c echo.Context) {
 
 func (es *EchoServer) registerRoutes() {
 	es.e.GET("/healthz", es.h.HandleHealthz)
-	es.e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 
 	authed := es.e.Group("")
 

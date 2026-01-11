@@ -21,6 +21,9 @@ database:
 
 config:
   httpAddr: ":8080"
+  # Internal metrics listener (set to "off" to disable).
+  # Use ":9090" when exposing metrics via Service.
+  metricsAddr: "127.0.0.1:9090"
   # When true, session & CSRF cookies are marked Secure (required for HTTPS ingress).
   # Keep false for plain HTTP / port-forward.
   authCookieSecure: false
@@ -31,6 +34,15 @@ config:
   syncOktaWorkers: 3
   syncGithubWorkers: 6
   syncDatadogWorkers: 3
+
+metrics:
+  port: 9090
+  service:
+    enabled: false
+    port: 9090
+    # Which component to expose metrics for: serve or worker.
+    component: worker
+    annotations: {}
 
 podSecurityContext: {}
 securityContext: {}

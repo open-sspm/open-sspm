@@ -18,6 +18,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/okta"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/connectors/vault"
+	"github.com/open-sspm/open-sspm/internal/metrics"
 	"github.com/open-sspm/open-sspm/internal/sync"
 	"github.com/spf13/cobra"
 )
@@ -98,6 +99,33 @@ func runWorker() error {
 		}
 	}()
 	scheduler := sync.Scheduler{Runner: runner, Interval: cfg.SyncInterval, Trigger: triggers}
-	scheduler.Run(ctx)
+	metricsServer, metricsErrCh := metrics.StartServer(cfg.MetricsAddr)
+	doneCh := make(chan struct{})
+	go func() {
+		scheduler.Run(ctx)
+		close(doneCh)
+	}()
+
+	var metricsErr error
+	select {
+	case <-ctx.Done():
+	case err := <-metricsErrCh:
+		if err != nil {
+			metricsErr = err
+			slog.Error("metrics server failed", "err", err)
+			stop()
+		}
+	case <-doneCh:
+	}
+
+	<-doneCh
+	if metricsServer != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = metricsServer.Shutdown(shutdownCtx)
+	}
+	if metricsErr != nil {
+		return metricsErr
+	}
 	return nil
 }
