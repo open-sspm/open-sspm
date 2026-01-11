@@ -141,6 +141,30 @@ func (q *Queries) GetAuthUserByEmail(ctx context.Context, btrim string) (AuthUse
 	return i, err
 }
 
+const getAuthUserForUpdate = `-- name: GetAuthUserForUpdate :one
+SELECT id, email, password_hash, role, is_active, created_at, updated_at, last_login_at, last_login_ip
+FROM auth_users
+WHERE id = $1
+FOR UPDATE
+`
+
+func (q *Queries) GetAuthUserForUpdate(ctx context.Context, id int64) (AuthUser, error) {
+	row := q.db.QueryRow(ctx, getAuthUserForUpdate, id)
+	var i AuthUser
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Role,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LastLoginAt,
+		&i.LastLoginIp,
+	)
+	return i, err
+}
+
 const listActiveAuthAdminsForUpdate = `-- name: ListActiveAuthAdminsForUpdate :many
 SELECT id
 FROM auth_users

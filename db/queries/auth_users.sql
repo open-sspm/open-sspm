@@ -18,6 +18,12 @@ SELECT *
 FROM auth_users
 WHERE id = $1;
 
+-- name: GetAuthUserForUpdate :one
+SELECT *
+FROM auth_users
+WHERE id = $1
+FOR UPDATE;
+
 -- name: GetAuthUserByEmail :one
 SELECT *
 FROM auth_users

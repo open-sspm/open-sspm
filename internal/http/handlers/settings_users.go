@@ -98,6 +98,9 @@ func (h *Handlers) HandleSettingsUsersCreate(c echo.Context) error {
 		})
 	}
 
+	password = strings.TrimSpace(password)
+	confirm = strings.TrimSpace(confirm)
+
 	if password != confirm {
 		return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 			openAdd: true,
@@ -117,6 +120,17 @@ func (h *Handlers) HandleSettingsUsersCreate(c echo.Context) error {
 			alert: &viewmodels.SettingsUsersAlert{
 				Title:       "Password too short",
 				Message:     "Use at least 8 characters.",
+				Destructive: true,
+			},
+		})
+	}
+	if len(password) > 128 {
+		return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
+			openAdd: true,
+			addForm: form,
+			alert: &viewmodels.SettingsUsersAlert{
+				Title:       "Password too long",
+				Message:     "Use at most 128 characters.",
 				Destructive: true,
 			},
 		})
@@ -203,7 +217,71 @@ func (h *Handlers) HandleSettingsUserUpdate(c echo.Context) error {
 		}
 	}
 
+	changePassword := strings.TrimSpace(password) != "" || strings.TrimSpace(confirm) != ""
+	var passwordHash string
+	if changePassword {
+		if strings.TrimSpace(password) == "" {
+			return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
+				openEdit:   true,
+				editUserID: userID,
+				editRole:   role,
+				alert: &viewmodels.SettingsUsersAlert{
+					Title:       "Password required",
+					Message:     "Provide a new password or leave both fields blank.",
+					Destructive: true,
+				},
+			})
+		}
+
+		password = strings.TrimSpace(password)
+		confirm = strings.TrimSpace(confirm)
+
+		if password != confirm {
+			return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
+				openEdit:   true,
+				editUserID: userID,
+				editRole:   role,
+				alert: &viewmodels.SettingsUsersAlert{
+					Title:       "Passwords do not match",
+					Message:     "Confirm the new password to continue.",
+					Destructive: true,
+				},
+			})
+		}
+		if len(password) < 8 {
+			return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
+				openEdit:   true,
+				editUserID: userID,
+				editRole:   role,
+				alert: &viewmodels.SettingsUsersAlert{
+					Title:       "Password too short",
+					Message:     "Use at least 8 characters.",
+					Destructive: true,
+				},
+			})
+		}
+		if len(password) > 128 {
+			return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
+				openEdit:   true,
+				editUserID: userID,
+				editRole:   role,
+				alert: &viewmodels.SettingsUsersAlert{
+					Title:       "Password too long",
+					Message:     "Use at most 128 characters.",
+					Destructive: true,
+				},
+			})
+		}
+
+		hash, err := auth.HashPassword(password)
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		passwordHash = hash
+	}
+
 	changeRole := role != "" && strings.ToLower(strings.TrimSpace(user.Role)) != role
+	passwordUpdated := false
 	if changeRole {
 		if principal.UserID == user.ID {
 			return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
@@ -230,7 +308,7 @@ func (h *Handlers) HandleSettingsUserUpdate(c echo.Context) error {
 
 		qtx := h.Q.WithTx(tx)
 
-		currentUser, err := qtx.GetAuthUser(ctx, userID)
+		currentUser, err := qtx.GetAuthUserForUpdate(ctx, userID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return RenderNotFound(c)
@@ -260,55 +338,20 @@ func (h *Handlers) HandleSettingsUserUpdate(c echo.Context) error {
 			return h.RenderError(c, err)
 		}
 
+		if changePassword {
+			if err := qtx.UpdateAuthUserPasswordHash(ctx, gen.UpdateAuthUserPasswordHashParams{ID: userID, PasswordHash: passwordHash}); err != nil {
+				return h.RenderError(c, err)
+			}
+			passwordUpdated = true
+		}
+
 		if err := tx.Commit(ctx); err != nil {
 			return h.RenderError(c, err)
 		}
 	}
 
-	changePassword := strings.TrimSpace(password) != "" || strings.TrimSpace(confirm) != ""
-	if changePassword {
-		if strings.TrimSpace(password) == "" {
-			return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
-				openEdit:   true,
-				editUserID: userID,
-				editRole:   role,
-				alert: &viewmodels.SettingsUsersAlert{
-					Title:       "Password required",
-					Message:     "Provide a new password or leave both fields blank.",
-					Destructive: true,
-				},
-			})
-		}
-		if password != confirm {
-			return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
-				openEdit:   true,
-				editUserID: userID,
-				editRole:   role,
-				alert: &viewmodels.SettingsUsersAlert{
-					Title:       "Passwords do not match",
-					Message:     "Confirm the new password to continue.",
-					Destructive: true,
-				},
-			})
-		}
-		if len(password) < 8 {
-			return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
-				openEdit:   true,
-				editUserID: userID,
-				editRole:   role,
-				alert: &viewmodels.SettingsUsersAlert{
-					Title:       "Password too short",
-					Message:     "Use at least 8 characters.",
-					Destructive: true,
-				},
-			})
-		}
-
-		hash, err := auth.HashPassword(password)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		if err := h.Q.UpdateAuthUserPasswordHash(ctx, gen.UpdateAuthUserPasswordHashParams{ID: userID, PasswordHash: hash}); err != nil {
+	if changePassword && !passwordUpdated {
+		if err := h.Q.UpdateAuthUserPasswordHash(ctx, gen.UpdateAuthUserPasswordHashParams{ID: userID, PasswordHash: passwordHash}); err != nil {
 			return h.RenderError(c, err)
 		}
 	}
@@ -375,7 +418,7 @@ func (h *Handlers) HandleSettingsUserDelete(c echo.Context) error {
 
 	qtx := h.Q.WithTx(tx)
 
-	currentUser, err := qtx.GetAuthUser(ctx, userID)
+	currentUser, err := qtx.GetAuthUserForUpdate(ctx, userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
