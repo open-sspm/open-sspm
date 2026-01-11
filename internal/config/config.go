@@ -78,8 +78,11 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		GlobalEvalMode:     strings.ToLower(strings.TrimSpace(getenvDefault("GLOBAL_EVAL_MODE", "best_effort"))),
 	}
 
-	// Metrics are disabled by default (empty address). Set METRICS_ADDR to:
-	// - "127.0.0.1:9090" to bind localhost only
+	// Metrics are disabled by default in the Go binary (empty address). Some deployment methods (e.g. Helm)
+	// may choose a safer non-empty default (like 127.0.0.1:9090) for defense in depth.
+	//
+	// Set METRICS_ADDR to:
+	// - "127.0.0.1:9090" to bind localhost only (not reachable via pod IP / Service)
 	// - ":9090" to bind all interfaces (0.0.0.0) inside the container/pod; restrict access via NetworkPolicy / mTLS
 	// Metrics may include sensitive identifiers; use "off"/"disabled"/"false" to force-disable.
 	if v, ok := os.LookupEnv("METRICS_ADDR"); ok {
