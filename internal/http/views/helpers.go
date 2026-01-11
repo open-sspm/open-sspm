@@ -126,3 +126,43 @@ func AriaCurrentExact(activePath, target string) string {
 	}
 	return ""
 }
+
+func HumanizeAuthUserRole(role string) string {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "admin":
+		return "Admin"
+	case "viewer":
+		return "Viewer"
+	default:
+		role = strings.TrimSpace(role)
+		if role == "" {
+			return "—"
+		}
+		return role
+	}
+}
+
+func AuthUserRoleBadgeClass(role string) string {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "admin":
+		return "badge bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-100"
+	case "viewer":
+		return "badge bg-slate-100 text-slate-800 dark:bg-slate-900/50 dark:text-slate-100"
+	default:
+		return "badge-outline"
+	}
+}
+
+func AuthUserStatusLabel(active bool) string {
+	if active {
+		return "Active"
+	}
+	return "Disabled"
+}
+
+func AuthUserStatusBadgeClass(active bool) string {
+	if active {
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	}
+	return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+}

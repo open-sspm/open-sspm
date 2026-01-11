@@ -1,0 +1,145 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "Settings", Href: "/settings"},
+			{Label: "Users"},
+		}, "Manage local users that can sign into Open-SSPM.") {
+			<a class="btn-sm-primary" href="/settings/users?open=add">Add user</a>
+		}
+
+		if data.Alert != nil {
+			@Alert(data.Alert.Title, data.Alert.Destructive) {
+				<p>{ data.Alert.Message }</p>
+			}
+		}
+
+		<article class="card">
+			<header>
+				<h2>Users</h2>
+			</header>
+			<section>
+				<table class="table">
+					<thead>
+						<tr>
+							<th>Email</th>
+							<th>Group</th>
+							<th>Status</th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody>
+						if data.HasUsers {
+							for _, u := range data.Users {
+								<tr>
+									<td class="font-medium whitespace-normal break-words">{ u.Email }</td>
+									<td>
+										<span class={ AuthUserRoleBadgeClass(u.Role) }>{ HumanizeAuthUserRole(u.Role) }</span>
+									</td>
+									<td>
+										<span class={ AuthUserStatusBadgeClass(u.IsActive) }>{ AuthUserStatusLabel(u.IsActive) }</span>
+									</td>
+									<td class="text-right">
+										<div class="dropdown-menu">
+											<button type="button" id={ "settings-users-actions-" + FormatInt64(u.ID) + "-trigger" } aria-haspopup="menu" aria-controls={ "settings-users-actions-" + FormatInt64(u.ID) + "-menu" } aria-expanded="false" class="btn-icon-ghost cursor-pointer" aria-label={ "Actions for " + u.Email }>
+												<i class="ti ti-dots text-lg text-muted-foreground" aria-hidden="true"></i>
+											</button>
+											<div data-popover data-side="bottom" data-align="end" aria-hidden="true" class="min-w-56">
+												<div role="menu" id={ "settings-users-actions-" + FormatInt64(u.ID) + "-menu" } aria-labelledby={ "settings-users-actions-" + FormatInt64(u.ID) + "-trigger" }>
+													<a role="menuitem" class="cursor-pointer" href={ "/settings/users?open=edit&id=" + FormatInt64(u.ID) }>
+														<i class="ti ti-edit text-base text-muted-foreground shrink-0" aria-hidden="true"></i>
+														Edit
+													</a>
+													if u.CanDelete {
+														<a role="menuitem" class="text-destructive cursor-pointer" href={ "/settings/users?open=delete&id=" + FormatInt64(u.ID) }>
+															<i class="ti ti-trash text-base text-destructive shrink-0" aria-hidden="true"></i>
+															Delete
+														</a>
+													} else {
+														<div role="menuitem" class="text-destructive" aria-disabled="true">
+															<i class="ti ti-trash text-base text-destructive shrink-0" aria-hidden="true"></i>
+															Delete
+														</div>
+													}
+												</div>
+											</div>
+										</div>
+									</td>
+								</tr>
+							}
+						} else {
+							<tr>
+								<td colspan="4">
+									@EmptyState("No users found", "Add a user to allow others to sign in.") {
+										<a class="btn-sm-primary" href="/settings/users?open=add">Add user</a>
+									}
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</section>
+		</article>
+
+		@FormDialog("settings-users-add-modal", data.OpenAdd, "Add user", "Create a new local user account.", "/settings/users", "/settings/users", "Create user", data.Layout.CSRFToken) {
+			<label class="field">
+				<span class="label">Email</span>
+				<input type="email" name="email" class="input w-full" value={ data.Form.Email } placeholder="person@example.com" autocomplete="email"/>
+			</label>
+			<label class="field">
+				<span class="label">Group</span>
+				<select name="role" class="input w-full">
+					<option value="viewer" selected?={ data.Form.Role == "viewer" }>Viewer</option>
+					<option value="admin" selected?={ data.Form.Role == "admin" }>Admin</option>
+				</select>
+				<p class="text-xs text-muted-foreground">Admins can manage connectors, resync, and create users.</p>
+			</label>
+			<label class="field">
+				<span class="label">Password</span>
+				<input type="password" name="password" class="input w-full" autocomplete="new-password"/>
+				<p class="text-xs text-muted-foreground">At least 8 characters.</p>
+			</label>
+			<label class="field">
+				<span class="label">Confirm password</span>
+				<input type="password" name="confirm_password" class="input w-full" autocomplete="new-password"/>
+			</label>
+		}
+
+		@FormDialog("settings-users-edit-modal", data.OpenEdit, "Edit user", "Update password and group.", "/settings/users", "/settings/users/"+FormatInt64(data.EditForm.ID), "Save changes", data.Layout.CSRFToken) {
+			<label class="field">
+				<span class="label">Email</span>
+				<input type="email" class="input w-full" value={ data.EditForm.Email } disabled/>
+			</label>
+			<label class="field">
+				<span class="label">Group</span>
+				<select name="role" class="input w-full" disabled?={ data.EditForm.RoleDisabled }>
+					<option value="viewer" selected?={ data.EditForm.Role == "viewer" }>Viewer</option>
+					<option value="admin" selected?={ data.EditForm.Role == "admin" }>Admin</option>
+				</select>
+				if data.EditForm.RoleDisabledReason != "" {
+					<p class="text-xs text-muted-foreground">{ data.EditForm.RoleDisabledReason }</p>
+				}
+			</label>
+			<label class="field">
+				<span class="label">New password</span>
+				<input type="password" name="password" class="input w-full" autocomplete="new-password"/>
+				<p class="text-xs text-muted-foreground">Leave blank to keep the current password.</p>
+			</label>
+			<label class="field">
+				<span class="label">Confirm new password</span>
+				<input type="password" name="confirm_password" class="input w-full" autocomplete="new-password"/>
+			</label>
+		}
+
+		@FormDialog("settings-users-delete-modal", data.OpenDelete, "Delete user", "This will permanently delete the user account.", "/settings/users", "/settings/users/"+FormatInt64(data.Delete.ID)+"/delete", "Delete user", data.Layout.CSRFToken) {
+			<div class="space-y-2">
+				<div class="text-sm font-medium">User</div>
+				<div class="text-sm text-muted-foreground">{ data.Delete.Email }</div>
+			</div>
+		}
+	}
+}

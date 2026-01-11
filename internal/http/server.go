@@ -221,6 +221,10 @@ func (es *EchoServer) registerRoutes() {
 	admin.GET("/settings", es.h.HandleSettings)
 	admin.GET("/settings/connectors", es.h.HandleConnectors)
 	admin.POST("/settings/connectors/*", es.h.HandleConnectorAction)
+	admin.GET("/settings/users", es.h.HandleSettingsUsers)
+	admin.POST("/settings/users", es.h.HandleSettingsUsersCreate)
+	admin.POST("/settings/users/:id", es.h.HandleSettingsUserUpdate)
+	admin.POST("/settings/users/:id/delete", es.h.HandleSettingsUserDelete)
 	admin.POST("/settings/resync", es.h.HandleResync)
 
 	staticDir, ok := resolveStaticDir(es.h.Cfg.StaticDir)
