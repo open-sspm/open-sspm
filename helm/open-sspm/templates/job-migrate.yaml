@@ -20,6 +20,8 @@ spec:
       labels:
         {{- include "open-sspm.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: migrate
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       restartPolicy: Never
       {{- if or (not .Values.serviceAccount.create) (not .Release.IsInstall) }}

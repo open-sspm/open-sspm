@@ -13,6 +13,7 @@ Deploys:
   - `open-sspm migrate` as a pre-install/pre-upgrade Job
   - `open-sspm seed-rules` as a pre-install Job (optionally also pre-upgrade)
   - `open-sspm users bootstrap-admin` as a pre-install Job (optionally also pre-upgrade; disabled by default)
+  - Hook Jobs disable Istio sidecar injection to avoid hangs in Istio-injection-enabled namespaces.
 
 This chart assumes a **managed Postgres** (RDS, Cloud SQL, etc). It does **not** deploy Postgres.
 
