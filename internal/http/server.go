@@ -220,6 +220,7 @@ func (es *EchoServer) registerRoutes() {
 	admin.POST("/findings/rulesets/:rulesetKey/rules/:ruleKey/attestation", es.h.HandleFindingsRuleAttestation)
 	admin.GET("/settings", es.h.HandleSettings)
 	admin.GET("/settings/connectors", es.h.HandleConnectors)
+	admin.GET("/settings/connector-health", es.h.HandleConnectorHealth)
 	admin.POST("/settings/connectors/*", es.h.HandleConnectorAction)
 	admin.GET("/settings/users", es.h.HandleSettingsUsers)
 	admin.POST("/settings/users", es.h.HandleSettingsUsersCreate)
