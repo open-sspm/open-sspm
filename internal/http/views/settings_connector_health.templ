@@ -1,0 +1,64 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "Settings", Href: "/settings"},
+			{Label: "Connector health"},
+		}, "Operational reliability and freshness indicators for connector syncs.") {
+			<a class="btn-sm-outline" href="/settings/connectors">Connectors</a>
+		}
+
+		if data.ShowWarning && data.WarningMessage != "" {
+			@Alert("Attention required", data.WarningDestructive) {
+				<p>{ data.WarningMessage }</p>
+			}
+		}
+
+		<article class="card">
+			<header>
+				<h2>Connector health</h2>
+			</header>
+			<section class="space-y-4">
+				if data.SummaryLabel != "" {
+					<p class="text-sm text-muted-foreground">{ data.SummaryLabel }</p>
+				}
+
+				<div class="overflow-x-auto">
+					<table class="table">
+						<thead>
+							<tr>
+								<th>Connector</th>
+								<th>Health</th>
+								<th>Last success</th>
+								<th>Last run</th>
+								<th>{ data.LookbackLabel }{ " success" }</th>
+								<th>{ data.LookbackLabel }{ " avg (success)" }</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, item := range data.Items {
+								<tr>
+									<td class="font-medium">{ item.Name }</td>
+									<td><span class={ item.StatusClass }>{ item.StatusLabel }</span></td>
+									<td class="text-muted-foreground">{ item.LastSuccessLabel }</td>
+									<td class="text-muted-foreground">{ item.LastRunLabel }</td>
+									<td class="text-muted-foreground">{ item.SuccessRate7d }</td>
+									<td class="text-muted-foreground">{ item.AvgDuration7d }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</section>
+			<footer class="border-t">
+				<div class="text-sm text-muted-foreground">
+					Resync is available on <a class="btn-sm-link" href="/settings">Settings</a>.
+				</div>
+			</footer>
+		</article>
+	}
+}
