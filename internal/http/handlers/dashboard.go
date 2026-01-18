@@ -13,11 +13,7 @@ import (
 // HandleDashboard renders the dashboard page.
 func (h *Handlers) HandleDashboard(c echo.Context) error {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Dashboard")
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-	oktaCount, err := h.Q.CountIdPUsers(ctx)
+	layout, _, err := h.LayoutData(ctx, c, "Dashboard")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -35,33 +31,6 @@ func (h *Handlers) HandleDashboard(c echo.Context) error {
 	connectedAppCount, err := h.Q.CountConnectedOktaApps(ctx)
 	if err != nil {
 		return h.RenderError(c, err)
-	}
-
-	var ghCount int64
-	var ddCount int64
-	var matched int64
-	var unmatched int64
-
-	if snap.GitHubEnabled && snap.GitHubConfigured {
-		ghCount, err = h.Q.CountAppUsersBySource(ctx, gen.CountAppUsersBySourceParams{SourceKind: "github", SourceName: snap.GitHub.Org})
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		matched, err = h.Q.CountMatchedAppUsersBySource(ctx, gen.CountMatchedAppUsersBySourceParams{SourceKind: "github", SourceName: snap.GitHub.Org})
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		unmatched, err = h.Q.CountUnmatchedAppUsersBySource(ctx, gen.CountUnmatchedAppUsersBySourceParams{SourceKind: "github", SourceName: snap.GitHub.Org})
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-	}
-
-	if snap.DatadogEnabled && snap.DatadogConfigured {
-		ddCount, err = h.Q.CountAppUsersBySource(ctx, gen.CountAppUsersBySourceParams{SourceKind: "datadog", SourceName: snap.Datadog.Site})
-		if err != nil {
-			return h.RenderError(c, err)
-		}
 	}
 
 	sourceNameByKind := map[string]string{}
@@ -160,11 +129,6 @@ func (h *Handlers) HandleDashboard(c echo.Context) error {
 		ActiveUserCount:   activeUserCount,
 		AppCount:          appCount,
 		ConnectedAppCount: connectedAppCount,
-		OktaCount:         oktaCount,
-		GitHubCount:       ghCount,
-		DatadogCount:      ddCount,
-		MatchedCount:      matched,
-		UnmatchedCount:    unmatched,
 		FrameworkPosture:  frameworkPosture,
 	}
 

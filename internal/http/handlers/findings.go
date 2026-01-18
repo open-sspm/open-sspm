@@ -146,7 +146,6 @@ func (h *Handlers) HandleFindingsRuleset(c echo.Context) error {
 			Title:            strings.TrimSpace(row.Title),
 			Summary:          strings.TrimSpace(row.Summary),
 			MonitoringStatus: strings.TrimSpace(row.MonitoringStatus),
-			MonitoringReason: strings.TrimSpace(row.MonitoringReason),
 			Status:           strings.TrimSpace(row.CurrentStatus),
 			EvaluatedAt:      evaluatedAt,
 			EvidenceSummary:  strings.TrimSpace(row.CurrentEvidenceSummary),
@@ -201,12 +200,7 @@ func (h *Handlers) HandleFindingsRuleset(c echo.Context) error {
 		Tags:                    meta.Tags,
 		References:              meta.References,
 		FrameworkMappings:       meta.FrameworkMappings,
-		DataContracts:           meta.DataContracts,
 		HasMetadata:             meta.HasMetadata,
-		RequirementsAPIScopes:   meta.RequirementsAPIScopes,
-		RequirementsPermissions: meta.RequirementsPermissions,
-		RequirementsNotes:       meta.RequirementsNotes,
-		HasRequirements:         meta.HasRequirements,
 		OverrideExists:          overrideExists,
 		OverrideEnabled:         overrideEnabled,
 		StatusFilter:            statusFilter,
@@ -361,7 +355,7 @@ func (h *Handlers) HandleFindingsRule(c echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	rulesetOverrideEnabled, rulesetOverrideExists, err := h.getRulesetOverride(ctx, rs.ID, scope)
+	rulesetOverrideEnabled, _, err := h.getRulesetOverride(ctx, rs.ID, scope)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -401,24 +395,17 @@ func (h *Handlers) HandleFindingsRule(c echo.Context) error {
 		RuleKey:                 strings.TrimSpace(r.Key),
 		RuleTitle:               strings.TrimSpace(r.Title),
 		RuleSummary:             strings.TrimSpace(r.Summary),
-		RuleDescription:         strings.TrimSpace(def.Description),
-		RuleCategory:            strings.TrimSpace(r.Category),
 		RuleSeverity:            strings.TrimSpace(r.Severity),
 		MonitoringStatus:        strings.TrimSpace(r.MonitoringStatus),
 		MonitoringReason:        strings.TrimSpace(r.MonitoringReason),
-		Tags:                    def.Tags,
-		References:              def.References,
-		FrameworkMappings:       def.FrameworkMappings,
 		RemediationInstructions: strings.TrimSpace(def.RemediationInstructions),
 		RemediationRisks:        strings.TrimSpace(def.RemediationRisks),
 		RemediationEffort:       strings.TrimSpace(def.RemediationEffort),
-		RequiredData:            def.RequiredData,
 		CurrentStatus:           strings.TrimSpace(r.CurrentStatus),
 		CurrentErrorKind:        strings.TrimSpace(r.CurrentErrorKind),
 		EvidenceSummary:         strings.TrimSpace(r.CurrentEvidenceSummary),
 		Evidence:                evidence,
 		CurrentEvaluatedAt:      formatTimeRFC3339(r.CurrentEvaluatedAt),
-		RulesetOverrideExists:   rulesetOverrideExists,
 		RulesetOverrideEnabled:  rulesetOverrideEnabled,
 		RuleOverride:            buildRuleOverrideView(def.ParamSchema, def.ParamDefaults, ruleOverride),
 		Attestation:             attestation,
@@ -591,7 +578,7 @@ func (h *Handlers) getRuleAttestation(ctx context.Context, ruleID int64, scope f
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return viewmodels.FindingsRuleAttestationViewData{Exists: false, Status: "pass"}, nil
+			return viewmodels.FindingsRuleAttestationViewData{Status: "pass"}, nil
 		}
 		return viewmodels.FindingsRuleAttestationViewData{}, err
 	}
@@ -602,7 +589,6 @@ func (h *Handlers) getRuleAttestation(ctx context.Context, ruleID int64, scope f
 	}
 
 	return viewmodels.FindingsRuleAttestationViewData{
-		Exists:    true,
 		Status:    strings.ToLower(strings.TrimSpace(row.Status)),
 		Notes:     strings.TrimSpace(row.Notes),
 		ExpiresAt: expires,
@@ -660,13 +646,7 @@ type rulesetMeta struct {
 	Tags              []string
 	References        []viewmodels.FindingsReferenceItem
 	FrameworkMappings []viewmodels.FindingsFrameworkMappingItem
-	DataContracts     []viewmodels.FindingsDataContractItem
 	HasMetadata       bool
-
-	RequirementsAPIScopes   []string
-	RequirementsPermissions []string
-	RequirementsNotes       string
-	HasRequirements         bool
 }
 
 func parseRulesetMetadata(definitionJSON []byte) rulesetMeta {
@@ -700,42 +680,18 @@ func parseRulesetMetadata(definitionJSON []byte) rulesetMeta {
 			meta.FrameworkMappings = append(meta.FrameworkMappings, viewmodels.FindingsFrameworkMappingItem{
 				Framework:   strings.TrimSpace(m.Framework),
 				Control:     strings.TrimSpace(m.Control),
-				Enhancement: strings.TrimSpace(m.Enhancement),
 				Coverage:    strings.TrimSpace(string(m.Coverage)),
-				Notes:       strings.TrimSpace(m.Notes),
 			})
 		}
-	}
-	if len(rs.DataContracts) > 0 {
-		meta.HasMetadata = true
-		meta.DataContracts = make([]viewmodels.FindingsDataContractItem, 0, len(rs.DataContracts))
-		for _, dc := range rs.DataContracts {
-			meta.DataContracts = append(meta.DataContracts, viewmodels.FindingsDataContractItem{
-				Dataset:     strings.TrimSpace(dc.Dataset),
-				Version:     dc.Version,
-				Description: strings.TrimSpace(dc.Description),
-			})
-		}
-	}
-	if rs.Requirements != nil {
-		meta.HasRequirements = true
-		meta.RequirementsAPIScopes = append([]string(nil), rs.Requirements.APIScopes...)
-		meta.RequirementsPermissions = append([]string(nil), rs.Requirements.Permissions...)
-		meta.RequirementsNotes = strings.TrimSpace(rs.Requirements.Notes)
 	}
 
 	return meta
 }
 
 type ruleMeta struct {
-	Description             string
-	Tags                    []string
-	References              []viewmodels.FindingsReferenceItem
-	FrameworkMappings       []viewmodels.FindingsFrameworkMappingItem
 	RemediationInstructions string
 	RemediationRisks        string
 	RemediationEffort       string
-	RequiredData            []string
 	ParamSchema             map[string]osspecv1.ParameterSchema
 	ParamDefaults           map[string]any
 }
@@ -746,35 +702,7 @@ func parseRuleDefinition(definitionJSON []byte) ruleMeta {
 		return ruleMeta{}
 	}
 
-	out := ruleMeta{
-		Description:  strings.TrimSpace(r.Description),
-		Tags:         append([]string(nil), r.Tags...),
-		RequiredData: append([]string(nil), r.RequiredData...),
-	}
-
-	if len(r.References) > 0 {
-		out.References = make([]viewmodels.FindingsReferenceItem, 0, len(r.References))
-		for _, ref := range r.References {
-			out.References = append(out.References, viewmodels.FindingsReferenceItem{
-				Title: strings.TrimSpace(ref.Title),
-				URL:   strings.TrimSpace(ref.URL),
-				Type:  strings.TrimSpace(string(ref.Type)),
-			})
-		}
-	}
-
-	if len(r.FrameworkMappings) > 0 {
-		out.FrameworkMappings = make([]viewmodels.FindingsFrameworkMappingItem, 0, len(r.FrameworkMappings))
-		for _, m := range r.FrameworkMappings {
-			out.FrameworkMappings = append(out.FrameworkMappings, viewmodels.FindingsFrameworkMappingItem{
-				Framework:   strings.TrimSpace(m.Framework),
-				Control:     strings.TrimSpace(m.Control),
-				Enhancement: strings.TrimSpace(m.Enhancement),
-				Coverage:    strings.TrimSpace(string(m.Coverage)),
-				Notes:       strings.TrimSpace(m.Notes),
-			})
-		}
-	}
+	out := ruleMeta{}
 
 	if r.Remediation != nil {
 		out.RemediationInstructions = strings.TrimSpace(r.Remediation.Instructions)
@@ -816,11 +744,9 @@ func parseEvidence(evidenceJSON []byte) viewmodels.FindingsEvidenceViewData {
 
 	if left, ok := check["left"].(map[string]any); ok {
 		out.Left.Dataset = strings.TrimSpace(stringFromAny(left["dataset"]))
-		out.Left.KeyPath = strings.TrimSpace(stringFromAny(left["key_path"]))
 	}
 	if right, ok := check["right"].(map[string]any); ok {
 		out.Right.Dataset = strings.TrimSpace(stringFromAny(right["dataset"]))
-		out.Right.KeyPath = strings.TrimSpace(stringFromAny(right["key_path"]))
 	}
 
 	if params, ok := payload["params"].(map[string]any); ok {
@@ -828,19 +754,9 @@ func parseEvidence(evidenceJSON []byte) viewmodels.FindingsEvidenceViewData {
 		out.ParamsPretty = string(b)
 	}
 
-	if result, ok := payload["result"].(map[string]any); ok {
-		out.ResultStatus = strings.TrimSpace(stringFromAny(result["status"]))
-		out.ResultErrorKind = strings.TrimSpace(stringFromAny(result["error_kind"]))
-	}
-
 	if sel, ok := payload["selection"].(map[string]any); ok {
 		out.SelectionTotal = intFromAny(sel["total"])
 		out.SelectionSelected = intFromAny(sel["selected"])
-	}
-
-	if join, ok := payload["join"].(map[string]any); ok {
-		out.JoinUnmatchedLeft = intFromAny(join["unmatched_left"])
-		out.JoinOnUnmatchedLeft = strings.TrimSpace(stringFromAny(join["on_unmatched_left"]))
 	}
 
 	if v, ok := payload["violations"].([]any); ok {
@@ -940,7 +856,6 @@ func parseOverrideParamsFromForm(c echo.Context, schema map[string]osspecv1.Para
 
 func buildRuleOverrideView(schema map[string]osspecv1.ParameterSchema, defaults map[string]any, override *gen.RuleOverride) viewmodels.FindingsRuleOverrideViewData {
 	out := viewmodels.FindingsRuleOverrideViewData{
-		Exists:  override != nil,
 		Enabled: true,
 	}
 
@@ -1016,7 +931,7 @@ func (h *Handlers) renderRuleWithAlert(c echo.Context, rs gen.Ruleset, r gen.Get
 		return h.RenderError(c, err)
 	}
 
-	rulesetOverrideEnabled, rulesetOverrideExists, err := h.getRulesetOverride(ctx, rs.ID, scope)
+	rulesetOverrideEnabled, _, err := h.getRulesetOverride(ctx, rs.ID, scope)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -1056,24 +971,17 @@ func (h *Handlers) renderRuleWithAlert(c echo.Context, rs gen.Ruleset, r gen.Get
 		RuleKey:                 strings.TrimSpace(r.Key),
 		RuleTitle:               strings.TrimSpace(r.Title),
 		RuleSummary:             strings.TrimSpace(r.Summary),
-		RuleDescription:         strings.TrimSpace(def.Description),
-		RuleCategory:            strings.TrimSpace(r.Category),
 		RuleSeverity:            strings.TrimSpace(r.Severity),
 		MonitoringStatus:        strings.TrimSpace(r.MonitoringStatus),
 		MonitoringReason:        strings.TrimSpace(r.MonitoringReason),
-		Tags:                    def.Tags,
-		References:              def.References,
-		FrameworkMappings:       def.FrameworkMappings,
 		RemediationInstructions: strings.TrimSpace(def.RemediationInstructions),
 		RemediationRisks:        strings.TrimSpace(def.RemediationRisks),
 		RemediationEffort:       strings.TrimSpace(def.RemediationEffort),
-		RequiredData:            def.RequiredData,
 		CurrentStatus:           strings.TrimSpace(r.CurrentStatus),
 		CurrentErrorKind:        strings.TrimSpace(r.CurrentErrorKind),
 		EvidenceSummary:         strings.TrimSpace(r.CurrentEvidenceSummary),
 		Evidence:                evidence,
 		CurrentEvaluatedAt:      formatTimeRFC3339(r.CurrentEvaluatedAt),
-		RulesetOverrideExists:   rulesetOverrideExists,
 		RulesetOverrideEnabled:  rulesetOverrideEnabled,
 		RuleOverride:            buildRuleOverrideView(def.ParamSchema, def.ParamDefaults, ruleOverride),
 		Attestation:             attestation,

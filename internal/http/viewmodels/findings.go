@@ -15,7 +15,6 @@ type FindingsRulesetItem struct {
 	Status        string
 	Source        string
 	SourceVersion string
-	RuleCount     int
 	Href          string
 }
 
@@ -25,7 +24,6 @@ type FindingsRuleItem struct {
 	Title            string
 	Summary          string
 	MonitoringStatus string
-	MonitoringReason string
 	Status           string
 	EvaluatedAt      string
 	EvidenceSummary  string
@@ -43,16 +41,7 @@ type FindingsFrameworkMappingItem struct {
 	Framework        string
 	FrameworkVersion string
 	Control          string
-	Enhancement      string
-	ControlTitle     string
 	Coverage         string
-	Notes            string
-}
-
-type FindingsDataContractItem struct {
-	Dataset     string
-	Version     int
-	Description string
 }
 
 type FindingsAlert struct {

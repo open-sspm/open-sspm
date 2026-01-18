@@ -10,22 +10,14 @@ type FindingsRuleViewData struct {
 	RuleKey         string
 	RuleTitle       string
 	RuleSummary     string
-	RuleDescription string
-	RuleCategory    string
 	RuleSeverity    string
 
 	MonitoringStatus string
 	MonitoringReason string
 
-	Tags              []string
-	References        []FindingsReferenceItem
-	FrameworkMappings []FindingsFrameworkMappingItem
-
 	RemediationInstructions string
 	RemediationRisks        string
 	RemediationEffort       string
-
-	RequiredData []string
 
 	CurrentStatus      string
 	CurrentEvaluatedAt string
@@ -33,7 +25,6 @@ type FindingsRuleViewData struct {
 	EvidenceSummary    string
 	Evidence           FindingsEvidenceViewData
 
-	RulesetOverrideExists  bool
 	RulesetOverrideEnabled bool
 
 	RuleOverride FindingsRuleOverrideViewData
@@ -52,14 +43,8 @@ type FindingsEvidenceViewData struct {
 
 	ParamsPretty string
 
-	ResultStatus    string
-	ResultErrorKind string
-
 	SelectionTotal    int
 	SelectionSelected int
-
-	JoinUnmatchedLeft   int
-	JoinOnUnmatchedLeft string
 
 	Violations          []FindingsEvidenceViolation
 	ViolationsTruncated bool
@@ -69,7 +54,6 @@ type FindingsEvidenceViewData struct {
 
 type FindingsJoinSideViewData struct {
 	Dataset string
-	KeyPath string
 }
 
 type FindingsEvidenceViolation struct {
@@ -78,7 +62,6 @@ type FindingsEvidenceViolation struct {
 }
 
 type FindingsRuleOverrideViewData struct {
-	Exists  bool
 	Enabled bool
 
 	HasSchema bool
@@ -97,7 +80,6 @@ type FindingsParamField struct {
 }
 
 type FindingsRuleAttestationViewData struct {
-	Exists    bool
 	Status    string
 	Notes     string
 	ExpiresAt string
