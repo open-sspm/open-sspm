@@ -11,13 +11,7 @@ type FindingsRulesetViewData struct {
 	Tags              []string
 	References        []FindingsReferenceItem
 	FrameworkMappings []FindingsFrameworkMappingItem
-	DataContracts     []FindingsDataContractItem
 	HasMetadata       bool
-
-	RequirementsAPIScopes   []string
-	RequirementsPermissions []string
-	RequirementsNotes       string
-	HasRequirements         bool
 
 	OverrideExists  bool
 	OverrideEnabled bool

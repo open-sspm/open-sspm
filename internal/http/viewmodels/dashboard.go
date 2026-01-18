@@ -5,11 +5,6 @@ type DashboardViewData struct {
 	ActiveUserCount   int64
 	AppCount          int64
 	ConnectedAppCount int64
-	OktaCount         int64
-	GitHubCount       int64
-	DatadogCount      int64
-	MatchedCount      int64
-	UnmatchedCount    int64
 	FrameworkPosture  []DashboardFrameworkPostureItem
 }
 

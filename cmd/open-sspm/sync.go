@@ -9,13 +9,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/config"
-	"github.com/open-sspm/open-sspm/internal/connectors/aws"
-	"github.com/open-sspm/open-sspm/internal/connectors/datadog"
-	"github.com/open-sspm/open-sspm/internal/connectors/entra"
-	"github.com/open-sspm/open-sspm/internal/connectors/github"
-	"github.com/open-sspm/open-sspm/internal/connectors/okta"
-	"github.com/open-sspm/open-sspm/internal/connectors/registry"
-	"github.com/open-sspm/open-sspm/internal/connectors/vault"
 	"github.com/open-sspm/open-sspm/internal/sync"
 	"github.com/spf13/cobra"
 )
@@ -44,23 +37,8 @@ func runSync() error {
 	}
 	defer pool.Close()
 
-	reg := registry.NewRegistry()
-	if err := reg.Register(okta.NewDefinition(cfg.SyncOktaWorkers)); err != nil {
-		return err
-	}
-	if err := reg.Register(&entra.Definition{}); err != nil {
-		return err
-	}
-	if err := reg.Register(github.NewDefinition(cfg.SyncGitHubWorkers)); err != nil {
-		return err
-	}
-	if err := reg.Register(datadog.NewDefinition(cfg.SyncDatadogWorkers)); err != nil {
-		return err
-	}
-	if err := reg.Register(&aws.Definition{}); err != nil {
-		return err
-	}
-	if err := reg.Register(&vault.Definition{}); err != nil {
+	reg, err := buildConnectorRegistry(cfg)
+	if err != nil {
 		return err
 	}
 
