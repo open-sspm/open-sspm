@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -481,21 +482,30 @@ func (h *Handlers) buildSettingsUsersViewData(ctx context.Context, c echo.Contex
 		return viewmodels.SettingsUsersViewData{}, err
 	}
 
+	now := time.Now()
 	users := make([]viewmodels.SettingsUsersUserItem, 0, len(rows))
 	for _, row := range rows {
 		role := strings.ToLower(strings.TrimSpace(row.Role))
 		isSelf := principal.UserID == row.ID
 		isLastAdmin := row.IsActive && role == auth.RoleAdmin && adminCount == 1
+		lastLogin := "Never"
+		lastLoginTitle := "Never logged in"
+		if row.LastLoginAt.Valid {
+			lastLogin = formatAge(now, row.LastLoginAt.Time)
+			lastLoginTitle = row.LastLoginAt.Time.UTC().Format("2006-01-02 15:04 UTC")
+		}
 
 		users = append(users, viewmodels.SettingsUsersUserItem{
-			ID:          row.ID,
-			Email:       strings.TrimSpace(row.Email),
-			Role:        role,
-			IsActive:    row.IsActive,
-			IsSelf:      isSelf,
-			IsLastAdmin: isLastAdmin,
-			CanEditRole: !isSelf && !isLastAdmin,
-			CanDelete:   !isSelf && !isLastAdmin,
+			ID:             row.ID,
+			Email:          strings.TrimSpace(row.Email),
+			Role:           role,
+			IsActive:       row.IsActive,
+			LastLogin:      lastLogin,
+			LastLoginTitle: lastLoginTitle,
+			IsSelf:         isSelf,
+			IsLastAdmin:    isLastAdmin,
+			CanEditRole:    !isSelf && !isLastAdmin,
+			CanDelete:      !isSelf && !isLastAdmin,
 		})
 	}
 
