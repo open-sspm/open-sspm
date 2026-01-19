@@ -64,8 +64,16 @@ func (r *ResyncSignalRunner) RunOnce(ctx context.Context) error {
 	}()
 	defer stopHeartbeat()
 
-	q := gen.New(r.pool)
-	notifyErr := q.NotifyResyncRequested(runCtx)
+	// When using advisory locks, TryAcquire holds a pool connection until Release.
+	// Avoid deadlocking on small pools (e.g., size 1) by issuing the NOTIFY on the
+	// same connection as the advisory lock rather than acquiring a second one.
+	var notifyErr error
+	if advisory, ok := lock.(*advisoryLock); ok && advisory != nil && advisory.q != nil {
+		notifyErr = advisory.q.NotifyResyncRequested(runCtx)
+	} else {
+		q := gen.New(r.pool)
+		notifyErr = q.NotifyResyncRequested(runCtx)
+	}
 
 	lockLostMu.Lock()
 	lost := lockLost
