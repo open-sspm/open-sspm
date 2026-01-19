@@ -46,6 +46,17 @@ func runServe() error {
 	}
 	defer pool.Close()
 
+	locks, err := sync.NewLockManager(pool, sync.LockManagerConfig{
+		Mode:              cfg.SyncLockMode,
+		InstanceID:        cfg.SyncLockInstanceID,
+		TTL:               cfg.SyncLockTTL,
+		HeartbeatInterval: cfg.SyncLockHeartbeatInterval,
+		HeartbeatTimeout:  cfg.SyncLockHeartbeatTimeout,
+	})
+	if err != nil {
+		return err
+	}
+
 	queries := gen.New(pool)
 
 	if cfg.DevSeedAdmin {
@@ -60,15 +71,16 @@ func runServe() error {
 	}
 
 	dbRunner := sync.NewDBRunner(pool, reg)
+	dbRunner.SetLockManager(locks)
 	dbRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
 
 	var syncer handlers.SyncRunner
 	if cfg.ResyncEnabled {
 		switch strings.ToLower(strings.TrimSpace(cfg.ResyncMode)) {
 		case "signal":
-			syncer = sync.NewResyncSignalRunner(pool)
+			syncer = sync.NewResyncSignalRunner(pool, locks)
 		default:
-			syncer = sync.NewTryRunOnceLockRunner(pool, dbRunner)
+			syncer = sync.NewTryRunOnceLockRunner(locks, dbRunner)
 		}
 	} else {
 		syncer = nil

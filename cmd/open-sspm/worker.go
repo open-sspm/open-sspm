@@ -48,8 +48,20 @@ func runWorker() error {
 		return err
 	}
 
+	locks, err := sync.NewLockManager(pool, sync.LockManagerConfig{
+		Mode:              cfg.SyncLockMode,
+		InstanceID:        cfg.SyncLockInstanceID,
+		TTL:               cfg.SyncLockTTL,
+		HeartbeatInterval: cfg.SyncLockHeartbeatInterval,
+		HeartbeatTimeout:  cfg.SyncLockHeartbeatTimeout,
+	})
+	if err != nil {
+		return err
+	}
+
 	dbRunner := sync.NewDBRunner(pool, reg)
 	dbRunner.SetReporter(&sync.LogReporter{})
+	dbRunner.SetLockManager(locks)
 	dbRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
 	backoffMax := cfg.SyncFailureBackoffMax
 	if backoffMax <= 0 {
@@ -67,7 +79,7 @@ func runWorker() error {
 		FailureBackoffMax:    backoffMax,
 		RecentFinishedRunCap: 10,
 	})
-	runner := sync.NewBlockingRunOnceLockRunner(pool, dbRunner)
+	runner := sync.NewBlockingRunOnceLockRunner(locks, dbRunner)
 
 	slog.Info("sync worker started", "interval", cfg.SyncInterval)
 	triggers := make(chan struct{}, 1)

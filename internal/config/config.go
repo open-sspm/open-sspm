@@ -18,28 +18,38 @@ const (
 	defaultSyncOktaWorkers    = 3
 	defaultSyncGitHubWorkers  = 6
 	defaultSyncDatadogWorkers = 3
+
+	defaultSyncLockMode              = "lease"
+	defaultSyncLockTTL               = 60 * time.Second
+	defaultSyncLockHeartbeatInterval = 15 * time.Second
+	defaultSyncLockHeartbeatTimeout  = 5 * time.Second
 )
 
 type Config struct {
-	DatabaseURL           string
-	HTTPAddr              string
-	MetricsAddr           string
-	StaticDir             string
-	AuthCookieSecure      bool
-	DevSeedAdmin          bool
-	SyncInterval          time.Duration
-	SyncOktaInterval      time.Duration
-	SyncEntraInterval     time.Duration
-	SyncGitHubInterval    time.Duration
-	SyncDatadogInterval   time.Duration
-	SyncAWSInterval       time.Duration
-	SyncFailureBackoffMax time.Duration
-	SyncOktaWorkers       int
-	SyncGitHubWorkers     int
-	SyncDatadogWorkers    int
-	ResyncEnabled         bool
-	ResyncMode            string
-	GlobalEvalMode        string
+	DatabaseURL               string
+	HTTPAddr                  string
+	MetricsAddr               string
+	StaticDir                 string
+	AuthCookieSecure          bool
+	DevSeedAdmin              bool
+	SyncInterval              time.Duration
+	SyncOktaInterval          time.Duration
+	SyncEntraInterval         time.Duration
+	SyncGitHubInterval        time.Duration
+	SyncDatadogInterval       time.Duration
+	SyncAWSInterval           time.Duration
+	SyncFailureBackoffMax     time.Duration
+	SyncOktaWorkers           int
+	SyncGitHubWorkers         int
+	SyncDatadogWorkers        int
+	ResyncEnabled             bool
+	ResyncMode                string
+	GlobalEvalMode            string
+	SyncLockMode              string
+	SyncLockTTL               time.Duration
+	SyncLockHeartbeatInterval time.Duration
+	SyncLockHeartbeatTimeout  time.Duration
+	SyncLockInstanceID        string
 }
 
 type LoadOptions struct {
@@ -63,19 +73,24 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 	}
 
 	cfg := Config{
-		DatabaseURL:        os.Getenv("DATABASE_URL"),
-		HTTPAddr:           getenvDefault("HTTP_ADDR", defaultHTTPAddr),
-		MetricsAddr:        defaultMetricsAddr,
-		StaticDir:          strings.TrimSpace(os.Getenv("STATIC_DIR")),
-		AuthCookieSecure:   getenvBoolDefault("AUTH_COOKIE_SECURE", false),
-		DevSeedAdmin:       getenvBoolDefault("DEV_SEED_ADMIN", false),
-		SyncInterval:       defaultSyncInterval,
-		SyncOktaWorkers:    getenvIntDefault("SYNC_OKTA_WORKERS", defaultSyncOktaWorkers),
-		SyncGitHubWorkers:  getenvIntDefault("SYNC_GITHUB_WORKERS", defaultSyncGitHubWorkers),
-		SyncDatadogWorkers: getenvIntDefault("SYNC_DATADOG_WORKERS", defaultSyncDatadogWorkers),
-		ResyncEnabled:      getenvBoolDefault("RESYNC_ENABLED", true),
-		ResyncMode:         getenvDefault("RESYNC_MODE", "inline"),
-		GlobalEvalMode:     strings.ToLower(strings.TrimSpace(getenvDefault("GLOBAL_EVAL_MODE", "best_effort"))),
+		DatabaseURL:               os.Getenv("DATABASE_URL"),
+		HTTPAddr:                  getenvDefault("HTTP_ADDR", defaultHTTPAddr),
+		MetricsAddr:               defaultMetricsAddr,
+		StaticDir:                 strings.TrimSpace(os.Getenv("STATIC_DIR")),
+		AuthCookieSecure:          getenvBoolDefault("AUTH_COOKIE_SECURE", false),
+		DevSeedAdmin:              getenvBoolDefault("DEV_SEED_ADMIN", false),
+		SyncInterval:              defaultSyncInterval,
+		SyncOktaWorkers:           getenvIntDefault("SYNC_OKTA_WORKERS", defaultSyncOktaWorkers),
+		SyncGitHubWorkers:         getenvIntDefault("SYNC_GITHUB_WORKERS", defaultSyncGitHubWorkers),
+		SyncDatadogWorkers:        getenvIntDefault("SYNC_DATADOG_WORKERS", defaultSyncDatadogWorkers),
+		ResyncEnabled:             getenvBoolDefault("RESYNC_ENABLED", true),
+		ResyncMode:                getenvDefault("RESYNC_MODE", "inline"),
+		GlobalEvalMode:            strings.ToLower(strings.TrimSpace(getenvDefault("GLOBAL_EVAL_MODE", "best_effort"))),
+		SyncLockMode:              strings.ToLower(strings.TrimSpace(getenvDefault("SYNC_LOCK_MODE", defaultSyncLockMode))),
+		SyncLockTTL:               defaultSyncLockTTL,
+		SyncLockHeartbeatInterval: defaultSyncLockHeartbeatInterval,
+		SyncLockHeartbeatTimeout:  defaultSyncLockHeartbeatTimeout,
+		SyncLockInstanceID:        strings.TrimSpace(os.Getenv("SYNC_LOCK_INSTANCE_ID")),
 	}
 
 	// Metrics are disabled by default in the Go binary (empty address). Some deployment methods (e.g. Helm)
@@ -126,6 +141,21 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 	if v := os.Getenv("SYNC_FAILURE_BACKOFF_MAX"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil && d > 0 {
 			cfg.SyncFailureBackoffMax = d
+		}
+	}
+	if v := os.Getenv("SYNC_LOCK_TTL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			cfg.SyncLockTTL = d
+		}
+	}
+	if v := os.Getenv("SYNC_LOCK_HEARTBEAT_INTERVAL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			cfg.SyncLockHeartbeatInterval = d
+		}
+	}
+	if v := os.Getenv("SYNC_LOCK_HEARTBEAT_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			cfg.SyncLockHeartbeatTimeout = d
 		}
 	}
 

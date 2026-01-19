@@ -292,6 +292,16 @@ type Session struct {
 	Expiry pgtype.Timestamptz `json:"expiry"`
 }
 
+type SyncLock struct {
+	ScopeKind        string             `json:"scope_kind"`
+	ScopeName        string             `json:"scope_name"`
+	HolderInstanceID string             `json:"holder_instance_id"`
+	HolderToken      pgtype.UUID        `json:"holder_token"`
+	AcquiredAt       pgtype.Timestamptz `json:"acquired_at"`
+	LeaseExpiresAt   pgtype.Timestamptz `json:"lease_expires_at"`
+	HeartbeatAt      pgtype.Timestamptz `json:"heartbeat_at"`
+}
+
 type SyncRun struct {
 	ID         int64              `json:"id"`
 	SourceKind string             `json:"source_kind"`

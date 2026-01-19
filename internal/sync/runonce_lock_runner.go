@@ -3,65 +3,91 @@ package sync
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
+	"sync"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/open-sspm/open-sspm/internal/connectors/registry"
-	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
-var globalRunOnceLockKey = registry.ConnectorLockKey("sync", "runonce")
+const (
+	globalRunOnceScopeKind = "sync"
+	globalRunOnceScopeName = "runonce"
+)
 
 type runOnceLockRunner struct {
-	pool    *pgxpool.Pool
+	locks   LockManager
 	inner   Runner
 	tryLock bool
 }
 
-func NewBlockingRunOnceLockRunner(pool *pgxpool.Pool, inner Runner) Runner {
-	return &runOnceLockRunner{pool: pool, inner: inner}
+func NewBlockingRunOnceLockRunner(locks LockManager, inner Runner) Runner {
+	return &runOnceLockRunner{locks: locks, inner: inner}
 }
 
-func NewTryRunOnceLockRunner(pool *pgxpool.Pool, inner Runner) Runner {
-	return &runOnceLockRunner{pool: pool, inner: inner, tryLock: true}
+func NewTryRunOnceLockRunner(locks LockManager, inner Runner) Runner {
+	return &runOnceLockRunner{locks: locks, inner: inner, tryLock: true}
 }
 
 func (r *runOnceLockRunner) RunOnce(ctx context.Context) error {
-	if r == nil || r.pool == nil || r.inner == nil {
+	if r == nil || r.locks == nil || r.inner == nil {
 		return errors.New("sync runner is not configured")
 	}
 
-	lockConn, err := r.pool.Acquire(ctx)
-	if err != nil {
-		return err
-	}
-	lockQ := gen.New(lockConn)
-
-	locked := false
-	defer func() {
-		if locked {
-			unlockCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-			defer cancel()
-			_ = lockQ.ReleaseAdvisoryLock(unlockCtx, globalRunOnceLockKey)
-		}
-		lockConn.Release()
-	}()
+	var (
+		lock Lock
+		ok   bool
+		err  error
+	)
 
 	if r.tryLock {
-		ok, err := lockQ.TryAcquireAdvisoryLock(ctx, globalRunOnceLockKey)
+		lock, ok, err = r.locks.TryAcquire(ctx, globalRunOnceScopeKind, globalRunOnceScopeName)
 		if err != nil {
 			return err
 		}
 		if !ok {
 			return ErrSyncAlreadyRunning
 		}
-		locked = true
-		return r.inner.RunOnce(ctx)
+	} else {
+		lock, err = r.locks.Acquire(ctx, globalRunOnceScopeKind, globalRunOnceScopeName)
+		if err != nil {
+			return err
+		}
 	}
 
-	if err := lockQ.AcquireAdvisoryLock(ctx, globalRunOnceLockKey); err != nil {
-		return err
+	runCtx, cancelRun := context.WithCancel(ctx)
+	defer cancelRun()
+
+	var (
+		lockLostMu sync.Mutex
+		lockLost   error
+	)
+	stopHeartbeat := lock.StartHeartbeat(runCtx, func(err error) {
+		lockLostMu.Lock()
+		if lockLost == nil {
+			lockLost = err
+		}
+		lockLostMu.Unlock()
+
+		slog.Error("sync lock heartbeat failed", "scope_kind", lock.ScopeKind(), "scope_name", lock.ScopeName(), "err", err)
+		cancelRun()
+	})
+
+	defer func() {
+		unlockCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		if err := lock.Release(unlockCtx); err != nil {
+			slog.Warn("failed to release sync lock", "scope_kind", lock.ScopeKind(), "scope_name", lock.ScopeName(), "err", err)
+		}
+	}()
+	defer stopHeartbeat()
+
+	innerErr := r.inner.RunOnce(runCtx)
+
+	lockLostMu.Lock()
+	lost := lockLost
+	lockLostMu.Unlock()
+	if lost != nil {
+		return errors.Join(innerErr, fmt.Errorf("sync lock lost: %w", lost))
 	}
-	locked = true
-	return r.inner.RunOnce(ctx)
+	return innerErr
 }
