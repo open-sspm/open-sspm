@@ -31,6 +31,7 @@ type Orchestrator struct {
 	registry       *registry.ConnectorRegistry
 	reporter       registry.Reporter
 	globalEvalMode string
+	locks          LockManager
 
 	mu           sync.Mutex
 	integrations []registry.Integration
@@ -101,6 +102,10 @@ func (o *Orchestrator) SetReporter(r registry.Reporter) {
 	o.reporter = r
 }
 
+func (o *Orchestrator) SetLockManager(m LockManager) {
+	o.locks = m
+}
+
 func (o *Orchestrator) SetGlobalEvalMode(mode string) {
 	mode = strings.ToLower(strings.TrimSpace(mode))
 	if mode == "" {
@@ -155,8 +160,8 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 			name := strings.TrimSpace(i.Name())
 			start := time.Now()
 
-			lockErr := o.withConnectorLock(ctx, kind, name, func() error {
-				return i.Run(ctx, registry.IntegrationDeps{Q: o.q, Pool: o.pool, Report: o.report})
+			lockErr := o.withConnectorLock(ctx, kind, name, func(lockCtx context.Context) error {
+				return i.Run(lockCtx, registry.IntegrationDeps{Q: o.q, Pool: o.pool, Report: o.report})
 			})
 			duration := time.Since(start).Seconds()
 			metrics.SyncDuration.WithLabelValues(kind, name).Observe(duration)
@@ -244,8 +249,8 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 			continue
 		}
 
-		err := o.withConnectorLock(ctx, kind, name, func() error {
-			return eval.EvaluateCompliance(ctx, registry.IntegrationDeps{Q: o.q, Pool: o.pool, Report: o.report})
+		err := o.withConnectorLock(ctx, kind, name, func(lockCtx context.Context) error {
+			return eval.EvaluateCompliance(lockCtx, registry.IntegrationDeps{Q: o.q, Pool: o.pool, Report: o.report})
 		})
 		if err != nil {
 			wrapped := fmt.Errorf("%s compliance: %w", kind, err)
@@ -288,32 +293,53 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 	return err
 }
 
-func (o *Orchestrator) withConnectorLock(ctx context.Context, kind, name string, fn func() error) error {
+func (o *Orchestrator) withConnectorLock(ctx context.Context, kind, name string, fn func(context.Context) error) error {
 	if o.pool == nil {
 		return errors.New("sync pool is nil")
 	}
+	if o.locks == nil {
+		return errors.New("sync lock manager is nil")
+	}
 
-	kind = strings.TrimSpace(kind)
-	name = strings.TrimSpace(name)
-	lockConn, err := o.pool.Acquire(ctx)
+	lock, err := o.locks.Acquire(ctx, kind, name)
 	if err != nil {
 		return err
 	}
-	lockQ := gen.New(lockConn)
-	lockKey := registry.ConnectorLockKey(kind, name)
 
-	err = lockQ.AcquireAdvisoryLock(ctx, lockKey)
-	if err != nil {
-		lockConn.Release()
-		return err
-	}
+	runCtx, cancelRun := context.WithCancel(ctx)
+	defer cancelRun()
 
-	defer lockConn.Release()
+	var (
+		lockLostMu sync.Mutex
+		lockLost   error
+	)
+	stopHeartbeat := lock.StartHeartbeat(runCtx, func(err error) {
+		lockLostMu.Lock()
+		if lockLost == nil {
+			lockLost = err
+		}
+		lockLostMu.Unlock()
+
+		slog.Error("sync lock heartbeat failed", "scope_kind", lock.ScopeKind(), "scope_name", lock.ScopeName(), "err", err)
+		cancelRun()
+	})
+
 	defer func() {
-		unlockCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		unlockCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
-		_ = lockQ.ReleaseAdvisoryLock(unlockCtx, lockKey)
+		if err := lock.Release(unlockCtx); err != nil {
+			slog.Warn("failed to release sync lock", "scope_kind", lock.ScopeKind(), "scope_name", lock.ScopeName(), "err", err)
+		}
 	}()
+	defer stopHeartbeat()
 
-	return fn()
+	fnErr := fn(runCtx)
+
+	lockLostMu.Lock()
+	lost := lockLost
+	lockLostMu.Unlock()
+	if lost != nil {
+		return errors.Join(fnErr, fmt.Errorf("sync lock lost: %w", lost))
+	}
+	return fnErr
 }

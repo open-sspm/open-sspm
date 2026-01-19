@@ -42,10 +42,22 @@ func runSync() error {
 		return err
 	}
 
+	locks, err := sync.NewLockManager(pool, sync.LockManagerConfig{
+		Mode:              cfg.SyncLockMode,
+		InstanceID:        cfg.SyncLockInstanceID,
+		TTL:               cfg.SyncLockTTL,
+		HeartbeatInterval: cfg.SyncLockHeartbeatInterval,
+		HeartbeatTimeout:  cfg.SyncLockHeartbeatTimeout,
+	})
+	if err != nil {
+		return err
+	}
+
 	dbRunner := sync.NewDBRunner(pool, reg)
 	dbRunner.SetReporter(&sync.LogReporter{})
+	dbRunner.SetLockManager(locks)
 	dbRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
-	runner := sync.NewBlockingRunOnceLockRunner(pool, dbRunner)
+	runner := sync.NewBlockingRunOnceLockRunner(locks, dbRunner)
 
 	syncErr := runner.RunOnce(ctx)
 	if syncErr == nil {

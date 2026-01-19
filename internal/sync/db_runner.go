@@ -20,6 +20,7 @@ type DBRunner struct {
 	reporter       registry.Reporter
 	policy         *RunPolicy
 	globalEvalMode string
+	locks          LockManager
 }
 
 type integrationCandidate struct {
@@ -53,6 +54,10 @@ func (r *DBRunner) SetReporter(reporter registry.Reporter) {
 	r.reporter = reporter
 }
 
+func (r *DBRunner) SetLockManager(m LockManager) {
+	r.locks = m
+}
+
 func (r *DBRunner) SetRunPolicy(policy RunPolicy) {
 	r.policy = &policy
 }
@@ -75,6 +80,14 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 	if r.reporter != nil {
 		orchestrator.SetReporter(r.reporter)
 	}
+	if r.locks == nil {
+		locks, err := NewLockManager(r.pool, LockManagerConfig{})
+		if err != nil {
+			return err
+		}
+		r.locks = locks
+	}
+	orchestrator.SetLockManager(r.locks)
 	if strings.TrimSpace(r.globalEvalMode) != "" {
 		orchestrator.SetGlobalEvalMode(r.globalEvalMode)
 	}
