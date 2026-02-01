@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	connregistry "github.com/open-sspm/open-sspm/internal/connectors/registry"
@@ -16,7 +16,7 @@ import (
 )
 
 // HandleConnectorHealth renders connector health under Settings.
-func (h *Handlers) HandleConnectorHealth(c echo.Context) error {
+func (h *Handlers) HandleConnectorHealth(c *echo.Context) error {
 	ctx := c.Request().Context()
 	layout, _, err := h.LayoutData(ctx, c, "Connector Health")
 	if err != nil {

@@ -1,13 +1,13 @@
 package handlers
 
 import (
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
 
-func (h *Handlers) HandleGlobalView(c echo.Context) error {
+func (h *Handlers) HandleGlobalView(c *echo.Context) error {
 	ctx := c.Request().Context()
 	layout, _, err := h.LayoutData(ctx, c, "Global View")
 	if err != nil {

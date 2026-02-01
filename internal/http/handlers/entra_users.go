@@ -3,13 +3,13 @@ package handlers
 import (
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
 
-func (h *Handlers) HandleEntraUsers(c echo.Context) error {
+func (h *Handlers) HandleEntraUsers(c *echo.Context) error {
 	ctx := c.Request().Context()
 	layout, snap, err := h.LayoutData(ctx, c, "Microsoft Entra ID Users")
 	if err != nil {
@@ -140,7 +140,7 @@ func (h *Handlers) HandleEntraUsers(c echo.Context) error {
 	return h.RenderComponent(c, views.EntraUsersPage(data))
 }
 
-func (h *Handlers) HandleUnmatchedEntra(c echo.Context) error {
+func (h *Handlers) HandleUnmatchedEntra(c *echo.Context) error {
 	ctx := c.Request().Context()
 	layout, snap, err := h.LayoutData(ctx, c, "Unmatched Microsoft Entra ID Users")
 	if err != nil {

@@ -13,7 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	osspecv1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v1"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
@@ -21,7 +21,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
 )
 
-func (h *Handlers) HandleFindings(c echo.Context) error {
+func (h *Handlers) HandleFindings(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	layout, _, err := h.LayoutData(ctx, c, "Findings")
@@ -91,7 +91,7 @@ func ruleSeverityRank(severity string) int {
 	}
 }
 
-func (h *Handlers) HandleFindingsRuleset(c echo.Context) error {
+func (h *Handlers) HandleFindingsRuleset(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	rulesetKey := strings.TrimSpace(c.Param("rulesetKey"))
@@ -280,7 +280,7 @@ func (h *Handlers) getRulesetOverride(ctx context.Context, rulesetID int64, scop
 	return row.Enabled, true, nil
 }
 
-func (h *Handlers) HandleFindingsRulesetOverride(c echo.Context) error {
+func (h *Handlers) HandleFindingsRulesetOverride(c *echo.Context) error {
 	ctx := c.Request().Context()
 	rulesetKey := strings.TrimSpace(c.Param("rulesetKey"))
 	if rulesetKey == "" {
@@ -314,7 +314,7 @@ func (h *Handlers) HandleFindingsRulesetOverride(c echo.Context) error {
 	return c.Redirect(http.StatusSeeOther, "/findings/rulesets/"+rulesetKey)
 }
 
-func (h *Handlers) HandleFindingsRule(c echo.Context) error {
+func (h *Handlers) HandleFindingsRule(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	rulesetKey := strings.TrimSpace(c.Param("rulesetKey"))
@@ -414,7 +414,7 @@ func (h *Handlers) HandleFindingsRule(c echo.Context) error {
 	return h.RenderComponent(c, views.FindingsRulePage(data))
 }
 
-func (h *Handlers) HandleFindingsRuleOverride(c echo.Context) error {
+func (h *Handlers) HandleFindingsRuleOverride(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	rulesetKey := strings.TrimSpace(c.Param("rulesetKey"))
@@ -482,7 +482,7 @@ func (h *Handlers) HandleFindingsRuleOverride(c echo.Context) error {
 	return c.Redirect(http.StatusSeeOther, "/findings/rulesets/"+rulesetKey+"/rules/"+ruleKey)
 }
 
-func (h *Handlers) HandleFindingsRuleAttestation(c echo.Context) error {
+func (h *Handlers) HandleFindingsRuleAttestation(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	rulesetKey := strings.TrimSpace(c.Param("rulesetKey"))
@@ -813,7 +813,7 @@ func intFromAny(v any) int {
 	}
 }
 
-func parseOverrideParamsFromForm(c echo.Context, schema map[string]osspecv1.ParameterSchema) (map[string]any, error) {
+func parseOverrideParamsFromForm(c *echo.Context, schema map[string]osspecv1.ParameterSchema) (map[string]any, error) {
 	params := make(map[string]any)
 	for key, sch := range schema {
 		formKey := "param_" + key
@@ -923,7 +923,7 @@ func parseDatetimeLocal(v string) (pgtype.Timestamptz, error) {
 	return pgtype.Timestamptz{Time: t, Valid: true}, nil
 }
 
-func (h *Handlers) renderRuleWithAlert(c echo.Context, rs gen.Ruleset, r gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow, scope findingsScope, alert viewmodels.FindingsAlert) error {
+func (h *Handlers) renderRuleWithAlert(c *echo.Context, rs gen.Ruleset, r gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow, scope findingsScope, alert viewmodels.FindingsAlert) error {
 	ctx := c.Request().Context()
 
 	layout, _, err := h.LayoutData(ctx, c, strings.TrimSpace(rs.Name))

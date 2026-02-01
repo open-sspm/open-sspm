@@ -1,44 +1,48 @@
-# Agent Notes (Open-SSPM)
+# Repository Guidelines
 
-## What this repo is
-- We’re building a modern SSPM (SaaS Security Posture Management) security solution that answers “who has access to what”.
-- Integrations (MVP): Okta (IdP) + Microsoft Entra ID + GitHub org permissions + Datadog roles + AWS Identity Center assignments (+ Vault stub).
-- Server-rendered UI (no SPA framework): `echo` + `templ` + Tailwind v4 + Basecoat (minimal vanilla JS for UX).
-- Findings/benchmarks: rules are embedded from a pinned Open SSPM descriptor snapshot (`internal/opensspm/specassets`) and seeded to Postgres via `open-sspm seed-rules`.
+## Project Structure & Module Organization
 
-## Common commands
-- Start Postgres: `make dev-up` (stops with `make dev-down`)
-- Run DB migration: `make migrate`
-- Regenerate SQLC code: `make sqlc`
-- Regenerate templ templates: `make templ`
-- Watch templ templates: `make templ-watch`
-- Seed benchmark rules: `go run ./cmd/open-sspm seed-rules`
-- Sync once: `make sync`
-- Run server: `make run`
-- Run background sync worker: `make worker`
-- Live-reload server (requires `air`): `make dev`
-- Run tests: `make test` (`go test ./...`)
-- Build CSS: `make ui` (watch: `make ui-watch`)
+- `cmd/open-sspm/`: CLI entrypoint and subcommands (`serve`, `worker`, `sync`, `migrate`, `seed-rules`).
+- `internal/`: application code (connectors, sync engine, HTTP server/UI, rules, access graph).
+- `db/migrations/`: Postgres migrations.
+- `db/queries/` + `sqlc.yaml`: SQL sources for SQLC; generated Go is checked in under `internal/db/gen/`.
+- `internal/http/views/`: `templ` templates (generated `*_templ.go` files are checked in).
+- `web/static/`: UI assets; Tailwind input in `web/static/src/`, built output `web/static/app.css` is gitignored.
+- `helm/open-sspm/`: Helm chart.
 
-## Repo layout
-- CLI entrypoint: `cmd/open-sspm` (`serve`, `worker`, `sync`, `migrate`, `seed-rules`, `users`, `validate-rules`)
-- Config: `internal/config` (env loading + runtime settings)
-- Auth: `internal/auth` (local user management, session handling, hashing)
-- HTTP server + templates: `internal/http` (`handlers`, `viewmodels`, `views/*.templ`)
-- Sync orchestration + scheduler: `internal/sync`
-- Access Graph: `internal/accessgraph` (helper logic for resource matching/display)
-- Matching (linking): `internal/matching` (auto-link by email; manual links via UI)
-- Rules engine: `internal/rules` (evaluation runs during Okta sync; results shown under `/findings`)
-- Connectors: `internal/connectors/{okta,entra,github,datadog,aws,vault}` (+ shared `registry`, `configstore`, `oktaapi`)
-- DB schema + queries: `db/migrations`, `db/queries`
-- SQLC generated code: `internal/db/gen` (do not edit by hand)
-- Static assets: `web/static/src/input.css` → output `web/static/app.css` (gitignored)
-- `air` config: `.air.toml` (writes temp binaries to `tmp/`)
+## Build, Test, and Development Commands
 
-## Conventions / guardrails
-- Keep things KISS: one Go binary, Postgres as the only store, periodic sync.
-- Prefer standard library patterns (`net/http`, context-aware calls, explicit timeouts).
-- Database access goes through SQLC (`internal/db/gen`); change SQL in `db/queries/*.sql` then run `make sqlc`.
-- When touching templates/CSS, keep HTML server-rendered; avoid adding a JS framework unless explicitly requested.
-- UI primitives should be Basecoat-first (Basecoat components + Tailwind utilities for layout). Avoid adding DaisyUI or a second component system.
-- Avoid logging secrets; runtime config comes from env vars (`.env.example` is the reference) and connector credentials are stored in Postgres.
+Prereqs: Go 1.25.x (see `go.mod` toolchain), Docker + Compose, Node.js + npm.
+
+- `make dev-up` / `make dev-down`: start/stop local Postgres.
+- `make migrate`: run DB migrations (`open-sspm migrate`).
+- `make run`: start the server at `http://localhost:8080`.
+- `make worker`: run the background worker; `make sync`: run a one-off sync.
+- `make test`: run unit tests (`go test ./...`). CI also runs `go vet ./...`.
+- UI: `npm install && make ui` (build CSS) or `make ui-watch` (watch).
+- Dev loop: `make dev` (live reload; requires `air` + `templ` installed).
+
+## Coding Style & Naming Conventions
+
+- Go: run `gofmt` on changed files; keep packages lower-case and filenames `snake_case.go`.
+- Don’t hand-edit generated code:
+  - SQLC: `internal/db/gen/` (regen with `make sqlc`)
+  - templ: `internal/http/views/*_templ.go` (regen with `make templ`)
+
+## Testing Guidelines
+
+- Tests use Go’s standard `testing` package and live as `*_test.go` next to the code they cover.
+- Prefer small, deterministic tests; avoid network calls (mock at the connector boundary).
+
+## Commit & Pull Request Guidelines
+
+- PRs are squash-merged; the PR title becomes the commit message on `main`.
+- PR titles must follow Conventional Commits: `type(scope): summary` (scope optional).
+  - Types: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `chore`
+  - Example: `feat(sync): add connector health`
+- Include a clear description, link issues (e.g., “closes #123”), and add screenshots for UI changes.
+
+## Security & Configuration Tips
+
+- Copy `.env.example` → `.env` for local dev; never commit secrets (the repo ignores `.env`).
+- Connector credentials are configured in-app and stored in Postgres; avoid logging tokens or secret fields.

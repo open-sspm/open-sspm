@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/accessgraph"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
@@ -21,7 +21,7 @@ import (
 )
 
 // HandleIdpUsers renders the IdP users list page.
-func (h *Handlers) HandleIdpUsers(c echo.Context) error {
+func (h *Handlers) HandleIdpUsers(c *echo.Context) error {
 	ctx := c.Request().Context()
 	layout, _, err := h.LayoutData(ctx, c, "Okta Users")
 	if err != nil {
@@ -88,7 +88,7 @@ func (h *Handlers) HandleIdpUsers(c echo.Context) error {
 }
 
 // HandleIdpUserShow renders the IdP user detail page.
-func (h *Handlers) HandleIdpUserShow(c echo.Context) error {
+func (h *Handlers) HandleIdpUserShow(c *echo.Context) error {
 	idStr := strings.Trim(c.Param("*"), "/")
 	if idStr == "" {
 		return RenderNotFound(c)
@@ -253,7 +253,7 @@ func (h *Handlers) HandleIdpUserShow(c echo.Context) error {
 }
 
 // HandleGitHubUsers renders the GitHub users page.
-func (h *Handlers) HandleGitHubUsers(c echo.Context) error {
+func (h *Handlers) HandleGitHubUsers(c *echo.Context) error {
 	ctx := c.Request().Context()
 	layout, snap, err := h.LayoutData(ctx, c, "GitHub Users")
 	if err != nil {
@@ -337,7 +337,7 @@ func (h *Handlers) HandleGitHubUsers(c echo.Context) error {
 }
 
 // HandleDatadogUsers renders the Datadog users page.
-func (h *Handlers) HandleDatadogUsers(c echo.Context) error {
+func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 	ctx := c.Request().Context()
 	layout, snap, err := h.LayoutData(ctx, c, "Datadog Users")
 	if err != nil {
@@ -477,7 +477,7 @@ func (h *Handlers) HandleDatadogUsers(c echo.Context) error {
 }
 
 // HandleUnmatchedGitHub renders the unmatched GitHub accounts page.
-func (h *Handlers) HandleUnmatchedGitHub(c echo.Context) error {
+func (h *Handlers) HandleUnmatchedGitHub(c *echo.Context) error {
 	ctx := c.Request().Context()
 	layout, snap, err := h.LayoutData(ctx, c, "Unmatched GitHub Accounts")
 	if err != nil {
@@ -568,7 +568,7 @@ func (h *Handlers) HandleUnmatchedGitHub(c echo.Context) error {
 }
 
 // HandleUnmatchedDatadog renders the unmatched Datadog accounts page.
-func (h *Handlers) HandleUnmatchedDatadog(c echo.Context) error {
+func (h *Handlers) HandleUnmatchedDatadog(c *echo.Context) error {
 	ctx := c.Request().Context()
 	layout, snap, err := h.LayoutData(ctx, c, "Unmatched Datadog Accounts")
 	if err != nil {
@@ -659,7 +659,7 @@ func (h *Handlers) HandleUnmatchedDatadog(c echo.Context) error {
 }
 
 // HandleCreateLink creates an identity link between IdP and app users.
-func (h *Handlers) HandleCreateLink(c echo.Context) error {
+func (h *Handlers) HandleCreateLink(c *echo.Context) error {
 	if c.Request().Method != http.MethodPost {
 		return c.NoContent(http.StatusMethodNotAllowed)
 	}
@@ -697,7 +697,7 @@ func (h *Handlers) HandleCreateLink(c echo.Context) error {
 }
 
 // HandleIdpUserAccessTree handles the access tree API endpoint.
-func (h *Handlers) HandleIdpUserAccessTree(c echo.Context) error {
+func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 	id, err := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
 	if err != nil || id <= 0 {
 		return jsonTreeError(c, http.StatusBadRequest, "invalid idp user id")
@@ -1282,7 +1282,7 @@ type accessTreeError struct {
 	Error string `json:"error"`
 }
 
-func jsonTreeError(c echo.Context, status int, message string) error {
+func jsonTreeError(c *echo.Context, status int, message string) error {
 	return c.JSON(status, accessTreeError{Error: message})
 }
 

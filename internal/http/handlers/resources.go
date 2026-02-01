@@ -5,14 +5,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/accessgraph"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
 
-func (h *Handlers) HandleResourceShow(c echo.Context) error {
+func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 	sourceKind := strings.TrimSpace(c.Param("sourceKind"))
 	sourceName := strings.TrimSpace(c.Param("sourceName"))
 	resourceKind := strings.TrimSpace(c.Param("resourceKind"))

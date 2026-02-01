@@ -3,18 +3,19 @@ package httpapp
 import (
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/http/handlers"
 )
 
 func TestHTTPErrorHandlerInternalErrorIsGeneric(t *testing.T) {
 	e := echo.New()
-	e.Logger.SetOutput(io.Discard)
+	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	req := httptest.NewRequest(http.MethodGet, "http://example.com/test", nil)
 	rec := httptest.NewRecorder()
@@ -22,7 +23,7 @@ func TestHTTPErrorHandlerInternalErrorIsGeneric(t *testing.T) {
 	c.Set(handlers.ContextKeyRequestID, "req-123")
 
 	es := &EchoServer{h: &handlers.Handlers{}, e: e}
-	es.httpErrorHandler(errors.New("very sensitive error"), c)
+	es.httpErrorHandler(c, errors.New("very sensitive error"))
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status=%d want %d", rec.Code, http.StatusInternalServerError)
@@ -45,14 +46,14 @@ func TestHTTPErrorHandlerInternalErrorIsGeneric(t *testing.T) {
 
 func TestHTTPErrorHandlerNotFoundDoesNotLeakMessage(t *testing.T) {
 	e := echo.New()
-	e.Logger.SetOutput(io.Discard)
+	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	req := httptest.NewRequest(http.MethodGet, "http://example.com/missing", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
 	es := &EchoServer{h: &handlers.Handlers{}, e: e}
-	es.httpErrorHandler(echo.NewHTTPError(http.StatusNotFound, "leaky not found"), c)
+	es.httpErrorHandler(c, echo.NewHTTPError(http.StatusNotFound, "leaky not found"))
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status=%d want %d", rec.Code, http.StatusNotFound)
@@ -69,14 +70,14 @@ func TestHTTPErrorHandlerNotFoundDoesNotLeakMessage(t *testing.T) {
 
 func TestHTTPErrorHandlerBadRequestUsesStatusText(t *testing.T) {
 	e := echo.New()
-	e.Logger.SetOutput(io.Discard)
+	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	req := httptest.NewRequest(http.MethodGet, "http://example.com/bad", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
 	es := &EchoServer{h: &handlers.Handlers{}, e: e}
-	es.httpErrorHandler(echo.NewHTTPError(http.StatusBadRequest, "leaky bad request"), c)
+	es.httpErrorHandler(c, echo.NewHTTPError(http.StatusBadRequest, "leaky bad request"))
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d want %d", rec.Code, http.StatusBadRequest)

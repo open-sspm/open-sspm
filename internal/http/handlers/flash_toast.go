@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
 const flashToastCookieName = "oss_toast"
 
-func setFlashToast(c echo.Context, toast viewmodels.ToastViewData) {
+func setFlashToast(c *echo.Context, toast viewmodels.ToastViewData) {
 	toast.Category = normalizeToastCategory(toast.Category)
 	toast.Title = strings.TrimSpace(toast.Title)
 	toast.Description = strings.TrimSpace(toast.Description)
@@ -36,7 +36,7 @@ func setFlashToast(c echo.Context, toast viewmodels.ToastViewData) {
 	})
 }
 
-func popFlashToast(c echo.Context) *viewmodels.ToastViewData {
+func popFlashToast(c *echo.Context) *viewmodels.ToastViewData {
 	cookie, err := c.Cookie(flashToastCookieName)
 	if err != nil || cookie == nil {
 		return nil

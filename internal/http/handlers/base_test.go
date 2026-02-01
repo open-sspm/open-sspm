@@ -3,17 +3,18 @@ package handlers
 import (
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 func TestRenderErrorDoesNotLeakError(t *testing.T) {
 	e := echo.New()
-	e.Logger.SetOutput(io.Discard)
+	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	req := httptest.NewRequest(http.MethodGet, "http://example.com/test", nil)
 	rec := httptest.NewRecorder()

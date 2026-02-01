@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
@@ -17,7 +17,7 @@ import (
 )
 
 // HandleApps renders the apps list page.
-func (h *Handlers) HandleApps(c echo.Context) error {
+func (h *Handlers) HandleApps(c *echo.Context) error {
 	ctx := c.Request().Context()
 	layout, _, err := h.LayoutData(ctx, c, "Apps")
 	if err != nil {
@@ -133,7 +133,7 @@ func (h *Handlers) HandleApps(c echo.Context) error {
 }
 
 // HandleOktaAppShow renders the Okta app detail page.
-func (h *Handlers) HandleOktaAppShow(c echo.Context) error {
+func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 	oktaAppExternalID := strings.Trim(c.Param("*"), "/")
 	if oktaAppExternalID == "" {
 		return RenderNotFound(c)
@@ -314,7 +314,7 @@ func (h *Handlers) HandleOktaAppShow(c echo.Context) error {
 }
 
 // HandleAppsMap handles mapping an Okta app to an integration.
-func (h *Handlers) HandleAppsMap(c echo.Context) error {
+func (h *Handlers) HandleAppsMap(c *echo.Context) error {
 	ctx := c.Request().Context()
 	kind := NormalizeConnectorKind(c.FormValue("integration_kind"))
 	oktaAppExternalID := strings.TrimSpace(c.FormValue("okta_app_external_id"))

@@ -8,7 +8,7 @@ import (
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/jackc/pgx/v5"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/auth"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
@@ -19,12 +19,12 @@ const (
 	SessionKeyUserID = "auth_user_id"
 )
 
-func PrincipalFromContext(c echo.Context) (auth.Principal, bool) {
+func PrincipalFromContext(c *echo.Context) (auth.Principal, bool) {
 	p, ok := c.Get(ContextKeyPrincipal).(auth.Principal)
 	return p, ok
 }
 
-func LoadPrincipal(ctx echo.Context, sessions *scs.SessionManager, q *gen.Queries) (auth.Principal, bool, error) {
+func LoadPrincipal(ctx *echo.Context, sessions *scs.SessionManager, q *gen.Queries) (auth.Principal, bool, error) {
 	userID := sessions.GetInt64(ctx.Request().Context(), SessionKeyUserID)
 	if userID <= 0 {
 		return auth.Principal{}, false, nil
@@ -53,7 +53,7 @@ func LoadPrincipal(ctx echo.Context, sessions *scs.SessionManager, q *gen.Querie
 
 func RequireAuth(sessions *scs.SessionManager, q *gen.Queries) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			principal, ok, err := LoadPrincipal(c, sessions, q)
 			if err != nil {
 				return err
@@ -70,7 +70,7 @@ func RequireAuth(sessions *scs.SessionManager, q *gen.Queries) echo.MiddlewareFu
 func RequireRole(role string) echo.MiddlewareFunc {
 	role = strings.ToLower(strings.TrimSpace(role))
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			p, ok := PrincipalFromContext(c)
 			if !ok {
 				return handleUnauth(c)
@@ -79,18 +79,18 @@ func RequireRole(role string) echo.MiddlewareFunc {
 				if isAPIRequest(c) {
 					return c.JSON(http.StatusForbidden, map[string]string{"error": "forbidden"})
 				}
-				return echo.NewHTTPError(http.StatusForbidden)
+				return echo.NewHTTPError(http.StatusForbidden, http.StatusText(http.StatusForbidden))
 			}
 			return next(c)
 		}
 	}
 }
 
-func isAPIRequest(c echo.Context) bool {
+func isAPIRequest(c *echo.Context) bool {
 	return strings.HasPrefix(c.Path(), "/api/") || strings.HasPrefix(c.Request().URL.Path, "/api/")
 }
 
-func handleUnauth(c echo.Context) error {
+func handleUnauth(c *echo.Context) error {
 	if isAPIRequest(c) {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 	}
