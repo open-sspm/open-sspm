@@ -49,6 +49,27 @@
     });
   };
 
+  const wireDialogCloseButtons = (root = document) => {
+    root.querySelectorAll("[data-dialog-close]").forEach((element) => {
+      if (!(element instanceof HTMLElement)) return;
+      if (element.dataset.dialogCloseBound === "true") return;
+
+      element.addEventListener("click", () => {
+        const dialog = element.closest("dialog");
+        if (!(dialog instanceof HTMLDialogElement)) return;
+        if (!dialog.open) return;
+        try {
+          dialog.close();
+        } catch {
+          dialog.removeAttribute("open");
+          dialog.dispatchEvent(new Event("close"));
+        }
+      });
+
+      element.dataset.dialogCloseBound = "true";
+    });
+  };
+
   const wireDialogCloseNavigation = () => {
     document.querySelectorAll("dialog[data-close-href]").forEach((dialog) => {
       if (!(dialog instanceof HTMLDialogElement)) return;
@@ -98,6 +119,7 @@
     showFlashToast();
     wireSidebarToggle();
     openServerDialogs();
+    wireDialogCloseButtons();
     wireDialogCloseNavigation();
     wireAutosubmit();
   };
@@ -117,6 +139,7 @@
       // wireAutosubmit is safe to run multiple times.
       if (event.target instanceof HTMLElement) {
         wireAutosubmit(event.target);
+        wireDialogCloseButtons(event.target);
       }
     });
 

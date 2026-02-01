@@ -168,7 +168,7 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 
 		<dialog id="connector-vault-modal" class="dialog" data-open?={ data.OpenKind == "vault" } data-close-href="/settings/connectors">
 			<form method="dialog">
-				<button type="submit" class="btn-icon-ghost" aria-label="Close">
+				<button type="button" class="btn-icon-ghost" aria-label="Close" data-dialog-close>
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
 						<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"/>
 					</svg>
@@ -181,7 +181,7 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 					<p class="text-sm text-muted-foreground">No configurable fields yet. Enable the connector to prepare for future support.</p>
 				</section>
 				<footer>
-					<button type="submit" class="btn-primary">Close</button>
+					<button type="button" class="btn-primary" data-dialog-close>Close</button>
 				</footer>
 			</form>
 		</dialog>
