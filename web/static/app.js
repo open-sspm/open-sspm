@@ -70,9 +70,10 @@
     });
   };
 
-  const wireAutosubmit = () => {
-    document.querySelectorAll("[data-autosubmit]").forEach((element) => {
+  const wireAutosubmit = (root = document) => {
+    root.querySelectorAll("[data-autosubmit]").forEach((element) => {
       if (!(element instanceof HTMLElement)) return;
+      if (element.dataset.autosubmitBound === "true") return;
       element.addEventListener("change", () => {
         const form = element.closest("form");
         if (form instanceof HTMLFormElement) {
@@ -83,6 +84,7 @@
           }
         }
       });
+      element.dataset.autosubmitBound = "true";
     });
   };
 
@@ -306,6 +308,13 @@
     openServerDialogs();
     wireDialogCloseNavigation();
     wireAutosubmit();
+    document.addEventListener("htmx:load", (event) => {
+      if (event.target instanceof HTMLElement) {
+        wireAutosubmit(event.target);
+      } else {
+        wireAutosubmit();
+      }
+    });
     initIdpUserAccessGraph();
 
     document.addEventListener("keydown", (e) => {

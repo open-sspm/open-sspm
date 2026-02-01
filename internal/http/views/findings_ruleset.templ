@@ -81,97 +81,7 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 				</section>
 			</article>
 
-			<article class="card">
-				<header>
-					<h2>Rules</h2>
-					<p class="text-muted-foreground">Filter and review the current results for this ruleset.</p>
-				</header>
-				<section class="space-y-4">
-					<form method="get" action={ "/findings/rulesets/" + data.Ruleset.Key } class="flex flex-wrap items-end gap-3">
-						<label class="space-y-1">
-							<div class="text-sm font-medium">Status</div>
-							<select class="select" name="status">
-								<option value="" selected?={ data.StatusFilter == "" }>All</option>
-								<option value="pass" selected?={ data.StatusFilter == "pass" }>Pass</option>
-								<option value="fail" selected?={ data.StatusFilter == "fail" }>Fail</option>
-								<option value="unknown" selected?={ data.StatusFilter == "unknown" }>Unknown</option>
-								<option value="error" selected?={ data.StatusFilter == "error" }>Error</option>
-								<option value="not_applicable" selected?={ data.StatusFilter == "not_applicable" }>Not applicable</option>
-							</select>
-						</label>
-						<label class="space-y-1">
-							<div class="text-sm font-medium">Severity</div>
-							<select class="select" name="severity">
-								<option value="" selected?={ data.SeverityFilter == "" }>All</option>
-								<option value="critical" selected?={ data.SeverityFilter == "critical" }>Critical</option>
-								<option value="high" selected?={ data.SeverityFilter == "high" }>High</option>
-								<option value="medium" selected?={ data.SeverityFilter == "medium" }>Medium</option>
-								<option value="low" selected?={ data.SeverityFilter == "low" }>Low</option>
-								<option value="info" selected?={ data.SeverityFilter == "info" }>Info</option>
-							</select>
-						</label>
-						<label class="space-y-1">
-							<div class="text-sm font-medium">Monitoring</div>
-							<select class="select" name="monitoring">
-								<option value="" selected?={ data.MonitoringFilter == "" }>All</option>
-								<option value="automated" selected?={ data.MonitoringFilter == "automated" }>Automated</option>
-								<option value="partial" selected?={ data.MonitoringFilter == "partial" }>Partial</option>
-								<option value="manual" selected?={ data.MonitoringFilter == "manual" }>Manual</option>
-								<option value="unsupported" selected?={ data.MonitoringFilter == "unsupported" }>Unsupported</option>
-							</select>
-						</label>
-						<button type="submit" class="btn-primary">Apply</button>
-					</form>
-
-					if data.HasRules {
-						<div class="overflow-x-auto">
-							<table class="table">
-								<thead>
-									<tr>
-										<th>Rule</th>
-										<th>Severity</th>
-										<th>Monitoring</th>
-										<th>Status</th>
-									</tr>
-								</thead>
-								<tbody>
-									for _, r := range data.Rules {
-										<tr>
-												<td>
-													<div class="space-y-0.5">
-													<a class="btn-sm-link px-0 font-medium" href={ r.Href }>{ r.Key }</a>
-													if r.Title != "" && r.Title != r.Key {
-														<div class="text-sm text-muted-foreground">{ r.Title }</div>
-													} else if r.Summary != "" {
-														<div class="text-sm text-muted-foreground">{ r.Summary }</div>
-													}
-													if r.EvidenceSummary != "" && r.EvidenceSummary != "Manual check requires attestation" && !strings.HasPrefix(r.EvidenceSummary, "Demo seeded:") && r.EvidenceSummary != r.Summary && r.EvidenceSummary != r.Title {
-														<div class="text-sm text-muted-foreground">{ r.EvidenceSummary }</div>
-													}
-												</div>
-											</td>
-											<td><span class="badge-outline">{ r.Severity }</span></td>
-											<td><span class={ RuleMonitoringBadgeClass(r.MonitoringStatus) }>{ r.MonitoringStatus }</span></td>
-											<td>
-												<span class={ RuleStatusBadgeClass(r.Status) }>{ HumanizeRuleStatus(r.Status) }</span>
-												if r.ErrorKind != "" {
-													<div class="text-xs text-muted-foreground">{ r.ErrorKind }</div>
-												}
-												if r.EvaluatedAt != "" {
-													<div class="text-xs text-muted-foreground">{ r.EvaluatedAt }</div>
-												}
-											</td>
-										</tr>
-									}
-								</tbody>
-							</table>
-						</div>
-					} else {
-						@EmptyState("No rules found", "This ruleset has no active rules.") {
-						}
-					}
-				</section>
-			</article>
+			@FindingsRulesetRulesCard(data)
 		</div>
 
 		if data.HasMetadata {
@@ -231,4 +141,98 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 			</article>
 		}
 	}
+}
+
+templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
+	<article id="rules-card" class="card">
+		<header>
+			<h2>Rules</h2>
+			<p class="text-muted-foreground">Filter and review the current results for this ruleset.</p>
+		</header>
+		<section class="space-y-4">
+			<form method="get" action={ "/findings/rulesets/" + data.Ruleset.Key } hx-get={ "/findings/rulesets/" + data.Ruleset.Key } hx-trigger="change delay:150ms, submit" hx-target="#rules-card" hx-swap="outerHTML" hx-push-url="true" class="flex flex-wrap items-end gap-3">
+				<label class="space-y-1">
+					<div class="text-sm font-medium">Status</div>
+					<select class="select" name="status">
+						<option value="" selected?={ data.StatusFilter == "" }>All</option>
+						<option value="pass" selected?={ data.StatusFilter == "pass" }>Pass</option>
+						<option value="fail" selected?={ data.StatusFilter == "fail" }>Fail</option>
+						<option value="unknown" selected?={ data.StatusFilter == "unknown" }>Unknown</option>
+						<option value="error" selected?={ data.StatusFilter == "error" }>Error</option>
+						<option value="not_applicable" selected?={ data.StatusFilter == "not_applicable" }>Not applicable</option>
+					</select>
+				</label>
+				<label class="space-y-1">
+					<div class="text-sm font-medium">Severity</div>
+					<select class="select" name="severity">
+						<option value="" selected?={ data.SeverityFilter == "" }>All</option>
+						<option value="critical" selected?={ data.SeverityFilter == "critical" }>Critical</option>
+						<option value="high" selected?={ data.SeverityFilter == "high" }>High</option>
+						<option value="medium" selected?={ data.SeverityFilter == "medium" }>Medium</option>
+						<option value="low" selected?={ data.SeverityFilter == "low" }>Low</option>
+						<option value="info" selected?={ data.SeverityFilter == "info" }>Info</option>
+					</select>
+				</label>
+				<label class="space-y-1">
+					<div class="text-sm font-medium">Monitoring</div>
+					<select class="select" name="monitoring">
+						<option value="" selected?={ data.MonitoringFilter == "" }>All</option>
+						<option value="automated" selected?={ data.MonitoringFilter == "automated" }>Automated</option>
+						<option value="partial" selected?={ data.MonitoringFilter == "partial" }>Partial</option>
+						<option value="manual" selected?={ data.MonitoringFilter == "manual" }>Manual</option>
+						<option value="unsupported" selected?={ data.MonitoringFilter == "unsupported" }>Unsupported</option>
+					</select>
+				</label>
+				<button type="submit" class="btn-primary">Apply</button>
+			</form>
+
+			if data.HasRules {
+				<div class="overflow-x-auto">
+					<table class="table">
+						<thead>
+							<tr>
+								<th>Rule</th>
+								<th>Severity</th>
+								<th>Monitoring</th>
+								<th>Status</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, r := range data.Rules {
+								<tr>
+										<td>
+											<div class="space-y-0.5">
+											<a class="btn-sm-link px-0 font-medium" href={ r.Href }>{ r.Key }</a>
+											if r.Title != "" && r.Title != r.Key {
+												<div class="text-sm text-muted-foreground">{ r.Title }</div>
+											} else if r.Summary != "" {
+												<div class="text-sm text-muted-foreground">{ r.Summary }</div>
+											}
+											if r.EvidenceSummary != "" && r.EvidenceSummary != "Manual check requires attestation" && !strings.HasPrefix(r.EvidenceSummary, "Demo seeded:") && r.EvidenceSummary != r.Summary && r.EvidenceSummary != r.Title {
+												<div class="text-sm text-muted-foreground">{ r.EvidenceSummary }</div>
+											}
+										</div>
+									</td>
+									<td><span class="badge-outline">{ r.Severity }</span></td>
+									<td><span class={ RuleMonitoringBadgeClass(r.MonitoringStatus) }>{ r.MonitoringStatus }</span></td>
+									<td>
+										<span class={ RuleStatusBadgeClass(r.Status) }>{ HumanizeRuleStatus(r.Status) }</span>
+										if r.ErrorKind != "" {
+											<div class="text-xs text-muted-foreground">{ r.ErrorKind }</div>
+										}
+										if r.EvaluatedAt != "" {
+											<div class="text-xs text-muted-foreground">{ r.EvaluatedAt }</div>
+										}
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			} else {
+				@EmptyState("No rules found", "This ruleset has no active rules.") {
+				}
+			}
+		</section>
+	</article>
 }

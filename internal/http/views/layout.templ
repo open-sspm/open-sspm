@@ -8,8 +8,10 @@ templ Layout(data viewmodels.LayoutData) {
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="htmx-config" content={ `{"allowEval":false,"allowScriptTags":false,"historyCacheSize":0,"historyRestoreAsHxRequest":false,"selfRequestsOnly":true}` }/>
 			<title>{ data.Title }{ " · Open-SSPM" }</title>
 			<link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
+			<script src="/static/vendor/htmx.2.0.8.min.js" defer></script>
 			<script>
 				(() => {
 					try {
@@ -32,7 +34,7 @@ templ Layout(data viewmodels.LayoutData) {
 			</script>
 			<link rel="stylesheet" href="/static/app.css"/>
 		</head>
-		<body class="min-h-screen bg-background text-foreground">
+		<body class="min-h-screen bg-background text-foreground" hx-headers={ `{"X-CSRF-Token":"` + data.CSRFToken + `"}` }>
 			<div class="min-h-screen">
 				<aside id="app-sidebar" class="sidebar" data-breakpoint="1024" data-initial-open="true" data-initial-mobile-open="false">
 					<nav>
