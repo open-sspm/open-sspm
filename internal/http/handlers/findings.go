@@ -195,21 +195,24 @@ func (h *Handlers) HandleFindingsRuleset(c *echo.Context) error {
 			SourceVersion: strings.TrimSpace(rs.SourceVersion),
 			Href:          "/findings/rulesets/" + strings.TrimSpace(rs.Key),
 		},
-		SourceName:              scope.SourceName,
-		ConnectorHintHref:       scope.ConnectorHintHref,
-		Tags:                    meta.Tags,
-		References:              meta.References,
-		FrameworkMappings:       meta.FrameworkMappings,
-		HasMetadata:             meta.HasMetadata,
-		OverrideExists:          overrideExists,
-		OverrideEnabled:         overrideEnabled,
-		StatusFilter:            statusFilter,
-		SeverityFilter:          severityFilter,
-		MonitoringFilter:        monitoringFilter,
-		Rules:                   items,
-		HasRules:                len(items) > 0,
+		SourceName:        scope.SourceName,
+		ConnectorHintHref: scope.ConnectorHintHref,
+		Tags:              meta.Tags,
+		References:        meta.References,
+		FrameworkMappings: meta.FrameworkMappings,
+		HasMetadata:       meta.HasMetadata,
+		OverrideExists:    overrideExists,
+		OverrideEnabled:   overrideEnabled,
+		StatusFilter:      statusFilter,
+		SeverityFilter:    severityFilter,
+		MonitoringFilter:  monitoringFilter,
+		Rules:             items,
+		HasRules:          len(items) > 0,
 	}
 
+	if isHX(c) {
+		return h.RenderComponent(c, views.FindingsRulesetRulesCard(data))
+	}
 	return h.RenderComponent(c, views.FindingsRulesetPage(data))
 }
 
@@ -678,9 +681,9 @@ func parseRulesetMetadata(definitionJSON []byte) rulesetMeta {
 		meta.FrameworkMappings = make([]viewmodels.FindingsFrameworkMappingItem, 0, len(rs.FrameworkMappings))
 		for _, m := range rs.FrameworkMappings {
 			meta.FrameworkMappings = append(meta.FrameworkMappings, viewmodels.FindingsFrameworkMappingItem{
-				Framework:   strings.TrimSpace(m.Framework),
-				Control:     strings.TrimSpace(m.Control),
-				Coverage:    strings.TrimSpace(string(m.Coverage)),
+				Framework: strings.TrimSpace(m.Framework),
+				Control:   strings.TrimSpace(m.Control),
+				Coverage:  strings.TrimSpace(string(m.Coverage)),
 			})
 		}
 	}

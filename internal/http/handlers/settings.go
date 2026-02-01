@@ -111,6 +111,15 @@ func (h *Handlers) handleConnectorToggle(c *echo.Context, kind string) error {
 	}
 	if enabled {
 		if err := validateConnectorConfig(kind, cfg.Config); err != nil {
+			if isHX(c) {
+				setFlashToast(c, viewmodels.ToastViewData{
+					Category:    "error",
+					Title:       ConnectorDisplayName(kind) + " not enabled",
+					Description: err.Error(),
+				})
+				setHXRedirect(c, "/settings/connectors?open="+kind)
+				return c.NoContent(http.StatusOK)
+			}
 			alert := &viewmodels.ConnectorAlert{
 				Class:   "alert-error",
 				Title:   ConnectorDisplayName(kind) + " not enabled",
@@ -121,6 +130,13 @@ func (h *Handlers) handleConnectorToggle(c *echo.Context, kind string) error {
 	}
 	if _, err := h.Q.UpdateConnectorConfigEnabled(ctx, gen.UpdateConnectorConfigEnabledParams{Kind: kind, Enabled: enabled}); err != nil {
 		return h.RenderError(c, err)
+	}
+	if isHX(c) {
+		data, err := h.buildConnectorsViewData(ctx, c, "", "", nil)
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		return h.renderConnectorCard(c, kind, data)
 	}
 	return c.Redirect(http.StatusSeeOther, "/settings/connectors?saved="+kind)
 }
@@ -258,6 +274,25 @@ func (h *Handlers) renderConnectorsPage(c *echo.Context, openKind, savedKind str
 		return h.RenderError(c, err)
 	}
 	return h.RenderComponent(c, views.ConnectorsPage(data))
+}
+
+func (h *Handlers) renderConnectorCard(c *echo.Context, kind string, data viewmodels.ConnectorsViewData) error {
+	switch NormalizeConnectorKind(kind) {
+	case configstore.KindOkta:
+		return h.RenderComponent(c, views.OktaConnectorCard(data))
+	case configstore.KindEntra:
+		return h.RenderComponent(c, views.EntraConnectorCard(data))
+	case configstore.KindGitHub:
+		return h.RenderComponent(c, views.GitHubConnectorCard(data))
+	case configstore.KindDatadog:
+		return h.RenderComponent(c, views.DatadogConnectorCard(data))
+	case configstore.KindAWSIdentityCenter:
+		return h.RenderComponent(c, views.AWSIdentityCenterConnectorCard(data))
+	case configstore.KindVault:
+		return h.RenderComponent(c, views.VaultConnectorCard(data))
+	default:
+		return RenderNotFound(c)
+	}
 }
 
 func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context, openKind, savedKind string, alert *viewmodels.ConnectorAlert) (viewmodels.ConnectorsViewData, error) {
