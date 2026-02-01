@@ -1,12 +1,4 @@
 (() => {
-  const sidebarToggle = document.getElementById("sidebar-toggle");
-
-  if (sidebarToggle) {
-    sidebarToggle.addEventListener("click", () => {
-      document.dispatchEvent(new CustomEvent("basecoat:sidebar", { detail: { id: "app-sidebar" } }));
-    });
-  }
-
   const showFlashToast = () => {
     const toastEl = document.getElementById("flash-toast");
     if (!(toastEl instanceof HTMLElement)) return;
@@ -32,6 +24,17 @@
     );
 
     toastEl.remove();
+  };
+
+  const wireSidebarToggle = (root = document) => {
+    const sidebarToggle = root.querySelector("#sidebar-toggle");
+    if (!(sidebarToggle instanceof HTMLElement)) return;
+    if (sidebarToggle.dataset.sidebarToggleBound === "true") return;
+
+    sidebarToggle.addEventListener("click", () => {
+      document.dispatchEvent(new CustomEvent("basecoat:sidebar", { detail: { id: "app-sidebar" } }));
+    });
+    sidebarToggle.dataset.sidebarToggleBound = "true";
   };
 
   const openServerDialogs = () => {
@@ -93,18 +96,20 @@
 
   const init = () => {
     showFlashToast();
+    wireSidebarToggle();
     openServerDialogs();
     wireDialogCloseNavigation();
     wireAutosubmit();
   };
 
-  document.addEventListener("DOMContentLoaded", () => {
-    init();
-    
-    document.addEventListener("htmx:afterSwap", (event) => {
-       // Re-run init after hx-boost or other large swaps
-       // We use afterSwap to ensure the DOM is ready
-       init();
+  const bindGlobalListenersOnce = () => {
+    if (document.documentElement.dataset.openSspmAppListenersBound === "true") return;
+    document.documentElement.dataset.openSspmAppListenersBound = "true";
+
+    document.addEventListener("htmx:afterSwap", () => {
+      // Re-run init after hx-boost or other large swaps
+      // We use afterSwap to ensure the DOM is ready
+      init();
     });
 
     document.addEventListener("htmx:load", (event) => {
@@ -115,7 +120,6 @@
       }
     });
 
-
     document.addEventListener("keydown", (e) => {
       if (e.key === "/" && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
         e.preventDefault();
@@ -125,5 +129,13 @@
         }
       }
     });
-  });
+  };
+
+  bindGlobalListenersOnce();
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
 })();
