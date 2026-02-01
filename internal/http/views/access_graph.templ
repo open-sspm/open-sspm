@@ -1,0 +1,63 @@
+package views
+
+import (
+	"fmt"
+	"net/url"
+	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
+)
+
+templ AccessGraphNode(userID int64, node viewmodels.AccessTreeNode) {
+	<div class="access-tree-node">
+		if node.HasChildren {
+			<details class="group">
+				<summary class="list-none [&::-webkit-details-marker]:hidden flex items-start gap-2 py-1 cursor-pointer">
+					<div class="btn-icon-ghost transition-transform group-open:rotate-90">▸</div>
+					@accessGraphNodeContent(node)
+				</summary>
+					<div
+						class="ml-4 border-l border-border pl-4"
+						hx-get={ fmt.Sprintf("/api/idp-users/%d/access-tree?node=%s", userID, url.QueryEscape(node.ID)) }
+						hx-trigger="toggle from:closest details once"
+						hx-swap="innerHTML"
+					>
+					<div class="text-sm text-muted-foreground py-1">Loading…</div>
+				</div>
+			</details>
+		} else {
+			<div class="flex items-start gap-2 py-1">
+				<span class="inline-block h-9 w-9"></span>
+				@accessGraphNodeContent(node)
+			</div>
+		}
+	</div>
+}
+
+templ accessGraphNodeContent(node viewmodels.AccessTreeNode) {
+	<div class="min-w-0 flex-1 pt-1.5">
+		<div class="flex flex-wrap items-center gap-2">
+			if node.Href != "" {
+				<a href={ templ.SafeURL(node.Href) } class="btn-sm-link px-0 font-medium">
+					{ node.Label }
+				</a>
+			} else {
+				<span class="font-medium">{ node.Label }</span>
+			}
+			for _, badge := range node.Badges {
+				<span class="badge-outline">{ badge }</span>
+			}
+		</div>
+		if node.SubLabel != "" {
+			<div class="text-xs text-muted-foreground break-all">{ node.SubLabel }</div>
+		}
+	</div>
+}
+
+templ AccessGraphChildren(userID int64, nodes []viewmodels.AccessTreeNode) {
+	for _, node := range nodes {
+		@AccessGraphNode(userID, node)
+	}
+}
+
+templ AccessGraphError(message string) {
+	<div class="text-sm text-destructive py-1">{ message }</div>
+}

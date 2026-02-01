@@ -34,7 +34,7 @@ templ Layout(data viewmodels.LayoutData) {
 			</script>
 			<link rel="stylesheet" href="/static/app.css"/>
 		</head>
-		<body class="min-h-screen bg-background text-foreground" hx-headers={ `{"X-CSRF-Token":"` + data.CSRFToken + `"}` }>
+		<body class="min-h-screen bg-background text-foreground" hx-boost="true" hx-headers={ `{"X-CSRF-Token":"` + data.CSRFToken + `"}` }>
 			<div class="min-h-screen">
 				<aside id="app-sidebar" class="sidebar" data-breakpoint="1024" data-initial-open="true" data-initial-mobile-open="false">
 					<nav>

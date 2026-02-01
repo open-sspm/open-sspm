@@ -1,6 +1,9 @@
 package views
 
-import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+import (
+	"fmt"
+	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
+)
 
 templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 	@Layout(data.Layout) {
@@ -130,14 +133,13 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 					</header>
 					<section>
 						<div
-							id="access-graph"
-							data-idp-user-id={ FormatInt64(data.User.ID) }
-							data-idp-user-email={ data.User.Email }
-							data-idp-user-display-name={ data.User.DisplayName }
-						></div>
-						<noscript>
-							<p class="text-sm text-muted-foreground">This view requires JavaScript to expand nodes.</p>
-						</noscript>
+							class="space-y-1"
+							hx-get={ fmt.Sprintf("/api/idp-users/%d/access-tree?node=root", data.User.ID) }
+							hx-trigger="load"
+							hx-swap="innerHTML"
+						>
+							<div class="text-sm text-muted-foreground">Loading access graph...</div>
+						</div>
 					</section>
 				</article>
 			</section>
