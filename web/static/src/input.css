@@ -103,4 +103,13 @@
   .user-menu button[aria-expanded="true"] [data-chevron] {
     transform: rotate(180deg);
   }
+
+  .sidebar nav > section ul li > details::details-content {
+    padding-inline: 0;
+  }
+
+  .sidebar nav > section ul li > details > ul {
+    margin-inline-start: calc(var(--spacing) * 3.5);
+    width: calc(100% - calc(var(--spacing) * 3.5));
+  }
 }

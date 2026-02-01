@@ -210,7 +210,7 @@ func (h *Handlers) HandleFindingsRuleset(c *echo.Context) error {
 		HasRules:          len(items) > 0,
 	}
 
-	if isHX(c) {
+	if isHX(c) && isHXTarget(c, "rules-card") {
 		return h.RenderComponent(c, views.FindingsRulesetRulesCard(data))
 	}
 	return h.RenderComponent(c, views.FindingsRulesetPage(data))
