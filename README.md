@@ -26,12 +26,12 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 
 ## Quickstart
 1. Copy `.env.example` to `.env` and update as needed.
-2. Start Postgres: `make dev-up`
-3. Run migrations: `make migrate`
-4. Install JS deps + build CSS: `npm install && make ui`
-5. Run the server: `make run`
-6. Optional: run the background sync worker: `make worker`
-7. Open `http://localhost:8080`, configure connectors under Settings → Connectors, then run a sync (Settings → Resync, or `make sync`).
+2. Start Postgres: `just dev-up`
+3. Run migrations: `just migrate`
+4. Install JS deps + build CSS: `npm install && just ui`
+5. Run the server: `just run`
+6. Optional: run the background sync worker: `just worker`
+7. Open `http://localhost:8080`, configure connectors under Settings → Connectors, then run a sync (Settings → Resync, or `just sync`).
 
 ## Findings / rules (Okta benchmark)
 Rulesets are embedded from a pinned Open SSPM descriptor snapshot (`internal/opensspm/specassets/descriptor.v1.json`) and must be seeded into Postgres before they show up in the UI:
@@ -40,11 +40,11 @@ Rulesets are embedded from a pinned Open SSPM descriptor snapshot (`internal/ope
 After seeding, run an Okta sync and open `http://localhost:8080/findings/rulesets/cis.okta.idaas_stig.v1`.
 
 ## Dev workflows
-- Live-reload server: `make dev` (requires `air` + `templ`)
-- Run background sync worker: `make worker`
-- Watch CSS: `make ui-watch`
-- Regenerate templ templates: `make templ` (watch: `make templ-watch`)
-- Regenerate SQLC code: `make sqlc` (generated code is checked in under `internal/db/gen`)
+- Live-reload server: `just dev` (requires `air` + `templ`)
+- Run background sync worker: `just worker`
+- Watch CSS: `just ui-watch`
+- Regenerate templ templates: `just templ` (watch: `just templ-watch`)
+- Regenerate SQLC code: `just sqlc` (generated code is checked in under `internal/db/gen`)
 
 ## Configuration
 - Process-level env vars: `.env.example` (database, HTTP address, sync interval/workers).
