@@ -12,8 +12,8 @@ import (
 	"github.com/a-h/templ"
 	"github.com/alexedwards/scs/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
@@ -102,7 +102,7 @@ func (h *Handlers) LoadConnectorSnapshot(ctx context.Context) (ConnectorSnapshot
 }
 
 // LayoutData builds the common layout data for page rendering.
-func (h *Handlers) LayoutData(ctx context.Context, c echo.Context, title string) (viewmodels.LayoutData, ConnectorSnapshot, error) {
+func (h *Handlers) LayoutData(ctx context.Context, c *echo.Context, title string) (viewmodels.LayoutData, ConnectorSnapshot, error) {
 	snap, err := h.LoadConnectorSnapshot(ctx)
 	if err != nil {
 		return viewmodels.LayoutData{}, snap, err
@@ -181,16 +181,16 @@ func (h *Handlers) LayoutData(ctx context.Context, c echo.Context, title string)
 }
 
 // RenderComponent renders a templ component as the response.
-func (h *Handlers) RenderComponent(c echo.Context, component templ.Component) error {
+func (h *Handlers) RenderComponent(c *echo.Context, component templ.Component) error {
 	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := component.Render(c.Request().Context(), c.Response().Writer); err != nil {
+	if err := component.Render(c.Request().Context(), c.Response()); err != nil {
 		return h.RenderError(c, err)
 	}
 	return nil
 }
 
 // RenderError returns a plain text error response.
-func (h *Handlers) RenderError(c echo.Context, err error) error {
+func (h *Handlers) RenderError(c *echo.Context, err error) error {
 	requestID, _ := c.Get(ContextKeyRequestID).(string)
 	path := ""
 	if req := c.Request(); req != nil && req.URL != nil {
@@ -200,7 +200,13 @@ func (h *Handlers) RenderError(c echo.Context, err error) error {
 	if req := c.Request(); req != nil {
 		method = req.Method
 	}
-	c.Logger().Errorf("http error: request_id=%s method=%s path=%s ip=%s: %v", requestID, method, path, c.RealIP(), err)
+	c.Logger().Error("http error",
+		"request_id", requestID,
+		"method", method,
+		"path", path,
+		"ip", c.RealIP(),
+		"error", err,
+	)
 
 	msg := "Internal server error."
 	if requestID != "" {
@@ -211,7 +217,7 @@ func (h *Handlers) RenderError(c echo.Context, err error) error {
 }
 
 // RenderNotFound returns a 404 response.
-func RenderNotFound(c echo.Context) error {
+func RenderNotFound(c *echo.Context) error {
 	return c.String(http.StatusNotFound, "404 page not found")
 }
 

@@ -3,13 +3,13 @@ package handlers
 import (
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
 
-func (h *Handlers) HandleAWSUsers(c echo.Context) error {
+func (h *Handlers) HandleAWSUsers(c *echo.Context) error {
 	ctx := c.Request().Context()
 	layout, snap, err := h.LayoutData(ctx, c, "AWS Identity Center Users")
 	if err != nil {
@@ -155,7 +155,7 @@ func (h *Handlers) HandleAWSUsers(c echo.Context) error {
 	return h.RenderComponent(c, views.AWSUsersPage(data))
 }
 
-func (h *Handlers) HandleUnmatchedAWS(c echo.Context) error {
+func (h *Handlers) HandleUnmatchedAWS(c *echo.Context) error {
 	ctx := c.Request().Context()
 	layout, snap, err := h.LayoutData(ctx, c, "Unmatched AWS Identity Center Users")
 	if err != nil {

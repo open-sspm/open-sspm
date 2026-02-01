@@ -4,10 +4,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
-func parsePageParam(c echo.Context) int {
+func parsePageParam(c *echo.Context) int {
 	page := 1
 	if rawPage := strings.TrimSpace(c.QueryParam("page")); rawPage != "" {
 		if parsed, err := strconv.Atoi(rawPage); err == nil && parsed > 0 {

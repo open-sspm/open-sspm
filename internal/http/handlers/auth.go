@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 	"github.com/open-sspm/open-sspm/internal/auth"
 	"github.com/open-sspm/open-sspm/internal/auth/providers"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
@@ -17,7 +17,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
 
-func (h *Handlers) HandleLoginGet(c echo.Context) error {
+func (h *Handlers) HandleLoginGet(c *echo.Context) error {
 	if h.Sessions == nil {
 		return errors.New("auth sessions not configured")
 	}
@@ -43,7 +43,7 @@ func (h *Handlers) HandleLoginGet(c echo.Context) error {
 	return h.RenderComponent(c, views.LoginPage(data))
 }
 
-func (h *Handlers) HandleLoginPost(c echo.Context) error {
+func (h *Handlers) HandleLoginPost(c *echo.Context) error {
 	if h.Sessions == nil {
 		return errors.New("auth sessions not configured")
 	}
@@ -103,7 +103,7 @@ func (h *Handlers) HandleLoginPost(c echo.Context) error {
 	return c.Redirect(http.StatusSeeOther, "/")
 }
 
-func (h *Handlers) HandleLogoutPost(c echo.Context) error {
+func (h *Handlers) HandleLogoutPost(c *echo.Context) error {
 	if h.Sessions == nil {
 		return errors.New("auth sessions not configured")
 	}

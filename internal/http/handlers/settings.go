@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
@@ -15,7 +15,7 @@ import (
 )
 
 // HandleSettings renders the settings page.
-func (h *Handlers) HandleSettings(c echo.Context) error {
+func (h *Handlers) HandleSettings(c *echo.Context) error {
 	layout, _, err := h.LayoutData(c.Request().Context(), c, "Settings")
 	if err != nil {
 		return h.RenderError(c, err)
@@ -67,7 +67,7 @@ func (h *Handlers) HandleSettings(c echo.Context) error {
 }
 
 // HandleConnectors renders the connectors page.
-func (h *Handlers) HandleConnectors(c echo.Context) error {
+func (h *Handlers) HandleConnectors(c *echo.Context) error {
 	if c.Request().Method != http.MethodGet {
 		return c.NoContent(http.StatusMethodNotAllowed)
 	}
@@ -80,7 +80,7 @@ func (h *Handlers) HandleConnectors(c echo.Context) error {
 }
 
 // HandleConnectorAction routes connector save and toggle actions.
-func (h *Handlers) HandleConnectorAction(c echo.Context) error {
+func (h *Handlers) HandleConnectorAction(c *echo.Context) error {
 	if c.Request().Method != http.MethodPost {
 		return c.NoContent(http.StatusMethodNotAllowed)
 	}
@@ -102,7 +102,7 @@ func (h *Handlers) HandleConnectorAction(c echo.Context) error {
 	return RenderNotFound(c)
 }
 
-func (h *Handlers) handleConnectorToggle(c echo.Context, kind string) error {
+func (h *Handlers) handleConnectorToggle(c *echo.Context, kind string) error {
 	enabled := ParseBoolForm(c.FormValue("enabled"))
 	ctx := c.Request().Context()
 	cfg, err := h.Q.GetConnectorConfig(ctx, kind)
@@ -125,7 +125,7 @@ func (h *Handlers) handleConnectorToggle(c echo.Context, kind string) error {
 	return c.Redirect(http.StatusSeeOther, "/settings/connectors?saved="+kind)
 }
 
-func (h *Handlers) handleConnectorSave(c echo.Context, kind string) error {
+func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 	ctx := c.Request().Context()
 	cfgRow, err := h.Q.GetConnectorConfig(ctx, kind)
 	if err != nil {
@@ -252,7 +252,7 @@ func (h *Handlers) handleConnectorSave(c echo.Context, kind string) error {
 	return c.Redirect(http.StatusSeeOther, "/settings/connectors?saved="+kind)
 }
 
-func (h *Handlers) renderConnectorsPage(c echo.Context, openKind, savedKind string, alert *viewmodels.ConnectorAlert) error {
+func (h *Handlers) renderConnectorsPage(c *echo.Context, openKind, savedKind string, alert *viewmodels.ConnectorAlert) error {
 	data, err := h.buildConnectorsViewData(c.Request().Context(), c, openKind, savedKind, alert)
 	if err != nil {
 		return h.RenderError(c, err)
@@ -260,7 +260,7 @@ func (h *Handlers) renderConnectorsPage(c echo.Context, openKind, savedKind stri
 	return h.RenderComponent(c, views.ConnectorsPage(data))
 }
 
-func (h *Handlers) buildConnectorsViewData(ctx context.Context, c echo.Context, openKind, savedKind string, alert *viewmodels.ConnectorAlert) (viewmodels.ConnectorsViewData, error) {
+func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context, openKind, savedKind string, alert *viewmodels.ConnectorAlert) (viewmodels.ConnectorsViewData, error) {
 	states, err := h.Registry.LoadStates(ctx, h.Q)
 	if err != nil {
 		return viewmodels.ConnectorsViewData{}, err
@@ -410,7 +410,7 @@ func validateConnectorConfig(kind string, raw []byte) error {
 }
 
 // HandleResync triggers a manual resync.
-func (h *Handlers) HandleResync(c echo.Context) error {
+func (h *Handlers) HandleResync(c *echo.Context) error {
 	if c.Request().Method != http.MethodPost {
 		return c.NoContent(http.StatusMethodNotAllowed)
 	}

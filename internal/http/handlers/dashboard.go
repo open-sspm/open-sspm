@@ -4,14 +4,14 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
 
 // HandleDashboard renders the dashboard page.
-func (h *Handlers) HandleDashboard(c echo.Context) error {
+func (h *Handlers) HandleDashboard(c *echo.Context) error {
 	ctx := c.Request().Context()
 	layout, _, err := h.LayoutData(ctx, c, "Dashboard")
 	if err != nil {
@@ -171,6 +171,6 @@ func safePrefix(s string, n int) string {
 }
 
 // HandleHealthz returns a simple health check response.
-func (h *Handlers) HandleHealthz(c echo.Context) error {
+func (h *Handlers) HandleHealthz(c *echo.Context) error {
 	return c.String(200, "ok")
 }

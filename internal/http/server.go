@@ -4,18 +4,20 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alexedwards/scs/pgxstore"
 	"github.com/alexedwards/scs/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 	"github.com/open-sspm/open-sspm/internal/auth"
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
@@ -28,6 +30,9 @@ import (
 type EchoServer struct {
 	h *handlers.Handlers
 	e *echo.Echo
+
+	mu     sync.Mutex
+	server *http.Server
 }
 
 // NewEchoServer creates a new HTTP server.
@@ -46,7 +51,7 @@ func NewEchoServer(cfg config.Config, pool *pgxpool.Pool, q *gen.Queries, syncer
 	h := &handlers.Handlers{Cfg: cfg, Q: q, Pool: pool, Syncer: syncer, Registry: reg, Sessions: sessions}
 	es := &EchoServer{h: h, e: echo.New()}
 	es.e.Use(middleware.RequestIDWithConfig(middleware.RequestIDConfig{
-		RequestIDHandler: func(c echo.Context, id string) {
+		RequestIDHandler: func(c *echo.Context, id string) {
 			id = normalizeRequestID(id)
 			if id == "" {
 				id = generateRequestID()
@@ -144,8 +149,9 @@ func resolveStaticDir(preferred string) (resolved string, ok bool) {
 	return "web/static", false
 }
 
-func (es *EchoServer) httpErrorHandler(err error, c echo.Context) {
-	if c.Response().Committed {
+func (es *EchoServer) httpErrorHandler(c *echo.Context, err error) {
+	resp, _ := echo.UnwrapResponse(c.Response())
+	if resp != nil && resp.Committed {
 		return
 	}
 
@@ -181,10 +187,10 @@ func (es *EchoServer) registerRoutes() {
 			Burst:     10,
 			ExpiresIn: 10 * time.Minute,
 		}),
-		IdentifierExtractor: func(c echo.Context) (string, error) {
+		IdentifierExtractor: func(c *echo.Context) (string, error) {
 			return c.RealIP(), nil
 		},
-		DenyHandler: func(c echo.Context, identifier string, err error) error {
+		DenyHandler: func(c *echo.Context, identifier string, err error) error {
 			return c.String(http.StatusTooManyRequests, "too many login attempts")
 		},
 	}))
@@ -240,15 +246,32 @@ func (es *EchoServer) registerRoutes() {
 
 // Start starts the HTTP server.
 func (es *EchoServer) Start(addr string) error {
-	return es.e.Start(addr)
+	return es.StartServer(&http.Server{Addr: addr})
 }
 
 // StartServer starts the HTTP server with a custom http.Server.
 func (es *EchoServer) StartServer(server *http.Server) error {
-	return es.e.StartServer(server)
+	if server == nil {
+		return errors.New("http server is nil")
+	}
+
+	server.Handler = es.e
+
+	es.mu.Lock()
+	es.server = server
+	es.mu.Unlock()
+
+	return server.ListenAndServe()
 }
 
 // Shutdown gracefully shuts down the HTTP server.
 func (es *EchoServer) Shutdown(ctx context.Context) error {
-	return es.e.Shutdown(ctx)
+	es.mu.Lock()
+	server := es.server
+	es.mu.Unlock()
+
+	if server == nil {
+		return nil
+	}
+	return server.Shutdown(ctx)
 }
