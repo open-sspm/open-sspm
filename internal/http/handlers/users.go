@@ -698,18 +698,25 @@ func (h *Handlers) HandleCreateLink(c *echo.Context) error {
 
 // HandleIdpUserAccessTree handles the access tree API endpoint.
 func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
+	renderAccessTreeError := func(status int, message string) error {
+		if isHX(c) {
+			return h.RenderComponent(c, views.AccessGraphError(message))
+		}
+		return c.String(status, message)
+	}
+
 	id, err := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
 	if err != nil || id <= 0 {
-		return jsonTreeError(c, http.StatusBadRequest, "invalid idp user id")
+		return renderAccessTreeError(http.StatusBadRequest, "invalid idp user id")
 	}
 
 	ctx := c.Request().Context()
 	_, err = h.Q.GetIdPUser(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return jsonTreeError(c, http.StatusNotFound, "idp user not found")
+			return renderAccessTreeError(http.StatusNotFound, "idp user not found")
 		}
-		return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+		return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 	}
 
 	nodeID := strings.TrimSpace(c.QueryParam("node"))
@@ -724,25 +731,23 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		return url.PathUnescape(v)
 	}
 
-	response := accessTreeResponse{Parent: nodeID}
+	var nodes []viewmodels.AccessTreeNode
+
 	switch {
 	case nodeID == "root":
-		response.Nodes = []accessTreeNode{
+		nodes = []viewmodels.AccessTreeNode{
 			{ID: "connector:okta", Label: "Okta", HasChildren: true},
 			{ID: "connector:github", Label: "GitHub", HasChildren: true},
 			{ID: "connector:datadog", Label: "Datadog", HasChildren: true},
 			{ID: "connector:aws", Label: "AWS Identity Center", HasChildren: true},
 		}
-		return c.JSON(http.StatusOK, response)
 	case nodeID == "connector:okta":
-		response.Nodes = []accessTreeNode{{ID: "okta_apps", Label: "Apps", HasChildren: true}}
-		return c.JSON(http.StatusOK, response)
+		nodes = []viewmodels.AccessTreeNode{{ID: "okta_apps", Label: "Apps", HasChildren: true}}
 	case nodeID == "okta_apps":
 		assignments, err := h.Q.ListOktaUserAppAssignmentsForIdpUser(ctx, id)
 		if err != nil {
-			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
-		nodes := make([]accessTreeNode, 0, len(assignments))
 		for _, assignment := range assignments {
 			externalID := strings.TrimSpace(assignment.OktaAppExternalID)
 			if externalID == "" {
@@ -778,7 +783,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 				href = "/apps/" + externalID
 			}
 
-			nodes = append(nodes, accessTreeNode{
+			nodes = append(nodes, viewmodels.AccessTreeNode{
 				ID:          "app:" + externalID,
 				Label:       label,
 				SubLabel:    subLabel,
@@ -788,23 +793,21 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			})
 		}
 		if len(nodes) == 0 {
-			nodes = []accessTreeNode{{
+			nodes = []viewmodels.AccessTreeNode{{
 				ID:          "apps-empty",
 				Label:       "No assigned apps found.",
 				HasChildren: false,
 			}}
 		}
-		response.Nodes = nodes
-		return c.JSON(http.StatusOK, response)
 	case nodeID == "connector:github" || nodeID == "connector:datadog" || nodeID == "connector:aws":
 		sourceKind := strings.TrimSpace(strings.TrimPrefix(nodeID, "connector:"))
 		if sourceKind == "" {
-			return jsonTreeError(c, http.StatusBadRequest, "invalid connector node")
+			return renderAccessTreeError(http.StatusBadRequest, "invalid connector node")
 		}
 
 		linked, err := h.Q.ListLinkedAppUsersForIdPUser(ctx, id)
 		if err != nil {
-			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
 
 		sourceCounts := make(map[string]int)
@@ -820,7 +823,6 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		}
 		sort.Strings(sourceNames)
 
-		nodes := make([]accessTreeNode, 0, len(sourceNames))
 		for _, name := range sourceNames {
 			count := sourceCounts[name]
 			badge := "1 account"
@@ -831,7 +833,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			if label == "" {
 				label = "(unknown)"
 			}
-			nodes = append(nodes, accessTreeNode{
+			nodes = append(nodes, viewmodels.AccessTreeNode{
 				ID:          "inst:" + strings.ToLower(sourceKind) + ":" + encodeNodePart(name),
 				Label:       label,
 				Badges:      []string{badge},
@@ -839,35 +841,32 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			})
 		}
 		if len(nodes) == 0 {
-			nodes = []accessTreeNode{{
+			nodes = []viewmodels.AccessTreeNode{{
 				ID:          sourceKind + "-empty",
 				Label:       "No linked accounts found.",
 				HasChildren: false,
 			}}
 		}
-		response.Nodes = nodes
-		return c.JSON(http.StatusOK, response)
 	case strings.HasPrefix(nodeID, "inst:"):
 		raw := strings.TrimSpace(strings.TrimPrefix(nodeID, "inst:"))
 		parts := strings.SplitN(raw, ":", 2)
 		if len(parts) != 2 {
-			return jsonTreeError(c, http.StatusBadRequest, "invalid instance node")
+			return renderAccessTreeError(http.StatusBadRequest, "invalid instance node")
 		}
 		sourceKind := strings.TrimSpace(parts[0])
 		sourceName, err := decodeNodePart(parts[1])
 		if err != nil {
-			return jsonTreeError(c, http.StatusBadRequest, "invalid instance node")
+			return renderAccessTreeError(http.StatusBadRequest, "invalid instance node")
 		}
 		if sourceKind == "" || sourceName == "" {
-			return jsonTreeError(c, http.StatusBadRequest, "invalid instance node")
+			return renderAccessTreeError(http.StatusBadRequest, "invalid instance node")
 		}
 
 		linked, err := h.Q.ListLinkedAppUsersForIdPUser(ctx, id)
 		if err != nil {
-			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
 
-		nodes := make([]accessTreeNode, 0, len(linked))
 		for _, app := range linked {
 			if !strings.EqualFold(strings.TrimSpace(app.SourceKind), sourceKind) {
 				continue
@@ -888,7 +887,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 				subLabel = strings.TrimSpace(app.ExternalID)
 			}
 
-			nodes = append(nodes, accessTreeNode{
+			nodes = append(nodes, viewmodels.AccessTreeNode{
 				ID:          "appuser:" + strconv.FormatInt(app.ID, 10),
 				Label:       label,
 				SubLabel:    subLabel,
@@ -896,39 +895,37 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			})
 		}
 		if len(nodes) == 0 {
-			nodes = []accessTreeNode{{ID: "inst-empty:" + raw, Label: "No linked accounts found.", HasChildren: false}}
+			nodes = []viewmodels.AccessTreeNode{{ID: "inst-empty:" + raw, Label: "No linked accounts found.", HasChildren: false}}
 		}
-		response.Nodes = nodes
-		return c.JSON(http.StatusOK, response)
 	case strings.HasPrefix(nodeID, "appuser:"):
 		rawID := strings.TrimSpace(strings.TrimPrefix(nodeID, "appuser:"))
 		appUserID, err := strconv.ParseInt(rawID, 10, 64)
 		if err != nil || appUserID <= 0 {
-			return jsonTreeError(c, http.StatusBadRequest, "invalid app user node")
+			return renderAccessTreeError(http.StatusBadRequest, "invalid app user node")
 		}
 
 		link, err := h.Q.GetIdentityLinkByAppUser(ctx, appUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return jsonTreeError(c, http.StatusNotFound, "app user not linked")
+				return renderAccessTreeError(http.StatusNotFound, "app user not linked")
 			}
-			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
 		if link.IdpUserID != id {
-			return jsonTreeError(c, http.StatusNotFound, "app user not linked")
+			return renderAccessTreeError(http.StatusNotFound, "app user not linked")
 		}
 
 		appUser, err := h.Q.GetAppUser(ctx, appUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return jsonTreeError(c, http.StatusNotFound, "app user not found")
+				return renderAccessTreeError(http.StatusNotFound, "app user not found")
 			}
-			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
 
 		ents, err := h.Q.ListEntitlementsForAppUser(ctx, appUserID)
 		if err != nil {
-			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
 
 		type resourceGroup struct {
@@ -939,7 +936,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		}
 
 		resourceGroups := make(map[string]*resourceGroup)
-		var unmapped []accessTreeNode
+		var unmapped []viewmodels.AccessTreeNode
 
 		for _, ent := range ents {
 			resourceKind, externalID, ok := accessgraph.ParseCanonicalResourceRef(ent.Resource)
@@ -958,7 +955,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 				if perm := strings.TrimSpace(ent.Permission); perm != "" {
 					badges = append(badges, perm)
 				}
-				unmapped = append(unmapped, accessTreeNode{
+				unmapped = append(unmapped, viewmodels.AccessTreeNode{
 					ID:          "ent:" + strconv.FormatInt(ent.ID, 10),
 					Label:       label,
 					Badges:      badges,
@@ -998,7 +995,6 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			return left.resourceKind < right.resourceKind
 		})
 
-		nodes := make([]accessTreeNode, 0, len(keys)+len(unmapped))
 		for _, key := range keys {
 			group := resourceGroups[key]
 			if group == nil {
@@ -1017,7 +1013,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 				subLabel = group.externalID
 			}
 
-			nodes = append(nodes, accessTreeNode{
+			nodes = append(nodes, viewmodels.AccessTreeNode{
 				ID:          "res:" + strconv.FormatInt(appUserID, 10) + ":" + group.resourceKind + ":" + encodeNodePart(group.externalID),
 				Label:       group.label,
 				SubLabel:    subLabel,
@@ -1035,43 +1031,40 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		}
 
 		if len(nodes) == 0 {
-			nodes = []accessTreeNode{{ID: "entitlements-empty:" + rawID, Label: "No entitlements found.", HasChildren: false}}
+			nodes = []viewmodels.AccessTreeNode{{ID: "entitlements-empty:" + rawID, Label: "No entitlements found.", HasChildren: false}}
 		}
-		response.Nodes = nodes
-		return c.JSON(http.StatusOK, response)
 	case strings.HasPrefix(nodeID, "res:"):
 		raw := strings.TrimSpace(strings.TrimPrefix(nodeID, "res:"))
 		parts := strings.SplitN(raw, ":", 3)
 		if len(parts) != 3 {
-			return jsonTreeError(c, http.StatusBadRequest, "invalid resource node")
+			return renderAccessTreeError(http.StatusBadRequest, "invalid resource node")
 		}
 		appUserID, err := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
 		if err != nil || appUserID <= 0 {
-			return jsonTreeError(c, http.StatusBadRequest, "invalid resource node")
+			return renderAccessTreeError(http.StatusBadRequest, "invalid resource node")
 		}
 		resourceKind := strings.TrimSpace(parts[1])
 		externalID, err := decodeNodePart(parts[2])
 		if err != nil || resourceKind == "" || externalID == "" {
-			return jsonTreeError(c, http.StatusBadRequest, "invalid resource node")
+			return renderAccessTreeError(http.StatusBadRequest, "invalid resource node")
 		}
 
 		link, err := h.Q.GetIdentityLinkByAppUser(ctx, appUserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return jsonTreeError(c, http.StatusNotFound, "app user not linked")
+				return renderAccessTreeError(http.StatusNotFound, "app user not linked")
 			}
-			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
 		if link.IdpUserID != id {
-			return jsonTreeError(c, http.StatusNotFound, "app user not linked")
+			return renderAccessTreeError(http.StatusNotFound, "app user not linked")
 		}
 
 		ents, err := h.Q.ListEntitlementsForAppUser(ctx, appUserID)
 		if err != nil {
-			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
 
-		nodes := make([]accessTreeNode, 0, len(ents))
 		for _, ent := range ents {
 			kind, eid, ok := accessgraph.ParseCanonicalResourceRef(ent.Resource)
 			if !ok {
@@ -1088,7 +1081,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			if subLabel == "" {
 				subLabel = strings.TrimSpace(ent.Resource)
 			}
-			nodes = append(nodes, accessTreeNode{
+			nodes = append(nodes, viewmodels.AccessTreeNode{
 				ID:          "ent:" + strconv.FormatInt(ent.ID, 10),
 				Label:       label,
 				SubLabel:    subLabel,
@@ -1097,19 +1090,17 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		}
 
 		if len(nodes) == 0 {
-			nodes = []accessTreeNode{{ID: "perms-empty:" + raw, Label: "No permissions found.", HasChildren: false}}
+			nodes = []viewmodels.AccessTreeNode{{ID: "perms-empty:" + raw, Label: "No permissions found.", HasChildren: false}}
 		} else {
 			sort.Slice(nodes, func(i, j int) bool {
 				return strings.ToLower(nodes[i].Label) < strings.ToLower(nodes[j].Label)
 			})
 		}
-		response.Nodes = nodes
-		return c.JSON(http.StatusOK, response)
 	case strings.HasPrefix(nodeID, "app:"):
 		externalID := strings.TrimPrefix(nodeID, "app:")
 		externalID = strings.TrimSpace(externalID)
 		if externalID == "" {
-			return jsonTreeError(c, http.StatusBadRequest, "invalid app node")
+			return renderAccessTreeError(http.StatusBadRequest, "invalid app node")
 		}
 		_, err := h.Q.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalID(ctx, gen.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalIDParams{
 			IdpUserID:         id,
@@ -1117,20 +1108,19 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return jsonTreeError(c, http.StatusNotFound, "app assignment not found")
+				return renderAccessTreeError(http.StatusNotFound, "app assignment not found")
 			}
-			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
-		response.Nodes = []accessTreeNode{
+		nodes = []viewmodels.AccessTreeNode{
 			{ID: "appattrs:" + externalID, Label: "Attributes", HasChildren: true},
 			{ID: "appgroups:" + externalID, Label: "Groups", HasChildren: true},
 			{ID: "appperms:" + externalID, Label: "Permissions", HasChildren: true},
 		}
-		return c.JSON(http.StatusOK, response)
 	case strings.HasPrefix(nodeID, "appattrs:"):
 		externalID := strings.TrimSpace(strings.TrimPrefix(nodeID, "appattrs:"))
 		if externalID == "" {
-			return jsonTreeError(c, http.StatusBadRequest, "invalid app attributes node")
+			return renderAccessTreeError(http.StatusBadRequest, "invalid app attributes node")
 		}
 		assignment, err := h.Q.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalID(ctx, gen.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalIDParams{
 			IdpUserID:         id,
@@ -1138,9 +1128,9 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return jsonTreeError(c, http.StatusNotFound, "app assignment not found")
+				return renderAccessTreeError(http.StatusNotFound, "app assignment not found")
 			}
-			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
 
 		assignedVia := "Unknown"
@@ -1152,7 +1142,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			assignedVia = "Group"
 		}
 
-		nodes := []accessTreeNode{
+		nodes = []viewmodels.AccessTreeNode{
 			{ID: "attr:status:" + externalID, Label: "Status", SubLabel: strings.TrimSpace(assignment.AppStatus), HasChildren: false},
 			{ID: "attr:signon:" + externalID, Label: "Sign-on", SubLabel: strings.TrimSpace(assignment.AppSignOnMode), HasChildren: false},
 			{ID: "attr:assignedvia:" + externalID, Label: "Assigned via", SubLabel: assignedVia, HasChildren: false},
@@ -1164,7 +1154,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			if label == "" {
 				label = kind
 			}
-			nodes = append(nodes, accessTreeNode{
+			nodes = append(nodes, viewmodels.AccessTreeNode{
 				ID:          "attr:integration:" + externalID,
 				Label:       "Integration",
 				SubLabel:    label,
@@ -1172,13 +1162,10 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 				Href:        IntegratedAppHref(kind),
 			})
 		}
-
-		response.Nodes = nodes
-		return c.JSON(http.StatusOK, response)
 	case strings.HasPrefix(nodeID, "appgroups:"):
 		externalID := strings.TrimSpace(strings.TrimPrefix(nodeID, "appgroups:"))
 		if externalID == "" {
-			return jsonTreeError(c, http.StatusBadRequest, "invalid app groups node")
+			return renderAccessTreeError(http.StatusBadRequest, "invalid app groups node")
 		}
 		_, err := h.Q.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalID(ctx, gen.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalIDParams{
 			IdpUserID:         id,
@@ -1186,9 +1173,9 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return jsonTreeError(c, http.StatusNotFound, "app assignment not found")
+				return renderAccessTreeError(http.StatusNotFound, "app assignment not found")
 			}
-			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
 
 		groups, err := h.Q.ListOktaAppGrantingGroupsForIdpUserByOktaAppExternalID(ctx, gen.ListOktaAppGrantingGroupsForIdpUserByOktaAppExternalIDParams{
@@ -1196,33 +1183,29 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			OktaAppExternalID: externalID,
 		})
 		if err != nil {
-			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
 		if len(groups) == 0 {
-			response.Nodes = []accessTreeNode{{ID: "groups-empty:" + externalID, Label: "No granting groups found.", HasChildren: false}}
-			return c.JSON(http.StatusOK, response)
-		}
-
-		nodes := make([]accessTreeNode, 0, len(groups))
-		for _, group := range groups {
-			name := strings.TrimSpace(group.OktaGroupName)
-			ext := strings.TrimSpace(group.OktaGroupExternalID)
-			if name == "" {
-				name = ext
+			nodes = []viewmodels.AccessTreeNode{{ID: "groups-empty:" + externalID, Label: "No granting groups found.", HasChildren: false}}
+		} else {
+			for _, group := range groups {
+				name := strings.TrimSpace(group.OktaGroupName)
+				ext := strings.TrimSpace(group.OktaGroupExternalID)
+				if name == "" {
+					name = ext
+				}
+				nodes = append(nodes, viewmodels.AccessTreeNode{
+					ID:          "group:" + ext,
+					Label:       name,
+					SubLabel:    ext,
+					HasChildren: false,
+				})
 			}
-			nodes = append(nodes, accessTreeNode{
-				ID:          "group:" + ext,
-				Label:       name,
-				SubLabel:    ext,
-				HasChildren: false,
-			})
 		}
-		response.Nodes = nodes
-		return c.JSON(http.StatusOK, response)
 	case strings.HasPrefix(nodeID, "appperms:"):
 		externalID := strings.TrimSpace(strings.TrimPrefix(nodeID, "appperms:"))
 		if externalID == "" {
-			return jsonTreeError(c, http.StatusBadRequest, "invalid app permissions node")
+			return renderAccessTreeError(http.StatusBadRequest, "invalid app permissions node")
 		}
 		assignment, err := h.Q.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalID(ctx, gen.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalIDParams{
 			IdpUserID:         id,
@@ -1230,60 +1213,35 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return jsonTreeError(c, http.StatusNotFound, "app assignment not found")
+				return renderAccessTreeError(http.StatusNotFound, "app assignment not found")
 			}
-			return jsonTreeError(c, http.StatusInternalServerError, "internal error")
+			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
 
 		perms := SummarizeProfilePermissions(assignment.ProfileJson)
 		if len(perms) == 0 {
-			response.Nodes = []accessTreeNode{{ID: "perms-empty:" + externalID, Label: "No permissions found.", HasChildren: false}}
-			return c.JSON(http.StatusOK, response)
-		}
-
-		nodes := make([]accessTreeNode, 0, len(perms))
-		for i, perm := range perms {
-			text := strings.TrimSpace(perm.Text)
-			if text == "" {
-				continue
+			nodes = []viewmodels.AccessTreeNode{{ID: "perms-empty:" + externalID, Label: "No permissions found.", HasChildren: false}}
+		} else {
+			for i, perm := range perms {
+				text := strings.TrimSpace(perm.Text)
+				if text == "" {
+					continue
+				}
+				nodes = append(nodes, viewmodels.AccessTreeNode{
+					ID:          "perm:" + externalID + ":" + strconv.Itoa(i),
+					Label:       text,
+					HasChildren: false,
+				})
 			}
-			nodes = append(nodes, accessTreeNode{
-				ID:          "perm:" + externalID + ":" + strconv.Itoa(i),
-				Label:       text,
-				HasChildren: false,
-			})
+			if len(nodes) == 0 {
+				nodes = []viewmodels.AccessTreeNode{{ID: "perms-empty:" + externalID, Label: "No permissions found.", HasChildren: false}}
+			}
 		}
-		if len(nodes) == 0 {
-			nodes = []accessTreeNode{{ID: "perms-empty:" + externalID, Label: "No permissions found.", HasChildren: false}}
-		}
-		response.Nodes = nodes
-		return c.JSON(http.StatusOK, response)
 	default:
-		return jsonTreeError(c, http.StatusBadRequest, "unknown node")
+		return renderAccessTreeError(http.StatusBadRequest, "unknown node")
 	}
-}
 
-// Access tree helper types and functions.
-type accessTreeNode struct {
-	ID          string   `json:"id"`
-	Label       string   `json:"label"`
-	SubLabel    string   `json:"subLabel,omitempty"`
-	Badges      []string `json:"badges,omitempty"`
-	HasChildren bool     `json:"hasChildren"`
-	Href        string   `json:"href,omitempty"`
-}
-
-type accessTreeResponse struct {
-	Parent string           `json:"parent"`
-	Nodes  []accessTreeNode `json:"nodes"`
-}
-
-type accessTreeError struct {
-	Error string `json:"error"`
-}
-
-func jsonTreeError(c *echo.Context, status int, message string) error {
-	return c.JSON(status, accessTreeError{Error: message})
+	return h.RenderComponent(c, views.AccessGraphChildren(id, nodes))
 }
 
 func datadogUserStatus(appUserID int64, externalID string, rawJSON []byte) string {

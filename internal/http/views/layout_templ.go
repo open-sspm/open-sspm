@@ -66,14 +66,14 @@ func Layout(data viewmodels.LayoutData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</title><link rel=\"icon\" href=\"/static/favicon.ico\" type=\"image/x-icon\"><script src=\"/static/vendor/htmx.2.0.8.min.js\" defer></script><script>\n\t\t\t\t(() => {\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst stored = localStorage.getItem('themeMode');\n\t\t\t\t\t\tif (stored ? stored === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches) {\n\t\t\t\t\t\t\tdocument.documentElement.classList.add('dark');\n\t\t\t\t\t\t}\n\t\t\t\t\t} catch (_) {}\n\n\t\t\t\t\tconst apply = dark => {\n\t\t\t\t\t\tdocument.documentElement.classList.toggle('dark', dark);\n\t\t\t\t\t\ttry { localStorage.setItem('themeMode', dark ? 'dark' : 'light'); } catch (_) {}\n\t\t\t\t\t};\n\n\t\t\t\t\tdocument.addEventListener('basecoat:theme', (event) => {\n\t\t\t\t\t\tconst mode = event.detail?.mode;\n\t\t\t\t\t\tapply(mode === 'dark' ? true : mode === 'light' ? false : !document.documentElement.classList.contains('dark'));\n\t\t\t\t\t});\n\t\t\t\t})();\n\t\t\t</script><link rel=\"stylesheet\" href=\"/static/app.css\"></head><body class=\"min-h-screen bg-background text-foreground\" hx-headers=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</title><link rel=\"icon\" href=\"/static/favicon.ico\" type=\"image/x-icon\"><script src=\"/static/vendor/htmx.2.0.8.min.js\" defer></script><script>\n\t\t\t\t(() => {\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst stored = localStorage.getItem('themeMode');\n\t\t\t\t\t\tif (stored ? stored === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches) {\n\t\t\t\t\t\t\tdocument.documentElement.classList.add('dark');\n\t\t\t\t\t\t}\n\t\t\t\t\t} catch (_) {}\n\n\t\t\t\t\tconst apply = dark => {\n\t\t\t\t\t\tdocument.documentElement.classList.toggle('dark', dark);\n\t\t\t\t\t\ttry { localStorage.setItem('themeMode', dark ? 'dark' : 'light'); } catch (_) {}\n\t\t\t\t\t};\n\n\t\t\t\t\tdocument.addEventListener('basecoat:theme', (event) => {\n\t\t\t\t\t\tconst mode = event.detail?.mode;\n\t\t\t\t\t\tapply(mode === 'dark' ? true : mode === 'light' ? false : !document.documentElement.classList.contains('dark'));\n\t\t\t\t\t});\n\t\t\t\t})();\n\t\t\t</script><link rel=\"stylesheet\" href=\"/static/app.css\"></head><body class=\"min-h-screen bg-background text-foreground\" hx-boost=\"true\" hx-headers=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(`{"X-CSRF-Token":"` + data.CSRFToken + `"}`)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 37, Col: 115}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 37, Col: 131}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
