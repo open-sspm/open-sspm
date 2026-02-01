@@ -1,4 +1,45 @@
 (() => {
+  const isDialogOpen = (dialog) => {
+    if (!(dialog instanceof HTMLElement)) return false;
+    if (dialog.hasAttribute("open")) return true;
+    return dialog.open === true;
+  };
+
+  const openDialog = (dialog) => {
+    if (!(dialog instanceof HTMLElement)) return;
+    if (isDialogOpen(dialog)) return;
+
+    const showModal = dialog.showModal;
+    if (typeof showModal === "function") {
+      try {
+        showModal.call(dialog);
+        return;
+      } catch {
+        // fall back to setting the open attribute
+      }
+    }
+
+    dialog.setAttribute("open", "");
+  };
+
+  const closeDialog = (dialog) => {
+    if (!(dialog instanceof HTMLElement)) return;
+    if (!isDialogOpen(dialog)) return;
+
+    const close = dialog.close;
+    if (typeof close === "function") {
+      try {
+        close.call(dialog);
+        return;
+      } catch {
+        // fall back to removing the open attribute
+      }
+    }
+
+    dialog.removeAttribute("open");
+    dialog.dispatchEvent(new Event("close"));
+  };
+
   const showFlashToast = () => {
     const toastEl = document.getElementById("flash-toast");
     if (!(toastEl instanceof HTMLElement)) return;
@@ -39,13 +80,7 @@
 
   const openServerDialogs = () => {
     document.querySelectorAll("dialog[data-open]").forEach((dialog) => {
-      if (!(dialog instanceof HTMLDialogElement)) return;
-      if (dialog.open) return;
-      try {
-        dialog.showModal();
-      } catch {
-        dialog.setAttribute("open", "");
-      }
+      openDialog(dialog);
     });
   };
 
@@ -56,14 +91,7 @@
 
       element.addEventListener("click", () => {
         const dialog = element.closest("dialog");
-        if (!(dialog instanceof HTMLDialogElement)) return;
-        if (!dialog.open) return;
-        try {
-          dialog.close();
-        } catch {
-          dialog.removeAttribute("open");
-          dialog.dispatchEvent(new Event("close"));
-        }
+        closeDialog(dialog);
       });
 
       element.dataset.dialogCloseBound = "true";
@@ -72,7 +100,7 @@
 
   const wireDialogCloseNavigation = () => {
     document.querySelectorAll("dialog[data-close-href]").forEach((dialog) => {
-      if (!(dialog instanceof HTMLDialogElement)) return;
+      if (!(dialog instanceof HTMLElement)) return;
       if (dialog.dataset.closeNavBound === "true") return;
 
       const closeHref = dialog.getAttribute("data-close-href");
