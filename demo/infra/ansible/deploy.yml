@@ -22,7 +22,7 @@
       delegate_to: localhost
       run_once: true
       ansible.builtin.fail:
-        msg: "web/static/app.css not found. Run `make ui` (or `npm run build:css`) before deploying."
+        msg: "web/static/app.css not found. Run `just ui` (or `npm run build:css`) before deploying."
       when: not app_css.stat.exists
 
   tasks:

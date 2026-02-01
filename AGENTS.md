@@ -14,20 +14,20 @@
 
 Prereqs: Go 1.25.x (see `go.mod` toolchain), Docker + Compose, Node.js + npm.
 
-- `make dev-up` / `make dev-down`: start/stop local Postgres.
-- `make migrate`: run DB migrations (`open-sspm migrate`).
-- `make run`: start the server at `http://localhost:8080`.
-- `make worker`: run the background worker; `make sync`: run a one-off sync.
-- `make test`: run unit tests (`go test ./...`). CI also runs `go vet ./...`.
-- UI: `npm install && make ui` (build CSS) or `make ui-watch` (watch).
-- Dev loop: `make dev` (live reload; requires `air` + `templ` installed).
+- `just dev-up` / `just dev-down`: start/stop local Postgres.
+- `just migrate`: run DB migrations (`open-sspm migrate`).
+- `just run`: start the server at `http://localhost:8080`.
+- `just worker`: run the background worker; `just sync`: run a one-off sync.
+- `just test`: run unit tests (`go test ./...`). CI also runs `go vet ./...`.
+- UI: `npm install && just ui` (build CSS) or `just ui-watch` (watch).
+- Dev loop: `just dev` (live reload; requires `air` + `templ` installed).
 
 ## Coding Style & Naming Conventions
 
 - Go: run `gofmt` on changed files; keep packages lower-case and filenames `snake_case.go`.
 - Don’t hand-edit generated code:
-  - SQLC: `internal/db/gen/` (regen with `make sqlc`)
-  - templ: `internal/http/views/*_templ.go` (regen with `make templ`)
+  - SQLC: `internal/db/gen/` (regen with `just sqlc`)
+  - templ: `internal/http/views/*_templ.go` (regen with `just templ`)
 
 ## Testing Guidelines
 
