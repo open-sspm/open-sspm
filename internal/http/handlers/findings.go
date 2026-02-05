@@ -92,6 +92,8 @@ func ruleSeverityRank(severity string) int {
 }
 
 func (h *Handlers) HandleFindingsRuleset(c *echo.Context) error {
+	addVary(c, "HX-Request", "HX-Target")
+
 	ctx := c.Request().Context()
 
 	rulesetKey := strings.TrimSpace(c.Param("rulesetKey"))

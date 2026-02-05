@@ -698,6 +698,8 @@ func (h *Handlers) HandleCreateLink(c *echo.Context) error {
 
 // HandleIdpUserAccessTree handles the access tree API endpoint.
 func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
+	addVary(c, "HX-Request")
+
 	renderAccessTreeError := func(status int, message string) error {
 		if isHX(c) {
 			return h.RenderComponent(c, views.AccessGraphError(message))

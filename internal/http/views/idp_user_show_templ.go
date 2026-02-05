@@ -346,27 +346,27 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</tbody></table></div></section></article></section><section id=\"tab-access-graph\" role=\"tabpanel\" hidden><article class=\"card\"><header><h2>Access graph</h2><p>Expand nodes to lazy-load access details across connectors.</p></header><section><div class=\"space-y-1\" hx-get=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</tbody></table></div></section></article></section><section id=\"tab-access-graph\" role=\"tabpanel\" hidden><article class=\"card\"><header><h2>Access graph</h2><p>Expand nodes to lazy-load access details across connectors.</p></header><section><div class=\"space-y-1\" data-hx-lazy-panel=\"tab-access-graph\" hx-get=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var19 string
 			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("/api/idp-users/%d/access-tree?node=root", data.User.ID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 137, Col: 84}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 138, Col: 84}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\" hx-trigger=\"load\" hx-swap=\"innerHTML\"><div class=\"text-sm text-muted-foreground\">Loading access graph...</div></div></section></article></section><section id=\"tab-linked\" role=\"tabpanel\" hidden><div class=\"space-y-4\"><div class=\"flex flex-wrap items-center justify-between gap-3\"><h2 class=\"text-lg font-semibold\">Linked accounts</h2><span class=\"badge-outline\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\" hx-trigger=\"oss-panel-visible once\" hx-swap=\"innerHTML\"><div class=\"text-sm text-muted-foreground\">Loading access graph...</div></div></section></article></section><section id=\"tab-linked\" role=\"tabpanel\" hidden><div class=\"space-y-4\"><div class=\"flex flex-wrap items-center justify-between gap-3\"><h2 class=\"text-lg font-semibold\">Linked accounts</h2><span class=\"badge-outline\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.LinkedAppsCount))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 151, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 152, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
@@ -375,7 +375,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(" connected")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 151, Col: 83}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 152, Col: 83}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
@@ -398,7 +398,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 					var templ_7745c5c3_Var22 string
 					templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(app.AppUser.SourceName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 159, Col: 38}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 160, Col: 38}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 					if templ_7745c5c3_Err != nil {
@@ -411,7 +411,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 					var templ_7745c5c3_Var23 string
 					templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs("External ID ")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 160, Col: 59}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 161, Col: 59}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 					if templ_7745c5c3_Err != nil {
@@ -420,7 +420,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 					var templ_7745c5c3_Var24 string
 					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(app.AppUser.ExternalID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 160, Col: 85}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 161, Col: 85}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 					if templ_7745c5c3_Err != nil {
@@ -433,7 +433,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 					var templ_7745c5c3_Var25 string
 					templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(app.AppUser.SourceKind)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 162, Col: 55}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 163, Col: 55}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 					if templ_7745c5c3_Err != nil {
@@ -446,7 +446,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 					var templ_7745c5c3_Var26 string
 					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(app.AppUser.Email)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 169, Col: 55}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 170, Col: 55}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 					if templ_7745c5c3_Err != nil {
@@ -459,7 +459,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 					var templ_7745c5c3_Var27 string
 					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(app.AppUser.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 173, Col: 61}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 174, Col: 61}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 					if templ_7745c5c3_Err != nil {
@@ -478,7 +478,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 							var templ_7745c5c3_Var28 string
 							templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(ent.Kind)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 192, Col: 59}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 193, Col: 59}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 							if templ_7745c5c3_Err != nil {
@@ -496,7 +496,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 								var templ_7745c5c3_Var29 templ.SafeURL
 								templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinURLErrs(ent.ResourceHref)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 195, Col: 82}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 196, Col: 82}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 								if templ_7745c5c3_Err != nil {
@@ -509,7 +509,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 								var templ_7745c5c3_Var30 string
 								templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(ent.ResourceLabel)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 195, Col: 104}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 196, Col: 104}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 								if templ_7745c5c3_Err != nil {
@@ -527,7 +527,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 								var templ_7745c5c3_Var31 string
 								templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(ent.ResourceLabel)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 197, Col: 73}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 198, Col: 73}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 								if templ_7745c5c3_Err != nil {
@@ -546,7 +546,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 								var templ_7745c5c3_Var32 string
 								templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(ent.ResourceID)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 200, Col: 88}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 201, Col: 88}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 								if templ_7745c5c3_Err != nil {
@@ -569,7 +569,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 								var templ_7745c5c3_Var33 string
 								templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(ent.Permission)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 205, Col: 63}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 206, Col: 63}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 								if templ_7745c5c3_Err != nil {

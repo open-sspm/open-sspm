@@ -103,6 +103,8 @@ func (h *Handlers) HandleConnectorAction(c *echo.Context) error {
 }
 
 func (h *Handlers) handleConnectorToggle(c *echo.Context, kind string) error {
+	addVary(c, "HX-Request")
+
 	enabled := ParseBoolForm(c.FormValue("enabled"))
 	ctx := c.Request().Context()
 	cfg, err := h.Q.GetConnectorConfig(ctx, kind)

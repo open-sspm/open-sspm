@@ -120,7 +120,7 @@
       dialog.addEventListener("close", () => {
         navigateToCloseHref();
       });
-      
+
       dialog.dataset.closeNavBound = "true";
     });
   };
@@ -143,32 +143,71 @@
     });
   };
 
-  const init = () => {
+  const triggerVisibleLazyHx = (root = document) => {
+    const htmxApi = window.htmx;
+    if (!htmxApi || typeof htmxApi.trigger !== "function") return;
+
+    root.querySelectorAll("[data-hx-lazy-panel]").forEach((element) => {
+      if (!(element instanceof HTMLElement)) return;
+      if (element.dataset.hxLazyLoaded === "true") return;
+
+      const panelID = (element.dataset.hxLazyPanel || "").trim();
+      if (!panelID) return;
+
+      const panel = document.getElementById(panelID);
+      if (!(panel instanceof HTMLElement) || panel.hidden) return;
+
+      htmxApi.trigger(element, "oss-panel-visible");
+      element.dataset.hxLazyLoaded = "true";
+    });
+  };
+
+  const initFragment = (root = document) => {
+    wireDialogCloseButtons(root);
+    wireAutosubmit(root);
+    triggerVisibleLazyHx(root);
+  };
+
+  const initGlobal = () => {
     showFlashToast();
     wireSidebarToggle();
     openServerDialogs();
-    wireDialogCloseButtons();
     wireDialogCloseNavigation();
-    wireAutosubmit();
+    triggerVisibleLazyHx(document);
   };
 
   const bindGlobalListenersOnce = () => {
     if (document.documentElement.dataset.openSspmAppListenersBound === "true") return;
     document.documentElement.dataset.openSspmAppListenersBound = "true";
 
-    document.addEventListener("htmx:afterSwap", () => {
-      // Re-run init after hx-boost or other large swaps
-      // We use afterSwap to ensure the DOM is ready
-      init();
+    document.addEventListener("htmx:afterSwap", (event) => {
+      if (!(event.target instanceof HTMLElement)) return;
+
+      initFragment(event.target);
+
+      if (event.target === document.body || event.target === document.documentElement) {
+        initGlobal();
+        initFragment(document);
+        return;
+      }
+
+      if (event.target.querySelector("#flash-toast")) {
+        showFlashToast();
+      }
+
+      triggerVisibleLazyHx(document);
     });
 
     document.addEventListener("htmx:load", (event) => {
-      // This handles partial updates if needed, but init() covers global state.
-      // wireAutosubmit is safe to run multiple times.
       if (event.target instanceof HTMLElement) {
-        wireAutosubmit(event.target);
-        wireDialogCloseButtons(event.target);
+        initFragment(event.target);
       }
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) return;
+      if (!event.target.closest('[role="tab"]')) return;
+      triggerVisibleLazyHx(document);
     });
 
     document.addEventListener("keydown", (e) => {
@@ -180,13 +219,25 @@
         }
       }
     });
+
+    document.addEventListener("keydown", (event) => {
+      if (!(event.target instanceof Element)) return;
+      if (!event.target.closest('[role="tab"]')) return;
+      if (!["ArrowRight", "ArrowLeft", "Home", "End", "Enter", " "].includes(event.key)) return;
+      triggerVisibleLazyHx(document);
+    });
   };
 
   bindGlobalListenersOnce();
 
+  const initPage = () => {
+    initGlobal();
+    initFragment(document);
+  };
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init, { once: true });
+    document.addEventListener("DOMContentLoaded", initPage, { once: true });
   } else {
-    init();
+    initPage();
   }
 })();
