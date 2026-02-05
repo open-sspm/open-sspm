@@ -136,7 +136,7 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 							class="space-y-1"
 							data-hx-lazy-panel="tab-access-graph"
 							hx-get={ fmt.Sprintf("/api/idp-users/%d/access-tree?node=root", data.User.ID) }
-							hx-trigger="oss-panel-visible once"
+							hx-trigger="oss-panel-visible once, load once"
 							hx-swap="innerHTML"
 						>
 							<div class="text-sm text-muted-foreground">Loading access graph...</div>

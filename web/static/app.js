@@ -162,6 +162,24 @@
     });
   };
 
+  const scheduleVisibleLazyHx = (root = document) => {
+    const run = () => {
+      triggerVisibleLazyHx(root);
+    };
+
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(run);
+      return;
+    }
+
+    if (typeof queueMicrotask === "function") {
+      queueMicrotask(run);
+      return;
+    }
+
+    setTimeout(run, 0);
+  };
+
   const initFragment = (root = document) => {
     wireDialogCloseButtons(root);
     wireAutosubmit(root);
@@ -207,7 +225,7 @@
     document.addEventListener("click", (event) => {
       if (!(event.target instanceof Element)) return;
       if (!event.target.closest('[role="tab"]')) return;
-      triggerVisibleLazyHx(document);
+      scheduleVisibleLazyHx(document);
     });
 
     document.addEventListener("keydown", (e) => {
@@ -224,7 +242,7 @@
       if (!(event.target instanceof Element)) return;
       if (!event.target.closest('[role="tab"]')) return;
       if (!["ArrowRight", "ArrowLeft", "Home", "End", "Enter", " "].includes(event.key)) return;
-      triggerVisibleLazyHx(document);
+      scheduleVisibleLazyHx(document);
     });
   };
 
