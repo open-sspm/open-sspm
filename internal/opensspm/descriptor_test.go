@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -65,19 +64,7 @@ func TestLockfileUpstreamMatchesGoMod(t *testing.T) {
 	}
 
 	if replaceTarget, ok := findGoModReplaceTarget(t, "github.com/open-sspm/open-sspm-spec"); ok {
-		repoRoot := repoRootFromThisFile(t)
-		headCommit := gitHeadCommit(t, resolveModulePath(repoRoot, replaceTarget))
-		want := strings.TrimSpace(lock.UpstreamCommit)
-		if want == "" {
-			want = strings.TrimSpace(lock.UpstreamRef)
-		}
-		if want == "" {
-			t.Fatalf("lockfile missing upstream_commit/upstream_ref to match go.mod replace target")
-		}
-		if !strings.HasPrefix(strings.ToLower(want), strings.ToLower(headCommit)) {
-			t.Fatalf("open-sspm-spec replace mismatch: replace head=%s lockfile commit/ref=%s", headCommit, want)
-		}
-		return
+		t.Fatalf("go.mod must not replace github.com/open-sspm/open-sspm-spec (found target %q); pin a remote module version instead", replaceTarget)
 	}
 
 	if commit, ok := pseudoVersionCommitSuffix(moduleVersion); ok {
@@ -147,18 +134,32 @@ func findGoModReplaceTarget(t *testing.T, modulePath string) (string, bool) {
 	}
 
 	lines := strings.Split(string(b), "\n")
+	inReplaceBlock := false
 	for _, line := range lines {
 		line, _, _ = strings.Cut(line, "//")
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		if !strings.HasPrefix(line, "replace ") {
+
+		switch line {
+		case "replace (":
+			inReplaceBlock = true
 			continue
+		case ")":
+			if inReplaceBlock {
+				inReplaceBlock = false
+				continue
+			}
 		}
 
-		line = strings.TrimPrefix(line, "replace ")
-		line = strings.TrimSpace(line)
+		if !inReplaceBlock {
+			if !strings.HasPrefix(line, "replace ") {
+				continue
+			}
+			line = strings.TrimSpace(strings.TrimPrefix(line, "replace "))
+		}
+
 		before, after, found := strings.Cut(line, "=>")
 		if !found {
 			continue
@@ -176,16 +177,6 @@ func findGoModReplaceTarget(t *testing.T, modulePath string) (string, bool) {
 	}
 
 	return "", false
-}
-
-func resolveModulePath(repoRoot, target string) string {
-	target = strings.TrimSpace(target)
-	switch {
-	case filepath.IsAbs(target):
-		return filepath.Clean(target)
-	default:
-		return filepath.Clean(filepath.Join(repoRoot, target))
-	}
 }
 
 func repoRootFromThisFile(t *testing.T) string {
@@ -209,16 +200,6 @@ func repoRootFromThisFile(t *testing.T) string {
 		}
 		dir = parent
 	}
-}
-
-func gitHeadCommit(t *testing.T, repoPath string) string {
-	t.Helper()
-
-	out, err := exec.Command("git", "-C", repoPath, "rev-parse", "HEAD").CombinedOutput()
-	if err != nil {
-		t.Fatalf("git rev-parse HEAD at %s: %v (%s)", repoPath, err, strings.TrimSpace(string(out)))
-	}
-	return strings.TrimSpace(string(out))
 }
 
 func pseudoVersionCommitSuffix(version string) (string, bool) {

@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
-: "${OPEN_SSPM_SPEC_REPO:?OPEN_SSPM_SPEC_REPO is required (local path or git URL)}"
+: "${OPEN_SSPM_SPEC_REPO:=https://github.com/open-sspm/open-sspm-spec}"
 : "${OPEN_SSPM_SPEC_REF:?OPEN_SSPM_SPEC_REF is required (tag/branch/commit)}"
 
 normalize_repo_url() {
@@ -19,6 +19,16 @@ normalize_repo_url() {
 	printf '%s\n' "${repo}"
 }
 
+canonical_repo="$(normalize_repo_url "${OPEN_SSPM_SPEC_REPO}")"
+if [[ ! "${canonical_repo}" =~ ^https://github\.com/[^/]+/[^/]+$ ]]; then
+	echo "error: OPEN_SSPM_SPEC_REPO must be a GitHub repository URL, got ${OPEN_SSPM_SPEC_REPO}" >&2
+	exit 1
+fi
+if [[ "${canonical_repo}" != "https://github.com/open-sspm/open-sspm-spec" ]]; then
+	echo "error: OPEN_SSPM_SPEC_REPO must be https://github.com/open-sspm/open-sspm-spec" >&2
+	exit 1
+fi
+
 tmp_dir="$(mktemp -d)"
 cleanup() {
 	rm -rf "${tmp_dir}"
@@ -27,8 +37,8 @@ trap cleanup EXIT
 
 spec_dir="${tmp_dir}/open-sspm-spec"
 
-echo "==> Cloning ${OPEN_SSPM_SPEC_REPO}..."
-git clone "${OPEN_SSPM_SPEC_REPO}" "${spec_dir}" >/dev/null
+echo "==> Cloning ${canonical_repo}..."
+git clone "${canonical_repo}" "${spec_dir}" >/dev/null
 
 echo "==> Checking out ${OPEN_SSPM_SPEC_REF}..."
 git -C "${spec_dir}" fetch --all --tags --prune >/dev/null
@@ -46,21 +56,7 @@ mkdir -p "${assets_dir}"
 rm -f "${assets_dir}/descriptor.v1.json" "${assets_dir}/requirements.json" "${assets_dir}/descriptor.v1.yaml" "${assets_dir}/requirements.yaml" "${assets_dir}/descriptor.v2.yaml"
 
 upstream_commit="$(git -C "${spec_dir}" rev-parse HEAD)"
-upstream_repo="$(git -C "${spec_dir}" config --get remote.origin.url || true)"
-if [[ -d "${OPEN_SSPM_SPEC_REPO}" ]]; then
-	source_origin="$(git -C "${OPEN_SSPM_SPEC_REPO}" config --get remote.origin.url || true)"
-	if [[ -n "${source_origin}" ]]; then
-		upstream_repo="${source_origin}"
-	fi
-fi
-if [[ -z "${upstream_repo}" ]]; then
-	upstream_repo="${OPEN_SSPM_SPEC_REPO}"
-fi
-upstream_repo="$(normalize_repo_url "${upstream_repo}")"
-if [[ "${upstream_repo}" == /* || "${upstream_repo}" == ./* || "${upstream_repo}" == ../* ]]; then
-	echo "error: could not derive canonical upstream_repo URL from ${OPEN_SSPM_SPEC_REPO}" >&2
-	exit 1
-fi
+upstream_repo="${canonical_repo}"
 
 descriptor_dist_path="${spec_dir}/dist/descriptor.v2.yaml"
 if [[ ! -f "${descriptor_dist_path}" ]]; then
