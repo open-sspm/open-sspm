@@ -6,8 +6,8 @@ templ IdPUsersPage(data viewmodels.IdPUsersViewData) {
 	@Layout(data.Layout) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
-			{Label: "Okta users"},
-		}, "Synced identities ready for access mapping.") {
+			{Label: "Okta Accounts"},
+		}, "Okta user accounts synced from your IdP.") {
 		}
 
 		<form method="get" class="card">
@@ -41,7 +41,7 @@ templ IdPUsersPage(data viewmodels.IdPUsersViewData) {
 
 		<article class="card">
 			<header>
-				<h2>Okta users</h2>
+				<h2>Okta Accounts</h2>
 				<span data-slot="card-action" class="badge-outline">
 					if data.TotalCount > 0 {
 						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "–" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
@@ -69,14 +69,14 @@ templ IdPUsersPage(data viewmodels.IdPUsersViewData) {
 										</td>
 										<td class="text-muted-foreground">{ u.DisplayName }</td>
 										<td>
-											<span class={ OktaStatusBadgeClass(u.Status) }>{ u.Status }</span>
+											<span class={ StatusBadgeClass(u.Status) }>{ u.Status }</span>
 										</td>
 									</tr>
 								}
 							} else {
 								<tr>
 									<td colspan="3">
-										@EmptyState("No users found", data.EmptyStateMsg)
+										@EmptyState("No accounts found", data.EmptyStateMsg)
 									</td>
 								</tr>
 							}

@@ -361,7 +361,7 @@ func ResourceShowPage(data viewmodels.ResourceShowViewData) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						var templ_7745c5c3_Var26 = []any{OktaStatusBadgeClass(row.IdpUserStatus)}
+						var templ_7745c5c3_Var26 = []any{StatusBadgeClass(row.IdpUserStatus)}
 						templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var26...)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
@@ -386,7 +386,7 @@ func ResourceShowPage(data viewmodels.ResourceShowViewData) templ.Component {
 						var templ_7745c5c3_Var28 string
 						templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(row.IdpUserStatus)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `resource_show.templ`, Line: 86, Col: 88}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `resource_show.templ`, Line: 86, Col: 84}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 						if templ_7745c5c3_Err != nil {

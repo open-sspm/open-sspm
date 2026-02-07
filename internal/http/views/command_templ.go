@@ -153,7 +153,7 @@ func CommandSearch(data viewmodels.LayoutData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var9 = []any{OktaStatusBadgeClass(u.Status) + " shrink-0"}
+				var templ_7745c5c3_Var9 = []any{StatusBadgeClass(u.Status) + " shrink-0"}
 				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var9...)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -178,7 +178,7 @@ func CommandSearch(data viewmodels.LayoutData) templ.Component {
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(u.Status)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `command.templ`, Line: 47, Col: 80}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `command.templ`, Line: 47, Col: 76}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -293,7 +293,7 @@ func CommandSearch(data viewmodels.LayoutData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var18 = []any{OktaStatusBadgeClass(a.Status) + " shrink-0"}
+				var templ_7745c5c3_Var18 = []any{StatusBadgeClass(a.Status) + " shrink-0"}
 				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var18...)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -318,7 +318,7 @@ func CommandSearch(data viewmodels.LayoutData) templ.Component {
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(a.Status)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `command.templ`, Line: 77, Col: 80}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `command.templ`, Line: 77, Col: 76}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {

@@ -188,7 +188,8 @@ func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, deps registry.In
 			continue
 		}
 
-		if _, err := deps.Q.UpsertIdPUsersBulk(ctx, gen.UpsertIdPUsersBulkParams{
+		if _, err := deps.Q.UpsertOktaAccountsBulk(ctx, gen.UpsertOktaAccountsBulkParams{
+			SourceName:       i.sourceName,
 			SeenInRunID:      runID,
 			ExternalIds:      externalIDs,
 			Emails:           emails,

@@ -101,7 +101,13 @@ ON CONFLICT (external_id) DO UPDATE SET
 ;
 
 -- name: UpsertOktaUserGroupsBulkByExternalIDs :execrows
-WITH input AS (
+WITH run_source AS (
+  SELECT sr.source_name
+  FROM sync_runs sr
+  WHERE sr.id = sqlc.arg(seen_in_run_id)::bigint
+  LIMIT 1
+),
+input AS (
   SELECT
     i,
     (sqlc.arg(idp_user_external_ids)::text[])[i] AS idp_user_external_id,
@@ -115,22 +121,32 @@ dedup AS (
   FROM input
   ORDER BY idp_user_external_id, okta_group_external_id, i DESC
 )
-INSERT INTO okta_user_groups (idp_user_id, okta_group_id, seen_in_run_id, seen_at)
+INSERT INTO okta_user_groups (okta_user_account_id, okta_group_id, seen_in_run_id, seen_at)
 SELECT
   iu.id,
   og.id,
   sqlc.arg(seen_in_run_id)::bigint,
   now()
 FROM dedup d
-JOIN idp_users iu ON iu.external_id = d.idp_user_external_id
+JOIN run_source rs ON TRUE
+JOIN accounts iu
+  ON iu.source_kind = 'okta'
+  AND iu.source_name = rs.source_name
+  AND iu.external_id = d.idp_user_external_id
 JOIN okta_groups og ON og.external_id = d.okta_group_external_id
-ON CONFLICT (idp_user_id, okta_group_id) DO UPDATE SET
+ON CONFLICT (okta_user_account_id, okta_group_id) DO UPDATE SET
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at
 ;
 
 -- name: UpsertOktaUserAppAssignmentsBulkByExternalIDs :execrows
-WITH input AS (
+WITH run_source AS (
+  SELECT sr.source_name
+  FROM sync_runs sr
+  WHERE sr.id = sqlc.arg(seen_in_run_id)::bigint
+  LIMIT 1
+),
+input AS (
   SELECT
     i,
     (sqlc.arg(idp_user_external_ids)::text[])[i] AS idp_user_external_id,
@@ -151,7 +167,7 @@ dedup AS (
   ORDER BY idp_user_external_id, okta_app_external_id, i DESC
 )
 INSERT INTO okta_user_app_assignments (
-  idp_user_id,
+  okta_user_account_id,
   okta_app_id,
   scope,
   profile_json,
@@ -170,9 +186,13 @@ SELECT
   now(),
   now()
 FROM dedup input
-JOIN idp_users iu ON iu.external_id = input.idp_user_external_id
+JOIN run_source rs ON TRUE
+JOIN accounts iu
+  ON iu.source_kind = 'okta'
+  AND iu.source_name = rs.source_name
+  AND iu.external_id = input.idp_user_external_id
 JOIN okta_apps oa ON oa.external_id = input.okta_app_external_id
-ON CONFLICT (idp_user_id, okta_app_id) DO UPDATE SET
+ON CONFLICT (okta_user_account_id, okta_app_id) DO UPDATE SET
   scope = EXCLUDED.scope,
   profile_json = EXCLUDED.profile_json,
   raw_json = EXCLUDED.raw_json,
@@ -237,7 +257,7 @@ ON CONFLICT (okta_app_id, okta_group_id) DO UPDATE SET
 SELECT og.*
 FROM okta_groups og
 JOIN okta_user_groups ug ON ug.okta_group_id = og.id
-WHERE ug.idp_user_id = $1
+WHERE ug.okta_user_account_id = $1
   AND og.expired_at IS NULL
   AND og.last_observed_run_id IS NOT NULL
   AND ug.expired_at IS NULL
@@ -246,7 +266,7 @@ ORDER BY og.name, og.external_id;
 
 -- name: ListOktaUserAppAssignmentsForIdpUser :many
 SELECT
-  ouaa.idp_user_id,
+  ouaa.okta_user_account_id AS idp_user_id,
   ouaa.okta_app_id,
   ouaa.scope,
   ouaa.profile_json,
@@ -260,7 +280,7 @@ SELECT
 FROM okta_user_app_assignments ouaa
 JOIN okta_apps oa ON oa.id = ouaa.okta_app_id
 LEFT JOIN integration_okta_app_map m ON m.okta_app_external_id = oa.external_id
-WHERE ouaa.idp_user_id = $1
+WHERE ouaa.okta_user_account_id = $1
   AND ouaa.expired_at IS NULL
   AND ouaa.last_observed_run_id IS NOT NULL
   AND oa.expired_at IS NULL
@@ -380,7 +400,7 @@ WHERE oa.external_id = $1
 -- name: CountOktaAppUserAssignmentsByQuery :one
 SELECT count(*)
 FROM okta_user_app_assignments ouaa
-JOIN idp_users u ON u.id = ouaa.idp_user_id
+JOIN accounts u ON u.id = ouaa.okta_user_account_id
 WHERE
   ouaa.okta_app_id = sqlc.arg(okta_app_id)
   AND ouaa.expired_at IS NULL
@@ -409,7 +429,7 @@ SELECT
   ouaa.scope,
   ouaa.profile_json
 FROM okta_user_app_assignments ouaa
-JOIN idp_users u ON u.id = ouaa.idp_user_id
+JOIN accounts u ON u.id = ouaa.okta_user_account_id
 WHERE
   ouaa.okta_app_id = sqlc.arg(okta_app_id)
   AND ouaa.expired_at IS NULL
@@ -433,7 +453,7 @@ OFFSET sqlc.arg(page_offset)::int;
 
 -- name: ListOktaAppGrantingGroupsForIdpUsers :many
 SELECT
-  ug.idp_user_id,
+  ug.okta_user_account_id AS idp_user_id,
   og.name AS okta_group_name,
   og.external_id AS okta_group_external_id
 FROM okta_user_groups ug
@@ -447,12 +467,12 @@ WHERE
   AND oga.last_observed_run_id IS NOT NULL
   AND og.expired_at IS NULL
   AND og.last_observed_run_id IS NOT NULL
-  AND ug.idp_user_id = ANY(sqlc.arg(idp_user_ids)::bigint[])
-ORDER BY ug.idp_user_id, og.name, og.external_id;
+  AND ug.okta_user_account_id = ANY(sqlc.arg(idp_user_ids)::bigint[])
+ORDER BY ug.okta_user_account_id, og.name, og.external_id;
 
 -- name: GetOktaUserAppAssignmentForIdpUserByOktaAppExternalID :one
 SELECT
-  ouaa.idp_user_id,
+  ouaa.okta_user_account_id AS idp_user_id,
   ouaa.okta_app_id,
   ouaa.scope,
   ouaa.profile_json,
@@ -467,7 +487,7 @@ FROM okta_user_app_assignments ouaa
 JOIN okta_apps oa ON oa.id = ouaa.okta_app_id
 LEFT JOIN integration_okta_app_map m ON m.okta_app_external_id = oa.external_id
 WHERE
-  ouaa.idp_user_id = sqlc.arg(idp_user_id)
+  ouaa.okta_user_account_id = sqlc.arg(idp_user_id)
   AND ouaa.expired_at IS NULL
   AND ouaa.last_observed_run_id IS NOT NULL
   AND oa.external_id = sqlc.arg(okta_app_external_id)
@@ -484,7 +504,7 @@ JOIN okta_app_group_assignments oga ON oga.okta_group_id = ug.okta_group_id
 JOIN okta_groups og ON og.id = ug.okta_group_id
 JOIN okta_apps oa ON oa.id = oga.okta_app_id
 WHERE
-  ug.idp_user_id = sqlc.arg(idp_user_id)
+  ug.okta_user_account_id = sqlc.arg(idp_user_id)
   AND ug.expired_at IS NULL
   AND ug.last_observed_run_id IS NOT NULL
   AND oga.expired_at IS NULL

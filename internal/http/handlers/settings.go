@@ -11,6 +11,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
+	"github.com/open-sspm/open-sspm/internal/identity"
 	"github.com/open-sspm/open-sspm/internal/sync"
 )
 
@@ -96,8 +97,13 @@ func (h *Handlers) HandleConnectorAction(c *echo.Context) error {
 	if len(parts) == 1 {
 		return h.handleConnectorSave(c, kind)
 	}
-	if len(parts) == 2 && parts[1] == "toggle" {
-		return h.handleConnectorToggle(c, kind)
+	if len(parts) == 2 {
+		switch parts[1] {
+		case "toggle":
+			return h.handleConnectorToggle(c, kind)
+		case "authoritative":
+			return h.handleConnectorAuthoritativeToggle(c, kind)
+		}
 	}
 	return RenderNotFound(c)
 }
@@ -270,6 +276,52 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 	return c.Redirect(http.StatusSeeOther, "/settings/connectors?saved="+kind)
 }
 
+func (h *Handlers) handleConnectorAuthoritativeToggle(c *echo.Context, kind string) error {
+	addVary(c, "HX-Request")
+
+	kind = NormalizeConnectorKind(kind)
+	if kind != configstore.KindOkta && kind != configstore.KindEntra {
+		return RenderNotFound(c)
+	}
+
+	ctx := c.Request().Context()
+	sourceName, err := h.authoritativeSourceName(ctx, kind)
+	if err != nil {
+		if isHX(c) {
+			setFlashToast(c, viewmodels.ToastViewData{
+				Category:    "error",
+				Title:       "Authoritative source unavailable",
+				Description: err.Error(),
+			})
+			setHXRedirect(c, "/settings/connectors?open="+kind)
+			return c.NoContent(http.StatusOK)
+		}
+		return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
+	}
+
+	enabled := ParseBoolForm(c.FormValue("authoritative"))
+	if _, err := h.Q.UpsertIdentitySourceSetting(ctx, gen.UpsertIdentitySourceSettingParams{
+		SourceKind:      kind,
+		SourceName:      sourceName,
+		IsAuthoritative: enabled,
+	}); err != nil {
+		return h.RenderError(c, err)
+	}
+
+	if _, err := identity.Resolve(ctx, h.Q); err != nil {
+		return h.RenderError(c, err)
+	}
+
+	if isHX(c) {
+		data, err := h.buildConnectorsViewData(ctx, c, "", "", nil)
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		return h.renderConnectorCard(c, kind, data)
+	}
+	return c.Redirect(http.StatusSeeOther, "/settings/connectors?saved="+kind)
+}
+
 func (h *Handlers) renderConnectorsPage(c *echo.Context, openKind, savedKind string, alert *viewmodels.ConnectorAlert) error {
 	data, err := h.buildConnectorsViewData(c.Request().Context(), c, openKind, savedKind, alert)
 	if err != nil {
@@ -302,6 +354,14 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context,
 	if err != nil {
 		return viewmodels.ConnectorsViewData{}, err
 	}
+	sourceSettings, err := h.Q.ListIdentitySourceSettings(ctx)
+	if err != nil {
+		return viewmodels.ConnectorsViewData{}, err
+	}
+	authoritativeBySource := make(map[string]bool, len(sourceSettings))
+	for _, source := range sourceSettings {
+		authoritativeBySource[sourceKey(source.SourceKind, source.SourceName)] = source.IsAuthoritative
+	}
 
 	var data viewmodels.ConnectorsViewData
 
@@ -310,12 +370,21 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context,
 		switch state.Definition.Kind() {
 		case configstore.KindOkta:
 			if cfg, ok := state.Config.(configstore.OktaConfig); ok {
+				sourceName := strings.TrimSpace(cfg.Domain)
+				if sourceName == "" {
+					sourceName = "okta"
+				}
+				authoritative, exists := authoritativeBySource[sourceKey(configstore.KindOkta, sourceName)]
+				if !exists && state.Configured {
+					authoritative = true
+				}
 				data.Okta = viewmodels.OktaConnectorViewData{
-					Enabled:     state.Enabled,
-					Configured:  state.Configured,
-					Domain:      cfg.Domain,
-					TokenMasked: configstore.MaskSecret(cfg.Token),
-					HasToken:    cfg.Token != "",
+					Enabled:       state.Enabled,
+					Configured:    state.Configured,
+					Domain:        cfg.Domain,
+					TokenMasked:   configstore.MaskSecret(cfg.Token),
+					HasToken:      cfg.Token != "",
+					Authoritative: authoritative,
 				}
 			}
 		case configstore.KindGitHub:
@@ -363,6 +432,8 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context,
 			}
 		case configstore.KindEntra:
 			if cfg, ok := state.Config.(configstore.EntraConfig); ok {
+				sourceName := strings.TrimSpace(cfg.TenantID)
+				authoritative := authoritativeBySource[sourceKey(configstore.KindEntra, sourceName)]
 				data.Entra = viewmodels.EntraConnectorViewData{
 					Enabled:            state.Enabled,
 					Configured:         state.Configured,
@@ -370,6 +441,7 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context,
 					ClientID:           cfg.ClientID,
 					ClientSecretMasked: configstore.MaskSecret(cfg.ClientSecret),
 					HasClientSecret:    cfg.ClientSecret != "",
+					Authoritative:      authoritative,
 				}
 			}
 		case configstore.KindVault:
@@ -444,6 +516,42 @@ func validateConnectorConfig(kind string, raw []byte) error {
 	default:
 		return errors.New("unknown connector")
 	}
+}
+
+func (h *Handlers) authoritativeSourceName(ctx context.Context, kind string) (string, error) {
+	cfg, err := h.Q.GetConnectorConfig(ctx, kind)
+	if err != nil {
+		return "", err
+	}
+
+	switch NormalizeConnectorKind(kind) {
+	case configstore.KindOkta:
+		oktaCfg, err := configstore.DecodeOktaConfig(cfg.Config)
+		if err != nil {
+			return "", err
+		}
+		sourceName := strings.TrimSpace(oktaCfg.Normalized().Domain)
+		if sourceName == "" {
+			sourceName = "okta"
+		}
+		return sourceName, nil
+	case configstore.KindEntra:
+		entraCfg, err := configstore.DecodeEntraConfig(cfg.Config)
+		if err != nil {
+			return "", err
+		}
+		sourceName := strings.TrimSpace(entraCfg.Normalized().TenantID)
+		if sourceName == "" {
+			return "", errors.New("configure the Entra tenant ID before enabling authoritative mode")
+		}
+		return sourceName, nil
+	default:
+		return "", errors.New("connector does not support authoritative identity settings")
+	}
+}
+
+func sourceKey(kind, name string) string {
+	return strings.ToLower(strings.TrimSpace(kind)) + "::" + strings.ToLower(strings.TrimSpace(name))
 }
 
 // HandleResync triggers a manual resync.

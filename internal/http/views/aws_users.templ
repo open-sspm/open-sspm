@@ -9,7 +9,7 @@ templ AWSUsersPage(data viewmodels.AWSUsersViewData) {
 			{Label: "AWS Identity Center users"},
 		}, "Synced AWS Identity Center users and their account assignments.") {
 			if data.Layout.AWSIdentityCenterConfigured && data.Layout.AWSIdentityCenterEnabled {
-				<a class="btn-sm-outline" href="/unmatched/aws">Unmatched</a>
+				<a class="btn-sm-outline" href="/unmatched/aws">Unmanaged</a>
 			} else {
 				<a class="btn-sm-outline" href="/settings/connectors?open=aws_identity_center">Configure</a>
 			}
@@ -18,8 +18,8 @@ templ AWSUsersPage(data viewmodels.AWSUsersViewData) {
 		if data.Layout.AWSIdentityCenterConfigured && data.Layout.AWSIdentityCenterEnabled {
 			@Alert("Linking", false) {
 				<p>
-					Linked users let you jump straight to their Okta identity page. Unlinked users show “—”. Use
-					<a class="btn-sm-link px-1" href="/unmatched/aws">Unmatched</a>
+					Linked users let you jump straight to their identity page. Unlinked users show “—”. Use
+					<a class="btn-sm-link px-1" href="/unmatched/aws">Unmanaged</a>
 					to link.
 				</p>
 			}
@@ -71,7 +71,7 @@ templ AWSUsersPage(data viewmodels.AWSUsersViewData) {
 								<th>User</th>
 								<th>Email</th>
 								<th>AWS accounts</th>
-								<th>Okta</th>
+								<th>Identity</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -101,7 +101,7 @@ templ AWSUsersPage(data viewmodels.AWSUsersViewData) {
 										</td>
 										<td>
 											if u.IdpUserID > 0 {
-												<a class="btn-sm-link" href={ "/idp-users/" + FormatInt64(u.IdpUserID) }>{ "Okta #" }{ FormatInt64(u.IdpUserID) }</a>
+												<a class="btn-sm-link" href={ "/identities/" + FormatInt64(u.IdpUserID) }>{ "Identity #" }{ FormatInt64(u.IdpUserID) }</a>
 											} else {
 												<span class="text-muted-foreground">&mdash;</span>
 											}

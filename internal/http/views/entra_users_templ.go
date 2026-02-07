@@ -56,7 +56,7 @@ func EntraUsersPage(data viewmodels.EntraUsersViewData) templ.Component {
 				}
 				ctx = templ.InitializeContext(ctx)
 				if data.Layout.EntraConfigured && data.Layout.EntraEnabled {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<a class=\"btn-sm-outline\" href=\"/unmatched/entra\">Unmatched</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<a class=\"btn-sm-outline\" href=\"/unmatched/entra\">Unmanaged</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -92,7 +92,7 @@ func EntraUsersPage(data viewmodels.EntraUsersViewData) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<p>Linked users let you jump straight to their Okta identity page. Unlinked users show “—”. Use <a class=\"btn-sm-link px-1\" href=\"/unmatched/entra\">Unmatched</a> to link.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<p>Linked users let you jump straight to their identity page. Unlinked users show “—”. Use <a class=\"btn-sm-link px-1\" href=\"/unmatched/entra\">Unmanaged</a> to link.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -245,7 +245,7 @@ func EntraUsersPage(data viewmodels.EntraUsersViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</span></header><section><div class=\"overflow-x-auto\"><table class=\"table\"><thead><tr><th>User</th><th>Email</th><th>Directory roles</th><th>Enterprise apps</th><th>Okta</th></tr></thead> <tbody>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</span></header><section><div class=\"overflow-x-auto\"><table class=\"table\"><thead><tr><th>User</th><th>Email</th><th>Directory roles</th><th>Enterprise apps</th><th>Identity</th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -343,9 +343,9 @@ func EntraUsersPage(data viewmodels.EntraUsersViewData) templ.Component {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var21 templ.SafeURL
-						templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinURLErrs("/idp-users/" + FormatInt64(u.IdpUserID))
+						templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinURLErrs("/identities/" + FormatInt64(u.IdpUserID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 105, Col: 82}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 105, Col: 83}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 						if templ_7745c5c3_Err != nil {
@@ -356,9 +356,9 @@ func EntraUsersPage(data viewmodels.EntraUsersViewData) templ.Component {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var22 string
-						templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs("Okta #")
+						templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs("Identity #")
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 105, Col: 95}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 105, Col: 100}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 						if templ_7745c5c3_Err != nil {
@@ -367,7 +367,7 @@ func EntraUsersPage(data viewmodels.EntraUsersViewData) templ.Component {
 						var templ_7745c5c3_Var23 string
 						templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(u.IdpUserID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 105, Col: 123}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 105, Col: 128}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 						if templ_7745c5c3_Err != nil {

@@ -35,6 +35,7 @@ func RuntimeCapabilities(p RouterProvider) []runtimev2.DatasetRef {
 	if p.Normalized != nil {
 		for _, ds := range normalizedCapabilitiesV2 {
 			out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: 1})
+			out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: 2})
 		}
 	}
 

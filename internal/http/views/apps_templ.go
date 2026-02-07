@@ -249,7 +249,7 @@ func AppsPage(data viewmodels.AppsViewData) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var17 = []any{OktaStatusBadgeClass(a.Status)}
+					var templ_7745c5c3_Var17 = []any{StatusBadgeClass(a.Status)}
 					templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var17...)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
@@ -274,7 +274,7 @@ func AppsPage(data viewmodels.AppsViewData) templ.Component {
 					var templ_7745c5c3_Var19 string
 					templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(a.Status)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `apps.templ`, Line: 71, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `apps.templ`, Line: 71, Col: 67}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 					if templ_7745c5c3_Err != nil {

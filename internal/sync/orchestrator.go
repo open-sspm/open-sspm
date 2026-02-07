@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	"github.com/open-sspm/open-sspm/internal/matching"
+	"github.com/open-sspm/open-sspm/internal/identity"
 	"github.com/open-sspm/open-sspm/internal/metrics"
 	"github.com/open-sspm/open-sspm/internal/rules/datasets"
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
@@ -132,19 +132,6 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 		}
 	}
 
-	var apps []registry.Integration
-	for _, i := range integrations {
-		if i.Role() == registry.RoleApp {
-			apps = append(apps, i)
-		}
-	}
-
-	autoLinkTotal := int64(len(apps))
-	if autoLinkTotal > 0 {
-		slog.Info("matching auto-linking by email", "apps", autoLinkTotal)
-		o.report(registry.Event{Source: "matching", Stage: "auto-link", Current: 0, Total: autoLinkTotal, Message: "auto-linking by email"})
-	}
-
 	var (
 		g    errgroup.Group
 		errs []error
@@ -217,26 +204,28 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 
 	_ = g.Wait()
 
-	if autoLinkTotal > 0 {
-		var autoLinkDone int64
-		for _, app := range apps {
-			n, err := matching.AutoLinkByEmail(ctx, o.q, app.Kind(), app.Name())
-			autoLinkDone++
-			if err != nil {
-				err = fmt.Errorf("auto-link %s: %w", strings.TrimSpace(app.Kind()), err)
-				o.report(registry.Event{Source: "matching", Stage: "auto-link", Current: autoLinkDone, Total: autoLinkTotal, Message: err.Error(), Err: err})
-				slog.Error("matching auto-link failed", "kind", strings.TrimSpace(app.Kind()), "name", strings.TrimSpace(app.Name()), "err", err)
-				errs = append(errs, err)
-			} else {
-				metrics.AutoLinksTotal.WithLabelValues(app.Kind(), app.Name()).Add(float64(n))
-				slog.Info("matching auto-link complete", "kind", strings.TrimSpace(app.Kind()), "name", strings.TrimSpace(app.Name()), "new_links", n)
-				o.report(registry.Event{Source: "matching", Stage: "auto-link", Current: autoLinkDone, Total: autoLinkTotal, Message: fmt.Sprintf("%s auto-link: %d new links", strings.TrimSpace(app.Kind()), n)})
-			}
+	o.report(registry.Event{Source: "identity", Stage: "resolve", Current: 0, Total: 1, Message: "resolving identity graph"})
+	resolveStats, resolveErr := identity.Resolve(ctx, o.q)
+	if resolveErr != nil {
+		resolveErr = fmt.Errorf("identity resolve: %w", resolveErr)
+		errs = append(errs, resolveErr)
+		slog.Error("identity resolution failed", "err", resolveErr)
+		o.report(registry.Event{Source: "identity", Stage: "resolve", Current: 1, Total: 1, Message: resolveErr.Error(), Err: resolveErr})
+	} else {
+		if resolveStats.AutoLinked > 0 {
+			metrics.AutoLinksTotal.WithLabelValues("identity", "resolver").Add(float64(resolveStats.AutoLinked))
 		}
+		o.report(registry.Event{
+			Source:  "identity",
+			Stage:   "resolve",
+			Current: 1,
+			Total:   1,
+			Message: fmt.Sprintf("identity resolution: linked=%d created=%d updated=%d", resolveStats.AutoLinked, resolveStats.NewIdentities, resolveStats.UpdatedIdentites),
+		})
 	}
 
 	// Run all compliance ruleset evaluations *after* all connectors have synced
-	// and accounts have been auto-linked.
+	// and identities have been resolved.
 	for _, i := range integrations {
 		eval, ok := i.(registry.ComplianceEvaluator)
 		if !ok {

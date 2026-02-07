@@ -131,7 +131,7 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var8 = []any{OktaStatusBadgeClass(data.App.Status)}
+			var templ_7745c5c3_Var8 = []any{StatusBadgeClass(data.App.Status)}
 			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var8...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -156,7 +156,7 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.Status)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_app_show.templ`, Line: 37, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_app_show.templ`, Line: 37, Col: 77}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -388,7 +388,7 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var25 = []any{OktaStatusBadgeClass(u.UserStatus)}
+					var templ_7745c5c3_Var25 = []any{StatusBadgeClass(u.UserStatus)}
 					templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var25...)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
@@ -413,7 +413,7 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 					var templ_7745c5c3_Var27 string
 					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(u.UserStatus)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_app_show.templ`, Line: 111, Col: 79}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_app_show.templ`, Line: 111, Col: 75}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 					if templ_7745c5c3_Err != nil {

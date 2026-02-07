@@ -68,7 +68,7 @@ templ AppsPage(data viewmodels.AppsViewData) {
 												<div class="text-xs text-muted-foreground">{ a.Name }</div>
 											}
 										</td>
-										<td><span class={ OktaStatusBadgeClass(a.Status) }>{ a.Status }</span></td>
+										<td><span class={ StatusBadgeClass(a.Status) }>{ a.Status }</span></td>
 										<td class="text-muted-foreground">{ a.SignOnMode }</td>
 										<td>
 											if a.IntegratedHref != "" {

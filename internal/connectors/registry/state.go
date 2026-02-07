@@ -96,7 +96,7 @@ func (s *ConnectorState) MetricsKV() []viewmodels.GlobalViewKV {
 		return []viewmodels.GlobalViewKV{
 			{Label: "Status", Value: s.StatusLabel()},
 			{Label: "Accounts", Value: "—"},
-			{Label: "Unmatched", Value: "—"},
+			{Label: "Unmanaged", Value: "—"},
 		}
 	}
 
@@ -110,8 +110,8 @@ func (s *ConnectorState) MetricsKV() []viewmodels.GlobalViewKV {
 
 	return []viewmodels.GlobalViewKV{
 		{Label: "Accounts", Value: views.FormatInt64(s.Metrics.Total)},
-		{Label: "Matched", Value: views.FormatInt64(s.Metrics.Matched)},
-		{Label: "Unmatched", Value: views.FormatInt64(s.Metrics.Unmatched)},
+		{Label: "Managed", Value: views.FormatInt64(s.Metrics.Matched)},
+		{Label: "Unmanaged", Value: views.FormatInt64(s.Metrics.Unmatched)},
 	}
 }
 
@@ -138,8 +138,8 @@ func (s *ConnectorState) HighlightsKV() []viewmodels.GlobalViewKV {
 
 	return []viewmodels.GlobalViewKV{
 		{Label: "Coverage", Value: fmt.Sprintf("%d%%", s.CoverageScore())},
-		{Label: "Matched", Value: views.FormatInt64(s.Metrics.Matched)},
-		{Label: "Unmatched", Value: views.FormatInt64(s.Metrics.Unmatched)},
+		{Label: "Managed", Value: views.FormatInt64(s.Metrics.Matched)},
+		{Label: "Unmanaged", Value: views.FormatInt64(s.Metrics.Unmatched)},
 	}
 }
 
@@ -198,11 +198,11 @@ func (s *ConnectorState) SecondaryLabel() string {
 		case "okta":
 			return "Browse apps"
 		case "entra":
-			return "Unmatched"
+			return "Unmanaged"
 		case "github", "datadog":
-			return "Unmatched"
+			return "Unmanaged"
 		case "aws_identity_center":
-			return "Unmatched"
+			return "Unmanaged"
 		}
 	}
 	return ""

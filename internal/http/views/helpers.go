@@ -38,7 +38,7 @@ func ListURL(baseHref string, query string, state string, page int) string {
 	return baseHref + "?" + values.Encode()
 }
 
-func OktaStatusBadgeClass(status string) string {
+func StatusBadgeClass(status string) string {
 	switch strings.ToUpper(strings.TrimSpace(status)) {
 	case "ACTIVE":
 		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"

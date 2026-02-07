@@ -12,13 +12,13 @@ type LinkedEntitlementView struct {
 }
 
 type LinkedAppView struct {
-	AppUser      gen.AppUser
+	AppUser      gen.Account
 	Entitlements []LinkedEntitlementView
 }
 
 type IdPUserShowViewData struct {
 	Layout          LayoutData
-	User            gen.IdpUser
+	User            gen.Account
 	OktaAssignments []OktaAssignmentView
 	OktaAppCount    int
 	LinkedApps      []LinkedAppView

@@ -7,28 +7,30 @@ package gen
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const bulkAutoLinkByEmail = `-- name: BulkAutoLinkByEmail :execrows
-INSERT INTO identity_links (idp_user_id, app_user_id, link_reason)
+INSERT INTO identity_accounts (identity_id, account_id, link_reason, confidence, updated_at)
 SELECT DISTINCT ON (au.id)
-  iu.id,
+  i.id,
   au.id,
-  'auto_email'
-FROM app_users au
-JOIN idp_users iu ON iu.email = au.email
-LEFT JOIN identity_links il ON il.app_user_id = au.id
+  'auto_email',
+  1.0,
+  now()
+FROM accounts au
+JOIN identities i ON lower(trim(i.primary_email)) = lower(trim(au.email))
+LEFT JOIN identity_accounts ia ON ia.account_id = au.id
 WHERE au.source_kind = $1
   AND au.source_name = $2
   AND au.email <> ''
-  AND iu.email <> ''
+  AND i.primary_email <> ''
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
-  AND iu.expired_at IS NULL
-  AND iu.last_observed_run_id IS NOT NULL
-  AND il.id IS NULL
-ORDER BY au.id, (iu.status = 'ACTIVE') DESC, iu.id ASC
-ON CONFLICT (app_user_id) DO NOTHING
+  AND ia.id IS NULL
+ORDER BY au.id, i.id ASC
+ON CONFLICT (account_id) DO NOTHING
 `
 
 type BulkAutoLinkByEmailParams struct {
@@ -45,23 +47,40 @@ func (q *Queries) BulkAutoLinkByEmail(ctx context.Context, arg BulkAutoLinkByEma
 }
 
 const createIdentityLink = `-- name: CreateIdentityLink :one
-INSERT INTO identity_links (idp_user_id, app_user_id, link_reason)
-VALUES ($1, $2, $3)
-ON CONFLICT (app_user_id) DO UPDATE SET
-  idp_user_id = EXCLUDED.idp_user_id,
-  link_reason = EXCLUDED.link_reason
-RETURNING id, idp_user_id, app_user_id, link_reason, created_at
+
+INSERT INTO identity_accounts (identity_id, account_id, link_reason, confidence, updated_at)
+VALUES ($1, $2, $3, 1.0, now())
+ON CONFLICT (account_id) DO UPDATE SET
+  identity_id = EXCLUDED.identity_id,
+  link_reason = EXCLUDED.link_reason,
+  confidence = EXCLUDED.confidence,
+  updated_at = EXCLUDED.updated_at
+RETURNING
+  id,
+  identity_id AS idp_user_id,
+  account_id AS app_user_id,
+  link_reason,
+  created_at
 `
 
 type CreateIdentityLinkParams struct {
-	IdpUserID  int64  `json:"idp_user_id"`
-	AppUserID  int64  `json:"app_user_id"`
+	IdentityID int64  `json:"identity_id"`
+	AccountID  int64  `json:"account_id"`
 	LinkReason string `json:"link_reason"`
 }
 
-func (q *Queries) CreateIdentityLink(ctx context.Context, arg CreateIdentityLinkParams) (IdentityLink, error) {
-	row := q.db.QueryRow(ctx, createIdentityLink, arg.IdpUserID, arg.AppUserID, arg.LinkReason)
-	var i IdentityLink
+type CreateIdentityLinkRow struct {
+	ID         int64              `json:"id"`
+	IdpUserID  int64              `json:"idp_user_id"`
+	AppUserID  int64              `json:"app_user_id"`
+	LinkReason string             `json:"link_reason"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+// Compatibility query names on top of identity_accounts.
+func (q *Queries) CreateIdentityLink(ctx context.Context, arg CreateIdentityLinkParams) (CreateIdentityLinkRow, error) {
+	row := q.db.QueryRow(ctx, createIdentityLink, arg.IdentityID, arg.AccountID, arg.LinkReason)
+	var i CreateIdentityLinkRow
 	err := row.Scan(
 		&i.ID,
 		&i.IdpUserID,
@@ -73,12 +92,27 @@ func (q *Queries) CreateIdentityLink(ctx context.Context, arg CreateIdentityLink
 }
 
 const getIdentityLinkByAppUser = `-- name: GetIdentityLinkByAppUser :one
-SELECT id, idp_user_id, app_user_id, link_reason, created_at FROM identity_links WHERE app_user_id = $1
+SELECT
+  ia.id,
+  ia.identity_id AS idp_user_id,
+  ia.account_id AS app_user_id,
+  ia.link_reason,
+  ia.created_at
+FROM identity_accounts ia
+WHERE ia.account_id = $1
 `
 
-func (q *Queries) GetIdentityLinkByAppUser(ctx context.Context, appUserID int64) (IdentityLink, error) {
-	row := q.db.QueryRow(ctx, getIdentityLinkByAppUser, appUserID)
-	var i IdentityLink
+type GetIdentityLinkByAppUserRow struct {
+	ID         int64              `json:"id"`
+	IdpUserID  int64              `json:"idp_user_id"`
+	AppUserID  int64              `json:"app_user_id"`
+	LinkReason string             `json:"link_reason"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetIdentityLinkByAppUser(ctx context.Context, accountID int64) (GetIdentityLinkByAppUserRow, error) {
+	row := q.db.QueryRow(ctx, getIdentityLinkByAppUser, accountID)
+	var i GetIdentityLinkByAppUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.IdpUserID,
@@ -90,24 +124,24 @@ func (q *Queries) GetIdentityLinkByAppUser(ctx context.Context, appUserID int64)
 }
 
 const listLinkedAppUsersForIdPUser = `-- name: ListLinkedAppUsersForIdPUser :many
-SELECT au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id
-FROM app_users au
-JOIN identity_links il ON il.app_user_id = au.id
-WHERE il.idp_user_id = $1
+SELECT au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status
+FROM accounts au
+JOIN identity_accounts ia ON ia.account_id = au.id
+WHERE ia.identity_id = $1
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
 ORDER BY au.source_kind, au.source_name, au.external_id
 `
 
-func (q *Queries) ListLinkedAppUsersForIdPUser(ctx context.Context, idpUserID int64) ([]AppUser, error) {
-	rows, err := q.db.Query(ctx, listLinkedAppUsersForIdPUser, idpUserID)
+func (q *Queries) ListLinkedAppUsersForIdPUser(ctx context.Context, identityID int64) ([]Account, error) {
+	rows, err := q.db.Query(ctx, listLinkedAppUsersForIdPUser, identityID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []AppUser
+	var items []Account
 	for rows.Next() {
-		var i AppUser
+		var i Account
 		if err := rows.Scan(
 			&i.ID,
 			&i.SourceKind,
@@ -127,6 +161,7 @@ func (q *Queries) ListLinkedAppUsersForIdPUser(ctx context.Context, idpUserID in
 			&i.LastObservedAt,
 			&i.ExpiredAt,
 			&i.ExpiredRunID,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}

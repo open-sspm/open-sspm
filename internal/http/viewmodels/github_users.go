@@ -20,7 +20,7 @@ type GitHubUsersViewData struct {
 
 type UnmatchedGitHubViewData struct {
 	Layout         LayoutData
-	Users          []gen.AppUser
+	Users          []gen.Account
 	Query          string
 	ShowingCount   int
 	ShowingFrom    int

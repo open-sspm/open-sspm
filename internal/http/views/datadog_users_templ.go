@@ -69,7 +69,7 @@ func DatadogUsersPage(data viewmodels.DatadogUsersViewData) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\">Unmatched</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\">Unmanaged</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -289,7 +289,7 @@ func DatadogUsersPage(data viewmodels.DatadogUsersViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					if u.Status != "" {
-						var templ_7745c5c3_Var17 = []any{OktaStatusBadgeClass(u.Status)}
+						var templ_7745c5c3_Var17 = []any{StatusBadgeClass(u.Status)}
 						templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var17...)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
@@ -314,7 +314,7 @@ func DatadogUsersPage(data viewmodels.DatadogUsersViewData) templ.Component {
 						var templ_7745c5c3_Var19 string
 						templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(u.Status)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `datadog_users.templ`, Line: 83, Col: 69}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `datadog_users.templ`, Line: 83, Col: 65}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 						if templ_7745c5c3_Err != nil {
