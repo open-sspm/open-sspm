@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	runtimev1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v1"
-	osspecv1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v1"
+	runtimev2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v2"
+	osspecv2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v2"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/metrics"
 )
@@ -117,7 +117,7 @@ func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, 
 		return nil, errors.New("engine: nil")
 	}
 
-	var def osspecv1.Rule
+	var def osspecv2.Rule
 	if err := json.Unmarshal(rule.DefinitionJson, &def); err != nil {
 		return &Evaluation{
 			Status:          "error",
@@ -137,14 +137,6 @@ func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, 
 			}),
 			AffectedResourceIDs: []string{},
 		}, nil
-	}
-
-	// Only evaluate v1 rules that provide a check.
-	if def.Check == nil {
-		return nil, nil
-	}
-	if strings.TrimSpace(string(def.Check.Type)) != "manual.attestation" && e.Datasets == nil {
-		return nil, errors.New("engine: missing dataset provider")
 	}
 
 	now := evalCtx.EvaluatedAt
@@ -176,9 +168,7 @@ func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, 
 					"ruleset_key": strings.TrimSpace(ruleset.Key),
 					"rule_key":    strings.TrimSpace(rule.Key),
 				},
-				"check": map[string]any{
-					"type": strings.TrimSpace(string(def.Check.Type)),
-				},
+				"check": checkSummary(def.Check),
 				"result": map[string]any{
 					"status": "not_applicable",
 				},
@@ -205,9 +195,7 @@ func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, 
 				"ruleset_key": strings.TrimSpace(ruleset.Key),
 				"rule_key":    strings.TrimSpace(rule.Key),
 			},
-			"check": map[string]any{
-				"type": strings.TrimSpace(string(def.Check.Type)),
-			},
+			"check": checkSummary(def.Check),
 			"result": map[string]any{
 				"status": status,
 			},
@@ -245,9 +233,7 @@ func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, 
 						"ruleset_key": strings.TrimSpace(ruleset.Key),
 						"rule_key":    strings.TrimSpace(rule.Key),
 					},
-					"check": map[string]any{
-						"type": strings.TrimSpace(string(def.Check.Type)),
-					},
+					"check": checkSummary(def.Check),
 					"result": map[string]any{
 						"status":     "error",
 						"error_kind": "invalid_params",
@@ -271,9 +257,7 @@ func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, 
 						"ruleset_key": strings.TrimSpace(ruleset.Key),
 						"rule_key":    strings.TrimSpace(rule.Key),
 					},
-					"check": map[string]any{
-						"type": strings.TrimSpace(string(def.Check.Type)),
-					},
+					"check":  checkSummary(def.Check),
 					"params": effectiveParams,
 					"result": map[string]any{
 						"status":     "error",
@@ -288,32 +272,6 @@ func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, 
 
 	out, err := e.evalCheck(ctx, strings.TrimSpace(ruleset.Key), strings.TrimSpace(rule.Key), evalCtx, def, effectiveParams)
 	if err != nil {
-		var paramErr ParamError
-		if errors.As(err, &paramErr) {
-			return &Evaluation{
-				Status:          "error",
-				ErrorKind:       "invalid_params",
-				EvidenceSummary: "Invalid parameters",
-				EvidenceJSON: mustJSON(map[string]any{
-					"schema_version": 1,
-					"rule": map[string]any{
-						"ruleset_key": strings.TrimSpace(ruleset.Key),
-						"rule_key":    strings.TrimSpace(rule.Key),
-					},
-					"check": map[string]any{
-						"type": strings.TrimSpace(string(def.Check.Type)),
-					},
-					"params": effectiveParams,
-					"result": map[string]any{
-						"status":     "error",
-						"error_kind": "invalid_params",
-					},
-					"error": err.Error(),
-				}),
-				AffectedResourceIDs: []string{},
-			}, nil
-		}
-
 		return &Evaluation{
 			Status:          "error",
 			ErrorKind:       "engine_error",
@@ -324,9 +282,7 @@ func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, 
 					"ruleset_key": strings.TrimSpace(ruleset.Key),
 					"rule_key":    strings.TrimSpace(rule.Key),
 				},
-				"check": map[string]any{
-					"type": strings.TrimSpace(string(def.Check.Type)),
-				},
+				"check":  checkSummary(def.Check),
 				"params": effectiveParams,
 				"result": map[string]any{
 					"status":     "error",
@@ -447,199 +403,38 @@ func (e *Engine) getActiveAttestation(ctx context.Context, ruleID int64, scopeKi
 }
 
 type selectionCounts struct {
-	Total    int `json:"total"`
 	Selected int `json:"selected"`
+	Passed   int `json:"passed"`
 }
 
-type violation struct {
-	ResourceID string `json:"resource_id"`
-	Display    string `json:"display,omitempty"`
-}
-
-func (e *Engine) evalCheck(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, rule osspecv1.Rule, params map[string]any) (*Evaluation, error) {
-	check := rule.Check
-	if check == nil {
-		return nil, nil
+func (e *Engine) evalCheck(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, rule osspecv2.Rule, params map[string]any) (*Evaluation, error) {
+	datasets, err := e.buildEvaluateDatasets(ctx, evalCtx, rule)
+	if err != nil {
+		return nil, err
 	}
 
-	switch strings.TrimSpace(string(check.Type)) {
-	case "manual.attestation":
-		return &Evaluation{
-			Status:          "unknown",
-			EvidenceSummary: "Manual check requires attestation",
-			EvidenceJSON: mustJSON(map[string]any{
-				"schema_version": 1,
-				"rule": map[string]any{
-					"ruleset_key": rulesetKey,
-					"rule_key":    ruleKey,
-				},
-				"check": map[string]any{
-					"type": "manual.attestation",
-				},
-				"params": params,
-				"result": map[string]any{
-					"status": "unknown",
-				},
-			}),
-			AffectedResourceIDs: []string{},
-		}, nil
-	case "dataset.field_compare":
-		return e.evalDatasetFieldCompare(ctx, rulesetKey, ruleKey, evalCtx, rule, params)
-	case "dataset.count_compare":
-		return e.evalDatasetCountCompare(ctx, rulesetKey, ruleKey, evalCtx, rule, params)
-	case "dataset.join_count_compare":
-		return e.evalDatasetJoinCountCompare(ctx, rulesetKey, ruleKey, evalCtx, rule, params)
-	default:
-		return nil, fmt.Errorf("unsupported check.type %q", strings.TrimSpace(string(check.Type)))
-	}
-}
-
-func (e *Engine) evalDatasetFieldCompare(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, rule osspecv1.Rule, params map[string]any) (*Evaluation, error) {
-	check := rule.Check
-	if check == nil {
-		return nil, nil
-	}
-	if check.Assert == nil {
-		return nil, errors.New("field_compare requires assert")
-	}
-
-	rows, ev, err := e.getDatasetOrResult(ctx, rulesetKey, ruleKey, evalCtx, *check, params)
-	if ev != nil || err != nil {
-		return ev, err
-	}
-
-	selected := make([]any, 0, len(rows))
-	for _, row := range rows {
-		ok, err := evalAllWhere(row, check.Where, params)
-		if err != nil {
-			return nil, err
-		}
-		if ok {
-			selected = append(selected, row)
-		}
-	}
-
-	minSelected := 0
-	onEmpty := "unknown"
-	match := "all"
-	if check.Expect != nil {
-		if check.Expect.MinSelected > 0 {
-			minSelected = check.Expect.MinSelected
-		}
-		if strings.TrimSpace(string(check.Expect.OnEmpty)) != "" {
-			onEmpty = strings.TrimSpace(string(check.Expect.OnEmpty))
-		}
-		if strings.TrimSpace(string(check.Expect.Match)) != "" {
-			match = strings.TrimSpace(string(check.Expect.Match))
-		}
-	}
-
-	selection := selectionCounts{Total: len(rows), Selected: len(selected)}
-	if len(selected) == 0 || len(selected) < minSelected {
-		status := onEmpty
-		errorKind := ""
-		if status == "" {
-			status = "unknown"
-		}
-		if status == "error" {
-			errorKind = "engine_error"
-		}
-		result := resultObject(status, errorKind)
-		return &Evaluation{
-			Status:          status,
-			ErrorKind:       errorKind,
-			EvidenceSummary: fmt.Sprintf("No matching records (selected=%d, min_selected=%d)", selection.Selected, minSelected),
-			EvidenceJSON: mustJSON(map[string]any{
-				"schema_version": 1,
-				"rule": map[string]any{
-					"ruleset_key": rulesetKey,
-					"rule_key":    ruleKey,
-				},
-				"check":     checkSummary(*check),
-				"params":    params,
-				"result":    result,
-				"selection": selection,
-			}),
-			AffectedResourceIDs: []string{},
-		}, nil
-	}
-
-	var (
-		passCount int
-		failures  []violation
-	)
-
-	idPath := ""
-	displayPath := ""
-	if rule.Evidence != nil && rule.Evidence.AffectedResources != nil {
-		idPath = strings.TrimSpace(rule.Evidence.AffectedResources.IDField)
-		displayPath = strings.TrimSpace(rule.Evidence.AffectedResources.DisplayField)
-	}
-	if idPath == "" {
-		idPath = "/id"
-	}
-
-	for _, row := range selected {
-		ok, err := evalSinglePredicate(row, check.Assert.Path, string(check.Assert.Op), predicateValue{
-			Value:      check.Assert.Value,
-			ValueParam: check.Assert.ValueParam,
-		}, params)
-		if err != nil {
-			return nil, err
-		}
-		if ok {
-			passCount++
-			continue
-		}
-
-		id := extractStringByPointer(row, idPath)
-		display := ""
-		if displayPath != "" {
-			display = extractStringByPointer(row, displayPath)
-		}
-		failures = append(failures, violation{ResourceID: id, Display: display})
-	}
-
-	selectedCount := len(selected)
-	pass := false
-	switch match {
-	case "any":
-		pass = passCount > 0
-	case "none":
-		pass = passCount == 0
-	default: // all
-		pass = passCount == selectedCount
-	}
-
-	sort.SliceStable(failures, func(i, j int) bool {
-		if failures[i].ResourceID != failures[j].ResourceID {
-			return failures[i].ResourceID < failures[j].ResourceID
-		}
-		return failures[i].Display < failures[j].Display
+	result, evalErr := osspecv2.EvaluateRule(&rule, osspecv2.EvaluateInput{
+		Datasets: datasets,
+		Params:   params,
 	})
 
-	violationsTruncated := false
-	if len(failures) > 100 {
-		failures = failures[:100]
-		violationsTruncated = true
-	}
+	status, errorKind := normalizeEvaluateOutcome(result, evalErr)
+	summary := buildEvaluationSummary(strings.TrimSpace(rule.Title), status, result)
 
-	status := "fail"
-	if pass {
-		status = "pass"
+	resultPayload := map[string]any{
+		"status": status,
 	}
-
-	affectedIDs := make([]string, 0, len(failures))
-	for _, v := range failures {
-		if strings.TrimSpace(v.ResourceID) == "" {
-			continue
-		}
-		affectedIDs = append(affectedIDs, v.ResourceID)
+	if reason := strings.TrimSpace(result.ReasonCode); reason != "" {
+		resultPayload["reason_code"] = reason
 	}
-
-	summary := fmt.Sprintf("%s (%d/%d selected passed)", strings.TrimSpace(rule.Title), passCount, selectedCount)
-	if status == "fail" {
-		summary = fmt.Sprintf("%s (%d/%d selected failed)", strings.TrimSpace(rule.Title), len(failures), selectedCount)
+	if errorKind != "" {
+		resultPayload["error_kind"] = errorKind
+	}
+	resultPayload["selected_count"] = result.SelectedCount
+	resultPayload["passed_count"] = result.PassedCount
+	resultPayload["count_value"] = result.CountValue
+	if result.TargetValue != nil {
+		resultPayload["target_value"] = *result.TargetValue
 	}
 
 	envelope := map[string]any{
@@ -648,472 +443,224 @@ func (e *Engine) evalDatasetFieldCompare(ctx context.Context, rulesetKey, ruleKe
 			"ruleset_key": rulesetKey,
 			"rule_key":    ruleKey,
 		},
-		"check":                checkSummary(*check),
-		"params":               params,
-		"result":               map[string]any{"status": status},
-		"selection":            selection,
-		"violations":           failures,
-		"violations_truncated": violationsTruncated,
+		"check":     checkSummary(rule.Check),
+		"params":    params,
+		"result":    resultPayload,
+		"selection": selectionCounts{Selected: result.SelectedCount, Passed: result.PassedCount},
+	}
+	if evalErr != nil {
+		envelope["error"] = evalErr.Error()
 	}
 
 	return &Evaluation{
 		Status:              status,
-		ErrorKind:           "",
+		ErrorKind:           errorKind,
 		EvidenceSummary:     summary,
 		EvidenceJSON:        mustJSON(envelope),
-		AffectedResourceIDs: affectedIDs,
-	}, nil
-}
-
-func (e *Engine) evalDatasetCountCompare(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, rule osspecv1.Rule, params map[string]any) (*Evaluation, error) {
-	check := rule.Check
-	if check == nil {
-		return nil, nil
-	}
-	if check.Compare == nil {
-		return nil, errors.New("count_compare requires compare")
-	}
-
-	rows, ev, err := e.getDatasetOrResult(ctx, rulesetKey, ruleKey, evalCtx, *check, params)
-	if ev != nil || err != nil {
-		return ev, err
-	}
-
-	var selected int
-	for _, row := range rows {
-		ok, err := evalAllWhere(row, check.Where, params)
-		if err != nil {
-			return nil, err
-		}
-		if ok {
-			selected++
-		}
-	}
-
-	wantAny := any(nil)
-	if check.Compare.ValueParam != "" {
-		v, err := resolvePredicateValue(predicateValue{ValueParam: check.Compare.ValueParam}, params)
-		if err != nil {
-			return nil, err
-		}
-		wantAny = v
-	} else if check.Compare.Value != nil {
-		wantAny = float64(*check.Compare.Value)
-	}
-
-	wantF, ok := asFloat(wantAny)
-	if !ok {
-		return nil, fmt.Errorf("compare value must be number, got %T", wantAny)
-	}
-
-	okCmp, err := evalOp(float64(selected), strings.TrimSpace(string(check.Compare.Op)), wantF)
-	if err != nil {
-		return nil, err
-	}
-
-	status := "fail"
-	if okCmp {
-		status = "pass"
-	}
-
-	selection := selectionCounts{Total: len(rows), Selected: selected}
-	summary := fmt.Sprintf("%s (count=%d)", strings.TrimSpace(rule.Title), selected)
-
-	return &Evaluation{
-		Status:          status,
-		EvidenceSummary: summary,
-		EvidenceJSON: mustJSON(map[string]any{
-			"schema_version": 1,
-			"rule": map[string]any{
-				"ruleset_key": rulesetKey,
-				"rule_key":    ruleKey,
-			},
-			"check":  checkSummary(*check),
-			"params": params,
-			"result": map[string]any{
-				"status": status,
-			},
-			"selection": selection,
-			"compare": map[string]any{
-				"op":    strings.TrimSpace(string(check.Compare.Op)),
-				"value": wantF,
-			},
-		}),
 		AffectedResourceIDs: []string{},
 	}, nil
 }
 
-func (e *Engine) evalDatasetJoinCountCompare(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, rule osspecv1.Rule, params map[string]any) (*Evaluation, error) {
-	check := rule.Check
-	if check == nil {
-		return nil, nil
+func (e *Engine) buildEvaluateDatasets(ctx context.Context, evalCtx Context, rule osspecv2.Rule) (map[string]osspecv2.DatasetInput, error) {
+	keys := requiredDatasetsForRule(rule)
+	if len(keys) == 0 {
+		return map[string]osspecv2.DatasetInput{}, nil
 	}
-	if check.Left == nil || check.Right == nil {
-		return nil, errors.New("join_count_compare requires left and right")
-	}
-	if check.Compare == nil {
-		return nil, errors.New("join_count_compare requires compare")
+	if e.Datasets == nil {
+		return nil, errors.New("engine: missing dataset provider")
 	}
 
-	leftRows, ev, err := e.getDatasetOrResult(ctx, rulesetKey, ruleKey, evalCtx, osspecv1.Check{
-		Type:               check.Type,
-		Dataset:            check.Left.Dataset,
-		DatasetVersion:     check.DatasetVersion,
-		OnMissingDataset:   check.OnMissingDataset,
-		OnPermissionDenied: check.OnPermissionDenied,
-		OnSyncError:        check.OnSyncError,
-	}, params)
-	if ev != nil || err != nil {
-		return ev, err
+	runtimeEval := runtimev2.EvalContext{
+		ScopeKind: runtimev2.ScopeKind(strings.TrimSpace(evalCtx.ScopeKind)),
 	}
-	rightRows, ev, err := e.getDatasetOrResult(ctx, rulesetKey, ruleKey, evalCtx, osspecv1.Check{
-		Type:               check.Type,
-		Dataset:            check.Right.Dataset,
-		DatasetVersion:     check.DatasetVersion,
-		OnMissingDataset:   check.OnMissingDataset,
-		OnPermissionDenied: check.OnPermissionDenied,
-		OnSyncError:        check.OnSyncError,
-	}, params)
-	if ev != nil || err != nil {
-		return ev, err
-	}
-
-	rightByKey := make(map[string][]any, len(rightRows))
-	for _, row := range rightRows {
-		k := extractStringByPointer(row, check.Right.KeyPath)
-		if strings.TrimSpace(k) == "" {
-			continue
-		}
-		rightByKey[k] = append(rightByKey[k], row)
-	}
-
-	onUnmatchedLeft := strings.TrimSpace(string(check.OnUnmatchedLeft))
-	if onUnmatchedLeft == "" {
-		onUnmatchedLeft = "ignore"
-	}
-
-	type joined struct {
-		left  any
-		right any
-	}
-
-	var (
-		joinedRows    []joined
-		unmatchedLeft int
-	)
-	for _, l := range leftRows {
-		k := extractStringByPointer(l, check.Left.KeyPath)
-		matches := rightByKey[k]
-		if len(matches) == 0 {
-			unmatchedLeft++
-			switch onUnmatchedLeft {
-			case "count":
-				joinedRows = append(joinedRows, joined{left: l, right: nil})
-			case "error":
-				// defer until we know if any unmatched exists.
-			default: // ignore
-			}
-			continue
-		}
-		for _, r := range matches {
-			joinedRows = append(joinedRows, joined{left: l, right: r})
-		}
-	}
-
-	if onUnmatchedLeft == "error" && unmatchedLeft > 0 {
-		return &Evaluation{
-			Status:          "error",
-			ErrorKind:       "join_unmatched",
-			EvidenceSummary: fmt.Sprintf("Join failed: %d unmatched left rows", unmatchedLeft),
-			EvidenceJSON: mustJSON(map[string]any{
-				"schema_version": 1,
-				"rule": map[string]any{
-					"ruleset_key": rulesetKey,
-					"rule_key":    ruleKey,
-				},
-				"check":  checkSummary(*check),
-				"params": params,
-				"result": map[string]any{
-					"status":     "error",
-					"error_kind": "join_unmatched",
-				},
-				"join": map[string]any{
-					"unmatched_left": unmatchedLeft,
-				},
-			}),
-			AffectedResourceIDs: []string{},
-		}, nil
-	}
-
-	var selected int
-	for _, j := range joinedRows {
-		ok, err := evalAllWhereJoin(j.left, j.right, check.Where, params)
-		if err != nil {
-			return nil, err
-		}
-		if ok {
-			selected++
-		}
-	}
-
-	wantAny := any(nil)
-	if check.Compare.ValueParam != "" {
-		v, err := resolvePredicateValue(predicateValue{ValueParam: check.Compare.ValueParam}, params)
-		if err != nil {
-			return nil, err
-		}
-		wantAny = v
-	} else if check.Compare.Value != nil {
-		wantAny = float64(*check.Compare.Value)
-	}
-
-	wantF, ok := asFloat(wantAny)
-	if !ok {
-		return nil, fmt.Errorf("compare value must be number, got %T", wantAny)
-	}
-
-	okCmp, err := evalOp(float64(selected), strings.TrimSpace(string(check.Compare.Op)), wantF)
-	if err != nil {
-		return nil, err
-	}
-	status := "fail"
-	if okCmp {
-		status = "pass"
-	}
-
-	selection := selectionCounts{Total: len(joinedRows), Selected: selected}
-	summary := fmt.Sprintf("%s (joined_count=%d)", strings.TrimSpace(rule.Title), selected)
-
-	return &Evaluation{
-		Status:          status,
-		EvidenceSummary: summary,
-		EvidenceJSON: mustJSON(map[string]any{
-			"schema_version": 1,
-			"rule": map[string]any{
-				"ruleset_key": rulesetKey,
-				"rule_key":    ruleKey,
-			},
-			"check":     checkSummary(*check),
-			"params":    params,
-			"result":    resultObject(status, ""),
-			"selection": selection,
-			"compare": map[string]any{
-				"op":    strings.TrimSpace(string(check.Compare.Op)),
-				"value": wantF,
-			},
-			"join": map[string]any{
-				"on_unmatched_left": onUnmatchedLeft,
-				"unmatched_left":    unmatchedLeft,
-			},
-		}),
-		AffectedResourceIDs: []string{},
-	}, nil
-}
-
-func evalAllWhere(row any, where []osspecv1.Predicate, params map[string]any) (bool, error) {
-	for _, clause := range where {
-		path := strings.TrimSpace(clause.Path)
-		if path == "" {
-			return false, errors.New("where.path is required")
-		}
-		ok, err := evalSinglePredicate(row, path, string(clause.Op), predicateValue{Value: clause.Value, ValueParam: clause.ValueParam}, params)
-		if err != nil {
-			return false, err
-		}
-		if !ok {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
-func evalAllWhereJoin(left any, right any, where []osspecv1.Predicate, params map[string]any) (bool, error) {
-	for _, clause := range where {
-		lp := strings.TrimSpace(clause.LeftPath)
-		rp := strings.TrimSpace(clause.RightPath)
-		if lp != "" && rp != "" {
-			return false, errors.New("where clause cannot set both left_path and right_path")
-		}
-
-		target := left
-		path := lp
-		if rp != "" {
-			target = right
-			path = rp
-		}
-
-		if strings.TrimSpace(path) == "" {
-			return false, errors.New("where.left_path or where.right_path is required")
-		}
-
-		// Spec: predicates using right_path evaluate as false when right is null.
-		if target == nil {
-			return false, nil
-		}
-
-		ok, err := evalSinglePredicate(target, path, string(clause.Op), predicateValue{Value: clause.Value, ValueParam: clause.ValueParam}, params)
-		if err != nil {
-			return false, err
-		}
-		if !ok {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
-func (e *Engine) getDatasetOrResult(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, check osspecv1.Check, params map[string]any) ([]any, *Evaluation, error) {
-	ds := strings.TrimSpace(check.Dataset)
-	if ds == "" {
-		return nil, nil, errors.New("dataset key is required")
-	}
-
-	version := 1
-	if check.DatasetVersion > 0 {
-		version = check.DatasetVersion
-	}
-
-	runtimeEval := runtimev1.EvalContext{
-		ScopeKind: runtimev1.ScopeKind(strings.TrimSpace(evalCtx.ScopeKind)),
-	}
-	if runtimeEval.ScopeKind == runtimev1.ScopeKind_CONNECTOR_INSTANCE {
+	if runtimeEval.ScopeKind == runtimev2.ScopeKind_CONNECTOR_INSTANCE {
 		runtimeEval.ConnectorKind = strings.TrimSpace(evalCtx.SourceKind)
 		runtimeEval.ConnectorInstance = strings.TrimSpace(evalCtx.SourceName)
 	}
 
-	res := e.Datasets.GetDataset(ctx, runtimeEval, runtimev1.DatasetRef{Dataset: ds, Version: version})
-	if res.Error != nil {
-		status := "unknown"
-		errorKind := strings.TrimSpace(string(res.Error.Kind))
-
-		switch res.Error.Kind {
-		case runtimev1.DatasetErrorKind_MISSING_INTEGRATION:
-			status = "unknown"
-		case runtimev1.DatasetErrorKind_MISSING_DATASET:
-			status = statusFromPolicy(string(check.OnMissingDataset), "unknown")
-		case runtimev1.DatasetErrorKind_PERMISSION_DENIED:
-			status = statusFromPolicy(string(check.OnPermissionDenied), "unknown")
-		case runtimev1.DatasetErrorKind_SYNC_FAILED:
-			status = statusFromPolicy(string(check.OnSyncError), "error")
-		case runtimev1.DatasetErrorKind_ENGINE_ERROR:
-			status = "error"
-			if errorKind == "" {
-				errorKind = "engine_error"
+	out := make(map[string]osspecv2.DatasetInput, len(keys))
+	for _, key := range keys {
+		res := e.Datasets.GetDataset(ctx, runtimeEval, runtimev2.DatasetRef{Dataset: key, Version: 1})
+		if res.Error != nil {
+			out[key] = osspecv2.DatasetInput{
+				Error: &osspecv2.DatasetInputError{
+					Kind:    osspecv2.DatasetErrorKind(res.Error.Kind),
+					Message: strings.TrimSpace(res.Error.Message),
+				},
 			}
-		default:
-			status = "error"
-			errorKind = "engine_error"
-		}
-
-		return nil, &Evaluation{
-			Status:          status,
-			ErrorKind:       errorKind,
-			EvidenceSummary: fmt.Sprintf("Dataset error: %s", errorKind),
-			EvidenceJSON: mustJSON(map[string]any{
-				"schema_version": 1,
-				"rule": map[string]any{
-					"ruleset_key": rulesetKey,
-					"rule_key":    ruleKey,
-				},
-				"check":  checkSummary(check),
-				"params": params,
-				"result": map[string]any{
-					"status":     status,
-					"error_kind": errorKind,
-				},
-				"error": strings.TrimSpace(res.Error.Message),
-			}),
-			AffectedResourceIDs: []string{},
-		}, nil
-	}
-
-	if res.Rows == nil {
-		return []any{}, nil, nil
-	}
-
-	rows := make([]any, 0, len(res.Rows))
-	for i, raw := range res.Rows {
-		if len(raw) == 0 {
 			continue
 		}
-		var v any
-		if err := json.Unmarshal(raw, &v); err != nil {
-			return nil, &Evaluation{
-				Status:          "error",
-				ErrorKind:       "engine_error",
-				EvidenceSummary: "Invalid dataset row JSON",
-				EvidenceJSON: mustJSON(map[string]any{
-					"schema_version": 1,
-					"rule": map[string]any{
-						"ruleset_key": rulesetKey,
-						"rule_key":    ruleKey,
-					},
-					"check":  checkSummary(check),
-					"params": params,
-					"result": map[string]any{
-						"status":     "error",
-						"error_kind": "engine_error",
-					},
-					"error": fmt.Sprintf("row %d: %v", i, err),
-				}),
-				AffectedResourceIDs: []string{},
-			}, nil
+
+		rows := make([]any, 0, len(res.Rows))
+		for i, raw := range res.Rows {
+			if len(raw) == 0 {
+				continue
+			}
+			var v any
+			if err := json.Unmarshal(raw, &v); err != nil {
+				return nil, fmt.Errorf("decode dataset %s row %d: %w", key, i, err)
+			}
+			rows = append(rows, v)
 		}
-		rows = append(rows, v)
+		out[key] = osspecv2.DatasetInput{Rows: rows}
 	}
 
-	return rows, nil, nil
+	return out, nil
 }
 
-func statusFromPolicy(policy string, def string) string {
-	p := strings.TrimSpace(policy)
-	if p == "" {
-		return def
+func requiredDatasetsForRule(rule osspecv2.Rule) []string {
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return
+		}
+		seen[v] = struct{}{}
 	}
-	switch p {
-	case "unknown", "error":
-		return p
-	default:
-		return def
-	}
-}
 
-func checkSummary(check osspecv1.Check) map[string]any {
-	out := map[string]any{
-		"type": strings.TrimSpace(string(check.Type)),
+	for _, dataset := range rule.RequiredData {
+		add(dataset)
 	}
-	if strings.TrimSpace(check.Dataset) != "" {
-		out["dataset"] = strings.TrimSpace(check.Dataset)
+	if rule.Check != nil && rule.Check.Plan != nil {
+		add(rule.Check.Plan.Dataset)
 	}
-	if check.DatasetVersion > 0 {
-		out["dataset_version"] = check.DatasetVersion
+
+	out := make([]string, 0, len(seen))
+	for key := range seen {
+		out = append(out, key)
 	}
-	if check.Left != nil {
-		out["left"] = map[string]any{
-			"dataset":  strings.TrimSpace(check.Left.Dataset),
-			"key_path": strings.TrimSpace(check.Left.KeyPath),
-		}
-	}
-	if check.Right != nil {
-		out["right"] = map[string]any{
-			"dataset":  strings.TrimSpace(check.Right.Dataset),
-			"key_path": strings.TrimSpace(check.Right.KeyPath),
-		}
-	}
+	sort.Strings(out)
 	return out
 }
 
-func extractStringByPointer(doc any, pointer string) string {
-	v, ok, _ := getByJSONPointer(doc, pointer)
-	if !ok || v == nil {
-		return ""
-	}
-	switch t := v.(type) {
-	case string:
-		return strings.TrimSpace(t)
+func normalizeEvaluateOutcome(result osspecv2.EvaluateResult, evalErr error) (string, string) {
+	status := strings.TrimSpace(strings.ToLower(string(result.Status)))
+	switch status {
+	case "pass", "fail", "unknown":
 	default:
-		return strings.TrimSpace(fmt.Sprintf("%v", t))
+		status = "unknown"
 	}
+
+	if evalErr == nil {
+		return status, ""
+	}
+
+	reason := strings.TrimSpace(result.ReasonCode)
+	if reason == "missing_param" {
+		return "error", "invalid_params"
+	}
+	if strings.HasPrefix(reason, "dataset_") {
+		kind := strings.TrimPrefix(reason, "dataset_")
+		if kind == "" {
+			kind = "engine_error"
+		}
+		return "error", kind
+	}
+
+	return "error", "engine_error"
+}
+
+func buildEvaluationSummary(ruleTitle, status string, result osspecv2.EvaluateResult) string {
+	title := strings.TrimSpace(ruleTitle)
+	if title == "" {
+		title = "Rule"
+	}
+
+	switch status {
+	case "pass":
+		if result.SelectedCount > 0 {
+			return fmt.Sprintf("%s (%d/%d selected passed)", title, result.PassedCount, result.SelectedCount)
+		}
+		if result.TargetValue != nil {
+			return fmt.Sprintf("%s (count=%d target=%d)", title, result.CountValue, *result.TargetValue)
+		}
+	case "fail":
+		if result.SelectedCount > 0 {
+			failed := result.SelectedCount - result.PassedCount
+			if failed < 0 {
+				failed = 0
+			}
+			return fmt.Sprintf("%s (%d/%d selected failed)", title, failed, result.SelectedCount)
+		}
+		if result.TargetValue != nil {
+			return fmt.Sprintf("%s (count=%d target=%d)", title, result.CountValue, *result.TargetValue)
+		}
+	case "unknown":
+		if strings.TrimSpace(result.ReasonCode) == "manual_rule" {
+			return "Manual check requires attestation"
+		}
+	case "error":
+		return "Engine error"
+	}
+
+	return title
+}
+
+func checkSummary(check *osspecv2.Check) map[string]any {
+	if check == nil {
+		return map[string]any{}
+	}
+
+	out := map[string]any{}
+	engine := strings.TrimSpace(string(check.Engine))
+	if engine != "" {
+		out["engine"] = engine
+	}
+	if expr := strings.TrimSpace(check.Expression); expr != "" {
+		out["expression"] = expr
+	}
+
+	if check.Plan != nil {
+		plan := map[string]any{}
+		if t := strings.TrimSpace(check.Plan.Type); t != "" {
+			plan["type"] = t
+			out["type"] = t
+		}
+		if dataset := strings.TrimSpace(check.Plan.Dataset); dataset != "" {
+			plan["dataset"] = dataset
+			out["dataset"] = dataset
+		}
+		if expr := strings.TrimSpace(check.Plan.WhereExpression); expr != "" {
+			plan["where_expression"] = expr
+		}
+		if expr := strings.TrimSpace(check.Plan.AssertExpression); expr != "" {
+			plan["assert_expression"] = expr
+		}
+		if check.Plan.Expect != nil {
+			plan["expect"] = map[string]any{
+				"match":        strings.TrimSpace(check.Plan.Expect.Match),
+				"min_selected": check.Plan.Expect.MinSelected,
+				"on_empty":     strings.TrimSpace(check.Plan.Expect.OnEmpty),
+			}
+		}
+		if check.Plan.Compare != nil {
+			plan["compare"] = map[string]any{
+				"op":    strings.TrimSpace(check.Plan.Compare.Op),
+				"value": check.Plan.Compare.Value,
+			}
+		}
+		if v := strings.TrimSpace(check.Plan.OnMissingDataset); v != "" {
+			plan["on_missing_dataset"] = v
+		}
+		if v := strings.TrimSpace(check.Plan.OnPermissionDenied); v != "" {
+			plan["on_permission_denied"] = v
+		}
+		if v := strings.TrimSpace(check.Plan.OnSyncError); v != "" {
+			plan["on_sync_error"] = v
+		}
+		out["plan"] = plan
+	}
+
+	if _, ok := out["type"]; !ok {
+		switch engine {
+		case string(osspecv2.CheckEngine_CEL):
+			out["type"] = "cel.expression"
+		case string(osspecv2.CheckEngine_CEL_PLAN):
+			out["type"] = "cel.plan"
+		}
+	}
+
+	return out
 }
 
 func pgTimeString(ts pgtype.Timestamptz) string {
@@ -1129,14 +676,4 @@ func mustJSON(v any) []byte {
 		return []byte(`{"schema_version":1,"result":{"status":"error","error_kind":"engine_error"}}`)
 	}
 	return b
-}
-
-func resultObject(status string, errorKind string) map[string]any {
-	out := map[string]any{
-		"status": strings.TrimSpace(status),
-	}
-	if strings.TrimSpace(errorKind) != "" {
-		out["error_kind"] = strings.TrimSpace(errorKind)
-	}
-	return out
 }

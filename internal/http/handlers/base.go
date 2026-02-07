@@ -113,6 +113,29 @@ func (h *Handlers) LayoutData(ctx context.Context, c *echo.Context, title string
 	if awsName == "" {
 		awsName = strings.TrimSpace(snap.AWSIdentityCenter.Region)
 	}
+	rulesets, err := h.Q.ListRulesets(ctx)
+	if err != nil {
+		return viewmodels.LayoutData{}, snap, err
+	}
+	findingsRulesets := make([]viewmodels.FindingsRulesetItem, 0, len(rulesets))
+	for _, ruleset := range rulesets {
+		rulesetKey := strings.TrimSpace(ruleset.Key)
+		if rulesetKey == "" {
+			continue
+		}
+		rulesetName := strings.TrimSpace(ruleset.Name)
+		if rulesetName == "" {
+			rulesetName = rulesetKey
+		}
+
+		findingsRulesets = append(findingsRulesets, viewmodels.FindingsRulesetItem{
+			Key:           rulesetKey,
+			Name:          rulesetName,
+			ConnectorKind: strings.TrimSpace(ruleset.ConnectorKind.String),
+			Status:        strings.TrimSpace(ruleset.Status),
+			Href:          "/findings/rulesets/" + rulesetKey,
+		})
+	}
 
 	commandUsersRaw, err := h.Q.ListIdPUsersForCommand(ctx)
 	if err != nil {
@@ -160,6 +183,7 @@ func (h *Handlers) LayoutData(ctx context.Context, c *echo.Context, title string
 		UserEmail:                   principal.Email,
 		UserRole:                    principal.Role,
 		IsAdmin:                     ok && principal.IsAdmin(),
+		FindingsRulesets:            findingsRulesets,
 		GitHubOrg:                   snap.GitHub.Org,
 		GitHubEnabled:               snap.GitHubEnabled,
 		GitHubConfigured:            snap.GitHubConfigured,

@@ -137,7 +137,7 @@ func (i *OktaIntegration) EvaluateCompliance(ctx context.Context, deps registry.
 		SyncRunID:   &runID,
 		EvaluatedAt: time.Now(),
 	}); err != nil {
-		err = fmt.Errorf("okta v1 ruleset evaluations: %w", err)
+		err = fmt.Errorf("okta ruleset evaluations: %w", err)
 		slog.Error("okta ruleset evaluations failed", "err", err)
 		deps.Report(registry.Event{Source: "okta", Stage: "evaluate-rules", Current: 1, Total: 1, Message: err.Error(), Err: err})
 		return nil

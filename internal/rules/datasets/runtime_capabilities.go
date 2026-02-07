@@ -3,11 +3,11 @@ package datasets
 import (
 	"sort"
 
-	runtimev1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v1"
+	runtimev2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v2"
 )
 
 var (
-	oktaCapabilitiesV1 = []string{
+	oktaCapabilitiesV2 = []string{
 		"okta:apps",
 		"okta:apps/admin-console-settings",
 		"okta:authenticators",
@@ -18,23 +18,23 @@ var (
 		"okta:policies/sign-on",
 	}
 
-	normalizedCapabilitiesV1 = []string{
+	normalizedCapabilitiesV2 = []string{
 		"normalized:entitlement_assignments",
 		"normalized:identities",
 	}
 )
 
-func RuntimeCapabilities(p RouterProvider) []runtimev1.DatasetRef {
-	out := make([]runtimev1.DatasetRef, 0, len(oktaCapabilitiesV1)+len(normalizedCapabilitiesV1))
+func RuntimeCapabilities(p RouterProvider) []runtimev2.DatasetRef {
+	out := make([]runtimev2.DatasetRef, 0, len(oktaCapabilitiesV2)+len(normalizedCapabilitiesV2))
 
 	if p.Okta != nil {
-		for _, ds := range oktaCapabilitiesV1 {
-			out = append(out, runtimev1.DatasetRef{Dataset: ds, Version: 1})
+		for _, ds := range oktaCapabilitiesV2 {
+			out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: 1})
 		}
 	}
 	if p.Normalized != nil {
-		for _, ds := range normalizedCapabilitiesV1 {
-			out = append(out, runtimev1.DatasetRef{Dataset: ds, Version: 1})
+		for _, ds := range normalizedCapabilitiesV2 {
+			out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: 1})
 		}
 	}
 

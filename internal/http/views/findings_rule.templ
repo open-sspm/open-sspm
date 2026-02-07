@@ -82,10 +82,6 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 								if data.Evidence.Dataset != "" {
 									<div class="text-sm text-muted-foreground">Dataset: { data.Evidence.Dataset }</div>
 								}
-								if data.Evidence.Left.Dataset != "" || data.Evidence.Right.Dataset != "" {
-									<div class="text-sm text-muted-foreground">Left: { data.Evidence.Left.Dataset }</div>
-									<div class="text-sm text-muted-foreground">Right: { data.Evidence.Right.Dataset }</div>
-								}
 								if data.Evidence.SelectionTotal > 0 || data.Evidence.SelectionSelected > 0 {
 									<div class="text-sm text-muted-foreground">Selection: { FormatInt(data.Evidence.SelectionSelected) } / { FormatInt(data.Evidence.SelectionTotal) }</div>
 								}

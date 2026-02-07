@@ -6,6 +6,7 @@ type LayoutData struct {
 	UserEmail                   string
 	UserRole                    string
 	IsAdmin                     bool
+	FindingsRulesets            []FindingsRulesetItem
 	GitHubOrg                   string
 	GitHubEnabled               bool
 	GitHubConfigured            bool

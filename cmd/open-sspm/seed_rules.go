@@ -68,7 +68,7 @@ func runSeedRules(ctx context.Context) error {
 }
 
 func loadRulesFromOpenSSPMDescriptor() ([]LoadedRuleset, error) {
-	desc, err := opensspm.DescriptorV1()
+	desc, err := opensspm.DescriptorV2()
 	if err != nil {
 		return nil, err
 	}

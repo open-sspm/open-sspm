@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	runtimev1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v1"
+	runtimev2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v2"
 	"github.com/open-sspm/open-sspm/internal/connectors/oktaapi"
 )
 
@@ -37,11 +37,11 @@ func (s stubOktaClient) GetAdminConsoleSettings(ctx context.Context) (oktaapi.Ad
 
 func TestRouterProviderMissingProvider(t *testing.T) {
 	p := RouterProvider{}
-	res := p.GetDataset(context.Background(), runtimev1.EvalContext{}, runtimev1.DatasetRef{Dataset: "okta:apps", Version: 1})
+	res := p.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{Dataset: "okta:apps", Version: 1})
 	if res.Error == nil {
 		t.Fatalf("expected error, got nil")
 	}
-	if res.Error.Kind != runtimev1.DatasetErrorKind_MISSING_DATASET {
+	if res.Error.Kind != runtimev2.DatasetErrorKind_MISSING_DATASET {
 		t.Fatalf("expected missing_dataset, got %q", res.Error.Kind)
 	}
 }
@@ -50,22 +50,22 @@ func TestOktaProviderPermissionDeniedIsCategorized(t *testing.T) {
 	p := &OktaProvider{
 		Client: stubOktaClient{listPoliciesErr: &oktaapi.APIError{StatusCode: 403, Status: "403 Forbidden", Summary: "nope"}},
 	}
-	res := p.GetDataset(context.Background(), runtimev1.EvalContext{}, runtimev1.DatasetRef{Dataset: "okta:policies/sign-on", Version: 1})
+	res := p.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{Dataset: "okta:policies/sign-on", Version: 1})
 	if res.Error == nil {
 		t.Fatalf("expected error, got nil")
 	}
-	if res.Error.Kind != runtimev1.DatasetErrorKind_PERMISSION_DENIED {
+	if res.Error.Kind != runtimev2.DatasetErrorKind_PERMISSION_DENIED {
 		t.Fatalf("expected permission_denied, got %q", res.Error.Kind)
 	}
 }
 
 func TestNormalizedProviderRejectsUnsupportedVersion(t *testing.T) {
 	p := &NormalizedProvider{}
-	res := p.GetDataset(context.Background(), runtimev1.EvalContext{}, runtimev1.DatasetRef{Dataset: "normalized:identities", Version: 2})
+	res := p.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{Dataset: "normalized:identities", Version: 2})
 	if res.Error == nil {
 		t.Fatalf("expected error, got nil")
 	}
-	if res.Error.Kind != runtimev1.DatasetErrorKind_MISSING_DATASET {
+	if res.Error.Kind != runtimev2.DatasetErrorKind_MISSING_DATASET {
 		t.Fatalf("expected missing_dataset, got %q", res.Error.Kind)
 	}
 }

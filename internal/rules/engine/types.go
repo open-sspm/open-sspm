@@ -3,7 +3,7 @@ package engine
 import (
 	"time"
 
-	runtimev1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v1"
+	runtimev2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v2"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
@@ -17,6 +17,6 @@ type Context struct {
 
 type Engine struct {
 	Q        *gen.Queries
-	Datasets runtimev1.DatasetProvider
+	Datasets runtimev2.DatasetProvider
 	Now      func() time.Time
 }

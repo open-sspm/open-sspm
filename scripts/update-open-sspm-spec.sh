@@ -4,8 +4,30 @@ set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
-: "${OPEN_SSPM_SPEC_REPO:?OPEN_SSPM_SPEC_REPO is required (local path or git URL)}"
+: "${OPEN_SSPM_SPEC_REPO:=https://github.com/open-sspm/open-sspm-spec}"
 : "${OPEN_SSPM_SPEC_REF:?OPEN_SSPM_SPEC_REF is required (tag/branch/commit)}"
+
+normalize_repo_url() {
+	local repo="$1"
+
+	if [[ "${repo}" =~ ^git@([^:]+):(.+)$ ]]; then
+		repo="https://${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+	fi
+	repo="${repo#ssh://git@}"
+	repo="${repo#git://}"
+	repo="${repo%.git}"
+	printf '%s\n' "${repo}"
+}
+
+canonical_repo="$(normalize_repo_url "${OPEN_SSPM_SPEC_REPO}")"
+if [[ ! "${canonical_repo}" =~ ^https://github\.com/[^/]+/[^/]+$ ]]; then
+	echo "error: OPEN_SSPM_SPEC_REPO must be a GitHub repository URL, got ${OPEN_SSPM_SPEC_REPO}" >&2
+	exit 1
+fi
+if [[ "${canonical_repo}" != "https://github.com/open-sspm/open-sspm-spec" ]]; then
+	echo "error: OPEN_SSPM_SPEC_REPO must be https://github.com/open-sspm/open-sspm-spec" >&2
+	exit 1
+fi
 
 tmp_dir="$(mktemp -d)"
 cleanup() {
@@ -15,8 +37,8 @@ trap cleanup EXIT
 
 spec_dir="${tmp_dir}/open-sspm-spec"
 
-echo "==> Cloning ${OPEN_SSPM_SPEC_REPO}..."
-git clone "${OPEN_SSPM_SPEC_REPO}" "${spec_dir}" >/dev/null
+echo "==> Cloning ${canonical_repo}..."
+git clone "${canonical_repo}" "${spec_dir}" >/dev/null
 
 echo "==> Checking out ${OPEN_SSPM_SPEC_REF}..."
 git -C "${spec_dir}" fetch --all --tags --prune >/dev/null
@@ -28,24 +50,35 @@ echo "==> Validating spec..."
 echo "==> Building compiled artifacts..."
 (cd "${spec_dir}" && go run ./tools/osspec/cmd/osspec build --repo . --out dist)
 
+echo "==> Regenerating Go artifacts..."
+(cd "${spec_dir}" && go run ./tools/osspec/cmd/osspec codegen --repo . --lang go --out gen/go)
+
+echo "==> Verifying generated artifacts are committed at ${OPEN_SSPM_SPEC_REF}..."
+if ! git -C "${spec_dir}" diff --quiet -- dist gen/go; then
+	echo "error: ${canonical_repo}@${OPEN_SSPM_SPEC_REF} has uncommitted generated changes after build/codegen." >&2
+	echo "hint: regenerate and commit dist/ and gen/go in open-sspm-spec before pinning this ref." >&2
+	exit 1
+fi
+
 assets_dir="${ROOT_DIR}/internal/opensspm/specassets"
 mkdir -p "${assets_dir}"
 
-echo "==> Copying descriptor snapshot..."
-cp "${spec_dir}/dist/descriptor.v1.json" "${assets_dir}/descriptor.v1.json"
-
-if [[ -f "${spec_dir}/dist/index/requirements.json" ]]; then
-	echo "==> Copying requirements snapshot..."
-	cp "${spec_dir}/dist/index/requirements.json" "${assets_dir}/requirements.json"
-fi
+rm -f "${assets_dir}/descriptor.v1.json" "${assets_dir}/requirements.json" "${assets_dir}/descriptor.v1.yaml" "${assets_dir}/requirements.yaml" "${assets_dir}/descriptor.v2.yaml"
 
 upstream_commit="$(git -C "${spec_dir}" rev-parse HEAD)"
+upstream_repo="${canonical_repo}"
+
+descriptor_dist_path="${spec_dir}/dist/descriptor.v2.yaml"
+if [[ ! -f "${descriptor_dist_path}" ]]; then
+	echo "error: expected compiled descriptor at ${descriptor_dist_path}" >&2
+	exit 1
+fi
 
 echo "==> Pinning Go types dependency..."
 (cd "${ROOT_DIR}" && go get "github.com/open-sspm/open-sspm-spec@${OPEN_SSPM_SPEC_REF}")
 
 echo "==> Updating spec.lock.json..."
-python3 - "${assets_dir}" "${OPEN_SSPM_SPEC_REPO}" "${OPEN_SSPM_SPEC_REF}" "${upstream_commit}" <<'PY'
+python3 - "${assets_dir}" "${upstream_repo}" "${OPEN_SSPM_SPEC_REF}" "${upstream_commit}" "${descriptor_dist_path}" <<'PY'
 import datetime
 import hashlib
 import json
@@ -56,9 +89,9 @@ assets_dir = pathlib.Path(sys.argv[1])
 upstream_repo = sys.argv[2]
 upstream_ref = sys.argv[3]
 upstream_commit = sys.argv[4]
+descriptor_asset_path = pathlib.Path(sys.argv[5])
 
-descriptor_path = assets_dir / "descriptor.v1.json"
-descriptor_hash = hashlib.sha256(descriptor_path.read_bytes()).hexdigest()
+descriptor_hash = hashlib.sha256(descriptor_asset_path.read_bytes()).hexdigest()
 
 lock = {
     "upstream_repo": upstream_repo,
@@ -74,4 +107,3 @@ print(f"descriptor_hash={descriptor_hash}")
 PY
 
 echo "==> Done."
-

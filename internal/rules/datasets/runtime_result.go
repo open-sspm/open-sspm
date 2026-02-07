@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	runtimev1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v1"
+	runtimev2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v2"
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
 )
 
-func runtimeResultFromRowsOrError(rows []any, err error) runtimev1.DatasetResult {
+func runtimeResultFromRowsOrError(rows []any, err error) runtimev2.DatasetResult {
 	if err != nil {
 		var de engine.DatasetError
 		if errors.As(err, &de) {
@@ -18,17 +18,17 @@ func runtimeResultFromRowsOrError(rows []any, err error) runtimev1.DatasetResult
 			if de.Err != nil {
 				msg = strings.TrimSpace(de.Err.Error())
 			}
-			return runtimev1.DatasetResult{
-				Error: &runtimev1.DatasetError{
-					Kind:    runtimev1.DatasetErrorKind(de.Kind),
+			return runtimev2.DatasetResult{
+				Error: &runtimev2.DatasetError{
+					Kind:    runtimev2.DatasetErrorKind(de.Kind),
 					Message: msg,
 				},
 			}
 		}
 
-		return runtimev1.DatasetResult{
-			Error: &runtimev1.DatasetError{
-				Kind:    runtimev1.DatasetErrorKind_ENGINE_ERROR,
+		return runtimev2.DatasetResult{
+			Error: &runtimev2.DatasetError{
+				Kind:    runtimev2.DatasetErrorKind_ENGINE_ERROR,
 				Message: strings.TrimSpace(err.Error()),
 			},
 		}
@@ -52,9 +52,9 @@ func runtimeResultFromRowsOrError(rows []any, err error) runtimev1.DatasetResult
 
 		b, err := json.Marshal(row)
 		if err != nil {
-			return runtimev1.DatasetResult{
-				Error: &runtimev1.DatasetError{
-					Kind:    runtimev1.DatasetErrorKind_ENGINE_ERROR,
+			return runtimev2.DatasetResult{
+				Error: &runtimev2.DatasetError{
+					Kind:    runtimev2.DatasetErrorKind_ENGINE_ERROR,
 					Message: fmt.Sprintf("marshal row %d: %v", i, err),
 				},
 			}
@@ -62,5 +62,5 @@ func runtimeResultFromRowsOrError(rows []any, err error) runtimev1.DatasetResult
 		rawRows = append(rawRows, json.RawMessage(b))
 	}
 
-	return runtimev1.DatasetResult{Rows: rawRows}
+	return runtimev2.DatasetResult{Rows: rawRows}
 }
