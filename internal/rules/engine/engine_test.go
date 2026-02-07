@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"testing"
 
 	runtimev2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v2"
@@ -30,9 +29,6 @@ func (f *fakeDatasets) GetDataset(ctx context.Context, eval runtimev2.EvalContex
 		}
 	}
 
-	if f.data == nil {
-		return runtimev2.DatasetResult{Error: &runtimev2.DatasetError{Kind: runtimev2.DatasetErrorKind_MISSING_DATASET}}
-	}
 	rows, ok := f.data[key]
 	if !ok {
 		return runtimev2.DatasetResult{Error: &runtimev2.DatasetError{Kind: runtimev2.DatasetErrorKind_MISSING_DATASET}}
@@ -49,7 +45,7 @@ func (f *fakeDatasets) GetDataset(ctx context.Context, eval runtimev2.EvalContex
 	return runtimev2.DatasetResult{Rows: raw}
 }
 
-func TestEvalDatasetFieldCompare_AllPass(t *testing.T) {
+func TestEvalCheck_FieldComparePass(t *testing.T) {
 	e := &Engine{
 		Datasets: &fakeDatasets{
 			data: map[string][]any{
@@ -62,26 +58,27 @@ func TestEvalDatasetFieldCompare_AllPass(t *testing.T) {
 	}
 
 	rule := osspecv2.Rule{
-		Title: "Idle timeout",
-		Parameters: &osspecv2.Parameters{
-			Defaults: map[string]any{"max_idle_minutes": float64(15)},
+		Title:      "Idle timeout",
+		Monitoring: osspecv2.Monitoring{Status: osspecv2.MonitoringStatus_AUTOMATED},
+		RequiredData: []string{
+			"okta:policies/sign-on",
 		},
 		Check: &osspecv2.Check{
-			Type:    "dataset.field_compare",
-			Dataset: "okta:policies/sign-on",
-			Assert: &osspecv2.Predicate{
-				Path:       "/session/max_idle_minutes",
-				Op:         "lte",
-				ValueParam: "max_idle_minutes",
-			},
-			Expect: &osspecv2.FieldCompareExpect{
-				Match:   "all",
-				OnEmpty: "error",
+			Engine: osspecv2.CheckEngine_CEL_PLAN,
+			Plan: &osspecv2.CheckPlan{
+				Type:             "dataset.field_compare",
+				Dataset:          "okta:policies/sign-on",
+				AssertExpression: `field(r, "session.max_idle_minutes") <= param("max_idle_minutes")`,
+				Expect: &osspecv2.CheckPlanExpect{
+					Match:       "all",
+					MinSelected: 1,
+					OnEmpty:     "fail",
+				},
 			},
 		},
 	}
 
-	ev, err := e.evalCheck(context.Background(), "rs", "r", Context{}, rule, rule.Parameters.Defaults)
+	ev, err := e.evalCheck(context.Background(), "rs", "rule", Context{}, rule, map[string]any{"max_idle_minutes": float64(15)})
 	if err != nil {
 		t.Fatalf("evalCheck error: %v", err)
 	}
@@ -93,33 +90,39 @@ func TestEvalDatasetFieldCompare_AllPass(t *testing.T) {
 	}
 }
 
-func TestEvalDatasetFieldCompare_Violation(t *testing.T) {
+func TestEvalCheck_FieldCompareFail(t *testing.T) {
 	e := &Engine{
 		Datasets: &fakeDatasets{
 			data: map[string][]any{
 				"okta:policies/sign-on": {
 					map[string]any{"id": "a", "session": map[string]any{"max_idle_minutes": float64(30)}},
-					map[string]any{"id": "b", "session": map[string]any{"max_idle_minutes": float64(10)}},
 				},
 			},
 		},
 	}
 
-	params := map[string]any{"max_idle_minutes": float64(15)}
 	rule := osspecv2.Rule{
-		Title: "Idle timeout",
+		Title:      "Idle timeout",
+		Monitoring: osspecv2.Monitoring{Status: osspecv2.MonitoringStatus_AUTOMATED},
+		RequiredData: []string{
+			"okta:policies/sign-on",
+		},
 		Check: &osspecv2.Check{
-			Type:    "dataset.field_compare",
-			Dataset: "okta:policies/sign-on",
-			Assert: &osspecv2.Predicate{
-				Path:       "/session/max_idle_minutes",
-				Op:         "lte",
-				ValueParam: "max_idle_minutes",
+			Engine: osspecv2.CheckEngine_CEL_PLAN,
+			Plan: &osspecv2.CheckPlan{
+				Type:             "dataset.field_compare",
+				Dataset:          "okta:policies/sign-on",
+				AssertExpression: `field(r, "session.max_idle_minutes") <= 15`,
+				Expect: &osspecv2.CheckPlanExpect{
+					Match:       "all",
+					MinSelected: 1,
+					OnEmpty:     "fail",
+				},
 			},
 		},
 	}
 
-	ev, err := e.evalCheck(context.Background(), "rs", "r", Context{}, rule, params)
+	ev, err := e.evalCheck(context.Background(), "rs", "rule", Context{}, rule, map[string]any{})
 	if err != nil {
 		t.Fatalf("evalCheck error: %v", err)
 	}
@@ -129,12 +132,9 @@ func TestEvalDatasetFieldCompare_Violation(t *testing.T) {
 	if ev.Status != "fail" {
 		t.Fatalf("expected fail, got %q", ev.Status)
 	}
-	if len(ev.AffectedResourceIDs) != 1 || ev.AffectedResourceIDs[0] != "a" {
-		t.Fatalf("expected affected ids [a], got %v", ev.AffectedResourceIDs)
-	}
 }
 
-func TestEvalDatasetCountCompare(t *testing.T) {
+func TestEvalCheck_CountComparePass(t *testing.T) {
 	e := &Engine{
 		Datasets: &fakeDatasets{
 			data: map[string][]any{
@@ -148,18 +148,26 @@ func TestEvalDatasetCountCompare(t *testing.T) {
 	}
 
 	rule := osspecv2.Rule{
-		Title: "Count active apps",
+		Title:      "Count active apps",
+		Monitoring: osspecv2.Monitoring{Status: osspecv2.MonitoringStatus_AUTOMATED},
+		RequiredData: []string{
+			"okta:apps",
+		},
 		Check: &osspecv2.Check{
-			Type:    "dataset.count_compare",
-			Dataset: "okta:apps",
-			Where: []osspecv2.Predicate{
-				{Path: "/active", Op: "eq", Value: true},
+			Engine: osspecv2.CheckEngine_CEL_PLAN,
+			Plan: &osspecv2.CheckPlan{
+				Type:            "dataset.count_compare",
+				Dataset:         "okta:apps",
+				WhereExpression: `field(r, "active") == true`,
+				Compare: &osspecv2.CheckPlanCompare{
+					Op:    "eq",
+					Value: 2,
+				},
 			},
-			Compare: &osspecv2.Compare{Op: "eq", Value: intPtr(2)},
 		},
 	}
 
-	ev, err := e.evalCheck(context.Background(), "rs", "r", Context{}, rule, map[string]any{})
+	ev, err := e.evalCheck(context.Background(), "rs", "rule", Context{}, rule, map[string]any{})
 	if err != nil {
 		t.Fatalf("evalCheck error: %v", err)
 	}
@@ -171,62 +179,10 @@ func TestEvalDatasetCountCompare(t *testing.T) {
 	}
 }
 
-func TestEvalDatasetJoinCountCompare_OnUnmatchedLeftError(t *testing.T) {
+func TestEvalCheck_MissingDatasetPolicyError(t *testing.T) {
 	e := &Engine{
 		Datasets: &fakeDatasets{
-			data: map[string][]any{
-				"left":  {map[string]any{"id": "x"}},
-				"right": {},
-			},
-		},
-	}
-
-	rule := osspecv2.Rule{
-		Title: "Join required",
-		Check: &osspecv2.Check{
-			Type:            "dataset.join_count_compare",
-			Left:            &osspecv2.JoinSide{Dataset: "left", KeyPath: "/id"},
-			Right:           &osspecv2.JoinSide{Dataset: "right", KeyPath: "/id"},
-			OnUnmatchedLeft: "error",
-			Compare:         &osspecv2.Compare{Op: "eq", Value: intPtr(0)},
-		},
-	}
-
-	ev, err := e.evalCheck(context.Background(), "rs", "r", Context{}, rule, map[string]any{})
-	if err != nil {
-		t.Fatalf("evalCheck error: %v", err)
-	}
-	if ev == nil {
-		t.Fatalf("expected evaluation, got nil")
-	}
-	if ev.Status != "error" || ev.ErrorKind != "join_unmatched" {
-		t.Fatalf("expected error/join_unmatched, got %q/%q", ev.Status, ev.ErrorKind)
-	}
-}
-
-func TestEvalManualAttestation_NoAttestation(t *testing.T) {
-	e := &Engine{Datasets: &fakeDatasets{data: map[string][]any{}}}
-
-	rule := osspecv2.Rule{
-		Title: "Manual control",
-		Check: &osspecv2.Check{Type: "manual.attestation"},
-	}
-
-	ev, err := e.evalCheck(context.Background(), "rs", "r", Context{}, rule, map[string]any{})
-	if err != nil {
-		t.Fatalf("evalCheck error: %v", err)
-	}
-	if ev == nil {
-		t.Fatalf("expected evaluation, got nil")
-	}
-	if ev.Status != "unknown" {
-		t.Fatalf("expected unknown, got %q", ev.Status)
-	}
-}
-
-func TestDatasetErrorPolicy_MissingDatasetCanBeError(t *testing.T) {
-	e := &Engine{
-		Datasets: &fakeDatasets{
+			data: map[string][]any{},
 			errs: map[string]runtimev2.DatasetErrorKind{
 				"missing": runtimev2.DatasetErrorKind_MISSING_DATASET,
 			},
@@ -234,16 +190,26 @@ func TestDatasetErrorPolicy_MissingDatasetCanBeError(t *testing.T) {
 	}
 
 	rule := osspecv2.Rule{
-		Title: "Missing dataset",
+		Title:      "Missing dataset",
+		Monitoring: osspecv2.Monitoring{Status: osspecv2.MonitoringStatus_AUTOMATED},
+		RequiredData: []string{
+			"missing",
+		},
 		Check: &osspecv2.Check{
-			Type:             "dataset.count_compare",
-			Dataset:          "missing",
-			OnMissingDataset: "error",
-			Compare:          &osspecv2.Compare{Op: "eq", Value: intPtr(0)},
+			Engine: osspecv2.CheckEngine_CEL_PLAN,
+			Plan: &osspecv2.CheckPlan{
+				Type:             "dataset.count_compare",
+				Dataset:          "missing",
+				OnMissingDataset: "error",
+				Compare: &osspecv2.CheckPlanCompare{
+					Op:    "eq",
+					Value: 0,
+				},
+			},
 		},
 	}
 
-	ev, err := e.evalCheck(context.Background(), "rs", "r", Context{}, rule, map[string]any{})
+	ev, err := e.evalCheck(context.Background(), "rs", "rule", Context{}, rule, map[string]any{})
 	if err != nil {
 		t.Fatalf("evalCheck error: %v", err)
 	}
@@ -255,38 +221,22 @@ func TestDatasetErrorPolicy_MissingDatasetCanBeError(t *testing.T) {
 	}
 }
 
-func TestValueParamMissing_ReturnsParamError(t *testing.T) {
-	e := &Engine{
-		Datasets: &fakeDatasets{
-			data: map[string][]any{
-				"okta:policies/sign-on": {
-					map[string]any{"id": "a", "session": map[string]any{"max_idle_minutes": float64(10)}},
-				},
-			},
-		},
-	}
+func TestEvalCheck_ManualRuleUnknown(t *testing.T) {
+	e := &Engine{Datasets: &fakeDatasets{data: map[string][]any{}}}
 
 	rule := osspecv2.Rule{
-		Title: "Idle timeout",
-		Check: &osspecv2.Check{
-			Type:    "dataset.field_compare",
-			Dataset: "okta:policies/sign-on",
-			Assert: &osspecv2.Predicate{
-				Path:       "/session/max_idle_minutes",
-				Op:         "lte",
-				ValueParam: "max_idle_minutes",
-			},
-		},
+		Title:      "Manual control",
+		Monitoring: osspecv2.Monitoring{Status: osspecv2.MonitoringStatus_MANUAL},
 	}
 
-	_, err := e.evalCheck(context.Background(), "rs", "r", Context{}, rule, map[string]any{})
-	if err == nil {
-		t.Fatalf("expected error, got nil")
+	ev, err := e.evalCheck(context.Background(), "rs", "rule", Context{}, rule, map[string]any{})
+	if err != nil {
+		t.Fatalf("evalCheck error: %v", err)
 	}
-	var pe ParamError
-	if !errors.As(err, &pe) {
-		t.Fatalf("expected ParamError, got %T: %v", err, err)
+	if ev == nil {
+		t.Fatalf("expected evaluation, got nil")
+	}
+	if ev.Status != "unknown" {
+		t.Fatalf("expected unknown, got %q", ev.Status)
 	}
 }
-
-func intPtr(v int) *int { return &v }

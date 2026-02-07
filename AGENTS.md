@@ -22,7 +22,7 @@ Prereqs: Go 1.25.x (see `go.mod` toolchain), Docker + Compose, Node.js + npm.
 - `just test`: run unit tests (`go test ./...`). CI also runs `go vet ./...`.
 - UI: `npm install && just ui` (build CSS) or `just ui-watch` (watch).
 - Dev loop: `just dev` (live reload; requires `air` + `templ` installed).
-- Spec update: `just update-open-sspm-spec` (expects `OPEN_SSPM_SPEC_REF`; `OPEN_SSPM_SPEC_REPO` defaults to and must remain `https://github.com/open-sspm/open-sspm-spec`; refreshes lockfile metadata and Go module pin to generated v2 types).
+- Spec update: `just update-open-sspm-spec` (expects `OPEN_SSPM_SPEC_REF`; `OPEN_SSPM_SPEC_REPO` defaults to and must remain `https://github.com/open-sspm/open-sspm-spec`; refreshes lockfile metadata and pins the generated v2 Go module dependency).
 
 ## Coding Style & Naming Conventions
 

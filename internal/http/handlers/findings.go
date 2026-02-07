@@ -747,13 +747,6 @@ func parseEvidence(evidenceJSON []byte) viewmodels.FindingsEvidenceViewData {
 	out.CheckType = strings.TrimSpace(stringFromAny(check["type"]))
 	out.Dataset = strings.TrimSpace(stringFromAny(check["dataset"]))
 
-	if left, ok := check["left"].(map[string]any); ok {
-		out.Left.Dataset = strings.TrimSpace(stringFromAny(left["dataset"]))
-	}
-	if right, ok := check["right"].(map[string]any); ok {
-		out.Right.Dataset = strings.TrimSpace(stringFromAny(right["dataset"]))
-	}
-
 	if params, ok := payload["params"].(map[string]any); ok {
 		b, _ := json.MarshalIndent(params, "", "  ")
 		out.ParamsPretty = string(b)
@@ -761,7 +754,14 @@ func parseEvidence(evidenceJSON []byte) viewmodels.FindingsEvidenceViewData {
 
 	if sel, ok := payload["selection"].(map[string]any); ok {
 		out.SelectionTotal = intFromAny(sel["total"])
-		out.SelectionSelected = intFromAny(sel["selected"])
+		if out.SelectionTotal == 0 {
+			out.SelectionTotal = intFromAny(sel["selected"])
+		}
+
+		out.SelectionSelected = intFromAny(sel["passed"])
+		if out.SelectionSelected == 0 {
+			out.SelectionSelected = intFromAny(sel["selected"])
+		}
 	}
 
 	if v, ok := payload["violations"].([]any); ok {

@@ -1,8 +1,8 @@
 {
-  "descriptor_hash": "e364f57ace0ddde51ba775f8274f71313b823a0284b33b12c99aa8b9767e7bde",
+  "descriptor_hash": "55f1545903a3132c4ec19813e57d35bc2166afbb9cee6813a3c308f7160a24bc",
   "descriptor_hash_algorithm": "sha256",
-  "updated_at": "2026-02-07T13:24:00Z",
-  "upstream_commit": "88c11daa754b16c81be4d9e05eeef69fbe659000",
-  "upstream_ref": "88c11daa754b16c81be4d9e05eeef69fbe659000",
+  "updated_at": "2026-02-07T19:57:53Z",
+  "upstream_commit": "3d8d4e19f779502c10f48d8852242a29aa14a5f9",
+  "upstream_ref": "3d8d4e19f779502c10f48d8852242a29aa14a5f9",
   "upstream_repo": "https://github.com/open-sspm/open-sspm-spec"
 }

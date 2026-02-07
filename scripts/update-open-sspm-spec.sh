@@ -50,6 +50,16 @@ echo "==> Validating spec..."
 echo "==> Building compiled artifacts..."
 (cd "${spec_dir}" && go run ./tools/osspec/cmd/osspec build --repo . --out dist)
 
+echo "==> Regenerating Go artifacts..."
+(cd "${spec_dir}" && go run ./tools/osspec/cmd/osspec codegen --repo . --lang go --out gen/go)
+
+echo "==> Verifying generated artifacts are committed at ${OPEN_SSPM_SPEC_REF}..."
+if ! git -C "${spec_dir}" diff --quiet -- dist gen/go; then
+	echo "error: ${canonical_repo}@${OPEN_SSPM_SPEC_REF} has uncommitted generated changes after build/codegen." >&2
+	echo "hint: regenerate and commit dist/ and gen/go in open-sspm-spec before pinning this ref." >&2
+	exit 1
+fi
+
 assets_dir="${ROOT_DIR}/internal/opensspm/specassets"
 mkdir -p "${assets_dir}"
 
@@ -64,14 +74,11 @@ if [[ ! -f "${descriptor_dist_path}" ]]; then
 	exit 1
 fi
 
-echo "==> Copying descriptor snapshot..."
-cp "${descriptor_dist_path}" "${assets_dir}/descriptor.v2.yaml"
-
 echo "==> Pinning Go types dependency..."
 (cd "${ROOT_DIR}" && go get "github.com/open-sspm/open-sspm-spec@${OPEN_SSPM_SPEC_REF}")
 
 echo "==> Updating spec.lock.json..."
-python3 - "${assets_dir}" "${upstream_repo}" "${OPEN_SSPM_SPEC_REF}" "${upstream_commit}" "${assets_dir}/descriptor.v2.yaml" <<'PY'
+python3 - "${assets_dir}" "${upstream_repo}" "${OPEN_SSPM_SPEC_REF}" "${upstream_commit}" "${descriptor_dist_path}" <<'PY'
 import datetime
 import hashlib
 import json

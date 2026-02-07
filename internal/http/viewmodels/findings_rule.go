@@ -7,10 +7,10 @@ type FindingsRuleViewData struct {
 
 	SourceName string
 
-	RuleKey         string
-	RuleTitle       string
-	RuleSummary     string
-	RuleSeverity    string
+	RuleKey      string
+	RuleTitle    string
+	RuleSummary  string
+	RuleSeverity string
 
 	MonitoringStatus string
 	MonitoringReason string
@@ -38,8 +38,6 @@ type FindingsEvidenceViewData struct {
 
 	CheckType string
 	Dataset   string
-	Left      FindingsJoinSideViewData
-	Right     FindingsJoinSideViewData
 
 	ParamsPretty string
 
@@ -50,10 +48,6 @@ type FindingsEvidenceViewData struct {
 	ViolationsTruncated bool
 
 	RawPretty string
-}
-
-type FindingsJoinSideViewData struct {
-	Dataset string
 }
 
 type FindingsEvidenceViolation struct {

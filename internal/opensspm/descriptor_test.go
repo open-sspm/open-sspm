@@ -1,14 +1,13 @@
 package opensspm
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
+	specv2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v2"
 	"github.com/open-sspm/open-sspm/internal/opensspm/specassets"
 )
 
@@ -17,14 +16,14 @@ func TestDescriptorV2_Loads(t *testing.T) {
 
 	desc, err := DescriptorV2()
 	if err != nil {
-		t.Fatalf("load embedded descriptor: %v", err)
+		t.Fatalf("load generated descriptor: %v", err)
 	}
 	if len(desc.Rulesets) == 0 {
-		t.Fatal("embedded descriptor has no rulesets")
+		t.Fatal("generated descriptor has no rulesets")
 	}
 }
 
-func TestLockfileHashMatchesEmbeddedDescriptor(t *testing.T) {
+func TestLockfileHashMatchesGeneratedDescriptor(t *testing.T) {
 	t.Parallel()
 
 	lock, err := specassets.Lockfile()
@@ -32,17 +31,16 @@ func TestLockfileHashMatchesEmbeddedDescriptor(t *testing.T) {
 		t.Fatalf("parse lockfile: %v", err)
 	}
 
-	sum := sha256.Sum256(specassets.DescriptorV2YAML())
 	got := strings.TrimSpace(lock.DescriptorHash)
-	want := hex.EncodeToString(sum[:])
+	want := strings.TrimSpace(specv2.GeneratedDescriptorHash)
 	if got != want {
 		t.Fatalf("descriptor hash mismatch: lockfile=%s computed=%s", got, want)
 	}
-	if strings.TrimSpace(lock.DescriptorHashAlgorithm) != "sha256" {
+	if strings.TrimSpace(lock.DescriptorHashAlgorithm) != strings.TrimSpace(specv2.GeneratedDescriptorHashAlgorithm) {
 		t.Fatalf(
 			"descriptor hash algorithm mismatch: lockfile=%s expected=%s",
 			strings.TrimSpace(lock.DescriptorHashAlgorithm),
-			"sha256",
+			strings.TrimSpace(specv2.GeneratedDescriptorHashAlgorithm),
 		)
 	}
 	if filepath.IsAbs(strings.TrimSpace(lock.UpstreamRepo)) {
