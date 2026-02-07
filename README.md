@@ -34,10 +34,10 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 7. Open `http://localhost:8080`, configure connectors under Settings → Connectors, then run a sync (Settings → Resync, or `just sync`).
 
 ## Findings / rules (Okta benchmark)
-Rulesets are embedded from a pinned Open SSPM descriptor snapshot (`internal/opensspm/specassets/descriptor.v1.json`) and must be seeded into Postgres before they show up in the UI:
+Rulesets are loaded from generated Open SSPM spec Go entities (`github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v2`) and must be seeded into Postgres before they show up in the UI:
 - `go run ./cmd/open-sspm seed-rules`
 
-After seeding, run an Okta sync and open `http://localhost:8080/findings/rulesets/cis.okta.idaas_stig.v1`.
+After seeding, run an Okta sync and open `http://localhost:8080/findings/rulesets/cis.okta.idaas_stig.v2`.
 
 ## Dev workflows
 - Live-reload server: `just dev` (requires `air` + `templ`)

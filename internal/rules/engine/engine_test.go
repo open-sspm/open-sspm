@@ -6,47 +6,47 @@ import (
 	"errors"
 	"testing"
 
-	runtimev1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v1"
-	osspecv1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v1"
+	runtimev2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v2"
+	osspecv2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v2"
 )
 
 type fakeDatasets struct {
 	data map[string][]any
-	errs map[string]runtimev1.DatasetErrorKind
+	errs map[string]runtimev2.DatasetErrorKind
 }
 
-func (f *fakeDatasets) Capabilities(ctx context.Context) []runtimev1.DatasetRef {
+func (f *fakeDatasets) Capabilities(ctx context.Context) []runtimev2.DatasetRef {
 	_ = ctx
 	return nil
 }
 
-func (f *fakeDatasets) GetDataset(ctx context.Context, eval runtimev1.EvalContext, ref runtimev1.DatasetRef) runtimev1.DatasetResult {
+func (f *fakeDatasets) GetDataset(ctx context.Context, eval runtimev2.EvalContext, ref runtimev2.DatasetRef) runtimev2.DatasetResult {
 	_, _ = ctx, eval
 
 	key := ref.Dataset
 	if f.errs != nil {
 		if kind, ok := f.errs[key]; ok {
-			return runtimev1.DatasetResult{Error: &runtimev1.DatasetError{Kind: kind}}
+			return runtimev2.DatasetResult{Error: &runtimev2.DatasetError{Kind: kind}}
 		}
 	}
 
 	if f.data == nil {
-		return runtimev1.DatasetResult{Error: &runtimev1.DatasetError{Kind: runtimev1.DatasetErrorKind_MISSING_DATASET}}
+		return runtimev2.DatasetResult{Error: &runtimev2.DatasetError{Kind: runtimev2.DatasetErrorKind_MISSING_DATASET}}
 	}
 	rows, ok := f.data[key]
 	if !ok {
-		return runtimev1.DatasetResult{Error: &runtimev1.DatasetError{Kind: runtimev1.DatasetErrorKind_MISSING_DATASET}}
+		return runtimev2.DatasetResult{Error: &runtimev2.DatasetError{Kind: runtimev2.DatasetErrorKind_MISSING_DATASET}}
 	}
 
 	raw := make([]json.RawMessage, 0, len(rows))
 	for _, row := range rows {
 		b, err := json.Marshal(row)
 		if err != nil {
-			return runtimev1.DatasetResult{Error: &runtimev1.DatasetError{Kind: runtimev1.DatasetErrorKind_ENGINE_ERROR, Message: err.Error()}}
+			return runtimev2.DatasetResult{Error: &runtimev2.DatasetError{Kind: runtimev2.DatasetErrorKind_ENGINE_ERROR, Message: err.Error()}}
 		}
 		raw = append(raw, json.RawMessage(b))
 	}
-	return runtimev1.DatasetResult{Rows: raw}
+	return runtimev2.DatasetResult{Rows: raw}
 }
 
 func TestEvalDatasetFieldCompare_AllPass(t *testing.T) {
@@ -61,20 +61,20 @@ func TestEvalDatasetFieldCompare_AllPass(t *testing.T) {
 		},
 	}
 
-	rule := osspecv1.Rule{
+	rule := osspecv2.Rule{
 		Title: "Idle timeout",
-		Parameters: &osspecv1.Parameters{
+		Parameters: &osspecv2.Parameters{
 			Defaults: map[string]any{"max_idle_minutes": float64(15)},
 		},
-		Check: &osspecv1.Check{
+		Check: &osspecv2.Check{
 			Type:    "dataset.field_compare",
 			Dataset: "okta:policies/sign-on",
-			Assert: &osspecv1.Predicate{
+			Assert: &osspecv2.Predicate{
 				Path:       "/session/max_idle_minutes",
 				Op:         "lte",
 				ValueParam: "max_idle_minutes",
 			},
-			Expect: &osspecv1.FieldCompareExpect{
+			Expect: &osspecv2.FieldCompareExpect{
 				Match:   "all",
 				OnEmpty: "error",
 			},
@@ -106,12 +106,12 @@ func TestEvalDatasetFieldCompare_Violation(t *testing.T) {
 	}
 
 	params := map[string]any{"max_idle_minutes": float64(15)}
-	rule := osspecv1.Rule{
+	rule := osspecv2.Rule{
 		Title: "Idle timeout",
-		Check: &osspecv1.Check{
+		Check: &osspecv2.Check{
 			Type:    "dataset.field_compare",
 			Dataset: "okta:policies/sign-on",
-			Assert: &osspecv1.Predicate{
+			Assert: &osspecv2.Predicate{
 				Path:       "/session/max_idle_minutes",
 				Op:         "lte",
 				ValueParam: "max_idle_minutes",
@@ -147,15 +147,15 @@ func TestEvalDatasetCountCompare(t *testing.T) {
 		},
 	}
 
-	rule := osspecv1.Rule{
+	rule := osspecv2.Rule{
 		Title: "Count active apps",
-		Check: &osspecv1.Check{
+		Check: &osspecv2.Check{
 			Type:    "dataset.count_compare",
 			Dataset: "okta:apps",
-			Where: []osspecv1.Predicate{
+			Where: []osspecv2.Predicate{
 				{Path: "/active", Op: "eq", Value: true},
 			},
-			Compare: &osspecv1.Compare{Op: "eq", Value: intPtr(2)},
+			Compare: &osspecv2.Compare{Op: "eq", Value: intPtr(2)},
 		},
 	}
 
@@ -181,14 +181,14 @@ func TestEvalDatasetJoinCountCompare_OnUnmatchedLeftError(t *testing.T) {
 		},
 	}
 
-	rule := osspecv1.Rule{
+	rule := osspecv2.Rule{
 		Title: "Join required",
-		Check: &osspecv1.Check{
+		Check: &osspecv2.Check{
 			Type:            "dataset.join_count_compare",
-			Left:            &osspecv1.JoinSide{Dataset: "left", KeyPath: "/id"},
-			Right:           &osspecv1.JoinSide{Dataset: "right", KeyPath: "/id"},
+			Left:            &osspecv2.JoinSide{Dataset: "left", KeyPath: "/id"},
+			Right:           &osspecv2.JoinSide{Dataset: "right", KeyPath: "/id"},
 			OnUnmatchedLeft: "error",
-			Compare:         &osspecv1.Compare{Op: "eq", Value: intPtr(0)},
+			Compare:         &osspecv2.Compare{Op: "eq", Value: intPtr(0)},
 		},
 	}
 
@@ -207,9 +207,9 @@ func TestEvalDatasetJoinCountCompare_OnUnmatchedLeftError(t *testing.T) {
 func TestEvalManualAttestation_NoAttestation(t *testing.T) {
 	e := &Engine{Datasets: &fakeDatasets{data: map[string][]any{}}}
 
-	rule := osspecv1.Rule{
+	rule := osspecv2.Rule{
 		Title: "Manual control",
-		Check: &osspecv1.Check{Type: "manual.attestation"},
+		Check: &osspecv2.Check{Type: "manual.attestation"},
 	}
 
 	ev, err := e.evalCheck(context.Background(), "rs", "r", Context{}, rule, map[string]any{})
@@ -227,19 +227,19 @@ func TestEvalManualAttestation_NoAttestation(t *testing.T) {
 func TestDatasetErrorPolicy_MissingDatasetCanBeError(t *testing.T) {
 	e := &Engine{
 		Datasets: &fakeDatasets{
-			errs: map[string]runtimev1.DatasetErrorKind{
-				"missing": runtimev1.DatasetErrorKind_MISSING_DATASET,
+			errs: map[string]runtimev2.DatasetErrorKind{
+				"missing": runtimev2.DatasetErrorKind_MISSING_DATASET,
 			},
 		},
 	}
 
-	rule := osspecv1.Rule{
+	rule := osspecv2.Rule{
 		Title: "Missing dataset",
-		Check: &osspecv1.Check{
+		Check: &osspecv2.Check{
 			Type:             "dataset.count_compare",
 			Dataset:          "missing",
 			OnMissingDataset: "error",
-			Compare:          &osspecv1.Compare{Op: "eq", Value: intPtr(0)},
+			Compare:          &osspecv2.Compare{Op: "eq", Value: intPtr(0)},
 		},
 	}
 
@@ -266,12 +266,12 @@ func TestValueParamMissing_ReturnsParamError(t *testing.T) {
 		},
 	}
 
-	rule := osspecv1.Rule{
+	rule := osspecv2.Rule{
 		Title: "Idle timeout",
-		Check: &osspecv1.Check{
+		Check: &osspecv2.Check{
 			Type:    "dataset.field_compare",
 			Dataset: "okta:policies/sign-on",
-			Assert: &osspecv1.Predicate{
+			Assert: &osspecv2.Predicate{
 				Path:       "/session/max_idle_minutes",
 				Op:         "lte",
 				ValueParam: "max_idle_minutes",

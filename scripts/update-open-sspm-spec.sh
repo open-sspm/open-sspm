@@ -7,6 +7,18 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 : "${OPEN_SSPM_SPEC_REPO:?OPEN_SSPM_SPEC_REPO is required (local path or git URL)}"
 : "${OPEN_SSPM_SPEC_REF:?OPEN_SSPM_SPEC_REF is required (tag/branch/commit)}"
 
+normalize_repo_url() {
+	local repo="$1"
+
+	if [[ "${repo}" =~ ^git@([^:]+):(.+)$ ]]; then
+		repo="https://${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+	fi
+	repo="${repo#ssh://git@}"
+	repo="${repo#git://}"
+	repo="${repo%.git}"
+	printf '%s\n' "${repo}"
+}
+
 tmp_dir="$(mktemp -d)"
 cleanup() {
 	rm -rf "${tmp_dir}"
@@ -31,21 +43,39 @@ echo "==> Building compiled artifacts..."
 assets_dir="${ROOT_DIR}/internal/opensspm/specassets"
 mkdir -p "${assets_dir}"
 
-echo "==> Copying descriptor snapshot..."
-cp "${spec_dir}/dist/descriptor.v1.json" "${assets_dir}/descriptor.v1.json"
-
-if [[ -f "${spec_dir}/dist/index/requirements.json" ]]; then
-	echo "==> Copying requirements snapshot..."
-	cp "${spec_dir}/dist/index/requirements.json" "${assets_dir}/requirements.json"
-fi
+rm -f "${assets_dir}/descriptor.v1.json" "${assets_dir}/requirements.json" "${assets_dir}/descriptor.v1.yaml" "${assets_dir}/requirements.yaml" "${assets_dir}/descriptor.v2.yaml"
 
 upstream_commit="$(git -C "${spec_dir}" rev-parse HEAD)"
+upstream_repo="$(git -C "${spec_dir}" config --get remote.origin.url || true)"
+if [[ -d "${OPEN_SSPM_SPEC_REPO}" ]]; then
+	source_origin="$(git -C "${OPEN_SSPM_SPEC_REPO}" config --get remote.origin.url || true)"
+	if [[ -n "${source_origin}" ]]; then
+		upstream_repo="${source_origin}"
+	fi
+fi
+if [[ -z "${upstream_repo}" ]]; then
+	upstream_repo="${OPEN_SSPM_SPEC_REPO}"
+fi
+upstream_repo="$(normalize_repo_url "${upstream_repo}")"
+if [[ "${upstream_repo}" == /* || "${upstream_repo}" == ./* || "${upstream_repo}" == ../* ]]; then
+	echo "error: could not derive canonical upstream_repo URL from ${OPEN_SSPM_SPEC_REPO}" >&2
+	exit 1
+fi
+
+descriptor_dist_path="${spec_dir}/dist/descriptor.v2.yaml"
+if [[ ! -f "${descriptor_dist_path}" ]]; then
+	echo "error: expected compiled descriptor at ${descriptor_dist_path}" >&2
+	exit 1
+fi
+
+echo "==> Copying descriptor snapshot..."
+cp "${descriptor_dist_path}" "${assets_dir}/descriptor.v2.yaml"
 
 echo "==> Pinning Go types dependency..."
 (cd "${ROOT_DIR}" && go get "github.com/open-sspm/open-sspm-spec@${OPEN_SSPM_SPEC_REF}")
 
 echo "==> Updating spec.lock.json..."
-python3 - "${assets_dir}" "${OPEN_SSPM_SPEC_REPO}" "${OPEN_SSPM_SPEC_REF}" "${upstream_commit}" <<'PY'
+python3 - "${assets_dir}" "${upstream_repo}" "${OPEN_SSPM_SPEC_REF}" "${upstream_commit}" "${assets_dir}/descriptor.v2.yaml" <<'PY'
 import datetime
 import hashlib
 import json
@@ -56,9 +86,9 @@ assets_dir = pathlib.Path(sys.argv[1])
 upstream_repo = sys.argv[2]
 upstream_ref = sys.argv[3]
 upstream_commit = sys.argv[4]
+descriptor_asset_path = pathlib.Path(sys.argv[5])
 
-descriptor_path = assets_dir / "descriptor.v1.json"
-descriptor_hash = hashlib.sha256(descriptor_path.read_bytes()).hexdigest()
+descriptor_hash = hashlib.sha256(descriptor_asset_path.read_bytes()).hexdigest()
 
 lock = {
     "upstream_repo": upstream_repo,
@@ -74,4 +104,3 @@ print(f"descriptor_hash={descriptor_hash}")
 PY
 
 echo "==> Done."
-

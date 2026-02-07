@@ -18,22 +18,15 @@ type Lock struct {
 }
 
 var (
-	//go:embed descriptor.v1.json
-	descriptorV1JSON []byte
-
-	//go:embed requirements.json
-	requirementsJSON []byte
+	//go:embed descriptor.v2.yaml
+	descriptorV2YAML []byte
 
 	//go:embed spec.lock.json
 	lockJSON []byte
 )
 
-func DescriptorV1JSON() []byte {
-	return descriptorV1JSON
-}
-
-func RequirementsJSON() []byte {
-	return requirementsJSON
+func DescriptorV2YAML() []byte {
+	return descriptorV2YAML
 }
 
 func Lockfile() (Lock, error) {

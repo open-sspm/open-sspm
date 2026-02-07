@@ -7,7 +7,7 @@ import (
 	"math"
 	"reflect"
 
-	osspecv1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v1"
+	osspecv2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v2"
 )
 
 func parseJSONObject(b []byte) (map[string]any, error) {
@@ -66,7 +66,7 @@ func deepCopyJSONValue(v any) any {
 	}
 }
 
-func validateParams(params map[string]any, schema map[string]osspecv1.ParameterSchema) error {
+func validateParams(params map[string]any, schema map[string]osspecv2.ParameterSchema) error {
 	var errs []error
 	for key, sch := range schema {
 		val, ok := params[key]
@@ -80,11 +80,11 @@ func validateParams(params map[string]any, schema map[string]osspecv1.ParameterS
 	return errors.Join(errs...)
 }
 
-func ValidateParams(params map[string]any, schema map[string]osspecv1.ParameterSchema) error {
+func ValidateParams(params map[string]any, schema map[string]osspecv2.ParameterSchema) error {
 	return validateParams(params, schema)
 }
 
-func validateParamValue(val any, sch osspecv1.ParameterSchema) error {
+func validateParamValue(val any, sch osspecv2.ParameterSchema) error {
 	switch sch.Type {
 	case "string":
 		if _, ok := val.(string); !ok {

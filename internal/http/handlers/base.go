@@ -4,6 +4,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/a-h/templ"
 	"github.com/alexedwards/scs/v2"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -113,6 +115,15 @@ func (h *Handlers) LayoutData(ctx context.Context, c *echo.Context, title string
 	if awsName == "" {
 		awsName = strings.TrimSpace(snap.AWSIdentityCenter.Region)
 	}
+	findingsOktaRulesetHref := "/findings"
+	if ruleset, err := h.Q.GetRulesetByKey(ctx, "cis.okta.idaas_stig.v2"); err == nil {
+		rulesetKey := strings.TrimSpace(ruleset.Key)
+		if rulesetKey != "" {
+			findingsOktaRulesetHref = "/findings/rulesets/" + rulesetKey
+		}
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return viewmodels.LayoutData{}, snap, err
+	}
 
 	commandUsersRaw, err := h.Q.ListIdPUsersForCommand(ctx)
 	if err != nil {
@@ -160,6 +171,7 @@ func (h *Handlers) LayoutData(ctx context.Context, c *echo.Context, title string
 		UserEmail:                   principal.Email,
 		UserRole:                    principal.Role,
 		IsAdmin:                     ok && principal.IsAdmin(),
+		FindingsOktaRulesetHref:     findingsOktaRulesetHref,
 		GitHubOrg:                   snap.GitHub.Org,
 		GitHubEnabled:               snap.GitHubEnabled,
 		GitHubConfigured:            snap.GitHubConfigured,

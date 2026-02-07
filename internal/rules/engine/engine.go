@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	runtimev1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v1"
-	osspecv1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v1"
+	runtimev2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v2"
+	osspecv2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v2"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/metrics"
 )
@@ -117,7 +117,7 @@ func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, 
 		return nil, errors.New("engine: nil")
 	}
 
-	var def osspecv1.Rule
+	var def osspecv2.Rule
 	if err := json.Unmarshal(rule.DefinitionJson, &def); err != nil {
 		return &Evaluation{
 			Status:          "error",
@@ -139,7 +139,7 @@ func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, 
 		}, nil
 	}
 
-	// Only evaluate v1 rules that provide a check.
+	// Only evaluate rules that provide a check.
 	if def.Check == nil {
 		return nil, nil
 	}
@@ -456,7 +456,7 @@ type violation struct {
 	Display    string `json:"display,omitempty"`
 }
 
-func (e *Engine) evalCheck(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, rule osspecv1.Rule, params map[string]any) (*Evaluation, error) {
+func (e *Engine) evalCheck(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, rule osspecv2.Rule, params map[string]any) (*Evaluation, error) {
 	check := rule.Check
 	if check == nil {
 		return nil, nil
@@ -494,7 +494,7 @@ func (e *Engine) evalCheck(ctx context.Context, rulesetKey, ruleKey string, eval
 	}
 }
 
-func (e *Engine) evalDatasetFieldCompare(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, rule osspecv1.Rule, params map[string]any) (*Evaluation, error) {
+func (e *Engine) evalDatasetFieldCompare(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, rule osspecv2.Rule, params map[string]any) (*Evaluation, error) {
 	check := rule.Check
 	if check == nil {
 		return nil, nil
@@ -665,7 +665,7 @@ func (e *Engine) evalDatasetFieldCompare(ctx context.Context, rulesetKey, ruleKe
 	}, nil
 }
 
-func (e *Engine) evalDatasetCountCompare(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, rule osspecv1.Rule, params map[string]any) (*Evaluation, error) {
+func (e *Engine) evalDatasetCountCompare(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, rule osspecv2.Rule, params map[string]any) (*Evaluation, error) {
 	check := rule.Check
 	if check == nil {
 		return nil, nil
@@ -743,7 +743,7 @@ func (e *Engine) evalDatasetCountCompare(ctx context.Context, rulesetKey, ruleKe
 	}, nil
 }
 
-func (e *Engine) evalDatasetJoinCountCompare(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, rule osspecv1.Rule, params map[string]any) (*Evaluation, error) {
+func (e *Engine) evalDatasetJoinCountCompare(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, rule osspecv2.Rule, params map[string]any) (*Evaluation, error) {
 	check := rule.Check
 	if check == nil {
 		return nil, nil
@@ -755,7 +755,7 @@ func (e *Engine) evalDatasetJoinCountCompare(ctx context.Context, rulesetKey, ru
 		return nil, errors.New("join_count_compare requires compare")
 	}
 
-	leftRows, ev, err := e.getDatasetOrResult(ctx, rulesetKey, ruleKey, evalCtx, osspecv1.Check{
+	leftRows, ev, err := e.getDatasetOrResult(ctx, rulesetKey, ruleKey, evalCtx, osspecv2.Check{
 		Type:               check.Type,
 		Dataset:            check.Left.Dataset,
 		DatasetVersion:     check.DatasetVersion,
@@ -766,7 +766,7 @@ func (e *Engine) evalDatasetJoinCountCompare(ctx context.Context, rulesetKey, ru
 	if ev != nil || err != nil {
 		return ev, err
 	}
-	rightRows, ev, err := e.getDatasetOrResult(ctx, rulesetKey, ruleKey, evalCtx, osspecv1.Check{
+	rightRows, ev, err := e.getDatasetOrResult(ctx, rulesetKey, ruleKey, evalCtx, osspecv2.Check{
 		Type:               check.Type,
 		Dataset:            check.Right.Dataset,
 		DatasetVersion:     check.DatasetVersion,
@@ -910,7 +910,7 @@ func (e *Engine) evalDatasetJoinCountCompare(ctx context.Context, rulesetKey, ru
 	}, nil
 }
 
-func evalAllWhere(row any, where []osspecv1.Predicate, params map[string]any) (bool, error) {
+func evalAllWhere(row any, where []osspecv2.Predicate, params map[string]any) (bool, error) {
 	for _, clause := range where {
 		path := strings.TrimSpace(clause.Path)
 		if path == "" {
@@ -927,7 +927,7 @@ func evalAllWhere(row any, where []osspecv1.Predicate, params map[string]any) (b
 	return true, nil
 }
 
-func evalAllWhereJoin(left any, right any, where []osspecv1.Predicate, params map[string]any) (bool, error) {
+func evalAllWhereJoin(left any, right any, where []osspecv2.Predicate, params map[string]any) (bool, error) {
 	for _, clause := range where {
 		lp := strings.TrimSpace(clause.LeftPath)
 		rp := strings.TrimSpace(clause.RightPath)
@@ -962,7 +962,7 @@ func evalAllWhereJoin(left any, right any, where []osspecv1.Predicate, params ma
 	return true, nil
 }
 
-func (e *Engine) getDatasetOrResult(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, check osspecv1.Check, params map[string]any) ([]any, *Evaluation, error) {
+func (e *Engine) getDatasetOrResult(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, check osspecv2.Check, params map[string]any) ([]any, *Evaluation, error) {
 	ds := strings.TrimSpace(check.Dataset)
 	if ds == "" {
 		return nil, nil, errors.New("dataset key is required")
@@ -973,29 +973,29 @@ func (e *Engine) getDatasetOrResult(ctx context.Context, rulesetKey, ruleKey str
 		version = check.DatasetVersion
 	}
 
-	runtimeEval := runtimev1.EvalContext{
-		ScopeKind: runtimev1.ScopeKind(strings.TrimSpace(evalCtx.ScopeKind)),
+	runtimeEval := runtimev2.EvalContext{
+		ScopeKind: runtimev2.ScopeKind(strings.TrimSpace(evalCtx.ScopeKind)),
 	}
-	if runtimeEval.ScopeKind == runtimev1.ScopeKind_CONNECTOR_INSTANCE {
+	if runtimeEval.ScopeKind == runtimev2.ScopeKind_CONNECTOR_INSTANCE {
 		runtimeEval.ConnectorKind = strings.TrimSpace(evalCtx.SourceKind)
 		runtimeEval.ConnectorInstance = strings.TrimSpace(evalCtx.SourceName)
 	}
 
-	res := e.Datasets.GetDataset(ctx, runtimeEval, runtimev1.DatasetRef{Dataset: ds, Version: version})
+	res := e.Datasets.GetDataset(ctx, runtimeEval, runtimev2.DatasetRef{Dataset: ds, Version: version})
 	if res.Error != nil {
 		status := "unknown"
 		errorKind := strings.TrimSpace(string(res.Error.Kind))
 
 		switch res.Error.Kind {
-		case runtimev1.DatasetErrorKind_MISSING_INTEGRATION:
+		case runtimev2.DatasetErrorKind_MISSING_INTEGRATION:
 			status = "unknown"
-		case runtimev1.DatasetErrorKind_MISSING_DATASET:
+		case runtimev2.DatasetErrorKind_MISSING_DATASET:
 			status = statusFromPolicy(string(check.OnMissingDataset), "unknown")
-		case runtimev1.DatasetErrorKind_PERMISSION_DENIED:
+		case runtimev2.DatasetErrorKind_PERMISSION_DENIED:
 			status = statusFromPolicy(string(check.OnPermissionDenied), "unknown")
-		case runtimev1.DatasetErrorKind_SYNC_FAILED:
+		case runtimev2.DatasetErrorKind_SYNC_FAILED:
 			status = statusFromPolicy(string(check.OnSyncError), "error")
-		case runtimev1.DatasetErrorKind_ENGINE_ERROR:
+		case runtimev2.DatasetErrorKind_ENGINE_ERROR:
 			status = "error"
 			if errorKind == "" {
 				errorKind = "engine_error"
@@ -1078,7 +1078,7 @@ func statusFromPolicy(policy string, def string) string {
 	}
 }
 
-func checkSummary(check osspecv1.Check) map[string]any {
+func checkSummary(check osspecv2.Check) map[string]any {
 	out := map[string]any{
 		"type": strings.TrimSpace(string(check.Type)),
 	}

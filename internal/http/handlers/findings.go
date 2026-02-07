@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
-	osspecv1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v1"
+	osspecv2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v2"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
@@ -655,7 +655,7 @@ type rulesetMeta struct {
 }
 
 func parseRulesetMetadata(definitionJSON []byte) rulesetMeta {
-	var doc osspecv1.RulesetDoc
+	var doc osspecv2.RulesetDoc
 	if err := json.Unmarshal(definitionJSON, &doc); err != nil {
 		return rulesetMeta{}
 	}
@@ -697,12 +697,12 @@ type ruleMeta struct {
 	RemediationInstructions string
 	RemediationRisks        string
 	RemediationEffort       string
-	ParamSchema             map[string]osspecv1.ParameterSchema
+	ParamSchema             map[string]osspecv2.ParameterSchema
 	ParamDefaults           map[string]any
 }
 
 func parseRuleDefinition(definitionJSON []byte) ruleMeta {
-	var r osspecv1.Rule
+	var r osspecv2.Rule
 	if err := json.Unmarshal(definitionJSON, &r); err != nil {
 		return ruleMeta{}
 	}
@@ -818,7 +818,7 @@ func intFromAny(v any) int {
 	}
 }
 
-func parseOverrideParamsFromForm(c *echo.Context, schema map[string]osspecv1.ParameterSchema) (map[string]any, error) {
+func parseOverrideParamsFromForm(c *echo.Context, schema map[string]osspecv2.ParameterSchema) (map[string]any, error) {
 	params := make(map[string]any)
 	for key, sch := range schema {
 		formKey := "param_" + key
@@ -859,7 +859,7 @@ func parseOverrideParamsFromForm(c *echo.Context, schema map[string]osspecv1.Par
 	return params, nil
 }
 
-func buildRuleOverrideView(schema map[string]osspecv1.ParameterSchema, defaults map[string]any, override *gen.RuleOverride) viewmodels.FindingsRuleOverrideViewData {
+func buildRuleOverrideView(schema map[string]osspecv2.ParameterSchema, defaults map[string]any, override *gen.RuleOverride) viewmodels.FindingsRuleOverrideViewData {
 	out := viewmodels.FindingsRuleOverrideViewData{
 		Enabled: true,
 	}

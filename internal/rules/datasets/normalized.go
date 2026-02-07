@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	runtimev1 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v1"
+	runtimev2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v2"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
 )
@@ -25,25 +25,25 @@ type NormalizedProvider struct {
 	assignmentsErr  error
 }
 
-func (p *NormalizedProvider) Capabilities(ctx context.Context) []runtimev1.DatasetRef {
+func (p *NormalizedProvider) Capabilities(ctx context.Context) []runtimev2.DatasetRef {
 	_ = ctx
 	if p == nil {
 		return nil
 	}
-	out := make([]runtimev1.DatasetRef, 0, len(normalizedCapabilitiesV1))
-	for _, ds := range normalizedCapabilitiesV1 {
-		out = append(out, runtimev1.DatasetRef{Dataset: ds, Version: 1})
+	out := make([]runtimev2.DatasetRef, 0, len(normalizedCapabilitiesV2))
+	for _, ds := range normalizedCapabilitiesV2 {
+		out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: 1})
 	}
 	return out
 }
 
-func (p *NormalizedProvider) GetDataset(ctx context.Context, eval runtimev1.EvalContext, ref runtimev1.DatasetRef) runtimev1.DatasetResult {
+func (p *NormalizedProvider) GetDataset(ctx context.Context, eval runtimev2.EvalContext, ref runtimev2.DatasetRef) runtimev2.DatasetResult {
 	_ = eval
 
 	if p == nil {
-		return runtimev1.DatasetResult{
-			Error: &runtimev1.DatasetError{
-				Kind:    runtimev1.DatasetErrorKind_MISSING_DATASET,
+		return runtimev2.DatasetResult{
+			Error: &runtimev2.DatasetError{
+				Kind:    runtimev2.DatasetErrorKind_MISSING_DATASET,
 				Message: "normalized dataset provider is nil",
 			},
 		}
@@ -51,9 +51,9 @@ func (p *NormalizedProvider) GetDataset(ctx context.Context, eval runtimev1.Eval
 
 	datasetKey := strings.TrimSpace(ref.Dataset)
 	if datasetKey == "" {
-		return runtimev1.DatasetResult{
-			Error: &runtimev1.DatasetError{
-				Kind:    runtimev1.DatasetErrorKind_MISSING_DATASET,
+		return runtimev2.DatasetResult{
+			Error: &runtimev2.DatasetError{
+				Kind:    runtimev2.DatasetErrorKind_MISSING_DATASET,
 				Message: "dataset ref is missing dataset key",
 			},
 		}

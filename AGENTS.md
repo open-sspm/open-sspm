@@ -4,6 +4,7 @@
 
 - `cmd/open-sspm/`: CLI entrypoint and subcommands (`serve`, `worker`, `sync`, `migrate`, `seed-rules`).
 - `internal/`: application code (connectors, sync engine, HTTP server/UI, rules, access graph).
+- `internal/opensspm/specassets/`: pinned Open SSPM spec lockfile metadata (`spec.lock.json`) used to track generated descriptor provenance/hash.
 - `db/migrations/`: Postgres migrations.
 - `db/queries/` + `sqlc.yaml`: SQL sources for SQLC; generated Go is checked in under `internal/db/gen/`.
 - `internal/http/views/`: `templ` templates (generated `*_templ.go` files are checked in).
@@ -21,6 +22,7 @@ Prereqs: Go 1.25.x (see `go.mod` toolchain), Docker + Compose, Node.js + npm.
 - `just test`: run unit tests (`go test ./...`). CI also runs `go vet ./...`.
 - UI: `npm install && just ui` (build CSS) or `just ui-watch` (watch).
 - Dev loop: `just dev` (live reload; requires `air` + `templ` installed).
+- Spec update: `just update-open-sspm-spec` (expects `OPEN_SSPM_SPEC_REPO` and `OPEN_SSPM_SPEC_REF`; refreshes lockfile metadata and Go module pin to generated v2 types).
 
 ## Coding Style & Naming Conventions
 

@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -12,12 +13,15 @@ import (
 	"github.com/open-sspm/open-sspm/internal/opensspm/specassets"
 )
 
-func TestDescriptorV1_Parses(t *testing.T) {
+func TestDescriptorV2_Loads(t *testing.T) {
 	t.Parallel()
 
-	_, err := DescriptorV1()
+	desc, err := DescriptorV2()
 	if err != nil {
-		t.Fatalf("parse embedded descriptor: %v", err)
+		t.Fatalf("load embedded descriptor: %v", err)
+	}
+	if len(desc.Rulesets) == 0 {
+		t.Fatal("embedded descriptor has no rulesets")
 	}
 }
 
@@ -29,10 +33,21 @@ func TestLockfileHashMatchesEmbeddedDescriptor(t *testing.T) {
 		t.Fatalf("parse lockfile: %v", err)
 	}
 
-	sum := sha256.Sum256(specassets.DescriptorV1JSON())
-	got := hex.EncodeToString(sum[:])
-	if got != lock.DescriptorHash {
-		t.Fatalf("descriptor hash mismatch: lockfile=%s computed=%s", lock.DescriptorHash, got)
+	sum := sha256.Sum256(specassets.DescriptorV2YAML())
+	got := strings.TrimSpace(lock.DescriptorHash)
+	want := hex.EncodeToString(sum[:])
+	if got != want {
+		t.Fatalf("descriptor hash mismatch: lockfile=%s computed=%s", got, want)
+	}
+	if strings.TrimSpace(lock.DescriptorHashAlgorithm) != "sha256" {
+		t.Fatalf(
+			"descriptor hash algorithm mismatch: lockfile=%s expected=%s",
+			strings.TrimSpace(lock.DescriptorHashAlgorithm),
+			"sha256",
+		)
+	}
+	if filepath.IsAbs(strings.TrimSpace(lock.UpstreamRepo)) {
+		t.Fatalf("lockfile upstream_repo must be a canonical repo identifier, got absolute path %q", lock.UpstreamRepo)
 	}
 }
 
@@ -47,6 +62,26 @@ func TestLockfileUpstreamMatchesGoMod(t *testing.T) {
 	moduleVersion, ok := findGoModRequiredVersion(t, "github.com/open-sspm/open-sspm-spec")
 	if !ok {
 		t.Fatalf("missing required module version for github.com/open-sspm/open-sspm-spec")
+	}
+
+	if replaceTarget, ok := findGoModReplaceTarget(t, "github.com/open-sspm/open-sspm-spec"); ok {
+		_, thisFile, _, ok := runtime.Caller(0)
+		if !ok {
+			t.Fatalf("runtime.Caller failed")
+		}
+		repoRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "../.."))
+		headCommit := gitHeadCommit(t, resolveModulePath(repoRoot, replaceTarget))
+		want := strings.TrimSpace(lock.UpstreamCommit)
+		if want == "" {
+			want = strings.TrimSpace(lock.UpstreamRef)
+		}
+		if want == "" {
+			t.Fatalf("lockfile missing upstream_commit/upstream_ref to match go.mod replace target")
+		}
+		if !strings.HasPrefix(strings.ToLower(want), strings.ToLower(headCommit)) {
+			t.Fatalf("open-sspm-spec replace mismatch: replace head=%s lockfile commit/ref=%s", headCommit, want)
+		}
+		return
 	}
 
 	if commit, ok := pseudoVersionCommitSuffix(moduleVersion); ok {
@@ -106,6 +141,73 @@ func findGoModRequiredVersion(t *testing.T, modulePath string) (string, bool) {
 	}
 
 	return "", false
+}
+
+func findGoModReplaceTarget(t *testing.T, modulePath string) (string, bool) {
+	t.Helper()
+
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatalf("runtime.Caller failed")
+	}
+	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "../.."))
+
+	goModPath := filepath.Join(repoRoot, "go.mod")
+	b, err := os.ReadFile(goModPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", goModPath, err)
+	}
+
+	lines := strings.Split(string(b), "\n")
+	for _, line := range lines {
+		line, _, _ = strings.Cut(line, "//")
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if !strings.HasPrefix(line, "replace ") {
+			continue
+		}
+
+		line = strings.TrimPrefix(line, "replace ")
+		line = strings.TrimSpace(line)
+		before, after, found := strings.Cut(line, "=>")
+		if !found {
+			continue
+		}
+		leftFields := strings.Fields(strings.TrimSpace(before))
+		if len(leftFields) == 0 || leftFields[0] != modulePath {
+			continue
+		}
+
+		rightFields := strings.Fields(strings.TrimSpace(after))
+		if len(rightFields) == 0 {
+			continue
+		}
+		return strings.TrimSpace(rightFields[0]), true
+	}
+
+	return "", false
+}
+
+func resolveModulePath(repoRoot, target string) string {
+	target = strings.TrimSpace(target)
+	switch {
+	case filepath.IsAbs(target):
+		return filepath.Clean(target)
+	default:
+		return filepath.Clean(filepath.Join(repoRoot, target))
+	}
+}
+
+func gitHeadCommit(t *testing.T, repoPath string) string {
+	t.Helper()
+
+	out, err := exec.Command("git", "-C", repoPath, "rev-parse", "HEAD").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git rev-parse HEAD at %s: %v (%s)", repoPath, err, strings.TrimSpace(string(out)))
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func pseudoVersionCommitSuffix(version string) (string, bool) {
