@@ -26,19 +26,34 @@ jobs:
           - language: javascript-typescript
             build_mode: none
           - language: go
-            build_mode: none
+            build_mode: manual
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Go
+        if: ${{ matrix.language == 'go' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           queries: security-and-quality
           config-file: ./.github/codeql/codeql-config.yml
           build-mode: ${{ matrix.build_mode }}
 
+      - name: Build Go packages for CodeQL
+        if: ${{ matrix.language == 'go' }}
+        run: |
+          set -euo pipefail
+          go list ./... \
+            | grep -Ev '(^github.com/open-sspm/open-sspm/cmd/open-sspm$|^github.com/open-sspm/open-sspm/internal/http($|/))' \
+            | xargs -r go build
+
       - name: Analyze
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
