@@ -4,7 +4,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/a-h/templ"
 	"github.com/alexedwards/scs/v2"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -115,14 +113,28 @@ func (h *Handlers) LayoutData(ctx context.Context, c *echo.Context, title string
 	if awsName == "" {
 		awsName = strings.TrimSpace(snap.AWSIdentityCenter.Region)
 	}
-	findingsOktaRulesetHref := "/findings"
-	if ruleset, err := h.Q.GetRulesetByKey(ctx, "cis.okta.idaas_stig.v2"); err == nil {
-		rulesetKey := strings.TrimSpace(ruleset.Key)
-		if rulesetKey != "" {
-			findingsOktaRulesetHref = "/findings/rulesets/" + rulesetKey
-		}
-	} else if !errors.Is(err, pgx.ErrNoRows) {
+	rulesets, err := h.Q.ListRulesets(ctx)
+	if err != nil {
 		return viewmodels.LayoutData{}, snap, err
+	}
+	findingsRulesets := make([]viewmodels.FindingsRulesetItem, 0, len(rulesets))
+	for _, ruleset := range rulesets {
+		rulesetKey := strings.TrimSpace(ruleset.Key)
+		if rulesetKey == "" {
+			continue
+		}
+		rulesetName := strings.TrimSpace(ruleset.Name)
+		if rulesetName == "" {
+			rulesetName = rulesetKey
+		}
+
+		findingsRulesets = append(findingsRulesets, viewmodels.FindingsRulesetItem{
+			Key:           rulesetKey,
+			Name:          rulesetName,
+			ConnectorKind: strings.TrimSpace(ruleset.ConnectorKind.String),
+			Status:        strings.TrimSpace(ruleset.Status),
+			Href:          "/findings/rulesets/" + rulesetKey,
+		})
 	}
 
 	commandUsersRaw, err := h.Q.ListIdPUsersForCommand(ctx)
@@ -171,7 +183,7 @@ func (h *Handlers) LayoutData(ctx context.Context, c *echo.Context, title string
 		UserEmail:                   principal.Email,
 		UserRole:                    principal.Role,
 		IsAdmin:                     ok && principal.IsAdmin(),
-		FindingsOktaRulesetHref:     findingsOktaRulesetHref,
+		FindingsRulesets:            findingsRulesets,
 		GitHubOrg:                   snap.GitHub.Org,
 		GitHubEnabled:               snap.GitHubEnabled,
 		GitHubConfigured:            snap.GitHubConfigured,

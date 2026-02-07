@@ -65,11 +65,7 @@ func TestLockfileUpstreamMatchesGoMod(t *testing.T) {
 	}
 
 	if replaceTarget, ok := findGoModReplaceTarget(t, "github.com/open-sspm/open-sspm-spec"); ok {
-		_, thisFile, _, ok := runtime.Caller(0)
-		if !ok {
-			t.Fatalf("runtime.Caller failed")
-		}
-		repoRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "../.."))
+		repoRoot := repoRootFromThisFile(t)
 		headCommit := gitHeadCommit(t, resolveModulePath(repoRoot, replaceTarget))
 		want := strings.TrimSpace(lock.UpstreamCommit)
 		if want == "" {
@@ -110,11 +106,7 @@ func TestLockfileUpstreamMatchesGoMod(t *testing.T) {
 func findGoModRequiredVersion(t *testing.T, modulePath string) (string, bool) {
 	t.Helper()
 
-	_, thisFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatalf("runtime.Caller failed")
-	}
-	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "../.."))
+	repoRoot := repoRootFromThisFile(t)
 
 	goModPath := filepath.Join(repoRoot, "go.mod")
 	b, err := os.ReadFile(goModPath)
@@ -146,11 +138,7 @@ func findGoModRequiredVersion(t *testing.T, modulePath string) (string, bool) {
 func findGoModReplaceTarget(t *testing.T, modulePath string) (string, bool) {
 	t.Helper()
 
-	_, thisFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatalf("runtime.Caller failed")
-	}
-	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "../.."))
+	repoRoot := repoRootFromThisFile(t)
 
 	goModPath := filepath.Join(repoRoot, "go.mod")
 	b, err := os.ReadFile(goModPath)
@@ -197,6 +185,29 @@ func resolveModulePath(repoRoot, target string) string {
 		return filepath.Clean(target)
 	default:
 		return filepath.Clean(filepath.Join(repoRoot, target))
+	}
+}
+
+func repoRootFromThisFile(t *testing.T) string {
+	t.Helper()
+
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatalf("runtime.Caller failed")
+	}
+
+	dir := filepath.Dir(thisFile)
+	for {
+		goModPath := filepath.Join(dir, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			return dir
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatalf("could not find repo root (go.mod) starting from %s", thisFile)
+		}
+		dir = parent
 	}
 }
 

@@ -52,7 +52,9 @@ templ Sidebar(data viewmodels.LayoutData) {
 					</summary>
 					<ul>
 						<li><a href="/findings" aria-current={ AriaCurrentExact(data.ActivePath, "/findings") }><span>Overview</span></a></li>
-							<li><a href={ data.FindingsOktaRulesetHref } aria-current={ AriaCurrent(data.ActivePath, data.FindingsOktaRulesetHref) }><span>Okta Benchmark</span></a></li>
+						for _, ruleset := range data.FindingsRulesets {
+							<li><a href={ ruleset.Href } aria-current={ AriaCurrent(data.ActivePath, ruleset.Href) }><span>{ ruleset.Name }</span></a></li>
+						}
 					</ul>
 				</details>
 			</li>
