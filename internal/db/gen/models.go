@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type AppUser struct {
+type Account struct {
 	ID                int64              `json:"id"`
 	SourceKind        string             `json:"source_kind"`
 	SourceName        string             `json:"source_name"`
@@ -27,6 +27,7 @@ type AppUser struct {
 	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
 	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
+	Status            string             `json:"status"`
 }
 
 type AuthUser struct {
@@ -66,32 +67,31 @@ type Entitlement struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
-type IdentityLink struct {
-	ID         int64              `json:"id"`
-	IdpUserID  int64              `json:"idp_user_id"`
-	AppUserID  int64              `json:"app_user_id"`
-	LinkReason string             `json:"link_reason"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+type Identity struct {
+	ID           int64              `json:"id"`
+	Kind         string             `json:"kind"`
+	DisplayName  string             `json:"display_name"`
+	PrimaryEmail string             `json:"primary_email"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
-type IdpUser struct {
-	ID                int64              `json:"id"`
-	ExternalID        string             `json:"external_id"`
-	Email             string             `json:"email"`
-	DisplayName       string             `json:"display_name"`
-	Status            string             `json:"status"`
-	RawJson           []byte             `json:"raw_json"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
-	LastLoginAt       pgtype.Timestamptz `json:"last_login_at"`
-	LastLoginIp       string             `json:"last_login_ip"`
-	LastLoginRegion   string             `json:"last_login_region"`
-	SeenInRunID       pgtype.Int8        `json:"seen_in_run_id"`
-	SeenAt            pgtype.Timestamptz `json:"seen_at"`
-	LastObservedRunID pgtype.Int8        `json:"last_observed_run_id"`
-	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
-	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
-	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
+type IdentityAccount struct {
+	ID         int64              `json:"id"`
+	IdentityID int64              `json:"identity_id"`
+	AccountID  int64              `json:"account_id"`
+	LinkReason string             `json:"link_reason"`
+	Confidence float32            `json:"confidence"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type IdentitySourceSetting struct {
+	SourceKind      string             `json:"source_kind"`
+	SourceName      string             `json:"source_name"`
+	IsAuthoritative bool               `json:"is_authoritative"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
 type IntegrationOktaAppMap struct {
@@ -154,7 +154,6 @@ type OktaGroup struct {
 
 type OktaUserAppAssignment struct {
 	ID                int64              `json:"id"`
-	IdpUserID         int64              `json:"idp_user_id"`
 	OktaAppID         int64              `json:"okta_app_id"`
 	Scope             string             `json:"scope"`
 	ProfileJson       []byte             `json:"profile_json"`
@@ -167,11 +166,11 @@ type OktaUserAppAssignment struct {
 	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
 	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
+	OktaUserAccountID int64              `json:"okta_user_account_id"`
 }
 
 type OktaUserGroup struct {
 	ID                int64              `json:"id"`
-	IdpUserID         int64              `json:"idp_user_id"`
 	OktaGroupID       int64              `json:"okta_group_id"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	SeenInRunID       pgtype.Int8        `json:"seen_in_run_id"`
@@ -180,6 +179,7 @@ type OktaUserGroup struct {
 	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
 	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
+	OktaUserAccountID int64              `json:"okta_user_account_id"`
 }
 
 type Rule struct {

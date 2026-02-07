@@ -1,0 +1,114 @@
+- generic [ref=e2]:
+  - complementary:
+    - navigation [ref=e3]:
+      - link "Open-SSPM Open-SSPM" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img "Open-SSPM" [ref=e7]
+        - generic [ref=e8]: Open-SSPM
+      - group [ref=e10]:
+        - heading "Explore" [level=3] [ref=e11]
+        - list [ref=e12]:
+          - listitem [ref=e13]:
+            - link "Dashboard" [ref=e14] [cursor=pointer]:
+              - /url: /
+              - img [ref=e15]
+              - generic [ref=e17]: Dashboard
+          - listitem [ref=e18]:
+            - link "Global View" [ref=e19] [cursor=pointer]:
+              - /url: /global-view
+              - img [ref=e20]
+              - generic [ref=e24]: Global View
+          - listitem [ref=e25]:
+            - link "Apps" [ref=e26] [cursor=pointer]:
+              - /url: /apps
+              - img [ref=e27]
+              - generic [ref=e29]: Apps
+          - listitem [ref=e30]:
+            - link "Identities" [ref=e31] [cursor=pointer]:
+              - /url: /identities
+              - img [ref=e32]
+              - generic [ref=e34]: Identities
+          - listitem [ref=e35]:
+            - group [ref=e36]:
+              - generic "Findings" [ref=e37] [cursor=pointer]:
+                - img [ref=e38]
+                - generic [ref=e40]: Findings
+          - listitem [ref=e41]:
+            - group [ref=e42]:
+              - generic "Unmanaged" [ref=e43] [cursor=pointer]:
+                - img [ref=e44]
+                - generic [ref=e47]: Unmanaged
+          - listitem [ref=e48]:
+            - group [ref=e49]:
+              - generic "Settings" [ref=e50] [cursor=pointer]:
+                - img [ref=e51]
+                - generic [ref=e53]: Settings
+      - button "admin@admin.com Admin" [ref=e56] [cursor=pointer]:
+        - generic [ref=e57]:
+          - generic [ref=e58]: admin@admin.com
+          - generic [ref=e59]: Admin
+        - img [ref=e60]
+  - generic [ref=e62]:
+    - banner [ref=e63]:
+      - heading "Identities" [level=1] [ref=e64]
+      - banner [ref=e69]:
+        - img [ref=e70]
+        - textbox "Search users and apps" [ref=e72]:
+          - /placeholder: Search users and apps…
+      - button "Toggle dark mode" [ref=e74] [cursor=pointer]:
+        - generic [ref=e75]:
+          - img
+    - main [ref=e76]:
+      - generic [ref=e78]:
+        - generic [ref=e79]:
+          - generic [ref=e80]:
+            - navigation "Breadcrumb" [ref=e81]:
+              - list [ref=e82]:
+                - listitem [ref=e83]:
+                  - link "Dashboard" [ref=e84] [cursor=pointer]:
+                    - /url: /
+                  - generic [ref=e85]: /
+                - listitem [ref=e86]: Identities
+            - paragraph [ref=e87]: Unified identities resolved across all configured connectors.
+          - link "Connectors" [ref=e89] [cursor=pointer]:
+            - /url: /settings/connectors
+        - generic [ref=e90]:
+          - generic [ref=e91]:
+            - heading "Search" [level=2] [ref=e92]
+            - paragraph [ref=e93]: Search by email or display name.
+          - generic [ref=e95]:
+            - generic [ref=e96]:
+              - generic [ref=e97]: Query
+              - searchbox "Query" [ref=e98]
+            - button "Search" [ref=e100] [cursor=pointer]
+        - article [ref=e101]:
+          - generic [ref=e102]:
+            - heading "Identities" [level=2] [ref=e103]
+            - generic [ref=e104]: Showing 1–2 of 2
+          - table [ref=e107]:
+            - rowgroup [ref=e108]:
+              - row "ID Email Display name Managed Linked accounts" [ref=e109]:
+                - columnheader "ID" [ref=e110]
+                - columnheader "Email" [ref=e111]
+                - columnheader "Display name" [ref=e112]
+                - columnheader "Managed" [ref=e113]
+                - columnheader "Linked accounts" [ref=e114]
+            - rowgroup [ref=e115]:
+              - row "101 shadow@example.com Shadow Bot Unmanaged 1" [ref=e116]:
+                - cell "101" [ref=e117]:
+                  - link "101" [ref=e118] [cursor=pointer]:
+                    - /url: /identities/101
+                - cell "shadow@example.com" [ref=e119]
+                - cell "Shadow Bot" [ref=e120]
+                - cell "Unmanaged" [ref=e121]:
+                  - generic [ref=e122]: Unmanaged
+                - cell "1" [ref=e123]
+              - row "100 alice@example.com Alice Admin Managed 3" [ref=e124]:
+                - cell "100" [ref=e125]:
+                  - link "100" [ref=e126] [cursor=pointer]:
+                    - /url: /identities/100
+                - cell "alice@example.com" [ref=e127]
+                - cell "Alice Admin" [ref=e128]
+                - cell "Managed" [ref=e129]:
+                  - generic [ref=e130]: Managed
+                - cell "3" [ref=e131]

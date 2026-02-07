@@ -1,0 +1,100 @@
+- generic [ref=e282]:
+  - complementary:
+    - navigation [ref=e283]:
+      - link "Open-SSPM Open-SSPM" [ref=e285] [cursor=pointer]:
+        - /url: /
+        - img "Open-SSPM" [ref=e287]
+        - generic [ref=e288]: Open-SSPM
+      - group [ref=e290]:
+        - heading "Explore" [level=3] [ref=e291]
+        - list [ref=e292]:
+          - listitem [ref=e293]:
+            - link "Dashboard" [ref=e294] [cursor=pointer]:
+              - /url: /
+              - img [ref=e295]
+              - generic [ref=e297]: Dashboard
+          - listitem [ref=e298]:
+            - link "Global View" [ref=e299] [cursor=pointer]:
+              - /url: /global-view
+              - img [ref=e300]
+              - generic [ref=e304]: Global View
+          - listitem [ref=e305]:
+            - link "Apps" [ref=e306] [cursor=pointer]:
+              - /url: /apps
+              - img [ref=e307]
+              - generic [ref=e309]: Apps
+          - listitem [ref=e310]:
+            - link "Identities" [ref=e311] [cursor=pointer]:
+              - /url: /identities
+              - img [ref=e312]
+              - generic [ref=e314]: Identities
+          - listitem [ref=e315]:
+            - group [ref=e316]:
+              - generic "Findings" [ref=e317] [cursor=pointer]:
+                - img [ref=e318]
+                - generic [ref=e320]: Findings
+          - listitem [ref=e321]:
+            - group [ref=e322]:
+              - generic "Unmanaged" [ref=e323] [cursor=pointer]:
+                - img [ref=e324]
+                - generic [ref=e327]: Unmanaged
+          - listitem [ref=e328]:
+            - group [ref=e329]:
+              - generic "Settings" [ref=e330] [cursor=pointer]:
+                - img [ref=e331]
+                - generic [ref=e333]: Settings
+      - button "admin@admin.com Admin" [ref=e336] [cursor=pointer]:
+        - generic [ref=e337]:
+          - generic [ref=e338]: admin@admin.com
+          - generic [ref=e339]: Admin
+        - img [ref=e340]
+  - generic [ref=e342]:
+    - banner [ref=e343]:
+      - heading "Okta Account" [level=1] [ref=e344]
+      - banner [ref=e349]:
+        - img [ref=e350]
+        - textbox "Search users and apps" [ref=e352]:
+          - /placeholder: Search users and apps…
+      - button "Toggle dark mode" [ref=e354] [cursor=pointer]:
+        - generic [ref=e355]:
+          - img
+    - main [ref=e356]:
+      - generic [ref=e358]:
+        - generic [ref=e360]:
+          - navigation "Breadcrumb" [ref=e361]:
+            - list [ref=e362]:
+              - listitem [ref=e363]:
+                - link "Dashboard" [ref=e364] [cursor=pointer]:
+                  - /url: /
+                - generic [ref=e365]: /
+              - listitem [ref=e366]:
+                - link "Okta Accounts" [ref=e367] [cursor=pointer]:
+                  - /url: /idp-users
+                - generic [ref=e368]: /
+              - listitem [ref=e369]: Okta Account
+          - paragraph [ref=e370]: alice@example.com
+        - generic [ref=e371]:
+          - tablist "Okta account" [ref=e372]:
+            - tab "Summary" [selected] [ref=e373]
+            - tab "Assignments" [ref=e374]
+            - tab "Access graph" [ref=e375]
+            - tab "Linked accounts" [ref=e376]
+          - tabpanel [ref=e377]:
+            - article [ref=e378]:
+              - generic [ref=e379]:
+                - heading "Account summary" [level=2] [ref=e380]
+                - paragraph [ref=e381]: Okta account details.
+              - generic [ref=e383]:
+                - generic [ref=e384]:
+                  - term [ref=e385]: ID
+                  - definition [ref=e386]: ID 200
+                - generic [ref=e387]:
+                  - term [ref=e388]: Status
+                  - definition [ref=e389]:
+                    - generic [ref=e390]: ACTIVE
+                - generic [ref=e391]:
+                  - term [ref=e392]: Email
+                  - definition [ref=e393]: alice@example.com
+                - generic [ref=e394]:
+                  - term [ref=e395]: Name
+                  - definition [ref=e396]: Alice O

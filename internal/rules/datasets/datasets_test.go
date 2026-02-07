@@ -61,7 +61,7 @@ func TestOktaProviderPermissionDeniedIsCategorized(t *testing.T) {
 
 func TestNormalizedProviderRejectsUnsupportedVersion(t *testing.T) {
 	p := &NormalizedProvider{}
-	res := p.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{Dataset: "normalized:identities", Version: 2})
+	res := p.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{Dataset: "normalized:identities", Version: 3})
 	if res.Error == nil {
 		t.Fatalf("expected error, got nil")
 	}

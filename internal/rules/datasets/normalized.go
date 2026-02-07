@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 
 	runtimev2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v2"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
@@ -14,15 +13,14 @@ import (
 )
 
 type NormalizedProvider struct {
-	Q *gen.Queries
+	Q normalizedQueryRunner
+}
 
-	identitiesOnce sync.Once
-	identitiesRows []any
-	identitiesErr  error
-
-	assignmentsOnce sync.Once
-	assignmentsRows []any
-	assignmentsErr  error
+type normalizedQueryRunner interface {
+	ListNormalizedIdentitiesV1(context.Context) ([]gen.ListNormalizedIdentitiesV1Row, error)
+	ListNormalizedIdentitiesV2(context.Context) ([]gen.ListNormalizedIdentitiesV2Row, error)
+	ListNormalizedEntitlementAssignmentsV1(context.Context) ([]gen.ListNormalizedEntitlementAssignmentsV1Row, error)
+	ListNormalizedEntitlementAssignmentsV2(context.Context) ([]gen.ListNormalizedEntitlementAssignmentsV2Row, error)
 }
 
 func (p *NormalizedProvider) Capabilities(ctx context.Context) []runtimev2.DatasetRef {
@@ -30,9 +28,10 @@ func (p *NormalizedProvider) Capabilities(ctx context.Context) []runtimev2.Datas
 	if p == nil {
 		return nil
 	}
-	out := make([]runtimev2.DatasetRef, 0, len(normalizedCapabilitiesV2))
+	out := make([]runtimev2.DatasetRef, 0, len(normalizedCapabilitiesV2)*2)
 	for _, ds := range normalizedCapabilitiesV2 {
 		out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: 1})
+		out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: 2})
 	}
 	return out
 }
@@ -75,76 +74,85 @@ func (p *NormalizedProvider) getDatasetRows(ctx context.Context, datasetKey stri
 	}
 
 	key := strings.TrimSpace(datasetKey)
-	if err := requireDatasetVersion(key, datasetVersion); err != nil {
+	v, err := requireDatasetVersion(key, datasetVersion)
+	if err != nil {
 		return nil, err
+	}
+	if p.Q == nil {
+		return nil, engine.DatasetError{Kind: engine.DatasetErrorSyncFailed, Err: errors.New("db queries is nil")}
 	}
 
 	switch key {
 	case "normalized:identities":
-		p.identitiesOnce.Do(func() {
-			p.identitiesRows, p.identitiesErr = p.loadIdentities(ctx)
-		})
-		if p.identitiesErr != nil {
-			return nil, engine.DatasetError{Kind: engine.DatasetErrorSyncFailed, Err: p.identitiesErr}
+		if v == 2 {
+			return p.loadIdentitiesV2(ctx)
 		}
-		if p.identitiesRows == nil {
-			return []any{}, nil
-		}
-		return p.identitiesRows, nil
-
+		return p.loadIdentitiesV1(ctx)
 	case "normalized:entitlement_assignments":
-		p.assignmentsOnce.Do(func() {
-			p.assignmentsRows, p.assignmentsErr = p.loadEntitlementAssignments(ctx)
-		})
-		if p.assignmentsErr != nil {
-			return nil, engine.DatasetError{Kind: engine.DatasetErrorSyncFailed, Err: p.assignmentsErr}
+		if v == 2 {
+			return p.loadEntitlementAssignmentsV2(ctx)
 		}
-		if p.assignmentsRows == nil {
-			return []any{}, nil
-		}
-		return p.assignmentsRows, nil
-
+		return p.loadEntitlementAssignmentsV1(ctx)
 	default:
 		return nil, engine.DatasetError{Kind: engine.DatasetErrorMissingDataset, Err: fmt.Errorf("unsupported dataset key %q", key)}
 	}
 }
 
-func requireDatasetVersion(datasetKey string, datasetVersion *int) error {
+func requireDatasetVersion(datasetKey string, datasetVersion *int) (int, error) {
 	v := 1
 	if datasetVersion != nil {
 		v = *datasetVersion
 	}
-	if v == 1 {
-		return nil
+	if v == 1 || v == 2 {
+		return v, nil
 	}
-	return engine.DatasetError{
+	return 0, engine.DatasetError{
 		Kind: engine.DatasetErrorMissingDataset,
 		Err:  fmt.Errorf("%s: unsupported dataset_version %d", strings.TrimSpace(datasetKey), v),
 	}
 }
 
-func (p *NormalizedProvider) loadIdentities(ctx context.Context) ([]any, error) {
-	if p.Q == nil {
-		return nil, errors.New("db queries is nil")
-	}
-
-	users, err := p.Q.ListIdPUsers(ctx)
+func (p *NormalizedProvider) loadIdentitiesV1(ctx context.Context) ([]any, error) {
+	rows, err := p.Q.ListNormalizedIdentitiesV1(ctx)
 	if err != nil {
-		return nil, err
+		return nil, engine.DatasetError{Kind: engine.DatasetErrorSyncFailed, Err: err}
 	}
 
-	rows := make([]any, 0, len(users))
-	for _, u := range users {
-		id := strconv.FormatInt(u.ID, 10)
-		rows = append(rows, map[string]any{
-			"id":           id,
-			"external_id":  strings.TrimSpace(u.ExternalID),
-			"email":        strings.TrimSpace(u.Email),
-			"display_name": strings.TrimSpace(u.DisplayName),
-			"status":       normalizeIdentityStatus(strings.TrimSpace(u.Status)),
+	out := make([]any, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, map[string]any{
+			"id":           strconv.FormatInt(row.IdpUserID, 10),
+			"external_id":  strings.TrimSpace(row.IdpUserExternalID),
+			"email":        strings.TrimSpace(row.IdpUserEmail),
+			"display_name": strings.TrimSpace(row.IdpUserDisplayName),
+			"status":       normalizeIdentityStatus(strings.TrimSpace(row.IdpUserStatus)),
 		})
 	}
-	return rows, nil
+	return out, nil
+}
+
+func (p *NormalizedProvider) loadIdentitiesV2(ctx context.Context) ([]any, error) {
+	rows, err := p.Q.ListNormalizedIdentitiesV2(ctx)
+	if err != nil {
+		return nil, engine.DatasetError{Kind: engine.DatasetErrorSyncFailed, Err: err}
+	}
+
+	out := make([]any, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, map[string]any{
+			"id":           strconv.FormatInt(row.IdentityID, 10),
+			"kind":         strings.TrimSpace(row.IdentityKind),
+			"email":        strings.TrimSpace(row.IdentityEmail),
+			"display_name": strings.TrimSpace(row.IdentityDisplayName),
+			"managed":      row.IdentityManaged,
+			"authoritative_account": map[string]any{
+				"source_kind": strings.TrimSpace(row.AuthoritativeSourceKind),
+				"source_name": strings.TrimSpace(row.AuthoritativeSourceName),
+				"external_id": strings.TrimSpace(row.AuthoritativeExternalID),
+			},
+		})
+	}
+	return out, nil
 }
 
 func normalizeIdentityStatus(status string) string {
@@ -154,6 +162,12 @@ func normalizeIdentityStatus(status string) string {
 		return "active"
 	case strings.EqualFold(s, "DEPROVISIONED"):
 		return "deprovisioned"
+	case strings.EqualFold(s, "inactive"):
+		return "inactive"
+	case strings.EqualFold(s, "service"):
+		return "inactive"
+	case strings.EqualFold(s, "bot"):
+		return "inactive"
 	case s == "":
 		return ""
 	default:
@@ -161,43 +175,70 @@ func normalizeIdentityStatus(status string) string {
 	}
 }
 
-func (p *NormalizedProvider) loadEntitlementAssignments(ctx context.Context) ([]any, error) {
-	if p.Q == nil {
-		return nil, errors.New("db queries is nil")
-	}
-
-	rows, err := p.Q.ListNormalizedEntitlementAssignments(ctx)
+func (p *NormalizedProvider) loadEntitlementAssignmentsV1(ctx context.Context) ([]any, error) {
+	rows, err := p.Q.ListNormalizedEntitlementAssignmentsV1(ctx)
 	if err != nil {
-		return nil, err
+		return nil, engine.DatasetError{Kind: engine.DatasetErrorSyncFailed, Err: err}
 	}
 
 	out := make([]any, 0, len(rows))
-	for _, r := range rows {
-		id := strconv.FormatInt(r.IdpUserID, 10)
-		tags := entitlementTags(strings.TrimSpace(r.EntitlementKind), strings.TrimSpace(r.EntitlementPermission))
-
+	for _, row := range rows {
+		tags := entitlementTags(strings.TrimSpace(row.EntitlementKind), strings.TrimSpace(row.EntitlementPermission))
 		out = append(out, map[string]any{
-			"resource_id": fmt.Sprintf("entitlement:%d", r.EntitlementID),
+			"resource_id": fmt.Sprintf("entitlement:%d", row.EntitlementID),
 			"identity": map[string]any{
-				"id":           id,
-				"email":        strings.TrimSpace(r.IdpUserEmail),
-				"display_name": strings.TrimSpace(r.IdpUserDisplayName),
-				"status":       normalizeIdentityStatus(strings.TrimSpace(r.IdpUserStatus)),
+				"id":           strconv.FormatInt(row.IdpUserID, 10),
+				"email":        strings.TrimSpace(row.IdpUserEmail),
+				"display_name": strings.TrimSpace(row.IdpUserDisplayName),
+				"status":       normalizeIdentityStatus(strings.TrimSpace(row.IdpUserStatus)),
 			},
 			"app_user": map[string]any{
-				"source_kind": strings.TrimSpace(r.SourceKind),
-				"source_name": strings.TrimSpace(r.SourceName),
-				"external_id": strings.TrimSpace(r.AppUserExternalID),
+				"source_kind": strings.TrimSpace(row.SourceKind),
+				"source_name": strings.TrimSpace(row.SourceName),
+				"external_id": strings.TrimSpace(row.AppUserExternalID),
 			},
 			"entitlement": map[string]any{
-				"kind":       strings.TrimSpace(r.EntitlementKind),
-				"resource":   strings.TrimSpace(r.EntitlementResource),
-				"permission": strings.TrimSpace(r.EntitlementPermission),
+				"kind":       strings.TrimSpace(row.EntitlementKind),
+				"resource":   strings.TrimSpace(row.EntitlementResource),
+				"permission": strings.TrimSpace(row.EntitlementPermission),
 				"tags":       tags,
 			},
 		})
 	}
+	return out, nil
+}
 
+func (p *NormalizedProvider) loadEntitlementAssignmentsV2(ctx context.Context) ([]any, error) {
+	rows, err := p.Q.ListNormalizedEntitlementAssignmentsV2(ctx)
+	if err != nil {
+		return nil, engine.DatasetError{Kind: engine.DatasetErrorSyncFailed, Err: err}
+	}
+
+	out := make([]any, 0, len(rows))
+	for _, row := range rows {
+		tags := entitlementTags(strings.TrimSpace(row.EntitlementKind), strings.TrimSpace(row.EntitlementPermission))
+		out = append(out, map[string]any{
+			"resource_id": fmt.Sprintf("entitlement:%d", row.EntitlementID),
+			"identity": map[string]any{
+				"id":           strconv.FormatInt(row.IdentityID, 10),
+				"kind":         strings.TrimSpace(row.IdentityKind),
+				"email":        strings.TrimSpace(row.IdentityEmail),
+				"display_name": strings.TrimSpace(row.IdentityDisplayName),
+				"managed":      row.IdentityManaged,
+			},
+			"app_user": map[string]any{
+				"source_kind": strings.TrimSpace(row.SourceKind),
+				"source_name": strings.TrimSpace(row.SourceName),
+				"external_id": strings.TrimSpace(row.AppUserExternalID),
+			},
+			"entitlement": map[string]any{
+				"kind":       strings.TrimSpace(row.EntitlementKind),
+				"resource":   strings.TrimSpace(row.EntitlementResource),
+				"permission": strings.TrimSpace(row.EntitlementPermission),
+				"tags":       tags,
+			},
+		})
+	}
 	return out, nil
 }
 

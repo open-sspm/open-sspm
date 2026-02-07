@@ -142,7 +142,7 @@ func (h *Handlers) HandleEntraUsers(c *echo.Context) error {
 
 func (h *Handlers) HandleUnmatchedEntra(c *echo.Context) error {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Unmatched Microsoft Entra ID Users")
+	layout, snap, err := h.LayoutData(ctx, c, "Unmanaged Microsoft Entra ID Users")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -200,9 +200,9 @@ func (h *Handlers) HandleUnmatchedEntra(c *echo.Context) error {
 	showingCount := len(users)
 	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
-	emptyState := "No unmatched Microsoft Entra ID users."
+	emptyState := "No unmanaged Microsoft Entra ID users."
 	if query != "" {
-		emptyState = "No unmatched Microsoft Entra ID users match the current search."
+		emptyState = "No unmanaged Microsoft Entra ID users match the current search."
 	}
 
 	data := viewmodels.UnmatchedEntraViewData{

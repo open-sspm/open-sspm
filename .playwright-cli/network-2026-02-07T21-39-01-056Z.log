@@ -1,0 +1,3 @@
+[GET] http://localhost:18080/idp-users/200 => [200] OK
+[GET] http://localhost:18080/api/idp-users/200/access-tree?node=root => [200] OK
+[GET] http://localhost:18080/api/idp-users/200/access-tree?node=root => [200] OK

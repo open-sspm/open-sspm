@@ -9,7 +9,7 @@ templ DatadogUsersPage(data viewmodels.DatadogUsersViewData) {
 			{Label: "Datadog users"},
 		}, "Synced Datadog users and their role assignments.") {
 			if data.Layout.DatadogConfigured && data.Layout.DatadogEnabled {
-				<a class="btn-sm-outline" href={ "/unmatched/datadog/" + data.Layout.DatadogSite }>Unmatched</a>
+				<a class="btn-sm-outline" href={ "/unmatched/datadog/" + data.Layout.DatadogSite }>Unmanaged</a>
 			} else {
 				<a class="btn-sm-outline" href="/settings/connectors?open=datadog">Configure</a>
 			}

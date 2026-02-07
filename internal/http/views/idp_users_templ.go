@@ -59,8 +59,8 @@ func IdPUsersPage(data viewmodels.IdPUsersViewData) templ.Component {
 			})
 			templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
-				{Label: "Okta users"},
-			}, "Synced identities ready for access mapping.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
+				{Label: "Okta Accounts"},
+			}, "Okta user accounts synced from your IdP.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -117,7 +117,7 @@ func IdPUsersPage(data viewmodels.IdPUsersViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div></div></section></form><article class=\"card\"><header><h2>Okta users</h2><span data-slot=\"card-action\" class=\"badge-outline\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div></div></section></form><article class=\"card\"><header><h2>Okta Accounts</h2><span data-slot=\"card-action\" class=\"badge-outline\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -277,7 +277,7 @@ func IdPUsersPage(data viewmodels.IdPUsersViewData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = EmptyState("No users found", data.EmptyStateMsg).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = EmptyState("No accounts found", data.EmptyStateMsg).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

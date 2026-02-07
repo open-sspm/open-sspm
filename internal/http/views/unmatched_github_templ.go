@@ -79,7 +79,7 @@ func UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) templ.Componen
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " <a class=\"btn-sm-outline\" href=\"/idp-users\">Okta users</a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " <a class=\"btn-sm-outline\" href=\"/identities\">Identities</a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -87,8 +87,8 @@ func UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) templ.Componen
 			})
 			templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
-				{Label: "Unmatched GitHub"},
-			}, "Match GitHub identities to Okta users for complete access coverage.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
+				{Label: "Unmanaged GitHub"},
+			}, "Match GitHub identities to identities for complete access coverage.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -109,7 +109,7 @@ func UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) templ.Componen
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<p>Use Okta user IDs from the Okta users list. GitHub doesn’t reliably expose emails; Open-SSPM will try to populate them via SAML (and optional SCIM) to enable auto-linking, but some rows may still be missing an email.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<p>Use identity IDs from the Identities list. GitHub doesn’t reliably expose emails; Open-SSPM will try to populate them via SAML (and optional SCIM) to enable auto-linking, but some rows may still be missing an email.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -169,7 +169,7 @@ func UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) templ.Componen
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, " <form method=\"get\" class=\"card\"><header><h2>Search</h2><p>Filter unmatched GitHub users by login, email, or name.</p></header><section><div class=\"flex flex-col gap-4 sm:flex-row sm:items-end\"><label class=\"field w-full sm:max-w-md\"><span class=\"label\">Query</span> <input type=\"search\" name=\"q\" class=\"input\" placeholder=\"Search users…\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, " <form method=\"get\" class=\"card\"><header><h2>Search</h2><p>Filter unmanaged GitHub users by login, email, or name.</p></header><section><div class=\"flex flex-col gap-4 sm:flex-row sm:items-end\"><label class=\"field w-full sm:max-w-md\"><span class=\"label\">Query</span> <input type=\"search\" name=\"q\" class=\"input\" placeholder=\"Search users…\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -205,7 +205,7 @@ func UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) templ.Componen
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</div></div></section></form><article class=\"card\"><header><h2>Unmatched GitHub users</h2><span data-slot=\"card-action\" class=\"badge-outline\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</div></div></section></form><article class=\"card\"><header><h2>Unmanaged GitHub users</h2><span data-slot=\"card-action\" class=\"badge-outline\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -340,20 +340,20 @@ func UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) templ.Componen
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<input type=\"hidden\" name=\"app_user_id\" value=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<input type=\"hidden\" name=\"account_id\" value=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var21 string
 						templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(u.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_github.templ`, Line: 93, Col: 78}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_github.templ`, Line: 93, Col: 77}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\"> <label class=\"field w-full sm:w-32\"><span class=\"label sr-only\">Okta user ID</span> <input type=\"text\" name=\"idp_user_id\" placeholder=\"Okta ID\" required class=\"input w-full\"></label> <button type=\"submit\" class=\"btn-sm-primary w-full sm:w-auto\">Link</button></form>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\"> <label class=\"field w-full sm:w-32\"><span class=\"label sr-only\">Identity ID</span> <input type=\"text\" name=\"identity_id\" placeholder=\"Identity ID\" required class=\"input w-full\"></label> <button type=\"submit\" class=\"btn-sm-primary w-full sm:w-auto\">Link</button></form>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -373,7 +373,7 @@ func UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) templ.Componen
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = EmptyState("All caught up", "No unmatched GitHub users found. All detected accounts have been linked to an identity.").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = EmptyState("All caught up", "No unmanaged GitHub users found. All detected accounts have been linked to an identity.").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -386,7 +386,7 @@ func UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) templ.Componen
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = EmptyState("No unmatched users", data.EmptyStateMsg).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = EmptyState("No unmanaged users", data.EmptyStateMsg).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

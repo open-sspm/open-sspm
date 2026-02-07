@@ -1,0 +1,21 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - img "Open-SSPM" [ref=e6]
+      - generic [ref=e7]: Open-SSPM
+    - button "Toggle dark mode" [ref=e9] [cursor=pointer]:
+      - generic [ref=e10]:
+        - img
+  - main [ref=e11]:
+    - article [ref=e14]:
+      - generic [ref=e15]:
+        - heading "Sign in" [level=1] [ref=e16]
+        - paragraph [ref=e17]: Sign in to manage and view your Open-SSPM workspace.
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - generic [ref=e21]: Email
+          - textbox "Email" [ref=e22]
+        - generic [ref=e23]:
+          - generic [ref=e24]: Password
+          - textbox "Password" [ref=e25]
+        - button "Sign in" [ref=e26] [cursor=pointer]

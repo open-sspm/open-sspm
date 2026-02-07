@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,7 +24,7 @@ import (
 // HandleIdpUsers renders the IdP users list page.
 func (h *Handlers) HandleIdpUsers(c *echo.Context) error {
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Okta Users")
+	layout, _, err := h.LayoutData(ctx, c, "Okta Accounts")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -63,9 +64,9 @@ func (h *Handlers) HandleIdpUsers(c *echo.Context) error {
 	showingCount := len(users)
 	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
-	emptyState := "No Okta users synced yet."
+	emptyState := "No Okta accounts synced yet."
 	if query != "" || state != "" {
-		emptyState = "No Okta users match the current search."
+		emptyState = "No Okta accounts match the current search."
 	}
 
 	data := viewmodels.IdPUsersViewData{
@@ -98,7 +99,7 @@ func (h *Handlers) HandleIdpUserShow(c *echo.Context) error {
 		return RenderNotFound(c)
 	}
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Okta User")
+	layout, _, err := h.LayoutData(ctx, c, "Okta Account")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -106,7 +107,7 @@ func (h *Handlers) HandleIdpUserShow(c *echo.Context) error {
 	if err != nil {
 		return RenderNotFound(c)
 	}
-	linked, err := h.Q.ListLinkedAppUsersForIdPUser(ctx, id)
+	_, linked, err := h.linkedAccountsForOktaAccount(ctx, user.ID)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -476,10 +477,10 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 	return h.RenderComponent(c, views.DatadogUsersPage(data))
 }
 
-// HandleUnmatchedGitHub renders the unmatched GitHub accounts page.
+// HandleUnmatchedGitHub renders the unmanaged GitHub accounts page.
 func (h *Handlers) HandleUnmatchedGitHub(c *echo.Context) error {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Unmatched GitHub Accounts")
+	layout, snap, err := h.LayoutData(ctx, c, "Unmanaged GitHub Accounts")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -543,9 +544,9 @@ func (h *Handlers) HandleUnmatchedGitHub(c *echo.Context) error {
 	showingCount := len(users)
 	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
-	emptyState := "No unmatched GitHub accounts."
+	emptyState := "No unmanaged GitHub accounts."
 	if query != "" {
-		emptyState = "No unmatched GitHub accounts match the current search."
+		emptyState = "No unmanaged GitHub accounts match the current search."
 	}
 
 	data := viewmodels.UnmatchedGitHubViewData{
@@ -567,10 +568,10 @@ func (h *Handlers) HandleUnmatchedGitHub(c *echo.Context) error {
 	return h.RenderComponent(c, views.UnmatchedGitHubPage(data))
 }
 
-// HandleUnmatchedDatadog renders the unmatched Datadog accounts page.
+// HandleUnmatchedDatadog renders the unmanaged Datadog accounts page.
 func (h *Handlers) HandleUnmatchedDatadog(c *echo.Context) error {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Unmatched Datadog Accounts")
+	layout, snap, err := h.LayoutData(ctx, c, "Unmanaged Datadog Accounts")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -634,9 +635,9 @@ func (h *Handlers) HandleUnmatchedDatadog(c *echo.Context) error {
 	showingCount := len(users)
 	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
-	emptyState := "No unmatched Datadog accounts."
+	emptyState := "No unmanaged Datadog accounts."
 	if query != "" {
-		emptyState = "No unmatched Datadog accounts match the current search."
+		emptyState = "No unmanaged Datadog accounts match the current search."
 	}
 
 	data := viewmodels.UnmatchedDatadogViewData{
@@ -663,21 +664,13 @@ func (h *Handlers) HandleCreateLink(c *echo.Context) error {
 	if c.Request().Method != http.MethodPost {
 		return c.NoContent(http.StatusMethodNotAllowed)
 	}
-	idpID, err := strconv.ParseInt(c.FormValue("idp_user_id"), 10, 64)
+	identityID, accountID, reason, err := parseCreateLinkForm(c)
 	if err != nil {
-		return c.String(http.StatusBadRequest, "invalid idp_user_id")
-	}
-	appID, err := strconv.ParseInt(c.FormValue("app_user_id"), 10, 64)
-	if err != nil {
-		return c.String(http.StatusBadRequest, "invalid app_user_id")
-	}
-	reason := c.FormValue("reason")
-	if reason == "" {
-		reason = "manual"
+		return c.String(http.StatusBadRequest, err.Error())
 	}
 	_, err = h.Q.CreateIdentityLink(c.Request().Context(), gen.CreateIdentityLinkParams{
-		IdpUserID:  idpID,
-		AppUserID:  appID,
+		IdentityID: identityID,
+		AccountID:  accountID,
 		LinkReason: reason,
 	})
 	if err != nil {
@@ -694,6 +687,33 @@ func (h *Handlers) HandleCreateLink(c *echo.Context) error {
 		}
 	}
 	return c.Redirect(http.StatusSeeOther, redirect)
+}
+
+func parseCreateLinkForm(c *echo.Context) (identityID int64, accountID int64, reason string, err error) {
+	identityRaw := strings.TrimSpace(c.FormValue("identity_id"))
+	if identityRaw == "" {
+		identityRaw = strings.TrimSpace(c.FormValue("idp_user_id"))
+	}
+	identityID, err = strconv.ParseInt(identityRaw, 10, 64)
+	if err != nil {
+		return 0, 0, "", errors.New("invalid identity_id")
+	}
+
+	accountRaw := strings.TrimSpace(c.FormValue("account_id"))
+	if accountRaw == "" {
+		accountRaw = strings.TrimSpace(c.FormValue("app_user_id"))
+	}
+	accountID, err = strconv.ParseInt(accountRaw, 10, 64)
+	if err != nil {
+		return 0, 0, "", errors.New("invalid account_id")
+	}
+
+	reason = strings.TrimSpace(c.FormValue("reason"))
+	if reason == "" {
+		reason = "manual"
+	}
+
+	return identityID, accountID, reason, nil
 }
 
 // HandleIdpUserAccessTree handles the access tree API endpoint.
@@ -718,6 +738,10 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return renderAccessTreeError(http.StatusNotFound, "idp user not found")
 		}
+		return renderAccessTreeError(http.StatusInternalServerError, "internal error")
+	}
+	currentIdentityID, linkedAccounts, err := h.linkedAccountsForOktaAccount(ctx, id)
+	if err != nil {
 		return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 	}
 
@@ -807,13 +831,8 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			return renderAccessTreeError(http.StatusBadRequest, "invalid connector node")
 		}
 
-		linked, err := h.Q.ListLinkedAppUsersForIdPUser(ctx, id)
-		if err != nil {
-			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
-		}
-
 		sourceCounts := make(map[string]int)
-		for _, app := range linked {
+		for _, app := range linkedAccounts {
 			if strings.EqualFold(strings.TrimSpace(app.SourceKind), sourceKind) {
 				sourceCounts[app.SourceName]++
 			}
@@ -864,12 +883,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			return renderAccessTreeError(http.StatusBadRequest, "invalid instance node")
 		}
 
-		linked, err := h.Q.ListLinkedAppUsersForIdPUser(ctx, id)
-		if err != nil {
-			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
-		}
-
-		for _, app := range linked {
+		for _, app := range linkedAccounts {
 			if !strings.EqualFold(strings.TrimSpace(app.SourceKind), sourceKind) {
 				continue
 			}
@@ -913,7 +927,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			}
 			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
-		if link.IdpUserID != id {
+		if currentIdentityID == 0 || link.IdpUserID != currentIdentityID {
 			return renderAccessTreeError(http.StatusNotFound, "app user not linked")
 		}
 
@@ -1058,7 +1072,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			}
 			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
-		if link.IdpUserID != id {
+		if currentIdentityID == 0 || link.IdpUserID != currentIdentityID {
 			return renderAccessTreeError(http.StatusNotFound, "app user not linked")
 		}
 
@@ -1255,4 +1269,33 @@ func datadogUserStatus(appUserID int64, externalID string, rawJSON []byte) strin
 		return ""
 	}
 	return strings.TrimSpace(payload.Status)
+}
+
+func (h *Handlers) linkedAccountsForOktaAccount(ctx context.Context, oktaAccountID int64) (int64, []gen.Account, error) {
+	link, err := h.Q.GetIdentityLinkByAppUser(ctx, oktaAccountID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, nil, nil
+		}
+		return 0, nil, err
+	}
+
+	identityID := link.IdpUserID
+	linked, err := h.Q.ListLinkedAccountsForIdentity(ctx, identityID)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	filtered := make([]gen.Account, 0, len(linked))
+	for _, account := range linked {
+		if account.ID == oktaAccountID {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(account.SourceKind), "okta") {
+			continue
+		}
+		filtered = append(filtered, account)
+	}
+
+	return identityID, filtered, nil
 }

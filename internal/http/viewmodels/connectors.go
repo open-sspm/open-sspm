@@ -12,6 +12,7 @@ type OktaConnectorViewData struct {
 	Domain      string
 	TokenMasked string
 	HasToken    bool
+	Authoritative bool
 }
 
 type GitHubConnectorViewData struct {
@@ -63,6 +64,7 @@ type EntraConnectorViewData struct {
 	ClientID           string
 	ClientSecretMasked string
 	HasClientSecret    bool
+	Authoritative      bool
 }
 
 type ConnectorsViewData struct {

@@ -1,0 +1,155 @@
+- generic [ref=e2]:
+  - complementary:
+    - navigation [ref=e3]:
+      - link "Open-SSPM Open-SSPM" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img "Open-SSPM" [ref=e7]
+        - generic [ref=e8]: Open-SSPM
+      - group [ref=e10]:
+        - heading "Explore" [level=3] [ref=e11]
+        - list [ref=e12]:
+          - listitem [ref=e13]:
+            - link "Dashboard" [ref=e14] [cursor=pointer]:
+              - /url: /
+              - img [ref=e15]
+              - generic [ref=e17]: Dashboard
+          - listitem [ref=e18]:
+            - link "Global View" [ref=e19] [cursor=pointer]:
+              - /url: /global-view
+              - img [ref=e20]
+              - generic [ref=e24]: Global View
+          - listitem [ref=e25]:
+            - link "Apps" [ref=e26] [cursor=pointer]:
+              - /url: /apps
+              - img [ref=e27]
+              - generic [ref=e29]: Apps
+          - listitem [ref=e30]:
+            - link "Identities" [ref=e31] [cursor=pointer]:
+              - /url: /identities
+              - img [ref=e32]
+              - generic [ref=e34]: Identities
+          - listitem [ref=e35]:
+            - group [ref=e36]:
+              - generic "Findings" [ref=e37] [cursor=pointer]:
+                - img [ref=e38]
+                - generic [ref=e40]: Findings
+          - listitem [ref=e41]:
+            - group [ref=e42]:
+              - generic "Unmanaged" [ref=e43] [cursor=pointer]:
+                - img [ref=e44]
+                - generic [ref=e47]: Unmanaged
+          - listitem [ref=e48]:
+            - group [ref=e49]:
+              - generic "Settings" [ref=e50] [cursor=pointer]:
+                - img [ref=e51]
+                - generic [ref=e53]: Settings
+      - button "admin@admin.com Admin" [ref=e56] [cursor=pointer]:
+        - generic [ref=e57]:
+          - generic [ref=e58]: admin@admin.com
+          - generic [ref=e59]: Admin
+        - img [ref=e60]
+  - generic [ref=e62]:
+    - banner [ref=e63]:
+      - heading "Okta Account" [level=1] [ref=e64]
+      - banner [ref=e69]:
+        - img [ref=e70]
+        - textbox "Search users and apps" [ref=e72]:
+          - /placeholder: Search users and apps…
+      - button "Toggle dark mode" [ref=e74] [cursor=pointer]:
+        - generic [ref=e75]:
+          - img
+    - main [ref=e76]:
+      - generic [ref=e78]:
+        - generic [ref=e80]:
+          - navigation "Breadcrumb" [ref=e81]:
+            - list [ref=e82]:
+              - listitem [ref=e83]:
+                - link "Dashboard" [ref=e84] [cursor=pointer]:
+                  - /url: /
+                - generic [ref=e85]: /
+              - listitem [ref=e86]:
+                - link "Okta Accounts" [ref=e87] [cursor=pointer]:
+                  - /url: /idp-users
+                - generic [ref=e88]: /
+              - listitem [ref=e89]: Okta Account
+          - paragraph [ref=e90]: alice@example.com
+        - generic [ref=e91]:
+          - tablist "Okta account" [ref=e92]:
+            - tab "Summary" [ref=e93]
+            - tab "Assignments" [ref=e94]
+            - tab "Access graph" [ref=e95]
+            - tab "Linked accounts" [active] [selected] [ref=e96]
+          - tabpanel [ref=e117]:
+            - generic [ref=e118]:
+              - generic [ref=e119]:
+                - heading "Linked accounts" [level=2] [ref=e120]
+                - generic [ref=e121]: 2 connected
+              - generic [ref=e122]:
+                - article [ref=e123]:
+                  - generic [ref=e124]:
+                    - heading "aws-prod" [level=2] [ref=e125]
+                    - paragraph [ref=e126]: External ID alice-aws
+                    - generic [ref=e128]: aws
+                  - generic [ref=e129]:
+                    - generic [ref=e130]:
+                      - generic [ref=e131]:
+                        - term [ref=e132]: Email
+                        - definition [ref=e133]: alice@example.com
+                      - generic [ref=e134]:
+                        - term [ref=e135]: Name
+                        - definition [ref=e136]: Alice AWS
+                    - generic [ref=e137]:
+                      - heading "Entitlements" [level=3] [ref=e138]
+                      - table [ref=e140]:
+                        - rowgroup [ref=e141]:
+                          - row "Kind Resource Permission" [ref=e142]:
+                            - columnheader "Kind" [ref=e143]
+                            - columnheader "Resource" [ref=e144]
+                            - columnheader "Permission" [ref=e145]
+                        - rowgroup [ref=e146]:
+                          - row "aws_permission_set arn:aws:sso:::permissionSet/abc read" [ref=e147]:
+                            - cell "aws_permission_set" [ref=e148]:
+                              - generic [ref=e149]: aws_permission_set
+                            - cell "arn:aws:sso:::permissionSet/abc" [ref=e150]:
+                              - link "arn:aws:sso:::permissionSet/abc" [ref=e151] [cursor=pointer]:
+                                - /url: /resources/aws/aws-prod/permission_set/arn:aws:sso:::permissionSet/abc
+                            - cell "read" [ref=e152]:
+                              - generic [ref=e153]: read
+                - article [ref=e154]:
+                  - generic [ref=e155]:
+                    - heading "acme" [level=2] [ref=e156]
+                    - paragraph [ref=e157]: External ID alice-gh
+                    - generic [ref=e159]: github
+                  - generic [ref=e160]:
+                    - generic [ref=e161]:
+                      - generic [ref=e162]:
+                        - term [ref=e163]: Email
+                        - definition [ref=e164]: alice@example.com
+                      - generic [ref=e165]:
+                        - term [ref=e166]: Name
+                        - definition [ref=e167]: Alice GH
+                    - generic [ref=e168]:
+                      - heading "Entitlements" [level=3] [ref=e169]
+                      - table [ref=e171]:
+                        - rowgroup [ref=e172]:
+                          - row "Kind Resource Permission" [ref=e173]:
+                            - columnheader "Kind" [ref=e174]
+                            - columnheader "Resource" [ref=e175]
+                            - columnheader "Permission" [ref=e176]
+                        - rowgroup [ref=e177]:
+                          - row "repo_role acme/proj1 maintain" [ref=e178]:
+                            - cell "repo_role" [ref=e179]:
+                              - generic [ref=e180]: repo_role
+                            - cell "acme/proj1" [ref=e181]:
+                              - link "acme/proj1" [ref=e182] [cursor=pointer]:
+                                - /url: /resources/github/acme/repo/acme/proj1
+                            - cell "maintain" [ref=e183]:
+                              - generic [ref=e184]: maintain
+                          - row "repo_role acme/proj2 admin" [ref=e185]:
+                            - cell "repo_role" [ref=e186]:
+                              - generic [ref=e187]: repo_role
+                            - cell "acme/proj2" [ref=e188]:
+                              - link "acme/proj2" [ref=e189] [cursor=pointer]:
+                                - /url: /resources/github/acme/repo/acme/proj2
+                            - cell "admin" [ref=e190]:
+                              - generic [ref=e191]: admin

@@ -1,0 +1,109 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "Identities", Href: "/identities"},
+			{Label: "Identity #" + FormatInt64(data.Identity.ID)},
+		}, "Identity details and linked accounts across connected sources.") {
+		}
+
+		<article class="card mb-6">
+			<header>
+				<h2>{ data.Identity.DisplayName }</h2>
+				<p class="text-sm text-muted-foreground">{ data.Identity.PrimaryEmail }</p>
+			</header>
+			<section>
+				<div class="grid gap-3 sm:grid-cols-3">
+					<div>
+						<p class="text-xs uppercase tracking-wide text-muted-foreground">Identity kind</p>
+						<p class="font-medium">{ data.Identity.Kind }</p>
+					</div>
+					<div>
+						<p class="text-xs uppercase tracking-wide text-muted-foreground">Managed</p>
+						if data.Identity.Managed {
+							<span class="badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100">Managed</span>
+						} else {
+							<span class="badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100">Unmanaged</span>
+						}
+					</div>
+					<div>
+						<p class="text-xs uppercase tracking-wide text-muted-foreground">Linked accounts</p>
+						<p class="font-medium">{ FormatInt64(data.Identity.LinkedAccounts) }</p>
+					</div>
+				</div>
+			</section>
+		</article>
+
+		<article class="card">
+			<header>
+				<h2>Linked accounts</h2>
+				<span data-slot="card-action" class="badge-outline">
+					if data.HasLinkedAccounts {
+						{ FormatInt64(data.Identity.LinkedAccounts) }{ " total" }
+					} else {
+						0 total
+					}
+				</span>
+			</header>
+			<section>
+				<div class="overflow-x-auto">
+					<table class="table">
+						<thead>
+							<tr>
+								<th>Source</th>
+								<th>External ID</th>
+								<th>Email</th>
+								<th>Display name</th>
+								<th>Status</th>
+								<th>Entitlements</th>
+							</tr>
+						</thead>
+						<tbody>
+							if data.HasLinkedAccounts {
+								for _, linked := range data.LinkedAccounts {
+									<tr>
+										<td>
+											<div class="flex flex-wrap items-center gap-2">
+												<span class="badge-outline">{ linked.Account.SourceKind }</span>
+												<span class="badge-outline">{ linked.Account.SourceName }</span>
+											</div>
+										</td>
+										<td>
+											if linked.DetailHref != "" {
+												<a class="btn-sm-link px-0 font-medium" href={ linked.DetailHref }>{ linked.Account.ExternalID }</a>
+											} else {
+												{ linked.Account.ExternalID }
+											}
+										</td>
+										<td>{ linked.Account.Email }</td>
+										<td>{ linked.Account.DisplayName }</td>
+										<td>
+											if linked.Account.Status != "" {
+												<span class={ OktaStatusBadgeClass(linked.Account.Status) }>{ linked.Account.Status }</span>
+											} else {
+												<span class="text-muted-foreground">&mdash;</span>
+											}
+										</td>
+										<td>
+											<span class="badge-outline">{ FormatInt(linked.EntitlementCount) }</span>
+										</td>
+									</tr>
+								}
+							} else {
+								<tr>
+									<td colspan="6">
+										@EmptyState("No linked accounts", "No linked accounts.")
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</article>
+	}
+}

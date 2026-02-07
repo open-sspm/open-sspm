@@ -1,0 +1,115 @@
+- generic [ref=e2]:
+  - complementary:
+    - navigation [ref=e3]:
+      - link "Open-SSPM Open-SSPM" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img "Open-SSPM" [ref=e7]
+        - generic [ref=e8]: Open-SSPM
+      - group [ref=e10]:
+        - heading "Explore" [level=3] [ref=e11]
+        - list [ref=e12]:
+          - listitem [ref=e13]:
+            - link "Dashboard" [ref=e14] [cursor=pointer]:
+              - /url: /
+              - img [ref=e15]
+              - generic [ref=e17]: Dashboard
+          - listitem [ref=e18]:
+            - link "Global View" [ref=e19] [cursor=pointer]:
+              - /url: /global-view
+              - img [ref=e20]
+              - generic [ref=e24]: Global View
+          - listitem [ref=e25]:
+            - link "Apps" [ref=e26] [cursor=pointer]:
+              - /url: /apps
+              - img [ref=e27]
+              - generic [ref=e29]: Apps
+          - listitem [ref=e30]:
+            - link "Identities" [ref=e31] [cursor=pointer]:
+              - /url: /identities
+              - img [ref=e32]
+              - generic [ref=e34]: Identities
+          - listitem [ref=e35]:
+            - group [ref=e36]:
+              - generic "Findings" [ref=e37] [cursor=pointer]:
+                - img [ref=e38]
+                - generic [ref=e40]: Findings
+          - listitem [ref=e41]:
+            - group [ref=e42]:
+              - generic "Unmanaged" [ref=e43] [cursor=pointer]:
+                - img [ref=e44]
+                - generic [ref=e47]: Unmanaged
+          - listitem [ref=e48]:
+            - group [ref=e49]:
+              - generic "Settings" [ref=e50] [cursor=pointer]:
+                - img [ref=e51]
+                - generic [ref=e53]: Settings
+      - button "admin@admin.com Admin" [ref=e56] [cursor=pointer]:
+        - generic [ref=e57]:
+          - generic [ref=e58]: admin@admin.com
+          - generic [ref=e59]: Admin
+        - img [ref=e60]
+  - generic [ref=e62]:
+    - banner [ref=e63]:
+      - heading "Okta Account" [level=1] [ref=e64]
+      - banner [ref=e69]:
+        - img [ref=e70]
+        - textbox "Search users and apps" [ref=e72]:
+          - /placeholder: Search users and apps…
+      - button "Toggle dark mode" [ref=e74] [cursor=pointer]:
+        - generic [ref=e75]:
+          - img
+    - main [ref=e76]:
+      - generic [ref=e78]:
+        - generic [ref=e80]:
+          - navigation "Breadcrumb" [ref=e81]:
+            - list [ref=e82]:
+              - listitem [ref=e83]:
+                - link "Dashboard" [ref=e84] [cursor=pointer]:
+                  - /url: /
+                - generic [ref=e85]: /
+              - listitem [ref=e86]:
+                - link "Okta Accounts" [ref=e87] [cursor=pointer]:
+                  - /url: /idp-users
+                - generic [ref=e88]: /
+              - listitem [ref=e89]: Okta Account
+          - paragraph [ref=e90]: alice@example.com
+        - generic [ref=e91]:
+          - tablist "Okta account" [ref=e92]:
+            - tab "Summary" [ref=e93]
+            - tab "Assignments" [ref=e94]
+            - tab "Access graph" [selected] [ref=e95]
+            - tab "Linked accounts" [ref=e96]
+          - tabpanel [ref=e192]:
+            - article [ref=e193]:
+              - generic [ref=e194]:
+                - heading "Access graph" [level=2] [ref=e195]
+                - paragraph [ref=e196]: Expand nodes to lazy-load access details across connectors.
+              - generic [ref=e198]:
+                - group [ref=e200]:
+                  - generic "▸ Okta" [ref=e201] [cursor=pointer]:
+                    - generic [ref=e202]: ▸
+                    - generic [ref=e205]: Okta
+                - group [ref=e207]:
+                  - generic "▸ GitHub" [ref=e208] [cursor=pointer]:
+                    - generic [ref=e209]: ▸
+                    - generic [ref=e212]: GitHub
+                  - group [ref=e229]:
+                    - generic "▸ acme 1 account" [active] [ref=e230] [cursor=pointer]:
+                      - generic [ref=e231]: ▸
+                      - generic [ref=e233]:
+                        - generic [ref=e234]: acme
+                        - generic [ref=e235]: 1 account
+                    - group [ref=e238]:
+                      - generic "▸ Alice GH alice@example.com" [ref=e239] [cursor=pointer]:
+                        - generic [ref=e240]: ▸
+                        - generic [ref=e241]:
+                          - generic [ref=e243]: Alice GH
+                          - generic [ref=e244]: alice@example.com
+                - group [ref=e214]:
+                  - generic "▸ Datadog" [ref=e215] [cursor=pointer]:
+                    - generic [ref=e216]: ▸
+                    - generic [ref=e219]: Datadog
+                - group [ref=e221]:
+                  - generic "▸ AWS Identity Center" [ref=e222] [cursor=pointer]:
+                    - generic [ref=e223]: ▸
+                    - generic [ref=e226]: AWS Identity Center

@@ -189,7 +189,7 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 }
 
 templ OktaConnectorCard(data viewmodels.ConnectorsViewData) {
-	<article class="card h-44">
+	<article class="card h-52">
 		<header>
 			<h2 class="flex items-center gap-2">
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true">
@@ -213,12 +213,22 @@ templ OktaConnectorCard(data viewmodels.ConnectorsViewData) {
 				<a href="/settings/connectors?open=okta" class="btn-sm-outline">Configure</a>
 			</div>
 			<p>Identity provider source for users and groups.</p>
+			<div class="mt-3 flex items-center justify-between rounded-md border border-border/60 px-3 py-2 text-xs text-muted-foreground">
+				<span>Authoritative IdP</span>
+				<form method="post" action="/settings/connectors/okta/authoritative" hx-post="/settings/connectors/okta/authoritative" hx-target="closest article" hx-swap="outerHTML" hx-disabled-elt="closest article">
+					@CSRFInput(data.Layout.CSRFToken)
+					<label class="flex items-center gap-2 whitespace-nowrap">
+						<input type="checkbox" role="switch" aria-label="Okta authoritative identity source" name="authoritative" value="true" checked?={ data.Okta.Authoritative } data-autosubmit="true" class="input"/>
+						<input type="hidden" name="authoritative" value="false"/>
+					</label>
+				</form>
+			</div>
 		</header>
 	</article>
 }
 
 templ EntraConnectorCard(data viewmodels.ConnectorsViewData) {
-	<article class="card h-44">
+	<article class="card h-52">
 		<header>
 			<h2 class="flex items-center gap-2">
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="h-5 w-5 shrink-0 text-muted-foreground">
@@ -237,6 +247,16 @@ templ EntraConnectorCard(data viewmodels.ConnectorsViewData) {
 				<a href="/settings/connectors?open=entra" class="btn-sm-outline">Configure</a>
 			</div>
 			<p>Users and access via Microsoft Graph.</p>
+			<div class="mt-3 flex items-center justify-between rounded-md border border-border/60 px-3 py-2 text-xs text-muted-foreground">
+				<span>Authoritative IdP</span>
+				<form method="post" action="/settings/connectors/entra/authoritative" hx-post="/settings/connectors/entra/authoritative" hx-target="closest article" hx-swap="outerHTML" hx-disabled-elt="closest article">
+					@CSRFInput(data.Layout.CSRFToken)
+					<label class="flex items-center gap-2 whitespace-nowrap">
+						<input type="checkbox" role="switch" aria-label="Entra authoritative identity source" name="authoritative" value="true" checked?={ data.Entra.Authoritative } data-autosubmit="true" class="input"/>
+						<input type="hidden" name="authoritative" value="false"/>
+					</label>
+				</form>
+			</div>
 		</header>
 	</article>
 }

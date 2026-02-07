@@ -1,0 +1,148 @@
+- generic [ref=e132]:
+  - complementary:
+    - navigation [ref=e133]:
+      - link "Open-SSPM Open-SSPM" [ref=e135] [cursor=pointer]:
+        - /url: /
+        - img "Open-SSPM" [ref=e137]
+        - generic [ref=e138]: Open-SSPM
+      - group [ref=e140]:
+        - heading "Explore" [level=3] [ref=e141]
+        - list [ref=e142]:
+          - listitem [ref=e143]:
+            - link "Dashboard" [ref=e144] [cursor=pointer]:
+              - /url: /
+              - img [ref=e145]
+              - generic [ref=e147]: Dashboard
+          - listitem [ref=e148]:
+            - link "Global View" [ref=e149] [cursor=pointer]:
+              - /url: /global-view
+              - img [ref=e150]
+              - generic [ref=e154]: Global View
+          - listitem [ref=e155]:
+            - link "Apps" [ref=e156] [cursor=pointer]:
+              - /url: /apps
+              - img [ref=e157]
+              - generic [ref=e159]: Apps
+          - listitem [ref=e160]:
+            - link "Identities" [ref=e161] [cursor=pointer]:
+              - /url: /identities
+              - img [ref=e162]
+              - generic [ref=e164]: Identities
+          - listitem [ref=e165]:
+            - group [ref=e166]:
+              - generic "Findings" [ref=e167] [cursor=pointer]:
+                - img [ref=e168]
+                - generic [ref=e170]: Findings
+          - listitem [ref=e171]:
+            - group [ref=e172]:
+              - generic "Unmanaged" [ref=e173] [cursor=pointer]:
+                - img [ref=e174]
+                - generic [ref=e177]: Unmanaged
+          - listitem [ref=e178]:
+            - group [ref=e179]:
+              - generic "Settings" [ref=e180] [cursor=pointer]:
+                - img [ref=e181]
+                - generic [ref=e183]: Settings
+      - button "admin@admin.com Admin" [ref=e186] [cursor=pointer]:
+        - generic [ref=e187]:
+          - generic [ref=e188]: admin@admin.com
+          - generic [ref=e189]: Admin
+        - img [ref=e190]
+  - generic [ref=e192]:
+    - banner [ref=e193]:
+      - heading "Identity" [level=1] [ref=e194]
+      - banner [ref=e199]:
+        - img [ref=e200]
+        - textbox "Search users and apps" [ref=e202]:
+          - /placeholder: Search users and apps…
+      - button "Toggle dark mode" [ref=e204] [cursor=pointer]:
+        - generic [ref=e205]:
+          - img
+    - main [ref=e206]:
+      - generic [ref=e208]:
+        - generic [ref=e209]:
+          - generic [ref=e210]:
+            - navigation "Breadcrumb" [ref=e211]:
+              - list [ref=e212]:
+                - listitem [ref=e213]:
+                  - link "Dashboard" [ref=e214] [cursor=pointer]:
+                    - /url: /
+                  - generic [ref=e215]: /
+                - listitem [ref=e216]:
+                  - link "Identities" [ref=e217] [cursor=pointer]:
+                    - /url: /identities
+                  - generic [ref=e218]: /
+                - listitem [ref=e219]: "Identity #100"
+            - paragraph [ref=e220]: Identity details and linked accounts across connected sources.
+          - link "Back to identities" [ref=e222] [cursor=pointer]:
+            - /url: /identities
+        - generic [ref=e223]:
+          - generic [ref=e224]:
+            - heading "Alice Admin" [level=2] [ref=e225]
+            - paragraph [ref=e226]: alice@example.com
+          - generic [ref=e227]:
+            - generic [ref=e228]:
+              - paragraph [ref=e229]: Identity kind
+              - paragraph [ref=e230]: human
+            - generic [ref=e231]:
+              - paragraph [ref=e232]: Managed
+              - generic [ref=e233]: Managed
+            - generic [ref=e234]:
+              - paragraph [ref=e235]: Linked accounts
+              - paragraph [ref=e236]: "3"
+        - article [ref=e237]:
+          - generic [ref=e238]:
+            - heading "Linked accounts" [level=2] [ref=e239]
+            - generic [ref=e240]: 3 total
+          - table [ref=e243]:
+            - rowgroup [ref=e244]:
+              - row "Source External ID Email Display name Status Entitlements" [ref=e245]:
+                - columnheader "Source" [ref=e246]
+                - columnheader "External ID" [ref=e247]
+                - columnheader "Email" [ref=e248]
+                - columnheader "Display name" [ref=e249]
+                - columnheader "Status" [ref=e250]
+                - columnheader "Entitlements" [ref=e251]
+            - rowgroup [ref=e252]:
+              - row "aws aws-prod alice-aws alice@example.com Alice AWS active 1" [ref=e253]:
+                - cell "aws aws-prod" [ref=e254]:
+                  - generic [ref=e255]:
+                    - generic [ref=e256]: aws
+                    - generic [ref=e257]: aws-prod
+                - cell "alice-aws" [ref=e258]:
+                  - link "alice-aws" [ref=e259] [cursor=pointer]:
+                    - /url: /aws-users?q=alice-aws
+                - cell "alice@example.com" [ref=e260]
+                - cell "Alice AWS" [ref=e261]
+                - cell "active" [ref=e262]:
+                  - generic [ref=e263]: active
+                - cell "1" [ref=e264]:
+                  - generic [ref=e265]: "1"
+              - row "github acme alice-gh alice@example.com Alice GH active 2" [ref=e266]:
+                - cell "github acme" [ref=e267]:
+                  - generic [ref=e268]:
+                    - generic [ref=e269]: github
+                    - generic [ref=e270]: acme
+                - cell "alice-gh" [ref=e271]:
+                  - link "alice-gh" [ref=e272] [cursor=pointer]:
+                    - /url: /github-users?q=alice-gh
+                - cell "alice@example.com" [ref=e273]
+                - cell "Alice GH" [ref=e274]
+                - cell "active" [ref=e275]:
+                  - generic [ref=e276]: active
+                - cell "2" [ref=e277]:
+                  - generic [ref=e278]: "2"
+              - row "okta example.okta.com 00u_alice alice@example.com Alice O ACTIVE 0" [ref=e279]:
+                - cell "okta example.okta.com" [ref=e280]:
+                  - generic [ref=e281]:
+                    - generic [ref=e282]: okta
+                    - generic [ref=e283]: example.okta.com
+                - cell "00u_alice" [ref=e284]:
+                  - link "00u_alice" [ref=e285] [cursor=pointer]:
+                    - /url: /idp-users/200
+                - cell "alice@example.com" [ref=e286]
+                - cell "Alice O" [ref=e287]
+                - cell "ACTIVE" [ref=e288]:
+                  - generic [ref=e289]: ACTIVE
+                - cell "0" [ref=e290]:
+                  - generic [ref=e291]: "0"

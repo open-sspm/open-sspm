@@ -1,5 +1,13 @@
+-- Legacy IdP query names now backed by Okta accounts in accounts.
+
 -- name: UpsertIdPUsersBulk :execrows
-WITH input AS (
+WITH sync_source AS (
+  SELECT COALESCE(NULLIF(trim(sr.source_name), ''), 'okta') AS source_name
+  FROM sync_runs sr
+  WHERE sr.id = sqlc.arg(seen_in_run_id)::bigint
+  LIMIT 1
+),
+input AS (
   SELECT
     i,
     (sqlc.arg(external_ids)::text[])[i] AS external_id,
@@ -25,7 +33,9 @@ dedup AS (
   FROM input
   ORDER BY external_id, i DESC
 )
-INSERT INTO idp_users (
+INSERT INTO accounts (
+  source_kind,
+  source_name,
   external_id,
   email,
   display_name,
@@ -39,6 +49,8 @@ INSERT INTO idp_users (
   updated_at
 )
 SELECT
+  'okta',
+  COALESCE((SELECT source_name FROM sync_source), 'okta'),
   input.external_id,
   input.email,
   input.display_name,
@@ -51,40 +63,47 @@ SELECT
   now(),
   now()
 FROM dedup input
-ON CONFLICT (external_id) DO UPDATE SET
+ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
   email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
   status = EXCLUDED.status,
   raw_json = EXCLUDED.raw_json,
-  last_login_at = COALESCE(EXCLUDED.last_login_at, idp_users.last_login_at),
-  last_login_ip = COALESCE(NULLIF(EXCLUDED.last_login_ip, ''), idp_users.last_login_ip),
-  last_login_region = COALESCE(NULLIF(EXCLUDED.last_login_region, ''), idp_users.last_login_region),
+  last_login_at = COALESCE(EXCLUDED.last_login_at, accounts.last_login_at),
+  last_login_ip = COALESCE(NULLIF(EXCLUDED.last_login_ip, ''), accounts.last_login_ip),
+  last_login_region = COALESCE(NULLIF(EXCLUDED.last_login_region, ''), accounts.last_login_region),
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
-  updated_at = now()
-;
+  updated_at = now();
 
 -- name: ListIdPUsers :many
 SELECT *
-FROM idp_users
-WHERE expired_at IS NULL AND last_observed_run_id IS NOT NULL
+FROM accounts
+WHERE source_kind = 'okta'
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
 ORDER BY id ASC;
 
 -- name: GetIdPUser :one
 SELECT *
-FROM idp_users
-WHERE id = $1 AND expired_at IS NULL AND last_observed_run_id IS NOT NULL;
+FROM accounts
+WHERE id = $1
+  AND source_kind = 'okta'
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL;
 
 -- name: CountIdPUsers :one
 SELECT count(*)
-FROM idp_users
-WHERE expired_at IS NULL AND last_observed_run_id IS NOT NULL;
+FROM accounts
+WHERE source_kind = 'okta'
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL;
 
 -- name: CountIdPUsersByQueryAndState :one
 SELECT count(*)
-FROM idp_users
+FROM accounts
 WHERE
-  expired_at IS NULL
+  source_kind = 'okta'
+  AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL
   AND (
     sqlc.arg(query)::text = ''
@@ -94,15 +113,16 @@ WHERE
   )
   AND (
     sqlc.arg(state)::text = ''
-    OR (sqlc.arg(state)::text = 'active' AND status = 'ACTIVE')
-    OR (sqlc.arg(state)::text = 'inactive' AND status <> 'ACTIVE')
+    OR (sqlc.arg(state)::text = 'active' AND lower(status) = 'active')
+    OR (sqlc.arg(state)::text = 'inactive' AND lower(status) <> 'active')
   );
 
 -- name: ListIdPUsersPageByQueryAndState :many
 SELECT *
-FROM idp_users
+FROM accounts
 WHERE
-  expired_at IS NULL
+  source_kind = 'okta'
+  AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL
   AND (
     sqlc.arg(query)::text = ''
@@ -112,8 +132,8 @@ WHERE
   )
   AND (
     sqlc.arg(state)::text = ''
-    OR (sqlc.arg(state)::text = 'active' AND status = 'ACTIVE')
-    OR (sqlc.arg(state)::text = 'inactive' AND status <> 'ACTIVE')
+    OR (sqlc.arg(state)::text = 'active' AND lower(status) = 'active')
+    OR (sqlc.arg(state)::text = 'inactive' AND lower(status) <> 'active')
   )
 ORDER BY id ASC
 LIMIT sqlc.arg(page_limit)::int
@@ -125,10 +145,12 @@ SELECT
   email,
   display_name,
   status
-FROM idp_users
-WHERE expired_at IS NULL AND last_observed_run_id IS NOT NULL
+FROM accounts
+WHERE source_kind = 'okta'
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
 ORDER BY
-  (status = 'ACTIVE') DESC,
+  (lower(status) = 'active') DESC,
   lower(COALESCE(NULLIF(trim(display_name), ''), email)) ASC,
   lower(email) ASC,
   id ASC

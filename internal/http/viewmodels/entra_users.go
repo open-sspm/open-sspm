@@ -30,7 +30,7 @@ type EntraUsersViewData struct {
 
 type UnmatchedEntraViewData struct {
 	Layout         LayoutData
-	Users          []gen.AppUser
+	Users          []gen.Account
 	Query          string
 	ShowingCount   int
 	ShowingFrom    int

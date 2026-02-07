@@ -6,20 +6,20 @@ templ UnmatchedDatadogPage(data viewmodels.UnmatchedDatadogViewData) {
 	@Layout(data.Layout) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
-			{Label: "Unmatched Datadog"},
-		}, "Match Datadog identities to Okta users for complete access coverage.") {
+			{Label: "Unmanaged Datadog"},
+		}, "Match Datadog identities to identities for complete access coverage.") {
 			if data.Layout.DatadogConfigured {
 				<span class="badge-outline">{ data.Layout.DatadogSite }</span>
 			} else {
 				<span class="badge-outline">Not configured</span>
 			}
-			<a class="btn-sm-outline" href="/idp-users">Okta users</a>
+			<a class="btn-sm-outline" href="/identities">Identities</a>
 		}
 
 		if data.Layout.DatadogConfigured && data.Layout.DatadogEnabled {
 			@Alert("Manual linking", false) {
 				<p>
-					Use Okta user IDs from the Okta users list. Most Datadog users have an email that matches Okta, so auto-linking should cover the majority of cases.
+					Use identity IDs from the Identities list. Most Datadog users have an email that matches Okta, so auto-linking should cover the majority of cases.
 				</p>
 			}
 		} else {
@@ -33,7 +33,7 @@ templ UnmatchedDatadogPage(data viewmodels.UnmatchedDatadogViewData) {
 		<form method="get" class="card">
 			<header>
 				<h2>Search</h2>
-				<p>Filter unmatched Datadog users by email, name, or Datadog ID.</p>
+				<p>Filter unmanaged Datadog users by email, name, or Datadog ID.</p>
 			</header>
 			<section>
 				<div class="flex flex-col gap-4 sm:flex-row sm:items-end">
@@ -53,7 +53,7 @@ templ UnmatchedDatadogPage(data viewmodels.UnmatchedDatadogViewData) {
 
 		<article class="card">
 			<header>
-				<h2>Unmatched Datadog users</h2>
+				<h2>Unmanaged Datadog users</h2>
 				<span data-slot="card-action" class="badge-outline">
 					if data.TotalCount > 0 {
 						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "–" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
@@ -90,10 +90,10 @@ templ UnmatchedDatadogPage(data viewmodels.UnmatchedDatadogViewData) {
 											if data.Layout.IsAdmin {
 												<form method="post" action="/links" class="flex flex-col gap-2 sm:flex-row sm:items-end">
 													@CSRFInput(data.Layout.CSRFToken)
-													<input type="hidden" name="app_user_id" value={ FormatInt64(u.ID) }/>
+													<input type="hidden" name="account_id" value={ FormatInt64(u.ID) }/>
 													<label class="field w-full sm:w-32">
-														<span class="label sr-only">Okta user ID</span>
-														<input type="text" name="idp_user_id" placeholder="Okta ID" required class="input w-full"/>
+														<span class="label sr-only">Identity ID</span>
+														<input type="text" name="identity_id" placeholder="Identity ID" required class="input w-full"/>
 													</label>
 													<button type="submit" class="btn-sm-primary w-full sm:w-auto">Link</button>
 												</form>
@@ -106,13 +106,13 @@ templ UnmatchedDatadogPage(data viewmodels.UnmatchedDatadogViewData) {
 							} else if data.Layout.DatadogConfigured && data.Layout.DatadogEnabled && data.Query == "" {
 								<tr>
 									<td colspan="4">
-										@EmptyState("All caught up", "No unmatched Datadog users found. All detected accounts have been linked to an identity.")
+										@EmptyState("All caught up", "No unmanaged Datadog users found. All detected accounts have been linked to an identity.")
 									</td>
 								</tr>
 							} else {
 								<tr>
 									<td colspan="4">
-										@EmptyState("No unmatched users", data.EmptyStateMsg)
+										@EmptyState("No unmanaged users", data.EmptyStateMsg)
 									</td>
 								</tr>
 							}
