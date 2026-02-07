@@ -28,7 +28,7 @@ func (q *Queries) CountConnectedOktaApps(ctx context.Context) (int64, error) {
 const countOktaAppUserAssignmentsByQuery = `-- name: CountOktaAppUserAssignmentsByQuery :one
 SELECT count(*)
 FROM okta_user_app_assignments ouaa
-JOIN idp_users u ON u.id = ouaa.idp_user_id
+JOIN accounts u ON u.id = ouaa.okta_user_account_id
 WHERE
   ouaa.okta_app_id = $1
   AND ouaa.expired_at IS NULL
@@ -147,7 +147,7 @@ func (q *Queries) GetOktaAppByExternalIDWithIntegration(ctx context.Context, ext
 
 const getOktaUserAppAssignmentForIdpUserByOktaAppExternalID = `-- name: GetOktaUserAppAssignmentForIdpUserByOktaAppExternalID :one
 SELECT
-  ouaa.idp_user_id,
+  ouaa.okta_user_account_id AS idp_user_id,
   ouaa.okta_app_id,
   ouaa.scope,
   ouaa.profile_json,
@@ -162,7 +162,7 @@ FROM okta_user_app_assignments ouaa
 JOIN okta_apps oa ON oa.id = ouaa.okta_app_id
 LEFT JOIN integration_okta_app_map m ON m.okta_app_external_id = oa.external_id
 WHERE
-  ouaa.idp_user_id = $1
+  ouaa.okta_user_account_id = $1
   AND ouaa.expired_at IS NULL
   AND ouaa.last_observed_run_id IS NOT NULL
   AND oa.external_id = $2
@@ -218,7 +218,7 @@ JOIN okta_app_group_assignments oga ON oga.okta_group_id = ug.okta_group_id
 JOIN okta_groups og ON og.id = ug.okta_group_id
 JOIN okta_apps oa ON oa.id = oga.okta_app_id
 WHERE
-  ug.idp_user_id = $1
+  ug.okta_user_account_id = $1
   AND ug.expired_at IS NULL
   AND ug.last_observed_run_id IS NOT NULL
   AND oga.expired_at IS NULL
@@ -263,7 +263,7 @@ func (q *Queries) ListOktaAppGrantingGroupsForIdpUserByOktaAppExternalID(ctx con
 
 const listOktaAppGrantingGroupsForIdpUsers = `-- name: ListOktaAppGrantingGroupsForIdpUsers :many
 SELECT
-  ug.idp_user_id,
+  ug.okta_user_account_id AS idp_user_id,
   og.name AS okta_group_name,
   og.external_id AS okta_group_external_id
 FROM okta_user_groups ug
@@ -277,8 +277,8 @@ WHERE
   AND oga.last_observed_run_id IS NOT NULL
   AND og.expired_at IS NULL
   AND og.last_observed_run_id IS NOT NULL
-  AND ug.idp_user_id = ANY($2::bigint[])
-ORDER BY ug.idp_user_id, og.name, og.external_id
+  AND ug.okta_user_account_id = ANY($2::bigint[])
+ORDER BY ug.okta_user_account_id, og.name, og.external_id
 `
 
 type ListOktaAppGrantingGroupsForIdpUsersParams struct {
@@ -371,7 +371,7 @@ SELECT
   ouaa.scope,
   ouaa.profile_json
 FROM okta_user_app_assignments ouaa
-JOIN idp_users u ON u.id = ouaa.idp_user_id
+JOIN accounts u ON u.id = ouaa.okta_user_account_id
 WHERE
   ouaa.okta_app_id = $1
   AND ouaa.expired_at IS NULL
@@ -624,7 +624,7 @@ const listOktaGroupsForIdpUser = `-- name: ListOktaGroupsForIdpUser :many
 SELECT og.id, og.external_id, og.name, og.type, og.raw_json, og.created_at, og.updated_at, og.seen_in_run_id, og.seen_at, og.last_observed_run_id, og.last_observed_at, og.expired_at, og.expired_run_id
 FROM okta_groups og
 JOIN okta_user_groups ug ON ug.okta_group_id = og.id
-WHERE ug.idp_user_id = $1
+WHERE ug.okta_user_account_id = $1
   AND og.expired_at IS NULL
   AND og.last_observed_run_id IS NOT NULL
   AND ug.expired_at IS NULL
@@ -632,8 +632,8 @@ WHERE ug.idp_user_id = $1
 ORDER BY og.name, og.external_id
 `
 
-func (q *Queries) ListOktaGroupsForIdpUser(ctx context.Context, idpUserID int64) ([]OktaGroup, error) {
-	rows, err := q.db.Query(ctx, listOktaGroupsForIdpUser, idpUserID)
+func (q *Queries) ListOktaGroupsForIdpUser(ctx context.Context, oktaUserAccountID int64) ([]OktaGroup, error) {
+	rows, err := q.db.Query(ctx, listOktaGroupsForIdpUser, oktaUserAccountID)
 	if err != nil {
 		return nil, err
 	}
@@ -668,7 +668,7 @@ func (q *Queries) ListOktaGroupsForIdpUser(ctx context.Context, idpUserID int64)
 
 const listOktaUserAppAssignmentsForIdpUser = `-- name: ListOktaUserAppAssignmentsForIdpUser :many
 SELECT
-  ouaa.idp_user_id,
+  ouaa.okta_user_account_id AS idp_user_id,
   ouaa.okta_app_id,
   ouaa.scope,
   ouaa.profile_json,
@@ -682,7 +682,7 @@ SELECT
 FROM okta_user_app_assignments ouaa
 JOIN okta_apps oa ON oa.id = ouaa.okta_app_id
 LEFT JOIN integration_okta_app_map m ON m.okta_app_external_id = oa.external_id
-WHERE ouaa.idp_user_id = $1
+WHERE ouaa.okta_user_account_id = $1
   AND ouaa.expired_at IS NULL
   AND ouaa.last_observed_run_id IS NOT NULL
   AND oa.expired_at IS NULL
@@ -704,8 +704,8 @@ type ListOktaUserAppAssignmentsForIdpUserRow struct {
 	IntegrationKind   string `json:"integration_kind"`
 }
 
-func (q *Queries) ListOktaUserAppAssignmentsForIdpUser(ctx context.Context, idpUserID int64) ([]ListOktaUserAppAssignmentsForIdpUserRow, error) {
-	rows, err := q.db.Query(ctx, listOktaUserAppAssignmentsForIdpUser, idpUserID)
+func (q *Queries) ListOktaUserAppAssignmentsForIdpUser(ctx context.Context, oktaUserAccountID int64) ([]ListOktaUserAppAssignmentsForIdpUserRow, error) {
+	rows, err := q.db.Query(ctx, listOktaUserAppAssignmentsForIdpUser, oktaUserAccountID)
 	if err != nil {
 		return nil, err
 	}
@@ -963,7 +963,13 @@ func (q *Queries) UpsertOktaGroupsBulk(ctx context.Context, arg UpsertOktaGroups
 }
 
 const upsertOktaUserAppAssignmentsBulkByExternalIDs = `-- name: UpsertOktaUserAppAssignmentsBulkByExternalIDs :execrows
-WITH input AS (
+WITH run_source AS (
+  SELECT sr.source_name
+  FROM sync_runs sr
+  WHERE sr.id = $1::bigint
+  LIMIT 1
+),
+input AS (
   SELECT
     i,
     ($2::text[])[i] AS idp_user_external_id,
@@ -984,7 +990,7 @@ dedup AS (
   ORDER BY idp_user_external_id, okta_app_external_id, i DESC
 )
 INSERT INTO okta_user_app_assignments (
-  idp_user_id,
+  okta_user_account_id,
   okta_app_id,
   scope,
   profile_json,
@@ -1003,9 +1009,13 @@ SELECT
   now(),
   now()
 FROM dedup input
-JOIN idp_users iu ON iu.external_id = input.idp_user_external_id
+JOIN run_source rs ON TRUE
+JOIN accounts iu
+  ON iu.source_kind = 'okta'
+  AND iu.source_name = rs.source_name
+  AND iu.external_id = input.idp_user_external_id
 JOIN okta_apps oa ON oa.external_id = input.okta_app_external_id
-ON CONFLICT (idp_user_id, okta_app_id) DO UPDATE SET
+ON CONFLICT (okta_user_account_id, okta_app_id) DO UPDATE SET
   scope = EXCLUDED.scope,
   profile_json = EXCLUDED.profile_json,
   raw_json = EXCLUDED.raw_json,
@@ -1039,7 +1049,13 @@ func (q *Queries) UpsertOktaUserAppAssignmentsBulkByExternalIDs(ctx context.Cont
 }
 
 const upsertOktaUserGroupsBulkByExternalIDs = `-- name: UpsertOktaUserGroupsBulkByExternalIDs :execrows
-WITH input AS (
+WITH run_source AS (
+  SELECT sr.source_name
+  FROM sync_runs sr
+  WHERE sr.id = $1::bigint
+  LIMIT 1
+),
+input AS (
   SELECT
     i,
     ($2::text[])[i] AS idp_user_external_id,
@@ -1053,16 +1069,20 @@ dedup AS (
   FROM input
   ORDER BY idp_user_external_id, okta_group_external_id, i DESC
 )
-INSERT INTO okta_user_groups (idp_user_id, okta_group_id, seen_in_run_id, seen_at)
+INSERT INTO okta_user_groups (okta_user_account_id, okta_group_id, seen_in_run_id, seen_at)
 SELECT
   iu.id,
   og.id,
   $1::bigint,
   now()
 FROM dedup d
-JOIN idp_users iu ON iu.external_id = d.idp_user_external_id
+JOIN run_source rs ON TRUE
+JOIN accounts iu
+  ON iu.source_kind = 'okta'
+  AND iu.source_name = rs.source_name
+  AND iu.external_id = d.idp_user_external_id
 JOIN okta_groups og ON og.external_id = d.okta_group_external_id
-ON CONFLICT (idp_user_id, okta_group_id) DO UPDATE SET
+ON CONFLICT (okta_user_account_id, okta_group_id) DO UPDATE SET
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at
 `

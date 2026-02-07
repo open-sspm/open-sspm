@@ -44,7 +44,7 @@ templ CommandSearch(data viewmodels.LayoutData) {
 											<span class="truncate font-medium">{ u.Email }</span>
 										}
 									</div>
-									<span class={ OktaStatusBadgeClass(u.Status) + " shrink-0" }>{ u.Status }</span>
+									<span class={ StatusBadgeClass(u.Status) + " shrink-0" }>{ u.Status }</span>
 								</a>
 							}
 						} else {
@@ -74,7 +74,7 @@ templ CommandSearch(data viewmodels.LayoutData) {
 											<span class="truncate text-xs text-muted-foreground">{ a.Name }</span>
 										}
 									</div>
-									<span class={ OktaStatusBadgeClass(a.Status) + " shrink-0" }>{ a.Status }</span>
+									<span class={ StatusBadgeClass(a.Status) + " shrink-0" }>{ a.Status }</span>
 								</a>
 							}
 						} else {

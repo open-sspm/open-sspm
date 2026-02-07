@@ -34,7 +34,7 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 					}
 					<div class="space-y-1">
 						<dt class="text-xs font-medium text-muted-foreground">Status</dt>
-						<dd><span class={ OktaStatusBadgeClass(data.App.Status) }>{ data.App.Status }</span></dd>
+						<dd><span class={ StatusBadgeClass(data.App.Status) }>{ data.App.Status }</span></dd>
 					</div>
 					<div class="space-y-1">
 						<dt class="text-xs font-medium text-muted-foreground">Sign-on mode</dt>
@@ -108,7 +108,7 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 												<div class="text-xs text-muted-foreground break-all">{ u.UserExternalID }</div>
 											}
 										</td>
-										<td><span class={ OktaStatusBadgeClass(u.UserStatus) }>{ u.UserStatus }</span></td>
+										<td><span class={ StatusBadgeClass(u.UserStatus) }>{ u.UserStatus }</span></td>
 										<td><span class="badge-outline">{ u.AssignedVia }</span></td>
 										<td>
 											if len(u.Groups) > 0 {

@@ -157,7 +157,7 @@ func (h *Handlers) HandleAWSUsers(c *echo.Context) error {
 
 func (h *Handlers) HandleUnmatchedAWS(c *echo.Context) error {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Unmatched AWS Identity Center Users")
+	layout, snap, err := h.LayoutData(ctx, c, "Unmanaged AWS Identity Center Users")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -218,9 +218,9 @@ func (h *Handlers) HandleUnmatchedAWS(c *echo.Context) error {
 	showingCount := len(users)
 	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
-	emptyState := "No unmatched AWS Identity Center users."
+	emptyState := "No unmanaged AWS Identity Center users."
 	if query != "" {
-		emptyState = "No unmatched AWS Identity Center users match the current search."
+		emptyState = "No unmanaged AWS Identity Center users match the current search."
 	}
 
 	data := viewmodels.UnmatchedAWSViewData{

@@ -200,6 +200,8 @@ func (es *EchoServer) registerRoutes() {
 	authed.GET("/global-view", es.h.HandleGlobalView)
 	authed.GET("/apps", es.h.HandleApps)
 	authed.GET("/apps/*", es.h.HandleOktaAppShow)
+	authed.GET("/identities", es.h.HandleIdentities)
+	authed.GET("/identities/:id", es.h.HandleIdentityShow)
 	authed.GET("/idp-users", es.h.HandleIdpUsers)
 	authed.GET("/idp-users/*", es.h.HandleIdpUserShow)
 	authed.GET("/api/idp-users/:id/access-tree", es.h.HandleIdpUserAccessTree)

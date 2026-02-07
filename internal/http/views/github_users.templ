@@ -7,9 +7,9 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
 			{Label: "GitHub users"},
-		}, "Synced GitHub accounts and their Okta links.") {
+		}, "Synced GitHub accounts and their identity links.") {
 			if data.Layout.GitHubConfigured && data.Layout.GitHubEnabled {
-				<a class="btn-sm-outline" href={ "/unmatched/github/" + data.Layout.GitHubOrg }>Unmatched</a>
+				<a class="btn-sm-outline" href={ "/unmatched/github/" + data.Layout.GitHubOrg }>Unmanaged</a>
 			} else {
 				<a class="btn-sm-outline" href="/settings/connectors?open=github">Configure</a>
 			}
@@ -18,8 +18,8 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 		if data.Layout.GitHubConfigured && data.Layout.GitHubEnabled {
 			@Alert("Linking", false) {
 				<p>
-					When a GitHub account is linked, you can jump straight to the Okta user page. Unlinked accounts show “—”. Use
-					<a class="btn-sm-link px-1" href={ "/unmatched/github/" + data.Layout.GitHubOrg }>Unmatched</a>
+					When a GitHub account is linked, you can jump straight to the identity page. Unlinked accounts show “—”. Use
+					<a class="btn-sm-link px-1" href={ "/unmatched/github/" + data.Layout.GitHubOrg }>Unmanaged</a>
 					to link.
 				</p>
 			}
@@ -70,7 +70,7 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 							<tr>
 								<th>GitHub login</th>
 								<th>Name</th>
-								<th>Okta</th>
+								<th>Identity</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -81,7 +81,7 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 										<td class="text-muted-foreground">{ u.DisplayName }</td>
 										<td>
 											if u.IdpUserID > 0 {
-												<a class="btn-sm-link" href={ "/idp-users/" + FormatInt64(u.IdpUserID) }>{ "Okta #" }{ FormatInt64(u.IdpUserID) }</a>
+												<a class="btn-sm-link" href={ "/identities/" + FormatInt64(u.IdpUserID) }>{ "Identity #" }{ FormatInt64(u.IdpUserID) }</a>
 											} else {
 												<span class="text-muted-foreground">&mdash;</span>
 											}

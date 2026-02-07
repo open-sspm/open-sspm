@@ -30,7 +30,7 @@ type AWSUsersViewData struct {
 
 type UnmatchedAWSViewData struct {
 	Layout         LayoutData
-	Users          []gen.AppUser
+	Users          []gen.Account
 	Query          string
 	ShowingCount   int
 	ShowingFrom    int

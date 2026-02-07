@@ -1,0 +1,105 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ IdentitiesPage(data viewmodels.IdentitiesViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "Identities"},
+		}, "Unified identities resolved across all configured connectors.") {
+			<a class="btn-sm-outline" href="/settings/connectors">Connectors</a>
+		}
+
+		<form method="get" action="/identities" class="card">
+			<header>
+				<h2>Search</h2>
+				<p>Search by email or display name.</p>
+			</header>
+			<section>
+				<div class="flex flex-col gap-4 sm:flex-row sm:items-end">
+					<label class="field w-full sm:max-w-md">
+						<span class="label">Query</span>
+						<input type="search" name="q" value={ data.Query } placeholder="Search identities…" class="input"/>
+					</label>
+					<div class="button-group sm:ml-auto">
+						<button type="submit" class="btn-sm-primary">Search</button>
+						if data.Query != "" {
+							<a class="btn-sm-ghost" href="/identities">Reset</a>
+						}
+					</div>
+				</div>
+			</section>
+		</form>
+
+		<article class="card">
+			<header>
+				<h2>Identities</h2>
+				<span data-slot="card-action" class="badge-outline">
+					if data.TotalCount > 0 {
+						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "–" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+					} else {
+						{ "Showing 0" }
+					}
+				</span>
+			</header>
+			<section>
+				<div class="overflow-x-auto">
+					<table class="table">
+						<thead>
+							<tr>
+								<th>ID</th>
+								<th>Email</th>
+								<th>Display name</th>
+								<th>Managed</th>
+								<th>Linked accounts</th>
+							</tr>
+						</thead>
+						<tbody>
+							if data.HasIdentities {
+								for _, row := range data.Identities {
+									<tr>
+										<td><a class="btn-sm-link" href={ "/identities/" + FormatInt64(row.ID) }>{ FormatInt64(row.ID) }</a></td>
+										<td>{ row.PrimaryEmail }</td>
+										<td>{ row.DisplayName }</td>
+										<td>
+											if row.Managed {
+												<span class="badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100">Managed</span>
+											} else {
+												<span class="badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100">Unmanaged</span>
+											}
+										</td>
+										<td>{ FormatInt64(row.LinkedAccounts) }</td>
+									</tr>
+								}
+							} else {
+								<tr>
+									<td colspan="5">
+										@EmptyState("No identities found", data.EmptyStateMsg)
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+				if data.TotalPages > 1 {
+					<div class="flex flex-wrap items-center gap-3 border-t py-3">
+						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
+						<div class="button-group ml-auto">
+							if data.Page > 1 {
+								<a class="btn-sm-outline" href={ ListURL("/identities", data.Query, "", data.Page-1) }>Previous</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
+							}
+							if data.Page < data.TotalPages {
+								<a class="btn-sm-outline" href={ ListURL("/identities", data.Query, "", data.Page+1) }>Next</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
+							}
+						</div>
+					</div>
+				}
+			</section>
+		</article>
+	}
+}

@@ -9,12 +9,12 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 	@Layout(data.Layout) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
-			{Label: "Okta users", Href: "/idp-users"},
-			{Label: "Okta user"},
+			{Label: "Okta Accounts", Href: "/idp-users"},
+			{Label: "Okta Account"},
 		}, data.User.Email)
 
 		<div class="tabs">
-			<div role="tablist" aria-label="Okta user">
+			<div role="tablist" aria-label="Okta account">
 				<button role="tab" aria-controls="tab-summary" aria-selected="true" tabindex="0">Summary</button>
 				<button role="tab" aria-controls="tab-assignments" aria-selected="false" tabindex="-1">Assignments</button>
 				<button role="tab" aria-controls="tab-access-graph" aria-selected="false" tabindex="-1">Access graph</button>
@@ -24,8 +24,8 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 			<section id="tab-summary" role="tabpanel">
 				<article class="card">
 					<header>
-						<h2>User summary</h2>
-						<p>Okta identity details.</p>
+						<h2>Account summary</h2>
+						<p>Okta account details.</p>
 					</header>
 						<section>
 							<dl class="space-y-4">
@@ -35,7 +35,7 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 								</div>
 								<div class="space-y-1">
 									<dt class="text-xs font-medium text-muted-foreground">Status</dt>
-								<dd><span class={ OktaStatusBadgeClass(data.User.Status) }>{ data.User.Status }</span></dd>
+								<dd><span class={ StatusBadgeClass(data.User.Status) }>{ data.User.Status }</span></dd>
 							</div>
 							<div class="space-y-1">
 								<dt class="text-xs font-medium text-muted-foreground">Email</dt>

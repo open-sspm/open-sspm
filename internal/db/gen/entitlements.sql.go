@@ -27,15 +27,15 @@ SELECT
   au.email AS app_user_email,
   au.display_name AS app_user_display_name,
   au.raw_json AS app_user_raw_json,
-  il.link_reason AS link_reason,
-  iu.id AS idp_user_id,
-  iu.email AS idp_user_email,
-  iu.display_name AS idp_user_display_name,
-  iu.status AS idp_user_status
+  ia.link_reason AS link_reason,
+  i.id AS idp_user_id,
+  i.primary_email AS idp_user_email,
+  i.display_name AS idp_user_display_name,
+  i.kind AS idp_user_status
 FROM entitlements e
-JOIN app_users au ON au.id = e.app_user_id
-LEFT JOIN identity_links il ON il.app_user_id = au.id
-LEFT JOIN idp_users iu ON iu.id = il.idp_user_id
+JOIN accounts au ON au.id = e.app_user_id
+LEFT JOIN identity_accounts ia ON ia.account_id = au.id
+LEFT JOIN identities i ON i.id = ia.identity_id
 WHERE au.source_kind = $1::text
   AND au.source_name = $2::text
   AND e.resource = $3::text
@@ -43,7 +43,7 @@ WHERE au.source_kind = $1::text
   AND au.last_observed_run_id IS NOT NULL
   AND e.expired_at IS NULL
   AND e.last_observed_run_id IS NOT NULL
-ORDER BY iu.email, au.external_id, e.permission, e.id
+ORDER BY i.primary_email, au.external_id, e.permission, e.id
 `
 
 type ListEntitlementAccessBySourceAndResourceRefParams struct {
@@ -285,7 +285,7 @@ SELECT
   now(),
   now()
 FROM dedup input
-JOIN app_users au
+JOIN accounts au
   ON au.source_kind = $2::text
   AND au.source_name = $3::text
   AND au.external_id = input.app_user_external_id

@@ -83,7 +83,7 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 											}
 											if row.IdpUserStatus != "" {
 												<div class="pt-1">
-													<span class={ OktaStatusBadgeClass(row.IdpUserStatus) }>{ row.IdpUserStatus }</span>
+													<span class={ StatusBadgeClass(row.IdpUserStatus) }>{ row.IdpUserStatus }</span>
 												</div>
 											}
 										</td>

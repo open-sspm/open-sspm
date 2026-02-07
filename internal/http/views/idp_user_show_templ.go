@@ -48,13 +48,13 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 			ctx = templ.InitializeContext(ctx)
 			templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
-				{Label: "Okta users", Href: "/idp-users"},
-				{Label: "Okta user"},
+				{Label: "Okta Accounts", Href: "/idp-users"},
+				{Label: "Okta Account"},
 			}, data.User.Email).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " <div class=\"tabs\"><div role=\"tablist\" aria-label=\"Okta user\"><button role=\"tab\" aria-controls=\"tab-summary\" aria-selected=\"true\" tabindex=\"0\">Summary</button> <button role=\"tab\" aria-controls=\"tab-assignments\" aria-selected=\"false\" tabindex=\"-1\">Assignments</button> <button role=\"tab\" aria-controls=\"tab-access-graph\" aria-selected=\"false\" tabindex=\"-1\">Access graph</button> <button role=\"tab\" aria-controls=\"tab-linked\" aria-selected=\"false\" tabindex=\"-1\">Linked accounts</button></div><section id=\"tab-summary\" role=\"tabpanel\"><article class=\"card\"><header><h2>User summary</h2><p>Okta identity details.</p></header><section><dl class=\"space-y-4\"><div class=\"space-y-1\"><dt class=\"sr-only\">ID</dt><dd class=\"text-sm font-medium text-muted-foreground\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " <div class=\"tabs\"><div role=\"tablist\" aria-label=\"Okta account\"><button role=\"tab\" aria-controls=\"tab-summary\" aria-selected=\"true\" tabindex=\"0\">Summary</button> <button role=\"tab\" aria-controls=\"tab-assignments\" aria-selected=\"false\" tabindex=\"-1\">Assignments</button> <button role=\"tab\" aria-controls=\"tab-access-graph\" aria-selected=\"false\" tabindex=\"-1\">Access graph</button> <button role=\"tab\" aria-controls=\"tab-linked\" aria-selected=\"false\" tabindex=\"-1\">Linked accounts</button></div><section id=\"tab-summary\" role=\"tabpanel\"><article class=\"card\"><header><h2>Account summary</h2><p>Okta account details.</p></header><section><dl class=\"space-y-4\"><div class=\"space-y-1\"><dt class=\"sr-only\">ID</dt><dd class=\"text-sm font-medium text-muted-foreground\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -80,7 +80,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var5 = []any{OktaStatusBadgeClass(data.User.Status)}
+			var templ_7745c5c3_Var5 = []any{StatusBadgeClass(data.User.Status)}
 			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var5...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -105,7 +105,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(data.User.Status)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 38, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `idp_user_show.templ`, Line: 38, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {

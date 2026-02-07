@@ -1,40 +1,56 @@
+-- Compatibility query names on top of identity_accounts.
+
 -- name: CreateIdentityLink :one
-INSERT INTO identity_links (idp_user_id, app_user_id, link_reason)
-VALUES ($1, $2, $3)
-ON CONFLICT (app_user_id) DO UPDATE SET
-  idp_user_id = EXCLUDED.idp_user_id,
-  link_reason = EXCLUDED.link_reason
-RETURNING *;
+INSERT INTO identity_accounts (identity_id, account_id, link_reason, confidence, updated_at)
+VALUES ($1, $2, $3, 1.0, now())
+ON CONFLICT (account_id) DO UPDATE SET
+  identity_id = EXCLUDED.identity_id,
+  link_reason = EXCLUDED.link_reason,
+  confidence = EXCLUDED.confidence,
+  updated_at = EXCLUDED.updated_at
+RETURNING
+  id,
+  identity_id AS idp_user_id,
+  account_id AS app_user_id,
+  link_reason,
+  created_at;
 
 -- name: BulkAutoLinkByEmail :execrows
-INSERT INTO identity_links (idp_user_id, app_user_id, link_reason)
+INSERT INTO identity_accounts (identity_id, account_id, link_reason, confidence, updated_at)
 SELECT DISTINCT ON (au.id)
-  iu.id,
+  i.id,
   au.id,
-  'auto_email'
-FROM app_users au
-JOIN idp_users iu ON iu.email = au.email
-LEFT JOIN identity_links il ON il.app_user_id = au.id
+  'auto_email',
+  1.0,
+  now()
+FROM accounts au
+JOIN identities i ON lower(trim(i.primary_email)) = lower(trim(au.email))
+LEFT JOIN identity_accounts ia ON ia.account_id = au.id
 WHERE au.source_kind = sqlc.arg(source_kind)
   AND au.source_name = sqlc.arg(source_name)
   AND au.email <> ''
-  AND iu.email <> ''
+  AND i.primary_email <> ''
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
-  AND iu.expired_at IS NULL
-  AND iu.last_observed_run_id IS NOT NULL
-  AND il.id IS NULL
-ORDER BY au.id, (iu.status = 'ACTIVE') DESC, iu.id ASC
-ON CONFLICT (app_user_id) DO NOTHING;
+  AND ia.id IS NULL
+ORDER BY au.id, i.id ASC
+ON CONFLICT (account_id) DO NOTHING;
 
 -- name: ListLinkedAppUsersForIdPUser :many
 SELECT au.*
-FROM app_users au
-JOIN identity_links il ON il.app_user_id = au.id
-WHERE il.idp_user_id = $1
+FROM accounts au
+JOIN identity_accounts ia ON ia.account_id = au.id
+WHERE ia.identity_id = $1
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
 ORDER BY au.source_kind, au.source_name, au.external_id;
 
 -- name: GetIdentityLinkByAppUser :one
-SELECT * FROM identity_links WHERE app_user_id = $1;
+SELECT
+  ia.id,
+  ia.identity_id AS idp_user_id,
+  ia.account_id AS app_user_id,
+  ia.link_reason,
+  ia.created_at
+FROM identity_accounts ia
+WHERE ia.account_id = $1;

@@ -9,7 +9,7 @@ templ EntraUsersPage(data viewmodels.EntraUsersViewData) {
 			{Label: "Microsoft Entra ID users"},
 		}, "Synced Microsoft Entra ID users and their access entitlements.") {
 			if data.Layout.EntraConfigured && data.Layout.EntraEnabled {
-				<a class="btn-sm-outline" href="/unmatched/entra">Unmatched</a>
+				<a class="btn-sm-outline" href="/unmatched/entra">Unmanaged</a>
 			} else {
 				<a class="btn-sm-outline" href="/settings/connectors?open=entra">Configure</a>
 			}
@@ -18,8 +18,8 @@ templ EntraUsersPage(data viewmodels.EntraUsersViewData) {
 		if data.Layout.EntraConfigured && data.Layout.EntraEnabled {
 			@Alert("Linking", false) {
 				<p>
-					Linked users let you jump straight to their Okta identity page. Unlinked users show “—”. Use
-					<a class="btn-sm-link px-1" href="/unmatched/entra">Unmatched</a>
+					Linked users let you jump straight to their identity page. Unlinked users show “—”. Use
+					<a class="btn-sm-link px-1" href="/unmatched/entra">Unmanaged</a>
 					to link.
 				</p>
 			}
@@ -72,7 +72,7 @@ templ EntraUsersPage(data viewmodels.EntraUsersViewData) {
 								<th>Email</th>
 								<th>Directory roles</th>
 								<th>Enterprise apps</th>
-								<th>Okta</th>
+								<th>Identity</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -102,7 +102,7 @@ templ EntraUsersPage(data viewmodels.EntraUsersViewData) {
 										</td>
 										<td>
 											if u.IdpUserID > 0 {
-												<a class="btn-sm-link" href={ "/idp-users/" + FormatInt64(u.IdpUserID) }>{ "Okta #" }{ FormatInt64(u.IdpUserID) }</a>
+												<a class="btn-sm-link" href={ "/identities/" + FormatInt64(u.IdpUserID) }>{ "Identity #" }{ FormatInt64(u.IdpUserID) }</a>
 											} else {
 												<span class="text-muted-foreground">&mdash;</span>
 											}
