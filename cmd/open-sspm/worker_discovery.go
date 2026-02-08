@@ -17,22 +17,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var workerCmd = &cobra.Command{
-	Use:   "worker",
-	Short: "Run the background full sync loop.",
+var workerDiscoveryCmd = &cobra.Command{
+	Use:   "worker-discovery",
+	Short: "Run the background SaaS discovery sync loop.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runWorker()
+		return runWorkerDiscovery()
 	},
 }
 
-func runWorker() error {
+func runWorkerDiscovery() error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
-	if cfg.SyncInterval <= 0 {
-		return errors.New("SYNC_INTERVAL must be > 0 to run the worker")
+	if cfg.SyncDiscoveryInterval <= 0 {
+		return errors.New("SYNC_DISCOVERY_INTERVAL must be > 0 to run the discovery worker")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -63,34 +63,32 @@ func runWorker() error {
 	dbRunner := sync.NewDBRunner(pool, reg)
 	dbRunner.SetReporter(&sync.LogReporter{})
 	dbRunner.SetLockManager(locks)
-	dbRunner.SetRunMode(registry.RunModeFull)
+	dbRunner.SetRunMode(registry.RunModeDiscovery)
 	dbRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
 	backoffMax := cfg.SyncFailureBackoffMax
 	if backoffMax <= 0 {
-		backoffMax = cfg.SyncInterval * 10
+		backoffMax = cfg.SyncDiscoveryInterval * 10
 	}
 	dbRunner.SetRunPolicy(sync.RunPolicy{
 		IntervalByKind: map[string]time.Duration{
-			"okta":    cfg.SyncOktaInterval,
-			"entra":   cfg.SyncEntraInterval,
-			"github":  cfg.SyncGitHubInterval,
-			"datadog": cfg.SyncDatadogInterval,
-			"aws":     cfg.SyncAWSInterval,
+			"okta_discovery":  cfg.SyncDiscoveryInterval,
+			"entra_discovery": cfg.SyncDiscoveryInterval,
 		},
-		FailureBackoffBase:   cfg.SyncInterval,
+		FailureBackoffBase:   cfg.SyncDiscoveryInterval,
 		FailureBackoffMax:    backoffMax,
 		RecentFinishedRunCap: 10,
 	})
-	runner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, dbRunner, sync.RunOnceScopeNameFull)
+	runner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, dbRunner, sync.RunOnceScopeNameDiscovery)
 
-	slog.Info("sync worker started", "interval", cfg.SyncInterval)
+	slog.Info("discovery sync worker started", "interval", cfg.SyncDiscoveryInterval)
 	triggers := make(chan struct{}, 1)
 	go func() {
-		if err := sync.ListenForResyncRequestsOnChannel(ctx, pool, sync.ResyncNotifyChannelFull, triggers); err != nil && !errors.Is(err, context.Canceled) {
-			slog.Error("resync listener failed", "err", err)
+		if err := sync.ListenForResyncRequestsOnChannel(ctx, pool, sync.ResyncNotifyChannelDiscovery, triggers); err != nil && !errors.Is(err, context.Canceled) {
+			slog.Error("discovery resync listener failed", "err", err)
 		}
 	}()
-	scheduler := sync.Scheduler{Runner: runner, Interval: cfg.SyncInterval, Trigger: triggers}
+
+	scheduler := sync.Scheduler{Runner: runner, Interval: cfg.SyncDiscoveryInterval, Trigger: triggers}
 	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr)
 	doneCh := make(chan struct{})
 	go func() {

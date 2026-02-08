@@ -98,6 +98,18 @@ func (i *EntraIntegration) Role() registry.IntegrationRole {
 	return registry.RoleApp
 }
 
+func (i *EntraIntegration) SupportsRunMode(mode registry.RunMode) bool {
+	if i == nil {
+		return false
+	}
+	switch mode.Normalize() {
+	case registry.RunModeDiscovery:
+		return i.discoveryEnabled
+	default:
+		return true
+	}
+}
+
 func (i *EntraIntegration) InitEvents() []registry.Event {
 	return []registry.Event{
 		{Source: "entra", Stage: "list-users", Current: 0, Total: 1, Message: "listing Entra users"},
@@ -116,11 +128,23 @@ func (i *EntraIntegration) InitEvents() []registry.Event {
 }
 
 func (i *EntraIntegration) Run(ctx context.Context, deps registry.IntegrationDeps) error {
+	switch deps.Mode.Normalize() {
+	case registry.RunModeDiscovery:
+		if !i.SupportsRunMode(registry.RunModeDiscovery) {
+			return nil
+		}
+		return i.runDiscovery(ctx, deps)
+	default:
+		return i.runFull(ctx, deps)
+	}
+}
+
+func (i *EntraIntegration) runFull(ctx context.Context, deps registry.IntegrationDeps) error {
 	started := time.Now()
 	slog.Info("syncing Microsoft Entra ID")
 
 	runID, err := deps.Q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
-		SourceKind: "entra",
+		SourceKind: registry.SyncRunSourceKind("entra", registry.RunModeFull),
 		SourceName: i.tenantID,
 	})
 	if err != nil {
@@ -201,15 +225,7 @@ func (i *EntraIntegration) Run(ctx context.Context, deps registry.IntegrationDep
 		return err
 	}
 
-	if i.discoveryEnabled {
-		if err := i.syncDiscovery(ctx, deps, runID, applications, servicePrincipals); err != nil {
-			deps.Report(registry.Event{Source: "entra", Stage: "write-discovery", Message: err.Error(), Err: err})
-			registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindUnknown)
-			return err
-		}
-	}
-
-	if err := registry.FinalizeAppRun(ctx, deps, runID, "entra", i.tenantID, time.Since(started), i.discoveryEnabled); err != nil {
+	if err := registry.FinalizeAppRun(ctx, deps, runID, "entra", i.tenantID, time.Since(started), false); err != nil {
 		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		return err
 	}
@@ -223,6 +239,44 @@ func (i *EntraIntegration) Run(ctx context.Context, deps registry.IntegrationDep
 		"credentials", len(credentialRows),
 		"audit_events", len(auditEventRows),
 	)
+	return nil
+}
+
+func (i *EntraIntegration) runDiscovery(ctx context.Context, deps registry.IntegrationDeps) error {
+	started := time.Now()
+	slog.Info("syncing Microsoft Entra ID discovery")
+
+	runID, err := deps.Q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
+		SourceKind: registry.SyncRunSourceKind("entra", registry.RunModeDiscovery),
+		SourceName: i.tenantID,
+	})
+	if err != nil {
+		return err
+	}
+
+	applications, err := i.client.ListApplications(ctx)
+	if err != nil {
+		deps.Report(registry.Event{Source: "entra", Stage: "list-app-assets", Message: err.Error(), Err: err})
+		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
+		return err
+	}
+	servicePrincipals, err := i.client.ListServicePrincipals(ctx)
+	if err != nil {
+		deps.Report(registry.Event{Source: "entra", Stage: "list-app-assets", Message: err.Error(), Err: err})
+		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
+		return err
+	}
+
+	if err := i.syncDiscovery(ctx, deps, runID, applications, servicePrincipals); err != nil {
+		deps.Report(registry.Event{Source: "entra", Stage: "write-discovery", Message: err.Error(), Err: err})
+		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindUnknown)
+		return err
+	}
+	if err := registry.FinalizeDiscoveryRun(ctx, deps, runID, "entra", i.tenantID, time.Since(started)); err != nil {
+		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+		return err
+	}
+	slog.Info("entra discovery sync complete", "tenant", i.tenantID)
 	return nil
 }
 

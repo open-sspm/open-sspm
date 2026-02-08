@@ -32,6 +32,9 @@ type Orchestrator struct {
 	reporter       registry.Reporter
 	globalEvalMode string
 	locks          LockManager
+	mode           registry.RunMode
+	identityFn     func(context.Context, *gen.Queries) (identity.Stats, error)
+	globalEvalFn   func(context.Context, *gen.Queries, string, bool, func(registry.Event)) error
 
 	mu           sync.Mutex
 	integrations []registry.Integration
@@ -51,6 +54,9 @@ func NewOrchestrator(pool *pgxpool.Pool, reg *registry.ConnectorRegistry) *Orche
 		registry:       reg,
 		keys:           make(map[integrationKey]struct{}),
 		globalEvalMode: globalEvalModeBestEffort,
+		mode:           registry.RunModeFull,
+		identityFn:     identity.Resolve,
+		globalEvalFn:   runGlobalComplianceEvaluations,
 	}
 }
 
@@ -114,6 +120,10 @@ func (o *Orchestrator) SetGlobalEvalMode(mode string) {
 	o.globalEvalMode = mode
 }
 
+func (o *Orchestrator) SetRunMode(mode registry.RunMode) {
+	o.mode = mode.Normalize()
+}
+
 func (o *Orchestrator) report(e registry.Event) {
 	if o.reporter == nil {
 		return
@@ -145,19 +155,20 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 		g.Go(func() error {
 			kind := strings.TrimSpace(i.Kind())
 			name := strings.TrimSpace(i.Name())
+			runKind := registry.SyncRunSourceKind(kind, o.mode)
 			start := time.Now()
 
 			lockErr := o.withConnectorLock(ctx, kind, name, func(lockCtx context.Context) error {
-				return i.Run(lockCtx, registry.IntegrationDeps{Q: o.q, Pool: o.pool, Report: o.report})
+				return i.Run(lockCtx, registry.IntegrationDeps{Q: o.q, Pool: o.pool, Report: o.report, Mode: o.mode.Normalize()})
 			})
 			duration := time.Since(start).Seconds()
-			metrics.SyncDuration.WithLabelValues(kind, name).Observe(duration)
+			metrics.SyncDuration.WithLabelValues(runKind, name).Observe(duration)
 
 			status := "success"
 			if lockErr != nil {
 				status = "failure"
 			}
-			metrics.SyncRunsTotal.WithLabelValues(kind, name, status).Inc()
+			metrics.SyncRunsTotal.WithLabelValues(runKind, name, status).Inc()
 
 			mu.Lock()
 			runErrByKey[integrationKey{kind: kind, name: name}] = lockErr
@@ -171,26 +182,26 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 				errs = append(errs, wrapped)
 				mu.Unlock()
 			} else {
-				metrics.SyncLastSuccessTimestamp.WithLabelValues(kind, name).Set(float64(time.Now().Unix()))
+				metrics.SyncLastSuccessTimestamp.WithLabelValues(runKind, name).Set(float64(time.Now().Unix()))
 
 				// Collect resource metrics if registry is available
 				if o.registry == nil {
-					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(kind, name, "registry_missing").Inc()
+					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(runKind, name, "registry_missing").Inc()
 					return nil
 				}
 				def, ok := o.registry.Get(kind)
 				if !ok {
-					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(kind, name, "definition_missing").Inc()
+					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(runKind, name, "definition_missing").Inc()
 					return nil
 				}
 				provider := def.MetricsProvider()
 				if provider == nil {
-					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(kind, name, "provider_missing").Inc()
+					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(runKind, name, "provider_missing").Inc()
 					return nil
 				}
 				m, err := provider.FetchMetrics(ctx, o.q, name)
 				if err != nil {
-					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(kind, name, "fetch_error").Inc()
+					metrics.SyncMetricsCollectionFailuresTotal.WithLabelValues(runKind, name, "fetch_error").Inc()
 					slog.Warn("failed to fetch metrics after sync", "kind", kind, "name", name, "err", err)
 					return nil
 				}
@@ -204,8 +215,19 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 
 	_ = g.Wait()
 
+	if o.mode.Normalize() == registry.RunModeDiscovery {
+		err := errors.Join(errs...)
+		o.report(registry.Event{Source: "sync", Stage: "done", Done: true, Err: err})
+		return err
+	}
+
+	identityFn := o.identityFn
+	if identityFn == nil {
+		identityFn = identity.Resolve
+	}
+
 	o.report(registry.Event{Source: "identity", Stage: "resolve", Current: 0, Total: 1, Message: "resolving identity graph"})
-	resolveStats, resolveErr := identity.Resolve(ctx, o.q)
+	resolveStats, resolveErr := identityFn(ctx, o.q)
 	if resolveErr != nil {
 		resolveErr = fmt.Errorf("identity resolve: %w", resolveErr)
 		errs = append(errs, resolveErr)
@@ -239,7 +261,7 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 		}
 
 		err := o.withConnectorLock(ctx, kind, name, func(lockCtx context.Context) error {
-			return eval.EvaluateCompliance(lockCtx, registry.IntegrationDeps{Q: o.q, Pool: o.pool, Report: o.report})
+			return eval.EvaluateCompliance(lockCtx, registry.IntegrationDeps{Q: o.q, Pool: o.pool, Report: o.report, Mode: o.mode.Normalize()})
 		})
 		if err != nil {
 			wrapped := fmt.Errorf("%s compliance: %w", kind, err)
@@ -258,28 +280,39 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 		}
 	}
 
-	router := datasets.RouterProvider{
-		Normalized: &datasets.NormalizedProvider{Q: o.q},
+	globalEvalFn := o.globalEvalFn
+	if globalEvalFn == nil {
+		globalEvalFn = runGlobalComplianceEvaluations
 	}
-	globalEngine := engine.Engine{
-		Q:        o.q,
-		Datasets: router,
-		Now:      time.Now,
-	}
-	if o.globalEvalMode == globalEvalModeStrict && anySyncErrors {
-		slog.Info("skipping global compliance evaluation due to integration errors")
-		o.report(registry.Event{Source: "rules", Stage: "global", Message: "skipping global compliance evaluation due to integration errors"})
-	} else {
-		if err := globalEngine.Run(ctx, engine.Context{ScopeKind: "global", EvaluatedAt: time.Now()}); err != nil {
-			wrapped := fmt.Errorf("global compliance: %w", err)
-			slog.Error("global compliance evaluation failed", "err", err)
-			errs = append(errs, wrapped)
-		}
+	if err := globalEvalFn(ctx, o.q, o.globalEvalMode, anySyncErrors, o.report); err != nil {
+		wrapped := fmt.Errorf("global compliance: %w", err)
+		slog.Error("global compliance evaluation failed", "err", err)
+		errs = append(errs, wrapped)
 	}
 
 	err := errors.Join(errs...)
 	o.report(registry.Event{Source: "sync", Stage: "done", Done: true, Err: err})
 	return err
+}
+
+func runGlobalComplianceEvaluations(ctx context.Context, q *gen.Queries, mode string, anySyncErrors bool, report func(registry.Event)) error {
+	if mode == globalEvalModeStrict && anySyncErrors {
+		slog.Info("skipping global compliance evaluation due to integration errors")
+		if report != nil {
+			report(registry.Event{Source: "rules", Stage: "global", Message: "skipping global compliance evaluation due to integration errors"})
+		}
+		return nil
+	}
+
+	router := datasets.RouterProvider{
+		Normalized: &datasets.NormalizedProvider{Q: q},
+	}
+	globalEngine := engine.Engine{
+		Q:        q,
+		Datasets: router,
+		Now:      time.Now,
+	}
+	return globalEngine.Run(ctx, engine.Context{ScopeKind: "global", EvaluatedAt: time.Now()})
 }
 
 func (o *Orchestrator) withConnectorLock(ctx context.Context, kind, name string, fn func(context.Context) error) error {

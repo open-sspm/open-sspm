@@ -14,16 +14,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var syncCmd = &cobra.Command{
-	Use:   "sync",
-	Short: "Run one-off full sync followed by SaaS discovery sync (if configured).",
+var syncDiscoveryCmd = &cobra.Command{
+	Use:   "sync-discovery",
+	Short: "Run a one-off SaaS discovery sync against configured Okta/Entra connectors.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runSync()
+		return runSyncDiscovery()
 	},
 }
 
-func runSync() error {
+func runSyncDiscovery() error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -54,21 +54,12 @@ func runSync() error {
 		return err
 	}
 
-	fullDBRunner := sync.NewDBRunner(pool, reg)
-	fullDBRunner.SetReporter(&sync.LogReporter{})
-	fullDBRunner.SetLockManager(locks)
-	fullDBRunner.SetRunMode(registry.RunModeFull)
-	fullDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
-	fullRunner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, fullDBRunner, sync.RunOnceScopeNameFull)
-
-	discoveryDBRunner := sync.NewDBRunner(pool, reg)
-	discoveryDBRunner.SetReporter(&sync.LogReporter{})
-	discoveryDBRunner.SetLockManager(locks)
-	discoveryDBRunner.SetRunMode(registry.RunModeDiscovery)
-	discoveryDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
-	discoveryRunner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, discoveryDBRunner, sync.RunOnceScopeNameDiscovery)
-
-	runner := sync.NewCompositeRunner(fullRunner, discoveryRunner)
+	dbRunner := sync.NewDBRunner(pool, reg)
+	dbRunner.SetReporter(&sync.LogReporter{})
+	dbRunner.SetLockManager(locks)
+	dbRunner.SetRunMode(registry.RunModeDiscovery)
+	dbRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
+	runner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, dbRunner, sync.RunOnceScopeNameDiscovery)
 
 	syncErr := runner.RunOnce(ctx)
 	if syncErr == nil {

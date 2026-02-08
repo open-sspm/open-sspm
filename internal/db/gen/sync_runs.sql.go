@@ -372,6 +372,15 @@ func (q *Queries) MarkSyncRunSuccess(ctx context.Context, arg MarkSyncRunSuccess
 	return err
 }
 
+const notifyResyncDiscoveryRequested = `-- name: NotifyResyncDiscoveryRequested :exec
+SELECT pg_notify('open_sspm_resync_discovery_requested', '')
+`
+
+func (q *Queries) NotifyResyncDiscoveryRequested(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, notifyResyncDiscoveryRequested)
+	return err
+}
+
 const notifyResyncRequested = `-- name: NotifyResyncRequested :exec
 SELECT pg_notify('open_sspm_resync_requested', '')
 `

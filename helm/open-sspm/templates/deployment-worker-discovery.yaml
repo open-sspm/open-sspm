@@ -1,26 +1,27 @@
+{{- if .Values.discoveryWorker.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ printf "%s-serve" (include "open-sspm.fullname" .) | trunc 63 | trimSuffix "-" }}
+  name: {{ printf "%s-worker-discovery" (include "open-sspm.fullname" .) | trunc 63 | trimSuffix "-" }}
   labels:
     {{- include "open-sspm.labels" . | nindent 4 }}
-    app.kubernetes.io/component: serve
+    app.kubernetes.io/component: worker-discovery
 spec:
-  replicas: {{ .Values.serve.replicaCount }}
+  replicas: {{ .Values.discoveryWorker.replicaCount }}
   selector:
     matchLabels:
       {{- include "open-sspm.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: serve
+      app.kubernetes.io/component: worker-discovery
   template:
     metadata:
-      {{- with .Values.serve.podAnnotations }}
+      {{- with .Values.discoveryWorker.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
         {{- include "open-sspm.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: serve
-        {{- with .Values.serve.podLabels }}
+        app.kubernetes.io/component: worker-discovery
+        {{- with .Values.discoveryWorker.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
@@ -38,22 +39,11 @@ spec:
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
-            - serve
+            - worker-discovery
           ports:
-            - name: http
-              containerPort: {{ .Values.service.targetPort }}
-              protocol: TCP
             - name: metrics
               containerPort: {{ .Values.metrics.port }}
               protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: http
-          readinessProbe:
-            httpGet:
-              path: /healthz
-              port: http
           env:
             - name: DATABASE_URL
               valueFrom:
@@ -70,8 +60,6 @@ spec:
               value: {{ ternary "1" "0" .Values.config.devSeedAdmin | quote }}
             - name: RESYNC_ENABLED
               value: {{ ternary "1" "0" .Values.config.resyncEnabled | quote }}
-            - name: SYNC_INTERVAL
-              value: {{ .Values.config.syncInterval | quote }}
             - name: SYNC_DISCOVERY_INTERVAL
               value: {{ .Values.config.syncDiscoveryInterval | quote }}
             - name: SYNC_OKTA_WORKERS
@@ -80,10 +68,10 @@ spec:
               value: {{ .Values.config.syncGithubWorkers | quote }}
             - name: SYNC_DATADOG_WORKERS
               value: {{ .Values.config.syncDatadogWorkers | quote }}
-            {{- with .Values.serve.extraEnv }}
+            {{- with .Values.discoveryWorker.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- with .Values.serve.extraEnvFrom }}
+          {{- with .Values.discoveryWorker.extraEnvFrom }}
           envFrom:
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -91,19 +79,20 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.serve.resources }}
+          {{- with .Values.discoveryWorker.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .Values.serve.nodeSelector }}
+      {{- with .Values.discoveryWorker.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.serve.tolerations }}
+      {{- with .Values.discoveryWorker.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.serve.affinity }}
+      {{- with .Values.discoveryWorker.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}

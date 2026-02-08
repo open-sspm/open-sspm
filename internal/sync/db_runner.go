@@ -21,6 +21,7 @@ type DBRunner struct {
 	policy         *RunPolicy
 	globalEvalMode string
 	locks          LockManager
+	mode           registry.RunMode
 }
 
 type integrationCandidate struct {
@@ -47,6 +48,7 @@ func NewDBRunner(pool *pgxpool.Pool, reg *registry.ConnectorRegistry) *DBRunner 
 		pool:     pool,
 		q:        q,
 		registry: reg,
+		mode:     registry.RunModeFull,
 	}
 }
 
@@ -64,6 +66,10 @@ func (r *DBRunner) SetRunPolicy(policy RunPolicy) {
 
 func (r *DBRunner) SetGlobalEvalMode(mode string) {
 	r.globalEvalMode = strings.TrimSpace(mode)
+}
+
+func (r *DBRunner) SetRunMode(mode registry.RunMode) {
+	r.mode = mode.Normalize()
 }
 
 func (r *DBRunner) RunOnce(ctx context.Context) error {
@@ -91,6 +97,7 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 	if strings.TrimSpace(r.globalEvalMode) != "" {
 		orchestrator.SetGlobalEvalMode(r.globalEvalMode)
 	}
+	orchestrator.SetRunMode(r.runMode())
 
 	forcedSync := IsForcedSync(ctx)
 	var (
@@ -149,7 +156,12 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 			continue
 		}
 
-		runKind := strings.ToLower(strings.TrimSpace(integration.Kind()))
+		if !r.integrationSupportsRunMode(integration) {
+			skippedKinds = append(skippedKinds, kind)
+			continue
+		}
+
+		runKind := r.integrationRunSourceKind(integration)
 		runName := strings.TrimSpace(integration.Name())
 		candidates = append(candidates, integrationCandidate{
 			integration: integration,
@@ -208,7 +220,7 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 			continue
 		}
 		integrationCount++
-		planned = append(planned, strings.TrimSpace(candidate.integration.Kind())+"/"+strings.TrimSpace(candidate.integration.Name()))
+		planned = append(planned, candidate.runKind+"/"+candidate.runName)
 	}
 
 	if r.reporter != nil {
@@ -244,6 +256,35 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 		return errors.Join(runErr, errors.Join(errList...))
 	}
 	return runErr
+}
+
+func (r *DBRunner) runMode() registry.RunMode {
+	if r == nil {
+		return registry.RunModeFull
+	}
+	return r.mode.Normalize()
+}
+
+func (r *DBRunner) integrationRunSourceKind(integration registry.Integration) string {
+	if integration == nil {
+		return ""
+	}
+	return registry.SyncRunSourceKind(integration.Kind(), r.runMode())
+}
+
+func (r *DBRunner) integrationSupportsRunMode(integration registry.Integration) bool {
+	mode := r.runMode()
+	if integration == nil {
+		return false
+	}
+
+	modeAware, ok := integration.(registry.ModeAwareIntegration)
+	if ok {
+		return modeAware.SupportsRunMode(mode)
+	}
+
+	// Legacy integrations default to full-only.
+	return mode == registry.RunModeFull
 }
 
 func (r *DBRunner) shouldRunIntegration(ctx context.Context, kind, name string) (bool, string, error) {

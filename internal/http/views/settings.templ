@@ -26,7 +26,7 @@ templ SettingsPage(data viewmodels.SettingsViewData) {
 				</header>
 				<section class="space-y-3">
 					<p class="text-muted-foreground">
-						Trigger an immediate sync from Okta, GitHub, and Datadog. This can take a few minutes depending on org size.
+						Trigger immediate full + discovery sync lanes. Full sync refreshes identities and app access; discovery sync ingests Okta/Entra SaaS discovery signals.
 					</p>
 					<div class="flex flex-wrap items-center gap-4">
 						<form method="post" action="/settings/resync">

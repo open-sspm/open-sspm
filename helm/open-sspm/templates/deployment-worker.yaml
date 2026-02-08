@@ -61,6 +61,8 @@ spec:
               value: {{ ternary "1" "0" .Values.config.resyncEnabled | quote }}
             - name: SYNC_INTERVAL
               value: {{ .Values.config.syncInterval | quote }}
+            - name: SYNC_DISCOVERY_INTERVAL
+              value: {{ .Values.config.syncDiscoveryInterval | quote }}
             - name: SYNC_OKTA_WORKERS
               value: {{ .Values.config.syncOktaWorkers | quote }}
             - name: SYNC_GITHUB_WORKERS

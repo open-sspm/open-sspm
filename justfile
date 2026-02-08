@@ -78,9 +78,17 @@ run:
 worker:
     go run ./cmd/open-sspm worker
 
+# Run the background discovery worker
+worker-discovery:
+    go run ./cmd/open-sspm worker-discovery
+
 # Run a one-off sync
 sync:
     go run ./cmd/open-sspm sync
+
+# Run a one-off discovery-only sync
+sync-discovery:
+    go run ./cmd/open-sspm sync-discovery
 
 # Validate security rules
 validate-rules:

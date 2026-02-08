@@ -51,8 +51,8 @@ func TestResyncSignalRunner_UsesAdvisoryLockConnectionForNotify(t *testing.T) {
 	db := &fakeDBTX{execErr: sentinel}
 	lock := &advisoryLock{
 		q:         gen.New(db),
-		scopeKind: globalRunOnceScopeKind,
-		scopeName: globalRunOnceScopeName,
+		scopeKind: legacyRunOnceScopeKind,
+		scopeName: RunOnceScopeNameForMode(modeForResyncChannel(ResyncNotifyChannelFull)),
 	}
 
 	runner := NewResyncSignalRunner(&pgxpool.Pool{}, stubLockManager{lock: lock})
@@ -66,5 +66,33 @@ func TestResyncSignalRunner_UsesAdvisoryLockConnectionForNotify(t *testing.T) {
 	}
 	if !strings.Contains(db.lastSQL, "pg_notify('open_sspm_resync_requested'") {
 		t.Fatalf("expected pg_notify SQL, got %q", db.lastSQL)
+	}
+}
+
+func TestResyncSignalRunner_UsesDiscoveryNotifyChannel(t *testing.T) {
+	t.Parallel()
+
+	sentinel := errors.New("notify sentinel")
+	db := &fakeDBTX{execErr: sentinel}
+	lock := &advisoryLock{
+		q:         gen.New(db),
+		scopeKind: legacyRunOnceScopeKind,
+		scopeName: RunOnceScopeNameForMode(modeForResyncChannel(ResyncNotifyChannelDiscovery)),
+	}
+
+	runner := NewResyncSignalRunnerWithConfig(&pgxpool.Pool{}, stubLockManager{lock: lock}, ResyncSignalConfig{
+		NotifyChannel:    ResyncNotifyChannelDiscovery,
+		RunOnceScopeName: RunOnceScopeNameDiscovery,
+	})
+	err := runner.RunOnce(context.Background())
+
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("expected notify error, got %v", err)
+	}
+	if db.execCount != 1 {
+		t.Fatalf("expected 1 notify exec, got %d", db.execCount)
+	}
+	if !strings.Contains(db.lastSQL, "pg_notify('open_sspm_resync_discovery_requested'") {
+		t.Fatalf("expected discovery pg_notify SQL, got %q", db.lastSQL)
 	}
 }

@@ -32,6 +32,7 @@ config:
   devSeedAdmin: false
   resyncEnabled: true
   syncInterval: 15m
+  syncDiscoveryInterval: 15m
   syncOktaWorkers: 3
   syncGithubWorkers: 6
   syncDatadogWorkers: 3
@@ -41,7 +42,7 @@ metrics:
   service:
     enabled: false
     port: 9090
-    # Which component to expose metrics for: serve or worker.
+    # Which component to expose metrics for: serve, worker, or worker-discovery.
     component: worker
     annotations: {}
 
@@ -76,6 +77,18 @@ serve:
   affinity: {}
 
 worker:
+  replicaCount: 1
+  podAnnotations: {}
+  podLabels: {}
+  extraEnv: []
+  extraEnvFrom: []
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+discoveryWorker:
+  enabled: true
   replicaCount: 1
   podAnnotations: {}
   podLabels: {}

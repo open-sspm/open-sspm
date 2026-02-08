@@ -26,10 +26,15 @@
       when: not app_css.stat.exists
 
   tasks:
-    - name: Stop open-sspm service before deployment
+    - name: Stop open-sspm services before deployment
       ansible.builtin.service:
-        name: open-sspm
+        name: "{{ item }}"
         state: stopped
+      loop:
+        - open-sspm
+        - open-sspm-worker
+        - open-sspm-discovery-worker
+      failed_when: false
 
     - name: Reset static assets directory
       ansible.builtin.file:
