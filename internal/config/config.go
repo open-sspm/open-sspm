@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	defaultHTTPAddr     = ":8080"
-	defaultMetricsAddr  = ""
-	defaultSyncInterval = 15 * time.Minute
+	defaultHTTPAddr              = ":8080"
+	defaultMetricsAddr           = ""
+	defaultSyncInterval          = 15 * time.Minute
+	defaultSyncDiscoveryInterval = 15 * time.Minute
 
 	defaultSyncOktaWorkers    = 3
 	defaultSyncGitHubWorkers  = 6
@@ -33,6 +34,7 @@ type Config struct {
 	AuthCookieSecure          bool
 	DevSeedAdmin              bool
 	SyncInterval              time.Duration
+	SyncDiscoveryInterval     time.Duration
 	SyncOktaInterval          time.Duration
 	SyncEntraInterval         time.Duration
 	SyncGitHubInterval        time.Duration
@@ -80,6 +82,7 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		AuthCookieSecure:          getenvBoolDefault("AUTH_COOKIE_SECURE", false),
 		DevSeedAdmin:              getenvBoolDefault("DEV_SEED_ADMIN", false),
 		SyncInterval:              defaultSyncInterval,
+		SyncDiscoveryInterval:     defaultSyncDiscoveryInterval,
 		SyncOktaWorkers:           getenvIntDefault("SYNC_OKTA_WORKERS", defaultSyncOktaWorkers),
 		SyncGitHubWorkers:         getenvIntDefault("SYNC_GITHUB_WORKERS", defaultSyncGitHubWorkers),
 		SyncDatadogWorkers:        getenvIntDefault("SYNC_DATADOG_WORKERS", defaultSyncDatadogWorkers),
@@ -111,6 +114,11 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 	if v := os.Getenv("SYNC_INTERVAL"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			cfg.SyncInterval = d
+		}
+	}
+	if v := os.Getenv("SYNC_DISCOVERY_INTERVAL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			cfg.SyncDiscoveryInterval = d
 		}
 	}
 	if v := os.Getenv("SYNC_OKTA_INTERVAL"); v != "" {

@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/auth"
 	"github.com/open-sspm/open-sspm/internal/config"
+	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	httpapp "github.com/open-sspm/open-sspm/internal/http"
 	"github.com/open-sspm/open-sspm/internal/http/handlers"
@@ -70,17 +71,35 @@ func runServe() error {
 		return err
 	}
 
-	dbRunner := sync.NewDBRunner(pool, reg)
-	dbRunner.SetLockManager(locks)
-	dbRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
+	fullDBRunner := sync.NewDBRunner(pool, reg)
+	fullDBRunner.SetLockManager(locks)
+	fullDBRunner.SetRunMode(registry.RunModeFull)
+	fullDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
+
+	discoveryDBRunner := sync.NewDBRunner(pool, reg)
+	discoveryDBRunner.SetLockManager(locks)
+	discoveryDBRunner.SetRunMode(registry.RunModeDiscovery)
+	discoveryDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
 
 	var syncer handlers.SyncRunner
 	if cfg.ResyncEnabled {
 		switch strings.ToLower(strings.TrimSpace(cfg.ResyncMode)) {
 		case "signal":
-			syncer = sync.NewResyncSignalRunner(pool, locks)
+			syncer = sync.NewCompositeRunner(
+				sync.NewResyncSignalRunnerWithConfig(pool, locks, sync.ResyncSignalConfig{
+					NotifyChannel:    sync.ResyncNotifyChannelFull,
+					RunOnceScopeName: sync.RunOnceScopeNameFull,
+				}),
+				sync.NewResyncSignalRunnerWithConfig(pool, locks, sync.ResyncSignalConfig{
+					NotifyChannel:    sync.ResyncNotifyChannelDiscovery,
+					RunOnceScopeName: sync.RunOnceScopeNameDiscovery,
+				}),
+			)
 		default:
-			syncer = sync.NewTryRunOnceLockRunner(locks, dbRunner)
+			syncer = sync.NewCompositeRunner(
+				sync.NewTryRunOnceLockRunnerWithScope(locks, fullDBRunner, sync.RunOnceScopeNameFull),
+				sync.NewTryRunOnceLockRunnerWithScope(locks, discoveryDBRunner, sync.RunOnceScopeNameDiscovery),
+			)
 		}
 	} else {
 		syncer = nil

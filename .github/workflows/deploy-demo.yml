@@ -111,6 +111,8 @@ jobs:
           cd /opt/open-sspm
 
           systemctl stop open-sspm || true
+          systemctl stop open-sspm-worker || true
+          systemctl stop open-sspm-discovery-worker || true
 
           if [ -z "${DATABASE_URL:-}" ]; then
             echo "DATABASE_URL is not set (expected in /etc/open-sspm.env)" >&2
@@ -144,6 +146,8 @@ jobs:
 
           printf '%s' "admin" | /usr/local/bin/open-sspm users bootstrap-admin --email "admin@admin.com" --password-stdin
 
+          systemctl disable open-sspm-worker || true
+          systemctl disable open-sspm-discovery-worker || true
           systemctl enable open-sspm
           systemctl restart open-sspm
           systemctl status open-sspm --no-pager -l || true

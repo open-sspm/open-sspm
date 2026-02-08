@@ -88,6 +88,7 @@
           HTTP_ADDR=127.0.0.1:8080
           STATIC_DIR=/opt/open-sspm/web/static
           SYNC_INTERVAL=0s
+          SYNC_DISCOVERY_INTERVAL=0s
           RESYNC_ENABLED=0
 
     - name: Install nginx reverse proxy config
@@ -129,7 +130,7 @@
         state: restarted
         enabled: true
 
-    - name: Install systemd unit (placeholder)
+    - name: Install open-sspm serve systemd unit (placeholder)
       ansible.builtin.copy:
         dest: /etc/systemd/system/open-sspm.service
         owner: root
@@ -153,12 +154,64 @@
           [Install]
           WantedBy=multi-user.target
 
+    - name: Install open-sspm full worker systemd unit (placeholder)
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/open-sspm-worker.service
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Open-SSPM Full Sync Worker
+          After=network-online.target postgresql.service
+          Wants=network-online.target
+
+          [Service]
+          User=open-sspm
+          Group=open-sspm
+          WorkingDirectory=/opt/open-sspm
+          EnvironmentFile=/etc/open-sspm.env
+          ExecStart=/usr/local/bin/open-sspm worker
+          Restart=on-failure
+          RestartSec=2
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Install open-sspm discovery worker systemd unit (placeholder)
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/open-sspm-discovery-worker.service
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Open-SSPM Discovery Worker
+          After=network-online.target postgresql.service
+          Wants=network-online.target
+
+          [Service]
+          User=open-sspm
+          Group=open-sspm
+          WorkingDirectory=/opt/open-sspm
+          EnvironmentFile=/etc/open-sspm.env
+          ExecStart=/usr/local/bin/open-sspm worker-discovery
+          Restart=on-failure
+          RestartSec=2
+
+          [Install]
+          WantedBy=multi-user.target
+
     - name: Reload systemd
       ansible.builtin.systemd:
         daemon_reload: true
 
-    - name: Ensure open-sspm service is disabled until first deploy
+    - name: Ensure open-sspm services are disabled until first deploy
       ansible.builtin.service:
-        name: open-sspm
+        name: "{{ item }}"
         enabled: false
         state: stopped
+      loop:
+        - open-sspm
+        - open-sspm-worker
+        - open-sspm-discovery-worker

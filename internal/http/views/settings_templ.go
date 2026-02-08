@@ -109,7 +109,7 @@ func SettingsPage(data viewmodels.SettingsViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " <section class=\"grid gap-6 lg:grid-cols-2\"><article class=\"card\"><header><h2>Resync data</h2><p>Run a sync immediately.</p></header><section class=\"space-y-3\"><p class=\"text-muted-foreground\">Trigger an immediate sync from Okta, GitHub, and Datadog. This can take a few minutes depending on org size.</p><div class=\"flex flex-wrap items-center gap-4\"><form method=\"post\" action=\"/settings/resync\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " <section class=\"grid gap-6 lg:grid-cols-2\"><article class=\"card\"><header><h2>Resync data</h2><p>Run a sync immediately.</p></header><section class=\"space-y-3\"><p class=\"text-muted-foreground\">Trigger immediate full + discovery sync lanes. Full sync refreshes identities and app access; discovery sync ingests Okta/Entra SaaS discovery signals.</p><div class=\"flex flex-wrap items-center gap-4\"><form method=\"post\" action=\"/settings/resync\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -46,6 +46,18 @@ func (i *OktaIntegration) Role() registry.IntegrationRole {
 	return registry.RoleIdP
 }
 
+func (i *OktaIntegration) SupportsRunMode(mode registry.RunMode) bool {
+	if i == nil {
+		return false
+	}
+	switch mode.Normalize() {
+	case registry.RunModeDiscovery:
+		return i.discoveryEnabled
+	default:
+		return true
+	}
+}
+
 func (i *OktaIntegration) InitEvents() []registry.Event {
 	return []registry.Event{
 		{Source: "okta", Stage: "list-users", Current: 0, Total: 1, Message: "listing users"},
@@ -61,9 +73,21 @@ func (i *OktaIntegration) InitEvents() []registry.Event {
 }
 
 func (i *OktaIntegration) Run(ctx context.Context, deps registry.IntegrationDeps) error {
+	switch deps.Mode.Normalize() {
+	case registry.RunModeDiscovery:
+		if !i.SupportsRunMode(registry.RunModeDiscovery) {
+			return nil
+		}
+		return i.runDiscovery(ctx, deps)
+	default:
+		return i.runFull(ctx, deps)
+	}
+}
+
+func (i *OktaIntegration) runFull(ctx context.Context, deps registry.IntegrationDeps) error {
 	started := time.Now()
 	runID, err := deps.Q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
-		SourceKind: "okta",
+		SourceKind: registry.SyncRunSourceKind("okta", registry.RunModeFull),
 		SourceName: i.sourceName,
 	})
 	if err != nil {
@@ -106,20 +130,34 @@ func (i *OktaIntegration) Run(ctx context.Context, deps registry.IntegrationDeps
 		return err
 	}
 
-	if i.discoveryEnabled {
-		if err := i.syncDiscovery(ctx, deps, runID); err != nil {
-			deps.Report(registry.Event{Source: "okta", Stage: "write-discovery", Message: err.Error(), Err: err})
-			registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindUnknown)
-			return err
-		}
-	}
-
-	if err := registry.FinalizeOktaRun(ctx, deps, runID, i.sourceName, time.Since(started), i.discoveryEnabled); err != nil {
+	if err := registry.FinalizeOktaRun(ctx, deps, runID, i.sourceName, time.Since(started), false); err != nil {
 		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		return err
 	}
 
 	slog.Info("okta sync complete", "users", len(users))
+	return nil
+}
+
+func (i *OktaIntegration) runDiscovery(ctx context.Context, deps registry.IntegrationDeps) error {
+	started := time.Now()
+	runID, err := deps.Q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
+		SourceKind: registry.SyncRunSourceKind("okta", registry.RunModeDiscovery),
+		SourceName: i.sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	if err := i.syncDiscovery(ctx, deps, runID); err != nil {
+		deps.Report(registry.Event{Source: "okta", Stage: "write-discovery", Message: err.Error(), Err: err})
+		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindUnknown)
+		return err
+	}
+	if err := registry.FinalizeDiscoveryRun(ctx, deps, runID, "okta", i.sourceName, time.Since(started)); err != nil {
+		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+		return err
+	}
+	slog.Info("okta discovery sync complete", "source", i.sourceName)
 	return nil
 }
 

@@ -8,7 +8,8 @@ Location: `helm/open-sspm`
 
 Deploys:
 - `open-sspm serve` (HTTP/UI) as a Deployment + Service (+ optional Ingress)
-- `open-sspm worker` (background sync loop) as a Deployment
+- `open-sspm worker` (background full sync loop) as a Deployment
+- `open-sspm worker-discovery` (background SaaS discovery sync loop) as a Deployment (enabled by default)
 - Helm hook Jobs:
   - `open-sspm migrate` as a pre-install/pre-upgrade Job
   - `open-sspm seed-rules` as a pre-install Job (optionally also pre-upgrade)
@@ -123,6 +124,19 @@ By default the Service listens on port `80` and targets container port `8080`.
 kubectl get svc
 kubectl port-forward svc/<service-name> 8080:80
 ```
+
+### Worker lanes
+
+- Full sync worker interval is configured with `config.syncInterval`.
+- Discovery sync worker interval is configured with `config.syncDiscoveryInterval`.
+- To disable the discovery worker deployment, set `discoveryWorker.enabled=false`.
+
+### Metrics service component selector
+
+If `metrics.service.enabled=true`, choose which pod to target with `metrics.service.component`:
+- `serve`
+- `worker`
+- `worker-discovery`
 
 ### UI authentication
 

@@ -19,6 +19,7 @@ type IntegrationDeps struct {
 	Q      *gen.Queries
 	Pool   *pgxpool.Pool
 	Report func(Event)
+	Mode   RunMode
 }
 
 type Integration interface {
@@ -33,6 +34,12 @@ type Integration interface {
 // to run compliance ruleset evaluations after all connectors have synced.
 type ComplianceEvaluator interface {
 	EvaluateCompliance(context.Context, IntegrationDeps) error
+}
+
+// ModeAwareIntegration is an optional interface that integrations can implement
+// to declare whether they support a given runner mode.
+type ModeAwareIntegration interface {
+	SupportsRunMode(RunMode) bool
 }
 
 const UnknownTotal int64 = -1

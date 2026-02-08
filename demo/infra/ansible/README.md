@@ -2,9 +2,10 @@
 
 Bootstraps the Scaleway VM for the demo:
 - installs Postgres locally
-- prepares an `open-sspm` system user and service scaffolding
+- prepares an `open-sspm` system user and service scaffolding (`open-sspm`, `open-sspm-worker`, `open-sspm-discovery-worker`)
 
 This is intentionally minimal; the application binary/container is expected to be deployed by GitHub Actions.
+Worker services are provisioned but kept disabled/stopped by default.
 
 ## Usage
 

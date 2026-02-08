@@ -9,7 +9,7 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 - Login: `admin@admin.com` / `admin`
 
 ## Features
-- HTTP server (`open-sspm serve`) + background sync worker (`open-sspm worker`) + one-off sync (`open-sspm sync`) + in-app “Resync”.
+- HTTP server (`open-sspm serve`) + background full sync worker (`open-sspm worker`) + background discovery worker (`open-sspm worker-discovery`) + one-off syncs (`open-sspm sync`, `open-sspm sync-discovery`) + in-app “Resync”.
 - Okta: users, groups, apps, and assignments (IdP source).
 - Microsoft Entra ID: users plus application/service principal governance metadata.
 - SaaS Discovery: discovered app inventory + hotspots from IdP SSO and OAuth grant evidence (Okta System Log + Entra sign-ins/grants), with governance and binding workflows.
@@ -33,7 +33,7 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 3. Run migrations: `just migrate`
 4. Install JS deps + build CSS: `npm install && just ui`
 5. Run the server: `just run`
-6. Optional: run the background sync worker: `just worker`
+6. Optional: run background workers: `just worker` (full lane) and `go run ./cmd/open-sspm worker-discovery` (discovery lane)
 7. Open `http://localhost:8080`, configure connectors under Settings → Connectors, then run a sync (Settings → Resync, or `just sync`).
 8. Optional: enable SaaS discovery on Okta/Entra connector settings, run sync, then review `http://localhost:8080/discovery/apps` and `http://localhost:8080/discovery/hotspots`.
 
@@ -45,7 +45,8 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 
 ## Dev workflows
 - Live-reload server: `just dev` (requires `air` + `templ`)
-- Run background sync worker: `just worker`
+- Run background full sync worker: `just worker`
+- Run background discovery sync worker: `go run ./cmd/open-sspm worker-discovery`
 - Watch CSS: `just ui-watch`
 - Run frontend JS unit tests: `just ui-test` (or `npm run test:js`)
 - Regenerate templ templates: `just templ` (watch: `just templ-watch`)
