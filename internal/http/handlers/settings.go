@@ -389,15 +389,32 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context,
 			}
 		case configstore.KindGitHub:
 			if cfg, ok := state.Config.(configstore.GitHubConfig); ok {
+				programmaticAssets := int64(0)
+				expiringCredentials := int64(0)
+				hasProgrammaticSummary := false
+				if state.Configured {
+					sourceName := strings.TrimSpace(cfg.Org)
+					if sourceName != "" {
+						var err error
+						programmaticAssets, expiringCredentials, err = h.programmaticSummaryCounts(ctx, "github", sourceName)
+						if err != nil {
+							return viewmodels.ConnectorsViewData{}, err
+						}
+						hasProgrammaticSummary = true
+					}
+				}
 				data.GitHub = viewmodels.GitHubConnectorViewData{
-					Enabled:     state.Enabled,
-					Configured:  state.Configured,
-					Org:         cfg.Org,
-					APIBase:     cfg.APIBase,
-					Enterprise:  cfg.Enterprise,
-					SCIMEnabled: cfg.SCIMEnabled,
-					TokenMasked: configstore.MaskSecret(cfg.Token),
-					HasToken:    cfg.Token != "",
+					Enabled:                state.Enabled,
+					Configured:             state.Configured,
+					Org:                    cfg.Org,
+					APIBase:                cfg.APIBase,
+					Enterprise:             cfg.Enterprise,
+					SCIMEnabled:            cfg.SCIMEnabled,
+					TokenMasked:            configstore.MaskSecret(cfg.Token),
+					HasToken:               cfg.Token != "",
+					ProgrammaticAssets:     programmaticAssets,
+					ExpiringCredentials30d: expiringCredentials,
+					HasProgrammaticSummary: hasProgrammaticSummary,
 				}
 			}
 		case configstore.KindDatadog:
@@ -434,14 +451,28 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context,
 			if cfg, ok := state.Config.(configstore.EntraConfig); ok {
 				sourceName := strings.TrimSpace(cfg.TenantID)
 				authoritative := authoritativeBySource[sourceKey(configstore.KindEntra, sourceName)]
+				programmaticAssets := int64(0)
+				expiringCredentials := int64(0)
+				hasProgrammaticSummary := false
+				if state.Configured && sourceName != "" {
+					var err error
+					programmaticAssets, expiringCredentials, err = h.programmaticSummaryCounts(ctx, "entra", sourceName)
+					if err != nil {
+						return viewmodels.ConnectorsViewData{}, err
+					}
+					hasProgrammaticSummary = true
+				}
 				data.Entra = viewmodels.EntraConnectorViewData{
-					Enabled:            state.Enabled,
-					Configured:         state.Configured,
-					TenantID:           cfg.TenantID,
-					ClientID:           cfg.ClientID,
-					ClientSecretMasked: configstore.MaskSecret(cfg.ClientSecret),
-					HasClientSecret:    cfg.ClientSecret != "",
-					Authoritative:      authoritative,
+					Enabled:                state.Enabled,
+					Configured:             state.Configured,
+					TenantID:               cfg.TenantID,
+					ClientID:               cfg.ClientID,
+					ClientSecretMasked:     configstore.MaskSecret(cfg.ClientSecret),
+					HasClientSecret:        cfg.ClientSecret != "",
+					Authoritative:          authoritative,
+					ProgrammaticAssets:     programmaticAssets,
+					ExpiringCredentials30d: expiringCredentials,
+					HasProgrammaticSummary: hasProgrammaticSummary,
 				}
 			}
 		case configstore.KindVault:
@@ -552,6 +583,29 @@ func (h *Handlers) authoritativeSourceName(ctx context.Context, kind string) (st
 
 func sourceKey(kind, name string) string {
 	return strings.ToLower(strings.TrimSpace(kind)) + "::" + strings.ToLower(strings.TrimSpace(name))
+}
+
+func (h *Handlers) programmaticSummaryCounts(ctx context.Context, sourceKind, sourceName string) (int64, int64, error) {
+	totalAssets, err := h.Q.CountAppAssetsBySourceAndQueryAndKind(ctx, gen.CountAppAssetsBySourceAndQueryAndKindParams{
+		SourceKind: sourceKind,
+		SourceName: sourceName,
+		AssetKind:  "",
+		Query:      "",
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+
+	expiringCredentials, err := h.Q.CountCredentialArtifactsExpiringWithinDaysBySource(ctx, gen.CountCredentialArtifactsExpiringWithinDaysBySourceParams{
+		SourceKind:    sourceKind,
+		SourceName:    sourceName,
+		ExpiresInDays: 30,
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return totalAssets, expiringCredentials, nil
 }
 
 // HandleResync triggers a manual resync.

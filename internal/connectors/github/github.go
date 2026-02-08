@@ -20,6 +20,8 @@ const maxRetries = 3
 
 const maxRetryAfter = 30 * time.Second
 
+var ErrDatasetUnavailable = errors.New("github dataset unavailable")
+
 type Client struct {
 	BaseURL string
 	Token   string
@@ -50,6 +52,108 @@ type TeamRepo struct {
 	FullName   string
 	Permission string
 	RawJSON    []byte
+}
+
+type Repository struct {
+	ID            int64
+	Name          string
+	FullName      string
+	Private       bool
+	Archived      bool
+	Disabled      bool
+	DefaultBranch string
+	CreatedAtRaw  string
+	UpdatedAtRaw  string
+	PushedAtRaw   string
+	RawJSON       []byte
+}
+
+type DeployKey struct {
+	ID            int64
+	Key           string
+	Title         string
+	ReadOnly      bool
+	Verified      bool
+	AddedBy       string
+	CreatedAtRaw  string
+	LastUsedAtRaw string
+	RawJSON       []byte
+}
+
+type AppInstallation struct {
+	ID                  int64
+	AppID               int64
+	AppSlug             string
+	AppName             string
+	AccountLogin        string
+	AccountType         string
+	AccountID           int64
+	RepositorySelection string
+	Permissions         map[string]string
+	CreatedAtRaw        string
+	UpdatedAtRaw        string
+	SuspendedAtRaw      string
+	RawJSON             []byte
+}
+
+type PersonalAccessTokenRequest struct {
+	ID                  int64
+	TokenID             int64
+	TokenName           string
+	Status              string
+	OwnerLogin          string
+	OwnerID             int64
+	RepositorySelection string
+	Permissions         map[string]string
+	CreatedAtRaw        string
+	UpdatedAtRaw        string
+	LastUsedAtRaw       string
+	ExpiresAtRaw        string
+	ReviewerLogin       string
+	ReviewerID          int64
+	ReviewedAtRaw       string
+	RawJSON             []byte
+}
+
+type PersonalAccessToken struct {
+	ID                  int64
+	Name                string
+	Status              string
+	OwnerLogin          string
+	OwnerID             int64
+	RepositorySelection string
+	Permissions         map[string]string
+	CreatedAtRaw        string
+	UpdatedAtRaw        string
+	LastUsedAtRaw       string
+	ExpiresAtRaw        string
+	Expired             bool
+	Revoked             bool
+	ReviewerLogin       string
+	ReviewerID          int64
+	ReviewedAtRaw       string
+	RawJSON             []byte
+}
+
+type AuditLogEvent struct {
+	DocumentID        string `json:"_document_id"`
+	ID                string `json:"id"`
+	Action            string `json:"action"`
+	Actor             string `json:"actor"`
+	User              string `json:"user"`
+	CreatedAtRaw      string `json:"@timestamp"`
+	Repository        string `json:"repository"`
+	Repo              string `json:"repo"`
+	RequestID         string `json:"request_id"`
+	PATRequestID      string `json:"pat_request_id"`
+	PersonalTokenID   string `json:"personal_access_token_id"`
+	KeyID             string `json:"key_id"`
+	DeployKeyID       string `json:"deploy_key_id"`
+	TokenID           string `json:"token_id"`
+	Fingerprint       string `json:"fingerprint"`
+	OperationType     string `json:"operation_type"`
+	ProgrammaticActor string `json:"programmatic_access_type"`
+	RawJSON           []byte `json:"-"`
 }
 
 type repoPermissions struct {
@@ -220,6 +324,484 @@ func (c *Client) ListTeamRepos(ctx context.Context, org, teamSlug string) ([]Tea
 		url = next
 	}
 	return out, nil
+}
+
+func (c *Client) ListOrgRepos(ctx context.Context, org string) ([]Repository, error) {
+	url := fmt.Sprintf("%s/orgs/%s/repos?per_page=100&type=all", c.BaseURL, org)
+	var out []Repository
+	for url != "" {
+		rawItems, next, err := c.getRawPage(ctx, url)
+		if err != nil {
+			return nil, err
+		}
+		for _, raw := range rawItems {
+			var repo struct {
+				ID            int64  `json:"id"`
+				Name          string `json:"name"`
+				FullName      string `json:"full_name"`
+				Private       bool   `json:"private"`
+				Archived      bool   `json:"archived"`
+				Disabled      bool   `json:"disabled"`
+				DefaultBranch string `json:"default_branch"`
+				CreatedAtRaw  string `json:"created_at"`
+				UpdatedAtRaw  string `json:"updated_at"`
+				PushedAtRaw   string `json:"pushed_at"`
+			}
+			if err := json.Unmarshal(raw, &repo); err != nil {
+				return nil, err
+			}
+			out = append(out, Repository{
+				ID:            repo.ID,
+				Name:          repo.Name,
+				FullName:      repo.FullName,
+				Private:       repo.Private,
+				Archived:      repo.Archived,
+				Disabled:      repo.Disabled,
+				DefaultBranch: repo.DefaultBranch,
+				CreatedAtRaw:  repo.CreatedAtRaw,
+				UpdatedAtRaw:  repo.UpdatedAtRaw,
+				PushedAtRaw:   repo.PushedAtRaw,
+				RawJSON:       raw,
+			})
+		}
+		url = next
+	}
+	return out, nil
+}
+
+func (c *Client) ListRepoDeployKeys(ctx context.Context, org, repo string) ([]DeployKey, error) {
+	url := fmt.Sprintf("%s/repos/%s/%s/keys?per_page=100", c.BaseURL, org, repo)
+	var out []DeployKey
+	for url != "" {
+		rawItems, next, err := c.getRawPage(ctx, url)
+		if err != nil {
+			return nil, err
+		}
+		for _, raw := range rawItems {
+			var item struct {
+				ID            int64  `json:"id"`
+				Key           string `json:"key"`
+				Title         string `json:"title"`
+				ReadOnly      bool   `json:"read_only"`
+				Verified      bool   `json:"verified"`
+				AddedBy       string `json:"added_by"`
+				CreatedAtRaw  string `json:"created_at"`
+				LastUsedAtRaw string `json:"last_used"`
+			}
+			if err := json.Unmarshal(raw, &item); err != nil {
+				return nil, err
+			}
+			out = append(out, DeployKey{
+				ID:            item.ID,
+				Key:           item.Key,
+				Title:         item.Title,
+				ReadOnly:      item.ReadOnly,
+				Verified:      item.Verified,
+				AddedBy:       item.AddedBy,
+				CreatedAtRaw:  item.CreatedAtRaw,
+				LastUsedAtRaw: item.LastUsedAtRaw,
+				RawJSON:       raw,
+			})
+		}
+		url = next
+	}
+	return out, nil
+}
+
+func (c *Client) ListOrgPersonalAccessTokenRequests(ctx context.Context, org string) ([]PersonalAccessTokenRequest, error) {
+	url := fmt.Sprintf("%s/orgs/%s/personal-access-token-requests?per_page=100", c.BaseURL, org)
+	var out []PersonalAccessTokenRequest
+
+	for url != "" {
+		resp, err := c.doRequest(ctx, url)
+		if err != nil {
+			return nil, err
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("%w: personal-access-token-requests endpoint unavailable (%s)", ErrDatasetUnavailable, resp.Status)
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return nil, formatGitHubAPIError("github personal access token requests api failed", url, resp, body)
+		}
+
+		var rawItems []json.RawMessage
+		if err := json.Unmarshal(body, &rawItems); err != nil {
+			return nil, err
+		}
+		for _, raw := range rawItems {
+			item, err := parseGitHubPATRequest(raw)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, item)
+		}
+
+		url = parseNextLink(resp.Header.Get("Link"))
+	}
+
+	return out, nil
+}
+
+func (c *Client) ListOrgPersonalAccessTokens(ctx context.Context, org string) ([]PersonalAccessToken, error) {
+	url := fmt.Sprintf("%s/orgs/%s/personal-access-tokens?per_page=100", c.BaseURL, org)
+	var out []PersonalAccessToken
+
+	for url != "" {
+		resp, err := c.doRequest(ctx, url)
+		if err != nil {
+			return nil, err
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("%w: personal-access-tokens endpoint unavailable (%s)", ErrDatasetUnavailable, resp.Status)
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return nil, formatGitHubAPIError("github personal access tokens api failed", url, resp, body)
+		}
+
+		var rawItems []json.RawMessage
+		if err := json.Unmarshal(body, &rawItems); err != nil {
+			return nil, err
+		}
+		for _, raw := range rawItems {
+			item, err := parseGitHubPAT(raw)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, item)
+		}
+
+		url = parseNextLink(resp.Header.Get("Link"))
+	}
+
+	return out, nil
+}
+
+func (c *Client) ListOrgInstallations(ctx context.Context, org string) ([]AppInstallation, error) {
+	url := fmt.Sprintf("%s/orgs/%s/installations?per_page=100", c.BaseURL, org)
+	var out []AppInstallation
+
+	for url != "" {
+		resp, err := c.doRequest(ctx, url)
+		if err != nil {
+			return nil, err
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("%w: org installations endpoint unavailable (%s)", ErrDatasetUnavailable, resp.Status)
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return nil, formatGitHubAPIError("github installations api failed", url, resp, body)
+		}
+
+		var payload struct {
+			Installations []json.RawMessage `json:"installations"`
+		}
+		if err := json.Unmarshal(body, &payload); err != nil {
+			return nil, err
+		}
+
+		for _, raw := range payload.Installations {
+			var item struct {
+				ID                  int64             `json:"id"`
+				AppID               int64             `json:"app_id"`
+				AppSlug             string            `json:"app_slug"`
+				AppName             string            `json:"app_name"`
+				Account             map[string]any    `json:"account"`
+				RepositorySelection string            `json:"repository_selection"`
+				Permissions         map[string]string `json:"permissions"`
+				CreatedAtRaw        string            `json:"created_at"`
+				UpdatedAtRaw        string            `json:"updated_at"`
+				SuspendedAtRaw      string            `json:"suspended_at"`
+			}
+			if err := json.Unmarshal(raw, &item); err != nil {
+				return nil, err
+			}
+			accountLogin, _ := item.Account["login"].(string)
+			accountType, _ := item.Account["type"].(string)
+			var accountID int64
+			switch id := item.Account["id"].(type) {
+			case float64:
+				accountID = int64(id)
+			case int64:
+				accountID = id
+			}
+
+			out = append(out, AppInstallation{
+				ID:                  item.ID,
+				AppID:               item.AppID,
+				AppSlug:             item.AppSlug,
+				AppName:             item.AppName,
+				AccountLogin:        accountLogin,
+				AccountType:         accountType,
+				AccountID:           accountID,
+				RepositorySelection: item.RepositorySelection,
+				Permissions:         item.Permissions,
+				CreatedAtRaw:        item.CreatedAtRaw,
+				UpdatedAtRaw:        item.UpdatedAtRaw,
+				SuspendedAtRaw:      item.SuspendedAtRaw,
+				RawJSON:             raw,
+			})
+		}
+
+		url = parseNextLink(resp.Header.Get("Link"))
+	}
+
+	return out, nil
+}
+
+func (c *Client) ListOrgAuditLog(ctx context.Context, org string) ([]AuditLogEvent, error) {
+	url := fmt.Sprintf("%s/orgs/%s/audit-log?per_page=100", c.BaseURL, org)
+	var out []AuditLogEvent
+
+	for url != "" {
+		resp, err := c.doRequest(ctx, url)
+		if err != nil {
+			return nil, err
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("%w: org audit log endpoint unavailable (%s)", ErrDatasetUnavailable, resp.Status)
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return nil, formatGitHubAPIError("github org audit log failed", url, resp, body)
+		}
+
+		var rawItems []json.RawMessage
+		if err := json.Unmarshal(body, &rawItems); err != nil {
+			return nil, err
+		}
+		for _, raw := range rawItems {
+			var event AuditLogEvent
+			if err := json.Unmarshal(raw, &event); err != nil {
+				return nil, err
+			}
+			event.RawJSON = raw
+			out = append(out, event)
+		}
+
+		url = parseNextLink(resp.Header.Get("Link"))
+	}
+
+	return out, nil
+}
+
+func parseGitHubPATRequest(raw json.RawMessage) (PersonalAccessTokenRequest, error) {
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return PersonalAccessTokenRequest{}, err
+	}
+
+	owner := firstMap(payload["owner"], payload["requester"], payload["actor"])
+	reviewer := firstMap(payload["reviewer"], payload["approved_by"])
+
+	id := asInt64(payload["id"])
+	tokenID := firstNonZeroInt64(asInt64(payload["token_id"]), asInt64(payload["pat_id"]), asInt64(payload["personal_access_token_id"]))
+	if id == 0 && tokenID != 0 {
+		id = tokenID
+	}
+
+	return PersonalAccessTokenRequest{
+		ID:                  id,
+		TokenID:             tokenID,
+		TokenName:           firstStringValue(payload["token_name"], payload["token_display_name"], payload["name"]),
+		Status:              firstStringValue(payload["status"], payload["request_state"], payload["decision"]),
+		OwnerLogin:          firstStringValue(owner["login"], owner["name"], payload["owner"]),
+		OwnerID:             asInt64(owner["id"]),
+		RepositorySelection: firstStringValue(payload["repository_selection"], payload["repository_access"]),
+		Permissions:         asStringMap(payload["permissions"]),
+		CreatedAtRaw:        firstStringValue(payload["created_at"], payload["requested_at"]),
+		UpdatedAtRaw:        firstStringValue(payload["updated_at"]),
+		LastUsedAtRaw:       firstStringValue(payload["token_last_used_at"], payload["last_used_at"]),
+		ExpiresAtRaw:        firstStringValue(payload["token_expires_at"], payload["expires_at"]),
+		ReviewerLogin:       firstStringValue(reviewer["login"], reviewer["name"]),
+		ReviewerID:          asInt64(reviewer["id"]),
+		ReviewedAtRaw:       firstStringValue(payload["reviewed_at"], payload["approved_at"]),
+		RawJSON:             raw,
+	}, nil
+}
+
+func parseGitHubPAT(raw json.RawMessage) (PersonalAccessToken, error) {
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return PersonalAccessToken{}, err
+	}
+
+	owner := firstMap(payload["owner"], payload["actor"], payload["user"])
+	reviewer := firstMap(payload["reviewer"], payload["approved_by"])
+
+	id := asInt64(payload["id"])
+	if id == 0 {
+		id = firstNonZeroInt64(asInt64(payload["token_id"]), asInt64(payload["pat_id"]), asInt64(payload["personal_access_token_id"]))
+	}
+
+	return PersonalAccessToken{
+		ID:                  id,
+		Name:                firstStringValue(payload["name"], payload["token_name"], payload["token_display_name"]),
+		Status:              firstStringValue(payload["status"], payload["state"]),
+		OwnerLogin:          firstStringValue(owner["login"], owner["name"], payload["owner"]),
+		OwnerID:             asInt64(owner["id"]),
+		RepositorySelection: firstStringValue(payload["repository_selection"], payload["repository_access"]),
+		Permissions:         asStringMap(payload["permissions"]),
+		CreatedAtRaw:        firstStringValue(payload["created_at"]),
+		UpdatedAtRaw:        firstStringValue(payload["updated_at"]),
+		LastUsedAtRaw:       firstStringValue(payload["last_used_at"], payload["token_last_used_at"]),
+		ExpiresAtRaw:        firstStringValue(payload["expires_at"], payload["token_expires_at"]),
+		Expired:             asBool(payload["token_expired"]) || asBool(payload["expired"]),
+		Revoked:             asBool(payload["revoked"]),
+		ReviewerLogin:       firstStringValue(reviewer["login"], reviewer["name"]),
+		ReviewerID:          asInt64(reviewer["id"]),
+		ReviewedAtRaw:       firstStringValue(payload["reviewed_at"], payload["approved_at"]),
+		RawJSON:             raw,
+	}, nil
+}
+
+func firstStringValue(values ...any) string {
+	for _, value := range values {
+		s := asString(value)
+		if s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+func firstNonZeroInt64(values ...int64) int64 {
+	for _, value := range values {
+		if value != 0 {
+			return value
+		}
+	}
+	return 0
+}
+
+func firstMap(values ...any) map[string]any {
+	for _, value := range values {
+		m := asMap(value)
+		if len(m) > 0 {
+			return m
+		}
+	}
+	return map[string]any{}
+}
+
+func asMap(value any) map[string]any {
+	switch v := value.(type) {
+	case map[string]any:
+		return v
+	default:
+		return map[string]any{}
+	}
+}
+
+func asStringMap(value any) map[string]string {
+	out := map[string]string{}
+
+	switch v := value.(type) {
+	case map[string]string:
+		for key, val := range v {
+			key = strings.TrimSpace(key)
+			val = strings.TrimSpace(val)
+			if key == "" || val == "" {
+				continue
+			}
+			out[key] = val
+		}
+	case map[string]any:
+		for key, rawVal := range v {
+			key = strings.TrimSpace(key)
+			val := asString(rawVal)
+			if key == "" || val == "" {
+				continue
+			}
+			out[key] = val
+		}
+	}
+
+	return out
+}
+
+func asString(value any) string {
+	switch v := value.(type) {
+	case string:
+		return strings.TrimSpace(v)
+	case json.Number:
+		return strings.TrimSpace(v.String())
+	case float64:
+		return strings.TrimSpace(strconv.FormatInt(int64(v), 10))
+	case int64:
+		return strings.TrimSpace(strconv.FormatInt(v, 10))
+	case int:
+		return strings.TrimSpace(strconv.Itoa(v))
+	case bool:
+		return strings.TrimSpace(strconv.FormatBool(v))
+	default:
+		return ""
+	}
+}
+
+func asInt64(value any) int64 {
+	switch v := value.(type) {
+	case int64:
+		return v
+	case int:
+		return int64(v)
+	case float64:
+		return int64(v)
+	case json.Number:
+		if n, err := v.Int64(); err == nil {
+			return n
+		}
+	case string:
+		if n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); err == nil {
+			return n
+		}
+	}
+	return 0
+}
+
+func asBool(value any) bool {
+	switch v := value.(type) {
+	case bool:
+		return v
+	case string:
+		switch strings.ToLower(strings.TrimSpace(v)) {
+		case "1", "t", "true", "yes", "y":
+			return true
+		}
+	case int:
+		return v != 0
+	case int64:
+		return v != 0
+	case float64:
+		return v != 0
+	}
+	return false
 }
 
 func highestPermission(p repoPermissions) string {

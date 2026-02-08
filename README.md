@@ -2,7 +2,7 @@
 
 # Open-SSPM
 
-Open-SSPM is a small “who has access to what” service. It syncs identities from Okta (IdP) and permissions from connected apps (GitHub, Datadog, AWS Identity Center), links accounts (auto by email + manual links), and renders a server-side UI.
+Open-SSPM is a small “who has access to what” service. It syncs identities from Okta and Microsoft Entra ID (IdP sources), permissions from connected apps (GitHub, Datadog, AWS Identity Center), links accounts (auto by email + manual links), and renders a server-side UI.
 
 ## Demo
 - URL: `https://demo.opensspm.com`
@@ -11,9 +11,11 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 ## Features
 - HTTP server (`open-sspm serve`) + background sync worker (`open-sspm worker`) + one-off sync (`open-sspm sync`) + in-app “Resync”.
 - Okta: users, groups, apps, and assignments (IdP source).
+- Microsoft Entra ID: users plus application/service principal governance metadata.
 - GitHub: org members/teams/repo permissions (optional SCIM lookup for emails).
 - Datadog: users + role assignments.
 - AWS Identity Center: users + account/permission set assignments.
+- Programmatic access governance: browse app assets and credentials with risk labels, expiry filters, and actor attribution links.
 - Matching: automatic by email (case-insensitive) + manual linking for accounts without email.
 - Findings: Okta CIS benchmark rule evaluations (rules must be seeded; see below).
 - Server-rendered UI: Echo + templ; Tailwind v4 + Basecoat; minimal vanilla JS for UX.

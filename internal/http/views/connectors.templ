@@ -247,6 +247,12 @@ templ EntraConnectorCard(data viewmodels.ConnectorsViewData) {
 				<a href="/settings/connectors?open=entra" class="btn-sm-outline">Configure</a>
 			</div>
 			<p>Users and access via Microsoft Graph.</p>
+			if data.Entra.HasProgrammaticSummary {
+				<div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+					<a class="badge-outline" href={ AppAssetsListURL("entra", data.Entra.TenantID, "", "", 1) }>{ FormatInt64(data.Entra.ProgrammaticAssets) }{ " app assets" }</a>
+					<a class="badge-outline" href={ CredentialsListURL("entra", data.Entra.TenantID, "", "", "", "", "active", 30, 1) }>{ FormatInt64(data.Entra.ExpiringCredentials30d) }{ " expiring ≤30d" }</a>
+				</div>
+			}
 			<div class="mt-3 flex items-center justify-between rounded-md border border-border/60 px-3 py-2 text-xs text-muted-foreground">
 				<span>Authoritative IdP</span>
 				<form method="post" action="/settings/connectors/entra/authoritative" hx-post="/settings/connectors/entra/authoritative" hx-target="closest article" hx-swap="outerHTML" hx-disabled-elt="closest article">
@@ -262,7 +268,7 @@ templ EntraConnectorCard(data viewmodels.ConnectorsViewData) {
 }
 
 templ GitHubConnectorCard(data viewmodels.ConnectorsViewData) {
-	<article class="card h-44">
+	<article class="card h-52">
 		<header>
 			<h2 class="flex items-center gap-2">
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true">
@@ -282,6 +288,12 @@ templ GitHubConnectorCard(data viewmodels.ConnectorsViewData) {
 				<a href="/settings/connectors?open=github" class="btn-sm-outline">Configure</a>
 			</div>
 			<p>Organization membership, teams, and repo permissions.</p>
+			if data.GitHub.HasProgrammaticSummary {
+				<div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+					<a class="badge-outline" href={ AppAssetsListURL("github", data.GitHub.Org, "", "", 1) }>{ FormatInt64(data.GitHub.ProgrammaticAssets) }{ " app assets" }</a>
+					<a class="badge-outline" href={ CredentialsListURL("github", data.GitHub.Org, "", "", "", "", "active", 30, 1) }>{ FormatInt64(data.GitHub.ExpiringCredentials30d) }{ " expiring ≤30d" }</a>
+				</div>
+			}
 		</header>
 	</article>
 }

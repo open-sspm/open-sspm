@@ -24,8 +24,9 @@ type IdentityLinkedAccountView struct {
 }
 
 type IdentityShowViewData struct {
-	Layout            LayoutData
-	Identity          gen.GetIdentitySummaryByIDRow
-	LinkedAccounts    []IdentityLinkedAccountView
-	HasLinkedAccounts bool
+	Layout                 LayoutData
+	Identity               gen.GetIdentitySummaryByIDRow
+	LinkedAccounts         []IdentityLinkedAccountView
+	ProgrammaticAccessHref string
+	HasLinkedAccounts      bool
 }

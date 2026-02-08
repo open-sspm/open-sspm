@@ -7,23 +7,26 @@ type ConnectorAlert struct {
 }
 
 type OktaConnectorViewData struct {
-	Enabled     bool
-	Configured  bool
-	Domain      string
-	TokenMasked string
-	HasToken    bool
+	Enabled       bool
+	Configured    bool
+	Domain        string
+	TokenMasked   string
+	HasToken      bool
 	Authoritative bool
 }
 
 type GitHubConnectorViewData struct {
-	Enabled     bool
-	Configured  bool
-	Org         string
-	APIBase     string
-	Enterprise  string
-	SCIMEnabled bool
-	TokenMasked string
-	HasToken    bool
+	Enabled                bool
+	Configured             bool
+	Org                    string
+	APIBase                string
+	Enterprise             string
+	SCIMEnabled            bool
+	TokenMasked            string
+	HasToken               bool
+	ProgrammaticAssets     int64
+	ExpiringCredentials30d int64
+	HasProgrammaticSummary bool
 }
 
 type DatadogConnectorViewData struct {
@@ -58,13 +61,16 @@ type VaultConnectorViewData struct {
 }
 
 type EntraConnectorViewData struct {
-	Enabled            bool
-	Configured         bool
-	TenantID           string
-	ClientID           string
-	ClientSecretMasked string
-	HasClientSecret    bool
-	Authoritative      bool
+	Enabled                bool
+	Configured             bool
+	TenantID               string
+	ClientID               string
+	ClientSecretMasked     string
+	HasClientSecret        bool
+	Authoritative          bool
+	ProgrammaticAssets     int64
+	ExpiringCredentials30d int64
+	HasProgrammaticSummary bool
 }
 
 type ConnectorsViewData struct {

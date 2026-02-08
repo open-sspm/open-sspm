@@ -48,3 +48,11 @@ Prereqs: Go 1.25.x (see `go.mod` toolchain), Docker + Compose, Node.js + npm.
 
 - Copy `.env.example` → `.env` for local dev; never commit secrets (the repo ignores `.env`).
 - Connector credentials are configured in-app and stored in Postgres; avoid logging tokens or secret fields.
+
+## Programmatic Access & UI Conventions
+
+- UI/CSS gotcha: CSS is built separately and `app.css` is served at runtime; after changing templates or Tailwind input, run `just ui` (or run `just ui-watch` alongside `just dev`) or pages can look mobile/broken due to missing utilities.
+- Tailwind scan scope: Tailwind v4 uses `@source` in the CSS entrypoint; keep any dynamic class strings in scanned sources (currently templates plus the views helper file) or classes can be purged from the build.
+- Programmatic Access semantics: empty `source_kind`/`source_name` means “All configured” (aggregate across configured sources; do not default to the first source).
+- Filters UX convention: prefer GET filters that auto-apply on select change; query applies on Enter; include an inline clear-query control; avoid Apply/Reset button rows to reduce congestion.
+- Sync safety: do not finalize/expire a run after any partial-stage error; fail the run early to avoid expiring valid rows after a partial refresh.

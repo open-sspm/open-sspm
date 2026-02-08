@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestListUsersPaging(t *testing.T) {
@@ -79,6 +80,175 @@ func TestNormalizeGUID(t *testing.T) {
 	}
 	if got := normalizeGUID("  "); got != "" {
 		t.Fatalf("normalizeGUID = %q want empty", got)
+	}
+}
+
+func TestListApplicationsOwnersAndServicePrincipals(t *testing.T) {
+	t.Parallel()
+
+	var tokenRequests int
+	var applicationRequests int
+	var servicePrincipalRequests int
+	var appOwnerRequests int
+	var spOwnerRequests int
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/oauth2/v2.0/token"):
+			tokenRequests++
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"tkn","expires_in":3600,"token_type":"Bearer"}`))
+			return
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/applications"):
+			if strings.Contains(r.URL.Path, "/owners") {
+				appOwnerRequests++
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"value":[{"id":"owner-user-1","@odata.type":"#microsoft.graph.user","displayName":"Owner One","mail":"owner1@example.com","userPrincipalName":"owner1@example.com"}]}`))
+				return
+			}
+			applicationRequests++
+			w.Header().Set("Content-Type", "application/json")
+			page := r.URL.Query().Get("page")
+			if page == "2" {
+				_, _ = w.Write([]byte(`{"value":[{"id":"app-2","appId":"client-app-2","displayName":"App Two","createdDateTime":"2026-01-01T00:00:00Z","passwordCredentials":[],"keyCredentials":[]}]}`))
+				return
+			}
+			next := srv.URL + "/graph/v1.0/applications?page=2"
+			_, _ = w.Write([]byte(`{"value":[{"id":"app-1","appId":"client-app-1","displayName":"App One","createdDateTime":"2025-01-01T00:00:00Z","passwordCredentials":[{"keyId":"pwd-1","displayName":"Secret One","startDateTime":"2025-01-01T00:00:00Z","endDateTime":"2026-01-01T00:00:00Z"}],"keyCredentials":[{"keyId":"cert-1","displayName":"Cert One","type":"AsymmetricX509Cert","usage":"Verify","startDateTime":"2025-01-01T00:00:00Z","endDateTime":"2027-01-01T00:00:00Z"}]}],"@odata.nextLink":"` + next + `"}`))
+			return
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/servicePrincipals"):
+			if strings.Contains(r.URL.Path, "/owners") {
+				spOwnerRequests++
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"value":[{"id":"owner-sp-1","@odata.type":"#microsoft.graph.servicePrincipal","displayName":"SP Owner","appId":"owner-app-id"}]}`))
+				return
+			}
+			servicePrincipalRequests++
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"value":[{"id":"sp-1","appId":"client-app-1","displayName":"Service Principal One","accountEnabled":true,"servicePrincipalType":"Application","createdDateTime":"2025-01-02T00:00:00Z","passwordCredentials":[],"keyCredentials":[]}]}`))
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	c, err := NewWithOptions("tenant", "client", "secret", Options{
+		AuthorityBaseURL: srv.URL,
+		GraphBaseURL:     srv.URL + "/graph/v1.0",
+	})
+	if err != nil {
+		t.Fatalf("NewWithOptions: %v", err)
+	}
+
+	apps, err := c.ListApplications(context.Background())
+	if err != nil {
+		t.Fatalf("ListApplications: %v", err)
+	}
+	if len(apps) != 2 {
+		t.Fatalf("len(apps)=%d want 2", len(apps))
+	}
+	if len(apps[0].RawJSON) == 0 {
+		t.Fatalf("expected app raw json")
+	}
+
+	servicePrincipals, err := c.ListServicePrincipals(context.Background())
+	if err != nil {
+		t.Fatalf("ListServicePrincipals: %v", err)
+	}
+	if len(servicePrincipals) != 1 {
+		t.Fatalf("len(servicePrincipals)=%d want 1", len(servicePrincipals))
+	}
+	if servicePrincipals[0].DisplayName != "Service Principal One" {
+		t.Fatalf("unexpected service principal name %q", servicePrincipals[0].DisplayName)
+	}
+
+	appOwners, err := c.ListApplicationOwners(context.Background(), "app-1")
+	if err != nil {
+		t.Fatalf("ListApplicationOwners: %v", err)
+	}
+	if len(appOwners) != 1 {
+		t.Fatalf("len(appOwners)=%d want 1", len(appOwners))
+	}
+	if appOwners[0].ODataType == "" {
+		t.Fatalf("expected owner type from response")
+	}
+
+	spOwners, err := c.ListServicePrincipalOwners(context.Background(), "sp-1")
+	if err != nil {
+		t.Fatalf("ListServicePrincipalOwners: %v", err)
+	}
+	if len(spOwners) != 1 {
+		t.Fatalf("len(spOwners)=%d want 1", len(spOwners))
+	}
+
+	if tokenRequests != 1 {
+		t.Fatalf("tokenRequests=%d want 1", tokenRequests)
+	}
+	if applicationRequests != 2 {
+		t.Fatalf("applicationRequests=%d want 2", applicationRequests)
+	}
+	if servicePrincipalRequests != 1 {
+		t.Fatalf("servicePrincipalRequests=%d want 1", servicePrincipalRequests)
+	}
+	if appOwnerRequests != 1 {
+		t.Fatalf("appOwnerRequests=%d want 1", appOwnerRequests)
+	}
+	if spOwnerRequests != 1 {
+		t.Fatalf("spOwnerRequests=%d want 1", spOwnerRequests)
+	}
+}
+
+func TestListDirectoryAudits(t *testing.T) {
+	t.Parallel()
+
+	var sawFilter bool
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/oauth2/v2.0/token"):
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"tkn","expires_in":3600,"token_type":"Bearer"}`))
+			return
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/auditLogs/directoryAudits"):
+			if strings.Contains(r.URL.Query().Get("$filter"), "activityDateTime ge") {
+				sawFilter = true
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"value":[{"id":"event-1","category":"ApplicationManagement","result":"success","activityDisplayName":"Add application password credential","activityDateTime":"2026-02-01T10:00:00Z","initiatedBy":{"user":{"id":"user-1","displayName":"Alice","userPrincipalName":"alice@example.com"}},"targetResources":[{"id":"app-1","displayName":"App One","type":"Application"}]}]}`))
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	c, err := NewWithOptions("tenant", "client", "secret", Options{
+		AuthorityBaseURL: srv.URL,
+		GraphBaseURL:     srv.URL + "/graph/v1.0",
+	})
+	if err != nil {
+		t.Fatalf("NewWithOptions: %v", err)
+	}
+
+	since := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	events, err := c.ListDirectoryAudits(context.Background(), &since)
+	if err != nil {
+		t.Fatalf("ListDirectoryAudits: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("len(events)=%d want 1", len(events))
+	}
+	if events[0].ActivityDisplayName != "Add application password credential" {
+		t.Fatalf("unexpected activity display name %q", events[0].ActivityDisplayName)
+	}
+	if len(events[0].RawJSON) == 0 {
+		t.Fatalf("expected raw json")
+	}
+	if !sawFilter {
+		t.Fatalf("expected since filter in request")
 	}
 }
 

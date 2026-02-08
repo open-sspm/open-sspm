@@ -12,6 +12,7 @@ air_errors.log
 # Cache
 .cache
 .gocache/
+.playwright-cli/
 
 # IDE
 .vscode/
