@@ -1,0 +1,184 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "Programmatic Access"},
+			{Label: "App Assets", Href: "/app-assets"},
+			{Label: "Asset #" + FormatInt64(data.Asset.ID)},
+		}, "Detailed ownership, credential metadata, and related audit activity.") {
+		}
+
+		<article class="card">
+			<header>
+				<h2>{ data.Asset.DisplayName }</h2>
+				<p class="text-sm text-muted-foreground">{ data.Asset.AssetKind }{ " • " }{ data.Asset.SourceKind }{ " (" }{ data.Asset.SourceName }{ ")" }</p>
+			</header>
+			<section>
+				<div class="grid gap-3 md:grid-cols-3">
+					<div>
+						<p class="text-xs uppercase tracking-wide text-muted-foreground">External ID</p>
+						<p class="font-medium break-all">{ data.Asset.ExternalID }</p>
+					</div>
+					<div>
+						<p class="text-xs uppercase tracking-wide text-muted-foreground">Parent external ID</p>
+						<p class="font-medium break-all">{ data.Asset.ParentExternalID }</p>
+					</div>
+					<div>
+						<p class="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
+						<p class="font-medium">{ data.Asset.Status }</p>
+					</div>
+					<div>
+						<p class="text-xs uppercase tracking-wide text-muted-foreground">Created at source</p>
+						<p class="font-medium">{ data.Asset.CreatedAtSource }</p>
+					</div>
+					<div>
+						<p class="text-xs uppercase tracking-wide text-muted-foreground">Updated at source</p>
+						<p class="font-medium">{ data.Asset.UpdatedAtSource }</p>
+					</div>
+					<div>
+						<p class="text-xs uppercase tracking-wide text-muted-foreground">Last observed</p>
+						<p class="font-medium">{ data.Asset.LastObservedAt }</p>
+					</div>
+				</div>
+			</section>
+		</article>
+
+		<article class="card">
+			<header>
+				<h2>Owners</h2>
+				<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Owners)) }</span>
+			</header>
+			<section>
+				<div class="overflow-x-auto">
+					<table class="table">
+						<thead>
+							<tr>
+								<th>Owner</th>
+								<th>Email</th>
+								<th>Kind</th>
+								<th>External ID</th>
+							</tr>
+						</thead>
+						<tbody>
+							if data.HasOwners {
+								for _, owner := range data.Owners {
+									<tr>
+										<td>
+											if owner.OwnerIdentityHref != "" {
+												<a class="btn-sm-link px-0 font-medium" href={ owner.OwnerIdentityHref }>{ owner.OwnerDisplayName }</a>
+											} else {
+												{ owner.OwnerDisplayName }
+											}
+										</td>
+										<td>{ owner.OwnerEmail }</td>
+										<td><span class="badge-outline">{ owner.OwnerKind }</span></td>
+										<td class="text-muted-foreground">{ owner.OwnerExternalID }</td>
+									</tr>
+								}
+							} else {
+								<tr>
+									<td colspan="4">@EmptyState("No owners", "No owner records are available for this asset.")</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</article>
+
+		<article class="card">
+			<header>
+				<h2>Credentials</h2>
+				<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Credentials)) }</span>
+			</header>
+			<section>
+				<div class="overflow-x-auto">
+					<table class="table">
+						<thead>
+							<tr>
+								<th>Credential</th>
+								<th>Kind</th>
+								<th>Status</th>
+								<th>Risk</th>
+								<th>Expires</th>
+								<th>Last used</th>
+								<th>Creator</th>
+							</tr>
+						</thead>
+						<tbody>
+							if data.HasCredentials {
+								for _, credential := range data.Credentials {
+									<tr>
+										<td><a class="btn-sm-link px-0 font-medium" href={ credential.Href }>{ credential.DisplayName }</a></td>
+										<td><span class="badge-outline">{ credential.CredentialKind }</span></td>
+										<td>{ credential.Status }</td>
+										<td><span class={ CredentialRiskBadgeClass(credential.RiskLevel) }>{ HumanizeCredentialRisk(credential.RiskLevel) }</span></td>
+										<td>{ credential.ExpiresAt }</td>
+										<td>{ credential.LastUsedAt }</td>
+										<td>
+											if credential.CreatedByHref != "" {
+												<a class="btn-sm-link px-0 font-medium" href={ credential.CreatedByHref }>{ credential.CreatedBy }</a>
+											} else {
+												{ credential.CreatedBy }
+											}
+										</td>
+									</tr>
+								}
+							} else {
+								<tr>
+									<td colspan="7">@EmptyState("No credentials", "No credentials are currently linked to this asset.")</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</article>
+
+		<article class="card">
+			<header>
+				<h2>Recent Audit Events</h2>
+				<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.AuditEvents)) }</span>
+			</header>
+			<section>
+				<div class="overflow-x-auto">
+					<table class="table">
+						<thead>
+							<tr>
+								<th>Time</th>
+								<th>Event</th>
+								<th>Actor</th>
+								<th>Credential</th>
+								<th>Target</th>
+							</tr>
+						</thead>
+						<tbody>
+							if data.HasAuditEvents {
+								for _, event := range data.AuditEvents {
+									<tr>
+										<td>{ event.EventTime }</td>
+										<td>{ event.EventType }</td>
+										<td>{ event.Actor }</td>
+										<td>
+											<div class="text-sm">{ event.CredentialDisplayName }</div>
+											<div class="text-xs text-muted-foreground">{ event.CredentialKind }{ " • " }{ event.CredentialExternalID }</div>
+										</td>
+										<td>{ event.Target }</td>
+									</tr>
+								}
+							} else {
+								<tr>
+									<td colspan="5">@EmptyState("No events", "No credential audit events were found for this asset target.")</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</article>
+	}
+}

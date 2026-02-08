@@ -19,6 +19,19 @@ SELECT *
 FROM identity_accounts
 WHERE account_id = $1;
 
+-- name: GetIdentityBySourceAndExternalID :one
+SELECT i.*
+FROM identities i
+JOIN identity_accounts ia ON ia.identity_id = i.id
+JOIN accounts a ON a.id = ia.account_id
+WHERE lower(trim(a.source_kind)) = lower(trim(sqlc.arg(source_kind)::text))
+  AND lower(trim(a.source_name)) = lower(trim(sqlc.arg(source_name)::text))
+  AND lower(trim(a.external_id)) = lower(trim(sqlc.arg(external_id)::text))
+  AND a.expired_at IS NULL
+  AND a.last_observed_run_id IS NOT NULL
+ORDER BY i.id ASC
+LIMIT 1;
+
 -- name: ListLinkedAccountsForIdentity :many
 SELECT a.*
 FROM accounts a

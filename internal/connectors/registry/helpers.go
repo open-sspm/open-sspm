@@ -216,6 +216,66 @@ func FinalizeAppRun(ctx context.Context, deps IntegrationDeps, runID int64, sour
 	}
 	counts["entitlements_expired"] = expired
 
+	observed, err = qtx.PromoteAppAssetsSeenInRunBySource(ctx, gen.PromoteAppAssetsSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        sourceKind,
+		SourceName:        sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	counts["app_assets_observed"] = observed
+
+	expired, err = qtx.ExpireAppAssetsNotSeenInRunBySource(ctx, gen.ExpireAppAssetsNotSeenInRunBySourceParams{
+		ExpiredRunID: runID,
+		SourceKind:   sourceKind,
+		SourceName:   sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	counts["app_assets_expired"] = expired
+
+	observed, err = qtx.PromoteAppAssetOwnersSeenInRunBySource(ctx, gen.PromoteAppAssetOwnersSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        sourceKind,
+		SourceName:        sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	counts["app_asset_owners_observed"] = observed
+
+	expired, err = qtx.ExpireAppAssetOwnersNotSeenInRunBySource(ctx, gen.ExpireAppAssetOwnersNotSeenInRunBySourceParams{
+		ExpiredRunID: runID,
+		SourceKind:   sourceKind,
+		SourceName:   sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	counts["app_asset_owners_expired"] = expired
+
+	observed, err = qtx.PromoteCredentialArtifactsSeenInRunBySource(ctx, gen.PromoteCredentialArtifactsSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        sourceKind,
+		SourceName:        sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	counts["credential_artifacts_observed"] = observed
+
+	expired, err = qtx.ExpireCredentialArtifactsNotSeenInRunBySource(ctx, gen.ExpireCredentialArtifactsNotSeenInRunBySourceParams{
+		ExpiredRunID: runID,
+		SourceKind:   sourceKind,
+		SourceName:   sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	counts["credential_artifacts_expired"] = expired
+
 	stats := MarshalJSON(map[string]any{
 		"counts":      counts,
 		"duration_ms": duration.Milliseconds(),

@@ -30,6 +30,46 @@ type Account struct {
 	Status            string             `json:"status"`
 }
 
+type AppAsset struct {
+	ID                int64              `json:"id"`
+	SourceKind        string             `json:"source_kind"`
+	SourceName        string             `json:"source_name"`
+	AssetKind         string             `json:"asset_kind"`
+	ExternalID        string             `json:"external_id"`
+	ParentExternalID  string             `json:"parent_external_id"`
+	DisplayName       string             `json:"display_name"`
+	Status            string             `json:"status"`
+	CreatedAtSource   pgtype.Timestamptz `json:"created_at_source"`
+	UpdatedAtSource   pgtype.Timestamptz `json:"updated_at_source"`
+	RawJson           []byte             `json:"raw_json"`
+	SeenInRunID       pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt            pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AppAssetOwner struct {
+	ID                int64              `json:"id"`
+	AppAssetID        int64              `json:"app_asset_id"`
+	OwnerKind         string             `json:"owner_kind"`
+	OwnerExternalID   string             `json:"owner_external_id"`
+	OwnerDisplayName  string             `json:"owner_display_name"`
+	OwnerEmail        string             `json:"owner_email"`
+	RawJson           []byte             `json:"raw_json"`
+	SeenInRunID       pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt            pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
 type AuthUser struct {
 	ID           int64              `json:"id"`
 	Email        string             `json:"email"`
@@ -48,6 +88,57 @@ type ConnectorConfig struct {
 	Config    []byte             `json:"config"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CredentialArtifact struct {
+	ID                    int64              `json:"id"`
+	SourceKind            string             `json:"source_kind"`
+	SourceName            string             `json:"source_name"`
+	AssetRefKind          string             `json:"asset_ref_kind"`
+	AssetRefExternalID    string             `json:"asset_ref_external_id"`
+	CredentialKind        string             `json:"credential_kind"`
+	ExternalID            string             `json:"external_id"`
+	DisplayName           string             `json:"display_name"`
+	Fingerprint           string             `json:"fingerprint"`
+	ScopeJson             []byte             `json:"scope_json"`
+	Status                string             `json:"status"`
+	CreatedAtSource       pgtype.Timestamptz `json:"created_at_source"`
+	ExpiresAtSource       pgtype.Timestamptz `json:"expires_at_source"`
+	LastUsedAtSource      pgtype.Timestamptz `json:"last_used_at_source"`
+	CreatedByKind         string             `json:"created_by_kind"`
+	CreatedByExternalID   string             `json:"created_by_external_id"`
+	CreatedByDisplayName  string             `json:"created_by_display_name"`
+	ApprovedByKind        string             `json:"approved_by_kind"`
+	ApprovedByExternalID  string             `json:"approved_by_external_id"`
+	ApprovedByDisplayName string             `json:"approved_by_display_name"`
+	RawJson               []byte             `json:"raw_json"`
+	SeenInRunID           pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt                pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID     pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt        pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt             pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID          pgtype.Int8        `json:"expired_run_id"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CredentialAuditEvent struct {
+	ID                   int64              `json:"id"`
+	SourceKind           string             `json:"source_kind"`
+	SourceName           string             `json:"source_name"`
+	EventExternalID      string             `json:"event_external_id"`
+	EventType            string             `json:"event_type"`
+	EventTime            pgtype.Timestamptz `json:"event_time"`
+	ActorKind            string             `json:"actor_kind"`
+	ActorExternalID      string             `json:"actor_external_id"`
+	ActorDisplayName     string             `json:"actor_display_name"`
+	TargetKind           string             `json:"target_kind"`
+	TargetExternalID     string             `json:"target_external_id"`
+	TargetDisplayName    string             `json:"target_display_name"`
+	CredentialKind       string             `json:"credential_kind"`
+	CredentialExternalID string             `json:"credential_external_id"`
+	RawJson              []byte             `json:"raw_json"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
 type Entitlement struct {

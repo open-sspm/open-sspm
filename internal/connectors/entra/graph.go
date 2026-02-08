@@ -57,6 +57,98 @@ type User struct {
 	RawJSON            []byte   `json:"-"`
 }
 
+type PasswordCredential struct {
+	KeyID            string `json:"keyId"`
+	DisplayName      string `json:"displayName"`
+	StartDateTimeRaw string `json:"startDateTime"`
+	EndDateTimeRaw   string `json:"endDateTime"`
+	Hint             string `json:"hint"`
+}
+
+type KeyCredential struct {
+	KeyID               string `json:"keyId"`
+	DisplayName         string `json:"displayName"`
+	Type                string `json:"type"`
+	Usage               string `json:"usage"`
+	StartDateTimeRaw    string `json:"startDateTime"`
+	EndDateTimeRaw      string `json:"endDateTime"`
+	CustomKeyIdentifier string `json:"customKeyIdentifier"`
+}
+
+type Application struct {
+	ID                  string               `json:"id"`
+	AppID               string               `json:"appId"`
+	DisplayName         string               `json:"displayName"`
+	CreatedDateTimeRaw  string               `json:"createdDateTime"`
+	PasswordCredentials []PasswordCredential `json:"passwordCredentials"`
+	KeyCredentials      []KeyCredential      `json:"keyCredentials"`
+	RawJSON             []byte               `json:"-"`
+}
+
+type ServicePrincipal struct {
+	ID                   string               `json:"id"`
+	AppID                string               `json:"appId"`
+	DisplayName          string               `json:"displayName"`
+	AccountEnabled       *bool                `json:"accountEnabled"`
+	ServicePrincipalType string               `json:"servicePrincipalType"`
+	CreatedDateTimeRaw   string               `json:"createdDateTime"`
+	PasswordCredentials  []PasswordCredential `json:"passwordCredentials"`
+	KeyCredentials       []KeyCredential      `json:"keyCredentials"`
+	RawJSON              []byte               `json:"-"`
+}
+
+type DirectoryOwner struct {
+	ID                string `json:"id"`
+	ODataType         string `json:"@odata.type"`
+	DisplayName       string `json:"displayName"`
+	Mail              string `json:"mail"`
+	UserPrincipalName string `json:"userPrincipalName"`
+	AppID             string `json:"appId"`
+	RawJSON           []byte `json:"-"`
+}
+
+type DirectoryAuditActorUser struct {
+	ID                string `json:"id"`
+	DisplayName       string `json:"displayName"`
+	UserPrincipalName string `json:"userPrincipalName"`
+	IPAddress         string `json:"ipAddress"`
+}
+
+type DirectoryAuditActorApp struct {
+	AppID              string `json:"appId"`
+	DisplayName        string `json:"displayName"`
+	ServicePrincipalID string `json:"servicePrincipalId"`
+}
+
+type DirectoryAuditInitiatedBy struct {
+	User *DirectoryAuditActorUser `json:"user"`
+	App  *DirectoryAuditActorApp  `json:"app"`
+}
+
+type DirectoryAuditModifiedProperty struct {
+	DisplayName string `json:"displayName"`
+	OldValue    string `json:"oldValue"`
+	NewValue    string `json:"newValue"`
+}
+
+type DirectoryAuditTargetResource struct {
+	ID                 string                           `json:"id"`
+	DisplayName        string                           `json:"displayName"`
+	Type               string                           `json:"type"`
+	ModifiedProperties []DirectoryAuditModifiedProperty `json:"modifiedProperties"`
+}
+
+type DirectoryAuditEvent struct {
+	ID                  string                         `json:"id"`
+	Category            string                         `json:"category"`
+	Result              string                         `json:"result"`
+	ActivityDisplayName string                         `json:"activityDisplayName"`
+	ActivityDateTimeRaw string                         `json:"activityDateTime"`
+	InitiatedBy         DirectoryAuditInitiatedBy      `json:"initiatedBy"`
+	TargetResources     []DirectoryAuditTargetResource `json:"targetResources"`
+	RawJSON             []byte                         `json:"-"`
+}
+
 func New(tenantID, clientID, clientSecret string) (*Client, error) {
 	return NewWithOptions(tenantID, clientID, clientSecret, Options{})
 }
@@ -109,7 +201,157 @@ func (c *Client) ListUsers(ctx context.Context) ([]User, error) {
 		return nil, err
 	}
 
-	var out []User
+	rawItems, err := c.listPagedRaw(ctx, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]User, 0, len(rawItems))
+	for _, raw := range rawItems {
+		var u User
+		if err := json.Unmarshal(raw, &u); err != nil {
+			return nil, err
+		}
+		u.RawJSON = raw
+		out = append(out, u)
+	}
+	return out, nil
+}
+
+func (c *Client) ListApplications(ctx context.Context) ([]Application, error) {
+	endpoint, err := c.graphURL("/applications", url.Values{
+		"$select": []string{"id,appId,displayName,createdDateTime,passwordCredentials,keyCredentials"},
+		"$top":    []string{"999"},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	rawItems, err := c.listPagedRaw(ctx, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]Application, 0, len(rawItems))
+	for _, raw := range rawItems {
+		var app Application
+		if err := json.Unmarshal(raw, &app); err != nil {
+			return nil, err
+		}
+		app.RawJSON = raw
+		out = append(out, app)
+	}
+	return out, nil
+}
+
+func (c *Client) ListServicePrincipals(ctx context.Context) ([]ServicePrincipal, error) {
+	endpoint, err := c.graphURL("/servicePrincipals", url.Values{
+		"$select": []string{"id,appId,displayName,accountEnabled,servicePrincipalType,createdDateTime,passwordCredentials,keyCredentials"},
+		"$top":    []string{"999"},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	rawItems, err := c.listPagedRaw(ctx, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]ServicePrincipal, 0, len(rawItems))
+	for _, raw := range rawItems {
+		var sp ServicePrincipal
+		if err := json.Unmarshal(raw, &sp); err != nil {
+			return nil, err
+		}
+		sp.RawJSON = raw
+		out = append(out, sp)
+	}
+	return out, nil
+}
+
+func (c *Client) ListApplicationOwners(ctx context.Context, applicationID string) ([]DirectoryOwner, error) {
+	applicationID = strings.TrimSpace(applicationID)
+	if applicationID == "" {
+		return nil, errors.New("application id is required")
+	}
+	endpoint, err := c.graphURL("/applications/"+url.PathEscape(applicationID)+"/owners", url.Values{
+		"$select": []string{"id,displayName,mail,userPrincipalName,appId"},
+		"$top":    []string{"999"},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return c.listOwners(ctx, endpoint)
+}
+
+func (c *Client) ListServicePrincipalOwners(ctx context.Context, servicePrincipalID string) ([]DirectoryOwner, error) {
+	servicePrincipalID = strings.TrimSpace(servicePrincipalID)
+	if servicePrincipalID == "" {
+		return nil, errors.New("service principal id is required")
+	}
+	endpoint, err := c.graphURL("/servicePrincipals/"+url.PathEscape(servicePrincipalID)+"/owners", url.Values{
+		"$select": []string{"id,displayName,mail,userPrincipalName,appId"},
+		"$top":    []string{"999"},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return c.listOwners(ctx, endpoint)
+}
+
+func (c *Client) ListDirectoryAudits(ctx context.Context, since *time.Time) ([]DirectoryAuditEvent, error) {
+	query := url.Values{
+		"$select":  []string{"id,category,result,activityDisplayName,activityDateTime,initiatedBy,targetResources"},
+		"$orderby": []string{"activityDateTime desc"},
+		"$top":     []string{"999"},
+	}
+	if since != nil && !since.IsZero() {
+		query.Set("$filter", "activityDateTime ge "+since.UTC().Format(time.RFC3339))
+	}
+
+	endpoint, err := c.graphURL("/auditLogs/directoryAudits", query)
+	if err != nil {
+		return nil, err
+	}
+
+	rawItems, err := c.listPagedRaw(ctx, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]DirectoryAuditEvent, 0, len(rawItems))
+	for _, raw := range rawItems {
+		var event DirectoryAuditEvent
+		if err := json.Unmarshal(raw, &event); err != nil {
+			return nil, err
+		}
+		event.RawJSON = raw
+		out = append(out, event)
+	}
+	return out, nil
+}
+
+func (c *Client) listOwners(ctx context.Context, endpoint string) ([]DirectoryOwner, error) {
+	rawItems, err := c.listPagedRaw(ctx, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]DirectoryOwner, 0, len(rawItems))
+	for _, raw := range rawItems {
+		var owner DirectoryOwner
+		if err := json.Unmarshal(raw, &owner); err != nil {
+			return nil, err
+		}
+		owner.RawJSON = raw
+		out = append(out, owner)
+	}
+	return out, nil
+}
+
+func (c *Client) listPagedRaw(ctx context.Context, endpoint string) ([]json.RawMessage, error) {
+	var out []json.RawMessage
 	for {
 		body, err := c.get(ctx, endpoint)
 		if err != nil {
@@ -122,14 +364,8 @@ func (c *Client) ListUsers(ctx context.Context) ([]User, error) {
 		if err := json.Unmarshal(body, &page); err != nil {
 			return nil, err
 		}
-		for _, raw := range page.Value {
-			var u User
-			if err := json.Unmarshal(raw, &u); err != nil {
-				return nil, err
-			}
-			u.RawJSON = raw
-			out = append(out, u)
-		}
+		out = append(out, page.Value...)
+
 		next := strings.TrimSpace(page.NextLink)
 		if next == "" {
 			break

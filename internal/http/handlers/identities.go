@@ -115,11 +115,17 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		})
 	}
 
+	programmaticAccessHref := ""
+	if email := strings.TrimSpace(summary.PrimaryEmail); email != "" {
+		programmaticAccessHref = "/credentials?q=" + url.QueryEscape(email)
+	}
+
 	return h.RenderComponent(c, views.IdentityShowPage(viewmodels.IdentityShowViewData{
-		Layout:            layout,
-		Identity:          summary,
-		LinkedAccounts:    linkedAccounts,
-		HasLinkedAccounts: len(linkedAccounts) > 0,
+		Layout:                 layout,
+		Identity:               summary,
+		LinkedAccounts:         linkedAccounts,
+		ProgrammaticAccessHref: programmaticAccessHref,
+		HasLinkedAccounts:      len(linkedAccounts) > 0,
 	}))
 }
 

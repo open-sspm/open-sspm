@@ -46,6 +46,40 @@ func (q *Queries) GetIdentityAccountLinkByAccountID(ctx context.Context, account
 	return i, err
 }
 
+const getIdentityBySourceAndExternalID = `-- name: GetIdentityBySourceAndExternalID :one
+SELECT i.id, i.kind, i.display_name, i.primary_email, i.created_at, i.updated_at
+FROM identities i
+JOIN identity_accounts ia ON ia.identity_id = i.id
+JOIN accounts a ON a.id = ia.account_id
+WHERE lower(trim(a.source_kind)) = lower(trim($1::text))
+  AND lower(trim(a.source_name)) = lower(trim($2::text))
+  AND lower(trim(a.external_id)) = lower(trim($3::text))
+  AND a.expired_at IS NULL
+  AND a.last_observed_run_id IS NOT NULL
+ORDER BY i.id ASC
+LIMIT 1
+`
+
+type GetIdentityBySourceAndExternalIDParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+	ExternalID string `json:"external_id"`
+}
+
+func (q *Queries) GetIdentityBySourceAndExternalID(ctx context.Context, arg GetIdentityBySourceAndExternalIDParams) (Identity, error) {
+	row := q.db.QueryRow(ctx, getIdentityBySourceAndExternalID, arg.SourceKind, arg.SourceName, arg.ExternalID)
+	var i Identity
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.DisplayName,
+		&i.PrimaryEmail,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listIdentityAccountAttributes = `-- name: ListIdentityAccountAttributes :many
 SELECT
   ia.identity_id,

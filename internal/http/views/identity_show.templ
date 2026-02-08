@@ -9,6 +9,9 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 			{Label: "Identities", Href: "/identities"},
 			{Label: "Identity #" + FormatInt64(data.Identity.ID)},
 		}, "Identity details and linked accounts across connected sources.") {
+			if data.ProgrammaticAccessHref != "" {
+				<a class="btn-sm-outline" href={ data.ProgrammaticAccessHref }>Related credentials</a>
+			}
 		}
 
 		<article class="card mb-6">
