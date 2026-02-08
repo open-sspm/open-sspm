@@ -187,7 +187,7 @@ func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps)
 		}
 	}
 
-	if err := registry.FinalizeAppRun(ctx, deps, runID, "aws", i.sourceName, time.Since(started)); err != nil {
+	if err := registry.FinalizeAppRun(ctx, deps, runID, "aws", i.sourceName, time.Since(started), false); err != nil {
 		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		return err
 	}

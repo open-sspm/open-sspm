@@ -13,6 +13,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/discovery"
+	"github.com/open-sspm/open-sspm/internal/metrics"
 )
 
 const (
@@ -26,8 +28,9 @@ const (
 var credentialGUIDPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
 
 type EntraIntegration struct {
-	client   *Client
-	tenantID string
+	client           *Client
+	tenantID         string
+	discoveryEnabled bool
 }
 
 type appAssetUpsertRow struct {
@@ -81,10 +84,11 @@ type credentialAuditEventUpsertRow struct {
 	RawJSON              []byte
 }
 
-func NewEntraIntegration(client *Client, tenantID string) *EntraIntegration {
+func NewEntraIntegration(client *Client, tenantID string, discoveryEnabled bool) *EntraIntegration {
 	return &EntraIntegration{
-		client:   client,
-		tenantID: strings.ToLower(strings.TrimSpace(tenantID)),
+		client:           client,
+		tenantID:         strings.ToLower(strings.TrimSpace(tenantID)),
+		discoveryEnabled: discoveryEnabled,
 	}
 }
 
@@ -105,6 +109,9 @@ func (i *EntraIntegration) InitEvents() []registry.Event {
 		{Source: "entra", Stage: "write-credentials", Current: 0, Total: registry.UnknownTotal, Message: "writing Entra credential metadata"},
 		{Source: "entra", Stage: "list-audit-events", Current: 0, Total: 1, Message: "listing Entra directory audit events"},
 		{Source: "entra", Stage: "write-audit-events", Current: 0, Total: registry.UnknownTotal, Message: "writing Entra credential audit events"},
+		{Source: "entra", Stage: "list-discovery-events", Current: 0, Total: 1, Message: "listing Entra discovery signals"},
+		{Source: "entra", Stage: "normalize-discovery", Current: 0, Total: 1, Message: "normalizing discovery evidence"},
+		{Source: "entra", Stage: "write-discovery", Current: 0, Total: registry.UnknownTotal, Message: "writing discovery data"},
 	}
 }
 
@@ -194,7 +201,15 @@ func (i *EntraIntegration) Run(ctx context.Context, deps registry.IntegrationDep
 		return err
 	}
 
-	if err := registry.FinalizeAppRun(ctx, deps, runID, "entra", i.tenantID, time.Since(started)); err != nil {
+	if i.discoveryEnabled {
+		if err := i.syncDiscovery(ctx, deps, runID, applications, servicePrincipals); err != nil {
+			deps.Report(registry.Event{Source: "entra", Stage: "write-discovery", Message: err.Error(), Err: err})
+			registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindUnknown)
+			return err
+		}
+	}
+
+	if err := registry.FinalizeAppRun(ctx, deps, runID, "entra", i.tenantID, time.Since(started), i.discoveryEnabled); err != nil {
 		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		return err
 	}
@@ -1064,6 +1079,472 @@ func (i *EntraIntegration) upsertCredentialAuditEvents(ctx context.Context, deps
 		})
 	}
 
+	return nil
+}
+
+type normalizedDiscoverySource struct {
+	CanonicalKey    string
+	SourceAppID     string
+	SourceAppName   string
+	SourceAppDomain string
+	SeenAt          time.Time
+}
+
+type normalizedDiscoveryEvent struct {
+	CanonicalKey     string
+	SignalKind       string
+	EventExternalID  string
+	SourceAppID      string
+	SourceAppName    string
+	SourceAppDomain  string
+	ActorExternalID  string
+	ActorEmail       string
+	ActorDisplayName string
+	ObservedAt       time.Time
+	Scopes           []string
+	RawJSON          []byte
+}
+
+func (i *EntraIntegration) syncDiscovery(ctx context.Context, deps registry.IntegrationDeps, runID int64, applications []Application, servicePrincipals []ServicePrincipal) error {
+	now := time.Now().UTC()
+
+	deps.Report(registry.Event{Source: "entra", Stage: "list-discovery-events", Current: 0, Total: 1, Message: "listing sign-ins and oauth grants"})
+	since := now.Add(-7 * 24 * time.Hour)
+	latestObservedAt, err := deps.Q.GetLatestSaaSDiscoveryObservedAtBySource(ctx, gen.GetLatestSaaSDiscoveryObservedAtBySourceParams{
+		SourceKind: "entra",
+		SourceName: i.tenantID,
+	})
+	if err != nil {
+		metrics.DiscoveryIngestFailuresTotal.WithLabelValues("entra", "idp_sso", "watermark_query_error").Inc()
+		return fmt.Errorf("query latest discovery watermark: %w", err)
+	}
+	if latestObservedAt.Valid {
+		candidate := latestObservedAt.Time.UTC().Add(-15 * time.Minute)
+		if candidate.After(since) {
+			since = candidate
+		}
+	}
+
+	signIns, err := i.client.ListSignIns(ctx, &since)
+	if err != nil {
+		metrics.DiscoveryIngestFailuresTotal.WithLabelValues("entra", "idp_sso", "api_error").Inc()
+		return fmt.Errorf("list entra sign-ins: %w", err)
+	}
+	grants, err := i.client.ListOAuth2PermissionGrants(ctx)
+	if err != nil {
+		metrics.DiscoveryIngestFailuresTotal.WithLabelValues("entra", "oauth_grant", "api_error").Inc()
+		return fmt.Errorf("list oauth2 permission grants: %w", err)
+	}
+	deps.Report(registry.Event{
+		Source:  "entra",
+		Stage:   "list-discovery-events",
+		Current: 1,
+		Total:   1,
+		Message: fmt.Sprintf("found %d sign-ins and %d oauth grants", len(signIns), len(grants)),
+	})
+
+	deps.Report(registry.Event{Source: "entra", Stage: "normalize-discovery", Current: 0, Total: 1, Message: "normalizing discovery evidence"})
+	sources, events := normalizeEntraDiscovery(signIns, grants, applications, servicePrincipals, i.tenantID, now)
+	deps.Report(registry.Event{
+		Source:  "entra",
+		Stage:   "normalize-discovery",
+		Current: 1,
+		Total:   1,
+		Message: fmt.Sprintf("normalized %d source rows and %d events", len(sources), len(events)),
+	})
+
+	if err := i.writeDiscoveryRows(ctx, deps, runID, sources, events); err != nil {
+		metrics.DiscoveryIngestFailuresTotal.WithLabelValues("entra", "idp_sso", "db_error").Inc()
+		return err
+	}
+	if err := i.seedEntraAutoBindings(ctx, deps); err != nil {
+		return err
+	}
+	return nil
+}
+
+func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGrant, applications []Application, servicePrincipals []ServicePrincipal, tenantID string, now time.Time) ([]normalizedDiscoverySource, []normalizedDiscoveryEvent) {
+	sourceByID := map[string]normalizedDiscoverySource{}
+	events := make([]normalizedDiscoveryEvent, 0, len(signIns)+len(grants))
+
+	appDisplayByAppID := make(map[string]string, len(applications))
+	for _, app := range applications {
+		appID := strings.TrimSpace(app.AppID)
+		if appID == "" {
+			continue
+		}
+		name := strings.TrimSpace(app.DisplayName)
+		if name == "" {
+			name = appID
+		}
+		appDisplayByAppID[appID] = name
+	}
+
+	servicePrincipalByID := make(map[string]ServicePrincipal, len(servicePrincipals))
+	for _, servicePrincipal := range servicePrincipals {
+		spID := strings.TrimSpace(servicePrincipal.ID)
+		if spID == "" {
+			continue
+		}
+		servicePrincipalByID[spID] = servicePrincipal
+	}
+
+	for _, signIn := range signIns {
+		sourceAppID := strings.TrimSpace(signIn.AppID)
+		if sourceAppID == "" {
+			sourceAppID = strings.TrimSpace(signIn.AppDisplayName)
+		}
+		if sourceAppID == "" {
+			continue
+		}
+
+		sourceAppName := strings.TrimSpace(signIn.AppDisplayName)
+		if sourceAppName == "" {
+			sourceAppName = appDisplayByAppID[sourceAppID]
+		}
+		if sourceAppName == "" {
+			sourceAppName = sourceAppID
+		}
+
+		observedAt := parseGraphTime(signIn.CreatedDateTimeRaw).Time.UTC()
+		if observedAt.IsZero() {
+			observedAt = now
+		}
+
+		metadata := discovery.BuildMetadata(discovery.CanonicalInput{
+			SourceKind:    "entra",
+			SourceName:    tenantID,
+			SourceAppID:   sourceAppID,
+			SourceAppName: sourceAppName,
+			SourceDomain:  "",
+			EntraAppID:    strings.TrimSpace(signIn.AppID),
+		})
+
+		current := sourceByID[sourceAppID]
+		if current.SourceAppID == "" || observedAt.After(current.SeenAt) {
+			sourceByID[sourceAppID] = normalizedDiscoverySource{
+				CanonicalKey:    metadata.CanonicalKey,
+				SourceAppID:     sourceAppID,
+				SourceAppName:   sourceAppName,
+				SourceAppDomain: metadata.Domain,
+				SeenAt:          observedAt,
+			}
+		}
+
+		eventExternalID := strings.TrimSpace(signIn.ID)
+		if eventExternalID == "" {
+			eventExternalID = fmt.Sprintf("signin:%s:%s:%s", sourceAppID, strings.TrimSpace(signIn.UserID), observedAt.Format(time.RFC3339Nano))
+		}
+
+		events = append(events, normalizedDiscoveryEvent{
+			CanonicalKey:     metadata.CanonicalKey,
+			SignalKind:       discovery.SignalKindIDPSSO,
+			EventExternalID:  eventExternalID,
+			SourceAppID:      sourceAppID,
+			SourceAppName:    sourceAppName,
+			SourceAppDomain:  metadata.Domain,
+			ActorExternalID:  strings.TrimSpace(signIn.UserID),
+			ActorEmail:       normalizeEmail(strings.TrimSpace(signIn.UserPrincipalName)),
+			ActorDisplayName: strings.TrimSpace(signIn.UserDisplayName),
+			ObservedAt:       observedAt,
+			Scopes:           nil,
+			RawJSON:          registry.NormalizeJSON(signIn.RawJSON),
+		})
+	}
+
+	for _, grant := range grants {
+		spID := strings.TrimSpace(grant.ClientID)
+		servicePrincipal := servicePrincipalByID[spID]
+
+		entraAppID := strings.TrimSpace(servicePrincipal.AppID)
+		if entraAppID == "" {
+			entraAppID = strings.TrimSpace(grant.ClientID)
+		}
+		sourceAppID := entraAppID
+		if sourceAppID == "" {
+			sourceAppID = strings.TrimSpace(grant.ClientID)
+		}
+		if sourceAppID == "" {
+			continue
+		}
+
+		sourceAppName := strings.TrimSpace(servicePrincipal.DisplayName)
+		if sourceAppName == "" {
+			sourceAppName = appDisplayByAppID[entraAppID]
+		}
+		if sourceAppName == "" {
+			sourceAppName = sourceAppID
+		}
+
+		observedAt := parseGraphTime(grant.CreatedDateTimeRaw).Time.UTC()
+		if observedAt.IsZero() {
+			observedAt = now
+		}
+		scopes := discovery.NormalizeScopes(strings.Fields(strings.ReplaceAll(grant.Scope, ",", " ")))
+
+		metadata := discovery.BuildMetadata(discovery.CanonicalInput{
+			SourceKind:    "entra",
+			SourceName:    tenantID,
+			SourceAppID:   sourceAppID,
+			SourceAppName: sourceAppName,
+			SourceDomain:  "",
+			EntraAppID:    entraAppID,
+		})
+
+		current := sourceByID[sourceAppID]
+		if current.SourceAppID == "" || observedAt.After(current.SeenAt) {
+			sourceByID[sourceAppID] = normalizedDiscoverySource{
+				CanonicalKey:    metadata.CanonicalKey,
+				SourceAppID:     sourceAppID,
+				SourceAppName:   sourceAppName,
+				SourceAppDomain: metadata.Domain,
+				SeenAt:          observedAt,
+			}
+		}
+
+		eventExternalID := strings.TrimSpace(grant.ID)
+		if eventExternalID == "" {
+			eventExternalID = fmt.Sprintf("grant:%s:%s:%s:%s", sourceAppID, strings.TrimSpace(grant.PrincipalID), strings.TrimSpace(grant.Scope), observedAt.Format(time.RFC3339Nano))
+		}
+
+		events = append(events, normalizedDiscoveryEvent{
+			CanonicalKey:     metadata.CanonicalKey,
+			SignalKind:       discovery.SignalKindOAuth,
+			EventExternalID:  eventExternalID,
+			SourceAppID:      sourceAppID,
+			SourceAppName:    sourceAppName,
+			SourceAppDomain:  metadata.Domain,
+			ActorExternalID:  strings.TrimSpace(grant.PrincipalID),
+			ActorEmail:       "",
+			ActorDisplayName: strings.TrimSpace(grant.PrincipalID),
+			ObservedAt:       observedAt,
+			Scopes:           scopes,
+			RawJSON:          registry.NormalizeJSON(grant.RawJSON),
+		})
+	}
+
+	sourceRows := make([]normalizedDiscoverySource, 0, len(sourceByID))
+	for _, sourceRow := range sourceByID {
+		sourceRows = append(sourceRows, sourceRow)
+	}
+	return sourceRows, events
+}
+
+func (i *EntraIntegration) writeDiscoveryRows(ctx context.Context, deps registry.IntegrationDeps, runID int64, sources []normalizedDiscoverySource, events []normalizedDiscoveryEvent) error {
+	total := len(sources) + len(events)
+	deps.Report(registry.Event{
+		Source:  "entra",
+		Stage:   "write-discovery",
+		Current: 0,
+		Total:   int64(total),
+		Message: fmt.Sprintf("writing %d discovery records", total),
+	})
+
+	appMeta := map[string]discovery.AppMetadata{}
+	firstSeenByKey := map[string]time.Time{}
+	lastSeenByKey := map[string]time.Time{}
+	addMeta := func(key string, seenAt time.Time, sample discovery.AppMetadata) {
+		if key == "" {
+			return
+		}
+		if _, ok := appMeta[key]; !ok {
+			appMeta[key] = sample
+			firstSeenByKey[key] = seenAt
+			lastSeenByKey[key] = seenAt
+			return
+		}
+		if seenAt.Before(firstSeenByKey[key]) {
+			firstSeenByKey[key] = seenAt
+		}
+		if seenAt.After(lastSeenByKey[key]) {
+			lastSeenByKey[key] = seenAt
+		}
+	}
+
+	for _, source := range sources {
+		meta := discovery.BuildMetadata(discovery.CanonicalInput{
+			SourceKind:    "entra",
+			SourceName:    i.tenantID,
+			SourceAppID:   source.SourceAppID,
+			SourceAppName: source.SourceAppName,
+			SourceDomain:  source.SourceAppDomain,
+		})
+		meta.CanonicalKey = source.CanonicalKey
+		addMeta(source.CanonicalKey, source.SeenAt, meta)
+	}
+	for _, event := range events {
+		meta := discovery.BuildMetadata(discovery.CanonicalInput{
+			SourceKind:    "entra",
+			SourceName:    i.tenantID,
+			SourceAppID:   event.SourceAppID,
+			SourceAppName: event.SourceAppName,
+			SourceDomain:  event.SourceAppDomain,
+		})
+		meta.CanonicalKey = event.CanonicalKey
+		addMeta(event.CanonicalKey, event.ObservedAt, meta)
+	}
+
+	if len(appMeta) > 0 {
+		canonicalKeys := make([]string, 0, len(appMeta))
+		displayNames := make([]string, 0, len(appMeta))
+		primaryDomains := make([]string, 0, len(appMeta))
+		vendorNames := make([]string, 0, len(appMeta))
+		firstSeenAts := make([]pgtype.Timestamptz, 0, len(appMeta))
+		lastSeenAts := make([]pgtype.Timestamptz, 0, len(appMeta))
+		for key, meta := range appMeta {
+			canonicalKeys = append(canonicalKeys, key)
+			displayNames = append(displayNames, meta.DisplayName)
+			primaryDomains = append(primaryDomains, meta.Domain)
+			vendorNames = append(vendorNames, meta.VendorName)
+			firstSeenAt := firstSeenByKey[key]
+			lastSeenAt := lastSeenByKey[key]
+			firstSeenAts = append(firstSeenAts, registry.PgTimestamptzPtr(&firstSeenAt))
+			lastSeenAts = append(lastSeenAts, registry.PgTimestamptzPtr(&lastSeenAt))
+		}
+		if _, err := deps.Q.UpsertSaaSAppsBulk(ctx, gen.UpsertSaaSAppsBulkParams{
+			CanonicalKeys:  canonicalKeys,
+			DisplayNames:   displayNames,
+			PrimaryDomains: primaryDomains,
+			VendorNames:    vendorNames,
+			FirstSeenAts:   firstSeenAts,
+			LastSeenAts:    lastSeenAts,
+		}); err != nil {
+			return fmt.Errorf("upsert saas apps: %w", err)
+		}
+	}
+
+	written := 0
+	if len(sources) > 0 {
+		canonicalKeys := make([]string, 0, len(sources))
+		sourceAppIDs := make([]string, 0, len(sources))
+		sourceAppNames := make([]string, 0, len(sources))
+		sourceAppDomains := make([]string, 0, len(sources))
+		seenAts := make([]pgtype.Timestamptz, 0, len(sources))
+		for _, source := range sources {
+			canonicalKeys = append(canonicalKeys, source.CanonicalKey)
+			sourceAppIDs = append(sourceAppIDs, source.SourceAppID)
+			sourceAppNames = append(sourceAppNames, source.SourceAppName)
+			sourceAppDomains = append(sourceAppDomains, source.SourceAppDomain)
+			seenAts = append(seenAts, registry.PgTimestamptzPtr(&source.SeenAt))
+		}
+		if _, err := deps.Q.UpsertSaaSAppSourcesBulkBySource(ctx, gen.UpsertSaaSAppSourcesBulkBySourceParams{
+			SourceKind:       "entra",
+			SourceName:       i.tenantID,
+			SeenInRunID:      runID,
+			CanonicalKeys:    canonicalKeys,
+			SourceAppIds:     sourceAppIDs,
+			SourceAppNames:   sourceAppNames,
+			SourceAppDomains: sourceAppDomains,
+			SeenAts:          seenAts,
+		}); err != nil {
+			return fmt.Errorf("upsert saas app sources: %w", err)
+		}
+		written += len(sources)
+		deps.Report(registry.Event{
+			Source:  "entra",
+			Stage:   "write-discovery",
+			Current: int64(written),
+			Total:   int64(total),
+			Message: fmt.Sprintf("sources %d/%d", written, total),
+		})
+	}
+
+	if len(events) > 0 {
+		canonicalKeys := make([]string, 0, len(events))
+		signalKinds := make([]string, 0, len(events))
+		eventExternalIDs := make([]string, 0, len(events))
+		sourceAppIDs := make([]string, 0, len(events))
+		sourceAppNames := make([]string, 0, len(events))
+		sourceAppDomains := make([]string, 0, len(events))
+		actorExternalIDs := make([]string, 0, len(events))
+		actorEmails := make([]string, 0, len(events))
+		actorDisplayNames := make([]string, 0, len(events))
+		observedAts := make([]pgtype.Timestamptz, 0, len(events))
+		scopesJSONs := make([][]byte, 0, len(events))
+		rawJSONs := make([][]byte, 0, len(events))
+		ingestedBySignal := map[string]int{}
+		for _, event := range events {
+			canonicalKeys = append(canonicalKeys, event.CanonicalKey)
+			signalKinds = append(signalKinds, event.SignalKind)
+			eventExternalIDs = append(eventExternalIDs, event.EventExternalID)
+			sourceAppIDs = append(sourceAppIDs, event.SourceAppID)
+			sourceAppNames = append(sourceAppNames, event.SourceAppName)
+			sourceAppDomains = append(sourceAppDomains, event.SourceAppDomain)
+			actorExternalIDs = append(actorExternalIDs, event.ActorExternalID)
+			actorEmails = append(actorEmails, event.ActorEmail)
+			actorDisplayNames = append(actorDisplayNames, event.ActorDisplayName)
+			observedAts = append(observedAts, registry.PgTimestamptzPtr(&event.ObservedAt))
+			scopesJSONs = append(scopesJSONs, discovery.ScopesJSON(event.Scopes))
+			rawJSONs = append(rawJSONs, registry.NormalizeJSON(event.RawJSON))
+			ingestedBySignal[event.SignalKind]++
+		}
+		if _, err := deps.Q.UpsertSaaSAppEventsBulkBySource(ctx, gen.UpsertSaaSAppEventsBulkBySourceParams{
+			SourceKind:        "entra",
+			SourceName:        i.tenantID,
+			SeenInRunID:       runID,
+			CanonicalKeys:     canonicalKeys,
+			SignalKinds:       signalKinds,
+			EventExternalIds:  eventExternalIDs,
+			SourceAppIds:      sourceAppIDs,
+			SourceAppNames:    sourceAppNames,
+			SourceAppDomains:  sourceAppDomains,
+			ActorExternalIds:  actorExternalIDs,
+			ActorEmails:       actorEmails,
+			ActorDisplayNames: actorDisplayNames,
+			ObservedAts:       observedAts,
+			ScopesJsons:       scopesJSONs,
+			RawJsons:          rawJSONs,
+		}); err != nil {
+			return fmt.Errorf("upsert saas app events: %w", err)
+		}
+		for signalKind, count := range ingestedBySignal {
+			metrics.DiscoveryEventsIngestedTotal.WithLabelValues("entra", signalKind).Add(float64(count))
+		}
+		written += len(events)
+		deps.Report(registry.Event{
+			Source:  "entra",
+			Stage:   "write-discovery",
+			Current: int64(written),
+			Total:   int64(total),
+			Message: fmt.Sprintf("events %d/%d", written, total),
+		})
+	}
+
+	if written == 0 {
+		deps.Report(registry.Event{
+			Source:  "entra",
+			Stage:   "write-discovery",
+			Current: 0,
+			Total:   0,
+			Message: "no discovery records to write",
+		})
+	}
+	return nil
+}
+
+func (i *EntraIntegration) seedEntraAutoBindings(ctx context.Context, deps registry.IntegrationDeps) error {
+	appIDs, err := deps.Q.ListEntraDiscoveryAppIDsWithManagedAssetsBySource(ctx, i.tenantID)
+	if err != nil {
+		return fmt.Errorf("list entra discovery auto-bind candidates: %w", err)
+	}
+	for _, appID := range appIDs {
+		if err := deps.Q.UpsertSaaSAppBinding(ctx, gen.UpsertSaaSAppBindingParams{
+			SaasAppID:           appID,
+			ConnectorKind:       "entra",
+			ConnectorSourceName: i.tenantID,
+			BindingSource:       "auto",
+			Confidence:          0.8,
+			IsPrimary:           false,
+			CreatedByAuthUserID: pgtype.Int8{},
+		}); err != nil {
+			return fmt.Errorf("upsert entra auto binding for app %d: %w", appID, err)
+		}
+	}
+	if len(appIDs) > 0 {
+		if _, err := deps.Q.RecomputePrimarySaaSAppBindingsForAll(ctx); err != nil {
+			return fmt.Errorf("recompute primary bindings: %w", err)
+		}
+	}
 	return nil
 }
 

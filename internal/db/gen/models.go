@@ -377,6 +377,93 @@ type RulesetOverride struct {
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }
 
+type SaasApp struct {
+	ID                           int64              `json:"id"`
+	CanonicalKey                 string             `json:"canonical_key"`
+	DisplayName                  string             `json:"display_name"`
+	PrimaryDomain                string             `json:"primary_domain"`
+	VendorName                   string             `json:"vendor_name"`
+	ManagedState                 string             `json:"managed_state"`
+	ManagedReason                string             `json:"managed_reason"`
+	BoundConnectorKind           string             `json:"bound_connector_kind"`
+	BoundConnectorSourceName     string             `json:"bound_connector_source_name"`
+	RiskScore                    int32              `json:"risk_score"`
+	RiskLevel                    string             `json:"risk_level"`
+	SuggestedBusinessCriticality string             `json:"suggested_business_criticality"`
+	SuggestedDataClassification  string             `json:"suggested_data_classification"`
+	FirstSeenAt                  pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt                   pgtype.Timestamptz `json:"last_seen_at"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SaasAppBinding struct {
+	ID                  int64              `json:"id"`
+	SaasAppID           int64              `json:"saas_app_id"`
+	ConnectorKind       string             `json:"connector_kind"`
+	ConnectorSourceName string             `json:"connector_source_name"`
+	BindingSource       string             `json:"binding_source"`
+	Confidence          float32            `json:"confidence"`
+	IsPrimary           bool               `json:"is_primary"`
+	CreatedByAuthUserID pgtype.Int8        `json:"created_by_auth_user_id"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SaasAppEvent struct {
+	ID                int64              `json:"id"`
+	SaasAppID         int64              `json:"saas_app_id"`
+	SourceKind        string             `json:"source_kind"`
+	SourceName        string             `json:"source_name"`
+	SignalKind        string             `json:"signal_kind"`
+	EventExternalID   string             `json:"event_external_id"`
+	SourceAppID       string             `json:"source_app_id"`
+	SourceAppName     string             `json:"source_app_name"`
+	SourceAppDomain   string             `json:"source_app_domain"`
+	ActorExternalID   string             `json:"actor_external_id"`
+	ActorEmail        string             `json:"actor_email"`
+	ActorDisplayName  string             `json:"actor_display_name"`
+	ObservedAt        pgtype.Timestamptz `json:"observed_at"`
+	ScopesJson        []byte             `json:"scopes_json"`
+	RawJson           []byte             `json:"raw_json"`
+	SeenInRunID       pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt            pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SaasAppGovernanceOverride struct {
+	SaasAppID           int64              `json:"saas_app_id"`
+	OwnerIdentityID     pgtype.Int8        `json:"owner_identity_id"`
+	BusinessCriticality string             `json:"business_criticality"`
+	DataClassification  string             `json:"data_classification"`
+	Notes               string             `json:"notes"`
+	UpdatedByAuthUserID pgtype.Int8        `json:"updated_by_auth_user_id"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SaasAppSource struct {
+	ID                int64              `json:"id"`
+	SaasAppID         int64              `json:"saas_app_id"`
+	SourceKind        string             `json:"source_kind"`
+	SourceName        string             `json:"source_name"`
+	SourceAppID       string             `json:"source_app_id"`
+	SourceAppName     string             `json:"source_app_name"`
+	SourceAppDomain   string             `json:"source_app_domain"`
+	SeenInRunID       pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt            pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Session struct {
 	Token  string             `json:"token"`
 	Data   []byte             `json:"data"`

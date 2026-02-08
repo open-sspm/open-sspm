@@ -27,8 +27,9 @@ const (
 )
 
 type OktaConfig struct {
-	Domain string `json:"domain"`
-	Token  string `json:"token"`
+	Domain           string `json:"domain"`
+	Token            string `json:"token"`
+	DiscoveryEnabled bool   `json:"discovery_enabled"`
 }
 
 func (c OktaConfig) Normalized() OktaConfig {
@@ -186,9 +187,10 @@ func (c AWSIdentityCenterConfig) Validate() error {
 type VaultConfig struct{}
 
 type EntraConfig struct {
-	TenantID     string `json:"tenant_id"`
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
+	TenantID         string `json:"tenant_id"`
+	ClientID         string `json:"client_id"`
+	ClientSecret     string `json:"client_secret"`
+	DiscoveryEnabled bool   `json:"discovery_enabled"`
 }
 
 func (c EntraConfig) Normalized() EntraConfig {
@@ -254,6 +256,7 @@ func EncodeConfig(v any) ([]byte, error) {
 func MergeOktaConfig(existing OktaConfig, update OktaConfig) OktaConfig {
 	merged := existing
 	merged.Domain = strings.TrimSpace(update.Domain)
+	merged.DiscoveryEnabled = update.DiscoveryEnabled
 	if token := strings.TrimSpace(update.Token); token != "" {
 		merged.Token = token
 	}
@@ -318,6 +321,7 @@ func MergeEntraConfig(existing EntraConfig, update EntraConfig) EntraConfig {
 	merged := existing
 	merged.TenantID = normalizeGUID(update.TenantID)
 	merged.ClientID = normalizeGUID(update.ClientID)
+	merged.DiscoveryEnabled = update.DiscoveryEnabled
 	if secret := strings.TrimSpace(update.ClientSecret); secret != "" {
 		merged.ClientSecret = secret
 	}

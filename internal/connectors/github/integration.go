@@ -559,7 +559,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 		return err
 	}
 
-	if err := registry.FinalizeAppRun(ctx, deps, runID, "github", i.org, time.Since(started)); err != nil {
+	if err := registry.FinalizeAppRun(ctx, deps, runID, "github", i.org, time.Since(started), false); err != nil {
 		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		return err
 	}

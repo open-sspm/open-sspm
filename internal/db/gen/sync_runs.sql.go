@@ -188,6 +188,57 @@ func (q *Queries) GetSyncRunRollupsForSources(ctx context.Context, arg GetSyncRu
 	return items, nil
 }
 
+const listLatestSuccessfulSyncFinishedAtForSources = `-- name: ListLatestSuccessfulSyncFinishedAtForSources :many
+WITH requested AS (
+  SELECT k.kind AS source_kind, n.name AS source_name
+  FROM unnest($1::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($2::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+)
+SELECT
+  q.source_kind::text AS source_kind,
+  q.source_name::text AS source_name,
+  max(r.finished_at)::timestamptz AS last_success_at
+FROM requested q
+LEFT JOIN sync_runs r
+  ON r.source_kind = q.source_kind
+ AND r.source_name = q.source_name
+ AND r.status = 'success'
+ AND r.finished_at IS NOT NULL
+GROUP BY q.source_kind, q.source_name
+ORDER BY q.source_kind, q.source_name
+`
+
+type ListLatestSuccessfulSyncFinishedAtForSourcesParams struct {
+	SourceKinds []string `json:"source_kinds"`
+	SourceNames []string `json:"source_names"`
+}
+
+type ListLatestSuccessfulSyncFinishedAtForSourcesRow struct {
+	SourceKind    string             `json:"source_kind"`
+	SourceName    string             `json:"source_name"`
+	LastSuccessAt pgtype.Timestamptz `json:"last_success_at"`
+}
+
+func (q *Queries) ListLatestSuccessfulSyncFinishedAtForSources(ctx context.Context, arg ListLatestSuccessfulSyncFinishedAtForSourcesParams) ([]ListLatestSuccessfulSyncFinishedAtForSourcesRow, error) {
+	rows, err := q.db.Query(ctx, listLatestSuccessfulSyncFinishedAtForSources, arg.SourceKinds, arg.SourceNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLatestSuccessfulSyncFinishedAtForSourcesRow
+	for rows.Next() {
+		var i ListLatestSuccessfulSyncFinishedAtForSourcesRow
+		if err := rows.Scan(&i.SourceKind, &i.SourceName, &i.LastSuccessAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRecentFinishedSyncRunsBySource = `-- name: ListRecentFinishedSyncRunsBySource :many
 SELECT id, status, finished_at, error_kind
 FROM sync_runs

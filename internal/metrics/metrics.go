@@ -45,6 +45,30 @@ var (
 		Help:      "Number of resources ingested.",
 	}, []string{"connector_kind", "connector_name", "type"})
 
+	DiscoveryEventsIngestedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "discovery_events_ingested_total",
+		Help:      "Number of discovery evidence events ingested.",
+	}, []string{"source_kind", "signal_kind"})
+
+	DiscoveryIngestFailuresTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "discovery_ingest_failures_total",
+		Help:      "Number of discovery ingestion failures.",
+	}, []string{"source_kind", "signal_kind", "error_kind"})
+
+	DiscoveryAppsTotal = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "discovery_apps_total",
+		Help:      "Current discovered SaaS app inventory by managed state.",
+	}, []string{"managed_state"})
+
+	DiscoveryHotspotsTotal = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "discovery_hotspots_total",
+		Help:      "Current discovered SaaS hotspots by risk level.",
+	}, []string{"risk_level"})
+
 	AutoLinksTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Name:      "auto_links_total",

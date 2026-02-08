@@ -47,6 +47,9 @@ type Handlers struct {
 
 // ConnectorSnapshot holds the current connector configuration state.
 type ConnectorSnapshot struct {
+	Okta                        configstore.OktaConfig
+	OktaEnabled                 bool
+	OktaConfigured              bool
 	GitHub                      configstore.GitHubConfig
 	GitHubEnabled               bool
 	GitHubConfigured            bool
@@ -71,6 +74,12 @@ func (h *Handlers) LoadConnectorSnapshot(ctx context.Context) (ConnectorSnapshot
 	var snap ConnectorSnapshot
 	for _, state := range states {
 		switch state.Definition.Kind() {
+		case configstore.KindOkta:
+			if cfg, ok := state.Config.(configstore.OktaConfig); ok {
+				snap.Okta = cfg
+				snap.OktaEnabled = state.Enabled
+				snap.OktaConfigured = state.Configured
+			}
 		case configstore.KindGitHub:
 			if cfg, ok := state.Config.(configstore.GitHubConfig); ok {
 				snap.GitHub = cfg

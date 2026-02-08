@@ -12,6 +12,7 @@ type OktaConnectorViewData struct {
 	Domain        string
 	TokenMasked   string
 	HasToken      bool
+	DiscoveryEnabled bool
 	Authoritative bool
 }
 
@@ -67,6 +68,7 @@ type EntraConnectorViewData struct {
 	ClientID               string
 	ClientSecretMasked     string
 	HasClientSecret        bool
+	DiscoveryEnabled       bool
 	Authoritative          bool
 	ProgrammaticAssets     int64
 	ExpiringCredentials30d int64

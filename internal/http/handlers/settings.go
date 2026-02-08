@@ -164,8 +164,9 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 			return h.RenderError(c, err)
 		}
 		update := configstore.OktaConfig{
-			Domain: c.FormValue("domain"),
-			Token:  c.FormValue("token"),
+			Domain:           c.FormValue("domain"),
+			Token:            c.FormValue("token"),
+			DiscoveryEnabled: ParseBoolForm(c.FormValue("discovery_enabled")),
 		}
 		merged := configstore.MergeOktaConfig(current, update).Normalized()
 		if cfgRow.Enabled {
@@ -250,9 +251,10 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 			return h.RenderError(c, err)
 		}
 		update := configstore.EntraConfig{
-			TenantID:     c.FormValue("tenant_id"),
-			ClientID:     c.FormValue("client_id"),
-			ClientSecret: c.FormValue("client_secret"),
+			TenantID:         c.FormValue("tenant_id"),
+			ClientID:         c.FormValue("client_id"),
+			ClientSecret:     c.FormValue("client_secret"),
+			DiscoveryEnabled: ParseBoolForm(c.FormValue("discovery_enabled")),
 		}
 		merged := configstore.MergeEntraConfig(current, update).Normalized()
 		if cfgRow.Enabled {
@@ -379,12 +381,13 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context,
 					authoritative = true
 				}
 				data.Okta = viewmodels.OktaConnectorViewData{
-					Enabled:       state.Enabled,
-					Configured:    state.Configured,
-					Domain:        cfg.Domain,
-					TokenMasked:   configstore.MaskSecret(cfg.Token),
-					HasToken:      cfg.Token != "",
-					Authoritative: authoritative,
+					Enabled:          state.Enabled,
+					Configured:       state.Configured,
+					Domain:           cfg.Domain,
+					TokenMasked:      configstore.MaskSecret(cfg.Token),
+					HasToken:         cfg.Token != "",
+					DiscoveryEnabled: cfg.DiscoveryEnabled,
+					Authoritative:    authoritative,
 				}
 			}
 		case configstore.KindGitHub:
@@ -469,6 +472,7 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context,
 					ClientID:               cfg.ClientID,
 					ClientSecretMasked:     configstore.MaskSecret(cfg.ClientSecret),
 					HasClientSecret:        cfg.ClientSecret != "",
+					DiscoveryEnabled:       cfg.DiscoveryEnabled,
 					Authoritative:          authoritative,
 					ProgrammaticAssets:     programmaticAssets,
 					ExpiringCredentials30d: expiringCredentials,

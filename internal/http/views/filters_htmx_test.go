@@ -10,7 +10,10 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
-const debouncedFilterTrigger = "input changed delay:300ms from:input[name='q'], change delay:150ms from:select, submit"
+const (
+	selectFilterTrigger    = "change delay:150ms from:select, submit"
+	debouncedFilterTrigger = "input changed delay:300ms from:input[name='q'], " + selectFilterTrigger
+)
 
 func renderViewComponent(t *testing.T, component templ.Component) string {
 	t.Helper()
@@ -66,6 +69,28 @@ func TestCredentialsPageResultsUsesDebouncedHTMXFiltersAndNoAutosubmit(t *testin
 	assertContains(t, html, `hx-push-url="true"`)
 	assertContains(t, html, `hx-trigger="`+debouncedFilterTrigger+`"`)
 	assertNotContains(t, html, `data-autosubmit="true"`)
+}
+
+func TestDiscoveryAppsPageResultsUsesSelectChangeHTMXFilters(t *testing.T) {
+	t.Parallel()
+
+	html := renderViewComponent(t, DiscoveryAppsPageResults(viewmodels.DiscoveryAppsViewData{}))
+	assertContains(t, html, `hx-get="/discovery/apps"`)
+	assertContains(t, html, `hx-target="#discovery-apps-results"`)
+	assertContains(t, html, `hx-swap="outerHTML"`)
+	assertContains(t, html, `hx-push-url="true"`)
+	assertContains(t, html, `hx-trigger="`+selectFilterTrigger+`"`)
+}
+
+func TestDiscoveryHotspotsPageResultsUsesSelectChangeHTMXFilters(t *testing.T) {
+	t.Parallel()
+
+	html := renderViewComponent(t, DiscoveryHotspotsPageResults(viewmodels.DiscoveryHotspotsViewData{}))
+	assertContains(t, html, `hx-get="/discovery/hotspots"`)
+	assertContains(t, html, `hx-target="#discovery-hotspots-results"`)
+	assertContains(t, html, `hx-swap="outerHTML"`)
+	assertContains(t, html, `hx-push-url="true"`)
+	assertContains(t, html, `hx-trigger="`+selectFilterTrigger+`"`)
 }
 
 func assertContains(t *testing.T, content, want string) {

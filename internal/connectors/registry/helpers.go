@@ -69,7 +69,7 @@ func FailSyncRun(ctx context.Context, q *gen.Queries, runID int64, err error, er
 	})
 }
 
-func FinalizeOktaRun(ctx context.Context, deps IntegrationDeps, runID int64, duration time.Duration) error {
+func FinalizeOktaRun(ctx context.Context, deps IntegrationDeps, runID int64, sourceName string, duration time.Duration, finalizeDiscovery bool) error {
 	tx, err := deps.Pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -152,6 +152,48 @@ func FinalizeOktaRun(ctx context.Context, deps IntegrationDeps, runID int64, dur
 	}
 	counts["okta_app_group_assignments_expired"] = expired
 
+	if finalizeDiscovery {
+		observed, err = qtx.PromoteSaaSAppSourcesSeenInRunBySource(ctx, gen.PromoteSaaSAppSourcesSeenInRunBySourceParams{
+			LastObservedRunID: runID,
+			SourceKind:        "okta",
+			SourceName:        sourceName,
+		})
+		if err != nil {
+			return err
+		}
+		counts["saas_app_sources_observed"] = observed
+
+		expired, err = qtx.ExpireSaaSAppSourcesNotSeenInRunBySource(ctx, gen.ExpireSaaSAppSourcesNotSeenInRunBySourceParams{
+			ExpiredRunID: runID,
+			SourceKind:   "okta",
+			SourceName:   sourceName,
+		})
+		if err != nil {
+			return err
+		}
+		counts["saas_app_sources_expired"] = expired
+
+		observed, err = qtx.PromoteSaaSAppEventsSeenInRunBySource(ctx, gen.PromoteSaaSAppEventsSeenInRunBySourceParams{
+			LastObservedRunID: runID,
+			SourceKind:        "okta",
+			SourceName:        sourceName,
+		})
+		if err != nil {
+			return err
+		}
+		counts["saas_app_events_observed"] = observed
+
+		expired, err = qtx.ExpireSaaSAppEventsNotSeenInRunBySource(ctx, gen.ExpireSaaSAppEventsNotSeenInRunBySourceParams{
+			ExpiredRunID: runID,
+			SourceKind:   "okta",
+			SourceName:   sourceName,
+		})
+		if err != nil {
+			return err
+		}
+		counts["saas_app_events_expired"] = expired
+	}
+
 	stats := MarshalJSON(map[string]any{
 		"counts":      counts,
 		"duration_ms": duration.Milliseconds(),
@@ -163,7 +205,7 @@ func FinalizeOktaRun(ctx context.Context, deps IntegrationDeps, runID int64, dur
 	return tx.Commit(ctx)
 }
 
-func FinalizeAppRun(ctx context.Context, deps IntegrationDeps, runID int64, sourceKind, sourceName string, duration time.Duration) error {
+func FinalizeAppRun(ctx context.Context, deps IntegrationDeps, runID int64, sourceKind, sourceName string, duration time.Duration, finalizeDiscovery bool) error {
 	tx, err := deps.Pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -275,6 +317,48 @@ func FinalizeAppRun(ctx context.Context, deps IntegrationDeps, runID int64, sour
 		return err
 	}
 	counts["credential_artifacts_expired"] = expired
+
+	if finalizeDiscovery {
+		observed, err = qtx.PromoteSaaSAppSourcesSeenInRunBySource(ctx, gen.PromoteSaaSAppSourcesSeenInRunBySourceParams{
+			LastObservedRunID: runID,
+			SourceKind:        sourceKind,
+			SourceName:        sourceName,
+		})
+		if err != nil {
+			return err
+		}
+		counts["saas_app_sources_observed"] = observed
+
+		expired, err = qtx.ExpireSaaSAppSourcesNotSeenInRunBySource(ctx, gen.ExpireSaaSAppSourcesNotSeenInRunBySourceParams{
+			ExpiredRunID: runID,
+			SourceKind:   sourceKind,
+			SourceName:   sourceName,
+		})
+		if err != nil {
+			return err
+		}
+		counts["saas_app_sources_expired"] = expired
+
+		observed, err = qtx.PromoteSaaSAppEventsSeenInRunBySource(ctx, gen.PromoteSaaSAppEventsSeenInRunBySourceParams{
+			LastObservedRunID: runID,
+			SourceKind:        sourceKind,
+			SourceName:        sourceName,
+		})
+		if err != nil {
+			return err
+		}
+		counts["saas_app_events_observed"] = observed
+
+		expired, err = qtx.ExpireSaaSAppEventsNotSeenInRunBySource(ctx, gen.ExpireSaaSAppEventsNotSeenInRunBySourceParams{
+			ExpiredRunID: runID,
+			SourceKind:   sourceKind,
+			SourceName:   sourceName,
+		})
+		if err != nil {
+			return err
+		}
+		counts["saas_app_events_expired"] = expired
+	}
 
 	stats := MarshalJSON(map[string]any{
 		"counts":      counts,

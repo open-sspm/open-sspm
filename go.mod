@@ -23,6 +23,7 @@ require (
 	github.com/open-sspm/open-sspm-spec v0.0.0-20260207190238-3d8d4e19f779
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/cobra v1.10.2
+	golang.org/x/net v0.49.0
 	golang.org/x/sync v0.19.0
 	golang.org/x/term v0.39.0
 )

@@ -4,6 +4,7 @@
 
 - `cmd/open-sspm/`: CLI entrypoint and subcommands (`serve`, `worker`, `sync`, `migrate`, `seed-rules`).
 - `internal/`: application code (connectors, sync engine, HTTP server/UI, rules, access graph).
+- `internal/discovery/`: SaaS discovery canonicalization, scope normalization, and posture scoring helpers.
 - `internal/opensspm/specassets/`: pinned Open SSPM spec lockfile metadata (`spec.lock.json`) used to track generated descriptor provenance/hash.
 - `db/migrations/`: Postgres migrations.
 - `db/queries/` + `sqlc.yaml`: SQL sources for SQLC; generated Go is checked in under `internal/db/gen/`.
@@ -54,5 +55,7 @@ Prereqs: Go 1.25.x (see `go.mod` toolchain), Docker + Compose, Node.js + npm.
 - UI/CSS gotcha: CSS is built separately and `app.css` is served at runtime; after changing templates or Tailwind input, run `just ui` (or run `just ui-watch` alongside `just dev`) or pages can look mobile/broken due to missing utilities.
 - Tailwind scan scope: Tailwind v4 uses `@source` in the CSS entrypoint; keep any dynamic class strings in scanned sources (currently templates plus the views helper file) or classes can be purged from the build.
 - Programmatic Access semantics: empty `source_kind`/`source_name` means “All configured” (aggregate across configured sources; do not default to the first source).
+- SaaS Discovery semantics: empty discovery `source_kind`/`source_name` also means “All configured” (configured Okta/Entra sources only; exclude legacy/unconfigured source rows from default list/hotspot/metric rollups).
 - Filters UX convention: prefer GET filters that auto-apply on select change; query applies on Enter; include an inline clear-query control; avoid Apply/Reset button rows to reduce congestion.
 - Sync safety: do not finalize/expire a run after any partial-stage error; fail the run early to avoid expiring valid rows after a partial refresh.
+- Discovery ingestion safety: Okta/Entra discovery collectors are incremental (watermark/window based), not full snapshots; expiration logic must be staleness-based (currently 30 days), not “not seen in this run” alone.

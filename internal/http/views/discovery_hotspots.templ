@@ -1,0 +1,106 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ DiscoveryHotspotsPage(data viewmodels.DiscoveryHotspotsViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "SaaS Discovery"},
+			{Label: "Hotspots"},
+		}, "Highest-risk unmanaged and over-privileged SaaS apps.") {
+		}
+		@DiscoveryHotspotsPageResults(data)
+	}
+}
+
+templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
+	<div id="discovery-hotspots-results" class="space-y-6">
+		<form
+			method="get"
+			action="/discovery/hotspots"
+			hx-get="/discovery/hotspots"
+			hx-trigger="change delay:150ms from:select, submit"
+			hx-target="#discovery-hotspots-results"
+			hx-swap="outerHTML"
+			hx-push-url="true"
+			class="card"
+		>
+			<header>
+				<h2>Filters</h2>
+				<p>Focus hotspots by source scope.</p>
+			</header>
+			<section>
+				<div class="grid gap-4 md:grid-cols-3">
+					<label class="field">
+						<span class="label">Source kind</span>
+						<select class="select" name="source_kind">
+							<option value="" selected?={ data.SelectedSourceKind == "" }>All configured</option>
+							for _, source := range data.SourceOptions {
+								<option value={ source.SourceKind } selected?={ source.SourceKind == data.SelectedSourceKind }>{ source.Label }</option>
+							}
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Source name</span>
+						<select class="select" name="source_name">
+							<option value="" selected?={ data.SelectedSourceName == "" }>All configured</option>
+							for _, source := range data.SourceNameOptions {
+								<option value={ source.SourceName } selected?={ source.SourceName == data.SelectedSourceName }>{ source.Label }</option>
+							}
+						</select>
+					</label>
+				</div>
+				<button class="sr-only" type="submit">Apply filters</button>
+			</section>
+		</form>
+
+		<article class="card">
+			<header>
+				<h2>Risk Hotspots</h2>
+				<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Items)) }</span>
+			</header>
+			<section>
+				<div class="overflow-x-auto">
+					<table class="table">
+						<caption class="sr-only">Top discovery hotspots ordered by risk score.</caption>
+						<thead>
+							<tr>
+								<th>App</th>
+								<th>Risk</th>
+								<th>Managed</th>
+								<th>Owner</th>
+								<th>Actors (30d)</th>
+							</tr>
+						</thead>
+						<tbody>
+							if data.HasItems {
+								for _, item := range data.Items {
+									<tr data-row-href={ "/discovery/apps/" + FormatInt64(item.ID) } class="cursor-pointer hover:bg-muted/50">
+										<td>
+											<a class="btn-sm-link px-0 font-medium" href={ "/discovery/apps/" + FormatInt64(item.ID) }>{ item.DisplayName }</a>
+											<div class="text-xs text-muted-foreground">{ item.Domain }</div>
+										</td>
+										<td>
+											<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
+											<div class="text-xs text-muted-foreground">{ "Score " }{ FormatInt(int(item.RiskScore)) }</div>
+										</td>
+										<td><span class={ DiscoveryManagedBadgeClass(item.ManagedState) }>{ HumanizeDiscoveryManagedState(item.ManagedState) }</span></td>
+										<td>{ item.Owner }</td>
+										<td><span class="badge-outline">{ FormatInt64(item.Actors30d) }</span></td>
+									</tr>
+								}
+							} else {
+								<tr>
+									<td colspan="5">
+										@EmptyState("No hotspots found", data.EmptyStateMsg)
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</article>
+	</div>
+}
