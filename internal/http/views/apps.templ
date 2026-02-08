@@ -12,8 +12,22 @@ templ AppsPage(data viewmodels.AppsViewData) {
 				<a class="btn-sm-outline" href="/settings/connectors">Manage connectors</a>
 			}
 		}
+		@AppsPageResults(data)
+	}
+}
 
-		<form method="get" class="card">
+templ AppsPageResults(data viewmodels.AppsViewData) {
+	<div id="apps-results" class="space-y-6">
+		<form
+			method="get"
+			action="/apps"
+			hx-get="/apps"
+			hx-trigger="input changed delay:300ms from:input[name='q'], change delay:150ms from:select, submit"
+			hx-target="#apps-results"
+			hx-swap="outerHTML"
+			hx-push-url="true"
+			class="card"
+		>
 			<header>
 				<h2>Search</h2>
 				<p>Filter apps by label, name, or Okta ID.</p>
@@ -65,13 +79,9 @@ templ AppsPage(data viewmodels.AppsViewData) {
 						<tbody>
 							if data.HasApps {
 								for _, a := range data.Apps {
-									<tr>
+									<tr data-row-href={ AppDetailURL(a.IntegratedHref, a.ExternalID) } class="cursor-pointer hover:bg-muted/50">
 										<td>
-											if a.IntegratedHref != "" {
-												<a class="btn-sm-link px-0 font-medium" href={ a.IntegratedHref }>{ a.Label }</a>
-											} else {
-												<a class="btn-sm-link px-0 font-medium" href={ "/apps/" + a.ExternalID }>{ a.Label }</a>
-											}
+											<a class="btn-sm-link px-0 font-medium" href={ AppDetailURL(a.IntegratedHref, a.ExternalID) }>{ a.Label }</a>
 											if a.Name != "" {
 												<div class="text-xs text-muted-foreground">{ a.Name }</div>
 											}
@@ -92,11 +102,7 @@ templ AppsPage(data viewmodels.AppsViewData) {
 										</td>
 										<td>
 											<div class="flex flex-wrap items-center gap-3">
-												if a.IntegratedHref != "" {
-													<a class="btn-sm-link px-0" href={ a.IntegratedHref } aria-label={ "View users for " + a.Label }>View</a>
-												} else {
-													<a class="btn-sm-link px-0" href={ "/apps/" + a.ExternalID } aria-label={ "View users for " + a.Label }>View</a>
-												}
+												<a class="btn-sm-link px-0" href={ AppDetailURL(a.IntegratedHref, a.ExternalID) } aria-label={ "View users for " + a.Label }>View</a>
 												if data.Layout.IsAdmin && a.IntegratedHref == "" && a.SuggestedKind != "" {
 													<form method="post" action="/apps/map" class="inline-flex">
 														@CSRFInput(data.Layout.CSRFToken)
@@ -154,5 +160,5 @@ templ AppsPage(data viewmodels.AppsViewData) {
 				}
 			</section>
 		</article>
-	}
+	</div>
 }

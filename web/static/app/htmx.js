@@ -4,6 +4,17 @@ import { showFlashToast } from "open-sspm-app/toast.js";
 
 const htmxRequestState = new WeakMap();
 const busyElementCounts = new WeakMap();
+const activeRequests = new Set();
+
+const syncGlobalBusyIndicators = () => {
+  const isBusy = activeRequests.size > 0;
+  document.documentElement.dataset.htmxBusy = isBusy ? "true" : "false";
+  document.querySelectorAll("[data-htmx-busy-indicator]").forEach((indicator) => {
+    if (!(indicator instanceof HTMLElement)) return;
+    indicator.hidden = !isBusy;
+    indicator.setAttribute("aria-hidden", isBusy ? "false" : "true");
+  });
+};
 
 const collectBusyElements = (detail) => {
   const elements = new Set();
@@ -11,6 +22,11 @@ const collectBusyElements = (detail) => {
   const addBusyElement = (element) => {
     if (!(element instanceof HTMLElement)) return;
     elements.add(element);
+
+    const card = element.closest(".card");
+    if (card instanceof HTMLElement) {
+      elements.add(card);
+    }
 
     const region = element.closest("[data-busy-region]");
     if (region instanceof HTMLElement) {
@@ -53,14 +69,31 @@ const decrementBusy = (element) => {
   busyElementCounts.set(element, currentCount - 1);
 };
 
+const isTextEntryElement = (element) => {
+  if (!(element instanceof HTMLElement)) return false;
+  if (element.isContentEditable) return true;
+  return ["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName);
+};
+
+const focusCommandSearchInput = () => {
+  const searchInput = document.getElementById("command-search-input");
+  if (!(searchInput instanceof HTMLElement)) return false;
+  searchInput.focus();
+  return document.activeElement === searchInput;
+};
+
 export const bindGlobalListenersOnce = (options = {}) => {
   const { initGlobal = null } = options;
   if (document.documentElement.dataset.openSspmAppListenersBound === "true") return;
   document.documentElement.dataset.openSspmAppListenersBound = "true";
+  syncGlobalBusyIndicators();
 
   document.addEventListener("htmx:beforeRequest", (event) => {
     const detail = event.detail;
     if (!(detail?.xhr instanceof XMLHttpRequest)) return;
+
+    activeRequests.add(detail.xhr);
+    syncGlobalBusyIndicators();
 
     const busyElements = collectBusyElements(detail);
     busyElements.forEach((element) => {
@@ -89,6 +122,9 @@ export const bindGlobalListenersOnce = (options = {}) => {
   document.addEventListener("htmx:afterRequest", (event) => {
     const detail = event.detail;
     if (!(detail?.xhr instanceof XMLHttpRequest)) return;
+
+    activeRequests.delete(detail.xhr);
+    syncGlobalBusyIndicators();
 
     const state = htmxRequestState.get(detail.xhr);
     if (!state) return;
@@ -151,15 +187,19 @@ export const bindGlobalListenersOnce = (options = {}) => {
   document.addEventListener("keydown", (event) => {
     const activeElement = document.activeElement;
     if (!(activeElement instanceof HTMLElement)) return;
-    if (event.key !== "/") return;
-    if (["INPUT", "TEXTAREA"].includes(activeElement.tagName)) return;
-    if (activeElement.isContentEditable) return;
+
+    const isSlashShortcut = event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey;
+    const isCommandShortcut =
+      event.key.toLowerCase() === "k" &&
+      (event.metaKey || event.ctrlKey) &&
+      !event.altKey &&
+      !event.shiftKey;
+    if (!isSlashShortcut && !isCommandShortcut) return;
+    if (isSlashShortcut && isTextEntryElement(activeElement)) return;
+    if (isCommandShortcut && isTextEntryElement(activeElement) && activeElement.id !== "command-search-input") return;
+    if (!focusCommandSearchInput()) return;
 
     event.preventDefault();
-    const searchInput = document.getElementById("command-search-input");
-    if (searchInput instanceof HTMLElement) {
-      searchInput.focus();
-    }
   });
 
   document.addEventListener("keydown", (event) => {

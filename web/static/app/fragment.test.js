@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { triggerVisibleLazyHx, wireAutosubmit } from "open-sspm-app/fragment.js";
+import { triggerVisibleLazyHx, wireAutosubmit, wireRowLinks } from "open-sspm-app/fragment.js";
 
 describe("fragment", () => {
   beforeEach(() => {
@@ -68,5 +68,67 @@ describe("fragment", () => {
     expect(triggerSpy).toHaveBeenCalledWith(document.getElementById("a"), "oss-panel-visible");
     expect(document.getElementById("a").dataset.hxLazyLoaded).toBe("true");
     expect(document.getElementById("b").dataset.hxLazyLoaded).toBeUndefined();
+  });
+
+  it("adds keyboard semantics and supports modifier-click row navigation", () => {
+    document.body.innerHTML = `
+      <table>
+        <tbody>
+          <tr id="row" data-row-href="/credentials/42"><td>Credential 42</td></tr>
+        </tbody>
+      </table>
+    `;
+
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    wireRowLinks(document);
+
+    const row = document.getElementById("row");
+    row.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0, ctrlKey: true }));
+
+    expect(row.getAttribute("role")).toBe("link");
+    expect(row.getAttribute("tabindex")).toBe("0");
+    expect(openSpy).toHaveBeenCalledWith("/credentials/42", "_blank", "noopener");
+  });
+
+  it("does not hijack clicks on interactive elements inside row links", () => {
+    document.body.innerHTML = `
+      <table>
+        <tbody>
+          <tr data-row-href="/credentials/42">
+            <td><a id="inner" href="/credentials/42">Credential 42</a></td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    wireRowLinks(document);
+
+    const inner = document.getElementById("inner");
+    inner.addEventListener("click", (event) => event.preventDefault());
+    inner.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0, ctrlKey: true }));
+
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  it("opens a new tab for modifier-click row navigation", () => {
+    document.body.innerHTML = `
+      <table>
+        <tbody>
+          <tr id="row" data-row-href="/app-assets/9"><td>Asset 9</td></tr>
+        </tbody>
+      </table>
+    `;
+
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    wireRowLinks(document);
+
+    const row = document.getElementById("row");
+    row.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0, ctrlKey: true }));
+
+    expect(openSpy).toHaveBeenCalledWith("/app-assets/9", "_blank", "noopener");
   });
 });

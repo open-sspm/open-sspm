@@ -86,28 +86,52 @@ templ Sidebar(data viewmodels.LayoutData) {
 							if data.GitHubConfigured && data.GitHubEnabled {
 								<a href={ "/unmatched/github/" + data.GitHubOrg } aria-current={ AriaCurrent(data.ActivePath, "/unmatched/github/") }><span>GitHub</span></a>
 							} else {
-								<a href="/settings/connectors?open=github" data-ignore-current><span>GitHub (configure)</span></a>
+								<a href="/settings/connectors?open=github" class="sidebar-unconfigured-link" data-ignore-current>
+									<span class="truncate">GitHub - Set up</span>
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+										<circle cx="10" cy="10" r="6.5"/>
+										<path stroke-linecap="round" d="M10 7v6M7 10h6"/>
+									</svg>
+								</a>
 							}
 						</li>
 						<li>
 							if data.EntraConfigured && data.EntraEnabled {
 								<a href="/unmatched/entra" aria-current={ AriaCurrent(data.ActivePath, "/unmatched/entra") }><span>Microsoft Entra</span></a>
 							} else {
-								<a href="/settings/connectors?open=entra" data-ignore-current><span>Microsoft Entra (configure)</span></a>
+								<a href="/settings/connectors?open=entra" class="sidebar-unconfigured-link" data-ignore-current>
+									<span class="truncate">Microsoft Entra - Set up</span>
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+										<circle cx="10" cy="10" r="6.5"/>
+										<path stroke-linecap="round" d="M10 7v6M7 10h6"/>
+									</svg>
+								</a>
 							}
 						</li>
 						<li>
 							if data.AWSIdentityCenterConfigured && data.AWSIdentityCenterEnabled {
 								<a href="/unmatched/aws" aria-current={ AriaCurrent(data.ActivePath, "/unmatched/aws") }><span>AWS Identity Center</span></a>
 							} else {
-								<a href="/settings/connectors?open=aws_identity_center" data-ignore-current><span>AWS Identity Center (configure)</span></a>
+								<a href="/settings/connectors?open=aws_identity_center" class="sidebar-unconfigured-link" data-ignore-current>
+									<span class="truncate">AWS Identity Center - Set up</span>
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+										<circle cx="10" cy="10" r="6.5"/>
+										<path stroke-linecap="round" d="M10 7v6M7 10h6"/>
+									</svg>
+								</a>
 							}
 						</li>
 						<li>
 							if data.DatadogConfigured && data.DatadogEnabled {
 								<a href={ "/unmatched/datadog/" + data.DatadogSite } aria-current={ AriaCurrent(data.ActivePath, "/unmatched/datadog/") }><span>Datadog</span></a>
 							} else {
-								<a href="/settings/connectors?open=datadog" data-ignore-current><span>Datadog (configure)</span></a>
+								<a href="/settings/connectors?open=datadog" class="sidebar-unconfigured-link" data-ignore-current>
+									<span class="truncate">Datadog - Set up</span>
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+										<circle cx="10" cy="10" r="6.5"/>
+										<path stroke-linecap="round" d="M10 7v6M7 10h6"/>
+									</svg>
+								</a>
 							}
 						</li>
 					</ul>

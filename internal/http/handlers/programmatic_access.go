@@ -20,6 +20,8 @@ import (
 )
 
 func (h *Handlers) HandleAppAssets(c *echo.Context) error {
+	addVary(c, "HX-Request", "HX-Target")
+
 	ctx := c.Request().Context()
 	layout, snap, err := h.LayoutData(ctx, c, "App Assets")
 	if err != nil {
@@ -45,16 +47,22 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 		TotalPages:         1,
 		EmptyStateMsg:      "No app assets found for the current filters.",
 	}
+	renderAppAssets := func() error {
+		if isHX(c) && isHXTarget(c, "app-assets-results") {
+			return h.RenderComponent(c, views.AppAssetsPageResults(data))
+		}
+		return h.RenderComponent(c, views.AppAssetsPage(data))
+	}
 
 	if !hasSource {
 		data.EmptyStateMsg = "Configure and enable GitHub or Microsoft Entra connectors to populate app assets."
-		return h.RenderComponent(c, views.AppAssetsPage(data))
+		return renderAppAssets()
 	}
 
 	activeSources := effectiveProgrammaticSources(selected, sources)
 	if len(activeSources) == 0 {
 		data.EmptyStateMsg = "No matching source found. Choose another source filter."
-		return h.RenderComponent(c, views.AppAssetsPage(data))
+		return renderAppAssets()
 	}
 
 	var totalCount int64
@@ -204,7 +212,7 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 		data.EmptyStateMsg = "No app assets match the current search filters."
 	}
 
-	return h.RenderComponent(c, views.AppAssetsPage(data))
+	return renderAppAssets()
 }
 
 func (h *Handlers) HandleAppAssetShow(c *echo.Context) error {
@@ -342,6 +350,8 @@ func (h *Handlers) HandleAppAssetShow(c *echo.Context) error {
 }
 
 func (h *Handlers) HandleCredentials(c *echo.Context) error {
+	addVary(c, "HX-Request", "HX-Target")
+
 	ctx := c.Request().Context()
 	layout, snap, err := h.LayoutData(ctx, c, "Credentials")
 	if err != nil {
@@ -386,16 +396,22 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 		TotalPages:         1,
 		EmptyStateMsg:      "No credentials found for the current filters.",
 	}
+	renderCredentials := func() error {
+		if isHX(c) && isHXTarget(c, "credentials-results") {
+			return h.RenderComponent(c, views.CredentialsPageResults(data))
+		}
+		return h.RenderComponent(c, views.CredentialsPage(data))
+	}
 
 	if !hasSource {
 		data.EmptyStateMsg = "Configure and enable GitHub or Microsoft Entra connectors to populate credential inventory."
-		return h.RenderComponent(c, views.CredentialsPage(data))
+		return renderCredentials()
 	}
 
 	activeSources := effectiveProgrammaticSources(selected, sources)
 	if len(activeSources) == 0 {
 		data.EmptyStateMsg = "No matching source found. Choose another source filter."
-		return h.RenderComponent(c, views.CredentialsPage(data))
+		return renderCredentials()
 	}
 
 	var totalCount int64
@@ -491,7 +507,7 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 		data.EmptyStateMsg = "No credentials match the current search filters."
 	}
 
-	return h.RenderComponent(c, views.CredentialsPage(data))
+	return renderCredentials()
 }
 
 func (h *Handlers) HandleCredentialShow(c *echo.Context) error {

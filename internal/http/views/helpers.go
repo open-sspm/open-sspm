@@ -41,6 +41,16 @@ func AppAssetsListURL(sourceKind, sourceName, query, assetKind string, page int)
 	return "/app-assets?" + values.Encode()
 }
 
+func AppDetailURL(integratedHref, externalID string) string {
+	if integratedHref = strings.TrimSpace(integratedHref); integratedHref != "" {
+		return integratedHref
+	}
+	if externalID = strings.TrimSpace(externalID); externalID != "" {
+		return "/apps/" + externalID
+	}
+	return "/apps"
+}
+
 func CredentialsListURL(sourceKind, sourceName, query, credentialKind, status, riskLevel, expiryState string, expiresInDays int, page int) string {
 	values := url.Values{}
 	if sourceKind = strings.TrimSpace(sourceKind); sourceKind != "" {

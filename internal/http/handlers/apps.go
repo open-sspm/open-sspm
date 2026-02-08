@@ -18,6 +18,8 @@ import (
 
 // HandleApps renders the apps list page.
 func (h *Handlers) HandleApps(c *echo.Context) error {
+	addVary(c, "HX-Request", "HX-Target")
+
 	ctx := c.Request().Context()
 	layout, _, err := h.LayoutData(ctx, c, "Apps")
 	if err != nil {
@@ -129,6 +131,9 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 		}(),
 	}
 
+	if isHX(c) && isHXTarget(c, "apps-results") {
+		return h.RenderComponent(c, views.AppsPageResults(data))
+	}
 	return h.RenderComponent(c, views.AppsPage(data))
 }
 
