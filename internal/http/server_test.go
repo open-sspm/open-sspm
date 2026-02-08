@@ -101,6 +101,27 @@ func TestHTTPStatusFromErrorUsesStatusCoder(t *testing.T) {
 	}
 }
 
+func TestFaviconRedirectSetsHTMLContentType(t *testing.T) {
+	e := echo.New()
+	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	es := &EchoServer{h: &handlers.Handlers{}, e: e}
+	es.registerRoutes()
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/favicon.ico", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMovedPermanently {
+		t.Fatalf("status=%d want %d", rec.Code, http.StatusMovedPermanently)
+	}
+	if got := rec.Header().Get(echo.HeaderLocation); got != "/static/favicon.ico" {
+		t.Fatalf("location=%q want %q", got, "/static/favicon.ico")
+	}
+	if got := rec.Header().Get(echo.HeaderContentType); got != echo.MIMETextHTMLCharsetUTF8 {
+		t.Fatalf("content-type=%q want %q", got, echo.MIMETextHTMLCharsetUTF8)
+	}
+}
+
 func TestHTTPErrorHandlerBadRequestUsesStatusText(t *testing.T) {
 	e := echo.New()
 	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))

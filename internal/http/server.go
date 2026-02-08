@@ -191,6 +191,7 @@ func httpStatusFromError(err error) int {
 func (es *EchoServer) registerRoutes() {
 	es.e.GET("/healthz", es.h.HandleHealthz)
 	es.e.GET("/favicon.ico", func(c *echo.Context) error {
+		c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
 		return c.Redirect(http.StatusMovedPermanently, "/static/favicon.ico")
 	})
 

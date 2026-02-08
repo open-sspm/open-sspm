@@ -597,7 +597,11 @@
         decrementBusy(element);
       });
 
-      htmxRequestState.delete(detail.xhr);
+      // Keep focus metadata until afterSwap reads it.
+      const noSwapExpected = detail.failed === true || detail.xhr.status === 0 || detail.xhr.status === 204;
+      if (noSwapExpected || !state.focusStrategy) {
+        htmxRequestState.delete(detail.xhr);
+      }
     });
 
     document.addEventListener("htmx:afterSwap", (event) => {
@@ -605,7 +609,8 @@
 
       initFragment(event.target);
 
-      const requestState = event.detail?.xhr instanceof XMLHttpRequest ? htmxRequestState.get(event.detail.xhr) : null;
+      const xhr = event.detail?.xhr instanceof XMLHttpRequest ? event.detail.xhr : null;
+      const requestState = xhr ? htmxRequestState.get(xhr) : null;
 
       if (event.target === document.body || event.target === document.documentElement) {
         initGlobal();
@@ -623,6 +628,10 @@
       }
 
       triggerVisibleLazyHx(document);
+
+      if (xhr) {
+        htmxRequestState.delete(xhr);
+      }
     });
 
     document.addEventListener("htmx:load", (event) => {

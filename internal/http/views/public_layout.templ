@@ -36,7 +36,7 @@ templ PublicLayout(title string, toast *viewmodels.ToastViewData) {
 		</head>
 		<body class="min-h-screen bg-background text-foreground">
 			<a
-				href="#main-content"
+				href="#main"
 				class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:border focus:border-border focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:no-underline focus:ring-2 focus:ring-ring"
 			>
 				Skip to main content
@@ -72,7 +72,7 @@ templ PublicLayout(title string, toast *viewmodels.ToastViewData) {
 						</button>
 					</div>
 				</header>
-				<main id="main-content" tabindex="-1" data-main-content data-busy-region class="flex flex-1 items-center focus:outline-none">
+				<main id="main" role="main" tabindex="-1" data-main-content data-busy-region class="flex flex-1 items-center focus:outline-none">
 					<div class="mx-auto w-full max-w-6xl px-4 py-8 lg:px-10 lg:py-12">
 						{ children... }
 					</div>
