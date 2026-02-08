@@ -45,6 +45,7 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 - Live-reload server: `just dev` (requires `air` + `templ`)
 - Run background sync worker: `just worker`
 - Watch CSS: `just ui-watch`
+- Run frontend JS unit tests: `just ui-test` (or `npm run test:js`)
 - Regenerate templ templates: `just templ` (watch: `just templ-watch`)
 - Regenerate SQLC code: `just sqlc` (generated code is checked in under `internal/db/gen`)
 

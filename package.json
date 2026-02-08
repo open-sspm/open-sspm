@@ -3,11 +3,15 @@
   "private": true,
   "scripts": {
     "build:css": "npx -y @tailwindcss/cli -i ./web/static/src/input.css -o ./web/static/app.css --minify",
-    "watch:css": "npx -y @tailwindcss/cli -i ./web/static/src/input.css -o ./web/static/app.css --watch"
+    "watch:css": "npx -y @tailwindcss/cli -i ./web/static/src/input.css -o ./web/static/app.css --watch",
+    "test:js": "vitest run",
+    "test:js:watch": "vitest"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.18",
     "basecoat-css": "^0.3.11",
+    "jsdom": "^26.1.0",
+    "vitest": "^3.2.4",
     "tailwindcss": "^4.1.18"
   },
   "dependencies": {
