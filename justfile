@@ -98,6 +98,10 @@ ui:
 ui-watch:
     npm run watch:css
 
+# Run frontend JavaScript unit tests
+ui-test:
+    npm run test:js
+
 #
 # Maintenance
 #

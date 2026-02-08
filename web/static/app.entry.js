@@ -1,2 +1,4 @@
 import "basecoat";
-import "./app.js";
+import { bootOpenSspmApp } from "open-sspm-app/main.js";
+
+bootOpenSspmApp();

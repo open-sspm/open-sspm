@@ -211,7 +211,7 @@ func Layout(data viewmodels.LayoutData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<script type=\"importmap\">\n\t\t\t\t{\n\t\t\t\t\t\"imports\": {\n\t\t\t\t\t\t\"basecoat\": \"/static/vendor/basecoat.all.min.js\"\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t</script><script type=\"module\" src=\"/static/app.entry.js\"></script></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<script type=\"importmap\">\n\t\t\t\t{\n\t\t\t\t\t\"imports\": {\n\t\t\t\t\t\t\"basecoat\": \"/static/vendor/basecoat.all.min.js\",\n\t\t\t\t\t\t\"open-sspm-app/\": \"/static/app/\"\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t</script><script type=\"module\" src=\"/static/app.entry.js\"></script></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
