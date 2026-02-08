@@ -55,7 +55,7 @@ jobs:
             | grep -Ev '(^github.com/open-sspm/open-sspm/cmd/open-sspm$|^github.com/open-sspm/open-sspm/internal/http($|/))' \
             | while read -r pkg; do
                 if go list -deps "$pkg" | grep -Eq '^github.com/open-sspm/open-sspm/internal/http($|/)'; then
-                  echo "Skipping $pkg for CodeQL (depends on internal/http)"
+                  echo "Skipping $pkg for CodeQL (depends on internal/http)" >&2
                   continue
                 fi
                 echo "$pkg"
