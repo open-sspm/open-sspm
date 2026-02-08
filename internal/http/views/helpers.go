@@ -127,6 +127,46 @@ func ListURL(baseHref string, query string, state string, page int) string {
 	return baseHref + "?" + values.Encode()
 }
 
+func DiscoveryAppsListURL(sourceKind, sourceName, query, managedState, riskLevel string, page int) string {
+	values := url.Values{}
+	if sourceKind = strings.TrimSpace(sourceKind); sourceKind != "" {
+		values.Set("source_kind", sourceKind)
+	}
+	if sourceName = strings.TrimSpace(sourceName); sourceName != "" {
+		values.Set("source_name", sourceName)
+	}
+	if query = strings.TrimSpace(query); query != "" {
+		values.Set("q", query)
+	}
+	if managedState = strings.TrimSpace(managedState); managedState != "" {
+		values.Set("managed_state", managedState)
+	}
+	if riskLevel = strings.TrimSpace(riskLevel); riskLevel != "" {
+		values.Set("risk_level", riskLevel)
+	}
+	if page > 1 {
+		values.Set("page", strconv.Itoa(page))
+	}
+	if len(values) == 0 {
+		return "/discovery/apps"
+	}
+	return "/discovery/apps?" + values.Encode()
+}
+
+func DiscoveryHotspotsURL(sourceKind, sourceName string) string {
+	values := url.Values{}
+	if sourceKind = strings.TrimSpace(sourceKind); sourceKind != "" {
+		values.Set("source_kind", sourceKind)
+	}
+	if sourceName = strings.TrimSpace(sourceName); sourceName != "" {
+		values.Set("source_name", sourceName)
+	}
+	if len(values) == 0 {
+		return "/discovery/hotspots"
+	}
+	return "/discovery/hotspots?" + values.Encode()
+}
+
 func StatusBadgeClass(status string) string {
 	switch strings.ToUpper(strings.TrimSpace(status)) {
 	case "ACTIVE":
@@ -150,6 +190,90 @@ func CredentialRiskBadgeClass(risk string) string {
 		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
 	default:
 		return "badge-outline"
+	}
+}
+
+func DiscoveryManagedBadgeClass(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "managed":
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	case "unmanaged":
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+	default:
+		return "badge-outline"
+	}
+}
+
+func HumanizeDiscoveryManagedState(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "managed":
+		return "Managed"
+	case "unmanaged":
+		return "Unmanaged"
+	default:
+		return fallbackHumanized(state)
+	}
+}
+
+func HumanizeDiscoveryManagedReason(reason string) string {
+	switch strings.ToLower(strings.TrimSpace(reason)) {
+	case "active_binding_fresh_sync":
+		return "Primary binding has fresh sync"
+	case "no_binding":
+		return "No primary binding"
+	case "connector_disabled":
+		return "Bound connector is disabled"
+	case "connector_not_configured":
+		return "Bound connector is not configured"
+	case "stale_sync":
+		return "Bound connector sync is stale"
+	default:
+		return fallbackHumanized(reason)
+	}
+}
+
+func HumanizeDiscoverySignalKind(kind string) string {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "idp_sso":
+		return "IdP SSO"
+	case "oauth_grant":
+		return "OAuth grant"
+	default:
+		return fallbackHumanized(kind)
+	}
+}
+
+func HumanizeBusinessCriticality(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "unknown":
+		return "Unknown"
+	case "low":
+		return "Low"
+	case "medium":
+		return "Medium"
+	case "high":
+		return "High"
+	case "critical":
+		return "Critical"
+	default:
+		return fallbackHumanized(value)
+	}
+}
+
+func HumanizeDataClassification(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "unknown":
+		return "Unknown"
+	case "public":
+		return "Public"
+	case "internal":
+		return "Internal"
+	case "confidential":
+		return "Confidential"
+	case "restricted":
+		return "Restricted"
+	default:
+		return fallbackHumanized(value)
 	}
 }
 
@@ -215,6 +339,26 @@ func HumanizeRuleStatus(status string) string {
 	default:
 		return strings.TrimSpace(status)
 	}
+}
+
+func fallbackHumanized(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "—"
+	}
+	parts := strings.FieldsFunc(strings.ToLower(value), func(r rune) bool {
+		return r == '_' || r == ':' || r == '-'
+	})
+	for idx, part := range parts {
+		if part == "" {
+			continue
+		}
+		parts[idx] = strings.ToUpper(part[:1]) + part[1:]
+	}
+	if len(parts) == 0 {
+		return value
+	}
+	return strings.Join(parts, " ")
 }
 
 func IsAlertDestructive(class string) bool {

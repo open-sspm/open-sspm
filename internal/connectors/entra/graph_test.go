@@ -252,6 +252,61 @@ func TestListDirectoryAudits(t *testing.T) {
 	}
 }
 
+func TestListOAuth2PermissionGrants(t *testing.T) {
+	t.Parallel()
+
+	var sawUnsupportedSelect bool
+	var grantRequests int
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/oauth2/v2.0/token"):
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"tkn","expires_in":3600,"token_type":"Bearer"}`))
+			return
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/oauth2PermissionGrants"):
+			grantRequests++
+			if strings.Contains(r.URL.Query().Get("$select"), "createdDateTime") {
+				sawUnsupportedSelect = true
+				http.Error(w, "unsupported select field", http.StatusBadRequest)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"value":[{"id":"grant-1","clientId":"sp-1","consentType":"Principal","principalId":"user-1","resourceId":"api-1","scope":"User.Read Files.Read"}]}`))
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	c, err := NewWithOptions("tenant", "client", "secret", Options{
+		AuthorityBaseURL: srv.URL,
+		GraphBaseURL:     srv.URL + "/graph/v1.0",
+	})
+	if err != nil {
+		t.Fatalf("NewWithOptions: %v", err)
+	}
+
+	grants, err := c.ListOAuth2PermissionGrants(context.Background())
+	if err != nil {
+		t.Fatalf("ListOAuth2PermissionGrants: %v", err)
+	}
+	if len(grants) != 1 {
+		t.Fatalf("len(grants)=%d want 1", len(grants))
+	}
+	if grants[0].ID != "grant-1" {
+		t.Fatalf("unexpected grant id %q", grants[0].ID)
+	}
+	if sawUnsupportedSelect {
+		t.Fatalf("request included unsupported createdDateTime select field")
+	}
+	if grantRequests != 1 {
+		t.Fatalf("grantRequests=%d want 1", grantRequests)
+	}
+}
+
 func TestGraphURL(t *testing.T) {
 	t.Parallel()
 

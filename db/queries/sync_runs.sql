@@ -38,6 +38,25 @@ FROM ranked
 WHERE rn <= sqlc.arg(limit_rows)::int
 ORDER BY source_kind, source_name, finished_at DESC;
 
+-- name: ListLatestSuccessfulSyncFinishedAtForSources :many
+WITH requested AS (
+  SELECT k.kind AS source_kind, n.name AS source_name
+  FROM unnest(sqlc.arg(source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest(sqlc.arg(source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+)
+SELECT
+  q.source_kind::text AS source_kind,
+  q.source_name::text AS source_name,
+  max(r.finished_at)::timestamptz AS last_success_at
+FROM requested q
+LEFT JOIN sync_runs r
+  ON r.source_kind = q.source_kind
+ AND r.source_name = q.source_name
+ AND r.status = 'success'
+ AND r.finished_at IS NOT NULL
+GROUP BY q.source_kind, q.source_name
+ORDER BY q.source_kind, q.source_name;
+
 -- name: GetSyncRunRollupsForSources :many
 WITH requested AS (
   SELECT k.kind AS source_kind, n.name AS source_name

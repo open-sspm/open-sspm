@@ -289,7 +289,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, deps registry.IntegrationD
 		}
 	}
 
-	if err := registry.FinalizeAppRun(ctx, deps, runID, "datadog", i.site, time.Since(started)); err != nil {
+	if err := registry.FinalizeAppRun(ctx, deps, runID, "datadog", i.site, time.Since(started), false); err != nil {
 		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		return err
 	}

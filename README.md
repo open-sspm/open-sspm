@@ -12,6 +12,7 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 - HTTP server (`open-sspm serve`) + background sync worker (`open-sspm worker`) + one-off sync (`open-sspm sync`) + in-app “Resync”.
 - Okta: users, groups, apps, and assignments (IdP source).
 - Microsoft Entra ID: users plus application/service principal governance metadata.
+- SaaS Discovery: discovered app inventory + hotspots from IdP SSO and OAuth grant evidence (Okta System Log + Entra sign-ins/grants), with governance and binding workflows.
 - GitHub: org members/teams/repo permissions (optional SCIM lookup for emails).
 - Datadog: users + role assignments.
 - AWS Identity Center: users + account/permission set assignments.
@@ -34,6 +35,7 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 5. Run the server: `just run`
 6. Optional: run the background sync worker: `just worker`
 7. Open `http://localhost:8080`, configure connectors under Settings → Connectors, then run a sync (Settings → Resync, or `just sync`).
+8. Optional: enable SaaS discovery on Okta/Entra connector settings, run sync, then review `http://localhost:8080/discovery/apps` and `http://localhost:8080/discovery/hotspots`.
 
 ## Findings / rules (Okta benchmark)
 Rulesets are loaded from generated Open SSPM spec Go entities (`github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v2`) and must be seeded into Postgres before they show up in the UI:
@@ -53,10 +55,18 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 - Process-level env vars: `.env.example` (database, HTTP address, sync interval/workers).
 - Connector credentials: configured in-app under Settings → Connectors and stored in Postgres.
 - AWS Identity Center uses the AWS SDK default credentials chain (env/shared config/role), not DB-stored keys.
+- SaaS discovery is per-connector (`discovery_enabled`) for Okta and Entra.
+  - Okta discovery uses System Log access.
+  - Entra discovery uses sign-in and OAuth grant APIs (`AuditLog.Read.All`, `Directory.Read.All`, `DelegatedPermissionGrant.Read.All`).
 
 ## Metrics
 - Metrics are served on a dedicated listener (`METRICS_ADDR`) and are best-effort.
 - Metrics collection failures after successful syncs are tracked in `opensspm_sync_metrics_collection_failures_total`.
+- Discovery metrics include:
+  - `opensspm_discovery_events_ingested_total`
+  - `opensspm_discovery_ingest_failures_total`
+  - `opensspm_discovery_apps_total`
+  - `opensspm_discovery_hotspots_total`
 
 ## Security notes
 - Open-SSPM includes in-app authentication (email/password) using server-side sessions stored in Postgres.

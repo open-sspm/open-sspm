@@ -10,28 +10,33 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/discovery"
 	"github.com/open-sspm/open-sspm/internal/matching"
+	"github.com/open-sspm/open-sspm/internal/metrics"
 	"github.com/open-sspm/open-sspm/internal/rules/datasets"
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
 )
 
 type OktaIntegration struct {
-	client     *Client
-	sourceName string
-	workers    int
-	lastRunID  int64
+	client           *Client
+	sourceName       string
+	workers          int
+	discoveryEnabled bool
+	lastRunID        int64
 }
 
-func NewOktaIntegration(client *Client, sourceName string, workers int) *OktaIntegration {
+func NewOktaIntegration(client *Client, sourceName string, workers int, discoveryEnabled bool) *OktaIntegration {
 	if workers < 1 {
 		workers = 3
 	}
 	return &OktaIntegration{
-		client:     client,
-		sourceName: strings.TrimSpace(sourceName),
-		workers:    workers,
+		client:           client,
+		sourceName:       strings.TrimSpace(sourceName),
+		workers:          workers,
+		discoveryEnabled: discoveryEnabled,
 	}
 }
 
@@ -48,6 +53,9 @@ func (i *OktaIntegration) InitEvents() []registry.Event {
 		{Source: "okta", Stage: "sync-groups", Current: 0, Total: registry.UnknownTotal, Message: "syncing groups"},
 		{Source: "okta", Stage: "sync-app-assignments", Current: 0, Total: registry.UnknownTotal, Message: "syncing app assignments"},
 		{Source: "okta", Stage: "sync-app-group-assignments", Current: 0, Total: registry.UnknownTotal, Message: "syncing app group assignments"},
+		{Source: "okta", Stage: "list-discovery-events", Current: 0, Total: 1, Message: "listing discovery events"},
+		{Source: "okta", Stage: "normalize-discovery", Current: 0, Total: 1, Message: "normalizing discovery events"},
+		{Source: "okta", Stage: "write-discovery", Current: 0, Total: registry.UnknownTotal, Message: "writing discovery data"},
 		{Source: "okta", Stage: "evaluate-rules", Current: 0, Total: 1, Message: "evaluating rulesets"},
 	}
 }
@@ -98,7 +106,15 @@ func (i *OktaIntegration) Run(ctx context.Context, deps registry.IntegrationDeps
 		return err
 	}
 
-	if err := registry.FinalizeOktaRun(ctx, deps, runID, time.Since(started)); err != nil {
+	if i.discoveryEnabled {
+		if err := i.syncDiscovery(ctx, deps, runID); err != nil {
+			deps.Report(registry.Event{Source: "okta", Stage: "write-discovery", Message: err.Error(), Err: err})
+			registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindUnknown)
+			return err
+		}
+	}
+
+	if err := registry.FinalizeOktaRun(ctx, deps, runID, i.sourceName, time.Since(started), i.discoveryEnabled); err != nil {
 		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		return err
 	}
@@ -662,4 +678,425 @@ func (i *OktaIntegration) syncOktaAppGroupAssignments(ctx context.Context, deps 
 	wg.Wait()
 
 	return firstErr
+}
+
+type normalizedDiscoverySource struct {
+	CanonicalKey    string
+	SourceAppID     string
+	SourceAppName   string
+	SourceAppDomain string
+	SeenAt          time.Time
+}
+
+type normalizedDiscoveryEvent struct {
+	CanonicalKey     string
+	SignalKind       string
+	EventExternalID  string
+	SourceAppID      string
+	SourceAppName    string
+	SourceAppDomain  string
+	ActorExternalID  string
+	ActorEmail       string
+	ActorDisplayName string
+	ObservedAt       time.Time
+	Scopes           []string
+	RawJSON          []byte
+}
+
+func (i *OktaIntegration) syncDiscovery(ctx context.Context, deps registry.IntegrationDeps, runID int64) error {
+	deps.Report(registry.Event{Source: "okta", Stage: "list-discovery-events", Current: 0, Total: 1, Message: "listing discovery events"})
+
+	now := time.Now().UTC()
+	since := now.Add(-7 * 24 * time.Hour)
+	latestObservedAt, err := deps.Q.GetLatestSaaSDiscoveryObservedAtBySource(ctx, gen.GetLatestSaaSDiscoveryObservedAtBySourceParams{
+		SourceKind: "okta",
+		SourceName: i.sourceName,
+	})
+	if err != nil {
+		metrics.DiscoveryIngestFailuresTotal.WithLabelValues("okta", "idp_sso", "watermark_query_error").Inc()
+		return fmt.Errorf("query latest discovery watermark: %w", err)
+	}
+	if latestObservedAt.Valid {
+		candidate := latestObservedAt.Time.UTC().Add(-15 * time.Minute)
+		if candidate.After(since) {
+			since = candidate
+		}
+	}
+
+	events, err := i.client.ListSystemLogEventsSince(ctx, since)
+	if err != nil {
+		metrics.DiscoveryIngestFailuresTotal.WithLabelValues("okta", "idp_sso", "api_error").Inc()
+		return fmt.Errorf("okta list system log events: %w", err)
+	}
+	deps.Report(registry.Event{
+		Source:  "okta",
+		Stage:   "list-discovery-events",
+		Current: 1,
+		Total:   1,
+		Message: fmt.Sprintf("found %d events since %s", len(events), since.Format(time.RFC3339)),
+	})
+
+	deps.Report(registry.Event{Source: "okta", Stage: "normalize-discovery", Current: 0, Total: 1, Message: "normalizing discovery events"})
+	sources, normalizedEvents := normalizeOktaDiscovery(events, i.sourceName, now)
+	deps.Report(registry.Event{
+		Source:  "okta",
+		Stage:   "normalize-discovery",
+		Current: 1,
+		Total:   1,
+		Message: fmt.Sprintf("normalized %d source rows and %d events", len(sources), len(normalizedEvents)),
+	})
+
+	if err := i.writeDiscoveryRows(ctx, deps, runID, sources, normalizedEvents); err != nil {
+		metrics.DiscoveryIngestFailuresTotal.WithLabelValues("okta", "idp_sso", "db_error").Inc()
+		return err
+	}
+	if err := i.seedOktaAutoBindings(ctx, deps); err != nil {
+		return err
+	}
+	return nil
+}
+
+func normalizeOktaDiscovery(events []SystemLogEvent, sourceName string, now time.Time) ([]normalizedDiscoverySource, []normalizedDiscoveryEvent) {
+	sourceByID := make(map[string]normalizedDiscoverySource, len(events))
+	normalizedEvents := make([]normalizedDiscoveryEvent, 0, len(events))
+
+	for _, event := range events {
+		sourceAppID := strings.TrimSpace(event.AppID)
+		if sourceAppID == "" {
+			sourceAppID = strings.TrimSpace(event.AppName)
+		}
+		if sourceAppID == "" {
+			continue
+		}
+
+		sourceAppName := strings.TrimSpace(event.AppName)
+		if sourceAppName == "" {
+			sourceAppName = sourceAppID
+		}
+		sourceAppDomain := strings.TrimSpace(event.AppDomain)
+		signalKind := oktaDiscoverySignalKind(event.EventType, sourceAppID != "")
+		if signalKind == "" {
+			continue
+		}
+
+		observedAt := event.Published.UTC()
+		if observedAt.IsZero() {
+			observedAt = now
+		}
+
+		metadata := discovery.BuildMetadata(discovery.CanonicalInput{
+			SourceKind:    "okta",
+			SourceName:    sourceName,
+			SourceAppID:   sourceAppID,
+			SourceAppName: sourceAppName,
+			SourceDomain:  sourceAppDomain,
+		})
+
+		current := sourceByID[sourceAppID]
+		if current.SourceAppID == "" || observedAt.After(current.SeenAt) {
+			sourceByID[sourceAppID] = normalizedDiscoverySource{
+				CanonicalKey:    metadata.CanonicalKey,
+				SourceAppID:     sourceAppID,
+				SourceAppName:   sourceAppName,
+				SourceAppDomain: metadata.Domain,
+				SeenAt:          observedAt,
+			}
+		}
+
+		normalizedEvents = append(normalizedEvents, normalizedDiscoveryEvent{
+			CanonicalKey:     metadata.CanonicalKey,
+			SignalKind:       signalKind,
+			EventExternalID:  strings.TrimSpace(event.ID),
+			SourceAppID:      sourceAppID,
+			SourceAppName:    sourceAppName,
+			SourceAppDomain:  metadata.Domain,
+			ActorExternalID:  strings.TrimSpace(event.ActorID),
+			ActorEmail:       strings.ToLower(strings.TrimSpace(event.ActorEmail)),
+			ActorDisplayName: strings.TrimSpace(event.ActorName),
+			ObservedAt:       observedAt,
+			Scopes:           discovery.NormalizeScopes(event.GrantedScopes),
+			RawJSON:          registry.NormalizeJSON(event.RawJSON),
+		})
+	}
+
+	sourceRows := make([]normalizedDiscoverySource, 0, len(sourceByID))
+	for _, sourceRow := range sourceByID {
+		sourceRows = append(sourceRows, sourceRow)
+	}
+	return sourceRows, normalizedEvents
+}
+
+func oktaDiscoverySignalKind(eventType string, hasApp bool) string {
+	eventType = strings.ToLower(strings.TrimSpace(eventType))
+	if eventType == "" {
+		if hasApp {
+			return discovery.SignalKindIDPSSO
+		}
+		return ""
+	}
+	if strings.Contains(eventType, "oauth") ||
+		strings.Contains(eventType, "grant") ||
+		strings.Contains(eventType, "consent") {
+		return discovery.SignalKindOAuth
+	}
+	if hasApp {
+		return discovery.SignalKindIDPSSO
+	}
+	return ""
+}
+
+func (i *OktaIntegration) writeDiscoveryRows(ctx context.Context, deps registry.IntegrationDeps, runID int64, sources []normalizedDiscoverySource, events []normalizedDiscoveryEvent) error {
+	total := len(sources) + len(events)
+	deps.Report(registry.Event{
+		Source:  "okta",
+		Stage:   "write-discovery",
+		Current: 0,
+		Total:   int64(total),
+		Message: fmt.Sprintf("writing %d discovery records", total),
+	})
+
+	appMeta := map[string]discovery.AppMetadata{}
+	firstSeenByKey := map[string]time.Time{}
+	lastSeenByKey := map[string]time.Time{}
+	addMeta := func(key string, seenAt time.Time, sample discovery.AppMetadata) {
+		if key == "" {
+			return
+		}
+		if _, ok := appMeta[key]; !ok {
+			appMeta[key] = sample
+			firstSeenByKey[key] = seenAt
+			lastSeenByKey[key] = seenAt
+			return
+		}
+		if seenAt.Before(firstSeenByKey[key]) {
+			firstSeenByKey[key] = seenAt
+		}
+		if seenAt.After(lastSeenByKey[key]) {
+			lastSeenByKey[key] = seenAt
+		}
+	}
+
+	for _, source := range sources {
+		meta := discovery.BuildMetadata(discovery.CanonicalInput{
+			SourceKind:    "okta",
+			SourceName:    i.sourceName,
+			SourceAppID:   source.SourceAppID,
+			SourceAppName: source.SourceAppName,
+			SourceDomain:  source.SourceAppDomain,
+		})
+		meta.CanonicalKey = source.CanonicalKey
+		addMeta(source.CanonicalKey, source.SeenAt, meta)
+	}
+	for _, event := range events {
+		meta := discovery.BuildMetadata(discovery.CanonicalInput{
+			SourceKind:    "okta",
+			SourceName:    i.sourceName,
+			SourceAppID:   event.SourceAppID,
+			SourceAppName: event.SourceAppName,
+			SourceDomain:  event.SourceAppDomain,
+		})
+		meta.CanonicalKey = event.CanonicalKey
+		addMeta(event.CanonicalKey, event.ObservedAt, meta)
+	}
+
+	if len(appMeta) > 0 {
+		canonicalKeys := make([]string, 0, len(appMeta))
+		displayNames := make([]string, 0, len(appMeta))
+		primaryDomains := make([]string, 0, len(appMeta))
+		vendorNames := make([]string, 0, len(appMeta))
+		firstSeenAts := make([]pgtype.Timestamptz, 0, len(appMeta))
+		lastSeenAts := make([]pgtype.Timestamptz, 0, len(appMeta))
+
+		for key, meta := range appMeta {
+			canonicalKeys = append(canonicalKeys, key)
+			displayNames = append(displayNames, meta.DisplayName)
+			primaryDomains = append(primaryDomains, meta.Domain)
+			vendorNames = append(vendorNames, meta.VendorName)
+			firstSeenAt := firstSeenByKey[key]
+			lastSeenAt := lastSeenByKey[key]
+			firstSeenAts = append(firstSeenAts, registry.PgTimestamptzPtr(&firstSeenAt))
+			lastSeenAts = append(lastSeenAts, registry.PgTimestamptzPtr(&lastSeenAt))
+		}
+
+		if _, err := deps.Q.UpsertSaaSAppsBulk(ctx, gen.UpsertSaaSAppsBulkParams{
+			CanonicalKeys:  canonicalKeys,
+			DisplayNames:   displayNames,
+			PrimaryDomains: primaryDomains,
+			VendorNames:    vendorNames,
+			FirstSeenAts:   firstSeenAts,
+			LastSeenAts:    lastSeenAts,
+		}); err != nil {
+			return fmt.Errorf("upsert saas apps: %w", err)
+		}
+	}
+
+	written := 0
+	if len(sources) > 0 {
+		canonicalKeys := make([]string, 0, len(sources))
+		sourceAppIDs := make([]string, 0, len(sources))
+		sourceAppNames := make([]string, 0, len(sources))
+		sourceAppDomains := make([]string, 0, len(sources))
+		seenAts := make([]pgtype.Timestamptz, 0, len(sources))
+		for _, source := range sources {
+			canonicalKeys = append(canonicalKeys, source.CanonicalKey)
+			sourceAppIDs = append(sourceAppIDs, source.SourceAppID)
+			sourceAppNames = append(sourceAppNames, source.SourceAppName)
+			sourceAppDomains = append(sourceAppDomains, source.SourceAppDomain)
+			seenAts = append(seenAts, registry.PgTimestamptzPtr(&source.SeenAt))
+		}
+		if _, err := deps.Q.UpsertSaaSAppSourcesBulkBySource(ctx, gen.UpsertSaaSAppSourcesBulkBySourceParams{
+			SourceKind:       "okta",
+			SourceName:       i.sourceName,
+			SeenInRunID:      runID,
+			CanonicalKeys:    canonicalKeys,
+			SourceAppIds:     sourceAppIDs,
+			SourceAppNames:   sourceAppNames,
+			SourceAppDomains: sourceAppDomains,
+			SeenAts:          seenAts,
+		}); err != nil {
+			return fmt.Errorf("upsert saas app sources: %w", err)
+		}
+		written += len(sources)
+		deps.Report(registry.Event{
+			Source:  "okta",
+			Stage:   "write-discovery",
+			Current: int64(written),
+			Total:   int64(total),
+			Message: fmt.Sprintf("sources %d/%d", written, total),
+		})
+	}
+
+	if len(events) > 0 {
+		canonicalKeys := make([]string, 0, len(events))
+		signalKinds := make([]string, 0, len(events))
+		eventExternalIDs := make([]string, 0, len(events))
+		sourceAppIDs := make([]string, 0, len(events))
+		sourceAppNames := make([]string, 0, len(events))
+		sourceAppDomains := make([]string, 0, len(events))
+		actorExternalIDs := make([]string, 0, len(events))
+		actorEmails := make([]string, 0, len(events))
+		actorDisplayNames := make([]string, 0, len(events))
+		observedAts := make([]pgtype.Timestamptz, 0, len(events))
+		scopesJSONs := make([][]byte, 0, len(events))
+		rawJSONs := make([][]byte, 0, len(events))
+		ingestedBySignal := map[string]int{}
+		for _, event := range events {
+			canonicalKeys = append(canonicalKeys, event.CanonicalKey)
+			signalKinds = append(signalKinds, event.SignalKind)
+			eventExternalIDs = append(eventExternalIDs, event.EventExternalID)
+			sourceAppIDs = append(sourceAppIDs, event.SourceAppID)
+			sourceAppNames = append(sourceAppNames, event.SourceAppName)
+			sourceAppDomains = append(sourceAppDomains, event.SourceAppDomain)
+			actorExternalIDs = append(actorExternalIDs, event.ActorExternalID)
+			actorEmails = append(actorEmails, event.ActorEmail)
+			actorDisplayNames = append(actorDisplayNames, event.ActorDisplayName)
+			observedAts = append(observedAts, registry.PgTimestamptzPtr(&event.ObservedAt))
+			scopesJSONs = append(scopesJSONs, discovery.ScopesJSON(event.Scopes))
+			rawJSONs = append(rawJSONs, registry.NormalizeJSON(event.RawJSON))
+			ingestedBySignal[event.SignalKind]++
+		}
+		if _, err := deps.Q.UpsertSaaSAppEventsBulkBySource(ctx, gen.UpsertSaaSAppEventsBulkBySourceParams{
+			SourceKind:        "okta",
+			SourceName:        i.sourceName,
+			SeenInRunID:       runID,
+			CanonicalKeys:     canonicalKeys,
+			SignalKinds:       signalKinds,
+			EventExternalIds:  eventExternalIDs,
+			SourceAppIds:      sourceAppIDs,
+			SourceAppNames:    sourceAppNames,
+			SourceAppDomains:  sourceAppDomains,
+			ActorExternalIds:  actorExternalIDs,
+			ActorEmails:       actorEmails,
+			ActorDisplayNames: actorDisplayNames,
+			ObservedAts:       observedAts,
+			ScopesJsons:       scopesJSONs,
+			RawJsons:          rawJSONs,
+		}); err != nil {
+			return fmt.Errorf("upsert saas app events: %w", err)
+		}
+		for signalKind, count := range ingestedBySignal {
+			metrics.DiscoveryEventsIngestedTotal.WithLabelValues("okta", signalKind).Add(float64(count))
+		}
+		written += len(events)
+		deps.Report(registry.Event{
+			Source:  "okta",
+			Stage:   "write-discovery",
+			Current: int64(written),
+			Total:   int64(total),
+			Message: fmt.Sprintf("events %d/%d", written, total),
+		})
+	}
+
+	if written == 0 {
+		deps.Report(registry.Event{
+			Source:  "okta",
+			Stage:   "write-discovery",
+			Current: 0,
+			Total:   0,
+			Message: "no discovery records to write",
+		})
+	}
+	return nil
+}
+
+func (i *OktaIntegration) seedOktaAutoBindings(ctx context.Context, deps registry.IntegrationDeps) error {
+	rows, err := deps.Q.ListMappedOktaDiscoveryAppsBySource(ctx, i.sourceName)
+	if err != nil {
+		return fmt.Errorf("list okta discovery auto-bind candidates: %w", err)
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+
+	connectorSourceByKind := map[string]string{}
+
+	githubConfigRow, err := deps.Q.GetConnectorConfig(ctx, configstore.KindGitHub)
+	if err == nil && githubConfigRow.Enabled {
+		githubCfg, decodeErr := configstore.DecodeGitHubConfig(githubConfigRow.Config)
+		if decodeErr == nil {
+			githubCfg = githubCfg.Normalized()
+			if githubCfg.Validate() == nil && strings.TrimSpace(githubCfg.Org) != "" {
+				connectorSourceByKind[configstore.KindGitHub] = githubCfg.Org
+			}
+		}
+	}
+
+	datadogConfigRow, err := deps.Q.GetConnectorConfig(ctx, configstore.KindDatadog)
+	if err == nil && datadogConfigRow.Enabled {
+		datadogCfg, decodeErr := configstore.DecodeDatadogConfig(datadogConfigRow.Config)
+		if decodeErr == nil {
+			datadogCfg = datadogCfg.Normalized()
+			if datadogCfg.Validate() == nil && strings.TrimSpace(datadogCfg.Site) != "" {
+				connectorSourceByKind[configstore.KindDatadog] = datadogCfg.Site
+			}
+		}
+	}
+
+	boundCount := 0
+	for _, row := range rows {
+		connectorKind := strings.ToLower(strings.TrimSpace(row.IntegrationKind))
+		connectorSource := strings.TrimSpace(connectorSourceByKind[connectorKind])
+		if connectorSource == "" {
+			continue
+		}
+		if err := deps.Q.UpsertSaaSAppBinding(ctx, gen.UpsertSaaSAppBindingParams{
+			SaasAppID:           row.SaasAppID,
+			ConnectorKind:       connectorKind,
+			ConnectorSourceName: connectorSource,
+			BindingSource:       "auto",
+			Confidence:          0.8,
+			IsPrimary:           false,
+			CreatedByAuthUserID: pgtype.Int8{},
+		}); err != nil {
+			return fmt.Errorf("upsert okta auto binding for app %d: %w", row.SaasAppID, err)
+		}
+		boundCount++
+	}
+
+	if boundCount > 0 {
+		if _, err := deps.Q.RecomputePrimarySaaSAppBindingsForAll(ctx); err != nil {
+			return fmt.Errorf("recompute primary bindings: %w", err)
+		}
+	}
+	return nil
 }

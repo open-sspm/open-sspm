@@ -69,7 +69,7 @@ func (d *Definition) NewIntegration(cfg any) (registry.Integration, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewEntraIntegration(client, c.TenantID), nil
+	return NewEntraIntegration(client, c.TenantID, c.DiscoveryEnabled), nil
 }
 
 type entraMetrics struct{}

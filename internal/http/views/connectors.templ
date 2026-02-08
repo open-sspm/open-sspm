@@ -45,6 +45,15 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 					<p class="text-xs text-muted-foreground">Current: { data.Okta.TokenMasked }</p>
 				}
 			</label>
+			<label class="field">
+				<span class="label">SaaS discovery</span>
+				<div class="flex items-center gap-3">
+					<input type="checkbox" role="switch" aria-label="Okta SaaS discovery" name="discovery_enabled" value="true" checked?={ data.Okta.DiscoveryEnabled } class="input"/>
+					<input type="hidden" name="discovery_enabled" value="false"/>
+					<span class="text-sm text-muted-foreground">Ingest Okta System Log SSO and OAuth grant signals for discovery.</span>
+				</div>
+				<p class="text-xs text-muted-foreground">Requires API token permissions for System Log access.</p>
+			</label>
 		}
 
 		@FormDialog("connector-entra-modal", data.OpenKind == "entra", "Microsoft Entra ID configuration", "Users and access via Microsoft Graph.", "/settings/connectors#connector-entra-configure", "/settings/connectors/entra", "Save", data.Layout.CSRFToken) {
@@ -63,6 +72,15 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 					<p class="text-xs text-muted-foreground">Current: { data.Entra.ClientSecretMasked }</p>
 				}
 				<p class="text-xs text-muted-foreground">Requires Graph application permissions: User.Read.All, Group.Read.All, Application.Read.All, AppRoleAssignment.Read.All, RoleManagement.Read.Directory.</p>
+			</label>
+			<label class="field">
+				<span class="label">SaaS discovery</span>
+				<div class="flex items-center gap-3">
+					<input type="checkbox" role="switch" aria-label="Entra SaaS discovery" name="discovery_enabled" value="true" checked?={ data.Entra.DiscoveryEnabled } class="input"/>
+					<input type="hidden" name="discovery_enabled" value="false"/>
+					<span class="text-sm text-muted-foreground">Collect sign-in and OAuth grant evidence for discovery inventory.</span>
+				</div>
+				<p class="text-xs text-muted-foreground">Requires Graph permissions: AuditLog.Read.All, Directory.Read.All, DelegatedPermissionGrant.Read.All.</p>
 			</label>
 		}
 
@@ -213,6 +231,13 @@ templ OktaConnectorCard(data viewmodels.ConnectorsViewData) {
 				<a id="connector-okta-configure" href="/settings/connectors?open=okta" class="btn-sm-outline">Configure</a>
 			</div>
 			<p>Identity provider source for users and groups.</p>
+			<div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+				if data.Okta.DiscoveryEnabled {
+					<span class="badge-outline">Discovery enabled</span>
+				} else {
+					<span class="badge-outline">Discovery disabled</span>
+				}
+			</div>
 			<div class="mt-3 flex items-center justify-between rounded-md border border-border/60 px-3 py-2 text-xs text-muted-foreground">
 				<span>Authoritative IdP</span>
 				<form method="post" action="/settings/connectors/okta/authoritative" hx-post="/settings/connectors/okta/authoritative" hx-target="closest article" hx-swap="outerHTML" hx-disabled-elt="closest article">
@@ -247,6 +272,13 @@ templ EntraConnectorCard(data viewmodels.ConnectorsViewData) {
 				<a id="connector-entra-configure" href="/settings/connectors?open=entra" class="btn-sm-outline">Configure</a>
 			</div>
 			<p>Users and access via Microsoft Graph.</p>
+			<div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+				if data.Entra.DiscoveryEnabled {
+					<span class="badge-outline">Discovery enabled</span>
+				} else {
+					<span class="badge-outline">Discovery disabled</span>
+				}
+			</div>
 			if data.Entra.HasProgrammaticSummary {
 				<div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
 					<a class="badge-outline" href={ AppAssetsListURL("entra", data.Entra.TenantID, "", "", 1) }>{ FormatInt64(data.Entra.ProgrammaticAssets) }{ " app assets" }</a>

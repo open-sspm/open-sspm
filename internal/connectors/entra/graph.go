@@ -149,6 +149,29 @@ type DirectoryAuditEvent struct {
 	RawJSON             []byte                         `json:"-"`
 }
 
+type SignInEvent struct {
+	ID                 string `json:"id"`
+	CreatedDateTimeRaw string `json:"createdDateTime"`
+	AppID              string `json:"appId"`
+	AppDisplayName     string `json:"appDisplayName"`
+	ResourceDisplayName string `json:"resourceDisplayName"`
+	UserID             string `json:"userId"`
+	UserDisplayName    string `json:"userDisplayName"`
+	UserPrincipalName  string `json:"userPrincipalName"`
+	RawJSON            []byte `json:"-"`
+}
+
+type OAuth2PermissionGrant struct {
+	ID                 string `json:"id"`
+	ClientID           string `json:"clientId"`
+	ConsentType        string `json:"consentType"`
+	PrincipalID        string `json:"principalId"`
+	ResourceID         string `json:"resourceId"`
+	Scope              string `json:"scope"`
+	CreatedDateTimeRaw string `json:"createdDateTime"`
+	RawJSON            []byte `json:"-"`
+}
+
 func New(tenantID, clientID, clientSecret string) (*Client, error) {
 	return NewWithOptions(tenantID, clientID, clientSecret, Options{})
 }
@@ -328,6 +351,64 @@ func (c *Client) ListDirectoryAudits(ctx context.Context, since *time.Time) ([]D
 		}
 		event.RawJSON = raw
 		out = append(out, event)
+	}
+	return out, nil
+}
+
+func (c *Client) ListSignIns(ctx context.Context, since *time.Time) ([]SignInEvent, error) {
+	query := url.Values{
+		"$select":  []string{"id,createdDateTime,appId,appDisplayName,resourceDisplayName,userId,userDisplayName,userPrincipalName"},
+		"$orderby": []string{"createdDateTime desc"},
+		"$top":     []string{"999"},
+	}
+	if since != nil && !since.IsZero() {
+		query.Set("$filter", "createdDateTime ge "+since.UTC().Format(time.RFC3339))
+	}
+
+	endpoint, err := c.graphURL("/auditLogs/signIns", query)
+	if err != nil {
+		return nil, err
+	}
+
+	rawItems, err := c.listPagedRaw(ctx, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]SignInEvent, 0, len(rawItems))
+	for _, raw := range rawItems {
+		var event SignInEvent
+		if err := json.Unmarshal(raw, &event); err != nil {
+			return nil, err
+		}
+		event.RawJSON = raw
+		out = append(out, event)
+	}
+	return out, nil
+}
+
+func (c *Client) ListOAuth2PermissionGrants(ctx context.Context) ([]OAuth2PermissionGrant, error) {
+	endpoint, err := c.graphURL("/oauth2PermissionGrants", url.Values{
+		"$select": []string{"id,clientId,consentType,principalId,resourceId,scope"},
+		"$top":    []string{"999"},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	rawItems, err := c.listPagedRaw(ctx, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]OAuth2PermissionGrant, 0, len(rawItems))
+	for _, raw := range rawItems {
+		var grant OAuth2PermissionGrant
+		if err := json.Unmarshal(raw, &grant); err != nil {
+			return nil, err
+		}
+		grant.RawJSON = raw
+		out = append(out, grant)
 	}
 	return out, nil
 }

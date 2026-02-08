@@ -75,7 +75,7 @@ func (d *Definition) NewIntegration(cfg any) (registry.Integration, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewOktaIntegration(client, c.Domain, d.workers), nil
+	return NewOktaIntegration(client, c.Domain, d.workers, c.DiscoveryEnabled), nil
 }
 
 type oktaMetrics struct{}

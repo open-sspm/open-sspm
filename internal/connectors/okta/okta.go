@@ -70,6 +70,20 @@ type AppGroupAssignment struct {
 	RawJSON     []byte
 }
 
+type SystemLogEvent struct {
+	ID            string
+	EventType     string
+	Published     time.Time
+	AppID         string
+	AppName       string
+	AppDomain     string
+	ActorID       string
+	ActorEmail    string
+	ActorName     string
+	GrantedScopes []string
+	RawJSON       []byte
+}
+
 // New creates a new Okta client. It validates that both baseURL and token are
 // provided and returns an error if the SDK configuration fails.
 func New(baseURL, token string) (*Client, error) {
@@ -143,6 +157,48 @@ func (c *Client) GetLastLogin(ctx context.Context, userID string) (LastLogin, er
 	}
 
 	return LastLogin{At: at, IP: ip, Region: region}, nil
+}
+
+func (c *Client) ListSystemLogEventsSince(ctx context.Context, since time.Time) ([]SystemLogEvent, error) {
+	if err := c.ensureClient(); err != nil {
+		return nil, err
+	}
+
+	since = since.UTC()
+	req := c.api.SystemLogAPI.ListLogEvents(ctx).
+		Since(since.Format(time.RFC3339)).
+		SortOrder("ASCENDING").
+		Limit(1000)
+
+	events, resp, err := req.Execute()
+	if err != nil {
+		return nil, formatOktaError(err, resp)
+	}
+
+	out := make([]SystemLogEvent, 0, len(events))
+	for {
+		for _, event := range events {
+			mapped, mapErr := mapSystemLogEvent(event)
+			if mapErr != nil {
+				return nil, mapErr
+			}
+			if mapped.ID == "" {
+				continue
+			}
+			out = append(out, mapped)
+		}
+		if resp == nil || !resp.HasNextPage() {
+			break
+		}
+		var next []sdk.LogEvent
+		resp, err = resp.Next(&next)
+		if err != nil {
+			return nil, formatOktaError(err, resp)
+		}
+		events = next
+	}
+
+	return out, nil
 }
 
 func formatOktaRegion(geo sdk.LogGeographicalContext) string {
@@ -434,6 +490,136 @@ func (c *Client) ListApplicationGroupAssignments(ctx context.Context, appID stri
 		assignments = next
 	}
 	return out, nil
+}
+
+func mapSystemLogEvent(event sdk.LogEvent) (SystemLogEvent, error) {
+	raw, err := json.Marshal(event)
+	if err != nil {
+		return SystemLogEvent{}, err
+	}
+
+	published := time.Time{}
+	if event.Published != nil {
+		published = event.Published.UTC()
+	}
+	eventType := strings.TrimSpace(event.GetEventType())
+	eventID := strings.TrimSpace(event.GetUuid())
+
+	actor := event.GetActor()
+	actorID := strings.TrimSpace(actor.GetId())
+	actorEmail := strings.TrimSpace(actor.GetAlternateId())
+	actorName := strings.TrimSpace(actor.GetDisplayName())
+
+	var appID string
+	var appName string
+	var appDomain string
+	for _, target := range event.Target {
+		targetType := strings.ToLower(strings.TrimSpace(target.GetType()))
+		if !strings.Contains(targetType, "app") {
+			continue
+		}
+		if appID == "" {
+			appID = strings.TrimSpace(target.GetId())
+		}
+		if appName == "" {
+			appName = strings.TrimSpace(target.GetDisplayName())
+		}
+		if appDomain == "" {
+			appDomain = strings.TrimSpace(target.GetAlternateId())
+		}
+		if details := target.GetDetailEntry(); details != nil {
+			if appID == "" {
+				appID = strings.TrimSpace(getStringValue(details["appId"]))
+			}
+			if appName == "" {
+				appName = strings.TrimSpace(getStringValue(details["appName"]))
+			}
+			if appDomain == "" {
+				appDomain = strings.TrimSpace(getStringValue(details["domain"]))
+			}
+		}
+	}
+
+	debugContext := event.GetDebugContext()
+	scopes := extractSystemLogScopes(debugContext.GetDebugData())
+
+	if eventID == "" {
+		eventID = strings.TrimSpace(eventType + ":" + published.Format(time.RFC3339Nano) + ":" + appID + ":" + actorID)
+	}
+
+	return SystemLogEvent{
+		ID:            eventID,
+		EventType:     eventType,
+		Published:     published,
+		AppID:         appID,
+		AppName:       appName,
+		AppDomain:     appDomain,
+		ActorID:       actorID,
+		ActorEmail:    actorEmail,
+		ActorName:     actorName,
+		GrantedScopes: scopes,
+		RawJSON:       raw,
+	}, nil
+}
+
+func extractSystemLogScopes(debugData map[string]interface{}) []string {
+	if len(debugData) == 0 {
+		return nil
+	}
+	candidates := make([]string, 0, 8)
+	keys := []string{"scopes", "scope", "grantedScopes", "requestedScopes", "scp"}
+	for _, key := range keys {
+		value, ok := debugData[key]
+		if !ok {
+			continue
+		}
+		switch typed := value.(type) {
+		case string:
+			candidates = append(candidates, splitScopes(typed)...)
+		case []string:
+			candidates = append(candidates, typed...)
+		case []interface{}:
+			for _, raw := range typed {
+				candidates = append(candidates, splitScopes(getStringValue(raw))...)
+			}
+		}
+	}
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	dedup := make([]string, 0, len(candidates))
+	seen := map[string]struct{}{}
+	for _, scope := range candidates {
+		scope = strings.ToLower(strings.TrimSpace(scope))
+		if scope == "" {
+			continue
+		}
+		if _, ok := seen[scope]; ok {
+			continue
+		}
+		seen[scope] = struct{}{}
+		dedup = append(dedup, scope)
+	}
+	return dedup
+}
+
+func splitScopes(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ' ' || r == ',' || r == ';'
+	})
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 func mapOktaUser(u sdk.User) (User, error) {
