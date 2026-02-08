@@ -17,7 +17,12 @@ templ PageHeader(items []Breadcrumb, description string) {
 }
 
 templ Alert(title string, destructive bool) {
-	<div role="alert" class={ templ.Classes("alert", templ.KV("alert-destructive", destructive)) }>
+	<div
+		role={ AlertRole(destructive) }
+		aria-live={ AlertAriaLive(destructive) }
+		aria-atomic="true"
+		class={ templ.Classes("alert", templ.KV("alert-destructive", destructive)) }
+	>
 		if title != "" {
 			<h3>{ title }</h3>
 		}
@@ -67,7 +72,7 @@ templ CSRFInput(token string) {
 }
 
 templ FormDialog(id string, open bool, title string, description string, closeHref string, formAction string, submitLabel string, csrfToken string) {
-	<dialog id={ id } class="dialog" data-open?={ open } data-close-href={ closeHref }>
+	<dialog id={ id } class="dialog" data-open?={ open } data-close-href={ closeHref } aria-labelledby={ id + "-title" } aria-describedby={ id + "-description" }>
 		<form method="post" action={ formAction }>
 			@CSRFInput(csrfToken)
 			<button type="button" class="btn-icon-ghost" aria-label="Close" data-dialog-close>
@@ -76,10 +81,8 @@ templ FormDialog(id string, open bool, title string, description string, closeHr
 				</svg>
 			</button>
 			<header>
-				<h2>{ title }</h2>
-				if description != "" {
-					<p>{ description }</p>
-				}
+				<h2 id={ id + "-title" }>{ title }</h2>
+				<p id={ id + "-description" } class={ templ.Classes(templ.KV("sr-only", description == "")) }>{ description }</p>
 			</header>
 			<section class="space-y-4">
 				{ children... }

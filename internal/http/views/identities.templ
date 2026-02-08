@@ -17,18 +17,22 @@ templ IdentitiesPage(data viewmodels.IdentitiesViewData) {
 				<p>Search by email or display name.</p>
 			</header>
 			<section>
-				<div class="flex flex-col gap-4 sm:flex-row sm:items-end">
+				<div class="flex flex-col gap-4">
 					<label class="field w-full sm:max-w-md">
 						<span class="label">Query</span>
-						<input type="search" name="q" value={ data.Query } placeholder="Search identities…" class="input"/>
+						<div class="relative">
+							<input type="search" name="q" value={ data.Query } placeholder="Search identities…" class="input pr-10"/>
+							if data.Query != "" {
+								<a class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2" aria-label="Clear query" href="/identities">
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+										<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
+									</svg>
+								</a>
+							}
+						</div>
 					</label>
-					<div class="button-group sm:ml-auto">
-						<button type="submit" class="btn-sm-primary">Search</button>
-						if data.Query != "" {
-							<a class="btn-sm-ghost" href="/identities">Reset</a>
-						}
-					</div>
 				</div>
+				<button class="sr-only" type="submit">Apply filters</button>
 			</section>
 		</form>
 
@@ -46,6 +50,7 @@ templ IdentitiesPage(data viewmodels.IdentitiesViewData) {
 			<section>
 				<div class="overflow-x-auto">
 					<table class="table">
+						<caption class="sr-only">Unified identities with management status and number of linked accounts.</caption>
 						<thead>
 							<tr>
 								<th>ID</th>

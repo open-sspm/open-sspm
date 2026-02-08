@@ -68,6 +68,39 @@ func TestHTTPErrorHandlerNotFoundDoesNotLeakMessage(t *testing.T) {
 	}
 }
 
+func TestHTTPErrorHandlerEchoErrNotFoundUsesNotFoundStatus(t *testing.T) {
+	e := echo.New()
+	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/missing", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	es := &EchoServer{h: &handlers.Handlers{}, e: e}
+	es.httpErrorHandler(c, echo.ErrNotFound)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status=%d want %d", rec.Code, http.StatusNotFound)
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "404 page not found") {
+		t.Fatalf("response missing not found message: %q", body)
+	}
+}
+
+func TestHTTPStatusFromErrorUsesStatusCoder(t *testing.T) {
+	if got := httpStatusFromError(echo.ErrNotFound); got != http.StatusNotFound {
+		t.Fatalf("status=%d want %d", got, http.StatusNotFound)
+	}
+	if got := httpStatusFromError(echo.ErrForbidden); got != http.StatusForbidden {
+		t.Fatalf("status=%d want %d", got, http.StatusForbidden)
+	}
+	if got := httpStatusFromError(errors.New("boom")); got != http.StatusInternalServerError {
+		t.Fatalf("status=%d want %d", got, http.StatusInternalServerError)
+	}
+}
+
 func TestHTTPErrorHandlerBadRequestUsesStatusText(t *testing.T) {
 	e := echo.New()
 	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))

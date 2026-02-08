@@ -54,7 +54,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " <div class=\"tabs\"><div role=\"tablist\" aria-label=\"Okta account\"><button role=\"tab\" aria-controls=\"tab-summary\" aria-selected=\"true\" tabindex=\"0\">Summary</button> <button role=\"tab\" aria-controls=\"tab-assignments\" aria-selected=\"false\" tabindex=\"-1\">Assignments</button> <button role=\"tab\" aria-controls=\"tab-access-graph\" aria-selected=\"false\" tabindex=\"-1\">Access graph</button> <button role=\"tab\" aria-controls=\"tab-linked\" aria-selected=\"false\" tabindex=\"-1\">Linked accounts</button></div><section id=\"tab-summary\" role=\"tabpanel\"><article class=\"card\"><header><h2>Account summary</h2><p>Okta account details.</p></header><section><dl class=\"space-y-4\"><div class=\"space-y-1\"><dt class=\"sr-only\">ID</dt><dd class=\"text-sm font-medium text-muted-foreground\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " <div class=\"tabs\"><div role=\"tablist\" aria-label=\"Okta account\"><button id=\"tab-summary-trigger\" role=\"tab\" aria-controls=\"tab-summary\" aria-selected=\"true\" tabindex=\"0\">Summary</button> <button id=\"tab-assignments-trigger\" role=\"tab\" aria-controls=\"tab-assignments\" aria-selected=\"false\" tabindex=\"-1\">Assignments</button> <button id=\"tab-access-graph-trigger\" role=\"tab\" aria-controls=\"tab-access-graph\" aria-selected=\"false\" tabindex=\"-1\">Access graph</button> <button id=\"tab-linked-trigger\" role=\"tab\" aria-controls=\"tab-linked\" aria-selected=\"false\" tabindex=\"-1\">Linked accounts</button></div><section id=\"tab-summary\" role=\"tabpanel\" aria-labelledby=\"tab-summary-trigger\" tabindex=\"0\"><article class=\"card\"><header><h2>Account summary</h2><p>Okta account details.</p></header><section><dl class=\"space-y-4\"><div class=\"space-y-1\"><dt class=\"sr-only\">ID</dt><dd class=\"text-sm font-medium text-muted-foreground\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -137,7 +137,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</dd></div></dl></section></article></section><section id=\"tab-assignments\" role=\"tabpanel\" hidden><article class=\"card\"><header><h2>Okta assignments</h2><p>Apps and groups that grant access.</p><div data-slot=\"card-action\"><span class=\"badge-outline\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</dd></div></dl></section></article></section><section id=\"tab-assignments\" role=\"tabpanel\" aria-labelledby=\"tab-assignments-trigger\" tabindex=\"0\" hidden><article class=\"card\"><header><h2>Okta assignments</h2><p>Apps and groups that grant access.</p><div data-slot=\"card-action\"><span class=\"badge-outline\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -346,7 +346,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</tbody></table></div></section></article></section><section id=\"tab-access-graph\" role=\"tabpanel\" hidden><article class=\"card\"><header><h2>Access graph</h2><p>Expand nodes to lazy-load access details across connectors.</p></header><section><div class=\"space-y-1\" data-hx-lazy-panel=\"tab-access-graph\" hx-get=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</tbody></table></div></section></article></section><section id=\"tab-access-graph\" role=\"tabpanel\" aria-labelledby=\"tab-access-graph-trigger\" tabindex=\"0\" hidden><article class=\"card\"><header><h2>Access graph</h2><p>Expand nodes to lazy-load access details across connectors.</p></header><section><div class=\"space-y-1\" data-hx-lazy-panel=\"tab-access-graph\" hx-get=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -359,7 +359,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\" hx-trigger=\"oss-panel-visible once, load once\" hx-swap=\"innerHTML\"><div class=\"text-sm text-muted-foreground\">Loading access graph...</div></div></section></article></section><section id=\"tab-linked\" role=\"tabpanel\" hidden><div class=\"space-y-4\"><div class=\"flex flex-wrap items-center justify-between gap-3\"><h2 class=\"text-lg font-semibold\">Linked accounts</h2><span class=\"badge-outline\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\" hx-trigger=\"oss-panel-visible once, load once\" hx-swap=\"innerHTML\"><div class=\"text-sm text-muted-foreground\">Loading access graph...</div></div></section></article></section><section id=\"tab-linked\" role=\"tabpanel\" aria-labelledby=\"tab-linked-trigger\" tabindex=\"0\" hidden><div class=\"space-y-4\"><div class=\"flex flex-wrap items-center justify-between gap-3\"><h2 class=\"text-lg font-semibold\">Linked accounts</h2><span class=\"badge-outline\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

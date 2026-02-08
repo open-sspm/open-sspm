@@ -20,7 +20,7 @@ templ AppAssetsPage(data viewmodels.AppAssetsViewData) {
 					<div class="grid gap-4 md:grid-cols-4">
 						<label class="field">
 							<span class="label">Source</span>
-							<select class="select" name="source_kind" onchange="this.form.submit()">
+							<select class="select" name="source_kind" data-autosubmit="true">
 								<option value="">All configured</option>
 								for _, source := range data.Sources {
 									<option value={ source.SourceKind } selected?={ source.SourceKind == data.SelectedSourceKind }>{ source.Label }</option>
@@ -46,7 +46,7 @@ templ AppAssetsPage(data viewmodels.AppAssetsViewData) {
 						</label>
 						<label class="field">
 							<span class="label">Asset kind</span>
-							<select class="select" name="asset_kind" onchange="this.form.submit()">
+							<select class="select" name="asset_kind" data-autosubmit="true">
 								<option value="" selected?={ data.AssetKind == "" }>All</option>
 								<option value="entra_application" selected?={ data.AssetKind == "entra_application" }>Entra application</option>
 								<option value="entra_service_principal" selected?={ data.AssetKind == "entra_service_principal" }>Entra service principal</option>
@@ -72,6 +72,7 @@ templ AppAssetsPage(data viewmodels.AppAssetsViewData) {
 			<section>
 				<div class="overflow-x-auto">
 					<table class="table">
+						<caption class="sr-only">Programmatic app assets with source, kind, owner counts, credential counts, and last-seen time.</caption>
 						<thead>
 							<tr>
 								<th>Source</th>

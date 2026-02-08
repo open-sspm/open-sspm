@@ -224,7 +224,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = FormDialog("connector-okta-modal", data.OpenKind == "okta", "Okta configuration", "Identity provider source for users and groups.", "/settings/connectors", "/settings/connectors/okta", "Save", data.Layout.CSRFToken).Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = FormDialog("connector-okta-modal", data.OpenKind == "okta", "Okta configuration", "Identity provider source for users and groups.", "/settings/connectors#connector-okta-configure", "/settings/connectors/okta", "Save", data.Layout.CSRFToken).Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -299,7 +299,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = FormDialog("connector-entra-modal", data.OpenKind == "entra", "Microsoft Entra ID configuration", "Users and access via Microsoft Graph.", "/settings/connectors", "/settings/connectors/entra", "Save", data.Layout.CSRFToken).Render(templ.WithChildren(ctx, templ_7745c5c3_Var10), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = FormDialog("connector-entra-modal", data.OpenKind == "entra", "Microsoft Entra ID configuration", "Users and access via Microsoft Graph.", "/settings/connectors#connector-entra-configure", "/settings/connectors/entra", "Save", data.Layout.CSRFToken).Render(templ.WithChildren(ctx, templ_7745c5c3_Var10), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -397,7 +397,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = FormDialog("connector-github-modal", data.OpenKind == "github", "GitHub configuration", "Organization membership, teams, and repo permissions.", "/settings/connectors", "/settings/connectors/github", "Save", data.Layout.CSRFToken).Render(templ.WithChildren(ctx, templ_7745c5c3_Var14), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = FormDialog("connector-github-modal", data.OpenKind == "github", "GitHub configuration", "Organization membership, teams, and repo permissions.", "/settings/connectors#connector-github-configure", "/settings/connectors/github", "Save", data.Layout.CSRFToken).Render(templ.WithChildren(ctx, templ_7745c5c3_Var14), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -482,7 +482,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = FormDialog("connector-datadog-modal", data.OpenKind == "datadog", "Datadog configuration", "Datadog users and roles for entitlement visibility.", "/settings/connectors", "/settings/connectors/datadog", "Save", data.Layout.CSRFToken).Render(templ.WithChildren(ctx, templ_7745c5c3_Var19), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = FormDialog("connector-datadog-modal", data.OpenKind == "datadog", "Datadog configuration", "Datadog users and roles for entitlement visibility.", "/settings/connectors#connector-datadog-configure", "/settings/connectors/datadog", "Save", data.Layout.CSRFToken).Render(templ.WithChildren(ctx, templ_7745c5c3_Var19), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -649,7 +649,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = FormDialog("connector-aws-modal", data.OpenKind == "aws_identity_center", "AWS Identity Center configuration", "AWS SSO users and account assignments.", "/settings/connectors", "/settings/connectors/aws_identity_center", "Save", data.Layout.CSRFToken).Render(templ.WithChildren(ctx, templ_7745c5c3_Var23), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = FormDialog("connector-aws-modal", data.OpenKind == "aws_identity_center", "AWS Identity Center configuration", "AWS SSO users and account assignments.", "/settings/connectors#connector-aws-configure", "/settings/connectors/aws_identity_center", "Save", data.Layout.CSRFToken).Render(templ.WithChildren(ctx, templ_7745c5c3_Var23), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -663,7 +663,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, " data-close-href=\"/settings/connectors\"><form method=\"dialog\"><button type=\"button\" class=\"btn-icon-ghost\" aria-label=\"Close\" data-dialog-close><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z\" clip-rule=\"evenodd\"></path></svg></button><header><h2>Vault configuration</h2><p>Reserved for future Vault integration.</p></header><section><p class=\"text-sm text-muted-foreground\">No configurable fields yet. Enable the connector to prepare for future support.</p></section><footer><button type=\"button\" class=\"btn-primary\" data-dialog-close>Close</button></footer></form></dialog>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, " data-close-href=\"/settings/connectors#connector-vault-configure\" aria-labelledby=\"connector-vault-modal-title\" aria-describedby=\"connector-vault-modal-description\"><form method=\"dialog\"><button type=\"button\" class=\"btn-icon-ghost\" aria-label=\"Close\" data-dialog-close><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z\" clip-rule=\"evenodd\"></path></svg></button><header><h2 id=\"connector-vault-modal-title\">Vault configuration</h2><p id=\"connector-vault-modal-description\">Reserved for future Vault integration.</p></header><section><p class=\"text-sm text-muted-foreground\">No configurable fields yet. Enable the connector to prepare for future support.</p></section><footer><button type=\"button\" class=\"btn-primary\" data-dialog-close>Close</button></footer></form></dialog>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -716,7 +716,7 @@ func OktaConnectorCard(data viewmodels.ConnectorsViewData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form><a href=\"/settings/connectors?open=okta\" class=\"btn-sm-outline\">Configure</a></div><p>Identity provider source for users and groups.</p><div class=\"mt-3 flex items-center justify-between rounded-md border border-border/60 px-3 py-2 text-xs text-muted-foreground\"><span>Authoritative IdP</span><form method=\"post\" action=\"/settings/connectors/okta/authoritative\" hx-post=\"/settings/connectors/okta/authoritative\" hx-target=\"closest article\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest article\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form><a id=\"connector-okta-configure\" href=\"/settings/connectors?open=okta\" class=\"btn-sm-outline\">Configure</a></div><p>Identity provider source for users and groups.</p><div class=\"mt-3 flex items-center justify-between rounded-md border border-border/60 px-3 py-2 text-xs text-muted-foreground\"><span>Authoritative IdP</span><form method=\"post\" action=\"/settings/connectors/okta/authoritative\" hx-post=\"/settings/connectors/okta/authoritative\" hx-target=\"closest article\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest article\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -781,7 +781,7 @@ func EntraConnectorCard(data viewmodels.ConnectorsViewData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form><a href=\"/settings/connectors?open=entra\" class=\"btn-sm-outline\">Configure</a></div><p>Users and access via Microsoft Graph.</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form><a id=\"connector-entra-configure\" href=\"/settings/connectors?open=entra\" class=\"btn-sm-outline\">Configure</a></div><p>Users and access via Microsoft Graph.</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -926,7 +926,7 @@ func GitHubConnectorCard(data viewmodels.ConnectorsViewData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form><a href=\"/settings/connectors?open=github\" class=\"btn-sm-outline\">Configure</a></div><p>Organization membership, teams, and repo permissions.</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form><a id=\"connector-github-configure\" href=\"/settings/connectors?open=github\" class=\"btn-sm-outline\">Configure</a></div><p>Organization membership, teams, and repo permissions.</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1053,7 +1053,7 @@ func DatadogConnectorCard(data viewmodels.ConnectorsViewData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form><a href=\"/settings/connectors?open=datadog\" class=\"btn-sm-outline\">Configure</a></div><p>Datadog users and roles for entitlement visibility.</p></header></article>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form><a id=\"connector-datadog-configure\" href=\"/settings/connectors?open=datadog\" class=\"btn-sm-outline\">Configure</a></div><p>Datadog users and roles for entitlement visibility.</p></header></article>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1100,7 +1100,7 @@ func AWSIdentityCenterConnectorCard(data viewmodels.ConnectorsViewData) templ.Co
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form><a href=\"/settings/connectors?open=aws_identity_center\" class=\"btn-sm-outline\">Configure</a></div><p>AWS SSO users and account assignments.</p></header></article>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form><a id=\"connector-aws-configure\" href=\"/settings/connectors?open=aws_identity_center\" class=\"btn-sm-outline\">Configure</a></div><p>AWS SSO users and account assignments.</p></header></article>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1147,7 +1147,7 @@ func VaultConnectorCard(data viewmodels.ConnectorsViewData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form><a href=\"/settings/connectors?open=vault\" class=\"btn-sm-outline\">Configure</a></div><p>Reserved for future Vault integration.</p></header></article>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form><a id=\"connector-vault-configure\" href=\"/settings/connectors?open=vault\" class=\"btn-sm-outline\">Configure</a></div><p>Reserved for future Vault integration.</p></header></article>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

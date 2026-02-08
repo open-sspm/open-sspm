@@ -53,9 +53,11 @@ templ DashboardPage(data viewmodels.DashboardViewData) {
 								<div
 										class="bg-primary/20 relative h-2 w-full overflow-hidden rounded-full"
 										role="progressbar"
+										aria-label={ fw.Name + " pass rate" }
 										aria-valuemin="0"
 										aria-valuemax="100"
 										aria-valuenow={ FormatInt(fw.PassPercent) }
+										aria-valuetext={ FormatInt(fw.PassPercent) + "% pass" }
 									>
 										<div class="bg-primary h-full w-full flex-1 transition-all" style={ "width: " + FormatInt(fw.PassPercent) + "%" }></div>
 									</div>

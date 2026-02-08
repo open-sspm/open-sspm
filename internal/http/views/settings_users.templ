@@ -9,7 +9,7 @@ templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
 			{Label: "Settings", Href: "/settings"},
 			{Label: "Team Management"},
 		}, "Manage local users that can sign into Open-SSPM.") {
-			<a class="btn-sm-primary" href="/settings/users?open=add">Add user</a>
+			<a id="settings-users-add-trigger" class="btn-sm-primary" href="/settings/users?open=add">Add user</a>
 		}
 
 		if data.Alert != nil {
@@ -24,6 +24,7 @@ templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
 			</header>
 			<section>
 				<table class="table">
+					<caption class="sr-only">Local users, roles, status, last login, and account actions.</caption>
 					<thead>
 						<tr>
 							<th>Email</th>
@@ -52,12 +53,12 @@ templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
 											</button>
 											<div data-popover data-side="bottom" data-align="end" aria-hidden="true" class="min-w-56">
 												<div role="menu" id={ "settings-users-actions-" + FormatInt64(u.ID) + "-menu" } aria-labelledby={ "settings-users-actions-" + FormatInt64(u.ID) + "-trigger" }>
-													<a role="menuitem" class="cursor-pointer" href={ "/settings/users?open=edit&id=" + FormatInt64(u.ID) }>
+													<a id={ "settings-users-edit-trigger-" + FormatInt64(u.ID) } role="menuitem" class="cursor-pointer" href={ "/settings/users?open=edit&id=" + FormatInt64(u.ID) }>
 														<i class="ti ti-edit text-base text-muted-foreground shrink-0" aria-hidden="true"></i>
 														Edit
 													</a>
 													if u.CanDelete {
-														<a role="menuitem" class="text-destructive cursor-pointer" href={ "/settings/users?open=delete&id=" + FormatInt64(u.ID) }>
+														<a id={ "settings-users-delete-trigger-" + FormatInt64(u.ID) } role="menuitem" class="text-destructive cursor-pointer" href={ "/settings/users?open=delete&id=" + FormatInt64(u.ID) }>
 															<i class="ti ti-trash text-base text-destructive shrink-0" aria-hidden="true"></i>
 															Delete
 														</a>
@@ -87,7 +88,7 @@ templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
 			</section>
 		</article>
 
-		@FormDialog("settings-users-add-modal", data.OpenAdd, "Add user", "Create a new local user account.", "/settings/users", "/settings/users", "Create user", data.Layout.CSRFToken) {
+		@FormDialog("settings-users-add-modal", data.OpenAdd, "Add user", "Create a new local user account.", "/settings/users#settings-users-add-trigger", "/settings/users", "Create user", data.Layout.CSRFToken) {
 			<label class="field">
 				<span class="label">Email</span>
 				<input type="email" name="email" class="input w-full" value={ data.Form.Email } placeholder="person@example.com" autocomplete="email"/>
@@ -111,7 +112,7 @@ templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
 			</label>
 		}
 
-		@FormDialog("settings-users-edit-modal", data.OpenEdit, "Edit user", "Update password and group.", "/settings/users", "/settings/users/"+FormatInt64(data.EditForm.ID), "Save changes", data.Layout.CSRFToken) {
+		@FormDialog("settings-users-edit-modal", data.OpenEdit, "Edit user", "Update password and group.", "/settings/users#settings-users-edit-trigger-"+FormatInt64(data.EditForm.ID), "/settings/users/"+FormatInt64(data.EditForm.ID), "Save changes", data.Layout.CSRFToken) {
 			<label class="field">
 				<span class="label">Email</span>
 				<input type="email" class="input w-full" value={ data.EditForm.Email } disabled/>
@@ -137,7 +138,7 @@ templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
 			</label>
 		}
 
-		@FormDialog("settings-users-delete-modal", data.OpenDelete, "Delete user", "This will permanently delete the user account.", "/settings/users", "/settings/users/"+FormatInt64(data.Delete.ID)+"/delete", "Delete user", data.Layout.CSRFToken) {
+		@FormDialog("settings-users-delete-modal", data.OpenDelete, "Delete user", "This will permanently delete the user account.", "/settings/users#settings-users-delete-trigger-"+FormatInt64(data.Delete.ID), "/settings/users/"+FormatInt64(data.Delete.ID)+"/delete", "Delete user", data.Layout.CSRFToken) {
 			<div class="space-y-2">
 				<div class="text-sm font-medium">User</div>
 				<div class="text-sm text-muted-foreground">{ data.Delete.Email }</div>

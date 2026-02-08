@@ -97,7 +97,10 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 							<ul class="space-y-1 text-sm">
 								for _, ref := range data.References {
 									<li>
-										<a class="btn-sm-link" href={ ref.URL } target="_blank" rel="noreferrer">{ ref.Title }</a>
+										<a class="btn-sm-link" href={ ref.URL } target="_blank" rel="noreferrer">
+											{ ref.Title }
+											<span class="sr-only"> (opens in new tab)</span>
+										</a>
 										if ref.Type != "" {
 											<span class="text-muted-foreground">({ ref.Type })</span>
 										}
@@ -112,6 +115,7 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 							<h3 class="text-sm font-medium">Framework mappings</h3>
 							<div class="overflow-x-auto">
 								<table class="table">
+									<caption class="sr-only">Framework mapping controls and their coverage status.</caption>
 									<thead>
 										<tr>
 											<th>Framework</th>
@@ -183,12 +187,13 @@ templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 						<option value="unsupported" selected?={ data.MonitoringFilter == "unsupported" }>Unsupported</option>
 					</select>
 				</label>
-				<button type="submit" class="btn-primary">Apply</button>
+				<button class="sr-only" type="submit">Apply filters</button>
 			</form>
 
 			if data.HasRules {
 				<div class="overflow-x-auto">
 					<table class="table">
+						<caption class="sr-only">Rules in this ruleset with severity, monitoring, and current status.</caption>
 						<thead>
 							<tr>
 								<th>Rule</th>

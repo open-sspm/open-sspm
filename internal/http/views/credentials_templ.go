@@ -65,7 +65,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " <form method=\"get\" class=\"card\"><header><h2>Filters</h2><p>Filter by source, credential type, status, and expiration horizon.</p></header><section><div class=\"grid gap-4 md:grid-cols-3\"><label class=\"field\"><span class=\"label\">Source</span> <select class=\"select\" name=\"source_kind\" onchange=\"this.form.submit()\"><option value=\"\">All configured</option> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " <form method=\"get\" class=\"card\"><header><h2>Filters</h2><p>Filter by source, credential type, status, and expiration horizon.</p></header><section><div class=\"grid gap-4 md:grid-cols-3\"><label class=\"field\"><span class=\"label\">Source</span> <select class=\"select\" name=\"source_kind\" data-autosubmit=\"true\"><option value=\"\">All configured</option> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -147,7 +147,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div></label> <label class=\"field\"><span class=\"label\">Credential kind</span> <select class=\"select\" name=\"credential_kind\" onchange=\"this.form.submit()\"><option value=\"\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div></label> <label class=\"field\"><span class=\"label\">Credential kind</span> <select class=\"select\" name=\"credential_kind\" data-autosubmit=\"true\"><option value=\"\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -207,7 +207,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, ">GitHub fine-grained PAT</option></select></label> <label class=\"field\"><span class=\"label\">Status</span> <select class=\"select\" name=\"status\" onchange=\"this.form.submit()\"><option value=\"\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, ">GitHub fine-grained PAT</option></select></label> <label class=\"field\"><span class=\"label\">Status</span> <select class=\"select\" name=\"status\" data-autosubmit=\"true\"><option value=\"\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -277,7 +277,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, ">Expired</option></select></label> <label class=\"field\"><span class=\"label\">Risk level</span> <select class=\"select\" name=\"risk_level\" onchange=\"this.form.submit()\"><option value=\"\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, ">Expired</option></select></label> <label class=\"field\"><span class=\"label\">Risk level</span> <select class=\"select\" name=\"risk_level\" data-autosubmit=\"true\"><option value=\"\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -327,7 +327,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, ">Low</option></select></label> <label class=\"field\"><span class=\"label\">Expiry state</span> <select class=\"select\" name=\"expiry_state\" onchange=\"this.form.submit()\"><option value=\"\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, ">Low</option></select></label> <label class=\"field\"><span class=\"label\">Expiry state</span> <select class=\"select\" name=\"expiry_state\" data-autosubmit=\"true\"><option value=\"\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -357,7 +357,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, ">Expired</option></select></label> <label class=\"field\"><span class=\"label\">Expires in</span> <select class=\"select\" name=\"expires_in_days\" onchange=\"this.form.submit()\"><option value=\"0\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, ">Expired</option></select></label> <label class=\"field\"><span class=\"label\">Expires in</span> <select class=\"select\" name=\"expires_in_days\" data-autosubmit=\"true\"><option value=\"0\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -514,7 +514,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "</span></header><section><div class=\"overflow-x-auto\"><table class=\"table\"><thead><tr><th>Credential</th><th>Kind</th><th>Asset</th><th>Status</th><th>Risk</th><th>Expires</th><th>Expires in</th><th>Last used</th><th>Creator</th><th>Approver</th></tr></thead> <tbody>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "</span></header><section><div class=\"overflow-x-auto\"><table class=\"table\"><caption class=\"sr-only\">Credentials with source, status, risk, expiration, and ownership metadata.</caption> <thead><tr><th>Credential</th><th>Kind</th><th>Asset</th><th>Status</th><th>Risk</th><th>Expires</th><th>Expires in</th><th>Last used</th><th>Creator</th><th>Approver</th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -527,7 +527,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					var templ_7745c5c3_Var18 templ.SafeURL
 					templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinURLErrs("/credentials/" + FormatInt64(item.ID))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 142, Col: 96}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 143, Col: 96}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 					if templ_7745c5c3_Err != nil {
@@ -540,7 +540,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					var templ_7745c5c3_Var19 string
 					templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(item.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 142, Col: 117}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 143, Col: 117}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 					if templ_7745c5c3_Err != nil {
@@ -553,7 +553,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					var templ_7745c5c3_Var20 string
 					templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(item.SourceKind)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 143, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 144, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 					if templ_7745c5c3_Err != nil {
@@ -562,7 +562,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					var templ_7745c5c3_Var21 string
 					templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(" (")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 143, Col: 79}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 144, Col: 79}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 					if templ_7745c5c3_Err != nil {
@@ -571,7 +571,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					var templ_7745c5c3_Var22 string
 					templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(item.SourceName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 143, Col: 98}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 144, Col: 98}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 					if templ_7745c5c3_Err != nil {
@@ -580,7 +580,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					var templ_7745c5c3_Var23 string
 					templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(")")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 143, Col: 105}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 144, Col: 105}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 					if templ_7745c5c3_Err != nil {
@@ -593,7 +593,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					var templ_7745c5c3_Var24 string
 					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(item.CredentialKind)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 145, Col: 63}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 146, Col: 63}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 					if templ_7745c5c3_Err != nil {
@@ -606,7 +606,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					var templ_7745c5c3_Var25 string
 					templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(item.AssetRef)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 146, Col: 59}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 147, Col: 59}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 					if templ_7745c5c3_Err != nil {
@@ -619,7 +619,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					var templ_7745c5c3_Var26 string
 					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(item.Status)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 147, Col: 27}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 148, Col: 27}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 					if templ_7745c5c3_Err != nil {
@@ -654,7 +654,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					var templ_7745c5c3_Var29 string
 					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeCredentialRisk(item.RiskLevel))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 148, Col: 111}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 149, Col: 111}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 					if templ_7745c5c3_Err != nil {
@@ -667,7 +667,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					var templ_7745c5c3_Var30 string
 					templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(item.ExpiresAt)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 149, Col: 30}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 150, Col: 30}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 					if templ_7745c5c3_Err != nil {
@@ -680,7 +680,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					var templ_7745c5c3_Var31 string
 					templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(item.ExpiresIn)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 150, Col: 30}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 151, Col: 30}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 					if templ_7745c5c3_Err != nil {
@@ -693,7 +693,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					var templ_7745c5c3_Var32 string
 					templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastUsedAt)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 151, Col: 31}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 152, Col: 31}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 					if templ_7745c5c3_Err != nil {
@@ -711,7 +711,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 						var templ_7745c5c3_Var33 templ.SafeURL
 						templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinURLErrs(item.CreatedByHref)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 154, Col: 77}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 155, Col: 77}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 						if templ_7745c5c3_Err != nil {
@@ -724,7 +724,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 						var templ_7745c5c3_Var34 string
 						templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(item.CreatedBy)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 154, Col: 96}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 155, Col: 96}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 						if templ_7745c5c3_Err != nil {
@@ -738,7 +738,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 						var templ_7745c5c3_Var35 string
 						templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(item.CreatedBy)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 156, Col: 28}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 157, Col: 28}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 						if templ_7745c5c3_Err != nil {
@@ -757,7 +757,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 						var templ_7745c5c3_Var36 templ.SafeURL
 						templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinURLErrs(item.ApprovedByHref)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 161, Col: 78}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 162, Col: 78}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 						if templ_7745c5c3_Err != nil {
@@ -770,7 +770,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 						var templ_7745c5c3_Var37 string
 						templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(item.ApprovedBy)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 161, Col: 98}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 162, Col: 98}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 						if templ_7745c5c3_Err != nil {
@@ -784,7 +784,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 						var templ_7745c5c3_Var38 string
 						templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(item.ApprovedBy)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 163, Col: 29}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 164, Col: 29}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 						if templ_7745c5c3_Err != nil {
@@ -842,7 +842,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 				var templ_7745c5c3_Var40 string
 				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs("Page ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 184, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 185, Col: 58}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 				if templ_7745c5c3_Err != nil {
@@ -851,7 +851,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 				var templ_7745c5c3_Var41 string
 				templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.Page))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 184, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 185, Col: 82}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 				if templ_7745c5c3_Err != nil {
@@ -860,7 +860,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 				var templ_7745c5c3_Var42 string
 				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(" of ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 184, Col: 92}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 185, Col: 92}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 				if templ_7745c5c3_Err != nil {
@@ -869,7 +869,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 				var templ_7745c5c3_Var43 string
 				templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.TotalPages))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 184, Col: 122}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 185, Col: 122}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 				if templ_7745c5c3_Err != nil {
@@ -887,7 +887,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					var templ_7745c5c3_Var44 templ.SafeURL
 					templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinURLErrs(CredentialsListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.CredentialKind, data.Status, data.RiskLevel, data.ExpiryState, data.ExpiresInDays, data.Page-1))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 187, Col: 222}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 188, Col: 222}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 					if templ_7745c5c3_Err != nil {
@@ -911,7 +911,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 					var templ_7745c5c3_Var45 templ.SafeURL
 					templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinURLErrs(CredentialsListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.CredentialKind, data.Status, data.RiskLevel, data.ExpiryState, data.ExpiresInDays, data.Page+1))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 192, Col: 222}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 193, Col: 222}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 					if templ_7745c5c3_Err != nil {
