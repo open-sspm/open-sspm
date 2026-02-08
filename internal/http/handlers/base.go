@@ -237,11 +237,13 @@ func (h *Handlers) RenderError(c *echo.Context, err error) error {
 		msg = fmt.Sprintf("%s Reference: %s.", msg, requestID)
 	}
 	msg = fmt.Sprintf("%s Code: %s.", msg, InternalErrorCode)
+	c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextPlainCharsetUTF8)
 	return c.String(http.StatusInternalServerError, msg)
 }
 
 // RenderNotFound returns a 404 response.
 func RenderNotFound(c *echo.Context) error {
+	c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextPlainCharsetUTF8)
 	return c.String(http.StatusNotFound, "404 page not found")
 }
 

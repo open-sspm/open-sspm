@@ -155,10 +155,7 @@ func (es *EchoServer) httpErrorHandler(c *echo.Context, err error) {
 		return
 	}
 
-	status := http.StatusInternalServerError
-	if httpErr, ok := err.(*echo.HTTPError); ok && httpErr != nil {
-		status = httpErr.Code
-	}
+	status := httpStatusFromError(err)
 
 	if status >= 500 {
 		_ = es.h.RenderError(c, err)
@@ -175,8 +172,28 @@ func (es *EchoServer) httpErrorHandler(c *echo.Context, err error) {
 	_ = c.String(status, http.StatusText(status))
 }
 
+func httpStatusFromError(err error) int {
+	status := http.StatusInternalServerError
+	if err == nil {
+		return status
+	}
+
+	var statusCoder interface{ StatusCode() int }
+	if errors.As(err, &statusCoder) {
+		code := statusCoder.StatusCode()
+		if code >= 100 && code <= 999 {
+			return code
+		}
+	}
+	return status
+}
+
 func (es *EchoServer) registerRoutes() {
 	es.e.GET("/healthz", es.h.HandleHealthz)
+	es.e.GET("/favicon.ico", func(c *echo.Context) error {
+		c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
+		return c.Redirect(http.StatusMovedPermanently, "/static/favicon.ico")
+	})
 
 	authed := es.e.Group("")
 

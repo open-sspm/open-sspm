@@ -15,13 +15,13 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 
 		<div class="tabs">
 			<div role="tablist" aria-label="Okta account">
-				<button role="tab" aria-controls="tab-summary" aria-selected="true" tabindex="0">Summary</button>
-				<button role="tab" aria-controls="tab-assignments" aria-selected="false" tabindex="-1">Assignments</button>
-				<button role="tab" aria-controls="tab-access-graph" aria-selected="false" tabindex="-1">Access graph</button>
-				<button role="tab" aria-controls="tab-linked" aria-selected="false" tabindex="-1">Linked accounts</button>
+				<button id="tab-summary-trigger" role="tab" aria-controls="tab-summary" aria-selected="true" tabindex="0">Summary</button>
+				<button id="tab-assignments-trigger" role="tab" aria-controls="tab-assignments" aria-selected="false" tabindex="-1">Assignments</button>
+				<button id="tab-access-graph-trigger" role="tab" aria-controls="tab-access-graph" aria-selected="false" tabindex="-1">Access graph</button>
+				<button id="tab-linked-trigger" role="tab" aria-controls="tab-linked" aria-selected="false" tabindex="-1">Linked accounts</button>
 			</div>
 
-			<section id="tab-summary" role="tabpanel">
+			<section id="tab-summary" role="tabpanel" aria-labelledby="tab-summary-trigger" tabindex="0">
 				<article class="card">
 					<header>
 						<h2>Account summary</h2>
@@ -50,7 +50,7 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 				</article>
 			</section>
 
-			<section id="tab-assignments" role="tabpanel" hidden>
+			<section id="tab-assignments" role="tabpanel" aria-labelledby="tab-assignments-trigger" tabindex="0" hidden>
 				<article class="card">
 					<header>
 						<h2>Okta assignments</h2>
@@ -125,7 +125,7 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 				</article>
 			</section>
 
-			<section id="tab-access-graph" role="tabpanel" hidden>
+			<section id="tab-access-graph" role="tabpanel" aria-labelledby="tab-access-graph-trigger" tabindex="0" hidden>
 				<article class="card">
 					<header>
 						<h2>Access graph</h2>
@@ -145,7 +145,7 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 				</article>
 			</section>
 
-			<section id="tab-linked" role="tabpanel" hidden>
+			<section id="tab-linked" role="tabpanel" aria-labelledby="tab-linked-trigger" tabindex="0" hidden>
 				<div class="space-y-4">
 					<div class="flex flex-wrap items-center justify-between gap-3">
 						<h2 class="text-lg font-semibold">Linked accounts</h2>

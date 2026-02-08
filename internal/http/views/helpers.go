@@ -215,6 +215,20 @@ func IsAlertDestructive(class string) bool {
 	return strings.Contains(class, "error") || strings.Contains(class, "destructive")
 }
 
+func AlertRole(destructive bool) string {
+	if destructive {
+		return "alert"
+	}
+	return "status"
+}
+
+func AlertAriaLive(destructive bool) string {
+	if destructive {
+		return "assertive"
+	}
+	return "polite"
+}
+
 func IsActivePath(activePath, target string) bool {
 	activePath = strings.TrimSpace(activePath)
 	target = strings.TrimSpace(target)

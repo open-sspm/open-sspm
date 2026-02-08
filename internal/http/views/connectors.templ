@@ -33,7 +33,7 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 			@VaultConnectorCard(data)
 		</section>
 
-		@FormDialog("connector-okta-modal", data.OpenKind == "okta", "Okta configuration", "Identity provider source for users and groups.", "/settings/connectors", "/settings/connectors/okta", "Save", data.Layout.CSRFToken) {
+		@FormDialog("connector-okta-modal", data.OpenKind == "okta", "Okta configuration", "Identity provider source for users and groups.", "/settings/connectors#connector-okta-configure", "/settings/connectors/okta", "Save", data.Layout.CSRFToken) {
 			<label class="field">
 				<span class="label">Okta domain</span>
 				<input type="text" name="domain" class="input w-full" value={ data.Okta.Domain } placeholder="dev-123456.okta.com"/>
@@ -47,7 +47,7 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 			</label>
 		}
 
-		@FormDialog("connector-entra-modal", data.OpenKind == "entra", "Microsoft Entra ID configuration", "Users and access via Microsoft Graph.", "/settings/connectors", "/settings/connectors/entra", "Save", data.Layout.CSRFToken) {
+		@FormDialog("connector-entra-modal", data.OpenKind == "entra", "Microsoft Entra ID configuration", "Users and access via Microsoft Graph.", "/settings/connectors#connector-entra-configure", "/settings/connectors/entra", "Save", data.Layout.CSRFToken) {
 			<label class="field">
 				<span class="label">Tenant ID</span>
 				<input type="text" name="tenant_id" class="input w-full" value={ data.Entra.TenantID } placeholder="00000000-0000-0000-0000-000000000000"/>
@@ -66,7 +66,7 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 			</label>
 		}
 
-		@FormDialog("connector-github-modal", data.OpenKind == "github", "GitHub configuration", "Organization membership, teams, and repo permissions.", "/settings/connectors", "/settings/connectors/github", "Save", data.Layout.CSRFToken) {
+		@FormDialog("connector-github-modal", data.OpenKind == "github", "GitHub configuration", "Organization membership, teams, and repo permissions.", "/settings/connectors#connector-github-configure", "/settings/connectors/github", "Save", data.Layout.CSRFToken) {
 			<label class="field">
 				<span class="label">Organization</span>
 				<input type="text" name="org" class="input w-full" value={ data.GitHub.Org } placeholder="example-org"/>
@@ -97,7 +97,7 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 			</label>
 		}
 
-		@FormDialog("connector-datadog-modal", data.OpenKind == "datadog", "Datadog configuration", "Datadog users and roles for entitlement visibility.", "/settings/connectors", "/settings/connectors/datadog", "Save", data.Layout.CSRFToken) {
+		@FormDialog("connector-datadog-modal", data.OpenKind == "datadog", "Datadog configuration", "Datadog users and roles for entitlement visibility.", "/settings/connectors#connector-datadog-configure", "/settings/connectors/datadog", "Save", data.Layout.CSRFToken) {
 			<label class="field">
 				<span class="label">Site</span>
 				<input type="text" name="site" class="input w-full" value={ data.Datadog.Site } placeholder="datadoghq.com"/>
@@ -118,7 +118,7 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 			</label>
 		}
 
-		@FormDialog("connector-aws-modal", data.OpenKind == "aws_identity_center", "AWS Identity Center configuration", "AWS SSO users and account assignments.", "/settings/connectors", "/settings/connectors/aws_identity_center", "Save", data.Layout.CSRFToken) {
+		@FormDialog("connector-aws-modal", data.OpenKind == "aws_identity_center", "AWS Identity Center configuration", "AWS SSO users and account assignments.", "/settings/connectors#connector-aws-configure", "/settings/connectors/aws_identity_center", "Save", data.Layout.CSRFToken) {
 			<label class="field">
 				<span class="label">Region</span>
 				<input type="text" name="region" class="input w-full" value={ data.AWSIdentityCenter.Region } placeholder="us-east-1"/>
@@ -166,7 +166,7 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 			</label>
 		}
 
-		<dialog id="connector-vault-modal" class="dialog" data-open?={ data.OpenKind == "vault" } data-close-href="/settings/connectors">
+		<dialog id="connector-vault-modal" class="dialog" data-open?={ data.OpenKind == "vault" } data-close-href="/settings/connectors#connector-vault-configure" aria-labelledby="connector-vault-modal-title" aria-describedby="connector-vault-modal-description">
 			<form method="dialog">
 				<button type="button" class="btn-icon-ghost" aria-label="Close" data-dialog-close>
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -174,8 +174,8 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 					</svg>
 				</button>
 				<header>
-					<h2>Vault configuration</h2>
-					<p>Reserved for future Vault integration.</p>
+					<h2 id="connector-vault-modal-title">Vault configuration</h2>
+					<p id="connector-vault-modal-description">Reserved for future Vault integration.</p>
 				</header>
 				<section>
 					<p class="text-sm text-muted-foreground">No configurable fields yet. Enable the connector to prepare for future support.</p>
@@ -210,7 +210,7 @@ templ OktaConnectorCard(data viewmodels.ConnectorsViewData) {
 						<input type="hidden" name="enabled" value="false"/>
 					</label>
 				</form>
-				<a href="/settings/connectors?open=okta" class="btn-sm-outline">Configure</a>
+				<a id="connector-okta-configure" href="/settings/connectors?open=okta" class="btn-sm-outline">Configure</a>
 			</div>
 			<p>Identity provider source for users and groups.</p>
 			<div class="mt-3 flex items-center justify-between rounded-md border border-border/60 px-3 py-2 text-xs text-muted-foreground">
@@ -244,7 +244,7 @@ templ EntraConnectorCard(data viewmodels.ConnectorsViewData) {
 						<input type="hidden" name="enabled" value="false"/>
 					</label>
 				</form>
-				<a href="/settings/connectors?open=entra" class="btn-sm-outline">Configure</a>
+				<a id="connector-entra-configure" href="/settings/connectors?open=entra" class="btn-sm-outline">Configure</a>
 			</div>
 			<p>Users and access via Microsoft Graph.</p>
 			if data.Entra.HasProgrammaticSummary {
@@ -285,7 +285,7 @@ templ GitHubConnectorCard(data viewmodels.ConnectorsViewData) {
 						<input type="hidden" name="enabled" value="false"/>
 					</label>
 				</form>
-				<a href="/settings/connectors?open=github" class="btn-sm-outline">Configure</a>
+				<a id="connector-github-configure" href="/settings/connectors?open=github" class="btn-sm-outline">Configure</a>
 			</div>
 			<p>Organization membership, teams, and repo permissions.</p>
 			if data.GitHub.HasProgrammaticSummary {
@@ -323,7 +323,7 @@ templ DatadogConnectorCard(data viewmodels.ConnectorsViewData) {
 						<input type="hidden" name="enabled" value="false"/>
 					</label>
 				</form>
-				<a href="/settings/connectors?open=datadog" class="btn-sm-outline">Configure</a>
+				<a id="connector-datadog-configure" href="/settings/connectors?open=datadog" class="btn-sm-outline">Configure</a>
 			</div>
 			<p>Datadog users and roles for entitlement visibility.</p>
 		</header>
@@ -353,7 +353,7 @@ templ AWSIdentityCenterConnectorCard(data viewmodels.ConnectorsViewData) {
 						<input type="hidden" name="enabled" value="false"/>
 					</label>
 				</form>
-				<a href="/settings/connectors?open=aws_identity_center" class="btn-sm-outline">Configure</a>
+				<a id="connector-aws-configure" href="/settings/connectors?open=aws_identity_center" class="btn-sm-outline">Configure</a>
 			</div>
 			<p>AWS SSO users and account assignments.</p>
 		</header>
@@ -380,7 +380,7 @@ templ VaultConnectorCard(data viewmodels.ConnectorsViewData) {
 						<input type="hidden" name="enabled" value="false"/>
 					</label>
 				</form>
-				<a href="/settings/connectors?open=vault" class="btn-sm-outline">Configure</a>
+				<a id="connector-vault-configure" href="/settings/connectors?open=vault" class="btn-sm-outline">Configure</a>
 			</div>
 			<p>Reserved for future Vault integration.</p>
 		</header>

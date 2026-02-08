@@ -13,7 +13,10 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 			<span class="badge-outline">{ FormatInt(data.AppAccountCount) }{ " app accounts" }</span>
 			<span class="badge-outline">{ FormatInt(data.EntitlementCount) }{ " entitlements" }</span>
 			if data.ExternalConsoleHref != "" {
-				<a class="btn-sm-outline" href={ data.ExternalConsoleHref } target="_blank" rel="noopener noreferrer">Open in console</a>
+				<a class="btn-sm-outline" href={ data.ExternalConsoleHref } target="_blank" rel="noopener noreferrer">
+					Open in console
+					<span class="sr-only"> (opens in new tab)</span>
+				</a>
 			}
 		}
 
@@ -51,6 +54,7 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 			<section>
 				<div class="overflow-x-auto">
 					<table class="table">
+						<caption class="sr-only">People and app accounts with access to this resource.</caption>
 						<thead>
 							<tr>
 								<th>IdP user</th>
@@ -134,4 +138,3 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 		</article>
 	}
 }
-

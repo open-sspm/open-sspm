@@ -29,6 +29,9 @@ func TestRenderErrorDoesNotLeakError(t *testing.T) {
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status=%d want %d", rec.Code, http.StatusInternalServerError)
 	}
+	if got := rec.Header().Get(echo.HeaderContentType); got != echo.MIMETextPlainCharsetUTF8 {
+		t.Fatalf("content-type=%q want %q", got, echo.MIMETextPlainCharsetUTF8)
+	}
 
 	body := rec.Body.String()
 	if strings.Contains(body, "db password") || strings.Contains(body, "secret") {
@@ -42,5 +45,24 @@ func TestRenderErrorDoesNotLeakError(t *testing.T) {
 	}
 	if !strings.Contains(body, "Code: "+InternalErrorCode) {
 		t.Fatalf("response missing error code: %q", body)
+	}
+}
+
+func TestRenderNotFoundSetsPlainTextContentType(t *testing.T) {
+	e := echo.New()
+	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/missing", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := RenderNotFound(c); err != nil {
+		t.Fatalf("RenderNotFound: %v", err)
+	}
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status=%d want %d", rec.Code, http.StatusNotFound)
+	}
+	if got := rec.Header().Get(echo.HeaderContentType); got != echo.MIMETextPlainCharsetUTF8 {
+		t.Fatalf("content-type=%q want %q", got, echo.MIMETextPlainCharsetUTF8)
 	}
 }
