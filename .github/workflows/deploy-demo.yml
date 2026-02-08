@@ -54,7 +54,7 @@ jobs:
       - name: Package deploy artifact
         run: |
           tar -czf dist/open-sspm.tgz \
-            -C . db/migrations web/static demo/data/001_seed_demo.sql \
+            -C . db/migrations web/static demo/data \
             -C dist open-sspm-amd64 open-sspm-arm64
 
       - name: Configure SSH
@@ -101,7 +101,8 @@ jobs:
           rm -rf /opt/open-sspm/db/migrations/*
           cp -a "$tmp_dir/db/migrations/." /opt/open-sspm/db/migrations/
           mkdir -p /opt/open-sspm/demo
-          install -m 0644 "$tmp_dir/demo/data/001_seed_demo.sql" /opt/open-sspm/demo/001_seed_demo.sql
+          rm -rf /opt/open-sspm/demo/*
+          cp -a "$tmp_dir/demo/data/." /opt/open-sspm/demo/
 
           set -a
           source /etc/open-sspm.env
@@ -131,7 +132,16 @@ jobs:
 
           /usr/local/bin/open-sspm migrate
           /usr/local/bin/open-sspm seed-rules
-          psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f /opt/open-sspm/demo/001_seed_demo.sql
+
+          mapfile -t seed_files < <(find /opt/open-sspm/demo -maxdepth 1 -type f -name '*.sql' | sort)
+          if [ "${#seed_files[@]}" -eq 0 ]; then
+            echo "No demo seed SQL files found in /opt/open-sspm/demo" >&2
+            exit 1
+          fi
+          for seed_file in "${seed_files[@]}"; do
+            psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${seed_file}"
+          done
+
           printf '%s' "admin" | /usr/local/bin/open-sspm users bootstrap-admin --email "admin@admin.com" --password-stdin
 
           systemctl enable open-sspm

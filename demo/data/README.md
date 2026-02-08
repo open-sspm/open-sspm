@@ -8,6 +8,7 @@ Goals:
   - Okta users / groups / app assignments
   - GitHub users + entitlements
   - Datadog users + roles
+  - Programmatic access governance (app assets, owners, credentials, audit events)
   - Some Findings (pass/fail, with `schema_version=1` evidence envelope)
 
 ## Apply (locally)
@@ -15,8 +16,12 @@ Goals:
 After running migrations and `open-sspm seed-rules`, apply:
 
 ```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f demo/data/001_seed_demo.sql
+while IFS= read -r seed_file; do
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$seed_file"
+done < <(find demo/data -maxdepth 1 -type f -name '*.sql' | sort)
 ```
+
+Seed files are applied in lexical order (for example: `001_...`, then `002_...`).
 
 ## Apply (demo VM via Ansible)
 

@@ -31,13 +31,14 @@ Extract it on the server into `/opt/open-sspm/`.
 3) Package runtime dirs:
    - `db/migrations/`
    - `web/static/`
+   - `demo/data/`
 4) Copy to the server over SSH (GitHub Actions secret key).
 5) Run on the server:
    - stop `open-sspm` (if running)
    - reset the demo database (drop + recreate)
    - `open-sspm migrate`
    - `open-sspm seed-rules`
-   - apply demo seed SQL (`demo/data/001_seed_demo.sql`)
+   - apply demo seed SQL files (`demo/data/*.sql` in lexical order)
    - restart `open-sspm` via systemd
 
 ## Ansible deploy (local build + sync)
@@ -63,9 +64,9 @@ Run it via Actions → “Deploy demo (Scaleway VM)” and pass the VM IP as the
 
 ## Seeding demo data
 
-This repo includes an **upsert-only** SQL seed at `demo/data/001_seed_demo.sql`.
+This repo includes **upsert-only** SQL seeds under `demo/data/`.
 
-The deploy workflow resets the demo database and applies this seed on every deployment.
+The deploy workflow resets the demo database and applies all `demo/data/*.sql` files (sorted lexically) on every deployment.
 
 ## Demo login
 

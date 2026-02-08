@@ -42,6 +42,8 @@ ansible-playbook -i inventory.ini site.yml
 ansible-playbook -i inventory.ini seed-demo.yml
 ```
 
+This applies all `demo/data/*.sql` seed files in lexical order.
+
 ## Deploy runtime assets via Ansible
 
 ```bash

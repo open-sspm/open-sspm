@@ -5,8 +5,8 @@
 
   vars:
     opensspm_db_name: opensspm
-    opensspm_demo_seed_src: "{{ playbook_dir }}/../../data/001_seed_demo.sql"
-    opensspm_demo_seed_dest: /opt/open-sspm/demo/001_seed_demo.sql
+    opensspm_demo_seed_src_dir: "{{ playbook_dir }}/../../data"
+    opensspm_demo_seed_dest_dir: /opt/open-sspm/demo
 
   tasks:
     - name: Ensure Postgres is running
@@ -15,27 +15,39 @@
         state: started
         enabled: true
 
+    - name: Reset demo seed directory
+      ansible.builtin.file:
+        path: "{{ opensspm_demo_seed_dest_dir }}"
+        state: absent
+
     - name: Ensure demo seed directory exists
       ansible.builtin.file:
-        path: /opt/open-sspm/demo
+        path: "{{ opensspm_demo_seed_dest_dir }}"
         state: directory
         owner: root
         group: root
         mode: "0755"
 
-    - name: Upload demo seed SQL
+    - name: Upload demo seed SQL files
       ansible.builtin.copy:
-        src: "{{ opensspm_demo_seed_src }}"
-        dest: "{{ opensspm_demo_seed_dest }}"
+        src: "{{ opensspm_demo_seed_src_dir }}/"
+        dest: "{{ opensspm_demo_seed_dest_dir }}/"
         owner: root
         group: root
         mode: "0644"
+        directory_mode: "0755"
 
-    - name: Apply demo seed SQL (upsert-only)
+    - name: Apply demo seed SQL files in lexical order (upsert-only)
       become_user: postgres
-      ansible.builtin.command:
-        cmd: >
-          psql -v ON_ERROR_STOP=1
-          -d "{{ opensspm_db_name }}"
-          -f "{{ opensspm_demo_seed_dest }}"
-
+      ansible.builtin.shell: |
+        set -euo pipefail
+        mapfile -t seed_files < <(find "{{ opensspm_demo_seed_dest_dir }}" -maxdepth 1 -type f -name '*.sql' | sort)
+        if [ "${#seed_files[@]}" -eq 0 ]; then
+          echo "No demo seed SQL files found in {{ opensspm_demo_seed_dest_dir }}" >&2
+          exit 1
+        fi
+        for seed_file in "${seed_files[@]}"; do
+          psql -v ON_ERROR_STOP=1 -d "{{ opensspm_db_name }}" -f "${seed_file}"
+        done
+      args:
+        executable: /bin/bash

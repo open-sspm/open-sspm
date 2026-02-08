@@ -101,7 +101,7 @@ WITH
     SELECT
       i,
       format('00u_demo_%s', to_char(i, 'FM000')) AS external_id,
-      format('demo.user%02s@example.com', i) AS email,
+      format('demo.user%s@example.com', to_char(i, 'FM000')) AS email,
       CASE WHEN (i % 7) = 0 THEN 'SUSPENDED' ELSE 'ACTIVE' END AS status
     FROM generate_series(1, 25) AS s(i)
   ),
@@ -117,7 +117,9 @@ WITH
       u.status
     FROM users u
   )
-INSERT INTO idp_users (
+INSERT INTO accounts (
+  source_kind,
+  source_name,
   external_id,
   email,
   display_name,
@@ -135,8 +137,10 @@ INSERT INTO idp_users (
   updated_at
 )
 SELECT
+  'okta',
+  ctx.okta_domain,
   c.external_id,
-  c.email,
+  lower(c.email),
   c.display_name,
   c.status,
   jsonb_build_object(
@@ -159,7 +163,7 @@ SELECT
   ctx.now_ts
 FROM computed c
 CROSS JOIN ctx
-ON CONFLICT (external_id) DO UPDATE SET
+ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
   email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
   status = EXCLUDED.status,
@@ -299,11 +303,23 @@ ON CONFLICT (external_id) DO UPDATE SET
 -- Map Okta apps to supported integrations (so /apps shows them as "integrated").
 WITH ctx AS (SELECT * FROM demo_seed_ctx)
 INSERT INTO integration_okta_app_map (integration_kind, okta_app_external_id, updated_at)
-VALUES
-  ('github', '0oa_demo_github', (SELECT now_ts FROM ctx)),
-  ('datadog', '0oa_demo_datadog', (SELECT now_ts FROM ctx))
+  VALUES
+    ('github', '0oa_demo_github', (SELECT now_ts FROM ctx)),
+    ('datadog', '0oa_demo_datadog', (SELECT now_ts FROM ctx))
 ON CONFLICT (integration_kind) DO UPDATE SET
   okta_app_external_id = EXCLUDED.okta_app_external_id,
+  updated_at = EXCLUDED.updated_at
+;
+
+-- Identity source settings (Okta authoritative; app sources non-authoritative).
+WITH ctx AS (SELECT * FROM demo_seed_ctx)
+INSERT INTO identity_source_settings (source_kind, source_name, is_authoritative, updated_at)
+VALUES
+  ('okta', (SELECT okta_domain FROM ctx), true, (SELECT now_ts FROM ctx)),
+  ('github', (SELECT github_org FROM ctx), false, (SELECT now_ts FROM ctx)),
+  ('datadog', (SELECT datadog_site FROM ctx), false, (SELECT now_ts FROM ctx))
+ON CONFLICT (source_kind, source_name) DO UPDATE SET
+  is_authoritative = EXCLUDED.is_authoritative,
   updated_at = EXCLUDED.updated_at
 ;
 
@@ -314,8 +330,10 @@ WITH
   ctx AS (SELECT * FROM demo_seed_ctx),
   u AS (
     SELECT id, right(external_id, 3)::int AS n
-    FROM idp_users
+    FROM accounts
     WHERE external_id LIKE '00u_demo_%'
+      AND source_kind = 'okta'
+      AND source_name = (SELECT okta_domain FROM ctx)
       AND expired_at IS NULL
   ),
   g AS (
@@ -325,7 +343,7 @@ WITH
       AND expired_at IS NULL
   ),
   pairs AS (
-    SELECT u.id AS idp_user_id, g.id AS okta_group_id
+    SELECT u.id AS okta_user_account_id, g.id AS okta_group_id
     FROM u
     JOIN g ON (
       (g.external_id = '00g_demo_eng' AND u.n BETWEEN 1 AND 15)
@@ -336,7 +354,7 @@ WITH
     )
   )
 INSERT INTO okta_user_groups (
-  idp_user_id,
+  okta_user_account_id,
   okta_group_id,
   seen_in_run_id,
   seen_at,
@@ -346,7 +364,7 @@ INSERT INTO okta_user_groups (
   expired_run_id
 )
 SELECT
-  p.idp_user_id,
+  p.okta_user_account_id,
   p.okta_group_id,
   ctx.run_id,
   ctx.now_ts,
@@ -356,7 +374,7 @@ SELECT
   NULL::bigint
 FROM pairs p
 CROSS JOIN ctx
-ON CONFLICT (idp_user_id, okta_group_id) DO UPDATE SET
+ON CONFLICT (okta_user_account_id, okta_group_id) DO UPDATE SET
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
   last_observed_run_id = EXCLUDED.last_observed_run_id,
@@ -430,8 +448,10 @@ WITH
   ctx AS (SELECT * FROM demo_seed_ctx),
   users AS (
     SELECT id, external_id, right(external_id, 3)::int AS n
-    FROM idp_users
+    FROM accounts
     WHERE external_id LIKE '00u_demo_%'
+      AND source_kind = 'okta'
+      AND source_name = (SELECT okta_domain FROM ctx)
       AND expired_at IS NULL
   ),
   assignments(user_external_id, app_external_id, scope, profile_json) AS (
@@ -464,7 +484,7 @@ WITH
     WHERE u.n BETWEEN 6 AND 10
   )
 INSERT INTO okta_user_app_assignments (
-  idp_user_id,
+  okta_user_account_id,
   okta_app_id,
   scope,
   profile_json,
@@ -491,10 +511,12 @@ SELECT
   NULL::bigint,
   ctx.now_ts
 FROM assignments a
-JOIN idp_users u ON u.external_id = a.user_external_id
+JOIN accounts u ON u.external_id = a.user_external_id
+  AND u.source_kind = 'okta'
+  AND u.source_name = (SELECT okta_domain FROM ctx)
 JOIN okta_apps oa ON oa.external_id = a.app_external_id
 CROSS JOIN ctx
-ON CONFLICT (idp_user_id, okta_app_id) DO UPDATE SET
+ON CONFLICT (okta_user_account_id, okta_app_id) DO UPDATE SET
   scope = EXCLUDED.scope,
   profile_json = EXCLUDED.profile_json,
   raw_json = EXCLUDED.raw_json,
@@ -515,17 +537,18 @@ WITH
   users AS (
     SELECT
       i,
-      format('demo-user%02s', i) AS login,
-      CASE WHEN i <= 10 THEN format('demo.user%02s@example.com', i) ELSE '' END AS email,
-      format('Demo User %02s', i) AS display_name
+      format('demo-user%s', to_char(i, 'FM000')) AS login,
+      CASE WHEN i <= 10 THEN format('demo.user%s@example.com', to_char(i, 'FM000')) ELSE '' END AS email,
+      format('Demo User %s', to_char(i, 'FM000')) AS display_name
     FROM generate_series(1, 15) AS s(i)
   )
-INSERT INTO app_users (
+INSERT INTO accounts (
   source_kind,
   source_name,
   external_id,
   email,
   display_name,
+  status,
   raw_json,
   last_login_at,
   last_login_ip,
@@ -542,9 +565,10 @@ SELECT
   'github',
   ctx.github_org,
   u.login,
-  u.email,
+  lower(u.email),
   u.display_name,
-  jsonb_build_object('login', u.login, 'type', 'User') AS raw_json,
+  'active',
+  jsonb_build_object('login', u.login, 'type', 'User', 'status', 'active') AS raw_json,
   NULL::timestamptz,
   ''::text,
   ''::text,
@@ -560,6 +584,7 @@ CROSS JOIN ctx
 ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
   email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
+  status = EXCLUDED.status,
   raw_json = EXCLUDED.raw_json,
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
@@ -574,11 +599,12 @@ ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
 WITH
   ctx AS (SELECT * FROM demo_seed_ctx),
   gh AS (
-    SELECT id, external_id, right(external_id, 2)::int AS n
-    FROM app_users
+    SELECT id, external_id, right(external_id, 3)::int AS n
+    FROM accounts
     WHERE source_kind = 'github'
       AND source_name = (SELECT github_org FROM ctx)
-      AND external_id LIKE 'demo-user%'
+      AND external_id ~ '^demo-user[0-9]{3}$'
+      AND right(external_id, 3)::int <= 15
       AND expired_at IS NULL
   ),
   ents AS (
@@ -666,17 +692,18 @@ WITH
     SELECT
       i,
       format('dd-demo-%s', to_char(i, 'FM000')) AS external_id,
-      CASE WHEN i <= 8 THEN format('demo.user%02s@example.com', i) ELSE '' END AS email,
-      format('Demo User %02s', i) AS display_name,
+      CASE WHEN i <= 8 THEN format('demo.user%s@example.com', to_char(i, 'FM000')) ELSE '' END AS email,
+      format('Demo User %s', to_char(i, 'FM000')) AS display_name,
       CASE WHEN (i % 6) = 0 THEN 'inactive' ELSE 'active' END AS status
     FROM generate_series(1, 12) AS s(i)
   )
-INSERT INTO app_users (
+INSERT INTO accounts (
   source_kind,
   source_name,
   external_id,
   email,
   display_name,
+  status,
   raw_json,
   last_login_at,
   last_login_ip,
@@ -693,8 +720,9 @@ SELECT
   'datadog',
   ctx.datadog_site,
   u.external_id,
-  u.email,
+  lower(u.email),
   u.display_name,
+  u.status,
   jsonb_build_object('status', u.status) AS raw_json,
   NULL::timestamptz,
   ''::text,
@@ -711,6 +739,7 @@ CROSS JOIN ctx
 ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
   email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
+  status = EXCLUDED.status,
   raw_json = EXCLUDED.raw_json,
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
@@ -726,7 +755,7 @@ WITH
   ctx AS (SELECT * FROM demo_seed_ctx),
   dd AS (
     SELECT id, external_id, right(external_id, 3)::int AS n
-    FROM app_users
+    FROM accounts
     WHERE source_kind = 'datadog'
       AND source_name = (SELECT datadog_site FROM ctx)
       AND external_id LIKE 'dd-demo-%'
@@ -783,27 +812,85 @@ ON CONFLICT (app_user_id, kind, resource, permission) DO UPDATE SET
 ;
 
 -- ------------------------------------------------------------
--- Identity linking (seed links by matching email).
+-- Identity graph linking (seed links by matching email).
 -- ------------------------------------------------------------
 WITH
+  okta_accounts AS (
+    SELECT
+      a.id AS account_id,
+      lower(a.email) AS email,
+      a.display_name
+    FROM accounts a
+    WHERE a.source_kind = 'okta'
+      AND a.source_name = (SELECT okta_domain FROM demo_seed_ctx)
+      AND a.external_id LIKE '00u_demo_%'
+      AND a.email <> ''
+      AND a.expired_at IS NULL
+  ),
+  seeded_okta_identities AS (
+    INSERT INTO identities (kind, display_name, primary_email)
+    SELECT
+      'human',
+      oa.display_name,
+      oa.email
+    FROM okta_accounts oa
+    LEFT JOIN identity_accounts ia ON ia.account_id = oa.account_id
+    WHERE ia.account_id IS NULL
+    RETURNING id
+  ),
+  okta_identity_links AS (
+    SELECT
+      oa.account_id,
+      i.id AS identity_id
+    FROM okta_accounts oa
+    JOIN LATERAL (
+      SELECT id
+      FROM identities
+      WHERE lower(primary_email) = oa.email
+      ORDER BY id ASC
+      LIMIT 1
+    ) i ON TRUE
+  ),
+  seeded_okta_links AS (
+    INSERT INTO identity_accounts (identity_id, account_id, link_reason, confidence, updated_at)
+    SELECT
+      oil.identity_id,
+      oil.account_id,
+      'demo_okta_seed',
+      1.0,
+      now()
+    FROM okta_identity_links oil
+    ON CONFLICT (account_id) DO UPDATE SET
+      identity_id = EXCLUDED.identity_id,
+      link_reason = EXCLUDED.link_reason,
+      confidence = EXCLUDED.confidence,
+      updated_at = EXCLUDED.updated_at
+    RETURNING account_id
+  ),
+  seed_guard AS (
+    SELECT count(*) AS n
+    FROM seeded_okta_links
+  ),
   matches AS (
     SELECT
-      iu.id AS idp_user_id,
-      au.id AS app_user_id
-    FROM idp_users iu
-    JOIN app_users au ON lower(iu.email) = lower(au.email)
-    WHERE iu.external_id LIKE '00u_demo_%'
-      AND iu.expired_at IS NULL
-      AND au.source_kind IN ('github', 'datadog')
-      AND au.email <> ''
-      AND au.expired_at IS NULL
+      app.id AS account_id,
+      okta_link.identity_id
+    FROM accounts app
+    JOIN seed_guard ON TRUE
+    JOIN okta_accounts oa ON lower(app.email) = oa.email
+    JOIN okta_identity_links okta_link ON okta_link.account_id = oa.account_id
+    WHERE app.source_kind IN ('github', 'datadog')
+      AND app.email <> ''
+      AND app.expired_at IS NULL
   )
-INSERT INTO identity_links (idp_user_id, app_user_id, link_reason)
-SELECT m.idp_user_id, m.app_user_id, 'demo_email'
+INSERT INTO identity_accounts (identity_id, account_id, link_reason, confidence, updated_at)
+SELECT m.identity_id, m.account_id, 'demo_email', 1.0, now()
 FROM matches m
-ON CONFLICT (app_user_id) DO UPDATE SET
-  idp_user_id = EXCLUDED.idp_user_id,
-  link_reason = EXCLUDED.link_reason
+ON CONFLICT (account_id) DO UPDATE SET
+  identity_id = EXCLUDED.identity_id,
+  link_reason = EXCLUDED.link_reason,
+  confidence = EXCLUDED.confidence,
+  updated_at = EXCLUDED.updated_at
 ;
 
 -- ------------------------------------------------------------
@@ -814,7 +901,7 @@ WITH
   rs AS (
     SELECT id
     FROM rulesets
-    WHERE key = 'cis.okta.idaas_stig.v1'
+    WHERE key = 'cis.okta.idaas_stig.v2'
     LIMIT 1
   ),
   picked AS (
@@ -853,7 +940,7 @@ SELECT
   jsonb_build_object(
     'schema_version', 1,
     'rule', jsonb_build_object(
-      'ruleset_key', 'cis.okta.idaas_stig.v1',
+      'ruleset_key', 'cis.okta.idaas_stig.v2',
       'rule_key', p.rule_key
     ),
     'check', jsonb_build_object(
