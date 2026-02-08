@@ -654,7 +654,6 @@ func (i *GitHubIntegration) syncProgrammaticAccess(ctx context.Context, deps reg
 
 	deps.Report(registry.Event{Source: "github", Stage: "list-installations", Current: 0, Total: 1, Message: "listing GitHub app installations"})
 	installationRows := make([]githubAppAssetUpsertRow, 0)
-	ownerRows := make([]githubAppAssetOwnerUpsertRow, 0)
 	installations, err := i.client.ListOrgInstallations(ctx, i.org)
 	if err != nil {
 		if errors.Is(err, ErrDatasetUnavailable) {
@@ -666,13 +665,12 @@ func (i *GitHubIntegration) syncProgrammaticAccess(ctx context.Context, deps reg
 			deps.Report(registry.Event{Source: "github", Stage: "list-installations", Message: wrapped.Error(), Err: err})
 			return summary, &programmaticSyncError{kind: registry.SyncErrorKindAPI, err: wrapped}
 		}
-	} else {
-		deps.Report(registry.Event{Source: "github", Stage: "list-installations", Current: 1, Total: 1, Message: fmt.Sprintf("found %d installations", len(installations))})
-		installationRows, ownerRows = buildGitHubInstallationRows(installations)
 	}
+	deps.Report(registry.Event{Source: "github", Stage: "list-installations", Current: 1, Total: 1, Message: fmt.Sprintf("found %d installations", len(installations))})
+	installationRows, ownerRows := buildGitHubInstallationRows(installations)
 
 	deps.Report(registry.Event{Source: "github", Stage: "list-audit-events", Current: 0, Total: 1, Message: "listing org audit events"})
-	auditRows := make([]githubCredentialAuditEventUpsertRow, 0)
+	var auditRows []githubCredentialAuditEventUpsertRow
 	auditEvents, err := i.client.ListOrgAuditLog(ctx, i.org)
 	if err != nil {
 		if errors.Is(err, ErrDatasetUnavailable) {

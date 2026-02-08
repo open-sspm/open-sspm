@@ -60,7 +60,7 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 	var totalCount int64
 	var totalPages int
 	var offset int
-	assets := make([]gen.AppAsset, 0)
+	var assets []gen.AppAsset
 
 	if len(activeSources) == 1 {
 		source := activeSources[0]
@@ -401,7 +401,7 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 	var totalCount int64
 	var totalPages int
 	var offset int
-	rows := make([]gen.CredentialArtifact, 0)
+	var rows []gen.CredentialArtifact
 
 	if len(activeSources) == 1 {
 		source := activeSources[0]
