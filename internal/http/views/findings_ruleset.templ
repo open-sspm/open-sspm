@@ -204,9 +204,9 @@ templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 						</thead>
 						<tbody>
 							for _, r := range data.Rules {
-								<tr>
-										<td>
-											<div class="space-y-0.5">
+								<tr data-row-href={ r.Href } class="cursor-pointer hover:bg-muted/50">
+									<td>
+										<div class="space-y-0.5">
 											<a class="btn-sm-link px-0 font-medium" href={ r.Href }>{ r.Key }</a>
 											if r.Title != "" && r.Title != r.Key {
 												<div class="text-sm text-muted-foreground">{ r.Title }</div>

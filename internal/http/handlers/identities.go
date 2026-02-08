@@ -15,6 +15,8 @@ import (
 )
 
 func (h *Handlers) HandleIdentities(c *echo.Context) error {
+	addVary(c, "HX-Request", "HX-Target")
+
 	ctx := c.Request().Context()
 	layout, _, err := h.LayoutData(ctx, c, "Identities")
 	if err != nil {
@@ -63,6 +65,9 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		EmptyStateMsg: emptyState,
 	}
 
+	if isHX(c) && isHXTarget(c, "identities-results") {
+		return h.RenderComponent(c, views.IdentitiesPageResults(data))
+	}
 	return h.RenderComponent(c, views.IdentitiesPage(data))
 }
 

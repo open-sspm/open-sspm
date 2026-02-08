@@ -10,8 +10,22 @@ templ IdentitiesPage(data viewmodels.IdentitiesViewData) {
 		}, "Unified identities resolved across all configured connectors.") {
 			<a class="btn-sm-outline" href="/settings/connectors">Connectors</a>
 		}
+		@IdentitiesPageResults(data)
+	}
+}
 
-		<form method="get" action="/identities" class="card">
+templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
+	<div id="identities-results" class="space-y-6">
+		<form
+			method="get"
+			action="/identities"
+			hx-get="/identities"
+			hx-trigger="input changed delay:300ms from:input[name='q'], change delay:150ms from:select, submit"
+			hx-target="#identities-results"
+			hx-swap="outerHTML"
+			hx-push-url="true"
+			class="card"
+		>
 			<header>
 				<h2>Search</h2>
 				<p>Search by email or display name.</p>
@@ -63,7 +77,7 @@ templ IdentitiesPage(data viewmodels.IdentitiesViewData) {
 						<tbody>
 							if data.HasIdentities {
 								for _, row := range data.Identities {
-									<tr>
+									<tr data-row-href={ "/identities/" + FormatInt64(row.ID) } class="cursor-pointer hover:bg-muted/50">
 										<td><a class="btn-sm-link" href={ "/identities/" + FormatInt64(row.ID) }>{ FormatInt64(row.ID) }</a></td>
 										<td>{ row.PrimaryEmail }</td>
 										<td>{ row.DisplayName }</td>
@@ -106,5 +120,5 @@ templ IdentitiesPage(data viewmodels.IdentitiesViewData) {
 				}
 			</section>
 		</article>
-	}
+	</div>
 }

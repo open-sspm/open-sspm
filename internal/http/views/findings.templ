@@ -23,7 +23,7 @@ templ FindingsPage(data viewmodels.FindingsRulesetsViewData) {
 					</thead>
 					<tbody>
 						for _, rs := range data.Rulesets {
-							<tr>
+							<tr data-row-href={ rs.Href } class="cursor-pointer hover:bg-muted/50">
 								<td>
 									<a class="btn-sm-link px-0 font-medium" href={ rs.Href }>{ rs.Name }</a>
 									if rs.Description != "" {

@@ -24,7 +24,7 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 			}
 		}
 
-		<section class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+			<section class="grid items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3">
 			@OktaConnectorCard(data)
 			@EntraConnectorCard(data)
 			@GitHubConnectorCard(data)
@@ -189,7 +189,7 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 }
 
 templ OktaConnectorCard(data viewmodels.ConnectorsViewData) {
-	<article class="card h-52">
+	<article class="card h-full">
 		<header>
 			<h2 class="flex items-center gap-2">
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true">
@@ -228,7 +228,7 @@ templ OktaConnectorCard(data viewmodels.ConnectorsViewData) {
 }
 
 templ EntraConnectorCard(data viewmodels.ConnectorsViewData) {
-	<article class="card h-52">
+	<article class="card h-full">
 		<header>
 			<h2 class="flex items-center gap-2">
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="h-5 w-5 shrink-0 text-muted-foreground">
@@ -268,7 +268,7 @@ templ EntraConnectorCard(data viewmodels.ConnectorsViewData) {
 }
 
 templ GitHubConnectorCard(data viewmodels.ConnectorsViewData) {
-	<article class="card h-52">
+	<article class="card h-full">
 		<header>
 			<h2 class="flex items-center gap-2">
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true">
@@ -299,7 +299,7 @@ templ GitHubConnectorCard(data viewmodels.ConnectorsViewData) {
 }
 
 templ DatadogConnectorCard(data viewmodels.ConnectorsViewData) {
-	<article class="card h-44">
+	<article class="card h-full">
 		<header>
 			<h2 class="flex items-center gap-2">
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true">
@@ -331,7 +331,7 @@ templ DatadogConnectorCard(data viewmodels.ConnectorsViewData) {
 }
 
 templ AWSIdentityCenterConnectorCard(data viewmodels.ConnectorsViewData) {
-	<article class="card h-44">
+	<article class="card h-full">
 		<header>
 			<h2 class="flex items-center gap-2">
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true">
@@ -361,7 +361,7 @@ templ AWSIdentityCenterConnectorCard(data viewmodels.ConnectorsViewData) {
 }
 
 templ VaultConnectorCard(data viewmodels.ConnectorsViewData) {
-	<article class="card h-44">
+	<article class="card h-full">
 		<header>
 			<h2 class="flex items-center gap-2">
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true">
