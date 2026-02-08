@@ -98,13 +98,23 @@ export const wireDialogCloseNavigation = () => {
     if (!(dialog instanceof HTMLElement)) return;
     if (dialog.dataset.closeNavBound === "true") return;
 
-    const closeHref = dialog.getAttribute("data-close-href");
+    const closeHref = (dialog.getAttribute("data-close-href") || "").trim();
     if (!closeHref) return;
 
     const navigateToCloseHref = () => {
+      let targetUrl;
+      try {
+        targetUrl = new URL(closeHref, window.location.href);
+      } catch {
+        return;
+      }
+
+      if (targetUrl.origin !== window.location.origin) return;
+
       const current = window.location.pathname + window.location.search + window.location.hash;
-      if (current === closeHref) return;
-      window.location.href = closeHref;
+      const target = targetUrl.pathname + targetUrl.search + targetUrl.hash;
+      if (current === target) return;
+      window.location.href = targetUrl.href;
     };
 
     dialog.addEventListener("cancel", (event) => {
