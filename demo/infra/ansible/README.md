@@ -31,7 +31,7 @@ ansible-playbook -i inventory.ini add-keys.yml \
 
 ## Seed demo data
 
-The GitHub Actions demo deploy workflow already resets the demo database and applies demo seed data.
+The GitHub Actions demo deploy workflow already resets the demo database and applies all demo seed SQL files from `demo/data/` in lexical order.
 
 If you want to re-seed without redeploying, after the app has been deployed (migrations + `open-sspm seed-rules`), run:
 
