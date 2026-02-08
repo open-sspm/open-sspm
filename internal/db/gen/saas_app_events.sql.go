@@ -238,6 +238,8 @@ const upsertSaaSAppEventsBulkBySource = `-- name: UpsertSaaSAppEventsBulkBySourc
 WITH input AS (
   SELECT
     i,
+    $2::text AS source_kind,
+    $3::text AS source_name,
     ($4::text[])[i] AS canonical_key,
     ($5::text[])[i] AS signal_kind,
     ($6::text[])[i] AS event_external_id,
@@ -253,7 +255,9 @@ WITH input AS (
   FROM generate_subscripts($6::text[], 1) AS s(i)
 ),
 dedup AS (
-  SELECT DISTINCT ON (signal_kind, event_external_id)
+  SELECT DISTINCT ON (source_kind, source_name, signal_kind, event_external_id)
+    source_kind,
+    source_name,
     canonical_key,
     signal_kind,
     event_external_id,
@@ -268,7 +272,7 @@ dedup AS (
     raw_json
   FROM input
   WHERE trim(event_external_id) <> ''
-  ORDER BY signal_kind, event_external_id, i DESC
+  ORDER BY source_kind, source_name, signal_kind, event_external_id, i DESC
 )
 INSERT INTO saas_app_events (
   saas_app_id,
@@ -291,8 +295,8 @@ INSERT INTO saas_app_events (
 )
 SELECT
   sa.id,
-  $1::text,
-  $2::text,
+  d.source_kind,
+  d.source_name,
   d.signal_kind,
   d.event_external_id,
   d.source_app_id,
@@ -304,7 +308,7 @@ SELECT
   d.observed_at,
   COALESCE(d.scopes_json, '[]'::jsonb),
   COALESCE(d.raw_json, '{}'::jsonb),
-  $3::bigint,
+  $1::bigint,
   now(),
   now()
 FROM dedup d
@@ -326,9 +330,9 @@ ON CONFLICT (source_kind, source_name, signal_kind, event_external_id) DO UPDATE
 `
 
 type UpsertSaaSAppEventsBulkBySourceParams struct {
+	SeenInRunID       int64                `json:"seen_in_run_id"`
 	SourceKind        string               `json:"source_kind"`
 	SourceName        string               `json:"source_name"`
-	SeenInRunID       int64                `json:"seen_in_run_id"`
 	CanonicalKeys     []string             `json:"canonical_keys"`
 	SignalKinds       []string             `json:"signal_kinds"`
 	EventExternalIds  []string             `json:"event_external_ids"`
@@ -345,9 +349,9 @@ type UpsertSaaSAppEventsBulkBySourceParams struct {
 
 func (q *Queries) UpsertSaaSAppEventsBulkBySource(ctx context.Context, arg UpsertSaaSAppEventsBulkBySourceParams) (int64, error) {
 	result, err := q.db.Exec(ctx, upsertSaaSAppEventsBulkBySource,
+		arg.SeenInRunID,
 		arg.SourceKind,
 		arg.SourceName,
-		arg.SeenInRunID,
 		arg.CanonicalKeys,
 		arg.SignalKinds,
 		arg.EventExternalIds,

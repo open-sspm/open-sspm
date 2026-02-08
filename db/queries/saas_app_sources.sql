@@ -2,6 +2,8 @@
 WITH input AS (
   SELECT
     i,
+    sqlc.arg(source_kind)::text AS source_kind,
+    sqlc.arg(source_name)::text AS source_name,
     (sqlc.arg(canonical_keys)::text[])[i] AS canonical_key,
     (sqlc.arg(source_app_ids)::text[])[i] AS source_app_id,
     (sqlc.arg(source_app_names)::text[])[i] AS source_app_name,
@@ -10,7 +12,9 @@ WITH input AS (
   FROM generate_subscripts(sqlc.arg(source_app_ids)::text[], 1) AS s(i)
 ),
 dedup AS (
-  SELECT DISTINCT ON (source_app_id)
+  SELECT DISTINCT ON (source_kind, source_name, source_app_id)
+    source_kind,
+    source_name,
     canonical_key,
     source_app_id,
     source_app_name,
@@ -18,7 +22,7 @@ dedup AS (
     seen_at
   FROM input
   WHERE trim(source_app_id) <> ''
-  ORDER BY source_app_id, i DESC
+  ORDER BY source_kind, source_name, source_app_id, i DESC
 )
 INSERT INTO saas_app_sources (
   saas_app_id,
@@ -33,8 +37,8 @@ INSERT INTO saas_app_sources (
 )
 SELECT
   sa.id,
-  sqlc.arg(source_kind)::text,
-  sqlc.arg(source_name)::text,
+  d.source_kind,
+  d.source_name,
   d.source_app_id,
   d.source_app_name,
   d.source_app_domain,

@@ -227,6 +227,8 @@ const upsertSaaSAppSourcesBulkBySource = `-- name: UpsertSaaSAppSourcesBulkBySou
 WITH input AS (
   SELECT
     i,
+    $2::text AS source_kind,
+    $3::text AS source_name,
     ($4::text[])[i] AS canonical_key,
     ($5::text[])[i] AS source_app_id,
     ($6::text[])[i] AS source_app_name,
@@ -235,7 +237,9 @@ WITH input AS (
   FROM generate_subscripts($5::text[], 1) AS s(i)
 ),
 dedup AS (
-  SELECT DISTINCT ON (source_app_id)
+  SELECT DISTINCT ON (source_kind, source_name, source_app_id)
+    source_kind,
+    source_name,
     canonical_key,
     source_app_id,
     source_app_name,
@@ -243,7 +247,7 @@ dedup AS (
     seen_at
   FROM input
   WHERE trim(source_app_id) <> ''
-  ORDER BY source_app_id, i DESC
+  ORDER BY source_kind, source_name, source_app_id, i DESC
 )
 INSERT INTO saas_app_sources (
   saas_app_id,
@@ -258,12 +262,12 @@ INSERT INTO saas_app_sources (
 )
 SELECT
   sa.id,
-  $1::text,
-  $2::text,
+  d.source_kind,
+  d.source_name,
   d.source_app_id,
   d.source_app_name,
   d.source_app_domain,
-  $3::bigint,
+  $1::bigint,
   COALESCE(d.seen_at, now()),
   now()
 FROM dedup d
@@ -278,9 +282,9 @@ ON CONFLICT (source_kind, source_name, source_app_id) DO UPDATE SET
 `
 
 type UpsertSaaSAppSourcesBulkBySourceParams struct {
+	SeenInRunID      int64                `json:"seen_in_run_id"`
 	SourceKind       string               `json:"source_kind"`
 	SourceName       string               `json:"source_name"`
-	SeenInRunID      int64                `json:"seen_in_run_id"`
 	CanonicalKeys    []string             `json:"canonical_keys"`
 	SourceAppIds     []string             `json:"source_app_ids"`
 	SourceAppNames   []string             `json:"source_app_names"`
@@ -290,9 +294,9 @@ type UpsertSaaSAppSourcesBulkBySourceParams struct {
 
 func (q *Queries) UpsertSaaSAppSourcesBulkBySource(ctx context.Context, arg UpsertSaaSAppSourcesBulkBySourceParams) (int64, error) {
 	result, err := q.db.Exec(ctx, upsertSaaSAppSourcesBulkBySource,
+		arg.SeenInRunID,
 		arg.SourceKind,
 		arg.SourceName,
-		arg.SeenInRunID,
 		arg.CanonicalKeys,
 		arg.SourceAppIds,
 		arg.SourceAppNames,

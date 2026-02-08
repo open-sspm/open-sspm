@@ -2,6 +2,8 @@
 WITH input AS (
   SELECT
     i,
+    sqlc.arg(source_kind)::text AS source_kind,
+    sqlc.arg(source_name)::text AS source_name,
     (sqlc.arg(canonical_keys)::text[])[i] AS canonical_key,
     (sqlc.arg(signal_kinds)::text[])[i] AS signal_kind,
     (sqlc.arg(event_external_ids)::text[])[i] AS event_external_id,
@@ -17,7 +19,9 @@ WITH input AS (
   FROM generate_subscripts(sqlc.arg(event_external_ids)::text[], 1) AS s(i)
 ),
 dedup AS (
-  SELECT DISTINCT ON (signal_kind, event_external_id)
+  SELECT DISTINCT ON (source_kind, source_name, signal_kind, event_external_id)
+    source_kind,
+    source_name,
     canonical_key,
     signal_kind,
     event_external_id,
@@ -32,7 +36,7 @@ dedup AS (
     raw_json
   FROM input
   WHERE trim(event_external_id) <> ''
-  ORDER BY signal_kind, event_external_id, i DESC
+  ORDER BY source_kind, source_name, signal_kind, event_external_id, i DESC
 )
 INSERT INTO saas_app_events (
   saas_app_id,
@@ -55,8 +59,8 @@ INSERT INTO saas_app_events (
 )
 SELECT
   sa.id,
-  sqlc.arg(source_kind)::text,
-  sqlc.arg(source_name)::text,
+  d.source_kind,
+  d.source_name,
   d.signal_kind,
   d.event_external_id,
   d.source_app_id,

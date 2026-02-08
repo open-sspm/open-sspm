@@ -1206,10 +1206,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			sourceAppName = sourceAppID
 		}
 
-		observedAt := parseGraphTime(signIn.CreatedDateTimeRaw).Time.UTC()
-		if observedAt.IsZero() {
-			observedAt = now
-		}
+		observedAt := graphObservedAtOrNow(signIn.CreatedDateTimeRaw, now)
 
 		metadata := discovery.BuildMetadata(discovery.CanonicalInput{
 			SourceKind:    "entra",
@@ -1276,10 +1273,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			sourceAppName = sourceAppID
 		}
 
-		observedAt := parseGraphTime(grant.CreatedDateTimeRaw).Time.UTC()
-		if observedAt.IsZero() {
-			observedAt = now
-		}
+		observedAt := graphObservedAtOrNow(grant.CreatedDateTimeRaw, now)
 		scopes := discovery.NormalizeScopes(strings.Fields(strings.ReplaceAll(grant.Scope, ",", " ")))
 
 		metadata := discovery.BuildMetadata(discovery.CanonicalInput{
@@ -1573,6 +1567,14 @@ func parseGraphTime(raw string) pgtype.Timestamptz {
 		}
 	}
 	return pgtype.Timestamptz{Time: parsed, Valid: true}
+}
+
+func graphObservedAtOrNow(raw string, fallback time.Time) time.Time {
+	parsed := parseGraphTime(raw)
+	if !parsed.Valid {
+		return fallback.UTC()
+	}
+	return parsed.Time.UTC()
 }
 
 func credentialLifecycleStatus(start, end pgtype.Timestamptz) string {

@@ -1,6 +1,9 @@
 package entra
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestBuildCredentialAuditEventRowsMapsCredentialAuditFields(t *testing.T) {
 	t.Parallel()
@@ -90,5 +93,27 @@ func TestExtractCredentialExternalIDNestedJSON(t *testing.T) {
 	want := "123e4567-e89b-12d3-a456-426614174000"
 	if got != want {
 		t.Fatalf("extractCredentialExternalID=%q want %q", got, want)
+	}
+}
+
+func TestGraphObservedAtOrNowUsesValidity(t *testing.T) {
+	t.Parallel()
+
+	fallback := time.Date(2026, 2, 8, 12, 34, 56, 0, time.UTC)
+
+	invalid := graphObservedAtOrNow("not-a-time", fallback)
+	if !invalid.Equal(fallback) {
+		t.Fatalf("invalid timestamp fallback = %s want %s", invalid.Format(time.RFC3339Nano), fallback.Format(time.RFC3339Nano))
+	}
+
+	zero := graphObservedAtOrNow("0001-01-01T00:00:00Z", fallback)
+	if !zero.IsZero() {
+		t.Fatalf("valid zero timestamp parsed as %s, expected zero value", zero.Format(time.RFC3339Nano))
+	}
+
+	valid := graphObservedAtOrNow("2026-02-08T11:22:33Z", fallback)
+	want := time.Date(2026, 2, 8, 11, 22, 33, 0, time.UTC)
+	if !valid.Equal(want) {
+		t.Fatalf("valid timestamp parsed as %s want %s", valid.Format(time.RFC3339Nano), want.Format(time.RFC3339Nano))
 	}
 }
