@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -40,23 +41,31 @@ type Orchestrator struct {
 	integrations []registry.Integration
 	keys         map[integrationKey]struct{}
 	idp          registry.Integration
+
+	timeoutRetryAttempts int
+	timeoutRetryDelay    time.Duration
 }
 
 const (
 	globalEvalModeBestEffort = "best_effort"
 	globalEvalModeStrict     = "strict"
+
+	defaultTimeoutRetryAttempts = 2
+	defaultTimeoutRetryDelay    = 2 * time.Second
 )
 
 func NewOrchestrator(pool *pgxpool.Pool, reg *registry.ConnectorRegistry) *Orchestrator {
 	return &Orchestrator{
-		pool:           pool,
-		q:              gen.New(pool),
-		registry:       reg,
-		keys:           make(map[integrationKey]struct{}),
-		globalEvalMode: globalEvalModeBestEffort,
-		mode:           registry.RunModeFull,
-		identityFn:     identity.Resolve,
-		globalEvalFn:   runGlobalComplianceEvaluations,
+		pool:                 pool,
+		q:                    gen.New(pool),
+		registry:             reg,
+		keys:                 make(map[integrationKey]struct{}),
+		globalEvalMode:       globalEvalModeBestEffort,
+		mode:                 registry.RunModeFull,
+		identityFn:           identity.Resolve,
+		globalEvalFn:         runGlobalComplianceEvaluations,
+		timeoutRetryAttempts: defaultTimeoutRetryAttempts,
+		timeoutRetryDelay:    defaultTimeoutRetryDelay,
 	}
 }
 
@@ -158,9 +167,7 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 			runKind := registry.SyncRunSourceKind(kind, o.mode)
 			start := time.Now()
 
-			lockErr := o.withConnectorLock(ctx, kind, name, func(lockCtx context.Context) error {
-				return i.Run(lockCtx, registry.IntegrationDeps{Q: o.q, Pool: o.pool, Report: o.report, Mode: o.mode.Normalize()})
-			})
+			lockErr := o.runIntegrationWithRetry(ctx, i)
 			duration := time.Since(start).Seconds()
 			metrics.SyncDuration.WithLabelValues(runKind, name).Observe(duration)
 
@@ -313,6 +320,89 @@ func runGlobalComplianceEvaluations(ctx context.Context, q *gen.Queries, mode st
 		Now:      time.Now,
 	}
 	return globalEngine.Run(ctx, engine.Context{ScopeKind: "global", EvaluatedAt: time.Now()})
+}
+
+func (o *Orchestrator) runIntegrationWithRetry(ctx context.Context, integration registry.Integration) error {
+	kind := strings.TrimSpace(integration.Kind())
+	name := strings.TrimSpace(integration.Name())
+	mode := o.mode.Normalize()
+
+	attempts := o.timeoutRetryAttempts
+	if attempts <= 0 {
+		attempts = 1
+	}
+
+	delay := o.timeoutRetryDelay
+	if delay < 0 {
+		delay = 0
+	}
+
+	var runErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if attempt > 1 {
+			slog.Warn(
+				"retrying integration sync after timeout",
+				"kind", kind,
+				"name", name,
+				"attempt", attempt,
+				"max_attempts", attempts,
+				"retry_delay", delay,
+				"err", runErr,
+			)
+			if err := sleepWithContext(ctx, delay); err != nil {
+				return errors.Join(runErr, err)
+			}
+		}
+
+		runErr = o.withConnectorLock(ctx, kind, name, func(lockCtx context.Context) error {
+			return integration.Run(lockCtx, registry.IntegrationDeps{Q: o.q, Pool: o.pool, Report: o.report, Mode: mode})
+		})
+		if runErr == nil {
+			return nil
+		}
+		if !isRetryableTimeoutError(runErr) {
+			return runErr
+		}
+	}
+	return runErr
+}
+
+func isRetryableTimeoutError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	if os.IsTimeout(err) {
+		return true
+	}
+
+	var timeoutErr interface {
+		Timeout() bool
+	}
+	return errors.As(err, &timeoutErr) && timeoutErr.Timeout()
+}
+
+func sleepWithContext(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return nil
+	}
+
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func (o *Orchestrator) withConnectorLock(ctx context.Context, kind, name string, fn func(context.Context) error) error {

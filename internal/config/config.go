@@ -23,7 +23,7 @@ const (
 	defaultSyncLockMode              = "lease"
 	defaultSyncLockTTL               = 60 * time.Second
 	defaultSyncLockHeartbeatInterval = 15 * time.Second
-	defaultSyncLockHeartbeatTimeout  = 5 * time.Second
+	defaultSyncLockHeartbeatTimeout  = 15 * time.Second
 )
 
 type Config struct {

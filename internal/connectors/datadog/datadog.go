@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	defaultTimeout   = 30 * time.Second
+	defaultTimeout   = 120 * time.Second
 	defaultPageSize  = 100
 	maxRetriesOn429  = 3
 	maxErrorBodySize = 1 << 20 // 1 MiB

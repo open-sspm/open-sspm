@@ -18,7 +18,7 @@ import (
 	ssoadmintypes "github.com/aws/aws-sdk-go-v2/service/ssoadmin/types"
 )
 
-const defaultHTTPTimeout = 30 * time.Second
+const defaultHTTPTimeout = 120 * time.Second
 
 // AssignmentSource describes how an entitlement was granted.
 type AssignmentSource string

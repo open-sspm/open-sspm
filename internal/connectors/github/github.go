@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const defaultTimeout = 30 * time.Second
+const defaultTimeout = 120 * time.Second
 const maxRetries = 3
 
 const maxRetryAfter = 30 * time.Second
