@@ -36,7 +36,12 @@ ON CONFLICT (key) DO UPDATE SET
   status = EXCLUDED.status,
   definition_hash = EXCLUDED.definition_hash,
   definition_json = EXCLUDED.definition_json,
-  updated_at = now()
+  updated_at = CASE
+    WHEN rulesets.definition_hash IS DISTINCT FROM EXCLUDED.definition_hash
+      OR rulesets.definition_json IS DISTINCT FROM EXCLUDED.definition_json
+      THEN now()
+    ELSE rulesets.updated_at
+  END
 RETURNING *;
 
 -- name: ListRulesets :many
@@ -92,13 +97,19 @@ ON CONFLICT (ruleset_id, key) DO UPDATE SET
   rule_version = EXCLUDED.rule_version,
   is_active = EXCLUDED.is_active,
   definition_json = EXCLUDED.definition_json,
-  updated_at = now()
+  updated_at = CASE
+    WHEN rules.definition_json IS DISTINCT FROM EXCLUDED.definition_json
+      OR rules.is_active IS DISTINCT FROM EXCLUDED.is_active
+      THEN now()
+    ELSE rules.updated_at
+  END
 RETURNING *;
 
 -- name: DeactivateRulesNotInKeys :exec
 UPDATE rules
 SET is_active = false, updated_at = now()
 WHERE ruleset_id = sqlc.arg(ruleset_id)
+  AND is_active = true
   AND NOT (key = ANY(sqlc.arg(rule_keys)::text[]));
 
 -- name: ListActiveRulesByRulesetID :many

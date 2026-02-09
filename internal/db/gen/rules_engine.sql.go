@@ -15,6 +15,7 @@ const deactivateRulesNotInKeys = `-- name: DeactivateRulesNotInKeys :exec
 UPDATE rules
 SET is_active = false, updated_at = now()
 WHERE ruleset_id = $1
+  AND is_active = true
   AND NOT (key = ANY($2::text[]))
 `
 
@@ -590,7 +591,12 @@ ON CONFLICT (ruleset_id, key) DO UPDATE SET
   rule_version = EXCLUDED.rule_version,
   is_active = EXCLUDED.is_active,
   definition_json = EXCLUDED.definition_json,
-  updated_at = now()
+  updated_at = CASE
+    WHEN rules.definition_json IS DISTINCT FROM EXCLUDED.definition_json
+      OR rules.is_active IS DISTINCT FROM EXCLUDED.is_active
+      THEN now()
+    ELSE rules.updated_at
+  END
 RETURNING id, ruleset_id, key, title, summary, category, severity, monitoring_status, monitoring_reason, required_data, expected_params, rule_version, is_active, created_at, updated_at, definition_json
 `
 
@@ -851,7 +857,12 @@ ON CONFLICT (key) DO UPDATE SET
   status = EXCLUDED.status,
   definition_hash = EXCLUDED.definition_hash,
   definition_json = EXCLUDED.definition_json,
-  updated_at = now()
+  updated_at = CASE
+    WHEN rulesets.definition_hash IS DISTINCT FROM EXCLUDED.definition_hash
+      OR rulesets.definition_json IS DISTINCT FROM EXCLUDED.definition_json
+      THEN now()
+    ELSE rulesets.updated_at
+  END
 RETURNING id, key, name, description, source, source_version, source_date, scope_kind, connector_kind, status, definition_hash, created_at, updated_at, definition_json
 `
 
