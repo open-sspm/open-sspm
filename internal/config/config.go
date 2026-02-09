@@ -87,7 +87,7 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		SyncGitHubWorkers:         getenvIntDefault("SYNC_GITHUB_WORKERS", defaultSyncGitHubWorkers),
 		SyncDatadogWorkers:        getenvIntDefault("SYNC_DATADOG_WORKERS", defaultSyncDatadogWorkers),
 		ResyncEnabled:             getenvBoolDefault("RESYNC_ENABLED", true),
-		ResyncMode:                getenvDefault("RESYNC_MODE", "inline"),
+		ResyncMode:                getenvDefault("RESYNC_MODE", "signal"),
 		GlobalEvalMode:            strings.ToLower(strings.TrimSpace(getenvDefault("GLOBAL_EVAL_MODE", "best_effort"))),
 		SyncLockMode:              strings.ToLower(strings.TrimSpace(getenvDefault("SYNC_LOCK_MODE", defaultSyncLockMode))),
 		SyncLockTTL:               defaultSyncLockTTL,

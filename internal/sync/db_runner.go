@@ -100,6 +100,7 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 	orchestrator.SetRunMode(r.runMode())
 
 	forcedSync := IsForcedSync(ctx)
+	requestedConnectorKind, requestedSourceName, hasRequestedScope := ConnectorScopeFromContext(ctx)
 	var (
 		errList          []error
 		integrationCount int
@@ -114,6 +115,9 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 	for _, cfgRow := range configs {
 		kind := strings.TrimSpace(cfgRow.Kind)
 		if kind == "" {
+			continue
+		}
+		if !connectorKindMatchesRequestedScope(kind, requestedConnectorKind, hasRequestedScope) {
 			continue
 		}
 
@@ -191,6 +195,9 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 	}
 
 	for _, candidate := range candidates {
+		if hasRequestedScope && !matchesRequestedConnectorScope(candidate.kind, candidate.runName, requestedConnectorKind, requestedSourceName) {
+			continue
+		}
 		if r.policy != nil && !forcedSync {
 			var (
 				shouldRun bool
@@ -242,13 +249,7 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 	}
 
 	if integrationCount == 0 {
-		if len(errList) > 0 {
-			return errors.Join(ErrNoEnabledConnectors, errors.Join(errList...))
-		}
-		if len(deferred) > 0 {
-			return ErrNoConnectorsDue
-		}
-		return ErrNoEnabledConnectors
+		return noIntegrationRunError(errList, deferred, hasRequestedScope)
 	}
 
 	runErr := orchestrator.RunOnce(ctx)
@@ -285,6 +286,39 @@ func (r *DBRunner) integrationSupportsRunMode(integration registry.Integration) 
 
 	// Legacy integrations default to full-only.
 	return mode == registry.RunModeFull
+}
+
+func matchesRequestedConnectorScope(kind, sourceName, requestedKind, requestedSourceName string) bool {
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	sourceName = strings.TrimSpace(sourceName)
+	requestedKind = strings.ToLower(strings.TrimSpace(requestedKind))
+	requestedSourceName = strings.TrimSpace(requestedSourceName)
+	if kind == "" || sourceName == "" || requestedKind == "" || requestedSourceName == "" {
+		return false
+	}
+	return kind == requestedKind && strings.EqualFold(sourceName, requestedSourceName)
+}
+
+func connectorKindMatchesRequestedScope(kind, requestedKind string, hasRequestedScope bool) bool {
+	if !hasRequestedScope {
+		return true
+	}
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	requestedKind = strings.ToLower(strings.TrimSpace(requestedKind))
+	if kind == "" || requestedKind == "" {
+		return false
+	}
+	return kind == requestedKind
+}
+
+func noIntegrationRunError(errList []error, deferred []string, hasRequestedScope bool) error {
+	if len(errList) > 0 {
+		return errors.Join(ErrNoEnabledConnectors, errors.Join(errList...))
+	}
+	if len(deferred) > 0 || hasRequestedScope {
+		return ErrNoConnectorsDue
+	}
+	return ErrNoEnabledConnectors
 }
 
 func (r *DBRunner) shouldRunIntegration(ctx context.Context, kind, name string) (bool, string, error) {

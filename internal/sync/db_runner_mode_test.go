@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/open-sspm/open-sspm/internal/connectors/entra"
@@ -89,5 +90,41 @@ func TestDBRunner_DiscoveryModeFiltering(t *testing.T) {
 	entraDiscoveryDisabled := entra.NewEntraIntegration(nil, "tenant", false)
 	if discoveryRunner.integrationSupportsRunMode(entraDiscoveryDisabled) {
 		t.Fatalf("entra integration with discovery disabled should be skipped")
+	}
+}
+
+func TestMatchesRequestedConnectorScope(t *testing.T) {
+	t.Parallel()
+
+	if !matchesRequestedConnectorScope("GitHub", "Acme", "github", "acme") {
+		t.Fatalf("expected case-insensitive scope match")
+	}
+	if matchesRequestedConnectorScope("github", "acme", "okta", "acme") {
+		t.Fatalf("expected connector kind mismatch")
+	}
+	if matchesRequestedConnectorScope("github", "acme", "github", "other") {
+		t.Fatalf("expected source mismatch")
+	}
+}
+
+func TestNoIntegrationRunErrorScopedReturnsNoConnectorsDue(t *testing.T) {
+	t.Parallel()
+
+	if !errors.Is(noIntegrationRunError(nil, nil, true), ErrNoConnectorsDue) {
+		t.Fatalf("expected scoped no-op result to return ErrNoConnectorsDue")
+	}
+}
+
+func TestConnectorKindMatchesRequestedScope(t *testing.T) {
+	t.Parallel()
+
+	if !connectorKindMatchesRequestedScope("github", "github", true) {
+		t.Fatalf("expected matching connector kind")
+	}
+	if connectorKindMatchesRequestedScope("okta", "github", true) {
+		t.Fatalf("expected non-matching connector kind to be skipped")
+	}
+	if !connectorKindMatchesRequestedScope("okta", "github", false) {
+		t.Fatalf("expected unscoped runs to include all connector kinds")
 	}
 }

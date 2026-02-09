@@ -204,6 +204,7 @@ func TestListDirectoryAudits(t *testing.T) {
 	t.Parallel()
 
 	var sawFilter bool
+	var sawTop bool
 
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -215,6 +216,9 @@ func TestListDirectoryAudits(t *testing.T) {
 		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/auditLogs/directoryAudits"):
 			if strings.Contains(r.URL.Query().Get("$filter"), "activityDateTime ge") {
 				sawFilter = true
+			}
+			if r.URL.Query().Get("$top") == directoryAuditsTop {
+				sawTop = true
 			}
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"value":[{"id":"event-1","category":"ApplicationManagement","result":"success","activityDisplayName":"Add application password credential","activityDateTime":"2026-02-01T10:00:00Z","initiatedBy":{"user":{"id":"user-1","displayName":"Alice","userPrincipalName":"alice@example.com"}},"targetResources":[{"id":"app-1","displayName":"App One","type":"Application"}]}]}`))
@@ -249,6 +253,78 @@ func TestListDirectoryAudits(t *testing.T) {
 	}
 	if !sawFilter {
 		t.Fatalf("expected since filter in request")
+	}
+	if !sawTop {
+		t.Fatalf("expected $top=%s in request", directoryAuditsTop)
+	}
+}
+
+func TestListDirectoryAuditsLargeResponseBody(t *testing.T) {
+	t.Parallel()
+
+	largePayload := map[string]any{
+		"value": []map[string]any{
+			{
+				"id":                  "event-1",
+				"category":            "ApplicationManagement",
+				"result":              "success",
+				"activityDisplayName": "Large payload event",
+				"activityDateTime":    "2026-02-01T10:00:00Z",
+				"initiatedBy": map[string]any{
+					"user": map[string]any{
+						"id":                "user-1",
+						"displayName":       "Alice",
+						"userPrincipalName": "alice@example.com",
+					},
+				},
+				"targetResources": []map[string]any{
+					{"id": "app-1", "displayName": "App One", "type": "Application"},
+				},
+				// Ensure response body exceeds maxErrorBodySize to catch truncation on success paths.
+				"padding": strings.Repeat("x", maxErrorBodySize+512),
+			},
+		},
+	}
+
+	encodedLargePayload, err := json.Marshal(largePayload)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/oauth2/v2.0/token"):
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"tkn","expires_in":3600,"token_type":"Bearer"}`))
+			return
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/auditLogs/directoryAudits"):
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(encodedLargePayload)
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	c, err := NewWithOptions("tenant", "client", "secret", Options{
+		AuthorityBaseURL: srv.URL,
+		GraphBaseURL:     srv.URL + "/graph/v1.0",
+	})
+	if err != nil {
+		t.Fatalf("NewWithOptions: %v", err)
+	}
+
+	events, err := c.ListDirectoryAudits(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("ListDirectoryAudits: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("len(events)=%d want 1", len(events))
+	}
+	if events[0].ActivityDisplayName != "Large payload event" {
+		t.Fatalf("unexpected activity display name %q", events[0].ActivityDisplayName)
 	}
 }
 

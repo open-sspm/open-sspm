@@ -104,6 +104,48 @@ describe("htmx integration wiring", () => {
     expect(indicator.hidden).toBe(true);
   });
 
+  it("cleans up busy state when afterSwap targets a non-HTMLElement", () => {
+    document.body.innerHTML = `
+      <main id="main" data-main-content data-busy-region>
+        <div id="target"></div>
+      </main>
+      <div id="busy-indicator" data-htmx-busy-indicator hidden aria-hidden="true"></div>
+    `;
+
+    const target = document.getElementById("target");
+    const region = document.getElementById("main");
+    const indicator = document.getElementById("busy-indicator");
+    const xhr = new XMLHttpRequest();
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        detail: {
+          xhr,
+          target,
+          elt: target,
+          requestConfig: {},
+        },
+      }),
+    );
+
+    expect(region.getAttribute("aria-busy")).toBe("true");
+    expect(document.documentElement.dataset.htmxBusy).toBe("true");
+
+    const svgTarget = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    document.body.appendChild(svgTarget);
+    svgTarget.dispatchEvent(
+      new CustomEvent("htmx:afterSwap", {
+        bubbles: true,
+        detail: { xhr },
+      }),
+    );
+
+    expect(target.getAttribute("aria-busy")).toBe("false");
+    expect(region.getAttribute("aria-busy")).toBe("false");
+    expect(document.documentElement.dataset.htmxBusy).toBe("false");
+    expect(indicator.hidden).toBe(true);
+  });
+
   it("ignores cancelled beforeRequest events", () => {
     document.body.innerHTML = `
       <main id="main" data-main-content data-busy-region>
@@ -156,7 +198,7 @@ describe("htmx integration wiring", () => {
       expect(indicator.getAttribute("aria-hidden")).toBe("true");
     };
 
-    ["htmx:sendAbort", "htmx:sendError", "htmx:timeout", "htmx:responseError"].forEach((eventName) => {
+    ["htmx:sendAbort", "htmx:sendError", "htmx:timeout", "htmx:responseError", "htmx:onLoadError", "htmx:swapError"].forEach((eventName) => {
       const xhr = new XMLHttpRequest();
 
       document.dispatchEvent(

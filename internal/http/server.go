@@ -257,6 +257,7 @@ func (es *EchoServer) registerRoutes() {
 	admin.GET("/settings/connectors", es.h.HandleConnectors)
 	admin.GET("/settings/connector-health", es.h.HandleConnectorHealth)
 	admin.GET("/settings/connector-health/errors", es.h.HandleConnectorHealthErrorDetails)
+	admin.POST("/settings/connector-health/sync", es.h.HandleConnectorHealthSync)
 	admin.POST("/settings/connectors/*", es.h.HandleConnectorAction)
 	admin.GET("/settings/users", es.h.HandleSettingsUsers)
 	admin.POST("/settings/users", es.h.HandleSettingsUsersCreate)

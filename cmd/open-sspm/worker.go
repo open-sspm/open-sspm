@@ -84,7 +84,7 @@ func runWorker() error {
 	runner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, dbRunner, sync.RunOnceScopeNameFull)
 
 	slog.Info("sync worker started", "interval", cfg.SyncInterval)
-	triggers := make(chan struct{}, 1)
+	triggers := make(chan sync.TriggerRequest, 1)
 	go func() {
 		if err := sync.ListenForResyncRequestsOnChannel(ctx, pool, sync.ResyncNotifyChannelFull, triggers); err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error("resync listener failed", "err", err)

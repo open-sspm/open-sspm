@@ -164,5 +164,11 @@ SELECT pg_advisory_unlock($1::bigint);
 -- name: NotifyResyncRequested :exec
 SELECT pg_notify('open_sspm_resync_requested', '');
 
+-- name: NotifyResyncRequestedWithPayload :exec
+SELECT pg_notify('open_sspm_resync_requested', sqlc.arg(payload)::text);
+
 -- name: NotifyResyncDiscoveryRequested :exec
 SELECT pg_notify('open_sspm_resync_discovery_requested', '');
+
+-- name: NotifyResyncDiscoveryRequestedWithPayload :exec
+SELECT pg_notify('open_sspm_resync_discovery_requested', sqlc.arg(payload)::text);

@@ -57,5 +57,6 @@ Prereqs: Go 1.25.x (see `go.mod` toolchain), Docker + Compose, Node.js + npm.
 - Programmatic Access semantics: empty `source_kind`/`source_name` means “All configured” (aggregate across configured sources; do not default to the first source).
 - SaaS Discovery semantics: empty discovery `source_kind`/`source_name` also means “All configured” (configured Okta/Entra sources only; exclude legacy/unconfigured source rows from default list/hotspot/metric rollups).
 - Filters UX convention: prefer GET filters that auto-apply on select change; query applies on Enter; include an inline clear-query control; avoid Apply/Reset button rows to reduce congestion.
+- HTMX lifecycle safety: whenever we set busy/loading state in `htmx:beforeRequest`, we must clear it for all completion paths (`htmx:afterRequest`, `htmx:afterSwap`, `htmx:onLoadError`, `htmx:swapError`, `htmx:sendAbort`, `htmx:sendError`, `htmx:timeout`, `htmx:responseError`) and avoid assumptions that swap targets are always `HTMLElement`s.
 - Sync safety: do not finalize/expire a run after any partial-stage error; fail the run early to avoid expiring valid rows after a partial refresh.
 - Discovery ingestion safety: Okta/Entra discovery collectors are incremental (watermark/window based), not full snapshots; expiration logic must be staleness-based (currently 30 days), not “not seen in this run” alone.

@@ -9,7 +9,7 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 - Login: `admin@admin.com` / `admin`
 
 ## Features
-- HTTP server (`open-sspm serve`) + background full sync worker (`open-sspm worker`) + background discovery worker (`open-sspm worker-discovery`) + one-off syncs (`open-sspm sync`, `open-sspm sync-discovery`) + in-app “Resync”.
+- HTTP server (`open-sspm serve`) + background full sync worker (`open-sspm worker`) + background discovery worker (`open-sspm worker-discovery`) + one-off syncs (`open-sspm sync`, `open-sspm sync-discovery`) + in-app “Resync” (queued async by default).
 - Okta: users, groups, apps, and assignments (IdP source).
 - Microsoft Entra ID: users plus application/service principal governance metadata.
 - SaaS Discovery: discovered app inventory + hotspots from IdP SSO and OAuth grant evidence (Okta System Log + Entra sign-ins/grants), with governance and binding workflows.
@@ -33,8 +33,8 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 3. Run migrations: `just migrate`
 4. Install JS deps + build CSS: `npm install && just ui`
 5. Run the server: `just run`
-6. Optional: run background workers: `just worker` (full lane) and `go run ./cmd/open-sspm worker-discovery` (discovery lane)
-7. Open `http://localhost:8080`, configure connectors under Settings → Connectors, then run a sync (Settings → Resync, or `just sync`).
+6. Run background workers: `just worker` (full lane) and `go run ./cmd/open-sspm worker-discovery` (discovery lane).
+7. Open `http://localhost:8080`, configure connectors under Settings → Connectors, then run a sync (Settings → Resync queues workers by default, or use `just sync` for one-off inline execution).
 8. Optional: enable SaaS discovery on Okta/Entra connector settings, run sync, then review `http://localhost:8080/discovery/apps` and `http://localhost:8080/discovery/hotspots`.
 
 ## Findings / rules (Okta benchmark)
@@ -54,6 +54,7 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 
 ## Configuration
 - Process-level env vars: `.env.example` (database, HTTP address, sync interval/workers).
+- Manual resync mode: `RESYNC_MODE=signal` (default, queues workers via Postgres `NOTIFY`) or `RESYNC_MODE=inline` (request runs sync directly).
 - Connector credentials: configured in-app under Settings → Connectors and stored in Postgres.
 - AWS Identity Center uses the AWS SDK default credentials chain (env/shared config/role), not DB-stored keys.
 - SaaS discovery is per-connector (`discovery_enabled`) for Okta and Entra.

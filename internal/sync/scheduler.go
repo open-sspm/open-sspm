@@ -11,7 +11,7 @@ import (
 type Scheduler struct {
 	Runner   Runner
 	Interval time.Duration
-	Trigger  <-chan struct{}
+	Trigger  <-chan TriggerRequest
 }
 
 func (s *Scheduler) Run(ctx context.Context) {
@@ -49,8 +49,16 @@ func (s *Scheduler) Run(ctx context.Context) {
 		case <-timer.C:
 			_ = runOnce("scheduled", ctx)
 			resetTimer(timer, s.nextDelay(rng))
-		case <-s.Trigger:
-			_ = runOnce("triggered", WithForcedSync(ctx))
+		case req, ok := <-s.Trigger:
+			if !ok {
+				s.Trigger = nil
+				continue
+			}
+			runCtx := WithForcedSync(ctx)
+			if req.HasConnectorScope() {
+				runCtx = WithConnectorScope(runCtx, req.ConnectorKind, req.SourceName)
+			}
+			_ = runOnce("triggered", runCtx)
 			resetTimer(timer, s.nextDelay(rng))
 		}
 	}
