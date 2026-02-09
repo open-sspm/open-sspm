@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -133,5 +134,17 @@ func TestIsRetryableTimeoutError(t *testing.T) {
 	}
 	if isRetryableTimeoutError(errors.New("boom")) {
 		t.Fatalf("generic error should not be retryable")
+	}
+}
+
+func TestOrchestrator_DoesNotRetryLockLostErrors(t *testing.T) {
+	t.Parallel()
+
+	lockLost := errors.Join(
+		errors.New("integration failed"),
+		fmt.Errorf("%w: %w", errSyncLockLost, context.DeadlineExceeded),
+	)
+	if isRetryableTimeoutError(lockLost) {
+		t.Fatalf("lock-lost error should not be retryable")
 	}
 }

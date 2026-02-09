@@ -54,6 +54,8 @@ const (
 	defaultTimeoutRetryDelay    = 2 * time.Second
 )
 
+var errSyncLockLost = errors.New("sync lock lost")
+
 func NewOrchestrator(pool *pgxpool.Pool, reg *registry.ConnectorRegistry) *Orchestrator {
 	return &Orchestrator{
 		pool:                 pool,
@@ -377,6 +379,10 @@ func isRetryableTimeoutError(err error) bool {
 	if errors.Is(err, context.Canceled) {
 		return false
 	}
+	// Lock-loss errors may wrap context.DeadlineExceeded; do not retry them.
+	if errors.Is(err, errSyncLockLost) {
+		return false
+	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return true
 	}
@@ -451,7 +457,7 @@ func (o *Orchestrator) withConnectorLock(ctx context.Context, kind, name string,
 	lost := lockLost
 	lockLostMu.Unlock()
 	if lost != nil {
-		return errors.Join(fnErr, fmt.Errorf("sync lock lost: %w", lost))
+		return errors.Join(fnErr, fmt.Errorf("%w: %w", errSyncLockLost, lost))
 	}
 	return fnErr
 }
