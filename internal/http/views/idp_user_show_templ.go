@@ -359,7 +359,7 @@ func IdPUserShowPage(data viewmodels.IdPUserShowViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\" hx-trigger=\"oss-panel-visible once, load once\" hx-swap=\"innerHTML\"><div class=\"text-sm text-muted-foreground\">Loading access graph...</div></div></section></article></section><section id=\"tab-linked\" role=\"tabpanel\" aria-labelledby=\"tab-linked-trigger\" tabindex=\"0\" hidden><div class=\"space-y-4\"><div class=\"flex flex-wrap items-center justify-between gap-3\"><h2 class=\"text-lg font-semibold\">Linked accounts</h2><span class=\"badge-outline\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\" hx-trigger=\"oss-panel-visible once\" hx-swap=\"innerHTML\"><div class=\"text-sm text-muted-foreground\">Loading access graph...</div></div></section></article></section><section id=\"tab-linked\" role=\"tabpanel\" aria-labelledby=\"tab-linked-trigger\" tabindex=\"0\" hidden><div class=\"space-y-4\"><div class=\"flex flex-wrap items-center justify-between gap-3\"><h2 class=\"text-lg font-semibold\">Linked accounts</h2><span class=\"badge-outline\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

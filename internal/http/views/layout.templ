@@ -72,7 +72,7 @@ templ Layout(data viewmodels.LayoutData) {
 								</svg>
 							</button>
 								<div id="user-menu-popover" data-popover data-side="top" data-align="start" aria-hidden="true">
-									<form method="post" action="/logout">
+									<form method="post" action="/logout" hx-boost="false">
 										@CSRFInput(data.CSRFToken)
 										<button type="submit" class="btn w-full">Sign out</button>
 									</form>

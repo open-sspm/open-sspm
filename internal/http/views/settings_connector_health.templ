@@ -37,6 +37,7 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 								<th>Last run</th>
 								<th>{ data.LookbackLabel }{ " success" }</th>
 								<th>{ data.LookbackLabel }{ " avg (success)" }</th>
+								<th class="w-12 text-right"><span class="sr-only">Details</span></th>
 							</tr>
 						</thead>
 						<tbody>
@@ -48,6 +49,29 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 									<td class="text-muted-foreground">{ item.LastRunLabel }</td>
 									<td class="text-muted-foreground">{ item.SuccessRate7d }</td>
 									<td class="text-muted-foreground">{ item.AvgDuration7d }</td>
+									<td class="text-right">
+										if item.CanViewDetails {
+											<button
+												type="button"
+												class="btn-icon-ghost cursor-pointer"
+												aria-label={ "View recent errors for " + item.Name }
+												hx-get={ item.DetailsURL }
+												hx-target="#connector-health-error-details-host"
+												hx-swap="innerHTML"
+											>
+												<i class="ti ti-dots text-lg text-muted-foreground" aria-hidden="true"></i>
+											</button>
+										} else {
+											<button
+												type="button"
+												class="btn-icon-ghost opacity-50"
+												aria-label={ "No sync run details for " + item.Name }
+												disabled
+											>
+												<i class="ti ti-dots text-lg text-muted-foreground" aria-hidden="true"></i>
+											</button>
+										}
+									</td>
 								</tr>
 							}
 						</tbody>
@@ -60,5 +84,89 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 				</div>
 			</footer>
 		</article>
+
+		<div id="connector-health-error-details-host"></div>
 	}
+}
+
+templ ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDetailsDialogViewData) {
+	<dialog
+		id={ data.DialogID }
+		class="dialog w-full max-w-6xl"
+		data-open
+		aria-labelledby={ data.DialogID + "-title" }
+		aria-describedby={ data.DialogID + "-description" }
+	>
+		<form method="dialog">
+			<button type="button" class="btn-icon-ghost" aria-label="Close" data-dialog-close>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+					<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"/>
+				</svg>
+			</button>
+			<header>
+				<h2 id={ data.DialogID + "-title" }>{ data.ConnectorName }{ " errors" }</h2>
+				<p id={ data.DialogID + "-description" } class="text-sm text-muted-foreground break-words">
+					Latest non-success runs for { data.SourceKind }{ " · " }{ data.SourceName }.
+				</p>
+			</header>
+			<section class="space-y-4">
+				<div class="overflow-x-auto">
+					<table class="table align-top">
+						<thead>
+							<tr>
+								<th>Finished</th>
+								<th>Status</th>
+								<th>Error kind</th>
+								<th>Preview</th>
+								<th>Details</th>
+							</tr>
+						</thead>
+						<tbody>
+							if data.HasRows {
+								for _, row := range data.Rows {
+									<tr>
+										<td class="text-muted-foreground whitespace-nowrap" title={ row.FinishedAtTitle }>{ row.FinishedAtLabel }</td>
+										<td><span class={ row.StatusClass }>{ row.StatusLabel }</span></td>
+										<td class="text-muted-foreground whitespace-nowrap">{ row.ErrorKind }</td>
+										<td>
+											if row.HasMessage {
+												<div class="max-w-md whitespace-pre-wrap break-words text-xs leading-relaxed">{ row.MessagePreview }</div>
+												if row.PreviewTruncated {
+													<div class="mt-1 text-xs text-muted-foreground">Preview truncated.</div>
+												}
+											} else {
+												<span class="text-muted-foreground">No message</span>
+											}
+										</td>
+										<td>
+											if row.HasMessage {
+												<details>
+													<summary id={ row.ExpandControlID } class="btn-sm-link px-0 cursor-pointer">Show details</summary>
+													<div id={ row.ExpandContentID } class="mt-2 space-y-2">
+														<pre class="max-h-80 max-w-[32rem] overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/30 p-3 text-xs leading-relaxed"><code>{ row.MessageFull }</code></pre>
+														if row.FullTextTruncated {
+															<p class="text-xs text-muted-foreground">Full text truncated at 20,000 characters.</p>
+														}
+													</div>
+												</details>
+											} else {
+												<span class="text-muted-foreground">—</span>
+											}
+										</td>
+									</tr>
+								}
+							} else {
+								<tr>
+									<td colspan="5" class="text-sm text-muted-foreground">No non-success runs found for this connector.</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</section>
+			<footer>
+				<button type="button" class="btn-primary" data-dialog-close>Close</button>
+			</footer>
+		</form>
+	</dialog>
 }

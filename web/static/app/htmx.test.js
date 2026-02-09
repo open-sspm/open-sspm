@@ -64,6 +64,124 @@ describe("htmx integration wiring", () => {
     expect(indicator.getAttribute("aria-hidden")).toBe("true");
   });
 
+  it("cleans up busy state when swap completes before/without afterRequest", () => {
+    document.body.innerHTML = `
+      <main id="main" data-main-content data-busy-region>
+        <div id="target"></div>
+      </main>
+      <div id="busy-indicator" data-htmx-busy-indicator hidden aria-hidden="true"></div>
+    `;
+
+    const target = document.getElementById("target");
+    const region = document.getElementById("main");
+    const indicator = document.getElementById("busy-indicator");
+    const xhr = new XMLHttpRequest();
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        detail: {
+          xhr,
+          target,
+          elt: target,
+          requestConfig: {},
+        },
+      }),
+    );
+
+    expect(region.getAttribute("aria-busy")).toBe("true");
+    expect(document.documentElement.dataset.htmxBusy).toBe("true");
+
+    target.dispatchEvent(
+      new CustomEvent("htmx:afterSwap", {
+        bubbles: true,
+        detail: { xhr },
+      }),
+    );
+
+    expect(target.getAttribute("aria-busy")).toBe("false");
+    expect(region.getAttribute("aria-busy")).toBe("false");
+    expect(document.documentElement.dataset.htmxBusy).toBe("false");
+    expect(indicator.hidden).toBe(true);
+  });
+
+  it("ignores cancelled beforeRequest events", () => {
+    document.body.innerHTML = `
+      <main id="main" data-main-content data-busy-region>
+        <div id="target"></div>
+      </main>
+      <div id="busy-indicator" data-htmx-busy-indicator hidden aria-hidden="true"></div>
+    `;
+
+    const target = document.getElementById("target");
+    const region = document.getElementById("main");
+    const indicator = document.getElementById("busy-indicator");
+    const xhr = new XMLHttpRequest();
+    const cancelled = new CustomEvent("htmx:beforeRequest", {
+      cancelable: true,
+      detail: {
+        xhr,
+        target,
+        elt: target,
+        requestConfig: {},
+      },
+    });
+    cancelled.preventDefault();
+
+    document.dispatchEvent(cancelled);
+
+    expect(target.getAttribute("aria-busy")).toBeNull();
+    expect(region.getAttribute("aria-busy")).toBeNull();
+    expect(document.documentElement.dataset.htmxBusy).toBe("false");
+    expect(indicator.hidden).toBe(true);
+    expect(indicator.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("cleans up busy state on abort/error lifecycle events", () => {
+    document.body.innerHTML = `
+      <main id="main" data-main-content data-busy-region>
+        <div id="target"></div>
+      </main>
+      <div id="busy-indicator" data-htmx-busy-indicator hidden aria-hidden="true"></div>
+    `;
+
+    const target = document.getElementById("target");
+    const region = document.getElementById("main");
+    const indicator = document.getElementById("busy-indicator");
+
+    const assertBusyCleared = () => {
+      expect(target.getAttribute("aria-busy")).toBe("false");
+      expect(region.getAttribute("aria-busy")).toBe("false");
+      expect(document.documentElement.dataset.htmxBusy).toBe("false");
+      expect(indicator.hidden).toBe(true);
+      expect(indicator.getAttribute("aria-hidden")).toBe("true");
+    };
+
+    ["htmx:sendAbort", "htmx:sendError", "htmx:timeout", "htmx:responseError"].forEach((eventName) => {
+      const xhr = new XMLHttpRequest();
+
+      document.dispatchEvent(
+        new CustomEvent("htmx:beforeRequest", {
+          detail: {
+            xhr,
+            target,
+            elt: target,
+            requestConfig: {},
+          },
+        }),
+      );
+
+      expect(document.documentElement.dataset.htmxBusy).toBe("true");
+
+      document.dispatchEvent(
+        new CustomEvent(eventName, {
+          detail: { xhr },
+        }),
+      );
+
+      assertBusyCleared();
+    });
+  });
+
   it("marks containing cards as busy for in-card HTMX requests", () => {
     document.body.innerHTML = `
       <article id="card" class="card">

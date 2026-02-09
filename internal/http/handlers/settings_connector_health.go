@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -13,6 +15,12 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
+)
+
+const (
+	connectorHealthDetailsRunLimit   int32 = 5
+	connectorHealthErrorPreviewRunes       = 320
+	connectorHealthErrorFullRunes          = 20000
 )
 
 // HandleConnectorHealth renders connector health under Settings.
@@ -37,6 +45,73 @@ func (h *Handlers) HandleConnectorHealth(c *echo.Context) error {
 	}
 	data.Layout = layout
 	return h.RenderComponent(c, views.SettingsConnectorHealthPage(data))
+}
+
+// HandleConnectorHealthErrorDetails renders the latest non-success sync runs for a connector source.
+func (h *Handlers) HandleConnectorHealthErrorDetails(c *echo.Context) error {
+	if c.Request().Method != http.MethodGet {
+		return c.NoContent(http.StatusMethodNotAllowed)
+	}
+	addVary(c, "HX-Request", "HX-Target")
+
+	sourceKind := strings.ToLower(strings.TrimSpace(c.QueryParam("source_kind")))
+	sourceName := strings.TrimSpace(c.QueryParam("source_name"))
+	connectorName := strings.TrimSpace(c.QueryParam("connector_name"))
+
+	if sourceKind == "" || sourceName == "" {
+		return c.String(http.StatusBadRequest, "source_kind and source_name are required")
+	}
+	if h.Q == nil {
+		return c.String(http.StatusServiceUnavailable, "connector health unavailable")
+	}
+	if connectorName == "" {
+		connectorName = sourceKind
+	}
+
+	rows, err := h.Q.ListRecentNonSuccessSyncRunsBySource(c.Request().Context(), gen.ListRecentNonSuccessSyncRunsBySourceParams{
+		SourceKind: sourceKind,
+		SourceName: sourceName,
+		Limit:      connectorHealthDetailsRunLimit,
+	})
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+
+	now := time.Now()
+	viewRows := make([]viewmodels.ConnectorHealthErrorDetailsRow, 0, len(rows))
+	for idx, row := range rows {
+		message := strings.TrimSpace(row.Message)
+		preview, full, previewTruncated, fullTruncated := sizeConnectorHealthErrorMessage(message)
+
+		runKey := fmt.Sprintf("connector-health-run-%d-%d", row.ID, idx)
+		viewRows = append(viewRows, viewmodels.ConnectorHealthErrorDetailsRow{
+			RowID:             runKey,
+			RunID:             row.ID,
+			StatusLabel:       connectorHealthRunStatusLabel(row.Status),
+			StatusClass:       connectorHealthRunStatusClass(row.Status),
+			FinishedAtLabel:   formatAge(now, row.FinishedAt.Time),
+			FinishedAtTitle:   row.FinishedAt.Time.UTC().Format(time.RFC3339),
+			ErrorKind:         fallbackDash(strings.TrimSpace(row.ErrorKind)),
+			MessagePreview:    preview,
+			MessageFull:       full,
+			PreviewTruncated:  previewTruncated,
+			FullTextTruncated: fullTruncated,
+			HasMessage:        full != "",
+			ExpandControlID:   runKey + "-expand",
+			ExpandContentID:   runKey + "-details",
+		})
+	}
+
+	data := viewmodels.ConnectorHealthErrorDetailsDialogViewData{
+		DialogID:      connectorHealthErrorDialogID(sourceKind, sourceName),
+		ConnectorName: connectorName,
+		SourceKind:    sourceKind,
+		SourceName:    sourceName,
+		Rows:          viewRows,
+		HasRows:       len(viewRows) > 0,
+	}
+
+	return h.RenderComponent(c, views.ConnectorHealthErrorDetailsDialog(data))
 }
 
 type syncRollupKey struct {
@@ -112,14 +187,18 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 		if displayName == "" {
 			displayName = kind
 		}
+		sourceName := strings.TrimSpace(st.SourceName)
 
 		syncable := !strings.EqualFold(kind, configstore.KindVault)
 		syncKind := connectorSyncKind(kind)
 		expectedInterval := expectedIntervalForSyncKind(cfg, syncKind)
 
 		var rollup syncRunRollup
-		if syncable && st.Configured && strings.TrimSpace(st.SourceName) != "" && syncKind != "" {
-			rollup = rollupByKey[syncRollupKey{kind: syncKind, name: strings.TrimSpace(st.SourceName)}]
+		canViewDetails := syncable && st.Configured && sourceName != "" && syncKind != ""
+		detailsURL := ""
+		if canViewDetails {
+			rollup = rollupByKey[syncRollupKey{kind: syncKind, name: sourceName}]
+			detailsURL = connectorHealthErrorDetailsURL(syncKind, sourceName, displayName)
 		}
 
 		res := connectorHealth(connectorHealthInput{
@@ -134,12 +213,16 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 		items = append(items, viewmodels.ConnectorHealthItem{
 			Kind:             kind,
 			Name:             displayName,
+			SourceKind:       syncKind,
+			SourceName:       sourceName,
 			StatusLabel:      res.statusLabel,
 			StatusClass:      res.statusClass,
 			LastSuccessLabel: res.lastSuccessLabel,
 			LastRunLabel:     res.lastRunLabel,
 			SuccessRate7d:    res.successRate7d,
 			AvgDuration7d:    res.avgDuration7d,
+			DetailsURL:       detailsURL,
+			CanViewDetails:   canViewDetails,
 		})
 
 		if res.countsAsEnabled {
@@ -252,4 +335,98 @@ func syncRunRollupFromRow(row gen.GetSyncRunRollupsForSourcesRow) syncRunRollup 
 	}
 
 	return rollup
+}
+
+func connectorHealthErrorDetailsURL(sourceKind, sourceName, connectorName string) string {
+	values := url.Values{}
+	values.Set("source_kind", strings.TrimSpace(sourceKind))
+	values.Set("source_name", strings.TrimSpace(sourceName))
+	if connectorName = strings.TrimSpace(connectorName); connectorName != "" {
+		values.Set("connector_name", connectorName)
+	}
+	return "/settings/connector-health/errors?" + values.Encode()
+}
+
+func connectorHealthRunStatusLabel(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "success":
+		return "Success"
+	case "error":
+		return "Error"
+	case "canceled":
+		return "Canceled"
+	case "running":
+		return "Running"
+	default:
+		status = strings.TrimSpace(status)
+		if status == "" {
+			return "Unknown"
+		}
+		return status
+	}
+}
+
+func connectorHealthRunStatusClass(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "success":
+		return badgeClassSuccess()
+	case "error":
+		return badgeClassDanger()
+	case "canceled":
+		return badgeClassWarning()
+	default:
+		return badgeClassNeutral()
+	}
+}
+
+func sizeConnectorHealthErrorMessage(message string) (preview string, full string, previewTruncated bool, fullTruncated bool) {
+	message = strings.TrimSpace(message)
+	if message == "" {
+		return "", "", false, false
+	}
+
+	full, fullTruncated = truncateRunes(message, connectorHealthErrorFullRunes)
+	preview, previewTruncated = truncateRunes(full, connectorHealthErrorPreviewRunes)
+	return preview, full, previewTruncated, fullTruncated
+}
+
+func truncateRunes(value string, max int) (string, bool) {
+	if max <= 0 {
+		return "", value != ""
+	}
+	runes := []rune(value)
+	if len(runes) <= max {
+		return value, false
+	}
+	return string(runes[:max]), true
+}
+
+func connectorHealthErrorDialogID(sourceKind, sourceName string) string {
+	return "connector-health-errors-" + sanitizeDialogIDPart(sourceKind) + "-" + sanitizeDialogIDPart(sourceName)
+}
+
+func sanitizeDialogIDPart(raw string) string {
+	raw = strings.ToLower(strings.TrimSpace(raw))
+	if raw == "" {
+		return "na"
+	}
+
+	var b strings.Builder
+	for _, r := range raw {
+		switch {
+		case r >= 'a' && r <= 'z':
+			b.WriteRune(r)
+		case r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == '-':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('-')
+		}
+	}
+	s := strings.Trim(b.String(), "-")
+	if s == "" {
+		return "na"
+	}
+	return s
 }

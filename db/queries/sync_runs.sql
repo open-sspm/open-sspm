@@ -12,6 +12,16 @@ WHERE source_kind = $1
 ORDER BY finished_at DESC
 LIMIT $3;
 
+-- name: ListRecentNonSuccessSyncRunsBySource :many
+SELECT id, status, finished_at, error_kind, message
+FROM sync_runs
+WHERE source_kind = $1
+  AND source_name = $2
+  AND finished_at IS NOT NULL
+  AND status <> 'success'
+ORDER BY finished_at DESC
+LIMIT $3;
+
 -- name: ListRecentFinishedSyncRunsForSources :many
 WITH requested AS (
   SELECT k.kind AS source_kind, n.name AS source_name

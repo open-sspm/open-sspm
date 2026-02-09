@@ -120,7 +120,7 @@ func Layout(data viewmodels.LayoutData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</span> <svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"h-4 w-4 text-muted-foreground transition-transform cursor-pointer\" data-chevron aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z\" clip-rule=\"evenodd\"></path></svg></button><div id=\"user-menu-popover\" data-popover data-side=\"top\" data-align=\"start\" aria-hidden=\"true\"><form method=\"post\" action=\"/logout\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</span> <svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"h-4 w-4 text-muted-foreground transition-transform cursor-pointer\" data-chevron aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z\" clip-rule=\"evenodd\"></path></svg></button><div id=\"user-menu-popover\" data-popover data-side=\"top\" data-align=\"start\" aria-hidden=\"true\"><form method=\"post\" action=\"/logout\" hx-boost=\"false\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
