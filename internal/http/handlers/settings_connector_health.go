@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
+	"github.com/open-sspm/open-sspm/internal/sync"
 )
 
 const (
@@ -39,12 +41,122 @@ func (h *Handlers) HandleConnectorHealth(c *echo.Context) error {
 		}
 	}
 
-	data, err := buildConnectorHealthViewData(h.Cfg, h.Q, ctx, states)
+	data, err := buildConnectorHealthViewData(h.Cfg, h.Q, ctx, states, h.Syncer != nil)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 	data.Layout = layout
 	return h.RenderComponent(c, views.SettingsConnectorHealthPage(data))
+}
+
+// HandleConnectorHealthSync queues a manual sync for a single connector.
+func (h *Handlers) HandleConnectorHealthSync(c *echo.Context) error {
+	if c.Request().Method != http.MethodPost {
+		return c.NoContent(http.StatusMethodNotAllowed)
+	}
+	addVary(c, "HX-Request")
+
+	if h.Syncer == nil {
+		return h.redirectConnectorHealthWithToast(c, viewmodels.ToastViewData{
+			Category:    "warning",
+			Title:       "Sync unavailable",
+			Description: "Manual sync is not configured on this server.",
+		})
+	}
+
+	connectorKind := NormalizeConnectorKind(c.FormValue("connector_kind"))
+	sourceName := strings.TrimSpace(c.FormValue("source_name"))
+	if !IsKnownConnectorKind(connectorKind) || sourceName == "" {
+		return h.redirectConnectorHealthWithToast(c, viewmodels.ToastViewData{
+			Category:    "error",
+			Title:       "Invalid connector",
+			Description: "Connector kind and source name are required.",
+		})
+	}
+
+	if strings.EqualFold(connectorKind, configstore.KindVault) {
+		return h.redirectConnectorHealthWithToast(c, viewmodels.ToastViewData{
+			Category:    "warning",
+			Title:       "Sync unavailable",
+			Description: "The selected connector does not support sync.",
+		})
+	}
+
+	if h.Registry == nil || h.Q == nil {
+		return h.redirectConnectorHealthWithToast(c, viewmodels.ToastViewData{
+			Category:    "error",
+			Title:       "Connector health unavailable",
+			Description: "Connector state could not be loaded.",
+		})
+	}
+
+	states, err := h.Registry.LoadStates(c.Request().Context(), h.Q)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+
+	var selected *connregistry.ConnectorState
+	for idx := range states {
+		state := &states[idx]
+		kind := NormalizeConnectorKind(state.Definition.Kind())
+		name := strings.TrimSpace(state.SourceName)
+		if kind == connectorKind && strings.EqualFold(name, sourceName) {
+			selected = state
+			break
+		}
+	}
+	if selected == nil {
+		return h.redirectConnectorHealthWithToast(c, viewmodels.ToastViewData{
+			Category:    "error",
+			Title:       "Connector not found",
+			Description: "The selected connector source could not be resolved.",
+		})
+	}
+	if !selected.Configured || !selected.Enabled || strings.TrimSpace(selected.SourceName) == "" {
+		return h.redirectConnectorHealthWithToast(c, viewmodels.ToastViewData{
+			Category:    "warning",
+			Title:       "Sync unavailable",
+			Description: "Enable and configure the connector before triggering sync.",
+		})
+	}
+
+	triggerCtx := sync.WithConnectorScope(sync.WithForcedSync(c.Request().Context()), connectorKind, sourceName)
+	switch err := h.Syncer.RunOnce(triggerCtx); {
+	case err == nil, errors.Is(err, sync.ErrSyncQueued):
+		return h.redirectConnectorHealthWithToast(c, viewmodels.ToastViewData{
+			Category:    "success",
+			Title:       "Sync queued",
+			Description: ConnectorDisplayName(connectorKind) + " (" + sourceName + ")",
+		})
+	case errors.Is(err, sync.ErrSyncAlreadyRunning):
+		return h.redirectConnectorHealthWithToast(c, viewmodels.ToastViewData{
+			Category:    "warning",
+			Title:       "Sync already running",
+			Description: "A sync is already in progress. Try again shortly.",
+		})
+	case errors.Is(err, sync.ErrNoEnabledConnectors), errors.Is(err, sync.ErrNoConnectorsDue):
+		return h.redirectConnectorHealthWithToast(c, viewmodels.ToastViewData{
+			Category:    "warning",
+			Title:       "Sync unavailable",
+			Description: "No eligible connector work was found for this request.",
+		})
+	default:
+		return h.redirectConnectorHealthWithToast(c, viewmodels.ToastViewData{
+			Category:    "error",
+			Title:       "Sync failed to queue",
+			Description: "Check server logs for details.",
+		})
+	}
+}
+
+func (h *Handlers) redirectConnectorHealthWithToast(c *echo.Context, toast viewmodels.ToastViewData) error {
+	setFlashToast(c, toast)
+	redirectURL := "/settings/connector-health"
+	if isHX(c) {
+		setHXRedirect(c, redirectURL)
+		return c.NoContent(http.StatusOK)
+	}
+	return c.Redirect(http.StatusSeeOther, redirectURL)
 }
 
 // HandleConnectorHealthErrorDetails renders the latest non-success sync runs for a connector source.
@@ -119,7 +231,7 @@ type syncRollupKey struct {
 	name string
 }
 
-func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context.Context, states []connregistry.ConnectorState) (viewmodels.ConnectorHealthViewData, error) {
+func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context.Context, states []connregistry.ConnectorState, canTriggerSync bool) (viewmodels.ConnectorHealthViewData, error) {
 	now := time.Now()
 	data := viewmodels.ConnectorHealthViewData{
 		LookbackLabel: "7d",
@@ -223,6 +335,7 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 			AvgDuration7d:    res.avgDuration7d,
 			DetailsURL:       detailsURL,
 			CanViewDetails:   canViewDetails,
+			CanTriggerSync:   canTriggerSync && syncable && st.Configured && st.Enabled && sourceName != "" && IsKnownConnectorKind(kind),
 		})
 
 		if res.countsAsEnabled {

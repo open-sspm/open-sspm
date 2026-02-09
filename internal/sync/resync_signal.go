@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
@@ -29,6 +31,11 @@ func NewResyncSignalRunner(pool *pgxpool.Pool, locks LockManager) Runner {
 type ResyncSignalConfig struct {
 	NotifyChannel    string
 	RunOnceScopeName string
+}
+
+type triggerRequestPayload struct {
+	ConnectorKind string `json:"connector_kind,omitempty"`
+	SourceName    string `json:"source_name,omitempty"`
 }
 
 func NewResyncSignalRunnerWithConfig(pool *pgxpool.Pool, locks LockManager, cfg ResyncSignalConfig) Runner {
@@ -54,6 +61,16 @@ func (r *ResyncSignalRunner) RunOnce(ctx context.Context) error {
 		scopeName = RunOnceScopeNameForMode(modeForResyncChannel(r.notifyChannel))
 	}
 	notifyChannel := normalizeNotifyChannel(r.notifyChannel)
+	request := TriggerRequest{}
+	if connectorKind, sourceName, ok := ConnectorScopeFromContext(ctx); ok {
+		request = TriggerRequest{
+			ConnectorKind: connectorKind,
+			SourceName:    sourceName,
+		}.Normalized()
+	}
+	if notifyChannel == ResyncNotifyChannelDiscovery && request.HasConnectorScope() && !supportsDiscoveryScopedConnectorKind(request.ConnectorKind) {
+		return ErrNoConnectorsDue
+	}
 
 	lock, locked, err := r.locks.TryAcquire(ctx, legacyRunOnceScopeKind, scopeName)
 	if err != nil {
@@ -95,10 +112,10 @@ func (r *ResyncSignalRunner) RunOnce(ctx context.Context) error {
 	// same connection as the advisory lock rather than acquiring a second one.
 	var notifyErr error
 	if advisory, ok := lock.(*advisoryLock); ok && advisory != nil && advisory.q != nil {
-		notifyErr = notifyResyncOnChannel(runCtx, advisory.q, notifyChannel)
+		notifyErr = notifyResyncOnChannel(runCtx, advisory.q, notifyChannel, request)
 	} else {
 		q := gen.New(r.pool)
-		notifyErr = notifyResyncOnChannel(runCtx, q, notifyChannel)
+		notifyErr = notifyResyncOnChannel(runCtx, q, notifyChannel, request)
 	}
 
 	lockLostMu.Lock()
@@ -116,11 +133,11 @@ func (r *ResyncSignalRunner) RunOnce(ctx context.Context) error {
 	return ErrSyncQueued
 }
 
-func ListenForResyncRequests(ctx context.Context, pool *pgxpool.Pool, out chan<- struct{}) error {
+func ListenForResyncRequests(ctx context.Context, pool *pgxpool.Pool, out chan<- TriggerRequest) error {
 	return ListenForResyncRequestsOnChannel(ctx, pool, ResyncNotifyChannelFull, out)
 }
 
-func ListenForResyncRequestsOnChannel(ctx context.Context, pool *pgxpool.Pool, channel string, out chan<- struct{}) error {
+func ListenForResyncRequestsOnChannel(ctx context.Context, pool *pgxpool.Pool, channel string, out chan<- TriggerRequest) error {
 	if pool == nil {
 		return errors.New("sync pool is nil")
 	}
@@ -145,28 +162,58 @@ func ListenForResyncRequestsOnChannel(ctx context.Context, pool *pgxpool.Pool, c
 	}
 
 	for {
-		_, err := conn.WaitForNotification(ctx)
+		notification, err := conn.WaitForNotification(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil
 			}
 			return err
 		}
-		select {
-		case out <- struct{}{}:
-		default:
+		req := TriggerRequest{}
+		if notification != nil {
+			req = decodeTriggerRequestPayload(notification.Payload)
+		}
+		if !enqueueTriggerRequest(ctx, out, req) {
+			return nil
 		}
 	}
 }
 
-func notifyResyncOnChannel(ctx context.Context, q *gen.Queries, channel string) error {
+func enqueueTriggerRequest(ctx context.Context, out chan<- TriggerRequest, req TriggerRequest) bool {
+	if req.HasConnectorScope() {
+		select {
+		case out <- req:
+			return true
+		case <-ctx.Done():
+			return false
+		}
+	}
+
+	select {
+	case out <- req:
+	default:
+	}
+	return true
+}
+
+func notifyResyncOnChannel(ctx context.Context, q *gen.Queries, channel string, request TriggerRequest) error {
 	if q == nil {
 		return errors.New("queries is nil")
 	}
+	payload, hasPayload, err := encodeTriggerRequestPayload(request)
+	if err != nil {
+		return err
+	}
 	switch normalizeNotifyChannel(channel) {
 	case ResyncNotifyChannelDiscovery:
+		if hasPayload {
+			return q.NotifyResyncDiscoveryRequestedWithPayload(ctx, payload)
+		}
 		return q.NotifyResyncDiscoveryRequested(ctx)
 	default:
+		if hasPayload {
+			return q.NotifyResyncRequestedWithPayload(ctx, payload)
+		}
 		return q.NotifyResyncRequested(ctx)
 	}
 }
@@ -187,5 +234,45 @@ func modeForResyncChannel(channel string) registry.RunMode {
 		return registry.RunModeDiscovery
 	default:
 		return registry.RunModeFull
+	}
+}
+
+func encodeTriggerRequestPayload(request TriggerRequest) (string, bool, error) {
+	request = request.Normalized()
+	if !request.HasConnectorScope() {
+		return "", false, nil
+	}
+	raw, err := json.Marshal(triggerRequestPayload{
+		ConnectorKind: request.ConnectorKind,
+		SourceName:    request.SourceName,
+	})
+	if err != nil {
+		return "", false, err
+	}
+	return string(raw), true, nil
+}
+
+func decodeTriggerRequestPayload(payload string) TriggerRequest {
+	payload = strings.TrimSpace(payload)
+	if payload == "" {
+		return TriggerRequest{}
+	}
+
+	var decoded triggerRequestPayload
+	if err := json.Unmarshal([]byte(payload), &decoded); err != nil {
+		return TriggerRequest{}
+	}
+	return TriggerRequest{
+		ConnectorKind: decoded.ConnectorKind,
+		SourceName:    decoded.SourceName,
+	}.Normalized()
+}
+
+func supportsDiscoveryScopedConnectorKind(kind string) bool {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case configstore.KindOkta, configstore.KindEntra:
+		return true
+	default:
+		return false
 	}
 }

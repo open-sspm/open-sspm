@@ -41,7 +41,7 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 							</tr>
 						</thead>
 						<tbody>
-							for _, item := range data.Items {
+							for idx, item := range data.Items {
 								<tr>
 									<td class="font-medium">{ item.Name }</td>
 									<td><span class={ item.StatusClass }>{ item.StatusLabel }</span></td>
@@ -50,27 +50,58 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 									<td class="text-muted-foreground">{ item.SuccessRate7d }</td>
 									<td class="text-muted-foreground">{ item.AvgDuration7d }</td>
 									<td class="text-right">
-										if item.CanViewDetails {
+										<div class="dropdown-menu">
 											<button
 												type="button"
+												id={ "connector-health-actions-" + FormatInt(idx) + "-trigger" }
+												aria-haspopup="menu"
+												aria-controls={ "connector-health-actions-" + FormatInt(idx) + "-menu" }
+												aria-expanded="false"
 												class="btn-icon-ghost cursor-pointer"
-												aria-label={ "View recent errors for " + item.Name }
-												hx-get={ item.DetailsURL }
-												hx-target="#connector-health-error-details-host"
-												hx-swap="innerHTML"
+												aria-label={ "Actions for " + item.Name }
+												disabled?={ !item.CanViewDetails && !item.CanTriggerSync }
 											>
 												<i class="ti ti-dots text-lg text-muted-foreground" aria-hidden="true"></i>
 											</button>
-										} else {
-											<button
-												type="button"
-												class="btn-icon-ghost opacity-50"
-												aria-label={ "No sync run details for " + item.Name }
-												disabled
-											>
-												<i class="ti ti-dots text-lg text-muted-foreground" aria-hidden="true"></i>
-											</button>
-										}
+											<div data-popover data-side="bottom" data-align="end" aria-hidden="true" class="min-w-56">
+												<div role="menu" id={ "connector-health-actions-" + FormatInt(idx) + "-menu" } aria-labelledby={ "connector-health-actions-" + FormatInt(idx) + "-trigger" }>
+													if item.CanViewDetails {
+														<button
+															type="button"
+															role="menuitem"
+															class="cursor-pointer"
+															hx-get={ item.DetailsURL }
+															hx-target="#connector-health-error-details-host"
+															hx-swap="innerHTML"
+														>
+															<i class="ti ti-alert-circle text-base text-muted-foreground shrink-0" aria-hidden="true"></i>
+															View errors
+														</button>
+													} else {
+														<div role="menuitem" aria-disabled="true">
+															<i class="ti ti-alert-circle text-base text-muted-foreground shrink-0" aria-hidden="true"></i>
+															View errors
+														</div>
+													}
+													if item.CanTriggerSync {
+														<form method="post" action="/settings/connector-health/sync">
+															@CSRFInput(data.Layout.CSRFToken)
+															<input type="hidden" name="connector_kind" value={ item.Kind }/>
+															<input type="hidden" name="source_name" value={ item.SourceName }/>
+															<button type="submit" role="menuitem" class="cursor-pointer">
+																<i class="ti ti-refresh text-base text-muted-foreground shrink-0" aria-hidden="true"></i>
+																Trigger sync
+															</button>
+														</form>
+													} else {
+														<div role="menuitem" aria-disabled="true">
+															<i class="ti ti-refresh text-base text-muted-foreground shrink-0" aria-hidden="true"></i>
+															Trigger sync
+														</div>
+													}
+												</div>
+											</div>
+										</div>
 									</td>
 								</tr>
 							}

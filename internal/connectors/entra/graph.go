@@ -15,13 +15,14 @@ import (
 )
 
 const (
-	defaultTimeout    = 30 * time.Second
-	maxRetriesOn429   = 5
-	maxErrorBodySize  = 1 << 20 // 1 MiB
-	defaultGraphBase  = "https://graph.microsoft.com/v1.0"
-	defaultAuthority  = "https://login.microsoftonline.com"
-	defaultTokenScope = "https://graph.microsoft.com/.default"
-	tokenExpiryLeeway = 30 * time.Second
+	defaultTimeout     = 30 * time.Second
+	maxRetriesOn429    = 5
+	maxErrorBodySize   = 1 << 20 // 1 MiB
+	directoryAuditsTop = "200"
+	defaultGraphBase   = "https://graph.microsoft.com/v1.0"
+	defaultAuthority   = "https://login.microsoftonline.com"
+	defaultTokenScope  = "https://graph.microsoft.com/.default"
+	tokenExpiryLeeway  = 30 * time.Second
 )
 
 type Options struct {
@@ -150,15 +151,15 @@ type DirectoryAuditEvent struct {
 }
 
 type SignInEvent struct {
-	ID                 string `json:"id"`
-	CreatedDateTimeRaw string `json:"createdDateTime"`
-	AppID              string `json:"appId"`
-	AppDisplayName     string `json:"appDisplayName"`
+	ID                  string `json:"id"`
+	CreatedDateTimeRaw  string `json:"createdDateTime"`
+	AppID               string `json:"appId"`
+	AppDisplayName      string `json:"appDisplayName"`
 	ResourceDisplayName string `json:"resourceDisplayName"`
-	UserID             string `json:"userId"`
-	UserDisplayName    string `json:"userDisplayName"`
-	UserPrincipalName  string `json:"userPrincipalName"`
-	RawJSON            []byte `json:"-"`
+	UserID              string `json:"userId"`
+	UserDisplayName     string `json:"userDisplayName"`
+	UserPrincipalName   string `json:"userPrincipalName"`
+	RawJSON             []byte `json:"-"`
 }
 
 type OAuth2PermissionGrant struct {
@@ -327,7 +328,7 @@ func (c *Client) ListDirectoryAudits(ctx context.Context, since *time.Time) ([]D
 	query := url.Values{
 		"$select":  []string{"id,category,result,activityDisplayName,activityDateTime,initiatedBy,targetResources"},
 		"$orderby": []string{"activityDateTime desc"},
-		"$top":     []string{"999"},
+		"$top":     []string{directoryAuditsTop},
 	}
 	if since != nil && !since.IsZero() {
 		query.Set("$filter", "activityDateTime ge "+since.UTC().Format(time.RFC3339))
@@ -493,13 +494,13 @@ func (c *Client) get(ctx context.Context, endpoint string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
-		resp.Body.Close()
-		if readErr != nil {
-			return nil, readErr
-		}
 
 		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusGatewayTimeout {
+			body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
+			resp.Body.Close()
+			if readErr != nil {
+				return nil, readErr
+			}
 			lastErr = formatGraphAPIError("graph api throttled", endpoint, resp, body)
 			if attempt == maxRetriesOn429 {
 				return nil, lastErr
@@ -515,7 +516,17 @@ func (c *Client) get(ctx context.Context, endpoint string) ([]byte, error) {
 		}
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
+			resp.Body.Close()
+			if readErr != nil {
+				return nil, readErr
+			}
 			return nil, formatGraphAPIError("graph api failed", endpoint, resp, body)
+		}
+		body, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			return nil, readErr
 		}
 		return body, nil
 	}

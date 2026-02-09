@@ -23,6 +23,7 @@ type ConnectorHealthItem struct {
 	AvgDuration7d    string
 	DetailsURL       string
 	CanViewDetails   bool
+	CanTriggerSync   bool
 }
 
 type ConnectorHealthErrorDetailsDialogViewData struct {

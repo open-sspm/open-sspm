@@ -81,7 +81,7 @@ func runWorkerDiscovery() error {
 	runner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, dbRunner, sync.RunOnceScopeNameDiscovery)
 
 	slog.Info("discovery sync worker started", "interval", cfg.SyncDiscoveryInterval)
-	triggers := make(chan struct{}, 1)
+	triggers := make(chan sync.TriggerRequest, 1)
 	go func() {
 		if err := sync.ListenForResyncRequestsOnChannel(ctx, pool, sync.ResyncNotifyChannelDiscovery, triggers); err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error("discovery resync listener failed", "err", err)

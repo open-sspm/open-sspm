@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/open-sspm/open-sspm/internal/sync"
 )
 
 type connectorHealthRunSeed struct {
@@ -102,6 +105,7 @@ func TestHandleConnectorHealthErrorDetails_RequiresSourceParams(t *testing.T) {
 
 func TestHandleConnectorHealth_DBBackedIncludesDetailsActions(t *testing.T) {
 	harness := newProgrammaticAccessRouteHarness(t)
+	harness.handlers.Syncer = &connectorHealthSyncRunnerStub{err: sync.ErrSyncQueued}
 
 	c, rec := newTestContext(http.MethodGet, "/settings/connector-health")
 	if err := harness.handlers.HandleConnectorHealth(c); err != nil {
@@ -116,6 +120,8 @@ func TestHandleConnectorHealth_DBBackedIncludesDetailsActions(t *testing.T) {
 	for _, expected := range []string{
 		"connector-health-error-details-host",
 		"/settings/connector-health/errors?",
+		"/settings/connector-health/sync",
+		"Trigger sync",
 		"source_kind=github",
 		"source_name=" + url.QueryEscape(harness.sourceName),
 		"ti ti-dots",
@@ -123,6 +129,70 @@ func TestHandleConnectorHealth_DBBackedIncludesDetailsActions(t *testing.T) {
 		if !strings.Contains(body, expected) {
 			t.Fatalf("response missing %q: %q", expected, body)
 		}
+	}
+}
+
+func TestHandleConnectorHealthSync_DBBackedQueuesScopedRequest(t *testing.T) {
+	harness := newProgrammaticAccessRouteHarness(t)
+	runner := &connectorHealthSyncRunnerStub{err: sync.ErrSyncQueued}
+	harness.handlers.Syncer = runner
+
+	target := "/settings/connector-health/sync?connector_kind=github&source_name=" + url.QueryEscape(harness.sourceName)
+	c, rec := newTestContext(http.MethodPost, target)
+	if err := harness.handlers.HandleConnectorHealthSync(c); err != nil {
+		t.Fatalf("HandleConnectorHealthSync() error = %v", err)
+	}
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if loc := rec.Header().Get("Location"); loc != "/settings/connector-health" {
+		t.Fatalf("location = %q, want %q", loc, "/settings/connector-health")
+	}
+	if runner.calls != 1 {
+		t.Fatalf("runner calls = %d, want 1", runner.calls)
+	}
+	if !sync.IsForcedSync(runner.lastCtx) {
+		t.Fatalf("expected forced sync context")
+	}
+	kind, sourceName, ok := sync.ConnectorScopeFromContext(runner.lastCtx)
+	if !ok {
+		t.Fatalf("expected scoped sync context")
+	}
+	if kind != "github" || !strings.EqualFold(sourceName, harness.sourceName) {
+		t.Fatalf("scope = (%q, %q), want (github, %q)", kind, sourceName, harness.sourceName)
+	}
+}
+
+func TestHandleConnectorHealthSync_DBBackedSupportsHXRedirect(t *testing.T) {
+	harness := newProgrammaticAccessRouteHarness(t)
+	harness.handlers.Syncer = &connectorHealthSyncRunnerStub{err: sync.ErrSyncQueued}
+
+	target := "/settings/connector-health/sync?connector_kind=github&source_name=" + url.QueryEscape(harness.sourceName)
+	c, rec := newTestContext(http.MethodPost, target)
+	c.Request().Header.Set("HX-Request", "true")
+	if err := harness.handlers.HandleConnectorHealthSync(c); err != nil {
+		t.Fatalf("HandleConnectorHealthSync() error = %v", err)
+	}
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if got := rec.Header().Get("HX-Redirect"); got != "/settings/connector-health" {
+		t.Fatalf("HX-Redirect = %q, want %q", got, "/settings/connector-health")
+	}
+}
+
+func TestHandleConnectorHealthSync_RejectsInvalidConnector(t *testing.T) {
+	h := &Handlers{
+		Syncer: &connectorHealthSyncRunnerStub{err: sync.ErrSyncQueued},
+	}
+	c, rec := newTestContext(http.MethodPost, "/settings/connector-health/sync?connector_kind=unknown&source_name=acme")
+	if err := h.HandleConnectorHealthSync(c); err != nil {
+		t.Fatalf("HandleConnectorHealthSync() error = %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 }
 
@@ -179,4 +249,16 @@ func TestConnectorHealthErrorDialogIDIsStable(t *testing.T) {
 			t.Fatalf("dialog id contains invalid rune: %q", id)
 		}
 	}
+}
+
+type connectorHealthSyncRunnerStub struct {
+	err     error
+	lastCtx context.Context
+	calls   int
+}
+
+func (r *connectorHealthSyncRunnerStub) RunOnce(ctx context.Context) error {
+	r.calls++
+	r.lastCtx = ctx
+	return r.err
 }

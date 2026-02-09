@@ -6,6 +6,8 @@ const htmxRequestState = new WeakMap();
 const busyElementCounts = new WeakMap();
 const activeRequests = new Set();
 
+const isRequestHandle = (value) => value !== null && (typeof value === "object" || typeof value === "function");
+
 const syncGlobalBusyIndicators = () => {
   const isBusy = activeRequests.size > 0;
   document.documentElement.dataset.htmxBusy = isBusy ? "true" : "false";
@@ -83,7 +85,7 @@ const focusCommandSearchInput = () => {
 };
 
 const finalizeRequestBusyState = (xhr) => {
-  if (!(xhr instanceof XMLHttpRequest)) return null;
+  if (!isRequestHandle(xhr)) return null;
 
   activeRequests.delete(xhr);
   syncGlobalBusyIndicators();
@@ -110,7 +112,7 @@ export const bindGlobalListenersOnce = (options = {}) => {
     if (event.defaultPrevented) return;
 
     const detail = event.detail;
-    if (!(detail?.xhr instanceof XMLHttpRequest)) return;
+    if (!isRequestHandle(detail?.xhr)) return;
 
     activeRequests.add(detail.xhr);
     syncGlobalBusyIndicators();
@@ -153,13 +155,13 @@ export const bindGlobalListenersOnce = (options = {}) => {
   });
 
   document.addEventListener("htmx:afterSwap", (event) => {
-    if (!(event.target instanceof HTMLElement)) return;
-
-    const xhr = event.detail?.xhr instanceof XMLHttpRequest ? event.detail.xhr : null;
+    const xhr = isRequestHandle(event.detail?.xhr) ? event.detail.xhr : null;
     const target = event.target;
     const requestState = xhr ? htmxRequestState.get(xhr) : null;
 
     try {
+      if (!(target instanceof HTMLElement)) return;
+
       initFragment(target);
 
       if (target === document.body || target === document.documentElement) {
@@ -191,7 +193,7 @@ export const bindGlobalListenersOnce = (options = {}) => {
 
   const failSafeFinalize = (event) => {
     const xhr = event.detail?.xhr;
-    if (!(xhr instanceof XMLHttpRequest)) return;
+    if (!isRequestHandle(xhr)) return;
     finalizeRequestBusyState(xhr);
     htmxRequestState.delete(xhr);
   };
@@ -199,6 +201,8 @@ export const bindGlobalListenersOnce = (options = {}) => {
   document.addEventListener("htmx:sendError", failSafeFinalize);
   document.addEventListener("htmx:timeout", failSafeFinalize);
   document.addEventListener("htmx:responseError", failSafeFinalize);
+  document.addEventListener("htmx:onLoadError", failSafeFinalize);
+  document.addEventListener("htmx:swapError", failSafeFinalize);
 
   document.addEventListener("htmx:load", (event) => {
     if (event.target instanceof HTMLElement) {
