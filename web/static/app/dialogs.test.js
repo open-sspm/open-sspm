@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { closeDialog, openDialog, wireDialogCloseButtons } from "open-sspm-app/dialogs.js";
+import {
+  closeDialog,
+  openDialog,
+  openServerDialogs,
+  wireDialogCloseButtons,
+  wireDialogCloseNavigation,
+} from "open-sspm-app/dialogs.js";
 
 const waitForAsyncWork = async () => {
   await Promise.resolve();
@@ -97,5 +103,57 @@ describe("dialogs", () => {
     closeButton.click();
 
     expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens server dialogs in provided root and consumes data-open", () => {
+    const root = document.createElement("div");
+    root.innerHTML = `<dialog id="inside" data-open></dialog>`;
+    document.body.appendChild(root);
+
+    const outside = document.createElement("dialog");
+    outside.id = "outside";
+    outside.setAttribute("data-open", "");
+    document.body.appendChild(outside);
+
+    const insideDialog = root.querySelector("#inside");
+    const insideShowModal = vi.fn(function insideShowModalStub() {
+      this.setAttribute("open", "");
+    });
+    Object.defineProperty(insideDialog, "showModal", {
+      value: insideShowModal,
+      configurable: true,
+    });
+
+    const outsideShowModal = vi.fn(function outsideShowModalStub() {
+      this.setAttribute("open", "");
+    });
+    Object.defineProperty(outside, "showModal", {
+      value: outsideShowModal,
+      configurable: true,
+    });
+
+    openServerDialogs(root);
+    openServerDialogs(root);
+
+    expect(insideShowModal).toHaveBeenCalledTimes(1);
+    expect(outsideShowModal).toHaveBeenCalledTimes(0);
+    expect(insideDialog.hasAttribute("data-open")).toBe(false);
+  });
+
+  it("binds close-navigation handlers only within the provided root", () => {
+    const root = document.createElement("div");
+    root.innerHTML = `<dialog id="inside" data-close-href="/settings/connector-health"></dialog>`;
+    document.body.appendChild(root);
+
+    const outside = document.createElement("dialog");
+    outside.id = "outside";
+    outside.setAttribute("data-close-href", "/settings/connectors");
+    document.body.appendChild(outside);
+
+    const insideDialog = root.querySelector("#inside");
+    wireDialogCloseNavigation(root);
+
+    expect(insideDialog.dataset.closeNavBound).toBe("true");
+    expect(outside.dataset.closeNavBound).toBeUndefined();
   });
 });

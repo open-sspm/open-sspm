@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { triggerVisibleLazyHx, wireAutosubmit, wireRowLinks } from "open-sspm-app/fragment.js";
+import { initFragment, triggerVisibleLazyHx, wireAutosubmit, wireRowLinks } from "open-sspm-app/fragment.js";
 
 describe("fragment", () => {
   beforeEach(() => {
@@ -130,5 +130,27 @@ describe("fragment", () => {
     row.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0, ctrlKey: true }));
 
     expect(openSpy).toHaveBeenCalledWith("/app-assets/9", "_blank", "noopener");
+  });
+
+  it("auto-opens dialogs swapped into a fragment root once", () => {
+    const root = document.createElement("div");
+    root.innerHTML = `
+      <dialog id="connector-health-errors-modal" data-open>
+        <button type="button" data-dialog-close>Close</button>
+      </dialog>
+    `;
+    document.body.appendChild(root);
+
+    const dialog = root.querySelector("dialog");
+    const showModalSpy = vi.fn(function showModalStub() {
+      this.setAttribute("open", "");
+    });
+    Object.defineProperty(dialog, "showModal", { value: showModalSpy, configurable: true });
+
+    initFragment(root);
+    initFragment(root);
+
+    expect(showModalSpy).toHaveBeenCalledTimes(1);
+    expect(dialog.hasAttribute("data-open")).toBe(false);
   });
 });

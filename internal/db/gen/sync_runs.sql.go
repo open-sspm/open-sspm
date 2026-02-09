@@ -356,6 +356,57 @@ func (q *Queries) ListRecentFinishedSyncRunsForSources(ctx context.Context, arg 
 	return items, nil
 }
 
+const listRecentNonSuccessSyncRunsBySource = `-- name: ListRecentNonSuccessSyncRunsBySource :many
+SELECT id, status, finished_at, error_kind, message
+FROM sync_runs
+WHERE source_kind = $1
+  AND source_name = $2
+  AND finished_at IS NOT NULL
+  AND status <> 'success'
+ORDER BY finished_at DESC
+LIMIT $3
+`
+
+type ListRecentNonSuccessSyncRunsBySourceParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+	Limit      int32  `json:"limit"`
+}
+
+type ListRecentNonSuccessSyncRunsBySourceRow struct {
+	ID         int64              `json:"id"`
+	Status     string             `json:"status"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	ErrorKind  string             `json:"error_kind"`
+	Message    string             `json:"message"`
+}
+
+func (q *Queries) ListRecentNonSuccessSyncRunsBySource(ctx context.Context, arg ListRecentNonSuccessSyncRunsBySourceParams) ([]ListRecentNonSuccessSyncRunsBySourceRow, error) {
+	rows, err := q.db.Query(ctx, listRecentNonSuccessSyncRunsBySource, arg.SourceKind, arg.SourceName, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRecentNonSuccessSyncRunsBySourceRow
+	for rows.Next() {
+		var i ListRecentNonSuccessSyncRunsBySourceRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Status,
+			&i.FinishedAt,
+			&i.ErrorKind,
+			&i.Message,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markSyncRunSuccess = `-- name: MarkSyncRunSuccess :exec
 UPDATE sync_runs
 SET status = 'success', finished_at = now(), message = '', stats = $2, error_kind = ''

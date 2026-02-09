@@ -73,9 +73,10 @@ export const closeDialog = (dialog) => {
   }
 };
 
-export const openServerDialogs = () => {
-  document.querySelectorAll("dialog[data-open]").forEach((dialog) => {
+export const openServerDialogs = (root = document) => {
+  root.querySelectorAll("dialog[data-open]").forEach((dialog) => {
     openDialog(dialog);
+    dialog.removeAttribute("data-open");
   });
 };
 
@@ -93,8 +94,8 @@ export const wireDialogCloseButtons = (root = document) => {
   });
 };
 
-export const wireDialogCloseNavigation = () => {
-  document.querySelectorAll("dialog[data-close-href]").forEach((dialog) => {
+export const wireDialogCloseNavigation = (root = document) => {
+  root.querySelectorAll("dialog[data-close-href]").forEach((dialog) => {
     if (!(dialog instanceof HTMLElement)) return;
     if (dialog.dataset.closeNavBound === "true") return;
 

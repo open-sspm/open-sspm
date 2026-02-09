@@ -82,6 +82,24 @@ const focusCommandSearchInput = () => {
   return document.activeElement === searchInput;
 };
 
+const finalizeRequestBusyState = (xhr) => {
+  if (!(xhr instanceof XMLHttpRequest)) return null;
+
+  activeRequests.delete(xhr);
+  syncGlobalBusyIndicators();
+
+  const state = htmxRequestState.get(xhr);
+  if (!state || state.busyFinalized) {
+    return state || null;
+  }
+
+  state.busyElements.forEach((element) => {
+    decrementBusy(element);
+  });
+  state.busyFinalized = true;
+  return state;
+};
+
 export const bindGlobalListenersOnce = (options = {}) => {
   const { initGlobal = null } = options;
   if (document.documentElement.dataset.openSspmAppListenersBound === "true") return;
@@ -89,6 +107,8 @@ export const bindGlobalListenersOnce = (options = {}) => {
   syncGlobalBusyIndicators();
 
   document.addEventListener("htmx:beforeRequest", (event) => {
+    if (event.defaultPrevented) return;
+
     const detail = event.detail;
     if (!(detail?.xhr instanceof XMLHttpRequest)) return;
 
@@ -106,6 +126,7 @@ export const bindGlobalListenersOnce = (options = {}) => {
       busyElements,
       focusStrategy: null,
       focusDescriptor: null,
+      busyFinalized: false,
     };
 
     const targetsPageRoot = target === document.body || target === document.documentElement;
@@ -121,17 +142,8 @@ export const bindGlobalListenersOnce = (options = {}) => {
 
   document.addEventListener("htmx:afterRequest", (event) => {
     const detail = event.detail;
-    if (!(detail?.xhr instanceof XMLHttpRequest)) return;
-
-    activeRequests.delete(detail.xhr);
-    syncGlobalBusyIndicators();
-
-    const state = htmxRequestState.get(detail.xhr);
+    const state = finalizeRequestBusyState(detail?.xhr);
     if (!state) return;
-
-    state.busyElements.forEach((element) => {
-      decrementBusy(element);
-    });
 
     // Keep focus metadata until afterSwap reads it.
     const noSwapExpected = detail.failed === true || detail.xhr.status === 0 || detail.xhr.status === 204;
@@ -143,34 +155,50 @@ export const bindGlobalListenersOnce = (options = {}) => {
   document.addEventListener("htmx:afterSwap", (event) => {
     if (!(event.target instanceof HTMLElement)) return;
 
-    initFragment(event.target);
-
     const xhr = event.detail?.xhr instanceof XMLHttpRequest ? event.detail.xhr : null;
+    const target = event.target;
     const requestState = xhr ? htmxRequestState.get(xhr) : null;
 
-    if (event.target === document.body || event.target === document.documentElement) {
-      if (typeof initGlobal === "function") {
-        initGlobal();
+    try {
+      initFragment(target);
+
+      if (target === document.body || target === document.documentElement) {
+        if (typeof initGlobal === "function") {
+          initGlobal();
+        }
+        initFragment(document);
       }
-      initFragment(document);
-    }
 
-    if (event.target.querySelector("#flash-toast")) {
-      showFlashToast();
-    }
+      if (target.querySelector("#flash-toast")) {
+        showFlashToast();
+      }
 
-    if (requestState?.focusStrategy === "main") {
-      scheduleSoon(focusMainContent);
-    } else if (requestState?.focusStrategy === "restore") {
-      restoreFocusAfterSwap(event.target, requestState.focusDescriptor);
-    }
+      if (requestState?.focusStrategy === "main") {
+        scheduleSoon(focusMainContent);
+      } else if (requestState?.focusStrategy === "restore") {
+        restoreFocusAfterSwap(target, requestState.focusDescriptor);
+      }
 
-    triggerVisibleLazyHx(document);
-
-    if (xhr) {
-      htmxRequestState.delete(xhr);
+      triggerVisibleLazyHx(document);
+    } finally {
+      if (xhr) {
+        // Fallback cleanup for lifecycles that skip afterRequest (e.g. cancelled/edge cases).
+        finalizeRequestBusyState(xhr);
+        htmxRequestState.delete(xhr);
+      }
     }
   });
+
+  const failSafeFinalize = (event) => {
+    const xhr = event.detail?.xhr;
+    if (!(xhr instanceof XMLHttpRequest)) return;
+    finalizeRequestBusyState(xhr);
+    htmxRequestState.delete(xhr);
+  };
+  document.addEventListener("htmx:sendAbort", failSafeFinalize);
+  document.addEventListener("htmx:sendError", failSafeFinalize);
+  document.addEventListener("htmx:timeout", failSafeFinalize);
+  document.addEventListener("htmx:responseError", failSafeFinalize);
 
   document.addEventListener("htmx:load", (event) => {
     if (event.target instanceof HTMLElement) {

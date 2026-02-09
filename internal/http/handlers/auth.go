@@ -107,6 +107,7 @@ func (h *Handlers) HandleLogoutPost(c *echo.Context) error {
 	if h.Sessions == nil {
 		return errors.New("auth sessions not configured")
 	}
+	addVary(c, "HX-Request")
 
 	if err := h.Sessions.Destroy(c.Request().Context()); err != nil {
 		return err
@@ -115,5 +116,9 @@ func (h *Handlers) HandleLogoutPost(c *echo.Context) error {
 		Category: "success",
 		Title:    "Signed out",
 	})
+	if isHX(c) {
+		setHXRedirect(c, "/login")
+		return c.NoContent(http.StatusOK)
+	}
 	return c.Redirect(http.StatusSeeOther, "/login")
 }
