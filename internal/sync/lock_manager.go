@@ -25,7 +25,7 @@ const (
 	defaultLockMode              = LockModeLease
 	defaultLockTTL               = 60 * time.Second
 	defaultLockHeartbeatInterval = 15 * time.Second
-	defaultLockHeartbeatTimeout  = 5 * time.Second
+	defaultLockHeartbeatTimeout  = 15 * time.Second
 )
 
 type LockManagerConfig struct {

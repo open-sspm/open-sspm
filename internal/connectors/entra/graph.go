@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultTimeout     = 30 * time.Second
+	defaultTimeout     = 120 * time.Second
 	maxRetriesOn429    = 5
 	maxErrorBodySize   = 1 << 20 // 1 MiB
 	directoryAuditsTop = "200"
