@@ -34,11 +34,11 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 		}
 
 		<div class="grid gap-6">
-			<article class="card">
-				<header>
-					<h2>Ruleset</h2>
-					<p class="text-muted-foreground">{ data.Ruleset.Key }</p>
-				</header>
+				<article class="card">
+					<header>
+						<h2>Ruleset</h2>
+						<p class="text-muted-foreground"><code class="osspm-token">{ data.Ruleset.Key }</code></p>
+					</header>
 				<section class="space-y-3">
 					if data.Ruleset.Description != "" {
 						<p class="text-sm text-muted-foreground whitespace-pre-wrap">{ data.Ruleset.Description }</p>
@@ -190,12 +190,12 @@ templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 				<button class="sr-only" type="submit">Apply filters</button>
 			</form>
 
-			if data.HasRules {
-				<div class="overflow-x-auto">
-					<table class="table">
-						<caption class="sr-only">Rules in this ruleset with severity, monitoring, and current status.</caption>
-						<thead>
-							<tr>
+				if data.HasRules {
+					<div class="overflow-x-auto">
+						<table class="table osspm-table-fixed osspm-table-compact">
+							<caption class="sr-only">Rules in this ruleset with severity, monitoring, and current status.</caption>
+							<thead>
+								<tr>
 								<th>Rule</th>
 								<th>Severity</th>
 								<th>Monitoring</th>
@@ -203,33 +203,33 @@ templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 							</tr>
 						</thead>
 						<tbody>
-							for _, r := range data.Rules {
-								<tr data-row-href={ r.Href } class="cursor-pointer hover:bg-muted/50">
-									<td>
-										<div class="space-y-0.5">
-											<a class="btn-sm-link px-0 font-medium" href={ r.Href }>{ r.Key }</a>
-											if r.Title != "" && r.Title != r.Key {
-												<div class="text-sm text-muted-foreground">{ r.Title }</div>
-											} else if r.Summary != "" {
-												<div class="text-sm text-muted-foreground">{ r.Summary }</div>
+								for _, r := range data.Rules {
+									<tr data-row-href={ r.Href } class="cursor-pointer hover:bg-muted/50">
+										<td>
+											<div class="space-y-0.5">
+												<a class="btn-sm-link px-0 osspm-cell-primary osspm-token" href={ r.Href } title={ r.Key }>{ r.Key }</a>
+												if r.Title != "" && r.Title != r.Key {
+													<div class="osspm-cell-secondary">{ r.Title }</div>
+												} else if r.Summary != "" {
+													<div class="osspm-cell-secondary">{ r.Summary }</div>
+												}
+												if r.EvidenceSummary != "" && r.EvidenceSummary != "Manual check requires attestation" && !strings.HasPrefix(r.EvidenceSummary, "Demo seeded:") && r.EvidenceSummary != r.Summary && r.EvidenceSummary != r.Title {
+													<div class="osspm-cell-secondary">{ r.EvidenceSummary }</div>
+												}
+											</div>
+										</td>
+										<td><span class="badge-outline">{ r.Severity }</span></td>
+										<td><span class={ RuleMonitoringBadgeClass(r.MonitoringStatus) }>{ r.MonitoringStatus }</span></td>
+										<td>
+											<span class={ RuleStatusBadgeClass(r.Status) }>{ HumanizeRuleStatus(r.Status) }</span>
+											if r.ErrorKind != "" {
+												<div class="osspm-cell-secondary">{ r.ErrorKind }</div>
 											}
-											if r.EvidenceSummary != "" && r.EvidenceSummary != "Manual check requires attestation" && !strings.HasPrefix(r.EvidenceSummary, "Demo seeded:") && r.EvidenceSummary != r.Summary && r.EvidenceSummary != r.Title {
-												<div class="text-sm text-muted-foreground">{ r.EvidenceSummary }</div>
+											if r.EvaluatedAt != "" {
+												<div class="osspm-cell-secondary osspm-num">{ r.EvaluatedAt }</div>
 											}
-										</div>
-									</td>
-									<td><span class="badge-outline">{ r.Severity }</span></td>
-									<td><span class={ RuleMonitoringBadgeClass(r.MonitoringStatus) }>{ r.MonitoringStatus }</span></td>
-									<td>
-										<span class={ RuleStatusBadgeClass(r.Status) }>{ HumanizeRuleStatus(r.Status) }</span>
-										if r.ErrorKind != "" {
-											<div class="text-xs text-muted-foreground">{ r.ErrorKind }</div>
-										}
-										if r.EvaluatedAt != "" {
-											<div class="text-xs text-muted-foreground">{ r.EvaluatedAt }</div>
-										}
-									</td>
-								</tr>
+										</td>
+									</tr>
 							}
 						</tbody>
 					</table>

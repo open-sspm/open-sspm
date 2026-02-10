@@ -102,6 +102,8 @@ type CredentialArtifactListItem struct {
 	DisplayName    string
 	ExternalID     string
 	AssetRef       string
+	AssetRefKind   string
+	AssetRefID     string
 	Status         string
 	RiskLevel      string
 	ExpiresAt      string

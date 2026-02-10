@@ -132,6 +132,67 @@
     opacity: 1;
   }
 
+  .sidebar a > span.truncate {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .osspm-table-fixed {
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .osspm-table-compact :is(th, td) {
+    padding-top: calc(var(--spacing) * 2);
+    padding-bottom: calc(var(--spacing) * 2);
+    vertical-align: top;
+  }
+
+  .osspm-col-id {
+    width: 12rem;
+  }
+
+  .osspm-col-id-wide {
+    width: 16rem;
+  }
+
+  .osspm-token {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .osspm-cell-primary {
+    display: block;
+    min-width: 0;
+    font-weight: 500;
+  }
+
+  .osspm-cell-secondary {
+    display: block;
+    min-width: 0;
+    font-size: 0.75rem;
+    line-height: 1.1rem;
+    color: var(--color-muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  .osspm-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .osspm-truncate {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   @keyframes open-sspm-busy-spin {
     to {
       transform: rotate(360deg);

@@ -156,4 +156,17 @@ describe("dialogs", () => {
     expect(insideDialog.dataset.closeNavBound).toBe("true");
     expect(outside.dataset.closeNavBound).toBeUndefined();
   });
+
+  it("ignores cross-origin close-href navigation targets", () => {
+    const startHref = window.location.href;
+    const root = document.createElement("div");
+    root.innerHTML = `<dialog id="inside" data-close-href="https://example.com/settings/connectors"></dialog>`;
+    document.body.appendChild(root);
+
+    const insideDialog = root.querySelector("#inside");
+    wireDialogCloseNavigation(root);
+    insideDialog.dispatchEvent(new Event("close"));
+
+    expect(window.location.href).toBe(startHref);
+  });
 });

@@ -470,6 +470,15 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 		if displayName == "" {
 			displayName = strings.TrimSpace(row.ExternalID)
 		}
+		assetRefKind := strings.TrimSpace(row.AssetRefKind)
+		assetRefExternalID := strings.TrimSpace(row.AssetRefExternalID)
+		assetRef := strings.TrimSpace(assetRefKind + ":" + assetRefExternalID)
+		if assetRefKind == "" {
+			assetRef = assetRefExternalID
+		}
+		if assetRefExternalID == "" {
+			assetRef = assetRefKind
+		}
 		createdBy := fallbackDash(actorDisplayName(row.CreatedByDisplayName, row.CreatedByExternalID))
 		approvedBy := fallbackDash(actorDisplayName(row.ApprovedByDisplayName, row.ApprovedByExternalID))
 		items = append(items, viewmodels.CredentialArtifactListItem{
@@ -479,7 +488,9 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 			CredentialKind: fallbackDash(strings.TrimSpace(row.CredentialKind)),
 			DisplayName:    fallbackDash(displayName),
 			ExternalID:     fallbackDash(strings.TrimSpace(row.ExternalID)),
-			AssetRef:       fallbackDash(strings.TrimSpace(row.AssetRefKind) + ":" + strings.TrimSpace(row.AssetRefExternalID)),
+			AssetRef:       fallbackDash(assetRef),
+			AssetRefKind:   fallbackDash(assetRefKind),
+			AssetRefID:     fallbackDash(assetRefExternalID),
 			Status:         fallbackDash(strings.TrimSpace(row.Status)),
 			RiskLevel:      credentialRiskLevel(row, now),
 			ExpiresAt:      formatProgrammaticTime(row.ExpiresAtSource),
