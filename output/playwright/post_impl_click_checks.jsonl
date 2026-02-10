@@ -1,5 +1,0 @@
-{"name": "add_user_modal_open", "url": "http://localhost:8080/settings/users?open=add", "status": "PASS", "snapshot": ".playwright-cli/page-2026-02-09T19-30-54-683Z.yml"}
-{"name": "okta_modal_open", "url": "http://localhost:8080/settings/connectors?open=okta", "status": "PASS", "snapshot": ".playwright-cli/page-2026-02-09T19-30-55-823Z.yml"}
-{"name": "entra_modal_open", "url": "http://localhost:8080/settings/connectors?open=entra", "status": "PASS", "snapshot": ".playwright-cli/page-2026-02-09T19-30-56-980Z.yml"}
-{"name": "aws_modal_open", "url": "http://localhost:8080/settings/connectors?open=aws_identity_center", "status": "PASS", "snapshot": ".playwright-cli/page-2026-02-09T19-30-58-149Z.yml"}
-{"name": "apps_manage_connectors_link", "url": "http://localhost:8080/apps", "status": "PASS", "snapshot": ".playwright-cli/page-2026-02-09T19-30-59-328Z.yml"}

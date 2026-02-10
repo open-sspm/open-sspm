@@ -1,8 +1,0 @@
-{"path": "/app-assets", "title": "App Assets \u00b7 Open-SSPM", "pageOverflow": 0, "tokenCount": 40, "screenshot": "output/playwright/post_app-assets.png"}
-{"path": "/credentials", "title": "Credentials \u00b7 Open-SSPM", "pageOverflow": 0, "tokenCount": 100, "screenshot": "output/playwright/post_credentials.png"}
-{"path": "/unmatched/entra", "title": "Unmanaged Microsoft Entra ID Users \u00b7 Open-SSPM", "pageOverflow": 0, "tokenCount": 40, "screenshot": "output/playwright/post_unmatched_entra.png"}
-{"path": "/discovery/apps", "title": "SaaS Discovery \u00b7 Open-SSPM", "pageOverflow": 0, "tokenCount": 20, "screenshot": "output/playwright/post_discovery_apps.png"}
-{"path": "/identities", "title": "Identities \u00b7 Open-SSPM", "pageOverflow": 0, "tokenCount": 20, "screenshot": "output/playwright/post_identities.png"}
-{"path": "/findings/rulesets/cis.okta.idaas_stig.v2", "title": "CIS Okta IDaaS STIG Benchmark v1.0.0 \u00b7 Open-SSPM", "pageOverflow": 0, "tokenCount": 25, "screenshot": "output/playwright/post_findings_rulesets_cis_okta_idaas_stig_v2.png"}
-{"path": "/settings/users?open=add", "title": "Users \u00b7 Open-SSPM", "pageOverflow": 0, "tokenCount": 0, "screenshot": "output/playwright/post_settings_users_open_add.png"}
-{"path": "/settings/connectors?open=okta", "title": "Connectors \u00b7 Open-SSPM", "pageOverflow": 0, "tokenCount": 0, "screenshot": "output/playwright/post_settings_connectors_open_okta.png"}
