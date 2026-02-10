@@ -296,6 +296,45 @@ func HumanizeCredentialRisk(risk string) string {
 	}
 }
 
+func HumanizeCredentialKind(kind string) string {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "entra_client_secret":
+		return "Entra client secret"
+	case "entra_certificate":
+		return "Entra certificate"
+	case "github_deploy_key":
+		return "GitHub deploy key"
+	case "github_pat_request":
+		return "GitHub PAT request"
+	case "github_pat_fine_grained":
+		return "GitHub fine-grained PAT"
+	default:
+		return fallbackHumanized(kind)
+	}
+}
+
+func ShortIdentifier(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "—"
+	}
+	if value == "—" {
+		return value
+	}
+
+	runes := []rune(value)
+	if len(runes) <= 18 {
+		return value
+	}
+
+	return string(runes[:8]) + "..." + string(runes[len(runes)-6:])
+}
+
+func CopyableValue(value string) bool {
+	value = strings.TrimSpace(value)
+	return value != "" && value != "—"
+}
+
 func RuleStatusBadgeClass(status string) string {
 	switch strings.ToLower(strings.TrimSpace(status)) {
 	case "pass":

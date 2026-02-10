@@ -9,7 +9,7 @@ templ UnmatchedEntraPage(data viewmodels.UnmatchedEntraViewData) {
 			{Label: "Unmanaged Microsoft Entra ID"},
 		}, "Match Microsoft Entra ID identities to identities for complete access coverage.") {
 			if data.Layout.EntraConfigured {
-				<span class="badge-outline">{ data.Layout.EntraTenantID }</span>
+				<span class="badge-outline cursor-help" title={ "Tenant ID: " + data.Layout.EntraTenantID }>Entra tenant ID</span>
 			} else {
 				<span class="badge-outline">Not configured</span>
 			}
@@ -66,42 +66,46 @@ templ UnmatchedEntraPage(data viewmodels.UnmatchedEntraViewData) {
 					}
 				</span>
 			</header>
-			<section>
-				<div class="overflow-x-auto">
-					<table class="table">
-						<caption class="sr-only">Unmanaged Microsoft Entra ID users and actions to link each user to an identity.</caption>
-						<thead>
-							<tr>
-								<th>User</th>
-								<th>Email</th>
-								<th>User ID</th>
-								<th>Link</th>
-							</tr>
-						</thead>
-						<tbody>
-							if data.HasUsers {
-								for _, u := range data.Users {
-									<tr>
-										<td class="font-medium">{ u.DisplayName }</td>
-										<td>
-											if u.Email != "" {
-												{ u.Email }
-											} else {
-												<span class="text-muted-foreground">&mdash;</span>
-											}
-										</td>
-										<td class="text-muted-foreground">{ u.ExternalID }</td>
-										<td>
-											if data.Layout.IsAdmin {
-												<form method="post" action="/links" class="flex flex-col gap-2 sm:flex-row sm:items-end">
-													@CSRFInput(data.Layout.CSRFToken)
-													<input type="hidden" name="account_id" value={ FormatInt64(u.ID) }/>
-													<label class="field w-full sm:w-32">
-														<span class="label sr-only">Identity ID</span>
-														<input type="text" name="identity_id" placeholder="Identity ID" required class="input w-full"/>
-													</label>
-													<button type="submit" class="btn-sm-primary w-full sm:w-auto">Link</button>
-												</form>
+				<section>
+					<div class="overflow-x-auto">
+						<table class="table osspm-table-fixed osspm-table-compact">
+							<caption class="sr-only">Unmanaged Microsoft Entra ID users and actions to link each user to an identity.</caption>
+							<thead>
+								<tr>
+									<th>User</th>
+									<th>Email</th>
+									<th class="osspm-col-id-wide">User ID</th>
+									<th>Link</th>
+								</tr>
+							</thead>
+							<tbody>
+								if data.HasUsers {
+									for _, u := range data.Users {
+										<tr>
+											<td class="font-medium">
+												<span class="osspm-cell-primary osspm-truncate" title={ u.DisplayName }>{ u.DisplayName }</span>
+											</td>
+											<td>
+												if u.Email != "" {
+													<span class="osspm-cell-primary osspm-truncate" title={ u.Email }>{ u.Email }</span>
+												} else {
+													<span class="text-muted-foreground">&mdash;</span>
+												}
+											</td>
+											<td class="osspm-col-id-wide text-muted-foreground">
+												<code class="osspm-token" title={ u.ExternalID }>{ u.ExternalID }</code>
+											</td>
+											<td>
+												if data.Layout.IsAdmin {
+													<form method="post" action="/links" class="flex flex-col gap-2 sm:flex-row sm:items-end">
+														@CSRFInput(data.Layout.CSRFToken)
+														<input type="hidden" name="account_id" value={ FormatInt64(u.ID) }/>
+														<label class="field w-full sm:w-32">
+															<span class="label sr-only">Identity ID</span>
+															<input type="text" name="identity_id" placeholder="Identity ID" required class="input w-full osspm-token"/>
+														</label>
+														<button type="submit" class="btn-sm-primary w-full sm:w-auto">Link</button>
+													</form>
 											} else {
 												<span class="text-sm text-muted-foreground">Admin required</span>
 											}

@@ -71,6 +71,24 @@ templ CSRFInput(token string) {
 	<input type="hidden" name="csrf" value={ token }/>
 }
 
+templ CopyTextButton(value string, label string) {
+	if CopyableValue(value) {
+		<button
+			type="button"
+			class="btn-icon-ghost h-5 w-5 shrink-0 rounded-sm"
+			aria-label={ label }
+			title={ label }
+			data-copy-text={ value }
+			data-copy-label={ label }
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+				<path d="M7.5 2A2.5 2.5 0 0 0 5 4.5v8A2.5 2.5 0 0 0 7.5 15h7A2.5 2.5 0 0 0 17 12.5v-8A2.5 2.5 0 0 0 14.5 2h-7Z"/>
+				<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H6v7.5A3.5 3.5 0 0 0 9.5 16H13v.5A2.5 2.5 0 0 1 10.5 19h-5A2.5 2.5 0 0 1 3 16.5v-9Z"/>
+			</svg>
+		</button>
+	}
+}
+
 templ FormDialog(id string, open bool, title string, description string, closeHref string, formAction string, submitLabel string, csrfToken string) {
 	<dialog id={ id } class="dialog" data-open?={ open } data-close-href={ closeHref } aria-labelledby={ id + "-title" } aria-describedby={ id + "-description" }>
 		<form method="post" action={ formAction }>

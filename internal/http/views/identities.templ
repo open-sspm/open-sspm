@@ -61,37 +61,39 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 					}
 				</span>
 			</header>
-			<section>
-				<div class="overflow-x-auto">
-					<table class="table">
-						<caption class="sr-only">Unified identities with management status and number of linked accounts.</caption>
-						<thead>
-							<tr>
-								<th>ID</th>
-								<th>Email</th>
-								<th>Display name</th>
-								<th>Managed</th>
-								<th>Linked accounts</th>
-							</tr>
-						</thead>
-						<tbody>
-							if data.HasIdentities {
-								for _, row := range data.Identities {
-									<tr data-row-href={ "/identities/" + FormatInt64(row.ID) } class="cursor-pointer hover:bg-muted/50">
-										<td><a class="btn-sm-link" href={ "/identities/" + FormatInt64(row.ID) }>{ FormatInt64(row.ID) }</a></td>
-										<td>{ row.PrimaryEmail }</td>
-										<td>{ row.DisplayName }</td>
-										<td>
-											if row.Managed {
-												<span class="badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100">Managed</span>
-											} else {
-												<span class="badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100">Unmanaged</span>
-											}
-										</td>
-										<td>{ FormatInt64(row.LinkedAccounts) }</td>
-									</tr>
-								}
-							} else {
+				<section>
+					<div class="overflow-x-auto">
+						<table class="table osspm-table-fixed osspm-table-compact">
+							<caption class="sr-only">Unified identities with management status and number of linked accounts.</caption>
+							<thead>
+								<tr>
+									<th class="osspm-col-id">ID</th>
+									<th>Email</th>
+									<th>Display name</th>
+									<th>Managed</th>
+									<th class="osspm-num">Linked accounts</th>
+								</tr>
+							</thead>
+							<tbody>
+								if data.HasIdentities {
+									for _, row := range data.Identities {
+										<tr data-row-href={ "/identities/" + FormatInt64(row.ID) } class="cursor-pointer hover:bg-muted/50">
+											<td class="osspm-col-id">
+												<a class="btn-sm-link osspm-token" href={ "/identities/" + FormatInt64(row.ID) }>{ FormatInt64(row.ID) }</a>
+											</td>
+											<td><span class="osspm-truncate" title={ row.PrimaryEmail }>{ row.PrimaryEmail }</span></td>
+											<td><span class="osspm-truncate" title={ row.DisplayName }>{ row.DisplayName }</span></td>
+											<td>
+												if row.Managed {
+													<span class="badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100">Managed</span>
+												} else {
+													<span class="badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100">Unmanaged</span>
+												}
+											</td>
+											<td class="osspm-num">{ FormatInt64(row.LinkedAccounts) }</td>
+										</tr>
+									}
+								} else {
 								<tr>
 									<td colspan="5">
 										@EmptyState("No identities found", data.EmptyStateMsg)
