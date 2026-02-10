@@ -472,12 +472,14 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 		}
 		assetRefKind := strings.TrimSpace(row.AssetRefKind)
 		assetRefExternalID := strings.TrimSpace(row.AssetRefExternalID)
-		assetRef := strings.TrimSpace(assetRefKind + ":" + assetRefExternalID)
-		if assetRefKind == "" {
-			assetRef = assetRefExternalID
-		}
-		if assetRefExternalID == "" {
+		assetRef := ""
+		switch {
+		case assetRefKind != "" && assetRefExternalID != "":
+			assetRef = assetRefKind + ":" + assetRefExternalID
+		case assetRefKind != "":
 			assetRef = assetRefKind
+		case assetRefExternalID != "":
+			assetRef = assetRefExternalID
 		}
 		createdBy := fallbackDash(actorDisplayName(row.CreatedByDisplayName, row.CreatedByExternalID))
 		approvedBy := fallbackDash(actorDisplayName(row.ApprovedByDisplayName, row.ApprovedByExternalID))

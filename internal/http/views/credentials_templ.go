@@ -664,7 +664,7 @@ func CredentialsPageResults(data viewmodels.CredentialsViewData) templ.Component
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = CopyTextButton(item.SourceName, "Copy source ID").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = CopyTextButton(item.SourceName, "Copy source name").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -798,7 +798,7 @@ func CredentialsPageResults(data viewmodels.CredentialsViewData) templ.Component
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = CopyTextButton(item.AssetRefID, "Copy asset ID").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = CopyTextButton(item.AssetRefID, "Copy asset reference").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -965,7 +965,7 @@ func CredentialsPageResults(data viewmodels.CredentialsViewData) templ.Component
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = CopyTextButton(item.SourceName, "Copy source ID").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = CopyTextButton(item.SourceName, "Copy source name").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1051,7 +1051,7 @@ func CredentialsPageResults(data viewmodels.CredentialsViewData) templ.Component
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = CopyTextButton(item.AssetRefID, "Copy asset ID").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = CopyTextButton(item.AssetRefID, "Copy asset reference").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
