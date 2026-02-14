@@ -107,7 +107,7 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 			RiskLevel:     strings.TrimSpace(row.RiskLevel),
 			Owner:         ownerLabel,
 			Actors30d:     row.Actors30d,
-			LastSeenAt:    formatProgrammaticTime(row.LastSeenAt),
+			LastSeenAt:    formatProgrammaticDate(row.LastSeenAt),
 		})
 	}
 
@@ -247,7 +247,7 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 			SourceAppID:     fallbackDash(strings.TrimSpace(source.SourceAppID)),
 			SourceAppName:   fallbackDash(strings.TrimSpace(source.SourceAppName)),
 			SourceAppDomain: fallbackDash(strings.TrimSpace(source.SourceAppDomain)),
-			LastObservedAt:  formatProgrammaticTime(source.LastObservedAt),
+			LastObservedAt:  formatProgrammaticDate(source.LastObservedAt),
 		})
 	}
 
@@ -276,7 +276,7 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 		}
 		eventItems = append(eventItems, viewmodels.DiscoveryEventItem{
 			SignalKind:    strings.TrimSpace(event.SignalKind),
-			ObservedAt:    formatProgrammaticTime(event.ObservedAt),
+			ObservedAt:    formatProgrammaticDate(event.ObservedAt),
 			Actor:         fallbackDash(actor),
 			SourceApp:     fallbackDash(sourceApp),
 			ScopesSummary: summarizeDiscoveryScopes(event.ScopesJson),
@@ -297,7 +297,7 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 			ActorEmail:      fallbackDash(strings.TrimSpace(actor.ActorEmail)),
 			ActorExternalID: fallbackDash(strings.TrimSpace(actor.ActorExternalID)),
 			EventCount:      actor.EventCount,
-			LastObservedAt:  formatProgrammaticTime(actor.LastObservedAt),
+			LastObservedAt:  formatProgrammaticDate(actor.LastObservedAt),
 		})
 	}
 
@@ -320,8 +320,8 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 			RiskLevel:                    strings.TrimSpace(app.RiskLevel),
 			SuggestedBusinessCriticality: strings.TrimSpace(app.SuggestedBusinessCriticality),
 			SuggestedDataClassification:  strings.TrimSpace(app.SuggestedDataClassification),
-			FirstSeenAt:                  formatProgrammaticTime(app.FirstSeenAt),
-			LastSeenAt:                   formatProgrammaticTime(app.LastSeenAt),
+			FirstSeenAt:                  formatProgrammaticDate(app.FirstSeenAt),
+			LastSeenAt:                   formatProgrammaticDate(app.LastSeenAt),
 		},
 		Sources:      sourceItems,
 		TopActors:    actorItems,

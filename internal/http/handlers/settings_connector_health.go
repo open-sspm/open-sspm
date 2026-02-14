@@ -202,7 +202,7 @@ func (h *Handlers) HandleConnectorHealthErrorDetails(c *echo.Context) error {
 			StatusLabel:       connectorHealthRunStatusLabel(row.Status),
 			StatusClass:       connectorHealthRunStatusClass(row.Status),
 			FinishedAtLabel:   formatAge(now, row.FinishedAt.Time),
-			FinishedAtTitle:   row.FinishedAt.Time.UTC().Format("Jan 2, 2006"),
+			FinishedAtTitle:   row.FinishedAt.Time.UTC().Format("Jan 2, 2006 3:04 PM UTC"),
 			ErrorKind:         fallbackDash(strings.TrimSpace(row.ErrorKind)),
 			MessagePreview:    preview,
 			MessageFull:       full,

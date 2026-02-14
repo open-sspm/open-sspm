@@ -95,27 +95,23 @@ type AppAssetShowViewData struct {
 }
 
 type CredentialArtifactListItem struct {
-	ID                int64
-	SourceKind        string
-	SourceName        string
-	CredentialKind    string
-	DisplayName       string
-	ExternalID        string
-	AssetRef          string
-	AssetRefKind      string
-	AssetRefID        string
-	Status            string
-	RiskLevel         string
-	ExpiresAt         string
-	ExpiresIn         string
-	ExpiresAtTooltip  string
-	LastUsedAt        string
-	LastUsedAgo       string
-	LastUsedAtTooltip string
-	CreatedBy         string
-	CreatedByHref     string
-	ApprovedBy        string
-	ApprovedByHref    string
+	ID             int64
+	SourceKind     string
+	SourceName     string
+	CredentialKind string
+	DisplayName    string
+	ExternalID     string
+	AssetRef       string
+	AssetRefKind   string
+	AssetRefID     string
+	Status         string
+	RiskLevel      string
+	ExpiresAt      string
+	LastUsedAt     string
+	CreatedBy      string
+	CreatedByHref  string
+	ApprovedBy     string
+	ApprovedByHref string
 }
 
 type CredentialsViewData struct {
