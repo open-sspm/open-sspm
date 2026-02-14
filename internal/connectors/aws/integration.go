@@ -102,10 +102,7 @@ func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps)
 	}
 
 	for start := 0; start < len(externalIDs); start += userBatchSize {
-		end := start + userBatchSize
-		if end > len(externalIDs) {
-			end = len(externalIDs)
-		}
+		end := min(start+userBatchSize, len(externalIDs))
 		_, err := deps.Q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
 			SourceKind:       "aws",
 			SourceName:       i.sourceName,
@@ -166,10 +163,7 @@ func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps)
 	}
 
 	for start := 0; start < len(entAppUserExternalIDs); start += entitlementBatchSize {
-		end := start + entitlementBatchSize
-		if end > len(entAppUserExternalIDs) {
-			end = len(entAppUserExternalIDs)
-		}
+		end := min(start+entitlementBatchSize, len(entAppUserExternalIDs))
 		_, err := deps.Q.UpsertEntitlementsBulkBySource(ctx, gen.UpsertEntitlementsBulkBySourceParams{
 			SeenInRunID:        runID,
 			SourceKind:         "aws",

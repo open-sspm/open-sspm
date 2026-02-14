@@ -25,7 +25,6 @@ func TestNormalizeCredentialRiskFilter(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			if got := normalizeCredentialRiskFilter(tc.raw); got != tc.want {
@@ -97,7 +96,6 @@ func TestCredentialRiskLevel(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			if got := credentialRiskLevel(tc.credential, now); got != tc.want {

@@ -209,10 +209,7 @@ func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, deps registry.In
 
 	const batchSize = 1000
 	for start := 0; start < len(users); start += batchSize {
-		end := start + batchSize
-		if end > len(users) {
-			end = len(users)
-		}
+		end := min(start+batchSize, len(users))
 		batch := users[start:end]
 
 		externalIDs := make([]string, 0, len(batch))
@@ -282,10 +279,7 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, deps registry.Inte
 
 	const batchSize = 500
 	for start := 0; start < len(groups); start += batchSize {
-		end := start + batchSize
-		if end > len(groups) {
-			end = len(groups)
-		}
+		end := min(start+batchSize, len(groups))
 		batch := groups[start:end]
 
 		externalIDs := make([]string, 0, len(batch))
@@ -316,10 +310,7 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, deps registry.Inte
 		}
 	}
 
-	workers := i.workers
-	if len(groups) < workers {
-		workers = len(groups)
-	}
+	workers := min(len(groups), i.workers)
 	if workers < 1 {
 		workers = 1
 	}
@@ -349,10 +340,7 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, deps registry.Inte
 			}
 			const membershipBatchSize = 5000
 			for start := 0; start < len(userExternalIDs); start += membershipBatchSize {
-				end := start + membershipBatchSize
-				if end > len(userExternalIDs) {
-					end = len(userExternalIDs)
-				}
+				end := min(start+membershipBatchSize, len(userExternalIDs))
 				idpExternalIDs := make([]string, 0, end-start)
 				groupExternalIDs := make([]string, 0, end-start)
 				for _, userExternalID := range userExternalIDs[start:end] {
@@ -427,10 +415,7 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps regis
 
 	const batchSize = 500
 	for start := 0; start < len(validApps); start += batchSize {
-		end := start + batchSize
-		if end > len(validApps) {
-			end = len(validApps)
-		}
+		end := min(start+batchSize, len(validApps))
 		batch := validApps[start:end]
 
 		externalIDs := make([]string, 0, len(batch))
@@ -469,10 +454,7 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps regis
 		}
 	}
 
-	workers := i.workers
-	if len(validApps) < workers {
-		workers = len(validApps)
-	}
+	workers := min(len(validApps), i.workers)
 	if workers < 1 {
 		workers = 1
 	}
@@ -514,10 +496,7 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps regis
 
 			const assignmentBatchSize = 5000
 			for start := 0; start < len(assignments); start += assignmentBatchSize {
-				end := start + assignmentBatchSize
-				if end > len(assignments) {
-					end = len(assignments)
-				}
+				end := min(start+assignmentBatchSize, len(assignments))
 				idpExternalIDs := make([]string, 0, end-start)
 				oktaAppExternalIDs := make([]string, 0, end-start)
 				scopes := make([]string, 0, end-start)
@@ -585,10 +564,7 @@ func (i *OktaIntegration) syncOktaAppGroupAssignments(ctx context.Context, deps 
 	}
 	deps.Report(registry.Event{Source: "okta", Stage: "sync-app-group-assignments", Current: 0, Total: int64(len(appExternalIDs)), Message: fmt.Sprintf("syncing %d apps", len(appExternalIDs))})
 
-	workers := i.workers
-	if len(appExternalIDs) < workers {
-		workers = len(appExternalIDs)
-	}
+	workers := min(len(appExternalIDs), i.workers)
 	if workers < 1 {
 		workers = 1
 	}
@@ -650,10 +626,7 @@ func (i *OktaIntegration) syncOktaAppGroupAssignments(ctx context.Context, deps 
 
 				const assignmentBatchSize = 5000
 				for start := 0; start < len(assignments); start += assignmentBatchSize {
-					end := start + assignmentBatchSize
-					if end > len(assignments) {
-						end = len(assignments)
-					}
+					end := min(start+assignmentBatchSize, len(assignments))
 					oktaAppExternalIDs := make([]string, 0, end-start)
 					groupExternalIDs := make([]string, 0, end-start)
 					priorities := make([]int32, 0, end-start)

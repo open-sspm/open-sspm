@@ -887,10 +887,7 @@ func (h *Handlers) discoveryFreshnessWindow(kind string) time.Duration {
 	if interval <= 0 {
 		interval = 15 * time.Minute
 	}
-	window := interval * 2
-	if window < 30*time.Minute {
-		window = 30 * time.Minute
-	}
+	window := max(interval*2, 30*time.Minute)
 	return window
 }
 

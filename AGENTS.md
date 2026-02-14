@@ -14,7 +14,7 @@
 
 ## Build, Test, and Development Commands
 
-Prereqs: Go 1.25.x (see `go.mod` toolchain), Docker + Compose, Node.js + npm.
+Prereqs: Go 1.26.x (see `go.mod` toolchain), Docker + Compose, Node.js + npm.
 
 - `just dev-up` / `just dev-down`: start/stop local Postgres.
 - `just migrate`: run DB migrations (`open-sspm migrate`).

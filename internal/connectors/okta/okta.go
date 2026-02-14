@@ -562,7 +562,7 @@ func mapSystemLogEvent(event sdk.LogEvent) (SystemLogEvent, error) {
 	}, nil
 }
 
-func extractSystemLogScopes(debugData map[string]interface{}) []string {
+func extractSystemLogScopes(debugData map[string]any) []string {
 	if len(debugData) == 0 {
 		return nil
 	}
@@ -578,7 +578,7 @@ func extractSystemLogScopes(debugData map[string]interface{}) []string {
 			candidates = append(candidates, splitScopes(typed)...)
 		case []string:
 			candidates = append(candidates, typed...)
-		case []interface{}:
+		case []any:
 			for _, raw := range typed {
 				candidates = append(candidates, splitScopes(getStringValue(raw))...)
 			}

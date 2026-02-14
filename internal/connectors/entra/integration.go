@@ -339,10 +339,7 @@ func (i *EntraIntegration) syncUsers(ctx context.Context, deps registry.Integrat
 	}
 
 	for start := 0; start < len(externalIDs); start += entraUserBatchSize {
-		end := start + entraUserBatchSize
-		if end > len(externalIDs) {
-			end = len(externalIDs)
-		}
+		end := min(start+entraUserBatchSize, len(externalIDs))
 
 		_, err := deps.Q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
 			SourceKind:       "entra",
@@ -642,10 +639,7 @@ func (i *EntraIntegration) upsertAppAssets(ctx context.Context, deps registry.In
 	}
 
 	for start := 0; start < len(rows); start += entraAppAssetBatchSize {
-		end := start + entraAppAssetBatchSize
-		if end > len(rows) {
-			end = len(rows)
-		}
+		end := min(start+entraAppAssetBatchSize, len(rows))
 		batch := rows[start:end]
 
 		assetKinds := make([]string, 0, len(batch))
@@ -696,10 +690,7 @@ func (i *EntraIntegration) upsertAppAssetOwners(ctx context.Context, deps regist
 	}
 
 	for start := 0; start < len(rows); start += entraOwnerBatchSize {
-		end := start + entraOwnerBatchSize
-		if end > len(rows) {
-			end = len(rows)
-		}
+		end := min(start+entraOwnerBatchSize, len(rows))
 		batch := rows[start:end]
 
 		assetKinds := make([]string, 0, len(batch))
@@ -747,10 +738,7 @@ func (i *EntraIntegration) upsertCredentialArtifacts(ctx context.Context, deps r
 	}
 
 	for start := 0; start < len(rows); start += entraCredentialBatchSize {
-		end := start + entraCredentialBatchSize
-		if end > len(rows) {
-			end = len(rows)
-		}
+		end := min(start+entraCredentialBatchSize, len(rows))
 		batch := rows[start:end]
 
 		assetRefKinds := make([]string, 0, len(batch))
@@ -1071,10 +1059,7 @@ func (i *EntraIntegration) upsertCredentialAuditEvents(ctx context.Context, deps
 	}
 
 	for start := 0; start < len(rows); start += entraAuditEventBatchSize {
-		end := start + entraAuditEventBatchSize
-		if end > len(rows) {
-			end = len(rows)
-		}
+		end := min(start+entraAuditEventBatchSize, len(rows))
 		batch := rows[start:end]
 
 		eventExternalIDs := make([]string, 0, len(batch))

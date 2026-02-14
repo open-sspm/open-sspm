@@ -44,17 +44,17 @@ type fakeDBTX struct {
 	execErr   error
 }
 
-func (db *fakeDBTX) Exec(_ context.Context, sql string, _ ...interface{}) (pgconn.CommandTag, error) {
+func (db *fakeDBTX) Exec(_ context.Context, sql string, _ ...any) (pgconn.CommandTag, error) {
 	db.execCount++
 	db.lastSQL = sql
 	return pgconn.CommandTag{}, db.execErr
 }
 
-func (db *fakeDBTX) Query(context.Context, string, ...interface{}) (pgx.Rows, error) {
+func (db *fakeDBTX) Query(context.Context, string, ...any) (pgx.Rows, error) {
 	panic("Query not expected")
 }
 
-func (db *fakeDBTX) QueryRow(context.Context, string, ...interface{}) pgx.Row {
+func (db *fakeDBTX) QueryRow(context.Context, string, ...any) pgx.Row {
 	panic("QueryRow not expected")
 }
 

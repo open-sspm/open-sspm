@@ -99,8 +99,8 @@ func findGoModRequiredVersion(t *testing.T, modulePath string) (string, bool) {
 		t.Fatalf("read %s: %v", goModPath, err)
 	}
 
-	lines := strings.Split(string(b), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(string(b), "\n")
+	for line := range lines {
 		line, _, _ = strings.Cut(line, "//")
 		line = strings.TrimSpace(line)
 		if line == "" {

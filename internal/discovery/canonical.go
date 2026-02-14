@@ -91,8 +91,8 @@ func normalizeDomain(raw string) string {
 	if ip := net.ParseIP(candidate); ip != nil {
 		return ""
 	}
-	if strings.HasPrefix(candidate, "www.") {
-		candidate = strings.TrimPrefix(candidate, "www.")
+	if after, ok := strings.CutPrefix(candidate, "www."); ok {
+		candidate = after
 	}
 	eTLD, err := publicsuffix.EffectiveTLDPlusOne(candidate)
 	if err != nil {

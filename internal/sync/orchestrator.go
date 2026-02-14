@@ -162,7 +162,6 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 	)
 
 	for _, i := range integrations {
-		i := i
 		g.Go(func() error {
 			kind := strings.TrimSpace(i.Kind())
 			name := strings.TrimSpace(i.Name())
@@ -334,10 +333,7 @@ func (o *Orchestrator) runIntegrationWithRetry(ctx context.Context, integration 
 		attempts = 1
 	}
 
-	delay := o.timeoutRetryDelay
-	if delay < 0 {
-		delay = 0
-	}
+	delay := max(o.timeoutRetryDelay, 0)
 
 	var runErr error
 	for attempt := 1; attempt <= attempts; attempt++ {

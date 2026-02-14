@@ -366,7 +366,7 @@ func testDatabaseURLFromEnv() string {
 
 func parseDotenvValue(contents, key string) string {
 	prefix := key + "="
-	for _, line := range strings.Split(contents, "\n") {
+	for line := range strings.SplitSeq(contents, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") || !strings.HasPrefix(line, prefix) {
 			continue

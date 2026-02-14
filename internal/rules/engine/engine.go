@@ -549,8 +549,8 @@ func normalizeEvaluateOutcome(result osspecv2.EvaluateResult, evalErr error) (st
 	if reason == "missing_param" {
 		return "error", "invalid_params"
 	}
-	if strings.HasPrefix(reason, "dataset_") {
-		kind := strings.TrimPrefix(reason, "dataset_")
+	if after, ok := strings.CutPrefix(reason, "dataset_"); ok {
+		kind := after
 		if kind == "" {
 			kind = "engine_error"
 		}
@@ -576,10 +576,7 @@ func buildEvaluationSummary(ruleTitle, status string, result osspecv2.EvaluateRe
 		}
 	case "fail":
 		if result.SelectedCount > 0 {
-			failed := result.SelectedCount - result.PassedCount
-			if failed < 0 {
-				failed = 0
-			}
+			failed := max(result.SelectedCount-result.PassedCount, 0)
 			return fmt.Sprintf("%s (%d/%d selected failed)", title, failed, result.SelectedCount)
 		}
 		if result.TargetValue != nil {

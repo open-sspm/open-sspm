@@ -86,10 +86,7 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 
 		passPercent := 0
 		if counts.TotalRules > 0 {
-			passPercent = int((counts.PassedRules * 100) / counts.TotalRules)
-			if passPercent < 0 {
-				passPercent = 0
-			}
+			passPercent = max(int((counts.PassedRules*100)/counts.TotalRules), 0)
 			if passPercent > 100 {
 				passPercent = 100
 			}

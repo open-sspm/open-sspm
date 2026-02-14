@@ -23,7 +23,7 @@ func TestCanonicalKey(t *testing.T) {
 		{
 			name: "entra app id fallback",
 			input: CanonicalInput{
-				SourceKind: "entra",
+				SourceKind:  "entra",
 				SourceAppID: "11111111-2222-3333-4444-555555555555",
 			},
 			want: "entra_appid:11111111-2222-3333-4444-555555555555",
@@ -48,7 +48,6 @@ func TestCanonicalKey(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			if got := CanonicalKey(tc.input); got != tc.want {

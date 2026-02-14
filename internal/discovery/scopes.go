@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 )
 
@@ -38,21 +39,11 @@ func ScopesJSON(scopes []string) []byte {
 }
 
 func HasPrivilegedScopes(scopes []string) bool {
-	for _, scope := range NormalizeScopes(scopes) {
-		if isPrivilegedScope(scope) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(NormalizeScopes(scopes), isPrivilegedScope)
 }
 
 func HasConfidentialScopes(scopes []string) bool {
-	for _, scope := range NormalizeScopes(scopes) {
-		if isConfidentialScope(scope) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(NormalizeScopes(scopes), isConfidentialScope)
 }
 
 func isPrivilegedScope(scope string) bool {
