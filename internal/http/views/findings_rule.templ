@@ -263,11 +263,11 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 								<div>
 									<span class="font-medium text-foreground">Status:</span> { strings.ToUpper(data.Attestation.Status) }
 								</div>
-								if data.Attestation.ExpiresAt != "" {
-									<div>
-										<span class="font-medium text-foreground">Expires at:</span> { data.Attestation.ExpiresAt }
-									</div>
-								}
+									if data.Attestation.ExpiresAtDisplay != "" {
+										<div>
+											<span class="font-medium text-foreground">Expires at:</span> { data.Attestation.ExpiresAtDisplay }
+										</div>
+									}
 								if data.Attestation.Notes != "" {
 									<div>
 										<span class="font-medium text-foreground">Notes:</span> { data.Attestation.Notes }

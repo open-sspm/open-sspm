@@ -193,7 +193,7 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 			Status:           fallbackDash(strings.TrimSpace(asset.Status)),
 			OwnersCount:      ownerCounts[asset.ID],
 			CredentialsCount: credentialCounts[asset.ID],
-			LastSeenAt:       formatProgrammaticTime(asset.LastObservedAt),
+			LastSeenAt:       formatProgrammaticDate(asset.LastObservedAt),
 		})
 	}
 
@@ -280,8 +280,8 @@ func (h *Handlers) HandleAppAssetShow(c *echo.Context) error {
 			DisplayName:    fallbackDash(displayName),
 			Status:         fallbackDash(strings.TrimSpace(credential.Status)),
 			RiskLevel:      credentialRiskLevel(credential, now),
-			ExpiresAt:      formatProgrammaticTime(credential.ExpiresAtSource),
-			LastUsedAt:     formatProgrammaticTime(credential.LastUsedAtSource),
+			ExpiresAt:      formatProgrammaticDate(credential.ExpiresAtSource),
+			LastUsedAt:     formatProgrammaticDate(credential.LastUsedAtSource),
 			CreatedBy:      fallbackDash(actorDisplayName(credential.CreatedByDisplayName, credential.CreatedByExternalID)),
 			CreatedByHref:  linkResolver.Resolve(strings.TrimSpace(credential.SourceKind), strings.TrimSpace(credential.SourceName), credential.CreatedByExternalID, "", credential.CreatedByDisplayName),
 		})
@@ -306,7 +306,7 @@ func (h *Handlers) HandleAppAssetShow(c *echo.Context) error {
 		credentialName := credentialDisplayByRef[credentialRefKey(credentialKind, credentialExternalID)]
 		auditItems = append(auditItems, viewmodels.ProgrammaticAuditEventItem{
 			EventType:             fallbackDash(strings.TrimSpace(event.EventType)),
-			EventTime:             formatProgrammaticTime(event.EventTime),
+			EventTime:             formatProgrammaticDate(event.EventTime),
 			Actor:                 fallbackDash(actorDisplayName(event.ActorDisplayName, event.ActorExternalID)),
 			Target:                fallbackDash(actorDisplayName(event.TargetDisplayName, event.TargetExternalID)),
 			CredentialKind:        fallbackDash(credentialKind),
@@ -334,9 +334,9 @@ func (h *Handlers) HandleAppAssetShow(c *echo.Context) error {
 			ExternalID:       strings.TrimSpace(asset.ExternalID),
 			ParentExternalID: fallbackDash(strings.TrimSpace(asset.ParentExternalID)),
 			Status:           fallbackDash(strings.TrimSpace(asset.Status)),
-			CreatedAtSource:  formatProgrammaticTime(asset.CreatedAtSource),
-			UpdatedAtSource:  formatProgrammaticTime(asset.UpdatedAtSource),
-			LastObservedAt:   formatProgrammaticTime(asset.LastObservedAt),
+			CreatedAtSource:  formatProgrammaticDate(asset.CreatedAtSource),
+			UpdatedAtSource:  formatProgrammaticDate(asset.UpdatedAtSource),
+			LastObservedAt:   formatProgrammaticDate(asset.LastObservedAt),
 		},
 		Owners:         ownerItems,
 		Credentials:    credentialItems,
@@ -492,9 +492,8 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 			AssetRefID:     fallbackDash(assetRefExternalID),
 			Status:         fallbackDash(strings.TrimSpace(row.Status)),
 			RiskLevel:      credentialRiskLevel(row, now),
-			ExpiresAt:      formatProgrammaticTime(row.ExpiresAtSource),
-			ExpiresIn:      credentialExpiresInLabel(row.ExpiresAtSource),
-			LastUsedAt:     formatProgrammaticTime(row.LastUsedAtSource),
+			ExpiresAt:      formatProgrammaticDate(row.ExpiresAtSource),
+			LastUsedAt:     formatProgrammaticDate(row.LastUsedAtSource),
 			CreatedBy:      createdBy,
 			CreatedByHref:  linkResolver.Resolve(strings.TrimSpace(row.SourceKind), strings.TrimSpace(row.SourceName), row.CreatedByExternalID, "", row.CreatedByDisplayName),
 			ApprovedBy:     approvedBy,
@@ -555,7 +554,7 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 	for _, event := range events {
 		eventItems = append(eventItems, viewmodels.ProgrammaticAuditEventItem{
 			EventType:            fallbackDash(strings.TrimSpace(event.EventType)),
-			EventTime:            formatProgrammaticTime(event.EventTime),
+			EventTime:            formatProgrammaticDate(event.EventTime),
 			Actor:                fallbackDash(actorDisplayName(event.ActorDisplayName, event.ActorExternalID)),
 			Target:               fallbackDash(actorDisplayName(event.TargetDisplayName, event.TargetExternalID)),
 			CredentialKind:       fallbackDash(strings.TrimSpace(event.CredentialKind)),
@@ -586,9 +585,9 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 			AssetRefExternalID: fallbackDash(strings.TrimSpace(credential.AssetRefExternalID)),
 			Status:             fallbackDash(strings.TrimSpace(credential.Status)),
 			RiskLevel:          riskLevel,
-			CreatedAtSource:    formatProgrammaticTime(credential.CreatedAtSource),
-			ExpiresAtSource:    formatProgrammaticTime(credential.ExpiresAtSource),
-			LastUsedAtSource:   formatProgrammaticTime(credential.LastUsedAtSource),
+			CreatedAtSource:    formatProgrammaticDate(credential.CreatedAtSource),
+			ExpiresAtSource:    formatProgrammaticDate(credential.ExpiresAtSource),
+			LastUsedAtSource:   formatProgrammaticDate(credential.LastUsedAtSource),
 			CreatedBy:          fallbackDash(actorDisplayName(credential.CreatedByDisplayName, credential.CreatedByExternalID)),
 			CreatedByHref:      linkResolver.Resolve(strings.TrimSpace(credential.SourceKind), strings.TrimSpace(credential.SourceName), credential.CreatedByExternalID, "", credential.CreatedByDisplayName),
 			ApprovedBy:         fallbackDash(actorDisplayName(credential.ApprovedByDisplayName, credential.ApprovedByExternalID)),
@@ -896,23 +895,11 @@ func formatProgrammaticTime(value pgtype.Timestamptz) string {
 	if !value.Valid {
 		return "—"
 	}
-	return value.Time.UTC().Format("2006-01-02 15:04Z")
+	return value.Time.UTC().Format("Jan 2, 2006 15:04 UTC")
 }
 
-func credentialExpiresInLabel(value pgtype.Timestamptz) string {
-	if !value.Valid {
-		return "—"
-	}
-	now := time.Now().UTC()
-	expires := value.Time.UTC()
-	if expires.Before(now) {
-		return "expired"
-	}
-	days := int(expires.Sub(now).Hours() / 24)
-	if days <= 0 {
-		return "<1d"
-	}
-	return fmt.Sprintf("%dd", days)
+func formatProgrammaticDate(value pgtype.Timestamptz) string {
+	return identityCalendarDate(value)
 }
 
 func credentialRiskLevel(credential gen.CredentialArtifact, now time.Time) string {

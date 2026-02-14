@@ -35,6 +35,36 @@ func TestNormalizeCredentialRiskFilter(t *testing.T) {
 	}
 }
 
+func TestFormatProgrammaticDate(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		value pgtype.Timestamptz
+		want  string
+	}{
+		{
+			name:  "valid",
+			value: timestamptz(time.Date(2026, 2, 14, 18, 45, 0, 0, time.UTC)),
+			want:  "Feb 14, 2026",
+		},
+		{
+			name:  "invalid",
+			value: pgtype.Timestamptz{},
+			want:  "—",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := formatProgrammaticDate(tc.value); got != tc.want {
+				t.Fatalf("formatProgrammaticDate() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestCredentialRiskLevel(t *testing.T) {
 	t.Parallel()
 

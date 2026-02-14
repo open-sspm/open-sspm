@@ -107,7 +107,6 @@ type CredentialArtifactListItem struct {
 	Status         string
 	RiskLevel      string
 	ExpiresAt      string
-	ExpiresIn      string
 	LastUsedAt     string
 	CreatedBy      string
 	CreatedByHref  string

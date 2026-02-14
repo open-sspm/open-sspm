@@ -156,6 +156,34 @@
     width: 16rem;
   }
 
+  .osspm-table-credentials {
+    min-width: 84rem;
+  }
+
+  .osspm-col-credential {
+    width: 19rem;
+  }
+
+  .osspm-col-kind {
+    width: 13rem;
+  }
+
+  .osspm-col-asset {
+    width: 18rem;
+  }
+
+  .osspm-col-status {
+    width: 9rem;
+  }
+
+  .osspm-col-risk {
+    width: 7rem;
+  }
+
+  .osspm-col-time {
+    width: 9rem;
+  }
+
   .osspm-token {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     font-size: 0.75rem;
