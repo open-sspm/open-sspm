@@ -92,7 +92,7 @@ func SettingsPage(data viewmodels.SettingsViewData) templ.Component {
 					var templ_7745c5c3_Var5 string
 					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.ResyncBanner.Message)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 17, Col: 34}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings.templ`, Line: 17, Col: 34}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 					if templ_7745c5c3_Err != nil {
@@ -134,7 +134,7 @@ func SettingsPage(data viewmodels.SettingsViewData) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs("Worker interval (if running): ")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 36, Col: 83}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings.templ`, Line: 36, Col: 83}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -143,13 +143,13 @@ func SettingsPage(data viewmodels.SettingsViewData) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(data.SyncInterval)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 36, Col: 104}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings.templ`, Line: 36, Col: 104}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div></div></section></article><article class=\"card\"><header><h2>What happens</h2><p>Steps performed during sync.</p></header><section><ol class=\"space-y-4\"><li class=\"flex gap-3\"><span class=\"badge-outline\">1</span><div class=\"space-y-1\"><div class=\"font-semibold\">Fetch data</div><p class=\"text-sm text-muted-foreground\">Pulls latest Okta users, GitHub members, and Datadog users.</p></div></li><li class=\"flex gap-3\"><span class=\"badge-outline\">2</span><div class=\"space-y-1\"><div class=\"font-semibold\">Refresh entitlements</div><p class=\"text-sm text-muted-foreground\">Updates GitHub org/team/repo permissions and Datadog roles.</p></div></li><li class=\"flex gap-3\"><span class=\"badge-outline\">3</span><div class=\"space-y-1\"><div class=\"font-semibold\">Auto-link</div><p class=\"text-sm text-muted-foreground\">Matches accounts by email where available.</p></div></li></ol></section></article></section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div></div></section></article></section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

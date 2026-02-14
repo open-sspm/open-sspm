@@ -38,37 +38,6 @@ templ SettingsPage(data viewmodels.SettingsViewData) {
 				</section>
 			</article>
 
-			<article class="card">
-				<header>
-					<h2>What happens</h2>
-					<p>Steps performed during sync.</p>
-				</header>
-				<section>
-					<ol class="space-y-4">
-						<li class="flex gap-3">
-							<span class="badge-outline">1</span>
-							<div class="space-y-1">
-								<div class="font-semibold">Fetch data</div>
-								<p class="text-sm text-muted-foreground">Pulls latest Okta users, GitHub members, and Datadog users.</p>
-							</div>
-						</li>
-						<li class="flex gap-3">
-							<span class="badge-outline">2</span>
-							<div class="space-y-1">
-								<div class="font-semibold">Refresh entitlements</div>
-								<p class="text-sm text-muted-foreground">Updates GitHub org/team/repo permissions and Datadog roles.</p>
-							</div>
-						</li>
-						<li class="flex gap-3">
-							<span class="badge-outline">3</span>
-							<div class="space-y-1">
-								<div class="font-semibold">Auto-link</div>
-								<p class="text-sm text-muted-foreground">Matches accounts by email where available.</p>
-							</div>
-						</li>
-					</ol>
-				</section>
-			</article>
 		</section>
 	}
 }
