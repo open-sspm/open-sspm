@@ -152,6 +152,49 @@ func TestHandleDiscoveryApps_AllConfiguredExcludesUnconfiguredSources(t *testing
 	}
 }
 
+func TestHandleDiscoveryAppShow_BlankTopActorIdentityDoesNotError(t *testing.T) {
+	harness := newProgrammaticAccessRouteHarness(t)
+	ensureSaaSDiscoverySchema(t, harness.ctx, harness.tx)
+
+	now := time.Now().UTC()
+	appID := insertDiscoveryAppSeed(t, harness, discoveryAppSeed{
+		CanonicalKey: "domain:blank-actor.example.com",
+		DisplayName:  "Blank Actor App",
+		SourceKind:   "okta",
+		SourceName:   "acme.okta.com",
+		SourceAppID:  "okta-blank-actor",
+		ObservedAt:   now,
+	})
+
+	if _, err := harness.tx.Exec(harness.ctx, `
+		INSERT INTO saas_app_events (
+			saas_app_id, source_kind, source_name, signal_kind, event_external_id,
+			source_app_id, source_app_name, source_app_domain,
+			actor_external_id, actor_email, actor_display_name,
+			observed_at, scopes_json, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at
+		) VALUES (
+			$1, 'okta', 'acme.okta.com', 'idp_sso', $2,
+			'okta-blank-actor', 'Blank Actor App', 'blank-actor.example.com',
+			'', '', '',
+			$3, '[]'::jsonb, '{}'::jsonb, $4, now(), $4, $3
+		)
+	`, appID, fmt.Sprintf("evt-blank-actor-%d", now.UnixNano()), now, harness.runID); err != nil {
+		t.Fatalf("seed blank-actor discovery event: %v", err)
+	}
+
+	c, rec := newTestContext(http.MethodGet, discoveryAppHref(appID))
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: fmt.Sprintf("%d", appID)}})
+	if err := harness.handlers.HandleDiscoveryAppShow(c); err != nil {
+		t.Fatalf("HandleDiscoveryAppShow() error = %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if !strings.Contains(rec.Body.String(), "Blank Actor App") {
+		t.Fatalf("response missing app content: %q", rec.Body.String())
+	}
+}
+
 func TestDiscoveryExpiryUsesStalenessWindow(t *testing.T) {
 	harness := newProgrammaticAccessRouteHarness(t)
 	ensureSaaSDiscoverySchema(t, harness.ctx, harness.tx)
