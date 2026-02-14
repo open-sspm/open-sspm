@@ -2,9 +2,19 @@ package viewmodels
 
 import "github.com/open-sspm/open-sspm/internal/db/gen"
 
+type IdentityListItem struct {
+	ID                int64
+	NamePrimary       string
+	NameSecondary     string
+	IntegrationsCount int64
+	PrivilegedRoles   int64
+	LastSeenOn        string
+	FirstCreatedOn    string
+}
+
 type IdentitiesViewData struct {
 	Layout        LayoutData
-	Identities    []gen.ListIdentitiesPageByQueryRow
+	Items         []IdentityListItem
 	Query         string
 	ShowingCount  int
 	ShowingFrom   int

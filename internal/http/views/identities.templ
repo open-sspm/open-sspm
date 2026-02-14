@@ -64,33 +64,36 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 				<section>
 					<div class="overflow-x-auto">
 						<table class="table osspm-table-fixed osspm-table-compact">
-							<caption class="sr-only">Unified identities with management status and number of linked accounts.</caption>
+							<caption class="sr-only">Unified identities with integration count, privileged role count, and activity dates.</caption>
 							<thead>
 								<tr>
-									<th class="osspm-col-id">ID</th>
-									<th>Email</th>
-									<th>Display name</th>
-									<th>Managed</th>
-									<th class="osspm-num">Linked accounts</th>
+									<th>Name</th>
+									<th class="osspm-num">Integrations</th>
+									<th class="osspm-num">Privileged Roles</th>
+									<th>Last Seen</th>
+									<th>First Created</th>
 								</tr>
 							</thead>
 							<tbody>
 								if data.HasIdentities {
-									for _, row := range data.Identities {
-										<tr data-row-href={ "/identities/" + FormatInt64(row.ID) } class="cursor-pointer hover:bg-muted/50">
-											<td class="osspm-col-id">
-												<a class="btn-sm-link osspm-token" href={ "/identities/" + FormatInt64(row.ID) }>{ FormatInt64(row.ID) }</a>
-											</td>
-											<td><span class="osspm-truncate" title={ row.PrimaryEmail }>{ row.PrimaryEmail }</span></td>
-											<td><span class="osspm-truncate" title={ row.DisplayName }>{ row.DisplayName }</span></td>
+									for _, item := range data.Items {
+										<tr data-row-href={ "/identities/" + FormatInt64(item.ID) } class="cursor-pointer hover:bg-muted/50">
 											<td>
-												if row.Managed {
-													<span class="badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100">Managed</span>
-												} else {
-													<span class="badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100">Unmanaged</span>
-												}
+												<div class="flex min-w-0 flex-col">
+													<a class="btn-sm-link block px-0 font-medium" href={ "/identities/" + FormatInt64(item.ID) } data-tooltip={ item.NamePrimary } data-side="top" data-align="start">
+														<span class="osspm-truncate">{ item.NamePrimary }</span>
+													</a>
+													if item.NameSecondary != "" {
+														<span class="block text-muted-foreground" data-tooltip={ item.NameSecondary } data-side="top" data-align="start">
+															<span class="osspm-truncate">{ item.NameSecondary }</span>
+														</span>
+													}
+												</div>
 											</td>
-											<td class="osspm-num">{ FormatInt64(row.LinkedAccounts) }</td>
+											<td class="osspm-num text-center">{ FormatInt64(item.IntegrationsCount) }</td>
+											<td class="osspm-num text-center">{ FormatInt64(item.PrivilegedRoles) }</td>
+											<td>{ item.LastSeenOn }</td>
+											<td>{ item.FirstCreatedOn }</td>
 										</tr>
 									}
 								} else {
