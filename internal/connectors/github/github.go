@@ -1085,8 +1085,8 @@ func (c *Client) graphQLEndpoint() string {
 		return u.String()
 	}
 
-	if strings.HasSuffix(u.Path, "/api/v3") {
-		u.Path = strings.TrimSuffix(u.Path, "/api/v3") + "/api/graphql"
+	if before, ok := strings.CutSuffix(u.Path, "/api/v3"); ok {
+		u.Path = before + "/api/graphql"
 		u.RawQuery = ""
 		u.Fragment = ""
 		return u.String()
@@ -1238,8 +1238,8 @@ func parseNextLink(linkHeader string) string {
 	if linkHeader == "" {
 		return ""
 	}
-	parts := strings.Split(linkHeader, ",")
-	for _, part := range parts {
+	parts := strings.SplitSeq(linkHeader, ",")
+	for part := range parts {
 		if !strings.Contains(part, "rel=\"next\"") {
 			continue
 		}
@@ -1321,7 +1321,7 @@ func backoffDelay(attempt int) time.Duration {
 		return 0
 	}
 	d := 200 * time.Millisecond
-	for i := 0; i < attempt; i++ {
+	for range attempt {
 		d *= 2
 		if d >= 5*time.Second {
 			return 5 * time.Second

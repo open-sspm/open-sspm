@@ -19,7 +19,6 @@ func TestStaleAfterInterval(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			if got := staleAfterInterval(tc.in); got != tc.want {
 				t.Fatalf("staleAfterInterval(%s)=%s want %s", tc.in, got, tc.want)
@@ -69,7 +68,6 @@ func TestConnectorHealthFromRollup(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			got := connectorHealthFromRollup(now, 15*time.Minute, tc.in)
 			if got != tc.want {
@@ -196,7 +194,6 @@ func TestFormatDuration(t *testing.T) {
 		{in: time.Hour + 2*time.Minute, want: "1h 2m"},
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.want, func(t *testing.T) {
 			if got := formatDuration(tc.in); got != tc.want {
 				t.Fatalf("formatDuration(%s)=%q want %q", tc.in, got, tc.want)

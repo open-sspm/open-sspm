@@ -370,10 +370,7 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 	default:
 		expiryState = ""
 	}
-	expiresInDays := parseIntParamDefault(c.QueryParam("expires_in_days"), 0)
-	if expiresInDays < 0 {
-		expiresInDays = 0
-	}
+	expiresInDays := max(parseIntParamDefault(c.QueryParam("expires_in_days"), 0), 0)
 	if expiresInDays > 3650 {
 		expiresInDays = 3650
 	}
@@ -836,10 +833,7 @@ func paginateAppAssets(rows []gen.AppAsset, offset, limit int) []gen.AppAsset {
 	if limit <= 0 || offset >= len(rows) {
 		return nil
 	}
-	end := offset + limit
-	if end > len(rows) {
-		end = len(rows)
-	}
+	end := min(offset+limit, len(rows))
 	return rows[offset:end]
 }
 
@@ -850,10 +844,7 @@ func paginateCredentials(rows []gen.CredentialArtifact, offset, limit int) []gen
 	if limit <= 0 || offset >= len(rows) {
 		return nil
 	}
-	end := offset + limit
-	if end > len(rows) {
-		end = len(rows)
-	}
+	end := min(offset+limit, len(rows))
 	return rows[offset:end]
 }
 

@@ -170,10 +170,7 @@ func formatAge(now time.Time, t time.Time) string {
 	if now.IsZero() {
 		now = time.Now()
 	}
-	delta := now.Sub(t)
-	if delta < 0 {
-		delta = 0
-	}
+	delta := max(now.Sub(t), 0)
 	switch {
 	case delta < time.Minute:
 		return "just now"
@@ -225,10 +222,7 @@ func formatSuccessRate(successes int64, finished int64) string {
 	if successes > finished {
 		successes = finished
 	}
-	percent := int((successes * 100) / finished)
-	if percent < 0 {
-		percent = 0
-	}
+	percent := max(int((successes*100)/finished), 0)
 	if percent > 100 {
 		percent = 100
 	}

@@ -22,10 +22,7 @@ func ManagedStateAndReason(input ManagedStateInput) (string, string) {
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
-	window := input.FreshnessWindow
-	if window < minFreshnessWindow {
-		window = minFreshnessWindow
-	}
+	window := max(input.FreshnessWindow, minFreshnessWindow)
 	if !input.HasLastSuccessfulSync || input.LastSuccessfulSyncAt.IsZero() {
 		return ManagedStateUnmanaged, ManagedReasonStaleSync
 	}

@@ -79,10 +79,7 @@ func (s *resolverStub) ListUnlinkedAccountsPage(_ context.Context, params gen.Li
 	if start >= len(rows) {
 		return nil, nil
 	}
-	end := start + int(params.PageLimit)
-	if end > len(rows) {
-		end = len(rows)
-	}
+	end := min(start+int(params.PageLimit), len(rows))
 	return rows[start:end], nil
 }
 

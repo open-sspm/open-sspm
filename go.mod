@@ -1,8 +1,8 @@
 module github.com/open-sspm/open-sspm
 
-go 1.25.0
+go 1.26
 
-toolchain go1.25.6
+toolchain go1.26.0
 
 require (
 	github.com/a-h/templ v0.3.977
@@ -18,7 +18,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/joho/godotenv v1.5.1
-	github.com/labstack/echo/v5 v5.0.1
+	github.com/labstack/echo/v5 v5.0.3
 	github.com/okta/okta-sdk-golang/v6 v6.0.2
 	github.com/open-sspm/open-sspm-spec v0.0.0-20260207190238-3d8d4e19f779
 	github.com/prometheus/client_golang v1.23.2

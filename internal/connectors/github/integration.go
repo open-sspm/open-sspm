@@ -339,10 +339,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 		results := make(chan teamResult, len(teams))
 		var teamsDone int64
 
-		workers := i.workers
-		if len(teams) < workers {
-			workers = len(teams)
-		}
+		workers := min(len(teams), i.workers)
 		if workers < 1 {
 			workers = 1
 		}
@@ -446,10 +443,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 	}
 
 	for start := 0; start < len(externalIDs); start += userBatchSize {
-		end := start + userBatchSize
-		if end > len(externalIDs) {
-			end = len(externalIDs)
-		}
+		end := min(start+userBatchSize, len(externalIDs))
 		_, err := deps.Q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
 			SourceKind:       "github",
 			SourceName:       i.org,
@@ -527,10 +521,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 	}
 
 	for start := 0; start < len(entAppUserExternalIDs); start += entitlementBatchSize {
-		end := start + entitlementBatchSize
-		if end > len(entAppUserExternalIDs) {
-			end = len(entAppUserExternalIDs)
-		}
+		end := min(start+entitlementBatchSize, len(entAppUserExternalIDs))
 		_, err := deps.Q.UpsertEntitlementsBulkBySource(ctx, gen.UpsertEntitlementsBulkBySourceParams{
 			SeenInRunID:        runID,
 			SourceKind:         "github",
@@ -1301,10 +1292,7 @@ func (i *GitHubIntegration) upsertProgrammaticAppAssets(ctx context.Context, dep
 	}
 
 	for start := 0; start < len(rows); start += githubAppAssetBatchSize {
-		end := start + githubAppAssetBatchSize
-		if end > len(rows) {
-			end = len(rows)
-		}
+		end := min(start+githubAppAssetBatchSize, len(rows))
 
 		batch := rows[start:end]
 		assetKinds := make([]string, 0, len(batch))
@@ -1355,10 +1343,7 @@ func (i *GitHubIntegration) upsertProgrammaticAssetOwners(ctx context.Context, d
 	}
 
 	for start := 0; start < len(rows); start += githubOwnerBatchSize {
-		end := start + githubOwnerBatchSize
-		if end > len(rows) {
-			end = len(rows)
-		}
+		end := min(start+githubOwnerBatchSize, len(rows))
 
 		batch := rows[start:end]
 		assetKinds := make([]string, 0, len(batch))
@@ -1406,10 +1391,7 @@ func (i *GitHubIntegration) upsertProgrammaticCredentials(ctx context.Context, d
 	}
 
 	for start := 0; start < len(rows); start += githubCredentialBatchSize {
-		end := start + githubCredentialBatchSize
-		if end > len(rows) {
-			end = len(rows)
-		}
+		end := min(start+githubCredentialBatchSize, len(rows))
 
 		batch := rows[start:end]
 		assetRefKinds := make([]string, 0, len(batch))
@@ -1490,10 +1472,7 @@ func (i *GitHubIntegration) upsertProgrammaticAuditEvents(ctx context.Context, d
 	}
 
 	for start := 0; start < len(rows); start += githubAuditEventBatchSize {
-		end := start + githubAuditEventBatchSize
-		if end > len(rows) {
-			end = len(rows)
-		}
+		end := min(start+githubAuditEventBatchSize, len(rows))
 
 		batch := rows[start:end]
 		eventExternalIDs := make([]string, 0, len(batch))

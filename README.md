@@ -22,7 +22,7 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 - Server-rendered UI: Echo + templ; Tailwind v4 + Basecoat; minimal vanilla JS for UX.
 
 ## Requirements
-- Go 1.25.x (go.mod uses toolchain `go1.25.5`)
+- Go 1.26.x (go.mod uses toolchain `go1.26.0`)
 - Docker + Docker Compose
 - Node.js + npm (for building CSS)
 - Optional: `air` (live reload), `templ` (template generation), `sqlc` (regen DB code)

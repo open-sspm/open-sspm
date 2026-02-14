@@ -28,7 +28,6 @@ func TestSanitizeNext(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			if got := SanitizeNext(tt.in); got != tt.want {
@@ -37,4 +36,3 @@ func TestSanitizeNext(t *testing.T) {
 		})
 	}
 }
-

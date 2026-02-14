@@ -83,10 +83,7 @@ func (s *Scheduler) nextDelay(rng *rand.Rand) time.Duration {
 		return 0
 	}
 	delay := base
-	jitter := base / 10
-	if jitter > 5*time.Minute {
-		jitter = 5 * time.Minute
-	}
+	jitter := min(base/10, 5*time.Minute)
 	if jitter <= 0 || rng == nil {
 		return delay
 	}

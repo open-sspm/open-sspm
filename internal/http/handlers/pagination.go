@@ -25,10 +25,7 @@ func paginate(totalCount int64, page, perPage int) (int, int, int) {
 		page = 1
 	}
 	denom := int64(perPage)
-	totalPages := int((totalCount + denom - 1) / denom)
-	if totalPages < 1 {
-		totalPages = 1
-	}
+	totalPages := max(int((totalCount+denom-1)/denom), 1)
 	if page > totalPages {
 		page = totalPages
 	}

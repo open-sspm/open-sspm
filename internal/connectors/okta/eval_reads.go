@@ -417,8 +417,8 @@ func oktaNextAfterFromLink(link string) string {
 	if link == "" {
 		return ""
 	}
-	parts := strings.Split(link, ",")
-	for _, part := range parts {
+	parts := strings.SplitSeq(link, ",")
+	for part := range parts {
 		part = strings.TrimSpace(part)
 		if !strings.Contains(part, `rel="next"`) {
 			continue

@@ -91,10 +91,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, deps registry.IntegrationD
 		results := make(chan roleUsersResult, len(roles))
 		var rolesDone int64
 
-		workers := i.workers
-		if len(roles) < workers {
-			workers = len(roles)
-		}
+		workers := min(len(roles), i.workers)
 		if workers < 1 {
 			workers = 1
 		}
@@ -204,10 +201,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, deps registry.IntegrationD
 	}
 
 	for start := 0; start < len(externalIDs); start += userBatchSize {
-		end := start + userBatchSize
-		if end > len(externalIDs) {
-			end = len(externalIDs)
-		}
+		end := min(start+userBatchSize, len(externalIDs))
 		_, err := deps.Q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
 			SourceKind:       "datadog",
 			SourceName:       i.site,
@@ -268,10 +262,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, deps registry.IntegrationD
 	}
 
 	for start := 0; start < len(entAppUserExternalIDs); start += entitlementBatchSize {
-		end := start + entitlementBatchSize
-		if end > len(entAppUserExternalIDs) {
-			end = len(entAppUserExternalIDs)
-		}
+		end := min(start+entitlementBatchSize, len(entAppUserExternalIDs))
 		_, err := deps.Q.UpsertEntitlementsBulkBySource(ctx, gen.UpsertEntitlementsBulkBySourceParams{
 			SeenInRunID:        runID,
 			SourceKind:         "datadog",

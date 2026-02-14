@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/labstack/echo/v5"
@@ -60,17 +61,13 @@ func addVary(c *echo.Context, values ...string) {
 	}
 
 	for _, line := range existing {
-		for _, token := range strings.Split(line, ",") {
-			if addToken(token) {
-				return
-			}
+		if slices.ContainsFunc(strings.Split(line, ","), addToken) {
+			return
 		}
 	}
 
-	for _, value := range values {
-		if addToken(value) {
-			return
-		}
+	if slices.ContainsFunc(values, addToken) {
+		return
 	}
 
 	if len(combined) == 0 {

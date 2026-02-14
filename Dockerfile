@@ -18,7 +18,7 @@ RUN npm run build:css
 # ============================================
 # GO BUILDER STAGE
 # ============================================
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 # Install git (required for fetching some go modules)
 RUN apk add --no-cache git

@@ -29,7 +29,7 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 	if externalID == "" || externalID == "." {
 		return RenderNotFound(c)
 	}
-	for _, seg := range strings.Split(externalID, "/") {
+	for seg := range strings.SplitSeq(externalID, "/") {
 		if seg == "" || seg == "." || seg == ".." {
 			return RenderNotFound(c)
 		}
