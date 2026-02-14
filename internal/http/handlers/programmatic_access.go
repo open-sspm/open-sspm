@@ -481,24 +481,27 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 		createdBy := fallbackDash(actorDisplayName(row.CreatedByDisplayName, row.CreatedByExternalID))
 		approvedBy := fallbackDash(actorDisplayName(row.ApprovedByDisplayName, row.ApprovedByExternalID))
 		items = append(items, viewmodels.CredentialArtifactListItem{
-			ID:             row.ID,
-			SourceKind:     strings.TrimSpace(row.SourceKind),
-			SourceName:     strings.TrimSpace(row.SourceName),
-			CredentialKind: fallbackDash(strings.TrimSpace(row.CredentialKind)),
-			DisplayName:    fallbackDash(displayName),
-			ExternalID:     fallbackDash(strings.TrimSpace(row.ExternalID)),
-			AssetRef:       fallbackDash(assetRef),
-			AssetRefKind:   fallbackDash(assetRefKind),
-			AssetRefID:     fallbackDash(assetRefExternalID),
-			Status:         fallbackDash(strings.TrimSpace(row.Status)),
-			RiskLevel:      credentialRiskLevel(row, now),
-			ExpiresAt:      formatProgrammaticTime(row.ExpiresAtSource),
-			ExpiresIn:      credentialExpiresInLabel(row.ExpiresAtSource),
-			LastUsedAt:     formatProgrammaticTime(row.LastUsedAtSource),
-			CreatedBy:      createdBy,
-			CreatedByHref:  linkResolver.Resolve(strings.TrimSpace(row.SourceKind), strings.TrimSpace(row.SourceName), row.CreatedByExternalID, "", row.CreatedByDisplayName),
-			ApprovedBy:     approvedBy,
-			ApprovedByHref: linkResolver.Resolve(strings.TrimSpace(row.SourceKind), strings.TrimSpace(row.SourceName), row.ApprovedByExternalID, "", row.ApprovedByDisplayName),
+			ID:                row.ID,
+			SourceKind:        strings.TrimSpace(row.SourceKind),
+			SourceName:        strings.TrimSpace(row.SourceName),
+			CredentialKind:    fallbackDash(strings.TrimSpace(row.CredentialKind)),
+			DisplayName:       fallbackDash(displayName),
+			ExternalID:        fallbackDash(strings.TrimSpace(row.ExternalID)),
+			AssetRef:          fallbackDash(assetRef),
+			AssetRefKind:      fallbackDash(assetRefKind),
+			AssetRefID:        fallbackDash(assetRefExternalID),
+			Status:            fallbackDash(strings.TrimSpace(row.Status)),
+			RiskLevel:         credentialRiskLevel(row, now),
+			ExpiresAt:         formatProgrammaticDate(row.ExpiresAtSource),
+			ExpiresIn:         credentialExpiresInLabelAt(row.ExpiresAtSource, now),
+			ExpiresAtTooltip:  formatProgrammaticTime(row.ExpiresAtSource),
+			LastUsedAt:        formatProgrammaticDate(row.LastUsedAtSource),
+			LastUsedAgo:       credentialLastUsedAgoLabelAt(row.LastUsedAtSource, now),
+			LastUsedAtTooltip: formatProgrammaticTime(row.LastUsedAtSource),
+			CreatedBy:         createdBy,
+			CreatedByHref:     linkResolver.Resolve(strings.TrimSpace(row.SourceKind), strings.TrimSpace(row.SourceName), row.CreatedByExternalID, "", row.CreatedByDisplayName),
+			ApprovedBy:        approvedBy,
+			ApprovedByHref:    linkResolver.Resolve(strings.TrimSpace(row.SourceKind), strings.TrimSpace(row.SourceName), row.ApprovedByExternalID, "", row.ApprovedByDisplayName),
 		})
 	}
 
@@ -893,26 +896,49 @@ func actorDisplayName(displayName, externalID string) string {
 }
 
 func formatProgrammaticTime(value pgtype.Timestamptz) string {
-	if !value.Valid {
-		return "—"
-	}
-	return value.Time.UTC().Format("2006-01-02 15:04Z")
+	return identityCalendarDate(value)
 }
 
-func credentialExpiresInLabel(value pgtype.Timestamptz) string {
+func formatProgrammaticDate(value pgtype.Timestamptz) string {
+	return identityCalendarDate(value)
+}
+
+func credentialExpiresInLabelAt(value pgtype.Timestamptz, now time.Time) string {
 	if !value.Valid {
 		return "—"
 	}
-	now := time.Now().UTC()
+	now = now.UTC()
 	expires := value.Time.UTC()
-	if expires.Before(now) {
-		return "expired"
+	delta := expires.Sub(now)
+	if delta >= 0 {
+		days := int(delta.Hours() / 24)
+		if days <= 0 {
+			return "in <1d"
+		}
+		return fmt.Sprintf("in %dd", days)
 	}
-	days := int(expires.Sub(now).Hours() / 24)
-	if days <= 0 {
-		return "<1d"
+	daysAgo := int((-delta).Hours() / 24)
+	if daysAgo <= 0 {
+		return "expired <1d ago"
 	}
-	return fmt.Sprintf("%dd", days)
+	return fmt.Sprintf("expired %dd ago", daysAgo)
+}
+
+func credentialLastUsedAgoLabelAt(value pgtype.Timestamptz, now time.Time) string {
+	if !value.Valid {
+		return "—"
+	}
+	now = now.UTC()
+	lastUsed := value.Time.UTC()
+	delta := now.Sub(lastUsed)
+	if delta < 0 {
+		return "just now"
+	}
+	daysAgo := int(delta.Hours() / 24)
+	if daysAgo <= 0 {
+		return "<1d ago"
+	}
+	return fmt.Sprintf("%dd ago", daysAgo)
 }
 
 func credentialRiskLevel(credential gen.CredentialArtifact, now time.Time) string {

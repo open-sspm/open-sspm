@@ -492,7 +492,7 @@ func (h *Handlers) buildSettingsUsersViewData(ctx context.Context, c *echo.Conte
 		lastLoginTitle := "Never logged in"
 		if row.LastLoginAt.Valid {
 			lastLogin = formatAge(now, row.LastLoginAt.Time)
-			lastLoginTitle = row.LastLoginAt.Time.UTC().Format("2006-01-02 15:04 UTC")
+			lastLoginTitle = row.LastLoginAt.Time.UTC().Format("Jan 2, 2006")
 		}
 
 		users = append(users, viewmodels.SettingsUsersUserItem{

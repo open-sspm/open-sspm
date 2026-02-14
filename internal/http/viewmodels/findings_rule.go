@@ -74,7 +74,8 @@ type FindingsParamField struct {
 }
 
 type FindingsRuleAttestationViewData struct {
-	Status    string
-	Notes     string
-	ExpiresAt string
+	Status           string
+	Notes            string
+	ExpiresAt        string
+	ExpiresAtDisplay string
 }

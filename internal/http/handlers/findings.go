@@ -410,7 +410,7 @@ func (h *Handlers) HandleFindingsRule(c *echo.Context) error {
 		CurrentErrorKind:        strings.TrimSpace(r.CurrentErrorKind),
 		EvidenceSummary:         strings.TrimSpace(r.CurrentEvidenceSummary),
 		Evidence:                evidence,
-		CurrentEvaluatedAt:      formatTimeRFC3339(r.CurrentEvaluatedAt),
+		CurrentEvaluatedAt:      formatTimeTable(r.CurrentEvaluatedAt),
 		RulesetOverrideEnabled:  rulesetOverrideEnabled,
 		RuleOverride:            buildRuleOverrideView(def.ParamSchema, def.ParamDefaults, ruleOverride),
 		Attestation:             attestation,
@@ -589,29 +589,25 @@ func (h *Handlers) getRuleAttestation(ctx context.Context, ruleID int64, scope f
 	}
 
 	expires := ""
+	expiresDisplay := ""
 	if row.ExpiresAt.Valid {
 		expires = row.ExpiresAt.Time.Format("2006-01-02T15:04")
+		expiresDisplay = row.ExpiresAt.Time.UTC().Format("Jan 2, 2006")
 	}
 
 	return viewmodels.FindingsRuleAttestationViewData{
-		Status:    strings.ToLower(strings.TrimSpace(row.Status)),
-		Notes:     strings.TrimSpace(row.Notes),
-		ExpiresAt: expires,
+		Status:           strings.ToLower(strings.TrimSpace(row.Status)),
+		Notes:            strings.TrimSpace(row.Notes),
+		ExpiresAt:        expires,
+		ExpiresAtDisplay: expiresDisplay,
 	}, nil
-}
-
-func formatTimeRFC3339(t pgtype.Timestamptz) string {
-	if !t.Valid {
-		return ""
-	}
-	return t.Time.Format(time.RFC3339)
 }
 
 func formatTimeTable(t pgtype.Timestamptz) string {
 	if !t.Valid {
 		return ""
 	}
-	return t.Time.Format("02-01-2006 15:04")
+	return t.Time.UTC().Format("Jan 2, 2006")
 }
 
 func normalizeRuleStatusFilter(v string) string {
@@ -986,7 +982,7 @@ func (h *Handlers) renderRuleWithAlert(c *echo.Context, rs gen.Ruleset, r gen.Ge
 		CurrentErrorKind:        strings.TrimSpace(r.CurrentErrorKind),
 		EvidenceSummary:         strings.TrimSpace(r.CurrentEvidenceSummary),
 		Evidence:                evidence,
-		CurrentEvaluatedAt:      formatTimeRFC3339(r.CurrentEvaluatedAt),
+		CurrentEvaluatedAt:      formatTimeTable(r.CurrentEvaluatedAt),
 		RulesetOverrideEnabled:  rulesetOverrideEnabled,
 		RuleOverride:            buildRuleOverrideView(def.ParamSchema, def.ParamDefaults, ruleOverride),
 		Attestation:             attestation,

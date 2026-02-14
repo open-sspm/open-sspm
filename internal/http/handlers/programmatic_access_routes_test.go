@@ -63,6 +63,9 @@ func TestHandleCredentials_DBBackedRiskFilter(t *testing.T) {
 	}
 
 	body := rec.Body.String()
+	if !strings.Contains(body, "osspm-table-credentials") {
+		t.Fatalf("response missing credentials table layout marker: %q", body)
+	}
 	if !strings.Contains(body, "critical-deploy-key") {
 		t.Fatalf("response missing critical credential row: %q", body)
 	}
