@@ -213,6 +213,155 @@ func (q *Queries) GetPreferredIdentityByPrimaryEmail(ctx context.Context, primar
 	return i, err
 }
 
+const listIdentitiesDirectoryPageByQuery = `-- name: ListIdentitiesDirectoryPageByQuery :many
+WITH filtered_identities AS (
+  SELECT i.id
+  FROM identities i
+  WHERE
+    $1::text = ''
+    OR i.primary_email ILIKE ('%' || $1::text || '%')
+    OR i.display_name ILIKE ('%' || $1::text || '%')
+  ORDER BY i.id DESC
+  LIMIT $3::int
+  OFFSET $2::int
+),
+active_accounts AS (
+  SELECT
+    ia.identity_id,
+    a.id AS account_id,
+    a.source_kind,
+    a.source_name,
+    a.created_at,
+    a.last_observed_at
+  FROM filtered_identities fi
+  JOIN identity_accounts ia ON ia.identity_id = fi.id
+  JOIN accounts a ON a.id = ia.account_id
+  WHERE a.expired_at IS NULL
+    AND a.last_observed_run_id IS NOT NULL
+),
+authoritative_identities AS (
+  SELECT DISTINCT aa.identity_id
+  FROM active_accounts aa
+  JOIN identity_source_settings iss
+    ON iss.source_kind = aa.source_kind
+   AND iss.source_name = aa.source_name
+   AND iss.is_authoritative
+),
+integration_counts AS (
+  SELECT
+    aa.identity_id,
+    COUNT(DISTINCT (aa.source_kind, aa.source_name)) AS integration_count
+  FROM active_accounts aa
+  WHERE trim(aa.source_kind) <> ''
+    AND trim(aa.source_name) <> ''
+  GROUP BY aa.identity_id
+),
+privileged_counts AS (
+  SELECT
+    aa.identity_id,
+    COUNT(DISTINCT e.id) AS privileged_roles
+  FROM active_accounts aa
+  JOIN entitlements e ON e.app_user_id = aa.account_id
+  WHERE e.expired_at IS NULL
+    AND e.last_observed_run_id IS NOT NULL
+    AND (
+      (
+        e.kind = 'github_team_repo_permission'
+        AND lower(trim(e.permission)) IN ('admin', 'maintain')
+      )
+      OR (
+        e.kind = 'datadog_role'
+        AND (
+          lower(trim(COALESCE(NULLIF(e.raw_json->>'role_name', ''), NULLIF(split_part(e.resource, ':', 2), '')))) LIKE '%admin%'
+          OR lower(trim(COALESCE(NULLIF(e.raw_json->>'role_name', ''), NULLIF(split_part(e.resource, ':', 2), '')))) LIKE '%administrator%'
+          OR lower(trim(COALESCE(NULLIF(e.raw_json->>'role_name', ''), NULLIF(split_part(e.resource, ':', 2), '')))) LIKE '%owner%'
+        )
+      )
+      OR (
+        e.kind = 'aws_permission_set'
+        AND (
+          lower(trim(e.permission)) LIKE '%admin%'
+          OR lower(trim(e.permission)) LIKE '%administrator%'
+          OR lower(trim(e.permission)) LIKE '%poweruser%'
+          OR lower(trim(e.permission)) LIKE '%owner%'
+          OR lower(trim(e.permission)) LIKE '%root%'
+        )
+      )
+    )
+  GROUP BY aa.identity_id
+),
+activity_stats AS (
+  SELECT
+    aa.identity_id,
+    MAX(aa.last_observed_at) AS last_seen_at,
+    MIN(aa.created_at) AS first_created_at
+  FROM active_accounts aa
+  GROUP BY aa.identity_id
+)
+SELECT
+  i.id,
+  i.display_name,
+  i.primary_email,
+  (ai.identity_id IS NOT NULL)::boolean AS managed,
+  COALESCE(ic.integration_count, 0)::bigint AS integration_count,
+  COALESCE(pc.privileged_roles, 0)::bigint AS privileged_roles,
+  ast.last_seen_at::timestamptz AS last_seen_at,
+  COALESCE(ast.first_created_at, i.created_at)::timestamptz AS first_created_at
+FROM filtered_identities fi
+JOIN identities i ON i.id = fi.id
+LEFT JOIN authoritative_identities ai ON ai.identity_id = fi.id
+LEFT JOIN integration_counts ic ON ic.identity_id = fi.id
+LEFT JOIN privileged_counts pc ON pc.identity_id = fi.id
+LEFT JOIN activity_stats ast ON ast.identity_id = fi.id
+ORDER BY i.id DESC
+`
+
+type ListIdentitiesDirectoryPageByQueryParams struct {
+	Query      string `json:"query"`
+	PageOffset int32  `json:"page_offset"`
+	PageLimit  int32  `json:"page_limit"`
+}
+
+type ListIdentitiesDirectoryPageByQueryRow struct {
+	ID               int64              `json:"id"`
+	DisplayName      string             `json:"display_name"`
+	PrimaryEmail     string             `json:"primary_email"`
+	Managed          bool               `json:"managed"`
+	IntegrationCount int64              `json:"integration_count"`
+	PrivilegedRoles  int64              `json:"privileged_roles"`
+	LastSeenAt       pgtype.Timestamptz `json:"last_seen_at"`
+	FirstCreatedAt   pgtype.Timestamptz `json:"first_created_at"`
+}
+
+func (q *Queries) ListIdentitiesDirectoryPageByQuery(ctx context.Context, arg ListIdentitiesDirectoryPageByQueryParams) ([]ListIdentitiesDirectoryPageByQueryRow, error) {
+	rows, err := q.db.Query(ctx, listIdentitiesDirectoryPageByQuery, arg.Query, arg.PageOffset, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIdentitiesDirectoryPageByQueryRow
+	for rows.Next() {
+		var i ListIdentitiesDirectoryPageByQueryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DisplayName,
+			&i.PrimaryEmail,
+			&i.Managed,
+			&i.IntegrationCount,
+			&i.PrivilegedRoles,
+			&i.LastSeenAt,
+			&i.FirstCreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIdentitiesPageByQuery = `-- name: ListIdentitiesPageByQuery :many
 WITH authoritative_identities AS (
   SELECT DISTINCT ia.identity_id

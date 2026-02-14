@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
@@ -33,7 +35,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 	}
 
 	page, totalPages, offset := paginate(totalCount, page, perPage)
-	identities, err := h.Q.ListIdentitiesPageByQuery(ctx, gen.ListIdentitiesPageByQueryParams{
+	rows, err := h.Q.ListIdentitiesDirectoryPageByQuery(ctx, gen.ListIdentitiesDirectoryPageByQueryParams{
 		Query:      query,
 		PageLimit:  int32(perPage),
 		PageOffset: int32(offset),
@@ -42,7 +44,20 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	showingCount := len(identities)
+	items := make([]viewmodels.IdentityListItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, viewmodels.IdentityListItem{
+			ID:                row.ID,
+			NamePrimary:       identityNamePrimary(row.DisplayName, row.PrimaryEmail, row.ID),
+			NameSecondary:     identityNameSecondary(row.DisplayName, row.PrimaryEmail),
+			IntegrationsCount: row.IntegrationCount,
+			PrivilegedRoles:   row.PrivilegedRoles,
+			LastSeenOn:        identityCalendarDate(row.LastSeenAt),
+			FirstCreatedOn:    identityCalendarDate(row.FirstCreatedAt),
+		})
+	}
+
+	showingCount := len(items)
 	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
 	emptyState := "No identities found yet."
@@ -52,7 +67,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 
 	data := viewmodels.IdentitiesViewData{
 		Layout:        layout,
-		Identities:    identities,
+		Items:         items,
 		Query:         query,
 		ShowingCount:  showingCount,
 		ShowingFrom:   showingFrom,
@@ -69,6 +84,40 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		return h.RenderComponent(c, views.IdentitiesPageResults(data))
 	}
 	return h.RenderComponent(c, views.IdentitiesPage(data))
+}
+
+func identityNamePrimary(displayName, primaryEmail string, id int64) string {
+	displayName = strings.TrimSpace(displayName)
+	if displayName != "" {
+		return displayName
+	}
+
+	primaryEmail = strings.TrimSpace(primaryEmail)
+	if primaryEmail != "" {
+		return primaryEmail
+	}
+
+	return fmt.Sprintf("Identity %d", id)
+}
+
+func identityNameSecondary(displayName, primaryEmail string) string {
+	displayName = strings.TrimSpace(displayName)
+	primaryEmail = strings.TrimSpace(primaryEmail)
+
+	if displayName == "" || primaryEmail == "" {
+		return ""
+	}
+	if strings.EqualFold(displayName, primaryEmail) {
+		return ""
+	}
+	return primaryEmail
+}
+
+func identityCalendarDate(value pgtype.Timestamptz) string {
+	if !value.Valid {
+		return "—"
+	}
+	return value.Time.UTC().Format("Jan 2, 2006")
 }
 
 func (h *Handlers) HandleIdentityShow(c *echo.Context) error {

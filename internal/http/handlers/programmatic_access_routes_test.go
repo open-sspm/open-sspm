@@ -205,6 +205,171 @@ func TestHandleCredentialShow_DBBackedNotFound(t *testing.T) {
 	}
 }
 
+func TestHandleIdentities_DBBackedDirectoryTable(t *testing.T) {
+	harness := newProgrammaticAccessRouteHarness(t)
+
+	identitiesExists, err := relationExists(harness.ctx, harness.tx, "identities")
+	if err != nil {
+		t.Fatalf("check identities relation: %v", err)
+	}
+	identityAccountsExists, err := relationExists(harness.ctx, harness.tx, "identity_accounts")
+	if err != nil {
+		t.Fatalf("check identity_accounts relation: %v", err)
+	}
+	if !identitiesExists || !identityAccountsExists {
+		t.Skip("skipping DB-backed identities route test: identity graph schema not available")
+	}
+
+	identityCreatedAt := time.Date(2025, time.December, 20, 0, 0, 0, 0, time.UTC)
+	var identityID int64
+	if err := harness.tx.QueryRow(harness.ctx, `
+		INSERT INTO identities (kind, display_name, primary_email, created_at, updated_at)
+		VALUES ('human', 'Alice Admin', 'alice@example.com', $1, now())
+		RETURNING id
+	`, identityCreatedAt).Scan(&identityID); err != nil {
+		t.Fatalf("insert identity: %v", err)
+	}
+
+	insertAccount := func(sourceKind, sourceName, externalID string, createdAt, lastObservedAt time.Time) int64 {
+		t.Helper()
+		var accountID int64
+		err := harness.tx.QueryRow(harness.ctx, `
+			INSERT INTO accounts (
+				source_kind,
+				source_name,
+				external_id,
+				email,
+				display_name,
+				status,
+				raw_json,
+				seen_in_run_id,
+				seen_at,
+				last_observed_run_id,
+				last_observed_at,
+				created_at,
+				updated_at
+			)
+			VALUES (
+				$1, $2, $3, $4, $5, 'active', '{}'::jsonb, $6, now(), $6, $7, $8, now()
+			)
+			RETURNING id
+		`, sourceKind, sourceName, externalID, "alice@example.com", "Alice Admin", harness.runID, lastObservedAt.UTC(), createdAt.UTC()).Scan(&accountID)
+		if err != nil {
+			t.Fatalf("insert account (%s:%s:%s): %v", sourceKind, sourceName, externalID, err)
+		}
+		return accountID
+	}
+
+	githubAccountID := insertAccount(
+		"github",
+		harness.sourceName,
+		"alice-gh",
+		time.Date(2026, time.January, 1, 8, 0, 0, 0, time.UTC),
+		time.Date(2026, time.February, 10, 9, 0, 0, 0, time.UTC),
+	)
+	datadogAccountID := insertAccount(
+		"datadog",
+		"datadoghq.com",
+		"alice-dd",
+		time.Date(2026, time.January, 3, 8, 0, 0, 0, time.UTC),
+		time.Date(2026, time.February, 12, 14, 0, 0, 0, time.UTC),
+	)
+	awsAccountID := insertAccount(
+		"aws",
+		"aws-prod",
+		"alice-aws",
+		time.Date(2026, time.January, 5, 8, 0, 0, 0, time.UTC),
+		time.Date(2026, time.February, 11, 13, 0, 0, 0, time.UTC),
+	)
+
+	for _, accountID := range []int64{githubAccountID, datadogAccountID, awsAccountID} {
+		if _, err := harness.tx.Exec(harness.ctx, `
+			INSERT INTO identity_accounts (identity_id, account_id, link_reason, confidence, updated_at)
+			VALUES ($1, $2, 'manual', 1.0, now())
+		`, identityID, accountID); err != nil {
+			t.Fatalf("insert identity account link for account %d: %v", accountID, err)
+		}
+	}
+
+	if _, err := harness.tx.Exec(harness.ctx, `
+		INSERT INTO identity_source_settings (source_kind, source_name, is_authoritative, updated_at)
+		VALUES ('github', $1, true, now())
+		ON CONFLICT (source_kind, source_name) DO UPDATE
+		SET is_authoritative = EXCLUDED.is_authoritative, updated_at = EXCLUDED.updated_at
+	`, harness.sourceName); err != nil {
+		t.Fatalf("upsert identity_source_settings: %v", err)
+	}
+
+	insertEntitlement := func(accountID int64, kind, resource, permission string, rawJSON []byte) {
+		t.Helper()
+		if _, err := harness.tx.Exec(harness.ctx, `
+			INSERT INTO entitlements (
+				app_user_id,
+				kind,
+				resource,
+				permission,
+				raw_json,
+				created_at,
+				seen_in_run_id,
+				seen_at,
+				last_observed_run_id,
+				last_observed_at,
+				updated_at
+			)
+			VALUES ($1, $2, $3, $4, $5::jsonb, now(), $6, now(), $6, now(), now())
+		`, accountID, kind, resource, permission, rawJSON, harness.runID); err != nil {
+			t.Fatalf("insert entitlement (%s): %v", kind, err)
+		}
+	}
+
+	insertEntitlement(
+		githubAccountID,
+		"github_team_repo_permission",
+		"github_repo:acme/repo-one",
+		"admin",
+		[]byte(`{"team":"platform"}`),
+	)
+	insertEntitlement(
+		datadogAccountID,
+		"datadog_role",
+		"datadog_role:billing_admin",
+		"member",
+		[]byte(`{"role_name":"Billing Administrator"}`),
+	)
+	insertEntitlement(
+		awsAccountID,
+		"aws_permission_set",
+		"aws_account:123456789012",
+		"PowerUserAccess",
+		[]byte(`{"permission_set_arn":"arn:aws:sso:::permissionSet/test"}`),
+	)
+
+	c, rec := newTestContext(http.MethodGet, "/identities?q=alice")
+	if err := harness.handlers.HandleIdentities(c); err != nil {
+		t.Fatalf("HandleIdentities() error = %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "Alice Admin") {
+		t.Fatalf("response missing identity display name: %q", body)
+	}
+	if !strings.Contains(body, "alice@example.com") {
+		t.Fatalf("response missing identity secondary email: %q", body)
+	}
+	if strings.Count(body, `>3</td>`) < 2 {
+		t.Fatalf("response missing expected integrations/privileged role counts: %q", body)
+	}
+	if !strings.Contains(body, "Feb 12, 2026") {
+		t.Fatalf("response missing expected last-seen date: %q", body)
+	}
+	if !strings.Contains(body, "Jan 1, 2026") {
+		t.Fatalf("response missing expected first-created date: %q", body)
+	}
+}
+
 type programmaticAccessRouteHarness struct {
 	ctx        context.Context
 	pool       *pgxpool.Pool
