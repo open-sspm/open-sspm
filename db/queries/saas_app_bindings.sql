@@ -30,18 +30,6 @@ WHERE NOT (
   AND EXCLUDED.binding_source = 'auto'
 );
 
--- name: ClearPrimarySaaSAppBindingsBySaaSAppID :exec
-UPDATE saas_app_bindings
-SET is_primary = false,
-    updated_at = now()
-WHERE saas_app_id = sqlc.arg(saas_app_id)::bigint
-  AND is_primary;
-
--- name: DeleteManualSaaSAppBindingsBySaaSAppID :execrows
-DELETE FROM saas_app_bindings
-WHERE saas_app_id = sqlc.arg(saas_app_id)::bigint
-  AND binding_source = 'manual';
-
 -- name: RecomputePrimarySaaSAppBindingBySaaSAppID :execrows
 WITH ranked AS (
   SELECT
@@ -84,13 +72,3 @@ SET
 FROM ranked r
 WHERE b.id = r.id
   AND b.is_primary IS DISTINCT FROM (r.rn = 1);
-
--- name: ListSaaSAppBindingsBySaaSAppID :many
-SELECT *
-FROM saas_app_bindings
-WHERE saas_app_id = $1
-ORDER BY
-  is_primary DESC,
-  CASE WHEN binding_source = 'manual' THEN 0 ELSE 1 END,
-  confidence DESC,
-  id ASC;

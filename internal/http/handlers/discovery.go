@@ -5,19 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
-	"github.com/open-sspm/open-sspm/internal/http/authn"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 	"github.com/open-sspm/open-sspm/internal/metrics"
@@ -238,11 +235,6 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	governance, err := h.Q.GetSaaSAppGovernanceViewBySaaSAppID(ctx, appID)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
 	sources, err := h.Q.ListSaaSAppSourcesBySaaSAppID(ctx, appID)
 	if err != nil {
 		return h.RenderError(c, err)
@@ -309,39 +301,6 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 		})
 	}
 
-	bindings, err := h.Q.ListSaaSAppBindingsBySaaSAppID(ctx, appID)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-	bindingItems := make([]viewmodels.DiscoveryBindingItem, 0, len(bindings))
-	for _, binding := range bindings {
-		bindingItems = append(bindingItems, viewmodels.DiscoveryBindingItem{
-			ConnectorKind:       strings.TrimSpace(binding.ConnectorKind),
-			ConnectorSourceName: strings.TrimSpace(binding.ConnectorSourceName),
-			BindingSource:       strings.TrimSpace(binding.BindingSource),
-			ConfidenceLabel:     fmt.Sprintf("%.2f", binding.Confidence),
-			IsPrimary:           binding.IsPrimary,
-		})
-	}
-
-	ownerOptions, err := h.discoveryOwnerOptions(ctx)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-	bindingOptions, err := h.discoveryBindingOptions(ctx)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	ownerID := int64(0)
-	if governance.OwnerIdentityID.Valid {
-		ownerID = governance.OwnerIdentityID.Int64
-	}
-	updatedBy := int64(0)
-	if governance.UpdatedByAuthUserID.Valid {
-		updatedBy = governance.UpdatedByAuthUserID.Int64
-	}
-
 	displayName := strings.TrimSpace(app.DisplayName)
 	if displayName == "" {
 		displayName = strings.TrimSpace(app.CanonicalKey)
@@ -364,211 +323,15 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 			FirstSeenAt:                  formatProgrammaticTime(app.FirstSeenAt),
 			LastSeenAt:                   formatProgrammaticTime(app.LastSeenAt),
 		},
-		Governance: viewmodels.DiscoveryGovernanceView{
-			OwnerIdentityID:     ownerID,
-			OwnerDisplayName:    discoveryOwnerLabel(governance.OwnerDisplayName, governance.OwnerPrimaryEmail),
-			BusinessCriticality: normalizeDiscoveryBusinessCriticality(governance.BusinessCriticality),
-			DataClassification:  normalizeDiscoveryDataClassification(governance.DataClassification),
-			Notes:               strings.TrimSpace(governance.Notes),
-			UpdatedAt:           formatProgrammaticTime(governance.UpdatedAt),
-			UpdatedByUserID:     updatedBy,
-		},
-		OwnerOptions:   ownerOptions,
-		BindingOptions: bindingOptions,
-		Bindings:       bindingItems,
-		Sources:        sourceItems,
-		TopActors:      actorItems,
-		Events:         eventItems,
-		HasBindings:    len(bindingItems) > 0,
-		HasSources:     len(sourceItems) > 0,
-		HasTopActors:   len(actorItems) > 0,
-		HasEvents:      len(eventItems) > 0,
+		Sources:      sourceItems,
+		TopActors:    actorItems,
+		Events:       eventItems,
+		HasSources:   len(sourceItems) > 0,
+		HasTopActors: len(actorItems) > 0,
+		HasEvents:    len(eventItems) > 0,
 	}
 
 	return h.RenderComponent(c, views.DiscoveryAppShowPage(data))
-}
-
-func (h *Handlers) HandleDiscoveryAppGovernancePost(c *echo.Context) error {
-	appID, err := parsePositiveInt64Param(c.Param("id"))
-	if err != nil {
-		return RenderNotFound(c)
-	}
-
-	principal, ok := authn.PrincipalFromContext(c)
-	if !ok || !principal.IsAdmin() {
-		return c.NoContent(http.StatusForbidden)
-	}
-
-	ctx := c.Request().Context()
-	if _, err := h.Q.GetSaaSAppByID(ctx, appID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
-		}
-		return h.RenderError(c, err)
-	}
-
-	businessCriticality := normalizeDiscoveryBusinessCriticality(c.FormValue("business_criticality"))
-	dataClassification := normalizeDiscoveryDataClassification(c.FormValue("data_classification"))
-	notes := strings.TrimSpace(c.FormValue("notes"))
-
-	ownerParam := strings.TrimSpace(c.FormValue("owner_identity_id"))
-	ownerIdentityID := pgtype.Int8{}
-	if ownerParam != "" {
-		ownerID, parseErr := strconv.ParseInt(ownerParam, 10, 64)
-		if parseErr != nil || ownerID <= 0 {
-			setFlashToast(c, viewmodels.ToastViewData{
-				Category:    "error",
-				Title:       "Invalid owner",
-				Description: "Owner identity must be a positive numeric ID.",
-			})
-			return c.Redirect(http.StatusSeeOther, discoveryAppHref(appID))
-		}
-		if _, err := h.Q.GetIdentityByID(ctx, ownerID); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				setFlashToast(c, viewmodels.ToastViewData{
-					Category:    "error",
-					Title:       "Owner not found",
-					Description: "Selected owner identity does not exist.",
-				})
-				return c.Redirect(http.StatusSeeOther, discoveryAppHref(appID))
-			}
-			return h.RenderError(c, err)
-		}
-		ownerIdentityID = pgtype.Int8{Int64: ownerID, Valid: true}
-	}
-
-	if err := h.Q.UpsertSaaSAppGovernanceOverride(ctx, gen.UpsertSaaSAppGovernanceOverrideParams{
-		SaasAppID:           appID,
-		OwnerIdentityID:     ownerIdentityID,
-		BusinessCriticality: businessCriticality,
-		DataClassification:  dataClassification,
-		Notes:               notes,
-		UpdatedByAuthUserID: pgtype.Int8{Int64: principal.UserID, Valid: principal.UserID > 0},
-	}); err != nil {
-		return h.RenderError(c, err)
-	}
-
-	if err := h.recomputeDiscoveryPosture(ctx); err != nil {
-		return h.RenderError(c, err)
-	}
-
-	setFlashToast(c, viewmodels.ToastViewData{
-		Category: "success",
-		Title:    "Governance updated",
-	})
-	return c.Redirect(http.StatusSeeOther, discoveryAppHref(appID))
-}
-
-func (h *Handlers) HandleDiscoveryAppBindingPost(c *echo.Context) error {
-	appID, err := parsePositiveInt64Param(c.Param("id"))
-	if err != nil {
-		return RenderNotFound(c)
-	}
-
-	principal, ok := authn.PrincipalFromContext(c)
-	if !ok || !principal.IsAdmin() {
-		return c.NoContent(http.StatusForbidden)
-	}
-
-	ctx := c.Request().Context()
-	if _, err := h.Q.GetSaaSAppByID(ctx, appID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
-		}
-		return h.RenderError(c, err)
-	}
-
-	connectorKind := NormalizeConnectorKind(c.FormValue("connector_kind"))
-	connectorSourceName := strings.TrimSpace(c.FormValue("connector_source_name"))
-	if connectorKind == "" || connectorSourceName == "" {
-		target := strings.TrimSpace(c.FormValue("binding_target"))
-		if target != "" {
-			parts := strings.SplitN(target, "::", 2)
-			if len(parts) == 2 {
-				connectorKind = NormalizeConnectorKind(parts[0])
-				connectorSourceName = strings.TrimSpace(parts[1])
-			}
-		}
-	}
-	if !IsKnownConnectorKind(connectorKind) || connectorSourceName == "" {
-		setFlashToast(c, viewmodels.ToastViewData{
-			Category:    "error",
-			Title:       "Invalid binding target",
-			Description: "Pick a configured connector source to bind.",
-		})
-		return c.Redirect(http.StatusSeeOther, discoveryAppHref(appID))
-	}
-
-	if _, err := h.Q.DeleteManualSaaSAppBindingsBySaaSAppID(ctx, appID); err != nil {
-		return h.RenderError(c, err)
-	}
-	if err := h.Q.ClearPrimarySaaSAppBindingsBySaaSAppID(ctx, appID); err != nil {
-		return h.RenderError(c, err)
-	}
-	if err := h.Q.UpsertSaaSAppBinding(ctx, gen.UpsertSaaSAppBindingParams{
-		SaasAppID:           appID,
-		ConnectorKind:       connectorKind,
-		ConnectorSourceName: connectorSourceName,
-		BindingSource:       "manual",
-		Confidence:          1,
-		IsPrimary:           true,
-		CreatedByAuthUserID: pgtype.Int8{Int64: principal.UserID, Valid: principal.UserID > 0},
-	}); err != nil {
-		return h.RenderError(c, err)
-	}
-	if _, err := h.Q.RecomputePrimarySaaSAppBindingBySaaSAppID(ctx, appID); err != nil {
-		return h.RenderError(c, err)
-	}
-
-	if err := h.recomputeDiscoveryPosture(ctx); err != nil {
-		return h.RenderError(c, err)
-	}
-
-	setFlashToast(c, viewmodels.ToastViewData{
-		Category: "success",
-		Title:    "Binding updated",
-	})
-	return c.Redirect(http.StatusSeeOther, discoveryAppHref(appID))
-}
-
-func (h *Handlers) HandleDiscoveryAppBindingClearPost(c *echo.Context) error {
-	appID, err := parsePositiveInt64Param(c.Param("id"))
-	if err != nil {
-		return RenderNotFound(c)
-	}
-
-	principal, ok := authn.PrincipalFromContext(c)
-	if !ok || !principal.IsAdmin() {
-		return c.NoContent(http.StatusForbidden)
-	}
-	_ = principal
-
-	ctx := c.Request().Context()
-	if _, err := h.Q.GetSaaSAppByID(ctx, appID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
-		}
-		return h.RenderError(c, err)
-	}
-
-	if _, err := h.Q.DeleteManualSaaSAppBindingsBySaaSAppID(ctx, appID); err != nil {
-		return h.RenderError(c, err)
-	}
-	if err := h.Q.ClearPrimarySaaSAppBindingsBySaaSAppID(ctx, appID); err != nil {
-		return h.RenderError(c, err)
-	}
-	if _, err := h.Q.RecomputePrimarySaaSAppBindingBySaaSAppID(ctx, appID); err != nil {
-		return h.RenderError(c, err)
-	}
-	if err := h.recomputeDiscoveryPosture(ctx); err != nil {
-		return h.RenderError(c, err)
-	}
-
-	setFlashToast(c, viewmodels.ToastViewData{
-		Category: "success",
-		Title:    "Manual binding cleared",
-	})
-	return c.Redirect(http.StatusSeeOther, discoveryAppHref(appID))
 }
 
 func (h *Handlers) recomputeDiscoveryPosture(ctx context.Context) error {
@@ -784,70 +547,6 @@ func (h *Handlers) discoveryConnectorRuntimes(ctx context.Context) (map[string]d
 		}
 	}
 	return out, nil
-}
-
-func (h *Handlers) discoveryBindingOptions(ctx context.Context) ([]viewmodels.DiscoveryBindingOption, error) {
-	options := make([]viewmodels.DiscoveryBindingOption, 0, 5)
-	if h.Registry == nil || h.Q == nil {
-		return options, nil
-	}
-
-	states, err := h.Registry.LoadStates(ctx, h.Q)
-	if err != nil {
-		return nil, fmt.Errorf("load connector states for discovery bindings: %w", err)
-	}
-	for _, state := range states {
-		kind := NormalizeConnectorKind(state.Definition.Kind())
-		sourceName := strings.TrimSpace(state.SourceName)
-		if kind == "" || sourceName == "" || !state.Configured {
-			continue
-		}
-		options = append(options, viewmodels.DiscoveryBindingOption{
-			ConnectorKind:       kind,
-			ConnectorSourceName: sourceName,
-			Label:               sourceDiagnosticLabel(kind, sourceName),
-		})
-	}
-
-	sort.Slice(options, func(i, j int) bool {
-		if options[i].Label == options[j].Label {
-			if options[i].ConnectorKind == options[j].ConnectorKind {
-				return options[i].ConnectorSourceName < options[j].ConnectorSourceName
-			}
-			return options[i].ConnectorKind < options[j].ConnectorKind
-		}
-		return options[i].Label < options[j].Label
-	})
-	return options, nil
-}
-
-func (h *Handlers) discoveryOwnerOptions(ctx context.Context) ([]viewmodels.DiscoveryOwnerOption, error) {
-	rows, err := h.Q.ListIdentitiesPageByQuery(ctx, gen.ListIdentitiesPageByQueryParams{
-		Query:      "",
-		PageOffset: 0,
-		PageLimit:  200,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("list owner identities: %w", err)
-	}
-	options := make([]viewmodels.DiscoveryOwnerOption, 0, len(rows))
-	for _, row := range rows {
-		label := strings.TrimSpace(row.DisplayName)
-		if label == "" {
-			label = strings.TrimSpace(row.PrimaryEmail)
-		}
-		if label == "" {
-			label = fmt.Sprintf("Identity #%d", row.ID)
-		}
-		if email := strings.TrimSpace(row.PrimaryEmail); email != "" {
-			label = label + " (" + email + ")"
-		}
-		options = append(options, viewmodels.DiscoveryOwnerOption{
-			ID:    row.ID,
-			Label: label,
-		})
-	}
-	return options, nil
 }
 
 func (h *Handlers) discoveryFreshnessWindow(kind string) time.Duration {

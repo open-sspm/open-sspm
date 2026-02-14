@@ -63,25 +63,6 @@ type DiscoveryHotspotsViewData struct {
 	EmptyStateMsg      string
 }
 
-type DiscoveryOwnerOption struct {
-	ID    int64
-	Label string
-}
-
-type DiscoveryBindingOption struct {
-	ConnectorKind       string
-	ConnectorSourceName string
-	Label               string
-}
-
-type DiscoveryBindingItem struct {
-	ConnectorKind       string
-	ConnectorSourceName string
-	BindingSource       string
-	ConfidenceLabel     string
-	IsPrimary           bool
-}
-
 type DiscoverySourceEvidenceItem struct {
 	SourceKind      string
 	SourceName      string
@@ -123,30 +104,13 @@ type DiscoveryAppSummaryView struct {
 	LastSeenAt                   string
 }
 
-type DiscoveryGovernanceView struct {
-	OwnerIdentityID     int64
-	OwnerDisplayName    string
-	BusinessCriticality string
-	DataClassification  string
-	Notes               string
-	UpdatedAt           string
-	UpdatedByUserID     int64
-}
-
 type DiscoveryAppShowViewData struct {
-	Layout             LayoutData
-	App                DiscoveryAppSummaryView
-	Governance         DiscoveryGovernanceView
-	OwnerOptions       []DiscoveryOwnerOption
-	BindingOptions     []DiscoveryBindingOption
-	Bindings           []DiscoveryBindingItem
-	Sources            []DiscoverySourceEvidenceItem
-	TopActors          []DiscoveryActorItem
-	Events             []DiscoveryEventItem
-	SelectedBindKind   string
-	SelectedBindSource string
-	HasBindings        bool
-	HasSources         bool
-	HasTopActors       bool
-	HasEvents          bool
+	Layout       LayoutData
+	App          DiscoveryAppSummaryView
+	Sources      []DiscoverySourceEvidenceItem
+	TopActors    []DiscoveryActorItem
+	Events       []DiscoveryEventItem
+	HasSources   bool
+	HasTopActors bool
+	HasEvents    bool
 }

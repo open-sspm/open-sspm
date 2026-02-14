@@ -644,7 +644,7 @@ func selectProgrammaticSource(c *echo.Context, sources []viewmodels.Programmatic
 	queryName := strings.TrimSpace(c.QueryParam("source_name"))
 
 	for _, source := range sources {
-		if strings.EqualFold(source.SourceKind, queryKind) {
+		if source.SourceKind == queryKind {
 			return viewmodels.ProgrammaticSourceOption{
 				SourceKind: source.SourceKind,
 			}, true
