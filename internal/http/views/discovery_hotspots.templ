@@ -31,22 +31,13 @@ templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
 				<p>Focus hotspots by source scope.</p>
 			</header>
 			<section>
-				<div class="grid gap-4 md:grid-cols-3">
+				<div class="grid gap-4 md:grid-cols-2">
 					<label class="field">
 						<span class="label">Source kind</span>
 						<select class="select" name="source_kind">
 							<option value="" selected?={ data.SelectedSourceKind == "" }>All configured</option>
 							for _, source := range data.SourceOptions {
-								<option value={ source.SourceKind } selected?={ source.SourceKind == data.SelectedSourceKind }>{ source.Label }</option>
-							}
-						</select>
-					</label>
-					<label class="field">
-						<span class="label">Source name</span>
-						<select class="select" name="source_name">
-							<option value="" selected?={ data.SelectedSourceName == "" }>All configured</option>
-							for _, source := range data.SourceNameOptions {
-								<option value={ source.SourceName } selected?={ source.SourceName == data.SelectedSourceName }>{ source.Label }</option>
+								<option value={ source.SourceKind } selected?={ source.SourceKind == data.SelectedSourceKind } title={ source.Label }>{ source.Label }</option>
 							}
 						</select>
 					</label>

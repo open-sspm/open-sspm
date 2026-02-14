@@ -80,6 +80,8 @@ func TestDiscoveryAppsPageResultsUsesSelectChangeHTMXFilters(t *testing.T) {
 	assertContains(t, html, `hx-swap="outerHTML"`)
 	assertContains(t, html, `hx-push-url="true"`)
 	assertContains(t, html, `hx-trigger="`+selectFilterTrigger+`"`)
+	assertContains(t, html, `name="source_kind"`)
+	assertNotContains(t, html, `name="source_name"`)
 }
 
 func TestDiscoveryHotspotsPageResultsUsesSelectChangeHTMXFilters(t *testing.T) {
@@ -91,6 +93,8 @@ func TestDiscoveryHotspotsPageResultsUsesSelectChangeHTMXFilters(t *testing.T) {
 	assertContains(t, html, `hx-swap="outerHTML"`)
 	assertContains(t, html, `hx-push-url="true"`)
 	assertContains(t, html, `hx-trigger="`+selectFilterTrigger+`"`)
+	assertContains(t, html, `name="source_kind"`)
+	assertNotContains(t, html, `name="source_name"`)
 }
 
 func assertContains(t *testing.T, content, want string) {
