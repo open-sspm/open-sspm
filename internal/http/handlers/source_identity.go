@@ -9,6 +9,8 @@ import (
 func sourcePrimaryLabel(kind string) string {
 	switch NormalizeConnectorKind(kind) {
 	case configstore.KindEntra:
+		// Intentionally shorter than ConnectorDisplayName ("Microsoft Entra ID")
+		// to keep source selectors concise while preserving recognizability.
 		return "Microsoft Entra"
 	}
 

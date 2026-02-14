@@ -5,67 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
-	"github.com/open-sspm/open-sspm/internal/auth"
 	oktaconnector "github.com/open-sspm/open-sspm/internal/connectors/okta"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	"github.com/open-sspm/open-sspm/internal/http/authn"
 )
-
-func TestHandleDiscoveryMutationsRequireAdmin(t *testing.T) {
-	viewer := auth.Principal{UserID: 42, Role: auth.RoleViewer}
-
-	t.Run("governance viewer forbidden", func(t *testing.T) {
-		c, rec := newTestContext(http.MethodPost, "/discovery/apps/1/governance")
-		c.SetPathValues(echo.PathValues{{Name: "id", Value: "1"}})
-		c.Set(authn.ContextKeyPrincipal, viewer)
-
-		h := &Handlers{}
-		if err := h.HandleDiscoveryAppGovernancePost(c); err != nil {
-			t.Fatalf("HandleDiscoveryAppGovernancePost() error = %v", err)
-		}
-		if rec.Code != http.StatusForbidden {
-			t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
-		}
-	})
-
-	t.Run("binding viewer forbidden", func(t *testing.T) {
-		c, rec := newTestContext(http.MethodPost, "/discovery/apps/1/binding")
-		c.SetPathValues(echo.PathValues{{Name: "id", Value: "1"}})
-		c.Set(authn.ContextKeyPrincipal, viewer)
-
-		h := &Handlers{}
-		if err := h.HandleDiscoveryAppBindingPost(c); err != nil {
-			t.Fatalf("HandleDiscoveryAppBindingPost() error = %v", err)
-		}
-		if rec.Code != http.StatusForbidden {
-			t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
-		}
-	})
-
-	t.Run("binding clear viewer forbidden", func(t *testing.T) {
-		c, rec := newTestContext(http.MethodPost, "/discovery/apps/1/binding/clear")
-		c.SetPathValues(echo.PathValues{{Name: "id", Value: "1"}})
-		c.Set(authn.ContextKeyPrincipal, viewer)
-
-		h := &Handlers{}
-		if err := h.HandleDiscoveryAppBindingClearPost(c); err != nil {
-			t.Fatalf("HandleDiscoveryAppBindingClearPost() error = %v", err)
-		}
-		if rec.Code != http.StatusForbidden {
-			t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
-		}
-	})
-}
 
 func TestHandleDiscoveryApps_HTMXTargetReturnsFragmentAndVary(t *testing.T) {
 	harness := newProgrammaticAccessRouteHarness(t)
@@ -190,8 +139,12 @@ func TestHandleDiscoveryAppShow_BlankTopActorIdentityDoesNotError(t *testing.T) 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
-	if !strings.Contains(rec.Body.String(), "Blank Actor App") {
-		t.Fatalf("response missing app content: %q", rec.Body.String())
+	body := rec.Body.String()
+	if !strings.Contains(body, "Blank Actor App") {
+		t.Fatalf("response missing app content: %q", body)
+	}
+	if strings.Contains(body, "<h2>Bindings</h2>") {
+		t.Fatalf("response unexpectedly contains bindings section: %q", body)
 	}
 }
 
@@ -344,199 +297,6 @@ func TestHandleDiscoveryHotspots_DBBackedRiskOrdering(t *testing.T) {
 	}
 }
 
-func TestHandleDiscoveryMutations_DBBackedAdminWrites(t *testing.T) {
-	harness := newProgrammaticAccessRouteHarness(t)
-	ensureSaaSDiscoverySchema(t, harness.ctx, harness.tx)
-
-	now := time.Now().UTC()
-	appID := insertDiscoveryAppSeed(t, harness, discoveryAppSeed{
-		CanonicalKey: "domain:bind.example.com",
-		DisplayName:  "Binding App",
-		SourceKind:   "okta",
-		SourceName:   "acme.okta.com",
-		SourceAppID:  "okta-bind",
-		ObservedAt:   now,
-	})
-
-	const adminID int64 = 910001
-	if _, err := harness.tx.Exec(harness.ctx, `
-		INSERT INTO auth_users (id, email, password_hash, role, is_active, created_at, updated_at)
-		VALUES ($1, $2, 'hash', 'admin', true, now(), now())
-		ON CONFLICT (id) DO NOTHING
-	`, adminID, fmt.Sprintf("admin-%d@example.com", adminID)); err != nil {
-		t.Fatalf("seed admin user: %v", err)
-	}
-
-	owner, err := harness.q.CreateIdentity(harness.ctx, gen.CreateIdentityParams{
-		Kind:         "human",
-		DisplayName:  "Owner One",
-		PrimaryEmail: "owner@example.com",
-	})
-	if err != nil {
-		t.Fatalf("create owner identity: %v", err)
-	}
-
-	if err := harness.q.UpsertSaaSAppBinding(harness.ctx, gen.UpsertSaaSAppBindingParams{
-		SaasAppID:           appID,
-		ConnectorKind:       "datadog",
-		ConnectorSourceName: harness.sourceName,
-		BindingSource:       "auto",
-		Confidence:          0.8,
-		IsPrimary:           false,
-		CreatedByAuthUserID: pgtype.Int8{},
-	}); err != nil {
-		t.Fatalf("seed auto binding: %v", err)
-	}
-	if _, err := harness.q.RecomputePrimarySaaSAppBindingBySaaSAppID(harness.ctx, appID); err != nil {
-		t.Fatalf("seed auto binding primary recompute: %v", err)
-	}
-
-	govValues := url.Values{
-		"owner_identity_id":    []string{fmt.Sprintf("%d", owner.ID)},
-		"business_criticality": []string{"high"},
-		"data_classification":  []string{"restricted"},
-		"notes":                []string{"Owner confirmed"},
-	}
-	govCtx, govRec := newFormContext(http.MethodPost, discoveryAppHref(appID)+"/governance", govValues)
-	govCtx.SetPathValues(echo.PathValues{{Name: "id", Value: fmt.Sprintf("%d", appID)}})
-	govCtx.Set(authn.ContextKeyPrincipal, auth.Principal{UserID: adminID, Role: auth.RoleAdmin})
-	if err := harness.handlers.HandleDiscoveryAppGovernancePost(govCtx); err != nil {
-		t.Fatalf("HandleDiscoveryAppGovernancePost() error = %v", err)
-	}
-	if govRec.Code != http.StatusSeeOther {
-		t.Fatalf("governance status = %d, want %d", govRec.Code, http.StatusSeeOther)
-	}
-
-	governance, err := harness.q.GetSaaSAppGovernanceViewBySaaSAppID(harness.ctx, appID)
-	if err != nil {
-		t.Fatalf("GetSaaSAppGovernanceViewBySaaSAppID() error = %v", err)
-	}
-	if !governance.OwnerIdentityID.Valid || governance.OwnerIdentityID.Int64 != owner.ID {
-		t.Fatalf("owner identity = %#v, want %d", governance.OwnerIdentityID, owner.ID)
-	}
-	if governance.BusinessCriticality != "high" {
-		t.Fatalf("business criticality = %q, want high", governance.BusinessCriticality)
-	}
-	if governance.DataClassification != "restricted" {
-		t.Fatalf("data classification = %q, want restricted", governance.DataClassification)
-	}
-
-	bindValues := url.Values{
-		"binding_target": []string{"github::" + harness.sourceName},
-	}
-	bindCtx, bindRec := newFormContext(http.MethodPost, discoveryAppHref(appID)+"/binding", bindValues)
-	bindCtx.SetPathValues(echo.PathValues{{Name: "id", Value: fmt.Sprintf("%d", appID)}})
-	bindCtx.Set(authn.ContextKeyPrincipal, auth.Principal{UserID: adminID, Role: auth.RoleAdmin})
-	if err := harness.handlers.HandleDiscoveryAppBindingPost(bindCtx); err != nil {
-		t.Fatalf("HandleDiscoveryAppBindingPost() error = %v", err)
-	}
-	if bindRec.Code != http.StatusSeeOther {
-		t.Fatalf("binding status = %d, want %d", bindRec.Code, http.StatusSeeOther)
-	}
-
-	bindings, err := harness.q.ListSaaSAppBindingsBySaaSAppID(harness.ctx, appID)
-	if err != nil {
-		t.Fatalf("ListSaaSAppBindingsBySaaSAppID() error = %v", err)
-	}
-	manualPrimary := false
-	for _, binding := range bindings {
-		if binding.BindingSource == "manual" && binding.ConnectorKind == "github" && binding.ConnectorSourceName == harness.sourceName && binding.IsPrimary {
-			manualPrimary = true
-		}
-	}
-	if !manualPrimary {
-		t.Fatalf("expected manual github binding to be primary, bindings=%#v", bindings)
-	}
-
-	clearCtx, clearRec := newFormContext(http.MethodPost, discoveryAppHref(appID)+"/binding/clear", url.Values{})
-	clearCtx.SetPathValues(echo.PathValues{{Name: "id", Value: fmt.Sprintf("%d", appID)}})
-	clearCtx.Set(authn.ContextKeyPrincipal, auth.Principal{UserID: adminID, Role: auth.RoleAdmin})
-	if err := harness.handlers.HandleDiscoveryAppBindingClearPost(clearCtx); err != nil {
-		t.Fatalf("HandleDiscoveryAppBindingClearPost() error = %v", err)
-	}
-	if clearRec.Code != http.StatusSeeOther {
-		t.Fatalf("binding clear status = %d, want %d", clearRec.Code, http.StatusSeeOther)
-	}
-
-	bindings, err = harness.q.ListSaaSAppBindingsBySaaSAppID(harness.ctx, appID)
-	if err != nil {
-		t.Fatalf("ListSaaSAppBindingsBySaaSAppID() error = %v", err)
-	}
-	hasManual := false
-	autoPrimary := false
-	for _, binding := range bindings {
-		if binding.BindingSource == "manual" {
-			hasManual = true
-		}
-		if binding.BindingSource == "auto" && binding.IsPrimary {
-			autoPrimary = true
-		}
-	}
-	if hasManual {
-		t.Fatalf("expected manual bindings to be cleared, bindings=%#v", bindings)
-	}
-	if !autoPrimary {
-		t.Fatalf("expected auto binding to be restored as primary, bindings=%#v", bindings)
-	}
-}
-
-func TestUpsertSaaSAppBinding_DoesNotDowngradeManualBinding(t *testing.T) {
-	harness := newProgrammaticAccessRouteHarness(t)
-	ensureSaaSDiscoverySchema(t, harness.ctx, harness.tx)
-
-	appID := insertDiscoveryAppSeed(t, harness, discoveryAppSeed{
-		CanonicalKey: "domain:manual-preserve.example.com",
-		DisplayName:  "Manual Preserve App",
-		SourceKind:   "okta",
-		SourceName:   "acme.okta.com",
-		SourceAppID:  "okta-manual-preserve",
-		ObservedAt:   time.Now().UTC(),
-	})
-
-	if err := harness.q.UpsertSaaSAppBinding(harness.ctx, gen.UpsertSaaSAppBindingParams{
-		SaasAppID:           appID,
-		ConnectorKind:       "github",
-		ConnectorSourceName: harness.sourceName,
-		BindingSource:       "manual",
-		Confidence:          1,
-		IsPrimary:           true,
-		CreatedByAuthUserID: pgtype.Int8{},
-	}); err != nil {
-		t.Fatalf("seed manual binding: %v", err)
-	}
-
-	if err := harness.q.UpsertSaaSAppBinding(harness.ctx, gen.UpsertSaaSAppBindingParams{
-		SaasAppID:           appID,
-		ConnectorKind:       "github",
-		ConnectorSourceName: harness.sourceName,
-		BindingSource:       "auto",
-		Confidence:          0.8,
-		IsPrimary:           false,
-		CreatedByAuthUserID: pgtype.Int8{},
-	}); err != nil {
-		t.Fatalf("seed conflicting auto binding: %v", err)
-	}
-
-	bindings, err := harness.q.ListSaaSAppBindingsBySaaSAppID(harness.ctx, appID)
-	if err != nil {
-		t.Fatalf("ListSaaSAppBindingsBySaaSAppID() error = %v", err)
-	}
-	if len(bindings) != 1 {
-		t.Fatalf("len(bindings) = %d, want 1", len(bindings))
-	}
-
-	binding := bindings[0]
-	if binding.BindingSource != "manual" {
-		t.Fatalf("binding source = %q, want manual", binding.BindingSource)
-	}
-	if binding.Confidence != 1 {
-		t.Fatalf("binding confidence = %v, want 1", binding.Confidence)
-	}
-	if !binding.IsPrimary {
-		t.Fatalf("binding primary = %v, want true", binding.IsPrimary)
-	}
-}
-
 func configureDiscoveryOktaSource(t *testing.T, harness *programmaticAccessRouteHarness, domain string) {
 	t.Helper()
 
@@ -627,14 +387,4 @@ func ensureSaaSDiscoverySchema(t *testing.T, ctx context.Context, tx pgx.Tx) {
 	if _, err := tx.Exec(ctx, migrationSQL); err != nil {
 		t.Skipf("skipping DB-backed discovery route test: applying discovery migration failed: %v", err)
 	}
-}
-
-func newFormContext(method, target string, values url.Values) (*echo.Context, *httptest.ResponseRecorder) {
-	body := strings.NewReader(values.Encode())
-	e := echo.New()
-	req := httptest.NewRequest(method, target, body)
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	return c, rec
 }
