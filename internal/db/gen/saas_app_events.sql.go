@@ -154,7 +154,7 @@ func (q *Queries) ListSaaSAppIDsFromEventsSeenInRunBySource(ctx context.Context,
 
 const listTopActorsForSaaSAppByID = `-- name: ListTopActorsForSaaSAppByID :many
 SELECT
-  COALESCE(NULLIF(trim(actor_display_name), ''), NULLIF(trim(actor_email), ''), NULLIF(trim(actor_external_id), ''))::text AS actor_label,
+  COALESCE(NULLIF(trim(actor_display_name), ''), NULLIF(trim(actor_email), ''), NULLIF(trim(actor_external_id), ''), '')::text AS actor_label,
   COALESCE(NULLIF(trim(actor_email), ''), '')::text AS actor_email,
   COALESCE(NULLIF(trim(actor_external_id), ''), '')::text AS actor_external_id,
   count(*) AS event_count,
