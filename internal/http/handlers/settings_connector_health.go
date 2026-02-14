@@ -126,7 +126,7 @@ func (h *Handlers) HandleConnectorHealthSync(c *echo.Context) error {
 		return h.redirectConnectorHealthWithToast(c, viewmodels.ToastViewData{
 			Category:    "success",
 			Title:       "Sync queued",
-			Description: ConnectorDisplayName(connectorKind) + " (" + sourceName + ")",
+			Description: sourceDiagnosticLabel(connectorKind, sourceName),
 		})
 	case errors.Is(err, sync.ErrSyncAlreadyRunning):
 		return h.redirectConnectorHealthWithToast(c, viewmodels.ToastViewData{

@@ -612,7 +612,7 @@ func availableProgrammaticSources(snap ConnectorSnapshot) []viewmodels.Programma
 			sources = append(sources, viewmodels.ProgrammaticSourceOption{
 				SourceKind: "entra",
 				SourceName: sourceName,
-				Label:      "Microsoft Entra (" + sourceName + ")",
+				Label:      sourcePrimaryLabel("entra"),
 			})
 		}
 	}
@@ -621,12 +621,15 @@ func availableProgrammaticSources(snap ConnectorSnapshot) []viewmodels.Programma
 			sources = append(sources, viewmodels.ProgrammaticSourceOption{
 				SourceKind: "github",
 				SourceName: sourceName,
-				Label:      "GitHub (" + sourceName + ")",
+				Label:      sourcePrimaryLabel("github"),
 			})
 		}
 	}
 
 	sort.SliceStable(sources, func(i, j int) bool {
+		if sources[i].Label == sources[j].Label {
+			return strings.ToLower(sources[i].SourceName) < strings.ToLower(sources[j].SourceName)
+		}
 		return sources[i].Label < sources[j].Label
 	})
 	return sources
@@ -637,36 +640,28 @@ func selectProgrammaticSource(c *echo.Context, sources []viewmodels.Programmatic
 		return viewmodels.ProgrammaticSourceOption{}, false
 	}
 
-	queryKind := strings.TrimSpace(c.QueryParam("source_kind"))
+	queryKind := strings.ToLower(strings.TrimSpace(c.QueryParam("source_kind")))
 	queryName := strings.TrimSpace(c.QueryParam("source_name"))
 
-	if queryKind == "" {
-		if queryName != "" {
-			for _, source := range sources {
-				if source.SourceName == queryName {
-					return source, true
-				}
-			}
+	for _, source := range sources {
+		if strings.EqualFold(source.SourceKind, queryKind) {
+			return viewmodels.ProgrammaticSourceOption{
+				SourceKind: source.SourceKind,
+			}, true
 		}
-		// Empty selection means "All configured".
-		return viewmodels.ProgrammaticSourceOption{}, true
 	}
 
 	if queryName != "" {
 		for _, source := range sources {
-			if source.SourceKind == queryKind && source.SourceName == queryName {
-				return source, true
+			if strings.EqualFold(strings.TrimSpace(source.SourceName), queryName) {
+				return viewmodels.ProgrammaticSourceOption{
+					SourceKind: source.SourceKind,
+				}, true
 			}
 		}
 	}
 
-	for _, source := range sources {
-		if source.SourceKind == queryKind {
-			return source, true
-		}
-	}
-
-	// Unknown source_kind also falls back to "All configured".
+	// Unknown source filters fall back to "All configured".
 	return viewmodels.ProgrammaticSourceOption{}, true
 }
 

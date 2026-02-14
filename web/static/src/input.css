@@ -193,6 +193,27 @@
     white-space: nowrap;
   }
 
+  :is(.form, .field) select,
+  select.select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  *:not(select).select,
+  *:not(select).select > button {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  *:not(select).select > button > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   @keyframes open-sspm-busy-spin {
     to {
       transform: rotate(360deg);

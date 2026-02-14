@@ -48,16 +48,13 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 	}
 
 	sourceOptions := discoverySourceOptions(snap)
-	selectedSourceKind := normalizeDiscoverySourceKind(c.QueryParam("source_kind"))
-	selectedSourceName := strings.TrimSpace(c.QueryParam("source_name"))
-	if selectedSourceKind != "" && !discoveryHasSourceKind(selectedSourceKind, sourceOptions) {
-		selectedSourceKind = ""
-	}
+	selectedSourceKind, selectedSourceName := normalizeDiscoverySourceSelection(
+		c.QueryParam("source_kind"),
+		c.QueryParam("source_name"),
+		sourceOptions,
+	)
 
 	sourceNameOptions := discoverySourceNameOptions(selectedSourceKind, sourceOptions)
-	if selectedSourceName != "" && !discoveryHasSourceName(selectedSourceKind, selectedSourceName, sourceNameOptions) {
-		selectedSourceName = ""
-	}
 	configuredSourceKinds, configuredSourceNames := discoveryConfiguredSourcePairs(sourceOptions)
 
 	query := strings.TrimSpace(c.QueryParam("q"))
@@ -163,15 +160,12 @@ func (h *Handlers) HandleDiscoveryHotspots(c *echo.Context) error {
 	}
 
 	sourceOptions := discoverySourceOptions(snap)
-	selectedSourceKind := normalizeDiscoverySourceKind(c.QueryParam("source_kind"))
-	selectedSourceName := strings.TrimSpace(c.QueryParam("source_name"))
-	if selectedSourceKind != "" && !discoveryHasSourceKind(selectedSourceKind, sourceOptions) {
-		selectedSourceKind = ""
-	}
+	selectedSourceKind, selectedSourceName := normalizeDiscoverySourceSelection(
+		c.QueryParam("source_kind"),
+		c.QueryParam("source_name"),
+		sourceOptions,
+	)
 	sourceNameOptions := discoverySourceNameOptions(selectedSourceKind, sourceOptions)
-	if selectedSourceName != "" && !discoveryHasSourceName(selectedSourceKind, selectedSourceName, sourceNameOptions) {
-		selectedSourceName = ""
-	}
 	configuredSourceKinds, configuredSourceNames := discoveryConfiguredSourcePairs(sourceOptions)
 
 	rows, err := h.Q.ListSaaSAppHotspots(ctx, gen.ListSaaSAppHotspotsParams{
@@ -808,14 +802,10 @@ func (h *Handlers) discoveryBindingOptions(ctx context.Context) ([]viewmodels.Di
 		if kind == "" || sourceName == "" || !state.Configured {
 			continue
 		}
-		label := ConnectorDisplayName(kind)
-		if label == "" {
-			label = kind
-		}
 		options = append(options, viewmodels.DiscoveryBindingOption{
 			ConnectorKind:       kind,
 			ConnectorSourceName: sourceName,
-			Label:               label + " (" + sourceName + ")",
+			Label:               sourceDiagnosticLabel(kind, sourceName),
 		})
 	}
 
@@ -898,7 +888,7 @@ func discoverySourceOptions(snap ConnectorSnapshot) []viewmodels.DiscoverySource
 		options = append(options, viewmodels.DiscoverySourceOption{
 			SourceKind: "okta",
 			SourceName: oktaSource,
-			Label:      "Okta (" + oktaSource + ")",
+			Label:      sourcePrimaryLabel("okta"),
 		})
 	}
 	entraSource := strings.TrimSpace(snap.Entra.TenantID)
@@ -906,7 +896,7 @@ func discoverySourceOptions(snap ConnectorSnapshot) []viewmodels.DiscoverySource
 		options = append(options, viewmodels.DiscoverySourceOption{
 			SourceKind: "entra",
 			SourceName: entraSource,
-			Label:      "Microsoft Entra (" + entraSource + ")",
+			Label:      sourcePrimaryLabel("entra"),
 		})
 	}
 	return options
@@ -924,19 +914,36 @@ func sourceKindOptions(sourceOptions []viewmodels.DiscoverySourceOption) []viewm
 			continue
 		}
 		seen[kind] = struct{}{}
-		label := kind
-		switch kind {
-		case "okta":
-			label = "Okta"
-		case "entra":
-			label = "Microsoft Entra"
-		}
 		out = append(out, viewmodels.DiscoverySourceOption{
 			SourceKind: kind,
-			Label:      label,
+			Label:      sourcePrimaryLabel(kind),
 		})
 	}
 	return out
+}
+
+func normalizeDiscoverySourceSelection(rawKind, rawName string, sourceOptions []viewmodels.DiscoverySourceOption) (string, string) {
+	selectedKind := normalizeDiscoverySourceKind(rawKind)
+	if selectedKind != "" && !discoveryHasSourceKind(selectedKind, sourceOptions) {
+		selectedKind = ""
+	}
+
+	selectedName := strings.TrimSpace(rawName)
+	if selectedKind == "" && selectedName != "" {
+		for _, option := range sourceOptions {
+			if strings.EqualFold(strings.TrimSpace(option.SourceName), selectedName) {
+				selectedKind = normalizeDiscoverySourceKind(option.SourceKind)
+				break
+			}
+		}
+	}
+
+	if selectedKind == "" {
+		return "", ""
+	}
+
+	// In standard list UX, source kind is the primary selector and source IDs stay in diagnostics.
+	return selectedKind, ""
 }
 
 func discoverySourceNameOptions(selectedSourceKind string, sourceOptions []viewmodels.DiscoverySourceOption) []viewmodels.DiscoverySourceOption {

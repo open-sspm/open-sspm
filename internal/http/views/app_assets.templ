@@ -37,7 +37,7 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 						<select class="select" name="source_kind">
 							<option value="" selected?={ data.SelectedSourceKind == "" }>All configured</option>
 							for _, source := range data.Sources {
-								<option value={ source.SourceKind } selected?={ source.SourceKind == data.SelectedSourceKind }>{ source.Label }</option>
+								<option value={ source.SourceKind } selected?={ source.SourceKind == data.SelectedSourceKind } title={ source.Label }>{ source.Label }</option>
 							}
 						</select>
 					</label>
@@ -104,7 +104,6 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 										<tr data-row-href={ "/app-assets/" + FormatInt64(item.ID) } class="cursor-pointer hover:bg-muted/50">
 											<td>
 												<span class="badge-outline">{ HumanizeProgrammaticKind(item.SourceKind) }</span>
-												<span class="osspm-cell-secondary osspm-token osspm-truncate" title={ item.SourceName }>{ item.SourceName }</span>
 											</td>
 											<td><span class="badge-outline">{ HumanizeProgrammaticKind(item.AssetKind) }</span></td>
 											<td>

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
@@ -144,8 +145,8 @@ func TestSelectProgrammaticSource(t *testing.T) {
 	t.Parallel()
 
 	sources := []viewmodels.ProgrammaticSourceOption{
-		{SourceKind: "entra", SourceName: "tenant-1", Label: "Microsoft Entra (tenant-1)"},
-		{SourceKind: "github", SourceName: "acme", Label: "GitHub (acme)"},
+		{SourceKind: "entra", SourceName: "tenant-1", Label: "Microsoft Entra"},
+		{SourceKind: "github", SourceName: "acme", Label: "GitHub"},
 	}
 
 	t.Run("defaults to all configured when no source query is present", func(t *testing.T) {
@@ -161,7 +162,7 @@ func TestSelectProgrammaticSource(t *testing.T) {
 		}
 	})
 
-	t.Run("selects exact source kind and name when provided", func(t *testing.T) {
+	t.Run("selects source kind when kind and name are provided", func(t *testing.T) {
 		t.Parallel()
 
 		c, _ := newTestContext(http.MethodGet, "/credentials?source_kind=github&source_name=acme")
@@ -169,10 +170,45 @@ func TestSelectProgrammaticSource(t *testing.T) {
 		if !ok {
 			t.Fatalf("expected source selection to be available")
 		}
-		if selected.SourceKind != "github" || selected.SourceName != "acme" {
+		if selected.SourceKind != "github" || selected.SourceName != "" {
 			t.Fatalf("unexpected selection kind=%q name=%q", selected.SourceKind, selected.SourceName)
 		}
 	})
+
+	t.Run("maps source name to source kind for backward compatibility", func(t *testing.T) {
+		t.Parallel()
+
+		c, _ := newTestContext(http.MethodGet, "/credentials?source_name=acme")
+		selected, ok := selectProgrammaticSource(c, sources)
+		if !ok {
+			t.Fatalf("expected source selection to be available")
+		}
+		if selected.SourceKind != "github" || selected.SourceName != "" {
+			t.Fatalf("unexpected selection kind=%q name=%q", selected.SourceKind, selected.SourceName)
+		}
+	})
+}
+
+func TestAvailableProgrammaticSourcesUsesPrimaryLabels(t *testing.T) {
+	t.Parallel()
+
+	sources := availableProgrammaticSources(ConnectorSnapshot{
+		Entra:            configstore.EntraConfig{TenantID: "tenant-a"},
+		EntraEnabled:     true,
+		EntraConfigured:  true,
+		GitHub:           configstore.GitHubConfig{Org: "acme-org"},
+		GitHubEnabled:    true,
+		GitHubConfigured: true,
+	})
+	if len(sources) != 2 {
+		t.Fatalf("sources length = %d, want 2", len(sources))
+	}
+	if sources[0].Label != "GitHub" || sources[1].Label != "Microsoft Entra" {
+		t.Fatalf("unexpected labels = [%q, %q]", sources[0].Label, sources[1].Label)
+	}
+	if sources[0].SourceName != "acme-org" || sources[1].SourceName != "tenant-a" {
+		t.Fatalf("unexpected source names = [%q, %q]", sources[0].SourceName, sources[1].SourceName)
+	}
 }
 
 func timestamptz(ts time.Time) pgtype.Timestamptz {
