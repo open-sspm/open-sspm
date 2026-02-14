@@ -117,7 +117,7 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 											</td>
 											<td>
 												<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
-												<span class="osspm-cell-secondary">{ "Score " }{ FormatInt(int(item.RiskScore)) }</span>
+												<span class="osspm-cell-secondary">{ FormatInt(int(item.RiskScore)) }</span>
 											</td>
 											<td><span class="osspm-truncate" title={ item.Owner }>{ item.Owner }</span></td>
 											<td class="osspm-num"><span class="badge-outline">{ FormatInt64(item.Actors30d) }</span></td>
