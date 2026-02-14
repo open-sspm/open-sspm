@@ -74,7 +74,7 @@ templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
 										</td>
 										<td>
 											<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
-											<div class="text-xs text-muted-foreground">{ "Score " }{ FormatInt(int(item.RiskScore)) }</div>
+											<div class="text-xs text-muted-foreground">{ FormatInt(int(item.RiskScore)) }</div>
 										</td>
 										<td><span class={ DiscoveryManagedBadgeClass(item.ManagedState) }>{ HumanizeDiscoveryManagedState(item.ManagedState) }</span></td>
 										<td>{ item.Owner }</td>
