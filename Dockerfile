@@ -8,6 +8,7 @@ WORKDIR /app
 
 # Install dependencies
 COPY package.json package-lock.json ./
+COPY scripts/vendor-sync.mjs ./scripts/vendor-sync.mjs
 RUN npm ci
 
 # Copy static source and build CSS
