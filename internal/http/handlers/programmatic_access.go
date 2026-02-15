@@ -55,7 +55,7 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 	}
 
 	if !hasSource {
-		data.EmptyStateMsg = "Configure and enable GitHub or Microsoft Entra connectors to populate app assets."
+		data.EmptyStateMsg = "Configure and enable GitHub, Microsoft Entra, or Vault connectors to populate app assets."
 		return renderAppAssets()
 	}
 
@@ -401,7 +401,7 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 	}
 
 	if !hasSource {
-		data.EmptyStateMsg = "Configure and enable GitHub or Microsoft Entra connectors to populate credential inventory."
+		data.EmptyStateMsg = "Configure and enable GitHub, Microsoft Entra, or Vault connectors to populate credential inventory."
 		return renderCredentials()
 	}
 
@@ -604,7 +604,7 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 }
 
 func availableProgrammaticSources(snap ConnectorSnapshot) []viewmodels.ProgrammaticSourceOption {
-	sources := make([]viewmodels.ProgrammaticSourceOption, 0, 2)
+	sources := make([]viewmodels.ProgrammaticSourceOption, 0, 3)
 
 	if snap.EntraEnabled && snap.EntraConfigured {
 		if sourceName := strings.TrimSpace(snap.Entra.TenantID); sourceName != "" {
@@ -621,6 +621,15 @@ func availableProgrammaticSources(snap ConnectorSnapshot) []viewmodels.Programma
 				SourceKind: "github",
 				SourceName: sourceName,
 				Label:      sourcePrimaryLabel("github"),
+			})
+		}
+	}
+	if snap.VaultEnabled && snap.VaultConfigured {
+		if sourceName := strings.TrimSpace(snap.Vault.SourceName()); sourceName != "" {
+			sources = append(sources, viewmodels.ProgrammaticSourceOption{
+				SourceKind: "vault",
+				SourceName: sourceName,
+				Label:      sourcePrimaryLabel("vault"),
 			})
 		}
 	}

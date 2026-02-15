@@ -251,6 +251,31 @@ func TestAvailableProgrammaticSourcesUsesPrimaryLabels(t *testing.T) {
 	}
 }
 
+func TestAvailableProgrammaticSourcesIncludesVault(t *testing.T) {
+	t.Parallel()
+
+	sources := availableProgrammaticSources(ConnectorSnapshot{
+		Vault: configstore.VaultConfig{
+			Address: "https://vault.example.com",
+			Name:    "prod-vault",
+		},
+		VaultEnabled:    true,
+		VaultConfigured: true,
+	})
+	if len(sources) != 1 {
+		t.Fatalf("sources length = %d, want 1", len(sources))
+	}
+	if sources[0].SourceKind != "vault" {
+		t.Fatalf("source kind = %q, want vault", sources[0].SourceKind)
+	}
+	if sources[0].SourceName != "prod-vault" {
+		t.Fatalf("source name = %q, want prod-vault", sources[0].SourceName)
+	}
+	if sources[0].Label != "Vault" {
+		t.Fatalf("source label = %q, want Vault", sources[0].Label)
+	}
+}
+
 func timestamptz(ts time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: ts.UTC(), Valid: true}
 }

@@ -147,6 +147,14 @@ func humanizeResourceKind(resourceKind string) string {
 		return "Role"
 	case accessgraph.ResourceKindAWSAccount:
 		return "AWS account"
+	case accessgraph.ResourceKindVaultPolicy:
+		return "Vault policy"
+	case accessgraph.ResourceKindVaultGroup:
+		return "Vault group"
+	case accessgraph.ResourceKindVaultAuthMount:
+		return "Vault auth mount"
+	case accessgraph.ResourceKindVaultSecretsMount:
+		return "Vault secrets mount"
 	default:
 		return ""
 	}

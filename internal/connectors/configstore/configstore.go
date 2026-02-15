@@ -1,6 +1,7 @@
 package configstore
 
 import (
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"net/url"
@@ -24,6 +25,8 @@ const (
 const (
 	AWSIdentityCenterAuthTypeDefaultChain = "default_chain"
 	AWSIdentityCenterAuthTypeAccessKey    = "access_key"
+	VaultAuthTypeToken                    = "token"
+	VaultAuthTypeAppRole                  = "approle"
 )
 
 type OktaConfig struct {
@@ -184,7 +187,19 @@ func (c AWSIdentityCenterConfig) Validate() error {
 	}
 }
 
-type VaultConfig struct{}
+type VaultConfig struct {
+	Address          string `json:"address"`
+	Namespace        string `json:"namespace"`
+	Name             string `json:"name"`
+	AuthType         string `json:"auth_type"`
+	Token            string `json:"token"`
+	AppRoleMountPath string `json:"approle_mount_path"`
+	AppRoleRoleID    string `json:"approle_role_id"`
+	AppRoleSecretID  string `json:"approle_secret_id"`
+	ScanAuthRoles    bool   `json:"scan_auth_roles"`
+	TLSSkipVerify    bool   `json:"tls_skip_verify"`
+	TLSCACertPEM     string `json:"tls_ca_cert_pem"`
+}
 
 type EntraConfig struct {
 	TenantID         string `json:"tenant_id"`
@@ -215,7 +230,83 @@ func (c EntraConfig) Validate() error {
 	return nil
 }
 
+func (c VaultConfig) Normalized() VaultConfig {
+	out := c
+	out.Address = normalizeVaultAddress(out.Address)
+	out.Namespace = strings.TrimSpace(out.Namespace)
+	out.Name = strings.TrimSpace(out.Name)
+	out.AuthType = strings.ToLower(strings.TrimSpace(out.AuthType))
+	if out.AuthType == "" {
+		out.AuthType = VaultAuthTypeToken
+	}
+	out.Token = strings.TrimSpace(out.Token)
+	out.AppRoleMountPath = normalizeVaultMountPath(out.AppRoleMountPath)
+	if out.AppRoleMountPath == "" {
+		out.AppRoleMountPath = "approle"
+	}
+	out.AppRoleRoleID = strings.TrimSpace(out.AppRoleRoleID)
+	out.AppRoleSecretID = strings.TrimSpace(out.AppRoleSecretID)
+	out.TLSCACertPEM = strings.TrimSpace(out.TLSCACertPEM)
+	return out
+}
+
+func (c VaultConfig) SourceName() string {
+	c = c.Normalized()
+	if c.Name != "" {
+		return c.Name
+	}
+	if c.Address == "" {
+		return ""
+	}
+	u, err := url.Parse(c.Address)
+	if err != nil {
+		return ""
+	}
+	if host := strings.TrimSpace(u.Hostname()); host != "" {
+		return host
+	}
+	return strings.TrimSpace(u.Host)
+}
+
 func (c VaultConfig) Validate() error {
+	c = c.Normalized()
+	if c.Address == "" {
+		return errors.New("Vault address is required")
+	}
+	parsed, err := url.Parse(c.Address)
+	if err != nil {
+		return errors.New("Vault address is invalid")
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return errors.New("Vault address must use http or https")
+	}
+	if strings.TrimSpace(parsed.Hostname()) == "" {
+		return errors.New("Vault address host is required")
+	}
+	switch c.AuthType {
+	case VaultAuthTypeToken:
+		if c.Token == "" {
+			return errors.New("Vault token is required")
+		}
+	case VaultAuthTypeAppRole:
+		if c.AppRoleMountPath == "" {
+			return errors.New("Vault AppRole mount path is required")
+		}
+		if c.AppRoleRoleID == "" {
+			return errors.New("Vault AppRole role ID is required")
+		}
+		if c.AppRoleSecretID == "" {
+			return errors.New("Vault AppRole secret ID is required")
+		}
+	default:
+		return errors.New("Vault auth type is invalid")
+	}
+	if c.TLSCACertPEM != "" {
+		pool := x509.NewCertPool()
+		if ok := pool.AppendCertsFromPEM([]byte(c.TLSCACertPEM)); !ok {
+			return errors.New("Vault CA certificate PEM is invalid")
+		}
+	}
 	return nil
 }
 
@@ -240,7 +331,10 @@ func DecodeAWSIdentityCenterConfig(raw []byte) (AWSIdentityCenterConfig, error) 
 }
 
 func DecodeVaultConfig(raw []byte) (VaultConfig, error) {
-	var cfg VaultConfig
+	cfg := VaultConfig{
+		AuthType:      VaultAuthTypeToken,
+		ScanAuthRoles: true,
+	}
 	return cfg, decodeJSON(raw, &cfg)
 }
 
@@ -328,6 +422,45 @@ func MergeEntraConfig(existing EntraConfig, update EntraConfig) EntraConfig {
 	return merged
 }
 
+func MergeVaultConfig(existing VaultConfig, update VaultConfig) VaultConfig {
+	merged := existing
+	merged.Address = strings.TrimSpace(update.Address)
+	merged.Namespace = strings.TrimSpace(update.Namespace)
+	merged.Name = strings.TrimSpace(update.Name)
+	merged.AuthType = strings.ToLower(strings.TrimSpace(update.AuthType))
+	if merged.AuthType == "" {
+		merged.AuthType = VaultAuthTypeToken
+	}
+	merged.ScanAuthRoles = update.ScanAuthRoles
+	merged.TLSSkipVerify = update.TLSSkipVerify
+	if mountPath := normalizeVaultMountPath(update.AppRoleMountPath); mountPath != "" {
+		merged.AppRoleMountPath = mountPath
+	}
+	if caCert := strings.TrimSpace(update.TLSCACertPEM); caCert != "" {
+		merged.TLSCACertPEM = caCert
+	}
+	switch merged.AuthType {
+	case VaultAuthTypeToken:
+		merged.AppRoleRoleID = ""
+		merged.AppRoleSecretID = ""
+		if token := strings.TrimSpace(update.Token); token != "" {
+			merged.Token = token
+		}
+	case VaultAuthTypeAppRole:
+		merged.Token = ""
+		if merged.AppRoleMountPath == "" {
+			merged.AppRoleMountPath = "approle"
+		}
+		if roleID := strings.TrimSpace(update.AppRoleRoleID); roleID != "" {
+			merged.AppRoleRoleID = roleID
+		}
+		if secretID := strings.TrimSpace(update.AppRoleSecretID); secretID != "" {
+			merged.AppRoleSecretID = secretID
+		}
+	}
+	return merged
+}
+
 func MaskSecret(secret string) string {
 	s := strings.TrimSpace(secret)
 	if s == "" {
@@ -375,4 +508,26 @@ func normalizeDatadogSite(raw string) string {
 	site = strings.Trim(site, "/")
 	site = strings.TrimPrefix(site, "api.")
 	return site
+}
+
+func normalizeVaultAddress(raw string) string {
+	addr := strings.TrimSpace(raw)
+	if addr == "" {
+		return ""
+	}
+	if !strings.HasPrefix(addr, "http://") && !strings.HasPrefix(addr, "https://") {
+		addr = "https://" + addr
+	}
+	parsed, err := url.Parse(addr)
+	if err != nil {
+		return strings.TrimRight(addr, "/")
+	}
+	parsed.Path = strings.TrimRight(parsed.Path, "/")
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return strings.TrimSpace(parsed.String())
+}
+
+func normalizeVaultMountPath(raw string) string {
+	return strings.Trim(strings.TrimSpace(raw), "/")
 }
