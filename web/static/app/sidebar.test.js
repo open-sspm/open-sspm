@@ -40,7 +40,7 @@ describe("sidebar", () => {
 
   it("syncs toggle aria state and label with sidebar visibility", async () => {
     document.body.innerHTML = `
-      <aside id="app-sidebar" data-breakpoint="1024" aria-hidden="true">
+      <aside id="app-sidebar" data-breakpoint="1024" data-sidebar-initialized="true" aria-hidden="true">
         <nav><a href="#">Link</a></nav>
       </aside>
       <button id="sidebar-toggle" type="button"></button>
@@ -64,7 +64,7 @@ describe("sidebar", () => {
   it("dispatches a close action on Escape in mobile view", () => {
     Object.defineProperty(window, "innerWidth", { value: 500, configurable: true, writable: true });
     document.body.innerHTML = `
-      <aside id="app-sidebar" data-breakpoint="1024" aria-hidden="false">
+      <aside id="app-sidebar" data-breakpoint="1024" data-sidebar-initialized="true" aria-hidden="false">
         <nav><a href="#">Link</a></nav>
       </aside>
       <button id="sidebar-toggle" type="button"></button>
@@ -89,7 +89,7 @@ describe("sidebar", () => {
   it("does not close sidebar on Escape when a dialog is open", () => {
     Object.defineProperty(window, "innerWidth", { value: 500, configurable: true, writable: true });
     document.body.innerHTML = `
-      <aside id="app-sidebar" data-breakpoint="1024" aria-hidden="false">
+      <aside id="app-sidebar" data-breakpoint="1024" data-sidebar-initialized="true" aria-hidden="false">
         <nav><a href="#">Link</a></nav>
       </aside>
       <button id="sidebar-toggle" type="button"></button>
@@ -116,7 +116,7 @@ describe("sidebar", () => {
   it("persists desktop sidebar state when visibility changes", async () => {
     Object.defineProperty(window, "innerWidth", { value: 1280, configurable: true, writable: true });
     document.body.innerHTML = `
-      <aside id="app-sidebar" data-breakpoint="1024" aria-hidden="false">
+      <aside id="app-sidebar" data-breakpoint="1024" data-sidebar-initialized="true" aria-hidden="false">
         <nav><a href="#">Link</a></nav>
       </aside>
       <button id="sidebar-toggle" type="button"></button>
@@ -142,7 +142,7 @@ describe("sidebar", () => {
     Object.defineProperty(window, "innerWidth", { value: 500, configurable: true, writable: true });
     localStorage.setItem(DESKTOP_SIDEBAR_STATE_KEY, "true");
     document.body.innerHTML = `
-      <aside id="app-sidebar" data-breakpoint="1024" aria-hidden="false">
+      <aside id="app-sidebar" data-breakpoint="1024" data-sidebar-initialized="true" aria-hidden="false">
         <nav><a href="#">Link</a></nav>
       </aside>
       <button id="sidebar-toggle" type="button"></button>
@@ -163,7 +163,7 @@ describe("sidebar", () => {
     Object.defineProperty(window, "innerWidth", { value: 1280, configurable: true, writable: true });
     localStorage.setItem(DESKTOP_SIDEBAR_STATE_KEY, "false");
     document.body.innerHTML = `
-      <aside id="app-sidebar" data-breakpoint="1024" aria-hidden="false">
+      <aside id="app-sidebar" data-breakpoint="1024" data-sidebar-initialized="true" aria-hidden="false">
         <nav><a href="#">Link</a></nav>
       </aside>
       <button id="sidebar-toggle" type="button"></button>
