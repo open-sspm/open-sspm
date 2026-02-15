@@ -48,6 +48,8 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 - Run background full sync worker: `just worker`
 - Run background discovery sync worker: `go run ./cmd/open-sspm worker-discovery`
 - Watch CSS: `just ui-watch`
+- Sync vendored runtime JS: `npm run vendor:sync` (also runs automatically after `npm install` / `npm ci`)
+- Check vendored runtime JS drift: `npm run vendor:check`
 - Run frontend JS unit tests: `just ui-test` (or `npm run test:js`)
 - Regenerate templ templates: `just templ` (watch: `just templ-watch`)
 - Regenerate SQLC code: `just sqlc` (generated code is checked in under `internal/db/gen`)

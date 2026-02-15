@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "package": "basecoat-css",
+      "source": "dist/js/all.min.js",
+      "destination": "web/static/vendor/basecoat.all.min.js"
+    },
+    {
+      "package": "htmx.org",
+      "source": "dist/htmx.min.js",
+      "destination": "web/static/vendor/htmx.min.js"
+    }
+  ]
+}
