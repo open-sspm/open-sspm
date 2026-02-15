@@ -36,6 +36,17 @@ Prereqs: Go 1.26.x (see `go.mod` toolchain), Docker + Compose, Node.js + npm.
 
 - Tests use Go’s standard `testing` package and live as `*_test.go` next to the code they cover.
 - Prefer small, deterministic tests; avoid network calls (mock at the connector boundary).
+- Hard gate for test quality (`MUST`):
+  - Every new test MUST map to at least one of: business rule, product behavior, safety/security behavior, regression-prone path, or edge-case contract.
+  - Every PR that adds or changes tests MUST state which regression the test prevents.
+  - Frontend tests MUST validate user-visible behavior or interaction outcomes.
+- Hard gate anti-patterns (`MUST NOT`):
+  - Tests MUST NOT exist only to exercise trivial wrappers/getters/setters/header pass-throughs.
+  - Tests MUST NOT assert copy/label string mapping alone unless tied to an explicit product contract.
+  - Tests MUST NOT duplicate behavior already covered by an existing scenario.
+  - Tests MUST NOT assert fragile implementation details when a behavior-level assertion is possible.
+- Review gate:
+  - PRs introducing low-value tests are non-compliant and should be blocked until tests are removed, merged, or rewritten as behavior tests.
 
 ## Commit & Pull Request Guidelines
 

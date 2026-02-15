@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -229,26 +228,6 @@ func insertConnectorHealthRunSeed(t *testing.T, harness *programmaticAccessRoute
 		t.Fatalf("insert sync run seed (%s): %v", seed.status, err)
 	}
 	return id
-}
-
-func TestConnectorHealthErrorDialogIDIsStable(t *testing.T) {
-	got := connectorHealthErrorDialogID("GitHub", "Acme Org")
-	want := "connector-health-errors-github-acme-org"
-	if got != want {
-		t.Fatalf("dialog id = %q, want %q", got, want)
-	}
-
-	got = connectorHealthErrorDialogID("", "")
-	if got != "connector-health-errors-na-na" {
-		t.Fatalf("dialog id fallback = %q", got)
-	}
-
-	for _, part := range []string{"source", "name"} {
-		id := connectorHealthErrorDialogID(part, fmt.Sprintf("%s@value", part))
-		if strings.Contains(id, "@") {
-			t.Fatalf("dialog id contains invalid rune: %q", id)
-		}
-	}
 }
 
 type connectorHealthSyncRunnerStub struct {

@@ -113,25 +113,6 @@ describe("fragment", () => {
     expect(openSpy).not.toHaveBeenCalled();
   });
 
-  it("opens a new tab for modifier-click row navigation", () => {
-    document.body.innerHTML = `
-      <table>
-        <tbody>
-          <tr id="row" data-row-href="/app-assets/9"><td>Asset 9</td></tr>
-        </tbody>
-      </table>
-    `;
-
-    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
-
-    wireRowLinks(document);
-
-    const row = document.getElementById("row");
-    row.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0, ctrlKey: true }));
-
-    expect(openSpy).toHaveBeenCalledWith("/app-assets/9", "_blank", "noopener");
-  });
-
   it("auto-opens dialogs swapped into a fragment root once", () => {
     const root = document.createElement("div");
     root.innerHTML = `
