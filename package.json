@@ -2,8 +2,12 @@
   "name": "open-sspm-ui",
   "private": true,
   "scripts": {
+    "vendor:sync": "node ./scripts/vendor-sync.mjs",
+    "vendor:check": "node ./scripts/vendor-check.mjs",
+    "postinstall": "node ./scripts/vendor-sync.mjs --allow-missing-manifest",
     "build:css": "npx -y @tailwindcss/cli -i ./web/static/src/input.css -o ./web/static/app.css --minify",
     "watch:css": "npx -y @tailwindcss/cli -i ./web/static/src/input.css -o ./web/static/app.css --watch",
+    "pretest:js": "npm run vendor:check",
     "test:js": "vitest run",
     "test:js:watch": "vitest"
   },
@@ -15,6 +19,7 @@
     "tailwindcss": "^4.1.18"
   },
   "dependencies": {
-    "@tabler/icons-webfont": "^3.36.0"
+    "@tabler/icons-webfont": "^3.36.0",
+    "htmx.org": "2.0.8"
   }
 }

@@ -106,6 +106,14 @@ ui:
 ui-watch:
     npm run watch:css
 
+# Sync vendored frontend runtime JS from node_modules
+vendor-sync:
+    npm run vendor:sync
+
+# Verify vendored frontend runtime JS is in sync with node_modules
+vendor-check:
+    npm run vendor:check
+
 # Run frontend JavaScript unit tests
 ui-test:
     npm run test:js
