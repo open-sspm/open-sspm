@@ -1,12 +1,43 @@
 import { findFirstFocusable, focusElement, scheduleSoon } from "open-sspm-app/dom_focus.js";
 
+const SIDEBAR_ID = "app-sidebar";
+const DESKTOP_SIDEBAR_STATE_KEY = "openSspm.sidebar.desktopOpen";
+
 let sidebarStateObserver = null;
 let sidebarEscapeHandler = null;
 let sidebarResizeHandler = null;
 let sidebarBackdropHandler = null;
 
+const readDesktopSidebarPreference = () => {
+  try {
+    const stored = localStorage.getItem(DESKTOP_SIDEBAR_STATE_KEY);
+    if (stored === "true") return true;
+    if (stored === "false") return false;
+  } catch (_) {
+    return null;
+  }
+  return null;
+};
+
+const writeDesktopSidebarPreference = (open) => {
+  try {
+    localStorage.setItem(DESKTOP_SIDEBAR_STATE_KEY, String(open));
+  } catch (_) {}
+};
+
+const dispatchSidebarEvent = (detail = {}) => {
+  document.dispatchEvent(
+    new CustomEvent("basecoat:sidebar", {
+      detail: {
+        id: SIDEBAR_ID,
+        ...detail,
+      },
+    }),
+  );
+};
+
 export const wireSidebarToggle = (root = document) => {
-  const sidebar = document.getElementById("app-sidebar");
+  const sidebar = document.getElementById(SIDEBAR_ID);
   const sidebarToggle = root.querySelector("#sidebar-toggle");
   if (!(sidebar instanceof HTMLElement) || !(sidebarToggle instanceof HTMLElement)) return;
   if (sidebarToggle.dataset.sidebarToggleBound === "true") {
@@ -28,10 +59,42 @@ export const wireSidebarToggle = (root = document) => {
 
   let moveFocusToSidebarOnOpen = false;
   let returnFocusToToggleOnClose = false;
+  let desktopPersistenceReady = false;
+  let desktopOpenPreference = readDesktopSidebarPreference();
   const mobileBreakpoint = Number.parseInt(sidebar.dataset.breakpoint || "", 10) || 768;
+  let wasMobileViewport = window.innerWidth < mobileBreakpoint;
 
   const isMobileViewport = () => window.innerWidth < mobileBreakpoint;
   const isSidebarOpen = () => sidebar.getAttribute("aria-hidden") !== "true";
+
+  const persistDesktopPreference = (open) => {
+    if (!desktopPersistenceReady) return;
+    if (isMobileViewport()) return;
+    if (desktopOpenPreference === open) return;
+    desktopOpenPreference = open;
+    writeDesktopSidebarPreference(open);
+  };
+
+  const applyDesktopPreference = () => {
+    if (isMobileViewport()) return true;
+    if (desktopOpenPreference === null) return true;
+    if (isSidebarOpen() === desktopOpenPreference) return true;
+
+    dispatchSidebarEvent({ action: desktopOpenPreference ? "open" : "close" });
+    return isSidebarOpen() === desktopOpenPreference;
+  };
+
+  const initializeDesktopPersistence = () => {
+    if (desktopPersistenceReady) return;
+    if (isMobileViewport()) return;
+
+    const applied = applyDesktopPreference();
+    if (!applied) return;
+
+    desktopPersistenceReady = true;
+    persistDesktopPreference(isSidebarOpen());
+    syncSidebarState();
+  };
 
   const syncSidebarState = () => {
     const open = isSidebarOpen();
@@ -42,6 +105,7 @@ export const wireSidebarToggle = (root = document) => {
     sidebar.dataset.lastKnownOpen = String(open);
 
     if (!isMobileViewport()) {
+      persistDesktopPreference(open);
       moveFocusToSidebarOnOpen = false;
       returnFocusToToggleOnClose = false;
       return;
@@ -74,7 +138,7 @@ export const wireSidebarToggle = (root = document) => {
       returnFocusToToggleOnClose = currentlyOpen;
     }
 
-    document.dispatchEvent(new CustomEvent("basecoat:sidebar", { detail: { id: "app-sidebar" } }));
+    dispatchSidebarEvent();
   });
 
   const onSidebarClick = (event) => {
@@ -100,22 +164,30 @@ export const wireSidebarToggle = (root = document) => {
     if (event.target instanceof Element && event.target.closest("dialog[open]")) return;
 
     returnFocusToToggleOnClose = true;
-    document.dispatchEvent(
-      new CustomEvent("basecoat:sidebar", {
-        detail: {
-          id: "app-sidebar",
-          action: "close",
-        },
-      }),
-    );
+    dispatchSidebarEvent({ action: "close" });
   };
   document.addEventListener("keydown", sidebarEscapeHandler);
 
   sidebarResizeHandler = () => {
+    const isMobile = isMobileViewport();
+    if (wasMobileViewport && !isMobile) {
+      if (desktopPersistenceReady) {
+        applyDesktopPreference();
+      } else {
+        initializeDesktopPersistence();
+      }
+    }
+    wasMobileViewport = isMobile;
     syncSidebarState();
   };
   window.addEventListener("resize", sidebarResizeHandler);
 
+  if (sidebar.dataset.sidebarInitialized !== "true") {
+    sidebar.addEventListener("basecoat:initialized", initializeDesktopPersistence, { once: true });
+  }
+
+  initializeDesktopPersistence();
+  scheduleSoon(initializeDesktopPersistence);
   syncSidebarState();
   scheduleSoon(syncSidebarState);
 
