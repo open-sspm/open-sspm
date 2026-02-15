@@ -75,7 +75,7 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 									>
 										<td>
 											if linked.Account.SourceKind == "entra" && linked.Account.SourceName != "" {
-												<span class="cursor-help" title={ "Tenant ID: " + linked.Account.SourceName }>{ linked.Account.SourceKind }</span>
+												<span class="cursor-help" data-tooltip={ "Tenant ID: " + linked.Account.SourceName } data-side="top" data-align="start">{ linked.Account.SourceKind }</span>
 											} else if linked.Account.SourceName != "" {
 												{ linked.Account.SourceKind }{ " (" }{ linked.Account.SourceName }{ ")" }
 											} else {
@@ -84,9 +84,9 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 										</td>
 										<td>
 											if linked.Account.ExternalID != "" {
-												<span title={ "External ID: " + linked.Account.ExternalID }>{ linked.Account.Email }</span>
+												<span class="underline underline-offset-2" data-tooltip={ "External ID: " + linked.Account.ExternalID } data-side="top" data-align="start">{ linked.Account.Email }</span>
 											} else {
-												{ linked.Account.Email }
+												<span class="underline underline-offset-2">{ linked.Account.Email }</span>
 											}
 										</td>
 										<td>{ linked.Account.DisplayName }</td>
