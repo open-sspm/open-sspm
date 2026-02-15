@@ -420,38 +420,7 @@ func (o *Orchestrator) withConnectorLock(ctx context.Context, kind, name string,
 		return err
 	}
 
-	runCtx, cancelRun := context.WithCancel(ctx)
-	defer cancelRun()
-
-	var (
-		lockLostMu sync.Mutex
-		lockLost   error
-	)
-	stopHeartbeat := lock.StartHeartbeat(runCtx, func(err error) {
-		lockLostMu.Lock()
-		if lockLost == nil {
-			lockLost = err
-		}
-		lockLostMu.Unlock()
-
-		slog.Error("sync lock heartbeat failed", "scope_kind", lock.ScopeKind(), "scope_name", lock.ScopeName(), "err", err)
-		cancelRun()
-	})
-
-	defer func() {
-		unlockCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		defer cancel()
-		if err := lock.Release(unlockCtx); err != nil {
-			slog.Warn("failed to release sync lock", "scope_kind", lock.ScopeKind(), "scope_name", lock.ScopeName(), "err", err)
-		}
-	}()
-	defer stopHeartbeat()
-
-	fnErr := fn(runCtx)
-
-	lockLostMu.Lock()
-	lost := lockLost
-	lockLostMu.Unlock()
+	fnErr, lost := runWithManagedLock(ctx, lock, fn)
 	if lost != nil {
 		return errors.Join(fnErr, fmt.Errorf("%w: %w", errSyncLockLost, lost))
 	}

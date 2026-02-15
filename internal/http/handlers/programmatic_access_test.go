@@ -85,6 +85,16 @@ func TestCredentialRiskLevel(t *testing.T) {
 			want: "critical",
 		},
 		{
+			name: "critical when expired and status is blank",
+			credential: gen.CredentialArtifact{
+				Status:              "",
+				CredentialKind:      "entra_certificate",
+				CreatedByExternalID: "owner@example.com",
+				ExpiresAtSource:     timestamptz(now.Add(-1 * time.Hour)),
+			},
+			want: "critical",
+		},
+		{
 			name: "critical when high privilege has no attribution",
 			credential: gen.CredentialArtifact{
 				Status:         "active",

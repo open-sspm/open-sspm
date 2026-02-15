@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
@@ -9,16 +10,20 @@ import (
 
 // ConnectorState represents the runtime state of a connector.
 type ConnectorState struct {
-	Definition ConnectorDefinition
-	Config     any // Decoded, normalized config
-	Enabled    bool
-	Configured bool
-	SourceName string
-	Metrics    *ConnectorMetrics // nil if not fetched
+	Definition  ConnectorDefinition
+	Config      any // Decoded, normalized config
+	ConfigError string
+	Enabled     bool
+	Configured  bool
+	SourceName  string
+	Metrics     *ConnectorMetrics // nil if not fetched
 }
 
 // StatusLabel returns the human-readable status label.
 func (s *ConnectorState) StatusLabel() string {
+	if strings.TrimSpace(s.ConfigError) != "" {
+		return "Invalid config"
+	}
 	if !s.Configured {
 		return "Not configured"
 	}
@@ -30,6 +35,9 @@ func (s *ConnectorState) StatusLabel() string {
 
 // StatusClass returns the CSS class for the status badge.
 func (s *ConnectorState) StatusClass() string {
+	if strings.TrimSpace(s.ConfigError) != "" {
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+	}
 	if !s.Configured {
 		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
 	}
@@ -146,19 +154,8 @@ func (s *ConnectorState) HighlightsKV() []viewmodels.GlobalViewKV {
 // PrimaryHref returns the primary action link.
 func (s *ConnectorState) PrimaryHref() string {
 	if s.Configured && s.Enabled {
-		// This logic needs to be part of the definition or derived
-		// For now, we'll use a simple mapping based on kind
-		switch s.Definition.Kind() {
-		case "okta":
-			return "/idp-users"
-		case "entra":
-			return "/entra-users"
-		case "github":
-			return "/github-users"
-		case "datadog":
-			return "/datadog-users"
-		case "aws_identity_center":
-			return "/aws-users"
+		if href := connectorBrowseUsersHref(s.Definition.Kind()); href != "" {
+			return href
 		}
 	}
 	return s.Definition.SettingsHref()
@@ -175,18 +172,7 @@ func (s *ConnectorState) PrimaryLabel() string {
 // SecondaryHref returns the secondary action link.
 func (s *ConnectorState) SecondaryHref() string {
 	if s.Configured && s.Enabled {
-		switch s.Definition.Kind() {
-		case "okta":
-			return "/apps"
-		case "entra":
-			return "/unmatched/entra"
-		case "github", "datadog":
-			if s.SourceName != "" {
-				return fmt.Sprintf("/unmatched/%s/%s", s.Definition.Kind(), s.SourceName)
-			}
-		case "aws_identity_center":
-			return "/unmatched/aws"
-		}
+		return connectorUnmanagedHref(s.Definition.Kind(), s.SourceName)
 	}
 	return ""
 }
@@ -194,16 +180,52 @@ func (s *ConnectorState) SecondaryHref() string {
 // SecondaryLabel returns the secondary action label.
 func (s *ConnectorState) SecondaryLabel() string {
 	if s.Configured && s.Enabled {
-		switch s.Definition.Kind() {
-		case "okta":
-			return "Browse apps"
-		case "entra":
-			return "Unmanaged"
-		case "github", "datadog":
-			return "Unmanaged"
-		case "aws_identity_center":
-			return "Unmanaged"
-		}
+		return connectorSecondaryLabel(s.Definition.Kind())
 	}
 	return ""
+}
+
+func connectorBrowseUsersHref(kind string) string {
+	switch strings.TrimSpace(kind) {
+	case "okta":
+		return "/idp-users"
+	case "entra":
+		return "/entra-users"
+	case "github":
+		return "/github-users"
+	case "datadog":
+		return "/datadog-users"
+	case "aws_identity_center":
+		return "/aws-users"
+	default:
+		return ""
+	}
+}
+
+func connectorUnmanagedHref(kind, sourceName string) string {
+	switch strings.TrimSpace(kind) {
+	case "okta":
+		return "/apps"
+	case "entra":
+		return "/unmatched/entra"
+	case "github", "datadog":
+		sourceName = strings.TrimSpace(sourceName)
+		if sourceName != "" {
+			return fmt.Sprintf("/unmatched/%s/%s", kind, sourceName)
+		}
+	case "aws_identity_center":
+		return "/unmatched/aws"
+	}
+	return ""
+}
+
+func connectorSecondaryLabel(kind string) string {
+	switch strings.TrimSpace(kind) {
+	case "okta":
+		return "Browse apps"
+	case "entra", "github", "datadog", "aws_identity_center":
+		return "Unmanaged"
+	default:
+		return ""
+	}
 }

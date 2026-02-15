@@ -84,8 +84,10 @@ func (r *ConnectorRegistry) loadStatesInternal(ctx context.Context, q *gen.Queri
 			state.Enabled = cfgRow.Enabled
 			cfg, err := def.DecodeConfig(cfgRow.Config)
 			if err != nil {
-				// Log error but continue? For now, return error to be safe
-				return nil, fmt.Errorf("decode config for %s: %w", kind, err)
+				state.ConfigError = fmt.Sprintf("decode config for %s: %v", kind, err)
+				slog.Warn("connector config decode failed", "kind", kind, "err", err)
+				states = append(states, state)
+				continue
 			}
 			state.Config = cfg
 			state.Configured = def.IsConfigured(cfg)

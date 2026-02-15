@@ -2,7 +2,8 @@ package sync
 
 import (
 	"context"
-	"strings"
+
+	"github.com/open-sspm/open-sspm/internal/normalize"
 )
 
 type syncRunContextKey int
@@ -18,8 +19,8 @@ type TriggerRequest struct {
 }
 
 func (r TriggerRequest) Normalized() TriggerRequest {
-	kind := strings.ToLower(strings.TrimSpace(r.ConnectorKind))
-	name := strings.TrimSpace(r.SourceName)
+	kind := normalize.Lower(r.ConnectorKind)
+	name := normalize.Trim(r.SourceName)
 	if kind == "" || name == "" {
 		return TriggerRequest{}
 	}

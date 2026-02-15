@@ -169,8 +169,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 	members, err := i.client.ListOrgMembers(ctx, i.org)
 	if err != nil {
 		deps.Report(registry.Event{Source: "github", Stage: "list-members", Message: err.Error(), Err: err})
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
 	}
 
 	type externalIdentity struct {
@@ -316,8 +315,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 	teams, err := i.client.ListTeams(ctx, i.org)
 	if err != nil {
 		deps.Report(registry.Event{Source: "github", Stage: "list-teams", Message: err.Error(), Err: err})
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
 	}
 	deps.Report(registry.Event{Source: "github", Stage: "list-teams", Current: 1, Total: 1, Message: fmt.Sprintf("found %d teams", len(teams))})
 	deps.Report(registry.Event{Source: "github", Stage: "fetch-team-data", Current: 0, Total: int64(len(teams)), Message: fmt.Sprintf("fetching %d teams", len(teams))})
@@ -408,8 +406,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 		}
 		if firstErr != nil {
 			deps.Report(registry.Event{Source: "github", Stage: "fetch-team-data", Message: firstErr.Error(), Err: firstErr})
-			registry.FailSyncRun(ctx, deps.Q, runID, firstErr, registry.SyncErrorKindAPI)
-			return firstErr
+			return registry.FailSyncRun(ctx, deps.Q, runID, firstErr, registry.SyncErrorKindAPI)
 		}
 	}
 
@@ -458,8 +455,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 		})
 		if err != nil {
 			deps.Report(registry.Event{Source: "github", Stage: "write-members", Message: err.Error(), Err: err})
-			registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-			return err
+			return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		}
 		deps.Report(registry.Event{
 			Source:  "github",
@@ -534,8 +530,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 		})
 		if err != nil {
 			deps.Report(registry.Event{Source: "github", Stage: "write-members", Message: err.Error(), Err: err})
-			registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-			return err
+			return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		}
 	}
 
@@ -546,13 +541,11 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 		if errors.As(err, &programmaticErr) && strings.TrimSpace(programmaticErr.kind) != "" {
 			errorKind = strings.TrimSpace(programmaticErr.kind)
 		}
-		registry.FailSyncRun(ctx, deps.Q, runID, err, errorKind)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, errorKind)
 	}
 
 	if err := registry.FinalizeAppRun(ctx, deps, runID, "github", i.org, time.Since(started), false); err != nil {
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 	}
 	slog.Info(
 		"github sync complete",

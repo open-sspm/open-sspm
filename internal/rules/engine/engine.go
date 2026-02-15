@@ -113,10 +113,6 @@ func (e *Engine) EvaluateRule(ctx context.Context, ruleset gen.Ruleset, rule gen
 }
 
 func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, rule gen.Rule, evalCtx Context) (*Evaluation, error) {
-	if e == nil {
-		return nil, errors.New("engine: nil")
-	}
-
 	var def osspecv2.Rule
 	if err := json.Unmarshal(rule.DefinitionJson, &def); err != nil {
 		return &Evaluation{
