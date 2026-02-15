@@ -111,11 +111,11 @@ func TestListApplicationsOwnersAndServicePrincipals(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			page := r.URL.Query().Get("page")
 			if page == "2" {
-				_, _ = w.Write([]byte(`{"value":[{"id":"app-2","appId":"client-app-2","displayName":"App Two","createdDateTime":"2026-01-01T00:00:00Z","passwordCredentials":[],"keyCredentials":[]}]}`))
+				_, _ = w.Write([]byte(`{"value":[{"id":"app-2","appId":"client-app-2","displayName":"App Two","publisherDomain":"apps.contoso.com","verifiedPublisher":{"displayName":""},"createdDateTime":"2026-01-01T00:00:00Z","passwordCredentials":[],"keyCredentials":[]}]}`))
 				return
 			}
 			next := srv.URL + "/graph/v1.0/applications?page=2"
-			_, _ = w.Write([]byte(`{"value":[{"id":"app-1","appId":"client-app-1","displayName":"App One","createdDateTime":"2025-01-01T00:00:00Z","passwordCredentials":[{"keyId":"pwd-1","displayName":"Secret One","startDateTime":"2025-01-01T00:00:00Z","endDateTime":"2026-01-01T00:00:00Z"}],"keyCredentials":[{"keyId":"cert-1","displayName":"Cert One","type":"AsymmetricX509Cert","usage":"Verify","startDateTime":"2025-01-01T00:00:00Z","endDateTime":"2027-01-01T00:00:00Z"}]}],"@odata.nextLink":"` + next + `"}`))
+			_, _ = w.Write([]byte(`{"value":[{"id":"app-1","appId":"client-app-1","displayName":"App One","publisherDomain":"one.example.com","verifiedPublisher":{"displayName":"Publisher One"},"createdDateTime":"2025-01-01T00:00:00Z","passwordCredentials":[{"keyId":"pwd-1","displayName":"Secret One","startDateTime":"2025-01-01T00:00:00Z","endDateTime":"2026-01-01T00:00:00Z"}],"keyCredentials":[{"keyId":"cert-1","displayName":"Cert One","type":"AsymmetricX509Cert","usage":"Verify","startDateTime":"2025-01-01T00:00:00Z","endDateTime":"2027-01-01T00:00:00Z"}]}],"@odata.nextLink":"` + next + `"}`))
 			return
 		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/servicePrincipals"):
 			if strings.Contains(r.URL.Path, "/owners") {
@@ -126,7 +126,7 @@ func TestListApplicationsOwnersAndServicePrincipals(t *testing.T) {
 			}
 			servicePrincipalRequests++
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"value":[{"id":"sp-1","appId":"client-app-1","displayName":"Service Principal One","accountEnabled":true,"servicePrincipalType":"Application","createdDateTime":"2025-01-02T00:00:00Z","passwordCredentials":[],"keyCredentials":[]}]}`))
+			_, _ = w.Write([]byte(`{"value":[{"id":"sp-1","appId":"client-app-1","displayName":"Service Principal One","publisherName":"Publisher One","accountEnabled":true,"servicePrincipalType":"Application","createdDateTime":"2025-01-02T00:00:00Z","passwordCredentials":[],"keyCredentials":[]}]}`))
 			return
 		default:
 			http.NotFound(w, r)
@@ -152,6 +152,12 @@ func TestListApplicationsOwnersAndServicePrincipals(t *testing.T) {
 	if len(apps[0].RawJSON) == 0 {
 		t.Fatalf("expected app raw json")
 	}
+	if apps[0].VerifiedPublisher.DisplayName != "Publisher One" {
+		t.Fatalf("unexpected verified publisher %q", apps[0].VerifiedPublisher.DisplayName)
+	}
+	if apps[1].PublisherDomain != "apps.contoso.com" {
+		t.Fatalf("unexpected publisher domain %q", apps[1].PublisherDomain)
+	}
 
 	servicePrincipals, err := c.ListServicePrincipals(context.Background())
 	if err != nil {
@@ -162,6 +168,9 @@ func TestListApplicationsOwnersAndServicePrincipals(t *testing.T) {
 	}
 	if servicePrincipals[0].DisplayName != "Service Principal One" {
 		t.Fatalf("unexpected service principal name %q", servicePrincipals[0].DisplayName)
+	}
+	if servicePrincipals[0].PublisherName != "Publisher One" {
+		t.Fatalf("unexpected service principal publisher %q", servicePrincipals[0].PublisherName)
 	}
 
 	appOwners, err := c.ListApplicationOwners(context.Background(), "app-1")

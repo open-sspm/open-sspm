@@ -58,7 +58,6 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 						<thead>
 							<tr>
 								<th>Source</th>
-								<th>External ID</th>
 								<th>Email</th>
 								<th>Display name</th>
 								<th>Status</th>
@@ -68,37 +67,42 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 						<tbody>
 							if data.HasLinkedAccounts {
 								for _, linked := range data.LinkedAccounts {
-									<tr>
+									<tr
+										data-row-href={ linked.DetailHref }
+										class={ templ.Classes(
+											templ.KV("cursor-pointer hover:bg-muted/50", linked.DetailHref != ""),
+										) }
+									>
 										<td>
-											<div class="flex flex-wrap items-center gap-2">
-												<span class="badge-outline">{ linked.Account.SourceKind }</span>
-												<span class="badge-outline">{ linked.Account.SourceName }</span>
-											</div>
-										</td>
-										<td>
-											if linked.DetailHref != "" {
-												<a class="btn-sm-link px-0 font-medium" href={ linked.DetailHref }>{ linked.Account.ExternalID }</a>
+											if linked.Account.SourceKind == "entra" && linked.Account.SourceName != "" {
+												<span class="cursor-help" data-tooltip={ "Tenant ID: " + linked.Account.SourceName } data-side="top" data-align="start">{ linked.Account.SourceKind }</span>
+											} else if linked.Account.SourceName != "" {
+												{ linked.Account.SourceKind }{ " (" }{ linked.Account.SourceName }{ ")" }
 											} else {
-												{ linked.Account.ExternalID }
+												{ linked.Account.SourceKind }
 											}
 										</td>
-										<td>{ linked.Account.Email }</td>
+										<td>
+											if linked.Account.ExternalID != "" {
+												<span class="underline underline-offset-2" data-tooltip={ "External ID: " + linked.Account.ExternalID } data-side="top" data-align="start">{ linked.Account.Email }</span>
+											} else {
+												<span class="underline underline-offset-2">{ linked.Account.Email }</span>
+											}
+										</td>
 										<td>{ linked.Account.DisplayName }</td>
 										<td>
 											if linked.Account.Status != "" {
-												<span class={ StatusBadgeClass(linked.Account.Status) }>{ linked.Account.Status }</span>
+												{ linked.Account.Status }
 											} else {
-												<span class="text-muted-foreground">&mdash;</span>
+												<span class="text-muted-foreground">-</span>
 											}
 										</td>
-										<td>
-											<span class="badge-outline">{ FormatInt(linked.EntitlementCount) }</span>
-										</td>
+										<td>{ FormatInt(linked.EntitlementCount) }</td>
 									</tr>
 								}
 							} else {
 								<tr>
-									<td colspan="6">
+									<td colspan="5">
 										@EmptyState("No linked accounts", "No linked accounts.")
 									</td>
 								</tr>

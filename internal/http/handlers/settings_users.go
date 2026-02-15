@@ -367,10 +367,23 @@ func (h *Handlers) HandleSettingsUserUpdate(c *echo.Context) error {
 
 	setFlashToast(c, viewmodels.ToastViewData{
 		Category:    "success",
-		Title:       "User updated",
+		Title:       settingsUserUpdateSuccessTitle(changeRole, changePassword),
 		Description: strings.TrimSpace(user.Email),
 	})
 	return c.Redirect(http.StatusSeeOther, "/settings/users")
+}
+
+func settingsUserUpdateSuccessTitle(changeRole, changePassword bool) string {
+	switch {
+	case changeRole && changePassword:
+		return "User updated"
+	case changePassword:
+		return "Password updated"
+	case changeRole:
+		return "Group updated"
+	default:
+		return "User updated"
+	}
 }
 
 func (h *Handlers) HandleSettingsUserDelete(c *echo.Context) error {

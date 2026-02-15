@@ -26,7 +26,7 @@ func BuildMetadata(input CanonicalInput) AppMetadata {
 		CanonicalKey: canonical,
 		DisplayName:  display,
 		Domain:       domain,
-		VendorName:   inferVendorName(domain, display),
+		VendorName:   inferVendorName(strings.TrimSpace(input.SourceVendorName), domain),
 	}
 }
 
@@ -140,24 +140,40 @@ func normalizeKeyName(raw string) string {
 	return raw
 }
 
-func inferVendorName(domain, display string) string {
-	if domain != "" {
-		part := domain
-		if idx := strings.Index(part, "."); idx > 0 {
-			part = part[:idx]
-		}
-		part = strings.ReplaceAll(part, "-", " ")
-		part = strings.TrimSpace(part)
-		if part != "" {
-			return strings.ToUpper(part[:1]) + part[1:]
-		}
+func inferVendorName(sourceVendorName, domain string) string {
+	sourceVendorName = strings.TrimSpace(sourceVendorName)
+	if sourceVendorName != "" {
+		return sourceVendorName
 	}
-	display = strings.TrimSpace(display)
-	if display == "" {
+	return VendorLabelFromDomain(domain)
+}
+
+// VendorLabelFromDomain derives a human-readable vendor label from a domain-like
+// input (URL/host/domain). It returns an empty string when no label can be derived.
+func VendorLabelFromDomain(raw string) string {
+	domain := strings.ToLower(strings.TrimSpace(raw))
+	if domain == "" {
 		return ""
 	}
-	if len(display) > 80 {
-		display = display[:80]
+	if idx := strings.Index(domain, "://"); idx >= 0 {
+		domain = domain[idx+3:]
 	}
-	return display
+	if idx := strings.Index(domain, "/"); idx >= 0 {
+		domain = domain[:idx]
+	}
+	domain = strings.TrimPrefix(domain, "www.")
+	domain = strings.Trim(domain, ".")
+	if domain == "" {
+		return ""
+	}
+	part := domain
+	if idx := strings.Index(part, "."); idx > 0 {
+		part = part[:idx]
+	}
+	part = strings.ReplaceAll(part, "-", " ")
+	part = strings.TrimSpace(part)
+	if part == "" {
+		return ""
+	}
+	return strings.ToUpper(part[:1]) + part[1:]
 }

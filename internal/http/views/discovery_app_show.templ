@@ -31,11 +31,19 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 					</div>
 					<div>
 						<p class="text-xs uppercase tracking-wide text-muted-foreground">Domain</p>
-						<p class="font-medium">{ data.App.PrimaryDomain }</p>
+						if data.App.PrimaryDomain != "" {
+							<p class="font-medium">{ data.App.PrimaryDomain }</p>
+						} else {
+							<p class="font-medium">Not available</p>
+						}
 					</div>
 					<div>
 						<p class="text-xs uppercase tracking-wide text-muted-foreground">Vendor</p>
-						<p class="font-medium">{ data.App.VendorName }</p>
+						if data.App.VendorName != "" {
+							<p class="font-medium">{ data.App.VendorName }</p>
+						} else {
+							<p class="font-medium">Not available</p>
+						}
 					</div>
 					<div>
 						<p class="text-xs uppercase tracking-wide text-muted-foreground">Suggested criticality</p>

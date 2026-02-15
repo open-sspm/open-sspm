@@ -63,3 +63,34 @@ func TestDiscoverySourceOptionsUsePrimaryLabels(t *testing.T) {
 		t.Fatalf("entra label = %q, want %q", options[1].Label, "Microsoft Entra")
 	}
 }
+
+func TestDiscoveryAppSecondaryLabels(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns domain and distinct vendor", func(t *testing.T) {
+		t.Parallel()
+		domain, vendor := discoveryAppSecondaryLabels("Jira Cloud for Excel", "jira.com", "Atlassian")
+		if domain != "jira.com" {
+			t.Fatalf("domain = %q, want %q", domain, "jira.com")
+		}
+		if vendor != "Atlassian" {
+			t.Fatalf("vendor = %q, want %q", vendor, "Atlassian")
+		}
+	})
+
+	t.Run("suppresses vendor when it matches app name", func(t *testing.T) {
+		t.Parallel()
+		_, vendor := discoveryAppSecondaryLabels("IRS account", "", "IRS account")
+		if vendor != "" {
+			t.Fatalf("vendor = %q, want empty", vendor)
+		}
+	})
+
+	t.Run("suppresses vendor when it matches domain token", func(t *testing.T) {
+		t.Parallel()
+		_, vendor := discoveryAppSecondaryLabels("Jira Cloud for Excel", "jira.com", "Jira")
+		if vendor != "" {
+			t.Fatalf("vendor = %q, want empty", vendor)
+		}
+	})
+}

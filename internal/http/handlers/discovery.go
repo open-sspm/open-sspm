@@ -94,13 +94,14 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 		if displayName == "" {
 			displayName = strings.TrimSpace(row.CanonicalKey)
 		}
+		domainLabel, vendorLabel := discoveryAppSecondaryLabels(displayName, row.PrimaryDomain, row.VendorName)
 		ownerLabel := discoveryOwnerLabel(row.OwnerDisplayName, row.OwnerPrimaryEmail)
 
 		items = append(items, viewmodels.DiscoveryAppListItem{
 			ID:            row.ID,
 			DisplayName:   displayName,
-			Domain:        fallbackDash(strings.TrimSpace(row.PrimaryDomain)),
-			VendorName:    fallbackDash(strings.TrimSpace(row.VendorName)),
+			Domain:        domainLabel,
+			VendorName:    vendorLabel,
 			ManagedState:  strings.TrimSpace(row.ManagedState),
 			ManagedReason: strings.TrimSpace(row.ManagedReason),
 			RiskScore:     row.RiskScore,
@@ -182,10 +183,11 @@ func (h *Handlers) HandleDiscoveryHotspots(c *echo.Context) error {
 		if displayName == "" {
 			displayName = strings.TrimSpace(row.CanonicalKey)
 		}
+		domainLabel, _ := discoveryAppSecondaryLabels(displayName, row.PrimaryDomain, row.VendorName)
 		items = append(items, viewmodels.DiscoveryHotspotItem{
 			ID:           row.ID,
 			DisplayName:  displayName,
-			Domain:       fallbackDash(strings.TrimSpace(row.PrimaryDomain)),
+			Domain:       domainLabel,
 			ManagedState: strings.TrimSpace(row.ManagedState),
 			RiskScore:    row.RiskScore,
 			RiskLevel:    strings.TrimSpace(row.RiskLevel),
@@ -305,6 +307,7 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 	if displayName == "" {
 		displayName = strings.TrimSpace(app.CanonicalKey)
 	}
+	domainLabel, vendorLabel := discoveryAppSecondaryLabels(displayName, app.PrimaryDomain, app.VendorName)
 
 	data := viewmodels.DiscoveryAppShowViewData{
 		Layout: layout,
@@ -312,8 +315,8 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 			ID:                           app.ID,
 			DisplayName:                  displayName,
 			CanonicalKey:                 strings.TrimSpace(app.CanonicalKey),
-			PrimaryDomain:                fallbackDash(strings.TrimSpace(app.PrimaryDomain)),
-			VendorName:                   fallbackDash(strings.TrimSpace(app.VendorName)),
+			PrimaryDomain:                domainLabel,
+			VendorName:                   vendorLabel,
 			ManagedState:                 strings.TrimSpace(app.ManagedState),
 			ManagedReason:                strings.TrimSpace(app.ManagedReason),
 			RiskScore:                    app.RiskScore,
@@ -784,6 +787,22 @@ func normalizeDiscoveryDataClassification(raw string) string {
 	default:
 		return "unknown"
 	}
+}
+
+func discoveryAppSecondaryLabels(displayName, domain, vendor string) (string, string) {
+	displayName = strings.TrimSpace(displayName)
+	domain = strings.TrimSpace(domain)
+	vendor = strings.TrimSpace(vendor)
+	if vendor == "" {
+		return domain, ""
+	}
+	if strings.EqualFold(vendor, displayName) {
+		return domain, ""
+	}
+	if domainVendor := discovery.VendorLabelFromDomain(domain); domainVendor != "" && strings.EqualFold(vendor, domainVendor) {
+		return domain, ""
+	}
+	return domain, vendor
 }
 
 func discoveryOwnerLabel(displayName, email string) string {

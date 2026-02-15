@@ -108,8 +108,12 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 										<tr data-row-href={ "/discovery/apps/" + FormatInt64(item.ID) } class="cursor-pointer hover:bg-muted/50">
 											<td>
 												<a class="btn-sm-link px-0 osspm-cell-primary osspm-truncate" href={ "/discovery/apps/" + FormatInt64(item.ID) } title={ item.DisplayName }>{ item.DisplayName }</a>
-												<span class="osspm-cell-secondary osspm-token" title={ item.Domain }>{ item.Domain }</span>
-												<span class="osspm-cell-secondary osspm-truncate" title={ item.VendorName }>{ item.VendorName }</span>
+												if item.Domain != "" {
+													<span class="osspm-cell-secondary osspm-token" title={ item.Domain }>{ item.Domain }</span>
+												}
+												if item.VendorName != "" {
+													<span class="osspm-cell-secondary osspm-truncate" title={ item.VendorName }>{ item.VendorName }</span>
+												}
 											</td>
 											<td>
 												<span class={ DiscoveryManagedBadgeClass(item.ManagedState) }>{ HumanizeDiscoveryManagedState(item.ManagedState) }</span>
