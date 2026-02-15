@@ -341,11 +341,6 @@ func (h *Handlers) HandleFindingsRule(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	layout, _, err := h.LayoutData(ctx, c, strings.TrimSpace(rs.Name))
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
 	r, err := h.Q.GetRuleWithCurrentResultByRulesetKeyAndRuleKey(ctx, gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyParams{
 		Key:        rulesetKey,
 		Key_2:      ruleKey,
@@ -360,62 +355,10 @@ func (h *Handlers) HandleFindingsRule(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	rulesetOverrideEnabled, _, err := h.getRulesetOverride(ctx, rs.ID, scope)
+	data, err := h.buildFindingsRuleViewData(ctx, c, rs, r, scope, nil)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
-
-	ruleOverride, err := h.getRuleOverride(ctx, r.ID, scope)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	attestation, err := h.getRuleAttestation(ctx, r.ID, scope)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	def := parseRuleDefinition(r.DefinitionJson)
-	evidence := parseEvidence(r.CurrentEvidenceJson)
-
-	connectorKind := ""
-	if rs.ConnectorKind.Valid {
-		connectorKind = strings.TrimSpace(rs.ConnectorKind.String)
-	}
-
-	data := viewmodels.FindingsRuleViewData{
-		Layout: layout,
-		Ruleset: viewmodels.FindingsRulesetItem{
-			Key:           strings.TrimSpace(rs.Key),
-			Name:          strings.TrimSpace(rs.Name),
-			Description:   strings.TrimSpace(rs.Description),
-			ScopeKind:     strings.TrimSpace(rs.ScopeKind),
-			ConnectorKind: connectorKind,
-			Status:        strings.TrimSpace(rs.Status),
-			Source:        strings.TrimSpace(rs.Source),
-			SourceVersion: strings.TrimSpace(rs.SourceVersion),
-			Href:          "/findings/rulesets/" + strings.TrimSpace(rs.Key),
-		},
-		SourceName:              scope.SourceName,
-		RuleKey:                 strings.TrimSpace(r.Key),
-		RuleTitle:               strings.TrimSpace(r.Title),
-		RuleSummary:             strings.TrimSpace(r.Summary),
-		RuleSeverity:            strings.TrimSpace(r.Severity),
-		MonitoringStatus:        strings.TrimSpace(r.MonitoringStatus),
-		MonitoringReason:        strings.TrimSpace(r.MonitoringReason),
-		RemediationInstructions: strings.TrimSpace(def.RemediationInstructions),
-		RemediationRisks:        strings.TrimSpace(def.RemediationRisks),
-		RemediationEffort:       strings.TrimSpace(def.RemediationEffort),
-		CurrentStatus:           strings.TrimSpace(r.CurrentStatus),
-		CurrentErrorKind:        strings.TrimSpace(r.CurrentErrorKind),
-		EvidenceSummary:         strings.TrimSpace(r.CurrentEvidenceSummary),
-		Evidence:                evidence,
-		CurrentEvaluatedAt:      formatTimeTable(r.CurrentEvaluatedAt),
-		RulesetOverrideEnabled:  rulesetOverrideEnabled,
-		RuleOverride:            buildRuleOverrideView(def.ParamSchema, def.ParamDefaults, ruleOverride),
-		Attestation:             attestation,
-	}
-
 	return h.RenderComponent(c, views.FindingsRulePage(data))
 }
 
@@ -924,27 +867,25 @@ func parseDatetimeLocal(v string) (pgtype.Timestamptz, error) {
 	return pgtype.Timestamptz{Time: t, Valid: true}, nil
 }
 
-func (h *Handlers) renderRuleWithAlert(c *echo.Context, rs gen.Ruleset, r gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow, scope findingsScope, alert viewmodels.FindingsAlert) error {
-	ctx := c.Request().Context()
-
+func (h *Handlers) buildFindingsRuleViewData(ctx context.Context, c *echo.Context, rs gen.Ruleset, r gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow, scope findingsScope, alert *viewmodels.FindingsAlert) (viewmodels.FindingsRuleViewData, error) {
 	layout, _, err := h.LayoutData(ctx, c, strings.TrimSpace(rs.Name))
 	if err != nil {
-		return h.RenderError(c, err)
+		return viewmodels.FindingsRuleViewData{}, err
 	}
 
 	rulesetOverrideEnabled, _, err := h.getRulesetOverride(ctx, rs.ID, scope)
 	if err != nil {
-		return h.RenderError(c, err)
+		return viewmodels.FindingsRuleViewData{}, err
 	}
 
 	ruleOverride, err := h.getRuleOverride(ctx, r.ID, scope)
 	if err != nil {
-		return h.RenderError(c, err)
+		return viewmodels.FindingsRuleViewData{}, err
 	}
 
 	attestation, err := h.getRuleAttestation(ctx, r.ID, scope)
 	if err != nil {
-		return h.RenderError(c, err)
+		return viewmodels.FindingsRuleViewData{}, err
 	}
 
 	def := parseRuleDefinition(r.DefinitionJson)
@@ -955,7 +896,7 @@ func (h *Handlers) renderRuleWithAlert(c *echo.Context, rs gen.Ruleset, r gen.Ge
 		connectorKind = strings.TrimSpace(rs.ConnectorKind.String)
 	}
 
-	data := viewmodels.FindingsRuleViewData{
+	return viewmodels.FindingsRuleViewData{
 		Layout: layout,
 		Ruleset: viewmodels.FindingsRulesetItem{
 			Key:           strings.TrimSpace(rs.Key),
@@ -986,8 +927,16 @@ func (h *Handlers) renderRuleWithAlert(c *echo.Context, rs gen.Ruleset, r gen.Ge
 		RulesetOverrideEnabled:  rulesetOverrideEnabled,
 		RuleOverride:            buildRuleOverrideView(def.ParamSchema, def.ParamDefaults, ruleOverride),
 		Attestation:             attestation,
-		Alert:                   &alert,
-	}
+		Alert:                   alert,
+	}, nil
+}
 
+func (h *Handlers) renderRuleWithAlert(c *echo.Context, rs gen.Ruleset, r gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow, scope findingsScope, alert viewmodels.FindingsAlert) error {
+	ctx := c.Request().Context()
+
+	data, err := h.buildFindingsRuleViewData(ctx, c, rs, r, scope, &alert)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
 	return h.RenderComponent(c, views.FindingsRulePage(data))
 }

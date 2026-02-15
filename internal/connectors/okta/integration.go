@@ -99,40 +99,34 @@ func (i *OktaIntegration) runFull(ctx context.Context, deps registry.Integration
 	if err != nil {
 		err = fmt.Errorf("okta list users (/api/v1/users): %w", err)
 		deps.Report(registry.Event{Source: "okta", Stage: "list-users", Message: err.Error(), Err: err})
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
 	}
 	deps.Report(registry.Event{Source: "okta", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
 	deps.Report(registry.Event{Source: "okta", Stage: "sync-users", Current: 0, Total: int64(len(users)), Message: fmt.Sprintf("syncing %d users", len(users))})
 
 	if err := i.syncOktaIdpUsers(ctx, deps, runID, users); err != nil {
 		deps.Report(registry.Event{Source: "okta", Stage: "sync-users", Message: err.Error(), Err: err})
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 	}
 
 	if err := i.syncOktaGroups(ctx, deps, runID); err != nil {
 		deps.Report(registry.Event{Source: "okta", Stage: "sync-groups", Message: err.Error(), Err: err})
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 	}
 
 	appIDs, err := i.syncOktaAppAssignments(ctx, deps, runID)
 	if err != nil {
 		deps.Report(registry.Event{Source: "okta", Stage: "sync-app-assignments", Message: err.Error(), Err: err})
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 	}
 
 	if err := i.syncOktaAppGroupAssignments(ctx, deps, runID, appIDs); err != nil {
 		deps.Report(registry.Event{Source: "okta", Stage: "sync-app-group-assignments", Message: err.Error(), Err: err})
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 	}
 
 	if err := registry.FinalizeOktaRun(ctx, deps, runID, i.sourceName, time.Since(started), false); err != nil {
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 	}
 
 	slog.Info("okta sync complete", "users", len(users))
@@ -150,12 +144,10 @@ func (i *OktaIntegration) runDiscovery(ctx context.Context, deps registry.Integr
 	}
 	if err := i.syncDiscovery(ctx, deps, runID); err != nil {
 		deps.Report(registry.Event{Source: "okta", Stage: "write-discovery", Message: err.Error(), Err: err})
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindUnknown)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindUnknown)
 	}
 	if err := registry.FinalizeDiscoveryRun(ctx, deps, runID, "okta", i.sourceName, time.Since(started)); err != nil {
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 	}
 	slog.Info("okta discovery sync complete", "source", i.sourceName)
 	return nil
@@ -194,7 +186,7 @@ func (i *OktaIntegration) EvaluateCompliance(ctx context.Context, deps registry.
 		err = fmt.Errorf("okta ruleset evaluations: %w", err)
 		slog.Error("okta ruleset evaluations failed", "err", err)
 		deps.Report(registry.Event{Source: "okta", Stage: "evaluate-rules", Current: 1, Total: 1, Message: err.Error(), Err: err})
-		return nil
+		return err
 	}
 
 	deps.Report(registry.Event{Source: "okta", Stage: "evaluate-rules", Current: 1, Total: 1, Message: "evaluations complete"})

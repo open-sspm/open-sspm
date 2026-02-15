@@ -55,8 +55,7 @@ func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps)
 	users, err := i.client.ListUsers(ctx)
 	if err != nil {
 		deps.Report(registry.Event{Source: "aws", Stage: "list-users", Message: err.Error(), Err: err})
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
 	}
 	deps.Report(registry.Event{Source: "aws", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
 	deps.Report(registry.Event{Source: "aws", Stage: "write-users", Current: 0, Total: int64(len(users)), Message: fmt.Sprintf("writing %d users", len(users))})
@@ -64,8 +63,7 @@ func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps)
 	entitlementsByUser, err := i.client.ListUserEntitlements(ctx)
 	if err != nil {
 		deps.Report(registry.Event{Source: "aws", Stage: "list-assignments", Message: err.Error(), Err: err})
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
 	}
 	deps.Report(registry.Event{Source: "aws", Stage: "list-assignments", Current: 1, Total: 1, Message: "assignments fetched"})
 
@@ -117,8 +115,7 @@ func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps)
 		})
 		if err != nil {
 			deps.Report(registry.Event{Source: "aws", Stage: "write-users", Message: err.Error(), Err: err})
-			registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-			return err
+			return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		}
 		deps.Report(registry.Event{
 			Source:  "aws",
@@ -176,14 +173,12 @@ func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps)
 		})
 		if err != nil {
 			deps.Report(registry.Event{Source: "aws", Stage: "write-users", Message: err.Error(), Err: err})
-			registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-			return err
+			return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		}
 	}
 
 	if err := registry.FinalizeAppRun(ctx, deps, runID, "aws", i.sourceName, time.Since(started), false); err != nil {
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 	}
 	slog.Info("aws sync complete", "users", len(users))
 	return nil

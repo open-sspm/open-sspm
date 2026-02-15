@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/normalize"
 )
 
 type DBRunner struct {
@@ -73,8 +74,11 @@ func (r *DBRunner) SetRunMode(mode registry.RunMode) {
 }
 
 func (r *DBRunner) RunOnce(ctx context.Context) error {
-	if r == nil || r.q == nil || r.pool == nil {
-		return ErrNoEnabledConnectors
+	if r == nil {
+		return errors.New("sync runner is nil")
+	}
+	if r.q == nil || r.pool == nil {
+		return errors.New("sync runner is not configured")
 	}
 
 	configs, err := r.q.ListConnectorConfigs(ctx)
@@ -260,9 +264,6 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 }
 
 func (r *DBRunner) runMode() registry.RunMode {
-	if r == nil {
-		return registry.RunModeFull
-	}
 	return r.mode.Normalize()
 }
 
@@ -289,22 +290,22 @@ func (r *DBRunner) integrationSupportsRunMode(integration registry.Integration) 
 }
 
 func matchesRequestedConnectorScope(kind, sourceName, requestedKind, requestedSourceName string) bool {
-	kind = strings.ToLower(strings.TrimSpace(kind))
-	sourceName = strings.TrimSpace(sourceName)
-	requestedKind = strings.ToLower(strings.TrimSpace(requestedKind))
-	requestedSourceName = strings.TrimSpace(requestedSourceName)
+	kind = normalize.Lower(kind)
+	sourceName = normalize.Trim(sourceName)
+	requestedKind = normalize.Lower(requestedKind)
+	requestedSourceName = normalize.Trim(requestedSourceName)
 	if kind == "" || sourceName == "" || requestedKind == "" || requestedSourceName == "" {
 		return false
 	}
-	return kind == requestedKind && strings.EqualFold(sourceName, requestedSourceName)
+	return kind == requestedKind && normalize.EqualFoldTrimmed(sourceName, requestedSourceName)
 }
 
 func connectorKindMatchesRequestedScope(kind, requestedKind string, hasRequestedScope bool) bool {
 	if !hasRequestedScope {
 		return true
 	}
-	kind = strings.ToLower(strings.TrimSpace(kind))
-	requestedKind = strings.ToLower(strings.TrimSpace(requestedKind))
+	kind = normalize.Lower(kind)
+	requestedKind = normalize.Lower(requestedKind)
 	if kind == "" || requestedKind == "" {
 		return false
 	}
@@ -322,15 +323,15 @@ func noIntegrationRunError(errList []error, deferred []string, hasRequestedScope
 }
 
 func (r *DBRunner) shouldRunIntegration(ctx context.Context, kind, name string) (bool, string, error) {
-	if r == nil || r.q == nil || r.policy == nil {
+	if r.q == nil || r.policy == nil {
 		return true, "", nil
 	}
 	if IsForcedSync(ctx) {
 		return true, "", nil
 	}
 
-	kind = strings.ToLower(strings.TrimSpace(kind))
-	name = strings.TrimSpace(name)
+	kind = normalize.Lower(kind)
+	name = normalize.Trim(name)
 	if kind == "" || name == "" {
 		return true, "", nil
 	}
@@ -356,14 +357,14 @@ func (r *DBRunner) shouldRunIntegration(ctx context.Context, kind, name string) 
 }
 
 func (r *DBRunner) listRecentFinishedSyncRunsForSources(ctx context.Context, sources []syncRunHistoryKey) (map[syncRunHistoryKey][]syncRunHistory, error) {
-	if r == nil || r.q == nil || r.policy == nil {
+	if r.q == nil || r.policy == nil {
 		return map[syncRunHistoryKey][]syncRunHistory{}, nil
 	}
 
 	unique := make(map[syncRunHistoryKey]struct{}, len(sources))
 	for _, source := range sources {
-		kind := strings.ToLower(strings.TrimSpace(source.kind))
-		name := strings.TrimSpace(source.name)
+		kind := normalize.Lower(source.kind)
+		name := normalize.Trim(source.name)
 		if kind == "" || name == "" {
 			continue
 		}
@@ -402,11 +403,11 @@ func (r *DBRunner) listRecentFinishedSyncRunsForSources(ctx context.Context, sou
 }
 
 func (r *DBRunner) shouldRunIntegrationFromHistory(kind, name string, history []syncRunHistory) (bool, string, error) {
-	if r == nil || r.policy == nil {
+	if r.policy == nil {
 		return true, "", nil
 	}
-	kind = strings.ToLower(strings.TrimSpace(kind))
-	name = strings.TrimSpace(name)
+	kind = normalize.Lower(kind)
+	name = normalize.Trim(name)
 	if kind == "" || name == "" {
 		return true, "", nil
 	}

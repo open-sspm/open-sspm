@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -80,47 +78,16 @@ func (r *ResyncSignalRunner) RunOnce(ctx context.Context) error {
 		return ErrSyncAlreadyRunning
 	}
 
-	runCtx, cancelRun := context.WithCancel(ctx)
-	defer cancelRun()
-
-	var (
-		lockLostMu sync.Mutex
-		lockLost   error
-	)
-	stopHeartbeat := lock.StartHeartbeat(runCtx, func(err error) {
-		lockLostMu.Lock()
-		if lockLost == nil {
-			lockLost = err
+	notifyErr, lost := runWithManagedLock(ctx, lock, func(runCtx context.Context) error {
+		// When using advisory locks, TryAcquire holds a pool connection until Release.
+		// Avoid deadlocking on small pools (e.g., size 1) by issuing the NOTIFY on the
+		// same connection as the advisory lock rather than acquiring a second one.
+		if advisory, ok := lock.(*advisoryLock); ok && advisory != nil && advisory.q != nil {
+			return notifyResyncOnChannel(runCtx, advisory.q, notifyChannel, request)
 		}
-		lockLostMu.Unlock()
-
-		slog.Error("sync lock heartbeat failed", "scope_kind", lock.ScopeKind(), "scope_name", lock.ScopeName(), "err", err)
-		cancelRun()
-	})
-
-	defer func() {
-		unlockCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		defer cancel()
-		if err := lock.Release(unlockCtx); err != nil {
-			slog.Warn("failed to release sync lock", "scope_kind", lock.ScopeKind(), "scope_name", lock.ScopeName(), "err", err)
-		}
-	}()
-	defer stopHeartbeat()
-
-	// When using advisory locks, TryAcquire holds a pool connection until Release.
-	// Avoid deadlocking on small pools (e.g., size 1) by issuing the NOTIFY on the
-	// same connection as the advisory lock rather than acquiring a second one.
-	var notifyErr error
-	if advisory, ok := lock.(*advisoryLock); ok && advisory != nil && advisory.q != nil {
-		notifyErr = notifyResyncOnChannel(runCtx, advisory.q, notifyChannel, request)
-	} else {
 		q := gen.New(r.pool)
-		notifyErr = notifyResyncOnChannel(runCtx, q, notifyChannel, request)
-	}
-
-	lockLostMu.Lock()
-	lost := lockLost
-	lockLostMu.Unlock()
+		return notifyResyncOnChannel(runCtx, q, notifyChannel, request)
+	})
 	if notifyErr != nil {
 		if lost != nil {
 			return errors.Join(notifyErr, fmt.Errorf("sync lock lost: %w", lost))

@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"hash/fnv"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -33,9 +35,15 @@ func ConnectorLockKey(kind, name string) int64 {
 	return int64(h.Sum64())
 }
 
-func FailSyncRun(ctx context.Context, q *gen.Queries, runID int64, err error, errorKind string) {
-	if q == nil || runID == 0 || err == nil {
-		return
+func FailSyncRun(ctx context.Context, q *gen.Queries, runID int64, err error, errorKind string) error {
+	if err == nil {
+		return nil
+	}
+	if q == nil {
+		return errors.Join(err, errors.New("sync run failure could not be persisted: queries is nil"))
+	}
+	if runID == 0 {
+		return errors.Join(err, errors.New("sync run failure could not be persisted: run id is zero"))
 	}
 
 	status := SyncStatusError
@@ -61,12 +69,17 @@ func FailSyncRun(ctx context.Context, q *gen.Queries, runID int64, err error, er
 		defer cancel()
 	}
 
-	_ = q.FailSyncRun(finishCtx, gen.FailSyncRunParams{
+	if persistErr := q.FailSyncRun(finishCtx, gen.FailSyncRunParams{
 		ID:        runID,
 		Status:    status,
 		Message:   msg,
 		ErrorKind: errorKind,
-	})
+	}); persistErr != nil {
+		wrapped := fmt.Errorf("mark sync run %d failed: %w", runID, persistErr)
+		slog.Error("failed to persist sync run failure", "run_id", runID, "err", wrapped)
+		return errors.Join(err, wrapped)
+	}
+	return err
 }
 
 func FinalizeOktaRun(ctx context.Context, deps IntegrationDeps, runID int64, sourceName string, duration time.Duration, finalizeDiscovery bool) error {
@@ -446,7 +459,7 @@ func PgInt8(v int64) pgtype.Int8 {
 func MarshalJSON(v any) []byte {
 	b, err := json.Marshal(v)
 	if err != nil {
-		return []byte("{}")
+		panic(fmt.Errorf("registry: marshal json: %w", err))
 	}
 	return b
 }

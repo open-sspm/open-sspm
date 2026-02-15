@@ -266,10 +266,7 @@ func (h *Handlers) HandleGitHubUsers(c *echo.Context) error {
 	page := parsePageParam(c)
 
 	if !snap.GitHubConfigured || !snap.GitHubEnabled {
-		message := "GitHub is not configured yet. Add credentials in Connectors."
-		if snap.GitHubConfigured && !snap.GitHubEnabled {
-			message = "GitHub sync is disabled. Enable it in Connectors."
-		}
+		message := connectorUnavailableMessage("GitHub", snap.GitHubConfigured, snap.GitHubEnabled)
 		totalPages := 1
 		data := viewmodels.GitHubUsersViewData{
 			Layout:         layout,
@@ -356,10 +353,7 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 	page := parsePageParam(c)
 
 	if !snap.DatadogConfigured || !snap.DatadogEnabled {
-		message := "Datadog is not configured yet. Add credentials in Connectors."
-		if snap.DatadogConfigured && !snap.DatadogEnabled {
-			message = "Datadog sync is disabled. Enable it in Connectors."
-		}
+		message := connectorUnavailableMessage("Datadog", snap.DatadogConfigured, snap.DatadogEnabled)
 		totalPages := 1
 		data := viewmodels.DatadogUsersViewData{
 			Layout:         layout,
@@ -490,10 +484,7 @@ func (h *Handlers) HandleUnmatchedGitHub(c *echo.Context) error {
 	page := parsePageParam(c)
 
 	if !snap.GitHubConfigured || !snap.GitHubEnabled {
-		message := "GitHub is not configured yet. Add credentials in Connectors."
-		if snap.GitHubConfigured && !snap.GitHubEnabled {
-			message = "GitHub sync is disabled. Enable it in Connectors."
-		}
+		message := connectorUnavailableMessage("GitHub", snap.GitHubConfigured, snap.GitHubEnabled)
 		data := viewmodels.UnmatchedGitHubViewData{
 			Layout:         layout,
 			Users:          nil,
@@ -581,10 +572,7 @@ func (h *Handlers) HandleUnmatchedDatadog(c *echo.Context) error {
 	page := parsePageParam(c)
 
 	if !snap.DatadogConfigured || !snap.DatadogEnabled {
-		message := "Datadog is not configured yet. Add credentials in Connectors."
-		if snap.DatadogConfigured && !snap.DatadogEnabled {
-			message = "Datadog sync is disabled. Enable it in Connectors."
-		}
+		message := connectorUnavailableMessage("Datadog", snap.DatadogConfigured, snap.DatadogEnabled)
 		data := viewmodels.UnmatchedDatadogViewData{
 			Layout:         layout,
 			Users:          nil,
@@ -657,6 +645,17 @@ func (h *Handlers) HandleUnmatchedDatadog(c *echo.Context) error {
 	}
 
 	return h.RenderComponent(c, views.UnmatchedDatadogPage(data))
+}
+
+func connectorUnavailableMessage(connectorName string, configured, enabled bool) string {
+	connectorName = strings.TrimSpace(connectorName)
+	if connectorName == "" {
+		connectorName = "Connector"
+	}
+	if configured && !enabled {
+		return connectorName + " sync is disabled. Enable it in Connectors."
+	}
+	return connectorName + " is not configured yet. Add credentials in Connectors."
 }
 
 // HandleCreateLink creates an identity link between IdP and app users.

@@ -4,10 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
-	"sync"
-	"time"
 )
 
 type runOnceLockRunner struct {
@@ -88,38 +85,7 @@ func (r *runOnceLockRunner) RunOnce(ctx context.Context) error {
 		}
 	}
 
-	runCtx, cancelRun := context.WithCancel(ctx)
-	defer cancelRun()
-
-	var (
-		lockLostMu sync.Mutex
-		lockLost   error
-	)
-	stopHeartbeat := lock.StartHeartbeat(runCtx, func(err error) {
-		lockLostMu.Lock()
-		if lockLost == nil {
-			lockLost = err
-		}
-		lockLostMu.Unlock()
-
-		slog.Error("sync lock heartbeat failed", "scope_kind", lock.ScopeKind(), "scope_name", lock.ScopeName(), "err", err)
-		cancelRun()
-	})
-
-	defer func() {
-		unlockCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		defer cancel()
-		if err := lock.Release(unlockCtx); err != nil {
-			slog.Warn("failed to release sync lock", "scope_kind", lock.ScopeKind(), "scope_name", lock.ScopeName(), "err", err)
-		}
-	}()
-	defer stopHeartbeat()
-
-	innerErr := r.inner.RunOnce(runCtx)
-
-	lockLostMu.Lock()
-	lost := lockLost
-	lockLostMu.Unlock()
+	innerErr, lost := runWithManagedLock(ctx, lock, r.inner.RunOnce)
 	if lost != nil {
 		return errors.Join(innerErr, fmt.Errorf("sync lock lost: %w", lost))
 	}

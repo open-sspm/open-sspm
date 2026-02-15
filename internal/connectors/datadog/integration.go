@@ -63,16 +63,14 @@ func (i *DatadogIntegration) Run(ctx context.Context, deps registry.IntegrationD
 	users, err := i.client.ListUsers(ctx)
 	if err != nil {
 		deps.Report(registry.Event{Source: "datadog", Stage: "list-users", Message: err.Error(), Err: err})
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
 	}
 	deps.Report(registry.Event{Source: "datadog", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
 
 	roles, err := i.client.ListRoles(ctx)
 	if err != nil {
 		deps.Report(registry.Event{Source: "datadog", Stage: "list-roles", Message: err.Error(), Err: err})
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
 	}
 	deps.Report(registry.Event{Source: "datadog", Stage: "list-roles", Current: 1, Total: 1, Message: fmt.Sprintf("found %d roles", len(roles))})
 
@@ -166,8 +164,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, deps registry.IntegrationD
 		}
 		if firstErr != nil {
 			deps.Report(registry.Event{Source: "datadog", Stage: "fetch-role-users", Message: firstErr.Error(), Err: firstErr})
-			registry.FailSyncRun(ctx, deps.Q, runID, firstErr, registry.SyncErrorKindAPI)
-			return firstErr
+			return registry.FailSyncRun(ctx, deps.Q, runID, firstErr, registry.SyncErrorKindAPI)
 		}
 	}
 
@@ -216,8 +213,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, deps registry.IntegrationD
 		})
 		if err != nil {
 			deps.Report(registry.Event{Source: "datadog", Stage: "write-users", Message: err.Error(), Err: err})
-			registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-			return err
+			return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		}
 		deps.Report(registry.Event{
 			Source:  "datadog",
@@ -275,14 +271,12 @@ func (i *DatadogIntegration) Run(ctx context.Context, deps registry.IntegrationD
 		})
 		if err != nil {
 			deps.Report(registry.Event{Source: "datadog", Stage: "write-users", Message: err.Error(), Err: err})
-			registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-			return err
+			return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 		}
 	}
 
 	if err := registry.FinalizeAppRun(ctx, deps, runID, "datadog", i.site, time.Since(started), false); err != nil {
-		registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-		return err
+		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
 	}
 	slog.Info("datadog sync complete", "users", len(users))
 	return nil

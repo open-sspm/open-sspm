@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -111,60 +112,60 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		cfg.MetricsAddr = ""
 	}
 
-	if v := os.Getenv("SYNC_INTERVAL"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil {
-			cfg.SyncInterval = d
-		}
+	if d, ok, err := parseDurationEnv("SYNC_INTERVAL", false); err != nil {
+		return cfg, err
+	} else if ok {
+		cfg.SyncInterval = d
 	}
-	if v := os.Getenv("SYNC_DISCOVERY_INTERVAL"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil {
-			cfg.SyncDiscoveryInterval = d
-		}
+	if d, ok, err := parseDurationEnv("SYNC_DISCOVERY_INTERVAL", false); err != nil {
+		return cfg, err
+	} else if ok {
+		cfg.SyncDiscoveryInterval = d
 	}
-	if v := os.Getenv("SYNC_OKTA_INTERVAL"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d > 0 {
-			cfg.SyncOktaInterval = d
-		}
+	if d, ok, err := parseDurationEnv("SYNC_OKTA_INTERVAL", true); err != nil {
+		return cfg, err
+	} else if ok {
+		cfg.SyncOktaInterval = d
 	}
-	if v := os.Getenv("SYNC_ENTRA_INTERVAL"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d > 0 {
-			cfg.SyncEntraInterval = d
-		}
+	if d, ok, err := parseDurationEnv("SYNC_ENTRA_INTERVAL", true); err != nil {
+		return cfg, err
+	} else if ok {
+		cfg.SyncEntraInterval = d
 	}
-	if v := os.Getenv("SYNC_GITHUB_INTERVAL"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d > 0 {
-			cfg.SyncGitHubInterval = d
-		}
+	if d, ok, err := parseDurationEnv("SYNC_GITHUB_INTERVAL", true); err != nil {
+		return cfg, err
+	} else if ok {
+		cfg.SyncGitHubInterval = d
 	}
-	if v := os.Getenv("SYNC_DATADOG_INTERVAL"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d > 0 {
-			cfg.SyncDatadogInterval = d
-		}
+	if d, ok, err := parseDurationEnv("SYNC_DATADOG_INTERVAL", true); err != nil {
+		return cfg, err
+	} else if ok {
+		cfg.SyncDatadogInterval = d
 	}
-	if v := os.Getenv("SYNC_AWS_INTERVAL"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d > 0 {
-			cfg.SyncAWSInterval = d
-		}
+	if d, ok, err := parseDurationEnv("SYNC_AWS_INTERVAL", true); err != nil {
+		return cfg, err
+	} else if ok {
+		cfg.SyncAWSInterval = d
 	}
-	if v := os.Getenv("SYNC_FAILURE_BACKOFF_MAX"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d > 0 {
-			cfg.SyncFailureBackoffMax = d
-		}
+	if d, ok, err := parseDurationEnv("SYNC_FAILURE_BACKOFF_MAX", true); err != nil {
+		return cfg, err
+	} else if ok {
+		cfg.SyncFailureBackoffMax = d
 	}
-	if v := os.Getenv("SYNC_LOCK_TTL"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d > 0 {
-			cfg.SyncLockTTL = d
-		}
+	if d, ok, err := parseDurationEnv("SYNC_LOCK_TTL", true); err != nil {
+		return cfg, err
+	} else if ok {
+		cfg.SyncLockTTL = d
 	}
-	if v := os.Getenv("SYNC_LOCK_HEARTBEAT_INTERVAL"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d > 0 {
-			cfg.SyncLockHeartbeatInterval = d
-		}
+	if d, ok, err := parseDurationEnv("SYNC_LOCK_HEARTBEAT_INTERVAL", true); err != nil {
+		return cfg, err
+	} else if ok {
+		cfg.SyncLockHeartbeatInterval = d
 	}
-	if v := os.Getenv("SYNC_LOCK_HEARTBEAT_TIMEOUT"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d > 0 {
-			cfg.SyncLockHeartbeatTimeout = d
-		}
+	if d, ok, err := parseDurationEnv("SYNC_LOCK_HEARTBEAT_TIMEOUT", true); err != nil {
+		return cfg, err
+	} else if ok {
+		cfg.SyncLockHeartbeatTimeout = d
 	}
 
 	if opts.RequireDatabaseURL && cfg.DatabaseURL == "" {
@@ -206,4 +207,19 @@ func getenvBoolDefault(key string, def bool) bool {
 	default:
 		return def
 	}
+}
+
+func parseDurationEnv(key string, requirePositive bool) (time.Duration, bool, error) {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return 0, false, nil
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return 0, false, fmt.Errorf("%s must be a duration: %w", key, err)
+	}
+	if requirePositive && d <= 0 {
+		return 0, false, fmt.Errorf("%s must be greater than zero", key)
+	}
+	return d, true, nil
 }
