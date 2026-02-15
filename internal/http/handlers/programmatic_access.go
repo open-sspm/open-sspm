@@ -606,7 +606,7 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 func availableProgrammaticSources(snap ConnectorSnapshot) []viewmodels.ProgrammaticSourceOption {
 	sources := make([]viewmodels.ProgrammaticSourceOption, 0, 2)
 
-	if snap.EntraEnabled && snap.EntraConfigured {
+	if snap.EntraConfigured {
 		if sourceName := strings.TrimSpace(snap.Entra.TenantID); sourceName != "" {
 			sources = append(sources, viewmodels.ProgrammaticSourceOption{
 				SourceKind: "entra",
@@ -615,7 +615,7 @@ func availableProgrammaticSources(snap ConnectorSnapshot) []viewmodels.Programma
 			})
 		}
 	}
-	if snap.GitHubEnabled && snap.GitHubConfigured {
+	if snap.GitHubConfigured {
 		if sourceName := strings.TrimSpace(snap.GitHub.Org); sourceName != "" {
 			sources = append(sources, viewmodels.ProgrammaticSourceOption{
 				SourceKind: "github",
@@ -641,26 +641,70 @@ func selectProgrammaticSource(c *echo.Context, sources []viewmodels.Programmatic
 
 	queryKind := strings.ToLower(strings.TrimSpace(c.QueryParam("source_kind")))
 	queryName := strings.TrimSpace(c.QueryParam("source_name"))
+	hasKind := queryKind != ""
+	hasName := queryName != ""
 
-	for _, source := range sources {
-		if source.SourceKind == queryKind {
+	if hasKind && hasName {
+		for _, source := range sources {
+			if source.SourceKind == queryKind && strings.EqualFold(strings.TrimSpace(source.SourceName), queryName) {
+				return viewmodels.ProgrammaticSourceOption{
+					SourceKind: source.SourceKind,
+					SourceName: source.SourceName,
+				}, true
+			}
+		}
+		// Invalid kind/name pair falls back to "All configured".
+		return viewmodels.ProgrammaticSourceOption{}, true
+	}
+
+	if hasKind {
+		matches := make([]viewmodels.ProgrammaticSourceOption, 0, len(sources))
+		for _, source := range sources {
+			if source.SourceKind == queryKind {
+				matches = append(matches, source)
+			}
+		}
+
+		switch len(matches) {
+		case 1:
 			return viewmodels.ProgrammaticSourceOption{
-				SourceKind: source.SourceKind,
+				SourceKind: matches[0].SourceKind,
+				SourceName: matches[0].SourceName,
+			}, true
+		case 0:
+			// Unknown kind falls back to "All configured".
+			return viewmodels.ProgrammaticSourceOption{}, true
+		default:
+			return viewmodels.ProgrammaticSourceOption{
+				SourceKind: queryKind,
 			}, true
 		}
 	}
 
-	if queryName != "" {
+	if hasName {
+		matches := make([]viewmodels.ProgrammaticSourceOption, 0, len(sources))
 		for _, source := range sources {
 			if strings.EqualFold(strings.TrimSpace(source.SourceName), queryName) {
-				return viewmodels.ProgrammaticSourceOption{
-					SourceKind: source.SourceKind,
-				}, true
+				matches = append(matches, source)
 			}
 		}
+
+		if len(matches) == 1 {
+			return viewmodels.ProgrammaticSourceOption{
+				SourceKind: matches[0].SourceKind,
+				SourceName: matches[0].SourceName,
+			}, true
+		}
+		if len(matches) > 1 {
+			// Ambiguous name-only filter falls back to "All configured".
+			return viewmodels.ProgrammaticSourceOption{}, true
+		}
+
+		// Unknown name falls back to "All configured".
+		return viewmodels.ProgrammaticSourceOption{}, true
 	}
 
-	// Unknown source filters fall back to "All configured".
+	// No filter selects "All configured".
 	return viewmodels.ProgrammaticSourceOption{}, true
 }
 

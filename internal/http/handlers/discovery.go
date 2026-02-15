@@ -626,26 +626,57 @@ func sourceKindOptions(sourceOptions []viewmodels.DiscoverySourceOption) []viewm
 
 func normalizeDiscoverySourceSelection(rawKind, rawName string, sourceOptions []viewmodels.DiscoverySourceOption) (string, string) {
 	selectedKind := normalizeDiscoverySourceKind(rawKind)
-	if selectedKind != "" && !discoveryHasSourceKind(selectedKind, sourceOptions) {
-		selectedKind = ""
-	}
-
 	selectedName := strings.TrimSpace(rawName)
-	if selectedKind == "" && selectedName != "" {
-		for _, option := range sourceOptions {
-			if strings.EqualFold(strings.TrimSpace(option.SourceName), selectedName) {
-				selectedKind = normalizeDiscoverySourceKind(option.SourceKind)
-				break
-			}
-		}
-	}
+	hasKind := selectedKind != ""
+	hasName := selectedName != ""
 
-	if selectedKind == "" {
+	if !hasKind && !hasName {
 		return "", ""
 	}
 
-	// In standard list UX, source kind is the primary selector and source IDs stay in diagnostics.
-	return selectedKind, ""
+	if hasKind && hasName {
+		for _, option := range sourceOptions {
+			optionKind := normalizeDiscoverySourceKind(option.SourceKind)
+			optionName := strings.TrimSpace(option.SourceName)
+			if optionKind == selectedKind && strings.EqualFold(optionName, selectedName) {
+				return optionKind, optionName
+			}
+		}
+		// Invalid kind/name pair falls back to "All configured".
+		return "", ""
+	}
+
+	if hasKind {
+		if discoveryHasSourceKind(selectedKind, sourceOptions) {
+			return selectedKind, ""
+		}
+		return "", ""
+	}
+
+	matchCount := 0
+	matchKind := ""
+	matchName := ""
+	for _, option := range sourceOptions {
+		optionKind := normalizeDiscoverySourceKind(option.SourceKind)
+		optionName := strings.TrimSpace(option.SourceName)
+		if optionKind == "" || optionName == "" {
+			continue
+		}
+		if !strings.EqualFold(optionName, selectedName) {
+			continue
+		}
+		matchCount++
+		if matchCount == 1 {
+			matchKind = optionKind
+			matchName = optionName
+		}
+	}
+	if matchCount == 1 {
+		return matchKind, matchName
+	}
+
+	// Unknown or ambiguous name-only filters fall back to "All configured".
+	return "", ""
 }
 
 func discoverySourceNameOptions(selectedSourceKind string, sourceOptions []viewmodels.DiscoverySourceOption) []viewmodels.DiscoverySourceOption {

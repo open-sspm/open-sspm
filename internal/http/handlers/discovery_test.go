@@ -15,20 +15,20 @@ func TestNormalizeDiscoverySourceSelection(t *testing.T) {
 		{SourceKind: "entra", SourceName: "tenant-1", Label: "Microsoft Entra"},
 	}
 
-	t.Run("keeps source kind and clears source name", func(t *testing.T) {
+	t.Run("keeps valid source kind and name pair", func(t *testing.T) {
 		t.Parallel()
 
 		kind, name := normalizeDiscoverySourceSelection("okta", "acme.okta.com", options)
-		if kind != "okta" || name != "" {
+		if kind != "okta" || name != "acme.okta.com" {
 			t.Fatalf("unexpected selection kind=%q name=%q", kind, name)
 		}
 	})
 
-	t.Run("maps source name to kind for compatibility", func(t *testing.T) {
+	t.Run("maps source name to kind and preserves name when unique", func(t *testing.T) {
 		t.Parallel()
 
 		kind, name := normalizeDiscoverySourceSelection("", "tenant-1", options)
-		if kind != "entra" || name != "" {
+		if kind != "entra" || name != "tenant-1" {
 			t.Fatalf("unexpected selection kind=%q name=%q", kind, name)
 		}
 	})

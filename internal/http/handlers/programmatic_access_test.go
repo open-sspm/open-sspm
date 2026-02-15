@@ -210,7 +210,7 @@ func TestSelectProgrammaticSource(t *testing.T) {
 		if !ok {
 			t.Fatalf("expected source selection to be available")
 		}
-		if selected.SourceKind != "github" || selected.SourceName != "" {
+		if selected.SourceKind != "github" || selected.SourceName != "acme" {
 			t.Fatalf("unexpected selection kind=%q name=%q", selected.SourceKind, selected.SourceName)
 		}
 	})
@@ -223,7 +223,7 @@ func TestSelectProgrammaticSource(t *testing.T) {
 		if !ok {
 			t.Fatalf("expected source selection to be available")
 		}
-		if selected.SourceKind != "github" || selected.SourceName != "" {
+		if selected.SourceKind != "github" || selected.SourceName != "acme" {
 			t.Fatalf("unexpected selection kind=%q name=%q", selected.SourceKind, selected.SourceName)
 		}
 	})
