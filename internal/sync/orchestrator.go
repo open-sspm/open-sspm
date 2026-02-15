@@ -269,7 +269,7 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 		}
 
 		err := o.withConnectorLock(ctx, kind, name, func(lockCtx context.Context) error {
-			return eval.EvaluateCompliance(lockCtx, registry.IntegrationDeps{Q: o.q, Pool: o.pool, Report: o.report, Mode: o.mode.Normalize()})
+			return eval.EvaluateCompliance(lockCtx, o.q, o.report)
 		})
 		if err != nil {
 			wrapped := fmt.Errorf("%s compliance: %w", kind, err)
@@ -356,7 +356,7 @@ func (o *Orchestrator) runIntegrationWithRetry(ctx context.Context, integration 
 		}
 
 		runErr = o.withConnectorLock(ctx, kind, name, func(lockCtx context.Context) error {
-			return integration.Run(lockCtx, registry.IntegrationDeps{Q: o.q, Pool: o.pool, Report: o.report, Mode: mode})
+			return integration.Run(lockCtx, o.q, o.pool, o.report, mode)
 		})
 		if runErr == nil {
 			return nil

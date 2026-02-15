@@ -135,9 +135,7 @@ func TestSyncProgrammaticAccessFailsWhenDatasetUnavailable(t *testing.T) {
 	}
 
 	integration := NewGitHubIntegration(client, "acme", "", 1, false)
-	_, err = integration.syncProgrammaticAccess(context.Background(), registry.IntegrationDeps{
-		Report: func(registry.Event) {},
-	}, 42)
+	_, err = integration.syncProgrammaticAccess(context.Background(), nil, func(registry.Event) {}, 42)
 	if err == nil {
 		t.Fatalf("syncProgrammaticAccess() error = nil, want non-nil")
 	}

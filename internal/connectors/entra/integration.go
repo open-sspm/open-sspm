@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
@@ -127,23 +128,23 @@ func (i *EntraIntegration) InitEvents() []registry.Event {
 	}
 }
 
-func (i *EntraIntegration) Run(ctx context.Context, deps registry.IntegrationDeps) error {
-	switch deps.Mode.Normalize() {
+func (i *EntraIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event), mode registry.RunMode) error {
+	switch mode.Normalize() {
 	case registry.RunModeDiscovery:
 		if !i.SupportsRunMode(registry.RunModeDiscovery) {
 			return nil
 		}
-		return i.runDiscovery(ctx, deps)
+		return i.runDiscovery(ctx, q, pool, report)
 	default:
-		return i.runFull(ctx, deps)
+		return i.runFull(ctx, q, pool, report)
 	}
 }
 
-func (i *EntraIntegration) runFull(ctx context.Context, deps registry.IntegrationDeps) error {
+func (i *EntraIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
 	started := time.Now()
 	slog.Info("syncing Microsoft Entra ID")
 
-	runID, err := deps.Q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
+	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
 		SourceKind: registry.SyncRunSourceKind("entra", registry.RunModeFull),
 		SourceName: i.tenantID,
 	})
@@ -151,23 +152,23 @@ func (i *EntraIntegration) runFull(ctx context.Context, deps registry.Integratio
 		return err
 	}
 
-	usersWritten, err := i.syncUsers(ctx, deps, runID)
+	usersWritten, err := i.syncUsers(ctx, q, report, runID)
 	if err != nil {
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindUnknown)
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindUnknown)
 	}
 
-	deps.Report(registry.Event{Source: "entra", Stage: "list-app-assets", Current: 0, Total: 1, Message: "listing applications and service principals"})
+	report(registry.Event{Source: "entra", Stage: "list-app-assets", Current: 0, Total: 1, Message: "listing applications and service principals"})
 	applications, err := i.client.ListApplications(ctx)
 	if err != nil {
-		deps.Report(registry.Event{Source: "entra", Stage: "list-app-assets", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
+		report(registry.Event{Source: "entra", Stage: "list-app-assets", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
 	servicePrincipals, err := i.client.ListServicePrincipals(ctx)
 	if err != nil {
-		deps.Report(registry.Event{Source: "entra", Stage: "list-app-assets", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
+		report(registry.Event{Source: "entra", Stage: "list-app-assets", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
-	deps.Report(registry.Event{
+	report(registry.Event{
 		Source:  "entra",
 		Stage:   "list-app-assets",
 		Current: 1,
@@ -176,33 +177,33 @@ func (i *EntraIntegration) runFull(ctx context.Context, deps registry.Integratio
 	})
 
 	assetRows, credentialRows := buildEntraAssetAndCredentialRows(applications, servicePrincipals)
-	if err := i.upsertAppAssets(ctx, deps, runID, assetRows); err != nil {
-		deps.Report(registry.Event{Source: "entra", Stage: "write-app-assets", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+	if err := i.upsertAppAssets(ctx, q, report, runID, assetRows); err != nil {
+		report(registry.Event{Source: "entra", Stage: "write-app-assets", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 
-	ownerRows, err := i.collectAppAssetOwners(ctx, deps, applications, servicePrincipals)
+	ownerRows, err := i.collectAppAssetOwners(ctx, report, applications, servicePrincipals)
 	if err != nil {
-		deps.Report(registry.Event{Source: "entra", Stage: "list-owners", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
+		report(registry.Event{Source: "entra", Stage: "list-owners", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
-	if err := i.upsertAppAssetOwners(ctx, deps, runID, ownerRows); err != nil {
-		deps.Report(registry.Event{Source: "entra", Stage: "write-owners", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-	}
-
-	if err := i.upsertCredentialArtifacts(ctx, deps, runID, credentialRows); err != nil {
-		deps.Report(registry.Event{Source: "entra", Stage: "write-credentials", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+	if err := i.upsertAppAssetOwners(ctx, q, report, runID, ownerRows); err != nil {
+		report(registry.Event{Source: "entra", Stage: "write-owners", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 
-	deps.Report(registry.Event{Source: "entra", Stage: "list-audit-events", Current: 0, Total: 1, Message: "listing directory audit events"})
+	if err := i.upsertCredentialArtifacts(ctx, q, report, runID, credentialRows); err != nil {
+		report(registry.Event{Source: "entra", Stage: "write-credentials", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+	}
+
+	report(registry.Event{Source: "entra", Stage: "list-audit-events", Current: 0, Total: 1, Message: "listing directory audit events"})
 	directoryAudits, err := i.client.ListDirectoryAudits(ctx, nil)
 	if err != nil {
-		deps.Report(registry.Event{Source: "entra", Stage: "list-audit-events", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
+		report(registry.Event{Source: "entra", Stage: "list-audit-events", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
-	deps.Report(registry.Event{
+	report(registry.Event{
 		Source:  "entra",
 		Stage:   "list-audit-events",
 		Current: 1,
@@ -211,13 +212,13 @@ func (i *EntraIntegration) runFull(ctx context.Context, deps registry.Integratio
 	})
 
 	auditEventRows := buildCredentialAuditEventRows(directoryAudits)
-	if err := i.upsertCredentialAuditEvents(ctx, deps, auditEventRows); err != nil {
-		deps.Report(registry.Event{Source: "entra", Stage: "write-audit-events", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+	if err := i.upsertCredentialAuditEvents(ctx, q, report, auditEventRows); err != nil {
+		report(registry.Event{Source: "entra", Stage: "write-audit-events", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 
-	if err := registry.FinalizeAppRun(ctx, deps, runID, "entra", i.tenantID, time.Since(started), false); err != nil {
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+	if err := registry.FinalizeAppRun(ctx, q, pool, runID, "entra", i.tenantID, time.Since(started), false); err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 
 	slog.Info(
@@ -232,11 +233,11 @@ func (i *EntraIntegration) runFull(ctx context.Context, deps registry.Integratio
 	return nil
 }
 
-func (i *EntraIntegration) runDiscovery(ctx context.Context, deps registry.IntegrationDeps) error {
+func (i *EntraIntegration) runDiscovery(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
 	started := time.Now()
 	slog.Info("syncing Microsoft Entra ID discovery")
 
-	runID, err := deps.Q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
+	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
 		SourceKind: registry.SyncRunSourceKind("entra", registry.RunModeDiscovery),
 		SourceName: i.tenantID,
 	})
@@ -246,34 +247,34 @@ func (i *EntraIntegration) runDiscovery(ctx context.Context, deps registry.Integ
 
 	applications, err := i.client.ListApplications(ctx)
 	if err != nil {
-		deps.Report(registry.Event{Source: "entra", Stage: "list-app-assets", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
+		report(registry.Event{Source: "entra", Stage: "list-app-assets", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
 	servicePrincipals, err := i.client.ListServicePrincipals(ctx)
 	if err != nil {
-		deps.Report(registry.Event{Source: "entra", Stage: "list-app-assets", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
+		report(registry.Event{Source: "entra", Stage: "list-app-assets", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
 
-	if err := i.syncDiscovery(ctx, deps, runID, applications, servicePrincipals); err != nil {
-		deps.Report(registry.Event{Source: "entra", Stage: "write-discovery", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindUnknown)
+	if err := i.syncDiscovery(ctx, q, report, runID, applications, servicePrincipals); err != nil {
+		report(registry.Event{Source: "entra", Stage: "write-discovery", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindUnknown)
 	}
-	if err := registry.FinalizeDiscoveryRun(ctx, deps, runID, "entra", i.tenantID, time.Since(started)); err != nil {
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+	if err := registry.FinalizeDiscoveryRun(ctx, q, pool, runID, "entra", i.tenantID, time.Since(started)); err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 	slog.Info("entra discovery sync complete", "tenant", i.tenantID)
 	return nil
 }
 
-func (i *EntraIntegration) syncUsers(ctx context.Context, deps registry.IntegrationDeps, runID int64) (int, error) {
+func (i *EntraIntegration) syncUsers(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64) (int, error) {
 	users, err := i.client.ListUsers(ctx)
 	if err != nil {
-		deps.Report(registry.Event{Source: "entra", Stage: "list-users", Message: err.Error(), Err: err})
+		report(registry.Event{Source: "entra", Stage: "list-users", Message: err.Error(), Err: err})
 		return 0, err
 	}
-	deps.Report(registry.Event{Source: "entra", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
-	deps.Report(registry.Event{Source: "entra", Stage: "write-users", Current: 0, Total: int64(len(users)), Message: fmt.Sprintf("writing %d users", len(users))})
+	report(registry.Event{Source: "entra", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
+	report(registry.Event{Source: "entra", Stage: "write-users", Current: 0, Total: int64(len(users)), Message: fmt.Sprintf("writing %d users", len(users))})
 
 	externalIDs := make([]string, 0, len(users))
 	emails := make([]string, 0, len(users))
@@ -327,7 +328,7 @@ func (i *EntraIntegration) syncUsers(ctx context.Context, deps registry.Integrat
 	for start := 0; start < len(externalIDs); start += entraUserBatchSize {
 		end := min(start+entraUserBatchSize, len(externalIDs))
 
-		_, err := deps.Q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
+		_, err := q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
 			SourceKind:       "entra",
 			SourceName:       i.tenantID,
 			SeenInRunID:      runID,
@@ -343,7 +344,7 @@ func (i *EntraIntegration) syncUsers(ctx context.Context, deps registry.Integrat
 			return 0, err
 		}
 
-		deps.Report(registry.Event{
+		report(registry.Event{
 			Source:  "entra",
 			Stage:   "write-users",
 			Current: int64(end),
@@ -539,9 +540,9 @@ func buildEntraCertificateCredentialRow(assetKind, assetExternalID, assetRefExte
 	}
 }
 
-func (i *EntraIntegration) collectAppAssetOwners(ctx context.Context, deps registry.IntegrationDeps, applications []Application, servicePrincipals []ServicePrincipal) ([]appAssetOwnerUpsertRow, error) {
+func (i *EntraIntegration) collectAppAssetOwners(ctx context.Context, report func(registry.Event), applications []Application, servicePrincipals []ServicePrincipal) ([]appAssetOwnerUpsertRow, error) {
 	totalAssets := len(applications) + len(servicePrincipals)
-	deps.Report(registry.Event{Source: "entra", Stage: "list-owners", Current: 0, Total: int64(totalAssets), Message: fmt.Sprintf("listing owners for %d app assets", totalAssets)})
+	report(registry.Event{Source: "entra", Stage: "list-owners", Current: 0, Total: int64(totalAssets), Message: fmt.Sprintf("listing owners for %d app assets", totalAssets)})
 
 	rows := make([]appAssetOwnerUpsertRow, 0)
 	processed := 0
@@ -559,7 +560,7 @@ func (i *EntraIntegration) collectAppAssetOwners(ctx context.Context, deps regis
 		}
 		rows = append(rows, buildOwnerRows("entra_application", assetExternalID, owners)...)
 		processed++
-		deps.Report(registry.Event{Source: "entra", Stage: "list-owners", Current: int64(processed), Total: int64(totalAssets), Message: fmt.Sprintf("owners for assets %d/%d", processed, totalAssets)})
+		report(registry.Event{Source: "entra", Stage: "list-owners", Current: int64(processed), Total: int64(totalAssets), Message: fmt.Sprintf("owners for assets %d/%d", processed, totalAssets)})
 	}
 
 	for _, sp := range servicePrincipals {
@@ -575,7 +576,7 @@ func (i *EntraIntegration) collectAppAssetOwners(ctx context.Context, deps regis
 		}
 		rows = append(rows, buildOwnerRows("entra_service_principal", assetExternalID, owners)...)
 		processed++
-		deps.Report(registry.Event{Source: "entra", Stage: "list-owners", Current: int64(processed), Total: int64(totalAssets), Message: fmt.Sprintf("owners for assets %d/%d", processed, totalAssets)})
+		report(registry.Event{Source: "entra", Stage: "list-owners", Current: int64(processed), Total: int64(totalAssets), Message: fmt.Sprintf("owners for assets %d/%d", processed, totalAssets)})
 	}
 
 	return rows, nil
@@ -621,8 +622,8 @@ func buildOwnerRows(assetKind, assetExternalID string, owners []DirectoryOwner) 
 	return rows
 }
 
-func (i *EntraIntegration) upsertAppAssets(ctx context.Context, deps registry.IntegrationDeps, runID int64, rows []appAssetUpsertRow) error {
-	deps.Report(registry.Event{Source: "entra", Stage: "write-app-assets", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d app assets", len(rows))})
+func (i *EntraIntegration) upsertAppAssets(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []appAssetUpsertRow) error {
+	report(registry.Event{Source: "entra", Stage: "write-app-assets", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d app assets", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
@@ -650,7 +651,7 @@ func (i *EntraIntegration) upsertAppAssets(ctx context.Context, deps registry.In
 			rawJSONs = append(rawJSONs, row.RawJSON)
 		}
 
-		if _, err := deps.Q.UpsertAppAssetsBulkBySource(ctx, gen.UpsertAppAssetsBulkBySourceParams{
+		if _, err := q.UpsertAppAssetsBulkBySource(ctx, gen.UpsertAppAssetsBulkBySourceParams{
 			SourceKind:        "entra",
 			SourceName:        i.tenantID,
 			SeenInRunID:       runID,
@@ -666,14 +667,14 @@ func (i *EntraIntegration) upsertAppAssets(ctx context.Context, deps registry.In
 			return err
 		}
 
-		deps.Report(registry.Event{Source: "entra", Stage: "write-app-assets", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("app assets %d/%d", end, len(rows))})
+		report(registry.Event{Source: "entra", Stage: "write-app-assets", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("app assets %d/%d", end, len(rows))})
 	}
 
 	return nil
 }
 
-func (i *EntraIntegration) upsertAppAssetOwners(ctx context.Context, deps registry.IntegrationDeps, runID int64, rows []appAssetOwnerUpsertRow) error {
-	deps.Report(registry.Event{Source: "entra", Stage: "write-owners", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d owner rows", len(rows))})
+func (i *EntraIntegration) upsertAppAssetOwners(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []appAssetOwnerUpsertRow) error {
+	report(registry.Event{Source: "entra", Stage: "write-owners", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d owner rows", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
@@ -699,7 +700,7 @@ func (i *EntraIntegration) upsertAppAssetOwners(ctx context.Context, deps regist
 			rawJSONs = append(rawJSONs, row.RawJSON)
 		}
 
-		if _, err := deps.Q.UpsertAppAssetOwnersBulkBySource(ctx, gen.UpsertAppAssetOwnersBulkBySourceParams{
+		if _, err := q.UpsertAppAssetOwnersBulkBySource(ctx, gen.UpsertAppAssetOwnersBulkBySourceParams{
 			SeenInRunID:       runID,
 			SourceKind:        "entra",
 			SourceName:        i.tenantID,
@@ -714,14 +715,14 @@ func (i *EntraIntegration) upsertAppAssetOwners(ctx context.Context, deps regist
 			return err
 		}
 
-		deps.Report(registry.Event{Source: "entra", Stage: "write-owners", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("owners %d/%d", end, len(rows))})
+		report(registry.Event{Source: "entra", Stage: "write-owners", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("owners %d/%d", end, len(rows))})
 	}
 
 	return nil
 }
 
-func (i *EntraIntegration) upsertCredentialArtifacts(ctx context.Context, deps registry.IntegrationDeps, runID int64, rows []credentialArtifactUpsertRow) error {
-	deps.Report(registry.Event{Source: "entra", Stage: "write-credentials", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d credential rows", len(rows))})
+func (i *EntraIntegration) upsertCredentialArtifacts(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []credentialArtifactUpsertRow) error {
+	report(registry.Event{Source: "entra", Stage: "write-credentials", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d credential rows", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
@@ -769,7 +770,7 @@ func (i *EntraIntegration) upsertCredentialArtifacts(ctx context.Context, deps r
 			rawJSONs = append(rawJSONs, row.RawJSON)
 		}
 
-		if _, err := deps.Q.UpsertCredentialArtifactsBulkBySource(ctx, gen.UpsertCredentialArtifactsBulkBySourceParams{
+		if _, err := q.UpsertCredentialArtifactsBulkBySource(ctx, gen.UpsertCredentialArtifactsBulkBySourceParams{
 			SourceKind:             "entra",
 			SourceName:             i.tenantID,
 			SeenInRunID:            runID,
@@ -795,7 +796,7 @@ func (i *EntraIntegration) upsertCredentialArtifacts(ctx context.Context, deps r
 			return err
 		}
 
-		deps.Report(registry.Event{Source: "entra", Stage: "write-credentials", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("credentials %d/%d", end, len(rows))})
+		report(registry.Event{Source: "entra", Stage: "write-credentials", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("credentials %d/%d", end, len(rows))})
 	}
 
 	return nil
@@ -1041,8 +1042,8 @@ func extractCredentialExternalIDFromValue(v any) string {
 	return ""
 }
 
-func (i *EntraIntegration) upsertCredentialAuditEvents(ctx context.Context, deps registry.IntegrationDeps, rows []credentialAuditEventUpsertRow) error {
-	deps.Report(registry.Event{Source: "entra", Stage: "write-audit-events", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d credential audit events", len(rows))})
+func (i *EntraIntegration) upsertCredentialAuditEvents(ctx context.Context, q *gen.Queries, report func(registry.Event), rows []credentialAuditEventUpsertRow) error {
+	report(registry.Event{Source: "entra", Stage: "write-audit-events", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d credential audit events", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
@@ -1079,7 +1080,7 @@ func (i *EntraIntegration) upsertCredentialAuditEvents(ctx context.Context, deps
 			rawJSONs = append(rawJSONs, row.RawJSON)
 		}
 
-		if _, err := deps.Q.UpsertCredentialAuditEventsBulkBySource(ctx, gen.UpsertCredentialAuditEventsBulkBySourceParams{
+		if _, err := q.UpsertCredentialAuditEventsBulkBySource(ctx, gen.UpsertCredentialAuditEventsBulkBySourceParams{
 			SourceKind:            "entra",
 			SourceName:            i.tenantID,
 			EventExternalIds:      eventExternalIDs,
@@ -1098,7 +1099,7 @@ func (i *EntraIntegration) upsertCredentialAuditEvents(ctx context.Context, deps
 			return err
 		}
 
-		deps.Report(registry.Event{
+		report(registry.Event{
 			Source:  "entra",
 			Stage:   "write-audit-events",
 			Current: int64(end),
@@ -1135,12 +1136,12 @@ type normalizedDiscoveryEvent struct {
 	RawJSON          []byte
 }
 
-func (i *EntraIntegration) syncDiscovery(ctx context.Context, deps registry.IntegrationDeps, runID int64, applications []Application, servicePrincipals []ServicePrincipal) error {
+func (i *EntraIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, applications []Application, servicePrincipals []ServicePrincipal) error {
 	now := time.Now().UTC()
 
-	deps.Report(registry.Event{Source: "entra", Stage: "list-discovery-events", Current: 0, Total: 1, Message: "listing sign-ins and oauth grants"})
+	report(registry.Event{Source: "entra", Stage: "list-discovery-events", Current: 0, Total: 1, Message: "listing sign-ins and oauth grants"})
 	since := now.Add(-7 * 24 * time.Hour)
-	latestObservedAt, err := deps.Q.GetLatestSaaSDiscoveryObservedAtBySource(ctx, gen.GetLatestSaaSDiscoveryObservedAtBySourceParams{
+	latestObservedAt, err := q.GetLatestSaaSDiscoveryObservedAtBySource(ctx, gen.GetLatestSaaSDiscoveryObservedAtBySourceParams{
 		SourceKind: "entra",
 		SourceName: i.tenantID,
 	})
@@ -1165,7 +1166,7 @@ func (i *EntraIntegration) syncDiscovery(ctx context.Context, deps registry.Inte
 		metrics.DiscoveryIngestFailuresTotal.WithLabelValues("entra", "oauth_grant", "api_error").Inc()
 		return fmt.Errorf("list oauth2 permission grants: %w", err)
 	}
-	deps.Report(registry.Event{
+	report(registry.Event{
 		Source:  "entra",
 		Stage:   "list-discovery-events",
 		Current: 1,
@@ -1173,9 +1174,9 @@ func (i *EntraIntegration) syncDiscovery(ctx context.Context, deps registry.Inte
 		Message: fmt.Sprintf("found %d sign-ins and %d oauth grants", len(signIns), len(grants)),
 	})
 
-	deps.Report(registry.Event{Source: "entra", Stage: "normalize-discovery", Current: 0, Total: 1, Message: "normalizing discovery evidence"})
+	report(registry.Event{Source: "entra", Stage: "normalize-discovery", Current: 0, Total: 1, Message: "normalizing discovery evidence"})
 	sources, events := normalizeEntraDiscovery(signIns, grants, applications, servicePrincipals, i.tenantID, now)
-	deps.Report(registry.Event{
+	report(registry.Event{
 		Source:  "entra",
 		Stage:   "normalize-discovery",
 		Current: 1,
@@ -1183,11 +1184,11 @@ func (i *EntraIntegration) syncDiscovery(ctx context.Context, deps registry.Inte
 		Message: fmt.Sprintf("normalized %d source rows and %d events", len(sources), len(events)),
 	})
 
-	if err := i.writeDiscoveryRows(ctx, deps, runID, sources, events); err != nil {
+	if err := i.writeDiscoveryRows(ctx, q, report, runID, sources, events); err != nil {
 		metrics.DiscoveryIngestFailuresTotal.WithLabelValues("entra", "idp_sso", "db_error").Inc()
 		return err
 	}
-	if err := i.seedEntraAutoBindings(ctx, deps); err != nil {
+	if err := i.seedEntraAutoBindings(ctx, q); err != nil {
 		return err
 	}
 	return nil
@@ -1392,9 +1393,9 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 	return sourceRows, events
 }
 
-func (i *EntraIntegration) writeDiscoveryRows(ctx context.Context, deps registry.IntegrationDeps, runID int64, sources []normalizedDiscoverySource, events []normalizedDiscoveryEvent) error {
+func (i *EntraIntegration) writeDiscoveryRows(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, sources []normalizedDiscoverySource, events []normalizedDiscoveryEvent) error {
 	total := len(sources) + len(events)
-	deps.Report(registry.Event{
+	report(registry.Event{
 		Source:  "entra",
 		Stage:   "write-discovery",
 		Current: 0,
@@ -1465,7 +1466,7 @@ func (i *EntraIntegration) writeDiscoveryRows(ctx context.Context, deps registry
 			firstSeenAts = append(firstSeenAts, registry.PgTimestamptzPtr(&firstSeenAt))
 			lastSeenAts = append(lastSeenAts, registry.PgTimestamptzPtr(&lastSeenAt))
 		}
-		if _, err := deps.Q.UpsertSaaSAppsBulk(ctx, gen.UpsertSaaSAppsBulkParams{
+		if _, err := q.UpsertSaaSAppsBulk(ctx, gen.UpsertSaaSAppsBulkParams{
 			CanonicalKeys:  canonicalKeys,
 			DisplayNames:   displayNames,
 			PrimaryDomains: primaryDomains,
@@ -1491,7 +1492,7 @@ func (i *EntraIntegration) writeDiscoveryRows(ctx context.Context, deps registry
 			sourceAppDomains = append(sourceAppDomains, source.SourceAppDomain)
 			seenAts = append(seenAts, registry.PgTimestamptzPtr(&source.SeenAt))
 		}
-		if _, err := deps.Q.UpsertSaaSAppSourcesBulkBySource(ctx, gen.UpsertSaaSAppSourcesBulkBySourceParams{
+		if _, err := q.UpsertSaaSAppSourcesBulkBySource(ctx, gen.UpsertSaaSAppSourcesBulkBySourceParams{
 			SourceKind:       "entra",
 			SourceName:       i.tenantID,
 			SeenInRunID:      runID,
@@ -1504,7 +1505,7 @@ func (i *EntraIntegration) writeDiscoveryRows(ctx context.Context, deps registry
 			return fmt.Errorf("upsert saas app sources: %w", err)
 		}
 		written += len(sources)
-		deps.Report(registry.Event{
+		report(registry.Event{
 			Source:  "entra",
 			Stage:   "write-discovery",
 			Current: int64(written),
@@ -1542,7 +1543,7 @@ func (i *EntraIntegration) writeDiscoveryRows(ctx context.Context, deps registry
 			rawJSONs = append(rawJSONs, registry.NormalizeJSON(event.RawJSON))
 			ingestedBySignal[event.SignalKind]++
 		}
-		if _, err := deps.Q.UpsertSaaSAppEventsBulkBySource(ctx, gen.UpsertSaaSAppEventsBulkBySourceParams{
+		if _, err := q.UpsertSaaSAppEventsBulkBySource(ctx, gen.UpsertSaaSAppEventsBulkBySourceParams{
 			SourceKind:        "entra",
 			SourceName:        i.tenantID,
 			SeenInRunID:       runID,
@@ -1565,7 +1566,7 @@ func (i *EntraIntegration) writeDiscoveryRows(ctx context.Context, deps registry
 			metrics.DiscoveryEventsIngestedTotal.WithLabelValues("entra", signalKind).Add(float64(count))
 		}
 		written += len(events)
-		deps.Report(registry.Event{
+		report(registry.Event{
 			Source:  "entra",
 			Stage:   "write-discovery",
 			Current: int64(written),
@@ -1575,7 +1576,7 @@ func (i *EntraIntegration) writeDiscoveryRows(ctx context.Context, deps registry
 	}
 
 	if written == 0 {
-		deps.Report(registry.Event{
+		report(registry.Event{
 			Source:  "entra",
 			Stage:   "write-discovery",
 			Current: 0,
@@ -1586,13 +1587,13 @@ func (i *EntraIntegration) writeDiscoveryRows(ctx context.Context, deps registry
 	return nil
 }
 
-func (i *EntraIntegration) seedEntraAutoBindings(ctx context.Context, deps registry.IntegrationDeps) error {
-	appIDs, err := deps.Q.ListEntraDiscoveryAppIDsWithManagedAssetsBySource(ctx, i.tenantID)
+func (i *EntraIntegration) seedEntraAutoBindings(ctx context.Context, q *gen.Queries) error {
+	appIDs, err := q.ListEntraDiscoveryAppIDsWithManagedAssetsBySource(ctx, i.tenantID)
 	if err != nil {
 		return fmt.Errorf("list entra discovery auto-bind candidates: %w", err)
 	}
 	for _, appID := range appIDs {
-		if err := deps.Q.UpsertSaaSAppBinding(ctx, gen.UpsertSaaSAppBindingParams{
+		if err := q.UpsertSaaSAppBinding(ctx, gen.UpsertSaaSAppBindingParams{
 			SaasAppID:           appID,
 			ConnectorKind:       "entra",
 			ConnectorSourceName: i.tenantID,
@@ -1605,7 +1606,7 @@ func (i *EntraIntegration) seedEntraAutoBindings(ctx context.Context, deps regis
 		}
 	}
 	if len(appIDs) > 0 {
-		if _, err := deps.Q.RecomputePrimarySaaSAppBindingsForAll(ctx); err != nil {
+		if _, err := q.RecomputePrimarySaaSAppBindingsForAll(ctx); err != nil {
 			return fmt.Errorf("recompute primary bindings: %w", err)
 		}
 	}

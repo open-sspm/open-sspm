@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
+	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
 type orchestratorRetryIntegration struct {
@@ -24,7 +25,7 @@ func (i *orchestratorRetryIntegration) Role() registry.IntegrationRole {
 	return i.role
 }
 func (i *orchestratorRetryIntegration) InitEvents() []registry.Event { return nil }
-func (i *orchestratorRetryIntegration) Run(context.Context, registry.IntegrationDeps) error {
+func (i *orchestratorRetryIntegration) Run(context.Context, *gen.Queries, *pgxpool.Pool, func(registry.Event), registry.RunMode) error {
 	idx := i.calls
 	i.calls++
 	if idx < len(i.errs) {

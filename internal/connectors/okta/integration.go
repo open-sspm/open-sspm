@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
@@ -72,21 +73,21 @@ func (i *OktaIntegration) InitEvents() []registry.Event {
 	}
 }
 
-func (i *OktaIntegration) Run(ctx context.Context, deps registry.IntegrationDeps) error {
-	switch deps.Mode.Normalize() {
+func (i *OktaIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event), mode registry.RunMode) error {
+	switch mode.Normalize() {
 	case registry.RunModeDiscovery:
 		if !i.SupportsRunMode(registry.RunModeDiscovery) {
 			return nil
 		}
-		return i.runDiscovery(ctx, deps)
+		return i.runDiscovery(ctx, q, pool, report)
 	default:
-		return i.runFull(ctx, deps)
+		return i.runFull(ctx, q, pool, report)
 	}
 }
 
-func (i *OktaIntegration) runFull(ctx context.Context, deps registry.IntegrationDeps) error {
+func (i *OktaIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
 	started := time.Now()
-	runID, err := deps.Q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
+	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
 		SourceKind: registry.SyncRunSourceKind("okta", registry.RunModeFull),
 		SourceName: i.sourceName,
 	})
@@ -98,62 +99,62 @@ func (i *OktaIntegration) runFull(ctx context.Context, deps registry.Integration
 	users, err := i.client.ListUsers(ctx)
 	if err != nil {
 		err = fmt.Errorf("okta list users (/api/v1/users): %w", err)
-		deps.Report(registry.Event{Source: "okta", Stage: "list-users", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
+		report(registry.Event{Source: "okta", Stage: "list-users", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
-	deps.Report(registry.Event{Source: "okta", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
-	deps.Report(registry.Event{Source: "okta", Stage: "sync-users", Current: 0, Total: int64(len(users)), Message: fmt.Sprintf("syncing %d users", len(users))})
+	report(registry.Event{Source: "okta", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
+	report(registry.Event{Source: "okta", Stage: "sync-users", Current: 0, Total: int64(len(users)), Message: fmt.Sprintf("syncing %d users", len(users))})
 
-	if err := i.syncOktaIdpUsers(ctx, deps, runID, users); err != nil {
-		deps.Report(registry.Event{Source: "okta", Stage: "sync-users", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
-	}
-
-	if err := i.syncOktaGroups(ctx, deps, runID); err != nil {
-		deps.Report(registry.Event{Source: "okta", Stage: "sync-groups", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+	if err := i.syncOktaIdpUsers(ctx, q, report, runID, users); err != nil {
+		report(registry.Event{Source: "okta", Stage: "sync-users", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 
-	appIDs, err := i.syncOktaAppAssignments(ctx, deps, runID)
+	if err := i.syncOktaGroups(ctx, q, report, runID); err != nil {
+		report(registry.Event{Source: "okta", Stage: "sync-groups", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+	}
+
+	appIDs, err := i.syncOktaAppAssignments(ctx, q, report, runID)
 	if err != nil {
-		deps.Report(registry.Event{Source: "okta", Stage: "sync-app-assignments", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+		report(registry.Event{Source: "okta", Stage: "sync-app-assignments", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 
-	if err := i.syncOktaAppGroupAssignments(ctx, deps, runID, appIDs); err != nil {
-		deps.Report(registry.Event{Source: "okta", Stage: "sync-app-group-assignments", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+	if err := i.syncOktaAppGroupAssignments(ctx, q, report, runID, appIDs); err != nil {
+		report(registry.Event{Source: "okta", Stage: "sync-app-group-assignments", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 
-	if err := registry.FinalizeOktaRun(ctx, deps, runID, i.sourceName, time.Since(started), false); err != nil {
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+	if err := registry.FinalizeOktaRun(ctx, q, pool, runID, i.sourceName, time.Since(started), false); err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 
 	slog.Info("okta sync complete", "users", len(users))
 	return nil
 }
 
-func (i *OktaIntegration) runDiscovery(ctx context.Context, deps registry.IntegrationDeps) error {
+func (i *OktaIntegration) runDiscovery(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
 	started := time.Now()
-	runID, err := deps.Q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
+	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
 		SourceKind: registry.SyncRunSourceKind("okta", registry.RunModeDiscovery),
 		SourceName: i.sourceName,
 	})
 	if err != nil {
 		return err
 	}
-	if err := i.syncDiscovery(ctx, deps, runID); err != nil {
-		deps.Report(registry.Event{Source: "okta", Stage: "write-discovery", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindUnknown)
+	if err := i.syncDiscovery(ctx, q, report, runID); err != nil {
+		report(registry.Event{Source: "okta", Stage: "write-discovery", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindUnknown)
 	}
-	if err := registry.FinalizeDiscoveryRun(ctx, deps, runID, "okta", i.sourceName, time.Since(started)); err != nil {
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+	if err := registry.FinalizeDiscoveryRun(ctx, q, pool, runID, "okta", i.sourceName, time.Since(started)); err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 	slog.Info("okta discovery sync complete", "source", i.sourceName)
 	return nil
 }
 
-func (i *OktaIntegration) EvaluateCompliance(ctx context.Context, deps registry.IntegrationDeps) error {
+func (i *OktaIntegration) EvaluateCompliance(ctx context.Context, q *gen.Queries, report func(registry.Event)) error {
 	if i == nil {
 		return nil
 	}
@@ -172,7 +173,7 @@ func (i *OktaIntegration) EvaluateCompliance(ctx context.Context, deps registry.
 		Okta: oktaProvider,
 	}
 	e := engine.Engine{
-		Q:        deps.Q,
+		Q:        q,
 		Datasets: router,
 		Now:      time.Now,
 	}
@@ -185,17 +186,17 @@ func (i *OktaIntegration) EvaluateCompliance(ctx context.Context, deps registry.
 	}); err != nil {
 		err = fmt.Errorf("okta ruleset evaluations: %w", err)
 		slog.Error("okta ruleset evaluations failed", "err", err)
-		deps.Report(registry.Event{Source: "okta", Stage: "evaluate-rules", Current: 1, Total: 1, Message: err.Error(), Err: err})
+		report(registry.Event{Source: "okta", Stage: "evaluate-rules", Current: 1, Total: 1, Message: err.Error(), Err: err})
 		return err
 	}
 
-	deps.Report(registry.Event{Source: "okta", Stage: "evaluate-rules", Current: 1, Total: 1, Message: "evaluations complete"})
+	report(registry.Event{Source: "okta", Stage: "evaluate-rules", Current: 1, Total: 1, Message: "evaluations complete"})
 	return nil
 }
 
-func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, deps registry.IntegrationDeps, runID int64, users []User) error {
+func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, users []User) error {
 	if len(users) == 0 {
-		deps.Report(registry.Event{Source: "okta", Stage: "sync-users", Current: 0, Total: 0, Message: "no users to sync"})
+		report(registry.Event{Source: "okta", Stage: "sync-users", Current: 0, Total: 0, Message: "no users to sync"})
 		return nil
 	}
 
@@ -231,7 +232,7 @@ func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, deps registry.In
 			continue
 		}
 
-		if _, err := deps.Q.UpsertOktaAccountsBulk(ctx, gen.UpsertOktaAccountsBulkParams{
+		if _, err := q.UpsertOktaAccountsBulk(ctx, gen.UpsertOktaAccountsBulkParams{
 			SourceName:       i.sourceName,
 			SeenInRunID:      runID,
 			ExternalIds:      externalIDs,
@@ -246,7 +247,7 @@ func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, deps registry.In
 			return fmt.Errorf("upsert idp users: %w", err)
 		}
 
-		deps.Report(registry.Event{
+		report(registry.Event{
 			Source:  "okta",
 			Stage:   "sync-users",
 			Current: int64(end),
@@ -258,12 +259,12 @@ func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, deps registry.In
 	return nil
 }
 
-func (i *OktaIntegration) syncOktaGroups(ctx context.Context, deps registry.IntegrationDeps, runID int64) error {
+func (i *OktaIntegration) syncOktaGroups(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64) error {
 	groups, err := i.client.ListGroups(ctx)
 	if err != nil {
 		return fmt.Errorf("okta list groups: %w", err)
 	}
-	deps.Report(registry.Event{Source: "okta", Stage: "sync-groups", Current: 0, Total: int64(len(groups)), Message: fmt.Sprintf("syncing %d groups", len(groups))})
+	report(registry.Event{Source: "okta", Stage: "sync-groups", Current: 0, Total: int64(len(groups)), Message: fmt.Sprintf("syncing %d groups", len(groups))})
 
 	if len(groups) == 0 {
 		return nil
@@ -291,7 +292,7 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, deps registry.Inte
 		if len(externalIDs) == 0 {
 			continue
 		}
-		if _, err := deps.Q.UpsertOktaGroupsBulk(ctx, gen.UpsertOktaGroupsBulkParams{
+		if _, err := q.UpsertOktaGroupsBulk(ctx, gen.UpsertOktaGroupsBulkParams{
 			SeenInRunID: runID,
 			ExternalIds: externalIDs,
 			Names:       names,
@@ -346,7 +347,7 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, deps registry.Inte
 				if len(idpExternalIDs) == 0 {
 					continue
 				}
-				if _, err := deps.Q.UpsertOktaUserGroupsBulkByExternalIDs(jobCtx, gen.UpsertOktaUserGroupsBulkByExternalIDsParams{
+				if _, err := q.UpsertOktaUserGroupsBulkByExternalIDs(jobCtx, gen.UpsertOktaUserGroupsBulkByExternalIDsParams{
 					SeenInRunID:          runID,
 					IdpUserExternalIds:   idpExternalIDs,
 					OktaGroupExternalIds: groupExternalIDs,
@@ -359,7 +360,7 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, deps registry.Inte
 				}
 			}
 			n := atomic.AddInt64(&done, 1)
-			deps.Report(registry.Event{
+			report(registry.Event{
 				Source:  "okta",
 				Stage:   "sync-groups",
 				Current: n,
@@ -386,7 +387,7 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, deps registry.Inte
 	return firstErr
 }
 
-func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps registry.IntegrationDeps, runID int64) ([]string, error) {
+func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64) ([]string, error) {
 	apps, err := i.client.ListApps(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("okta list apps: %w", err)
@@ -398,7 +399,7 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps regis
 		}
 		validApps = append(validApps, app)
 	}
-	deps.Report(registry.Event{Source: "okta", Stage: "sync-app-assignments", Current: 0, Total: int64(len(validApps)), Message: fmt.Sprintf("syncing %d apps", len(validApps))})
+	report(registry.Event{Source: "okta", Stage: "sync-app-assignments", Current: 0, Total: int64(len(validApps)), Message: fmt.Sprintf("syncing %d apps", len(validApps))})
 
 	appExternalIDs := make([]string, 0, len(validApps))
 	if len(validApps) == 0 {
@@ -433,7 +434,7 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps regis
 		if len(externalIDs) == 0 {
 			continue
 		}
-		if _, err := deps.Q.UpsertOktaAppsBulk(ctx, gen.UpsertOktaAppsBulkParams{
+		if _, err := q.UpsertOktaAppsBulk(ctx, gen.UpsertOktaAppsBulkParams{
 			SeenInRunID: runID,
 			ExternalIds: externalIDs,
 			Labels:      labels,
@@ -476,7 +477,7 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps regis
 			}
 			if len(assignments) == 0 {
 				n := atomic.AddInt64(&done, 1)
-				deps.Report(registry.Event{
+				report(registry.Event{
 					Source:  "okta",
 					Stage:   "sync-app-assignments",
 					Current: n,
@@ -508,7 +509,7 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps regis
 				if len(idpExternalIDs) == 0 {
 					continue
 				}
-				if _, err := deps.Q.UpsertOktaUserAppAssignmentsBulkByExternalIDs(jobCtx, gen.UpsertOktaUserAppAssignmentsBulkByExternalIDsParams{
+				if _, err := q.UpsertOktaUserAppAssignmentsBulkByExternalIDs(jobCtx, gen.UpsertOktaUserAppAssignmentsBulkByExternalIDsParams{
 					SeenInRunID:        runID,
 					IdpUserExternalIds: idpExternalIDs,
 					OktaAppExternalIds: oktaAppExternalIDs,
@@ -525,7 +526,7 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps regis
 			}
 
 			n := atomic.AddInt64(&done, 1)
-			deps.Report(registry.Event{
+			report(registry.Event{
 				Source:  "okta",
 				Stage:   "sync-app-assignments",
 				Current: n,
@@ -549,12 +550,12 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, deps regis
 	return appExternalIDs, firstErr
 }
 
-func (i *OktaIntegration) syncOktaAppGroupAssignments(ctx context.Context, deps registry.IntegrationDeps, runID int64, appExternalIDs []string) error {
+func (i *OktaIntegration) syncOktaAppGroupAssignments(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, appExternalIDs []string) error {
 	if len(appExternalIDs) == 0 {
-		deps.Report(registry.Event{Source: "okta", Stage: "sync-app-group-assignments", Current: 0, Total: 0, Message: "no apps to sync"})
+		report(registry.Event{Source: "okta", Stage: "sync-app-group-assignments", Current: 0, Total: 0, Message: "no apps to sync"})
 		return nil
 	}
-	deps.Report(registry.Event{Source: "okta", Stage: "sync-app-group-assignments", Current: 0, Total: int64(len(appExternalIDs)), Message: fmt.Sprintf("syncing %d apps", len(appExternalIDs))})
+	report(registry.Event{Source: "okta", Stage: "sync-app-group-assignments", Current: 0, Total: int64(len(appExternalIDs)), Message: fmt.Sprintf("syncing %d apps", len(appExternalIDs))})
 
 	workers := min(len(appExternalIDs), i.workers)
 	if workers < 1 {
@@ -601,7 +602,7 @@ func (i *OktaIntegration) syncOktaAppGroupAssignments(ctx context.Context, deps 
 					groupRawJSONs = append(groupRawJSONs, registry.NormalizeJSON(group.RawJSON))
 				}
 				if len(externalIDs) > 0 {
-					if _, err := deps.Q.UpsertOktaGroupsBulk(jobCtx, gen.UpsertOktaGroupsBulkParams{
+					if _, err := q.UpsertOktaGroupsBulk(jobCtx, gen.UpsertOktaGroupsBulkParams{
 						SeenInRunID: runID,
 						ExternalIds: externalIDs,
 						Names:       names,
@@ -638,7 +639,7 @@ func (i *OktaIntegration) syncOktaAppGroupAssignments(ctx context.Context, deps 
 					if len(oktaAppExternalIDs) == 0 {
 						continue
 					}
-					if _, err := deps.Q.UpsertOktaAppGroupAssignmentsBulkByExternalIDs(jobCtx, gen.UpsertOktaAppGroupAssignmentsBulkByExternalIDsParams{
+					if _, err := q.UpsertOktaAppGroupAssignmentsBulkByExternalIDs(jobCtx, gen.UpsertOktaAppGroupAssignmentsBulkByExternalIDsParams{
 						SeenInRunID:          runID,
 						OktaAppExternalIds:   oktaAppExternalIDs,
 						OktaGroupExternalIds: groupExternalIDs,
@@ -655,7 +656,7 @@ func (i *OktaIntegration) syncOktaAppGroupAssignments(ctx context.Context, deps 
 				}
 			}
 			n := atomic.AddInt64(&done, 1)
-			deps.Report(registry.Event{
+			report(registry.Event{
 				Source:  "okta",
 				Stage:   "sync-app-group-assignments",
 				Current: n,
@@ -708,12 +709,12 @@ type normalizedDiscoveryEvent struct {
 	RawJSON          []byte
 }
 
-func (i *OktaIntegration) syncDiscovery(ctx context.Context, deps registry.IntegrationDeps, runID int64) error {
-	deps.Report(registry.Event{Source: "okta", Stage: "list-discovery-events", Current: 0, Total: 1, Message: "listing discovery events"})
+func (i *OktaIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64) error {
+	report(registry.Event{Source: "okta", Stage: "list-discovery-events", Current: 0, Total: 1, Message: "listing discovery events"})
 
 	now := time.Now().UTC()
 	since := now.Add(-7 * 24 * time.Hour)
-	latestObservedAt, err := deps.Q.GetLatestSaaSDiscoveryObservedAtBySource(ctx, gen.GetLatestSaaSDiscoveryObservedAtBySourceParams{
+	latestObservedAt, err := q.GetLatestSaaSDiscoveryObservedAtBySource(ctx, gen.GetLatestSaaSDiscoveryObservedAtBySourceParams{
 		SourceKind: "okta",
 		SourceName: i.sourceName,
 	})
@@ -733,7 +734,7 @@ func (i *OktaIntegration) syncDiscovery(ctx context.Context, deps registry.Integ
 		metrics.DiscoveryIngestFailuresTotal.WithLabelValues("okta", "idp_sso", "api_error").Inc()
 		return fmt.Errorf("okta list system log events: %w", err)
 	}
-	deps.Report(registry.Event{
+	report(registry.Event{
 		Source:  "okta",
 		Stage:   "list-discovery-events",
 		Current: 1,
@@ -741,9 +742,9 @@ func (i *OktaIntegration) syncDiscovery(ctx context.Context, deps registry.Integ
 		Message: fmt.Sprintf("found %d events since %s", len(events), since.Format(time.RFC3339)),
 	})
 
-	deps.Report(registry.Event{Source: "okta", Stage: "normalize-discovery", Current: 0, Total: 1, Message: "normalizing discovery events"})
+	report(registry.Event{Source: "okta", Stage: "normalize-discovery", Current: 0, Total: 1, Message: "normalizing discovery events"})
 	sources, normalizedEvents := normalizeOktaDiscovery(events, i.sourceName, now)
-	deps.Report(registry.Event{
+	report(registry.Event{
 		Source:  "okta",
 		Stage:   "normalize-discovery",
 		Current: 1,
@@ -751,11 +752,11 @@ func (i *OktaIntegration) syncDiscovery(ctx context.Context, deps registry.Integ
 		Message: fmt.Sprintf("normalized %d source rows and %d events", len(sources), len(normalizedEvents)),
 	})
 
-	if err := i.writeDiscoveryRows(ctx, deps, runID, sources, normalizedEvents); err != nil {
+	if err := i.writeDiscoveryRows(ctx, q, report, runID, sources, normalizedEvents); err != nil {
 		metrics.DiscoveryIngestFailuresTotal.WithLabelValues("okta", "idp_sso", "db_error").Inc()
 		return err
 	}
-	if err := i.seedOktaAutoBindings(ctx, deps); err != nil {
+	if err := i.seedOktaAutoBindings(ctx, q); err != nil {
 		return err
 	}
 	return nil
@@ -862,9 +863,9 @@ func oktaDiscoverySignalKind(eventType string, hasApp bool) string {
 	return ""
 }
 
-func (i *OktaIntegration) writeDiscoveryRows(ctx context.Context, deps registry.IntegrationDeps, runID int64, sources []normalizedDiscoverySource, events []normalizedDiscoveryEvent) error {
+func (i *OktaIntegration) writeDiscoveryRows(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, sources []normalizedDiscoverySource, events []normalizedDiscoveryEvent) error {
 	total := len(sources) + len(events)
-	deps.Report(registry.Event{
+	report(registry.Event{
 		Source:  "okta",
 		Stage:   "write-discovery",
 		Current: 0,
@@ -937,7 +938,7 @@ func (i *OktaIntegration) writeDiscoveryRows(ctx context.Context, deps registry.
 			lastSeenAts = append(lastSeenAts, registry.PgTimestamptzPtr(&lastSeenAt))
 		}
 
-		if _, err := deps.Q.UpsertSaaSAppsBulk(ctx, gen.UpsertSaaSAppsBulkParams{
+		if _, err := q.UpsertSaaSAppsBulk(ctx, gen.UpsertSaaSAppsBulkParams{
 			CanonicalKeys:  canonicalKeys,
 			DisplayNames:   displayNames,
 			PrimaryDomains: primaryDomains,
@@ -963,7 +964,7 @@ func (i *OktaIntegration) writeDiscoveryRows(ctx context.Context, deps registry.
 			sourceAppDomains = append(sourceAppDomains, source.SourceAppDomain)
 			seenAts = append(seenAts, registry.PgTimestamptzPtr(&source.SeenAt))
 		}
-		if _, err := deps.Q.UpsertSaaSAppSourcesBulkBySource(ctx, gen.UpsertSaaSAppSourcesBulkBySourceParams{
+		if _, err := q.UpsertSaaSAppSourcesBulkBySource(ctx, gen.UpsertSaaSAppSourcesBulkBySourceParams{
 			SourceKind:       "okta",
 			SourceName:       i.sourceName,
 			SeenInRunID:      runID,
@@ -976,7 +977,7 @@ func (i *OktaIntegration) writeDiscoveryRows(ctx context.Context, deps registry.
 			return fmt.Errorf("upsert saas app sources: %w", err)
 		}
 		written += len(sources)
-		deps.Report(registry.Event{
+		report(registry.Event{
 			Source:  "okta",
 			Stage:   "write-discovery",
 			Current: int64(written),
@@ -1014,7 +1015,7 @@ func (i *OktaIntegration) writeDiscoveryRows(ctx context.Context, deps registry.
 			rawJSONs = append(rawJSONs, registry.NormalizeJSON(event.RawJSON))
 			ingestedBySignal[event.SignalKind]++
 		}
-		if _, err := deps.Q.UpsertSaaSAppEventsBulkBySource(ctx, gen.UpsertSaaSAppEventsBulkBySourceParams{
+		if _, err := q.UpsertSaaSAppEventsBulkBySource(ctx, gen.UpsertSaaSAppEventsBulkBySourceParams{
 			SourceKind:        "okta",
 			SourceName:        i.sourceName,
 			SeenInRunID:       runID,
@@ -1037,7 +1038,7 @@ func (i *OktaIntegration) writeDiscoveryRows(ctx context.Context, deps registry.
 			metrics.DiscoveryEventsIngestedTotal.WithLabelValues("okta", signalKind).Add(float64(count))
 		}
 		written += len(events)
-		deps.Report(registry.Event{
+		report(registry.Event{
 			Source:  "okta",
 			Stage:   "write-discovery",
 			Current: int64(written),
@@ -1047,7 +1048,7 @@ func (i *OktaIntegration) writeDiscoveryRows(ctx context.Context, deps registry.
 	}
 
 	if written == 0 {
-		deps.Report(registry.Event{
+		report(registry.Event{
 			Source:  "okta",
 			Stage:   "write-discovery",
 			Current: 0,
@@ -1058,8 +1059,8 @@ func (i *OktaIntegration) writeDiscoveryRows(ctx context.Context, deps registry.
 	return nil
 }
 
-func (i *OktaIntegration) seedOktaAutoBindings(ctx context.Context, deps registry.IntegrationDeps) error {
-	rows, err := deps.Q.ListMappedOktaDiscoveryAppsBySource(ctx, i.sourceName)
+func (i *OktaIntegration) seedOktaAutoBindings(ctx context.Context, q *gen.Queries) error {
+	rows, err := q.ListMappedOktaDiscoveryAppsBySource(ctx, i.sourceName)
 	if err != nil {
 		return fmt.Errorf("list okta discovery auto-bind candidates: %w", err)
 	}
@@ -1069,7 +1070,7 @@ func (i *OktaIntegration) seedOktaAutoBindings(ctx context.Context, deps registr
 
 	connectorSourceByKind := map[string]string{}
 
-	githubConfigRow, err := deps.Q.GetConnectorConfig(ctx, configstore.KindGitHub)
+	githubConfigRow, err := q.GetConnectorConfig(ctx, configstore.KindGitHub)
 	if err == nil && githubConfigRow.Enabled {
 		githubCfg, decodeErr := configstore.DecodeGitHubConfig(githubConfigRow.Config)
 		if decodeErr == nil {
@@ -1080,7 +1081,7 @@ func (i *OktaIntegration) seedOktaAutoBindings(ctx context.Context, deps registr
 		}
 	}
 
-	datadogConfigRow, err := deps.Q.GetConnectorConfig(ctx, configstore.KindDatadog)
+	datadogConfigRow, err := q.GetConnectorConfig(ctx, configstore.KindDatadog)
 	if err == nil && datadogConfigRow.Enabled {
 		datadogCfg, decodeErr := configstore.DecodeDatadogConfig(datadogConfigRow.Config)
 		if decodeErr == nil {
@@ -1098,7 +1099,7 @@ func (i *OktaIntegration) seedOktaAutoBindings(ctx context.Context, deps registr
 		if connectorSource == "" {
 			continue
 		}
-		if err := deps.Q.UpsertSaaSAppBinding(ctx, gen.UpsertSaaSAppBindingParams{
+		if err := q.UpsertSaaSAppBinding(ctx, gen.UpsertSaaSAppBindingParams{
 			SaasAppID:           row.SaasAppID,
 			ConnectorKind:       connectorKind,
 			ConnectorSourceName: connectorSource,
@@ -1113,7 +1114,7 @@ func (i *OktaIntegration) seedOktaAutoBindings(ctx context.Context, deps registr
 	}
 
 	if boundCount > 0 {
-		if _, err := deps.Q.RecomputePrimarySaaSAppBindingsForAll(ctx); err != nil {
+		if _, err := q.RecomputePrimarySaaSAppBindingsForAll(ctx); err != nil {
 			return fmt.Errorf("recompute primary bindings: %w", err)
 		}
 	}

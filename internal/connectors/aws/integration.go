@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/matching"
@@ -40,11 +41,11 @@ func (i *AWSIntegration) InitEvents() []registry.Event {
 	}
 }
 
-func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps) error {
+func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event), _ registry.RunMode) error {
 	started := time.Now()
 	slog.Info("syncing AWS Identity Center")
 
-	runID, err := deps.Q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
+	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
 		SourceKind: "aws",
 		SourceName: i.sourceName,
 	})
@@ -54,18 +55,18 @@ func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps)
 
 	users, err := i.client.ListUsers(ctx)
 	if err != nil {
-		deps.Report(registry.Event{Source: "aws", Stage: "list-users", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
+		report(registry.Event{Source: "aws", Stage: "list-users", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
-	deps.Report(registry.Event{Source: "aws", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
-	deps.Report(registry.Event{Source: "aws", Stage: "write-users", Current: 0, Total: int64(len(users)), Message: fmt.Sprintf("writing %d users", len(users))})
+	report(registry.Event{Source: "aws", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
+	report(registry.Event{Source: "aws", Stage: "write-users", Current: 0, Total: int64(len(users)), Message: fmt.Sprintf("writing %d users", len(users))})
 
 	entitlementsByUser, err := i.client.ListUserEntitlements(ctx)
 	if err != nil {
-		deps.Report(registry.Event{Source: "aws", Stage: "list-assignments", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
+		report(registry.Event{Source: "aws", Stage: "list-assignments", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
-	deps.Report(registry.Event{Source: "aws", Stage: "list-assignments", Current: 1, Total: 1, Message: "assignments fetched"})
+	report(registry.Event{Source: "aws", Stage: "list-assignments", Current: 1, Total: 1, Message: "assignments fetched"})
 
 	const userBatchSize = 1000
 	externalIDs := make([]string, 0, len(users))
@@ -101,7 +102,7 @@ func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps)
 
 	for start := 0; start < len(externalIDs); start += userBatchSize {
 		end := min(start+userBatchSize, len(externalIDs))
-		_, err := deps.Q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
+		_, err := q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
 			SourceKind:       "aws",
 			SourceName:       i.sourceName,
 			SeenInRunID:      runID,
@@ -114,10 +115,10 @@ func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps)
 			LastLoginRegions: lastLoginRegions[start:end],
 		})
 		if err != nil {
-			deps.Report(registry.Event{Source: "aws", Stage: "write-users", Message: err.Error(), Err: err})
-			return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+			report(registry.Event{Source: "aws", Stage: "write-users", Message: err.Error(), Err: err})
+			return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 		}
-		deps.Report(registry.Event{
+		report(registry.Event{
 			Source:  "aws",
 			Stage:   "write-users",
 			Current: int64(end),
@@ -161,7 +162,7 @@ func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps)
 
 	for start := 0; start < len(entAppUserExternalIDs); start += entitlementBatchSize {
 		end := min(start+entitlementBatchSize, len(entAppUserExternalIDs))
-		_, err := deps.Q.UpsertEntitlementsBulkBySource(ctx, gen.UpsertEntitlementsBulkBySourceParams{
+		_, err := q.UpsertEntitlementsBulkBySource(ctx, gen.UpsertEntitlementsBulkBySourceParams{
 			SeenInRunID:        runID,
 			SourceKind:         "aws",
 			SourceName:         i.sourceName,
@@ -172,13 +173,13 @@ func (i *AWSIntegration) Run(ctx context.Context, deps registry.IntegrationDeps)
 			RawJsons:           entRawJSONs[start:end],
 		})
 		if err != nil {
-			deps.Report(registry.Event{Source: "aws", Stage: "write-users", Message: err.Error(), Err: err})
-			return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+			report(registry.Event{Source: "aws", Stage: "write-users", Message: err.Error(), Err: err})
+			return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 		}
 	}
 
-	if err := registry.FinalizeAppRun(ctx, deps, runID, "aws", i.sourceName, time.Since(started), false); err != nil {
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+	if err := registry.FinalizeAppRun(ctx, q, pool, runID, "aws", i.sourceName, time.Since(started), false); err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 	slog.Info("aws sync complete", "users", len(users))
 	return nil
