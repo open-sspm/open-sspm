@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,6 +25,33 @@ const ensureSafeDestination = (destination) => {
     fail(`destination must stay under web/static/vendor: ${destination}`);
   }
   return resolved;
+};
+
+const readBufferIfExists = async (filePath) => {
+  try {
+    return await readFile(filePath);
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
+};
+
+const writeFileAtomic = async (destinationPath, buffer) => {
+  const destinationDir = path.dirname(destinationPath);
+  const tempPath = path.join(
+    destinationDir,
+    `.${path.basename(destinationPath)}.tmp-${process.pid}-${Date.now()}`,
+  );
+
+  try {
+    await writeFile(tempPath, buffer);
+    await rename(tempPath, destinationPath);
+  } catch (error) {
+    await rm(tempPath, { force: true }).catch(() => {});
+    throw error;
+  }
 };
 
 const readManifest = async () => {
@@ -93,16 +120,14 @@ const main = async () => {
     const destinationPath = ensureSafeDestination(destinationRel);
     managedDestinationPaths.add(destinationPath);
 
-    if (!existsSync(sourcePath)) {
+    const sourceBuffer = await readBufferIfExists(sourcePath);
+    if (!sourceBuffer) {
       fail(`source file not found: ${path.relative(rootDir, sourcePath)}`);
     }
 
-    const sourceBuffer = await readFile(sourcePath);
-    let sameContent = false;
-    if (existsSync(destinationPath)) {
-      const destinationBuffer = await readFile(destinationPath);
-      sameContent = digest(sourceBuffer) === digest(destinationBuffer);
-    }
+    const destinationBuffer = await readBufferIfExists(destinationPath);
+    const sameContent =
+      destinationBuffer !== null && digest(sourceBuffer) === digest(destinationBuffer);
 
     if (sameContent) {
       unchangedCount += 1;
@@ -110,7 +135,7 @@ const main = async () => {
     }
 
     await mkdir(path.dirname(destinationPath), { recursive: true });
-    await writeFile(destinationPath, sourceBuffer);
+    await writeFileAtomic(destinationPath, sourceBuffer);
     changedCount += 1;
   }
 
