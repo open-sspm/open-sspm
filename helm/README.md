@@ -131,6 +131,12 @@ kubectl port-forward svc/<service-name> 8080:80
 - Discovery sync worker interval is configured with `config.syncDiscoveryInterval`.
 - To disable the discovery worker deployment, set `discoveryWorker.enabled=false`.
 
+### Structured logging
+
+- `config.logFormat` controls `LOG_FORMAT` (default: `json`; allowed: `json`, `text`)
+- `config.logLevel` controls `LOG_LEVEL` (default: `info`; allowed: `debug`, `info`, `warn`, `error`)
+- Invalid values fail fast during command startup.
+
 ### Metrics service component selector
 
 If `metrics.service.enabled=true`, choose which pod to target with `metrics.service.component`:

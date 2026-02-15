@@ -53,6 +53,10 @@ spec:
               value: {{ .Values.config.httpAddr | quote }}
             - name: METRICS_ADDR
               value: {{ .Values.config.metricsAddr | quote }}
+            - name: LOG_FORMAT
+              value: {{ .Values.config.logFormat | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.config.logLevel | quote }}
             - name: AUTH_COOKIE_SECURE
               value: {{ ternary "1" "0" .Values.config.authCookieSecure | quote }}
             - name: DEV_SEED_ADMIN

@@ -49,7 +49,7 @@ func NewEchoServer(cfg config.Config, pool *pgxpool.Pool, q *gen.Queries, syncer
 	sessions.Cookie.Secure = cfg.AuthCookieSecure
 
 	h := &handlers.Handlers{Cfg: cfg, Q: q, Pool: pool, Syncer: syncer, Registry: reg, Sessions: sessions}
-	es := &EchoServer{h: h, e: echo.New()}
+	es := &EchoServer{h: h, e: newEcho()}
 	es.e.Use(middleware.RequestIDWithConfig(middleware.RequestIDConfig{
 		RequestIDHandler: func(c *echo.Context, id string) {
 			id = normalizeRequestID(id)
@@ -71,6 +71,12 @@ func NewEchoServer(cfg config.Config, pool *pgxpool.Pool, q *gen.Queries, syncer
 	es.e.HTTPErrorHandler = es.httpErrorHandler
 	es.registerRoutes()
 	return es, nil
+}
+
+func newEcho() *echo.Echo {
+	e := echo.New()
+	e.Logger = slog.Default().With("component", "http")
+	return e
 }
 
 func normalizeRequestID(id string) string {

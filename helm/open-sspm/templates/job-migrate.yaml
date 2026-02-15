@@ -48,6 +48,10 @@ spec:
                 secretKeyRef:
                   name: {{ required "database.existingSecret.name is required" .Values.database.existingSecret.name }}
                   key: {{ required "database.existingSecret.key is required" .Values.database.existingSecret.key }}
+            - name: LOG_FORMAT
+              value: {{ .Values.config.logFormat | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.config.logLevel | quote }}
           {{- with .Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}

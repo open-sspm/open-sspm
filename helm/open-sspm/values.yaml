@@ -25,6 +25,9 @@ config:
   # Default binds to localhost for safety; set to ":9090" to bind 0.0.0.0 inside the pod (scrapable via Pod IP).
   # If you enable metrics scraping (e.g. `metrics.service.enabled=true`), restrict access via NetworkPolicy / mTLS; metrics may include sensitive identifiers.
   metricsAddr: "127.0.0.1:9090"
+  # Structured logs for service/ops commands.
+  logFormat: "json"
+  logLevel: "info"
   # When true, session & CSRF cookies are marked Secure (required for HTTPS ingress).
   # Keep false for plain HTTP / port-forward.
   authCookieSecure: false
