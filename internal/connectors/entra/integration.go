@@ -1226,7 +1226,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 
 		vendorName := strings.TrimSpace(app.VerifiedPublisher.DisplayName)
 		if vendorName == "" {
-			vendorName = publisherVendorFromDomain(app.PublisherDomain)
+			vendorName = discovery.VendorLabelFromDomain(app.PublisherDomain)
 		}
 		if vendorName != "" {
 			appVendorByAppID[appID] = vendorName
@@ -1659,34 +1659,6 @@ func graphObservedAtOrNow(raw string, fallback time.Time) time.Time {
 		return fallback.UTC()
 	}
 	return parsed.Time.UTC()
-}
-
-func publisherVendorFromDomain(raw string) string {
-	domain := strings.ToLower(strings.TrimSpace(raw))
-	if domain == "" {
-		return ""
-	}
-	if idx := strings.Index(domain, "://"); idx >= 0 {
-		domain = domain[idx+3:]
-	}
-	if idx := strings.Index(domain, "/"); idx >= 0 {
-		domain = domain[:idx]
-	}
-	domain = strings.TrimPrefix(domain, "www.")
-	domain = strings.Trim(domain, ".")
-	if domain == "" {
-		return ""
-	}
-	part := domain
-	if idx := strings.Index(part, "."); idx > 0 {
-		part = part[:idx]
-	}
-	part = strings.ReplaceAll(part, "-", " ")
-	part = strings.TrimSpace(part)
-	if part == "" {
-		return ""
-	}
-	return strings.ToUpper(part[:1]) + part[1:]
 }
 
 func credentialLifecycleStatus(start, end pgtype.Timestamptz) string {

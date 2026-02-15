@@ -111,3 +111,26 @@ func TestBuildMetadata(t *testing.T) {
 		}
 	})
 }
+
+func TestVendorLabelFromDomain(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "plain domain", raw: "acme.com", want: "Acme"},
+		{name: "url host and path", raw: "https://www.example-app.io/settings", want: "Example app"},
+		{name: "empty", raw: "  ", want: ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := VendorLabelFromDomain(tc.raw); got != tc.want {
+				t.Fatalf("VendorLabelFromDomain(%q) = %q, want %q", tc.raw, got, tc.want)
+			}
+		})
+	}
+}

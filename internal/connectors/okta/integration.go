@@ -692,11 +692,12 @@ func (i *OktaIntegration) syncOktaAppGroupAssignments(ctx context.Context, deps 
 }
 
 type normalizedDiscoverySource struct {
-	CanonicalKey    string
-	SourceAppID     string
-	SourceAppName   string
-	SourceAppDomain string
-	SeenAt          time.Time
+	CanonicalKey     string
+	SourceAppID      string
+	SourceAppName    string
+	SourceAppDomain  string
+	SourceVendorName string
+	SeenAt           time.Time
 }
 
 type normalizedDiscoveryEvent struct {
@@ -706,6 +707,7 @@ type normalizedDiscoveryEvent struct {
 	SourceAppID      string
 	SourceAppName    string
 	SourceAppDomain  string
+	SourceVendorName string
 	ActorExternalID  string
 	ActorEmail       string
 	ActorDisplayName string
@@ -802,15 +804,26 @@ func normalizeOktaDiscovery(events []SystemLogEvent, sourceName string, now time
 			SourceAppName: sourceAppName,
 			SourceDomain:  sourceAppDomain,
 		})
+		if metadata.VendorName == "" {
+			metadata = discovery.BuildMetadata(discovery.CanonicalInput{
+				SourceKind:       "okta",
+				SourceName:       sourceName,
+				SourceAppID:      sourceAppID,
+				SourceAppName:    sourceAppName,
+				SourceDomain:     sourceAppDomain,
+				SourceVendorName: sourceAppName,
+			})
+		}
 
 		current := sourceByID[sourceAppID]
 		if current.SourceAppID == "" || observedAt.After(current.SeenAt) {
 			sourceByID[sourceAppID] = normalizedDiscoverySource{
-				CanonicalKey:    metadata.CanonicalKey,
-				SourceAppID:     sourceAppID,
-				SourceAppName:   sourceAppName,
-				SourceAppDomain: metadata.Domain,
-				SeenAt:          observedAt,
+				CanonicalKey:     metadata.CanonicalKey,
+				SourceAppID:      sourceAppID,
+				SourceAppName:    sourceAppName,
+				SourceAppDomain:  metadata.Domain,
+				SourceVendorName: metadata.VendorName,
+				SeenAt:           observedAt,
 			}
 		}
 
@@ -821,6 +834,7 @@ func normalizeOktaDiscovery(events []SystemLogEvent, sourceName string, now time
 			SourceAppID:      sourceAppID,
 			SourceAppName:    sourceAppName,
 			SourceAppDomain:  metadata.Domain,
+			SourceVendorName: metadata.VendorName,
 			ActorExternalID:  strings.TrimSpace(event.ActorID),
 			ActorEmail:       strings.ToLower(strings.TrimSpace(event.ActorEmail)),
 			ActorDisplayName: strings.TrimSpace(event.ActorName),
@@ -889,22 +903,24 @@ func (i *OktaIntegration) writeDiscoveryRows(ctx context.Context, deps registry.
 
 	for _, source := range sources {
 		meta := discovery.BuildMetadata(discovery.CanonicalInput{
-			SourceKind:    "okta",
-			SourceName:    i.sourceName,
-			SourceAppID:   source.SourceAppID,
-			SourceAppName: source.SourceAppName,
-			SourceDomain:  source.SourceAppDomain,
+			SourceKind:       "okta",
+			SourceName:       i.sourceName,
+			SourceAppID:      source.SourceAppID,
+			SourceAppName:    source.SourceAppName,
+			SourceDomain:     source.SourceAppDomain,
+			SourceVendorName: source.SourceVendorName,
 		})
 		meta.CanonicalKey = source.CanonicalKey
 		addMeta(source.CanonicalKey, source.SeenAt, meta)
 	}
 	for _, event := range events {
 		meta := discovery.BuildMetadata(discovery.CanonicalInput{
-			SourceKind:    "okta",
-			SourceName:    i.sourceName,
-			SourceAppID:   event.SourceAppID,
-			SourceAppName: event.SourceAppName,
-			SourceDomain:  event.SourceAppDomain,
+			SourceKind:       "okta",
+			SourceName:       i.sourceName,
+			SourceAppID:      event.SourceAppID,
+			SourceAppName:    event.SourceAppName,
+			SourceDomain:     event.SourceAppDomain,
+			SourceVendorName: event.SourceVendorName,
 		})
 		meta.CanonicalKey = event.CanonicalKey
 		addMeta(event.CanonicalKey, event.ObservedAt, meta)

@@ -799,38 +799,10 @@ func discoveryAppSecondaryLabels(displayName, domain, vendor string) (string, st
 	if strings.EqualFold(vendor, displayName) {
 		return domain, ""
 	}
-	if domainVendor := discoveryVendorLabelFromDomain(domain); domainVendor != "" && strings.EqualFold(vendor, domainVendor) {
+	if domainVendor := discovery.VendorLabelFromDomain(domain); domainVendor != "" && strings.EqualFold(vendor, domainVendor) {
 		return domain, ""
 	}
 	return domain, vendor
-}
-
-func discoveryVendorLabelFromDomain(domain string) string {
-	domain = strings.ToLower(strings.TrimSpace(domain))
-	if domain == "" {
-		return ""
-	}
-	if idx := strings.Index(domain, "://"); idx >= 0 {
-		domain = domain[idx+3:]
-	}
-	if idx := strings.Index(domain, "/"); idx >= 0 {
-		domain = domain[:idx]
-	}
-	domain = strings.TrimPrefix(domain, "www.")
-	domain = strings.Trim(domain, ".")
-	if domain == "" {
-		return ""
-	}
-	part := domain
-	if idx := strings.Index(part, "."); idx > 0 {
-		part = part[:idx]
-	}
-	part = strings.ReplaceAll(part, "-", " ")
-	part = strings.TrimSpace(part)
-	if part == "" {
-		return ""
-	}
-	return strings.ToUpper(part[:1]) + part[1:]
 }
 
 func discoveryOwnerLabel(displayName, email string) string {

@@ -145,17 +145,35 @@ func inferVendorName(sourceVendorName, domain string) string {
 	if sourceVendorName != "" {
 		return sourceVendorName
 	}
+	return VendorLabelFromDomain(domain)
+}
 
-	if domain != "" {
-		part := domain
-		if idx := strings.Index(part, "."); idx > 0 {
-			part = part[:idx]
-		}
-		part = strings.ReplaceAll(part, "-", " ")
-		part = strings.TrimSpace(part)
-		if part != "" {
-			return strings.ToUpper(part[:1]) + part[1:]
-		}
+// VendorLabelFromDomain derives a human-readable vendor label from a domain-like
+// input (URL/host/domain). It returns an empty string when no label can be derived.
+func VendorLabelFromDomain(raw string) string {
+	domain := strings.ToLower(strings.TrimSpace(raw))
+	if domain == "" {
+		return ""
 	}
-	return ""
+	if idx := strings.Index(domain, "://"); idx >= 0 {
+		domain = domain[idx+3:]
+	}
+	if idx := strings.Index(domain, "/"); idx >= 0 {
+		domain = domain[:idx]
+	}
+	domain = strings.TrimPrefix(domain, "www.")
+	domain = strings.Trim(domain, ".")
+	if domain == "" {
+		return ""
+	}
+	part := domain
+	if idx := strings.Index(part, "."); idx > 0 {
+		part = part[:idx]
+	}
+	part = strings.ReplaceAll(part, "-", " ")
+	part = strings.TrimSpace(part)
+	if part == "" {
+		return ""
+	}
+	return strings.ToUpper(part[:1]) + part[1:]
 }
