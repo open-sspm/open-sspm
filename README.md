@@ -56,6 +56,10 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 
 ## Configuration
 - Process-level env vars: `.env.example` (database, HTTP address, sync interval/workers).
+- Structured logging for service/ops commands:
+  - `LOG_FORMAT=json|text` (default: `json`)
+  - `LOG_LEVEL=debug|info|warn|error` (default: `info`)
+  - Invalid logging values fail fast at startup.
 - Manual resync mode: `RESYNC_MODE=signal` (default, queues workers via Postgres `NOTIFY`) or `RESYNC_MODE=inline` (request runs sync directly).
 - Connector credentials: configured in-app under Settings → Connectors and stored in Postgres.
 - AWS Identity Center uses the AWS SDK default credentials chain (env/shared config/role), not DB-stored keys.

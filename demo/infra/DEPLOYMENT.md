@@ -12,6 +12,11 @@ This repo expects **runtime files** to exist on disk:
 
 By default the server serves static assets from `web/static` relative to its working directory, or you can set `STATIC_DIR` (recommended for systemd installs).
 
+Logging defaults for demo deploys:
+- `LOG_FORMAT=json`
+- `LOG_LEVEL=info`
+- valid values are `LOG_FORMAT=json|text` and `LOG_LEVEL=debug|info|warn|error`
+
 The Ansible bootstrap creates an empty working directory at:
 - `/opt/open-sspm/web/static`
 - `/opt/open-sspm/db/migrations`

@@ -1,6 +1,8 @@
 package httpapp
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -14,6 +16,34 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/http/handlers"
 )
+
+func TestNewEchoUsesDefaultLogger(t *testing.T) {
+	var out bytes.Buffer
+	oldDefault := slog.Default()
+	t.Cleanup(func() { slog.SetDefault(oldDefault) })
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&out, nil)).With("app", "open-sspm", "command", "open-sspm serve"))
+
+	e := newEcho()
+	e.Logger.Info("logger wiring check")
+
+	line := strings.TrimSpace(out.String())
+	if line == "" {
+		t.Fatal("expected logger output")
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(line), &payload); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if got := payload["app"]; got != "open-sspm" {
+		t.Fatalf("app = %v, want %q", got, "open-sspm")
+	}
+	if got := payload["command"]; got != "open-sspm serve" {
+		t.Fatalf("command = %v, want %q", got, "open-sspm serve")
+	}
+	if got := payload["component"]; got != "http" {
+		t.Fatalf("component = %v, want %q", got, "http")
+	}
+}
 
 func TestHTTPErrorHandlerInternalErrorIsGeneric(t *testing.T) {
 	e := echo.New()
