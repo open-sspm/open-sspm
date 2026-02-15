@@ -15,25 +15,18 @@ const (
 	RoleApp IntegrationRole = "app"
 )
 
-type IntegrationDeps struct {
-	Q      *gen.Queries
-	Pool   *pgxpool.Pool
-	Report func(Event)
-	Mode   RunMode
-}
-
 type Integration interface {
 	Kind() string
 	Name() string
 	Role() IntegrationRole
 	InitEvents() []Event
-	Run(context.Context, IntegrationDeps) error
+	Run(context.Context, *gen.Queries, *pgxpool.Pool, func(Event), RunMode) error
 }
 
 // ComplianceEvaluator is an optional interface that integrations can implement
 // to run compliance ruleset evaluations after all connectors have synced.
 type ComplianceEvaluator interface {
-	EvaluateCompliance(context.Context, IntegrationDeps) error
+	EvaluateCompliance(context.Context, *gen.Queries, func(Event)) error
 }
 
 // ModeAwareIntegration is an optional interface that integrations can implement

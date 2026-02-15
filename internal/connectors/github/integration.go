@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/matching"
@@ -154,11 +155,11 @@ func (i *GitHubIntegration) InitEvents() []registry.Event {
 	}
 }
 
-func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDeps) error {
+func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event), _ registry.RunMode) error {
 	started := time.Now()
 	slog.Info("syncing GitHub", "org", i.org)
 
-	runID, err := deps.Q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
+	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
 		SourceKind: "github",
 		SourceName: i.org,
 	})
@@ -168,8 +169,8 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 
 	members, err := i.client.ListOrgMembers(ctx, i.org)
 	if err != nil {
-		deps.Report(registry.Event{Source: "github", Stage: "list-members", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
+		report(registry.Event{Source: "github", Stage: "list-members", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
 
 	type externalIdentity struct {
@@ -183,13 +184,13 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 	samlIdentities, err := i.client.ListOrgSAMLExternalIdentities(ctx, i.org)
 	if err != nil {
 		slog.Warn("github saml external identities lookup failed", "org", i.org, "err", err)
-		deps.Report(registry.Event{Source: "github", Stage: "resolve-emails", Message: fmt.Sprintf("saml identity lookup failed: %v", err), Err: err})
+		report(registry.Event{Source: "github", Stage: "resolve-emails", Message: fmt.Sprintf("saml identity lookup failed: %v", err), Err: err})
 		if errors.Is(err, ErrNoSAMLIdentityProvider) && strings.TrimSpace(i.enterprise) != "" {
 			slog.Info("github trying enterprise external identities", "enterprise", i.enterprise, "org", i.org)
 			samlIdentities, err = i.client.ListEnterpriseSAMLExternalIdentities(ctx, i.enterprise)
 			if err != nil {
 				slog.Warn("github enterprise external identities lookup failed", "enterprise", i.enterprise, "err", err)
-				deps.Report(registry.Event{Source: "github", Stage: "resolve-emails", Message: fmt.Sprintf("enterprise saml identity lookup failed: %v", err), Err: err})
+				report(registry.Event{Source: "github", Stage: "resolve-emails", Message: fmt.Sprintf("enterprise saml identity lookup failed: %v", err), Err: err})
 			} else {
 				for _, identity := range samlIdentities {
 					login := strings.ToLower(strings.TrimSpace(identity.Login))
@@ -224,7 +225,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 		scimUsers, err := i.client.ListOrgSCIMUsers(ctx, i.org)
 		if err != nil {
 			slog.Warn("github scim users lookup failed", "org", i.org, "err", err)
-			deps.Report(registry.Event{Source: "github", Stage: "resolve-emails", Message: fmt.Sprintf("scim user lookup failed: %v", err), Err: err})
+			report(registry.Event{Source: "github", Stage: "resolve-emails", Message: fmt.Sprintf("scim user lookup failed: %v", err), Err: err})
 		} else {
 			for _, u := range scimUsers {
 				if v := strings.ToLower(strings.TrimSpace(u.UserName)); v != "" {
@@ -299,7 +300,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 			emailsWithValue++
 		}
 	}
-	deps.Report(registry.Event{Source: "github", Stage: "resolve-emails", Current: 1, Total: 1, Message: fmt.Sprintf("resolved %d/%d member emails via SAML/SCIM (total_with_email=%d scim=%t external_identities=%d scim_users=%d)", resolvedEmails, len(members), emailsWithValue, i.scim, len(externalByLogin), len(scimByUserName))})
+	report(registry.Event{Source: "github", Stage: "resolve-emails", Current: 1, Total: 1, Message: fmt.Sprintf("resolved %d/%d member emails via SAML/SCIM (total_with_email=%d scim=%t external_identities=%d scim_users=%d)", resolvedEmails, len(members), emailsWithValue, i.scim, len(externalByLogin), len(scimByUserName))})
 	slog.Info("github resolved member emails via SAML/SCIM",
 		"resolved", resolvedEmails,
 		"total_members", len(members),
@@ -309,16 +310,16 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 		"scim_users", len(scimByUserName),
 	)
 
-	deps.Report(registry.Event{Source: "github", Stage: "list-members", Current: 1, Total: 1, Message: fmt.Sprintf("found %d members (%d with email)", len(members), emailsWithValue)})
-	deps.Report(registry.Event{Source: "github", Stage: "write-members", Current: 0, Total: int64(len(members)), Message: fmt.Sprintf("writing %d members", len(members))})
+	report(registry.Event{Source: "github", Stage: "list-members", Current: 1, Total: 1, Message: fmt.Sprintf("found %d members (%d with email)", len(members), emailsWithValue)})
+	report(registry.Event{Source: "github", Stage: "write-members", Current: 0, Total: int64(len(members)), Message: fmt.Sprintf("writing %d members", len(members))})
 
 	teams, err := i.client.ListTeams(ctx, i.org)
 	if err != nil {
-		deps.Report(registry.Event{Source: "github", Stage: "list-teams", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindAPI)
+		report(registry.Event{Source: "github", Stage: "list-teams", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
-	deps.Report(registry.Event{Source: "github", Stage: "list-teams", Current: 1, Total: 1, Message: fmt.Sprintf("found %d teams", len(teams))})
-	deps.Report(registry.Event{Source: "github", Stage: "fetch-team-data", Current: 0, Total: int64(len(teams)), Message: fmt.Sprintf("fetching %d teams", len(teams))})
+	report(registry.Event{Source: "github", Stage: "list-teams", Current: 1, Total: 1, Message: fmt.Sprintf("found %d teams", len(teams))})
+	report(registry.Event{Source: "github", Stage: "fetch-team-data", Current: 0, Total: int64(len(teams)), Message: fmt.Sprintf("fetching %d teams", len(teams))})
 
 	teamMembers := make(map[string][]string)
 	teamRepos := make(map[string][]TeamRepo)
@@ -364,7 +365,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 						continue
 					}
 					n := atomic.AddInt64(&teamsDone, 1)
-					deps.Report(registry.Event{
+					report(registry.Event{
 						Source:  "github",
 						Stage:   "fetch-team-data",
 						Current: n,
@@ -405,12 +406,12 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 			firstErr = firstNonCancelErr
 		}
 		if firstErr != nil {
-			deps.Report(registry.Event{Source: "github", Stage: "fetch-team-data", Message: firstErr.Error(), Err: firstErr})
-			return registry.FailSyncRun(ctx, deps.Q, runID, firstErr, registry.SyncErrorKindAPI)
+			report(registry.Event{Source: "github", Stage: "fetch-team-data", Message: firstErr.Error(), Err: firstErr})
+			return registry.FailSyncRun(ctx, q, runID, firstErr, registry.SyncErrorKindAPI)
 		}
 	}
 
-	deps.Report(registry.Event{Source: "github", Stage: "write-members", Current: 0, Total: int64(len(members)), Message: fmt.Sprintf("writing %d members", len(members))})
+	report(registry.Event{Source: "github", Stage: "write-members", Current: 0, Total: int64(len(members)), Message: fmt.Sprintf("writing %d members", len(members))})
 
 	const userBatchSize = 1000
 	externalIDs := make([]string, 0, len(members))
@@ -441,7 +442,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 
 	for start := 0; start < len(externalIDs); start += userBatchSize {
 		end := min(start+userBatchSize, len(externalIDs))
-		_, err := deps.Q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
+		_, err := q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
 			SourceKind:       "github",
 			SourceName:       i.org,
 			SeenInRunID:      runID,
@@ -454,10 +455,10 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 			LastLoginRegions: lastLoginRegions[start:end],
 		})
 		if err != nil {
-			deps.Report(registry.Event{Source: "github", Stage: "write-members", Message: err.Error(), Err: err})
-			return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+			report(registry.Event{Source: "github", Stage: "write-members", Message: err.Error(), Err: err})
+			return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 		}
-		deps.Report(registry.Event{
+		report(registry.Event{
 			Source:  "github",
 			Stage:   "write-members",
 			Current: int64(end),
@@ -518,7 +519,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 
 	for start := 0; start < len(entAppUserExternalIDs); start += entitlementBatchSize {
 		end := min(start+entitlementBatchSize, len(entAppUserExternalIDs))
-		_, err := deps.Q.UpsertEntitlementsBulkBySource(ctx, gen.UpsertEntitlementsBulkBySourceParams{
+		_, err := q.UpsertEntitlementsBulkBySource(ctx, gen.UpsertEntitlementsBulkBySourceParams{
 			SeenInRunID:        runID,
 			SourceKind:         "github",
 			SourceName:         i.org,
@@ -529,23 +530,23 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 			RawJsons:           entRawJSONs[start:end],
 		})
 		if err != nil {
-			deps.Report(registry.Event{Source: "github", Stage: "write-members", Message: err.Error(), Err: err})
-			return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+			report(registry.Event{Source: "github", Stage: "write-members", Message: err.Error(), Err: err})
+			return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 		}
 	}
 
-	programmaticSummary, err := i.syncProgrammaticAccess(ctx, deps, runID)
+	programmaticSummary, err := i.syncProgrammaticAccess(ctx, q, report, runID)
 	if err != nil {
 		errorKind := registry.SyncErrorKindUnknown
 		var programmaticErr *programmaticSyncError
 		if errors.As(err, &programmaticErr) && strings.TrimSpace(programmaticErr.kind) != "" {
 			errorKind = strings.TrimSpace(programmaticErr.kind)
 		}
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, errorKind)
+		return registry.FailSyncRun(ctx, q, runID, err, errorKind)
 	}
 
-	if err := registry.FinalizeAppRun(ctx, deps, runID, "github", i.org, time.Since(started), false); err != nil {
-		return registry.FailSyncRun(ctx, deps.Q, runID, err, registry.SyncErrorKindDB)
+	if err := registry.FinalizeAppRun(ctx, q, pool, runID, "github", i.org, time.Since(started), false); err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 	slog.Info(
 		"github sync complete",
@@ -559,17 +560,17 @@ func (i *GitHubIntegration) Run(ctx context.Context, deps registry.IntegrationDe
 	return nil
 }
 
-func (i *GitHubIntegration) syncProgrammaticAccess(ctx context.Context, deps registry.IntegrationDeps, runID int64) (githubProgrammaticSyncSummary, error) {
+func (i *GitHubIntegration) syncProgrammaticAccess(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64) (githubProgrammaticSyncSummary, error) {
 	summary := githubProgrammaticSyncSummary{}
 
-	deps.Report(registry.Event{Source: "github", Stage: "list-programmatic-assets", Current: 0, Total: 1, Message: "listing repositories for deploy-key governance"})
+	report(registry.Event{Source: "github", Stage: "list-programmatic-assets", Current: 0, Total: 1, Message: "listing repositories for deploy-key governance"})
 	repositories, err := i.client.ListOrgRepos(ctx, i.org)
 	if err != nil {
 		wrapped := fmt.Errorf("github repository listing failed: %w", err)
-		deps.Report(registry.Event{Source: "github", Stage: "list-programmatic-assets", Message: wrapped.Error(), Err: err})
+		report(registry.Event{Source: "github", Stage: "list-programmatic-assets", Message: wrapped.Error(), Err: err})
 		return summary, &programmaticSyncError{kind: registry.SyncErrorKindAPI, err: wrapped}
 	} else {
-		deps.Report(registry.Event{
+		report(registry.Event{
 			Source:  "github",
 			Stage:   "list-programmatic-assets",
 			Current: 1,
@@ -580,120 +581,120 @@ func (i *GitHubIntegration) syncProgrammaticAccess(ctx context.Context, deps reg
 
 	credentialRows := make([]githubCredentialArtifactUpsertRow, 0)
 	if len(repositories) > 0 {
-		deps.Report(registry.Event{Source: "github", Stage: "list-deploy-keys", Current: 0, Total: int64(len(repositories)), Message: fmt.Sprintf("listing deploy keys for %d repositories", len(repositories))})
+		report(registry.Event{Source: "github", Stage: "list-deploy-keys", Current: 0, Total: int64(len(repositories)), Message: fmt.Sprintf("listing deploy keys for %d repositories", len(repositories))})
 		for idx, repo := range repositories {
 			repoName := strings.TrimSpace(repo.Name)
 			if repoName == "" {
 				repoName = strings.TrimSpace(strings.TrimPrefix(repo.FullName, i.org+"/"))
 			}
 			if repoName == "" {
-				deps.Report(registry.Event{Source: "github", Stage: "list-deploy-keys", Current: int64(idx + 1), Total: int64(len(repositories)), Message: fmt.Sprintf("skipping repository %q (missing name)", repo.FullName)})
+				report(registry.Event{Source: "github", Stage: "list-deploy-keys", Current: int64(idx + 1), Total: int64(len(repositories)), Message: fmt.Sprintf("skipping repository %q (missing name)", repo.FullName)})
 				continue
 			}
 
 			keys, err := i.client.ListRepoDeployKeys(ctx, i.org, repoName)
 			if err != nil {
 				wrapped := fmt.Errorf("github deploy key lookup failed for %s: %w", repoName, err)
-				deps.Report(registry.Event{Source: "github", Stage: "list-deploy-keys", Message: wrapped.Error(), Err: err})
+				report(registry.Event{Source: "github", Stage: "list-deploy-keys", Message: wrapped.Error(), Err: err})
 				return summary, &programmaticSyncError{kind: registry.SyncErrorKindAPI, err: wrapped}
 			}
 			credentialRows = append(credentialRows, buildGitHubDeployKeyCredentialRows(i.org, repo, keys)...)
-			deps.Report(registry.Event{Source: "github", Stage: "list-deploy-keys", Current: int64(idx + 1), Total: int64(len(repositories)), Message: fmt.Sprintf("deploy keys %d/%d", idx+1, len(repositories))})
+			report(registry.Event{Source: "github", Stage: "list-deploy-keys", Current: int64(idx + 1), Total: int64(len(repositories)), Message: fmt.Sprintf("deploy keys %d/%d", idx+1, len(repositories))})
 		}
 	}
 
-	deps.Report(registry.Event{Source: "github", Stage: "list-pat-governance", Current: 0, Total: 2, Message: "listing fine-grained PAT requests"})
+	report(registry.Event{Source: "github", Stage: "list-pat-governance", Current: 0, Total: 2, Message: "listing fine-grained PAT requests"})
 	patRequests, err := i.client.ListOrgPersonalAccessTokenRequests(ctx, i.org)
 	if err != nil {
 		if errors.Is(err, ErrDatasetUnavailable) {
 			wrapped := fmt.Errorf("github pat request dataset unavailable; aborting sync to avoid expiring valid data: %w", err)
-			deps.Report(registry.Event{Source: "github", Stage: "list-pat-governance", Message: wrapped.Error(), Err: err})
+			report(registry.Event{Source: "github", Stage: "list-pat-governance", Message: wrapped.Error(), Err: err})
 			return summary, &programmaticSyncError{kind: registry.SyncErrorKindAPI, err: wrapped}
 		} else {
 			wrapped := fmt.Errorf("github pat request listing failed: %w", err)
-			deps.Report(registry.Event{Source: "github", Stage: "list-pat-governance", Message: wrapped.Error(), Err: err})
+			report(registry.Event{Source: "github", Stage: "list-pat-governance", Message: wrapped.Error(), Err: err})
 			return summary, &programmaticSyncError{kind: registry.SyncErrorKindAPI, err: wrapped}
 		}
 	} else {
 		credentialRows = append(credentialRows, buildGitHubPATRequestCredentialRows(i.org, patRequests)...)
-		deps.Report(registry.Event{Source: "github", Stage: "list-pat-governance", Current: 1, Total: 2, Message: fmt.Sprintf("found %d pat requests", len(patRequests))})
+		report(registry.Event{Source: "github", Stage: "list-pat-governance", Current: 1, Total: 2, Message: fmt.Sprintf("found %d pat requests", len(patRequests))})
 	}
 
-	deps.Report(registry.Event{Source: "github", Stage: "list-pat-governance", Current: 1, Total: 2, Message: "listing approved fine-grained PATs"})
+	report(registry.Event{Source: "github", Stage: "list-pat-governance", Current: 1, Total: 2, Message: "listing approved fine-grained PATs"})
 	pats, err := i.client.ListOrgPersonalAccessTokens(ctx, i.org)
 	if err != nil {
 		if errors.Is(err, ErrDatasetUnavailable) {
 			wrapped := fmt.Errorf("github pat token dataset unavailable; aborting sync to avoid expiring valid data: %w", err)
-			deps.Report(registry.Event{Source: "github", Stage: "list-pat-governance", Message: wrapped.Error(), Err: err})
+			report(registry.Event{Source: "github", Stage: "list-pat-governance", Message: wrapped.Error(), Err: err})
 			return summary, &programmaticSyncError{kind: registry.SyncErrorKindAPI, err: wrapped}
 		} else {
 			wrapped := fmt.Errorf("github pat token listing failed: %w", err)
-			deps.Report(registry.Event{Source: "github", Stage: "list-pat-governance", Message: wrapped.Error(), Err: err})
+			report(registry.Event{Source: "github", Stage: "list-pat-governance", Message: wrapped.Error(), Err: err})
 			return summary, &programmaticSyncError{kind: registry.SyncErrorKindAPI, err: wrapped}
 		}
 	} else {
 		credentialRows = append(credentialRows, buildGitHubPATCredentialRows(i.org, pats)...)
-		deps.Report(registry.Event{Source: "github", Stage: "list-pat-governance", Current: 2, Total: 2, Message: fmt.Sprintf("found %d fine-grained pats", len(pats))})
+		report(registry.Event{Source: "github", Stage: "list-pat-governance", Current: 2, Total: 2, Message: fmt.Sprintf("found %d fine-grained pats", len(pats))})
 	}
 
-	deps.Report(registry.Event{Source: "github", Stage: "list-installations", Current: 0, Total: 1, Message: "listing GitHub app installations"})
+	report(registry.Event{Source: "github", Stage: "list-installations", Current: 0, Total: 1, Message: "listing GitHub app installations"})
 	installationRows := make([]githubAppAssetUpsertRow, 0)
 	installations, err := i.client.ListOrgInstallations(ctx, i.org)
 	if err != nil {
 		if errors.Is(err, ErrDatasetUnavailable) {
 			wrapped := fmt.Errorf("github app installations dataset unavailable; aborting sync to avoid expiring valid data: %w", err)
-			deps.Report(registry.Event{Source: "github", Stage: "list-installations", Message: wrapped.Error(), Err: err})
+			report(registry.Event{Source: "github", Stage: "list-installations", Message: wrapped.Error(), Err: err})
 			return summary, &programmaticSyncError{kind: registry.SyncErrorKindAPI, err: wrapped}
 		} else {
 			wrapped := fmt.Errorf("github app installations listing failed: %w", err)
-			deps.Report(registry.Event{Source: "github", Stage: "list-installations", Message: wrapped.Error(), Err: err})
+			report(registry.Event{Source: "github", Stage: "list-installations", Message: wrapped.Error(), Err: err})
 			return summary, &programmaticSyncError{kind: registry.SyncErrorKindAPI, err: wrapped}
 		}
 	}
-	deps.Report(registry.Event{Source: "github", Stage: "list-installations", Current: 1, Total: 1, Message: fmt.Sprintf("found %d installations", len(installations))})
+	report(registry.Event{Source: "github", Stage: "list-installations", Current: 1, Total: 1, Message: fmt.Sprintf("found %d installations", len(installations))})
 	installationRows, ownerRows := buildGitHubInstallationRows(installations)
 
-	deps.Report(registry.Event{Source: "github", Stage: "list-audit-events", Current: 0, Total: 1, Message: "listing org audit events"})
+	report(registry.Event{Source: "github", Stage: "list-audit-events", Current: 0, Total: 1, Message: "listing org audit events"})
 	var auditRows []githubCredentialAuditEventUpsertRow
 	auditEvents, err := i.client.ListOrgAuditLog(ctx, i.org)
 	if err != nil {
 		if errors.Is(err, ErrDatasetUnavailable) {
 			wrapped := fmt.Errorf("github audit log dataset unavailable; aborting sync to avoid expiring valid data: %w", err)
-			deps.Report(registry.Event{Source: "github", Stage: "list-audit-events", Message: wrapped.Error(), Err: err})
+			report(registry.Event{Source: "github", Stage: "list-audit-events", Message: wrapped.Error(), Err: err})
 			return summary, &programmaticSyncError{kind: registry.SyncErrorKindAPI, err: wrapped}
 		} else {
 			wrapped := fmt.Errorf("github audit log listing failed: %w", err)
-			deps.Report(registry.Event{Source: "github", Stage: "list-audit-events", Message: wrapped.Error(), Err: err})
+			report(registry.Event{Source: "github", Stage: "list-audit-events", Message: wrapped.Error(), Err: err})
 			return summary, &programmaticSyncError{kind: registry.SyncErrorKindAPI, err: wrapped}
 		}
 	} else {
-		deps.Report(registry.Event{Source: "github", Stage: "list-audit-events", Current: 1, Total: 1, Message: fmt.Sprintf("found %d audit events", len(auditEvents))})
+		report(registry.Event{Source: "github", Stage: "list-audit-events", Current: 1, Total: 1, Message: fmt.Sprintf("found %d audit events", len(auditEvents))})
 		auditRows = buildGitHubAuditEventRows(i.org, auditEvents)
 	}
 
-	if err := i.upsertProgrammaticAppAssets(ctx, deps, runID, installationRows); err != nil {
-		deps.Report(registry.Event{Source: "github", Stage: "write-programmatic-assets", Message: err.Error(), Err: err})
+	if err := i.upsertProgrammaticAppAssets(ctx, q, report, runID, installationRows); err != nil {
+		report(registry.Event{Source: "github", Stage: "write-programmatic-assets", Message: err.Error(), Err: err})
 		return summary, &programmaticSyncError{kind: registry.SyncErrorKindDB, err: fmt.Errorf("github app installation upsert failed: %w", err)}
 	} else {
 		summary.AppAssets = len(installationRows)
 	}
 
-	if err := i.upsertProgrammaticAssetOwners(ctx, deps, runID, ownerRows); err != nil {
-		deps.Report(registry.Event{Source: "github", Stage: "write-programmatic-owners", Message: err.Error(), Err: err})
+	if err := i.upsertProgrammaticAssetOwners(ctx, q, report, runID, ownerRows); err != nil {
+		report(registry.Event{Source: "github", Stage: "write-programmatic-owners", Message: err.Error(), Err: err})
 		return summary, &programmaticSyncError{kind: registry.SyncErrorKindDB, err: fmt.Errorf("github app installation owner upsert failed: %w", err)}
 	} else {
 		summary.Owners = len(ownerRows)
 	}
 
-	if err := i.upsertProgrammaticCredentials(ctx, deps, runID, credentialRows); err != nil {
-		deps.Report(registry.Event{Source: "github", Stage: "write-programmatic-credentials", Message: err.Error(), Err: err})
+	if err := i.upsertProgrammaticCredentials(ctx, q, report, runID, credentialRows); err != nil {
+		report(registry.Event{Source: "github", Stage: "write-programmatic-credentials", Message: err.Error(), Err: err})
 		return summary, &programmaticSyncError{kind: registry.SyncErrorKindDB, err: fmt.Errorf("github credential metadata upsert failed: %w", err)}
 	} else {
 		summary.Credentials = len(credentialRows)
 	}
 
-	if err := i.upsertProgrammaticAuditEvents(ctx, deps, auditRows); err != nil {
-		deps.Report(registry.Event{Source: "github", Stage: "write-programmatic-audit-events", Message: err.Error(), Err: err})
+	if err := i.upsertProgrammaticAuditEvents(ctx, q, report, auditRows); err != nil {
+		report(registry.Event{Source: "github", Stage: "write-programmatic-audit-events", Message: err.Error(), Err: err})
 		return summary, &programmaticSyncError{kind: registry.SyncErrorKindDB, err: fmt.Errorf("github credential audit-event upsert failed: %w", err)}
 	} else {
 		summary.AuditEvents = len(auditRows)
@@ -1278,8 +1279,8 @@ func parseGitHubTime(raw string) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: parsed, Valid: true}
 }
 
-func (i *GitHubIntegration) upsertProgrammaticAppAssets(ctx context.Context, deps registry.IntegrationDeps, runID int64, rows []githubAppAssetUpsertRow) error {
-	deps.Report(registry.Event{Source: "github", Stage: "write-programmatic-assets", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d programmatic app assets", len(rows))})
+func (i *GitHubIntegration) upsertProgrammaticAppAssets(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []githubAppAssetUpsertRow) error {
+	report(registry.Event{Source: "github", Stage: "write-programmatic-assets", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d programmatic app assets", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
@@ -1307,7 +1308,7 @@ func (i *GitHubIntegration) upsertProgrammaticAppAssets(ctx context.Context, dep
 			rawJSONs = append(rawJSONs, row.RawJSON)
 		}
 
-		if _, err := deps.Q.UpsertAppAssetsBulkBySource(ctx, gen.UpsertAppAssetsBulkBySourceParams{
+		if _, err := q.UpsertAppAssetsBulkBySource(ctx, gen.UpsertAppAssetsBulkBySourceParams{
 			SourceKind:        "github",
 			SourceName:        i.org,
 			SeenInRunID:       runID,
@@ -1323,14 +1324,14 @@ func (i *GitHubIntegration) upsertProgrammaticAppAssets(ctx context.Context, dep
 			return err
 		}
 
-		deps.Report(registry.Event{Source: "github", Stage: "write-programmatic-assets", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("programmatic app assets %d/%d", end, len(rows))})
+		report(registry.Event{Source: "github", Stage: "write-programmatic-assets", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("programmatic app assets %d/%d", end, len(rows))})
 	}
 
 	return nil
 }
 
-func (i *GitHubIntegration) upsertProgrammaticAssetOwners(ctx context.Context, deps registry.IntegrationDeps, runID int64, rows []githubAppAssetOwnerUpsertRow) error {
-	deps.Report(registry.Event{Source: "github", Stage: "write-programmatic-owners", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d programmatic app owners", len(rows))})
+func (i *GitHubIntegration) upsertProgrammaticAssetOwners(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []githubAppAssetOwnerUpsertRow) error {
+	report(registry.Event{Source: "github", Stage: "write-programmatic-owners", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d programmatic app owners", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
@@ -1356,7 +1357,7 @@ func (i *GitHubIntegration) upsertProgrammaticAssetOwners(ctx context.Context, d
 			rawJSONs = append(rawJSONs, row.RawJSON)
 		}
 
-		if _, err := deps.Q.UpsertAppAssetOwnersBulkBySource(ctx, gen.UpsertAppAssetOwnersBulkBySourceParams{
+		if _, err := q.UpsertAppAssetOwnersBulkBySource(ctx, gen.UpsertAppAssetOwnersBulkBySourceParams{
 			SeenInRunID:       runID,
 			SourceKind:        "github",
 			SourceName:        i.org,
@@ -1371,14 +1372,14 @@ func (i *GitHubIntegration) upsertProgrammaticAssetOwners(ctx context.Context, d
 			return err
 		}
 
-		deps.Report(registry.Event{Source: "github", Stage: "write-programmatic-owners", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("programmatic owners %d/%d", end, len(rows))})
+		report(registry.Event{Source: "github", Stage: "write-programmatic-owners", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("programmatic owners %d/%d", end, len(rows))})
 	}
 
 	return nil
 }
 
-func (i *GitHubIntegration) upsertProgrammaticCredentials(ctx context.Context, deps registry.IntegrationDeps, runID int64, rows []githubCredentialArtifactUpsertRow) error {
-	deps.Report(registry.Event{Source: "github", Stage: "write-programmatic-credentials", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d programmatic credentials", len(rows))})
+func (i *GitHubIntegration) upsertProgrammaticCredentials(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []githubCredentialArtifactUpsertRow) error {
+	report(registry.Event{Source: "github", Stage: "write-programmatic-credentials", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d programmatic credentials", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
@@ -1426,7 +1427,7 @@ func (i *GitHubIntegration) upsertProgrammaticCredentials(ctx context.Context, d
 			rawJSONs = append(rawJSONs, row.RawJSON)
 		}
 
-		if _, err := deps.Q.UpsertCredentialArtifactsBulkBySource(ctx, gen.UpsertCredentialArtifactsBulkBySourceParams{
+		if _, err := q.UpsertCredentialArtifactsBulkBySource(ctx, gen.UpsertCredentialArtifactsBulkBySourceParams{
 			SourceKind:             "github",
 			SourceName:             i.org,
 			SeenInRunID:            runID,
@@ -1452,14 +1453,14 @@ func (i *GitHubIntegration) upsertProgrammaticCredentials(ctx context.Context, d
 			return err
 		}
 
-		deps.Report(registry.Event{Source: "github", Stage: "write-programmatic-credentials", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("programmatic credentials %d/%d", end, len(rows))})
+		report(registry.Event{Source: "github", Stage: "write-programmatic-credentials", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("programmatic credentials %d/%d", end, len(rows))})
 	}
 
 	return nil
 }
 
-func (i *GitHubIntegration) upsertProgrammaticAuditEvents(ctx context.Context, deps registry.IntegrationDeps, rows []githubCredentialAuditEventUpsertRow) error {
-	deps.Report(registry.Event{Source: "github", Stage: "write-programmatic-audit-events", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d programmatic credential audit events", len(rows))})
+func (i *GitHubIntegration) upsertProgrammaticAuditEvents(ctx context.Context, q *gen.Queries, report func(registry.Event), rows []githubCredentialAuditEventUpsertRow) error {
+	report(registry.Event{Source: "github", Stage: "write-programmatic-audit-events", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d programmatic credential audit events", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
@@ -1495,7 +1496,7 @@ func (i *GitHubIntegration) upsertProgrammaticAuditEvents(ctx context.Context, d
 			rawJSONs = append(rawJSONs, row.RawJSON)
 		}
 
-		if _, err := deps.Q.UpsertCredentialAuditEventsBulkBySource(ctx, gen.UpsertCredentialAuditEventsBulkBySourceParams{
+		if _, err := q.UpsertCredentialAuditEventsBulkBySource(ctx, gen.UpsertCredentialAuditEventsBulkBySourceParams{
 			SourceKind:            "github",
 			SourceName:            i.org,
 			EventExternalIds:      eventExternalIDs,
@@ -1514,7 +1515,7 @@ func (i *GitHubIntegration) upsertProgrammaticAuditEvents(ctx context.Context, d
 			return err
 		}
 
-		deps.Report(registry.Event{Source: "github", Stage: "write-programmatic-audit-events", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("programmatic audit events %d/%d", end, len(rows))})
+		report(registry.Event{Source: "github", Stage: "write-programmatic-audit-events", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("programmatic audit events %d/%d", end, len(rows))})
 	}
 
 	return nil

@@ -5,9 +5,11 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/entra"
 	"github.com/open-sspm/open-sspm/internal/connectors/okta"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
+	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
 type stubIntegration struct {
@@ -20,7 +22,7 @@ func (i stubIntegration) Kind() string                   { return i.kind }
 func (i stubIntegration) Name() string                   { return i.name }
 func (i stubIntegration) Role() registry.IntegrationRole { return i.role }
 func (i stubIntegration) InitEvents() []registry.Event   { return nil }
-func (i stubIntegration) Run(context.Context, registry.IntegrationDeps) error {
+func (i stubIntegration) Run(context.Context, *gen.Queries, *pgxpool.Pool, func(registry.Event), registry.RunMode) error {
 	return nil
 }
 

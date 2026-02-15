@@ -43,11 +43,11 @@ func (i *orchestratorCountingIntegration) Role() registry.IntegrationRole {
 	return registry.RoleIdP
 }
 func (i *orchestratorCountingIntegration) InitEvents() []registry.Event { return nil }
-func (i *orchestratorCountingIntegration) Run(context.Context, registry.IntegrationDeps) error {
+func (i *orchestratorCountingIntegration) Run(context.Context, *gen.Queries, *pgxpool.Pool, func(registry.Event), registry.RunMode) error {
 	i.runCount++
 	return nil
 }
-func (i *orchestratorCountingIntegration) EvaluateCompliance(context.Context, registry.IntegrationDeps) error {
+func (i *orchestratorCountingIntegration) EvaluateCompliance(context.Context, *gen.Queries, func(registry.Event)) error {
 	i.complianceCount++
 	return nil
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
@@ -82,14 +83,14 @@ func FailSyncRun(ctx context.Context, q *gen.Queries, runID int64, err error, er
 	return err
 }
 
-func FinalizeOktaRun(ctx context.Context, deps IntegrationDeps, runID int64, sourceName string, duration time.Duration, finalizeDiscovery bool) error {
-	tx, err := deps.Pool.Begin(ctx)
+func FinalizeOktaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceName string, duration time.Duration, finalizeDiscovery bool) error {
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 
-	qtx := deps.Q.WithTx(tx)
+	qtx := q.WithTx(tx)
 
 	counts := map[string]int64{}
 
@@ -218,14 +219,14 @@ func FinalizeOktaRun(ctx context.Context, deps IntegrationDeps, runID int64, sou
 	return tx.Commit(ctx)
 }
 
-func FinalizeAppRun(ctx context.Context, deps IntegrationDeps, runID int64, sourceKind, sourceName string, duration time.Duration, finalizeDiscovery bool) error {
-	tx, err := deps.Pool.Begin(ctx)
+func FinalizeAppRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceKind, sourceName string, duration time.Duration, finalizeDiscovery bool) error {
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 
-	qtx := deps.Q.WithTx(tx)
+	qtx := q.WithTx(tx)
 
 	counts := map[string]int64{}
 
@@ -384,14 +385,14 @@ func FinalizeAppRun(ctx context.Context, deps IntegrationDeps, runID int64, sour
 	return tx.Commit(ctx)
 }
 
-func FinalizeDiscoveryRun(ctx context.Context, deps IntegrationDeps, runID int64, sourceKind, sourceName string, duration time.Duration) error {
-	tx, err := deps.Pool.Begin(ctx)
+func FinalizeDiscoveryRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceKind, sourceName string, duration time.Duration) error {
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 
-	qtx := deps.Q.WithTx(tx)
+	qtx := q.WithTx(tx)
 
 	counts := map[string]int64{}
 	observed, err := qtx.PromoteSaaSAppSourcesSeenInRunBySource(ctx, gen.PromoteSaaSAppSourcesSeenInRunBySourceParams{
