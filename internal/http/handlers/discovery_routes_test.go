@@ -101,6 +101,145 @@ func TestHandleDiscoveryApps_AllConfiguredExcludesUnconfiguredSources(t *testing
 	}
 }
 
+func TestHandleDiscoveryApps_AppCellSuppressesDuplicateVendorAndMissingDomain(t *testing.T) {
+	harness := newProgrammaticAccessRouteHarness(t)
+	ensureSaaSDiscoverySchema(t, harness.ctx, harness.tx)
+	configureDiscoveryOktaSource(t, harness, "acme.okta.com")
+
+	now := time.Now().UTC()
+	insertDiscoveryAppSeed(t, harness, discoveryAppSeed{
+		CanonicalKey:     "name:irs-account:okta",
+		DisplayName:      "IRS account",
+		PrimaryDomain:    "",
+		PrimaryDomainSet: true,
+		VendorName:       "IRS account",
+		VendorNameSet:    true,
+		SourceKind:       "okta",
+		SourceName:       "acme.okta.com",
+		SourceAppID:      "okta-irs-account",
+		ObservedAt:       now,
+	})
+
+	c, rec := newTestContext(http.MethodGet, "/discovery/apps")
+	if err := harness.handlers.HandleDiscoveryApps(c); err != nil {
+		t.Fatalf("HandleDiscoveryApps() error = %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "IRS account") {
+		t.Fatalf("response missing seeded app row: %q", body)
+	}
+	if strings.Contains(body, `class="osspm-cell-secondary osspm-token"`) {
+		t.Fatalf("response unexpectedly renders domain token for empty domain: %q", body)
+	}
+	if strings.Contains(body, `<span class="osspm-cell-secondary osspm-truncate" title="IRS account">IRS account</span>`) {
+		t.Fatalf("response unexpectedly renders duplicate vendor row: %q", body)
+	}
+}
+
+func TestHandleDiscoveryHotspots_EmptyDomainDoesNotRenderEmptySubline(t *testing.T) {
+	harness := newProgrammaticAccessRouteHarness(t)
+	ensureSaaSDiscoverySchema(t, harness.ctx, harness.tx)
+	configureDiscoveryOktaSource(t, harness, "acme.okta.com")
+
+	now := time.Now().UTC()
+	appID := insertDiscoveryAppSeed(t, harness, discoveryAppSeed{
+		CanonicalKey:     "name:domainless-hotspot:okta",
+		DisplayName:      "Domainless Hotspot",
+		PrimaryDomain:    "",
+		PrimaryDomainSet: true,
+		VendorName:       "Vendor",
+		VendorNameSet:    true,
+		SourceKind:       "okta",
+		SourceName:       "acme.okta.com",
+		SourceAppID:      "okta-domainless-hotspot",
+		ObservedAt:       now,
+	})
+
+	if _, err := harness.tx.Exec(harness.ctx, `
+		INSERT INTO saas_app_governance_overrides (saas_app_id, business_criticality, data_classification, notes)
+		VALUES ($1, 'high', 'restricted', '')
+		ON CONFLICT (saas_app_id) DO UPDATE
+		SET business_criticality = EXCLUDED.business_criticality,
+		    data_classification = EXCLUDED.data_classification,
+		    notes = EXCLUDED.notes,
+		    updated_at = now()
+	`, appID); err != nil {
+		t.Fatalf("seed governance override: %v", err)
+	}
+
+	if _, err := harness.tx.Exec(harness.ctx, `
+		INSERT INTO saas_app_events (
+			saas_app_id, source_kind, source_name, signal_kind, event_external_id,
+			source_app_id, source_app_name, source_app_domain,
+			actor_external_id, actor_email, actor_display_name,
+			observed_at, scopes_json, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at
+		) VALUES (
+			$1, 'okta', 'acme.okta.com', 'oauth_grant', $2,
+			'okta-domainless-hotspot', 'Domainless Hotspot', '',
+			'actor-1', 'actor@example.com', 'Actor One',
+			$3, '["application.readwrite.all"]'::jsonb, '{}'::jsonb, $4, now(), $4, now()
+		)
+	`, appID, fmt.Sprintf("evt-domainless-%d", now.UnixNano()), now, harness.runID); err != nil {
+		t.Fatalf("seed privileged event: %v", err)
+	}
+
+	c, rec := newTestContext(http.MethodGet, "/discovery/hotspots")
+	if err := harness.handlers.HandleDiscoveryHotspots(c); err != nil {
+		t.Fatalf("HandleDiscoveryHotspots() error = %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "Domainless Hotspot") {
+		t.Fatalf("response missing hotspot row: %q", body)
+	}
+	if strings.Contains(body, `class="text-xs text-muted-foreground"></div>`) {
+		t.Fatalf("response unexpectedly renders empty hotspot app metadata subline: %q", body)
+	}
+}
+
+func TestHandleDiscoveryAppShow_MissingDomainAndVendorShowNotAvailable(t *testing.T) {
+	harness := newProgrammaticAccessRouteHarness(t)
+	ensureSaaSDiscoverySchema(t, harness.ctx, harness.tx)
+
+	now := time.Now().UTC()
+	appID := insertDiscoveryAppSeed(t, harness, discoveryAppSeed{
+		CanonicalKey:     "name:missing-metadata-app:okta",
+		DisplayName:      "Missing Metadata App",
+		PrimaryDomain:    "",
+		PrimaryDomainSet: true,
+		VendorName:       "",
+		VendorNameSet:    true,
+		SourceKind:       "okta",
+		SourceName:       "acme.okta.com",
+		SourceAppID:      "okta-missing-metadata",
+		ObservedAt:       now,
+	})
+
+	c, rec := newTestContext(http.MethodGet, discoveryAppHref(appID))
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: fmt.Sprintf("%d", appID)}})
+	if err := harness.handlers.HandleDiscoveryAppShow(c); err != nil {
+		t.Fatalf("HandleDiscoveryAppShow() error = %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "Missing Metadata App") {
+		t.Fatalf("response missing app content: %q", body)
+	}
+	if strings.Count(body, "Not available") < 2 {
+		t.Fatalf("expected at least two Not available placeholders for domain/vendor: %q", body)
+	}
+}
+
 func TestHandleDiscoveryAppShow_BlankTopActorIdentityDoesNotError(t *testing.T) {
 	harness := newProgrammaticAccessRouteHarness(t)
 	ensureSaaSDiscoverySchema(t, harness.ctx, harness.tx)
@@ -321,12 +460,16 @@ func configureDiscoveryOktaSource(t *testing.T, harness *programmaticAccessRoute
 }
 
 type discoveryAppSeed struct {
-	CanonicalKey string
-	DisplayName  string
-	SourceKind   string
-	SourceName   string
-	SourceAppID  string
-	ObservedAt   time.Time
+	CanonicalKey     string
+	DisplayName      string
+	PrimaryDomain    string
+	PrimaryDomainSet bool
+	VendorName       string
+	VendorNameSet    bool
+	SourceKind       string
+	SourceName       string
+	SourceAppID      string
+	ObservedAt       time.Time
 }
 
 func insertDiscoveryAppSeed(t *testing.T, harness *programmaticAccessRouteHarness, seed discoveryAppSeed) int64 {
@@ -335,6 +478,14 @@ func insertDiscoveryAppSeed(t *testing.T, harness *programmaticAccessRouteHarnes
 	observedAt := seed.ObservedAt.UTC()
 	if observedAt.IsZero() {
 		observedAt = time.Now().UTC()
+	}
+	primaryDomain := strings.TrimSpace(seed.PrimaryDomain)
+	if !seed.PrimaryDomainSet {
+		primaryDomain = "example.com"
+	}
+	vendorName := strings.TrimSpace(seed.VendorName)
+	if !seed.VendorNameSet {
+		vendorName = "Example"
 	}
 
 	var appID int64
@@ -348,9 +499,9 @@ func insertDiscoveryAppSeed(t *testing.T, harness *programmaticAccessRouteHarnes
 			last_seen_at,
 			created_at,
 			updated_at
-		) VALUES ($1, $2, 'example.com', 'Example', $3, $3, now(), now())
+		) VALUES ($1, $2, $3, $4, $5, $5, now(), now())
 		RETURNING id
-	`, seed.CanonicalKey, seed.DisplayName, observedAt).Scan(&appID); err != nil {
+	`, seed.CanonicalKey, seed.DisplayName, primaryDomain, vendorName, observedAt).Scan(&appID); err != nil {
 		t.Fatalf("insert saas app: %v", err)
 	}
 

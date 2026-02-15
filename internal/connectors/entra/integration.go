@@ -392,12 +392,14 @@ func buildEntraAssetAndCredentialRows(applications []Application, servicePrincip
 			CreatedAtSource:  parseGraphTime(app.CreatedDateTimeRaw),
 			UpdatedAtSource:  pgtype.Timestamptz{},
 			RawJSON: registry.MarshalJSON(map[string]any{
-				"id":                   externalID,
-				"app_id":               strings.TrimSpace(app.AppID),
-				"display_name":         strings.TrimSpace(app.DisplayName),
-				"created_date_time":    strings.TrimSpace(app.CreatedDateTimeRaw),
-				"password_credentials": sanitizePasswordCredentials(app.PasswordCredentials),
-				"key_credentials":      sanitizeKeyCredentials(app.KeyCredentials),
+				"id":                              externalID,
+				"app_id":                          strings.TrimSpace(app.AppID),
+				"display_name":                    strings.TrimSpace(app.DisplayName),
+				"publisher_domain":                strings.TrimSpace(app.PublisherDomain),
+				"verified_publisher_display_name": strings.TrimSpace(app.VerifiedPublisher.DisplayName),
+				"created_date_time":               strings.TrimSpace(app.CreatedDateTimeRaw),
+				"password_credentials":            sanitizePasswordCredentials(app.PasswordCredentials),
+				"key_credentials":                 sanitizeKeyCredentials(app.KeyCredentials),
 			}),
 		})
 
@@ -432,6 +434,7 @@ func buildEntraAssetAndCredentialRows(applications []Application, servicePrincip
 				"id":                     externalID,
 				"app_id":                 strings.TrimSpace(sp.AppID),
 				"display_name":           strings.TrimSpace(sp.DisplayName),
+				"publisher_name":         strings.TrimSpace(sp.PublisherName),
 				"account_enabled":        sp.AccountEnabled,
 				"service_principal_type": strings.TrimSpace(sp.ServicePrincipalType),
 				"created_date_time":      strings.TrimSpace(sp.CreatedDateTimeRaw),
@@ -1122,11 +1125,12 @@ func (i *EntraIntegration) upsertCredentialAuditEvents(ctx context.Context, deps
 }
 
 type normalizedDiscoverySource struct {
-	CanonicalKey    string
-	SourceAppID     string
-	SourceAppName   string
-	SourceAppDomain string
-	SeenAt          time.Time
+	CanonicalKey     string
+	SourceAppID      string
+	SourceAppName    string
+	SourceAppDomain  string
+	SourceVendorName string
+	SeenAt           time.Time
 }
 
 type normalizedDiscoveryEvent struct {
@@ -1136,6 +1140,7 @@ type normalizedDiscoveryEvent struct {
 	SourceAppID      string
 	SourceAppName    string
 	SourceAppDomain  string
+	SourceVendorName string
 	ActorExternalID  string
 	ActorEmail       string
 	ActorDisplayName string
@@ -1207,6 +1212,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 	events := make([]normalizedDiscoveryEvent, 0, len(signIns)+len(grants))
 
 	appDisplayByAppID := make(map[string]string, len(applications))
+	appVendorByAppID := make(map[string]string, len(applications))
 	for _, app := range applications {
 		appID := strings.TrimSpace(app.AppID)
 		if appID == "" {
@@ -1217,15 +1223,35 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			name = appID
 		}
 		appDisplayByAppID[appID] = name
+
+		vendorName := strings.TrimSpace(app.VerifiedPublisher.DisplayName)
+		if vendorName == "" {
+			vendorName = publisherVendorFromDomain(app.PublisherDomain)
+		}
+		if vendorName != "" {
+			appVendorByAppID[appID] = vendorName
+		}
 	}
 
 	servicePrincipalByID := make(map[string]ServicePrincipal, len(servicePrincipals))
+	servicePrincipalVendorByAppID := make(map[string]string, len(servicePrincipals))
 	for _, servicePrincipal := range servicePrincipals {
 		spID := strings.TrimSpace(servicePrincipal.ID)
 		if spID == "" {
 			continue
 		}
 		servicePrincipalByID[spID] = servicePrincipal
+		appID := strings.TrimSpace(servicePrincipal.AppID)
+		if appID == "" {
+			continue
+		}
+		vendorName := strings.TrimSpace(servicePrincipal.PublisherName)
+		if vendorName == "" {
+			continue
+		}
+		if _, exists := servicePrincipalVendorByAppID[appID]; !exists {
+			servicePrincipalVendorByAppID[appID] = vendorName
+		}
 	}
 
 	for _, signIn := range signIns {
@@ -1246,24 +1272,30 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 		}
 
 		observedAt := graphObservedAtOrNow(signIn.CreatedDateTimeRaw, now)
+		sourceVendorName := appVendorByAppID[sourceAppID]
+		if sourceVendorName == "" {
+			sourceVendorName = servicePrincipalVendorByAppID[sourceAppID]
+		}
 
 		metadata := discovery.BuildMetadata(discovery.CanonicalInput{
-			SourceKind:    "entra",
-			SourceName:    tenantID,
-			SourceAppID:   sourceAppID,
-			SourceAppName: sourceAppName,
-			SourceDomain:  "",
-			EntraAppID:    strings.TrimSpace(signIn.AppID),
+			SourceKind:       "entra",
+			SourceName:       tenantID,
+			SourceAppID:      sourceAppID,
+			SourceAppName:    sourceAppName,
+			SourceDomain:     "",
+			SourceVendorName: sourceVendorName,
+			EntraAppID:       strings.TrimSpace(signIn.AppID),
 		})
 
 		current := sourceByID[sourceAppID]
 		if current.SourceAppID == "" || observedAt.After(current.SeenAt) {
 			sourceByID[sourceAppID] = normalizedDiscoverySource{
-				CanonicalKey:    metadata.CanonicalKey,
-				SourceAppID:     sourceAppID,
-				SourceAppName:   sourceAppName,
-				SourceAppDomain: metadata.Domain,
-				SeenAt:          observedAt,
+				CanonicalKey:     metadata.CanonicalKey,
+				SourceAppID:      sourceAppID,
+				SourceAppName:    sourceAppName,
+				SourceAppDomain:  metadata.Domain,
+				SourceVendorName: metadata.VendorName,
+				SeenAt:           observedAt,
 			}
 		}
 
@@ -1279,6 +1311,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			SourceAppID:      sourceAppID,
 			SourceAppName:    sourceAppName,
 			SourceAppDomain:  metadata.Domain,
+			SourceVendorName: metadata.VendorName,
 			ActorExternalID:  strings.TrimSpace(signIn.UserID),
 			ActorEmail:       normalizeEmail(strings.TrimSpace(signIn.UserPrincipalName)),
 			ActorDisplayName: strings.TrimSpace(signIn.UserDisplayName),
@@ -1314,24 +1347,33 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 
 		observedAt := graphObservedAtOrNow(grant.CreatedDateTimeRaw, now)
 		scopes := discovery.NormalizeScopes(strings.Fields(strings.ReplaceAll(grant.Scope, ",", " ")))
+		sourceVendorName := appVendorByAppID[entraAppID]
+		if sourceVendorName == "" {
+			sourceVendorName = strings.TrimSpace(servicePrincipal.PublisherName)
+		}
+		if sourceVendorName == "" {
+			sourceVendorName = servicePrincipalVendorByAppID[entraAppID]
+		}
 
 		metadata := discovery.BuildMetadata(discovery.CanonicalInput{
-			SourceKind:    "entra",
-			SourceName:    tenantID,
-			SourceAppID:   sourceAppID,
-			SourceAppName: sourceAppName,
-			SourceDomain:  "",
-			EntraAppID:    entraAppID,
+			SourceKind:       "entra",
+			SourceName:       tenantID,
+			SourceAppID:      sourceAppID,
+			SourceAppName:    sourceAppName,
+			SourceDomain:     "",
+			SourceVendorName: sourceVendorName,
+			EntraAppID:       entraAppID,
 		})
 
 		current := sourceByID[sourceAppID]
 		if current.SourceAppID == "" || observedAt.After(current.SeenAt) {
 			sourceByID[sourceAppID] = normalizedDiscoverySource{
-				CanonicalKey:    metadata.CanonicalKey,
-				SourceAppID:     sourceAppID,
-				SourceAppName:   sourceAppName,
-				SourceAppDomain: metadata.Domain,
-				SeenAt:          observedAt,
+				CanonicalKey:     metadata.CanonicalKey,
+				SourceAppID:      sourceAppID,
+				SourceAppName:    sourceAppName,
+				SourceAppDomain:  metadata.Domain,
+				SourceVendorName: metadata.VendorName,
+				SeenAt:           observedAt,
 			}
 		}
 
@@ -1347,6 +1389,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			SourceAppID:      sourceAppID,
 			SourceAppName:    sourceAppName,
 			SourceAppDomain:  metadata.Domain,
+			SourceVendorName: metadata.VendorName,
 			ActorExternalID:  strings.TrimSpace(grant.PrincipalID),
 			ActorEmail:       "",
 			ActorDisplayName: strings.TrimSpace(grant.PrincipalID),
@@ -1396,22 +1439,24 @@ func (i *EntraIntegration) writeDiscoveryRows(ctx context.Context, deps registry
 
 	for _, source := range sources {
 		meta := discovery.BuildMetadata(discovery.CanonicalInput{
-			SourceKind:    "entra",
-			SourceName:    i.tenantID,
-			SourceAppID:   source.SourceAppID,
-			SourceAppName: source.SourceAppName,
-			SourceDomain:  source.SourceAppDomain,
+			SourceKind:       "entra",
+			SourceName:       i.tenantID,
+			SourceAppID:      source.SourceAppID,
+			SourceAppName:    source.SourceAppName,
+			SourceDomain:     source.SourceAppDomain,
+			SourceVendorName: source.SourceVendorName,
 		})
 		meta.CanonicalKey = source.CanonicalKey
 		addMeta(source.CanonicalKey, source.SeenAt, meta)
 	}
 	for _, event := range events {
 		meta := discovery.BuildMetadata(discovery.CanonicalInput{
-			SourceKind:    "entra",
-			SourceName:    i.tenantID,
-			SourceAppID:   event.SourceAppID,
-			SourceAppName: event.SourceAppName,
-			SourceDomain:  event.SourceAppDomain,
+			SourceKind:       "entra",
+			SourceName:       i.tenantID,
+			SourceAppID:      event.SourceAppID,
+			SourceAppName:    event.SourceAppName,
+			SourceDomain:     event.SourceAppDomain,
+			SourceVendorName: event.SourceVendorName,
 		})
 		meta.CanonicalKey = event.CanonicalKey
 		addMeta(event.CanonicalKey, event.ObservedAt, meta)
@@ -1614,6 +1659,34 @@ func graphObservedAtOrNow(raw string, fallback time.Time) time.Time {
 		return fallback.UTC()
 	}
 	return parsed.Time.UTC()
+}
+
+func publisherVendorFromDomain(raw string) string {
+	domain := strings.ToLower(strings.TrimSpace(raw))
+	if domain == "" {
+		return ""
+	}
+	if idx := strings.Index(domain, "://"); idx >= 0 {
+		domain = domain[idx+3:]
+	}
+	if idx := strings.Index(domain, "/"); idx >= 0 {
+		domain = domain[:idx]
+	}
+	domain = strings.TrimPrefix(domain, "www.")
+	domain = strings.Trim(domain, ".")
+	if domain == "" {
+		return ""
+	}
+	part := domain
+	if idx := strings.Index(part, "."); idx > 0 {
+		part = part[:idx]
+	}
+	part = strings.ReplaceAll(part, "-", " ")
+	part = strings.TrimSpace(part)
+	if part == "" {
+		return ""
+	}
+	return strings.ToUpper(part[:1]) + part[1:]
 }
 
 func credentialLifecycleStatus(start, end pgtype.Timestamptz) string {

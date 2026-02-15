@@ -26,7 +26,7 @@ func BuildMetadata(input CanonicalInput) AppMetadata {
 		CanonicalKey: canonical,
 		DisplayName:  display,
 		Domain:       domain,
-		VendorName:   inferVendorName(domain, display),
+		VendorName:   inferVendorName(strings.TrimSpace(input.SourceVendorName), domain),
 	}
 }
 
@@ -140,7 +140,12 @@ func normalizeKeyName(raw string) string {
 	return raw
 }
 
-func inferVendorName(domain, display string) string {
+func inferVendorName(sourceVendorName, domain string) string {
+	sourceVendorName = strings.TrimSpace(sourceVendorName)
+	if sourceVendorName != "" {
+		return sourceVendorName
+	}
+
 	if domain != "" {
 		part := domain
 		if idx := strings.Index(part, "."); idx > 0 {
@@ -152,12 +157,5 @@ func inferVendorName(domain, display string) string {
 			return strings.ToUpper(part[:1]) + part[1:]
 		}
 	}
-	display = strings.TrimSpace(display)
-	if display == "" {
-		return ""
-	}
-	if len(display) > 80 {
-		display = display[:80]
-	}
-	return display
+	return ""
 }

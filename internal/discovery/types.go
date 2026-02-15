@@ -3,8 +3,8 @@ package discovery
 import "time"
 
 const (
-	SignalKindIDPSSO   = "idp_sso"
-	SignalKindOAuth    = "oauth_grant"
+	SignalKindIDPSSO      = "idp_sso"
+	SignalKindOAuth       = "oauth_grant"
 	ManagedStateManaged   = "managed"
 	ManagedStateUnmanaged = "unmanaged"
 
@@ -16,12 +16,13 @@ const (
 )
 
 type CanonicalInput struct {
-	SourceKind    string
-	SourceName    string
-	SourceAppID   string
-	SourceAppName string
-	SourceDomain  string
-	EntraAppID    string
+	SourceKind       string
+	SourceName       string
+	SourceAppID      string
+	SourceAppName    string
+	SourceDomain     string
+	SourceVendorName string
+	EntraAppID       string
 }
 
 type AppMetadata struct {
@@ -32,21 +33,21 @@ type AppMetadata struct {
 }
 
 type ManagedStateInput struct {
-	HasPrimaryBinding bool
-	ConnectorEnabled  bool
-	ConnectorConfigured bool
-	LastSuccessfulSyncAt time.Time
+	HasPrimaryBinding     bool
+	ConnectorEnabled      bool
+	ConnectorConfigured   bool
+	LastSuccessfulSyncAt  time.Time
 	HasLastSuccessfulSync bool
-	FreshnessWindow time.Duration
-	Now time.Time
+	FreshnessWindow       time.Duration
+	Now                   time.Time
 }
 
 type RiskInput struct {
-	ManagedState         string
-	HasPrivilegedScopes  bool
+	ManagedState          string
+	HasPrivilegedScopes   bool
 	HasConfidentialScopes bool
-	HasOwner             bool
-	Actors30d            int64
-	BusinessCriticality  string
-	DataClassification   string
+	HasOwner              bool
+	Actors30d             int64
+	BusinessCriticality   string
+	DataClassification    string
 }

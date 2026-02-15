@@ -70,7 +70,9 @@ templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
 									<tr data-row-href={ "/discovery/apps/" + FormatInt64(item.ID) } class="cursor-pointer hover:bg-muted/50">
 										<td>
 											<a class="btn-sm-link px-0 font-medium" href={ "/discovery/apps/" + FormatInt64(item.ID) }>{ item.DisplayName }</a>
-											<div class="text-xs text-muted-foreground">{ item.Domain }</div>
+											if item.Domain != "" {
+												<div class="text-xs text-muted-foreground">{ item.Domain }</div>
+											}
 										</td>
 										<td>
 											<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>

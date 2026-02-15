@@ -60,22 +60,54 @@ func TestCanonicalKey(t *testing.T) {
 func TestBuildMetadata(t *testing.T) {
 	t.Parallel()
 
-	meta := BuildMetadata(CanonicalInput{
-		SourceKind:    "entra",
-		SourceAppName: "Payroll Tool",
-		SourceDomain:  "payroll.acme.com",
+	t.Run("infers vendor from domain", func(t *testing.T) {
+		t.Parallel()
+
+		meta := BuildMetadata(CanonicalInput{
+			SourceKind:    "entra",
+			SourceAppName: "Payroll Tool",
+			SourceDomain:  "payroll.acme.com",
+		})
+
+		if meta.CanonicalKey != "domain:acme.com" {
+			t.Fatalf("CanonicalKey = %q", meta.CanonicalKey)
+		}
+		if meta.DisplayName != "Payroll Tool" {
+			t.Fatalf("DisplayName = %q", meta.DisplayName)
+		}
+		if meta.Domain != "acme.com" {
+			t.Fatalf("Domain = %q", meta.Domain)
+		}
+		if meta.VendorName != "Acme" {
+			t.Fatalf("VendorName = %q", meta.VendorName)
+		}
 	})
 
-	if meta.CanonicalKey != "domain:acme.com" {
-		t.Fatalf("CanonicalKey = %q", meta.CanonicalKey)
-	}
-	if meta.DisplayName != "Payroll Tool" {
-		t.Fatalf("DisplayName = %q", meta.DisplayName)
-	}
-	if meta.Domain != "acme.com" {
-		t.Fatalf("Domain = %q", meta.Domain)
-	}
-	if meta.VendorName != "Acme" {
-		t.Fatalf("VendorName = %q", meta.VendorName)
-	}
+	t.Run("keeps vendor empty without hints", func(t *testing.T) {
+		t.Parallel()
+
+		meta := BuildMetadata(CanonicalInput{
+			SourceKind:    "entra",
+			SourceAppName: "Payroll Tool",
+		})
+		if meta.VendorName != "" {
+			t.Fatalf("VendorName = %q, want empty", meta.VendorName)
+		}
+	})
+
+	t.Run("uses provided vendor hint without affecting canonical key", func(t *testing.T) {
+		t.Parallel()
+
+		meta := BuildMetadata(CanonicalInput{
+			SourceKind:       "entra",
+			SourceAppName:    "Payroll Tool",
+			SourceVendorName: "Contoso",
+		})
+		if meta.VendorName != "Contoso" {
+			t.Fatalf("VendorName = %q, want %q", meta.VendorName, "Contoso")
+		}
+		if meta.CanonicalKey != "name:payroll-tool:entra" {
+			t.Fatalf("CanonicalKey = %q", meta.CanonicalKey)
+		}
+	})
 }

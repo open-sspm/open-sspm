@@ -76,10 +76,16 @@ type KeyCredential struct {
 	CustomKeyIdentifier string `json:"customKeyIdentifier"`
 }
 
+type VerifiedPublisher struct {
+	DisplayName string `json:"displayName"`
+}
+
 type Application struct {
 	ID                  string               `json:"id"`
 	AppID               string               `json:"appId"`
 	DisplayName         string               `json:"displayName"`
+	PublisherDomain     string               `json:"publisherDomain"`
+	VerifiedPublisher   VerifiedPublisher    `json:"verifiedPublisher"`
 	CreatedDateTimeRaw  string               `json:"createdDateTime"`
 	PasswordCredentials []PasswordCredential `json:"passwordCredentials"`
 	KeyCredentials      []KeyCredential      `json:"keyCredentials"`
@@ -90,6 +96,7 @@ type ServicePrincipal struct {
 	ID                   string               `json:"id"`
 	AppID                string               `json:"appId"`
 	DisplayName          string               `json:"displayName"`
+	PublisherName        string               `json:"publisherName"`
 	AccountEnabled       *bool                `json:"accountEnabled"`
 	ServicePrincipalType string               `json:"servicePrincipalType"`
 	CreatedDateTimeRaw   string               `json:"createdDateTime"`
@@ -244,7 +251,7 @@ func (c *Client) ListUsers(ctx context.Context) ([]User, error) {
 
 func (c *Client) ListApplications(ctx context.Context) ([]Application, error) {
 	endpoint, err := c.graphURL("/applications", url.Values{
-		"$select": []string{"id,appId,displayName,createdDateTime,passwordCredentials,keyCredentials"},
+		"$select": []string{"id,appId,displayName,publisherDomain,verifiedPublisher,createdDateTime,passwordCredentials,keyCredentials"},
 		"$top":    []string{"999"},
 	})
 	if err != nil {
@@ -270,7 +277,7 @@ func (c *Client) ListApplications(ctx context.Context) ([]Application, error) {
 
 func (c *Client) ListServicePrincipals(ctx context.Context) ([]ServicePrincipal, error) {
 	endpoint, err := c.graphURL("/servicePrincipals", url.Values{
-		"$select": []string{"id,appId,displayName,accountEnabled,servicePrincipalType,createdDateTime,passwordCredentials,keyCredentials"},
+		"$select": []string{"id,appId,displayName,publisherName,accountEnabled,servicePrincipalType,createdDateTime,passwordCredentials,keyCredentials"},
 		"$top":    []string{"999"},
 	})
 	if err != nil {
