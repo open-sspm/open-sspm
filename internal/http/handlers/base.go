@@ -62,6 +62,9 @@ type ConnectorSnapshot struct {
 	Entra                       configstore.EntraConfig
 	EntraEnabled                bool
 	EntraConfigured             bool
+	Vault                       configstore.VaultConfig
+	VaultEnabled                bool
+	VaultConfigured             bool
 }
 
 // LoadConnectorSnapshot retrieves the current connector configuration.
@@ -103,6 +106,12 @@ func (h *Handlers) LoadConnectorSnapshot(ctx context.Context) (ConnectorSnapshot
 				snap.Entra = cfg
 				snap.EntraEnabled = state.Enabled
 				snap.EntraConfigured = state.Configured
+			}
+		case configstore.KindVault:
+			if cfg, ok := state.Config.(configstore.VaultConfig); ok {
+				snap.Vault = cfg
+				snap.VaultEnabled = state.Enabled
+				snap.VaultConfigured = state.Configured
 			}
 		}
 	}

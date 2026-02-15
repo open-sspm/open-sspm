@@ -7,13 +7,13 @@ type ConnectorAlert struct {
 }
 
 type OktaConnectorViewData struct {
-	Enabled       bool
-	Configured    bool
-	Domain        string
-	TokenMasked   string
-	HasToken      bool
+	Enabled          bool
+	Configured       bool
+	Domain           string
+	TokenMasked      string
+	HasToken         bool
 	DiscoveryEnabled bool
-	Authoritative bool
+	Authoritative    bool
 }
 
 type GitHubConnectorViewData struct {
@@ -57,8 +57,22 @@ type AWSIdentityCenterConnectorViewData struct {
 }
 
 type VaultConnectorViewData struct {
-	Enabled    bool
-	Configured bool
+	Enabled             bool
+	Configured          bool
+	Address             string
+	Namespace           string
+	Name                string
+	AuthType            string
+	TokenMasked         string
+	HasToken            bool
+	AppRoleMountPath    string
+	AppRoleRoleID       string
+	HasAppRoleRoleID    bool
+	AppRoleSecretMasked string
+	HasAppRoleSecretID  bool
+	ScanAuthRoles       bool
+	TLSSkipVerify       bool
+	HasTLSCACert        bool
 }
 
 type EntraConnectorViewData struct {

@@ -14,6 +14,11 @@ const (
 	ResourceKindDatadogRole = "datadog_role"
 
 	ResourceKindAWSAccount = "aws_account"
+
+	ResourceKindVaultPolicy       = "vault_policy"
+	ResourceKindVaultGroup        = "vault_group"
+	ResourceKindVaultAuthMount    = "vault_auth_mount"
+	ResourceKindVaultSecretsMount = "vault_secrets_mount"
 )
 
 func ParseCanonicalResourceRef(ref string) (resourceKind, externalID string, ok bool) {

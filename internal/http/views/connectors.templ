@@ -184,25 +184,76 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 			</label>
 		}
 
-		<dialog id="connector-vault-modal" class="dialog" data-open?={ data.OpenKind == "vault" } data-close-href="/settings/connectors#connector-vault-configure" aria-labelledby="connector-vault-modal-title" aria-describedby="connector-vault-modal-description">
-			<form method="dialog">
-				<button type="button" class="btn-icon-ghost" aria-label="Close" data-dialog-close>
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-						<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"/>
-					</svg>
-				</button>
-				<header>
-					<h2 id="connector-vault-modal-title">Vault configuration</h2>
-					<p id="connector-vault-modal-description">Reserved for future Vault integration.</p>
-				</header>
-				<section>
-					<p class="text-sm text-muted-foreground">No configurable fields yet. Enable the connector to prepare for future support.</p>
-				</section>
-				<footer>
-					<button type="button" class="btn-primary" data-dialog-close>Close</button>
-				</footer>
-			</form>
-		</dialog>
+		@FormDialog("connector-vault-modal", data.OpenKind == "vault", "Vault configuration", "Vault identity, policies, mounts, and auth roles.", "/settings/connectors#connector-vault-configure", "/settings/connectors/vault", "Save", data.Layout.CSRFToken) {
+			<label class="field">
+				<span class="label">Vault address</span>
+				<input type="text" name="address" class="input w-full" value={ data.Vault.Address } placeholder="https://vault.example.com"/>
+			</label>
+			<label class="field">
+				<span class="label">Source display name (optional)</span>
+				<input type="text" name="name" class="input w-full" value={ data.Vault.Name } placeholder="prod-vault"/>
+			</label>
+			<label class="field">
+				<span class="label">Namespace (optional)</span>
+				<input type="text" name="namespace" class="input w-full" value={ data.Vault.Namespace } placeholder="admin"/>
+				<p class="text-xs text-muted-foreground">Leave blank for OSS or root namespace deployments. For HCP Vault Dedicated, this is usually <code>admin</code>.</p>
+			</label>
+			<label class="field">
+				<span class="label">Authentication</span>
+				<select name="auth_type" class="input w-full">
+					<option value="token" selected?={ data.Vault.AuthType == "token" }>Token</option>
+					<option value="approle" selected?={ data.Vault.AuthType == "approle" }>AppRole</option>
+				</select>
+			</label>
+			<label class="field">
+				<span class="label">Token (used when Token auth is selected)</span>
+				<input type="password" name="token" class="input w-full" placeholder="Leave blank to keep"/>
+				if data.Vault.HasToken {
+					<p class="text-xs text-muted-foreground">Current: { data.Vault.TokenMasked }</p>
+				}
+			</label>
+			<label class="field">
+				<span class="label">AppRole mount path (used when AppRole auth is selected)</span>
+				<input type="text" name="approle_mount_path" class="input w-full" value={ data.Vault.AppRoleMountPath } placeholder="approle"/>
+			</label>
+			<label class="field">
+				<span class="label">AppRole role ID (used when AppRole auth is selected)</span>
+				<input type="text" name="approle_role_id" class="input w-full" value={ data.Vault.AppRoleRoleID } placeholder="Leave blank to keep"/>
+				if data.Vault.HasAppRoleRoleID {
+					<p class="text-xs text-muted-foreground">Current value is configured.</p>
+				}
+			</label>
+			<label class="field">
+				<span class="label">AppRole secret ID (used when AppRole auth is selected)</span>
+				<input type="password" name="approle_secret_id" class="input w-full" placeholder="Leave blank to keep"/>
+				if data.Vault.HasAppRoleSecretID {
+					<p class="text-xs text-muted-foreground">Current: { data.Vault.AppRoleSecretMasked }</p>
+				}
+			</label>
+			<label class="field">
+				<span class="label">Auth role inventory</span>
+				<div class="flex items-center gap-3">
+					<input type="checkbox" role="switch" aria-label="Vault auth role inventory" name="scan_auth_roles" value="true" checked?={ data.Vault.ScanAuthRoles } class="input"/>
+					<input type="hidden" name="scan_auth_roles" value="false"/>
+					<span class="text-sm text-muted-foreground">Collect auth roles from AppRole/Kubernetes/JWT/OIDC mounts.</span>
+				</div>
+			</label>
+			<label class="field">
+				<span class="label">TLS verification</span>
+				<div class="flex items-center gap-3">
+					<input type="checkbox" role="switch" aria-label="Vault TLS skip verification" name="tls_skip_verify" value="true" checked?={ data.Vault.TLSSkipVerify } class="input"/>
+					<input type="hidden" name="tls_skip_verify" value="false"/>
+					<span class="text-sm text-muted-foreground">Skip TLS certificate verification (use only for trusted/self-hosted environments).</span>
+				</div>
+			</label>
+			<label class="field">
+				<span class="label">Custom CA certificate PEM (optional)</span>
+				<textarea name="tls_ca_cert_pem" class="input w-full h-32" placeholder="Leave blank to keep existing custom CA cert"></textarea>
+				if data.Vault.HasTLSCACert {
+					<p class="text-xs text-muted-foreground">Custom CA certificate is configured.</p>
+				}
+			</label>
+		}
 	}
 }
 
@@ -414,7 +465,23 @@ templ VaultConnectorCard(data viewmodels.ConnectorsViewData) {
 				</form>
 				<a id="connector-vault-configure" href="/settings/connectors?open=vault" class="btn-sm-outline">Configure</a>
 			</div>
-			<p>Reserved for future Vault integration.</p>
+			<p>Identity entities, policies, mounts, and auth roles.</p>
+			<div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+				if data.Vault.AuthType == "approle" {
+					<span class="badge-outline">Auth: AppRole</span>
+					if data.Vault.AppRoleMountPath != "" {
+						<span class="badge-outline">Mount: { data.Vault.AppRoleMountPath }</span>
+					}
+				} else {
+					<span class="badge-outline">Auth: token</span>
+				}
+				if data.Vault.TLSSkipVerify {
+					<span class="badge-outline">TLS verify skipped</span>
+				}
+				if data.Vault.HasTLSCACert {
+					<span class="badge-outline">Custom CA</span>
+				}
+			</div>
 		</header>
 	</article>
 }

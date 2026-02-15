@@ -65,6 +65,9 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 							<option value="entra_application" selected?={ data.AssetKind == "entra_application" }>Entra application</option>
 							<option value="entra_service_principal" selected?={ data.AssetKind == "entra_service_principal" }>Entra service principal</option>
 							<option value="github_app_installation" selected?={ data.AssetKind == "github_app_installation" }>GitHub app installation</option>
+							<option value="vault_auth_mount" selected?={ data.AssetKind == "vault_auth_mount" }>Vault auth mount</option>
+							<option value="vault_secrets_mount" selected?={ data.AssetKind == "vault_secrets_mount" }>Vault secrets mount</option>
+							<option value="vault_auth_role" selected?={ data.AssetKind == "vault_auth_role" }>Vault auth role</option>
 						</select>
 					</label>
 				</div>

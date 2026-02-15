@@ -267,7 +267,33 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 			return h.RenderError(c, err)
 		}
 	case configstore.KindVault:
-		raw = cfgRow.Config
+		current, err := configstore.DecodeVaultConfig(cfgRow.Config)
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		update := configstore.VaultConfig{
+			Address:          c.FormValue("address"),
+			Namespace:        c.FormValue("namespace"),
+			Name:             c.FormValue("name"),
+			AuthType:         c.FormValue("auth_type"),
+			Token:            c.FormValue("token"),
+			AppRoleMountPath: c.FormValue("approle_mount_path"),
+			AppRoleRoleID:    c.FormValue("approle_role_id"),
+			AppRoleSecretID:  c.FormValue("approle_secret_id"),
+			ScanAuthRoles:    ParseBoolForm(c.FormValue("scan_auth_roles")),
+			TLSSkipVerify:    ParseBoolForm(c.FormValue("tls_skip_verify")),
+			TLSCACertPEM:     c.FormValue("tls_ca_cert_pem"),
+		}
+		merged := configstore.MergeVaultConfig(current, update).Normalized()
+		if cfgRow.Enabled {
+			if err := merged.Validate(); err != nil {
+				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
+			}
+		}
+		raw, err = configstore.EncodeConfig(merged)
+		if err != nil {
+			return h.RenderError(c, err)
+		}
 	default:
 		return RenderNotFound(c)
 	}
@@ -480,9 +506,26 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context,
 				}
 			}
 		case configstore.KindVault:
-			data.Vault = viewmodels.VaultConnectorViewData{
-				Enabled:    state.Enabled,
-				Configured: state.Configured,
+			if cfg, ok := state.Config.(configstore.VaultConfig); ok {
+				cfg = cfg.Normalized()
+				data.Vault = viewmodels.VaultConnectorViewData{
+					Enabled:             state.Enabled,
+					Configured:          state.Configured,
+					Address:             cfg.Address,
+					Namespace:           cfg.Namespace,
+					Name:                cfg.Name,
+					AuthType:            cfg.AuthType,
+					TokenMasked:         configstore.MaskSecret(cfg.Token),
+					HasToken:            cfg.Token != "",
+					AppRoleMountPath:    cfg.AppRoleMountPath,
+					AppRoleRoleID:       cfg.AppRoleRoleID,
+					HasAppRoleRoleID:    cfg.AppRoleRoleID != "",
+					AppRoleSecretMasked: configstore.MaskSecret(cfg.AppRoleSecretID),
+					HasAppRoleSecretID:  cfg.AppRoleSecretID != "",
+					ScanAuthRoles:       cfg.ScanAuthRoles,
+					TLSSkipVerify:       cfg.TLSSkipVerify,
+					HasTLSCACert:        cfg.TLSCACertPEM != "",
+				}
 			}
 		}
 	}
@@ -547,7 +590,11 @@ func validateConnectorConfig(kind string, raw []byte) error {
 		}
 		return cfg.Normalized().Validate()
 	case configstore.KindVault:
-		return nil
+		cfg, err := configstore.DecodeVaultConfig(raw)
+		if err != nil {
+			return err
+		}
+		return cfg.Normalized().Validate()
 	default:
 		return errors.New("unknown connector")
 	}
