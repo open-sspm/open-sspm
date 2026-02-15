@@ -36,6 +36,11 @@ Prereqs: Go 1.26.x (see `go.mod` toolchain), Docker + Compose, Node.js + npm.
 
 - Tests use Go’s standard `testing` package and live as `*_test.go` next to the code they cover.
 - Prefer small, deterministic tests; avoid network calls (mock at the connector boundary).
+- Hard gate:
+  - New tests MUST protect business/product/safety behavior or a regression/edge-case contract (PR MUST say which regression).
+  - Frontend tests MUST assert user-visible behavior or interaction outcomes.
+  - Tests MUST NOT be trivial plumbing/copy-only/duplicate/brittle implementation-detail assertions.
+  - Low-value test additions are non-compliant and should be blocked until removed, merged, or rewritten as behavior tests.
 
 ## Commit & Pull Request Guidelines
 

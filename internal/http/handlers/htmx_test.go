@@ -30,38 +30,6 @@ func parseVaryHeader(value string) map[string]int {
 	return out
 }
 
-func TestIsHX(t *testing.T) {
-	c, _ := newTestContext(http.MethodGet, "http://example.com/")
-	if isHX(c) {
-		t.Fatalf("isHX() = true, want false when header missing")
-	}
-
-	c.Request().Header.Set("HX-Request", " true ")
-	if !isHX(c) {
-		t.Fatalf("isHX() = false, want true with HX-Request header")
-	}
-}
-
-func TestIsHXTarget(t *testing.T) {
-	c, _ := newTestContext(http.MethodGet, "http://example.com/")
-	c.Request().Header.Set("HX-Target", " rules-card ")
-
-	if !isHXTarget(c, "rules-card") {
-		t.Fatalf("isHXTarget() = false, want true")
-	}
-	if isHXTarget(c, "other-target") {
-		t.Fatalf("isHXTarget() = true, want false for non-matching target")
-	}
-}
-
-func TestSetHXRedirect(t *testing.T) {
-	c, _ := newTestContext(http.MethodGet, "http://example.com/")
-	setHXRedirect(c, "/settings/connectors?open=okta")
-	if got := c.Response().Header().Get("HX-Redirect"); got != "/settings/connectors?open=okta" {
-		t.Fatalf("HX-Redirect = %q, want %q", got, "/settings/connectors?open=okta")
-	}
-}
-
 func TestAddVary(t *testing.T) {
 	c, _ := newTestContext(http.MethodGet, "http://example.com/")
 	c.Response().Header().Set(echo.HeaderVary, "Accept-Encoding")
