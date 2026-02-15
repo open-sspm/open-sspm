@@ -66,6 +66,7 @@ export const wireSidebarToggle = (root = document) => {
 
   const isMobileViewport = () => window.innerWidth < mobileBreakpoint;
   const isSidebarOpen = () => sidebar.getAttribute("aria-hidden") !== "true";
+  const isBasecoatSidebarReady = () => sidebar.dataset.sidebarInitialized === "true";
 
   const persistDesktopPreference = (open) => {
     if (!desktopPersistenceReady) return;
@@ -79,14 +80,16 @@ export const wireSidebarToggle = (root = document) => {
     if (isMobileViewport()) return true;
     if (desktopOpenPreference === null) return true;
     if (isSidebarOpen() === desktopOpenPreference) return true;
+    if (!isBasecoatSidebarReady()) return false;
 
     dispatchSidebarEvent({ action: desktopOpenPreference ? "open" : "close" });
-    return isSidebarOpen() === desktopOpenPreference;
+    return true;
   };
 
   const initializeDesktopPersistence = () => {
     if (desktopPersistenceReady) return;
     if (isMobileViewport()) return;
+    if (!isBasecoatSidebarReady()) return;
 
     const applied = applyDesktopPreference();
     if (!applied) return;
