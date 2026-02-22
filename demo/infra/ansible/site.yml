@@ -91,6 +91,8 @@
           LOG_LEVEL=info
           SYNC_INTERVAL=0s
           SYNC_DISCOVERY_INTERVAL=0s
+          # Optional per-connector full-sync interval (must be >0 when set)
+          # SYNC_GOOGLE_WORKSPACE_INTERVAL=15m
           RESYNC_ENABLED=0
 
     - name: Install nginx reverse proxy config

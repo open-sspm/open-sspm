@@ -471,51 +471,6 @@ func (q *Queries) ListSaaSAppPostureInputs(ctx context.Context) ([]ListSaaSAppPo
 	return items, nil
 }
 
-const listSaaSAppsByCanonicalKeys = `-- name: ListSaaSAppsByCanonicalKeys :many
-SELECT id, canonical_key, display_name, primary_domain, vendor_name, managed_state, managed_reason, bound_connector_kind, bound_connector_source_name, risk_score, risk_level, suggested_business_criticality, suggested_data_classification, first_seen_at, last_seen_at, created_at, updated_at
-FROM saas_apps
-WHERE canonical_key = ANY($1::text[])
-ORDER BY id ASC
-`
-
-func (q *Queries) ListSaaSAppsByCanonicalKeys(ctx context.Context, canonicalKeys []string) ([]SaasApp, error) {
-	rows, err := q.db.Query(ctx, listSaaSAppsByCanonicalKeys, canonicalKeys)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []SaasApp
-	for rows.Next() {
-		var i SaasApp
-		if err := rows.Scan(
-			&i.ID,
-			&i.CanonicalKey,
-			&i.DisplayName,
-			&i.PrimaryDomain,
-			&i.VendorName,
-			&i.ManagedState,
-			&i.ManagedReason,
-			&i.BoundConnectorKind,
-			&i.BoundConnectorSourceName,
-			&i.RiskScore,
-			&i.RiskLevel,
-			&i.SuggestedBusinessCriticality,
-			&i.SuggestedDataClassification,
-			&i.FirstSeenAt,
-			&i.LastSeenAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listSaaSAppsPageByFilters = `-- name: ListSaaSAppsPageByFilters :many
 WITH configured_sources AS (
   SELECT

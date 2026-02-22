@@ -7,8 +7,6 @@ package gen
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countIdPUsers = `-- name: CountIdPUsers :one
@@ -59,6 +57,7 @@ func (q *Queries) CountIdPUsersByQueryAndState(ctx context.Context, arg CountIdP
 }
 
 const getIdPUser = `-- name: GetIdPUser :one
+
 SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status, account_kind
 FROM accounts
 WHERE id = $1
@@ -67,6 +66,7 @@ WHERE id = $1
   AND last_observed_run_id IS NOT NULL
 `
 
+// Legacy IdP query names now backed by Okta accounts in accounts.
 func (q *Queries) GetIdPUser(ctx context.Context, id int64) (Account, error) {
 	row := q.db.QueryRow(ctx, getIdPUser, id)
 	var i Account
@@ -93,56 +93,6 @@ func (q *Queries) GetIdPUser(ctx context.Context, id int64) (Account, error) {
 		&i.AccountKind,
 	)
 	return i, err
-}
-
-const listIdPUsers = `-- name: ListIdPUsers :many
-SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status, account_kind
-FROM accounts
-WHERE source_kind = 'okta'
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-ORDER BY id ASC
-`
-
-func (q *Queries) ListIdPUsers(ctx context.Context) ([]Account, error) {
-	rows, err := q.db.Query(ctx, listIdPUsers)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Account
-	for rows.Next() {
-		var i Account
-		if err := rows.Scan(
-			&i.ID,
-			&i.SourceKind,
-			&i.SourceName,
-			&i.ExternalID,
-			&i.Email,
-			&i.DisplayName,
-			&i.RawJson,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.LastLoginAt,
-			&i.LastLoginIp,
-			&i.LastLoginRegion,
-			&i.SeenInRunID,
-			&i.SeenAt,
-			&i.LastObservedRunID,
-			&i.LastObservedAt,
-			&i.ExpiredAt,
-			&i.ExpiredRunID,
-			&i.Status,
-			&i.AccountKind,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const listIdPUsersForCommand = `-- name: ListIdPUsersForCommand :many
@@ -269,123 +219,4 @@ func (q *Queries) ListIdPUsersPageByQueryAndState(ctx context.Context, arg ListI
 		return nil, err
 	}
 	return items, nil
-}
-
-const upsertIdPUsersBulk = `-- name: UpsertIdPUsersBulk :execrows
-
-WITH sync_source AS (
-  SELECT COALESCE(NULLIF(trim(sr.source_name), ''), 'okta') AS source_name
-  FROM sync_runs sr
-  WHERE sr.id = $1::bigint
-  LIMIT 1
-),
-input AS (
-  SELECT
-    i,
-    ($2::text[])[i] AS external_id,
-    lower(trim(($3::text[])[i])) AS email,
-    ($4::text[])[i] AS display_name,
-    CASE
-      WHEN lower(trim(($5::text[])[i])) IN ('human', 'service', 'bot', 'unknown')
-        THEN lower(trim(($5::text[])[i]))
-      ELSE 'unknown'
-    END AS account_kind,
-    ($6::text[])[i] AS status,
-    ($7::jsonb[])[i] AS raw_json,
-    ($8::timestamptz[])[i] AS last_login_at,
-    ($9::text[])[i] AS last_login_ip,
-    ($10::text[])[i] AS last_login_region
-  FROM generate_subscripts($2::text[], 1) AS s(i)
-),
-dedup AS (
-  SELECT DISTINCT ON (external_id)
-    external_id,
-    email,
-    display_name,
-    account_kind,
-    status,
-    raw_json,
-    last_login_at,
-    last_login_ip,
-    last_login_region
-  FROM input
-  ORDER BY external_id, i DESC
-)
-INSERT INTO accounts (
-  source_kind,
-  source_name,
-  external_id,
-  email,
-  display_name,
-  account_kind,
-  status,
-  raw_json,
-  last_login_at,
-  last_login_ip,
-  last_login_region,
-  seen_in_run_id,
-  seen_at,
-  updated_at
-)
-SELECT
-  'okta',
-  COALESCE((SELECT source_name FROM sync_source), 'okta'),
-  input.external_id,
-  input.email,
-  input.display_name,
-  input.account_kind,
-  input.status,
-  input.raw_json,
-  input.last_login_at,
-  input.last_login_ip,
-  input.last_login_region,
-  $1::bigint,
-  now(),
-  now()
-FROM dedup input
-ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
-  email = EXCLUDED.email,
-  display_name = EXCLUDED.display_name,
-  account_kind = EXCLUDED.account_kind,
-  status = EXCLUDED.status,
-  raw_json = EXCLUDED.raw_json,
-  last_login_at = COALESCE(EXCLUDED.last_login_at, accounts.last_login_at),
-  last_login_ip = COALESCE(NULLIF(EXCLUDED.last_login_ip, ''), accounts.last_login_ip),
-  last_login_region = COALESCE(NULLIF(EXCLUDED.last_login_region, ''), accounts.last_login_region),
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at,
-  updated_at = now()
-`
-
-type UpsertIdPUsersBulkParams struct {
-	SeenInRunID      int64                `json:"seen_in_run_id"`
-	ExternalIds      []string             `json:"external_ids"`
-	Emails           []string             `json:"emails"`
-	DisplayNames     []string             `json:"display_names"`
-	AccountKinds     []string             `json:"account_kinds"`
-	Statuses         []string             `json:"statuses"`
-	RawJsons         [][]byte             `json:"raw_jsons"`
-	LastLoginAts     []pgtype.Timestamptz `json:"last_login_ats"`
-	LastLoginIps     []string             `json:"last_login_ips"`
-	LastLoginRegions []string             `json:"last_login_regions"`
-}
-
-// Legacy IdP query names now backed by Okta accounts in accounts.
-func (q *Queries) UpsertIdPUsersBulk(ctx context.Context, arg UpsertIdPUsersBulkParams) (int64, error) {
-	result, err := q.db.Exec(ctx, upsertIdPUsersBulk,
-		arg.SeenInRunID,
-		arg.ExternalIds,
-		arg.Emails,
-		arg.DisplayNames,
-		arg.AccountKinds,
-		arg.Statuses,
-		arg.RawJsons,
-		arg.LastLoginAts,
-		arg.LastLoginIps,
-		arg.LastLoginRegions,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
 }

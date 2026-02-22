@@ -147,10 +147,3 @@ GROUP BY actor_label, actor_email, actor_external_id
 ORDER BY event_count DESC, last_observed_at DESC
 LIMIT sqlc.arg(limit_rows)::int;
 
--- name: ListSaaSAppIDsFromEventsSeenInRunBySource :many
-SELECT DISTINCT saas_app_id
-FROM saas_app_events
-WHERE source_kind = sqlc.arg(source_kind)::text
-  AND source_name = sqlc.arg(source_name)::text
-  AND seen_in_run_id = sqlc.arg(seen_in_run_id)::bigint
-ORDER BY saas_app_id ASC;

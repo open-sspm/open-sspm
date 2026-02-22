@@ -36,15 +36,6 @@ WHERE au.source_kind = sqlc.arg(source_kind)
 ORDER BY au.id, i.id ASC
 ON CONFLICT (account_id) DO NOTHING;
 
--- name: ListLinkedAppUsersForIdPUser :many
-SELECT au.*
-FROM accounts au
-JOIN identity_accounts ia ON ia.account_id = au.id
-WHERE ia.identity_id = $1
-  AND au.expired_at IS NULL
-  AND au.last_observed_run_id IS NOT NULL
-ORDER BY au.source_kind, au.source_name, au.external_id;
-
 -- name: GetIdentityLinkByAppUser :one
 SELECT
   ia.id,

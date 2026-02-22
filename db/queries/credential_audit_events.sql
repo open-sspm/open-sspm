@@ -78,39 +78,6 @@ ON CONFLICT (source_kind, source_name, event_external_id) DO UPDATE SET
   credential_external_id = EXCLUDED.credential_external_id,
   raw_json = EXCLUDED.raw_json;
 
--- name: CountCredentialAuditEventsBySourceAndQuery :one
-SELECT count(*)
-FROM credential_audit_events cae
-WHERE cae.source_kind = sqlc.arg(source_kind)::text
-  AND cae.source_name = sqlc.arg(source_name)::text
-  AND (
-    sqlc.arg(query)::text = ''
-    OR cae.event_type ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR cae.actor_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR cae.actor_display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR cae.target_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR cae.target_display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR cae.credential_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-  );
-
--- name: ListCredentialAuditEventsPageBySourceAndQuery :many
-SELECT cae.*
-FROM credential_audit_events cae
-WHERE cae.source_kind = sqlc.arg(source_kind)::text
-  AND cae.source_name = sqlc.arg(source_name)::text
-  AND (
-    sqlc.arg(query)::text = ''
-    OR cae.event_type ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR cae.actor_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR cae.actor_display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR cae.target_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR cae.target_display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR cae.credential_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-  )
-ORDER BY cae.event_time DESC, cae.id DESC
-LIMIT sqlc.arg(page_limit)::int
-OFFSET sqlc.arg(page_offset)::int;
-
 -- name: ListCredentialAuditEventsForCredential :many
 SELECT cae.*
 FROM credential_audit_events cae

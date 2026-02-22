@@ -117,41 +117,6 @@ func (q *Queries) ListSaaSAppEventsBySaaSAppID(ctx context.Context, arg ListSaaS
 	return items, nil
 }
 
-const listSaaSAppIDsFromEventsSeenInRunBySource = `-- name: ListSaaSAppIDsFromEventsSeenInRunBySource :many
-SELECT DISTINCT saas_app_id
-FROM saas_app_events
-WHERE source_kind = $1::text
-  AND source_name = $2::text
-  AND seen_in_run_id = $3::bigint
-ORDER BY saas_app_id ASC
-`
-
-type ListSaaSAppIDsFromEventsSeenInRunBySourceParams struct {
-	SourceKind  string `json:"source_kind"`
-	SourceName  string `json:"source_name"`
-	SeenInRunID int64  `json:"seen_in_run_id"`
-}
-
-func (q *Queries) ListSaaSAppIDsFromEventsSeenInRunBySource(ctx context.Context, arg ListSaaSAppIDsFromEventsSeenInRunBySourceParams) ([]int64, error) {
-	rows, err := q.db.Query(ctx, listSaaSAppIDsFromEventsSeenInRunBySource, arg.SourceKind, arg.SourceName, arg.SeenInRunID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []int64
-	for rows.Next() {
-		var saas_app_id int64
-		if err := rows.Scan(&saas_app_id); err != nil {
-			return nil, err
-		}
-		items = append(items, saas_app_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listTopActorsForSaaSAppByID = `-- name: ListTopActorsForSaaSAppByID :many
 SELECT
   COALESCE(NULLIF(trim(actor_display_name), ''), NULLIF(trim(actor_email), ''), NULLIF(trim(actor_external_id), ''), '')::text AS actor_label,

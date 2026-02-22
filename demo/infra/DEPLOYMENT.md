@@ -92,3 +92,10 @@ ansible-playbook -i inventory.ini seed-demo.yml
 - `SCW_ACCESS_KEY`, `SCW_SECRET_KEY`, `SCW_DEFAULT_PROJECT_ID` (Terraform)
 - `DEMO_HOST`, `DEMO_SSH_USER`, `DEMO_SSH_PRIVATE_KEY` (deploy)
 - DB password (already stored on the server in `/etc/open-sspm.env`)
+
+## Demo env tuning
+
+Runtime config is loaded from `/etc/open-sspm.env` on the VM.
+
+- `SYNC_INTERVAL` and `SYNC_DISCOVERY_INTERVAL` control base worker cadence.
+- Optional per-connector overrides can be set there as needed (for example `SYNC_GOOGLE_WORKSPACE_INTERVAL`, which must be a duration greater than `0` when set).

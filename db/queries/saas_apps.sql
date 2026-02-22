@@ -56,12 +56,6 @@ ON CONFLICT (canonical_key) DO UPDATE SET
   last_seen_at = GREATEST(saas_apps.last_seen_at, COALESCE(EXCLUDED.last_seen_at, saas_apps.last_seen_at)),
   updated_at = now();
 
--- name: ListSaaSAppsByCanonicalKeys :many
-SELECT *
-FROM saas_apps
-WHERE canonical_key = ANY(sqlc.arg(canonical_keys)::text[])
-ORDER BY id ASC;
-
 -- name: CountSaaSAppsByFilters :one
 WITH configured_sources AS (
   SELECT

@@ -36,6 +36,8 @@ config:
   resyncEnabled: true
   syncInterval: 15m
   syncDiscoveryInterval: 15m
+  # Optional per-connector full-sync interval. Empty means use syncInterval cadence.
+  syncGoogleWorkspaceInterval: ""
   syncOktaWorkers: 3
   syncGithubWorkers: 6
   syncDatadogWorkers: 3

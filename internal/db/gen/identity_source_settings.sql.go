@@ -9,31 +9,6 @@ import (
 	"context"
 )
 
-const getIdentitySourceSetting = `-- name: GetIdentitySourceSetting :one
-SELECT source_kind, source_name, is_authoritative, created_at, updated_at
-FROM identity_source_settings
-WHERE source_kind = $1
-  AND source_name = $2
-`
-
-type GetIdentitySourceSettingParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
-}
-
-func (q *Queries) GetIdentitySourceSetting(ctx context.Context, arg GetIdentitySourceSettingParams) (IdentitySourceSetting, error) {
-	row := q.db.QueryRow(ctx, getIdentitySourceSetting, arg.SourceKind, arg.SourceName)
-	var i IdentitySourceSetting
-	err := row.Scan(
-		&i.SourceKind,
-		&i.SourceName,
-		&i.IsAuthoritative,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const listAuthoritativeSources = `-- name: ListAuthoritativeSources :many
 SELECT source_kind, source_name, is_authoritative, created_at, updated_at
 FROM identity_source_settings

@@ -9,21 +9,6 @@ import (
 	"context"
 )
 
-const countAppAssetOwnersByAssetID = `-- name: CountAppAssetOwnersByAssetID :one
-SELECT count(*)
-FROM app_asset_owners
-WHERE app_asset_id = $1
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-`
-
-func (q *Queries) CountAppAssetOwnersByAssetID(ctx context.Context, appAssetID int64) (int64, error) {
-	row := q.db.QueryRow(ctx, countAppAssetOwnersByAssetID, appAssetID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const expireAppAssetOwnersNotSeenInRunBySource = `-- name: ExpireAppAssetOwnersNotSeenInRunBySource :execrows
 UPDATE app_asset_owners aao
 SET

@@ -116,31 +116,6 @@ func (q *Queries) CountCredentialArtifactsBySourceAndQueryAndFilters(ctx context
 	return count, err
 }
 
-const countCredentialArtifactsExpiringWithinDaysBySource = `-- name: CountCredentialArtifactsExpiringWithinDaysBySource :one
-SELECT count(*)
-FROM credential_artifacts ca
-WHERE ca.source_kind = $1::text
-  AND ca.source_name = $2::text
-  AND ca.expired_at IS NULL
-  AND ca.last_observed_run_id IS NOT NULL
-  AND ca.expires_at_source IS NOT NULL
-  AND ca.expires_at_source >= now()
-  AND ca.expires_at_source <= now() + make_interval(days => $3::int)
-`
-
-type CountCredentialArtifactsExpiringWithinDaysBySourceParams struct {
-	SourceKind    string `json:"source_kind"`
-	SourceName    string `json:"source_name"`
-	ExpiresInDays int32  `json:"expires_in_days"`
-}
-
-func (q *Queries) CountCredentialArtifactsExpiringWithinDaysBySource(ctx context.Context, arg CountCredentialArtifactsExpiringWithinDaysBySourceParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countCredentialArtifactsExpiringWithinDaysBySource, arg.SourceKind, arg.SourceName, arg.ExpiresInDays)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const expireCredentialArtifactsNotSeenInRunBySource = `-- name: ExpireCredentialArtifactsNotSeenInRunBySource :execrows
 UPDATE credential_artifacts
 SET
@@ -268,65 +243,6 @@ func (q *Queries) ListCredentialArtifactCountsByAssetRef(ctx context.Context, ar
 	for rows.Next() {
 		var i ListCredentialArtifactCountsByAssetRefRow
 		if err := rows.Scan(&i.AssetRefKind, &i.AssetRefExternalID, &i.CredentialCount); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listCredentialArtifactsByIDs = `-- name: ListCredentialArtifactsByIDs :many
-SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at
-FROM credential_artifacts
-WHERE id = ANY($1::bigint[])
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-ORDER BY id ASC
-`
-
-func (q *Queries) ListCredentialArtifactsByIDs(ctx context.Context, credentialIds []int64) ([]CredentialArtifact, error) {
-	rows, err := q.db.Query(ctx, listCredentialArtifactsByIDs, credentialIds)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []CredentialArtifact
-	for rows.Next() {
-		var i CredentialArtifact
-		if err := rows.Scan(
-			&i.ID,
-			&i.SourceKind,
-			&i.SourceName,
-			&i.AssetRefKind,
-			&i.AssetRefExternalID,
-			&i.CredentialKind,
-			&i.ExternalID,
-			&i.DisplayName,
-			&i.Fingerprint,
-			&i.ScopeJson,
-			&i.Status,
-			&i.CreatedAtSource,
-			&i.ExpiresAtSource,
-			&i.LastUsedAtSource,
-			&i.CreatedByKind,
-			&i.CreatedByExternalID,
-			&i.CreatedByDisplayName,
-			&i.ApprovedByKind,
-			&i.ApprovedByExternalID,
-			&i.ApprovedByDisplayName,
-			&i.RawJson,
-			&i.SeenInRunID,
-			&i.SeenAt,
-			&i.LastObservedRunID,
-			&i.LastObservedAt,
-			&i.ExpiredAt,
-			&i.ExpiredRunID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -58,13 +58,6 @@ ON CONFLICT (app_asset_id, owner_kind, owner_external_id) DO UPDATE SET
   seen_at = EXCLUDED.seen_at,
   updated_at = now();
 
--- name: CountAppAssetOwnersByAssetID :one
-SELECT count(*)
-FROM app_asset_owners
-WHERE app_asset_id = $1
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL;
-
 -- name: ListAppAssetOwnersByAssetID :many
 SELECT *
 FROM app_asset_owners
