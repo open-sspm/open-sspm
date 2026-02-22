@@ -69,7 +69,8 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("github-users--main")
+					<table data-columns-id="github-users--main" class="table">
 						<caption class="sr-only">GitHub users with display names and linked identity references.</caption>
 						<thead>
 							<tr>
@@ -124,3 +125,4 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 		</article>
 	}
 }
+

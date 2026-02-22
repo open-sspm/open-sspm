@@ -68,7 +68,8 @@ templ UnmatchedEntraPage(data viewmodels.UnmatchedEntraViewData) {
 			</header>
 				<section>
 					<div class="overflow-x-auto">
-						<table class="table osspm-table-fixed osspm-table-compact">
+						@ColumnsControl("unmatched-entra--main")
+						<table data-columns-id="unmatched-entra--main" class="table osspm-table-fixed osspm-table-compact">
 							<caption class="sr-only">Unmanaged Microsoft Entra ID users and actions to link each user to an identity.</caption>
 							<thead>
 								<tr>
@@ -149,3 +150,4 @@ templ UnmatchedEntraPage(data viewmodels.UnmatchedEntraViewData) {
 		</article>
 	}
 }
+

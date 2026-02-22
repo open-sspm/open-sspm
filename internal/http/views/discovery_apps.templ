@@ -90,7 +90,8 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 			</header>
 				<section>
 					<div class="overflow-x-auto">
-						<table class="table osspm-table-fixed osspm-table-compact">
+						@ColumnsControl("discovery-apps--main")
+						<table data-columns-id="discovery-apps--main" class="table osspm-table-fixed osspm-table-compact">
 							<caption class="sr-only">Discovered SaaS applications with managed state and risk posture.</caption>
 							<thead>
 								<tr>
@@ -159,3 +160,4 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 		</article>
 	</div>
 }
+

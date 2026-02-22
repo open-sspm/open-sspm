@@ -53,7 +53,8 @@ templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("discovery-hotspots--main")
+					<table data-columns-id="discovery-hotspots--main" class="table">
 						<caption class="sr-only">Top discovery hotspots ordered by risk score.</caption>
 						<thead>
 							<tr>
@@ -97,3 +98,4 @@ templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
 		</article>
 	</div>
 }
+

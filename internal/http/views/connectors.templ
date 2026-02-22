@@ -24,7 +24,8 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 
 		<article class="card">
 			<section class="overflow-x-auto">
-				<table class="table align-top">
+				@ColumnsControl("connectors--main")
+				<table data-columns-id="connectors--main" class="table align-top">
 					<thead>
 						<tr>
 							<th>Connector</th>
@@ -455,3 +456,4 @@ templ VaultConnectorRow(data viewmodels.ConnectorsViewData) {
 		</td>
 	</tr>
 }
+

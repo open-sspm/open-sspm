@@ -28,7 +28,8 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 				}
 
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("settings-connector-health--summary")
+					<table data-columns-id="settings-connector-health--summary" class="table">
 						<thead>
 							<tr>
 								<th>Connector</th>
@@ -142,7 +143,8 @@ templ ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDeta
 			</header>
 			<section class="space-y-4">
 				<div class="overflow-x-auto">
-					<table class="table align-top">
+					@ColumnsControl("settings-connector-health--failures")
+					<table data-columns-id="settings-connector-health--failures" class="table align-top">
 						<thead>
 							<tr>
 								<th>Finished</th>
@@ -201,3 +203,4 @@ templ ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDeta
 		</form>
 	</dialog>
 }
+

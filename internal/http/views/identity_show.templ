@@ -54,7 +54,8 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("identity-show--linked-accounts")
+					<table data-columns-id="identity-show--linked-accounts" class="table">
 						<thead>
 							<tr>
 								<th>Source</th>
@@ -114,3 +115,4 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 		</article>
 	}
 }
+

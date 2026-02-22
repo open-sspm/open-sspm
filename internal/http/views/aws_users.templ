@@ -69,7 +69,8 @@ templ AWSUsersPage(data viewmodels.AWSUsersViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("aws-users--main")
+					<table data-columns-id="aws-users--main" class="table">
 						<caption class="sr-only">AWS Identity Center users with account assignment counts and linked identities.</caption>
 						<thead>
 							<tr>
@@ -144,3 +145,4 @@ templ AWSUsersPage(data viewmodels.AWSUsersViewData) {
 		</article>
 	}
 }
+

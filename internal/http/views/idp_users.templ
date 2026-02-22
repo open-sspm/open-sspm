@@ -60,7 +60,8 @@ templ IdPUsersPage(data viewmodels.IdPUsersViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("idp-users--main")
+					<table data-columns-id="idp-users--main" class="table">
 						<caption class="sr-only">Okta user accounts with email, name, and account status.</caption>
 						<thead>
 							<tr>
@@ -113,3 +114,4 @@ templ IdPUsersPage(data viewmodels.IdPUsersViewData) {
 		</article>
 	}
 }
+

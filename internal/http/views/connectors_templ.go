@@ -120,7 +120,15 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, " <article class=\"card\"><section class=\"overflow-x-auto\"><table class=\"table align-top\"><thead><tr><th>Connector</th><th>Configured</th><th>Enabled</th><th>Identity source</th><th class=\"text-right\">Actions</th></tr></thead> <tbody>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, " <article class=\"card\"><section class=\"overflow-x-auto\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = ColumnsControl("connectors--main").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<table data-columns-id=\"connectors--main\" class=\"table align-top\"><thead><tr><th>Connector</th><th>Configured</th><th>Enabled</th><th>Identity source</th><th class=\"text-right\">Actions</th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -148,7 +156,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</tbody></table></section></article>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</tbody></table></section></article>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -164,53 +172,53 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<label class=\"field\"><span class=\"label\">Okta domain</span> <input type=\"text\" name=\"domain\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<label class=\"field\"><span class=\"label\">Okta domain</span> <input type=\"text\" name=\"domain\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(data.Okta.Domain)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 52, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 53, Col: 82}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" placeholder=\"dev-123456.okta.com\"></label> <label class=\"field\"><span class=\"label\">API token</span> <input type=\"password\" name=\"token\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" placeholder=\"dev-123456.okta.com\"></label> <label class=\"field\"><span class=\"label\">API token</span> <input type=\"password\" name=\"token\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.Okta.HasToken {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<p class=\"text-xs text-muted-foreground\">Current: ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<p class=\"text-xs text-muted-foreground\">Current: ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var8 string
 					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(data.Okta.TokenMasked)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 58, Col: 78}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 59, Col: 78}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</label> <label class=\"field\"><span class=\"label\">SaaS discovery</span><div class=\"flex items-center gap-3\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Okta SaaS discovery\" name=\"discovery_enabled\" value=\"true\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</label> <label class=\"field\"><span class=\"label\">SaaS discovery</span><div class=\"flex items-center gap-3\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Okta SaaS discovery\" name=\"discovery_enabled\" value=\"true\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.Okta.DiscoveryEnabled {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, " checked")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, " class=\"input\"> <input type=\"hidden\" name=\"discovery_enabled\" value=\"false\"> <span class=\"text-sm text-muted-foreground\">Ingest Okta System Log SSO and OAuth grant signals for discovery.</span></div><p class=\"text-xs text-muted-foreground\">Requires API token permissions for System Log access.</p></label>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, " class=\"input\"> <input type=\"hidden\" name=\"discovery_enabled\" value=\"false\"> <span class=\"text-sm text-muted-foreground\">Ingest Okta System Log SSO and OAuth grant signals for discovery.</span></div><p class=\"text-xs text-muted-foreground\">Requires API token permissions for System Log access.</p></label>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -220,7 +228,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -236,66 +244,66 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<label class=\"field\"><span class=\"label\">Tenant ID</span> <input type=\"text\" name=\"tenant_id\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<label class=\"field\"><span class=\"label\">Tenant ID</span> <input type=\"text\" name=\"tenant_id\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(data.Entra.TenantID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 75, Col: 88}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 76, Col: 88}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" placeholder=\"00000000-0000-0000-0000-000000000000\"></label> <label class=\"field\"><span class=\"label\">Client ID</span> <input type=\"text\" name=\"client_id\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" placeholder=\"00000000-0000-0000-0000-000000000000\"></label> <label class=\"field\"><span class=\"label\">Client ID</span> <input type=\"text\" name=\"client_id\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(data.Entra.ClientID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 79, Col: 88}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 80, Col: 88}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" placeholder=\"00000000-0000-0000-0000-000000000000\"></label> <label class=\"field\"><span class=\"label\">Client secret</span> <input type=\"password\" name=\"client_secret\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" placeholder=\"00000000-0000-0000-0000-000000000000\"></label> <label class=\"field\"><span class=\"label\">Client secret</span> <input type=\"password\" name=\"client_secret\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.Entra.HasClientSecret {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<p class=\"text-xs text-muted-foreground\">Current: ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<p class=\"text-xs text-muted-foreground\">Current: ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var12 string
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(data.Entra.ClientSecretMasked)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 85, Col: 86}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 86, Col: 86}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<p class=\"text-xs text-muted-foreground\">Requires Graph application permissions: User.Read.All, Group.Read.All, Application.Read.All, AppRoleAssignment.Read.All, RoleManagement.Read.Directory.</p></label> <label class=\"field\"><span class=\"label\">SaaS discovery</span><div class=\"flex items-center gap-3\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Entra SaaS discovery\" name=\"discovery_enabled\" value=\"true\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<p class=\"text-xs text-muted-foreground\">Requires Graph application permissions: User.Read.All, Group.Read.All, Application.Read.All, AppRoleAssignment.Read.All, RoleManagement.Read.Directory.</p></label> <label class=\"field\"><span class=\"label\">SaaS discovery</span><div class=\"flex items-center gap-3\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Entra SaaS discovery\" name=\"discovery_enabled\" value=\"true\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.Entra.DiscoveryEnabled {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, " checked")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, " class=\"input\"> <input type=\"hidden\" name=\"discovery_enabled\" value=\"false\"> <span class=\"text-sm text-muted-foreground\">Collect sign-in and OAuth grant evidence for discovery inventory.</span></div><p class=\"text-xs text-muted-foreground\">Requires Graph permissions: AuditLog.Read.All, Directory.Read.All, DelegatedPermissionGrant.Read.All.</p></label>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, " class=\"input\"> <input type=\"hidden\" name=\"discovery_enabled\" value=\"false\"> <span class=\"text-sm text-muted-foreground\">Collect sign-in and OAuth grant evidence for discovery inventory.</span></div><p class=\"text-xs text-muted-foreground\">Requires Graph permissions: AuditLog.Read.All, Directory.Read.All, DelegatedPermissionGrant.Read.All.</p></label>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -305,7 +313,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -321,79 +329,79 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<label class=\"field\"><span class=\"label\">Organization</span> <input type=\"text\" name=\"org\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<label class=\"field\"><span class=\"label\">Organization</span> <input type=\"text\" name=\"org\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var14 string
 				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(data.GitHub.Org)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 103, Col: 78}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 104, Col: 78}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\" placeholder=\"example-org\"></label> <label class=\"field\"><span class=\"label\">API base URL</span> <input type=\"text\" name=\"api_base\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" placeholder=\"example-org\"></label> <label class=\"field\"><span class=\"label\">API base URL</span> <input type=\"text\" name=\"api_base\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(data.GitHub.APIBase)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 107, Col: 87}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 108, Col: 87}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" placeholder=\"https://api.github.com\"></label> <label class=\"field\"><span class=\"label\">Enterprise slug (optional)</span> <input type=\"text\" name=\"enterprise\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" placeholder=\"https://api.github.com\"></label> <label class=\"field\"><span class=\"label\">Enterprise slug (optional)</span> <input type=\"text\" name=\"enterprise\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(data.GitHub.Enterprise)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 111, Col: 92}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 112, Col: 92}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" placeholder=\"example-enterprise\"><p class=\"text-xs text-muted-foreground\">Required if SAML SSO is configured at the enterprise level (enables email resolution via enterprise external identities).</p></label> <label class=\"field\"><span class=\"label\">Personal access token</span> <input type=\"password\" name=\"token\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" placeholder=\"example-enterprise\"><p class=\"text-xs text-muted-foreground\">Required if SAML SSO is configured at the enterprise level (enables email resolution via enterprise external identities).</p></label> <label class=\"field\"><span class=\"label\">Personal access token</span> <input type=\"password\" name=\"token\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.GitHub.HasToken {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<p class=\"text-xs text-muted-foreground\">Current: ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<p class=\"text-xs text-muted-foreground\">Current: ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var17 string
 					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(data.GitHub.TokenMasked)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 118, Col: 80}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 119, Col: 80}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</label> <label class=\"field\"><span class=\"label\">SCIM provisioning</span><div class=\"flex items-center gap-3\"><input type=\"checkbox\" role=\"switch\" aria-label=\"SCIM provisioning\" name=\"scim_enabled\" value=\"true\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</label> <label class=\"field\"><span class=\"label\">SCIM provisioning</span><div class=\"flex items-center gap-3\"><input type=\"checkbox\" role=\"switch\" aria-label=\"SCIM provisioning\" name=\"scim_enabled\" value=\"true\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.GitHub.SCIMEnabled {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, " checked")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, " class=\"input\"> <input type=\"hidden\" name=\"scim_enabled\" value=\"false\"> <span class=\"text-sm text-muted-foreground\">Prefer SCIM users to populate emails for auto-linking (requires org admin access + SSO-authorized token).</span></div></label>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, " class=\"input\"> <input type=\"hidden\" name=\"scim_enabled\" value=\"false\"> <span class=\"text-sm text-muted-foreground\">Prefer SCIM users to populate emails for auto-linking (requires org admin access + SSO-authorized token).</span></div></label>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -403,7 +411,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -419,66 +427,66 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<label class=\"field\"><span class=\"label\">Site</span> <input type=\"text\" name=\"site\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<label class=\"field\"><span class=\"label\">Site</span> <input type=\"text\" name=\"site\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(data.Datadog.Site)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 134, Col: 81}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 135, Col: 81}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\" placeholder=\"datadoghq.com\"></label> <label class=\"field\"><span class=\"label\">API key</span> <input type=\"password\" name=\"api_key\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\" placeholder=\"datadoghq.com\"></label> <label class=\"field\"><span class=\"label\">API key</span> <input type=\"password\" name=\"api_key\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.Datadog.HasAPIKey {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<p class=\"text-xs text-muted-foreground\">Current: ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<p class=\"text-xs text-muted-foreground\">Current: ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var20 string
 					templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(data.Datadog.APIKeyMasked)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 140, Col: 82}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 141, Col: 82}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</label> <label class=\"field\"><span class=\"label\">Application key</span> <input type=\"password\" name=\"app_key\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "</label> <label class=\"field\"><span class=\"label\">Application key</span> <input type=\"password\" name=\"app_key\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.Datadog.HasAppKey {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<p class=\"text-xs text-muted-foreground\">Current: ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<p class=\"text-xs text-muted-foreground\">Current: ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var21 string
 					templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(data.Datadog.AppKeyMasked)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 147, Col: 82}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 148, Col: 82}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</label>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</label>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -488,7 +496,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -504,148 +512,148 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<label class=\"field\"><span class=\"label\">Region</span> <input type=\"text\" name=\"region\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<label class=\"field\"><span class=\"label\">Region</span> <input type=\"text\" name=\"region\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var23 string
 				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(data.AWSIdentityCenter.Region)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 155, Col: 95}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 156, Col: 95}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "\" placeholder=\"us-east-1\"></label> <label class=\"field\"><span class=\"label\">Display name</span> <input type=\"text\" name=\"name\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\" placeholder=\"us-east-1\"></label> <label class=\"field\"><span class=\"label\">Display name</span> <input type=\"text\" name=\"name\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var24 string
 				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(data.AWSIdentityCenter.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 159, Col: 91}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 160, Col: 91}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\" placeholder=\"prod\"></label> <label class=\"field\"><span class=\"label\">Credentials</span> <select name=\"auth_type\" class=\"input w-full\"><option value=\"default_chain\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\" placeholder=\"prod\"></label> <label class=\"field\"><span class=\"label\">Credentials</span> <select name=\"auth_type\" class=\"input w-full\"><option value=\"default_chain\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.AWSIdentityCenter.AuthType == "default_chain" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, " selected")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, " selected")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, ">Use runtime credentials (recommended)</option> <option value=\"access_key\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, ">Use runtime credentials (recommended)</option> <option value=\"access_key\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.AWSIdentityCenter.AuthType == "access_key" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, " selected")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, " selected")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, ">Use access keys</option></select><p class=\"text-xs text-muted-foreground\">Runtime credentials use the AWS SDK default chain (IAM role/IRSA/OIDC/env). Selecting runtime clears stored access keys on save.</p></label> <label class=\"field\"><span class=\"label\">Access key ID</span> <input type=\"text\" name=\"access_key_id\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, ">Use access keys</option></select><p class=\"text-xs text-muted-foreground\">Runtime credentials use the AWS SDK default chain (IAM role/IRSA/OIDC/env). Selecting runtime clears stored access keys on save.</p></label> <label class=\"field\"><span class=\"label\">Access key ID</span> <input type=\"text\" name=\"access_key_id\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.AWSIdentityCenter.HasAccessKeyID {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "<p class=\"text-xs text-muted-foreground\">Current: ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "<p class=\"text-xs text-muted-foreground\">Current: ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var25 string
 					templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(data.AWSIdentityCenter.AccessKeyIDMask)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 173, Col: 95}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 174, Col: 95}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "</label> <label class=\"field\"><span class=\"label\">Secret access key</span> <input type=\"password\" name=\"secret_access_key\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "</label> <label class=\"field\"><span class=\"label\">Secret access key</span> <input type=\"password\" name=\"secret_access_key\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.AWSIdentityCenter.HasSecretKey {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "<p class=\"text-xs text-muted-foreground\">Current: ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "<p class=\"text-xs text-muted-foreground\">Current: ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var26 string
 					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(data.AWSIdentityCenter.SecretKeyMask)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 180, Col: 93}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 181, Col: 93}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "</label> <label class=\"field\"><span class=\"label\">Session token (optional)</span> <input type=\"password\" name=\"session_token\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "</label> <label class=\"field\"><span class=\"label\">Session token (optional)</span> <input type=\"password\" name=\"session_token\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.AWSIdentityCenter.HasSessionToken {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "<p class=\"text-xs text-muted-foreground\">Current: ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<p class=\"text-xs text-muted-foreground\">Current: ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var27 string
 					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(data.AWSIdentityCenter.SessionTokenMask)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 187, Col: 96}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 188, Col: 96}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "</label> <label class=\"field\"><span class=\"label\">Instance ARN</span> <input type=\"text\" name=\"instance_arn\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "</label> <label class=\"field\"><span class=\"label\">Instance ARN</span> <input type=\"text\" name=\"instance_arn\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var28 string
 				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(data.AWSIdentityCenter.InstanceARN)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 192, Col: 106}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 193, Col: 106}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "\" placeholder=\"arn:aws:sso:::instance/...\"></label> <label class=\"field\"><span class=\"label\">Identity store ID</span> <input type=\"text\" name=\"identity_store_id\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "\" placeholder=\"arn:aws:sso:::instance/...\"></label> <label class=\"field\"><span class=\"label\">Identity store ID</span> <input type=\"text\" name=\"identity_store_id\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var29 string
 				templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(data.AWSIdentityCenter.IdentityStoreID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 196, Col: 115}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 197, Col: 115}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "\" placeholder=\"d-1234567890\"></label>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "\" placeholder=\"d-1234567890\"></label>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -655,7 +663,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -671,178 +679,178 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "<label class=\"field\"><span class=\"label\">Vault address</span> <input type=\"text\" name=\"address\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "<label class=\"field\"><span class=\"label\">Vault address</span> <input type=\"text\" name=\"address\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var31 string
 				templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(data.Vault.Address)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 203, Col: 85}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 204, Col: 85}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "\" placeholder=\"https://vault.example.com\"></label> <label class=\"field\"><span class=\"label\">Source display name (optional)</span> <input type=\"text\" name=\"name\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "\" placeholder=\"https://vault.example.com\"></label> <label class=\"field\"><span class=\"label\">Source display name (optional)</span> <input type=\"text\" name=\"name\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var32 string
 				templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(data.Vault.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 207, Col: 79}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 208, Col: 79}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "\" placeholder=\"prod-vault\"></label> <label class=\"field\"><span class=\"label\">Namespace (optional)</span> <input type=\"text\" name=\"namespace\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "\" placeholder=\"prod-vault\"></label> <label class=\"field\"><span class=\"label\">Namespace (optional)</span> <input type=\"text\" name=\"namespace\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var33 string
 				templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(data.Vault.Namespace)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 211, Col: 89}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 212, Col: 89}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "\" placeholder=\"admin\"><p class=\"text-xs text-muted-foreground\">Leave blank for OSS or root namespace deployments. For HCP Vault Dedicated, this is usually <code>admin</code>.</p></label> <label class=\"field\"><span class=\"label\">Authentication</span> <select name=\"auth_type\" class=\"input w-full\"><option value=\"token\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "\" placeholder=\"admin\"><p class=\"text-xs text-muted-foreground\">Leave blank for OSS or root namespace deployments. For HCP Vault Dedicated, this is usually <code>admin</code>.</p></label> <label class=\"field\"><span class=\"label\">Authentication</span> <select name=\"auth_type\" class=\"input w-full\"><option value=\"token\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.Vault.AuthType == "token" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, " selected")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, " selected")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, ">Token</option> <option value=\"approle\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, ">Token</option> <option value=\"approle\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.Vault.AuthType == "approle" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, " selected")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, " selected")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, ">AppRole</option></select></label> <label class=\"field\"><span class=\"label\">Token (used when Token auth is selected)</span> <input type=\"password\" name=\"token\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, ">AppRole</option></select></label> <label class=\"field\"><span class=\"label\">Token (used when Token auth is selected)</span> <input type=\"password\" name=\"token\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.Vault.HasToken {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "<p class=\"text-xs text-muted-foreground\">Current: ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "<p class=\"text-xs text-muted-foreground\">Current: ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var34 string
 					templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(data.Vault.TokenMasked)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 225, Col: 79}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 226, Col: 79}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "</label> <label class=\"field\"><span class=\"label\">AppRole mount path (used when AppRole auth is selected)</span> <input type=\"text\" name=\"approle_mount_path\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</label> <label class=\"field\"><span class=\"label\">AppRole mount path (used when AppRole auth is selected)</span> <input type=\"text\" name=\"approle_mount_path\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var35 string
 				templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(data.Vault.AppRoleMountPath)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 230, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 231, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "\" placeholder=\"approle\"></label> <label class=\"field\"><span class=\"label\">AppRole role ID (used when AppRole auth is selected)</span> <input type=\"text\" name=\"approle_role_id\" class=\"input w-full\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "\" placeholder=\"approle\"></label> <label class=\"field\"><span class=\"label\">AppRole role ID (used when AppRole auth is selected)</span> <input type=\"text\" name=\"approle_role_id\" class=\"input w-full\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var36 string
 				templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(data.Vault.AppRoleRoleID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 234, Col: 99}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 235, Col: 99}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "\" placeholder=\"Leave blank to keep\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "\" placeholder=\"Leave blank to keep\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.Vault.HasAppRoleRoleID {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "<p class=\"text-xs text-muted-foreground\">Current value is configured.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "<p class=\"text-xs text-muted-foreground\">Current value is configured.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "</label> <label class=\"field\"><span class=\"label\">AppRole secret ID (used when AppRole auth is selected)</span> <input type=\"password\" name=\"approle_secret_id\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "</label> <label class=\"field\"><span class=\"label\">AppRole secret ID (used when AppRole auth is selected)</span> <input type=\"password\" name=\"approle_secret_id\" class=\"input w-full\" placeholder=\"Leave blank to keep\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.Vault.HasAppRoleSecretID {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "<p class=\"text-xs text-muted-foreground\">Current: ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "<p class=\"text-xs text-muted-foreground\">Current: ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var37 string
 					templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(data.Vault.AppRoleSecretMasked)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 243, Col: 87}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 244, Col: 87}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "</label> <label class=\"field\"><span class=\"label\">Auth role inventory</span><div class=\"flex items-center gap-3\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Vault auth role inventory\" name=\"scan_auth_roles\" value=\"true\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "</label> <label class=\"field\"><span class=\"label\">Auth role inventory</span><div class=\"flex items-center gap-3\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Vault auth role inventory\" name=\"scan_auth_roles\" value=\"true\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.Vault.ScanAuthRoles {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, " checked")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, " class=\"input\"> <input type=\"hidden\" name=\"scan_auth_roles\" value=\"false\"> <span class=\"text-sm text-muted-foreground\">Collect auth roles from AppRole/Kubernetes/JWT/OIDC mounts.</span></div></label> <label class=\"field\"><span class=\"label\">TLS verification</span><div class=\"flex items-center gap-3\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Vault TLS skip verification\" name=\"tls_skip_verify\" value=\"true\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, " class=\"input\"> <input type=\"hidden\" name=\"scan_auth_roles\" value=\"false\"> <span class=\"text-sm text-muted-foreground\">Collect auth roles from AppRole/Kubernetes/JWT/OIDC mounts.</span></div></label> <label class=\"field\"><span class=\"label\">TLS verification</span><div class=\"flex items-center gap-3\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Vault TLS skip verification\" name=\"tls_skip_verify\" value=\"true\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.Vault.TLSSkipVerify {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, " checked")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, " class=\"input\"> <input type=\"hidden\" name=\"tls_skip_verify\" value=\"false\"> <span class=\"text-sm text-muted-foreground\">Skip TLS certificate verification (use only for trusted/self-hosted environments).</span></div></label> <label class=\"field\"><span class=\"label\">Custom CA certificate PEM (optional)</span> <textarea name=\"tls_ca_cert_pem\" class=\"input w-full h-32\" placeholder=\"Leave blank to keep existing custom CA cert\"></textarea> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, " class=\"input\"> <input type=\"hidden\" name=\"tls_skip_verify\" value=\"false\"> <span class=\"text-sm text-muted-foreground\">Skip TLS certificate verification (use only for trusted/self-hosted environments).</span></div></label> <label class=\"field\"><span class=\"label\">Custom CA certificate PEM (optional)</span> <textarea name=\"tls_ca_cert_pem\" class=\"input w-full h-32\" placeholder=\"Leave blank to keep existing custom CA cert\"></textarea> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.Vault.HasTLSCACert {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "<p class=\"text-xs text-muted-foreground\">Custom CA certificate is configured.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "<p class=\"text-xs text-muted-foreground\">Custom CA certificate is configured.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "</label>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "</label>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -884,12 +892,12 @@ func ConfiguredBadge(configured bool) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if configured {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "<div class=\"inline-flex items-center justify-center\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"h-5 w-5 text-emerald-700 dark:text-emerald-300\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M16.704 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L8 12.586l7.296-7.293a1 1 0 0 1 1.408 0Z\" clip-rule=\"evenodd\"></path></svg> <span class=\"sr-only\">Configured</span></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "<div class=\"inline-flex items-center justify-center\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"h-5 w-5 text-emerald-700 dark:text-emerald-300\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M16.704 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L8 12.586l7.296-7.293a1 1 0 0 1 1.408 0Z\" clip-rule=\"evenodd\"></path></svg> <span class=\"sr-only\">Configured</span></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "<span class=\"text-muted-foreground\">-</span> <span class=\"sr-only\">Not configured</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "<span class=\"text-muted-foreground\">-</span> <span class=\"sr-only\">Not configured</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -919,7 +927,7 @@ func OktaConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 			templ_7745c5c3_Var39 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "<tr id=\"connector-row-okta\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Okta</div><div class=\"text-xs text-muted-foreground\">Identity provider source for users and groups.</div></div></td><td>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "<tr id=\"connector-row-okta\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Okta</div><div class=\"text-xs text-muted-foreground\">Identity provider source for users and groups.</div></div></td><td>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -927,7 +935,7 @@ func OktaConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "</td><td><form method=\"post\" action=\"/settings/connectors/okta/toggle\" hx-post=\"/settings/connectors/okta/toggle\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "</td><td><form method=\"post\" action=\"/settings/connectors/okta/toggle\" hx-post=\"/settings/connectors/okta/toggle\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -935,17 +943,17 @@ func OktaConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Okta connector\" name=\"enabled\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Okta connector\" name=\"enabled\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.Okta.Enabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><div class=\"flex items-center justify-between gap-3\"><span class=\"text-xs text-muted-foreground\">Authoritative IdP</span><form method=\"post\" action=\"/settings/connectors/okta/authoritative\" hx-post=\"/settings/connectors/okta/authoritative\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><div class=\"flex items-center justify-between gap-3\"><span class=\"text-xs text-muted-foreground\">Authoritative IdP</span><form method=\"post\" action=\"/settings/connectors/okta/authoritative\" hx-post=\"/settings/connectors/okta/authoritative\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -953,17 +961,17 @@ func OktaConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Okta authoritative identity source\" name=\"authoritative\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Okta authoritative identity source\" name=\"authoritative\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.Okta.Authoritative {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"authoritative\" value=\"false\"></label></form></div></td><td class=\"text-right\"><a id=\"connector-okta-configure\" href=\"/settings/connectors?open=okta\" class=\"btn-sm-outline\">Configure</a></td></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"authoritative\" value=\"false\"></label></form></div></td><td class=\"text-right\"><a id=\"connector-okta-configure\" href=\"/settings/connectors?open=okta\" class=\"btn-sm-outline\">Configure</a></td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -992,7 +1000,7 @@ func EntraConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 			templ_7745c5c3_Var40 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "<tr id=\"connector-row-entra\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Microsoft Entra ID</div><div class=\"text-xs text-muted-foreground\">Users and access via Microsoft Graph.</div></div></td><td>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<tr id=\"connector-row-entra\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Microsoft Entra ID</div><div class=\"text-xs text-muted-foreground\">Users and access via Microsoft Graph.</div></div></td><td>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1000,7 +1008,7 @@ func EntraConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "</td><td><form method=\"post\" action=\"/settings/connectors/entra/toggle\" hx-post=\"/settings/connectors/entra/toggle\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "</td><td><form method=\"post\" action=\"/settings/connectors/entra/toggle\" hx-post=\"/settings/connectors/entra/toggle\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1008,17 +1016,17 @@ func EntraConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Microsoft Entra ID connector\" name=\"enabled\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Microsoft Entra ID connector\" name=\"enabled\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.Entra.Enabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><div class=\"flex items-center justify-between gap-3\"><span class=\"text-xs text-muted-foreground\">Authoritative IdP</span><form method=\"post\" action=\"/settings/connectors/entra/authoritative\" hx-post=\"/settings/connectors/entra/authoritative\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><div class=\"flex items-center justify-between gap-3\"><span class=\"text-xs text-muted-foreground\">Authoritative IdP</span><form method=\"post\" action=\"/settings/connectors/entra/authoritative\" hx-post=\"/settings/connectors/entra/authoritative\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1026,17 +1034,17 @@ func EntraConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Entra authoritative identity source\" name=\"authoritative\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Entra authoritative identity source\" name=\"authoritative\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.Entra.Authoritative {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"authoritative\" value=\"false\"></label></form></div></td><td class=\"text-right\"><a id=\"connector-entra-configure\" href=\"/settings/connectors?open=entra\" class=\"btn-sm-outline\">Configure</a></td></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"authoritative\" value=\"false\"></label></form></div></td><td class=\"text-right\"><a id=\"connector-entra-configure\" href=\"/settings/connectors?open=entra\" class=\"btn-sm-outline\">Configure</a></td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1065,7 +1073,7 @@ func GitHubConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 			templ_7745c5c3_Var41 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, "<tr id=\"connector-row-github\"><td><div class=\"space-y-1\"><div class=\"font-medium\">GitHub</div><div class=\"text-xs text-muted-foreground\">Organization membership, teams, and repo permissions.</div></div></td><td>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, "<tr id=\"connector-row-github\"><td><div class=\"space-y-1\"><div class=\"font-medium\">GitHub</div><div class=\"text-xs text-muted-foreground\">Organization membership, teams, and repo permissions.</div></div></td><td>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1073,7 +1081,7 @@ func GitHubConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, "</td><td><form method=\"post\" action=\"/settings/connectors/github/toggle\" hx-post=\"/settings/connectors/github/toggle\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "</td><td><form method=\"post\" action=\"/settings/connectors/github/toggle\" hx-post=\"/settings/connectors/github/toggle\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1081,17 +1089,17 @@ func GitHubConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"GitHub connector\" name=\"enabled\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"GitHub connector\" name=\"enabled\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.GitHub.Enabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-github-configure\" href=\"/settings/connectors?open=github\" class=\"btn-sm-outline\">Configure</a></td></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 110, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-github-configure\" href=\"/settings/connectors?open=github\" class=\"btn-sm-outline\">Configure</a></td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1120,7 +1128,7 @@ func DatadogConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 			templ_7745c5c3_Var42 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 110, "<tr id=\"connector-row-datadog\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Datadog</div><div class=\"text-xs text-muted-foreground\">Datadog users and roles for entitlement visibility.</div></div></td><td>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, "<tr id=\"connector-row-datadog\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Datadog</div><div class=\"text-xs text-muted-foreground\">Datadog users and roles for entitlement visibility.</div></div></td><td>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1128,7 +1136,7 @@ func DatadogConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, "</td><td><form method=\"post\" action=\"/settings/connectors/datadog/toggle\" hx-post=\"/settings/connectors/datadog/toggle\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, "</td><td><form method=\"post\" action=\"/settings/connectors/datadog/toggle\" hx-post=\"/settings/connectors/datadog/toggle\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1136,17 +1144,17 @@ func DatadogConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Datadog connector\" name=\"enabled\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Datadog connector\" name=\"enabled\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.Datadog.Enabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-datadog-configure\" href=\"/settings/connectors?open=datadog\" class=\"btn-sm-outline\">Configure</a></td></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-datadog-configure\" href=\"/settings/connectors?open=datadog\" class=\"btn-sm-outline\">Configure</a></td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1175,7 +1183,7 @@ func AWSIdentityCenterConnectorRow(data viewmodels.ConnectorsViewData) templ.Com
 			templ_7745c5c3_Var43 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, "<tr id=\"connector-row-aws-identity-center\"><td><div class=\"space-y-1\"><div class=\"font-medium\">AWS Identity Center</div><div class=\"text-xs text-muted-foreground\">AWS SSO users and account assignments.</div></div></td><td>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, "<tr id=\"connector-row-aws-identity-center\"><td><div class=\"space-y-1\"><div class=\"font-medium\">AWS Identity Center</div><div class=\"text-xs text-muted-foreground\">AWS SSO users and account assignments.</div></div></td><td>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1183,7 +1191,7 @@ func AWSIdentityCenterConnectorRow(data viewmodels.ConnectorsViewData) templ.Com
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, "</td><td><form method=\"post\" action=\"/settings/connectors/aws_identity_center/toggle\" hx-post=\"/settings/connectors/aws_identity_center/toggle\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, "</td><td><form method=\"post\" action=\"/settings/connectors/aws_identity_center/toggle\" hx-post=\"/settings/connectors/aws_identity_center/toggle\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1191,17 +1199,17 @@ func AWSIdentityCenterConnectorRow(data viewmodels.ConnectorsViewData) templ.Com
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"AWS Identity Center connector\" name=\"enabled\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"AWS Identity Center connector\" name=\"enabled\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.AWSIdentityCenter.Enabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-aws-configure\" href=\"/settings/connectors?open=aws_identity_center\" class=\"btn-sm-outline\">Configure</a></td></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-aws-configure\" href=\"/settings/connectors?open=aws_identity_center\" class=\"btn-sm-outline\">Configure</a></td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1230,7 +1238,7 @@ func VaultConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 			templ_7745c5c3_Var44 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, "<tr id=\"connector-row-vault\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Vault</div><div class=\"text-xs text-muted-foreground\">Identity entities, policies, mounts, and auth roles.</div></div></td><td>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "<tr id=\"connector-row-vault\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Vault</div><div class=\"text-xs text-muted-foreground\">Identity entities, policies, mounts, and auth roles.</div></div></td><td>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1238,7 +1246,7 @@ func VaultConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "</td><td><form method=\"post\" action=\"/settings/connectors/vault/toggle\" hx-post=\"/settings/connectors/vault/toggle\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, "</td><td><form method=\"post\" action=\"/settings/connectors/vault/toggle\" hx-post=\"/settings/connectors/vault/toggle\" hx-target=\"closest tr\" hx-swap=\"outerHTML\" hx-disabled-elt=\"closest tr\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1246,17 +1254,17 @@ func VaultConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Vault connector\" name=\"enabled\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Vault connector\" name=\"enabled\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.Vault.Enabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-vault-configure\" href=\"/settings/connectors?open=vault\" class=\"btn-sm-outline\">Configure</a></td></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, " data-autosubmit=\"true\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-vault-configure\" href=\"/settings/connectors?open=vault\" class=\"btn-sm-outline\">Configure</a></td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

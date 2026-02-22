@@ -94,7 +94,8 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("okta-app-show--users")
+					<table data-columns-id="okta-app-show--users" class="table">
 						<caption class="sr-only">Users assigned to this app, including assignment source, groups, and permission attributes.</caption>
 						<thead>
 							<tr>
@@ -175,3 +176,4 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 		</article>
 	}
 }
+

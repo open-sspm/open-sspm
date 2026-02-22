@@ -23,7 +23,8 @@ templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
 				<h2>Team Management</h2>
 			</header>
 			<section>
-				<table class="table">
+				@ColumnsControl("settings-users--main")
+				<table data-columns-id="settings-users--main" class="table">
 					<caption class="sr-only">Local users, roles, status, last login, and account actions.</caption>
 					<thead>
 						<tr>
@@ -146,3 +147,4 @@ templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
 		}
 	}
 }
+

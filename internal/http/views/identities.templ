@@ -138,27 +138,12 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 						</div>
 					</label>
 				</div>
-				<div class="mt-4 flex flex-wrap items-center gap-4">
-					<label class="inline-flex items-center gap-2 text-sm">
-						<input type="checkbox" name="privileged" value="1" checked?={ data.PrivilegedOnly } class="checkbox"/>
-						<span>Privileged only</span>
-					</label>
-					<div class="flex flex-wrap items-center gap-4">
-						<span class="text-sm font-medium">Columns</span>
+					<div class="mt-4 flex flex-wrap items-center gap-4">
 						<label class="inline-flex items-center gap-2 text-sm">
-							<input type="checkbox" name="show_first_seen" value="1" checked?={ data.ShowFirstSeen } class="checkbox"/>
-							<span>First seen</span>
-						</label>
-						<label class="inline-flex items-center gap-2 text-sm">
-							<input type="checkbox" name="show_link_quality" value="1" checked?={ data.ShowLinkQuality } class="checkbox"/>
-							<span>Link quality</span>
-						</label>
-						<label class="inline-flex items-center gap-2 text-sm">
-							<input type="checkbox" name="show_link_reason" value="1" checked?={ data.ShowLinkReason } class="checkbox"/>
-							<span>Link reason</span>
+							<input type="checkbox" name="privileged" value="1" checked?={ data.PrivilegedOnly } class="checkbox"/>
+							<span>Privileged only</span>
 						</label>
 					</div>
-				</div>
 				<button class="sr-only" type="submit">Apply filters</button>
 			</section>
 		</form>
@@ -176,7 +161,8 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table osspm-table-fixed osspm-table-compact">
+					@ColumnsControl("identities--main")
+					<table data-columns-id="identities--main" data-columns-default-hidden="10,11,12" class="table osspm-table-fixed osspm-table-compact">
 						<caption class="sr-only">Identity inventory with source, status, privilege, and activity context.</caption>
 						<thead>
 							<tr>
@@ -189,15 +175,9 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 								<th>State</th>
 								<th>Status</th>
 								<th>Last seen</th>
-								if data.ShowFirstSeen {
-									<th>First seen</th>
-								}
-								if data.ShowLinkQuality {
-									<th>Link quality</th>
-								}
-								if data.ShowLinkReason {
-									<th>Link reason</th>
-								}
+								<th>First seen</th>
+								<th>Link quality</th>
+								<th>Link reason</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -243,25 +223,19 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 											<span class={ IdentityStatusBadgeClass(item.Status) }>{ HumanizeIdentityStatus(item.Status) }</span>
 										</td>
 										<td>{ item.LastSeenOn }</td>
-										if data.ShowFirstSeen {
-											<td>{ item.FirstSeenOn }</td>
-										}
-											if data.ShowLinkQuality {
-												<td>
-													<span class={ IdentityLinkQualityBadgeClass(item.LinkQuality) }>{ HumanizeIdentityLinkQuality(item.LinkQuality) }</span>
-													if item.LinkQuality != "unknown" {
-														<span class="osspm-cell-secondary">{ FormatIdentityLinkConfidence(item.MinLinkConfidence) }</span>
-													}
-												</td>
+										<td>{ item.FirstSeenOn }</td>
+										<td>
+											<span class={ IdentityLinkQualityBadgeClass(item.LinkQuality) }>{ HumanizeIdentityLinkQuality(item.LinkQuality) }</span>
+											if item.LinkQuality != "unknown" {
+												<span class="osspm-cell-secondary">{ FormatIdentityLinkConfidence(item.MinLinkConfidence) }</span>
 											}
-										if data.ShowLinkReason {
-											<td><span class="osspm-truncate" title={ item.LinkReason }>{ fallbackHumanized(item.LinkReason) }</span></td>
-										}
+										</td>
+										<td><span class="osspm-truncate" title={ item.LinkReason }>{ fallbackHumanized(item.LinkReason) }</span></td>
 									</tr>
 								}
 							} else {
 								<tr>
-									<td colspan={ IdentityInventoryColSpan(data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason) }>
+									<td colspan="12">
 										@EmptyState("No identities found", data.EmptyStateMsg)
 									</td>
 								</tr>
