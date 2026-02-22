@@ -276,6 +276,28 @@ func TestAvailableProgrammaticSourcesIncludesVault(t *testing.T) {
 	}
 }
 
+func TestAvailableProgrammaticSourcesIncludesGoogleWorkspace(t *testing.T) {
+	t.Parallel()
+
+	sources := availableProgrammaticSources(ConnectorSnapshot{
+		GoogleWorkspace:           configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
+		GoogleWorkspaceConfigured: true,
+		GoogleWorkspaceEnabled:    true,
+	})
+	if len(sources) != 1 {
+		t.Fatalf("sources length = %d, want 1", len(sources))
+	}
+	if sources[0].SourceKind != configstore.KindGoogleWorkspace {
+		t.Fatalf("source kind = %q, want %q", sources[0].SourceKind, configstore.KindGoogleWorkspace)
+	}
+	if sources[0].SourceName != "C0123" {
+		t.Fatalf("source name = %q, want C0123", sources[0].SourceName)
+	}
+	if sources[0].Label != "Google Workspace" {
+		t.Fatalf("source label = %q, want Google Workspace", sources[0].Label)
+	}
+}
+
 func timestamptz(ts time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: ts.UTC(), Valid: true}
 }

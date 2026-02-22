@@ -71,11 +71,12 @@ func runWorker() error {
 	}
 	dbRunner.SetRunPolicy(sync.RunPolicy{
 		IntervalByKind: map[string]time.Duration{
-			"okta":    cfg.SyncOktaInterval,
-			"entra":   cfg.SyncEntraInterval,
-			"github":  cfg.SyncGitHubInterval,
-			"datadog": cfg.SyncDatadogInterval,
-			"aws":     cfg.SyncAWSInterval,
+			"okta":             cfg.SyncOktaInterval,
+			"entra":            cfg.SyncEntraInterval,
+			"google_workspace": cfg.SyncGoogleWorkspaceInterval,
+			"github":           cfg.SyncGitHubInterval,
+			"datadog":          cfg.SyncDatadogInterval,
+			"aws":              cfg.SyncAWSInterval,
 		},
 		FailureBackoffBase:   cfg.SyncInterval,
 		FailureBackoffMax:    backoffMax,

@@ -7,6 +7,9 @@ type LayoutData struct {
 	UserRole                    string
 	IsAdmin                     bool
 	FindingsRulesets            []FindingsRulesetItem
+	GoogleWorkspaceCustomerID   string
+	GoogleWorkspaceEnabled      bool
+	GoogleWorkspaceConfigured   bool
 	GitHubOrg                   string
 	GitHubEnabled               bool
 	GitHubConfigured            bool

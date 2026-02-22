@@ -8,7 +8,7 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 			{Label: "Dashboard", Href: "/"},
 			{Label: "Settings", Href: "/settings"},
 			{Label: "Connectors"},
-		}, "Manage integrations for Okta, Microsoft Entra ID, GitHub, Datadog, AWS Identity Center, and Vault.")
+		}, "Manage integrations for Okta, Google Workspace, Microsoft Entra ID, GitHub, Datadog, AWS Identity Center, and Vault.")
 
 		if data.Alert != nil {
 			@Alert(data.Alert.Title, IsAlertDestructive(data.Alert.Class)) {
@@ -37,6 +37,7 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 					</thead>
 					<tbody>
 						@OktaConnectorRow(data)
+						@GoogleWorkspaceConnectorRow(data)
 						@EntraConnectorRow(data)
 						@GitHubConnectorRow(data)
 						@DatadogConnectorRow(data)
@@ -67,6 +68,49 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 					<span class="text-sm text-muted-foreground">Ingest Okta System Log SSO and OAuth grant signals for discovery.</span>
 				</div>
 				<p class="text-xs text-muted-foreground">Requires API token permissions for System Log access.</p>
+			</label>
+		}
+
+		@FormDialog("connector-google-workspace-modal", data.OpenKind == "google_workspace", "Google Workspace configuration", "Users, groups, OAuth grants, and audit signals from Google Workspace.", "/settings/connectors#connector-google-workspace-configure", "/settings/connectors/google_workspace", "Save", data.Layout.CSRFToken) {
+			<label class="field">
+				<span class="label">Customer ID</span>
+				<input type="text" name="customer_id" class="input w-full" value={ data.GoogleWorkspace.CustomerID } placeholder="C0123abc"/>
+				<p class="text-xs text-muted-foreground">Primary source identifier used as source_name.</p>
+			</label>
+			<label class="field">
+				<span class="label">Primary domain (optional)</span>
+				<input type="text" name="primary_domain" class="input w-full" value={ data.GoogleWorkspace.PrimaryDomain } placeholder="example.com"/>
+			</label>
+			<label class="field">
+				<span class="label">Delegated admin email</span>
+				<input type="text" name="delegated_admin_email" class="input w-full" value={ data.GoogleWorkspace.DelegatedAdminEmail } placeholder="admin@example.com"/>
+				<p class="text-xs text-muted-foreground">Admin user to impersonate via domain-wide delegation.</p>
+			</label>
+			<label class="field">
+				<span class="label">Authentication mode</span>
+				<select name="auth_type" class="input w-full">
+					<option value="service_account_json" selected?={ data.GoogleWorkspace.AuthType == "service_account_json" }>Service account JSON</option>
+					<option value="adc" selected?={ data.GoogleWorkspace.AuthType == "adc" }>ADC / Workload Identity</option>
+				</select>
+			</label>
+			<label class="field">
+				<span class="label">Service account JSON (for JSON auth mode)</span>
+				<textarea name="service_account_json" class="input w-full h-32" placeholder="Leave blank to keep existing service account JSON"></textarea>
+				if data.GoogleWorkspace.HasServiceAccountJSON {
+					<p class="text-xs text-muted-foreground">Current: { data.GoogleWorkspace.ServiceAccountMask }</p>
+				}
+			</label>
+			<label class="field">
+				<span class="label">Service account email (for ADC auth mode)</span>
+				<input type="text" name="service_account_email" class="input w-full" value={ data.GoogleWorkspace.ServiceAccountEmail } placeholder="svc@example.iam.gserviceaccount.com"/>
+			</label>
+			<label class="field">
+				<span class="label">SaaS discovery</span>
+				<div class="flex items-center gap-3">
+					<input type="checkbox" role="switch" aria-label="Google Workspace SaaS discovery" name="discovery_enabled" value="true" checked?={ data.GoogleWorkspace.DiscoveryEnabled } class="input"/>
+					<input type="hidden" name="discovery_enabled" value="false"/>
+					<span class="text-sm text-muted-foreground">Collect login/token evidence for discovery inventory.</span>
+				</div>
 			</label>
 		}
 
@@ -357,6 +401,31 @@ templ EntraConnectorRow(data viewmodels.ConnectorsViewData) {
 	</tr>
 }
 
+templ GoogleWorkspaceConnectorRow(data viewmodels.ConnectorsViewData) {
+	<tr id="connector-row-google-workspace">
+		<td>
+			<div class="space-y-1">
+				<div class="font-medium">Google Workspace</div>
+				<div class="text-xs text-muted-foreground">Users, groups, OAuth grants, and token audits.</div>
+			</div>
+		</td>
+		<td>@ConfiguredBadge(data.GoogleWorkspace.Configured)</td>
+		<td>
+			<form method="post" action="/settings/connectors/google_workspace/toggle" hx-post="/settings/connectors/google_workspace/toggle" hx-target="closest tr" hx-swap="outerHTML" hx-disabled-elt="closest tr">
+				@CSRFInput(data.Layout.CSRFToken)
+				<label class="flex items-center gap-2 whitespace-nowrap">
+					<input type="checkbox" role="switch" aria-label="Google Workspace connector" name="enabled" value="true" checked?={ data.GoogleWorkspace.Enabled } data-autosubmit="true" class="input"/>
+					<input type="hidden" name="enabled" value="false"/>
+				</label>
+			</form>
+		</td>
+		<td><span class="text-muted-foreground">&mdash;</span></td>
+		<td class="text-right">
+			<a id="connector-google-workspace-configure" href="/settings/connectors?open=google_workspace" class="btn-sm-outline">Configure</a>
+		</td>
+	</tr>
+}
+
 templ GitHubConnectorRow(data viewmodels.ConnectorsViewData) {
 	<tr id="connector-row-github">
 		<td>
@@ -456,4 +525,3 @@ templ VaultConnectorRow(data viewmodels.ConnectorsViewData) {
 		</td>
 	</tr>
 }
-

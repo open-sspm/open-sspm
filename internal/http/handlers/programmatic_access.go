@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
+	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
@@ -604,7 +605,7 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 }
 
 func availableProgrammaticSources(snap ConnectorSnapshot) []viewmodels.ProgrammaticSourceOption {
-	sources := make([]viewmodels.ProgrammaticSourceOption, 0, 3)
+	sources := make([]viewmodels.ProgrammaticSourceOption, 0, 4)
 
 	if snap.EntraEnabled && snap.EntraConfigured {
 		if sourceName := strings.TrimSpace(snap.Entra.TenantID); sourceName != "" {
@@ -612,6 +613,15 @@ func availableProgrammaticSources(snap ConnectorSnapshot) []viewmodels.Programma
 				SourceKind: "entra",
 				SourceName: sourceName,
 				Label:      sourcePrimaryLabel("entra"),
+			})
+		}
+	}
+	if snap.GoogleWorkspaceEnabled && snap.GoogleWorkspaceConfigured {
+		if sourceName := strings.TrimSpace(snap.GoogleWorkspace.CustomerID); sourceName != "" {
+			sources = append(sources, viewmodels.ProgrammaticSourceOption{
+				SourceKind: configstore.KindGoogleWorkspace,
+				SourceName: sourceName,
+				Label:      sourcePrimaryLabel(configstore.KindGoogleWorkspace),
 			})
 		}
 	}

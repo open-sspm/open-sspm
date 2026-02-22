@@ -178,6 +178,30 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 		if err != nil {
 			return h.RenderError(c, err)
 		}
+	case configstore.KindGoogleWorkspace:
+		current, err := configstore.DecodeGoogleWorkspaceConfig(cfgRow.Config)
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		update := configstore.GoogleWorkspaceConfig{
+			CustomerID:          c.FormValue("customer_id"),
+			PrimaryDomain:       c.FormValue("primary_domain"),
+			DelegatedAdminEmail: c.FormValue("delegated_admin_email"),
+			AuthType:            c.FormValue("auth_type"),
+			ServiceAccountJSON:  c.FormValue("service_account_json"),
+			ServiceAccountEmail: c.FormValue("service_account_email"),
+			DiscoveryEnabled:    ParseBoolForm(c.FormValue("discovery_enabled")),
+		}
+		merged := configstore.MergeGoogleWorkspaceConfig(current, update).Normalized()
+		if cfgRow.Enabled {
+			if err := merged.Validate(); err != nil {
+				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
+			}
+		}
+		raw, err = configstore.EncodeConfig(merged)
+		if err != nil {
+			return h.RenderError(c, err)
+		}
 	case configstore.KindGitHub:
 		current, err := configstore.DecodeGitHubConfig(cfgRow.Config)
 		if err != nil {
@@ -362,6 +386,8 @@ func (h *Handlers) renderConnectorRow(c *echo.Context, kind string, data viewmod
 	switch NormalizeConnectorKind(kind) {
 	case configstore.KindOkta:
 		return h.RenderComponent(c, views.OktaConnectorRow(data))
+	case configstore.KindGoogleWorkspace:
+		return h.RenderComponent(c, views.GoogleWorkspaceConnectorRow(data))
 	case configstore.KindEntra:
 		return h.RenderComponent(c, views.EntraConnectorRow(data))
 	case configstore.KindGitHub:
@@ -414,6 +440,22 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context,
 					HasToken:         cfg.Token != "",
 					DiscoveryEnabled: cfg.DiscoveryEnabled,
 					Authoritative:    authoritative,
+				}
+			}
+		case configstore.KindGoogleWorkspace:
+			if cfg, ok := state.Config.(configstore.GoogleWorkspaceConfig); ok {
+				cfg = cfg.Normalized()
+				data.GoogleWorkspace = viewmodels.GoogleWorkspaceConnectorViewData{
+					Enabled:               state.Enabled,
+					Configured:            state.Configured,
+					CustomerID:            cfg.CustomerID,
+					PrimaryDomain:         cfg.PrimaryDomain,
+					DelegatedAdminEmail:   cfg.DelegatedAdminEmail,
+					AuthType:              cfg.AuthType,
+					ServiceAccountMask:    configstore.MaskSecret(cfg.ServiceAccountJSON),
+					HasServiceAccountJSON: cfg.ServiceAccountJSON != "",
+					ServiceAccountEmail:   cfg.ServiceAccountEmail,
+					DiscoveryEnabled:      cfg.DiscoveryEnabled,
 				}
 			}
 		case configstore.KindGitHub:
@@ -530,6 +572,12 @@ func validateConnectorConfig(kind string, raw []byte) error {
 	switch NormalizeConnectorKind(kind) {
 	case configstore.KindOkta:
 		cfg, err := configstore.DecodeOktaConfig(raw)
+		if err != nil {
+			return err
+		}
+		return cfg.Normalized().Validate()
+	case configstore.KindGoogleWorkspace:
+		cfg, err := configstore.DecodeGoogleWorkspaceConfig(raw)
 		if err != nil {
 			return err
 		}

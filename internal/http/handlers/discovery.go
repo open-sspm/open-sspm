@@ -135,7 +135,7 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 		EmptyStateMsg:      "No discovered SaaS apps match the current filters.",
 	}
 	if totalCount == 0 && len(sourceOptions) == 0 {
-		data.EmptyStateMsg = "Enable Okta or Microsoft Entra discovery in connector settings, then run sync."
+		data.EmptyStateMsg = "Enable Okta, Microsoft Entra, or Google Workspace discovery in connector settings, then run sync."
 	}
 
 	if isHX(c) && isHXTarget(c, "discovery-apps-results") {
@@ -501,7 +501,7 @@ func discoveryConfiguredSourcePairsFromRuntimes(runtimes map[string]discoveryCon
 	}
 
 	pairs := make([]sourcePair, 0, 2)
-	for _, kind := range []string{configstore.KindOkta, configstore.KindEntra} {
+	for _, kind := range []string{configstore.KindOkta, configstore.KindEntra, configstore.KindGoogleWorkspace} {
 		runtime, ok := runtimes[kind]
 		if !ok || !runtime.Configured {
 			continue
@@ -563,6 +563,10 @@ func (h *Handlers) discoveryFreshnessWindow(kind string) time.Duration {
 		if h.Cfg.SyncEntraInterval > 0 {
 			interval = h.Cfg.SyncEntraInterval
 		}
+	case configstore.KindGoogleWorkspace:
+		if h.Cfg.SyncGoogleWorkspaceInterval > 0 {
+			interval = h.Cfg.SyncGoogleWorkspaceInterval
+		}
 	case configstore.KindGitHub:
 		if h.Cfg.SyncGitHubInterval > 0 {
 			interval = h.Cfg.SyncGitHubInterval
@@ -584,7 +588,7 @@ func (h *Handlers) discoveryFreshnessWindow(kind string) time.Duration {
 }
 
 func discoverySourceOptions(snap ConnectorSnapshot) []viewmodels.DiscoverySourceOption {
-	options := make([]viewmodels.DiscoverySourceOption, 0, 2)
+	options := make([]viewmodels.DiscoverySourceOption, 0, 3)
 	oktaSource := strings.TrimSpace(snap.Okta.Domain)
 	if snap.OktaConfigured && oktaSource != "" {
 		options = append(options, viewmodels.DiscoverySourceOption{
@@ -599,6 +603,14 @@ func discoverySourceOptions(snap ConnectorSnapshot) []viewmodels.DiscoverySource
 			SourceKind: "entra",
 			SourceName: entraSource,
 			Label:      sourcePrimaryLabel("entra"),
+		})
+	}
+	googleSource := strings.TrimSpace(snap.GoogleWorkspace.CustomerID)
+	if snap.GoogleWorkspaceConfigured && googleSource != "" {
+		options = append(options, viewmodels.DiscoverySourceOption{
+			SourceKind: configstore.KindGoogleWorkspace,
+			SourceName: googleSource,
+			Label:      sourcePrimaryLabel(configstore.KindGoogleWorkspace),
 		})
 	}
 	return options
@@ -728,6 +740,8 @@ func normalizeDiscoverySourceKind(raw string) string {
 		return "okta"
 	case "entra":
 		return "entra"
+	case configstore.KindGoogleWorkspace:
+		return configstore.KindGoogleWorkspace
 	default:
 		return ""
 	}

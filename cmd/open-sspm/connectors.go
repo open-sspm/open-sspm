@@ -6,6 +6,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/datadog"
 	"github.com/open-sspm/open-sspm/internal/connectors/entra"
 	"github.com/open-sspm/open-sspm/internal/connectors/github"
+	"github.com/open-sspm/open-sspm/internal/connectors/googleworkspace"
 	"github.com/open-sspm/open-sspm/internal/connectors/okta"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/connectors/vault"
@@ -29,6 +30,9 @@ func buildConnectorRegistry(cfg config.Config) (*registry.ConnectorRegistry, err
 		return nil, err
 	}
 	if err := reg.Register(&vault.Definition{}); err != nil {
+		return nil, err
+	}
+	if err := reg.Register(&googleworkspace.Definition{}); err != nil {
 		return nil, err
 	}
 	return reg, nil

@@ -163,3 +163,149 @@ func TestDecodeVaultConfigDefaultsScanAuthRoles(t *testing.T) {
 		t.Fatalf("scan_auth_roles should respect explicit false")
 	}
 }
+
+func TestGoogleWorkspaceConfigValidate(t *testing.T) {
+	t.Parallel()
+
+	validJSON := `{"client_email":"svc@example.iam.gserviceaccount.com","private_key":"-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----","token_uri":"https://oauth2.googleapis.com/token"}`
+
+	tests := []struct {
+		name    string
+		cfg     GoogleWorkspaceConfig
+		wantErr bool
+	}{
+		{
+			name: "service account json auth valid",
+			cfg: GoogleWorkspaceConfig{
+				CustomerID:          "C012345",
+				DelegatedAdminEmail: "admin@example.com",
+				AuthType:            GoogleWorkspaceAuthTypeServiceAccountJSON,
+				ServiceAccountJSON:  validJSON,
+			},
+		},
+		{
+			name: "adc auth valid",
+			cfg: GoogleWorkspaceConfig{
+				CustomerID:          "C012345",
+				DelegatedAdminEmail: "admin@example.com",
+				AuthType:            GoogleWorkspaceAuthTypeADC,
+				ServiceAccountEmail: "svc@example.iam.gserviceaccount.com",
+			},
+		},
+		{
+			name: "missing customer id",
+			cfg: GoogleWorkspaceConfig{
+				DelegatedAdminEmail: "admin@example.com",
+				AuthType:            GoogleWorkspaceAuthTypeADC,
+				ServiceAccountEmail: "svc@example.iam.gserviceaccount.com",
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing delegated admin",
+			cfg: GoogleWorkspaceConfig{
+				CustomerID:         "C012345",
+				AuthType:           GoogleWorkspaceAuthTypeServiceAccountJSON,
+				ServiceAccountJSON: validJSON,
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid json auth payload",
+			cfg: GoogleWorkspaceConfig{
+				CustomerID:          "C012345",
+				DelegatedAdminEmail: "admin@example.com",
+				AuthType:            GoogleWorkspaceAuthTypeServiceAccountJSON,
+				ServiceAccountJSON:  `{"client_email":"missing-private-key"}`,
+			},
+			wantErr: true,
+		},
+		{
+			name: "adc missing service account email",
+			cfg: GoogleWorkspaceConfig{
+				CustomerID:          "C012345",
+				DelegatedAdminEmail: "admin@example.com",
+				AuthType:            GoogleWorkspaceAuthTypeADC,
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid auth type",
+			cfg: GoogleWorkspaceConfig{
+				CustomerID:          "C012345",
+				DelegatedAdminEmail: "admin@example.com",
+				AuthType:            "invalid",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := tc.cfg.Validate()
+			if tc.wantErr && err == nil {
+				t.Fatalf("Validate() error = nil, want error")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("Validate() error = %v, want nil", err)
+			}
+		})
+	}
+}
+
+func TestMergeGoogleWorkspaceConfig(t *testing.T) {
+	t.Parallel()
+
+	existing := GoogleWorkspaceConfig{
+		CustomerID:          "C012345",
+		PrimaryDomain:       "example.com",
+		DelegatedAdminEmail: "admin@example.com",
+		AuthType:            GoogleWorkspaceAuthTypeServiceAccountJSON,
+		ServiceAccountJSON:  `{"client_email":"svc@example.iam.gserviceaccount.com","private_key":"key"}`,
+		DiscoveryEnabled:    true,
+	}
+
+	t.Run("service account auth preserves secret on blank update", func(t *testing.T) {
+		t.Parallel()
+		merged := MergeGoogleWorkspaceConfig(existing, GoogleWorkspaceConfig{
+			CustomerID:          "C999999",
+			DelegatedAdminEmail: "admin2@example.com",
+			AuthType:            GoogleWorkspaceAuthTypeServiceAccountJSON,
+			ServiceAccountJSON:  "",
+			DiscoveryEnabled:    false,
+		})
+
+		if merged.CustomerID != "C999999" {
+			t.Fatalf("customer id = %q, want C999999", merged.CustomerID)
+		}
+		if merged.ServiceAccountJSON == "" {
+			t.Fatalf("service account json should be preserved when update is blank")
+		}
+		if merged.ServiceAccountEmail != "" {
+			t.Fatalf("service account email should be empty for service account json auth")
+		}
+		if merged.DiscoveryEnabled {
+			t.Fatalf("discovery enabled should reflect explicit false update")
+		}
+	})
+
+	t.Run("switching to adc clears json secret", func(t *testing.T) {
+		t.Parallel()
+		merged := MergeGoogleWorkspaceConfig(existing, GoogleWorkspaceConfig{
+			AuthType:            GoogleWorkspaceAuthTypeADC,
+			ServiceAccountEmail: "adc-svc@example.iam.gserviceaccount.com",
+		})
+
+		if merged.AuthType != GoogleWorkspaceAuthTypeADC {
+			t.Fatalf("auth type = %q, want %q", merged.AuthType, GoogleWorkspaceAuthTypeADC)
+		}
+		if merged.ServiceAccountJSON != "" {
+			t.Fatalf("service account json should be cleared for adc auth")
+		}
+		if merged.ServiceAccountEmail != "adc-svc@example.iam.gserviceaccount.com" {
+			t.Fatalf("service account email = %q, want adc value", merged.ServiceAccountEmail)
+		}
+	})
+}

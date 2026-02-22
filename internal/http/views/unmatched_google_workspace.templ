@@ -1,0 +1,146 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ UnmatchedGoogleWorkspacePage(data viewmodels.UnmatchedGoogleWorkspaceViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "Unmanaged Google Workspace"},
+		}, "Match Google Workspace users to identities for complete access coverage.") {
+			if data.Layout.GoogleWorkspaceConfigured {
+				<span class="badge-outline cursor-help" title={ "Customer ID: " + data.Layout.GoogleWorkspaceCustomerID }>Google customer</span>
+			} else {
+				<span class="badge-outline">Not configured</span>
+			}
+			<a class="btn-sm-outline" href="/identities">Identities</a>
+		}
+
+		if data.Layout.GoogleWorkspaceConfigured && data.Layout.GoogleWorkspaceEnabled {
+			@Alert("Manual linking", false) {
+				<p>Use this list to link users when automatic email matching cannot infer identity ownership.</p>
+			}
+		} else {
+			@Alert("Google Workspace sync disabled", true) {
+				<p>
+					{ data.EmptyStateMsg } <a class="btn-sm-link px-1" href={ data.EmptyStateHref }>Configure Google Workspace</a>.
+				</p>
+			}
+		}
+
+		<form method="get" class="card">
+			<header>
+				<h2>Search</h2>
+				<p>Filter unmanaged users by email, name, or Google user ID.</p>
+			</header>
+			<section>
+				<div class="flex flex-col gap-4">
+					<label class="field w-full sm:max-w-md">
+						<span class="label">Query</span>
+						<div class="relative">
+							<input type="search" name="q" class="input pr-10" placeholder="Search users…" value={ data.Query }/>
+							if data.Query != "" {
+								<a class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2" aria-label="Clear query" href="/unmatched/google-workspace">
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+										<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
+									</svg>
+								</a>
+							}
+						</div>
+					</label>
+				</div>
+				<button class="sr-only" type="submit">Apply filters</button>
+			</section>
+		</form>
+
+		<article class="card">
+			<header>
+				<h2>Unmanaged Google Workspace users</h2>
+				<span data-slot="card-action" class="badge-outline">
+					if data.TotalCount > 0 {
+						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "–" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+					} else {
+						{ "Showing 0" }
+					}
+				</span>
+			</header>
+			<section>
+				<div class="overflow-x-auto">
+					@ColumnsControl("unmatched-google-workspace--main")
+					<table data-columns-id="unmatched-google-workspace--main" class="table osspm-table-fixed osspm-table-compact">
+						<caption class="sr-only">Unmanaged Google Workspace users with linking actions.</caption>
+						<thead>
+							<tr>
+								<th>User</th>
+								<th>Email</th>
+								<th class="osspm-col-id-wide">User ID</th>
+								<th>Link</th>
+							</tr>
+						</thead>
+						<tbody>
+							if data.HasUsers {
+								for _, u := range data.Users {
+									<tr>
+										<td class="font-medium"><span class="osspm-cell-primary osspm-truncate" title={ u.DisplayName }>{ u.DisplayName }</span></td>
+										<td>
+											if u.Email != "" {
+												<span class="osspm-cell-primary osspm-truncate" title={ u.Email }>{ u.Email }</span>
+											} else {
+												<span class="text-muted-foreground">&mdash;</span>
+											}
+										</td>
+										<td class="osspm-col-id-wide text-muted-foreground"><code class="osspm-token" title={ u.ExternalID }>{ u.ExternalID }</code></td>
+										<td>
+											if data.Layout.IsAdmin {
+												<form method="post" action="/links" class="flex flex-col gap-2 sm:flex-row sm:items-end">
+													@CSRFInput(data.Layout.CSRFToken)
+													<input type="hidden" name="account_id" value={ FormatInt64(u.ID) }/>
+													<label class="field w-full sm:w-32">
+														<span class="label sr-only">Identity ID</span>
+														<input type="text" name="identity_id" placeholder="Identity ID" required class="input w-full osspm-token"/>
+													</label>
+													<button type="submit" class="btn-sm-primary w-full sm:w-auto">Link</button>
+												</form>
+											} else {
+												<span class="text-sm text-muted-foreground">Admin required</span>
+											}
+										</td>
+									</tr>
+								}
+							} else if data.Layout.GoogleWorkspaceConfigured && data.Layout.GoogleWorkspaceEnabled && data.Query == "" {
+								<tr>
+									<td colspan="4">
+										@EmptyState("All caught up", "No unmanaged Google Workspace users found. All detected identities are linked.")
+									</td>
+								</tr>
+							} else {
+								<tr>
+									<td colspan="4">
+										@EmptyState("No unmanaged users", data.EmptyStateMsg)
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+				if data.TotalPages > 1 {
+					<div class="flex flex-wrap items-center gap-3 border-t py-3">
+						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
+						<div class="button-group ml-auto">
+							if data.Page > 1 {
+								<a class="btn-sm-outline" href={ ListURL("/unmatched/google-workspace", data.Query, "", data.Page-1) }>Previous</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
+							}
+							if data.Page < data.TotalPages {
+								<a class="btn-sm-outline" href={ ListURL("/unmatched/google-workspace", data.Query, "", data.Page+1) }>Next</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
+							}
+						</div>
+					</div>
+				}
+			</section>
+		</article>
+	}
+}

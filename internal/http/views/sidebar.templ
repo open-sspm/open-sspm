@@ -123,6 +123,19 @@ templ Sidebar(data viewmodels.LayoutData) {
 							}
 						</li>
 						<li>
+								if data.GoogleWorkspaceConfigured && data.GoogleWorkspaceEnabled {
+									<a href="/unmatched/google-workspace" aria-current={ AriaCurrent(data.ActivePath, "/unmatched/google-workspace") }><span>Google Workspace</span></a>
+								} else {
+									<a href="/settings/connectors?open=google_workspace" class="sidebar-unconfigured-link" data-ignore-current>
+										<span class="truncate" title="Google Workspace - Set up">Google Workspace - Set up</span>
+										<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+											<circle cx="10" cy="10" r="6.5"/>
+											<path stroke-linecap="round" d="M10 7v6M7 10h6"/>
+									</svg>
+								</a>
+							}
+						</li>
+						<li>
 								if data.AWSIdentityCenterConfigured && data.AWSIdentityCenterEnabled {
 									<a href="/unmatched/aws" aria-current={ AriaCurrent(data.ActivePath, "/unmatched/aws") }><span>AWS Identity Center</span></a>
 								} else {

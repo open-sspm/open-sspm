@@ -15,6 +15,7 @@ const (
 	KindAWSIdentityCenter = "aws_identity_center"
 	KindEntra             = "entra"
 	KindVault             = "vault"
+	KindGoogleWorkspace   = "google_workspace"
 )
 
 const (
@@ -23,10 +24,12 @@ const (
 )
 
 const (
-	AWSIdentityCenterAuthTypeDefaultChain = "default_chain"
-	AWSIdentityCenterAuthTypeAccessKey    = "access_key"
-	VaultAuthTypeToken                    = "token"
-	VaultAuthTypeAppRole                  = "approle"
+	AWSIdentityCenterAuthTypeDefaultChain     = "default_chain"
+	AWSIdentityCenterAuthTypeAccessKey        = "access_key"
+	VaultAuthTypeToken                        = "token"
+	VaultAuthTypeAppRole                      = "approle"
+	GoogleWorkspaceAuthTypeServiceAccountJSON = "service_account_json"
+	GoogleWorkspaceAuthTypeADC                = "adc"
 )
 
 type OktaConfig struct {
@@ -208,6 +211,16 @@ type EntraConfig struct {
 	DiscoveryEnabled bool   `json:"discovery_enabled"`
 }
 
+type GoogleWorkspaceConfig struct {
+	CustomerID          string `json:"customer_id"`
+	PrimaryDomain       string `json:"primary_domain"`
+	DelegatedAdminEmail string `json:"delegated_admin_email"`
+	AuthType            string `json:"auth_type"`
+	ServiceAccountJSON  string `json:"service_account_json"`
+	ServiceAccountEmail string `json:"service_account_email"`
+	DiscoveryEnabled    bool   `json:"discovery_enabled"`
+}
+
 func (c EntraConfig) Normalized() EntraConfig {
 	out := c
 	out.TenantID = normalizeGUID(out.TenantID)
@@ -226,6 +239,54 @@ func (c EntraConfig) Validate() error {
 	}
 	if c.ClientSecret == "" {
 		return errors.New("Entra client secret is required")
+	}
+	return nil
+}
+
+func (c GoogleWorkspaceConfig) Normalized() GoogleWorkspaceConfig {
+	out := c
+	out.CustomerID = strings.TrimSpace(out.CustomerID)
+	out.PrimaryDomain = strings.TrimSpace(out.PrimaryDomain)
+	out.DelegatedAdminEmail = strings.TrimSpace(out.DelegatedAdminEmail)
+	out.AuthType = strings.ToLower(strings.TrimSpace(out.AuthType))
+	if out.AuthType == "" {
+		out.AuthType = GoogleWorkspaceAuthTypeServiceAccountJSON
+	}
+	out.ServiceAccountJSON = strings.TrimSpace(out.ServiceAccountJSON)
+	out.ServiceAccountEmail = strings.TrimSpace(out.ServiceAccountEmail)
+	return out
+}
+
+func (c GoogleWorkspaceConfig) Validate() error {
+	c = c.Normalized()
+	if c.CustomerID == "" {
+		return errors.New("Google Workspace customer ID is required")
+	}
+	if c.DelegatedAdminEmail == "" {
+		return errors.New("Google Workspace delegated admin email is required")
+	}
+	switch c.AuthType {
+	case GoogleWorkspaceAuthTypeServiceAccountJSON:
+		if c.ServiceAccountJSON == "" {
+			return errors.New("Google Workspace service account JSON is required")
+		}
+		var payload struct {
+			ClientEmail string `json:"client_email"`
+			PrivateKey  string `json:"private_key"`
+			TokenURI    string `json:"token_uri"`
+		}
+		if err := json.Unmarshal([]byte(c.ServiceAccountJSON), &payload); err != nil {
+			return errors.New("Google Workspace service account JSON is invalid")
+		}
+		if strings.TrimSpace(payload.ClientEmail) == "" || strings.TrimSpace(payload.PrivateKey) == "" {
+			return errors.New("Google Workspace service account JSON must include client_email and private_key")
+		}
+	case GoogleWorkspaceAuthTypeADC:
+		if c.ServiceAccountEmail == "" {
+			return errors.New("Google Workspace service account email is required for ADC auth")
+		}
+	default:
+		return errors.New("Google Workspace auth type is invalid")
 	}
 	return nil
 }
@@ -343,6 +404,13 @@ func DecodeEntraConfig(raw []byte) (EntraConfig, error) {
 	return cfg, decodeJSON(raw, &cfg)
 }
 
+func DecodeGoogleWorkspaceConfig(raw []byte) (GoogleWorkspaceConfig, error) {
+	cfg := GoogleWorkspaceConfig{
+		AuthType: GoogleWorkspaceAuthTypeServiceAccountJSON,
+	}
+	return cfg, decodeJSON(raw, &cfg)
+}
+
 func EncodeConfig(v any) ([]byte, error) {
 	return json.Marshal(v)
 }
@@ -419,6 +487,33 @@ func MergeEntraConfig(existing EntraConfig, update EntraConfig) EntraConfig {
 	if secret := strings.TrimSpace(update.ClientSecret); secret != "" {
 		merged.ClientSecret = secret
 	}
+	return merged
+}
+
+func MergeGoogleWorkspaceConfig(existing GoogleWorkspaceConfig, update GoogleWorkspaceConfig) GoogleWorkspaceConfig {
+	merged := existing
+	merged.CustomerID = strings.TrimSpace(update.CustomerID)
+	merged.PrimaryDomain = strings.TrimSpace(update.PrimaryDomain)
+	merged.DelegatedAdminEmail = strings.TrimSpace(update.DelegatedAdminEmail)
+	merged.DiscoveryEnabled = update.DiscoveryEnabled
+	merged.AuthType = strings.ToLower(strings.TrimSpace(update.AuthType))
+	if merged.AuthType == "" {
+		merged.AuthType = GoogleWorkspaceAuthTypeServiceAccountJSON
+	}
+
+	switch merged.AuthType {
+	case GoogleWorkspaceAuthTypeServiceAccountJSON:
+		merged.ServiceAccountEmail = ""
+		if raw := strings.TrimSpace(update.ServiceAccountJSON); raw != "" {
+			merged.ServiceAccountJSON = raw
+		}
+	case GoogleWorkspaceAuthTypeADC:
+		merged.ServiceAccountJSON = ""
+		if email := strings.TrimSpace(update.ServiceAccountEmail); email != "" {
+			merged.ServiceAccountEmail = email
+		}
+	}
+
 	return merged
 }
 

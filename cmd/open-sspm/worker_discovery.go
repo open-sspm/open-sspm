@@ -71,8 +71,9 @@ func runWorkerDiscovery() error {
 	}
 	dbRunner.SetRunPolicy(sync.RunPolicy{
 		IntervalByKind: map[string]time.Duration{
-			"okta_discovery":  cfg.SyncDiscoveryInterval,
-			"entra_discovery": cfg.SyncDiscoveryInterval,
+			"okta_discovery":             cfg.SyncDiscoveryInterval,
+			"entra_discovery":            cfg.SyncDiscoveryInterval,
+			"google_workspace_discovery": cfg.SyncDiscoveryInterval,
 		},
 		FailureBackoffBase:   cfg.SyncDiscoveryInterval,
 		FailureBackoffMax:    backoffMax,
