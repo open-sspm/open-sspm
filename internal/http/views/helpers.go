@@ -397,6 +397,31 @@ func HumanizeIdentityLinkQuality(linkQuality string) string {
 	}
 }
 
+func FormatIdentityLinkConfidence(value float32) string {
+	percent := float64(value) * 100
+	if percent < 0 {
+		percent = 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+	return strconv.FormatFloat(percent, 'f', 0, 64) + "%"
+}
+
+func IdentityInventoryColSpan(showFirstSeen, showLinkQuality, showLinkReason bool) string {
+	cols := 9
+	if showFirstSeen {
+		cols++
+	}
+	if showLinkQuality {
+		cols++
+	}
+	if showLinkReason {
+		cols++
+	}
+	return strconv.Itoa(cols)
+}
+
 func HumanizeIdentityRowState(state string) string {
 	switch strings.ToLower(strings.TrimSpace(state)) {
 	case "action_required":

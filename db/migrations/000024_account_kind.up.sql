@@ -7,6 +7,20 @@ SET account_kind = CASE
   ELSE 'unknown'
 END;
 
+UPDATE accounts a
+SET external_id = 'role:' || a.external_id
+WHERE a.source_kind = 'vault'
+  AND a.external_id NOT LIKE 'entity:%'
+  AND a.external_id NOT LIKE 'group:%'
+  AND a.external_id NOT LIKE 'role:%'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM accounts b
+    WHERE b.source_kind = a.source_kind
+      AND b.source_name = a.source_name
+      AND b.external_id = 'role:' || a.external_id
+  );
+
 DO $$
 BEGIN
   IF NOT EXISTS (

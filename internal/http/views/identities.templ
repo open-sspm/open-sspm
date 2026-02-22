@@ -241,20 +241,19 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 										<td><span class={ IdentityRowStateBadgeClass(item.RowState) }>{ HumanizeIdentityRowState(item.RowState) }</span></td>
 										<td>
 											<span class={ IdentityStatusBadgeClass(item.Status) }>{ HumanizeIdentityStatus(item.Status) }</span>
-											<span class="osspm-cell-secondary">{ fallbackHumanized(item.ActivityState) }</span>
 										</td>
 										<td>{ item.LastSeenOn }</td>
 										if data.ShowFirstSeen {
 											<td>{ item.FirstSeenOn }</td>
 										}
-										if data.ShowLinkQuality {
-											<td>
-												<span class={ IdentityLinkQualityBadgeClass(item.LinkQuality) }>{ HumanizeIdentityLinkQuality(item.LinkQuality) }</span>
-												if item.LinkQuality != "unknown" {
-													<span class="osspm-cell-secondary">{ item.MinLinkConfidence }</span>
-												}
-											</td>
-										}
+											if data.ShowLinkQuality {
+												<td>
+													<span class={ IdentityLinkQualityBadgeClass(item.LinkQuality) }>{ HumanizeIdentityLinkQuality(item.LinkQuality) }</span>
+													if item.LinkQuality != "unknown" {
+														<span class="osspm-cell-secondary">{ FormatIdentityLinkConfidence(item.MinLinkConfidence) }</span>
+													}
+												</td>
+											}
 										if data.ShowLinkReason {
 											<td><span class="osspm-truncate" title={ item.LinkReason }>{ fallbackHumanized(item.LinkReason) }</span></td>
 										}
@@ -262,7 +261,7 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 								}
 							} else {
 								<tr>
-									<td colspan="12">
+									<td colspan={ IdentityInventoryColSpan(data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason) }>
 										@EmptyState("No identities found", data.EmptyStateMsg)
 									</td>
 								</tr>
