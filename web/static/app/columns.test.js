@@ -189,4 +189,26 @@ describe("columns", () => {
     const headerCells = swapRoot.querySelectorAll("thead th");
     expect(headerCells[1].hidden).toBe(true);
   });
+
+  it("re-applies hidden columns when wiring a swapped table row", () => {
+    document.body.innerHTML = renderColumnsFixture({ tableID: "row-swap-table" });
+    wireColumnControls(document);
+
+    const options = getColumnOptions();
+    options[1].click();
+
+    let bodyCells = document.querySelectorAll("tbody tr:first-child td");
+    expect(bodyCells[1].hidden).toBe(true);
+
+    const firstRow = document.querySelector("tbody tr:first-child");
+    firstRow.outerHTML = "<tr><td>id-2</td><td>human</td><td>active</td></tr>";
+
+    const swappedRow = document.querySelector("tbody tr:first-child");
+    expect(swappedRow.children[1].hidden).toBe(false);
+
+    wireColumnControls(swappedRow);
+
+    bodyCells = document.querySelectorAll("tbody tr:first-child td");
+    expect(bodyCells[1].hidden).toBe(true);
+  });
 });

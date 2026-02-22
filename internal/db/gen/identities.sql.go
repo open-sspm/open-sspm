@@ -90,15 +90,11 @@ source_accounts AS (
 candidate_identities AS (
   SELECT fi.id
   FROM filtered_identities fi
-  WHERE (
-      $10::text = ''
-      AND $11::text = ''
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM source_accounts sa
-      WHERE sa.identity_id = fi.id
-    )
+  WHERE EXISTS (
+    SELECT 1
+    FROM source_accounts sa
+    WHERE sa.identity_id = fi.id
+  )
 ),
 managed_identities AS (
   SELECT DISTINCT aa.identity_id
@@ -712,15 +708,11 @@ source_accounts AS (
 candidate_identities AS (
   SELECT fi.id
   FROM filtered_identities fi
-  WHERE (
-      $14::text = ''
-      AND $15::text = ''
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM source_accounts sa
-      WHERE sa.identity_id = fi.id
-    )
+  WHERE EXISTS (
+    SELECT 1
+    FROM source_accounts sa
+    WHERE sa.identity_id = fi.id
+  )
 ),
 managed_identities AS (
   SELECT DISTINCT aa.identity_id

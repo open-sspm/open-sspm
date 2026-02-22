@@ -2,6 +2,7 @@ const TABLE_SELECTOR = "table[data-columns-id]";
 const STORAGE_PREFIX = "openSspm.tableColumns.";
 const STORAGE_VERSION = 1;
 const FIXED_HEADER_LABELS = new Set(["", "actions", "action", "link", "details", "view users"]);
+const TABLE_STATES = new WeakMap();
 
 const collapseWhitespace = (value) => value.replace(/\s+/g, " ").trim();
 
@@ -62,14 +63,22 @@ const clearStoredVisibleColumns = (tableID) => {
 
 const collectTables = (root) => {
   const tables = [];
+  const pushTable = (table) => {
+    if (!(table instanceof HTMLTableElement)) return;
+    if (!tables.includes(table)) {
+      tables.push(table);
+    }
+  };
+
   if (root instanceof HTMLTableElement && root.matches(TABLE_SELECTOR)) {
-    tables.push(root);
+    pushTable(root);
+  }
+  if (root instanceof Element) {
+    pushTable(root.closest(TABLE_SELECTOR));
   }
   if (root instanceof Document || root instanceof DocumentFragment || root instanceof Element) {
     root.querySelectorAll(TABLE_SELECTOR).forEach((table) => {
-      if (table instanceof HTMLTableElement) {
-        tables.push(table);
-      }
+      pushTable(table);
     });
   }
   return tables;
@@ -238,7 +247,15 @@ const buildOptions = (state) => {
 
 const initColumnsForTable = (table) => {
   if (!(table instanceof HTMLTableElement)) return;
-  if (table.dataset.columnsBound === "true") return;
+  if (table.dataset.columnsBound === "true") {
+    const existingState = TABLE_STATES.get(table);
+    if (existingState) {
+      applyColumns(existingState);
+      syncOptionCheckboxes(existingState);
+      return;
+    }
+    delete table.dataset.columnsBound;
+  }
 
   const tableID = collapseWhitespace(table.dataset.columnsId || "");
   if (!tableID) return;
@@ -289,6 +306,7 @@ const initColumnsForTable = (table) => {
     container.hidden = false;
   }
 
+  TABLE_STATES.set(table, state);
   table.dataset.columnsBound = "true";
 };
 
