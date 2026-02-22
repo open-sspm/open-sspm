@@ -16,6 +16,19 @@ type OktaConnectorViewData struct {
 	Authoritative    bool
 }
 
+type GoogleWorkspaceConnectorViewData struct {
+	Enabled               bool
+	Configured            bool
+	CustomerID            string
+	PrimaryDomain         string
+	DelegatedAdminEmail   string
+	AuthType              string
+	ServiceAccountMask    string
+	HasServiceAccountJSON bool
+	ServiceAccountEmail   string
+	DiscoveryEnabled      bool
+}
+
 type GitHubConnectorViewData struct {
 	Enabled     bool
 	Configured  bool
@@ -89,6 +102,7 @@ type ConnectorsViewData struct {
 	SavedName         string
 	OpenKind          string
 	Okta              OktaConnectorViewData
+	GoogleWorkspace   GoogleWorkspaceConnectorViewData
 	GitHub            GitHubConnectorViewData
 	Datadog           DatadogConnectorViewData
 	AWSIdentityCenter AWSIdentityCenterConnectorViewData

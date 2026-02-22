@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
+	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
@@ -172,7 +173,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 }
 
 func availableIdentitySourcePairs(snap ConnectorSnapshot) []viewmodels.ProgrammaticSourceOption {
-	out := make([]viewmodels.ProgrammaticSourceOption, 0, 6)
+	out := make([]viewmodels.ProgrammaticSourceOption, 0, 7)
 	appendSource := func(kind, sourceName string) {
 		kind = NormalizeConnectorKind(kind)
 		sourceName = strings.TrimSpace(sourceName)
@@ -191,6 +192,9 @@ func availableIdentitySourcePairs(snap ConnectorSnapshot) []viewmodels.Programma
 	}
 	if snap.EntraConfigured {
 		appendSource("entra", snap.Entra.TenantID)
+	}
+	if snap.GoogleWorkspaceConfigured {
+		appendSource(configstore.KindGoogleWorkspace, snap.GoogleWorkspace.CustomerID)
 	}
 	if snap.GitHubConfigured {
 		appendSource("github", snap.GitHub.Org)

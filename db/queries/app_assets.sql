@@ -126,14 +126,6 @@ WHERE source_kind = sqlc.arg(source_kind)::text
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL;
 
--- name: ListAppAssetsByIDs :many
-SELECT *
-FROM app_assets
-WHERE id = ANY(sqlc.arg(asset_ids)::bigint[])
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-ORDER BY id ASC;
-
 -- name: PromoteAppAssetsSeenInRunBySource :execrows
 UPDATE app_assets
 SET

@@ -28,31 +28,32 @@ const (
 )
 
 type Config struct {
-	DatabaseURL               string
-	HTTPAddr                  string
-	MetricsAddr               string
-	StaticDir                 string
-	AuthCookieSecure          bool
-	DevSeedAdmin              bool
-	SyncInterval              time.Duration
-	SyncDiscoveryInterval     time.Duration
-	SyncOktaInterval          time.Duration
-	SyncEntraInterval         time.Duration
-	SyncGitHubInterval        time.Duration
-	SyncDatadogInterval       time.Duration
-	SyncAWSInterval           time.Duration
-	SyncFailureBackoffMax     time.Duration
-	SyncOktaWorkers           int
-	SyncGitHubWorkers         int
-	SyncDatadogWorkers        int
-	ResyncEnabled             bool
-	ResyncMode                string
-	GlobalEvalMode            string
-	SyncLockMode              string
-	SyncLockTTL               time.Duration
-	SyncLockHeartbeatInterval time.Duration
-	SyncLockHeartbeatTimeout  time.Duration
-	SyncLockInstanceID        string
+	DatabaseURL                 string
+	HTTPAddr                    string
+	MetricsAddr                 string
+	StaticDir                   string
+	AuthCookieSecure            bool
+	DevSeedAdmin                bool
+	SyncInterval                time.Duration
+	SyncDiscoveryInterval       time.Duration
+	SyncOktaInterval            time.Duration
+	SyncEntraInterval           time.Duration
+	SyncGoogleWorkspaceInterval time.Duration
+	SyncGitHubInterval          time.Duration
+	SyncDatadogInterval         time.Duration
+	SyncAWSInterval             time.Duration
+	SyncFailureBackoffMax       time.Duration
+	SyncOktaWorkers             int
+	SyncGitHubWorkers           int
+	SyncDatadogWorkers          int
+	ResyncEnabled               bool
+	ResyncMode                  string
+	GlobalEvalMode              string
+	SyncLockMode                string
+	SyncLockTTL                 time.Duration
+	SyncLockHeartbeatInterval   time.Duration
+	SyncLockHeartbeatTimeout    time.Duration
+	SyncLockInstanceID          string
 }
 
 type LoadOptions struct {
@@ -131,6 +132,11 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		return cfg, err
 	} else if ok {
 		cfg.SyncEntraInterval = d
+	}
+	if d, ok, err := parseDurationEnv("SYNC_GOOGLE_WORKSPACE_INTERVAL", true); err != nil {
+		return cfg, err
+	} else if ok {
+		cfg.SyncGoogleWorkspaceInterval = d
 	}
 	if d, ok, err := parseDurationEnv("SYNC_GITHUB_INTERVAL", true); err != nil {
 		return cfg, err

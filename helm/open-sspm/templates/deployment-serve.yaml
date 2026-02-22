@@ -78,6 +78,10 @@ spec:
               value: {{ .Values.config.syncInterval | quote }}
             - name: SYNC_DISCOVERY_INTERVAL
               value: {{ .Values.config.syncDiscoveryInterval | quote }}
+            {{- if .Values.config.syncGoogleWorkspaceInterval }}
+            - name: SYNC_GOOGLE_WORKSPACE_INTERVAL
+              value: {{ .Values.config.syncGoogleWorkspaceInterval | quote }}
+            {{- end }}
             - name: SYNC_OKTA_WORKERS
               value: {{ .Values.config.syncOktaWorkers | quote }}
             - name: SYNC_GITHUB_WORKERS

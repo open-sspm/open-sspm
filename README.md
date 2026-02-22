@@ -2,7 +2,7 @@
 
 # Open-SSPM
 
-Open-SSPM is a small “who has access to what” service. It syncs identities from Okta and Microsoft Entra ID (IdP sources), permissions from connected apps (GitHub, Datadog, AWS Identity Center), links accounts (auto by email + manual links), and renders a server-side UI.
+Open-SSPM is a small “who has access to what” service. It syncs identities from Okta and Microsoft Entra ID (IdP sources), permissions from connected apps (Google Workspace, GitHub, Datadog, AWS Identity Center), links accounts (auto by email + manual links), and renders a server-side UI.
 
 ## Demo
 - URL: `https://demo.opensspm.com`
@@ -12,6 +12,7 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 - HTTP server (`open-sspm serve`) + background full sync worker (`open-sspm worker`) + background discovery worker (`open-sspm worker-discovery`) + one-off syncs (`open-sspm sync`, `open-sspm sync-discovery`) + in-app “Resync” (queued async by default).
 - Okta: users, groups, apps, and assignments (IdP source).
 - Microsoft Entra ID: users plus application/service principal governance metadata.
+- Google Workspace: users, groups, admin roles, OAuth app/grant inventory, and token audit activity.
 - SaaS Discovery: discovered app inventory + hotspots from IdP SSO and OAuth grant evidence (Okta System Log + Entra sign-ins/grants), with governance and binding workflows.
 - GitHub: org members/teams/repo permissions (optional SCIM lookup for emails).
 - Datadog: users + role assignments.
@@ -63,9 +64,27 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 - Manual resync mode: `RESYNC_MODE=signal` (default, queues workers via Postgres `NOTIFY`) or `RESYNC_MODE=inline` (request runs sync directly).
 - Connector credentials: configured in-app under Settings → Connectors and stored in Postgres.
 - AWS Identity Center uses the AWS SDK default credentials chain (env/shared config/role), not DB-stored keys.
-- SaaS discovery is per-connector (`discovery_enabled`) for Okta and Entra.
+- SaaS discovery is per-connector (`discovery_enabled`) for Okta, Entra, and Google Workspace.
   - Okta discovery uses System Log access.
   - Entra discovery uses sign-in and OAuth grant APIs (`AuditLog.Read.All`, `Directory.Read.All`, `DelegatedPermissionGrant.Read.All`).
+  - Google Workspace discovery uses Reports API login/token activity and token inventory.
+
+### Google Workspace connector setup
+- Source identity: `customer_id` is the canonical `source_name` (`source_kind=google_workspace`); `primary_domain` is display metadata only.
+- Required Google Admin delegated scopes:
+  - `https://www.googleapis.com/auth/admin.directory.user.readonly`
+  - `https://www.googleapis.com/auth/admin.directory.group.readonly`
+  - `https://www.googleapis.com/auth/admin.directory.group.member.readonly`
+  - `https://www.googleapis.com/auth/admin.directory.rolemanagement.readonly`
+  - `https://www.googleapis.com/auth/admin.directory.user.security`
+  - `https://www.googleapis.com/auth/admin.reports.audit.readonly`
+- Domain-Wide Delegation prerequisites:
+  - Create or choose a service account and enable Domain-Wide Delegation for it.
+  - In Admin Console, authorize the service account client ID with the scopes above.
+  - Set `delegated_admin_email` to a super admin (or delegated admin with equivalent read privileges).
+- Auth mode options:
+  - `service_account_json`: provide full JSON key in connector settings.
+  - `adc`: run Open-SSPM with ADC/workload identity that can call IAM Credentials `signJwt` on `service_account_email`.
 
 ## Metrics
 - Metrics are served on a dedicated listener (`METRICS_ADDR`) and are best-effort.

@@ -164,55 +164,6 @@ func (q *Queries) GetAppAssetBySourceAndKindAndExternalID(ctx context.Context, a
 	return i, err
 }
 
-const listAppAssetsByIDs = `-- name: ListAppAssetsByIDs :many
-SELECT id, source_kind, source_name, asset_kind, external_id, parent_external_id, display_name, status, created_at_source, updated_at_source, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at
-FROM app_assets
-WHERE id = ANY($1::bigint[])
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-ORDER BY id ASC
-`
-
-func (q *Queries) ListAppAssetsByIDs(ctx context.Context, assetIds []int64) ([]AppAsset, error) {
-	rows, err := q.db.Query(ctx, listAppAssetsByIDs, assetIds)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []AppAsset
-	for rows.Next() {
-		var i AppAsset
-		if err := rows.Scan(
-			&i.ID,
-			&i.SourceKind,
-			&i.SourceName,
-			&i.AssetKind,
-			&i.ExternalID,
-			&i.ParentExternalID,
-			&i.DisplayName,
-			&i.Status,
-			&i.CreatedAtSource,
-			&i.UpdatedAtSource,
-			&i.RawJson,
-			&i.SeenInRunID,
-			&i.SeenAt,
-			&i.LastObservedRunID,
-			&i.LastObservedAt,
-			&i.ExpiredAt,
-			&i.ExpiredRunID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listAppAssetsPageBySourceAndQueryAndKind = `-- name: ListAppAssetsPageBySourceAndQueryAndKind :many
 SELECT aa.id, aa.source_kind, aa.source_name, aa.asset_kind, aa.external_id, aa.parent_external_id, aa.display_name, aa.status, aa.created_at_source, aa.updated_at_source, aa.raw_json, aa.seen_in_run_id, aa.seen_at, aa.last_observed_run_id, aa.last_observed_at, aa.expired_at, aa.expired_run_id, aa.created_at, aa.updated_at
 FROM app_assets aa

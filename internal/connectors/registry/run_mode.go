@@ -32,6 +32,8 @@ func SyncRunSourceKind(kind string, mode RunMode) string {
 			return "okta_discovery"
 		case "entra":
 			return "entra_discovery"
+		case "google_workspace":
+			return "google_workspace_discovery"
 		}
 	}
 	return kind

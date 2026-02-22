@@ -47,20 +47,25 @@ func TestDiscoverySourceOptionsUsePrimaryLabels(t *testing.T) {
 	t.Parallel()
 
 	options := discoverySourceOptions(ConnectorSnapshot{
-		Okta:            configstore.OktaConfig{Domain: "acme.okta.com"},
-		OktaConfigured:  true,
-		Entra:           configstore.EntraConfig{TenantID: "tenant-1"},
-		EntraConfigured: true,
+		Okta:                      configstore.OktaConfig{Domain: "acme.okta.com"},
+		OktaConfigured:            true,
+		Entra:                     configstore.EntraConfig{TenantID: "tenant-1"},
+		EntraConfigured:           true,
+		GoogleWorkspace:           configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
+		GoogleWorkspaceConfigured: true,
 	})
 
-	if len(options) != 2 {
-		t.Fatalf("options length = %d, want 2", len(options))
+	if len(options) != 3 {
+		t.Fatalf("options length = %d, want 3", len(options))
 	}
 	if options[0].Label != "Okta" {
 		t.Fatalf("okta label = %q, want %q", options[0].Label, "Okta")
 	}
 	if options[1].Label != "Microsoft Entra" {
 		t.Fatalf("entra label = %q, want %q", options[1].Label, "Microsoft Entra")
+	}
+	if options[2].Label != "Google Workspace" {
+		t.Fatalf("google label = %q, want %q", options[2].Label, "Google Workspace")
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 )
 
 func TestIdentityNamePrimary(t *testing.T) {
@@ -108,5 +109,26 @@ func TestIdentityCalendarDate(t *testing.T) {
 
 	if got := identityCalendarDate(pgtype.Timestamptz{}); got != "—" {
 		t.Fatalf("identityCalendarDate(invalid) = %q, want %q", got, "—")
+	}
+}
+
+func TestAvailableIdentitySourcePairsIncludesGoogleWorkspace(t *testing.T) {
+	t.Parallel()
+
+	sources := availableIdentitySourcePairs(ConnectorSnapshot{
+		GoogleWorkspace:           configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
+		GoogleWorkspaceConfigured: true,
+	})
+	if len(sources) != 1 {
+		t.Fatalf("sources length = %d, want 1", len(sources))
+	}
+	if sources[0].SourceKind != configstore.KindGoogleWorkspace {
+		t.Fatalf("source kind = %q, want %q", sources[0].SourceKind, configstore.KindGoogleWorkspace)
+	}
+	if sources[0].SourceName != "C0123" {
+		t.Fatalf("source name = %q, want C0123", sources[0].SourceName)
+	}
+	if sources[0].Label != "Google Workspace" {
+		t.Fatalf("source label = %q, want Google Workspace", sources[0].Label)
 	}
 }

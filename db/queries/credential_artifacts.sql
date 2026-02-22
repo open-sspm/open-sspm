@@ -274,17 +274,6 @@ ORDER BY
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
--- name: CountCredentialArtifactsExpiringWithinDaysBySource :one
-SELECT count(*)
-FROM credential_artifacts ca
-WHERE ca.source_kind = sqlc.arg(source_kind)::text
-  AND ca.source_name = sqlc.arg(source_name)::text
-  AND ca.expired_at IS NULL
-  AND ca.last_observed_run_id IS NOT NULL
-  AND ca.expires_at_source IS NOT NULL
-  AND ca.expires_at_source >= now()
-  AND ca.expires_at_source <= now() + make_interval(days => sqlc.arg(expires_in_days)::int);
-
 -- name: ListCredentialArtifactsForAssetRef :many
 SELECT ca.*
 FROM credential_artifacts ca
@@ -304,14 +293,6 @@ FROM credential_artifacts
 WHERE id = $1
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL;
-
--- name: ListCredentialArtifactsByIDs :many
-SELECT *
-FROM credential_artifacts
-WHERE id = ANY(sqlc.arg(credential_ids)::bigint[])
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-ORDER BY id ASC;
 
 -- name: ListCredentialArtifactCountsByAssetRef :many
 WITH requested AS (

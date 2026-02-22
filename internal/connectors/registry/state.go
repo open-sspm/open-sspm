@@ -191,6 +191,8 @@ func connectorBrowseUsersHref(kind string) string {
 		return "/idp-users"
 	case "entra":
 		return "/entra-users"
+	case "google_workspace":
+		return "/google-workspace/users"
 	case "github":
 		return "/github-users"
 	case "datadog":
@@ -208,6 +210,8 @@ func connectorUnmanagedHref(kind, sourceName string) string {
 		return "/apps"
 	case "entra":
 		return "/unmatched/entra"
+	case "google_workspace":
+		return "/unmatched/google-workspace"
 	case "github", "datadog":
 		sourceName = strings.TrimSpace(sourceName)
 		if sourceName != "" {
@@ -223,7 +227,7 @@ func connectorSecondaryLabel(kind string) string {
 	switch strings.TrimSpace(kind) {
 	case "okta":
 		return "Browse apps"
-	case "entra", "github", "datadog", "aws_identity_center":
+	case "entra", "google_workspace", "github", "datadog", "aws_identity_center":
 		return "Unmanaged"
 	default:
 		return ""

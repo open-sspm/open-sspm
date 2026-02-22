@@ -276,6 +276,66 @@ func TestAvailableProgrammaticSourcesIncludesVault(t *testing.T) {
 	}
 }
 
+func TestAvailableProgrammaticSourcesIncludesGoogleWorkspace(t *testing.T) {
+	t.Parallel()
+
+	sources := availableProgrammaticSources(ConnectorSnapshot{
+		GoogleWorkspace:           configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
+		GoogleWorkspaceConfigured: true,
+		GoogleWorkspaceEnabled:    true,
+	})
+	if len(sources) != 1 {
+		t.Fatalf("sources length = %d, want 1", len(sources))
+	}
+	if sources[0].SourceKind != configstore.KindGoogleWorkspace {
+		t.Fatalf("source kind = %q, want %q", sources[0].SourceKind, configstore.KindGoogleWorkspace)
+	}
+	if sources[0].SourceName != "C0123" {
+		t.Fatalf("source name = %q, want C0123", sources[0].SourceName)
+	}
+	if sources[0].Label != "Google Workspace" {
+		t.Fatalf("source label = %q, want Google Workspace", sources[0].Label)
+	}
+}
+
+func TestAppAssetCredentialRefGoogleWorkspace(t *testing.T) {
+	t.Parallel()
+
+	refKind, refExternalID := appAssetCredentialRef(gen.AppAsset{
+		SourceKind: configstore.KindGoogleWorkspace,
+		AssetKind:  "google_oauth_client",
+		ExternalID: "client-123",
+	})
+	if refKind != "google_oauth_client" {
+		t.Fatalf("ref kind = %q, want google_oauth_client", refKind)
+	}
+	if refExternalID != "google_oauth_client:client-123" {
+		t.Fatalf("ref external id = %q, want google_oauth_client:client-123", refExternalID)
+	}
+}
+
+func TestAppAssetCredentialRefsGoogleWorkspaceIncludesGoogleRef(t *testing.T) {
+	t.Parallel()
+
+	refs := appAssetCredentialRefs(gen.AppAsset{
+		SourceKind: configstore.KindGoogleWorkspace,
+		SourceName: "C0123",
+		AssetKind:  "google_oauth_client",
+		ExternalID: "client-123",
+	})
+	if len(refs) == 0 {
+		t.Fatalf("expected refs for google workspace asset")
+	}
+
+	seen := map[string]struct{}{}
+	for _, ref := range refs {
+		seen[ref.AssetRefKind+"|"+ref.AssetRefExternalID] = struct{}{}
+	}
+	if _, ok := seen["google_oauth_client|google_oauth_client:client-123"]; !ok {
+		t.Fatalf("missing google workspace-specific credential ref")
+	}
+}
+
 func timestamptz(ts time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: ts.UTC(), Valid: true}
 }

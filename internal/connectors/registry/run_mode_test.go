@@ -13,8 +13,10 @@ func TestSyncRunSourceKind(t *testing.T) {
 	}{
 		{name: "full okta unchanged", kind: "okta", mode: RunModeFull, want: "okta"},
 		{name: "full entra unchanged", kind: "entra", mode: RunModeFull, want: "entra"},
+		{name: "full google workspace unchanged", kind: "google_workspace", mode: RunModeFull, want: "google_workspace"},
 		{name: "discovery okta mapped", kind: "okta", mode: RunModeDiscovery, want: "okta_discovery"},
 		{name: "discovery entra mapped", kind: "entra", mode: RunModeDiscovery, want: "entra_discovery"},
+		{name: "discovery google workspace mapped", kind: "google_workspace", mode: RunModeDiscovery, want: "google_workspace_discovery"},
 		{name: "discovery other unchanged", kind: "github", mode: RunModeDiscovery, want: "github"},
 	}
 

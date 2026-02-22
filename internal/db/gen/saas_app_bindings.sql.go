@@ -11,36 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const recomputePrimarySaaSAppBindingBySaaSAppID = `-- name: RecomputePrimarySaaSAppBindingBySaaSAppID :execrows
-WITH ranked AS (
-  SELECT
-    id,
-    row_number() OVER (
-      ORDER BY
-        CASE WHEN binding_source = 'manual' THEN 0 ELSE 1 END,
-        confidence DESC,
-        id ASC
-    ) AS rn
-  FROM saas_app_bindings
-  WHERE saas_app_id = $1::bigint
-)
-UPDATE saas_app_bindings b
-SET
-  is_primary = (r.rn = 1),
-  updated_at = now()
-FROM ranked r
-WHERE b.id = r.id
-  AND b.is_primary IS DISTINCT FROM (r.rn = 1)
-`
-
-func (q *Queries) RecomputePrimarySaaSAppBindingBySaaSAppID(ctx context.Context, saasAppID int64) (int64, error) {
-	result, err := q.db.Exec(ctx, recomputePrimarySaaSAppBindingBySaaSAppID, saasAppID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
 const recomputePrimarySaaSAppBindingsForAll = `-- name: RecomputePrimarySaaSAppBindingsForAll :execrows
 WITH ranked AS (
   SELECT

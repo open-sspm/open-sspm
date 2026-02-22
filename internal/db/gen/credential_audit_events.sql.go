@@ -11,35 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countCredentialAuditEventsBySourceAndQuery = `-- name: CountCredentialAuditEventsBySourceAndQuery :one
-SELECT count(*)
-FROM credential_audit_events cae
-WHERE cae.source_kind = $1::text
-  AND cae.source_name = $2::text
-  AND (
-    $3::text = ''
-    OR cae.event_type ILIKE ('%' || $3::text || '%')
-    OR cae.actor_external_id ILIKE ('%' || $3::text || '%')
-    OR cae.actor_display_name ILIKE ('%' || $3::text || '%')
-    OR cae.target_external_id ILIKE ('%' || $3::text || '%')
-    OR cae.target_display_name ILIKE ('%' || $3::text || '%')
-    OR cae.credential_external_id ILIKE ('%' || $3::text || '%')
-  )
-`
-
-type CountCredentialAuditEventsBySourceAndQueryParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
-	Query      string `json:"query"`
-}
-
-func (q *Queries) CountCredentialAuditEventsBySourceAndQuery(ctx context.Context, arg CountCredentialAuditEventsBySourceAndQueryParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countCredentialAuditEventsBySourceAndQuery, arg.SourceKind, arg.SourceName, arg.Query)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const listCredentialAuditEventsForCredential = `-- name: ListCredentialAuditEventsForCredential :many
 SELECT cae.id, cae.source_kind, cae.source_name, cae.event_external_id, cae.event_type, cae.event_time, cae.actor_kind, cae.actor_external_id, cae.actor_display_name, cae.target_kind, cae.target_external_id, cae.target_display_name, cae.credential_kind, cae.credential_external_id, cae.raw_json, cae.created_at
 FROM credential_audit_events cae
@@ -128,76 +99,6 @@ func (q *Queries) ListCredentialAuditEventsForTarget(ctx context.Context, arg Li
 		arg.TargetKind,
 		arg.TargetExternalID,
 		arg.LimitRows,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []CredentialAuditEvent
-	for rows.Next() {
-		var i CredentialAuditEvent
-		if err := rows.Scan(
-			&i.ID,
-			&i.SourceKind,
-			&i.SourceName,
-			&i.EventExternalID,
-			&i.EventType,
-			&i.EventTime,
-			&i.ActorKind,
-			&i.ActorExternalID,
-			&i.ActorDisplayName,
-			&i.TargetKind,
-			&i.TargetExternalID,
-			&i.TargetDisplayName,
-			&i.CredentialKind,
-			&i.CredentialExternalID,
-			&i.RawJson,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listCredentialAuditEventsPageBySourceAndQuery = `-- name: ListCredentialAuditEventsPageBySourceAndQuery :many
-SELECT cae.id, cae.source_kind, cae.source_name, cae.event_external_id, cae.event_type, cae.event_time, cae.actor_kind, cae.actor_external_id, cae.actor_display_name, cae.target_kind, cae.target_external_id, cae.target_display_name, cae.credential_kind, cae.credential_external_id, cae.raw_json, cae.created_at
-FROM credential_audit_events cae
-WHERE cae.source_kind = $1::text
-  AND cae.source_name = $2::text
-  AND (
-    $3::text = ''
-    OR cae.event_type ILIKE ('%' || $3::text || '%')
-    OR cae.actor_external_id ILIKE ('%' || $3::text || '%')
-    OR cae.actor_display_name ILIKE ('%' || $3::text || '%')
-    OR cae.target_external_id ILIKE ('%' || $3::text || '%')
-    OR cae.target_display_name ILIKE ('%' || $3::text || '%')
-    OR cae.credential_external_id ILIKE ('%' || $3::text || '%')
-  )
-ORDER BY cae.event_time DESC, cae.id DESC
-LIMIT $5::int
-OFFSET $4::int
-`
-
-type ListCredentialAuditEventsPageBySourceAndQueryParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
-	Query      string `json:"query"`
-	PageOffset int32  `json:"page_offset"`
-	PageLimit  int32  `json:"page_limit"`
-}
-
-func (q *Queries) ListCredentialAuditEventsPageBySourceAndQuery(ctx context.Context, arg ListCredentialAuditEventsPageBySourceAndQueryParams) ([]CredentialAuditEvent, error) {
-	rows, err := q.db.Query(ctx, listCredentialAuditEventsPageBySourceAndQuery,
-		arg.SourceKind,
-		arg.SourceName,
-		arg.Query,
-		arg.PageOffset,
-		arg.PageLimit,
 	)
 	if err != nil {
 		return nil, err

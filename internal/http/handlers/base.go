@@ -50,6 +50,9 @@ type ConnectorSnapshot struct {
 	Okta                        configstore.OktaConfig
 	OktaEnabled                 bool
 	OktaConfigured              bool
+	GoogleWorkspace             configstore.GoogleWorkspaceConfig
+	GoogleWorkspaceEnabled      bool
+	GoogleWorkspaceConfigured   bool
 	GitHub                      configstore.GitHubConfig
 	GitHubEnabled               bool
 	GitHubConfigured            bool
@@ -82,6 +85,12 @@ func (h *Handlers) LoadConnectorSnapshot(ctx context.Context) (ConnectorSnapshot
 				snap.Okta = cfg
 				snap.OktaEnabled = state.Enabled
 				snap.OktaConfigured = state.Configured
+			}
+		case configstore.KindGoogleWorkspace:
+			if cfg, ok := state.Config.(configstore.GoogleWorkspaceConfig); ok {
+				snap.GoogleWorkspace = cfg
+				snap.GoogleWorkspaceEnabled = state.Enabled
+				snap.GoogleWorkspaceConfigured = state.Configured
 			}
 		case configstore.KindGitHub:
 			if cfg, ok := state.Config.(configstore.GitHubConfig); ok {
@@ -202,6 +211,9 @@ func (h *Handlers) LayoutData(ctx context.Context, c *echo.Context, title string
 		UserRole:                    principal.Role,
 		IsAdmin:                     ok && principal.IsAdmin(),
 		FindingsRulesets:            findingsRulesets,
+		GoogleWorkspaceCustomerID:   snap.GoogleWorkspace.CustomerID,
+		GoogleWorkspaceEnabled:      snap.GoogleWorkspaceEnabled,
+		GoogleWorkspaceConfigured:   snap.GoogleWorkspaceConfigured,
 		GitHubOrg:                   snap.GitHub.Org,
 		GitHubEnabled:               snap.GitHubEnabled,
 		GitHubConfigured:            snap.GitHubConfigured,
@@ -281,6 +293,8 @@ func ConnectorDisplayName(kind string) string {
 	switch NormalizeConnectorKind(kind) {
 	case configstore.KindOkta:
 		return "Okta"
+	case configstore.KindGoogleWorkspace:
+		return "Google Workspace"
 	case configstore.KindGitHub:
 		return "GitHub"
 	case configstore.KindDatadog:
@@ -299,7 +313,7 @@ func ConnectorDisplayName(kind string) string {
 // IsKnownConnectorKind checks if the kind is a recognized connector.
 func IsKnownConnectorKind(kind string) bool {
 	switch NormalizeConnectorKind(kind) {
-	case configstore.KindOkta, configstore.KindGitHub, configstore.KindDatadog, configstore.KindAWSIdentityCenter, configstore.KindEntra, configstore.KindVault:
+	case configstore.KindOkta, configstore.KindGoogleWorkspace, configstore.KindGitHub, configstore.KindDatadog, configstore.KindAWSIdentityCenter, configstore.KindEntra, configstore.KindVault:
 		return true
 	default:
 		return false
@@ -317,6 +331,8 @@ func IntegratedAppHref(integrationKind string) string {
 		return "/aws-users"
 	case configstore.KindEntra:
 		return "/entra-users"
+	case configstore.KindGoogleWorkspace:
+		return "/google-workspace/users"
 	default:
 		return ""
 	}
