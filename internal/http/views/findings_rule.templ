@@ -100,7 +100,8 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 							<div class="space-y-2">
 								<div class="text-sm font-medium">Violations</div>
 								<div class="overflow-x-auto">
-									<table class="table">
+									@ColumnsControl("findings-rule--violations")
+									<table data-columns-id="findings-rule--violations" class="table">
 										<thead>
 											<tr>
 												<th>Resource</th>
@@ -301,3 +302,4 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 		}
 	}
 }
+

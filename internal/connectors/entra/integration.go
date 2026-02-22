@@ -114,6 +114,7 @@ func (i *EntraIntegration) SupportsRunMode(mode registry.RunMode) bool {
 func (i *EntraIntegration) InitEvents() []registry.Event {
 	return []registry.Event{
 		{Source: "entra", Stage: "list-users", Current: 0, Total: 1, Message: "listing Entra users"},
+		{Source: "entra", Stage: "list-groups", Current: 0, Total: 1, Message: "listing Entra groups"},
 		{Source: "entra", Stage: "write-users", Current: 0, Total: registry.UnknownTotal, Message: "writing Entra users"},
 		{Source: "entra", Stage: "list-app-assets", Current: 0, Total: 1, Message: "listing Entra applications and service principals"},
 		{Source: "entra", Stage: "write-app-assets", Current: 0, Total: registry.UnknownTotal, Message: "writing Entra app assets"},
@@ -156,6 +157,10 @@ func (i *EntraIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pg
 	if err != nil {
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindUnknown)
 	}
+	groupsWritten, err := i.syncGroups(ctx, q, report, runID)
+	if err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindUnknown)
+	}
 
 	report(registry.Event{Source: "entra", Stage: "list-app-assets", Current: 0, Total: 1, Message: "listing applications and service principals"})
 	applications, err := i.client.ListApplications(ctx)
@@ -175,6 +180,11 @@ func (i *EntraIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pg
 		Total:   1,
 		Message: fmt.Sprintf("found %d applications and %d service principals", len(applications), len(servicePrincipals)),
 	})
+
+	servicePrincipalsWritten, err := i.syncServicePrincipalAccounts(ctx, q, report, runID, servicePrincipals)
+	if err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+	}
 
 	assetRows, credentialRows := buildEntraAssetAndCredentialRows(applications, servicePrincipals)
 	if err := i.upsertAppAssets(ctx, q, report, runID, assetRows); err != nil {
@@ -225,6 +235,8 @@ func (i *EntraIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pg
 		"entra sync complete",
 		"tenant", i.tenantID,
 		"users", usersWritten,
+		"groups", groupsWritten,
+		"service_principals", servicePrincipalsWritten,
 		"app_assets", len(assetRows),
 		"owners", len(ownerRows),
 		"credentials", len(credentialRows),
@@ -279,6 +291,7 @@ func (i *EntraIntegration) syncUsers(ctx context.Context, q *gen.Queries, report
 	externalIDs := make([]string, 0, len(users))
 	emails := make([]string, 0, len(users))
 	displayNames := make([]string, 0, len(users))
+	accountKinds := make([]string, 0, len(users))
 	rawJSONs := make([][]byte, 0, len(users))
 	lastLoginAts := make([]pgtype.Timestamptz, 0, len(users))
 	lastLoginIps := make([]string, 0, len(users))
@@ -319,7 +332,8 @@ func (i *EntraIntegration) syncUsers(ctx context.Context, q *gen.Queries, report
 		externalIDs = append(externalIDs, externalID)
 		emails = append(emails, email)
 		displayNames = append(displayNames, display)
-		rawJSONs = append(rawJSONs, raw)
+		accountKinds = append(accountKinds, entraUserAccountKind(user))
+		rawJSONs = append(rawJSONs, registry.WithEntityCategory(raw, registry.EntityCategoryUser))
 		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 		lastLoginIps = append(lastLoginIps, "")
 		lastLoginRegions = append(lastLoginRegions, "")
@@ -335,6 +349,7 @@ func (i *EntraIntegration) syncUsers(ctx context.Context, q *gen.Queries, report
 			ExternalIds:      externalIDs[start:end],
 			Emails:           emails[start:end],
 			DisplayNames:     displayNames[start:end],
+			AccountKinds:     accountKinds[start:end],
 			RawJsons:         rawJSONs[start:end],
 			LastLoginAts:     lastLoginAts[start:end],
 			LastLoginIps:     lastLoginIps[start:end],
@@ -350,6 +365,159 @@ func (i *EntraIntegration) syncUsers(ctx context.Context, q *gen.Queries, report
 			Current: int64(end),
 			Total:   int64(len(externalIDs)),
 			Message: fmt.Sprintf("users %d/%d", end, len(externalIDs)),
+		})
+	}
+
+	return len(externalIDs), nil
+}
+
+func (i *EntraIntegration) syncGroups(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64) (int, error) {
+	groups, err := i.client.ListGroups(ctx)
+	if err != nil {
+		report(registry.Event{Source: "entra", Stage: "list-groups", Message: err.Error(), Err: err})
+		return 0, err
+	}
+	report(registry.Event{Source: "entra", Stage: "list-groups", Current: 1, Total: 1, Message: fmt.Sprintf("found %d groups", len(groups))})
+	if len(groups) == 0 {
+		return 0, nil
+	}
+
+	report(registry.Event{Source: "entra", Stage: "write-users", Current: 0, Total: int64(len(groups)), Message: fmt.Sprintf("writing %d groups", len(groups))})
+
+	externalIDs := make([]string, 0, len(groups))
+	emails := make([]string, 0, len(groups))
+	displayNames := make([]string, 0, len(groups))
+	accountKinds := make([]string, 0, len(groups))
+	rawJSONs := make([][]byte, 0, len(groups))
+	lastLoginAts := make([]pgtype.Timestamptz, 0, len(groups))
+	lastLoginIps := make([]string, 0, len(groups))
+	lastLoginRegions := make([]string, 0, len(groups))
+
+	for _, group := range groups {
+		externalID := entraGroupExternalID(group.ID)
+		if externalID == "" {
+			continue
+		}
+
+		display := strings.TrimSpace(group.DisplayName)
+		if display == "" {
+			display = externalID
+		}
+
+		externalIDs = append(externalIDs, externalID)
+		emails = append(emails, normalizeEmail(strings.TrimSpace(group.Mail)))
+		displayNames = append(displayNames, display)
+		accountKinds = append(accountKinds, entraGroupAccountKind(group))
+		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(group.RawJSON), registry.EntityCategoryGroup))
+		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
+		lastLoginIps = append(lastLoginIps, "")
+		lastLoginRegions = append(lastLoginRegions, "")
+	}
+
+	for start := 0; start < len(externalIDs); start += entraUserBatchSize {
+		end := min(start+entraUserBatchSize, len(externalIDs))
+
+		_, err := q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
+			SourceKind:       "entra",
+			SourceName:       i.tenantID,
+			SeenInRunID:      runID,
+			ExternalIds:      externalIDs[start:end],
+			Emails:           emails[start:end],
+			DisplayNames:     displayNames[start:end],
+			AccountKinds:     accountKinds[start:end],
+			RawJsons:         rawJSONs[start:end],
+			LastLoginAts:     lastLoginAts[start:end],
+			LastLoginIps:     lastLoginIps[start:end],
+			LastLoginRegions: lastLoginRegions[start:end],
+		})
+		if err != nil {
+			return 0, err
+		}
+
+		report(registry.Event{
+			Source:  "entra",
+			Stage:   "write-users",
+			Current: int64(end),
+			Total:   int64(len(externalIDs)),
+			Message: fmt.Sprintf("groups %d/%d", end, len(externalIDs)),
+		})
+	}
+
+	return len(externalIDs), nil
+}
+
+func (i *EntraIntegration) syncServicePrincipalAccounts(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, servicePrincipals []ServicePrincipal) (int, error) {
+	if len(servicePrincipals) == 0 {
+		return 0, nil
+	}
+
+	report(registry.Event{
+		Source:  "entra",
+		Stage:   "write-users",
+		Current: 0,
+		Total:   int64(len(servicePrincipals)),
+		Message: fmt.Sprintf("writing %d service principals", len(servicePrincipals)),
+	})
+
+	externalIDs := make([]string, 0, len(servicePrincipals))
+	emails := make([]string, 0, len(servicePrincipals))
+	displayNames := make([]string, 0, len(servicePrincipals))
+	accountKinds := make([]string, 0, len(servicePrincipals))
+	rawJSONs := make([][]byte, 0, len(servicePrincipals))
+	lastLoginAts := make([]pgtype.Timestamptz, 0, len(servicePrincipals))
+	lastLoginIps := make([]string, 0, len(servicePrincipals))
+	lastLoginRegions := make([]string, 0, len(servicePrincipals))
+
+	for _, sp := range servicePrincipals {
+		externalID := entraServicePrincipalExternalID(sp.ID)
+		if externalID == "" {
+			continue
+		}
+
+		display := strings.TrimSpace(sp.DisplayName)
+		if display == "" {
+			display = strings.TrimSpace(sp.AppID)
+		}
+		if display == "" {
+			display = externalID
+		}
+
+		externalIDs = append(externalIDs, externalID)
+		emails = append(emails, "")
+		displayNames = append(displayNames, display)
+		accountKinds = append(accountKinds, entraServicePrincipalAccountKind(sp))
+		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(sp.RawJSON), registry.EntityCategoryServicePrincipal))
+		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
+		lastLoginIps = append(lastLoginIps, "")
+		lastLoginRegions = append(lastLoginRegions, "")
+	}
+
+	for start := 0; start < len(externalIDs); start += entraUserBatchSize {
+		end := min(start+entraUserBatchSize, len(externalIDs))
+
+		_, err := q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
+			SourceKind:       "entra",
+			SourceName:       i.tenantID,
+			SeenInRunID:      runID,
+			ExternalIds:      externalIDs[start:end],
+			Emails:           emails[start:end],
+			DisplayNames:     displayNames[start:end],
+			AccountKinds:     accountKinds[start:end],
+			RawJsons:         rawJSONs[start:end],
+			LastLoginAts:     lastLoginAts[start:end],
+			LastLoginIps:     lastLoginIps[start:end],
+			LastLoginRegions: lastLoginRegions[start:end],
+		})
+		if err != nil {
+			return 0, err
+		}
+
+		report(registry.Event{
+			Source:  "entra",
+			Stage:   "write-users",
+			Current: int64(end),
+			Total:   int64(len(externalIDs)),
+			Message: fmt.Sprintf("service principals %d/%d", end, len(externalIDs)),
 		})
 	}
 

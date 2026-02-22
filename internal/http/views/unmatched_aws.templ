@@ -68,7 +68,8 @@ templ UnmatchedAWSPage(data viewmodels.UnmatchedAWSViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("unmatched-aws--main")
+					<table data-columns-id="unmatched-aws--main" class="table">
 						<caption class="sr-only">Unmanaged AWS Identity Center users and actions to link each user to an identity.</caption>
 						<thead>
 							<tr>
@@ -145,3 +146,4 @@ templ UnmatchedAWSPage(data viewmodels.UnmatchedAWSViewData) {
 		</article>
 	}
 }
+

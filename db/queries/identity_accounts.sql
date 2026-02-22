@@ -63,12 +63,16 @@ WHERE ia.id IS NULL
 -- name: ListIdentityAccountAttributes :many
 SELECT
   ia.identity_id,
+  i.kind AS identity_kind,
   a.id AS account_id,
   a.source_kind,
   a.source_name,
+  a.external_id,
+  a.account_kind,
   a.email,
   a.display_name
 FROM identity_accounts ia
+JOIN identities i ON i.id = ia.identity_id
 JOIN accounts a ON a.id = ia.account_id
 WHERE a.expired_at IS NULL
   AND a.last_observed_run_id IS NOT NULL

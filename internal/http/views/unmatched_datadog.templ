@@ -68,7 +68,8 @@ templ UnmatchedDatadogPage(data viewmodels.UnmatchedDatadogViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("unmatched-datadog--main")
+					<table data-columns-id="unmatched-datadog--main" class="table">
 						<caption class="sr-only">Unmanaged Datadog users and actions to link each account to an identity.</caption>
 						<thead>
 							<tr>
@@ -145,3 +146,4 @@ templ UnmatchedDatadogPage(data viewmodels.UnmatchedDatadogViewData) {
 		</article>
 	}
 }
+

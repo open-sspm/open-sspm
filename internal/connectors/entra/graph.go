@@ -105,6 +105,16 @@ type ServicePrincipal struct {
 	RawJSON              []byte               `json:"-"`
 }
 
+type Group struct {
+	ID              string   `json:"id"`
+	DisplayName     string   `json:"displayName"`
+	Mail            string   `json:"mail"`
+	MailEnabled     *bool    `json:"mailEnabled"`
+	SecurityEnabled *bool    `json:"securityEnabled"`
+	GroupTypes      []string `json:"groupTypes"`
+	RawJSON         []byte   `json:"-"`
+}
+
 type DirectoryOwner struct {
 	ID                string `json:"id"`
 	ODataType         string `json:"@odata.type"`
@@ -297,6 +307,32 @@ func (c *Client) ListServicePrincipals(ctx context.Context) ([]ServicePrincipal,
 		}
 		sp.RawJSON = raw
 		out = append(out, sp)
+	}
+	return out, nil
+}
+
+func (c *Client) ListGroups(ctx context.Context) ([]Group, error) {
+	endpoint, err := c.graphURL("/groups", url.Values{
+		"$select": []string{"id,displayName,mail,mailEnabled,securityEnabled,groupTypes"},
+		"$top":    []string{"999"},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	rawItems, err := c.listPagedRaw(ctx, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]Group, 0, len(rawItems))
+	for _, raw := range rawItems {
+		var group Group
+		if err := json.Unmarshal(raw, &group); err != nil {
+			return nil, err
+		}
+		group.RawJSON = raw
+		out = append(out, group)
 	}
 	return out, nil
 }

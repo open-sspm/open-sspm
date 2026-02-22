@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
@@ -118,7 +119,8 @@ func (r Resolver) resolveIdentityIDForAccount(ctx context.Context, account gen.A
 	}
 
 	email := normalizeEmail(account.Email)
-	if email != "" {
+	accountKind := registry.NormalizeAccountKind(account.AccountKind)
+	if email != "" && accountKind != registry.AccountKindService && accountKind != registry.AccountKindBot {
 		identity, findErr := r.Q.GetPreferredIdentityByPrimaryEmail(ctx, email)
 		if findErr == nil {
 			return identity.ID, linkReasonAutoEmail, false, nil
@@ -129,7 +131,7 @@ func (r Resolver) resolveIdentityIDForAccount(ctx context.Context, account gen.A
 	}
 
 	identity, err := r.Q.CreateIdentity(ctx, gen.CreateIdentityParams{
-		Kind:         "unknown",
+		Kind:         accountKind,
 		DisplayName:  strings.TrimSpace(account.DisplayName),
 		PrimaryEmail: email,
 	})
@@ -166,14 +168,15 @@ func (r Resolver) refreshIdentityAttributes(ctx context.Context) (int64, error) 
 	updated := int64(0)
 	for identityID, candidates := range byIdentity {
 		email, displayName := chooseIdentityAttributes(candidates, authoritative)
+		kind := chooseIdentityKind(candidates)
 		if _, hasEmail := firstNonEmptyEmail(candidates); !hasEmail {
 			email = ""
 		}
 		if err := r.Q.UpdateIdentityAttributes(ctx, gen.UpdateIdentityAttributesParams{
-			ID:          identityID,
-			DisplayName: displayName,
+			ID:           identityID,
+			DisplayName:  displayName,
 			PrimaryEmail: email,
-			Kind:        "",
+			Kind:         kind,
 		}); err != nil {
 			return updated, err
 		}
@@ -228,6 +231,66 @@ func firstNonEmptyEmail(candidates []gen.ListIdentityAccountAttributesRow) (stri
 		}
 	}
 	return "", false
+}
+
+func chooseIdentityKind(candidates []gen.ListIdentityAccountAttributesRow) string {
+	if len(candidates) == 0 {
+		return registry.AccountKindUnknown
+	}
+
+	accountKinds := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		accountKinds = append(accountKinds, candidate.AccountKind)
+	}
+	aggregated := registry.AggregateAccountKinds(accountKinds...)
+	if aggregated != registry.AccountKindUnknown {
+		return aggregated
+	}
+
+	return chooseIdentityKindByHeuristic(candidates)
+}
+
+func chooseIdentityKindByHeuristic(candidates []gen.ListIdentityAccountAttributesRow) string {
+	hasEmail := false
+	hasServiceSignal := false
+	for _, candidate := range candidates {
+		email := normalizeEmail(candidate.Email)
+		if email != "" {
+			hasEmail = true
+		}
+
+		classifierText := buildIdentityClassifierText(candidate, email)
+		if registry.HasIndicator(classifierText, registry.BotIndicators()) {
+			return registry.AccountKindBot
+		}
+		if registry.HasIndicator(classifierText, registry.ServiceIndicators()) {
+			hasServiceSignal = true
+		}
+		if strings.EqualFold(strings.TrimSpace(candidate.SourceKind), "vault") {
+			hasServiceSignal = true
+		}
+	}
+
+	if hasServiceSignal {
+		return registry.AccountKindService
+	}
+	if hasEmail {
+		return registry.AccountKindHuman
+	}
+	return registry.AccountKindUnknown
+}
+
+func buildIdentityClassifierText(candidate gen.ListIdentityAccountAttributesRow, normalizedEmail string) string {
+	parts := []string{
+		strings.TrimSpace(candidate.DisplayName),
+		strings.TrimSpace(candidate.ExternalID),
+	}
+	if normalizedEmail != "" {
+		if local, _, ok := strings.Cut(normalizedEmail, "@"); ok {
+			parts = append(parts, local)
+		}
+	}
+	return registry.NormalizeClassifierText(strings.Join(parts, " "))
 }
 
 func sourceKey(kind, name string) string {

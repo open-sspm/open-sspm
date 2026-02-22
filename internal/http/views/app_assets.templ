@@ -88,7 +88,8 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 			</header>
 				<section>
 					<div class="overflow-x-auto">
-						<table class="table osspm-table-compact">
+						@ColumnsControl("app-assets--main")
+						<table data-columns-id="app-assets--main" class="table osspm-table-compact">
 							<caption class="sr-only">Programmatic app assets with source, kind, owner counts, credential counts, and last-seen time.</caption>
 							<thead>
 								<tr>
@@ -156,3 +157,4 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 		</article>
 	</div>
 }
+

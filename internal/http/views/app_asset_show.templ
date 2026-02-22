@@ -54,7 +54,8 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("app-asset-show--owners")
+					<table data-columns-id="app-asset-show--owners" class="table">
 						<thead>
 							<tr>
 								<th>Owner</th>
@@ -97,7 +98,8 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("app-asset-show--credentials")
+					<table data-columns-id="app-asset-show--credentials" class="table">
 						<thead>
 							<tr>
 								<th>Credential</th>
@@ -146,7 +148,8 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("app-asset-show--events")
+					<table data-columns-id="app-asset-show--events" class="table">
 						<thead>
 							<tr>
 								<th>Time</th>
@@ -182,3 +185,4 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 		</article>
 	}
 }
+

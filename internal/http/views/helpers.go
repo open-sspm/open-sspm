@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 func FormatInt(v int) string {
@@ -125,6 +126,59 @@ func ListURL(baseHref string, query string, state string, page int) string {
 		return baseHref
 	}
 	return baseHref + "?" + values.Encode()
+}
+
+func IdentitiesListURL(sourceKind, sourceName, query, identityType, managedState string, privilegedOnly bool, status, activityState, linkQuality, sortBy, sortDir string, showFirstSeen, showLinkQuality, showLinkReason bool, page int) string {
+	values := url.Values{}
+	if sourceKind = strings.TrimSpace(sourceKind); sourceKind != "" {
+		values.Set("source_kind", sourceKind)
+	}
+	if sourceName = strings.TrimSpace(sourceName); sourceName != "" {
+		values.Set("source_name", sourceName)
+	}
+	if query = strings.TrimSpace(query); query != "" {
+		values.Set("q", query)
+	}
+	if identityType = strings.TrimSpace(identityType); identityType != "" {
+		values.Set("identity_type", identityType)
+	}
+	if managedState = strings.TrimSpace(managedState); managedState != "" {
+		values.Set("managed_state", managedState)
+	}
+	if privilegedOnly {
+		values.Set("privileged", "1")
+	}
+	if status = strings.TrimSpace(status); status != "" {
+		values.Set("status", status)
+	}
+	if activityState = strings.TrimSpace(activityState); activityState != "" {
+		values.Set("activity_state", activityState)
+	}
+	if linkQuality = strings.TrimSpace(linkQuality); linkQuality != "" {
+		values.Set("link_quality", linkQuality)
+	}
+	if sortBy = strings.TrimSpace(sortBy); sortBy != "" {
+		values.Set("sort_by", sortBy)
+	}
+	if sortDir = strings.TrimSpace(sortDir); sortDir != "" {
+		values.Set("sort_dir", sortDir)
+	}
+	if showFirstSeen {
+		values.Set("show_first_seen", "1")
+	}
+	if showLinkQuality {
+		values.Set("show_link_quality", "1")
+	}
+	if showLinkReason {
+		values.Set("show_link_reason", "1")
+	}
+	if page > 1 {
+		values.Set("page", strconv.Itoa(page))
+	}
+	if len(values) == 0 {
+		return "/identities"
+	}
+	return "/identities?" + values.Encode()
 }
 
 func DiscoveryAppsListURL(sourceKind, sourceName, query, managedState, riskLevel string, page int) string {
@@ -296,6 +350,139 @@ func HumanizeCredentialRisk(risk string) string {
 	}
 }
 
+func HumanizeIdentityType(identityType string) string {
+	switch strings.ToLower(strings.TrimSpace(identityType)) {
+	case "human":
+		return "Human"
+	case "service":
+		return "Service"
+	case "bot":
+		return "Bot"
+	case "unknown":
+		return "Unknown"
+	default:
+		return fallbackHumanized(identityType)
+	}
+}
+
+func HumanizeIdentityStatus(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "active":
+		return "Active"
+	case "suspended":
+		return "Suspended"
+	case "deleted":
+		return "Deleted"
+	case "orphaned":
+		return "Orphaned"
+	case "unknown":
+		return "Unknown"
+	default:
+		return fallbackHumanized(status)
+	}
+}
+
+func HumanizeIdentityLinkQuality(linkQuality string) string {
+	switch strings.ToLower(strings.TrimSpace(linkQuality)) {
+	case "high":
+		return "High"
+	case "medium":
+		return "Medium"
+	case "low":
+		return "Low"
+	case "unknown":
+		return "Unknown"
+	default:
+		return fallbackHumanized(linkQuality)
+	}
+}
+
+func FormatIdentityLinkConfidence(value float32) string {
+	percent := float64(value) * 100
+	if percent < 0 {
+		percent = 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+	return strconv.FormatFloat(percent, 'f', 0, 64) + "%"
+}
+
+func IdentityInventoryColSpan(showFirstSeen, showLinkQuality, showLinkReason bool) string {
+	cols := 9
+	if showFirstSeen {
+		cols++
+	}
+	if showLinkQuality {
+		cols++
+	}
+	if showLinkReason {
+		cols++
+	}
+	return strconv.Itoa(cols)
+}
+
+func HumanizeIdentityRowState(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "action_required":
+		return "Action required"
+	case "review":
+		return "Review"
+	case "healthy":
+		return "Healthy"
+	default:
+		return fallbackHumanized(state)
+	}
+}
+
+func IdentityManagedBadgeClass(managed bool) string {
+	if managed {
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	}
+	return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+}
+
+func IdentityStatusBadgeClass(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "active":
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	case "suspended":
+		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+	case "deleted":
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+	case "orphaned":
+		return "badge bg-slate-100 text-slate-800 dark:bg-slate-900/50 dark:text-slate-100"
+	default:
+		return "badge-outline"
+	}
+}
+
+func IdentityRowStateBadgeClass(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "action_required":
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+	case "review":
+		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+	case "healthy":
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	default:
+		return "badge-outline"
+	}
+}
+
+func IdentityLinkQualityBadgeClass(linkQuality string) string {
+	switch strings.ToLower(strings.TrimSpace(linkQuality)) {
+	case "high":
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	case "medium":
+		return "badge bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-100"
+	case "low":
+		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+	default:
+		return "badge-outline"
+	}
+}
+
 func HumanizeCredentialKind(kind string) string {
 	switch strings.ToLower(strings.TrimSpace(kind)) {
 	case "entra_client_secret":
@@ -392,7 +579,12 @@ func fallbackHumanized(value string) string {
 		if part == "" {
 			continue
 		}
-		parts[idx] = strings.ToUpper(part[:1]) + part[1:]
+		runes := []rune(part)
+		if len(runes) == 0 {
+			continue
+		}
+		runes[0] = unicode.ToUpper(runes[0])
+		parts[idx] = string(runes)
 	}
 	if len(parts) == 0 {
 		return value

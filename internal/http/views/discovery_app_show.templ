@@ -72,7 +72,8 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("discovery-app-show--sources")
+					<table data-columns-id="discovery-app-show--sources" class="table">
 						<thead>
 							<tr>
 								<th>Source</th>
@@ -112,7 +113,8 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("discovery-app-show--actors")
+					<table data-columns-id="discovery-app-show--actors" class="table">
 						<thead>
 							<tr>
 								<th>Actor</th>
@@ -151,7 +153,8 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("discovery-app-show--events")
+					<table data-columns-id="discovery-app-show--events" class="table">
 						<thead>
 							<tr>
 								<th>Observed</th>
@@ -184,3 +187,4 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 		</article>
 	}
 }
+

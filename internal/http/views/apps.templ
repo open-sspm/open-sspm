@@ -65,7 +65,8 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("apps--main")
+					<table data-columns-id="apps--main" class="table">
 						<caption class="sr-only">Discovered apps with status, integration state, and user access actions.</caption>
 						<thead>
 							<tr>
@@ -162,3 +163,4 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 		</article>
 	</div>
 }
+

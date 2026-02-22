@@ -28,6 +28,7 @@ type Account struct {
 	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
 	Status            string             `json:"status"`
+	AccountKind       string             `json:"account_kind"`
 }
 
 type AppAsset struct {

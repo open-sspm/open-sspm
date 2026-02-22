@@ -1,6 +1,7 @@
 import { scheduleSoon } from "open-sspm-app/dom_focus.js";
 import { openServerDialogs, wireDialogCloseButtons, wireDialogCloseNavigation } from "open-sspm-app/dialogs.js";
 import { wireCopyButtons } from "open-sspm-app/copy.js";
+import { wireColumnControls } from "open-sspm-app/columns.js";
 
 const INTERACTIVE_ROW_SELECTOR = [
   "a[href]",
@@ -132,6 +133,7 @@ export const initFragment = (root = document) => {
   wireDialogCloseNavigation(root);
   wireDialogCloseButtons(root);
   wireCopyButtons(root);
+  wireColumnControls(root);
   wireAutosubmit(root);
   wireRowLinks(root);
   triggerVisibleLazyHx(root);

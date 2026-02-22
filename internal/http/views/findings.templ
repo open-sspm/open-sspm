@@ -12,7 +12,8 @@ templ FindingsPage(data viewmodels.FindingsRulesetsViewData) {
 
 		if data.HasRulesets {
 			@TableCard("Rulesets", "Rulesets loaded from Postgres (seeded from the rule registry).") {
-				<table class="table">
+				@ColumnsControl("findings--main")
+				<table data-columns-id="findings--main" class="table">
 					<thead>
 						<tr>
 							<th>Ruleset</th>
@@ -46,3 +47,4 @@ templ FindingsPage(data viewmodels.FindingsRulesetsViewData) {
 		}
 	}
 }
+

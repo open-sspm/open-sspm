@@ -69,7 +69,8 @@ templ EntraUsersPage(data viewmodels.EntraUsersViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("entra-users--main")
+					<table data-columns-id="entra-users--main" class="table">
 						<caption class="sr-only">Microsoft Entra ID users with directory role counts, enterprise app counts, and linked identities.</caption>
 						<thead>
 							<tr>
@@ -145,3 +146,4 @@ templ EntraUsersPage(data viewmodels.EntraUsersViewData) {
 		</article>
 	}
 }
+

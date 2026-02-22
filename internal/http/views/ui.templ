@@ -67,6 +67,31 @@ templ TableCard(title, description string) {
 	</article>
 }
 
+templ ColumnsControl(tableID string) {
+	<div class="mb-3 flex justify-end" data-columns-root hidden>
+		<div class="dropdown-menu" data-columns-control data-columns-for={ tableID }>
+			<button
+				type="button"
+				class="btn-sm-outline"
+				id={ tableID + "-columns-trigger" }
+				aria-haspopup="menu"
+				aria-expanded="false"
+				aria-controls={ tableID + "-columns-menu" }
+			>
+				Columns
+			</button>
+			<div data-popover data-side="bottom" data-align="end" aria-hidden="true" class="w-72">
+				<div role="menu" id={ tableID + "-columns-menu" } aria-labelledby={ tableID + "-columns-trigger" }>
+					<div role="heading">Visible columns</div>
+					<div data-columns-options class="max-h-80 overflow-auto"></div>
+					<hr role="separator"/>
+					<button type="button" role="menuitem" class="cursor-pointer" data-columns-reset>Reset to defaults</button>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
 templ CSRFInput(token string) {
 	<input type="hidden" name="csrf" value={ token }/>
 }

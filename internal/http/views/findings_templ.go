@@ -81,7 +81,11 @@ func FindingsPage(data viewmodels.FindingsRulesetsViewData) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<table class=\"table\"><thead><tr><th>Ruleset</th><th>Source</th><th>Version</th><th>Status</th></tr></thead> <tbody>")
+					templ_7745c5c3_Err = ColumnsControl("findings--main").Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <table data-columns-id=\"findings--main\" class=\"table\"><thead><tr><th>Ruleset</th><th>Source</th><th>Version</th><th>Status</th></tr></thead> <tbody>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -93,7 +97,7 @@ func FindingsPage(data viewmodels.FindingsRulesetsViewData) templ.Component {
 						var templ_7745c5c3_Var5 string
 						templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(rs.Href)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings.templ`, Line: 26, Col: 34}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings.templ`, Line: 27, Col: 34}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 						if templ_7745c5c3_Err != nil {
@@ -106,7 +110,7 @@ func FindingsPage(data viewmodels.FindingsRulesetsViewData) templ.Component {
 						var templ_7745c5c3_Var6 templ.SafeURL
 						templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs(rs.Href)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings.templ`, Line: 28, Col: 63}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings.templ`, Line: 29, Col: 63}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 						if templ_7745c5c3_Err != nil {
@@ -119,7 +123,7 @@ func FindingsPage(data viewmodels.FindingsRulesetsViewData) templ.Component {
 						var templ_7745c5c3_Var7 string
 						templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(rs.Name)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings.templ`, Line: 28, Col: 75}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings.templ`, Line: 29, Col: 75}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 						if templ_7745c5c3_Err != nil {
@@ -137,7 +141,7 @@ func FindingsPage(data viewmodels.FindingsRulesetsViewData) templ.Component {
 							var templ_7745c5c3_Var8 string
 							templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(rs.Description)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings.templ`, Line: 30, Col: 69}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings.templ`, Line: 31, Col: 69}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 							if templ_7745c5c3_Err != nil {
@@ -155,7 +159,7 @@ func FindingsPage(data viewmodels.FindingsRulesetsViewData) templ.Component {
 						var templ_7745c5c3_Var9 string
 						templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(rs.Source)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings.templ`, Line: 33, Col: 53}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings.templ`, Line: 34, Col: 53}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 						if templ_7745c5c3_Err != nil {
@@ -168,7 +172,7 @@ func FindingsPage(data viewmodels.FindingsRulesetsViewData) templ.Component {
 						var templ_7745c5c3_Var10 string
 						templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(rs.SourceVersion)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings.templ`, Line: 34, Col: 60}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings.templ`, Line: 35, Col: 60}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 						if templ_7745c5c3_Err != nil {
@@ -181,7 +185,7 @@ func FindingsPage(data viewmodels.FindingsRulesetsViewData) templ.Component {
 						var templ_7745c5c3_Var11 string
 						templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(rs.Status)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings.templ`, Line: 36, Col: 48}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings.templ`, Line: 37, Col: 48}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 						if templ_7745c5c3_Err != nil {

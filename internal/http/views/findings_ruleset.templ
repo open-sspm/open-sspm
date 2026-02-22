@@ -114,7 +114,8 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 						<div class="space-y-2">
 							<h3 class="text-sm font-medium">Framework mappings</h3>
 							<div class="overflow-x-auto">
-								<table class="table">
+								@ColumnsControl("findings-ruleset--coverage")
+								<table data-columns-id="findings-ruleset--coverage" class="table">
 									<caption class="sr-only">Framework mapping controls and their coverage status.</caption>
 									<thead>
 										<tr>
@@ -192,7 +193,8 @@ templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 
 				if data.HasRules {
 					<div class="overflow-x-auto">
-						<table class="table osspm-table-fixed osspm-table-compact">
+						@ColumnsControl("findings-ruleset--rules")
+						<table data-columns-id="findings-ruleset--rules" class="table osspm-table-fixed osspm-table-compact">
 							<caption class="sr-only">Rules in this ruleset with severity, monitoring, and current status.</caption>
 							<thead>
 								<tr>
@@ -241,3 +243,4 @@ templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 		</section>
 	</article>
 }
+

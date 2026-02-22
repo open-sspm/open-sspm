@@ -61,7 +61,8 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 					</header>
 					<section>
 						<div class="overflow-x-auto">
-							<table class="table">
+							@ColumnsControl("idp-user-show--app-access")
+							<table data-columns-id="idp-user-show--app-access" class="table">
 								<thead>
 									<tr>
 										<th>App</th>
@@ -178,7 +179,8 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 										<div class="space-y-2">
 											<h3 class="text-sm font-semibold">Entitlements</h3>
 											<div class="overflow-x-auto">
-												<table class="table">
+												@ColumnsControl("idp-user-show--entitlements")
+												<table data-columns-id="idp-user-show--entitlements" class="table">
 													<thead>
 														<tr>
 															<th>Kind</th>
@@ -231,3 +233,4 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 		</div>
 	}
 }
+

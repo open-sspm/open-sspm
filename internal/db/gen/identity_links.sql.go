@@ -124,7 +124,7 @@ func (q *Queries) GetIdentityLinkByAppUser(ctx context.Context, accountID int64)
 }
 
 const listLinkedAppUsersForIdPUser = `-- name: ListLinkedAppUsersForIdPUser :many
-SELECT au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status
+SELECT au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind
 FROM accounts au
 JOIN identity_accounts ia ON ia.account_id = au.id
 WHERE ia.identity_id = $1
@@ -162,6 +162,7 @@ func (q *Queries) ListLinkedAppUsersForIdPUser(ctx context.Context, identityID i
 			&i.ExpiredAt,
 			&i.ExpiredRunID,
 			&i.Status,
+			&i.AccountKind,
 		); err != nil {
 			return nil, err
 		}

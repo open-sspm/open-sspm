@@ -10,7 +10,7 @@ import (
 )
 
 const getAccountByID = `-- name: GetAccountByID :one
-SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status
+SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status, account_kind
 FROM accounts
 WHERE id = $1
 `
@@ -38,12 +38,13 @@ func (q *Queries) GetAccountByID(ctx context.Context, id int64) (Account, error)
 		&i.ExpiredAt,
 		&i.ExpiredRunID,
 		&i.Status,
+		&i.AccountKind,
 	)
 	return i, err
 }
 
 const listAccountsForIdentity = `-- name: ListAccountsForIdentity :many
-SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status
+SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status, a.account_kind
 FROM accounts a
 JOIN identity_accounts ia ON ia.account_id = a.id
 WHERE ia.identity_id = $1
@@ -79,6 +80,7 @@ func (q *Queries) ListAccountsForIdentity(ctx context.Context, identityID int64)
 			&i.ExpiredAt,
 			&i.ExpiredRunID,
 			&i.Status,
+			&i.AccountKind,
 		); err != nil {
 			return nil, err
 		}

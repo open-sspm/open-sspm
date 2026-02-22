@@ -33,8 +33,8 @@ func TestBuildVaultAccountRows(t *testing.T) {
 	}
 
 	rows := buildVaultAccountRows(entities, groups, authRoles)
-	if len(rows) != 3 {
-		t.Fatalf("expected 3 account rows, got %d", len(rows))
+	if len(rows) != 4 {
+		t.Fatalf("expected 4 account rows, got %d", len(rows))
 	}
 
 	byExternalID := make(map[string]vaultAccountUpsertRow, len(rows))
@@ -48,7 +48,10 @@ func TestBuildVaultAccountRows(t *testing.T) {
 	if _, ok := byExternalID["entity:e-2"]; !ok {
 		t.Fatalf("expected placeholder entity:e-2 account row from group membership")
 	}
-	if _, ok := byExternalID["approle:approle:ci-role"]; !ok {
+	if _, ok := byExternalID["group:g-1"]; !ok {
+		t.Fatalf("expected group:g-1 account row")
+	}
+	if _, ok := byExternalID["role:approle:approle:ci-role"]; !ok {
 		t.Fatalf("expected auth role principal row")
 	}
 }

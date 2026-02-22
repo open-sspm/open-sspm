@@ -43,9 +43,10 @@ func (i *DatadogIntegration) Role() registry.IntegrationRole {
 func (i *DatadogIntegration) InitEvents() []registry.Event {
 	return []registry.Event{
 		{Source: "datadog", Stage: "list-users", Current: 0, Total: 1, Message: "listing users"},
+		{Source: "datadog", Stage: "list-service-accounts", Current: 0, Total: 1, Message: "listing service accounts"},
 		{Source: "datadog", Stage: "list-roles", Current: 0, Total: 1, Message: "listing roles"},
 		{Source: "datadog", Stage: "fetch-role-users", Current: 0, Total: registry.UnknownTotal, Message: "listing role users"},
-		{Source: "datadog", Stage: "write-users", Current: 0, Total: registry.UnknownTotal, Message: "writing users"},
+		{Source: "datadog", Stage: "write-users", Current: 0, Total: registry.UnknownTotal, Message: "writing principals"},
 	}
 }
 
@@ -67,6 +68,13 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
 	report(registry.Event{Source: "datadog", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
+
+	serviceAccounts, err := i.client.ListServiceAccounts(ctx)
+	if err != nil {
+		report(registry.Event{Source: "datadog", Stage: "list-service-accounts", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
+	}
+	report(registry.Event{Source: "datadog", Stage: "list-service-accounts", Current: 1, Total: 1, Message: fmt.Sprintf("found %d service accounts", len(serviceAccounts))})
 
 	roles, err := i.client.ListRoles(ctx)
 	if err != nil {
@@ -169,16 +177,24 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 		}
 	}
 
-	report(registry.Event{Source: "datadog", Stage: "write-users", Current: 0, Total: int64(len(users)), Message: fmt.Sprintf("writing %d users", len(users))})
+	report(registry.Event{
+		Source:  "datadog",
+		Stage:   "write-users",
+		Current: 0,
+		Total:   int64(len(users) + len(serviceAccounts) + len(roles)),
+		Message: fmt.Sprintf("writing %d principals", len(users)+len(serviceAccounts)+len(roles)),
+	})
 
 	const userBatchSize = 1000
-	externalIDs := make([]string, 0, len(users))
-	emails := make([]string, 0, len(users))
-	displayNames := make([]string, 0, len(users))
-	rawJSONs := make([][]byte, 0, len(users))
-	lastLoginAts := make([]pgtype.Timestamptz, 0, len(users))
-	lastLoginIps := make([]string, 0, len(users))
-	lastLoginRegions := make([]string, 0, len(users))
+	totalPrincipals := len(users) + len(serviceAccounts) + len(roles)
+	externalIDs := make([]string, 0, totalPrincipals)
+	emails := make([]string, 0, totalPrincipals)
+	displayNames := make([]string, 0, totalPrincipals)
+	accountKinds := make([]string, 0, totalPrincipals)
+	rawJSONs := make([][]byte, 0, totalPrincipals)
+	lastLoginAts := make([]pgtype.Timestamptz, 0, totalPrincipals)
+	lastLoginIps := make([]string, 0, totalPrincipals)
+	lastLoginRegions := make([]string, 0, totalPrincipals)
 
 	for _, user := range users {
 		externalID := strings.TrimSpace(user.ID)
@@ -192,8 +208,47 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 		externalIDs = append(externalIDs, externalID)
 		emails = append(emails, matching.NormalizeEmail(userName))
 		displayNames = append(displayNames, userName)
-		rawJSONs = append(rawJSONs, registry.NormalizeJSON(user.RawJSON))
+		accountKinds = append(accountKinds, datadogUserAccountKind(user))
+		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(user.RawJSON), registry.EntityCategoryUser))
 		lastLoginAts = append(lastLoginAts, registry.PgTimestamptzPtr(user.LastLoginAt))
+		lastLoginIps = append(lastLoginIps, "")
+		lastLoginRegions = append(lastLoginRegions, "")
+	}
+
+	for _, serviceAccount := range serviceAccounts {
+		externalID := datadogServiceAccountExternalID(serviceAccount.ID)
+		if externalID == "" {
+			continue
+		}
+		display := strings.TrimSpace(serviceAccount.Name)
+		if display == "" {
+			display = externalID
+		}
+		externalIDs = append(externalIDs, externalID)
+		emails = append(emails, matching.NormalizeEmail(serviceAccount.Email))
+		displayNames = append(displayNames, display)
+		accountKinds = append(accountKinds, registry.AccountKindService)
+		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(serviceAccount.RawJSON), registry.EntityCategoryServiceAccount))
+		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
+		lastLoginIps = append(lastLoginIps, "")
+		lastLoginRegions = append(lastLoginRegions, "")
+	}
+
+	for _, role := range roles {
+		roleExternalID := datadogRoleExternalID(role.ID)
+		if roleExternalID == "" {
+			continue
+		}
+		display := strings.TrimSpace(role.Name)
+		if display == "" {
+			display = roleExternalID
+		}
+		externalIDs = append(externalIDs, roleExternalID)
+		emails = append(emails, "")
+		displayNames = append(displayNames, display)
+		accountKinds = append(accountKinds, registry.AccountKindService)
+		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(role.RawJSON), registry.EntityCategoryRole))
+		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 		lastLoginIps = append(lastLoginIps, "")
 		lastLoginRegions = append(lastLoginRegions, "")
 	}
@@ -207,6 +262,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 			ExternalIds:      externalIDs[start:end],
 			Emails:           emails[start:end],
 			DisplayNames:     displayNames[start:end],
+			AccountKinds:     accountKinds[start:end],
 			RawJsons:         rawJSONs[start:end],
 			LastLoginAts:     lastLoginAts[start:end],
 			LastLoginIps:     lastLoginIps[start:end],
@@ -221,7 +277,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 			Stage:   "write-users",
 			Current: int64(end),
 			Total:   int64(len(externalIDs)),
-			Message: fmt.Sprintf("users %d/%d", end, len(externalIDs)),
+			Message: fmt.Sprintf("principals %d/%d", end, len(externalIDs)),
 		})
 	}
 

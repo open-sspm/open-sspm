@@ -73,7 +73,8 @@ templ DatadogUsersPage(data viewmodels.DatadogUsersViewData) {
 			</header>
 			<section>
 				<div class="overflow-x-auto">
-					<table class="table">
+					@ColumnsControl("datadog-users--main")
+					<table data-columns-id="datadog-users--main" class="table">
 						<caption class="sr-only">Datadog users with status and assigned role summaries.</caption>
 						<thead>
 							<tr>
@@ -134,3 +135,4 @@ templ DatadogUsersPage(data viewmodels.DatadogUsersViewData) {
 		</article>
 	}
 }
+
