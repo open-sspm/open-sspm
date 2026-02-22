@@ -17,17 +17,14 @@ type OktaConnectorViewData struct {
 }
 
 type GitHubConnectorViewData struct {
-	Enabled                bool
-	Configured             bool
-	Org                    string
-	APIBase                string
-	Enterprise             string
-	SCIMEnabled            bool
-	TokenMasked            string
-	HasToken               bool
-	ProgrammaticAssets     int64
-	ExpiringCredentials30d int64
-	HasProgrammaticSummary bool
+	Enabled     bool
+	Configured  bool
+	Org         string
+	APIBase     string
+	Enterprise  string
+	SCIMEnabled bool
+	TokenMasked string
+	HasToken    bool
 }
 
 type DatadogConnectorViewData struct {
@@ -76,17 +73,14 @@ type VaultConnectorViewData struct {
 }
 
 type EntraConnectorViewData struct {
-	Enabled                bool
-	Configured             bool
-	TenantID               string
-	ClientID               string
-	ClientSecretMasked     string
-	HasClientSecret        bool
-	DiscoveryEnabled       bool
-	Authoritative          bool
-	ProgrammaticAssets     int64
-	ExpiringCredentials30d int64
-	HasProgrammaticSummary bool
+	Enabled            bool
+	Configured         bool
+	TenantID           string
+	ClientID           string
+	ClientSecretMasked string
+	HasClientSecret    bool
+	DiscoveryEnabled   bool
+	Authoritative      bool
 }
 
 type ConnectorsViewData struct {

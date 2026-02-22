@@ -39,6 +39,8 @@ Prereqs: Go 1.26.x (see `go.mod` toolchain), Docker + Compose, Node.js + npm.
 - Hard gate:
   - New tests MUST protect business/product/safety behavior or a regression/edge-case contract (PR MUST say which regression).
   - Frontend tests MUST assert user-visible behavior or interaction outcomes.
+  - Do NOT add render tests that assert raw HTML structure/classes (for example specific tags, Tailwind classes, or presentational container markup); these are brittle implementation details.
+  - If an HTML assertion is necessary, it MUST target a stable behavioral contract (for example HTMX response contract, redirect/header behavior, or explicitly documented selector contract), not visual/layout implementation details.
   - Tests MUST NOT be trivial plumbing/copy-only/duplicate/brittle implementation-detail assertions.
   - Low-value test additions are non-compliant and should be blocked until removed, merged, or rewritten as behavior tests.
 
