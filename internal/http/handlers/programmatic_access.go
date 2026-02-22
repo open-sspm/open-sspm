@@ -1170,14 +1170,22 @@ func appAssetCredentialRef(asset gen.AppAsset) (string, string) {
 		return "", ""
 	}
 
-	if strings.EqualFold(strings.TrimSpace(asset.SourceKind), "entra") {
+	switch NormalizeConnectorKind(asset.SourceKind) {
+	case configstore.KindEntra:
 		return "app_asset", appAssetRefExternalID(assetKind, externalID)
+	case configstore.KindGoogleWorkspace:
+		refKind := assetKind
+		if refKind == "" {
+			refKind = "app_asset"
+		}
+		return refKind, appAssetRefExternalID(assetKind, externalID)
+	default:
+		return "app_asset", externalID
 	}
-	return "app_asset", externalID
 }
 
 func appAssetCredentialRefs(asset gen.AppAsset) []gen.ListCredentialArtifactsForAssetRefParams {
-	refs := make([]gen.ListCredentialArtifactsForAssetRefParams, 0, 2)
+	refs := make([]gen.ListCredentialArtifactsForAssetRefParams, 0, 3)
 	assetKind := strings.TrimSpace(asset.AssetKind)
 	externalID := strings.TrimSpace(asset.ExternalID)
 	if externalID == "" {
@@ -1190,15 +1198,16 @@ func appAssetCredentialRefs(asset gen.AppAsset) []gen.ListCredentialArtifactsFor
 		return refs
 	}
 
-	addRef := func(assetRefExternalID string) {
+	addRef := func(assetRefKind, assetRefExternalID string) {
+		assetRefKind = strings.TrimSpace(assetRefKind)
 		assetRefExternalID = strings.TrimSpace(assetRefExternalID)
-		if assetRefExternalID == "" {
+		if assetRefKind == "" || assetRefExternalID == "" {
 			return
 		}
 		params := gen.ListCredentialArtifactsForAssetRefParams{
 			SourceKind:         sourceKind,
 			SourceName:         sourceName,
-			AssetRefKind:       "app_asset",
+			AssetRefKind:       assetRefKind,
 			AssetRefExternalID: assetRefExternalID,
 		}
 		for _, existing := range refs {
@@ -1209,8 +1218,17 @@ func appAssetCredentialRefs(asset gen.AppAsset) []gen.ListCredentialArtifactsFor
 		refs = append(refs, params)
 	}
 
-	addRef(appAssetRefExternalID(assetKind, externalID))
-	addRef(externalID)
+	switch NormalizeConnectorKind(sourceKind) {
+	case configstore.KindGoogleWorkspace:
+		if assetKind != "" {
+			addRef(assetKind, appAssetRefExternalID(assetKind, externalID))
+		}
+		addRef("app_asset", appAssetRefExternalID(assetKind, externalID))
+		addRef("app_asset", externalID)
+	default:
+		addRef("app_asset", appAssetRefExternalID(assetKind, externalID))
+		addRef("app_asset", externalID)
+	}
 	return refs
 }
 

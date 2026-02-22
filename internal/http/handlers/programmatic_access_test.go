@@ -298,6 +298,44 @@ func TestAvailableProgrammaticSourcesIncludesGoogleWorkspace(t *testing.T) {
 	}
 }
 
+func TestAppAssetCredentialRefGoogleWorkspace(t *testing.T) {
+	t.Parallel()
+
+	refKind, refExternalID := appAssetCredentialRef(gen.AppAsset{
+		SourceKind: configstore.KindGoogleWorkspace,
+		AssetKind:  "google_oauth_client",
+		ExternalID: "client-123",
+	})
+	if refKind != "google_oauth_client" {
+		t.Fatalf("ref kind = %q, want google_oauth_client", refKind)
+	}
+	if refExternalID != "google_oauth_client:client-123" {
+		t.Fatalf("ref external id = %q, want google_oauth_client:client-123", refExternalID)
+	}
+}
+
+func TestAppAssetCredentialRefsGoogleWorkspaceIncludesGoogleRef(t *testing.T) {
+	t.Parallel()
+
+	refs := appAssetCredentialRefs(gen.AppAsset{
+		SourceKind: configstore.KindGoogleWorkspace,
+		SourceName: "C0123",
+		AssetKind:  "google_oauth_client",
+		ExternalID: "client-123",
+	})
+	if len(refs) == 0 {
+		t.Fatalf("expected refs for google workspace asset")
+	}
+
+	seen := map[string]struct{}{}
+	for _, ref := range refs {
+		seen[ref.AssetRefKind+"|"+ref.AssetRefExternalID] = struct{}{}
+	}
+	if _, ok := seen["google_oauth_client|google_oauth_client:client-123"]; !ok {
+		t.Fatalf("missing google workspace-specific credential ref")
+	}
+}
+
 func timestamptz(ts time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: ts.UTC(), Valid: true}
 }
