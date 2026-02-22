@@ -89,6 +89,7 @@ func TestListApplicationsOwnersAndServicePrincipals(t *testing.T) {
 	var tokenRequests int
 	var applicationRequests int
 	var servicePrincipalRequests int
+	var groupRequests int
 	var appOwnerRequests int
 	var spOwnerRequests int
 
@@ -127,6 +128,11 @@ func TestListApplicationsOwnersAndServicePrincipals(t *testing.T) {
 			servicePrincipalRequests++
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"value":[{"id":"sp-1","appId":"client-app-1","displayName":"Service Principal One","publisherName":"Publisher One","accountEnabled":true,"servicePrincipalType":"Application","createdDateTime":"2025-01-02T00:00:00Z","passwordCredentials":[],"keyCredentials":[]}]}`))
+			return
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/groups"):
+			groupRequests++
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"value":[{"id":"group-1","displayName":"Engineering","mail":"engineering@example.com","mailEnabled":true,"securityEnabled":true,"groupTypes":[]} ]}`))
 			return
 		default:
 			http.NotFound(w, r)
@@ -173,6 +179,17 @@ func TestListApplicationsOwnersAndServicePrincipals(t *testing.T) {
 		t.Fatalf("unexpected service principal publisher %q", servicePrincipals[0].PublisherName)
 	}
 
+	groups, err := c.ListGroups(context.Background())
+	if err != nil {
+		t.Fatalf("ListGroups: %v", err)
+	}
+	if len(groups) != 1 {
+		t.Fatalf("len(groups)=%d want 1", len(groups))
+	}
+	if groups[0].DisplayName != "Engineering" {
+		t.Fatalf("unexpected group name %q", groups[0].DisplayName)
+	}
+
 	appOwners, err := c.ListApplicationOwners(context.Background(), "app-1")
 	if err != nil {
 		t.Fatalf("ListApplicationOwners: %v", err)
@@ -200,6 +217,9 @@ func TestListApplicationsOwnersAndServicePrincipals(t *testing.T) {
 	}
 	if servicePrincipalRequests != 1 {
 		t.Fatalf("servicePrincipalRequests=%d want 1", servicePrincipalRequests)
+	}
+	if groupRequests != 1 {
+		t.Fatalf("groupRequests=%d want 1", groupRequests)
 	}
 	if appOwnerRequests != 1 {
 		t.Fatalf("appOwnerRequests=%d want 1", appOwnerRequests)

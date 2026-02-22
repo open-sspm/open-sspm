@@ -188,13 +188,17 @@ func (s *resolverStub) ListIdentityAccountAttributes(context.Context) ([]gen.Lis
 		if !ok || !isActiveAccount(account) {
 			continue
 		}
+		identity := s.identities[link.IdentityID]
 		out = append(out, gen.ListIdentityAccountAttributesRow{
-			IdentityID:  link.IdentityID,
-			AccountID:   account.ID,
-			SourceKind:  account.SourceKind,
-			SourceName:  account.SourceName,
-			Email:       account.Email,
-			DisplayName: account.DisplayName,
+			IdentityID:   link.IdentityID,
+			IdentityKind: identity.Kind,
+			AccountID:    account.ID,
+			SourceKind:   account.SourceKind,
+			SourceName:   account.SourceName,
+			ExternalID:   account.ExternalID,
+			AccountKind:  account.AccountKind,
+			Email:        account.Email,
+			DisplayName:  account.DisplayName,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -233,6 +237,8 @@ func makeActiveAccount(id int64, sourceKind, sourceName, email, displayName stri
 		ID:                id,
 		SourceKind:        sourceKind,
 		SourceName:        sourceName,
+		ExternalID:        strings.ToLower(strings.TrimSpace(displayName)),
+		AccountKind:       "unknown",
 		Email:             email,
 		DisplayName:       displayName,
 		LastObservedRunID: pgtype.Int8{Int64: 1, Valid: true},
@@ -266,6 +272,56 @@ func TestResolverResolveExactEmailLink(t *testing.T) {
 	}
 	if link.LinkReason != linkReasonAutoEmail {
 		t.Fatalf("link.LinkReason = %q, want %q", link.LinkReason, linkReasonAutoEmail)
+	}
+}
+
+func TestResolverResolveSkipsEmailAutoLinkForNonHumanAccountKinds(t *testing.T) {
+	t.Parallel()
+
+	stub := newResolverStub()
+	stub.putIdentity(gen.Identity{ID: 1, PrimaryEmail: "svc@example.com", DisplayName: "Human Owner"})
+
+	account := makeActiveAccount(20, "github", "acme", "svc@example.com", "CI Service Account")
+	account.AccountKind = "service"
+	stub.accounts[20] = account
+
+	stats, err := Resolver{Q: stub}.Resolve(context.Background())
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if stats.NewIdentities != 1 {
+		t.Fatalf("NewIdentities = %d, want 1", stats.NewIdentities)
+	}
+
+	link := stub.linksByAccount[20]
+	if link.IdentityID == 1 {
+		t.Fatalf("expected non-human account not to auto-link by email")
+	}
+	if link.LinkReason != linkReasonAutoCreate {
+		t.Fatalf("link reason = %q, want %q", link.LinkReason, linkReasonAutoCreate)
+	}
+}
+
+func TestResolverResolveNewIdentityKindInitializedFromAccountKind(t *testing.T) {
+	t.Parallel()
+
+	stub := newResolverStub()
+	account := makeActiveAccount(10, "entra", "tenant", "", "Automation Principal")
+	account.AccountKind = "service"
+	stub.accounts[10] = account
+
+	stats, err := Resolver{Q: stub}.Resolve(context.Background())
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if stats.NewIdentities != 1 {
+		t.Fatalf("NewIdentities = %d, want 1", stats.NewIdentities)
+	}
+
+	link := stub.linksByAccount[10]
+	identity := stub.identities[link.IdentityID]
+	if identity.Kind != "service" {
+		t.Fatalf("identity kind = %q, want %q", identity.Kind, "service")
 	}
 }
 
@@ -383,6 +439,117 @@ func TestResolverResolveDuplicateEmailChoosesAuthoritativeThenLowestID(t *testin
 		}
 		if got := stub.linksByAccount[201].IdentityID; got != 2 {
 			t.Fatalf("identity = %d, want lowest identity 2", got)
+		}
+	})
+}
+
+func TestResolverRefreshIdentityKindClassifiesHuman(t *testing.T) {
+	t.Parallel()
+
+	stub := newResolverStub()
+	stub.putIdentity(gen.Identity{ID: 1, Kind: "unknown", PrimaryEmail: "alice@example.com", DisplayName: "Alice"})
+	stub.accounts[10] = makeActiveAccount(10, "okta", "example.okta.com", "alice@example.com", "Alice Admin")
+	stub.putLink(gen.IdentityAccount{ID: 1, IdentityID: 1, AccountID: 10, LinkReason: "seed_migration", Confidence: 1})
+
+	if _, err := (Resolver{Q: stub}).Resolve(context.Background()); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if got := stub.identities[1].Kind; got != "human" {
+		t.Fatalf("identity kind = %q, want %q", got, "human")
+	}
+}
+
+func TestResolverRefreshIdentityKindClassifiesBot(t *testing.T) {
+	t.Parallel()
+
+	stub := newResolverStub()
+	stub.putIdentity(gen.Identity{ID: 1, Kind: "unknown"})
+	stub.accounts[10] = makeActiveAccount(10, "github", "acme", "", "Dependabot")
+	stub.putLink(gen.IdentityAccount{ID: 1, IdentityID: 1, AccountID: 10, LinkReason: "seed_migration", Confidence: 1})
+
+	if _, err := (Resolver{Q: stub}).Resolve(context.Background()); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if got := stub.identities[1].Kind; got != "bot" {
+		t.Fatalf("identity kind = %q, want %q", got, "bot")
+	}
+}
+
+func TestResolverRefreshIdentityKindClassifiesService(t *testing.T) {
+	t.Parallel()
+
+	stub := newResolverStub()
+	stub.putIdentity(gen.Identity{ID: 1, Kind: "unknown"})
+	stub.accounts[10] = makeActiveAccount(10, "entra", "tenant", "", "Build Service Account")
+	stub.putLink(gen.IdentityAccount{ID: 1, IdentityID: 1, AccountID: 10, LinkReason: "seed_migration", Confidence: 1})
+
+	if _, err := (Resolver{Q: stub}).Resolve(context.Background()); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if got := stub.identities[1].Kind; got != "service" {
+		t.Fatalf("identity kind = %q, want %q", got, "service")
+	}
+}
+
+func TestResolverRefreshIdentityKindUsesAccountKindPrecedence(t *testing.T) {
+	t.Parallel()
+
+	stub := newResolverStub()
+	stub.putIdentity(gen.Identity{ID: 1, Kind: "unknown"})
+
+	human := makeActiveAccount(10, "okta", "example.okta.com", "person@example.com", "Person")
+	human.AccountKind = "human"
+	stub.accounts[10] = human
+	stub.putLink(gen.IdentityAccount{ID: 1, IdentityID: 1, AccountID: 10, LinkReason: "seed_migration", Confidence: 1})
+
+	service := makeActiveAccount(11, "entra", "tenant", "", "Service Principal")
+	service.AccountKind = "service"
+	stub.accounts[11] = service
+	stub.putLink(gen.IdentityAccount{ID: 2, IdentityID: 1, AccountID: 11, LinkReason: "seed_migration", Confidence: 1})
+
+	bot := makeActiveAccount(12, "github", "acme", "", "Dependabot")
+	bot.AccountKind = "bot"
+	stub.accounts[12] = bot
+	stub.putLink(gen.IdentityAccount{ID: 3, IdentityID: 1, AccountID: 12, LinkReason: "seed_migration", Confidence: 1})
+
+	if _, err := (Resolver{Q: stub}).Resolve(context.Background()); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if got := stub.identities[1].Kind; got != "bot" {
+		t.Fatalf("identity kind = %q, want %q", got, "bot")
+	}
+}
+
+func TestResolverRefreshIdentityKindFallbackOnlyWhenAllAccountKindsUnknown(t *testing.T) {
+	t.Parallel()
+
+	t.Run("known account kind disables heuristic override", func(t *testing.T) {
+		stub := newResolverStub()
+		stub.putIdentity(gen.Identity{ID: 1, Kind: "unknown"})
+		account := makeActiveAccount(10, "github", "acme", "", "Dependabot")
+		account.AccountKind = "human"
+		stub.accounts[10] = account
+		stub.putLink(gen.IdentityAccount{ID: 1, IdentityID: 1, AccountID: 10, LinkReason: "seed_migration", Confidence: 1})
+
+		if _, err := (Resolver{Q: stub}).Resolve(context.Background()); err != nil {
+			t.Fatalf("Resolve() error = %v", err)
+		}
+		if got := stub.identities[1].Kind; got != "human" {
+			t.Fatalf("identity kind = %q, want %q", got, "human")
+		}
+	})
+
+	t.Run("unknown account kind uses heuristic", func(t *testing.T) {
+		stub := newResolverStub()
+		stub.putIdentity(gen.Identity{ID: 1, Kind: "unknown"})
+		stub.accounts[10] = makeActiveAccount(10, "github", "acme", "", "Dependabot")
+		stub.putLink(gen.IdentityAccount{ID: 1, IdentityID: 1, AccountID: 10, LinkReason: "seed_migration", Confidence: 1})
+
+		if _, err := (Resolver{Q: stub}).Resolve(context.Background()); err != nil {
+			t.Fatalf("Resolve() error = %v", err)
+		}
+		if got := stub.identities[1].Kind; got != "bot" {
+			t.Fatalf("identity kind = %q, want %q", got, "bot")
 		}
 	})
 }

@@ -36,6 +36,13 @@ type User struct {
 	RawJSON     []byte
 }
 
+// Group is a normalized IAM Identity Center group.
+type Group struct {
+	ID          string
+	DisplayName string
+	RawJSON     []byte
+}
+
 // EntitlementFact represents a single account + permission set assignment for a user.
 type EntitlementFact struct {
 	AccountID         string
@@ -75,6 +82,7 @@ type ssoAdminAPI interface {
 
 type identityStoreAPI interface {
 	ListUsers(context.Context, *identitystore.ListUsersInput, ...func(*identitystore.Options)) (*identitystore.ListUsersOutput, error)
+	ListGroups(context.Context, *identitystore.ListGroupsInput, ...func(*identitystore.Options)) (*identitystore.ListGroupsOutput, error)
 	ListGroupMemberships(context.Context, *identitystore.ListGroupMembershipsInput, ...func(*identitystore.Options)) (*identitystore.ListGroupMembershipsOutput, error)
 }
 
@@ -166,6 +174,46 @@ func (c *Client) ListUsers(ctx context.Context) ([]User, error) {
 				Email:       email,
 				DisplayName: display,
 				RawJSON:     marshalJSON(u),
+			})
+		}
+
+		if resp.NextToken == nil || aws.ToString(resp.NextToken) == "" {
+			break
+		}
+		token = resp.NextToken
+	}
+	return out, nil
+}
+
+func (c *Client) ListGroups(ctx context.Context) ([]Group, error) {
+	if err := c.ensureIdentityStore(ctx); err != nil {
+		return nil, err
+	}
+
+	var out []Group
+	var token *string
+	for {
+		resp, err := c.identitystore.ListGroups(ctx, &identitystore.ListGroupsInput{
+			IdentityStoreId: aws.String(c.identityStoreID),
+			NextToken:       token,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, group := range resp.Groups {
+			groupID := strings.TrimSpace(aws.ToString(group.GroupId))
+			if groupID == "" {
+				continue
+			}
+			displayName := strings.TrimSpace(aws.ToString(group.DisplayName))
+			if displayName == "" {
+				displayName = groupID
+			}
+			out = append(out, Group{
+				ID:          groupID,
+				DisplayName: displayName,
+				RawJSON:     marshalJSON(group),
 			})
 		}
 

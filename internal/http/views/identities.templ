@@ -7,7 +7,7 @@ templ IdentitiesPage(data viewmodels.IdentitiesViewData) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
 			{Label: "Identities"},
-		}, "Unified identities resolved across all configured connectors.") {
+		}, "Unified identities resolved across configured connectors.") {
 			<a class="btn-sm-outline" href="/settings/connectors">Connectors</a>
 		}
 		@IdentitiesPageResults(data)
@@ -20,24 +20,116 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 			method="get"
 			action="/identities"
 			hx-get="/identities"
-			hx-trigger="input changed delay:300ms from:input[name='q'], change delay:150ms from:select, submit"
+			hx-trigger="input changed delay:300ms from:input[name='q'], change delay:150ms from:select, change from:input[type='checkbox'], submit"
 			hx-target="#identities-results"
 			hx-swap="outerHTML"
 			hx-push-url="true"
 			class="card"
 		>
 			<header>
-				<h2>Search</h2>
-				<p>Search by email or display name.</p>
+				<h2>Filters</h2>
+				<p>Filter and sort identities by source, lifecycle, and linkage quality.</p>
 			</header>
 			<section>
-				<div class="flex flex-col gap-4">
-					<label class="field w-full sm:max-w-md">
+				<div class="grid gap-4 md:grid-cols-5">
+					<label class="field">
+						<span class="label">Source kind</span>
+						<select class="select" name="source_kind">
+							<option value="" selected?={ data.SelectedSourceKind == "" }>All configured</option>
+							for _, source := range data.Sources {
+								<option value={ source.SourceKind } selected?={ source.SourceKind == data.SelectedSourceKind } title={ source.Label }>{ source.Label }</option>
+							}
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Source name</span>
+						<select class="select" name="source_name">
+							<option value="" selected?={ data.SelectedSourceName == "" }>All source names</option>
+							for _, source := range data.SourceNameOptions {
+								<option value={ source.SourceName } selected?={ source.SourceName == data.SelectedSourceName }>{ source.SourceName }</option>
+							}
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Identity type</span>
+						<select class="select" name="identity_type">
+							<option value="" selected?={ data.IdentityType == "" }>Any</option>
+							<option value="human" selected?={ data.IdentityType == "human" }>Human</option>
+							<option value="service" selected?={ data.IdentityType == "service" }>Service</option>
+							<option value="bot" selected?={ data.IdentityType == "bot" }>Bot</option>
+							<option value="unknown" selected?={ data.IdentityType == "unknown" }>Unknown</option>
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Managed state</span>
+						<select class="select" name="managed_state">
+							<option value="" selected?={ data.ManagedState == "" }>Any</option>
+							<option value="managed" selected?={ data.ManagedState == "managed" }>Managed</option>
+							<option value="unmanaged" selected?={ data.ManagedState == "unmanaged" }>Unmanaged</option>
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Status</span>
+						<select class="select" name="status">
+							<option value="" selected?={ data.Status == "" }>Any</option>
+							<option value="active" selected?={ data.Status == "active" }>Active</option>
+							<option value="suspended" selected?={ data.Status == "suspended" }>Suspended</option>
+							<option value="deleted" selected?={ data.Status == "deleted" }>Deleted</option>
+							<option value="orphaned" selected?={ data.Status == "orphaned" }>Orphaned</option>
+							<option value="unknown" selected?={ data.Status == "unknown" }>Unknown</option>
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Activity</span>
+						<select class="select" name="activity_state">
+							<option value="" selected?={ data.ActivityState == "" }>Any</option>
+							<option value="recent" selected?={ data.ActivityState == "recent" }>Seen &lt; 30d</option>
+							<option value="aging" selected?={ data.ActivityState == "aging" }>30-89d</option>
+							<option value="stale" selected?={ data.ActivityState == "stale" }>90d+</option>
+							<option value="never_seen" selected?={ data.ActivityState == "never_seen" }>Never seen</option>
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Link quality</span>
+						<select class="select" name="link_quality">
+							<option value="" selected?={ data.LinkQuality == "" }>Any</option>
+							<option value="high" selected?={ data.LinkQuality == "high" }>High</option>
+							<option value="medium" selected?={ data.LinkQuality == "medium" }>Medium</option>
+							<option value="low" selected?={ data.LinkQuality == "low" }>Low</option>
+							<option value="unknown" selected?={ data.LinkQuality == "unknown" }>Unknown</option>
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Sort by</span>
+						<select class="select" name="sort_by">
+							<option value="" selected?={ data.SortBy == "" }>Priority (default)</option>
+							<option value="identity" selected?={ data.SortBy == "identity" }>Identity</option>
+							<option value="identity_type" selected?={ data.SortBy == "identity_type" }>Identity type</option>
+							<option value="managed" selected?={ data.SortBy == "managed" }>Managed</option>
+							<option value="source_type" selected?={ data.SortBy == "source_type" }>Source type</option>
+							<option value="linked_sources" selected?={ data.SortBy == "linked_sources" }>Linked sources</option>
+							<option value="privileged_roles" selected?={ data.SortBy == "privileged_roles" }>Privileged roles</option>
+							<option value="status" selected?={ data.SortBy == "status" }>Status</option>
+							<option value="last_seen" selected?={ data.SortBy == "last_seen" }>Last seen</option>
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Sort direction</span>
+						<select class="select" name="sort_dir">
+							<option value="desc" selected?={ data.SortDir == "desc" || data.SortDir == "" }>Descending</option>
+							<option value="asc" selected?={ data.SortDir == "asc" }>Ascending</option>
+						</select>
+					</label>
+					<label class="field md:col-span-2">
 						<span class="label">Query</span>
 						<div class="relative">
-							<input type="search" name="q" value={ data.Query } placeholder="Search identities…" class="input pr-10"/>
+							<input type="search" name="q" value={ data.Query } placeholder="Search name, email, or external ID" class="input pr-10"/>
 							if data.Query != "" {
-								<a class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2" aria-label="Clear query" href="/identities">
+								<a
+									class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
+									aria-label="Clear query"
+									href={ IdentitiesListURL(data.SelectedSourceKind, data.SelectedSourceName, "", data.IdentityType, data.ManagedState, data.PrivilegedOnly, data.Status, data.ActivityState, data.LinkQuality, data.SortBy, data.SortDir, data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason, 1) }
+								>
 									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
 										<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
 									</svg>
@@ -45,6 +137,27 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 							}
 						</div>
 					</label>
+				</div>
+				<div class="mt-4 flex flex-wrap items-center gap-4">
+					<label class="inline-flex items-center gap-2 text-sm">
+						<input type="checkbox" name="privileged" value="1" checked?={ data.PrivilegedOnly } class="checkbox"/>
+						<span>Privileged only</span>
+					</label>
+					<div class="flex flex-wrap items-center gap-4">
+						<span class="text-sm font-medium">Columns</span>
+						<label class="inline-flex items-center gap-2 text-sm">
+							<input type="checkbox" name="show_first_seen" value="1" checked?={ data.ShowFirstSeen } class="checkbox"/>
+							<span>First seen</span>
+						</label>
+						<label class="inline-flex items-center gap-2 text-sm">
+							<input type="checkbox" name="show_link_quality" value="1" checked?={ data.ShowLinkQuality } class="checkbox"/>
+							<span>Link quality</span>
+						</label>
+						<label class="inline-flex items-center gap-2 text-sm">
+							<input type="checkbox" name="show_link_reason" value="1" checked?={ data.ShowLinkReason } class="checkbox"/>
+							<span>Link reason</span>
+						</label>
+					</div>
 				</div>
 				<button class="sr-only" type="submit">Apply filters</button>
 			</section>
@@ -55,50 +168,101 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 				<h2>Identities</h2>
 				<span data-slot="card-action" class="badge-outline">
 					if data.TotalCount > 0 {
-						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "–" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
 					} else {
-						{ "Showing 0" }
+						Showing 0
 					}
 				</span>
 			</header>
-				<section>
-					<div class="overflow-x-auto">
-						<table class="table osspm-table-fixed osspm-table-compact">
-							<caption class="sr-only">Unified identities with integration count, privileged role count, and activity dates.</caption>
-							<thead>
-								<tr>
-									<th>Name</th>
-									<th class="osspm-num">Integrations</th>
-									<th class="osspm-num">Privileged Roles</th>
-									<th>Last Seen</th>
-									<th>First Created</th>
-								</tr>
-							</thead>
-							<tbody>
-								if data.HasIdentities {
-									for _, item := range data.Items {
-										<tr data-row-href={ "/identities/" + FormatInt64(item.ID) } class="cursor-pointer hover:bg-muted/50">
+			<section>
+				<div class="overflow-x-auto">
+					<table class="table osspm-table-fixed osspm-table-compact">
+						<caption class="sr-only">Identity inventory with source, status, privilege, and activity context.</caption>
+						<thead>
+							<tr>
+								<th>Identity</th>
+								<th>Type</th>
+								<th>Managed</th>
+								<th>Source</th>
+								<th class="osspm-num">Linked sources</th>
+								<th class="osspm-num">Privileged roles</th>
+								<th>State</th>
+								<th>Status</th>
+								<th>Last seen</th>
+								if data.ShowFirstSeen {
+									<th>First seen</th>
+								}
+								if data.ShowLinkQuality {
+									<th>Link quality</th>
+								}
+								if data.ShowLinkReason {
+									<th>Link reason</th>
+								}
+							</tr>
+						</thead>
+						<tbody>
+							if data.HasIdentities {
+								for _, item := range data.Items {
+									<tr data-row-href={ "/identities/" + FormatInt64(item.ID) } class="cursor-pointer hover:bg-muted/50">
+										<td>
+											<div class="flex min-w-0 flex-col">
+												<a class="btn-sm-link block px-0 font-medium" href={ "/identities/" + FormatInt64(item.ID) } data-tooltip={ item.NamePrimary } data-side="top" data-align="start">
+													<span class="osspm-truncate">{ item.NamePrimary }</span>
+												</a>
+												if item.NameSecondary != "" {
+													<span class="block text-muted-foreground" data-tooltip={ item.NameSecondary } data-side="top" data-align="start">
+														<span class="osspm-truncate">{ item.NameSecondary }</span>
+													</span>
+												}
+											</div>
+										</td>
+										<td><span class="badge-outline">{ HumanizeIdentityType(item.IdentityType) }</span></td>
+										<td>
+											<span class={ IdentityManagedBadgeClass(item.Managed) }>
+												if item.Managed {
+													Managed
+												} else {
+													Unmanaged
+												}
+											</span>
+										</td>
+										<td>
+											if item.SourceKind != "" {
+												<span class="badge-outline">{ HumanizeProgrammaticKind(item.SourceKind) }</span>
+												if item.SourceName != "" {
+													<span class="osspm-cell-secondary osspm-truncate" title={ item.SourceName }>{ item.SourceName }</span>
+												}
+											} else {
+												<span class="text-muted-foreground">—</span>
+											}
+										</td>
+										<td class="osspm-num text-center">{ FormatInt64(item.IntegrationsCount) }</td>
+										<td class="osspm-num text-center">{ FormatInt64(item.PrivilegedRoles) }</td>
+										<td><span class={ IdentityRowStateBadgeClass(item.RowState) }>{ HumanizeIdentityRowState(item.RowState) }</span></td>
+										<td>
+											<span class={ IdentityStatusBadgeClass(item.Status) }>{ HumanizeIdentityStatus(item.Status) }</span>
+											<span class="osspm-cell-secondary">{ fallbackHumanized(item.ActivityState) }</span>
+										</td>
+										<td>{ item.LastSeenOn }</td>
+										if data.ShowFirstSeen {
+											<td>{ item.FirstSeenOn }</td>
+										}
+										if data.ShowLinkQuality {
 											<td>
-												<div class="flex min-w-0 flex-col">
-													<a class="btn-sm-link block px-0 font-medium" href={ "/identities/" + FormatInt64(item.ID) } data-tooltip={ item.NamePrimary } data-side="top" data-align="start">
-														<span class="osspm-truncate">{ item.NamePrimary }</span>
-													</a>
-													if item.NameSecondary != "" {
-														<span class="block text-muted-foreground" data-tooltip={ item.NameSecondary } data-side="top" data-align="start">
-															<span class="osspm-truncate">{ item.NameSecondary }</span>
-														</span>
-													}
-												</div>
+												<span class={ IdentityLinkQualityBadgeClass(item.LinkQuality) }>{ HumanizeIdentityLinkQuality(item.LinkQuality) }</span>
+												if item.LinkQuality != "unknown" {
+													<span class="osspm-cell-secondary">{ item.MinLinkConfidence }</span>
+												}
 											</td>
-											<td class="osspm-num text-center">{ FormatInt64(item.IntegrationsCount) }</td>
-											<td class="osspm-num text-center">{ FormatInt64(item.PrivilegedRoles) }</td>
-											<td>{ item.LastSeenOn }</td>
-											<td>{ item.FirstCreatedOn }</td>
-										</tr>
-									}
-								} else {
+										}
+										if data.ShowLinkReason {
+											<td><span class="osspm-truncate" title={ item.LinkReason }>{ fallbackHumanized(item.LinkReason) }</span></td>
+										}
+									</tr>
+								}
+							} else {
 								<tr>
-									<td colspan="5">
+									<td colspan="12">
 										@EmptyState("No identities found", data.EmptyStateMsg)
 									</td>
 								</tr>
@@ -111,12 +275,12 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
 						<div class="button-group ml-auto">
 							if data.Page > 1 {
-								<a class="btn-sm-outline" href={ ListURL("/identities", data.Query, "", data.Page-1) }>Previous</a>
+								<a class="btn-sm-outline" href={ IdentitiesListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.IdentityType, data.ManagedState, data.PrivilegedOnly, data.Status, data.ActivityState, data.LinkQuality, data.SortBy, data.SortDir, data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason, data.Page-1) }>Previous</a>
 							} else {
 								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
 							}
 							if data.Page < data.TotalPages {
-								<a class="btn-sm-outline" href={ ListURL("/identities", data.Query, "", data.Page+1) }>Next</a>
+								<a class="btn-sm-outline" href={ IdentitiesListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.IdentityType, data.ManagedState, data.PrivilegedOnly, data.Status, data.ActivityState, data.LinkQuality, data.SortBy, data.SortDir, data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason, data.Page+1) }>Next</a>
 							} else {
 								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
 							}

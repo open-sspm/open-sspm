@@ -59,7 +59,7 @@ func (q *Queries) CountIdPUsersByQueryAndState(ctx context.Context, arg CountIdP
 }
 
 const getIdPUser = `-- name: GetIdPUser :one
-SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status
+SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status, account_kind
 FROM accounts
 WHERE id = $1
   AND source_kind = 'okta'
@@ -90,12 +90,13 @@ func (q *Queries) GetIdPUser(ctx context.Context, id int64) (Account, error) {
 		&i.ExpiredAt,
 		&i.ExpiredRunID,
 		&i.Status,
+		&i.AccountKind,
 	)
 	return i, err
 }
 
 const listIdPUsers = `-- name: ListIdPUsers :many
-SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status
+SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status, account_kind
 FROM accounts
 WHERE source_kind = 'okta'
   AND expired_at IS NULL
@@ -132,6 +133,7 @@ func (q *Queries) ListIdPUsers(ctx context.Context) ([]Account, error) {
 			&i.ExpiredAt,
 			&i.ExpiredRunID,
 			&i.Status,
+			&i.AccountKind,
 		); err != nil {
 			return nil, err
 		}
@@ -194,7 +196,7 @@ func (q *Queries) ListIdPUsersForCommand(ctx context.Context) ([]ListIdPUsersFor
 }
 
 const listIdPUsersPageByQueryAndState = `-- name: ListIdPUsersPageByQueryAndState :many
-SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status
+SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status, account_kind
 FROM accounts
 WHERE
   source_kind = 'okta'
@@ -257,6 +259,7 @@ func (q *Queries) ListIdPUsersPageByQueryAndState(ctx context.Context, arg ListI
 			&i.ExpiredAt,
 			&i.ExpiredRunID,
 			&i.Status,
+			&i.AccountKind,
 		); err != nil {
 			return nil, err
 		}
@@ -282,11 +285,16 @@ input AS (
     ($2::text[])[i] AS external_id,
     lower(trim(($3::text[])[i])) AS email,
     ($4::text[])[i] AS display_name,
-    ($5::text[])[i] AS status,
-    ($6::jsonb[])[i] AS raw_json,
-    ($7::timestamptz[])[i] AS last_login_at,
-    ($8::text[])[i] AS last_login_ip,
-    ($9::text[])[i] AS last_login_region
+    CASE
+      WHEN lower(trim(($5::text[])[i])) IN ('human', 'service', 'bot', 'unknown')
+        THEN lower(trim(($5::text[])[i]))
+      ELSE 'unknown'
+    END AS account_kind,
+    ($6::text[])[i] AS status,
+    ($7::jsonb[])[i] AS raw_json,
+    ($8::timestamptz[])[i] AS last_login_at,
+    ($9::text[])[i] AS last_login_ip,
+    ($10::text[])[i] AS last_login_region
   FROM generate_subscripts($2::text[], 1) AS s(i)
 ),
 dedup AS (
@@ -294,6 +302,7 @@ dedup AS (
     external_id,
     email,
     display_name,
+    account_kind,
     status,
     raw_json,
     last_login_at,
@@ -308,6 +317,7 @@ INSERT INTO accounts (
   external_id,
   email,
   display_name,
+  account_kind,
   status,
   raw_json,
   last_login_at,
@@ -323,6 +333,7 @@ SELECT
   input.external_id,
   input.email,
   input.display_name,
+  input.account_kind,
   input.status,
   input.raw_json,
   input.last_login_at,
@@ -335,6 +346,7 @@ FROM dedup input
 ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
   email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
+  account_kind = EXCLUDED.account_kind,
   status = EXCLUDED.status,
   raw_json = EXCLUDED.raw_json,
   last_login_at = COALESCE(EXCLUDED.last_login_at, accounts.last_login_at),
@@ -350,6 +362,7 @@ type UpsertIdPUsersBulkParams struct {
 	ExternalIds      []string             `json:"external_ids"`
 	Emails           []string             `json:"emails"`
 	DisplayNames     []string             `json:"display_names"`
+	AccountKinds     []string             `json:"account_kinds"`
 	Statuses         []string             `json:"statuses"`
 	RawJsons         [][]byte             `json:"raw_jsons"`
 	LastLoginAts     []pgtype.Timestamptz `json:"last_login_ats"`
@@ -364,6 +377,7 @@ func (q *Queries) UpsertIdPUsersBulk(ctx context.Context, arg UpsertIdPUsersBulk
 		arg.ExternalIds,
 		arg.Emails,
 		arg.DisplayNames,
+		arg.AccountKinds,
 		arg.Statuses,
 		arg.RawJsons,
 		arg.LastLoginAts,

@@ -27,6 +27,293 @@ func (q *Queries) CountIdentitiesByQuery(ctx context.Context, query string) (int
 	return count, err
 }
 
+const countIdentitiesInventoryByFilters = `-- name: CountIdentitiesInventoryByFilters :one
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($6::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($7::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+all_active_accounts AS (
+  SELECT
+    ia.identity_id,
+    a.id AS account_id,
+    a.source_kind,
+    a.source_name,
+    a.external_id,
+    a.created_at,
+    a.last_observed_at,
+    lower(trim(COALESCE(NULLIF(a.status, ''), NULLIF(a.raw_json->>'status', ''), 'unknown'))) AS normalized_status,
+    ia.confidence,
+    trim(ia.link_reason) AS link_reason
+  FROM identity_accounts ia
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN configured_sources cs
+    ON cs.source_kind = a.source_kind
+   AND cs.source_name = a.source_name
+  WHERE a.expired_at IS NULL
+    AND a.last_observed_run_id IS NOT NULL
+),
+filtered_identities AS (
+  SELECT i.id
+  FROM identities i
+  WHERE
+    (
+      $8::text = ''
+      OR i.primary_email ILIKE ('%' || $8::text || '%')
+      OR i.display_name ILIKE ('%' || $8::text || '%')
+      OR EXISTS (
+        SELECT 1
+        FROM all_active_accounts aa
+        WHERE aa.identity_id = i.id
+          AND aa.external_id ILIKE ('%' || $8::text || '%')
+      )
+    )
+    AND (
+      $9::text = ''
+      OR i.kind = $9::text
+    )
+),
+source_accounts AS (
+  SELECT identity_id, account_id, source_kind, source_name, external_id, created_at, last_observed_at, normalized_status, confidence, link_reason
+  FROM all_active_accounts aa
+  WHERE (
+      $10::text = ''
+      OR aa.source_kind = $10::text
+    )
+    AND (
+      $11::text = ''
+      OR aa.source_name = $11::text
+    )
+),
+candidate_identities AS (
+  SELECT fi.id
+  FROM filtered_identities fi
+  WHERE (
+      $10::text = ''
+      AND $11::text = ''
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM source_accounts sa
+      WHERE sa.identity_id = fi.id
+    )
+),
+managed_identities AS (
+  SELECT DISTINCT aa.identity_id
+  FROM all_active_accounts aa
+  JOIN identity_source_settings iss
+    ON iss.source_kind = aa.source_kind
+   AND iss.source_name = aa.source_name
+   AND iss.is_authoritative
+),
+integration_counts AS (
+  SELECT
+    aa.identity_id,
+    COUNT(DISTINCT (aa.source_kind, aa.source_name))::bigint AS integration_count
+  FROM all_active_accounts aa
+  GROUP BY aa.identity_id
+),
+privileged_counts AS (
+  SELECT
+    aa.identity_id,
+    COUNT(DISTINCT e.id)::bigint AS privileged_roles
+  FROM all_active_accounts aa
+  JOIN entitlements e ON e.app_user_id = aa.account_id
+  WHERE e.expired_at IS NULL
+    AND e.last_observed_run_id IS NOT NULL
+    AND (
+      (
+        e.kind = 'github_team_repo_permission'
+        AND lower(trim(e.permission)) IN ('admin', 'maintain')
+      )
+      OR (
+        e.kind = 'datadog_role'
+        AND (
+          lower(trim(COALESCE(NULLIF(e.raw_json->>'role_name', ''), NULLIF(split_part(e.resource, ':', 2), '')))) LIKE '%admin%'
+          OR lower(trim(COALESCE(NULLIF(e.raw_json->>'role_name', ''), NULLIF(split_part(e.resource, ':', 2), '')))) LIKE '%administrator%'
+          OR lower(trim(COALESCE(NULLIF(e.raw_json->>'role_name', ''), NULLIF(split_part(e.resource, ':', 2), '')))) LIKE '%owner%'
+        )
+      )
+      OR (
+        e.kind = 'aws_permission_set'
+        AND (
+          lower(trim(e.permission)) LIKE '%admin%'
+          OR lower(trim(e.permission)) LIKE '%administrator%'
+          OR lower(trim(e.permission)) LIKE '%poweruser%'
+          OR lower(trim(e.permission)) LIKE '%owner%'
+          OR lower(trim(e.permission)) LIKE '%root%'
+        )
+      )
+    )
+  GROUP BY aa.identity_id
+),
+activity_stats AS (
+  SELECT
+    aa.identity_id,
+    MAX(aa.last_observed_at) AS last_seen_at,
+    MIN(aa.created_at) AS first_seen_at
+  FROM all_active_accounts aa
+  GROUP BY aa.identity_id
+),
+status_stats AS (
+  SELECT
+    aa.identity_id,
+    COUNT(*)::bigint AS account_count,
+    BOOL_OR(aa.normalized_status IN ('active', 'enabled')) AS has_active,
+    BOOL_OR(aa.normalized_status IN ('suspended', 'disabled', 'inactive', 'locked')) AS has_suspended,
+    BOOL_AND(aa.normalized_status IN ('deleted', 'deprovisioned', 'terminated')) AS all_deleted
+  FROM all_active_accounts aa
+  GROUP BY aa.identity_id
+),
+link_stats AS (
+  SELECT
+    aa.identity_id,
+    MIN(aa.confidence)::real AS min_link_confidence,
+    COUNT(DISTINCT lower(aa.link_reason)) FILTER (WHERE aa.link_reason <> '')::bigint AS reason_kinds,
+    MIN(lower(aa.link_reason)) FILTER (WHERE aa.link_reason <> '') AS single_reason
+  FROM all_active_accounts aa
+  GROUP BY aa.identity_id
+),
+primary_source AS (
+  SELECT DISTINCT ON (sa.identity_id)
+    sa.identity_id,
+    sa.source_kind,
+    sa.source_name
+  FROM source_accounts sa
+  LEFT JOIN identity_source_settings iss
+    ON iss.source_kind = sa.source_kind
+   AND iss.source_name = sa.source_name
+   AND iss.is_authoritative
+  ORDER BY sa.identity_id, (iss.is_authoritative IS NOT TRUE), sa.account_id
+),
+base_metrics AS (
+  SELECT
+    i.id,
+    i.display_name,
+    i.primary_email,
+    i.kind AS identity_type,
+    (mi.identity_id IS NOT NULL)::boolean AS managed,
+    COALESCE(ps.source_kind, '') AS source_kind,
+    COALESCE(ps.source_name, '') AS source_name,
+    COALESCE(ic.integration_count, 0)::bigint AS integration_count,
+    COALESCE(pc.privileged_roles, 0)::bigint AS privileged_roles,
+    ast.last_seen_at::timestamptz AS last_seen_at,
+    COALESCE(ast.first_seen_at, i.created_at)::timestamptz AS first_seen_at,
+    CASE
+      WHEN COALESCE(ss.account_count, 0) = 0 THEN 'orphaned'
+      WHEN COALESCE(ss.has_active, FALSE) THEN 'active'
+      WHEN COALESCE(ss.all_deleted, FALSE) THEN 'deleted'
+      WHEN COALESCE(ss.has_suspended, FALSE) THEN 'suspended'
+      ELSE 'unknown'
+    END AS status,
+    CASE
+      WHEN ast.last_seen_at IS NULL THEN 'never_seen'
+      WHEN ast.last_seen_at >= now() - interval '30 days' THEN 'recent'
+      WHEN ast.last_seen_at >= now() - interval '90 days' THEN 'aging'
+      ELSE 'stale'
+    END AS activity_state,
+    CASE
+      WHEN ls.min_link_confidence IS NULL THEN 'unknown'
+      WHEN ls.min_link_confidence >= 0.95 THEN 'high'
+      WHEN ls.min_link_confidence >= 0.80 THEN 'medium'
+      ELSE 'low'
+    END AS link_quality,
+    CASE
+      WHEN COALESCE(ls.reason_kinds, 0) = 0 THEN '—'
+      WHEN ls.reason_kinds = 1 THEN COALESCE(ls.single_reason, '—')
+      ELSE 'mixed'
+    END AS link_reason,
+    COALESCE(ls.min_link_confidence, 0)::real AS min_link_confidence
+  FROM candidate_identities ci
+  JOIN identities i ON i.id = ci.id
+  LEFT JOIN managed_identities mi ON mi.identity_id = ci.id
+  LEFT JOIN primary_source ps ON ps.identity_id = ci.id
+  LEFT JOIN integration_counts ic ON ic.identity_id = ci.id
+  LEFT JOIN privileged_counts pc ON pc.identity_id = ci.id
+  LEFT JOIN activity_stats ast ON ast.identity_id = ci.id
+  LEFT JOIN status_stats ss ON ss.identity_id = ci.id
+  LEFT JOIN link_stats ls ON ls.identity_id = ci.id
+),
+base AS (
+  SELECT
+    bm.id, bm.display_name, bm.primary_email, bm.identity_type, bm.managed, bm.source_kind, bm.source_name, bm.integration_count, bm.privileged_roles, bm.last_seen_at, bm.first_seen_at, bm.status, bm.activity_state, bm.link_quality, bm.link_reason, bm.min_link_confidence,
+    CASE
+      WHEN (NOT bm.managed) AND bm.privileged_roles > 0 THEN 'action_required'
+      WHEN bm.privileged_roles > 0 AND bm.activity_state IN ('stale', 'never_seen') THEN 'action_required'
+      WHEN NOT bm.managed THEN 'review'
+      WHEN bm.activity_state IN ('aging', 'stale', 'never_seen') THEN 'review'
+      WHEN bm.link_quality = 'low' THEN 'review'
+      ELSE 'healthy'
+    END AS row_state
+  FROM base_metrics bm
+)
+SELECT COUNT(*)
+FROM base b
+WHERE
+  (
+    $1::text = ''
+    OR (
+      $1::text = 'managed'
+      AND b.managed
+    )
+    OR (
+      $1::text = 'unmanaged'
+      AND NOT b.managed
+    )
+  )
+  AND (
+    $2::bool = FALSE
+    OR b.privileged_roles > 0
+  )
+  AND (
+    $3::text = ''
+    OR b.status = $3::text
+  )
+  AND (
+    $4::text = ''
+    OR b.activity_state = $4::text
+  )
+  AND (
+    $5::text = ''
+    OR b.link_quality = $5::text
+  )
+`
+
+type CountIdentitiesInventoryByFiltersParams struct {
+	ManagedState          string   `json:"managed_state"`
+	PrivilegedOnly        bool     `json:"privileged_only"`
+	Status                string   `json:"status"`
+	ActivityState         string   `json:"activity_state"`
+	LinkQuality           string   `json:"link_quality"`
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+	Query                 string   `json:"query"`
+	IdentityType          string   `json:"identity_type"`
+	SourceKind            string   `json:"source_kind"`
+	SourceName            string   `json:"source_name"`
+}
+
+func (q *Queries) CountIdentitiesInventoryByFilters(ctx context.Context, arg CountIdentitiesInventoryByFiltersParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countIdentitiesInventoryByFilters,
+		arg.ManagedState,
+		arg.PrivilegedOnly,
+		arg.Status,
+		arg.ActivityState,
+		arg.LinkQuality,
+		arg.ConfiguredSourceKinds,
+		arg.ConfiguredSourceNames,
+		arg.Query,
+		arg.IdentityType,
+		arg.SourceKind,
+		arg.SourceName,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createIdentity = `-- name: CreateIdentity :one
 INSERT INTO identities (kind, display_name, primary_email)
 VALUES (
@@ -351,6 +638,486 @@ func (q *Queries) ListIdentitiesDirectoryPageByQuery(ctx context.Context, arg Li
 			&i.PrivilegedRoles,
 			&i.LastSeenAt,
 			&i.FirstCreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listIdentitiesInventoryPageByFilters = `-- name: ListIdentitiesInventoryPageByFilters :many
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($10::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($11::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+all_active_accounts AS (
+  SELECT
+    ia.identity_id,
+    a.id AS account_id,
+    a.source_kind,
+    a.source_name,
+    a.external_id,
+    a.created_at,
+    a.last_observed_at,
+    lower(trim(COALESCE(NULLIF(a.status, ''), NULLIF(a.raw_json->>'status', ''), 'unknown'))) AS normalized_status,
+    ia.confidence,
+    trim(ia.link_reason) AS link_reason
+  FROM identity_accounts ia
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN configured_sources cs
+    ON cs.source_kind = a.source_kind
+   AND cs.source_name = a.source_name
+  WHERE a.expired_at IS NULL
+    AND a.last_observed_run_id IS NOT NULL
+),
+filtered_identities AS (
+  SELECT i.id
+  FROM identities i
+  WHERE
+    (
+      $12::text = ''
+      OR i.primary_email ILIKE ('%' || $12::text || '%')
+      OR i.display_name ILIKE ('%' || $12::text || '%')
+      OR EXISTS (
+        SELECT 1
+        FROM all_active_accounts aa
+        WHERE aa.identity_id = i.id
+          AND aa.external_id ILIKE ('%' || $12::text || '%')
+      )
+    )
+    AND (
+      $13::text = ''
+      OR i.kind = $13::text
+    )
+),
+source_accounts AS (
+  SELECT identity_id, account_id, source_kind, source_name, external_id, created_at, last_observed_at, normalized_status, confidence, link_reason
+  FROM all_active_accounts aa
+  WHERE (
+      $14::text = ''
+      OR aa.source_kind = $14::text
+    )
+    AND (
+      $15::text = ''
+      OR aa.source_name = $15::text
+    )
+),
+candidate_identities AS (
+  SELECT fi.id
+  FROM filtered_identities fi
+  WHERE (
+      $14::text = ''
+      AND $15::text = ''
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM source_accounts sa
+      WHERE sa.identity_id = fi.id
+    )
+),
+managed_identities AS (
+  SELECT DISTINCT aa.identity_id
+  FROM all_active_accounts aa
+  JOIN identity_source_settings iss
+    ON iss.source_kind = aa.source_kind
+   AND iss.source_name = aa.source_name
+   AND iss.is_authoritative
+),
+integration_counts AS (
+  SELECT
+    aa.identity_id,
+    COUNT(DISTINCT (aa.source_kind, aa.source_name))::bigint AS integration_count
+  FROM all_active_accounts aa
+  GROUP BY aa.identity_id
+),
+privileged_counts AS (
+  SELECT
+    aa.identity_id,
+    COUNT(DISTINCT e.id)::bigint AS privileged_roles
+  FROM all_active_accounts aa
+  JOIN entitlements e ON e.app_user_id = aa.account_id
+  WHERE e.expired_at IS NULL
+    AND e.last_observed_run_id IS NOT NULL
+    AND (
+      (
+        e.kind = 'github_team_repo_permission'
+        AND lower(trim(e.permission)) IN ('admin', 'maintain')
+      )
+      OR (
+        e.kind = 'datadog_role'
+        AND (
+          lower(trim(COALESCE(NULLIF(e.raw_json->>'role_name', ''), NULLIF(split_part(e.resource, ':', 2), '')))) LIKE '%admin%'
+          OR lower(trim(COALESCE(NULLIF(e.raw_json->>'role_name', ''), NULLIF(split_part(e.resource, ':', 2), '')))) LIKE '%administrator%'
+          OR lower(trim(COALESCE(NULLIF(e.raw_json->>'role_name', ''), NULLIF(split_part(e.resource, ':', 2), '')))) LIKE '%owner%'
+        )
+      )
+      OR (
+        e.kind = 'aws_permission_set'
+        AND (
+          lower(trim(e.permission)) LIKE '%admin%'
+          OR lower(trim(e.permission)) LIKE '%administrator%'
+          OR lower(trim(e.permission)) LIKE '%poweruser%'
+          OR lower(trim(e.permission)) LIKE '%owner%'
+          OR lower(trim(e.permission)) LIKE '%root%'
+        )
+      )
+    )
+  GROUP BY aa.identity_id
+),
+activity_stats AS (
+  SELECT
+    aa.identity_id,
+    MAX(aa.last_observed_at) AS last_seen_at,
+    MIN(aa.created_at) AS first_seen_at
+  FROM all_active_accounts aa
+  GROUP BY aa.identity_id
+),
+status_stats AS (
+  SELECT
+    aa.identity_id,
+    COUNT(*)::bigint AS account_count,
+    BOOL_OR(aa.normalized_status IN ('active', 'enabled')) AS has_active,
+    BOOL_OR(aa.normalized_status IN ('suspended', 'disabled', 'inactive', 'locked')) AS has_suspended,
+    BOOL_AND(aa.normalized_status IN ('deleted', 'deprovisioned', 'terminated')) AS all_deleted
+  FROM all_active_accounts aa
+  GROUP BY aa.identity_id
+),
+link_stats AS (
+  SELECT
+    aa.identity_id,
+    MIN(aa.confidence)::real AS min_link_confidence,
+    COUNT(DISTINCT lower(aa.link_reason)) FILTER (WHERE aa.link_reason <> '')::bigint AS reason_kinds,
+    MIN(lower(aa.link_reason)) FILTER (WHERE aa.link_reason <> '') AS single_reason
+  FROM all_active_accounts aa
+  GROUP BY aa.identity_id
+),
+primary_source AS (
+  SELECT DISTINCT ON (sa.identity_id)
+    sa.identity_id,
+    sa.source_kind,
+    sa.source_name
+  FROM source_accounts sa
+  LEFT JOIN identity_source_settings iss
+    ON iss.source_kind = sa.source_kind
+   AND iss.source_name = sa.source_name
+   AND iss.is_authoritative
+  ORDER BY sa.identity_id, (iss.is_authoritative IS NOT TRUE), sa.account_id
+),
+base_metrics AS (
+  SELECT
+    i.id,
+    i.display_name,
+    i.primary_email,
+    i.kind AS identity_type,
+    (mi.identity_id IS NOT NULL)::boolean AS managed,
+    COALESCE(ps.source_kind, '') AS source_kind,
+    COALESCE(ps.source_name, '') AS source_name,
+    COALESCE(ic.integration_count, 0)::bigint AS integration_count,
+    COALESCE(pc.privileged_roles, 0)::bigint AS privileged_roles,
+    ast.last_seen_at::timestamptz AS last_seen_at,
+    COALESCE(ast.first_seen_at, i.created_at)::timestamptz AS first_seen_at,
+    CASE
+      WHEN COALESCE(ss.account_count, 0) = 0 THEN 'orphaned'
+      WHEN COALESCE(ss.has_active, FALSE) THEN 'active'
+      WHEN COALESCE(ss.all_deleted, FALSE) THEN 'deleted'
+      WHEN COALESCE(ss.has_suspended, FALSE) THEN 'suspended'
+      ELSE 'unknown'
+    END AS status,
+    CASE
+      WHEN ast.last_seen_at IS NULL THEN 'never_seen'
+      WHEN ast.last_seen_at >= now() - interval '30 days' THEN 'recent'
+      WHEN ast.last_seen_at >= now() - interval '90 days' THEN 'aging'
+      ELSE 'stale'
+    END AS activity_state,
+    CASE
+      WHEN ls.min_link_confidence IS NULL THEN 'unknown'
+      WHEN ls.min_link_confidence >= 0.95 THEN 'high'
+      WHEN ls.min_link_confidence >= 0.80 THEN 'medium'
+      ELSE 'low'
+    END AS link_quality,
+    CASE
+      WHEN COALESCE(ls.reason_kinds, 0) = 0 THEN '—'
+      WHEN ls.reason_kinds = 1 THEN COALESCE(ls.single_reason, '—')
+      ELSE 'mixed'
+    END AS link_reason,
+    COALESCE(ls.min_link_confidence, 0)::real AS min_link_confidence
+  FROM candidate_identities ci
+  JOIN identities i ON i.id = ci.id
+  LEFT JOIN managed_identities mi ON mi.identity_id = ci.id
+  LEFT JOIN primary_source ps ON ps.identity_id = ci.id
+  LEFT JOIN integration_counts ic ON ic.identity_id = ci.id
+  LEFT JOIN privileged_counts pc ON pc.identity_id = ci.id
+  LEFT JOIN activity_stats ast ON ast.identity_id = ci.id
+  LEFT JOIN status_stats ss ON ss.identity_id = ci.id
+  LEFT JOIN link_stats ls ON ls.identity_id = ci.id
+),
+base AS (
+  SELECT
+    bm.id, bm.display_name, bm.primary_email, bm.identity_type, bm.managed, bm.source_kind, bm.source_name, bm.integration_count, bm.privileged_roles, bm.last_seen_at, bm.first_seen_at, bm.status, bm.activity_state, bm.link_quality, bm.link_reason, bm.min_link_confidence,
+    CASE
+      WHEN (NOT bm.managed) AND bm.privileged_roles > 0 THEN 'action_required'
+      WHEN bm.privileged_roles > 0 AND bm.activity_state IN ('stale', 'never_seen') THEN 'action_required'
+      WHEN NOT bm.managed THEN 'review'
+      WHEN bm.activity_state IN ('aging', 'stale', 'never_seen') THEN 'review'
+      WHEN bm.link_quality = 'low' THEN 'review'
+      ELSE 'healthy'
+    END AS row_state
+  FROM base_metrics bm
+)
+SELECT
+  b.id,
+  b.display_name,
+  b.primary_email,
+  b.identity_type,
+  b.managed,
+  b.source_kind,
+  b.source_name,
+  b.integration_count,
+  b.privileged_roles,
+  b.last_seen_at,
+  b.first_seen_at,
+  b.status,
+  b.activity_state,
+  b.link_quality,
+  b.link_reason,
+  b.min_link_confidence,
+  b.row_state
+FROM base b
+WHERE
+  (
+    $1::text = ''
+    OR (
+      $1::text = 'managed'
+      AND b.managed
+    )
+    OR (
+      $1::text = 'unmanaged'
+      AND NOT b.managed
+    )
+  )
+  AND (
+    $2::bool = FALSE
+    OR b.privileged_roles > 0
+  )
+  AND (
+    $3::text = ''
+    OR b.status = $3::text
+  )
+  AND (
+    $4::text = ''
+    OR b.activity_state = $4::text
+  )
+  AND (
+    $5::text = ''
+    OR b.link_quality = $5::text
+  )
+ORDER BY
+  CASE
+    WHEN $6::text = '' THEN
+      CASE b.row_state
+        WHEN 'action_required' THEN 0
+        WHEN 'review' THEN 1
+        ELSE 2
+      END
+  END ASC,
+  CASE WHEN $6::text = '' THEN b.privileged_roles END DESC,
+  CASE WHEN $6::text = '' THEN b.last_seen_at END ASC NULLS FIRST,
+  CASE WHEN $6::text = '' THEN b.id END DESC,
+
+  CASE
+    WHEN $6::text = 'identity'
+      AND $7::text = 'asc'
+    THEN lower(COALESCE(NULLIF(trim(b.display_name), ''), NULLIF(trim(b.primary_email), ''), 'identity ' || b.id::text))
+  END ASC,
+  CASE
+    WHEN $6::text = 'identity'
+      AND $7::text = 'desc'
+    THEN lower(COALESCE(NULLIF(trim(b.display_name), ''), NULLIF(trim(b.primary_email), ''), 'identity ' || b.id::text))
+  END DESC,
+
+  CASE
+    WHEN $6::text = 'identity_type'
+      AND $7::text = 'asc'
+    THEN lower(b.identity_type)
+  END ASC,
+  CASE
+    WHEN $6::text = 'identity_type'
+      AND $7::text = 'desc'
+    THEN lower(b.identity_type)
+  END DESC,
+
+  CASE
+    WHEN $6::text = 'managed'
+      AND $7::text = 'asc'
+    THEN CASE WHEN b.managed THEN 1 ELSE 0 END
+  END ASC,
+  CASE
+    WHEN $6::text = 'managed'
+      AND $7::text = 'desc'
+    THEN CASE WHEN b.managed THEN 1 ELSE 0 END
+  END DESC,
+
+  CASE
+    WHEN $6::text = 'source_type'
+      AND $7::text = 'asc'
+    THEN NULLIF(lower(trim(b.source_kind)), '')
+  END ASC NULLS LAST,
+  CASE
+    WHEN $6::text = 'source_type'
+      AND $7::text = 'desc'
+    THEN NULLIF(lower(trim(b.source_kind)), '')
+  END DESC NULLS LAST,
+
+  CASE
+    WHEN $6::text = 'linked_sources'
+      AND $7::text = 'asc'
+    THEN b.integration_count
+  END ASC,
+  CASE
+    WHEN $6::text = 'linked_sources'
+      AND $7::text = 'desc'
+    THEN b.integration_count
+  END DESC,
+
+  CASE
+    WHEN $6::text = 'privileged_roles'
+      AND $7::text = 'asc'
+    THEN b.privileged_roles
+  END ASC,
+  CASE
+    WHEN $6::text = 'privileged_roles'
+      AND $7::text = 'desc'
+    THEN b.privileged_roles
+  END DESC,
+
+  CASE
+    WHEN $6::text = 'status'
+      AND $7::text = 'asc'
+    THEN
+      CASE b.status
+        WHEN 'active' THEN 0
+        WHEN 'suspended' THEN 1
+        WHEN 'deleted' THEN 2
+        WHEN 'orphaned' THEN 3
+        ELSE 4
+      END
+  END ASC,
+  CASE
+    WHEN $6::text = 'status'
+      AND $7::text = 'desc'
+    THEN
+      CASE b.status
+        WHEN 'active' THEN 0
+        WHEN 'suspended' THEN 1
+        WHEN 'deleted' THEN 2
+        WHEN 'orphaned' THEN 3
+        ELSE 4
+      END
+  END DESC,
+
+  CASE
+    WHEN $6::text = 'last_seen'
+      AND $7::text = 'asc'
+    THEN b.last_seen_at
+  END ASC NULLS FIRST,
+  CASE
+    WHEN $6::text = 'last_seen'
+      AND $7::text = 'desc'
+    THEN b.last_seen_at
+  END DESC NULLS LAST,
+  b.id DESC
+LIMIT $9::int
+OFFSET $8::int
+`
+
+type ListIdentitiesInventoryPageByFiltersParams struct {
+	ManagedState          string   `json:"managed_state"`
+	PrivilegedOnly        bool     `json:"privileged_only"`
+	Status                string   `json:"status"`
+	ActivityState         string   `json:"activity_state"`
+	LinkQuality           string   `json:"link_quality"`
+	SortBy                string   `json:"sort_by"`
+	SortDir               string   `json:"sort_dir"`
+	PageOffset            int32    `json:"page_offset"`
+	PageLimit             int32    `json:"page_limit"`
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+	Query                 string   `json:"query"`
+	IdentityType          string   `json:"identity_type"`
+	SourceKind            string   `json:"source_kind"`
+	SourceName            string   `json:"source_name"`
+}
+
+type ListIdentitiesInventoryPageByFiltersRow struct {
+	ID                int64              `json:"id"`
+	DisplayName       string             `json:"display_name"`
+	PrimaryEmail      string             `json:"primary_email"`
+	IdentityType      string             `json:"identity_type"`
+	Managed           bool               `json:"managed"`
+	SourceKind        string             `json:"source_kind"`
+	SourceName        string             `json:"source_name"`
+	IntegrationCount  int64              `json:"integration_count"`
+	PrivilegedRoles   int64              `json:"privileged_roles"`
+	LastSeenAt        pgtype.Timestamptz `json:"last_seen_at"`
+	FirstSeenAt       pgtype.Timestamptz `json:"first_seen_at"`
+	Status            string             `json:"status"`
+	ActivityState     string             `json:"activity_state"`
+	LinkQuality       string             `json:"link_quality"`
+	LinkReason        string             `json:"link_reason"`
+	MinLinkConfidence float32            `json:"min_link_confidence"`
+	RowState          string             `json:"row_state"`
+}
+
+func (q *Queries) ListIdentitiesInventoryPageByFilters(ctx context.Context, arg ListIdentitiesInventoryPageByFiltersParams) ([]ListIdentitiesInventoryPageByFiltersRow, error) {
+	rows, err := q.db.Query(ctx, listIdentitiesInventoryPageByFilters,
+		arg.ManagedState,
+		arg.PrivilegedOnly,
+		arg.Status,
+		arg.ActivityState,
+		arg.LinkQuality,
+		arg.SortBy,
+		arg.SortDir,
+		arg.PageOffset,
+		arg.PageLimit,
+		arg.ConfiguredSourceKinds,
+		arg.ConfiguredSourceNames,
+		arg.Query,
+		arg.IdentityType,
+		arg.SourceKind,
+		arg.SourceName,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIdentitiesInventoryPageByFiltersRow
+	for rows.Next() {
+		var i ListIdentitiesInventoryPageByFiltersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DisplayName,
+			&i.PrimaryEmail,
+			&i.IdentityType,
+			&i.Managed,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.IntegrationCount,
+			&i.PrivilegedRoles,
+			&i.LastSeenAt,
+			&i.FirstSeenAt,
+			&i.Status,
+			&i.ActivityState,
+			&i.LinkQuality,
+			&i.LinkReason,
+			&i.MinLinkConfidence,
+			&i.RowState,
 		); err != nil {
 			return nil, err
 		}

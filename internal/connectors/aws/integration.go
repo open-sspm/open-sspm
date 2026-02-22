@@ -36,8 +36,9 @@ func (i *AWSIntegration) Role() registry.IntegrationRole {
 func (i *AWSIntegration) InitEvents() []registry.Event {
 	return []registry.Event{
 		{Source: "aws", Stage: "list-users", Current: 0, Total: 1, Message: "listing identity center users"},
+		{Source: "aws", Stage: "list-groups", Current: 0, Total: 1, Message: "listing identity center groups"},
 		{Source: "aws", Stage: "list-assignments", Current: 0, Total: 1, Message: "listing account assignments"},
-		{Source: "aws", Stage: "write-users", Current: 0, Total: registry.UnknownTotal, Message: "writing users"},
+		{Source: "aws", Stage: "write-users", Current: 0, Total: registry.UnknownTotal, Message: "writing principals"},
 	}
 }
 
@@ -59,7 +60,20 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
 	report(registry.Event{Source: "aws", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
-	report(registry.Event{Source: "aws", Stage: "write-users", Current: 0, Total: int64(len(users)), Message: fmt.Sprintf("writing %d users", len(users))})
+
+	groups, err := i.client.ListGroups(ctx)
+	if err != nil {
+		report(registry.Event{Source: "aws", Stage: "list-groups", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
+	}
+	report(registry.Event{Source: "aws", Stage: "list-groups", Current: 1, Total: 1, Message: fmt.Sprintf("found %d groups", len(groups))})
+	report(registry.Event{
+		Source:  "aws",
+		Stage:   "write-users",
+		Current: 0,
+		Total:   int64(len(users) + len(groups)),
+		Message: fmt.Sprintf("writing %d principals", len(users)+len(groups)),
+	})
 
 	entitlementsByUser, err := i.client.ListUserEntitlements(ctx)
 	if err != nil {
@@ -69,13 +83,15 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 	report(registry.Event{Source: "aws", Stage: "list-assignments", Current: 1, Total: 1, Message: "assignments fetched"})
 
 	const userBatchSize = 1000
-	externalIDs := make([]string, 0, len(users))
-	emails := make([]string, 0, len(users))
-	displayNames := make([]string, 0, len(users))
-	rawJSONs := make([][]byte, 0, len(users))
-	lastLoginAts := make([]pgtype.Timestamptz, 0, len(users))
-	lastLoginIps := make([]string, 0, len(users))
-	lastLoginRegions := make([]string, 0, len(users))
+	totalPrincipals := len(users) + len(groups)
+	externalIDs := make([]string, 0, totalPrincipals)
+	emails := make([]string, 0, totalPrincipals)
+	displayNames := make([]string, 0, totalPrincipals)
+	accountKinds := make([]string, 0, totalPrincipals)
+	rawJSONs := make([][]byte, 0, totalPrincipals)
+	lastLoginAts := make([]pgtype.Timestamptz, 0, totalPrincipals)
+	lastLoginIps := make([]string, 0, totalPrincipals)
+	lastLoginRegions := make([]string, 0, totalPrincipals)
 
 	for _, user := range users {
 		externalID := strings.TrimSpace(user.ID)
@@ -94,7 +110,28 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 		externalIDs = append(externalIDs, externalID)
 		emails = append(emails, email)
 		displayNames = append(displayNames, display)
-		rawJSONs = append(rawJSONs, registry.NormalizeJSON(user.RawJSON))
+		accountKinds = append(accountKinds, awsUserAccountKind(user))
+		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(user.RawJSON), registry.EntityCategoryUser))
+		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
+		lastLoginIps = append(lastLoginIps, "")
+		lastLoginRegions = append(lastLoginRegions, "")
+	}
+
+	for _, group := range groups {
+		externalID := awsGroupExternalID(group.ID)
+		if externalID == "" {
+			continue
+		}
+		display := strings.TrimSpace(group.DisplayName)
+		if display == "" {
+			display = externalID
+		}
+
+		externalIDs = append(externalIDs, externalID)
+		emails = append(emails, "")
+		displayNames = append(displayNames, display)
+		accountKinds = append(accountKinds, registry.AccountKindService)
+		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(group.RawJSON), registry.EntityCategoryGroup))
 		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 		lastLoginIps = append(lastLoginIps, "")
 		lastLoginRegions = append(lastLoginRegions, "")
@@ -109,6 +146,7 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 			ExternalIds:      externalIDs[start:end],
 			Emails:           emails[start:end],
 			DisplayNames:     displayNames[start:end],
+			AccountKinds:     accountKinds[start:end],
 			RawJsons:         rawJSONs[start:end],
 			LastLoginAts:     lastLoginAts[start:end],
 			LastLoginIps:     lastLoginIps[start:end],
@@ -123,7 +161,7 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 			Stage:   "write-users",
 			Current: int64(end),
 			Total:   int64(len(externalIDs)),
-			Message: fmt.Sprintf("users %d/%d", end, len(externalIDs)),
+			Message: fmt.Sprintf("principals %d/%d", end, len(externalIDs)),
 		})
 	}
 

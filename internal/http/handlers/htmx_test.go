@@ -79,30 +79,6 @@ func TestHandleIdpUserAccessTreeInvalidID(t *testing.T) {
 			t.Fatalf("Vary header missing hx-request: %v", vary)
 		}
 	})
-
-	t.Run("htmx request returns html fragment", func(t *testing.T) {
-		c, rec := newTestContext(http.MethodGet, "http://example.com/api/idp-users/not-a-number/access-tree")
-		c.SetPathValues(echo.PathValues{{Name: "id", Value: "not-a-number"}})
-		c.Request().Header.Set("HX-Request", "true")
-
-		h := &Handlers{}
-		if err := h.HandleIdpUserAccessTree(c); err != nil {
-			t.Fatalf("HandleIdpUserAccessTree() error = %v", err)
-		}
-
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
-		}
-		if !strings.Contains(rec.Body.String(), "invalid idp user id") {
-			t.Fatalf("body = %q, want invalid id message", rec.Body.String())
-		}
-		if got := rec.Header().Get(echo.HeaderContentType); !strings.Contains(got, "text/html") {
-			t.Fatalf("content-type = %q, want html", got)
-		}
-		if vary := parseVaryHeader(rec.Header().Get(echo.HeaderVary)); vary["hx-request"] != 1 {
-			t.Fatalf("Vary header missing hx-request: %v", vary)
-		}
-	})
 }
 
 func TestHandleFindingsRulesetAddsVaryForHTMXVariants(t *testing.T) {

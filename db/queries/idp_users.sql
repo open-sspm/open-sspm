@@ -13,6 +13,11 @@ input AS (
     (sqlc.arg(external_ids)::text[])[i] AS external_id,
     lower(trim((sqlc.arg(emails)::text[])[i])) AS email,
     (sqlc.arg(display_names)::text[])[i] AS display_name,
+    CASE
+      WHEN lower(trim((sqlc.arg(account_kinds)::text[])[i])) IN ('human', 'service', 'bot', 'unknown')
+        THEN lower(trim((sqlc.arg(account_kinds)::text[])[i]))
+      ELSE 'unknown'
+    END AS account_kind,
     (sqlc.arg(statuses)::text[])[i] AS status,
     (sqlc.arg(raw_jsons)::jsonb[])[i] AS raw_json,
     (sqlc.arg(last_login_ats)::timestamptz[])[i] AS last_login_at,
@@ -25,6 +30,7 @@ dedup AS (
     external_id,
     email,
     display_name,
+    account_kind,
     status,
     raw_json,
     last_login_at,
@@ -39,6 +45,7 @@ INSERT INTO accounts (
   external_id,
   email,
   display_name,
+  account_kind,
   status,
   raw_json,
   last_login_at,
@@ -54,6 +61,7 @@ SELECT
   input.external_id,
   input.email,
   input.display_name,
+  input.account_kind,
   input.status,
   input.raw_json,
   input.last_login_at,
@@ -66,6 +74,7 @@ FROM dedup input
 ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
   email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
+  account_kind = EXCLUDED.account_kind,
   status = EXCLUDED.status,
   raw_json = EXCLUDED.raw_json,
   last_login_at = COALESCE(EXCLUDED.last_login_at, accounts.last_login_at),

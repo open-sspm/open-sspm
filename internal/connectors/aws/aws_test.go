@@ -13,7 +13,9 @@ import (
 
 type fakeIdentityStore struct {
 	usersPages       [][]identitystoretypes.User
+	groupsPages      [][]identitystoretypes.Group
 	listUsersCalls   int
+	listGroupsCalls  int
 	groupMemberships map[string][]string
 }
 
@@ -46,6 +48,22 @@ func (f *fakeIdentityStore) ListGroupMemberships(ctx context.Context, in *identi
 				Value: userID,
 			},
 		})
+	}
+	return out, nil
+}
+
+func (f *fakeIdentityStore) ListGroups(ctx context.Context, in *identitystore.ListGroupsInput, optFns ...func(*identitystore.Options)) (*identitystore.ListGroupsOutput, error) {
+	_ = ctx
+	_ = in
+	_ = optFns
+	idx := f.listGroupsCalls
+	f.listGroupsCalls++
+	if idx >= len(f.groupsPages) {
+		return &identitystore.ListGroupsOutput{Groups: []identitystoretypes.Group{}}, nil
+	}
+	out := &identitystore.ListGroupsOutput{Groups: f.groupsPages[idx]}
+	if idx < len(f.groupsPages)-1 {
+		out.NextToken = aws.String("next")
 	}
 	return out, nil
 }
@@ -214,5 +232,42 @@ func TestListUserEntitlementsGroupExpansion(t *testing.T) {
 	}
 	if len(got) != len(want) {
 		t.Fatalf("expected %d entitlements, got %d", len(want), len(got))
+	}
+}
+
+func TestListGroupsPagination(t *testing.T) {
+	identity := &fakeIdentityStore{
+		groupsPages: [][]identitystoretypes.Group{
+			{
+				{
+					GroupId:     aws.String("g1"),
+					DisplayName: aws.String("Admins"),
+				},
+			},
+			{
+				{
+					GroupId: aws.String("g2"),
+				},
+			},
+		},
+	}
+
+	client := &Client{
+		identityStoreID: "d-123",
+		identitystore:   identity,
+	}
+
+	groups, err := client.ListGroups(context.Background())
+	if err != nil {
+		t.Fatalf("ListGroups error: %v", err)
+	}
+	if len(groups) != 2 {
+		t.Fatalf("expected 2 groups, got %d", len(groups))
+	}
+	if groups[0].ID != "g1" || groups[0].DisplayName != "Admins" {
+		t.Fatalf("unexpected groups[0]=%+v", groups[0])
+	}
+	if groups[1].ID != "g2" || groups[1].DisplayName != "g2" {
+		t.Fatalf("unexpected groups[1]=%+v", groups[1])
 	}
 }

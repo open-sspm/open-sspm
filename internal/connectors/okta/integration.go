@@ -208,6 +208,7 @@ func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, q *gen.Queries, 
 		externalIDs := make([]string, 0, len(batch))
 		emails := make([]string, 0, len(batch))
 		displayNames := make([]string, 0, len(batch))
+		accountKinds := make([]string, 0, len(batch))
 		statuses := make([]string, 0, len(batch))
 		rawJSONs := make([][]byte, 0, len(batch))
 		lastLoginAts := make([]pgtype.Timestamptz, 0, len(batch))
@@ -222,8 +223,9 @@ func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, q *gen.Queries, 
 			externalIDs = append(externalIDs, id)
 			emails = append(emails, matching.NormalizeEmail(user.Email))
 			displayNames = append(displayNames, user.DisplayName)
+			accountKinds = append(accountKinds, oktaUserAccountKind(user))
 			statuses = append(statuses, user.Status)
-			rawJSONs = append(rawJSONs, registry.NormalizeJSON(user.RawJSON))
+			rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(user.RawJSON), registry.EntityCategoryUser))
 			lastLoginAts = append(lastLoginAts, registry.PgTimestamptzPtr(user.LastLoginAt))
 			lastLoginIPs = append(lastLoginIPs, "")
 			lastLoginRegions = append(lastLoginRegions, "")
@@ -238,6 +240,7 @@ func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, q *gen.Queries, 
 			ExternalIds:      externalIDs,
 			Emails:           emails,
 			DisplayNames:     displayNames,
+			AccountKinds:     accountKinds,
 			Statuses:         statuses,
 			RawJsons:         rawJSONs,
 			LastLoginAts:     lastLoginAts,
@@ -279,6 +282,14 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, q *gen.Queries, re
 		names := make([]string, 0, len(batch))
 		types := make([]string, 0, len(batch))
 		rawJSONs := make([][]byte, 0, len(batch))
+		accountExternalIDs := make([]string, 0, len(batch))
+		accountEmails := make([]string, 0, len(batch))
+		accountDisplayNames := make([]string, 0, len(batch))
+		accountKinds := make([]string, 0, len(batch))
+		accountRawJSONs := make([][]byte, 0, len(batch))
+		accountLastLoginAts := make([]pgtype.Timestamptz, 0, len(batch))
+		accountLastLoginIPs := make([]string, 0, len(batch))
+		accountLastLoginRegions := make([]string, 0, len(batch))
 		for _, group := range batch {
 			id := strings.TrimSpace(group.ID)
 			if id == "" {
@@ -288,6 +299,23 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, q *gen.Queries, re
 			names = append(names, group.Name)
 			types = append(types, group.Type)
 			rawJSONs = append(rawJSONs, registry.NormalizeJSON(group.RawJSON))
+
+			groupExternalID := oktaGroupExternalID(id)
+			if groupExternalID == "" {
+				continue
+			}
+			display := strings.TrimSpace(group.Name)
+			if display == "" {
+				display = groupExternalID
+			}
+			accountExternalIDs = append(accountExternalIDs, groupExternalID)
+			accountEmails = append(accountEmails, "")
+			accountDisplayNames = append(accountDisplayNames, display)
+			accountKinds = append(accountKinds, registry.AccountKindService)
+			accountRawJSONs = append(accountRawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(group.RawJSON), registry.EntityCategoryGroup))
+			accountLastLoginAts = append(accountLastLoginAts, pgtype.Timestamptz{})
+			accountLastLoginIPs = append(accountLastLoginIPs, "")
+			accountLastLoginRegions = append(accountLastLoginRegions, "")
 		}
 		if len(externalIDs) == 0 {
 			continue
@@ -300,6 +328,23 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, q *gen.Queries, re
 			RawJsons:    rawJSONs,
 		}); err != nil {
 			return fmt.Errorf("upsert okta groups: %w", err)
+		}
+		if len(accountExternalIDs) > 0 {
+			if _, err := q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
+				SourceKind:       "okta",
+				SourceName:       i.sourceName,
+				SeenInRunID:      runID,
+				ExternalIds:      accountExternalIDs,
+				Emails:           accountEmails,
+				DisplayNames:     accountDisplayNames,
+				AccountKinds:     accountKinds,
+				RawJsons:         accountRawJSONs,
+				LastLoginAts:     accountLastLoginAts,
+				LastLoginIps:     accountLastLoginIPs,
+				LastLoginRegions: accountLastLoginRegions,
+			}); err != nil {
+				return fmt.Errorf("upsert okta group accounts: %w", err)
+			}
 		}
 	}
 

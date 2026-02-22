@@ -44,6 +44,14 @@ type Role struct {
 	RawJSON     []byte
 }
 
+type ServiceAccount struct {
+	ID      string
+	Name    string
+	Email   string
+	Status  string
+	RawJSON []byte
+}
+
 // New creates a new Datadog client. It validates that baseURL, apiKey, and appKey are provided.
 func New(baseURL, apiKey, appKey string) (*Client, error) {
 	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
@@ -146,6 +154,41 @@ func (c *Client) ListRoles(ctx context.Context) ([]Role, error) {
 				return nil, err
 			}
 			out = append(out, role)
+		}
+	}
+	return out, nil
+}
+
+func (c *Client) ListServiceAccounts(ctx context.Context) ([]ServiceAccount, error) {
+	if err := c.ensureClient(); err != nil {
+		return nil, err
+	}
+
+	var out []ServiceAccount
+	for page := 0; ; page++ {
+		endpoint, err := c.endpoint("/api/v2/service_accounts", page)
+		if err != nil {
+			return nil, err
+		}
+		body, err := c.get(ctx, endpoint)
+		if err != nil {
+			return nil, err
+		}
+		var payload struct {
+			Data []json.RawMessage `json:"data"`
+		}
+		if err := json.Unmarshal(body, &payload); err != nil {
+			return nil, err
+		}
+		if len(payload.Data) == 0 {
+			break
+		}
+		for _, raw := range payload.Data {
+			sa, err := mapServiceAccount(raw)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, sa)
 		}
 	}
 	return out, nil
@@ -396,6 +439,69 @@ func mapRole(raw json.RawMessage) (Role, error) {
 		Name:        payload.Attributes.Name,
 		Description: payload.Attributes.Description,
 		RawJSON:     raw,
+	}, nil
+}
+
+func mapServiceAccount(raw json.RawMessage) (ServiceAccount, error) {
+	var payload struct {
+		ID         string `json:"id"`
+		Attributes struct {
+			Name     string `json:"name"`
+			Handle   string `json:"handle"`
+			Email    string `json:"email"`
+			Status   string `json:"status"`
+			Disabled *bool  `json:"disabled"`
+		} `json:"attributes"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return ServiceAccount{}, err
+	}
+
+	displayName := strings.TrimSpace(payload.Attributes.Name)
+	if displayName == "" {
+		displayName = strings.TrimSpace(payload.Attributes.Handle)
+	}
+	if displayName == "" {
+		displayName = strings.TrimSpace(payload.Attributes.Email)
+	}
+	if displayName == "" {
+		displayName = strings.TrimSpace(payload.ID)
+	}
+
+	email := strings.TrimSpace(payload.Attributes.Email)
+	if email == "" {
+		email = strings.TrimSpace(payload.Attributes.Handle)
+	}
+
+	status := strings.TrimSpace(payload.Attributes.Status)
+	if status == "" && payload.Attributes.Disabled != nil {
+		if *payload.Attributes.Disabled {
+			status = "Inactive"
+		} else {
+			status = "Active"
+		}
+	}
+
+	type sanitizedServiceAccount struct {
+		Name   string `json:"name"`
+		Email  string `json:"email,omitempty"`
+		Status string `json:"status,omitempty"`
+	}
+	sanitized, err := json.Marshal(sanitizedServiceAccount{
+		Name:   displayName,
+		Email:  email,
+		Status: status,
+	})
+	if err != nil {
+		return ServiceAccount{}, err
+	}
+
+	return ServiceAccount{
+		ID:      strings.TrimSpace(payload.ID),
+		Name:    displayName,
+		Email:   email,
+		Status:  status,
+		RawJSON: sanitized,
 	}, nil
 }
 

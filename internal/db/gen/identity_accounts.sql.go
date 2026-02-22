@@ -83,12 +83,16 @@ func (q *Queries) GetIdentityBySourceAndExternalID(ctx context.Context, arg GetI
 const listIdentityAccountAttributes = `-- name: ListIdentityAccountAttributes :many
 SELECT
   ia.identity_id,
+  i.kind AS identity_kind,
   a.id AS account_id,
   a.source_kind,
   a.source_name,
+  a.external_id,
+  a.account_kind,
   a.email,
   a.display_name
 FROM identity_accounts ia
+JOIN identities i ON i.id = ia.identity_id
 JOIN accounts a ON a.id = ia.account_id
 WHERE a.expired_at IS NULL
   AND a.last_observed_run_id IS NOT NULL
@@ -96,12 +100,15 @@ ORDER BY ia.identity_id, a.id
 `
 
 type ListIdentityAccountAttributesRow struct {
-	IdentityID  int64  `json:"identity_id"`
-	AccountID   int64  `json:"account_id"`
-	SourceKind  string `json:"source_kind"`
-	SourceName  string `json:"source_name"`
-	Email       string `json:"email"`
-	DisplayName string `json:"display_name"`
+	IdentityID   int64  `json:"identity_id"`
+	IdentityKind string `json:"identity_kind"`
+	AccountID    int64  `json:"account_id"`
+	SourceKind   string `json:"source_kind"`
+	SourceName   string `json:"source_name"`
+	ExternalID   string `json:"external_id"`
+	AccountKind  string `json:"account_kind"`
+	Email        string `json:"email"`
+	DisplayName  string `json:"display_name"`
 }
 
 func (q *Queries) ListIdentityAccountAttributes(ctx context.Context) ([]ListIdentityAccountAttributesRow, error) {
@@ -115,9 +122,12 @@ func (q *Queries) ListIdentityAccountAttributes(ctx context.Context) ([]ListIden
 		var i ListIdentityAccountAttributesRow
 		if err := rows.Scan(
 			&i.IdentityID,
+			&i.IdentityKind,
 			&i.AccountID,
 			&i.SourceKind,
 			&i.SourceName,
+			&i.ExternalID,
+			&i.AccountKind,
 			&i.Email,
 			&i.DisplayName,
 		); err != nil {
@@ -132,7 +142,7 @@ func (q *Queries) ListIdentityAccountAttributes(ctx context.Context) ([]ListIden
 }
 
 const listLinkedAccountsForIdentity = `-- name: ListLinkedAccountsForIdentity :many
-SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status
+SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status, a.account_kind
 FROM accounts a
 JOIN identity_accounts ia ON ia.account_id = a.id
 WHERE ia.identity_id = $1
@@ -170,6 +180,7 @@ func (q *Queries) ListLinkedAccountsForIdentity(ctx context.Context, identityID 
 			&i.ExpiredAt,
 			&i.ExpiredRunID,
 			&i.Status,
+			&i.AccountKind,
 		); err != nil {
 			return nil, err
 		}
@@ -182,7 +193,7 @@ func (q *Queries) ListLinkedAccountsForIdentity(ctx context.Context, identityID 
 }
 
 const listUnlinkedAccountsPage = `-- name: ListUnlinkedAccountsPage :many
-SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status
+SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status, a.account_kind
 FROM accounts a
 LEFT JOIN identity_accounts ia ON ia.account_id = a.id
 WHERE ia.id IS NULL
@@ -227,6 +238,7 @@ func (q *Queries) ListUnlinkedAccountsPage(ctx context.Context, arg ListUnlinked
 			&i.ExpiredAt,
 			&i.ExpiredRunID,
 			&i.Status,
+			&i.AccountKind,
 		); err != nil {
 			return nil, err
 		}

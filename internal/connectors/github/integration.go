@@ -311,7 +311,6 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 	)
 
 	report(registry.Event{Source: "github", Stage: "list-members", Current: 1, Total: 1, Message: fmt.Sprintf("found %d members (%d with email)", len(members), emailsWithValue)})
-	report(registry.Event{Source: "github", Stage: "write-members", Current: 0, Total: int64(len(members)), Message: fmt.Sprintf("writing %d members", len(members))})
 
 	teams, err := i.client.ListTeams(ctx, i.org)
 	if err != nil {
@@ -411,16 +410,24 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 		}
 	}
 
-	report(registry.Event{Source: "github", Stage: "write-members", Current: 0, Total: int64(len(members)), Message: fmt.Sprintf("writing %d members", len(members))})
+	report(registry.Event{
+		Source:  "github",
+		Stage:   "write-members",
+		Current: 0,
+		Total:   int64(len(members) + len(teams)),
+		Message: fmt.Sprintf("writing %d principals", len(members)+len(teams)),
+	})
 
 	const userBatchSize = 1000
-	externalIDs := make([]string, 0, len(members))
-	emails := make([]string, 0, len(members))
-	displayNames := make([]string, 0, len(members))
-	rawJSONs := make([][]byte, 0, len(members))
-	lastLoginAts := make([]pgtype.Timestamptz, 0, len(members))
-	lastLoginIps := make([]string, 0, len(members))
-	lastLoginRegions := make([]string, 0, len(members))
+	totalPrincipals := len(members) + len(teams)
+	externalIDs := make([]string, 0, totalPrincipals)
+	emails := make([]string, 0, totalPrincipals)
+	displayNames := make([]string, 0, totalPrincipals)
+	accountKinds := make([]string, 0, totalPrincipals)
+	rawJSONs := make([][]byte, 0, totalPrincipals)
+	lastLoginAts := make([]pgtype.Timestamptz, 0, totalPrincipals)
+	lastLoginIps := make([]string, 0, totalPrincipals)
+	lastLoginRegions := make([]string, 0, totalPrincipals)
 
 	for _, member := range members {
 		externalID := strings.TrimSpace(member.Login)
@@ -434,7 +441,35 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 		externalIDs = append(externalIDs, externalID)
 		emails = append(emails, matching.NormalizeEmail(member.Email))
 		displayNames = append(displayNames, display)
-		rawJSONs = append(rawJSONs, member.RawJSON)
+		accountKinds = append(accountKinds, githubMemberAccountKind(member))
+		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(member.RawJSON), registry.EntityCategoryUser))
+		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
+		lastLoginIps = append(lastLoginIps, "")
+		lastLoginRegions = append(lastLoginRegions, "")
+	}
+
+	for _, team := range teams {
+		externalID := githubTeamExternalID(team.Slug)
+		if externalID == "" {
+			continue
+		}
+		display := strings.TrimSpace(team.Name)
+		if display == "" {
+			display = strings.TrimSpace(team.Slug)
+		}
+		if display == "" {
+			display = externalID
+		}
+		externalIDs = append(externalIDs, externalID)
+		emails = append(emails, "")
+		displayNames = append(displayNames, display)
+		accountKinds = append(accountKinds, registry.AccountKindService)
+		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.MarshalJSON(map[string]any{
+			"id":   team.ID,
+			"name": strings.TrimSpace(team.Name),
+			"slug": strings.TrimSpace(team.Slug),
+			"org":  i.org,
+		}), registry.EntityCategoryTeam))
 		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 		lastLoginIps = append(lastLoginIps, "")
 		lastLoginRegions = append(lastLoginRegions, "")
@@ -449,6 +484,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 			ExternalIds:      externalIDs[start:end],
 			Emails:           emails[start:end],
 			DisplayNames:     displayNames[start:end],
+			AccountKinds:     accountKinds[start:end],
 			RawJsons:         rawJSONs[start:end],
 			LastLoginAts:     lastLoginAts[start:end],
 			LastLoginIps:     lastLoginIps[start:end],
@@ -463,7 +499,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 			Stage:   "write-members",
 			Current: int64(end),
 			Total:   int64(len(externalIDs)),
-			Message: fmt.Sprintf("members %d/%d", end, len(externalIDs)),
+			Message: fmt.Sprintf("principals %d/%d", end, len(externalIDs)),
 		})
 	}
 

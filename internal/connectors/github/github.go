@@ -32,6 +32,7 @@ type Member struct {
 	Login       string
 	ID          int64
 	Role        string
+	AccountType string
 	Email       string
 	DisplayName string
 	RawJSON     []byte
@@ -225,6 +226,7 @@ func (c *Client) listOrgMembersREST(ctx context.Context, org string) ([]Member, 
 			var u struct {
 				Login string `json:"login"`
 				ID    int64  `json:"id"`
+				Type  string `json:"type"`
 			}
 			if err := json.Unmarshal(raw, &u); err != nil {
 				return nil, err
@@ -241,6 +243,7 @@ func (c *Client) listOrgMembersREST(ctx context.Context, org string) ([]Member, 
 				Login:       u.Login,
 				ID:          u.ID,
 				Role:        role,
+				AccountType: u.Type,
 				Email:       email,
 				DisplayName: name,
 				RawJSON:     raw,
@@ -898,6 +901,7 @@ func (c *Client) listOrgMembersGraphQL(ctx context.Context, org string) ([]Membe
 						Node struct {
 							Login      string `json:"login"`
 							DatabaseID *int64 `json:"databaseId"`
+							Typename   string `json:"__typename"`
 							Name       string `json:"name"`
 							Email      string `json:"email"`
 						} `json:"node"`
@@ -920,6 +924,7 @@ func (c *Client) listOrgMembersGraphQL(ctx context.Context, org string) ([]Membe
       edges {
         role
         node {
+          __typename
           login
           databaseId
           name
@@ -971,6 +976,7 @@ func (c *Client) listOrgMembersGraphQL(ctx context.Context, org string) ([]Membe
 				"login": edge.Node.Login,
 				"id":    id,
 				"role":  role,
+				"type":  edge.Node.Typename,
 				"name":  edge.Node.Name,
 				"email": edge.Node.Email,
 			})
@@ -979,6 +985,7 @@ func (c *Client) listOrgMembersGraphQL(ctx context.Context, org string) ([]Membe
 				Login:       edge.Node.Login,
 				ID:          id,
 				Role:        role,
+				AccountType: edge.Node.Typename,
 				Email:       edge.Node.Email,
 				DisplayName: edge.Node.Name,
 				RawJSON:     raw,

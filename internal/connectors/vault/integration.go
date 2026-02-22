@@ -30,6 +30,7 @@ type vaultAccountUpsertRow struct {
 	ExternalID  string
 	Email       string
 	DisplayName string
+	AccountKind string
 	Status      string
 	RawJSON     []byte
 }
@@ -214,7 +215,7 @@ func (i *VaultIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpoo
 }
 
 func buildVaultAccountRows(entities []Entity, groups []Group, authRoles []AuthRole) []vaultAccountUpsertRow {
-	byExternalID := make(map[string]vaultAccountUpsertRow, len(entities)+len(authRoles))
+	byExternalID := make(map[string]vaultAccountUpsertRow, len(entities)+len(groups)+len(authRoles))
 
 	for _, entity := range entities {
 		entityID := strings.TrimSpace(entity.ID)
@@ -230,13 +231,27 @@ func buildVaultAccountRows(entities []Entity, groups []Group, authRoles []AuthRo
 			ExternalID:  "entity:" + entityID,
 			Email:       bestEntityEmail(entity),
 			DisplayName: displayName,
+			AccountKind: vaultEntityAccountKind(entity),
 			Status:      status,
-			RawJSON:     withAccountStatus(entity.RawJSON, status),
+			RawJSON:     registry.WithEntityCategory(withAccountStatus(entity.RawJSON, status), registry.EntityCategoryEntity),
 		}
 		byExternalID[row.ExternalID] = row
 	}
 
 	for _, group := range groups {
+		groupID := strings.TrimSpace(group.ID)
+		groupExternalID := vaultGroupExternalID(groupID)
+		if groupExternalID != "" {
+			displayName := firstNonEmptyString(group.Name, groupID, groupExternalID)
+			byExternalID[groupExternalID] = vaultAccountUpsertRow{
+				ExternalID:  groupExternalID,
+				DisplayName: displayName,
+				AccountKind: registry.AccountKindService,
+				Status:      "active",
+				RawJSON:     registry.WithEntityCategory(withAccountStatus(group.RawJSON, "active"), registry.EntityCategoryGroup),
+			}
+		}
+
 		for _, memberID := range group.MemberEntityIDs {
 			memberID = strings.TrimSpace(memberID)
 			if memberID == "" {
@@ -249,12 +264,13 @@ func buildVaultAccountRows(entities []Entity, groups []Group, authRoles []AuthRo
 			byExternalID[externalID] = vaultAccountUpsertRow{
 				ExternalID:  externalID,
 				DisplayName: memberID,
+				AccountKind: registry.AccountKindUnknown,
 				Status:      "active",
-				RawJSON: registry.MarshalJSON(map[string]any{
+				RawJSON: registry.WithEntityCategory(registry.MarshalJSON(map[string]any{
 					"id":     memberID,
 					"status": "active",
 					"source": "vault_group_membership",
-				}),
+				}), registry.EntityCategoryEntity),
 			}
 		}
 	}
@@ -267,8 +283,9 @@ func buildVaultAccountRows(entities []Entity, groups []Group, authRoles []AuthRo
 		row := vaultAccountUpsertRow{
 			ExternalID:  externalID,
 			DisplayName: firstNonEmptyString(role.Name, externalID),
+			AccountKind: registry.AccountKindService,
 			Status:      "active",
-			RawJSON:     withAccountStatus(role.RawJSON, "active"),
+			RawJSON:     registry.WithEntityCategory(withAccountStatus(role.RawJSON, "active"), registry.EntityCategoryAuthRole),
 		}
 		byExternalID[row.ExternalID] = row
 	}
@@ -474,6 +491,7 @@ func upsertVaultAccounts(ctx context.Context, q *gen.Queries, report func(regist
 		externalIDs := make([]string, 0, len(batch))
 		emails := make([]string, 0, len(batch))
 		displayNames := make([]string, 0, len(batch))
+		accountKinds := make([]string, 0, len(batch))
 		rawJSONs := make([][]byte, 0, len(batch))
 		lastLoginAts := make([]pgtype.Timestamptz, 0, len(batch))
 		lastLoginIPs := make([]string, 0, len(batch))
@@ -483,6 +501,7 @@ func upsertVaultAccounts(ctx context.Context, q *gen.Queries, report func(regist
 			externalIDs = append(externalIDs, row.ExternalID)
 			emails = append(emails, strings.ToLower(strings.TrimSpace(row.Email)))
 			displayNames = append(displayNames, row.DisplayName)
+			accountKinds = append(accountKinds, registry.NormalizeAccountKind(row.AccountKind))
 			rawJSONs = append(rawJSONs, registry.NormalizeJSON(row.RawJSON))
 			lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 			lastLoginIPs = append(lastLoginIPs, "")
@@ -496,6 +515,7 @@ func upsertVaultAccounts(ctx context.Context, q *gen.Queries, report func(regist
 			ExternalIds:      externalIDs,
 			Emails:           emails,
 			DisplayNames:     displayNames,
+			AccountKinds:     accountKinds,
 			RawJsons:         rawJSONs,
 			LastLoginAts:     lastLoginAts,
 			LastLoginIps:     lastLoginIPs,
@@ -717,5 +737,5 @@ func vaultRoleExternalID(authType, mountPath, roleName string) string {
 	if authType == "" || mountPath == "" || roleName == "" {
 		return ""
 	}
-	return authType + ":" + mountPath + ":" + roleName
+	return "role:" + authType + ":" + mountPath + ":" + roleName
 }
