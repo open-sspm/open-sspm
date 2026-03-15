@@ -60,17 +60,16 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 						</div>
 					</header>
 					<section>
-						<div class="overflow-x-auto">
-							@ColumnsControl("idp-user-show--app-access")
-							<table data-columns-id="idp-user-show--app-access" class="table">
-								<thead>
-									<tr>
-										<th>App</th>
-										<th>Assigned via</th>
-										<th>Group(s)</th>
-										<th>Permissions</th>
-									</tr>
-								</thead>
+						@ColumnsTable("idp-user-show--app-access", "") {
+						<table data-columns-id="idp-user-show--app-access" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+							<thead>
+								<tr>
+									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">App</th>
+									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Assigned via</th>
+									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Group(s)</th>
+									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Permissions</th>
+								</tr>
+							</thead>
 								<tbody>
 									if len(data.OktaAssignments) > 0 {
 										for _, a := range data.OktaAssignments {
@@ -121,7 +120,7 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 									}
 								</tbody>
 							</table>
-						</div>
+						}
 					</section>
 				</article>
 			</section>
@@ -178,16 +177,15 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 
 										<div class="space-y-2">
 											<h3 class="text-sm font-semibold">Entitlements</h3>
-											<div class="overflow-x-auto">
-												@ColumnsControl("idp-user-show--entitlements")
-												<table data-columns-id="idp-user-show--entitlements" class="table">
-													<thead>
-														<tr>
-															<th>Kind</th>
-															<th>Resource</th>
-															<th>Permission</th>
-														</tr>
-													</thead>
+											@ColumnsTable("idp-user-show--entitlements", "") {
+											<table data-columns-id="idp-user-show--entitlements" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+												<thead>
+													<tr>
+														<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Kind</th>
+														<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Resource</th>
+														<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Permission</th>
+													</tr>
+												</thead>
 													<tbody>
 														if len(app.Entitlements) > 0 {
 															for _, ent := range app.Entitlements {
@@ -219,7 +217,7 @@ templ IdPUserShowPage(data viewmodels.IdPUserShowViewData) {
 														}
 													</tbody>
 												</table>
-											</div>
+											}
 										</div>
 									</section>
 								</article>

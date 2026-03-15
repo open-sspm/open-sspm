@@ -11,36 +11,43 @@ templ FindingsPage(data viewmodels.FindingsRulesetsViewData) {
 		}
 
 		if data.HasRulesets {
-			@TableCard("Rulesets", "Rulesets loaded from Postgres (seeded from the rule registry).") {
-				@ColumnsControl("findings--main")
-				<table data-columns-id="findings--main" class="table">
-					<thead>
-						<tr>
-							<th>Ruleset</th>
-							<th>Source</th>
-							<th>Version</th>
-							<th>Status</th>
-						</tr>
-					</thead>
-					<tbody>
-						for _, rs := range data.Rulesets {
-							<tr data-row-href={ rs.Href } class="cursor-pointer hover:bg-muted/50">
-								<td>
-									<a class="btn-sm-link px-0 font-medium" href={ rs.Href }>{ rs.Name }</a>
-									if rs.Description != "" {
-										<div class="text-sm text-muted-foreground">{ rs.Description }</div>
-									}
-								</td>
-								<td class="text-muted-foreground">{ rs.Source }</td>
-								<td class="text-muted-foreground">{ rs.SourceVersion }</td>
-								<td>
-									<span class="badge-outline">{ rs.Status }</span>
-								</td>
+			<section class="space-y-3">
+				<div class="flex items-center gap-3">
+					<div>
+						<h2 class="text-base font-semibold">Rulesets</h2>
+						<p class="text-sm text-muted-foreground">Rulesets loaded from Postgres (seeded from the rule registry).</p>
+					</div>
+				</div>
+				@ColumnsTable("findings--main", "") {
+					<table data-columns-id="findings--main" class="table osspm-table-compact osspm-table-list">
+						<thead>
+							<tr>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ruleset</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Version</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
 							</tr>
-						}
-					</tbody>
-				</table>
-			}
+						</thead>
+						<tbody>
+							for _, rs := range data.Rulesets {
+								<tr data-row-href={ rs.Href } class="cursor-pointer hover:bg-muted/50">
+									<td class="whitespace-normal">
+										<a class="btn-sm-link px-0 font-medium" href={ rs.Href }>{ rs.Name }</a>
+										if rs.Description != "" {
+											<div class="text-sm text-muted-foreground">{ rs.Description }</div>
+										}
+									</td>
+									<td class="text-muted-foreground">{ rs.Source }</td>
+									<td class="text-muted-foreground">{ rs.SourceVersion }</td>
+									<td>
+										<span class="badge-outline">{ rs.Status }</span>
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			</section>
 		} else {
 			@EmptyState("No rulesets found", "Run open-sspm seed-rules to load ruleset definitions into Postgres.") {
 			}

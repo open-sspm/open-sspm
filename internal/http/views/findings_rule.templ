@@ -99,15 +99,14 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 						if len(data.Evidence.Violations) > 0 {
 							<div class="space-y-2">
 								<div class="text-sm font-medium">Violations</div>
-								<div class="overflow-x-auto">
-									@ColumnsControl("findings-rule--violations")
-									<table data-columns-id="findings-rule--violations" class="table">
-										<thead>
-											<tr>
-												<th>Resource</th>
-												<th>Display</th>
-											</tr>
-										</thead>
+								@ColumnsTable("findings-rule--violations", "") {
+								<table data-columns-id="findings-rule--violations" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+									<thead>
+										<tr>
+											<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Resource</th>
+											<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Display</th>
+										</tr>
+									</thead>
 										<tbody>
 											for _, v := range data.Evidence.Violations {
 												<tr>
@@ -117,7 +116,7 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 											}
 										</tbody>
 									</table>
-								</div>
+								}
 								if data.Evidence.ViolationsTruncated {
 									<div class="text-xs text-muted-foreground">Violations truncated.</div>
 								}

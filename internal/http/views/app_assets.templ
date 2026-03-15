@@ -24,14 +24,41 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 			hx-target="#app-assets-results"
 			hx-swap="outerHTML"
 			hx-push-url="true"
-			class="card"
+			class="space-y-4 border-b border-border/70 pb-5"
 		>
-			<header>
-				<h2>Filters</h2>
-				<p>Narrow app assets by source, type, and search query.</p>
-			</header>
-			<section>
-				<div class="grid gap-4 md:grid-cols-4">
+			<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+				<label class="field w-full lg:max-w-xl">
+					<span class="sr-only">Query</span>
+					<div class="relative">
+						<input type="search" name="q" class="input pr-10" placeholder="Search by name, external ID, or parent ID" value={ data.Query }/>
+						if data.Query != "" {
+							<a
+								class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
+								aria-label="Clear query"
+								href={ AppAssetsListURL(data.SelectedSourceKind, data.SelectedSourceName, "", data.AssetKind, 1) }
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+									<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
+								</svg>
+							</a>
+						}
+					</div>
+				</label>
+				<div class="text-sm text-muted-foreground lg:text-right">
+					if data.TotalCount > 0 {
+						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+					} else {
+						Showing 0
+					}
+				</div>
+			</div>
+			<details class="group">
+				<summary class="inline-flex cursor-pointer list-none items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+					<span class="text-base leading-none group-open:hidden">+</span>
+					<span class="text-base leading-none hidden group-open:inline">−</span>
+					<span>More filters</span>
+				</summary>
+				<div class="mt-4 grid gap-4 rounded-lg border border-border/70 bg-muted/15 p-4 md:grid-cols-2">
 					<label class="field">
 						<span class="label">Source</span>
 						<select class="select" name="source_kind">
@@ -40,23 +67,6 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 								<option value={ source.SourceKind } selected?={ source.SourceKind == data.SelectedSourceKind } title={ source.Label }>{ source.Label }</option>
 							}
 						</select>
-					</label>
-					<label class="field md:col-span-2">
-						<span class="label">Query</span>
-						<div class="relative">
-							<input type="search" name="q" class="input pr-10" placeholder="Search by name, external ID, or parent ID" value={ data.Query }/>
-							if data.Query != "" {
-								<a
-									class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
-									aria-label="Clear query"
-									href={ AppAssetsListURL(data.SelectedSourceKind, data.SelectedSourceName, "", data.AssetKind, 1) }
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
-										<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
-									</svg>
-								</a>
-							}
-						</div>
 					</label>
 					<label class="field">
 						<span class="label">Asset kind</span>
@@ -71,37 +81,31 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 						</select>
 					</label>
 				</div>
-				<button class="sr-only" type="submit">Apply filters</button>
-			</section>
+			</details>
+			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
 
-		<article class="card">
-			<header>
-				<h2>App Assets</h2>
-				<span data-slot="card-action" class="badge-outline">
-					if data.TotalCount > 0 {
-						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "–" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
-					} else {
-						Showing 0
-					}
-				</span>
-			</header>
-				<section>
-					<div class="overflow-x-auto">
-						@ColumnsControl("app-assets--main")
-						<table data-columns-id="app-assets--main" class="table osspm-table-compact">
-							<caption class="sr-only">Programmatic app assets with source, kind, owner counts, credential counts, and last-seen time.</caption>
-							<thead>
-								<tr>
-									<th>Source</th>
-									<th>Kind</th>
-									<th>Name</th>
-									<th>External ID</th>
-									<th class="osspm-num">Owners</th>
-									<th class="osspm-num">Credentials</th>
-									<th class="osspm-num">Last seen</th>
-								</tr>
-							</thead>
+		<section class="space-y-3">
+			<div class="flex items-center gap-3">
+				<div>
+					<h2 class="text-base font-semibold">App Assets</h2>
+					<p class="text-sm text-muted-foreground">Applications and service principals from connected providers.</p>
+				</div>
+			</div>
+					@ColumnsTable("app-assets--main", "") {
+					<table data-columns-id="app-assets--main" class="table osspm-table-compact osspm-table-list">
+						<caption class="sr-only">Programmatic app assets with source, kind, owner counts, credential counts, and last-seen time.</caption>
+						<thead>
+							<tr>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Kind</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">External ID</th>
+								<th class="osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground">Owners</th>
+								<th class="osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground">Credentials</th>
+								<th class="osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground">Last seen</th>
+							</tr>
+						</thead>
 							<tbody>
 								if data.HasItems {
 									for _, item := range data.Items {
@@ -110,9 +114,9 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 												<span class="badge-outline">{ HumanizeProgrammaticKind(item.SourceKind) }</span>
 											</td>
 											<td><span class="badge-outline">{ HumanizeProgrammaticKind(item.AssetKind) }</span></td>
-											<td>
-												<a class="btn-sm-link px-0 osspm-cell-primary osspm-truncate" href={ "/app-assets/" + FormatInt64(item.ID) } title={ item.DisplayName }>{ item.DisplayName }</a>
-												<span class="osspm-cell-secondary">{ item.Status }</span>
+											<td class="whitespace-normal">
+												<a class="btn-sm-link px-0 font-medium" href={ "/app-assets/" + FormatInt64(item.ID) } title={ item.DisplayName }>{ item.DisplayName }</a>
+												<div class="text-sm text-muted-foreground">{ item.Status }</div>
 											</td>
 											<td class="text-muted-foreground">
 												<code class="osspm-token osspm-truncate" title={ item.ExternalID }>{ item.ExternalID }</code>
@@ -135,7 +139,7 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 							}
 						</tbody>
 					</table>
-				</div>
+				}
 				if data.TotalPages > 1 {
 					<div class="flex flex-wrap items-center gap-3 border-t py-3">
 						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
@@ -153,8 +157,6 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 						</div>
 					</div>
 				}
-			</section>
-		</article>
+		</section>
 	</div>
 }
-

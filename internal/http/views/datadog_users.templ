@@ -23,17 +23,13 @@ templ DatadogUsersPage(data viewmodels.DatadogUsersViewData) {
 			}
 		}
 
-		<form method="get" class="card">
-			<header>
-				<h2>Search</h2>
-				<p>Filter Datadog users by name, email, and state.</p>
-			</header>
-			<section>
-				<div class="flex flex-col gap-4 sm:flex-row sm:items-end">
-					<label class="field w-full sm:max-w-md">
-						<span class="label">Query</span>
+		<form method="get" class="space-y-4 border-b border-border/70 pb-5">
+			<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+				<div class="flex flex-col gap-3 sm:flex-row sm:items-center w-full lg:max-w-xl">
+					<label class="field flex-1">
+						<span class="sr-only">Query</span>
 						<div class="relative">
-							<input type="search" name="q" class="input pr-10" placeholder="Search users…" value={ data.Query }/>
+							<input type="search" name="q" value={ data.Query } placeholder="Search name or email" class="input pr-10"/>
 							if data.Query != "" {
 								<a
 									class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
@@ -47,92 +43,92 @@ templ DatadogUsersPage(data viewmodels.DatadogUsersViewData) {
 							}
 						</div>
 					</label>
-					<label class="field w-full sm:w-44">
-						<span class="label">State</span>
-						<select name="state" class="input" data-autosubmit="true">
-							<option value="" selected?={ data.State == "" }>All</option>
+					<label class="field sm:w-36">
+						<span class="sr-only">State</span>
+						<select name="state" class="select" data-autosubmit="true">
+							<option value="" selected?={ data.State == "" }>All states</option>
 							<option value="active" selected?={ data.State == "active" }>Active</option>
 							<option value="inactive" selected?={ data.State == "inactive" }>Inactive</option>
 						</select>
 					</label>
 				</div>
-				<button class="sr-only" type="submit">Apply filters</button>
-			</section>
+				<div class="text-sm text-muted-foreground lg:text-right">
+					if data.TotalCount > 0 {
+						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+					} else {
+						Showing 0
+					}
+				</div>
+			</div>
+			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
 
-		<article class="card">
-			<header>
-				<h2>Datadog users</h2>
-				<span data-slot="card-action" class="badge-outline">
-					if data.TotalCount > 0 {
-						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "–" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
-					} else {
-						{ "Showing 0" }
-					}
-				</span>
-			</header>
-			<section>
-				<div class="overflow-x-auto">
-					@ColumnsControl("datadog-users--main")
-					<table data-columns-id="datadog-users--main" class="table">
-						<caption class="sr-only">Datadog users with status and assigned role summaries.</caption>
-						<thead>
-							<tr>
-								<th>User Name</th>
-								<th>Status</th>
-								<th>Roles</th>
-							</tr>
-						</thead>
-						<tbody>
-							if data.HasUsers {
-								for _, u := range data.Users {
-									<tr>
-										<td class="font-medium">{ u.UserName }</td>
-										<td>
-											if u.Status != "" {
-												<span class={ StatusBadgeClass(u.Status) }>{ u.Status }</span>
-											} else {
-												<span class="text-muted-foreground">-</span>
-											}
-										</td>
-										<td>
-											if u.RolesDisplay != "" {
-												{ u.RolesDisplay }
-											} else {
-												<span class="text-muted-foreground">-</span>
-											}
-										</td>
-									</tr>
-								}
-							} else {
+		<section class="space-y-3">
+			<div class="flex items-center gap-3">
+				<div>
+					<h2 class="text-base font-semibold">Datadog users</h2>
+					<p class="text-sm text-muted-foreground">Datadog users and their role assignments.</p>
+				</div>
+			</div>
+			@ColumnsTable("datadog-users--main", "") {
+				<table data-columns-id="datadog-users--main" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					<caption class="sr-only">Datadog users with status and assigned role summaries.</caption>
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">User Name</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Roles</th>
+						</tr>
+					</thead>
+					<tbody>
+						if data.HasUsers {
+							for _, u := range data.Users {
 								<tr>
-									<td colspan="3">
-										@EmptyState("No users found", data.EmptyStateMsg)
+									<td class="font-medium">{ u.UserName }</td>
+									<td>
+										if u.Status != "" {
+											<span class={ StatusBadgeClass(u.Status) }>{ u.Status }</span>
+										} else {
+											<span class="text-muted-foreground">-</span>
+										}
+									</td>
+									<td>
+										if u.RolesDisplay != "" {
+											{ u.RolesDisplay }
+										} else {
+											<span class="text-muted-foreground">-</span>
+										}
 									</td>
 								</tr>
 							}
-						</tbody>
-					</table>
-				</div>
-				if data.TotalPages > 1 {
-					<div class="flex flex-wrap items-center gap-3 border-t py-3">
-						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
-						<div class="button-group ml-auto">
-							if data.Page > 1 {
-								<a class="btn-sm-outline" href={ ListURL("/datadog-users", data.Query, data.State, data.Page-1) }>Previous</a>
-							} else {
-								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
-							}
-							if data.Page < data.TotalPages {
-								<a class="btn-sm-outline" href={ ListURL("/datadog-users", data.Query, data.State, data.Page+1) }>Next</a>
-							} else {
-								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
-							}
-						</div>
+						} else {
+							<tr>
+								<td colspan="3">
+									@EmptyState("No users found", data.EmptyStateMsg)
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+			if data.TotalPages > 1 {
+				<div class="flex flex-wrap items-center gap-3 border-t py-3">
+					<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
+					<div class="button-group ml-auto">
+						if data.Page > 1 {
+							<a class="btn-sm-outline" href={ ListURL("/datadog-users", data.Query, data.State, data.Page-1) }>Previous</a>
+						} else {
+							<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
+						}
+						if data.Page < data.TotalPages {
+							<a class="btn-sm-outline" href={ ListURL("/datadog-users", data.Query, data.State, data.Page+1) }>Next</a>
+						} else {
+							<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
+						}
 					</div>
-				}
-			</section>
-		</article>
+				</div>
+			}
+		</section>
 	}
 }
 

@@ -92,6 +92,15 @@ templ ColumnsControl(tableID string) {
 	</div>
 }
 
+templ ColumnsTable(tableID string, containerClass string) {
+	<div class={ templ.Classes(templ.KV(containerClass, containerClass != "")) }>
+		<div class="overflow-x-auto">
+			@ColumnsControl(tableID)
+			{ children... }
+		</div>
+	</div>
+}
+
 templ CSRFInput(token string) {
 	<input type="hidden" name="csrf" value={ token }/>
 }

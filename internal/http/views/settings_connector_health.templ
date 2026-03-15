@@ -27,20 +27,19 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 					<p class="text-sm text-muted-foreground">{ data.SummaryLabel }</p>
 				}
 
-				<div class="overflow-x-auto">
-					@ColumnsControl("settings-connector-health--summary")
-					<table data-columns-id="settings-connector-health--summary" class="table">
-						<thead>
-							<tr>
-								<th>Connector</th>
-								<th>Health</th>
-								<th>Last success</th>
-								<th>Last run</th>
-								<th>{ data.LookbackLabel }{ " success" }</th>
-								<th>{ data.LookbackLabel }{ " avg (success)" }</th>
-								<th class="w-12 text-right"><span class="sr-only">Details</span></th>
-							</tr>
-						</thead>
+				@ColumnsTable("settings-connector-health--summary", "") {
+				<table data-columns-id="settings-connector-health--summary" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Connector</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Health</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last success</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last run</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">{ data.LookbackLabel }{ " success" }</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">{ data.LookbackLabel }{ " avg (success)" }</th>
+							<th class="w-12 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground"><span class="sr-only">Details</span></th>
+						</tr>
+					</thead>
 						<tbody>
 							for idx, item := range data.Items {
 								<tr>
@@ -108,7 +107,7 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 							}
 						</tbody>
 					</table>
-				</div>
+				}
 			</section>
 			<footer class="border-t">
 				<div class="text-sm text-muted-foreground">
@@ -142,18 +141,17 @@ templ ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDeta
 				</p>
 			</header>
 			<section class="space-y-4">
-				<div class="overflow-x-auto">
-					@ColumnsControl("settings-connector-health--failures")
-					<table data-columns-id="settings-connector-health--failures" class="table align-top">
-						<thead>
-							<tr>
-								<th>Finished</th>
-								<th>Status</th>
-								<th>Error kind</th>
-								<th>Preview</th>
-								<th>Details</th>
-							</tr>
-						</thead>
+				@ColumnsTable("settings-connector-health--failures", "") {
+				<table data-columns-id="settings-connector-health--failures" class="table osspm-table-fixed osspm-table-compact osspm-table-list align-top">
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Finished</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Error kind</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Preview</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Details</th>
+						</tr>
+					</thead>
 						<tbody>
 							if data.HasRows {
 								for _, row := range data.Rows {
@@ -195,7 +193,7 @@ templ ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDeta
 							}
 						</tbody>
 					</table>
-				</div>
+				}
 			</section>
 			<footer>
 				<button type="button" class="btn-primary" data-dialog-close>Close</button>

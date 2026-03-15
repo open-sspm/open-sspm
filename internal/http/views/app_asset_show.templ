@@ -53,17 +53,16 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 				<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Owners)) }</span>
 			</header>
 			<section>
-				<div class="overflow-x-auto">
-					@ColumnsControl("app-asset-show--owners")
-					<table data-columns-id="app-asset-show--owners" class="table">
-						<thead>
-							<tr>
-								<th>Owner</th>
-								<th>Email</th>
-								<th>Kind</th>
-								<th>External ID</th>
-							</tr>
-						</thead>
+				@ColumnsTable("app-asset-show--owners", "") {
+				<table data-columns-id="app-asset-show--owners" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Owner</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Kind</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">External ID</th>
+						</tr>
+					</thead>
 						<tbody>
 							if data.HasOwners {
 								for _, owner := range data.Owners {
@@ -87,7 +86,7 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 							}
 						</tbody>
 					</table>
-				</div>
+				}
 			</section>
 		</article>
 
@@ -97,20 +96,19 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 				<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Credentials)) }</span>
 			</header>
 			<section>
-				<div class="overflow-x-auto">
-					@ColumnsControl("app-asset-show--credentials")
-					<table data-columns-id="app-asset-show--credentials" class="table">
-						<thead>
-							<tr>
-								<th>Credential</th>
-								<th>Kind</th>
-								<th>Status</th>
-								<th>Risk</th>
-								<th>Expires</th>
-								<th>Last used</th>
-								<th>Creator</th>
-							</tr>
-						</thead>
+				@ColumnsTable("app-asset-show--credentials", "") {
+				<table data-columns-id="app-asset-show--credentials" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Credential</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Kind</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Risk</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Expires</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last used</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Creator</th>
+						</tr>
+					</thead>
 						<tbody>
 							if data.HasCredentials {
 								for _, credential := range data.Credentials {
@@ -137,7 +135,7 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 							}
 						</tbody>
 					</table>
-				</div>
+				}
 			</section>
 		</article>
 
@@ -147,18 +145,17 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 				<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.AuditEvents)) }</span>
 			</header>
 			<section>
-				<div class="overflow-x-auto">
-					@ColumnsControl("app-asset-show--events")
-					<table data-columns-id="app-asset-show--events" class="table">
-						<thead>
-							<tr>
-								<th>Time</th>
-								<th>Event</th>
-								<th>Actor</th>
-								<th>Credential</th>
-								<th>Target</th>
-							</tr>
-						</thead>
+				@ColumnsTable("app-asset-show--events", "") {
+				<table data-columns-id="app-asset-show--events" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Time</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Event</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Actor</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Credential</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Target</th>
+						</tr>
+					</thead>
 						<tbody>
 							if data.HasAuditEvents {
 								for _, event := range data.AuditEvents {
@@ -180,7 +177,7 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 							}
 						</tbody>
 					</table>
-				</div>
+				}
 			</section>
 		</article>
 	}

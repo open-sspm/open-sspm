@@ -52,19 +52,18 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 				<p>IdP identities and app accounts with this entitlement.</p>
 			</header>
 			<section>
-				<div class="overflow-x-auto">
-					@ColumnsControl("resource-show--main")
-					<table data-columns-id="resource-show--main" class="table">
-						<caption class="sr-only">People and app accounts with access to this resource.</caption>
-						<thead>
-							<tr>
-								<th>IdP user</th>
-								<th>App account</th>
-								<th>Permission</th>
-								<th>Kind</th>
-								<th>Link</th>
-							</tr>
-						</thead>
+				@ColumnsTable("resource-show--main", "") {
+				<table data-columns-id="resource-show--main" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					<caption class="sr-only">People and app accounts with access to this resource.</caption>
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">IdP user</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">App account</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Permission</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Kind</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Link</th>
+						</tr>
+					</thead>
 						<tbody>
 							if data.HasRows {
 								for _, row := range data.Rows {
@@ -134,7 +133,7 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 							}
 						</tbody>
 					</table>
-				</div>
+				}
 			</section>
 		</article>
 	}

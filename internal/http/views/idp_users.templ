@@ -10,17 +10,13 @@ templ IdPUsersPage(data viewmodels.IdPUsersViewData) {
 		}, "Okta user accounts synced from your IdP.") {
 		}
 
-		<form method="get" class="card">
-			<header>
-				<h2>Search</h2>
-				<p>Filter users by name, email, Okta ID, and state.</p>
-			</header>
-			<section>
-				<div class="flex flex-col gap-4 sm:flex-row sm:items-end">
-					<label class="field w-full sm:max-w-md">
-						<span class="label">Query</span>
+		<form method="get" class="space-y-4 border-b border-border/70 pb-5">
+			<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+				<div class="flex flex-col gap-3 sm:flex-row sm:items-center w-full lg:max-w-xl">
+					<label class="field flex-1">
+						<span class="sr-only">Query</span>
 						<div class="relative">
-							<input type="search" name="q" class="input pr-10" placeholder="Search users…" value={ data.Query }/>
+							<input type="search" name="q" value={ data.Query } placeholder="Search name, email, or Okta ID" class="input pr-10"/>
 							if data.Query != "" {
 								<a
 									class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
@@ -34,84 +30,84 @@ templ IdPUsersPage(data viewmodels.IdPUsersViewData) {
 							}
 						</div>
 					</label>
-					<label class="field w-full sm:w-44">
-						<span class="label">State</span>
-						<select name="state" class="input" data-autosubmit="true">
-							<option value="" selected?={ data.State == "" }>All</option>
+					<label class="field sm:w-36">
+						<span class="sr-only">State</span>
+						<select name="state" class="select" data-autosubmit="true">
+							<option value="" selected?={ data.State == "" }>All states</option>
 							<option value="active" selected?={ data.State == "active" }>Active</option>
 							<option value="inactive" selected?={ data.State == "inactive" }>Inactive</option>
 						</select>
 					</label>
 				</div>
-				<button class="sr-only" type="submit">Apply filters</button>
-			</section>
+				<div class="text-sm text-muted-foreground lg:text-right">
+					if data.TotalCount > 0 {
+						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+					} else {
+						Showing 0
+					}
+				</div>
+			</div>
+			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
 
-		<article class="card">
-			<header>
-				<h2>Okta Accounts</h2>
-				<span data-slot="card-action" class="badge-outline">
-					if data.TotalCount > 0 {
-						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "–" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
-					} else {
-						{ "Showing 0" }
-					}
-				</span>
-			</header>
-			<section>
-				<div class="overflow-x-auto">
-					@ColumnsControl("idp-users--main")
-					<table data-columns-id="idp-users--main" class="table">
-						<caption class="sr-only">Okta user accounts with email, name, and account status.</caption>
-						<thead>
-							<tr>
-								<th>Email</th>
-								<th>Name</th>
-								<th>Status</th>
-							</tr>
-						</thead>
-						<tbody>
-							if data.HasUsers {
-								for _, u := range data.Users {
-									<tr>
-										<td class="font-medium">
-											<a class="btn-sm-link" href={ "/idp-users/" + FormatInt64(u.ID) }>{ u.Email }</a>
-										</td>
-										<td class="text-muted-foreground">{ u.DisplayName }</td>
-										<td>
-											<span class={ StatusBadgeClass(u.Status) }>{ u.Status }</span>
-										</td>
-									</tr>
-								}
-							} else {
+		<section class="space-y-3">
+			<div class="flex items-center gap-3">
+				<div>
+					<h2 class="text-base font-semibold">Okta Accounts</h2>
+					<p class="text-sm text-muted-foreground">Okta user accounts synced from your IdP.</p>
+				</div>
+			</div>
+			@ColumnsTable("idp-users--main", "") {
+				<table data-columns-id="idp-users--main" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					<caption class="sr-only">Okta user accounts with email, name, and account status.</caption>
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
+						</tr>
+					</thead>
+					<tbody>
+						if data.HasUsers {
+							for _, u := range data.Users {
 								<tr>
-									<td colspan="3">
-										@EmptyState("No accounts found", data.EmptyStateMsg)
+									<td class="font-medium">
+										<a class="btn-sm-link" href={ "/idp-users/" + FormatInt64(u.ID) }>{ u.Email }</a>
+									</td>
+									<td class="text-muted-foreground">{ u.DisplayName }</td>
+									<td>
+										<span class={ StatusBadgeClass(u.Status) }>{ u.Status }</span>
 									</td>
 								</tr>
 							}
-						</tbody>
-					</table>
-				</div>
-				if data.TotalPages > 1 {
-					<div class="flex flex-wrap items-center gap-3 border-t py-3">
-						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
-						<div class="button-group ml-auto">
-							if data.Page > 1 {
-								<a class="btn-sm-outline" href={ ListURL("/idp-users", data.Query, data.State, data.Page-1) }>Previous</a>
-							} else {
-								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
-							}
-							if data.Page < data.TotalPages {
-								<a class="btn-sm-outline" href={ ListURL("/idp-users", data.Query, data.State, data.Page+1) }>Next</a>
-							} else {
-								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
-							}
-						</div>
+						} else {
+							<tr>
+								<td colspan="3">
+									@EmptyState("No accounts found", data.EmptyStateMsg)
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+			if data.TotalPages > 1 {
+				<div class="flex flex-wrap items-center gap-3 border-t py-3">
+					<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
+					<div class="button-group ml-auto">
+						if data.Page > 1 {
+							<a class="btn-sm-outline" href={ ListURL("/idp-users", data.Query, data.State, data.Page-1) }>Previous</a>
+						} else {
+							<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
+						}
+						if data.Page < data.TotalPages {
+							<a class="btn-sm-outline" href={ ListURL("/idp-users", data.Query, data.State, data.Page+1) }>Next</a>
+						} else {
+							<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
+						}
 					</div>
-				}
-			</section>
-		</article>
+				</div>
+			}
+		</section>
 	}
 }
 

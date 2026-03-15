@@ -24,60 +24,56 @@ templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
 			hx-target="#discovery-hotspots-results"
 			hx-swap="outerHTML"
 			hx-push-url="true"
-			class="card"
+			class="space-y-4 border-b border-border/70 pb-5"
 		>
-			<header>
-				<h2>Filters</h2>
-				<p>Focus hotspots by source scope.</p>
-			</header>
-			<section>
-				<div class="grid gap-4 md:grid-cols-2">
-					<label class="field">
-						<span class="label">Source kind</span>
-						<select class="select" name="source_kind">
-							<option value="" selected?={ data.SelectedSourceKind == "" }>All configured</option>
-							for _, source := range data.SourceOptions {
-								<option value={ source.SourceKind } selected?={ source.SourceKind == data.SelectedSourceKind } title={ source.Label }>{ source.Label }</option>
-							}
-						</select>
-					</label>
+			<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+				<label class="field w-full lg:max-w-xs">
+					<span class="sr-only">Source kind</span>
+					<select class="select" name="source_kind">
+						<option value="" selected?={ data.SelectedSourceKind == "" }>All configured</option>
+						for _, source := range data.SourceOptions {
+							<option value={ source.SourceKind } selected?={ source.SourceKind == data.SelectedSourceKind } title={ source.Label }>{ source.Label }</option>
+						}
+					</select>
+				</label>
+				<div class="text-sm text-muted-foreground lg:text-right">
+					{ FormatInt(len(data.Items)) } items
 				</div>
-				<button class="sr-only" type="submit">Apply filters</button>
-			</section>
+			</div>
+			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
 
-		<article class="card">
-			<header>
-				<h2>Risk Hotspots</h2>
-				<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Items)) }</span>
-			</header>
-			<section>
-				<div class="overflow-x-auto">
-					@ColumnsControl("discovery-hotspots--main")
-					<table data-columns-id="discovery-hotspots--main" class="table">
-						<caption class="sr-only">Top discovery hotspots ordered by risk score.</caption>
-						<thead>
-							<tr>
-								<th>App</th>
-								<th>Risk</th>
-								<th>Managed</th>
-								<th>Owner</th>
-								<th>Actors (30d)</th>
-							</tr>
-						</thead>
+		<section class="space-y-3">
+			<div class="flex items-center gap-3">
+				<div>
+					<h2 class="text-base font-semibold">Risk Hotspots</h2>
+					<p class="text-sm text-muted-foreground">Top risk hotspots ordered by risk score.</p>
+				</div>
+			</div>
+				@ColumnsTable("discovery-hotspots--main", "") {
+				<table data-columns-id="discovery-hotspots--main" class="table osspm-table-compact osspm-table-list">
+					<caption class="sr-only">Top discovery hotspots ordered by risk score.</caption>
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">App</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Risk</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Managed</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Owner</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Actors (30d)</th>
+						</tr>
+					</thead>
 						<tbody>
 							if data.HasItems {
 								for _, item := range data.Items {
 									<tr data-row-href={ "/discovery/apps/" + FormatInt64(item.ID) } class="cursor-pointer hover:bg-muted/50">
-										<td>
+										<td class="whitespace-normal">
 											<a class="btn-sm-link px-0 font-medium" href={ "/discovery/apps/" + FormatInt64(item.ID) }>{ item.DisplayName }</a>
 											if item.Domain != "" {
-												<div class="text-xs text-muted-foreground">{ item.Domain }</div>
+												<div class="text-sm text-muted-foreground">{ item.Domain }</div>
 											}
 										</td>
 										<td>
 											<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
-											<div class="text-xs text-muted-foreground">{ FormatInt(int(item.RiskScore)) }</div>
 										</td>
 										<td><span class={ DiscoveryManagedBadgeClass(item.ManagedState) }>{ HumanizeDiscoveryManagedState(item.ManagedState) }</span></td>
 										<td>{ item.Owner }</td>
@@ -93,9 +89,7 @@ templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
 							}
 						</tbody>
 					</table>
-				</div>
-			</section>
-		</article>
+				}
+		</section>
 	</div>
 }
-
