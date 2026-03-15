@@ -23,18 +23,17 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 		}
 
 		<article class="card">
-			<section class="overflow-x-auto">
-				@ColumnsControl("connectors--main")
-				<table data-columns-id="connectors--main" class="table align-top">
-					<thead>
-						<tr>
-							<th>Connector</th>
-							<th>Configured</th>
-							<th>Enabled</th>
-							<th>Identity source</th>
-							<th class="text-right">Actions</th>
-						</tr>
-					</thead>
+			@ColumnsTable("connectors--main", "") {
+			<table data-columns-id="connectors--main" class="table osspm-table-fixed osspm-table-compact osspm-table-list align-top">
+				<thead>
+					<tr>
+						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Connector</th>
+						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Configured</th>
+						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Enabled</th>
+						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Identity source</th>
+						<th class="text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Actions</th>
+					</tr>
+				</thead>
 					<tbody>
 						@OktaConnectorRow(data)
 						@GoogleWorkspaceConnectorRow(data)
@@ -45,7 +44,7 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 						@VaultConnectorRow(data)
 					</tbody>
 				</table>
-			</section>
+			}
 		</article>
 
 		@FormDialog("connector-okta-modal", data.OpenKind == "okta", "Okta configuration", "Identity provider source for users and groups.", "/settings/connectors#connector-okta-configure", "/settings/connectors/okta", "Save", data.Layout.CSRFToken) {

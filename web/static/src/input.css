@@ -148,6 +148,20 @@
     vertical-align: top;
   }
 
+  .osspm-table-list thead th {
+    color: var(--color-muted-foreground);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .osspm-table-list tbody td {
+    border-top: 1px solid rgb(from var(--color-border) r g b / 0.55);
+  }
+
+  .osspm-table-list tbody tr:hover td {
+    background: rgb(from var(--color-muted) r g b / 0.2);
+  }
+
   .osspm-col-id {
     width: 12rem;
   }

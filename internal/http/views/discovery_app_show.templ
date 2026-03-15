@@ -71,17 +71,16 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 				<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Sources)) }</span>
 			</header>
 			<section>
-				<div class="overflow-x-auto">
-					@ColumnsControl("discovery-app-show--sources")
-					<table data-columns-id="discovery-app-show--sources" class="table">
-						<thead>
-							<tr>
-								<th>Source</th>
-								<th>Source app</th>
-								<th>Domain</th>
-								<th>Last observed</th>
-							</tr>
-						</thead>
+				@ColumnsTable("discovery-app-show--sources", "") {
+				<table data-columns-id="discovery-app-show--sources" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source app</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Domain</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last observed</th>
+						</tr>
+					</thead>
 						<tbody>
 							if data.HasSources {
 								for _, source := range data.Sources {
@@ -102,7 +101,7 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 							}
 						</tbody>
 					</table>
-				</div>
+				}
 			</section>
 		</article>
 
@@ -112,18 +111,17 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 				<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.TopActors)) }</span>
 			</header>
 			<section>
-				<div class="overflow-x-auto">
-					@ColumnsControl("discovery-app-show--actors")
-					<table data-columns-id="discovery-app-show--actors" class="table">
-						<thead>
-							<tr>
-								<th>Actor</th>
-								<th>Email</th>
-								<th>External ID</th>
-								<th>Events</th>
-								<th>Last observed</th>
-							</tr>
-						</thead>
+				@ColumnsTable("discovery-app-show--actors", "") {
+				<table data-columns-id="discovery-app-show--actors" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Actor</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">External ID</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Events</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last observed</th>
+						</tr>
+					</thead>
 						<tbody>
 							if data.HasTopActors {
 								for _, actor := range data.TopActors {
@@ -142,7 +140,7 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 							}
 						</tbody>
 					</table>
-				</div>
+				}
 			</section>
 		</article>
 
@@ -152,18 +150,17 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 				<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Events)) }</span>
 			</header>
 			<section>
-				<div class="overflow-x-auto">
-					@ColumnsControl("discovery-app-show--events")
-					<table data-columns-id="discovery-app-show--events" class="table">
-						<thead>
-							<tr>
-								<th>Observed</th>
-								<th>Signal</th>
-								<th>Actor</th>
-								<th>Source app</th>
-								<th>Scopes</th>
-							</tr>
-						</thead>
+				@ColumnsTable("discovery-app-show--events", "") {
+				<table data-columns-id="discovery-app-show--events" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Observed</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Signal</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Actor</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source app</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Scopes</th>
+						</tr>
+					</thead>
 						<tbody>
 							if data.HasEvents {
 								for _, event := range data.Events {
@@ -182,7 +179,7 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 							}
 						</tbody>
 					</table>
-				</div>
+				}
 			</section>
 		</article>
 	}

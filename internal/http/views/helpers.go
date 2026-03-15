@@ -19,6 +19,20 @@ func QueryEscape(v string) string {
 	return url.QueryEscape(v)
 }
 
+func FilterPillClass(active bool) string {
+	if active {
+		return "inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-foreground no-underline"
+	}
+	return "inline-flex items-center rounded-md px-2.5 py-1 text-xs text-muted-foreground no-underline hover:bg-muted/60 hover:text-foreground"
+}
+
+func IdentityManagedTextClass(managed bool) string {
+	if managed {
+		return "text-sm font-medium text-emerald-700 dark:text-emerald-300"
+	}
+	return "text-sm font-medium text-amber-700 dark:text-amber-300"
+}
+
 func AppAssetsListURL(sourceKind, sourceName, query, assetKind string, page int) string {
 	values := url.Values{}
 	if sourceKind = strings.TrimSpace(sourceKind); sourceKind != "" {

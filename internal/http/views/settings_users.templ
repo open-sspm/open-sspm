@@ -18,23 +18,22 @@ templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
 			}
 		}
 
-		<article class="card">
-			<header>
-				<h2>Team Management</h2>
-			</header>
-			<section>
-				@ColumnsControl("settings-users--main")
-				<table data-columns-id="settings-users--main" class="table">
-					<caption class="sr-only">Local users, roles, status, last login, and account actions.</caption>
-					<thead>
-						<tr>
-							<th>Email</th>
-							<th>Group</th>
-							<th>Status</th>
-							<th>Last login</th>
-							<th></th>
-						</tr>
-					</thead>
+		<section class="space-y-3">
+			<div>
+				<h2 class="text-base font-semibold">Team Management</h2>
+			</div>
+			@ColumnsControl("settings-users--main")
+			<table data-columns-id="settings-users--main" class="table osspm-table-compact osspm-table-list">
+				<caption class="sr-only">Local users, roles, status, last login, and account actions.</caption>
+				<thead>
+					<tr>
+						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
+						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Group</th>
+						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
+						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last login</th>
+						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground"></th>
+					</tr>
+				</thead>
 					<tbody>
 						if data.HasUsers {
 							for _, u := range data.Users {
@@ -83,11 +82,10 @@ templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
 									}
 								</td>
 							</tr>
-						}
-					</tbody>
-				</table>
-			</section>
-		</article>
+					}
+				</tbody>
+			</table>
+		</section>
 
 		@FormDialog("settings-users-add-modal", data.OpenAdd, "Add user", "Create a new local user account.", "/settings/users#settings-users-add-trigger", "/settings/users", "Create user", data.Layout.CSRFToken) {
 			<label class="field">
@@ -147,4 +145,3 @@ templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
 		}
 	}
 }
-

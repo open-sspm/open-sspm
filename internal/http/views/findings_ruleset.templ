@@ -113,17 +113,16 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 					if len(data.FrameworkMappings) > 0 {
 						<div class="space-y-2">
 							<h3 class="text-sm font-medium">Framework mappings</h3>
-							<div class="overflow-x-auto">
-								@ColumnsControl("findings-ruleset--coverage")
-								<table data-columns-id="findings-ruleset--coverage" class="table">
-									<caption class="sr-only">Framework mapping controls and their coverage status.</caption>
-									<thead>
-										<tr>
-											<th>Framework</th>
-											<th>Control</th>
-											<th>Coverage</th>
-										</tr>
-									</thead>
+							@ColumnsTable("findings-ruleset--coverage", "") {
+							<table data-columns-id="findings-ruleset--coverage" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+								<caption class="sr-only">Framework mapping controls and their coverage status.</caption>
+								<thead>
+									<tr>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Framework</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Control</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Coverage</th>
+									</tr>
+								</thead>
 									<tbody>
 										for _, m := range data.FrameworkMappings {
 											<tr>
@@ -139,7 +138,7 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 										}
 									</tbody>
 								</table>
-							</div>
+							}
 						</div>
 					}
 				</section>
@@ -149,12 +148,12 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 }
 
 templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
-	<article id="rules-card" class="card">
-		<header>
-			<h2>Rules</h2>
-			<p class="text-muted-foreground">Filter and review the current results for this ruleset.</p>
-		</header>
-		<section class="space-y-4">
+	<section id="rules-card" class="space-y-3">
+		<div>
+			<h2 class="text-base font-semibold">Rules</h2>
+			<p class="text-sm text-muted-foreground">Filter and review the current results for this ruleset.</p>
+		</div>
+		<div class="space-y-4">
 			<form method="get" action={ "/findings/rulesets/" + data.Ruleset.Key } hx-get={ "/findings/rulesets/" + data.Ruleset.Key } hx-trigger="change delay:150ms, submit" hx-target="#rules-card" hx-swap="outerHTML" hx-push-url="true" class="flex flex-wrap items-end gap-3">
 				<label class="space-y-1">
 					<div class="text-sm font-medium">Status</div>
@@ -191,56 +190,52 @@ templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 				<button class="sr-only" type="submit">Apply filters</button>
 			</form>
 
-				if data.HasRules {
-					<div class="overflow-x-auto">
-						@ColumnsControl("findings-ruleset--rules")
-						<table data-columns-id="findings-ruleset--rules" class="table osspm-table-fixed osspm-table-compact">
-							<caption class="sr-only">Rules in this ruleset with severity, monitoring, and current status.</caption>
-							<thead>
-								<tr>
-								<th>Rule</th>
-								<th>Severity</th>
-								<th>Monitoring</th>
-								<th>Status</th>
+			if data.HasRules {
+				@ColumnsTable("findings-ruleset--rules", "") {
+					<table data-columns-id="findings-ruleset--rules" class="table osspm-table-compact osspm-table-list">
+						<caption class="sr-only">Rules in this ruleset with severity, monitoring, and current status.</caption>
+						<thead>
+							<tr>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Rule</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Severity</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Monitoring</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
 							</tr>
 						</thead>
 						<tbody>
-								for _, r := range data.Rules {
-									<tr data-row-href={ r.Href } class="cursor-pointer hover:bg-muted/50">
-										<td>
-											<div class="space-y-0.5">
-												<a class="btn-sm-link px-0 osspm-cell-primary osspm-token" href={ r.Href } title={ r.Key }>{ r.Key }</a>
-												if r.Title != "" && r.Title != r.Key {
-													<div class="osspm-cell-secondary">{ r.Title }</div>
-												} else if r.Summary != "" {
-													<div class="osspm-cell-secondary">{ r.Summary }</div>
-												}
-												if r.EvidenceSummary != "" && r.EvidenceSummary != "Manual check requires attestation" && !strings.HasPrefix(r.EvidenceSummary, "Demo seeded:") && r.EvidenceSummary != r.Summary && r.EvidenceSummary != r.Title {
-													<div class="osspm-cell-secondary">{ r.EvidenceSummary }</div>
-												}
-											</div>
-										</td>
-										<td><span class="badge-outline">{ r.Severity }</span></td>
-										<td><span class={ RuleMonitoringBadgeClass(r.MonitoringStatus) }>{ r.MonitoringStatus }</span></td>
-										<td>
-											<span class={ RuleStatusBadgeClass(r.Status) }>{ HumanizeRuleStatus(r.Status) }</span>
-											if r.ErrorKind != "" {
-												<div class="osspm-cell-secondary">{ r.ErrorKind }</div>
-											}
-											if r.EvaluatedAt != "" {
-												<div class="osspm-cell-secondary osspm-num">{ r.EvaluatedAt }</div>
-											}
-										</td>
-									</tr>
+							for _, r := range data.Rules {
+								<tr data-row-href={ r.Href } class="cursor-pointer hover:bg-muted/50">
+									<td class="whitespace-normal">
+										<a class="btn-sm-link px-0 font-medium osspm-token" href={ r.Href } title={ r.Key }>{ r.Key }</a>
+										if r.Title != "" && r.Title != r.Key {
+											<div class="text-sm text-muted-foreground">{ r.Title }</div>
+										} else if r.Summary != "" {
+											<div class="text-sm text-muted-foreground">{ r.Summary }</div>
+										}
+										if r.EvidenceSummary != "" && r.EvidenceSummary != "Manual check requires attestation" && !strings.HasPrefix(r.EvidenceSummary, "Demo seeded:") && r.EvidenceSummary != r.Summary && r.EvidenceSummary != r.Title {
+											<div class="text-sm text-muted-foreground">{ r.EvidenceSummary }</div>
+										}
+									</td>
+									<td><span class="badge-outline">{ r.Severity }</span></td>
+									<td><span class={ RuleMonitoringBadgeClass(r.MonitoringStatus) }>{ r.MonitoringStatus }</span></td>
+									<td>
+										<span class={ RuleStatusBadgeClass(r.Status) }>{ HumanizeRuleStatus(r.Status) }</span>
+										if r.ErrorKind != "" {
+											<div class="text-sm text-muted-foreground">{ r.ErrorKind }</div>
+										}
+										if r.EvaluatedAt != "" {
+											<div class="text-sm text-muted-foreground">{ r.EvaluatedAt }</div>
+										}
+									</td>
+								</tr>
 							}
 						</tbody>
 					</table>
-				</div>
+				}
 			} else {
 				@EmptyState("No rules found", "This ruleset has no active rules.") {
 				}
 			}
-		</section>
-	</article>
+		</div>
+	</section>
 }
-

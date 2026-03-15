@@ -110,7 +110,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " <article class=\"card\"><header><h2>Team Management</h2></header><section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " <section class=\"space-y-3\"><div><h2 class=\"text-base font-semibold\">Team Management</h2></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -118,7 +118,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<table data-columns-id=\"settings-users--main\" class=\"table\"><caption class=\"sr-only\">Local users, roles, status, last login, and account actions.</caption> <thead><tr><th>Email</th><th>Group</th><th>Status</th><th>Last login</th><th></th></tr></thead> <tbody>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<table data-columns-id=\"settings-users--main\" class=\"table osspm-table-compact osspm-table-list\"><caption class=\"sr-only\">Local users, roles, status, last login, and account actions.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Email</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Group</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Status</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last login</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\"></th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -131,7 +131,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					var templ_7745c5c3_Var6 string
 					templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(u.Email)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 42, Col: 72}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 41, Col: 72}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 					if templ_7745c5c3_Err != nil {
@@ -166,7 +166,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					var templ_7745c5c3_Var9 string
 					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeAuthUserRole(u.Role))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 44, Col: 87}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 43, Col: 87}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 					if templ_7745c5c3_Err != nil {
@@ -201,7 +201,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					var templ_7745c5c3_Var12 string
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(AuthUserStatusLabel(u.IsActive))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 47, Col: 96}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 46, Col: 96}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
@@ -214,7 +214,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					var templ_7745c5c3_Var13 string
 					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(u.LastLoginTitle)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 49, Col: 85}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 48, Col: 85}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {
@@ -227,7 +227,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					var templ_7745c5c3_Var14 string
 					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(u.LastLogin)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 49, Col: 101}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 48, Col: 101}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 					if templ_7745c5c3_Err != nil {
@@ -240,7 +240,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					var templ_7745c5c3_Var15 string
 					templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs("settings-users-actions-" + FormatInt64(u.ID) + "-trigger")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 52, Col: 96}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 51, Col: 96}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 					if templ_7745c5c3_Err != nil {
@@ -253,7 +253,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					var templ_7745c5c3_Var16 string
 					templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs("settings-users-actions-" + FormatInt64(u.ID) + "-menu")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 52, Col: 191}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 51, Col: 191}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 					if templ_7745c5c3_Err != nil {
@@ -266,7 +266,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					var templ_7745c5c3_Var17 string
 					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs("Actions for " + u.Email)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 52, Col: 291}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 51, Col: 291}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 					if templ_7745c5c3_Err != nil {
@@ -279,7 +279,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					var templ_7745c5c3_Var18 string
 					templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs("settings-users-actions-" + FormatInt64(u.ID) + "-menu")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 56, Col: 89}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 55, Col: 89}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 					if templ_7745c5c3_Err != nil {
@@ -292,7 +292,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					var templ_7745c5c3_Var19 string
 					templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs("settings-users-actions-" + FormatInt64(u.ID) + "-trigger")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 56, Col: 168}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 55, Col: 168}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 					if templ_7745c5c3_Err != nil {
@@ -305,7 +305,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					var templ_7745c5c3_Var20 string
 					templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs("settings-users-edit-trigger-" + FormatInt64(u.ID))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 57, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 56, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 					if templ_7745c5c3_Err != nil {
@@ -318,7 +318,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					var templ_7745c5c3_Var21 templ.SafeURL
 					templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinURLErrs("/settings/users?open=edit&id=" + FormatInt64(u.ID))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 57, Col: 171}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 56, Col: 171}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 					if templ_7745c5c3_Err != nil {
@@ -336,7 +336,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 						var templ_7745c5c3_Var22 string
 						templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs("settings-users-delete-trigger-" + FormatInt64(u.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 62, Col: 74}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 61, Col: 74}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 						if templ_7745c5c3_Err != nil {
@@ -349,7 +349,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 						var templ_7745c5c3_Var23 templ.SafeURL
 						templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinURLErrs("/settings/users?open=delete&id=" + FormatInt64(u.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 62, Col: 193}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 61, Col: 193}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 						if templ_7745c5c3_Err != nil {
@@ -402,7 +402,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</tbody></table></section></article>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</tbody></table></section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -425,7 +425,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 				var templ_7745c5c3_Var26 string
 				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(data.Form.Email)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 95, Col: 81}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 93, Col: 81}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 				if templ_7745c5c3_Err != nil {
@@ -484,7 +484,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 				var templ_7745c5c3_Var28 string
 				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(data.EditForm.Email)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 119, Col: 72}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 117, Col: 72}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 				if templ_7745c5c3_Err != nil {
@@ -532,7 +532,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					var templ_7745c5c3_Var29 string
 					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(data.EditForm.RoleDisabledReason)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 128, Col: 80}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 126, Col: 80}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 					if templ_7745c5c3_Err != nil {
@@ -576,7 +576,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 				var templ_7745c5c3_Var31 string
 				templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(data.Delete.Email)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 145, Col: 66}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 143, Col: 66}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 				if templ_7745c5c3_Err != nil {

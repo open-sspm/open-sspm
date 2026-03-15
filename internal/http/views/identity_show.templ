@@ -53,18 +53,17 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 				</span>
 			</header>
 			<section>
-				<div class="overflow-x-auto">
-					@ColumnsControl("identity-show--linked-accounts")
-					<table data-columns-id="identity-show--linked-accounts" class="table">
-						<thead>
-							<tr>
-								<th>Source</th>
-								<th>Email</th>
-								<th>Display name</th>
-								<th>Status</th>
-								<th>Entitlements</th>
-							</tr>
-						</thead>
+				@ColumnsTable("identity-show--linked-accounts", "") {
+				<table data-columns-id="identity-show--linked-accounts" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Display name</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Entitlements</th>
+						</tr>
+					</thead>
 						<tbody>
 							if data.HasLinkedAccounts {
 								for _, linked := range data.LinkedAccounts {
@@ -110,7 +109,7 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 							}
 						</tbody>
 					</table>
-				</div>
+				}
 			</section>
 		</article>
 	}
