@@ -18,7 +18,7 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 			method="get"
 			action="/apps"
 			hx-get="/apps"
-			hx-trigger="change delay:150ms from:select, submit"
+			hx-trigger="input changed delay:300ms from:input[name='q'], change delay:150ms from:select, submit"
 			hx-target="#apps-results"
 			hx-swap="outerHTML"
 			hx-push-url="true"

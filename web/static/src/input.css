@@ -150,8 +150,6 @@
 
   .osspm-table-list thead th {
     color: var(--color-muted-foreground);
-    font-size: 0.875rem;
-    font-weight: 500;
   }
 
   .osspm-table-list tbody td {

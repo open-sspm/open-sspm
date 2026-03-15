@@ -72,9 +72,9 @@ templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
 												<div class="text-sm text-muted-foreground">{ item.Domain }</div>
 											}
 										</td>
-											<td>
-												<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
-											</td>
+										<td>
+											<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
+										</td>
 										<td><span class={ DiscoveryManagedBadgeClass(item.ManagedState) }>{ HumanizeDiscoveryManagedState(item.ManagedState) }</span></td>
 										<td>{ item.Owner }</td>
 										<td><span class="badge-outline">{ FormatInt64(item.Actors30d) }</span></td>
