@@ -156,6 +156,76 @@ func TestDoAuthorizedJSONRequestRetries429(t *testing.T) {
 	}
 }
 
+func TestDeleteOAuthTokenGrantUsesDeleteEndpoint(t *testing.T) {
+	t.Parallel()
+
+	var deleteCalls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"access_token":"access-token","expires_in":3600}`)
+		case "/admin/directory/v1/users/user-1/tokens/client-1":
+			deleteCalls.Add(1)
+			if r.Method != http.MethodDelete {
+				t.Fatalf("method = %q, want %q", r.Method, http.MethodDelete)
+			}
+			if got := strings.TrimSpace(r.Header.Get("Authorization")); got != "Bearer access-token" {
+				t.Fatalf("authorization header = %q, want %q", got, "Bearer access-token")
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClientWithOptions(testServiceAccountConfig(t, server.URL+"/token"), ClientOptions{
+		HTTPClient:       server.Client(),
+		DirectoryBaseURL: server.URL + "/admin/directory/v1",
+		TokenURL:         server.URL + "/token",
+	})
+	if err != nil {
+		t.Fatalf("NewClientWithOptions() error = %v", err)
+	}
+
+	if err := client.DeleteOAuthTokenGrant(context.Background(), "user-1", "client-1"); err != nil {
+		t.Fatalf("DeleteOAuthTokenGrant() error = %v", err)
+	}
+	if deleteCalls.Load() != 1 {
+		t.Fatalf("delete calls = %d, want 1", deleteCalls.Load())
+	}
+}
+
+func TestDeleteOAuthTokenGrantTreatsNotFoundAsSuccess(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"access_token":"access-token","expires_in":3600}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = io.WriteString(w, `{"error":"not_found"}`)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClientWithOptions(testServiceAccountConfig(t, server.URL+"/token"), ClientOptions{
+		HTTPClient:       server.Client(),
+		DirectoryBaseURL: server.URL + "/admin/directory/v1",
+		TokenURL:         server.URL + "/token",
+	})
+	if err != nil {
+		t.Fatalf("NewClientWithOptions() error = %v", err)
+	}
+
+	if err := client.DeleteOAuthTokenGrant(context.Background(), "user-1", "missing-client"); err != nil {
+		t.Fatalf("DeleteOAuthTokenGrant() error = %v, want nil on 404", err)
+	}
+}
+
 func TestSignedAssertionADCUsesSignJWT(t *testing.T) {
 	t.Parallel()
 

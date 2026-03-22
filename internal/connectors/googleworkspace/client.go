@@ -444,6 +444,27 @@ func (c *Client) ListOAuthTokenGrants(ctx context.Context) ([]WorkspaceOAuthToke
 	return out, nil
 }
 
+func (c *Client) DeleteOAuthTokenGrant(ctx context.Context, userKey, clientID string) error {
+	userKey = strings.TrimSpace(userKey)
+	clientID = strings.TrimSpace(clientID)
+	if userKey == "" {
+		return errors.New("google workspace user key is required")
+	}
+	if clientID == "" {
+		return errors.New("google workspace client id is required")
+	}
+
+	endpoint := c.directoryBaseURL + "/users/" + url.PathEscape(userKey) + "/tokens/" + url.PathEscape(clientID)
+	_, statusCode, err := c.doAuthorizedJSONRequest(ctx, http.MethodDelete, endpoint, nil)
+	if err != nil {
+		if statusCode == http.StatusNotFound {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
 func (c *Client) ListTokenActivities(ctx context.Context, since *time.Time) ([]WorkspaceActivity, error) {
 	return c.listActivities(ctx, "token", since)
 }

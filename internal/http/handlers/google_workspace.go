@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"net/http"
 	"strings"
 
 	"github.com/labstack/echo/v5"
@@ -267,149 +268,12 @@ func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
 }
 
 func (h *Handlers) HandleGoogleWorkspaceOAuthApps(c *echo.Context) error {
-	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Google Workspace OAuth Apps")
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	const perPage = 20
 	query := strings.TrimSpace(c.QueryParam("q"))
-	page := parsePageParam(c)
-	sourceName := strings.TrimSpace(snap.GoogleWorkspace.CustomerID)
-
-	if !snap.GoogleWorkspaceConfigured || !snap.GoogleWorkspaceEnabled {
-		message := connectorUnavailableMessage("Google Workspace", snap.GoogleWorkspaceConfigured, snap.GoogleWorkspaceEnabled)
-		data := viewmodels.GoogleWorkspaceOAuthAppsViewData{
-			Layout:         layout,
-			Apps:           nil,
-			Query:          query,
-			ShowingCount:   0,
-			ShowingFrom:    0,
-			ShowingTo:      0,
-			TotalCount:     0,
-			Page:           1,
-			PerPage:        perPage,
-			TotalPages:     1,
-			HasApps:        false,
-			EmptyStateMsg:  message,
-			EmptyStateHref: "/settings/connectors?open=google_workspace",
-		}
-		return h.RenderComponent(c, views.GoogleWorkspaceOAuthAppsPage(data))
-	}
-
-	totalCount, err := h.Q.CountAppAssetsBySourceAndQueryAndKind(ctx, gen.CountAppAssetsBySourceAndQueryAndKindParams{
-		SourceKind: configstore.KindGoogleWorkspace,
-		SourceName: sourceName,
-		AssetKind:  "google_oauth_client",
-		Query:      query,
-	})
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	page, totalPages, offset := paginate(totalCount, page, perPage)
-	assets, err := h.Q.ListAppAssetsPageBySourceAndQueryAndKind(ctx, gen.ListAppAssetsPageBySourceAndQueryAndKindParams{
-		SourceKind: configstore.KindGoogleWorkspace,
-		SourceName: sourceName,
-		AssetKind:  "google_oauth_client",
-		Query:      query,
-		PageLimit:  int32(perPage),
-		PageOffset: int32(offset),
-	})
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	assetIDs := make([]int64, 0, len(assets))
-	assetRefKinds := make([]string, 0, len(assets))
-	assetRefExternalIDs := make([]string, 0, len(assets))
-	refToAssetID := map[string]int64{}
-	for _, asset := range assets {
-		assetIDs = append(assetIDs, asset.ID)
-		assetRefKind := "google_oauth_client"
-		assetRefExternalID := "google_oauth_client:" + strings.TrimSpace(asset.ExternalID)
-		assetRefKinds = append(assetRefKinds, assetRefKind)
-		assetRefExternalIDs = append(assetRefExternalIDs, assetRefExternalID)
-		refToAssetID[credentialSourceRefKey(configstore.KindGoogleWorkspace, sourceName, assetRefKind, assetRefExternalID)] = asset.ID
-	}
-
-	ownerCounts := map[int64]int{}
-	if len(assetIDs) > 0 {
-		owners, err := h.Q.ListAppAssetOwnersByAssetIDs(ctx, assetIDs)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		for _, owner := range owners {
-			ownerCounts[owner.AppAssetID]++
-		}
-	}
-
-	grantCounts := map[int64]int{}
-	if len(assetRefKinds) > 0 {
-		rows, err := h.Q.ListCredentialArtifactCountsByAssetRef(ctx, gen.ListCredentialArtifactCountsByAssetRefParams{
-			SourceKind:          configstore.KindGoogleWorkspace,
-			SourceName:          sourceName,
-			AssetRefKinds:       assetRefKinds,
-			AssetRefExternalIds: assetRefExternalIDs,
-		})
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		for _, row := range rows {
-			assetID, ok := refToAssetID[credentialSourceRefKey(configstore.KindGoogleWorkspace, sourceName, row.AssetRefKind, row.AssetRefExternalID)]
-			if !ok {
-				continue
-			}
-			grantCounts[assetID] = int(row.CredentialCount)
-		}
-	}
-
-	items := make([]viewmodels.GoogleWorkspaceOAuthAppListItem, 0, len(assets))
-	for _, asset := range assets {
-		displayName := strings.TrimSpace(asset.DisplayName)
-		if displayName == "" {
-			displayName = strings.TrimSpace(asset.ExternalID)
-		}
-		if displayName == "" {
-			displayName = "OAuth app"
-		}
-		items = append(items, viewmodels.GoogleWorkspaceOAuthAppListItem{
-			ID:          asset.ID,
-			ExternalID:  strings.TrimSpace(asset.ExternalID),
-			DisplayName: displayName,
-			Status:      fallbackDash(strings.TrimSpace(asset.Status)),
-			OwnerCount:  ownerCounts[asset.ID],
-			GrantCount:  grantCounts[asset.ID],
-			LastSeenAt:  formatProgrammaticDate(asset.LastObservedAt),
-		})
-	}
-
-	showingCount := len(items)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
-	emptyState := "No Google Workspace OAuth apps synced yet."
+	target := "/connected-apps"
 	if query != "" {
-		emptyState = "No Google Workspace OAuth apps match the current search."
+		target = connectedAppsListURL(query, "", 1)
 	}
-
-	data := viewmodels.GoogleWorkspaceOAuthAppsViewData{
-		Layout:         layout,
-		Apps:           items,
-		Query:          query,
-		ShowingCount:   showingCount,
-		ShowingFrom:    showingFrom,
-		ShowingTo:      showingTo,
-		TotalCount:     totalCount,
-		Page:           page,
-		PerPage:        perPage,
-		TotalPages:     totalPages,
-		HasApps:        showingCount > 0,
-		EmptyStateMsg:  emptyState,
-		EmptyStateHref: "/settings/connectors?open=google_workspace",
-	}
-
-	return h.RenderComponent(c, views.GoogleWorkspaceOAuthAppsPage(data))
+	return c.Redirect(http.StatusMovedPermanently, target)
 }
 
 func (h *Handlers) HandleUnmatchedGoogleWorkspace(c *echo.Context) error {

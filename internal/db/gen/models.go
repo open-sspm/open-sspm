@@ -83,6 +83,16 @@ type AuthUser struct {
 	LastLoginIp  string             `json:"last_login_ip"`
 }
 
+type ConnectedAppGovernance struct {
+	AppAssetID          int64              `json:"app_asset_id"`
+	ReviewState         string             `json:"review_state"`
+	OwnerIdentityID     pgtype.Int8        `json:"owner_identity_id"`
+	TicketRef           string             `json:"ticket_ref"`
+	Notes               string             `json:"notes"`
+	UpdatedByAuthUserID pgtype.Int8        `json:"updated_by_auth_user_id"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ConnectorConfig struct {
 	Kind      string             `json:"kind"`
 	Enabled   bool               `json:"enabled"`
