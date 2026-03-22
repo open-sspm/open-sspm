@@ -61,6 +61,11 @@ type IdentityLinkedAccountView struct {
 type IdentityShowViewData struct {
 	Layout                 LayoutData
 	Identity               gen.GetIdentitySummaryByIDRow
+	NamePrimary            string
+	NameSecondary          string
+	CreatedOn              string
+	UpdatedOn              string
+	TotalEntitlements      int
 	LinkedAccounts         []IdentityLinkedAccountView
 	ProgrammaticAccessHref string
 	HasLinkedAccounts      bool

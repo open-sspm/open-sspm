@@ -122,6 +122,48 @@ func HumanizeProgrammaticKind(kind string) string {
 	return strings.Join(parts, " ")
 }
 
+func HumanizeConnectorKind(kind string) string {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "okta":
+		return "Okta"
+	case "google_workspace":
+		return "Google Workspace"
+	case "github":
+		return "GitHub"
+	case "datadog":
+		return "Datadog"
+	case "aws", "aws_identity_center":
+		return "AWS Identity Center"
+	case "entra":
+		return "Microsoft Entra"
+	case "vault":
+		return "Vault"
+	default:
+		return fallbackHumanized(kind)
+	}
+}
+
+func ConnectorScopeLabel(kind string) string {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "okta":
+		return "Org URL"
+	case "google_workspace":
+		return "Customer"
+	case "github":
+		return "Org"
+	case "datadog":
+		return "Site"
+	case "aws", "aws_identity_center":
+		return "Instance"
+	case "entra":
+		return "Tenant"
+	case "vault":
+		return "Vault"
+	default:
+		return "Source"
+	}
+}
+
 func ListURL(baseHref string, query string, state string, page int) string {
 	query = strings.TrimSpace(query)
 	state = strings.TrimSpace(state)
@@ -376,6 +418,36 @@ func HumanizeIdentityType(identityType string) string {
 		return "Unknown"
 	default:
 		return fallbackHumanized(identityType)
+	}
+}
+
+func HumanizeAccountStatus(status string) string {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "ACTIVE":
+		return "Active"
+	case "SUSPENDED":
+		return "Suspended"
+	case "INACTIVE":
+		return "Inactive"
+	case "DEPROVISIONED":
+		return "Deprovisioned"
+	case "DISABLED":
+		return "Disabled"
+	default:
+		return fallbackHumanized(status)
+	}
+}
+
+func AccountStatusBadgeClass(status string) string {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "ACTIVE":
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	case "SUSPENDED", "INACTIVE", "DISABLED":
+		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+	case "DEPROVISIONED":
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+	default:
+		return "badge-outline"
 	}
 }
 

@@ -15,8 +15,9 @@
     "@tailwindcss/cli": "^4.1.18",
     "basecoat-css": "^0.3.11",
     "jsdom": "^26.1.0",
-    "vitest": "^3.2.4",
-    "tailwindcss": "^4.1.18"
+    "playwright": "^1.58.2",
+    "tailwindcss": "^4.1.18",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@tabler/icons-webfont": "^3.36.0",

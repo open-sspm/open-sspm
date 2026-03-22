@@ -594,7 +594,9 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 	}
 
 	linkedAccounts := make([]viewmodels.IdentityLinkedAccountView, 0, len(accounts))
+	totalEntitlements := 0
 	for _, account := range accounts {
+		totalEntitlements += entitlementsByAccountID[account.ID]
 		linkedAccounts = append(linkedAccounts, viewmodels.IdentityLinkedAccountView{
 			Account:          account,
 			EntitlementCount: entitlementsByAccountID[account.ID],
@@ -610,6 +612,11 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 	return h.RenderComponent(c, views.IdentityShowPage(viewmodels.IdentityShowViewData{
 		Layout:                 layout,
 		Identity:               summary,
+		NamePrimary:            identityNamePrimary(summary.DisplayName, summary.PrimaryEmail, summary.ID),
+		NameSecondary:          identityNameSecondary(summary.DisplayName, summary.PrimaryEmail),
+		CreatedOn:              identityCalendarDate(summary.CreatedAt),
+		UpdatedOn:              identityCalendarDate(summary.UpdatedAt),
+		TotalEntitlements:      totalEntitlements,
 		LinkedAccounts:         linkedAccounts,
 		ProgrammaticAccessHref: programmaticAccessHref,
 		HasLinkedAccounts:      len(linkedAccounts) > 0,

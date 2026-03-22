@@ -8,110 +8,181 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 			{Label: "Dashboard", Href: "/"},
 			{Label: "Identities", Href: "/identities"},
 			{Label: "Identity #" + FormatInt64(data.Identity.ID)},
-		}, "Identity details and linked accounts across connected sources.") {
-			if data.ProgrammaticAccessHref != "" {
-				<a class="btn-sm-outline" href={ data.ProgrammaticAccessHref }>Related credentials</a>
-			}
-		}
+		}, "")
 
-		<article class="card mb-6">
-			<header>
-				<h2>{ data.Identity.DisplayName }</h2>
-				<p class="text-sm text-muted-foreground">{ data.Identity.PrimaryEmail }</p>
-			</header>
-			<section>
-				<div class="grid gap-3 sm:grid-cols-3">
-					<div>
-						<p class="text-xs uppercase tracking-wide text-muted-foreground">Identity kind</p>
-						<p class="font-medium">{ data.Identity.Kind }</p>
-					</div>
-					<div>
-						<p class="text-xs uppercase tracking-wide text-muted-foreground">Managed</p>
-						if data.Identity.Managed {
-							<span class="badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100">Managed</span>
-						} else {
-							<span class="badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100">Unmanaged</span>
-						}
-					</div>
-					<div>
-						<p class="text-xs uppercase tracking-wide text-muted-foreground">Linked accounts</p>
-						<p class="font-medium">{ FormatInt64(data.Identity.LinkedAccounts) }</p>
-					</div>
+		<section class="mb-6 border-b border-border pb-5">
+			<div class="max-w-4xl space-y-3">
+				<div class="space-y-1.5">
+					<h1 class="text-2xl font-semibold tracking-tight break-words">{ data.NamePrimary }</h1>
+					if data.NameSecondary != "" {
+						<p class="text-sm text-muted-foreground break-all">{ data.NameSecondary }</p>
+					}
 				</div>
-			</section>
-		</article>
+				<div class="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground">
+					if data.Identity.Managed {
+						<span>Managed</span>
+					} else {
+						<span>Unmanaged</span>
+					}
+					if HumanizeIdentityType(data.Identity.Kind) != "Unknown" {
+						<span>{ HumanizeIdentityType(data.Identity.Kind) }</span>
+					}
+					<span>{ FormatInt64(data.Identity.LinkedAccounts) }{ " linked accounts" }</span>
+					<span>{ FormatInt(data.TotalEntitlements) }{ " entitlements" }</span>
+				</div>
+				<dl class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+					<div class="flex items-baseline gap-2">
+						<dt class="text-muted-foreground">Identity ID</dt>
+						<dd class="font-medium">{ FormatInt64(data.Identity.ID) }</dd>
+					</div>
+					<div class="flex items-baseline gap-2">
+						<dt class="text-muted-foreground">Created</dt>
+						<dd>{ data.CreatedOn }</dd>
+					</div>
+					<div class="flex items-baseline gap-2">
+						<dt class="text-muted-foreground">Updated</dt>
+						<dd>{ data.UpdatedOn }</dd>
+					</div>
+				</dl>
+				if data.ProgrammaticAccessHref != "" {
+					<a class="btn-sm-link px-0" href={ data.ProgrammaticAccessHref }>Search credentials</a>
+				}
+			</div>
+		</section>
 
-		<article class="card">
-			<header>
-				<h2>Linked accounts</h2>
-				<span data-slot="card-action" class="badge-outline">
+		<section class="space-y-3">
+			<div class="flex flex-wrap items-end justify-between gap-3">
+				<div class="space-y-1">
+					<h2 class="text-base font-semibold">Linked accounts</h2>
+					<p class="text-sm text-muted-foreground">Source accounts currently merged into this identity.</p>
+				</div>
+				<p class="shrink-0 text-sm text-muted-foreground">
 					if data.HasLinkedAccounts {
 						{ FormatInt64(data.Identity.LinkedAccounts) }{ " total" }
 					} else {
 						0 total
 					}
-				</span>
-			</header>
-			<section>
-				@ColumnsTable("identity-show--linked-accounts", "") {
-				<table data-columns-id="identity-show--linked-accounts" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-					<thead>
-						<tr>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Display name</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Entitlements</th>
-						</tr>
-					</thead>
+				</p>
+			</div>
+			if data.HasLinkedAccounts {
+				<div class="border-t border-border">
+					<div class="divide-y divide-border lg:hidden">
+						for _, linked := range data.LinkedAccounts {
+							<article class="py-4">
+								<div class="flex items-start justify-between gap-3">
+									<div class="min-w-0 space-y-0.5">
+										<div class="font-medium">{ HumanizeConnectorKind(linked.Account.SourceKind) }</div>
+										if linked.Account.SourceName != "" {
+											<div class="text-sm text-muted-foreground break-all">{ ConnectorScopeLabel(linked.Account.SourceKind) }{ ": " }{ linked.Account.SourceName }</div>
+										}
+									</div>
+									if linked.Account.Status != "" {
+										<span class={ AccountStatusBadgeClass(linked.Account.Status) }>{ HumanizeAccountStatus(linked.Account.Status) }</span>
+									} else {
+										<span class="text-sm text-muted-foreground">—</span>
+									}
+								</div>
+								<div class="mt-3 min-w-0 space-y-0.5">
+									@IdentityLinkedAccountPrimary(linked)
+									if linked.Account.DisplayName != "" {
+										<div class="text-sm text-muted-foreground break-words">{ linked.Account.DisplayName }</div>
+									}
+									if linked.Account.ExternalID != "" && linked.Account.ExternalID != linked.Account.Email {
+										<div class="text-xs text-muted-foreground break-all">{ "External ID: " }{ linked.Account.ExternalID }</div>
+									}
+								</div>
+								<div class="mt-3 flex items-center justify-between gap-3 text-sm">
+									<div class="flex items-baseline gap-2">
+										<span class="text-muted-foreground">Entitlements</span>
+										<span class="font-medium">{ FormatInt(linked.EntitlementCount) }</span>
+									</div>
+									if linked.DetailHref != "" {
+										<a class="btn-sm-link px-0" href={ linked.DetailHref }>Open account</a>
+									}
+								</div>
+							</article>
+						}
+					</div>
+					<div class="hidden overflow-x-auto lg:block">
+					<table class="table osspm-table-compact osspm-table-list min-w-[54rem]">
+						<caption class="sr-only">Linked source accounts merged into this identity.</caption>
+						<thead>
+							<tr>
+								<th class="w-56 text-sm font-medium text-muted-foreground">Source</th>
+								<th class="text-sm font-medium text-muted-foreground">Account</th>
+								<th class="w-28 text-sm font-medium text-muted-foreground">Status</th>
+								<th class="w-24 text-sm font-medium text-muted-foreground">Entitlements</th>
+							</tr>
+						</thead>
 						<tbody>
-							if data.HasLinkedAccounts {
-								for _, linked := range data.LinkedAccounts {
-									<tr
-										data-row-href={ linked.DetailHref }
-										class={ templ.Classes(
-											templ.KV("cursor-pointer hover:bg-muted/50", linked.DetailHref != ""),
-										) }
-									>
-										<td>
-											if linked.Account.SourceKind == "entra" && linked.Account.SourceName != "" {
-												<span class="cursor-help" data-tooltip={ "Tenant ID: " + linked.Account.SourceName } data-side="top" data-align="start">{ linked.Account.SourceKind }</span>
-											} else if linked.Account.SourceName != "" {
-												{ linked.Account.SourceKind }{ " (" }{ linked.Account.SourceName }{ ")" }
-											} else {
-												{ linked.Account.SourceKind }
-											}
-										</td>
-										<td>
-											if linked.Account.ExternalID != "" {
-												<span class="underline underline-offset-2" data-tooltip={ "External ID: " + linked.Account.ExternalID } data-side="top" data-align="start">{ linked.Account.Email }</span>
-											} else {
-												<span class="underline underline-offset-2">{ linked.Account.Email }</span>
-											}
-										</td>
-										<td>{ linked.Account.DisplayName }</td>
-										<td>
-											if linked.Account.Status != "" {
-												{ linked.Account.Status }
-											} else {
-												<span class="text-muted-foreground">-</span>
-											}
-										</td>
-										<td>{ FormatInt(linked.EntitlementCount) }</td>
-									</tr>
-								}
-							} else {
+							for _, linked := range data.LinkedAccounts {
 								<tr>
-									<td colspan="5">
-										@EmptyState("No linked accounts", "No linked accounts.")
+									<td>
+										<div class="space-y-0.5">
+											<div class="font-medium">{ HumanizeConnectorKind(linked.Account.SourceKind) }</div>
+											if linked.Account.SourceName != "" {
+												<div class="text-sm text-muted-foreground break-all">{ ConnectorScopeLabel(linked.Account.SourceKind) }{ ": " }{ linked.Account.SourceName }</div>
+											}
+										</div>
 									</td>
+									<td>
+										<div class="space-y-0.5">
+											@IdentityLinkedAccountPrimary(linked)
+											if linked.Account.DisplayName != "" {
+												<div class="text-sm text-muted-foreground break-words">{ linked.Account.DisplayName }</div>
+											}
+											if linked.Account.ExternalID != "" && linked.Account.ExternalID != linked.Account.Email {
+												<div class="text-xs text-muted-foreground break-all">{ "External ID: " }{ linked.Account.ExternalID }</div>
+											}
+										</div>
+									</td>
+									<td>
+										if linked.Account.Status != "" {
+											<span class={ AccountStatusBadgeClass(linked.Account.Status) }>{ HumanizeAccountStatus(linked.Account.Status) }</span>
+										} else {
+											<span class="text-muted-foreground">—</span>
+										}
+									</td>
+									<td class="font-medium">{ FormatInt(linked.EntitlementCount) }</td>
 								</tr>
 							}
 						</tbody>
 					</table>
-				}
-			</section>
-		</article>
+					</div>
+				</div>
+			} else {
+				<div class="border-t border-border">
+					@EmptyState("No linked accounts", "No linked accounts.")
+				</div>
+			}
+		</section>
 	}
 }
 
+templ IdentityLinkedAccountPrimary(linked viewmodels.IdentityLinkedAccountView) {
+	if linked.Account.Email != "" {
+		if linked.DetailHref != "" {
+			<a class="btn-sm-link px-0 osspm-cell-primary break-all" href={ linked.DetailHref }>{ linked.Account.Email }</a>
+		} else {
+			<div class="osspm-cell-primary break-all">{ linked.Account.Email }</div>
+		}
+	} else if linked.Account.ExternalID != "" {
+		if linked.DetailHref != "" {
+			<a class="btn-sm-link px-0 osspm-cell-primary break-all" href={ linked.DetailHref }>{ linked.Account.ExternalID }</a>
+		} else {
+			<div class="osspm-cell-primary break-all">{ linked.Account.ExternalID }</div>
+		}
+	} else if linked.Account.DisplayName != "" {
+		if linked.DetailHref != "" {
+			<a class="btn-sm-link px-0 osspm-cell-primary break-words" href={ linked.DetailHref }>{ linked.Account.DisplayName }</a>
+		} else {
+			<div class="osspm-cell-primary break-words">{ linked.Account.DisplayName }</div>
+		}
+	} else {
+		if linked.DetailHref != "" {
+			<a class="btn-sm-link px-0 osspm-cell-primary" href={ linked.DetailHref }>{ "Account " }{ FormatInt64(linked.Account.ID) }</a>
+		} else {
+			<div class="osspm-cell-primary">{ "Account " }{ FormatInt64(linked.Account.ID) }</div>
+		}
+	}
+}
