@@ -38,6 +38,7 @@ type ConnectorHealthErrorDetailsDialogViewData struct {
 type ConnectorHealthErrorDetailsRow struct {
 	RowID             string
 	RunID             int64
+	LaneLabel         string
 	StatusLabel       string
 	StatusClass       string
 	FinishedAtLabel   string

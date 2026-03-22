@@ -59,6 +59,18 @@ func runWorker() error {
 	if err != nil {
 		return err
 	}
+	// Queue-consumer coordination is long-lived; force lease locks here so
+	// advisory mode does not pin an extra pool connection for the worker lifetime.
+	consumerLocks, err := sync.NewLockManager(pool, sync.LockManagerConfig{
+		Mode:              sync.LockModeLease,
+		InstanceID:        cfg.SyncLockInstanceID,
+		TTL:               cfg.SyncLockTTL,
+		HeartbeatInterval: cfg.SyncLockHeartbeatInterval,
+		HeartbeatTimeout:  cfg.SyncLockHeartbeatTimeout,
+	})
+	if err != nil {
+		return err
+	}
 
 	dbRunner := sync.NewDBRunner(pool, reg)
 	dbRunner.SetReporter(&sync.LogReporter{})
@@ -82,16 +94,31 @@ func runWorker() error {
 		FailureBackoffMax:    backoffMax,
 		RecentFinishedRunCap: 10,
 	})
-	runner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, dbRunner, sync.RunOnceScopeNameFull)
+	executionRunner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, dbRunner, sync.RunOnceScopeNameFull)
+	jobStore := sync.NewSyncJobStore(pool)
+	wakeups := make(chan struct{}, 1)
+	jobConsumer := sync.NewSyncJobConsumer(jobStore, consumerLocks, executionRunner, sync.SyncJobConsumerConfig{
+		Mode:              registry.RunModeFull,
+		PollInterval:      30 * time.Second,
+		LeaseTTL:          cfg.SyncLockTTL,
+		HeartbeatInterval: cfg.SyncLockHeartbeatInterval,
+		RetryBaseDelay:    cfg.SyncInterval,
+		RetryMaxDelay:     backoffMax,
+		Wakeups:           wakeups,
+	})
 
 	slog.Info("sync worker started", "interval", cfg.SyncInterval)
-	triggers := make(chan sync.TriggerRequest, 1)
 	go func() {
-		if err := sync.ListenForResyncRequestsOnChannel(ctx, pool, sync.ResyncNotifyChannelFull, triggers); err != nil && !errors.Is(err, context.Canceled) {
-			slog.Error("resync listener failed", "err", err)
+		if err := jobConsumer.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			slog.Error("sync job consumer failed", "err", err)
 		}
 	}()
-	scheduler := sync.Scheduler{Runner: runner, Interval: cfg.SyncInterval, Trigger: triggers}
+	go func() {
+		if err := sync.ListenForSyncJobSignals(ctx, pool, sync.SyncJobNotifyChannelForMode(registry.RunModeFull), wakeups); err != nil && !errors.Is(err, context.Canceled) {
+			slog.Error("sync job listener failed", "err", err)
+		}
+	}()
+	scheduler := sync.Scheduler{Runner: executionRunner, Interval: cfg.SyncInterval}
 	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr)
 	doneCh := make(chan struct{})
 	go func() {

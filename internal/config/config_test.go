@@ -28,6 +28,19 @@ func TestLoadWithOptions_ParsesSyncDiscoveryInterval(t *testing.T) {
 	}
 }
 
+func TestLoadWithOptions_DisablesDiscoveryLaneFromEnv(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("SYNC_DISCOVERY_ENABLED", "0")
+
+	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if cfg.SyncDiscoveryEnabled {
+		t.Fatalf("SyncDiscoveryEnabled = true, want false")
+	}
+}
+
 func TestLoadWithOptions_InvalidSyncIntervalReturnsError(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("SYNC_INTERVAL", "not-a-duration")

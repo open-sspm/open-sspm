@@ -34,6 +34,9 @@ config:
   # Dev-only convenience: seeds admin@admin.com / admin if no auth_users exist.
   devSeedAdmin: false
   resyncEnabled: true
+  # Enables the discovery lane system-wide. When false, serve does not queue
+  # discovery work and the discovery worker Deployment is omitted.
+  syncDiscoveryEnabled: true
   syncInterval: 15m
   syncDiscoveryInterval: 15m
   # Optional per-connector full-sync interval. Empty means use syncInterval cadence.

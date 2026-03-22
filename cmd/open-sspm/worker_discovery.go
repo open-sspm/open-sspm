@@ -31,6 +31,9 @@ func runWorkerDiscovery() error {
 	if err != nil {
 		return err
 	}
+	if !cfg.SyncDiscoveryEnabled {
+		return errors.New("SYNC_DISCOVERY_ENABLED must be true to run the discovery worker")
+	}
 	if cfg.SyncDiscoveryInterval <= 0 {
 		return errors.New("SYNC_DISCOVERY_INTERVAL must be > 0 to run the discovery worker")
 	}
@@ -59,6 +62,18 @@ func runWorkerDiscovery() error {
 	if err != nil {
 		return err
 	}
+	// Queue-consumer coordination is long-lived; force lease locks here so
+	// advisory mode does not pin an extra pool connection for the worker lifetime.
+	consumerLocks, err := sync.NewLockManager(pool, sync.LockManagerConfig{
+		Mode:              sync.LockModeLease,
+		InstanceID:        cfg.SyncLockInstanceID,
+		TTL:               cfg.SyncLockTTL,
+		HeartbeatInterval: cfg.SyncLockHeartbeatInterval,
+		HeartbeatTimeout:  cfg.SyncLockHeartbeatTimeout,
+	})
+	if err != nil {
+		return err
+	}
 
 	dbRunner := sync.NewDBRunner(pool, reg)
 	dbRunner.SetReporter(&sync.LogReporter{})
@@ -79,17 +94,32 @@ func runWorkerDiscovery() error {
 		FailureBackoffMax:    backoffMax,
 		RecentFinishedRunCap: 10,
 	})
-	runner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, dbRunner, sync.RunOnceScopeNameDiscovery)
+	executionRunner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, dbRunner, sync.RunOnceScopeNameDiscovery)
+	jobStore := sync.NewSyncJobStore(pool)
+	wakeups := make(chan struct{}, 1)
+	jobConsumer := sync.NewSyncJobConsumer(jobStore, consumerLocks, executionRunner, sync.SyncJobConsumerConfig{
+		Mode:              registry.RunModeDiscovery,
+		PollInterval:      30 * time.Second,
+		LeaseTTL:          cfg.SyncLockTTL,
+		HeartbeatInterval: cfg.SyncLockHeartbeatInterval,
+		RetryBaseDelay:    cfg.SyncDiscoveryInterval,
+		RetryMaxDelay:     backoffMax,
+		Wakeups:           wakeups,
+	})
 
 	slog.Info("discovery sync worker started", "interval", cfg.SyncDiscoveryInterval)
-	triggers := make(chan sync.TriggerRequest, 1)
 	go func() {
-		if err := sync.ListenForResyncRequestsOnChannel(ctx, pool, sync.ResyncNotifyChannelDiscovery, triggers); err != nil && !errors.Is(err, context.Canceled) {
-			slog.Error("discovery resync listener failed", "err", err)
+		if err := jobConsumer.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			slog.Error("discovery sync job consumer failed", "err", err)
+		}
+	}()
+	go func() {
+		if err := sync.ListenForSyncJobSignals(ctx, pool, sync.SyncJobNotifyChannelForMode(registry.RunModeDiscovery), wakeups); err != nil && !errors.Is(err, context.Canceled) {
+			slog.Error("discovery sync job listener failed", "err", err)
 		}
 	}()
 
-	scheduler := sync.Scheduler{Runner: runner, Interval: cfg.SyncDiscoveryInterval, Trigger: triggers}
+	scheduler := sync.Scheduler{Runner: executionRunner, Interval: cfg.SyncDiscoveryInterval}
 	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr)
 	doneCh := make(chan struct{})
 	go func() {

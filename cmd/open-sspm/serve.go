@@ -59,6 +59,7 @@ func runServe() error {
 	}
 
 	queries := gen.New(pool)
+	jobStore := sync.NewSyncJobStore(pool)
 
 	if cfg.DevSeedAdmin {
 		if err := maybeSeedDevAdmin(ctx, queries); err != nil {
@@ -83,24 +84,20 @@ func runServe() error {
 
 	var syncer handlers.SyncRunner
 	if cfg.ResyncEnabled {
+		runners := []sync.Runner{}
 		switch strings.ToLower(strings.TrimSpace(cfg.ResyncMode)) {
 		case "signal":
-			syncer = sync.NewCompositeRunner(
-				sync.NewResyncSignalRunnerWithConfig(pool, locks, sync.ResyncSignalConfig{
-					NotifyChannel:    sync.ResyncNotifyChannelFull,
-					RunOnceScopeName: sync.RunOnceScopeNameFull,
-				}),
-				sync.NewResyncSignalRunnerWithConfig(pool, locks, sync.ResyncSignalConfig{
-					NotifyChannel:    sync.ResyncNotifyChannelDiscovery,
-					RunOnceScopeName: sync.RunOnceScopeNameDiscovery,
-				}),
-			)
+			runners = append(runners, sync.NewResyncQueueRunnerWithPlanner(jobStore, fullDBRunner, registry.RunModeFull))
+			if cfg.SyncDiscoveryEnabled {
+				runners = append(runners, sync.NewResyncQueueRunnerWithPlanner(jobStore, discoveryDBRunner, registry.RunModeDiscovery))
+			}
 		default:
-			syncer = sync.NewCompositeRunner(
-				sync.NewTryRunOnceLockRunnerWithScope(locks, fullDBRunner, sync.RunOnceScopeNameFull),
-				sync.NewTryRunOnceLockRunnerWithScope(locks, discoveryDBRunner, sync.RunOnceScopeNameDiscovery),
-			)
+			runners = append(runners, sync.NewTryRunOnceLockRunnerWithScope(locks, fullDBRunner, sync.RunOnceScopeNameFull))
+			if cfg.SyncDiscoveryEnabled {
+				runners = append(runners, sync.NewTryRunOnceLockRunnerWithScope(locks, discoveryDBRunner, sync.RunOnceScopeNameDiscovery))
+			}
 		}
+		syncer = sync.NewCompositeRunner(runners...)
 	} else {
 		syncer = nil
 	}

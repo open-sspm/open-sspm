@@ -16,7 +16,7 @@ import (
 
 var syncDiscoveryCmd = &cobra.Command{
 	Use:   "sync-discovery",
-	Short: "Run a one-off SaaS discovery sync against configured Okta/Entra connectors.",
+	Short: "Run a one-off SaaS discovery sync against configured discovery-enabled connectors.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runSyncDiscovery()
@@ -27,6 +27,9 @@ func runSyncDiscovery() error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
+	}
+	if !cfg.SyncDiscoveryEnabled {
+		return errors.New("SYNC_DISCOVERY_ENABLED must be true to run discovery sync")
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

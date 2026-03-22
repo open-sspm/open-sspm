@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -166,39 +167,61 @@ func (h *Handlers) HandleConnectorHealthErrorDetails(c *echo.Context) error {
 	}
 	addVary(c, "HX-Request", "HX-Target")
 
-	sourceKind := strings.ToLower(strings.TrimSpace(c.QueryParam("source_kind")))
+	sourceKinds := normalizeConnectorHealthSourceKinds(c.QueryParams()["source_kind"])
 	sourceName := strings.TrimSpace(c.QueryParam("source_name"))
 	connectorName := strings.TrimSpace(c.QueryParam("connector_name"))
 
-	if sourceKind == "" || sourceName == "" {
+	if len(sourceKinds) == 0 || sourceName == "" {
 		return c.String(http.StatusBadRequest, "source_kind and source_name are required")
 	}
 	if h.Q == nil {
 		return c.String(http.StatusServiceUnavailable, "connector health unavailable")
 	}
 	if connectorName == "" {
-		connectorName = sourceKind
+		connectorName = sourceKinds[0]
 	}
 
-	rows, err := h.Q.ListRecentNonSuccessSyncRunsBySource(c.Request().Context(), gen.ListRecentNonSuccessSyncRunsBySourceParams{
-		SourceKind: sourceKind,
-		SourceName: sourceName,
-		Limit:      connectorHealthDetailsRunLimit,
+	type connectorHealthErrorRun struct {
+		sourceKind string
+		row        gen.ListRecentNonSuccessSyncRunsBySourceRow
+	}
+
+	allRows := make([]connectorHealthErrorRun, 0, len(sourceKinds)*int(connectorHealthDetailsRunLimit))
+	for _, sourceKind := range sourceKinds {
+		rows, err := h.Q.ListRecentNonSuccessSyncRunsBySource(c.Request().Context(), gen.ListRecentNonSuccessSyncRunsBySourceParams{
+			SourceKind: sourceKind,
+			SourceName: sourceName,
+			Limit:      connectorHealthDetailsRunLimit,
+		})
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		for _, row := range rows {
+			allRows = append(allRows, connectorHealthErrorRun{
+				sourceKind: sourceKind,
+				row:        row,
+			})
+		}
+	}
+	sort.Slice(allRows, func(i, j int) bool {
+		return allRows[i].row.FinishedAt.Time.After(allRows[j].row.FinishedAt.Time)
 	})
-	if err != nil {
-		return h.RenderError(c, err)
+	if len(allRows) > int(connectorHealthDetailsRunLimit) {
+		allRows = allRows[:connectorHealthDetailsRunLimit]
 	}
 
 	now := time.Now()
-	viewRows := make([]viewmodels.ConnectorHealthErrorDetailsRow, 0, len(rows))
-	for idx, row := range rows {
+	viewRows := make([]viewmodels.ConnectorHealthErrorDetailsRow, 0, len(allRows))
+	for idx, run := range allRows {
+		row := run.row
 		message := strings.TrimSpace(row.Message)
 		preview, full, previewTruncated, fullTruncated := sizeConnectorHealthErrorMessage(message)
 
-		runKey := fmt.Sprintf("connector-health-run-%d-%d", row.ID, idx)
+		runKey := fmt.Sprintf("connector-health-run-%s-%d-%d", sanitizeDialogIDPart(run.sourceKind), row.ID, idx)
 		viewRows = append(viewRows, viewmodels.ConnectorHealthErrorDetailsRow{
 			RowID:             runKey,
 			RunID:             row.ID,
+			LaneLabel:         connectorHealthLaneLabel(run.sourceKind),
 			StatusLabel:       connectorHealthRunStatusLabel(row.Status),
 			StatusClass:       connectorHealthRunStatusClass(row.Status),
 			FinishedAtLabel:   formatAge(now, row.FinishedAt.Time),
@@ -215,9 +238,9 @@ func (h *Handlers) HandleConnectorHealthErrorDetails(c *echo.Context) error {
 	}
 
 	data := viewmodels.ConnectorHealthErrorDetailsDialogViewData{
-		DialogID:      connectorHealthErrorDialogID(sourceKind, sourceName),
+		DialogID:      connectorHealthErrorDialogID(strings.Join(sourceKinds, "-"), sourceName),
 		ConnectorName: connectorName,
-		SourceKind:    sourceKind,
+		SourceKind:    strings.Join(sourceKinds, ", "),
 		SourceName:    sourceName,
 		Rows:          viewRows,
 		HasRows:       len(viewRows) > 0,
@@ -231,6 +254,17 @@ type syncRollupKey struct {
 	name string
 }
 
+type connectorHealthLane struct {
+	label            string
+	syncKind         string
+	expectedInterval time.Duration
+}
+
+type connectorHealthLaneResult struct {
+	lane   connectorHealthLane
+	result connectorHealthResult
+}
+
 func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context.Context, states []connregistry.ConnectorState, canTriggerSync bool) (viewmodels.ConnectorHealthViewData, error) {
 	now := time.Now()
 	data := viewmodels.ConnectorHealthViewData{
@@ -242,6 +276,7 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 	}
 
 	requested := make([]syncRollupKey, 0, len(states))
+	requestedSet := make(map[syncRollupKey]struct{}, len(states)*2)
 	for _, st := range states {
 		kind := strings.ToLower(strings.TrimSpace(st.Definition.Kind()))
 		if !st.Configured {
@@ -254,11 +289,14 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 		if sourceName == "" {
 			continue
 		}
-		syncKind := connectorSyncKind(kind)
-		if syncKind == "" {
-			continue
+		for _, lane := range connectorHealthLanes(cfg, st) {
+			key := syncRollupKey{kind: lane.syncKind, name: sourceName}
+			if _, exists := requestedSet[key]; exists {
+				continue
+			}
+			requestedSet[key] = struct{}{}
+			requested = append(requested, key)
 		}
-		requested = append(requested, syncRollupKey{kind: syncKind, name: sourceName})
 	}
 
 	rollupByKey := make(map[syncRollupKey]syncRunRollup, len(requested))
@@ -302,30 +340,50 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 		sourceName := strings.TrimSpace(st.SourceName)
 
 		syncable := !strings.EqualFold(kind, configstore.KindVault)
-		syncKind := connectorSyncKind(kind)
-		expectedInterval := expectedIntervalForSyncKind(cfg, syncKind)
-
-		var rollup syncRunRollup
-		canViewDetails := syncable && st.Configured && sourceName != "" && syncKind != ""
-		detailsURL := ""
-		if canViewDetails {
-			rollup = rollupByKey[syncRollupKey{kind: syncKind, name: sourceName}]
-			detailsURL = connectorHealthErrorDetailsURL(syncKind, sourceName, displayName)
+		var (
+			res            connectorHealthResult
+			canViewDetails bool
+			detailsURL     string
+		)
+		if syncable && st.Configured && sourceName != "" {
+			lanes := connectorHealthLanes(cfg, st)
+			laneResults := make([]connectorHealthLaneResult, 0, len(lanes))
+			sourceKinds := make([]string, 0, len(lanes))
+			for _, lane := range lanes {
+				rollup := rollupByKey[syncRollupKey{kind: lane.syncKind, name: sourceName}]
+				laneResults = append(laneResults, connectorHealthLaneResult{
+					lane: lane,
+					result: connectorHealth(connectorHealthInput{
+						syncable:         syncable,
+						configured:       st.Configured,
+						enabled:          st.Enabled,
+						expectedInterval: lane.expectedInterval,
+						now:              now,
+						rollup:           rollup,
+					}),
+				})
+				sourceKinds = append(sourceKinds, lane.syncKind)
+			}
+			if len(laneResults) > 0 {
+				res = combineConnectorHealthLaneResults(laneResults)
+				canViewDetails = true
+				detailsURL = connectorHealthErrorDetailsURL(sourceKinds, sourceName, displayName)
+			}
 		}
-
-		res := connectorHealth(connectorHealthInput{
-			syncable:         syncable,
-			configured:       st.Configured,
-			enabled:          st.Enabled,
-			expectedInterval: expectedInterval,
-			now:              now,
-			rollup:           rollup,
-		})
+		if !canViewDetails {
+			res = connectorHealth(connectorHealthInput{
+				syncable:         syncable,
+				configured:       st.Configured,
+				enabled:          st.Enabled,
+				expectedInterval: expectedIntervalForSyncKind(cfg, connectorSyncKind(kind)),
+				now:              now,
+			})
+		}
 
 		items = append(items, viewmodels.ConnectorHealthItem{
 			Kind:             kind,
 			Name:             displayName,
-			SourceKind:       syncKind,
+			SourceKind:       connectorSyncKind(kind),
 			SourceName:       sourceName,
 			StatusLabel:      res.statusLabel,
 			StatusClass:      res.statusClass,
@@ -450,14 +508,162 @@ func syncRunRollupFromRow(row gen.GetSyncRunRollupsForSourcesRow) syncRunRollup 
 	return rollup
 }
 
-func connectorHealthErrorDetailsURL(sourceKind, sourceName, connectorName string) string {
+func connectorHealthLanes(cfg config.Config, st connregistry.ConnectorState) []connectorHealthLane {
+	kind := strings.ToLower(strings.TrimSpace(st.Definition.Kind()))
+	fullSyncKind := connectorSyncKind(kind)
+	if fullSyncKind == "" {
+		return nil
+	}
+
+	lanes := []connectorHealthLane{{
+		label:            "Full",
+		syncKind:         fullSyncKind,
+		expectedInterval: expectedIntervalForSyncKind(cfg, fullSyncKind),
+	}}
+	if discoverySyncKind := connectorDiscoverySyncKind(cfg, st); discoverySyncKind != "" {
+		lanes = append(lanes, connectorHealthLane{
+			label:            "Discovery",
+			syncKind:         discoverySyncKind,
+			expectedInterval: expectedIntervalForDiscoverySync(cfg),
+		})
+	}
+	return lanes
+}
+
+func connectorDiscoverySyncKind(cfg config.Config, st connregistry.ConnectorState) string {
+	if !cfg.SyncDiscoveryEnabled {
+		return ""
+	}
+
+	kind := strings.ToLower(strings.TrimSpace(st.Definition.Kind()))
+	switch cfg := st.Config.(type) {
+	case configstore.OktaConfig:
+		if cfg.DiscoveryEnabled {
+			return connregistry.SyncRunSourceKind(kind, connregistry.RunModeDiscovery)
+		}
+	case configstore.EntraConfig:
+		if cfg.DiscoveryEnabled {
+			return connregistry.SyncRunSourceKind(kind, connregistry.RunModeDiscovery)
+		}
+	case configstore.GoogleWorkspaceConfig:
+		if cfg.DiscoveryEnabled {
+			return connregistry.SyncRunSourceKind(kind, connregistry.RunModeDiscovery)
+		}
+	}
+	return ""
+}
+
+func expectedIntervalForDiscoverySync(cfg config.Config) time.Duration {
+	if cfg.SyncDiscoveryInterval > 0 {
+		return cfg.SyncDiscoveryInterval
+	}
+	return 15 * time.Minute
+}
+
+func combineConnectorHealthLaneResults(laneResults []connectorHealthLaneResult) connectorHealthResult {
+	if len(laneResults) == 0 {
+		return connectorHealthResult{}
+	}
+	if len(laneResults) == 1 {
+		return laneResults[0].result
+	}
+
+	combined := laneResults[0].result
+	for _, laneResult := range laneResults[1:] {
+		if connectorHealthSeverity(laneResult.result.status) > connectorHealthSeverity(combined.status) {
+			combined = laneResult.result
+		}
+	}
+	combined.lastSuccessLabel = joinConnectorHealthLaneLabels(laneResults, func(laneResult connectorHealthLaneResult) string {
+		return laneResult.result.lastSuccessLabel
+	})
+	combined.lastRunLabel = joinConnectorHealthLaneLabels(laneResults, func(laneResult connectorHealthLaneResult) string {
+		return laneResult.result.lastRunLabel
+	})
+	combined.successRate7d = joinConnectorHealthLaneLabels(laneResults, func(laneResult connectorHealthLaneResult) string {
+		return laneResult.result.successRate7d
+	})
+	combined.avgDuration7d = joinConnectorHealthLaneLabels(laneResults, func(laneResult connectorHealthLaneResult) string {
+		return laneResult.result.avgDuration7d
+	})
+	combined.needsAttention = false
+	combined.countsAsEnabled = false
+	for _, laneResult := range laneResults {
+		if laneResult.result.needsAttention {
+			combined.needsAttention = true
+		}
+		if laneResult.result.countsAsEnabled {
+			combined.countsAsEnabled = true
+		}
+	}
+	return combined
+}
+
+func joinConnectorHealthLaneLabels(laneResults []connectorHealthLaneResult, value func(connectorHealthLaneResult) string) string {
+	parts := make([]string, 0, len(laneResults))
+	for _, laneResult := range laneResults {
+		label := strings.TrimSpace(value(laneResult))
+		if label == "" {
+			label = "—"
+		}
+		parts = append(parts, laneResult.lane.label+" "+label)
+	}
+	if len(parts) == 0 {
+		return "—"
+	}
+	return strings.Join(parts, " · ")
+}
+
+func connectorHealthSeverity(status connectorHealthStatus) int {
+	switch status {
+	case connectorHealthStale:
+		return 4
+	case connectorHealthNeverSynced:
+		return 3
+	case connectorHealthDegraded:
+		return 2
+	case connectorHealthHealthy:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func connectorHealthErrorDetailsURL(sourceKinds []string, sourceName, connectorName string) string {
 	values := url.Values{}
-	values.Set("source_kind", strings.TrimSpace(sourceKind))
+	for _, sourceKind := range normalizeConnectorHealthSourceKinds(sourceKinds) {
+		values.Add("source_kind", sourceKind)
+	}
 	values.Set("source_name", strings.TrimSpace(sourceName))
 	if connectorName = strings.TrimSpace(connectorName); connectorName != "" {
 		values.Set("connector_name", connectorName)
 	}
 	return "/settings/connector-health/errors?" + values.Encode()
+}
+
+func normalizeConnectorHealthSourceKinds(sourceKinds []string) []string {
+	normalized := make([]string, 0, len(sourceKinds))
+	seen := make(map[string]struct{}, len(sourceKinds))
+	for _, sourceKind := range sourceKinds {
+		sourceKind = strings.ToLower(strings.TrimSpace(sourceKind))
+		if sourceKind == "" {
+			continue
+		}
+		if _, exists := seen[sourceKind]; exists {
+			continue
+		}
+		seen[sourceKind] = struct{}{}
+		normalized = append(normalized, sourceKind)
+	}
+	return normalized
+}
+
+func connectorHealthLaneLabel(sourceKind string) string {
+	sourceKind = strings.ToLower(strings.TrimSpace(sourceKind))
+	if strings.HasSuffix(sourceKind, "_discovery") {
+		return "Discovery"
+	}
+	return "Full"
 }
 
 func connectorHealthRunStatusLabel(status string) string {

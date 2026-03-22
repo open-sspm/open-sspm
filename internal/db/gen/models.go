@@ -471,6 +471,27 @@ type Session struct {
 	Expiry pgtype.Timestamptz `json:"expiry"`
 }
 
+type SyncJob struct {
+	ID             pgtype.UUID        `json:"id"`
+	Lane           string             `json:"lane"`
+	ConnectorKind  pgtype.Text        `json:"connector_kind"`
+	SourceName     pgtype.Text        `json:"source_name"`
+	TriggerKind    string             `json:"trigger_kind"`
+	Status         string             `json:"status"`
+	AttemptCount   int32              `json:"attempt_count"`
+	ClaimedBy      pgtype.Text        `json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `json:"claimed_at"`
+	HeartbeatAt    pgtype.Timestamptz `json:"heartbeat_at"`
+	LeaseExpiresAt pgtype.Timestamptz `json:"lease_expires_at"`
+	StartedAt      pgtype.Timestamptz `json:"started_at"`
+	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
+	LastError      pgtype.Text        `json:"last_error"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	AvailableAt    pgtype.Timestamptz `json:"available_at"`
+	RerunRequested bool               `json:"rerun_requested"`
+}
+
 type SyncLock struct {
 	ScopeKind        string             `json:"scope_kind"`
 	ScopeName        string             `json:"scope_name"`

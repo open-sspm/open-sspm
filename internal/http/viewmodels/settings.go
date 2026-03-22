@@ -7,8 +7,10 @@ type ResyncBanner struct {
 }
 
 type SettingsViewData struct {
-	Layout        LayoutData
-	SyncInterval  string
-	ResyncEnabled bool
-	ResyncBanner  *ResyncBanner
+	Layout                LayoutData
+	SyncInterval          string
+	SyncDiscoveryInterval string
+	SyncDiscoveryEnabled  bool
+	ResyncEnabled         bool
+	ResyncBanner          *ResyncBanner
 }

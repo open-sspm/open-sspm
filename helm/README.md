@@ -129,7 +129,8 @@ kubectl port-forward svc/<service-name> 8080:80
 
 - Full sync worker interval is configured with `config.syncInterval`.
 - Discovery sync worker interval is configured with `config.syncDiscoveryInterval`.
-- To disable the discovery worker deployment, set `discoveryWorker.enabled=false`.
+- Set `config.syncDiscoveryEnabled=false` to disable the discovery lane system-wide.
+- Set `discoveryWorker.enabled=false` to omit only the discovery worker Deployment. The chart also disables discovery queuing on `serve` when this is false so manual resyncs do not strand discovery jobs.
 
 ### Structured logging
 
