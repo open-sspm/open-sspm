@@ -55,7 +55,7 @@ func GoogleWorkspaceGroupsPage(data viewmodels.GoogleWorkspaceGroupsViewData) te
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<a class=\"btn-sm-outline\" href=\"/google-workspace/users\">Users</a> <a class=\"btn-sm-outline\" href=\"/google-workspace/oauth-apps\">OAuth apps</a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<a class=\"btn-sm-outline\" href=\"/google-workspace/users\">Users</a> <a class=\"btn-sm-outline\" href=\"/connected-apps\">Connected Apps</a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

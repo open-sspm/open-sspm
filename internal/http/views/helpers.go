@@ -263,6 +263,23 @@ func DiscoveryAppsListURL(sourceKind, sourceName, query, managedState, riskLevel
 	return "/discovery/apps?" + values.Encode()
 }
 
+func ConnectedAppsListURL(query, reviewState string, page int) string {
+	values := url.Values{}
+	if query = strings.TrimSpace(query); query != "" {
+		values.Set("q", query)
+	}
+	if reviewState = strings.TrimSpace(reviewState); reviewState != "" {
+		values.Set("review_state", reviewState)
+	}
+	if page > 1 {
+		values.Set("page", strconv.Itoa(page))
+	}
+	if len(values) == 0 {
+		return "/connected-apps"
+	}
+	return "/connected-apps?" + values.Encode()
+}
+
 func DiscoveryHotspotsURL(sourceKind, sourceName string) string {
 	values := url.Values{}
 	if sourceKind = strings.TrimSpace(sourceKind); sourceKind != "" {
@@ -314,12 +331,46 @@ func DiscoveryManagedBadgeClass(state string) string {
 	}
 }
 
+func ConnectedAppReviewStateBadgeClass(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "needs_revocation":
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+	case "under_review":
+		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+	case "sanctioned":
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	case "ticketed":
+		return "badge bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-100"
+	case "unreviewed":
+		return "badge bg-slate-100 text-slate-800 dark:bg-slate-900/50 dark:text-slate-100"
+	default:
+		return "badge-outline"
+	}
+}
+
 func HumanizeDiscoveryManagedState(state string) string {
 	switch strings.ToLower(strings.TrimSpace(state)) {
 	case "managed":
 		return "Managed"
 	case "unmanaged":
 		return "Unmanaged"
+	default:
+		return fallbackHumanized(state)
+	}
+}
+
+func HumanizeConnectedAppReviewState(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "unreviewed":
+		return "Unreviewed"
+	case "under_review":
+		return "Under Review"
+	case "sanctioned":
+		return "Sanctioned"
+	case "needs_revocation":
+		return "Needs Revocation"
+	case "ticketed":
+		return "Ticketed"
 	default:
 		return fallbackHumanized(state)
 	}
@@ -403,6 +454,60 @@ func HumanizeCredentialRisk(risk string) string {
 			return "—"
 		}
 		return risk
+	}
+}
+
+func ConnectedAppFreshnessBadgeClass(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "fresh":
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	case "aging":
+		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+	case "stale":
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+	default:
+		return "badge-outline"
+	}
+}
+
+func HumanizeConnectedAppFreshness(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "fresh":
+		return "Fresh"
+	case "aging":
+		return "Aging"
+	case "stale":
+		return "Stale"
+	case "unknown":
+		return "Unknown"
+	default:
+		return fallbackHumanized(value)
+	}
+}
+
+func ConnectedAppConfidenceBadgeClass(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "high":
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	case "medium":
+		return "badge bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-100"
+	case "low":
+		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+	default:
+		return "badge-outline"
+	}
+}
+
+func HumanizeConnectedAppConfidence(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "high":
+		return "High confidence"
+	case "medium":
+		return "Medium confidence"
+	case "low":
+		return "Low confidence"
+	default:
+		return fallbackHumanized(value)
 	}
 }
 
@@ -564,7 +669,6 @@ func IdentityPrivilegedRoleClass(count int64) string {
 		return ""
 	}
 }
-
 
 func IdentityRowStateBadgeClass(state string) string {
 	switch strings.ToLower(strings.TrimSpace(state)) {
@@ -744,6 +848,13 @@ func AriaCurrentExact(activePath, target string) string {
 	activePath = strings.TrimSpace(activePath)
 	target = strings.TrimSpace(target)
 	if activePath == target {
+		return "page"
+	}
+	return ""
+}
+
+func AriaCurrentBool(active bool) string {
+	if active {
 		return "page"
 	}
 	return ""

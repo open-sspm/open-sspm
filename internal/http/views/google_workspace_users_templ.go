@@ -56,7 +56,7 @@ func GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) temp
 				}
 				ctx = templ.InitializeContext(ctx)
 				if data.Layout.GoogleWorkspaceConfigured && data.Layout.GoogleWorkspaceEnabled {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<a class=\"btn-sm-outline\" href=\"/google-workspace/groups\">Groups</a> <a class=\"btn-sm-outline\" href=\"/google-workspace/oauth-apps\">OAuth apps</a> <a class=\"btn-sm-outline\" href=\"/unmatched/google-workspace\">Unmanaged</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<a class=\"btn-sm-outline\" href=\"/google-workspace/groups\">Groups</a> <a class=\"btn-sm-outline\" href=\"/connected-apps\">Connected Apps</a> <a class=\"btn-sm-outline\" href=\"/unmatched/google-workspace\">Unmanaged</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
