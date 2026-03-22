@@ -1,69 +1,51 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Purpose
 
-- `cmd/open-sspm/`: CLI entrypoint and subcommands (`serve`, `worker`, `sync`, `migrate`, `seed-rules`).
-- `internal/`: application code (connectors, sync engine, HTTP server/UI, rules, access graph).
-- `internal/discovery/`: SaaS discovery canonicalization, scope normalization, and posture scoring helpers.
-- `internal/opensspm/specassets/`: pinned Open SSPM spec lockfile metadata (`spec.lock.json`) used to track generated descriptor provenance/hash.
-- `db/migrations/`: Postgres migrations.
-- `db/queries/` + `sqlc.yaml`: SQL sources for SQLC; generated Go is checked in under `internal/db/gen/`.
-- `internal/http/views/`: `templ` templates (generated `*_templ.go` files are checked in).
-- `web/static/`: UI assets; Tailwind input in `web/static/src/`, built output `web/static/app.css` is gitignored.
-- `helm/open-sspm/`: Helm chart.
+- Keep this file focused on durable engineering rules and product invariants.
+- Treat `justfile`, `go.mod`, `package.json`, `sqlc.yaml`, and `.github/workflows/` as the source of truth for commands, tool versions, and CI behavior.
 
-## Build, Test, and Development Commands
+## Core Workflow
 
-Prereqs: Go 1.26.x (see `go.mod` toolchain), Docker + Compose, Node.js + npm.
+- Use `just` targets for routine local work; prefer existing tasks over ad hoc commands.
+- Common flows live in `justfile` (`run`, `worker`, `sync`, `migrate`, `test`, `ui`, and codegen targets). Use `just --list` if unsure.
+- When changing templates or Tailwind input, rebuild CSS with `just ui` or run `just ui-watch`; `web/static/app.css` is generated and gitignored.
+- For Open SSPM spec updates, use `just update-open-sspm-spec`; do not hand-edit pinned spec metadata.
 
-- `just dev-up` / `just dev-down`: start/stop local Postgres.
-- `just migrate`: run DB migrations (`open-sspm migrate`).
-- `just run`: start the server at `http://localhost:8080`.
-- `just worker`: run the background worker; `just sync`: run a one-off sync.
-- `just test`: run unit tests (`go test ./...`). CI also runs `go vet ./...`.
-- UI: `npm install && just ui` (build CSS) or `just ui-watch` (watch).
-- Dev loop: `just dev` (live reload; requires `air` + `templ` installed).
-- Spec update: `just update-open-sspm-spec` (expects `OPEN_SSPM_SPEC_REF`; `OPEN_SSPM_SPEC_REPO` defaults to and must remain `https://github.com/open-sspm/open-sspm-spec`; refreshes lockfile metadata and pins the generated v2 Go module dependency).
+## Code Generation And Style
 
-## Coding Style & Naming Conventions
+- Run `gofmt` on changed Go files. Keep package names lower-case and filenames `snake_case.go`.
+- Do not hand-edit generated code.
+- Regenerate SQLC output in `internal/db/gen/` via `just sqlc`.
+- Regenerate templ output in `internal/http/views/*_templ.go` via `just templ`.
 
-- Go: run `gofmt` on changed files; keep packages lower-case and filenames `snake_case.go`.
-- Don’t hand-edit generated code:
-  - SQLC: `internal/db/gen/` (regen with `just sqlc`)
-  - templ: `internal/http/views/*_templ.go` (regen with `just templ`)
+## Verification
 
-## Testing Guidelines
+- Run the smallest relevant checks for the area you changed, then the broader repo checks before handoff when appropriate.
+- The normal verification bar for this repo includes Go tests, `go vet`, frontend JS tests, and Helm validation; `.github/workflows/ci.yml` is the source of truth.
+- Tests should protect behavior, regressions, or safety-critical contracts.
+- Frontend tests should assert user-visible behavior or interaction outcomes, not raw HTML structure, tag choices, or Tailwind classes.
 
-- Tests use Go’s standard `testing` package and live as `*_test.go` next to the code they cover.
-- Prefer small, deterministic tests; avoid network calls (mock at the connector boundary).
-- Hard gate:
-  - New tests MUST protect business/product/safety behavior or a regression/edge-case contract (PR MUST say which regression).
-  - Frontend tests MUST assert user-visible behavior or interaction outcomes.
-  - Do NOT add render tests that assert raw HTML structure/classes (for example specific tags, Tailwind classes, or presentational container markup); these are brittle implementation details.
-  - If an HTML assertion is necessary, it MUST target a stable behavioral contract (for example HTMX response contract, redirect/header behavior, or explicitly documented selector contract), not visual/layout implementation details.
-  - Tests MUST NOT be trivial plumbing/copy-only/duplicate/brittle implementation-detail assertions.
-  - Low-value test additions are non-compliant and should be blocked until removed, merged, or rewritten as behavior tests.
+## Product Invariants
 
-## Commit & Pull Request Guidelines
+- Empty `source_kind` and `source_name` mean "All configured"; aggregate across configured sources instead of defaulting to the first source.
+- Default discovery rollups should operate on configured sources only and should not pull legacy or unconfigured rows into the default view.
+- Sync runs must fail early on partial-stage errors; do not finalize or expire rows after a partial refresh.
+- Discovery ingestion is incremental, not a full snapshot. Expiration must be staleness-based rather than "not seen in this run" alone.
 
-- PRs are squash-merged; the PR title becomes the commit message on `main`.
-- PR titles must follow Conventional Commits: `type(scope): summary` (scope optional).
-  - Types: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `chore`
-  - Example: `feat(sync): add connector health`
-- Include a clear description, link issues (e.g., “closes #123”), and add screenshots for UI changes.
+## UI Conventions
 
-## Security & Configuration Tips
+- Prefer GET-based filters that auto-apply on select change. Free-text query should apply on Enter and include an inline clear action.
+- Tailwind v4 uses `@source`; keep dynamic class strings in scanned sources or the CSS build may purge them.
+- If `htmx:beforeRequest` sets loading state, clear it on every completion and error path: `htmx:afterRequest`, `htmx:afterSwap`, `htmx:onLoadError`, `htmx:swapError`, `htmx:sendAbort`, `htmx:sendError`, `htmx:timeout`, and `htmx:responseError`.
+- Do not assume HTMX swap targets are always `HTMLElement`s.
 
-- Copy `.env.example` → `.env` for local dev; never commit secrets (the repo ignores `.env`).
-- Connector credentials are configured in-app and stored in Postgres; avoid logging tokens or secret fields.
+## Security And Configuration
 
-## Programmatic Access & UI Conventions
+- Start from `.env.example` for local setup and never commit secrets.
+- Connector credentials are stored in Postgres; do not log tokens, client secrets, or similar sensitive fields.
 
-- UI/CSS gotcha: CSS is built separately and `app.css` is served at runtime; after changing templates or Tailwind input, run `just ui` (or run `just ui-watch` alongside `just dev`) or pages can look mobile/broken due to missing utilities.
-- Tailwind scan scope: Tailwind v4 uses `@source` in the CSS entrypoint; keep any dynamic class strings in scanned sources (currently templates plus the views helper file) or classes can be purged from the build.
-- Programmatic Access semantics: empty `source_kind`/`source_name` means “All configured” (aggregate across configured sources; do not default to the first source).
-- SaaS Discovery semantics: empty discovery `source_kind`/`source_name` also means “All configured” (configured Okta/Entra sources only; exclude legacy/unconfigured source rows from default list/hotspot/metric rollups).
-- Filters UX convention: prefer GET filters that auto-apply on select change; query applies on Enter; include an inline clear-query control; avoid Apply/Reset button rows to reduce congestion.
-- HTMX lifecycle safety: whenever we set busy/loading state in `htmx:beforeRequest`, we must clear it for all completion paths (`htmx:afterRequest`, `htmx:afterSwap`, `htmx:onLoadError`, `htmx:swapError`, `htmx:sendAbort`, `htmx:sendError`, `htmx:timeout`, `htmx:responseError`) and avoid assumptions that swap targets are always `HTMLElement`s.
-- Sync safety: do not finalize/expire a run after any partial-stage error; fail the run early to avoid expiring valid rows after a partial refresh.
-- Discovery ingestion safety: Okta/Entra discovery collectors are incremental (watermark/window based), not full snapshots; expiration logic must be staleness-based (currently 30 days), not “not seen in this run” alone.
+## Pull Requests
+
+- PR titles must follow Conventional Commits; the semantic PR workflow enforces this.
+- In change descriptions, call out the user-visible effect, risk areas, and any regression covered by tests.
