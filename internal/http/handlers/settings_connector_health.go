@@ -344,10 +344,11 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 			res            connectorHealthResult
 			canViewDetails bool
 			detailsURL     string
+			laneResults    []connectorHealthLaneResult
 		)
 		if syncable && st.Configured && sourceName != "" {
 			lanes := connectorHealthLanes(cfg, st)
-			laneResults := make([]connectorHealthLaneResult, 0, len(lanes))
+			laneResults = make([]connectorHealthLaneResult, 0, len(lanes))
 			sourceKinds := make([]string, 0, len(lanes))
 			for _, lane := range lanes {
 				rollup := rollupByKey[syncRollupKey{kind: lane.syncKind, name: sourceName}]
@@ -380,7 +381,7 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 			})
 		}
 
-		items = append(items, viewmodels.ConnectorHealthItem{
+		item := viewmodels.ConnectorHealthItem{
 			Kind:             kind,
 			Name:             displayName,
 			SourceKind:       connectorSyncKind(kind),
@@ -394,7 +395,9 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 			DetailsURL:       detailsURL,
 			CanViewDetails:   canViewDetails,
 			CanTriggerSync:   canTriggerSync && syncable && st.Configured && st.Enabled && sourceName != "" && IsKnownConnectorKind(kind),
-		})
+			Lanes:            buildConnectorHealthItemLanes(laneResults),
+		}
+		items = append(items, item)
 
 		if res.countsAsEnabled {
 			enabledTotal++
@@ -612,6 +615,31 @@ func joinConnectorHealthLaneLabels(laneResults []connectorHealthLaneResult, valu
 		return "—"
 	}
 	return strings.Join(parts, " · ")
+}
+
+func buildConnectorHealthItemLanes(laneResults []connectorHealthLaneResult) []viewmodels.ConnectorHealthItemLane {
+	if len(laneResults) <= 1 {
+		return nil
+	}
+	lanes := make([]viewmodels.ConnectorHealthItemLane, 0, len(laneResults))
+	for _, lr := range laneResults {
+		lanes = append(lanes, viewmodels.ConnectorHealthItemLane{
+			Label:       lr.lane.label,
+			LastSuccess: valueOrDash(lr.result.lastSuccessLabel),
+			LastRun:     valueOrDash(lr.result.lastRunLabel),
+			SuccessRate: valueOrDash(lr.result.successRate7d),
+			AvgDuration: valueOrDash(lr.result.avgDuration7d),
+		})
+	}
+	return lanes
+}
+
+func valueOrDash(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "—"
+	}
+	return s
 }
 
 func connectorHealthSeverity(status connectorHealthStatus) int {

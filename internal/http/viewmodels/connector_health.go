@@ -24,6 +24,16 @@ type ConnectorHealthItem struct {
 	DetailsURL       string
 	CanViewDetails   bool
 	CanTriggerSync   bool
+	Lanes            []ConnectorHealthItemLane
+}
+
+// ConnectorHealthItemLane holds per-lane values for multi-lane connectors.
+type ConnectorHealthItemLane struct {
+	Label       string
+	LastSuccess string
+	LastRun     string
+	SuccessRate string
+	AvgDuration string
 }
 
 type ConnectorHealthErrorDetailsDialogViewData struct {

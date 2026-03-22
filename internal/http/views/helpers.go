@@ -122,6 +122,48 @@ func HumanizeProgrammaticKind(kind string) string {
 	return strings.Join(parts, " ")
 }
 
+func HumanizeConnectorKind(kind string) string {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "okta":
+		return "Okta"
+	case "google_workspace":
+		return "Google Workspace"
+	case "github":
+		return "GitHub"
+	case "datadog":
+		return "Datadog"
+	case "aws", "aws_identity_center":
+		return "AWS Identity Center"
+	case "entra":
+		return "Microsoft Entra"
+	case "vault":
+		return "Vault"
+	default:
+		return fallbackHumanized(kind)
+	}
+}
+
+func ConnectorScopeLabel(kind string) string {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "okta":
+		return "Org URL"
+	case "google_workspace":
+		return "Customer"
+	case "github":
+		return "Org"
+	case "datadog":
+		return "Site"
+	case "aws", "aws_identity_center":
+		return "Instance"
+	case "entra":
+		return "Tenant"
+	case "vault":
+		return "Vault"
+	default:
+		return "Source"
+	}
+}
+
 func ListURL(baseHref string, query string, state string, page int) string {
 	query = strings.TrimSpace(query)
 	state = strings.TrimSpace(state)
@@ -379,6 +421,36 @@ func HumanizeIdentityType(identityType string) string {
 	}
 }
 
+func HumanizeAccountStatus(status string) string {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "ACTIVE":
+		return "Active"
+	case "SUSPENDED":
+		return "Suspended"
+	case "INACTIVE":
+		return "Inactive"
+	case "DEPROVISIONED":
+		return "Deprovisioned"
+	case "DISABLED":
+		return "Disabled"
+	default:
+		return fallbackHumanized(status)
+	}
+}
+
+func AccountStatusBadgeClass(status string) string {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "ACTIVE":
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	case "SUSPENDED", "INACTIVE", "DISABLED":
+		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+	case "DEPROVISIONED":
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+	default:
+		return "badge-outline"
+	}
+}
+
 func HumanizeIdentityStatus(status string) string {
 	switch strings.ToLower(strings.TrimSpace(status)) {
 	case "active":
@@ -471,14 +543,31 @@ func IdentityStatusBadgeClass(status string) string {
 	}
 }
 
-func IdentityRowStateBadgeClass(state string) string {
+func IdentityRowClass(state string) string {
 	switch strings.ToLower(strings.TrimSpace(state)) {
 	case "action_required":
-		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+		return "cursor-pointer hover:bg-muted/50 border-l-2 border-l-rose-500"
 	case "review":
-		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
-	case "healthy":
-		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+		return "cursor-pointer hover:bg-muted/50 border-l-2 border-l-amber-400"
+	default:
+		return "cursor-pointer hover:bg-muted/50"
+	}
+}
+
+func IdentityPrivilegedRoleClass(count int64) string {
+	switch {
+	case count >= 20:
+		return "font-semibold text-rose-700 dark:text-rose-400"
+	case count >= 5:
+		return "font-medium text-amber-700 dark:text-amber-400"
+	default:
+		return ""
+	}
+}
+
+
+func IdentityRowStateBadgeClass(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
 	default:
 		return "badge-outline"
 	}
