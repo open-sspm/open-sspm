@@ -4,6 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/db/gen"
 
 type IdentityListItem struct {
 	ID                int64
+	Initials          string
 	NamePrimary       string
 	NameSecondary     string
 	IdentityType      string
@@ -15,6 +16,7 @@ type IdentityListItem struct {
 	Status            string
 	ActivityState     string
 	LastSeenOn        string
+	LastSeenRelative  string
 	FirstSeenOn       string
 	LinkQuality       string
 	LinkReason        string

@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -135,6 +137,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		}
 		items = append(items, viewmodels.IdentityListItem{
 			ID:                row.ID,
+			Initials:          identityInitials(row.DisplayName, row.PrimaryEmail),
 			NamePrimary:       identityNamePrimary(row.DisplayName, row.PrimaryEmail, row.ID),
 			NameSecondary:     identityNameSecondary(row.DisplayName, row.PrimaryEmail),
 			IdentityType:      strings.TrimSpace(row.IdentityType),
@@ -146,6 +149,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 			Status:            strings.TrimSpace(row.Status),
 			ActivityState:     strings.TrimSpace(row.ActivityState),
 			LastSeenOn:        identityCalendarDate(row.LastSeenAt),
+			LastSeenRelative:  identityRelativeDate(row.LastSeenAt),
 			FirstSeenOn:       identityCalendarDate(row.FirstSeenAt),
 			LinkQuality:       strings.TrimSpace(row.LinkQuality),
 			LinkReason:        linkReason,
@@ -551,6 +555,40 @@ func identityCalendarDate(value pgtype.Timestamptz) string {
 		return "—"
 	}
 	return value.Time.UTC().Format("Jan 2, 2006")
+}
+
+func identityRelativeDate(value pgtype.Timestamptz) string {
+	if !value.Valid {
+		return ""
+	}
+	days := int(time.Since(value.Time).Hours() / 24)
+	switch {
+	case days <= 0:
+		return "today"
+	case days == 1:
+		return "1d ago"
+	case days < 365:
+		return strconv.Itoa(days) + "d ago"
+	default:
+		return strconv.Itoa(days/365) + "y ago"
+	}
+}
+
+func identityInitials(displayName, primaryEmail string) string {
+	name := strings.TrimSpace(displayName)
+	if name == "" {
+		name = strings.TrimSpace(primaryEmail)
+	}
+	if name == "" {
+		return "?"
+	}
+	words := strings.Fields(name)
+	r0, _ := utf8.DecodeRuneInString(words[0])
+	if len(words) >= 2 {
+		r1, _ := utf8.DecodeRuneInString(words[1])
+		return strings.ToUpper(string(r0) + string(r1))
+	}
+	return strings.ToUpper(string(r0))
 }
 
 func (h *Handlers) HandleIdentityShow(c *echo.Context) error {

@@ -543,14 +543,31 @@ func IdentityStatusBadgeClass(status string) string {
 	}
 }
 
-func IdentityRowStateBadgeClass(state string) string {
+func IdentityRowClass(state string) string {
 	switch strings.ToLower(strings.TrimSpace(state)) {
 	case "action_required":
-		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+		return "cursor-pointer hover:bg-muted/50 border-l-2 border-l-rose-500"
 	case "review":
-		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
-	case "healthy":
-		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+		return "cursor-pointer hover:bg-muted/50 border-l-2 border-l-amber-400"
+	default:
+		return "cursor-pointer hover:bg-muted/50"
+	}
+}
+
+func IdentityPrivilegedRoleClass(count int64) string {
+	switch {
+	case count >= 20:
+		return "font-semibold text-rose-700 dark:text-rose-400"
+	case count >= 5:
+		return "font-medium text-amber-700 dark:text-amber-400"
+	default:
+		return ""
+	}
+}
+
+
+func IdentityRowStateBadgeClass(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
 	default:
 		return "badge-outline"
 	}

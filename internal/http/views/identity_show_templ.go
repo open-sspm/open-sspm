@@ -46,7 +46,7 @@ func IdentityShowPage(data viewmodels.IdentityShowViewData) templ.Component {
 			templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
 				{Label: "Identities", Href: "/identities"},
-				{Label: "Identity #" + FormatInt64(data.Identity.ID)},
+				{Label: data.NamePrimary},
 			}, "").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

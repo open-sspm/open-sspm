@@ -16,8 +16,8 @@ WITH configured_sources AS (
   SELECT
     k.kind AS source_kind,
     n.name AS source_name
-  FROM unnest($6::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($7::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+  FROM unnest($7::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($8::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
 ),
 all_active_accounts AS (
   SELECT
@@ -44,31 +44,31 @@ filtered_identities AS (
   FROM identities i
   WHERE
     (
-      $8::text = ''
-      OR i.primary_email ILIKE ('%' || $8::text || '%')
-      OR i.display_name ILIKE ('%' || $8::text || '%')
+      $9::text = ''
+      OR i.primary_email ILIKE ('%' || $9::text || '%')
+      OR i.display_name ILIKE ('%' || $9::text || '%')
       OR EXISTS (
         SELECT 1
         FROM all_active_accounts aa
         WHERE aa.identity_id = i.id
-          AND aa.external_id ILIKE ('%' || $8::text || '%')
+          AND aa.external_id ILIKE ('%' || $9::text || '%')
       )
     )
     AND (
-      $9::text = ''
-      OR i.kind = $9::text
+      $10::text = ''
+      OR i.kind = $10::text
     )
 ),
 source_accounts AS (
   SELECT identity_id, account_id, source_kind, source_name, external_id, created_at, last_observed_at, normalized_status, confidence, link_reason
   FROM all_active_accounts aa
   WHERE (
-      $10::text = ''
-      OR aa.source_kind = $10::text
+      $11::text = ''
+      OR aa.source_kind = $11::text
     )
     AND (
-      $11::text = ''
-      OR aa.source_name = $11::text
+      $12::text = ''
+      OR aa.source_name = $12::text
     )
 ),
 candidate_identities AS (
@@ -234,34 +234,56 @@ FROM base b
 WHERE
   (
     $1::text = ''
+    OR $1::text = 'all'
     OR (
-      $1::text = 'managed'
-      AND b.managed
+      $1::text = 'needs_review'
+      AND b.row_state IN ('action_required', 'review')
+    )
+    OR (
+      $1::text = 'privileged'
+      AND b.privileged_roles > 0
+    )
+    OR (
+      $1::text = 'inactive'
+      AND b.activity_state IN ('stale', 'never_seen')
     )
     OR (
       $1::text = 'unmanaged'
       AND NOT b.managed
     )
   )
+  AND
+  (
+    $2::text = ''
+    OR (
+      $2::text = 'managed'
+      AND b.managed
+    )
+    OR (
+      $2::text = 'unmanaged'
+      AND NOT b.managed
+    )
+  )
   AND (
-    $2::bool = FALSE
+    $3::bool = FALSE
     OR b.privileged_roles > 0
   )
   AND (
-    $3::text = ''
-    OR b.status = $3::text
-  )
-  AND (
     $4::text = ''
-    OR b.activity_state = $4::text
+    OR b.status = $4::text
   )
   AND (
     $5::text = ''
-    OR b.link_quality = $5::text
+    OR b.activity_state = $5::text
+  )
+  AND (
+    $6::text = ''
+    OR b.link_quality = $6::text
   )
 `
 
 type CountIdentitiesInventoryByFiltersParams struct {
+	WorkspaceScope        string   `json:"workspace_scope"`
 	ManagedState          string   `json:"managed_state"`
 	PrivilegedOnly        bool     `json:"privileged_only"`
 	Status                string   `json:"status"`
@@ -277,6 +299,7 @@ type CountIdentitiesInventoryByFiltersParams struct {
 
 func (q *Queries) CountIdentitiesInventoryByFilters(ctx context.Context, arg CountIdentitiesInventoryByFiltersParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countIdentitiesInventoryByFilters,
+		arg.WorkspaceScope,
 		arg.ManagedState,
 		arg.PrivilegedOnly,
 		arg.Status,
@@ -413,8 +436,8 @@ WITH configured_sources AS (
   SELECT
     k.kind AS source_kind,
     n.name AS source_name
-  FROM unnest($10::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($11::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+  FROM unnest($11::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($12::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
 ),
 all_active_accounts AS (
   SELECT
@@ -441,31 +464,31 @@ filtered_identities AS (
   FROM identities i
   WHERE
     (
-      $12::text = ''
-      OR i.primary_email ILIKE ('%' || $12::text || '%')
-      OR i.display_name ILIKE ('%' || $12::text || '%')
+      $13::text = ''
+      OR i.primary_email ILIKE ('%' || $13::text || '%')
+      OR i.display_name ILIKE ('%' || $13::text || '%')
       OR EXISTS (
         SELECT 1
         FROM all_active_accounts aa
         WHERE aa.identity_id = i.id
-          AND aa.external_id ILIKE ('%' || $12::text || '%')
+          AND aa.external_id ILIKE ('%' || $13::text || '%')
       )
     )
     AND (
-      $13::text = ''
-      OR i.kind = $13::text
+      $14::text = ''
+      OR i.kind = $14::text
     )
 ),
 source_accounts AS (
   SELECT identity_id, account_id, source_kind, source_name, external_id, created_at, last_observed_at, normalized_status, confidence, link_reason
   FROM all_active_accounts aa
   WHERE (
-      $14::text = ''
-      OR aa.source_kind = $14::text
+      $15::text = ''
+      OR aa.source_kind = $15::text
     )
     AND (
-      $15::text = ''
-      OR aa.source_name = $15::text
+      $16::text = ''
+      OR aa.source_name = $16::text
     )
 ),
 candidate_identities AS (
@@ -648,113 +671,134 @@ FROM base b
 WHERE
   (
     $1::text = ''
+    OR $1::text = 'all'
     OR (
-      $1::text = 'managed'
-      AND b.managed
+      $1::text = 'needs_review'
+      AND b.row_state IN ('action_required', 'review')
+    )
+    OR (
+      $1::text = 'privileged'
+      AND b.privileged_roles > 0
+    )
+    OR (
+      $1::text = 'inactive'
+      AND b.activity_state IN ('stale', 'never_seen')
     )
     OR (
       $1::text = 'unmanaged'
       AND NOT b.managed
     )
   )
+  AND
+  (
+    $2::text = ''
+    OR (
+      $2::text = 'managed'
+      AND b.managed
+    )
+    OR (
+      $2::text = 'unmanaged'
+      AND NOT b.managed
+    )
+  )
   AND (
-    $2::bool = FALSE
+    $3::bool = FALSE
     OR b.privileged_roles > 0
   )
   AND (
-    $3::text = ''
-    OR b.status = $3::text
-  )
-  AND (
     $4::text = ''
-    OR b.activity_state = $4::text
+    OR b.status = $4::text
   )
   AND (
     $5::text = ''
-    OR b.link_quality = $5::text
+    OR b.activity_state = $5::text
+  )
+  AND (
+    $6::text = ''
+    OR b.link_quality = $6::text
   )
 ORDER BY
   CASE
-    WHEN $6::text = '' THEN
+    WHEN $7::text = '' THEN
       CASE b.row_state
         WHEN 'action_required' THEN 0
         WHEN 'review' THEN 1
         ELSE 2
       END
   END ASC,
-  CASE WHEN $6::text = '' THEN b.privileged_roles END DESC,
-  CASE WHEN $6::text = '' THEN b.last_seen_at END ASC NULLS FIRST,
-  CASE WHEN $6::text = '' THEN b.id END DESC,
+  CASE WHEN $7::text = '' THEN b.privileged_roles END DESC,
+  CASE WHEN $7::text = '' THEN b.last_seen_at END ASC NULLS FIRST,
+  CASE WHEN $7::text = '' THEN b.id END DESC,
 
   CASE
-    WHEN $6::text = 'identity'
-      AND $7::text = 'asc'
+    WHEN $7::text = 'identity'
+      AND $8::text = 'asc'
     THEN lower(COALESCE(NULLIF(trim(b.display_name), ''), NULLIF(trim(b.primary_email), ''), 'identity ' || b.id::text))
   END ASC,
   CASE
-    WHEN $6::text = 'identity'
-      AND $7::text = 'desc'
+    WHEN $7::text = 'identity'
+      AND $8::text = 'desc'
     THEN lower(COALESCE(NULLIF(trim(b.display_name), ''), NULLIF(trim(b.primary_email), ''), 'identity ' || b.id::text))
   END DESC,
 
   CASE
-    WHEN $6::text = 'identity_type'
-      AND $7::text = 'asc'
+    WHEN $7::text = 'identity_type'
+      AND $8::text = 'asc'
     THEN lower(b.identity_type)
   END ASC,
   CASE
-    WHEN $6::text = 'identity_type'
-      AND $7::text = 'desc'
+    WHEN $7::text = 'identity_type'
+      AND $8::text = 'desc'
     THEN lower(b.identity_type)
   END DESC,
 
   CASE
-    WHEN $6::text = 'managed'
-      AND $7::text = 'asc'
+    WHEN $7::text = 'managed'
+      AND $8::text = 'asc'
     THEN CASE WHEN b.managed THEN 1 ELSE 0 END
   END ASC,
   CASE
-    WHEN $6::text = 'managed'
-      AND $7::text = 'desc'
+    WHEN $7::text = 'managed'
+      AND $8::text = 'desc'
     THEN CASE WHEN b.managed THEN 1 ELSE 0 END
   END DESC,
 
   CASE
-    WHEN $6::text = 'source_type'
-      AND $7::text = 'asc'
+    WHEN $7::text = 'source_type'
+      AND $8::text = 'asc'
     THEN NULLIF(lower(trim(b.source_kind)), '')
   END ASC NULLS LAST,
   CASE
-    WHEN $6::text = 'source_type'
-      AND $7::text = 'desc'
+    WHEN $7::text = 'source_type'
+      AND $8::text = 'desc'
     THEN NULLIF(lower(trim(b.source_kind)), '')
   END DESC NULLS LAST,
 
   CASE
-    WHEN $6::text = 'linked_sources'
-      AND $7::text = 'asc'
+    WHEN $7::text = 'linked_sources'
+      AND $8::text = 'asc'
     THEN b.integration_count
   END ASC,
   CASE
-    WHEN $6::text = 'linked_sources'
-      AND $7::text = 'desc'
+    WHEN $7::text = 'linked_sources'
+      AND $8::text = 'desc'
     THEN b.integration_count
   END DESC,
 
   CASE
-    WHEN $6::text = 'privileged_roles'
-      AND $7::text = 'asc'
+    WHEN $7::text = 'privileged_roles'
+      AND $8::text = 'asc'
     THEN b.privileged_roles
   END ASC,
   CASE
-    WHEN $6::text = 'privileged_roles'
-      AND $7::text = 'desc'
+    WHEN $7::text = 'privileged_roles'
+      AND $8::text = 'desc'
     THEN b.privileged_roles
   END DESC,
 
   CASE
-    WHEN $6::text = 'status'
-      AND $7::text = 'asc'
+    WHEN $7::text = 'status'
+      AND $8::text = 'asc'
     THEN
       CASE b.status
         WHEN 'active' THEN 0
@@ -765,8 +809,8 @@ ORDER BY
       END
   END ASC,
   CASE
-    WHEN $6::text = 'status'
-      AND $7::text = 'desc'
+    WHEN $7::text = 'status'
+      AND $8::text = 'desc'
     THEN
       CASE b.status
         WHEN 'active' THEN 0
@@ -778,21 +822,22 @@ ORDER BY
   END DESC,
 
   CASE
-    WHEN $6::text = 'last_seen'
-      AND $7::text = 'asc'
+    WHEN $7::text = 'last_seen'
+      AND $8::text = 'asc'
     THEN b.last_seen_at
   END ASC NULLS FIRST,
   CASE
-    WHEN $6::text = 'last_seen'
-      AND $7::text = 'desc'
+    WHEN $7::text = 'last_seen'
+      AND $8::text = 'desc'
     THEN b.last_seen_at
   END DESC NULLS LAST,
   b.id DESC
-LIMIT $9::int
-OFFSET $8::int
+LIMIT $10::int
+OFFSET $9::int
 `
 
 type ListIdentitiesInventoryPageByFiltersParams struct {
+	WorkspaceScope        string   `json:"workspace_scope"`
 	ManagedState          string   `json:"managed_state"`
 	PrivilegedOnly        bool     `json:"privileged_only"`
 	Status                string   `json:"status"`
@@ -832,6 +877,7 @@ type ListIdentitiesInventoryPageByFiltersRow struct {
 
 func (q *Queries) ListIdentitiesInventoryPageByFilters(ctx context.Context, arg ListIdentitiesInventoryPageByFiltersParams) ([]ListIdentitiesInventoryPageByFiltersRow, error) {
 	rows, err := q.db.Query(ctx, listIdentitiesInventoryPageByFilters,
+		arg.WorkspaceScope,
 		arg.ManagedState,
 		arg.PrivilegedOnly,
 		arg.Status,

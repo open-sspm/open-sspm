@@ -7,7 +7,7 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
 			{Label: "Identities", Href: "/identities"},
-			{Label: "Identity #" + FormatInt64(data.Identity.ID)},
+			{Label: data.NamePrimary},
 		}, "")
 
 		<section class="mb-6 border-b border-border pb-5">

@@ -51,7 +51,7 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 					}
 				</div>
 			</div>
-			<div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Activity and privilege filters">
+			<div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Activity filters">
 				<a
 					class={ FilterPillClass(data.ActivityState == "") }
 					href={ IdentitiesListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.IdentityType, data.ManagedState, data.PrivilegedOnly, data.Status, "", data.LinkQuality, data.SortBy, data.SortDir, data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason, 1) }
@@ -82,11 +82,14 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 				>
 					Never seen
 				</a>
-				<span class="mx-1 h-4 w-px bg-border" aria-hidden="true"></span>
+				<span class="mx-2 h-4 w-px bg-border" aria-hidden="true"></span>
 				<a
 					class={ FilterPillClass(data.PrivilegedOnly) }
 					href={ IdentitiesListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.IdentityType, data.ManagedState, !data.PrivilegedOnly, data.Status, data.ActivityState, data.LinkQuality, data.SortBy, data.SortDir, data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason, 1) }
 				>
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="mr-1 h-3 w-3" aria-hidden="true">
+						<path fill-rule="evenodd" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7A1.5 1.5 0 0 0 3 8.5v4A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5v-4A1.5 1.5 0 0 0 11 7V4.5A3.5 3.5 0 0 0 8 1Zm2 6V4.5a2 2 0 1 0-4 0V7h4Z" clip-rule="evenodd"/>
+					</svg>
 					Privileged only
 				</a>
 			</div>
@@ -171,14 +174,8 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 		</form>
 
 		<section class="space-y-3">
-			<div class="flex items-center gap-3">
-				<div>
-					<h2 class="text-base font-semibold">Identities</h2>
-					<p class="text-sm text-muted-foreground">Browse unified identities across connected sources.</p>
-				</div>
-			</div>
 			@ColumnsTable("identities--main", "") {
-				<table data-columns-id="identities--main" data-columns-default-hidden="10,11,12" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+				<table data-columns-id="identities--main" data-columns-default-hidden="9,10,11" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 						<caption class="sr-only">Identity inventory with source, status, privilege, and activity context.</caption>
 						<thead>
 							<tr>
@@ -186,7 +183,6 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Type</th>
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Managed</th>
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</th>
-								<th class="osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground">Sources</th>
 								<th class="osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground">Privileged roles</th>
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">State</th>
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
@@ -199,7 +195,7 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 						<tbody>
 							if data.HasIdentities {
 								for _, item := range data.Items {
-									<tr data-row-href={ "/identities/" + FormatInt64(item.ID) } class="cursor-pointer hover:bg-muted/50">
+									<tr data-row-href={ "/identities/" + FormatInt64(item.ID) } class={ IdentityRowClass(item.RowState) }>
 										<td>
 											<div class="flex min-w-0 flex-col">
 												<a class="block px-0 font-medium no-underline hover:underline" href={ "/identities/" + FormatInt64(item.ID) } data-tooltip={ item.NamePrimary } data-side="top" data-align="start">
@@ -214,7 +210,7 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 										</td>
 										<td class="text-sm">{ HumanizeIdentityType(item.IdentityType) }</td>
 										<td>
-											<span class={ IdentityManagedTextClass(item.Managed) }>
+											<span class={ IdentityManagedBadgeClass(item.Managed) }>
 												if item.Managed {
 													Managed
 												} else {
@@ -228,17 +224,24 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 												if item.SourceName != "" {
 													<span class="osspm-cell-secondary osspm-truncate" title={ item.SourceName }>{ item.SourceName }</span>
 												}
+												if item.IntegrationsCount > 1 {
+													<span class="osspm-cell-secondary">{ FormatInt64(item.IntegrationsCount) }{ " sources" }</span>
+												}
 											} else {
 												<span class="text-muted-foreground">—</span>
 											}
 										</td>
-										<td class="osspm-num text-center">{ FormatInt64(item.IntegrationsCount) }</td>
-										<td class="osspm-num text-center">{ FormatInt64(item.PrivilegedRoles) }</td>
+										<td class={ "osspm-num text-center " + IdentityPrivilegedRoleClass(item.PrivilegedRoles) }>{ FormatInt64(item.PrivilegedRoles) }</td>
 										<td><span class={ IdentityRowStateBadgeClass(item.RowState) }>{ HumanizeIdentityRowState(item.RowState) }</span></td>
 										<td>
 											<span class={ IdentityStatusBadgeClass(item.Status) }>{ HumanizeIdentityStatus(item.Status) }</span>
 										</td>
-										<td>{ item.LastSeenOn }</td>
+										<td>
+											<span class="osspm-cell-primary">{ item.LastSeenOn }</span>
+											if item.LastSeenRelative != "" {
+												<span class="osspm-cell-secondary">{ item.LastSeenRelative }</span>
+											}
+										</td>
 										<td>{ item.FirstSeenOn }</td>
 										<td>
 											<span class={ IdentityLinkQualityBadgeClass(item.LinkQuality) }>{ HumanizeIdentityLinkQuality(item.LinkQuality) }</span>
@@ -251,7 +254,7 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 								}
 							} else {
 								<tr>
-									<td colspan="12">
+									<td colspan="11">
 										@EmptyState("No identities found", data.EmptyStateMsg)
 									</td>
 								</tr>
