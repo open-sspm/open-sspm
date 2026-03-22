@@ -58,10 +58,12 @@ func (h *Handlers) HandleSettings(c *echo.Context) error {
 	}
 
 	data := viewmodels.SettingsViewData{
-		Layout:        layout,
-		SyncInterval:  h.Cfg.SyncInterval.String(),
-		ResyncEnabled: h.Syncer != nil,
-		ResyncBanner:  banner,
+		Layout:                layout,
+		SyncInterval:          h.Cfg.SyncInterval.String(),
+		SyncDiscoveryInterval: h.Cfg.SyncDiscoveryInterval.String(),
+		SyncDiscoveryEnabled:  h.Cfg.SyncDiscoveryEnabled,
+		ResyncEnabled:         h.Syncer != nil,
+		ResyncBanner:          banner,
 	}
 
 	return h.RenderComponent(c, views.SettingsPage(data))
@@ -661,7 +663,8 @@ func (h *Handlers) HandleResync(c *echo.Context) error {
 	if h.Syncer == nil {
 		return c.Redirect(http.StatusSeeOther, "/settings?resync=disabled")
 	}
-	if err := h.Syncer.RunOnce(c.Request().Context()); err != nil {
+	triggerCtx := sync.WithForcedSync(c.Request().Context())
+	if err := h.Syncer.RunOnce(triggerCtx); err != nil {
 		if errors.Is(err, sync.ErrSyncQueued) {
 			return c.Redirect(http.StatusSeeOther, "/settings?resync=queued")
 		}

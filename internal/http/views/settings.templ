@@ -25,15 +25,25 @@ templ SettingsPage(data viewmodels.SettingsViewData) {
 					<p>Run a sync immediately.</p>
 				</header>
 				<section class="space-y-3">
-					<p class="text-muted-foreground">
-						Trigger immediate full + discovery sync lanes. Full sync refreshes identities and app access; discovery sync ingests Okta/Entra SaaS discovery signals.
-					</p>
+					if data.SyncDiscoveryEnabled {
+						<p class="text-muted-foreground">
+							Trigger immediate full + discovery sync lanes. Full sync refreshes identities and app access; discovery sync ingests discovery signals for enabled connectors.
+						</p>
+					} else {
+						<p class="text-muted-foreground">
+							Trigger the immediate full sync lane. Discovery sync is disabled on this server.
+						</p>
+					}
 					<div class="flex flex-wrap items-center gap-4">
 						<form method="post" action="/settings/resync">
 							@CSRFInput(data.Layout.CSRFToken)
 							<button type="submit" class="btn-primary" disabled?={ !data.ResyncEnabled }>Resync now</button>
 						</form>
-						<div class="text-sm text-muted-foreground">{ "Worker interval (if running): " }{ data.SyncInterval }</div>
+						if data.SyncDiscoveryEnabled {
+							<div class="text-sm text-muted-foreground">{ "Worker intervals (if running): full " }{ data.SyncInterval }{ " · discovery " }{ data.SyncDiscoveryInterval }</div>
+						} else {
+							<div class="text-sm text-muted-foreground">{ "Worker interval (if running): " }{ data.SyncInterval }</div>
+						}
 					</div>
 				</section>
 			</article>

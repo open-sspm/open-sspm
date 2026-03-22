@@ -9,8 +9,24 @@ const (
 	RunOnceScopeNameFull      = "runonce_full"
 	RunOnceScopeNameDiscovery = "runonce_discovery"
 
-	ResyncNotifyChannelFull      = "open_sspm_resync_requested"
-	ResyncNotifyChannelDiscovery = "open_sspm_resync_discovery_requested"
+	syncJobLaneFull      = "full"
+	syncJobLaneDiscovery = "discovery"
+
+	syncJobNotifyChannelFull      = "open_sspm_sync_jobs_full"
+	syncJobNotifyChannelDiscovery = "open_sspm_sync_jobs_discovery"
+
+	syncJobTriggerKindManual    = "manual"
+	syncJobTriggerKindScheduled = "scheduled"
+
+	syncJobStatusPending   = "pending"
+	syncJobStatusClaimed   = "claimed"
+	syncJobStatusRunning   = "running"
+	syncJobStatusSucceeded = "succeeded"
+	syncJobStatusFailed    = "failed"
+
+	syncJobConsumerScopeKind          = "sync_jobs"
+	syncJobConsumerScopeNameFull      = "consume_full"
+	syncJobConsumerScopeNameDiscovery = "consume_discovery"
 )
 
 func RunOnceScopeNameForMode(mode registry.RunMode) string {
@@ -22,11 +38,29 @@ func RunOnceScopeNameForMode(mode registry.RunMode) string {
 	}
 }
 
-func ResyncNotifyChannelForMode(mode registry.RunMode) string {
+func SyncJobLaneForMode(mode registry.RunMode) string {
 	switch mode.Normalize() {
 	case registry.RunModeDiscovery:
-		return ResyncNotifyChannelDiscovery
+		return syncJobLaneDiscovery
 	default:
-		return ResyncNotifyChannelFull
+		return syncJobLaneFull
+	}
+}
+
+func SyncJobConsumerScopeNameForMode(mode registry.RunMode) string {
+	switch mode.Normalize() {
+	case registry.RunModeDiscovery:
+		return syncJobConsumerScopeNameDiscovery
+	default:
+		return syncJobConsumerScopeNameFull
+	}
+}
+
+func SyncJobNotifyChannelForMode(mode registry.RunMode) string {
+	switch mode.Normalize() {
+	case registry.RunModeDiscovery:
+		return syncJobNotifyChannelDiscovery
+	default:
+		return syncJobNotifyChannelFull
 	}
 }

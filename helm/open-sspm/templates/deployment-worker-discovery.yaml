@@ -1,4 +1,4 @@
-{{- if .Values.discoveryWorker.enabled }}
+{{- if and .Values.discoveryWorker.enabled .Values.config.syncDiscoveryEnabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -64,6 +64,8 @@ spec:
               value: {{ ternary "1" "0" .Values.config.devSeedAdmin | quote }}
             - name: RESYNC_ENABLED
               value: {{ ternary "1" "0" .Values.config.resyncEnabled | quote }}
+            - name: SYNC_DISCOVERY_ENABLED
+              value: {{ ternary "1" "0" .Values.config.syncDiscoveryEnabled | quote }}
             - name: SYNC_DISCOVERY_INTERVAL
               value: {{ .Values.config.syncDiscoveryInterval | quote }}
             - name: SYNC_OKTA_WORKERS

@@ -34,6 +34,7 @@ type Config struct {
 	StaticDir                   string
 	AuthCookieSecure            bool
 	DevSeedAdmin                bool
+	SyncDiscoveryEnabled        bool
 	SyncInterval                time.Duration
 	SyncDiscoveryInterval       time.Duration
 	SyncOktaInterval            time.Duration
@@ -83,6 +84,7 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		StaticDir:                 strings.TrimSpace(os.Getenv("STATIC_DIR")),
 		AuthCookieSecure:          getenvBoolDefault("AUTH_COOKIE_SECURE", false),
 		DevSeedAdmin:              getenvBoolDefault("DEV_SEED_ADMIN", false),
+		SyncDiscoveryEnabled:      getenvBoolDefault("SYNC_DISCOVERY_ENABLED", true),
 		SyncInterval:              defaultSyncInterval,
 		SyncDiscoveryInterval:     defaultSyncDiscoveryInterval,
 		SyncOktaWorkers:           getenvIntDefault("SYNC_OKTA_WORKERS", defaultSyncOktaWorkers),

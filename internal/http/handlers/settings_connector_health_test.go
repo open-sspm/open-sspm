@@ -3,8 +3,35 @@ package handlers
 import (
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
+
+	"github.com/open-sspm/open-sspm/internal/config"
+	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
+	connregistry "github.com/open-sspm/open-sspm/internal/connectors/registry"
 )
+
+type connectorHealthTestDefinition struct {
+	kind        string
+	displayName string
+}
+
+func (d connectorHealthTestDefinition) Kind() string        { return d.kind }
+func (d connectorHealthTestDefinition) DisplayName() string { return d.displayName }
+func (d connectorHealthTestDefinition) Role() connregistry.IntegrationRole {
+	return connregistry.RoleApp
+}
+func (d connectorHealthTestDefinition) DecodeConfig([]byte) (any, error)              { return nil, nil }
+func (d connectorHealthTestDefinition) ValidateConfig(any) error                      { return nil }
+func (d connectorHealthTestDefinition) IsConfigured(any) bool                         { return true }
+func (d connectorHealthTestDefinition) SourceName(any) string                         { return "" }
+func (d connectorHealthTestDefinition) DefaultSubtitle() string                       { return "" }
+func (d connectorHealthTestDefinition) ConfiguredSubtitle(any) string                 { return "" }
+func (d connectorHealthTestDefinition) SettingsHref() string                          { return "/settings/connectors" }
+func (d connectorHealthTestDefinition) MetricsProvider() connregistry.MetricsProvider { return nil }
+func (d connectorHealthTestDefinition) NewIntegration(any) (connregistry.Integration, error) {
+	return nil, nil
+}
 
 func TestSizeConnectorHealthErrorMessage(t *testing.T) {
 	t.Run("empty message", func(t *testing.T) {
@@ -76,17 +103,42 @@ func TestSizeConnectorHealthErrorMessage(t *testing.T) {
 }
 
 func TestConnectorHealthErrorDetailsURL(t *testing.T) {
-	url := connectorHealthErrorDetailsURL("github", "acme org", "GitHub")
+	url := connectorHealthErrorDetailsURL([]string{"github", "github_discovery", "github"}, "acme org", "GitHub")
 	if !strings.HasPrefix(url, "/settings/connector-health/errors?") {
 		t.Fatalf("unexpected url prefix: %q", url)
 	}
 	if !strings.Contains(url, "source_kind=github") {
 		t.Fatalf("url missing source_kind: %q", url)
 	}
+	if !strings.Contains(url, "source_kind=github_discovery") {
+		t.Fatalf("url missing discovery source_kind: %q", url)
+	}
 	if !strings.Contains(url, "source_name=acme+org") {
 		t.Fatalf("url missing encoded source_name: %q", url)
 	}
 	if !strings.Contains(url, "connector_name=GitHub") {
 		t.Fatalf("url missing connector_name: %q", url)
+	}
+}
+
+func TestConnectorHealthLanes_IncludeDiscoveryWhenEnabled(t *testing.T) {
+	cfg := config.Config{
+		SyncDiscoveryEnabled:  true,
+		SyncInterval:          15 * time.Minute,
+		SyncDiscoveryInterval: 30 * time.Minute,
+	}
+	state := connregistry.ConnectorState{
+		Definition: connectorHealthTestDefinition{kind: configstore.KindGoogleWorkspace, displayName: "Google Workspace"},
+		Config: configstore.GoogleWorkspaceConfig{
+			DiscoveryEnabled: true,
+		},
+	}
+
+	lanes := connectorHealthLanes(cfg, state)
+	if len(lanes) != 2 {
+		t.Fatalf("lane count = %d, want 2", len(lanes))
+	}
+	if lanes[0].syncKind != "google_workspace" || lanes[1].syncKind != "google_workspace_discovery" {
+		t.Fatalf("lanes = %#v", lanes)
 	}
 }

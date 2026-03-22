@@ -423,42 +423,6 @@ func (q *Queries) MarkSyncRunSuccess(ctx context.Context, arg MarkSyncRunSuccess
 	return err
 }
 
-const notifyResyncDiscoveryRequested = `-- name: NotifyResyncDiscoveryRequested :exec
-SELECT pg_notify('open_sspm_resync_discovery_requested', '')
-`
-
-func (q *Queries) NotifyResyncDiscoveryRequested(ctx context.Context) error {
-	_, err := q.db.Exec(ctx, notifyResyncDiscoveryRequested)
-	return err
-}
-
-const notifyResyncDiscoveryRequestedWithPayload = `-- name: NotifyResyncDiscoveryRequestedWithPayload :exec
-SELECT pg_notify('open_sspm_resync_discovery_requested', $1::text)
-`
-
-func (q *Queries) NotifyResyncDiscoveryRequestedWithPayload(ctx context.Context, payload string) error {
-	_, err := q.db.Exec(ctx, notifyResyncDiscoveryRequestedWithPayload, payload)
-	return err
-}
-
-const notifyResyncRequested = `-- name: NotifyResyncRequested :exec
-SELECT pg_notify('open_sspm_resync_requested', '')
-`
-
-func (q *Queries) NotifyResyncRequested(ctx context.Context) error {
-	_, err := q.db.Exec(ctx, notifyResyncRequested)
-	return err
-}
-
-const notifyResyncRequestedWithPayload = `-- name: NotifyResyncRequestedWithPayload :exec
-SELECT pg_notify('open_sspm_resync_requested', $1::text)
-`
-
-func (q *Queries) NotifyResyncRequestedWithPayload(ctx context.Context, payload string) error {
-	_, err := q.db.Exec(ctx, notifyResyncRequestedWithPayload, payload)
-	return err
-}
-
 const releaseAdvisoryLock = `-- name: ReleaseAdvisoryLock :exec
 SELECT pg_advisory_unlock($1::bigint)
 `

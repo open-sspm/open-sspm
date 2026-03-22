@@ -137,7 +137,7 @@ templ ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDeta
 			<header>
 				<h2 id={ data.DialogID + "-title" }>{ data.ConnectorName }{ " errors" }</h2>
 				<p id={ data.DialogID + "-description" } class="text-sm text-muted-foreground break-words">
-					Latest non-success runs for { data.SourceKind }{ " · " }{ data.SourceName }.
+					Latest non-success runs for { data.ConnectorName }{ " · " }{ data.SourceName }.
 				</p>
 			</header>
 			<section class="space-y-4">
@@ -146,6 +146,7 @@ templ ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDeta
 					<thead>
 						<tr>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Finished</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Lane</th>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Error kind</th>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Preview</th>
@@ -157,6 +158,7 @@ templ ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDeta
 								for _, row := range data.Rows {
 									<tr>
 										<td class="text-muted-foreground whitespace-nowrap" title={ row.FinishedAtTitle }>{ row.FinishedAtLabel }</td>
+										<td class="text-muted-foreground whitespace-nowrap">{ row.LaneLabel }</td>
 										<td><span class={ row.StatusClass }>{ row.StatusLabel }</span></td>
 										<td class="text-muted-foreground whitespace-nowrap">{ row.ErrorKind }</td>
 										<td>
@@ -188,7 +190,7 @@ templ ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDeta
 								}
 							} else {
 								<tr>
-									<td colspan="5" class="text-sm text-muted-foreground">No non-success runs found for this connector.</td>
+									<td colspan="6" class="text-sm text-muted-foreground">No non-success runs found for this connector.</td>
 								</tr>
 							}
 						</tbody>
@@ -201,4 +203,3 @@ templ ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDeta
 		</form>
 	</dialog>
 }
-

@@ -43,6 +43,12 @@ type syncRunHistory struct {
 	finishedAtValid bool
 }
 
+type preparedDBRun struct {
+	orchestrator *Orchestrator
+	postRunErr   error
+	planned      []TriggerRequest
+}
+
 func NewDBRunner(pool *pgxpool.Pool, reg *registry.ConnectorRegistry) *DBRunner {
 	q := gen.New(pool)
 	return &DBRunner{
@@ -73,17 +79,45 @@ func (r *DBRunner) SetRunMode(mode registry.RunMode) {
 	r.mode = mode.Normalize()
 }
 
+func (r *DBRunner) Prepare(ctx context.Context) error {
+	_, err := r.prepareRun(ctx)
+	return err
+}
+
+func (r *DBRunner) PlannedConnectorScopes(ctx context.Context) ([]TriggerRequest, error) {
+	planned, err := r.prepareRun(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	scopes := make([]TriggerRequest, len(planned.planned))
+	copy(scopes, planned.planned)
+	return scopes, nil
+}
+
 func (r *DBRunner) RunOnce(ctx context.Context) error {
+	planned, err := r.prepareRun(ctx)
+	if err != nil {
+		return err
+	}
+	runErr := planned.orchestrator.RunOnce(ctx)
+	if planned.postRunErr != nil {
+		return errors.Join(runErr, planned.postRunErr)
+	}
+	return runErr
+}
+
+func (r *DBRunner) prepareRun(ctx context.Context) (*preparedDBRun, error) {
 	if r == nil {
-		return errors.New("sync runner is nil")
+		return nil, errors.New("sync runner is nil")
 	}
 	if r.q == nil || r.pool == nil {
-		return errors.New("sync runner is not configured")
+		return nil, errors.New("sync runner is not configured")
 	}
 
 	configs, err := r.q.ListConnectorConfigs(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	orchestrator := NewOrchestrator(r.pool, r.registry)
@@ -93,7 +127,7 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 	if r.locks == nil {
 		locks, err := NewLockManager(r.pool, LockManagerConfig{})
 		if err != nil {
-			return err
+			return nil, err
 		}
 		r.locks = locks
 	}
@@ -102,6 +136,9 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 		orchestrator.SetGlobalEvalMode(r.globalEvalMode)
 	}
 	orchestrator.SetRunMode(r.runMode())
+	prepared := &preparedDBRun{
+		orchestrator: orchestrator,
+	}
 
 	forcedSync := IsForcedSync(ctx)
 	requestedConnectorKind, requestedSourceName, hasRequestedScope := ConnectorScopeFromContext(ctx)
@@ -232,6 +269,10 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 		}
 		integrationCount++
 		planned = append(planned, candidate.runKind+"/"+candidate.runName)
+		prepared.planned = append(prepared.planned, TriggerRequest{
+			ConnectorKind: candidate.kind,
+			SourceName:    candidate.runName,
+		}.Normalized())
 	}
 
 	if r.reporter != nil {
@@ -253,14 +294,10 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 	}
 
 	if integrationCount == 0 {
-		return noIntegrationRunError(errList, deferred, hasRequestedScope)
+		return nil, noIntegrationRunError(errList, deferred, hasRequestedScope)
 	}
-
-	runErr := orchestrator.RunOnce(ctx)
-	if len(errList) > 0 {
-		return errors.Join(runErr, errors.Join(errList...))
-	}
-	return runErr
+	prepared.postRunErr = errors.Join(errList...)
+	return prepared, nil
 }
 
 func (r *DBRunner) runMode() registry.RunMode {
