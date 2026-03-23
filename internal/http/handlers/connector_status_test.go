@@ -29,6 +29,7 @@ func TestStaleAfterInterval(t *testing.T) {
 
 func TestConnectorHealthFromRollup(t *testing.T) {
 	now := time.Date(2026, 1, 16, 12, 0, 0, 0, time.UTC)
+	threeDaysAgo := now.Add(-72 * time.Hour)
 	threeHoursAgo := now.Add(-3 * time.Hour)
 	oneHourAgo := now.Add(-time.Hour)
 
@@ -62,6 +63,28 @@ func TestConnectorHealthFromRollup(t *testing.T) {
 				lastRunStatus:     "success",
 				lastSuccessAt:     &oneHourAgo,
 				lastRunFinishedAt: &oneHourAgo,
+			},
+			want: connectorHealthHealthy,
+		},
+		{
+			name: "stuck running outranks recent success",
+			in: syncRunRollup{
+				lastRunStatus:          "success",
+				lastSuccessAt:          &oneHourAgo,
+				lastRunFinishedAt:      &oneHourAgo,
+				runningCount:           1,
+				oldestRunningStartedAt: &threeDaysAgo,
+			},
+			want: connectorHealthStuck,
+		},
+		{
+			name: "recent running does not mark connector stuck",
+			in: syncRunRollup{
+				lastRunStatus:          "success",
+				lastSuccessAt:          &oneHourAgo,
+				lastRunFinishedAt:      &oneHourAgo,
+				runningCount:           1,
+				oldestRunningStartedAt: &oneHourAgo,
 			},
 			want: connectorHealthHealthy,
 		},
@@ -166,6 +189,32 @@ func TestConnectorHealthWrapper(t *testing.T) {
 		}
 		if !got.needsAttention {
 			t.Fatalf("needsAttention=false want true")
+		}
+	})
+
+	t.Run("stuck running surfaces in label and status", func(t *testing.T) {
+		got := connectorHealth(connectorHealthInput{
+			syncable:         true,
+			configured:       true,
+			enabled:          true,
+			expectedInterval: 15 * time.Minute,
+			now:              now,
+			rollup: syncRunRollup{
+				lastSuccessAt:          &oneHourAgo,
+				lastRunStatus:          "success",
+				lastRunFinishedAt:      &oneHourAgo,
+				runningCount:           2,
+				oldestRunningStartedAt: &threeDaysAgo,
+			},
+		})
+		if got.status != connectorHealthStuck {
+			t.Fatalf("status=%q want %q", got.status, connectorHealthStuck)
+		}
+		if !got.needsAttention {
+			t.Fatalf("needsAttention=false want true")
+		}
+		if got.lastRunLabel != "Success · 1h ago · 2 running, oldest 3d ago" {
+			t.Fatalf("lastRunLabel=%q", got.lastRunLabel)
 		}
 	})
 }

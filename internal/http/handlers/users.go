@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/accessgraph"
+	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
@@ -287,9 +288,10 @@ func (h *Handlers) HandleGitHubUsers(c *echo.Context) error {
 	}
 
 	totalCount, err := h.Q.CountAppUsersWithLinkBySourceAndQuery(ctx, gen.CountAppUsersWithLinkBySourceAndQueryParams{
-		SourceKind: "github",
-		SourceName: snap.GitHub.Org,
-		Query:      query,
+		SourceKind:     "github",
+		SourceName:     snap.GitHub.Org,
+		EntityCategory: registry.EntityCategoryUser,
+		Query:          query,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -297,11 +299,12 @@ func (h *Handlers) HandleGitHubUsers(c *echo.Context) error {
 
 	page, totalPages, offset := paginate(totalCount, page, perPage)
 	users, err := h.Q.ListAppUsersWithLinkPageBySourceAndQuery(ctx, gen.ListAppUsersWithLinkPageBySourceAndQueryParams{
-		SourceKind: "github",
-		SourceName: snap.GitHub.Org,
-		Query:      query,
-		PageLimit:  int32(perPage),
-		PageOffset: int32(offset),
+		SourceKind:     "github",
+		SourceName:     snap.GitHub.Org,
+		EntityCategory: registry.EntityCategoryUser,
+		Query:          query,
+		PageLimit:      int32(perPage),
+		PageOffset:     int32(offset),
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -375,10 +378,11 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 	}
 
 	totalCount, err := h.Q.CountAppUsersBySourceAndQueryAndState(ctx, gen.CountAppUsersBySourceAndQueryAndStateParams{
-		SourceKind: "datadog",
-		SourceName: snap.Datadog.Site,
-		Query:      query,
-		State:      state,
+		SourceKind:     "datadog",
+		SourceName:     snap.Datadog.Site,
+		EntityCategory: registry.EntityCategoryUser,
+		Query:          query,
+		State:          state,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -386,12 +390,13 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 
 	page, totalPages, offset := paginate(totalCount, page, perPage)
 	users, err := h.Q.ListAppUsersPageBySourceAndQueryAndState(ctx, gen.ListAppUsersPageBySourceAndQueryAndStateParams{
-		SourceKind: "datadog",
-		SourceName: snap.Datadog.Site,
-		Query:      query,
-		State:      state,
-		PageLimit:  int32(perPage),
-		PageOffset: int32(offset),
+		SourceKind:     "datadog",
+		SourceName:     snap.Datadog.Site,
+		EntityCategory: registry.EntityCategoryUser,
+		Query:          query,
+		State:          state,
+		PageLimit:      int32(perPage),
+		PageOffset:     int32(offset),
 	})
 	if err != nil {
 		return h.RenderError(c, err)

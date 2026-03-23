@@ -424,6 +424,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 	emails := make([]string, 0, totalPrincipals)
 	displayNames := make([]string, 0, totalPrincipals)
 	accountKinds := make([]string, 0, totalPrincipals)
+	entityCategories := make([]string, 0, totalPrincipals)
 	rawJSONs := make([][]byte, 0, totalPrincipals)
 	lastLoginAts := make([]pgtype.Timestamptz, 0, totalPrincipals)
 	lastLoginIps := make([]string, 0, totalPrincipals)
@@ -442,6 +443,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 		emails = append(emails, matching.NormalizeEmail(member.Email))
 		displayNames = append(displayNames, display)
 		accountKinds = append(accountKinds, githubMemberAccountKind(member))
+		entityCategories = append(entityCategories, registry.EntityCategoryUser)
 		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(member.RawJSON), registry.EntityCategoryUser))
 		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 		lastLoginIps = append(lastLoginIps, "")
@@ -464,6 +466,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 		emails = append(emails, "")
 		displayNames = append(displayNames, display)
 		accountKinds = append(accountKinds, registry.AccountKindService)
+		entityCategories = append(entityCategories, registry.EntityCategoryTeam)
 		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.MarshalJSON(map[string]any{
 			"id":   team.ID,
 			"name": strings.TrimSpace(team.Name),
@@ -485,6 +488,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 			Emails:           emails[start:end],
 			DisplayNames:     displayNames[start:end],
 			AccountKinds:     accountKinds[start:end],
+			EntityCategories: entityCategories[start:end],
 			RawJsons:         rawJSONs[start:end],
 			LastLoginAts:     lastLoginAts[start:end],
 			LastLoginIps:     lastLoginIps[start:end],

@@ -10,6 +10,11 @@ WITH input AS (
         THEN lower(trim((sqlc.arg(account_kinds)::text[])[i]))
       ELSE 'unknown'
     END AS account_kind,
+    CASE
+      WHEN lower(trim((sqlc.arg(entity_categories)::text[])[i])) IN ('user', 'group', 'service_principal', 'service_account', 'team', 'role', 'auth_role', 'entity', 'unknown')
+        THEN lower(trim((sqlc.arg(entity_categories)::text[])[i]))
+      ELSE 'unknown'
+    END AS entity_category,
     (sqlc.arg(raw_jsons)::jsonb[])[i] AS raw_json,
     (sqlc.arg(last_login_ats)::timestamptz[])[i] AS last_login_at,
     (sqlc.arg(last_login_ips)::text[])[i] AS last_login_ip,
@@ -22,6 +27,7 @@ dedup AS (
     email,
     display_name,
     account_kind,
+    entity_category,
     raw_json,
     last_login_at,
     last_login_ip,
@@ -36,6 +42,7 @@ INSERT INTO accounts (
   email,
   display_name,
   account_kind,
+  entity_category,
   status,
   raw_json,
   last_login_at,
@@ -52,6 +59,7 @@ SELECT
   input.email,
   input.display_name,
   input.account_kind,
+  input.entity_category,
   COALESCE(NULLIF(trim(input.raw_json ->> 'status'), ''), ''),
   input.raw_json,
   input.last_login_at,
@@ -65,6 +73,7 @@ ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
   email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
   account_kind = EXCLUDED.account_kind,
+  entity_category = EXCLUDED.entity_category,
   status = EXCLUDED.status,
   raw_json = EXCLUDED.raw_json,
   last_login_at = COALESCE(EXCLUDED.last_login_at, accounts.last_login_at),
@@ -87,6 +96,11 @@ WITH input AS (
         THEN lower(trim((sqlc.arg(account_kinds)::text[])[i]))
       ELSE 'unknown'
     END AS account_kind,
+    CASE
+      WHEN lower(trim((sqlc.arg(entity_categories)::text[])[i])) IN ('user', 'group', 'service_principal', 'service_account', 'team', 'role', 'auth_role', 'entity', 'unknown')
+        THEN lower(trim((sqlc.arg(entity_categories)::text[])[i]))
+      ELSE 'unknown'
+    END AS entity_category,
     (sqlc.arg(statuses)::text[])[i] AS status,
     (sqlc.arg(raw_jsons)::jsonb[])[i] AS raw_json,
     (sqlc.arg(last_login_ats)::timestamptz[])[i] AS last_login_at,
@@ -100,6 +114,7 @@ dedup AS (
     email,
     display_name,
     account_kind,
+    entity_category,
     status,
     raw_json,
     last_login_at,
@@ -115,6 +130,7 @@ INSERT INTO accounts (
   email,
   display_name,
   account_kind,
+  entity_category,
   status,
   raw_json,
   last_login_at,
@@ -131,6 +147,7 @@ SELECT
   input.email,
   input.display_name,
   input.account_kind,
+  input.entity_category,
   input.status,
   input.raw_json,
   input.last_login_at,
@@ -144,6 +161,7 @@ ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
   email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
   account_kind = EXCLUDED.account_kind,
+  entity_category = EXCLUDED.entity_category,
   status = EXCLUDED.status,
   raw_json = EXCLUDED.raw_json,
   last_login_at = COALESCE(EXCLUDED.last_login_at, accounts.last_login_at),
@@ -161,6 +179,10 @@ WHERE
   AND au.source_name = sqlc.arg(source_name)
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
+  AND (
+    sqlc.arg(entity_category)::text = ''
+    OR au.entity_category = sqlc.arg(entity_category)::text
+  )
   AND (
     sqlc.arg(query)::text = ''
     OR au.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
@@ -180,6 +202,10 @@ WHERE
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
   AND (
+    sqlc.arg(entity_category)::text = ''
+    OR au.entity_category = sqlc.arg(entity_category)::text
+  )
+  AND (
     sqlc.arg(query)::text = ''
     OR au.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
     OR au.email ILIKE ('%' || sqlc.arg(query)::text || '%')
@@ -197,6 +223,10 @@ WHERE
   AND au.source_name = sqlc.arg(source_name)
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
+  AND (
+    sqlc.arg(entity_category)::text = ''
+    OR au.entity_category = sqlc.arg(entity_category)::text
+  )
   AND (
     sqlc.arg(query)::text = ''
     OR au.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
@@ -223,6 +253,10 @@ WHERE
   AND au.source_name = sqlc.arg(source_name)
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
+  AND (
+    sqlc.arg(entity_category)::text = ''
+    OR au.entity_category = sqlc.arg(entity_category)::text
+  )
   AND (
     sqlc.arg(query)::text = ''
     OR au.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
@@ -266,6 +300,10 @@ WHERE
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
   AND (
+    sqlc.arg(entity_category)::text = ''
+    OR au.entity_category = sqlc.arg(entity_category)::text
+  )
+  AND (
     ia.identity_id IS NULL
     OR ai.identity_id IS NULL
   )
@@ -297,6 +335,10 @@ WHERE
   AND au.source_name = sqlc.arg(source_name)
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
+  AND (
+    sqlc.arg(entity_category)::text = ''
+    OR au.entity_category = sqlc.arg(entity_category)::text
+  )
   AND (
     ia.identity_id IS NULL
     OR ai.identity_id IS NULL

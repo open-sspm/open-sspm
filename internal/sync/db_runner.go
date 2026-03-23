@@ -196,7 +196,7 @@ func (r *DBRunner) prepareRun(ctx context.Context) (*preparedDBRun, error) {
 		}
 
 		if integration == nil {
-			// Not syncable (e.g. Vault stub)
+			// Not syncable.
 			skippedKinds = append(skippedKinds, kind)
 			continue
 		}

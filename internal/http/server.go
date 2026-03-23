@@ -223,6 +223,7 @@ func (es *EchoServer) registerRoutes() {
 	authed.GET("/global-view", es.h.HandleGlobalView)
 	authed.GET("/apps", es.h.HandleApps)
 	authed.GET("/apps/*", es.h.HandleOktaAppShow)
+	authed.GET("/command/search", es.h.HandleCommandSearch)
 	authed.GET("/connected-apps", es.h.HandleConnectedApps)
 	authed.GET("/connected-apps/:id", es.h.HandleConnectedAppShow)
 	authed.GET("/connected-apps/:id/export", es.h.HandleConnectedAppExport)

@@ -85,6 +85,9 @@ func TestBuildGoogleWorkspaceAccountRowsMapsUsersAndGroups(t *testing.T) {
 	if userRow.AccountKind != registry.AccountKindHuman {
 		t.Fatalf("user account kind = %q, want %q", userRow.AccountKind, registry.AccountKindHuman)
 	}
+	if userRow.EntityCategory != registry.EntityCategoryUser {
+		t.Fatalf("user entity category = %q, want %q", userRow.EntityCategory, registry.EntityCategoryUser)
+	}
 
 	serviceRow := rowByExternalID["u-2"]
 	if serviceRow.AccountKind != registry.AccountKindService {
@@ -92,6 +95,9 @@ func TestBuildGoogleWorkspaceAccountRowsMapsUsersAndGroups(t *testing.T) {
 	}
 	if serviceRow.Status != "suspended" {
 		t.Fatalf("service status = %q, want %q", serviceRow.Status, "suspended")
+	}
+	if serviceRow.EntityCategory != registry.EntityCategoryUser {
+		t.Fatalf("service entity category = %q, want %q", serviceRow.EntityCategory, registry.EntityCategoryUser)
 	}
 
 	groupRow := rowByExternalID["g-1"]
@@ -103,6 +109,9 @@ func TestBuildGoogleWorkspaceAccountRowsMapsUsersAndGroups(t *testing.T) {
 	}
 	if groupRow.Status != "active" {
 		t.Fatalf("group status = %q, want %q", groupRow.Status, "active")
+	}
+	if groupRow.EntityCategory != registry.EntityCategoryGroup {
+		t.Fatalf("group entity category = %q, want %q", groupRow.EntityCategory, registry.EntityCategoryGroup)
 	}
 }
 

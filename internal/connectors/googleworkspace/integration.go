@@ -37,12 +37,13 @@ type GoogleWorkspaceIntegration struct {
 }
 
 type googleWorkspaceAccountRow struct {
-	ExternalID  string
-	Email       string
-	DisplayName string
-	AccountKind string
-	Status      string
-	RawJSON     []byte
+	ExternalID     string
+	Email          string
+	DisplayName    string
+	AccountKind    string
+	EntityCategory string
+	Status         string
+	RawJSON        []byte
 }
 
 type googleWorkspaceEntitlementRow struct {
@@ -356,12 +357,13 @@ func buildGoogleWorkspaceAccountRows(users []WorkspaceUser, groups []WorkspaceGr
 		}), registry.EntityCategoryUser)
 
 		rows = append(rows, googleWorkspaceAccountRow{
-			ExternalID:  externalID,
-			Email:       email,
-			DisplayName: displayName,
-			AccountKind: googleWorkspaceUserAccountKind(user),
-			Status:      status,
-			RawJSON:     raw,
+			ExternalID:     externalID,
+			Email:          email,
+			DisplayName:    displayName,
+			AccountKind:    googleWorkspaceUserAccountKind(user),
+			EntityCategory: registry.EntityCategoryUser,
+			Status:         status,
+			RawJSON:        raw,
 		})
 	}
 
@@ -387,12 +389,13 @@ func buildGoogleWorkspaceAccountRows(users []WorkspaceUser, groups []WorkspaceGr
 		}), registry.EntityCategoryGroup)
 
 		rows = append(rows, googleWorkspaceAccountRow{
-			ExternalID:  externalID,
-			Email:       email,
-			DisplayName: displayName,
-			AccountKind: registry.AccountKindUnknown,
-			Status:      "active",
-			RawJSON:     raw,
+			ExternalID:     externalID,
+			Email:          email,
+			DisplayName:    displayName,
+			AccountKind:    registry.AccountKindUnknown,
+			EntityCategory: registry.EntityCategoryGroup,
+			Status:         "active",
+			RawJSON:        raw,
 		})
 	}
 	return rows
@@ -433,6 +436,7 @@ func (i *GoogleWorkspaceIntegration) upsertAccounts(ctx context.Context, q *gen.
 		emails := make([]string, 0, len(batch))
 		displayNames := make([]string, 0, len(batch))
 		accountKinds := make([]string, 0, len(batch))
+		entityCategories := make([]string, 0, len(batch))
 		rawJSONs := make([][]byte, 0, len(batch))
 		lastLoginAts := make([]pgtype.Timestamptz, 0, len(batch))
 		lastLoginIPs := make([]string, 0, len(batch))
@@ -442,6 +446,7 @@ func (i *GoogleWorkspaceIntegration) upsertAccounts(ctx context.Context, q *gen.
 			emails = append(emails, row.Email)
 			displayNames = append(displayNames, row.DisplayName)
 			accountKinds = append(accountKinds, row.AccountKind)
+			entityCategories = append(entityCategories, row.EntityCategory)
 			rawJSONs = append(rawJSONs, row.RawJSON)
 			lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 			lastLoginIPs = append(lastLoginIPs, "")
@@ -456,6 +461,7 @@ func (i *GoogleWorkspaceIntegration) upsertAccounts(ctx context.Context, q *gen.
 			Emails:           emails,
 			DisplayNames:     displayNames,
 			AccountKinds:     accountKinds,
+			EntityCategories: entityCategories,
 			RawJsons:         rawJSONs,
 			LastLoginAts:     lastLoginAts,
 			LastLoginIps:     lastLoginIPs,

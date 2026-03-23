@@ -209,6 +209,7 @@ func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, q *gen.Queries, 
 		emails := make([]string, 0, len(batch))
 		displayNames := make([]string, 0, len(batch))
 		accountKinds := make([]string, 0, len(batch))
+		entityCategories := make([]string, 0, len(batch))
 		statuses := make([]string, 0, len(batch))
 		rawJSONs := make([][]byte, 0, len(batch))
 		lastLoginAts := make([]pgtype.Timestamptz, 0, len(batch))
@@ -224,6 +225,7 @@ func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, q *gen.Queries, 
 			emails = append(emails, matching.NormalizeEmail(user.Email))
 			displayNames = append(displayNames, user.DisplayName)
 			accountKinds = append(accountKinds, oktaUserAccountKind(user))
+			entityCategories = append(entityCategories, registry.EntityCategoryUser)
 			statuses = append(statuses, user.Status)
 			rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(user.RawJSON), registry.EntityCategoryUser))
 			lastLoginAts = append(lastLoginAts, registry.PgTimestamptzPtr(user.LastLoginAt))
@@ -241,6 +243,7 @@ func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, q *gen.Queries, 
 			Emails:           emails,
 			DisplayNames:     displayNames,
 			AccountKinds:     accountKinds,
+			EntityCategories: entityCategories,
 			Statuses:         statuses,
 			RawJsons:         rawJSONs,
 			LastLoginAts:     lastLoginAts,
@@ -286,6 +289,7 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, q *gen.Queries, re
 		accountEmails := make([]string, 0, len(batch))
 		accountDisplayNames := make([]string, 0, len(batch))
 		accountKinds := make([]string, 0, len(batch))
+		accountEntityCategories := make([]string, 0, len(batch))
 		accountRawJSONs := make([][]byte, 0, len(batch))
 		accountLastLoginAts := make([]pgtype.Timestamptz, 0, len(batch))
 		accountLastLoginIPs := make([]string, 0, len(batch))
@@ -312,6 +316,7 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, q *gen.Queries, re
 			accountEmails = append(accountEmails, "")
 			accountDisplayNames = append(accountDisplayNames, display)
 			accountKinds = append(accountKinds, registry.AccountKindService)
+			accountEntityCategories = append(accountEntityCategories, registry.EntityCategoryGroup)
 			accountRawJSONs = append(accountRawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(group.RawJSON), registry.EntityCategoryGroup))
 			accountLastLoginAts = append(accountLastLoginAts, pgtype.Timestamptz{})
 			accountLastLoginIPs = append(accountLastLoginIPs, "")
@@ -338,6 +343,7 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, q *gen.Queries, re
 				Emails:           accountEmails,
 				DisplayNames:     accountDisplayNames,
 				AccountKinds:     accountKinds,
+				EntityCategories: accountEntityCategories,
 				RawJsons:         accountRawJSONs,
 				LastLoginAts:     accountLastLoginAts,
 				LastLoginIps:     accountLastLoginIPs,

@@ -14,6 +14,7 @@ const (
 )
 
 const (
+	EntityCategoryUnknown          = "unknown"
 	EntityCategoryUser             = "user"
 	EntityCategoryGroup            = "group"
 	EntityCategoryServicePrincipal = "service_principal"
@@ -128,10 +129,7 @@ func HasIndicator(normalizedText string, indicators []string) bool {
 }
 
 func WithEntityCategory(raw []byte, category string) []byte {
-	category = strings.ToLower(strings.TrimSpace(category))
-	if category == "" {
-		return NormalizeJSON(raw)
-	}
+	category = NormalizeEntityCategory(category)
 
 	payload := make(map[string]any)
 	if len(raw) > 0 {
@@ -141,6 +139,29 @@ func WithEntityCategory(raw []byte, category string) []byte {
 	}
 	payload["entity_category"] = category
 	return MarshalJSON(payload)
+}
+
+func NormalizeEntityCategory(category string) string {
+	switch strings.ToLower(strings.TrimSpace(category)) {
+	case EntityCategoryUser:
+		return EntityCategoryUser
+	case EntityCategoryGroup:
+		return EntityCategoryGroup
+	case EntityCategoryServicePrincipal:
+		return EntityCategoryServicePrincipal
+	case EntityCategoryServiceAccount:
+		return EntityCategoryServiceAccount
+	case EntityCategoryTeam:
+		return EntityCategoryTeam
+	case EntityCategoryRole:
+		return EntityCategoryRole
+	case EntityCategoryAuthRole:
+		return EntityCategoryAuthRole
+	case EntityCategoryEntity:
+		return EntityCategoryEntity
+	default:
+		return EntityCategoryUnknown
+	}
 }
 
 func accountKindWeight(kind string) int {

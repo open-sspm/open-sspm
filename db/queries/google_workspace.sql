@@ -6,7 +6,7 @@ WHERE
   AND au.source_name = sqlc.arg(source_name)::text
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
-  AND lower(COALESCE(NULLIF(trim(au.raw_json ->> 'entity_category'), ''), '')) = 'user'
+  AND au.entity_category = 'user'
   AND (
     sqlc.arg(query)::text = ''
     OR au.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
@@ -25,7 +25,7 @@ WHERE
   AND au.source_name = sqlc.arg(source_name)::text
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
-  AND lower(COALESCE(NULLIF(trim(au.raw_json ->> 'entity_category'), ''), '')) = 'user'
+  AND au.entity_category = 'user'
   AND (
     sqlc.arg(query)::text = ''
     OR au.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
@@ -55,7 +55,7 @@ WHERE
   AND au.source_name = sqlc.arg(source_name)::text
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
-  AND lower(COALESCE(NULLIF(trim(au.raw_json ->> 'entity_category'), ''), '')) = 'user'
+  AND au.entity_category = 'user'
   AND (
     sqlc.arg(query)::text = ''
     OR au.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
@@ -88,7 +88,7 @@ WHERE
   AND au.source_name = sqlc.arg(source_name)::text
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
-  AND lower(COALESCE(NULLIF(trim(au.raw_json ->> 'entity_category'), ''), '')) = 'user'
+  AND au.entity_category = 'user'
   AND (
     sqlc.arg(query)::text = ''
     OR au.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
@@ -113,7 +113,7 @@ WHERE
   AND au.source_name = sqlc.arg(source_name)::text
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
-  AND lower(COALESCE(NULLIF(trim(au.raw_json ->> 'entity_category'), ''), '')) = 'group'
+  AND au.entity_category = 'group'
   AND (
     sqlc.arg(query)::text = ''
     OR au.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
@@ -129,7 +129,7 @@ WHERE
   AND au.source_name = sqlc.arg(source_name)::text
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
-  AND lower(COALESCE(NULLIF(trim(au.raw_json ->> 'entity_category'), ''), '')) = 'group'
+  AND au.entity_category = 'group'
   AND (
     sqlc.arg(query)::text = ''
     OR au.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')

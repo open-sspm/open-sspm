@@ -421,4 +421,68 @@ describe("htmx integration wiring", () => {
 
     expect(document.activeElement).toBe(document.getElementById("new"));
   });
+
+  it("restores focus to the command search input after command fragment swap", async () => {
+    document.body.innerHTML = `
+      <main data-main-content data-busy-region>
+        <section id="command-root" data-command-root>
+          <div class="command header-command">
+            <header>
+              <input id="command-search-input" name="q" type="text" value="azure" />
+            </header>
+            <div role="menu">
+              <a id="old-action" role="menuitem" href="/identities?q=azure">Search Identities</a>
+            </div>
+          </div>
+        </section>
+      </main>
+    `;
+
+    const target = document.getElementById("command-root");
+    const oldInput = document.getElementById("command-search-input");
+    const xhr = new XMLHttpRequest();
+
+    oldInput.focus();
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        detail: {
+          xhr,
+          target,
+          elt: oldInput,
+          requestConfig: {},
+        },
+      }),
+    );
+
+    target.outerHTML = `
+      <section id="command-root" data-command-root>
+        <div class="command header-command">
+          <header>
+            <input id="command-search-input" name="q" type="text" value="azure" />
+          </header>
+          <div role="menu">
+            <a id="new-action" role="menuitem" href="/identities?q=azure">Search Identities</a>
+            <a id="second-action" role="menuitem" href="/app-assets?q=azure">Search App Assets</a>
+          </div>
+        </div>
+      </section>
+    `;
+
+    const newTarget = document.getElementById("command-root");
+    newTarget.dispatchEvent(
+      new CustomEvent("htmx:afterSwap", {
+        bubbles: true,
+        detail: { xhr },
+      }),
+    );
+
+    await waitForAsyncWork();
+
+    const newInput = document.getElementById("command-search-input");
+    const firstAction = document.getElementById("new-action");
+
+    expect(document.activeElement).toBe(newInput);
+    expect(firstAction.getAttribute("role")).toBe("menuitem");
+  });
 });
