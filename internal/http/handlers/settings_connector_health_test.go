@@ -142,3 +142,46 @@ func TestConnectorHealthLanes_IncludeDiscoveryWhenEnabled(t *testing.T) {
 		t.Fatalf("lanes = %#v", lanes)
 	}
 }
+
+func TestConnectorHealthRequestedRollupKeys_IncludeVault(t *testing.T) {
+	cfg := config.Config{
+		SyncDiscoveryEnabled:  true,
+		SyncInterval:          15 * time.Minute,
+		SyncDiscoveryInterval: 30 * time.Minute,
+	}
+	states := []connregistry.ConnectorState{
+		{
+			Definition: connectorHealthTestDefinition{kind: configstore.KindVault, displayName: "Vault"},
+			Configured: true,
+			SourceName: "prod-vault",
+		},
+		{
+			Definition: connectorHealthTestDefinition{kind: configstore.KindGoogleWorkspace, displayName: "Google Workspace"},
+			Configured: true,
+			SourceName: "C0123",
+			Config: configstore.GoogleWorkspaceConfig{
+				DiscoveryEnabled: true,
+			},
+		},
+	}
+
+	keys := connectorHealthRequestedRollupKeys(cfg, states)
+	if len(keys) != 3 {
+		t.Fatalf("key count = %d, want 3", len(keys))
+	}
+
+	want := map[syncRollupKey]struct{}{
+		{kind: configstore.KindVault, name: "prod-vault"}:                     {},
+		{kind: configstore.KindGoogleWorkspace, name: "C0123"}:                {},
+		{kind: configstore.KindGoogleWorkspace + "_discovery", name: "C0123"}: {},
+	}
+	for _, key := range keys {
+		if _, ok := want[key]; !ok {
+			t.Fatalf("unexpected key = %#v", key)
+		}
+		delete(want, key)
+	}
+	if len(want) != 0 {
+		t.Fatalf("missing keys = %#v", want)
+	}
+}

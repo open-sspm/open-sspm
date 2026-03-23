@@ -45,14 +45,26 @@ func TestBuildVaultAccountRows(t *testing.T) {
 	if _, ok := byExternalID["entity:e-1"]; !ok {
 		t.Fatalf("expected entity:e-1 account row")
 	}
+	if got := byExternalID["entity:e-1"].EntityCategory; got != "entity" {
+		t.Fatalf("entity:e-1 entity category = %q, want %q", got, "entity")
+	}
 	if _, ok := byExternalID["entity:e-2"]; !ok {
 		t.Fatalf("expected placeholder entity:e-2 account row from group membership")
+	}
+	if got := byExternalID["entity:e-2"].EntityCategory; got != "entity" {
+		t.Fatalf("entity:e-2 entity category = %q, want %q", got, "entity")
 	}
 	if _, ok := byExternalID["group:g-1"]; !ok {
 		t.Fatalf("expected group:g-1 account row")
 	}
+	if got := byExternalID["group:g-1"].EntityCategory; got != "group" {
+		t.Fatalf("group:g-1 entity category = %q, want %q", got, "group")
+	}
 	if _, ok := byExternalID["role:approle:approle:ci-role"]; !ok {
 		t.Fatalf("expected auth role principal row")
+	}
+	if got := byExternalID["role:approle:approle:ci-role"].EntityCategory; got != "auth_role" {
+		t.Fatalf("auth role entity category = %q, want %q", got, "auth_role")
 	}
 }
 

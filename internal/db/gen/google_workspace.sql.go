@@ -19,7 +19,7 @@ WHERE
   AND au.source_name = $2::text
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
-  AND lower(COALESCE(NULLIF(trim(au.raw_json ->> 'entity_category'), ''), '')) = 'group'
+  AND au.entity_category = 'group'
   AND (
     $3::text = ''
     OR au.external_id ILIKE ('%' || $3::text || '%')
@@ -49,7 +49,7 @@ WHERE
   AND au.source_name = $2::text
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
-  AND lower(COALESCE(NULLIF(trim(au.raw_json ->> 'entity_category'), ''), '')) = 'user'
+  AND au.entity_category = 'user'
   AND (
     $3::text = ''
     OR au.external_id ILIKE ('%' || $3::text || '%')
@@ -90,7 +90,7 @@ WHERE
   AND au.source_name = $2::text
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
-  AND lower(COALESCE(NULLIF(trim(au.raw_json ->> 'entity_category'), ''), '')) = 'user'
+  AND au.entity_category = 'user'
   AND (
     $3::text = ''
     OR au.external_id ILIKE ('%' || $3::text || '%')
@@ -172,14 +172,14 @@ func (q *Queries) ListGoogleWorkspaceGroupMemberCountsByGroupExternalIDs(ctx con
 }
 
 const listGoogleWorkspaceGroupsPageBySourceAndQuery = `-- name: ListGoogleWorkspaceGroupsPageBySourceAndQuery :many
-SELECT au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind
+SELECT au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind, au.entity_category
 FROM accounts au
 WHERE
   au.source_kind = $1::text
   AND au.source_name = $2::text
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
-  AND lower(COALESCE(NULLIF(trim(au.raw_json ->> 'entity_category'), ''), '')) = 'group'
+  AND au.entity_category = 'group'
   AND (
     $3::text = ''
     OR au.external_id ILIKE ('%' || $3::text || '%')
@@ -235,6 +235,7 @@ func (q *Queries) ListGoogleWorkspaceGroupsPageBySourceAndQuery(ctx context.Cont
 			&i.ExpiredRunID,
 			&i.Status,
 			&i.AccountKind,
+			&i.EntityCategory,
 		); err != nil {
 			return nil, err
 		}
@@ -248,7 +249,7 @@ func (q *Queries) ListGoogleWorkspaceGroupsPageBySourceAndQuery(ctx context.Cont
 
 const listGoogleWorkspaceUsersPageBySourceAndQuery = `-- name: ListGoogleWorkspaceUsersPageBySourceAndQuery :many
 SELECT
-  au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind,
+  au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind, au.entity_category,
   COALESCE(ia.identity_id, 0) AS idp_user_id
 FROM accounts au
 LEFT JOIN identity_accounts ia ON ia.account_id = au.id
@@ -257,7 +258,7 @@ WHERE
   AND au.source_name = $2::text
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
-  AND lower(COALESCE(NULLIF(trim(au.raw_json ->> 'entity_category'), ''), '')) = 'user'
+  AND au.entity_category = 'user'
   AND (
     $3::text = ''
     OR au.external_id ILIKE ('%' || $3::text || '%')
@@ -298,6 +299,7 @@ type ListGoogleWorkspaceUsersPageBySourceAndQueryRow struct {
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
 	Status            string             `json:"status"`
 	AccountKind       string             `json:"account_kind"`
+	EntityCategory    string             `json:"entity_category"`
 	IdpUserID         int64              `json:"idp_user_id"`
 }
 
@@ -337,6 +339,7 @@ func (q *Queries) ListGoogleWorkspaceUsersPageBySourceAndQuery(ctx context.Conte
 			&i.ExpiredRunID,
 			&i.Status,
 			&i.AccountKind,
+			&i.EntityCategory,
 			&i.IdpUserID,
 		); err != nil {
 			return nil, err
@@ -361,14 +364,14 @@ WITH authoritative_identities AS (
   WHERE anchor.expired_at IS NULL
     AND anchor.last_observed_run_id IS NOT NULL
 )
-SELECT au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind
+SELECT au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind, au.entity_category
 FROM accounts au
 WHERE
   au.source_kind = $1::text
   AND au.source_name = $2::text
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
-  AND lower(COALESCE(NULLIF(trim(au.raw_json ->> 'entity_category'), ''), '')) = 'user'
+  AND au.entity_category = 'user'
   AND (
     $3::text = ''
     OR au.external_id ILIKE ('%' || $3::text || '%')
@@ -430,6 +433,7 @@ func (q *Queries) ListUnmatchedGoogleWorkspaceUsersPageBySourceAndQuery(ctx cont
 			&i.ExpiredRunID,
 			&i.Status,
 			&i.AccountKind,
+			&i.EntityCategory,
 		); err != nil {
 			return nil, err
 		}

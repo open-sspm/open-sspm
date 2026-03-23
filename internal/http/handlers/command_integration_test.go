@@ -1,0 +1,673 @@
+package handlers
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
+	connregistry "github.com/open-sspm/open-sspm/internal/connectors/registry"
+	"github.com/open-sspm/open-sspm/internal/db/gen"
+)
+
+type commandSearchFixture struct {
+	azureIdentityID            int64
+	azureAppAssetID            int64
+	servicePrincipalIdentityID int64
+	servicePrincipalAssetID    int64
+	githubAppAssetID           int64
+	googleConnectedAppID       int64
+}
+
+type commandSearchTestDefinition struct {
+	kind        string
+	displayName string
+	role        connregistry.IntegrationRole
+}
+
+func (d commandSearchTestDefinition) Kind() string                       { return d.kind }
+func (d commandSearchTestDefinition) DisplayName() string                { return d.displayName }
+func (d commandSearchTestDefinition) Role() connregistry.IntegrationRole { return d.role }
+func (d commandSearchTestDefinition) ValidateConfig(any) error           { return nil }
+func (d commandSearchTestDefinition) DefaultSubtitle() string            { return "" }
+func (d commandSearchTestDefinition) ConfiguredSubtitle(any) string      { return "" }
+func (d commandSearchTestDefinition) SettingsHref() string               { return "/settings/connectors" }
+func (d commandSearchTestDefinition) MetricsProvider() connregistry.MetricsProvider {
+	return nil
+}
+func (d commandSearchTestDefinition) NewIntegration(any) (connregistry.Integration, error) {
+	return nil, nil
+}
+
+func (d commandSearchTestDefinition) DecodeConfig(raw []byte) (any, error) {
+	if len(strings.TrimSpace(string(raw))) == 0 {
+		raw = []byte("{}")
+	}
+
+	switch d.kind {
+	case configstore.KindOkta:
+		var cfg configstore.OktaConfig
+		if err := json.Unmarshal(raw, &cfg); err != nil {
+			return nil, err
+		}
+		return cfg.Normalized(), nil
+	case configstore.KindEntra:
+		var cfg configstore.EntraConfig
+		if err := json.Unmarshal(raw, &cfg); err != nil {
+			return nil, err
+		}
+		return cfg.Normalized(), nil
+	case configstore.KindGoogleWorkspace:
+		var cfg configstore.GoogleWorkspaceConfig
+		if err := json.Unmarshal(raw, &cfg); err != nil {
+			return nil, err
+		}
+		return cfg.Normalized(), nil
+	case configstore.KindGitHub:
+		var cfg configstore.GitHubConfig
+		if err := json.Unmarshal(raw, &cfg); err != nil {
+			return nil, err
+		}
+		return cfg.Normalized(), nil
+	default:
+		return struct{}{}, nil
+	}
+}
+
+func (d commandSearchTestDefinition) IsConfigured(cfg any) bool {
+	switch cfg := cfg.(type) {
+	case configstore.OktaConfig:
+		return strings.TrimSpace(cfg.Domain) != ""
+	case configstore.EntraConfig:
+		return strings.TrimSpace(cfg.TenantID) != ""
+	case configstore.GoogleWorkspaceConfig:
+		return strings.TrimSpace(cfg.CustomerID) != ""
+	case configstore.GitHubConfig:
+		return strings.TrimSpace(cfg.Org) != ""
+	default:
+		return false
+	}
+}
+
+func (d commandSearchTestDefinition) SourceName(cfg any) string {
+	switch cfg := cfg.(type) {
+	case configstore.OktaConfig:
+		return strings.TrimSpace(cfg.Domain)
+	case configstore.EntraConfig:
+		return strings.TrimSpace(cfg.TenantID)
+	case configstore.GoogleWorkspaceConfig:
+		return strings.TrimSpace(cfg.CustomerID)
+	case configstore.GitHubConfig:
+		return strings.TrimSpace(cfg.Org)
+	default:
+		return ""
+	}
+}
+
+func TestHandleCommandSearchShellAndShortQuery(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{Org: "acme"})
+
+		body := renderCommandSearch(t, h, "http://example.com/command/search?q=")
+		if !strings.Contains(body, `id="command-search-input"`) {
+			t.Fatalf("empty-query body missing command input: %s", body)
+		}
+		if strings.Contains(body, `role="heading">Actions`) {
+			t.Fatalf("empty-query body unexpectedly rendered actions: %s", body)
+		}
+		if strings.Contains(body, "Type at least 2 characters for direct matches.") {
+			t.Fatalf("empty-query body unexpectedly rendered short-query notice: %s", body)
+		}
+
+		body = renderCommandSearch(t, h, "http://example.com/command/search?q=g")
+		if !strings.Contains(body, "Type at least 2 characters for direct matches.") {
+			t.Fatalf("short-query body missing notice: %s", body)
+		}
+		if !strings.Contains(body, `href="/identities?q=g"`) {
+			t.Fatalf("short-query body missing identities action: %s", body)
+		}
+		if !strings.Contains(body, `href="/app-assets?q=g"`) {
+			t.Fatalf("short-query body missing app-assets action: %s", body)
+		}
+		if strings.Contains(body, `href="/connected-apps?q=g"`) {
+			t.Fatalf("short-query body unexpectedly rendered connected-apps action: %s", body)
+		}
+		if strings.Contains(body, `href="/apps?q=g"`) {
+			t.Fatalf("short-query body unexpectedly rendered okta action: %s", body)
+		}
+	})
+}
+
+func TestHandleCommandSearchCrossInventoryResults(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindOkta, true, configstore.OktaConfig{Domain: "acme.okta.com"})
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{TenantID: "tenant-1"})
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGoogleWorkspace, true, configstore.GoogleWorkspaceConfig{CustomerID: "C0123"})
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{Org: "acme"})
+
+		fixture := seedCommandSearchFixture(t, ctx, pool, q)
+
+		t.Run("azure returns live entra inventory and not unrelated okta rows", func(t *testing.T) {
+			body := renderCommandSearch(t, h, "http://example.com/command/search?q=azure")
+
+			if !strings.Contains(body, `role="heading">Identities`) {
+				t.Fatalf("azure body missing identities section: %s", body)
+			}
+			if !strings.Contains(body, `/identities/`+strconv.FormatInt(fixture.azureIdentityID, 10)) {
+				t.Fatalf("azure body missing identity href: %s", body)
+			}
+			if !strings.Contains(body, `/app-assets/`+strconv.FormatInt(fixture.azureAppAssetID, 10)) {
+				t.Fatalf("azure body missing app asset href: %s", body)
+			}
+			if strings.Contains(body, "Salesforce Legacy") {
+				t.Fatalf("azure body leaked unrelated okta app row: %s", body)
+			}
+		})
+
+		t.Run("github returns github inventory instead of defaulting to okta", func(t *testing.T) {
+			body := renderCommandSearch(t, h, "http://example.com/command/search?q=github")
+
+			if !strings.Contains(body, `/app-assets/`+strconv.FormatInt(fixture.githubAppAssetID, 10)) {
+				t.Fatalf("github body missing github app asset href: %s", body)
+			}
+			if strings.Contains(body, `role="heading">Okta Apps`) {
+				t.Fatalf("github body unexpectedly rendered okta direct matches: %s", body)
+			}
+		})
+
+		t.Run("service principal returns entra service identities and assets", func(t *testing.T) {
+			body := renderCommandSearch(t, h, "http://example.com/command/search?q=service%20principal")
+
+			if !strings.Contains(body, `/identities/`+strconv.FormatInt(fixture.servicePrincipalIdentityID, 10)) {
+				t.Fatalf("service principal body missing identity href: %s", body)
+			}
+			if !strings.Contains(body, `/app-assets/`+strconv.FormatInt(fixture.servicePrincipalAssetID, 10)) {
+				t.Fatalf("service principal body missing app asset href: %s", body)
+			}
+		})
+
+		t.Run("google oauth client appears once under connected apps", func(t *testing.T) {
+			body := renderCommandSearch(t, h, "http://example.com/command/search?q=oauth")
+
+			if !strings.Contains(body, `role="heading">Connected Apps`) {
+				t.Fatalf("oauth body missing connected apps section: %s", body)
+			}
+			if !strings.Contains(body, `/connected-apps/`+strconv.FormatInt(fixture.googleConnectedAppID, 10)) {
+				t.Fatalf("oauth body missing connected app href: %s", body)
+			}
+			if strings.Contains(body, `role="heading">App Assets`) {
+				t.Fatalf("oauth body unexpectedly rendered app-assets section for google oauth client: %s", body)
+			}
+		})
+
+		t.Run("okta app rows link to direct destinations", func(t *testing.T) {
+			legacyBody := renderCommandSearch(t, h, "http://example.com/command/search?q=legacy")
+			if !strings.Contains(legacyBody, `href="/apps/legacy-app"`) {
+				t.Fatalf("legacy okta body missing /apps/{external_id} link: %s", legacyBody)
+			}
+
+			mappedBody := renderCommandSearch(t, h, "http://example.com/command/search?q=mapped")
+			if !strings.Contains(mappedBody, `href="/github-users"`) {
+				t.Fatalf("mapped okta body missing integrated destination link: %s", mappedBody)
+			}
+		})
+	})
+}
+
+func TestHandleCommandSearchQueryFailureFallsBack(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{TenantID: "tenant-1"})
+
+		if _, err := pool.Exec(ctx, `DROP TABLE accounts CASCADE`); err != nil {
+			t.Fatalf("drop accounts: %v", err)
+		}
+
+		body := renderCommandSearch(t, h, "http://example.com/command/search?q=azure")
+		if !strings.Contains(body, "Search unavailable. Open an inventory below.") {
+			t.Fatalf("query-failure body missing degraded notice: %s", body)
+		}
+		if !strings.Contains(body, `href="/identities?q=azure"`) {
+			t.Fatalf("query-failure body missing identities action: %s", body)
+		}
+		if !strings.Contains(body, `href="/app-assets?q=azure"`) {
+			t.Fatalf("query-failure body missing app-assets action: %s", body)
+		}
+	})
+}
+
+func withCommandSearchTestDatabase(t *testing.T, fn func(context.Context, *pgxpool.Pool, *gen.Queries, *Handlers)) {
+	t.Helper()
+
+	baseURL := strings.TrimSpace(os.Getenv("OPENSSPM_TEST_DATABASE_URL"))
+	if baseURL == "" {
+		t.Skip("OPENSSPM_TEST_DATABASE_URL is not set")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	adminURL, err := commandSearchTestDatabaseAdminURL(baseURL)
+	if err != nil {
+		t.Fatalf("commandSearchTestDatabaseAdminURL() err = %v", err)
+	}
+
+	adminConn, err := pgx.Connect(ctx, adminURL)
+	if err != nil {
+		t.Fatalf("pgx.Connect(admin) err = %v", err)
+	}
+	defer adminConn.Close(ctx)
+
+	dbName := "opensspm_command_search_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	if _, err := adminConn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{dbName}.Sanitize()); err != nil {
+		t.Fatalf("CREATE DATABASE err = %v", err)
+	}
+	defer func() {
+		dropCtx, dropCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer dropCancel()
+		_, _ = adminConn.Exec(dropCtx, "DROP DATABASE IF EXISTS "+pgx.Identifier{dbName}.Sanitize()+" WITH (FORCE)")
+	}()
+
+	testURL, err := commandSearchTestDatabaseURLWithName(baseURL, dbName)
+	if err != nil {
+		t.Fatalf("commandSearchTestDatabaseURLWithName() err = %v", err)
+	}
+
+	migrator, err := migrate.New("file://"+commandSearchTestMigrationsDir(t), testURL)
+	if err != nil {
+		t.Fatalf("migrate.New() err = %v", err)
+	}
+	defer func() {
+		_, _ = migrator.Close()
+	}()
+
+	if err := migrator.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		t.Fatalf("migrate up: %v", err)
+	}
+
+	pool, err := pgxpool.New(ctx, testURL)
+	if err != nil {
+		t.Fatalf("pgxpool.New() err = %v", err)
+	}
+	defer pool.Close()
+
+	q := gen.New(pool)
+	fn(ctx, pool, q, &Handlers{
+		Q:        q,
+		Pool:     pool,
+		Registry: newCommandSearchTestRegistry(t),
+	})
+}
+
+func newCommandSearchTestRegistry(t *testing.T) *connregistry.ConnectorRegistry {
+	t.Helper()
+
+	reg := connregistry.NewRegistry()
+	defs := []commandSearchTestDefinition{
+		{kind: configstore.KindOkta, displayName: "Okta", role: connregistry.RoleIdP},
+		{kind: configstore.KindEntra, displayName: "Microsoft Entra", role: connregistry.RoleIdP},
+		{kind: configstore.KindGoogleWorkspace, displayName: "Google Workspace", role: connregistry.RoleApp},
+		{kind: configstore.KindGitHub, displayName: "GitHub", role: connregistry.RoleApp},
+	}
+	for _, def := range defs {
+		if err := reg.Register(def); err != nil {
+			t.Fatalf("register %s: %v", def.kind, err)
+		}
+	}
+	return reg
+}
+
+func renderCommandSearch(t *testing.T, h *Handlers, target string) string {
+	t.Helper()
+
+	c, rec := newTestContext(http.MethodGet, target)
+	if err := h.HandleCommandSearch(c); err != nil {
+		t.Fatalf("HandleCommandSearch(%s): %v", target, err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	return rec.Body.String()
+}
+
+func upsertCommandSearchConnectorConfig(t *testing.T, ctx context.Context, pool *pgxpool.Pool, kind string, enabled bool, cfg any) {
+	t.Helper()
+
+	payload, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal connector config %s: %v", kind, err)
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO connector_configs (kind, enabled, config, updated_at)
+		VALUES ($1, $2, $3::jsonb, now())
+		ON CONFLICT (kind) DO UPDATE SET
+			enabled = EXCLUDED.enabled,
+			config = EXCLUDED.config,
+			updated_at = EXCLUDED.updated_at
+	`, kind, enabled, payload); err != nil {
+		t.Fatalf("upsert connector config %s: %v", kind, err)
+	}
+}
+
+func seedCommandSearchFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) commandSearchFixture {
+	t.Helper()
+
+	oktaRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindOkta, "acme.okta.com")
+	entraRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindEntra, "tenant-1")
+	googleRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGoogleWorkspace, "C0123")
+	githubRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
+
+	insertCommandSearchIdentitySourceSetting(t, ctx, pool, configstore.KindEntra, "tenant-1", true)
+	insertCommandSearchIdentitySourceSetting(t, ctx, pool, configstore.KindGitHub, "acme", true)
+
+	azureAccountID := insertCommandSearchAccount(t, ctx, pool, entraRunID, commandSearchAccountSeed{
+		SourceKind:     configstore.KindEntra,
+		SourceName:     "tenant-1",
+		ExternalID:     "azure-user-1",
+		Email:          "azure.admin@example.com",
+		DisplayName:    "Azure Admin",
+		Status:         "active",
+		AccountKind:    "human",
+		EntityCategory: "user",
+		RawJSON:        `{"status":"active"}`,
+	})
+	azureIdentityID := insertCommandSearchIdentity(t, ctx, pool, "human", "azure.admin@example.com", "Azure Admin")
+	insertCommandSearchIdentityAccountLink(t, ctx, pool, azureIdentityID, azureAccountID)
+
+	servicePrincipalAccountID := insertCommandSearchAccount(t, ctx, pool, entraRunID, commandSearchAccountSeed{
+		SourceKind:     configstore.KindEntra,
+		SourceName:     "tenant-1",
+		ExternalID:     "sp:svc-123",
+		Email:          "service.principal@example.com",
+		DisplayName:    "Azure Service Principal",
+		Status:         "active",
+		AccountKind:    "service",
+		EntityCategory: "service_principal",
+		RawJSON:        `{"status":"active"}`,
+	})
+	servicePrincipalIdentityID := insertCommandSearchIdentity(t, ctx, pool, "service", "service.principal@example.com", "Azure Service Principal")
+	insertCommandSearchIdentityAccountLink(t, ctx, pool, servicePrincipalIdentityID, servicePrincipalAccountID)
+
+	azureAppAssetID := insertCommandSearchAppAsset(t, ctx, q, entraRunID, configstore.KindEntra, "tenant-1", "entra_application", "azure-enterprise-app", "", "Azure Enterprise App", "active")
+	servicePrincipalAssetID := insertCommandSearchAppAsset(t, ctx, q, entraRunID, configstore.KindEntra, "tenant-1", "entra_service_principal", "svc-123", "azure-enterprise-app", "Azure Service Principal", "active")
+	githubAppAssetID := insertCommandSearchAppAsset(t, ctx, q, githubRunID, configstore.KindGitHub, "acme", "github_app", "github-actions", "", "GitHub Actions", "active")
+	googleConnectedAppID := insertCommandSearchAppAsset(t, ctx, q, googleRunID, configstore.KindGoogleWorkspace, "C0123", "google_oauth_client", "client-123.apps.googleusercontent.com", "", "OAuth Approval Client", "active")
+
+	if _, err := q.UpsertConnectedAppGovernance(ctx, gen.UpsertConnectedAppGovernanceParams{
+		AppAssetID:  googleConnectedAppID,
+		ReviewState: "needs_revocation",
+	}); err != nil {
+		t.Fatalf("UpsertConnectedAppGovernance: %v", err)
+	}
+
+	insertCommandSearchDiscoveryApp(t, ctx, pool, q, entraRunID, configstore.KindEntra, "tenant-1", "azure-cloud", "Azure Cloud", "azure.com", "Microsoft", "managed", "high", 80, "azure-cloud")
+
+	insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "salesforce-legacy", "Salesforce Legacy", "salesforce", "active")
+	insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "legacy-app", "Legacy HR App", "legacy-hr", "active")
+	insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "mapped-okta-app", "Mapped Directory App", "mapped-directory", "active")
+	if err := q.UpsertIntegrationOktaAppMap(ctx, gen.UpsertIntegrationOktaAppMapParams{
+		IntegrationKind:   configstore.KindGitHub,
+		OktaAppExternalID: "mapped-okta-app",
+	}); err != nil {
+		t.Fatalf("UpsertIntegrationOktaAppMap: %v", err)
+	}
+
+	return commandSearchFixture{
+		azureIdentityID:            azureIdentityID,
+		azureAppAssetID:            azureAppAssetID,
+		servicePrincipalIdentityID: servicePrincipalIdentityID,
+		servicePrincipalAssetID:    servicePrincipalAssetID,
+		githubAppAssetID:           githubAppAssetID,
+		googleConnectedAppID:       googleConnectedAppID,
+	}
+}
+
+type commandSearchAccountSeed struct {
+	SourceKind     string
+	SourceName     string
+	ExternalID     string
+	Email          string
+	DisplayName    string
+	Status         string
+	AccountKind    string
+	EntityCategory string
+	RawJSON        string
+}
+
+func insertCommandSearchSyncRun(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceKind, sourceName string) int64 {
+	t.Helper()
+
+	var id int64
+	err := pool.QueryRow(ctx, `
+		INSERT INTO sync_runs (source_kind, source_name, status, started_at, finished_at, message)
+		VALUES ($1, $2, 'success', now(), now(), '')
+		RETURNING id
+	`, sourceKind, sourceName).Scan(&id)
+	if err != nil {
+		t.Fatalf("insert sync run %s/%s: %v", sourceKind, sourceName, err)
+	}
+	return id
+}
+
+func insertCommandSearchIdentitySourceSetting(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceKind, sourceName string, authoritative bool) {
+	t.Helper()
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO identity_source_settings (source_kind, source_name, is_authoritative, created_at, updated_at)
+		VALUES ($1, $2, $3, now(), now())
+		ON CONFLICT (source_kind, source_name) DO UPDATE SET
+			is_authoritative = EXCLUDED.is_authoritative,
+			updated_at = EXCLUDED.updated_at
+	`, sourceKind, sourceName, authoritative); err != nil {
+		t.Fatalf("insert identity source setting %s/%s: %v", sourceKind, sourceName, err)
+	}
+}
+
+func insertCommandSearchIdentity(t *testing.T, ctx context.Context, pool *pgxpool.Pool, kind, email, displayName string) int64 {
+	t.Helper()
+
+	var id int64
+	err := pool.QueryRow(ctx, `
+		INSERT INTO identities (kind, display_name, primary_email, created_at, updated_at)
+		VALUES ($1, $2, $3, now(), now())
+		RETURNING id
+	`, kind, displayName, email).Scan(&id)
+	if err != nil {
+		t.Fatalf("insert identity %s: %v", displayName, err)
+	}
+	return id
+}
+
+func insertCommandSearchIdentityAccountLink(t *testing.T, ctx context.Context, pool *pgxpool.Pool, identityID, accountID int64) {
+	t.Helper()
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO identity_accounts (identity_id, account_id, link_reason, confidence, created_at, updated_at)
+		VALUES ($1, $2, 'seed', 1.0, now(), now())
+	`, identityID, accountID); err != nil {
+		t.Fatalf("insert identity account link %d/%d: %v", identityID, accountID, err)
+	}
+}
+
+func insertCommandSearchAccount(t *testing.T, ctx context.Context, pool *pgxpool.Pool, runID int64, seed commandSearchAccountSeed) int64 {
+	t.Helper()
+
+	var id int64
+	err := pool.QueryRow(ctx, `
+		INSERT INTO accounts (
+			source_kind,
+			source_name,
+			external_id,
+			email,
+			display_name,
+			status,
+			account_kind,
+			entity_category,
+			raw_json,
+			seen_in_run_id,
+			seen_at,
+			last_observed_run_id,
+			last_observed_at,
+			updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, now(), $10, now(), now())
+		RETURNING id
+	`, seed.SourceKind, seed.SourceName, seed.ExternalID, seed.Email, seed.DisplayName, seed.Status, seed.AccountKind, seed.EntityCategory, seed.RawJSON, runID).Scan(&id)
+	if err != nil {
+		t.Fatalf("insert account %s/%s: %v", seed.SourceKind, seed.ExternalID, err)
+	}
+	return id
+}
+
+func insertCommandSearchAppAsset(t *testing.T, ctx context.Context, q *gen.Queries, runID int64, sourceKind, sourceName, assetKind, externalID, parentExternalID, displayName, status string) int64 {
+	t.Helper()
+
+	now := pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
+	if _, err := q.UpsertAppAssetsBulkBySource(ctx, gen.UpsertAppAssetsBulkBySourceParams{
+		SourceKind:        sourceKind,
+		SourceName:        sourceName,
+		SeenInRunID:       runID,
+		AssetKinds:        []string{assetKind},
+		ExternalIds:       []string{externalID},
+		ParentExternalIds: []string{parentExternalID},
+		DisplayNames:      []string{displayName},
+		Statuses:          []string{status},
+		CreatedAtSources:  []pgtype.Timestamptz{now},
+		UpdatedAtSources:  []pgtype.Timestamptz{now},
+		RawJsons:          [][]byte{[]byte(`{}`)},
+	}); err != nil {
+		t.Fatalf("UpsertAppAssetsBulkBySource %s/%s: %v", sourceKind, externalID, err)
+	}
+	if _, err := q.PromoteAppAssetsSeenInRunBySource(ctx, gen.PromoteAppAssetsSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        sourceKind,
+		SourceName:        sourceName,
+	}); err != nil {
+		t.Fatalf("PromoteAppAssetsSeenInRunBySource %s/%s: %v", sourceKind, externalID, err)
+	}
+
+	appAsset, err := q.GetAppAssetBySourceAndKindAndExternalID(ctx, gen.GetAppAssetBySourceAndKindAndExternalIDParams{
+		SourceKind: sourceKind,
+		SourceName: sourceName,
+		AssetKind:  assetKind,
+		ExternalID: externalID,
+	})
+	if err != nil {
+		t.Fatalf("GetAppAssetBySourceAndKindAndExternalID %s/%s: %v", sourceKind, externalID, err)
+	}
+	return appAsset.ID
+}
+
+func insertCommandSearchDiscoveryApp(t *testing.T, ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, runID int64, sourceKind, sourceName, canonicalKey, displayName, primaryDomain, vendorName, managedState, riskLevel string, riskScore int32, sourceAppID string) int64 {
+	t.Helper()
+
+	now := pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
+	if _, err := q.UpsertSaaSAppsBulk(ctx, gen.UpsertSaaSAppsBulkParams{
+		CanonicalKeys:  []string{canonicalKey},
+		DisplayNames:   []string{displayName},
+		PrimaryDomains: []string{primaryDomain},
+		VendorNames:    []string{vendorName},
+		FirstSeenAts:   []pgtype.Timestamptz{now},
+		LastSeenAts:    []pgtype.Timestamptz{now},
+	}); err != nil {
+		t.Fatalf("UpsertSaaSAppsBulk %s: %v", canonicalKey, err)
+	}
+
+	var id int64
+	if err := pool.QueryRow(ctx, `
+		UPDATE saas_apps
+		SET managed_state = $2,
+		    risk_level = $3,
+		    risk_score = $4,
+		    updated_at = now()
+		WHERE canonical_key = $1
+		RETURNING id
+	`, canonicalKey, managedState, riskLevel, riskScore).Scan(&id); err != nil {
+		t.Fatalf("update saas app %s: %v", canonicalKey, err)
+	}
+
+	if _, err := q.UpsertSaaSAppSourcesBulkBySource(ctx, gen.UpsertSaaSAppSourcesBulkBySourceParams{
+		SeenInRunID:      runID,
+		SourceKind:       sourceKind,
+		SourceName:       sourceName,
+		CanonicalKeys:    []string{canonicalKey},
+		SourceAppIds:     []string{sourceAppID},
+		SourceAppNames:   []string{displayName},
+		SourceAppDomains: []string{primaryDomain},
+		SeenAts:          []pgtype.Timestamptz{now},
+	}); err != nil {
+		t.Fatalf("UpsertSaaSAppSourcesBulkBySource %s: %v", canonicalKey, err)
+	}
+	if _, err := q.PromoteSaaSAppSourcesSeenInRunBySource(ctx, gen.PromoteSaaSAppSourcesSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        sourceKind,
+		SourceName:        sourceName,
+	}); err != nil {
+		t.Fatalf("PromoteSaaSAppSourcesSeenInRunBySource %s: %v", canonicalKey, err)
+	}
+
+	return id
+}
+
+func insertCommandSearchOktaApp(t *testing.T, ctx context.Context, q *gen.Queries, runID int64, externalID, label, name, status string) {
+	t.Helper()
+
+	if _, err := q.UpsertOktaAppsBulk(ctx, gen.UpsertOktaAppsBulkParams{
+		SeenInRunID: runID,
+		ExternalIds: []string{externalID},
+		Labels:      []string{label},
+		Names:       []string{name},
+		Statuses:    []string{status},
+		SignOnModes: []string{"bookmark"},
+		RawJsons:    [][]byte{[]byte(`{}`)},
+	}); err != nil {
+		t.Fatalf("UpsertOktaAppsBulk %s: %v", externalID, err)
+	}
+	if _, err := q.PromoteOktaAppsSeenInRun(ctx, pgtype.Int8{Int64: runID, Valid: true}); err != nil {
+		t.Fatalf("PromoteOktaAppsSeenInRun %s: %v", externalID, err)
+	}
+}
+
+func commandSearchTestMigrationsDir(t *testing.T) string {
+	t.Helper()
+
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	return filepath.Join(filepath.Dir(file), "..", "..", "..", "db", "migrations")
+}
+
+func commandSearchTestDatabaseAdminURL(raw string) (string, error) {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+	parsed.Path = "/postgres"
+	return parsed.String(), nil
+}
+
+func commandSearchTestDatabaseURLWithName(raw, dbName string) (string, error) {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+	parsed.Path = "/" + dbName
+	return parsed.String(), nil
+}

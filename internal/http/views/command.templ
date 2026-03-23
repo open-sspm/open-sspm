@@ -2,8 +2,8 @@ package views
 
 import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
-templ CommandSearch(data viewmodels.LayoutData) {
-	<div class="relative w-full max-w-md">
+templ CommandSearch(data viewmodels.CommandSearchViewData) {
+	<div class="relative w-full max-w-md" data-command-root>
 		<div class="rounded-md border border-border/50 bg-background overflow-visible">
 			<div class="command header-command">
 				<header>
@@ -13,78 +13,99 @@ templ CommandSearch(data viewmodels.LayoutData) {
 					<input
 						type="text"
 						id="command-search-input"
-						placeholder="Search users and apps… (⌘K / Ctrl+K)"
+						name="q"
+						value={ data.Query }
+						placeholder={ data.Placeholder }
 						autocomplete="off"
-						aria-label="Search users and apps"
+						spellcheck="false"
+						aria-label={ data.AriaLabel }
+						hx-get="/command/search"
+						hx-trigger="input changed delay:150ms, search"
+						hx-target="closest [data-command-root]"
+						hx-swap="outerHTML"
+						hx-push-url="false"
+						hx-sync="this:replace"
 					/>
 				</header>
-				<div role="menu" data-empty="No matches." class="max-h-[420px] lg:max-h-[520px]">
-					<div role="group">
-						<div role="heading">Users</div>
-						if len(data.CommandUsers) > 0 {
-							for _, u := range data.CommandUsers {
-								<a
-									role="menuitem"
-									id={ "cmd-user-" + FormatInt64(u.ID) }
-									href={ "/idp-users/" + FormatInt64(u.ID) }
-									data-filter={ u.DisplayName + " " + u.Email }
-									data-keywords={ u.Email }
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="h-5 w-5 text-muted-foreground">
-										<path d="M10 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/>
-										<path fill-rule="evenodd" d="M.5 17.5a9.5 9.5 0 1 1 19 0 1 1 0 0 1-1 1h-17a1 1 0 0 1-1-1ZM10 12a7.5 7.5 0 0 0-7.468 6.5h14.936A7.5 7.5 0 0 0 10 12Z" clip-rule="evenodd"/>
-									</svg>
-									<div class="flex min-w-0 flex-1 flex-col">
-										if u.DisplayName != "" {
-											<span class="truncate font-medium">{ u.DisplayName }</span>
-											if u.Email != "" {
-												<span class="truncate text-xs text-muted-foreground">{ u.Email }</span>
-											}
-										} else {
-											<span class="truncate font-medium">{ u.Email }</span>
-										}
-									</div>
-									<span class={ StatusBadgeClass(u.Status) + " shrink-0" }>{ u.Status }</span>
-								</a>
+				<div role="menu" aria-label="Command search results" data-empty="No matches." class="max-h-[420px] overflow-y-auto lg:max-h-[520px]">
+					if len(data.Notices) > 0 {
+						<div role="group">
+							for _, item := range data.Notices {
+								@CommandSearchItem(item)
 							}
-						} else {
-							<div role="menuitem" aria-disabled="true">
-								<span class="text-muted-foreground">No Okta users synced yet.</span>
-							</div>
+						</div>
+						if len(data.Sections) > 0 {
+							<hr role="separator"/>
 						}
-					</div>
-					<hr role="separator"/>
-					<div role="group">
-						<div role="heading">Apps</div>
-						if len(data.CommandApps) > 0 {
-							for _, a := range data.CommandApps {
-								<a
-									role="menuitem"
-									id={ "cmd-app-" + a.ExternalID }
-									href={ "/apps?q=" + QueryEscape(a.ExternalID) }
-									data-filter={ a.Label + " " + a.Name + " " + a.ExternalID }
-									data-keywords={ a.ExternalID }
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="h-5 w-5 text-muted-foreground">
-										<path fill-rule="evenodd" d="M1 4.25A2.25 2.25 0 0 1 3.25 2h13.5A2.25 2.25 0 0 1 19 4.25v11.5A2.25 2.25 0 0 1 16.75 18H3.25A2.25 2.25 0 0 1 1 15.75V4.25Zm2.25-.75a.75.75 0 0 0-.75.75V5h14v-.75a.75.75 0 0 0-.75-.75H3.25ZM16.5 6.5h-14v9.25c0 .414.336.75.75.75h13.5a.75.75 0 0 0 .75-.75V6.5Z" clip-rule="evenodd"/>
-									</svg>
-									<div class="flex min-w-0 flex-1 flex-col">
-										<span class="truncate font-medium">{ a.Label }</span>
-										if a.Name != "" {
-											<span class="truncate text-xs text-muted-foreground">{ a.Name }</span>
-										}
-									</div>
-									<span class={ StatusBadgeClass(a.Status) + " shrink-0" }>{ a.Status }</span>
-								</a>
+					}
+					for idx, section := range data.Sections {
+						if idx > 0 {
+							<hr role="separator"/>
+						}
+						<div role="group">
+							<div role="heading">{ section.Title }</div>
+							for _, item := range section.Items {
+								@CommandSearchItem(item)
 							}
-						} else {
-							<div role="menuitem" aria-disabled="true">
-								<span class="text-muted-foreground">No Okta apps synced yet.</span>
-							</div>
-						}
-					</div>
+						</div>
+					}
 				</div>
 			</div>
 		</div>
+	</div>
+}
+
+templ CommandSearchItem(item viewmodels.CommandItemView) {
+	if item.Disabled {
+		<div
+			role="menuitem"
+			id={ item.ID }
+			data-force?={ item.ForceVisible }
+			data-filter={ item.FilterText }
+			data-keywords={ item.Keywords }
+			aria-disabled="true"
+		>
+			@CommandSearchItemBody(item)
+		</div>
+	} else {
+		<a
+			role="menuitem"
+			id={ item.ID }
+			href={ item.Href }
+			data-force?={ item.ForceVisible }
+			data-filter={ item.FilterText }
+			data-keywords={ item.Keywords }
+		>
+			@CommandSearchItemBody(item)
+		</a>
+	}
+}
+
+templ CommandSearchItemBody(item viewmodels.CommandItemView) {
+	<div class="flex min-w-0 items-start gap-3">
+		<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
+			if item.Kind == "identity" {
+				<i class="ti ti-user text-base" aria-hidden="true"></i>
+			} else if item.Kind == "action" {
+				<i class="ti ti-arrow-up-right text-base" aria-hidden="true"></i>
+			} else if item.Kind == "notice" {
+				<i class="ti ti-info-circle text-base" aria-hidden="true"></i>
+			} else {
+				<i class="ti ti-apps text-base" aria-hidden="true"></i>
+			}
+		</div>
+		<div class="flex min-w-0 flex-1 flex-col gap-1">
+			<span class="truncate font-medium">{ item.Primary }</span>
+			if item.Secondary != "" {
+				<span class="truncate text-xs text-muted-foreground">{ item.Secondary }</span>
+			}
+		</div>
+		if len(item.Badges) > 0 {
+			<div class="flex shrink-0 flex-wrap justify-end gap-1.5">
+				for _, badge := range item.Badges {
+					<span class={ badge.Class }>{ badge.Label }</span>
+				}
+			</div>
+		}
 	</div>
 }

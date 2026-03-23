@@ -13,6 +13,7 @@ const (
 	connectorHealthNotConfigured connectorHealthStatus = "not_configured"
 	connectorHealthDisabled      connectorHealthStatus = "disabled"
 	connectorHealthNeverSynced   connectorHealthStatus = "never_synced"
+	connectorHealthStuck         connectorHealthStatus = "stuck"
 	connectorHealthHealthy       connectorHealthStatus = "healthy"
 	connectorHealthDegraded      connectorHealthStatus = "degraded"
 	connectorHealthStale         connectorHealthStatus = "stale"
@@ -26,6 +27,8 @@ type syncRunRollup struct {
 	lastRunErrorKind       string
 	lastRunFinishedAt      *time.Time
 	lastSuccessAt          *time.Time
+	runningCount           int64
+	oldestRunningStartedAt *time.Time
 	finishedCount7d        int64
 	successCount7d         int64
 	avgSuccessDuration7d   *time.Duration
@@ -86,9 +89,7 @@ func connectorHealth(input connectorHealthInput) connectorHealthResult {
 		result.lastSuccessLabel = formatAge(input.now, *rollup.lastSuccessAt)
 	}
 
-	if rollup.lastRunFinishedAt != nil && !rollup.lastRunFinishedAt.IsZero() {
-		result.lastRunLabel = formatRunLabel(rollup.lastRunStatus, rollup.lastRunErrorKind, formatAge(input.now, *rollup.lastRunFinishedAt))
-	}
+	result.lastRunLabel = formatLastRunLabel(input.now, rollup)
 
 	if !input.enabled {
 		result.status = connectorHealthDisabled
@@ -102,6 +103,10 @@ func connectorHealth(input connectorHealthInput) connectorHealthResult {
 	status := connectorHealthFromRollup(input.now, input.expectedInterval, rollup)
 	result.status = status
 	switch status {
+	case connectorHealthStuck:
+		result.statusLabel = "Stuck"
+		result.statusClass = badgeClassDanger()
+		result.needsAttention = true
 	case connectorHealthHealthy:
 		result.statusLabel = "Healthy"
 		result.statusClass = badgeClassSuccess()
@@ -126,6 +131,10 @@ func connectorHealth(input connectorHealthInput) connectorHealthResult {
 }
 
 func connectorHealthFromRollup(now time.Time, expectedInterval time.Duration, rollup syncRunRollup) connectorHealthStatus {
+	if hasStuckRunningRun(now, staleAfterInterval(expectedInterval), rollup) {
+		return connectorHealthStuck
+	}
+
 	if rollup.lastSuccessAt == nil || rollup.lastSuccessAt.IsZero() {
 		return connectorHealthNeverSynced
 	}
@@ -139,6 +148,16 @@ func connectorHealthFromRollup(now time.Time, expectedInterval time.Duration, ro
 		return connectorHealthHealthy
 	}
 	return connectorHealthDegraded
+}
+
+func hasStuckRunningRun(now time.Time, staleAfter time.Duration, rollup syncRunRollup) bool {
+	if now.IsZero() || staleAfter <= 0 || rollup.runningCount <= 0 {
+		return false
+	}
+	if rollup.oldestRunningStartedAt == nil || rollup.oldestRunningStartedAt.IsZero() {
+		return false
+	}
+	return now.Sub(*rollup.oldestRunningStartedAt) > staleAfter
 }
 
 func staleAfterInterval(expectedInterval time.Duration) time.Duration {
@@ -210,6 +229,40 @@ func formatRunLabel(status, errorKind, age string) string {
 		return label + " · " + age
 	}
 	return label
+}
+
+func formatLastRunLabel(now time.Time, rollup syncRunRollup) string {
+	finishedLabel := ""
+	if rollup.lastRunFinishedAt != nil && !rollup.lastRunFinishedAt.IsZero() {
+		finishedLabel = formatRunLabel(rollup.lastRunStatus, rollup.lastRunErrorKind, formatAge(now, *rollup.lastRunFinishedAt))
+	}
+
+	runningLabel := formatRunningRunsLabel(now, rollup.runningCount, rollup.oldestRunningStartedAt, finishedLabel == "")
+	switch {
+	case finishedLabel != "" && runningLabel != "":
+		return finishedLabel + " · " + runningLabel
+	case runningLabel != "":
+		return runningLabel
+	case finishedLabel != "":
+		return finishedLabel
+	default:
+		return "—"
+	}
+}
+
+func formatRunningRunsLabel(now time.Time, runningCount int64, oldestStartedAt *time.Time, standalone bool) string {
+	if runningCount <= 0 || oldestStartedAt == nil || oldestStartedAt.IsZero() {
+		return ""
+	}
+
+	age := formatAge(now, *oldestStartedAt)
+	if standalone && runningCount == 1 {
+		return "Running · started " + age
+	}
+	if runningCount == 1 {
+		return "1 running since " + age
+	}
+	return fmt.Sprintf("%d running, oldest %s", runningCount, age)
 }
 
 func formatSuccessRate(successes int64, finished int64) string {

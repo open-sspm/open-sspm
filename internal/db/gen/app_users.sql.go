@@ -42,34 +42,40 @@ WHERE
   AND au.last_observed_run_id IS NOT NULL
   AND (
     $3::text = ''
-    OR au.external_id ILIKE ('%' || $3::text || '%')
-    OR au.email ILIKE ('%' || $3::text || '%')
-    OR au.display_name ILIKE ('%' || $3::text || '%')
+    OR au.entity_category = $3::text
   )
   AND (
     $4::text = ''
+    OR au.external_id ILIKE ('%' || $4::text || '%')
+    OR au.email ILIKE ('%' || $4::text || '%')
+    OR au.display_name ILIKE ('%' || $4::text || '%')
+  )
+  AND (
+    $5::text = ''
     OR (
-      $4::text = 'active'
+      $5::text = 'active'
       AND lower(COALESCE(NULLIF(trim(au.status), ''), NULLIF(trim(au.raw_json->>'status'), ''), '')) = 'active'
     )
     OR (
-      $4::text = 'inactive'
+      $5::text = 'inactive'
       AND lower(COALESCE(NULLIF(trim(au.status), ''), NULLIF(trim(au.raw_json->>'status'), ''), '')) <> 'active'
     )
   )
 `
 
 type CountAppUsersBySourceAndQueryAndStateParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
-	Query      string `json:"query"`
-	State      string `json:"state"`
+	SourceKind     string `json:"source_kind"`
+	SourceName     string `json:"source_name"`
+	EntityCategory string `json:"entity_category"`
+	Query          string `json:"query"`
+	State          string `json:"state"`
 }
 
 func (q *Queries) CountAppUsersBySourceAndQueryAndState(ctx context.Context, arg CountAppUsersBySourceAndQueryAndStateParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countAppUsersBySourceAndQueryAndState,
 		arg.SourceKind,
 		arg.SourceName,
+		arg.EntityCategory,
 		arg.Query,
 		arg.State,
 	)
@@ -88,20 +94,30 @@ WHERE
   AND au.last_observed_run_id IS NOT NULL
   AND (
     $3::text = ''
-    OR au.external_id ILIKE ('%' || $3::text || '%')
-    OR au.email ILIKE ('%' || $3::text || '%')
-    OR au.display_name ILIKE ('%' || $3::text || '%')
+    OR au.entity_category = $3::text
+  )
+  AND (
+    $4::text = ''
+    OR au.external_id ILIKE ('%' || $4::text || '%')
+    OR au.email ILIKE ('%' || $4::text || '%')
+    OR au.display_name ILIKE ('%' || $4::text || '%')
   )
 `
 
 type CountAppUsersWithLinkBySourceAndQueryParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
-	Query      string `json:"query"`
+	SourceKind     string `json:"source_kind"`
+	SourceName     string `json:"source_name"`
+	EntityCategory string `json:"entity_category"`
+	Query          string `json:"query"`
 }
 
 func (q *Queries) CountAppUsersWithLinkBySourceAndQuery(ctx context.Context, arg CountAppUsersWithLinkBySourceAndQueryParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countAppUsersWithLinkBySourceAndQuery, arg.SourceKind, arg.SourceName, arg.Query)
+	row := q.db.QueryRow(ctx, countAppUsersWithLinkBySourceAndQuery,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.EntityCategory,
+		arg.Query,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -201,32 +217,42 @@ WHERE
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
   AND (
+    $3::text = ''
+    OR au.entity_category = $3::text
+  )
+  AND (
     ia.identity_id IS NULL
     OR ai.identity_id IS NULL
   )
   AND (
-    $3::text = ''
-    OR au.external_id ILIKE ('%' || $3::text || '%')
-    OR au.email ILIKE ('%' || $3::text || '%')
-    OR au.display_name ILIKE ('%' || $3::text || '%')
+    $4::text = ''
+    OR au.external_id ILIKE ('%' || $4::text || '%')
+    OR au.email ILIKE ('%' || $4::text || '%')
+    OR au.display_name ILIKE ('%' || $4::text || '%')
   )
 `
 
 type CountUnmatchedAppUsersBySourceAndQueryParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
-	Query      string `json:"query"`
+	SourceKind     string `json:"source_kind"`
+	SourceName     string `json:"source_name"`
+	EntityCategory string `json:"entity_category"`
+	Query          string `json:"query"`
 }
 
 func (q *Queries) CountUnmatchedAppUsersBySourceAndQuery(ctx context.Context, arg CountUnmatchedAppUsersBySourceAndQueryParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countUnmatchedAppUsersBySourceAndQuery, arg.SourceKind, arg.SourceName, arg.Query)
+	row := q.db.QueryRow(ctx, countUnmatchedAppUsersBySourceAndQuery,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.EntityCategory,
+		arg.Query,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
 const getAppUser = `-- name: GetAppUser :one
-SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status, account_kind
+SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status, account_kind, entity_category
 FROM accounts
 WHERE id = $1
   AND expired_at IS NULL
@@ -257,12 +283,13 @@ func (q *Queries) GetAppUser(ctx context.Context, id int64) (Account, error) {
 		&i.ExpiredRunID,
 		&i.Status,
 		&i.AccountKind,
+		&i.EntityCategory,
 	)
 	return i, err
 }
 
 const listAppUsersPageBySourceAndQueryAndState = `-- name: ListAppUsersPageBySourceAndQueryAndState :many
-SELECT au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind
+SELECT au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind, au.entity_category
 FROM accounts au
 WHERE
   au.source_kind = $1
@@ -271,39 +298,45 @@ WHERE
   AND au.last_observed_run_id IS NOT NULL
   AND (
     $3::text = ''
-    OR au.external_id ILIKE ('%' || $3::text || '%')
-    OR au.email ILIKE ('%' || $3::text || '%')
-    OR au.display_name ILIKE ('%' || $3::text || '%')
+    OR au.entity_category = $3::text
   )
   AND (
     $4::text = ''
+    OR au.external_id ILIKE ('%' || $4::text || '%')
+    OR au.email ILIKE ('%' || $4::text || '%')
+    OR au.display_name ILIKE ('%' || $4::text || '%')
+  )
+  AND (
+    $5::text = ''
     OR (
-      $4::text = 'active'
+      $5::text = 'active'
       AND lower(COALESCE(NULLIF(trim(au.status), ''), NULLIF(trim(au.raw_json->>'status'), ''), '')) = 'active'
     )
     OR (
-      $4::text = 'inactive'
+      $5::text = 'inactive'
       AND lower(COALESCE(NULLIF(trim(au.status), ''), NULLIF(trim(au.raw_json->>'status'), ''), '')) <> 'active'
     )
   )
 ORDER BY au.id DESC
-LIMIT $6::int
-OFFSET $5::int
+LIMIT $7::int
+OFFSET $6::int
 `
 
 type ListAppUsersPageBySourceAndQueryAndStateParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
-	Query      string `json:"query"`
-	State      string `json:"state"`
-	PageOffset int32  `json:"page_offset"`
-	PageLimit  int32  `json:"page_limit"`
+	SourceKind     string `json:"source_kind"`
+	SourceName     string `json:"source_name"`
+	EntityCategory string `json:"entity_category"`
+	Query          string `json:"query"`
+	State          string `json:"state"`
+	PageOffset     int32  `json:"page_offset"`
+	PageLimit      int32  `json:"page_limit"`
 }
 
 func (q *Queries) ListAppUsersPageBySourceAndQueryAndState(ctx context.Context, arg ListAppUsersPageBySourceAndQueryAndStateParams) ([]Account, error) {
 	rows, err := q.db.Query(ctx, listAppUsersPageBySourceAndQueryAndState,
 		arg.SourceKind,
 		arg.SourceName,
+		arg.EntityCategory,
 		arg.Query,
 		arg.State,
 		arg.PageOffset,
@@ -337,6 +370,7 @@ func (q *Queries) ListAppUsersPageBySourceAndQueryAndState(ctx context.Context, 
 			&i.ExpiredRunID,
 			&i.Status,
 			&i.AccountKind,
+			&i.EntityCategory,
 		); err != nil {
 			return nil, err
 		}
@@ -350,7 +384,7 @@ func (q *Queries) ListAppUsersPageBySourceAndQueryAndState(ctx context.Context, 
 
 const listAppUsersWithLinkPageBySourceAndQuery = `-- name: ListAppUsersWithLinkPageBySourceAndQuery :many
 SELECT
-  au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind,
+  au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind, au.entity_category,
   COALESCE(ia.identity_id, 0) AS idp_user_id
 FROM accounts au
 LEFT JOIN identity_accounts ia ON ia.account_id = au.id
@@ -361,21 +395,26 @@ WHERE
   AND au.last_observed_run_id IS NOT NULL
   AND (
     $3::text = ''
-    OR au.external_id ILIKE ('%' || $3::text || '%')
-    OR au.email ILIKE ('%' || $3::text || '%')
-    OR au.display_name ILIKE ('%' || $3::text || '%')
+    OR au.entity_category = $3::text
+  )
+  AND (
+    $4::text = ''
+    OR au.external_id ILIKE ('%' || $4::text || '%')
+    OR au.email ILIKE ('%' || $4::text || '%')
+    OR au.display_name ILIKE ('%' || $4::text || '%')
   )
 ORDER BY au.id DESC
-LIMIT $5::int
-OFFSET $4::int
+LIMIT $6::int
+OFFSET $5::int
 `
 
 type ListAppUsersWithLinkPageBySourceAndQueryParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
-	Query      string `json:"query"`
-	PageOffset int32  `json:"page_offset"`
-	PageLimit  int32  `json:"page_limit"`
+	SourceKind     string `json:"source_kind"`
+	SourceName     string `json:"source_name"`
+	EntityCategory string `json:"entity_category"`
+	Query          string `json:"query"`
+	PageOffset     int32  `json:"page_offset"`
+	PageLimit      int32  `json:"page_limit"`
 }
 
 type ListAppUsersWithLinkPageBySourceAndQueryRow struct {
@@ -399,6 +438,7 @@ type ListAppUsersWithLinkPageBySourceAndQueryRow struct {
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
 	Status            string             `json:"status"`
 	AccountKind       string             `json:"account_kind"`
+	EntityCategory    string             `json:"entity_category"`
 	IdpUserID         int64              `json:"idp_user_id"`
 }
 
@@ -406,6 +446,7 @@ func (q *Queries) ListAppUsersWithLinkPageBySourceAndQuery(ctx context.Context, 
 	rows, err := q.db.Query(ctx, listAppUsersWithLinkPageBySourceAndQuery,
 		arg.SourceKind,
 		arg.SourceName,
+		arg.EntityCategory,
 		arg.Query,
 		arg.PageOffset,
 		arg.PageLimit,
@@ -438,6 +479,7 @@ func (q *Queries) ListAppUsersWithLinkPageBySourceAndQuery(ctx context.Context, 
 			&i.ExpiredRunID,
 			&i.Status,
 			&i.AccountKind,
+			&i.EntityCategory,
 			&i.IdpUserID,
 		); err != nil {
 			return nil, err
@@ -462,7 +504,7 @@ WITH authoritative_identities AS (
   WHERE anchor.expired_at IS NULL
     AND anchor.last_observed_run_id IS NOT NULL
 )
-SELECT au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind
+SELECT au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind, au.entity_category
 FROM accounts au
 LEFT JOIN identity_accounts ia ON ia.account_id = au.id
 LEFT JOIN authoritative_identities ai ON ai.identity_id = ia.identity_id
@@ -472,32 +514,38 @@ WHERE
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
   AND (
+    $3::text = ''
+    OR au.entity_category = $3::text
+  )
+  AND (
     ia.identity_id IS NULL
     OR ai.identity_id IS NULL
   )
   AND (
-    $3::text = ''
-    OR au.external_id ILIKE ('%' || $3::text || '%')
-    OR au.email ILIKE ('%' || $3::text || '%')
-    OR au.display_name ILIKE ('%' || $3::text || '%')
+    $4::text = ''
+    OR au.external_id ILIKE ('%' || $4::text || '%')
+    OR au.email ILIKE ('%' || $4::text || '%')
+    OR au.display_name ILIKE ('%' || $4::text || '%')
   )
 ORDER BY au.display_name, au.email, au.external_id
-LIMIT $5::int
-OFFSET $4::int
+LIMIT $6::int
+OFFSET $5::int
 `
 
 type ListUnmatchedAppUsersPageBySourceAndQueryParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
-	Query      string `json:"query"`
-	PageOffset int32  `json:"page_offset"`
-	PageLimit  int32  `json:"page_limit"`
+	SourceKind     string `json:"source_kind"`
+	SourceName     string `json:"source_name"`
+	EntityCategory string `json:"entity_category"`
+	Query          string `json:"query"`
+	PageOffset     int32  `json:"page_offset"`
+	PageLimit      int32  `json:"page_limit"`
 }
 
 func (q *Queries) ListUnmatchedAppUsersPageBySourceAndQuery(ctx context.Context, arg ListUnmatchedAppUsersPageBySourceAndQueryParams) ([]Account, error) {
 	rows, err := q.db.Query(ctx, listUnmatchedAppUsersPageBySourceAndQuery,
 		arg.SourceKind,
 		arg.SourceName,
+		arg.EntityCategory,
 		arg.Query,
 		arg.PageOffset,
 		arg.PageLimit,
@@ -530,6 +578,7 @@ func (q *Queries) ListUnmatchedAppUsersPageBySourceAndQuery(ctx context.Context,
 			&i.ExpiredRunID,
 			&i.Status,
 			&i.AccountKind,
+			&i.EntityCategory,
 		); err != nil {
 			return nil, err
 		}
@@ -553,10 +602,15 @@ WITH input AS (
         THEN lower(trim(($7::text[])[i]))
       ELSE 'unknown'
     END AS account_kind,
-    ($8::jsonb[])[i] AS raw_json,
-    ($9::timestamptz[])[i] AS last_login_at,
-    ($10::text[])[i] AS last_login_ip,
-    ($11::text[])[i] AS last_login_region
+    CASE
+      WHEN lower(trim(($8::text[])[i])) IN ('user', 'group', 'service_principal', 'service_account', 'team', 'role', 'auth_role', 'entity', 'unknown')
+        THEN lower(trim(($8::text[])[i]))
+      ELSE 'unknown'
+    END AS entity_category,
+    ($9::jsonb[])[i] AS raw_json,
+    ($10::timestamptz[])[i] AS last_login_at,
+    ($11::text[])[i] AS last_login_ip,
+    ($12::text[])[i] AS last_login_region
   FROM generate_subscripts($4::text[], 1) AS s(i)
 ),
 dedup AS (
@@ -565,6 +619,7 @@ dedup AS (
     email,
     display_name,
     account_kind,
+    entity_category,
     raw_json,
     last_login_at,
     last_login_ip,
@@ -579,6 +634,7 @@ INSERT INTO accounts (
   email,
   display_name,
   account_kind,
+  entity_category,
   status,
   raw_json,
   last_login_at,
@@ -595,6 +651,7 @@ SELECT
   input.email,
   input.display_name,
   input.account_kind,
+  input.entity_category,
   COALESCE(NULLIF(trim(input.raw_json ->> 'status'), ''), ''),
   input.raw_json,
   input.last_login_at,
@@ -608,6 +665,7 @@ ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
   email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
   account_kind = EXCLUDED.account_kind,
+  entity_category = EXCLUDED.entity_category,
   status = EXCLUDED.status,
   raw_json = EXCLUDED.raw_json,
   last_login_at = COALESCE(EXCLUDED.last_login_at, accounts.last_login_at),
@@ -626,6 +684,7 @@ type UpsertAppUsersBulkBySourceParams struct {
 	Emails           []string             `json:"emails"`
 	DisplayNames     []string             `json:"display_names"`
 	AccountKinds     []string             `json:"account_kinds"`
+	EntityCategories []string             `json:"entity_categories"`
 	RawJsons         [][]byte             `json:"raw_jsons"`
 	LastLoginAts     []pgtype.Timestamptz `json:"last_login_ats"`
 	LastLoginIps     []string             `json:"last_login_ips"`
@@ -641,6 +700,7 @@ func (q *Queries) UpsertAppUsersBulkBySource(ctx context.Context, arg UpsertAppU
 		arg.Emails,
 		arg.DisplayNames,
 		arg.AccountKinds,
+		arg.EntityCategories,
 		arg.RawJsons,
 		arg.LastLoginAts,
 		arg.LastLoginIps,
@@ -664,11 +724,16 @@ WITH input AS (
         THEN lower(trim(($6::text[])[i]))
       ELSE 'unknown'
     END AS account_kind,
-    ($7::text[])[i] AS status,
-    ($8::jsonb[])[i] AS raw_json,
-    ($9::timestamptz[])[i] AS last_login_at,
-    ($10::text[])[i] AS last_login_ip,
-    ($11::text[])[i] AS last_login_region
+    CASE
+      WHEN lower(trim(($7::text[])[i])) IN ('user', 'group', 'service_principal', 'service_account', 'team', 'role', 'auth_role', 'entity', 'unknown')
+        THEN lower(trim(($7::text[])[i]))
+      ELSE 'unknown'
+    END AS entity_category,
+    ($8::text[])[i] AS status,
+    ($9::jsonb[])[i] AS raw_json,
+    ($10::timestamptz[])[i] AS last_login_at,
+    ($11::text[])[i] AS last_login_ip,
+    ($12::text[])[i] AS last_login_region
   FROM generate_subscripts($3::text[], 1) AS s(i)
 ),
 dedup AS (
@@ -677,6 +742,7 @@ dedup AS (
     email,
     display_name,
     account_kind,
+    entity_category,
     status,
     raw_json,
     last_login_at,
@@ -692,6 +758,7 @@ INSERT INTO accounts (
   email,
   display_name,
   account_kind,
+  entity_category,
   status,
   raw_json,
   last_login_at,
@@ -708,6 +775,7 @@ SELECT
   input.email,
   input.display_name,
   input.account_kind,
+  input.entity_category,
   input.status,
   input.raw_json,
   input.last_login_at,
@@ -721,6 +789,7 @@ ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
   email = EXCLUDED.email,
   display_name = EXCLUDED.display_name,
   account_kind = EXCLUDED.account_kind,
+  entity_category = EXCLUDED.entity_category,
   status = EXCLUDED.status,
   raw_json = EXCLUDED.raw_json,
   last_login_at = COALESCE(EXCLUDED.last_login_at, accounts.last_login_at),
@@ -738,6 +807,7 @@ type UpsertOktaAccountsBulkParams struct {
 	Emails           []string             `json:"emails"`
 	DisplayNames     []string             `json:"display_names"`
 	AccountKinds     []string             `json:"account_kinds"`
+	EntityCategories []string             `json:"entity_categories"`
 	Statuses         []string             `json:"statuses"`
 	RawJsons         [][]byte             `json:"raw_jsons"`
 	LastLoginAts     []pgtype.Timestamptz `json:"last_login_ats"`
@@ -753,6 +823,7 @@ func (q *Queries) UpsertOktaAccountsBulk(ctx context.Context, arg UpsertOktaAcco
 		arg.Emails,
 		arg.DisplayNames,
 		arg.AccountKinds,
+		arg.EntityCategories,
 		arg.Statuses,
 		arg.RawJsons,
 		arg.LastLoginAts,

@@ -191,6 +191,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 	emails := make([]string, 0, totalPrincipals)
 	displayNames := make([]string, 0, totalPrincipals)
 	accountKinds := make([]string, 0, totalPrincipals)
+	entityCategories := make([]string, 0, totalPrincipals)
 	rawJSONs := make([][]byte, 0, totalPrincipals)
 	lastLoginAts := make([]pgtype.Timestamptz, 0, totalPrincipals)
 	lastLoginIps := make([]string, 0, totalPrincipals)
@@ -209,6 +210,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 		emails = append(emails, matching.NormalizeEmail(userName))
 		displayNames = append(displayNames, userName)
 		accountKinds = append(accountKinds, datadogUserAccountKind(user))
+		entityCategories = append(entityCategories, registry.EntityCategoryUser)
 		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(user.RawJSON), registry.EntityCategoryUser))
 		lastLoginAts = append(lastLoginAts, registry.PgTimestamptzPtr(user.LastLoginAt))
 		lastLoginIps = append(lastLoginIps, "")
@@ -228,6 +230,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 		emails = append(emails, matching.NormalizeEmail(serviceAccount.Email))
 		displayNames = append(displayNames, display)
 		accountKinds = append(accountKinds, registry.AccountKindService)
+		entityCategories = append(entityCategories, registry.EntityCategoryServiceAccount)
 		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(serviceAccount.RawJSON), registry.EntityCategoryServiceAccount))
 		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 		lastLoginIps = append(lastLoginIps, "")
@@ -247,6 +250,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 		emails = append(emails, "")
 		displayNames = append(displayNames, display)
 		accountKinds = append(accountKinds, registry.AccountKindService)
+		entityCategories = append(entityCategories, registry.EntityCategoryRole)
 		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(role.RawJSON), registry.EntityCategoryRole))
 		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 		lastLoginIps = append(lastLoginIps, "")
@@ -263,6 +267,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 			Emails:           emails[start:end],
 			DisplayNames:     displayNames[start:end],
 			AccountKinds:     accountKinds[start:end],
+			EntityCategories: entityCategories[start:end],
 			RawJsons:         rawJSONs[start:end],
 			LastLoginAts:     lastLoginAts[start:end],
 			LastLoginIps:     lastLoginIps[start:end],

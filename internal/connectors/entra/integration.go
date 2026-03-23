@@ -292,6 +292,7 @@ func (i *EntraIntegration) syncUsers(ctx context.Context, q *gen.Queries, report
 	emails := make([]string, 0, len(users))
 	displayNames := make([]string, 0, len(users))
 	accountKinds := make([]string, 0, len(users))
+	entityCategories := make([]string, 0, len(users))
 	rawJSONs := make([][]byte, 0, len(users))
 	lastLoginAts := make([]pgtype.Timestamptz, 0, len(users))
 	lastLoginIps := make([]string, 0, len(users))
@@ -333,6 +334,7 @@ func (i *EntraIntegration) syncUsers(ctx context.Context, q *gen.Queries, report
 		emails = append(emails, email)
 		displayNames = append(displayNames, display)
 		accountKinds = append(accountKinds, entraUserAccountKind(user))
+		entityCategories = append(entityCategories, registry.EntityCategoryUser)
 		rawJSONs = append(rawJSONs, registry.WithEntityCategory(raw, registry.EntityCategoryUser))
 		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 		lastLoginIps = append(lastLoginIps, "")
@@ -350,6 +352,7 @@ func (i *EntraIntegration) syncUsers(ctx context.Context, q *gen.Queries, report
 			Emails:           emails[start:end],
 			DisplayNames:     displayNames[start:end],
 			AccountKinds:     accountKinds[start:end],
+			EntityCategories: entityCategories[start:end],
 			RawJsons:         rawJSONs[start:end],
 			LastLoginAts:     lastLoginAts[start:end],
 			LastLoginIps:     lastLoginIps[start:end],
@@ -388,6 +391,7 @@ func (i *EntraIntegration) syncGroups(ctx context.Context, q *gen.Queries, repor
 	emails := make([]string, 0, len(groups))
 	displayNames := make([]string, 0, len(groups))
 	accountKinds := make([]string, 0, len(groups))
+	entityCategories := make([]string, 0, len(groups))
 	rawJSONs := make([][]byte, 0, len(groups))
 	lastLoginAts := make([]pgtype.Timestamptz, 0, len(groups))
 	lastLoginIps := make([]string, 0, len(groups))
@@ -408,6 +412,7 @@ func (i *EntraIntegration) syncGroups(ctx context.Context, q *gen.Queries, repor
 		emails = append(emails, normalizeEmail(strings.TrimSpace(group.Mail)))
 		displayNames = append(displayNames, display)
 		accountKinds = append(accountKinds, entraGroupAccountKind(group))
+		entityCategories = append(entityCategories, registry.EntityCategoryGroup)
 		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(group.RawJSON), registry.EntityCategoryGroup))
 		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 		lastLoginIps = append(lastLoginIps, "")
@@ -425,6 +430,7 @@ func (i *EntraIntegration) syncGroups(ctx context.Context, q *gen.Queries, repor
 			Emails:           emails[start:end],
 			DisplayNames:     displayNames[start:end],
 			AccountKinds:     accountKinds[start:end],
+			EntityCategories: entityCategories[start:end],
 			RawJsons:         rawJSONs[start:end],
 			LastLoginAts:     lastLoginAts[start:end],
 			LastLoginIps:     lastLoginIps[start:end],
@@ -463,6 +469,7 @@ func (i *EntraIntegration) syncServicePrincipalAccounts(ctx context.Context, q *
 	emails := make([]string, 0, len(servicePrincipals))
 	displayNames := make([]string, 0, len(servicePrincipals))
 	accountKinds := make([]string, 0, len(servicePrincipals))
+	entityCategories := make([]string, 0, len(servicePrincipals))
 	rawJSONs := make([][]byte, 0, len(servicePrincipals))
 	lastLoginAts := make([]pgtype.Timestamptz, 0, len(servicePrincipals))
 	lastLoginIps := make([]string, 0, len(servicePrincipals))
@@ -486,6 +493,7 @@ func (i *EntraIntegration) syncServicePrincipalAccounts(ctx context.Context, q *
 		emails = append(emails, "")
 		displayNames = append(displayNames, display)
 		accountKinds = append(accountKinds, entraServicePrincipalAccountKind(sp))
+		entityCategories = append(entityCategories, registry.EntityCategoryServicePrincipal)
 		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(sp.RawJSON), registry.EntityCategoryServicePrincipal))
 		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 		lastLoginIps = append(lastLoginIps, "")
@@ -503,6 +511,7 @@ func (i *EntraIntegration) syncServicePrincipalAccounts(ctx context.Context, q *
 			Emails:           emails[start:end],
 			DisplayNames:     displayNames[start:end],
 			AccountKinds:     accountKinds[start:end],
+			EntityCategories: entityCategories[start:end],
 			RawJsons:         rawJSONs[start:end],
 			LastLoginAts:     lastLoginAts[start:end],
 			LastLoginIps:     lastLoginIps[start:end],

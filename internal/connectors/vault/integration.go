@@ -27,12 +27,13 @@ type VaultIntegration struct {
 }
 
 type vaultAccountUpsertRow struct {
-	ExternalID  string
-	Email       string
-	DisplayName string
-	AccountKind string
-	Status      string
-	RawJSON     []byte
+	ExternalID     string
+	Email          string
+	DisplayName    string
+	AccountKind    string
+	EntityCategory string
+	Status         string
+	RawJSON        []byte
 }
 
 type vaultEntitlementUpsertRow struct {
@@ -228,12 +229,13 @@ func buildVaultAccountRows(entities []Entity, groups []Group, authRoles []AuthRo
 		}
 		displayName := firstNonEmptyString(entity.Name, entityID)
 		row := vaultAccountUpsertRow{
-			ExternalID:  "entity:" + entityID,
-			Email:       bestEntityEmail(entity),
-			DisplayName: displayName,
-			AccountKind: vaultEntityAccountKind(entity),
-			Status:      status,
-			RawJSON:     registry.WithEntityCategory(withAccountStatus(entity.RawJSON, status), registry.EntityCategoryEntity),
+			ExternalID:     "entity:" + entityID,
+			Email:          bestEntityEmail(entity),
+			DisplayName:    displayName,
+			AccountKind:    vaultEntityAccountKind(entity),
+			EntityCategory: registry.EntityCategoryEntity,
+			Status:         status,
+			RawJSON:        registry.WithEntityCategory(withAccountStatus(entity.RawJSON, status), registry.EntityCategoryEntity),
 		}
 		byExternalID[row.ExternalID] = row
 	}
@@ -244,11 +246,12 @@ func buildVaultAccountRows(entities []Entity, groups []Group, authRoles []AuthRo
 		if groupExternalID != "" {
 			displayName := firstNonEmptyString(group.Name, groupID, groupExternalID)
 			byExternalID[groupExternalID] = vaultAccountUpsertRow{
-				ExternalID:  groupExternalID,
-				DisplayName: displayName,
-				AccountKind: registry.AccountKindService,
-				Status:      "active",
-				RawJSON:     registry.WithEntityCategory(withAccountStatus(group.RawJSON, "active"), registry.EntityCategoryGroup),
+				ExternalID:     groupExternalID,
+				DisplayName:    displayName,
+				AccountKind:    registry.AccountKindService,
+				EntityCategory: registry.EntityCategoryGroup,
+				Status:         "active",
+				RawJSON:        registry.WithEntityCategory(withAccountStatus(group.RawJSON, "active"), registry.EntityCategoryGroup),
 			}
 		}
 
@@ -262,10 +265,11 @@ func buildVaultAccountRows(entities []Entity, groups []Group, authRoles []AuthRo
 				continue
 			}
 			byExternalID[externalID] = vaultAccountUpsertRow{
-				ExternalID:  externalID,
-				DisplayName: memberID,
-				AccountKind: registry.AccountKindUnknown,
-				Status:      "active",
+				ExternalID:     externalID,
+				DisplayName:    memberID,
+				AccountKind:    registry.AccountKindUnknown,
+				EntityCategory: registry.EntityCategoryEntity,
+				Status:         "active",
 				RawJSON: registry.WithEntityCategory(registry.MarshalJSON(map[string]any{
 					"id":     memberID,
 					"status": "active",
@@ -281,11 +285,12 @@ func buildVaultAccountRows(entities []Entity, groups []Group, authRoles []AuthRo
 			continue
 		}
 		row := vaultAccountUpsertRow{
-			ExternalID:  externalID,
-			DisplayName: firstNonEmptyString(role.Name, externalID),
-			AccountKind: registry.AccountKindService,
-			Status:      "active",
-			RawJSON:     registry.WithEntityCategory(withAccountStatus(role.RawJSON, "active"), registry.EntityCategoryAuthRole),
+			ExternalID:     externalID,
+			DisplayName:    firstNonEmptyString(role.Name, externalID),
+			AccountKind:    registry.AccountKindService,
+			EntityCategory: registry.EntityCategoryAuthRole,
+			Status:         "active",
+			RawJSON:        registry.WithEntityCategory(withAccountStatus(role.RawJSON, "active"), registry.EntityCategoryAuthRole),
 		}
 		byExternalID[row.ExternalID] = row
 	}
@@ -492,6 +497,7 @@ func upsertVaultAccounts(ctx context.Context, q *gen.Queries, report func(regist
 		emails := make([]string, 0, len(batch))
 		displayNames := make([]string, 0, len(batch))
 		accountKinds := make([]string, 0, len(batch))
+		entityCategories := make([]string, 0, len(batch))
 		rawJSONs := make([][]byte, 0, len(batch))
 		lastLoginAts := make([]pgtype.Timestamptz, 0, len(batch))
 		lastLoginIPs := make([]string, 0, len(batch))
@@ -502,6 +508,7 @@ func upsertVaultAccounts(ctx context.Context, q *gen.Queries, report func(regist
 			emails = append(emails, strings.ToLower(strings.TrimSpace(row.Email)))
 			displayNames = append(displayNames, row.DisplayName)
 			accountKinds = append(accountKinds, registry.NormalizeAccountKind(row.AccountKind))
+			entityCategories = append(entityCategories, registry.NormalizeEntityCategory(row.EntityCategory))
 			rawJSONs = append(rawJSONs, registry.NormalizeJSON(row.RawJSON))
 			lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 			lastLoginIPs = append(lastLoginIPs, "")
@@ -516,6 +523,7 @@ func upsertVaultAccounts(ctx context.Context, q *gen.Queries, report func(regist
 			Emails:           emails,
 			DisplayNames:     displayNames,
 			AccountKinds:     accountKinds,
+			EntityCategories: entityCategories,
 			RawJsons:         rawJSONs,
 			LastLoginAts:     lastLoginAts,
 			LastLoginIps:     lastLoginIPs,

@@ -58,7 +58,7 @@ func (q *Queries) CountIdPUsersByQueryAndState(ctx context.Context, arg CountIdP
 
 const getIdPUser = `-- name: GetIdPUser :one
 
-SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status, account_kind
+SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status, account_kind, entity_category
 FROM accounts
 WHERE id = $1
   AND source_kind = 'okta'
@@ -91,6 +91,7 @@ func (q *Queries) GetIdPUser(ctx context.Context, id int64) (Account, error) {
 		&i.ExpiredRunID,
 		&i.Status,
 		&i.AccountKind,
+		&i.EntityCategory,
 	)
 	return i, err
 }
@@ -146,7 +147,7 @@ func (q *Queries) ListIdPUsersForCommand(ctx context.Context) ([]ListIdPUsersFor
 }
 
 const listIdPUsersPageByQueryAndState = `-- name: ListIdPUsersPageByQueryAndState :many
-SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status, account_kind
+SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status, account_kind, entity_category
 FROM accounts
 WHERE
   source_kind = 'okta'
@@ -210,6 +211,7 @@ func (q *Queries) ListIdPUsersPageByQueryAndState(ctx context.Context, arg ListI
 			&i.ExpiredRunID,
 			&i.Status,
 			&i.AccountKind,
+			&i.EntityCategory,
 		); err != nil {
 			return nil, err
 		}

@@ -142,7 +142,7 @@ func (q *Queries) ListIdentityAccountAttributes(ctx context.Context) ([]ListIden
 }
 
 const listLinkedAccountsForIdentity = `-- name: ListLinkedAccountsForIdentity :many
-SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status, a.account_kind
+SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status, a.account_kind, a.entity_category
 FROM accounts a
 JOIN identity_accounts ia ON ia.account_id = a.id
 WHERE ia.identity_id = $1
@@ -181,6 +181,7 @@ func (q *Queries) ListLinkedAccountsForIdentity(ctx context.Context, identityID 
 			&i.ExpiredRunID,
 			&i.Status,
 			&i.AccountKind,
+			&i.EntityCategory,
 		); err != nil {
 			return nil, err
 		}
@@ -193,7 +194,7 @@ func (q *Queries) ListLinkedAccountsForIdentity(ctx context.Context, identityID 
 }
 
 const listUnlinkedAccountsPage = `-- name: ListUnlinkedAccountsPage :many
-SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status, a.account_kind
+SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status, a.account_kind, a.entity_category
 FROM accounts a
 LEFT JOIN identity_accounts ia ON ia.account_id = a.id
 WHERE ia.id IS NULL
@@ -239,6 +240,7 @@ func (q *Queries) ListUnlinkedAccountsPage(ctx context.Context, arg ListUnlinked
 			&i.ExpiredRunID,
 			&i.Status,
 			&i.AccountKind,
+			&i.EntityCategory,
 		); err != nil {
 			return nil, err
 		}

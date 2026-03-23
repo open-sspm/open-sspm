@@ -96,6 +96,19 @@ last_success AS (
     AND r.status = 'success'
   GROUP BY r.source_kind, r.source_name
 ),
+running_stats AS (
+  SELECT
+    r.source_kind,
+    r.source_name,
+    count(*) AS running_count,
+    min(r.started_at) AS oldest_running_started_at
+  FROM sync_runs r
+  JOIN requested q
+    ON r.source_kind = q.source_kind
+   AND r.source_name = q.source_name
+  WHERE r.status = 'running'
+  GROUP BY r.source_kind, r.source_name
+),
 stats_7d AS (
   SELECT
     r.source_kind,
@@ -121,6 +134,8 @@ SELECT
   lr.last_run_finished_at,
   lr.last_run_error_kind,
   ls.last_success_at::timestamptz AS last_success_at,
+  COALESCE(rs.running_count, 0)::bigint AS running_count,
+  rs.oldest_running_started_at::timestamptz AS oldest_running_started_at,
   COALESCE(s.finished_count_7d, 0) AS finished_count_7d,
   COALESCE(s.success_count_7d, 0) AS success_count_7d,
   s.avg_success_duration_ms_7d
@@ -131,6 +146,9 @@ LEFT JOIN last_run lr
 LEFT JOIN last_success ls
   ON ls.source_kind = q.source_kind
  AND ls.source_name = q.source_name
+LEFT JOIN running_stats rs
+  ON rs.source_kind = q.source_kind
+ AND rs.source_name = q.source_name
 LEFT JOIN stats_7d s
   ON s.source_kind = q.source_kind
  AND s.source_name = q.source_name
@@ -151,6 +169,8 @@ type GetSyncRunRollupsForSourcesRow struct {
 	LastRunFinishedAt      pgtype.Timestamptz `json:"last_run_finished_at"`
 	LastRunErrorKind       pgtype.Text        `json:"last_run_error_kind"`
 	LastSuccessAt          pgtype.Timestamptz `json:"last_success_at"`
+	RunningCount           int64              `json:"running_count"`
+	OldestRunningStartedAt pgtype.Timestamptz `json:"oldest_running_started_at"`
 	FinishedCount7d        int64              `json:"finished_count_7d"`
 	SuccessCount7d         int64              `json:"success_count_7d"`
 	AvgSuccessDurationMs7d pgtype.Float8      `json:"avg_success_duration_ms_7d"`
@@ -174,6 +194,8 @@ func (q *Queries) GetSyncRunRollupsForSources(ctx context.Context, arg GetSyncRu
 			&i.LastRunFinishedAt,
 			&i.LastRunErrorKind,
 			&i.LastSuccessAt,
+			&i.RunningCount,
+			&i.OldestRunningStartedAt,
 			&i.FinishedCount7d,
 			&i.SuccessCount7d,
 			&i.AvgSuccessDurationMs7d,

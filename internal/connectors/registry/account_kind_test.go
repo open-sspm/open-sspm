@@ -66,3 +66,26 @@ func TestWithEntityCategory(t *testing.T) {
 		t.Fatalf("id=%v want %q", got, "123")
 	}
 }
+
+func TestNormalizeEntityCategory(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{
+		"user":                EntityCategoryUser,
+		" GROUP ":             EntityCategoryGroup,
+		"service_principal":   EntityCategoryServicePrincipal,
+		"service_account":     EntityCategoryServiceAccount,
+		"team":                EntityCategoryTeam,
+		"role":                EntityCategoryRole,
+		"auth_role":           EntityCategoryAuthRole,
+		"entity":              EntityCategoryEntity,
+		"":                    EntityCategoryUnknown,
+		"not-a-real-category": EntityCategoryUnknown,
+	}
+
+	for input, want := range cases {
+		if got := NormalizeEntityCategory(input); got != want {
+			t.Fatalf("NormalizeEntityCategory(%q)=%q want %q", input, got, want)
+		}
+	}
+}

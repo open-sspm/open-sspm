@@ -92,7 +92,7 @@ templ Layout(data viewmodels.LayoutData) {
 						</button>
 						<h1 class="text-base font-semibold tracking-tight md:text-lg">{ data.Title }</h1>
 						<div class="flex-1 flex justify-center">
-							@CommandSearch(data)
+							@CommandSearch(data.CommandSearch)
 						</div>
 						<div class="flex items-center gap-3">
 							<button type="button" aria-label="Toggle dark mode" data-tooltip="Toggle dark mode" data-side="bottom" data-align="end" onclick="document.dispatchEvent(new CustomEvent('basecoat:theme'))" class="btn-icon-outline size-8">

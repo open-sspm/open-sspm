@@ -75,14 +75,6 @@ func (h *Handlers) HandleConnectorHealthSync(c *echo.Context) error {
 		})
 	}
 
-	if strings.EqualFold(connectorKind, configstore.KindVault) {
-		return h.redirectConnectorHealthWithToast(c, viewmodels.ToastViewData{
-			Category:    "warning",
-			Title:       "Sync unavailable",
-			Description: "The selected connector does not support sync.",
-		})
-	}
-
 	if h.Registry == nil || h.Q == nil {
 		return h.redirectConnectorHealthWithToast(c, viewmodels.ToastViewData{
 			Category:    "error",
@@ -275,29 +267,7 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 		return data, nil
 	}
 
-	requested := make([]syncRollupKey, 0, len(states))
-	requestedSet := make(map[syncRollupKey]struct{}, len(states)*2)
-	for _, st := range states {
-		kind := strings.ToLower(strings.TrimSpace(st.Definition.Kind()))
-		if !st.Configured {
-			continue
-		}
-		if strings.EqualFold(kind, configstore.KindVault) {
-			continue
-		}
-		sourceName := strings.TrimSpace(st.SourceName)
-		if sourceName == "" {
-			continue
-		}
-		for _, lane := range connectorHealthLanes(cfg, st) {
-			key := syncRollupKey{kind: lane.syncKind, name: sourceName}
-			if _, exists := requestedSet[key]; exists {
-				continue
-			}
-			requestedSet[key] = struct{}{}
-			requested = append(requested, key)
-		}
-	}
+	requested := connectorHealthRequestedRollupKeys(cfg, states)
 
 	rollupByKey := make(map[syncRollupKey]syncRunRollup, len(requested))
 	if len(requested) > 0 {
@@ -326,6 +296,7 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 		enabledTotal        int
 		healthyCount        int
 		degradedCount       int
+		stuckCount          int
 		staleCount          int
 		neverSyncedCount    int
 		needsAttentionCount int
@@ -339,7 +310,7 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 		}
 		sourceName := strings.TrimSpace(st.SourceName)
 
-		syncable := !strings.EqualFold(kind, configstore.KindVault)
+		syncable := IsKnownConnectorKind(kind)
 		var (
 			res            connectorHealthResult
 			canViewDetails bool
@@ -406,6 +377,8 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 				healthyCount++
 			case connectorHealthDegraded:
 				degradedCount++
+			case connectorHealthStuck:
+				stuckCount++
 			case connectorHealthStale:
 				staleCount++
 			case connectorHealthNeverSynced:
@@ -426,12 +399,15 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 
 	data.SummaryLabel = fmt.Sprintf("%d enabled · %d healthy · %d need attention", enabledTotal, healthyCount, needsAttentionCount)
 
-	if staleCount+neverSyncedCount > 0 {
+	if stuckCount > 0 {
+		data.ShowWarning = true
+		data.WarningDestructive = true
+		data.WarningMessage = "Some enabled connectors have syncs stuck in a running state. Health and freshness indicators may be misleading until those runs are resolved."
+	} else if staleCount+neverSyncedCount > 0 {
 		data.ShowWarning = true
 		data.WarningDestructive = true
 		data.WarningMessage = "Some enabled connectors have not successfully synced within the expected window. Data from those connectors may be stale."
-	}
-	if degradedCount > 0 && !data.ShowWarning {
+	} else if degradedCount > 0 {
 		data.ShowWarning = true
 		data.WarningDestructive = false
 		data.WarningMessage = "Some enabled connectors are failing. Data may be incomplete until the next successful sync."
@@ -500,7 +476,12 @@ func syncRunRollupFromRow(row gen.GetSyncRunRollupsForSourcesRow) syncRunRollup 
 		t := row.LastSuccessAt.Time
 		rollup.lastSuccessAt = &t
 	}
+	if row.OldestRunningStartedAt.Valid {
+		t := row.OldestRunningStartedAt.Time
+		rollup.oldestRunningStartedAt = &t
+	}
 
+	rollup.runningCount = row.RunningCount
 	rollup.finishedCount7d = row.FinishedCount7d
 	rollup.successCount7d = row.SuccessCount7d
 	if row.AvgSuccessDurationMs7d.Valid {
@@ -531,6 +512,31 @@ func connectorHealthLanes(cfg config.Config, st connregistry.ConnectorState) []c
 		})
 	}
 	return lanes
+}
+
+func connectorHealthRequestedRollupKeys(cfg config.Config, states []connregistry.ConnectorState) []syncRollupKey {
+	requested := make([]syncRollupKey, 0, len(states))
+	requestedSet := make(map[syncRollupKey]struct{}, len(states)*2)
+	for _, st := range states {
+		if !st.Configured {
+			continue
+		}
+
+		sourceName := strings.TrimSpace(st.SourceName)
+		if sourceName == "" {
+			continue
+		}
+
+		for _, lane := range connectorHealthLanes(cfg, st) {
+			key := syncRollupKey{kind: lane.syncKind, name: sourceName}
+			if _, exists := requestedSet[key]; exists {
+				continue
+			}
+			requestedSet[key] = struct{}{}
+			requested = append(requested, key)
+		}
+	}
+	return requested
 }
 
 func connectorDiscoverySyncKind(cfg config.Config, st connregistry.ConnectorState) string {
@@ -644,6 +650,8 @@ func valueOrDash(s string) string {
 
 func connectorHealthSeverity(status connectorHealthStatus) int {
 	switch status {
+	case connectorHealthStuck:
+		return 5
 	case connectorHealthStale:
 		return 4
 	case connectorHealthNeverSynced:

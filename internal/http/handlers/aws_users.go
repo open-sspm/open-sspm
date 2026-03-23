@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v5"
+	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
@@ -50,9 +51,10 @@ func (h *Handlers) HandleAWSUsers(c *echo.Context) error {
 	}
 
 	totalCount, err := h.Q.CountAppUsersWithLinkBySourceAndQuery(ctx, gen.CountAppUsersWithLinkBySourceAndQueryParams{
-		SourceKind: "aws",
-		SourceName: sourceName,
-		Query:      query,
+		SourceKind:     "aws",
+		SourceName:     sourceName,
+		EntityCategory: registry.EntityCategoryUser,
+		Query:          query,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -60,11 +62,12 @@ func (h *Handlers) HandleAWSUsers(c *echo.Context) error {
 
 	page, totalPages, offset := paginate(totalCount, page, perPage)
 	users, err := h.Q.ListAppUsersWithLinkPageBySourceAndQuery(ctx, gen.ListAppUsersWithLinkPageBySourceAndQueryParams{
-		SourceKind: "aws",
-		SourceName: sourceName,
-		Query:      query,
-		PageLimit:  int32(perPage),
-		PageOffset: int32(offset),
+		SourceKind:     "aws",
+		SourceName:     sourceName,
+		EntityCategory: registry.EntityCategoryUser,
+		Query:          query,
+		PageLimit:      int32(perPage),
+		PageOffset:     int32(offset),
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -195,9 +198,10 @@ func (h *Handlers) HandleUnmatchedAWS(c *echo.Context) error {
 	}
 
 	totalCount, err := h.Q.CountUnmatchedAppUsersBySourceAndQuery(ctx, gen.CountUnmatchedAppUsersBySourceAndQueryParams{
-		SourceKind: "aws",
-		SourceName: sourceName,
-		Query:      query,
+		SourceKind:     "aws",
+		SourceName:     sourceName,
+		EntityCategory: registry.EntityCategoryUser,
+		Query:          query,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -205,11 +209,12 @@ func (h *Handlers) HandleUnmatchedAWS(c *echo.Context) error {
 
 	page, totalPages, offset := paginate(totalCount, page, perPage)
 	users, err := h.Q.ListUnmatchedAppUsersPageBySourceAndQuery(ctx, gen.ListUnmatchedAppUsersPageBySourceAndQueryParams{
-		SourceKind: "aws",
-		SourceName: sourceName,
-		Query:      query,
-		PageLimit:  int32(perPage),
-		PageOffset: int32(offset),
+		SourceKind:     "aws",
+		SourceName:     sourceName,
+		EntityCategory: registry.EntityCategoryUser,
+		Query:          query,
+		PageLimit:      int32(perPage),
+		PageOffset:     int32(offset),
 	})
 	if err != nil {
 		return h.RenderError(c, err)

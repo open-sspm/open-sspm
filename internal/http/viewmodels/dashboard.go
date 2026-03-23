@@ -8,20 +8,6 @@ type DashboardViewData struct {
 	FrameworkPosture  []DashboardFrameworkPostureItem
 }
 
-type DashboardCommandUserItem struct {
-	ID          int64
-	Email       string
-	DisplayName string
-	Status      string
-}
-
-type DashboardCommandAppItem struct {
-	ExternalID string
-	Label      string
-	Name       string
-	Status     string
-}
-
 type DashboardFrameworkPostureItem struct {
 	Key         string
 	Name        string
