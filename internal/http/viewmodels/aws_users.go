@@ -7,25 +7,15 @@ type AWSUserListItem struct {
 	ExternalID      string
 	Email           string
 	DisplayName     string
-	IdpUserID       int64
+	IdentityID      int64
 	AccountCount    int
 	AssignmentCount int
 }
 
 type AWSUsersViewData struct {
-	Layout         LayoutData
-	Users          []AWSUserListItem
-	Query          string
-	ShowingCount   int
-	ShowingFrom    int
-	ShowingTo      int
-	TotalCount     int64
-	Page           int
-	PerPage        int
-	TotalPages     int
-	HasUsers       bool
-	EmptyStateMsg  string
-	EmptyStateHref string
+	SourceAccountInventoryPageData
+	Users    []AWSUserListItem
+	HasUsers bool
 }
 
 type UnmatchedAWSViewData struct {

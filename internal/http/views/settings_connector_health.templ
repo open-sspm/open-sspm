@@ -24,7 +24,7 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 					<p class="text-sm text-muted-foreground">{ data.SummaryLabel }</p>
 				}
 			</div>
-			@ColumnsControl("settings-connector-health--summary")
+			@ColumnsTable("settings-connector-health--summary", "") {
 			<table data-columns-id="settings-connector-health--summary" class="table osspm-table-compact osspm-table-list">
 				<thead>
 					<tr>
@@ -156,7 +156,8 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 						}
 					</tbody>
 			</table>
-		</section>
+			}
+			</section>
 
 		<div id="connector-health-error-details-host"></div>
 	}

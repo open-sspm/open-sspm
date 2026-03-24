@@ -188,7 +188,7 @@ func (s *ConnectorState) SecondaryLabel() string {
 func connectorBrowseUsersHref(kind string) string {
 	switch strings.TrimSpace(kind) {
 	case "okta":
-		return "/idp-users"
+		return "/okta-accounts"
 	case "entra":
 		return "/entra-users"
 	case "google_workspace":

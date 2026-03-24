@@ -10,7 +10,7 @@ templ GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) {
 		}, "Synced Google Workspace users with group/admin-role visibility.") {
 			if data.Layout.GoogleWorkspaceConfigured && data.Layout.GoogleWorkspaceEnabled {
 				<a class="btn-sm-outline" href="/google-workspace/groups">Groups</a>
-				<a class="btn-sm-outline" href="/connected-apps">Connected Apps</a>
+				<a class="btn-sm-outline" href="/connected-apps">Google Workspace Connected Apps</a>
 				<a class="btn-sm-outline" href="/unmatched/google-workspace">Unmanaged</a>
 			} else {
 				<a class="btn-sm-outline" href="/settings/connectors?open=google_workspace">Configure</a>
@@ -100,8 +100,8 @@ templ GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) {
 									<td><span class="badge-outline">{ FormatInt(u.GroupCount) }</span></td>
 									<td><span class="badge-outline">{ FormatInt(u.AdminRoleCount) }</span></td>
 									<td>
-										if u.IdpUserID > 0 {
-											<a class="btn-sm-link" href={ "/identities/" + FormatInt64(u.IdpUserID) }>{ "Identity #" }{ FormatInt64(u.IdpUserID) }</a>
+										if u.IdentityID > 0 {
+											<a class="btn-sm-link" href={ "/identities/" + FormatInt64(u.IdentityID) }>{ "Identity #" }{ FormatInt64(u.IdentityID) }</a>
 										} else {
 											<span class="text-muted-foreground">&mdash;</span>
 										}

@@ -56,87 +56,87 @@ func TestGenericAccountQueriesFilterEntityCategory(t *testing.T) {
 		}
 
 		for _, tc := range userCounts {
-			count, err := q.CountAppUsersWithLinkBySourceAndQuery(ctx, CountAppUsersWithLinkBySourceAndQueryParams{
+			count, err := q.CountSourceAccountsBySourceAndQuery(ctx, CountSourceAccountsBySourceAndQueryParams{
 				SourceKind:     tc.sourceKind,
 				SourceName:     tc.sourceName,
 				EntityCategory: "user",
 			})
 			if err != nil {
-				t.Fatalf("CountAppUsersWithLinkBySourceAndQuery(%s): %v", tc.sourceKind, err)
+				t.Fatalf("CountSourceAccountsBySourceAndQuery(%s): %v", tc.sourceKind, err)
 			}
 			if count != tc.wantCount {
-				t.Fatalf("CountAppUsersWithLinkBySourceAndQuery(%s)=%d want %d", tc.sourceKind, count, tc.wantCount)
+				t.Fatalf("CountSourceAccountsBySourceAndQuery(%s)=%d want %d", tc.sourceKind, count, tc.wantCount)
 			}
 
-			rows, err := q.ListAppUsersWithLinkPageBySourceAndQuery(ctx, ListAppUsersWithLinkPageBySourceAndQueryParams{
+			rows, err := q.ListSourceAccountsPageBySourceAndQuery(ctx, ListSourceAccountsPageBySourceAndQueryParams{
 				SourceKind:     tc.sourceKind,
 				SourceName:     tc.sourceName,
 				EntityCategory: "user",
 				PageLimit:      20,
 			})
 			if err != nil {
-				t.Fatalf("ListAppUsersWithLinkPageBySourceAndQuery(%s): %v", tc.sourceKind, err)
+				t.Fatalf("ListSourceAccountsPageBySourceAndQuery(%s): %v", tc.sourceKind, err)
 			}
 			if len(rows) != int(tc.wantCount) {
-				t.Fatalf("ListAppUsersWithLinkPageBySourceAndQuery(%s) len=%d want %d", tc.sourceKind, len(rows), tc.wantCount)
+				t.Fatalf("ListSourceAccountsPageBySourceAndQuery(%s) len=%d want %d", tc.sourceKind, len(rows), tc.wantCount)
 			}
 			for _, row := range rows {
 				if row.EntityCategory != "user" {
-					t.Fatalf("ListAppUsersWithLinkPageBySourceAndQuery(%s) included %s entity_category=%q", tc.sourceKind, row.ExternalID, row.EntityCategory)
+					t.Fatalf("ListSourceAccountsPageBySourceAndQuery(%s) included %s entity_category=%q", tc.sourceKind, row.ExternalID, row.EntityCategory)
 				}
 			}
 		}
 
-		allDatadogCount, err := q.CountAppUsersWithLinkBySourceAndQuery(ctx, CountAppUsersWithLinkBySourceAndQueryParams{
+		allDatadogCount, err := q.CountSourceAccountsBySourceAndQuery(ctx, CountSourceAccountsBySourceAndQueryParams{
 			SourceKind: "datadog",
 			SourceName: "datadoghq.com",
 		})
 		if err != nil {
-			t.Fatalf("CountAppUsersWithLinkBySourceAndQuery(all datadog): %v", err)
+			t.Fatalf("CountSourceAccountsBySourceAndQuery(all datadog): %v", err)
 		}
 		if allDatadogCount != 4 {
-			t.Fatalf("CountAppUsersWithLinkBySourceAndQuery(all datadog)=%d want 4", allDatadogCount)
+			t.Fatalf("CountSourceAccountsBySourceAndQuery(all datadog)=%d want 4", allDatadogCount)
 		}
 
-		unmatchedCount, err := q.CountUnmatchedAppUsersBySourceAndQuery(ctx, CountUnmatchedAppUsersBySourceAndQueryParams{
+		unmatchedCount, err := q.CountUnlinkedSourceAccountsBySourceAndQuery(ctx, CountUnlinkedSourceAccountsBySourceAndQueryParams{
 			SourceKind:     "datadog",
 			SourceName:     "datadoghq.com",
 			EntityCategory: "user",
 		})
 		if err != nil {
-			t.Fatalf("CountUnmatchedAppUsersBySourceAndQuery(user): %v", err)
+			t.Fatalf("CountUnlinkedSourceAccountsBySourceAndQuery(user): %v", err)
 		}
 		if unmatchedCount != 1 {
-			t.Fatalf("CountUnmatchedAppUsersBySourceAndQuery(user)=%d want 1", unmatchedCount)
+			t.Fatalf("CountUnlinkedSourceAccountsBySourceAndQuery(user)=%d want 1", unmatchedCount)
 		}
 
-		unmatchedRows, err := q.ListUnmatchedAppUsersPageBySourceAndQuery(ctx, ListUnmatchedAppUsersPageBySourceAndQueryParams{
+		unmatchedRows, err := q.ListUnlinkedSourceAccountsPageBySourceAndQuery(ctx, ListUnlinkedSourceAccountsPageBySourceAndQueryParams{
 			SourceKind:     "datadog",
 			SourceName:     "datadoghq.com",
 			EntityCategory: "user",
 			PageLimit:      20,
 		})
 		if err != nil {
-			t.Fatalf("ListUnmatchedAppUsersPageBySourceAndQuery(user): %v", err)
+			t.Fatalf("ListUnlinkedSourceAccountsPageBySourceAndQuery(user): %v", err)
 		}
 		if len(unmatchedRows) != 1 || unmatchedRows[0].ExternalID != "dd-user-2" {
-			t.Fatalf("ListUnmatchedAppUsersPageBySourceAndQuery(user)=%v want [dd-user-2]", accountExternalIDs(unmatchedRows))
+			t.Fatalf("ListUnlinkedSourceAccountsPageBySourceAndQuery(user)=%v want [dd-user-2]", accountExternalIDs(unmatchedRows))
 		}
 
-		activeUserCount, err := q.CountAppUsersBySourceAndQueryAndState(ctx, CountAppUsersBySourceAndQueryAndStateParams{
+		activeUserCount, err := q.CountSourceAccountsBySourceAndQueryAndState(ctx, CountSourceAccountsBySourceAndQueryAndStateParams{
 			SourceKind:     "datadog",
 			SourceName:     "datadoghq.com",
 			EntityCategory: "user",
 			State:          "active",
 		})
 		if err != nil {
-			t.Fatalf("CountAppUsersBySourceAndQueryAndState(user active): %v", err)
+			t.Fatalf("CountSourceAccountsBySourceAndQueryAndState(user active): %v", err)
 		}
 		if activeUserCount != 1 {
-			t.Fatalf("CountAppUsersBySourceAndQueryAndState(user active)=%d want 1", activeUserCount)
+			t.Fatalf("CountSourceAccountsBySourceAndQueryAndState(user active)=%d want 1", activeUserCount)
 		}
 
-		activeUserRows, err := q.ListAppUsersPageBySourceAndQueryAndState(ctx, ListAppUsersPageBySourceAndQueryAndStateParams{
+		activeUserRows, err := q.ListSourceAccountsPageBySourceAndQueryAndState(ctx, ListSourceAccountsPageBySourceAndQueryAndStateParams{
 			SourceKind:     "datadog",
 			SourceName:     "datadoghq.com",
 			EntityCategory: "user",
@@ -144,22 +144,22 @@ func TestGenericAccountQueriesFilterEntityCategory(t *testing.T) {
 			PageLimit:      20,
 		})
 		if err != nil {
-			t.Fatalf("ListAppUsersPageBySourceAndQueryAndState(user active): %v", err)
+			t.Fatalf("ListSourceAccountsPageBySourceAndQueryAndState(user active): %v", err)
 		}
 		if len(activeUserRows) != 1 || activeUserRows[0].ExternalID != "dd-user-1" {
-			t.Fatalf("ListAppUsersPageBySourceAndQueryAndState(user active)=%v want [dd-user-1]", accountExternalIDs(activeUserRows))
+			t.Fatalf("ListSourceAccountsPageBySourceAndQueryAndState(user active)=%v want [dd-user-1]", accountExternalIDs(activeUserRows))
 		}
 
-		activeAllCount, err := q.CountAppUsersBySourceAndQueryAndState(ctx, CountAppUsersBySourceAndQueryAndStateParams{
+		activeAllCount, err := q.CountSourceAccountsBySourceAndQueryAndState(ctx, CountSourceAccountsBySourceAndQueryAndStateParams{
 			SourceKind: "datadog",
 			SourceName: "datadoghq.com",
 			State:      "active",
 		})
 		if err != nil {
-			t.Fatalf("CountAppUsersBySourceAndQueryAndState(all active): %v", err)
+			t.Fatalf("CountSourceAccountsBySourceAndQueryAndState(all active): %v", err)
 		}
 		if activeAllCount != 3 {
-			t.Fatalf("CountAppUsersBySourceAndQueryAndState(all active)=%d want 3", activeAllCount)
+			t.Fatalf("CountSourceAccountsBySourceAndQueryAndState(all active)=%d want 3", activeAllCount)
 		}
 	})
 }
@@ -198,27 +198,29 @@ func TestGoogleWorkspaceQueriesUseEntityCategoryColumn(t *testing.T) {
 		identityID := insertIdentity(t, ctx, pool, "human", "user@example.com", "Workspace User")
 		insertIdentityAccountLink(t, ctx, pool, identityID, userID)
 
-		userCount, err := q.CountGoogleWorkspaceUsersBySourceAndQuery(ctx, CountGoogleWorkspaceUsersBySourceAndQueryParams{
-			SourceKind: "google_workspace",
-			SourceName: "C0123",
+		userCount, err := q.CountSourceAccountsBySourceAndQuery(ctx, CountSourceAccountsBySourceAndQueryParams{
+			SourceKind:     "google_workspace",
+			SourceName:     "C0123",
+			EntityCategory: "user",
 		})
 		if err != nil {
-			t.Fatalf("CountGoogleWorkspaceUsersBySourceAndQuery: %v", err)
+			t.Fatalf("CountSourceAccountsBySourceAndQuery(google workspace users): %v", err)
 		}
 		if userCount != 1 {
-			t.Fatalf("CountGoogleWorkspaceUsersBySourceAndQuery=%d want 1", userCount)
+			t.Fatalf("CountSourceAccountsBySourceAndQuery(google workspace users)=%d want 1", userCount)
 		}
 
-		userRows, err := q.ListGoogleWorkspaceUsersPageBySourceAndQuery(ctx, ListGoogleWorkspaceUsersPageBySourceAndQueryParams{
-			SourceKind: "google_workspace",
-			SourceName: "C0123",
-			PageLimit:  20,
+		userRows, err := q.ListSourceAccountsPageBySourceAndQuery(ctx, ListSourceAccountsPageBySourceAndQueryParams{
+			SourceKind:     "google_workspace",
+			SourceName:     "C0123",
+			EntityCategory: "user",
+			PageLimit:      20,
 		})
 		if err != nil {
-			t.Fatalf("ListGoogleWorkspaceUsersPageBySourceAndQuery: %v", err)
+			t.Fatalf("ListSourceAccountsPageBySourceAndQuery(google workspace users): %v", err)
 		}
 		if len(userRows) != 1 || userRows[0].ExternalID != "gw-user-1" {
-			t.Fatalf("ListGoogleWorkspaceUsersPageBySourceAndQuery=%v want [gw-user-1]", googleWorkspaceLinkedExternalIDs(userRows))
+			t.Fatalf("ListSourceAccountsPageBySourceAndQuery(google workspace users)=%v want [gw-user-1]", linkedExternalIDs(userRows))
 		}
 		if userRows[0].EntityCategory != "user" {
 			t.Fatalf("google workspace user row entity_category=%q want user", userRows[0].EntityCategory)
@@ -250,27 +252,147 @@ func TestGoogleWorkspaceQueriesUseEntityCategoryColumn(t *testing.T) {
 			t.Fatalf("google workspace group row entity_category=%q want group", groupRows[0].EntityCategory)
 		}
 
-		unmatchedCount, err := q.CountUnmatchedGoogleWorkspaceUsersBySourceAndQuery(ctx, CountUnmatchedGoogleWorkspaceUsersBySourceAndQueryParams{
-			SourceKind: "google_workspace",
-			SourceName: "C0123",
+		unmatchedCount, err := q.CountUnlinkedSourceAccountsBySourceAndQuery(ctx, CountUnlinkedSourceAccountsBySourceAndQueryParams{
+			SourceKind:     "google_workspace",
+			SourceName:     "C0123",
+			EntityCategory: "user",
 		})
 		if err != nil {
-			t.Fatalf("CountUnmatchedGoogleWorkspaceUsersBySourceAndQuery: %v", err)
+			t.Fatalf("CountUnlinkedSourceAccountsBySourceAndQuery(google workspace users): %v", err)
 		}
 		if unmatchedCount != 0 {
-			t.Fatalf("CountUnmatchedGoogleWorkspaceUsersBySourceAndQuery=%d want 0", unmatchedCount)
+			t.Fatalf("CountUnlinkedSourceAccountsBySourceAndQuery(google workspace users)=%d want 0", unmatchedCount)
 		}
 
-		unmatchedRows, err := q.ListUnmatchedGoogleWorkspaceUsersPageBySourceAndQuery(ctx, ListUnmatchedGoogleWorkspaceUsersPageBySourceAndQueryParams{
-			SourceKind: "google_workspace",
-			SourceName: "C0123",
-			PageLimit:  20,
+		unmatchedRows, err := q.ListUnlinkedSourceAccountsPageBySourceAndQuery(ctx, ListUnlinkedSourceAccountsPageBySourceAndQueryParams{
+			SourceKind:     "google_workspace",
+			SourceName:     "C0123",
+			EntityCategory: "user",
+			PageLimit:      20,
 		})
 		if err != nil {
-			t.Fatalf("ListUnmatchedGoogleWorkspaceUsersPageBySourceAndQuery: %v", err)
+			t.Fatalf("ListUnlinkedSourceAccountsPageBySourceAndQuery(google workspace users): %v", err)
 		}
 		if len(unmatchedRows) != 0 {
-			t.Fatalf("ListUnmatchedGoogleWorkspaceUsersPageBySourceAndQuery=%v want []", accountExternalIDs(unmatchedRows))
+			t.Fatalf("ListUnlinkedSourceAccountsPageBySourceAndQuery(google workspace users)=%v want []", accountExternalIDs(unmatchedRows))
+		}
+	})
+}
+
+func TestSourceAccountInventoryQueriesProjectEntitlementCounts(t *testing.T) {
+	t.Parallel()
+
+	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
+		migrateUp(t, migrator)
+
+		runID := insertSyncRun(t, ctx, pool, "seed", "seed")
+
+		entraUserID := insertAccount(t, ctx, pool, runID, accountSeed{
+			SourceKind:     "entra",
+			SourceName:     "tenant-1",
+			ExternalID:     "entra-user-1",
+			Email:          "entra.user@example.com",
+			DisplayName:    "Entra User",
+			Status:         "active",
+			AccountKind:    "human",
+			EntityCategory: "user",
+			RawJSON:        `{"status":"active"}`,
+		})
+		insertEntitlement(t, ctx, pool, runID, entraUserID, "entra_directory_role", "Directory Role A", "member")
+		insertEntitlement(t, ctx, pool, runID, entraUserID, "entra_directory_role", "Directory Role A", "eligible")
+		insertEntitlement(t, ctx, pool, runID, entraUserID, "entra_directory_role", "Directory Role B", "member")
+		insertEntitlement(t, ctx, pool, runID, entraUserID, "entra_app_role", "Enterprise App A", "Reader")
+		insertEntitlement(t, ctx, pool, runID, entraUserID, "entra_app_role", "Enterprise App A", "Writer")
+		insertEntitlement(t, ctx, pool, runID, entraUserID, "entra_app_role", "Enterprise App B", "Reader")
+		insertEntitlement(t, ctx, pool, runID, entraUserID, "entra_app_role", "   ", "ignored")
+
+		awsUserID := insertAccount(t, ctx, pool, runID, accountSeed{
+			SourceKind:     "aws",
+			SourceName:     "directory-1",
+			ExternalID:     "aws-user-1",
+			Email:          "aws.user@example.com",
+			DisplayName:    "AWS User",
+			Status:         "active",
+			AccountKind:    "human",
+			EntityCategory: "user",
+			RawJSON:        `{"status":"active"}`,
+		})
+		insertEntitlement(t, ctx, pool, runID, awsUserID, "aws_permission_set", "aws_account:111111111111", "Admin")
+		insertEntitlement(t, ctx, pool, runID, awsUserID, "aws_permission_set", "aws_account:111111111111", "ReadOnly")
+		insertEntitlement(t, ctx, pool, runID, awsUserID, "aws_permission_set", "aws_account:222222222222", "Admin")
+		insertEntitlement(t, ctx, pool, runID, awsUserID, "aws_permission_set", "   ", "ignored")
+
+		googleUserID := insertAccount(t, ctx, pool, runID, accountSeed{
+			SourceKind:     "google_workspace",
+			SourceName:     "C0123",
+			ExternalID:     "gw-user-1",
+			Email:          "user@example.com",
+			DisplayName:    "Workspace User",
+			Status:         "active",
+			AccountKind:    "human",
+			EntityCategory: "user",
+			RawJSON:        `{"status":"active"}`,
+		})
+		insertEntitlement(t, ctx, pool, runID, googleUserID, "google_group_member", "google_group:eng", "member")
+		insertEntitlement(t, ctx, pool, runID, googleUserID, "google_group_member", "google_group:eng", "owner")
+		insertEntitlement(t, ctx, pool, runID, googleUserID, "google_group_member", "google_group:sec", "member")
+		insertEntitlement(t, ctx, pool, runID, googleUserID, "google_admin_role", "admin_role:User Management", "assigned")
+		insertEntitlement(t, ctx, pool, runID, googleUserID, "google_admin_role", "admin_role:User Management", "delegated")
+		insertEntitlement(t, ctx, pool, runID, googleUserID, "google_admin_role", "admin_role:Groups", "assigned")
+		insertEntitlement(t, ctx, pool, runID, googleUserID, "google_admin_role", "", "ignored")
+
+		entraRows, err := q.ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(ctx, ListSourceAccountsPageBySourceAndQueryWithEntitlementCountsParams{
+			SourceKind:            "entra",
+			SourceName:            "tenant-1",
+			EntityCategory:        "user",
+			PageLimit:             20,
+			DistinctResourceKind1: "entra_directory_role",
+			DistinctResourceKind2: "entra_app_role",
+		})
+		if err != nil {
+			t.Fatalf("ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(entra): %v", err)
+		}
+		if len(entraRows) != 1 {
+			t.Fatalf("ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(entra) len=%d want 1", len(entraRows))
+		}
+		if entraRows[0].DistinctResourceCount1 != 2 || entraRows[0].DistinctResourceCount2 != 2 || entraRows[0].EntitlementCount1 != 0 {
+			t.Fatalf("entra summary counts=(%d,%d,%d) want (2,2,0)", entraRows[0].DistinctResourceCount1, entraRows[0].DistinctResourceCount2, entraRows[0].EntitlementCount1)
+		}
+
+		awsRows, err := q.ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(ctx, ListSourceAccountsPageBySourceAndQueryWithEntitlementCountsParams{
+			SourceKind:            "aws",
+			SourceName:            "directory-1",
+			EntityCategory:        "user",
+			PageLimit:             20,
+			DistinctResourceKind1: "aws_permission_set",
+			EntitlementKind1:      "aws_permission_set",
+		})
+		if err != nil {
+			t.Fatalf("ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(aws): %v", err)
+		}
+		if len(awsRows) != 1 {
+			t.Fatalf("ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(aws) len=%d want 1", len(awsRows))
+		}
+		if awsRows[0].DistinctResourceCount1 != 2 || awsRows[0].DistinctResourceCount2 != 0 || awsRows[0].EntitlementCount1 != 3 {
+			t.Fatalf("aws summary counts=(%d,%d,%d) want (2,0,3)", awsRows[0].DistinctResourceCount1, awsRows[0].DistinctResourceCount2, awsRows[0].EntitlementCount1)
+		}
+
+		googleRows, err := q.ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(ctx, ListSourceAccountsPageBySourceAndQueryWithEntitlementCountsParams{
+			SourceKind:            "google_workspace",
+			SourceName:            "C0123",
+			EntityCategory:        "user",
+			PageLimit:             20,
+			DistinctResourceKind1: "google_group_member",
+			DistinctResourceKind2: "google_admin_role",
+		})
+		if err != nil {
+			t.Fatalf("ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(google workspace): %v", err)
+		}
+		if len(googleRows) != 1 {
+			t.Fatalf("ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(google workspace) len=%d want 1", len(googleRows))
+		}
+		if googleRows[0].DistinctResourceCount1 != 2 || googleRows[0].DistinctResourceCount2 != 2 || googleRows[0].EntitlementCount1 != 0 {
+			t.Fatalf("google workspace summary counts=(%d,%d,%d) want (2,2,0)", googleRows[0].DistinctResourceCount1, googleRows[0].DistinctResourceCount2, googleRows[0].EntitlementCount1)
 		}
 	})
 }
@@ -321,16 +443,16 @@ func TestEntityCategoryMigrationBackfillsExistingRows(t *testing.T) {
 			t.Fatalf("google entity_category=%q want group", googleCategory)
 		}
 
-		githubCount, err := q.CountAppUsersWithLinkBySourceAndQuery(ctx, CountAppUsersWithLinkBySourceAndQueryParams{
+		githubCount, err := q.CountSourceAccountsBySourceAndQuery(ctx, CountSourceAccountsBySourceAndQueryParams{
 			SourceKind:     "github",
 			SourceName:     "acme",
 			EntityCategory: "user",
 		})
 		if err != nil {
-			t.Fatalf("CountAppUsersWithLinkBySourceAndQuery after backfill: %v", err)
+			t.Fatalf("CountSourceAccountsBySourceAndQuery after backfill: %v", err)
 		}
 		if githubCount != 1 {
-			t.Fatalf("CountAppUsersWithLinkBySourceAndQuery after backfill=%d want 1", githubCount)
+			t.Fatalf("CountSourceAccountsBySourceAndQuery after backfill=%d want 1", githubCount)
 		}
 
 		googleGroupCount, err := q.CountGoogleWorkspaceGroupsBySourceAndQuery(ctx, CountGoogleWorkspaceGroupsBySourceAndQueryParams{
@@ -542,16 +664,29 @@ func insertIdentityAccountLink(t *testing.T, ctx context.Context, pool *pgxpool.
 	}
 }
 
-func linkedExternalIDs(rows []ListAppUsersWithLinkPageBySourceAndQueryRow) []string {
-	ids := make([]string, 0, len(rows))
-	for _, row := range rows {
-		ids = append(ids, row.ExternalID)
+func insertEntitlement(t *testing.T, ctx context.Context, pool *pgxpool.Pool, runID, accountID int64, kind, resource, permission string) {
+	t.Helper()
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO entitlements (
+			app_user_id,
+			kind,
+			resource,
+			permission,
+			raw_json,
+			seen_in_run_id,
+			seen_at,
+			last_observed_run_id,
+			last_observed_at,
+			updated_at
+		)
+		VALUES ($1, $2, $3, $4, '{}'::jsonb, $5, now(), $5, now(), now())
+	`, accountID, kind, resource, permission, runID); err != nil {
+		t.Fatalf("insert entitlement %s/%s for account %d: %v", kind, resource, accountID, err)
 	}
-	slices.Sort(ids)
-	return ids
 }
 
-func googleWorkspaceLinkedExternalIDs(rows []ListGoogleWorkspaceUsersPageBySourceAndQueryRow) []string {
+func linkedExternalIDs(rows []ListSourceAccountsPageBySourceAndQueryRow) []string {
 	ids := make([]string, 0, len(rows))
 	for _, row := range rows {
 		ids = append(ids, row.ExternalID)

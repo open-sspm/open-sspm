@@ -55,8 +55,8 @@ type UserAppAssignment struct {
 	RawJSON     []byte
 }
 
-type AppUserAssignment struct {
-	UserID      string
+type AppAccountAssignment struct {
+	AccountID   string
 	Scope       string
 	ProfileJSON []byte
 	RawJSON     []byte
@@ -356,7 +356,7 @@ func (c *Client) ListApps(ctx context.Context) ([]App, error) {
 	return out, nil
 }
 
-func (c *Client) ListApplicationUsers(ctx context.Context, appID string) ([]AppUserAssignment, error) {
+func (c *Client) ListApplicationAccounts(ctx context.Context, appID string) ([]AppAccountAssignment, error) {
 	if err := c.ensureClient(); err != nil {
 		return nil, err
 	}
@@ -371,10 +371,10 @@ func (c *Client) ListApplicationUsers(ctx context.Context, appID string) ([]AppU
 	if err != nil {
 		return nil, formatOktaError(err, resp)
 	}
-	var out []AppUserAssignment
+	var out []AppAccountAssignment
 	for {
 		for _, u := range users {
-			mapped, err := mapOktaAppUserAssignment(u)
+			mapped, err := mapOktaAppAccountAssignment(u)
 			if err != nil {
 				return nil, err
 			}
@@ -704,13 +704,13 @@ func mapOktaAppPayload(raw []byte) (App, error) {
 	}, nil
 }
 
-func mapOktaAppUserAssignment(appUser sdk.AppUser) (AppUserAssignment, error) {
+func mapOktaAppAccountAssignment(appUser sdk.AppUser) (AppAccountAssignment, error) {
 	raw, err := json.Marshal(appUser)
 	if err != nil {
-		return AppUserAssignment{}, err
+		return AppAccountAssignment{}, err
 	}
-	return AppUserAssignment{
-		UserID:      strings.TrimSpace(appUser.GetId()),
+	return AppAccountAssignment{
+		AccountID:   strings.TrimSpace(appUser.GetId()),
 		Scope:       strings.TrimSpace(appUser.GetScope()),
 		ProfileJSON: encodeJSON(appUser.Profile),
 		RawJSON:     raw,

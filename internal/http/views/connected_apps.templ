@@ -6,7 +6,7 @@ templ ConnectedAppsPage(data viewmodels.ConnectedAppsViewData) {
 	@Layout(data.Layout) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
-			{Label: "Connected Apps"},
+			{Label: "Google Workspace Connected Apps"},
 		}, "Review third-party OAuth apps, grant activity, ownership, and evidence from Google Workspace.") {
 		}
 		@ConnectedAppsPageResults(data)
@@ -214,7 +214,7 @@ templ ConnectedAppShowPage(data viewmodels.ConnectedAppShowViewData) {
 	@Layout(data.Layout) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
-			{Label: "Connected Apps", Href: "/connected-apps"},
+			{Label: "Google Workspace Connected Apps", Href: "/connected-apps"},
 			{Label: data.App.DisplayName},
 		}, "Review ownership, grant scope, evidence, and containment actions for a connected app.") {
 			<a class="btn-sm-outline" href={ data.App.ExportHref }>Export JSON</a>

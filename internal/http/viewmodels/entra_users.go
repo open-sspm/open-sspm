@@ -7,25 +7,15 @@ type EntraUserListItem struct {
 	ExternalID         string
 	Email              string
 	DisplayName        string
-	IdpUserID          int64
+	IdentityID         int64
 	DirectoryRoleCount int
 	EnterpriseAppCount int
 }
 
 type EntraUsersViewData struct {
-	Layout         LayoutData
-	Users          []EntraUserListItem
-	Query          string
-	ShowingCount   int
-	ShowingFrom    int
-	ShowingTo      int
-	TotalCount     int64
-	Page           int
-	PerPage        int
-	TotalPages     int
-	HasUsers       bool
-	EmptyStateMsg  string
-	EmptyStateHref string
+	SourceAccountInventoryPageData
+	Users    []EntraUserListItem
+	HasUsers bool
 }
 
 type UnmatchedEntraViewData struct {

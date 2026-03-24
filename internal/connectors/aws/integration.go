@@ -142,7 +142,7 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 
 	for start := 0; start < len(externalIDs); start += userBatchSize {
 		end := min(start+userBatchSize, len(externalIDs))
-		_, err := q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
+		_, err := q.UpsertSourceAccountsBulkBySource(ctx, gen.UpsertSourceAccountsBulkBySourceParams{
 			SourceKind:       "aws",
 			SourceName:       i.sourceName,
 			SeenInRunID:      runID,
@@ -170,7 +170,7 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 	}
 
 	const entitlementBatchSize = 5000
-	entAppUserExternalIDs := make([]string, 0, len(users))
+	entAccountExternalIDs := make([]string, 0, len(users))
 	entKinds := make([]string, 0, len(users))
 	entResources := make([]string, 0, len(users))
 	entPermissions := make([]string, 0, len(users))
@@ -194,7 +194,7 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 			if groupID := strings.TrimSpace(fact.GroupID); groupID != "" {
 				raw["group_id"] = groupID
 			}
-			entAppUserExternalIDs = append(entAppUserExternalIDs, userID)
+			entAccountExternalIDs = append(entAccountExternalIDs, userID)
 			entKinds = append(entKinds, "aws_permission_set")
 			entResources = append(entResources, "aws_account:"+strings.TrimSpace(fact.AccountID))
 			entPermissions = append(entPermissions, permission)
@@ -202,13 +202,13 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 		}
 	}
 
-	for start := 0; start < len(entAppUserExternalIDs); start += entitlementBatchSize {
-		end := min(start+entitlementBatchSize, len(entAppUserExternalIDs))
+	for start := 0; start < len(entAccountExternalIDs); start += entitlementBatchSize {
+		end := min(start+entitlementBatchSize, len(entAccountExternalIDs))
 		_, err := q.UpsertEntitlementsBulkBySource(ctx, gen.UpsertEntitlementsBulkBySourceParams{
 			SeenInRunID:        runID,
 			SourceKind:         "aws",
 			SourceName:         i.sourceName,
-			AppUserExternalIds: entAppUserExternalIDs[start:end],
+			AccountExternalIds: entAccountExternalIDs[start:end],
 			Kinds:              entKinds[start:end],
 			Resources:          entResources[start:end],
 			Permissions:        entPermissions[start:end],

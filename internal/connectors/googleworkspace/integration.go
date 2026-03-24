@@ -47,7 +47,7 @@ type googleWorkspaceAccountRow struct {
 }
 
 type googleWorkspaceEntitlementRow struct {
-	AppUserExternalID string
+	AccountExternalID string
 	Kind              string
 	Resource          string
 	Permission        string
@@ -453,7 +453,7 @@ func (i *GoogleWorkspaceIntegration) upsertAccounts(ctx context.Context, q *gen.
 			lastLoginRegions = append(lastLoginRegions, "")
 		}
 
-		if _, err := q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
+		if _, err := q.UpsertSourceAccountsBulkBySource(ctx, gen.UpsertSourceAccountsBulkBySourceParams{
 			SourceKind:       configstore.KindGoogleWorkspace,
 			SourceName:       i.customerID,
 			SeenInRunID:      runID,
@@ -507,7 +507,7 @@ func (i *GoogleWorkspaceIntegration) collectGroupMemberEntitlements(ctx context.
 				permission = "member"
 			}
 			rows = append(rows, googleWorkspaceEntitlementRow{
-				AppUserExternalID: memberID,
+				AccountExternalID: memberID,
 				Kind:              "google_group_member",
 				Resource:          "google_group:" + groupID,
 				Permission:        permission,
@@ -560,7 +560,7 @@ func buildGoogleWorkspaceAdminRoleEntitlements(roles []WorkspaceAdminRole, assig
 			roleName = strings.TrimSpace(role.RoleName)
 		}
 		rows = append(rows, googleWorkspaceEntitlementRow{
-			AppUserExternalID: assignedTo,
+			AccountExternalID: assignedTo,
 			Kind:              "google_admin_role",
 			Resource:          "google_admin_role:" + roleID,
 			Permission:        permission,
@@ -587,13 +587,13 @@ func (i *GoogleWorkspaceIntegration) upsertEntitlements(ctx context.Context, q *
 		end := min(start+googleWorkspaceEntitlementBatchSize, len(rows))
 		batch := rows[start:end]
 
-		appUserExternalIDs := make([]string, 0, len(batch))
+		accountExternalIDs := make([]string, 0, len(batch))
 		kinds := make([]string, 0, len(batch))
 		resources := make([]string, 0, len(batch))
 		permissions := make([]string, 0, len(batch))
 		rawJSONs := make([][]byte, 0, len(batch))
 		for _, row := range batch {
-			appUserExternalIDs = append(appUserExternalIDs, row.AppUserExternalID)
+			accountExternalIDs = append(accountExternalIDs, row.AccountExternalID)
 			kinds = append(kinds, row.Kind)
 			resources = append(resources, row.Resource)
 			permissions = append(permissions, row.Permission)
@@ -604,7 +604,7 @@ func (i *GoogleWorkspaceIntegration) upsertEntitlements(ctx context.Context, q *
 			SourceKind:         configstore.KindGoogleWorkspace,
 			SourceName:         i.customerID,
 			SeenInRunID:        runID,
-			AppUserExternalIds: appUserExternalIDs,
+			AccountExternalIds: accountExternalIDs,
 			Kinds:              kinds,
 			Resources:          resources,
 			Permissions:        permissions,

@@ -20,18 +20,18 @@ SELECT
   e.raw_json AS entitlement_raw_json,
   e.created_at AS entitlement_created_at,
   e.updated_at AS entitlement_updated_at,
-  au.id AS app_user_id,
-  au.source_kind AS app_user_source_kind,
-  au.source_name AS app_user_source_name,
-  au.external_id AS app_user_external_id,
-  au.email AS app_user_email,
-  au.display_name AS app_user_display_name,
-  au.raw_json AS app_user_raw_json,
+  au.id AS account_id,
+  au.source_kind AS account_source_kind,
+  au.source_name AS account_source_name,
+  au.external_id AS account_external_id,
+  au.email AS account_email,
+  au.display_name AS account_display_name,
+  au.raw_json AS account_raw_json,
   ia.link_reason AS link_reason,
-  i.id AS idp_user_id,
-  i.primary_email AS idp_user_email,
-  i.display_name AS idp_user_display_name,
-  i.kind AS idp_user_status
+  i.id AS identity_id,
+  i.primary_email AS identity_email,
+  i.display_name AS identity_display_name,
+  i.kind AS identity_status
 FROM entitlements e
 JOIN accounts au ON au.id = e.app_user_id
 LEFT JOIN identity_accounts ia ON ia.account_id = au.id
@@ -60,18 +60,18 @@ type ListEntitlementAccessBySourceAndResourceRefRow struct {
 	EntitlementRawJson    []byte             `json:"entitlement_raw_json"`
 	EntitlementCreatedAt  pgtype.Timestamptz `json:"entitlement_created_at"`
 	EntitlementUpdatedAt  pgtype.Timestamptz `json:"entitlement_updated_at"`
-	AppUserID             int64              `json:"app_user_id"`
-	AppUserSourceKind     string             `json:"app_user_source_kind"`
-	AppUserSourceName     string             `json:"app_user_source_name"`
-	AppUserExternalID     string             `json:"app_user_external_id"`
-	AppUserEmail          string             `json:"app_user_email"`
-	AppUserDisplayName    string             `json:"app_user_display_name"`
-	AppUserRawJson        []byte             `json:"app_user_raw_json"`
+	AccountID             int64              `json:"account_id"`
+	AccountSourceKind     string             `json:"account_source_kind"`
+	AccountSourceName     string             `json:"account_source_name"`
+	AccountExternalID     string             `json:"account_external_id"`
+	AccountEmail          string             `json:"account_email"`
+	AccountDisplayName    string             `json:"account_display_name"`
+	AccountRawJson        []byte             `json:"account_raw_json"`
 	LinkReason            pgtype.Text        `json:"link_reason"`
-	IdpUserID             pgtype.Int8        `json:"idp_user_id"`
-	IdpUserEmail          pgtype.Text        `json:"idp_user_email"`
-	IdpUserDisplayName    pgtype.Text        `json:"idp_user_display_name"`
-	IdpUserStatus         pgtype.Text        `json:"idp_user_status"`
+	IdentityID            pgtype.Int8        `json:"identity_id"`
+	IdentityEmail         pgtype.Text        `json:"identity_email"`
+	IdentityDisplayName   pgtype.Text        `json:"identity_display_name"`
+	IdentityStatus        pgtype.Text        `json:"identity_status"`
 }
 
 func (q *Queries) ListEntitlementAccessBySourceAndResourceRef(ctx context.Context, arg ListEntitlementAccessBySourceAndResourceRefParams) ([]ListEntitlementAccessBySourceAndResourceRefRow, error) {
@@ -91,18 +91,18 @@ func (q *Queries) ListEntitlementAccessBySourceAndResourceRef(ctx context.Contex
 			&i.EntitlementRawJson,
 			&i.EntitlementCreatedAt,
 			&i.EntitlementUpdatedAt,
-			&i.AppUserID,
-			&i.AppUserSourceKind,
-			&i.AppUserSourceName,
-			&i.AppUserExternalID,
-			&i.AppUserEmail,
-			&i.AppUserDisplayName,
-			&i.AppUserRawJson,
+			&i.AccountID,
+			&i.AccountSourceKind,
+			&i.AccountSourceName,
+			&i.AccountExternalID,
+			&i.AccountEmail,
+			&i.AccountDisplayName,
+			&i.AccountRawJson,
 			&i.LinkReason,
-			&i.IdpUserID,
-			&i.IdpUserEmail,
-			&i.IdpUserDisplayName,
-			&i.IdpUserStatus,
+			&i.IdentityID,
+			&i.IdentityEmail,
+			&i.IdentityDisplayName,
+			&i.IdentityStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -114,50 +114,22 @@ func (q *Queries) ListEntitlementAccessBySourceAndResourceRef(ctx context.Contex
 	return items, nil
 }
 
-const listEntitlementResourcesByAppUserIDsAndKind = `-- name: ListEntitlementResourcesByAppUserIDsAndKind :many
+const listEntitlementsForAccount = `-- name: ListEntitlementsForAccount :many
 SELECT
-  app_user_id,
-  resource
-FROM entitlements
-WHERE app_user_id = ANY($1::bigint[])
-  AND kind = $2
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-ORDER BY app_user_id, resource
-`
-
-type ListEntitlementResourcesByAppUserIDsAndKindParams struct {
-	AppUserIds []int64 `json:"app_user_ids"`
-	EntKind    string  `json:"ent_kind"`
-}
-
-type ListEntitlementResourcesByAppUserIDsAndKindRow struct {
-	AppUserID int64  `json:"app_user_id"`
-	Resource  string `json:"resource"`
-}
-
-func (q *Queries) ListEntitlementResourcesByAppUserIDsAndKind(ctx context.Context, arg ListEntitlementResourcesByAppUserIDsAndKindParams) ([]ListEntitlementResourcesByAppUserIDsAndKindRow, error) {
-	rows, err := q.db.Query(ctx, listEntitlementResourcesByAppUserIDsAndKind, arg.AppUserIds, arg.EntKind)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListEntitlementResourcesByAppUserIDsAndKindRow
-	for rows.Next() {
-		var i ListEntitlementResourcesByAppUserIDsAndKindRow
-		if err := rows.Scan(&i.AppUserID, &i.Resource); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listEntitlementsForAppUser = `-- name: ListEntitlementsForAppUser :many
-SELECT id, app_user_id, kind, resource, permission, raw_json, created_at, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, updated_at
+  id,
+  app_user_id AS account_id,
+  kind,
+  resource,
+  permission,
+  raw_json,
+  created_at,
+  seen_in_run_id,
+  seen_at,
+  last_observed_run_id,
+  last_observed_at,
+  expired_at,
+  expired_run_id,
+  updated_at
 FROM entitlements
 WHERE app_user_id = $1
   AND expired_at IS NULL
@@ -165,18 +137,35 @@ WHERE app_user_id = $1
 ORDER BY id
 `
 
-func (q *Queries) ListEntitlementsForAppUser(ctx context.Context, appUserID int64) ([]Entitlement, error) {
-	rows, err := q.db.Query(ctx, listEntitlementsForAppUser, appUserID)
+type ListEntitlementsForAccountRow struct {
+	ID                int64              `json:"id"`
+	AccountID         int64              `json:"account_id"`
+	Kind              string             `json:"kind"`
+	Resource          string             `json:"resource"`
+	Permission        string             `json:"permission"`
+	RawJson           []byte             `json:"raw_json"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	SeenInRunID       pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt            pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListEntitlementsForAccount(ctx context.Context, appUserID int64) ([]ListEntitlementsForAccountRow, error) {
+	rows, err := q.db.Query(ctx, listEntitlementsForAccount, appUserID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Entitlement
+	var items []ListEntitlementsForAccountRow
 	for rows.Next() {
-		var i Entitlement
+		var i ListEntitlementsForAccountRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.AppUserID,
+			&i.AccountID,
 			&i.Kind,
 			&i.Resource,
 			&i.Permission,
@@ -200,8 +189,22 @@ func (q *Queries) ListEntitlementsForAppUser(ctx context.Context, appUserID int6
 	return items, nil
 }
 
-const listEntitlementsForAppUserIDs = `-- name: ListEntitlementsForAppUserIDs :many
-SELECT id, app_user_id, kind, resource, permission, raw_json, created_at, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, updated_at
+const listEntitlementsForAccountIDs = `-- name: ListEntitlementsForAccountIDs :many
+SELECT
+  id,
+  app_user_id AS account_id,
+  kind,
+  resource,
+  permission,
+  raw_json,
+  created_at,
+  seen_in_run_id,
+  seen_at,
+  last_observed_run_id,
+  last_observed_at,
+  expired_at,
+  expired_run_id,
+  updated_at
 FROM entitlements
 WHERE app_user_id = ANY($1::bigint[])
   AND expired_at IS NULL
@@ -209,18 +212,35 @@ WHERE app_user_id = ANY($1::bigint[])
 ORDER BY app_user_id, id
 `
 
-func (q *Queries) ListEntitlementsForAppUserIDs(ctx context.Context, appUserIds []int64) ([]Entitlement, error) {
-	rows, err := q.db.Query(ctx, listEntitlementsForAppUserIDs, appUserIds)
+type ListEntitlementsForAccountIDsRow struct {
+	ID                int64              `json:"id"`
+	AccountID         int64              `json:"account_id"`
+	Kind              string             `json:"kind"`
+	Resource          string             `json:"resource"`
+	Permission        string             `json:"permission"`
+	RawJson           []byte             `json:"raw_json"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	SeenInRunID       pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt            pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListEntitlementsForAccountIDs(ctx context.Context, accountIds []int64) ([]ListEntitlementsForAccountIDsRow, error) {
+	rows, err := q.db.Query(ctx, listEntitlementsForAccountIDs, accountIds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Entitlement
+	var items []ListEntitlementsForAccountIDsRow
 	for rows.Next() {
-		var i Entitlement
+		var i ListEntitlementsForAccountIDsRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.AppUserID,
+			&i.AccountID,
 			&i.Kind,
 			&i.Resource,
 			&i.Permission,
@@ -248,7 +268,7 @@ const upsertEntitlementsBulkBySource = `-- name: UpsertEntitlementsBulkBySource 
 WITH input AS (
   SELECT
     i,
-    ($4::text[])[i] AS app_user_external_id,
+    ($4::text[])[i] AS account_external_id,
     ($5::text[])[i] AS kind,
     ($6::text[])[i] AS resource,
     ($7::text[])[i] AS permission,
@@ -256,14 +276,14 @@ WITH input AS (
   FROM generate_subscripts($4::text[], 1) AS s(i)
 ),
 dedup AS (
-  SELECT DISTINCT ON (app_user_external_id, kind, resource, permission)
-    app_user_external_id,
+  SELECT DISTINCT ON (account_external_id, kind, resource, permission)
+    account_external_id,
     kind,
     resource,
     permission,
     raw_json
   FROM input
-  ORDER BY app_user_external_id, kind, resource, permission, i DESC
+  ORDER BY account_external_id, kind, resource, permission, i DESC
 )
 INSERT INTO entitlements (
   app_user_id,
@@ -288,7 +308,7 @@ FROM dedup input
 JOIN accounts au
   ON au.source_kind = $2::text
   AND au.source_name = $3::text
-  AND au.external_id = input.app_user_external_id
+  AND au.external_id = input.account_external_id
 ON CONFLICT (app_user_id, kind, resource, permission) DO UPDATE SET
   raw_json = EXCLUDED.raw_json,
   seen_in_run_id = EXCLUDED.seen_in_run_id,
@@ -300,7 +320,7 @@ type UpsertEntitlementsBulkBySourceParams struct {
 	SeenInRunID        int64    `json:"seen_in_run_id"`
 	SourceKind         string   `json:"source_kind"`
 	SourceName         string   `json:"source_name"`
-	AppUserExternalIds []string `json:"app_user_external_ids"`
+	AccountExternalIds []string `json:"account_external_ids"`
 	Kinds              []string `json:"kinds"`
 	Resources          []string `json:"resources"`
 	Permissions        []string `json:"permissions"`
@@ -312,7 +332,7 @@ func (q *Queries) UpsertEntitlementsBulkBySource(ctx context.Context, arg Upsert
 		arg.SeenInRunID,
 		arg.SourceKind,
 		arg.SourceName,
-		arg.AppUserExternalIds,
+		arg.AccountExternalIds,
 		arg.Kinds,
 		arg.Resources,
 		arg.Permissions,

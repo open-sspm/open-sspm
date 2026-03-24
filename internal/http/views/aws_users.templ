@@ -101,8 +101,8 @@ templ AWSUsersPage(data viewmodels.AWSUsersViewData) {
 										</div>
 									</td>
 									<td>
-										if u.IdpUserID > 0 {
-											<a class="btn-sm-link" href={ "/identities/" + FormatInt64(u.IdpUserID) }>{ "Identity #" }{ FormatInt64(u.IdpUserID) }</a>
+										if u.IdentityID > 0 {
+											<a class="btn-sm-link" href={ "/identities/" + FormatInt64(u.IdentityID) }>{ "Identity #" }{ FormatInt64(u.IdentityID) }</a>
 										} else {
 											<span class="text-muted-foreground">&mdash;</span>
 										}

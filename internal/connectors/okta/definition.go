@@ -81,7 +81,7 @@ func (d *Definition) NewIntegration(cfg any) (registry.Integration, error) {
 type oktaMetrics struct{}
 
 func (m *oktaMetrics) FetchMetrics(ctx context.Context, q *gen.Queries, sourceName string) (registry.ConnectorMetrics, error) {
-	users, err := q.CountIdPUsers(ctx)
+	users, err := q.CountOktaAccounts(ctx)
 	if err != nil {
 		return registry.ConnectorMetrics{}, err
 	}

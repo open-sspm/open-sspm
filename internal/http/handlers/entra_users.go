@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"strings"
 
 	"github.com/labstack/echo/v5"
@@ -11,133 +12,85 @@ import (
 )
 
 func (h *Handlers) HandleEntraUsers(c *echo.Context) error {
-	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Microsoft Entra ID Users")
-	if err != nil {
-		return h.RenderError(c, err)
-	}
+	inventory, err := h.buildSourceAccountInventoryPage(c, sourceAccountInventoryOptions{
+		Title:              "Microsoft Entra ID Users",
+		ConnectorName:      "Microsoft Entra ID",
+		EmptyStateHref:     "/settings/connectors?open=entra",
+		SyncedEmptyState:   "No Microsoft Entra ID users synced yet.",
+		FilteredEmptyState: "No Microsoft Entra ID users match the current search.",
+		IsConfigured: func(snap ConnectorSnapshot) bool {
+			return snap.EntraConfigured
+		},
+		IsEnabled: func(snap ConnectorSnapshot) bool {
+			return snap.EntraEnabled
+		},
+		UnavailableMessageFn: func(snap ConnectorSnapshot) string {
+			if snap.EntraConfigured && !snap.EntraEnabled {
+				return "Microsoft Entra ID sync is disabled. Enable it in Connectors."
+			}
+			return "Microsoft Entra ID is not configured yet. Add settings in Connectors."
+		},
+		Count: func(ctx context.Context, snap ConnectorSnapshot, query string) (int64, error) {
+			return h.Q.CountSourceAccountsBySourceAndQuery(ctx, gen.CountSourceAccountsBySourceAndQueryParams{
+				SourceKind:     "entra",
+				SourceName:     strings.TrimSpace(snap.Entra.TenantID),
+				EntityCategory: registry.EntityCategoryUser,
+				Query:          query,
+			})
+		},
+		List: func(ctx context.Context, snap ConnectorSnapshot, query string, offset, limit int) ([]sourceAccountInventoryAccount, error) {
+			users, err := h.Q.ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(ctx, gen.ListSourceAccountsPageBySourceAndQueryWithEntitlementCountsParams{
+				SourceKind:            "entra",
+				SourceName:            strings.TrimSpace(snap.Entra.TenantID),
+				EntityCategory:        registry.EntityCategoryUser,
+				Query:                 query,
+				PageLimit:             int32(limit),
+				PageOffset:            int32(offset),
+				DistinctResourceKind1: "entra_directory_role",
+				DistinctResourceKind2: "entra_app_role",
+			})
+			if err != nil {
+				return nil, err
+			}
 
-	const perPage = 20
-	query := strings.TrimSpace(c.QueryParam("q"))
-	page := parsePageParam(c)
-
-	sourceName := strings.TrimSpace(snap.Entra.TenantID)
-
-	if !snap.EntraConfigured || !snap.EntraEnabled {
-		message := "Microsoft Entra ID is not configured yet. Add settings in Connectors."
-		if snap.EntraConfigured && !snap.EntraEnabled {
-			message = "Microsoft Entra ID sync is disabled. Enable it in Connectors."
-		}
-		data := viewmodels.EntraUsersViewData{
-			Layout:         layout,
-			Users:          nil,
-			Query:          query,
-			ShowingCount:   0,
-			ShowingFrom:    0,
-			ShowingTo:      0,
-			TotalCount:     0,
-			Page:           1,
-			PerPage:        perPage,
-			TotalPages:     1,
-			HasUsers:       false,
-			EmptyStateMsg:  message,
-			EmptyStateHref: "/settings/connectors?open=entra",
-		}
-		return h.RenderComponent(c, views.EntraUsersPage(data))
-	}
-
-	totalCount, err := h.Q.CountAppUsersWithLinkBySourceAndQuery(ctx, gen.CountAppUsersWithLinkBySourceAndQueryParams{
-		SourceKind:     "entra",
-		SourceName:     sourceName,
-		EntityCategory: registry.EntityCategoryUser,
-		Query:          query,
+			accounts := make([]sourceAccountInventoryAccount, 0, len(users))
+			for _, user := range users {
+				accounts = append(accounts, sourceAccountInventoryAccount{
+					ID:          user.ID,
+					ExternalID:  strings.TrimSpace(user.ExternalID),
+					Email:       strings.TrimSpace(user.Email),
+					DisplayName: sourceAccountInventoryDisplayName(user.DisplayName, user.Email, user.ExternalID),
+					IdentityID:  user.IdentityID,
+					Summary: sourceAccountInventorySummary{
+						DistinctResourceCount1: int(user.DistinctResourceCount1),
+						DistinctResourceCount2: int(user.DistinctResourceCount2),
+					},
+				})
+			}
+			return accounts, nil
+		},
 	})
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
-	page, totalPages, offset := paginate(totalCount, page, perPage)
-	users, err := h.Q.ListAppUsersWithLinkPageBySourceAndQuery(ctx, gen.ListAppUsersWithLinkPageBySourceAndQueryParams{
-		SourceKind:     "entra",
-		SourceName:     sourceName,
-		EntityCategory: registry.EntityCategoryUser,
-		Query:          query,
-		PageLimit:      int32(perPage),
-		PageOffset:     int32(offset),
-	})
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	showingCount := len(users)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
-	appUserIDs := make([]int64, 0, len(users))
-	for _, user := range users {
-		appUserIDs = append(appUserIDs, user.ID)
-	}
-
-	directoryRoleCounts := make(map[int64]int)
-	enterpriseAppCounts := make(map[int64]int)
-	if len(appUserIDs) > 0 {
-		rows, err := h.Q.ListEntitlementResourcesByAppUserIDsAndKind(ctx, gen.ListEntitlementResourcesByAppUserIDsAndKindParams{
-			AppUserIds: appUserIDs,
-			EntKind:    "entra_directory_role",
-		})
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		directoryRoleCounts = countUniqueEntitlementResources(rows)
-
-		rows, err = h.Q.ListEntitlementResourcesByAppUserIDsAndKind(ctx, gen.ListEntitlementResourcesByAppUserIDsAndKindParams{
-			AppUserIds: appUserIDs,
-			EntKind:    "entra_app_role",
-		})
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		enterpriseAppCounts = countUniqueEntitlementResources(rows)
-	}
-
-	items := make([]viewmodels.EntraUserListItem, 0, len(users))
-	for _, user := range users {
-		userName := strings.TrimSpace(user.DisplayName)
-		if userName == "" {
-			userName = strings.TrimSpace(user.Email)
-		}
-		if userName == "" {
-			userName = strings.TrimSpace(user.ExternalID)
-		}
+	items := make([]viewmodels.EntraUserListItem, 0, len(inventory.Accounts))
+	for _, user := range inventory.Accounts {
 		items = append(items, viewmodels.EntraUserListItem{
 			ID:                 user.ID,
-			ExternalID:         strings.TrimSpace(user.ExternalID),
-			Email:              strings.TrimSpace(user.Email),
-			DisplayName:        userName,
-			IdpUserID:          user.IdpUserID,
-			DirectoryRoleCount: directoryRoleCounts[user.ID],
-			EnterpriseAppCount: enterpriseAppCounts[user.ID],
+			ExternalID:         user.ExternalID,
+			Email:              user.Email,
+			DisplayName:        user.DisplayName,
+			IdentityID:         user.IdentityID,
+			DirectoryRoleCount: user.Summary.DistinctResourceCount1,
+			EnterpriseAppCount: user.Summary.DistinctResourceCount2,
 		})
-	}
-
-	emptyState := "No Microsoft Entra ID users synced yet."
-	if query != "" {
-		emptyState = "No Microsoft Entra ID users match the current search."
 	}
 
 	data := viewmodels.EntraUsersViewData{
-		Layout:         layout,
-		Users:          items,
-		Query:          query,
-		ShowingCount:   showingCount,
-		ShowingFrom:    showingFrom,
-		ShowingTo:      showingTo,
-		TotalCount:     totalCount,
-		Page:           page,
-		PerPage:        perPage,
-		TotalPages:     totalPages,
-		HasUsers:       showingCount > 0,
-		EmptyStateMsg:  emptyState,
-		EmptyStateHref: "/settings/connectors?open=entra",
+		SourceAccountInventoryPageData: inventory.PageData,
+		Users:                          items,
+		HasUsers:                       inventory.PageData.HasAccounts,
 	}
 
 	return h.RenderComponent(c, views.EntraUsersPage(data))
@@ -179,7 +132,7 @@ func (h *Handlers) HandleUnmatchedEntra(c *echo.Context) error {
 		return h.RenderComponent(c, views.UnmatchedEntraPage(data))
 	}
 
-	totalCount, err := h.Q.CountUnmatchedAppUsersBySourceAndQuery(ctx, gen.CountUnmatchedAppUsersBySourceAndQueryParams{
+	totalCount, err := h.Q.CountUnlinkedSourceAccountsBySourceAndQuery(ctx, gen.CountUnlinkedSourceAccountsBySourceAndQueryParams{
 		SourceKind:     "entra",
 		SourceName:     sourceName,
 		EntityCategory: registry.EntityCategoryUser,
@@ -190,7 +143,7 @@ func (h *Handlers) HandleUnmatchedEntra(c *echo.Context) error {
 	}
 
 	page, totalPages, offset := paginate(totalCount, page, perPage)
-	users, err := h.Q.ListUnmatchedAppUsersPageBySourceAndQuery(ctx, gen.ListUnmatchedAppUsersPageBySourceAndQueryParams{
+	users, err := h.Q.ListUnlinkedSourceAccountsPageBySourceAndQuery(ctx, gen.ListUnlinkedSourceAccountsPageBySourceAndQueryParams{
 		SourceKind:     "entra",
 		SourceName:     sourceName,
 		EntityCategory: registry.EntityCategoryUser,
@@ -227,26 +180,4 @@ func (h *Handlers) HandleUnmatchedEntra(c *echo.Context) error {
 	}
 
 	return h.RenderComponent(c, views.UnmatchedEntraPage(data))
-}
-
-func countUniqueEntitlementResources(rows []gen.ListEntitlementResourcesByAppUserIDsAndKindRow) map[int64]int {
-	counts := make(map[int64]int)
-	var lastUserID int64
-	lastResource := ""
-	for _, row := range rows {
-		resource := strings.TrimSpace(row.Resource)
-		if resource == "" {
-			continue
-		}
-		if row.AppUserID != lastUserID {
-			lastUserID = row.AppUserID
-			lastResource = ""
-		}
-		if resource == lastResource {
-			continue
-		}
-		lastResource = resource
-		counts[row.AppUserID]++
-	}
-	return counts
 }

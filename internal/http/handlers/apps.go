@@ -21,7 +21,7 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Apps")
+	layout, _, err := h.LayoutData(ctx, c, "Okta Apps")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -177,7 +177,7 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 	}
 	page := parsePageParam(c)
 
-	totalCount, err := h.Q.CountOktaAppUserAssignmentsByQuery(ctx, gen.CountOktaAppUserAssignmentsByQueryParams{
+	totalCount, err := h.Q.CountOktaAppAssignedAccountsByQuery(ctx, gen.CountOktaAppAssignedAccountsByQueryParams{
 		OktaAppID: app.ID,
 		State:     state,
 		Query:     query,
@@ -187,7 +187,7 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 	}
 
 	page, totalPages, offset := paginate(totalCount, page, perPage)
-	assignments, err := h.Q.ListOktaAppUserAssignmentsPageByQuery(ctx, gen.ListOktaAppUserAssignmentsPageByQueryParams{
+	assignments, err := h.Q.ListOktaAppAssignedAccountsPageByQuery(ctx, gen.ListOktaAppAssignedAccountsPageByQueryParams{
 		OktaAppID:  app.ID,
 		State:      state,
 		Query:      query,
@@ -198,16 +198,16 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	idpUserIDs := make([]int64, 0, len(assignments))
+	oktaAccountIDs := make([]int64, 0, len(assignments))
 	for _, row := range assignments {
-		idpUserIDs = append(idpUserIDs, row.IdpUserID)
+		oktaAccountIDs = append(oktaAccountIDs, row.OktaAccountID)
 	}
 
 	grantingGroups := make(map[int64][]string)
-	if len(idpUserIDs) > 0 {
-		rows, err := h.Q.ListOktaAppGrantingGroupsForIdpUsers(ctx, gen.ListOktaAppGrantingGroupsForIdpUsersParams{
-			OktaAppID:  app.ID,
-			IdpUserIds: idpUserIDs,
+	if len(oktaAccountIDs) > 0 {
+		rows, err := h.Q.ListOktaAppGrantingGroupsForOktaAccounts(ctx, gen.ListOktaAppGrantingGroupsForOktaAccountsParams{
+			OktaAppID:      app.ID,
+			OktaAccountIds: oktaAccountIDs,
 		})
 		if err != nil {
 			return h.RenderError(c, err)
@@ -220,7 +220,7 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 			if name == "" {
 				name = "(unknown)"
 			}
-			grantingGroups[row.IdpUserID] = append(grantingGroups[row.IdpUserID], name)
+			grantingGroups[row.OktaAccountID] = append(grantingGroups[row.OktaAccountID], name)
 		}
 	}
 
@@ -237,21 +237,21 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 		signOnMode = "—"
 	}
 
-	items := make([]viewmodels.OktaAppAssignedUserView, 0, len(assignments))
+	items := make([]viewmodels.OktaAppAssignedAccountView, 0, len(assignments))
 	for _, assignment := range assignments {
-		userName := strings.TrimSpace(assignment.IdpUserDisplayName)
-		if userName == "" {
-			userName = strings.TrimSpace(assignment.IdpUserEmail)
+		accountName := strings.TrimSpace(assignment.OktaAccountDisplayName)
+		if accountName == "" {
+			accountName = strings.TrimSpace(assignment.OktaAccountEmail)
 		}
-		if userName == "" {
-			userName = strings.TrimSpace(assignment.IdpUserExternalID)
+		if accountName == "" {
+			accountName = strings.TrimSpace(assignment.OktaAccountExternalID)
 		}
-		if userName == "" {
-			userName = "—"
+		if accountName == "" {
+			accountName = "—"
 		}
-		userStatus := strings.TrimSpace(assignment.IdpUserStatus)
-		if userStatus == "" {
-			userStatus = "—"
+		accountStatus := strings.TrimSpace(assignment.OktaAccountStatus)
+		if accountStatus == "" {
+			accountStatus = "—"
 		}
 
 		assignedVia := "Unknown"
@@ -264,23 +264,23 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 
 		var groups []string
 		if scope == "GROUP" {
-			groups = append(groups, grantingGroups[assignment.IdpUserID]...)
+			groups = append(groups, grantingGroups[assignment.OktaAccountID]...)
 			sort.Strings(groups)
 			if len(groups) == 0 {
 				groups = []string{"(unknown)"}
 			}
 		}
 
-		items = append(items, viewmodels.OktaAppAssignedUserView{
-			IdpUserID:       assignment.IdpUserID,
-			UserHref:        fmt.Sprintf("/idp-users/%d", assignment.IdpUserID),
-			UserDisplayName: userName,
-			UserEmail:       strings.TrimSpace(assignment.IdpUserEmail),
-			UserExternalID:  strings.TrimSpace(assignment.IdpUserExternalID),
-			UserStatus:      userStatus,
-			AssignedVia:     assignedVia,
-			Groups:          groups,
-			Permissions:     SummarizeProfilePermissions(assignment.ProfileJson),
+		items = append(items, viewmodels.OktaAppAssignedAccountView{
+			OktaAccountID:         assignment.OktaAccountID,
+			AccountHref:           fmt.Sprintf("/okta-accounts/%d", assignment.OktaAccountID),
+			AccountDisplayName:    accountName,
+			AccountEmail:          strings.TrimSpace(assignment.OktaAccountEmail),
+			OktaAccountExternalID: strings.TrimSpace(assignment.OktaAccountExternalID),
+			OktaAccountStatus:     accountStatus,
+			AssignedVia:           assignedVia,
+			Groups:                groups,
+			Permissions:           SummarizeProfilePermissions(assignment.ProfileJson),
 		})
 	}
 
@@ -296,7 +296,7 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 			Status:     status,
 			SignOnMode: signOnMode,
 		},
-		Users:        items,
+		Accounts:     items,
 		Query:        query,
 		State:        state,
 		ShowingCount: showingCount,
@@ -306,7 +306,7 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 		Page:         page,
 		PerPage:      perPage,
 		TotalPages:   totalPages,
-		HasUsers:     showingCount > 0,
+		HasAccounts:  showingCount > 0,
 		EmptyStateMsg: func() string {
 			if query != "" || state != "" {
 				return "No assigned users match the current search."

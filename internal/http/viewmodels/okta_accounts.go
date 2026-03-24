@@ -2,7 +2,7 @@ package viewmodels
 
 import "github.com/open-sspm/open-sspm/internal/db/gen"
 
-type IdPUsersViewData struct {
+type OktaAccountsViewData struct {
 	Layout        LayoutData
 	Users         []gen.Account
 	Query         string

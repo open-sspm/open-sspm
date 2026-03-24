@@ -25,7 +25,7 @@ func (q *Queries) CountConnectedOktaApps(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-const countOktaAppUserAssignmentsByQuery = `-- name: CountOktaAppUserAssignmentsByQuery :one
+const countOktaAppAssignedAccountsByQuery = `-- name: CountOktaAppAssignedAccountsByQuery :one
 SELECT count(*)
 FROM okta_user_app_assignments ouaa
 JOIN accounts u ON u.id = ouaa.okta_user_account_id
@@ -48,14 +48,14 @@ WHERE
   )
 `
 
-type CountOktaAppUserAssignmentsByQueryParams struct {
+type CountOktaAppAssignedAccountsByQueryParams struct {
 	OktaAppID int64  `json:"okta_app_id"`
 	State     string `json:"state"`
 	Query     string `json:"query"`
 }
 
-func (q *Queries) CountOktaAppUserAssignmentsByQuery(ctx context.Context, arg CountOktaAppUserAssignmentsByQueryParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countOktaAppUserAssignmentsByQuery, arg.OktaAppID, arg.State, arg.Query)
+func (q *Queries) CountOktaAppAssignedAccountsByQuery(ctx context.Context, arg CountOktaAppAssignedAccountsByQueryParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOktaAppAssignedAccountsByQuery, arg.OktaAppID, arg.State, arg.Query)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -93,6 +93,70 @@ func (q *Queries) CountOktaAppsByQuery(ctx context.Context, query string) (int64
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const getOktaAppAssignmentForOktaAccountByOktaAppExternalID = `-- name: GetOktaAppAssignmentForOktaAccountByOktaAppExternalID :one
+SELECT
+  ouaa.okta_user_account_id AS okta_account_id,
+  ouaa.okta_app_id,
+  ouaa.scope,
+  ouaa.profile_json,
+  ouaa.raw_json AS assignment_raw_json,
+  oa.external_id AS okta_app_external_id,
+  oa.label AS app_label,
+  oa.name AS app_name,
+  oa.status AS app_status,
+  oa.sign_on_mode AS app_sign_on_mode,
+  COALESCE(m.integration_kind, '') AS integration_kind
+FROM okta_user_app_assignments ouaa
+JOIN okta_apps oa ON oa.id = ouaa.okta_app_id
+LEFT JOIN integration_okta_app_map m ON m.okta_app_external_id = oa.external_id
+WHERE
+  ouaa.okta_user_account_id = $1
+  AND ouaa.expired_at IS NULL
+  AND ouaa.last_observed_run_id IS NOT NULL
+  AND oa.external_id = $2
+  AND oa.expired_at IS NULL
+  AND oa.last_observed_run_id IS NOT NULL
+LIMIT 1
+`
+
+type GetOktaAppAssignmentForOktaAccountByOktaAppExternalIDParams struct {
+	OktaAccountID     int64  `json:"okta_account_id"`
+	OktaAppExternalID string `json:"okta_app_external_id"`
+}
+
+type GetOktaAppAssignmentForOktaAccountByOktaAppExternalIDRow struct {
+	OktaAccountID     int64  `json:"okta_account_id"`
+	OktaAppID         int64  `json:"okta_app_id"`
+	Scope             string `json:"scope"`
+	ProfileJson       []byte `json:"profile_json"`
+	AssignmentRawJson []byte `json:"assignment_raw_json"`
+	OktaAppExternalID string `json:"okta_app_external_id"`
+	AppLabel          string `json:"app_label"`
+	AppName           string `json:"app_name"`
+	AppStatus         string `json:"app_status"`
+	AppSignOnMode     string `json:"app_sign_on_mode"`
+	IntegrationKind   string `json:"integration_kind"`
+}
+
+func (q *Queries) GetOktaAppAssignmentForOktaAccountByOktaAppExternalID(ctx context.Context, arg GetOktaAppAssignmentForOktaAccountByOktaAppExternalIDParams) (GetOktaAppAssignmentForOktaAccountByOktaAppExternalIDRow, error) {
+	row := q.db.QueryRow(ctx, getOktaAppAssignmentForOktaAccountByOktaAppExternalID, arg.OktaAccountID, arg.OktaAppExternalID)
+	var i GetOktaAppAssignmentForOktaAccountByOktaAppExternalIDRow
+	err := row.Scan(
+		&i.OktaAccountID,
+		&i.OktaAppID,
+		&i.Scope,
+		&i.ProfileJson,
+		&i.AssignmentRawJson,
+		&i.OktaAppExternalID,
+		&i.AppLabel,
+		&i.AppName,
+		&i.AppStatus,
+		&i.AppSignOnMode,
+		&i.IntegrationKind,
+	)
+	return i, err
 }
 
 const getOktaAppByExternalIDWithIntegration = `-- name: GetOktaAppByExternalIDWithIntegration :one
@@ -145,9 +209,94 @@ func (q *Queries) GetOktaAppByExternalIDWithIntegration(ctx context.Context, ext
 	return i, err
 }
 
-const getOktaUserAppAssignmentForIdpUserByOktaAppExternalID = `-- name: GetOktaUserAppAssignmentForIdpUserByOktaAppExternalID :one
+const listOktaAppAssignedAccountsPageByQuery = `-- name: ListOktaAppAssignedAccountsPageByQuery :many
 SELECT
-  ouaa.okta_user_account_id AS idp_user_id,
+  u.id AS okta_account_id,
+  u.external_id AS okta_account_external_id,
+  u.email AS okta_account_email,
+  u.display_name AS okta_account_display_name,
+  u.status AS okta_account_status,
+  ouaa.scope,
+  ouaa.profile_json
+FROM okta_user_app_assignments ouaa
+JOIN accounts u ON u.id = ouaa.okta_user_account_id
+WHERE
+  ouaa.okta_app_id = $1
+  AND ouaa.expired_at IS NULL
+  AND ouaa.last_observed_run_id IS NOT NULL
+  AND u.expired_at IS NULL
+  AND u.last_observed_run_id IS NOT NULL
+  AND (
+    $2::text = ''
+    OR ($2::text = 'active' AND u.status = 'ACTIVE')
+    OR ($2::text = 'inactive' AND u.status <> 'ACTIVE')
+  )
+  AND (
+    $3::text = ''
+    OR u.email ILIKE ('%' || $3::text || '%')
+    OR u.display_name ILIKE ('%' || $3::text || '%')
+    OR u.external_id ILIKE ('%' || $3::text || '%')
+  )
+ORDER BY (u.display_name = ''), u.display_name, u.email, u.external_id
+LIMIT $5::int
+OFFSET $4::int
+`
+
+type ListOktaAppAssignedAccountsPageByQueryParams struct {
+	OktaAppID  int64  `json:"okta_app_id"`
+	State      string `json:"state"`
+	Query      string `json:"query"`
+	PageOffset int32  `json:"page_offset"`
+	PageLimit  int32  `json:"page_limit"`
+}
+
+type ListOktaAppAssignedAccountsPageByQueryRow struct {
+	OktaAccountID          int64  `json:"okta_account_id"`
+	OktaAccountExternalID  string `json:"okta_account_external_id"`
+	OktaAccountEmail       string `json:"okta_account_email"`
+	OktaAccountDisplayName string `json:"okta_account_display_name"`
+	OktaAccountStatus      string `json:"okta_account_status"`
+	Scope                  string `json:"scope"`
+	ProfileJson            []byte `json:"profile_json"`
+}
+
+func (q *Queries) ListOktaAppAssignedAccountsPageByQuery(ctx context.Context, arg ListOktaAppAssignedAccountsPageByQueryParams) ([]ListOktaAppAssignedAccountsPageByQueryRow, error) {
+	rows, err := q.db.Query(ctx, listOktaAppAssignedAccountsPageByQuery,
+		arg.OktaAppID,
+		arg.State,
+		arg.Query,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOktaAppAssignedAccountsPageByQueryRow
+	for rows.Next() {
+		var i ListOktaAppAssignedAccountsPageByQueryRow
+		if err := rows.Scan(
+			&i.OktaAccountID,
+			&i.OktaAccountExternalID,
+			&i.OktaAccountEmail,
+			&i.OktaAccountDisplayName,
+			&i.OktaAccountStatus,
+			&i.Scope,
+			&i.ProfileJson,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOktaAppAssignmentsForOktaAccount = `-- name: ListOktaAppAssignmentsForOktaAccount :many
+SELECT
+  ouaa.okta_user_account_id AS okta_account_id,
   ouaa.okta_app_id,
   ouaa.scope,
   ouaa.profile_json,
@@ -161,23 +310,16 @@ SELECT
 FROM okta_user_app_assignments ouaa
 JOIN okta_apps oa ON oa.id = ouaa.okta_app_id
 LEFT JOIN integration_okta_app_map m ON m.okta_app_external_id = oa.external_id
-WHERE
-  ouaa.okta_user_account_id = $1
+WHERE ouaa.okta_user_account_id = $1
   AND ouaa.expired_at IS NULL
   AND ouaa.last_observed_run_id IS NOT NULL
-  AND oa.external_id = $2
   AND oa.expired_at IS NULL
   AND oa.last_observed_run_id IS NOT NULL
-LIMIT 1
+ORDER BY oa.label, oa.name, oa.external_id
 `
 
-type GetOktaUserAppAssignmentForIdpUserByOktaAppExternalIDParams struct {
-	IdpUserID         int64  `json:"idp_user_id"`
-	OktaAppExternalID string `json:"okta_app_external_id"`
-}
-
-type GetOktaUserAppAssignmentForIdpUserByOktaAppExternalIDRow struct {
-	IdpUserID         int64  `json:"idp_user_id"`
+type ListOktaAppAssignmentsForOktaAccountRow struct {
+	OktaAccountID     int64  `json:"okta_account_id"`
 	OktaAppID         int64  `json:"okta_app_id"`
 	Scope             string `json:"scope"`
 	ProfileJson       []byte `json:"profile_json"`
@@ -190,26 +332,39 @@ type GetOktaUserAppAssignmentForIdpUserByOktaAppExternalIDRow struct {
 	IntegrationKind   string `json:"integration_kind"`
 }
 
-func (q *Queries) GetOktaUserAppAssignmentForIdpUserByOktaAppExternalID(ctx context.Context, arg GetOktaUserAppAssignmentForIdpUserByOktaAppExternalIDParams) (GetOktaUserAppAssignmentForIdpUserByOktaAppExternalIDRow, error) {
-	row := q.db.QueryRow(ctx, getOktaUserAppAssignmentForIdpUserByOktaAppExternalID, arg.IdpUserID, arg.OktaAppExternalID)
-	var i GetOktaUserAppAssignmentForIdpUserByOktaAppExternalIDRow
-	err := row.Scan(
-		&i.IdpUserID,
-		&i.OktaAppID,
-		&i.Scope,
-		&i.ProfileJson,
-		&i.AssignmentRawJson,
-		&i.OktaAppExternalID,
-		&i.AppLabel,
-		&i.AppName,
-		&i.AppStatus,
-		&i.AppSignOnMode,
-		&i.IntegrationKind,
-	)
-	return i, err
+func (q *Queries) ListOktaAppAssignmentsForOktaAccount(ctx context.Context, oktaUserAccountID int64) ([]ListOktaAppAssignmentsForOktaAccountRow, error) {
+	rows, err := q.db.Query(ctx, listOktaAppAssignmentsForOktaAccount, oktaUserAccountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOktaAppAssignmentsForOktaAccountRow
+	for rows.Next() {
+		var i ListOktaAppAssignmentsForOktaAccountRow
+		if err := rows.Scan(
+			&i.OktaAccountID,
+			&i.OktaAppID,
+			&i.Scope,
+			&i.ProfileJson,
+			&i.AssignmentRawJson,
+			&i.OktaAppExternalID,
+			&i.AppLabel,
+			&i.AppName,
+			&i.AppStatus,
+			&i.AppSignOnMode,
+			&i.IntegrationKind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
-const listOktaAppGrantingGroupsForIdpUserByOktaAppExternalID = `-- name: ListOktaAppGrantingGroupsForIdpUserByOktaAppExternalID :many
+const listOktaAppGrantingGroupsForOktaAccountByOktaAppExternalID = `-- name: ListOktaAppGrantingGroupsForOktaAccountByOktaAppExternalID :many
 SELECT
   og.name AS okta_group_name,
   og.external_id AS okta_group_external_id
@@ -231,25 +386,25 @@ WHERE
 ORDER BY og.name, og.external_id
 `
 
-type ListOktaAppGrantingGroupsForIdpUserByOktaAppExternalIDParams struct {
-	IdpUserID         int64  `json:"idp_user_id"`
+type ListOktaAppGrantingGroupsForOktaAccountByOktaAppExternalIDParams struct {
+	OktaAccountID     int64  `json:"okta_account_id"`
 	OktaAppExternalID string `json:"okta_app_external_id"`
 }
 
-type ListOktaAppGrantingGroupsForIdpUserByOktaAppExternalIDRow struct {
+type ListOktaAppGrantingGroupsForOktaAccountByOktaAppExternalIDRow struct {
 	OktaGroupName       string `json:"okta_group_name"`
 	OktaGroupExternalID string `json:"okta_group_external_id"`
 }
 
-func (q *Queries) ListOktaAppGrantingGroupsForIdpUserByOktaAppExternalID(ctx context.Context, arg ListOktaAppGrantingGroupsForIdpUserByOktaAppExternalIDParams) ([]ListOktaAppGrantingGroupsForIdpUserByOktaAppExternalIDRow, error) {
-	rows, err := q.db.Query(ctx, listOktaAppGrantingGroupsForIdpUserByOktaAppExternalID, arg.IdpUserID, arg.OktaAppExternalID)
+func (q *Queries) ListOktaAppGrantingGroupsForOktaAccountByOktaAppExternalID(ctx context.Context, arg ListOktaAppGrantingGroupsForOktaAccountByOktaAppExternalIDParams) ([]ListOktaAppGrantingGroupsForOktaAccountByOktaAppExternalIDRow, error) {
+	rows, err := q.db.Query(ctx, listOktaAppGrantingGroupsForOktaAccountByOktaAppExternalID, arg.OktaAccountID, arg.OktaAppExternalID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListOktaAppGrantingGroupsForIdpUserByOktaAppExternalIDRow
+	var items []ListOktaAppGrantingGroupsForOktaAccountByOktaAppExternalIDRow
 	for rows.Next() {
-		var i ListOktaAppGrantingGroupsForIdpUserByOktaAppExternalIDRow
+		var i ListOktaAppGrantingGroupsForOktaAccountByOktaAppExternalIDRow
 		if err := rows.Scan(&i.OktaGroupName, &i.OktaGroupExternalID); err != nil {
 			return nil, err
 		}
@@ -261,9 +416,9 @@ func (q *Queries) ListOktaAppGrantingGroupsForIdpUserByOktaAppExternalID(ctx con
 	return items, nil
 }
 
-const listOktaAppGrantingGroupsForIdpUsers = `-- name: ListOktaAppGrantingGroupsForIdpUsers :many
+const listOktaAppGrantingGroupsForOktaAccounts = `-- name: ListOktaAppGrantingGroupsForOktaAccounts :many
 SELECT
-  ug.okta_user_account_id AS idp_user_id,
+  ug.okta_user_account_id AS okta_account_id,
   og.name AS okta_group_name,
   og.external_id AS okta_group_external_id
 FROM okta_user_groups ug
@@ -281,27 +436,27 @@ WHERE
 ORDER BY ug.okta_user_account_id, og.name, og.external_id
 `
 
-type ListOktaAppGrantingGroupsForIdpUsersParams struct {
-	OktaAppID  int64   `json:"okta_app_id"`
-	IdpUserIds []int64 `json:"idp_user_ids"`
+type ListOktaAppGrantingGroupsForOktaAccountsParams struct {
+	OktaAppID      int64   `json:"okta_app_id"`
+	OktaAccountIds []int64 `json:"okta_account_ids"`
 }
 
-type ListOktaAppGrantingGroupsForIdpUsersRow struct {
-	IdpUserID           int64  `json:"idp_user_id"`
+type ListOktaAppGrantingGroupsForOktaAccountsRow struct {
+	OktaAccountID       int64  `json:"okta_account_id"`
 	OktaGroupName       string `json:"okta_group_name"`
 	OktaGroupExternalID string `json:"okta_group_external_id"`
 }
 
-func (q *Queries) ListOktaAppGrantingGroupsForIdpUsers(ctx context.Context, arg ListOktaAppGrantingGroupsForIdpUsersParams) ([]ListOktaAppGrantingGroupsForIdpUsersRow, error) {
-	rows, err := q.db.Query(ctx, listOktaAppGrantingGroupsForIdpUsers, arg.OktaAppID, arg.IdpUserIds)
+func (q *Queries) ListOktaAppGrantingGroupsForOktaAccounts(ctx context.Context, arg ListOktaAppGrantingGroupsForOktaAccountsParams) ([]ListOktaAppGrantingGroupsForOktaAccountsRow, error) {
+	rows, err := q.db.Query(ctx, listOktaAppGrantingGroupsForOktaAccounts, arg.OktaAppID, arg.OktaAccountIds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListOktaAppGrantingGroupsForIdpUsersRow
+	var items []ListOktaAppGrantingGroupsForOktaAccountsRow
 	for rows.Next() {
-		var i ListOktaAppGrantingGroupsForIdpUsersRow
-		if err := rows.Scan(&i.IdpUserID, &i.OktaGroupName, &i.OktaGroupExternalID); err != nil {
+		var i ListOktaAppGrantingGroupsForOktaAccountsRow
+		if err := rows.Scan(&i.OktaAccountID, &i.OktaGroupName, &i.OktaGroupExternalID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -350,91 +505,6 @@ func (q *Queries) ListOktaAppGroupAssignmentsByAppIDs(ctx context.Context, dolla
 			&i.OktaGroupID,
 			&i.OktaGroupName,
 			&i.OktaGroupExternalID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listOktaAppUserAssignmentsPageByQuery = `-- name: ListOktaAppUserAssignmentsPageByQuery :many
-SELECT
-  u.id AS idp_user_id,
-  u.external_id AS idp_user_external_id,
-  u.email AS idp_user_email,
-  u.display_name AS idp_user_display_name,
-  u.status AS idp_user_status,
-  ouaa.scope,
-  ouaa.profile_json
-FROM okta_user_app_assignments ouaa
-JOIN accounts u ON u.id = ouaa.okta_user_account_id
-WHERE
-  ouaa.okta_app_id = $1
-  AND ouaa.expired_at IS NULL
-  AND ouaa.last_observed_run_id IS NOT NULL
-  AND u.expired_at IS NULL
-  AND u.last_observed_run_id IS NOT NULL
-  AND (
-    $2::text = ''
-    OR ($2::text = 'active' AND u.status = 'ACTIVE')
-    OR ($2::text = 'inactive' AND u.status <> 'ACTIVE')
-  )
-  AND (
-    $3::text = ''
-    OR u.email ILIKE ('%' || $3::text || '%')
-    OR u.display_name ILIKE ('%' || $3::text || '%')
-    OR u.external_id ILIKE ('%' || $3::text || '%')
-  )
-ORDER BY (u.display_name = ''), u.display_name, u.email, u.external_id
-LIMIT $5::int
-OFFSET $4::int
-`
-
-type ListOktaAppUserAssignmentsPageByQueryParams struct {
-	OktaAppID  int64  `json:"okta_app_id"`
-	State      string `json:"state"`
-	Query      string `json:"query"`
-	PageOffset int32  `json:"page_offset"`
-	PageLimit  int32  `json:"page_limit"`
-}
-
-type ListOktaAppUserAssignmentsPageByQueryRow struct {
-	IdpUserID          int64  `json:"idp_user_id"`
-	IdpUserExternalID  string `json:"idp_user_external_id"`
-	IdpUserEmail       string `json:"idp_user_email"`
-	IdpUserDisplayName string `json:"idp_user_display_name"`
-	IdpUserStatus      string `json:"idp_user_status"`
-	Scope              string `json:"scope"`
-	ProfileJson        []byte `json:"profile_json"`
-}
-
-func (q *Queries) ListOktaAppUserAssignmentsPageByQuery(ctx context.Context, arg ListOktaAppUserAssignmentsPageByQueryParams) ([]ListOktaAppUserAssignmentsPageByQueryRow, error) {
-	rows, err := q.db.Query(ctx, listOktaAppUserAssignmentsPageByQuery,
-		arg.OktaAppID,
-		arg.State,
-		arg.Query,
-		arg.PageOffset,
-		arg.PageLimit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListOktaAppUserAssignmentsPageByQueryRow
-	for rows.Next() {
-		var i ListOktaAppUserAssignmentsPageByQueryRow
-		if err := rows.Scan(
-			&i.IdpUserID,
-			&i.IdpUserExternalID,
-			&i.IdpUserEmail,
-			&i.IdpUserDisplayName,
-			&i.IdpUserStatus,
-			&i.Scope,
-			&i.ProfileJson,
 		); err != nil {
 			return nil, err
 		}
@@ -620,7 +690,7 @@ func (q *Queries) ListOktaAppsPageByQuery(ctx context.Context, arg ListOktaAppsP
 	return items, nil
 }
 
-const listOktaGroupsForIdpUser = `-- name: ListOktaGroupsForIdpUser :many
+const listOktaGroupsForOktaAccount = `-- name: ListOktaGroupsForOktaAccount :many
 SELECT og.id, og.external_id, og.name, og.type, og.raw_json, og.created_at, og.updated_at, og.seen_in_run_id, og.seen_at, og.last_observed_run_id, og.last_observed_at, og.expired_at, og.expired_run_id
 FROM okta_groups og
 JOIN okta_user_groups ug ON ug.okta_group_id = og.id
@@ -632,8 +702,8 @@ WHERE ug.okta_user_account_id = $1
 ORDER BY og.name, og.external_id
 `
 
-func (q *Queries) ListOktaGroupsForIdpUser(ctx context.Context, oktaUserAccountID int64) ([]OktaGroup, error) {
-	rows, err := q.db.Query(ctx, listOktaGroupsForIdpUser, oktaUserAccountID)
+func (q *Queries) ListOktaGroupsForOktaAccount(ctx context.Context, oktaUserAccountID int64) ([]OktaGroup, error) {
+	rows, err := q.db.Query(ctx, listOktaGroupsForOktaAccount, oktaUserAccountID)
 	if err != nil {
 		return nil, err
 	}
@@ -666,74 +736,90 @@ func (q *Queries) ListOktaGroupsForIdpUser(ctx context.Context, oktaUserAccountI
 	return items, nil
 }
 
-const listOktaUserAppAssignmentsForIdpUser = `-- name: ListOktaUserAppAssignmentsForIdpUser :many
+const upsertOktaAppAssignmentsBulkByOktaAccountExternalIDs = `-- name: UpsertOktaAppAssignmentsBulkByOktaAccountExternalIDs :execrows
+WITH run_source AS (
+  SELECT sr.source_name
+  FROM sync_runs sr
+  WHERE sr.id = $1::bigint
+  LIMIT 1
+),
+input AS (
+  SELECT
+    i,
+    ($2::text[])[i] AS okta_account_external_id,
+    ($3::text[])[i] AS okta_app_external_id,
+    ($4::text[])[i] AS scope,
+    ($5::jsonb[])[i] AS profile_json,
+    ($6::jsonb[])[i] AS raw_json
+  FROM generate_subscripts($2::text[], 1) AS s(i)
+),
+dedup AS (
+  SELECT DISTINCT ON (okta_account_external_id, okta_app_external_id)
+    okta_account_external_id,
+    okta_app_external_id,
+    scope,
+    profile_json,
+    raw_json
+  FROM input
+  ORDER BY okta_account_external_id, okta_app_external_id, i DESC
+)
+INSERT INTO okta_user_app_assignments (
+  okta_user_account_id,
+  okta_app_id,
+  scope,
+  profile_json,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  updated_at
+)
 SELECT
-  ouaa.okta_user_account_id AS idp_user_id,
-  ouaa.okta_app_id,
-  ouaa.scope,
-  ouaa.profile_json,
-  ouaa.raw_json AS assignment_raw_json,
-  oa.external_id AS okta_app_external_id,
-  oa.label AS app_label,
-  oa.name AS app_name,
-  oa.status AS app_status,
-  oa.sign_on_mode AS app_sign_on_mode,
-  COALESCE(m.integration_kind, '') AS integration_kind
-FROM okta_user_app_assignments ouaa
-JOIN okta_apps oa ON oa.id = ouaa.okta_app_id
-LEFT JOIN integration_okta_app_map m ON m.okta_app_external_id = oa.external_id
-WHERE ouaa.okta_user_account_id = $1
-  AND ouaa.expired_at IS NULL
-  AND ouaa.last_observed_run_id IS NOT NULL
-  AND oa.expired_at IS NULL
-  AND oa.last_observed_run_id IS NOT NULL
-ORDER BY oa.label, oa.name, oa.external_id
+  iu.id,
+  oa.id,
+  input.scope,
+  input.profile_json,
+  input.raw_json,
+  $1::bigint,
+  now(),
+  now()
+FROM dedup input
+JOIN run_source rs ON TRUE
+JOIN accounts iu
+  ON iu.source_kind = 'okta'
+  AND iu.source_name = rs.source_name
+  AND iu.external_id = input.okta_account_external_id
+JOIN okta_apps oa ON oa.external_id = input.okta_app_external_id
+ON CONFLICT (okta_user_account_id, okta_app_id) DO UPDATE SET
+  scope = EXCLUDED.scope,
+  profile_json = EXCLUDED.profile_json,
+  raw_json = EXCLUDED.raw_json,
+  seen_in_run_id = EXCLUDED.seen_in_run_id,
+  seen_at = EXCLUDED.seen_at,
+  updated_at = now()
 `
 
-type ListOktaUserAppAssignmentsForIdpUserRow struct {
-	IdpUserID         int64  `json:"idp_user_id"`
-	OktaAppID         int64  `json:"okta_app_id"`
-	Scope             string `json:"scope"`
-	ProfileJson       []byte `json:"profile_json"`
-	AssignmentRawJson []byte `json:"assignment_raw_json"`
-	OktaAppExternalID string `json:"okta_app_external_id"`
-	AppLabel          string `json:"app_label"`
-	AppName           string `json:"app_name"`
-	AppStatus         string `json:"app_status"`
-	AppSignOnMode     string `json:"app_sign_on_mode"`
-	IntegrationKind   string `json:"integration_kind"`
+type UpsertOktaAppAssignmentsBulkByOktaAccountExternalIDsParams struct {
+	SeenInRunID            int64    `json:"seen_in_run_id"`
+	OktaAccountExternalIds []string `json:"okta_account_external_ids"`
+	OktaAppExternalIds     []string `json:"okta_app_external_ids"`
+	Scopes                 []string `json:"scopes"`
+	ProfileJsons           [][]byte `json:"profile_jsons"`
+	RawJsons               [][]byte `json:"raw_jsons"`
 }
 
-func (q *Queries) ListOktaUserAppAssignmentsForIdpUser(ctx context.Context, oktaUserAccountID int64) ([]ListOktaUserAppAssignmentsForIdpUserRow, error) {
-	rows, err := q.db.Query(ctx, listOktaUserAppAssignmentsForIdpUser, oktaUserAccountID)
+func (q *Queries) UpsertOktaAppAssignmentsBulkByOktaAccountExternalIDs(ctx context.Context, arg UpsertOktaAppAssignmentsBulkByOktaAccountExternalIDsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertOktaAppAssignmentsBulkByOktaAccountExternalIDs,
+		arg.SeenInRunID,
+		arg.OktaAccountExternalIds,
+		arg.OktaAppExternalIds,
+		arg.Scopes,
+		arg.ProfileJsons,
+		arg.RawJsons,
+	)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	defer rows.Close()
-	var items []ListOktaUserAppAssignmentsForIdpUserRow
-	for rows.Next() {
-		var i ListOktaUserAppAssignmentsForIdpUserRow
-		if err := rows.Scan(
-			&i.IdpUserID,
-			&i.OktaAppID,
-			&i.Scope,
-			&i.ProfileJson,
-			&i.AssignmentRawJson,
-			&i.OktaAppExternalID,
-			&i.AppLabel,
-			&i.AppName,
-			&i.AppStatus,
-			&i.AppSignOnMode,
-			&i.IntegrationKind,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+	return result.RowsAffected(), nil
 }
 
 const upsertOktaAppGroupAssignmentsBulkByExternalIDs = `-- name: UpsertOktaAppGroupAssignmentsBulkByExternalIDs :execrows
@@ -894,6 +980,59 @@ func (q *Queries) UpsertOktaAppsBulk(ctx context.Context, arg UpsertOktaAppsBulk
 	return result.RowsAffected(), nil
 }
 
+const upsertOktaGroupMembershipsBulkByOktaAccountExternalIDs = `-- name: UpsertOktaGroupMembershipsBulkByOktaAccountExternalIDs :execrows
+WITH run_source AS (
+  SELECT sr.source_name
+  FROM sync_runs sr
+  WHERE sr.id = $1::bigint
+  LIMIT 1
+),
+input AS (
+  SELECT
+    i,
+    ($2::text[])[i] AS okta_account_external_id,
+    ($3::text[])[i] AS okta_group_external_id
+  FROM generate_subscripts($2::text[], 1) AS s(i)
+),
+dedup AS (
+  SELECT DISTINCT ON (okta_account_external_id, okta_group_external_id)
+    okta_account_external_id,
+    okta_group_external_id
+  FROM input
+  ORDER BY okta_account_external_id, okta_group_external_id, i DESC
+)
+INSERT INTO okta_user_groups (okta_user_account_id, okta_group_id, seen_in_run_id, seen_at)
+SELECT
+  iu.id,
+  og.id,
+  $1::bigint,
+  now()
+FROM dedup d
+JOIN run_source rs ON TRUE
+JOIN accounts iu
+  ON iu.source_kind = 'okta'
+  AND iu.source_name = rs.source_name
+  AND iu.external_id = d.okta_account_external_id
+JOIN okta_groups og ON og.external_id = d.okta_group_external_id
+ON CONFLICT (okta_user_account_id, okta_group_id) DO UPDATE SET
+  seen_in_run_id = EXCLUDED.seen_in_run_id,
+  seen_at = EXCLUDED.seen_at
+`
+
+type UpsertOktaGroupMembershipsBulkByOktaAccountExternalIDsParams struct {
+	SeenInRunID            int64    `json:"seen_in_run_id"`
+	OktaAccountExternalIds []string `json:"okta_account_external_ids"`
+	OktaGroupExternalIds   []string `json:"okta_group_external_ids"`
+}
+
+func (q *Queries) UpsertOktaGroupMembershipsBulkByOktaAccountExternalIDs(ctx context.Context, arg UpsertOktaGroupMembershipsBulkByOktaAccountExternalIDsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertOktaGroupMembershipsBulkByOktaAccountExternalIDs, arg.SeenInRunID, arg.OktaAccountExternalIds, arg.OktaGroupExternalIds)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const upsertOktaGroupsBulk = `-- name: UpsertOktaGroupsBulk :execrows
 WITH input AS (
   SELECT
@@ -956,145 +1095,6 @@ func (q *Queries) UpsertOktaGroupsBulk(ctx context.Context, arg UpsertOktaGroups
 		arg.Types,
 		arg.RawJsons,
 	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const upsertOktaUserAppAssignmentsBulkByExternalIDs = `-- name: UpsertOktaUserAppAssignmentsBulkByExternalIDs :execrows
-WITH run_source AS (
-  SELECT sr.source_name
-  FROM sync_runs sr
-  WHERE sr.id = $1::bigint
-  LIMIT 1
-),
-input AS (
-  SELECT
-    i,
-    ($2::text[])[i] AS idp_user_external_id,
-    ($3::text[])[i] AS okta_app_external_id,
-    ($4::text[])[i] AS scope,
-    ($5::jsonb[])[i] AS profile_json,
-    ($6::jsonb[])[i] AS raw_json
-  FROM generate_subscripts($2::text[], 1) AS s(i)
-),
-dedup AS (
-  SELECT DISTINCT ON (idp_user_external_id, okta_app_external_id)
-    idp_user_external_id,
-    okta_app_external_id,
-    scope,
-    profile_json,
-    raw_json
-  FROM input
-  ORDER BY idp_user_external_id, okta_app_external_id, i DESC
-)
-INSERT INTO okta_user_app_assignments (
-  okta_user_account_id,
-  okta_app_id,
-  scope,
-  profile_json,
-  raw_json,
-  seen_in_run_id,
-  seen_at,
-  updated_at
-)
-SELECT
-  iu.id,
-  oa.id,
-  input.scope,
-  input.profile_json,
-  input.raw_json,
-  $1::bigint,
-  now(),
-  now()
-FROM dedup input
-JOIN run_source rs ON TRUE
-JOIN accounts iu
-  ON iu.source_kind = 'okta'
-  AND iu.source_name = rs.source_name
-  AND iu.external_id = input.idp_user_external_id
-JOIN okta_apps oa ON oa.external_id = input.okta_app_external_id
-ON CONFLICT (okta_user_account_id, okta_app_id) DO UPDATE SET
-  scope = EXCLUDED.scope,
-  profile_json = EXCLUDED.profile_json,
-  raw_json = EXCLUDED.raw_json,
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at,
-  updated_at = now()
-`
-
-type UpsertOktaUserAppAssignmentsBulkByExternalIDsParams struct {
-	SeenInRunID        int64    `json:"seen_in_run_id"`
-	IdpUserExternalIds []string `json:"idp_user_external_ids"`
-	OktaAppExternalIds []string `json:"okta_app_external_ids"`
-	Scopes             []string `json:"scopes"`
-	ProfileJsons       [][]byte `json:"profile_jsons"`
-	RawJsons           [][]byte `json:"raw_jsons"`
-}
-
-func (q *Queries) UpsertOktaUserAppAssignmentsBulkByExternalIDs(ctx context.Context, arg UpsertOktaUserAppAssignmentsBulkByExternalIDsParams) (int64, error) {
-	result, err := q.db.Exec(ctx, upsertOktaUserAppAssignmentsBulkByExternalIDs,
-		arg.SeenInRunID,
-		arg.IdpUserExternalIds,
-		arg.OktaAppExternalIds,
-		arg.Scopes,
-		arg.ProfileJsons,
-		arg.RawJsons,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const upsertOktaUserGroupsBulkByExternalIDs = `-- name: UpsertOktaUserGroupsBulkByExternalIDs :execrows
-WITH run_source AS (
-  SELECT sr.source_name
-  FROM sync_runs sr
-  WHERE sr.id = $1::bigint
-  LIMIT 1
-),
-input AS (
-  SELECT
-    i,
-    ($2::text[])[i] AS idp_user_external_id,
-    ($3::text[])[i] AS okta_group_external_id
-  FROM generate_subscripts($2::text[], 1) AS s(i)
-),
-dedup AS (
-  SELECT DISTINCT ON (idp_user_external_id, okta_group_external_id)
-    idp_user_external_id,
-    okta_group_external_id
-  FROM input
-  ORDER BY idp_user_external_id, okta_group_external_id, i DESC
-)
-INSERT INTO okta_user_groups (okta_user_account_id, okta_group_id, seen_in_run_id, seen_at)
-SELECT
-  iu.id,
-  og.id,
-  $1::bigint,
-  now()
-FROM dedup d
-JOIN run_source rs ON TRUE
-JOIN accounts iu
-  ON iu.source_kind = 'okta'
-  AND iu.source_name = rs.source_name
-  AND iu.external_id = d.idp_user_external_id
-JOIN okta_groups og ON og.external_id = d.okta_group_external_id
-ON CONFLICT (okta_user_account_id, okta_group_id) DO UPDATE SET
-  seen_in_run_id = EXCLUDED.seen_in_run_id,
-  seen_at = EXCLUDED.seen_at
-`
-
-type UpsertOktaUserGroupsBulkByExternalIDsParams struct {
-	SeenInRunID          int64    `json:"seen_in_run_id"`
-	IdpUserExternalIds   []string `json:"idp_user_external_ids"`
-	OktaGroupExternalIds []string `json:"okta_group_external_ids"`
-}
-
-func (q *Queries) UpsertOktaUserGroupsBulkByExternalIDs(ctx context.Context, arg UpsertOktaUserGroupsBulkByExternalIDsParams) (int64, error) {
-	result, err := q.db.Exec(ctx, upsertOktaUserGroupsBulkByExternalIDs, arg.SeenInRunID, arg.IdpUserExternalIds, arg.OktaGroupExternalIds)
 	if err != nil {
 		return 0, err
 	}

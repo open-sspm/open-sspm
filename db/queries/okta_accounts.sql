@@ -1,6 +1,6 @@
--- Legacy IdP query names now backed by Okta accounts in accounts.
+-- Okta account query names on top of accounts.
 
--- name: GetIdPUser :one
+-- name: GetOktaAccount :one
 SELECT *
 FROM accounts
 WHERE id = $1
@@ -8,14 +8,14 @@ WHERE id = $1
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL;
 
--- name: CountIdPUsers :one
+-- name: CountOktaAccounts :one
 SELECT count(*)
 FROM accounts
 WHERE source_kind = 'okta'
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL;
 
--- name: CountIdPUsersByQueryAndState :one
+-- name: CountOktaAccountsByQueryAndState :one
 SELECT count(*)
 FROM accounts
 WHERE
@@ -34,7 +34,7 @@ WHERE
     OR (sqlc.arg(state)::text = 'inactive' AND lower(status) <> 'active')
   );
 
--- name: ListIdPUsersPageByQueryAndState :many
+-- name: ListOktaAccountsPageByQueryAndState :many
 SELECT *
 FROM accounts
 WHERE
@@ -56,7 +56,7 @@ ORDER BY id ASC
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
--- name: ListIdPUsersForCommand :many
+-- name: ListOktaAccountsForCommand :many
 SELECT
   id,
   email,

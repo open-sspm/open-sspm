@@ -7,8 +7,6 @@ package gen
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const bulkAutoLinkByEmail = `-- name: BulkAutoLinkByEmail :execrows
@@ -44,81 +42,4 @@ func (q *Queries) BulkAutoLinkByEmail(ctx context.Context, arg BulkAutoLinkByEma
 		return 0, err
 	}
 	return result.RowsAffected(), nil
-}
-
-const createIdentityLink = `-- name: CreateIdentityLink :one
-
-INSERT INTO identity_accounts (identity_id, account_id, link_reason, confidence, updated_at)
-VALUES ($1, $2, $3, 1.0, now())
-ON CONFLICT (account_id) DO UPDATE SET
-  identity_id = EXCLUDED.identity_id,
-  link_reason = EXCLUDED.link_reason,
-  confidence = EXCLUDED.confidence,
-  updated_at = EXCLUDED.updated_at
-RETURNING
-  id,
-  identity_id AS idp_user_id,
-  account_id AS app_user_id,
-  link_reason,
-  created_at
-`
-
-type CreateIdentityLinkParams struct {
-	IdentityID int64  `json:"identity_id"`
-	AccountID  int64  `json:"account_id"`
-	LinkReason string `json:"link_reason"`
-}
-
-type CreateIdentityLinkRow struct {
-	ID         int64              `json:"id"`
-	IdpUserID  int64              `json:"idp_user_id"`
-	AppUserID  int64              `json:"app_user_id"`
-	LinkReason string             `json:"link_reason"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-}
-
-// Compatibility query names on top of identity_accounts.
-func (q *Queries) CreateIdentityLink(ctx context.Context, arg CreateIdentityLinkParams) (CreateIdentityLinkRow, error) {
-	row := q.db.QueryRow(ctx, createIdentityLink, arg.IdentityID, arg.AccountID, arg.LinkReason)
-	var i CreateIdentityLinkRow
-	err := row.Scan(
-		&i.ID,
-		&i.IdpUserID,
-		&i.AppUserID,
-		&i.LinkReason,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const getIdentityLinkByAppUser = `-- name: GetIdentityLinkByAppUser :one
-SELECT
-  ia.id,
-  ia.identity_id AS idp_user_id,
-  ia.account_id AS app_user_id,
-  ia.link_reason,
-  ia.created_at
-FROM identity_accounts ia
-WHERE ia.account_id = $1
-`
-
-type GetIdentityLinkByAppUserRow struct {
-	ID         int64              `json:"id"`
-	IdpUserID  int64              `json:"idp_user_id"`
-	AppUserID  int64              `json:"app_user_id"`
-	LinkReason string             `json:"link_reason"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) GetIdentityLinkByAppUser(ctx context.Context, accountID int64) (GetIdentityLinkByAppUserRow, error) {
-	row := q.db.QueryRow(ctx, getIdentityLinkByAppUser, accountID)
-	var i GetIdentityLinkByAppUserRow
-	err := row.Scan(
-		&i.ID,
-		&i.IdpUserID,
-		&i.AppUserID,
-		&i.LinkReason,
-		&i.CreatedAt,
-	)
-	return i, err
 }

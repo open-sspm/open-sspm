@@ -67,31 +67,31 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 		resourceKindLabel = resourceKind
 	}
 
-	seenAppUsers := make(map[int64]struct{})
-	seenIdpUsers := make(map[int64]struct{})
+	seenAccounts := make(map[int64]struct{})
+	seenIdentities := make(map[int64]struct{})
 	accessRows := make([]viewmodels.ResourceAccessRow, 0, len(rows))
 
 	for _, row := range rows {
-		seenAppUsers[row.AppUserID] = struct{}{}
+		seenAccounts[row.AccountID] = struct{}{}
 
-		idpUserID := int64(0)
-		idpUserHref := ""
-		idpUserEmail := ""
-		idpUserName := ""
-		idpUserStatus := ""
-		if row.IdpUserID.Valid {
-			idpUserID = row.IdpUserID.Int64
-			idpUserHref = "/idp-users/" + strconv.FormatInt(idpUserID, 10)
-			seenIdpUsers[idpUserID] = struct{}{}
+		identityID := int64(0)
+		identityHref := ""
+		identityEmail := ""
+		identityName := ""
+		identityStatus := ""
+		if row.IdentityID.Valid {
+			identityID = row.IdentityID.Int64
+			identityHref = "/identities/" + strconv.FormatInt(identityID, 10)
+			seenIdentities[identityID] = struct{}{}
 		}
-		if row.IdpUserEmail.Valid {
-			idpUserEmail = strings.TrimSpace(row.IdpUserEmail.String)
+		if row.IdentityEmail.Valid {
+			identityEmail = strings.TrimSpace(row.IdentityEmail.String)
 		}
-		if row.IdpUserDisplayName.Valid {
-			idpUserName = strings.TrimSpace(row.IdpUserDisplayName.String)
+		if row.IdentityDisplayName.Valid {
+			identityName = strings.TrimSpace(row.IdentityDisplayName.String)
 		}
-		if row.IdpUserStatus.Valid {
-			idpUserStatus = strings.TrimSpace(row.IdpUserStatus.String)
+		if row.IdentityStatus.Valid {
+			identityStatus = strings.TrimSpace(row.IdentityStatus.String)
 		}
 
 		linkReason := ""
@@ -100,14 +100,14 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 		}
 
 		accessRows = append(accessRows, viewmodels.ResourceAccessRow{
-			IdpUserID:             idpUserID,
-			IdpUserHref:           idpUserHref,
-			IdpUserEmail:          idpUserEmail,
-			IdpUserDisplayName:    idpUserName,
-			IdpUserStatus:         idpUserStatus,
-			AppUserExternalID:     strings.TrimSpace(row.AppUserExternalID),
-			AppUserEmail:          strings.TrimSpace(row.AppUserEmail),
-			AppUserDisplayName:    strings.TrimSpace(row.AppUserDisplayName),
+			IdentityID:            identityID,
+			IdentityHref:          identityHref,
+			IdentityEmail:         identityEmail,
+			IdentityDisplayName:   identityName,
+			IdentityStatus:        identityStatus,
+			AccountExternalID:     strings.TrimSpace(row.AccountExternalID),
+			AccountEmail:          strings.TrimSpace(row.AccountEmail),
+			AccountDisplayName:    strings.TrimSpace(row.AccountDisplayName),
 			EntitlementKind:       strings.TrimSpace(row.EntitlementKind),
 			EntitlementPermission: strings.TrimSpace(row.EntitlementPermission),
 			LinkReason:            linkReason,
@@ -126,8 +126,8 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 		DisplayName:         displayName,
 		ExternalConsoleHref: accessgraph.ExternalConsoleHref(sourceKind, sourceName, resourceKind, externalID),
 		EntitlementCount:    len(rows),
-		AppAccountCount:     len(seenAppUsers),
-		LinkedIdpUserCount:  len(seenIdpUsers),
+		AccountCount:        len(seenAccounts),
+		LinkedIdentityCount: len(seenIdentities),
 		Rows:                accessRows,
 		HasRows:             len(accessRows) > 0,
 	}

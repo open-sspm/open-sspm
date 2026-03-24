@@ -8,8 +8,8 @@ All datasets are returned as an array of JSON objects (`[]any`) and are intended
 
 Row fields (selected):
 
-- `/id` (string) — internal `idp_users.id` as a string
-- `/external_id` (string) — `idp_users.external_id`
+- `/id` (string) — internal `identities.id` as a string
+- `/external_id` (string) — authoritative account external ID for the identity
 - `/email` (string)
 - `/display_name` (string)
 - `/status` (string) — one of `active|inactive|deprovisioned`
@@ -19,10 +19,12 @@ Row fields (selected):
 Row fields (selected):
 
 - `/resource_id` (string) — `entitlement:<entitlements.id>`
-- `/identity/id` (string) — internal `idp_users.id` as a string
+- `/identity/id` (string) — internal `identities.id` as a string
 - `/identity/status` (string)
+- `/account/source_kind` (string)
+- `/account/source_name` (string)
+- `/account/external_id` (string)
 - `/entitlement/kind` (string)
 - `/entitlement/resource` (string)
 - `/entitlement/permission` (string)
 - `/entitlement/tags` (array of strings) — includes `admin` when permission suggests admin-like access
-

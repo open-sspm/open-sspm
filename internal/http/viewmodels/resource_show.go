@@ -1,15 +1,15 @@
 package viewmodels
 
 type ResourceAccessRow struct {
-	IdpUserID          int64
-	IdpUserHref        string
-	IdpUserEmail       string
-	IdpUserDisplayName string
-	IdpUserStatus      string
+	IdentityID          int64
+	IdentityHref        string
+	IdentityEmail       string
+	IdentityDisplayName string
+	IdentityStatus      string
 
-	AppUserExternalID  string
-	AppUserEmail       string
-	AppUserDisplayName string
+	AccountExternalID  string
+	AccountEmail       string
+	AccountDisplayName string
 
 	EntitlementKind       string
 	EntitlementPermission string
@@ -31,9 +31,9 @@ type ResourceShowViewData struct {
 
 	ExternalConsoleHref string
 
-	EntitlementCount   int
-	AppAccountCount    int
-	LinkedIdpUserCount int
+	EntitlementCount    int
+	AccountCount        int
+	LinkedIdentityCount int
 
 	Rows    []ResourceAccessRow
 	HasRows bool

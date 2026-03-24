@@ -7,25 +7,15 @@ type GoogleWorkspaceUserListItem struct {
 	ExternalID     string
 	Email          string
 	DisplayName    string
-	IdpUserID      int64
+	IdentityID     int64
 	GroupCount     int
 	AdminRoleCount int
 }
 
 type GoogleWorkspaceUsersViewData struct {
-	Layout         LayoutData
-	Users          []GoogleWorkspaceUserListItem
-	Query          string
-	ShowingCount   int
-	ShowingFrom    int
-	ShowingTo      int
-	TotalCount     int64
-	Page           int
-	PerPage        int
-	TotalPages     int
-	HasUsers       bool
-	EmptyStateMsg  string
-	EmptyStateHref string
+	SourceAccountInventoryPageData
+	Users    []GoogleWorkspaceUserListItem
+	HasUsers bool
 }
 
 type GoogleWorkspaceGroupListItem struct {
@@ -50,32 +40,6 @@ type GoogleWorkspaceGroupsViewData struct {
 	PerPage        int
 	TotalPages     int
 	HasGroups      bool
-	EmptyStateMsg  string
-	EmptyStateHref string
-}
-
-type GoogleWorkspaceOAuthAppListItem struct {
-	ID          int64
-	ExternalID  string
-	DisplayName string
-	Status      string
-	OwnerCount  int
-	GrantCount  int
-	LastSeenAt  string
-}
-
-type GoogleWorkspaceOAuthAppsViewData struct {
-	Layout         LayoutData
-	Apps           []GoogleWorkspaceOAuthAppListItem
-	Query          string
-	ShowingCount   int
-	ShowingFrom    int
-	ShowingTo      int
-	TotalCount     int64
-	Page           int
-	PerPage        int
-	TotalPages     int
-	HasApps        bool
 	EmptyStateMsg  string
 	EmptyStateHref string
 }

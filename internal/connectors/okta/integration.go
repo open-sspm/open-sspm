@@ -105,7 +105,7 @@ func (i *OktaIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pgx
 	report(registry.Event{Source: "okta", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
 	report(registry.Event{Source: "okta", Stage: "sync-users", Current: 0, Total: int64(len(users)), Message: fmt.Sprintf("syncing %d users", len(users))})
 
-	if err := i.syncOktaIdpUsers(ctx, q, report, runID, users); err != nil {
+	if err := i.syncOktaAccounts(ctx, q, report, runID, users); err != nil {
 		report(registry.Event{Source: "okta", Stage: "sync-users", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
@@ -194,7 +194,7 @@ func (i *OktaIntegration) EvaluateCompliance(ctx context.Context, q *gen.Queries
 	return nil
 }
 
-func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, users []User) error {
+func (i *OktaIntegration) syncOktaAccounts(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, users []User) error {
 	if len(users) == 0 {
 		report(registry.Event{Source: "okta", Stage: "sync-users", Current: 0, Total: 0, Message: "no users to sync"})
 		return nil
@@ -224,7 +224,7 @@ func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, q *gen.Queries, 
 			externalIDs = append(externalIDs, id)
 			emails = append(emails, matching.NormalizeEmail(user.Email))
 			displayNames = append(displayNames, user.DisplayName)
-			accountKinds = append(accountKinds, oktaUserAccountKind(user))
+			accountKinds = append(accountKinds, oktaAccountKind(user))
 			entityCategories = append(entityCategories, registry.EntityCategoryUser)
 			statuses = append(statuses, user.Status)
 			rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(user.RawJSON), registry.EntityCategoryUser))
@@ -250,7 +250,7 @@ func (i *OktaIntegration) syncOktaIdpUsers(ctx context.Context, q *gen.Queries, 
 			LastLoginIps:     lastLoginIPs,
 			LastLoginRegions: lastLoginRegions,
 		}); err != nil {
-			return fmt.Errorf("upsert idp users: %w", err)
+			return fmt.Errorf("upsert okta accounts: %w", err)
 		}
 
 		report(registry.Event{
@@ -335,7 +335,7 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, q *gen.Queries, re
 			return fmt.Errorf("upsert okta groups: %w", err)
 		}
 		if len(accountExternalIDs) > 0 {
-			if _, err := q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
+			if _, err := q.UpsertSourceAccountsBulkBySource(ctx, gen.UpsertSourceAccountsBulkBySourceParams{
 				SourceKind:       "okta",
 				SourceName:       i.sourceName,
 				SeenInRunID:      runID,
@@ -385,26 +385,26 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, q *gen.Queries, re
 			const membershipBatchSize = 5000
 			for start := 0; start < len(userExternalIDs); start += membershipBatchSize {
 				end := min(start+membershipBatchSize, len(userExternalIDs))
-				idpExternalIDs := make([]string, 0, end-start)
+				oktaAccountExternalIDs := make([]string, 0, end-start)
 				groupExternalIDs := make([]string, 0, end-start)
 				for _, userExternalID := range userExternalIDs[start:end] {
 					userExternalID = strings.TrimSpace(userExternalID)
 					if userExternalID == "" {
 						continue
 					}
-					idpExternalIDs = append(idpExternalIDs, userExternalID)
+					oktaAccountExternalIDs = append(oktaAccountExternalIDs, userExternalID)
 					groupExternalIDs = append(groupExternalIDs, group.ID)
 				}
-				if len(idpExternalIDs) == 0 {
+				if len(oktaAccountExternalIDs) == 0 {
 					continue
 				}
-				if _, err := q.UpsertOktaUserGroupsBulkByExternalIDs(jobCtx, gen.UpsertOktaUserGroupsBulkByExternalIDsParams{
-					SeenInRunID:          runID,
-					IdpUserExternalIds:   idpExternalIDs,
-					OktaGroupExternalIds: groupExternalIDs,
+				if _, err := q.UpsertOktaGroupMembershipsBulkByOktaAccountExternalIDs(jobCtx, gen.UpsertOktaGroupMembershipsBulkByOktaAccountExternalIDsParams{
+					SeenInRunID:            runID,
+					OktaAccountExternalIds: oktaAccountExternalIDs,
+					OktaGroupExternalIds:   groupExternalIDs,
 				}); err != nil {
 					errOnce.Do(func() {
-						firstErr = fmt.Errorf("upsert okta user groups for group %s: %w", group.ID, err)
+						firstErr = fmt.Errorf("upsert okta group memberships for group %s: %w", group.ID, err)
 						cancel()
 					})
 					return
@@ -518,10 +518,10 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, q *gen.Que
 			if jobCtx.Err() != nil {
 				return
 			}
-			assignments, err := i.client.ListApplicationUsers(jobCtx, app.ID)
+			assignments, err := i.client.ListApplicationAccounts(jobCtx, app.ID)
 			if err != nil {
 				errOnce.Do(func() {
-					firstErr = fmt.Errorf("okta app %s users: %w", app.ID, err)
+					firstErr = fmt.Errorf("okta app %s accounts: %w", app.ID, err)
 					cancel()
 				})
 				return
@@ -541,32 +541,32 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, q *gen.Que
 			const assignmentBatchSize = 5000
 			for start := 0; start < len(assignments); start += assignmentBatchSize {
 				end := min(start+assignmentBatchSize, len(assignments))
-				idpExternalIDs := make([]string, 0, end-start)
+				oktaAccountExternalIDs := make([]string, 0, end-start)
 				oktaAppExternalIDs := make([]string, 0, end-start)
 				scopes := make([]string, 0, end-start)
 				profileJSONs := make([][]byte, 0, end-start)
 				rawJSONs := make([][]byte, 0, end-start)
 				for _, assignment := range assignments[start:end] {
-					userID := strings.TrimSpace(assignment.UserID)
-					if userID == "" {
+					accountID := strings.TrimSpace(assignment.AccountID)
+					if accountID == "" {
 						continue
 					}
-					idpExternalIDs = append(idpExternalIDs, userID)
+					oktaAccountExternalIDs = append(oktaAccountExternalIDs, accountID)
 					oktaAppExternalIDs = append(oktaAppExternalIDs, app.ID)
 					scopes = append(scopes, assignment.Scope)
 					profileJSONs = append(profileJSONs, registry.NormalizeJSON(assignment.ProfileJSON))
 					rawJSONs = append(rawJSONs, registry.NormalizeJSON(assignment.RawJSON))
 				}
-				if len(idpExternalIDs) == 0 {
+				if len(oktaAccountExternalIDs) == 0 {
 					continue
 				}
-				if _, err := q.UpsertOktaUserAppAssignmentsBulkByExternalIDs(jobCtx, gen.UpsertOktaUserAppAssignmentsBulkByExternalIDsParams{
-					SeenInRunID:        runID,
-					IdpUserExternalIds: idpExternalIDs,
-					OktaAppExternalIds: oktaAppExternalIDs,
-					Scopes:             scopes,
-					ProfileJsons:       profileJSONs,
-					RawJsons:           rawJSONs,
+				if _, err := q.UpsertOktaAppAssignmentsBulkByOktaAccountExternalIDs(jobCtx, gen.UpsertOktaAppAssignmentsBulkByOktaAccountExternalIDsParams{
+					SeenInRunID:            runID,
+					OktaAccountExternalIds: oktaAccountExternalIDs,
+					OktaAppExternalIds:     oktaAppExternalIDs,
+					Scopes:                 scopes,
+					ProfileJsons:           profileJSONs,
+					RawJsons:               rawJSONs,
 				}); err != nil {
 					errOnce.Do(func() {
 						firstErr = fmt.Errorf("upsert okta app assignments for app %s: %w", app.ID, err)

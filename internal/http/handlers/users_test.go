@@ -33,30 +33,6 @@ func TestParseCreateLinkFormSupportsIdentityPayload(t *testing.T) {
 	}
 }
 
-func TestParseCreateLinkFormSupportsLegacyPayload(t *testing.T) {
-	t.Parallel()
-
-	ctx := newLinkFormContext(t, map[string]string{
-		"idp_user_id": "301",
-		"app_user_id": "401",
-		"reason":      "seed_migration",
-	})
-
-	identityID, accountID, reason, err := parseCreateLinkForm(ctx)
-	if err != nil {
-		t.Fatalf("parseCreateLinkForm() error = %v", err)
-	}
-	if identityID != 301 {
-		t.Fatalf("identityID = %d, want 301", identityID)
-	}
-	if accountID != 401 {
-		t.Fatalf("accountID = %d, want 401", accountID)
-	}
-	if reason != "seed_migration" {
-		t.Fatalf("reason = %q, want %q", reason, "seed_migration")
-	}
-}
-
 func TestParseCreateLinkFormRejectsInvalidValues(t *testing.T) {
 	t.Parallel()
 

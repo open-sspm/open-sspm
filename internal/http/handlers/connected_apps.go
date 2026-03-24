@@ -44,7 +44,7 @@ func (h *Handlers) HandleConnectedApps(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Connected Apps")
+	layout, snap, err := h.LayoutData(ctx, c, "Google Workspace Connected Apps")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -521,7 +521,7 @@ func (h *Handlers) renderConnectedAppShow(c *echo.Context, appID int64, opts con
 		return RenderNotFound(c)
 	}
 
-	layout, _, err := h.LayoutData(ctx, c, "Connected App")
+	layout, _, err := h.LayoutData(ctx, c, "Google Workspace Connected App")
 	if err != nil {
 		return h.RenderError(c, err)
 	}

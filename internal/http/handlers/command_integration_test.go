@@ -205,7 +205,7 @@ func TestHandleCommandSearchCrossInventoryResults(t *testing.T) {
 		t.Run("google oauth client appears once under connected apps", func(t *testing.T) {
 			body := renderCommandSearch(t, h, "http://example.com/command/search?q=oauth")
 
-			if !strings.Contains(body, `role="heading">Connected Apps`) {
+			if !strings.Contains(body, `role="heading">Google Workspace Connected Apps`) {
 				t.Fatalf("oauth body missing connected apps section: %s", body)
 			}
 			if !strings.Contains(body, `/connected-apps/`+strconv.FormatInt(fixture.googleConnectedAppID, 10)) {
