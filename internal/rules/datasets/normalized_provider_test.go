@@ -39,11 +39,11 @@ func TestNormalizedProviderIdentitiesV1RemainsAvailable(t *testing.T) {
 		Q: normalizedQueryStub{
 			identitiesV1: []gen.ListNormalizedIdentitiesV1Row{
 				{
-					IdpUserID:          42,
-					IdpUserExternalID:  "00u42",
-					IdpUserEmail:       "alice@example.com",
-					IdpUserDisplayName: "Alice",
-					IdpUserStatus:      "ACTIVE",
+					IdentityID:          42,
+					IdentityExternalID:  "00u42",
+					IdentityEmail:       "alice@example.com",
+					IdentityDisplayName: "Alice",
+					IdentityStatus:      "ACTIVE",
 				},
 			},
 		},
@@ -137,13 +137,13 @@ func TestNormalizedProviderEntitlementAssignmentsV1AndV2(t *testing.T) {
 			entitlementAssignmentsV1: []gen.ListNormalizedEntitlementAssignmentsV1Row{
 				{
 					EntitlementID:         100,
-					IdpUserID:             7,
-					IdpUserEmail:          "legacy@example.com",
-					IdpUserDisplayName:    "Legacy User",
-					IdpUserStatus:         "DEPROVISIONED",
-					SourceKind:            "github",
-					SourceName:            "acme",
-					AppUserExternalID:     "legacy-gh",
+					IdentityID:            7,
+					IdentityEmail:         "legacy@example.com",
+					IdentityDisplayName:   "Legacy User",
+					IdentityStatus:        "DEPROVISIONED",
+					AccountSourceKind:     "github",
+					AccountSourceName:     "acme",
+					AccountExternalID:     "legacy-gh",
 					EntitlementKind:       "repo_role",
 					EntitlementResource:   "repo:acme/private",
 					EntitlementPermission: "maintain",
@@ -157,9 +157,9 @@ func TestNormalizedProviderEntitlementAssignmentsV1AndV2(t *testing.T) {
 					IdentityEmail:         "shadow@example.com",
 					IdentityDisplayName:   "Shadow User",
 					IdentityManaged:       false,
-					SourceKind:            "github",
-					SourceName:            "acme",
-					AppUserExternalID:     "shadow-gh",
+					AccountSourceKind:     "github",
+					AccountSourceName:     "acme",
+					AccountExternalID:     "shadow-gh",
 					EntitlementKind:       "repo_role",
 					EntitlementResource:   "repo:acme/prod",
 					EntitlementPermission: "owner",
@@ -186,6 +186,13 @@ func TestNormalizedProviderEntitlementAssignmentsV1AndV2(t *testing.T) {
 	if got := identityV1["status"]; got != "deprovisioned" {
 		t.Fatalf("v1 identity.status = %#v, want %q", got, "deprovisioned")
 	}
+	accountV1, ok := v1Row["account"].(map[string]any)
+	if !ok {
+		t.Fatalf("v1 account = %#v, want map", v1Row["account"])
+	}
+	if got := accountV1["external_id"]; got != "legacy-gh" {
+		t.Fatalf("v1 account.external_id = %#v, want %q", got, "legacy-gh")
+	}
 
 	resV2 := provider.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{
 		Dataset: "normalized:entitlement_assignments",
@@ -204,6 +211,13 @@ func TestNormalizedProviderEntitlementAssignmentsV1AndV2(t *testing.T) {
 	}
 	if got := identityV2["managed"]; got != false {
 		t.Fatalf("v2 identity.managed = %#v, want false", got)
+	}
+	accountV2, ok := v2Row["account"].(map[string]any)
+	if !ok {
+		t.Fatalf("v2 account = %#v, want map", v2Row["account"])
+	}
+	if got := accountV2["external_id"]; got != "shadow-gh" {
+		t.Fatalf("v2 account.external_id = %#v, want %q", got, "shadow-gh")
 	}
 }
 

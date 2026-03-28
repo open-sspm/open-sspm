@@ -7,6 +7,11 @@ const DESKTOP_SIDEBAR_STATE_KEY = "openSspm.sidebar.desktopOpen";
 const waitForAsyncWork = async () => {
   await Promise.resolve();
   await new Promise((resolve) => setTimeout(resolve, 0));
+  if (typeof window.requestAnimationFrame === "function") {
+    await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+    return;
+  }
+  await new Promise((resolve) => setTimeout(resolve, 0));
 };
 
 const createLocalStorageMock = () => {

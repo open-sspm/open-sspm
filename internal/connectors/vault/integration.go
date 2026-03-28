@@ -37,7 +37,7 @@ type vaultAccountUpsertRow struct {
 }
 
 type vaultEntitlementUpsertRow struct {
-	AppUserExternalID string
+	AccountExternalID string
 	Kind              string
 	Resource          string
 	Permission        string
@@ -307,14 +307,14 @@ func buildVaultEntitlementRows(entities []Entity, groups []Group, authRoles []Au
 	rows := make([]vaultEntitlementUpsertRow, 0)
 
 	add := func(row vaultEntitlementUpsertRow) {
-		row.AppUserExternalID = strings.TrimSpace(row.AppUserExternalID)
+		row.AccountExternalID = strings.TrimSpace(row.AccountExternalID)
 		row.Kind = strings.TrimSpace(row.Kind)
 		row.Resource = strings.TrimSpace(row.Resource)
 		row.Permission = strings.TrimSpace(row.Permission)
-		if row.AppUserExternalID == "" || row.Kind == "" || row.Resource == "" || row.Permission == "" {
+		if row.AccountExternalID == "" || row.Kind == "" || row.Resource == "" || row.Permission == "" {
 			return
 		}
-		key := row.AppUserExternalID + "::" + row.Kind + "::" + row.Resource + "::" + row.Permission
+		key := row.AccountExternalID + "::" + row.Kind + "::" + row.Resource + "::" + row.Permission
 		if _, ok := seen[key]; ok {
 			return
 		}
@@ -333,7 +333,7 @@ func buildVaultEntitlementRows(entities []Entity, groups []Group, authRoles []Au
 				continue
 			}
 			add(vaultEntitlementUpsertRow{
-				AppUserExternalID: "entity:" + entityID,
+				AccountExternalID: "entity:" + entityID,
 				Kind:              "vault_entity_policy",
 				Resource:          "vault_policy:" + policy,
 				Permission:        "attached",
@@ -359,7 +359,7 @@ func buildVaultEntitlementRows(entities []Entity, groups []Group, authRoles []Au
 				continue
 			}
 			add(vaultEntitlementUpsertRow{
-				AppUserExternalID: "entity:" + memberID,
+				AccountExternalID: "entity:" + memberID,
 				Kind:              "vault_group_member",
 				Resource:          groupResource,
 				Permission:        "member",
@@ -375,7 +375,7 @@ func buildVaultEntitlementRows(entities []Entity, groups []Group, authRoles []Au
 					continue
 				}
 				add(vaultEntitlementUpsertRow{
-					AppUserExternalID: "entity:" + memberID,
+					AccountExternalID: "entity:" + memberID,
 					Kind:              "vault_group_policy",
 					Resource:          "vault_policy:" + policy,
 					Permission:        "attached",
@@ -401,7 +401,7 @@ func buildVaultEntitlementRows(entities []Entity, groups []Group, authRoles []Au
 				continue
 			}
 			add(vaultEntitlementUpsertRow{
-				AppUserExternalID: externalID,
+				AccountExternalID: externalID,
 				Kind:              "vault_auth_role_policy",
 				Resource:          "vault_policy:" + policy,
 				Permission:        "attached",
@@ -515,7 +515,7 @@ func upsertVaultAccounts(ctx context.Context, q *gen.Queries, report func(regist
 			lastLoginRegions = append(lastLoginRegions, "")
 		}
 
-		if _, err := q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
+		if _, err := q.UpsertSourceAccountsBulkBySource(ctx, gen.UpsertSourceAccountsBulkBySourceParams{
 			SourceKind:       "vault",
 			SourceName:       sourceName,
 			SeenInRunID:      runID,
@@ -554,14 +554,14 @@ func upsertVaultEntitlements(ctx context.Context, q *gen.Queries, report func(re
 		end := min(start+vaultEntitlementBatchSize, len(rows))
 		batch := rows[start:end]
 
-		appUserExternalIDs := make([]string, 0, len(batch))
+		accountExternalIDs := make([]string, 0, len(batch))
 		kinds := make([]string, 0, len(batch))
 		resources := make([]string, 0, len(batch))
 		permissions := make([]string, 0, len(batch))
 		rawJSONs := make([][]byte, 0, len(batch))
 
 		for _, row := range batch {
-			appUserExternalIDs = append(appUserExternalIDs, row.AppUserExternalID)
+			accountExternalIDs = append(accountExternalIDs, row.AccountExternalID)
 			kinds = append(kinds, row.Kind)
 			resources = append(resources, row.Resource)
 			permissions = append(permissions, row.Permission)
@@ -572,7 +572,7 @@ func upsertVaultEntitlements(ctx context.Context, q *gen.Queries, report func(re
 			SeenInRunID:        runID,
 			SourceKind:         "vault",
 			SourceName:         sourceName,
-			AppUserExternalIds: appUserExternalIDs,
+			AccountExternalIds: accountExternalIDs,
 			Kinds:              kinds,
 			Resources:          resources,
 			Permissions:        permissions,

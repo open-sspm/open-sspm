@@ -12,22 +12,22 @@ type PermissionBadge struct {
 	Text string
 }
 
-type OktaAppAssignedUserView struct {
-	IdpUserID       int64
-	UserHref        string
-	UserDisplayName string
-	UserEmail       string
-	UserExternalID  string
-	UserStatus      string
-	AssignedVia     string
-	Groups          []string
-	Permissions     []PermissionBadge
+type OktaAppAssignedAccountView struct {
+	OktaAccountID         int64
+	AccountHref           string
+	AccountDisplayName    string
+	AccountEmail          string
+	OktaAccountExternalID string
+	OktaAccountStatus     string
+	AssignedVia           string
+	Groups                []string
+	Permissions           []PermissionBadge
 }
 
 type OktaAppShowViewData struct {
 	Layout        LayoutData
 	App           OktaAppSummaryView
-	Users         []OktaAppAssignedUserView
+	Accounts      []OktaAppAssignedAccountView
 	Query         string
 	State         string
 	ShowingCount  int
@@ -37,7 +37,7 @@ type OktaAppShowViewData struct {
 	Page          int
 	PerPage       int
 	TotalPages    int
-	HasUsers      bool
+	HasAccounts   bool
 	EmptyStateMsg string
 }
 

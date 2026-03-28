@@ -59,20 +59,20 @@ func TestAddVaryPreservesWildcard(t *testing.T) {
 	}
 }
 
-func TestHandleIdpUserAccessTreeInvalidID(t *testing.T) {
+func TestHandleOktaAccountAccessTreeInvalidID(t *testing.T) {
 	t.Run("non htmx request returns bad request text", func(t *testing.T) {
-		c, rec := newTestContext(http.MethodGet, "http://example.com/api/idp-users/not-a-number/access-tree")
+		c, rec := newTestContext(http.MethodGet, "http://example.com/api/okta-accounts/not-a-number/access-tree")
 		c.SetPathValues(echo.PathValues{{Name: "id", Value: "not-a-number"}})
 
 		h := &Handlers{}
-		if err := h.HandleIdpUserAccessTree(c); err != nil {
-			t.Fatalf("HandleIdpUserAccessTree() error = %v", err)
+		if err := h.HandleOktaAccountAccessTree(c); err != nil {
+			t.Fatalf("HandleOktaAccountAccessTree() error = %v", err)
 		}
 
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
 		}
-		if !strings.Contains(rec.Body.String(), "invalid idp user id") {
+		if !strings.Contains(rec.Body.String(), "invalid okta account id") {
 			t.Fatalf("body = %q, want invalid id message", rec.Body.String())
 		}
 		if vary := parseVaryHeader(rec.Header().Get(echo.HeaderVary)); vary["hx-request"] != 1 {

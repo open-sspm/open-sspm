@@ -11,32 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const expireAppUsersNotSeenInRun = `-- name: ExpireAppUsersNotSeenInRun :execrows
-UPDATE accounts
-SET
-  expired_at = now(),
-  expired_run_id = $1
-WHERE source_kind = $2
-  AND source_name = $3
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-  AND (seen_in_run_id <> $1 OR seen_in_run_id IS NULL)
-`
-
-type ExpireAppUsersNotSeenInRunParams struct {
-	ExpiredRunID pgtype.Int8 `json:"expired_run_id"`
-	SourceKind   string      `json:"source_kind"`
-	SourceName   string      `json:"source_name"`
-}
-
-func (q *Queries) ExpireAppUsersNotSeenInRun(ctx context.Context, arg ExpireAppUsersNotSeenInRunParams) (int64, error) {
-	result, err := q.db.Exec(ctx, expireAppUsersNotSeenInRun, arg.ExpiredRunID, arg.SourceKind, arg.SourceName)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
 const expireEntitlementsNotSeenInRunBySource = `-- name: ExpireEntitlementsNotSeenInRunBySource :execrows
 UPDATE entitlements e
 SET
@@ -65,7 +39,7 @@ func (q *Queries) ExpireEntitlementsNotSeenInRunBySource(ctx context.Context, ar
 	return result.RowsAffected(), nil
 }
 
-const expireIdPUsersNotSeenInRun = `-- name: ExpireIdPUsersNotSeenInRun :execrows
+const expireOktaAccountsNotSeenInRun = `-- name: ExpireOktaAccountsNotSeenInRun :execrows
 UPDATE accounts
 SET
   expired_at = now(),
@@ -76,8 +50,26 @@ WHERE source_kind = 'okta'
   AND (seen_in_run_id <> $1 OR seen_in_run_id IS NULL)
 `
 
-func (q *Queries) ExpireIdPUsersNotSeenInRun(ctx context.Context, expiredRunID pgtype.Int8) (int64, error) {
-	result, err := q.db.Exec(ctx, expireIdPUsersNotSeenInRun, expiredRunID)
+func (q *Queries) ExpireOktaAccountsNotSeenInRun(ctx context.Context, expiredRunID pgtype.Int8) (int64, error) {
+	result, err := q.db.Exec(ctx, expireOktaAccountsNotSeenInRun, expiredRunID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const expireOktaAppAssignmentsNotSeenInRun = `-- name: ExpireOktaAppAssignmentsNotSeenInRun :execrows
+UPDATE okta_user_app_assignments
+SET
+  expired_at = now(),
+  expired_run_id = $1
+WHERE expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND (seen_in_run_id <> $1 OR seen_in_run_id IS NULL)
+`
+
+func (q *Queries) ExpireOktaAppAssignmentsNotSeenInRun(ctx context.Context, expiredRunID pgtype.Int8) (int64, error) {
+	result, err := q.db.Exec(ctx, expireOktaAppAssignmentsNotSeenInRun, expiredRunID)
 	if err != nil {
 		return 0, err
 	}
@@ -120,6 +112,24 @@ func (q *Queries) ExpireOktaAppsNotSeenInRun(ctx context.Context, expiredRunID p
 	return result.RowsAffected(), nil
 }
 
+const expireOktaGroupMembershipsNotSeenInRun = `-- name: ExpireOktaGroupMembershipsNotSeenInRun :execrows
+UPDATE okta_user_groups
+SET
+  expired_at = now(),
+  expired_run_id = $1
+WHERE expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND (seen_in_run_id <> $1 OR seen_in_run_id IS NULL)
+`
+
+func (q *Queries) ExpireOktaGroupMembershipsNotSeenInRun(ctx context.Context, expiredRunID pgtype.Int8) (int64, error) {
+	result, err := q.db.Exec(ctx, expireOktaGroupMembershipsNotSeenInRun, expiredRunID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const expireOktaGroupsNotSeenInRun = `-- name: ExpireOktaGroupsNotSeenInRun :execrows
 UPDATE okta_groups
 SET
@@ -138,62 +148,26 @@ func (q *Queries) ExpireOktaGroupsNotSeenInRun(ctx context.Context, expiredRunID
 	return result.RowsAffected(), nil
 }
 
-const expireOktaUserAppAssignmentsNotSeenInRun = `-- name: ExpireOktaUserAppAssignmentsNotSeenInRun :execrows
-UPDATE okta_user_app_assignments
-SET
-  expired_at = now(),
-  expired_run_id = $1
-WHERE expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-  AND (seen_in_run_id <> $1 OR seen_in_run_id IS NULL)
-`
-
-func (q *Queries) ExpireOktaUserAppAssignmentsNotSeenInRun(ctx context.Context, expiredRunID pgtype.Int8) (int64, error) {
-	result, err := q.db.Exec(ctx, expireOktaUserAppAssignmentsNotSeenInRun, expiredRunID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const expireOktaUserGroupsNotSeenInRun = `-- name: ExpireOktaUserGroupsNotSeenInRun :execrows
-UPDATE okta_user_groups
-SET
-  expired_at = now(),
-  expired_run_id = $1
-WHERE expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-  AND (seen_in_run_id <> $1 OR seen_in_run_id IS NULL)
-`
-
-func (q *Queries) ExpireOktaUserGroupsNotSeenInRun(ctx context.Context, expiredRunID pgtype.Int8) (int64, error) {
-	result, err := q.db.Exec(ctx, expireOktaUserGroupsNotSeenInRun, expiredRunID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const promoteAppUsersSeenInRun = `-- name: PromoteAppUsersSeenInRun :execrows
+const expireSourceAccountsNotSeenInRun = `-- name: ExpireSourceAccountsNotSeenInRun :execrows
 UPDATE accounts
 SET
-  last_observed_run_id = $1,
-  last_observed_at = now(),
-  expired_at = NULL,
-  expired_run_id = NULL
+  expired_at = now(),
+  expired_run_id = $1
 WHERE source_kind = $2
   AND source_name = $3
-  AND seen_in_run_id = $1
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND (seen_in_run_id <> $1 OR seen_in_run_id IS NULL)
 `
 
-type PromoteAppUsersSeenInRunParams struct {
-	LastObservedRunID pgtype.Int8 `json:"last_observed_run_id"`
-	SourceKind        string      `json:"source_kind"`
-	SourceName        string      `json:"source_name"`
+type ExpireSourceAccountsNotSeenInRunParams struct {
+	ExpiredRunID pgtype.Int8 `json:"expired_run_id"`
+	SourceKind   string      `json:"source_kind"`
+	SourceName   string      `json:"source_name"`
 }
 
-func (q *Queries) PromoteAppUsersSeenInRun(ctx context.Context, arg PromoteAppUsersSeenInRunParams) (int64, error) {
-	result, err := q.db.Exec(ctx, promoteAppUsersSeenInRun, arg.LastObservedRunID, arg.SourceKind, arg.SourceName)
+func (q *Queries) ExpireSourceAccountsNotSeenInRun(ctx context.Context, arg ExpireSourceAccountsNotSeenInRunParams) (int64, error) {
+	result, err := q.db.Exec(ctx, expireSourceAccountsNotSeenInRun, arg.ExpiredRunID, arg.SourceKind, arg.SourceName)
 	if err != nil {
 		return 0, err
 	}
@@ -228,7 +202,7 @@ func (q *Queries) PromoteEntitlementsSeenInRunBySource(ctx context.Context, arg 
 	return result.RowsAffected(), nil
 }
 
-const promoteIdPUsersSeenInRun = `-- name: PromoteIdPUsersSeenInRun :execrows
+const promoteOktaAccountsSeenInRun = `-- name: PromoteOktaAccountsSeenInRun :execrows
 UPDATE accounts
 SET
   last_observed_run_id = $1,
@@ -239,8 +213,26 @@ WHERE source_kind = 'okta'
   AND seen_in_run_id = $1
 `
 
-func (q *Queries) PromoteIdPUsersSeenInRun(ctx context.Context, lastObservedRunID pgtype.Int8) (int64, error) {
-	result, err := q.db.Exec(ctx, promoteIdPUsersSeenInRun, lastObservedRunID)
+func (q *Queries) PromoteOktaAccountsSeenInRun(ctx context.Context, lastObservedRunID pgtype.Int8) (int64, error) {
+	result, err := q.db.Exec(ctx, promoteOktaAccountsSeenInRun, lastObservedRunID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const promoteOktaAppAssignmentsSeenInRun = `-- name: PromoteOktaAppAssignmentsSeenInRun :execrows
+UPDATE okta_user_app_assignments
+SET
+  last_observed_run_id = $1,
+  last_observed_at = now(),
+  expired_at = NULL,
+  expired_run_id = NULL
+WHERE seen_in_run_id = $1
+`
+
+func (q *Queries) PromoteOktaAppAssignmentsSeenInRun(ctx context.Context, lastObservedRunID pgtype.Int8) (int64, error) {
+	result, err := q.db.Exec(ctx, promoteOktaAppAssignmentsSeenInRun, lastObservedRunID)
 	if err != nil {
 		return 0, err
 	}
@@ -283,6 +275,24 @@ func (q *Queries) PromoteOktaAppsSeenInRun(ctx context.Context, lastObservedRunI
 	return result.RowsAffected(), nil
 }
 
+const promoteOktaGroupMembershipsSeenInRun = `-- name: PromoteOktaGroupMembershipsSeenInRun :execrows
+UPDATE okta_user_groups
+SET
+  last_observed_run_id = $1,
+  last_observed_at = now(),
+  expired_at = NULL,
+  expired_run_id = NULL
+WHERE seen_in_run_id = $1
+`
+
+func (q *Queries) PromoteOktaGroupMembershipsSeenInRun(ctx context.Context, lastObservedRunID pgtype.Int8) (int64, error) {
+	result, err := q.db.Exec(ctx, promoteOktaGroupMembershipsSeenInRun, lastObservedRunID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const promoteOktaGroupsSeenInRun = `-- name: PromoteOktaGroupsSeenInRun :execrows
 UPDATE okta_groups
 SET
@@ -301,36 +311,26 @@ func (q *Queries) PromoteOktaGroupsSeenInRun(ctx context.Context, lastObservedRu
 	return result.RowsAffected(), nil
 }
 
-const promoteOktaUserAppAssignmentsSeenInRun = `-- name: PromoteOktaUserAppAssignmentsSeenInRun :execrows
-UPDATE okta_user_app_assignments
+const promoteSourceAccountsSeenInRun = `-- name: PromoteSourceAccountsSeenInRun :execrows
+UPDATE accounts
 SET
   last_observed_run_id = $1,
   last_observed_at = now(),
   expired_at = NULL,
   expired_run_id = NULL
-WHERE seen_in_run_id = $1
+WHERE source_kind = $2
+  AND source_name = $3
+  AND seen_in_run_id = $1
 `
 
-func (q *Queries) PromoteOktaUserAppAssignmentsSeenInRun(ctx context.Context, lastObservedRunID pgtype.Int8) (int64, error) {
-	result, err := q.db.Exec(ctx, promoteOktaUserAppAssignmentsSeenInRun, lastObservedRunID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+type PromoteSourceAccountsSeenInRunParams struct {
+	LastObservedRunID pgtype.Int8 `json:"last_observed_run_id"`
+	SourceKind        string      `json:"source_kind"`
+	SourceName        string      `json:"source_name"`
 }
 
-const promoteOktaUserGroupsSeenInRun = `-- name: PromoteOktaUserGroupsSeenInRun :execrows
-UPDATE okta_user_groups
-SET
-  last_observed_run_id = $1,
-  last_observed_at = now(),
-  expired_at = NULL,
-  expired_run_id = NULL
-WHERE seen_in_run_id = $1
-`
-
-func (q *Queries) PromoteOktaUserGroupsSeenInRun(ctx context.Context, lastObservedRunID pgtype.Int8) (int64, error) {
-	result, err := q.db.Exec(ctx, promoteOktaUserGroupsSeenInRun, lastObservedRunID)
+func (q *Queries) PromoteSourceAccountsSeenInRun(ctx context.Context, arg PromoteSourceAccountsSeenInRunParams) (int64, error) {
+	result, err := q.db.Exec(ctx, promoteSourceAccountsSeenInRun, arg.LastObservedRunID, arg.SourceKind, arg.SourceName)
 	if err != nil {
 		return 0, err
 	}

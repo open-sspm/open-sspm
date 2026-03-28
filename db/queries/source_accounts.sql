@@ -1,4 +1,4 @@
--- name: UpsertAppUsersBulkBySource :execrows
+-- name: UpsertSourceAccountsBulkBySource :execrows
 WITH input AS (
   SELECT
     i,
@@ -171,7 +171,7 @@ ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
   seen_at = EXCLUDED.seen_at,
   updated_at = now();
 
--- name: CountAppUsersWithLinkBySourceAndQuery :one
+-- name: CountSourceAccountsBySourceAndQuery :one
 SELECT count(*)
 FROM accounts au
 WHERE
@@ -190,10 +190,10 @@ WHERE
     OR au.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
   );
 
--- name: ListAppUsersWithLinkPageBySourceAndQuery :many
+-- name: ListSourceAccountsPageBySourceAndQuery :many
 SELECT
   au.*,
-  COALESCE(ia.identity_id, 0) AS idp_user_id
+  COALESCE(ia.identity_id, 0) AS identity_id
 FROM accounts au
 LEFT JOIN identity_accounts ia ON ia.account_id = au.id
 WHERE
@@ -215,7 +215,68 @@ ORDER BY au.id DESC
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
--- name: CountAppUsersBySourceAndQueryAndState :one
+-- name: ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts :many
+WITH page AS (
+  SELECT
+    au.*,
+    COALESCE(ia.identity_id, 0) AS identity_id
+  FROM accounts au
+  LEFT JOIN identity_accounts ia ON ia.account_id = au.id
+  WHERE
+    au.source_kind = sqlc.arg(source_kind)
+    AND au.source_name = sqlc.arg(source_name)
+    AND au.expired_at IS NULL
+    AND au.last_observed_run_id IS NOT NULL
+    AND (
+      sqlc.arg(entity_category)::text = ''
+      OR au.entity_category = sqlc.arg(entity_category)::text
+    )
+    AND (
+      sqlc.arg(query)::text = ''
+      OR au.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+      OR au.email ILIKE ('%' || sqlc.arg(query)::text || '%')
+      OR au.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    )
+  ORDER BY au.id DESC
+  LIMIT sqlc.arg(page_limit)::int
+  OFFSET sqlc.arg(page_offset)::int
+),
+requested_accounts AS (
+  SELECT DISTINCT page.id
+  FROM page
+),
+entitlement_counts AS (
+  SELECT
+    e.app_user_id AS account_id,
+    count(DISTINCT NULLIF(trim(e.resource), '')) FILTER (
+      WHERE sqlc.arg(distinct_resource_kind_1)::text <> ''
+        AND e.kind = sqlc.arg(distinct_resource_kind_1)::text
+    )::bigint AS distinct_resource_count_1,
+    count(DISTINCT NULLIF(trim(e.resource), '')) FILTER (
+      WHERE sqlc.arg(distinct_resource_kind_2)::text <> ''
+        AND e.kind = sqlc.arg(distinct_resource_kind_2)::text
+    )::bigint AS distinct_resource_count_2,
+    count(*) FILTER (
+      WHERE sqlc.arg(entitlement_kind_1)::text <> ''
+        AND e.kind = sqlc.arg(entitlement_kind_1)::text
+        AND NULLIF(trim(e.resource), '') IS NOT NULL
+    )::bigint AS entitlement_count_1
+  FROM entitlements e
+  JOIN requested_accounts ra ON ra.id = e.app_user_id
+  WHERE e.expired_at IS NULL
+    AND e.last_observed_run_id IS NOT NULL
+  GROUP BY e.app_user_id
+)
+SELECT
+  page.*,
+  COALESCE(entitlement_counts.distinct_resource_count_1, 0)::bigint AS distinct_resource_count_1,
+  COALESCE(entitlement_counts.distinct_resource_count_2, 0)::bigint AS distinct_resource_count_2,
+  COALESCE(entitlement_counts.entitlement_count_1, 0)::bigint AS entitlement_count_1
+FROM page
+LEFT JOIN entitlement_counts ON entitlement_counts.account_id = page.id
+ORDER BY page.id DESC;
+
+-- name: CountSourceAccountsBySourceAndQueryAndState :one
 SELECT count(*)
 FROM accounts au
 WHERE
@@ -245,7 +306,7 @@ WHERE
     )
   );
 
--- name: ListAppUsersPageBySourceAndQueryAndState :many
+-- name: ListSourceAccountsPageBySourceAndQueryAndState :many
 SELECT au.*
 FROM accounts au
 WHERE
@@ -278,7 +339,7 @@ ORDER BY au.id DESC
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
--- name: CountUnmatchedAppUsersBySourceAndQuery :one
+-- name: CountUnlinkedSourceAccountsBySourceAndQuery :one
 WITH authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
   FROM identity_accounts ia
@@ -314,7 +375,7 @@ WHERE
     OR au.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
   );
 
--- name: ListUnmatchedAppUsersPageBySourceAndQuery :many
+-- name: ListUnlinkedSourceAccountsPageBySourceAndQuery :many
 WITH authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
   FROM identity_accounts ia
@@ -353,14 +414,14 @@ ORDER BY au.display_name, au.email, au.external_id
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
--- name: GetAppUser :one
+-- name: GetSourceAccount :one
 SELECT *
 FROM accounts
 WHERE id = $1
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL;
 
--- name: CountAppUsersBySource :one
+-- name: CountSourceAccountsBySource :one
 SELECT count(*)
 FROM accounts
 WHERE source_kind = $1
@@ -368,7 +429,7 @@ WHERE source_kind = $1
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL;
 
--- name: CountMatchedAppUsersBySource :one
+-- name: CountLinkedSourceAccountsBySource :one
 WITH authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
   FROM identity_accounts ia
@@ -389,7 +450,7 @@ WHERE au.source_kind = $1
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL;
 
--- name: CountUnmatchedAppUsersBySource :one
+-- name: CountUnlinkedSourceAccountsBySource :one
 WITH authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
   FROM identity_accounts ia

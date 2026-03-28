@@ -11,17 +11,17 @@ type LinkedEntitlementView struct {
 	Permission    string
 }
 
-type LinkedAppView struct {
-	AppUser      gen.Account
+type LinkedAccountView struct {
+	Account      gen.Account
 	Entitlements []LinkedEntitlementView
 }
 
-type IdPUserShowViewData struct {
+type OktaAccountShowViewData struct {
 	Layout          LayoutData
 	User            gen.Account
 	OktaAssignments []OktaAssignmentView
 	OktaAppCount    int
-	LinkedApps      []LinkedAppView
-	LinkedAppsCount int
-	HasLinkedApps   bool
+	LinkedAccounts  []LinkedAccountView
+	LinkedAccountsCount int
+	HasLinkedAccounts   bool
 }

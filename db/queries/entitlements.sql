@@ -2,22 +2,22 @@
 WITH input AS (
   SELECT
     i,
-    (sqlc.arg(app_user_external_ids)::text[])[i] AS app_user_external_id,
+    (sqlc.arg(account_external_ids)::text[])[i] AS account_external_id,
     (sqlc.arg(kinds)::text[])[i] AS kind,
     (sqlc.arg(resources)::text[])[i] AS resource,
     (sqlc.arg(permissions)::text[])[i] AS permission,
     (sqlc.arg(raw_jsons)::jsonb[])[i] AS raw_json
-  FROM generate_subscripts(sqlc.arg(app_user_external_ids)::text[], 1) AS s(i)
+  FROM generate_subscripts(sqlc.arg(account_external_ids)::text[], 1) AS s(i)
 ),
 dedup AS (
-  SELECT DISTINCT ON (app_user_external_id, kind, resource, permission)
-    app_user_external_id,
+  SELECT DISTINCT ON (account_external_id, kind, resource, permission)
+    account_external_id,
     kind,
     resource,
     permission,
     raw_json
   FROM input
-  ORDER BY app_user_external_id, kind, resource, permission, i DESC
+  ORDER BY account_external_id, kind, resource, permission, i DESC
 )
 INSERT INTO entitlements (
   app_user_id,
@@ -42,39 +42,56 @@ FROM dedup input
 JOIN accounts au
   ON au.source_kind = sqlc.arg(source_kind)::text
   AND au.source_name = sqlc.arg(source_name)::text
-  AND au.external_id = input.app_user_external_id
+  AND au.external_id = input.account_external_id
 ON CONFLICT (app_user_id, kind, resource, permission) DO UPDATE SET
   raw_json = EXCLUDED.raw_json,
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
   updated_at = now();
 
--- name: ListEntitlementsForAppUser :many
-SELECT *
+-- name: ListEntitlementsForAccount :many
+SELECT
+  id,
+  app_user_id AS account_id,
+  kind,
+  resource,
+  permission,
+  raw_json,
+  created_at,
+  seen_in_run_id,
+  seen_at,
+  last_observed_run_id,
+  last_observed_at,
+  expired_at,
+  expired_run_id,
+  updated_at
 FROM entitlements
 WHERE app_user_id = $1
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL
 ORDER BY id;
 
--- name: ListEntitlementsForAppUserIDs :many
-SELECT *
+-- name: ListEntitlementsForAccountIDs :many
+SELECT
+  id,
+  app_user_id AS account_id,
+  kind,
+  resource,
+  permission,
+  raw_json,
+  created_at,
+  seen_in_run_id,
+  seen_at,
+  last_observed_run_id,
+  last_observed_at,
+  expired_at,
+  expired_run_id,
+  updated_at
 FROM entitlements
-WHERE app_user_id = ANY(sqlc.arg(app_user_ids)::bigint[])
+WHERE app_user_id = ANY(sqlc.arg(account_ids)::bigint[])
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL
 ORDER BY app_user_id, id;
-
--- name: ListEntitlementResourcesByAppUserIDsAndKind :many
-SELECT
-  app_user_id,
-  resource
-FROM entitlements
-WHERE app_user_id = ANY(sqlc.arg(app_user_ids)::bigint[])
-  AND kind = sqlc.arg(ent_kind)
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-ORDER BY app_user_id, resource;
 
 -- name: ListEntitlementAccessBySourceAndResourceRef :many
 SELECT
@@ -85,18 +102,18 @@ SELECT
   e.raw_json AS entitlement_raw_json,
   e.created_at AS entitlement_created_at,
   e.updated_at AS entitlement_updated_at,
-  au.id AS app_user_id,
-  au.source_kind AS app_user_source_kind,
-  au.source_name AS app_user_source_name,
-  au.external_id AS app_user_external_id,
-  au.email AS app_user_email,
-  au.display_name AS app_user_display_name,
-  au.raw_json AS app_user_raw_json,
+  au.id AS account_id,
+  au.source_kind AS account_source_kind,
+  au.source_name AS account_source_name,
+  au.external_id AS account_external_id,
+  au.email AS account_email,
+  au.display_name AS account_display_name,
+  au.raw_json AS account_raw_json,
   ia.link_reason AS link_reason,
-  i.id AS idp_user_id,
-  i.primary_email AS idp_user_email,
-  i.display_name AS idp_user_display_name,
-  i.kind AS idp_user_status
+  i.id AS identity_id,
+  i.primary_email AS identity_email,
+  i.display_name AS identity_display_name,
+  i.kind AS identity_status
 FROM entitlements e
 JOIN accounts au ON au.id = e.app_user_id
 LEFT JOIN identity_accounts ia ON ia.account_id = au.id

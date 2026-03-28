@@ -622,12 +622,12 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		for _, account := range accounts {
 			accountIDs = append(accountIDs, account.ID)
 		}
-		entitlements, err := h.Q.ListEntitlementsForAppUserIDs(ctx, accountIDs)
+		entitlements, err := h.Q.ListEntitlementsForAccountIDs(ctx, accountIDs)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
 		for _, entitlement := range entitlements {
-			entitlementsByAccountID[entitlement.AppUserID]++
+			entitlementsByAccountID[entitlement.AccountID]++
 		}
 	}
 
@@ -667,7 +667,7 @@ func linkedAccountDetailHref(account gen.Account) string {
 
 	switch sourceKind {
 	case "okta":
-		return "/idp-users/" + strconv.FormatInt(account.ID, 10)
+		return "/okta-accounts/" + strconv.FormatInt(account.ID, 10)
 	case "github":
 		return listAccountHref("/github-users", externalID)
 	case "datadog":

@@ -23,13 +23,13 @@ WITH authoritative_identities AS (
 )
 SELECT
   e.id AS entitlement_id,
-  i.id AS idp_user_id,
-  i.primary_email AS idp_user_email,
-  i.display_name AS idp_user_display_name,
-  i.kind AS idp_user_status,
-  au.source_kind AS source_kind,
-  au.source_name AS source_name,
-  au.external_id AS app_user_external_id,
+  i.id AS identity_id,
+  i.primary_email AS identity_email,
+  i.display_name AS identity_display_name,
+  i.kind AS identity_status,
+  au.source_kind AS account_source_kind,
+  au.source_name AS account_source_name,
+  au.external_id AS account_external_id,
   e.kind AS entitlement_kind,
   e.resource AS entitlement_resource,
   e.permission AS entitlement_permission
@@ -48,13 +48,13 @@ ORDER BY i.id, au.id, e.id
 
 type ListNormalizedEntitlementAssignmentsV1Row struct {
 	EntitlementID         int64  `json:"entitlement_id"`
-	IdpUserID             int64  `json:"idp_user_id"`
-	IdpUserEmail          string `json:"idp_user_email"`
-	IdpUserDisplayName    string `json:"idp_user_display_name"`
-	IdpUserStatus         string `json:"idp_user_status"`
-	SourceKind            string `json:"source_kind"`
-	SourceName            string `json:"source_name"`
-	AppUserExternalID     string `json:"app_user_external_id"`
+	IdentityID            int64  `json:"identity_id"`
+	IdentityEmail         string `json:"identity_email"`
+	IdentityDisplayName   string `json:"identity_display_name"`
+	IdentityStatus        string `json:"identity_status"`
+	AccountSourceKind     string `json:"account_source_kind"`
+	AccountSourceName     string `json:"account_source_name"`
+	AccountExternalID     string `json:"account_external_id"`
 	EntitlementKind       string `json:"entitlement_kind"`
 	EntitlementResource   string `json:"entitlement_resource"`
 	EntitlementPermission string `json:"entitlement_permission"`
@@ -71,13 +71,13 @@ func (q *Queries) ListNormalizedEntitlementAssignmentsV1(ctx context.Context) ([
 		var i ListNormalizedEntitlementAssignmentsV1Row
 		if err := rows.Scan(
 			&i.EntitlementID,
-			&i.IdpUserID,
-			&i.IdpUserEmail,
-			&i.IdpUserDisplayName,
-			&i.IdpUserStatus,
-			&i.SourceKind,
-			&i.SourceName,
-			&i.AppUserExternalID,
+			&i.IdentityID,
+			&i.IdentityEmail,
+			&i.IdentityDisplayName,
+			&i.IdentityStatus,
+			&i.AccountSourceKind,
+			&i.AccountSourceName,
+			&i.AccountExternalID,
 			&i.EntitlementKind,
 			&i.EntitlementResource,
 			&i.EntitlementPermission,
@@ -111,9 +111,9 @@ SELECT
   i.primary_email AS identity_email,
   i.display_name AS identity_display_name,
   (auth_i.identity_id IS NOT NULL)::boolean AS identity_managed,
-  au.source_kind AS source_kind,
-  au.source_name AS source_name,
-  au.external_id AS app_user_external_id,
+  au.source_kind AS account_source_kind,
+  au.source_name AS account_source_name,
+  au.external_id AS account_external_id,
   e.kind AS entitlement_kind,
   e.resource AS entitlement_resource,
   e.permission AS entitlement_permission
@@ -137,9 +137,9 @@ type ListNormalizedEntitlementAssignmentsV2Row struct {
 	IdentityEmail         string `json:"identity_email"`
 	IdentityDisplayName   string `json:"identity_display_name"`
 	IdentityManaged       bool   `json:"identity_managed"`
-	SourceKind            string `json:"source_kind"`
-	SourceName            string `json:"source_name"`
-	AppUserExternalID     string `json:"app_user_external_id"`
+	AccountSourceKind     string `json:"account_source_kind"`
+	AccountSourceName     string `json:"account_source_name"`
+	AccountExternalID     string `json:"account_external_id"`
 	EntitlementKind       string `json:"entitlement_kind"`
 	EntitlementResource   string `json:"entitlement_resource"`
 	EntitlementPermission string `json:"entitlement_permission"`
@@ -161,9 +161,9 @@ func (q *Queries) ListNormalizedEntitlementAssignmentsV2(ctx context.Context) ([
 			&i.IdentityEmail,
 			&i.IdentityDisplayName,
 			&i.IdentityManaged,
-			&i.SourceKind,
-			&i.SourceName,
-			&i.AppUserExternalID,
+			&i.AccountSourceKind,
+			&i.AccountSourceName,
+			&i.AccountExternalID,
 			&i.EntitlementKind,
 			&i.EntitlementResource,
 			&i.EntitlementPermission,
@@ -191,11 +191,11 @@ WITH authoritative_identities AS (
     AND anchor.last_observed_run_id IS NOT NULL
 )
 SELECT
-  i.id AS idp_user_id,
-  COALESCE(auth_account.external_id, '') AS idp_user_external_id,
-  i.primary_email AS idp_user_email,
-  i.display_name AS idp_user_display_name,
-  COALESCE(NULLIF(auth_account.status, ''), i.kind) AS idp_user_status
+  i.id AS identity_id,
+  COALESCE(auth_account.external_id, '') AS identity_external_id,
+  i.primary_email AS identity_email,
+  i.display_name AS identity_display_name,
+  COALESCE(NULLIF(auth_account.status, ''), i.kind) AS identity_status
 FROM identities i
 JOIN authoritative_identities ai ON ai.identity_id = i.id
 LEFT JOIN LATERAL (
@@ -216,11 +216,11 @@ ORDER BY i.id
 `
 
 type ListNormalizedIdentitiesV1Row struct {
-	IdpUserID          int64  `json:"idp_user_id"`
-	IdpUserExternalID  string `json:"idp_user_external_id"`
-	IdpUserEmail       string `json:"idp_user_email"`
-	IdpUserDisplayName string `json:"idp_user_display_name"`
-	IdpUserStatus      string `json:"idp_user_status"`
+	IdentityID          int64  `json:"identity_id"`
+	IdentityExternalID  string `json:"identity_external_id"`
+	IdentityEmail       string `json:"identity_email"`
+	IdentityDisplayName string `json:"identity_display_name"`
+	IdentityStatus      string `json:"identity_status"`
 }
 
 func (q *Queries) ListNormalizedIdentitiesV1(ctx context.Context) ([]ListNormalizedIdentitiesV1Row, error) {
@@ -233,11 +233,11 @@ func (q *Queries) ListNormalizedIdentitiesV1(ctx context.Context) ([]ListNormali
 	for rows.Next() {
 		var i ListNormalizedIdentitiesV1Row
 		if err := rows.Scan(
-			&i.IdpUserID,
-			&i.IdpUserExternalID,
-			&i.IdpUserEmail,
-			&i.IdpUserDisplayName,
-			&i.IdpUserStatus,
+			&i.IdentityID,
+			&i.IdentityExternalID,
+			&i.IdentityEmail,
+			&i.IdentityDisplayName,
+			&i.IdentityStatus,
 		); err != nil {
 			return nil, err
 		}

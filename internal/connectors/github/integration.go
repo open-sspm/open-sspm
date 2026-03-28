@@ -480,7 +480,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 
 	for start := 0; start < len(externalIDs); start += userBatchSize {
 		end := min(start+userBatchSize, len(externalIDs))
-		_, err := q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
+		_, err := q.UpsertSourceAccountsBulkBySource(ctx, gen.UpsertSourceAccountsBulkBySourceParams{
 			SourceKind:       "github",
 			SourceName:       i.org,
 			SeenInRunID:      runID,
@@ -508,7 +508,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 	}
 
 	const entitlementBatchSize = 5000
-	entAppUserExternalIDs := make([]string, 0, len(members))
+	entAccountExternalIDs := make([]string, 0, len(members))
 	entKinds := make([]string, 0, len(members))
 	entResources := make([]string, 0, len(members))
 	entPermissions := make([]string, 0, len(members))
@@ -520,7 +520,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 			continue
 		}
 		orgEntJSON := registry.MarshalJSON(map[string]string{"org": i.org, "role": member.Role})
-		entAppUserExternalIDs = append(entAppUserExternalIDs, login)
+		entAccountExternalIDs = append(entAccountExternalIDs, login)
 		entKinds = append(entKinds, "github_org_role")
 		entResources = append(entResources, "github_org:"+i.org)
 		entPermissions = append(entPermissions, member.Role)
@@ -532,7 +532,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 				continue
 			}
 			teamJSON := registry.MarshalJSON(map[string]string{"team": teamSlug})
-			entAppUserExternalIDs = append(entAppUserExternalIDs, login)
+			entAccountExternalIDs = append(entAccountExternalIDs, login)
 			entKinds = append(entKinds, "github_team_member")
 			entResources = append(entResources, "github_team:"+i.org+"/"+teamSlug)
 			entPermissions = append(entPermissions, "member")
@@ -548,7 +548,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 					"repo":       repoFullName,
 					"permission": repo.Permission,
 				})
-				entAppUserExternalIDs = append(entAppUserExternalIDs, login)
+				entAccountExternalIDs = append(entAccountExternalIDs, login)
 				entKinds = append(entKinds, "github_team_repo_permission")
 				entResources = append(entResources, "github_repo:"+repoFullName)
 				entPermissions = append(entPermissions, repo.Permission)
@@ -557,13 +557,13 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 		}
 	}
 
-	for start := 0; start < len(entAppUserExternalIDs); start += entitlementBatchSize {
-		end := min(start+entitlementBatchSize, len(entAppUserExternalIDs))
+	for start := 0; start < len(entAccountExternalIDs); start += entitlementBatchSize {
+		end := min(start+entitlementBatchSize, len(entAccountExternalIDs))
 		_, err := q.UpsertEntitlementsBulkBySource(ctx, gen.UpsertEntitlementsBulkBySourceParams{
 			SeenInRunID:        runID,
 			SourceKind:         "github",
 			SourceName:         i.org,
-			AppUserExternalIds: entAppUserExternalIDs[start:end],
+			AccountExternalIds: entAccountExternalIDs[start:end],
 			Kinds:              entKinds[start:end],
 			Resources:          entResources[start:end],
 			Permissions:        entPermissions[start:end],

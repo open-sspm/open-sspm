@@ -11,11 +11,11 @@ WITH authoritative_identities AS (
     AND anchor.last_observed_run_id IS NOT NULL
 )
 SELECT
-  i.id AS idp_user_id,
-  COALESCE(auth_account.external_id, '') AS idp_user_external_id,
-  i.primary_email AS idp_user_email,
-  i.display_name AS idp_user_display_name,
-  COALESCE(NULLIF(auth_account.status, ''), i.kind) AS idp_user_status
+  i.id AS identity_id,
+  COALESCE(auth_account.external_id, '') AS identity_external_id,
+  i.primary_email AS identity_email,
+  i.display_name AS identity_display_name,
+  COALESCE(NULLIF(auth_account.status, ''), i.kind) AS identity_status
 FROM identities i
 JOIN authoritative_identities ai ON ai.identity_id = i.id
 LEFT JOIN LATERAL (
@@ -87,13 +87,13 @@ WITH authoritative_identities AS (
 )
 SELECT
   e.id AS entitlement_id,
-  i.id AS idp_user_id,
-  i.primary_email AS idp_user_email,
-  i.display_name AS idp_user_display_name,
-  i.kind AS idp_user_status,
-  au.source_kind AS source_kind,
-  au.source_name AS source_name,
-  au.external_id AS app_user_external_id,
+  i.id AS identity_id,
+  i.primary_email AS identity_email,
+  i.display_name AS identity_display_name,
+  i.kind AS identity_status,
+  au.source_kind AS account_source_kind,
+  au.source_name AS account_source_name,
+  au.external_id AS account_external_id,
   e.kind AS entitlement_kind,
   e.resource AS entitlement_resource,
   e.permission AS entitlement_permission
@@ -128,9 +128,9 @@ SELECT
   i.primary_email AS identity_email,
   i.display_name AS identity_display_name,
   (auth_i.identity_id IS NOT NULL)::boolean AS identity_managed,
-  au.source_kind AS source_kind,
-  au.source_name AS source_name,
-  au.external_id AS app_user_external_id,
+  au.source_kind AS account_source_kind,
+  au.source_name AS account_source_name,
+  au.external_id AS account_external_id,
   e.kind AS entitlement_kind,
   e.resource AS entitlement_resource,
   e.permission AS entitlement_permission

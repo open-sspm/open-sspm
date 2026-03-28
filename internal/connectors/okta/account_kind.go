@@ -6,7 +6,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 )
 
-func oktaUserAccountKind(user User) string {
+func oktaAccountKind(user User) string {
 	signal := registry.ClassifyKindFromSignals(user.DisplayName, user.Email)
 	switch signal {
 	case registry.AccountKindBot, registry.AccountKindService:

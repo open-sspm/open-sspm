@@ -6,10 +6,10 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 	@Layout(data.Layout) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
-			{Label: "Apps", Href: "/apps"},
+			{Label: "Okta Apps", Href: "/apps"},
 			{Label: data.App.Label},
-		}, "Okta users assigned to this app.") {
-			<a class="btn-sm-outline" href="/apps">Back to apps</a>
+		}, "Okta accounts assigned to this app.") {
+			<a class="btn-sm-outline" href="/apps">Back to Okta apps</a>
 		}
 
 		<article class="card">
@@ -87,16 +87,16 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 		<section class="space-y-3">
 			<div class="flex items-center gap-3">
 				<div>
-					<h2 class="text-base font-semibold">Assigned users</h2>
-					<p class="text-sm text-muted-foreground">Users assigned to this app via Okta.</p>
+					<h2 class="text-base font-semibold">Assigned accounts</h2>
+					<p class="text-sm text-muted-foreground">Okta accounts assigned to this app.</p>
 				</div>
 			</div>
 			@ColumnsTable("okta-app-show--users", "") {
 				<table data-columns-id="okta-app-show--users" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-					<caption class="sr-only">Users assigned to this app, including assignment source, groups, and permission attributes.</caption>
+					<caption class="sr-only">Okta accounts assigned to this app, including assignment source, groups, and permission attributes.</caption>
 					<thead>
 						<tr>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">User</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account</th>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Assigned via</th>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Group(s)</th>
@@ -104,23 +104,23 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 						</tr>
 					</thead>
 					<tbody>
-						if data.HasUsers {
-							for _, u := range data.Users {
+						if data.HasAccounts {
+							for _, account := range data.Accounts {
 								<tr class="align-top">
 									<td>
-										<a class="btn-sm-link px-0 font-medium" href={ u.UserHref }>{ u.UserDisplayName }</a>
-										if u.UserEmail != "" {
-											<div class="text-xs text-muted-foreground break-all">{ u.UserEmail }</div>
-										} else if u.UserExternalID != "" {
-											<div class="text-xs text-muted-foreground break-all">{ u.UserExternalID }</div>
+										<a class="btn-sm-link px-0 font-medium" href={ account.AccountHref }>{ account.AccountDisplayName }</a>
+										if account.AccountEmail != "" {
+											<div class="text-xs text-muted-foreground break-all">{ account.AccountEmail }</div>
+										} else if account.OktaAccountExternalID != "" {
+											<div class="text-xs text-muted-foreground break-all">{ account.OktaAccountExternalID }</div>
 										}
 									</td>
-									<td><span class={ StatusBadgeClass(u.UserStatus) }>{ u.UserStatus }</span></td>
-									<td><span class="badge-outline">{ u.AssignedVia }</span></td>
+									<td><span class={ StatusBadgeClass(account.OktaAccountStatus) }>{ account.OktaAccountStatus }</span></td>
+									<td><span class="badge-outline">{ account.AssignedVia }</span></td>
 									<td>
-										if len(u.Groups) > 0 {
+										if len(account.Groups) > 0 {
 											<div class="flex flex-wrap gap-2">
-												for _, group := range u.Groups {
+												for _, group := range account.Groups {
 													<span class="badge-outline">{ group }</span>
 												}
 											</div>
@@ -129,9 +129,9 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 										}
 									</td>
 									<td>
-										if len(u.Permissions) > 0 {
+										if len(account.Permissions) > 0 {
 											<div class="flex flex-wrap gap-2">
-												for _, p := range u.Permissions {
+												for _, p := range account.Permissions {
 													<span class="badge-outline">{ p.Text }</span>
 												}
 											</div>
@@ -144,7 +144,7 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 						} else {
 							<tr>
 								<td colspan="5">
-									@EmptyState("No assigned users found", data.EmptyStateMsg)
+									@EmptyState("No assigned accounts found", data.EmptyStateMsg)
 								</td>
 							</tr>
 						}
@@ -171,4 +171,3 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 		</section>
 	}
 }
-

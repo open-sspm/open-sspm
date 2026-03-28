@@ -155,7 +155,7 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 	if len(connectedRows) > 0 {
 		data.Sections = append(data.Sections, viewmodels.CommandSectionView{
 			Key:   "connected-apps",
-			Title: "Connected Apps",
+			Title: "Google Workspace Connected Apps",
 			Items: commandConnectedAppItems(connectedRows),
 		})
 	}
@@ -383,7 +383,7 @@ func commandActionSection(snap ConnectorSnapshot, query string) viewmodels.Comma
 	if _, ok := commandConnectedAppsSourceName(snap); ok {
 		items = append(items, commandActionItem(
 			"cmd-action-connected-apps",
-			fmt.Sprintf("Search Connected Apps for “%s”", query),
+			fmt.Sprintf("Search Google Workspace Connected Apps for “%s”", query),
 			commandQueryURL("/connected-apps", query),
 		))
 	}

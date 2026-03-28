@@ -136,8 +136,8 @@ func TestBuildGoogleWorkspaceAdminRoleEntitlementsMapsAssignments(t *testing.T) 
 	}
 
 	row := rows[0]
-	if row.AppUserExternalID != "user-1" {
-		t.Fatalf("app user external id = %q, want %q", row.AppUserExternalID, "user-1")
+	if row.AccountExternalID != "user-1" {
+		t.Fatalf("account external id = %q, want %q", row.AccountExternalID, "user-1")
 	}
 	if row.Kind != "google_admin_role" {
 		t.Fatalf("kind = %q, want %q", row.Kind, "google_admin_role")

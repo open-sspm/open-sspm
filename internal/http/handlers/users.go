@@ -22,8 +22,8 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
 
-// HandleIdpUsers renders the IdP users list page.
-func (h *Handlers) HandleIdpUsers(c *echo.Context) error {
+// HandleOktaAccounts renders the Okta accounts list page.
+func (h *Handlers) HandleOktaAccounts(c *echo.Context) error {
 	ctx := c.Request().Context()
 	layout, _, err := h.LayoutData(ctx, c, "Okta Accounts")
 	if err != nil {
@@ -43,7 +43,7 @@ func (h *Handlers) HandleIdpUsers(c *echo.Context) error {
 	}
 	page := parsePageParam(c)
 
-	totalCount, err := h.Q.CountIdPUsersByQueryAndState(ctx, gen.CountIdPUsersByQueryAndStateParams{
+	totalCount, err := h.Q.CountOktaAccountsByQueryAndState(ctx, gen.CountOktaAccountsByQueryAndStateParams{
 		Query: query,
 		State: state,
 	})
@@ -52,7 +52,7 @@ func (h *Handlers) HandleIdpUsers(c *echo.Context) error {
 	}
 
 	page, totalPages, offset := paginate(totalCount, page, perPage)
-	users, err := h.Q.ListIdPUsersPageByQueryAndState(ctx, gen.ListIdPUsersPageByQueryAndStateParams{
+	users, err := h.Q.ListOktaAccountsPageByQueryAndState(ctx, gen.ListOktaAccountsPageByQueryAndStateParams{
 		Query:      query,
 		State:      state,
 		PageLimit:  int32(perPage),
@@ -70,7 +70,7 @@ func (h *Handlers) HandleIdpUsers(c *echo.Context) error {
 		emptyState = "No Okta accounts match the current search."
 	}
 
-	data := viewmodels.IdPUsersViewData{
+	data := viewmodels.OktaAccountsViewData{
 		Layout:        layout,
 		Users:         users,
 		Query:         query,
@@ -86,11 +86,11 @@ func (h *Handlers) HandleIdpUsers(c *echo.Context) error {
 		EmptyStateMsg: emptyState,
 	}
 
-	return h.RenderComponent(c, views.IdPUsersPage(data))
+	return h.RenderComponent(c, views.OktaAccountsPage(data))
 }
 
-// HandleIdpUserShow renders the IdP user detail page.
-func (h *Handlers) HandleIdpUserShow(c *echo.Context) error {
+// HandleOktaAccountShow renders the Okta account detail page.
+func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 	idStr := strings.Trim(c.Param("*"), "/")
 	if idStr == "" {
 		return RenderNotFound(c)
@@ -104,7 +104,7 @@ func (h *Handlers) HandleIdpUserShow(c *echo.Context) error {
 	if err != nil {
 		return h.RenderError(c, err)
 	}
-	user, err := h.Q.GetIdPUser(ctx, id)
+	user, err := h.Q.GetOktaAccount(ctx, id)
 	if err != nil {
 		return RenderNotFound(c)
 	}
@@ -116,27 +116,27 @@ func (h *Handlers) HandleIdpUserShow(c *echo.Context) error {
 	for _, app := range linked {
 		linkedIDs = append(linkedIDs, app.ID)
 	}
-	entitlementsByAppUserID := make(map[int64][]gen.Entitlement, len(linked))
+	entitlementsByAccountID := make(map[int64][]gen.ListEntitlementsForAccountIDsRow, len(linked))
 	if len(linkedIDs) > 0 {
-		ents, err := h.Q.ListEntitlementsForAppUserIDs(ctx, linkedIDs)
+		ents, err := h.Q.ListEntitlementsForAccountIDs(ctx, linkedIDs)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
 		for _, ent := range ents {
-			entitlementsByAppUserID[ent.AppUserID] = append(entitlementsByAppUserID[ent.AppUserID], ent)
+			entitlementsByAccountID[ent.AccountID] = append(entitlementsByAccountID[ent.AccountID], ent)
 		}
 	}
-	var linkedApps []viewmodels.LinkedAppView
-	for _, app := range linked {
-		entitlementViews := make([]viewmodels.LinkedEntitlementView, 0, len(entitlementsByAppUserID[app.ID]))
-		for _, ent := range entitlementsByAppUserID[app.ID] {
+	var linkedAccounts []viewmodels.LinkedAccountView
+	for _, account := range linked {
+		entitlementViews := make([]viewmodels.LinkedEntitlementView, 0, len(entitlementsByAccountID[account.ID]))
+		for _, ent := range entitlementsByAccountID[account.ID] {
 			resourceKind, resourceID, ok := accessgraph.ParseCanonicalResourceRef(ent.Resource)
 			if !ok {
 				resourceID = strings.TrimSpace(ent.Resource)
 			}
 			resourceHref := ""
 			if ok {
-				resourceHref = accessgraph.BuildResourceHref(app.SourceKind, app.SourceName, resourceKind, resourceID)
+				resourceHref = accessgraph.BuildResourceHref(account.SourceKind, account.SourceName, resourceKind, resourceID)
 			}
 			resourceLabel := accessgraph.DisplayResourceLabel(ent.Resource, ent.RawJson)
 			if strings.TrimSpace(resourceLabel) == "" {
@@ -155,14 +155,14 @@ func (h *Handlers) HandleIdpUserShow(c *echo.Context) error {
 				Permission:    strings.TrimSpace(ent.Permission),
 			})
 		}
-		linkedApps = append(linkedApps, viewmodels.LinkedAppView{AppUser: app, Entitlements: entitlementViews})
+		linkedAccounts = append(linkedAccounts, viewmodels.LinkedAccountView{Account: account, Entitlements: entitlementViews})
 	}
 
-	assignments, err := h.Q.ListOktaUserAppAssignmentsForIdpUser(ctx, user.ID)
+	assignments, err := h.Q.ListOktaAppAssignmentsForOktaAccount(ctx, user.ID)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
-	userGroups, err := h.Q.ListOktaGroupsForIdpUser(ctx, user.ID)
+	userGroups, err := h.Q.ListOktaGroupsForOktaAccount(ctx, user.ID)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -241,97 +241,84 @@ func (h *Handlers) HandleIdpUserShow(c *echo.Context) error {
 		})
 	}
 
-	data := viewmodels.IdPUserShowViewData{
-		Layout:          layout,
-		User:            user,
-		OktaAssignments: oktaAssignments,
-		OktaAppCount:    len(oktaAssignments),
-		LinkedApps:      linkedApps,
-		LinkedAppsCount: len(linkedApps),
-		HasLinkedApps:   len(linkedApps) > 0,
+	data := viewmodels.OktaAccountShowViewData{
+		Layout:              layout,
+		User:                user,
+		OktaAssignments:     oktaAssignments,
+		OktaAppCount:        len(oktaAssignments),
+		LinkedAccounts:      linkedAccounts,
+		LinkedAccountsCount: len(linkedAccounts),
+		HasLinkedAccounts:   len(linkedAccounts) > 0,
 	}
 
-	return h.RenderComponent(c, views.IdPUserShowPage(data))
+	return h.RenderComponent(c, views.OktaAccountShowPage(data))
 }
 
 // HandleGitHubUsers renders the GitHub users page.
 func (h *Handlers) HandleGitHubUsers(c *echo.Context) error {
-	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "GitHub Users")
-	if err != nil {
-		return h.RenderError(c, err)
-	}
+	inventory, err := h.buildSourceAccountInventoryPage(c, sourceAccountInventoryOptions{
+		Title:              "GitHub Users",
+		ConnectorName:      "GitHub",
+		EmptyStateHref:     "/settings/connectors?open=github",
+		SyncedEmptyState:   "No GitHub users synced yet.",
+		FilteredEmptyState: "No GitHub users match the current search.",
+		IsConfigured: func(snap ConnectorSnapshot) bool {
+			return snap.GitHubConfigured
+		},
+		IsEnabled: func(snap ConnectorSnapshot) bool {
+			return snap.GitHubEnabled
+		},
+		Count: func(ctx context.Context, snap ConnectorSnapshot, query string) (int64, error) {
+			return h.Q.CountSourceAccountsBySourceAndQuery(ctx, gen.CountSourceAccountsBySourceAndQueryParams{
+				SourceKind:     "github",
+				SourceName:     snap.GitHub.Org,
+				EntityCategory: registry.EntityCategoryUser,
+				Query:          query,
+			})
+		},
+		List: func(ctx context.Context, snap ConnectorSnapshot, query string, offset, limit int) ([]sourceAccountInventoryAccount, error) {
+			users, err := h.Q.ListSourceAccountsPageBySourceAndQuery(ctx, gen.ListSourceAccountsPageBySourceAndQueryParams{
+				SourceKind:     "github",
+				SourceName:     snap.GitHub.Org,
+				EntityCategory: registry.EntityCategoryUser,
+				Query:          query,
+				PageLimit:      int32(limit),
+				PageOffset:     int32(offset),
+			})
+			if err != nil {
+				return nil, err
+			}
 
-	const perPage = 20
-	query := strings.TrimSpace(c.QueryParam("q"))
-	page := parsePageParam(c)
-
-	if !snap.GitHubConfigured || !snap.GitHubEnabled {
-		message := connectorUnavailableMessage("GitHub", snap.GitHubConfigured, snap.GitHubEnabled)
-		totalPages := 1
-		data := viewmodels.GitHubUsersViewData{
-			Layout:         layout,
-			Users:          nil,
-			Query:          query,
-			ShowingCount:   0,
-			ShowingFrom:    0,
-			ShowingTo:      0,
-			TotalCount:     0,
-			Page:           1,
-			PerPage:        perPage,
-			TotalPages:     totalPages,
-			HasUsers:       false,
-			EmptyStateMsg:  message,
-			EmptyStateHref: "/settings/connectors?open=github",
-		}
-		return h.RenderComponent(c, views.GitHubUsersPage(data))
-	}
-
-	totalCount, err := h.Q.CountAppUsersWithLinkBySourceAndQuery(ctx, gen.CountAppUsersWithLinkBySourceAndQueryParams{
-		SourceKind:     "github",
-		SourceName:     snap.GitHub.Org,
-		EntityCategory: registry.EntityCategoryUser,
-		Query:          query,
+			accounts := make([]sourceAccountInventoryAccount, 0, len(users))
+			for _, user := range users {
+				accounts = append(accounts, sourceAccountInventoryAccount{
+					ID:          user.ID,
+					ExternalID:  strings.TrimSpace(user.ExternalID),
+					DisplayName: strings.TrimSpace(user.DisplayName),
+					IdentityID:  user.IdentityID,
+				})
+			}
+			return accounts, nil
+		},
 	})
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
-	page, totalPages, offset := paginate(totalCount, page, perPage)
-	users, err := h.Q.ListAppUsersWithLinkPageBySourceAndQuery(ctx, gen.ListAppUsersWithLinkPageBySourceAndQueryParams{
-		SourceKind:     "github",
-		SourceName:     snap.GitHub.Org,
-		EntityCategory: registry.EntityCategoryUser,
-		Query:          query,
-		PageLimit:      int32(perPage),
-		PageOffset:     int32(offset),
-	})
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	showingCount := len(users)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
-	emptyState := "No GitHub users synced yet."
-	if query != "" {
-		emptyState = "No GitHub users match the current search."
+	items := make([]viewmodels.GitHubUserListItem, 0, len(inventory.Accounts))
+	for _, user := range inventory.Accounts {
+		items = append(items, viewmodels.GitHubUserListItem{
+			ID:          user.ID,
+			ExternalID:  user.ExternalID,
+			DisplayName: user.DisplayName,
+			IdentityID:  user.IdentityID,
+		})
 	}
 
 	data := viewmodels.GitHubUsersViewData{
-		Layout:         layout,
-		Users:          users,
-		Query:          query,
-		ShowingCount:   showingCount,
-		ShowingFrom:    showingFrom,
-		ShowingTo:      showingTo,
-		TotalCount:     totalCount,
-		Page:           page,
-		PerPage:        perPage,
-		TotalPages:     totalPages,
-		HasUsers:       showingCount > 0,
-		EmptyStateMsg:  emptyState,
-		EmptyStateHref: "/settings/connectors?open=github",
+		SourceAccountInventoryPageData: inventory.PageData,
+		Users:                          items,
+		HasUsers:                       inventory.PageData.HasAccounts,
 	}
 
 	return h.RenderComponent(c, views.GitHubUsersPage(data))
@@ -377,7 +364,7 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 		return h.RenderComponent(c, views.DatadogUsersPage(data))
 	}
 
-	totalCount, err := h.Q.CountAppUsersBySourceAndQueryAndState(ctx, gen.CountAppUsersBySourceAndQueryAndStateParams{
+	totalCount, err := h.Q.CountSourceAccountsBySourceAndQueryAndState(ctx, gen.CountSourceAccountsBySourceAndQueryAndStateParams{
 		SourceKind:     "datadog",
 		SourceName:     snap.Datadog.Site,
 		EntityCategory: registry.EntityCategoryUser,
@@ -389,7 +376,7 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 	}
 
 	page, totalPages, offset := paginate(totalCount, page, perPage)
-	users, err := h.Q.ListAppUsersPageBySourceAndQueryAndState(ctx, gen.ListAppUsersPageBySourceAndQueryAndStateParams{
+	users, err := h.Q.ListSourceAccountsPageBySourceAndQueryAndState(ctx, gen.ListSourceAccountsPageBySourceAndQueryAndStateParams{
 		SourceKind:     "datadog",
 		SourceName:     snap.Datadog.Site,
 		EntityCategory: registry.EntityCategoryUser,
@@ -402,14 +389,14 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	appUserIDs := make([]int64, 0, len(users))
+	accountIDs := make([]int64, 0, len(users))
 	for _, user := range users {
-		appUserIDs = append(appUserIDs, user.ID)
+		accountIDs = append(accountIDs, user.ID)
 	}
 
-	rolesByUserID := make(map[int64][]string)
-	if len(appUserIDs) > 0 {
-		ents, err := h.Q.ListEntitlementsForAppUserIDs(ctx, appUserIDs)
+	rolesByAccountID := make(map[int64][]string)
+	if len(accountIDs) > 0 {
+		ents, err := h.Q.ListEntitlementsForAccountIDs(ctx, accountIDs)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
@@ -421,7 +408,7 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 			if label == "" {
 				continue
 			}
-			rolesByUserID[ent.AppUserID] = append(rolesByUserID[ent.AppUserID], label)
+			rolesByAccountID[ent.AccountID] = append(rolesByAccountID[ent.AccountID], label)
 		}
 	}
 
@@ -436,7 +423,7 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 		}
 		status := datadogUserStatus(user.ID, user.ExternalID, user.RawJson)
 
-		roles := rolesByUserID[user.ID]
+		roles := rolesByAccountID[user.ID]
 		sort.Strings(roles)
 		roles = DedupeStrings(roles)
 		rolesDisplay := strings.Join(roles, ", ")
@@ -516,7 +503,7 @@ func (h *Handlers) HandleUnmatchedGitHub(c *echo.Context) error {
 		return c.String(http.StatusNotFound, "unknown org")
 	}
 
-	totalCount, err := h.Q.CountUnmatchedAppUsersBySourceAndQuery(ctx, gen.CountUnmatchedAppUsersBySourceAndQueryParams{
+	totalCount, err := h.Q.CountUnlinkedSourceAccountsBySourceAndQuery(ctx, gen.CountUnlinkedSourceAccountsBySourceAndQueryParams{
 		SourceKind: "github",
 		SourceName: org,
 		Query:      query,
@@ -526,7 +513,7 @@ func (h *Handlers) HandleUnmatchedGitHub(c *echo.Context) error {
 	}
 
 	page, totalPages, offset := paginate(totalCount, page, perPage)
-	users, err := h.Q.ListUnmatchedAppUsersPageBySourceAndQuery(ctx, gen.ListUnmatchedAppUsersPageBySourceAndQueryParams{
+	users, err := h.Q.ListUnlinkedSourceAccountsPageBySourceAndQuery(ctx, gen.ListUnlinkedSourceAccountsPageBySourceAndQueryParams{
 		SourceKind: "github",
 		SourceName: org,
 		Query:      query,
@@ -604,7 +591,7 @@ func (h *Handlers) HandleUnmatchedDatadog(c *echo.Context) error {
 		return c.String(http.StatusNotFound, "unknown site")
 	}
 
-	totalCount, err := h.Q.CountUnmatchedAppUsersBySourceAndQuery(ctx, gen.CountUnmatchedAppUsersBySourceAndQueryParams{
+	totalCount, err := h.Q.CountUnlinkedSourceAccountsBySourceAndQuery(ctx, gen.CountUnlinkedSourceAccountsBySourceAndQueryParams{
 		SourceKind: "datadog",
 		SourceName: site,
 		Query:      query,
@@ -614,7 +601,7 @@ func (h *Handlers) HandleUnmatchedDatadog(c *echo.Context) error {
 	}
 
 	page, totalPages, offset := paginate(totalCount, page, perPage)
-	users, err := h.Q.ListUnmatchedAppUsersPageBySourceAndQuery(ctx, gen.ListUnmatchedAppUsersPageBySourceAndQueryParams{
+	users, err := h.Q.ListUnlinkedSourceAccountsPageBySourceAndQuery(ctx, gen.ListUnlinkedSourceAccountsPageBySourceAndQueryParams{
 		SourceKind: "datadog",
 		SourceName: site,
 		Query:      query,
@@ -663,7 +650,7 @@ func connectorUnavailableMessage(connectorName string, configured, enabled bool)
 	return connectorName + " is not configured yet. Add credentials in Connectors."
 }
 
-// HandleCreateLink creates an identity link between IdP and app users.
+// HandleCreateLink creates an identity link between an identity and source account.
 func (h *Handlers) HandleCreateLink(c *echo.Context) error {
 	if c.Request().Method != http.MethodPost {
 		return c.NoContent(http.StatusMethodNotAllowed)
@@ -672,10 +659,11 @@ func (h *Handlers) HandleCreateLink(c *echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusBadRequest, err.Error())
 	}
-	_, err = h.Q.CreateIdentityLink(c.Request().Context(), gen.CreateIdentityLinkParams{
+	_, err = h.Q.UpsertIdentityAccountLink(c.Request().Context(), gen.UpsertIdentityAccountLinkParams{
 		IdentityID: identityID,
 		AccountID:  accountID,
 		LinkReason: reason,
+		Confidence: 1.0,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -695,18 +683,12 @@ func (h *Handlers) HandleCreateLink(c *echo.Context) error {
 
 func parseCreateLinkForm(c *echo.Context) (identityID int64, accountID int64, reason string, err error) {
 	identityRaw := strings.TrimSpace(c.FormValue("identity_id"))
-	if identityRaw == "" {
-		identityRaw = strings.TrimSpace(c.FormValue("idp_user_id"))
-	}
 	identityID, err = strconv.ParseInt(identityRaw, 10, 64)
 	if err != nil {
 		return 0, 0, "", errors.New("invalid identity_id")
 	}
 
 	accountRaw := strings.TrimSpace(c.FormValue("account_id"))
-	if accountRaw == "" {
-		accountRaw = strings.TrimSpace(c.FormValue("app_user_id"))
-	}
 	accountID, err = strconv.ParseInt(accountRaw, 10, 64)
 	if err != nil {
 		return 0, 0, "", errors.New("invalid account_id")
@@ -720,8 +702,8 @@ func parseCreateLinkForm(c *echo.Context) (identityID int64, accountID int64, re
 	return identityID, accountID, reason, nil
 }
 
-// HandleIdpUserAccessTree handles the access tree API endpoint.
-func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
+// HandleOktaAccountAccessTree handles the access tree API endpoint.
+func (h *Handlers) HandleOktaAccountAccessTree(c *echo.Context) error {
 	addVary(c, "HX-Request")
 
 	renderAccessTreeError := func(status int, message string) error {
@@ -733,14 +715,14 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 
 	id, err := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
 	if err != nil || id <= 0 {
-		return renderAccessTreeError(http.StatusBadRequest, "invalid idp user id")
+		return renderAccessTreeError(http.StatusBadRequest, "invalid okta account id")
 	}
 
 	ctx := c.Request().Context()
-	_, err = h.Q.GetIdPUser(ctx, id)
+	_, err = h.Q.GetOktaAccount(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return renderAccessTreeError(http.StatusNotFound, "idp user not found")
+			return renderAccessTreeError(http.StatusNotFound, "okta account not found")
 		}
 		return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 	}
@@ -774,7 +756,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 	case nodeID == "connector:okta":
 		nodes = []viewmodels.AccessTreeNode{{ID: "okta_apps", Label: "Apps", HasChildren: true}}
 	case nodeID == "okta_apps":
-		assignments, err := h.Q.ListOktaUserAppAssignmentsForIdpUser(ctx, id)
+		assignments, err := h.Q.ListOktaAppAssignmentsForOktaAccount(ctx, id)
 		if err != nil {
 			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
@@ -908,7 +890,7 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			}
 
 			nodes = append(nodes, viewmodels.AccessTreeNode{
-				ID:          "appuser:" + strconv.FormatInt(app.ID, 10),
+				ID:          "account:" + strconv.FormatInt(app.ID, 10),
 				Label:       label,
 				SubLabel:    subLabel,
 				HasChildren: true,
@@ -917,33 +899,33 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		if len(nodes) == 0 {
 			nodes = []viewmodels.AccessTreeNode{{ID: "inst-empty:" + raw, Label: "No linked accounts found.", HasChildren: false}}
 		}
-	case strings.HasPrefix(nodeID, "appuser:"):
-		rawID := strings.TrimSpace(strings.TrimPrefix(nodeID, "appuser:"))
-		appUserID, err := strconv.ParseInt(rawID, 10, 64)
-		if err != nil || appUserID <= 0 {
-			return renderAccessTreeError(http.StatusBadRequest, "invalid app user node")
+	case strings.HasPrefix(nodeID, "account:"):
+		rawID := strings.TrimSpace(strings.TrimPrefix(nodeID, "account:"))
+		accountID, err := strconv.ParseInt(rawID, 10, 64)
+		if err != nil || accountID <= 0 {
+			return renderAccessTreeError(http.StatusBadRequest, "invalid account node")
 		}
 
-		link, err := h.Q.GetIdentityLinkByAppUser(ctx, appUserID)
+		link, err := h.Q.GetIdentityAccountLinkByAccountID(ctx, accountID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return renderAccessTreeError(http.StatusNotFound, "app user not linked")
+				return renderAccessTreeError(http.StatusNotFound, "account not linked")
 			}
 			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
-		if currentIdentityID == 0 || link.IdpUserID != currentIdentityID {
-			return renderAccessTreeError(http.StatusNotFound, "app user not linked")
+		if currentIdentityID == 0 || link.IdentityID != currentIdentityID {
+			return renderAccessTreeError(http.StatusNotFound, "account not linked")
 		}
 
-		appUser, err := h.Q.GetAppUser(ctx, appUserID)
+		account, err := h.Q.GetSourceAccount(ctx, accountID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return renderAccessTreeError(http.StatusNotFound, "app user not found")
+				return renderAccessTreeError(http.StatusNotFound, "account not found")
 			}
 			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
 
-		ents, err := h.Q.ListEntitlementsForAppUser(ctx, appUserID)
+		ents, err := h.Q.ListEntitlementsForAccount(ctx, accountID)
 		if err != nil {
 			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
@@ -1034,12 +1016,12 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			}
 
 			nodes = append(nodes, viewmodels.AccessTreeNode{
-				ID:          "res:" + strconv.FormatInt(appUserID, 10) + ":" + group.resourceKind + ":" + encodeNodePart(group.externalID),
+				ID:          "res:" + strconv.FormatInt(accountID, 10) + ":" + group.resourceKind + ":" + encodeNodePart(group.externalID),
 				Label:       group.label,
 				SubLabel:    subLabel,
 				Badges:      badges,
 				HasChildren: true,
-				Href:        accessgraph.BuildResourceHref(appUser.SourceKind, appUser.SourceName, group.resourceKind, group.externalID),
+				Href:        accessgraph.BuildResourceHref(account.SourceKind, account.SourceName, group.resourceKind, group.externalID),
 			})
 		}
 
@@ -1059,8 +1041,8 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		if len(parts) != 3 {
 			return renderAccessTreeError(http.StatusBadRequest, "invalid resource node")
 		}
-		appUserID, err := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
-		if err != nil || appUserID <= 0 {
+		accountID, err := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
+		if err != nil || accountID <= 0 {
 			return renderAccessTreeError(http.StatusBadRequest, "invalid resource node")
 		}
 		resourceKind := strings.TrimSpace(parts[1])
@@ -1069,18 +1051,18 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			return renderAccessTreeError(http.StatusBadRequest, "invalid resource node")
 		}
 
-		link, err := h.Q.GetIdentityLinkByAppUser(ctx, appUserID)
+		link, err := h.Q.GetIdentityAccountLinkByAccountID(ctx, accountID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return renderAccessTreeError(http.StatusNotFound, "app user not linked")
+				return renderAccessTreeError(http.StatusNotFound, "account not linked")
 			}
 			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
-		if currentIdentityID == 0 || link.IdpUserID != currentIdentityID {
-			return renderAccessTreeError(http.StatusNotFound, "app user not linked")
+		if currentIdentityID == 0 || link.IdentityID != currentIdentityID {
+			return renderAccessTreeError(http.StatusNotFound, "account not linked")
 		}
 
-		ents, err := h.Q.ListEntitlementsForAppUser(ctx, appUserID)
+		ents, err := h.Q.ListEntitlementsForAccount(ctx, accountID)
 		if err != nil {
 			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
@@ -1122,8 +1104,8 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		if externalID == "" {
 			return renderAccessTreeError(http.StatusBadRequest, "invalid app node")
 		}
-		_, err := h.Q.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalID(ctx, gen.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalIDParams{
-			IdpUserID:         id,
+		_, err := h.Q.GetOktaAppAssignmentForOktaAccountByOktaAppExternalID(ctx, gen.GetOktaAppAssignmentForOktaAccountByOktaAppExternalIDParams{
+			OktaAccountID:     id,
 			OktaAppExternalID: externalID,
 		})
 		if err != nil {
@@ -1142,8 +1124,8 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		if externalID == "" {
 			return renderAccessTreeError(http.StatusBadRequest, "invalid app attributes node")
 		}
-		assignment, err := h.Q.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalID(ctx, gen.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalIDParams{
-			IdpUserID:         id,
+		assignment, err := h.Q.GetOktaAppAssignmentForOktaAccountByOktaAppExternalID(ctx, gen.GetOktaAppAssignmentForOktaAccountByOktaAppExternalIDParams{
+			OktaAccountID:     id,
 			OktaAppExternalID: externalID,
 		})
 		if err != nil {
@@ -1187,8 +1169,8 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		if externalID == "" {
 			return renderAccessTreeError(http.StatusBadRequest, "invalid app groups node")
 		}
-		_, err := h.Q.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalID(ctx, gen.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalIDParams{
-			IdpUserID:         id,
+		_, err := h.Q.GetOktaAppAssignmentForOktaAccountByOktaAppExternalID(ctx, gen.GetOktaAppAssignmentForOktaAccountByOktaAppExternalIDParams{
+			OktaAccountID:     id,
 			OktaAppExternalID: externalID,
 		})
 		if err != nil {
@@ -1198,8 +1180,8 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
 		}
 
-		groups, err := h.Q.ListOktaAppGrantingGroupsForIdpUserByOktaAppExternalID(ctx, gen.ListOktaAppGrantingGroupsForIdpUserByOktaAppExternalIDParams{
-			IdpUserID:         id,
+		groups, err := h.Q.ListOktaAppGrantingGroupsForOktaAccountByOktaAppExternalID(ctx, gen.ListOktaAppGrantingGroupsForOktaAccountByOktaAppExternalIDParams{
+			OktaAccountID:     id,
 			OktaAppExternalID: externalID,
 		})
 		if err != nil {
@@ -1227,8 +1209,8 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 		if externalID == "" {
 			return renderAccessTreeError(http.StatusBadRequest, "invalid app permissions node")
 		}
-		assignment, err := h.Q.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalID(ctx, gen.GetOktaUserAppAssignmentForIdpUserByOktaAppExternalIDParams{
-			IdpUserID:         id,
+		assignment, err := h.Q.GetOktaAppAssignmentForOktaAccountByOktaAppExternalID(ctx, gen.GetOktaAppAssignmentForOktaAccountByOktaAppExternalIDParams{
+			OktaAccountID:     id,
 			OktaAppExternalID: externalID,
 		})
 		if err != nil {
@@ -1264,19 +1246,19 @@ func (h *Handlers) HandleIdpUserAccessTree(c *echo.Context) error {
 	return h.RenderComponent(c, views.AccessGraphChildren(id, nodes))
 }
 
-func datadogUserStatus(appUserID int64, externalID string, rawJSON []byte) string {
+func datadogUserStatus(accountID int64, externalID string, rawJSON []byte) string {
 	var payload struct {
 		Status string `json:"status"`
 	}
 	if err := json.Unmarshal(rawJSON, &payload); err != nil {
-		slog.Warn("datadog user raw_json parse failed", "app_user_id", appUserID, "external_id", strings.TrimSpace(externalID), "err", err)
+		slog.Warn("datadog user raw_json parse failed", "account_id", accountID, "external_id", strings.TrimSpace(externalID), "err", err)
 		return ""
 	}
 	return strings.TrimSpace(payload.Status)
 }
 
 func (h *Handlers) linkedAccountsForOktaAccount(ctx context.Context, oktaAccountID int64) (int64, []gen.Account, error) {
-	link, err := h.Q.GetIdentityLinkByAppUser(ctx, oktaAccountID)
+	link, err := h.Q.GetIdentityAccountLinkByAccountID(ctx, oktaAccountID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, nil, nil
@@ -1284,7 +1266,7 @@ func (h *Handlers) linkedAccountsForOktaAccount(ctx context.Context, oktaAccount
 		return 0, nil, err
 	}
 
-	identityID := link.IdpUserID
+	identityID := link.IdentityID
 	linked, err := h.Q.ListLinkedAccountsForIdentity(ctx, identityID)
 	if err != nil {
 		return 0, nil, err

@@ -6,7 +6,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
-templ AccessGraphNode(userID int64, node viewmodels.AccessTreeNode) {
+templ AccessGraphNode(oktaAccountID int64, node viewmodels.AccessTreeNode) {
 	<div class="access-tree-node">
 		if node.HasChildren {
 			<details class="group">
@@ -16,7 +16,7 @@ templ AccessGraphNode(userID int64, node viewmodels.AccessTreeNode) {
 				</summary>
 					<div
 						class="ml-4 border-l border-border pl-4"
-						hx-get={ fmt.Sprintf("/api/idp-users/%d/access-tree?node=%s", userID, url.QueryEscape(node.ID)) }
+						hx-get={ fmt.Sprintf("/api/okta-accounts/%d/access-tree?node=%s", oktaAccountID, url.QueryEscape(node.ID)) }
 						hx-trigger="toggle from:closest details once"
 						hx-swap="innerHTML"
 					>
@@ -52,9 +52,9 @@ templ accessGraphNodeContent(node viewmodels.AccessTreeNode) {
 	</div>
 }
 
-templ AccessGraphChildren(userID int64, nodes []viewmodels.AccessTreeNode) {
+templ AccessGraphChildren(oktaAccountID int64, nodes []viewmodels.AccessTreeNode) {
 	for _, node := range nodes {
-		@AccessGraphNode(userID, node)
+		@AccessGraphNode(oktaAccountID, node)
 	}
 }
 

@@ -94,17 +94,17 @@ func FinalizeOktaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, ru
 
 	counts := map[string]int64{}
 
-	observed, err := qtx.PromoteIdPUsersSeenInRun(ctx, PgInt8(runID))
+	observed, err := qtx.PromoteOktaAccountsSeenInRun(ctx, PgInt8(runID))
 	if err != nil {
 		return err
 	}
-	counts["idp_users_observed"] = observed
+	counts["okta_accounts_observed"] = observed
 
-	expired, err := qtx.ExpireIdPUsersNotSeenInRun(ctx, PgInt8(runID))
+	expired, err := qtx.ExpireOktaAccountsNotSeenInRun(ctx, PgInt8(runID))
 	if err != nil {
 		return err
 	}
-	counts["idp_users_expired"] = expired
+	counts["okta_accounts_expired"] = expired
 
 	observed, err = qtx.PromoteOktaGroupsSeenInRun(ctx, PgInt8(runID))
 	if err != nil {
@@ -118,17 +118,17 @@ func FinalizeOktaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, ru
 	}
 	counts["okta_groups_expired"] = expired
 
-	observed, err = qtx.PromoteOktaUserGroupsSeenInRun(ctx, PgInt8(runID))
+	observed, err = qtx.PromoteOktaGroupMembershipsSeenInRun(ctx, PgInt8(runID))
 	if err != nil {
 		return err
 	}
-	counts["okta_user_groups_observed"] = observed
+	counts["okta_group_memberships_observed"] = observed
 
-	expired, err = qtx.ExpireOktaUserGroupsNotSeenInRun(ctx, PgInt8(runID))
+	expired, err = qtx.ExpireOktaGroupMembershipsNotSeenInRun(ctx, PgInt8(runID))
 	if err != nil {
 		return err
 	}
-	counts["okta_user_groups_expired"] = expired
+	counts["okta_group_memberships_expired"] = expired
 
 	observed, err = qtx.PromoteOktaAppsSeenInRun(ctx, PgInt8(runID))
 	if err != nil {
@@ -142,17 +142,17 @@ func FinalizeOktaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, ru
 	}
 	counts["okta_apps_expired"] = expired
 
-	observed, err = qtx.PromoteOktaUserAppAssignmentsSeenInRun(ctx, PgInt8(runID))
+	observed, err = qtx.PromoteOktaAppAssignmentsSeenInRun(ctx, PgInt8(runID))
 	if err != nil {
 		return err
 	}
-	counts["okta_user_app_assignments_observed"] = observed
+	counts["okta_app_assignments_observed"] = observed
 
-	expired, err = qtx.ExpireOktaUserAppAssignmentsNotSeenInRun(ctx, PgInt8(runID))
+	expired, err = qtx.ExpireOktaAppAssignmentsNotSeenInRun(ctx, PgInt8(runID))
 	if err != nil {
 		return err
 	}
-	counts["okta_user_app_assignments_expired"] = expired
+	counts["okta_app_assignments_expired"] = expired
 
 	observed, err = qtx.PromoteOktaAppGroupAssignmentsSeenInRun(ctx, PgInt8(runID))
 	if err != nil {
@@ -232,7 +232,7 @@ func FinalizeAppRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, run
 
 	runIDKey := PgInt8(runID)
 
-	observed, err := qtx.PromoteAppUsersSeenInRun(ctx, gen.PromoteAppUsersSeenInRunParams{
+	observed, err := qtx.PromoteSourceAccountsSeenInRun(ctx, gen.PromoteSourceAccountsSeenInRunParams{
 		LastObservedRunID: runIDKey,
 		SourceKind:        sourceKind,
 		SourceName:        sourceName,
@@ -240,9 +240,9 @@ func FinalizeAppRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, run
 	if err != nil {
 		return err
 	}
-	counts["app_users_observed"] = observed
+	counts["source_accounts_observed"] = observed
 
-	expired, err := qtx.ExpireAppUsersNotSeenInRun(ctx, gen.ExpireAppUsersNotSeenInRunParams{
+	expired, err := qtx.ExpireSourceAccountsNotSeenInRun(ctx, gen.ExpireSourceAccountsNotSeenInRunParams{
 		ExpiredRunID: runIDKey,
 		SourceKind:   sourceKind,
 		SourceName:   sourceName,
@@ -250,7 +250,7 @@ func FinalizeAppRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, run
 	if err != nil {
 		return err
 	}
-	counts["app_users_expired"] = expired
+	counts["source_accounts_expired"] = expired
 
 	observed, err = qtx.PromoteEntitlementsSeenInRunBySource(ctx, gen.PromoteEntitlementsSeenInRunBySourceParams{
 		LastObservedRunID: runIDKey,

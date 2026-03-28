@@ -88,21 +88,21 @@ func (d *Definition) NewIntegration(cfg any) (registry.Integration, error) {
 type googleWorkspaceMetrics struct{}
 
 func (m *googleWorkspaceMetrics) FetchMetrics(ctx context.Context, q *gen.Queries, sourceName string) (registry.ConnectorMetrics, error) {
-	total, err := q.CountAppUsersBySource(ctx, gen.CountAppUsersBySourceParams{
+	total, err := q.CountSourceAccountsBySource(ctx, gen.CountSourceAccountsBySourceParams{
 		SourceKind: configstore.KindGoogleWorkspace,
 		SourceName: sourceName,
 	})
 	if err != nil {
 		return registry.ConnectorMetrics{}, err
 	}
-	matched, err := q.CountMatchedAppUsersBySource(ctx, gen.CountMatchedAppUsersBySourceParams{
+	matched, err := q.CountLinkedSourceAccountsBySource(ctx, gen.CountLinkedSourceAccountsBySourceParams{
 		SourceKind: configstore.KindGoogleWorkspace,
 		SourceName: sourceName,
 	})
 	if err != nil {
 		return registry.ConnectorMetrics{}, err
 	}
-	unmatched, err := q.CountUnmatchedAppUsersBySource(ctx, gen.CountUnmatchedAppUsersBySourceParams{
+	unmatched, err := q.CountUnlinkedSourceAccountsBySource(ctx, gen.CountUnlinkedSourceAccountsBySourceParams{
 		SourceKind: configstore.KindGoogleWorkspace,
 		SourceName: sourceName,
 	})

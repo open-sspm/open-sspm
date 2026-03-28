@@ -344,7 +344,7 @@ func (i *EntraIntegration) syncUsers(ctx context.Context, q *gen.Queries, report
 	for start := 0; start < len(externalIDs); start += entraUserBatchSize {
 		end := min(start+entraUserBatchSize, len(externalIDs))
 
-		_, err := q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
+		_, err := q.UpsertSourceAccountsBulkBySource(ctx, gen.UpsertSourceAccountsBulkBySourceParams{
 			SourceKind:       "entra",
 			SourceName:       i.tenantID,
 			SeenInRunID:      runID,
@@ -422,7 +422,7 @@ func (i *EntraIntegration) syncGroups(ctx context.Context, q *gen.Queries, repor
 	for start := 0; start < len(externalIDs); start += entraUserBatchSize {
 		end := min(start+entraUserBatchSize, len(externalIDs))
 
-		_, err := q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
+		_, err := q.UpsertSourceAccountsBulkBySource(ctx, gen.UpsertSourceAccountsBulkBySourceParams{
 			SourceKind:       "entra",
 			SourceName:       i.tenantID,
 			SeenInRunID:      runID,
@@ -503,7 +503,7 @@ func (i *EntraIntegration) syncServicePrincipalAccounts(ctx context.Context, q *
 	for start := 0; start < len(externalIDs); start += entraUserBatchSize {
 		end := min(start+entraUserBatchSize, len(externalIDs))
 
-		_, err := q.UpsertAppUsersBulkBySource(ctx, gen.UpsertAppUsersBulkBySourceParams{
+		_, err := q.UpsertSourceAccountsBulkBySource(ctx, gen.UpsertSourceAccountsBulkBySourceParams{
 			SourceKind:       "entra",
 			SourceName:       i.tenantID,
 			SeenInRunID:      runID,

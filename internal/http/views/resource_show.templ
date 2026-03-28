@@ -9,8 +9,8 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 			{Label: data.SourceLabel, Href: data.SourceHref},
 			{Label: data.ResourceKindLabel},
 		}, data.SourceName) {
-			<span class="badge-outline">{ FormatInt(data.LinkedIdpUserCount) }{ " identities" }</span>
-			<span class="badge-outline">{ FormatInt(data.AppAccountCount) }{ " app accounts" }</span>
+			<span class="badge-outline">{ FormatInt(data.LinkedIdentityCount) }{ " identities" }</span>
+			<span class="badge-outline">{ FormatInt(data.AccountCount) }{ " accounts" }</span>
 			<span class="badge-outline">{ FormatInt(data.EntitlementCount) }{ " entitlements" }</span>
 			if data.ExternalConsoleHref != "" {
 				<a class="btn-sm-outline" href={ data.ExternalConsoleHref } target="_blank" rel="noopener noreferrer">
@@ -49,16 +49,16 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 		<article class="card">
 			<header>
 				<h2>Who has access</h2>
-				<p>IdP identities and app accounts with this entitlement.</p>
+				<p>Identities and accounts with this entitlement.</p>
 			</header>
 			<section>
 				@ColumnsTable("resource-show--main", "") {
 				<table data-columns-id="resource-show--main" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-					<caption class="sr-only">People and app accounts with access to this resource.</caption>
+					<caption class="sr-only">People and accounts with access to this resource.</caption>
 					<thead>
 						<tr>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">IdP user</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">App account</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Identity</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account</th>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Permission</th>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Kind</th>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Link</th>
@@ -69,42 +69,42 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 								for _, row := range data.Rows {
 									<tr class="align-top">
 										<td>
-											if row.IdpUserHref != "" {
-												<a class="btn-sm-link px-0 font-medium" href={ row.IdpUserHref }>
-													if row.IdpUserDisplayName != "" {
-														{ row.IdpUserDisplayName }
-													} else if row.IdpUserEmail != "" {
-														{ row.IdpUserEmail }
+											if row.IdentityHref != "" {
+												<a class="btn-sm-link px-0 font-medium" href={ row.IdentityHref }>
+													if row.IdentityDisplayName != "" {
+														{ row.IdentityDisplayName }
+													} else if row.IdentityEmail != "" {
+														{ row.IdentityEmail }
 													} else {
-														{ "User " }{ FormatInt64(row.IdpUserID) }
+														{ "Identity " }{ FormatInt64(row.IdentityID) }
 													}
 												</a>
-												if row.IdpUserEmail != "" && row.IdpUserDisplayName != "" {
-													<div class="text-xs text-muted-foreground break-all">{ row.IdpUserEmail }</div>
+												if row.IdentityEmail != "" && row.IdentityDisplayName != "" {
+													<div class="text-xs text-muted-foreground break-all">{ row.IdentityEmail }</div>
 												}
 											} else {
 												<span class="text-muted-foreground">Unlinked</span>
 											}
-											if row.IdpUserStatus != "" {
+											if row.IdentityStatus != "" {
 												<div class="pt-1">
-													<span class={ StatusBadgeClass(row.IdpUserStatus) }>{ row.IdpUserStatus }</span>
+													<span class={ StatusBadgeClass(row.IdentityStatus) }>{ row.IdentityStatus }</span>
 												</div>
 											}
 										</td>
 										<td>
 											<div class="font-medium break-words">
-												if row.AppUserDisplayName != "" {
-													{ row.AppUserDisplayName }
-												} else if row.AppUserEmail != "" {
-													{ row.AppUserEmail }
+												if row.AccountDisplayName != "" {
+													{ row.AccountDisplayName }
+												} else if row.AccountEmail != "" {
+													{ row.AccountEmail }
 												} else {
-													{ row.AppUserExternalID }
+													{ row.AccountExternalID }
 												}
 											</div>
-											if row.AppUserEmail != "" {
-												<div class="text-xs text-muted-foreground break-all">{ row.AppUserEmail }</div>
-											} else if row.AppUserExternalID != "" {
-												<div class="text-xs text-muted-foreground break-all">{ row.AppUserExternalID }</div>
+											if row.AccountEmail != "" {
+												<div class="text-xs text-muted-foreground break-all">{ row.AccountEmail }</div>
+											} else if row.AccountExternalID != "" {
+												<div class="text-xs text-muted-foreground break-all">{ row.AccountExternalID }</div>
 											}
 										</td>
 										<td>
@@ -138,4 +138,3 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 		</article>
 	}
 }
-

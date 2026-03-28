@@ -121,11 +121,11 @@ func (p *NormalizedProvider) loadIdentitiesV1(ctx context.Context) ([]any, error
 	out := make([]any, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, map[string]any{
-			"id":           strconv.FormatInt(row.IdpUserID, 10),
-			"external_id":  strings.TrimSpace(row.IdpUserExternalID),
-			"email":        strings.TrimSpace(row.IdpUserEmail),
-			"display_name": strings.TrimSpace(row.IdpUserDisplayName),
-			"status":       normalizeIdentityStatus(strings.TrimSpace(row.IdpUserStatus)),
+			"id":           strconv.FormatInt(row.IdentityID, 10),
+			"external_id":  strings.TrimSpace(row.IdentityExternalID),
+			"email":        strings.TrimSpace(row.IdentityEmail),
+			"display_name": strings.TrimSpace(row.IdentityDisplayName),
+			"status":       normalizeIdentityStatus(strings.TrimSpace(row.IdentityStatus)),
 		})
 	}
 	return out, nil
@@ -187,15 +187,15 @@ func (p *NormalizedProvider) loadEntitlementAssignmentsV1(ctx context.Context) (
 		out = append(out, map[string]any{
 			"resource_id": fmt.Sprintf("entitlement:%d", row.EntitlementID),
 			"identity": map[string]any{
-				"id":           strconv.FormatInt(row.IdpUserID, 10),
-				"email":        strings.TrimSpace(row.IdpUserEmail),
-				"display_name": strings.TrimSpace(row.IdpUserDisplayName),
-				"status":       normalizeIdentityStatus(strings.TrimSpace(row.IdpUserStatus)),
+				"id":           strconv.FormatInt(row.IdentityID, 10),
+				"email":        strings.TrimSpace(row.IdentityEmail),
+				"display_name": strings.TrimSpace(row.IdentityDisplayName),
+				"status":       normalizeIdentityStatus(strings.TrimSpace(row.IdentityStatus)),
 			},
-			"app_user": map[string]any{
-				"source_kind": strings.TrimSpace(row.SourceKind),
-				"source_name": strings.TrimSpace(row.SourceName),
-				"external_id": strings.TrimSpace(row.AppUserExternalID),
+			"account": map[string]any{
+				"source_kind": strings.TrimSpace(row.AccountSourceKind),
+				"source_name": strings.TrimSpace(row.AccountSourceName),
+				"external_id": strings.TrimSpace(row.AccountExternalID),
 			},
 			"entitlement": map[string]any{
 				"kind":       strings.TrimSpace(row.EntitlementKind),
@@ -226,10 +226,10 @@ func (p *NormalizedProvider) loadEntitlementAssignmentsV2(ctx context.Context) (
 				"display_name": strings.TrimSpace(row.IdentityDisplayName),
 				"managed":      row.IdentityManaged,
 			},
-			"app_user": map[string]any{
-				"source_kind": strings.TrimSpace(row.SourceKind),
-				"source_name": strings.TrimSpace(row.SourceName),
-				"external_id": strings.TrimSpace(row.AppUserExternalID),
+			"account": map[string]any{
+				"source_kind": strings.TrimSpace(row.AccountSourceKind),
+				"source_name": strings.TrimSpace(row.AccountSourceName),
+				"external_id": strings.TrimSpace(row.AccountExternalID),
 			},
 			"entitlement": map[string]any{
 				"kind":       strings.TrimSpace(row.EntitlementKind),

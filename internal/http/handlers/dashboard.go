@@ -17,7 +17,7 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 	if err != nil {
 		return h.RenderError(c, err)
 	}
-	activeUserCount, err := h.Q.CountIdPUsersByQueryAndState(ctx, gen.CountIdPUsersByQueryAndStateParams{
+	activeUserCount, err := h.Q.CountOktaAccountsByQueryAndState(ctx, gen.CountOktaAccountsByQueryAndStateParams{
 		Query: "",
 		State: "active",
 	})
