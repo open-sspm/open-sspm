@@ -28,20 +28,12 @@ type ConnectedAppListItem struct {
 }
 
 type ConnectedAppsViewData struct {
-	Layout        LayoutData
-	Query         string
-	ReviewState   string
-	ReviewCounts  []ConnectedAppsReviewCount
-	Items         []ConnectedAppListItem
-	ShowingCount  int
-	ShowingFrom   int
-	ShowingTo     int
-	TotalCount    int64
-	Page          int
-	PerPage       int
-	TotalPages    int
-	HasItems      bool
-	EmptyStateMsg string
+	PaginatedListPageData
+	Query        string
+	ReviewState  string
+	ReviewCounts []ConnectedAppsReviewCount
+	Items        []ConnectedAppListItem
+	HasItems     bool
 }
 
 type ConnectedAppsAlert struct {

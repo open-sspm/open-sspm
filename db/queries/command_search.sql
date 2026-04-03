@@ -217,51 +217,117 @@ WITH configured_sources AS (
     n.name AS source_name
   FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-)
-SELECT
-  sa.id,
-  COALESCE(NULLIF(trim(sa.display_name), ''), sa.canonical_key)::text AS display_name,
-  COALESCE(sa.primary_domain, '')::text AS primary_domain,
-  COALESCE(sa.vendor_name, '')::text AS vendor_name,
-  COALESCE(sa.managed_state, '')::text AS managed_state,
-  COALESCE(sa.risk_level, '')::text AS risk_level,
-  sa.risk_score,
-  sa.last_seen_at
-FROM saas_apps sa
-WHERE EXISTS (
-  SELECT 1
+),
+scoped_app_ids AS (
+  SELECT DISTINCT sas.saas_app_id
   FROM saas_app_sources sas
   JOIN configured_sources cs
-    ON cs.source_kind = sas.source_kind
-   AND cs.source_name = sas.source_name
-  WHERE sas.saas_app_id = sa.id
-    AND sas.expired_at IS NULL
+    ON lower(trim(cs.source_kind)) = lower(trim(sas.source_kind))
+   AND lower(trim(cs.source_name)) = lower(trim(sas.source_name))
+  WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
+),
+posture_rows (
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT *
+  FROM saas_app_posture_rows(
+    sqlc.arg(okta_fresh_after)::timestamptz,
+    sqlc.arg(entra_fresh_after)::timestamptz,
+    sqlc.arg(google_workspace_fresh_after)::timestamptz,
+    sqlc.arg(github_fresh_after)::timestamptz,
+    sqlc.arg(datadog_fresh_after)::timestamptz,
+    sqlc.arg(aws_fresh_after)::timestamptz,
+    sqlc.arg(default_fresh_after)::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
+  )
 )
-  AND (
-    sa.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR sa.primary_domain ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR sa.vendor_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR sa.canonical_key ILIKE ('%' || sqlc.arg(query)::text || '%')
+SELECT
+  pr.id::bigint AS id,
+  COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)::text AS display_name,
+  COALESCE(pr.primary_domain, '')::text AS primary_domain,
+  COALESCE(pr.vendor_name, '')::text AS vendor_name,
+  pr.managed_state::text AS managed_state,
+  pr.risk_level::text AS risk_level,
+  pr.risk_score::int AS risk_score,
+  pr.last_seen_at::timestamptz AS last_seen_at
+FROM posture_rows pr
+JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
+WHERE (
+    pr.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR pr.primary_domain ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR pr.vendor_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR pr.canonical_key ILIKE ('%' || sqlc.arg(query)::text || '%')
   )
 ORDER BY
   CASE
-    WHEN lower(COALESCE(NULLIF(trim(sa.display_name), ''), sa.canonical_key)) = lower(trim(sqlc.arg(query)::text))
-      OR lower(COALESCE(sa.primary_domain, '')) = lower(trim(sqlc.arg(query)::text))
-      OR lower(COALESCE(sa.vendor_name, '')) = lower(trim(sqlc.arg(query)::text))
-      OR lower(sa.canonical_key) = lower(trim(sqlc.arg(query)::text))
+    WHEN lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) = lower(trim(sqlc.arg(query)::text))
+      OR lower(COALESCE(pr.primary_domain, '')) = lower(trim(sqlc.arg(query)::text))
+      OR lower(COALESCE(pr.vendor_name, '')) = lower(trim(sqlc.arg(query)::text))
+      OR lower(pr.canonical_key) = lower(trim(sqlc.arg(query)::text))
     THEN 0
-    WHEN lower(COALESCE(NULLIF(trim(sa.display_name), ''), sa.canonical_key)) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
-      OR lower(COALESCE(sa.primary_domain, '')) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
-      OR lower(COALESCE(sa.vendor_name, '')) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
-      OR lower(sa.canonical_key) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
+    WHEN lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
+      OR lower(COALESCE(pr.primary_domain, '')) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
+      OR lower(COALESCE(pr.vendor_name, '')) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
+      OR lower(pr.canonical_key) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
     THEN 1
     ELSE 2
   END ASC,
-  sa.risk_score DESC,
-  sa.last_seen_at DESC,
-  lower(COALESCE(NULLIF(trim(sa.display_name), ''), sa.canonical_key)) ASC,
-  sa.id ASC
+  pr.risk_score DESC,
+  pr.last_seen_at DESC,
+  lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) ASC,
+  pr.id ASC
 LIMIT sqlc.arg(limit_rows)::int;
 
 -- name: SearchOktaAppsForCommand :many

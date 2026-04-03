@@ -61,7 +61,7 @@ func TestAddVaryPreservesWildcard(t *testing.T) {
 
 func TestHandleOktaAccountAccessTreeInvalidID(t *testing.T) {
 	t.Run("non htmx request returns bad request text", func(t *testing.T) {
-		c, rec := newTestContext(http.MethodGet, "http://example.com/api/okta-accounts/not-a-number/access-tree")
+		c, rec := newTestContext(http.MethodGet, "http://example.com/api/accounts/okta/not-a-number/access-tree")
 		c.SetPathValues(echo.PathValues{{Name: "id", Value: "not-a-number"}})
 
 		h := &Handlers{}

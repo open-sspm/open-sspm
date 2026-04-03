@@ -25,20 +25,12 @@ type OktaAppAssignedAccountView struct {
 }
 
 type OktaAppShowViewData struct {
-	Layout        LayoutData
-	App           OktaAppSummaryView
-	Accounts      []OktaAppAssignedAccountView
-	Query         string
-	State         string
-	ShowingCount  int
-	ShowingFrom   int
-	ShowingTo     int
-	TotalCount    int64
-	Page          int
-	PerPage       int
-	TotalPages    int
-	HasAccounts   bool
-	EmptyStateMsg string
+	PaginatedListPageData
+	App         OktaAppSummaryView
+	Accounts    []OktaAppAssignedAccountView
+	Query       string
+	State       string
+	HasAccounts bool
 }
 
 type OktaAssignmentView struct {

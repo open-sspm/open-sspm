@@ -6,7 +6,7 @@ templ UnmatchedDatadogPage(data viewmodels.UnmatchedDatadogViewData) {
 	@Layout(data.Layout) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
-			{Label: "Unmanaged Datadog"},
+			{Label: "Unlinked Datadog Accounts"},
 		}, "Match Datadog identities to identities for complete access coverage.") {
 			if data.Layout.DatadogConfigured {
 				<span class="badge-outline">{ data.Layout.DatadogSite }</span>
@@ -37,7 +37,7 @@ templ UnmatchedDatadogPage(data viewmodels.UnmatchedDatadogViewData) {
 					<div class="relative">
 						<input type="search" name="q" class="input pr-10" placeholder="Search email, name, or Datadog ID" value={ data.Query }/>
 						if data.Query != "" {
-							<a class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2" aria-label="Clear query" href={ "/unmatched/datadog/" + data.Layout.DatadogSite }>
+							<a class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2" aria-label="Clear query" href={ "/accounts/unlinked/datadog/" + data.Layout.DatadogSite }>
 								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
 									<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
 								</svg>
@@ -59,13 +59,13 @@ templ UnmatchedDatadogPage(data viewmodels.UnmatchedDatadogViewData) {
 		<section class="space-y-3">
 			<div class="flex items-center gap-3">
 				<div>
-					<h2 class="text-base font-semibold">Unmanaged Datadog users</h2>
-					<p class="text-sm text-muted-foreground">Unmanaged Datadog users awaiting identity linking.</p>
+					<h2 class="text-base font-semibold">Unlinked Datadog users</h2>
+					<p class="text-sm text-muted-foreground">Unlinked Datadog users awaiting identity linking.</p>
 				</div>
 			</div>
 			@ColumnsTable("unmatched-datadog--main", "") {
 			<table data-columns-id="unmatched-datadog--main" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-				<caption class="sr-only">Unmanaged Datadog users and actions to link each account to an identity.</caption>
+				<caption class="sr-only">Unlinked Datadog users and actions to link each account to an identity.</caption>
 				<thead>
 					<tr>
 						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
@@ -107,13 +107,13 @@ templ UnmatchedDatadogPage(data viewmodels.UnmatchedDatadogViewData) {
 						} else if data.Layout.DatadogConfigured && data.Layout.DatadogEnabled && data.Query == "" {
 							<tr>
 								<td colspan="4">
-									@EmptyState("All caught up", "No unmanaged Datadog users found. All detected accounts have been linked to an identity.")
+									@EmptyState("All caught up", "No unlinked Datadog users found. All detected accounts have been linked to an identity.")
 								</td>
 							</tr>
 						} else {
 							<tr>
 								<td colspan="4">
-									@EmptyState("No unmanaged users", data.EmptyStateMsg)
+									@EmptyState("No unlinked users", data.EmptyStateMsg)
 								</td>
 							</tr>
 						}
@@ -125,12 +125,12 @@ templ UnmatchedDatadogPage(data viewmodels.UnmatchedDatadogViewData) {
 					<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
 					<div class="button-group ml-auto">
 						if data.Page > 1 {
-							<a class="btn-sm-outline" href={ ListURL("/unmatched/datadog/" + data.Layout.DatadogSite, data.Query, "", data.Page-1) }>Previous</a>
+							<a class="btn-sm-outline" href={ ListURL("/accounts/unlinked/datadog/" + data.Layout.DatadogSite, data.Query, "", data.Page-1) }>Previous</a>
 						} else {
 							<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
 						}
 						if data.Page < data.TotalPages {
-							<a class="btn-sm-outline" href={ ListURL("/unmatched/datadog/" + data.Layout.DatadogSite, data.Query, "", data.Page+1) }>Next</a>
+							<a class="btn-sm-outline" href={ ListURL("/accounts/unlinked/datadog/" + data.Layout.DatadogSite, data.Query, "", data.Page+1) }>Next</a>
 						} else {
 							<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
 						}

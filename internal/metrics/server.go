@@ -12,8 +12,11 @@ import (
 )
 
 const metricsReadHeaderTimeout = 5 * time.Second
+const metricsRefreshTimeout = 5 * time.Second
 
-func StartServer(ctx context.Context, addr string) (*http.Server, <-chan error) {
+type RefreshFunc func(context.Context) error
+
+func StartServer(ctx context.Context, addr string, refresh RefreshFunc) (*http.Server, <-chan error) {
 	addr = strings.TrimSpace(addr)
 	if addr == "" {
 		return nil, nil
@@ -28,7 +31,7 @@ func StartServer(ctx context.Context, addr string) (*http.Server, <-chan error) 
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/metrics", metricsHandler(refresh))
 
 	srv := &http.Server{
 		Addr:              addr,
@@ -51,4 +54,20 @@ func StartServer(ctx context.Context, addr string) (*http.Server, <-chan error) 
 	}()
 
 	return srv, errCh
+}
+
+func metricsHandler(refresh RefreshFunc) http.Handler {
+	handler := promhttp.Handler()
+	if refresh == nil {
+		return handler
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		refreshCtx, cancel := context.WithTimeout(r.Context(), metricsRefreshTimeout)
+		defer cancel()
+		if err := refresh(refreshCtx); err != nil {
+			slog.Warn("metrics refresh failed", "err", err)
+		}
+		handler.ServeHTTP(w, r)
+	})
 }

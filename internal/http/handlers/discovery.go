@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,13 +10,13 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
-	"github.com/open-sspm/open-sspm/internal/metrics"
 )
 
 const (
@@ -25,20 +24,20 @@ const (
 	discoveryHotspotsLimit = 200
 )
 
-type discoveryConnectorRuntime struct {
-	SourceName string
-	Configured bool
-	Enabled    bool
+type discoveryPostureCutoffs struct {
+	OktaFreshAfter            pgtype.Timestamptz
+	EntraFreshAfter           pgtype.Timestamptz
+	GoogleWorkspaceFreshAfter pgtype.Timestamptz
+	GithubFreshAfter          pgtype.Timestamptz
+	DatadogFreshAfter         pgtype.Timestamptz
+	AwsFreshAfter             pgtype.Timestamptz
+	DefaultFreshAfter         pgtype.Timestamptz
 }
 
 func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	if err := h.recomputeDiscoveryPosture(ctx); err != nil {
-		return h.RenderError(c, err)
-	}
-
 	layout, snap, err := h.LayoutData(ctx, c, "SaaS Discovery")
 	if err != nil {
 		return h.RenderError(c, err)
@@ -58,31 +57,46 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 	managedState := normalizeDiscoveryManagedState(c.QueryParam("managed_state"))
 	riskLevel := normalizeDiscoveryRiskLevel(c.QueryParam("risk_level"))
 	page := parsePageParam(c)
+	cutoffs := h.discoveryPostureCutoffs(time.Now().UTC())
 
 	totalCount, err := h.Q.CountSaaSAppsByFilters(ctx, gen.CountSaaSAppsByFiltersParams{
-		ConfiguredSourceKinds: configuredSourceKinds,
-		ConfiguredSourceNames: configuredSourceNames,
-		SourceKind:            selectedSourceKind,
-		SourceName:            selectedSourceName,
-		ManagedState:          managedState,
-		RiskLevel:             riskLevel,
-		Query:                 query,
+		ManagedState:              managedState,
+		RiskLevel:                 riskLevel,
+		ConfiguredSourceKinds:     configuredSourceKinds,
+		ConfiguredSourceNames:     configuredSourceNames,
+		OktaFreshAfter:            cutoffs.OktaFreshAfter,
+		EntraFreshAfter:           cutoffs.EntraFreshAfter,
+		GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
+		GithubFreshAfter:          cutoffs.GithubFreshAfter,
+		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
+		AwsFreshAfter:             cutoffs.AwsFreshAfter,
+		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
+		SourceKind:                selectedSourceKind,
+		SourceName:                selectedSourceName,
+		Query:                     query,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
-	page, totalPages, offset := paginate(totalCount, page, discoveryAppsPerPage)
+	pagination := newPaginatedListState(totalCount, page, discoveryAppsPerPage)
 	rows, err := h.Q.ListSaaSAppsPageByFilters(ctx, gen.ListSaaSAppsPageByFiltersParams{
-		ConfiguredSourceKinds: configuredSourceKinds,
-		ConfiguredSourceNames: configuredSourceNames,
-		SourceKind:            selectedSourceKind,
-		SourceName:            selectedSourceName,
-		ManagedState:          managedState,
-		RiskLevel:             riskLevel,
-		Query:                 query,
-		PageOffset:            int32(offset),
-		PageLimit:             int32(discoveryAppsPerPage),
+		ManagedState:              managedState,
+		RiskLevel:                 riskLevel,
+		PageOffset:                int32(pagination.Offset()),
+		PageLimit:                 int32(discoveryAppsPerPage),
+		ConfiguredSourceKinds:     configuredSourceKinds,
+		ConfiguredSourceNames:     configuredSourceNames,
+		OktaFreshAfter:            cutoffs.OktaFreshAfter,
+		EntraFreshAfter:           cutoffs.EntraFreshAfter,
+		GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
+		GithubFreshAfter:          cutoffs.GithubFreshAfter,
+		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
+		AwsFreshAfter:             cutoffs.AwsFreshAfter,
+		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
+		SourceKind:                selectedSourceKind,
+		SourceName:                selectedSourceName,
+		Query:                     query,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -112,30 +126,20 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 		})
 	}
 
-	showingCount := len(items)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 	data := viewmodels.DiscoveryAppsViewData{
-		Layout:             layout,
-		SourceOptions:      sourceKindOptions(sourceOptions),
-		SourceNameOptions:  sourceNameOptions,
-		SelectedSourceKind: selectedSourceKind,
-		SelectedSourceName: selectedSourceName,
-		Query:              query,
-		ManagedState:       managedState,
-		RiskLevel:          riskLevel,
-		Items:              items,
-		ShowingCount:       showingCount,
-		ShowingFrom:        showingFrom,
-		ShowingTo:          showingTo,
-		TotalCount:         totalCount,
-		Page:               page,
-		PerPage:            discoveryAppsPerPage,
-		TotalPages:         totalPages,
-		HasItems:           showingCount > 0,
-		EmptyStateMsg:      "No discovered SaaS apps match the current filters.",
+		PaginatedListPageData: pagination.PageData(layout, len(items), "No discovered SaaS apps match the current filters.", ""),
+		SourceOptions:         sourceKindOptions(sourceOptions),
+		SourceNameOptions:     sourceNameOptions,
+		SelectedSourceKind:    selectedSourceKind,
+		SelectedSourceName:    selectedSourceName,
+		Query:                 query,
+		ManagedState:          managedState,
+		RiskLevel:             riskLevel,
+		Items:                 items,
+		HasItems:              len(items) > 0,
 	}
 	if totalCount == 0 && len(sourceOptions) == 0 {
-		data.EmptyStateMsg = "Enable Okta, Microsoft Entra, or Google Workspace discovery in connector settings, then run sync."
+		data.PaginatedListPageData.EmptyStateMsg = "Enable Okta, Microsoft Entra, or Google Workspace discovery in connector settings, then run sync."
 	}
 
 	if isHX(c) && isHXTarget(c, "discovery-apps-results") {
@@ -148,10 +152,6 @@ func (h *Handlers) HandleDiscoveryHotspots(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	if err := h.recomputeDiscoveryPosture(ctx); err != nil {
-		return h.RenderError(c, err)
-	}
-
 	layout, snap, err := h.LayoutData(ctx, c, "Discovery Hotspots")
 	if err != nil {
 		return h.RenderError(c, err)
@@ -165,13 +165,21 @@ func (h *Handlers) HandleDiscoveryHotspots(c *echo.Context) error {
 	)
 	sourceNameOptions := discoverySourceNameOptions(selectedSourceKind, sourceOptions)
 	configuredSourceKinds, configuredSourceNames := discoveryConfiguredSourcePairs(sourceOptions)
+	cutoffs := h.discoveryPostureCutoffs(time.Now().UTC())
 
 	rows, err := h.Q.ListSaaSAppHotspots(ctx, gen.ListSaaSAppHotspotsParams{
-		ConfiguredSourceKinds: configuredSourceKinds,
-		ConfiguredSourceNames: configuredSourceNames,
-		SourceKind:            selectedSourceKind,
-		SourceName:            selectedSourceName,
-		LimitRows:             discoveryHotspotsLimit,
+		LimitRows:                 discoveryHotspotsLimit,
+		ConfiguredSourceKinds:     configuredSourceKinds,
+		ConfiguredSourceNames:     configuredSourceNames,
+		OktaFreshAfter:            cutoffs.OktaFreshAfter,
+		EntraFreshAfter:           cutoffs.EntraFreshAfter,
+		GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
+		GithubFreshAfter:          cutoffs.GithubFreshAfter,
+		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
+		AwsFreshAfter:             cutoffs.AwsFreshAfter,
+		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
+		SourceKind:                selectedSourceKind,
+		SourceName:                selectedSourceName,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -220,11 +228,17 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	if err := h.recomputeDiscoveryPosture(ctx); err != nil {
-		return h.RenderError(c, err)
-	}
-
-	app, err := h.Q.GetSaaSAppByID(ctx, appID)
+	cutoffs := h.discoveryPostureCutoffs(time.Now().UTC())
+	app, err := h.Q.GetSaaSAppByID(ctx, gen.GetSaaSAppByIDParams{
+		OktaFreshAfter:            cutoffs.OktaFreshAfter,
+		EntraFreshAfter:           cutoffs.EntraFreshAfter,
+		GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
+		GithubFreshAfter:          cutoffs.GithubFreshAfter,
+		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
+		AwsFreshAfter:             cutoffs.AwsFreshAfter,
+		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
+		ID:                        appID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -337,221 +351,6 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 	return h.RenderComponent(c, views.DiscoveryAppShowPage(data))
 }
 
-func (h *Handlers) recomputeDiscoveryPosture(ctx context.Context) error {
-	rows, err := h.Q.ListSaaSAppPostureInputs(ctx)
-	if err != nil {
-		return fmt.Errorf("list discovery posture inputs: %w", err)
-	}
-
-	runtimes, err := h.discoveryConnectorRuntimes(ctx)
-	if err != nil {
-		return err
-	}
-	configuredSourceKinds, configuredSourceNames := discoveryConfiguredSourcePairsFromRuntimes(runtimes)
-
-	seenSources := map[string]struct{}{}
-	sourceKinds := make([]string, 0, len(rows))
-	sourceNames := make([]string, 0, len(rows))
-	for _, row := range rows {
-		connectorKind := NormalizeConnectorKind(row.BindingConnectorKind)
-		connectorSource := strings.TrimSpace(row.BindingConnectorSourceName)
-		if connectorKind == "" || connectorSource == "" {
-			continue
-		}
-		key := connectorKind + "\x00" + connectorSource
-		if _, ok := seenSources[key]; ok {
-			continue
-		}
-		seenSources[key] = struct{}{}
-		sourceKinds = append(sourceKinds, connectorKind)
-		sourceNames = append(sourceNames, connectorSource)
-	}
-
-	lastSuccessBySource := map[string]time.Time{}
-	if len(sourceKinds) > 0 {
-		latestRows, err := h.Q.ListLatestSuccessfulSyncFinishedAtForSources(ctx, gen.ListLatestSuccessfulSyncFinishedAtForSourcesParams{
-			SourceKinds: sourceKinds,
-			SourceNames: sourceNames,
-		})
-		if err != nil {
-			return fmt.Errorf("list latest successful sync timestamps: %w", err)
-		}
-		for _, row := range latestRows {
-			if !row.LastSuccessAt.Valid {
-				continue
-			}
-			key := NormalizeConnectorKind(row.SourceKind) + "\x00" + strings.TrimSpace(row.SourceName)
-			lastSuccessBySource[key] = row.LastSuccessAt.Time.UTC()
-		}
-	}
-
-	now := time.Now().UTC()
-	for _, row := range rows {
-		connectorKind := NormalizeConnectorKind(row.BindingConnectorKind)
-		connectorSource := strings.TrimSpace(row.BindingConnectorSourceName)
-		hasPrimaryBinding := connectorKind != "" && connectorSource != ""
-
-		connectorConfigured := false
-		connectorEnabled := false
-		if hasPrimaryBinding {
-			if runtime, ok := runtimes[connectorKind]; ok && strings.EqualFold(strings.TrimSpace(runtime.SourceName), connectorSource) {
-				connectorConfigured = runtime.Configured
-				connectorEnabled = runtime.Enabled
-			}
-		}
-
-		lastSuccessAt, hasLastSuccess := lastSuccessBySource[connectorKind+"\x00"+connectorSource]
-		managedState, managedReason := discovery.ManagedStateAndReason(discovery.ManagedStateInput{
-			HasPrimaryBinding:     hasPrimaryBinding,
-			ConnectorEnabled:      connectorEnabled,
-			ConnectorConfigured:   connectorConfigured,
-			LastSuccessfulSyncAt:  lastSuccessAt,
-			HasLastSuccessfulSync: hasLastSuccess,
-			FreshnessWindow:       h.discoveryFreshnessWindow(connectorKind),
-			Now:                   now,
-		})
-
-		suggestedBusinessCriticality := discovery.SuggestedBusinessCriticality(row.Actors30d, row.HasPrivilegedScope)
-		suggestedDataClassification := discovery.SuggestedDataClassification(row.HasPrivilegedScope, row.HasConfidentialScope)
-
-		effectiveBusinessCriticality := normalizeDiscoveryBusinessCriticality(row.BusinessCriticality)
-		if effectiveBusinessCriticality == "unknown" {
-			effectiveBusinessCriticality = suggestedBusinessCriticality
-		}
-		effectiveDataClassification := normalizeDiscoveryDataClassification(row.DataClassification)
-		if effectiveDataClassification == "unknown" {
-			effectiveDataClassification = suggestedDataClassification
-		}
-
-		riskScore, riskLevel := discovery.RiskScoreAndLevel(discovery.RiskInput{
-			ManagedState:          managedState,
-			HasPrivilegedScopes:   row.HasPrivilegedScope,
-			HasConfidentialScopes: row.HasConfidentialScope,
-			HasOwner:              row.OwnerIdentityID > 0,
-			Actors30d:             row.Actors30d,
-			BusinessCriticality:   effectiveBusinessCriticality,
-			DataClassification:    effectiveDataClassification,
-		})
-
-		if err := h.Q.UpdateSaaSAppPosture(ctx, gen.UpdateSaaSAppPostureParams{
-			ManagedState:                 managedState,
-			ManagedReason:                managedReason,
-			BoundConnectorKind:           connectorKind,
-			BoundConnectorSourceName:     connectorSource,
-			RiskScore:                    riskScore,
-			RiskLevel:                    riskLevel,
-			SuggestedBusinessCriticality: suggestedBusinessCriticality,
-			SuggestedDataClassification:  suggestedDataClassification,
-			ID:                           row.ID,
-		}); err != nil {
-			return fmt.Errorf("update saas app posture for app %d: %w", row.ID, err)
-		}
-	}
-
-	if err := h.refreshDiscoveryMetrics(ctx, configuredSourceKinds, configuredSourceNames); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (h *Handlers) refreshDiscoveryMetrics(ctx context.Context, configuredSourceKinds, configuredSourceNames []string) error {
-	for _, state := range []string{"managed", "unmanaged"} {
-		metrics.DiscoveryAppsTotal.WithLabelValues(state).Set(0)
-	}
-	for _, level := range []string{"low", "medium", "high", "critical"} {
-		metrics.DiscoveryHotspotsTotal.WithLabelValues(level).Set(0)
-	}
-
-	managedCounts, err := h.Q.CountSaaSAppsGroupedByManagedState(ctx, gen.CountSaaSAppsGroupedByManagedStateParams{
-		ConfiguredSourceKinds: configuredSourceKinds,
-		ConfiguredSourceNames: configuredSourceNames,
-	})
-	if err != nil {
-		return fmt.Errorf("count discovery apps by managed state: %w", err)
-	}
-	for _, row := range managedCounts {
-		state := strings.ToLower(strings.TrimSpace(row.ManagedState))
-		if state != "managed" && state != "unmanaged" {
-			continue
-		}
-		metrics.DiscoveryAppsTotal.WithLabelValues(state).Set(float64(row.AppCount))
-	}
-
-	riskCounts, err := h.Q.CountSaaSAppsGroupedByRiskLevel(ctx, gen.CountSaaSAppsGroupedByRiskLevelParams{
-		ConfiguredSourceKinds: configuredSourceKinds,
-		ConfiguredSourceNames: configuredSourceNames,
-	})
-	if err != nil {
-		return fmt.Errorf("count discovery apps by risk level: %w", err)
-	}
-	for _, row := range riskCounts {
-		level := strings.ToLower(strings.TrimSpace(row.RiskLevel))
-		switch level {
-		case "high", "critical":
-			metrics.DiscoveryHotspotsTotal.WithLabelValues(level).Set(float64(row.AppCount))
-		}
-	}
-	return nil
-}
-
-func discoveryConfiguredSourcePairsFromRuntimes(runtimes map[string]discoveryConnectorRuntime) ([]string, []string) {
-	type sourcePair struct {
-		kind string
-		name string
-	}
-
-	pairs := make([]sourcePair, 0, 2)
-	for _, kind := range []string{configstore.KindOkta, configstore.KindEntra, configstore.KindGoogleWorkspace} {
-		runtime, ok := runtimes[kind]
-		if !ok || !runtime.Configured {
-			continue
-		}
-		sourceName := strings.TrimSpace(runtime.SourceName)
-		if sourceName == "" {
-			continue
-		}
-		pairs = append(pairs, sourcePair{kind: kind, name: sourceName})
-	}
-
-	sort.Slice(pairs, func(i, j int) bool {
-		if pairs[i].kind == pairs[j].kind {
-			return strings.ToLower(pairs[i].name) < strings.ToLower(pairs[j].name)
-		}
-		return pairs[i].kind < pairs[j].kind
-	})
-
-	sourceKinds := make([]string, 0, len(pairs))
-	sourceNames := make([]string, 0, len(pairs))
-	for _, pair := range pairs {
-		sourceKinds = append(sourceKinds, pair.kind)
-		sourceNames = append(sourceNames, pair.name)
-	}
-	return sourceKinds, sourceNames
-}
-
-func (h *Handlers) discoveryConnectorRuntimes(ctx context.Context) (map[string]discoveryConnectorRuntime, error) {
-	out := map[string]discoveryConnectorRuntime{}
-	if h.Registry == nil || h.Q == nil {
-		return out, nil
-	}
-	states, err := h.Registry.LoadStates(ctx, h.Q)
-	if err != nil {
-		return nil, fmt.Errorf("load connector states for discovery posture: %w", err)
-	}
-	for _, state := range states {
-		kind := NormalizeConnectorKind(state.Definition.Kind())
-		if kind == "" {
-			continue
-		}
-		out[kind] = discoveryConnectorRuntime{
-			SourceName: strings.TrimSpace(state.SourceName),
-			Configured: state.Configured,
-			Enabled:    state.Enabled,
-		}
-	}
-	return out, nil
-}
-
 func (h *Handlers) discoveryFreshnessWindow(kind string) time.Duration {
 	interval := h.Cfg.SyncInterval
 	switch NormalizeConnectorKind(kind) {
@@ -585,6 +384,18 @@ func (h *Handlers) discoveryFreshnessWindow(kind string) time.Duration {
 	}
 	window := max(interval*2, 30*time.Minute)
 	return window
+}
+
+func (h *Handlers) discoveryPostureCutoffs(now time.Time) discoveryPostureCutoffs {
+	return discoveryPostureCutoffs{
+		OktaFreshAfter:            pgtype.Timestamptz{Time: now.Add(-h.discoveryFreshnessWindow(configstore.KindOkta)), Valid: true},
+		EntraFreshAfter:           pgtype.Timestamptz{Time: now.Add(-h.discoveryFreshnessWindow(configstore.KindEntra)), Valid: true},
+		GoogleWorkspaceFreshAfter: pgtype.Timestamptz{Time: now.Add(-h.discoveryFreshnessWindow(configstore.KindGoogleWorkspace)), Valid: true},
+		GithubFreshAfter:          pgtype.Timestamptz{Time: now.Add(-h.discoveryFreshnessWindow(configstore.KindGitHub)), Valid: true},
+		DatadogFreshAfter:         pgtype.Timestamptz{Time: now.Add(-h.discoveryFreshnessWindow(configstore.KindDatadog)), Valid: true},
+		AwsFreshAfter:             pgtype.Timestamptz{Time: now.Add(-h.discoveryFreshnessWindow(configstore.KindAWSIdentityCenter)), Valid: true},
+		DefaultFreshAfter:         pgtype.Timestamptz{Time: now.Add(-h.discoveryFreshnessWindow("")), Valid: true},
+	}
 }
 
 func discoverySourceOptions(snap ConnectorSnapshot) []viewmodels.DiscoverySourceOption {

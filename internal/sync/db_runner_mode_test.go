@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/entra"
 	"github.com/open-sspm/open-sspm/internal/connectors/okta"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
@@ -128,5 +130,39 @@ func TestConnectorKindMatchesRequestedScope(t *testing.T) {
 	}
 	if !connectorKindMatchesRequestedScope("okta", "github", false) {
 		t.Fatalf("expected unscoped runs to include all connector kinds")
+	}
+}
+
+func TestDBRunnerRefreshDiscoveryMetricsBestEffortUsesInjectedConfig(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.Config{SyncInterval: 10 * time.Minute}
+	queries := &gen.Queries{}
+	called := false
+
+	runner := &DBRunner{
+		q:                      queries,
+		mode:                   registry.RunModeDiscovery,
+		discoveryMetricsConfig: cfg,
+		hasDiscoveryMetricsCfg: true,
+		discoveryMetricsRefresh: func(ctx context.Context, q *gen.Queries, got config.Config, now time.Time) error {
+			called = true
+			if q != queries {
+				t.Fatalf("queries pointer mismatch")
+			}
+			if got.SyncInterval != cfg.SyncInterval {
+				t.Fatalf("sync interval = %s, want %s", got.SyncInterval, cfg.SyncInterval)
+			}
+			if now.IsZero() {
+				t.Fatalf("expected refresh timestamp")
+			}
+			return nil
+		},
+	}
+
+	runner.refreshDiscoveryMetricsBestEffort(context.Background())
+
+	if !called {
+		t.Fatalf("expected discovery metrics refresh to run")
 	}
 }

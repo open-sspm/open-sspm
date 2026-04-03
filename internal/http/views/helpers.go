@@ -61,9 +61,9 @@ func AppDetailURL(integratedHref, externalID string) string {
 		return integratedHref
 	}
 	if externalID = strings.TrimSpace(externalID); externalID != "" {
-		return "/apps/" + externalID
+		return "/assigned-apps/" + externalID
 	}
-	return "/apps"
+	return "/assigned-apps"
 }
 
 func CredentialsListURL(sourceKind, sourceName, query, credentialKind, status, riskLevel, expiryState string, expiresInDays int, page int) string {
@@ -275,9 +275,9 @@ func ConnectedAppsListURL(query, reviewState string, page int) string {
 		values.Set("page", strconv.Itoa(page))
 	}
 	if len(values) == 0 {
-		return "/connected-apps"
+		return "/oauth-apps"
 	}
-	return "/connected-apps?" + values.Encode()
+	return "/oauth-apps?" + values.Encode()
 }
 
 func DiscoveryHotspotsURL(sourceKind, sourceName string) string {

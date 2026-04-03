@@ -25,7 +25,7 @@ type IdentityListItem struct {
 }
 
 type IdentitiesViewData struct {
-	Layout             LayoutData
+	PaginatedListPageData
 	Items              []IdentityListItem
 	Sources            []ProgrammaticSourceOption
 	SourceNameOptions  []ProgrammaticSourceOption
@@ -43,15 +43,7 @@ type IdentitiesViewData struct {
 	ShowFirstSeen      bool
 	ShowLinkQuality    bool
 	ShowLinkReason     bool
-	ShowingCount       int
-	ShowingFrom        int
-	ShowingTo          int
-	TotalCount         int64
-	Page               int
-	PerPage            int
-	TotalPages         int
 	HasIdentities      bool
-	EmptyStateMsg      string
 }
 
 type IdentityLinkedAccountView struct {

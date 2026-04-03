@@ -56,7 +56,7 @@ func AWSUsersPage(data viewmodels.AWSUsersViewData) templ.Component {
 				}
 				ctx = templ.InitializeContext(ctx)
 				if data.Layout.AWSIdentityCenterConfigured && data.Layout.AWSIdentityCenterEnabled {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<a class=\"btn-sm-outline\" href=\"/unmatched/aws\">Unmanaged</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<a class=\"btn-sm-outline\" href=\"/accounts/unlinked/aws\">Unlinked</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -92,7 +92,7 @@ func AWSUsersPage(data viewmodels.AWSUsersViewData) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<p>Linked users let you jump straight to their identity page. Unlinked users show “—”. Use <a class=\"btn-sm-link px-1\" href=\"/unmatched/aws\">Unmanaged</a> to link.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<p>Linked users let you jump straight to their identity page. Unlinked users show “—”. Use <a class=\"btn-sm-link px-1\" href=\"/accounts/unlinked/aws\">Unlinked</a> to link.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -170,7 +170,7 @@ func AWSUsersPage(data viewmodels.AWSUsersViewData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if data.Query != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<a class=\"btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2\" aria-label=\"Clear query\" href=\"/aws-users\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"h-4 w-4\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z\" clip-rule=\"evenodd\"></path></svg></a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<a class=\"btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2\" aria-label=\"Clear query\" href=\"/accounts/aws\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"h-4 w-4\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z\" clip-rule=\"evenodd\"></path></svg></a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -483,9 +483,9 @@ func AWSUsersPage(data viewmodels.AWSUsersViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var29 templ.SafeURL
-					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/aws-users", data.Query, "", data.Page-1))
+					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/accounts/aws", data.Query, "", data.Page-1))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `aws_users.templ`, Line: 127, Col: 90}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `aws_users.templ`, Line: 127, Col: 93}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 					if templ_7745c5c3_Err != nil {
@@ -507,9 +507,9 @@ func AWSUsersPage(data viewmodels.AWSUsersViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var30 templ.SafeURL
-					templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/aws-users", data.Query, "", data.Page+1))
+					templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/accounts/aws", data.Query, "", data.Page+1))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `aws_users.templ`, Line: 132, Col: 90}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `aws_users.templ`, Line: 132, Col: 93}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 					if templ_7745c5c3_Err != nil {

@@ -355,6 +355,74 @@ func TestAppAssetCredentialRefsGoogleWorkspaceIncludesGoogleRef(t *testing.T) {
 	}
 }
 
+func TestCredentialAssetLookupKey(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name       string
+		credential gen.CredentialArtifact
+		wantKind   string
+		wantID     string
+		wantOK     bool
+	}{
+		{
+			name: "app asset ref with embedded asset kind",
+			credential: gen.CredentialArtifact{
+				AssetRefKind:       "app_asset",
+				AssetRefExternalID: "google_oauth_client:client-123",
+			},
+			wantKind: "google_oauth_client",
+			wantID:   "client-123",
+			wantOK:   true,
+		},
+		{
+			name: "google workspace specific asset ref kind",
+			credential: gen.CredentialArtifact{
+				AssetRefKind:       "google_oauth_client",
+				AssetRefExternalID: "google_oauth_client:client-123",
+			},
+			wantKind: "google_oauth_client",
+			wantID:   "client-123",
+			wantOK:   true,
+		},
+		{
+			name: "concrete asset ref kind without embedded prefix",
+			credential: gen.CredentialArtifact{
+				AssetRefKind:       "google_oauth_client",
+				AssetRefExternalID: "client-123",
+			},
+			wantKind: "google_oauth_client",
+			wantID:   "client-123",
+			wantOK:   true,
+		},
+		{
+			name: "app asset ref without asset kind stays unresolved",
+			credential: gen.CredentialArtifact{
+				AssetRefKind:       "app_asset",
+				AssetRefExternalID: "client-123",
+			},
+			wantOK: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			gotKind, gotID, gotOK := credentialAssetLookupKey(tc.credential)
+			if gotOK != tc.wantOK {
+				t.Fatalf("credentialAssetLookupKey() ok = %v, want %v", gotOK, tc.wantOK)
+			}
+			if gotKind != tc.wantKind {
+				t.Fatalf("credentialAssetLookupKey() kind = %q, want %q", gotKind, tc.wantKind)
+			}
+			if gotID != tc.wantID {
+				t.Fatalf("credentialAssetLookupKey() external id = %q, want %q", gotID, tc.wantID)
+			}
+		})
+	}
+}
+
 func timestamptz(ts time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: ts.UTC(), Valid: true}
 }

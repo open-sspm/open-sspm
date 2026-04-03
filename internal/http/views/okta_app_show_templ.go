@@ -55,7 +55,7 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<a class=\"btn-sm-outline\" href=\"/apps\">Back to Okta apps</a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<a class=\"btn-sm-outline\" href=\"/assigned-apps\">Back to assigned apps</a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -63,7 +63,7 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 			})
 			templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
-				{Label: "Okta Apps", Href: "/apps"},
+				{Label: "Assigned Apps", Href: "/assigned-apps"},
 				{Label: data.App.Label},
 			}, "Okta accounts assigned to this app.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
@@ -198,9 +198,9 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var13 templ.SafeURL
-				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/apps/"+data.App.ExternalID, "", data.State, 1))
+				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/assigned-apps/"+data.App.ExternalID, "", data.State, 1))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_app_show.templ`, Line: 58, Col: 74}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_app_show.templ`, Line: 58, Col: 83}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 				if templ_7745c5c3_Err != nil {
@@ -599,9 +599,9 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var35 templ.SafeURL
-					templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/apps/"+data.App.ExternalID, data.Query, data.State, data.Page-1))
+					templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/assigned-apps/"+data.App.ExternalID, data.Query, data.State, data.Page-1))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_app_show.templ`, Line: 159, Col: 116}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_app_show.templ`, Line: 159, Col: 125}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 					if templ_7745c5c3_Err != nil {
@@ -623,9 +623,9 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var36 templ.SafeURL
-					templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/apps/"+data.App.ExternalID, data.Query, data.State, data.Page+1))
+					templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/assigned-apps/"+data.App.ExternalID, data.Query, data.State, data.Page+1))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_app_show.templ`, Line: 164, Col: 116}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_app_show.templ`, Line: 164, Col: 125}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 					if templ_7745c5c3_Err != nil {

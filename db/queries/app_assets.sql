@@ -136,6 +136,40 @@ ORDER BY
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
+-- name: ListAppAssetsPageBySourcesAndQueryAndKind :many
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+)
+SELECT aa.*
+FROM app_assets aa
+JOIN configured_sources cs
+  ON cs.source_kind = aa.source_kind
+ AND cs.source_name = aa.source_name
+WHERE
+  aa.expired_at IS NULL
+  AND aa.last_observed_run_id IS NOT NULL
+  AND (
+    sqlc.arg(asset_kind)::text = ''
+    OR aa.asset_kind = sqlc.arg(asset_kind)::text
+  )
+  AND (
+    sqlc.arg(query)::text = ''
+    OR aa.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR aa.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR aa.parent_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+  )
+ORDER BY
+  lower(COALESCE(NULLIF(trim(aa.display_name), ''), aa.external_id)) ASC,
+  aa.source_kind ASC,
+  aa.source_name ASC,
+  aa.id ASC
+LIMIT sqlc.arg(page_limit)::int
+OFFSET sqlc.arg(page_offset)::int;
+
 -- name: GetAppAssetByID :one
 SELECT *
 FROM app_assets

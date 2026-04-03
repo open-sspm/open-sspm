@@ -53,7 +53,7 @@ func AccessGraphNode(oktaAccountID int64, node viewmodels.AccessTreeNode) templ.
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var2 string
-			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("/api/okta-accounts/%d/access-tree?node=%s", oktaAccountID, url.QueryEscape(node.ID)))
+			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("/api/accounts/okta/%d/access-tree?node=%s", oktaAccountID, url.QueryEscape(node.ID)))
 			if templ_7745c5c3_Err != nil {
 				return templ.Error{Err: templ_7745c5c3_Err, FileName: `access_graph.templ`, Line: 19, Col: 112}
 			}

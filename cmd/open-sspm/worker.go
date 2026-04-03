@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
+	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/metrics"
 	"github.com/open-sspm/open-sspm/internal/sync"
 	"github.com/spf13/cobra"
@@ -43,6 +44,7 @@ func runWorker() error {
 		return err
 	}
 	defer pool.Close()
+	queries := gen.New(pool)
 
 	reg, err := buildConnectorRegistry(cfg)
 	if err != nil {
@@ -119,7 +121,7 @@ func runWorker() error {
 		}
 	}()
 	scheduler := sync.Scheduler{Runner: executionRunner, Interval: cfg.SyncInterval}
-	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr)
+	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr, discoveryMetricsRefresh(queries, cfg))
 	doneCh := make(chan struct{})
 	go func() {
 		scheduler.Run(ctx)

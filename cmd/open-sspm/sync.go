@@ -66,6 +66,7 @@ func runSync() error {
 	discoveryDBRunner.SetLockManager(locks)
 	discoveryDBRunner.SetRunMode(registry.RunModeDiscovery)
 	discoveryDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
+	discoveryDBRunner.SetDiscoveryMetricsConfig(cfg)
 	runners := []sync.Runner{fullRunner}
 	if cfg.SyncDiscoveryEnabled {
 		discoveryRunner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, discoveryDBRunner, sync.RunOnceScopeNameDiscovery)

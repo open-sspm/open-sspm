@@ -59,7 +59,7 @@ func ConnectedAppsPage(data viewmodels.ConnectedAppsViewData) templ.Component {
 			})
 			templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
-				{Label: "Google Workspace Connected Apps"},
+				{Label: "OAuth Apps"},
 			}, "Review third-party OAuth apps, grant activity, ownership, and evidence from Google Workspace.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -103,7 +103,7 @@ func ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) templ.Compo
 			templ_7745c5c3_Var4 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div id=\"connected-apps-results\" class=\"space-y-6\"><form method=\"get\" action=\"/connected-apps\" hx-get=\"/connected-apps\" hx-trigger=\"change delay:150ms from:select, submit\" hx-target=\"#connected-apps-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" class=\"space-y-4 border-b border-border/70 pb-5\"><div class=\"flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between\"><label class=\"field w-full lg:max-w-xl\"><span class=\"sr-only\">Query</span><div class=\"relative\"><input type=\"search\" name=\"q\" class=\"input pr-10\" placeholder=\"Search app name or client ID\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div id=\"connected-apps-results\" class=\"space-y-6\"><form method=\"get\" action=\"/oauth-apps\" hx-get=\"/oauth-apps\" hx-trigger=\"change delay:150ms from:select, submit\" hx-target=\"#connected-apps-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" class=\"space-y-4 border-b border-border/70 pb-5\"><div class=\"flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between\"><label class=\"field w-full lg:max-w-xl\"><span class=\"sr-only\">Query</span><div class=\"relative\"><input type=\"search\" name=\"q\" class=\"input pr-10\" placeholder=\"Search app name or client ID\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -344,7 +344,7 @@ func ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) templ.Compo
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</div></section><section class=\"space-y-3\"><div class=\"flex items-center gap-3\"><div><h2 class=\"text-base font-semibold\">Google Workspace Connected Apps</h2><p class=\"text-sm text-muted-foreground\">Directly sourced from OAuth grant inventory and discovery evidence. Review state is operator-managed.</p></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</div></section><section class=\"space-y-3\"><div class=\"flex items-center gap-3\"><div><h2 class=\"text-base font-semibold\">OAuth Apps</h2><p class=\"text-sm text-muted-foreground\">Directly sourced from OAuth grant inventory and discovery evidence. Review state is operator-managed.</p></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -359,9 +359,9 @@ func ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) templ.Compo
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var19 templ.SafeURL
-				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinURLErrs("/connected-apps/" + FormatInt64(item.ID))
+				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinURLErrs("/oauth-apps/" + FormatInt64(item.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 94, Col: 108}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 94, Col: 104}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -374,7 +374,7 @@ func ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) templ.Compo
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(item.DisplayName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 94, Col: 129}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 94, Col: 125}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
@@ -706,7 +706,7 @@ func ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) templ.Compo
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "<table data-columns-id=\"connected-apps--main\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><caption class=\"sr-only\">Connected apps with review state, ownership, evidence, and freshness.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Connected app</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Review</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owner</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Evidence</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Confidence</th><th class=\"osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last seen</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "<table data-columns-id=\"connected-apps--main\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><caption class=\"sr-only\">OAuth apps with review state, ownership, evidence, and freshness.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">OAuth app</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Review</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owner</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Evidence</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Confidence</th><th class=\"osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last seen</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -716,9 +716,9 @@ func ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) templ.Compo
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var47 string
-					templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs("/connected-apps/" + FormatInt64(item.ID))
+					templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs("/oauth-apps/" + FormatInt64(item.ID))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 146, Col: 70}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 146, Col: 66}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 					if templ_7745c5c3_Err != nil {
@@ -729,9 +729,9 @@ func ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) templ.Compo
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var48 templ.SafeURL
-					templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinURLErrs("/connected-apps/" + FormatInt64(item.ID))
+					templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinURLErrs("/oauth-apps/" + FormatInt64(item.ID))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 148, Col: 99}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 148, Col: 95}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 					if templ_7745c5c3_Err != nil {
@@ -744,7 +744,7 @@ func ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) templ.Compo
 					var templ_7745c5c3_Var49 string
 					templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(item.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 148, Col: 126}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 148, Col: 122}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 					if templ_7745c5c3_Err != nil {
@@ -757,7 +757,7 @@ func ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) templ.Compo
 					var templ_7745c5c3_Var50 string
 					templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(item.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 148, Col: 147}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 148, Col: 143}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 					if templ_7745c5c3_Err != nil {
@@ -1112,7 +1112,7 @@ func ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) templ.Compo
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = EmptyState("No connected apps found", data.EmptyStateMsg).Render(templ.WithChildren(ctx, templ_7745c5c3_Var76), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = EmptyState("No OAuth apps found", data.EmptyStateMsg).Render(templ.WithChildren(ctx, templ_7745c5c3_Var76), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1289,9 +1289,9 @@ func ConnectedAppShowPage(data viewmodels.ConnectedAppShowViewData) templ.Compon
 			})
 			templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
-				{Label: "Google Workspace Connected Apps", Href: "/connected-apps"},
+				{Label: "OAuth Apps", Href: "/oauth-apps"},
 				{Label: data.App.DisplayName},
-			}, "Review ownership, grant scope, evidence, and containment actions for a connected app.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var85), templ_7745c5c3_Buffer)
+			}, "Review ownership, grant scope, evidence, and containment actions for an OAuth app.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var85), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1922,9 +1922,9 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var130 templ.SafeURL
-						templ_7745c5c3_Var130, templ_7745c5c3_Err = templ.JoinURLErrs("/connected-apps/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke")
+						templ_7745c5c3_Var130, templ_7745c5c3_Err = templ.JoinURLErrs("/oauth-apps/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke")
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 345, Col: 128}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 345, Col: 124}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var130))
 						if templ_7745c5c3_Err != nil {
@@ -1935,9 +1935,9 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var131 string
-						templ_7745c5c3_Var131, templ_7745c5c3_Err = templ.JoinStringErrs("/connected-apps/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke")
+						templ_7745c5c3_Var131, templ_7745c5c3_Err = templ.JoinStringErrs("/oauth-apps/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke")
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 346, Col: 129}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 346, Col: 125}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var131))
 						if templ_7745c5c3_Err != nil {
@@ -1971,7 +1971,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = EmptyState("No grants", "No active OAuth grants are currently associated with this connected app.").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = EmptyState("No grants", "No active OAuth grants are currently associated with this OAuth app.").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2451,9 +2451,9 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var158 templ.SafeURL
-			templ_7745c5c3_Var158, templ_7745c5c3_Err = templ.JoinURLErrs("/connected-apps/" + FormatInt64(data.App.ID) + "/review")
+			templ_7745c5c3_Var158, templ_7745c5c3_Err = templ.JoinURLErrs("/oauth-apps/" + FormatInt64(data.App.ID) + "/review")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 506, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 506, Col: 70}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var158))
 			if templ_7745c5c3_Err != nil {
@@ -2464,9 +2464,9 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var159 string
-			templ_7745c5c3_Var159, templ_7745c5c3_Err = templ.JoinStringErrs("/connected-apps/" + FormatInt64(data.App.ID) + "/review")
+			templ_7745c5c3_Var159, templ_7745c5c3_Err = templ.JoinStringErrs("/oauth-apps/" + FormatInt64(data.App.ID) + "/review")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 507, Col: 75}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 507, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var159))
 			if templ_7745c5c3_Err != nil {

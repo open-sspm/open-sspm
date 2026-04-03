@@ -45,7 +45,7 @@ func AppsPage(data viewmodels.AppsViewData) templ.Component {
 			ctx = templ.InitializeContext(ctx)
 			templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
-				{Label: "Okta Apps"},
+				{Label: "Assigned Apps"},
 			}, "Apps discovered from Okta assignments.").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -89,7 +89,7 @@ func AppsPageResults(data viewmodels.AppsViewData) templ.Component {
 			templ_7745c5c3_Var3 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div id=\"apps-results\" class=\"space-y-6\"><form method=\"get\" action=\"/apps\" hx-get=\"/apps\" hx-trigger=\"input changed delay:300ms from:input[name='q'], change delay:150ms from:select, submit\" hx-target=\"#apps-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" class=\"space-y-4 border-b border-border/70 pb-5\"><div class=\"flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between\"><label class=\"field w-full lg:max-w-xl\"><span class=\"sr-only\">Query</span><div class=\"relative\"><input type=\"search\" name=\"q\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div id=\"apps-results\" class=\"space-y-6\"><form method=\"get\" action=\"/assigned-apps\" hx-get=\"/assigned-apps\" hx-trigger=\"input changed delay:300ms from:input[name='q'], change delay:150ms from:select, submit\" hx-target=\"#apps-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" class=\"space-y-4 border-b border-border/70 pb-5\"><div class=\"flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between\"><label class=\"field w-full lg:max-w-xl\"><span class=\"sr-only\">Query</span><div class=\"relative\"><input type=\"search\" name=\"q\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -107,7 +107,7 @@ func AppsPageResults(data viewmodels.AppsViewData) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if data.Query != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<a class=\"btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2\" aria-label=\"Clear query\" href=\"/apps\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"h-4 w-4\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z\" clip-rule=\"evenodd\"></path></svg></a>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<a class=\"btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2\" aria-label=\"Clear query\" href=\"/assigned-apps\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"h-4 w-4\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z\" clip-rule=\"evenodd\"></path></svg></a>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -177,7 +177,7 @@ func AppsPageResults(data viewmodels.AppsViewData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div></div><button class=\"sr-only\" type=\"submit\">Apply filters</button></form><section class=\"space-y-3\"><div class=\"flex items-center gap-3\"><div><h2 class=\"text-base font-semibold\">Okta Apps</h2><p class=\"text-sm text-muted-foreground\">Browse apps discovered from Okta assignments.</p></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div></div><button class=\"sr-only\" type=\"submit\">Apply filters</button></form><section class=\"space-y-3\"><div class=\"flex items-center gap-3\"><div><h2 class=\"text-base font-semibold\">Assigned Apps</h2><p class=\"text-sm text-muted-foreground\">Browse apps discovered from Okta assignments.</p></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -381,7 +381,7 @@ func AppsPageResults(data viewmodels.AppsViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					if data.Layout.IsAdmin && a.IntegratedHref == "" && a.SuggestedKind != "" {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<form method=\"post\" action=\"/apps/map\" class=\"inline-flex\">")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<form method=\"post\" action=\"/assigned-apps/map\" class=\"inline-flex\">")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -521,9 +521,9 @@ func AppsPageResults(data viewmodels.AppsViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var30 templ.SafeURL
-					templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinURLErrs("/apps?q=" + QueryEscape(data.Query) + "&page=" + FormatInt(data.Page-1))
+					templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinURLErrs("/assigned-apps?q=" + QueryEscape(data.Query) + "&page=" + FormatInt(data.Page-1))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `apps.templ`, Line: 140, Col: 113}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `apps.templ`, Line: 140, Col: 122}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 					if templ_7745c5c3_Err != nil {
@@ -539,9 +539,9 @@ func AppsPageResults(data viewmodels.AppsViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var31 templ.SafeURL
-					templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinURLErrs("/apps?page=" + FormatInt(data.Page-1))
+					templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinURLErrs("/assigned-apps?page=" + FormatInt(data.Page-1))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `apps.templ`, Line: 142, Col: 79}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `apps.templ`, Line: 142, Col: 88}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 					if templ_7745c5c3_Err != nil {
@@ -565,9 +565,9 @@ func AppsPageResults(data viewmodels.AppsViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var32 templ.SafeURL
-					templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinURLErrs("/apps?q=" + QueryEscape(data.Query) + "&page=" + FormatInt(data.Page+1))
+					templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinURLErrs("/assigned-apps?q=" + QueryEscape(data.Query) + "&page=" + FormatInt(data.Page+1))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `apps.templ`, Line: 149, Col: 113}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `apps.templ`, Line: 149, Col: 122}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 					if templ_7745c5c3_Err != nil {
@@ -583,9 +583,9 @@ func AppsPageResults(data viewmodels.AppsViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var33 templ.SafeURL
-					templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinURLErrs("/apps?page=" + FormatInt(data.Page+1))
+					templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinURLErrs("/assigned-apps?page=" + FormatInt(data.Page+1))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `apps.templ`, Line: 151, Col: 79}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `apps.templ`, Line: 151, Col: 88}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 					if templ_7745c5c3_Err != nil {

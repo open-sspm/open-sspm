@@ -50,7 +50,7 @@ func TestHandleDashboardUsesGenericInventoryMetrics(t *testing.T) {
 		githubIdentityID := insertCommandSearchIdentity(t, ctx, pool, "human", "bob@example.com", "Bob GitHub")
 		insertCommandSearchIdentityAccountLink(t, ctx, pool, githubIdentityID, githubAccountID)
 
-		insertCommandSearchDiscoveryApp(t, ctx, pool, q, entraRunID, configstore.KindEntra, "tenant-1", "azure-cloud", "Azure Cloud", "azure.com", "Microsoft", "managed", "high", 80, "azure-cloud")
+		insertCommandSearchDiscoveryApp(t, ctx, pool, q, entraRunID, configstore.KindEntra, "tenant-1", "azure-cloud", "Azure Cloud", "azure.com", "Microsoft", "azure-cloud")
 
 		insertCommandSearchAppAsset(t, ctx, q, entraRunID, configstore.KindEntra, "tenant-1", "entra_application", "azure-enterprise-app", "", "Azure Enterprise App", "active")
 		insertCommandSearchAppAsset(t, ctx, q, githubRunID, configstore.KindGitHub, "acme", "github_app", "github-actions", "", "GitHub Actions", "active")
@@ -95,7 +95,7 @@ func TestHandleDashboardIgnoresLegacyGoogleConnectedAppsWithoutConfiguredConnect
 			t.Fatalf("dashboard unexpectedly rendered old connected apps label: %s", dashboardBody)
 		}
 
-		connectedAppsBody := renderConnectedApps(t, h, "http://example.com/connected-apps")
+		connectedAppsBody := renderConnectedApps(t, h, "http://example.com/oauth-apps")
 		if !strings.Contains(connectedAppsBody, "Google Workspace is not configured yet. Add credentials in Connectors.") {
 			t.Fatalf("connected-apps body missing unconfigured state: %s", connectedAppsBody)
 		}

@@ -116,6 +116,119 @@ func (q *Queries) CountCredentialArtifactsBySourceAndQueryAndFilters(ctx context
 	return count, err
 }
 
+const countCredentialArtifactsBySourcesAndQueryAndFilters = `-- name: CountCredentialArtifactsBySourcesAndQueryAndFilters :one
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($7::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($8::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+)
+SELECT count(*)
+FROM credential_artifacts ca
+JOIN configured_sources cs
+  ON cs.source_kind = ca.source_kind
+ AND cs.source_name = ca.source_name
+WHERE
+  ca.expired_at IS NULL
+  AND ca.last_observed_run_id IS NOT NULL
+  AND (
+    $1::text = ''
+    OR ca.credential_kind = $1::text
+  )
+  AND (
+    $2::text = ''
+    OR lower(ca.status) = lower($2::text)
+  )
+  AND (
+    $3::text = ''
+    OR lower($3::text) = (
+      CASE
+        WHEN ca.expires_at_source IS NOT NULL
+          AND ca.expires_at_source < now()
+          AND lower(COALESCE(NULLIF(trim(ca.status), ''), 'active')) IN ('active', 'approved', 'pending_approval')
+          THEN 'critical'
+        WHEN ca.expires_at_source IS NOT NULL
+          AND ca.expires_at_source < now()
+          THEN 'high'
+        WHEN lower(ca.credential_kind) IN ('entra_client_secret', 'github_deploy_key', 'github_pat_request', 'github_pat_fine_grained')
+          AND trim(ca.created_by_external_id) = ''
+          AND trim(ca.approved_by_external_id) = ''
+          THEN 'critical'
+        WHEN ca.expires_at_source IS NOT NULL
+          AND ca.expires_at_source >= now()
+          AND ca.expires_at_source <= now() + make_interval(days => 7)
+          THEN 'high'
+        WHEN trim(ca.created_by_external_id) = ''
+          THEN 'high'
+        WHEN ca.last_used_at_source IS NOT NULL
+          AND ca.last_used_at_source <= now() - make_interval(days => 90)
+          THEN 'high'
+        WHEN ca.expires_at_source IS NOT NULL
+          AND ca.expires_at_source >= now()
+          AND ca.expires_at_source <= now() + make_interval(days => 30)
+          THEN 'medium'
+        ELSE 'low'
+      END
+    )
+  )
+  AND (
+    $4::text = ''
+    OR (
+      $4::text = 'expired'
+      AND ca.expires_at_source IS NOT NULL
+      AND ca.expires_at_source < now()
+    )
+    OR (
+      $4::text = 'active'
+      AND (ca.expires_at_source IS NULL OR ca.expires_at_source >= now())
+    )
+  )
+  AND (
+    $5::int <= 0
+    OR (
+      ca.expires_at_source IS NOT NULL
+      AND ca.expires_at_source >= now()
+      AND ca.expires_at_source <= now() + make_interval(days => $5::int)
+    )
+  )
+  AND (
+    $6::text = ''
+    OR ca.display_name ILIKE ('%' || $6::text || '%')
+    OR ca.external_id ILIKE ('%' || $6::text || '%')
+    OR ca.asset_ref_external_id ILIKE ('%' || $6::text || '%')
+    OR ca.created_by_external_id ILIKE ('%' || $6::text || '%')
+    OR ca.approved_by_external_id ILIKE ('%' || $6::text || '%')
+  )
+`
+
+type CountCredentialArtifactsBySourcesAndQueryAndFiltersParams struct {
+	CredentialKind        string   `json:"credential_kind"`
+	Status                string   `json:"status"`
+	RiskLevel             string   `json:"risk_level"`
+	ExpiryState           string   `json:"expiry_state"`
+	ExpiresInDays         int32    `json:"expires_in_days"`
+	Query                 string   `json:"query"`
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+}
+
+func (q *Queries) CountCredentialArtifactsBySourcesAndQueryAndFilters(ctx context.Context, arg CountCredentialArtifactsBySourcesAndQueryAndFiltersParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countCredentialArtifactsBySourcesAndQueryAndFilters,
+		arg.CredentialKind,
+		arg.Status,
+		arg.RiskLevel,
+		arg.ExpiryState,
+		arg.ExpiresInDays,
+		arg.Query,
+		arg.ConfiguredSourceKinds,
+		arg.ConfiguredSourceNames,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const expireCredentialArtifactsNotSeenInRunBySource = `-- name: ExpireCredentialArtifactsNotSeenInRunBySource :execrows
 UPDATE credential_artifacts
 SET
@@ -438,6 +551,174 @@ func (q *Queries) ListCredentialArtifactsPageBySourceAndQueryAndFilters(ctx cont
 		arg.Query,
 		arg.PageOffset,
 		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CredentialArtifact
+	for rows.Next() {
+		var i CredentialArtifact
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.AssetRefKind,
+			&i.AssetRefExternalID,
+			&i.CredentialKind,
+			&i.ExternalID,
+			&i.DisplayName,
+			&i.Fingerprint,
+			&i.ScopeJson,
+			&i.Status,
+			&i.CreatedAtSource,
+			&i.ExpiresAtSource,
+			&i.LastUsedAtSource,
+			&i.CreatedByKind,
+			&i.CreatedByExternalID,
+			&i.CreatedByDisplayName,
+			&i.ApprovedByKind,
+			&i.ApprovedByExternalID,
+			&i.ApprovedByDisplayName,
+			&i.RawJson,
+			&i.SeenInRunID,
+			&i.SeenAt,
+			&i.LastObservedRunID,
+			&i.LastObservedAt,
+			&i.ExpiredAt,
+			&i.ExpiredRunID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCredentialArtifactsPageBySourcesAndQueryAndFilters = `-- name: ListCredentialArtifactsPageBySourcesAndQueryAndFilters :many
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($9::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($10::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+)
+SELECT ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at
+FROM credential_artifacts ca
+JOIN configured_sources cs
+  ON cs.source_kind = ca.source_kind
+ AND cs.source_name = ca.source_name
+WHERE
+  ca.expired_at IS NULL
+  AND ca.last_observed_run_id IS NOT NULL
+  AND (
+    $1::text = ''
+    OR ca.credential_kind = $1::text
+  )
+  AND (
+    $2::text = ''
+    OR lower(ca.status) = lower($2::text)
+  )
+  AND (
+    $3::text = ''
+    OR lower($3::text) = (
+      CASE
+        WHEN ca.expires_at_source IS NOT NULL
+          AND ca.expires_at_source < now()
+          AND lower(COALESCE(NULLIF(trim(ca.status), ''), 'active')) IN ('active', 'approved', 'pending_approval')
+          THEN 'critical'
+        WHEN ca.expires_at_source IS NOT NULL
+          AND ca.expires_at_source < now()
+          THEN 'high'
+        WHEN lower(ca.credential_kind) IN ('entra_client_secret', 'github_deploy_key', 'github_pat_request', 'github_pat_fine_grained')
+          AND trim(ca.created_by_external_id) = ''
+          AND trim(ca.approved_by_external_id) = ''
+          THEN 'critical'
+        WHEN ca.expires_at_source IS NOT NULL
+          AND ca.expires_at_source >= now()
+          AND ca.expires_at_source <= now() + make_interval(days => 7)
+          THEN 'high'
+        WHEN trim(ca.created_by_external_id) = ''
+          THEN 'high'
+        WHEN ca.last_used_at_source IS NOT NULL
+          AND ca.last_used_at_source <= now() - make_interval(days => 90)
+          THEN 'high'
+        WHEN ca.expires_at_source IS NOT NULL
+          AND ca.expires_at_source >= now()
+          AND ca.expires_at_source <= now() + make_interval(days => 30)
+          THEN 'medium'
+        ELSE 'low'
+      END
+    )
+  )
+  AND (
+    $4::text = ''
+    OR (
+      $4::text = 'expired'
+      AND ca.expires_at_source IS NOT NULL
+      AND ca.expires_at_source < now()
+    )
+    OR (
+      $4::text = 'active'
+      AND (ca.expires_at_source IS NULL OR ca.expires_at_source >= now())
+    )
+  )
+  AND (
+    $5::int <= 0
+    OR (
+      ca.expires_at_source IS NOT NULL
+      AND ca.expires_at_source >= now()
+      AND ca.expires_at_source <= now() + make_interval(days => $5::int)
+    )
+  )
+  AND (
+    $6::text = ''
+    OR ca.display_name ILIKE ('%' || $6::text || '%')
+    OR ca.external_id ILIKE ('%' || $6::text || '%')
+    OR ca.asset_ref_external_id ILIKE ('%' || $6::text || '%')
+    OR ca.created_by_external_id ILIKE ('%' || $6::text || '%')
+    OR ca.approved_by_external_id ILIKE ('%' || $6::text || '%')
+  )
+ORDER BY
+  COALESCE(ca.expires_at_source, 'infinity'::timestamptz) ASC,
+  lower(COALESCE(NULLIF(trim(ca.display_name), ''), ca.external_id)) ASC,
+  ca.source_kind ASC,
+  ca.source_name ASC,
+  ca.id ASC
+LIMIT $8::int
+OFFSET $7::int
+`
+
+type ListCredentialArtifactsPageBySourcesAndQueryAndFiltersParams struct {
+	CredentialKind        string   `json:"credential_kind"`
+	Status                string   `json:"status"`
+	RiskLevel             string   `json:"risk_level"`
+	ExpiryState           string   `json:"expiry_state"`
+	ExpiresInDays         int32    `json:"expires_in_days"`
+	Query                 string   `json:"query"`
+	PageOffset            int32    `json:"page_offset"`
+	PageLimit             int32    `json:"page_limit"`
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+}
+
+func (q *Queries) ListCredentialArtifactsPageBySourcesAndQueryAndFilters(ctx context.Context, arg ListCredentialArtifactsPageBySourcesAndQueryAndFiltersParams) ([]CredentialArtifact, error) {
+	rows, err := q.db.Query(ctx, listCredentialArtifactsPageBySourcesAndQueryAndFilters,
+		arg.CredentialKind,
+		arg.Status,
+		arg.RiskLevel,
+		arg.ExpiryState,
+		arg.ExpiresInDays,
+		arg.Query,
+		arg.PageOffset,
+		arg.PageLimit,
+		arg.ConfiguredSourceKinds,
+		arg.ConfiguredSourceNames,
 	)
 	if err != nil {
 		return nil, err

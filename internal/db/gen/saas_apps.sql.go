@@ -16,65 +16,145 @@ WITH configured_sources AS (
   SELECT
     k.kind AS source_kind,
     n.name AS source_name
-  FROM unnest($6::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($7::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-)
-SELECT count(*)
-FROM saas_apps sa
-WHERE EXISTS (
-  SELECT 1
+  FROM unnest($4::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($5::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+scoped_app_ids AS (
+  SELECT DISTINCT sas.saas_app_id
   FROM saas_app_sources sas
-  JOIN configured_sources cs
-    ON cs.source_kind = sas.source_kind
-   AND cs.source_name = sas.source_name
-  WHERE sas.saas_app_id = sa.id
-    AND sas.expired_at IS NULL
+  JOIN configured_sources cfg
+    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
+   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
+  WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
     AND (
-      $1::text = ''
-      OR sas.source_kind = $1::text
+      $6::text = ''
+      OR lower(trim(sas.source_kind)) = lower(trim($6::text))
     )
     AND (
-      $2::text = ''
-      OR sas.source_name = $2::text
+      $7::text = ''
+      OR lower(trim(sas.source_name)) = lower(trim($7::text))
     )
+),
+posture_rows (
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+  FROM saas_app_posture_rows(
+    $8::timestamptz,
+    $9::timestamptz,
+    $10::timestamptz,
+    $11::timestamptz,
+    $12::timestamptz,
+    $13::timestamptz,
+    $14::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
+  )
 )
+SELECT count(*)
+FROM posture_rows pr
+JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
+WHERE (
+    $1::text = ''
+    OR pr.display_name ILIKE ('%' || $1::text || '%')
+    OR pr.primary_domain ILIKE ('%' || $1::text || '%')
+    OR pr.vendor_name ILIKE ('%' || $1::text || '%')
+    OR pr.canonical_key ILIKE ('%' || $1::text || '%')
+  )
+  AND (
+    $2::text = ''
+    OR pr.managed_state = $2::text
+  )
   AND (
     $3::text = ''
-    OR sa.managed_state = $3::text
-  )
-  AND (
-    $4::text = ''
-    OR sa.risk_level = $4::text
-  )
-  AND (
-    $5::text = ''
-    OR sa.display_name ILIKE ('%' || $5::text || '%')
-    OR sa.primary_domain ILIKE ('%' || $5::text || '%')
-    OR sa.vendor_name ILIKE ('%' || $5::text || '%')
-    OR sa.canonical_key ILIKE ('%' || $5::text || '%')
+    OR pr.risk_level = $3::text
   )
 `
 
 type CountSaaSAppsByFiltersParams struct {
-	SourceKind            string   `json:"source_kind"`
-	SourceName            string   `json:"source_name"`
-	ManagedState          string   `json:"managed_state"`
-	RiskLevel             string   `json:"risk_level"`
-	Query                 string   `json:"query"`
-	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
-	ConfiguredSourceNames []string `json:"configured_source_names"`
+	Query                     string             `json:"query"`
+	ManagedState              string             `json:"managed_state"`
+	RiskLevel                 string             `json:"risk_level"`
+	ConfiguredSourceKinds     []string           `json:"configured_source_kinds"`
+	ConfiguredSourceNames     []string           `json:"configured_source_names"`
+	SourceKind                string             `json:"source_kind"`
+	SourceName                string             `json:"source_name"`
+	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
+	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
+	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
+	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
+	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
+	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
+	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
 }
 
 func (q *Queries) CountSaaSAppsByFilters(ctx context.Context, arg CountSaaSAppsByFiltersParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countSaaSAppsByFilters,
-		arg.SourceKind,
-		arg.SourceName,
+		arg.Query,
 		arg.ManagedState,
 		arg.RiskLevel,
-		arg.Query,
 		arg.ConfiguredSourceKinds,
 		arg.ConfiguredSourceNames,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.OktaFreshAfter,
+		arg.EntraFreshAfter,
+		arg.GoogleWorkspaceFreshAfter,
+		arg.GithubFreshAfter,
+		arg.DatadogFreshAfter,
+		arg.AwsFreshAfter,
+		arg.DefaultFreshAfter,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -88,26 +168,99 @@ WITH configured_sources AS (
     n.name AS source_name
   FROM unnest($1::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest($2::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-)
-SELECT sa.managed_state, count(*) AS app_count
-FROM saas_apps sa
-WHERE EXISTS (
-  SELECT 1
+),
+scoped_app_ids AS (
+  SELECT DISTINCT sas.saas_app_id
   FROM saas_app_sources sas
-  JOIN configured_sources cs
-    ON cs.source_kind = sas.source_kind
-   AND cs.source_name = sas.source_name
-  WHERE sas.saas_app_id = sa.id
-    AND sas.expired_at IS NULL
+  JOIN configured_sources cfg
+    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
+   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
+  WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
+),
+posture_rows (
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+  FROM saas_app_posture_rows(
+    $3::timestamptz,
+    $4::timestamptz,
+    $5::timestamptz,
+    $6::timestamptz,
+    $7::timestamptz,
+    $8::timestamptz,
+    $9::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
+  )
 )
-GROUP BY sa.managed_state
-ORDER BY sa.managed_state
+SELECT pr.managed_state::text AS managed_state, count(*) AS app_count
+FROM posture_rows pr
+JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
+GROUP BY 1
+ORDER BY 1
 `
 
 type CountSaaSAppsGroupedByManagedStateParams struct {
-	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
-	ConfiguredSourceNames []string `json:"configured_source_names"`
+	ConfiguredSourceKinds     []string           `json:"configured_source_kinds"`
+	ConfiguredSourceNames     []string           `json:"configured_source_names"`
+	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
+	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
+	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
+	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
+	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
+	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
+	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
 }
 
 type CountSaaSAppsGroupedByManagedStateRow struct {
@@ -116,7 +269,17 @@ type CountSaaSAppsGroupedByManagedStateRow struct {
 }
 
 func (q *Queries) CountSaaSAppsGroupedByManagedState(ctx context.Context, arg CountSaaSAppsGroupedByManagedStateParams) ([]CountSaaSAppsGroupedByManagedStateRow, error) {
-	rows, err := q.db.Query(ctx, countSaaSAppsGroupedByManagedState, arg.ConfiguredSourceKinds, arg.ConfiguredSourceNames)
+	rows, err := q.db.Query(ctx, countSaaSAppsGroupedByManagedState,
+		arg.ConfiguredSourceKinds,
+		arg.ConfiguredSourceNames,
+		arg.OktaFreshAfter,
+		arg.EntraFreshAfter,
+		arg.GoogleWorkspaceFreshAfter,
+		arg.GithubFreshAfter,
+		arg.DatadogFreshAfter,
+		arg.AwsFreshAfter,
+		arg.DefaultFreshAfter,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -142,26 +305,99 @@ WITH configured_sources AS (
     n.name AS source_name
   FROM unnest($1::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest($2::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-)
-SELECT sa.risk_level, count(*) AS app_count
-FROM saas_apps sa
-WHERE EXISTS (
-  SELECT 1
+),
+scoped_app_ids AS (
+  SELECT DISTINCT sas.saas_app_id
   FROM saas_app_sources sas
-  JOIN configured_sources cs
-    ON cs.source_kind = sas.source_kind
-   AND cs.source_name = sas.source_name
-  WHERE sas.saas_app_id = sa.id
-    AND sas.expired_at IS NULL
+  JOIN configured_sources cfg
+    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
+   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
+  WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
+),
+posture_rows (
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+  FROM saas_app_posture_rows(
+    $3::timestamptz,
+    $4::timestamptz,
+    $5::timestamptz,
+    $6::timestamptz,
+    $7::timestamptz,
+    $8::timestamptz,
+    $9::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
+  )
 )
-GROUP BY sa.risk_level
-ORDER BY sa.risk_level
+SELECT pr.risk_level::text AS risk_level, count(*) AS app_count
+FROM posture_rows pr
+JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
+GROUP BY 1
+ORDER BY 1
 `
 
 type CountSaaSAppsGroupedByRiskLevelParams struct {
-	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
-	ConfiguredSourceNames []string `json:"configured_source_names"`
+	ConfiguredSourceKinds     []string           `json:"configured_source_kinds"`
+	ConfiguredSourceNames     []string           `json:"configured_source_names"`
+	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
+	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
+	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
+	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
+	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
+	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
+	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
 }
 
 type CountSaaSAppsGroupedByRiskLevelRow struct {
@@ -170,7 +406,17 @@ type CountSaaSAppsGroupedByRiskLevelRow struct {
 }
 
 func (q *Queries) CountSaaSAppsGroupedByRiskLevel(ctx context.Context, arg CountSaaSAppsGroupedByRiskLevelParams) ([]CountSaaSAppsGroupedByRiskLevelRow, error) {
-	rows, err := q.db.Query(ctx, countSaaSAppsGroupedByRiskLevel, arg.ConfiguredSourceKinds, arg.ConfiguredSourceNames)
+	rows, err := q.db.Query(ctx, countSaaSAppsGroupedByRiskLevel,
+		arg.ConfiguredSourceKinds,
+		arg.ConfiguredSourceNames,
+		arg.OktaFreshAfter,
+		arg.EntraFreshAfter,
+		arg.GoogleWorkspaceFreshAfter,
+		arg.GithubFreshAfter,
+		arg.DatadogFreshAfter,
+		arg.AwsFreshAfter,
+		arg.DefaultFreshAfter,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -190,14 +436,137 @@ func (q *Queries) CountSaaSAppsGroupedByRiskLevel(ctx context.Context, arg Count
 }
 
 const getSaaSAppByID = `-- name: GetSaaSAppByID :one
-SELECT id, canonical_key, display_name, primary_domain, vendor_name, managed_state, managed_reason, bound_connector_kind, bound_connector_source_name, risk_score, risk_level, suggested_business_criticality, suggested_data_classification, first_seen_at, last_seen_at, created_at, updated_at
-FROM saas_apps
-WHERE id = $1
+WITH posture_rows (
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+  FROM saas_app_posture_rows(
+    $2::timestamptz,
+    $3::timestamptz,
+    $4::timestamptz,
+    $5::timestamptz,
+    $6::timestamptz,
+    $7::timestamptz,
+    $8::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
+  )
+)
+SELECT
+  id::bigint AS id,
+  canonical_key::text AS canonical_key,
+  display_name::text AS display_name,
+  primary_domain::text AS primary_domain,
+  vendor_name::text AS vendor_name,
+  managed_state::text AS managed_state,
+  managed_reason::text AS managed_reason,
+  bound_connector_kind::text AS bound_connector_kind,
+  bound_connector_source_name::text AS bound_connector_source_name,
+  risk_score::int AS risk_score,
+  risk_level::text AS risk_level,
+  suggested_business_criticality::text AS suggested_business_criticality,
+  suggested_data_classification::text AS suggested_data_classification,
+  first_seen_at::timestamptz AS first_seen_at,
+  last_seen_at::timestamptz AS last_seen_at,
+  created_at::timestamptz AS created_at,
+  updated_at::timestamptz AS updated_at
+FROM posture_rows
+WHERE id = $1::bigint
 `
 
-func (q *Queries) GetSaaSAppByID(ctx context.Context, id int64) (SaasApp, error) {
-	row := q.db.QueryRow(ctx, getSaaSAppByID, id)
-	var i SaasApp
+type GetSaaSAppByIDParams struct {
+	ID                        int64              `json:"id"`
+	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
+	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
+	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
+	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
+	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
+	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
+	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
+}
+
+type GetSaaSAppByIDRow struct {
+	ID                           int64              `json:"id"`
+	CanonicalKey                 string             `json:"canonical_key"`
+	DisplayName                  string             `json:"display_name"`
+	PrimaryDomain                string             `json:"primary_domain"`
+	VendorName                   string             `json:"vendor_name"`
+	ManagedState                 string             `json:"managed_state"`
+	ManagedReason                string             `json:"managed_reason"`
+	BoundConnectorKind           string             `json:"bound_connector_kind"`
+	BoundConnectorSourceName     string             `json:"bound_connector_source_name"`
+	RiskScore                    int32              `json:"risk_score"`
+	RiskLevel                    string             `json:"risk_level"`
+	SuggestedBusinessCriticality string             `json:"suggested_business_criticality"`
+	SuggestedDataClassification  string             `json:"suggested_data_classification"`
+	FirstSeenAt                  pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt                   pgtype.Timestamptz `json:"last_seen_at"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetSaaSAppByID(ctx context.Context, arg GetSaaSAppByIDParams) (GetSaaSAppByIDRow, error) {
+	row := q.db.QueryRow(ctx, getSaaSAppByID,
+		arg.ID,
+		arg.OktaFreshAfter,
+		arg.EntraFreshAfter,
+		arg.GoogleWorkspaceFreshAfter,
+		arg.GithubFreshAfter,
+		arg.DatadogFreshAfter,
+		arg.AwsFreshAfter,
+		arg.DefaultFreshAfter,
+	)
+	var i GetSaaSAppByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.CanonicalKey,
@@ -225,56 +594,134 @@ WITH configured_sources AS (
   SELECT
     k.kind AS source_kind,
     n.name AS source_name
-  FROM unnest($4::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($5::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+  FROM unnest($2::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($3::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+scoped_app_ids AS (
+  SELECT DISTINCT sas.saas_app_id
+  FROM saas_app_sources sas
+  JOIN configured_sources cfg
+    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
+   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
+  WHERE sas.expired_at IS NULL
+    AND sas.last_observed_run_id IS NOT NULL
+    AND (
+      $4::text = ''
+      OR lower(trim(sas.source_kind)) = lower(trim($4::text))
+    )
+    AND (
+      $5::text = ''
+      OR lower(trim(sas.source_name)) = lower(trim($5::text))
+    )
+),
+posture_rows (
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+  FROM saas_app_posture_rows(
+    $6::timestamptz,
+    $7::timestamptz,
+    $8::timestamptz,
+    $9::timestamptz,
+    $10::timestamptz,
+    $11::timestamptz,
+    $12::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
+  )
 )
 SELECT
-  sa.id, sa.canonical_key, sa.display_name, sa.primary_domain, sa.vendor_name, sa.managed_state, sa.managed_reason, sa.bound_connector_kind, sa.bound_connector_source_name, sa.risk_score, sa.risk_level, sa.suggested_business_criticality, sa.suggested_data_classification, sa.first_seen_at, sa.last_seen_at, sa.created_at, sa.updated_at,
-  go.owner_identity_id,
+  pr.id::bigint AS id,
+  pr.canonical_key::text AS canonical_key,
+  pr.display_name::text AS display_name,
+  pr.primary_domain::text AS primary_domain,
+  pr.vendor_name::text AS vendor_name,
+  pr.managed_state::text AS managed_state,
+  pr.managed_reason::text AS managed_reason,
+  pr.bound_connector_kind::text AS bound_connector_kind,
+  pr.bound_connector_source_name::text AS bound_connector_source_name,
+  pr.risk_score::int AS risk_score,
+  pr.risk_level::text AS risk_level,
+  pr.suggested_business_criticality::text AS suggested_business_criticality,
+  pr.suggested_data_classification::text AS suggested_data_classification,
+  pr.first_seen_at::timestamptz AS first_seen_at,
+  pr.last_seen_at::timestamptz AS last_seen_at,
+  pr.created_at::timestamptz AS created_at,
+  pr.updated_at::timestamptz AS updated_at,
   COALESCE(owner.display_name, '') AS owner_display_name,
   COALESCE(owner.primary_email, '') AS owner_primary_email,
-  COALESCE(actor_stats.actors_30d, 0)::bigint AS actors_30d
-FROM saas_apps sa
-LEFT JOIN saas_app_governance_overrides go ON go.saas_app_id = sa.id
-LEFT JOIN identities owner ON owner.id = go.owner_identity_id
-LEFT JOIN LATERAL (
-  SELECT
-    count(DISTINCT COALESCE(NULLIF(trim(e.actor_external_id), ''), NULLIF(lower(trim(e.actor_email)), ''))) AS actors_30d
-  FROM saas_app_events e
-  WHERE e.saas_app_id = sa.id
-    AND e.expired_at IS NULL
-    AND e.last_observed_run_id IS NOT NULL
-    AND e.observed_at >= now() - interval '30 days'
-) actor_stats ON TRUE
-WHERE sa.risk_score >= 60
-  AND EXISTS (
-    SELECT 1
-    FROM saas_app_sources sas
-    JOIN configured_sources cs
-      ON cs.source_kind = sas.source_kind
-     AND cs.source_name = sas.source_name
-    WHERE sas.saas_app_id = sa.id
-      AND sas.expired_at IS NULL
-      AND sas.last_observed_run_id IS NOT NULL
-      AND (
-        $1::text = ''
-        OR sas.source_kind = $1::text
-      )
-      AND (
-        $2::text = ''
-        OR sas.source_name = $2::text
-      )
-  )
-ORDER BY sa.risk_score DESC, sa.last_seen_at DESC, sa.id ASC
-LIMIT $3::int
+  pr.actors_30d::bigint AS actors_30d
+FROM posture_rows pr
+JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
+LEFT JOIN identities owner ON owner.id = NULLIF(pr.owner_identity_id, 0)
+WHERE pr.risk_score >= 60
+ORDER BY pr.risk_score DESC, pr.last_seen_at DESC, pr.id ASC
+LIMIT $1::int
 `
 
 type ListSaaSAppHotspotsParams struct {
-	SourceKind            string   `json:"source_kind"`
-	SourceName            string   `json:"source_name"`
-	LimitRows             int32    `json:"limit_rows"`
-	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
-	ConfiguredSourceNames []string `json:"configured_source_names"`
+	LimitRows                 int32              `json:"limit_rows"`
+	ConfiguredSourceKinds     []string           `json:"configured_source_kinds"`
+	ConfiguredSourceNames     []string           `json:"configured_source_names"`
+	SourceKind                string             `json:"source_kind"`
+	SourceName                string             `json:"source_name"`
+	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
+	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
+	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
+	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
+	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
+	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
+	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
 }
 
 type ListSaaSAppHotspotsRow struct {
@@ -295,7 +742,6 @@ type ListSaaSAppHotspotsRow struct {
 	LastSeenAt                   pgtype.Timestamptz `json:"last_seen_at"`
 	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
-	OwnerIdentityID              pgtype.Int8        `json:"owner_identity_id"`
 	OwnerDisplayName             string             `json:"owner_display_name"`
 	OwnerPrimaryEmail            string             `json:"owner_primary_email"`
 	Actors30d                    int64              `json:"actors_30d"`
@@ -303,11 +749,18 @@ type ListSaaSAppHotspotsRow struct {
 
 func (q *Queries) ListSaaSAppHotspots(ctx context.Context, arg ListSaaSAppHotspotsParams) ([]ListSaaSAppHotspotsRow, error) {
 	rows, err := q.db.Query(ctx, listSaaSAppHotspots,
-		arg.SourceKind,
-		arg.SourceName,
 		arg.LimitRows,
 		arg.ConfiguredSourceKinds,
 		arg.ConfiguredSourceNames,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.OktaFreshAfter,
+		arg.EntraFreshAfter,
+		arg.GoogleWorkspaceFreshAfter,
+		arg.GithubFreshAfter,
+		arg.DatadogFreshAfter,
+		arg.AwsFreshAfter,
+		arg.DefaultFreshAfter,
 	)
 	if err != nil {
 		return nil, err
@@ -334,132 +787,9 @@ func (q *Queries) ListSaaSAppHotspots(ctx context.Context, arg ListSaaSAppHotspo
 			&i.LastSeenAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.OwnerIdentityID,
 			&i.OwnerDisplayName,
 			&i.OwnerPrimaryEmail,
 			&i.Actors30d,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listSaaSAppPostureInputs = `-- name: ListSaaSAppPostureInputs :many
-WITH active_events AS (
-  SELECT e.id, e.saas_app_id, e.source_kind, e.source_name, e.signal_kind, e.event_external_id, e.source_app_id, e.source_app_name, e.source_app_domain, e.actor_external_id, e.actor_email, e.actor_display_name, e.observed_at, e.scopes_json, e.raw_json, e.seen_in_run_id, e.seen_at, e.last_observed_run_id, e.last_observed_at, e.expired_at, e.expired_run_id, e.created_at, e.updated_at
-  FROM saas_app_events e
-  WHERE e.expired_at IS NULL
-    AND e.last_observed_run_id IS NOT NULL
-),
-actor_counts AS (
-  SELECT
-    e.saas_app_id,
-    count(DISTINCT COALESCE(NULLIF(trim(e.actor_external_id), ''), NULLIF(lower(trim(e.actor_email)), ''))) FILTER (WHERE e.observed_at >= now() - interval '30 days') AS actors_30d
-  FROM active_events e
-  GROUP BY e.saas_app_id
-),
-scope_flags AS (
-  SELECT
-    e.saas_app_id,
-    bool_or(
-      lower(e.scopes_json::text) LIKE '%directory.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%application.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%rolemanagement.readwrite.directory%'
-      OR lower(e.scopes_json::text) LIKE '%mailboxsettings.readwrite%'
-      OR lower(e.scopes_json::text) LIKE '%full_access_as_app%'
-      OR lower(e.scopes_json::text) LIKE '%files.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%files.readwrite%'
-      OR lower(e.scopes_json::text) LIKE '%sites.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%user.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%offline_access%'
-    ) FILTER (WHERE e.signal_kind = 'oauth_grant') AS has_privileged_scope,
-    bool_or(
-      lower(e.scopes_json::text) LIKE '%mail.%'
-      OR lower(e.scopes_json::text) LIKE '%files.%'
-      OR lower(e.scopes_json::text) LIKE '%calendar.%'
-      OR lower(e.scopes_json::text) LIKE '%readwrite%'
-      OR lower(e.scopes_json::text) LIKE '%sites.read%'
-    ) FILTER (WHERE e.signal_kind = 'oauth_grant') AS has_confidential_scope
-  FROM active_events e
-  GROUP BY e.saas_app_id
-),
-primary_binding AS (
-  SELECT
-    b.saas_app_id,
-    b.connector_kind,
-    b.connector_source_name,
-    b.binding_source,
-    b.confidence
-  FROM saas_app_bindings b
-  WHERE b.is_primary
-)
-SELECT
-  sa.id,
-  COALESCE(go.owner_identity_id, 0)::bigint AS owner_identity_id,
-  COALESCE(go.business_criticality, 'unknown')::text AS business_criticality,
-  COALESCE(go.data_classification, 'unknown')::text AS data_classification,
-  COALESCE(ac.actors_30d, 0)::bigint AS actors_30d,
-  COALESCE(sf.has_privileged_scope, false)::boolean AS has_privileged_scope,
-  COALESCE(sf.has_confidential_scope, false)::boolean AS has_confidential_scope,
-  COALESCE(pb.connector_kind, '')::text AS binding_connector_kind,
-  COALESCE(pb.connector_source_name, '')::text AS binding_connector_source_name,
-  COALESCE(pb.binding_source, '')::text AS binding_source,
-  COALESCE(pb.confidence, 0)::real AS binding_confidence
-FROM saas_apps sa
-LEFT JOIN saas_app_governance_overrides go ON go.saas_app_id = sa.id
-LEFT JOIN actor_counts ac ON ac.saas_app_id = sa.id
-LEFT JOIN scope_flags sf ON sf.saas_app_id = sa.id
-LEFT JOIN primary_binding pb ON pb.saas_app_id = sa.id
-WHERE EXISTS (
-  SELECT 1
-  FROM saas_app_sources sas
-  WHERE sas.saas_app_id = sa.id
-    AND sas.expired_at IS NULL
-    AND sas.last_observed_run_id IS NOT NULL
-)
-ORDER BY sa.id ASC
-`
-
-type ListSaaSAppPostureInputsRow struct {
-	ID                         int64   `json:"id"`
-	OwnerIdentityID            int64   `json:"owner_identity_id"`
-	BusinessCriticality        string  `json:"business_criticality"`
-	DataClassification         string  `json:"data_classification"`
-	Actors30d                  int64   `json:"actors_30d"`
-	HasPrivilegedScope         bool    `json:"has_privileged_scope"`
-	HasConfidentialScope       bool    `json:"has_confidential_scope"`
-	BindingConnectorKind       string  `json:"binding_connector_kind"`
-	BindingConnectorSourceName string  `json:"binding_connector_source_name"`
-	BindingSource              string  `json:"binding_source"`
-	BindingConfidence          float32 `json:"binding_confidence"`
-}
-
-func (q *Queries) ListSaaSAppPostureInputs(ctx context.Context) ([]ListSaaSAppPostureInputsRow, error) {
-	rows, err := q.db.Query(ctx, listSaaSAppPostureInputs)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListSaaSAppPostureInputsRow
-	for rows.Next() {
-		var i ListSaaSAppPostureInputsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerIdentityID,
-			&i.BusinessCriticality,
-			&i.DataClassification,
-			&i.Actors30d,
-			&i.HasPrivilegedScope,
-			&i.HasConfidentialScope,
-			&i.BindingConnectorKind,
-			&i.BindingConnectorSourceName,
-			&i.BindingSource,
-			&i.BindingConfidence,
 		); err != nil {
 			return nil, err
 		}
@@ -476,79 +806,157 @@ WITH configured_sources AS (
   SELECT
     k.kind AS source_kind,
     n.name AS source_name
-  FROM unnest($8::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($9::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-)
-SELECT
-  sa.id, sa.canonical_key, sa.display_name, sa.primary_domain, sa.vendor_name, sa.managed_state, sa.managed_reason, sa.bound_connector_kind, sa.bound_connector_source_name, sa.risk_score, sa.risk_level, sa.suggested_business_criticality, sa.suggested_data_classification, sa.first_seen_at, sa.last_seen_at, sa.created_at, sa.updated_at,
-  go.owner_identity_id,
-  COALESCE(owner.display_name, '') AS owner_display_name,
-  COALESCE(owner.primary_email, '') AS owner_primary_email,
-  COALESCE(actor_stats.actors_30d, 0)::bigint AS actors_30d
-FROM saas_apps sa
-LEFT JOIN saas_app_governance_overrides go ON go.saas_app_id = sa.id
-LEFT JOIN identities owner ON owner.id = go.owner_identity_id
-LEFT JOIN LATERAL (
-  SELECT
-    count(DISTINCT COALESCE(NULLIF(trim(e.actor_external_id), ''), NULLIF(lower(trim(e.actor_email)), ''))) AS actors_30d
-  FROM saas_app_events e
-  WHERE e.saas_app_id = sa.id
-    AND e.expired_at IS NULL
-    AND e.last_observed_run_id IS NOT NULL
-    AND e.observed_at >= now() - interval '30 days'
-) actor_stats ON TRUE
-WHERE EXISTS (
-  SELECT 1
+  FROM unnest($6::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($7::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+scoped_app_ids AS (
+  SELECT DISTINCT sas.saas_app_id
   FROM saas_app_sources sas
-  JOIN configured_sources cs
-    ON cs.source_kind = sas.source_kind
-   AND cs.source_name = sas.source_name
-  WHERE sas.saas_app_id = sa.id
-    AND sas.expired_at IS NULL
+  JOIN configured_sources cfg
+    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
+   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
+  WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
     AND (
-      $1::text = ''
-      OR sas.source_kind = $1::text
+      $8::text = ''
+      OR lower(trim(sas.source_kind)) = lower(trim($8::text))
     )
     AND (
-      $2::text = ''
-      OR sas.source_name = $2::text
+      $9::text = ''
+      OR lower(trim(sas.source_name)) = lower(trim($9::text))
     )
+),
+posture_rows (
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+  FROM saas_app_posture_rows(
+    $10::timestamptz,
+    $11::timestamptz,
+    $12::timestamptz,
+    $13::timestamptz,
+    $14::timestamptz,
+    $15::timestamptz,
+    $16::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
+  )
 )
+SELECT
+  pr.id::bigint AS id,
+  pr.canonical_key::text AS canonical_key,
+  pr.display_name::text AS display_name,
+  pr.primary_domain::text AS primary_domain,
+  pr.vendor_name::text AS vendor_name,
+  pr.managed_state::text AS managed_state,
+  pr.managed_reason::text AS managed_reason,
+  pr.bound_connector_kind::text AS bound_connector_kind,
+  pr.bound_connector_source_name::text AS bound_connector_source_name,
+  pr.risk_score::int AS risk_score,
+  pr.risk_level::text AS risk_level,
+  pr.suggested_business_criticality::text AS suggested_business_criticality,
+  pr.suggested_data_classification::text AS suggested_data_classification,
+  pr.first_seen_at::timestamptz AS first_seen_at,
+  pr.last_seen_at::timestamptz AS last_seen_at,
+  pr.created_at::timestamptz AS created_at,
+  pr.updated_at::timestamptz AS updated_at,
+  COALESCE(owner.display_name, '') AS owner_display_name,
+  COALESCE(owner.primary_email, '') AS owner_primary_email,
+  pr.actors_30d::bigint AS actors_30d
+FROM posture_rows pr
+JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
+LEFT JOIN identities owner ON owner.id = NULLIF(pr.owner_identity_id, 0)
+WHERE (
+    $1::text = ''
+    OR pr.display_name ILIKE ('%' || $1::text || '%')
+    OR pr.primary_domain ILIKE ('%' || $1::text || '%')
+    OR pr.vendor_name ILIKE ('%' || $1::text || '%')
+    OR pr.canonical_key ILIKE ('%' || $1::text || '%')
+  )
+  AND (
+    $2::text = ''
+    OR pr.managed_state = $2::text
+  )
   AND (
     $3::text = ''
-    OR sa.managed_state = $3::text
-  )
-  AND (
-    $4::text = ''
-    OR sa.risk_level = $4::text
-  )
-  AND (
-    $5::text = ''
-    OR sa.display_name ILIKE ('%' || $5::text || '%')
-    OR sa.primary_domain ILIKE ('%' || $5::text || '%')
-    OR sa.vendor_name ILIKE ('%' || $5::text || '%')
-    OR sa.canonical_key ILIKE ('%' || $5::text || '%')
+    OR pr.risk_level = $3::text
   )
 ORDER BY
-  sa.risk_score DESC,
-  sa.last_seen_at DESC,
-  lower(COALESCE(NULLIF(trim(sa.display_name), ''), sa.canonical_key)) ASC,
-  sa.id ASC
-LIMIT $7::int
-OFFSET $6::int
+  pr.risk_score DESC,
+  pr.last_seen_at DESC,
+  lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) ASC,
+  pr.id ASC
+LIMIT $5::int
+OFFSET $4::int
 `
 
 type ListSaaSAppsPageByFiltersParams struct {
-	SourceKind            string   `json:"source_kind"`
-	SourceName            string   `json:"source_name"`
-	ManagedState          string   `json:"managed_state"`
-	RiskLevel             string   `json:"risk_level"`
-	Query                 string   `json:"query"`
-	PageOffset            int32    `json:"page_offset"`
-	PageLimit             int32    `json:"page_limit"`
-	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
-	ConfiguredSourceNames []string `json:"configured_source_names"`
+	Query                     string             `json:"query"`
+	ManagedState              string             `json:"managed_state"`
+	RiskLevel                 string             `json:"risk_level"`
+	PageOffset                int32              `json:"page_offset"`
+	PageLimit                 int32              `json:"page_limit"`
+	ConfiguredSourceKinds     []string           `json:"configured_source_kinds"`
+	ConfiguredSourceNames     []string           `json:"configured_source_names"`
+	SourceKind                string             `json:"source_kind"`
+	SourceName                string             `json:"source_name"`
+	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
+	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
+	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
+	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
+	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
+	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
+	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
 }
 
 type ListSaaSAppsPageByFiltersRow struct {
@@ -569,7 +977,6 @@ type ListSaaSAppsPageByFiltersRow struct {
 	LastSeenAt                   pgtype.Timestamptz `json:"last_seen_at"`
 	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
-	OwnerIdentityID              pgtype.Int8        `json:"owner_identity_id"`
 	OwnerDisplayName             string             `json:"owner_display_name"`
 	OwnerPrimaryEmail            string             `json:"owner_primary_email"`
 	Actors30d                    int64              `json:"actors_30d"`
@@ -577,15 +984,22 @@ type ListSaaSAppsPageByFiltersRow struct {
 
 func (q *Queries) ListSaaSAppsPageByFilters(ctx context.Context, arg ListSaaSAppsPageByFiltersParams) ([]ListSaaSAppsPageByFiltersRow, error) {
 	rows, err := q.db.Query(ctx, listSaaSAppsPageByFilters,
-		arg.SourceKind,
-		arg.SourceName,
+		arg.Query,
 		arg.ManagedState,
 		arg.RiskLevel,
-		arg.Query,
 		arg.PageOffset,
 		arg.PageLimit,
 		arg.ConfiguredSourceKinds,
 		arg.ConfiguredSourceNames,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.OktaFreshAfter,
+		arg.EntraFreshAfter,
+		arg.GoogleWorkspaceFreshAfter,
+		arg.GithubFreshAfter,
+		arg.DatadogFreshAfter,
+		arg.AwsFreshAfter,
+		arg.DefaultFreshAfter,
 	)
 	if err != nil {
 		return nil, err
@@ -612,7 +1026,6 @@ func (q *Queries) ListSaaSAppsPageByFilters(ctx context.Context, arg ListSaaSApp
 			&i.LastSeenAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.OwnerIdentityID,
 			&i.OwnerDisplayName,
 			&i.OwnerPrimaryEmail,
 			&i.Actors30d,
@@ -625,48 +1038,6 @@ func (q *Queries) ListSaaSAppsPageByFilters(ctx context.Context, arg ListSaaSApp
 		return nil, err
 	}
 	return items, nil
-}
-
-const updateSaaSAppPosture = `-- name: UpdateSaaSAppPosture :exec
-UPDATE saas_apps
-SET
-  managed_state = $1::text,
-  managed_reason = $2::text,
-  bound_connector_kind = $3::text,
-  bound_connector_source_name = $4::text,
-  risk_score = $5::int,
-  risk_level = $6::text,
-  suggested_business_criticality = $7::text,
-  suggested_data_classification = $8::text,
-  updated_at = now()
-WHERE id = $9::bigint
-`
-
-type UpdateSaaSAppPostureParams struct {
-	ManagedState                 string `json:"managed_state"`
-	ManagedReason                string `json:"managed_reason"`
-	BoundConnectorKind           string `json:"bound_connector_kind"`
-	BoundConnectorSourceName     string `json:"bound_connector_source_name"`
-	RiskScore                    int32  `json:"risk_score"`
-	RiskLevel                    string `json:"risk_level"`
-	SuggestedBusinessCriticality string `json:"suggested_business_criticality"`
-	SuggestedDataClassification  string `json:"suggested_data_classification"`
-	ID                           int64  `json:"id"`
-}
-
-func (q *Queries) UpdateSaaSAppPosture(ctx context.Context, arg UpdateSaaSAppPostureParams) error {
-	_, err := q.db.Exec(ctx, updateSaaSAppPosture,
-		arg.ManagedState,
-		arg.ManagedReason,
-		arg.BoundConnectorKind,
-		arg.BoundConnectorSourceName,
-		arg.RiskScore,
-		arg.RiskLevel,
-		arg.SuggestedBusinessCriticality,
-		arg.SuggestedDataClassification,
-		arg.ID,
-	)
-	return err
 }
 
 const upsertSaaSAppsBulk = `-- name: UpsertSaaSAppsBulk :execrows

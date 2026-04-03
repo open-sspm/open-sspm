@@ -11,7 +11,7 @@ func TestGoogleWorkspacePageParameterParsing(t *testing.T) {
 	t.Run("uses provided positive page number", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := newTestContext(http.MethodGet, "/google-workspace/users?page=3&q=alice")
+		c, _ := newTestContext(http.MethodGet, "/accounts/google-workspace?page=3&q=alice")
 		if got := parsePageParam(c); got != 3 {
 			t.Fatalf("parsePageParam() = %d, want %d", got, 3)
 		}
@@ -20,7 +20,7 @@ func TestGoogleWorkspacePageParameterParsing(t *testing.T) {
 	t.Run("falls back to first page on invalid input", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := newTestContext(http.MethodGet, "/google-workspace/users?page=bad")
+		c, _ := newTestContext(http.MethodGet, "/accounts/google-workspace?page=bad")
 		if got := parsePageParam(c); got != 1 {
 			t.Fatalf("parsePageParam() = %d, want %d", got, 1)
 		}
@@ -29,7 +29,7 @@ func TestGoogleWorkspacePageParameterParsing(t *testing.T) {
 	t.Run("falls back to first page on zero page", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := newTestContext(http.MethodGet, "/google-workspace/users?page=0")
+		c, _ := newTestContext(http.MethodGet, "/accounts/google-workspace?page=0")
 		if got := parsePageParam(c); got != 1 {
 			t.Fatalf("parsePageParam() = %d, want %d", got, 1)
 		}

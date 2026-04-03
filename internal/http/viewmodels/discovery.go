@@ -21,7 +21,7 @@ type DiscoveryAppListItem struct {
 }
 
 type DiscoveryAppsViewData struct {
-	Layout             LayoutData
+	PaginatedListPageData
 	SourceOptions      []DiscoverySourceOption
 	SourceNameOptions  []DiscoverySourceOption
 	SelectedSourceKind string
@@ -30,15 +30,7 @@ type DiscoveryAppsViewData struct {
 	ManagedState       string
 	RiskLevel          string
 	Items              []DiscoveryAppListItem
-	ShowingCount       int
-	ShowingFrom        int
-	ShowingTo          int
-	TotalCount         int64
-	Page               int
-	PerPage            int
-	TotalPages         int
 	HasItems           bool
-	EmptyStateMsg      string
 }
 
 type DiscoveryHotspotItem struct {

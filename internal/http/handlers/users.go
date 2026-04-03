@@ -51,19 +51,16 @@ func (h *Handlers) HandleOktaAccounts(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	page, totalPages, offset := paginate(totalCount, page, perPage)
+	pagination := newPaginatedListState(totalCount, page, perPage)
 	users, err := h.Q.ListOktaAccountsPageByQueryAndState(ctx, gen.ListOktaAccountsPageByQueryAndStateParams{
 		Query:      query,
 		State:      state,
 		PageLimit:  int32(perPage),
-		PageOffset: int32(offset),
+		PageOffset: int32(pagination.Offset()),
 	})
 	if err != nil {
 		return h.RenderError(c, err)
 	}
-
-	showingCount := len(users)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 
 	emptyState := "No Okta accounts synced yet."
 	if query != "" || state != "" {
@@ -71,19 +68,11 @@ func (h *Handlers) HandleOktaAccounts(c *echo.Context) error {
 	}
 
 	data := viewmodels.OktaAccountsViewData{
-		Layout:        layout,
-		Users:         users,
-		Query:         query,
-		State:         state,
-		ShowingCount:  showingCount,
-		ShowingFrom:   showingFrom,
-		ShowingTo:     showingTo,
-		TotalCount:    totalCount,
-		Page:          page,
-		PerPage:       perPage,
-		TotalPages:    totalPages,
-		HasUsers:      showingCount > 0,
-		EmptyStateMsg: emptyState,
+		PaginatedListPageData: pagination.PageData(layout, len(users), emptyState, ""),
+		Users:                 users,
+		Query:                 query,
+		State:                 state,
+		HasUsers:              len(users) > 0,
 	}
 
 	return h.RenderComponent(c, views.OktaAccountsPage(data))
@@ -91,7 +80,10 @@ func (h *Handlers) HandleOktaAccounts(c *echo.Context) error {
 
 // HandleOktaAccountShow renders the Okta account detail page.
 func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
-	idStr := strings.Trim(c.Param("*"), "/")
+	idStr := strings.TrimSpace(c.Param("id"))
+	if idStr == "" {
+		idStr = strings.Trim(c.Param("*"), "/")
+	}
 	if idStr == "" {
 		return RenderNotFound(c)
 	}
@@ -230,7 +222,7 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 				href := IntegratedAppHref(assignment.IntegrationKind)
 				if href == "" {
 					if externalID := strings.TrimSpace(assignment.OktaAppExternalID); externalID != "" {
-						href = "/apps/" + externalID
+						href = "/assigned-apps/" + externalID
 					}
 				}
 				return href
@@ -339,25 +331,15 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 		state = ""
 	}
 	page := parsePageParam(c)
+	unavailablePagination := newPaginatedListState(0, page, perPage)
 
 	if !snap.DatadogConfigured || !snap.DatadogEnabled {
 		message := connectorUnavailableMessage("Datadog", snap.DatadogConfigured, snap.DatadogEnabled)
-		totalPages := 1
 		data := viewmodels.DatadogUsersViewData{
-			Layout:         layout,
-			Users:          nil,
-			Query:          query,
-			State:          state,
-			ShowingCount:   0,
-			ShowingFrom:    0,
-			ShowingTo:      0,
-			TotalCount:     0,
-			Page:           1,
-			PerPage:        perPage,
-			TotalPages:     totalPages,
-			HasUsers:       false,
-			EmptyStateMsg:  message,
-			EmptyStateHref: "/settings/connectors?open=datadog",
+			PaginatedListPageData: unavailablePagination.PageData(layout, 0, message, "/settings/connectors?open=datadog"),
+			Query:                 query,
+			State:                 state,
+			HasUsers:              false,
 		}
 		return h.RenderComponent(c, views.DatadogUsersPage(data))
 	}
@@ -373,7 +355,7 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	page, totalPages, offset := paginate(totalCount, page, perPage)
+	pagination := newPaginatedListState(totalCount, page, perPage)
 	users, err := h.Q.ListSourceAccountsPageBySourceAndQueryAndState(ctx, gen.ListSourceAccountsPageBySourceAndQueryAndStateParams{
 		SourceKind:     "datadog",
 		SourceName:     snap.Datadog.Site,
@@ -381,7 +363,7 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 		Query:          query,
 		State:          state,
 		PageLimit:      int32(perPage),
-		PageOffset:     int32(offset),
+		PageOffset:     int32(pagination.Offset()),
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -433,205 +415,91 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 		})
 	}
 
-	showingCount := len(items)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
 	emptyState := "No Datadog users synced yet."
 	if query != "" || state != "" {
 		emptyState = "No Datadog users match the current search."
 	}
 
 	data := viewmodels.DatadogUsersViewData{
-		Layout:         layout,
-		Users:          items,
-		Query:          query,
-		State:          state,
-		ShowingCount:   showingCount,
-		ShowingFrom:    showingFrom,
-		ShowingTo:      showingTo,
-		TotalCount:     totalCount,
-		Page:           page,
-		PerPage:        perPage,
-		TotalPages:     totalPages,
-		HasUsers:       showingCount > 0,
-		EmptyStateMsg:  emptyState,
-		EmptyStateHref: "/settings/connectors?open=datadog",
+		PaginatedListPageData: pagination.PageData(layout, len(items), emptyState, "/settings/connectors?open=datadog"),
+		Users:                 items,
+		Query:                 query,
+		State:                 state,
+		HasUsers:              len(items) > 0,
 	}
 
 	return h.RenderComponent(c, views.DatadogUsersPage(data))
 }
 
-// HandleUnmatchedGitHub renders the unmanaged GitHub accounts page.
+// HandleUnmatchedGitHub renders the unlinked GitHub accounts page.
 func (h *Handlers) HandleUnmatchedGitHub(c *echo.Context) error {
-	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Unmanaged GitHub Accounts")
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	const perPage = 20
-	query := strings.TrimSpace(c.QueryParam("q"))
-	page := parsePageParam(c)
-
-	if !snap.GitHubConfigured || !snap.GitHubEnabled {
-		message := connectorUnavailableMessage("GitHub", snap.GitHubConfigured, snap.GitHubEnabled)
-		data := viewmodels.UnmatchedGitHubViewData{
-			Layout:         layout,
-			Users:          nil,
-			Query:          query,
-			ShowingCount:   0,
-			ShowingFrom:    0,
-			ShowingTo:      0,
-			TotalCount:     0,
-			Page:           1,
-			PerPage:        perPage,
-			TotalPages:     1,
-			HasUsers:       false,
-			EmptyStateMsg:  message,
-			EmptyStateHref: "/settings/connectors?open=github",
-		}
-		return h.RenderComponent(c, views.UnmatchedGitHubPage(data))
-	}
-
-	org := strings.Trim(c.Param("*"), "/")
-	if org == "" {
-		return RenderNotFound(c)
-	}
-	if org != snap.GitHub.Org {
-		return c.String(http.StatusNotFound, "unknown org")
-	}
-
-	totalCount, err := h.Q.CountUnlinkedSourceAccountsBySourceAndQuery(ctx, gen.CountUnlinkedSourceAccountsBySourceAndQueryParams{
-		SourceKind: "github",
-		SourceName: org,
-		Query:      query,
+	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
+		Title:              "Unlinked GitHub Accounts",
+		ConnectorName:      "GitHub",
+		SourceKind:         "github",
+		EmptyStateHref:     "/settings/connectors?open=github",
+		SyncedEmptyState:   "No unlinked GitHub accounts.",
+		FilteredEmptyState: "No unlinked GitHub accounts match the current search.",
+		IsConfigured: func(snap ConnectorSnapshot) bool {
+			return snap.GitHubConfigured
+		},
+		IsEnabled: func(snap ConnectorSnapshot) bool {
+			return snap.GitHubEnabled
+		},
+		ResolveSourceName: func(c *echo.Context, snap ConnectorSnapshot) (string, error) {
+			org := routeParamOrWildcard(c, "org")
+			if org == "" {
+				return "", errUnmatchedSourceAccountNotFound
+			}
+			if org != snap.GitHub.Org {
+				return "", unmatchedSourceNameError("unknown org")
+			}
+			return org, nil
+		},
 	})
 	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	page, totalPages, offset := paginate(totalCount, page, perPage)
-	users, err := h.Q.ListUnlinkedSourceAccountsPageBySourceAndQuery(ctx, gen.ListUnlinkedSourceAccountsPageBySourceAndQueryParams{
-		SourceKind: "github",
-		SourceName: org,
-		Query:      query,
-		PageLimit:  int32(perPage),
-		PageOffset: int32(offset),
-	})
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	showingCount := len(users)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
-	emptyState := "No unmanaged GitHub accounts."
-	if query != "" {
-		emptyState = "No unmanaged GitHub accounts match the current search."
+		return h.renderUnmatchedSourceAccountsError(c, err)
 	}
 
 	data := viewmodels.UnmatchedGitHubViewData{
-		Layout:         layout,
-		Users:          users,
-		Query:          query,
-		ShowingCount:   showingCount,
-		ShowingFrom:    showingFrom,
-		ShowingTo:      showingTo,
-		TotalCount:     totalCount,
-		Page:           page,
-		PerPage:        perPage,
-		TotalPages:     totalPages,
-		HasUsers:       showingCount > 0,
-		EmptyStateMsg:  emptyState,
-		EmptyStateHref: "/settings/connectors?open=github",
+		UnmatchedSourceAccountsPageData: unmatched.PageData,
 	}
 
 	return h.RenderComponent(c, views.UnmatchedGitHubPage(data))
 }
 
-// HandleUnmatchedDatadog renders the unmanaged Datadog accounts page.
+// HandleUnmatchedDatadog renders the unlinked Datadog accounts page.
 func (h *Handlers) HandleUnmatchedDatadog(c *echo.Context) error {
-	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Unmanaged Datadog Accounts")
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	const perPage = 20
-	query := strings.TrimSpace(c.QueryParam("q"))
-	page := parsePageParam(c)
-
-	if !snap.DatadogConfigured || !snap.DatadogEnabled {
-		message := connectorUnavailableMessage("Datadog", snap.DatadogConfigured, snap.DatadogEnabled)
-		data := viewmodels.UnmatchedDatadogViewData{
-			Layout:         layout,
-			Users:          nil,
-			Query:          query,
-			ShowingCount:   0,
-			ShowingFrom:    0,
-			ShowingTo:      0,
-			TotalCount:     0,
-			Page:           1,
-			PerPage:        perPage,
-			TotalPages:     1,
-			HasUsers:       false,
-			EmptyStateMsg:  message,
-			EmptyStateHref: "/settings/connectors?open=datadog",
-		}
-		return h.RenderComponent(c, views.UnmatchedDatadogPage(data))
-	}
-
-	site := strings.Trim(c.Param("*"), "/")
-	if site == "" {
-		return RenderNotFound(c)
-	}
-	if site != snap.Datadog.Site {
-		return c.String(http.StatusNotFound, "unknown site")
-	}
-
-	totalCount, err := h.Q.CountUnlinkedSourceAccountsBySourceAndQuery(ctx, gen.CountUnlinkedSourceAccountsBySourceAndQueryParams{
-		SourceKind: "datadog",
-		SourceName: site,
-		Query:      query,
+	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
+		Title:              "Unlinked Datadog Accounts",
+		ConnectorName:      "Datadog",
+		SourceKind:         "datadog",
+		EmptyStateHref:     "/settings/connectors?open=datadog",
+		SyncedEmptyState:   "No unlinked Datadog accounts.",
+		FilteredEmptyState: "No unlinked Datadog accounts match the current search.",
+		IsConfigured: func(snap ConnectorSnapshot) bool {
+			return snap.DatadogConfigured
+		},
+		IsEnabled: func(snap ConnectorSnapshot) bool {
+			return snap.DatadogEnabled
+		},
+		ResolveSourceName: func(c *echo.Context, snap ConnectorSnapshot) (string, error) {
+			site := routeParamOrWildcard(c, "site")
+			if site == "" {
+				return "", errUnmatchedSourceAccountNotFound
+			}
+			if site != snap.Datadog.Site {
+				return "", unmatchedSourceNameError("unknown site")
+			}
+			return site, nil
+		},
 	})
 	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	page, totalPages, offset := paginate(totalCount, page, perPage)
-	users, err := h.Q.ListUnlinkedSourceAccountsPageBySourceAndQuery(ctx, gen.ListUnlinkedSourceAccountsPageBySourceAndQueryParams{
-		SourceKind: "datadog",
-		SourceName: site,
-		Query:      query,
-		PageLimit:  int32(perPage),
-		PageOffset: int32(offset),
-	})
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	showingCount := len(users)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
-	emptyState := "No unmanaged Datadog accounts."
-	if query != "" {
-		emptyState = "No unmanaged Datadog accounts match the current search."
+		return h.renderUnmatchedSourceAccountsError(c, err)
 	}
 
 	data := viewmodels.UnmatchedDatadogViewData{
-		Layout:         layout,
-		Users:          users,
-		Query:          query,
-		ShowingCount:   showingCount,
-		ShowingFrom:    showingFrom,
-		ShowingTo:      showingTo,
-		TotalCount:     totalCount,
-		Page:           page,
-		PerPage:        perPage,
-		TotalPages:     totalPages,
-		HasUsers:       showingCount > 0,
-		EmptyStateMsg:  emptyState,
-		EmptyStateHref: "/settings/connectors?open=datadog",
+		UnmatchedSourceAccountsPageData: unmatched.PageData,
 	}
 
 	return h.RenderComponent(c, views.UnmatchedDatadogPage(data))
@@ -671,7 +539,7 @@ func (h *Handlers) HandleCreateLink(c *echo.Context) error {
 	if redirect == "" {
 		snap, err := h.LoadConnectorSnapshot(c.Request().Context())
 		if err == nil && snap.GitHub.Org != "" {
-			redirect = fmt.Sprintf("/unmatched/github/%s", snap.GitHub.Org)
+			redirect = fmt.Sprintf("/accounts/unlinked/github/%s", snap.GitHub.Org)
 		} else {
 			redirect = "/settings/connectors?open=github"
 		}
@@ -790,7 +658,7 @@ func (h *Handlers) HandleOktaAccountAccessTree(c *echo.Context) error {
 
 			href := IntegratedAppHref(assignment.IntegrationKind)
 			if href == "" {
-				href = "/apps/" + externalID
+				href = "/assigned-apps/" + externalID
 			}
 
 			nodes = append(nodes, viewmodels.AccessTreeNode{

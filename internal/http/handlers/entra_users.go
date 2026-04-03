@@ -97,86 +97,36 @@ func (h *Handlers) HandleEntraUsers(c *echo.Context) error {
 }
 
 func (h *Handlers) HandleUnmatchedEntra(c *echo.Context) error {
-	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Unmanaged Microsoft Entra ID Users")
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	const perPage = 20
-	query := strings.TrimSpace(c.QueryParam("q"))
-	page := parsePageParam(c)
-
-	sourceName := strings.TrimSpace(snap.Entra.TenantID)
-
-	if !snap.EntraConfigured || !snap.EntraEnabled {
-		message := "Microsoft Entra ID is not configured yet. Add settings in Connectors."
-		if snap.EntraConfigured && !snap.EntraEnabled {
-			message = "Microsoft Entra ID sync is disabled. Enable it in Connectors."
-		}
-		data := viewmodels.UnmatchedEntraViewData{
-			Layout:         layout,
-			Users:          nil,
-			Query:          query,
-			ShowingCount:   0,
-			ShowingFrom:    0,
-			ShowingTo:      0,
-			TotalCount:     0,
-			Page:           1,
-			PerPage:        perPage,
-			TotalPages:     1,
-			HasUsers:       false,
-			EmptyStateMsg:  message,
-			EmptyStateHref: "/settings/connectors?open=entra",
-		}
-		return h.RenderComponent(c, views.UnmatchedEntraPage(data))
-	}
-
-	totalCount, err := h.Q.CountUnlinkedSourceAccountsBySourceAndQuery(ctx, gen.CountUnlinkedSourceAccountsBySourceAndQueryParams{
-		SourceKind:     "entra",
-		SourceName:     sourceName,
-		EntityCategory: registry.EntityCategoryUser,
-		Query:          query,
+	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
+		Title:              "Unlinked Microsoft Entra ID Users",
+		ConnectorName:      "Microsoft Entra ID",
+		SourceKind:         "entra",
+		EntityCategory:     registry.EntityCategoryUser,
+		EmptyStateHref:     "/settings/connectors?open=entra",
+		SyncedEmptyState:   "No unlinked Microsoft Entra ID users.",
+		FilteredEmptyState: "No unlinked Microsoft Entra ID users match the current search.",
+		IsConfigured: func(snap ConnectorSnapshot) bool {
+			return snap.EntraConfigured
+		},
+		IsEnabled: func(snap ConnectorSnapshot) bool {
+			return snap.EntraEnabled
+		},
+		UnavailableMessageFn: func(snap ConnectorSnapshot) string {
+			if snap.EntraConfigured && !snap.EntraEnabled {
+				return "Microsoft Entra ID sync is disabled. Enable it in Connectors."
+			}
+			return "Microsoft Entra ID is not configured yet. Add settings in Connectors."
+		},
+		ResolveSourceName: func(_ *echo.Context, snap ConnectorSnapshot) (string, error) {
+			return strings.TrimSpace(snap.Entra.TenantID), nil
+		},
 	})
 	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	page, totalPages, offset := paginate(totalCount, page, perPage)
-	users, err := h.Q.ListUnlinkedSourceAccountsPageBySourceAndQuery(ctx, gen.ListUnlinkedSourceAccountsPageBySourceAndQueryParams{
-		SourceKind:     "entra",
-		SourceName:     sourceName,
-		EntityCategory: registry.EntityCategoryUser,
-		Query:          query,
-		PageLimit:      int32(perPage),
-		PageOffset:     int32(offset),
-	})
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	showingCount := len(users)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
-	emptyState := "No unmanaged Microsoft Entra ID users."
-	if query != "" {
-		emptyState = "No unmanaged Microsoft Entra ID users match the current search."
+		return h.renderUnmatchedSourceAccountsError(c, err)
 	}
 
 	data := viewmodels.UnmatchedEntraViewData{
-		Layout:         layout,
-		Users:          users,
-		Query:          query,
-		ShowingCount:   showingCount,
-		ShowingFrom:    showingFrom,
-		ShowingTo:      showingTo,
-		TotalCount:     totalCount,
-		Page:           page,
-		PerPage:        perPage,
-		TotalPages:     totalPages,
-		HasUsers:       showingCount > 0,
-		EmptyStateMsg:  emptyState,
-		EmptyStateHref: "/settings/connectors?open=entra",
+		UnmatchedSourceAccountsPageData: unmatched.PageData,
 	}
 
 	return h.RenderComponent(c, views.UnmatchedEntraPage(data))

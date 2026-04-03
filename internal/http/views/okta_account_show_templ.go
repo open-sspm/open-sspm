@@ -48,7 +48,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 			ctx = templ.InitializeContext(ctx)
 			templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
-				{Label: "Okta Accounts", Href: "/okta-accounts"},
+				{Label: "Okta Accounts", Href: "/accounts/okta"},
 				{Label: "Okta Account"},
 			}, data.User.Email).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
@@ -377,7 +377,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var20 string
-			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("/api/okta-accounts/%d/access-tree?node=root", data.User.ID))
+			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("/api/accounts/okta/%d/access-tree?node=root", data.User.ID))
 			if templ_7745c5c3_Err != nil {
 				return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 138, Col: 88}
 			}

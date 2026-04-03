@@ -81,6 +81,7 @@ func runServe() error {
 	discoveryDBRunner.SetLockManager(locks)
 	discoveryDBRunner.SetRunMode(registry.RunModeDiscovery)
 	discoveryDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
+	discoveryDBRunner.SetDiscoveryMetricsConfig(cfg)
 
 	var syncer handlers.SyncRunner
 	if cfg.ResyncEnabled {
@@ -113,7 +114,7 @@ func runServe() error {
 	}
 
 	errCh := make(chan error, 1)
-	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr)
+	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr, discoveryMetricsRefresh(queries, cfg))
 	go func() {
 		slog.Info("listening", "addr", cfg.HTTPAddr)
 		if err := srv.StartServer(httpServer); err != nil && !errors.Is(err, http.ErrServerClosed) {

@@ -61,15 +61,15 @@ func GitHubUsersPage(data viewmodels.GitHubUsersViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var4 templ.SafeURL
-					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinURLErrs("/unmatched/github/" + data.Layout.GitHubOrg)
+					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinURLErrs("/accounts/unlinked/github/" + data.Layout.GitHubOrg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 12, Col: 81}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 12, Col: 89}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\">Unmanaged</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\">Unlinked</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -110,15 +110,15 @@ func GitHubUsersPage(data viewmodels.GitHubUsersViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var6 templ.SafeURL
-					templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs("/unmatched/github/" + data.Layout.GitHubOrg)
+					templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs("/accounts/unlinked/github/" + data.Layout.GitHubOrg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 22, Col: 84}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 22, Col: 92}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\">Unmanaged</a> to link.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\">Unlinked</a> to link.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -196,7 +196,7 @@ func GitHubUsersPage(data viewmodels.GitHubUsersViewData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if data.Query != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<a class=\"btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2\" aria-label=\"Clear query\" href=\"/github-users\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"h-4 w-4\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z\" clip-rule=\"evenodd\"></path></svg></a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<a class=\"btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2\" aria-label=\"Clear query\" href=\"/accounts/github\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"h-4 w-4\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z\" clip-rule=\"evenodd\"></path></svg></a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -444,9 +444,9 @@ func GitHubUsersPage(data viewmodels.GitHubUsersViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var27 templ.SafeURL
-					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/github-users", data.Query, "", data.Page-1))
+					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/accounts/github", data.Query, "", data.Page-1))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 107, Col: 93}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 107, Col: 96}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 					if templ_7745c5c3_Err != nil {
@@ -468,9 +468,9 @@ func GitHubUsersPage(data viewmodels.GitHubUsersViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var28 templ.SafeURL
-					templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/github-users", data.Query, "", data.Page+1))
+					templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/accounts/github", data.Query, "", data.Page+1))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 112, Col: 93}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 112, Col: 96}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 					if templ_7745c5c3_Err != nil {

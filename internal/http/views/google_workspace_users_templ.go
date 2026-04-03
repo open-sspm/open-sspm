@@ -56,7 +56,7 @@ func GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) temp
 				}
 				ctx = templ.InitializeContext(ctx)
 				if data.Layout.GoogleWorkspaceConfigured && data.Layout.GoogleWorkspaceEnabled {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<a class=\"btn-sm-outline\" href=\"/google-workspace/groups\">Groups</a> <a class=\"btn-sm-outline\" href=\"/connected-apps\">Google Workspace Connected Apps</a> <a class=\"btn-sm-outline\" href=\"/unmatched/google-workspace\">Unmanaged</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<a class=\"btn-sm-outline\" href=\"/accounts/google-workspace/groups\">Groups</a> <a class=\"btn-sm-outline\" href=\"/oauth-apps\">OAuth Apps</a> <a class=\"btn-sm-outline\" href=\"/accounts/unlinked/google-workspace\">Unlinked</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -92,7 +92,7 @@ func GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) temp
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<p>Linked users let you jump to their identity. Use <a class=\"btn-sm-link px-1\" href=\"/unmatched/google-workspace\">Unmanaged</a> to resolve unlinked users.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<p>Linked users let you jump to their identity. Use <a class=\"btn-sm-link px-1\" href=\"/accounts/unlinked/google-workspace\">Unlinked</a> to resolve unlinked users.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -170,7 +170,7 @@ func GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) temp
 				return templ_7745c5c3_Err
 			}
 			if data.Query != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<a class=\"btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2\" aria-label=\"Clear query\" href=\"/google-workspace/users\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"h-4 w-4\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z\" clip-rule=\"evenodd\"></path></svg></a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<a class=\"btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2\" aria-label=\"Clear query\" href=\"/accounts/google-workspace\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"h-4 w-4\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z\" clip-rule=\"evenodd\"></path></svg></a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -474,9 +474,9 @@ func GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) temp
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var28 templ.SafeURL
-					templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/google-workspace/users", data.Query, "", data.Page-1))
+					templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/accounts/google-workspace", data.Query, "", data.Page-1))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_users.templ`, Line: 126, Col: 103}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_users.templ`, Line: 126, Col: 106}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 					if templ_7745c5c3_Err != nil {
@@ -498,9 +498,9 @@ func GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) temp
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var29 templ.SafeURL
-					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/google-workspace/users", data.Query, "", data.Page+1))
+					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/accounts/google-workspace", data.Query, "", data.Page+1))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_users.templ`, Line: 131, Col: 103}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_users.templ`, Line: 131, Col: 106}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 					if templ_7745c5c3_Err != nil {

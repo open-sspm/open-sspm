@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
+	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/metrics"
 	"github.com/open-sspm/open-sspm/internal/sync"
 	"github.com/spf13/cobra"
@@ -46,6 +47,7 @@ func runWorkerDiscovery() error {
 		return err
 	}
 	defer pool.Close()
+	queries := gen.New(pool)
 
 	reg, err := buildConnectorRegistry(cfg)
 	if err != nil {
@@ -80,6 +82,7 @@ func runWorkerDiscovery() error {
 	dbRunner.SetLockManager(locks)
 	dbRunner.SetRunMode(registry.RunModeDiscovery)
 	dbRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
+	dbRunner.SetDiscoveryMetricsConfig(cfg)
 	backoffMax := cfg.SyncFailureBackoffMax
 	if backoffMax <= 0 {
 		backoffMax = cfg.SyncDiscoveryInterval * 10
@@ -120,7 +123,7 @@ func runWorkerDiscovery() error {
 	}()
 
 	scheduler := sync.Scheduler{Runner: executionRunner, Interval: cfg.SyncDiscoveryInterval}
-	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr)
+	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr, discoveryMetricsRefresh(queries, cfg))
 	doneCh := make(chan struct{})
 	go func() {
 		scheduler.Run(ctx)

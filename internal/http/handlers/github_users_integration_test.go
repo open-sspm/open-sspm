@@ -38,7 +38,7 @@ func TestHandleGitHubUsersIncludesLegacyUnknownUserRows(t *testing.T) {
 			RawJSON:        `{"slug":"platform","type":"Team","status":"active"}`,
 		})
 
-		c, rec := newTestContext(http.MethodGet, "http://example.com/github-users")
+		c, rec := newTestContext(http.MethodGet, "http://example.com/accounts/github")
 		if err := h.HandleGitHubUsers(c); err != nil {
 			t.Fatalf("HandleGitHubUsers(): %v", err)
 		}

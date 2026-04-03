@@ -154,6 +154,71 @@ func TestFaviconRedirectSetsHTMLContentType(t *testing.T) {
 	}
 }
 
+func TestRegisterRoutesUsesCapabilityFirstSurface(t *testing.T) {
+	e := echo.New()
+	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	es := &EchoServer{h: &handlers.Handlers{}, e: e}
+	es.registerRoutes()
+
+	paths := make(map[string]bool)
+	for _, route := range e.Router().Routes() {
+		paths[route.Path] = true
+	}
+
+	for _, want := range []string{
+		"/assigned-apps",
+		"/assigned-apps/:externalID",
+		"/oauth-apps",
+		"/oauth-apps/:id",
+		"/oauth-apps/:id/export",
+		"/accounts/okta",
+		"/accounts/okta/:id",
+		"/api/accounts/okta/:id/access-tree",
+		"/accounts/github",
+		"/accounts/entra",
+		"/accounts/google-workspace",
+		"/accounts/google-workspace/groups",
+		"/accounts/aws",
+		"/accounts/datadog",
+		"/accounts/unlinked/github/:org",
+		"/accounts/unlinked/entra",
+		"/accounts/unlinked/google-workspace",
+		"/accounts/unlinked/aws",
+		"/accounts/unlinked/datadog/:site",
+	} {
+		if !paths[want] {
+			t.Fatalf("route %q not registered", want)
+		}
+	}
+
+	for _, removed := range []string{
+		"/apps",
+		"/apps/*",
+		"/connected-apps",
+		"/connected-apps/:id",
+		"/connected-apps/:id/export",
+		"/okta-accounts",
+		"/okta-accounts/*",
+		"/api/okta-accounts/:id/access-tree",
+		"/github-users",
+		"/entra-users",
+		"/google-workspace/users",
+		"/google-workspace/groups",
+		"/google-workspace/oauth-apps",
+		"/aws-users",
+		"/datadog-users",
+		"/unmatched/github/*",
+		"/unmatched/entra",
+		"/unmatched/google-workspace",
+		"/unmatched/aws",
+		"/unmatched/datadog/*",
+	} {
+		if paths[removed] {
+			t.Fatalf("legacy route %q still registered", removed)
+		}
+	}
+}
+
 func TestHTTPErrorHandlerBadRequestUsesStatusText(t *testing.T) {
 	e := echo.New()
 	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))

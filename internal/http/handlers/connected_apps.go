@@ -44,7 +44,7 @@ func (h *Handlers) HandleConnectedApps(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Google Workspace Connected Apps")
+	layout, snap, err := h.LayoutData(ctx, c, "OAuth Apps")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -52,15 +52,12 @@ func (h *Handlers) HandleConnectedApps(c *echo.Context) error {
 	query := strings.TrimSpace(c.QueryParam("q"))
 	reviewState := normalizeConnectedAppReviewState(c.QueryParam("review_state"), true)
 	page := parsePageParam(c)
+	pagination := newPaginatedListState(0, page, connectedAppsPerPage)
 
 	data := viewmodels.ConnectedAppsViewData{
-		Layout:        layout,
-		Query:         query,
-		ReviewState:   reviewState,
-		Page:          1,
-		PerPage:       connectedAppsPerPage,
-		TotalPages:    1,
-		EmptyStateMsg: "No connected apps match the current filters.",
+		PaginatedListPageData: pagination.PageData(layout, 0, "No OAuth apps match the current filters.", ""),
+		Query:                 query,
+		ReviewState:           reviewState,
 	}
 
 	render := func() error {
@@ -72,7 +69,7 @@ func (h *Handlers) HandleConnectedApps(c *echo.Context) error {
 
 	sourceName := strings.TrimSpace(snap.GoogleWorkspace.CustomerID)
 	if !snap.GoogleWorkspaceConfigured || !snap.GoogleWorkspaceEnabled || sourceName == "" {
-		data.EmptyStateMsg = connectorUnavailableMessage("Google Workspace", snap.GoogleWorkspaceConfigured, snap.GoogleWorkspaceEnabled)
+		data.PaginatedListPageData.EmptyStateMsg = connectorUnavailableMessage("Google Workspace", snap.GoogleWorkspaceConfigured, snap.GoogleWorkspaceEnabled)
 		data.ReviewCounts = buildConnectedAppReviewCounts(nil, query, reviewState)
 		return render()
 	}
@@ -99,7 +96,7 @@ func (h *Handlers) HandleConnectedApps(c *echo.Context) error {
 	}
 	data.ReviewCounts = buildConnectedAppReviewCounts(countRows, query, reviewState)
 
-	page, totalPages, offset := paginate(totalCount, page, connectedAppsPerPage)
+	pagination = newPaginatedListState(totalCount, page, connectedAppsPerPage)
 	rows, err := h.Q.ListConnectedAppsPageBySourceAndQueryAndReviewState(ctx, gen.ListConnectedAppsPageBySourceAndQueryAndReviewStateParams{
 		SourceKind:  configstore.KindGoogleWorkspace,
 		SourceName:  sourceName,
@@ -107,7 +104,7 @@ func (h *Handlers) HandleConnectedApps(c *echo.Context) error {
 		ReviewState: reviewState,
 		Query:       query,
 		PageLimit:   int32(connectedAppsPerPage),
-		PageOffset:  int32(offset),
+		PageOffset:  int32(pagination.Offset()),
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -148,19 +145,11 @@ func (h *Handlers) HandleConnectedApps(c *echo.Context) error {
 		})
 	}
 
-	showingCount := len(items)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
 	data.Items = items
-	data.ShowingCount = showingCount
-	data.ShowingFrom = showingFrom
-	data.ShowingTo = showingTo
-	data.TotalCount = totalCount
-	data.Page = page
-	data.TotalPages = totalPages
-	data.HasItems = showingCount > 0
+	data.PaginatedListPageData = pagination.PageData(layout, len(items), "No OAuth apps match the current filters.", "")
+	data.HasItems = len(items) > 0
 	if query == "" && reviewState == "" {
-		data.EmptyStateMsg = "No connected apps have been synced from Google Workspace yet."
+		data.PaginatedListPageData.EmptyStateMsg = "No OAuth apps have been synced from Google Workspace yet."
 	}
 
 	return render()
@@ -278,13 +267,13 @@ func (h *Handlers) HandleConnectedAppReviewUpdate(c *echo.Context) error {
 
 	setFlashToast(c, viewmodels.ToastViewData{
 		Category:    "success",
-		Title:       "Connected app review saved",
+		Title:       "OAuth app review saved",
 		Description: "Owner assignment and disposition updated.",
 	})
 	if isHX(c) {
 		return h.renderConnectedAppShow(c, appID, connectedAppShowOptions{
 			alert: &viewmodels.ConnectedAppsAlert{
-				Title:       "Connected app review saved",
+				Title:       "OAuth app review saved",
 				Message:     "Owner assignment and disposition updated.",
 				Destructive: false,
 			},
@@ -292,7 +281,7 @@ func (h *Handlers) HandleConnectedAppReviewUpdate(c *echo.Context) error {
 		})
 	}
 
-	return c.Redirect(http.StatusSeeOther, "/connected-apps/"+strconv.FormatInt(appID, 10))
+	return c.Redirect(http.StatusSeeOther, "/oauth-apps/"+strconv.FormatInt(appID, 10))
 }
 
 func (h *Handlers) HandleConnectedAppExport(c *echo.Context) error {
@@ -328,10 +317,18 @@ func (h *Handlers) HandleConnectedAppExport(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
+	cutoffs := h.discoveryPostureCutoffs(time.Now().UTC())
 	discoverySources, err := h.Q.ListConnectedAppDiscoverySourcesBySourceAppID(ctx, gen.ListConnectedAppDiscoverySourcesBySourceAppIDParams{
-		SourceKind:  strings.TrimSpace(summary.SourceKind),
-		SourceName:  strings.TrimSpace(summary.SourceName),
-		SourceAppID: strings.TrimSpace(summary.ExternalID),
+		SourceKind:                strings.TrimSpace(summary.SourceKind),
+		SourceName:                strings.TrimSpace(summary.SourceName),
+		SourceAppID:               strings.TrimSpace(summary.ExternalID),
+		OktaFreshAfter:            cutoffs.OktaFreshAfter,
+		EntraFreshAfter:           cutoffs.EntraFreshAfter,
+		GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
+		GithubFreshAfter:          cutoffs.GithubFreshAfter,
+		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
+		AwsFreshAfter:             cutoffs.AwsFreshAfter,
+		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -442,7 +439,7 @@ func (h *Handlers) HandleConnectedAppGrantRevoke(c *echo.Context) error {
 			Title:       "Unable to revoke grant",
 			Description: "The synced grant record is missing the Google user or client identifier.",
 		})
-		return c.Redirect(http.StatusSeeOther, "/connected-apps/"+strconv.FormatInt(appID, 10))
+		return c.Redirect(http.StatusSeeOther, "/oauth-apps/"+strconv.FormatInt(appID, 10))
 	}
 
 	snap, err := h.LoadConnectorSnapshot(ctx)
@@ -464,7 +461,7 @@ func (h *Handlers) HandleConnectedAppGrantRevoke(c *echo.Context) error {
 			Title:       "Google Workspace unavailable",
 			Description: "Enable the Google Workspace connector before revoking grants.",
 		})
-		return c.Redirect(http.StatusSeeOther, "/connected-apps/"+strconv.FormatInt(appID, 10))
+		return c.Redirect(http.StatusSeeOther, "/oauth-apps/"+strconv.FormatInt(appID, 10))
 	}
 
 	client, err := googleworkspace.NewClient(snap.GoogleWorkspace)
@@ -486,7 +483,7 @@ func (h *Handlers) HandleConnectedAppGrantRevoke(c *echo.Context) error {
 			Title:       "Grant revoke failed",
 			Description: err.Error(),
 		})
-		return c.Redirect(http.StatusSeeOther, "/connected-apps/"+strconv.FormatInt(appID, 10))
+		return c.Redirect(http.StatusSeeOther, "/oauth-apps/"+strconv.FormatInt(appID, 10))
 	}
 
 	setFlashToast(c, viewmodels.ToastViewData{
@@ -504,7 +501,7 @@ func (h *Handlers) HandleConnectedAppGrantRevoke(c *echo.Context) error {
 		})
 	}
 
-	return c.Redirect(http.StatusSeeOther, "/connected-apps/"+strconv.FormatInt(appID, 10))
+	return c.Redirect(http.StatusSeeOther, "/oauth-apps/"+strconv.FormatInt(appID, 10))
 }
 
 func (h *Handlers) renderConnectedAppShow(c *echo.Context, appID int64, opts connectedAppShowOptions) error {
@@ -521,7 +518,7 @@ func (h *Handlers) renderConnectedAppShow(c *echo.Context, appID int64, opts con
 		return RenderNotFound(c)
 	}
 
-	layout, _, err := h.LayoutData(ctx, c, "Google Workspace Connected App")
+	layout, _, err := h.LayoutData(ctx, c, "OAuth App")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -593,10 +590,18 @@ func (h *Handlers) renderConnectedAppShow(c *echo.Context, appID int64, opts con
 		})
 	}
 
+	cutoffs := h.discoveryPostureCutoffs(now)
 	discoverySources, err := h.Q.ListConnectedAppDiscoverySourcesBySourceAppID(ctx, gen.ListConnectedAppDiscoverySourcesBySourceAppIDParams{
-		SourceKind:  strings.TrimSpace(summary.SourceKind),
-		SourceName:  strings.TrimSpace(summary.SourceName),
-		SourceAppID: strings.TrimSpace(summary.ExternalID),
+		SourceKind:                strings.TrimSpace(summary.SourceKind),
+		SourceName:                strings.TrimSpace(summary.SourceName),
+		SourceAppID:               strings.TrimSpace(summary.ExternalID),
+		OktaFreshAfter:            cutoffs.OktaFreshAfter,
+		EntraFreshAfter:           cutoffs.EntraFreshAfter,
+		GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
+		GithubFreshAfter:          cutoffs.GithubFreshAfter,
+		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
+		AwsFreshAfter:             cutoffs.AwsFreshAfter,
+		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -689,7 +694,7 @@ func (h *Handlers) renderConnectedAppShow(c *echo.Context, appID int64, opts con
 			Confidence:             confidence,
 			ConfidenceReason:       confidenceReason,
 			LastSeenAt:             formatProgrammaticDate(summary.EvidenceLastSeenAt),
-			ExportHref:             "/connected-apps/" + strconv.FormatInt(summary.ID, 10) + "/export",
+			ExportHref:             "/oauth-apps/" + strconv.FormatInt(summary.ID, 10) + "/export",
 		},
 		LikelyOwners:     likelyOwners,
 		Grants:           grants,
@@ -830,9 +835,9 @@ func connectedAppsListURL(query, reviewState string, page int) string {
 		values.Set("page", strconv.Itoa(page))
 	}
 	if len(values) == 0 {
-		return "/connected-apps"
+		return "/oauth-apps"
 	}
-	return "/connected-apps?" + values.Encode()
+	return "/oauth-apps?" + values.Encode()
 }
 
 func connectedAppScopeCount(raw []byte) int {

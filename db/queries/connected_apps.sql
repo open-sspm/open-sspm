@@ -275,21 +275,91 @@ ON CONFLICT (app_asset_id) DO UPDATE SET
 RETURNING *;
 
 -- name: ListConnectedAppDiscoverySourcesBySourceAppID :many
+WITH scoped_sources AS (
+  SELECT *
+  FROM saas_app_sources sas
+  WHERE sas.source_kind = sqlc.arg(source_kind)::text
+    AND sas.source_name = sqlc.arg(source_name)::text
+    AND sas.source_app_id = sqlc.arg(source_app_id)::text
+    AND sas.expired_at IS NULL
+    AND sas.last_observed_run_id IS NOT NULL
+),
+posture_rows (
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT *
+  FROM saas_app_posture_rows(
+    sqlc.arg(okta_fresh_after)::timestamptz,
+    sqlc.arg(entra_fresh_after)::timestamptz,
+    sqlc.arg(google_workspace_fresh_after)::timestamptz,
+    sqlc.arg(github_fresh_after)::timestamptz,
+    sqlc.arg(datadog_fresh_after)::timestamptz,
+    sqlc.arg(aws_fresh_after)::timestamptz,
+    sqlc.arg(default_fresh_after)::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
+  )
+)
 SELECT
   sas.*,
-  sa.canonical_key,
-  sa.display_name AS discovery_display_name,
-  sa.primary_domain AS discovery_primary_domain,
-  sa.vendor_name AS discovery_vendor_name,
-  sa.managed_state AS discovery_managed_state,
-  sa.risk_level AS discovery_risk_level
-FROM saas_app_sources sas
-JOIN saas_apps sa ON sa.id = sas.saas_app_id
-WHERE sas.source_kind = sqlc.arg(source_kind)::text
-  AND sas.source_name = sqlc.arg(source_name)::text
-  AND sas.source_app_id = sqlc.arg(source_app_id)::text
-  AND sas.expired_at IS NULL
-  AND sas.last_observed_run_id IS NOT NULL
+  pr.canonical_key::text AS canonical_key,
+  pr.display_name::text AS discovery_display_name,
+  pr.primary_domain::text AS discovery_primary_domain,
+  pr.vendor_name::text AS discovery_vendor_name,
+  pr.managed_state::text AS discovery_managed_state,
+  pr.risk_level::text AS discovery_risk_level
+FROM scoped_sources sas
+JOIN posture_rows pr ON pr.id = sas.saas_app_id
 ORDER BY sas.last_observed_at DESC, sas.id DESC;
 
 -- name: ListConnectedAppDiscoveryEventsBySourceAppID :many

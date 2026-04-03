@@ -292,6 +292,97 @@ func (q *Queries) ListAppAssetsPageBySourceAndQueryAndKind(ctx context.Context, 
 	return items, nil
 }
 
+const listAppAssetsPageBySourcesAndQueryAndKind = `-- name: ListAppAssetsPageBySourcesAndQueryAndKind :many
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($5::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($6::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+)
+SELECT aa.id, aa.source_kind, aa.source_name, aa.asset_kind, aa.external_id, aa.parent_external_id, aa.display_name, aa.status, aa.created_at_source, aa.updated_at_source, aa.raw_json, aa.seen_in_run_id, aa.seen_at, aa.last_observed_run_id, aa.last_observed_at, aa.expired_at, aa.expired_run_id, aa.created_at, aa.updated_at
+FROM app_assets aa
+JOIN configured_sources cs
+  ON cs.source_kind = aa.source_kind
+ AND cs.source_name = aa.source_name
+WHERE
+  aa.expired_at IS NULL
+  AND aa.last_observed_run_id IS NOT NULL
+  AND (
+    $1::text = ''
+    OR aa.asset_kind = $1::text
+  )
+  AND (
+    $2::text = ''
+    OR aa.display_name ILIKE ('%' || $2::text || '%')
+    OR aa.external_id ILIKE ('%' || $2::text || '%')
+    OR aa.parent_external_id ILIKE ('%' || $2::text || '%')
+  )
+ORDER BY
+  lower(COALESCE(NULLIF(trim(aa.display_name), ''), aa.external_id)) ASC,
+  aa.source_kind ASC,
+  aa.source_name ASC,
+  aa.id ASC
+LIMIT $4::int
+OFFSET $3::int
+`
+
+type ListAppAssetsPageBySourcesAndQueryAndKindParams struct {
+	AssetKind             string   `json:"asset_kind"`
+	Query                 string   `json:"query"`
+	PageOffset            int32    `json:"page_offset"`
+	PageLimit             int32    `json:"page_limit"`
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+}
+
+func (q *Queries) ListAppAssetsPageBySourcesAndQueryAndKind(ctx context.Context, arg ListAppAssetsPageBySourcesAndQueryAndKindParams) ([]AppAsset, error) {
+	rows, err := q.db.Query(ctx, listAppAssetsPageBySourcesAndQueryAndKind,
+		arg.AssetKind,
+		arg.Query,
+		arg.PageOffset,
+		arg.PageLimit,
+		arg.ConfiguredSourceKinds,
+		arg.ConfiguredSourceNames,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AppAsset
+	for rows.Next() {
+		var i AppAsset
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.AssetKind,
+			&i.ExternalID,
+			&i.ParentExternalID,
+			&i.DisplayName,
+			&i.Status,
+			&i.CreatedAtSource,
+			&i.UpdatedAtSource,
+			&i.RawJson,
+			&i.SeenInRunID,
+			&i.SeenAt,
+			&i.LastObservedRunID,
+			&i.LastObservedAt,
+			&i.ExpiredAt,
+			&i.ExpiredRunID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const promoteAppAssetsSeenInRunBySource = `-- name: PromoteAppAssetsSeenInRunBySource :execrows
 UPDATE app_assets
 SET

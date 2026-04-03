@@ -9,7 +9,7 @@ templ OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) {
 	@Layout(data.Layout) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
-			{Label: "Okta Accounts", Href: "/okta-accounts"},
+			{Label: "Okta Accounts", Href: "/accounts/okta"},
 			{Label: "Okta Account"},
 		}, data.User.Email)
 
@@ -135,7 +135,7 @@ templ OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) {
 						<div
 							class="space-y-1"
 							data-hx-lazy-panel="tab-access-graph"
-							hx-get={ fmt.Sprintf("/api/okta-accounts/%d/access-tree?node=root", data.User.ID) }
+							hx-get={ fmt.Sprintf("/api/accounts/okta/%d/access-tree?node=root", data.User.ID) }
 							hx-trigger="oss-panel-visible once"
 							hx-swap="innerHTML"
 						>

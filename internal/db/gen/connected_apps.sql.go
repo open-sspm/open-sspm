@@ -350,28 +350,105 @@ func (q *Queries) ListConnectedAppDiscoveryEventsBySourceAppID(ctx context.Conte
 }
 
 const listConnectedAppDiscoverySourcesBySourceAppID = `-- name: ListConnectedAppDiscoverySourcesBySourceAppID :many
+WITH scoped_sources AS (
+  SELECT id, saas_app_id, source_kind, source_name, source_app_id, source_app_name, source_app_domain, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at
+  FROM saas_app_sources sas
+  WHERE sas.source_kind = $1::text
+    AND sas.source_name = $2::text
+    AND sas.source_app_id = $3::text
+    AND sas.expired_at IS NULL
+    AND sas.last_observed_run_id IS NOT NULL
+),
+posture_rows (
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+  FROM saas_app_posture_rows(
+    $4::timestamptz,
+    $5::timestamptz,
+    $6::timestamptz,
+    $7::timestamptz,
+    $8::timestamptz,
+    $9::timestamptz,
+    $10::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
+  )
+)
 SELECT
   sas.id, sas.saas_app_id, sas.source_kind, sas.source_name, sas.source_app_id, sas.source_app_name, sas.source_app_domain, sas.seen_in_run_id, sas.seen_at, sas.last_observed_run_id, sas.last_observed_at, sas.expired_at, sas.expired_run_id, sas.created_at, sas.updated_at,
-  sa.canonical_key,
-  sa.display_name AS discovery_display_name,
-  sa.primary_domain AS discovery_primary_domain,
-  sa.vendor_name AS discovery_vendor_name,
-  sa.managed_state AS discovery_managed_state,
-  sa.risk_level AS discovery_risk_level
-FROM saas_app_sources sas
-JOIN saas_apps sa ON sa.id = sas.saas_app_id
-WHERE sas.source_kind = $1::text
-  AND sas.source_name = $2::text
-  AND sas.source_app_id = $3::text
-  AND sas.expired_at IS NULL
-  AND sas.last_observed_run_id IS NOT NULL
+  pr.canonical_key::text AS canonical_key,
+  pr.display_name::text AS discovery_display_name,
+  pr.primary_domain::text AS discovery_primary_domain,
+  pr.vendor_name::text AS discovery_vendor_name,
+  pr.managed_state::text AS discovery_managed_state,
+  pr.risk_level::text AS discovery_risk_level
+FROM scoped_sources sas
+JOIN posture_rows pr ON pr.id = sas.saas_app_id
 ORDER BY sas.last_observed_at DESC, sas.id DESC
 `
 
 type ListConnectedAppDiscoverySourcesBySourceAppIDParams struct {
-	SourceKind  string `json:"source_kind"`
-	SourceName  string `json:"source_name"`
-	SourceAppID string `json:"source_app_id"`
+	SourceKind                string             `json:"source_kind"`
+	SourceName                string             `json:"source_name"`
+	SourceAppID               string             `json:"source_app_id"`
+	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
+	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
+	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
+	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
+	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
+	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
+	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
 }
 
 type ListConnectedAppDiscoverySourcesBySourceAppIDRow struct {
@@ -399,7 +476,18 @@ type ListConnectedAppDiscoverySourcesBySourceAppIDRow struct {
 }
 
 func (q *Queries) ListConnectedAppDiscoverySourcesBySourceAppID(ctx context.Context, arg ListConnectedAppDiscoverySourcesBySourceAppIDParams) ([]ListConnectedAppDiscoverySourcesBySourceAppIDRow, error) {
-	rows, err := q.db.Query(ctx, listConnectedAppDiscoverySourcesBySourceAppID, arg.SourceKind, arg.SourceName, arg.SourceAppID)
+	rows, err := q.db.Query(ctx, listConnectedAppDiscoverySourcesBySourceAppID,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.SourceAppID,
+		arg.OktaFreshAfter,
+		arg.EntraFreshAfter,
+		arg.GoogleWorkspaceFreshAfter,
+		arg.GithubFreshAfter,
+		arg.DatadogFreshAfter,
+		arg.AwsFreshAfter,
+		arg.DefaultFreshAfter,
+	)
 	if err != nil {
 		return nil, err
 	}
