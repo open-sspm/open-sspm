@@ -54,10 +54,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 	started := time.Now()
 	slog.Info("syncing Datadog")
 
-	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
-		SourceKind: "datadog",
-		SourceName: i.site,
-	})
+	runID, err := registry.StartSyncRun(ctx, q, "datadog", i.site)
 	if err != nil {
 		return err
 	}

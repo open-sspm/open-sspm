@@ -159,10 +159,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 	started := time.Now()
 	slog.Info("syncing GitHub", "org", i.org)
 
-	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
-		SourceKind: "github",
-		SourceName: i.org,
-	})
+	runID, err := registry.StartSyncRun(ctx, q, "github", i.org)
 	if err != nil {
 		return err
 	}

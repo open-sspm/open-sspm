@@ -3,6 +3,17 @@ INSERT INTO sync_runs (source_kind, source_name, status, started_at)
 VALUES ($1, $2, 'running', now())
 RETURNING id;
 
+-- name: ReclaimRunningSyncRunsBySource :execrows
+UPDATE sync_runs
+SET
+  status = 'canceled',
+  finished_at = started_at,
+  message = sqlc.arg(message)::text,
+  error_kind = sqlc.arg(error_kind)::text
+WHERE source_kind = ANY(sqlc.arg(source_kinds)::text[])
+  AND source_name = sqlc.arg(source_name)::text
+  AND status = 'running';
+
 -- name: ListRecentFinishedSyncRunsBySource :many
 SELECT id, status, finished_at, error_kind
 FROM sync_runs
@@ -163,12 +174,14 @@ ORDER BY q.source_kind, q.source_name;
 -- name: FailSyncRun :exec
 UPDATE sync_runs
 SET status = $2, finished_at = now(), message = $3, error_kind = $4
-WHERE id = $1;
+WHERE id = $1
+  AND status = 'running';
 
 -- name: MarkSyncRunSuccess :exec
 UPDATE sync_runs
 SET status = 'success', finished_at = now(), message = '', stats = $2, error_kind = ''
-WHERE id = $1;
+WHERE id = $1
+  AND status = 'running';
 
 -- name: AcquireAdvisoryLock :exec
 SELECT pg_advisory_lock($1::bigint);

@@ -145,10 +145,7 @@ func (i *EntraIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pg
 	started := time.Now()
 	slog.Info("syncing Microsoft Entra ID")
 
-	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
-		SourceKind: registry.SyncRunSourceKind("entra", registry.RunModeFull),
-		SourceName: i.tenantID,
-	})
+	runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("entra", registry.RunModeFull), i.tenantID)
 	if err != nil {
 		return err
 	}
@@ -249,10 +246,7 @@ func (i *EntraIntegration) runDiscovery(ctx context.Context, q *gen.Queries, poo
 	started := time.Now()
 	slog.Info("syncing Microsoft Entra ID discovery")
 
-	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
-		SourceKind: registry.SyncRunSourceKind("entra", registry.RunModeDiscovery),
-		SourceName: i.tenantID,
-	})
+	runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("entra", registry.RunModeDiscovery), i.tenantID)
 	if err != nil {
 		return err
 	}

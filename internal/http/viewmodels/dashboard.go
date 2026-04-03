@@ -2,9 +2,9 @@ package viewmodels
 
 type DashboardViewData struct {
 	Layout            LayoutData
-	ActiveUserCount   int64
-	AppCount          int64
-	ConnectedAppCount int64
+	IdentityCount     int64
+	DiscoveryAppCount int64
+	AppAssetCount     int64
 	FrameworkPosture  []DashboardFrameworkPostureItem
 }
 

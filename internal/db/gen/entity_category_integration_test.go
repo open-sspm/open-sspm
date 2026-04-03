@@ -468,6 +468,120 @@ func TestEntityCategoryMigrationBackfillsExistingRows(t *testing.T) {
 	})
 }
 
+func TestGitHubEntityCategoryRepairMigrationBackfillsLegacyRows(t *testing.T) {
+	t.Parallel()
+
+	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
+		migrateToVersion(t, migrator, 28)
+
+		runID := insertSyncRun(t, ctx, pool, "seed", "seed")
+		insertLegacyAccount(t, ctx, pool, runID, accountSeed{
+			SourceKind:  "github",
+			SourceName:  "acme",
+			ExternalID:  "github-member-legacy",
+			Email:       "legacy.member@example.com",
+			DisplayName: "Legacy GitHub Member",
+			Status:      "active",
+			AccountKind: "human",
+			RawJSON:     `{"login":"github-member-legacy","type":"User","status":"active"}`,
+		})
+		insertLegacyAccount(t, ctx, pool, runID, accountSeed{
+			SourceKind:  "github",
+			SourceName:  "acme",
+			ExternalID:  "github-bot-legacy",
+			DisplayName: "Legacy GitHub Bot",
+			Status:      "active",
+			AccountKind: "bot",
+			RawJSON:     `{"login":"github-bot-legacy","type":"Bot","status":"active"}`,
+		})
+		insertLegacyAccount(t, ctx, pool, runID, accountSeed{
+			SourceKind:  "github",
+			SourceName:  "acme",
+			ExternalID:  "team:platform",
+			DisplayName: "Platform",
+			Status:      "active",
+			AccountKind: "service",
+			RawJSON:     `{"id":42,"name":"Platform","slug":"platform"}`,
+		})
+		insertLegacyAccount(t, ctx, pool, runID, accountSeed{
+			SourceKind:  "github",
+			SourceName:  "acme",
+			ExternalID:  "acme",
+			DisplayName: "Acme",
+			Status:      "active",
+			AccountKind: "service",
+			RawJSON:     `{"id":7,"login":"acme","type":"Organization","slug":"acme"}`,
+		})
+
+		migrateToVersion(t, migrator, 29)
+
+		for _, externalID := range []string{"github-member-legacy", "github-bot-legacy", "team:platform", "acme"} {
+			var category string
+			if err := pool.QueryRow(ctx, `SELECT entity_category FROM accounts WHERE external_id = $1`, externalID).Scan(&category); err != nil {
+				t.Fatalf("select legacy github entity_category for %s: %v", externalID, err)
+			}
+			if category != "unknown" {
+				t.Fatalf("github entity_category after v29 for %s = %q want unknown", externalID, category)
+			}
+		}
+
+		migrateUp(t, migrator)
+
+		wantCategories := map[string]string{
+			"github-member-legacy": "user",
+			"github-bot-legacy":    "user",
+			"team:platform":        "team",
+			"acme":                 "user",
+		}
+		for externalID, want := range wantCategories {
+			var got string
+			if err := pool.QueryRow(ctx, `SELECT entity_category FROM accounts WHERE external_id = $1`, externalID).Scan(&got); err != nil {
+				t.Fatalf("select repaired github entity_category for %s: %v", externalID, err)
+			}
+			if got != want {
+				t.Fatalf("github entity_category after repair for %s = %q want %q", externalID, got, want)
+			}
+		}
+
+		githubUserCount, err := q.CountSourceAccountsBySourceAndQuery(ctx, CountSourceAccountsBySourceAndQueryParams{
+			SourceKind:     "github",
+			SourceName:     "acme",
+			EntityCategory: "user",
+		})
+		if err != nil {
+			t.Fatalf("CountSourceAccountsBySourceAndQuery(github users after repair): %v", err)
+		}
+		if githubUserCount != 3 {
+			t.Fatalf("CountSourceAccountsBySourceAndQuery(github users after repair)=%d want 3", githubUserCount)
+		}
+
+		githubUserRows, err := q.ListSourceAccountsPageBySourceAndQuery(ctx, ListSourceAccountsPageBySourceAndQueryParams{
+			SourceKind:     "github",
+			SourceName:     "acme",
+			EntityCategory: "user",
+			PageLimit:      20,
+		})
+		if err != nil {
+			t.Fatalf("ListSourceAccountsPageBySourceAndQuery(github users after repair): %v", err)
+		}
+		if got := linkedExternalIDs(githubUserRows); !slices.Equal(got, []string{"acme", "github-bot-legacy", "github-member-legacy"}) {
+			t.Fatalf("ListSourceAccountsPageBySourceAndQuery(github users after repair)=%v want [acme github-bot-legacy github-member-legacy]", got)
+		}
+
+		githubTeamCount, err := q.CountSourceAccountsBySourceAndQuery(ctx, CountSourceAccountsBySourceAndQueryParams{
+			SourceKind:     "github",
+			SourceName:     "acme",
+			EntityCategory: "team",
+		})
+		if err != nil {
+			t.Fatalf("CountSourceAccountsBySourceAndQuery(github teams after repair): %v", err)
+		}
+		if githubTeamCount != 1 {
+			t.Fatalf("CountSourceAccountsBySourceAndQuery(github teams after repair)=%d want 1", githubTeamCount)
+		}
+	})
+}
+
 type accountSeed struct {
 	SourceKind     string
 	SourceName     string

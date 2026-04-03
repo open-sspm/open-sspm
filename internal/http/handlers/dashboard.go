@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"sort"
 	"strings"
 
@@ -13,22 +14,22 @@ import (
 // HandleDashboard renders the dashboard page.
 func (h *Handlers) HandleDashboard(c *echo.Context) error {
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Dashboard")
+	layout, snap, err := h.LayoutData(ctx, c, "Dashboard")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
-	activeUserCount, err := h.Q.CountOktaAccountsByQueryAndState(ctx, gen.CountOktaAccountsByQueryAndStateParams{
-		Query: "",
-		State: "active",
-	})
+
+	identityCount, err := h.dashboardIdentityCount(ctx, snap)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
-	appCount, err := h.Q.CountOktaApps(ctx)
+
+	discoveryAppCount, err := h.dashboardDiscoveryAppCount(ctx, snap)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
-	connectedAppCount, err := h.Q.CountConnectedOktaApps(ctx)
+
+	appAssetCount, err := h.dashboardAppAssetCount(ctx, snap)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -123,13 +124,52 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 
 	data := viewmodels.DashboardViewData{
 		Layout:            layout,
-		ActiveUserCount:   activeUserCount,
-		AppCount:          appCount,
-		ConnectedAppCount: connectedAppCount,
+		IdentityCount:     identityCount,
+		DiscoveryAppCount: discoveryAppCount,
+		AppAssetCount:     appAssetCount,
 		FrameworkPosture:  frameworkPosture,
 	}
 
 	return h.RenderComponent(c, views.DashboardPage(data))
+}
+
+func (h *Handlers) dashboardIdentityCount(ctx context.Context, snap ConnectorSnapshot) (int64, error) {
+	sourcePairs := availableIdentitySourcePairs(snap)
+	if len(sourcePairs) == 0 {
+		return 0, nil
+	}
+
+	configuredKinds, configuredNames := identityConfiguredSourcePairs(sourcePairs)
+	return h.Q.CountIdentitiesInventoryByFilters(ctx, gen.CountIdentitiesInventoryByFiltersParams{
+		ConfiguredSourceKinds: configuredKinds,
+		ConfiguredSourceNames: configuredNames,
+	})
+}
+
+func (h *Handlers) dashboardDiscoveryAppCount(ctx context.Context, snap ConnectorSnapshot) (int64, error) {
+	sourceOptions := discoverySourceOptions(snap)
+	if len(sourceOptions) == 0 {
+		return 0, nil
+	}
+
+	configuredKinds, configuredNames := discoveryConfiguredSourcePairs(sourceOptions)
+	return h.Q.CountSaaSAppsByFilters(ctx, gen.CountSaaSAppsByFiltersParams{
+		ConfiguredSourceKinds: configuredKinds,
+		ConfiguredSourceNames: configuredNames,
+	})
+}
+
+func (h *Handlers) dashboardAppAssetCount(ctx context.Context, snap ConnectorSnapshot) (int64, error) {
+	sourcePairs := configuredProgrammaticSources(snap)
+	if len(sourcePairs) == 0 {
+		return 0, nil
+	}
+
+	configuredKinds, configuredNames := programmaticConfiguredSourcePairs(sourcePairs)
+	return h.Q.CountAppAssetsBySourcesAndQueryAndKind(ctx, gen.CountAppAssetsBySourcesAndQueryAndKindParams{
+		ConfiguredSourceKinds: configuredKinds,
+		ConfiguredSourceNames: configuredNames,
+	})
 }
 
 func dashboardFrameworkBadgeLabel(name string) string {

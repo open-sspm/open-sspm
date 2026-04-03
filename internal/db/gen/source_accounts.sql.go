@@ -11,6 +11,42 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countGitHubUsersBySourceAndQuery = `-- name: CountGitHubUsersBySourceAndQuery :one
+SELECT count(*)
+FROM accounts au
+WHERE
+  au.source_kind = $1
+  AND au.source_name = $2
+  AND au.expired_at IS NULL
+  AND au.last_observed_run_id IS NOT NULL
+  AND (
+    au.entity_category = 'user'
+    OR (
+      au.entity_category = 'unknown'
+      AND lower(trim(au.external_id)) NOT LIKE 'team:%'
+    )
+  )
+  AND (
+    $3::text = ''
+    OR au.external_id ILIKE ('%' || $3::text || '%')
+    OR au.email ILIKE ('%' || $3::text || '%')
+    OR au.display_name ILIKE ('%' || $3::text || '%')
+  )
+`
+
+type CountGitHubUsersBySourceAndQueryParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+	Query      string `json:"query"`
+}
+
+func (q *Queries) CountGitHubUsersBySourceAndQuery(ctx context.Context, arg CountGitHubUsersBySourceAndQueryParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countGitHubUsersBySourceAndQuery, arg.SourceKind, arg.SourceName, arg.Query)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countLinkedSourceAccountsBySource = `-- name: CountLinkedSourceAccountsBySource :one
 WITH authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
@@ -286,6 +322,117 @@ func (q *Queries) GetSourceAccount(ctx context.Context, id int64) (Account, erro
 		&i.EntityCategory,
 	)
 	return i, err
+}
+
+const listGitHubUsersPageBySourceAndQuery = `-- name: ListGitHubUsersPageBySourceAndQuery :many
+SELECT
+  au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind, au.entity_category,
+  COALESCE(ia.identity_id, 0) AS identity_id
+FROM accounts au
+LEFT JOIN identity_accounts ia ON ia.account_id = au.id
+WHERE
+  au.source_kind = $1
+  AND au.source_name = $2
+  AND au.expired_at IS NULL
+  AND au.last_observed_run_id IS NOT NULL
+  AND (
+    au.entity_category = 'user'
+    OR (
+      au.entity_category = 'unknown'
+      AND lower(trim(au.external_id)) NOT LIKE 'team:%'
+    )
+  )
+  AND (
+    $3::text = ''
+    OR au.external_id ILIKE ('%' || $3::text || '%')
+    OR au.email ILIKE ('%' || $3::text || '%')
+    OR au.display_name ILIKE ('%' || $3::text || '%')
+  )
+ORDER BY au.id DESC
+LIMIT $5::int
+OFFSET $4::int
+`
+
+type ListGitHubUsersPageBySourceAndQueryParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+	Query      string `json:"query"`
+	PageOffset int32  `json:"page_offset"`
+	PageLimit  int32  `json:"page_limit"`
+}
+
+type ListGitHubUsersPageBySourceAndQueryRow struct {
+	ID                int64              `json:"id"`
+	SourceKind        string             `json:"source_kind"`
+	SourceName        string             `json:"source_name"`
+	ExternalID        string             `json:"external_id"`
+	Email             string             `json:"email"`
+	DisplayName       string             `json:"display_name"`
+	RawJson           []byte             `json:"raw_json"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	LastLoginAt       pgtype.Timestamptz `json:"last_login_at"`
+	LastLoginIp       string             `json:"last_login_ip"`
+	LastLoginRegion   string             `json:"last_login_region"`
+	SeenInRunID       pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt            pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
+	Status            string             `json:"status"`
+	AccountKind       string             `json:"account_kind"`
+	EntityCategory    string             `json:"entity_category"`
+	IdentityID        int64              `json:"identity_id"`
+}
+
+func (q *Queries) ListGitHubUsersPageBySourceAndQuery(ctx context.Context, arg ListGitHubUsersPageBySourceAndQueryParams) ([]ListGitHubUsersPageBySourceAndQueryRow, error) {
+	rows, err := q.db.Query(ctx, listGitHubUsersPageBySourceAndQuery,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.Query,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGitHubUsersPageBySourceAndQueryRow
+	for rows.Next() {
+		var i ListGitHubUsersPageBySourceAndQueryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.ExternalID,
+			&i.Email,
+			&i.DisplayName,
+			&i.RawJson,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LastLoginAt,
+			&i.LastLoginIp,
+			&i.LastLoginRegion,
+			&i.SeenInRunID,
+			&i.SeenAt,
+			&i.LastObservedRunID,
+			&i.LastObservedAt,
+			&i.ExpiredAt,
+			&i.ExpiredRunID,
+			&i.Status,
+			&i.AccountKind,
+			&i.EntityCategory,
+			&i.IdentityID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listSourceAccountsPageBySourceAndQuery = `-- name: ListSourceAccountsPageBySourceAndQuery :many

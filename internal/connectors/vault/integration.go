@@ -88,10 +88,7 @@ func (i *VaultIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpoo
 	started := time.Now()
 	slog.Info("syncing Vault", "source", i.sourceName)
 
-	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
-		SourceKind: "vault",
-		SourceName: i.sourceName,
-	})
+	runID, err := registry.StartSyncRun(ctx, q, "vault", i.sourceName)
 	if err != nil {
 		return err
 	}
