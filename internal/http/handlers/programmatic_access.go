@@ -612,6 +612,21 @@ func configuredProgrammaticSources(snap ConnectorSnapshot) []viewmodels.Programm
 	return programmaticSourcesByView(snap, false)
 }
 
+func programmaticConfiguredSourcePairs(sourcePairs []viewmodels.ProgrammaticSourceOption) ([]string, []string) {
+	kinds := make([]string, 0, len(sourcePairs))
+	names := make([]string, 0, len(sourcePairs))
+	for _, source := range sourcePairs {
+		kind := strings.TrimSpace(source.SourceKind)
+		name := strings.TrimSpace(source.SourceName)
+		if kind == "" || name == "" {
+			continue
+		}
+		kinds = append(kinds, kind)
+		names = append(names, name)
+	}
+	return kinds, names
+}
+
 func programmaticSourcesByView(snap ConnectorSnapshot, requireEnabled bool) []viewmodels.ProgrammaticSourceOption {
 	sources := make([]viewmodels.ProgrammaticSourceOption, 0, 4)
 

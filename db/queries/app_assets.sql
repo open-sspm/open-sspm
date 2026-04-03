@@ -85,6 +85,33 @@ WHERE
     OR aa.parent_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
   );
 
+-- name: CountAppAssetsBySourcesAndQueryAndKind :one
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+)
+SELECT count(*)
+FROM app_assets aa
+JOIN configured_sources cs
+  ON cs.source_kind = aa.source_kind
+ AND cs.source_name = aa.source_name
+WHERE
+  aa.expired_at IS NULL
+  AND aa.last_observed_run_id IS NOT NULL
+  AND (
+    sqlc.arg(asset_kind)::text = ''
+    OR aa.asset_kind = sqlc.arg(asset_kind)::text
+  )
+  AND (
+    sqlc.arg(query)::text = ''
+    OR aa.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR aa.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR aa.parent_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+  );
+
 -- name: ListAppAssetsPageBySourceAndQueryAndKind :many
 SELECT aa.*
 FROM app_assets aa

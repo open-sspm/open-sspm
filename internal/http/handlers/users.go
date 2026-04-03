@@ -269,21 +269,19 @@ func (h *Handlers) HandleGitHubUsers(c *echo.Context) error {
 			return snap.GitHubEnabled
 		},
 		Count: func(ctx context.Context, snap ConnectorSnapshot, query string) (int64, error) {
-			return h.Q.CountSourceAccountsBySourceAndQuery(ctx, gen.CountSourceAccountsBySourceAndQueryParams{
-				SourceKind:     "github",
-				SourceName:     snap.GitHub.Org,
-				EntityCategory: registry.EntityCategoryUser,
-				Query:          query,
+			return h.Q.CountGitHubUsersBySourceAndQuery(ctx, gen.CountGitHubUsersBySourceAndQueryParams{
+				SourceKind: "github",
+				SourceName: snap.GitHub.Org,
+				Query:      query,
 			})
 		},
 		List: func(ctx context.Context, snap ConnectorSnapshot, query string, offset, limit int) ([]sourceAccountInventoryAccount, error) {
-			users, err := h.Q.ListSourceAccountsPageBySourceAndQuery(ctx, gen.ListSourceAccountsPageBySourceAndQueryParams{
-				SourceKind:     "github",
-				SourceName:     snap.GitHub.Org,
-				EntityCategory: registry.EntityCategoryUser,
-				Query:          query,
-				PageLimit:      int32(limit),
-				PageOffset:     int32(offset),
+			users, err := h.Q.ListGitHubUsersPageBySourceAndQuery(ctx, gen.ListGitHubUsersPageBySourceAndQueryParams{
+				SourceKind: "github",
+				SourceName: snap.GitHub.Org,
+				Query:      query,
+				PageLimit:  int32(limit),
+				PageOffset: int32(offset),
 			})
 			if err != nil {
 				return nil, err

@@ -160,18 +160,16 @@ func (h *Handlers) dashboardDiscoveryAppCount(ctx context.Context, snap Connecto
 }
 
 func (h *Handlers) dashboardAppAssetCount(ctx context.Context, snap ConnectorSnapshot) (int64, error) {
-	var total int64
-	for _, source := range configuredProgrammaticSources(snap) {
-		count, err := h.Q.CountAppAssetsBySourceAndQueryAndKind(ctx, gen.CountAppAssetsBySourceAndQueryAndKindParams{
-			SourceKind: source.SourceKind,
-			SourceName: source.SourceName,
-		})
-		if err != nil {
-			return 0, err
-		}
-		total += count
+	sourcePairs := configuredProgrammaticSources(snap)
+	if len(sourcePairs) == 0 {
+		return 0, nil
 	}
-	return total, nil
+
+	configuredKinds, configuredNames := programmaticConfiguredSourcePairs(sourcePairs)
+	return h.Q.CountAppAssetsBySourcesAndQueryAndKind(ctx, gen.CountAppAssetsBySourcesAndQueryAndKindParams{
+		ConfiguredSourceKinds: configuredKinds,
+		ConfiguredSourceNames: configuredNames,
+	})
 }
 
 func dashboardFrameworkBadgeLabel(name string) string {

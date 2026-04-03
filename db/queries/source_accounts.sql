@@ -190,6 +190,28 @@ WHERE
     OR au.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
   );
 
+-- name: CountGitHubUsersBySourceAndQuery :one
+SELECT count(*)
+FROM accounts au
+WHERE
+  au.source_kind = sqlc.arg(source_kind)
+  AND au.source_name = sqlc.arg(source_name)
+  AND au.expired_at IS NULL
+  AND au.last_observed_run_id IS NOT NULL
+  AND (
+    au.entity_category = 'user'
+    OR (
+      au.entity_category = 'unknown'
+      AND lower(trim(au.external_id)) NOT LIKE 'team:%'
+    )
+  )
+  AND (
+    sqlc.arg(query)::text = ''
+    OR au.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR au.email ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR au.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+  );
+
 -- name: ListSourceAccountsPageBySourceAndQuery :many
 SELECT
   au.*,
@@ -204,6 +226,34 @@ WHERE
   AND (
     sqlc.arg(entity_category)::text = ''
     OR au.entity_category = sqlc.arg(entity_category)::text
+  )
+  AND (
+    sqlc.arg(query)::text = ''
+    OR au.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR au.email ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR au.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+  )
+ORDER BY au.id DESC
+LIMIT sqlc.arg(page_limit)::int
+OFFSET sqlc.arg(page_offset)::int;
+
+-- name: ListGitHubUsersPageBySourceAndQuery :many
+SELECT
+  au.*,
+  COALESCE(ia.identity_id, 0) AS identity_id
+FROM accounts au
+LEFT JOIN identity_accounts ia ON ia.account_id = au.id
+WHERE
+  au.source_kind = sqlc.arg(source_kind)
+  AND au.source_name = sqlc.arg(source_name)
+  AND au.expired_at IS NULL
+  AND au.last_observed_run_id IS NOT NULL
+  AND (
+    au.entity_category = 'user'
+    OR (
+      au.entity_category = 'unknown'
+      AND lower(trim(au.external_id)) NOT LIKE 'team:%'
+    )
   )
   AND (
     sqlc.arg(query)::text = ''

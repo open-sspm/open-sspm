@@ -503,10 +503,19 @@ func TestGitHubEntityCategoryRepairMigrationBackfillsLegacyRows(t *testing.T) {
 			AccountKind: "service",
 			RawJSON:     `{"id":42,"name":"Platform","slug":"platform"}`,
 		})
+		insertLegacyAccount(t, ctx, pool, runID, accountSeed{
+			SourceKind:  "github",
+			SourceName:  "acme",
+			ExternalID:  "acme",
+			DisplayName: "Acme",
+			Status:      "active",
+			AccountKind: "service",
+			RawJSON:     `{"id":7,"login":"acme","type":"Organization","slug":"acme"}`,
+		})
 
 		migrateToVersion(t, migrator, 29)
 
-		for _, externalID := range []string{"github-member-legacy", "github-bot-legacy", "team:platform"} {
+		for _, externalID := range []string{"github-member-legacy", "github-bot-legacy", "team:platform", "acme"} {
 			var category string
 			if err := pool.QueryRow(ctx, `SELECT entity_category FROM accounts WHERE external_id = $1`, externalID).Scan(&category); err != nil {
 				t.Fatalf("select legacy github entity_category for %s: %v", externalID, err)
@@ -522,6 +531,7 @@ func TestGitHubEntityCategoryRepairMigrationBackfillsLegacyRows(t *testing.T) {
 			"github-member-legacy": "user",
 			"github-bot-legacy":    "user",
 			"team:platform":        "team",
+			"acme":                 "user",
 		}
 		for externalID, want := range wantCategories {
 			var got string
@@ -541,8 +551,8 @@ func TestGitHubEntityCategoryRepairMigrationBackfillsLegacyRows(t *testing.T) {
 		if err != nil {
 			t.Fatalf("CountSourceAccountsBySourceAndQuery(github users after repair): %v", err)
 		}
-		if githubUserCount != 2 {
-			t.Fatalf("CountSourceAccountsBySourceAndQuery(github users after repair)=%d want 2", githubUserCount)
+		if githubUserCount != 3 {
+			t.Fatalf("CountSourceAccountsBySourceAndQuery(github users after repair)=%d want 3", githubUserCount)
 		}
 
 		githubUserRows, err := q.ListSourceAccountsPageBySourceAndQuery(ctx, ListSourceAccountsPageBySourceAndQueryParams{
@@ -554,8 +564,8 @@ func TestGitHubEntityCategoryRepairMigrationBackfillsLegacyRows(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ListSourceAccountsPageBySourceAndQuery(github users after repair): %v", err)
 		}
-		if got := linkedExternalIDs(githubUserRows); !slices.Equal(got, []string{"github-bot-legacy", "github-member-legacy"}) {
-			t.Fatalf("ListSourceAccountsPageBySourceAndQuery(github users after repair)=%v want [github-bot-legacy github-member-legacy]", got)
+		if got := linkedExternalIDs(githubUserRows); !slices.Equal(got, []string{"acme", "github-bot-legacy", "github-member-legacy"}) {
+			t.Fatalf("ListSourceAccountsPageBySourceAndQuery(github users after repair)=%v want [acme github-bot-legacy github-member-legacy]", got)
 		}
 
 		githubTeamCount, err := q.CountSourceAccountsBySourceAndQuery(ctx, CountSourceAccountsBySourceAndQueryParams{

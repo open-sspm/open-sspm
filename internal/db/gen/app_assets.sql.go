@@ -50,6 +50,53 @@ func (q *Queries) CountAppAssetsBySourceAndQueryAndKind(ctx context.Context, arg
 	return count, err
 }
 
+const countAppAssetsBySourcesAndQueryAndKind = `-- name: CountAppAssetsBySourcesAndQueryAndKind :one
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($3::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($4::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+)
+SELECT count(*)
+FROM app_assets aa
+JOIN configured_sources cs
+  ON cs.source_kind = aa.source_kind
+ AND cs.source_name = aa.source_name
+WHERE
+  aa.expired_at IS NULL
+  AND aa.last_observed_run_id IS NOT NULL
+  AND (
+    $1::text = ''
+    OR aa.asset_kind = $1::text
+  )
+  AND (
+    $2::text = ''
+    OR aa.display_name ILIKE ('%' || $2::text || '%')
+    OR aa.external_id ILIKE ('%' || $2::text || '%')
+    OR aa.parent_external_id ILIKE ('%' || $2::text || '%')
+  )
+`
+
+type CountAppAssetsBySourcesAndQueryAndKindParams struct {
+	AssetKind             string   `json:"asset_kind"`
+	Query                 string   `json:"query"`
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+}
+
+func (q *Queries) CountAppAssetsBySourcesAndQueryAndKind(ctx context.Context, arg CountAppAssetsBySourcesAndQueryAndKindParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAppAssetsBySourcesAndQueryAndKind,
+		arg.AssetKind,
+		arg.Query,
+		arg.ConfiguredSourceKinds,
+		arg.ConfiguredSourceNames,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const expireAppAssetsNotSeenInRunBySource = `-- name: ExpireAppAssetsNotSeenInRunBySource :execrows
 UPDATE app_assets
 SET
