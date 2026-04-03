@@ -350,28 +350,94 @@ func (q *Queries) ListConnectedAppDiscoveryEventsBySourceAppID(ctx context.Conte
 }
 
 const listConnectedAppDiscoverySourcesBySourceAppID = `-- name: ListConnectedAppDiscoverySourcesBySourceAppID :many
+WITH scoped_sources AS (
+  SELECT id, saas_app_id, source_kind, source_name, source_app_id, source_app_name, source_app_domain, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at
+  FROM saas_app_sources sas
+  WHERE sas.source_kind = $1::text
+    AND sas.source_name = $2::text
+    AND sas.source_app_id = $3::text
+    AND sas.expired_at IS NULL
+    AND sas.last_observed_run_id IS NOT NULL
+),
+posture_inputs AS (
+  SELECT
+    spi.id, spi.canonical_key, spi.display_name, spi.primary_domain, spi.vendor_name, spi.first_seen_at, spi.last_seen_at, spi.created_at, spi.updated_at, spi.owner_identity_id, spi.actors_30d, spi.has_privileged_scope, spi.has_confidential_scope, spi.bound_connector_kind, spi.bound_connector_source_name, spi.connector_enabled, spi.connector_configured, spi.last_success_at, spi.suggested_business_criticality, spi.suggested_data_classification, spi.effective_business_criticality, spi.effective_data_classification,
+    CASE spi.bound_connector_kind
+      WHEN 'okta' THEN $4::timestamptz
+      WHEN 'entra' THEN $5::timestamptz
+      WHEN 'google_workspace' THEN $6::timestamptz
+      WHEN 'github' THEN $7::timestamptz
+      WHEN 'datadog' THEN $8::timestamptz
+      WHEN 'aws_identity_center' THEN $9::timestamptz
+      ELSE $10::timestamptz
+    END AS fresh_after
+  FROM saas_app_posture_inputs_v spi
+  JOIN (
+    SELECT DISTINCT saas_app_id
+    FROM scoped_sources
+  ) scoped_app_ids ON scoped_app_ids.saas_app_id = spi.id
+),
+posture_state AS (
+  SELECT
+    pi.id, pi.canonical_key, pi.display_name, pi.primary_domain, pi.vendor_name, pi.first_seen_at, pi.last_seen_at, pi.created_at, pi.updated_at, pi.owner_identity_id, pi.actors_30d, pi.has_privileged_scope, pi.has_confidential_scope, pi.bound_connector_kind, pi.bound_connector_source_name, pi.connector_enabled, pi.connector_configured, pi.last_success_at, pi.suggested_business_criticality, pi.suggested_data_classification, pi.effective_business_criticality, pi.effective_data_classification, pi.fresh_after,
+    CASE
+      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
+      WHEN NOT pi.connector_configured THEN 'unmanaged'
+      WHEN NOT pi.connector_enabled THEN 'unmanaged'
+      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
+      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
+      ELSE 'managed'
+    END AS managed_state
+  FROM posture_inputs pi
+),
+posture_with_risk AS (
+  SELECT
+    ps.id, ps.canonical_key, ps.display_name, ps.primary_domain, ps.vendor_name, ps.first_seen_at, ps.last_seen_at, ps.created_at, ps.updated_at, ps.owner_identity_id, ps.actors_30d, ps.has_privileged_scope, ps.has_confidential_scope, ps.bound_connector_kind, ps.bound_connector_source_name, ps.connector_enabled, ps.connector_configured, ps.last_success_at, ps.suggested_business_criticality, ps.suggested_data_classification, ps.effective_business_criticality, ps.effective_data_classification, ps.fresh_after, ps.managed_state,
+    LEAST(100,
+      CASE WHEN ps.managed_state <> 'managed' THEN 45 ELSE 0 END
+      + CASE WHEN ps.has_privileged_scope THEN 20 ELSE 0 END
+      + CASE WHEN ps.owner_identity_id = 0 THEN 15 ELSE 0 END
+      + CASE WHEN ps.actors_30d >= 50 THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_business_criticality IN ('high', 'critical') THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_data_classification IN ('confidential', 'restricted') THEN 5 ELSE 0 END
+    )::int AS risk_score
+  FROM posture_state ps
+),
+posture_rows AS (
+  SELECT
+    pwr.id, pwr.canonical_key, pwr.display_name, pwr.primary_domain, pwr.vendor_name, pwr.first_seen_at, pwr.last_seen_at, pwr.created_at, pwr.updated_at, pwr.owner_identity_id, pwr.actors_30d, pwr.has_privileged_scope, pwr.has_confidential_scope, pwr.bound_connector_kind, pwr.bound_connector_source_name, pwr.connector_enabled, pwr.connector_configured, pwr.last_success_at, pwr.suggested_business_criticality, pwr.suggested_data_classification, pwr.effective_business_criticality, pwr.effective_data_classification, pwr.fresh_after, pwr.managed_state, pwr.risk_score,
+    CASE
+      WHEN pwr.risk_score >= 80 THEN 'critical'
+      WHEN pwr.risk_score >= 60 THEN 'high'
+      WHEN pwr.risk_score >= 30 THEN 'medium'
+      ELSE 'low'
+    END AS risk_level
+  FROM posture_with_risk pwr
+)
 SELECT
   sas.id, sas.saas_app_id, sas.source_kind, sas.source_name, sas.source_app_id, sas.source_app_name, sas.source_app_domain, sas.seen_in_run_id, sas.seen_at, sas.last_observed_run_id, sas.last_observed_at, sas.expired_at, sas.expired_run_id, sas.created_at, sas.updated_at,
-  sa.canonical_key,
-  sa.display_name AS discovery_display_name,
-  sa.primary_domain AS discovery_primary_domain,
-  sa.vendor_name AS discovery_vendor_name,
-  sa.managed_state AS discovery_managed_state,
-  sa.risk_level AS discovery_risk_level
-FROM saas_app_sources sas
-JOIN saas_apps sa ON sa.id = sas.saas_app_id
-WHERE sas.source_kind = $1::text
-  AND sas.source_name = $2::text
-  AND sas.source_app_id = $3::text
-  AND sas.expired_at IS NULL
-  AND sas.last_observed_run_id IS NOT NULL
+  pr.canonical_key,
+  pr.display_name AS discovery_display_name,
+  pr.primary_domain AS discovery_primary_domain,
+  pr.vendor_name AS discovery_vendor_name,
+  pr.managed_state AS discovery_managed_state,
+  pr.risk_level AS discovery_risk_level
+FROM scoped_sources sas
+JOIN posture_rows pr ON pr.id = sas.saas_app_id
 ORDER BY sas.last_observed_at DESC, sas.id DESC
 `
 
 type ListConnectedAppDiscoverySourcesBySourceAppIDParams struct {
-	SourceKind  string `json:"source_kind"`
-	SourceName  string `json:"source_name"`
-	SourceAppID string `json:"source_app_id"`
+	SourceKind                string             `json:"source_kind"`
+	SourceName                string             `json:"source_name"`
+	SourceAppID               string             `json:"source_app_id"`
+	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
+	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
+	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
+	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
+	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
+	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
+	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
 }
 
 type ListConnectedAppDiscoverySourcesBySourceAppIDRow struct {
@@ -399,7 +465,18 @@ type ListConnectedAppDiscoverySourcesBySourceAppIDRow struct {
 }
 
 func (q *Queries) ListConnectedAppDiscoverySourcesBySourceAppID(ctx context.Context, arg ListConnectedAppDiscoverySourcesBySourceAppIDParams) ([]ListConnectedAppDiscoverySourcesBySourceAppIDRow, error) {
-	rows, err := q.db.Query(ctx, listConnectedAppDiscoverySourcesBySourceAppID, arg.SourceKind, arg.SourceName, arg.SourceAppID)
+	rows, err := q.db.Query(ctx, listConnectedAppDiscoverySourcesBySourceAppID,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.SourceAppID,
+		arg.OktaFreshAfter,
+		arg.EntraFreshAfter,
+		arg.GoogleWorkspaceFreshAfter,
+		arg.GithubFreshAfter,
+		arg.DatadogFreshAfter,
+		arg.AwsFreshAfter,
+		arg.DefaultFreshAfter,
+	)
 	if err != nil {
 		return nil, err
 	}

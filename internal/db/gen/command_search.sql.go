@@ -239,59 +239,117 @@ WITH configured_sources AS (
     n.name AS source_name
   FROM unnest($3::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest($4::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-)
-SELECT
-  sa.id,
-  COALESCE(NULLIF(trim(sa.display_name), ''), sa.canonical_key)::text AS display_name,
-  COALESCE(sa.primary_domain, '')::text AS primary_domain,
-  COALESCE(sa.vendor_name, '')::text AS vendor_name,
-  COALESCE(sa.managed_state, '')::text AS managed_state,
-  COALESCE(sa.risk_level, '')::text AS risk_level,
-  sa.risk_score,
-  sa.last_seen_at
-FROM saas_apps sa
-WHERE EXISTS (
-  SELECT 1
+),
+scoped_app_ids AS (
+  SELECT DISTINCT sas.saas_app_id
   FROM saas_app_sources sas
   JOIN configured_sources cs
-    ON cs.source_kind = sas.source_kind
-   AND cs.source_name = sas.source_name
-  WHERE sas.saas_app_id = sa.id
-    AND sas.expired_at IS NULL
+    ON lower(trim(cs.source_kind)) = lower(trim(sas.source_kind))
+   AND lower(trim(cs.source_name)) = lower(trim(sas.source_name))
+  WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
-)
-  AND (
-    sa.display_name ILIKE ('%' || $1::text || '%')
-    OR sa.primary_domain ILIKE ('%' || $1::text || '%')
-    OR sa.vendor_name ILIKE ('%' || $1::text || '%')
-    OR sa.canonical_key ILIKE ('%' || $1::text || '%')
+),
+posture_inputs AS (
+  SELECT
+    spi.id, spi.canonical_key, spi.display_name, spi.primary_domain, spi.vendor_name, spi.first_seen_at, spi.last_seen_at, spi.created_at, spi.updated_at, spi.owner_identity_id, spi.actors_30d, spi.has_privileged_scope, spi.has_confidential_scope, spi.bound_connector_kind, spi.bound_connector_source_name, spi.connector_enabled, spi.connector_configured, spi.last_success_at, spi.suggested_business_criticality, spi.suggested_data_classification, spi.effective_business_criticality, spi.effective_data_classification,
+    CASE spi.bound_connector_kind
+      WHEN 'okta' THEN $5::timestamptz
+      WHEN 'entra' THEN $6::timestamptz
+      WHEN 'google_workspace' THEN $7::timestamptz
+      WHEN 'github' THEN $8::timestamptz
+      WHEN 'datadog' THEN $9::timestamptz
+      WHEN 'aws_identity_center' THEN $10::timestamptz
+      ELSE $11::timestamptz
+    END AS fresh_after
+  FROM saas_app_posture_inputs_v spi
+  JOIN scoped_app_ids sai ON sai.saas_app_id = spi.id
+  WHERE (
+    spi.display_name ILIKE ('%' || $1::text || '%')
+    OR spi.primary_domain ILIKE ('%' || $1::text || '%')
+    OR spi.vendor_name ILIKE ('%' || $1::text || '%')
+    OR spi.canonical_key ILIKE ('%' || $1::text || '%')
   )
+),
+posture_state AS (
+  SELECT
+    pi.id, pi.canonical_key, pi.display_name, pi.primary_domain, pi.vendor_name, pi.first_seen_at, pi.last_seen_at, pi.created_at, pi.updated_at, pi.owner_identity_id, pi.actors_30d, pi.has_privileged_scope, pi.has_confidential_scope, pi.bound_connector_kind, pi.bound_connector_source_name, pi.connector_enabled, pi.connector_configured, pi.last_success_at, pi.suggested_business_criticality, pi.suggested_data_classification, pi.effective_business_criticality, pi.effective_data_classification, pi.fresh_after,
+    CASE
+      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
+      WHEN NOT pi.connector_configured THEN 'unmanaged'
+      WHEN NOT pi.connector_enabled THEN 'unmanaged'
+      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
+      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
+      ELSE 'managed'
+    END AS managed_state
+  FROM posture_inputs pi
+),
+posture_with_risk AS (
+  SELECT
+    ps.id, ps.canonical_key, ps.display_name, ps.primary_domain, ps.vendor_name, ps.first_seen_at, ps.last_seen_at, ps.created_at, ps.updated_at, ps.owner_identity_id, ps.actors_30d, ps.has_privileged_scope, ps.has_confidential_scope, ps.bound_connector_kind, ps.bound_connector_source_name, ps.connector_enabled, ps.connector_configured, ps.last_success_at, ps.suggested_business_criticality, ps.suggested_data_classification, ps.effective_business_criticality, ps.effective_data_classification, ps.fresh_after, ps.managed_state,
+    LEAST(100,
+      CASE WHEN ps.managed_state <> 'managed' THEN 45 ELSE 0 END
+      + CASE WHEN ps.has_privileged_scope THEN 20 ELSE 0 END
+      + CASE WHEN ps.owner_identity_id = 0 THEN 15 ELSE 0 END
+      + CASE WHEN ps.actors_30d >= 50 THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_business_criticality IN ('high', 'critical') THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_data_classification IN ('confidential', 'restricted') THEN 5 ELSE 0 END
+    )::int AS risk_score
+  FROM posture_state ps
+),
+posture_rows AS (
+  SELECT
+    pwr.id, pwr.canonical_key, pwr.display_name, pwr.primary_domain, pwr.vendor_name, pwr.first_seen_at, pwr.last_seen_at, pwr.created_at, pwr.updated_at, pwr.owner_identity_id, pwr.actors_30d, pwr.has_privileged_scope, pwr.has_confidential_scope, pwr.bound_connector_kind, pwr.bound_connector_source_name, pwr.connector_enabled, pwr.connector_configured, pwr.last_success_at, pwr.suggested_business_criticality, pwr.suggested_data_classification, pwr.effective_business_criticality, pwr.effective_data_classification, pwr.fresh_after, pwr.managed_state, pwr.risk_score,
+    CASE
+      WHEN pwr.risk_score >= 80 THEN 'critical'
+      WHEN pwr.risk_score >= 60 THEN 'high'
+      WHEN pwr.risk_score >= 30 THEN 'medium'
+      ELSE 'low'
+    END AS risk_level
+  FROM posture_with_risk pwr
+)
+SELECT
+  pr.id,
+  COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)::text AS display_name,
+  COALESCE(pr.primary_domain, '')::text AS primary_domain,
+  COALESCE(pr.vendor_name, '')::text AS vendor_name,
+  pr.managed_state,
+  pr.risk_level,
+  pr.risk_score,
+  pr.last_seen_at
+FROM posture_rows pr
 ORDER BY
   CASE
-    WHEN lower(COALESCE(NULLIF(trim(sa.display_name), ''), sa.canonical_key)) = lower(trim($1::text))
-      OR lower(COALESCE(sa.primary_domain, '')) = lower(trim($1::text))
-      OR lower(COALESCE(sa.vendor_name, '')) = lower(trim($1::text))
-      OR lower(sa.canonical_key) = lower(trim($1::text))
+    WHEN lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) = lower(trim($1::text))
+      OR lower(COALESCE(pr.primary_domain, '')) = lower(trim($1::text))
+      OR lower(COALESCE(pr.vendor_name, '')) = lower(trim($1::text))
+      OR lower(pr.canonical_key) = lower(trim($1::text))
     THEN 0
-    WHEN lower(COALESCE(NULLIF(trim(sa.display_name), ''), sa.canonical_key)) LIKE lower(trim($1::text)) || '%'
-      OR lower(COALESCE(sa.primary_domain, '')) LIKE lower(trim($1::text)) || '%'
-      OR lower(COALESCE(sa.vendor_name, '')) LIKE lower(trim($1::text)) || '%'
-      OR lower(sa.canonical_key) LIKE lower(trim($1::text)) || '%'
+    WHEN lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) LIKE lower(trim($1::text)) || '%'
+      OR lower(COALESCE(pr.primary_domain, '')) LIKE lower(trim($1::text)) || '%'
+      OR lower(COALESCE(pr.vendor_name, '')) LIKE lower(trim($1::text)) || '%'
+      OR lower(pr.canonical_key) LIKE lower(trim($1::text)) || '%'
     THEN 1
     ELSE 2
   END ASC,
-  sa.risk_score DESC,
-  sa.last_seen_at DESC,
-  lower(COALESCE(NULLIF(trim(sa.display_name), ''), sa.canonical_key)) ASC,
-  sa.id ASC
+  pr.risk_score DESC,
+  pr.last_seen_at DESC,
+  lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) ASC,
+  pr.id ASC
 LIMIT $2::int
 `
 
 type SearchDiscoveryAppsForCommandParams struct {
-	Query                 string   `json:"query"`
-	LimitRows             int32    `json:"limit_rows"`
-	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
-	ConfiguredSourceNames []string `json:"configured_source_names"`
+	Query                     string             `json:"query"`
+	LimitRows                 int32              `json:"limit_rows"`
+	ConfiguredSourceKinds     []string           `json:"configured_source_kinds"`
+	ConfiguredSourceNames     []string           `json:"configured_source_names"`
+	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
+	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
+	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
+	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
+	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
+	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
+	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
 }
 
 type SearchDiscoveryAppsForCommandRow struct {
@@ -311,6 +369,13 @@ func (q *Queries) SearchDiscoveryAppsForCommand(ctx context.Context, arg SearchD
 		arg.LimitRows,
 		arg.ConfiguredSourceKinds,
 		arg.ConfiguredSourceNames,
+		arg.OktaFreshAfter,
+		arg.EntraFreshAfter,
+		arg.GoogleWorkspaceFreshAfter,
+		arg.GithubFreshAfter,
+		arg.DatadogFreshAfter,
+		arg.AwsFreshAfter,
+		arg.DefaultFreshAfter,
 	)
 	if err != nil {
 		return nil, err

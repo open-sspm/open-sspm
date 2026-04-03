@@ -458,6 +458,31 @@ type SaasAppGovernanceOverride struct {
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
+type SaasAppPostureInputsV struct {
+	ID                           int64              `json:"id"`
+	CanonicalKey                 string             `json:"canonical_key"`
+	DisplayName                  string             `json:"display_name"`
+	PrimaryDomain                string             `json:"primary_domain"`
+	VendorName                   string             `json:"vendor_name"`
+	FirstSeenAt                  pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt                   pgtype.Timestamptz `json:"last_seen_at"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
+	OwnerIdentityID              int64              `json:"owner_identity_id"`
+	Actors30d                    int64              `json:"actors_30d"`
+	HasPrivilegedScope           bool               `json:"has_privileged_scope"`
+	HasConfidentialScope         bool               `json:"has_confidential_scope"`
+	BoundConnectorKind           string             `json:"bound_connector_kind"`
+	BoundConnectorSourceName     string             `json:"bound_connector_source_name"`
+	ConnectorEnabled             bool               `json:"connector_enabled"`
+	ConnectorConfigured          bool               `json:"connector_configured"`
+	LastSuccessAt                pgtype.Timestamptz `json:"last_success_at"`
+	SuggestedBusinessCriticality string             `json:"suggested_business_criticality"`
+	SuggestedDataClassification  string             `json:"suggested_data_classification"`
+	EffectiveBusinessCriticality interface{}        `json:"effective_business_criticality"`
+	EffectiveDataClassification  interface{}        `json:"effective_data_classification"`
+}
+
 type SaasAppSource struct {
 	ID                int64              `json:"id"`
 	SaasAppID         int64              `json:"saas_app_id"`

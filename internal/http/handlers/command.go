@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/labstack/echo/v5"
@@ -51,6 +52,7 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 	programmaticSources := availableProgrammaticSources(snap)
 	discoveryKinds, discoveryNames := discoveryConfiguredSourcePairs(discoverySourceOptions(snap))
 	connectedSourceName, hasConnectedApps := commandConnectedAppsSourceName(snap)
+	cutoffs := h.discoveryPostureCutoffs(time.Now().UTC())
 
 	var (
 		identityRows  []gen.SearchIdentitiesForCommandRow
@@ -115,10 +117,17 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 	if len(discoveryKinds) > 0 {
 		group.Go(func() error {
 			rows, err := h.Q.SearchDiscoveryAppsForCommand(ctx, gen.SearchDiscoveryAppsForCommandParams{
-				Query:                 query,
-				LimitRows:             commandSearchLimitRows,
-				ConfiguredSourceKinds: discoveryKinds,
-				ConfiguredSourceNames: discoveryNames,
+				Query:                     query,
+				LimitRows:                 commandSearchLimitRows,
+				ConfiguredSourceKinds:     discoveryKinds,
+				ConfiguredSourceNames:     discoveryNames,
+				OktaFreshAfter:            cutoffs.OktaFreshAfter,
+				EntraFreshAfter:           cutoffs.EntraFreshAfter,
+				GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
+				GithubFreshAfter:          cutoffs.GithubFreshAfter,
+				DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
+				AwsFreshAfter:             cutoffs.AwsFreshAfter,
+				DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
 			})
 			if err != nil {
 				return err

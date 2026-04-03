@@ -255,7 +255,10 @@ func FinalizeOktaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, ru
 		return err
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	return nil
 }
 
 func FinalizeAppRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceKind, sourceName string, duration time.Duration, finalizeDiscovery bool) error {
@@ -421,7 +424,10 @@ func FinalizeAppRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, run
 		return err
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	return nil
 }
 
 func FinalizeDiscoveryRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceKind, sourceName string, duration time.Duration) error {
@@ -482,7 +488,10 @@ func FinalizeDiscoveryRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Poo
 		return err
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	return nil
 }
 
 func PgTimestamptzPtr(t *time.Time) pgtype.Timestamptz {

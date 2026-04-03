@@ -217,51 +217,102 @@ WITH configured_sources AS (
     n.name AS source_name
   FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-)
-SELECT
-  sa.id,
-  COALESCE(NULLIF(trim(sa.display_name), ''), sa.canonical_key)::text AS display_name,
-  COALESCE(sa.primary_domain, '')::text AS primary_domain,
-  COALESCE(sa.vendor_name, '')::text AS vendor_name,
-  COALESCE(sa.managed_state, '')::text AS managed_state,
-  COALESCE(sa.risk_level, '')::text AS risk_level,
-  sa.risk_score,
-  sa.last_seen_at
-FROM saas_apps sa
-WHERE EXISTS (
-  SELECT 1
+),
+scoped_app_ids AS (
+  SELECT DISTINCT sas.saas_app_id
   FROM saas_app_sources sas
   JOIN configured_sources cs
-    ON cs.source_kind = sas.source_kind
-   AND cs.source_name = sas.source_name
-  WHERE sas.saas_app_id = sa.id
-    AND sas.expired_at IS NULL
+    ON lower(trim(cs.source_kind)) = lower(trim(sas.source_kind))
+   AND lower(trim(cs.source_name)) = lower(trim(sas.source_name))
+  WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
-)
-  AND (
-    sa.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR sa.primary_domain ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR sa.vendor_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR sa.canonical_key ILIKE ('%' || sqlc.arg(query)::text || '%')
+),
+posture_inputs AS (
+  SELECT
+    spi.*,
+    CASE spi.bound_connector_kind
+      WHEN 'okta' THEN sqlc.arg(okta_fresh_after)::timestamptz
+      WHEN 'entra' THEN sqlc.arg(entra_fresh_after)::timestamptz
+      WHEN 'google_workspace' THEN sqlc.arg(google_workspace_fresh_after)::timestamptz
+      WHEN 'github' THEN sqlc.arg(github_fresh_after)::timestamptz
+      WHEN 'datadog' THEN sqlc.arg(datadog_fresh_after)::timestamptz
+      WHEN 'aws_identity_center' THEN sqlc.arg(aws_fresh_after)::timestamptz
+      ELSE sqlc.arg(default_fresh_after)::timestamptz
+    END AS fresh_after
+  FROM saas_app_posture_inputs_v spi
+  JOIN scoped_app_ids sai ON sai.saas_app_id = spi.id
+  WHERE (
+    spi.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR spi.primary_domain ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR spi.vendor_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR spi.canonical_key ILIKE ('%' || sqlc.arg(query)::text || '%')
   )
+),
+posture_state AS (
+  SELECT
+    pi.*,
+    CASE
+      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
+      WHEN NOT pi.connector_configured THEN 'unmanaged'
+      WHEN NOT pi.connector_enabled THEN 'unmanaged'
+      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
+      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
+      ELSE 'managed'
+    END AS managed_state
+  FROM posture_inputs pi
+),
+posture_with_risk AS (
+  SELECT
+    ps.*,
+    LEAST(100,
+      CASE WHEN ps.managed_state <> 'managed' THEN 45 ELSE 0 END
+      + CASE WHEN ps.has_privileged_scope THEN 20 ELSE 0 END
+      + CASE WHEN ps.owner_identity_id = 0 THEN 15 ELSE 0 END
+      + CASE WHEN ps.actors_30d >= 50 THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_business_criticality IN ('high', 'critical') THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_data_classification IN ('confidential', 'restricted') THEN 5 ELSE 0 END
+    )::int AS risk_score
+  FROM posture_state ps
+),
+posture_rows AS (
+  SELECT
+    pwr.*,
+    CASE
+      WHEN pwr.risk_score >= 80 THEN 'critical'
+      WHEN pwr.risk_score >= 60 THEN 'high'
+      WHEN pwr.risk_score >= 30 THEN 'medium'
+      ELSE 'low'
+    END AS risk_level
+  FROM posture_with_risk pwr
+)
+SELECT
+  pr.id,
+  COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)::text AS display_name,
+  COALESCE(pr.primary_domain, '')::text AS primary_domain,
+  COALESCE(pr.vendor_name, '')::text AS vendor_name,
+  pr.managed_state,
+  pr.risk_level,
+  pr.risk_score,
+  pr.last_seen_at
+FROM posture_rows pr
 ORDER BY
   CASE
-    WHEN lower(COALESCE(NULLIF(trim(sa.display_name), ''), sa.canonical_key)) = lower(trim(sqlc.arg(query)::text))
-      OR lower(COALESCE(sa.primary_domain, '')) = lower(trim(sqlc.arg(query)::text))
-      OR lower(COALESCE(sa.vendor_name, '')) = lower(trim(sqlc.arg(query)::text))
-      OR lower(sa.canonical_key) = lower(trim(sqlc.arg(query)::text))
+    WHEN lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) = lower(trim(sqlc.arg(query)::text))
+      OR lower(COALESCE(pr.primary_domain, '')) = lower(trim(sqlc.arg(query)::text))
+      OR lower(COALESCE(pr.vendor_name, '')) = lower(trim(sqlc.arg(query)::text))
+      OR lower(pr.canonical_key) = lower(trim(sqlc.arg(query)::text))
     THEN 0
-    WHEN lower(COALESCE(NULLIF(trim(sa.display_name), ''), sa.canonical_key)) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
-      OR lower(COALESCE(sa.primary_domain, '')) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
-      OR lower(COALESCE(sa.vendor_name, '')) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
-      OR lower(sa.canonical_key) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
+    WHEN lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
+      OR lower(COALESCE(pr.primary_domain, '')) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
+      OR lower(COALESCE(pr.vendor_name, '')) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
+      OR lower(pr.canonical_key) LIKE lower(trim(sqlc.arg(query)::text)) || '%'
     THEN 1
     ELSE 2
   END ASC,
-  sa.risk_score DESC,
-  sa.last_seen_at DESC,
-  lower(COALESCE(NULLIF(trim(sa.display_name), ''), sa.canonical_key)) ASC,
-  sa.id ASC
+  pr.risk_score DESC,
+  pr.last_seen_at DESC,
+  lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) ASC,
+  pr.id ASC
 LIMIT sqlc.arg(limit_rows)::int;
 
 -- name: SearchOktaAppsForCommand :many

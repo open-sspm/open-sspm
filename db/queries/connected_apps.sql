@@ -275,21 +275,80 @@ ON CONFLICT (app_asset_id) DO UPDATE SET
 RETURNING *;
 
 -- name: ListConnectedAppDiscoverySourcesBySourceAppID :many
+WITH scoped_sources AS (
+  SELECT *
+  FROM saas_app_sources sas
+  WHERE sas.source_kind = sqlc.arg(source_kind)::text
+    AND sas.source_name = sqlc.arg(source_name)::text
+    AND sas.source_app_id = sqlc.arg(source_app_id)::text
+    AND sas.expired_at IS NULL
+    AND sas.last_observed_run_id IS NOT NULL
+),
+posture_inputs AS (
+  SELECT
+    spi.*,
+    CASE spi.bound_connector_kind
+      WHEN 'okta' THEN sqlc.arg(okta_fresh_after)::timestamptz
+      WHEN 'entra' THEN sqlc.arg(entra_fresh_after)::timestamptz
+      WHEN 'google_workspace' THEN sqlc.arg(google_workspace_fresh_after)::timestamptz
+      WHEN 'github' THEN sqlc.arg(github_fresh_after)::timestamptz
+      WHEN 'datadog' THEN sqlc.arg(datadog_fresh_after)::timestamptz
+      WHEN 'aws_identity_center' THEN sqlc.arg(aws_fresh_after)::timestamptz
+      ELSE sqlc.arg(default_fresh_after)::timestamptz
+    END AS fresh_after
+  FROM saas_app_posture_inputs_v spi
+  JOIN (
+    SELECT DISTINCT saas_app_id
+    FROM scoped_sources
+  ) scoped_app_ids ON scoped_app_ids.saas_app_id = spi.id
+),
+posture_state AS (
+  SELECT
+    pi.*,
+    CASE
+      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
+      WHEN NOT pi.connector_configured THEN 'unmanaged'
+      WHEN NOT pi.connector_enabled THEN 'unmanaged'
+      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
+      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
+      ELSE 'managed'
+    END AS managed_state
+  FROM posture_inputs pi
+),
+posture_with_risk AS (
+  SELECT
+    ps.*,
+    LEAST(100,
+      CASE WHEN ps.managed_state <> 'managed' THEN 45 ELSE 0 END
+      + CASE WHEN ps.has_privileged_scope THEN 20 ELSE 0 END
+      + CASE WHEN ps.owner_identity_id = 0 THEN 15 ELSE 0 END
+      + CASE WHEN ps.actors_30d >= 50 THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_business_criticality IN ('high', 'critical') THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_data_classification IN ('confidential', 'restricted') THEN 5 ELSE 0 END
+    )::int AS risk_score
+  FROM posture_state ps
+),
+posture_rows AS (
+  SELECT
+    pwr.*,
+    CASE
+      WHEN pwr.risk_score >= 80 THEN 'critical'
+      WHEN pwr.risk_score >= 60 THEN 'high'
+      WHEN pwr.risk_score >= 30 THEN 'medium'
+      ELSE 'low'
+    END AS risk_level
+  FROM posture_with_risk pwr
+)
 SELECT
   sas.*,
-  sa.canonical_key,
-  sa.display_name AS discovery_display_name,
-  sa.primary_domain AS discovery_primary_domain,
-  sa.vendor_name AS discovery_vendor_name,
-  sa.managed_state AS discovery_managed_state,
-  sa.risk_level AS discovery_risk_level
-FROM saas_app_sources sas
-JOIN saas_apps sa ON sa.id = sas.saas_app_id
-WHERE sas.source_kind = sqlc.arg(source_kind)::text
-  AND sas.source_name = sqlc.arg(source_name)::text
-  AND sas.source_app_id = sqlc.arg(source_app_id)::text
-  AND sas.expired_at IS NULL
-  AND sas.last_observed_run_id IS NOT NULL
+  pr.canonical_key,
+  pr.display_name AS discovery_display_name,
+  pr.primary_domain AS discovery_primary_domain,
+  pr.vendor_name AS discovery_vendor_name,
+  pr.managed_state AS discovery_managed_state,
+  pr.risk_level AS discovery_risk_level
+FROM scoped_sources sas
+JOIN posture_rows pr ON pr.id = sas.saas_app_id
 ORDER BY sas.last_observed_at DESC, sas.id DESC;
 
 -- name: ListConnectedAppDiscoveryEventsBySourceAppID :many

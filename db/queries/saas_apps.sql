@@ -63,41 +63,100 @@ WITH configured_sources AS (
     n.name AS source_name
   FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-)
-SELECT count(*)
-FROM saas_apps sa
-WHERE EXISTS (
-  SELECT 1
+),
+scoped_app_ids AS (
+  SELECT DISTINCT sas.saas_app_id
   FROM saas_app_sources sas
-  JOIN configured_sources cs
-    ON cs.source_kind = sas.source_kind
-   AND cs.source_name = sas.source_name
-  WHERE sas.saas_app_id = sa.id
-    AND sas.expired_at IS NULL
+  JOIN configured_sources cfg
+    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
+   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
+  WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
     AND (
       sqlc.arg(source_kind)::text = ''
-      OR sas.source_kind = sqlc.arg(source_kind)::text
+      OR lower(trim(sas.source_kind)) = lower(trim(sqlc.arg(source_kind)::text))
     )
     AND (
       sqlc.arg(source_name)::text = ''
-      OR sas.source_name = sqlc.arg(source_name)::text
+      OR lower(trim(sas.source_name)) = lower(trim(sqlc.arg(source_name)::text))
     )
+),
+posture_inputs AS (
+  SELECT
+    spi.*,
+    CASE spi.bound_connector_kind
+      WHEN 'okta' THEN sqlc.arg(okta_fresh_after)::timestamptz
+      WHEN 'entra' THEN sqlc.arg(entra_fresh_after)::timestamptz
+      WHEN 'google_workspace' THEN sqlc.arg(google_workspace_fresh_after)::timestamptz
+      WHEN 'github' THEN sqlc.arg(github_fresh_after)::timestamptz
+      WHEN 'datadog' THEN sqlc.arg(datadog_fresh_after)::timestamptz
+      WHEN 'aws_identity_center' THEN sqlc.arg(aws_fresh_after)::timestamptz
+      ELSE sqlc.arg(default_fresh_after)::timestamptz
+    END AS fresh_after
+  FROM saas_app_posture_inputs_v spi
+  JOIN scoped_app_ids sai ON sai.saas_app_id = spi.id
+  WHERE (
+    sqlc.arg(query)::text = ''
+    OR spi.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR spi.primary_domain ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR spi.vendor_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR spi.canonical_key ILIKE ('%' || sqlc.arg(query)::text || '%')
+  )
+),
+posture_state AS (
+  SELECT
+    pi.*,
+    CASE
+      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
+      WHEN NOT pi.connector_configured THEN 'unmanaged'
+      WHEN NOT pi.connector_enabled THEN 'unmanaged'
+      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
+      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
+      ELSE 'managed'
+    END AS managed_state,
+    CASE
+      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'no_binding'
+      WHEN NOT pi.connector_configured THEN 'connector_not_configured'
+      WHEN NOT pi.connector_enabled THEN 'connector_disabled'
+      WHEN pi.last_success_at IS NULL THEN 'stale_sync'
+      WHEN pi.last_success_at < pi.fresh_after THEN 'stale_sync'
+      ELSE 'active_binding_fresh_sync'
+    END AS managed_reason
+  FROM posture_inputs pi
+),
+posture_with_risk AS (
+  SELECT
+    ps.*,
+    LEAST(100,
+      CASE WHEN ps.managed_state <> 'managed' THEN 45 ELSE 0 END
+      + CASE WHEN ps.has_privileged_scope THEN 20 ELSE 0 END
+      + CASE WHEN ps.owner_identity_id = 0 THEN 15 ELSE 0 END
+      + CASE WHEN ps.actors_30d >= 50 THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_business_criticality IN ('high', 'critical') THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_data_classification IN ('confidential', 'restricted') THEN 5 ELSE 0 END
+    )::int AS risk_score
+  FROM posture_state ps
+),
+posture_rows AS (
+  SELECT
+    pwr.*,
+    CASE
+      WHEN pwr.risk_score >= 80 THEN 'critical'
+      WHEN pwr.risk_score >= 60 THEN 'high'
+      WHEN pwr.risk_score >= 30 THEN 'medium'
+      ELSE 'low'
+    END AS risk_level
+  FROM posture_with_risk pwr
 )
-  AND (
+SELECT count(*)
+FROM posture_rows pr
+WHERE (
     sqlc.arg(managed_state)::text = ''
-    OR sa.managed_state = sqlc.arg(managed_state)::text
+    OR pr.managed_state = sqlc.arg(managed_state)::text
   )
   AND (
     sqlc.arg(risk_level)::text = ''
-    OR sa.risk_level = sqlc.arg(risk_level)::text
-  )
-  AND (
-    sqlc.arg(query)::text = ''
-    OR sa.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR sa.primary_domain ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR sa.vendor_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR sa.canonical_key ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR pr.risk_level = sqlc.arg(risk_level)::text
   );
 
 -- name: ListSaaSAppsPageByFilters :many
@@ -107,70 +166,210 @@ WITH configured_sources AS (
     n.name AS source_name
   FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-)
-SELECT
-  sa.*,
-  go.owner_identity_id,
-  COALESCE(owner.display_name, '') AS owner_display_name,
-  COALESCE(owner.primary_email, '') AS owner_primary_email,
-  COALESCE(actor_stats.actors_30d, 0)::bigint AS actors_30d
-FROM saas_apps sa
-LEFT JOIN saas_app_governance_overrides go ON go.saas_app_id = sa.id
-LEFT JOIN identities owner ON owner.id = go.owner_identity_id
-LEFT JOIN LATERAL (
-  SELECT
-    count(DISTINCT COALESCE(NULLIF(trim(e.actor_external_id), ''), NULLIF(lower(trim(e.actor_email)), ''))) AS actors_30d
-  FROM saas_app_events e
-  WHERE e.saas_app_id = sa.id
-    AND e.expired_at IS NULL
-    AND e.last_observed_run_id IS NOT NULL
-    AND e.observed_at >= now() - interval '30 days'
-) actor_stats ON TRUE
-WHERE EXISTS (
-  SELECT 1
+),
+scoped_app_ids AS (
+  SELECT DISTINCT sas.saas_app_id
   FROM saas_app_sources sas
-  JOIN configured_sources cs
-    ON cs.source_kind = sas.source_kind
-   AND cs.source_name = sas.source_name
-  WHERE sas.saas_app_id = sa.id
-    AND sas.expired_at IS NULL
+  JOIN configured_sources cfg
+    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
+   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
+  WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
     AND (
       sqlc.arg(source_kind)::text = ''
-      OR sas.source_kind = sqlc.arg(source_kind)::text
+      OR lower(trim(sas.source_kind)) = lower(trim(sqlc.arg(source_kind)::text))
     )
     AND (
       sqlc.arg(source_name)::text = ''
-      OR sas.source_name = sqlc.arg(source_name)::text
+      OR lower(trim(sas.source_name)) = lower(trim(sqlc.arg(source_name)::text))
     )
+),
+posture_inputs AS (
+  SELECT
+    spi.*,
+    CASE spi.bound_connector_kind
+      WHEN 'okta' THEN sqlc.arg(okta_fresh_after)::timestamptz
+      WHEN 'entra' THEN sqlc.arg(entra_fresh_after)::timestamptz
+      WHEN 'google_workspace' THEN sqlc.arg(google_workspace_fresh_after)::timestamptz
+      WHEN 'github' THEN sqlc.arg(github_fresh_after)::timestamptz
+      WHEN 'datadog' THEN sqlc.arg(datadog_fresh_after)::timestamptz
+      WHEN 'aws_identity_center' THEN sqlc.arg(aws_fresh_after)::timestamptz
+      ELSE sqlc.arg(default_fresh_after)::timestamptz
+    END AS fresh_after
+  FROM saas_app_posture_inputs_v spi
+  JOIN scoped_app_ids sai ON sai.saas_app_id = spi.id
+  WHERE (
+    sqlc.arg(query)::text = ''
+    OR spi.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR spi.primary_domain ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR spi.vendor_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR spi.canonical_key ILIKE ('%' || sqlc.arg(query)::text || '%')
+  )
+),
+posture_state AS (
+  SELECT
+    pi.*,
+    CASE
+      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
+      WHEN NOT pi.connector_configured THEN 'unmanaged'
+      WHEN NOT pi.connector_enabled THEN 'unmanaged'
+      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
+      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
+      ELSE 'managed'
+    END AS managed_state,
+    CASE
+      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'no_binding'
+      WHEN NOT pi.connector_configured THEN 'connector_not_configured'
+      WHEN NOT pi.connector_enabled THEN 'connector_disabled'
+      WHEN pi.last_success_at IS NULL THEN 'stale_sync'
+      WHEN pi.last_success_at < pi.fresh_after THEN 'stale_sync'
+      ELSE 'active_binding_fresh_sync'
+    END AS managed_reason
+  FROM posture_inputs pi
+),
+posture_with_risk AS (
+  SELECT
+    ps.*,
+    LEAST(100,
+      CASE WHEN ps.managed_state <> 'managed' THEN 45 ELSE 0 END
+      + CASE WHEN ps.has_privileged_scope THEN 20 ELSE 0 END
+      + CASE WHEN ps.owner_identity_id = 0 THEN 15 ELSE 0 END
+      + CASE WHEN ps.actors_30d >= 50 THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_business_criticality IN ('high', 'critical') THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_data_classification IN ('confidential', 'restricted') THEN 5 ELSE 0 END
+    )::int AS risk_score
+  FROM posture_state ps
+),
+posture_rows AS (
+  SELECT
+    pwr.*,
+    CASE
+      WHEN pwr.risk_score >= 80 THEN 'critical'
+      WHEN pwr.risk_score >= 60 THEN 'high'
+      WHEN pwr.risk_score >= 30 THEN 'medium'
+      ELSE 'low'
+    END AS risk_level
+  FROM posture_with_risk pwr
 )
-  AND (
+SELECT
+  pr.id,
+  pr.canonical_key,
+  pr.display_name,
+  pr.primary_domain,
+  pr.vendor_name,
+  pr.managed_state,
+  pr.managed_reason,
+  pr.bound_connector_kind,
+  pr.bound_connector_source_name,
+  pr.risk_score,
+  pr.risk_level,
+  pr.suggested_business_criticality,
+  pr.suggested_data_classification,
+  pr.first_seen_at,
+  pr.last_seen_at,
+  pr.created_at,
+  pr.updated_at,
+  COALESCE(owner.display_name, '') AS owner_display_name,
+  COALESCE(owner.primary_email, '') AS owner_primary_email,
+  pr.actors_30d
+FROM posture_rows pr
+LEFT JOIN identities owner ON owner.id = NULLIF(pr.owner_identity_id, 0)
+WHERE (
     sqlc.arg(managed_state)::text = ''
-    OR sa.managed_state = sqlc.arg(managed_state)::text
+    OR pr.managed_state = sqlc.arg(managed_state)::text
   )
   AND (
     sqlc.arg(risk_level)::text = ''
-    OR sa.risk_level = sqlc.arg(risk_level)::text
-  )
-  AND (
-    sqlc.arg(query)::text = ''
-    OR sa.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR sa.primary_domain ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR sa.vendor_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR sa.canonical_key ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR pr.risk_level = sqlc.arg(risk_level)::text
   )
 ORDER BY
-  sa.risk_score DESC,
-  sa.last_seen_at DESC,
-  lower(COALESCE(NULLIF(trim(sa.display_name), ''), sa.canonical_key)) ASC,
-  sa.id ASC
+  pr.risk_score DESC,
+  pr.last_seen_at DESC,
+  lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) ASC,
+  pr.id ASC
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
 -- name: GetSaaSAppByID :one
-SELECT *
-FROM saas_apps
-WHERE id = $1;
+WITH posture_inputs AS (
+  SELECT
+    spi.*,
+    CASE spi.bound_connector_kind
+      WHEN 'okta' THEN sqlc.arg(okta_fresh_after)::timestamptz
+      WHEN 'entra' THEN sqlc.arg(entra_fresh_after)::timestamptz
+      WHEN 'google_workspace' THEN sqlc.arg(google_workspace_fresh_after)::timestamptz
+      WHEN 'github' THEN sqlc.arg(github_fresh_after)::timestamptz
+      WHEN 'datadog' THEN sqlc.arg(datadog_fresh_after)::timestamptz
+      WHEN 'aws_identity_center' THEN sqlc.arg(aws_fresh_after)::timestamptz
+      ELSE sqlc.arg(default_fresh_after)::timestamptz
+    END AS fresh_after
+  FROM saas_app_posture_inputs_v spi
+  WHERE spi.id = sqlc.arg(id)::bigint
+),
+posture_state AS (
+  SELECT
+    pi.*,
+    CASE
+      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
+      WHEN NOT pi.connector_configured THEN 'unmanaged'
+      WHEN NOT pi.connector_enabled THEN 'unmanaged'
+      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
+      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
+      ELSE 'managed'
+    END AS managed_state,
+    CASE
+      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'no_binding'
+      WHEN NOT pi.connector_configured THEN 'connector_not_configured'
+      WHEN NOT pi.connector_enabled THEN 'connector_disabled'
+      WHEN pi.last_success_at IS NULL THEN 'stale_sync'
+      WHEN pi.last_success_at < pi.fresh_after THEN 'stale_sync'
+      ELSE 'active_binding_fresh_sync'
+    END AS managed_reason
+  FROM posture_inputs pi
+),
+posture_with_risk AS (
+  SELECT
+    ps.*,
+    LEAST(100,
+      CASE WHEN ps.managed_state <> 'managed' THEN 45 ELSE 0 END
+      + CASE WHEN ps.has_privileged_scope THEN 20 ELSE 0 END
+      + CASE WHEN ps.owner_identity_id = 0 THEN 15 ELSE 0 END
+      + CASE WHEN ps.actors_30d >= 50 THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_business_criticality IN ('high', 'critical') THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_data_classification IN ('confidential', 'restricted') THEN 5 ELSE 0 END
+    )::int AS risk_score
+  FROM posture_state ps
+),
+posture_rows AS (
+  SELECT
+    pwr.*,
+    CASE
+      WHEN pwr.risk_score >= 80 THEN 'critical'
+      WHEN pwr.risk_score >= 60 THEN 'high'
+      WHEN pwr.risk_score >= 30 THEN 'medium'
+      ELSE 'low'
+    END AS risk_level
+  FROM posture_with_risk pwr
+)
+SELECT
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  managed_state,
+  managed_reason,
+  bound_connector_kind,
+  bound_connector_source_name,
+  risk_score,
+  risk_level,
+  suggested_business_criticality,
+  suggested_data_classification,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at
+FROM posture_rows;
 
 -- name: ListSaaSAppHotspots :many
 WITH configured_sources AS (
@@ -179,45 +378,109 @@ WITH configured_sources AS (
     n.name AS source_name
   FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+scoped_app_ids AS (
+  SELECT DISTINCT sas.saas_app_id
+  FROM saas_app_sources sas
+  JOIN configured_sources cfg
+    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
+   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
+  WHERE sas.expired_at IS NULL
+    AND sas.last_observed_run_id IS NOT NULL
+    AND (
+      sqlc.arg(source_kind)::text = ''
+      OR lower(trim(sas.source_kind)) = lower(trim(sqlc.arg(source_kind)::text))
+    )
+    AND (
+      sqlc.arg(source_name)::text = ''
+      OR lower(trim(sas.source_name)) = lower(trim(sqlc.arg(source_name)::text))
+    )
+),
+posture_inputs AS (
+  SELECT
+    spi.*,
+    CASE spi.bound_connector_kind
+      WHEN 'okta' THEN sqlc.arg(okta_fresh_after)::timestamptz
+      WHEN 'entra' THEN sqlc.arg(entra_fresh_after)::timestamptz
+      WHEN 'google_workspace' THEN sqlc.arg(google_workspace_fresh_after)::timestamptz
+      WHEN 'github' THEN sqlc.arg(github_fresh_after)::timestamptz
+      WHEN 'datadog' THEN sqlc.arg(datadog_fresh_after)::timestamptz
+      WHEN 'aws_identity_center' THEN sqlc.arg(aws_fresh_after)::timestamptz
+      ELSE sqlc.arg(default_fresh_after)::timestamptz
+    END AS fresh_after
+  FROM saas_app_posture_inputs_v spi
+  JOIN scoped_app_ids sai ON sai.saas_app_id = spi.id
+),
+posture_state AS (
+  SELECT
+    pi.*,
+    CASE
+      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
+      WHEN NOT pi.connector_configured THEN 'unmanaged'
+      WHEN NOT pi.connector_enabled THEN 'unmanaged'
+      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
+      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
+      ELSE 'managed'
+    END AS managed_state,
+    CASE
+      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'no_binding'
+      WHEN NOT pi.connector_configured THEN 'connector_not_configured'
+      WHEN NOT pi.connector_enabled THEN 'connector_disabled'
+      WHEN pi.last_success_at IS NULL THEN 'stale_sync'
+      WHEN pi.last_success_at < pi.fresh_after THEN 'stale_sync'
+      ELSE 'active_binding_fresh_sync'
+    END AS managed_reason
+  FROM posture_inputs pi
+),
+posture_with_risk AS (
+  SELECT
+    ps.*,
+    LEAST(100,
+      CASE WHEN ps.managed_state <> 'managed' THEN 45 ELSE 0 END
+      + CASE WHEN ps.has_privileged_scope THEN 20 ELSE 0 END
+      + CASE WHEN ps.owner_identity_id = 0 THEN 15 ELSE 0 END
+      + CASE WHEN ps.actors_30d >= 50 THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_business_criticality IN ('high', 'critical') THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_data_classification IN ('confidential', 'restricted') THEN 5 ELSE 0 END
+    )::int AS risk_score
+  FROM posture_state ps
+),
+posture_rows AS (
+  SELECT
+    pwr.*,
+    CASE
+      WHEN pwr.risk_score >= 80 THEN 'critical'
+      WHEN pwr.risk_score >= 60 THEN 'high'
+      WHEN pwr.risk_score >= 30 THEN 'medium'
+      ELSE 'low'
+    END AS risk_level
+  FROM posture_with_risk pwr
 )
 SELECT
-  sa.*,
-  go.owner_identity_id,
+  pr.id,
+  pr.canonical_key,
+  pr.display_name,
+  pr.primary_domain,
+  pr.vendor_name,
+  pr.managed_state,
+  pr.managed_reason,
+  pr.bound_connector_kind,
+  pr.bound_connector_source_name,
+  pr.risk_score,
+  pr.risk_level,
+  pr.suggested_business_criticality,
+  pr.suggested_data_classification,
+  pr.first_seen_at,
+  pr.last_seen_at,
+  pr.created_at,
+  pr.updated_at,
   COALESCE(owner.display_name, '') AS owner_display_name,
   COALESCE(owner.primary_email, '') AS owner_primary_email,
-  COALESCE(actor_stats.actors_30d, 0)::bigint AS actors_30d
-FROM saas_apps sa
-LEFT JOIN saas_app_governance_overrides go ON go.saas_app_id = sa.id
-LEFT JOIN identities owner ON owner.id = go.owner_identity_id
-LEFT JOIN LATERAL (
-  SELECT
-    count(DISTINCT COALESCE(NULLIF(trim(e.actor_external_id), ''), NULLIF(lower(trim(e.actor_email)), ''))) AS actors_30d
-  FROM saas_app_events e
-  WHERE e.saas_app_id = sa.id
-    AND e.expired_at IS NULL
-    AND e.last_observed_run_id IS NOT NULL
-    AND e.observed_at >= now() - interval '30 days'
-) actor_stats ON TRUE
-WHERE sa.risk_score >= 60
-  AND EXISTS (
-    SELECT 1
-    FROM saas_app_sources sas
-    JOIN configured_sources cs
-      ON cs.source_kind = sas.source_kind
-     AND cs.source_name = sas.source_name
-    WHERE sas.saas_app_id = sa.id
-      AND sas.expired_at IS NULL
-      AND sas.last_observed_run_id IS NOT NULL
-      AND (
-        sqlc.arg(source_kind)::text = ''
-        OR sas.source_kind = sqlc.arg(source_kind)::text
-      )
-      AND (
-        sqlc.arg(source_name)::text = ''
-        OR sas.source_name = sqlc.arg(source_name)::text
-      )
-  )
-ORDER BY sa.risk_score DESC, sa.last_seen_at DESC, sa.id ASC
+  pr.actors_30d
+FROM posture_rows pr
+LEFT JOIN identities owner ON owner.id = NULLIF(pr.owner_identity_id, 0)
+WHERE pr.risk_score >= 60
+ORDER BY pr.risk_score DESC, pr.last_seen_at DESC, pr.id ASC
 LIMIT sqlc.arg(limit_rows)::int;
 
 -- name: CountSaaSAppsGroupedByManagedState :many
@@ -227,21 +490,47 @@ WITH configured_sources AS (
     n.name AS source_name
   FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-)
-SELECT sa.managed_state, count(*) AS app_count
-FROM saas_apps sa
-WHERE EXISTS (
-  SELECT 1
+),
+scoped_app_ids AS (
+  SELECT DISTINCT sas.saas_app_id
   FROM saas_app_sources sas
-  JOIN configured_sources cs
-    ON cs.source_kind = sas.source_kind
-   AND cs.source_name = sas.source_name
-  WHERE sas.saas_app_id = sa.id
-    AND sas.expired_at IS NULL
+  JOIN configured_sources cfg
+    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
+   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
+  WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
+),
+posture_inputs AS (
+  SELECT
+    spi.*,
+    CASE spi.bound_connector_kind
+      WHEN 'okta' THEN sqlc.arg(okta_fresh_after)::timestamptz
+      WHEN 'entra' THEN sqlc.arg(entra_fresh_after)::timestamptz
+      WHEN 'google_workspace' THEN sqlc.arg(google_workspace_fresh_after)::timestamptz
+      WHEN 'github' THEN sqlc.arg(github_fresh_after)::timestamptz
+      WHEN 'datadog' THEN sqlc.arg(datadog_fresh_after)::timestamptz
+      WHEN 'aws_identity_center' THEN sqlc.arg(aws_fresh_after)::timestamptz
+      ELSE sqlc.arg(default_fresh_after)::timestamptz
+    END AS fresh_after
+  FROM saas_app_posture_inputs_v spi
+  JOIN scoped_app_ids sai ON sai.saas_app_id = spi.id
+),
+posture_rows AS (
+  SELECT
+    CASE
+      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
+      WHEN NOT pi.connector_configured THEN 'unmanaged'
+      WHEN NOT pi.connector_enabled THEN 'unmanaged'
+      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
+      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
+      ELSE 'managed'
+    END AS managed_state
+  FROM posture_inputs pi
 )
-GROUP BY sa.managed_state
-ORDER BY sa.managed_state;
+SELECT pr.managed_state, count(*) AS app_count
+FROM posture_rows pr
+GROUP BY pr.managed_state
+ORDER BY pr.managed_state;
 
 -- name: CountSaaSAppsGroupedByRiskLevel :many
 WITH configured_sources AS (
@@ -250,107 +539,67 @@ WITH configured_sources AS (
     n.name AS source_name
   FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-)
-SELECT sa.risk_level, count(*) AS app_count
-FROM saas_apps sa
-WHERE EXISTS (
-  SELECT 1
+),
+scoped_app_ids AS (
+  SELECT DISTINCT sas.saas_app_id
   FROM saas_app_sources sas
-  JOIN configured_sources cs
-    ON cs.source_kind = sas.source_kind
-   AND cs.source_name = sas.source_name
-  WHERE sas.saas_app_id = sa.id
-    AND sas.expired_at IS NULL
+  JOIN configured_sources cfg
+    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
+   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
+  WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
-)
-GROUP BY sa.risk_level
-ORDER BY sa.risk_level;
-
--- name: ListSaaSAppPostureInputs :many
-WITH active_events AS (
-  SELECT e.*
-  FROM saas_app_events e
-  WHERE e.expired_at IS NULL
-    AND e.last_observed_run_id IS NOT NULL
 ),
-actor_counts AS (
+posture_inputs AS (
   SELECT
-    e.saas_app_id,
-    count(DISTINCT COALESCE(NULLIF(trim(e.actor_external_id), ''), NULLIF(lower(trim(e.actor_email)), ''))) FILTER (WHERE e.observed_at >= now() - interval '30 days') AS actors_30d
-  FROM active_events e
-  GROUP BY e.saas_app_id
+    spi.*,
+    CASE spi.bound_connector_kind
+      WHEN 'okta' THEN sqlc.arg(okta_fresh_after)::timestamptz
+      WHEN 'entra' THEN sqlc.arg(entra_fresh_after)::timestamptz
+      WHEN 'google_workspace' THEN sqlc.arg(google_workspace_fresh_after)::timestamptz
+      WHEN 'github' THEN sqlc.arg(github_fresh_after)::timestamptz
+      WHEN 'datadog' THEN sqlc.arg(datadog_fresh_after)::timestamptz
+      WHEN 'aws_identity_center' THEN sqlc.arg(aws_fresh_after)::timestamptz
+      ELSE sqlc.arg(default_fresh_after)::timestamptz
+    END AS fresh_after
+  FROM saas_app_posture_inputs_v spi
+  JOIN scoped_app_ids sai ON sai.saas_app_id = spi.id
 ),
-scope_flags AS (
+posture_state AS (
   SELECT
-    e.saas_app_id,
-    bool_or(
-      lower(e.scopes_json::text) LIKE '%directory.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%application.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%rolemanagement.readwrite.directory%'
-      OR lower(e.scopes_json::text) LIKE '%mailboxsettings.readwrite%'
-      OR lower(e.scopes_json::text) LIKE '%full_access_as_app%'
-      OR lower(e.scopes_json::text) LIKE '%files.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%files.readwrite%'
-      OR lower(e.scopes_json::text) LIKE '%sites.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%user.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%offline_access%'
-    ) FILTER (WHERE e.signal_kind = 'oauth_grant') AS has_privileged_scope,
-    bool_or(
-      lower(e.scopes_json::text) LIKE '%mail.%'
-      OR lower(e.scopes_json::text) LIKE '%files.%'
-      OR lower(e.scopes_json::text) LIKE '%calendar.%'
-      OR lower(e.scopes_json::text) LIKE '%readwrite%'
-      OR lower(e.scopes_json::text) LIKE '%sites.read%'
-    ) FILTER (WHERE e.signal_kind = 'oauth_grant') AS has_confidential_scope
-  FROM active_events e
-  GROUP BY e.saas_app_id
+    pi.*,
+    CASE
+      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
+      WHEN NOT pi.connector_configured THEN 'unmanaged'
+      WHEN NOT pi.connector_enabled THEN 'unmanaged'
+      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
+      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
+      ELSE 'managed'
+    END AS managed_state
+  FROM posture_inputs pi
 ),
-primary_binding AS (
+posture_with_risk AS (
   SELECT
-    b.saas_app_id,
-    b.connector_kind,
-    b.connector_source_name,
-    b.binding_source,
-    b.confidence
-  FROM saas_app_bindings b
-  WHERE b.is_primary
+    LEAST(100,
+      CASE WHEN ps.managed_state <> 'managed' THEN 45 ELSE 0 END
+      + CASE WHEN ps.has_privileged_scope THEN 20 ELSE 0 END
+      + CASE WHEN ps.owner_identity_id = 0 THEN 15 ELSE 0 END
+      + CASE WHEN ps.actors_30d >= 50 THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_business_criticality IN ('high', 'critical') THEN 10 ELSE 0 END
+      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_data_classification IN ('confidential', 'restricted') THEN 5 ELSE 0 END
+    )::int AS risk_score
+  FROM posture_state ps
+),
+posture_rows AS (
+  SELECT
+    CASE
+      WHEN pwr.risk_score >= 80 THEN 'critical'
+      WHEN pwr.risk_score >= 60 THEN 'high'
+      WHEN pwr.risk_score >= 30 THEN 'medium'
+      ELSE 'low'
+    END AS risk_level
+  FROM posture_with_risk pwr
 )
-SELECT
-  sa.id,
-  COALESCE(go.owner_identity_id, 0)::bigint AS owner_identity_id,
-  COALESCE(go.business_criticality, 'unknown')::text AS business_criticality,
-  COALESCE(go.data_classification, 'unknown')::text AS data_classification,
-  COALESCE(ac.actors_30d, 0)::bigint AS actors_30d,
-  COALESCE(sf.has_privileged_scope, false)::boolean AS has_privileged_scope,
-  COALESCE(sf.has_confidential_scope, false)::boolean AS has_confidential_scope,
-  COALESCE(pb.connector_kind, '')::text AS binding_connector_kind,
-  COALESCE(pb.connector_source_name, '')::text AS binding_connector_source_name,
-  COALESCE(pb.binding_source, '')::text AS binding_source,
-  COALESCE(pb.confidence, 0)::real AS binding_confidence
-FROM saas_apps sa
-LEFT JOIN saas_app_governance_overrides go ON go.saas_app_id = sa.id
-LEFT JOIN actor_counts ac ON ac.saas_app_id = sa.id
-LEFT JOIN scope_flags sf ON sf.saas_app_id = sa.id
-LEFT JOIN primary_binding pb ON pb.saas_app_id = sa.id
-WHERE EXISTS (
-  SELECT 1
-  FROM saas_app_sources sas
-  WHERE sas.saas_app_id = sa.id
-    AND sas.expired_at IS NULL
-    AND sas.last_observed_run_id IS NOT NULL
-)
-ORDER BY sa.id ASC;
-
--- name: UpdateSaaSAppPosture :exec
-UPDATE saas_apps
-SET
-  managed_state = sqlc.arg(managed_state)::text,
-  managed_reason = sqlc.arg(managed_reason)::text,
-  bound_connector_kind = sqlc.arg(bound_connector_kind)::text,
-  bound_connector_source_name = sqlc.arg(bound_connector_source_name)::text,
-  risk_score = sqlc.arg(risk_score)::int,
-  risk_level = sqlc.arg(risk_level)::text,
-  suggested_business_criticality = sqlc.arg(suggested_business_criticality)::text,
-  suggested_data_classification = sqlc.arg(suggested_data_classification)::text,
-  updated_at = now()
-WHERE id = sqlc.arg(id)::bigint;
+SELECT pr.risk_level, count(*) AS app_count
+FROM posture_rows pr
+GROUP BY pr.risk_level
+ORDER BY pr.risk_level;

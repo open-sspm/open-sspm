@@ -85,6 +85,18 @@ func (d commandSearchTestDefinition) DecodeConfig(raw []byte) (any, error) {
 			return nil, err
 		}
 		return cfg.Normalized(), nil
+	case configstore.KindDatadog:
+		var cfg configstore.DatadogConfig
+		if err := json.Unmarshal(raw, &cfg); err != nil {
+			return nil, err
+		}
+		return cfg.Normalized(), nil
+	case configstore.KindAWSIdentityCenter:
+		var cfg configstore.AWSIdentityCenterConfig
+		if err := json.Unmarshal(raw, &cfg); err != nil {
+			return nil, err
+		}
+		return cfg.Normalized(), nil
 	default:
 		return struct{}{}, nil
 	}
@@ -100,6 +112,20 @@ func (d commandSearchTestDefinition) IsConfigured(cfg any) bool {
 		return strings.TrimSpace(cfg.CustomerID) != ""
 	case configstore.GitHubConfig:
 		return strings.TrimSpace(cfg.Org) != ""
+	case configstore.DatadogConfig:
+		return strings.TrimSpace(cfg.Site) != "" && strings.TrimSpace(cfg.APIKey) != "" && strings.TrimSpace(cfg.AppKey) != ""
+	case configstore.AWSIdentityCenterConfig:
+		if strings.TrimSpace(cfg.Region) == "" {
+			return false
+		}
+		switch strings.TrimSpace(cfg.AuthType) {
+		case "", configstore.AWSIdentityCenterAuthTypeDefaultChain:
+			return true
+		case configstore.AWSIdentityCenterAuthTypeAccessKey:
+			return strings.TrimSpace(cfg.AccessKeyID) != "" && strings.TrimSpace(cfg.SecretAccessKey) != ""
+		default:
+			return false
+		}
 	default:
 		return false
 	}
@@ -115,6 +141,13 @@ func (d commandSearchTestDefinition) SourceName(cfg any) string {
 		return strings.TrimSpace(cfg.CustomerID)
 	case configstore.GitHubConfig:
 		return strings.TrimSpace(cfg.Org)
+	case configstore.DatadogConfig:
+		return strings.TrimSpace(cfg.Site)
+	case configstore.AWSIdentityCenterConfig:
+		if name := strings.TrimSpace(cfg.Name); name != "" {
+			return name
+		}
+		return strings.TrimSpace(cfg.Region)
 	default:
 		return ""
 	}
@@ -251,6 +284,49 @@ func TestHandleCommandSearchQueryFailureFallsBack(t *testing.T) {
 	})
 }
 
+func TestHandleCommandSearchUsesLiveDiscoveryPostureBadges(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{
+			TenantID:     "tenant-1",
+			ClientID:     "client-1",
+			ClientSecret: "secret-1",
+		})
+
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindEntra, "tenant-1")
+		insertCommandSearchDiscoveryApp(
+			t,
+			ctx,
+			pool,
+			q,
+			runID,
+			configstore.KindEntra,
+			"tenant-1",
+			"orphaned-portal",
+			"Orphaned Portal",
+			"example.com",
+			"Example",
+			"managed",
+			"low",
+			0,
+			"orphaned-portal",
+		)
+
+		body := renderCommandSearch(t, h, "http://example.com/command/search?q=orphaned")
+		if !strings.Contains(body, `role="heading">Discovery Apps`) {
+			t.Fatalf("orphaned body missing discovery apps section: %s", body)
+		}
+		if !strings.Contains(body, "Orphaned Portal") {
+			t.Fatalf("orphaned body missing discovery app row: %s", body)
+		}
+		if !strings.Contains(body, "Unmanaged") {
+			t.Fatalf("orphaned body missing live unmanaged badge: %s", body)
+		}
+		if !strings.Contains(body, "High") {
+			t.Fatalf("orphaned body missing live risk badge: %s", body)
+		}
+	})
+}
+
 func withCommandSearchTestDatabase(t *testing.T, fn func(context.Context, *pgxpool.Pool, *gen.Queries, *Handlers)) {
 	t.Helper()
 
@@ -323,6 +399,8 @@ func newCommandSearchTestRegistry(t *testing.T) *connregistry.ConnectorRegistry 
 		{kind: configstore.KindEntra, displayName: "Microsoft Entra", role: connregistry.RoleIdP},
 		{kind: configstore.KindGoogleWorkspace, displayName: "Google Workspace", role: connregistry.RoleApp},
 		{kind: configstore.KindGitHub, displayName: "GitHub", role: connregistry.RoleApp},
+		{kind: configstore.KindDatadog, displayName: "Datadog", role: connregistry.RoleApp},
+		{kind: configstore.KindAWSIdentityCenter, displayName: "AWS Identity Center", role: connregistry.RoleApp},
 	}
 	for _, def := range defs {
 		if err := reg.Register(def); err != nil {
@@ -347,6 +425,33 @@ func renderCommandSearch(t *testing.T, h *Handlers, target string) string {
 
 func upsertCommandSearchConnectorConfig(t *testing.T, ctx context.Context, pool *pgxpool.Pool, kind string, enabled bool, cfg any) {
 	t.Helper()
+
+	switch kind {
+	case configstore.KindOkta:
+		if typed, ok := cfg.(configstore.OktaConfig); ok {
+			cfg = typed.Normalized()
+		}
+	case configstore.KindEntra:
+		if typed, ok := cfg.(configstore.EntraConfig); ok {
+			cfg = typed.Normalized()
+		}
+	case configstore.KindGoogleWorkspace:
+		if typed, ok := cfg.(configstore.GoogleWorkspaceConfig); ok {
+			cfg = typed.Normalized()
+		}
+	case configstore.KindGitHub:
+		if typed, ok := cfg.(configstore.GitHubConfig); ok {
+			cfg = typed.Normalized()
+		}
+	case configstore.KindDatadog:
+		if typed, ok := cfg.(configstore.DatadogConfig); ok {
+			cfg = typed.Normalized()
+		}
+	case configstore.KindAWSIdentityCenter:
+		if typed, ok := cfg.(configstore.AWSIdentityCenterConfig); ok {
+			cfg = typed.Normalized()
+		}
+	}
 
 	payload, err := json.Marshal(cfg)
 	if err != nil {

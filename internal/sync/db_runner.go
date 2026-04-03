@@ -9,20 +9,25 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/discovery"
 	"github.com/open-sspm/open-sspm/internal/normalize"
 )
 
 type DBRunner struct {
-	pool           *pgxpool.Pool
-	q              *gen.Queries
-	registry       *registry.ConnectorRegistry
-	reporter       registry.Reporter
-	policy         *RunPolicy
-	globalEvalMode string
-	locks          LockManager
-	mode           registry.RunMode
+	pool                    *pgxpool.Pool
+	q                       *gen.Queries
+	registry                *registry.ConnectorRegistry
+	reporter                registry.Reporter
+	policy                  *RunPolicy
+	globalEvalMode          string
+	locks                   LockManager
+	mode                    registry.RunMode
+	discoveryMetricsConfig  config.Config
+	hasDiscoveryMetricsCfg  bool
+	discoveryMetricsRefresh func(context.Context, *gen.Queries, config.Config, time.Time) error
 }
 
 type integrationCandidate struct {
@@ -52,10 +57,11 @@ type preparedDBRun struct {
 func NewDBRunner(pool *pgxpool.Pool, reg *registry.ConnectorRegistry) *DBRunner {
 	q := gen.New(pool)
 	return &DBRunner{
-		pool:     pool,
-		q:        q,
-		registry: reg,
-		mode:     registry.RunModeFull,
+		pool:                    pool,
+		q:                       q,
+		registry:                reg,
+		mode:                    registry.RunModeFull,
+		discoveryMetricsRefresh: discovery.RefreshMetrics,
 	}
 }
 
@@ -77,6 +83,11 @@ func (r *DBRunner) SetGlobalEvalMode(mode string) {
 
 func (r *DBRunner) SetRunMode(mode registry.RunMode) {
 	r.mode = mode.Normalize()
+}
+
+func (r *DBRunner) SetDiscoveryMetricsConfig(cfg config.Config) {
+	r.discoveryMetricsConfig = cfg
+	r.hasDiscoveryMetricsCfg = true
 }
 
 func (r *DBRunner) Prepare(ctx context.Context) error {
@@ -101,10 +112,33 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 		return err
 	}
 	runErr := planned.orchestrator.RunOnce(ctx)
+	if runErr == nil {
+		r.refreshDiscoveryMetricsBestEffort(ctx)
+	}
 	if planned.postRunErr != nil {
 		return errors.Join(runErr, planned.postRunErr)
 	}
 	return runErr
+}
+
+func (r *DBRunner) refreshDiscoveryMetricsBestEffort(ctx context.Context) {
+	if r == nil || r.runMode() != registry.RunModeDiscovery || !r.hasDiscoveryMetricsCfg {
+		return
+	}
+	if r.q == nil || r.discoveryMetricsRefresh == nil {
+		return
+	}
+
+	refreshCtx := ctx
+	if refreshCtx == nil || refreshCtx.Err() != nil {
+		var cancel context.CancelFunc
+		refreshCtx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+	}
+
+	if err := r.discoveryMetricsRefresh(refreshCtx, r.q, r.discoveryMetricsConfig, time.Now().UTC()); err != nil {
+		slog.Warn("discovery metrics refresh failed", "err", err)
+	}
 }
 
 func (r *DBRunner) prepareRun(ctx context.Context) (*preparedDBRun, error) {

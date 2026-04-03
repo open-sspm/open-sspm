@@ -328,10 +328,18 @@ func (h *Handlers) HandleConnectedAppExport(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
+	cutoffs := h.discoveryPostureCutoffs(time.Now().UTC())
 	discoverySources, err := h.Q.ListConnectedAppDiscoverySourcesBySourceAppID(ctx, gen.ListConnectedAppDiscoverySourcesBySourceAppIDParams{
-		SourceKind:  strings.TrimSpace(summary.SourceKind),
-		SourceName:  strings.TrimSpace(summary.SourceName),
-		SourceAppID: strings.TrimSpace(summary.ExternalID),
+		SourceKind:                strings.TrimSpace(summary.SourceKind),
+		SourceName:                strings.TrimSpace(summary.SourceName),
+		SourceAppID:               strings.TrimSpace(summary.ExternalID),
+		OktaFreshAfter:            cutoffs.OktaFreshAfter,
+		EntraFreshAfter:           cutoffs.EntraFreshAfter,
+		GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
+		GithubFreshAfter:          cutoffs.GithubFreshAfter,
+		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
+		AwsFreshAfter:             cutoffs.AwsFreshAfter,
+		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -593,10 +601,18 @@ func (h *Handlers) renderConnectedAppShow(c *echo.Context, appID int64, opts con
 		})
 	}
 
+	cutoffs := h.discoveryPostureCutoffs(now)
 	discoverySources, err := h.Q.ListConnectedAppDiscoverySourcesBySourceAppID(ctx, gen.ListConnectedAppDiscoverySourcesBySourceAppIDParams{
-		SourceKind:  strings.TrimSpace(summary.SourceKind),
-		SourceName:  strings.TrimSpace(summary.SourceName),
-		SourceAppID: strings.TrimSpace(summary.ExternalID),
+		SourceKind:                strings.TrimSpace(summary.SourceKind),
+		SourceName:                strings.TrimSpace(summary.SourceName),
+		SourceAppID:               strings.TrimSpace(summary.ExternalID),
+		OktaFreshAfter:            cutoffs.OktaFreshAfter,
+		EntraFreshAfter:           cutoffs.EntraFreshAfter,
+		GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
+		GithubFreshAfter:          cutoffs.GithubFreshAfter,
+		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
+		AwsFreshAfter:             cutoffs.AwsFreshAfter,
+		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
