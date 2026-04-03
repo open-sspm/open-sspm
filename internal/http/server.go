@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -49,7 +50,7 @@ func NewEchoServer(cfg config.Config, pool *pgxpool.Pool, q *gen.Queries, syncer
 	sessions.Cookie.Secure = cfg.AuthCookieSecure
 
 	h := &handlers.Handlers{Cfg: cfg, Q: q, Pool: pool, Syncer: syncer, Registry: reg, Sessions: sessions}
-	es := &EchoServer{h: h, e: newEcho()}
+	es := &EchoServer{h: h, e: newEcho(cfg)}
 	es.e.Use(middleware.RequestIDWithConfig(middleware.RequestIDConfig{
 		RequestIDHandler: func(c *echo.Context, id string) {
 			id = normalizeRequestID(id)
@@ -73,12 +74,29 @@ func NewEchoServer(cfg config.Config, pool *pgxpool.Pool, q *gen.Queries, syncer
 	return es, nil
 }
 
-func newEcho() *echo.Echo {
+func newEcho(cfg config.Config) *echo.Echo {
 	e := echo.New()
 	e.Logger = slog.Default().With("component", "http")
 	// Preserve client IPs behind ingress while rejecting spoofed forwarded headers on direct traffic.
-	e.IPExtractor = echo.ExtractIPFromXFFHeader()
+	e.IPExtractor = newXFFIPExtractor(cfg.TrustedProxyCIDRs)
 	return e
+}
+
+func newXFFIPExtractor(trustedProxyCIDRs []string) echo.IPExtractor {
+	opts := trustedProxyTrustOptions(trustedProxyCIDRs)
+	return echo.ExtractIPFromXFFHeader(opts...)
+}
+
+func trustedProxyTrustOptions(trustedProxyCIDRs []string) []echo.TrustOption {
+	opts := make([]echo.TrustOption, 0, len(trustedProxyCIDRs))
+	for _, cidr := range trustedProxyCIDRs {
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			continue
+		}
+		opts = append(opts, echo.TrustIPRange(network))
+	}
+	return opts
 }
 
 func normalizeRequestID(id string) string {

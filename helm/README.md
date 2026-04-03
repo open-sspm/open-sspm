@@ -177,6 +177,12 @@ Notes:
 Set `config.authCookieSecure=true` when users access the UI over HTTPS (Ingress TLS termination, etc.).
 Keep it `false` for plain HTTP / port-forward, otherwise the browser will not store session/CSRF cookies.
 
+### Trusted proxy CIDRs (`TRUSTED_PROXY_CIDRS`)
+
+`/login` rate limiting uses the client IP derived from `X-Forwarded-For`.
+By default, Open SSPM trusts private, link-local, and loopback upstream hops, which matches typical in-cluster ingress setups.
+If your direct upstream load balancer uses public IPs, pass `TRUSTED_PROXY_CIDRS` via `serve.extraEnv` so the app can trust those ingress CIDRs too.
+
 ### Dev-only seeding (`DEV_SEED_ADMIN`)
 
 For development only, you can set `config.devSeedAdmin=true` to seed `admin@admin.com` / `admin` **only if** no UI users exist yet.

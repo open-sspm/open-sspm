@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v5"
+	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/http/handlers"
 )
 
@@ -23,7 +24,7 @@ func TestNewEchoUsesDefaultLogger(t *testing.T) {
 	t.Cleanup(func() { slog.SetDefault(oldDefault) })
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&out, nil)).With("app", "open-sspm", "command", "open-sspm serve"))
 
-	e := newEcho()
+	e := newEcho(config.Config{})
 	e.Logger.Info("logger wiring check")
 
 	line := strings.TrimSpace(out.String())
@@ -46,31 +47,36 @@ func TestNewEchoUsesDefaultLogger(t *testing.T) {
 }
 
 func TestNewEchoUsesTrustedXFFIPExtractor(t *testing.T) {
-	e := newEcho()
+	e := newEcho(config.Config{})
 
-	req := httptest.NewRequest(http.MethodGet, "http://example.com/test", nil)
-	req.RemoteAddr = "10.0.0.5:4321"
-	req.Header.Set(echo.HeaderXForwardedFor, "198.51.100.20, 10.0.0.4")
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-
-	if got := c.RealIP(); got != "198.51.100.20" {
+	if got := realIPForRequest(e, "10.0.0.5:4321", "198.51.100.20, 10.0.0.4"); got != "198.51.100.20" {
 		t.Fatalf("real ip = %q, want %q", got, "198.51.100.20")
 	}
 }
 
 func TestNewEchoIgnoresSpoofedXFFOnDirectRequests(t *testing.T) {
-	e := newEcho()
+	e := newEcho(config.Config{})
 
-	req := httptest.NewRequest(http.MethodGet, "http://example.com/test", nil)
-	req.RemoteAddr = "203.0.113.10:4321"
-	req.Header.Set(echo.HeaderXForwardedFor, "198.51.100.20")
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-
-	if got := c.RealIP(); got != "203.0.113.10" {
+	if got := realIPForRequest(e, "203.0.113.10:4321", "198.51.100.20"); got != "203.0.113.10" {
 		t.Fatalf("real ip = %q, want %q", got, "203.0.113.10")
 	}
+}
+
+func TestNewEchoTrustsConfiguredPublicProxyRange(t *testing.T) {
+	e := newEcho(config.Config{TrustedProxyCIDRs: []string{"35.191.0.0/16"}})
+
+	if got := realIPForRequest(e, "35.191.42.10:4321", "198.51.100.20, 35.191.42.10"); got != "198.51.100.20" {
+		t.Fatalf("real ip = %q, want %q", got, "198.51.100.20")
+	}
+}
+
+func realIPForRequest(e *echo.Echo, remoteAddr, forwardedFor string) string {
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/test", nil)
+	req.RemoteAddr = remoteAddr
+	req.Header.Set(echo.HeaderXForwardedFor, forwardedFor)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	return c.RealIP()
 }
 
 func TestHTTPErrorHandlerInternalErrorIsGeneric(t *testing.T) {

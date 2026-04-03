@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -33,6 +34,7 @@ type Config struct {
 	MetricsAddr                 string
 	StaticDir                   string
 	AuthCookieSecure            bool
+	TrustedProxyCIDRs           []string
 	DevSeedAdmin                bool
 	SyncDiscoveryEnabled        bool
 	SyncInterval                time.Duration
@@ -83,6 +85,7 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		MetricsAddr:               defaultMetricsAddr,
 		StaticDir:                 strings.TrimSpace(os.Getenv("STATIC_DIR")),
 		AuthCookieSecure:          getenvBoolDefault("AUTH_COOKIE_SECURE", false),
+		TrustedProxyCIDRs:         splitCommaSeparated(os.Getenv("TRUSTED_PROXY_CIDRS")),
 		DevSeedAdmin:              getenvBoolDefault("DEV_SEED_ADMIN", false),
 		SyncDiscoveryEnabled:      getenvBoolDefault("SYNC_DISCOVERY_ENABLED", true),
 		SyncInterval:              defaultSyncInterval,
@@ -179,6 +182,11 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 	if opts.RequireDatabaseURL && cfg.DatabaseURL == "" {
 		return cfg, errors.New("DATABASE_URL is required")
 	}
+	for _, cidr := range cfg.TrustedProxyCIDRs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return cfg, fmt.Errorf("TRUSTED_PROXY_CIDRS contains invalid CIDR %q: %w", cidr, err)
+		}
+	}
 
 	return cfg, nil
 }
@@ -215,6 +223,19 @@ func getenvBoolDefault(key string, def bool) bool {
 	default:
 		return def
 	}
+}
+
+func splitCommaSeparated(v string) []string {
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		out = append(out, part)
+	}
+	return out
 }
 
 func parseDurationEnv(key string, requirePositive bool) (time.Duration, bool, error) {

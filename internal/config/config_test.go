@@ -60,3 +60,26 @@ func TestLoadWithOptions_RejectsNonPositiveConnectorInterval(t *testing.T) {
 		t.Fatalf("expected non-positive interval error")
 	}
 }
+
+func TestLoadWithOptions_ParsesTrustedProxyCIDRs(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("TRUSTED_PROXY_CIDRS", "35.191.0.0/16, 130.211.0.0/22")
+
+	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if got, want := len(cfg.TrustedProxyCIDRs), 2; got != want {
+		t.Fatalf("len(TrustedProxyCIDRs) = %d, want %d", got, want)
+	}
+}
+
+func TestLoadWithOptions_RejectsInvalidTrustedProxyCIDRs(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("TRUSTED_PROXY_CIDRS", "not-a-cidr")
+
+	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err == nil {
+		t.Fatalf("expected invalid cidr error")
+	}
+}
