@@ -12,15 +12,15 @@
     "test:js:watch": "vitest"
   },
   "devDependencies": {
-    "@tailwindcss/cli": "^4.1.18",
+    "@tailwindcss/cli": "^4.2.2",
     "basecoat-css": "^0.3.11",
     "jsdom": "^26.1.0",
-    "playwright": "^1.58.2",
-    "tailwindcss": "^4.1.18",
+    "playwright": "^1.59.1",
+    "tailwindcss": "^4.2.2",
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@tabler/icons-webfont": "^3.36.0",
+    "@tabler/icons-webfont": "^3.41.1",
     "htmx.org": "2.0.8"
   }
 }

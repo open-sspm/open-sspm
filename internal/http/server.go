@@ -76,6 +76,8 @@ func NewEchoServer(cfg config.Config, pool *pgxpool.Pool, q *gen.Queries, syncer
 func newEcho() *echo.Echo {
 	e := echo.New()
 	e.Logger = slog.Default().With("component", "http")
+	// Preserve client IPs behind ingress while rejecting spoofed forwarded headers on direct traffic.
+	e.IPExtractor = echo.ExtractIPFromXFFHeader()
 	return e
 }
 

@@ -45,6 +45,34 @@ func TestNewEchoUsesDefaultLogger(t *testing.T) {
 	}
 }
 
+func TestNewEchoUsesTrustedXFFIPExtractor(t *testing.T) {
+	e := newEcho()
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/test", nil)
+	req.RemoteAddr = "10.0.0.5:4321"
+	req.Header.Set(echo.HeaderXForwardedFor, "198.51.100.20, 10.0.0.4")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if got := c.RealIP(); got != "198.51.100.20" {
+		t.Fatalf("real ip = %q, want %q", got, "198.51.100.20")
+	}
+}
+
+func TestNewEchoIgnoresSpoofedXFFOnDirectRequests(t *testing.T) {
+	e := newEcho()
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/test", nil)
+	req.RemoteAddr = "203.0.113.10:4321"
+	req.Header.Set(echo.HeaderXForwardedFor, "198.51.100.20")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if got := c.RealIP(); got != "203.0.113.10" {
+		t.Fatalf("real ip = %q, want %q", got, "203.0.113.10")
+	}
+}
+
 func TestHTTPErrorHandlerInternalErrorIsGeneric(t *testing.T) {
 	e := echo.New()
 	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
