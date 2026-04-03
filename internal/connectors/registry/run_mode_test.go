@@ -43,3 +43,36 @@ func TestParseRunMode(t *testing.T) {
 		t.Fatalf("ParseRunMode(unexpected) = %q, want %q", got, RunModeFull)
 	}
 }
+
+func TestSyncRunScopeKinds(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		sourceKind string
+		want       []string
+	}{
+		{name: "okta full includes discovery", sourceKind: "okta", want: []string{"okta", "okta_discovery"}},
+		{name: "okta discovery includes full", sourceKind: "okta_discovery", want: []string{"okta", "okta_discovery"}},
+		{name: "entra full includes discovery", sourceKind: "entra", want: []string{"entra", "entra_discovery"}},
+		{name: "entra discovery includes full", sourceKind: "entra_discovery", want: []string{"entra", "entra_discovery"}},
+		{name: "google workspace full includes discovery", sourceKind: "google_workspace", want: []string{"google_workspace", "google_workspace_discovery"}},
+		{name: "google workspace discovery includes full", sourceKind: "google_workspace_discovery", want: []string{"google_workspace", "google_workspace_discovery"}},
+		{name: "github remains singleton", sourceKind: "github", want: []string{"github"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := SyncRunScopeKinds(tt.sourceKind)
+			if len(got) != len(tt.want) {
+				t.Fatalf("SyncRunScopeKinds(%q) len = %d, want %d", tt.sourceKind, len(got), len(tt.want))
+			}
+			for i := range tt.want {
+				if got[i] != tt.want[i] {
+					t.Fatalf("SyncRunScopeKinds(%q)[%d] = %q, want %q", tt.sourceKind, i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}

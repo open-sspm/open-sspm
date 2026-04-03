@@ -42,6 +42,7 @@ const failSyncRun = `-- name: FailSyncRun :exec
 UPDATE sync_runs
 SET status = $2, finished_at = now(), message = $3, error_kind = $4
 WHERE id = $1
+  AND status = 'running'
 `
 
 type FailSyncRunParams struct {
@@ -433,6 +434,7 @@ const markSyncRunSuccess = `-- name: MarkSyncRunSuccess :exec
 UPDATE sync_runs
 SET status = 'success', finished_at = now(), message = '', stats = $2, error_kind = ''
 WHERE id = $1
+  AND status = 'running'
 `
 
 type MarkSyncRunSuccessParams struct {
@@ -443,6 +445,38 @@ type MarkSyncRunSuccessParams struct {
 func (q *Queries) MarkSyncRunSuccess(ctx context.Context, arg MarkSyncRunSuccessParams) error {
 	_, err := q.db.Exec(ctx, markSyncRunSuccess, arg.ID, arg.Stats)
 	return err
+}
+
+const reclaimRunningSyncRunsBySource = `-- name: ReclaimRunningSyncRunsBySource :execrows
+UPDATE sync_runs
+SET
+  status = 'canceled',
+  finished_at = started_at,
+  message = $1::text,
+  error_kind = $2::text
+WHERE source_kind = ANY($3::text[])
+  AND source_name = $4::text
+  AND status = 'running'
+`
+
+type ReclaimRunningSyncRunsBySourceParams struct {
+	Message     string   `json:"message"`
+	ErrorKind   string   `json:"error_kind"`
+	SourceKinds []string `json:"source_kinds"`
+	SourceName  string   `json:"source_name"`
+}
+
+func (q *Queries) ReclaimRunningSyncRunsBySource(ctx context.Context, arg ReclaimRunningSyncRunsBySourceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, reclaimRunningSyncRunsBySource,
+		arg.Message,
+		arg.ErrorKind,
+		arg.SourceKinds,
+		arg.SourceName,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const releaseAdvisoryLock = `-- name: ReleaseAdvisoryLock :exec

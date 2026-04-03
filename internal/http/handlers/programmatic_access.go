@@ -605,9 +605,17 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 }
 
 func availableProgrammaticSources(snap ConnectorSnapshot) []viewmodels.ProgrammaticSourceOption {
+	return programmaticSourcesByView(snap, true)
+}
+
+func configuredProgrammaticSources(snap ConnectorSnapshot) []viewmodels.ProgrammaticSourceOption {
+	return programmaticSourcesByView(snap, false)
+}
+
+func programmaticSourcesByView(snap ConnectorSnapshot, requireEnabled bool) []viewmodels.ProgrammaticSourceOption {
 	sources := make([]viewmodels.ProgrammaticSourceOption, 0, 4)
 
-	if snap.EntraEnabled && snap.EntraConfigured {
+	if snap.EntraConfigured && (!requireEnabled || snap.EntraEnabled) {
 		if sourceName := strings.TrimSpace(snap.Entra.TenantID); sourceName != "" {
 			sources = append(sources, viewmodels.ProgrammaticSourceOption{
 				SourceKind: "entra",
@@ -616,7 +624,7 @@ func availableProgrammaticSources(snap ConnectorSnapshot) []viewmodels.Programma
 			})
 		}
 	}
-	if snap.GoogleWorkspaceEnabled && snap.GoogleWorkspaceConfigured {
+	if snap.GoogleWorkspaceConfigured && (!requireEnabled || snap.GoogleWorkspaceEnabled) {
 		if sourceName := strings.TrimSpace(snap.GoogleWorkspace.CustomerID); sourceName != "" {
 			sources = append(sources, viewmodels.ProgrammaticSourceOption{
 				SourceKind: configstore.KindGoogleWorkspace,
@@ -625,7 +633,7 @@ func availableProgrammaticSources(snap ConnectorSnapshot) []viewmodels.Programma
 			})
 		}
 	}
-	if snap.GitHubEnabled && snap.GitHubConfigured {
+	if snap.GitHubConfigured && (!requireEnabled || snap.GitHubEnabled) {
 		if sourceName := strings.TrimSpace(snap.GitHub.Org); sourceName != "" {
 			sources = append(sources, viewmodels.ProgrammaticSourceOption{
 				SourceKind: "github",
@@ -634,7 +642,7 @@ func availableProgrammaticSources(snap ConnectorSnapshot) []viewmodels.Programma
 			})
 		}
 	}
-	if snap.VaultEnabled && snap.VaultConfigured {
+	if snap.VaultConfigured && (!requireEnabled || snap.VaultEnabled) {
 		if sourceName := strings.TrimSpace(snap.Vault.SourceName()); sourceName != "" {
 			sources = append(sources, viewmodels.ProgrammaticSourceOption{
 				SourceKind: "vault",

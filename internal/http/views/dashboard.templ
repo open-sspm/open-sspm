@@ -13,19 +13,19 @@ templ DashboardPage(data viewmodels.DashboardViewData) {
 			<section>
 				<ul class="grid gap-6 sm:grid-cols-3">
 					<li class="flex items-center gap-4">
-						<span class="text-xs font-medium text-muted-foreground">Active users</span>
+						<span class="text-xs font-medium text-muted-foreground">Identities</span>
 						<i class="ti ti-users text-lg text-muted-foreground" aria-hidden="true"></i>
-						<span class="text-2xl font-semibold tracking-tight">{ FormatInt64(data.ActiveUserCount) }</span>
+						<span class="text-2xl font-semibold tracking-tight">{ FormatInt64(data.IdentityCount) }</span>
 					</li>
 					<li class="flex items-center gap-4">
-						<span class="text-xs font-medium text-muted-foreground">Apps</span>
+						<span class="text-xs font-medium text-muted-foreground">Discovered SaaS apps</span>
 						<i class="ti ti-apps text-lg text-muted-foreground" aria-hidden="true"></i>
-						<span class="text-2xl font-semibold tracking-tight">{ FormatInt64(data.AppCount) }</span>
+						<span class="text-2xl font-semibold tracking-tight">{ FormatInt64(data.DiscoveryAppCount) }</span>
 					</li>
 					<li class="flex items-center gap-4">
-						<span class="text-xs font-medium text-muted-foreground">Connected apps</span>
+						<span class="text-xs font-medium text-muted-foreground">App assets</span>
 						<i class="ti ti-plug-connected text-lg text-muted-foreground" aria-hidden="true"></i>
-						<span class="text-2xl font-semibold tracking-tight">{ FormatInt64(data.ConnectedAppCount) }</span>
+						<span class="text-2xl font-semibold tracking-tight">{ FormatInt64(data.AppAssetCount) }</span>
 					</li>
 				</ul>
 			</section>

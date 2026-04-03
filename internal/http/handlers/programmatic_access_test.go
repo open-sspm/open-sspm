@@ -298,6 +298,25 @@ func TestAvailableProgrammaticSourcesIncludesGoogleWorkspace(t *testing.T) {
 	}
 }
 
+func TestConfiguredProgrammaticSourcesIncludesDisabledConfiguredConnector(t *testing.T) {
+	t.Parallel()
+
+	sources := configuredProgrammaticSources(ConnectorSnapshot{
+		GitHub:           configstore.GitHubConfig{Org: "acme-org"},
+		GitHubConfigured: true,
+		GitHubEnabled:    false,
+	})
+	if len(sources) != 1 {
+		t.Fatalf("sources length = %d, want 1", len(sources))
+	}
+	if sources[0].SourceKind != "github" {
+		t.Fatalf("source kind = %q, want github", sources[0].SourceKind)
+	}
+	if sources[0].SourceName != "acme-org" {
+		t.Fatalf("source name = %q, want acme-org", sources[0].SourceName)
+	}
+}
+
 func TestAppAssetCredentialRefGoogleWorkspace(t *testing.T) {
 	t.Parallel()
 

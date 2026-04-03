@@ -46,10 +46,7 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 	started := time.Now()
 	slog.Info("syncing AWS Identity Center")
 
-	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
-		SourceKind: "aws",
-		SourceName: i.sourceName,
-	})
+	runID, err := registry.StartSyncRun(ctx, q, "aws", i.sourceName)
 	if err != nil {
 		return err
 	}

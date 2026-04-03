@@ -38,3 +38,18 @@ func SyncRunSourceKind(kind string, mode RunMode) string {
 	}
 	return kind
 }
+
+func SyncRunScopeKinds(sourceKind string) []string {
+	switch strings.ToLower(strings.TrimSpace(sourceKind)) {
+	case "okta", "okta_discovery":
+		return []string{"okta", "okta_discovery"}
+	case "entra", "entra_discovery":
+		return []string{"entra", "entra_discovery"}
+	case "google_workspace", "google_workspace_discovery":
+		return []string{"google_workspace", "google_workspace_discovery"}
+	case "":
+		return nil
+	default:
+		return []string{strings.ToLower(strings.TrimSpace(sourceKind))}
+	}
+}

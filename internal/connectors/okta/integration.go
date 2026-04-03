@@ -87,10 +87,7 @@ func (i *OktaIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool
 
 func (i *OktaIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
 	started := time.Now()
-	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
-		SourceKind: registry.SyncRunSourceKind("okta", registry.RunModeFull),
-		SourceName: i.sourceName,
-	})
+	runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("okta", registry.RunModeFull), i.sourceName)
 	if err != nil {
 		return err
 	}
@@ -136,10 +133,7 @@ func (i *OktaIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pgx
 
 func (i *OktaIntegration) runDiscovery(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
 	started := time.Now()
-	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
-		SourceKind: registry.SyncRunSourceKind("okta", registry.RunModeDiscovery),
-		SourceName: i.sourceName,
-	})
+	runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("okta", registry.RunModeDiscovery), i.sourceName)
 	if err != nil {
 		return err
 	}

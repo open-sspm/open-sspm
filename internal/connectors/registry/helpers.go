@@ -22,7 +22,10 @@ const (
 	SyncErrorKindAPI             = "api"
 	SyncErrorKindDB              = "db"
 	SyncErrorKindContextCanceled = "context_canceled"
+	SyncErrorKindStaleReclaimed  = "stale_reclaimed"
 	SyncErrorKindUnknown         = "unknown"
+
+	syncRunReclaimedMessage = "reclaimed stale running sync run before starting a new sync"
 )
 
 func ConnectorLockKey(kind, name string) int64 {
@@ -34,6 +37,42 @@ func ConnectorLockKey(kind, name string) int64 {
 	_, _ = h.Write([]byte{0})
 	_, _ = h.Write([]byte(name))
 	return int64(h.Sum64())
+}
+
+func StartSyncRun(ctx context.Context, q *gen.Queries, sourceKind, sourceName string) (int64, error) {
+	if q == nil {
+		return 0, errors.New("sync run start could not be persisted: queries is nil")
+	}
+
+	sourceKind = strings.TrimSpace(sourceKind)
+	sourceName = strings.TrimSpace(sourceName)
+	if sourceKind == "" || sourceName == "" {
+		return 0, fmt.Errorf("sync run start requires source kind and source name, got %q/%q", sourceKind, sourceName)
+	}
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Connector locks and sync jobs serialize runs per scope, so any existing
+	// running row for the same scope is orphaned and can be reclaimed.
+	if _, err := q.ReclaimRunningSyncRunsBySource(ctx, gen.ReclaimRunningSyncRunsBySourceParams{
+		SourceKinds: SyncRunScopeKinds(sourceKind),
+		SourceName:  sourceName,
+		Message:     syncRunReclaimedMessage,
+		ErrorKind:   SyncErrorKindStaleReclaimed,
+	}); err != nil {
+		return 0, fmt.Errorf("reclaim stale sync runs for %s/%s: %w", sourceKind, sourceName, err)
+	}
+
+	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
+		SourceKind: sourceKind,
+		SourceName: sourceName,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("create sync run for %s/%s: %w", sourceKind, sourceName, err)
+	}
+	return runID, nil
 }
 
 func FailSyncRun(ctx context.Context, q *gen.Queries, runID int64, err error, errorKind string) error {

@@ -197,10 +197,7 @@ func (i *GoogleWorkspaceIntegration) Run(ctx context.Context, q *gen.Queries, po
 
 func (i *GoogleWorkspaceIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
 	started := time.Now()
-	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
-		SourceKind: registry.SyncRunSourceKind(configstore.KindGoogleWorkspace, registry.RunModeFull),
-		SourceName: i.customerID,
-	})
+	runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind(configstore.KindGoogleWorkspace, registry.RunModeFull), i.customerID)
 	if err != nil {
 		return err
 	}
@@ -309,10 +306,7 @@ func (i *GoogleWorkspaceIntegration) runFull(ctx context.Context, q *gen.Queries
 
 func (i *GoogleWorkspaceIntegration) runDiscovery(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
 	started := time.Now()
-	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
-		SourceKind: registry.SyncRunSourceKind(configstore.KindGoogleWorkspace, registry.RunModeDiscovery),
-		SourceName: i.customerID,
-	})
+	runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind(configstore.KindGoogleWorkspace, registry.RunModeDiscovery), i.customerID)
 	if err != nil {
 		return err
 	}
