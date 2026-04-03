@@ -20,22 +20,14 @@ type AppAssetListItem struct {
 }
 
 type AppAssetsViewData struct {
-	Layout             LayoutData
+	PaginatedListPageData
 	Sources            []ProgrammaticSourceOption
 	SelectedSourceKind string
 	SelectedSourceName string
 	Query              string
 	AssetKind          string
 	Items              []AppAssetListItem
-	ShowingCount       int
-	ShowingFrom        int
-	ShowingTo          int
-	TotalCount         int64
-	Page               int
-	PerPage            int
-	TotalPages         int
 	HasItems           bool
-	EmptyStateMsg      string
 }
 
 type ProgrammaticAuditEventItem struct {
@@ -115,7 +107,7 @@ type CredentialArtifactListItem struct {
 }
 
 type CredentialsViewData struct {
-	Layout             LayoutData
+	PaginatedListPageData
 	Sources            []ProgrammaticSourceOption
 	SelectedSourceKind string
 	SelectedSourceName string
@@ -126,15 +118,7 @@ type CredentialsViewData struct {
 	ExpiryState        string
 	ExpiresInDays      int
 	Items              []CredentialArtifactListItem
-	ShowingCount       int
-	ShowingFrom        int
-	ShowingTo          int
-	TotalCount         int64
-	Page               int
-	PerPage            int
-	TotalPages         int
 	HasItems           bool
-	EmptyStateMsg      string
 }
 
 type CredentialArtifactSummaryView struct {

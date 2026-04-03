@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"net/http"
 	"strings"
 
 	"github.com/labstack/echo/v5"
@@ -103,23 +102,14 @@ func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
 	query := strings.TrimSpace(c.QueryParam("q"))
 	page := parsePageParam(c)
 	sourceName := strings.TrimSpace(snap.GoogleWorkspace.CustomerID)
+	unavailablePagination := newPaginatedListState(0, page, perPage)
 
 	if !snap.GoogleWorkspaceConfigured || !snap.GoogleWorkspaceEnabled {
 		message := connectorUnavailableMessage("Google Workspace", snap.GoogleWorkspaceConfigured, snap.GoogleWorkspaceEnabled)
 		data := viewmodels.GoogleWorkspaceGroupsViewData{
-			Layout:         layout,
-			Groups:         nil,
-			Query:          query,
-			ShowingCount:   0,
-			ShowingFrom:    0,
-			ShowingTo:      0,
-			TotalCount:     0,
-			Page:           1,
-			PerPage:        perPage,
-			TotalPages:     1,
-			HasGroups:      false,
-			EmptyStateMsg:  message,
-			EmptyStateHref: "/settings/connectors?open=google_workspace",
+			PaginatedListPageData: unavailablePagination.PageData(layout, 0, message, "/settings/connectors?open=google_workspace"),
+			Query:                 query,
+			HasGroups:             false,
 		}
 		return h.RenderComponent(c, views.GoogleWorkspaceGroupsPage(data))
 	}
@@ -133,13 +123,13 @@ func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	page, totalPages, offset := paginate(totalCount, page, perPage)
+	pagination := newPaginatedListState(totalCount, page, perPage)
 	groups, err := h.Q.ListGoogleWorkspaceGroupsPageBySourceAndQuery(ctx, gen.ListGoogleWorkspaceGroupsPageBySourceAndQueryParams{
 		SourceKind: configstore.KindGoogleWorkspace,
 		SourceName: sourceName,
 		Query:      query,
 		PageLimit:  int32(perPage),
-		PageOffset: int32(offset),
+		PageOffset: int32(pagination.Offset()),
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -193,119 +183,46 @@ func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
 		})
 	}
 
-	showingCount := len(items)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
 	emptyState := "No Google Workspace groups synced yet."
 	if query != "" {
 		emptyState = "No Google Workspace groups match the current search."
 	}
 
 	data := viewmodels.GoogleWorkspaceGroupsViewData{
-		Layout:         layout,
-		Groups:         items,
-		Query:          query,
-		ShowingCount:   showingCount,
-		ShowingFrom:    showingFrom,
-		ShowingTo:      showingTo,
-		TotalCount:     totalCount,
-		Page:           page,
-		PerPage:        perPage,
-		TotalPages:     totalPages,
-		HasGroups:      showingCount > 0,
-		EmptyStateMsg:  emptyState,
-		EmptyStateHref: "/settings/connectors?open=google_workspace",
+		PaginatedListPageData: pagination.PageData(layout, len(items), emptyState, "/settings/connectors?open=google_workspace"),
+		Groups:                items,
+		Query:                 query,
+		HasGroups:             len(items) > 0,
 	}
 
 	return h.RenderComponent(c, views.GoogleWorkspaceGroupsPage(data))
 }
 
-func (h *Handlers) HandleGoogleWorkspaceOAuthApps(c *echo.Context) error {
-	query := strings.TrimSpace(c.QueryParam("q"))
-	target := "/connected-apps"
-	if query != "" {
-		target = connectedAppsListURL(query, "", 1)
-	}
-	return c.Redirect(http.StatusMovedPermanently, target)
-}
-
 func (h *Handlers) HandleUnmatchedGoogleWorkspace(c *echo.Context) error {
-	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Unmanaged Google Workspace Users")
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	const perPage = 20
-	query := strings.TrimSpace(c.QueryParam("q"))
-	page := parsePageParam(c)
-	sourceName := strings.TrimSpace(snap.GoogleWorkspace.CustomerID)
-
-	if !snap.GoogleWorkspaceConfigured || !snap.GoogleWorkspaceEnabled {
-		message := connectorUnavailableMessage("Google Workspace", snap.GoogleWorkspaceConfigured, snap.GoogleWorkspaceEnabled)
-		data := viewmodels.UnmatchedGoogleWorkspaceViewData{
-			Layout:         layout,
-			Users:          nil,
-			Query:          query,
-			ShowingCount:   0,
-			ShowingFrom:    0,
-			ShowingTo:      0,
-			TotalCount:     0,
-			Page:           1,
-			PerPage:        perPage,
-			TotalPages:     1,
-			HasUsers:       false,
-			EmptyStateMsg:  message,
-			EmptyStateHref: "/settings/connectors?open=google_workspace",
-		}
-		return h.RenderComponent(c, views.UnmatchedGoogleWorkspacePage(data))
-	}
-
-	totalCount, err := h.Q.CountUnlinkedSourceAccountsBySourceAndQuery(ctx, gen.CountUnlinkedSourceAccountsBySourceAndQueryParams{
-		SourceKind:     configstore.KindGoogleWorkspace,
-		SourceName:     sourceName,
-		EntityCategory: registry.EntityCategoryUser,
-		Query:          query,
+	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
+		Title:              "Unlinked Google Workspace Users",
+		ConnectorName:      "Google Workspace",
+		SourceKind:         configstore.KindGoogleWorkspace,
+		EntityCategory:     registry.EntityCategoryUser,
+		EmptyStateHref:     "/settings/connectors?open=google_workspace",
+		SyncedEmptyState:   "No unlinked Google Workspace users.",
+		FilteredEmptyState: "No unlinked Google Workspace users match the current search.",
+		IsConfigured: func(snap ConnectorSnapshot) bool {
+			return snap.GoogleWorkspaceConfigured
+		},
+		IsEnabled: func(snap ConnectorSnapshot) bool {
+			return snap.GoogleWorkspaceEnabled
+		},
+		ResolveSourceName: func(_ *echo.Context, snap ConnectorSnapshot) (string, error) {
+			return strings.TrimSpace(snap.GoogleWorkspace.CustomerID), nil
+		},
 	})
 	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	page, totalPages, offset := paginate(totalCount, page, perPage)
-	users, err := h.Q.ListUnlinkedSourceAccountsPageBySourceAndQuery(ctx, gen.ListUnlinkedSourceAccountsPageBySourceAndQueryParams{
-		SourceKind:     configstore.KindGoogleWorkspace,
-		SourceName:     sourceName,
-		EntityCategory: registry.EntityCategoryUser,
-		Query:          query,
-		PageLimit:      int32(perPage),
-		PageOffset:     int32(offset),
-	})
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	showingCount := len(users)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
-	emptyState := "No unmanaged Google Workspace users."
-	if query != "" {
-		emptyState = "No unmanaged Google Workspace users match the current search."
+		return h.renderUnmatchedSourceAccountsError(c, err)
 	}
 
 	data := viewmodels.UnmatchedGoogleWorkspaceViewData{
-		Layout:         layout,
-		Users:          users,
-		Query:          query,
-		ShowingCount:   showingCount,
-		ShowingFrom:    showingFrom,
-		ShowingTo:      showingTo,
-		TotalCount:     totalCount,
-		Page:           page,
-		PerPage:        perPage,
-		TotalPages:     totalPages,
-		HasUsers:       showingCount > 0,
-		EmptyStateMsg:  emptyState,
-		EmptyStateHref: "/settings/connectors?open=google_workspace",
+		UnmatchedSourceAccountsPageData: unmatched.PageData,
 	}
 
 	return h.RenderComponent(c, views.UnmatchedGoogleWorkspacePage(data))

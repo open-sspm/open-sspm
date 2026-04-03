@@ -164,7 +164,7 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 	if len(connectedRows) > 0 {
 		data.Sections = append(data.Sections, viewmodels.CommandSectionView{
 			Key:   "connected-apps",
-			Title: "Google Workspace Connected Apps",
+			Title: "OAuth Apps",
 			Items: commandConnectedAppItems(connectedRows),
 		})
 	}
@@ -185,7 +185,7 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 	if len(oktaAppRows) > 0 {
 		data.Sections = append(data.Sections, viewmodels.CommandSectionView{
 			Key:   "okta-apps",
-			Title: "Okta Apps",
+			Title: "Assigned Apps",
 			Items: commandOktaAppItems(oktaAppRows),
 		})
 	}
@@ -270,7 +270,7 @@ func commandConnectedAppItems(rows []gen.SearchConnectedAppsForCommandRow) []vie
 		items = append(items, viewmodels.CommandItemView{
 			ID:         "cmd-connected-app-" + strconv.FormatInt(row.ID, 10),
 			Kind:       "connected_app",
-			Href:       "/connected-apps/" + strconv.FormatInt(row.ID, 10),
+			Href:       "/oauth-apps/" + strconv.FormatInt(row.ID, 10),
 			Primary:    displayName,
 			Secondary:  fallbackDash(strings.TrimSpace(row.ExternalID)),
 			FilterText: strings.TrimSpace(displayName + " " + row.ExternalID + " " + status + " " + row.ReviewState),
@@ -392,8 +392,8 @@ func commandActionSection(snap ConnectorSnapshot, query string) viewmodels.Comma
 	if _, ok := commandConnectedAppsSourceName(snap); ok {
 		items = append(items, commandActionItem(
 			"cmd-action-connected-apps",
-			fmt.Sprintf("Search Google Workspace Connected Apps for “%s”", query),
-			commandQueryURL("/connected-apps", query),
+			fmt.Sprintf("Search OAuth Apps for “%s”", query),
+			commandQueryURL("/oauth-apps", query),
 		))
 	}
 	if commandHasAppAssetsSurface(snap) {
@@ -413,8 +413,8 @@ func commandActionSection(snap ConnectorSnapshot, query string) viewmodels.Comma
 	if commandOktaAppsAvailable(snap) {
 		items = append(items, commandActionItem(
 			"cmd-action-okta-apps",
-			fmt.Sprintf("Search Okta Apps for “%s”", query),
-			commandQueryURL("/apps", query),
+			fmt.Sprintf("Search Assigned Apps for “%s”", query),
+			commandQueryURL("/assigned-apps", query),
 		))
 	}
 	return viewmodels.CommandSectionView{

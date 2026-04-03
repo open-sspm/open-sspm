@@ -51,16 +51,12 @@ func (h *Handlers) buildSourceAccountInventoryPage(c *echo.Context, opts sourceA
 	}
 
 	query := strings.TrimSpace(c.QueryParam("q"))
+	pagination := newPaginatedListState(0, parsePageParam(c), sourceAccountInventoryPerPage)
 	if !opts.IsConfigured(snap) || !opts.IsEnabled(snap) {
 		return sourceAccountInventoryResult{
 			PageData: viewmodels.SourceAccountInventoryPageData{
-				Layout:         layout,
-				Query:          query,
-				Page:           1,
-				PerPage:        sourceAccountInventoryPerPage,
-				TotalPages:     1,
-				EmptyStateMsg:  opts.unavailableMessage(snap),
-				EmptyStateHref: opts.EmptyStateHref,
+				PaginatedListPageData: pagination.PageData(layout, 0, opts.unavailableMessage(snap), opts.EmptyStateHref),
+				Query:                 query,
 			},
 		}, nil
 	}
@@ -70,15 +66,12 @@ func (h *Handlers) buildSourceAccountInventoryPage(c *echo.Context, opts sourceA
 		return sourceAccountInventoryResult{}, err
 	}
 
-	page := parsePageParam(c)
-	page, totalPages, offset := paginate(totalCount, page, sourceAccountInventoryPerPage)
-	accounts, err := opts.List(ctx, snap, query, offset, sourceAccountInventoryPerPage)
+	pagination = newPaginatedListState(totalCount, parsePageParam(c), sourceAccountInventoryPerPage)
+	accounts, err := opts.List(ctx, snap, query, pagination.Offset(), sourceAccountInventoryPerPage)
 	if err != nil {
 		return sourceAccountInventoryResult{}, err
 	}
 
-	showingCount := len(accounts)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 	emptyState := opts.SyncedEmptyState
 	if query != "" {
 		emptyState = opts.FilteredEmptyState
@@ -86,18 +79,9 @@ func (h *Handlers) buildSourceAccountInventoryPage(c *echo.Context, opts sourceA
 
 	return sourceAccountInventoryResult{
 		PageData: viewmodels.SourceAccountInventoryPageData{
-			Layout:         layout,
-			Query:          query,
-			ShowingCount:   showingCount,
-			ShowingFrom:    showingFrom,
-			ShowingTo:      showingTo,
-			TotalCount:     totalCount,
-			Page:           page,
-			PerPage:        sourceAccountInventoryPerPage,
-			TotalPages:     totalPages,
-			HasAccounts:    showingCount > 0,
-			EmptyStateMsg:  emptyState,
-			EmptyStateHref: opts.EmptyStateHref,
+			PaginatedListPageData: pagination.PageData(layout, len(accounts), emptyState, opts.EmptyStateHref),
+			Query:                 query,
+			HasAccounts:           len(accounts) > 0,
 		},
 		Accounts: accounts,
 	}, nil

@@ -16,8 +16,8 @@ WITH configured_sources AS (
   SELECT
     k.kind AS source_kind,
     n.name AS source_name
-  FROM unnest($3::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($4::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+  FROM unnest($4::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($5::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
 ),
 scoped_app_ids AS (
   SELECT DISTINCT sas.saas_app_id
@@ -28,94 +28,102 @@ scoped_app_ids AS (
   WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
     AND (
-      $5::text = ''
-      OR lower(trim(sas.source_kind)) = lower(trim($5::text))
+      $6::text = ''
+      OR lower(trim(sas.source_kind)) = lower(trim($6::text))
     )
     AND (
-      $6::text = ''
-      OR lower(trim(sas.source_name)) = lower(trim($6::text))
+      $7::text = ''
+      OR lower(trim(sas.source_name)) = lower(trim($7::text))
     )
 ),
-posture_inputs AS (
-  SELECT
-    spi.id, spi.canonical_key, spi.display_name, spi.primary_domain, spi.vendor_name, spi.first_seen_at, spi.last_seen_at, spi.created_at, spi.updated_at, spi.owner_identity_id, spi.actors_30d, spi.has_privileged_scope, spi.has_confidential_scope, spi.bound_connector_kind, spi.bound_connector_source_name, spi.connector_enabled, spi.connector_configured, spi.last_success_at, spi.suggested_business_criticality, spi.suggested_data_classification, spi.effective_business_criticality, spi.effective_data_classification,
-    CASE spi.bound_connector_kind
-      WHEN 'okta' THEN $7::timestamptz
-      WHEN 'entra' THEN $8::timestamptz
-      WHEN 'google_workspace' THEN $9::timestamptz
-      WHEN 'github' THEN $10::timestamptz
-      WHEN 'datadog' THEN $11::timestamptz
-      WHEN 'aws_identity_center' THEN $12::timestamptz
-      ELSE $13::timestamptz
-    END AS fresh_after
-  FROM saas_app_posture_inputs_v spi
-  JOIN scoped_app_ids sai ON sai.saas_app_id = spi.id
-  WHERE (
-    $14::text = ''
-    OR spi.display_name ILIKE ('%' || $14::text || '%')
-    OR spi.primary_domain ILIKE ('%' || $14::text || '%')
-    OR spi.vendor_name ILIKE ('%' || $14::text || '%')
-    OR spi.canonical_key ILIKE ('%' || $14::text || '%')
+posture_rows (
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+  FROM saas_app_posture_rows(
+    $8::timestamptz,
+    $9::timestamptz,
+    $10::timestamptz,
+    $11::timestamptz,
+    $12::timestamptz,
+    $13::timestamptz,
+    $14::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
   )
-),
-posture_state AS (
-  SELECT
-    pi.id, pi.canonical_key, pi.display_name, pi.primary_domain, pi.vendor_name, pi.first_seen_at, pi.last_seen_at, pi.created_at, pi.updated_at, pi.owner_identity_id, pi.actors_30d, pi.has_privileged_scope, pi.has_confidential_scope, pi.bound_connector_kind, pi.bound_connector_source_name, pi.connector_enabled, pi.connector_configured, pi.last_success_at, pi.suggested_business_criticality, pi.suggested_data_classification, pi.effective_business_criticality, pi.effective_data_classification, pi.fresh_after,
-    CASE
-      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
-      WHEN NOT pi.connector_configured THEN 'unmanaged'
-      WHEN NOT pi.connector_enabled THEN 'unmanaged'
-      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
-      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
-      ELSE 'managed'
-    END AS managed_state,
-    CASE
-      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'no_binding'
-      WHEN NOT pi.connector_configured THEN 'connector_not_configured'
-      WHEN NOT pi.connector_enabled THEN 'connector_disabled'
-      WHEN pi.last_success_at IS NULL THEN 'stale_sync'
-      WHEN pi.last_success_at < pi.fresh_after THEN 'stale_sync'
-      ELSE 'active_binding_fresh_sync'
-    END AS managed_reason
-  FROM posture_inputs pi
-),
-posture_with_risk AS (
-  SELECT
-    ps.id, ps.canonical_key, ps.display_name, ps.primary_domain, ps.vendor_name, ps.first_seen_at, ps.last_seen_at, ps.created_at, ps.updated_at, ps.owner_identity_id, ps.actors_30d, ps.has_privileged_scope, ps.has_confidential_scope, ps.bound_connector_kind, ps.bound_connector_source_name, ps.connector_enabled, ps.connector_configured, ps.last_success_at, ps.suggested_business_criticality, ps.suggested_data_classification, ps.effective_business_criticality, ps.effective_data_classification, ps.fresh_after, ps.managed_state, ps.managed_reason,
-    LEAST(100,
-      CASE WHEN ps.managed_state <> 'managed' THEN 45 ELSE 0 END
-      + CASE WHEN ps.has_privileged_scope THEN 20 ELSE 0 END
-      + CASE WHEN ps.owner_identity_id = 0 THEN 15 ELSE 0 END
-      + CASE WHEN ps.actors_30d >= 50 THEN 10 ELSE 0 END
-      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_business_criticality IN ('high', 'critical') THEN 10 ELSE 0 END
-      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_data_classification IN ('confidential', 'restricted') THEN 5 ELSE 0 END
-    )::int AS risk_score
-  FROM posture_state ps
-),
-posture_rows AS (
-  SELECT
-    pwr.id, pwr.canonical_key, pwr.display_name, pwr.primary_domain, pwr.vendor_name, pwr.first_seen_at, pwr.last_seen_at, pwr.created_at, pwr.updated_at, pwr.owner_identity_id, pwr.actors_30d, pwr.has_privileged_scope, pwr.has_confidential_scope, pwr.bound_connector_kind, pwr.bound_connector_source_name, pwr.connector_enabled, pwr.connector_configured, pwr.last_success_at, pwr.suggested_business_criticality, pwr.suggested_data_classification, pwr.effective_business_criticality, pwr.effective_data_classification, pwr.fresh_after, pwr.managed_state, pwr.managed_reason, pwr.risk_score,
-    CASE
-      WHEN pwr.risk_score >= 80 THEN 'critical'
-      WHEN pwr.risk_score >= 60 THEN 'high'
-      WHEN pwr.risk_score >= 30 THEN 'medium'
-      ELSE 'low'
-    END AS risk_level
-  FROM posture_with_risk pwr
 )
 SELECT count(*)
 FROM posture_rows pr
+JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
 WHERE (
     $1::text = ''
-    OR pr.managed_state = $1::text
+    OR pr.display_name ILIKE ('%' || $1::text || '%')
+    OR pr.primary_domain ILIKE ('%' || $1::text || '%')
+    OR pr.vendor_name ILIKE ('%' || $1::text || '%')
+    OR pr.canonical_key ILIKE ('%' || $1::text || '%')
   )
   AND (
     $2::text = ''
-    OR pr.risk_level = $2::text
+    OR pr.managed_state = $2::text
+  )
+  AND (
+    $3::text = ''
+    OR pr.risk_level = $3::text
   )
 `
 
 type CountSaaSAppsByFiltersParams struct {
+	Query                     string             `json:"query"`
 	ManagedState              string             `json:"managed_state"`
 	RiskLevel                 string             `json:"risk_level"`
 	ConfiguredSourceKinds     []string           `json:"configured_source_kinds"`
@@ -129,11 +137,11 @@ type CountSaaSAppsByFiltersParams struct {
 	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
 	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
 	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
-	Query                     string             `json:"query"`
 }
 
 func (q *Queries) CountSaaSAppsByFilters(ctx context.Context, arg CountSaaSAppsByFiltersParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countSaaSAppsByFilters,
+		arg.Query,
 		arg.ManagedState,
 		arg.RiskLevel,
 		arg.ConfiguredSourceKinds,
@@ -147,7 +155,6 @@ func (q *Queries) CountSaaSAppsByFilters(ctx context.Context, arg CountSaaSAppsB
 		arg.DatadogFreshAfter,
 		arg.AwsFreshAfter,
 		arg.DefaultFreshAfter,
-		arg.Query,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -171,37 +178,77 @@ scoped_app_ids AS (
   WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
 ),
-posture_inputs AS (
-  SELECT
-    spi.id, spi.canonical_key, spi.display_name, spi.primary_domain, spi.vendor_name, spi.first_seen_at, spi.last_seen_at, spi.created_at, spi.updated_at, spi.owner_identity_id, spi.actors_30d, spi.has_privileged_scope, spi.has_confidential_scope, spi.bound_connector_kind, spi.bound_connector_source_name, spi.connector_enabled, spi.connector_configured, spi.last_success_at, spi.suggested_business_criticality, spi.suggested_data_classification, spi.effective_business_criticality, spi.effective_data_classification,
-    CASE spi.bound_connector_kind
-      WHEN 'okta' THEN $3::timestamptz
-      WHEN 'entra' THEN $4::timestamptz
-      WHEN 'google_workspace' THEN $5::timestamptz
-      WHEN 'github' THEN $6::timestamptz
-      WHEN 'datadog' THEN $7::timestamptz
-      WHEN 'aws_identity_center' THEN $8::timestamptz
-      ELSE $9::timestamptz
-    END AS fresh_after
-  FROM saas_app_posture_inputs_v spi
-  JOIN scoped_app_ids sai ON sai.saas_app_id = spi.id
-),
-posture_rows AS (
-  SELECT
-    CASE
-      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
-      WHEN NOT pi.connector_configured THEN 'unmanaged'
-      WHEN NOT pi.connector_enabled THEN 'unmanaged'
-      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
-      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
-      ELSE 'managed'
-    END AS managed_state
-  FROM posture_inputs pi
+posture_rows (
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+  FROM saas_app_posture_rows(
+    $3::timestamptz,
+    $4::timestamptz,
+    $5::timestamptz,
+    $6::timestamptz,
+    $7::timestamptz,
+    $8::timestamptz,
+    $9::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
+  )
 )
-SELECT pr.managed_state, count(*) AS app_count
+SELECT pr.managed_state::text AS managed_state, count(*) AS app_count
 FROM posture_rows pr
-GROUP BY pr.managed_state
-ORDER BY pr.managed_state
+JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
+GROUP BY 1
+ORDER BY 1
 `
 
 type CountSaaSAppsGroupedByManagedStateParams struct {
@@ -268,60 +315,77 @@ scoped_app_ids AS (
   WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
 ),
-posture_inputs AS (
-  SELECT
-    spi.id, spi.canonical_key, spi.display_name, spi.primary_domain, spi.vendor_name, spi.first_seen_at, spi.last_seen_at, spi.created_at, spi.updated_at, spi.owner_identity_id, spi.actors_30d, spi.has_privileged_scope, spi.has_confidential_scope, spi.bound_connector_kind, spi.bound_connector_source_name, spi.connector_enabled, spi.connector_configured, spi.last_success_at, spi.suggested_business_criticality, spi.suggested_data_classification, spi.effective_business_criticality, spi.effective_data_classification,
-    CASE spi.bound_connector_kind
-      WHEN 'okta' THEN $3::timestamptz
-      WHEN 'entra' THEN $4::timestamptz
-      WHEN 'google_workspace' THEN $5::timestamptz
-      WHEN 'github' THEN $6::timestamptz
-      WHEN 'datadog' THEN $7::timestamptz
-      WHEN 'aws_identity_center' THEN $8::timestamptz
-      ELSE $9::timestamptz
-    END AS fresh_after
-  FROM saas_app_posture_inputs_v spi
-  JOIN scoped_app_ids sai ON sai.saas_app_id = spi.id
-),
-posture_state AS (
-  SELECT
-    pi.id, pi.canonical_key, pi.display_name, pi.primary_domain, pi.vendor_name, pi.first_seen_at, pi.last_seen_at, pi.created_at, pi.updated_at, pi.owner_identity_id, pi.actors_30d, pi.has_privileged_scope, pi.has_confidential_scope, pi.bound_connector_kind, pi.bound_connector_source_name, pi.connector_enabled, pi.connector_configured, pi.last_success_at, pi.suggested_business_criticality, pi.suggested_data_classification, pi.effective_business_criticality, pi.effective_data_classification, pi.fresh_after,
-    CASE
-      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
-      WHEN NOT pi.connector_configured THEN 'unmanaged'
-      WHEN NOT pi.connector_enabled THEN 'unmanaged'
-      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
-      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
-      ELSE 'managed'
-    END AS managed_state
-  FROM posture_inputs pi
-),
-posture_with_risk AS (
-  SELECT
-    LEAST(100,
-      CASE WHEN ps.managed_state <> 'managed' THEN 45 ELSE 0 END
-      + CASE WHEN ps.has_privileged_scope THEN 20 ELSE 0 END
-      + CASE WHEN ps.owner_identity_id = 0 THEN 15 ELSE 0 END
-      + CASE WHEN ps.actors_30d >= 50 THEN 10 ELSE 0 END
-      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_business_criticality IN ('high', 'critical') THEN 10 ELSE 0 END
-      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_data_classification IN ('confidential', 'restricted') THEN 5 ELSE 0 END
-    )::int AS risk_score
-  FROM posture_state ps
-),
-posture_rows AS (
-  SELECT
-    CASE
-      WHEN pwr.risk_score >= 80 THEN 'critical'
-      WHEN pwr.risk_score >= 60 THEN 'high'
-      WHEN pwr.risk_score >= 30 THEN 'medium'
-      ELSE 'low'
-    END AS risk_level
-  FROM posture_with_risk pwr
+posture_rows (
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+  FROM saas_app_posture_rows(
+    $3::timestamptz,
+    $4::timestamptz,
+    $5::timestamptz,
+    $6::timestamptz,
+    $7::timestamptz,
+    $8::timestamptz,
+    $9::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
+  )
 )
-SELECT pr.risk_level, count(*) AS app_count
+SELECT pr.risk_level::text AS risk_level, count(*) AS app_count
 FROM posture_rows pr
-GROUP BY pr.risk_level
-ORDER BY pr.risk_level
+JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
+GROUP BY 1
+ORDER BY 1
 `
 
 type CountSaaSAppsGroupedByRiskLevelParams struct {
@@ -372,88 +436,96 @@ func (q *Queries) CountSaaSAppsGroupedByRiskLevel(ctx context.Context, arg Count
 }
 
 const getSaaSAppByID = `-- name: GetSaaSAppByID :one
-WITH posture_inputs AS (
-  SELECT
-    spi.id, spi.canonical_key, spi.display_name, spi.primary_domain, spi.vendor_name, spi.first_seen_at, spi.last_seen_at, spi.created_at, spi.updated_at, spi.owner_identity_id, spi.actors_30d, spi.has_privileged_scope, spi.has_confidential_scope, spi.bound_connector_kind, spi.bound_connector_source_name, spi.connector_enabled, spi.connector_configured, spi.last_success_at, spi.suggested_business_criticality, spi.suggested_data_classification, spi.effective_business_criticality, spi.effective_data_classification,
-    CASE spi.bound_connector_kind
-      WHEN 'okta' THEN $1::timestamptz
-      WHEN 'entra' THEN $2::timestamptz
-      WHEN 'google_workspace' THEN $3::timestamptz
-      WHEN 'github' THEN $4::timestamptz
-      WHEN 'datadog' THEN $5::timestamptz
-      WHEN 'aws_identity_center' THEN $6::timestamptz
-      ELSE $7::timestamptz
-    END AS fresh_after
-  FROM saas_app_posture_inputs_v spi
-  WHERE spi.id = $8::bigint
-),
-posture_state AS (
-  SELECT
-    pi.id, pi.canonical_key, pi.display_name, pi.primary_domain, pi.vendor_name, pi.first_seen_at, pi.last_seen_at, pi.created_at, pi.updated_at, pi.owner_identity_id, pi.actors_30d, pi.has_privileged_scope, pi.has_confidential_scope, pi.bound_connector_kind, pi.bound_connector_source_name, pi.connector_enabled, pi.connector_configured, pi.last_success_at, pi.suggested_business_criticality, pi.suggested_data_classification, pi.effective_business_criticality, pi.effective_data_classification, pi.fresh_after,
-    CASE
-      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
-      WHEN NOT pi.connector_configured THEN 'unmanaged'
-      WHEN NOT pi.connector_enabled THEN 'unmanaged'
-      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
-      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
-      ELSE 'managed'
-    END AS managed_state,
-    CASE
-      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'no_binding'
-      WHEN NOT pi.connector_configured THEN 'connector_not_configured'
-      WHEN NOT pi.connector_enabled THEN 'connector_disabled'
-      WHEN pi.last_success_at IS NULL THEN 'stale_sync'
-      WHEN pi.last_success_at < pi.fresh_after THEN 'stale_sync'
-      ELSE 'active_binding_fresh_sync'
-    END AS managed_reason
-  FROM posture_inputs pi
-),
-posture_with_risk AS (
-  SELECT
-    ps.id, ps.canonical_key, ps.display_name, ps.primary_domain, ps.vendor_name, ps.first_seen_at, ps.last_seen_at, ps.created_at, ps.updated_at, ps.owner_identity_id, ps.actors_30d, ps.has_privileged_scope, ps.has_confidential_scope, ps.bound_connector_kind, ps.bound_connector_source_name, ps.connector_enabled, ps.connector_configured, ps.last_success_at, ps.suggested_business_criticality, ps.suggested_data_classification, ps.effective_business_criticality, ps.effective_data_classification, ps.fresh_after, ps.managed_state, ps.managed_reason,
-    LEAST(100,
-      CASE WHEN ps.managed_state <> 'managed' THEN 45 ELSE 0 END
-      + CASE WHEN ps.has_privileged_scope THEN 20 ELSE 0 END
-      + CASE WHEN ps.owner_identity_id = 0 THEN 15 ELSE 0 END
-      + CASE WHEN ps.actors_30d >= 50 THEN 10 ELSE 0 END
-      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_business_criticality IN ('high', 'critical') THEN 10 ELSE 0 END
-      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_data_classification IN ('confidential', 'restricted') THEN 5 ELSE 0 END
-    )::int AS risk_score
-  FROM posture_state ps
-),
-posture_rows AS (
-  SELECT
-    pwr.id, pwr.canonical_key, pwr.display_name, pwr.primary_domain, pwr.vendor_name, pwr.first_seen_at, pwr.last_seen_at, pwr.created_at, pwr.updated_at, pwr.owner_identity_id, pwr.actors_30d, pwr.has_privileged_scope, pwr.has_confidential_scope, pwr.bound_connector_kind, pwr.bound_connector_source_name, pwr.connector_enabled, pwr.connector_configured, pwr.last_success_at, pwr.suggested_business_criticality, pwr.suggested_data_classification, pwr.effective_business_criticality, pwr.effective_data_classification, pwr.fresh_after, pwr.managed_state, pwr.managed_reason, pwr.risk_score,
-    CASE
-      WHEN pwr.risk_score >= 80 THEN 'critical'
-      WHEN pwr.risk_score >= 60 THEN 'high'
-      WHEN pwr.risk_score >= 30 THEN 'medium'
-      ELSE 'low'
-    END AS risk_level
-  FROM posture_with_risk pwr
-)
-SELECT
+WITH posture_rows (
   id,
   canonical_key,
   display_name,
   primary_domain,
   vendor_name,
-  managed_state,
-  managed_reason,
-  bound_connector_kind,
-  bound_connector_source_name,
-  risk_score,
-  risk_level,
-  suggested_business_criticality,
-  suggested_data_classification,
   first_seen_at,
   last_seen_at,
   created_at,
-  updated_at
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+  FROM saas_app_posture_rows(
+    $2::timestamptz,
+    $3::timestamptz,
+    $4::timestamptz,
+    $5::timestamptz,
+    $6::timestamptz,
+    $7::timestamptz,
+    $8::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
+  )
+)
+SELECT
+  id::bigint AS id,
+  canonical_key::text AS canonical_key,
+  display_name::text AS display_name,
+  primary_domain::text AS primary_domain,
+  vendor_name::text AS vendor_name,
+  managed_state::text AS managed_state,
+  managed_reason::text AS managed_reason,
+  bound_connector_kind::text AS bound_connector_kind,
+  bound_connector_source_name::text AS bound_connector_source_name,
+  risk_score::int AS risk_score,
+  risk_level::text AS risk_level,
+  suggested_business_criticality::text AS suggested_business_criticality,
+  suggested_data_classification::text AS suggested_data_classification,
+  first_seen_at::timestamptz AS first_seen_at,
+  last_seen_at::timestamptz AS last_seen_at,
+  created_at::timestamptz AS created_at,
+  updated_at::timestamptz AS updated_at
 FROM posture_rows
+WHERE id = $1::bigint
 `
 
 type GetSaaSAppByIDParams struct {
+	ID                        int64              `json:"id"`
 	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
 	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
 	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
@@ -461,7 +533,6 @@ type GetSaaSAppByIDParams struct {
 	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
 	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
 	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
-	ID                        int64              `json:"id"`
 }
 
 type GetSaaSAppByIDRow struct {
@@ -486,6 +557,7 @@ type GetSaaSAppByIDRow struct {
 
 func (q *Queries) GetSaaSAppByID(ctx context.Context, arg GetSaaSAppByIDParams) (GetSaaSAppByIDRow, error) {
 	row := q.db.QueryRow(ctx, getSaaSAppByID,
+		arg.ID,
 		arg.OktaFreshAfter,
 		arg.EntraFreshAfter,
 		arg.GoogleWorkspaceFreshAfter,
@@ -493,7 +565,6 @@ func (q *Queries) GetSaaSAppByID(ctx context.Context, arg GetSaaSAppByIDParams) 
 		arg.DatadogFreshAfter,
 		arg.AwsFreshAfter,
 		arg.DefaultFreshAfter,
-		arg.ID,
 	)
 	var i GetSaaSAppByIDRow
 	err := row.Scan(
@@ -543,88 +614,95 @@ scoped_app_ids AS (
       OR lower(trim(sas.source_name)) = lower(trim($5::text))
     )
 ),
-posture_inputs AS (
-  SELECT
-    spi.id, spi.canonical_key, spi.display_name, spi.primary_domain, spi.vendor_name, spi.first_seen_at, spi.last_seen_at, spi.created_at, spi.updated_at, spi.owner_identity_id, spi.actors_30d, spi.has_privileged_scope, spi.has_confidential_scope, spi.bound_connector_kind, spi.bound_connector_source_name, spi.connector_enabled, spi.connector_configured, spi.last_success_at, spi.suggested_business_criticality, spi.suggested_data_classification, spi.effective_business_criticality, spi.effective_data_classification,
-    CASE spi.bound_connector_kind
-      WHEN 'okta' THEN $6::timestamptz
-      WHEN 'entra' THEN $7::timestamptz
-      WHEN 'google_workspace' THEN $8::timestamptz
-      WHEN 'github' THEN $9::timestamptz
-      WHEN 'datadog' THEN $10::timestamptz
-      WHEN 'aws_identity_center' THEN $11::timestamptz
-      ELSE $12::timestamptz
-    END AS fresh_after
-  FROM saas_app_posture_inputs_v spi
-  JOIN scoped_app_ids sai ON sai.saas_app_id = spi.id
-),
-posture_state AS (
-  SELECT
-    pi.id, pi.canonical_key, pi.display_name, pi.primary_domain, pi.vendor_name, pi.first_seen_at, pi.last_seen_at, pi.created_at, pi.updated_at, pi.owner_identity_id, pi.actors_30d, pi.has_privileged_scope, pi.has_confidential_scope, pi.bound_connector_kind, pi.bound_connector_source_name, pi.connector_enabled, pi.connector_configured, pi.last_success_at, pi.suggested_business_criticality, pi.suggested_data_classification, pi.effective_business_criticality, pi.effective_data_classification, pi.fresh_after,
-    CASE
-      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
-      WHEN NOT pi.connector_configured THEN 'unmanaged'
-      WHEN NOT pi.connector_enabled THEN 'unmanaged'
-      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
-      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
-      ELSE 'managed'
-    END AS managed_state,
-    CASE
-      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'no_binding'
-      WHEN NOT pi.connector_configured THEN 'connector_not_configured'
-      WHEN NOT pi.connector_enabled THEN 'connector_disabled'
-      WHEN pi.last_success_at IS NULL THEN 'stale_sync'
-      WHEN pi.last_success_at < pi.fresh_after THEN 'stale_sync'
-      ELSE 'active_binding_fresh_sync'
-    END AS managed_reason
-  FROM posture_inputs pi
-),
-posture_with_risk AS (
-  SELECT
-    ps.id, ps.canonical_key, ps.display_name, ps.primary_domain, ps.vendor_name, ps.first_seen_at, ps.last_seen_at, ps.created_at, ps.updated_at, ps.owner_identity_id, ps.actors_30d, ps.has_privileged_scope, ps.has_confidential_scope, ps.bound_connector_kind, ps.bound_connector_source_name, ps.connector_enabled, ps.connector_configured, ps.last_success_at, ps.suggested_business_criticality, ps.suggested_data_classification, ps.effective_business_criticality, ps.effective_data_classification, ps.fresh_after, ps.managed_state, ps.managed_reason,
-    LEAST(100,
-      CASE WHEN ps.managed_state <> 'managed' THEN 45 ELSE 0 END
-      + CASE WHEN ps.has_privileged_scope THEN 20 ELSE 0 END
-      + CASE WHEN ps.owner_identity_id = 0 THEN 15 ELSE 0 END
-      + CASE WHEN ps.actors_30d >= 50 THEN 10 ELSE 0 END
-      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_business_criticality IN ('high', 'critical') THEN 10 ELSE 0 END
-      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_data_classification IN ('confidential', 'restricted') THEN 5 ELSE 0 END
-    )::int AS risk_score
-  FROM posture_state ps
-),
-posture_rows AS (
-  SELECT
-    pwr.id, pwr.canonical_key, pwr.display_name, pwr.primary_domain, pwr.vendor_name, pwr.first_seen_at, pwr.last_seen_at, pwr.created_at, pwr.updated_at, pwr.owner_identity_id, pwr.actors_30d, pwr.has_privileged_scope, pwr.has_confidential_scope, pwr.bound_connector_kind, pwr.bound_connector_source_name, pwr.connector_enabled, pwr.connector_configured, pwr.last_success_at, pwr.suggested_business_criticality, pwr.suggested_data_classification, pwr.effective_business_criticality, pwr.effective_data_classification, pwr.fresh_after, pwr.managed_state, pwr.managed_reason, pwr.risk_score,
-    CASE
-      WHEN pwr.risk_score >= 80 THEN 'critical'
-      WHEN pwr.risk_score >= 60 THEN 'high'
-      WHEN pwr.risk_score >= 30 THEN 'medium'
-      ELSE 'low'
-    END AS risk_level
-  FROM posture_with_risk pwr
+posture_rows (
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+  FROM saas_app_posture_rows(
+    $6::timestamptz,
+    $7::timestamptz,
+    $8::timestamptz,
+    $9::timestamptz,
+    $10::timestamptz,
+    $11::timestamptz,
+    $12::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
+  )
 )
 SELECT
-  pr.id,
-  pr.canonical_key,
-  pr.display_name,
-  pr.primary_domain,
-  pr.vendor_name,
-  pr.managed_state,
-  pr.managed_reason,
-  pr.bound_connector_kind,
-  pr.bound_connector_source_name,
-  pr.risk_score,
-  pr.risk_level,
-  pr.suggested_business_criticality,
-  pr.suggested_data_classification,
-  pr.first_seen_at,
-  pr.last_seen_at,
-  pr.created_at,
-  pr.updated_at,
+  pr.id::bigint AS id,
+  pr.canonical_key::text AS canonical_key,
+  pr.display_name::text AS display_name,
+  pr.primary_domain::text AS primary_domain,
+  pr.vendor_name::text AS vendor_name,
+  pr.managed_state::text AS managed_state,
+  pr.managed_reason::text AS managed_reason,
+  pr.bound_connector_kind::text AS bound_connector_kind,
+  pr.bound_connector_source_name::text AS bound_connector_source_name,
+  pr.risk_score::int AS risk_score,
+  pr.risk_level::text AS risk_level,
+  pr.suggested_business_criticality::text AS suggested_business_criticality,
+  pr.suggested_data_classification::text AS suggested_data_classification,
+  pr.first_seen_at::timestamptz AS first_seen_at,
+  pr.last_seen_at::timestamptz AS last_seen_at,
+  pr.created_at::timestamptz AS created_at,
+  pr.updated_at::timestamptz AS updated_at,
   COALESCE(owner.display_name, '') AS owner_display_name,
   COALESCE(owner.primary_email, '') AS owner_primary_email,
-  pr.actors_30d
+  pr.actors_30d::bigint AS actors_30d
 FROM posture_rows pr
+JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
 LEFT JOIN identities owner ON owner.id = NULLIF(pr.owner_identity_id, 0)
 WHERE pr.risk_score >= 60
 ORDER BY pr.risk_score DESC, pr.last_seen_at DESC, pr.id ASC
@@ -728,8 +806,8 @@ WITH configured_sources AS (
   SELECT
     k.kind AS source_kind,
     n.name AS source_name
-  FROM unnest($5::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($6::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+  FROM unnest($6::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($7::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
 ),
 scoped_app_ids AS (
   SELECT DISTINCT sas.saas_app_id
@@ -740,122 +818,130 @@ scoped_app_ids AS (
   WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
     AND (
-      $7::text = ''
-      OR lower(trim(sas.source_kind)) = lower(trim($7::text))
+      $8::text = ''
+      OR lower(trim(sas.source_kind)) = lower(trim($8::text))
     )
     AND (
-      $8::text = ''
-      OR lower(trim(sas.source_name)) = lower(trim($8::text))
+      $9::text = ''
+      OR lower(trim(sas.source_name)) = lower(trim($9::text))
     )
 ),
-posture_inputs AS (
-  SELECT
-    spi.id, spi.canonical_key, spi.display_name, spi.primary_domain, spi.vendor_name, spi.first_seen_at, spi.last_seen_at, spi.created_at, spi.updated_at, spi.owner_identity_id, spi.actors_30d, spi.has_privileged_scope, spi.has_confidential_scope, spi.bound_connector_kind, spi.bound_connector_source_name, spi.connector_enabled, spi.connector_configured, spi.last_success_at, spi.suggested_business_criticality, spi.suggested_data_classification, spi.effective_business_criticality, spi.effective_data_classification,
-    CASE spi.bound_connector_kind
-      WHEN 'okta' THEN $9::timestamptz
-      WHEN 'entra' THEN $10::timestamptz
-      WHEN 'google_workspace' THEN $11::timestamptz
-      WHEN 'github' THEN $12::timestamptz
-      WHEN 'datadog' THEN $13::timestamptz
-      WHEN 'aws_identity_center' THEN $14::timestamptz
-      ELSE $15::timestamptz
-    END AS fresh_after
-  FROM saas_app_posture_inputs_v spi
-  JOIN scoped_app_ids sai ON sai.saas_app_id = spi.id
-  WHERE (
-    $16::text = ''
-    OR spi.display_name ILIKE ('%' || $16::text || '%')
-    OR spi.primary_domain ILIKE ('%' || $16::text || '%')
-    OR spi.vendor_name ILIKE ('%' || $16::text || '%')
-    OR spi.canonical_key ILIKE ('%' || $16::text || '%')
+posture_rows (
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+  FROM saas_app_posture_rows(
+    $10::timestamptz,
+    $11::timestamptz,
+    $12::timestamptz,
+    $13::timestamptz,
+    $14::timestamptz,
+    $15::timestamptz,
+    $16::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
   )
-),
-posture_state AS (
-  SELECT
-    pi.id, pi.canonical_key, pi.display_name, pi.primary_domain, pi.vendor_name, pi.first_seen_at, pi.last_seen_at, pi.created_at, pi.updated_at, pi.owner_identity_id, pi.actors_30d, pi.has_privileged_scope, pi.has_confidential_scope, pi.bound_connector_kind, pi.bound_connector_source_name, pi.connector_enabled, pi.connector_configured, pi.last_success_at, pi.suggested_business_criticality, pi.suggested_data_classification, pi.effective_business_criticality, pi.effective_data_classification, pi.fresh_after,
-    CASE
-      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
-      WHEN NOT pi.connector_configured THEN 'unmanaged'
-      WHEN NOT pi.connector_enabled THEN 'unmanaged'
-      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
-      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
-      ELSE 'managed'
-    END AS managed_state,
-    CASE
-      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'no_binding'
-      WHEN NOT pi.connector_configured THEN 'connector_not_configured'
-      WHEN NOT pi.connector_enabled THEN 'connector_disabled'
-      WHEN pi.last_success_at IS NULL THEN 'stale_sync'
-      WHEN pi.last_success_at < pi.fresh_after THEN 'stale_sync'
-      ELSE 'active_binding_fresh_sync'
-    END AS managed_reason
-  FROM posture_inputs pi
-),
-posture_with_risk AS (
-  SELECT
-    ps.id, ps.canonical_key, ps.display_name, ps.primary_domain, ps.vendor_name, ps.first_seen_at, ps.last_seen_at, ps.created_at, ps.updated_at, ps.owner_identity_id, ps.actors_30d, ps.has_privileged_scope, ps.has_confidential_scope, ps.bound_connector_kind, ps.bound_connector_source_name, ps.connector_enabled, ps.connector_configured, ps.last_success_at, ps.suggested_business_criticality, ps.suggested_data_classification, ps.effective_business_criticality, ps.effective_data_classification, ps.fresh_after, ps.managed_state, ps.managed_reason,
-    LEAST(100,
-      CASE WHEN ps.managed_state <> 'managed' THEN 45 ELSE 0 END
-      + CASE WHEN ps.has_privileged_scope THEN 20 ELSE 0 END
-      + CASE WHEN ps.owner_identity_id = 0 THEN 15 ELSE 0 END
-      + CASE WHEN ps.actors_30d >= 50 THEN 10 ELSE 0 END
-      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_business_criticality IN ('high', 'critical') THEN 10 ELSE 0 END
-      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_data_classification IN ('confidential', 'restricted') THEN 5 ELSE 0 END
-    )::int AS risk_score
-  FROM posture_state ps
-),
-posture_rows AS (
-  SELECT
-    pwr.id, pwr.canonical_key, pwr.display_name, pwr.primary_domain, pwr.vendor_name, pwr.first_seen_at, pwr.last_seen_at, pwr.created_at, pwr.updated_at, pwr.owner_identity_id, pwr.actors_30d, pwr.has_privileged_scope, pwr.has_confidential_scope, pwr.bound_connector_kind, pwr.bound_connector_source_name, pwr.connector_enabled, pwr.connector_configured, pwr.last_success_at, pwr.suggested_business_criticality, pwr.suggested_data_classification, pwr.effective_business_criticality, pwr.effective_data_classification, pwr.fresh_after, pwr.managed_state, pwr.managed_reason, pwr.risk_score,
-    CASE
-      WHEN pwr.risk_score >= 80 THEN 'critical'
-      WHEN pwr.risk_score >= 60 THEN 'high'
-      WHEN pwr.risk_score >= 30 THEN 'medium'
-      ELSE 'low'
-    END AS risk_level
-  FROM posture_with_risk pwr
 )
 SELECT
-  pr.id,
-  pr.canonical_key,
-  pr.display_name,
-  pr.primary_domain,
-  pr.vendor_name,
-  pr.managed_state,
-  pr.managed_reason,
-  pr.bound_connector_kind,
-  pr.bound_connector_source_name,
-  pr.risk_score,
-  pr.risk_level,
-  pr.suggested_business_criticality,
-  pr.suggested_data_classification,
-  pr.first_seen_at,
-  pr.last_seen_at,
-  pr.created_at,
-  pr.updated_at,
+  pr.id::bigint AS id,
+  pr.canonical_key::text AS canonical_key,
+  pr.display_name::text AS display_name,
+  pr.primary_domain::text AS primary_domain,
+  pr.vendor_name::text AS vendor_name,
+  pr.managed_state::text AS managed_state,
+  pr.managed_reason::text AS managed_reason,
+  pr.bound_connector_kind::text AS bound_connector_kind,
+  pr.bound_connector_source_name::text AS bound_connector_source_name,
+  pr.risk_score::int AS risk_score,
+  pr.risk_level::text AS risk_level,
+  pr.suggested_business_criticality::text AS suggested_business_criticality,
+  pr.suggested_data_classification::text AS suggested_data_classification,
+  pr.first_seen_at::timestamptz AS first_seen_at,
+  pr.last_seen_at::timestamptz AS last_seen_at,
+  pr.created_at::timestamptz AS created_at,
+  pr.updated_at::timestamptz AS updated_at,
   COALESCE(owner.display_name, '') AS owner_display_name,
   COALESCE(owner.primary_email, '') AS owner_primary_email,
-  pr.actors_30d
+  pr.actors_30d::bigint AS actors_30d
 FROM posture_rows pr
+JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
 LEFT JOIN identities owner ON owner.id = NULLIF(pr.owner_identity_id, 0)
 WHERE (
     $1::text = ''
-    OR pr.managed_state = $1::text
+    OR pr.display_name ILIKE ('%' || $1::text || '%')
+    OR pr.primary_domain ILIKE ('%' || $1::text || '%')
+    OR pr.vendor_name ILIKE ('%' || $1::text || '%')
+    OR pr.canonical_key ILIKE ('%' || $1::text || '%')
   )
   AND (
     $2::text = ''
-    OR pr.risk_level = $2::text
+    OR pr.managed_state = $2::text
+  )
+  AND (
+    $3::text = ''
+    OR pr.risk_level = $3::text
   )
 ORDER BY
   pr.risk_score DESC,
   pr.last_seen_at DESC,
   lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) ASC,
   pr.id ASC
-LIMIT $4::int
-OFFSET $3::int
+LIMIT $5::int
+OFFSET $4::int
 `
 
 type ListSaaSAppsPageByFiltersParams struct {
+	Query                     string             `json:"query"`
 	ManagedState              string             `json:"managed_state"`
 	RiskLevel                 string             `json:"risk_level"`
 	PageOffset                int32              `json:"page_offset"`
@@ -871,7 +957,6 @@ type ListSaaSAppsPageByFiltersParams struct {
 	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
 	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
 	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
-	Query                     string             `json:"query"`
 }
 
 type ListSaaSAppsPageByFiltersRow struct {
@@ -899,6 +984,7 @@ type ListSaaSAppsPageByFiltersRow struct {
 
 func (q *Queries) ListSaaSAppsPageByFilters(ctx context.Context, arg ListSaaSAppsPageByFiltersParams) ([]ListSaaSAppsPageByFiltersRow, error) {
 	rows, err := q.db.Query(ctx, listSaaSAppsPageByFilters,
+		arg.Query,
 		arg.ManagedState,
 		arg.RiskLevel,
 		arg.PageOffset,
@@ -914,7 +1000,6 @@ func (q *Queries) ListSaaSAppsPageByFilters(ctx context.Context, arg ListSaaSApp
 		arg.DatadogFreshAfter,
 		arg.AwsFreshAfter,
 		arg.DefaultFreshAfter,
-		arg.Query,
 	)
 	if err != nil {
 		return nil, err

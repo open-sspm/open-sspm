@@ -105,89 +105,40 @@ func (h *Handlers) HandleAWSUsers(c *echo.Context) error {
 }
 
 func (h *Handlers) HandleUnmatchedAWS(c *echo.Context) error {
-	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Unmanaged AWS Identity Center Users")
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	const perPage = 20
-	query := strings.TrimSpace(c.QueryParam("q"))
-	page := parsePageParam(c)
-
-	sourceName := strings.TrimSpace(snap.AWSIdentityCenter.Name)
-	if sourceName == "" {
-		sourceName = strings.TrimSpace(snap.AWSIdentityCenter.Region)
-	}
-
-	if !snap.AWSIdentityCenterConfigured || !snap.AWSIdentityCenterEnabled {
-		message := "AWS Identity Center is not configured yet. Add settings in Connectors."
-		if snap.AWSIdentityCenterConfigured && !snap.AWSIdentityCenterEnabled {
-			message = "AWS Identity Center sync is disabled. Enable it in Connectors."
-		}
-		data := viewmodels.UnmatchedAWSViewData{
-			Layout:         layout,
-			Users:          nil,
-			Query:          query,
-			ShowingCount:   0,
-			ShowingFrom:    0,
-			ShowingTo:      0,
-			TotalCount:     0,
-			Page:           1,
-			PerPage:        perPage,
-			TotalPages:     1,
-			HasUsers:       false,
-			EmptyStateMsg:  message,
-			EmptyStateHref: "/settings/connectors?open=aws_identity_center",
-		}
-		return h.RenderComponent(c, views.UnmatchedAWSPage(data))
-	}
-
-	totalCount, err := h.Q.CountUnlinkedSourceAccountsBySourceAndQuery(ctx, gen.CountUnlinkedSourceAccountsBySourceAndQueryParams{
-		SourceKind:     "aws",
-		SourceName:     sourceName,
-		EntityCategory: registry.EntityCategoryUser,
-		Query:          query,
+	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
+		Title:              "Unlinked AWS Identity Center Users",
+		ConnectorName:      "AWS Identity Center",
+		SourceKind:         "aws",
+		EntityCategory:     registry.EntityCategoryUser,
+		EmptyStateHref:     "/settings/connectors?open=aws_identity_center",
+		SyncedEmptyState:   "No unlinked AWS Identity Center users.",
+		FilteredEmptyState: "No unlinked AWS Identity Center users match the current search.",
+		IsConfigured: func(snap ConnectorSnapshot) bool {
+			return snap.AWSIdentityCenterConfigured
+		},
+		IsEnabled: func(snap ConnectorSnapshot) bool {
+			return snap.AWSIdentityCenterEnabled
+		},
+		UnavailableMessageFn: func(snap ConnectorSnapshot) string {
+			if snap.AWSIdentityCenterConfigured && !snap.AWSIdentityCenterEnabled {
+				return "AWS Identity Center sync is disabled. Enable it in Connectors."
+			}
+			return "AWS Identity Center is not configured yet. Add settings in Connectors."
+		},
+		ResolveSourceName: func(_ *echo.Context, snap ConnectorSnapshot) (string, error) {
+			sourceName := strings.TrimSpace(snap.AWSIdentityCenter.Name)
+			if sourceName == "" {
+				sourceName = strings.TrimSpace(snap.AWSIdentityCenter.Region)
+			}
+			return sourceName, nil
+		},
 	})
 	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	page, totalPages, offset := paginate(totalCount, page, perPage)
-	users, err := h.Q.ListUnlinkedSourceAccountsPageBySourceAndQuery(ctx, gen.ListUnlinkedSourceAccountsPageBySourceAndQueryParams{
-		SourceKind:     "aws",
-		SourceName:     sourceName,
-		EntityCategory: registry.EntityCategoryUser,
-		Query:          query,
-		PageLimit:      int32(perPage),
-		PageOffset:     int32(offset),
-	})
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
-	showingCount := len(users)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
-	emptyState := "No unmanaged AWS Identity Center users."
-	if query != "" {
-		emptyState = "No unmanaged AWS Identity Center users match the current search."
+		return h.renderUnmatchedSourceAccountsError(c, err)
 	}
 
 	data := viewmodels.UnmatchedAWSViewData{
-		Layout:         layout,
-		Users:          users,
-		Query:          query,
-		ShowingCount:   showingCount,
-		ShowingFrom:    showingFrom,
-		ShowingTo:      showingTo,
-		TotalCount:     totalCount,
-		Page:           page,
-		PerPage:        perPage,
-		TotalPages:     totalPages,
-		HasUsers:       showingCount > 0,
-		EmptyStateMsg:  emptyState,
-		EmptyStateHref: "/settings/connectors?open=aws_identity_center",
+		UnmatchedSourceAccountsPageData: unmatched.PageData,
 	}
 
 	return h.RenderComponent(c, views.UnmatchedAWSPage(data))

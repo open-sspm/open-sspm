@@ -87,7 +87,7 @@ func OktaAccountsPage(data viewmodels.OktaAccountsViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var5 templ.SafeURL
-				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/okta-accounts", "", data.State, 1))
+				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/accounts/okta", "", data.State, 1))
 				if templ_7745c5c3_Err != nil {
 					return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_accounts.templ`, Line: 24, Col: 60}
 				}
@@ -222,7 +222,7 @@ func OktaAccountsPage(data viewmodels.OktaAccountsViewData) templ.Component {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var13 templ.SafeURL
-						templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs("/okta-accounts/" + FormatInt64(u.ID))
+						templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs("/accounts/okta/" + FormatInt64(u.ID))
 						if templ_7745c5c3_Err != nil {
 							return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_accounts.templ`, Line: 75, Col: 77}
 						}
@@ -371,7 +371,7 @@ func OktaAccountsPage(data viewmodels.OktaAccountsViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var23 templ.SafeURL
-					templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/okta-accounts", data.Query, data.State, data.Page-1))
+					templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/accounts/okta", data.Query, data.State, data.Page-1))
 					if templ_7745c5c3_Err != nil {
 						return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_accounts.templ`, Line: 98, Col: 102}
 					}
@@ -395,7 +395,7 @@ func OktaAccountsPage(data viewmodels.OktaAccountsViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var24 templ.SafeURL
-					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/okta-accounts", data.Query, data.State, data.Page+1))
+					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinURLErrs(ListURL("/accounts/okta", data.Query, data.State, data.Page+1))
 					if templ_7745c5c3_Err != nil {
 						return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_accounts.templ`, Line: 103, Col: 102}
 					}

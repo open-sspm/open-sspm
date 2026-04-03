@@ -35,9 +35,6 @@ func TestHandleConnectedAppShowUsesLiveDiscoveryPosture(t *testing.T) {
 			"Orphaned Client",
 			"example.com",
 			"Example",
-			"managed",
-			"low",
-			0,
 			"client-123.apps.googleusercontent.com",
 		)
 
@@ -51,9 +48,9 @@ func TestHandleConnectedAppShowUsesLiveDiscoveryPosture(t *testing.T) {
 func renderConnectedAppShow(t *testing.T, h *Handlers, appID int64) string {
 	t.Helper()
 
-	target := "http://example.com/connected-apps/" + strconv.FormatInt(appID, 10)
+	target := "http://example.com/oauth-apps/" + strconv.FormatInt(appID, 10)
 	c, rec := newTestContext(http.MethodGet, target)
-	(*c).SetPath("/connected-apps/:id")
+	(*c).SetPath("/oauth-apps/:id")
 	(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(appID, 10)}})
 
 	if err := h.HandleConnectedAppShow(c); err != nil {

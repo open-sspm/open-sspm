@@ -72,7 +72,7 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 			</header>
 			<section>
 				@ColumnsTable("discovery-app-show--sources", "") {
-				<table data-columns-id="discovery-app-show--sources" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+				<table data-columns-id="discovery-app-show--sources" class="table min-w-[40rem] md:w-full osspm-table-compact osspm-table-list">
 					<thead>
 						<tr>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</th>
@@ -85,13 +85,13 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 							if data.HasSources {
 								for _, source := range data.Sources {
 									<tr>
-										<td>{ source.SourceKind }{ " (" }{ source.SourceName }{ ")" }</td>
+										<td class="break-words">{ source.SourceKind }{ " (" }{ source.SourceName }{ ")" }</td>
 										<td>
-											<div>{ source.SourceAppName }</div>
-											<div class="text-xs text-muted-foreground">{ source.SourceAppID }</div>
+											<div class="break-words">{ source.SourceAppName }</div>
+											<div class="text-xs text-muted-foreground break-all">{ source.SourceAppID }</div>
 										</td>
-										<td>{ source.SourceAppDomain }</td>
-										<td>{ source.LastObservedAt }</td>
+										<td class="break-all">{ source.SourceAppDomain }</td>
+										<td class="whitespace-nowrap">{ source.LastObservedAt }</td>
 									</tr>
 								}
 							} else {
@@ -112,7 +112,7 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 			</header>
 			<section>
 				@ColumnsTable("discovery-app-show--actors", "") {
-				<table data-columns-id="discovery-app-show--actors" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+				<table data-columns-id="discovery-app-show--actors" class="table min-w-[48rem] md:w-full osspm-table-compact osspm-table-list">
 					<thead>
 						<tr>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Actor</th>
@@ -126,11 +126,11 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 							if data.HasTopActors {
 								for _, actor := range data.TopActors {
 									<tr>
-										<td>{ actor.ActorLabel }</td>
-										<td>{ actor.ActorEmail }</td>
-										<td>{ actor.ActorExternalID }</td>
-										<td><span class="badge-outline">{ FormatInt64(actor.EventCount) }</span></td>
-										<td>{ actor.LastObservedAt }</td>
+										<td class="break-words">{ actor.ActorLabel }</td>
+										<td class="break-all">{ actor.ActorEmail }</td>
+										<td class="break-all">{ actor.ActorExternalID }</td>
+										<td class="whitespace-nowrap"><span class="badge-outline">{ FormatInt64(actor.EventCount) }</span></td>
+										<td class="whitespace-nowrap">{ actor.LastObservedAt }</td>
 									</tr>
 								}
 							} else {
@@ -151,7 +151,7 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 			</header>
 			<section>
 				@ColumnsTable("discovery-app-show--events", "") {
-				<table data-columns-id="discovery-app-show--events" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+				<table data-columns-id="discovery-app-show--events" class="table min-w-[52rem] md:w-full osspm-table-compact osspm-table-list">
 					<thead>
 						<tr>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Observed</th>
@@ -165,11 +165,11 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 							if data.HasEvents {
 								for _, event := range data.Events {
 									<tr>
-										<td>{ event.ObservedAt }</td>
-										<td><span class="badge-outline">{ HumanizeDiscoverySignalKind(event.SignalKind) }</span></td>
-										<td>{ event.Actor }</td>
-										<td>{ event.SourceApp }</td>
-										<td class="text-muted-foreground">{ event.ScopesSummary }</td>
+										<td class="whitespace-nowrap">{ event.ObservedAt }</td>
+										<td class="whitespace-nowrap"><span class="badge-outline">{ HumanizeDiscoverySignalKind(event.SignalKind) }</span></td>
+										<td class="break-words">{ event.Actor }</td>
+										<td class="break-words">{ event.SourceApp }</td>
+										<td class="text-muted-foreground break-words">{ event.ScopesSummary }</td>
 									</tr>
 								}
 							} else {
@@ -184,4 +184,3 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 		</article>
 	}
 }
-

@@ -283,15 +283,15 @@ func IsKnownConnectorKind(kind string) bool {
 func IntegratedAppHref(integrationKind string) string {
 	switch NormalizeConnectorKind(integrationKind) {
 	case configstore.KindGitHub:
-		return "/github-users"
+		return "/accounts/github"
 	case configstore.KindDatadog:
-		return "/datadog-users"
+		return "/accounts/datadog"
 	case configstore.KindAWSIdentityCenter:
-		return "/aws-users"
+		return "/accounts/aws"
 	case configstore.KindEntra:
-		return "/entra-users"
+		return "/accounts/entra"
 	case configstore.KindGoogleWorkspace:
-		return "/google-workspace/users"
+		return "/accounts/google-workspace"
 	default:
 		return ""
 	}

@@ -188,17 +188,17 @@ func (s *ConnectorState) SecondaryLabel() string {
 func connectorBrowseUsersHref(kind string) string {
 	switch strings.TrimSpace(kind) {
 	case "okta":
-		return "/okta-accounts"
+		return "/accounts/okta"
 	case "entra":
-		return "/entra-users"
+		return "/accounts/entra"
 	case "google_workspace":
-		return "/google-workspace/users"
+		return "/accounts/google-workspace"
 	case "github":
-		return "/github-users"
+		return "/accounts/github"
 	case "datadog":
-		return "/datadog-users"
+		return "/accounts/datadog"
 	case "aws_identity_center":
-		return "/aws-users"
+		return "/accounts/aws"
 	default:
 		return ""
 	}
@@ -207,18 +207,18 @@ func connectorBrowseUsersHref(kind string) string {
 func connectorUnmanagedHref(kind, sourceName string) string {
 	switch strings.TrimSpace(kind) {
 	case "okta":
-		return "/apps"
+		return "/assigned-apps"
 	case "entra":
-		return "/unmatched/entra"
+		return "/accounts/unlinked/entra"
 	case "google_workspace":
-		return "/unmatched/google-workspace"
+		return "/accounts/unlinked/google-workspace"
 	case "github", "datadog":
 		sourceName = strings.TrimSpace(sourceName)
 		if sourceName != "" {
-			return fmt.Sprintf("/unmatched/%s/%s", kind, sourceName)
+			return fmt.Sprintf("/accounts/unlinked/%s/%s", kind, sourceName)
 		}
 	case "aws_identity_center":
-		return "/unmatched/aws"
+		return "/accounts/unlinked/aws"
 	}
 	return ""
 }
@@ -228,7 +228,7 @@ func connectorSecondaryLabel(kind string) string {
 	case "okta":
 		return "Browse apps"
 	case "entra", "google_workspace", "github", "datadog", "aws_identity_center":
-		return "Unmanaged"
+		return "Unlinked"
 	default:
 		return ""
 	}

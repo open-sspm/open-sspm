@@ -359,69 +359,80 @@ WITH scoped_sources AS (
     AND sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
 ),
-posture_inputs AS (
-  SELECT
-    spi.id, spi.canonical_key, spi.display_name, spi.primary_domain, spi.vendor_name, spi.first_seen_at, spi.last_seen_at, spi.created_at, spi.updated_at, spi.owner_identity_id, spi.actors_30d, spi.has_privileged_scope, spi.has_confidential_scope, spi.bound_connector_kind, spi.bound_connector_source_name, spi.connector_enabled, spi.connector_configured, spi.last_success_at, spi.suggested_business_criticality, spi.suggested_data_classification, spi.effective_business_criticality, spi.effective_data_classification,
-    CASE spi.bound_connector_kind
-      WHEN 'okta' THEN $4::timestamptz
-      WHEN 'entra' THEN $5::timestamptz
-      WHEN 'google_workspace' THEN $6::timestamptz
-      WHEN 'github' THEN $7::timestamptz
-      WHEN 'datadog' THEN $8::timestamptz
-      WHEN 'aws_identity_center' THEN $9::timestamptz
-      ELSE $10::timestamptz
-    END AS fresh_after
-  FROM saas_app_posture_inputs_v spi
-  JOIN (
-    SELECT DISTINCT saas_app_id
-    FROM scoped_sources
-  ) scoped_app_ids ON scoped_app_ids.saas_app_id = spi.id
-),
-posture_state AS (
-  SELECT
-    pi.id, pi.canonical_key, pi.display_name, pi.primary_domain, pi.vendor_name, pi.first_seen_at, pi.last_seen_at, pi.created_at, pi.updated_at, pi.owner_identity_id, pi.actors_30d, pi.has_privileged_scope, pi.has_confidential_scope, pi.bound_connector_kind, pi.bound_connector_source_name, pi.connector_enabled, pi.connector_configured, pi.last_success_at, pi.suggested_business_criticality, pi.suggested_data_classification, pi.effective_business_criticality, pi.effective_data_classification, pi.fresh_after,
-    CASE
-      WHEN pi.bound_connector_kind = '' OR pi.bound_connector_source_name = '' THEN 'unmanaged'
-      WHEN NOT pi.connector_configured THEN 'unmanaged'
-      WHEN NOT pi.connector_enabled THEN 'unmanaged'
-      WHEN pi.last_success_at IS NULL THEN 'unmanaged'
-      WHEN pi.last_success_at < pi.fresh_after THEN 'unmanaged'
-      ELSE 'managed'
-    END AS managed_state
-  FROM posture_inputs pi
-),
-posture_with_risk AS (
-  SELECT
-    ps.id, ps.canonical_key, ps.display_name, ps.primary_domain, ps.vendor_name, ps.first_seen_at, ps.last_seen_at, ps.created_at, ps.updated_at, ps.owner_identity_id, ps.actors_30d, ps.has_privileged_scope, ps.has_confidential_scope, ps.bound_connector_kind, ps.bound_connector_source_name, ps.connector_enabled, ps.connector_configured, ps.last_success_at, ps.suggested_business_criticality, ps.suggested_data_classification, ps.effective_business_criticality, ps.effective_data_classification, ps.fresh_after, ps.managed_state,
-    LEAST(100,
-      CASE WHEN ps.managed_state <> 'managed' THEN 45 ELSE 0 END
-      + CASE WHEN ps.has_privileged_scope THEN 20 ELSE 0 END
-      + CASE WHEN ps.owner_identity_id = 0 THEN 15 ELSE 0 END
-      + CASE WHEN ps.actors_30d >= 50 THEN 10 ELSE 0 END
-      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_business_criticality IN ('high', 'critical') THEN 10 ELSE 0 END
-      + CASE WHEN ps.managed_state <> 'managed' AND ps.effective_data_classification IN ('confidential', 'restricted') THEN 5 ELSE 0 END
-    )::int AS risk_score
-  FROM posture_state ps
-),
-posture_rows AS (
-  SELECT
-    pwr.id, pwr.canonical_key, pwr.display_name, pwr.primary_domain, pwr.vendor_name, pwr.first_seen_at, pwr.last_seen_at, pwr.created_at, pwr.updated_at, pwr.owner_identity_id, pwr.actors_30d, pwr.has_privileged_scope, pwr.has_confidential_scope, pwr.bound_connector_kind, pwr.bound_connector_source_name, pwr.connector_enabled, pwr.connector_configured, pwr.last_success_at, pwr.suggested_business_criticality, pwr.suggested_data_classification, pwr.effective_business_criticality, pwr.effective_data_classification, pwr.fresh_after, pwr.managed_state, pwr.risk_score,
-    CASE
-      WHEN pwr.risk_score >= 80 THEN 'critical'
-      WHEN pwr.risk_score >= 60 THEN 'high'
-      WHEN pwr.risk_score >= 30 THEN 'medium'
-      ELSE 'low'
-    END AS risk_level
-  FROM posture_with_risk pwr
+posture_rows (
+  id,
+  canonical_key,
+  display_name,
+  primary_domain,
+  vendor_name,
+  first_seen_at,
+  last_seen_at,
+  created_at,
+  updated_at,
+  owner_identity_id,
+  actors_30d,
+  has_privileged_scope,
+  has_confidential_scope,
+  bound_connector_kind,
+  bound_connector_source_name,
+  connector_enabled,
+  connector_configured,
+  last_success_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  managed_state,
+  managed_reason,
+  risk_score,
+  risk_level
+) AS (
+  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+  FROM saas_app_posture_rows(
+    $4::timestamptz,
+    $5::timestamptz,
+    $6::timestamptz,
+    $7::timestamptz,
+    $8::timestamptz,
+    $9::timestamptz,
+    $10::timestamptz
+  ) AS pr(
+    id,
+    canonical_key,
+    display_name,
+    primary_domain,
+    vendor_name,
+    first_seen_at,
+    last_seen_at,
+    created_at,
+    updated_at,
+    owner_identity_id,
+    actors_30d,
+    has_privileged_scope,
+    has_confidential_scope,
+    bound_connector_kind,
+    bound_connector_source_name,
+    connector_enabled,
+    connector_configured,
+    last_success_at,
+    suggested_business_criticality,
+    suggested_data_classification,
+    effective_business_criticality,
+    effective_data_classification,
+    managed_state,
+    managed_reason,
+    risk_score,
+    risk_level
+  )
 )
 SELECT
   sas.id, sas.saas_app_id, sas.source_kind, sas.source_name, sas.source_app_id, sas.source_app_name, sas.source_app_domain, sas.seen_in_run_id, sas.seen_at, sas.last_observed_run_id, sas.last_observed_at, sas.expired_at, sas.expired_run_id, sas.created_at, sas.updated_at,
-  pr.canonical_key,
-  pr.display_name AS discovery_display_name,
-  pr.primary_domain AS discovery_primary_domain,
-  pr.vendor_name AS discovery_vendor_name,
-  pr.managed_state AS discovery_managed_state,
-  pr.risk_level AS discovery_risk_level
+  pr.canonical_key::text AS canonical_key,
+  pr.display_name::text AS discovery_display_name,
+  pr.primary_domain::text AS discovery_primary_domain,
+  pr.vendor_name::text AS discovery_vendor_name,
+  pr.managed_state::text AS discovery_managed_state,
+  pr.risk_level::text AS discovery_risk_level
 FROM scoped_sources sas
 JOIN posture_rows pr ON pr.id = sas.saas_app_id
 ORDER BY sas.last_observed_at DESC, sas.id DESC

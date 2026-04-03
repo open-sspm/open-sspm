@@ -178,11 +178,11 @@ func TestHandleCommandSearchShellAndShortQuery(t *testing.T) {
 		if !strings.Contains(body, `href="/app-assets?q=g"`) {
 			t.Fatalf("short-query body missing app-assets action: %s", body)
 		}
-		if strings.Contains(body, `href="/connected-apps?q=g"`) {
-			t.Fatalf("short-query body unexpectedly rendered connected-apps action: %s", body)
+		if strings.Contains(body, `href="/oauth-apps?q=g"`) {
+			t.Fatalf("short-query body unexpectedly rendered oauth-apps action: %s", body)
 		}
-		if strings.Contains(body, `href="/apps?q=g"`) {
-			t.Fatalf("short-query body unexpectedly rendered okta action: %s", body)
+		if strings.Contains(body, `href="/assigned-apps?q=g"`) {
+			t.Fatalf("short-query body unexpectedly rendered assigned-apps action: %s", body)
 		}
 	})
 }
@@ -219,8 +219,8 @@ func TestHandleCommandSearchCrossInventoryResults(t *testing.T) {
 			if !strings.Contains(body, `/app-assets/`+strconv.FormatInt(fixture.githubAppAssetID, 10)) {
 				t.Fatalf("github body missing github app asset href: %s", body)
 			}
-			if strings.Contains(body, `role="heading">Okta Apps`) {
-				t.Fatalf("github body unexpectedly rendered okta direct matches: %s", body)
+			if strings.Contains(body, `role="heading">Assigned Apps`) {
+				t.Fatalf("github body unexpectedly rendered assigned-apps direct matches: %s", body)
 			}
 		})
 
@@ -235,14 +235,14 @@ func TestHandleCommandSearchCrossInventoryResults(t *testing.T) {
 			}
 		})
 
-		t.Run("google oauth client appears once under connected apps", func(t *testing.T) {
+		t.Run("google oauth client appears once under oauth apps", func(t *testing.T) {
 			body := renderCommandSearch(t, h, "http://example.com/command/search?q=oauth")
 
-			if !strings.Contains(body, `role="heading">Google Workspace Connected Apps`) {
-				t.Fatalf("oauth body missing connected apps section: %s", body)
+			if !strings.Contains(body, `role="heading">OAuth Apps`) {
+				t.Fatalf("oauth body missing oauth apps section: %s", body)
 			}
-			if !strings.Contains(body, `/connected-apps/`+strconv.FormatInt(fixture.googleConnectedAppID, 10)) {
-				t.Fatalf("oauth body missing connected app href: %s", body)
+			if !strings.Contains(body, `/oauth-apps/`+strconv.FormatInt(fixture.googleConnectedAppID, 10)) {
+				t.Fatalf("oauth body missing oauth app href: %s", body)
 			}
 			if strings.Contains(body, `role="heading">App Assets`) {
 				t.Fatalf("oauth body unexpectedly rendered app-assets section for google oauth client: %s", body)
@@ -251,12 +251,12 @@ func TestHandleCommandSearchCrossInventoryResults(t *testing.T) {
 
 		t.Run("okta app rows link to direct destinations", func(t *testing.T) {
 			legacyBody := renderCommandSearch(t, h, "http://example.com/command/search?q=legacy")
-			if !strings.Contains(legacyBody, `href="/apps/legacy-app"`) {
-				t.Fatalf("legacy okta body missing /apps/{external_id} link: %s", legacyBody)
+			if !strings.Contains(legacyBody, `href="/assigned-apps/legacy-app"`) {
+				t.Fatalf("legacy okta body missing /assigned-apps/{external_id} link: %s", legacyBody)
 			}
 
 			mappedBody := renderCommandSearch(t, h, "http://example.com/command/search?q=mapped")
-			if !strings.Contains(mappedBody, `href="/github-users"`) {
+			if !strings.Contains(mappedBody, `href="/accounts/github"`) {
 				t.Fatalf("mapped okta body missing integrated destination link: %s", mappedBody)
 			}
 		})
@@ -305,9 +305,6 @@ func TestHandleCommandSearchUsesLiveDiscoveryPostureBadges(t *testing.T) {
 			"Orphaned Portal",
 			"example.com",
 			"Example",
-			"managed",
-			"low",
-			0,
 			"orphaned-portal",
 		)
 
@@ -521,7 +518,7 @@ func seedCommandSearchFixture(t *testing.T, ctx context.Context, pool *pgxpool.P
 		t.Fatalf("UpsertConnectedAppGovernance: %v", err)
 	}
 
-	insertCommandSearchDiscoveryApp(t, ctx, pool, q, entraRunID, configstore.KindEntra, "tenant-1", "azure-cloud", "Azure Cloud", "azure.com", "Microsoft", "managed", "high", 80, "azure-cloud")
+	insertCommandSearchDiscoveryApp(t, ctx, pool, q, entraRunID, configstore.KindEntra, "tenant-1", "azure-cloud", "Azure Cloud", "azure.com", "Microsoft", "azure-cloud")
 
 	insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "salesforce-legacy", "Salesforce Legacy", "salesforce", "active")
 	insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "legacy-app", "Legacy HR App", "legacy-hr", "active")
@@ -679,7 +676,7 @@ func insertCommandSearchAppAsset(t *testing.T, ctx context.Context, q *gen.Queri
 	return appAsset.ID
 }
 
-func insertCommandSearchDiscoveryApp(t *testing.T, ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, runID int64, sourceKind, sourceName, canonicalKey, displayName, primaryDomain, vendorName, managedState, riskLevel string, riskScore int32, sourceAppID string) int64 {
+func insertCommandSearchDiscoveryApp(t *testing.T, ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, runID int64, sourceKind, sourceName, canonicalKey, displayName, primaryDomain, vendorName, sourceAppID string) int64 {
 	t.Helper()
 
 	now := pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
@@ -696,15 +693,11 @@ func insertCommandSearchDiscoveryApp(t *testing.T, ctx context.Context, pool *pg
 
 	var id int64
 	if err := pool.QueryRow(ctx, `
-		UPDATE saas_apps
-		SET managed_state = $2,
-		    risk_level = $3,
-		    risk_score = $4,
-		    updated_at = now()
+		SELECT id
+		FROM saas_apps
 		WHERE canonical_key = $1
-		RETURNING id
-	`, canonicalKey, managedState, riskLevel, riskScore).Scan(&id); err != nil {
-		t.Fatalf("update saas app %s: %v", canonicalKey, err)
+	`, canonicalKey).Scan(&id); err != nil {
+		t.Fatalf("select saas app %s: %v", canonicalKey, err)
 	}
 
 	if _, err := q.UpsertSaaSAppSourcesBulkBySource(ctx, gen.UpsertSaaSAppSourcesBulkBySourceParams{

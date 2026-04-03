@@ -390,23 +390,15 @@ type RulesetOverride struct {
 }
 
 type SaasApp struct {
-	ID                           int64              `json:"id"`
-	CanonicalKey                 string             `json:"canonical_key"`
-	DisplayName                  string             `json:"display_name"`
-	PrimaryDomain                string             `json:"primary_domain"`
-	VendorName                   string             `json:"vendor_name"`
-	ManagedState                 string             `json:"managed_state"`
-	ManagedReason                string             `json:"managed_reason"`
-	BoundConnectorKind           string             `json:"bound_connector_kind"`
-	BoundConnectorSourceName     string             `json:"bound_connector_source_name"`
-	RiskScore                    int32              `json:"risk_score"`
-	RiskLevel                    string             `json:"risk_level"`
-	SuggestedBusinessCriticality string             `json:"suggested_business_criticality"`
-	SuggestedDataClassification  string             `json:"suggested_data_classification"`
-	FirstSeenAt                  pgtype.Timestamptz `json:"first_seen_at"`
-	LastSeenAt                   pgtype.Timestamptz `json:"last_seen_at"`
-	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
+	ID            int64              `json:"id"`
+	CanonicalKey  string             `json:"canonical_key"`
+	DisplayName   string             `json:"display_name"`
+	PrimaryDomain string             `json:"primary_domain"`
+	VendorName    string             `json:"vendor_name"`
+	FirstSeenAt   pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt    pgtype.Timestamptz `json:"last_seen_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type SaasAppBinding struct {

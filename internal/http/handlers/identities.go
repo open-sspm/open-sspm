@@ -52,30 +52,27 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 	showLinkQuality := parseIdentityBool(c.QueryParam("show_link_quality"))
 	showLinkReason := parseIdentityBool(c.QueryParam("show_link_reason"))
 	page := parsePageParam(c)
+	pagination := newPaginatedListState(0, page, perPage)
 
 	data := viewmodels.IdentitiesViewData{
-		Layout:             layout,
-		Items:              nil,
-		Sources:            sourceKindOptions,
-		SourceNameOptions:  sourceNameOptions,
-		SelectedSourceKind: selectedSourceKind,
-		SelectedSourceName: selectedSourceName,
-		Query:              query,
-		IdentityType:       identityType,
-		ManagedState:       managedState,
-		PrivilegedOnly:     privilegedOnly,
-		Status:             status,
-		ActivityState:      activityState,
-		LinkQuality:        linkQuality,
-		SortBy:             sortBy,
-		SortDir:            sortDir,
-		ShowFirstSeen:      showFirstSeen,
-		ShowLinkQuality:    showLinkQuality,
-		ShowLinkReason:     showLinkReason,
-		Page:               1,
-		PerPage:            perPage,
-		TotalPages:         1,
-		EmptyStateMsg:      "No identities found yet.",
+		PaginatedListPageData: pagination.PageData(layout, 0, "No identities found yet.", ""),
+		Items:                 nil,
+		Sources:               sourceKindOptions,
+		SourceNameOptions:     sourceNameOptions,
+		SelectedSourceKind:    selectedSourceKind,
+		SelectedSourceName:    selectedSourceName,
+		Query:                 query,
+		IdentityType:          identityType,
+		ManagedState:          managedState,
+		PrivilegedOnly:        privilegedOnly,
+		Status:                status,
+		ActivityState:         activityState,
+		LinkQuality:           linkQuality,
+		SortBy:                sortBy,
+		SortDir:               sortDir,
+		ShowFirstSeen:         showFirstSeen,
+		ShowLinkQuality:       showLinkQuality,
+		ShowLinkReason:        showLinkReason,
 	}
 	renderIdentities := func() error {
 		if isHX(c) && isHXTarget(c, "identities-results") {
@@ -85,7 +82,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 	}
 
 	if len(sourcePairs) == 0 {
-		data.EmptyStateMsg = "Configure and enable identity connectors to populate inventory."
+		data.PaginatedListPageData.EmptyStateMsg = "Configure and enable identity connectors to populate inventory."
 		return renderIdentities()
 	}
 
@@ -107,7 +104,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	page, totalPages, offset := paginate(totalCount, page, perPage)
+	pagination = newPaginatedListState(totalCount, page, perPage)
 	rows, err := h.Q.ListIdentitiesInventoryPageByFilters(ctx, gen.ListIdentitiesInventoryPageByFiltersParams{
 		ManagedState:          managedState,
 		PrivilegedOnly:        privilegedOnly,
@@ -116,7 +113,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		LinkQuality:           linkQuality,
 		SortBy:                sortBy,
 		SortDir:               sortDir,
-		PageOffset:            int32(offset),
+		PageOffset:            int32(pagination.Offset()),
 		PageLimit:             int32(perPage),
 		ConfiguredSourceKinds: configuredSourceKinds,
 		ConfiguredSourceNames: configuredSourceNames,
@@ -158,19 +155,11 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		})
 	}
 
-	showingCount := len(items)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
 	data.Items = items
-	data.ShowingCount = showingCount
-	data.ShowingFrom = showingFrom
-	data.ShowingTo = showingTo
-	data.TotalCount = totalCount
-	data.Page = page
-	data.TotalPages = totalPages
-	data.HasIdentities = showingCount > 0
+	data.PaginatedListPageData = pagination.PageData(layout, len(items), "No identities found yet.", "")
+	data.HasIdentities = len(items) > 0
 	if identitiesFilterActive(query, identityType, managedState, privilegedOnly, status, activityState, linkQuality, selectedSourceKind, selectedSourceName) {
-		data.EmptyStateMsg = "No identities match the current filters."
+		data.PaginatedListPageData.EmptyStateMsg = "No identities match the current filters."
 	}
 
 	return renderIdentities()
@@ -667,15 +656,17 @@ func linkedAccountDetailHref(account gen.Account) string {
 
 	switch sourceKind {
 	case "okta":
-		return "/okta-accounts/" + strconv.FormatInt(account.ID, 10)
+		return "/accounts/okta/" + strconv.FormatInt(account.ID, 10)
 	case "github":
-		return listAccountHref("/github-users", externalID)
+		return listAccountHref("/accounts/github", externalID)
 	case "datadog":
-		return listAccountHref("/datadog-users", externalID)
+		return listAccountHref("/accounts/datadog", externalID)
 	case "entra":
-		return listAccountHref("/entra-users", externalID)
+		return listAccountHref("/accounts/entra", externalID)
 	case "aws":
-		return listAccountHref("/aws-users", externalID)
+		return listAccountHref("/accounts/aws", externalID)
+	case "google_workspace":
+		return listAccountHref("/accounts/google-workspace", externalID)
 	default:
 		return ""
 	}

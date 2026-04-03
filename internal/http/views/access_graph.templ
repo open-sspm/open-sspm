@@ -16,7 +16,7 @@ templ AccessGraphNode(oktaAccountID int64, node viewmodels.AccessTreeNode) {
 				</summary>
 					<div
 						class="ml-4 border-l border-border pl-4"
-						hx-get={ fmt.Sprintf("/api/okta-accounts/%d/access-tree?node=%s", oktaAccountID, url.QueryEscape(node.ID)) }
+						hx-get={ fmt.Sprintf("/api/accounts/okta/%d/access-tree?node=%s", oktaAccountID, url.QueryEscape(node.ID)) }
 						hx-trigger="toggle from:closest details once"
 						hx-swap="innerHTML"
 					>

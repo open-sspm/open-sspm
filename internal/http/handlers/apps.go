@@ -21,7 +21,7 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Okta Apps")
+	layout, _, err := h.LayoutData(ctx, c, "Assigned Apps")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -43,7 +43,7 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 		}
 	}
 
-	page, totalPages, offset := paginate(totalCount, page, perPage)
+	pagination := newPaginatedListState(totalCount, page, perPage)
 	makeItem := func(externalID, label, name, status, signOnMode, integrationKind string) viewmodels.AppListItem {
 		label = strings.TrimSpace(label)
 		if label == "" {
@@ -84,7 +84,7 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 	if query == "" {
 		apps, err := h.Q.ListOktaAppsPage(ctx, gen.ListOktaAppsPageParams{
 			PageLimit:  int32(perPage),
-			PageOffset: int32(offset),
+			PageOffset: int32(pagination.Offset()),
 		})
 		if err != nil {
 			return h.RenderError(c, err)
@@ -97,7 +97,7 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 		apps, err := h.Q.ListOktaAppsPageByQuery(ctx, gen.ListOktaAppsPageByQueryParams{
 			Query:      query,
 			PageLimit:  int32(perPage),
-			PageOffset: int32(offset),
+			PageOffset: int32(pagination.Offset()),
 		})
 		if err != nil {
 			return h.RenderError(c, err)
@@ -108,27 +108,16 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 		}
 	}
 
-	showingCount := len(items)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
 	data := viewmodels.AppsViewData{
-		Layout:       layout,
-		Apps:         items,
-		Query:        query,
-		ShowingCount: showingCount,
-		ShowingFrom:  showingFrom,
-		ShowingTo:    showingTo,
-		TotalCount:   totalCount,
-		Page:         page,
-		PerPage:      perPage,
-		TotalPages:   totalPages,
-		HasApps:      showingCount > 0,
-		EmptyStateMsg: func() string {
+		PaginatedListPageData: pagination.PageData(layout, len(items), func() string {
 			if query != "" {
-				return "No Okta apps match the current search."
+				return "No assigned apps match the current search."
 			}
-			return "No Okta apps have been synced yet. Run a sync to discover assignments."
-		}(),
+			return "No assigned apps have been synced yet. Run a sync to discover assignments."
+		}(), ""),
+		Apps:    items,
+		Query:   query,
+		HasApps: len(items) > 0,
 	}
 
 	if isHX(c) && isHXTarget(c, "apps-results") {
@@ -139,7 +128,10 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 
 // HandleOktaAppShow renders the Okta app detail page.
 func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
-	oktaAppExternalID := strings.Trim(c.Param("*"), "/")
+	oktaAppExternalID := strings.TrimSpace(c.Param("externalID"))
+	if oktaAppExternalID == "" {
+		oktaAppExternalID = strings.Trim(c.Param("*"), "/")
+	}
 	if oktaAppExternalID == "" {
 		return RenderNotFound(c)
 	}
@@ -162,7 +154,7 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 		return c.Redirect(http.StatusSeeOther, integratedHref)
 	}
 
-	layout, _, err := h.LayoutData(ctx, c, "Okta App")
+	layout, _, err := h.LayoutData(ctx, c, "Assigned App")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -186,12 +178,12 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	page, totalPages, offset := paginate(totalCount, page, perPage)
+	pagination := newPaginatedListState(totalCount, page, perPage)
 	assignments, err := h.Q.ListOktaAppAssignedAccountsPageByQuery(ctx, gen.ListOktaAppAssignedAccountsPageByQueryParams{
 		OktaAppID:  app.ID,
 		State:      state,
 		Query:      query,
-		PageOffset: int32(offset),
+		PageOffset: int32(pagination.Offset()),
 		PageLimit:  int32(perPage),
 	})
 	if err != nil {
@@ -273,7 +265,7 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 
 		items = append(items, viewmodels.OktaAppAssignedAccountView{
 			OktaAccountID:         assignment.OktaAccountID,
-			AccountHref:           fmt.Sprintf("/okta-accounts/%d", assignment.OktaAccountID),
+			AccountHref:           fmt.Sprintf("/accounts/okta/%d", assignment.OktaAccountID),
 			AccountDisplayName:    accountName,
 			AccountEmail:          strings.TrimSpace(assignment.OktaAccountEmail),
 			OktaAccountExternalID: strings.TrimSpace(assignment.OktaAccountExternalID),
@@ -284,11 +276,13 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 		})
 	}
 
-	showingCount := len(items)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
 	data := viewmodels.OktaAppShowViewData{
-		Layout: layout,
+		PaginatedListPageData: pagination.PageData(layout, len(items), func() string {
+			if query != "" || state != "" {
+				return "No assigned users match the current search."
+			}
+			return "No Okta users are assigned to this app."
+		}(), ""),
 		App: viewmodels.OktaAppSummaryView{
 			ExternalID: strings.TrimSpace(app.ExternalID),
 			Label:      label,
@@ -296,23 +290,10 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 			Status:     status,
 			SignOnMode: signOnMode,
 		},
-		Accounts:     items,
-		Query:        query,
-		State:        state,
-		ShowingCount: showingCount,
-		ShowingFrom:  showingFrom,
-		ShowingTo:    showingTo,
-		TotalCount:   totalCount,
-		Page:         page,
-		PerPage:      perPage,
-		TotalPages:   totalPages,
-		HasAccounts:  showingCount > 0,
-		EmptyStateMsg: func() string {
-			if query != "" || state != "" {
-				return "No assigned users match the current search."
-			}
-			return "No Okta users are assigned to this app."
-		}(),
+		Accounts:    items,
+		Query:       query,
+		State:       state,
+		HasAccounts: len(items) > 0,
 	}
 
 	return h.RenderComponent(c, views.OktaAppShowPage(data))
@@ -334,7 +315,7 @@ func (h *Handlers) HandleAppsMap(c *echo.Context) error {
 		if err := h.Q.DeleteIntegrationOktaAppMap(ctx, kind); err != nil {
 			return h.RenderError(c, err)
 		}
-		return c.Redirect(http.StatusSeeOther, "/apps")
+		return c.Redirect(http.StatusSeeOther, "/assigned-apps")
 	}
 
 	if err := h.Q.UpsertIntegrationOktaAppMap(ctx, gen.UpsertIntegrationOktaAppMapParams{
@@ -344,5 +325,5 @@ func (h *Handlers) HandleAppsMap(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	return c.Redirect(http.StatusSeeOther, "/apps")
+	return c.Redirect(http.StatusSeeOther, "/assigned-apps")
 }

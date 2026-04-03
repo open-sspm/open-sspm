@@ -79,11 +79,11 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	page, totalPages, offset := paginate(totalCount, page, discoveryAppsPerPage)
+	pagination := newPaginatedListState(totalCount, page, discoveryAppsPerPage)
 	rows, err := h.Q.ListSaaSAppsPageByFilters(ctx, gen.ListSaaSAppsPageByFiltersParams{
 		ManagedState:              managedState,
 		RiskLevel:                 riskLevel,
-		PageOffset:                int32(offset),
+		PageOffset:                int32(pagination.Offset()),
 		PageLimit:                 int32(discoveryAppsPerPage),
 		ConfiguredSourceKinds:     configuredSourceKinds,
 		ConfiguredSourceNames:     configuredSourceNames,
@@ -126,30 +126,20 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 		})
 	}
 
-	showingCount := len(items)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
 	data := viewmodels.DiscoveryAppsViewData{
-		Layout:             layout,
-		SourceOptions:      sourceKindOptions(sourceOptions),
-		SourceNameOptions:  sourceNameOptions,
-		SelectedSourceKind: selectedSourceKind,
-		SelectedSourceName: selectedSourceName,
-		Query:              query,
-		ManagedState:       managedState,
-		RiskLevel:          riskLevel,
-		Items:              items,
-		ShowingCount:       showingCount,
-		ShowingFrom:        showingFrom,
-		ShowingTo:          showingTo,
-		TotalCount:         totalCount,
-		Page:               page,
-		PerPage:            discoveryAppsPerPage,
-		TotalPages:         totalPages,
-		HasItems:           showingCount > 0,
-		EmptyStateMsg:      "No discovered SaaS apps match the current filters.",
+		PaginatedListPageData: pagination.PageData(layout, len(items), "No discovered SaaS apps match the current filters.", ""),
+		SourceOptions:         sourceKindOptions(sourceOptions),
+		SourceNameOptions:     sourceNameOptions,
+		SelectedSourceKind:    selectedSourceKind,
+		SelectedSourceName:    selectedSourceName,
+		Query:                 query,
+		ManagedState:          managedState,
+		RiskLevel:             riskLevel,
+		Items:                 items,
+		HasItems:              len(items) > 0,
 	}
 	if totalCount == 0 && len(sourceOptions) == 0 {
-		data.EmptyStateMsg = "Enable Okta, Microsoft Entra, or Google Workspace discovery in connector settings, then run sync."
+		data.PaginatedListPageData.EmptyStateMsg = "Enable Okta, Microsoft Entra, or Google Workspace discovery in connector settings, then run sync."
 	}
 
 	if isHX(c) && isHXTarget(c, "discovery-apps-results") {

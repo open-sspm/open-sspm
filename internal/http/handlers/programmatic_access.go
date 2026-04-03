@@ -35,18 +35,15 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 	assetKind := strings.TrimSpace(c.QueryParam("asset_kind"))
 	page := parsePageParam(c)
 	const perPage = 20
+	pagination := newPaginatedListState(0, page, perPage)
 
 	data := viewmodels.AppAssetsViewData{
-		Layout:             layout,
-		Sources:            sources,
-		SelectedSourceKind: selected.SourceKind,
-		SelectedSourceName: selected.SourceName,
-		Query:              query,
-		AssetKind:          assetKind,
-		Page:               1,
-		PerPage:            perPage,
-		TotalPages:         1,
-		EmptyStateMsg:      "No app assets found for the current filters.",
+		PaginatedListPageData: pagination.PageData(layout, 0, "No app assets found for the current filters.", ""),
+		Sources:               sources,
+		SelectedSourceKind:    selected.SourceKind,
+		SelectedSourceName:    selected.SourceName,
+		Query:                 query,
+		AssetKind:             assetKind,
 	}
 	renderAppAssets := func() error {
 		if isHX(c) && isHXTarget(c, "app-assets-results") {
@@ -56,19 +53,17 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 	}
 
 	if !hasSource {
-		data.EmptyStateMsg = "Configure and enable GitHub, Microsoft Entra, or Vault connectors to populate app assets."
+		data.PaginatedListPageData.EmptyStateMsg = "Configure and enable GitHub, Microsoft Entra, or Vault connectors to populate app assets."
 		return renderAppAssets()
 	}
 
 	activeSources := effectiveProgrammaticSources(selected, sources)
 	if len(activeSources) == 0 {
-		data.EmptyStateMsg = "No matching source found. Choose another source filter."
+		data.PaginatedListPageData.EmptyStateMsg = "No matching source found. Choose another source filter."
 		return renderAppAssets()
 	}
 
 	var totalCount int64
-	var totalPages int
-	var offset int
 	var assets []gen.AppAsset
 
 	if len(activeSources) == 1 {
@@ -83,27 +78,41 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 			return h.RenderError(c, err)
 		}
 
-		page, totalPages, offset = paginate(totalCount, page, perPage)
+		pagination = newPaginatedListState(totalCount, page, perPage)
 		assets, err = h.Q.ListAppAssetsPageBySourceAndQueryAndKind(ctx, gen.ListAppAssetsPageBySourceAndQueryAndKindParams{
 			SourceKind: source.SourceKind,
 			SourceName: source.SourceName,
 			AssetKind:  assetKind,
 			Query:      query,
 			PageLimit:  int32(perPage),
-			PageOffset: int32(offset),
+			PageOffset: int32(pagination.Offset()),
 		})
 		if err != nil {
 			return h.RenderError(c, err)
 		}
 	} else {
-		allAssets, err := h.listAppAssetsAcrossSources(ctx, activeSources, assetKind, query)
+		sourceKinds, sourceNames := programmaticConfiguredSourcePairs(activeSources)
+		totalCount, err = h.Q.CountAppAssetsBySourcesAndQueryAndKind(ctx, gen.CountAppAssetsBySourcesAndQueryAndKindParams{
+			ConfiguredSourceKinds: sourceKinds,
+			ConfiguredSourceNames: sourceNames,
+			AssetKind:             assetKind,
+			Query:                 query,
+		})
 		if err != nil {
 			return h.RenderError(c, err)
 		}
-		sortAppAssetsForList(allAssets)
-		totalCount = int64(len(allAssets))
-		page, totalPages, offset = paginate(totalCount, page, perPage)
-		assets = paginateAppAssets(allAssets, offset, perPage)
+		pagination = newPaginatedListState(totalCount, page, perPage)
+		assets, err = h.Q.ListAppAssetsPageBySourcesAndQueryAndKind(ctx, gen.ListAppAssetsPageBySourcesAndQueryAndKindParams{
+			ConfiguredSourceKinds: sourceKinds,
+			ConfiguredSourceNames: sourceNames,
+			AssetKind:             assetKind,
+			Query:                 query,
+			PageLimit:             int32(perPage),
+			PageOffset:            int32(pagination.Offset()),
+		})
+		if err != nil {
+			return h.RenderError(c, err)
+		}
 	}
 
 	ownerCounts := map[int64]int{}
@@ -198,19 +207,11 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 		})
 	}
 
-	showingCount := len(items)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
 	data.Items = items
-	data.ShowingCount = showingCount
-	data.ShowingFrom = showingFrom
-	data.ShowingTo = showingTo
-	data.TotalCount = totalCount
-	data.Page = page
-	data.TotalPages = totalPages
-	data.HasItems = showingCount > 0
+	data.PaginatedListPageData = pagination.PageData(layout, len(items), "No app assets found for the current filters.", "")
+	data.HasItems = len(items) > 0
 	if query != "" || assetKind != "" {
-		data.EmptyStateMsg = "No app assets match the current search filters."
+		data.PaginatedListPageData.EmptyStateMsg = "No app assets match the current search filters."
 	}
 
 	return renderAppAssets()
@@ -377,22 +378,19 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 	}
 	page := parsePageParam(c)
 	const perPage = 20
+	pagination := newPaginatedListState(0, page, perPage)
 
 	data := viewmodels.CredentialsViewData{
-		Layout:             layout,
-		Sources:            sources,
-		SelectedSourceKind: selected.SourceKind,
-		SelectedSourceName: selected.SourceName,
-		Query:              query,
-		CredentialKind:     credentialKind,
-		Status:             status,
-		RiskLevel:          riskLevel,
-		ExpiryState:        expiryState,
-		ExpiresInDays:      expiresInDays,
-		Page:               1,
-		PerPage:            perPage,
-		TotalPages:         1,
-		EmptyStateMsg:      "No credentials found for the current filters.",
+		PaginatedListPageData: pagination.PageData(layout, 0, "No credentials found for the current filters.", ""),
+		Sources:               sources,
+		SelectedSourceKind:    selected.SourceKind,
+		SelectedSourceName:    selected.SourceName,
+		Query:                 query,
+		CredentialKind:        credentialKind,
+		Status:                status,
+		RiskLevel:             riskLevel,
+		ExpiryState:           expiryState,
+		ExpiresInDays:         expiresInDays,
 	}
 	renderCredentials := func() error {
 		if isHX(c) && isHXTarget(c, "credentials-results") {
@@ -402,19 +400,17 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 	}
 
 	if !hasSource {
-		data.EmptyStateMsg = "Configure and enable GitHub, Microsoft Entra, or Vault connectors to populate credential inventory."
+		data.PaginatedListPageData.EmptyStateMsg = "Configure and enable GitHub, Microsoft Entra, or Vault connectors to populate credential inventory."
 		return renderCredentials()
 	}
 
 	activeSources := effectiveProgrammaticSources(selected, sources)
 	if len(activeSources) == 0 {
-		data.EmptyStateMsg = "No matching source found. Choose another source filter."
+		data.PaginatedListPageData.EmptyStateMsg = "No matching source found. Choose another source filter."
 		return renderCredentials()
 	}
 
 	var totalCount int64
-	var totalPages int
-	var offset int
 	var rows []gen.CredentialArtifact
 
 	if len(activeSources) == 1 {
@@ -433,7 +429,7 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 			return h.RenderError(c, err)
 		}
 
-		page, totalPages, offset = paginate(totalCount, page, perPage)
+		pagination = newPaginatedListState(totalCount, page, perPage)
 		rows, err = h.Q.ListCredentialArtifactsPageBySourceAndQueryAndFilters(ctx, gen.ListCredentialArtifactsPageBySourceAndQueryAndFiltersParams{
 			SourceKind:     source.SourceKind,
 			SourceName:     source.SourceName,
@@ -444,20 +440,42 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 			ExpiresInDays:  int32(expiresInDays),
 			Query:          query,
 			PageLimit:      int32(perPage),
-			PageOffset:     int32(offset),
+			PageOffset:     int32(pagination.Offset()),
 		})
 		if err != nil {
 			return h.RenderError(c, err)
 		}
 	} else {
-		rows, err = h.listCredentialsAcrossSources(ctx, activeSources, credentialKind, status, riskLevel, expiryState, expiresInDays, query)
+		sourceKinds, sourceNames := programmaticConfiguredSourcePairs(activeSources)
+		totalCount, err = h.Q.CountCredentialArtifactsBySourcesAndQueryAndFilters(ctx, gen.CountCredentialArtifactsBySourcesAndQueryAndFiltersParams{
+			ConfiguredSourceKinds: sourceKinds,
+			ConfiguredSourceNames: sourceNames,
+			CredentialKind:        credentialKind,
+			Status:                status,
+			RiskLevel:             riskLevel,
+			ExpiryState:           expiryState,
+			ExpiresInDays:         int32(expiresInDays),
+			Query:                 query,
+		})
 		if err != nil {
 			return h.RenderError(c, err)
 		}
-		sortCredentialsForList(rows)
-		totalCount = int64(len(rows))
-		page, totalPages, offset = paginate(totalCount, page, perPage)
-		rows = paginateCredentials(rows, offset, perPage)
+		pagination = newPaginatedListState(totalCount, page, perPage)
+		rows, err = h.Q.ListCredentialArtifactsPageBySourcesAndQueryAndFilters(ctx, gen.ListCredentialArtifactsPageBySourcesAndQueryAndFiltersParams{
+			ConfiguredSourceKinds: sourceKinds,
+			ConfiguredSourceNames: sourceNames,
+			CredentialKind:        credentialKind,
+			Status:                status,
+			RiskLevel:             riskLevel,
+			ExpiryState:           expiryState,
+			ExpiresInDays:         int32(expiresInDays),
+			Query:                 query,
+			PageLimit:             int32(perPage),
+			PageOffset:            int32(pagination.Offset()),
+		})
+		if err != nil {
+			return h.RenderError(c, err)
+		}
 	}
 
 	now := time.Now().UTC()
@@ -502,19 +520,11 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 		})
 	}
 
-	showingCount := len(items)
-	showingFrom, showingTo := showingRange(totalCount, offset, showingCount)
-
 	data.Items = items
-	data.ShowingCount = showingCount
-	data.ShowingFrom = showingFrom
-	data.ShowingTo = showingTo
-	data.TotalCount = totalCount
-	data.Page = page
-	data.TotalPages = totalPages
-	data.HasItems = showingCount > 0
+	data.PaginatedListPageData = pagination.PageData(layout, len(items), "No credentials found for the current filters.", "")
+	data.HasItems = len(items) > 0
 	if query != "" || credentialKind != "" || status != "" || riskLevel != "" || expiryState != "" || expiresInDays > 0 {
-		data.EmptyStateMsg = "No credentials match the current search filters."
+		data.PaginatedListPageData.EmptyStateMsg = "No credentials match the current search filters."
 	}
 
 	return renderCredentials()
@@ -730,158 +740,6 @@ func effectiveProgrammaticSources(selected viewmodels.ProgrammaticSourceOption, 
 		out = append(out, source)
 	}
 	return out
-}
-
-func (h *Handlers) listAppAssetsAcrossSources(ctx context.Context, sources []viewmodels.ProgrammaticSourceOption, assetKind, query string) ([]gen.AppAsset, error) {
-	out := make([]gen.AppAsset, 0)
-	for _, source := range sources {
-		rows, err := h.listAppAssetsForSource(ctx, source, assetKind, query)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, rows...)
-	}
-	return out, nil
-}
-
-func (h *Handlers) listAppAssetsForSource(ctx context.Context, source viewmodels.ProgrammaticSourceOption, assetKind, query string) ([]gen.AppAsset, error) {
-	const pageSize = 1000
-	out := make([]gen.AppAsset, 0)
-	for offset := 0; ; offset += pageSize {
-		rows, err := h.Q.ListAppAssetsPageBySourceAndQueryAndKind(ctx, gen.ListAppAssetsPageBySourceAndQueryAndKindParams{
-			SourceKind: source.SourceKind,
-			SourceName: source.SourceName,
-			AssetKind:  assetKind,
-			Query:      query,
-			PageLimit:  int32(pageSize),
-			PageOffset: int32(offset),
-		})
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, rows...)
-		if len(rows) < pageSize {
-			break
-		}
-	}
-	return out, nil
-}
-
-func (h *Handlers) listCredentialsAcrossSources(ctx context.Context, sources []viewmodels.ProgrammaticSourceOption, credentialKind, status, riskLevel, expiryState string, expiresInDays int, query string) ([]gen.CredentialArtifact, error) {
-	out := make([]gen.CredentialArtifact, 0)
-	for _, source := range sources {
-		rows, err := h.listCredentialsForSource(ctx, source, credentialKind, status, riskLevel, expiryState, expiresInDays, query)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, rows...)
-	}
-	return out, nil
-}
-
-func (h *Handlers) listCredentialsForSource(ctx context.Context, source viewmodels.ProgrammaticSourceOption, credentialKind, status, riskLevel, expiryState string, expiresInDays int, query string) ([]gen.CredentialArtifact, error) {
-	const pageSize = 1000
-	out := make([]gen.CredentialArtifact, 0)
-	for offset := 0; ; offset += pageSize {
-		rows, err := h.Q.ListCredentialArtifactsPageBySourceAndQueryAndFilters(ctx, gen.ListCredentialArtifactsPageBySourceAndQueryAndFiltersParams{
-			SourceKind:     source.SourceKind,
-			SourceName:     source.SourceName,
-			CredentialKind: credentialKind,
-			Status:         status,
-			RiskLevel:      riskLevel,
-			ExpiryState:    expiryState,
-			ExpiresInDays:  int32(expiresInDays),
-			Query:          query,
-			PageLimit:      int32(pageSize),
-			PageOffset:     int32(offset),
-		})
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, rows...)
-		if len(rows) < pageSize {
-			break
-		}
-	}
-	return out, nil
-}
-
-func sortAppAssetsForList(rows []gen.AppAsset) {
-	sort.SliceStable(rows, func(i, j int) bool {
-		leftName := strings.ToLower(strings.TrimSpace(rows[i].DisplayName))
-		if leftName == "" {
-			leftName = strings.ToLower(strings.TrimSpace(rows[i].ExternalID))
-		}
-		rightName := strings.ToLower(strings.TrimSpace(rows[j].DisplayName))
-		if rightName == "" {
-			rightName = strings.ToLower(strings.TrimSpace(rows[j].ExternalID))
-		}
-		if leftName != rightName {
-			return leftName < rightName
-		}
-		if rows[i].SourceKind != rows[j].SourceKind {
-			return rows[i].SourceKind < rows[j].SourceKind
-		}
-		if rows[i].SourceName != rows[j].SourceName {
-			return rows[i].SourceName < rows[j].SourceName
-		}
-		return rows[i].ID < rows[j].ID
-	})
-}
-
-func sortCredentialsForList(rows []gen.CredentialArtifact) {
-	sort.SliceStable(rows, func(i, j int) bool {
-		leftExpires := rows[i].ExpiresAtSource
-		rightExpires := rows[j].ExpiresAtSource
-		if leftExpires.Valid != rightExpires.Valid {
-			// NULL sorts last, equivalent to COALESCE(expires_at_source, 'infinity').
-			return leftExpires.Valid
-		}
-		if leftExpires.Valid && !leftExpires.Time.Equal(rightExpires.Time) {
-			return leftExpires.Time.Before(rightExpires.Time)
-		}
-
-		leftName := strings.ToLower(strings.TrimSpace(rows[i].DisplayName))
-		if leftName == "" {
-			leftName = strings.ToLower(strings.TrimSpace(rows[i].ExternalID))
-		}
-		rightName := strings.ToLower(strings.TrimSpace(rows[j].DisplayName))
-		if rightName == "" {
-			rightName = strings.ToLower(strings.TrimSpace(rows[j].ExternalID))
-		}
-		if leftName != rightName {
-			return leftName < rightName
-		}
-		if rows[i].SourceKind != rows[j].SourceKind {
-			return rows[i].SourceKind < rows[j].SourceKind
-		}
-		if rows[i].SourceName != rows[j].SourceName {
-			return rows[i].SourceName < rows[j].SourceName
-		}
-		return rows[i].ID < rows[j].ID
-	})
-}
-
-func paginateAppAssets(rows []gen.AppAsset, offset, limit int) []gen.AppAsset {
-	if offset < 0 {
-		offset = 0
-	}
-	if limit <= 0 || offset >= len(rows) {
-		return nil
-	}
-	end := min(offset+limit, len(rows))
-	return rows[offset:end]
-}
-
-func paginateCredentials(rows []gen.CredentialArtifact, offset, limit int) []gen.CredentialArtifact {
-	if offset < 0 {
-		offset = 0
-	}
-	if limit <= 0 || offset >= len(rows) {
-		return nil
-	}
-	end := min(offset+limit, len(rows))
-	return rows[offset:end]
 }
 
 func parsePositiveInt64Param(value string) (int64, error) {
@@ -1299,14 +1157,11 @@ func (h *Handlers) listCredentialArtifactsForAsset(ctx context.Context, asset ge
 	return out, nil
 }
 
-func (h *Handlers) resolveCredentialAssetHref(ctx context.Context, credential gen.CredentialArtifact) string {
-	if strings.TrimSpace(credential.AssetRefKind) != "app_asset" {
-		return ""
-	}
-
+func credentialAssetLookupKey(credential gen.CredentialArtifact) (string, string, bool) {
+	assetRefKind := strings.TrimSpace(credential.AssetRefKind)
 	assetRefExternalID := strings.TrimSpace(credential.AssetRefExternalID)
 	if assetRefExternalID == "" {
-		return ""
+		return "", "", false
 	}
 
 	assetKind := ""
@@ -1316,7 +1171,19 @@ func (h *Handlers) resolveCredentialAssetHref(ctx context.Context, credential ge
 		assetKind = strings.TrimSpace(parts[0])
 		assetExternalID = strings.TrimSpace(parts[1])
 	}
+	if assetKind == "" && assetRefKind != "" && assetRefKind != "app_asset" {
+		assetKind = assetRefKind
+	}
 	if assetKind == "" || assetExternalID == "" {
+		return "", "", false
+	}
+
+	return assetKind, assetExternalID, true
+}
+
+func (h *Handlers) resolveCredentialAssetHref(ctx context.Context, credential gen.CredentialArtifact) string {
+	assetKind, assetExternalID, ok := credentialAssetLookupKey(credential)
+	if !ok {
 		return ""
 	}
 
