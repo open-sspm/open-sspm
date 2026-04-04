@@ -33,6 +33,7 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 	selected, hasSource := selectProgrammaticSource(c, sources)
 	query := strings.TrimSpace(c.QueryParam("q"))
 	assetKind := strings.TrimSpace(c.QueryParam("asset_kind"))
+	reviewState := normalizeConnectedAppReviewState(c.QueryParam("review_state"), true)
 	page := parsePageParam(c)
 	const perPage = 20
 	pagination := newPaginatedListState(0, page, perPage)
@@ -52,8 +53,21 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 		return h.RenderComponent(c, views.AppAssetsPage(data))
 	}
 
+	wantsGoogleOAuthSlice := strings.EqualFold(strings.TrimSpace(c.QueryParam("source_kind")), configstore.KindGoogleWorkspace) &&
+		strings.TrimSpace(assetKind) == connectedAppAssetKindGoogle
+	if wantsGoogleOAuthSlice {
+		oauthData, err := h.buildConnectedAppsViewData(ctx, layout, stateView, query, reviewState, page)
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		data.PaginatedListPageData = oauthData.PaginatedListPageData
+		data.GoogleOAuthView = &oauthData
+		data.HasItems = oauthData.HasItems
+		return renderAppAssets()
+	}
+
 	if !hasSource {
-		data.PaginatedListPageData.EmptyStateMsg = "Configure and enable GitHub, Microsoft Entra, or Vault connectors to populate app assets."
+		data.PaginatedListPageData.EmptyStateMsg = "Configure and enable GitHub, Google Workspace, Microsoft Entra, or Vault connectors to populate app assets."
 		return renderAppAssets()
 	}
 
@@ -230,6 +244,9 @@ func (h *Handlers) HandleAppAssetShow(c *echo.Context) error {
 			return RenderNotFound(c)
 		}
 		return h.RenderError(c, err)
+	}
+	if isGoogleConnectedApp(asset.SourceKind, asset.AssetKind) {
+		return h.renderAppAssetShow(c, assetID, connectedAppShowOptions{})
 	}
 
 	layout, _, err := h.LayoutData(ctx, c, "App Asset")

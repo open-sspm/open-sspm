@@ -38,23 +38,45 @@ func TestHandleConnectedAppShowUsesLiveDiscoveryPosture(t *testing.T) {
 			"client-123.apps.googleusercontent.com",
 		)
 
-		body := renderConnectedAppShow(t, h, appID)
+		body := renderGoogleOAuthAppAssetShow(t, h, appID)
 		assertContains(t, body, "Orphaned Client")
 		assertContains(t, body, "Unmanaged")
 		assertContains(t, body, "High")
 	})
 }
 
-func renderConnectedAppShow(t *testing.T, h *Handlers, appID int64) string {
+func TestHandleConnectedAppShowRedirectsToCanonicalAppAsset(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGoogleWorkspace, "C0123")
+		appID := insertCommandSearchAppAsset(t, ctx, q, runID, configstore.KindGoogleWorkspace, "C0123", connectedAppAssetKindGoogle, "client-123.apps.googleusercontent.com", "", "OAuth Approval Client", "active")
+
+		target := "http://example.com/oauth-apps/" + strconv.FormatInt(appID, 10)
+		c, rec := newTestContext(http.MethodGet, target)
+		(*c).SetPath("/oauth-apps/:id")
+		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(appID, 10)}})
+
+		if err := h.HandleConnectedAppShow(c); err != nil {
+			t.Fatalf("HandleConnectedAppShow(%d): %v", appID, err)
+		}
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusSeeOther, rec.Body.String())
+		}
+		if got := rec.Header().Get(echo.HeaderLocation); got != "/app-assets/"+strconv.FormatInt(appID, 10) {
+			t.Fatalf("location = %q, want %q", got, "/app-assets/"+strconv.FormatInt(appID, 10))
+		}
+	})
+}
+
+func renderGoogleOAuthAppAssetShow(t *testing.T, h *Handlers, appID int64) string {
 	t.Helper()
 
-	target := "http://example.com/oauth-apps/" + strconv.FormatInt(appID, 10)
+	target := "http://example.com/app-assets/" + strconv.FormatInt(appID, 10)
 	c, rec := newTestContext(http.MethodGet, target)
-	(*c).SetPath("/oauth-apps/:id")
+	(*c).SetPath("/app-assets/:id")
 	(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(appID, 10)}})
 
-	if err := h.HandleConnectedAppShow(c); err != nil {
-		t.Fatalf("HandleConnectedAppShow(%d): %v", appID, err)
+	if err := h.HandleAppAssetShow(c); err != nil {
+		t.Fatalf("HandleAppAssetShow(%d): %v", appID, err)
 	}
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())

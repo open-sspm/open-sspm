@@ -51,12 +51,10 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 	identityKinds, identityNames := identityConfiguredSourcePairs(availableIdentitySourcePairs(stateView))
 	programmaticSources := availableProgrammaticSources(stateView)
 	discoveryKinds, discoveryNames := discoveryConfiguredSourcePairs(discoverySourceOptions(stateView))
-	connectedSourceName, hasConnectedApps := commandConnectedAppsSourceName(stateView)
 	cutoffs := h.discoveryPostureCutoffs(time.Now().UTC())
 
 	var (
 		identityRows  []gen.SearchIdentitiesForCommandRow
-		connectedRows []gen.SearchConnectedAppsForCommandRow
 		appAssetRows  []gen.SearchAppAssetsForCommandRow
 		discoveryRows []gen.SearchDiscoveryAppsForCommandRow
 		oktaAppRows   []gen.SearchOktaAppsForCommandRow
@@ -78,20 +76,6 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 			return nil
 		})
 	}
-	if hasConnectedApps {
-		group.Go(func() error {
-			rows, err := h.Q.SearchConnectedAppsForCommand(ctx, gen.SearchConnectedAppsForCommandParams{
-				SourceName: connectedSourceName,
-				Query:      query,
-				LimitRows:  commandSearchLimitRows,
-			})
-			if err != nil {
-				return err
-			}
-			connectedRows = rows
-			return nil
-		})
-	}
 	if len(programmaticSources) > 0 {
 		programmaticKinds := make([]string, 0, len(programmaticSources))
 		programmaticNames := make([]string, 0, len(programmaticSources))
@@ -102,7 +86,7 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 		group.Go(func() error {
 			rows, err := h.Q.SearchAppAssetsForCommand(ctx, gen.SearchAppAssetsForCommandParams{
 				Query:                             query,
-				ExcludeGoogleWorkspaceOauthClient: hasConnectedApps,
+				ExcludeGoogleWorkspaceOauthClient: false,
 				LimitRows:                         commandSearchLimitRows,
 				ConfiguredSourceKinds:             programmaticKinds,
 				ConfiguredSourceNames:             programmaticNames,
@@ -159,13 +143,6 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 			Key:   "identities",
 			Title: "Identities",
 			Items: commandIdentityItems(identityRows),
-		})
-	}
-	if len(connectedRows) > 0 {
-		data.Sections = append(data.Sections, viewmodels.CommandSectionView{
-			Key:   "connected-apps",
-			Title: "OAuth Apps",
-			Items: commandConnectedAppItems(connectedRows),
 		})
 	}
 	if len(appAssetRows) > 0 {
@@ -254,35 +231,6 @@ func commandIdentityItems(rows []gen.SearchIdentitiesForCommandRow) []viewmodels
 				{
 					Label: views.HumanizeIdentityType(row.IdentityType),
 					Class: "badge-outline shrink-0",
-				},
-			},
-		})
-	}
-	return items
-}
-
-func commandConnectedAppItems(rows []gen.SearchConnectedAppsForCommandRow) []viewmodels.CommandItemView {
-	items := make([]viewmodels.CommandItemView, 0, len(rows))
-	for _, row := range rows {
-		displayName := fallbackDash(row.DisplayName)
-		status := fallbackDash(row.Status)
-		freshness := connectedAppFreshness(row.EvidenceLastSeenAt)
-		items = append(items, viewmodels.CommandItemView{
-			ID:         "cmd-connected-app-" + strconv.FormatInt(row.ID, 10),
-			Kind:       "connected_app",
-			Href:       "/oauth-apps/" + strconv.FormatInt(row.ID, 10),
-			Primary:    displayName,
-			Secondary:  fallbackDash(strings.TrimSpace(row.ExternalID)),
-			FilterText: strings.TrimSpace(displayName + " " + row.ExternalID + " " + status + " " + row.ReviewState),
-			Keywords:   row.ExternalID,
-			Badges: []viewmodels.CommandBadgeView{
-				{
-					Label: views.HumanizeConnectedAppReviewState(row.ReviewState),
-					Class: views.ConnectedAppReviewStateBadgeClass(row.ReviewState) + " shrink-0",
-				},
-				{
-					Label: views.HumanizeConnectedAppFreshness(freshness),
-					Class: views.ConnectedAppFreshnessBadgeClass(freshness) + " shrink-0",
 				},
 			},
 		})
@@ -389,13 +337,6 @@ func commandActionSection(stateView connectorStateView, query string) viewmodels
 			commandQueryURL("/identities", query),
 		))
 	}
-	if _, ok := commandConnectedAppsSourceName(stateView); ok {
-		items = append(items, commandActionItem(
-			"cmd-action-connected-apps",
-			fmt.Sprintf("Search OAuth Apps for “%s”", query),
-			commandQueryURL("/oauth-apps", query),
-		))
-	}
 	if commandHasAppAssetsSurface(stateView) {
 		items = append(items, commandActionItem(
 			"cmd-action-app-assets",
@@ -434,15 +375,6 @@ func commandActionItem(id, label, href string) viewmodels.CommandItemView {
 		Disabled:     false,
 		ForceVisible: true,
 	}
-}
-
-func commandConnectedAppsSourceName(stateView connectorStateView) (string, bool) {
-	google := stateView.GoogleWorkspace()
-	sourceName := google.SourceName()
-	if !google.Configured() || !google.Enabled() || sourceName == "" {
-		return "", false
-	}
-	return sourceName, true
 }
 
 func commandHasIdentitySurface(stateView connectorStateView) bool {

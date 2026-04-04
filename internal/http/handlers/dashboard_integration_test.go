@@ -82,9 +82,9 @@ func TestHandleDashboardIgnoresLegacyGoogleConnectedAppsWithoutConfiguredConnect
 		assertDashboardMetric(t, dashboardBody, "Discovered SaaS apps", 0)
 		assertDashboardMetric(t, dashboardBody, "App assets", 0)
 
-		connectedAppsBody := renderConnectedApps(t, h, "http://example.com/oauth-apps")
-		if !strings.Contains(connectedAppsBody, "Google Workspace is not configured yet. Add credentials in Connectors.") {
-			t.Fatalf("connected-apps body missing unconfigured state: %s", connectedAppsBody)
+		appAssetsBody := renderGoogleOAuthAppAssets(t, h, "http://example.com/app-assets?source_kind=google_workspace&asset_kind=google_oauth_client")
+		if !strings.Contains(appAssetsBody, "Google Workspace is not configured yet. Add credentials in Connectors.") {
+			t.Fatalf("app-assets body missing unconfigured state: %s", appAssetsBody)
 		}
 	})
 }
@@ -114,12 +114,12 @@ func renderDashboard(t *testing.T, h *Handlers, target string) string {
 	return rec.Body.String()
 }
 
-func renderConnectedApps(t *testing.T, h *Handlers, target string) string {
+func renderGoogleOAuthAppAssets(t *testing.T, h *Handlers, target string) string {
 	t.Helper()
 
 	c, rec := newTestContext(http.MethodGet, target)
-	if err := h.HandleConnectedApps(c); err != nil {
-		t.Fatalf("HandleConnectedApps(%s): %v", target, err)
+	if err := h.HandleAppAssets(c); err != nil {
+		t.Fatalf("HandleAppAssets(%s): %v", target, err)
 	}
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())

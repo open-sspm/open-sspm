@@ -27,6 +27,7 @@ type AppAssetsViewData struct {
 	Query              string
 	AssetKind          string
 	Items              []AppAssetListItem
+	GoogleOAuthView    *ConnectedAppsViewData
 	HasItems           bool
 }
 
@@ -76,14 +77,15 @@ type AppAssetSummaryView struct {
 }
 
 type AppAssetShowViewData struct {
-	Layout         LayoutData
-	Asset          AppAssetSummaryView
-	Owners         []AppAssetOwnerItem
-	Credentials    []AppAssetCredentialItem
-	AuditEvents    []ProgrammaticAuditEventItem
-	HasOwners      bool
-	HasCredentials bool
-	HasAuditEvents bool
+	Layout          LayoutData
+	Asset           AppAssetSummaryView
+	Owners          []AppAssetOwnerItem
+	Credentials     []AppAssetCredentialItem
+	AuditEvents     []ProgrammaticAuditEventItem
+	GoogleOAuthView *ConnectedAppShowViewData
+	HasOwners       bool
+	HasCredentials  bool
+	HasAuditEvents  bool
 }
 
 type CredentialArtifactListItem struct {

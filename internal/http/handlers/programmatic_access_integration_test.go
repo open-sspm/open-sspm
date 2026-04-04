@@ -73,3 +73,41 @@ func TestHandleAppAssetsPaginatesAcrossConfiguredSources(t *testing.T) {
 		assertNotContains(t, body, "Asset 01")
 	})
 }
+
+func TestHandleAppAssetsRendersGoogleOAuthSlice(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGoogleWorkspace, true, configstore.GoogleWorkspaceConfig{
+			CustomerID:          "C0123",
+			DelegatedAdminEmail: "admin@example.com",
+			AuthType:            configstore.GoogleWorkspaceAuthTypeADC,
+			ServiceAccountEmail: "svc@example.com",
+		})
+
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGoogleWorkspace, "C0123")
+		needsReviewID := insertCommandSearchAppAsset(t, ctx, q, runID, configstore.KindGoogleWorkspace, "C0123", connectedAppAssetKindGoogle, "client-123.apps.googleusercontent.com", "", "OAuth Approval Client", "active")
+		unreviewedID := insertCommandSearchAppAsset(t, ctx, q, runID, configstore.KindGoogleWorkspace, "C0123", connectedAppAssetKindGoogle, "client-456.apps.googleusercontent.com", "", "Shadow OAuth Client", "active")
+
+		if _, err := q.UpsertConnectedAppGovernance(ctx, gen.UpsertConnectedAppGovernanceParams{
+			AppAssetID:  needsReviewID,
+			ReviewState: "needs_revocation",
+		}); err != nil {
+			t.Fatalf("UpsertConnectedAppGovernance: %v", err)
+		}
+
+		target := "http://example.com/app-assets?source_kind=google_workspace&asset_kind=google_oauth_client&review_state=needs_revocation"
+		c, rec := newTestContext(http.MethodGet, target)
+
+		if err := h.HandleAppAssets(c); err != nil {
+			t.Fatalf("HandleAppAssets(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		body := rec.Body.String()
+		assertContains(t, body, "OAuth Apps")
+		assertContains(t, body, "/app-assets/"+fmt.Sprint(needsReviewID))
+		assertNotContains(t, body, "/app-assets/"+fmt.Sprint(unreviewedID))
+		assertContains(t, body, "Needs revocation")
+	})
+}

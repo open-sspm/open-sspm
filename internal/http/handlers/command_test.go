@@ -69,7 +69,7 @@ func TestCommandActionSection(t *testing.T) {
 		}
 	})
 
-	t.Run("includes connected apps when google workspace is enabled and configured", func(t *testing.T) {
+	t.Run("uses merged app assets action when google workspace is enabled and configured", func(t *testing.T) {
 		stateView := newTestConnectorStateView(t, testConnectorSpec{
 			kind:       configstore.KindGoogleWorkspace,
 			config:     configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
@@ -86,7 +86,6 @@ func TestCommandActionSection(t *testing.T) {
 
 		wantIDs := []string{
 			"cmd-action-identities",
-			"cmd-action-connected-apps",
 			"cmd-action-app-assets",
 			"cmd-action-discovery-apps",
 		}
