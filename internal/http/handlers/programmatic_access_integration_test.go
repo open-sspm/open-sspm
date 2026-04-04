@@ -109,5 +109,7 @@ func TestHandleAppAssetsRendersGoogleOAuthSlice(t *testing.T) {
 		assertContains(t, body, "/app-assets/"+fmt.Sprint(needsReviewID))
 		assertNotContains(t, body, "/app-assets/"+fmt.Sprint(unreviewedID))
 		assertContains(t, body, "Needs revocation")
+		assertContains(t, body, `name="source_kind" value="google_workspace"`)
+		assertContains(t, body, `name="asset_kind" value="google_oauth_client"`)
 	})
 }
