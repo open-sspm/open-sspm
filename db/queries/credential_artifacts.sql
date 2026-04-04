@@ -115,162 +115,136 @@ ON CONFLICT (source_kind, source_name, credential_kind, external_id, asset_ref_k
   updated_at = now();
 
 -- name: CountCredentialArtifactsBySourceAndQueryAndFilters :one
-SELECT count(*)
-FROM credential_artifacts ca
-WHERE
-  ca.source_kind = sqlc.arg(source_kind)::text
-  AND ca.source_name = sqlc.arg(source_name)::text
-  AND ca.expired_at IS NULL
-  AND ca.last_observed_run_id IS NOT NULL
-  AND (
-    sqlc.arg(credential_kind)::text = ''
-    OR ca.credential_kind = sqlc.arg(credential_kind)::text
-  )
-  AND (
-    sqlc.arg(status)::text = ''
-    OR lower(ca.status) = lower(sqlc.arg(status)::text)
-  )
-  AND (
-    sqlc.arg(risk_level)::text = ''
-    OR lower(sqlc.arg(risk_level)::text) = (
-      CASE
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          AND lower(COALESCE(NULLIF(trim(ca.status), ''), 'active')) IN ('active', 'approved', 'pending_approval')
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          THEN 'high'
-        WHEN lower(ca.credential_kind) IN ('entra_client_secret', 'github_deploy_key', 'github_pat_request', 'github_pat_fine_grained')
-          AND trim(ca.created_by_external_id) = ''
-          AND trim(ca.approved_by_external_id) = ''
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 7)
-          THEN 'high'
-        WHEN trim(ca.created_by_external_id) = ''
-          THEN 'high'
-        WHEN ca.last_used_at_source IS NOT NULL
-          AND ca.last_used_at_source <= now() - make_interval(days => 90)
-          THEN 'high'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 30)
-          THEN 'medium'
-        ELSE 'low'
-      END
+WITH rated_credentials AS (
+  SELECT
+    ca.*,
+    credential_artifact_risk_level(
+      ca.status,
+      ca.credential_kind,
+      ca.expires_at_source,
+      ca.last_used_at_source,
+      ca.created_by_external_id,
+      ca.approved_by_external_id,
+      sqlc.arg(evaluated_at)::timestamptz
+    ) AS risk_level
+  FROM credential_artifacts ca
+  WHERE
+    ca.source_kind = sqlc.arg(source_kind)::text
+    AND ca.source_name = sqlc.arg(source_name)::text
+    AND ca.expired_at IS NULL
+    AND ca.last_observed_run_id IS NOT NULL
+    AND (
+      sqlc.arg(credential_kind)::text = ''
+      OR ca.credential_kind = sqlc.arg(credential_kind)::text
     )
+    AND (
+      sqlc.arg(status)::text = ''
+      OR lower(ca.status) = lower(sqlc.arg(status)::text)
+    )
+)
+SELECT count(*)
+FROM rated_credentials rc
+WHERE
+  (
+    sqlc.arg(risk_level)::text = ''
+    OR lower(sqlc.arg(risk_level)::text) = rc.risk_level
   )
   AND (
     sqlc.arg(expiry_state)::text = ''
     OR (
       sqlc.arg(expiry_state)::text = 'expired'
-      AND ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source < now()
+      AND rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source < sqlc.arg(evaluated_at)::timestamptz
     )
     OR (
       sqlc.arg(expiry_state)::text = 'active'
-      AND (ca.expires_at_source IS NULL OR ca.expires_at_source >= now())
+      AND (rc.expires_at_source IS NULL OR rc.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz)
     )
   )
   AND (
     sqlc.arg(expires_in_days)::int <= 0
     OR (
-      ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source >= now()
-      AND ca.expires_at_source <= now() + make_interval(days => sqlc.arg(expires_in_days)::int)
+      rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz
+      AND rc.expires_at_source <= sqlc.arg(evaluated_at)::timestamptz + make_interval(days => sqlc.arg(expires_in_days)::int)
     )
   )
   AND (
     sqlc.arg(query)::text = ''
-    OR ca.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.asset_ref_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.created_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.approved_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.asset_ref_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.created_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.approved_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
   );
 
 -- name: ListCredentialArtifactsPageBySourceAndQueryAndFilters :many
-SELECT ca.*
-FROM credential_artifacts ca
-WHERE
-  ca.source_kind = sqlc.arg(source_kind)::text
-  AND ca.source_name = sqlc.arg(source_name)::text
-  AND ca.expired_at IS NULL
-  AND ca.last_observed_run_id IS NOT NULL
-  AND (
-    sqlc.arg(credential_kind)::text = ''
-    OR ca.credential_kind = sqlc.arg(credential_kind)::text
-  )
-  AND (
-    sqlc.arg(status)::text = ''
-    OR lower(ca.status) = lower(sqlc.arg(status)::text)
-  )
-  AND (
-    sqlc.arg(risk_level)::text = ''
-    OR lower(sqlc.arg(risk_level)::text) = (
-      CASE
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          AND lower(COALESCE(NULLIF(trim(ca.status), ''), 'active')) IN ('active', 'approved', 'pending_approval')
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          THEN 'high'
-        WHEN lower(ca.credential_kind) IN ('entra_client_secret', 'github_deploy_key', 'github_pat_request', 'github_pat_fine_grained')
-          AND trim(ca.created_by_external_id) = ''
-          AND trim(ca.approved_by_external_id) = ''
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 7)
-          THEN 'high'
-        WHEN trim(ca.created_by_external_id) = ''
-          THEN 'high'
-        WHEN ca.last_used_at_source IS NOT NULL
-          AND ca.last_used_at_source <= now() - make_interval(days => 90)
-          THEN 'high'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 30)
-          THEN 'medium'
-        ELSE 'low'
-      END
+WITH rated_credentials AS (
+  SELECT
+    ca.*,
+    credential_artifact_risk_level(
+      ca.status,
+      ca.credential_kind,
+      ca.expires_at_source,
+      ca.last_used_at_source,
+      ca.created_by_external_id,
+      ca.approved_by_external_id,
+      sqlc.arg(evaluated_at)::timestamptz
+    ) AS risk_level
+  FROM credential_artifacts ca
+  WHERE
+    ca.source_kind = sqlc.arg(source_kind)::text
+    AND ca.source_name = sqlc.arg(source_name)::text
+    AND ca.expired_at IS NULL
+    AND ca.last_observed_run_id IS NOT NULL
+    AND (
+      sqlc.arg(credential_kind)::text = ''
+      OR ca.credential_kind = sqlc.arg(credential_kind)::text
     )
+    AND (
+      sqlc.arg(status)::text = ''
+      OR lower(ca.status) = lower(sqlc.arg(status)::text)
+    )
+)
+SELECT rc.*
+FROM rated_credentials rc
+WHERE
+  (
+    sqlc.arg(risk_level)::text = ''
+    OR lower(sqlc.arg(risk_level)::text) = rc.risk_level
   )
   AND (
     sqlc.arg(expiry_state)::text = ''
     OR (
       sqlc.arg(expiry_state)::text = 'expired'
-      AND ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source < now()
+      AND rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source < sqlc.arg(evaluated_at)::timestamptz
     )
     OR (
       sqlc.arg(expiry_state)::text = 'active'
-      AND (ca.expires_at_source IS NULL OR ca.expires_at_source >= now())
+      AND (rc.expires_at_source IS NULL OR rc.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz)
     )
   )
   AND (
     sqlc.arg(expires_in_days)::int <= 0
     OR (
-      ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source >= now()
-      AND ca.expires_at_source <= now() + make_interval(days => sqlc.arg(expires_in_days)::int)
+      rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz
+      AND rc.expires_at_source <= sqlc.arg(evaluated_at)::timestamptz + make_interval(days => sqlc.arg(expires_in_days)::int)
     )
   )
   AND (
     sqlc.arg(query)::text = ''
-    OR ca.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.asset_ref_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.created_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.approved_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.asset_ref_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.created_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.approved_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
   )
 ORDER BY
-  COALESCE(ca.expires_at_source, 'infinity'::timestamptz) ASC,
-  lower(COALESCE(NULLIF(trim(ca.display_name), ''), ca.external_id)) ASC,
-  ca.id ASC
+  COALESCE(rc.expires_at_source, 'infinity'::timestamptz) ASC,
+  lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) ASC,
+  rc.id ASC
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
@@ -281,82 +255,69 @@ WITH configured_sources AS (
     n.name AS source_name
   FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+rated_credentials AS (
+  SELECT
+    ca.*,
+    credential_artifact_risk_level(
+      ca.status,
+      ca.credential_kind,
+      ca.expires_at_source,
+      ca.last_used_at_source,
+      ca.created_by_external_id,
+      ca.approved_by_external_id,
+      sqlc.arg(evaluated_at)::timestamptz
+    ) AS risk_level
+  FROM credential_artifacts ca
+  JOIN configured_sources cs
+    ON cs.source_kind = ca.source_kind
+   AND cs.source_name = ca.source_name
+  WHERE
+    ca.expired_at IS NULL
+    AND ca.last_observed_run_id IS NOT NULL
+    AND (
+      sqlc.arg(credential_kind)::text = ''
+      OR ca.credential_kind = sqlc.arg(credential_kind)::text
+    )
+    AND (
+      sqlc.arg(status)::text = ''
+      OR lower(ca.status) = lower(sqlc.arg(status)::text)
+    )
 )
 SELECT count(*)
-FROM credential_artifacts ca
-JOIN configured_sources cs
-  ON cs.source_kind = ca.source_kind
- AND cs.source_name = ca.source_name
+FROM rated_credentials rc
 WHERE
-  ca.expired_at IS NULL
-  AND ca.last_observed_run_id IS NOT NULL
-  AND (
-    sqlc.arg(credential_kind)::text = ''
-    OR ca.credential_kind = sqlc.arg(credential_kind)::text
-  )
-  AND (
-    sqlc.arg(status)::text = ''
-    OR lower(ca.status) = lower(sqlc.arg(status)::text)
-  )
-  AND (
+  (
     sqlc.arg(risk_level)::text = ''
-    OR lower(sqlc.arg(risk_level)::text) = (
-      CASE
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          AND lower(COALESCE(NULLIF(trim(ca.status), ''), 'active')) IN ('active', 'approved', 'pending_approval')
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          THEN 'high'
-        WHEN lower(ca.credential_kind) IN ('entra_client_secret', 'github_deploy_key', 'github_pat_request', 'github_pat_fine_grained')
-          AND trim(ca.created_by_external_id) = ''
-          AND trim(ca.approved_by_external_id) = ''
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 7)
-          THEN 'high'
-        WHEN trim(ca.created_by_external_id) = ''
-          THEN 'high'
-        WHEN ca.last_used_at_source IS NOT NULL
-          AND ca.last_used_at_source <= now() - make_interval(days => 90)
-          THEN 'high'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 30)
-          THEN 'medium'
-        ELSE 'low'
-      END
-    )
+    OR lower(sqlc.arg(risk_level)::text) = rc.risk_level
   )
   AND (
     sqlc.arg(expiry_state)::text = ''
     OR (
       sqlc.arg(expiry_state)::text = 'expired'
-      AND ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source < now()
+      AND rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source < sqlc.arg(evaluated_at)::timestamptz
     )
     OR (
       sqlc.arg(expiry_state)::text = 'active'
-      AND (ca.expires_at_source IS NULL OR ca.expires_at_source >= now())
+      AND (rc.expires_at_source IS NULL OR rc.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz)
     )
   )
   AND (
     sqlc.arg(expires_in_days)::int <= 0
     OR (
-      ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source >= now()
-      AND ca.expires_at_source <= now() + make_interval(days => sqlc.arg(expires_in_days)::int)
+      rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz
+      AND rc.expires_at_source <= sqlc.arg(evaluated_at)::timestamptz + make_interval(days => sqlc.arg(expires_in_days)::int)
     )
   )
   AND (
     sqlc.arg(query)::text = ''
-    OR ca.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.asset_ref_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.created_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.approved_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.asset_ref_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.created_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.approved_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
   );
 
 -- name: ListCredentialArtifactsPageBySourcesAndQueryAndFilters :many
@@ -366,94 +327,91 @@ WITH configured_sources AS (
     n.name AS source_name
   FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-)
-SELECT ca.*
-FROM credential_artifacts ca
-JOIN configured_sources cs
-  ON cs.source_kind = ca.source_kind
- AND cs.source_name = ca.source_name
-WHERE
-  ca.expired_at IS NULL
-  AND ca.last_observed_run_id IS NOT NULL
-  AND (
-    sqlc.arg(credential_kind)::text = ''
-    OR ca.credential_kind = sqlc.arg(credential_kind)::text
-  )
-  AND (
-    sqlc.arg(status)::text = ''
-    OR lower(ca.status) = lower(sqlc.arg(status)::text)
-  )
-  AND (
-    sqlc.arg(risk_level)::text = ''
-    OR lower(sqlc.arg(risk_level)::text) = (
-      CASE
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          AND lower(COALESCE(NULLIF(trim(ca.status), ''), 'active')) IN ('active', 'approved', 'pending_approval')
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          THEN 'high'
-        WHEN lower(ca.credential_kind) IN ('entra_client_secret', 'github_deploy_key', 'github_pat_request', 'github_pat_fine_grained')
-          AND trim(ca.created_by_external_id) = ''
-          AND trim(ca.approved_by_external_id) = ''
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 7)
-          THEN 'high'
-        WHEN trim(ca.created_by_external_id) = ''
-          THEN 'high'
-        WHEN ca.last_used_at_source IS NOT NULL
-          AND ca.last_used_at_source <= now() - make_interval(days => 90)
-          THEN 'high'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 30)
-          THEN 'medium'
-        ELSE 'low'
-      END
+),
+rated_credentials AS (
+  SELECT
+    ca.*,
+    credential_artifact_risk_level(
+      ca.status,
+      ca.credential_kind,
+      ca.expires_at_source,
+      ca.last_used_at_source,
+      ca.created_by_external_id,
+      ca.approved_by_external_id,
+      sqlc.arg(evaluated_at)::timestamptz
+    ) AS risk_level
+  FROM credential_artifacts ca
+  JOIN configured_sources cs
+    ON cs.source_kind = ca.source_kind
+   AND cs.source_name = ca.source_name
+  WHERE
+    ca.expired_at IS NULL
+    AND ca.last_observed_run_id IS NOT NULL
+    AND (
+      sqlc.arg(credential_kind)::text = ''
+      OR ca.credential_kind = sqlc.arg(credential_kind)::text
     )
+    AND (
+      sqlc.arg(status)::text = ''
+      OR lower(ca.status) = lower(sqlc.arg(status)::text)
+    )
+)
+SELECT rc.*
+FROM rated_credentials rc
+WHERE
+  (
+    sqlc.arg(risk_level)::text = ''
+    OR lower(sqlc.arg(risk_level)::text) = rc.risk_level
   )
   AND (
     sqlc.arg(expiry_state)::text = ''
     OR (
       sqlc.arg(expiry_state)::text = 'expired'
-      AND ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source < now()
+      AND rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source < sqlc.arg(evaluated_at)::timestamptz
     )
     OR (
       sqlc.arg(expiry_state)::text = 'active'
-      AND (ca.expires_at_source IS NULL OR ca.expires_at_source >= now())
+      AND (rc.expires_at_source IS NULL OR rc.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz)
     )
   )
   AND (
     sqlc.arg(expires_in_days)::int <= 0
     OR (
-      ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source >= now()
-      AND ca.expires_at_source <= now() + make_interval(days => sqlc.arg(expires_in_days)::int)
+      rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz
+      AND rc.expires_at_source <= sqlc.arg(evaluated_at)::timestamptz + make_interval(days => sqlc.arg(expires_in_days)::int)
     )
   )
   AND (
     sqlc.arg(query)::text = ''
-    OR ca.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.asset_ref_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.created_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR ca.approved_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.asset_ref_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.created_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.approved_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
   )
 ORDER BY
-  COALESCE(ca.expires_at_source, 'infinity'::timestamptz) ASC,
-  lower(COALESCE(NULLIF(trim(ca.display_name), ''), ca.external_id)) ASC,
-  ca.source_kind ASC,
-  ca.source_name ASC,
-  ca.id ASC
+  COALESCE(rc.expires_at_source, 'infinity'::timestamptz) ASC,
+  lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) ASC,
+  rc.source_kind ASC,
+  rc.source_name ASC,
+  rc.id ASC
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
 -- name: ListCredentialArtifactsForAssetRef :many
-SELECT ca.*
+SELECT
+  ca.*,
+  credential_artifact_risk_level(
+    ca.status,
+    ca.credential_kind,
+    ca.expires_at_source,
+    ca.last_used_at_source,
+    ca.created_by_external_id,
+    ca.approved_by_external_id,
+    sqlc.arg(evaluated_at)::timestamptz
+  ) AS risk_level
 FROM credential_artifacts ca
 WHERE ca.source_kind = sqlc.arg(source_kind)::text
   AND ca.source_name = sqlc.arg(source_name)::text
@@ -466,9 +424,19 @@ ORDER BY
   ca.id ASC;
 
 -- name: GetCredentialArtifactByID :one
-SELECT *
-FROM credential_artifacts
-WHERE id = $1
+SELECT
+  ca.*,
+  credential_artifact_risk_level(
+    ca.status,
+    ca.credential_kind,
+    ca.expires_at_source,
+    ca.last_used_at_source,
+    ca.created_by_external_id,
+    ca.approved_by_external_id,
+    sqlc.arg(evaluated_at)::timestamptz
+  ) AS risk_level
+FROM credential_artifacts ca
+WHERE ca.id = sqlc.arg(id)::bigint
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL;
 

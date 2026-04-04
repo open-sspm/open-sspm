@@ -307,7 +307,9 @@ func (h *Handlers) HandleConnectedAppExport(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
+	now := time.Now().UTC()
 	grants, err := h.Q.ListCredentialArtifactsForAssetRef(ctx, gen.ListCredentialArtifactsForAssetRefParams{
+		EvaluatedAt:        pgTimestamptz(now),
 		SourceKind:         strings.TrimSpace(summary.SourceKind),
 		SourceName:         strings.TrimSpace(summary.SourceName),
 		AssetRefKind:       strings.TrimSpace(summary.AssetKind),
@@ -317,7 +319,7 @@ func (h *Handlers) HandleConnectedAppExport(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	cutoffs := h.discoveryPostureCutoffs(time.Now().UTC())
+	cutoffs := h.discoveryPostureCutoffs(now)
 	discoverySources, err := h.Q.ListConnectedAppDiscoverySourcesBySourceAppID(ctx, gen.ListConnectedAppDiscoverySourcesBySourceAppIDParams{
 		SourceKind:                strings.TrimSpace(summary.SourceKind),
 		SourceName:                strings.TrimSpace(summary.SourceName),
@@ -403,7 +405,10 @@ func (h *Handlers) HandleConnectedAppGrantRevoke(c *echo.Context) error {
 		return RenderNotFound(c)
 	}
 
-	credential, err := h.Q.GetCredentialArtifactByID(ctx, credentialID)
+	credential, err := h.Q.GetCredentialArtifactByID(ctx, gen.GetCredentialArtifactByIDParams{
+		EvaluatedAt: pgTimestamptz(time.Now().UTC()),
+		ID:          credentialID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -547,7 +552,9 @@ func (h *Handlers) renderConnectedAppShow(c *echo.Context, appID int64, opts con
 		})
 	}
 
+	now := time.Now().UTC()
 	grantRows, err := h.Q.ListCredentialArtifactsForAssetRef(ctx, gen.ListCredentialArtifactsForAssetRefParams{
+		EvaluatedAt:        pgTimestamptz(now),
 		SourceKind:         strings.TrimSpace(summary.SourceKind),
 		SourceName:         strings.TrimSpace(summary.SourceName),
 		AssetRefKind:       strings.TrimSpace(summary.AssetKind),
@@ -557,7 +564,6 @@ func (h *Handlers) renderConnectedAppShow(c *echo.Context, appID int64, opts con
 		return h.RenderError(c, err)
 	}
 
-	now := time.Now().UTC()
 	grants := make([]viewmodels.ConnectedAppGrantItem, 0, len(grantRows))
 	for _, row := range grantRows {
 		displayName := strings.TrimSpace(row.DisplayName)
@@ -582,7 +588,7 @@ func (h *Handlers) renderConnectedAppShow(c *echo.Context, appID int64, opts con
 			UserExternalID: fallbackDash(strings.TrimSpace(row.CreatedByExternalID)),
 			UserHref:       linkResolver.Resolve(strings.TrimSpace(row.SourceKind), strings.TrimSpace(row.SourceName), row.CreatedByExternalID, email, row.CreatedByDisplayName),
 			Status:         fallbackDash(strings.TrimSpace(row.Status)),
-			RiskLevel:      credentialRiskLevel(row, now),
+			RiskLevel:      strings.TrimSpace(row.RiskLevel),
 			ScopeSummary:   summarizeDiscoveryScopes(row.ScopeJson),
 			ScopeCount:     connectedAppScopeCount(row.ScopeJson),
 			LastUsedAt:     formatProgrammaticDate(maxTimestamp(row.LastUsedAtSource, row.LastObservedAt)),
@@ -848,7 +854,7 @@ func connectedAppScopeCount(raw []byte) int {
 	return len(scopes)
 }
 
-func connectedAppGrantExport(rows []gen.CredentialArtifact) []map[string]any {
+func connectedAppGrantExport(rows []gen.ListCredentialArtifactsForAssetRefRow) []map[string]any {
 	out := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, map[string]any{
