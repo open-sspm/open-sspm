@@ -414,7 +414,7 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 	evaluatedAt := pgTimestamptz(now)
 	linkResolver := newIdentityLinkResolver(h, ctx)
 	var totalCount int64
-	items := make([]viewmodels.CredentialArtifactListItem, 0, perPage)
+	var items []viewmodels.CredentialArtifactListItem
 
 	if len(activeSources) == 1 {
 		source := activeSources[0]
