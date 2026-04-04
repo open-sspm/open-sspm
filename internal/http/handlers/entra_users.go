@@ -15,33 +15,29 @@ func (h *Handlers) HandleEntraUsers(c *echo.Context) error {
 	inventory, err := h.buildSourceAccountInventoryPage(c, sourceAccountInventoryOptions{
 		Title:              "Microsoft Entra ID Users",
 		ConnectorName:      "Microsoft Entra ID",
+		ConnectorKind:      "entra",
+		SourceKind:         querySourceKind("entra"),
 		EmptyStateHref:     "/settings/connectors?open=entra",
 		SyncedEmptyState:   "No Microsoft Entra ID users synced yet.",
 		FilteredEmptyState: "No Microsoft Entra ID users match the current search.",
-		IsConfigured: func(snap ConnectorSnapshot) bool {
-			return snap.EntraConfigured
-		},
-		IsEnabled: func(snap ConnectorSnapshot) bool {
-			return snap.EntraEnabled
-		},
-		UnavailableMessageFn: func(snap ConnectorSnapshot) string {
-			if snap.EntraConfigured && !snap.EntraEnabled {
+		UnavailableMessageFn: func(configured, enabled bool) string {
+			if configured && !enabled {
 				return "Microsoft Entra ID sync is disabled. Enable it in Connectors."
 			}
 			return "Microsoft Entra ID is not configured yet. Add settings in Connectors."
 		},
-		Count: func(ctx context.Context, snap ConnectorSnapshot, query string) (int64, error) {
+		Count: func(ctx context.Context, sourceName, query string) (int64, error) {
 			return h.Q.CountSourceAccountsBySourceAndQuery(ctx, gen.CountSourceAccountsBySourceAndQueryParams{
 				SourceKind:     "entra",
-				SourceName:     strings.TrimSpace(snap.Entra.TenantID),
+				SourceName:     sourceName,
 				EntityCategory: registry.EntityCategoryUser,
 				Query:          query,
 			})
 		},
-		List: func(ctx context.Context, snap ConnectorSnapshot, query string, offset, limit int) ([]sourceAccountInventoryAccount, error) {
+		List: func(ctx context.Context, sourceName, query string, offset, limit int) ([]sourceAccountInventoryAccount, error) {
 			users, err := h.Q.ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(ctx, gen.ListSourceAccountsPageBySourceAndQueryWithEntitlementCountsParams{
 				SourceKind:            "entra",
-				SourceName:            strings.TrimSpace(snap.Entra.TenantID),
+				SourceName:            sourceName,
 				EntityCategory:        registry.EntityCategoryUser,
 				Query:                 query,
 				PageLimit:             int32(limit),
@@ -100,25 +96,20 @@ func (h *Handlers) HandleUnmatchedEntra(c *echo.Context) error {
 	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
 		Title:              "Unlinked Microsoft Entra ID Users",
 		ConnectorName:      "Microsoft Entra ID",
+		ConnectorKind:      "entra",
 		SourceKind:         "entra",
 		EntityCategory:     registry.EntityCategoryUser,
 		EmptyStateHref:     "/settings/connectors?open=entra",
 		SyncedEmptyState:   "No unlinked Microsoft Entra ID users.",
 		FilteredEmptyState: "No unlinked Microsoft Entra ID users match the current search.",
-		IsConfigured: func(snap ConnectorSnapshot) bool {
-			return snap.EntraConfigured
-		},
-		IsEnabled: func(snap ConnectorSnapshot) bool {
-			return snap.EntraEnabled
-		},
-		UnavailableMessageFn: func(snap ConnectorSnapshot) string {
-			if snap.EntraConfigured && !snap.EntraEnabled {
+		UnavailableMessageFn: func(configured, enabled bool) string {
+			if configured && !enabled {
 				return "Microsoft Entra ID sync is disabled. Enable it in Connectors."
 			}
 			return "Microsoft Entra ID is not configured yet. Add settings in Connectors."
 		},
-		ResolveSourceName: func(_ *echo.Context, snap ConnectorSnapshot) (string, error) {
-			return strings.TrimSpace(snap.Entra.TenantID), nil
+		ResolveSourceName: func(_ *echo.Context, configuredSourceName string) (string, error) {
+			return configuredSourceName, nil
 		},
 	})
 	if err != nil {

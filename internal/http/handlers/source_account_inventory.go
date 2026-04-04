@@ -33,41 +33,44 @@ type sourceAccountInventoryResult struct {
 type sourceAccountInventoryOptions struct {
 	Title                string
 	ConnectorName        string
+	ConnectorKind        string
+	SourceKind           string
 	EmptyStateHref       string
 	SyncedEmptyState     string
 	FilteredEmptyState   string
-	IsConfigured         func(snap ConnectorSnapshot) bool
-	IsEnabled            func(snap ConnectorSnapshot) bool
-	UnavailableMessageFn func(snap ConnectorSnapshot) string
-	Count                func(ctx context.Context, snap ConnectorSnapshot, query string) (int64, error)
-	List                 func(ctx context.Context, snap ConnectorSnapshot, query string, offset, limit int) ([]sourceAccountInventoryAccount, error)
+	UnavailableMessageFn func(configured, enabled bool) string
+	Count                func(ctx context.Context, sourceName, query string) (int64, error)
+	List                 func(ctx context.Context, sourceName, query string, offset, limit int) ([]sourceAccountInventoryAccount, error)
 }
 
 func (h *Handlers) buildSourceAccountInventoryPage(c *echo.Context, opts sourceAccountInventoryOptions) (sourceAccountInventoryResult, error) {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, opts.Title)
+	layout, stateView, err := h.LayoutData(ctx, c, opts.Title)
 	if err != nil {
 		return sourceAccountInventoryResult{}, err
 	}
 
 	query := strings.TrimSpace(c.QueryParam("q"))
 	pagination := newPaginatedListState(0, parsePageParam(c), sourceAccountInventoryPerPage)
-	if !opts.IsConfigured(snap) || !opts.IsEnabled(snap) {
+	configured := stateView.Configured(opts.ConnectorKind)
+	enabled := stateView.Enabled(opts.ConnectorKind)
+	sourceName := stateView.SourceName(opts.ConnectorKind)
+	if !configured || !enabled || sourceName == "" {
 		return sourceAccountInventoryResult{
 			PageData: viewmodels.SourceAccountInventoryPageData{
-				PaginatedListPageData: pagination.PageData(layout, 0, opts.unavailableMessage(snap), opts.EmptyStateHref),
+				PaginatedListPageData: pagination.PageData(layout, 0, opts.unavailableMessage(configured, enabled), opts.EmptyStateHref),
 				Query:                 query,
 			},
 		}, nil
 	}
 
-	totalCount, err := opts.Count(ctx, snap, query)
+	totalCount, err := opts.Count(ctx, sourceName, query)
 	if err != nil {
 		return sourceAccountInventoryResult{}, err
 	}
 
 	pagination = newPaginatedListState(totalCount, parsePageParam(c), sourceAccountInventoryPerPage)
-	accounts, err := opts.List(ctx, snap, query, pagination.Offset(), sourceAccountInventoryPerPage)
+	accounts, err := opts.List(ctx, sourceName, query, pagination.Offset(), sourceAccountInventoryPerPage)
 	if err != nil {
 		return sourceAccountInventoryResult{}, err
 	}
@@ -87,11 +90,11 @@ func (h *Handlers) buildSourceAccountInventoryPage(c *echo.Context, opts sourceA
 	}, nil
 }
 
-func (opts sourceAccountInventoryOptions) unavailableMessage(snap ConnectorSnapshot) string {
+func (opts sourceAccountInventoryOptions) unavailableMessage(configured, enabled bool) string {
 	if opts.UnavailableMessageFn != nil {
-		return opts.UnavailableMessageFn(snap)
+		return opts.UnavailableMessageFn(configured, enabled)
 	}
-	return connectorUnavailableMessage(opts.ConnectorName, opts.IsConfigured(snap), opts.IsEnabled(snap))
+	return connectorUnavailableMessage(opts.ConnectorName, configured, enabled)
 }
 
 func sourceAccountInventoryDisplayName(displayName, email, externalID string) string {

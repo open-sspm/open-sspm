@@ -14,22 +14,22 @@ import (
 // HandleDashboard renders the dashboard page.
 func (h *Handlers) HandleDashboard(c *echo.Context) error {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Dashboard")
+	layout, stateView, err := h.LayoutData(ctx, c, "Dashboard")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
-	identityCount, err := h.dashboardIdentityCount(ctx, snap)
+	identityCount, err := h.dashboardIdentityCount(ctx, stateView)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
-	discoveryAppCount, err := h.dashboardDiscoveryAppCount(ctx, snap)
+	discoveryAppCount, err := h.dashboardDiscoveryAppCount(ctx, stateView)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
-	appAssetCount, err := h.dashboardAppAssetCount(ctx, snap)
+	appAssetCount, err := h.dashboardAppAssetCount(ctx, stateView)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -133,8 +133,8 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 	return h.RenderComponent(c, views.DashboardPage(data))
 }
 
-func (h *Handlers) dashboardIdentityCount(ctx context.Context, snap ConnectorSnapshot) (int64, error) {
-	sourcePairs := availableIdentitySourcePairs(snap)
+func (h *Handlers) dashboardIdentityCount(ctx context.Context, stateView connectorStateView) (int64, error) {
+	sourcePairs := availableIdentitySourcePairs(stateView)
 	if len(sourcePairs) == 0 {
 		return 0, nil
 	}
@@ -146,8 +146,8 @@ func (h *Handlers) dashboardIdentityCount(ctx context.Context, snap ConnectorSna
 	})
 }
 
-func (h *Handlers) dashboardDiscoveryAppCount(ctx context.Context, snap ConnectorSnapshot) (int64, error) {
-	sourceOptions := discoverySourceOptions(snap)
+func (h *Handlers) dashboardDiscoveryAppCount(ctx context.Context, stateView connectorStateView) (int64, error) {
+	sourceOptions := discoverySourceOptions(stateView)
 	if len(sourceOptions) == 0 {
 		return 0, nil
 	}
@@ -159,8 +159,8 @@ func (h *Handlers) dashboardDiscoveryAppCount(ctx context.Context, snap Connecto
 	})
 }
 
-func (h *Handlers) dashboardAppAssetCount(ctx context.Context, snap ConnectorSnapshot) (int64, error) {
-	sourcePairs := configuredProgrammaticSources(snap)
+func (h *Handlers) dashboardAppAssetCount(ctx context.Context, stateView connectorStateView) (int64, error) {
+	sourcePairs := configuredProgrammaticSources(stateView)
 	if len(sourcePairs) == 0 {
 		return 0, nil
 	}

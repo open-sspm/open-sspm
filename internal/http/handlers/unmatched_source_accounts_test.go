@@ -162,22 +162,17 @@ func githubUnmatchedOptions() unmatchedSourceAccountOptions {
 	return unmatchedSourceAccountOptions{
 		Title:              "Unlinked GitHub Accounts",
 		ConnectorName:      "GitHub",
+		ConnectorKind:      "github",
 		SourceKind:         "github",
 		EmptyStateHref:     "/settings/connectors?open=github",
 		SyncedEmptyState:   "No unlinked GitHub accounts.",
 		FilteredEmptyState: "No unlinked GitHub accounts match the current search.",
-		IsConfigured: func(snap ConnectorSnapshot) bool {
-			return snap.GitHubConfigured
-		},
-		IsEnabled: func(snap ConnectorSnapshot) bool {
-			return snap.GitHubEnabled
-		},
-		ResolveSourceName: func(c *echo.Context, snap ConnectorSnapshot) (string, error) {
+		ResolveSourceName: func(c *echo.Context, configuredSourceName string) (string, error) {
 			org := routeParamOrWildcard(c, "org")
 			if org == "" {
 				return "", errUnmatchedSourceAccountNotFound
 			}
-			if org != snap.GitHub.Org {
+			if org != configuredSourceName {
 				return "", unmatchedSourceNameError("unknown org")
 			}
 			return org, nil
@@ -189,25 +184,20 @@ func entraUnmatchedOptions() unmatchedSourceAccountOptions {
 	return unmatchedSourceAccountOptions{
 		Title:              "Unlinked Microsoft Entra ID Users",
 		ConnectorName:      "Microsoft Entra ID",
+		ConnectorKind:      "entra",
 		SourceKind:         "entra",
 		EntityCategory:     registry.EntityCategoryUser,
 		EmptyStateHref:     "/settings/connectors?open=entra",
 		SyncedEmptyState:   "No unlinked Microsoft Entra ID users.",
 		FilteredEmptyState: "No unlinked Microsoft Entra ID users match the current search.",
-		IsConfigured: func(snap ConnectorSnapshot) bool {
-			return snap.EntraConfigured
-		},
-		IsEnabled: func(snap ConnectorSnapshot) bool {
-			return snap.EntraEnabled
-		},
-		UnavailableMessageFn: func(snap ConnectorSnapshot) string {
-			if snap.EntraConfigured && !snap.EntraEnabled {
+		UnavailableMessageFn: func(configured, enabled bool) string {
+			if configured && !enabled {
 				return "Microsoft Entra ID sync is disabled. Enable it in Connectors."
 			}
 			return "Microsoft Entra ID is not configured yet. Add settings in Connectors."
 		},
-		ResolveSourceName: func(_ *echo.Context, snap ConnectorSnapshot) (string, error) {
-			return snap.Entra.TenantID, nil
+		ResolveSourceName: func(_ *echo.Context, configuredSourceName string) (string, error) {
+			return configuredSourceName, nil
 		},
 	}
 }
@@ -216,22 +206,17 @@ func datadogUnmatchedOptions() unmatchedSourceAccountOptions {
 	return unmatchedSourceAccountOptions{
 		Title:              "Unlinked Datadog Accounts",
 		ConnectorName:      "Datadog",
+		ConnectorKind:      "datadog",
 		SourceKind:         "datadog",
 		EmptyStateHref:     "/settings/connectors?open=datadog",
 		SyncedEmptyState:   "No unlinked Datadog accounts.",
 		FilteredEmptyState: "No unlinked Datadog accounts match the current search.",
-		IsConfigured: func(snap ConnectorSnapshot) bool {
-			return snap.DatadogConfigured
-		},
-		IsEnabled: func(snap ConnectorSnapshot) bool {
-			return snap.DatadogEnabled
-		},
-		ResolveSourceName: func(c *echo.Context, snap ConnectorSnapshot) (string, error) {
+		ResolveSourceName: func(c *echo.Context, configuredSourceName string) (string, error) {
 			site := routeParamOrWildcard(c, "site")
 			if site == "" {
 				return "", errUnmatchedSourceAccountNotFound
 			}
-			if site != snap.Datadog.Site {
+			if site != configuredSourceName {
 				return "", unmatchedSourceNameError("unknown site")
 			}
 			return site, nil

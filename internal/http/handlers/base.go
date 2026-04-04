@@ -49,104 +49,22 @@ func (h *Handlers) connectorConfigStore() *configstore.Store {
 	return configstore.NewStore(h.Pool, h.Q, h.Cfg.ConnectorSecretKey)
 }
 
-// ConnectorSnapshot holds the current connector configuration state.
-type ConnectorSnapshot struct {
-	Okta                        configstore.OktaConfig
-	OktaEnabled                 bool
-	OktaConfigured              bool
-	GoogleWorkspace             configstore.GoogleWorkspaceConfig
-	GoogleWorkspaceEnabled      bool
-	GoogleWorkspaceConfigured   bool
-	GitHub                      configstore.GitHubConfig
-	GitHubEnabled               bool
-	GitHubConfigured            bool
-	Datadog                     configstore.DatadogConfig
-	DatadogEnabled              bool
-	DatadogConfigured           bool
-	AWSIdentityCenter           configstore.AWSIdentityCenterConfig
-	AWSIdentityCenterEnabled    bool
-	AWSIdentityCenterConfigured bool
-	Entra                       configstore.EntraConfig
-	EntraEnabled                bool
-	EntraConfigured             bool
-	Vault                       configstore.VaultConfig
-	VaultEnabled                bool
-	VaultConfigured             bool
-}
-
-// LoadConnectorSnapshot retrieves the current connector configuration.
-func (h *Handlers) LoadConnectorSnapshot(ctx context.Context) (ConnectorSnapshot, error) {
-	states, err := h.Registry.LoadStates(ctx, h.Q)
-	if err != nil {
-		return ConnectorSnapshot{}, err
-	}
-
-	var snap ConnectorSnapshot
-	for _, state := range states {
-		switch state.Definition.Kind() {
-		case configstore.KindOkta:
-			if cfg, ok := state.Config.(configstore.OktaConfig); ok {
-				snap.Okta = cfg
-				snap.OktaEnabled = state.Enabled
-				snap.OktaConfigured = state.Configured
-			}
-		case configstore.KindGoogleWorkspace:
-			if cfg, ok := state.Config.(configstore.GoogleWorkspaceConfig); ok {
-				snap.GoogleWorkspace = cfg
-				snap.GoogleWorkspaceEnabled = state.Enabled
-				snap.GoogleWorkspaceConfigured = state.Configured
-			}
-		case configstore.KindGitHub:
-			if cfg, ok := state.Config.(configstore.GitHubConfig); ok {
-				snap.GitHub = cfg
-				snap.GitHubEnabled = state.Enabled
-				snap.GitHubConfigured = state.Configured
-			}
-		case configstore.KindDatadog:
-			if cfg, ok := state.Config.(configstore.DatadogConfig); ok {
-				snap.Datadog = cfg
-				snap.DatadogEnabled = state.Enabled
-				snap.DatadogConfigured = state.Configured
-			}
-		case configstore.KindAWSIdentityCenter:
-			if cfg, ok := state.Config.(configstore.AWSIdentityCenterConfig); ok {
-				snap.AWSIdentityCenter = cfg
-				snap.AWSIdentityCenterEnabled = state.Enabled
-				snap.AWSIdentityCenterConfigured = state.Configured
-			}
-		case configstore.KindEntra:
-			if cfg, ok := state.Config.(configstore.EntraConfig); ok {
-				snap.Entra = cfg
-				snap.EntraEnabled = state.Enabled
-				snap.EntraConfigured = state.Configured
-			}
-		case configstore.KindVault:
-			if cfg, ok := state.Config.(configstore.VaultConfig); ok {
-				snap.Vault = cfg
-				snap.VaultEnabled = state.Enabled
-				snap.VaultConfigured = state.Configured
-			}
-		}
-	}
-
-	return snap, nil
-}
-
 // LayoutData builds the common layout data for page rendering.
-func (h *Handlers) LayoutData(ctx context.Context, c *echo.Context, title string) (viewmodels.LayoutData, ConnectorSnapshot, error) {
-	snap, err := h.LoadConnectorSnapshot(ctx)
+func (h *Handlers) LayoutData(ctx context.Context, c *echo.Context, title string) (viewmodels.LayoutData, connectorStateView, error) {
+	stateView, err := h.LoadConnectorStateView(ctx)
 	if err != nil {
-		return viewmodels.LayoutData{}, snap, err
+		return viewmodels.LayoutData{}, stateView, err
 	}
 	principal, ok := authn.PrincipalFromContext(c)
 	csrfToken, _ := c.Get(middleware.DefaultCSRFConfig.ContextKey).(string)
-	awsName := strings.TrimSpace(snap.AWSIdentityCenter.Name)
-	if awsName == "" {
-		awsName = strings.TrimSpace(snap.AWSIdentityCenter.Region)
-	}
+	google := stateView.GoogleWorkspace()
+	github := stateView.GitHub()
+	datadog := stateView.Datadog()
+	aws := stateView.AWSIdentityCenter()
+	entra := stateView.Entra()
 	rulesets, err := h.Q.ListRulesets(ctx)
 	if err != nil {
-		return viewmodels.LayoutData{}, snap, err
+		return viewmodels.LayoutData{}, stateView, err
 	}
 	findingsRulesets := make([]viewmodels.FindingsRulesetItem, 0, len(rulesets))
 	for _, ruleset := range rulesets {
@@ -175,26 +93,26 @@ func (h *Handlers) LayoutData(ctx context.Context, c *echo.Context, title string
 		UserRole:                    principal.Role,
 		IsAdmin:                     ok && principal.IsAdmin(),
 		FindingsRulesets:            findingsRulesets,
-		GoogleWorkspaceCustomerID:   snap.GoogleWorkspace.CustomerID,
-		GoogleWorkspaceEnabled:      snap.GoogleWorkspaceEnabled,
-		GoogleWorkspaceConfigured:   snap.GoogleWorkspaceConfigured,
-		GitHubOrg:                   snap.GitHub.Org,
-		GitHubEnabled:               snap.GitHubEnabled,
-		GitHubConfigured:            snap.GitHubConfigured,
-		DatadogSite:                 snap.Datadog.Site,
-		DatadogEnabled:              snap.DatadogEnabled,
-		DatadogConfigured:           snap.DatadogConfigured,
-		AWSIdentityCenterName:       awsName,
-		AWSIdentityCenterEnabled:    snap.AWSIdentityCenterEnabled,
-		AWSIdentityCenterConfigured: snap.AWSIdentityCenterConfigured,
-		EntraTenantID:               snap.Entra.TenantID,
-		EntraEnabled:                snap.EntraEnabled,
-		EntraConfigured:             snap.EntraConfigured,
+		GoogleWorkspaceCustomerID:   google.Config().CustomerID,
+		GoogleWorkspaceEnabled:      google.Enabled(),
+		GoogleWorkspaceConfigured:   google.Configured(),
+		GitHubOrg:                   github.Config().Org,
+		GitHubEnabled:               github.Enabled(),
+		GitHubConfigured:            github.Configured(),
+		DatadogSite:                 datadog.Config().Site,
+		DatadogEnabled:              datadog.Enabled(),
+		DatadogConfigured:           datadog.Configured(),
+		AWSIdentityCenterName:       aws.SourceName(),
+		AWSIdentityCenterEnabled:    aws.Enabled(),
+		AWSIdentityCenterConfigured: aws.Configured(),
+		EntraTenantID:               entra.Config().TenantID,
+		EntraEnabled:                entra.Enabled(),
+		EntraConfigured:             entra.Configured(),
 		Toast:                       popFlashToast(c),
 		ActivePath:                  c.Request().URL.Path,
-		CommandSearch:               commandSearchShellData(snap, ""),
+		CommandSearch:               commandSearchShellData(""),
 	}
-	return layout, snap, nil
+	return layout, stateView, nil
 }
 
 // RenderComponent renders a templ component as the response.

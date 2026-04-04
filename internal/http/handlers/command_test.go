@@ -8,7 +8,7 @@ import (
 )
 
 func TestCommandSearchShellData(t *testing.T) {
-	data := commandSearchShellData(ConnectorSnapshot{}, "  ")
+	data := commandSearchShellData("  ")
 
 	if data.Query != "" {
 		t.Fatalf("Query = %q, want empty", data.Query)
@@ -29,13 +29,15 @@ func TestCommandSearchShellData(t *testing.T) {
 
 func TestCommandActionSection(t *testing.T) {
 	t.Run("gates actions by available surfaces", func(t *testing.T) {
-		snap := ConnectorSnapshot{
-			GitHub:           configstore.GitHubConfig{Org: "acme"},
-			GitHubConfigured: true,
-			GitHubEnabled:    true,
-		}
+		stateView := newTestConnectorStateView(t, testConnectorSpec{
+			kind:       configstore.KindGitHub,
+			config:     configstore.GitHubConfig{Org: "acme"},
+			configured: true,
+			enabled:    true,
+			sourceName: "acme",
+		})
 
-		section := commandActionSection(snap, "github")
+		section := commandActionSection(stateView, "github")
 		if section.Key != "actions" || section.Title != "Actions" {
 			t.Fatalf("unexpected section metadata: %#v", section)
 		}
@@ -68,13 +70,15 @@ func TestCommandActionSection(t *testing.T) {
 	})
 
 	t.Run("includes connected apps when google workspace is enabled and configured", func(t *testing.T) {
-		snap := ConnectorSnapshot{
-			GoogleWorkspace:           configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
-			GoogleWorkspaceConfigured: true,
-			GoogleWorkspaceEnabled:    true,
-		}
+		stateView := newTestConnectorStateView(t, testConnectorSpec{
+			kind:       configstore.KindGoogleWorkspace,
+			config:     configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
+			configured: true,
+			enabled:    true,
+			sourceName: "C0123",
+		})
 
-		section := commandActionSection(snap, "oauth")
+		section := commandActionSection(stateView, "oauth")
 		gotIDs := make([]string, 0, len(section.Items))
 		for _, item := range section.Items {
 			gotIDs = append(gotIDs, item.ID)
@@ -93,13 +97,15 @@ func TestCommandActionSection(t *testing.T) {
 }
 
 func TestCommandSearchErrorData(t *testing.T) {
-	snap := ConnectorSnapshot{
-		Entra:           configstore.EntraConfig{TenantID: "tenant-1"},
-		EntraConfigured: true,
-		EntraEnabled:    true,
-	}
+	stateView := newTestConnectorStateView(t, testConnectorSpec{
+		kind:       configstore.KindEntra,
+		config:     configstore.EntraConfig{TenantID: "tenant-1"},
+		configured: true,
+		enabled:    true,
+		sourceName: "tenant-1",
+	})
 
-	data := commandSearchErrorData("azure", snap)
+	data := commandSearchErrorData("azure", stateView)
 	if len(data.Notices) != 1 {
 		t.Fatalf("Notices len = %d, want 1", len(data.Notices))
 	}

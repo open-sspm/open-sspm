@@ -46,14 +46,26 @@ func TestNormalizeDiscoverySourceSelection(t *testing.T) {
 func TestDiscoverySourceOptionsUsePrimaryLabels(t *testing.T) {
 	t.Parallel()
 
-	options := discoverySourceOptions(ConnectorSnapshot{
-		Okta:                      configstore.OktaConfig{Domain: "acme.okta.com"},
-		OktaConfigured:            true,
-		Entra:                     configstore.EntraConfig{TenantID: "tenant-1"},
-		EntraConfigured:           true,
-		GoogleWorkspace:           configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
-		GoogleWorkspaceConfigured: true,
-	})
+	options := discoverySourceOptions(newTestConnectorStateView(t,
+		testConnectorSpec{
+			kind:       configstore.KindOkta,
+			config:     configstore.OktaConfig{Domain: "acme.okta.com"},
+			configured: true,
+			sourceName: "acme.okta.com",
+		},
+		testConnectorSpec{
+			kind:       configstore.KindEntra,
+			config:     configstore.EntraConfig{TenantID: "tenant-1"},
+			configured: true,
+			sourceName: "tenant-1",
+		},
+		testConnectorSpec{
+			kind:       configstore.KindGoogleWorkspace,
+			config:     configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
+			configured: true,
+			sourceName: "C0123",
+		},
+	))
 
 	if len(options) != 3 {
 		t.Fatalf("options length = %d, want 3", len(options))

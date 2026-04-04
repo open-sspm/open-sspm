@@ -44,7 +44,7 @@ func (h *Handlers) HandleConnectedApps(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "OAuth Apps")
+	layout, stateView, err := h.LayoutData(ctx, c, "OAuth Apps")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -67,9 +67,10 @@ func (h *Handlers) HandleConnectedApps(c *echo.Context) error {
 		return h.RenderComponent(c, views.ConnectedAppsPage(data))
 	}
 
-	sourceName := strings.TrimSpace(snap.GoogleWorkspace.CustomerID)
-	if !snap.GoogleWorkspaceConfigured || !snap.GoogleWorkspaceEnabled || sourceName == "" {
-		data.PaginatedListPageData.EmptyStateMsg = connectorUnavailableMessage("Google Workspace", snap.GoogleWorkspaceConfigured, snap.GoogleWorkspaceEnabled)
+	google := stateView.GoogleWorkspace()
+	sourceName := google.SourceName()
+	if !google.Configured() || !google.Enabled() || sourceName == "" {
+		data.PaginatedListPageData.EmptyStateMsg = connectorUnavailableMessage("Google Workspace", google.Configured(), google.Enabled())
 		data.ReviewCounts = buildConnectedAppReviewCounts(nil, query, reviewState)
 		return render()
 	}
@@ -447,11 +448,12 @@ func (h *Handlers) HandleConnectedAppGrantRevoke(c *echo.Context) error {
 		return c.Redirect(http.StatusSeeOther, "/oauth-apps/"+strconv.FormatInt(appID, 10))
 	}
 
-	snap, err := h.LoadConnectorSnapshot(ctx)
+	stateView, err := h.LoadConnectorStateView(ctx)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
-	if !snap.GoogleWorkspaceConfigured || !snap.GoogleWorkspaceEnabled {
+	google := stateView.GoogleWorkspace()
+	if !google.Configured() || !google.Enabled() {
 		if isHX(c) {
 			return h.renderConnectedAppShow(c, appID, connectedAppShowOptions{
 				alert: &viewmodels.ConnectedAppsAlert{
@@ -469,7 +471,7 @@ func (h *Handlers) HandleConnectedAppGrantRevoke(c *echo.Context) error {
 		return c.Redirect(http.StatusSeeOther, "/oauth-apps/"+strconv.FormatInt(appID, 10))
 	}
 
-	client, err := googleworkspace.NewClient(snap.GoogleWorkspace)
+	client, err := googleworkspace.NewClient(google.Config())
 	if err != nil {
 		return h.RenderError(c, err)
 	}

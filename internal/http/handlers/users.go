@@ -251,26 +251,22 @@ func (h *Handlers) HandleGitHubUsers(c *echo.Context) error {
 	inventory, err := h.buildSourceAccountInventoryPage(c, sourceAccountInventoryOptions{
 		Title:              "GitHub Users",
 		ConnectorName:      "GitHub",
+		ConnectorKind:      "github",
+		SourceKind:         querySourceKind("github"),
 		EmptyStateHref:     "/settings/connectors?open=github",
 		SyncedEmptyState:   "No GitHub users synced yet.",
 		FilteredEmptyState: "No GitHub users match the current search.",
-		IsConfigured: func(snap ConnectorSnapshot) bool {
-			return snap.GitHubConfigured
-		},
-		IsEnabled: func(snap ConnectorSnapshot) bool {
-			return snap.GitHubEnabled
-		},
-		Count: func(ctx context.Context, snap ConnectorSnapshot, query string) (int64, error) {
+		Count: func(ctx context.Context, sourceName, query string) (int64, error) {
 			return h.Q.CountGitHubUsersBySourceAndQuery(ctx, gen.CountGitHubUsersBySourceAndQueryParams{
 				SourceKind: "github",
-				SourceName: snap.GitHub.Org,
+				SourceName: sourceName,
 				Query:      query,
 			})
 		},
-		List: func(ctx context.Context, snap ConnectorSnapshot, query string, offset, limit int) ([]sourceAccountInventoryAccount, error) {
+		List: func(ctx context.Context, sourceName, query string, offset, limit int) ([]sourceAccountInventoryAccount, error) {
 			users, err := h.Q.ListGitHubUsersPageBySourceAndQuery(ctx, gen.ListGitHubUsersPageBySourceAndQueryParams{
 				SourceKind: "github",
-				SourceName: snap.GitHub.Org,
+				SourceName: sourceName,
 				Query:      query,
 				PageLimit:  int32(limit),
 				PageOffset: int32(offset),
@@ -317,7 +313,7 @@ func (h *Handlers) HandleGitHubUsers(c *echo.Context) error {
 // HandleDatadogUsers renders the Datadog users page.
 func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Datadog Users")
+	layout, stateView, err := h.LayoutData(ctx, c, "Datadog Users")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -332,9 +328,11 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 	}
 	page := parsePageParam(c)
 	unavailablePagination := newPaginatedListState(0, page, perPage)
+	datadog := stateView.Datadog()
+	sourceName := datadog.SourceName()
 
-	if !snap.DatadogConfigured || !snap.DatadogEnabled {
-		message := connectorUnavailableMessage("Datadog", snap.DatadogConfigured, snap.DatadogEnabled)
+	if !datadog.Configured() || !datadog.Enabled() || sourceName == "" {
+		message := connectorUnavailableMessage("Datadog", datadog.Configured(), datadog.Enabled())
 		data := viewmodels.DatadogUsersViewData{
 			PaginatedListPageData: unavailablePagination.PageData(layout, 0, message, "/settings/connectors?open=datadog"),
 			Query:                 query,
@@ -346,7 +344,7 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 
 	totalCount, err := h.Q.CountSourceAccountsBySourceAndQueryAndState(ctx, gen.CountSourceAccountsBySourceAndQueryAndStateParams{
 		SourceKind:     "datadog",
-		SourceName:     snap.Datadog.Site,
+		SourceName:     sourceName,
 		EntityCategory: registry.EntityCategoryUser,
 		Query:          query,
 		State:          state,
@@ -358,7 +356,7 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 	pagination := newPaginatedListState(totalCount, page, perPage)
 	users, err := h.Q.ListSourceAccountsPageBySourceAndQueryAndState(ctx, gen.ListSourceAccountsPageBySourceAndQueryAndStateParams{
 		SourceKind:     "datadog",
-		SourceName:     snap.Datadog.Site,
+		SourceName:     sourceName,
 		EntityCategory: registry.EntityCategoryUser,
 		Query:          query,
 		State:          state,
@@ -436,22 +434,17 @@ func (h *Handlers) HandleUnmatchedGitHub(c *echo.Context) error {
 	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
 		Title:              "Unlinked GitHub Accounts",
 		ConnectorName:      "GitHub",
+		ConnectorKind:      "github",
 		SourceKind:         "github",
 		EmptyStateHref:     "/settings/connectors?open=github",
 		SyncedEmptyState:   "No unlinked GitHub accounts.",
 		FilteredEmptyState: "No unlinked GitHub accounts match the current search.",
-		IsConfigured: func(snap ConnectorSnapshot) bool {
-			return snap.GitHubConfigured
-		},
-		IsEnabled: func(snap ConnectorSnapshot) bool {
-			return snap.GitHubEnabled
-		},
-		ResolveSourceName: func(c *echo.Context, snap ConnectorSnapshot) (string, error) {
+		ResolveSourceName: func(c *echo.Context, configuredSourceName string) (string, error) {
 			org := routeParamOrWildcard(c, "org")
 			if org == "" {
 				return "", errUnmatchedSourceAccountNotFound
 			}
-			if org != snap.GitHub.Org {
+			if org != configuredSourceName {
 				return "", unmatchedSourceNameError("unknown org")
 			}
 			return org, nil
@@ -473,22 +466,17 @@ func (h *Handlers) HandleUnmatchedDatadog(c *echo.Context) error {
 	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
 		Title:              "Unlinked Datadog Accounts",
 		ConnectorName:      "Datadog",
+		ConnectorKind:      "datadog",
 		SourceKind:         "datadog",
 		EmptyStateHref:     "/settings/connectors?open=datadog",
 		SyncedEmptyState:   "No unlinked Datadog accounts.",
 		FilteredEmptyState: "No unlinked Datadog accounts match the current search.",
-		IsConfigured: func(snap ConnectorSnapshot) bool {
-			return snap.DatadogConfigured
-		},
-		IsEnabled: func(snap ConnectorSnapshot) bool {
-			return snap.DatadogEnabled
-		},
-		ResolveSourceName: func(c *echo.Context, snap ConnectorSnapshot) (string, error) {
+		ResolveSourceName: func(c *echo.Context, configuredSourceName string) (string, error) {
 			site := routeParamOrWildcard(c, "site")
 			if site == "" {
 				return "", errUnmatchedSourceAccountNotFound
 			}
-			if site != snap.Datadog.Site {
+			if site != configuredSourceName {
 				return "", unmatchedSourceNameError("unknown site")
 			}
 			return site, nil
@@ -537,9 +525,9 @@ func (h *Handlers) HandleCreateLink(c *echo.Context) error {
 
 	redirect := c.Request().Header.Get("Referer")
 	if redirect == "" {
-		snap, err := h.LoadConnectorSnapshot(c.Request().Context())
-		if err == nil && snap.GitHub.Org != "" {
-			redirect = fmt.Sprintf("/accounts/unlinked/github/%s", snap.GitHub.Org)
+		stateView, err := h.LoadConnectorStateView(c.Request().Context())
+		if err == nil && stateView.SourceName("github") != "" {
+			redirect = fmt.Sprintf("/accounts/unlinked/github/%s", stateView.SourceName("github"))
 		} else {
 			redirect = "/settings/connectors?open=github"
 		}

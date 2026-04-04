@@ -115,10 +115,12 @@ func TestIdentityCalendarDate(t *testing.T) {
 func TestAvailableIdentitySourcePairsIncludesGoogleWorkspace(t *testing.T) {
 	t.Parallel()
 
-	sources := availableIdentitySourcePairs(ConnectorSnapshot{
-		GoogleWorkspace:           configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
-		GoogleWorkspaceConfigured: true,
-	})
+	sources := availableIdentitySourcePairs(newTestConnectorStateView(t, testConnectorSpec{
+		kind:       configstore.KindGoogleWorkspace,
+		config:     configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
+		configured: true,
+		sourceName: "C0123",
+	}))
 	if len(sources) != 1 {
 		t.Fatalf("sources length = %d, want 1", len(sources))
 	}

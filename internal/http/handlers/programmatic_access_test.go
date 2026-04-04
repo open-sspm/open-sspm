@@ -151,14 +151,22 @@ func TestSelectProgrammaticSource(t *testing.T) {
 func TestAvailableProgrammaticSourcesUsesPrimaryLabels(t *testing.T) {
 	t.Parallel()
 
-	sources := availableProgrammaticSources(ConnectorSnapshot{
-		Entra:            configstore.EntraConfig{TenantID: "tenant-a"},
-		EntraEnabled:     true,
-		EntraConfigured:  true,
-		GitHub:           configstore.GitHubConfig{Org: "acme-org"},
-		GitHubEnabled:    true,
-		GitHubConfigured: true,
-	})
+	sources := availableProgrammaticSources(newTestConnectorStateView(t,
+		testConnectorSpec{
+			kind:       configstore.KindEntra,
+			config:     configstore.EntraConfig{TenantID: "tenant-a"},
+			enabled:    true,
+			configured: true,
+			sourceName: "tenant-a",
+		},
+		testConnectorSpec{
+			kind:       configstore.KindGitHub,
+			config:     configstore.GitHubConfig{Org: "acme-org"},
+			enabled:    true,
+			configured: true,
+			sourceName: "acme-org",
+		},
+	))
 	if len(sources) != 2 {
 		t.Fatalf("sources length = %d, want 2", len(sources))
 	}
@@ -173,14 +181,16 @@ func TestAvailableProgrammaticSourcesUsesPrimaryLabels(t *testing.T) {
 func TestAvailableProgrammaticSourcesIncludesVault(t *testing.T) {
 	t.Parallel()
 
-	sources := availableProgrammaticSources(ConnectorSnapshot{
-		Vault: configstore.VaultConfig{
+	sources := availableProgrammaticSources(newTestConnectorStateView(t, testConnectorSpec{
+		kind: configstore.KindVault,
+		config: configstore.VaultConfig{
 			Address: "https://vault.example.com",
 			Name:    "prod-vault",
 		},
-		VaultEnabled:    true,
-		VaultConfigured: true,
-	})
+		enabled:    true,
+		configured: true,
+		sourceName: "prod-vault",
+	}))
 	if len(sources) != 1 {
 		t.Fatalf("sources length = %d, want 1", len(sources))
 	}
@@ -198,11 +208,13 @@ func TestAvailableProgrammaticSourcesIncludesVault(t *testing.T) {
 func TestAvailableProgrammaticSourcesIncludesGoogleWorkspace(t *testing.T) {
 	t.Parallel()
 
-	sources := availableProgrammaticSources(ConnectorSnapshot{
-		GoogleWorkspace:           configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
-		GoogleWorkspaceConfigured: true,
-		GoogleWorkspaceEnabled:    true,
-	})
+	sources := availableProgrammaticSources(newTestConnectorStateView(t, testConnectorSpec{
+		kind:       configstore.KindGoogleWorkspace,
+		config:     configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
+		configured: true,
+		enabled:    true,
+		sourceName: "C0123",
+	}))
 	if len(sources) != 1 {
 		t.Fatalf("sources length = %d, want 1", len(sources))
 	}
@@ -220,11 +232,13 @@ func TestAvailableProgrammaticSourcesIncludesGoogleWorkspace(t *testing.T) {
 func TestConfiguredProgrammaticSourcesIncludesDisabledConfiguredConnector(t *testing.T) {
 	t.Parallel()
 
-	sources := configuredProgrammaticSources(ConnectorSnapshot{
-		GitHub:           configstore.GitHubConfig{Org: "acme-org"},
-		GitHubConfigured: true,
-		GitHubEnabled:    false,
-	})
+	sources := configuredProgrammaticSources(newTestConnectorStateView(t, testConnectorSpec{
+		kind:       configstore.KindGitHub,
+		config:     configstore.GitHubConfig{Org: "acme-org"},
+		configured: true,
+		enabled:    false,
+		sourceName: "acme-org",
+	}))
 	if len(sources) != 1 {
 		t.Fatalf("sources length = %d, want 1", len(sources))
 	}

@@ -24,12 +24,12 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "App Assets")
+	layout, stateView, err := h.LayoutData(ctx, c, "App Assets")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
-	sources := availableProgrammaticSources(snap)
+	sources := availableProgrammaticSources(stateView)
 	selected, hasSource := selectProgrammaticSource(c, sources)
 	query := strings.TrimSpace(c.QueryParam("q"))
 	assetKind := strings.TrimSpace(c.QueryParam("asset_kind"))
@@ -355,12 +355,12 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Credentials")
+	layout, stateView, err := h.LayoutData(ctx, c, "Credentials")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
-	sources := availableProgrammaticSources(snap)
+	sources := availableProgrammaticSources(stateView)
 	selected, hasSource := selectProgrammaticSource(c, sources)
 	query := strings.TrimSpace(c.QueryParam("q"))
 	credentialKind := strings.TrimSpace(c.QueryParam("credential_kind"))
@@ -662,12 +662,12 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 	return h.RenderComponent(c, views.CredentialShowPage(data))
 }
 
-func availableProgrammaticSources(snap ConnectorSnapshot) []viewmodels.ProgrammaticSourceOption {
-	return programmaticSourcesByView(snap, true)
+func availableProgrammaticSources(stateView connectorStateView) []viewmodels.ProgrammaticSourceOption {
+	return programmaticSourcesByView(stateView, true)
 }
 
-func configuredProgrammaticSources(snap ConnectorSnapshot) []viewmodels.ProgrammaticSourceOption {
-	return programmaticSourcesByView(snap, false)
+func configuredProgrammaticSources(stateView connectorStateView) []viewmodels.ProgrammaticSourceOption {
+	return programmaticSourcesByView(stateView, false)
 }
 
 func programmaticConfiguredSourcePairs(sourcePairs []viewmodels.ProgrammaticSourceOption) ([]string, []string) {
@@ -685,20 +685,22 @@ func programmaticConfiguredSourcePairs(sourcePairs []viewmodels.ProgrammaticSour
 	return kinds, names
 }
 
-func programmaticSourcesByView(snap ConnectorSnapshot, requireEnabled bool) []viewmodels.ProgrammaticSourceOption {
+func programmaticSourcesByView(stateView connectorStateView, requireEnabled bool) []viewmodels.ProgrammaticSourceOption {
 	sources := make([]viewmodels.ProgrammaticSourceOption, 0, 4)
 
-	if snap.EntraConfigured && (!requireEnabled || snap.EntraEnabled) {
-		if sourceName := strings.TrimSpace(snap.Entra.TenantID); sourceName != "" {
+	entra := stateView.Entra()
+	if entra.Configured() && (!requireEnabled || entra.Enabled()) {
+		if sourceName := entra.SourceName(); sourceName != "" {
 			sources = append(sources, viewmodels.ProgrammaticSourceOption{
-				SourceKind: "entra",
+				SourceKind: querySourceKind("entra"),
 				SourceName: sourceName,
 				Label:      sourcePrimaryLabel("entra"),
 			})
 		}
 	}
-	if snap.GoogleWorkspaceConfigured && (!requireEnabled || snap.GoogleWorkspaceEnabled) {
-		if sourceName := strings.TrimSpace(snap.GoogleWorkspace.CustomerID); sourceName != "" {
+	google := stateView.GoogleWorkspace()
+	if google.Configured() && (!requireEnabled || google.Enabled()) {
+		if sourceName := google.SourceName(); sourceName != "" {
 			sources = append(sources, viewmodels.ProgrammaticSourceOption{
 				SourceKind: configstore.KindGoogleWorkspace,
 				SourceName: sourceName,
@@ -706,19 +708,21 @@ func programmaticSourcesByView(snap ConnectorSnapshot, requireEnabled bool) []vi
 			})
 		}
 	}
-	if snap.GitHubConfigured && (!requireEnabled || snap.GitHubEnabled) {
-		if sourceName := strings.TrimSpace(snap.GitHub.Org); sourceName != "" {
+	github := stateView.GitHub()
+	if github.Configured() && (!requireEnabled || github.Enabled()) {
+		if sourceName := github.SourceName(); sourceName != "" {
 			sources = append(sources, viewmodels.ProgrammaticSourceOption{
-				SourceKind: "github",
+				SourceKind: querySourceKind("github"),
 				SourceName: sourceName,
 				Label:      sourcePrimaryLabel("github"),
 			})
 		}
 	}
-	if snap.VaultConfigured && (!requireEnabled || snap.VaultEnabled) {
-		if sourceName := strings.TrimSpace(snap.Vault.SourceName()); sourceName != "" {
+	vault := stateView.Vault()
+	if vault.Configured() && (!requireEnabled || vault.Enabled()) {
+		if sourceName := vault.SourceName(); sourceName != "" {
 			sources = append(sources, viewmodels.ProgrammaticSourceOption{
-				SourceKind: "vault",
+				SourceKind: querySourceKind("vault"),
 				SourceName: sourceName,
 				Label:      sourcePrimaryLabel("vault"),
 			})
