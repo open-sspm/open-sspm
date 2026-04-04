@@ -65,87 +65,6 @@ func TestFormatProgrammaticDate(t *testing.T) {
 	}
 }
 
-func TestCredentialRiskLevel(t *testing.T) {
-	t.Parallel()
-
-	now := time.Date(2026, 2, 7, 12, 0, 0, 0, time.UTC)
-	cases := []struct {
-		name       string
-		credential gen.CredentialArtifact
-		want       string
-	}{
-		{
-			name: "critical when expired and active",
-			credential: gen.CredentialArtifact{
-				Status:              "active",
-				CredentialKind:      "entra_client_secret",
-				CreatedByExternalID: "owner@example.com",
-				ExpiresAtSource:     timestamptz(now.Add(-1 * time.Hour)),
-			},
-			want: "critical",
-		},
-		{
-			name: "critical when expired and status is blank",
-			credential: gen.CredentialArtifact{
-				Status:              "",
-				CredentialKind:      "entra_certificate",
-				CreatedByExternalID: "owner@example.com",
-				ExpiresAtSource:     timestamptz(now.Add(-1 * time.Hour)),
-			},
-			want: "critical",
-		},
-		{
-			name: "critical when high privilege has no attribution",
-			credential: gen.CredentialArtifact{
-				Status:         "active",
-				CredentialKind: "github_pat_fine_grained",
-			},
-			want: "critical",
-		},
-		{
-			name: "high when expiring within seven days",
-			credential: gen.CredentialArtifact{
-				Status:              "active",
-				CredentialKind:      "entra_certificate",
-				CreatedByExternalID: "owner@example.com",
-				ExpiresAtSource:     timestamptz(now.Add(3 * 24 * time.Hour)),
-			},
-			want: "high",
-		},
-		{
-			name: "medium when expiring within thirty days",
-			credential: gen.CredentialArtifact{
-				Status:              "active",
-				CredentialKind:      "entra_certificate",
-				CreatedByExternalID: "owner@example.com",
-				ExpiresAtSource:     timestamptz(now.Add(20 * 24 * time.Hour)),
-			},
-			want: "medium",
-		},
-		{
-			name: "low when healthy",
-			credential: gen.CredentialArtifact{
-				Status:               "active",
-				CredentialKind:       "entra_certificate",
-				CreatedByExternalID:  "owner@example.com",
-				ApprovedByExternalID: "approver@example.com",
-				ExpiresAtSource:      timestamptz(now.Add(60 * 24 * time.Hour)),
-				LastUsedAtSource:     timestamptz(now.Add(-10 * 24 * time.Hour)),
-			},
-			want: "low",
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			if got := credentialRiskLevel(tc.credential, now); got != tc.want {
-				t.Fatalf("credentialRiskLevel() = %q, want %q", got, tc.want)
-			}
-		})
-	}
-}
-
 func TestCredentialRiskReasons(t *testing.T) {
 	t.Parallel()
 
@@ -232,14 +151,22 @@ func TestSelectProgrammaticSource(t *testing.T) {
 func TestAvailableProgrammaticSourcesUsesPrimaryLabels(t *testing.T) {
 	t.Parallel()
 
-	sources := availableProgrammaticSources(ConnectorSnapshot{
-		Entra:            configstore.EntraConfig{TenantID: "tenant-a"},
-		EntraEnabled:     true,
-		EntraConfigured:  true,
-		GitHub:           configstore.GitHubConfig{Org: "acme-org"},
-		GitHubEnabled:    true,
-		GitHubConfigured: true,
-	})
+	sources := availableProgrammaticSources(newTestConnectorStateView(t,
+		testConnectorSpec{
+			kind:       configstore.KindEntra,
+			config:     configstore.EntraConfig{TenantID: "tenant-a"},
+			enabled:    true,
+			configured: true,
+			sourceName: "tenant-a",
+		},
+		testConnectorSpec{
+			kind:       configstore.KindGitHub,
+			config:     configstore.GitHubConfig{Org: "acme-org"},
+			enabled:    true,
+			configured: true,
+			sourceName: "acme-org",
+		},
+	))
 	if len(sources) != 2 {
 		t.Fatalf("sources length = %d, want 2", len(sources))
 	}
@@ -254,14 +181,16 @@ func TestAvailableProgrammaticSourcesUsesPrimaryLabels(t *testing.T) {
 func TestAvailableProgrammaticSourcesIncludesVault(t *testing.T) {
 	t.Parallel()
 
-	sources := availableProgrammaticSources(ConnectorSnapshot{
-		Vault: configstore.VaultConfig{
+	sources := availableProgrammaticSources(newTestConnectorStateView(t, testConnectorSpec{
+		kind: configstore.KindVault,
+		config: configstore.VaultConfig{
 			Address: "https://vault.example.com",
 			Name:    "prod-vault",
 		},
-		VaultEnabled:    true,
-		VaultConfigured: true,
-	})
+		enabled:    true,
+		configured: true,
+		sourceName: "prod-vault",
+	}))
 	if len(sources) != 1 {
 		t.Fatalf("sources length = %d, want 1", len(sources))
 	}
@@ -279,11 +208,13 @@ func TestAvailableProgrammaticSourcesIncludesVault(t *testing.T) {
 func TestAvailableProgrammaticSourcesIncludesGoogleWorkspace(t *testing.T) {
 	t.Parallel()
 
-	sources := availableProgrammaticSources(ConnectorSnapshot{
-		GoogleWorkspace:           configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
-		GoogleWorkspaceConfigured: true,
-		GoogleWorkspaceEnabled:    true,
-	})
+	sources := availableProgrammaticSources(newTestConnectorStateView(t, testConnectorSpec{
+		kind:       configstore.KindGoogleWorkspace,
+		config:     configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
+		configured: true,
+		enabled:    true,
+		sourceName: "C0123",
+	}))
 	if len(sources) != 1 {
 		t.Fatalf("sources length = %d, want 1", len(sources))
 	}
@@ -301,11 +232,13 @@ func TestAvailableProgrammaticSourcesIncludesGoogleWorkspace(t *testing.T) {
 func TestConfiguredProgrammaticSourcesIncludesDisabledConfiguredConnector(t *testing.T) {
 	t.Parallel()
 
-	sources := configuredProgrammaticSources(ConnectorSnapshot{
-		GitHub:           configstore.GitHubConfig{Org: "acme-org"},
-		GitHubConfigured: true,
-		GitHubEnabled:    false,
-	})
+	sources := configuredProgrammaticSources(newTestConnectorStateView(t, testConnectorSpec{
+		kind:       configstore.KindGitHub,
+		config:     configstore.GitHubConfig{Org: "acme-org"},
+		configured: true,
+		enabled:    false,
+		sourceName: "acme-org",
+	}))
 	if len(sources) != 1 {
 		t.Fatalf("sources length = %d, want 1", len(sources))
 	}

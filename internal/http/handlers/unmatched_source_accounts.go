@@ -28,37 +28,39 @@ type unmatchedSourceAccountsResult struct {
 type unmatchedSourceAccountOptions struct {
 	Title                string
 	ConnectorName        string
+	ConnectorKind        string
 	SourceKind           string
 	EntityCategory       string
 	EmptyStateHref       string
 	SyncedEmptyState     string
 	FilteredEmptyState   string
-	IsConfigured         func(snap ConnectorSnapshot) bool
-	IsEnabled            func(snap ConnectorSnapshot) bool
-	UnavailableMessageFn func(snap ConnectorSnapshot) string
-	ResolveSourceName    func(c *echo.Context, snap ConnectorSnapshot) (string, error)
+	UnavailableMessageFn func(configured, enabled bool) string
+	ResolveSourceName    func(c *echo.Context, configuredSourceName string) (string, error)
 }
 
 func (h *Handlers) buildUnmatchedSourceAccountsPage(c *echo.Context, opts unmatchedSourceAccountOptions) (unmatchedSourceAccountsResult, error) {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, opts.Title)
+	layout, stateView, err := h.LayoutData(ctx, c, opts.Title)
 	if err != nil {
 		return unmatchedSourceAccountsResult{}, err
 	}
 
 	query := strings.TrimSpace(c.QueryParam("q"))
 	pagination := newPaginatedListState(0, parsePageParam(c), unmatchedSourceAccountsPerPage)
-	if !opts.IsConfigured(snap) || !opts.IsEnabled(snap) {
+	configured := stateView.Configured(opts.ConnectorKind)
+	enabled := stateView.Enabled(opts.ConnectorKind)
+	configuredSourceName := stateView.SourceName(opts.ConnectorKind)
+	if !configured || !enabled || configuredSourceName == "" {
 		return unmatchedSourceAccountsResult{
 			PageData: viewmodels.UnmatchedSourceAccountsPageData{
-				PaginatedListPageData: pagination.PageData(layout, 0, opts.unavailableMessage(snap), opts.EmptyStateHref),
+				PaginatedListPageData: pagination.PageData(layout, 0, opts.unavailableMessage(configured, enabled), opts.EmptyStateHref),
 				Query:                 query,
 				HasUsers:              false,
 			},
 		}, nil
 	}
 
-	sourceName, err := opts.resolveSourceName(c, snap)
+	sourceName, err := opts.resolveSourceName(c, configuredSourceName)
 	if err != nil {
 		return unmatchedSourceAccountsResult{}, err
 	}
@@ -122,18 +124,18 @@ func (h *Handlers) renderUnmatchedSourceAccountsError(c *echo.Context, err error
 	return h.RenderError(c, err)
 }
 
-func (opts unmatchedSourceAccountOptions) unavailableMessage(snap ConnectorSnapshot) string {
+func (opts unmatchedSourceAccountOptions) unavailableMessage(configured, enabled bool) string {
 	if opts.UnavailableMessageFn != nil {
-		return opts.UnavailableMessageFn(snap)
+		return opts.UnavailableMessageFn(configured, enabled)
 	}
-	return connectorUnavailableMessage(opts.ConnectorName, opts.IsConfigured(snap), opts.IsEnabled(snap))
+	return connectorUnavailableMessage(opts.ConnectorName, configured, enabled)
 }
 
-func (opts unmatchedSourceAccountOptions) resolveSourceName(c *echo.Context, snap ConnectorSnapshot) (string, error) {
+func (opts unmatchedSourceAccountOptions) resolveSourceName(c *echo.Context, configuredSourceName string) (string, error) {
 	if opts.ResolveSourceName == nil {
-		return "", nil
+		return configuredSourceName, nil
 	}
-	return opts.ResolveSourceName(c, snap)
+	return opts.ResolveSourceName(c, configuredSourceName)
 }
 
 func routeParamOrWildcard(c *echo.Context, name string) string {

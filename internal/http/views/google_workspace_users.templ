@@ -10,7 +10,7 @@ templ GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) {
 		}, "Synced Google Workspace users with group/admin-role visibility.") {
 			if data.Layout.GoogleWorkspaceConfigured && data.Layout.GoogleWorkspaceEnabled {
 				<a class="btn-sm-outline" href="/accounts/google-workspace/groups">Groups</a>
-				<a class="btn-sm-outline" href="/oauth-apps">OAuth Apps</a>
+				<a class="btn-sm-outline" href={ ConnectedAppsListURL("", "", 1) }>OAuth Apps</a>
 				<a class="btn-sm-outline" href="/accounts/unlinked/google-workspace">Unlinked</a>
 			} else {
 				<a class="btn-sm-outline" href="/settings/connectors?open=google_workspace">Configure</a>

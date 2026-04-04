@@ -9,7 +9,7 @@ templ GoogleWorkspaceGroupsPage(data viewmodels.GoogleWorkspaceGroupsViewData) {
 			{Label: "Google Workspace groups"},
 		}, "Synced Google Workspace groups with membership visibility.") {
 			<a class="btn-sm-outline" href="/accounts/google-workspace">Users</a>
-			<a class="btn-sm-outline" href="/oauth-apps">OAuth Apps</a>
+			<a class="btn-sm-outline" href={ ConnectedAppsListURL("", "", 1) }>OAuth Apps</a>
 		}
 
 		if !data.Layout.GoogleWorkspaceConfigured || !data.Layout.GoogleWorkspaceEnabled {

@@ -6,25 +6,29 @@ templ ConnectedAppsPage(data viewmodels.ConnectedAppsViewData) {
 	@Layout(data.Layout) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
+			{Label: "Programmatic Access"},
+			{Label: "App Assets", Href: "/app-assets"},
 			{Label: "OAuth Apps"},
-		}, "Review third-party OAuth apps, grant activity, ownership, and evidence from Google Workspace.") {
+		}, "Saved view for Google Workspace OAuth apps with review state, grant activity, ownership, and discovery evidence.") {
 		}
 		@ConnectedAppsPageResults(data)
 	}
 }
 
 templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
-	<div id="connected-apps-results" class="space-y-6">
+	<div id="app-assets-results" class="space-y-6">
 		<form
 			method="get"
-			action="/oauth-apps"
-			hx-get="/oauth-apps"
+			action="/app-assets"
+			hx-get="/app-assets"
 			hx-trigger="change delay:150ms from:select, submit"
-			hx-target="#connected-apps-results"
+			hx-target="#app-assets-results"
 			hx-swap="outerHTML"
 			hx-push-url="true"
 			class="space-y-4 border-b border-border/70 pb-5"
 		>
+			<input type="hidden" name="source_kind" value="google_workspace"/>
+			<input type="hidden" name="asset_kind" value="google_oauth_client"/>
 			<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<label class="field w-full lg:max-w-xl">
 					<span class="sr-only">Query</span>
@@ -91,7 +95,7 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 						<article class="rounded-xl border border-border/70 bg-card/80 p-4 shadow-sm">
 							<div class="space-y-3">
 								<div class="space-y-1">
-									<a class="text-base font-semibold hover:underline" href={ "/oauth-apps/" + FormatInt64(item.ID) }>{ item.DisplayName }</a>
+									<a class="text-base font-semibold hover:underline" href={ "/app-assets/" + FormatInt64(item.ID) }>{ item.DisplayName }</a>
 									<div class="text-sm text-muted-foreground">{ item.Status }</div>
 									<div class="text-xs text-muted-foreground break-all">{ item.ExternalID }</div>
 								</div>
@@ -143,9 +147,9 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 							</thead>
 							<tbody>
 								for _, item := range data.Items {
-									<tr data-row-href={ "/oauth-apps/" + FormatInt64(item.ID) } class="cursor-pointer transition-colors duration-150 hover:bg-muted/50">
+									<tr data-row-href={ "/app-assets/" + FormatInt64(item.ID) } class="cursor-pointer transition-colors duration-150 hover:bg-muted/50">
 										<td class="whitespace-normal">
-											<a class="btn-sm-link px-0 font-medium" href={ "/oauth-apps/" + FormatInt64(item.ID) } title={ item.DisplayName }>{ item.DisplayName }</a>
+											<a class="btn-sm-link px-0 font-medium" href={ "/app-assets/" + FormatInt64(item.ID) } title={ item.DisplayName }>{ item.DisplayName }</a>
 											<div class="text-sm text-muted-foreground">{ item.Status }</div>
 											<div class="text-xs text-muted-foreground break-all">{ item.ExternalID }</div>
 										</td>
@@ -214,9 +218,10 @@ templ ConnectedAppShowPage(data viewmodels.ConnectedAppShowViewData) {
 	@Layout(data.Layout) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
-			{Label: "OAuth Apps", Href: "/oauth-apps"},
+			{Label: "Programmatic Access"},
+			{Label: "App Assets", Href: "/app-assets"},
 			{Label: data.App.DisplayName},
-		}, "Review ownership, grant scope, evidence, and containment actions for an OAuth app.") {
+		}, "Review ownership, grant scope, evidence, and containment actions for a Google Workspace OAuth app.") {
 			<a class="btn-sm-outline" href={ data.App.ExportHref }>Export JSON</a>
 		}
 
@@ -342,8 +347,8 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 													if data.Layout.IsAdmin && grant.CanRevoke {
 														<form
 															method="post"
-															action={ "/oauth-apps/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke" }
-															hx-post={ "/oauth-apps/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke" }
+															action={ "/app-assets/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke" }
+															hx-post={ "/app-assets/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke" }
 															hx-target="#connected-app-show-shell"
 															hx-swap="outerHTML"
 															hx-disabled-elt="this"
@@ -503,8 +508,8 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 						if data.Layout.IsAdmin {
 							<form
 								method="post"
-								action={ "/oauth-apps/" + FormatInt64(data.App.ID) + "/review" }
-								hx-post={ "/oauth-apps/" + FormatInt64(data.App.ID) + "/review" }
+								action={ "/app-assets/" + FormatInt64(data.App.ID) + "/review" }
+								hx-post={ "/app-assets/" + FormatInt64(data.App.ID) + "/review" }
 								hx-target="#connected-app-show-shell"
 								hx-swap="outerHTML"
 								hx-disabled-elt="this"

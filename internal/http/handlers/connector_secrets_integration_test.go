@@ -144,7 +144,7 @@ func TestSaveConnectorConfigTxReplacesObsoleteVaultSecrets(t *testing.T) {
 	})
 }
 
-func TestLoadConnectorSnapshotToleratesBrokenConnectorSecret(t *testing.T) {
+func TestLoadConnectorStateViewToleratesBrokenConnectorSecret(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
 			Org:   "acme",
@@ -198,15 +198,16 @@ func TestLoadConnectorSnapshotToleratesBrokenConnectorSecret(t *testing.T) {
 			t.Fatalf("LoadStates() missing expected connectors: %#v", byKind)
 		}
 
-		snap, err := h.LoadConnectorSnapshot(ctx)
+		stateView, err := h.LoadConnectorStateView(ctx)
 		if err != nil {
-			t.Fatalf("LoadConnectorSnapshot() error = %v", err)
+			t.Fatalf("LoadConnectorStateView() error = %v", err)
 		}
-		if !snap.GitHubConfigured || snap.GitHub.Org != "acme" {
-			t.Fatalf("GitHub snapshot = %#v", snap.GitHub)
+		github := stateView.GitHub()
+		if !github.Configured() || github.Config().Org != "acme" {
+			t.Fatalf("GitHub view = %#v", github.Raw())
 		}
-		if snap.DatadogConfigured {
-			t.Fatalf("Datadog snapshot should remain unconfigured: %#v", snap.Datadog)
+		if stateView.Datadog().Configured() {
+			t.Fatalf("Datadog view should remain unconfigured: %#v", stateView.Datadog().Raw())
 		}
 	})
 }

@@ -38,12 +38,12 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "SaaS Discovery")
+	layout, stateView, err := h.LayoutData(ctx, c, "SaaS Discovery")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
-	sourceOptions := discoverySourceOptions(snap)
+	sourceOptions := discoverySourceOptions(stateView)
 	selectedSourceKind, selectedSourceName := normalizeDiscoverySourceSelection(
 		c.QueryParam("source_kind"),
 		c.QueryParam("source_name"),
@@ -152,12 +152,12 @@ func (h *Handlers) HandleDiscoveryHotspots(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Discovery Hotspots")
+	layout, stateView, err := h.LayoutData(ctx, c, "Discovery Hotspots")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
-	sourceOptions := discoverySourceOptions(snap)
+	sourceOptions := discoverySourceOptions(stateView)
 	selectedSourceKind, selectedSourceName := normalizeDiscoverySourceSelection(
 		c.QueryParam("source_kind"),
 		c.QueryParam("source_name"),
@@ -399,29 +399,29 @@ func (h *Handlers) discoveryPostureCutoffs(now time.Time) discoveryPostureCutoff
 	}
 }
 
-func discoverySourceOptions(snap ConnectorSnapshot) []viewmodels.DiscoverySourceOption {
+func discoverySourceOptions(stateView connectorStateView) []viewmodels.DiscoverySourceOption {
 	options := make([]viewmodels.DiscoverySourceOption, 0, 3)
-	oktaSource := strings.TrimSpace(snap.Okta.Domain)
-	if snap.OktaConfigured && oktaSource != "" {
+	okta := stateView.Okta()
+	if okta.Configured() && okta.SourceName() != "" {
 		options = append(options, viewmodels.DiscoverySourceOption{
-			SourceKind: "okta",
-			SourceName: oktaSource,
+			SourceKind: querySourceKind("okta"),
+			SourceName: okta.SourceName(),
 			Label:      sourcePrimaryLabel("okta"),
 		})
 	}
-	entraSource := strings.TrimSpace(snap.Entra.TenantID)
-	if snap.EntraConfigured && entraSource != "" {
+	entra := stateView.Entra()
+	if entra.Configured() && entra.SourceName() != "" {
 		options = append(options, viewmodels.DiscoverySourceOption{
-			SourceKind: "entra",
-			SourceName: entraSource,
+			SourceKind: querySourceKind("entra"),
+			SourceName: entra.SourceName(),
 			Label:      sourcePrimaryLabel("entra"),
 		})
 	}
-	googleSource := strings.TrimSpace(snap.GoogleWorkspace.CustomerID)
-	if snap.GoogleWorkspaceConfigured && googleSource != "" {
+	google := stateView.GoogleWorkspace()
+	if google.Configured() && google.SourceName() != "" {
 		options = append(options, viewmodels.DiscoverySourceOption{
 			SourceKind: configstore.KindGoogleWorkspace,
-			SourceName: googleSource,
+			SourceName: google.SourceName(),
 			Label:      sourcePrimaryLabel(configstore.KindGoogleWorkspace),
 		})
 	}

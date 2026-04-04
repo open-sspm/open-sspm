@@ -12,104 +12,93 @@ import (
 )
 
 const countCredentialArtifactsBySourceAndQueryAndFilters = `-- name: CountCredentialArtifactsBySourceAndQueryAndFilters :one
+WITH rated_credentials AS (
+  SELECT
+    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+    credential_artifact_risk_level(
+      ca.status,
+      ca.credential_kind,
+      ca.expires_at_source,
+      ca.last_used_at_source,
+      ca.created_by_external_id,
+      ca.approved_by_external_id,
+      $3::timestamptz
+    ) AS risk_level
+  FROM credential_artifacts ca
+  WHERE
+    ca.source_kind = $6::text
+    AND ca.source_name = $7::text
+    AND ca.expired_at IS NULL
+    AND ca.last_observed_run_id IS NOT NULL
+    AND (
+      $8::text = ''
+      OR ca.credential_kind = $8::text
+    )
+    AND (
+      $9::text = ''
+      OR lower(ca.status) = lower($9::text)
+    )
+)
 SELECT count(*)
-FROM credential_artifacts ca
+FROM rated_credentials rc
 WHERE
-  ca.source_kind = $1::text
-  AND ca.source_name = $2::text
-  AND ca.expired_at IS NULL
-  AND ca.last_observed_run_id IS NOT NULL
-  AND (
-    $3::text = ''
-    OR ca.credential_kind = $3::text
+  (
+    $1::text = ''
+    OR lower($1::text) = rc.risk_level
   )
   AND (
-    $4::text = ''
-    OR lower(ca.status) = lower($4::text)
+    $2::text = ''
+    OR (
+      $2::text = 'expired'
+      AND rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source < $3::timestamptz
+    )
+    OR (
+      $2::text = 'active'
+      AND (rc.expires_at_source IS NULL OR rc.expires_at_source >= $3::timestamptz)
+    )
+  )
+  AND (
+    $4::int <= 0
+    OR (
+      rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source >= $3::timestamptz
+      AND rc.expires_at_source <= $3::timestamptz + make_interval(days => $4::int)
+    )
   )
   AND (
     $5::text = ''
-    OR lower($5::text) = (
-      CASE
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          AND lower(COALESCE(NULLIF(trim(ca.status), ''), 'active')) IN ('active', 'approved', 'pending_approval')
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          THEN 'high'
-        WHEN lower(ca.credential_kind) IN ('entra_client_secret', 'github_deploy_key', 'github_pat_request', 'github_pat_fine_grained')
-          AND trim(ca.created_by_external_id) = ''
-          AND trim(ca.approved_by_external_id) = ''
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 7)
-          THEN 'high'
-        WHEN trim(ca.created_by_external_id) = ''
-          THEN 'high'
-        WHEN ca.last_used_at_source IS NOT NULL
-          AND ca.last_used_at_source <= now() - make_interval(days => 90)
-          THEN 'high'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 30)
-          THEN 'medium'
-        ELSE 'low'
-      END
-    )
-  )
-  AND (
-    $6::text = ''
-    OR (
-      $6::text = 'expired'
-      AND ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source < now()
-    )
-    OR (
-      $6::text = 'active'
-      AND (ca.expires_at_source IS NULL OR ca.expires_at_source >= now())
-    )
-  )
-  AND (
-    $7::int <= 0
-    OR (
-      ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source >= now()
-      AND ca.expires_at_source <= now() + make_interval(days => $7::int)
-    )
-  )
-  AND (
-    $8::text = ''
-    OR ca.display_name ILIKE ('%' || $8::text || '%')
-    OR ca.external_id ILIKE ('%' || $8::text || '%')
-    OR ca.asset_ref_external_id ILIKE ('%' || $8::text || '%')
-    OR ca.created_by_external_id ILIKE ('%' || $8::text || '%')
-    OR ca.approved_by_external_id ILIKE ('%' || $8::text || '%')
+    OR rc.display_name ILIKE ('%' || $5::text || '%')
+    OR rc.external_id ILIKE ('%' || $5::text || '%')
+    OR rc.asset_ref_external_id ILIKE ('%' || $5::text || '%')
+    OR rc.created_by_external_id ILIKE ('%' || $5::text || '%')
+    OR rc.approved_by_external_id ILIKE ('%' || $5::text || '%')
   )
 `
 
 type CountCredentialArtifactsBySourceAndQueryAndFiltersParams struct {
-	SourceKind     string `json:"source_kind"`
-	SourceName     string `json:"source_name"`
-	CredentialKind string `json:"credential_kind"`
-	Status         string `json:"status"`
-	RiskLevel      string `json:"risk_level"`
-	ExpiryState    string `json:"expiry_state"`
-	ExpiresInDays  int32  `json:"expires_in_days"`
-	Query          string `json:"query"`
+	RiskLevel      string             `json:"risk_level"`
+	ExpiryState    string             `json:"expiry_state"`
+	EvaluatedAt    pgtype.Timestamptz `json:"evaluated_at"`
+	ExpiresInDays  int32              `json:"expires_in_days"`
+	Query          string             `json:"query"`
+	SourceKind     string             `json:"source_kind"`
+	SourceName     string             `json:"source_name"`
+	CredentialKind string             `json:"credential_kind"`
+	Status         string             `json:"status"`
 }
 
 func (q *Queries) CountCredentialArtifactsBySourceAndQueryAndFilters(ctx context.Context, arg CountCredentialArtifactsBySourceAndQueryAndFiltersParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countCredentialArtifactsBySourceAndQueryAndFilters,
+		arg.RiskLevel,
+		arg.ExpiryState,
+		arg.EvaluatedAt,
+		arg.ExpiresInDays,
+		arg.Query,
 		arg.SourceKind,
 		arg.SourceName,
 		arg.CredentialKind,
 		arg.Status,
-		arg.RiskLevel,
-		arg.ExpiryState,
-		arg.ExpiresInDays,
-		arg.Query,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -121,108 +110,97 @@ WITH configured_sources AS (
   SELECT
     k.kind AS source_kind,
     n.name AS source_name
-  FROM unnest($7::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($8::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+  FROM unnest($6::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($7::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+rated_credentials AS (
+  SELECT
+    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+    credential_artifact_risk_level(
+      ca.status,
+      ca.credential_kind,
+      ca.expires_at_source,
+      ca.last_used_at_source,
+      ca.created_by_external_id,
+      ca.approved_by_external_id,
+      $3::timestamptz
+    ) AS risk_level
+  FROM credential_artifacts ca
+  JOIN configured_sources cs
+    ON cs.source_kind = ca.source_kind
+   AND cs.source_name = ca.source_name
+  WHERE
+    ca.expired_at IS NULL
+    AND ca.last_observed_run_id IS NOT NULL
+    AND (
+      $8::text = ''
+      OR ca.credential_kind = $8::text
+    )
+    AND (
+      $9::text = ''
+      OR lower(ca.status) = lower($9::text)
+    )
 )
 SELECT count(*)
-FROM credential_artifacts ca
-JOIN configured_sources cs
-  ON cs.source_kind = ca.source_kind
- AND cs.source_name = ca.source_name
+FROM rated_credentials rc
 WHERE
-  ca.expired_at IS NULL
-  AND ca.last_observed_run_id IS NOT NULL
-  AND (
+  (
     $1::text = ''
-    OR ca.credential_kind = $1::text
+    OR lower($1::text) = rc.risk_level
   )
   AND (
     $2::text = ''
-    OR lower(ca.status) = lower($2::text)
-  )
-  AND (
-    $3::text = ''
-    OR lower($3::text) = (
-      CASE
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          AND lower(COALESCE(NULLIF(trim(ca.status), ''), 'active')) IN ('active', 'approved', 'pending_approval')
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          THEN 'high'
-        WHEN lower(ca.credential_kind) IN ('entra_client_secret', 'github_deploy_key', 'github_pat_request', 'github_pat_fine_grained')
-          AND trim(ca.created_by_external_id) = ''
-          AND trim(ca.approved_by_external_id) = ''
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 7)
-          THEN 'high'
-        WHEN trim(ca.created_by_external_id) = ''
-          THEN 'high'
-        WHEN ca.last_used_at_source IS NOT NULL
-          AND ca.last_used_at_source <= now() - make_interval(days => 90)
-          THEN 'high'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 30)
-          THEN 'medium'
-        ELSE 'low'
-      END
-    )
-  )
-  AND (
-    $4::text = ''
     OR (
-      $4::text = 'expired'
-      AND ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source < now()
+      $2::text = 'expired'
+      AND rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source < $3::timestamptz
     )
     OR (
-      $4::text = 'active'
-      AND (ca.expires_at_source IS NULL OR ca.expires_at_source >= now())
+      $2::text = 'active'
+      AND (rc.expires_at_source IS NULL OR rc.expires_at_source >= $3::timestamptz)
     )
   )
   AND (
-    $5::int <= 0
+    $4::int <= 0
     OR (
-      ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source >= now()
-      AND ca.expires_at_source <= now() + make_interval(days => $5::int)
+      rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source >= $3::timestamptz
+      AND rc.expires_at_source <= $3::timestamptz + make_interval(days => $4::int)
     )
   )
   AND (
-    $6::text = ''
-    OR ca.display_name ILIKE ('%' || $6::text || '%')
-    OR ca.external_id ILIKE ('%' || $6::text || '%')
-    OR ca.asset_ref_external_id ILIKE ('%' || $6::text || '%')
-    OR ca.created_by_external_id ILIKE ('%' || $6::text || '%')
-    OR ca.approved_by_external_id ILIKE ('%' || $6::text || '%')
+    $5::text = ''
+    OR rc.display_name ILIKE ('%' || $5::text || '%')
+    OR rc.external_id ILIKE ('%' || $5::text || '%')
+    OR rc.asset_ref_external_id ILIKE ('%' || $5::text || '%')
+    OR rc.created_by_external_id ILIKE ('%' || $5::text || '%')
+    OR rc.approved_by_external_id ILIKE ('%' || $5::text || '%')
   )
 `
 
 type CountCredentialArtifactsBySourcesAndQueryAndFiltersParams struct {
-	CredentialKind        string   `json:"credential_kind"`
-	Status                string   `json:"status"`
-	RiskLevel             string   `json:"risk_level"`
-	ExpiryState           string   `json:"expiry_state"`
-	ExpiresInDays         int32    `json:"expires_in_days"`
-	Query                 string   `json:"query"`
-	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
-	ConfiguredSourceNames []string `json:"configured_source_names"`
+	RiskLevel             string             `json:"risk_level"`
+	ExpiryState           string             `json:"expiry_state"`
+	EvaluatedAt           pgtype.Timestamptz `json:"evaluated_at"`
+	ExpiresInDays         int32              `json:"expires_in_days"`
+	Query                 string             `json:"query"`
+	ConfiguredSourceKinds []string           `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string           `json:"configured_source_names"`
+	CredentialKind        string             `json:"credential_kind"`
+	Status                string             `json:"status"`
 }
 
 func (q *Queries) CountCredentialArtifactsBySourcesAndQueryAndFilters(ctx context.Context, arg CountCredentialArtifactsBySourcesAndQueryAndFiltersParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countCredentialArtifactsBySourcesAndQueryAndFilters,
-		arg.CredentialKind,
-		arg.Status,
 		arg.RiskLevel,
 		arg.ExpiryState,
+		arg.EvaluatedAt,
 		arg.ExpiresInDays,
 		arg.Query,
 		arg.ConfiguredSourceKinds,
 		arg.ConfiguredSourceNames,
+		arg.CredentialKind,
+		arg.Status,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -259,16 +237,64 @@ func (q *Queries) ExpireCredentialArtifactsNotSeenInRunBySource(ctx context.Cont
 }
 
 const getCredentialArtifactByID = `-- name: GetCredentialArtifactByID :one
-SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at
-FROM credential_artifacts
-WHERE id = $1
+SELECT
+  ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+  credential_artifact_risk_level(
+    ca.status,
+    ca.credential_kind,
+    ca.expires_at_source,
+    ca.last_used_at_source,
+    ca.created_by_external_id,
+    ca.approved_by_external_id,
+    $1::timestamptz
+  ) AS risk_level
+FROM credential_artifacts ca
+WHERE ca.id = $2::bigint
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL
 `
 
-func (q *Queries) GetCredentialArtifactByID(ctx context.Context, id int64) (CredentialArtifact, error) {
-	row := q.db.QueryRow(ctx, getCredentialArtifactByID, id)
-	var i CredentialArtifact
+type GetCredentialArtifactByIDParams struct {
+	EvaluatedAt pgtype.Timestamptz `json:"evaluated_at"`
+	ID          int64              `json:"id"`
+}
+
+type GetCredentialArtifactByIDRow struct {
+	ID                    int64              `json:"id"`
+	SourceKind            string             `json:"source_kind"`
+	SourceName            string             `json:"source_name"`
+	AssetRefKind          string             `json:"asset_ref_kind"`
+	AssetRefExternalID    string             `json:"asset_ref_external_id"`
+	CredentialKind        string             `json:"credential_kind"`
+	ExternalID            string             `json:"external_id"`
+	DisplayName           string             `json:"display_name"`
+	Fingerprint           string             `json:"fingerprint"`
+	ScopeJson             []byte             `json:"scope_json"`
+	Status                string             `json:"status"`
+	CreatedAtSource       pgtype.Timestamptz `json:"created_at_source"`
+	ExpiresAtSource       pgtype.Timestamptz `json:"expires_at_source"`
+	LastUsedAtSource      pgtype.Timestamptz `json:"last_used_at_source"`
+	CreatedByKind         string             `json:"created_by_kind"`
+	CreatedByExternalID   string             `json:"created_by_external_id"`
+	CreatedByDisplayName  string             `json:"created_by_display_name"`
+	ApprovedByKind        string             `json:"approved_by_kind"`
+	ApprovedByExternalID  string             `json:"approved_by_external_id"`
+	ApprovedByDisplayName string             `json:"approved_by_display_name"`
+	RawJson               []byte             `json:"raw_json"`
+	SeenInRunID           pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt                pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID     pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt        pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt             pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID          pgtype.Int8        `json:"expired_run_id"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	RiskLevel             string             `json:"risk_level"`
+}
+
+func (q *Queries) GetCredentialArtifactByID(ctx context.Context, arg GetCredentialArtifactByIDParams) (GetCredentialArtifactByIDRow, error) {
+	row := q.db.QueryRow(ctx, getCredentialArtifactByID, arg.EvaluatedAt, arg.ID)
+	var i GetCredentialArtifactByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.SourceKind,
@@ -299,6 +325,7 @@ func (q *Queries) GetCredentialArtifactByID(ctx context.Context, id int64) (Cred
 		&i.ExpiredRunID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RiskLevel,
 	)
 	return i, err
 }
@@ -367,12 +394,22 @@ func (q *Queries) ListCredentialArtifactCountsByAssetRef(ctx context.Context, ar
 }
 
 const listCredentialArtifactsForAssetRef = `-- name: ListCredentialArtifactsForAssetRef :many
-SELECT ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at
+SELECT
+  ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+  credential_artifact_risk_level(
+    ca.status,
+    ca.credential_kind,
+    ca.expires_at_source,
+    ca.last_used_at_source,
+    ca.created_by_external_id,
+    ca.approved_by_external_id,
+    $1::timestamptz
+  ) AS risk_level
 FROM credential_artifacts ca
-WHERE ca.source_kind = $1::text
-  AND ca.source_name = $2::text
-  AND ca.asset_ref_kind = $3::text
-  AND ca.asset_ref_external_id = $4::text
+WHERE ca.source_kind = $2::text
+  AND ca.source_name = $3::text
+  AND ca.asset_ref_kind = $4::text
+  AND ca.asset_ref_external_id = $5::text
   AND ca.expired_at IS NULL
   AND ca.last_observed_run_id IS NOT NULL
 ORDER BY
@@ -381,14 +418,49 @@ ORDER BY
 `
 
 type ListCredentialArtifactsForAssetRefParams struct {
-	SourceKind         string `json:"source_kind"`
-	SourceName         string `json:"source_name"`
-	AssetRefKind       string `json:"asset_ref_kind"`
-	AssetRefExternalID string `json:"asset_ref_external_id"`
+	EvaluatedAt        pgtype.Timestamptz `json:"evaluated_at"`
+	SourceKind         string             `json:"source_kind"`
+	SourceName         string             `json:"source_name"`
+	AssetRefKind       string             `json:"asset_ref_kind"`
+	AssetRefExternalID string             `json:"asset_ref_external_id"`
 }
 
-func (q *Queries) ListCredentialArtifactsForAssetRef(ctx context.Context, arg ListCredentialArtifactsForAssetRefParams) ([]CredentialArtifact, error) {
+type ListCredentialArtifactsForAssetRefRow struct {
+	ID                    int64              `json:"id"`
+	SourceKind            string             `json:"source_kind"`
+	SourceName            string             `json:"source_name"`
+	AssetRefKind          string             `json:"asset_ref_kind"`
+	AssetRefExternalID    string             `json:"asset_ref_external_id"`
+	CredentialKind        string             `json:"credential_kind"`
+	ExternalID            string             `json:"external_id"`
+	DisplayName           string             `json:"display_name"`
+	Fingerprint           string             `json:"fingerprint"`
+	ScopeJson             []byte             `json:"scope_json"`
+	Status                string             `json:"status"`
+	CreatedAtSource       pgtype.Timestamptz `json:"created_at_source"`
+	ExpiresAtSource       pgtype.Timestamptz `json:"expires_at_source"`
+	LastUsedAtSource      pgtype.Timestamptz `json:"last_used_at_source"`
+	CreatedByKind         string             `json:"created_by_kind"`
+	CreatedByExternalID   string             `json:"created_by_external_id"`
+	CreatedByDisplayName  string             `json:"created_by_display_name"`
+	ApprovedByKind        string             `json:"approved_by_kind"`
+	ApprovedByExternalID  string             `json:"approved_by_external_id"`
+	ApprovedByDisplayName string             `json:"approved_by_display_name"`
+	RawJson               []byte             `json:"raw_json"`
+	SeenInRunID           pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt                pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID     pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt        pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt             pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID          pgtype.Int8        `json:"expired_run_id"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	RiskLevel             string             `json:"risk_level"`
+}
+
+func (q *Queries) ListCredentialArtifactsForAssetRef(ctx context.Context, arg ListCredentialArtifactsForAssetRefParams) ([]ListCredentialArtifactsForAssetRefRow, error) {
 	rows, err := q.db.Query(ctx, listCredentialArtifactsForAssetRef,
+		arg.EvaluatedAt,
 		arg.SourceKind,
 		arg.SourceName,
 		arg.AssetRefKind,
@@ -398,9 +470,9 @@ func (q *Queries) ListCredentialArtifactsForAssetRef(ctx context.Context, arg Li
 		return nil, err
 	}
 	defer rows.Close()
-	var items []CredentialArtifact
+	var items []ListCredentialArtifactsForAssetRefRow
 	for rows.Next() {
-		var i CredentialArtifact
+		var i ListCredentialArtifactsForAssetRefRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.SourceKind,
@@ -431,6 +503,7 @@ func (q *Queries) ListCredentialArtifactsForAssetRef(ctx context.Context, arg Li
 			&i.ExpiredRunID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.RiskLevel,
 		); err != nil {
 			return nil, err
 		}
@@ -443,122 +516,144 @@ func (q *Queries) ListCredentialArtifactsForAssetRef(ctx context.Context, arg Li
 }
 
 const listCredentialArtifactsPageBySourceAndQueryAndFilters = `-- name: ListCredentialArtifactsPageBySourceAndQueryAndFilters :many
-SELECT ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at
-FROM credential_artifacts ca
+WITH rated_credentials AS (
+  SELECT
+    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+    credential_artifact_risk_level(
+      ca.status,
+      ca.credential_kind,
+      ca.expires_at_source,
+      ca.last_used_at_source,
+      ca.created_by_external_id,
+      ca.approved_by_external_id,
+      $3::timestamptz
+    ) AS risk_level
+  FROM credential_artifacts ca
+  WHERE
+    ca.source_kind = $8::text
+    AND ca.source_name = $9::text
+    AND ca.expired_at IS NULL
+    AND ca.last_observed_run_id IS NOT NULL
+    AND (
+      $10::text = ''
+      OR ca.credential_kind = $10::text
+    )
+    AND (
+      $11::text = ''
+      OR lower(ca.status) = lower($11::text)
+    )
+)
+SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level
+FROM rated_credentials rc
 WHERE
-  ca.source_kind = $1::text
-  AND ca.source_name = $2::text
-  AND ca.expired_at IS NULL
-  AND ca.last_observed_run_id IS NOT NULL
-  AND (
-    $3::text = ''
-    OR ca.credential_kind = $3::text
+  (
+    $1::text = ''
+    OR lower($1::text) = rc.risk_level
   )
   AND (
-    $4::text = ''
-    OR lower(ca.status) = lower($4::text)
+    $2::text = ''
+    OR (
+      $2::text = 'expired'
+      AND rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source < $3::timestamptz
+    )
+    OR (
+      $2::text = 'active'
+      AND (rc.expires_at_source IS NULL OR rc.expires_at_source >= $3::timestamptz)
+    )
+  )
+  AND (
+    $4::int <= 0
+    OR (
+      rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source >= $3::timestamptz
+      AND rc.expires_at_source <= $3::timestamptz + make_interval(days => $4::int)
+    )
   )
   AND (
     $5::text = ''
-    OR lower($5::text) = (
-      CASE
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          AND lower(COALESCE(NULLIF(trim(ca.status), ''), 'active')) IN ('active', 'approved', 'pending_approval')
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          THEN 'high'
-        WHEN lower(ca.credential_kind) IN ('entra_client_secret', 'github_deploy_key', 'github_pat_request', 'github_pat_fine_grained')
-          AND trim(ca.created_by_external_id) = ''
-          AND trim(ca.approved_by_external_id) = ''
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 7)
-          THEN 'high'
-        WHEN trim(ca.created_by_external_id) = ''
-          THEN 'high'
-        WHEN ca.last_used_at_source IS NOT NULL
-          AND ca.last_used_at_source <= now() - make_interval(days => 90)
-          THEN 'high'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 30)
-          THEN 'medium'
-        ELSE 'low'
-      END
-    )
-  )
-  AND (
-    $6::text = ''
-    OR (
-      $6::text = 'expired'
-      AND ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source < now()
-    )
-    OR (
-      $6::text = 'active'
-      AND (ca.expires_at_source IS NULL OR ca.expires_at_source >= now())
-    )
-  )
-  AND (
-    $7::int <= 0
-    OR (
-      ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source >= now()
-      AND ca.expires_at_source <= now() + make_interval(days => $7::int)
-    )
-  )
-  AND (
-    $8::text = ''
-    OR ca.display_name ILIKE ('%' || $8::text || '%')
-    OR ca.external_id ILIKE ('%' || $8::text || '%')
-    OR ca.asset_ref_external_id ILIKE ('%' || $8::text || '%')
-    OR ca.created_by_external_id ILIKE ('%' || $8::text || '%')
-    OR ca.approved_by_external_id ILIKE ('%' || $8::text || '%')
+    OR rc.display_name ILIKE ('%' || $5::text || '%')
+    OR rc.external_id ILIKE ('%' || $5::text || '%')
+    OR rc.asset_ref_external_id ILIKE ('%' || $5::text || '%')
+    OR rc.created_by_external_id ILIKE ('%' || $5::text || '%')
+    OR rc.approved_by_external_id ILIKE ('%' || $5::text || '%')
   )
 ORDER BY
-  COALESCE(ca.expires_at_source, 'infinity'::timestamptz) ASC,
-  lower(COALESCE(NULLIF(trim(ca.display_name), ''), ca.external_id)) ASC,
-  ca.id ASC
-LIMIT $10::int
-OFFSET $9::int
+  COALESCE(rc.expires_at_source, 'infinity'::timestamptz) ASC,
+  lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) ASC,
+  rc.id ASC
+LIMIT $7::int
+OFFSET $6::int
 `
 
 type ListCredentialArtifactsPageBySourceAndQueryAndFiltersParams struct {
-	SourceKind     string `json:"source_kind"`
-	SourceName     string `json:"source_name"`
-	CredentialKind string `json:"credential_kind"`
-	Status         string `json:"status"`
-	RiskLevel      string `json:"risk_level"`
-	ExpiryState    string `json:"expiry_state"`
-	ExpiresInDays  int32  `json:"expires_in_days"`
-	Query          string `json:"query"`
-	PageOffset     int32  `json:"page_offset"`
-	PageLimit      int32  `json:"page_limit"`
+	RiskLevel      string             `json:"risk_level"`
+	ExpiryState    string             `json:"expiry_state"`
+	EvaluatedAt    pgtype.Timestamptz `json:"evaluated_at"`
+	ExpiresInDays  int32              `json:"expires_in_days"`
+	Query          string             `json:"query"`
+	PageOffset     int32              `json:"page_offset"`
+	PageLimit      int32              `json:"page_limit"`
+	SourceKind     string             `json:"source_kind"`
+	SourceName     string             `json:"source_name"`
+	CredentialKind string             `json:"credential_kind"`
+	Status         string             `json:"status"`
 }
 
-func (q *Queries) ListCredentialArtifactsPageBySourceAndQueryAndFilters(ctx context.Context, arg ListCredentialArtifactsPageBySourceAndQueryAndFiltersParams) ([]CredentialArtifact, error) {
+type ListCredentialArtifactsPageBySourceAndQueryAndFiltersRow struct {
+	ID                    int64              `json:"id"`
+	SourceKind            string             `json:"source_kind"`
+	SourceName            string             `json:"source_name"`
+	AssetRefKind          string             `json:"asset_ref_kind"`
+	AssetRefExternalID    string             `json:"asset_ref_external_id"`
+	CredentialKind        string             `json:"credential_kind"`
+	ExternalID            string             `json:"external_id"`
+	DisplayName           string             `json:"display_name"`
+	Fingerprint           string             `json:"fingerprint"`
+	ScopeJson             []byte             `json:"scope_json"`
+	Status                string             `json:"status"`
+	CreatedAtSource       pgtype.Timestamptz `json:"created_at_source"`
+	ExpiresAtSource       pgtype.Timestamptz `json:"expires_at_source"`
+	LastUsedAtSource      pgtype.Timestamptz `json:"last_used_at_source"`
+	CreatedByKind         string             `json:"created_by_kind"`
+	CreatedByExternalID   string             `json:"created_by_external_id"`
+	CreatedByDisplayName  string             `json:"created_by_display_name"`
+	ApprovedByKind        string             `json:"approved_by_kind"`
+	ApprovedByExternalID  string             `json:"approved_by_external_id"`
+	ApprovedByDisplayName string             `json:"approved_by_display_name"`
+	RawJson               []byte             `json:"raw_json"`
+	SeenInRunID           pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt                pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID     pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt        pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt             pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID          pgtype.Int8        `json:"expired_run_id"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	RiskLevel             string             `json:"risk_level"`
+}
+
+func (q *Queries) ListCredentialArtifactsPageBySourceAndQueryAndFilters(ctx context.Context, arg ListCredentialArtifactsPageBySourceAndQueryAndFiltersParams) ([]ListCredentialArtifactsPageBySourceAndQueryAndFiltersRow, error) {
 	rows, err := q.db.Query(ctx, listCredentialArtifactsPageBySourceAndQueryAndFilters,
-		arg.SourceKind,
-		arg.SourceName,
-		arg.CredentialKind,
-		arg.Status,
 		arg.RiskLevel,
 		arg.ExpiryState,
+		arg.EvaluatedAt,
 		arg.ExpiresInDays,
 		arg.Query,
 		arg.PageOffset,
 		arg.PageLimit,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.CredentialKind,
+		arg.Status,
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []CredentialArtifact
+	var items []ListCredentialArtifactsPageBySourceAndQueryAndFiltersRow
 	for rows.Next() {
-		var i CredentialArtifact
+		var i ListCredentialArtifactsPageBySourceAndQueryAndFiltersRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.SourceKind,
@@ -589,6 +684,7 @@ func (q *Queries) ListCredentialArtifactsPageBySourceAndQueryAndFilters(ctx cont
 			&i.ExpiredRunID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.RiskLevel,
 		); err != nil {
 			return nil, err
 		}
@@ -605,128 +701,150 @@ WITH configured_sources AS (
   SELECT
     k.kind AS source_kind,
     n.name AS source_name
-  FROM unnest($9::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($10::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+  FROM unnest($8::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($9::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+rated_credentials AS (
+  SELECT
+    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+    credential_artifact_risk_level(
+      ca.status,
+      ca.credential_kind,
+      ca.expires_at_source,
+      ca.last_used_at_source,
+      ca.created_by_external_id,
+      ca.approved_by_external_id,
+      $3::timestamptz
+    ) AS risk_level
+  FROM credential_artifacts ca
+  JOIN configured_sources cs
+    ON cs.source_kind = ca.source_kind
+   AND cs.source_name = ca.source_name
+  WHERE
+    ca.expired_at IS NULL
+    AND ca.last_observed_run_id IS NOT NULL
+    AND (
+      $10::text = ''
+      OR ca.credential_kind = $10::text
+    )
+    AND (
+      $11::text = ''
+      OR lower(ca.status) = lower($11::text)
+    )
 )
-SELECT ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at
-FROM credential_artifacts ca
-JOIN configured_sources cs
-  ON cs.source_kind = ca.source_kind
- AND cs.source_name = ca.source_name
+SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level
+FROM rated_credentials rc
 WHERE
-  ca.expired_at IS NULL
-  AND ca.last_observed_run_id IS NOT NULL
-  AND (
+  (
     $1::text = ''
-    OR ca.credential_kind = $1::text
+    OR lower($1::text) = rc.risk_level
   )
   AND (
     $2::text = ''
-    OR lower(ca.status) = lower($2::text)
-  )
-  AND (
-    $3::text = ''
-    OR lower($3::text) = (
-      CASE
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          AND lower(COALESCE(NULLIF(trim(ca.status), ''), 'active')) IN ('active', 'approved', 'pending_approval')
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source < now()
-          THEN 'high'
-        WHEN lower(ca.credential_kind) IN ('entra_client_secret', 'github_deploy_key', 'github_pat_request', 'github_pat_fine_grained')
-          AND trim(ca.created_by_external_id) = ''
-          AND trim(ca.approved_by_external_id) = ''
-          THEN 'critical'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 7)
-          THEN 'high'
-        WHEN trim(ca.created_by_external_id) = ''
-          THEN 'high'
-        WHEN ca.last_used_at_source IS NOT NULL
-          AND ca.last_used_at_source <= now() - make_interval(days => 90)
-          THEN 'high'
-        WHEN ca.expires_at_source IS NOT NULL
-          AND ca.expires_at_source >= now()
-          AND ca.expires_at_source <= now() + make_interval(days => 30)
-          THEN 'medium'
-        ELSE 'low'
-      END
-    )
-  )
-  AND (
-    $4::text = ''
     OR (
-      $4::text = 'expired'
-      AND ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source < now()
+      $2::text = 'expired'
+      AND rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source < $3::timestamptz
     )
     OR (
-      $4::text = 'active'
-      AND (ca.expires_at_source IS NULL OR ca.expires_at_source >= now())
+      $2::text = 'active'
+      AND (rc.expires_at_source IS NULL OR rc.expires_at_source >= $3::timestamptz)
     )
   )
   AND (
-    $5::int <= 0
+    $4::int <= 0
     OR (
-      ca.expires_at_source IS NOT NULL
-      AND ca.expires_at_source >= now()
-      AND ca.expires_at_source <= now() + make_interval(days => $5::int)
+      rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source >= $3::timestamptz
+      AND rc.expires_at_source <= $3::timestamptz + make_interval(days => $4::int)
     )
   )
   AND (
-    $6::text = ''
-    OR ca.display_name ILIKE ('%' || $6::text || '%')
-    OR ca.external_id ILIKE ('%' || $6::text || '%')
-    OR ca.asset_ref_external_id ILIKE ('%' || $6::text || '%')
-    OR ca.created_by_external_id ILIKE ('%' || $6::text || '%')
-    OR ca.approved_by_external_id ILIKE ('%' || $6::text || '%')
+    $5::text = ''
+    OR rc.display_name ILIKE ('%' || $5::text || '%')
+    OR rc.external_id ILIKE ('%' || $5::text || '%')
+    OR rc.asset_ref_external_id ILIKE ('%' || $5::text || '%')
+    OR rc.created_by_external_id ILIKE ('%' || $5::text || '%')
+    OR rc.approved_by_external_id ILIKE ('%' || $5::text || '%')
   )
 ORDER BY
-  COALESCE(ca.expires_at_source, 'infinity'::timestamptz) ASC,
-  lower(COALESCE(NULLIF(trim(ca.display_name), ''), ca.external_id)) ASC,
-  ca.source_kind ASC,
-  ca.source_name ASC,
-  ca.id ASC
-LIMIT $8::int
-OFFSET $7::int
+  COALESCE(rc.expires_at_source, 'infinity'::timestamptz) ASC,
+  lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) ASC,
+  rc.source_kind ASC,
+  rc.source_name ASC,
+  rc.id ASC
+LIMIT $7::int
+OFFSET $6::int
 `
 
 type ListCredentialArtifactsPageBySourcesAndQueryAndFiltersParams struct {
-	CredentialKind        string   `json:"credential_kind"`
-	Status                string   `json:"status"`
-	RiskLevel             string   `json:"risk_level"`
-	ExpiryState           string   `json:"expiry_state"`
-	ExpiresInDays         int32    `json:"expires_in_days"`
-	Query                 string   `json:"query"`
-	PageOffset            int32    `json:"page_offset"`
-	PageLimit             int32    `json:"page_limit"`
-	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
-	ConfiguredSourceNames []string `json:"configured_source_names"`
+	RiskLevel             string             `json:"risk_level"`
+	ExpiryState           string             `json:"expiry_state"`
+	EvaluatedAt           pgtype.Timestamptz `json:"evaluated_at"`
+	ExpiresInDays         int32              `json:"expires_in_days"`
+	Query                 string             `json:"query"`
+	PageOffset            int32              `json:"page_offset"`
+	PageLimit             int32              `json:"page_limit"`
+	ConfiguredSourceKinds []string           `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string           `json:"configured_source_names"`
+	CredentialKind        string             `json:"credential_kind"`
+	Status                string             `json:"status"`
 }
 
-func (q *Queries) ListCredentialArtifactsPageBySourcesAndQueryAndFilters(ctx context.Context, arg ListCredentialArtifactsPageBySourcesAndQueryAndFiltersParams) ([]CredentialArtifact, error) {
+type ListCredentialArtifactsPageBySourcesAndQueryAndFiltersRow struct {
+	ID                    int64              `json:"id"`
+	SourceKind            string             `json:"source_kind"`
+	SourceName            string             `json:"source_name"`
+	AssetRefKind          string             `json:"asset_ref_kind"`
+	AssetRefExternalID    string             `json:"asset_ref_external_id"`
+	CredentialKind        string             `json:"credential_kind"`
+	ExternalID            string             `json:"external_id"`
+	DisplayName           string             `json:"display_name"`
+	Fingerprint           string             `json:"fingerprint"`
+	ScopeJson             []byte             `json:"scope_json"`
+	Status                string             `json:"status"`
+	CreatedAtSource       pgtype.Timestamptz `json:"created_at_source"`
+	ExpiresAtSource       pgtype.Timestamptz `json:"expires_at_source"`
+	LastUsedAtSource      pgtype.Timestamptz `json:"last_used_at_source"`
+	CreatedByKind         string             `json:"created_by_kind"`
+	CreatedByExternalID   string             `json:"created_by_external_id"`
+	CreatedByDisplayName  string             `json:"created_by_display_name"`
+	ApprovedByKind        string             `json:"approved_by_kind"`
+	ApprovedByExternalID  string             `json:"approved_by_external_id"`
+	ApprovedByDisplayName string             `json:"approved_by_display_name"`
+	RawJson               []byte             `json:"raw_json"`
+	SeenInRunID           pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt                pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID     pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt        pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt             pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID          pgtype.Int8        `json:"expired_run_id"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	RiskLevel             string             `json:"risk_level"`
+}
+
+func (q *Queries) ListCredentialArtifactsPageBySourcesAndQueryAndFilters(ctx context.Context, arg ListCredentialArtifactsPageBySourcesAndQueryAndFiltersParams) ([]ListCredentialArtifactsPageBySourcesAndQueryAndFiltersRow, error) {
 	rows, err := q.db.Query(ctx, listCredentialArtifactsPageBySourcesAndQueryAndFilters,
-		arg.CredentialKind,
-		arg.Status,
 		arg.RiskLevel,
 		arg.ExpiryState,
+		arg.EvaluatedAt,
 		arg.ExpiresInDays,
 		arg.Query,
 		arg.PageOffset,
 		arg.PageLimit,
 		arg.ConfiguredSourceKinds,
 		arg.ConfiguredSourceNames,
+		arg.CredentialKind,
+		arg.Status,
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []CredentialArtifact
+	var items []ListCredentialArtifactsPageBySourcesAndQueryAndFiltersRow
 	for rows.Next() {
-		var i CredentialArtifact
+		var i ListCredentialArtifactsPageBySourcesAndQueryAndFiltersRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.SourceKind,
@@ -757,6 +875,7 @@ func (q *Queries) ListCredentialArtifactsPageBySourcesAndQueryAndFilters(ctx con
 			&i.ExpiredRunID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.RiskLevel,
 		); err != nil {
 			return nil, err
 		}

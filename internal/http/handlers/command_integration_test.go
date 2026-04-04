@@ -238,17 +238,17 @@ func TestHandleCommandSearchCrossInventoryResults(t *testing.T) {
 			}
 		})
 
-		t.Run("google oauth client appears once under oauth apps", func(t *testing.T) {
+		t.Run("google oauth client appears once under app assets", func(t *testing.T) {
 			body := renderCommandSearch(t, h, "http://example.com/command/search?q=oauth")
 
-			if !strings.Contains(body, `role="heading">OAuth Apps`) {
-				t.Fatalf("oauth body missing oauth apps section: %s", body)
+			if !strings.Contains(body, `role="heading">App Assets`) {
+				t.Fatalf("oauth body missing app-assets section: %s", body)
 			}
-			if !strings.Contains(body, `/oauth-apps/`+strconv.FormatInt(fixture.googleConnectedAppID, 10)) {
-				t.Fatalf("oauth body missing oauth app href: %s", body)
+			if !strings.Contains(body, `/app-assets/`+strconv.FormatInt(fixture.googleConnectedAppID, 10)) {
+				t.Fatalf("oauth body missing app asset href: %s", body)
 			}
-			if strings.Contains(body, `role="heading">App Assets`) {
-				t.Fatalf("oauth body unexpectedly rendered app-assets section for google oauth client: %s", body)
+			if strings.Contains(body, `role="heading">OAuth Apps`) {
+				t.Fatalf("oauth body unexpectedly rendered oauth-apps section: %s", body)
 			}
 		})
 

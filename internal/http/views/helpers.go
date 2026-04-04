@@ -265,6 +265,8 @@ func DiscoveryAppsListURL(sourceKind, sourceName, query, managedState, riskLevel
 
 func ConnectedAppsListURL(query, reviewState string, page int) string {
 	values := url.Values{}
+	values.Set("source_kind", "google_workspace")
+	values.Set("asset_kind", "google_oauth_client")
 	if query = strings.TrimSpace(query); query != "" {
 		values.Set("q", query)
 	}
@@ -274,10 +276,7 @@ func ConnectedAppsListURL(query, reviewState string, page int) string {
 	if page > 1 {
 		values.Set("page", strconv.Itoa(page))
 	}
-	if len(values) == 0 {
-		return "/oauth-apps"
-	}
-	return "/oauth-apps?" + values.Encode()
+	return "/app-assets?" + values.Encode()
 }
 
 func DiscoveryHotspotsURL(sourceKind, sourceName string) string {

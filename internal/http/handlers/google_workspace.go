@@ -16,27 +16,23 @@ func (h *Handlers) HandleGoogleWorkspaceUsers(c *echo.Context) error {
 	inventory, err := h.buildSourceAccountInventoryPage(c, sourceAccountInventoryOptions{
 		Title:              "Google Workspace Users",
 		ConnectorName:      "Google Workspace",
+		ConnectorKind:      configstore.KindGoogleWorkspace,
+		SourceKind:         querySourceKind(configstore.KindGoogleWorkspace),
 		EmptyStateHref:     "/settings/connectors?open=google_workspace",
 		SyncedEmptyState:   "No Google Workspace users synced yet.",
 		FilteredEmptyState: "No Google Workspace users match the current search.",
-		IsConfigured: func(snap ConnectorSnapshot) bool {
-			return snap.GoogleWorkspaceConfigured
-		},
-		IsEnabled: func(snap ConnectorSnapshot) bool {
-			return snap.GoogleWorkspaceEnabled
-		},
-		Count: func(ctx context.Context, snap ConnectorSnapshot, query string) (int64, error) {
+		Count: func(ctx context.Context, sourceName, query string) (int64, error) {
 			return h.Q.CountSourceAccountsBySourceAndQuery(ctx, gen.CountSourceAccountsBySourceAndQueryParams{
 				SourceKind:     configstore.KindGoogleWorkspace,
-				SourceName:     strings.TrimSpace(snap.GoogleWorkspace.CustomerID),
+				SourceName:     sourceName,
 				EntityCategory: registry.EntityCategoryUser,
 				Query:          query,
 			})
 		},
-		List: func(ctx context.Context, snap ConnectorSnapshot, query string, offset, limit int) ([]sourceAccountInventoryAccount, error) {
+		List: func(ctx context.Context, sourceName, query string, offset, limit int) ([]sourceAccountInventoryAccount, error) {
 			users, err := h.Q.ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(ctx, gen.ListSourceAccountsPageBySourceAndQueryWithEntitlementCountsParams{
 				SourceKind:            configstore.KindGoogleWorkspace,
-				SourceName:            strings.TrimSpace(snap.GoogleWorkspace.CustomerID),
+				SourceName:            sourceName,
 				EntityCategory:        registry.EntityCategoryUser,
 				Query:                 query,
 				PageLimit:             int32(limit),
@@ -93,7 +89,7 @@ func (h *Handlers) HandleGoogleWorkspaceUsers(c *echo.Context) error {
 
 func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Google Workspace Groups")
+	layout, stateView, err := h.LayoutData(ctx, c, "Google Workspace Groups")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -101,11 +97,12 @@ func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
 	const perPage = 20
 	query := strings.TrimSpace(c.QueryParam("q"))
 	page := parsePageParam(c)
-	sourceName := strings.TrimSpace(snap.GoogleWorkspace.CustomerID)
+	google := stateView.GoogleWorkspace()
+	sourceName := google.SourceName()
 	unavailablePagination := newPaginatedListState(0, page, perPage)
 
-	if !snap.GoogleWorkspaceConfigured || !snap.GoogleWorkspaceEnabled {
-		message := connectorUnavailableMessage("Google Workspace", snap.GoogleWorkspaceConfigured, snap.GoogleWorkspaceEnabled)
+	if !google.Configured() || !google.Enabled() {
+		message := connectorUnavailableMessage("Google Workspace", google.Configured(), google.Enabled())
 		data := viewmodels.GoogleWorkspaceGroupsViewData{
 			PaginatedListPageData: unavailablePagination.PageData(layout, 0, message, "/settings/connectors?open=google_workspace"),
 			Query:                 query,
@@ -202,19 +199,14 @@ func (h *Handlers) HandleUnmatchedGoogleWorkspace(c *echo.Context) error {
 	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
 		Title:              "Unlinked Google Workspace Users",
 		ConnectorName:      "Google Workspace",
+		ConnectorKind:      configstore.KindGoogleWorkspace,
 		SourceKind:         configstore.KindGoogleWorkspace,
 		EntityCategory:     registry.EntityCategoryUser,
 		EmptyStateHref:     "/settings/connectors?open=google_workspace",
 		SyncedEmptyState:   "No unlinked Google Workspace users.",
 		FilteredEmptyState: "No unlinked Google Workspace users match the current search.",
-		IsConfigured: func(snap ConnectorSnapshot) bool {
-			return snap.GoogleWorkspaceConfigured
-		},
-		IsEnabled: func(snap ConnectorSnapshot) bool {
-			return snap.GoogleWorkspaceEnabled
-		},
-		ResolveSourceName: func(_ *echo.Context, snap ConnectorSnapshot) (string, error) {
-			return strings.TrimSpace(snap.GoogleWorkspace.CustomerID), nil
+		ResolveSourceName: func(_ *echo.Context, configuredSourceName string) (string, error) {
+			return configuredSourceName, nil
 		},
 	})
 	if err != nil {

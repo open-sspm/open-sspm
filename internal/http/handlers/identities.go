@@ -24,13 +24,13 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	layout, snap, err := h.LayoutData(ctx, c, "Identities")
+	layout, stateView, err := h.LayoutData(ctx, c, "Identities")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
 	const perPage = 20
-	sourcePairs := availableIdentitySourcePairs(snap)
+	sourcePairs := availableIdentitySourcePairs(stateView)
 	sourceKindOptions := identitySourceKindOptions(sourcePairs)
 	selectedSourceKind, selectedSourceName := normalizeIdentitySourceSelection(
 		c.QueryParam("source_kind"),
@@ -165,10 +165,10 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 	return renderIdentities()
 }
 
-func availableIdentitySourcePairs(snap ConnectorSnapshot) []viewmodels.ProgrammaticSourceOption {
+func availableIdentitySourcePairs(stateView connectorStateView) []viewmodels.ProgrammaticSourceOption {
 	out := make([]viewmodels.ProgrammaticSourceOption, 0, 7)
 	appendSource := func(kind, sourceName string) {
-		kind = NormalizeConnectorKind(kind)
+		kind = querySourceKind(kind)
 		sourceName = strings.TrimSpace(sourceName)
 		if kind == "" || sourceName == "" {
 			return
@@ -180,30 +180,33 @@ func availableIdentitySourcePairs(snap ConnectorSnapshot) []viewmodels.Programma
 		})
 	}
 
-	if snap.OktaConfigured {
-		appendSource("okta", snap.Okta.Domain)
+	okta := stateView.Okta()
+	if okta.Configured() {
+		appendSource("okta", okta.SourceName())
 	}
-	if snap.EntraConfigured {
-		appendSource("entra", snap.Entra.TenantID)
+	entra := stateView.Entra()
+	if entra.Configured() {
+		appendSource("entra", entra.SourceName())
 	}
-	if snap.GoogleWorkspaceConfigured {
-		appendSource(configstore.KindGoogleWorkspace, snap.GoogleWorkspace.CustomerID)
+	google := stateView.GoogleWorkspace()
+	if google.Configured() {
+		appendSource(configstore.KindGoogleWorkspace, google.SourceName())
 	}
-	if snap.GitHubConfigured {
-		appendSource("github", snap.GitHub.Org)
+	github := stateView.GitHub()
+	if github.Configured() {
+		appendSource("github", github.SourceName())
 	}
-	if snap.DatadogConfigured {
-		appendSource("datadog", snap.Datadog.Site)
+	datadog := stateView.Datadog()
+	if datadog.Configured() {
+		appendSource("datadog", datadog.SourceName())
 	}
-	if snap.AWSIdentityCenterConfigured {
-		sourceName := strings.TrimSpace(snap.AWSIdentityCenter.Name)
-		if sourceName == "" {
-			sourceName = strings.TrimSpace(snap.AWSIdentityCenter.Region)
-		}
-		appendSource("aws", sourceName)
+	aws := stateView.AWSIdentityCenter()
+	if aws.Configured() {
+		appendSource(configstore.KindAWSIdentityCenter, aws.SourceName())
 	}
-	if snap.VaultConfigured {
-		appendSource("vault", snap.Vault.SourceName())
+	vault := stateView.Vault()
+	if vault.Configured() {
+		appendSource("vault", vault.SourceName())
 	}
 
 	seen := map[string]struct{}{}

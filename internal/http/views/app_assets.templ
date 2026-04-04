@@ -4,17 +4,29 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ AppAssetsPage(data viewmodels.AppAssetsViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Programmatic Access"},
-			{Label: "App Assets"},
-		}, "Inventory of applications and service principals discovered from connected providers.") {
+		if data.GoogleOAuthView != nil {
+			@PageHeader([]Breadcrumb{
+				{Label: "Dashboard", Href: "/"},
+				{Label: "Programmatic Access"},
+				{Label: "App Assets"},
+			}, "Saved view for Google Workspace OAuth apps with review state, grant activity, ownership, and discovery evidence.") {
+			}
+		} else {
+			@PageHeader([]Breadcrumb{
+				{Label: "Dashboard", Href: "/"},
+				{Label: "Programmatic Access"},
+				{Label: "App Assets"},
+			}, "Inventory of applications and service principals discovered from connected providers.") {
+			}
 		}
 		@AppAssetsPageResults(data)
 	}
 }
 
 templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
+	if data.GoogleOAuthView != nil {
+		@ConnectedAppsPageResults(*data.GoogleOAuthView)
+	} else {
 	<div id="app-assets-results" class="space-y-6">
 		<form
 			method="get"
@@ -75,6 +87,7 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 							<option value="entra_application" selected?={ data.AssetKind == "entra_application" }>Entra application</option>
 							<option value="entra_service_principal" selected?={ data.AssetKind == "entra_service_principal" }>Entra service principal</option>
 							<option value="github_app_installation" selected?={ data.AssetKind == "github_app_installation" }>GitHub app installation</option>
+							<option value="google_oauth_client" selected?={ data.AssetKind == "google_oauth_client" }>Google OAuth client</option>
 							<option value="vault_auth_mount" selected?={ data.AssetKind == "vault_auth_mount" }>Vault auth mount</option>
 							<option value="vault_secrets_mount" selected?={ data.AssetKind == "vault_secrets_mount" }>Vault secrets mount</option>
 							<option value="vault_auth_role" selected?={ data.AssetKind == "vault_auth_role" }>Vault auth role</option>
@@ -159,4 +172,5 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 				}
 		</section>
 	</div>
+	}
 }

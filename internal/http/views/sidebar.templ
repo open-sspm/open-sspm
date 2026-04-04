@@ -35,12 +35,6 @@ templ Sidebar(data viewmodels.LayoutData) {
 				</a>
 			</li>
 			<li>
-				<a href="/oauth-apps" aria-current={ AriaCurrent(data.ActivePath, "/oauth-apps") }>
-					<i class="ti ti-plug-connected" aria-hidden="true"></i>
-					<span>OAuth Apps</span>
-				</a>
-			</li>
-			<li>
 				<details open?={ strings.HasPrefix(data.ActivePath, "/discovery") }>
 					<summary aria-current={ AriaCurrent(data.ActivePath, "/discovery") }>
 						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

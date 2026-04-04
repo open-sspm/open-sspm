@@ -26,12 +26,12 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 	query := strings.TrimSpace(c.QueryParam("q"))
 
 	ctx := c.Request().Context()
-	snap, err := h.LoadConnectorSnapshot(ctx)
+	stateView, err := h.LoadConnectorStateView(ctx)
 	if err != nil {
-		return h.RenderComponent(c, views.CommandSearch(commandSearchErrorData(query, ConnectorSnapshot{})))
+		return h.RenderComponent(c, views.CommandSearch(commandSearchErrorData(query, connectorStateView{})))
 	}
 
-	data := commandSearchShellData(snap, query)
+	data := commandSearchShellData(query)
 	queryLen := utf8.RuneCountInString(query)
 	if queryLen == 0 {
 		return h.RenderComponent(c, views.CommandSearch(data))
@@ -42,21 +42,19 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 			"cmd-notice-min-query",
 			"Type at least 2 characters for direct matches.",
 		))
-		if actionSection := commandActionSection(snap, query); len(actionSection.Items) > 0 {
+		if actionSection := commandActionSection(stateView, query); len(actionSection.Items) > 0 {
 			data.Sections = append(data.Sections, actionSection)
 		}
 		return h.RenderComponent(c, views.CommandSearch(data))
 	}
 
-	identityKinds, identityNames := identityConfiguredSourcePairs(availableIdentitySourcePairs(snap))
-	programmaticSources := availableProgrammaticSources(snap)
-	discoveryKinds, discoveryNames := discoveryConfiguredSourcePairs(discoverySourceOptions(snap))
-	connectedSourceName, hasConnectedApps := commandConnectedAppsSourceName(snap)
+	identityKinds, identityNames := identityConfiguredSourcePairs(availableIdentitySourcePairs(stateView))
+	programmaticSources := availableProgrammaticSources(stateView)
+	discoveryKinds, discoveryNames := discoveryConfiguredSourcePairs(discoverySourceOptions(stateView))
 	cutoffs := h.discoveryPostureCutoffs(time.Now().UTC())
 
 	var (
 		identityRows  []gen.SearchIdentitiesForCommandRow
-		connectedRows []gen.SearchConnectedAppsForCommandRow
 		appAssetRows  []gen.SearchAppAssetsForCommandRow
 		discoveryRows []gen.SearchDiscoveryAppsForCommandRow
 		oktaAppRows   []gen.SearchOktaAppsForCommandRow
@@ -78,20 +76,6 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 			return nil
 		})
 	}
-	if hasConnectedApps {
-		group.Go(func() error {
-			rows, err := h.Q.SearchConnectedAppsForCommand(ctx, gen.SearchConnectedAppsForCommandParams{
-				SourceName: connectedSourceName,
-				Query:      query,
-				LimitRows:  commandSearchLimitRows,
-			})
-			if err != nil {
-				return err
-			}
-			connectedRows = rows
-			return nil
-		})
-	}
 	if len(programmaticSources) > 0 {
 		programmaticKinds := make([]string, 0, len(programmaticSources))
 		programmaticNames := make([]string, 0, len(programmaticSources))
@@ -102,7 +86,7 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 		group.Go(func() error {
 			rows, err := h.Q.SearchAppAssetsForCommand(ctx, gen.SearchAppAssetsForCommandParams{
 				Query:                             query,
-				ExcludeGoogleWorkspaceOauthClient: hasConnectedApps,
+				ExcludeGoogleWorkspaceOauthClient: false,
 				LimitRows:                         commandSearchLimitRows,
 				ConfiguredSourceKinds:             programmaticKinds,
 				ConfiguredSourceNames:             programmaticNames,
@@ -136,7 +120,7 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 			return nil
 		})
 	}
-	if commandOktaAppsAvailable(snap) {
+	if commandOktaAppsAvailable(stateView) {
 		group.Go(func() error {
 			rows, err := h.Q.SearchOktaAppsForCommand(ctx, gen.SearchOktaAppsForCommandParams{
 				Query:     query,
@@ -151,7 +135,7 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 	}
 
 	if err := group.Wait(); err != nil {
-		return h.RenderComponent(c, views.CommandSearch(commandSearchErrorData(query, snap)))
+		return h.RenderComponent(c, views.CommandSearch(commandSearchErrorData(query, stateView)))
 	}
 
 	if len(identityRows) > 0 {
@@ -159,13 +143,6 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 			Key:   "identities",
 			Title: "Identities",
 			Items: commandIdentityItems(identityRows),
-		})
-	}
-	if len(connectedRows) > 0 {
-		data.Sections = append(data.Sections, viewmodels.CommandSectionView{
-			Key:   "connected-apps",
-			Title: "OAuth Apps",
-			Items: commandConnectedAppItems(connectedRows),
 		})
 	}
 	if len(appAssetRows) > 0 {
@@ -193,14 +170,14 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 	if len(data.Sections) == 0 {
 		data.Notices = append(data.Notices, commandNoticeItem("cmd-notice-no-matches", "No direct matches."))
 	}
-	if actionSection := commandActionSection(snap, query); len(actionSection.Items) > 0 {
+	if actionSection := commandActionSection(stateView, query); len(actionSection.Items) > 0 {
 		data.Sections = append(data.Sections, actionSection)
 	}
 
 	return h.RenderComponent(c, views.CommandSearch(data))
 }
 
-func commandSearchShellData(_ ConnectorSnapshot, query string) viewmodels.CommandSearchViewData {
+func commandSearchShellData(query string) viewmodels.CommandSearchViewData {
 	query = strings.TrimSpace(query)
 	return viewmodels.CommandSearchViewData{
 		Query:       query,
@@ -209,14 +186,14 @@ func commandSearchShellData(_ ConnectorSnapshot, query string) viewmodels.Comman
 	}
 }
 
-func commandSearchErrorData(query string, snap ConnectorSnapshot) viewmodels.CommandSearchViewData {
-	data := commandSearchShellData(snap, query)
+func commandSearchErrorData(query string, stateView connectorStateView) viewmodels.CommandSearchViewData {
+	data := commandSearchShellData(query)
 	data.Notices = append(data.Notices, commandNoticeItem(
 		"cmd-notice-search-error",
 		"Search unavailable. Open an inventory below.",
 	))
 	if strings.TrimSpace(query) != "" {
-		if actionSection := commandActionSection(snap, query); len(actionSection.Items) > 0 {
+		if actionSection := commandActionSection(stateView, query); len(actionSection.Items) > 0 {
 			data.Sections = append(data.Sections, actionSection)
 		}
 	}
@@ -254,35 +231,6 @@ func commandIdentityItems(rows []gen.SearchIdentitiesForCommandRow) []viewmodels
 				{
 					Label: views.HumanizeIdentityType(row.IdentityType),
 					Class: "badge-outline shrink-0",
-				},
-			},
-		})
-	}
-	return items
-}
-
-func commandConnectedAppItems(rows []gen.SearchConnectedAppsForCommandRow) []viewmodels.CommandItemView {
-	items := make([]viewmodels.CommandItemView, 0, len(rows))
-	for _, row := range rows {
-		displayName := fallbackDash(row.DisplayName)
-		status := fallbackDash(row.Status)
-		freshness := connectedAppFreshness(row.EvidenceLastSeenAt)
-		items = append(items, viewmodels.CommandItemView{
-			ID:         "cmd-connected-app-" + strconv.FormatInt(row.ID, 10),
-			Kind:       "connected_app",
-			Href:       "/oauth-apps/" + strconv.FormatInt(row.ID, 10),
-			Primary:    displayName,
-			Secondary:  fallbackDash(strings.TrimSpace(row.ExternalID)),
-			FilterText: strings.TrimSpace(displayName + " " + row.ExternalID + " " + status + " " + row.ReviewState),
-			Keywords:   row.ExternalID,
-			Badges: []viewmodels.CommandBadgeView{
-				{
-					Label: views.HumanizeConnectedAppReviewState(row.ReviewState),
-					Class: views.ConnectedAppReviewStateBadgeClass(row.ReviewState) + " shrink-0",
-				},
-				{
-					Label: views.HumanizeConnectedAppFreshness(freshness),
-					Class: views.ConnectedAppFreshnessBadgeClass(freshness) + " shrink-0",
 				},
 			},
 		})
@@ -379,38 +327,31 @@ func commandOktaAppItems(rows []gen.SearchOktaAppsForCommandRow) []viewmodels.Co
 	return items
 }
 
-func commandActionSection(snap ConnectorSnapshot, query string) viewmodels.CommandSectionView {
+func commandActionSection(stateView connectorStateView, query string) viewmodels.CommandSectionView {
 	query = strings.TrimSpace(query)
 	items := make([]viewmodels.CommandItemView, 0, 5)
-	if commandHasIdentitySurface(snap) {
+	if commandHasIdentitySurface(stateView) {
 		items = append(items, commandActionItem(
 			"cmd-action-identities",
 			fmt.Sprintf("Search Identities for “%s”", query),
 			commandQueryURL("/identities", query),
 		))
 	}
-	if _, ok := commandConnectedAppsSourceName(snap); ok {
-		items = append(items, commandActionItem(
-			"cmd-action-connected-apps",
-			fmt.Sprintf("Search OAuth Apps for “%s”", query),
-			commandQueryURL("/oauth-apps", query),
-		))
-	}
-	if commandHasAppAssetsSurface(snap) {
+	if commandHasAppAssetsSurface(stateView) {
 		items = append(items, commandActionItem(
 			"cmd-action-app-assets",
 			fmt.Sprintf("Search App Assets for “%s”", query),
 			commandQueryURL("/app-assets", query),
 		))
 	}
-	if commandHasDiscoverySurface(snap) {
+	if commandHasDiscoverySurface(stateView) {
 		items = append(items, commandActionItem(
 			"cmd-action-discovery-apps",
 			fmt.Sprintf("Search Discovery Apps for “%s”", query),
 			commandQueryURL("/discovery/apps", query),
 		))
 	}
-	if commandOktaAppsAvailable(snap) {
+	if commandOktaAppsAvailable(stateView) {
 		items = append(items, commandActionItem(
 			"cmd-action-okta-apps",
 			fmt.Sprintf("Search Assigned Apps for “%s”", query),
@@ -436,28 +377,21 @@ func commandActionItem(id, label, href string) viewmodels.CommandItemView {
 	}
 }
 
-func commandConnectedAppsSourceName(snap ConnectorSnapshot) (string, bool) {
-	sourceName := strings.TrimSpace(snap.GoogleWorkspace.CustomerID)
-	if !snap.GoogleWorkspaceConfigured || !snap.GoogleWorkspaceEnabled || sourceName == "" {
-		return "", false
-	}
-	return sourceName, true
+func commandHasIdentitySurface(stateView connectorStateView) bool {
+	return len(availableIdentitySourcePairs(stateView)) > 0
 }
 
-func commandHasIdentitySurface(snap ConnectorSnapshot) bool {
-	return len(availableIdentitySourcePairs(snap)) > 0
+func commandHasAppAssetsSurface(stateView connectorStateView) bool {
+	return len(availableProgrammaticSources(stateView)) > 0
 }
 
-func commandHasAppAssetsSurface(snap ConnectorSnapshot) bool {
-	return len(availableProgrammaticSources(snap)) > 0
+func commandHasDiscoverySurface(stateView connectorStateView) bool {
+	return len(discoverySourceOptions(stateView)) > 0
 }
 
-func commandHasDiscoverySurface(snap ConnectorSnapshot) bool {
-	return len(discoverySourceOptions(snap)) > 0
-}
-
-func commandOktaAppsAvailable(snap ConnectorSnapshot) bool {
-	return snap.OktaConfigured && strings.TrimSpace(snap.Okta.Domain) != ""
+func commandOktaAppsAvailable(stateView connectorStateView) bool {
+	okta := stateView.Okta()
+	return okta.Configured() && okta.SourceName() != ""
 }
 
 func commandQueryURL(path, query string) string {

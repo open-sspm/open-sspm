@@ -15,26 +15,18 @@ func (h *Handlers) HandleAWSUsers(c *echo.Context) error {
 	inventory, err := h.buildSourceAccountInventoryPage(c, sourceAccountInventoryOptions{
 		Title:              "AWS Identity Center Users",
 		ConnectorName:      "AWS Identity Center",
+		ConnectorKind:      "aws_identity_center",
+		SourceKind:         querySourceKind("aws_identity_center"),
 		EmptyStateHref:     "/settings/connectors?open=aws_identity_center",
 		SyncedEmptyState:   "No AWS Identity Center users synced yet.",
 		FilteredEmptyState: "No AWS Identity Center users match the current search.",
-		IsConfigured: func(snap ConnectorSnapshot) bool {
-			return snap.AWSIdentityCenterConfigured
-		},
-		IsEnabled: func(snap ConnectorSnapshot) bool {
-			return snap.AWSIdentityCenterEnabled
-		},
-		UnavailableMessageFn: func(snap ConnectorSnapshot) string {
-			if snap.AWSIdentityCenterConfigured && !snap.AWSIdentityCenterEnabled {
+		UnavailableMessageFn: func(configured, enabled bool) string {
+			if configured && !enabled {
 				return "AWS Identity Center sync is disabled. Enable it in Connectors."
 			}
 			return "AWS Identity Center is not configured yet. Add settings in Connectors."
 		},
-		Count: func(ctx context.Context, snap ConnectorSnapshot, query string) (int64, error) {
-			sourceName := strings.TrimSpace(snap.AWSIdentityCenter.Name)
-			if sourceName == "" {
-				sourceName = strings.TrimSpace(snap.AWSIdentityCenter.Region)
-			}
+		Count: func(ctx context.Context, sourceName, query string) (int64, error) {
 			return h.Q.CountSourceAccountsBySourceAndQuery(ctx, gen.CountSourceAccountsBySourceAndQueryParams{
 				SourceKind:     "aws",
 				SourceName:     sourceName,
@@ -42,11 +34,7 @@ func (h *Handlers) HandleAWSUsers(c *echo.Context) error {
 				Query:          query,
 			})
 		},
-		List: func(ctx context.Context, snap ConnectorSnapshot, query string, offset, limit int) ([]sourceAccountInventoryAccount, error) {
-			sourceName := strings.TrimSpace(snap.AWSIdentityCenter.Name)
-			if sourceName == "" {
-				sourceName = strings.TrimSpace(snap.AWSIdentityCenter.Region)
-			}
+		List: func(ctx context.Context, sourceName, query string, offset, limit int) ([]sourceAccountInventoryAccount, error) {
 			users, err := h.Q.ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(ctx, gen.ListSourceAccountsPageBySourceAndQueryWithEntitlementCountsParams{
 				SourceKind:            "aws",
 				SourceName:            sourceName,
@@ -108,29 +96,20 @@ func (h *Handlers) HandleUnmatchedAWS(c *echo.Context) error {
 	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
 		Title:              "Unlinked AWS Identity Center Users",
 		ConnectorName:      "AWS Identity Center",
+		ConnectorKind:      "aws_identity_center",
 		SourceKind:         "aws",
 		EntityCategory:     registry.EntityCategoryUser,
 		EmptyStateHref:     "/settings/connectors?open=aws_identity_center",
 		SyncedEmptyState:   "No unlinked AWS Identity Center users.",
 		FilteredEmptyState: "No unlinked AWS Identity Center users match the current search.",
-		IsConfigured: func(snap ConnectorSnapshot) bool {
-			return snap.AWSIdentityCenterConfigured
-		},
-		IsEnabled: func(snap ConnectorSnapshot) bool {
-			return snap.AWSIdentityCenterEnabled
-		},
-		UnavailableMessageFn: func(snap ConnectorSnapshot) string {
-			if snap.AWSIdentityCenterConfigured && !snap.AWSIdentityCenterEnabled {
+		UnavailableMessageFn: func(configured, enabled bool) string {
+			if configured && !enabled {
 				return "AWS Identity Center sync is disabled. Enable it in Connectors."
 			}
 			return "AWS Identity Center is not configured yet. Add settings in Connectors."
 		},
-		ResolveSourceName: func(_ *echo.Context, snap ConnectorSnapshot) (string, error) {
-			sourceName := strings.TrimSpace(snap.AWSIdentityCenter.Name)
-			if sourceName == "" {
-				sourceName = strings.TrimSpace(snap.AWSIdentityCenter.Region)
-			}
-			return sourceName, nil
+		ResolveSourceName: func(_ *echo.Context, configuredSourceName string) (string, error) {
+			return configuredSourceName, nil
 		},
 	})
 	if err != nil {
