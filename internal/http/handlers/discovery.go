@@ -246,7 +246,12 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	layout, _, err := h.LayoutData(ctx, c, "Discovered SaaS App")
+	displayName := strings.TrimSpace(app.DisplayName)
+	if displayName == "" {
+		displayName = strings.TrimSpace(app.CanonicalKey)
+	}
+
+	layout, _, err := h.LayoutData(ctx, c, displayName)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -317,10 +322,6 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 		})
 	}
 
-	displayName := strings.TrimSpace(app.DisplayName)
-	if displayName == "" {
-		displayName = strings.TrimSpace(app.CanonicalKey)
-	}
 	domainLabel, vendorLabel := discoveryAppSecondaryLabels(displayName, app.PrimaryDomain, app.VendorName)
 
 	data := viewmodels.DiscoveryAppShowViewData{

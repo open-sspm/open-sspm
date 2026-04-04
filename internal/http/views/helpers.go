@@ -320,6 +320,17 @@ func CredentialRiskBadgeClass(risk string) string {
 	}
 }
 
+func RiskScoreClass(riskLevel string) string {
+	switch strings.ToLower(strings.TrimSpace(riskLevel)) {
+	case "critical":
+		return "text-xs font-medium text-rose-700 dark:text-rose-400"
+	case "high":
+		return "text-xs font-medium text-amber-700 dark:text-amber-400"
+	default:
+		return "text-xs text-muted-foreground"
+	}
+}
+
 func DiscoveryManagedBadgeClass(state string) string {
 	switch strings.ToLower(strings.TrimSpace(state)) {
 	case "managed":

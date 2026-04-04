@@ -15,26 +15,23 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 		<article class="card">
 			<header>
 				<h2>{ data.App.DisplayName }</h2>
-				<p class="text-sm text-muted-foreground">{ data.App.CanonicalKey }</p>
+				<span data-slot="card-action" class="flex items-center gap-2">
+					<span class={ DiscoveryManagedBadgeClass(data.App.ManagedState) }>{ HumanizeDiscoveryManagedState(data.App.ManagedState) }</span>
+					<span class={ CredentialRiskBadgeClass(data.App.RiskLevel) }>{ HumanizeCredentialRisk(data.App.RiskLevel) }</span>
+				</span>
+				<p class="flex items-center gap-1.5 text-sm text-muted-foreground">
+					<span>{ data.App.CanonicalKey }</span>
+					@CopyTextButton(data.App.CanonicalKey, "Copy canonical key")
+				</p>
 			</header>
 			<section>
 				<div class="grid gap-3 md:grid-cols-4">
-					<div>
-						<p class="text-xs uppercase tracking-wide text-muted-foreground">Managed state</p>
-						<p class="font-medium"><span class={ DiscoveryManagedBadgeClass(data.App.ManagedState) }>{ HumanizeDiscoveryManagedState(data.App.ManagedState) }</span></p>
-						<p class="text-xs text-muted-foreground">{ HumanizeDiscoveryManagedReason(data.App.ManagedReason) }</p>
-					</div>
-					<div>
-						<p class="text-xs uppercase tracking-wide text-muted-foreground">Risk</p>
-						<p class="font-medium"><span class={ CredentialRiskBadgeClass(data.App.RiskLevel) }>{ HumanizeCredentialRisk(data.App.RiskLevel) }</span></p>
-						<p class="text-xs text-muted-foreground">{ "Score " }{ FormatInt(int(data.App.RiskScore)) }</p>
-					</div>
 					<div>
 						<p class="text-xs uppercase tracking-wide text-muted-foreground">Domain</p>
 						if data.App.PrimaryDomain != "" {
 							<p class="font-medium">{ data.App.PrimaryDomain }</p>
 						} else {
-							<p class="font-medium">Not available</p>
+							<p class="text-muted-foreground">Not available</p>
 						}
 					</div>
 					<div>
@@ -42,7 +39,7 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 						if data.App.VendorName != "" {
 							<p class="font-medium">{ data.App.VendorName }</p>
 						} else {
-							<p class="font-medium">Not available</p>
+							<p class="text-muted-foreground">Not available</p>
 						}
 					</div>
 					<div>
@@ -53,134 +50,126 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 						<p class="text-xs uppercase tracking-wide text-muted-foreground">Suggested data class</p>
 						<p class="font-medium">{ HumanizeDataClassification(data.App.SuggestedDataClassification) }</p>
 					</div>
-					<div>
-						<p class="text-xs uppercase tracking-wide text-muted-foreground">First seen</p>
-						<p class="font-medium">{ data.App.FirstSeenAt }</p>
-					</div>
-					<div>
-						<p class="text-xs uppercase tracking-wide text-muted-foreground">Last seen</p>
-						<p class="font-medium">{ data.App.LastSeenAt }</p>
-					</div>
 				</div>
+				<p class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+					<span>{ HumanizeDiscoveryManagedReason(data.App.ManagedReason) }</span>
+					<span>·</span>
+					<span class={ RiskScoreClass(data.App.RiskLevel) }>{ "Score " }{ FormatInt(int(data.App.RiskScore)) }</span>
+					<span>·</span>
+					<span>{ "First seen " }{ data.App.FirstSeenAt }</span>
+					<span>·</span>
+					<span>{ "Last seen " }{ data.App.LastSeenAt }</span>
+				</p>
 			</section>
 		</article>
 
-		<article class="card">
-			<header>
-				<h2>Source Evidence</h2>
-				<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Sources)) }</span>
-			</header>
-			<section>
-				@ColumnsTable("discovery-app-show--sources", "") {
-				<table data-columns-id="discovery-app-show--sources" class="table min-w-[40rem] md:w-full osspm-table-compact osspm-table-list">
-					<thead>
-						<tr>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source app</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Domain</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last observed</th>
-						</tr>
-					</thead>
+		<div class="space-y-3">
+			<div class="flex items-baseline justify-between">
+				<h2 class="text-lg font-semibold">Source Evidence</h2>
+				<span class="badge-outline">{ FormatInt(len(data.Sources)) }</span>
+			</div>
+			if data.HasSources {
+				<div class="overflow-x-auto">
+					<table class="table min-w-[40rem] md:w-full osspm-table-compact osspm-table-list">
+						<thead>
+							<tr>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source app</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Domain</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last observed</th>
+							</tr>
+						</thead>
 						<tbody>
-							if data.HasSources {
-								for _, source := range data.Sources {
-									<tr>
-										<td class="break-words">{ source.SourceKind }{ " (" }{ source.SourceName }{ ")" }</td>
-										<td>
-											<div class="break-words">{ source.SourceAppName }</div>
-											<div class="text-xs text-muted-foreground break-all">{ source.SourceAppID }</div>
-										</td>
-										<td class="break-all">{ source.SourceAppDomain }</td>
-										<td class="whitespace-nowrap">{ source.LastObservedAt }</td>
-									</tr>
-								}
-							} else {
+							for _, source := range data.Sources {
 								<tr>
-									<td colspan="4">@EmptyState("No source evidence", "No active source rows are currently linked to this app.")</td>
+									<td>
+										<div class="break-words">{ source.SourceKind }</div>
+										<div class="text-xs text-muted-foreground break-all">{ source.SourceName }</div>
+									</td>
+									<td>
+										<div class="break-words">{ source.SourceAppName }</div>
+										<div class="text-xs text-muted-foreground break-all">{ source.SourceAppID }</div>
+									</td>
+									<td class="break-all">{ source.SourceAppDomain }</td>
+									<td class="whitespace-nowrap">{ source.LastObservedAt }</td>
 								</tr>
 							}
 						</tbody>
 					</table>
-				}
-			</section>
-		</article>
+				</div>
+			} else {
+				@EmptyState("No source evidence", "No active source rows are currently linked to this app.")
+			}
+		</div>
 
-		<article class="card">
-			<header>
-				<h2>Top Actors (30d)</h2>
-				<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.TopActors)) }</span>
-			</header>
-			<section>
-				@ColumnsTable("discovery-app-show--actors", "") {
-				<table data-columns-id="discovery-app-show--actors" class="table min-w-[48rem] md:w-full osspm-table-compact osspm-table-list">
-					<thead>
-						<tr>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Actor</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">External ID</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Events</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last observed</th>
-						</tr>
-					</thead>
+		<div class="space-y-3">
+			<div class="flex items-baseline justify-between">
+				<h2 class="text-lg font-semibold">Top Actors (30d)</h2>
+				<span class="badge-outline">{ FormatInt(len(data.TopActors)) }</span>
+			</div>
+			if data.HasTopActors {
+				<div class="overflow-x-auto">
+					<table class="table min-w-[48rem] md:w-full osspm-table-compact osspm-table-list">
+						<thead>
+							<tr>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Actor</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">External ID</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Events</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last observed</th>
+							</tr>
+						</thead>
 						<tbody>
-							if data.HasTopActors {
-								for _, actor := range data.TopActors {
-									<tr>
-										<td class="break-words">{ actor.ActorLabel }</td>
-										<td class="break-all">{ actor.ActorEmail }</td>
-										<td class="break-all">{ actor.ActorExternalID }</td>
-										<td class="whitespace-nowrap"><span class="badge-outline">{ FormatInt64(actor.EventCount) }</span></td>
-										<td class="whitespace-nowrap">{ actor.LastObservedAt }</td>
-									</tr>
-								}
-							} else {
+							for _, actor := range data.TopActors {
 								<tr>
-									<td colspan="5">@EmptyState("No actor data", "No actor evidence was observed in the last 30 days.")</td>
+									<td class="break-words">{ actor.ActorLabel }</td>
+									<td class="break-all">{ actor.ActorEmail }</td>
+									<td class="break-all">{ actor.ActorExternalID }</td>
+									<td class="whitespace-nowrap"><span class="badge-outline">{ FormatInt64(actor.EventCount) }</span></td>
+									<td class="whitespace-nowrap">{ actor.LastObservedAt }</td>
 								</tr>
 							}
 						</tbody>
 					</table>
-				}
-			</section>
-		</article>
+				</div>
+			} else {
+				@EmptyState("No actor data", "No actor evidence was observed in the last 30 days.")
+			}
+		</div>
 
-		<article class="card">
-			<header>
-				<h2>Recent Events</h2>
-				<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Events)) }</span>
-			</header>
-			<section>
-				@ColumnsTable("discovery-app-show--events", "") {
-				<table data-columns-id="discovery-app-show--events" class="table min-w-[52rem] md:w-full osspm-table-compact osspm-table-list">
-					<thead>
-						<tr>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Observed</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Signal</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Actor</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source app</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Scopes</th>
-						</tr>
-					</thead>
+		<div class="space-y-3">
+			<div class="flex items-baseline justify-between">
+				<h2 class="text-lg font-semibold">Recent Events</h2>
+				<span class="badge-outline">{ FormatInt(len(data.Events)) }</span>
+			</div>
+			if data.HasEvents {
+				<div class="overflow-x-auto">
+					<table class="table min-w-[52rem] md:w-full osspm-table-compact osspm-table-list">
+						<thead>
+							<tr>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Observed</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Signal</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Actor</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source app</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Scopes</th>
+							</tr>
+						</thead>
 						<tbody>
-							if data.HasEvents {
-								for _, event := range data.Events {
-									<tr>
-										<td class="whitespace-nowrap">{ event.ObservedAt }</td>
-										<td class="whitespace-nowrap"><span class="badge-outline">{ HumanizeDiscoverySignalKind(event.SignalKind) }</span></td>
-										<td class="break-words">{ event.Actor }</td>
-										<td class="break-words">{ event.SourceApp }</td>
-										<td class="text-muted-foreground break-words">{ event.ScopesSummary }</td>
-									</tr>
-								}
-							} else {
+							for _, event := range data.Events {
 								<tr>
-									<td colspan="5">@EmptyState("No events", "No recent SSO or OAuth grant events are available for this app.")</td>
+									<td class="whitespace-nowrap">{ event.ObservedAt }</td>
+									<td class="whitespace-nowrap"><span class="badge-outline">{ HumanizeDiscoverySignalKind(event.SignalKind) }</span></td>
+									<td class="break-words">{ event.Actor }</td>
+									<td class="break-words">{ event.SourceApp }</td>
+									<td class="text-muted-foreground break-words">{ event.ScopesSummary }</td>
 								</tr>
 							}
 						</tbody>
 					</table>
-				}
-			</section>
-		</article>
+				</div>
+			} else {
+				@EmptyState("No events", "No recent SSO or OAuth grant events are available for this app.")
+			}
+		</div>
 	}
 }
