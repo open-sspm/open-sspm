@@ -115,12 +115,12 @@ func (h *Handlers) handleConnectorToggle(c *echo.Context, kind string) error {
 
 	enabled := ParseBoolForm(c.FormValue("enabled"))
 	ctx := c.Request().Context()
-	cfg, err := h.Q.GetConnectorConfig(ctx, kind)
+	cfg, err := h.connectorConfigStore().GetResolvedConnectorConfig(ctx, kind)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 	if enabled {
-		if err := validateConnectorConfig(kind, cfg.Config); err != nil {
+		if err := validateConnectorConfig(kind, cfg.ResolvedConfig); err != nil {
 			if isHX(c) {
 				setFlashToast(c, viewmodels.ToastViewData{
 					Category:    "error",
@@ -153,15 +153,16 @@ func (h *Handlers) handleConnectorToggle(c *echo.Context, kind string) error {
 
 func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 	ctx := c.Request().Context()
-	cfgRow, err := h.Q.GetConnectorConfig(ctx, kind)
+	configStore := h.connectorConfigStore()
+	cfgRow, err := configStore.GetResolvedConnectorConfig(ctx, kind)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
-	var raw []byte
+	var mergedConfig any
 	switch kind {
 	case configstore.KindOkta:
-		current, err := configstore.DecodeOktaConfig(cfgRow.Config)
+		current, err := configstore.DecodeOktaConfig(cfgRow.ResolvedConfig)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
@@ -171,17 +172,14 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 			DiscoveryEnabled: ParseBoolForm(c.FormValue("discovery_enabled")),
 		}
 		merged := configstore.MergeOktaConfig(current, update).Normalized()
-		if cfgRow.Enabled {
+		if cfgRow.Row.Enabled {
 			if err := merged.Validate(); err != nil {
 				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
 			}
 		}
-		raw, err = configstore.EncodeConfig(merged)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
+		mergedConfig = merged
 	case configstore.KindGoogleWorkspace:
-		current, err := configstore.DecodeGoogleWorkspaceConfig(cfgRow.Config)
+		current, err := configstore.DecodeGoogleWorkspaceConfig(cfgRow.ResolvedConfig)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
@@ -195,17 +193,14 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 			DiscoveryEnabled:    ParseBoolForm(c.FormValue("discovery_enabled")),
 		}
 		merged := configstore.MergeGoogleWorkspaceConfig(current, update).Normalized()
-		if cfgRow.Enabled {
+		if cfgRow.Row.Enabled {
 			if err := merged.Validate(); err != nil {
 				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
 			}
 		}
-		raw, err = configstore.EncodeConfig(merged)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
+		mergedConfig = merged
 	case configstore.KindGitHub:
-		current, err := configstore.DecodeGitHubConfig(cfgRow.Config)
+		current, err := configstore.DecodeGitHubConfig(cfgRow.ResolvedConfig)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
@@ -217,17 +212,14 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 			SCIMEnabled: ParseBoolForm(c.FormValue("scim_enabled")),
 		}
 		merged := configstore.MergeGitHubConfig(current, update).Normalized()
-		if cfgRow.Enabled {
+		if cfgRow.Row.Enabled {
 			if err := merged.Validate(); err != nil {
 				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
 			}
 		}
-		raw, err = configstore.EncodeConfig(merged)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
+		mergedConfig = merged
 	case configstore.KindDatadog:
-		current, err := configstore.DecodeDatadogConfig(cfgRow.Config)
+		current, err := configstore.DecodeDatadogConfig(cfgRow.ResolvedConfig)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
@@ -237,17 +229,14 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 			AppKey: c.FormValue("app_key"),
 		}
 		merged := configstore.MergeDatadogConfig(current, update).Normalized()
-		if cfgRow.Enabled {
+		if cfgRow.Row.Enabled {
 			if err := merged.Validate(); err != nil {
 				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
 			}
 		}
-		raw, err = configstore.EncodeConfig(merged)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
+		mergedConfig = merged
 	case configstore.KindAWSIdentityCenter:
-		current, err := configstore.DecodeAWSIdentityCenterConfig(cfgRow.Config)
+		current, err := configstore.DecodeAWSIdentityCenterConfig(cfgRow.ResolvedConfig)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
@@ -262,17 +251,14 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 			SessionToken:    c.FormValue("session_token"),
 		}
 		merged := configstore.MergeAWSIdentityCenterConfig(current, update).Normalized()
-		if cfgRow.Enabled {
+		if cfgRow.Row.Enabled {
 			if err := merged.Validate(); err != nil {
 				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
 			}
 		}
-		raw, err = configstore.EncodeConfig(merged)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
+		mergedConfig = merged
 	case configstore.KindEntra:
-		current, err := configstore.DecodeEntraConfig(cfgRow.Config)
+		current, err := configstore.DecodeEntraConfig(cfgRow.ResolvedConfig)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
@@ -283,17 +269,14 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 			DiscoveryEnabled: ParseBoolForm(c.FormValue("discovery_enabled")),
 		}
 		merged := configstore.MergeEntraConfig(current, update).Normalized()
-		if cfgRow.Enabled {
+		if cfgRow.Row.Enabled {
 			if err := merged.Validate(); err != nil {
 				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
 			}
 		}
-		raw, err = configstore.EncodeConfig(merged)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
+		mergedConfig = merged
 	case configstore.KindVault:
-		current, err := configstore.DecodeVaultConfig(cfgRow.Config)
+		current, err := configstore.DecodeVaultConfig(cfgRow.ResolvedConfig)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
@@ -311,20 +294,30 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 			TLSCACertPEM:     c.FormValue("tls_ca_cert_pem"),
 		}
 		merged := configstore.MergeVaultConfig(current, update).Normalized()
-		if cfgRow.Enabled {
+		if cfgRow.Row.Enabled {
 			if err := merged.Validate(); err != nil {
 				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
 			}
 		}
-		raw, err = configstore.EncodeConfig(merged)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
+		mergedConfig = merged
 	default:
 		return RenderNotFound(c)
 	}
 
-	if _, err := h.Q.UpdateConnectorConfig(ctx, gen.UpdateConnectorConfigParams{Kind: kind, Config: raw}); err != nil {
+	tx, err := h.Pool.Begin(ctx)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+	if err := configStore.SaveConnectorConfigTx(ctx, h.Q.WithTx(tx), kind, mergedConfig); err != nil {
+		if errors.Is(err, configstore.ErrConnectorSecretKeyRequired) {
+			return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
+		}
+		return h.RenderError(c, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return h.RenderError(c, err)
 	}
 	return c.Redirect(http.StatusSeeOther, "/settings/connectors?saved="+kind)
@@ -620,14 +613,14 @@ func validateConnectorConfig(kind string, raw []byte) error {
 }
 
 func (h *Handlers) authoritativeSourceName(ctx context.Context, kind string) (string, error) {
-	cfg, err := h.Q.GetConnectorConfig(ctx, kind)
+	cfg, err := h.connectorConfigStore().GetResolvedConnectorConfig(ctx, kind)
 	if err != nil {
 		return "", err
 	}
 
 	switch NormalizeConnectorKind(kind) {
 	case configstore.KindOkta:
-		oktaCfg, err := configstore.DecodeOktaConfig(cfg.Config)
+		oktaCfg, err := configstore.DecodeOktaConfig(cfg.ResolvedConfig)
 		if err != nil {
 			return "", err
 		}
@@ -637,7 +630,7 @@ func (h *Handlers) authoritativeSourceName(ctx context.Context, kind string) (st
 		}
 		return sourceName, nil
 	case configstore.KindEntra:
-		entraCfg, err := configstore.DecodeEntraConfig(cfg.Config)
+		entraCfg, err := configstore.DecodeEntraConfig(cfg.ResolvedConfig)
 		if err != nil {
 			return "", err
 		}

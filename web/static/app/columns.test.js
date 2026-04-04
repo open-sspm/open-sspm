@@ -74,10 +74,10 @@ describe("columns", () => {
 
     const root = document.querySelector("[data-columns-root]");
     expect(root.hidden).toBe(false);
-    expect(getColumnOptions()).toHaveLength(3);
+    expect(getColumnOptions()).toHaveLength(2);
   });
 
-  it("keeps fixed columns visible and marks their options disabled", () => {
+  it("excludes fixed columns from the picker entirely", () => {
     document.body.innerHTML = renderColumnsFixture({
       headers: ["Primary", "Actions", "Status"],
     });
@@ -85,11 +85,31 @@ describe("columns", () => {
     wireColumnControls(document);
 
     const options = getColumnOptions();
-    expect(options[0].getAttribute("aria-disabled")).toBe("true");
-    expect(options[0].getAttribute("aria-checked")).toBe("true");
-    expect(options[1].getAttribute("aria-disabled")).toBe("true");
-    expect(options[1].getAttribute("aria-checked")).toBe("true");
-    expect(options[2].getAttribute("aria-disabled")).toBe("false");
+    expect(options).toHaveLength(1);
+    expect(options[0].textContent).toContain("Status");
+
+    const headerCells = document.querySelectorAll("thead th");
+    expect(headerCells[0].hidden).toBe(false);
+    expect(headerCells[1].hidden).toBe(false);
+  });
+
+  it("does not show empty-header action columns in the picker", () => {
+    document.body.innerHTML = renderColumnsFixture({
+      headers: ["Email", "Group", "Status", "Last login", ""],
+      bodyRows:
+        '<tr><td>a@b.c</td><td>admin</td><td>active</td><td>today</td><td><button>menu</button></td></tr>',
+    });
+
+    wireColumnControls(document);
+
+    const options = getColumnOptions();
+    const labels = options.map((o) => o.textContent.replace("✓", "").trim());
+    expect(labels).not.toContain("Column 5");
+    expect(labels).not.toContain("");
+    expect(labels).toEqual(["Group", "Status", "Last login"]);
+
+    const headerCells = document.querySelectorAll("thead th");
+    expect(headerCells[4].hidden).toBe(false);
   });
 
   it("hides and shows table columns when toggled", () => {
@@ -98,14 +118,14 @@ describe("columns", () => {
     wireColumnControls(document);
 
     const options = getColumnOptions();
-    options[1].click();
+    options[0].click();
 
     const headerCells = document.querySelectorAll("thead th");
     const bodyCells = document.querySelectorAll("tbody tr:first-child td");
     expect(headerCells[1].hidden).toBe(true);
     expect(bodyCells[1].hidden).toBe(true);
 
-    options[1].click();
+    options[0].click();
     expect(headerCells[1].hidden).toBe(false);
     expect(bodyCells[1].hidden).toBe(false);
   });
@@ -116,7 +136,7 @@ describe("columns", () => {
     wireColumnControls(document);
 
     const options = getColumnOptions();
-    options[1].click();
+    options[0].click();
 
     const stored = JSON.parse(localStorage.getItem("openSspm.tableColumns.persist-table"));
     expect(stored.visible).toEqual([1, 3]);
@@ -135,7 +155,7 @@ describe("columns", () => {
     wireColumnControls(document);
 
     const options = getColumnOptions();
-    options[1].click();
+    options[0].click();
     expect(localStorage.getItem("openSspm.tableColumns.reset-table")).not.toBeNull();
 
     const resetButton = document.querySelector("[data-columns-reset]");
@@ -169,7 +189,7 @@ describe("columns", () => {
     wireColumnControls(document);
 
     const options = getColumnOptions();
-    options[1].click();
+    options[0].click();
 
     const emptyCell = document.querySelector("tbody tr td[colspan]");
     expect(emptyCell.getAttribute("colspan")).toBe("2");
@@ -180,7 +200,7 @@ describe("columns", () => {
     wireColumnControls(document);
 
     const options = getColumnOptions();
-    options[1].click();
+    options[0].click();
 
     const swapRoot = document.getElementById("swap-root");
     swapRoot.innerHTML = renderColumnsFixture({ tableID: "swap-table" });
@@ -195,7 +215,7 @@ describe("columns", () => {
     wireColumnControls(document);
 
     const options = getColumnOptions();
-    options[1].click();
+    options[0].click();
 
     let bodyCells = document.querySelectorAll("tbody tr:first-child td");
     expect(bodyCells[1].hidden).toBe(true);

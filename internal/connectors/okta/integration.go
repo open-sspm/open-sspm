@@ -1117,22 +1117,36 @@ func (i *OktaIntegration) seedOktaAutoBindings(ctx context.Context, q *gen.Queri
 
 	githubConfigRow, err := q.GetConnectorConfig(ctx, configstore.KindGitHub)
 	if err == nil && githubConfigRow.Enabled {
-		githubCfg, decodeErr := configstore.DecodeGitHubConfig(githubConfigRow.Config)
-		if decodeErr == nil {
-			githubCfg = githubCfg.Normalized()
-			if githubCfg.Validate() == nil && strings.TrimSpace(githubCfg.Org) != "" {
-				connectorSourceByKind[configstore.KindGitHub] = githubCfg.Org
+		secretRows, secretErr := q.ListConnectorSecretsByKind(ctx, configstore.KindGitHub)
+		if secretErr == nil {
+			secretPresence := configstore.SecretPresenceByKind(secretRows)
+			resolvedRaw, resolveErr := configstore.ResolveConfigWithSecretPresence(configstore.KindGitHub, githubConfigRow.Config, secretPresence[configstore.KindGitHub])
+			if resolveErr == nil {
+				githubCfg, decodeErr := configstore.DecodeGitHubConfig(resolvedRaw)
+				if decodeErr == nil {
+					githubCfg = githubCfg.Normalized()
+					if githubCfg.Validate() == nil && strings.TrimSpace(githubCfg.Org) != "" {
+						connectorSourceByKind[configstore.KindGitHub] = githubCfg.Org
+					}
+				}
 			}
 		}
 	}
 
 	datadogConfigRow, err := q.GetConnectorConfig(ctx, configstore.KindDatadog)
 	if err == nil && datadogConfigRow.Enabled {
-		datadogCfg, decodeErr := configstore.DecodeDatadogConfig(datadogConfigRow.Config)
-		if decodeErr == nil {
-			datadogCfg = datadogCfg.Normalized()
-			if datadogCfg.Validate() == nil && strings.TrimSpace(datadogCfg.Site) != "" {
-				connectorSourceByKind[configstore.KindDatadog] = datadogCfg.Site
+		secretRows, secretErr := q.ListConnectorSecretsByKind(ctx, configstore.KindDatadog)
+		if secretErr == nil {
+			secretPresence := configstore.SecretPresenceByKind(secretRows)
+			resolvedRaw, resolveErr := configstore.ResolveConfigWithSecretPresence(configstore.KindDatadog, datadogConfigRow.Config, secretPresence[configstore.KindDatadog])
+			if resolveErr == nil {
+				datadogCfg, decodeErr := configstore.DecodeDatadogConfig(resolvedRaw)
+				if decodeErr == nil {
+					datadogCfg = datadogCfg.Normalized()
+					if datadogCfg.Validate() == nil && strings.TrimSpace(datadogCfg.Site) != "" {
+						connectorSourceByKind[configstore.KindDatadog] = datadogCfg.Site
+					}
+				}
 			}
 		}
 	}

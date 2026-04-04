@@ -151,10 +151,14 @@ describe("dialogs", () => {
     document.body.appendChild(outside);
 
     const insideDialog = root.querySelector("#inside");
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     wireDialogCloseNavigation(root);
 
-    expect(insideDialog.dataset.closeNavBound).toBe("true");
-    expect(outside.dataset.closeNavBound).toBeUndefined();
+    insideDialog.dispatchEvent(new Event("close"));
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+
+    outside.dispatchEvent(new Event("close"));
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
   });
 
   it("ignores cross-origin close-href navigation targets", () => {

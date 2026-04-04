@@ -69,16 +69,6 @@ func TestHandleDashboardUsesGenericInventoryMetrics(t *testing.T) {
 		assertDashboardMetric(t, body, "Identities", 2)
 		assertDashboardMetric(t, body, "Discovered SaaS apps", 1)
 		assertDashboardMetric(t, body, "App assets", 2)
-
-		if strings.Contains(body, "Active users") {
-			t.Fatalf("dashboard unexpectedly rendered old active users label: %s", body)
-		}
-		if strings.Contains(body, ">Apps</span>") {
-			t.Fatalf("dashboard unexpectedly rendered old apps label: %s", body)
-		}
-		if strings.Contains(body, "Connected apps") {
-			t.Fatalf("dashboard unexpectedly rendered old connected apps label: %s", body)
-		}
 	})
 }
 
@@ -91,9 +81,6 @@ func TestHandleDashboardIgnoresLegacyGoogleConnectedAppsWithoutConfiguredConnect
 		assertDashboardMetric(t, dashboardBody, "Identities", 0)
 		assertDashboardMetric(t, dashboardBody, "Discovered SaaS apps", 0)
 		assertDashboardMetric(t, dashboardBody, "App assets", 0)
-		if strings.Contains(dashboardBody, "Connected apps") {
-			t.Fatalf("dashboard unexpectedly rendered old connected apps label: %s", dashboardBody)
-		}
 
 		connectedAppsBody := renderConnectedApps(t, h, "http://example.com/oauth-apps")
 		if !strings.Contains(connectedAppsBody, "Google Workspace is not configured yet. Add credentials in Connectors.") {

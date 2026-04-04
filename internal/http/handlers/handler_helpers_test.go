@@ -5,13 +5,13 @@ import (
 	"testing"
 )
 
-func TestGoogleWorkspacePageParameterParsing(t *testing.T) {
+func TestParsePageParam(t *testing.T) {
 	t.Parallel()
 
 	t.Run("uses provided positive page number", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := newTestContext(http.MethodGet, "/accounts/google-workspace?page=3&q=alice")
+		c, _ := newTestContext(http.MethodGet, "/accounts?page=3&q=alice")
 		if got := parsePageParam(c); got != 3 {
 			t.Fatalf("parsePageParam() = %d, want %d", got, 3)
 		}
@@ -20,7 +20,7 @@ func TestGoogleWorkspacePageParameterParsing(t *testing.T) {
 	t.Run("falls back to first page on invalid input", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := newTestContext(http.MethodGet, "/accounts/google-workspace?page=bad")
+		c, _ := newTestContext(http.MethodGet, "/accounts?page=bad")
 		if got := parsePageParam(c); got != 1 {
 			t.Fatalf("parsePageParam() = %d, want %d", got, 1)
 		}
@@ -29,14 +29,14 @@ func TestGoogleWorkspacePageParameterParsing(t *testing.T) {
 	t.Run("falls back to first page on zero page", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := newTestContext(http.MethodGet, "/accounts/google-workspace?page=0")
+		c, _ := newTestContext(http.MethodGet, "/accounts?page=0")
 		if got := parsePageParam(c); got != 1 {
 			t.Fatalf("parsePageParam() = %d, want %d", got, 1)
 		}
 	})
 }
 
-func TestGoogleWorkspacePaginationContracts(t *testing.T) {
+func TestPaginate(t *testing.T) {
 	t.Parallel()
 
 	t.Run("computes page and offset for middle page", func(t *testing.T) {
@@ -56,18 +56,18 @@ func TestGoogleWorkspacePaginationContracts(t *testing.T) {
 			t.Fatalf("paginate() = (%d, %d, %d), want (2, 2, 10)", page, totalPages, offset)
 		}
 	})
-
-	t.Run("computes showing range bounded by total count", func(t *testing.T) {
-		t.Parallel()
-
-		showingFrom, showingTo := showingRange(45, 40, 10)
-		if showingFrom != 41 || showingTo != 45 {
-			t.Fatalf("showingRange() = (%d, %d), want (41, 45)", showingFrom, showingTo)
-		}
-	})
 }
 
-func TestGoogleWorkspaceUnavailableMessage(t *testing.T) {
+func TestShowingRange(t *testing.T) {
+	t.Parallel()
+
+	showingFrom, showingTo := showingRange(45, 40, 10)
+	if showingFrom != 41 || showingTo != 45 {
+		t.Fatalf("showingRange() = (%d, %d), want (41, 45)", showingFrom, showingTo)
+	}
+}
+
+func TestConnectorUnavailableMessage(t *testing.T) {
 	t.Parallel()
 
 	if got := connectorUnavailableMessage("Google Workspace", true, false); got != "Google Workspace sync is disabled. Enable it in Connectors." {

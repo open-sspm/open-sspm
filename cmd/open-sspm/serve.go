@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/auth"
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
@@ -41,13 +40,13 @@ func runServe() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	runtimeDeps, err := openRuntimeDependencies(ctx, cfg)
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
+	defer runtimeDeps.pool.Close()
 
-	locks, err := sync.NewLockManager(pool, sync.LockManagerConfig{
+	locks, err := sync.NewLockManager(runtimeDeps.pool, sync.LockManagerConfig{
 		Mode:              cfg.SyncLockMode,
 		InstanceID:        cfg.SyncLockInstanceID,
 		TTL:               cfg.SyncLockTTL,
@@ -58,8 +57,8 @@ func runServe() error {
 		return err
 	}
 
-	queries := gen.New(pool)
-	jobStore := sync.NewSyncJobStore(pool)
+	queries := runtimeDeps.queries
+	jobStore := sync.NewSyncJobStore(runtimeDeps.pool)
 
 	if cfg.DevSeedAdmin {
 		if err := maybeSeedDevAdmin(ctx, queries); err != nil {
@@ -72,12 +71,12 @@ func runServe() error {
 		return err
 	}
 
-	fullDBRunner := sync.NewDBRunner(pool, reg)
+	fullDBRunner := sync.NewDBRunner(runtimeDeps.pool, reg)
 	fullDBRunner.SetLockManager(locks)
 	fullDBRunner.SetRunMode(registry.RunModeFull)
 	fullDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
 
-	discoveryDBRunner := sync.NewDBRunner(pool, reg)
+	discoveryDBRunner := sync.NewDBRunner(runtimeDeps.pool, reg)
 	discoveryDBRunner.SetLockManager(locks)
 	discoveryDBRunner.SetRunMode(registry.RunModeDiscovery)
 	discoveryDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
@@ -103,7 +102,7 @@ func runServe() error {
 		syncer = nil
 	}
 
-	srv, err := httpapp.NewEchoServer(cfg, pool, queries, syncer, reg)
+	srv, err := httpapp.NewEchoServer(cfg, runtimeDeps.pool, queries, syncer, reg)
 	if err != nil {
 		return err
 	}

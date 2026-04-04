@@ -102,6 +102,16 @@ type ConnectorConfig struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type ConnectorSecret struct {
+	Kind       string             `json:"kind"`
+	SecretName string             `json:"secret_name"`
+	Ciphertext []byte             `json:"ciphertext"`
+	Nonce      []byte             `json:"nonce"`
+	Version    int16              `json:"version"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type CredentialArtifact struct {
 	ID                    int64              `json:"id"`
 	SourceKind            string             `json:"source_kind"`

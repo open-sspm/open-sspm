@@ -60,14 +60,30 @@ VALUES (
   true,
   jsonb_build_object(
     'tenant_id', (SELECT entra_tenant_id FROM ctx),
-    'client_id', '00000000-0000-4000-8000-000000000002',
-    'client_secret', 'demo_entra_client_secret'
+    'client_id', '00000000-0000-4000-8000-000000000002'
   ),
   (SELECT now_ts FROM ctx)
 )
 ON CONFLICT (kind) DO UPDATE SET
   enabled = EXCLUDED.enabled,
   config = EXCLUDED.config,
+  updated_at = EXCLUDED.updated_at
+;
+
+WITH ctx AS (SELECT * FROM demo_seed_ctx_v2)
+INSERT INTO connector_secrets (kind, secret_name, ciphertext, nonce, version, updated_at)
+VALUES (
+  'entra',
+  'client_secret',
+  decode('dbb58d58260515fd408b01f1b1bb79a81b2cf410d5229953e48c05fa1da09ef944ca06bb56138697', 'hex'),
+  decode('83dc52cda3d581328bc4a1d6', 'hex'),
+  1,
+  (SELECT now_ts FROM ctx)
+)
+ON CONFLICT (kind, secret_name) DO UPDATE SET
+  ciphertext = EXCLUDED.ciphertext,
+  nonce = EXCLUDED.nonce,
+  version = EXCLUDED.version,
   updated_at = EXCLUDED.updated_at
 ;
 

@@ -14,6 +14,7 @@ import (
 
 func buildConnectorRegistry(cfg config.Config) (*registry.ConnectorRegistry, error) {
 	reg := registry.NewRegistry()
+	reg.SetConnectorSecretKey(cfg.ConnectorSecretKey)
 	if err := reg.Register(okta.NewDefinition(cfg.SyncOktaWorkers)); err != nil {
 		return nil, err
 	}
