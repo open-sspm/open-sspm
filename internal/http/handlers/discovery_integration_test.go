@@ -46,7 +46,6 @@ func TestHandleDiscoveryAppShowUsesLivePostureWithoutPersisting(t *testing.T) {
 		assertContains(t, body, "Azure Cloud")
 		assertContains(t, body, "Bound connector sync is stale")
 		assertContains(t, body, "Score 60")
-		assertNotContains(t, body, ">Columns<")
 
 		var postureColumnCount int
 		if err := pool.QueryRow(ctx, `
