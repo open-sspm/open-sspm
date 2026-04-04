@@ -209,7 +209,7 @@ func (r *DBRunner) prepareRun(ctx context.Context) (*preparedDBRun, error) {
 			continue
 		}
 
-		cfg, err := def.DecodeConfig(cfgRow.Config)
+		cfg, err := r.registry.DecodeConfigRow(ctx, r.q, cfgRow)
 		if err != nil {
 			errList = append(errList, fmt.Errorf("%s config: %w", kind, err))
 			skippedKinds = append(skippedKinds, kind)

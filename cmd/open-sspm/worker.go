@@ -9,10 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
-	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/metrics"
 	"github.com/open-sspm/open-sspm/internal/sync"
 	"github.com/spf13/cobra"
@@ -39,19 +37,19 @@ func runWorker() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	runtimeDeps, err := openRuntimeDependencies(ctx, cfg)
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
-	queries := gen.New(pool)
+	defer runtimeDeps.pool.Close()
+	queries := runtimeDeps.queries
 
 	reg, err := buildConnectorRegistry(cfg)
 	if err != nil {
 		return err
 	}
 
-	locks, err := sync.NewLockManager(pool, sync.LockManagerConfig{
+	locks, err := sync.NewLockManager(runtimeDeps.pool, sync.LockManagerConfig{
 		Mode:              cfg.SyncLockMode,
 		InstanceID:        cfg.SyncLockInstanceID,
 		TTL:               cfg.SyncLockTTL,
@@ -63,7 +61,7 @@ func runWorker() error {
 	}
 	// Queue-consumer coordination is long-lived; force lease locks here so
 	// advisory mode does not pin an extra pool connection for the worker lifetime.
-	consumerLocks, err := sync.NewLockManager(pool, sync.LockManagerConfig{
+	consumerLocks, err := sync.NewLockManager(runtimeDeps.pool, sync.LockManagerConfig{
 		Mode:              sync.LockModeLease,
 		InstanceID:        cfg.SyncLockInstanceID,
 		TTL:               cfg.SyncLockTTL,
@@ -74,7 +72,7 @@ func runWorker() error {
 		return err
 	}
 
-	dbRunner := sync.NewDBRunner(pool, reg)
+	dbRunner := sync.NewDBRunner(runtimeDeps.pool, reg)
 	dbRunner.SetReporter(&sync.LogReporter{})
 	dbRunner.SetLockManager(locks)
 	dbRunner.SetRunMode(registry.RunModeFull)
@@ -97,7 +95,7 @@ func runWorker() error {
 		RecentFinishedRunCap: 10,
 	})
 	executionRunner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, dbRunner, sync.RunOnceScopeNameFull)
-	jobStore := sync.NewSyncJobStore(pool)
+	jobStore := sync.NewSyncJobStore(runtimeDeps.pool)
 	wakeups := make(chan struct{}, 1)
 	jobConsumer := sync.NewSyncJobConsumer(jobStore, consumerLocks, executionRunner, sync.SyncJobConsumerConfig{
 		Mode:              registry.RunModeFull,
@@ -116,7 +114,7 @@ func runWorker() error {
 		}
 	}()
 	go func() {
-		if err := sync.ListenForSyncJobSignals(ctx, pool, sync.SyncJobNotifyChannelForMode(registry.RunModeFull), wakeups); err != nil && !errors.Is(err, context.Canceled) {
+		if err := sync.ListenForSyncJobSignals(ctx, runtimeDeps.pool, sync.SyncJobNotifyChannelForMode(registry.RunModeFull), wakeups); err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error("sync job listener failed", "err", err)
 		}
 	}()

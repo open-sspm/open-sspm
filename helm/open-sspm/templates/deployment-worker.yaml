@@ -49,6 +49,13 @@ spec:
                 secretKeyRef:
                   name: {{ required "database.existingSecret.name is required" .Values.database.existingSecret.name }}
                   key: {{ required "database.existingSecret.key is required" .Values.database.existingSecret.key }}
+            {{- if .Values.connectorSecret.existingSecret.name }}
+            - name: CONNECTOR_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.connectorSecret.existingSecret.name }}
+                  key: {{ .Values.connectorSecret.existingSecret.key | quote }}
+            {{- end }}
             - name: HTTP_ADDR
               value: {{ .Values.config.httpAddr | quote }}
             - name: METRICS_ADDR

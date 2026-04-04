@@ -97,5 +97,6 @@ ansible-playbook -i inventory.ini seed-demo.yml
 
 Runtime config is loaded from `/etc/open-sspm.env` on the VM.
 
+- Set `CONNECTOR_SECRET_KEY` to `MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=` for the seeded demo connector secrets.
 - `SYNC_INTERVAL` and `SYNC_DISCOVERY_INTERVAL` control base worker cadence.
 - Optional per-connector overrides can be set there as needed (for example `SYNC_GOOGLE_WORKSPACE_INTERVAL`, which must be a duration greater than `0` when set).

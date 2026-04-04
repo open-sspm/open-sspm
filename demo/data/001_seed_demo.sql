@@ -53,30 +53,40 @@ SET
 WHERE id = (SELECT run_id FROM demo_seed_ctx);
 
 -- ------------------------------------------------------------
--- Connector configs (mark Okta/GitHub/Datadog as enabled+configured with fake secrets).
+-- Connector configs (mark Okta/GitHub/Datadog as enabled+configured with fake encrypted secrets).
 -- ------------------------------------------------------------
 WITH ctx AS (SELECT * FROM demo_seed_ctx)
 INSERT INTO connector_configs (kind, enabled, config, updated_at)
 VALUES
   ('okta', true, jsonb_build_object(
-    'domain', (SELECT okta_domain FROM ctx),
-    'token', 'demo_okta_token'
+    'domain', (SELECT okta_domain FROM ctx)
   ), (SELECT now_ts FROM ctx)),
   ('github', true, jsonb_build_object(
     'org', (SELECT github_org FROM ctx),
     'api_base', 'https://api.github.com',
     'enterprise', '',
-    'scim_enabled', false,
-    'token', 'demo_github_token'
+    'scim_enabled', false
   ), (SELECT now_ts FROM ctx)),
   ('datadog', true, jsonb_build_object(
-    'site', (SELECT datadog_site FROM ctx),
-    'api_key', 'demo_datadog_api_key',
-    'app_key', 'demo_datadog_app_key'
+    'site', (SELECT datadog_site FROM ctx)
   ), (SELECT now_ts FROM ctx))
 ON CONFLICT (kind) DO UPDATE SET
   enabled = EXCLUDED.enabled,
   config = EXCLUDED.config,
+  updated_at = EXCLUDED.updated_at
+;
+
+WITH ctx AS (SELECT * FROM demo_seed_ctx)
+INSERT INTO connector_secrets (kind, secret_name, ciphertext, nonce, version, updated_at)
+VALUES
+  ('okta', 'token', decode('b8c70396902a94d8786371293c67a1586101631d2010464a1ae157a54fc943', 'hex'), decode('fa2d1740a65a9144f133b37e', 'hex'), 1, (SELECT now_ts FROM ctx)),
+  ('github', 'token', decode('857d05eca75b6e6c11edaa84a5ef6b681af7e023aae36e58f64fa3b567cedb91aa', 'hex'), decode('751b2162e4bc01786d08c00d', 'hex'), 1, (SELECT now_ts FROM ctx)),
+  ('datadog', 'api_key', decode('a47c4c4ebf63de247875ebf614e5542031af1f9e8c3569fc214469ab51a329dde5573f8b', 'hex'), decode('a973c4c28731ea1e13ab0564', 'hex'), 1, (SELECT now_ts FROM ctx)),
+  ('datadog', 'app_key', decode('6a8d7c417f989cc362f555aadc6b8117db8d65cd8386bd3ee40d59226ac7ab80ebb69806', 'hex'), decode('0102030405060708090a0b0c', 'hex'), 1, (SELECT now_ts FROM ctx))
+ON CONFLICT (kind, secret_name) DO UPDATE SET
+  ciphertext = EXCLUDED.ciphertext,
+  nonce = EXCLUDED.nonce,
+  version = EXCLUDED.version,
   updated_at = EXCLUDED.updated_at
 ;
 

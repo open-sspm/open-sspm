@@ -4,13 +4,20 @@
      kubectl create secret generic open-sspm-db \
        --from-literal=DATABASE_URL='postgres://USER:PASSWORD@HOST:5432/opensspm?sslmode=require'
 
-2) Install the chart
+2) Create a Secret containing CONNECTOR_SECRET_KEY (recommended before configuring connectors)
+
+   Example:
+     kubectl create secret generic open-sspm-app \
+       --from-literal=CONNECTOR_SECRET_KEY="$(openssl rand -base64 32)"
+
+3) Install the chart
 
    helm upgrade --install {{ .Release.Name }} ./helm/open-sspm \
      --set database.existingSecret.name=open-sspm-db \
-     --set database.existingSecret.key=DATABASE_URL
+     --set database.existingSecret.key=DATABASE_URL \
+     --set connectorSecret.existingSecret.name=open-sspm-app
 
-3) Create the first admin user
+4) Create the first admin user
 
    {{- if .Values.bootstrapAdmin.enabled }}
    The chart will bootstrap the first admin user via a Helm hook Job.
@@ -21,7 +28,7 @@
    or run `open-sspm users bootstrap-admin` inside the cluster.
    {{- end }}
 
-4) Access the service
+5) Access the service
 
    If ingress is disabled:
      kubectl port-forward svc/{{ include "open-sspm.fullname" . }} 8080:{{ .Values.service.port }}

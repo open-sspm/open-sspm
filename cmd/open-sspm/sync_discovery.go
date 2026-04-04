@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/sync"
@@ -35,18 +34,18 @@ func runSyncDiscovery() error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	runtimeDeps, err := openRuntimeDependencies(ctx, cfg)
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
+	defer runtimeDeps.pool.Close()
 
 	reg, err := buildConnectorRegistry(cfg)
 	if err != nil {
 		return err
 	}
 
-	locks, err := sync.NewLockManager(pool, sync.LockManagerConfig{
+	locks, err := sync.NewLockManager(runtimeDeps.pool, sync.LockManagerConfig{
 		Mode:              cfg.SyncLockMode,
 		InstanceID:        cfg.SyncLockInstanceID,
 		TTL:               cfg.SyncLockTTL,
@@ -57,7 +56,7 @@ func runSyncDiscovery() error {
 		return err
 	}
 
-	dbRunner := sync.NewDBRunner(pool, reg)
+	dbRunner := sync.NewDBRunner(runtimeDeps.pool, reg)
 	dbRunner.SetReporter(&sync.LogReporter{})
 	dbRunner.SetLockManager(locks)
 	dbRunner.SetRunMode(registry.RunModeDiscovery)

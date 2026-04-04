@@ -3,6 +3,12 @@ SELECT kind, enabled, config, created_at, updated_at
 FROM connector_configs
 ORDER BY kind;
 
+-- name: ListConnectorConfigsForUpdate :many
+SELECT kind, enabled, config, created_at, updated_at
+FROM connector_configs
+ORDER BY kind
+FOR UPDATE;
+
 -- name: GetConnectorConfig :one
 SELECT kind, enabled, config, created_at, updated_at
 FROM connector_configs

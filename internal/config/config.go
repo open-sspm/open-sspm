@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
@@ -30,6 +31,7 @@ const (
 
 type Config struct {
 	DatabaseURL                 string
+	ConnectorSecretKey          []byte
 	HTTPAddr                    string
 	MetricsAddr                 string
 	StaticDir                   string
@@ -178,6 +180,11 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 	} else if ok {
 		cfg.SyncLockHeartbeatTimeout = d
 	}
+	connectorSecretKey, err := loadConnectorSecretKey()
+	if err != nil {
+		return cfg, err
+	}
+	cfg.ConnectorSecretKey = connectorSecretKey
 
 	if opts.RequireDatabaseURL && cfg.DatabaseURL == "" {
 		return cfg, errors.New("DATABASE_URL is required")
@@ -189,6 +196,32 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func loadConnectorSecretKey() ([]byte, error) {
+	raw := strings.TrimSpace(os.Getenv("CONNECTOR_SECRET_KEY"))
+	path := strings.TrimSpace(os.Getenv("CONNECTOR_SECRET_KEY_FILE"))
+	if raw != "" && path != "" {
+		return nil, errors.New("CONNECTOR_SECRET_KEY and CONNECTOR_SECRET_KEY_FILE cannot both be set")
+	}
+	if path != "" {
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read CONNECTOR_SECRET_KEY_FILE: %w", err)
+		}
+		raw = strings.TrimSpace(string(contents))
+	}
+	if raw == "" {
+		return nil, nil
+	}
+	key, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil {
+		return nil, errors.New("connector secret key must be base64 encoded")
+	}
+	if len(key) != 32 {
+		return nil, errors.New("connector secret key must decode to 32 bytes")
+	}
+	return key, nil
 }
 
 func getenvDefault(key, def string) string {

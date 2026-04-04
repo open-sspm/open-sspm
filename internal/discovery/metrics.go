@@ -95,6 +95,11 @@ func configuredDiscoverySourcePairs(ctx context.Context, q *gen.Queries) ([]stri
 	if err != nil {
 		return nil, nil, err
 	}
+	secretRows, err := q.ListConnectorSecrets(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	secretPresence := configstore.SecretPresenceByKind(secretRows)
 
 	type sourcePair struct {
 		kind string
@@ -105,7 +110,11 @@ func configuredDiscoverySourcePairs(ctx context.Context, q *gen.Queries) ([]stri
 		kind := strings.ToLower(strings.TrimSpace(row.Kind))
 		switch kind {
 		case configstore.KindOkta:
-			cfg, err := configstore.DecodeOktaConfig(row.Config)
+			resolvedRaw, err := configstore.ResolveConfigWithSecretPresence(kind, row.Config, secretPresence[kind])
+			if err != nil {
+				continue
+			}
+			cfg, err := configstore.DecodeOktaConfig(resolvedRaw)
 			if err != nil {
 				continue
 			}
@@ -114,7 +123,11 @@ func configuredDiscoverySourcePairs(ctx context.Context, q *gen.Queries) ([]stri
 				configured[kind] = cfg.Domain
 			}
 		case configstore.KindEntra:
-			cfg, err := configstore.DecodeEntraConfig(row.Config)
+			resolvedRaw, err := configstore.ResolveConfigWithSecretPresence(kind, row.Config, secretPresence[kind])
+			if err != nil {
+				continue
+			}
+			cfg, err := configstore.DecodeEntraConfig(resolvedRaw)
 			if err != nil {
 				continue
 			}
@@ -123,7 +136,11 @@ func configuredDiscoverySourcePairs(ctx context.Context, q *gen.Queries) ([]stri
 				configured[kind] = cfg.TenantID
 			}
 		case configstore.KindGoogleWorkspace:
-			cfg, err := configstore.DecodeGoogleWorkspaceConfig(row.Config)
+			resolvedRaw, err := configstore.ResolveConfigWithSecretPresence(kind, row.Config, secretPresence[kind])
+			if err != nil {
+				continue
+			}
+			cfg, err := configstore.DecodeGoogleWorkspaceConfig(resolvedRaw)
 			if err != nil {
 				continue
 			}

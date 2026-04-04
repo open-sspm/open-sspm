@@ -60,6 +60,39 @@ func (q *Queries) ListConnectorConfigs(ctx context.Context) ([]ConnectorConfig, 
 	return items, nil
 }
 
+const listConnectorConfigsForUpdate = `-- name: ListConnectorConfigsForUpdate :many
+SELECT kind, enabled, config, created_at, updated_at
+FROM connector_configs
+ORDER BY kind
+FOR UPDATE
+`
+
+func (q *Queries) ListConnectorConfigsForUpdate(ctx context.Context) ([]ConnectorConfig, error) {
+	rows, err := q.db.Query(ctx, listConnectorConfigsForUpdate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ConnectorConfig
+	for rows.Next() {
+		var i ConnectorConfig
+		if err := rows.Scan(
+			&i.Kind,
+			&i.Enabled,
+			&i.Config,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateConnectorConfig = `-- name: UpdateConnectorConfig :one
 UPDATE connector_configs
 SET config = $2, updated_at = now()

@@ -202,6 +202,7 @@ const buildOptions = (state) => {
   state.optionsHost.replaceChildren();
   state.headers.forEach((header, index) => {
     const columnIndex = index + 1;
+    if (state.fixedColumns.has(columnIndex)) return;
     const item = document.createElement("button");
     item.type = "button";
     item.role = "menuitemcheckbox";

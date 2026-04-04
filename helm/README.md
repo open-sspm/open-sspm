@@ -44,6 +44,18 @@ kubectl create secret generic open-sspm-db \
   --from-literal=DATABASE_URL='postgres://USER:PASSWORD@HOST:5432/opensspm?sslmode=require'
 ```
 
+### Connector secret key (`CONNECTOR_SECRET_KEY`)
+
+If you plan to configure connector credentials, provide a stable base64-encoded 32-byte key via an existing Kubernetes Secret:
+- `connectorSecret.existingSecret.name`
+- `connectorSecret.existingSecret.key` (default: `CONNECTOR_SECRET_KEY`)
+
+Example:
+```bash
+kubectl create secret generic open-sspm-app \
+  --from-literal=CONNECTOR_SECRET_KEY="$(openssl rand -base64 32)"
+```
+
 ### Install / upgrade
 
 Minimal install:
@@ -51,7 +63,8 @@ Minimal install:
 helm upgrade --install open-sspm ./helm/open-sspm \
   --set image.repository=ghcr.io/<org>/<repo> \
   --set image.tag=<tag> \
-  --set database.existingSecret.name=open-sspm-db
+  --set database.existingSecret.name=open-sspm-db \
+  --set connectorSecret.existingSecret.name=open-sspm-app
 ```
 
 ### Migrations (pre-install/pre-upgrade Job)
@@ -171,6 +184,7 @@ helm upgrade --install open-sspm ./helm/open-sspm \
 Notes:
 - The bootstrap runs `open-sspm users bootstrap-admin` and is **idempotent** (it exits successfully if an admin already exists).
 - Avoid putting passwords directly in Helm values (`--set`), since Helm stores release values.
+- Losing `CONNECTOR_SECRET_KEY` means stored connector secrets can no longer be decrypted and must be re-entered.
 
 ### Cookie security (`AUTH_COOKIE_SECURE`)
 

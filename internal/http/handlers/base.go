@@ -45,6 +45,10 @@ type Handlers struct {
 	Registry *registry.ConnectorRegistry
 }
 
+func (h *Handlers) connectorConfigStore() *configstore.Store {
+	return configstore.NewStore(h.Pool, h.Q, h.Cfg.ConnectorSecretKey)
+}
+
 // ConnectorSnapshot holds the current connector configuration state.
 type ConnectorSnapshot struct {
 	Okta                        configstore.OktaConfig

@@ -35,7 +35,9 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 4. Install JS deps + build CSS: `npm install && just ui`
 5. Run the server: `just run`
 6. Run background workers: `just worker` (full lane) and `go run ./cmd/open-sspm worker-discovery` (discovery lane).
-7. Open `http://localhost:8080`, configure connectors under Settings → Connectors, then run a sync (Settings → Resync queues workers by default, or use `just sync` for one-off inline execution).
+7. Generate a stable connector secret key and export it before configuring connectors:
+   - `export CONNECTOR_SECRET_KEY="$(openssl rand -base64 32)"`
+8. Open `http://localhost:8080`, configure connectors under Settings → Connectors, then run a sync (Settings → Resync queues workers by default, or use `just sync` for one-off inline execution).
 8. Optional: enable SaaS discovery on Okta/Entra connector settings, run sync, then review `http://localhost:8080/discovery/apps` and `http://localhost:8080/discovery/hotspots`.
 
 ## Findings / rules (Okta benchmark)
@@ -63,7 +65,7 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
   - Invalid logging values fail fast at startup.
 - Discovery lane: `SYNC_DISCOVERY_ENABLED=1` (default) enables the separate SaaS discovery lane; set `0` to disable discovery workers and discovery resyncs system-wide.
 - Manual resync mode: `RESYNC_MODE=signal` (default, creates a durable sync job for background workers) or `RESYNC_MODE=inline` (request runs sync directly).
-- Connector credentials: configured in-app under Settings → Connectors and stored in Postgres.
+- Connector credentials: configured in-app under Settings → Connectors. Public connector metadata stays in Postgres, and secret values are stored separately in encrypted form using `CONNECTOR_SECRET_KEY` / `CONNECTOR_SECRET_KEY_FILE`.
 - AWS Identity Center uses the AWS SDK default credentials chain (env/shared config/role), not DB-stored keys.
 - SaaS discovery is per-connector (`discovery_enabled`) for Okta, Entra, and Google Workspace.
   - Okta discovery uses System Log access.
@@ -98,7 +100,8 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 
 ## Security notes
 - Open-SSPM includes in-app authentication (email/password) using server-side sessions stored in Postgres.
-- Avoid logging connector secrets; tokens are stored in Postgres.
+- Avoid logging connector secrets.
+- Set a stable base64-encoded 32-byte `CONNECTOR_SECRET_KEY` (or `CONNECTOR_SECRET_KEY_FILE`) anywhere you run `serve`, `worker`, or sync commands. Losing that key means stored connector secrets must be re-entered.
 
 ## Contributing
 

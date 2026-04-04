@@ -19,6 +19,11 @@ database:
     name: ""
     key: DATABASE_URL
 
+connectorSecret:
+  existingSecret:
+    name: ""
+    key: CONNECTOR_SECRET_KEY
+
 config:
   httpAddr: ":8080"
   # Metrics listener (set to "off" to disable).

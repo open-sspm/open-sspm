@@ -21,10 +21,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	connregistry "github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
+
+const commandSearchTestConnectorSecretKey = "0123456789abcdef0123456789abcdef"
 
 type commandSearchFixture struct {
 	azureIdentityID            int64
@@ -381,6 +384,7 @@ func withCommandSearchTestDatabase(t *testing.T, fn func(context.Context, *pgxpo
 
 	q := gen.New(pool)
 	fn(ctx, pool, q, &Handlers{
+		Cfg:      config.Config{ConnectorSecretKey: []byte(commandSearchTestConnectorSecretKey)},
 		Q:        q,
 		Pool:     pool,
 		Registry: newCommandSearchTestRegistry(t),
@@ -391,6 +395,7 @@ func newCommandSearchTestRegistry(t *testing.T) *connregistry.ConnectorRegistry 
 	t.Helper()
 
 	reg := connregistry.NewRegistry()
+	reg.SetConnectorSecretKey([]byte(commandSearchTestConnectorSecretKey))
 	defs := []commandSearchTestDefinition{
 		{kind: configstore.KindOkta, displayName: "Okta", role: connregistry.RoleIdP},
 		{kind: configstore.KindEntra, displayName: "Microsoft Entra", role: connregistry.RoleIdP},
@@ -450,20 +455,27 @@ func upsertCommandSearchConnectorConfig(t *testing.T, ctx context.Context, pool 
 		}
 	}
 
-	payload, err := json.Marshal(cfg)
+	tx, err := pool.Begin(ctx)
 	if err != nil {
-		t.Fatalf("marshal connector config %s: %v", kind, err)
+		t.Fatalf("begin connector config tx %s: %v", kind, err)
 	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO connector_configs (kind, enabled, config, updated_at)
-		VALUES ($1, $2, $3::jsonb, now())
-		ON CONFLICT (kind) DO UPDATE SET
-			enabled = EXCLUDED.enabled,
-			config = EXCLUDED.config,
-			updated_at = EXCLUDED.updated_at
-	`, kind, enabled, payload); err != nil {
-		t.Fatalf("upsert connector config %s: %v", kind, err)
+	qtx := gen.New(pool).WithTx(tx)
+	if _, err := qtx.UpdateConnectorConfigEnabled(ctx, gen.UpdateConnectorConfigEnabledParams{
+		Kind:    kind,
+		Enabled: enabled,
+	}); err != nil {
+		t.Fatalf("update connector config enabled %s: %v", kind, err)
+	}
+	store := configstore.NewStore(nil, qtx, []byte(commandSearchTestConnectorSecretKey))
+	if err := store.SaveConnectorConfigTx(ctx, qtx, kind, cfg); err != nil {
+		t.Fatalf("save connector config %s: %v", kind, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("commit connector config %s: %v", kind, err)
 	}
 }
 
