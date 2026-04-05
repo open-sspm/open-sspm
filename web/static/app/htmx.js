@@ -182,11 +182,13 @@ const syncEnterOnlyQueryParameter = (detail) => {
   if (!queryParam) return;
 
   if (queryInput.defaultValue === "") {
-    delete detail.parameters?.[queryParam];
+    if (detail.parameters) delete detail.parameters[queryParam];
     return;
   }
 
-  detail.parameters[queryParam] = queryInput.defaultValue;
+  if (detail.parameters) {
+    detail.parameters[queryParam] = queryInput.defaultValue;
+  }
 };
 
 const prepareLazyRequest = (event) => {
