@@ -15,9 +15,11 @@ templ IdentitiesPage(data viewmodels.IdentitiesViewData) {
 
 templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 	<div id="identities-results" class="space-y-6">
+		@BusyInlineIndicator("Updating results...", false)
 		<form
 			method="get"
 			action="/identities"
+			data-enter-only-query="q"
 			hx-get="/identities"
 			hx-trigger="change delay:150ms from:select, change from:input[type='checkbox'], submit"
 			hx-target="#identities-results"
@@ -29,12 +31,16 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 				<label class="field w-full lg:max-w-xl">
 					<span class="sr-only">Query</span>
 					<div class="relative">
-						<input type="search" name="q" value={ data.Query } placeholder="Search name, email, or external ID" class="input pr-10"/>
-						if data.Query != "" {
-							<a
-								class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
-								aria-label="Clear query"
-								href={ IdentitiesListURL(data.SelectedSourceKind, data.SelectedSourceName, "", data.IdentityType, data.ManagedState, data.PrivilegedOnly, data.Status, data.ActivityState, data.LinkQuality, data.SortBy, data.SortDir, data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason, 1) }
+							<input type="search" name="q" value={ data.Query.Q } placeholder="Search name, email, or external ID" class="input pr-10"/>
+							if data.Query.Q != "" {
+								<a
+									class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
+									aria-label="Clear query"
+									href={ data.Query.ClearQuery().Href() }
+									hx-get={ data.Query.ClearQuery().Href() }
+								hx-target="#identities-results"
+								hx-swap="outerHTML"
+								hx-push-url="true"
 							>
 								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
 									<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
@@ -53,39 +59,63 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 			</div>
 			<div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Activity filters">
 				<a
-					class={ FilterPillClass(data.ActivityState == "") }
-					href={ IdentitiesListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.IdentityType, data.ManagedState, data.PrivilegedOnly, data.Status, "", data.LinkQuality, data.SortBy, data.SortDir, data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason, 1) }
+						class={ FilterPillClass(data.Query.ActivityState == "") }
+						href={ data.Query.WithActivityState("").Href() }
+						hx-get={ data.Query.WithActivityState("").Href() }
+					hx-target="#identities-results"
+					hx-swap="outerHTML"
+					hx-push-url="true"
 				>
 					Any activity
 				</a>
 				<a
-					class={ FilterPillClass(data.ActivityState == "recent") }
-					href={ IdentitiesListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.IdentityType, data.ManagedState, data.PrivilegedOnly, data.Status, "recent", data.LinkQuality, data.SortBy, data.SortDir, data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason, 1) }
+						class={ FilterPillClass(data.Query.ActivityState == "recent") }
+						href={ data.Query.WithActivityState("recent").Href() }
+						hx-get={ data.Query.WithActivityState("recent").Href() }
+					hx-target="#identities-results"
+					hx-swap="outerHTML"
+					hx-push-url="true"
 				>
 					Seen &lt; 30d
 				</a>
 				<a
-					class={ FilterPillClass(data.ActivityState == "aging") }
-					href={ IdentitiesListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.IdentityType, data.ManagedState, data.PrivilegedOnly, data.Status, "aging", data.LinkQuality, data.SortBy, data.SortDir, data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason, 1) }
+						class={ FilterPillClass(data.Query.ActivityState == "aging") }
+						href={ data.Query.WithActivityState("aging").Href() }
+						hx-get={ data.Query.WithActivityState("aging").Href() }
+					hx-target="#identities-results"
+					hx-swap="outerHTML"
+					hx-push-url="true"
 				>
 					30-89d
 				</a>
 				<a
-					class={ FilterPillClass(data.ActivityState == "stale") }
-					href={ IdentitiesListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.IdentityType, data.ManagedState, data.PrivilegedOnly, data.Status, "stale", data.LinkQuality, data.SortBy, data.SortDir, data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason, 1) }
+						class={ FilterPillClass(data.Query.ActivityState == "stale") }
+						href={ data.Query.WithActivityState("stale").Href() }
+						hx-get={ data.Query.WithActivityState("stale").Href() }
+					hx-target="#identities-results"
+					hx-swap="outerHTML"
+					hx-push-url="true"
 				>
 					90d+
 				</a>
 				<a
-					class={ FilterPillClass(data.ActivityState == "never_seen") }
-					href={ IdentitiesListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.IdentityType, data.ManagedState, data.PrivilegedOnly, data.Status, "never_seen", data.LinkQuality, data.SortBy, data.SortDir, data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason, 1) }
+						class={ FilterPillClass(data.Query.ActivityState == "never_seen") }
+						href={ data.Query.WithActivityState("never_seen").Href() }
+						hx-get={ data.Query.WithActivityState("never_seen").Href() }
+					hx-target="#identities-results"
+					hx-swap="outerHTML"
+					hx-push-url="true"
 				>
 					Never seen
 				</a>
 				<span class="mx-2 h-4 w-px bg-border" aria-hidden="true"></span>
 				<a
-					class={ FilterPillClass(data.PrivilegedOnly) }
-					href={ IdentitiesListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.IdentityType, data.ManagedState, !data.PrivilegedOnly, data.Status, data.ActivityState, data.LinkQuality, data.SortBy, data.SortDir, data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason, 1) }
+						class={ FilterPillClass(data.Query.PrivilegedOnly) }
+						href={ data.Query.TogglePrivilegedOnly().Href() }
+						hx-get={ data.Query.TogglePrivilegedOnly().Href() }
+					hx-target="#identities-results"
+					hx-swap="outerHTML"
+					hx-push-url="true"
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="mr-1 h-3 w-3" aria-hidden="true">
 						<path fill-rule="evenodd" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7A1.5 1.5 0 0 0 3 8.5v4A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5v-4A1.5 1.5 0 0 0 11 7V4.5A3.5 3.5 0 0 0 8 1Zm2 6V4.5a2 2 0 1 0-4 0V7h4Z" clip-rule="evenodd"/>
@@ -103,69 +133,69 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 					<label class="field">
 						<span class="label">Status</span>
 						<select class="select" name="status">
-							<option value="" selected?={ data.Status == "" }>Any</option>
-							<option value="active" selected?={ data.Status == "active" }>Active</option>
-							<option value="suspended" selected?={ data.Status == "suspended" }>Suspended</option>
-							<option value="orphaned" selected?={ data.Status == "orphaned" }>Orphaned</option>
-							<option value="deleted" selected?={ data.Status == "deleted" }>Deleted</option>
-							<option value="unknown" selected?={ data.Status == "unknown" }>Unknown</option>
+								<option value="" selected?={ data.Query.Status == "" }>Any</option>
+								<option value="active" selected?={ data.Query.Status == "active" }>Active</option>
+								<option value="suspended" selected?={ data.Query.Status == "suspended" }>Suspended</option>
+								<option value="orphaned" selected?={ data.Query.Status == "orphaned" }>Orphaned</option>
+								<option value="deleted" selected?={ data.Query.Status == "deleted" }>Deleted</option>
+								<option value="unknown" selected?={ data.Query.Status == "unknown" }>Unknown</option>
 						</select>
 					</label>
 					<label class="field">
 						<span class="label">Source</span>
 						<select class="select" name="source_kind">
-							<option value="" selected?={ data.SelectedSourceKind == "" }>All configured</option>
-							for _, source := range data.Sources {
-								<option value={ source.SourceKind } selected?={ source.SourceKind == data.SelectedSourceKind } title={ source.Label }>{ source.Label }</option>
-							}
-						</select>
-					</label>
+								<option value="" selected?={ data.Query.Source.Kind == "" }>All configured</option>
+								for _, source := range data.Sources {
+									<option value={ source.SourceKind } selected?={ source.SourceKind == data.Query.Source.Kind } title={ source.Label }>{ source.Label }</option>
+								}
+							</select>
+						</label>
 					<label class="field">
 						<span class="label">Source name</span>
 						<select class="select" name="source_name">
-							<option value="" selected?={ data.SelectedSourceName == "" }>All source names</option>
-							for _, source := range data.SourceNameOptions {
-								<option value={ source.SourceName } selected?={ source.SourceName == data.SelectedSourceName }>{ source.SourceName }</option>
-							}
-						</select>
-					</label>
+								<option value="" selected?={ data.Query.Source.Name == "" }>All source names</option>
+								for _, source := range data.SourceNameOptions {
+									<option value={ source.SourceName } selected?={ source.SourceName == data.Query.Source.Name }>{ source.SourceName }</option>
+								}
+							</select>
+						</label>
 					<label class="field">
 						<span class="label">Type</span>
 						<select class="select" name="identity_type">
-							<option value="" selected?={ data.IdentityType == "" }>Any</option>
-							<option value="human" selected?={ data.IdentityType == "human" }>Human</option>
-							<option value="service" selected?={ data.IdentityType == "service" }>Service</option>
-							<option value="bot" selected?={ data.IdentityType == "bot" }>Bot</option>
-							<option value="unknown" selected?={ data.IdentityType == "unknown" }>Unknown</option>
+								<option value="" selected?={ data.Query.IdentityType == "" }>Any</option>
+								<option value="human" selected?={ data.Query.IdentityType == "human" }>Human</option>
+								<option value="service" selected?={ data.Query.IdentityType == "service" }>Service</option>
+								<option value="bot" selected?={ data.Query.IdentityType == "bot" }>Bot</option>
+								<option value="unknown" selected?={ data.Query.IdentityType == "unknown" }>Unknown</option>
 						</select>
 					</label>
 					<label class="field">
 						<span class="label">Managed</span>
 						<select class="select" name="managed_state">
-							<option value="" selected?={ data.ManagedState == "" }>Any</option>
-							<option value="managed" selected?={ data.ManagedState == "managed" }>Managed</option>
-							<option value="unmanaged" selected?={ data.ManagedState == "unmanaged" }>Unmanaged</option>
+								<option value="" selected?={ data.Query.ManagedState == "" }>Any</option>
+								<option value="managed" selected?={ data.Query.ManagedState == "managed" }>Managed</option>
+								<option value="unmanaged" selected?={ data.Query.ManagedState == "unmanaged" }>Unmanaged</option>
 						</select>
 					</label>
 					<label class="field">
 						<span class="label">Sort</span>
 						<select class="select" name="sort_by">
-							<option value="" selected?={ data.SortBy == "" }>Priority (default)</option>
-							<option value="identity" selected?={ data.SortBy == "identity" }>Identity</option>
-							<option value="identity_type" selected?={ data.SortBy == "identity_type" }>Identity type</option>
-							<option value="managed" selected?={ data.SortBy == "managed" }>Managed</option>
-							<option value="source_type" selected?={ data.SortBy == "source_type" }>Source type</option>
-							<option value="linked_sources" selected?={ data.SortBy == "linked_sources" }>Linked sources</option>
-							<option value="privileged_roles" selected?={ data.SortBy == "privileged_roles" }>Privileged roles</option>
-							<option value="status" selected?={ data.SortBy == "status" }>Status</option>
-							<option value="last_seen" selected?={ data.SortBy == "last_seen" }>Last seen</option>
+								<option value="" selected?={ data.Query.SortBy == "" }>Priority (default)</option>
+								<option value="identity" selected?={ data.Query.SortBy == "identity" }>Identity</option>
+								<option value="identity_type" selected?={ data.Query.SortBy == "identity_type" }>Identity type</option>
+								<option value="managed" selected?={ data.Query.SortBy == "managed" }>Managed</option>
+								<option value="source_type" selected?={ data.Query.SortBy == "source_type" }>Source type</option>
+								<option value="linked_sources" selected?={ data.Query.SortBy == "linked_sources" }>Linked sources</option>
+								<option value="privileged_roles" selected?={ data.Query.SortBy == "privileged_roles" }>Privileged roles</option>
+								<option value="status" selected?={ data.Query.SortBy == "status" }>Status</option>
+								<option value="last_seen" selected?={ data.Query.SortBy == "last_seen" }>Last seen</option>
 						</select>
 					</label>
 					<label class="field">
 						<span class="label">Direction</span>
 						<select class="select" name="sort_dir">
-							<option value="desc" selected?={ data.SortDir == "desc" || data.SortDir == "" }>Descending</option>
-							<option value="asc" selected?={ data.SortDir == "asc" }>Ascending</option>
+								<option value="desc" selected?={ data.Query.SortDir == "desc" || data.Query.SortDir == "" }>Descending</option>
+								<option value="asc" selected?={ data.Query.SortDir == "asc" }>Ascending</option>
 						</select>
 					</label>
 				</div>
@@ -267,12 +297,12 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 					<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
 					<div class="button-group ml-auto">
 						if data.Page > 1 {
-							<a class="btn-sm-outline" href={ IdentitiesListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.IdentityType, data.ManagedState, data.PrivilegedOnly, data.Status, data.ActivityState, data.LinkQuality, data.SortBy, data.SortDir, data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason, data.Page-1) }>Previous</a>
+								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#identities-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
 						} else {
 							<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
 						}
 						if data.Page < data.TotalPages {
-							<a class="btn-sm-outline" href={ IdentitiesListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.IdentityType, data.ManagedState, data.PrivilegedOnly, data.Status, data.ActivityState, data.LinkQuality, data.SortBy, data.SortDir, data.ShowFirstSeen, data.ShowLinkQuality, data.ShowLinkReason, data.Page+1) }>Next</a>
+								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#identities-results" hx-swap="outerHTML" hx-push-url="true">Next</a>
 						} else {
 							<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
 						}

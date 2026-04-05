@@ -149,6 +149,7 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 
 templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 	<section id="rules-card" class="space-y-3">
+		@BusyInlineIndicator("Updating rules...", false)
 		<div>
 			<h2 class="text-base font-semibold">Rules</h2>
 			<p class="text-sm text-muted-foreground">Filter and review the current results for this ruleset.</p>

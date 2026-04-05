@@ -269,6 +269,15 @@
     }
   }
 
+  [data-busy-inline-indicator] {
+    display: none;
+  }
+
+  [aria-busy="true"] > [data-busy-inline-indicator],
+  [data-busy-inline-indicator-active] {
+    display: inline-flex;
+  }
+
   [data-busy-region][aria-busy="true"],
   .card[aria-busy="true"] {
     position: relative;

@@ -1,11 +1,13 @@
 package viewmodels
 
-import "github.com/open-sspm/open-sspm/internal/db/gen"
+import (
+	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
+)
 
 type OktaAccountsViewData struct {
 	PaginatedListPageData
 	Users    []gen.Account
-	Query    string
-	State    string
+	Query    querystate.BasicListQuery
 	HasUsers bool
 }

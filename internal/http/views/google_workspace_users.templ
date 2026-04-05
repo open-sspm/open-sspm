@@ -1,6 +1,9 @@
 package views
 
-import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+import (
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
+	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
+)
 
 templ GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) {
 	@Layout(data.Layout) {
@@ -10,7 +13,7 @@ templ GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) {
 		}, "Synced Google Workspace users with group/admin-role visibility.") {
 			if data.Layout.GoogleWorkspaceConfigured && data.Layout.GoogleWorkspaceEnabled {
 				<a class="btn-sm-outline" href="/accounts/google-workspace/groups">Groups</a>
-				<a class="btn-sm-outline" href={ ConnectedAppsListURL("", "", 1) }>OAuth Apps</a>
+				<a class="btn-sm-outline" href={ querystate.ConnectedAppsQuery{}.Href() }>OAuth Apps</a>
 				<a class="btn-sm-outline" href="/accounts/unlinked/google-workspace">Unlinked</a>
 			} else {
 				<a class="btn-sm-outline" href="/settings/connectors?open=google_workspace">Configure</a>
@@ -38,9 +41,9 @@ templ GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) {
 				<label class="field w-full lg:max-w-xl">
 					<span class="sr-only">Query</span>
 					<div class="relative">
-						<input type="search" name="q" value={ data.Query } placeholder="Search email, name, or Google user ID" class="input pr-10"/>
-						if data.Query != "" {
-							<a class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2" aria-label="Clear query" href="/accounts/google-workspace">
+						<input type="search" name="q" value={ data.Query.Q } placeholder="Search email, name, or Google user ID" class="input pr-10"/>
+						if data.Query.Q != "" {
+							<a class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2" aria-label="Clear query" href={ data.Query.ClearQuery().Href() }>
 								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
 									<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
 								</svg>
@@ -120,18 +123,18 @@ templ GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) {
 			}
 			if data.TotalPages > 1 {
 				<div class="flex flex-wrap items-center gap-3 border-t py-3">
-					<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
-					<div class="button-group ml-auto">
-						if data.Page > 1 {
-							<a class="btn-sm-outline" href={ ListURL("/accounts/google-workspace", data.Query, "", data.Page-1) }>Previous</a>
-						} else {
-							<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
-						}
-						if data.Page < data.TotalPages {
-							<a class="btn-sm-outline" href={ ListURL("/accounts/google-workspace", data.Query, "", data.Page+1) }>Next</a>
-						} else {
-							<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
-						}
+						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
+						<div class="button-group ml-auto">
+							if data.Page > 1 {
+								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() }>Previous</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
+							}
+							if data.Page < data.TotalPages {
+								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() }>Next</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
+							}
 					</div>
 				</div>
 			}

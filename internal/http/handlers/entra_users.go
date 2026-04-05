@@ -14,6 +14,7 @@ import (
 func (h *Handlers) HandleEntraUsers(c *echo.Context) error {
 	inventory, err := h.buildSourceAccountInventoryPage(c, sourceAccountInventoryOptions{
 		Title:              "Microsoft Entra ID Users",
+		BasePath:           "/accounts/entra",
 		ConnectorName:      "Microsoft Entra ID",
 		ConnectorKind:      "entra",
 		SourceKind:         querySourceKind("entra"),
@@ -95,6 +96,7 @@ func (h *Handlers) HandleEntraUsers(c *echo.Context) error {
 func (h *Handlers) HandleUnmatchedEntra(c *echo.Context) error {
 	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
 		Title:              "Unlinked Microsoft Entra ID Users",
+		BasePath:           "/accounts/unlinked/entra",
 		ConnectorName:      "Microsoft Entra ID",
 		ConnectorKind:      "entra",
 		SourceKind:         "entra",

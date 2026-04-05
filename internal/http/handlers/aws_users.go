@@ -14,6 +14,7 @@ import (
 func (h *Handlers) HandleAWSUsers(c *echo.Context) error {
 	inventory, err := h.buildSourceAccountInventoryPage(c, sourceAccountInventoryOptions{
 		Title:              "AWS Identity Center Users",
+		BasePath:           "/accounts/aws",
 		ConnectorName:      "AWS Identity Center",
 		ConnectorKind:      "aws_identity_center",
 		SourceKind:         querySourceKind("aws_identity_center"),
@@ -95,6 +96,7 @@ func (h *Handlers) HandleAWSUsers(c *echo.Context) error {
 func (h *Handlers) HandleUnmatchedAWS(c *echo.Context) error {
 	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
 		Title:              "Unlinked AWS Identity Center Users",
+		BasePath:           "/accounts/unlinked/aws",
 		ConnectorName:      "AWS Identity Center",
 		ConnectorKind:      "aws_identity_center",
 		SourceKind:         "aws",

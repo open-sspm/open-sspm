@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v5"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
@@ -32,6 +33,7 @@ type sourceAccountInventoryResult struct {
 
 type sourceAccountInventoryOptions struct {
 	Title                string
+	BasePath             string
 	ConnectorName        string
 	ConnectorKind        string
 	SourceKind           string
@@ -50,8 +52,8 @@ func (h *Handlers) buildSourceAccountInventoryPage(c *echo.Context, opts sourceA
 		return sourceAccountInventoryResult{}, err
 	}
 
-	query := strings.TrimSpace(c.QueryParam("q"))
-	pagination := newPaginatedListState(0, parsePageParam(c), sourceAccountInventoryPerPage)
+	query := querystate.ParseBasicListQuery(opts.BasePath, c.Request().URL.Query(), querystate.BasicListOptions{})
+	pagination := newPaginatedListState(0, query.Page, sourceAccountInventoryPerPage)
 	configured := stateView.Configured(opts.ConnectorKind)
 	enabled := stateView.Enabled(opts.ConnectorKind)
 	sourceName := stateView.SourceName(opts.ConnectorKind)
@@ -64,19 +66,19 @@ func (h *Handlers) buildSourceAccountInventoryPage(c *echo.Context, opts sourceA
 		}, nil
 	}
 
-	totalCount, err := opts.Count(ctx, sourceName, query)
+	totalCount, err := opts.Count(ctx, sourceName, query.Q)
 	if err != nil {
 		return sourceAccountInventoryResult{}, err
 	}
 
-	pagination = newPaginatedListState(totalCount, parsePageParam(c), sourceAccountInventoryPerPage)
-	accounts, err := opts.List(ctx, sourceName, query, pagination.Offset(), sourceAccountInventoryPerPage)
+	pagination = newPaginatedListState(totalCount, query.Page, sourceAccountInventoryPerPage)
+	accounts, err := opts.List(ctx, sourceName, query.Q, pagination.Offset(), sourceAccountInventoryPerPage)
 	if err != nil {
 		return sourceAccountInventoryResult{}, err
 	}
 
 	emptyState := opts.SyncedEmptyState
-	if query != "" {
+	if query.HasFilters() {
 		emptyState = opts.FilteredEmptyState
 	}
 

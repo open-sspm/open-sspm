@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
@@ -70,7 +71,12 @@ func TestHandleAppAssetsPaginatesAcrossConfiguredSources(t *testing.T) {
 		assertContains(t, body, "Asset 21")
 		assertContains(t, body, "Page 2 of 2")
 		assertContains(t, body, "Showing 21-21 of 21")
+		assertContains(t, body, `data-busy-inline-indicator`)
+		assertContains(t, body, `data-enter-only-query="q"`)
+		assertContains(t, body, `hx-get="/app-assets?page=1"`)
+		assertContains(t, body, `hx-trigger="change delay:150ms from:select, submit"`)
 		assertNotContains(t, body, "Asset 01")
+		assertNotContains(t, body, `input changed delay:300ms from:input[name='q']`)
 	})
 }
 
@@ -109,7 +115,107 @@ func TestHandleAppAssetsRendersGoogleOAuthSlice(t *testing.T) {
 		assertContains(t, body, "/app-assets/"+fmt.Sprint(needsReviewID))
 		assertNotContains(t, body, "/app-assets/"+fmt.Sprint(unreviewedID))
 		assertContains(t, body, "Needs revocation")
+		assertContains(t, body, `data-busy-inline-indicator`)
+		assertContains(t, body, `data-enter-only-query="q"`)
+		assertContains(t, body, `hx-get="/app-assets?source_kind=google_workspace&amp;asset_kind=google_oauth_client&amp;review_state=needs_revocation&amp;page=1"`)
 		assertContains(t, body, `name="source_kind" value="google_workspace"`)
 		assertContains(t, body, `name="asset_kind" value="google_oauth_client"`)
+	})
+}
+
+func TestHandleAppAssetsRendersGoogleOAuthSliceWhenGoogleWorkspaceUnavailable(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		c, rec := newTestContext(http.MethodGet, "http://example.com/app-assets?source_kind=google_workspace&asset_kind=google_oauth_client")
+
+		if err := h.HandleAppAssets(c); err != nil {
+			t.Fatalf("HandleAppAssets(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		body := rec.Body.String()
+		assertContains(t, body, "OAuth Apps")
+		assertContains(t, body, connectorUnavailableMessage("Google Workspace", false, false))
+		assertNotContains(t, body, "Configure and enable GitHub, Google Workspace, Microsoft Entra, or Vault connectors to populate app assets.")
+	})
+}
+
+func TestHandleConnectedAppsRedirectPreservesUnavailableOAuthSlice(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		c, rec := newTestContext(http.MethodGet, "http://example.com/oauth-apps")
+
+		if err := h.HandleConnectedApps(c); err != nil {
+			t.Fatalf("HandleConnectedApps(): %v", err)
+		}
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusSeeOther, rec.Body.String())
+		}
+
+		location := rec.Header().Get(echo.HeaderLocation)
+		if location != "/app-assets?asset_kind=google_oauth_client&source_kind=google_workspace" {
+			t.Fatalf("location = %q", location)
+		}
+
+		follow, followRec := newTestContext(http.MethodGet, "http://example.com"+location)
+		if err := h.HandleAppAssets(follow); err != nil {
+			t.Fatalf("HandleAppAssets(): %v", err)
+		}
+		if followRec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", followRec.Code, http.StatusOK, followRec.Body.String())
+		}
+
+		body := followRec.Body.String()
+		assertContains(t, body, "OAuth Apps")
+		assertContains(t, body, connectorUnavailableMessage("Google Workspace", false, false))
+		assertNotContains(t, body, "Configure and enable GitHub, Google Workspace, Microsoft Entra, or Vault connectors to populate app assets.")
+	})
+}
+
+func TestHandleCredentialsUsesSubmitOnlySearchTrigger(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
+			Org:   "acme",
+			Token: "token-1",
+		})
+
+		c, rec := newTestContext(http.MethodGet, "http://example.com/credentials")
+
+		if err := h.HandleCredentials(c); err != nil {
+			t.Fatalf("HandleCredentials(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		body := rec.Body.String()
+		assertContains(t, body, `data-busy-inline-indicator`)
+		assertContains(t, body, `data-enter-only-query="q"`)
+		assertContains(t, body, `hx-trigger="change delay:150ms from:select, submit"`)
+		assertNotContains(t, body, `input changed delay:300ms from:input[name='q']`)
+	})
+}
+
+func TestHandleCredentialsHTMXReturnsResultsShellOnly(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
+			Org:   "acme",
+			Token: "token-1",
+		})
+
+		c, rec := newTestContext(http.MethodGet, "http://example.com/credentials")
+		(*c).Request().Header.Set("HX-Request", "true")
+		(*c).Request().Header.Set("HX-Target", "credentials-results")
+
+		if err := h.HandleCredentials(c); err != nil {
+			t.Fatalf("HandleCredentials(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		body := rec.Body.String()
+		assertContains(t, body, `id="credentials-results"`)
+		assertNotContains(t, body, "<!doctype html>")
 	})
 }

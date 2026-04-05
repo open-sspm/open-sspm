@@ -1,5 +1,7 @@
 package viewmodels
 
+import "github.com/open-sspm/open-sspm/internal/http/querystate"
+
 type AppListItem struct {
 	ExternalID     string
 	Label          string
@@ -13,6 +15,6 @@ type AppListItem struct {
 type AppsViewData struct {
 	PaginatedListPageData
 	Apps    []AppListItem
-	Query   string
+	Query   querystate.BasicListQuery
 	HasApps bool
 }

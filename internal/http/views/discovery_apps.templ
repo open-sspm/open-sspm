@@ -16,9 +16,11 @@ templ DiscoveryAppsPage(data viewmodels.DiscoveryAppsViewData) {
 
 templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 	<div id="discovery-apps-results" class="space-y-6">
+		@BusyInlineIndicator("Updating results...", false)
 		<form
 			method="get"
 			action="/discovery/apps"
+			data-enter-only-query="q"
 			hx-get="/discovery/apps"
 			hx-trigger="change delay:150ms from:select, submit"
 			hx-target="#discovery-apps-results"
@@ -30,9 +32,9 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 				<label class="field w-full lg:max-w-xl">
 					<span class="sr-only">Query</span>
 					<div class="relative">
-						<input type="search" name="q" class="input pr-10" placeholder="Search name, domain, vendor, or key" value={ data.Query }/>
-						if data.Query != "" {
-							<a class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2" aria-label="Clear query" href={ DiscoveryAppsListURL(data.SelectedSourceKind, data.SelectedSourceName, "", data.ManagedState, data.RiskLevel, 1) }>
+						<input type="search" name="q" class="input pr-10" placeholder="Search name, domain, vendor, or key" value={ data.Query.Q }/>
+						if data.Query.Q != "" {
+							<a class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2" aria-label="Clear query" href={ data.Query.ClearQuery().Href() } hx-get={ data.Query.ClearQuery().Href() } hx-target="#discovery-apps-results" hx-swap="outerHTML" hx-push-url="true">
 								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
 									<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
 								</svg>
@@ -58,28 +60,28 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 					<label class="field">
 						<span class="label">Source kind</span>
 						<select class="select" name="source_kind">
-							<option value="" selected?={ data.SelectedSourceKind == "" }>All configured</option>
+							<option value="" selected?={ data.Query.Source.Kind == "" }>All configured</option>
 							for _, source := range data.SourceOptions {
-								<option value={ source.SourceKind } selected?={ source.SourceKind == data.SelectedSourceKind } title={ source.Label }>{ source.Label }</option>
+								<option value={ source.SourceKind } selected?={ source.SourceKind == data.Query.Source.Kind } title={ source.Label }>{ source.Label }</option>
 							}
 						</select>
 					</label>
 					<label class="field">
 						<span class="label">Managed state</span>
 						<select class="select" name="managed_state">
-							<option value="" selected?={ data.ManagedState == "" }>Any</option>
-							<option value="managed" selected?={ data.ManagedState == "managed" }>Managed</option>
-							<option value="unmanaged" selected?={ data.ManagedState == "unmanaged" }>Unmanaged</option>
+							<option value="" selected?={ data.Query.ManagedState == "" }>Any</option>
+							<option value="managed" selected?={ data.Query.ManagedState == "managed" }>Managed</option>
+							<option value="unmanaged" selected?={ data.Query.ManagedState == "unmanaged" }>Unmanaged</option>
 						</select>
 					</label>
 					<label class="field">
 						<span class="label">Risk level</span>
 						<select class="select" name="risk_level">
-							<option value="" selected?={ data.RiskLevel == "" }>Any</option>
-							<option value="critical" selected?={ data.RiskLevel == "critical" }>Critical</option>
-							<option value="high" selected?={ data.RiskLevel == "high" }>High</option>
-							<option value="medium" selected?={ data.RiskLevel == "medium" }>Medium</option>
-							<option value="low" selected?={ data.RiskLevel == "low" }>Low</option>
+							<option value="" selected?={ data.Query.RiskLevel == "" }>Any</option>
+							<option value="critical" selected?={ data.Query.RiskLevel == "critical" }>Critical</option>
+							<option value="high" selected?={ data.Query.RiskLevel == "high" }>High</option>
+							<option value="medium" selected?={ data.Query.RiskLevel == "medium" }>Medium</option>
+							<option value="low" selected?={ data.Query.RiskLevel == "low" }>Low</option>
 						</select>
 					</label>
 				</div>
@@ -148,12 +150,12 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
 						<div class="button-group ml-auto">
 							if data.Page > 1 {
-								<a class="btn-sm-outline" href={ DiscoveryAppsListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.ManagedState, data.RiskLevel, data.Page-1) }>Previous</a>
+								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#discovery-apps-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
 							} else {
 								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
 							}
 							if data.Page < data.TotalPages {
-								<a class="btn-sm-outline" href={ DiscoveryAppsListURL(data.SelectedSourceKind, data.SelectedSourceName, data.Query, data.ManagedState, data.RiskLevel, data.Page+1) }>Next</a>
+								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#discovery-apps-results" hx-swap="outerHTML" hx-push-url="true">Next</a>
 							} else {
 								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
 							}

@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
@@ -30,21 +31,16 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 	}
 
 	sources := availableProgrammaticSources(stateView)
-	selected, hasSource := selectProgrammaticSource(c, sources)
-	query := strings.TrimSpace(c.QueryParam("q"))
-	assetKind := strings.TrimSpace(c.QueryParam("asset_kind"))
-	reviewState := normalizeConnectedAppReviewState(c.QueryParam("review_state"), true)
-	page := parsePageParam(c)
+	queryState := querystate.ParseAppAssetsQuery(c.Request().URL.Query(), programmaticQuerySources(sources))
+	connectedAppsQuery := querystate.ParseConnectedAppsQuery(c.Request().URL.Query())
+	page := queryState.Page
 	const perPage = 20
 	pagination := newPaginatedListState(0, page, perPage)
 
 	data := viewmodels.AppAssetsViewData{
 		PaginatedListPageData: pagination.PageData(layout, 0, "No app assets found for the current filters.", ""),
 		Sources:               sources,
-		SelectedSourceKind:    selected.SourceKind,
-		SelectedSourceName:    selected.SourceName,
-		Query:                 query,
-		AssetKind:             assetKind,
+		Query:                 queryState,
 	}
 	renderAppAssets := func() error {
 		if isHX(c) && isHXTarget(c, "app-assets-results") {
@@ -53,10 +49,8 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 		return h.RenderComponent(c, views.AppAssetsPage(data))
 	}
 
-	wantsGoogleOAuthSlice := strings.EqualFold(strings.TrimSpace(c.QueryParam("source_kind")), configstore.KindGoogleWorkspace) &&
-		strings.TrimSpace(assetKind) == connectedAppAssetKindGoogle
-	if wantsGoogleOAuthSlice {
-		oauthData, err := h.buildConnectedAppsViewData(ctx, layout, stateView, query, reviewState, page)
+	if queryState.IsConnectedAppsSlice() {
+		oauthData, err := h.buildConnectedAppsViewData(ctx, layout, stateView, connectedAppsQuery)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
@@ -66,12 +60,12 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 		return renderAppAssets()
 	}
 
-	if !hasSource {
+	if len(sources) == 0 {
 		data.PaginatedListPageData.EmptyStateMsg = "Configure and enable GitHub, Google Workspace, Microsoft Entra, or Vault connectors to populate app assets."
 		return renderAppAssets()
 	}
 
-	activeSources := effectiveProgrammaticSources(selected, sources)
+	activeSources := effectiveProgrammaticSources(queryState.Source, sources)
 	if len(activeSources) == 0 {
 		data.PaginatedListPageData.EmptyStateMsg = "No matching source found. Choose another source filter."
 		return renderAppAssets()
@@ -85,8 +79,8 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 		totalCount, err = h.Q.CountAppAssetsBySourceAndQueryAndKind(ctx, gen.CountAppAssetsBySourceAndQueryAndKindParams{
 			SourceKind: source.SourceKind,
 			SourceName: source.SourceName,
-			AssetKind:  assetKind,
-			Query:      query,
+			AssetKind:  queryState.AssetKind,
+			Query:      queryState.Q,
 		})
 		if err != nil {
 			return h.RenderError(c, err)
@@ -96,8 +90,8 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 		assets, err = h.Q.ListAppAssetsPageBySourceAndQueryAndKind(ctx, gen.ListAppAssetsPageBySourceAndQueryAndKindParams{
 			SourceKind: source.SourceKind,
 			SourceName: source.SourceName,
-			AssetKind:  assetKind,
-			Query:      query,
+			AssetKind:  queryState.AssetKind,
+			Query:      queryState.Q,
 			PageLimit:  int32(perPage),
 			PageOffset: int32(pagination.Offset()),
 		})
@@ -109,8 +103,8 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 		totalCount, err = h.Q.CountAppAssetsBySourcesAndQueryAndKind(ctx, gen.CountAppAssetsBySourcesAndQueryAndKindParams{
 			ConfiguredSourceKinds: sourceKinds,
 			ConfiguredSourceNames: sourceNames,
-			AssetKind:             assetKind,
-			Query:                 query,
+			AssetKind:             queryState.AssetKind,
+			Query:                 queryState.Q,
 		})
 		if err != nil {
 			return h.RenderError(c, err)
@@ -119,8 +113,8 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 		assets, err = h.Q.ListAppAssetsPageBySourcesAndQueryAndKind(ctx, gen.ListAppAssetsPageBySourcesAndQueryAndKindParams{
 			ConfiguredSourceKinds: sourceKinds,
 			ConfiguredSourceNames: sourceNames,
-			AssetKind:             assetKind,
-			Query:                 query,
+			AssetKind:             queryState.AssetKind,
+			Query:                 queryState.Q,
 			PageLimit:             int32(perPage),
 			PageOffset:            int32(pagination.Offset()),
 		})
@@ -224,7 +218,7 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 	data.Items = items
 	data.PaginatedListPageData = pagination.PageData(layout, len(items), "No app assets found for the current filters.", "")
 	data.HasItems = len(items) > 0
-	if query != "" || assetKind != "" {
+	if queryState.HasFilters() {
 		data.PaginatedListPageData.EmptyStateMsg = "No app assets match the current search filters."
 	}
 
@@ -378,36 +372,15 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 	}
 
 	sources := availableProgrammaticSources(stateView)
-	selected, hasSource := selectProgrammaticSource(c, sources)
-	query := strings.TrimSpace(c.QueryParam("q"))
-	credentialKind := strings.TrimSpace(c.QueryParam("credential_kind"))
-	status := strings.TrimSpace(c.QueryParam("status"))
-	riskLevel := normalizeCredentialRiskFilter(c.QueryParam("risk_level"))
-	expiryState := strings.ToLower(strings.TrimSpace(c.QueryParam("expiry_state")))
-	switch expiryState {
-	case "", "active", "expired":
-	default:
-		expiryState = ""
-	}
-	expiresInDays := max(parseIntParamDefault(c.QueryParam("expires_in_days"), 0), 0)
-	if expiresInDays > 3650 {
-		expiresInDays = 3650
-	}
-	page := parsePageParam(c)
+	queryState := querystate.ParseCredentialsQuery(c.Request().URL.Query(), programmaticQuerySources(sources))
+	page := queryState.Page
 	const perPage = 20
 	pagination := newPaginatedListState(0, page, perPage)
 
 	data := viewmodels.CredentialsViewData{
 		PaginatedListPageData: pagination.PageData(layout, 0, "No credentials found for the current filters.", ""),
 		Sources:               sources,
-		SelectedSourceKind:    selected.SourceKind,
-		SelectedSourceName:    selected.SourceName,
-		Query:                 query,
-		CredentialKind:        credentialKind,
-		Status:                status,
-		RiskLevel:             riskLevel,
-		ExpiryState:           expiryState,
-		ExpiresInDays:         expiresInDays,
+		Query:                 queryState,
 	}
 	renderCredentials := func() error {
 		if isHX(c) && isHXTarget(c, "credentials-results") {
@@ -416,12 +389,12 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 		return h.RenderComponent(c, views.CredentialsPage(data))
 	}
 
-	if !hasSource {
+	if len(sources) == 0 {
 		data.PaginatedListPageData.EmptyStateMsg = "Configure and enable GitHub, Microsoft Entra, or Vault connectors to populate credential inventory."
 		return renderCredentials()
 	}
 
-	activeSources := effectiveProgrammaticSources(selected, sources)
+	activeSources := effectiveProgrammaticSources(queryState.Source, sources)
 	if len(activeSources) == 0 {
 		data.PaginatedListPageData.EmptyStateMsg = "No matching source found. Choose another source filter."
 		return renderCredentials()
@@ -439,12 +412,12 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 			EvaluatedAt:    evaluatedAt,
 			SourceKind:     source.SourceKind,
 			SourceName:     source.SourceName,
-			CredentialKind: credentialKind,
-			Status:         status,
-			RiskLevel:      riskLevel,
-			ExpiryState:    expiryState,
-			ExpiresInDays:  int32(expiresInDays),
-			Query:          query,
+			CredentialKind: queryState.CredentialKind,
+			Status:         queryState.Status,
+			RiskLevel:      queryState.RiskLevel,
+			ExpiryState:    queryState.ExpiryState,
+			ExpiresInDays:  int32(queryState.ExpiresInDays),
+			Query:          queryState.Q,
 		})
 		if err != nil {
 			return h.RenderError(c, err)
@@ -455,12 +428,12 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 			EvaluatedAt:    evaluatedAt,
 			SourceKind:     source.SourceKind,
 			SourceName:     source.SourceName,
-			CredentialKind: credentialKind,
-			Status:         status,
-			RiskLevel:      riskLevel,
-			ExpiryState:    expiryState,
-			ExpiresInDays:  int32(expiresInDays),
-			Query:          query,
+			CredentialKind: queryState.CredentialKind,
+			Status:         queryState.Status,
+			RiskLevel:      queryState.RiskLevel,
+			ExpiryState:    queryState.ExpiryState,
+			ExpiresInDays:  int32(queryState.ExpiresInDays),
+			Query:          queryState.Q,
 			PageLimit:      int32(perPage),
 			PageOffset:     int32(pagination.Offset()),
 		})
@@ -513,12 +486,12 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 			EvaluatedAt:           evaluatedAt,
 			ConfiguredSourceKinds: sourceKinds,
 			ConfiguredSourceNames: sourceNames,
-			CredentialKind:        credentialKind,
-			Status:                status,
-			RiskLevel:             riskLevel,
-			ExpiryState:           expiryState,
-			ExpiresInDays:         int32(expiresInDays),
-			Query:                 query,
+			CredentialKind:        queryState.CredentialKind,
+			Status:                queryState.Status,
+			RiskLevel:             queryState.RiskLevel,
+			ExpiryState:           queryState.ExpiryState,
+			ExpiresInDays:         int32(queryState.ExpiresInDays),
+			Query:                 queryState.Q,
 		})
 		if err != nil {
 			return h.RenderError(c, err)
@@ -528,12 +501,12 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 			EvaluatedAt:           evaluatedAt,
 			ConfiguredSourceKinds: sourceKinds,
 			ConfiguredSourceNames: sourceNames,
-			CredentialKind:        credentialKind,
-			Status:                status,
-			RiskLevel:             riskLevel,
-			ExpiryState:           expiryState,
-			ExpiresInDays:         int32(expiresInDays),
-			Query:                 query,
+			CredentialKind:        queryState.CredentialKind,
+			Status:                queryState.Status,
+			RiskLevel:             queryState.RiskLevel,
+			ExpiryState:           queryState.ExpiryState,
+			ExpiresInDays:         int32(queryState.ExpiresInDays),
+			Query:                 queryState.Q,
 			PageLimit:             int32(perPage),
 			PageOffset:            int32(pagination.Offset()),
 		})
@@ -585,7 +558,7 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 	data.Items = items
 	data.PaginatedListPageData = pagination.PageData(layout, len(items), "No credentials found for the current filters.", "")
 	data.HasItems = len(items) > 0
-	if query != "" || credentialKind != "" || status != "" || riskLevel != "" || expiryState != "" || expiresInDays > 0 {
+	if queryState.HasFilters() {
 		data.PaginatedListPageData.EmptyStateMsg = "No credentials match the current search filters."
 	}
 
@@ -755,43 +728,13 @@ func programmaticSourcesByView(stateView connectorStateView, requireEnabled bool
 	return sources
 }
 
-func selectProgrammaticSource(c *echo.Context, sources []viewmodels.ProgrammaticSourceOption) (viewmodels.ProgrammaticSourceOption, bool) {
-	if len(sources) == 0 {
-		return viewmodels.ProgrammaticSourceOption{}, false
-	}
-
-	queryKind := strings.ToLower(strings.TrimSpace(c.QueryParam("source_kind")))
-	queryName := strings.TrimSpace(c.QueryParam("source_name"))
-
-	for _, source := range sources {
-		if source.SourceKind == queryKind {
-			return viewmodels.ProgrammaticSourceOption{
-				SourceKind: source.SourceKind,
-			}, true
-		}
-	}
-
-	if queryName != "" {
-		for _, source := range sources {
-			if strings.EqualFold(strings.TrimSpace(source.SourceName), queryName) {
-				return viewmodels.ProgrammaticSourceOption{
-					SourceKind: source.SourceKind,
-				}, true
-			}
-		}
-	}
-
-	// Unknown source filters fall back to "All configured".
-	return viewmodels.ProgrammaticSourceOption{}, true
-}
-
-func effectiveProgrammaticSources(selected viewmodels.ProgrammaticSourceOption, all []viewmodels.ProgrammaticSourceOption) []viewmodels.ProgrammaticSourceOption {
+func effectiveProgrammaticSources(selected querystate.SourceSelection, all []viewmodels.ProgrammaticSourceOption) []viewmodels.ProgrammaticSourceOption {
 	if len(all) == 0 {
 		return nil
 	}
 
-	selectedKind := strings.TrimSpace(selected.SourceKind)
-	selectedName := strings.TrimSpace(selected.SourceName)
+	selectedKind := strings.TrimSpace(selected.Kind)
+	selectedName := strings.TrimSpace(selected.Name)
 	if selectedKind == "" && selectedName == "" {
 		out := make([]viewmodels.ProgrammaticSourceOption, len(all))
 		copy(out, all)
@@ -833,15 +776,6 @@ func parseIntParamDefault(raw string, defaultValue int) int {
 		return defaultValue
 	}
 	return value
-}
-
-func normalizeCredentialRiskFilter(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "critical", "high", "medium", "low":
-		return strings.ToLower(strings.TrimSpace(raw))
-	default:
-		return ""
-	}
 }
 
 func fallbackDash(value string) string {

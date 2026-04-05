@@ -16,6 +16,7 @@ templ DiscoveryHotspotsPage(data viewmodels.DiscoveryHotspotsViewData) {
 
 templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
 	<div id="discovery-hotspots-results" class="space-y-6">
+		@BusyInlineIndicator("Updating results...", false)
 		<form
 			method="get"
 			action="/discovery/hotspots"
@@ -30,9 +31,9 @@ templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
 				<label class="field w-full lg:max-w-xs">
 					<span class="sr-only">Source kind</span>
 					<select class="select" name="source_kind">
-						<option value="" selected?={ data.SelectedSourceKind == "" }>All configured</option>
+						<option value="" selected?={ data.Query.Source.Kind == "" }>All configured</option>
 						for _, source := range data.SourceOptions {
-							<option value={ source.SourceKind } selected?={ source.SourceKind == data.SelectedSourceKind } title={ source.Label }>{ source.Label }</option>
+							<option value={ source.SourceKind } selected?={ source.SourceKind == data.Query.Source.Kind } title={ source.Label }>{ source.Label }</option>
 						}
 					</select>
 				</label>

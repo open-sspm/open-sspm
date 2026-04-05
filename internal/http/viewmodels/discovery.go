@@ -1,5 +1,7 @@
 package viewmodels
 
+import "github.com/open-sspm/open-sspm/internal/http/querystate"
+
 type DiscoverySourceOption struct {
 	SourceKind string
 	SourceName string
@@ -22,15 +24,11 @@ type DiscoveryAppListItem struct {
 
 type DiscoveryAppsViewData struct {
 	PaginatedListPageData
-	SourceOptions      []DiscoverySourceOption
-	SourceNameOptions  []DiscoverySourceOption
-	SelectedSourceKind string
-	SelectedSourceName string
-	Query              string
-	ManagedState       string
-	RiskLevel          string
-	Items              []DiscoveryAppListItem
-	HasItems           bool
+	SourceOptions     []DiscoverySourceOption
+	SourceNameOptions []DiscoverySourceOption
+	Query             querystate.DiscoveryAppsQuery
+	Items             []DiscoveryAppListItem
+	HasItems          bool
 }
 
 type DiscoveryHotspotItem struct {
@@ -45,14 +43,13 @@ type DiscoveryHotspotItem struct {
 }
 
 type DiscoveryHotspotsViewData struct {
-	Layout             LayoutData
-	SourceOptions      []DiscoverySourceOption
-	SourceNameOptions  []DiscoverySourceOption
-	SelectedSourceKind string
-	SelectedSourceName string
-	Items              []DiscoveryHotspotItem
-	HasItems           bool
-	EmptyStateMsg      string
+	Layout            LayoutData
+	SourceOptions     []DiscoverySourceOption
+	SourceNameOptions []DiscoverySourceOption
+	Query             querystate.DiscoveryHotspotsQuery
+	Items             []DiscoveryHotspotItem
+	HasItems          bool
+	EmptyStateMsg     string
 }
 
 type DiscoverySourceEvidenceItem struct {

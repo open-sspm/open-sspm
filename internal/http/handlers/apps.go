@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
@@ -27,17 +28,17 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 	}
 
 	const perPage = 20
-	query := strings.TrimSpace(c.QueryParam("q"))
-	page := parsePageParam(c)
+	queryState := querystate.ParseBasicListQuery("/assigned-apps", c.Request().URL.Query(), querystate.BasicListOptions{})
+	page := queryState.Page
 
 	var totalCount int64
-	if query == "" {
+	if queryState.Q == "" {
 		totalCount, err = h.Q.CountOktaApps(ctx)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
 	} else {
-		totalCount, err = h.Q.CountOktaAppsByQuery(ctx, query)
+		totalCount, err = h.Q.CountOktaAppsByQuery(ctx, queryState.Q)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
@@ -81,7 +82,7 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 	}
 
 	items := make([]viewmodels.AppListItem, 0, perPage)
-	if query == "" {
+	if queryState.Q == "" {
 		apps, err := h.Q.ListOktaAppsPage(ctx, gen.ListOktaAppsPageParams{
 			PageLimit:  int32(perPage),
 			PageOffset: int32(pagination.Offset()),
@@ -95,7 +96,7 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 		}
 	} else {
 		apps, err := h.Q.ListOktaAppsPageByQuery(ctx, gen.ListOktaAppsPageByQueryParams{
-			Query:      query,
+			Query:      queryState.Q,
 			PageLimit:  int32(perPage),
 			PageOffset: int32(pagination.Offset()),
 		})
@@ -110,13 +111,13 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 
 	data := viewmodels.AppsViewData{
 		PaginatedListPageData: pagination.PageData(layout, len(items), func() string {
-			if query != "" {
+			if queryState.HasFilters() {
 				return "No assigned apps match the current search."
 			}
 			return "No assigned apps have been synced yet. Run a sync to discover assignments."
 		}(), ""),
 		Apps:    items,
-		Query:   query,
+		Query:   queryState,
 		HasApps: len(items) > 0,
 	}
 
@@ -160,19 +161,15 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 	}
 
 	const perPage = 20
-	query := strings.TrimSpace(c.QueryParam("q"))
-	state := strings.ToLower(strings.TrimSpace(c.QueryParam("state")))
-	switch state {
-	case "active", "inactive":
-	default:
-		state = ""
-	}
-	page := parsePageParam(c)
+	queryState := querystate.ParseBasicListQuery("/assigned-apps/"+strings.TrimSpace(app.ExternalID), c.Request().URL.Query(), querystate.BasicListOptions{
+		NormalizeState: normalizeActiveInactiveState,
+	})
+	page := queryState.Page
 
 	totalCount, err := h.Q.CountOktaAppAssignedAccountsByQuery(ctx, gen.CountOktaAppAssignedAccountsByQueryParams{
 		OktaAppID: app.ID,
-		State:     state,
-		Query:     query,
+		State:     queryState.State,
+		Query:     queryState.Q,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -181,8 +178,8 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 	pagination := newPaginatedListState(totalCount, page, perPage)
 	assignments, err := h.Q.ListOktaAppAssignedAccountsPageByQuery(ctx, gen.ListOktaAppAssignedAccountsPageByQueryParams{
 		OktaAppID:  app.ID,
-		State:      state,
-		Query:      query,
+		State:      queryState.State,
+		Query:      queryState.Q,
 		PageOffset: int32(pagination.Offset()),
 		PageLimit:  int32(perPage),
 	})
@@ -278,7 +275,7 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 
 	data := viewmodels.OktaAppShowViewData{
 		PaginatedListPageData: pagination.PageData(layout, len(items), func() string {
-			if query != "" || state != "" {
+			if queryState.HasFilters() {
 				return "No assigned users match the current search."
 			}
 			return "No Okta users are assigned to this app."
@@ -291,8 +288,7 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 			SignOnMode: signOnMode,
 		},
 		Accounts:    items,
-		Query:       query,
-		State:       state,
+		Query:       queryState,
 		HasAccounts: len(items) > 0,
 	}
 

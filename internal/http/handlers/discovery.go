@@ -15,6 +15,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
@@ -44,24 +45,15 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 	}
 
 	sourceOptions := discoverySourceOptions(stateView)
-	selectedSourceKind, selectedSourceName := normalizeDiscoverySourceSelection(
-		c.QueryParam("source_kind"),
-		c.QueryParam("source_name"),
-		sourceOptions,
-	)
-
-	sourceNameOptions := discoverySourceNameOptions(selectedSourceKind, sourceOptions)
+	queryState := querystate.ParseDiscoveryAppsQuery(c.Request().URL.Query(), discoveryQuerySources(sourceOptions))
+	sourceNameOptions := discoverySourceNameOptions(queryState.Source.Kind, sourceOptions)
 	configuredSourceKinds, configuredSourceNames := discoveryConfiguredSourcePairs(sourceOptions)
-
-	query := strings.TrimSpace(c.QueryParam("q"))
-	managedState := normalizeDiscoveryManagedState(c.QueryParam("managed_state"))
-	riskLevel := normalizeDiscoveryRiskLevel(c.QueryParam("risk_level"))
-	page := parsePageParam(c)
+	page := queryState.Page
 	cutoffs := h.discoveryPostureCutoffs(time.Now().UTC())
 
 	totalCount, err := h.Q.CountSaaSAppsByFilters(ctx, gen.CountSaaSAppsByFiltersParams{
-		ManagedState:              managedState,
-		RiskLevel:                 riskLevel,
+		ManagedState:              queryState.ManagedState,
+		RiskLevel:                 queryState.RiskLevel,
 		ConfiguredSourceKinds:     configuredSourceKinds,
 		ConfiguredSourceNames:     configuredSourceNames,
 		OktaFreshAfter:            cutoffs.OktaFreshAfter,
@@ -71,9 +63,9 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
 		AwsFreshAfter:             cutoffs.AwsFreshAfter,
 		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
-		SourceKind:                selectedSourceKind,
-		SourceName:                selectedSourceName,
-		Query:                     query,
+		SourceKind:                queryState.Source.Kind,
+		SourceName:                queryState.Source.Name,
+		Query:                     queryState.Q,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -81,8 +73,8 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 
 	pagination := newPaginatedListState(totalCount, page, discoveryAppsPerPage)
 	rows, err := h.Q.ListSaaSAppsPageByFilters(ctx, gen.ListSaaSAppsPageByFiltersParams{
-		ManagedState:              managedState,
-		RiskLevel:                 riskLevel,
+		ManagedState:              queryState.ManagedState,
+		RiskLevel:                 queryState.RiskLevel,
 		PageOffset:                int32(pagination.Offset()),
 		PageLimit:                 int32(discoveryAppsPerPage),
 		ConfiguredSourceKinds:     configuredSourceKinds,
@@ -94,9 +86,9 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
 		AwsFreshAfter:             cutoffs.AwsFreshAfter,
 		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
-		SourceKind:                selectedSourceKind,
-		SourceName:                selectedSourceName,
-		Query:                     query,
+		SourceKind:                queryState.Source.Kind,
+		SourceName:                queryState.Source.Name,
+		Query:                     queryState.Q,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -130,11 +122,7 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 		PaginatedListPageData: pagination.PageData(layout, len(items), "No discovered SaaS apps match the current filters.", ""),
 		SourceOptions:         sourceKindOptions(sourceOptions),
 		SourceNameOptions:     sourceNameOptions,
-		SelectedSourceKind:    selectedSourceKind,
-		SelectedSourceName:    selectedSourceName,
-		Query:                 query,
-		ManagedState:          managedState,
-		RiskLevel:             riskLevel,
+		Query:                 queryState,
 		Items:                 items,
 		HasItems:              len(items) > 0,
 	}
@@ -158,12 +146,8 @@ func (h *Handlers) HandleDiscoveryHotspots(c *echo.Context) error {
 	}
 
 	sourceOptions := discoverySourceOptions(stateView)
-	selectedSourceKind, selectedSourceName := normalizeDiscoverySourceSelection(
-		c.QueryParam("source_kind"),
-		c.QueryParam("source_name"),
-		sourceOptions,
-	)
-	sourceNameOptions := discoverySourceNameOptions(selectedSourceKind, sourceOptions)
+	queryState := querystate.ParseDiscoveryHotspotsQuery(c.Request().URL.Query(), discoveryQuerySources(sourceOptions))
+	sourceNameOptions := discoverySourceNameOptions(queryState.Source.Kind, sourceOptions)
 	configuredSourceKinds, configuredSourceNames := discoveryConfiguredSourcePairs(sourceOptions)
 	cutoffs := h.discoveryPostureCutoffs(time.Now().UTC())
 
@@ -178,8 +162,8 @@ func (h *Handlers) HandleDiscoveryHotspots(c *echo.Context) error {
 		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
 		AwsFreshAfter:             cutoffs.AwsFreshAfter,
 		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
-		SourceKind:                selectedSourceKind,
-		SourceName:                selectedSourceName,
+		SourceKind:                queryState.Source.Kind,
+		SourceName:                queryState.Source.Name,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -205,14 +189,13 @@ func (h *Handlers) HandleDiscoveryHotspots(c *echo.Context) error {
 	}
 
 	data := viewmodels.DiscoveryHotspotsViewData{
-		Layout:             layout,
-		SourceOptions:      sourceKindOptions(sourceOptions),
-		SourceNameOptions:  sourceNameOptions,
-		SelectedSourceKind: selectedSourceKind,
-		SelectedSourceName: selectedSourceName,
-		Items:              items,
-		HasItems:           len(items) > 0,
-		EmptyStateMsg:      "No discovery hotspots are currently above the high-risk threshold.",
+		Layout:            layout,
+		SourceOptions:     sourceKindOptions(sourceOptions),
+		SourceNameOptions: sourceNameOptions,
+		Query:             queryState,
+		Items:             items,
+		HasItems:          len(items) > 0,
+		EmptyStateMsg:     "No discovery hotspots are currently above the high-risk threshold.",
 	}
 
 	if isHX(c) && isHXTarget(c, "discovery-hotspots-results") {
@@ -448,30 +431,6 @@ func sourceKindOptions(sourceOptions []viewmodels.DiscoverySourceOption) []viewm
 	return out
 }
 
-func normalizeDiscoverySourceSelection(rawKind, rawName string, sourceOptions []viewmodels.DiscoverySourceOption) (string, string) {
-	selectedKind := normalizeDiscoverySourceKind(rawKind)
-	if selectedKind != "" && !discoveryHasSourceKind(selectedKind, sourceOptions) {
-		selectedKind = ""
-	}
-
-	selectedName := strings.TrimSpace(rawName)
-	if selectedKind == "" && selectedName != "" {
-		for _, option := range sourceOptions {
-			if strings.EqualFold(strings.TrimSpace(option.SourceName), selectedName) {
-				selectedKind = normalizeDiscoverySourceKind(option.SourceKind)
-				break
-			}
-		}
-	}
-
-	if selectedKind == "" {
-		return "", ""
-	}
-
-	// In standard list UX, source kind is the primary selector and source IDs stay in diagnostics.
-	return selectedKind, ""
-}
-
 func discoverySourceNameOptions(selectedSourceKind string, sourceOptions []viewmodels.DiscoverySourceOption) []viewmodels.DiscoverySourceOption {
 	out := make([]viewmodels.DiscoverySourceOption, 0, len(sourceOptions))
 	for _, option := range sourceOptions {
@@ -521,31 +480,6 @@ func discoveryConfiguredSourcePairs(sourceOptions []viewmodels.DiscoverySourceOp
 	return kinds, names
 }
 
-func discoveryHasSourceKind(kind string, sourceOptions []viewmodels.DiscoverySourceOption) bool {
-	for _, option := range sourceOptions {
-		if normalizeDiscoverySourceKind(option.SourceKind) == kind {
-			return true
-		}
-	}
-	return false
-}
-
-func discoveryHasSourceName(selectedKind, sourceName string, options []viewmodels.DiscoverySourceOption) bool {
-	sourceName = strings.TrimSpace(sourceName)
-	if sourceName == "" {
-		return true
-	}
-	for _, option := range options {
-		if selectedKind != "" && option.SourceKind != selectedKind {
-			continue
-		}
-		if strings.EqualFold(strings.TrimSpace(option.SourceName), sourceName) {
-			return true
-		}
-	}
-	return false
-}
-
 func normalizeDiscoverySourceKind(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "okta":
@@ -554,32 +488,6 @@ func normalizeDiscoverySourceKind(raw string) string {
 		return "entra"
 	case configstore.KindGoogleWorkspace:
 		return configstore.KindGoogleWorkspace
-	default:
-		return ""
-	}
-}
-
-func normalizeDiscoveryManagedState(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case discovery.ManagedStateManaged:
-		return discovery.ManagedStateManaged
-	case discovery.ManagedStateUnmanaged:
-		return discovery.ManagedStateUnmanaged
-	default:
-		return ""
-	}
-}
-
-func normalizeDiscoveryRiskLevel(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "low":
-		return "low"
-	case "medium":
-		return "medium"
-	case "high":
-		return "high"
-	case "critical":
-		return "critical"
 	default:
 		return ""
 	}

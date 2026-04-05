@@ -1,7 +1,6 @@
 package views
 
 import (
-	"net/url"
 	"strconv"
 	"strings"
 	"unicode"
@@ -13,10 +12,6 @@ func FormatInt(v int) string {
 
 func FormatInt64(v int64) string {
 	return strconv.FormatInt(v, 10)
-}
-
-func QueryEscape(v string) string {
-	return url.QueryEscape(v)
 }
 
 func FilterPillClass(active bool) string {
@@ -33,29 +28,6 @@ func IdentityManagedTextClass(managed bool) string {
 	return "text-sm font-medium text-amber-700 dark:text-amber-300"
 }
 
-func AppAssetsListURL(sourceKind, sourceName, query, assetKind string, page int) string {
-	values := url.Values{}
-	if sourceKind = strings.TrimSpace(sourceKind); sourceKind != "" {
-		values.Set("source_kind", sourceKind)
-	}
-	if sourceName = strings.TrimSpace(sourceName); sourceName != "" {
-		values.Set("source_name", sourceName)
-	}
-	if query = strings.TrimSpace(query); query != "" {
-		values.Set("q", query)
-	}
-	if assetKind = strings.TrimSpace(assetKind); assetKind != "" {
-		values.Set("asset_kind", assetKind)
-	}
-	if page > 1 {
-		values.Set("page", strconv.Itoa(page))
-	}
-	if len(values) == 0 {
-		return "/app-assets"
-	}
-	return "/app-assets?" + values.Encode()
-}
-
 func AppDetailURL(integratedHref, externalID string) string {
 	if integratedHref = strings.TrimSpace(integratedHref); integratedHref != "" {
 		return integratedHref
@@ -64,41 +36,6 @@ func AppDetailURL(integratedHref, externalID string) string {
 		return "/assigned-apps/" + externalID
 	}
 	return "/assigned-apps"
-}
-
-func CredentialsListURL(sourceKind, sourceName, query, credentialKind, status, riskLevel, expiryState string, expiresInDays int, page int) string {
-	values := url.Values{}
-	if sourceKind = strings.TrimSpace(sourceKind); sourceKind != "" {
-		values.Set("source_kind", sourceKind)
-	}
-	if sourceName = strings.TrimSpace(sourceName); sourceName != "" {
-		values.Set("source_name", sourceName)
-	}
-	if query = strings.TrimSpace(query); query != "" {
-		values.Set("q", query)
-	}
-	if credentialKind = strings.TrimSpace(credentialKind); credentialKind != "" {
-		values.Set("credential_kind", credentialKind)
-	}
-	if status = strings.TrimSpace(status); status != "" {
-		values.Set("status", status)
-	}
-	if riskLevel = strings.TrimSpace(riskLevel); riskLevel != "" {
-		values.Set("risk_level", riskLevel)
-	}
-	if expiryState = strings.TrimSpace(expiryState); expiryState != "" {
-		values.Set("expiry_state", expiryState)
-	}
-	if expiresInDays > 0 {
-		values.Set("expires_in_days", strconv.Itoa(expiresInDays))
-	}
-	if page > 1 {
-		values.Set("page", strconv.Itoa(page))
-	}
-	if len(values) == 0 {
-		return "/credentials"
-	}
-	return "/credentials?" + values.Encode()
 }
 
 func HumanizeProgrammaticKind(kind string) string {
@@ -162,135 +99,6 @@ func ConnectorScopeLabel(kind string) string {
 	default:
 		return "Source"
 	}
-}
-
-func ListURL(baseHref string, query string, state string, page int) string {
-	query = strings.TrimSpace(query)
-	state = strings.TrimSpace(state)
-
-	values := url.Values{}
-	if query != "" {
-		values.Set("q", query)
-	}
-	if state != "" {
-		values.Set("state", state)
-	}
-	if page > 1 {
-		values.Set("page", strconv.Itoa(page))
-	}
-	if len(values) == 0 {
-		return baseHref
-	}
-	return baseHref + "?" + values.Encode()
-}
-
-func IdentitiesListURL(sourceKind, sourceName, query, identityType, managedState string, privilegedOnly bool, status, activityState, linkQuality, sortBy, sortDir string, showFirstSeen, showLinkQuality, showLinkReason bool, page int) string {
-	values := url.Values{}
-	if sourceKind = strings.TrimSpace(sourceKind); sourceKind != "" {
-		values.Set("source_kind", sourceKind)
-	}
-	if sourceName = strings.TrimSpace(sourceName); sourceName != "" {
-		values.Set("source_name", sourceName)
-	}
-	if query = strings.TrimSpace(query); query != "" {
-		values.Set("q", query)
-	}
-	if identityType = strings.TrimSpace(identityType); identityType != "" {
-		values.Set("identity_type", identityType)
-	}
-	if managedState = strings.TrimSpace(managedState); managedState != "" {
-		values.Set("managed_state", managedState)
-	}
-	if privilegedOnly {
-		values.Set("privileged", "1")
-	}
-	if status = strings.TrimSpace(status); status != "" {
-		values.Set("status", status)
-	}
-	if activityState = strings.TrimSpace(activityState); activityState != "" {
-		values.Set("activity_state", activityState)
-	}
-	if linkQuality = strings.TrimSpace(linkQuality); linkQuality != "" {
-		values.Set("link_quality", linkQuality)
-	}
-	if sortBy = strings.TrimSpace(sortBy); sortBy != "" {
-		values.Set("sort_by", sortBy)
-	}
-	if sortDir = strings.TrimSpace(sortDir); sortDir != "" {
-		values.Set("sort_dir", sortDir)
-	}
-	if showFirstSeen {
-		values.Set("show_first_seen", "1")
-	}
-	if showLinkQuality {
-		values.Set("show_link_quality", "1")
-	}
-	if showLinkReason {
-		values.Set("show_link_reason", "1")
-	}
-	if page > 1 {
-		values.Set("page", strconv.Itoa(page))
-	}
-	if len(values) == 0 {
-		return "/identities"
-	}
-	return "/identities?" + values.Encode()
-}
-
-func DiscoveryAppsListURL(sourceKind, sourceName, query, managedState, riskLevel string, page int) string {
-	values := url.Values{}
-	if sourceKind = strings.TrimSpace(sourceKind); sourceKind != "" {
-		values.Set("source_kind", sourceKind)
-	}
-	if sourceName = strings.TrimSpace(sourceName); sourceName != "" {
-		values.Set("source_name", sourceName)
-	}
-	if query = strings.TrimSpace(query); query != "" {
-		values.Set("q", query)
-	}
-	if managedState = strings.TrimSpace(managedState); managedState != "" {
-		values.Set("managed_state", managedState)
-	}
-	if riskLevel = strings.TrimSpace(riskLevel); riskLevel != "" {
-		values.Set("risk_level", riskLevel)
-	}
-	if page > 1 {
-		values.Set("page", strconv.Itoa(page))
-	}
-	if len(values) == 0 {
-		return "/discovery/apps"
-	}
-	return "/discovery/apps?" + values.Encode()
-}
-
-func ConnectedAppsListURL(query, reviewState string, page int) string {
-	values := url.Values{}
-	values.Set("source_kind", "google_workspace")
-	values.Set("asset_kind", "google_oauth_client")
-	if query = strings.TrimSpace(query); query != "" {
-		values.Set("q", query)
-	}
-	if reviewState = strings.TrimSpace(reviewState); reviewState != "" {
-		values.Set("review_state", reviewState)
-	}
-	if page > 1 {
-		values.Set("page", strconv.Itoa(page))
-	}
-	return "/app-assets?" + values.Encode()
-}
-
-func DiscoveryHotspotsURL(sourceKind, sourceName string) string {
-	values := url.Values{}
-	if sourceKind = strings.TrimSpace(sourceKind); sourceKind != "" {
-		values.Set("source_kind", sourceKind)
-	}
-	if sourceName = strings.TrimSpace(sourceName); sourceName != "" {
-		values.Set("source_name", sourceName)
-	}
-	if len(values) == 0 {
-		return "/discovery/hotspots"
-	}
-	return "/discovery/hotspots?" + values.Encode()
 }
 
 func StatusBadgeClass(status string) string {

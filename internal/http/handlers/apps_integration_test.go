@@ -48,7 +48,36 @@ func TestHandleAppsHTMXUsesSharedPaginationState(t *testing.T) {
 		body := rec.Body.String()
 		assertContains(t, body, "App 21")
 		assertContains(t, body, "Page 2 of 2")
+		assertContains(t, body, `id="apps-results"`)
+		assertContains(t, body, `data-busy-inline-indicator`)
+		assertContains(t, body, `data-enter-only-query="q"`)
+		assertContains(t, body, `hx-get="/assigned-apps?page=1"`)
+		assertContains(t, body, `hx-trigger="change delay:150ms from:select, submit"`)
+		assertNotContains(t, body, "<!doctype html>")
 		assertNotContains(t, body, "App 01")
+		assertNotContains(t, body, `input changed delay:300ms from:input[name='q']`)
+	})
+}
+
+func TestHandleAppsRendersFullPageWithoutHTMX(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindOkta, true, configstore.OktaConfig{
+			Domain: "acme.okta.com",
+			Token:  "token-1",
+		})
+
+		c, rec := newTestContext(http.MethodGet, "http://example.com/assigned-apps")
+
+		if err := h.HandleApps(c); err != nil {
+			t.Fatalf("HandleApps(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		body := rec.Body.String()
+		assertContains(t, body, "<!doctype html>")
+		assertContains(t, body, `id="apps-results"`)
 	})
 }
 

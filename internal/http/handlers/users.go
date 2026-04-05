@@ -18,6 +18,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/accessgraph"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
@@ -31,21 +32,15 @@ func (h *Handlers) HandleOktaAccounts(c *echo.Context) error {
 	}
 	const perPage = 20
 
-	query := strings.TrimSpace(c.QueryParam("q"))
-	state := strings.ToLower(strings.TrimSpace(c.QueryParam("state")))
-	if state == "" {
-		state = strings.ToLower(strings.TrimSpace(c.QueryParam("status")))
-	}
-	switch state {
-	case "active", "inactive":
-	default:
-		state = ""
-	}
-	page := parsePageParam(c)
+	queryState := querystate.ParseBasicListQuery("/accounts/okta", c.Request().URL.Query(), querystate.BasicListOptions{
+		StateAliases:   []string{"status"},
+		NormalizeState: normalizeActiveInactiveState,
+	})
+	page := queryState.Page
 
 	totalCount, err := h.Q.CountOktaAccountsByQueryAndState(ctx, gen.CountOktaAccountsByQueryAndStateParams{
-		Query: query,
-		State: state,
+		Query: queryState.Q,
+		State: queryState.State,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -53,8 +48,8 @@ func (h *Handlers) HandleOktaAccounts(c *echo.Context) error {
 
 	pagination := newPaginatedListState(totalCount, page, perPage)
 	users, err := h.Q.ListOktaAccountsPageByQueryAndState(ctx, gen.ListOktaAccountsPageByQueryAndStateParams{
-		Query:      query,
-		State:      state,
+		Query:      queryState.Q,
+		State:      queryState.State,
 		PageLimit:  int32(perPage),
 		PageOffset: int32(pagination.Offset()),
 	})
@@ -63,15 +58,14 @@ func (h *Handlers) HandleOktaAccounts(c *echo.Context) error {
 	}
 
 	emptyState := "No Okta accounts synced yet."
-	if query != "" || state != "" {
+	if queryState.HasFilters() {
 		emptyState = "No Okta accounts match the current search."
 	}
 
 	data := viewmodels.OktaAccountsViewData{
 		PaginatedListPageData: pagination.PageData(layout, len(users), emptyState, ""),
 		Users:                 users,
-		Query:                 query,
-		State:                 state,
+		Query:                 queryState,
 		HasUsers:              len(users) > 0,
 	}
 
@@ -250,6 +244,7 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 func (h *Handlers) HandleGitHubUsers(c *echo.Context) error {
 	inventory, err := h.buildSourceAccountInventoryPage(c, sourceAccountInventoryOptions{
 		Title:              "GitHub Users",
+		BasePath:           "/accounts/github",
 		ConnectorName:      "GitHub",
 		ConnectorKind:      "github",
 		SourceKind:         querySourceKind("github"),
@@ -319,14 +314,10 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 	}
 
 	const perPage = 20
-	query := strings.TrimSpace(c.QueryParam("q"))
-	state := strings.ToLower(strings.TrimSpace(c.QueryParam("state")))
-	switch state {
-	case "active", "inactive":
-	default:
-		state = ""
-	}
-	page := parsePageParam(c)
+	queryState := querystate.ParseBasicListQuery("/accounts/datadog", c.Request().URL.Query(), querystate.BasicListOptions{
+		NormalizeState: normalizeActiveInactiveState,
+	})
+	page := queryState.Page
 	unavailablePagination := newPaginatedListState(0, page, perPage)
 	datadog := stateView.Datadog()
 	sourceName := datadog.SourceName()
@@ -335,8 +326,7 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 		message := connectorUnavailableMessage("Datadog", datadog.Configured(), datadog.Enabled())
 		data := viewmodels.DatadogUsersViewData{
 			PaginatedListPageData: unavailablePagination.PageData(layout, 0, message, "/settings/connectors?open=datadog"),
-			Query:                 query,
-			State:                 state,
+			Query:                 queryState,
 			HasUsers:              false,
 		}
 		return h.RenderComponent(c, views.DatadogUsersPage(data))
@@ -346,8 +336,8 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 		SourceKind:     "datadog",
 		SourceName:     sourceName,
 		EntityCategory: registry.EntityCategoryUser,
-		Query:          query,
-		State:          state,
+		Query:          queryState.Q,
+		State:          queryState.State,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -358,8 +348,8 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 		SourceKind:     "datadog",
 		SourceName:     sourceName,
 		EntityCategory: registry.EntityCategoryUser,
-		Query:          query,
-		State:          state,
+		Query:          queryState.Q,
+		State:          queryState.State,
 		PageLimit:      int32(perPage),
 		PageOffset:     int32(pagination.Offset()),
 	})
@@ -414,15 +404,14 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 	}
 
 	emptyState := "No Datadog users synced yet."
-	if query != "" || state != "" {
+	if queryState.HasFilters() {
 		emptyState = "No Datadog users match the current search."
 	}
 
 	data := viewmodels.DatadogUsersViewData{
 		PaginatedListPageData: pagination.PageData(layout, len(items), emptyState, "/settings/connectors?open=datadog"),
 		Users:                 items,
-		Query:                 query,
-		State:                 state,
+		Query:                 queryState,
 		HasUsers:              len(items) > 0,
 	}
 
@@ -433,6 +422,7 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 func (h *Handlers) HandleUnmatchedGitHub(c *echo.Context) error {
 	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
 		Title:              "Unlinked GitHub Accounts",
+		BasePath:           "/accounts/unlinked/github/" + routeParamOrWildcard(c, "org"),
 		ConnectorName:      "GitHub",
 		ConnectorKind:      "github",
 		SourceKind:         "github",
@@ -465,6 +455,7 @@ func (h *Handlers) HandleUnmatchedGitHub(c *echo.Context) error {
 func (h *Handlers) HandleUnmatchedDatadog(c *echo.Context) error {
 	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
 		Title:              "Unlinked Datadog Accounts",
+		BasePath:           "/accounts/unlinked/datadog/" + routeParamOrWildcard(c, "site"),
 		ConnectorName:      "Datadog",
 		ConnectorKind:      "datadog",
 		SourceKind:         "datadog",

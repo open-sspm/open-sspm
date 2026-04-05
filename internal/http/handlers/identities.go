@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
@@ -32,26 +33,9 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 	const perPage = 20
 	sourcePairs := availableIdentitySourcePairs(stateView)
 	sourceKindOptions := identitySourceKindOptions(sourcePairs)
-	selectedSourceKind, selectedSourceName := normalizeIdentitySourceSelection(
-		c.QueryParam("source_kind"),
-		c.QueryParam("source_name"),
-		sourcePairs,
-	)
-	sourceNameOptions := identitySourceNameOptions(selectedSourceKind, sourcePairs)
-
-	query := strings.TrimSpace(c.QueryParam("q"))
-	identityType := normalizeIdentityType(c.QueryParam("identity_type"))
-	managedState := normalizeIdentityManagedState(c.QueryParam("managed_state"))
-	privilegedOnly := parseIdentityBool(c.QueryParam("privileged"))
-	status := normalizeIdentityStatus(c.QueryParam("status"))
-	activityState := normalizeIdentityActivityState(c.QueryParam("activity_state"))
-	linkQuality := normalizeIdentityLinkQuality(c.QueryParam("link_quality"))
-	sortBy := normalizeIdentitySortBy(c.QueryParam("sort_by"))
-	sortDir := normalizeIdentitySortDir(c.QueryParam("sort_dir"), sortBy)
-	showFirstSeen := parseIdentityBool(c.QueryParam("show_first_seen"))
-	showLinkQuality := parseIdentityBool(c.QueryParam("show_link_quality"))
-	showLinkReason := parseIdentityBool(c.QueryParam("show_link_reason"))
-	page := parsePageParam(c)
+	queryState := querystate.ParseIdentitiesQuery(c.Request().URL.Query(), programmaticQuerySources(sourcePairs))
+	sourceNameOptions := identitySourceNameOptions(queryState.Source.Kind, sourcePairs)
+	page := queryState.Page
 	pagination := newPaginatedListState(0, page, perPage)
 
 	data := viewmodels.IdentitiesViewData{
@@ -59,20 +43,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		Items:                 nil,
 		Sources:               sourceKindOptions,
 		SourceNameOptions:     sourceNameOptions,
-		SelectedSourceKind:    selectedSourceKind,
-		SelectedSourceName:    selectedSourceName,
-		Query:                 query,
-		IdentityType:          identityType,
-		ManagedState:          managedState,
-		PrivilegedOnly:        privilegedOnly,
-		Status:                status,
-		ActivityState:         activityState,
-		LinkQuality:           linkQuality,
-		SortBy:                sortBy,
-		SortDir:               sortDir,
-		ShowFirstSeen:         showFirstSeen,
-		ShowLinkQuality:       showLinkQuality,
-		ShowLinkReason:        showLinkReason,
+		Query:                 queryState,
 	}
 	renderIdentities := func() error {
 		if isHX(c) && isHXTarget(c, "identities-results") {
@@ -88,17 +59,17 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 
 	configuredSourceKinds, configuredSourceNames := identityConfiguredSourcePairs(sourcePairs)
 	totalCount, err := h.Q.CountIdentitiesInventoryByFilters(ctx, gen.CountIdentitiesInventoryByFiltersParams{
-		ManagedState:          managedState,
-		PrivilegedOnly:        privilegedOnly,
-		Status:                status,
-		ActivityState:         activityState,
-		LinkQuality:           linkQuality,
+		ManagedState:          queryState.ManagedState,
+		PrivilegedOnly:        queryState.PrivilegedOnly,
+		Status:                queryState.Status,
+		ActivityState:         queryState.ActivityState,
+		LinkQuality:           queryState.LinkQuality,
 		ConfiguredSourceKinds: configuredSourceKinds,
 		ConfiguredSourceNames: configuredSourceNames,
-		Query:                 query,
-		IdentityType:          identityType,
-		SourceKind:            selectedSourceKind,
-		SourceName:            selectedSourceName,
+		Query:                 queryState.Q,
+		IdentityType:          queryState.IdentityType,
+		SourceKind:            queryState.Source.Kind,
+		SourceName:            queryState.Source.Name,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -106,21 +77,21 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 
 	pagination = newPaginatedListState(totalCount, page, perPage)
 	rows, err := h.Q.ListIdentitiesInventoryPageByFilters(ctx, gen.ListIdentitiesInventoryPageByFiltersParams{
-		ManagedState:          managedState,
-		PrivilegedOnly:        privilegedOnly,
-		Status:                status,
-		ActivityState:         activityState,
-		LinkQuality:           linkQuality,
-		SortBy:                sortBy,
-		SortDir:               sortDir,
+		ManagedState:          queryState.ManagedState,
+		PrivilegedOnly:        queryState.PrivilegedOnly,
+		Status:                queryState.Status,
+		ActivityState:         queryState.ActivityState,
+		LinkQuality:           queryState.LinkQuality,
+		SortBy:                queryState.SortBy,
+		SortDir:               queryState.SortDir,
 		PageOffset:            int32(pagination.Offset()),
 		PageLimit:             int32(perPage),
 		ConfiguredSourceKinds: configuredSourceKinds,
 		ConfiguredSourceNames: configuredSourceNames,
-		Query:                 query,
-		IdentityType:          identityType,
-		SourceKind:            selectedSourceKind,
-		SourceName:            selectedSourceName,
+		Query:                 queryState.Q,
+		IdentityType:          queryState.IdentityType,
+		SourceKind:            queryState.Source.Kind,
+		SourceName:            queryState.Source.Name,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -158,7 +129,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 	data.Items = items
 	data.PaginatedListPageData = pagination.PageData(layout, len(items), "No identities found yet.", "")
 	data.HasIdentities = len(items) > 0
-	if identitiesFilterActive(query, identityType, managedState, privilegedOnly, status, activityState, linkQuality, selectedSourceKind, selectedSourceName) {
+	if queryState.HasFilters() {
 		data.PaginatedListPageData.EmptyStateMsg = "No identities match the current filters."
 	}
 
@@ -282,98 +253,6 @@ func identitySourceNameOptions(selectedSourceKind string, sourcePairs []viewmode
 	return out
 }
 
-func normalizeIdentitySourceSelection(rawKind, rawName string, sourcePairs []viewmodels.ProgrammaticSourceOption) (string, string) {
-	selectedKind := NormalizeConnectorKind(rawKind)
-	selectedName := strings.TrimSpace(rawName)
-	if selectedKind != "" && !identityHasSourceKind(selectedKind, sourcePairs) {
-		selectedKind = ""
-	}
-	if selectedKind == "" && selectedName != "" {
-		matchedKinds := map[string]struct{}{}
-		canonicalName := ""
-		for _, source := range sourcePairs {
-			if strings.EqualFold(source.SourceName, selectedName) {
-				kind := NormalizeConnectorKind(source.SourceKind)
-				if kind == "" {
-					continue
-				}
-				if canonicalName == "" {
-					canonicalName = strings.TrimSpace(source.SourceName)
-				}
-				matchedKinds[kind] = struct{}{}
-			}
-		}
-		switch len(matchedKinds) {
-		case 0:
-			selectedName = ""
-		case 1:
-			for kind := range matchedKinds {
-				selectedKind = kind
-			}
-			if canonicalName != "" {
-				selectedName = canonicalName
-			}
-		default:
-			if canonicalName != "" {
-				selectedName = canonicalName
-			}
-		}
-	}
-	if selectedKind == "" {
-		if selectedName != "" && !identityHasSourceName(selectedName, sourcePairs) {
-			selectedName = ""
-		}
-		return "", selectedName
-	}
-	if selectedName != "" && !identitySourcePairExists(selectedKind, selectedName, sourcePairs) {
-		selectedName = ""
-	}
-	return selectedKind, selectedName
-}
-
-func identityHasSourceKind(kind string, sourcePairs []viewmodels.ProgrammaticSourceOption) bool {
-	kind = NormalizeConnectorKind(kind)
-	if kind == "" {
-		return false
-	}
-	for _, source := range sourcePairs {
-		if NormalizeConnectorKind(source.SourceKind) == kind {
-			return true
-		}
-	}
-	return false
-}
-
-func identityHasSourceName(name string, sourcePairs []viewmodels.ProgrammaticSourceOption) bool {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return false
-	}
-	for _, source := range sourcePairs {
-		if strings.EqualFold(strings.TrimSpace(source.SourceName), name) {
-			return true
-		}
-	}
-	return false
-}
-
-func identitySourcePairExists(kind, name string, sourcePairs []viewmodels.ProgrammaticSourceOption) bool {
-	kind = NormalizeConnectorKind(kind)
-	name = strings.TrimSpace(name)
-	if kind == "" || name == "" {
-		return false
-	}
-	for _, source := range sourcePairs {
-		if NormalizeConnectorKind(source.SourceKind) != kind {
-			continue
-		}
-		if strings.EqualFold(strings.TrimSpace(source.SourceName), name) {
-			return true
-		}
-	}
-	return false
-}
-
 func identityConfiguredSourcePairs(sourcePairs []viewmodels.ProgrammaticSourceOption) ([]string, []string) {
 	kinds := make([]string, 0, len(sourcePairs))
 	names := make([]string, 0, len(sourcePairs))
@@ -382,137 +261,6 @@ func identityConfiguredSourcePairs(sourcePairs []viewmodels.ProgrammaticSourceOp
 		names = append(names, source.SourceName)
 	}
 	return kinds, names
-}
-
-func normalizeIdentityType(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "human":
-		return "human"
-	case "service":
-		return "service"
-	case "bot":
-		return "bot"
-	case "unknown":
-		return "unknown"
-	default:
-		return ""
-	}
-}
-
-func normalizeIdentityManagedState(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "managed":
-		return "managed"
-	case "unmanaged":
-		return "unmanaged"
-	default:
-		return ""
-	}
-}
-
-func normalizeIdentityStatus(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "active":
-		return "active"
-	case "suspended":
-		return "suspended"
-	case "deleted":
-		return "deleted"
-	case "orphaned":
-		return "orphaned"
-	case "unknown":
-		return "unknown"
-	default:
-		return ""
-	}
-}
-
-func normalizeIdentityActivityState(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "recent":
-		return "recent"
-	case "aging":
-		return "aging"
-	case "stale":
-		return "stale"
-	case "never_seen":
-		return "never_seen"
-	default:
-		return ""
-	}
-}
-
-func normalizeIdentityLinkQuality(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "high":
-		return "high"
-	case "medium":
-		return "medium"
-	case "low":
-		return "low"
-	case "unknown":
-		return "unknown"
-	default:
-		return ""
-	}
-}
-
-func normalizeIdentitySortBy(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "identity":
-		return "identity"
-	case "identity_type":
-		return "identity_type"
-	case "managed":
-		return "managed"
-	case "source_type":
-		return "source_type"
-	case "linked_sources":
-		return "linked_sources"
-	case "privileged_roles":
-		return "privileged_roles"
-	case "status":
-		return "status"
-	case "last_seen":
-		return "last_seen"
-	default:
-		return ""
-	}
-}
-
-func normalizeIdentitySortDir(raw, sortBy string) string {
-	if normalizeIdentitySortBy(sortBy) == "" {
-		return ""
-	}
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "asc":
-		return "asc"
-	case "desc":
-		return "desc"
-	default:
-		return "desc"
-	}
-}
-
-func parseIdentityBool(raw string) bool {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "1", "true", "yes", "on":
-		return true
-	default:
-		return false
-	}
-}
-
-func identitiesFilterActive(query, identityType, managedState string, privilegedOnly bool, status, activityState, linkQuality, sourceKind, sourceName string) bool {
-	return strings.TrimSpace(query) != "" ||
-		identityType != "" ||
-		managedState != "" ||
-		privilegedOnly ||
-		status != "" ||
-		activityState != "" ||
-		linkQuality != "" ||
-		sourceKind != "" ||
-		sourceName != ""
 }
 
 func identityNamePrimary(displayName, primaryEmail string, id int64) string {

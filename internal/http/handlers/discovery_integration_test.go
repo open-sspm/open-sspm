@@ -290,6 +290,88 @@ func TestHandleDiscoveryAppsFiltersManagedState(t *testing.T) {
 	})
 }
 
+func TestHandleDiscoveryAppsHTMXReturnsResultsShellOnly(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindOkta, true, configstore.OktaConfig{
+			Domain: "acme.okta.com",
+			Token:  "token-1",
+		})
+
+		oktaRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindOkta, "acme.okta.com")
+		insertCommandSearchDiscoveryApp(
+			t,
+			ctx,
+			pool,
+			q,
+			oktaRunID,
+			configstore.KindOkta,
+			"acme.okta.com",
+			"managed-gh-app",
+			"Managed GitHub App",
+			"github.com",
+			"GitHub",
+			"managed-gh-app",
+		)
+
+		c, rec := newTestContext(http.MethodGet, "http://example.com/discovery/apps")
+		(*c).Request().Header.Set("HX-Request", "true")
+		(*c).Request().Header.Set("HX-Target", "discovery-apps-results")
+
+		if err := h.HandleDiscoveryApps(c); err != nil {
+			t.Fatalf("HandleDiscoveryApps(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		body := rec.Body.String()
+		assertContains(t, body, `id="discovery-apps-results"`)
+		assertContains(t, body, `data-busy-inline-indicator`)
+		assertContains(t, body, `data-enter-only-query="q"`)
+		assertContains(t, body, `hx-get="/discovery/apps?page=1"`)
+		assertContains(t, body, `hx-trigger="change delay:150ms from:select, submit"`)
+		assertNotContains(t, body, "<!doctype html>")
+	})
+}
+
+func TestHandleDiscoveryAppsRendersFullPageWithoutHTMX(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindOkta, true, configstore.OktaConfig{
+			Domain: "acme.okta.com",
+			Token:  "token-1",
+		})
+
+		oktaRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindOkta, "acme.okta.com")
+		insertCommandSearchDiscoveryApp(
+			t,
+			ctx,
+			pool,
+			q,
+			oktaRunID,
+			configstore.KindOkta,
+			"acme.okta.com",
+			"managed-gh-app",
+			"Managed GitHub App",
+			"github.com",
+			"GitHub",
+			"managed-gh-app",
+		)
+
+		c, rec := newTestContext(http.MethodGet, "http://example.com/discovery/apps")
+
+		if err := h.HandleDiscoveryApps(c); err != nil {
+			t.Fatalf("HandleDiscoveryApps(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		body := rec.Body.String()
+		assertContains(t, body, "<!doctype html>")
+		assertContains(t, body, `id="discovery-apps-results"`)
+	})
+}
+
 func TestGetSaaSAppByIDComputesLivePostureScenarios(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{

@@ -24,8 +24,8 @@ func TestBuildUnmatchedSourceAccountsPageUnavailable(t *testing.T) {
 			t.Fatalf("buildUnmatchedSourceAccountsPage(): %v", err)
 		}
 
-		if result.PageData.Query != "alice" {
-			t.Fatalf("Query = %q, want alice", result.PageData.Query)
+		if result.PageData.Query.Q != "alice" {
+			t.Fatalf("Query.Q = %q, want alice", result.PageData.Query.Q)
 		}
 		if result.PageData.EmptyStateMsg != "GitHub is not configured yet. Add credentials in Connectors." {
 			t.Fatalf("EmptyStateMsg = %q", result.PageData.EmptyStateMsg)
