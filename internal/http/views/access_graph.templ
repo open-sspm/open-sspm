@@ -14,15 +14,17 @@ templ AccessGraphNode(oktaAccountID int64, node viewmodels.AccessTreeNode) {
 					<div class="btn-icon-ghost transition-transform group-open:rotate-90">▸</div>
 					@accessGraphNodeContent(node)
 				</summary>
-					<div
-						class="ml-4 border-l border-border pl-4"
-						hx-get={ fmt.Sprintf("/api/accounts/okta/%d/access-tree?node=%s", oktaAccountID, url.QueryEscape(node.ID)) }
-						hx-trigger="toggle from:closest details once"
-						hx-swap="innerHTML"
-					>
-					<div class="text-sm text-muted-foreground py-1">Loading…</div>
-				</div>
-			</details>
+						<div
+							class="ml-4 border-l border-border pl-4"
+							data-hx-lazy-load
+							data-hx-lazy-open-only="true"
+							hx-get={ fmt.Sprintf("/api/accounts/okta/%d/access-tree?node=%s", oktaAccountID, url.QueryEscape(node.ID)) }
+							hx-trigger="toggle from:closest details"
+							hx-swap="innerHTML"
+						>
+						@BusyInlineIndicator("Loading access details...", true)
+					</div>
+				</details>
 		} else {
 			<div class="flex items-start gap-2 py-1">
 				<span class="inline-block h-9 w-9"></span>
@@ -59,5 +61,5 @@ templ AccessGraphChildren(oktaAccountID int64, nodes []viewmodels.AccessTreeNode
 }
 
 templ AccessGraphError(message string) {
-	<div class="text-sm text-destructive py-1">{ message }</div>
+	<div class="text-sm text-destructive py-1" data-hx-lazy-error>{ message }</div>
 }

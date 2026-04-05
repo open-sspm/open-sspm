@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
@@ -27,6 +28,7 @@ type unmatchedSourceAccountsResult struct {
 
 type unmatchedSourceAccountOptions struct {
 	Title                string
+	BasePath             string
 	ConnectorName        string
 	ConnectorKind        string
 	SourceKind           string
@@ -45,8 +47,8 @@ func (h *Handlers) buildUnmatchedSourceAccountsPage(c *echo.Context, opts unmatc
 		return unmatchedSourceAccountsResult{}, err
 	}
 
-	query := strings.TrimSpace(c.QueryParam("q"))
-	pagination := newPaginatedListState(0, parsePageParam(c), unmatchedSourceAccountsPerPage)
+	query := querystate.ParseBasicListQuery(opts.BasePath, c.Request().URL.Query(), querystate.BasicListOptions{})
+	pagination := newPaginatedListState(0, query.Page, unmatchedSourceAccountsPerPage)
 	configured := stateView.Configured(opts.ConnectorKind)
 	enabled := stateView.Enabled(opts.ConnectorKind)
 	configuredSourceName := stateView.SourceName(opts.ConnectorKind)
@@ -65,19 +67,19 @@ func (h *Handlers) buildUnmatchedSourceAccountsPage(c *echo.Context, opts unmatc
 		return unmatchedSourceAccountsResult{}, err
 	}
 
-	totalCount, err := h.countUnmatchedSourceAccounts(ctx, opts, sourceName, query)
+	totalCount, err := h.countUnmatchedSourceAccounts(ctx, opts, sourceName, query.Q)
 	if err != nil {
 		return unmatchedSourceAccountsResult{}, err
 	}
 
-	pagination = newPaginatedListState(totalCount, parsePageParam(c), unmatchedSourceAccountsPerPage)
-	users, err := h.listUnmatchedSourceAccounts(ctx, opts, sourceName, query, pagination.Offset(), unmatchedSourceAccountsPerPage)
+	pagination = newPaginatedListState(totalCount, query.Page, unmatchedSourceAccountsPerPage)
+	users, err := h.listUnmatchedSourceAccounts(ctx, opts, sourceName, query.Q, pagination.Offset(), unmatchedSourceAccountsPerPage)
 	if err != nil {
 		return unmatchedSourceAccountsResult{}, err
 	}
 
 	emptyState := opts.SyncedEmptyState
-	if query != "" {
+	if query.HasFilters() {
 		emptyState = opts.FilteredEmptyState
 	}
 

@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { bindGlobalListenersOnce } from "open-sspm-app/htmx.js";
+import { triggerVisibleLazyHx } from "open-sspm-app/fragment.js";
 
 const waitForAsyncWork = async () => {
   await Promise.resolve();
@@ -64,6 +65,120 @@ describe("htmx integration wiring", () => {
     expect(indicator.getAttribute("aria-hidden")).toBe("true");
   });
 
+  it("preserves the committed query on change-triggered enter-only forms", () => {
+    document.body.innerHTML = `
+      <form id="filters" data-enter-only-query="q">
+        <input id="query" type="search" name="q" value="applied" />
+        <select name="status">
+          <option value="">All</option>
+          <option value="active">Active</option>
+        </select>
+      </form>
+    `;
+
+    const form = document.getElementById("filters");
+    const query = document.getElementById("query");
+    query.value = "draft";
+
+    const detail = {
+      elt: form,
+      parameters: {
+        q: query.value,
+        status: "active",
+      },
+      triggeringEvent: new Event("change"),
+    };
+
+    document.dispatchEvent(new CustomEvent("htmx:configRequest", { detail }));
+
+    expect(detail.parameters.q).toBe("applied");
+    expect(detail.parameters.status).toBe("active");
+  });
+
+  it("removes empty committed queries from change-triggered enter-only forms", () => {
+    document.body.innerHTML = `
+      <form id="filters" data-enter-only-query="q">
+        <input id="query" type="search" name="q" value="" />
+        <select name="status">
+          <option value="">All</option>
+          <option value="active">Active</option>
+        </select>
+      </form>
+    `;
+
+    const form = document.getElementById("filters");
+    const query = document.getElementById("query");
+    query.value = "draft";
+
+    const detail = {
+      elt: form,
+      parameters: {
+        q: query.value,
+        status: "active",
+      },
+      triggeringEvent: new Event("change"),
+    };
+
+    document.dispatchEvent(new CustomEvent("htmx:configRequest", { detail }));
+
+    expect("q" in detail.parameters).toBe(false);
+    expect(detail.parameters.status).toBe("active");
+  });
+
+  it("keeps the live query on submit-triggered enter-only forms", () => {
+    document.body.innerHTML = `
+      <form id="filters" data-enter-only-query="q">
+        <input id="query" type="search" name="q" value="applied" />
+      </form>
+    `;
+
+    const form = document.getElementById("filters");
+    const query = document.getElementById("query");
+    query.value = "draft";
+
+    const detail = {
+      elt: form,
+      parameters: {
+        q: query.value,
+      },
+      triggeringEvent: new Event("submit"),
+    };
+
+    document.dispatchEvent(new CustomEvent("htmx:configRequest", { detail }));
+
+    expect(detail.parameters.q).toBe("draft");
+  });
+
+  it("does not change queries for forms without enter-only query handling", () => {
+    document.body.innerHTML = `
+      <form id="filters">
+        <input id="query" type="search" name="q" value="applied" />
+        <select name="status">
+          <option value="">All</option>
+          <option value="active">Active</option>
+        </select>
+      </form>
+    `;
+
+    const form = document.getElementById("filters");
+    const query = document.getElementById("query");
+    query.value = "draft";
+
+    const detail = {
+      elt: form,
+      parameters: {
+        q: query.value,
+        status: "active",
+      },
+      triggeringEvent: new Event("change"),
+    };
+
+    document.dispatchEvent(new CustomEvent("htmx:configRequest", { detail }));
+
+    expect(detail.parameters.q).toBe("draft");
+    expect(detail.parameters.status).toBe("active");
+  });
+
   it("cleans up busy state when swap completes before/without afterRequest", () => {
     document.body.innerHTML = `
       <main id="main" data-main-content data-busy-region>
@@ -102,6 +217,99 @@ describe("htmx integration wiring", () => {
     expect(region.getAttribute("aria-busy")).toBe("false");
     expect(document.documentElement.dataset.htmxBusy).toBe("false");
     expect(indicator.hidden).toBe(true);
+  });
+
+  it("clears mirrored aria-busy from outerHTML replacement targets", () => {
+    document.body.innerHTML = `
+      <main id="main" data-main-content data-busy-region>
+        <div id="target">
+          <div data-busy-inline-indicator>Updating results...</div>
+        </div>
+      </main>
+      <div id="busy-indicator" data-htmx-busy-indicator hidden aria-hidden="true"></div>
+    `;
+
+    const oldTarget = document.getElementById("target");
+    const region = document.getElementById("main");
+    const xhr = new XMLHttpRequest();
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        detail: {
+          xhr,
+          target: oldTarget,
+          elt: oldTarget,
+          requestConfig: {},
+        },
+      }),
+    );
+
+    expect(oldTarget.getAttribute("aria-busy")).toBe("true");
+    expect(region.getAttribute("aria-busy")).toBe("true");
+
+    oldTarget.outerHTML = `
+      <div id="target" aria-busy="true">
+        <div data-busy-inline-indicator>Updating results...</div>
+      </div>
+    `;
+
+    const newTarget = document.getElementById("target");
+    newTarget.dispatchEvent(
+      new CustomEvent("htmx:afterSwap", {
+        bubbles: true,
+        detail: { xhr },
+      }),
+    );
+
+    expect(newTarget.getAttribute("aria-busy")).toBe("false");
+    expect(region.getAttribute("aria-busy")).toBe("false");
+    expect(document.documentElement.dataset.htmxBusy).toBe("false");
+  });
+
+  it("clears stale aria-busy from live replacements when the original target finalizes elsewhere", () => {
+    document.body.innerHTML = `
+      <main id="main" data-main-content data-busy-region>
+        <div id="target">
+          <div data-busy-inline-indicator>Updating results...</div>
+        </div>
+      </main>
+      <div id="busy-indicator" data-htmx-busy-indicator hidden aria-hidden="true"></div>
+    `;
+
+    const oldTarget = document.getElementById("target");
+    const xhr = new XMLHttpRequest();
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        detail: {
+          xhr,
+          target: oldTarget,
+          elt: oldTarget,
+          requestConfig: {},
+        },
+      }),
+    );
+
+    oldTarget.outerHTML = `
+      <div id="target" aria-busy="true">
+        <div data-busy-inline-indicator>Updating results...</div>
+      </div>
+    `;
+
+    const newTarget = document.getElementById("target");
+    expect(newTarget.getAttribute("aria-busy")).toBe("true");
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:afterRequest", {
+        detail: {
+          xhr,
+          failed: false,
+        },
+      }),
+    );
+
+    expect(newTarget.getAttribute("aria-busy")).toBe("false");
+    expect(document.documentElement.dataset.htmxBusy).toBe("false");
   });
 
   it("cleans up busy state when afterSwap targets a non-HTMLElement", () => {
@@ -258,6 +466,257 @@ describe("htmx integration wiring", () => {
     );
 
     expect(card.getAttribute("aria-busy")).toBe("false");
+  });
+
+  it("marks managed lazy requests pending and loaded only after a successful swap", () => {
+    document.body.innerHTML = `<div id="lazy" data-hx-lazy-load></div>`;
+
+    const lazy = document.getElementById("lazy");
+    const xhr = new XMLHttpRequest();
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        cancelable: true,
+        detail: {
+          xhr,
+          target: lazy,
+          elt: lazy,
+          requestConfig: {},
+        },
+      }),
+    );
+
+    expect(lazy.dataset.hxLazyState).toBe("pending");
+
+    lazy.innerHTML = `<div>Loaded</div>`;
+    lazy.dispatchEvent(
+      new CustomEvent("htmx:afterSwap", {
+        bubbles: true,
+        detail: { xhr },
+      }),
+    );
+
+    expect(lazy.dataset.hxLazyState).toBe("loaded");
+  });
+
+  it("clears pending lazy state when the swap renders an error fragment", () => {
+    document.body.innerHTML = `<div id="lazy" data-hx-lazy-load></div>`;
+
+    const lazy = document.getElementById("lazy");
+    const xhr = new XMLHttpRequest();
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        cancelable: true,
+        detail: {
+          xhr,
+          target: lazy,
+          elt: lazy,
+          requestConfig: {},
+        },
+      }),
+    );
+
+    expect(lazy.dataset.hxLazyState).toBe("pending");
+
+    lazy.innerHTML = `<div data-hx-lazy-error>Temporary error</div>`;
+    lazy.dispatchEvent(
+      new CustomEvent("htmx:afterSwap", {
+        bubbles: true,
+        detail: { xhr },
+      }),
+    );
+
+    expect(lazy.dataset.hxLazyState).toBeUndefined();
+  });
+
+  it("does not immediately re-trigger a lazy panel after swapping an error fragment", () => {
+    document.body.innerHTML = `
+      <div id="lazy" data-hx-lazy-load data-hx-lazy-panel="panel-a"></div>
+      <section id="panel-a"></section>
+    `;
+
+    const lazy = document.getElementById("lazy");
+    const triggerSpy = vi.fn();
+    window.htmx = {
+      trigger: triggerSpy,
+    };
+
+    const xhr = new XMLHttpRequest();
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        cancelable: true,
+        detail: {
+          xhr,
+          target: lazy,
+          elt: lazy,
+          requestConfig: {},
+        },
+      }),
+    );
+
+    lazy.innerHTML = `<div data-hx-lazy-error>Temporary error</div>`;
+    lazy.dispatchEvent(
+      new CustomEvent("htmx:afterSwap", {
+        bubbles: true,
+        detail: { xhr },
+      }),
+    );
+
+    expect(triggerSpy).not.toHaveBeenCalled();
+
+    triggerVisibleLazyHx(document);
+
+    expect(triggerSpy).toHaveBeenCalledTimes(1);
+    expect(triggerSpy).toHaveBeenCalledWith(lazy, "oss-panel-visible");
+  });
+
+  it("clears pending lazy state on response errors so the request can retry", () => {
+    document.body.innerHTML = `<div id="lazy" data-hx-lazy-load></div>`;
+
+    const lazy = document.getElementById("lazy");
+    const xhr = new XMLHttpRequest();
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        cancelable: true,
+        detail: {
+          xhr,
+          target: lazy,
+          elt: lazy,
+          requestConfig: {},
+        },
+      }),
+    );
+
+    expect(lazy.dataset.hxLazyState).toBe("pending");
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:responseError", {
+        detail: { xhr },
+      }),
+    );
+
+    expect(lazy.dataset.hxLazyState).toBeUndefined();
+  });
+
+  it("retries visible lazy panels after a failed load", () => {
+    document.body.innerHTML = `
+      <div id="lazy" data-hx-lazy-load data-hx-lazy-panel="panel-a"></div>
+      <section id="panel-a"></section>
+    `;
+
+    const triggerSpy = vi.fn((element) => {
+      const xhr = new XMLHttpRequest();
+      document.dispatchEvent(
+        new CustomEvent("htmx:beforeRequest", {
+          cancelable: true,
+          detail: {
+            xhr,
+            target: element,
+            elt: element,
+            requestConfig: {},
+          },
+        }),
+      );
+      document.dispatchEvent(
+        new CustomEvent("htmx:responseError", {
+          detail: { xhr },
+        }),
+      );
+    });
+    window.htmx = {
+      trigger: triggerSpy,
+    };
+
+    triggerVisibleLazyHx(document);
+    triggerVisibleLazyHx(document);
+
+    expect(triggerSpy).toHaveBeenCalledTimes(2);
+    expect(document.getElementById("lazy").dataset.hxLazyState).toBeUndefined();
+  });
+
+  it("blocks duplicate lazy requests while a prior request is pending", () => {
+    document.body.innerHTML = `<div id="lazy" data-hx-lazy-load></div>`;
+
+    const lazy = document.getElementById("lazy");
+    const firstXhr = new XMLHttpRequest();
+    const firstEvent = new CustomEvent("htmx:beforeRequest", {
+      cancelable: true,
+      detail: {
+        xhr: firstXhr,
+        target: lazy,
+        elt: lazy,
+        requestConfig: {},
+      },
+    });
+    document.dispatchEvent(firstEvent);
+
+    const duplicateEvent = new CustomEvent("htmx:beforeRequest", {
+      cancelable: true,
+      detail: {
+        xhr: new XMLHttpRequest(),
+        target: lazy,
+        elt: lazy,
+        requestConfig: {},
+      },
+    });
+    document.dispatchEvent(duplicateEvent);
+
+    expect(firstEvent.defaultPrevented).toBe(false);
+    expect(duplicateEvent.defaultPrevented).toBe(true);
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:responseError", {
+        detail: { xhr: firstXhr },
+      }),
+    );
+  });
+
+  it("does not issue lazy detail requests when the parent details element is closed", () => {
+    document.body.innerHTML = `
+      <details>
+        <summary>Node</summary>
+        <div id="lazy" data-hx-lazy-load data-hx-lazy-open-only="true"></div>
+      </details>
+    `;
+
+    const details = document.querySelector("details");
+    const lazy = document.getElementById("lazy");
+    details.open = false;
+
+    const closedEvent = new CustomEvent("htmx:beforeRequest", {
+      cancelable: true,
+      detail: {
+        xhr: new XMLHttpRequest(),
+        target: lazy,
+        elt: lazy,
+        requestConfig: {},
+      },
+    });
+    document.dispatchEvent(closedEvent);
+
+    details.open = true;
+    const openXhr = new XMLHttpRequest();
+    const openEvent = new CustomEvent("htmx:beforeRequest", {
+      cancelable: true,
+      detail: {
+        xhr: openXhr,
+        target: lazy,
+        elt: lazy,
+        requestConfig: {},
+      },
+    });
+    document.dispatchEvent(openEvent);
+
+    expect(closedEvent.defaultPrevented).toBe(true);
+    expect(openEvent.defaultPrevented).toBe(false);
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:responseError", {
+        detail: { xhr: openXhr },
+      }),
+    );
   });
 
   it("focuses command search when pressing Ctrl+K or Cmd+K", () => {

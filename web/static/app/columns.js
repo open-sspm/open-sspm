@@ -265,8 +265,15 @@ const initColumnsForTable = (table) => {
   );
   if (headers.length === 0) return;
 
-  const controlRoot = table.previousElementSibling;
-  if (!(controlRoot instanceof HTMLElement) || !controlRoot.matches("[data-columns-root]")) return;
+  const findControlRoot = () => {
+    const prev = table.previousElementSibling;
+    if (prev instanceof HTMLElement && prev.matches("[data-columns-root]")) return prev;
+    const parentPrev = table.parentElement?.previousElementSibling;
+    if (parentPrev instanceof HTMLElement && parentPrev.matches("[data-columns-root]")) return parentPrev;
+    return null;
+  };
+  const controlRoot = findControlRoot();
+  if (!controlRoot) return;
   const selector = `[data-columns-control][data-columns-for="${tableID}"]`;
   const control = controlRoot.querySelector(selector);
   if (!(control instanceof HTMLElement)) return;

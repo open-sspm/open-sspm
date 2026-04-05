@@ -1,6 +1,9 @@
 package viewmodels
 
-import "github.com/open-sspm/open-sspm/internal/db/gen"
+import (
+	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
+)
 
 type PaginatedListPageData struct {
 	Layout         LayoutData
@@ -18,6 +21,6 @@ type PaginatedListPageData struct {
 type UnmatchedSourceAccountsPageData struct {
 	PaginatedListPageData
 	Users    []gen.Account
-	Query    string
+	Query    querystate.BasicListQuery
 	HasUsers bool
 }

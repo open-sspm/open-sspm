@@ -8,6 +8,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
@@ -15,6 +16,7 @@ import (
 func (h *Handlers) HandleGoogleWorkspaceUsers(c *echo.Context) error {
 	inventory, err := h.buildSourceAccountInventoryPage(c, sourceAccountInventoryOptions{
 		Title:              "Google Workspace Users",
+		BasePath:           "/accounts/google-workspace",
 		ConnectorName:      "Google Workspace",
 		ConnectorKind:      configstore.KindGoogleWorkspace,
 		SourceKind:         querySourceKind(configstore.KindGoogleWorkspace),
@@ -95,8 +97,8 @@ func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
 	}
 
 	const perPage = 20
-	query := strings.TrimSpace(c.QueryParam("q"))
-	page := parsePageParam(c)
+	queryState := querystate.ParseBasicListQuery("/accounts/google-workspace/groups", c.Request().URL.Query(), querystate.BasicListOptions{})
+	page := queryState.Page
 	google := stateView.GoogleWorkspace()
 	sourceName := google.SourceName()
 	unavailablePagination := newPaginatedListState(0, page, perPage)
@@ -105,7 +107,7 @@ func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
 		message := connectorUnavailableMessage("Google Workspace", google.Configured(), google.Enabled())
 		data := viewmodels.GoogleWorkspaceGroupsViewData{
 			PaginatedListPageData: unavailablePagination.PageData(layout, 0, message, "/settings/connectors?open=google_workspace"),
-			Query:                 query,
+			Query:                 queryState,
 			HasGroups:             false,
 		}
 		return h.RenderComponent(c, views.GoogleWorkspaceGroupsPage(data))
@@ -114,7 +116,7 @@ func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
 	totalCount, err := h.Q.CountGoogleWorkspaceGroupsBySourceAndQuery(ctx, gen.CountGoogleWorkspaceGroupsBySourceAndQueryParams{
 		SourceKind: configstore.KindGoogleWorkspace,
 		SourceName: sourceName,
-		Query:      query,
+		Query:      queryState.Q,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -124,7 +126,7 @@ func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
 	groups, err := h.Q.ListGoogleWorkspaceGroupsPageBySourceAndQuery(ctx, gen.ListGoogleWorkspaceGroupsPageBySourceAndQueryParams{
 		SourceKind: configstore.KindGoogleWorkspace,
 		SourceName: sourceName,
-		Query:      query,
+		Query:      queryState.Q,
 		PageLimit:  int32(perPage),
 		PageOffset: int32(pagination.Offset()),
 	})
@@ -181,14 +183,14 @@ func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
 	}
 
 	emptyState := "No Google Workspace groups synced yet."
-	if query != "" {
+	if queryState.HasFilters() {
 		emptyState = "No Google Workspace groups match the current search."
 	}
 
 	data := viewmodels.GoogleWorkspaceGroupsViewData{
 		PaginatedListPageData: pagination.PageData(layout, len(items), emptyState, "/settings/connectors?open=google_workspace"),
 		Groups:                items,
-		Query:                 query,
+		Query:                 queryState,
 		HasGroups:             len(items) > 0,
 	}
 
@@ -198,6 +200,7 @@ func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
 func (h *Handlers) HandleUnmatchedGoogleWorkspace(c *echo.Context) error {
 	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
 		Title:              "Unlinked Google Workspace Users",
+		BasePath:           "/accounts/unlinked/google-workspace",
 		ConnectorName:      "Google Workspace",
 		ConnectorKind:      configstore.KindGoogleWorkspace,
 		SourceKind:         configstore.KindGoogleWorkspace,

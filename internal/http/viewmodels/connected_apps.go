@@ -1,5 +1,7 @@
 package viewmodels
 
+import "github.com/open-sspm/open-sspm/internal/http/querystate"
+
 type ConnectedAppsReviewCount struct {
 	ReviewState string
 	Label       string
@@ -29,8 +31,7 @@ type ConnectedAppListItem struct {
 
 type ConnectedAppsViewData struct {
 	PaginatedListPageData
-	Query        string
-	ReviewState  string
+	Query        querystate.ConnectedAppsQuery
 	ReviewCounts []ConnectedAppsReviewCount
 	Items        []ConnectedAppListItem
 	HasItems     bool

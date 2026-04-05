@@ -17,6 +17,42 @@ const INTERACTIVE_ROW_SELECTOR = [
   "[contenteditable='true']",
 ].join(",");
 
+const HX_LAZY_STATE_PENDING = "pending";
+const HX_LAZY_STATE_LOADED = "loaded";
+
+const getLazyHxState = (element) => {
+  if (!(element instanceof HTMLElement)) return "";
+  return (element.dataset.hxLazyState || "").trim();
+};
+
+export const isManagedLazyHx = (element) => element instanceof HTMLElement && element.hasAttribute("data-hx-lazy-load");
+
+export const isLazyHxPending = (element) => isManagedLazyHx(element) && getLazyHxState(element) === HX_LAZY_STATE_PENDING;
+
+export const isLazyHxLoaded = (element) => isManagedLazyHx(element) && getLazyHxState(element) === HX_LAZY_STATE_LOADED;
+
+export const markLazyHxPending = (element) => {
+  if (!isManagedLazyHx(element)) return;
+  element.dataset.hxLazyState = HX_LAZY_STATE_PENDING;
+};
+
+export const markLazyHxLoaded = (element) => {
+  if (!isManagedLazyHx(element)) return;
+  element.dataset.hxLazyState = HX_LAZY_STATE_LOADED;
+};
+
+export const clearLazyHxPending = (element) => {
+  if (!isManagedLazyHx(element)) return;
+  if (!isLazyHxPending(element)) return;
+  delete element.dataset.hxLazyState;
+};
+
+export const hasLazyHxError = (element) => {
+  if (!(element instanceof HTMLElement)) return false;
+  if (element.hasAttribute("data-hx-lazy-error")) return true;
+  return element.querySelector("[data-hx-lazy-error]") instanceof HTMLElement;
+};
+
 export const wireAutosubmit = (root = document) => {
   root.querySelectorAll("[data-autosubmit]").forEach((element) => {
     if (!(element instanceof HTMLElement)) return;
@@ -39,9 +75,9 @@ export const triggerVisibleLazyHx = (root = document) => {
   const htmxApi = window.htmx;
   if (!htmxApi || typeof htmxApi.trigger !== "function") return;
 
-  root.querySelectorAll("[data-hx-lazy-panel]").forEach((element) => {
+  root.querySelectorAll("[data-hx-lazy-load][data-hx-lazy-panel]").forEach((element) => {
     if (!(element instanceof HTMLElement)) return;
-    if (element.dataset.hxLazyLoaded === "true") return;
+    if (isLazyHxPending(element) || isLazyHxLoaded(element)) return;
 
     const panelID = (element.dataset.hxLazyPanel || "").trim();
     if (!panelID) return;
@@ -50,7 +86,6 @@ export const triggerVisibleLazyHx = (root = document) => {
     if (!(panel instanceof HTMLElement) || panel.hidden) return;
 
     htmxApi.trigger(element, "oss-panel-visible");
-    element.dataset.hxLazyLoaded = "true";
   });
 };
 
@@ -61,6 +96,8 @@ export const scheduleVisibleLazyHx = (root = document) => {
 };
 
 const rowHref = (row) => (row.dataset.rowHref || "").trim();
+
+const primaryRowAnchor = (row) => row.querySelector("a[href]");
 
 const rowHasSelection = () => {
   if (typeof window.getSelection !== "function") return false;
@@ -77,13 +114,29 @@ const isInteractiveRowTarget = (target, row) => {
   return interactive !== row;
 };
 
+const rowNavigationHref = (row) => {
+  const anchor = primaryRowAnchor(row);
+  if (anchor instanceof HTMLAnchorElement) {
+    return anchor.getAttribute("href") || anchor.href;
+  }
+  return rowHref(row);
+};
+
 const navigateToRowHref = (row, openInNewTab = false) => {
-  const href = rowHref(row);
+  const primaryAnchor = primaryRowAnchor(row);
+  const href = rowNavigationHref(row);
   if (!href) return;
+
   if (openInNewTab) {
     window.open(href, "_blank", "noopener");
     return;
   }
+
+  if (primaryAnchor instanceof HTMLAnchorElement) {
+    primaryAnchor.click();
+    return;
+  }
+
   window.location.assign(href);
 };
 

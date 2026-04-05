@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
@@ -27,61 +28,26 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 	}
 
 	const perPage = 20
-	query := strings.TrimSpace(c.QueryParam("q"))
-	page := parsePageParam(c)
+	queryState := querystate.ParseBasicListQuery("/assigned-apps", c.Request().URL.Query(), querystate.BasicListOptions{})
+	page := queryState.Page
 
 	var totalCount int64
-	if query == "" {
+	if queryState.Q == "" {
 		totalCount, err = h.Q.CountOktaApps(ctx)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
 	} else {
-		totalCount, err = h.Q.CountOktaAppsByQuery(ctx, query)
+		totalCount, err = h.Q.CountOktaAppsByQuery(ctx, queryState.Q)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
 	}
 
 	pagination := newPaginatedListState(totalCount, page, perPage)
-	makeItem := func(externalID, label, name, status, signOnMode, integrationKind string) viewmodels.AppListItem {
-		label = strings.TrimSpace(label)
-		if label == "" {
-			label = strings.TrimSpace(externalID)
-		}
-		status = strings.TrimSpace(status)
-		if status == "" {
-			status = "—"
-		}
-		signOnMode = strings.TrimSpace(signOnMode)
-		if signOnMode == "" {
-			signOnMode = "—"
-		}
-		integratedHref := IntegratedAppHref(integrationKind)
-		suggestedKind := ""
-		if integratedHref == "" {
-			labelLower := strings.ToLower(label)
-			nameLower := strings.ToLower(strings.TrimSpace(name))
-			switch {
-			case strings.Contains(labelLower, "github"), strings.Contains(nameLower, "github"):
-				suggestedKind = configstore.KindGitHub
-			case strings.Contains(labelLower, "datadog"), strings.Contains(nameLower, "datadog"):
-				suggestedKind = configstore.KindDatadog
-			}
-		}
-		return viewmodels.AppListItem{
-			ExternalID:     strings.TrimSpace(externalID),
-			Label:          label,
-			Name:           strings.TrimSpace(name),
-			Status:         status,
-			SignOnMode:     signOnMode,
-			IntegratedHref: integratedHref,
-			SuggestedKind:  suggestedKind,
-		}
-	}
 
 	items := make([]viewmodels.AppListItem, 0, perPage)
-	if query == "" {
+	if queryState.Q == "" {
 		apps, err := h.Q.ListOktaAppsPage(ctx, gen.ListOktaAppsPageParams{
 			PageLimit:  int32(perPage),
 			PageOffset: int32(pagination.Offset()),
@@ -91,11 +57,11 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 		}
 		items = make([]viewmodels.AppListItem, 0, len(apps))
 		for _, app := range apps {
-			items = append(items, makeItem(app.ExternalID, app.Label, app.Name, app.Status, app.SignOnMode, app.IntegrationKind))
+			items = append(items, oktaAppListItem(app.ExternalID, app.Label, app.Name, app.Status, app.SignOnMode, app.IntegrationKind))
 		}
 	} else {
 		apps, err := h.Q.ListOktaAppsPageByQuery(ctx, gen.ListOktaAppsPageByQueryParams{
-			Query:      query,
+			Query:      queryState.Q,
 			PageLimit:  int32(perPage),
 			PageOffset: int32(pagination.Offset()),
 		})
@@ -104,19 +70,19 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 		}
 		items = make([]viewmodels.AppListItem, 0, len(apps))
 		for _, app := range apps {
-			items = append(items, makeItem(app.ExternalID, app.Label, app.Name, app.Status, app.SignOnMode, app.IntegrationKind))
+			items = append(items, oktaAppListItem(app.ExternalID, app.Label, app.Name, app.Status, app.SignOnMode, app.IntegrationKind))
 		}
 	}
 
 	data := viewmodels.AppsViewData{
 		PaginatedListPageData: pagination.PageData(layout, len(items), func() string {
-			if query != "" {
+			if queryState.HasFilters() {
 				return "No assigned apps match the current search."
 			}
 			return "No assigned apps have been synced yet. Run a sync to discover assignments."
 		}(), ""),
 		Apps:    items,
-		Query:   query,
+		Query:   queryState,
 		HasApps: len(items) > 0,
 	}
 
@@ -160,19 +126,15 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 	}
 
 	const perPage = 20
-	query := strings.TrimSpace(c.QueryParam("q"))
-	state := strings.ToLower(strings.TrimSpace(c.QueryParam("state")))
-	switch state {
-	case "active", "inactive":
-	default:
-		state = ""
-	}
-	page := parsePageParam(c)
+	queryState := querystate.ParseBasicListQuery("/assigned-apps/"+strings.TrimSpace(app.ExternalID), c.Request().URL.Query(), querystate.BasicListOptions{
+		NormalizeState: normalizeActiveInactiveState,
+	})
+	page := queryState.Page
 
 	totalCount, err := h.Q.CountOktaAppAssignedAccountsByQuery(ctx, gen.CountOktaAppAssignedAccountsByQueryParams{
 		OktaAppID: app.ID,
-		State:     state,
-		Query:     query,
+		State:     queryState.State,
+		Query:     queryState.Q,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -181,8 +143,8 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 	pagination := newPaginatedListState(totalCount, page, perPage)
 	assignments, err := h.Q.ListOktaAppAssignedAccountsPageByQuery(ctx, gen.ListOktaAppAssignedAccountsPageByQueryParams{
 		OktaAppID:  app.ID,
-		State:      state,
-		Query:      query,
+		State:      queryState.State,
+		Query:      queryState.Q,
 		PageOffset: int32(pagination.Offset()),
 		PageLimit:  int32(perPage),
 	})
@@ -216,87 +178,124 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 		}
 	}
 
-	label := strings.TrimSpace(app.Label)
-	if label == "" {
-		label = strings.TrimSpace(app.ExternalID)
-	}
-	status := strings.TrimSpace(app.Status)
-	if status == "" {
-		status = "—"
-	}
-	signOnMode := strings.TrimSpace(app.SignOnMode)
-	if signOnMode == "" {
-		signOnMode = "—"
-	}
-
 	items := make([]viewmodels.OktaAppAssignedAccountView, 0, len(assignments))
 	for _, assignment := range assignments {
-		accountName := strings.TrimSpace(assignment.OktaAccountDisplayName)
-		if accountName == "" {
-			accountName = strings.TrimSpace(assignment.OktaAccountEmail)
-		}
-		if accountName == "" {
-			accountName = strings.TrimSpace(assignment.OktaAccountExternalID)
-		}
-		if accountName == "" {
-			accountName = "—"
-		}
-		accountStatus := strings.TrimSpace(assignment.OktaAccountStatus)
-		if accountStatus == "" {
-			accountStatus = "—"
-		}
-
-		assignedVia := "Unknown"
-		scope := strings.ToUpper(strings.TrimSpace(assignment.Scope))
-		if scope == "USER" {
-			assignedVia = "Direct"
-		} else if scope == "GROUP" {
-			assignedVia = "Group"
-		}
-
-		var groups []string
-		if scope == "GROUP" {
-			groups = append(groups, grantingGroups[assignment.OktaAccountID]...)
-			sort.Strings(groups)
-			if len(groups) == 0 {
-				groups = []string{"(unknown)"}
-			}
-		}
-
-		items = append(items, viewmodels.OktaAppAssignedAccountView{
-			OktaAccountID:         assignment.OktaAccountID,
-			AccountHref:           fmt.Sprintf("/accounts/okta/%d", assignment.OktaAccountID),
-			AccountDisplayName:    accountName,
-			AccountEmail:          strings.TrimSpace(assignment.OktaAccountEmail),
-			OktaAccountExternalID: strings.TrimSpace(assignment.OktaAccountExternalID),
-			OktaAccountStatus:     accountStatus,
-			AssignedVia:           assignedVia,
-			Groups:                groups,
-			Permissions:           SummarizeProfilePermissions(assignment.ProfileJson),
-		})
+		items = append(items, oktaAppAssignedAccountView(assignment, grantingGroups[assignment.OktaAccountID]))
 	}
 
 	data := viewmodels.OktaAppShowViewData{
 		PaginatedListPageData: pagination.PageData(layout, len(items), func() string {
-			if query != "" || state != "" {
+			if queryState.HasFilters() {
 				return "No assigned users match the current search."
 			}
 			return "No Okta users are assigned to this app."
 		}(), ""),
-		App: viewmodels.OktaAppSummaryView{
-			ExternalID: strings.TrimSpace(app.ExternalID),
-			Label:      label,
-			Name:       strings.TrimSpace(app.Name),
-			Status:     status,
-			SignOnMode: signOnMode,
-		},
+		App:         oktaAppSummaryView(app),
 		Accounts:    items,
-		Query:       query,
-		State:       state,
+		Query:       queryState,
 		HasAccounts: len(items) > 0,
 	}
 
 	return h.RenderComponent(c, views.OktaAppShowPage(data))
+}
+
+func oktaAppListItem(externalID, label, name, status, signOnMode, integrationKind string) viewmodels.AppListItem {
+	label = strings.TrimSpace(label)
+	if label == "" {
+		label = strings.TrimSpace(externalID)
+	}
+
+	integratedHref := IntegratedAppHref(integrationKind)
+	return viewmodels.AppListItem{
+		ExternalID:     strings.TrimSpace(externalID),
+		Label:          label,
+		Name:           strings.TrimSpace(name),
+		Status:         fallbackDisplayValue(status),
+		SignOnMode:     fallbackDisplayValue(signOnMode),
+		IntegratedHref: integratedHref,
+		SuggestedKind:  oktaAppSuggestedIntegrationKind(label, name, integratedHref),
+	}
+}
+
+func oktaAppSuggestedIntegrationKind(label, name, integratedHref string) string {
+	if integratedHref != "" {
+		return ""
+	}
+
+	labelLower := strings.ToLower(strings.TrimSpace(label))
+	nameLower := strings.ToLower(strings.TrimSpace(name))
+	switch {
+	case strings.Contains(labelLower, "github"), strings.Contains(nameLower, "github"):
+		return configstore.KindGitHub
+	case strings.Contains(labelLower, "datadog"), strings.Contains(nameLower, "datadog"):
+		return configstore.KindDatadog
+	default:
+		return ""
+	}
+}
+
+func oktaAppSummaryView(app gen.GetOktaAppByExternalIDWithIntegrationRow) viewmodels.OktaAppSummaryView {
+	return viewmodels.OktaAppSummaryView{
+		ExternalID: strings.TrimSpace(app.ExternalID),
+		Label:      firstNonEmpty(app.Label, app.ExternalID),
+		Name:       strings.TrimSpace(app.Name),
+		Status:     fallbackDisplayValue(app.Status),
+		SignOnMode: fallbackDisplayValue(app.SignOnMode),
+	}
+}
+
+func oktaAppAssignedAccountView(assignment gen.ListOktaAppAssignedAccountsPageByQueryRow, grantingGroups []string) viewmodels.OktaAppAssignedAccountView {
+	return viewmodels.OktaAppAssignedAccountView{
+		OktaAccountID:         assignment.OktaAccountID,
+		AccountHref:           fmt.Sprintf("/accounts/okta/%d", assignment.OktaAccountID),
+		AccountDisplayName:    firstNonEmpty(assignment.OktaAccountDisplayName, assignment.OktaAccountEmail, assignment.OktaAccountExternalID, "—"),
+		AccountEmail:          strings.TrimSpace(assignment.OktaAccountEmail),
+		OktaAccountExternalID: strings.TrimSpace(assignment.OktaAccountExternalID),
+		OktaAccountStatus:     fallbackDisplayValue(assignment.OktaAccountStatus),
+		AssignedVia:           oktaAssignedVia(assignment.Scope),
+		Groups:                oktaAssignmentGroups(assignment.Scope, grantingGroups),
+		Permissions:           SummarizeProfilePermissions(assignment.ProfileJson),
+	}
+}
+
+func oktaAssignedVia(scope string) string {
+	switch strings.ToUpper(strings.TrimSpace(scope)) {
+	case "USER":
+		return "Direct"
+	case "GROUP":
+		return "Group"
+	default:
+		return "Unknown"
+	}
+}
+
+func oktaAssignmentGroups(scope string, grantingGroups []string) []string {
+	if strings.ToUpper(strings.TrimSpace(scope)) != "GROUP" {
+		return nil
+	}
+
+	groups := append([]string(nil), grantingGroups...)
+	sort.Strings(groups)
+	if len(groups) == 0 {
+		return []string{"(unknown)"}
+	}
+	return groups
+}
+
+func fallbackDisplayValue(value string) string {
+	if trimmed := strings.TrimSpace(value); trimmed != "" {
+		return trimmed
+	}
+	return "—"
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 // HandleAppsMap handles mapping an Okta app to an integration.

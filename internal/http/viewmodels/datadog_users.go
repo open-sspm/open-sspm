@@ -1,5 +1,7 @@
 package viewmodels
 
+import "github.com/open-sspm/open-sspm/internal/http/querystate"
+
 type DatadogUserListItem struct {
 	UserName     string
 	Status       string
@@ -9,8 +11,7 @@ type DatadogUserListItem struct {
 type DatadogUsersViewData struct {
 	PaginatedListPageData
 	Users    []DatadogUserListItem
-	Query    string
-	State    string
+	Query    querystate.BasicListQuery
 	HasUsers bool
 }
 

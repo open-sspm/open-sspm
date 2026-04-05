@@ -1,0 +1,330 @@
+package querystate
+
+import (
+	"net/url"
+	"strings"
+)
+
+type IdentitiesQuery struct {
+	Source          SourceSelection
+	Q               string
+	IdentityType    string
+	ManagedState    string
+	PrivilegedOnly  bool
+	Status          string
+	ActivityState   string
+	LinkQuality     string
+	SortBy          string
+	SortDir         string
+	ShowFirstSeen   bool
+	ShowLinkQuality bool
+	ShowLinkReason  bool
+	Page            int
+}
+
+func ParseIdentitiesQuery(values url.Values, sources []SourceSelection) IdentitiesQuery {
+	source := parseIdentitySourceSelection(values, sources)
+	sortBy := normalizeIdentitySortBy(values.Get("sort_by"))
+	return IdentitiesQuery{
+		Source:          source,
+		Q:               strings.TrimSpace(values.Get("q")),
+		IdentityType:    normalizeIdentityType(values.Get("identity_type")),
+		ManagedState:    normalizeIdentityManagedState(values.Get("managed_state")),
+		PrivilegedOnly:  parseBool(values.Get("privileged")),
+		Status:          normalizeIdentityStatus(values.Get("status")),
+		ActivityState:   normalizeIdentityActivityState(values.Get("activity_state")),
+		LinkQuality:     normalizeIdentityLinkQuality(values.Get("link_quality")),
+		SortBy:          sortBy,
+		SortDir:         normalizeIdentitySortDir(values.Get("sort_dir"), sortBy),
+		ShowFirstSeen:   parseBool(values.Get("show_first_seen")),
+		ShowLinkQuality: parseBool(values.Get("show_link_quality")),
+		ShowLinkReason:  parseBool(values.Get("show_link_reason")),
+		Page:            parsePage(values.Get("page")),
+	}
+}
+
+func (q IdentitiesQuery) Values() url.Values {
+	values := url.Values{}
+	setIfNotEmpty(values, "source_kind", normalizeSourceKind(q.Source.Kind))
+	setIfNotEmpty(values, "source_name", q.Source.Name)
+	setIfNotEmpty(values, "q", q.Q)
+	setIfNotEmpty(values, "identity_type", q.IdentityType)
+	setIfNotEmpty(values, "managed_state", q.ManagedState)
+	setIfTrue(values, "privileged", q.PrivilegedOnly)
+	setIfNotEmpty(values, "status", q.Status)
+	setIfNotEmpty(values, "activity_state", q.ActivityState)
+	setIfNotEmpty(values, "link_quality", q.LinkQuality)
+	setIfNotEmpty(values, "sort_by", q.SortBy)
+	if q.SortBy != "" {
+		setIfNotEmpty(values, "sort_dir", q.SortDir)
+	}
+	setIfTrue(values, "show_first_seen", q.ShowFirstSeen)
+	setIfTrue(values, "show_link_quality", q.ShowLinkQuality)
+	setIfTrue(values, "show_link_reason", q.ShowLinkReason)
+	setIfPage(values, q.Page)
+	return values
+}
+
+func (q IdentitiesQuery) Href() string {
+	return encodeURL("/identities", q.Values())
+}
+
+func (q IdentitiesQuery) WithPage(page int) IdentitiesQuery {
+	q.Page = page
+	if q.Page < 1 {
+		q.Page = 1
+	}
+	return q
+}
+
+func (q IdentitiesQuery) ClearQuery() IdentitiesQuery {
+	q.Q = ""
+	q.Page = 1
+	return q
+}
+
+func (q IdentitiesQuery) WithSourceKind(kind string) IdentitiesQuery {
+	q.Source.Kind = normalizeSourceKind(kind)
+	if q.Source.Kind == "" {
+		q.Source.Name = ""
+	}
+	q.Page = 1
+	return q
+}
+
+func (q IdentitiesQuery) WithSourceName(name string) IdentitiesQuery {
+	q.Source.Name = strings.TrimSpace(name)
+	q.Page = 1
+	return q
+}
+
+func (q IdentitiesQuery) WithManagedState(state string) IdentitiesQuery {
+	q.ManagedState = normalizeIdentityManagedState(state)
+	q.Page = 1
+	return q
+}
+
+func (q IdentitiesQuery) WithStatus(status string) IdentitiesQuery {
+	q.Status = normalizeIdentityStatus(status)
+	q.Page = 1
+	return q
+}
+
+func (q IdentitiesQuery) WithActivityState(state string) IdentitiesQuery {
+	q.ActivityState = normalizeIdentityActivityState(state)
+	q.Page = 1
+	return q
+}
+
+func (q IdentitiesQuery) TogglePrivilegedOnly() IdentitiesQuery {
+	q.PrivilegedOnly = !q.PrivilegedOnly
+	q.Page = 1
+	return q
+}
+
+func (q IdentitiesQuery) HasFilters() bool {
+	return strings.TrimSpace(q.Q) != "" ||
+		q.IdentityType != "" ||
+		q.ManagedState != "" ||
+		q.PrivilegedOnly ||
+		q.Status != "" ||
+		q.ActivityState != "" ||
+		q.LinkQuality != "" ||
+		q.Source.Kind != "" ||
+		q.Source.Name != ""
+}
+
+func parseIdentitySourceSelection(values url.Values, sources []SourceSelection) SourceSelection {
+	selectedKind := normalizeSourceKind(values.Get("source_kind"))
+	selectedName := strings.TrimSpace(values.Get("source_name"))
+
+	if selectedKind != "" && !hasSourceKind(selectedKind, sources) {
+		selectedKind = ""
+	}
+
+	if selectedKind == "" && selectedName != "" {
+		matchedKinds := map[string]struct{}{}
+		canonicalName := ""
+		for _, source := range sources {
+			if !strings.EqualFold(strings.TrimSpace(source.Name), selectedName) {
+				continue
+			}
+			kind := normalizeSourceKind(source.Kind)
+			if kind == "" {
+				continue
+			}
+			if canonicalName == "" {
+				canonicalName = strings.TrimSpace(source.Name)
+			}
+			matchedKinds[kind] = struct{}{}
+		}
+		switch len(matchedKinds) {
+		case 0:
+			selectedName = ""
+		case 1:
+			for kind := range matchedKinds {
+				selectedKind = kind
+			}
+			if canonicalName != "" {
+				selectedName = canonicalName
+			}
+		default:
+			if canonicalName != "" {
+				selectedName = canonicalName
+			}
+		}
+	}
+
+	if selectedKind == "" {
+		if selectedName != "" && !identityHasSourceName(selectedName, sources) {
+			selectedName = ""
+		}
+		return SourceSelection{Name: selectedName}
+	}
+
+	if selectedName != "" && !identitySourcePairExists(selectedKind, selectedName, sources) {
+		selectedName = ""
+	}
+
+	return SourceSelection{Kind: selectedKind, Name: selectedName}
+}
+
+func identityHasSourceName(name string, sources []SourceSelection) bool {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return false
+	}
+	for _, source := range sources {
+		if strings.EqualFold(strings.TrimSpace(source.Name), name) {
+			return true
+		}
+	}
+	return false
+}
+
+func identitySourcePairExists(kind, name string, sources []SourceSelection) bool {
+	kind = normalizeSourceKind(kind)
+	name = strings.TrimSpace(name)
+	if kind == "" || name == "" {
+		return false
+	}
+	for _, source := range sources {
+		if normalizeSourceKind(source.Kind) != kind {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(source.Name), name) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeIdentityType(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "human":
+		return "human"
+	case "service":
+		return "service"
+	case "bot":
+		return "bot"
+	case "unknown":
+		return "unknown"
+	default:
+		return ""
+	}
+}
+
+func normalizeIdentityManagedState(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "managed":
+		return "managed"
+	case "unmanaged":
+		return "unmanaged"
+	default:
+		return ""
+	}
+}
+
+func normalizeIdentityStatus(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "active":
+		return "active"
+	case "suspended":
+		return "suspended"
+	case "deleted":
+		return "deleted"
+	case "orphaned":
+		return "orphaned"
+	case "unknown":
+		return "unknown"
+	default:
+		return ""
+	}
+}
+
+func normalizeIdentityActivityState(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "recent":
+		return "recent"
+	case "aging":
+		return "aging"
+	case "stale":
+		return "stale"
+	case "never_seen":
+		return "never_seen"
+	default:
+		return ""
+	}
+}
+
+func normalizeIdentityLinkQuality(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "high":
+		return "high"
+	case "medium":
+		return "medium"
+	case "low":
+		return "low"
+	case "unknown":
+		return "unknown"
+	default:
+		return ""
+	}
+}
+
+func normalizeIdentitySortBy(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "identity":
+		return "identity"
+	case "identity_type":
+		return "identity_type"
+	case "managed":
+		return "managed"
+	case "source_type":
+		return "source_type"
+	case "linked_sources":
+		return "linked_sources"
+	case "privileged_roles":
+		return "privileged_roles"
+	case "status":
+		return "status"
+	case "last_seen":
+		return "last_seen"
+	default:
+		return ""
+	}
+}
+
+func normalizeIdentitySortDir(raw, sortBy string) string {
+	if normalizeIdentitySortBy(sortBy) == "" {
+		return ""
+	}
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "asc":
+		return "asc"
+	case "desc":
+		return "desc"
+	default:
+		return "desc"
+	}
+}

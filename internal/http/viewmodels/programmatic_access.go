@@ -1,5 +1,7 @@
 package viewmodels
 
+import "github.com/open-sspm/open-sspm/internal/http/querystate"
+
 type ProgrammaticSourceOption struct {
 	SourceKind string
 	SourceName string
@@ -21,14 +23,11 @@ type AppAssetListItem struct {
 
 type AppAssetsViewData struct {
 	PaginatedListPageData
-	Sources            []ProgrammaticSourceOption
-	SelectedSourceKind string
-	SelectedSourceName string
-	Query              string
-	AssetKind          string
-	Items              []AppAssetListItem
-	GoogleOAuthView    *ConnectedAppsViewData
-	HasItems           bool
+	Sources         []ProgrammaticSourceOption
+	Query           querystate.AppAssetsQuery
+	Items           []AppAssetListItem
+	GoogleOAuthView *ConnectedAppsViewData
+	HasItems        bool
 }
 
 type ProgrammaticAuditEventItem struct {
@@ -110,17 +109,10 @@ type CredentialArtifactListItem struct {
 
 type CredentialsViewData struct {
 	PaginatedListPageData
-	Sources            []ProgrammaticSourceOption
-	SelectedSourceKind string
-	SelectedSourceName string
-	Query              string
-	CredentialKind     string
-	Status             string
-	RiskLevel          string
-	ExpiryState        string
-	ExpiresInDays      int
-	Items              []CredentialArtifactListItem
-	HasItems           bool
+	Sources  []ProgrammaticSourceOption
+	Query    querystate.CredentialsQuery
+	Items    []CredentialArtifactListItem
+	HasItems bool
 }
 
 type CredentialArtifactSummaryView struct {

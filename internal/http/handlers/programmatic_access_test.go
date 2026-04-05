@@ -1,39 +1,13 @@
 package handlers
 
 import (
-	"net/http"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
-
-func TestNormalizeCredentialRiskFilter(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name string
-		raw  string
-		want string
-	}{
-		{name: "critical", raw: "critical", want: "critical"},
-		{name: "mixed case", raw: "High", want: "high"},
-		{name: "trimmed", raw: "  medium  ", want: "medium"},
-		{name: "invalid", raw: "urgent", want: ""},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			if got := normalizeCredentialRiskFilter(tc.raw); got != tc.want {
-				t.Fatalf("normalizeCredentialRiskFilter(%q) = %q, want %q", tc.raw, got, tc.want)
-			}
-		})
-	}
-}
 
 func TestFormatProgrammaticDate(t *testing.T) {
 	t.Parallel()
@@ -98,54 +72,6 @@ func TestEmailCandidate(t *testing.T) {
 			t.Fatalf("emailCandidate(%q) = %q, want %q", tc.raw, got, tc.want)
 		}
 	}
-}
-
-func TestSelectProgrammaticSource(t *testing.T) {
-	t.Parallel()
-
-	sources := []viewmodels.ProgrammaticSourceOption{
-		{SourceKind: "entra", SourceName: "tenant-1", Label: "Microsoft Entra"},
-		{SourceKind: "github", SourceName: "acme", Label: "GitHub"},
-	}
-
-	t.Run("defaults to all configured when no source query is present", func(t *testing.T) {
-		t.Parallel()
-
-		c, _ := newTestContext(http.MethodGet, "/credentials")
-		selected, ok := selectProgrammaticSource(c, sources)
-		if !ok {
-			t.Fatalf("expected source selection to be available")
-		}
-		if selected.SourceKind != "" || selected.SourceName != "" {
-			t.Fatalf("expected empty selection for all configured, got kind=%q name=%q", selected.SourceKind, selected.SourceName)
-		}
-	})
-
-	t.Run("selects source kind when kind and name are provided", func(t *testing.T) {
-		t.Parallel()
-
-		c, _ := newTestContext(http.MethodGet, "/credentials?source_kind=github&source_name=acme")
-		selected, ok := selectProgrammaticSource(c, sources)
-		if !ok {
-			t.Fatalf("expected source selection to be available")
-		}
-		if selected.SourceKind != "github" || selected.SourceName != "" {
-			t.Fatalf("unexpected selection kind=%q name=%q", selected.SourceKind, selected.SourceName)
-		}
-	})
-
-	t.Run("maps source name to source kind for backward compatibility", func(t *testing.T) {
-		t.Parallel()
-
-		c, _ := newTestContext(http.MethodGet, "/credentials?source_name=acme")
-		selected, ok := selectProgrammaticSource(c, sources)
-		if !ok {
-			t.Fatalf("expected source selection to be available")
-		}
-		if selected.SourceKind != "github" || selected.SourceName != "" {
-			t.Fatalf("unexpected selection kind=%q name=%q", selected.SourceKind, selected.SourceName)
-		}
-	})
 }
 
 func TestAvailableProgrammaticSourcesUsesPrimaryLabels(t *testing.T) {

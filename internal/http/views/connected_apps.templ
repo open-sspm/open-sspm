@@ -17,9 +17,11 @@ templ ConnectedAppsPage(data viewmodels.ConnectedAppsViewData) {
 
 templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 	<div id="app-assets-results" class="space-y-6">
+		@BusyInlineIndicator("Updating results...", false)
 		<form
 			method="get"
 			action="/app-assets"
+			data-enter-only-query="q"
 			hx-get="/app-assets"
 			hx-trigger="change delay:150ms from:select, submit"
 			hx-target="#app-assets-results"
@@ -33,9 +35,9 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 				<label class="field w-full lg:max-w-xl">
 					<span class="sr-only">Query</span>
 					<div class="relative">
-						<input type="search" name="q" class="input pr-10" placeholder="Search app name or client ID" value={ data.Query }/>
-						if data.Query != "" {
-							<a class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2" aria-label="Clear query" href={ ConnectedAppsListURL("", data.ReviewState, 1) }>
+						<input type="search" name="q" class="input pr-10" placeholder="Search app name or client ID" value={ data.Query.Q }/>
+						if data.Query.Q != "" {
+							<a class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2" aria-label="Clear query" href={ data.Query.ClearQuery().Href() } hx-get={ data.Query.ClearQuery().Href() } hx-target="#app-assets-results" hx-swap="outerHTML" hx-push-url="true">
 								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
 									<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
 								</svg>
@@ -47,12 +49,12 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 					<label class="field">
 						<span class="label">Review state</span>
 						<select class="select min-w-48" name="review_state">
-							<option value="" selected?={ data.ReviewState == "" }>All states</option>
-							<option value="needs_revocation" selected?={ data.ReviewState == "needs_revocation" }>Needs revocation</option>
-							<option value="under_review" selected?={ data.ReviewState == "under_review" }>Under review</option>
-							<option value="unreviewed" selected?={ data.ReviewState == "unreviewed" }>Unreviewed</option>
-							<option value="ticketed" selected?={ data.ReviewState == "ticketed" }>Ticketed</option>
-							<option value="sanctioned" selected?={ data.ReviewState == "sanctioned" }>Sanctioned</option>
+							<option value="" selected?={ data.Query.ReviewState == "" }>All states</option>
+							<option value="needs_revocation" selected?={ data.Query.ReviewState == "needs_revocation" }>Needs revocation</option>
+							<option value="under_review" selected?={ data.Query.ReviewState == "under_review" }>Under review</option>
+							<option value="unreviewed" selected?={ data.Query.ReviewState == "unreviewed" }>Unreviewed</option>
+							<option value="ticketed" selected?={ data.Query.ReviewState == "ticketed" }>Ticketed</option>
+							<option value="sanctioned" selected?={ data.Query.ReviewState == "sanctioned" }>Sanctioned</option>
 						</select>
 					</label>
 					<div class="text-sm text-muted-foreground">
@@ -72,6 +74,10 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 				for _, item := range data.ReviewCounts {
 					<a
 						href={ item.Href }
+						hx-get={ item.Href }
+						hx-target="#app-assets-results"
+						hx-swap="outerHTML"
+						hx-push-url="true"
 						class={ FilterPillClass(item.IsActive) + " transition-colors duration-150" }
 						aria-current={ AriaCurrentBool(item.IsActive) }
 					>
@@ -195,18 +201,18 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 			}
 			if data.TotalPages > 1 {
 				<div class="flex flex-wrap items-center gap-3 border-t py-3">
-					<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
-					<div class="button-group ml-auto">
-						if data.Page > 1 {
-							<a class="btn-sm-outline" href={ ConnectedAppsListURL(data.Query, data.ReviewState, data.Page-1) }>Previous</a>
-						} else {
-							<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
-						}
-						if data.Page < data.TotalPages {
-							<a class="btn-sm-outline" href={ ConnectedAppsListURL(data.Query, data.ReviewState, data.Page+1) }>Next</a>
-						} else {
-							<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
-						}
+						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
+						<div class="button-group ml-auto">
+							if data.Page > 1 {
+								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#app-assets-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
+							}
+							if data.Page < data.TotalPages {
+								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#app-assets-results" hx-swap="outerHTML" hx-push-url="true">Next</a>
+							} else {
+								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
+							}
 					</div>
 				</div>
 			}

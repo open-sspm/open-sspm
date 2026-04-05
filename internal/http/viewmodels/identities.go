@@ -1,6 +1,9 @@
 package viewmodels
 
-import "github.com/open-sspm/open-sspm/internal/db/gen"
+import (
+	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
+)
 
 type IdentityListItem struct {
 	ID                int64
@@ -26,24 +29,11 @@ type IdentityListItem struct {
 
 type IdentitiesViewData struct {
 	PaginatedListPageData
-	Items              []IdentityListItem
-	Sources            []ProgrammaticSourceOption
-	SourceNameOptions  []ProgrammaticSourceOption
-	SelectedSourceKind string
-	SelectedSourceName string
-	Query              string
-	IdentityType       string
-	ManagedState       string
-	PrivilegedOnly     bool
-	Status             string
-	ActivityState      string
-	LinkQuality        string
-	SortBy             string
-	SortDir            string
-	ShowFirstSeen      bool
-	ShowLinkQuality    bool
-	ShowLinkReason     bool
-	HasIdentities      bool
+	Items             []IdentityListItem
+	Sources           []ProgrammaticSourceOption
+	SourceNameOptions []ProgrammaticSourceOption
+	Query             querystate.IdentitiesQuery
+	HasIdentities     bool
 }
 
 type IdentityLinkedAccountView struct {

@@ -18,6 +18,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/googleworkspace"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/authn"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
@@ -41,10 +42,8 @@ type googleGrantRaw struct {
 }
 
 func (h *Handlers) HandleConnectedApps(c *echo.Context) error {
-	query := strings.TrimSpace(c.QueryParam("q"))
-	reviewState := normalizeConnectedAppReviewState(c.QueryParam("review_state"), true)
-	page := parsePageParam(c)
-	return c.Redirect(http.StatusSeeOther, views.ConnectedAppsListURL(query, reviewState, page))
+	query := querystate.ParseConnectedAppsQuery(c.Request().URL.Query())
+	return c.Redirect(http.StatusSeeOther, query.Href())
 }
 
 func (h *Handlers) HandleConnectedAppShow(c *echo.Context) error {
@@ -86,7 +85,7 @@ func (h *Handlers) HandleAppAssetReviewUpdate(c *echo.Context) error {
 		return RenderNotFound(c)
 	}
 
-	reviewState := normalizeConnectedAppReviewState(c.FormValue("review_state"), false)
+	reviewState := querystate.NormalizeConnectedAppReviewState(c.FormValue("review_state"), false)
 	if reviewState == "" {
 		return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
 			alert: &viewmodels.ConnectedAppsAlert{
@@ -460,19 +459,18 @@ func (h *Handlers) HandleConnectedAppGrantRevoke(c *echo.Context) error {
 	return h.HandleAppAssetGrantRevoke(c)
 }
 
-func (h *Handlers) buildConnectedAppsViewData(ctx context.Context, layout viewmodels.LayoutData, stateView connectorStateView, query, reviewState string, page int) (viewmodels.ConnectedAppsViewData, error) {
-	pagination := newPaginatedListState(0, page, connectedAppsPerPage)
+func (h *Handlers) buildConnectedAppsViewData(ctx context.Context, layout viewmodels.LayoutData, stateView connectorStateView, queryState querystate.ConnectedAppsQuery) (viewmodels.ConnectedAppsViewData, error) {
+	pagination := newPaginatedListState(0, queryState.Page, connectedAppsPerPage)
 	data := viewmodels.ConnectedAppsViewData{
 		PaginatedListPageData: pagination.PageData(layout, 0, "No OAuth apps match the current filters.", ""),
-		Query:                 query,
-		ReviewState:           reviewState,
+		Query:                 queryState,
 	}
 
 	google := stateView.GoogleWorkspace()
 	sourceName := google.SourceName()
 	if !google.Configured() || !google.Enabled() || sourceName == "" {
 		data.PaginatedListPageData.EmptyStateMsg = connectorUnavailableMessage("Google Workspace", google.Configured(), google.Enabled())
-		data.ReviewCounts = buildConnectedAppReviewCounts(nil, query, reviewState)
+		data.ReviewCounts = buildConnectedAppReviewCounts(nil, queryState)
 		return data, nil
 	}
 
@@ -480,8 +478,8 @@ func (h *Handlers) buildConnectedAppsViewData(ctx context.Context, layout viewmo
 		SourceKind:  configstore.KindGoogleWorkspace,
 		SourceName:  sourceName,
 		AssetKind:   connectedAppAssetKindGoogle,
-		ReviewState: reviewState,
-		Query:       query,
+		ReviewState: queryState.ReviewState,
+		Query:       queryState.Q,
 	})
 	if err != nil {
 		return data, err
@@ -491,20 +489,20 @@ func (h *Handlers) buildConnectedAppsViewData(ctx context.Context, layout viewmo
 		SourceKind: configstore.KindGoogleWorkspace,
 		SourceName: sourceName,
 		AssetKind:  connectedAppAssetKindGoogle,
-		Query:      query,
+		Query:      queryState.Q,
 	})
 	if err != nil {
 		return data, err
 	}
-	data.ReviewCounts = buildConnectedAppReviewCounts(countRows, query, reviewState)
+	data.ReviewCounts = buildConnectedAppReviewCounts(countRows, queryState)
 
-	pagination = newPaginatedListState(totalCount, page, connectedAppsPerPage)
+	pagination = newPaginatedListState(totalCount, queryState.Page, connectedAppsPerPage)
 	rows, err := h.Q.ListConnectedAppsPageBySourceAndQueryAndReviewState(ctx, gen.ListConnectedAppsPageBySourceAndQueryAndReviewStateParams{
 		SourceKind:  configstore.KindGoogleWorkspace,
 		SourceName:  sourceName,
 		AssetKind:   connectedAppAssetKindGoogle,
-		ReviewState: reviewState,
-		Query:       query,
+		ReviewState: queryState.ReviewState,
+		Query:       queryState.Q,
 		PageLimit:   int32(connectedAppsPerPage),
 		PageOffset:  int32(pagination.Offset()),
 	})
@@ -550,7 +548,7 @@ func (h *Handlers) buildConnectedAppsViewData(ctx context.Context, layout viewmo
 	data.Items = items
 	data.PaginatedListPageData = pagination.PageData(layout, len(items), "No OAuth apps match the current filters.", "")
 	data.HasItems = len(items) > 0
-	if query == "" && reviewState == "" {
+	if !queryState.HasFilters() {
 		data.PaginatedListPageData.EmptyStateMsg = "No OAuth apps have been synced from Google Workspace yet."
 	}
 	return data, nil
@@ -708,7 +706,7 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 	ticketRefInput := strings.TrimSpace(summary.TicketRef)
 	notesInput := strings.TrimSpace(summary.Notes)
 	if hasFormInput {
-		if normalized := normalizeConnectedAppReviewState(opts.reviewStateInput, false); normalized != "" {
+		if normalized := querystate.NormalizeConnectedAppReviewState(opts.reviewStateInput, false); normalized != "" {
 			reviewStateInput = normalized
 		}
 		ticketRefInput = strings.TrimSpace(opts.ticketRefInput)
@@ -796,7 +794,7 @@ func (h *Handlers) renderAppAssetShow(c *echo.Context, appID int64, opts connect
 	return h.RenderComponent(c, views.AppAssetShowPage(data))
 }
 
-func buildConnectedAppReviewCounts(rows []gen.CountConnectedAppsGroupedByReviewStateRow, query, activeState string) []viewmodels.ConnectedAppsReviewCount {
+func buildConnectedAppReviewCounts(rows []gen.CountConnectedAppsGroupedByReviewStateRow, activeQuery querystate.ConnectedAppsQuery) []viewmodels.ConnectedAppsReviewCount {
 	countsByState := map[string]int64{}
 	for _, row := range rows {
 		countsByState[strings.TrimSpace(row.ReviewState)] = row.AppCount
@@ -821,33 +819,11 @@ func buildConnectedAppReviewCounts(rows []gen.CountConnectedAppsGroupedByReviewS
 			ReviewState: state,
 			Label:       label,
 			Count:       count,
-			Href:        views.ConnectedAppsListURL(query, state, 1),
-			IsActive:    state == activeState,
+			Href:        activeQuery.WithReviewState(state).WithPage(1).Href(),
+			IsActive:    state == activeQuery.ReviewState,
 		})
 	}
 	return out
-}
-
-func normalizeConnectedAppReviewState(raw string, allowBlank bool) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "":
-		if allowBlank {
-			return ""
-		}
-		return ""
-	case "unreviewed":
-		return "unreviewed"
-	case "under_review":
-		return "under_review"
-	case "sanctioned":
-		return "sanctioned"
-	case "needs_revocation":
-		return "needs_revocation"
-	case "ticketed":
-		return "ticketed"
-	default:
-		return ""
-	}
 }
 
 func connectedAppConfidence(ownerCount, grantCount, discoverySourceCount int64, hasReviewOwner bool) (string, string) {

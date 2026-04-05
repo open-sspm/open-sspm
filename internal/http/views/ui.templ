@@ -47,6 +47,23 @@ templ EmptyState(title, description string) {
 	</div>
 }
 
+templ BusyInlineIndicator(label string, initiallyVisible bool) {
+	<div
+		data-busy-inline-indicator
+		data-busy-inline-indicator-active?={ initiallyVisible }
+		role="status"
+		aria-live="polite"
+		aria-atomic="true"
+		class="items-center gap-2 text-xs text-muted-foreground"
+	>
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="h-3.5 w-3.5 animate-spin" aria-hidden="true">
+			<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" fill="none" class="opacity-25"></circle>
+			<path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none" class="opacity-90"></path>
+		</svg>
+		<span>{ label }</span>
+	</div>
+}
+
 templ TableCard(title, description string) {
 	<article class="card">
 		if title != "" || description != "" {
@@ -94,8 +111,8 @@ templ ColumnsControl(tableID string) {
 
 templ ColumnsTable(tableID string, containerClass string) {
 	<div class={ templ.Classes(templ.KV(containerClass, containerClass != "")) }>
+		@ColumnsControl(tableID)
 		<div class="overflow-x-auto">
-			@ColumnsControl(tableID)
 			{ children... }
 		</div>
 	</div>

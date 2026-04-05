@@ -1,5 +1,7 @@
 package viewmodels
 
+import "github.com/open-sspm/open-sspm/internal/http/querystate"
+
 type OktaAppSummaryView struct {
 	ExternalID string
 	Label      string
@@ -28,8 +30,7 @@ type OktaAppShowViewData struct {
 	PaginatedListPageData
 	App         OktaAppSummaryView
 	Accounts    []OktaAppAssignedAccountView
-	Query       string
-	State       string
+	Query       querystate.BasicListQuery
 	HasAccounts bool
 }
 

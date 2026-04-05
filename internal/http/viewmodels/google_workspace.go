@@ -1,5 +1,7 @@
 package viewmodels
 
+import "github.com/open-sspm/open-sspm/internal/http/querystate"
+
 type GoogleWorkspaceUserListItem struct {
 	ID             int64
 	ExternalID     string
@@ -29,7 +31,7 @@ type GoogleWorkspaceGroupListItem struct {
 type GoogleWorkspaceGroupsViewData struct {
 	PaginatedListPageData
 	Groups    []GoogleWorkspaceGroupListItem
-	Query     string
+	Query     querystate.BasicListQuery
 	HasGroups bool
 }
 

@@ -51,12 +51,16 @@ describe("fragment", () => {
     expect(submitSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("triggers lazy panels only when their panel is visible", () => {
+  it("triggers visible lazy panels only when they are idle", () => {
     document.body.innerHTML = `
-      <button id="a" data-hx-lazy-panel="panel-a"></button>
+      <button id="a" data-hx-lazy-load data-hx-lazy-panel="panel-a"></button>
       <section id="panel-a"></section>
-      <button id="b" data-hx-lazy-panel="panel-b"></button>
+      <button id="b" data-hx-lazy-load data-hx-lazy-panel="panel-b"></button>
       <section id="panel-b" hidden></section>
+      <button id="c" data-hx-lazy-load data-hx-lazy-panel="panel-c" data-hx-lazy-state="pending"></button>
+      <section id="panel-c"></section>
+      <button id="d" data-hx-lazy-load data-hx-lazy-panel="panel-d" data-hx-lazy-state="loaded"></button>
+      <section id="panel-d"></section>
     `;
 
     const triggerSpy = vi.fn();
@@ -66,8 +70,23 @@ describe("fragment", () => {
 
     expect(triggerSpy).toHaveBeenCalledTimes(1);
     expect(triggerSpy).toHaveBeenCalledWith(document.getElementById("a"), "oss-panel-visible");
-    expect(document.getElementById("a").dataset.hxLazyLoaded).toBe("true");
-    expect(document.getElementById("b").dataset.hxLazyLoaded).toBeUndefined();
+  });
+
+  it("ignores panels that are not managed lazy HTMX elements", () => {
+    document.body.innerHTML = `
+      <button id="managed" data-hx-lazy-load data-hx-lazy-panel="panel-managed"></button>
+      <section id="panel-managed"></section>
+      <button id="unmanaged" data-hx-lazy-panel="panel-unmanaged" data-hx-lazy-state="loaded"></button>
+      <section id="panel-unmanaged"></section>
+    `;
+
+    const triggerSpy = vi.fn();
+    window.htmx = { trigger: triggerSpy };
+
+    triggerVisibleLazyHx(document);
+
+    expect(triggerSpy).toHaveBeenCalledTimes(1);
+    expect(triggerSpy).toHaveBeenCalledWith(document.getElementById("managed"), "oss-panel-visible");
   });
 
   it("adds keyboard semantics and supports modifier-click row navigation", () => {
@@ -89,6 +108,30 @@ describe("fragment", () => {
     expect(row.getAttribute("role")).toBe("link");
     expect(row.getAttribute("tabindex")).toBe("0");
     expect(openSpy).toHaveBeenCalledWith("/credentials/42", "_blank", "noopener");
+  });
+
+  it("uses the primary row anchor for normal row navigation", () => {
+    document.body.innerHTML = `
+      <table>
+        <tbody>
+          <tr id="row" data-row-href="/credentials/42">
+            <td><a id="primary" href="/credentials/42">Credential 42</a></td>
+            <td><a id="secondary" href="/credentials/42/export">Export</a></td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+
+    const row = document.getElementById("row");
+    const primary = document.getElementById("primary");
+    const clickSpy = vi.fn();
+    Object.defineProperty(primary, "click", { value: clickSpy, configurable: true });
+
+    wireRowLinks(document);
+
+    row.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
+
+    expect(clickSpy).toHaveBeenCalledTimes(1);
   });
 
   it("does not hijack clicks on interactive elements inside row links", () => {
