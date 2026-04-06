@@ -34,10 +34,22 @@ features:
 git clone https://github.com/open-sspm/open-sspm.git
 cd open-sspm
 cp .env.example .env
-docker compose up -d
+npm install
+just dev-up
+just ui
+just migrate
+printf '%s\n' 'change-me-now' | go run ./cmd/open-sspm users bootstrap-admin \
+  --email admin@example.com \
+  --password-stdin
+just run
+# In a second terminal: just worker
 # Open http://localhost:8080
 ```
 
-See the [Installation Guide](/install/) for production deployment options.
+Run `just worker-discovery` in a third terminal if you want discovery syncs and `SYNC_DISCOVERY_ENABLED=1`.
 
-**Live demo** — try Open-SSPM without installing at [demo.opensspm.com](https://demo.opensspm.com) (admin@admin.com / admin, resets daily).
+See the [Installation Guide](/install/) for production deployment options and the full Docker-backed local setup.
+
+## Live Demo
+
+Try Open-SSPM without installing at [demo.opensspm.com](https://demo.opensspm.com) using `admin@admin.com` / `admin`. The demo resets daily.
