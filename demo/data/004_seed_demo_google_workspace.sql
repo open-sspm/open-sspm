@@ -215,7 +215,7 @@ WITH
   group_refs AS (
     SELECT
       external_id,
-      row_number() OVER (ORDER BY external_id) AS group_ord
+      row_number() OVER (ORDER BY external_id)::int AS group_ord
     FROM accounts
     WHERE source_kind = 'google_workspace'
       AND source_name = (SELECT google_customer_id FROM ctx)
@@ -298,6 +298,7 @@ WITH
       a.external_id,
       regexp_replace(a.external_id, '^gw-user-', '')::int AS user_ord
     FROM accounts a
+    CROSS JOIN ctx
     WHERE a.source_kind = 'google_workspace'
       AND a.source_name = ctx.google_customer_id
       AND a.external_id LIKE 'gw-user-%'
@@ -373,6 +374,17 @@ ON CONFLICT (app_user_id, kind, resource, permission) DO UPDATE SET
 
 -- Link Google Workspace users to existing demo identities by email.
 WITH
+  authoritative_identities AS (
+    SELECT DISTINCT ia.identity_id
+    FROM identity_accounts ia
+    JOIN accounts anchor ON anchor.id = ia.account_id
+    JOIN identity_source_settings iss
+      ON iss.source_kind = anchor.source_kind
+     AND iss.source_name = anchor.source_name
+     AND iss.is_authoritative
+    WHERE anchor.expired_at IS NULL
+      AND anchor.last_observed_run_id IS NOT NULL
+  ),
   google_accounts AS (
     SELECT
       a.id AS account_id,
@@ -387,10 +399,16 @@ WITH
   matches AS (
     SELECT
       google_accounts.account_id,
-      identities.id AS identity_id
+      identity_match.id AS identity_id
     FROM google_accounts
-    JOIN identities
-      ON lower(identities.primary_email) = google_accounts.email
+    JOIN LATERAL (
+      SELECT i.id
+      FROM identities i
+      LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
+      WHERE lower(i.primary_email) = google_accounts.email
+      ORDER BY (ai.identity_id IS NOT NULL) DESC, i.id ASC
+      LIMIT 1
+    ) identity_match ON TRUE
   )
 INSERT INTO identity_accounts (identity_id, account_id, link_reason, confidence, updated_at)
 SELECT
@@ -504,8 +522,9 @@ WITH
     SELECT
       id AS app_asset_id,
       external_id,
-      row_number() OVER (ORDER BY external_id) AS app_ord
+      row_number() OVER (ORDER BY external_id)::int AS app_ord
     FROM app_assets
+    CROSS JOIN ctx
     WHERE source_kind = 'google_workspace'
       AND source_name = ctx.google_customer_id
       AND asset_kind = 'google_oauth_client'
@@ -570,8 +589,9 @@ WITH
     SELECT
       external_id,
       display_name,
-      row_number() OVER (ORDER BY external_id) AS app_ord
+      row_number() OVER (ORDER BY external_id)::int AS app_ord
     FROM app_assets
+    CROSS JOIN ctx
     WHERE source_kind = 'google_workspace'
       AND source_name = ctx.google_customer_id
       AND asset_kind = 'google_oauth_client'
@@ -582,7 +602,7 @@ WITH
       external_id,
       email,
       display_name,
-      row_number() OVER (ORDER BY external_id) AS user_ord
+      row_number() OVER (ORDER BY external_id)::int AS user_ord
     FROM accounts
     WHERE source_kind = 'google_workspace'
       AND source_name = (SELECT google_customer_id FROM ctx)
@@ -829,6 +849,17 @@ ON CONFLICT (source_kind, source_name, event_external_id) DO UPDATE SET
 -- Governance coverage for Google OAuth clients.
 WITH
   ctx AS (SELECT * FROM demo_seed_ctx_v4),
+  authoritative_identities AS (
+    SELECT DISTINCT ia.identity_id
+    FROM identity_accounts ia
+    JOIN accounts anchor ON anchor.id = ia.account_id
+    JOIN identity_source_settings iss
+      ON iss.source_kind = anchor.source_kind
+     AND iss.source_name = anchor.source_name
+     AND iss.is_authoritative
+    WHERE anchor.expired_at IS NULL
+      AND anchor.last_observed_run_id IS NOT NULL
+  ),
   app_defs (
     external_id,
     governance_state,
@@ -873,14 +904,20 @@ SELECT
   NULL::bigint,
   ctx.now_ts
 FROM app_defs
+CROSS JOIN ctx
 JOIN app_assets aa
   ON aa.source_kind = 'google_workspace'
   AND aa.source_name = ctx.google_customer_id
   AND aa.asset_kind = 'google_oauth_client'
   AND aa.external_id = app_defs.external_id
-LEFT JOIN identities owner
-  ON lower(owner.primary_email) = lower(app_defs.owner_email)
-CROSS JOIN ctx
+LEFT JOIN LATERAL (
+  SELECT i.id
+  FROM identities i
+  LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
+  WHERE lower(i.primary_email) = lower(app_defs.owner_email)
+  ORDER BY (ai.identity_id IS NOT NULL) DESC, i.id ASC
+  LIMIT 1
+) owner ON TRUE
 ON CONFLICT (subject_kind, subject_id) DO UPDATE SET
   governance_state = EXCLUDED.governance_state,
   owner_identity_id = EXCLUDED.owner_identity_id,

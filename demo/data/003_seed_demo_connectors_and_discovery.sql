@@ -763,6 +763,17 @@ ON CONFLICT (saas_app_id, connector_kind, connector_source_name) DO UPDATE SET
 
 WITH
   ctx AS (SELECT * FROM demo_seed_ctx_v3),
+  authoritative_identities AS (
+    SELECT DISTINCT ia.identity_id
+    FROM identity_accounts ia
+    JOIN accounts anchor ON anchor.id = ia.account_id
+    JOIN identity_source_settings iss
+      ON iss.source_kind = anchor.source_kind
+     AND iss.source_name = anchor.source_name
+     AND iss.is_authoritative
+    WHERE anchor.expired_at IS NULL
+      AND anchor.last_observed_run_id IS NOT NULL
+  ),
   app_defs (
     canonical_key,
     governance_owner_email,
@@ -815,8 +826,14 @@ SELECT
   ctx.now_ts
 FROM app_defs
 JOIN saas_apps sa ON sa.canonical_key = app_defs.canonical_key
-LEFT JOIN identities owner
-  ON lower(owner.primary_email) = lower(app_defs.governance_owner_email)
+LEFT JOIN LATERAL (
+  SELECT i.id
+  FROM identities i
+  LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
+  WHERE lower(i.primary_email) = lower(app_defs.governance_owner_email)
+  ORDER BY (ai.identity_id IS NOT NULL) DESC, i.id ASC
+  LIMIT 1
+) owner ON TRUE
 CROSS JOIN ctx
 ON CONFLICT (subject_kind, subject_id) DO UPDATE SET
   governance_state = EXCLUDED.governance_state,
