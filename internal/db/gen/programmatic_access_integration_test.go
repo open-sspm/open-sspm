@@ -416,6 +416,339 @@ func TestCredentialArtifactRiskLevelConsistentAcrossQueries(t *testing.T) {
 	})
 }
 
+func TestGovernanceSubjectOverridesMigrationBackfillsAndDropsLegacySchema(t *testing.T) {
+	t.Parallel()
+
+	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
+		migrateToVersion(t, migrator, 37)
+
+		runID := insertSyncRun(t, ctx, pool, "google_workspace", "C0123")
+		ownerID := insertIdentity(t, ctx, pool, "human", "owner@example.com", "Owner Example")
+		appAssetID := insertAppAsset(t, ctx, pool, runID, appAssetSeed{
+			SourceKind:  "google_workspace",
+			SourceName:  "C0123",
+			AssetKind:   "google_oauth_client",
+			ExternalID:  "client-123.apps.googleusercontent.com",
+			DisplayName: "OAuth Client",
+		})
+		saasAppID := insertSaaSApp(t, ctx, pool, "shadow-app", "Shadow App", "shadow.example.com", "Example", time.Now().UTC(), time.Now().UTC())
+
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO connected_app_governance (app_asset_id, review_state, owner_identity_id, ticket_ref, notes, updated_at)
+			VALUES ($1, 'needs_revocation', $2, 'SEC-123', 'Contain access', now())
+		`, appAssetID, ownerID); err != nil {
+			t.Fatalf("insert connected_app_governance: %v", err)
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO saas_app_governance_overrides (
+				saas_app_id,
+				owner_identity_id,
+				business_criticality,
+				data_classification,
+				notes,
+				updated_at
+			)
+			VALUES ($1, $2, 'high', 'confidential', 'Assigned for review', now())
+		`, saasAppID, ownerID); err != nil {
+			t.Fatalf("insert saas_app_governance_overrides: %v", err)
+		}
+
+		migrateUp(t, migrator)
+
+		var appAssetState, appAssetTicket, appAssetNotes string
+		var appAssetOwnerID int64
+		if err := pool.QueryRow(ctx, `
+			SELECT governance_state, owner_identity_id, ticket_ref, notes
+			FROM governance_subject_overrides
+			WHERE subject_kind = 'app_asset' AND subject_id = $1
+		`, appAssetID).Scan(&appAssetState, &appAssetOwnerID, &appAssetTicket, &appAssetNotes); err != nil {
+			t.Fatalf("select migrated app-asset override: %v", err)
+		}
+		if appAssetState != "action_required" {
+			t.Fatalf("app-asset governance_state=%q want action_required", appAssetState)
+		}
+		if appAssetOwnerID != ownerID {
+			t.Fatalf("app-asset owner_identity_id=%d want %d", appAssetOwnerID, ownerID)
+		}
+		if appAssetTicket != "SEC-123" || appAssetNotes != "Contain access" {
+			t.Fatalf("app-asset ticket/notes=%q/%q want SEC-123/Contain access", appAssetTicket, appAssetNotes)
+		}
+
+		var saasState, saasBusinessCriticality, saasDataClassification, saasNotes string
+		var saasOwnerID int64
+		if err := pool.QueryRow(ctx, `
+			SELECT governance_state, owner_identity_id, business_criticality, data_classification, notes
+			FROM governance_subject_overrides
+			WHERE subject_kind = 'saas_app' AND subject_id = $1
+		`, saasAppID).Scan(&saasState, &saasOwnerID, &saasBusinessCriticality, &saasDataClassification, &saasNotes); err != nil {
+			t.Fatalf("select migrated saas-app override: %v", err)
+		}
+		if saasState != "unreviewed" {
+			t.Fatalf("saas-app governance_state=%q want unreviewed", saasState)
+		}
+		if saasOwnerID != ownerID {
+			t.Fatalf("saas-app owner_identity_id=%d want %d", saasOwnerID, ownerID)
+		}
+		if saasBusinessCriticality != "high" || saasDataClassification != "confidential" || saasNotes != "Assigned for review" {
+			t.Fatalf("saas-app override=%q/%q/%q want high/confidential/Assigned for review", saasBusinessCriticality, saasDataClassification, saasNotes)
+		}
+
+		var legacyTableCount int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM information_schema.tables
+			WHERE table_schema = 'public'
+			  AND table_name IN ('connected_app_governance', 'saas_app_governance_overrides')
+		`).Scan(&legacyTableCount); err != nil {
+			t.Fatalf("count legacy tables: %v", err)
+		}
+		if legacyTableCount != 0 {
+			t.Fatalf("legacy governance tables still present: %d", legacyTableCount)
+		}
+
+		var legacyViewCount int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM information_schema.views
+			WHERE table_schema = 'public'
+			  AND table_name = 'connected_app_summaries_v'
+		`).Scan(&legacyViewCount); err != nil {
+			t.Fatalf("count legacy views: %v", err)
+		}
+		if legacyViewCount != 0 {
+			t.Fatalf("legacy connected-app posture view still present: %d", legacyViewCount)
+		}
+
+		var postureColumnCount int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+			  AND table_name = 'app_assets'
+			  AND column_name IN (
+			    'governance_state',
+			    'ticket_ref',
+			    'notes',
+			    'evidence_freshness',
+			    'evidence_confidence',
+			    'evidence_confidence_reason'
+			  )
+		`).Scan(&postureColumnCount); err != nil {
+			t.Fatalf("count app_assets posture columns: %v", err)
+		}
+		if postureColumnCount != 0 {
+			t.Fatalf("app_assets still exposes %d stored posture columns", postureColumnCount)
+		}
+	})
+}
+
+func TestAppAssetPostureRowsDeriveEvidenceBuckets(t *testing.T) {
+	t.Parallel()
+
+	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
+		migrateUp(t, migrator)
+
+		evaluatedAtTime := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
+		evaluatedAt := validTimestamptz(evaluatedAtTime)
+		runID := insertSyncRun(t, ctx, pool, "google_workspace", "C0123")
+		ownerID := insertIdentity(t, ctx, pool, "human", "owner@example.com", "Owner Example")
+
+		freshLowID := insertAppAsset(t, ctx, pool, runID, appAssetSeed{
+			SourceKind:  "google_workspace",
+			SourceName:  "C0123",
+			AssetKind:   "google_oauth_client",
+			ExternalID:  "fresh-low.apps.googleusercontent.com",
+			DisplayName: "Fresh Low",
+		})
+		setAppAssetObservedAt(t, ctx, pool, freshLowID, evaluatedAtTime.Add(-24*time.Hour))
+
+		agingMediumID := insertAppAsset(t, ctx, pool, runID, appAssetSeed{
+			SourceKind:  "google_workspace",
+			SourceName:  "C0123",
+			AssetKind:   "google_oauth_client",
+			ExternalID:  "aging-medium.apps.googleusercontent.com",
+			DisplayName: "Aging Medium",
+		})
+		setAppAssetObservedAt(t, ctx, pool, agingMediumID, evaluatedAtTime.Add(-10*24*time.Hour))
+		if _, err := q.UpsertAppAssetGovernance(ctx, UpsertAppAssetGovernanceParams{
+			AppAssetID:      agingMediumID,
+			GovernanceState: "in_review",
+			OwnerIdentityID: pgtype.Int8{Int64: ownerID, Valid: true},
+		}); err != nil {
+			t.Fatalf("UpsertAppAssetGovernance(aging medium): %v", err)
+		}
+
+		staleHighID := insertAppAsset(t, ctx, pool, runID, appAssetSeed{
+			SourceKind:  "google_workspace",
+			SourceName:  "C0123",
+			AssetKind:   "google_oauth_client",
+			ExternalID:  "stale-high.apps.googleusercontent.com",
+			DisplayName: "Stale High",
+		})
+		staleObservedAt := evaluatedAtTime.Add(-40 * 24 * time.Hour)
+		setAppAssetObservedAt(t, ctx, pool, staleHighID, staleObservedAt)
+		if _, err := q.UpsertAppAssetGovernance(ctx, UpsertAppAssetGovernanceParams{
+			AppAssetID:      staleHighID,
+			GovernanceState: "approved",
+			OwnerIdentityID: pgtype.Int8{Int64: ownerID, Valid: true},
+		}); err != nil {
+			t.Fatalf("UpsertAppAssetGovernance(stale high): %v", err)
+		}
+		discoveryAppID := insertSaaSApp(t, ctx, pool, "stale-high", "Stale High", "stale.example.com", "Example", staleObservedAt, staleObservedAt)
+		insertSaaSAppSource(t, ctx, pool, discoveryAppID, runID, "google_workspace", "C0123", "stale-high.apps.googleusercontent.com", "Stale High", "stale.example.com", staleObservedAt)
+
+		grantsOnlyID := insertAppAsset(t, ctx, pool, runID, appAssetSeed{
+			SourceKind:  "google_workspace",
+			SourceName:  "C0123",
+			AssetKind:   "google_oauth_client",
+			ExternalID:  "grants-only.apps.googleusercontent.com",
+			DisplayName: "Grants Only",
+		})
+		setAppAssetObservedAt(t, ctx, pool, grantsOnlyID, evaluatedAtTime.Add(-48*time.Hour))
+		insertCredentialArtifact(t, ctx, pool, runID, credentialArtifactSeed{
+			SourceKind:         "google_workspace",
+			SourceName:         "C0123",
+			AssetRefKind:       "google_oauth_client",
+			AssetRefExternalID: "google_oauth_client:grants-only.apps.googleusercontent.com",
+			CredentialKind:     "google_oauth_grant",
+			ExternalID:         "grant-1",
+			DisplayName:        "Grant 1",
+			Status:             "active",
+		})
+
+		cases := []struct {
+			name               string
+			id                 int64
+			wantFreshness      string
+			wantConfidence     string
+			wantReason         string
+			wantGovernance     string
+			wantGrantCount     int64
+			wantDiscoveryCount int64
+		}{
+			{
+				name:               "fresh low",
+				id:                 freshLowID,
+				wantFreshness:      "fresh",
+				wantConfidence:     "low",
+				wantReason:         "This record currently relies on a single evidence path.",
+				wantGovernance:     "unreviewed",
+				wantGrantCount:     0,
+				wantDiscoveryCount: 0,
+			},
+			{
+				name:               "aging medium",
+				id:                 agingMediumID,
+				wantFreshness:      "aging",
+				wantConfidence:     "medium",
+				wantReason:         "Multiple evidence paths are available, but attribution is still partial.",
+				wantGovernance:     "in_review",
+				wantGrantCount:     0,
+				wantDiscoveryCount: 0,
+			},
+			{
+				name:               "stale high",
+				id:                 staleHighID,
+				wantFreshness:      "stale",
+				wantConfidence:     "high",
+				wantReason:         "Inventory, ownership, and discovery evidence all line up.",
+				wantGovernance:     "approved",
+				wantGrantCount:     0,
+				wantDiscoveryCount: 1,
+			},
+			{
+				name:               "grants do not increase confidence",
+				id:                 grantsOnlyID,
+				wantFreshness:      "fresh",
+				wantConfidence:     "low",
+				wantReason:         "This record currently relies on a single evidence path.",
+				wantGovernance:     "unreviewed",
+				wantGrantCount:     1,
+				wantDiscoveryCount: 0,
+			},
+		}
+
+		for _, tc := range cases {
+			row, err := q.GetAppAssetPostureByID(ctx, GetAppAssetPostureByIDParams{
+				EvaluatedAt: evaluatedAt,
+				ID:          tc.id,
+			})
+			if err != nil {
+				t.Fatalf("%s: GetAppAssetPostureByID(): %v", tc.name, err)
+			}
+			if row.EvidenceFreshness != tc.wantFreshness {
+				t.Fatalf("%s: evidence_freshness=%q want %q", tc.name, row.EvidenceFreshness, tc.wantFreshness)
+			}
+			if row.EvidenceConfidence != tc.wantConfidence {
+				t.Fatalf("%s: evidence_confidence=%q want %q", tc.name, row.EvidenceConfidence, tc.wantConfidence)
+			}
+			if row.EvidenceConfidenceReason != tc.wantReason {
+				t.Fatalf("%s: evidence_confidence_reason=%q want %q", tc.name, row.EvidenceConfidenceReason, tc.wantReason)
+			}
+			if row.GovernanceState != tc.wantGovernance {
+				t.Fatalf("%s: governance_state=%q want %q", tc.name, row.GovernanceState, tc.wantGovernance)
+			}
+			if row.GrantCount != tc.wantGrantCount {
+				t.Fatalf("%s: grant_count=%d want %d", tc.name, row.GrantCount, tc.wantGrantCount)
+			}
+			if row.DiscoverySourceCount != tc.wantDiscoveryCount {
+				t.Fatalf("%s: discovery_source_count=%d want %d", tc.name, row.DiscoverySourceCount, tc.wantDiscoveryCount)
+			}
+		}
+	})
+}
+
+func TestSaaSAppPostureRowsReadGovernanceOverrides(t *testing.T) {
+	t.Parallel()
+
+	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *Queries, migrator *migrate.Migrate) {
+		migrateUp(t, migrator)
+
+		evaluatedAt := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
+		ownerID := insertIdentity(t, ctx, pool, "human", "owner@example.com", "Owner Example")
+		saasAppID := insertSaaSApp(t, ctx, pool, "ticketed-shadow-app", "Ticketed Shadow App", "shadow.example.com", "Example", evaluatedAt.Add(-48*time.Hour), evaluatedAt.Add(-24*time.Hour))
+
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO governance_subject_overrides (
+				subject_kind,
+				subject_id,
+				governance_state,
+				owner_identity_id,
+				business_criticality,
+				data_classification,
+				ticket_ref,
+				notes,
+				updated_at
+			)
+			VALUES ('saas_app', $1, 'ticketed', $2, 'high', 'confidential', 'SEC-456', 'Needs follow-up', now())
+		`, saasAppID, ownerID); err != nil {
+			t.Fatalf("insert governance_subject_overrides for saas_app: %v", err)
+		}
+
+		var governanceState, ticketRef, notes, managedState, riskLevel string
+		if err := pool.QueryRow(ctx, `
+			SELECT governance_state, ticket_ref, notes, managed_state, risk_level
+			FROM saas_app_posture_rows($1, $1, $1, $1, $1, $1, $1)
+			WHERE id = $2
+		`, evaluatedAt, saasAppID).Scan(&governanceState, &ticketRef, &notes, &managedState, &riskLevel); err != nil {
+			t.Fatalf("select saas_app_posture_rows: %v", err)
+		}
+
+		if governanceState != "ticketed" {
+			t.Fatalf("governance_state=%q want ticketed", governanceState)
+		}
+		if ticketRef != "SEC-456" || notes != "Needs follow-up" {
+			t.Fatalf("ticket_ref/notes=%q/%q want SEC-456/Needs follow-up", ticketRef, notes)
+		}
+		if managedState != "unmanaged" {
+			t.Fatalf("managed_state=%q want unmanaged", managedState)
+		}
+		if riskLevel != "high" {
+			t.Fatalf("risk_level=%q want high", riskLevel)
+		}
+	})
+}
+
 type appAssetSeed struct {
 	SourceKind  string
 	SourceName  string
@@ -449,6 +782,68 @@ func insertAppAsset(t *testing.T, ctx context.Context, pool *pgxpool.Pool, runID
 		t.Fatalf("insert app asset %s/%s: %v", seed.SourceKind, seed.ExternalID, err)
 	}
 	return id
+}
+
+func setAppAssetObservedAt(t *testing.T, ctx context.Context, pool *pgxpool.Pool, appAssetID int64, observedAt time.Time) {
+	t.Helper()
+
+	if _, err := pool.Exec(ctx, `
+		UPDATE app_assets
+		SET seen_at = $2,
+		    last_observed_at = $2,
+		    updated_at = now()
+		WHERE id = $1
+	`, appAssetID, observedAt.UTC()); err != nil {
+		t.Fatalf("update app asset observed_at %d: %v", appAssetID, err)
+	}
+}
+
+func insertSaaSApp(t *testing.T, ctx context.Context, pool *pgxpool.Pool, canonicalKey, displayName, primaryDomain, vendorName string, firstSeenAt, lastSeenAt time.Time) int64 {
+	t.Helper()
+
+	var id int64
+	err := pool.QueryRow(ctx, `
+		INSERT INTO saas_apps (
+			canonical_key,
+			display_name,
+			primary_domain,
+			vendor_name,
+			first_seen_at,
+			last_seen_at,
+			created_at,
+			updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, now(), now())
+		RETURNING id
+	`, canonicalKey, displayName, primaryDomain, vendorName, firstSeenAt.UTC(), lastSeenAt.UTC()).Scan(&id)
+	if err != nil {
+		t.Fatalf("insert saas app %s: %v", canonicalKey, err)
+	}
+	return id
+}
+
+func insertSaaSAppSource(t *testing.T, ctx context.Context, pool *pgxpool.Pool, saasAppID, runID int64, sourceKind, sourceName, sourceAppID, sourceAppName, sourceAppDomain string, observedAt time.Time) {
+	t.Helper()
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO saas_app_sources (
+			saas_app_id,
+			source_kind,
+			source_name,
+			source_app_id,
+			source_app_name,
+			source_app_domain,
+			seen_in_run_id,
+			seen_at,
+			last_observed_run_id,
+			last_observed_at,
+			created_at,
+			updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $7, $8, now(), now())
+	`, saasAppID, sourceKind, sourceName, sourceAppID, sourceAppName, sourceAppDomain, runID, observedAt.UTC()); err != nil {
+		t.Fatalf("insert saas app source %s/%s: %v", sourceKind, sourceAppID, err)
+	}
 }
 
 type credentialArtifactSeed struct {

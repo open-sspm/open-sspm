@@ -29,11 +29,11 @@ const (
 )
 
 type connectedAppShowOptions struct {
-	alert            *viewmodels.ConnectedAppsAlert
-	ownerEmailInput  string
-	reviewStateInput string
-	ticketRefInput   string
-	notesInput       string
+	alert                *viewmodels.ConnectedAppsAlert
+	ownerEmailInput      string
+	governanceStateInput string
+	ticketRefInput       string
+	notesInput           string
 }
 
 type googleGrantRaw struct {
@@ -53,7 +53,10 @@ func (h *Handlers) HandleConnectedAppShow(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	summary, err := h.Q.GetConnectedAppSummaryByID(ctx, appID)
+	summary, err := h.Q.GetAppAssetPostureByID(ctx, gen.GetAppAssetPostureByIDParams{
+		EvaluatedAt: pgTimestamptz(time.Now().UTC()),
+		ID:          appID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -67,14 +70,17 @@ func (h *Handlers) HandleConnectedAppShow(c *echo.Context) error {
 	return c.Redirect(http.StatusSeeOther, canonicalAppAssetDetailURL(appID))
 }
 
-func (h *Handlers) HandleAppAssetReviewUpdate(c *echo.Context) error {
+func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 	appID, err := parsePositiveInt64Param(c.Param("id"))
 	if err != nil {
 		return RenderNotFound(c)
 	}
 
 	ctx := c.Request().Context()
-	summary, err := h.Q.GetConnectedAppSummaryByID(ctx, appID)
+	summary, err := h.Q.GetAppAssetPostureByID(ctx, gen.GetAppAssetPostureByIDParams{
+		EvaluatedAt: pgTimestamptz(time.Now().UTC()),
+		ID:          appID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -85,18 +91,18 @@ func (h *Handlers) HandleAppAssetReviewUpdate(c *echo.Context) error {
 		return RenderNotFound(c)
 	}
 
-	reviewState := querystate.NormalizeConnectedAppReviewState(c.FormValue("review_state"), false)
-	if reviewState == "" {
+	governanceState := querystate.NormalizeConnectedAppGovernanceState(c.FormValue("governance_state"), false)
+	if governanceState == "" {
 		return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
 			alert: &viewmodels.ConnectedAppsAlert{
-				Title:       "Invalid review state",
-				Message:     "Choose a valid disposition before saving the review.",
+				Title:       "Invalid governance state",
+				Message:     "Choose a valid state before saving governance.",
 				Destructive: true,
 			},
-			ownerEmailInput:  strings.TrimSpace(c.FormValue("owner_email")),
-			reviewStateInput: strings.TrimSpace(c.FormValue("review_state")),
-			ticketRefInput:   strings.TrimSpace(c.FormValue("ticket_ref")),
-			notesInput:       strings.TrimSpace(c.FormValue("notes")),
+			ownerEmailInput:      strings.TrimSpace(c.FormValue("owner_email")),
+			governanceStateInput: strings.TrimSpace(c.FormValue("governance_state")),
+			ticketRefInput:       strings.TrimSpace(c.FormValue("ticket_ref")),
+			notesInput:           strings.TrimSpace(c.FormValue("notes")),
 		})
 	}
 
@@ -112,10 +118,10 @@ func (h *Handlers) HandleAppAssetReviewUpdate(c *echo.Context) error {
 						Message:     "Assign an owner using an existing identity email address.",
 						Destructive: true,
 					},
-					ownerEmailInput:  ownerEmailInput,
-					reviewStateInput: reviewState,
-					ticketRefInput:   strings.TrimSpace(c.FormValue("ticket_ref")),
-					notesInput:       strings.TrimSpace(c.FormValue("notes")),
+					ownerEmailInput:      ownerEmailInput,
+					governanceStateInput: governanceState,
+					ticketRefInput:       strings.TrimSpace(c.FormValue("ticket_ref")),
+					notesInput:           strings.TrimSpace(c.FormValue("notes")),
 				})
 			}
 			return h.RenderError(c, err)
@@ -124,17 +130,17 @@ func (h *Handlers) HandleAppAssetReviewUpdate(c *echo.Context) error {
 	}
 
 	ticketRef := strings.TrimSpace(c.FormValue("ticket_ref"))
-	if reviewState == "ticketed" && ticketRef == "" {
+	if governanceState == "ticketed" && ticketRef == "" {
 		return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
 			alert: &viewmodels.ConnectedAppsAlert{
 				Title:       "Ticket reference required",
 				Message:     "Enter a ticket reference before marking this app as ticketed.",
 				Destructive: true,
 			},
-			ownerEmailInput:  ownerEmailInput,
-			reviewStateInput: reviewState,
-			ticketRefInput:   ticketRef,
-			notesInput:       strings.TrimSpace(c.FormValue("notes")),
+			ownerEmailInput:      ownerEmailInput,
+			governanceStateInput: governanceState,
+			ticketRefInput:       ticketRef,
+			notesInput:           strings.TrimSpace(c.FormValue("notes")),
 		})
 	}
 
@@ -143,13 +149,13 @@ func (h *Handlers) HandleAppAssetReviewUpdate(c *echo.Context) error {
 		return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
 			alert: &viewmodels.ConnectedAppsAlert{
 				Title:       "Notes too long",
-				Message:     "Keep review notes under 4000 characters.",
+				Message:     "Keep governance notes under 4000 characters.",
 				Destructive: true,
 			},
-			ownerEmailInput:  ownerEmailInput,
-			reviewStateInput: reviewState,
-			ticketRefInput:   ticketRef,
-			notesInput:       notes,
+			ownerEmailInput:      ownerEmailInput,
+			governanceStateInput: governanceState,
+			ticketRefInput:       ticketRef,
+			notesInput:           notes,
 		})
 	}
 
@@ -158,9 +164,9 @@ func (h *Handlers) HandleAppAssetReviewUpdate(c *echo.Context) error {
 		return c.NoContent(http.StatusForbidden)
 	}
 
-	if _, err := h.Q.UpsertConnectedAppGovernance(ctx, gen.UpsertConnectedAppGovernanceParams{
+	if _, err := h.Q.UpsertAppAssetGovernance(ctx, gen.UpsertAppAssetGovernanceParams{
 		AppAssetID:          appID,
-		ReviewState:         reviewState,
+		GovernanceState:     governanceState,
 		OwnerIdentityID:     ownerIdentityID,
 		TicketRef:           ticketRef,
 		Notes:               notes,
@@ -171,14 +177,14 @@ func (h *Handlers) HandleAppAssetReviewUpdate(c *echo.Context) error {
 
 	setFlashToast(c, viewmodels.ToastViewData{
 		Category:    "success",
-		Title:       "OAuth app review saved",
-		Description: "Owner assignment and disposition updated.",
+		Title:       "OAuth app governance saved",
+		Description: "Owner assignment and governance state updated.",
 	})
 	if isHX(c) {
 		return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
 			alert: &viewmodels.ConnectedAppsAlert{
-				Title:       "OAuth app review saved",
-				Message:     "Owner assignment and disposition updated.",
+				Title:       "OAuth app governance saved",
+				Message:     "Owner assignment and governance state updated.",
 				Destructive: false,
 			},
 			ownerEmailInput: ownerEmailInput,
@@ -188,16 +194,6 @@ func (h *Handlers) HandleAppAssetReviewUpdate(c *echo.Context) error {
 	return c.Redirect(http.StatusSeeOther, canonicalAppAssetDetailURL(appID))
 }
 
-func (h *Handlers) HandleConnectedAppReviewUpdate(c *echo.Context) error {
-	appID, err := parsePositiveInt64Param(c.Param("id"))
-	if err != nil {
-		return RenderNotFound(c)
-	}
-
-	c.Request().URL.Path = canonicalAppAssetDetailURL(appID) + "/review"
-	return h.HandleAppAssetReviewUpdate(c)
-}
-
 func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 	appID, err := parsePositiveInt64Param(c.Param("id"))
 	if err != nil {
@@ -205,7 +201,11 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	summary, err := h.Q.GetConnectedAppSummaryByID(ctx, appID)
+	now := time.Now().UTC()
+	summary, err := h.Q.GetAppAssetPostureByID(ctx, gen.GetAppAssetPostureByIDParams{
+		EvaluatedAt: pgTimestamptz(now),
+		ID:          appID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -221,7 +221,6 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	now := time.Now().UTC()
 	grants, err := h.Q.ListCredentialArtifactsForAssetRef(ctx, gen.ListCredentialArtifactsForAssetRefParams{
 		EvaluatedAt:        pgTimestamptz(now),
 		SourceKind:         strings.TrimSpace(summary.SourceKind),
@@ -234,7 +233,7 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 	}
 
 	cutoffs := h.discoveryPostureCutoffs(now)
-	discoverySources, err := h.Q.ListConnectedAppDiscoverySourcesBySourceAppID(ctx, gen.ListConnectedAppDiscoverySourcesBySourceAppIDParams{
+	discoverySources, err := h.Q.ListAppAssetDiscoverySourcesBySourceAppID(ctx, gen.ListAppAssetDiscoverySourcesBySourceAppIDParams{
 		SourceKind:                strings.TrimSpace(summary.SourceKind),
 		SourceName:                strings.TrimSpace(summary.SourceName),
 		SourceAppID:               strings.TrimSpace(summary.ExternalID),
@@ -250,7 +249,7 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	discoveryEvents, err := h.Q.ListConnectedAppDiscoveryEventsBySourceAppID(ctx, gen.ListConnectedAppDiscoveryEventsBySourceAppIDParams{
+	discoveryEvents, err := h.Q.ListAppAssetDiscoveryEventsBySourceAppID(ctx, gen.ListAppAssetDiscoveryEventsBySourceAppIDParams{
 		SourceKind:  strings.TrimSpace(summary.SourceKind),
 		SourceName:  strings.TrimSpace(summary.SourceName),
 		SourceAppID: strings.TrimSpace(summary.ExternalID),
@@ -260,30 +259,29 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	confidence, confidenceReason := connectedAppConfidence(summary.OwnerCount, summary.GrantCount, summary.DiscoverySourceCount, summary.ReviewOwnerIdentityID > 0)
 	payload := map[string]any{
-		"connected_app": map[string]any{
-			"id":                        summary.ID,
-			"display_name":              strings.TrimSpace(summary.DisplayName),
-			"external_id":               strings.TrimSpace(summary.ExternalID),
-			"source_kind":               strings.TrimSpace(summary.SourceKind),
-			"source_name":               strings.TrimSpace(summary.SourceName),
-			"status":                    strings.TrimSpace(summary.Status),
-			"review_state":              strings.TrimSpace(summary.ReviewState),
-			"review_owner_display_name": strings.TrimSpace(summary.ReviewOwnerDisplayName),
-			"review_owner_email":        strings.TrimSpace(summary.ReviewOwnerPrimaryEmail),
-			"review_owner_kind":         strings.TrimSpace(summary.ReviewOwnerKind),
-			"ticket_ref":                strings.TrimSpace(summary.TicketRef),
-			"notes":                     strings.TrimSpace(summary.Notes),
-			"likely_owner_count":        summary.OwnerCount,
-			"grant_count":               summary.GrantCount,
-			"actor_count":               summary.ActorCount,
-			"discovery_source_count":    summary.DiscoverySourceCount,
-			"discovery_event_count_30d": summary.DiscoveryEventCount30d,
-			"freshness":                 connectedAppFreshness(summary.EvidenceLastSeenAt),
-			"confidence":                confidence,
-			"confidence_reason":         confidenceReason,
-			"last_seen_at":              formatProgrammaticDate(summary.EvidenceLastSeenAt),
+		"app_asset": map[string]any{
+			"id":                            summary.ID,
+			"display_name":                  strings.TrimSpace(summary.DisplayName),
+			"external_id":                   strings.TrimSpace(summary.ExternalID),
+			"source_kind":                   strings.TrimSpace(summary.SourceKind),
+			"source_name":                   strings.TrimSpace(summary.SourceName),
+			"status":                        strings.TrimSpace(summary.Status),
+			"governance_state":              strings.TrimSpace(summary.GovernanceState),
+			"governance_owner_display_name": strings.TrimSpace(summary.GovernanceOwnerDisplayName),
+			"governance_owner_email":        strings.TrimSpace(summary.GovernanceOwnerPrimaryEmail),
+			"governance_owner_kind":         strings.TrimSpace(summary.GovernanceOwnerKind),
+			"ticket_ref":                    strings.TrimSpace(summary.TicketRef),
+			"notes":                         strings.TrimSpace(summary.Notes),
+			"likely_owner_count":            summary.OwnerCount,
+			"grant_count":                   summary.GrantCount,
+			"actor_count":                   summary.ActorCount,
+			"discovery_source_count":        summary.DiscoverySourceCount,
+			"discovery_event_count_30d":     summary.DiscoveryEventCount30d,
+			"evidence_freshness":            strings.TrimSpace(summary.EvidenceFreshness),
+			"evidence_confidence":           strings.TrimSpace(summary.EvidenceConfidence),
+			"evidence_confidence_reason":    strings.TrimSpace(summary.EvidenceConfidenceReason),
+			"last_seen_at":                  formatProgrammaticDate(summary.EvidenceLastSeenAt),
 		},
 		"likely_owners":     owners,
 		"grant_inventory":   connectedAppGrantExport(grants),
@@ -304,7 +302,10 @@ func (h *Handlers) HandleConnectedAppExport(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	summary, err := h.Q.GetConnectedAppSummaryByID(ctx, appID)
+	summary, err := h.Q.GetAppAssetPostureByID(ctx, gen.GetAppAssetPostureByIDParams{
+		EvaluatedAt: pgTimestamptz(time.Now().UTC()),
+		ID:          appID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -329,7 +330,11 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	summary, err := h.Q.GetConnectedAppSummaryByID(ctx, appID)
+	now := time.Now().UTC()
+	summary, err := h.Q.GetAppAssetPostureByID(ctx, gen.GetAppAssetPostureByIDParams{
+		EvaluatedAt: pgTimestamptz(now),
+		ID:          appID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -341,7 +346,7 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 	}
 
 	credential, err := h.Q.GetCredentialArtifactByID(ctx, gen.GetCredentialArtifactByIDParams{
-		EvaluatedAt: pgTimestamptz(time.Now().UTC()),
+		EvaluatedAt: pgTimestamptz(now),
 		ID:          credentialID,
 	})
 	if err != nil {
@@ -470,41 +475,45 @@ func (h *Handlers) buildConnectedAppsViewData(ctx context.Context, layout viewmo
 	sourceName := google.SourceName()
 	if !google.Configured() || !google.Enabled() || sourceName == "" {
 		data.PaginatedListPageData.EmptyStateMsg = connectorUnavailableMessage("Google Workspace", google.Configured(), google.Enabled())
-		data.ReviewCounts = buildConnectedAppReviewCounts(nil, queryState)
+		data.GovernanceCounts = buildConnectedAppGovernanceCounts(nil, queryState)
 		return data, nil
 	}
 
-	totalCount, err := h.Q.CountConnectedAppsBySourceAndQueryAndReviewState(ctx, gen.CountConnectedAppsBySourceAndQueryAndReviewStateParams{
-		SourceKind:  configstore.KindGoogleWorkspace,
-		SourceName:  sourceName,
-		AssetKind:   connectedAppAssetKindGoogle,
-		ReviewState: queryState.ReviewState,
-		Query:       queryState.Q,
+	evaluatedAt := pgTimestamptz(time.Now().UTC())
+	totalCount, err := h.Q.CountAppAssetGovernanceBySourceAndQueryAndState(ctx, gen.CountAppAssetGovernanceBySourceAndQueryAndStateParams{
+		EvaluatedAt:     evaluatedAt,
+		SourceKind:      configstore.KindGoogleWorkspace,
+		SourceName:      sourceName,
+		AssetKind:       connectedAppAssetKindGoogle,
+		GovernanceState: queryState.GovernanceState,
+		Query:           queryState.Q,
 	})
 	if err != nil {
 		return data, err
 	}
 
-	countRows, err := h.Q.CountConnectedAppsGroupedByReviewState(ctx, gen.CountConnectedAppsGroupedByReviewStateParams{
-		SourceKind: configstore.KindGoogleWorkspace,
-		SourceName: sourceName,
-		AssetKind:  connectedAppAssetKindGoogle,
-		Query:      queryState.Q,
+	countRows, err := h.Q.CountAppAssetGovernanceGroupedByState(ctx, gen.CountAppAssetGovernanceGroupedByStateParams{
+		EvaluatedAt: evaluatedAt,
+		SourceKind:  configstore.KindGoogleWorkspace,
+		SourceName:  sourceName,
+		AssetKind:   connectedAppAssetKindGoogle,
+		Query:       queryState.Q,
 	})
 	if err != nil {
 		return data, err
 	}
-	data.ReviewCounts = buildConnectedAppReviewCounts(countRows, queryState)
+	data.GovernanceCounts = buildConnectedAppGovernanceCounts(countRows, queryState)
 
 	pagination = newPaginatedListState(totalCount, queryState.Page, connectedAppsPerPage)
-	rows, err := h.Q.ListConnectedAppsPageBySourceAndQueryAndReviewState(ctx, gen.ListConnectedAppsPageBySourceAndQueryAndReviewStateParams{
-		SourceKind:  configstore.KindGoogleWorkspace,
-		SourceName:  sourceName,
-		AssetKind:   connectedAppAssetKindGoogle,
-		ReviewState: queryState.ReviewState,
-		Query:       queryState.Q,
-		PageLimit:   int32(connectedAppsPerPage),
-		PageOffset:  int32(pagination.Offset()),
+	rows, err := h.Q.ListAppAssetGovernancePageBySourceAndQueryAndState(ctx, gen.ListAppAssetGovernancePageBySourceAndQueryAndStateParams{
+		EvaluatedAt:     evaluatedAt,
+		SourceKind:      configstore.KindGoogleWorkspace,
+		SourceName:      sourceName,
+		AssetKind:       connectedAppAssetKindGoogle,
+		GovernanceState: queryState.GovernanceState,
+		Query:           queryState.Q,
+		PageLimit:       int32(connectedAppsPerPage),
+		PageOffset:      int32(pagination.Offset()),
 	})
 	if err != nil {
 		return data, err
@@ -516,32 +525,31 @@ func (h *Handlers) buildConnectedAppsViewData(ctx context.Context, layout viewmo
 		if displayName == "" {
 			displayName = strings.TrimSpace(row.ExternalID)
 		}
-		reviewOwner := strings.TrimSpace(row.ReviewOwnerDisplayName)
-		reviewOwnerEmail := strings.TrimSpace(row.ReviewOwnerPrimaryEmail)
-		if reviewOwner == "" {
-			reviewOwner = reviewOwnerEmail
+		governanceOwner := strings.TrimSpace(row.GovernanceOwnerDisplayName)
+		governanceOwnerEmail := strings.TrimSpace(row.GovernanceOwnerPrimaryEmail)
+		if governanceOwner == "" {
+			governanceOwner = governanceOwnerEmail
 		}
-		if reviewOwner == "" {
-			reviewOwner = "—"
+		if governanceOwner == "" {
+			governanceOwner = "—"
 		}
-		confidence, confidenceReason := connectedAppConfidence(row.OwnerCount, row.GrantCount, row.DiscoverySourceCount, row.ReviewOwnerIdentityID > 0)
 		items = append(items, viewmodels.ConnectedAppListItem{
-			ID:                     row.ID,
-			DisplayName:            displayName,
-			ExternalID:             strings.TrimSpace(row.ExternalID),
-			Status:                 fallbackDash(strings.TrimSpace(row.Status)),
-			ReviewState:            strings.TrimSpace(row.ReviewState),
-			ReviewOwner:            reviewOwner,
-			ReviewOwnerEmail:       reviewOwnerEmail,
-			LikelyOwnerCount:       int(row.OwnerCount),
-			GrantCount:             int(row.GrantCount),
-			ActorCount:             row.ActorCount,
-			DiscoveryEventCount30d: row.DiscoveryEventCount30d,
-			Freshness:              connectedAppFreshness(row.EvidenceLastSeenAt),
-			Confidence:             confidence,
-			ConfidenceReason:       confidenceReason,
-			LastSeenAt:             formatProgrammaticDate(row.EvidenceLastSeenAt),
-			TicketRef:              strings.TrimSpace(row.TicketRef),
+			ID:                       row.ID,
+			DisplayName:              displayName,
+			ExternalID:               strings.TrimSpace(row.ExternalID),
+			Status:                   fallbackDash(strings.TrimSpace(row.Status)),
+			GovernanceState:          strings.TrimSpace(row.GovernanceState),
+			GovernanceOwner:          governanceOwner,
+			GovernanceOwnerEmail:     governanceOwnerEmail,
+			LikelyOwnerCount:         int(row.OwnerCount),
+			GrantCount:               int(row.GrantCount),
+			ActorCount:               row.ActorCount,
+			DiscoveryEventCount30d:   row.DiscoveryEventCount30d,
+			EvidenceFreshness:        strings.TrimSpace(row.EvidenceFreshness),
+			EvidenceConfidence:       strings.TrimSpace(row.EvidenceConfidence),
+			EvidenceConfidenceReason: strings.TrimSpace(row.EvidenceConfidenceReason),
+			LastSeenAt:               formatProgrammaticDate(row.EvidenceLastSeenAt),
+			TicketRef:                strings.TrimSpace(row.TicketRef),
 		})
 	}
 
@@ -557,7 +565,11 @@ func (h *Handlers) buildConnectedAppsViewData(ctx context.Context, layout viewmo
 func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout viewmodels.LayoutData, appID int64, opts connectedAppShowOptions) (viewmodels.ConnectedAppShowViewData, error) {
 	data := viewmodels.ConnectedAppShowViewData{}
 
-	summary, err := h.Q.GetConnectedAppSummaryByID(ctx, appID)
+	now := time.Now().UTC()
+	summary, err := h.Q.GetAppAssetPostureByID(ctx, gen.GetAppAssetPostureByIDParams{
+		EvaluatedAt: pgTimestamptz(now),
+		ID:          appID,
+	})
 	if err != nil {
 		return data, err
 	}
@@ -589,7 +601,6 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 		})
 	}
 
-	now := time.Now().UTC()
 	grantRows, err := h.Q.ListCredentialArtifactsForAssetRef(ctx, gen.ListCredentialArtifactsForAssetRefParams{
 		EvaluatedAt:        pgTimestamptz(now),
 		SourceKind:         strings.TrimSpace(summary.SourceKind),
@@ -634,7 +645,7 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 	}
 
 	cutoffs := h.discoveryPostureCutoffs(now)
-	discoverySources, err := h.Q.ListConnectedAppDiscoverySourcesBySourceAppID(ctx, gen.ListConnectedAppDiscoverySourcesBySourceAppIDParams{
+	discoverySources, err := h.Q.ListAppAssetDiscoverySourcesBySourceAppID(ctx, gen.ListAppAssetDiscoverySourcesBySourceAppIDParams{
 		SourceKind:                strings.TrimSpace(summary.SourceKind),
 		SourceName:                strings.TrimSpace(summary.SourceName),
 		SourceAppID:               strings.TrimSpace(summary.ExternalID),
@@ -663,7 +674,7 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 		})
 	}
 
-	eventRows, err := h.Q.ListConnectedAppDiscoveryEventsBySourceAppID(ctx, gen.ListConnectedAppDiscoveryEventsBySourceAppIDParams{
+	eventRows, err := h.Q.ListAppAssetDiscoveryEventsBySourceAppID(ctx, gen.ListAppAssetDiscoveryEventsBySourceAppIDParams{
 		SourceKind:  strings.TrimSpace(summary.SourceKind),
 		SourceName:  strings.TrimSpace(summary.SourceName),
 		SourceAppID: strings.TrimSpace(summary.ExternalID),
@@ -693,21 +704,28 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 	if displayName == "" {
 		displayName = strings.TrimSpace(summary.ExternalID)
 	}
-	confidence, confidenceReason := connectedAppConfidence(summary.OwnerCount, summary.GrantCount, summary.DiscoverySourceCount, summary.ReviewOwnerIdentityID > 0)
+	governanceOwnerEmail := strings.TrimSpace(summary.GovernanceOwnerPrimaryEmail)
+	governanceOwner := strings.TrimSpace(summary.GovernanceOwnerDisplayName)
+	if governanceOwner == "" {
+		governanceOwner = governanceOwnerEmail
+	}
+	if governanceOwner == "" {
+		governanceOwner = "—"
+	}
 	ownerEmailInput := auth.NormalizeEmail(opts.ownerEmailInput)
 	if ownerEmailInput == "" {
-		ownerEmailInput = auth.NormalizeEmail(strings.TrimSpace(summary.ReviewOwnerPrimaryEmail))
+		ownerEmailInput = auth.NormalizeEmail(governanceOwnerEmail)
 	}
-	hasFormInput := strings.TrimSpace(opts.reviewStateInput) != "" ||
+	hasFormInput := strings.TrimSpace(opts.governanceStateInput) != "" ||
 		strings.TrimSpace(opts.ownerEmailInput) != "" ||
 		strings.TrimSpace(opts.ticketRefInput) != "" ||
 		strings.TrimSpace(opts.notesInput) != ""
-	reviewStateInput := strings.TrimSpace(summary.ReviewState)
+	governanceStateInput := strings.TrimSpace(summary.GovernanceState)
 	ticketRefInput := strings.TrimSpace(summary.TicketRef)
 	notesInput := strings.TrimSpace(summary.Notes)
 	if hasFormInput {
-		if normalized := querystate.NormalizeConnectedAppReviewState(opts.reviewStateInput, false); normalized != "" {
-			reviewStateInput = normalized
+		if normalized := querystate.NormalizeConnectedAppGovernanceState(opts.governanceStateInput, false); normalized != "" {
+			governanceStateInput = normalized
 		}
 		ticketRefInput = strings.TrimSpace(opts.ticketRefInput)
 		notesInput = strings.TrimSpace(opts.notesInput)
@@ -716,42 +734,42 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 	data = viewmodels.ConnectedAppShowViewData{
 		Layout: layout,
 		App: viewmodels.ConnectedAppSummaryView{
-			ID:                     summary.ID,
-			DisplayName:            displayName,
-			ExternalID:             strings.TrimSpace(summary.ExternalID),
-			SourceKind:             strings.TrimSpace(summary.SourceKind),
-			SourceName:             strings.TrimSpace(summary.SourceName),
-			Status:                 fallbackDash(strings.TrimSpace(summary.Status)),
-			ReviewState:            strings.TrimSpace(summary.ReviewState),
-			ReviewOwner:            fallbackDash(strings.TrimSpace(summary.ReviewOwnerDisplayName)),
-			ReviewOwnerEmail:       fallbackDash(strings.TrimSpace(summary.ReviewOwnerPrimaryEmail)),
-			ReviewOwnerKind:        fallbackDash(strings.TrimSpace(summary.ReviewOwnerKind)),
-			TicketRef:              strings.TrimSpace(summary.TicketRef),
-			Notes:                  strings.TrimSpace(summary.Notes),
-			LikelyOwnerCount:       int(summary.OwnerCount),
-			GrantCount:             int(summary.GrantCount),
-			ActorCount:             summary.ActorCount,
-			DiscoverySourceCount:   summary.DiscoverySourceCount,
-			DiscoveryEventCount30d: summary.DiscoveryEventCount30d,
-			Freshness:              connectedAppFreshness(summary.EvidenceLastSeenAt),
-			Confidence:             confidence,
-			ConfidenceReason:       confidenceReason,
-			LastSeenAt:             formatProgrammaticDate(summary.EvidenceLastSeenAt),
-			ExportHref:             canonicalAppAssetDetailURL(summary.ID) + "/export",
+			ID:                       summary.ID,
+			DisplayName:              displayName,
+			ExternalID:               strings.TrimSpace(summary.ExternalID),
+			SourceKind:               strings.TrimSpace(summary.SourceKind),
+			SourceName:               strings.TrimSpace(summary.SourceName),
+			Status:                   fallbackDash(strings.TrimSpace(summary.Status)),
+			GovernanceState:          strings.TrimSpace(summary.GovernanceState),
+			GovernanceOwner:          governanceOwner,
+			GovernanceOwnerEmail:     fallbackDash(governanceOwnerEmail),
+			GovernanceOwnerKind:      fallbackDash(strings.TrimSpace(summary.GovernanceOwnerKind)),
+			TicketRef:                strings.TrimSpace(summary.TicketRef),
+			Notes:                    strings.TrimSpace(summary.Notes),
+			LikelyOwnerCount:         int(summary.OwnerCount),
+			GrantCount:               int(summary.GrantCount),
+			ActorCount:               summary.ActorCount,
+			DiscoverySourceCount:     summary.DiscoverySourceCount,
+			DiscoveryEventCount30d:   summary.DiscoveryEventCount30d,
+			EvidenceFreshness:        strings.TrimSpace(summary.EvidenceFreshness),
+			EvidenceConfidence:       strings.TrimSpace(summary.EvidenceConfidence),
+			EvidenceConfidenceReason: strings.TrimSpace(summary.EvidenceConfidenceReason),
+			LastSeenAt:               formatProgrammaticDate(summary.EvidenceLastSeenAt),
+			ExportHref:               canonicalAppAssetDetailURL(summary.ID) + "/export",
 		},
-		LikelyOwners:     likelyOwners,
-		Grants:           grants,
-		DiscoverySources: sourceItems,
-		Events:           eventItems,
-		Alert:            opts.alert,
-		OwnerEmailInput:  ownerEmailInput,
-		ReviewStateInput: reviewStateInput,
-		TicketRefInput:   ticketRefInput,
-		NotesInput:       notesInput,
-		HasLikelyOwners:  len(likelyOwners) > 0,
-		HasGrants:        len(grants) > 0,
-		HasEvidence:      len(sourceItems) > 0,
-		HasEvents:        len(eventItems) > 0,
+		LikelyOwners:         likelyOwners,
+		Grants:               grants,
+		DiscoverySources:     sourceItems,
+		Events:               eventItems,
+		Alert:                opts.alert,
+		OwnerEmailInput:      ownerEmailInput,
+		GovernanceStateInput: governanceStateInput,
+		TicketRefInput:       ticketRefInput,
+		NotesInput:           notesInput,
+		HasLikelyOwners:      len(likelyOwners) > 0,
+		HasGrants:            len(grants) > 0,
+		HasEvidence:          len(sourceItems) > 0,
+		HasEvents:            len(eventItems) > 0,
 	}
 	return data, nil
 }
@@ -794,18 +812,18 @@ func (h *Handlers) renderAppAssetShow(c *echo.Context, appID int64, opts connect
 	return h.RenderComponent(c, views.AppAssetShowPage(data))
 }
 
-func buildConnectedAppReviewCounts(rows []gen.CountConnectedAppsGroupedByReviewStateRow, activeQuery querystate.ConnectedAppsQuery) []viewmodels.ConnectedAppsReviewCount {
+func buildConnectedAppGovernanceCounts(rows []gen.CountAppAssetGovernanceGroupedByStateRow, activeQuery querystate.ConnectedAppsQuery) []viewmodels.ConnectedAppsGovernanceCount {
 	countsByState := map[string]int64{}
 	for _, row := range rows {
-		countsByState[strings.TrimSpace(row.ReviewState)] = row.AppCount
+		countsByState[strings.TrimSpace(row.GovernanceState)] = row.AppCount
 	}
 
-	states := []string{"", "needs_revocation", "under_review", "unreviewed", "ticketed", "sanctioned"}
-	out := make([]viewmodels.ConnectedAppsReviewCount, 0, len(states))
+	states := []string{"", "action_required", "in_review", "unreviewed", "ticketed", "approved"}
+	out := make([]viewmodels.ConnectedAppsGovernanceCount, 0, len(states))
 	for _, state := range states {
 		label := "All states"
 		if state != "" {
-			label = humanizeConnectedAppReviewState(state)
+			label = views.HumanizeAppAssetGovernanceState(state)
 		}
 		count := int64(0)
 		if state == "" {
@@ -815,52 +833,15 @@ func buildConnectedAppReviewCounts(rows []gen.CountConnectedAppsGroupedByReviewS
 		} else {
 			count = countsByState[state]
 		}
-		out = append(out, viewmodels.ConnectedAppsReviewCount{
-			ReviewState: state,
-			Label:       label,
-			Count:       count,
-			Href:        activeQuery.WithReviewState(state).WithPage(1).Href(),
-			IsActive:    state == activeQuery.ReviewState,
+		out = append(out, viewmodels.ConnectedAppsGovernanceCount{
+			GovernanceState: state,
+			Label:           label,
+			Count:           count,
+			Href:            activeQuery.WithGovernanceState(state).WithPage(1).Href(),
+			IsActive:        state == activeQuery.GovernanceState,
 		})
 	}
 	return out
-}
-
-func connectedAppConfidence(ownerCount, grantCount, discoverySourceCount int64, hasReviewOwner bool) (string, string) {
-	signals := 0
-	if grantCount > 0 {
-		signals++
-	}
-	if ownerCount > 0 || hasReviewOwner {
-		signals++
-	}
-	if discoverySourceCount > 0 {
-		signals++
-	}
-
-	switch signals {
-	case 3:
-		return "high", "Inventory, ownership, and discovery evidence all line up."
-	case 2:
-		return "medium", "Multiple evidence paths are available, but attribution is still partial."
-	default:
-		return "low", "This record currently relies on a single evidence path."
-	}
-}
-
-func connectedAppFreshness(lastSeen pgtype.Timestamptz) string {
-	if !lastSeen.Valid {
-		return "unknown"
-	}
-	age := time.Since(lastSeen.Time.UTC())
-	switch {
-	case age <= 7*24*time.Hour:
-		return "fresh"
-	case age <= 30*24*time.Hour:
-		return "aging"
-	default:
-		return "stale"
-	}
 }
 
 func canonicalAppAssetDetailURL(appID int64) string {
@@ -898,7 +879,7 @@ func connectedAppGrantExport(rows []gen.ListCredentialArtifactsForAssetRefRow) [
 func connectedAppExportFilename(displayName string, id int64) string {
 	displayName = strings.ToLower(strings.TrimSpace(displayName))
 	if displayName == "" {
-		return fmt.Sprintf("connected-app-%d.json", id)
+		return fmt.Sprintf("app-asset-%d.json", id)
 	}
 
 	var b strings.Builder
@@ -919,34 +900,9 @@ func connectedAppExportFilename(displayName string, id int64) string {
 
 	name := strings.Trim(b.String(), "-")
 	if name == "" {
-		name = fmt.Sprintf("connected-app-%d", id)
+		name = fmt.Sprintf("app-asset-%d", id)
 	}
 	return name + ".json"
-}
-
-func humanizeConnectedAppReviewState(state string) string {
-	switch strings.ToLower(strings.TrimSpace(state)) {
-	case "unreviewed":
-		return "Unreviewed"
-	case "under_review":
-		return "Under Review"
-	case "sanctioned":
-		return "Sanctioned"
-	case "needs_revocation":
-		return "Needs Revocation"
-	case "ticketed":
-		return "Ticketed"
-	default:
-		state = strings.TrimSpace(strings.ReplaceAll(state, "_", " "))
-		if state == "" {
-			return "—"
-		}
-		runes := []rune(strings.ToLower(state))
-		if len(runes) > 0 {
-			runes[0] = []rune(strings.ToUpper(string(runes[0])))[0]
-		}
-		return string(runes)
-	}
 }
 
 func isGoogleConnectedApp(sourceKind, assetKind string) bool {

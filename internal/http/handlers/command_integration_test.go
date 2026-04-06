@@ -523,11 +523,11 @@ func seedCommandSearchFixture(t *testing.T, ctx context.Context, pool *pgxpool.P
 	githubAppAssetID := insertCommandSearchAppAsset(t, ctx, q, githubRunID, configstore.KindGitHub, "acme", "github_app", "github-actions", "", "GitHub Actions", "active")
 	googleConnectedAppID := insertCommandSearchAppAsset(t, ctx, q, googleRunID, configstore.KindGoogleWorkspace, "C0123", "google_oauth_client", "client-123.apps.googleusercontent.com", "", "OAuth Approval Client", "active")
 
-	if _, err := q.UpsertConnectedAppGovernance(ctx, gen.UpsertConnectedAppGovernanceParams{
-		AppAssetID:  googleConnectedAppID,
-		ReviewState: "needs_revocation",
+	if _, err := q.UpsertAppAssetGovernance(ctx, gen.UpsertAppAssetGovernanceParams{
+		AppAssetID:      googleConnectedAppID,
+		GovernanceState: "action_required",
 	}); err != nil {
-		t.Fatalf("UpsertConnectedAppGovernance: %v", err)
+		t.Fatalf("UpsertAppAssetGovernance: %v", err)
 	}
 
 	insertCommandSearchDiscoveryApp(t, ctx, pool, q, entraRunID, configstore.KindEntra, "tenant-1", "azure-cloud", "Azure Cloud", "azure.com", "Microsoft", "azure-cloud")

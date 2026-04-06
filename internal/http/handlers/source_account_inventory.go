@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v5"
+	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
@@ -36,13 +37,20 @@ type sourceAccountInventoryOptions struct {
 	BasePath             string
 	ConnectorName        string
 	ConnectorKind        string
-	SourceKind           string
 	EmptyStateHref       string
 	SyncedEmptyState     string
 	FilteredEmptyState   string
 	UnavailableMessageFn func(configured, enabled bool) string
 	Count                func(ctx context.Context, sourceName, query string) (int64, error)
 	List                 func(ctx context.Context, sourceName, query string, offset, limit int) ([]sourceAccountInventoryAccount, error)
+}
+
+type sourceAccountInventoryQueryOptions struct {
+	SourceKind            string
+	EntityCategory        string
+	DistinctResourceKind1 string
+	DistinctResourceKind2 string
+	EntitlementKind1      string
 }
 
 func (h *Handlers) buildSourceAccountInventoryPage(c *echo.Context, opts sourceAccountInventoryOptions) (sourceAccountInventoryResult, error) {
@@ -90,6 +98,63 @@ func (h *Handlers) buildSourceAccountInventoryPage(c *echo.Context, opts sourceA
 		},
 		Accounts: accounts,
 	}, nil
+}
+
+func (h *Handlers) sourceAccountInventoryQueries(opts sourceAccountInventoryQueryOptions) sourceAccountInventoryOptions {
+	return sourceAccountInventoryOptions{
+		Count: func(ctx context.Context, sourceName, query string) (int64, error) {
+			return h.Q.CountSourceAccountsBySourceAndQuery(ctx, gen.CountSourceAccountsBySourceAndQueryParams{
+				SourceKind:     opts.SourceKind,
+				SourceName:     sourceName,
+				EntityCategory: opts.EntityCategory,
+				Query:          query,
+			})
+		},
+		List: func(ctx context.Context, sourceName, query string, offset, limit int) ([]sourceAccountInventoryAccount, error) {
+			rows, err := h.Q.ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(ctx, gen.ListSourceAccountsPageBySourceAndQueryWithEntitlementCountsParams{
+				SourceKind:            opts.SourceKind,
+				SourceName:            sourceName,
+				EntityCategory:        opts.EntityCategory,
+				Query:                 query,
+				PageLimit:             int32(limit),
+				PageOffset:            int32(offset),
+				DistinctResourceKind1: opts.DistinctResourceKind1,
+				DistinctResourceKind2: opts.DistinctResourceKind2,
+				EntitlementKind1:      opts.EntitlementKind1,
+			})
+			if err != nil {
+				return nil, err
+			}
+			return buildSourceAccountInventoryAccounts(rows), nil
+		},
+	}
+}
+
+func buildSourceAccountInventoryAccounts(rows []gen.ListSourceAccountsPageBySourceAndQueryWithEntitlementCountsRow) []sourceAccountInventoryAccount {
+	accounts := make([]sourceAccountInventoryAccount, 0, len(rows))
+	for _, row := range rows {
+		accounts = append(accounts, sourceAccountInventoryAccount{
+			ID:          row.ID,
+			ExternalID:  strings.TrimSpace(row.ExternalID),
+			Email:       strings.TrimSpace(row.Email),
+			DisplayName: sourceAccountInventoryDisplayName(row.DisplayName, row.Email, row.ExternalID),
+			IdentityID:  row.IdentityID,
+			Summary: sourceAccountInventorySummary{
+				DistinctResourceCount1: int(row.DistinctResourceCount1),
+				DistinctResourceCount2: int(row.DistinctResourceCount2),
+				EntitlementCount1:      int(row.EntitlementCount1),
+			},
+		})
+	}
+	return accounts
+}
+
+func mapSourceAccountInventoryItems[T any](accounts []sourceAccountInventoryAccount, mapItem func(sourceAccountInventoryAccount) T) []T {
+	items := make([]T, 0, len(accounts))
+	for _, account := range accounts {
+		items = append(items, mapItem(account))
+	}
+	return items
 }
 
 func (opts sourceAccountInventoryOptions) unavailableMessage(configured, enabled bool) string {

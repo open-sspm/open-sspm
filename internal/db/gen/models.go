@@ -72,6 +72,45 @@ type AppAssetOwner struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type AppAssetPostureInputsV struct {
+	ID                           int64              `json:"id"`
+	SourceKind                   string             `json:"source_kind"`
+	SourceName                   string             `json:"source_name"`
+	AssetKind                    string             `json:"asset_kind"`
+	ExternalID                   string             `json:"external_id"`
+	ParentExternalID             string             `json:"parent_external_id"`
+	DisplayName                  string             `json:"display_name"`
+	Status                       string             `json:"status"`
+	CreatedAtSource              pgtype.Timestamptz `json:"created_at_source"`
+	UpdatedAtSource              pgtype.Timestamptz `json:"updated_at_source"`
+	RawJson                      []byte             `json:"raw_json"`
+	SeenInRunID                  pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt                       pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID            pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt               pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt                    pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID                 pgtype.Int8        `json:"expired_run_id"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
+	GovernanceState              string             `json:"governance_state"`
+	TicketRef                    string             `json:"ticket_ref"`
+	Notes                        string             `json:"notes"`
+	GovernanceOwnerIdentityID    int64              `json:"governance_owner_identity_id"`
+	GovernanceOwnerDisplayName   string             `json:"governance_owner_display_name"`
+	GovernanceOwnerPrimaryEmail  string             `json:"governance_owner_primary_email"`
+	GovernanceOwnerKind          string             `json:"governance_owner_kind"`
+	OwnerCount                   int64              `json:"owner_count"`
+	GrantCount                   int64              `json:"grant_count"`
+	ActorCount                   int64              `json:"actor_count"`
+	DiscoverySourceCount         int64              `json:"discovery_source_count"`
+	DiscoveryEventCount30d       int64              `json:"discovery_event_count_30d"`
+	EvidenceLastSeenAt           pgtype.Timestamptz `json:"evidence_last_seen_at"`
+	SuggestedBusinessCriticality string             `json:"suggested_business_criticality"`
+	SuggestedDataClassification  string             `json:"suggested_data_classification"`
+	EffectiveBusinessCriticality string             `json:"effective_business_criticality"`
+	EffectiveDataClassification  string             `json:"effective_data_classification"`
+}
+
 type AuthUser struct {
 	ID           int64              `json:"id"`
 	Email        string             `json:"email"`
@@ -82,16 +121,6 @@ type AuthUser struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 	LastLoginAt  pgtype.Timestamptz `json:"last_login_at"`
 	LastLoginIp  string             `json:"last_login_ip"`
-}
-
-type ConnectedAppGovernance struct {
-	AppAssetID          int64              `json:"app_asset_id"`
-	ReviewState         string             `json:"review_state"`
-	OwnerIdentityID     pgtype.Int8        `json:"owner_identity_id"`
-	TicketRef           string             `json:"ticket_ref"`
-	Notes               string             `json:"notes"`
-	UpdatedByAuthUserID pgtype.Int8        `json:"updated_by_auth_user_id"`
-	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type ConnectorConfig struct {
@@ -178,6 +207,19 @@ type Entitlement struct {
 	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type GovernanceSubjectOverride struct {
+	SubjectKind         string             `json:"subject_kind"`
+	SubjectID           int64              `json:"subject_id"`
+	GovernanceState     string             `json:"governance_state"`
+	OwnerIdentityID     pgtype.Int8        `json:"owner_identity_id"`
+	BusinessCriticality string             `json:"business_criticality"`
+	DataClassification  string             `json:"data_classification"`
+	TicketRef           string             `json:"ticket_ref"`
+	Notes               string             `json:"notes"`
+	UpdatedByAuthUserID pgtype.Int8        `json:"updated_by_auth_user_id"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Identity struct {
@@ -450,16 +492,6 @@ type SaasAppEvent struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
-type SaasAppGovernanceOverride struct {
-	SaasAppID           int64              `json:"saas_app_id"`
-	OwnerIdentityID     pgtype.Int8        `json:"owner_identity_id"`
-	BusinessCriticality string             `json:"business_criticality"`
-	DataClassification  string             `json:"data_classification"`
-	Notes               string             `json:"notes"`
-	UpdatedByAuthUserID pgtype.Int8        `json:"updated_by_auth_user_id"`
-	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
-}
-
 type SaasAppPostureInputsV struct {
 	ID                           int64              `json:"id"`
 	CanonicalKey                 string             `json:"canonical_key"`
@@ -483,6 +515,9 @@ type SaasAppPostureInputsV struct {
 	SuggestedDataClassification  string             `json:"suggested_data_classification"`
 	EffectiveBusinessCriticality interface{}        `json:"effective_business_criticality"`
 	EffectiveDataClassification  interface{}        `json:"effective_data_classification"`
+	GovernanceState              string             `json:"governance_state"`
+	TicketRef                    string             `json:"ticket_ref"`
+	Notes                        string             `json:"notes"`
 }
 
 type SaasAppSource struct {

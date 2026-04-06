@@ -1,255 +1,329 @@
--- name: CountConnectedAppsBySourceAndQueryAndReviewState :one
+-- name: CountAppAssetGovernanceBySourceAndQueryAndState :one
 SELECT count(*)
-FROM app_assets aa
-LEFT JOIN connected_app_governance cag ON cag.app_asset_id = aa.id
-WHERE aa.source_kind = sqlc.arg(source_kind)::text
-  AND aa.source_name = sqlc.arg(source_name)::text
-  AND aa.asset_kind = sqlc.arg(asset_kind)::text
-  AND aa.expired_at IS NULL
-  AND aa.last_observed_run_id IS NOT NULL
+FROM app_asset_posture_rows(
+  sqlc.arg(evaluated_at)::timestamptz
+) AS pr(
+  id,
+  source_kind,
+  source_name,
+  asset_kind,
+  external_id,
+  parent_external_id,
+  display_name,
+  status,
+  created_at_source,
+  updated_at_source,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  last_observed_run_id,
+  last_observed_at,
+  expired_at,
+  expired_run_id,
+  created_at,
+  updated_at,
+  governance_state,
+  ticket_ref,
+  notes,
+  governance_owner_identity_id,
+  governance_owner_display_name,
+  governance_owner_primary_email,
+  governance_owner_kind,
+  owner_count,
+  grant_count,
+  actor_count,
+  discovery_source_count,
+  discovery_event_count_30d,
+  evidence_last_seen_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  evidence_freshness,
+  evidence_confidence,
+  evidence_confidence_reason
+)
+WHERE pr.source_kind = sqlc.arg(source_kind)::text
+  AND pr.source_name = sqlc.arg(source_name)::text
+  AND pr.asset_kind = sqlc.arg(asset_kind)::text
   AND (
-    sqlc.arg(review_state)::text = ''
-    OR COALESCE(cag.review_state, 'unreviewed') = sqlc.arg(review_state)::text
+    sqlc.arg(governance_state)::text = ''
+    OR pr.governance_state = sqlc.arg(governance_state)::text
   )
   AND (
     sqlc.arg(query)::text = ''
-    OR aa.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR aa.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR pr.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR pr.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
   );
 
--- name: CountConnectedAppsGroupedByReviewState :many
+-- name: CountAppAssetGovernanceGroupedByState :many
 SELECT
-  COALESCE(cag.review_state, 'unreviewed')::text AS review_state,
+  pr.governance_state::text AS governance_state,
   count(*)::bigint AS app_count
-FROM app_assets aa
-LEFT JOIN connected_app_governance cag ON cag.app_asset_id = aa.id
-WHERE aa.source_kind = sqlc.arg(source_kind)::text
-  AND aa.source_name = sqlc.arg(source_name)::text
-  AND aa.asset_kind = sqlc.arg(asset_kind)::text
-  AND aa.expired_at IS NULL
-  AND aa.last_observed_run_id IS NOT NULL
+FROM app_asset_posture_rows(
+  sqlc.arg(evaluated_at)::timestamptz
+) AS pr(
+  id,
+  source_kind,
+  source_name,
+  asset_kind,
+  external_id,
+  parent_external_id,
+  display_name,
+  status,
+  created_at_source,
+  updated_at_source,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  last_observed_run_id,
+  last_observed_at,
+  expired_at,
+  expired_run_id,
+  created_at,
+  updated_at,
+  governance_state,
+  ticket_ref,
+  notes,
+  governance_owner_identity_id,
+  governance_owner_display_name,
+  governance_owner_primary_email,
+  governance_owner_kind,
+  owner_count,
+  grant_count,
+  actor_count,
+  discovery_source_count,
+  discovery_event_count_30d,
+  evidence_last_seen_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  evidence_freshness,
+  evidence_confidence,
+  evidence_confidence_reason
+)
+WHERE pr.source_kind = sqlc.arg(source_kind)::text
+  AND pr.source_name = sqlc.arg(source_name)::text
+  AND pr.asset_kind = sqlc.arg(asset_kind)::text
   AND (
     sqlc.arg(query)::text = ''
-    OR aa.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR aa.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR pr.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR pr.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
   )
-GROUP BY COALESCE(cag.review_state, 'unreviewed')
-ORDER BY CASE COALESCE(cag.review_state, 'unreviewed')
-  WHEN 'needs_revocation' THEN 0
-  WHEN 'under_review' THEN 1
+GROUP BY pr.governance_state
+ORDER BY CASE pr.governance_state
+  WHEN 'action_required' THEN 0
+  WHEN 'in_review' THEN 1
   WHEN 'unreviewed' THEN 2
   WHEN 'ticketed' THEN 3
-  WHEN 'sanctioned' THEN 4
+  WHEN 'approved' THEN 4
   ELSE 5
 END;
 
--- name: ListConnectedAppsPageBySourceAndQueryAndReviewState :many
+-- name: ListAppAssetGovernancePageBySourceAndQueryAndState :many
 SELECT
-  aa.*,
-  COALESCE(cag.review_state, 'unreviewed')::text AS review_state,
-  COALESCE(cag.ticket_ref, '')::text AS ticket_ref,
-  COALESCE(cag.notes, '')::text AS notes,
-  COALESCE(cag.owner_identity_id, 0)::bigint AS review_owner_identity_id,
-  COALESCE(owner.display_name, '')::text AS review_owner_display_name,
-  COALESCE(owner.primary_email, '')::text AS review_owner_primary_email,
-  COALESCE(owner_counts.owner_count, 0)::bigint AS owner_count,
-  COALESCE(grant_counts.grant_count, 0)::bigint AS grant_count,
-  COALESCE(grant_counts.actor_count, 0)::bigint AS actor_count,
-  COALESCE(discovery_counts.discovery_source_count, 0)::bigint AS discovery_source_count,
-  COALESCE(discovery_counts.discovery_event_count_30d, 0)::bigint AS discovery_event_count_30d,
-  COALESCE(discovery_counts.last_evidence_at, aa.last_observed_at)::timestamptz AS evidence_last_seen_at
-FROM app_assets aa
-LEFT JOIN connected_app_governance cag ON cag.app_asset_id = aa.id
-LEFT JOIN identities owner ON owner.id = cag.owner_identity_id
-LEFT JOIN LATERAL (
-  SELECT count(*)::bigint AS owner_count
-  FROM app_asset_owners aao
-  WHERE aao.app_asset_id = aa.id
-    AND aao.expired_at IS NULL
-    AND aao.last_observed_run_id IS NOT NULL
-) owner_counts ON TRUE
-LEFT JOIN LATERAL (
-  SELECT
-    count(*)::bigint AS grant_count,
-    count(
-      DISTINCT COALESCE(
-        NULLIF(trim(ca.created_by_external_id), ''),
-        NULLIF(lower(trim(ca.created_by_display_name)), '')
-      )
-    )::bigint AS actor_count
-  FROM credential_artifacts ca
-  WHERE ca.source_kind = aa.source_kind
-    AND ca.source_name = aa.source_name
-    AND ca.asset_ref_kind = aa.asset_kind
-    AND ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-    AND ca.expired_at IS NULL
-    AND ca.last_observed_run_id IS NOT NULL
-) grant_counts ON TRUE
-LEFT JOIN LATERAL (
-  SELECT
-    source_counts.discovery_source_count,
-    event_counts.discovery_event_count_30d,
-    NULLIF(
-      GREATEST(
-        COALESCE(source_counts.last_source_seen_at, '-infinity'::timestamptz),
-        COALESCE(event_counts.last_event_at, '-infinity'::timestamptz)
-      ),
-      '-infinity'::timestamptz
-    )::timestamptz AS last_evidence_at
-  FROM (
-    SELECT
-      count(*)::bigint AS discovery_source_count,
-      NULLIF(
-        GREATEST(
-          COALESCE(max(sas.last_observed_at), '-infinity'::timestamptz),
-          COALESCE(max(sas.seen_at), '-infinity'::timestamptz)
-        ),
-        '-infinity'::timestamptz
-      )::timestamptz AS last_source_seen_at
-    FROM saas_app_sources sas
-    WHERE sas.source_kind = aa.source_kind
-      AND sas.source_name = aa.source_name
-      AND sas.source_app_id = aa.external_id
-      AND sas.expired_at IS NULL
-      AND sas.last_observed_run_id IS NOT NULL
-  ) source_counts
-  CROSS JOIN (
-    SELECT
-      count(*) FILTER (
-        WHERE e.observed_at >= now() - interval '30 days'
-      )::bigint AS discovery_event_count_30d,
-      max(e.observed_at)::timestamptz AS last_event_at
-    FROM saas_app_events e
-    WHERE e.source_kind = aa.source_kind
-      AND e.source_name = aa.source_name
-      AND e.source_app_id = aa.external_id
-      AND e.expired_at IS NULL
-      AND e.last_observed_run_id IS NOT NULL
-  ) event_counts
-) discovery_counts ON TRUE
-WHERE aa.source_kind = sqlc.arg(source_kind)::text
-  AND aa.source_name = sqlc.arg(source_name)::text
-  AND aa.asset_kind = sqlc.arg(asset_kind)::text
-  AND aa.expired_at IS NULL
-  AND aa.last_observed_run_id IS NOT NULL
+  pr.id::bigint AS id,
+  pr.source_kind::text AS source_kind,
+  pr.source_name::text AS source_name,
+  pr.asset_kind::text AS asset_kind,
+  pr.external_id::text AS external_id,
+  pr.parent_external_id::text AS parent_external_id,
+  pr.display_name::text AS display_name,
+  pr.status::text AS status,
+  pr.created_at_source::timestamptz AS created_at_source,
+  pr.updated_at_source::timestamptz AS updated_at_source,
+  pr.raw_json::jsonb AS raw_json,
+  pr.seen_in_run_id::bigint AS seen_in_run_id,
+  pr.seen_at::timestamptz AS seen_at,
+  pr.last_observed_run_id::bigint AS last_observed_run_id,
+  pr.last_observed_at::timestamptz AS last_observed_at,
+  pr.expired_at::timestamptz AS expired_at,
+  pr.expired_run_id::bigint AS expired_run_id,
+  pr.created_at::timestamptz AS created_at,
+  pr.updated_at::timestamptz AS updated_at,
+  pr.governance_state::text AS governance_state,
+  pr.ticket_ref::text AS ticket_ref,
+  pr.notes::text AS notes,
+  pr.governance_owner_identity_id::bigint AS governance_owner_identity_id,
+  pr.governance_owner_display_name::text AS governance_owner_display_name,
+  pr.governance_owner_primary_email::text AS governance_owner_primary_email,
+  pr.governance_owner_kind::text AS governance_owner_kind,
+  pr.owner_count::bigint AS owner_count,
+  pr.grant_count::bigint AS grant_count,
+  pr.actor_count::bigint AS actor_count,
+  pr.discovery_source_count::bigint AS discovery_source_count,
+  pr.discovery_event_count_30d::bigint AS discovery_event_count_30d,
+  pr.evidence_last_seen_at::timestamptz AS evidence_last_seen_at,
+  pr.suggested_business_criticality::text AS suggested_business_criticality,
+  pr.suggested_data_classification::text AS suggested_data_classification,
+  pr.effective_business_criticality::text AS effective_business_criticality,
+  pr.effective_data_classification::text AS effective_data_classification,
+  pr.evidence_freshness::text AS evidence_freshness,
+  pr.evidence_confidence::text AS evidence_confidence,
+  pr.evidence_confidence_reason::text AS evidence_confidence_reason
+FROM app_asset_posture_rows(
+  sqlc.arg(evaluated_at)::timestamptz
+) AS pr(
+  id,
+  source_kind,
+  source_name,
+  asset_kind,
+  external_id,
+  parent_external_id,
+  display_name,
+  status,
+  created_at_source,
+  updated_at_source,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  last_observed_run_id,
+  last_observed_at,
+  expired_at,
+  expired_run_id,
+  created_at,
+  updated_at,
+  governance_state,
+  ticket_ref,
+  notes,
+  governance_owner_identity_id,
+  governance_owner_display_name,
+  governance_owner_primary_email,
+  governance_owner_kind,
+  owner_count,
+  grant_count,
+  actor_count,
+  discovery_source_count,
+  discovery_event_count_30d,
+  evidence_last_seen_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  evidence_freshness,
+  evidence_confidence,
+  evidence_confidence_reason
+)
+WHERE pr.source_kind = sqlc.arg(source_kind)::text
+  AND pr.source_name = sqlc.arg(source_name)::text
+  AND pr.asset_kind = sqlc.arg(asset_kind)::text
   AND (
-    sqlc.arg(review_state)::text = ''
-    OR COALESCE(cag.review_state, 'unreviewed') = sqlc.arg(review_state)::text
+    sqlc.arg(governance_state)::text = ''
+    OR pr.governance_state = sqlc.arg(governance_state)::text
   )
   AND (
     sqlc.arg(query)::text = ''
-    OR aa.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
-    OR aa.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR pr.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR pr.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
   )
 ORDER BY
-  CASE COALESCE(cag.review_state, 'unreviewed')
-    WHEN 'needs_revocation' THEN 0
-    WHEN 'under_review' THEN 1
+  CASE pr.governance_state
+    WHEN 'action_required' THEN 0
+    WHEN 'in_review' THEN 1
     WHEN 'unreviewed' THEN 2
     WHEN 'ticketed' THEN 3
-    WHEN 'sanctioned' THEN 4
+    WHEN 'approved' THEN 4
     ELSE 5
   END ASC,
-  COALESCE(discovery_counts.discovery_event_count_30d, 0) DESC,
-  COALESCE(discovery_counts.last_evidence_at, aa.last_observed_at) DESC,
-  lower(COALESCE(NULLIF(trim(aa.display_name), ''), aa.external_id)) ASC,
-  aa.id ASC
+  pr.discovery_event_count_30d DESC,
+  pr.evidence_last_seen_at DESC,
+  lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.external_id)) ASC,
+  pr.id ASC
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
--- name: GetConnectedAppSummaryByID :one
+-- name: GetAppAssetPostureByID :one
 SELECT
-  aa.*,
-  COALESCE(cag.review_state, 'unreviewed')::text AS review_state,
-  COALESCE(cag.ticket_ref, '')::text AS ticket_ref,
-  COALESCE(cag.notes, '')::text AS notes,
-  COALESCE(cag.owner_identity_id, 0)::bigint AS review_owner_identity_id,
-  COALESCE(owner.display_name, '')::text AS review_owner_display_name,
-  COALESCE(owner.primary_email, '')::text AS review_owner_primary_email,
-  COALESCE(owner.kind, '')::text AS review_owner_kind,
-  COALESCE(owner_counts.owner_count, 0)::bigint AS owner_count,
-  COALESCE(grant_counts.grant_count, 0)::bigint AS grant_count,
-  COALESCE(grant_counts.actor_count, 0)::bigint AS actor_count,
-  COALESCE(discovery_counts.discovery_source_count, 0)::bigint AS discovery_source_count,
-  COALESCE(discovery_counts.discovery_event_count_30d, 0)::bigint AS discovery_event_count_30d,
-  COALESCE(discovery_counts.last_evidence_at, aa.last_observed_at)::timestamptz AS evidence_last_seen_at
-FROM app_assets aa
-LEFT JOIN connected_app_governance cag ON cag.app_asset_id = aa.id
-LEFT JOIN identities owner ON owner.id = cag.owner_identity_id
-LEFT JOIN LATERAL (
-  SELECT count(*)::bigint AS owner_count
-  FROM app_asset_owners aao
-  WHERE aao.app_asset_id = aa.id
-    AND aao.expired_at IS NULL
-    AND aao.last_observed_run_id IS NOT NULL
-) owner_counts ON TRUE
-LEFT JOIN LATERAL (
-  SELECT
-    count(*)::bigint AS grant_count,
-    count(
-      DISTINCT COALESCE(
-        NULLIF(trim(ca.created_by_external_id), ''),
-        NULLIF(lower(trim(ca.created_by_display_name)), '')
-      )
-    )::bigint AS actor_count
-  FROM credential_artifacts ca
-  WHERE ca.source_kind = aa.source_kind
-    AND ca.source_name = aa.source_name
-    AND ca.asset_ref_kind = aa.asset_kind
-    AND ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-    AND ca.expired_at IS NULL
-    AND ca.last_observed_run_id IS NOT NULL
-) grant_counts ON TRUE
-LEFT JOIN LATERAL (
-  SELECT
-    source_counts.discovery_source_count,
-    event_counts.discovery_event_count_30d,
-    NULLIF(
-      GREATEST(
-        COALESCE(source_counts.last_source_seen_at, '-infinity'::timestamptz),
-        COALESCE(event_counts.last_event_at, '-infinity'::timestamptz)
-      ),
-      '-infinity'::timestamptz
-    )::timestamptz AS last_evidence_at
-  FROM (
-    SELECT
-      count(*)::bigint AS discovery_source_count,
-      NULLIF(
-        GREATEST(
-          COALESCE(max(sas.last_observed_at), '-infinity'::timestamptz),
-          COALESCE(max(sas.seen_at), '-infinity'::timestamptz)
-        ),
-        '-infinity'::timestamptz
-      )::timestamptz AS last_source_seen_at
-    FROM saas_app_sources sas
-    WHERE sas.source_kind = aa.source_kind
-      AND sas.source_name = aa.source_name
-      AND sas.source_app_id = aa.external_id
-      AND sas.expired_at IS NULL
-      AND sas.last_observed_run_id IS NOT NULL
-  ) source_counts
-  CROSS JOIN (
-    SELECT
-      count(*) FILTER (
-        WHERE e.observed_at >= now() - interval '30 days'
-      )::bigint AS discovery_event_count_30d,
-      max(e.observed_at)::timestamptz AS last_event_at
-    FROM saas_app_events e
-    WHERE e.source_kind = aa.source_kind
-      AND e.source_name = aa.source_name
-      AND e.source_app_id = aa.external_id
-      AND e.expired_at IS NULL
-      AND e.last_observed_run_id IS NOT NULL
-  ) event_counts
-) discovery_counts ON TRUE
-WHERE aa.id = sqlc.arg(id)::bigint
-  AND aa.expired_at IS NULL
-  AND aa.last_observed_run_id IS NOT NULL;
+  pr.id::bigint AS id,
+  pr.source_kind::text AS source_kind,
+  pr.source_name::text AS source_name,
+  pr.asset_kind::text AS asset_kind,
+  pr.external_id::text AS external_id,
+  pr.parent_external_id::text AS parent_external_id,
+  pr.display_name::text AS display_name,
+  pr.status::text AS status,
+  pr.created_at_source::timestamptz AS created_at_source,
+  pr.updated_at_source::timestamptz AS updated_at_source,
+  pr.raw_json::jsonb AS raw_json,
+  pr.seen_in_run_id::bigint AS seen_in_run_id,
+  pr.seen_at::timestamptz AS seen_at,
+  pr.last_observed_run_id::bigint AS last_observed_run_id,
+  pr.last_observed_at::timestamptz AS last_observed_at,
+  pr.expired_at::timestamptz AS expired_at,
+  pr.expired_run_id::bigint AS expired_run_id,
+  pr.created_at::timestamptz AS created_at,
+  pr.updated_at::timestamptz AS updated_at,
+  pr.governance_state::text AS governance_state,
+  pr.ticket_ref::text AS ticket_ref,
+  pr.notes::text AS notes,
+  pr.governance_owner_identity_id::bigint AS governance_owner_identity_id,
+  pr.governance_owner_display_name::text AS governance_owner_display_name,
+  pr.governance_owner_primary_email::text AS governance_owner_primary_email,
+  pr.governance_owner_kind::text AS governance_owner_kind,
+  pr.owner_count::bigint AS owner_count,
+  pr.grant_count::bigint AS grant_count,
+  pr.actor_count::bigint AS actor_count,
+  pr.discovery_source_count::bigint AS discovery_source_count,
+  pr.discovery_event_count_30d::bigint AS discovery_event_count_30d,
+  pr.evidence_last_seen_at::timestamptz AS evidence_last_seen_at,
+  pr.suggested_business_criticality::text AS suggested_business_criticality,
+  pr.suggested_data_classification::text AS suggested_data_classification,
+  pr.effective_business_criticality::text AS effective_business_criticality,
+  pr.effective_data_classification::text AS effective_data_classification,
+  pr.evidence_freshness::text AS evidence_freshness,
+  pr.evidence_confidence::text AS evidence_confidence,
+  pr.evidence_confidence_reason::text AS evidence_confidence_reason
+FROM app_asset_posture_rows(
+  sqlc.arg(evaluated_at)::timestamptz
+) AS pr(
+  id,
+  source_kind,
+  source_name,
+  asset_kind,
+  external_id,
+  parent_external_id,
+  display_name,
+  status,
+  created_at_source,
+  updated_at_source,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  last_observed_run_id,
+  last_observed_at,
+  expired_at,
+  expired_run_id,
+  created_at,
+  updated_at,
+  governance_state,
+  ticket_ref,
+  notes,
+  governance_owner_identity_id,
+  governance_owner_display_name,
+  governance_owner_primary_email,
+  governance_owner_kind,
+  owner_count,
+  grant_count,
+  actor_count,
+  discovery_source_count,
+  discovery_event_count_30d,
+  evidence_last_seen_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  evidence_freshness,
+  evidence_confidence,
+  evidence_confidence_reason
+)
+WHERE pr.id = sqlc.arg(id)::bigint;
 
--- name: UpsertConnectedAppGovernance :one
-INSERT INTO connected_app_governance (
-  app_asset_id,
-  review_state,
+-- name: UpsertAppAssetGovernance :one
+INSERT INTO governance_subject_overrides (
+  subject_kind,
+  subject_id,
+  governance_state,
   owner_identity_id,
   ticket_ref,
   notes,
@@ -257,16 +331,17 @@ INSERT INTO connected_app_governance (
   updated_at
 )
 VALUES (
+  'app_asset',
   sqlc.arg(app_asset_id)::bigint,
-  sqlc.arg(review_state)::text,
+  sqlc.arg(governance_state)::text,
   sqlc.narg(owner_identity_id)::bigint,
   sqlc.arg(ticket_ref)::text,
   sqlc.arg(notes)::text,
   sqlc.narg(updated_by_auth_user_id)::bigint,
   now()
 )
-ON CONFLICT (app_asset_id) DO UPDATE SET
-  review_state = EXCLUDED.review_state,
+ON CONFLICT (subject_kind, subject_id) DO UPDATE SET
+  governance_state = EXCLUDED.governance_state,
   owner_identity_id = EXCLUDED.owner_identity_id,
   ticket_ref = EXCLUDED.ticket_ref,
   notes = EXCLUDED.notes,
@@ -274,7 +349,7 @@ ON CONFLICT (app_asset_id) DO UPDATE SET
   updated_at = now()
 RETURNING *;
 
--- name: ListConnectedAppDiscoverySourcesBySourceAppID :many
+-- name: ListAppAssetDiscoverySourcesBySourceAppID :many
 WITH scoped_sources AS (
   SELECT *
   FROM saas_app_sources sas
@@ -284,34 +359,7 @@ WITH scoped_sources AS (
     AND sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
 ),
-posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
+posture_rows AS (
   SELECT *
   FROM saas_app_posture_rows(
     sqlc.arg(okta_fresh_after)::timestamptz,
@@ -321,34 +369,7 @@ posture_rows (
     sqlc.arg(datadog_fresh_after)::timestamptz,
     sqlc.arg(aws_fresh_after)::timestamptz,
     sqlc.arg(default_fresh_after)::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
+  ) AS pr
 )
 SELECT
   sas.*,
@@ -362,7 +383,7 @@ FROM scoped_sources sas
 JOIN posture_rows pr ON pr.id = sas.saas_app_id
 ORDER BY sas.last_observed_at DESC, sas.id DESC;
 
--- name: ListConnectedAppDiscoveryEventsBySourceAppID :many
+-- name: ListAppAssetDiscoveryEventsBySourceAppID :many
 SELECT *
 FROM saas_app_events e
 WHERE e.source_kind = sqlc.arg(source_kind)::text

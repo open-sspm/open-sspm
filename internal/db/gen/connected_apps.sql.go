@@ -11,40 +11,81 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countConnectedAppsBySourceAndQueryAndReviewState = `-- name: CountConnectedAppsBySourceAndQueryAndReviewState :one
+const countAppAssetGovernanceBySourceAndQueryAndState = `-- name: CountAppAssetGovernanceBySourceAndQueryAndState :one
 SELECT count(*)
-FROM app_assets aa
-LEFT JOIN connected_app_governance cag ON cag.app_asset_id = aa.id
-WHERE aa.source_kind = $1::text
-  AND aa.source_name = $2::text
-  AND aa.asset_kind = $3::text
-  AND aa.expired_at IS NULL
-  AND aa.last_observed_run_id IS NOT NULL
-  AND (
-    $4::text = ''
-    OR COALESCE(cag.review_state, 'unreviewed') = $4::text
-  )
+FROM app_asset_posture_rows(
+  $1::timestamptz
+) AS pr(
+  id,
+  source_kind,
+  source_name,
+  asset_kind,
+  external_id,
+  parent_external_id,
+  display_name,
+  status,
+  created_at_source,
+  updated_at_source,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  last_observed_run_id,
+  last_observed_at,
+  expired_at,
+  expired_run_id,
+  created_at,
+  updated_at,
+  governance_state,
+  ticket_ref,
+  notes,
+  governance_owner_identity_id,
+  governance_owner_display_name,
+  governance_owner_primary_email,
+  governance_owner_kind,
+  owner_count,
+  grant_count,
+  actor_count,
+  discovery_source_count,
+  discovery_event_count_30d,
+  evidence_last_seen_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  evidence_freshness,
+  evidence_confidence,
+  evidence_confidence_reason
+)
+WHERE pr.source_kind = $2::text
+  AND pr.source_name = $3::text
+  AND pr.asset_kind = $4::text
   AND (
     $5::text = ''
-    OR aa.display_name ILIKE ('%' || $5::text || '%')
-    OR aa.external_id ILIKE ('%' || $5::text || '%')
+    OR pr.governance_state = $5::text
+  )
+  AND (
+    $6::text = ''
+    OR pr.display_name ILIKE ('%' || $6::text || '%')
+    OR pr.external_id ILIKE ('%' || $6::text || '%')
   )
 `
 
-type CountConnectedAppsBySourceAndQueryAndReviewStateParams struct {
-	SourceKind  string `json:"source_kind"`
-	SourceName  string `json:"source_name"`
-	AssetKind   string `json:"asset_kind"`
-	ReviewState string `json:"review_state"`
-	Query       string `json:"query"`
+type CountAppAssetGovernanceBySourceAndQueryAndStateParams struct {
+	EvaluatedAt     pgtype.Timestamptz `json:"evaluated_at"`
+	SourceKind      string             `json:"source_kind"`
+	SourceName      string             `json:"source_name"`
+	AssetKind       string             `json:"asset_kind"`
+	GovernanceState string             `json:"governance_state"`
+	Query           string             `json:"query"`
 }
 
-func (q *Queries) CountConnectedAppsBySourceAndQueryAndReviewState(ctx context.Context, arg CountConnectedAppsBySourceAndQueryAndReviewStateParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countConnectedAppsBySourceAndQueryAndReviewState,
+func (q *Queries) CountAppAssetGovernanceBySourceAndQueryAndState(ctx context.Context, arg CountAppAssetGovernanceBySourceAndQueryAndStateParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAppAssetGovernanceBySourceAndQueryAndState,
+		arg.EvaluatedAt,
 		arg.SourceKind,
 		arg.SourceName,
 		arg.AssetKind,
-		arg.ReviewState,
+		arg.GovernanceState,
 		arg.Query,
 	)
 	var count int64
@@ -52,47 +93,88 @@ func (q *Queries) CountConnectedAppsBySourceAndQueryAndReviewState(ctx context.C
 	return count, err
 }
 
-const countConnectedAppsGroupedByReviewState = `-- name: CountConnectedAppsGroupedByReviewState :many
+const countAppAssetGovernanceGroupedByState = `-- name: CountAppAssetGovernanceGroupedByState :many
 SELECT
-  COALESCE(cag.review_state, 'unreviewed')::text AS review_state,
+  pr.governance_state::text AS governance_state,
   count(*)::bigint AS app_count
-FROM app_assets aa
-LEFT JOIN connected_app_governance cag ON cag.app_asset_id = aa.id
-WHERE aa.source_kind = $1::text
-  AND aa.source_name = $2::text
-  AND aa.asset_kind = $3::text
-  AND aa.expired_at IS NULL
-  AND aa.last_observed_run_id IS NOT NULL
+FROM app_asset_posture_rows(
+  $1::timestamptz
+) AS pr(
+  id,
+  source_kind,
+  source_name,
+  asset_kind,
+  external_id,
+  parent_external_id,
+  display_name,
+  status,
+  created_at_source,
+  updated_at_source,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  last_observed_run_id,
+  last_observed_at,
+  expired_at,
+  expired_run_id,
+  created_at,
+  updated_at,
+  governance_state,
+  ticket_ref,
+  notes,
+  governance_owner_identity_id,
+  governance_owner_display_name,
+  governance_owner_primary_email,
+  governance_owner_kind,
+  owner_count,
+  grant_count,
+  actor_count,
+  discovery_source_count,
+  discovery_event_count_30d,
+  evidence_last_seen_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  evidence_freshness,
+  evidence_confidence,
+  evidence_confidence_reason
+)
+WHERE pr.source_kind = $2::text
+  AND pr.source_name = $3::text
+  AND pr.asset_kind = $4::text
   AND (
-    $4::text = ''
-    OR aa.display_name ILIKE ('%' || $4::text || '%')
-    OR aa.external_id ILIKE ('%' || $4::text || '%')
+    $5::text = ''
+    OR pr.display_name ILIKE ('%' || $5::text || '%')
+    OR pr.external_id ILIKE ('%' || $5::text || '%')
   )
-GROUP BY COALESCE(cag.review_state, 'unreviewed')
-ORDER BY CASE COALESCE(cag.review_state, 'unreviewed')
-  WHEN 'needs_revocation' THEN 0
-  WHEN 'under_review' THEN 1
+GROUP BY pr.governance_state
+ORDER BY CASE pr.governance_state
+  WHEN 'action_required' THEN 0
+  WHEN 'in_review' THEN 1
   WHEN 'unreviewed' THEN 2
   WHEN 'ticketed' THEN 3
-  WHEN 'sanctioned' THEN 4
+  WHEN 'approved' THEN 4
   ELSE 5
 END
 `
 
-type CountConnectedAppsGroupedByReviewStateParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
-	AssetKind  string `json:"asset_kind"`
-	Query      string `json:"query"`
+type CountAppAssetGovernanceGroupedByStateParams struct {
+	EvaluatedAt pgtype.Timestamptz `json:"evaluated_at"`
+	SourceKind  string             `json:"source_kind"`
+	SourceName  string             `json:"source_name"`
+	AssetKind   string             `json:"asset_kind"`
+	Query       string             `json:"query"`
 }
 
-type CountConnectedAppsGroupedByReviewStateRow struct {
-	ReviewState string `json:"review_state"`
-	AppCount    int64  `json:"app_count"`
+type CountAppAssetGovernanceGroupedByStateRow struct {
+	GovernanceState string `json:"governance_state"`
+	AppCount        int64  `json:"app_count"`
 }
 
-func (q *Queries) CountConnectedAppsGroupedByReviewState(ctx context.Context, arg CountConnectedAppsGroupedByReviewStateParams) ([]CountConnectedAppsGroupedByReviewStateRow, error) {
-	rows, err := q.db.Query(ctx, countConnectedAppsGroupedByReviewState,
+func (q *Queries) CountAppAssetGovernanceGroupedByState(ctx context.Context, arg CountAppAssetGovernanceGroupedByStateParams) ([]CountAppAssetGovernanceGroupedByStateRow, error) {
+	rows, err := q.db.Query(ctx, countAppAssetGovernanceGroupedByState,
+		arg.EvaluatedAt,
 		arg.SourceKind,
 		arg.SourceName,
 		arg.AssetKind,
@@ -102,10 +184,10 @@ func (q *Queries) CountConnectedAppsGroupedByReviewState(ctx context.Context, ar
 		return nil, err
 	}
 	defer rows.Close()
-	var items []CountConnectedAppsGroupedByReviewStateRow
+	var items []CountAppAssetGovernanceGroupedByStateRow
 	for rows.Next() {
-		var i CountConnectedAppsGroupedByReviewStateRow
-		if err := rows.Scan(&i.ReviewState, &i.AppCount); err != nil {
+		var i CountAppAssetGovernanceGroupedByStateRow
+		if err := rows.Scan(&i.GovernanceState, &i.AppCount); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -116,134 +198,143 @@ func (q *Queries) CountConnectedAppsGroupedByReviewState(ctx context.Context, ar
 	return items, nil
 }
 
-const getConnectedAppSummaryByID = `-- name: GetConnectedAppSummaryByID :one
+const getAppAssetPostureByID = `-- name: GetAppAssetPostureByID :one
 SELECT
-  aa.id, aa.source_kind, aa.source_name, aa.asset_kind, aa.external_id, aa.parent_external_id, aa.display_name, aa.status, aa.created_at_source, aa.updated_at_source, aa.raw_json, aa.seen_in_run_id, aa.seen_at, aa.last_observed_run_id, aa.last_observed_at, aa.expired_at, aa.expired_run_id, aa.created_at, aa.updated_at,
-  COALESCE(cag.review_state, 'unreviewed')::text AS review_state,
-  COALESCE(cag.ticket_ref, '')::text AS ticket_ref,
-  COALESCE(cag.notes, '')::text AS notes,
-  COALESCE(cag.owner_identity_id, 0)::bigint AS review_owner_identity_id,
-  COALESCE(owner.display_name, '')::text AS review_owner_display_name,
-  COALESCE(owner.primary_email, '')::text AS review_owner_primary_email,
-  COALESCE(owner.kind, '')::text AS review_owner_kind,
-  COALESCE(owner_counts.owner_count, 0)::bigint AS owner_count,
-  COALESCE(grant_counts.grant_count, 0)::bigint AS grant_count,
-  COALESCE(grant_counts.actor_count, 0)::bigint AS actor_count,
-  COALESCE(discovery_counts.discovery_source_count, 0)::bigint AS discovery_source_count,
-  COALESCE(discovery_counts.discovery_event_count_30d, 0)::bigint AS discovery_event_count_30d,
-  COALESCE(discovery_counts.last_evidence_at, aa.last_observed_at)::timestamptz AS evidence_last_seen_at
-FROM app_assets aa
-LEFT JOIN connected_app_governance cag ON cag.app_asset_id = aa.id
-LEFT JOIN identities owner ON owner.id = cag.owner_identity_id
-LEFT JOIN LATERAL (
-  SELECT count(*)::bigint AS owner_count
-  FROM app_asset_owners aao
-  WHERE aao.app_asset_id = aa.id
-    AND aao.expired_at IS NULL
-    AND aao.last_observed_run_id IS NOT NULL
-) owner_counts ON TRUE
-LEFT JOIN LATERAL (
-  SELECT
-    count(*)::bigint AS grant_count,
-    count(
-      DISTINCT COALESCE(
-        NULLIF(trim(ca.created_by_external_id), ''),
-        NULLIF(lower(trim(ca.created_by_display_name)), '')
-      )
-    )::bigint AS actor_count
-  FROM credential_artifacts ca
-  WHERE ca.source_kind = aa.source_kind
-    AND ca.source_name = aa.source_name
-    AND ca.asset_ref_kind = aa.asset_kind
-    AND ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-    AND ca.expired_at IS NULL
-    AND ca.last_observed_run_id IS NOT NULL
-) grant_counts ON TRUE
-LEFT JOIN LATERAL (
-  SELECT
-    source_counts.discovery_source_count,
-    event_counts.discovery_event_count_30d,
-    NULLIF(
-      GREATEST(
-        COALESCE(source_counts.last_source_seen_at, '-infinity'::timestamptz),
-        COALESCE(event_counts.last_event_at, '-infinity'::timestamptz)
-      ),
-      '-infinity'::timestamptz
-    )::timestamptz AS last_evidence_at
-  FROM (
-    SELECT
-      count(*)::bigint AS discovery_source_count,
-      NULLIF(
-        GREATEST(
-          COALESCE(max(sas.last_observed_at), '-infinity'::timestamptz),
-          COALESCE(max(sas.seen_at), '-infinity'::timestamptz)
-        ),
-        '-infinity'::timestamptz
-      )::timestamptz AS last_source_seen_at
-    FROM saas_app_sources sas
-    WHERE sas.source_kind = aa.source_kind
-      AND sas.source_name = aa.source_name
-      AND sas.source_app_id = aa.external_id
-      AND sas.expired_at IS NULL
-      AND sas.last_observed_run_id IS NOT NULL
-  ) source_counts
-  CROSS JOIN (
-    SELECT
-      count(*) FILTER (
-        WHERE e.observed_at >= now() - interval '30 days'
-      )::bigint AS discovery_event_count_30d,
-      max(e.observed_at)::timestamptz AS last_event_at
-    FROM saas_app_events e
-    WHERE e.source_kind = aa.source_kind
-      AND e.source_name = aa.source_name
-      AND e.source_app_id = aa.external_id
-      AND e.expired_at IS NULL
-      AND e.last_observed_run_id IS NOT NULL
-  ) event_counts
-) discovery_counts ON TRUE
-WHERE aa.id = $1::bigint
-  AND aa.expired_at IS NULL
-  AND aa.last_observed_run_id IS NOT NULL
+  pr.id::bigint AS id,
+  pr.source_kind::text AS source_kind,
+  pr.source_name::text AS source_name,
+  pr.asset_kind::text AS asset_kind,
+  pr.external_id::text AS external_id,
+  pr.parent_external_id::text AS parent_external_id,
+  pr.display_name::text AS display_name,
+  pr.status::text AS status,
+  pr.created_at_source::timestamptz AS created_at_source,
+  pr.updated_at_source::timestamptz AS updated_at_source,
+  pr.raw_json::jsonb AS raw_json,
+  pr.seen_in_run_id::bigint AS seen_in_run_id,
+  pr.seen_at::timestamptz AS seen_at,
+  pr.last_observed_run_id::bigint AS last_observed_run_id,
+  pr.last_observed_at::timestamptz AS last_observed_at,
+  pr.expired_at::timestamptz AS expired_at,
+  pr.expired_run_id::bigint AS expired_run_id,
+  pr.created_at::timestamptz AS created_at,
+  pr.updated_at::timestamptz AS updated_at,
+  pr.governance_state::text AS governance_state,
+  pr.ticket_ref::text AS ticket_ref,
+  pr.notes::text AS notes,
+  pr.governance_owner_identity_id::bigint AS governance_owner_identity_id,
+  pr.governance_owner_display_name::text AS governance_owner_display_name,
+  pr.governance_owner_primary_email::text AS governance_owner_primary_email,
+  pr.governance_owner_kind::text AS governance_owner_kind,
+  pr.owner_count::bigint AS owner_count,
+  pr.grant_count::bigint AS grant_count,
+  pr.actor_count::bigint AS actor_count,
+  pr.discovery_source_count::bigint AS discovery_source_count,
+  pr.discovery_event_count_30d::bigint AS discovery_event_count_30d,
+  pr.evidence_last_seen_at::timestamptz AS evidence_last_seen_at,
+  pr.suggested_business_criticality::text AS suggested_business_criticality,
+  pr.suggested_data_classification::text AS suggested_data_classification,
+  pr.effective_business_criticality::text AS effective_business_criticality,
+  pr.effective_data_classification::text AS effective_data_classification,
+  pr.evidence_freshness::text AS evidence_freshness,
+  pr.evidence_confidence::text AS evidence_confidence,
+  pr.evidence_confidence_reason::text AS evidence_confidence_reason
+FROM app_asset_posture_rows(
+  $1::timestamptz
+) AS pr(
+  id,
+  source_kind,
+  source_name,
+  asset_kind,
+  external_id,
+  parent_external_id,
+  display_name,
+  status,
+  created_at_source,
+  updated_at_source,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  last_observed_run_id,
+  last_observed_at,
+  expired_at,
+  expired_run_id,
+  created_at,
+  updated_at,
+  governance_state,
+  ticket_ref,
+  notes,
+  governance_owner_identity_id,
+  governance_owner_display_name,
+  governance_owner_primary_email,
+  governance_owner_kind,
+  owner_count,
+  grant_count,
+  actor_count,
+  discovery_source_count,
+  discovery_event_count_30d,
+  evidence_last_seen_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  evidence_freshness,
+  evidence_confidence,
+  evidence_confidence_reason
+)
+WHERE pr.id = $2::bigint
 `
 
-type GetConnectedAppSummaryByIDRow struct {
-	ID                      int64              `json:"id"`
-	SourceKind              string             `json:"source_kind"`
-	SourceName              string             `json:"source_name"`
-	AssetKind               string             `json:"asset_kind"`
-	ExternalID              string             `json:"external_id"`
-	ParentExternalID        string             `json:"parent_external_id"`
-	DisplayName             string             `json:"display_name"`
-	Status                  string             `json:"status"`
-	CreatedAtSource         pgtype.Timestamptz `json:"created_at_source"`
-	UpdatedAtSource         pgtype.Timestamptz `json:"updated_at_source"`
-	RawJson                 []byte             `json:"raw_json"`
-	SeenInRunID             pgtype.Int8        `json:"seen_in_run_id"`
-	SeenAt                  pgtype.Timestamptz `json:"seen_at"`
-	LastObservedRunID       pgtype.Int8        `json:"last_observed_run_id"`
-	LastObservedAt          pgtype.Timestamptz `json:"last_observed_at"`
-	ExpiredAt               pgtype.Timestamptz `json:"expired_at"`
-	ExpiredRunID            pgtype.Int8        `json:"expired_run_id"`
-	CreatedAt               pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
-	ReviewState             string             `json:"review_state"`
-	TicketRef               string             `json:"ticket_ref"`
-	Notes                   string             `json:"notes"`
-	ReviewOwnerIdentityID   int64              `json:"review_owner_identity_id"`
-	ReviewOwnerDisplayName  string             `json:"review_owner_display_name"`
-	ReviewOwnerPrimaryEmail string             `json:"review_owner_primary_email"`
-	ReviewOwnerKind         string             `json:"review_owner_kind"`
-	OwnerCount              int64              `json:"owner_count"`
-	GrantCount              int64              `json:"grant_count"`
-	ActorCount              int64              `json:"actor_count"`
-	DiscoverySourceCount    int64              `json:"discovery_source_count"`
-	DiscoveryEventCount30d  int64              `json:"discovery_event_count_30d"`
-	EvidenceLastSeenAt      pgtype.Timestamptz `json:"evidence_last_seen_at"`
+type GetAppAssetPostureByIDParams struct {
+	EvaluatedAt pgtype.Timestamptz `json:"evaluated_at"`
+	ID          int64              `json:"id"`
 }
 
-func (q *Queries) GetConnectedAppSummaryByID(ctx context.Context, id int64) (GetConnectedAppSummaryByIDRow, error) {
-	row := q.db.QueryRow(ctx, getConnectedAppSummaryByID, id)
-	var i GetConnectedAppSummaryByIDRow
+type GetAppAssetPostureByIDRow struct {
+	ID                           int64              `json:"id"`
+	SourceKind                   string             `json:"source_kind"`
+	SourceName                   string             `json:"source_name"`
+	AssetKind                    string             `json:"asset_kind"`
+	ExternalID                   string             `json:"external_id"`
+	ParentExternalID             string             `json:"parent_external_id"`
+	DisplayName                  string             `json:"display_name"`
+	Status                       string             `json:"status"`
+	CreatedAtSource              pgtype.Timestamptz `json:"created_at_source"`
+	UpdatedAtSource              pgtype.Timestamptz `json:"updated_at_source"`
+	RawJson                      []byte             `json:"raw_json"`
+	SeenInRunID                  int64              `json:"seen_in_run_id"`
+	SeenAt                       pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID            int64              `json:"last_observed_run_id"`
+	LastObservedAt               pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt                    pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID                 int64              `json:"expired_run_id"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
+	GovernanceState              string             `json:"governance_state"`
+	TicketRef                    string             `json:"ticket_ref"`
+	Notes                        string             `json:"notes"`
+	GovernanceOwnerIdentityID    int64              `json:"governance_owner_identity_id"`
+	GovernanceOwnerDisplayName   string             `json:"governance_owner_display_name"`
+	GovernanceOwnerPrimaryEmail  string             `json:"governance_owner_primary_email"`
+	GovernanceOwnerKind          string             `json:"governance_owner_kind"`
+	OwnerCount                   int64              `json:"owner_count"`
+	GrantCount                   int64              `json:"grant_count"`
+	ActorCount                   int64              `json:"actor_count"`
+	DiscoverySourceCount         int64              `json:"discovery_source_count"`
+	DiscoveryEventCount30d       int64              `json:"discovery_event_count_30d"`
+	EvidenceLastSeenAt           pgtype.Timestamptz `json:"evidence_last_seen_at"`
+	SuggestedBusinessCriticality string             `json:"suggested_business_criticality"`
+	SuggestedDataClassification  string             `json:"suggested_data_classification"`
+	EffectiveBusinessCriticality string             `json:"effective_business_criticality"`
+	EffectiveDataClassification  string             `json:"effective_data_classification"`
+	EvidenceFreshness            string             `json:"evidence_freshness"`
+	EvidenceConfidence           string             `json:"evidence_confidence"`
+	EvidenceConfidenceReason     string             `json:"evidence_confidence_reason"`
+}
+
+func (q *Queries) GetAppAssetPostureByID(ctx context.Context, arg GetAppAssetPostureByIDParams) (GetAppAssetPostureByIDRow, error) {
+	row := q.db.QueryRow(ctx, getAppAssetPostureByID, arg.EvaluatedAt, arg.ID)
+	var i GetAppAssetPostureByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.SourceKind,
@@ -264,24 +355,31 @@ func (q *Queries) GetConnectedAppSummaryByID(ctx context.Context, id int64) (Get
 		&i.ExpiredRunID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.ReviewState,
+		&i.GovernanceState,
 		&i.TicketRef,
 		&i.Notes,
-		&i.ReviewOwnerIdentityID,
-		&i.ReviewOwnerDisplayName,
-		&i.ReviewOwnerPrimaryEmail,
-		&i.ReviewOwnerKind,
+		&i.GovernanceOwnerIdentityID,
+		&i.GovernanceOwnerDisplayName,
+		&i.GovernanceOwnerPrimaryEmail,
+		&i.GovernanceOwnerKind,
 		&i.OwnerCount,
 		&i.GrantCount,
 		&i.ActorCount,
 		&i.DiscoverySourceCount,
 		&i.DiscoveryEventCount30d,
 		&i.EvidenceLastSeenAt,
+		&i.SuggestedBusinessCriticality,
+		&i.SuggestedDataClassification,
+		&i.EffectiveBusinessCriticality,
+		&i.EffectiveDataClassification,
+		&i.EvidenceFreshness,
+		&i.EvidenceConfidence,
+		&i.EvidenceConfidenceReason,
 	)
 	return i, err
 }
 
-const listConnectedAppDiscoveryEventsBySourceAppID = `-- name: ListConnectedAppDiscoveryEventsBySourceAppID :many
+const listAppAssetDiscoveryEventsBySourceAppID = `-- name: ListAppAssetDiscoveryEventsBySourceAppID :many
 SELECT id, saas_app_id, source_kind, source_name, signal_kind, event_external_id, source_app_id, source_app_name, source_app_domain, actor_external_id, actor_email, actor_display_name, observed_at, scopes_json, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at
 FROM saas_app_events e
 WHERE e.source_kind = $1::text
@@ -293,15 +391,15 @@ ORDER BY e.observed_at DESC, e.id DESC
 LIMIT $4::int
 `
 
-type ListConnectedAppDiscoveryEventsBySourceAppIDParams struct {
+type ListAppAssetDiscoveryEventsBySourceAppIDParams struct {
 	SourceKind  string `json:"source_kind"`
 	SourceName  string `json:"source_name"`
 	SourceAppID string `json:"source_app_id"`
 	LimitRows   int32  `json:"limit_rows"`
 }
 
-func (q *Queries) ListConnectedAppDiscoveryEventsBySourceAppID(ctx context.Context, arg ListConnectedAppDiscoveryEventsBySourceAppIDParams) ([]SaasAppEvent, error) {
-	rows, err := q.db.Query(ctx, listConnectedAppDiscoveryEventsBySourceAppID,
+func (q *Queries) ListAppAssetDiscoveryEventsBySourceAppID(ctx context.Context, arg ListAppAssetDiscoveryEventsBySourceAppIDParams) ([]SaasAppEvent, error) {
+	rows, err := q.db.Query(ctx, listAppAssetDiscoveryEventsBySourceAppID,
 		arg.SourceKind,
 		arg.SourceName,
 		arg.SourceAppID,
@@ -349,7 +447,7 @@ func (q *Queries) ListConnectedAppDiscoveryEventsBySourceAppID(ctx context.Conte
 	return items, nil
 }
 
-const listConnectedAppDiscoverySourcesBySourceAppID = `-- name: ListConnectedAppDiscoverySourcesBySourceAppID :many
+const listAppAssetDiscoverySourcesBySourceAppID = `-- name: ListAppAssetDiscoverySourcesBySourceAppID :many
 WITH scoped_sources AS (
   SELECT id, saas_app_id, source_kind, source_name, source_app_id, source_app_name, source_app_domain, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at
   FROM saas_app_sources sas
@@ -359,35 +457,8 @@ WITH scoped_sources AS (
     AND sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
 ),
-posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
-  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+posture_rows AS (
+  SELECT pr
   FROM saas_app_posture_rows(
     $4::timestamptz,
     $5::timestamptz,
@@ -396,34 +467,7 @@ posture_rows (
     $8::timestamptz,
     $9::timestamptz,
     $10::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
+  ) AS pr
 )
 SELECT
   sas.id, sas.saas_app_id, sas.source_kind, sas.source_name, sas.source_app_id, sas.source_app_name, sas.source_app_domain, sas.seen_in_run_id, sas.seen_at, sas.last_observed_run_id, sas.last_observed_at, sas.expired_at, sas.expired_run_id, sas.created_at, sas.updated_at,
@@ -438,7 +482,7 @@ JOIN posture_rows pr ON pr.id = sas.saas_app_id
 ORDER BY sas.last_observed_at DESC, sas.id DESC
 `
 
-type ListConnectedAppDiscoverySourcesBySourceAppIDParams struct {
+type ListAppAssetDiscoverySourcesBySourceAppIDParams struct {
 	SourceKind                string             `json:"source_kind"`
 	SourceName                string             `json:"source_name"`
 	SourceAppID               string             `json:"source_app_id"`
@@ -451,7 +495,7 @@ type ListConnectedAppDiscoverySourcesBySourceAppIDParams struct {
 	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
 }
 
-type ListConnectedAppDiscoverySourcesBySourceAppIDRow struct {
+type ListAppAssetDiscoverySourcesBySourceAppIDRow struct {
 	ID                     int64              `json:"id"`
 	SaasAppID              int64              `json:"saas_app_id"`
 	SourceKind             string             `json:"source_kind"`
@@ -475,8 +519,8 @@ type ListConnectedAppDiscoverySourcesBySourceAppIDRow struct {
 	DiscoveryRiskLevel     string             `json:"discovery_risk_level"`
 }
 
-func (q *Queries) ListConnectedAppDiscoverySourcesBySourceAppID(ctx context.Context, arg ListConnectedAppDiscoverySourcesBySourceAppIDParams) ([]ListConnectedAppDiscoverySourcesBySourceAppIDRow, error) {
-	rows, err := q.db.Query(ctx, listConnectedAppDiscoverySourcesBySourceAppID,
+func (q *Queries) ListAppAssetDiscoverySourcesBySourceAppID(ctx context.Context, arg ListAppAssetDiscoverySourcesBySourceAppIDParams) ([]ListAppAssetDiscoverySourcesBySourceAppIDRow, error) {
+	rows, err := q.db.Query(ctx, listAppAssetDiscoverySourcesBySourceAppID,
 		arg.SourceKind,
 		arg.SourceName,
 		arg.SourceAppID,
@@ -492,9 +536,9 @@ func (q *Queries) ListConnectedAppDiscoverySourcesBySourceAppID(ctx context.Cont
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListConnectedAppDiscoverySourcesBySourceAppIDRow
+	var items []ListAppAssetDiscoverySourcesBySourceAppIDRow
 	for rows.Next() {
-		var i ListConnectedAppDiscoverySourcesBySourceAppIDRow
+		var i ListAppAssetDiscoverySourcesBySourceAppIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.SaasAppID,
@@ -528,171 +572,179 @@ func (q *Queries) ListConnectedAppDiscoverySourcesBySourceAppID(ctx context.Cont
 	return items, nil
 }
 
-const listConnectedAppsPageBySourceAndQueryAndReviewState = `-- name: ListConnectedAppsPageBySourceAndQueryAndReviewState :many
+const listAppAssetGovernancePageBySourceAndQueryAndState = `-- name: ListAppAssetGovernancePageBySourceAndQueryAndState :many
 SELECT
-  aa.id, aa.source_kind, aa.source_name, aa.asset_kind, aa.external_id, aa.parent_external_id, aa.display_name, aa.status, aa.created_at_source, aa.updated_at_source, aa.raw_json, aa.seen_in_run_id, aa.seen_at, aa.last_observed_run_id, aa.last_observed_at, aa.expired_at, aa.expired_run_id, aa.created_at, aa.updated_at,
-  COALESCE(cag.review_state, 'unreviewed')::text AS review_state,
-  COALESCE(cag.ticket_ref, '')::text AS ticket_ref,
-  COALESCE(cag.notes, '')::text AS notes,
-  COALESCE(cag.owner_identity_id, 0)::bigint AS review_owner_identity_id,
-  COALESCE(owner.display_name, '')::text AS review_owner_display_name,
-  COALESCE(owner.primary_email, '')::text AS review_owner_primary_email,
-  COALESCE(owner_counts.owner_count, 0)::bigint AS owner_count,
-  COALESCE(grant_counts.grant_count, 0)::bigint AS grant_count,
-  COALESCE(grant_counts.actor_count, 0)::bigint AS actor_count,
-  COALESCE(discovery_counts.discovery_source_count, 0)::bigint AS discovery_source_count,
-  COALESCE(discovery_counts.discovery_event_count_30d, 0)::bigint AS discovery_event_count_30d,
-  COALESCE(discovery_counts.last_evidence_at, aa.last_observed_at)::timestamptz AS evidence_last_seen_at
-FROM app_assets aa
-LEFT JOIN connected_app_governance cag ON cag.app_asset_id = aa.id
-LEFT JOIN identities owner ON owner.id = cag.owner_identity_id
-LEFT JOIN LATERAL (
-  SELECT count(*)::bigint AS owner_count
-  FROM app_asset_owners aao
-  WHERE aao.app_asset_id = aa.id
-    AND aao.expired_at IS NULL
-    AND aao.last_observed_run_id IS NOT NULL
-) owner_counts ON TRUE
-LEFT JOIN LATERAL (
-  SELECT
-    count(*)::bigint AS grant_count,
-    count(
-      DISTINCT COALESCE(
-        NULLIF(trim(ca.created_by_external_id), ''),
-        NULLIF(lower(trim(ca.created_by_display_name)), '')
-      )
-    )::bigint AS actor_count
-  FROM credential_artifacts ca
-  WHERE ca.source_kind = aa.source_kind
-    AND ca.source_name = aa.source_name
-    AND ca.asset_ref_kind = aa.asset_kind
-    AND ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-    AND ca.expired_at IS NULL
-    AND ca.last_observed_run_id IS NOT NULL
-) grant_counts ON TRUE
-LEFT JOIN LATERAL (
-  SELECT
-    source_counts.discovery_source_count,
-    event_counts.discovery_event_count_30d,
-    NULLIF(
-      GREATEST(
-        COALESCE(source_counts.last_source_seen_at, '-infinity'::timestamptz),
-        COALESCE(event_counts.last_event_at, '-infinity'::timestamptz)
-      ),
-      '-infinity'::timestamptz
-    )::timestamptz AS last_evidence_at
-  FROM (
-    SELECT
-      count(*)::bigint AS discovery_source_count,
-      NULLIF(
-        GREATEST(
-          COALESCE(max(sas.last_observed_at), '-infinity'::timestamptz),
-          COALESCE(max(sas.seen_at), '-infinity'::timestamptz)
-        ),
-        '-infinity'::timestamptz
-      )::timestamptz AS last_source_seen_at
-    FROM saas_app_sources sas
-    WHERE sas.source_kind = aa.source_kind
-      AND sas.source_name = aa.source_name
-      AND sas.source_app_id = aa.external_id
-      AND sas.expired_at IS NULL
-      AND sas.last_observed_run_id IS NOT NULL
-  ) source_counts
-  CROSS JOIN (
-    SELECT
-      count(*) FILTER (
-        WHERE e.observed_at >= now() - interval '30 days'
-      )::bigint AS discovery_event_count_30d,
-      max(e.observed_at)::timestamptz AS last_event_at
-    FROM saas_app_events e
-    WHERE e.source_kind = aa.source_kind
-      AND e.source_name = aa.source_name
-      AND e.source_app_id = aa.external_id
-      AND e.expired_at IS NULL
-      AND e.last_observed_run_id IS NOT NULL
-  ) event_counts
-) discovery_counts ON TRUE
-WHERE aa.source_kind = $1::text
-  AND aa.source_name = $2::text
-  AND aa.asset_kind = $3::text
-  AND aa.expired_at IS NULL
-  AND aa.last_observed_run_id IS NOT NULL
-  AND (
-    $4::text = ''
-    OR COALESCE(cag.review_state, 'unreviewed') = $4::text
-  )
+  pr.id::bigint AS id,
+  pr.source_kind::text AS source_kind,
+  pr.source_name::text AS source_name,
+  pr.asset_kind::text AS asset_kind,
+  pr.external_id::text AS external_id,
+  pr.parent_external_id::text AS parent_external_id,
+  pr.display_name::text AS display_name,
+  pr.status::text AS status,
+  pr.created_at_source::timestamptz AS created_at_source,
+  pr.updated_at_source::timestamptz AS updated_at_source,
+  pr.raw_json::jsonb AS raw_json,
+  pr.seen_in_run_id::bigint AS seen_in_run_id,
+  pr.seen_at::timestamptz AS seen_at,
+  pr.last_observed_run_id::bigint AS last_observed_run_id,
+  pr.last_observed_at::timestamptz AS last_observed_at,
+  pr.expired_at::timestamptz AS expired_at,
+  pr.expired_run_id::bigint AS expired_run_id,
+  pr.created_at::timestamptz AS created_at,
+  pr.updated_at::timestamptz AS updated_at,
+  pr.governance_state::text AS governance_state,
+  pr.ticket_ref::text AS ticket_ref,
+  pr.notes::text AS notes,
+  pr.governance_owner_identity_id::bigint AS governance_owner_identity_id,
+  pr.governance_owner_display_name::text AS governance_owner_display_name,
+  pr.governance_owner_primary_email::text AS governance_owner_primary_email,
+  pr.governance_owner_kind::text AS governance_owner_kind,
+  pr.owner_count::bigint AS owner_count,
+  pr.grant_count::bigint AS grant_count,
+  pr.actor_count::bigint AS actor_count,
+  pr.discovery_source_count::bigint AS discovery_source_count,
+  pr.discovery_event_count_30d::bigint AS discovery_event_count_30d,
+  pr.evidence_last_seen_at::timestamptz AS evidence_last_seen_at,
+  pr.suggested_business_criticality::text AS suggested_business_criticality,
+  pr.suggested_data_classification::text AS suggested_data_classification,
+  pr.effective_business_criticality::text AS effective_business_criticality,
+  pr.effective_data_classification::text AS effective_data_classification,
+  pr.evidence_freshness::text AS evidence_freshness,
+  pr.evidence_confidence::text AS evidence_confidence,
+  pr.evidence_confidence_reason::text AS evidence_confidence_reason
+FROM app_asset_posture_rows(
+  $1::timestamptz
+) AS pr(
+  id,
+  source_kind,
+  source_name,
+  asset_kind,
+  external_id,
+  parent_external_id,
+  display_name,
+  status,
+  created_at_source,
+  updated_at_source,
+  raw_json,
+  seen_in_run_id,
+  seen_at,
+  last_observed_run_id,
+  last_observed_at,
+  expired_at,
+  expired_run_id,
+  created_at,
+  updated_at,
+  governance_state,
+  ticket_ref,
+  notes,
+  governance_owner_identity_id,
+  governance_owner_display_name,
+  governance_owner_primary_email,
+  governance_owner_kind,
+  owner_count,
+  grant_count,
+  actor_count,
+  discovery_source_count,
+  discovery_event_count_30d,
+  evidence_last_seen_at,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  evidence_freshness,
+  evidence_confidence,
+  evidence_confidence_reason
+)
+WHERE pr.source_kind = $2::text
+  AND pr.source_name = $3::text
+  AND pr.asset_kind = $4::text
   AND (
     $5::text = ''
-    OR aa.display_name ILIKE ('%' || $5::text || '%')
-    OR aa.external_id ILIKE ('%' || $5::text || '%')
+    OR pr.governance_state = $5::text
+  )
+  AND (
+    $6::text = ''
+    OR pr.display_name ILIKE ('%' || $6::text || '%')
+    OR pr.external_id ILIKE ('%' || $6::text || '%')
   )
 ORDER BY
-  CASE COALESCE(cag.review_state, 'unreviewed')
-    WHEN 'needs_revocation' THEN 0
-    WHEN 'under_review' THEN 1
+  CASE pr.governance_state
+    WHEN 'action_required' THEN 0
+    WHEN 'in_review' THEN 1
     WHEN 'unreviewed' THEN 2
     WHEN 'ticketed' THEN 3
-    WHEN 'sanctioned' THEN 4
+    WHEN 'approved' THEN 4
     ELSE 5
   END ASC,
-  COALESCE(discovery_counts.discovery_event_count_30d, 0) DESC,
-  COALESCE(discovery_counts.last_evidence_at, aa.last_observed_at) DESC,
-  lower(COALESCE(NULLIF(trim(aa.display_name), ''), aa.external_id)) ASC,
-  aa.id ASC
-LIMIT $7::int
-OFFSET $6::int
+  pr.discovery_event_count_30d DESC,
+  pr.evidence_last_seen_at DESC,
+  lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.external_id)) ASC,
+  pr.id ASC
+LIMIT $8::int
+OFFSET $7::int
 `
 
-type ListConnectedAppsPageBySourceAndQueryAndReviewStateParams struct {
-	SourceKind  string `json:"source_kind"`
-	SourceName  string `json:"source_name"`
-	AssetKind   string `json:"asset_kind"`
-	ReviewState string `json:"review_state"`
-	Query       string `json:"query"`
-	PageOffset  int32  `json:"page_offset"`
-	PageLimit   int32  `json:"page_limit"`
+type ListAppAssetGovernancePageBySourceAndQueryAndStateParams struct {
+	EvaluatedAt     pgtype.Timestamptz `json:"evaluated_at"`
+	SourceKind      string             `json:"source_kind"`
+	SourceName      string             `json:"source_name"`
+	AssetKind       string             `json:"asset_kind"`
+	GovernanceState string             `json:"governance_state"`
+	Query           string             `json:"query"`
+	PageOffset      int32              `json:"page_offset"`
+	PageLimit       int32              `json:"page_limit"`
 }
 
-type ListConnectedAppsPageBySourceAndQueryAndReviewStateRow struct {
-	ID                      int64              `json:"id"`
-	SourceKind              string             `json:"source_kind"`
-	SourceName              string             `json:"source_name"`
-	AssetKind               string             `json:"asset_kind"`
-	ExternalID              string             `json:"external_id"`
-	ParentExternalID        string             `json:"parent_external_id"`
-	DisplayName             string             `json:"display_name"`
-	Status                  string             `json:"status"`
-	CreatedAtSource         pgtype.Timestamptz `json:"created_at_source"`
-	UpdatedAtSource         pgtype.Timestamptz `json:"updated_at_source"`
-	RawJson                 []byte             `json:"raw_json"`
-	SeenInRunID             pgtype.Int8        `json:"seen_in_run_id"`
-	SeenAt                  pgtype.Timestamptz `json:"seen_at"`
-	LastObservedRunID       pgtype.Int8        `json:"last_observed_run_id"`
-	LastObservedAt          pgtype.Timestamptz `json:"last_observed_at"`
-	ExpiredAt               pgtype.Timestamptz `json:"expired_at"`
-	ExpiredRunID            pgtype.Int8        `json:"expired_run_id"`
-	CreatedAt               pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
-	ReviewState             string             `json:"review_state"`
-	TicketRef               string             `json:"ticket_ref"`
-	Notes                   string             `json:"notes"`
-	ReviewOwnerIdentityID   int64              `json:"review_owner_identity_id"`
-	ReviewOwnerDisplayName  string             `json:"review_owner_display_name"`
-	ReviewOwnerPrimaryEmail string             `json:"review_owner_primary_email"`
-	OwnerCount              int64              `json:"owner_count"`
-	GrantCount              int64              `json:"grant_count"`
-	ActorCount              int64              `json:"actor_count"`
-	DiscoverySourceCount    int64              `json:"discovery_source_count"`
-	DiscoveryEventCount30d  int64              `json:"discovery_event_count_30d"`
-	EvidenceLastSeenAt      pgtype.Timestamptz `json:"evidence_last_seen_at"`
+type ListAppAssetGovernancePageBySourceAndQueryAndStateRow struct {
+	ID                           int64              `json:"id"`
+	SourceKind                   string             `json:"source_kind"`
+	SourceName                   string             `json:"source_name"`
+	AssetKind                    string             `json:"asset_kind"`
+	ExternalID                   string             `json:"external_id"`
+	ParentExternalID             string             `json:"parent_external_id"`
+	DisplayName                  string             `json:"display_name"`
+	Status                       string             `json:"status"`
+	CreatedAtSource              pgtype.Timestamptz `json:"created_at_source"`
+	UpdatedAtSource              pgtype.Timestamptz `json:"updated_at_source"`
+	RawJson                      []byte             `json:"raw_json"`
+	SeenInRunID                  int64              `json:"seen_in_run_id"`
+	SeenAt                       pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID            int64              `json:"last_observed_run_id"`
+	LastObservedAt               pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt                    pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID                 int64              `json:"expired_run_id"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
+	GovernanceState              string             `json:"governance_state"`
+	TicketRef                    string             `json:"ticket_ref"`
+	Notes                        string             `json:"notes"`
+	GovernanceOwnerIdentityID    int64              `json:"governance_owner_identity_id"`
+	GovernanceOwnerDisplayName   string             `json:"governance_owner_display_name"`
+	GovernanceOwnerPrimaryEmail  string             `json:"governance_owner_primary_email"`
+	GovernanceOwnerKind          string             `json:"governance_owner_kind"`
+	OwnerCount                   int64              `json:"owner_count"`
+	GrantCount                   int64              `json:"grant_count"`
+	ActorCount                   int64              `json:"actor_count"`
+	DiscoverySourceCount         int64              `json:"discovery_source_count"`
+	DiscoveryEventCount30d       int64              `json:"discovery_event_count_30d"`
+	EvidenceLastSeenAt           pgtype.Timestamptz `json:"evidence_last_seen_at"`
+	SuggestedBusinessCriticality string             `json:"suggested_business_criticality"`
+	SuggestedDataClassification  string             `json:"suggested_data_classification"`
+	EffectiveBusinessCriticality string             `json:"effective_business_criticality"`
+	EffectiveDataClassification  string             `json:"effective_data_classification"`
+	EvidenceFreshness            string             `json:"evidence_freshness"`
+	EvidenceConfidence           string             `json:"evidence_confidence"`
+	EvidenceConfidenceReason     string             `json:"evidence_confidence_reason"`
 }
 
-func (q *Queries) ListConnectedAppsPageBySourceAndQueryAndReviewState(ctx context.Context, arg ListConnectedAppsPageBySourceAndQueryAndReviewStateParams) ([]ListConnectedAppsPageBySourceAndQueryAndReviewStateRow, error) {
-	rows, err := q.db.Query(ctx, listConnectedAppsPageBySourceAndQueryAndReviewState,
+func (q *Queries) ListAppAssetGovernancePageBySourceAndQueryAndState(ctx context.Context, arg ListAppAssetGovernancePageBySourceAndQueryAndStateParams) ([]ListAppAssetGovernancePageBySourceAndQueryAndStateRow, error) {
+	rows, err := q.db.Query(ctx, listAppAssetGovernancePageBySourceAndQueryAndState,
+		arg.EvaluatedAt,
 		arg.SourceKind,
 		arg.SourceName,
 		arg.AssetKind,
-		arg.ReviewState,
+		arg.GovernanceState,
 		arg.Query,
 		arg.PageOffset,
 		arg.PageLimit,
@@ -701,9 +753,9 @@ func (q *Queries) ListConnectedAppsPageBySourceAndQueryAndReviewState(ctx contex
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListConnectedAppsPageBySourceAndQueryAndReviewStateRow
+	var items []ListAppAssetGovernancePageBySourceAndQueryAndStateRow
 	for rows.Next() {
-		var i ListConnectedAppsPageBySourceAndQueryAndReviewStateRow
+		var i ListAppAssetGovernancePageBySourceAndQueryAndStateRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.SourceKind,
@@ -724,18 +776,26 @@ func (q *Queries) ListConnectedAppsPageBySourceAndQueryAndReviewState(ctx contex
 			&i.ExpiredRunID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.ReviewState,
+			&i.GovernanceState,
 			&i.TicketRef,
 			&i.Notes,
-			&i.ReviewOwnerIdentityID,
-			&i.ReviewOwnerDisplayName,
-			&i.ReviewOwnerPrimaryEmail,
+			&i.GovernanceOwnerIdentityID,
+			&i.GovernanceOwnerDisplayName,
+			&i.GovernanceOwnerPrimaryEmail,
+			&i.GovernanceOwnerKind,
 			&i.OwnerCount,
 			&i.GrantCount,
 			&i.ActorCount,
 			&i.DiscoverySourceCount,
 			&i.DiscoveryEventCount30d,
 			&i.EvidenceLastSeenAt,
+			&i.SuggestedBusinessCriticality,
+			&i.SuggestedDataClassification,
+			&i.EffectiveBusinessCriticality,
+			&i.EffectiveDataClassification,
+			&i.EvidenceFreshness,
+			&i.EvidenceConfidence,
+			&i.EvidenceConfidenceReason,
 		); err != nil {
 			return nil, err
 		}
@@ -747,10 +807,11 @@ func (q *Queries) ListConnectedAppsPageBySourceAndQueryAndReviewState(ctx contex
 	return items, nil
 }
 
-const upsertConnectedAppGovernance = `-- name: UpsertConnectedAppGovernance :one
-INSERT INTO connected_app_governance (
-  app_asset_id,
-  review_state,
+const upsertAppAssetGovernance = `-- name: UpsertAppAssetGovernance :one
+INSERT INTO governance_subject_overrides (
+  subject_kind,
+  subject_id,
+  governance_state,
   owner_identity_id,
   ticket_ref,
   notes,
@@ -758,6 +819,7 @@ INSERT INTO connected_app_governance (
   updated_at
 )
 VALUES (
+  'app_asset',
   $1::bigint,
   $2::text,
   $3::bigint,
@@ -766,39 +828,42 @@ VALUES (
   $6::bigint,
   now()
 )
-ON CONFLICT (app_asset_id) DO UPDATE SET
-  review_state = EXCLUDED.review_state,
+ON CONFLICT (subject_kind, subject_id) DO UPDATE SET
+  governance_state = EXCLUDED.governance_state,
   owner_identity_id = EXCLUDED.owner_identity_id,
   ticket_ref = EXCLUDED.ticket_ref,
   notes = EXCLUDED.notes,
   updated_by_auth_user_id = EXCLUDED.updated_by_auth_user_id,
   updated_at = now()
-RETURNING app_asset_id, review_state, owner_identity_id, ticket_ref, notes, updated_by_auth_user_id, updated_at
+RETURNING subject_kind, subject_id, governance_state, owner_identity_id, business_criticality, data_classification, ticket_ref, notes, updated_by_auth_user_id, updated_at
 `
 
-type UpsertConnectedAppGovernanceParams struct {
+type UpsertAppAssetGovernanceParams struct {
 	AppAssetID          int64       `json:"app_asset_id"`
-	ReviewState         string      `json:"review_state"`
+	GovernanceState     string      `json:"governance_state"`
 	OwnerIdentityID     pgtype.Int8 `json:"owner_identity_id"`
 	TicketRef           string      `json:"ticket_ref"`
 	Notes               string      `json:"notes"`
 	UpdatedByAuthUserID pgtype.Int8 `json:"updated_by_auth_user_id"`
 }
 
-func (q *Queries) UpsertConnectedAppGovernance(ctx context.Context, arg UpsertConnectedAppGovernanceParams) (ConnectedAppGovernance, error) {
-	row := q.db.QueryRow(ctx, upsertConnectedAppGovernance,
+func (q *Queries) UpsertAppAssetGovernance(ctx context.Context, arg UpsertAppAssetGovernanceParams) (GovernanceSubjectOverride, error) {
+	row := q.db.QueryRow(ctx, upsertAppAssetGovernance,
 		arg.AppAssetID,
-		arg.ReviewState,
+		arg.GovernanceState,
 		arg.OwnerIdentityID,
 		arg.TicketRef,
 		arg.Notes,
 		arg.UpdatedByAuthUserID,
 	)
-	var i ConnectedAppGovernance
+	var i GovernanceSubjectOverride
 	err := row.Scan(
-		&i.AppAssetID,
-		&i.ReviewState,
+		&i.SubjectKind,
+		&i.SubjectID,
+		&i.GovernanceState,
 		&i.OwnerIdentityID,
+		&i.BusinessCriticality,
+		&i.DataClassification,
 		&i.TicketRef,
 		&i.Notes,
 		&i.UpdatedByAuthUserID,

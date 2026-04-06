@@ -10,9 +10,8 @@ import (
 )
 
 type runtimeDependencies struct {
-	pool             *pgxpool.Pool
-	queries          *gen.Queries
-	connectorConfigs *configstore.Store
+	pool    *pgxpool.Pool
+	queries *gen.Queries
 }
 
 func openRuntimeDependencies(ctx context.Context, cfg config.Config) (*runtimeDependencies, error) {
@@ -27,8 +26,7 @@ func openRuntimeDependencies(ctx context.Context, cfg config.Config) (*runtimeDe
 		return nil, err
 	}
 	return &runtimeDependencies{
-		pool:             pool,
-		queries:          queries,
-		connectorConfigs: connectorConfigs,
+		pool:    pool,
+		queries: queries,
 	}, nil
 }

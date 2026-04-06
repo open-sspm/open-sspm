@@ -112,126 +112,6 @@ func (q *Queries) SearchAppAssetsForCommand(ctx context.Context, arg SearchAppAs
 	return items, nil
 }
 
-const searchConnectedAppsForCommand = `-- name: SearchConnectedAppsForCommand :many
-SELECT
-  aa.id,
-  COALESCE(NULLIF(trim(aa.display_name), ''), aa.external_id)::text AS display_name,
-  aa.external_id,
-  COALESCE(aa.status, '')::text AS status,
-  COALESCE(cag.review_state, 'unreviewed')::text AS review_state,
-  COALESCE(discovery_counts.last_evidence_at, aa.last_observed_at)::timestamptz AS evidence_last_seen_at
-FROM app_assets aa
-LEFT JOIN connected_app_governance cag ON cag.app_asset_id = aa.id
-LEFT JOIN LATERAL (
-  SELECT
-    NULLIF(
-      GREATEST(
-        COALESCE(source_counts.last_source_seen_at, '-infinity'::timestamptz),
-        COALESCE(event_counts.last_event_at, '-infinity'::timestamptz)
-      ),
-      '-infinity'::timestamptz
-    )::timestamptz AS last_evidence_at
-  FROM (
-    SELECT
-      NULLIF(
-        GREATEST(
-          COALESCE(max(sas.last_observed_at), '-infinity'::timestamptz),
-          COALESCE(max(sas.seen_at), '-infinity'::timestamptz)
-        ),
-        '-infinity'::timestamptz
-      )::timestamptz AS last_source_seen_at
-    FROM saas_app_sources sas
-    WHERE sas.source_kind = aa.source_kind
-      AND sas.source_name = aa.source_name
-      AND sas.source_app_id = aa.external_id
-      AND sas.expired_at IS NULL
-      AND sas.last_observed_run_id IS NOT NULL
-  ) source_counts
-  CROSS JOIN (
-    SELECT max(e.observed_at)::timestamptz AS last_event_at
-    FROM saas_app_events e
-    WHERE e.source_kind = aa.source_kind
-      AND e.source_name = aa.source_name
-      AND e.source_app_id = aa.external_id
-      AND e.expired_at IS NULL
-      AND e.last_observed_run_id IS NOT NULL
-  ) event_counts
-) discovery_counts ON TRUE
-WHERE aa.source_kind = 'google_workspace'
-  AND aa.source_name = $1::text
-  AND aa.asset_kind = 'google_oauth_client'
-  AND aa.expired_at IS NULL
-  AND aa.last_observed_run_id IS NOT NULL
-  AND (
-    aa.display_name ILIKE ('%' || $2::text || '%')
-    OR aa.external_id ILIKE ('%' || $2::text || '%')
-  )
-ORDER BY
-  CASE
-    WHEN lower(COALESCE(NULLIF(trim(aa.display_name), ''), aa.external_id)) = lower(trim($2::text))
-      OR lower(aa.external_id) = lower(trim($2::text))
-    THEN 0
-    WHEN lower(COALESCE(NULLIF(trim(aa.display_name), ''), aa.external_id)) LIKE lower(trim($2::text)) || '%'
-      OR lower(aa.external_id) LIKE lower(trim($2::text)) || '%'
-    THEN 1
-    ELSE 2
-  END ASC,
-  CASE COALESCE(cag.review_state, 'unreviewed')
-    WHEN 'needs_revocation' THEN 0
-    WHEN 'under_review' THEN 1
-    WHEN 'unreviewed' THEN 2
-    WHEN 'ticketed' THEN 3
-    WHEN 'sanctioned' THEN 4
-    ELSE 5
-  END ASC,
-  COALESCE(discovery_counts.last_evidence_at, aa.last_observed_at) DESC,
-  lower(COALESCE(NULLIF(trim(aa.display_name), ''), aa.external_id)) ASC,
-  aa.id ASC
-LIMIT $3::int
-`
-
-type SearchConnectedAppsForCommandParams struct {
-	SourceName string `json:"source_name"`
-	Query      string `json:"query"`
-	LimitRows  int32  `json:"limit_rows"`
-}
-
-type SearchConnectedAppsForCommandRow struct {
-	ID                 int64              `json:"id"`
-	DisplayName        string             `json:"display_name"`
-	ExternalID         string             `json:"external_id"`
-	Status             string             `json:"status"`
-	ReviewState        string             `json:"review_state"`
-	EvidenceLastSeenAt pgtype.Timestamptz `json:"evidence_last_seen_at"`
-}
-
-func (q *Queries) SearchConnectedAppsForCommand(ctx context.Context, arg SearchConnectedAppsForCommandParams) ([]SearchConnectedAppsForCommandRow, error) {
-	rows, err := q.db.Query(ctx, searchConnectedAppsForCommand, arg.SourceName, arg.Query, arg.LimitRows)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []SearchConnectedAppsForCommandRow
-	for rows.Next() {
-		var i SearchConnectedAppsForCommandRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.DisplayName,
-			&i.ExternalID,
-			&i.Status,
-			&i.ReviewState,
-			&i.EvidenceLastSeenAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const searchDiscoveryAppsForCommand = `-- name: SearchDiscoveryAppsForCommand :many
 WITH configured_sources AS (
   SELECT
@@ -249,35 +129,8 @@ scoped_app_ids AS (
   WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
 ),
-posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
-  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+posture_rows AS (
+  SELECT pr
   FROM saas_app_posture_rows(
     $5::timestamptz,
     $6::timestamptz,
@@ -286,34 +139,7 @@ posture_rows (
     $9::timestamptz,
     $10::timestamptz,
     $11::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
+  ) AS pr
 )
 SELECT
   pr.id::bigint AS id,

@@ -417,45 +417,37 @@ func EncodeConfig(v any) ([]byte, error) {
 
 func MergeOktaConfig(existing OktaConfig, update OktaConfig) OktaConfig {
 	merged := existing
-	merged.Domain = strings.TrimSpace(update.Domain)
+	replaceTrimmed(&merged.Domain, update.Domain)
 	merged.DiscoveryEnabled = update.DiscoveryEnabled
-	if token := strings.TrimSpace(update.Token); token != "" {
-		merged.Token = token
-	}
+	replaceIfNonEmptyTrimmed(&merged.Token, update.Token)
 	return merged
 }
 
 func MergeGitHubConfig(existing GitHubConfig, update GitHubConfig) GitHubConfig {
 	merged := existing
-	merged.Org = strings.TrimSpace(update.Org)
-	merged.APIBase = strings.TrimSpace(update.APIBase)
-	merged.Enterprise = strings.TrimSpace(update.Enterprise)
+	replaceTrimmed(&merged.Org, update.Org)
+	replaceTrimmed(&merged.APIBase, update.APIBase)
+	replaceTrimmed(&merged.Enterprise, update.Enterprise)
 	merged.SCIMEnabled = update.SCIMEnabled
-	if token := strings.TrimSpace(update.Token); token != "" {
-		merged.Token = token
-	}
+	replaceIfNonEmptyTrimmed(&merged.Token, update.Token)
 	return merged
 }
 
 func MergeDatadogConfig(existing DatadogConfig, update DatadogConfig) DatadogConfig {
 	merged := existing
-	merged.Site = strings.TrimSpace(update.Site)
-	if key := strings.TrimSpace(update.APIKey); key != "" {
-		merged.APIKey = key
-	}
-	if key := strings.TrimSpace(update.AppKey); key != "" {
-		merged.AppKey = key
-	}
+	replaceTrimmed(&merged.Site, update.Site)
+	replaceIfNonEmptyTrimmed(&merged.APIKey, update.APIKey)
+	replaceIfNonEmptyTrimmed(&merged.AppKey, update.AppKey)
 	return merged
 }
 
 func MergeAWSIdentityCenterConfig(existing AWSIdentityCenterConfig, update AWSIdentityCenterConfig) AWSIdentityCenterConfig {
 	merged := existing
-	merged.Region = strings.TrimSpace(update.Region)
-	merged.Name = strings.TrimSpace(update.Name)
-	merged.InstanceARN = strings.TrimSpace(update.InstanceARN)
-	merged.IdentityStoreID = strings.TrimSpace(update.IdentityStoreID)
-	merged.AuthType = strings.ToLower(strings.TrimSpace(update.AuthType))
+	replaceTrimmed(&merged.Region, update.Region)
+	replaceTrimmed(&merged.Name, update.Name)
+	replaceTrimmed(&merged.InstanceARN, update.InstanceARN)
+	replaceTrimmed(&merged.IdentityStoreID, update.IdentityStoreID)
+	replaceLowerTrimmed(&merged.AuthType, update.AuthType)
 	if merged.AuthType == "" {
 		merged.AuthType = AWSIdentityCenterAuthTypeDefaultChain
 	}
@@ -466,37 +458,29 @@ func MergeAWSIdentityCenterConfig(existing AWSIdentityCenterConfig, update AWSId
 		merged.SecretAccessKey = ""
 		merged.SessionToken = ""
 	case AWSIdentityCenterAuthTypeAccessKey:
-		if accessKeyID := strings.TrimSpace(update.AccessKeyID); accessKeyID != "" {
-			merged.AccessKeyID = accessKeyID
-		}
-		if secret := strings.TrimSpace(update.SecretAccessKey); secret != "" {
-			merged.SecretAccessKey = secret
-		}
-		if token := strings.TrimSpace(update.SessionToken); token != "" {
-			merged.SessionToken = token
-		}
+		replaceIfNonEmptyTrimmed(&merged.AccessKeyID, update.AccessKeyID)
+		replaceIfNonEmptyTrimmed(&merged.SecretAccessKey, update.SecretAccessKey)
+		replaceIfNonEmptyTrimmed(&merged.SessionToken, update.SessionToken)
 	}
 	return merged
 }
 
 func MergeEntraConfig(existing EntraConfig, update EntraConfig) EntraConfig {
 	merged := existing
-	merged.TenantID = normalizeGUID(update.TenantID)
-	merged.ClientID = normalizeGUID(update.ClientID)
+	replaceNormalized(&merged.TenantID, update.TenantID, normalizeGUID)
+	replaceNormalized(&merged.ClientID, update.ClientID, normalizeGUID)
 	merged.DiscoveryEnabled = update.DiscoveryEnabled
-	if secret := strings.TrimSpace(update.ClientSecret); secret != "" {
-		merged.ClientSecret = secret
-	}
+	replaceIfNonEmptyTrimmed(&merged.ClientSecret, update.ClientSecret)
 	return merged
 }
 
 func MergeGoogleWorkspaceConfig(existing GoogleWorkspaceConfig, update GoogleWorkspaceConfig) GoogleWorkspaceConfig {
 	merged := existing
-	merged.CustomerID = strings.TrimSpace(update.CustomerID)
-	merged.PrimaryDomain = strings.TrimSpace(update.PrimaryDomain)
-	merged.DelegatedAdminEmail = strings.TrimSpace(update.DelegatedAdminEmail)
+	replaceTrimmed(&merged.CustomerID, update.CustomerID)
+	replaceTrimmed(&merged.PrimaryDomain, update.PrimaryDomain)
+	replaceTrimmed(&merged.DelegatedAdminEmail, update.DelegatedAdminEmail)
 	merged.DiscoveryEnabled = update.DiscoveryEnabled
-	merged.AuthType = strings.ToLower(strings.TrimSpace(update.AuthType))
+	replaceLowerTrimmed(&merged.AuthType, update.AuthType)
 	if merged.AuthType == "" {
 		merged.AuthType = GoogleWorkspaceAuthTypeServiceAccountJSON
 	}
@@ -504,14 +488,10 @@ func MergeGoogleWorkspaceConfig(existing GoogleWorkspaceConfig, update GoogleWor
 	switch merged.AuthType {
 	case GoogleWorkspaceAuthTypeServiceAccountJSON:
 		merged.ServiceAccountEmail = ""
-		if raw := strings.TrimSpace(update.ServiceAccountJSON); raw != "" {
-			merged.ServiceAccountJSON = raw
-		}
+		replaceIfNonEmptyTrimmed(&merged.ServiceAccountJSON, update.ServiceAccountJSON)
 	case GoogleWorkspaceAuthTypeADC:
 		merged.ServiceAccountJSON = ""
-		if email := strings.TrimSpace(update.ServiceAccountEmail); email != "" {
-			merged.ServiceAccountEmail = email
-		}
+		replaceIfNonEmptyTrimmed(&merged.ServiceAccountEmail, update.ServiceAccountEmail)
 	}
 
 	return merged
@@ -519,39 +499,29 @@ func MergeGoogleWorkspaceConfig(existing GoogleWorkspaceConfig, update GoogleWor
 
 func MergeVaultConfig(existing VaultConfig, update VaultConfig) VaultConfig {
 	merged := existing
-	merged.Address = strings.TrimSpace(update.Address)
-	merged.Namespace = strings.TrimSpace(update.Namespace)
-	merged.Name = strings.TrimSpace(update.Name)
-	merged.AuthType = strings.ToLower(strings.TrimSpace(update.AuthType))
+	replaceTrimmed(&merged.Address, update.Address)
+	replaceTrimmed(&merged.Namespace, update.Namespace)
+	replaceTrimmed(&merged.Name, update.Name)
+	replaceLowerTrimmed(&merged.AuthType, update.AuthType)
 	if merged.AuthType == "" {
 		merged.AuthType = VaultAuthTypeToken
 	}
 	merged.ScanAuthRoles = update.ScanAuthRoles
 	merged.TLSSkipVerify = update.TLSSkipVerify
-	if mountPath := normalizeVaultMountPath(update.AppRoleMountPath); mountPath != "" {
-		merged.AppRoleMountPath = mountPath
-	}
-	if caCert := strings.TrimSpace(update.TLSCACertPEM); caCert != "" {
-		merged.TLSCACertPEM = caCert
-	}
+	replaceIfNonEmptyNormalized(&merged.AppRoleMountPath, update.AppRoleMountPath, normalizeVaultMountPath)
+	replaceIfNonEmptyTrimmed(&merged.TLSCACertPEM, update.TLSCACertPEM)
 	switch merged.AuthType {
 	case VaultAuthTypeToken:
 		merged.AppRoleRoleID = ""
 		merged.AppRoleSecretID = ""
-		if token := strings.TrimSpace(update.Token); token != "" {
-			merged.Token = token
-		}
+		replaceIfNonEmptyTrimmed(&merged.Token, update.Token)
 	case VaultAuthTypeAppRole:
 		merged.Token = ""
 		if merged.AppRoleMountPath == "" {
 			merged.AppRoleMountPath = "approle"
 		}
-		if roleID := strings.TrimSpace(update.AppRoleRoleID); roleID != "" {
-			merged.AppRoleRoleID = roleID
-		}
-		if secretID := strings.TrimSpace(update.AppRoleSecretID); secretID != "" {
-			merged.AppRoleSecretID = secretID
-		}
+		replaceIfNonEmptyTrimmed(&merged.AppRoleRoleID, update.AppRoleRoleID)
+		replaceIfNonEmptyTrimmed(&merged.AppRoleSecretID, update.AppRoleSecretID)
 	}
 	return merged
 }
@@ -581,6 +551,30 @@ func decodeJSON(raw []byte, dst any) error {
 		return nil
 	}
 	return json.Unmarshal(raw, dst)
+}
+
+func replaceTrimmed(dst *string, raw string) {
+	*dst = strings.TrimSpace(raw)
+}
+
+func replaceLowerTrimmed(dst *string, raw string) {
+	*dst = strings.ToLower(strings.TrimSpace(raw))
+}
+
+func replaceNormalized(dst *string, raw string, normalize func(string) string) {
+	*dst = normalize(raw)
+}
+
+func replaceIfNonEmptyTrimmed(dst *string, raw string) {
+	if value := strings.TrimSpace(raw); value != "" {
+		*dst = value
+	}
+}
+
+func replaceIfNonEmptyNormalized(dst *string, raw string, normalize func(string) string) {
+	if value := normalize(raw); value != "" {
+		*dst = value
+	}
 }
 
 func normalizeGUID(s string) string {

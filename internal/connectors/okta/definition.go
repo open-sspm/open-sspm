@@ -29,11 +29,7 @@ func (d *Definition) Role() registry.IntegrationRole {
 }
 
 func (d *Definition) DecodeConfig(raw []byte) (any, error) {
-	cfg, err := configstore.DecodeOktaConfig(raw)
-	if err != nil {
-		return nil, err
-	}
-	return cfg.Normalized(), nil
+	return registry.DecodeNormalizedConfig(raw, configstore.DecodeOktaConfig, configstore.OktaConfig.Normalized)
 }
 
 func (d *Definition) ValidateConfig(cfg any) error {

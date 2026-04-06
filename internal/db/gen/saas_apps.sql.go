@@ -36,35 +36,8 @@ scoped_app_ids AS (
       OR lower(trim(sas.source_name)) = lower(trim($7::text))
     )
 ),
-posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
-  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+posture_rows AS (
+  SELECT pr
   FROM saas_app_posture_rows(
     $8::timestamptz,
     $9::timestamptz,
@@ -73,34 +46,7 @@ posture_rows (
     $12::timestamptz,
     $13::timestamptz,
     $14::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
+  ) AS pr
 )
 SELECT count(*)
 FROM posture_rows pr
@@ -178,35 +124,8 @@ scoped_app_ids AS (
   WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
 ),
-posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
-  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+posture_rows AS (
+  SELECT pr
   FROM saas_app_posture_rows(
     $3::timestamptz,
     $4::timestamptz,
@@ -215,34 +134,7 @@ posture_rows (
     $7::timestamptz,
     $8::timestamptz,
     $9::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
+  ) AS pr
 )
 SELECT pr.managed_state::text AS managed_state, count(*) AS app_count
 FROM posture_rows pr
@@ -315,35 +207,8 @@ scoped_app_ids AS (
   WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
 ),
-posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
-  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+posture_rows AS (
+  SELECT pr
   FROM saas_app_posture_rows(
     $3::timestamptz,
     $4::timestamptz,
@@ -352,34 +217,7 @@ posture_rows (
     $7::timestamptz,
     $8::timestamptz,
     $9::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
+  ) AS pr
 )
 SELECT pr.risk_level::text AS risk_level, count(*) AS app_count
 FROM posture_rows pr
@@ -436,35 +274,8 @@ func (q *Queries) CountSaaSAppsGroupedByRiskLevel(ctx context.Context, arg Count
 }
 
 const getSaaSAppByID = `-- name: GetSaaSAppByID :one
-WITH posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
-  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+WITH posture_rows AS (
+  SELECT pr
   FROM saas_app_posture_rows(
     $2::timestamptz,
     $3::timestamptz,
@@ -473,34 +284,7 @@ WITH posture_rows (
     $6::timestamptz,
     $7::timestamptz,
     $8::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
+  ) AS pr
 )
 SELECT
   id::bigint AS id,
@@ -614,35 +398,8 @@ scoped_app_ids AS (
       OR lower(trim(sas.source_name)) = lower(trim($5::text))
     )
 ),
-posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
-  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+posture_rows AS (
+  SELECT pr
   FROM saas_app_posture_rows(
     $6::timestamptz,
     $7::timestamptz,
@@ -651,34 +408,7 @@ posture_rows (
     $10::timestamptz,
     $11::timestamptz,
     $12::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
+  ) AS pr
 )
 SELECT
   pr.id::bigint AS id,
@@ -826,35 +556,8 @@ scoped_app_ids AS (
       OR lower(trim(sas.source_name)) = lower(trim($9::text))
     )
 ),
-posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
-  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
+posture_rows AS (
+  SELECT pr
   FROM saas_app_posture_rows(
     $10::timestamptz,
     $11::timestamptz,
@@ -863,34 +566,7 @@ posture_rows (
     $14::timestamptz,
     $15::timestamptz,
     $16::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
+  ) AS pr
 )
 SELECT
   pr.id::bigint AS id,

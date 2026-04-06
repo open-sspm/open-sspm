@@ -80,7 +80,7 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 					{Label: "Programmatic Access"},
 					{Label: "App Assets", Href: "/app-assets"},
 					{Label: data.GoogleOAuthView.App.DisplayName},
-				}, "Review ownership, grant scope, evidence, and containment actions for a Google Workspace OAuth app.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
+				}, "Inspect governance, grant scope, evidence, and containment actions for a Google Workspace OAuth app.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
