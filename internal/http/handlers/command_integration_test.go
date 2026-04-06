@@ -100,6 +100,12 @@ func (d commandSearchTestDefinition) DecodeConfig(raw []byte) (any, error) {
 			return nil, err
 		}
 		return cfg.Normalized(), nil
+	case configstore.KindVault:
+		var cfg configstore.VaultConfig
+		if err := json.Unmarshal(raw, &cfg); err != nil {
+			return nil, err
+		}
+		return cfg.Normalized(), nil
 	default:
 		return struct{}{}, nil
 	}
@@ -129,6 +135,18 @@ func (d commandSearchTestDefinition) IsConfigured(cfg any) bool {
 		default:
 			return false
 		}
+	case configstore.VaultConfig:
+		if strings.TrimSpace(cfg.Address) == "" {
+			return false
+		}
+		switch strings.TrimSpace(cfg.AuthType) {
+		case "", configstore.VaultAuthTypeToken:
+			return strings.TrimSpace(cfg.Token) != ""
+		case configstore.VaultAuthTypeAppRole:
+			return strings.TrimSpace(cfg.AppRoleRoleID) != "" && strings.TrimSpace(cfg.AppRoleSecretID) != ""
+		default:
+			return false
+		}
 	default:
 		return false
 	}
@@ -151,6 +169,8 @@ func (d commandSearchTestDefinition) SourceName(cfg any) string {
 			return name
 		}
 		return strings.TrimSpace(cfg.Region)
+	case configstore.VaultConfig:
+		return strings.TrimSpace(cfg.SourceName())
 	default:
 		return ""
 	}
@@ -403,6 +423,7 @@ func newCommandSearchTestRegistry(t *testing.T) *connregistry.ConnectorRegistry 
 		{kind: configstore.KindGitHub, displayName: "GitHub", role: connregistry.RoleApp},
 		{kind: configstore.KindDatadog, displayName: "Datadog", role: connregistry.RoleApp},
 		{kind: configstore.KindAWSIdentityCenter, displayName: "AWS Identity Center", role: connregistry.RoleApp},
+		{kind: configstore.KindVault, displayName: "Vault", role: connregistry.RoleApp},
 	}
 	for _, def := range defs {
 		if err := reg.Register(def); err != nil {
@@ -451,6 +472,10 @@ func upsertCommandSearchConnectorConfig(t *testing.T, ctx context.Context, pool 
 		}
 	case configstore.KindAWSIdentityCenter:
 		if typed, ok := cfg.(configstore.AWSIdentityCenterConfig); ok {
+			cfg = typed.Normalized()
+		}
+	case configstore.KindVault:
+		if typed, ok := cfg.(configstore.VaultConfig); ok {
 			cfg = typed.Normalized()
 		}
 	}

@@ -8,8 +8,21 @@ Goals:
   - Okta users / groups / app assignments
   - GitHub users + entitlements
   - Datadog users + roles
+  - SaaS discovery list / hotspots / detail pages
+  - Google Workspace users, groups, unlinked users, and OAuth clients
+  - AWS Identity Center users and unlinked users
+  - Vault principals, entitlements, mounts, and auth roles
   - Programmatic access governance (app assets, owners, credentials, audit events)
   - Some Findings (pass/fail, with `schema_version=1` evidence envelope)
+
+Discovery posture is computed live from:
+- `saas_apps`
+- `saas_app_sources`
+- `saas_app_events`
+- `saas_app_bindings`
+- `governance_subject_overrides`
+
+Do not seed or expect persisted discovery posture columns on `saas_apps`; managed state, risk, and governance rollups come from the posture view/functions at read time.
 
 ## Apply (locally)
 
