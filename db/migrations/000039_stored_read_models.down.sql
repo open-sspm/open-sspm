@@ -3,7 +3,6 @@ DROP VIEW IF EXISTS discovery_app_read_models_v;
 
 DROP INDEX IF EXISTS idx_saas_app_events_active_source_app_id_observed_at_desc;
 DROP INDEX IF EXISTS idx_saas_app_sources_active_source_app_id;
-DROP INDEX IF EXISTS idx_connector_source_state_updated_at;
 DROP INDEX IF EXISTS idx_connector_source_state_discovery_scope;
 
 ALTER TABLE app_assets

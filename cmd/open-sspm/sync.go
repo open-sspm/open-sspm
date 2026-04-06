@@ -37,9 +37,13 @@ func runSync() error {
 		return err
 	}
 	defer runtimeDeps.pool.Close()
+	queries := runtimeDeps.queries
 
 	reg, err := buildConnectorRegistry(cfg)
 	if err != nil {
+		return err
+	}
+	if err := rebuildStoredReadModels(ctx, runtimeDeps.pool, queries, cfg); err != nil {
 		return err
 	}
 

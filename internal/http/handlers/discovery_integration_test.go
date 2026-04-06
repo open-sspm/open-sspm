@@ -539,7 +539,6 @@ func TestGetSaaSAppByIDComputesLivePostureScenarios(t *testing.T) {
 
 func renderDiscoveryAppShow(t *testing.T, h *Handlers, appID int64) string {
 	t.Helper()
-	refreshHandlerReadModels(t, h)
 
 	target := "http://example.com/discovery/apps/" + strconv.FormatInt(appID, 10)
 	c, rec := newTestContext(http.MethodGet, target)
@@ -557,7 +556,6 @@ func renderDiscoveryAppShow(t *testing.T, h *Handlers, appID int64) string {
 
 func renderDiscoveryApps(t *testing.T, h *Handlers, target string) string {
 	t.Helper()
-	refreshHandlerReadModels(t, h)
 
 	c, rec := newTestContext(http.MethodGet, target)
 	if err := h.HandleDiscoveryApps(c); err != nil {
@@ -601,7 +599,6 @@ func setSyncRunFinishedAt(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
 
 func getDiscoveryAppByIDForTest(t *testing.T, ctx context.Context, q *gen.Queries, h *Handlers, appID int64) gen.GetSaaSAppByIDRow {
 	t.Helper()
-	refreshHandlerReadModels(t, h)
 	row, err := q.GetSaaSAppByID(ctx, appID)
 	if err != nil {
 		t.Fatalf("GetSaaSAppByID(%d): %v", appID, err)

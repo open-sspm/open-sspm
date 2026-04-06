@@ -13,9 +13,6 @@ CREATE TABLE IF NOT EXISTS connector_source_state (
 CREATE INDEX IF NOT EXISTS idx_connector_source_state_discovery_scope
   ON connector_source_state (configured, discovery_enabled, source_kind, source_name);
 
-CREATE INDEX IF NOT EXISTS idx_connector_source_state_updated_at
-  ON connector_source_state (updated_at);
-
 ALTER TABLE saas_apps
   ADD COLUMN IF NOT EXISTS actors_30d BIGINT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS has_privileged_scope BOOLEAN NOT NULL DEFAULT false,

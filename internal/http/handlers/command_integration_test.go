@@ -436,7 +436,6 @@ func newCommandSearchTestRegistry(t *testing.T) *connregistry.ConnectorRegistry 
 
 func renderCommandSearch(t *testing.T, h *Handlers, target string) string {
 	t.Helper()
-	refreshHandlerReadModels(t, h)
 
 	c, rec := newTestContext(http.MethodGet, target)
 	if err := h.HandleCommandSearch(c); err != nil {
