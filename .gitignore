@@ -2,6 +2,8 @@
 node_modules/
 web/static/app.css
 web/static/app.css.map
+docs/.vitepress/cache/
+docs/.vitepress/dist/
 tmp/
 air_errors.log
 .env

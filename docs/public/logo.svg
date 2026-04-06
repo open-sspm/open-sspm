@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Open SSPM logo">
+  <rect width="128" height="128" rx="24" fill="#0f172a"/>
+  <path d="M64 18 99 34v23c0 28-18 46-35 53C47 103 29 85 29 57V34l35-16Z" fill="#e2e8f0"/>
+  <path d="M64 31 88 42v15c0 19-11 32-24 39-13-7-24-20-24-39V42l24-11Z" fill="#0f766e"/>
+  <path d="M64 46c9 0 16 7 16 16s-7 16-16 16-16-7-16-16 7-16 16-16Zm0 10a6 6 0 1 0 0 12 6 6 0 0 0 0-12Z" fill="#f8fafc"/>
+</svg>
