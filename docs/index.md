@@ -3,50 +3,41 @@ layout: home
 
 hero:
   name: Open-SSPM
-  text: Small IAM and SaaS governance documentation
-  tagline: Deployment, connector setup, sync model, and operational guidance for Open-SSPM.
+  text: IAM and SaaS Governance
+  tagline: Know who has access to what across your identity providers and SaaS applications.
   actions:
     - theme: brand
       text: Get Started
-      link: /getting-started
+      link: /install/
     - theme: alt
-      text: Deployment
-      link: /deployment
+      text: View on GitHub
+      link: https://github.com/open-sspm/open-sspm
 
 features:
-  - title: In-repo docs
-    details: This site lives with the application code so it can evolve with the product and release process.
-  - title: Operator-focused
-    details: The first pass emphasizes installation, connector setup, sync behavior, and operational troubleshooting.
-  - title: Static hosting
-    details: The site builds with VitePress and deploys to GitHub Pages without depending on the Go application runtime.
+  - title: Identity Provider Sync
+    details: Sync users, groups, and app assignments from Okta and Microsoft Entra ID.
+  - title: SaaS Application Discovery
+    details: Discover OAuth apps, token grants, and SSO activity across your IdPs.
+  - title: Connected Apps
+    details: Sync permissions from GitHub, Google Workspace, Datadog, and AWS Identity Center.
+  - title: Account Linking
+    details: Automatically link accounts by email or manually connect identities without matching addresses.
+  - title: Security Findings
+    details: Evaluate your Okta configuration against CIS benchmarks and security rules.
+  - title: Self-Hosted
+    details: Run locally with Docker-backed Postgres or deploy the container image to Kubernetes.
 ---
 
-## What belongs here
+## Quick Start
 
-This docs site should answer four questions quickly:
+```bash
+git clone https://github.com/open-sspm/open-sspm.git
+cd open-sspm
+cp .env.example .env
+docker compose up -d
+# Open http://localhost:8080
+```
 
-1. What does Open-SSPM do?
-2. How do I run and deploy it?
-3. How do I configure connectors and sync data?
-4. How do I troubleshoot and operate it safely?
+See the [Installation Guide](/install/) for production deployment options.
 
-## Initial scope
-
-The current skeleton creates the starting structure for:
-
-- quickstart and local setup
-- architecture and product concepts
-- deployment and hosting
-- connectors and configuration
-- operations and troubleshooting
-
-## Source material
-
-The initial content should be expanded from the existing repo sources:
-
-- `README.md`
-- `helm/README.md`
-- `demo/infra/DEPLOYMENT.md`
-- `.env.example`
-- `justfile`
+**Live demo** — try Open-SSPM without installing at [demo.opensspm.com](https://demo.opensspm.com) (admin@admin.com / admin, resets daily).

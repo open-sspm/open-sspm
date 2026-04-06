@@ -45,7 +45,3 @@
 - Start from `.env.example` for local setup and never commit secrets.
 - Connector credentials are stored in Postgres; do not log tokens, client secrets, or similar sensitive fields.
 
-## Pull Requests
-
-- PR titles must follow Conventional Commits; the semantic PR workflow enforces this.
-- In change descriptions, call out the user-visible effect, risk areas, and any regression covered by tests.

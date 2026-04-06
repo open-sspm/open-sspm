@@ -23,8 +23,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      DOCS_BASE: /
 
     steps:
       - name: Checkout
@@ -37,12 +35,15 @@ jobs:
           cache: npm
 
       - name: Configure GitHub Pages
+        id: pages
         uses: actions/configure-pages@v5
 
       - name: Install frontend dependencies
         run: npm ci
 
       - name: Build docs
+        env:
+          DOCS_BASE: ${{ steps.pages.outputs.base_path }}
         run: npm run docs:build
 
       - name: Upload Pages artifact
