@@ -106,6 +106,14 @@ ui:
 ui-watch:
     npm run watch:css
 
+# Run the docs site locally
+docs:
+    npm run docs:dev
+
+# Build the docs site
+docs-build:
+    npm run docs:build
+
 # Sync vendored frontend runtime JS from node_modules
 vendor-sync:
     npm run vendor:sync

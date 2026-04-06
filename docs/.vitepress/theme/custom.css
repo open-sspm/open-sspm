@@ -1,0 +1,465 @@
+:root {
+  --osspm-background: oklch(100% 0 0);
+  --osspm-foreground: oklch(14.5% 0 0);
+  --osspm-primary: oklch(20.5% 0 0);
+  --osspm-primary-foreground: oklch(98.5% 0 0);
+  --osspm-muted: oklch(97% 0 0);
+  --osspm-muted-foreground: oklch(55.6% 0 0);
+  --osspm-border: oklch(92.2% 0 0);
+  --osspm-blue-glow: oklch(54.6% 0.245 262.881);
+
+  --vp-font-family-base: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --vp-font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  --vp-c-bg: var(--osspm-background);
+  --vp-c-bg-soft: var(--osspm-muted);
+  --vp-c-bg-mute: var(--osspm-muted);
+  --vp-c-bg-alt: var(--osspm-background);
+  --vp-c-text-1: var(--osspm-foreground);
+  --vp-c-text-2: var(--osspm-muted-foreground);
+  --vp-c-text-3: color-mix(in oklab, var(--osspm-muted-foreground) 82%, white);
+  --vp-c-border: var(--osspm-border);
+  --vp-c-divider: var(--osspm-border);
+  --vp-c-gutter: color-mix(in oklab, var(--osspm-border) 88%, white);
+
+  --vp-c-brand-1: var(--osspm-primary);
+  --vp-c-brand-2: color-mix(in oklab, var(--osspm-primary) 92%, white);
+  --vp-c-brand-3: color-mix(in oklab, var(--osspm-primary) 82%, white);
+  --vp-c-brand-soft: color-mix(in oklab, var(--osspm-primary) 8%, white);
+
+  --vp-button-brand-bg: var(--osspm-primary);
+  --vp-button-brand-hover-bg: color-mix(in oklab, var(--osspm-primary) 90%, black);
+  --vp-button-brand-active-bg: color-mix(in oklab, var(--osspm-primary) 84%, black);
+  --vp-button-brand-text: var(--osspm-primary-foreground);
+  --vp-button-brand-border: var(--osspm-primary);
+
+  --vp-button-alt-bg: color-mix(in oklab, var(--osspm-muted) 74%, white);
+  --vp-button-alt-hover-bg: color-mix(in oklab, var(--osspm-muted) 90%, white);
+  --vp-button-alt-active-bg: color-mix(in oklab, var(--osspm-muted) 96%, white);
+  --vp-button-alt-text: var(--osspm-foreground);
+  --vp-button-alt-border: var(--osspm-border);
+
+  --vp-home-hero-name-color: var(--osspm-foreground);
+  --vp-home-hero-text-color: var(--osspm-foreground);
+  --vp-home-hero-tagline-color: var(--osspm-muted-foreground);
+  --vp-nav-bg-color: color-mix(in oklab, var(--osspm-background) 82%, transparent);
+  --vp-sidebar-bg-color: color-mix(in oklab, var(--osspm-background) 92%, transparent);
+  --vp-local-nav-bg-color: color-mix(in oklab, var(--osspm-background) 88%, transparent);
+  --vp-code-block-bg: color-mix(in oklab, var(--osspm-muted) 68%, white);
+}
+
+.dark {
+  --osspm-background: oklch(14.5% 0 0);
+  --osspm-foreground: oklch(98.5% 0 0);
+  --osspm-primary: oklch(92.2% 0 0);
+  --osspm-primary-foreground: oklch(20.5% 0 0);
+  --osspm-muted: oklch(26.9% 0 0);
+  --osspm-muted-foreground: oklch(70.8% 0 0);
+  --osspm-border: oklch(100% 0 0 / 0.1);
+
+  --vp-c-bg: var(--osspm-background);
+  --vp-c-bg-soft: color-mix(in oklab, var(--osspm-muted) 90%, black);
+  --vp-c-bg-mute: var(--osspm-muted);
+  --vp-c-bg-alt: var(--osspm-background);
+  --vp-c-text-1: var(--osspm-foreground);
+  --vp-c-text-2: var(--osspm-muted-foreground);
+  --vp-c-text-3: color-mix(in oklab, var(--osspm-muted-foreground) 70%, black);
+  --vp-c-border: var(--osspm-border);
+  --vp-c-divider: var(--osspm-border);
+  --vp-c-gutter: var(--osspm-border);
+
+  --vp-c-brand-1: var(--osspm-primary);
+  --vp-c-brand-2: color-mix(in oklab, var(--osspm-primary) 90%, black);
+  --vp-c-brand-3: color-mix(in oklab, var(--osspm-primary) 78%, black);
+  --vp-c-brand-soft: color-mix(in oklab, var(--osspm-primary) 10%, transparent);
+
+  --vp-button-brand-bg: var(--osspm-primary);
+  --vp-button-brand-hover-bg: color-mix(in oklab, var(--osspm-primary) 92%, white);
+  --vp-button-brand-active-bg: color-mix(in oklab, var(--osspm-primary) 80%, white);
+  --vp-button-brand-text: var(--osspm-primary-foreground);
+  --vp-button-brand-border: color-mix(in oklab, var(--osspm-primary) 65%, transparent);
+
+  --vp-button-alt-bg: color-mix(in oklab, var(--osspm-muted) 96%, white);
+  --vp-button-alt-hover-bg: color-mix(in oklab, var(--osspm-muted) 88%, white);
+  --vp-button-alt-active-bg: color-mix(in oklab, var(--osspm-muted) 82%, white);
+  --vp-button-alt-text: var(--osspm-foreground);
+  --vp-button-alt-border: var(--osspm-border);
+
+  --vp-nav-bg-color: color-mix(in oklab, var(--osspm-background) 76%, transparent);
+  --vp-sidebar-bg-color: color-mix(in oklab, var(--osspm-background) 90%, transparent);
+  --vp-local-nav-bg-color: color-mix(in oklab, var(--osspm-background) 82%, transparent);
+  --vp-code-block-bg: color-mix(in oklab, var(--osspm-muted) 94%, black);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Animations                                                         */
+/* ------------------------------------------------------------------ */
+
+@keyframes hero-fade-up {
+  from { opacity: 0; transform: translateY(1.5rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes feature-fade-in {
+  from { opacity: 0; transform: translateY(0.75rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Base                                                               */
+/* ------------------------------------------------------------------ */
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--vp-c-bg);
+  color: var(--vp-c-text-1);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body::selection {
+  background: color-mix(in oklab, var(--vp-c-brand-1) 12%, transparent);
+  color: var(--vp-c-brand-1);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Nav                                                                */
+/* ------------------------------------------------------------------ */
+
+.VPNav {
+  background: var(--vp-c-bg);
+}
+
+.VPNavBar {
+  border-bottom: 1px solid var(--vp-c-border);
+}
+
+.VPNavBar .container,
+.VPNavBar.has-sidebar .container {
+  max-width: 1440px;
+}
+
+.VPNavBarTitle {
+  gap: 0.8rem;
+}
+
+.VPNavBarTitle .logo {
+  height: 1.9rem;
+  width: auto;
+}
+
+.VPNavBarMenuLink,
+.VPNavBarExtra a,
+.VPSocialLinks a {
+  transition: color 0.18s ease, opacity 0.18s ease;
+}
+
+.VPLocalNav {
+  border-bottom: 1px solid var(--vp-c-border);
+  background: var(--vp-local-nav-bg-color);
+  backdrop-filter: blur(14px);
+}
+
+.VPSidebar {
+  background: var(--vp-sidebar-bg-color);
+  backdrop-filter: blur(18px);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Home: layout                                                       */
+/* ------------------------------------------------------------------ */
+
+.VPContent.is-home {
+  overflow: clip;
+}
+
+.VPHome {
+  position: relative;
+}
+
+/* Ambient glow behind hero — stronger than before */
+.VPHome::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 50%;
+  width: min(80rem, 100vw);
+  height: 40rem;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: radial-gradient(
+    ellipse 70% 55% at 50% 35%,
+    color-mix(in oklab, var(--osspm-blue-glow) 30%, transparent) 0%,
+    color-mix(in oklab, var(--osspm-primary) 12%, transparent) 40%,
+    transparent 75%
+  );
+  opacity: 0.85;
+  filter: blur(90px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Hero: poster treatment                                             */
+/* ------------------------------------------------------------------ */
+
+.VPHero {
+  position: relative;
+  min-height: 100svh;
+  display: flex !important;
+  align-items: center;
+  padding-bottom: 3rem !important;
+}
+
+.VPHero .container {
+  display: flex;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+
+.VPHero .main {
+  max-width: 52rem;
+  margin: 0 auto;
+  text-align: center;
+  animation: hero-fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.VPHero .main .heading {
+  align-items: center;
+}
+
+.VPHero .name,
+.VPHero .text {
+  width: auto !important;
+  max-width: none !important;
+  text-align: center;
+}
+
+.VPHero .name {
+  font-size: clamp(3.5rem, 8vw, 6rem);
+  line-height: 0.92;
+  letter-spacing: -0.045em;
+  font-weight: 800;
+}
+
+.VPHero .text {
+  margin-top: 1rem;
+  font-size: clamp(1.1rem, 2.2vw, 1.45rem);
+  line-height: 1.35;
+  font-weight: 600;
+  color: var(--vp-c-text-2);
+}
+
+.VPHero .tagline {
+  max-width: 38rem;
+  margin: 1.5rem auto 0;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  letter-spacing: 0.005em;
+  color: var(--vp-c-text-3);
+}
+
+.VPHero .actions {
+  justify-content: center;
+  margin-top: 2.5rem;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Buttons                                                            */
+/* ------------------------------------------------------------------ */
+
+.VPButton {
+  min-height: 2.9rem;
+  padding: 0 1.35rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+}
+
+.VPButton.brand {
+  border-color: var(--vp-button-brand-border);
+}
+
+.VPButton.alt {
+  border-color: var(--vp-button-alt-border);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Features: cardless flat grid                                       */
+/* ------------------------------------------------------------------ */
+
+.VPHomeFeatures {
+  margin-top: 0;
+  padding: 4.5rem 0 5rem !important;
+  border-top: 1px solid var(--vp-c-border);
+  background: none;
+}
+
+.VPFeatures.VPHomeFeatures .container {
+  max-width: 1080px;
+  padding-inline: 2rem;
+}
+
+.VPFeatures .items {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 2.5rem 3rem !important;
+  margin: 0 !important;
+}
+
+.VPFeatures .items > .item,
+.VPFeatures .items > .item[class*="grid-"] {
+  width: 100% !important;
+  flex-basis: auto !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: none !important;
+  opacity: 0;
+  animation: feature-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.VPFeatures .items > .item:nth-child(1) { animation-delay: 0.15s; }
+.VPFeatures .items > .item:nth-child(2) { animation-delay: 0.2s; }
+.VPFeatures .items > .item:nth-child(3) { animation-delay: 0.25s; }
+.VPFeatures .items > .item:nth-child(4) { animation-delay: 0.3s; }
+.VPFeatures .items > .item:nth-child(5) { animation-delay: 0.35s; }
+.VPFeatures .items > .item:nth-child(6) { animation-delay: 0.4s; }
+
+@media (max-width: 1024px) {
+  .VPFeatures .items {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 2rem 2.5rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .VPFeatures .items {
+    grid-template-columns: 1fr !important;
+    gap: 1.75rem !important;
+  }
+}
+
+.VPFeatures .items > .item .VPFeature {
+  height: 100%;
+}
+
+.VPFeature {
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  transition: none;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.VPFeature:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: transparent;
+}
+
+.VPFeature .box {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.VPFeature .title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.4;
+  padding-left: 0.85rem;
+  border-left: 2px solid var(--vp-c-brand-1);
+}
+
+.VPFeature .details {
+  margin-top: 0.5rem;
+  padding-left: 0.85rem;
+  line-height: 1.65;
+  font-size: 0.875rem;
+  color: var(--vp-c-text-3);
+  max-width: 28rem;
+  flex: 1;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Doc pages                                                          */
+/* ------------------------------------------------------------------ */
+
+.VPDoc.has-aside .content-container,
+.VPDoc .content-container {
+  max-width: 820px;
+}
+
+.VPDoc {
+  background: linear-gradient(to bottom, color-mix(in oklab, var(--vp-c-bg) 88%, transparent), var(--vp-c-bg));
+}
+
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3 {
+  letter-spacing: -0.03em;
+}
+
+.vp-doc h1 {
+  font-size: clamp(2.25rem, 5vw, 3rem);
+}
+
+.vp-doc a {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.vp-doc .custom-block,
+.vp-doc div[class*="language-"] {
+  border-radius: 1rem;
+}
+
+.vp-doc table {
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.VPDocOutlineItem .outline-link:hover,
+.VPDocAsideOutline .outline-link:hover,
+.VPNavBarMenuLink:hover {
+  color: var(--vp-c-brand-1);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Responsive overrides                                               */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 960px) {
+  .VPHero .tagline {
+    max-width: 30rem;
+  }
+
+  .VPHomeFeatures {
+    padding-top: 3.25rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .VPHero {
+    min-height: auto;
+  }
+
+  .VPHero .name {
+    font-size: clamp(2.5rem, 12vw, 3.5rem);
+  }
+
+  .VPFeature .details {
+    max-width: none;
+  }
+}
