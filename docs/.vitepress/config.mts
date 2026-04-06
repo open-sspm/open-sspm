@@ -9,13 +9,21 @@ export default defineConfig({
   lang: "en-US",
   lastUpdated: true,
   cleanUrls: true,
+  head: [
+    ["link", {rel: "icon", href: "/shield.png", type: "image/png"}],
+  ],
   base: process.env.DOCS_BASE ?? (process.env.GITHUB_ACTIONS === "true" ? ciBase : "/"),
   themeConfig: {
-    logo: "/logo.svg",
+    siteTitle: false,
+    logo: {
+      light: "/logo.svg",
+      dark: "/logo-dark.svg",
+    },
     nav: [
       {text: "Guide", link: "/getting-started"},
       {text: "Deployment", link: "/deployment"},
       {text: "Operations", link: "/operations"},
+      {text: "GitHub", link: "https://github.com/open-sspm/open-sspm"},
     ],
     sidebar: [
       {
@@ -25,6 +33,7 @@ export default defineConfig({
           {text: "Getting Started", link: "/getting-started"},
           {text: "Architecture", link: "/architecture"},
           {text: "Connectors", link: "/connectors"},
+          {text: "Deployment", link: "/deployment"},
           {text: "Operations", link: "/operations"},
         ],
       },
@@ -36,7 +45,7 @@ export default defineConfig({
       {icon: "github", link: "https://github.com/open-sspm/open-sspm"},
     ],
     footer: {
-      message: "Open-SSPM documentation skeleton",
+      message: "Released under the MIT License.",
       copyright: "Copyright Open-SSPM contributors",
     },
   },
