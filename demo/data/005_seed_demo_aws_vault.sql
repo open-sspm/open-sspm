@@ -224,6 +224,17 @@ ON CONFLICT (app_user_id, kind, resource, permission) DO UPDATE SET
 
 -- Link AWS users to existing identities by email.
 WITH
+  authoritative_identities AS (
+    SELECT DISTINCT ia.identity_id
+    FROM identity_accounts ia
+    JOIN accounts anchor ON anchor.id = ia.account_id
+    JOIN identity_source_settings iss
+      ON iss.source_kind = anchor.source_kind
+     AND iss.source_name = anchor.source_name
+     AND iss.is_authoritative
+    WHERE anchor.expired_at IS NULL
+      AND anchor.last_observed_run_id IS NOT NULL
+  ),
   aws_accounts AS (
     SELECT
       a.id AS account_id,
@@ -238,10 +249,16 @@ WITH
   matches AS (
     SELECT
       aws_accounts.account_id,
-      identities.id AS identity_id
+      identity_match.id AS identity_id
     FROM aws_accounts
-    JOIN identities
-      ON lower(identities.primary_email) = aws_accounts.email
+    JOIN LATERAL (
+      SELECT i.id
+      FROM identities i
+      LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
+      WHERE lower(i.primary_email) = aws_accounts.email
+      ORDER BY (ai.identity_id IS NOT NULL) DESC, i.id ASC
+      LIMIT 1
+    ) identity_match ON TRUE
   )
 INSERT INTO identity_accounts (identity_id, account_id, link_reason, confidence, updated_at)
 SELECT
@@ -531,6 +548,17 @@ ON CONFLICT (source_kind, source_name, asset_kind, external_id) DO UPDATE SET
 -- Governance coverage for Vault app assets.
 WITH
   ctx AS (SELECT * FROM demo_seed_ctx_v5),
+  authoritative_identities AS (
+    SELECT DISTINCT ia.identity_id
+    FROM identity_accounts ia
+    JOIN accounts anchor ON anchor.id = ia.account_id
+    JOIN identity_source_settings iss
+      ON iss.source_kind = anchor.source_kind
+     AND iss.source_name = anchor.source_name
+     AND iss.is_authoritative
+    WHERE anchor.expired_at IS NULL
+      AND anchor.last_observed_run_id IS NOT NULL
+  ),
   app_defs (asset_kind, external_id, governance_state, owner_email, notes) AS (
     VALUES
       ('vault_auth_mount', 'oidc/', 'approved', 'demo.user040@example.com', 'OIDC auth mount is approved for the demo baseline.'),
@@ -571,14 +599,20 @@ SELECT
   NULL::bigint,
   ctx.now_ts
 FROM app_defs
+CROSS JOIN ctx
 JOIN app_assets aa
   ON aa.source_kind = 'vault'
   AND aa.source_name = ctx.vault_source_name
   AND aa.asset_kind = app_defs.asset_kind
   AND aa.external_id = app_defs.external_id
-LEFT JOIN identities owner
-  ON lower(owner.primary_email) = lower(app_defs.owner_email)
-CROSS JOIN ctx
+LEFT JOIN LATERAL (
+  SELECT i.id
+  FROM identities i
+  LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
+  WHERE lower(i.primary_email) = lower(app_defs.owner_email)
+  ORDER BY (ai.identity_id IS NOT NULL) DESC, i.id ASC
+  LIMIT 1
+) owner ON TRUE
 ON CONFLICT (subject_kind, subject_id) DO UPDATE SET
   governance_state = EXCLUDED.governance_state,
   owner_identity_id = EXCLUDED.owner_identity_id,
