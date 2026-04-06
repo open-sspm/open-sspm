@@ -283,6 +283,8 @@ func TestDemoSeedConnectorSecretsDecrypt(t *testing.T) {
 		{name: "datadog api key", path: "demo/data/001_seed_demo.sql", kind: KindDatadog, secret: secretNameAPIKey, plaintext: "demo_datadog_api_key"},
 		{name: "datadog app key", path: "demo/data/001_seed_demo.sql", kind: KindDatadog, secret: secretNameAppKey, plaintext: "demo_datadog_app_key"},
 		{name: "entra client secret", path: "demo/data/002_seed_demo_expanded.sql", kind: KindEntra, secret: secretNameClientSecret, plaintext: "demo_entra_client_secret"},
+		{name: "google workspace service account json", path: "demo/data/003_seed_demo_connectors_and_discovery.sql", kind: KindGoogleWorkspace, secret: secretNameServiceAccountJSON, plaintext: `{"client_email":"demo-open-sspm@demo-project.iam.gserviceaccount.com","private_key":"-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----","token_uri":"https://oauth2.googleapis.com/token"}`},
+		{name: "vault token", path: "demo/data/003_seed_demo_connectors_and_discovery.sql", kind: KindVault, secret: secretNameToken, plaintext: "demo_vault_token"},
 	}
 
 	for _, tc := range tests {
