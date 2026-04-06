@@ -143,6 +143,7 @@ WITH
       id,
       regexp_replace(external_id, '^aws-user-', '')::int AS user_ord
     FROM accounts
+    CROSS JOIN ctx
     WHERE source_kind = 'aws'
       AND source_name = ctx.aws_region
       AND external_id LIKE 'aws-user-%'
@@ -386,6 +387,7 @@ WITH
   vault_accounts AS (
     SELECT id, external_id
     FROM accounts
+    CROSS JOIN ctx
     WHERE source_kind = 'vault'
       AND source_name = ctx.vault_source_name
       AND expired_at IS NULL

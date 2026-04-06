@@ -206,6 +206,7 @@ WITH
       a.id,
       regexp_replace(a.external_id, '^gw-user-', '')::int AS user_ord
     FROM accounts a
+    CROSS JOIN ctx
     WHERE a.source_kind = 'google_workspace'
       AND a.source_name = ctx.google_customer_id
       AND a.external_id LIKE 'gw-user-%'
