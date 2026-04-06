@@ -12,20 +12,24 @@ const (
 )
 
 type ConnectedAppsQuery struct {
-	Q           string
-	ReviewState string
-	Page        int
+	Q               string
+	GovernanceState string
+	Page            int
 }
 
 func ParseConnectedAppsQuery(values url.Values) ConnectedAppsQuery {
+	governanceState := NormalizeConnectedAppGovernanceState(values.Get("governance_state"), true)
+	if governanceState == "" {
+		governanceState = NormalizeConnectedAppGovernanceState(values.Get("review_state"), true)
+	}
 	return ConnectedAppsQuery{
-		Q:           strings.TrimSpace(values.Get("q")),
-		ReviewState: NormalizeConnectedAppReviewState(values.Get("review_state"), true),
-		Page:        parsePage(values.Get("page")),
+		Q:               strings.TrimSpace(values.Get("q")),
+		GovernanceState: governanceState,
+		Page:            parsePage(values.Get("page")),
 	}
 }
 
-func NormalizeConnectedAppReviewState(raw string, allowBlank bool) string {
+func NormalizeConnectedAppGovernanceState(raw string, allowBlank bool) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "":
 		if allowBlank {
@@ -34,12 +38,12 @@ func NormalizeConnectedAppReviewState(raw string, allowBlank bool) string {
 		return ""
 	case "unreviewed":
 		return "unreviewed"
-	case "under_review":
-		return "under_review"
-	case "sanctioned":
-		return "sanctioned"
-	case "needs_revocation":
-		return "needs_revocation"
+	case "under_review", "in_review":
+		return "in_review"
+	case "sanctioned", "approved":
+		return "approved"
+	case "needs_revocation", "action_required":
+		return "action_required"
 	case "ticketed":
 		return "ticketed"
 	default:
@@ -52,7 +56,7 @@ func (q ConnectedAppsQuery) Values() url.Values {
 	values.Set("source_kind", connectedAppsSourceKey)
 	values.Set("asset_kind", connectedAppsAssetKind)
 	setIfNotEmpty(values, "q", q.Q)
-	setIfNotEmpty(values, "review_state", q.ReviewState)
+	setIfNotEmpty(values, "governance_state", q.GovernanceState)
 	setIfPage(values, q.Page)
 	return values
 }
@@ -75,12 +79,12 @@ func (q ConnectedAppsQuery) ClearQuery() ConnectedAppsQuery {
 	return q
 }
 
-func (q ConnectedAppsQuery) WithReviewState(reviewState string) ConnectedAppsQuery {
-	q.ReviewState = NormalizeConnectedAppReviewState(reviewState, true)
+func (q ConnectedAppsQuery) WithGovernanceState(governanceState string) ConnectedAppsQuery {
+	q.GovernanceState = NormalizeConnectedAppGovernanceState(governanceState, true)
 	q.Page = 1
 	return q
 }
 
 func (q ConnectedAppsQuery) HasFilters() bool {
-	return strings.TrimSpace(q.Q) != "" || strings.TrimSpace(q.ReviewState) != ""
+	return strings.TrimSpace(q.Q) != "" || strings.TrimSpace(q.GovernanceState) != ""
 }

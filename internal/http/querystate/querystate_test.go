@@ -218,18 +218,61 @@ func TestParseDiscoveryQueries(t *testing.T) {
 }
 
 func TestConnectedAppsQuery(t *testing.T) {
-	query := ParseConnectedAppsQuery(url.Values{
-		"q":            []string{"drive"},
-		"review_state": []string{"under_review"},
-		"page":         []string{"2"},
+	t.Run("keeps canonical governance state hrefs", func(t *testing.T) {
+		query := ParseConnectedAppsQuery(url.Values{
+			"q":                []string{"drive"},
+			"governance_state": []string{"in_review"},
+			"page":             []string{"2"},
+		})
+		want := "/app-assets?asset_kind=google_oauth_client&governance_state=in_review&page=2&q=drive&source_kind=google_workspace"
+		if query.Href() != want {
+			t.Fatalf("href = %q, want %q", query.Href(), want)
+		}
+		if got := query.WithGovernanceState("").ClearQuery().Href(); got != "/app-assets?asset_kind=google_oauth_client&source_kind=google_workspace" {
+			t.Fatalf("href = %q", got)
+		}
 	})
-	want := "/app-assets?asset_kind=google_oauth_client&page=2&q=drive&review_state=under_review&source_kind=google_workspace"
-	if query.Href() != want {
-		t.Fatalf("href = %q, want %q", query.Href(), want)
-	}
-	if got := query.WithReviewState("").ClearQuery().Href(); got != "/app-assets?asset_kind=google_oauth_client&source_kind=google_workspace" {
-		t.Fatalf("href = %q", got)
-	}
+
+	t.Run("maps legacy review states to canonical governance states", func(t *testing.T) {
+		cases := []struct {
+			name string
+			raw  string
+			want string
+		}{
+			{name: "under review", raw: "under_review", want: "in_review"},
+			{name: "needs revocation", raw: "needs_revocation", want: "action_required"},
+			{name: "sanctioned", raw: "sanctioned", want: "approved"},
+			{name: "ticketed", raw: "ticketed", want: "ticketed"},
+			{name: "unreviewed", raw: "unreviewed", want: "unreviewed"},
+		}
+
+		for _, tc := range cases {
+			query := ParseConnectedAppsQuery(url.Values{
+				"review_state": []string{tc.raw},
+			})
+			if query.GovernanceState != tc.want {
+				t.Fatalf("%s: state = %q, want %q", tc.name, query.GovernanceState, tc.want)
+			}
+			wantHref := "/app-assets?asset_kind=google_oauth_client&governance_state=" + tc.want + "&source_kind=google_workspace"
+			if query.Href() != wantHref {
+				t.Fatalf("%s: href = %q, want %q", tc.name, query.Href(), wantHref)
+			}
+		}
+	})
+
+	t.Run("drops blank and unknown legacy states", func(t *testing.T) {
+		for _, raw := range []string{"", "missing"} {
+			query := ParseConnectedAppsQuery(url.Values{
+				"review_state": []string{raw},
+			})
+			if query.GovernanceState != "" {
+				t.Fatalf("raw %q: state = %q, want blank", raw, query.GovernanceState)
+			}
+			if query.Href() != "/app-assets?asset_kind=google_oauth_client&source_kind=google_workspace" {
+				t.Fatalf("raw %q: href = %q", raw, query.Href())
+			}
+		}
+	})
 }
 
 func TestBasicListQuery(t *testing.T) {

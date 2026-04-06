@@ -62,7 +62,7 @@ func AppAssetsPage(data viewmodels.AppAssetsViewData) templ.Component {
 					{Label: "Dashboard", Href: "/"},
 					{Label: "Programmatic Access"},
 					{Label: "App Assets"},
-				}, "Saved view for Google Workspace OAuth apps with review state, grant activity, ownership, and discovery evidence.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
+				}, "Saved view for Google Workspace OAuth apps with governance state, grant activity, ownership, and discovery evidence.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

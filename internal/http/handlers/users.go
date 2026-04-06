@@ -247,7 +247,6 @@ func (h *Handlers) HandleGitHubUsers(c *echo.Context) error {
 		BasePath:           "/accounts/github",
 		ConnectorName:      "GitHub",
 		ConnectorKind:      "github",
-		SourceKind:         querySourceKind("github"),
 		EmptyStateHref:     "/settings/connectors?open=github",
 		SyncedEmptyState:   "No GitHub users synced yet.",
 		FilteredEmptyState: "No GitHub users match the current search.",

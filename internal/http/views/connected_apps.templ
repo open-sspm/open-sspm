@@ -9,7 +9,7 @@ templ ConnectedAppsPage(data viewmodels.ConnectedAppsViewData) {
 			{Label: "Programmatic Access"},
 			{Label: "App Assets", Href: "/app-assets"},
 			{Label: "OAuth Apps"},
-		}, "Saved view for Google Workspace OAuth apps with review state, grant activity, ownership, and discovery evidence.") {
+		}, "Saved view for Google Workspace OAuth apps with governance state, grant activity, ownership, and discovery evidence.") {
 		}
 		@ConnectedAppsPageResults(data)
 	}
@@ -47,14 +47,14 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 				</label>
 				<div class="flex flex-col gap-2 lg:items-end">
 					<label class="field">
-						<span class="label">Review state</span>
-						<select class="select min-w-48" name="review_state">
-							<option value="" selected?={ data.Query.ReviewState == "" }>All states</option>
-							<option value="needs_revocation" selected?={ data.Query.ReviewState == "needs_revocation" }>Needs revocation</option>
-							<option value="under_review" selected?={ data.Query.ReviewState == "under_review" }>Under review</option>
-							<option value="unreviewed" selected?={ data.Query.ReviewState == "unreviewed" }>Unreviewed</option>
-							<option value="ticketed" selected?={ data.Query.ReviewState == "ticketed" }>Ticketed</option>
-							<option value="sanctioned" selected?={ data.Query.ReviewState == "sanctioned" }>Sanctioned</option>
+						<span class="label">Governance state</span>
+						<select class="select min-w-48" name="governance_state">
+							<option value="" selected?={ data.Query.GovernanceState == "" }>All states</option>
+							<option value="action_required" selected?={ data.Query.GovernanceState == "action_required" }>Action required</option>
+							<option value="in_review" selected?={ data.Query.GovernanceState == "in_review" }>In review</option>
+							<option value="unreviewed" selected?={ data.Query.GovernanceState == "unreviewed" }>Unreviewed</option>
+							<option value="ticketed" selected?={ data.Query.GovernanceState == "ticketed" }>Ticketed</option>
+							<option value="approved" selected?={ data.Query.GovernanceState == "approved" }>Approved</option>
 						</select>
 					</label>
 					<div class="text-sm text-muted-foreground">
@@ -71,7 +71,7 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 
 		<section class="space-y-3">
 			<div class="flex flex-wrap gap-2">
-				for _, item := range data.ReviewCounts {
+				for _, item := range data.GovernanceCounts {
 					<a
 						href={ item.Href }
 						hx-get={ item.Href }
@@ -92,7 +92,7 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 			<div class="flex items-center gap-3">
 				<div>
 					<h2 class="text-base font-semibold">OAuth Apps</h2>
-					<p class="text-sm text-muted-foreground">Directly sourced from OAuth grant inventory and discovery evidence. Review state is operator-managed.</p>
+					<p class="text-sm text-muted-foreground">Directly sourced from OAuth grant inventory and discovery evidence. Governance state is operator-managed.</p>
 				</div>
 			</div>
 			if data.HasItems {
@@ -106,19 +106,19 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 									<div class="text-xs text-muted-foreground break-all">{ item.ExternalID }</div>
 								</div>
 								<div class="flex flex-wrap items-center gap-2">
-									<span class={ ConnectedAppReviewStateBadgeClass(item.ReviewState) }>{ HumanizeConnectedAppReviewState(item.ReviewState) }</span>
+									<span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span>
 									if item.TicketRef != "" {
 										<span class="badge-outline">{ item.TicketRef }</span>
 									}
-									<span class={ ConnectedAppConfidenceBadgeClass(item.Confidence) }>{ HumanizeConnectedAppConfidence(item.Confidence) }</span>
-									<span class={ ConnectedAppFreshnessBadgeClass(item.Freshness) }>{ HumanizeConnectedAppFreshness(item.Freshness) }</span>
+									<span class={ AppAssetEvidenceConfidenceBadgeClass(item.EvidenceConfidence) }>{ HumanizeAppAssetEvidenceConfidence(item.EvidenceConfidence) }</span>
+									<span class={ AppAssetEvidenceFreshnessBadgeClass(item.EvidenceFreshness) }>{ HumanizeAppAssetEvidenceFreshness(item.EvidenceFreshness) }</span>
 								</div>
 								<div class="grid gap-3 sm:grid-cols-2">
 									<div>
 										<p class="text-xs uppercase tracking-wide text-muted-foreground">Owner</p>
-										<p class="mt-1 text-sm">{ item.ReviewOwner }</p>
-										if item.ReviewOwnerEmail != "" && item.ReviewOwnerEmail != item.ReviewOwner {
-											<p class="text-xs text-muted-foreground break-all">{ item.ReviewOwnerEmail }</p>
+										<p class="mt-1 text-sm">{ item.GovernanceOwner }</p>
+										if item.GovernanceOwnerEmail != "" && item.GovernanceOwnerEmail != item.GovernanceOwner {
+											<p class="text-xs text-muted-foreground break-all">{ item.GovernanceOwnerEmail }</p>
 										}
 										<p class="text-xs text-muted-foreground">{ FormatInt(item.LikelyOwnerCount) }{ " likely owner(s)" }</p>
 									</div>
@@ -129,7 +129,7 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 									</div>
 								</div>
 								<div class="flex items-start justify-between gap-3 border-t border-border/60 pt-3">
-									<p class="text-xs text-muted-foreground">{ item.ConfidenceReason }</p>
+									<p class="text-xs text-muted-foreground">{ item.EvidenceConfidenceReason }</p>
 									<p class="shrink-0 text-xs text-muted-foreground">{ item.LastSeenAt }</p>
 								</div>
 							</div>
@@ -140,11 +140,11 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 				<div class="hidden lg:block">
 					@ColumnsTable("connected-apps--main", "") {
 						<table data-columns-id="connected-apps--main" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-							<caption class="sr-only">OAuth apps with review state, ownership, evidence, and freshness.</caption>
+							<caption class="sr-only">OAuth apps with governance state, ownership, and evidence posture.</caption>
 							<thead>
 								<tr>
 									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">OAuth app</th>
-									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Review</th>
+									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Governance</th>
 									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Owner</th>
 									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Evidence</th>
 									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Confidence</th>
@@ -161,16 +161,16 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 										</td>
 										<td>
 											<div class="flex flex-wrap items-center gap-2">
-												<span class={ ConnectedAppReviewStateBadgeClass(item.ReviewState) }>{ HumanizeConnectedAppReviewState(item.ReviewState) }</span>
+												<span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span>
 												if item.TicketRef != "" {
 													<span class="badge-outline">{ item.TicketRef }</span>
 												}
 											</div>
 										</td>
 										<td>
-											<div class="text-sm">{ item.ReviewOwner }</div>
-											if item.ReviewOwnerEmail != "" && item.ReviewOwnerEmail != item.ReviewOwner {
-												<div class="text-xs text-muted-foreground break-all">{ item.ReviewOwnerEmail }</div>
+											<div class="text-sm">{ item.GovernanceOwner }</div>
+											if item.GovernanceOwnerEmail != "" && item.GovernanceOwnerEmail != item.GovernanceOwner {
+												<div class="text-xs text-muted-foreground break-all">{ item.GovernanceOwnerEmail }</div>
 											}
 											<div class="text-xs text-muted-foreground">{ FormatInt(item.LikelyOwnerCount) }{ " likely owner(s)" }</div>
 										</td>
@@ -180,10 +180,10 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 										</td>
 										<td class="whitespace-normal">
 											<div class="flex flex-wrap items-center gap-2">
-												<span class={ ConnectedAppConfidenceBadgeClass(item.Confidence) }>{ HumanizeConnectedAppConfidence(item.Confidence) }</span>
-												<span class={ ConnectedAppFreshnessBadgeClass(item.Freshness) }>{ HumanizeConnectedAppFreshness(item.Freshness) }</span>
+												<span class={ AppAssetEvidenceConfidenceBadgeClass(item.EvidenceConfidence) }>{ HumanizeAppAssetEvidenceConfidence(item.EvidenceConfidence) }</span>
+												<span class={ AppAssetEvidenceFreshnessBadgeClass(item.EvidenceFreshness) }>{ HumanizeAppAssetEvidenceFreshness(item.EvidenceFreshness) }</span>
 											</div>
-											<div class="text-xs text-muted-foreground">{ item.ConfidenceReason }</div>
+											<div class="text-xs text-muted-foreground">{ item.EvidenceConfidenceReason }</div>
 										</td>
 										<td class="osspm-num text-muted-foreground">{ item.LastSeenAt }</td>
 									</tr>
@@ -227,7 +227,7 @@ templ ConnectedAppShowPage(data viewmodels.ConnectedAppShowViewData) {
 			{Label: "Programmatic Access"},
 			{Label: "App Assets", Href: "/app-assets"},
 			{Label: data.App.DisplayName},
-		}, "Review ownership, grant scope, evidence, and containment actions for a Google Workspace OAuth app.") {
+		}, "Inspect governance, grant scope, evidence, and containment actions for a Google Workspace OAuth app.") {
 			<a class="btn-sm-outline" href={ data.App.ExportHref }>Export JSON</a>
 		}
 
@@ -249,9 +249,9 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 					<header>
 						<h2>{ data.App.DisplayName }</h2>
 						<div data-slot="card-action" class="flex flex-wrap items-center gap-2">
-							<span class={ ConnectedAppReviewStateBadgeClass(data.App.ReviewState) }>{ HumanizeConnectedAppReviewState(data.App.ReviewState) }</span>
-							<span class={ ConnectedAppConfidenceBadgeClass(data.App.Confidence) }>{ HumanizeConnectedAppConfidence(data.App.Confidence) }</span>
-							<span class={ ConnectedAppFreshnessBadgeClass(data.App.Freshness) }>{ HumanizeConnectedAppFreshness(data.App.Freshness) }</span>
+							<span class={ AppAssetGovernanceStateBadgeClass(data.App.GovernanceState) }>{ HumanizeAppAssetGovernanceState(data.App.GovernanceState) }</span>
+							<span class={ AppAssetEvidenceConfidenceBadgeClass(data.App.EvidenceConfidence) }>{ HumanizeAppAssetEvidenceConfidence(data.App.EvidenceConfidence) }</span>
+							<span class={ AppAssetEvidenceFreshnessBadgeClass(data.App.EvidenceFreshness) }>{ HumanizeAppAssetEvidenceFreshness(data.App.EvidenceFreshness) }</span>
 						</div>
 						<p class="text-sm text-muted-foreground">{ data.App.SourceKind }{ " (" }{ data.App.SourceName }{ ")" }</p>
 					</header>
@@ -262,9 +262,9 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 								<p class="font-medium break-all">{ data.App.ExternalID }</p>
 							</div>
 							<div>
-								<p class="text-xs uppercase tracking-wide text-muted-foreground">Review owner</p>
-								<p class="font-medium">{ data.App.ReviewOwner }</p>
-								<p class="text-xs text-muted-foreground">{ data.App.ReviewOwnerEmail }</p>
+								<p class="text-xs uppercase tracking-wide text-muted-foreground">Governance owner</p>
+								<p class="font-medium">{ data.App.GovernanceOwner }</p>
+								<p class="text-xs text-muted-foreground">{ data.App.GovernanceOwnerEmail }</p>
 							</div>
 							<div>
 								<p class="text-xs uppercase tracking-wide text-muted-foreground">Ticket</p>
@@ -301,7 +301,7 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 						</div>
 						if data.App.Notes != "" {
 							<div class="rounded-lg border border-border/70 bg-muted/20 p-4">
-								<p class="text-xs uppercase tracking-wide text-muted-foreground">Review notes</p>
+								<p class="text-xs uppercase tracking-wide text-muted-foreground">Governance notes</p>
 								<p class="mt-2 text-sm">{ data.App.Notes }</p>
 							</div>
 						}
@@ -364,7 +364,7 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 															<button type="submit" class="btn-sm-outline transition-colors duration-150">Revoke</button>
 														</form>
 													} else {
-														<span class="text-xs text-muted-foreground">Review only</span>
+														<span class="text-xs text-muted-foreground">Read only</span>
 													}
 												</td>
 											</tr>
@@ -507,15 +507,15 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 			<aside class="self-start xl:sticky xl:top-6">
 				<article class="card">
 					<header>
-						<h2>Review</h2>
-						<p class="text-sm text-muted-foreground">Assign an accountable owner and capture the current disposition.</p>
+						<h2>Governance</h2>
+						<p class="text-sm text-muted-foreground">Assign an accountable owner and capture the current governance state.</p>
 					</header>
 					<section class="space-y-4">
 						if data.Layout.IsAdmin {
 							<form
 								method="post"
-								action={ "/app-assets/" + FormatInt64(data.App.ID) + "/review" }
-								hx-post={ "/app-assets/" + FormatInt64(data.App.ID) + "/review" }
+								action={ "/app-assets/" + FormatInt64(data.App.ID) + "/governance" }
+								hx-post={ "/app-assets/" + FormatInt64(data.App.ID) + "/governance" }
 								hx-target="#connected-app-show-shell"
 								hx-swap="outerHTML"
 								hx-disabled-elt="this"
@@ -529,13 +529,13 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 								</label>
 
 								<label class="field">
-									<span class="label">Disposition</span>
-									<select class="select" name="review_state">
-										<option value="unreviewed" selected?={ data.ReviewStateInput == "unreviewed" }>Unreviewed</option>
-										<option value="under_review" selected?={ data.ReviewStateInput == "under_review" }>Under review</option>
-										<option value="sanctioned" selected?={ data.ReviewStateInput == "sanctioned" }>Sanctioned</option>
-										<option value="needs_revocation" selected?={ data.ReviewStateInput == "needs_revocation" }>Needs revocation</option>
-										<option value="ticketed" selected?={ data.ReviewStateInput == "ticketed" }>Ticketed</option>
+									<span class="label">State</span>
+									<select class="select" name="governance_state">
+										<option value="unreviewed" selected?={ data.GovernanceStateInput == "unreviewed" }>Unreviewed</option>
+										<option value="in_review" selected?={ data.GovernanceStateInput == "in_review" }>In review</option>
+										<option value="approved" selected?={ data.GovernanceStateInput == "approved" }>Approved</option>
+										<option value="action_required" selected?={ data.GovernanceStateInput == "action_required" }>Action required</option>
+										<option value="ticketed" selected?={ data.GovernanceStateInput == "ticketed" }>Ticketed</option>
 									</select>
 								</label>
 
@@ -549,20 +549,20 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 									<textarea class="textarea min-h-32" name="notes" placeholder="Capture rationale, follow-up, or containment context.">{ data.NotesInput }</textarea>
 								</label>
 
-								<button type="submit" class="btn-primary w-full transition-colors duration-150">Save review</button>
+								<button type="submit" class="btn-primary w-full transition-colors duration-150">Save governance</button>
 							</form>
 						} else {
 							<div class="space-y-3 text-sm">
 								<div class="rounded-lg border border-border/70 bg-muted/15 p-4">
-									<p class="text-xs uppercase tracking-wide text-muted-foreground">Disposition</p>
-									<p class="mt-2 font-medium">{ HumanizeConnectedAppReviewState(data.App.ReviewState) }</p>
+									<p class="text-xs uppercase tracking-wide text-muted-foreground">State</p>
+									<p class="mt-2 font-medium">{ HumanizeAppAssetGovernanceState(data.App.GovernanceState) }</p>
 								</div>
 								<div class="rounded-lg border border-border/70 bg-muted/15 p-4">
 									<p class="text-xs uppercase tracking-wide text-muted-foreground">Owner</p>
-									<p class="mt-2 font-medium">{ data.App.ReviewOwner }</p>
-									<p class="text-xs text-muted-foreground">{ data.App.ReviewOwnerEmail }</p>
+									<p class="mt-2 font-medium">{ data.App.GovernanceOwner }</p>
+									<p class="text-xs text-muted-foreground">{ data.App.GovernanceOwnerEmail }</p>
 								</div>
-								<p class="text-xs text-muted-foreground">Review changes require an admin account.</p>
+								<p class="text-xs text-muted-foreground">Governance changes require an admin account.</p>
 							</div>
 						}
 					</section>

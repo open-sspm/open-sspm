@@ -149,13 +149,13 @@ func DiscoveryManagedBadgeClass(state string) string {
 	}
 }
 
-func ConnectedAppReviewStateBadgeClass(state string) string {
+func AppAssetGovernanceStateBadgeClass(state string) string {
 	switch strings.ToLower(strings.TrimSpace(state)) {
-	case "needs_revocation":
+	case "action_required":
 		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
-	case "under_review":
+	case "in_review":
 		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
-	case "sanctioned":
+	case "approved":
 		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
 	case "ticketed":
 		return "badge bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-100"
@@ -177,16 +177,16 @@ func HumanizeDiscoveryManagedState(state string) string {
 	}
 }
 
-func HumanizeConnectedAppReviewState(state string) string {
+func HumanizeAppAssetGovernanceState(state string) string {
 	switch strings.ToLower(strings.TrimSpace(state)) {
 	case "unreviewed":
 		return "Unreviewed"
-	case "under_review":
-		return "Under Review"
-	case "sanctioned":
-		return "Sanctioned"
-	case "needs_revocation":
-		return "Needs Revocation"
+	case "in_review":
+		return "In Review"
+	case "approved":
+		return "Approved"
+	case "action_required":
+		return "Action Required"
 	case "ticketed":
 		return "Ticketed"
 	default:
@@ -275,7 +275,7 @@ func HumanizeCredentialRisk(risk string) string {
 	}
 }
 
-func ConnectedAppFreshnessBadgeClass(value string) string {
+func AppAssetEvidenceFreshnessBadgeClass(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "fresh":
 		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
@@ -288,7 +288,7 @@ func ConnectedAppFreshnessBadgeClass(value string) string {
 	}
 }
 
-func HumanizeConnectedAppFreshness(value string) string {
+func HumanizeAppAssetEvidenceFreshness(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "fresh":
 		return "Fresh"
@@ -303,7 +303,7 @@ func HumanizeConnectedAppFreshness(value string) string {
 	}
 }
 
-func ConnectedAppConfidenceBadgeClass(value string) string {
+func AppAssetEvidenceConfidenceBadgeClass(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "high":
 		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
@@ -316,7 +316,7 @@ func ConnectedAppConfidenceBadgeClass(value string) string {
 	}
 }
 
-func HumanizeConnectedAppConfidence(value string) string {
+func HumanizeAppAssetEvidenceConfidence(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "high":
 		return "High confidence"
@@ -327,6 +327,30 @@ func HumanizeConnectedAppConfidence(value string) string {
 	default:
 		return fallbackHumanized(value)
 	}
+}
+
+func ConnectedAppReviewStateBadgeClass(state string) string {
+	return AppAssetGovernanceStateBadgeClass(state)
+}
+
+func HumanizeConnectedAppReviewState(state string) string {
+	return HumanizeAppAssetGovernanceState(state)
+}
+
+func ConnectedAppFreshnessBadgeClass(value string) string {
+	return AppAssetEvidenceFreshnessBadgeClass(value)
+}
+
+func HumanizeConnectedAppFreshness(value string) string {
+	return HumanizeAppAssetEvidenceFreshness(value)
+}
+
+func ConnectedAppConfidenceBadgeClass(value string) string {
+	return AppAssetEvidenceConfidenceBadgeClass(value)
+}
+
+func HumanizeConnectedAppConfidence(value string) string {
+	return HumanizeAppAssetEvidenceConfidence(value)
 }
 
 func HumanizeIdentityType(identityType string) string {

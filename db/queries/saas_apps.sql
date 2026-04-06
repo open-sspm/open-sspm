@@ -80,75 +80,17 @@ scoped_app_ids AS (
       sqlc.arg(source_name)::text = ''
       OR lower(trim(sas.source_name)) = lower(trim(sqlc.arg(source_name)::text))
     )
-),
-posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
-  SELECT *
-  FROM saas_app_posture_rows(
-    sqlc.arg(okta_fresh_after)::timestamptz,
-    sqlc.arg(entra_fresh_after)::timestamptz,
-    sqlc.arg(google_workspace_fresh_after)::timestamptz,
-    sqlc.arg(github_fresh_after)::timestamptz,
-    sqlc.arg(datadog_fresh_after)::timestamptz,
-    sqlc.arg(aws_fresh_after)::timestamptz,
-    sqlc.arg(default_fresh_after)::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
 )
 SELECT count(*)
-FROM posture_rows pr
+FROM saas_app_posture_rows(
+  sqlc.arg(okta_fresh_after)::timestamptz,
+  sqlc.arg(entra_fresh_after)::timestamptz,
+  sqlc.arg(google_workspace_fresh_after)::timestamptz,
+  sqlc.arg(github_fresh_after)::timestamptz,
+  sqlc.arg(datadog_fresh_after)::timestamptz,
+  sqlc.arg(aws_fresh_after)::timestamptz,
+  sqlc.arg(default_fresh_after)::timestamptz
+) AS pr
 JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
 WHERE (
     sqlc.arg(query)::text = ''
@@ -190,72 +132,6 @@ scoped_app_ids AS (
       sqlc.arg(source_name)::text = ''
       OR lower(trim(sas.source_name)) = lower(trim(sqlc.arg(source_name)::text))
     )
-),
-posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
-  SELECT *
-  FROM saas_app_posture_rows(
-    sqlc.arg(okta_fresh_after)::timestamptz,
-    sqlc.arg(entra_fresh_after)::timestamptz,
-    sqlc.arg(google_workspace_fresh_after)::timestamptz,
-    sqlc.arg(github_fresh_after)::timestamptz,
-    sqlc.arg(datadog_fresh_after)::timestamptz,
-    sqlc.arg(aws_fresh_after)::timestamptz,
-    sqlc.arg(default_fresh_after)::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
 )
 SELECT
   pr.id::bigint AS id,
@@ -278,7 +154,15 @@ SELECT
   COALESCE(owner.display_name, '') AS owner_display_name,
   COALESCE(owner.primary_email, '') AS owner_primary_email,
   pr.actors_30d::bigint AS actors_30d
-FROM posture_rows pr
+FROM saas_app_posture_rows(
+  sqlc.arg(okta_fresh_after)::timestamptz,
+  sqlc.arg(entra_fresh_after)::timestamptz,
+  sqlc.arg(google_workspace_fresh_after)::timestamptz,
+  sqlc.arg(github_fresh_after)::timestamptz,
+  sqlc.arg(datadog_fresh_after)::timestamptz,
+  sqlc.arg(aws_fresh_after)::timestamptz,
+  sqlc.arg(default_fresh_after)::timestamptz
+) AS pr
 JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
 LEFT JOIN identities owner ON owner.id = NULLIF(pr.owner_identity_id, 0)
 WHERE (
@@ -305,92 +189,34 @@ LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
 -- name: GetSaaSAppByID :one
-WITH posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
-  SELECT *
-  FROM saas_app_posture_rows(
-    sqlc.arg(okta_fresh_after)::timestamptz,
-    sqlc.arg(entra_fresh_after)::timestamptz,
-    sqlc.arg(google_workspace_fresh_after)::timestamptz,
-    sqlc.arg(github_fresh_after)::timestamptz,
-    sqlc.arg(datadog_fresh_after)::timestamptz,
-    sqlc.arg(aws_fresh_after)::timestamptz,
-    sqlc.arg(default_fresh_after)::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
-)
 SELECT
-  id::bigint AS id,
-  canonical_key::text AS canonical_key,
-  display_name::text AS display_name,
-  primary_domain::text AS primary_domain,
-  vendor_name::text AS vendor_name,
-  managed_state::text AS managed_state,
-  managed_reason::text AS managed_reason,
-  bound_connector_kind::text AS bound_connector_kind,
-  bound_connector_source_name::text AS bound_connector_source_name,
-  risk_score::int AS risk_score,
-  risk_level::text AS risk_level,
-  suggested_business_criticality::text AS suggested_business_criticality,
-  suggested_data_classification::text AS suggested_data_classification,
-  first_seen_at::timestamptz AS first_seen_at,
-  last_seen_at::timestamptz AS last_seen_at,
-  created_at::timestamptz AS created_at,
-  updated_at::timestamptz AS updated_at
-FROM posture_rows
-WHERE id = sqlc.arg(id)::bigint;
+  pr.id::bigint AS id,
+  pr.canonical_key::text AS canonical_key,
+  pr.display_name::text AS display_name,
+  pr.primary_domain::text AS primary_domain,
+  pr.vendor_name::text AS vendor_name,
+  pr.managed_state::text AS managed_state,
+  pr.managed_reason::text AS managed_reason,
+  pr.bound_connector_kind::text AS bound_connector_kind,
+  pr.bound_connector_source_name::text AS bound_connector_source_name,
+  pr.risk_score::int AS risk_score,
+  pr.risk_level::text AS risk_level,
+  pr.suggested_business_criticality::text AS suggested_business_criticality,
+  pr.suggested_data_classification::text AS suggested_data_classification,
+  pr.first_seen_at::timestamptz AS first_seen_at,
+  pr.last_seen_at::timestamptz AS last_seen_at,
+  pr.created_at::timestamptz AS created_at,
+  pr.updated_at::timestamptz AS updated_at
+FROM saas_app_posture_rows(
+  sqlc.arg(okta_fresh_after)::timestamptz,
+  sqlc.arg(entra_fresh_after)::timestamptz,
+  sqlc.arg(google_workspace_fresh_after)::timestamptz,
+  sqlc.arg(github_fresh_after)::timestamptz,
+  sqlc.arg(datadog_fresh_after)::timestamptz,
+  sqlc.arg(aws_fresh_after)::timestamptz,
+  sqlc.arg(default_fresh_after)::timestamptz
+) AS pr
+WHERE pr.id = sqlc.arg(id)::bigint;
 
 -- name: ListSaaSAppHotspots :many
 WITH configured_sources AS (
@@ -416,72 +242,6 @@ scoped_app_ids AS (
       sqlc.arg(source_name)::text = ''
       OR lower(trim(sas.source_name)) = lower(trim(sqlc.arg(source_name)::text))
     )
-),
-posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
-  SELECT *
-  FROM saas_app_posture_rows(
-    sqlc.arg(okta_fresh_after)::timestamptz,
-    sqlc.arg(entra_fresh_after)::timestamptz,
-    sqlc.arg(google_workspace_fresh_after)::timestamptz,
-    sqlc.arg(github_fresh_after)::timestamptz,
-    sqlc.arg(datadog_fresh_after)::timestamptz,
-    sqlc.arg(aws_fresh_after)::timestamptz,
-    sqlc.arg(default_fresh_after)::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
 )
 SELECT
   pr.id::bigint AS id,
@@ -504,7 +264,15 @@ SELECT
   COALESCE(owner.display_name, '') AS owner_display_name,
   COALESCE(owner.primary_email, '') AS owner_primary_email,
   pr.actors_30d::bigint AS actors_30d
-FROM posture_rows pr
+FROM saas_app_posture_rows(
+  sqlc.arg(okta_fresh_after)::timestamptz,
+  sqlc.arg(entra_fresh_after)::timestamptz,
+  sqlc.arg(google_workspace_fresh_after)::timestamptz,
+  sqlc.arg(github_fresh_after)::timestamptz,
+  sqlc.arg(datadog_fresh_after)::timestamptz,
+  sqlc.arg(aws_fresh_after)::timestamptz,
+  sqlc.arg(default_fresh_after)::timestamptz
+) AS pr
 JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
 LEFT JOIN identities owner ON owner.id = NULLIF(pr.owner_identity_id, 0)
 WHERE pr.risk_score >= 60
@@ -527,75 +295,17 @@ scoped_app_ids AS (
    AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
   WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
-),
-posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
-  SELECT *
-  FROM saas_app_posture_rows(
-    sqlc.arg(okta_fresh_after)::timestamptz,
-    sqlc.arg(entra_fresh_after)::timestamptz,
-    sqlc.arg(google_workspace_fresh_after)::timestamptz,
-    sqlc.arg(github_fresh_after)::timestamptz,
-    sqlc.arg(datadog_fresh_after)::timestamptz,
-    sqlc.arg(aws_fresh_after)::timestamptz,
-    sqlc.arg(default_fresh_after)::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
 )
 SELECT pr.managed_state::text AS managed_state, count(*) AS app_count
-FROM posture_rows pr
+FROM saas_app_posture_rows(
+  sqlc.arg(okta_fresh_after)::timestamptz,
+  sqlc.arg(entra_fresh_after)::timestamptz,
+  sqlc.arg(google_workspace_fresh_after)::timestamptz,
+  sqlc.arg(github_fresh_after)::timestamptz,
+  sqlc.arg(datadog_fresh_after)::timestamptz,
+  sqlc.arg(aws_fresh_after)::timestamptz,
+  sqlc.arg(default_fresh_after)::timestamptz
+) AS pr
 JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
 GROUP BY 1
 ORDER BY 1;
@@ -616,75 +326,17 @@ scoped_app_ids AS (
    AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
   WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
-),
-posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
-  SELECT *
-  FROM saas_app_posture_rows(
-    sqlc.arg(okta_fresh_after)::timestamptz,
-    sqlc.arg(entra_fresh_after)::timestamptz,
-    sqlc.arg(google_workspace_fresh_after)::timestamptz,
-    sqlc.arg(github_fresh_after)::timestamptz,
-    sqlc.arg(datadog_fresh_after)::timestamptz,
-    sqlc.arg(aws_fresh_after)::timestamptz,
-    sqlc.arg(default_fresh_after)::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
 )
 SELECT pr.risk_level::text AS risk_level, count(*) AS app_count
-FROM posture_rows pr
+FROM saas_app_posture_rows(
+  sqlc.arg(okta_fresh_after)::timestamptz,
+  sqlc.arg(entra_fresh_after)::timestamptz,
+  sqlc.arg(google_workspace_fresh_after)::timestamptz,
+  sqlc.arg(github_fresh_after)::timestamptz,
+  sqlc.arg(datadog_fresh_after)::timestamptz,
+  sqlc.arg(aws_fresh_after)::timestamptz,
+  sqlc.arg(default_fresh_after)::timestamptz
+) AS pr
 JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
 GROUP BY 1
 ORDER BY 1;

@@ -110,6 +110,84 @@ func (h *Handlers) HandleConnectorAction(c *echo.Context) error {
 	return RenderNotFound(c)
 }
 
+type connectorSaveDefinition struct {
+	buildMergedConfig func(c *echo.Context, raw []byte) (any, error)
+	validateConfig    func(cfg any) error
+}
+
+func newConnectorSaveDefinition[T any](
+	decode func([]byte) (T, error),
+	readUpdate func(*echo.Context) T,
+	merge func(T, T) T,
+	normalize func(T) T,
+	validate func(T) error,
+) connectorSaveDefinition {
+	return connectorSaveDefinition{
+		buildMergedConfig: func(c *echo.Context, raw []byte) (any, error) {
+			current, err := decode(raw)
+			if err != nil {
+				return nil, err
+			}
+			return normalize(merge(current, readUpdate(c))), nil
+		},
+		validateConfig: func(cfg any) error {
+			return validate(cfg.(T))
+		},
+	}
+}
+
+var connectorSaveDefinitions = map[string]connectorSaveDefinition{
+	configstore.KindOkta: newConnectorSaveDefinition(
+		configstore.DecodeOktaConfig,
+		readOktaConfigUpdate,
+		configstore.MergeOktaConfig,
+		configstore.OktaConfig.Normalized,
+		configstore.OktaConfig.Validate,
+	),
+	configstore.KindGoogleWorkspace: newConnectorSaveDefinition(
+		configstore.DecodeGoogleWorkspaceConfig,
+		readGoogleWorkspaceConfigUpdate,
+		configstore.MergeGoogleWorkspaceConfig,
+		configstore.GoogleWorkspaceConfig.Normalized,
+		configstore.GoogleWorkspaceConfig.Validate,
+	),
+	configstore.KindGitHub: newConnectorSaveDefinition(
+		configstore.DecodeGitHubConfig,
+		readGitHubConfigUpdate,
+		configstore.MergeGitHubConfig,
+		configstore.GitHubConfig.Normalized,
+		configstore.GitHubConfig.Validate,
+	),
+	configstore.KindDatadog: newConnectorSaveDefinition(
+		configstore.DecodeDatadogConfig,
+		readDatadogConfigUpdate,
+		configstore.MergeDatadogConfig,
+		configstore.DatadogConfig.Normalized,
+		configstore.DatadogConfig.Validate,
+	),
+	configstore.KindAWSIdentityCenter: newConnectorSaveDefinition(
+		configstore.DecodeAWSIdentityCenterConfig,
+		readAWSIdentityCenterConfigUpdate,
+		configstore.MergeAWSIdentityCenterConfig,
+		configstore.AWSIdentityCenterConfig.Normalized,
+		configstore.AWSIdentityCenterConfig.Validate,
+	),
+	configstore.KindEntra: newConnectorSaveDefinition(
+		configstore.DecodeEntraConfig,
+		readEntraConfigUpdate,
+		configstore.MergeEntraConfig,
+		configstore.EntraConfig.Normalized,
+		configstore.EntraConfig.Validate,
+	),
+	configstore.KindVault: newConnectorSaveDefinition(
+		configstore.DecodeVaultConfig,
+		readVaultConfigUpdate,
+		configstore.MergeVaultConfig,
+		configstore.VaultConfig.Normalized,
+		configstore.VaultConfig.Validate,
+	),
+}
+
 func (h *Handlers) handleConnectorToggle(c *echo.Context, kind string) error {
 	addVary(c, "HX-Request")
 
@@ -159,149 +237,18 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 		return h.RenderError(c, err)
 	}
 
-	var mergedConfig any
-	switch kind {
-	case configstore.KindOkta:
-		current, err := configstore.DecodeOktaConfig(cfgRow.ResolvedConfig)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		update := configstore.OktaConfig{
-			Domain:           c.FormValue("domain"),
-			Token:            c.FormValue("token"),
-			DiscoveryEnabled: ParseBoolForm(c.FormValue("discovery_enabled")),
-		}
-		merged := configstore.MergeOktaConfig(current, update).Normalized()
-		if cfgRow.Row.Enabled {
-			if err := merged.Validate(); err != nil {
-				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
-			}
-		}
-		mergedConfig = merged
-	case configstore.KindGoogleWorkspace:
-		current, err := configstore.DecodeGoogleWorkspaceConfig(cfgRow.ResolvedConfig)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		update := configstore.GoogleWorkspaceConfig{
-			CustomerID:          c.FormValue("customer_id"),
-			PrimaryDomain:       c.FormValue("primary_domain"),
-			DelegatedAdminEmail: c.FormValue("delegated_admin_email"),
-			AuthType:            c.FormValue("auth_type"),
-			ServiceAccountJSON:  c.FormValue("service_account_json"),
-			ServiceAccountEmail: c.FormValue("service_account_email"),
-			DiscoveryEnabled:    ParseBoolForm(c.FormValue("discovery_enabled")),
-		}
-		merged := configstore.MergeGoogleWorkspaceConfig(current, update).Normalized()
-		if cfgRow.Row.Enabled {
-			if err := merged.Validate(); err != nil {
-				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
-			}
-		}
-		mergedConfig = merged
-	case configstore.KindGitHub:
-		current, err := configstore.DecodeGitHubConfig(cfgRow.ResolvedConfig)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		update := configstore.GitHubConfig{
-			Org:         c.FormValue("org"),
-			APIBase:     c.FormValue("api_base"),
-			Enterprise:  c.FormValue("enterprise"),
-			Token:       c.FormValue("token"),
-			SCIMEnabled: ParseBoolForm(c.FormValue("scim_enabled")),
-		}
-		merged := configstore.MergeGitHubConfig(current, update).Normalized()
-		if cfgRow.Row.Enabled {
-			if err := merged.Validate(); err != nil {
-				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
-			}
-		}
-		mergedConfig = merged
-	case configstore.KindDatadog:
-		current, err := configstore.DecodeDatadogConfig(cfgRow.ResolvedConfig)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		update := configstore.DatadogConfig{
-			Site:   c.FormValue("site"),
-			APIKey: c.FormValue("api_key"),
-			AppKey: c.FormValue("app_key"),
-		}
-		merged := configstore.MergeDatadogConfig(current, update).Normalized()
-		if cfgRow.Row.Enabled {
-			if err := merged.Validate(); err != nil {
-				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
-			}
-		}
-		mergedConfig = merged
-	case configstore.KindAWSIdentityCenter:
-		current, err := configstore.DecodeAWSIdentityCenterConfig(cfgRow.ResolvedConfig)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		update := configstore.AWSIdentityCenterConfig{
-			Region:          c.FormValue("region"),
-			Name:            c.FormValue("name"),
-			InstanceARN:     c.FormValue("instance_arn"),
-			IdentityStoreID: c.FormValue("identity_store_id"),
-			AuthType:        c.FormValue("auth_type"),
-			AccessKeyID:     c.FormValue("access_key_id"),
-			SecretAccessKey: c.FormValue("secret_access_key"),
-			SessionToken:    c.FormValue("session_token"),
-		}
-		merged := configstore.MergeAWSIdentityCenterConfig(current, update).Normalized()
-		if cfgRow.Row.Enabled {
-			if err := merged.Validate(); err != nil {
-				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
-			}
-		}
-		mergedConfig = merged
-	case configstore.KindEntra:
-		current, err := configstore.DecodeEntraConfig(cfgRow.ResolvedConfig)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		update := configstore.EntraConfig{
-			TenantID:         c.FormValue("tenant_id"),
-			ClientID:         c.FormValue("client_id"),
-			ClientSecret:     c.FormValue("client_secret"),
-			DiscoveryEnabled: ParseBoolForm(c.FormValue("discovery_enabled")),
-		}
-		merged := configstore.MergeEntraConfig(current, update).Normalized()
-		if cfgRow.Row.Enabled {
-			if err := merged.Validate(); err != nil {
-				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
-			}
-		}
-		mergedConfig = merged
-	case configstore.KindVault:
-		current, err := configstore.DecodeVaultConfig(cfgRow.ResolvedConfig)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		update := configstore.VaultConfig{
-			Address:          c.FormValue("address"),
-			Namespace:        c.FormValue("namespace"),
-			Name:             c.FormValue("name"),
-			AuthType:         c.FormValue("auth_type"),
-			Token:            c.FormValue("token"),
-			AppRoleMountPath: c.FormValue("approle_mount_path"),
-			AppRoleRoleID:    c.FormValue("approle_role_id"),
-			AppRoleSecretID:  c.FormValue("approle_secret_id"),
-			ScanAuthRoles:    ParseBoolForm(c.FormValue("scan_auth_roles")),
-			TLSSkipVerify:    ParseBoolForm(c.FormValue("tls_skip_verify")),
-			TLSCACertPEM:     c.FormValue("tls_ca_cert_pem"),
-		}
-		merged := configstore.MergeVaultConfig(current, update).Normalized()
-		if cfgRow.Row.Enabled {
-			if err := merged.Validate(); err != nil {
-				return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
-			}
-		}
-		mergedConfig = merged
-	default:
+	definition, ok := connectorSaveDefinitions[kind]
+	if !ok {
 		return RenderNotFound(c)
+	}
+	mergedConfig, err := definition.buildMergedConfig(c, cfgRow.ResolvedConfig)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	if cfgRow.Row.Enabled {
+		if err := definition.validateConfig(mergedConfig); err != nil {
+			return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
+		}
 	}
 
 	tx, err := h.Pool.Begin(ctx)
@@ -321,6 +268,82 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 		return h.RenderError(c, err)
 	}
 	return c.Redirect(http.StatusSeeOther, "/settings/connectors?saved="+kind)
+}
+
+func readOktaConfigUpdate(c *echo.Context) configstore.OktaConfig {
+	return configstore.OktaConfig{
+		Domain:           c.FormValue("domain"),
+		Token:            c.FormValue("token"),
+		DiscoveryEnabled: ParseBoolForm(c.FormValue("discovery_enabled")),
+	}
+}
+
+func readGoogleWorkspaceConfigUpdate(c *echo.Context) configstore.GoogleWorkspaceConfig {
+	return configstore.GoogleWorkspaceConfig{
+		CustomerID:          c.FormValue("customer_id"),
+		PrimaryDomain:       c.FormValue("primary_domain"),
+		DelegatedAdminEmail: c.FormValue("delegated_admin_email"),
+		AuthType:            c.FormValue("auth_type"),
+		ServiceAccountJSON:  c.FormValue("service_account_json"),
+		ServiceAccountEmail: c.FormValue("service_account_email"),
+		DiscoveryEnabled:    ParseBoolForm(c.FormValue("discovery_enabled")),
+	}
+}
+
+func readGitHubConfigUpdate(c *echo.Context) configstore.GitHubConfig {
+	return configstore.GitHubConfig{
+		Org:         c.FormValue("org"),
+		APIBase:     c.FormValue("api_base"),
+		Enterprise:  c.FormValue("enterprise"),
+		Token:       c.FormValue("token"),
+		SCIMEnabled: ParseBoolForm(c.FormValue("scim_enabled")),
+	}
+}
+
+func readDatadogConfigUpdate(c *echo.Context) configstore.DatadogConfig {
+	return configstore.DatadogConfig{
+		Site:   c.FormValue("site"),
+		APIKey: c.FormValue("api_key"),
+		AppKey: c.FormValue("app_key"),
+	}
+}
+
+func readAWSIdentityCenterConfigUpdate(c *echo.Context) configstore.AWSIdentityCenterConfig {
+	return configstore.AWSIdentityCenterConfig{
+		Region:          c.FormValue("region"),
+		Name:            c.FormValue("name"),
+		InstanceARN:     c.FormValue("instance_arn"),
+		IdentityStoreID: c.FormValue("identity_store_id"),
+		AuthType:        c.FormValue("auth_type"),
+		AccessKeyID:     c.FormValue("access_key_id"),
+		SecretAccessKey: c.FormValue("secret_access_key"),
+		SessionToken:    c.FormValue("session_token"),
+	}
+}
+
+func readEntraConfigUpdate(c *echo.Context) configstore.EntraConfig {
+	return configstore.EntraConfig{
+		TenantID:         c.FormValue("tenant_id"),
+		ClientID:         c.FormValue("client_id"),
+		ClientSecret:     c.FormValue("client_secret"),
+		DiscoveryEnabled: ParseBoolForm(c.FormValue("discovery_enabled")),
+	}
+}
+
+func readVaultConfigUpdate(c *echo.Context) configstore.VaultConfig {
+	return configstore.VaultConfig{
+		Address:          c.FormValue("address"),
+		Namespace:        c.FormValue("namespace"),
+		Name:             c.FormValue("name"),
+		AuthType:         c.FormValue("auth_type"),
+		Token:            c.FormValue("token"),
+		AppRoleMountPath: c.FormValue("approle_mount_path"),
+		AppRoleRoleID:    c.FormValue("approle_role_id"),
+		AppRoleSecretID:  c.FormValue("approle_secret_id"),
+		ScanAuthRoles:    ParseBoolForm(c.FormValue("scan_auth_roles")),
+		TLSSkipVerify:    ParseBoolForm(c.FormValue("tls_skip_verify")),
+		TLSCACertPEM:     c.FormValue("tls_ca_cert_pem"),
+	}
 }
 
 func (h *Handlers) handleConnectorAuthoritativeToggle(c *echo.Context, kind string) error {

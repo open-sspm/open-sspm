@@ -112,133 +112,13 @@ func (q *Queries) SearchAppAssetsForCommand(ctx context.Context, arg SearchAppAs
 	return items, nil
 }
 
-const searchConnectedAppsForCommand = `-- name: SearchConnectedAppsForCommand :many
-SELECT
-  aa.id,
-  COALESCE(NULLIF(trim(aa.display_name), ''), aa.external_id)::text AS display_name,
-  aa.external_id,
-  COALESCE(aa.status, '')::text AS status,
-  COALESCE(cag.review_state, 'unreviewed')::text AS review_state,
-  COALESCE(discovery_counts.last_evidence_at, aa.last_observed_at)::timestamptz AS evidence_last_seen_at
-FROM app_assets aa
-LEFT JOIN connected_app_governance cag ON cag.app_asset_id = aa.id
-LEFT JOIN LATERAL (
-  SELECT
-    NULLIF(
-      GREATEST(
-        COALESCE(source_counts.last_source_seen_at, '-infinity'::timestamptz),
-        COALESCE(event_counts.last_event_at, '-infinity'::timestamptz)
-      ),
-      '-infinity'::timestamptz
-    )::timestamptz AS last_evidence_at
-  FROM (
-    SELECT
-      NULLIF(
-        GREATEST(
-          COALESCE(max(sas.last_observed_at), '-infinity'::timestamptz),
-          COALESCE(max(sas.seen_at), '-infinity'::timestamptz)
-        ),
-        '-infinity'::timestamptz
-      )::timestamptz AS last_source_seen_at
-    FROM saas_app_sources sas
-    WHERE sas.source_kind = aa.source_kind
-      AND sas.source_name = aa.source_name
-      AND sas.source_app_id = aa.external_id
-      AND sas.expired_at IS NULL
-      AND sas.last_observed_run_id IS NOT NULL
-  ) source_counts
-  CROSS JOIN (
-    SELECT max(e.observed_at)::timestamptz AS last_event_at
-    FROM saas_app_events e
-    WHERE e.source_kind = aa.source_kind
-      AND e.source_name = aa.source_name
-      AND e.source_app_id = aa.external_id
-      AND e.expired_at IS NULL
-      AND e.last_observed_run_id IS NOT NULL
-  ) event_counts
-) discovery_counts ON TRUE
-WHERE aa.source_kind = 'google_workspace'
-  AND aa.source_name = $1::text
-  AND aa.asset_kind = 'google_oauth_client'
-  AND aa.expired_at IS NULL
-  AND aa.last_observed_run_id IS NOT NULL
-  AND (
-    aa.display_name ILIKE ('%' || $2::text || '%')
-    OR aa.external_id ILIKE ('%' || $2::text || '%')
-  )
-ORDER BY
-  CASE
-    WHEN lower(COALESCE(NULLIF(trim(aa.display_name), ''), aa.external_id)) = lower(trim($2::text))
-      OR lower(aa.external_id) = lower(trim($2::text))
-    THEN 0
-    WHEN lower(COALESCE(NULLIF(trim(aa.display_name), ''), aa.external_id)) LIKE lower(trim($2::text)) || '%'
-      OR lower(aa.external_id) LIKE lower(trim($2::text)) || '%'
-    THEN 1
-    ELSE 2
-  END ASC,
-  CASE COALESCE(cag.review_state, 'unreviewed')
-    WHEN 'needs_revocation' THEN 0
-    WHEN 'under_review' THEN 1
-    WHEN 'unreviewed' THEN 2
-    WHEN 'ticketed' THEN 3
-    WHEN 'sanctioned' THEN 4
-    ELSE 5
-  END ASC,
-  COALESCE(discovery_counts.last_evidence_at, aa.last_observed_at) DESC,
-  lower(COALESCE(NULLIF(trim(aa.display_name), ''), aa.external_id)) ASC,
-  aa.id ASC
-LIMIT $3::int
-`
-
-type SearchConnectedAppsForCommandParams struct {
-	SourceName string `json:"source_name"`
-	Query      string `json:"query"`
-	LimitRows  int32  `json:"limit_rows"`
-}
-
-type SearchConnectedAppsForCommandRow struct {
-	ID                 int64              `json:"id"`
-	DisplayName        string             `json:"display_name"`
-	ExternalID         string             `json:"external_id"`
-	Status             string             `json:"status"`
-	ReviewState        string             `json:"review_state"`
-	EvidenceLastSeenAt pgtype.Timestamptz `json:"evidence_last_seen_at"`
-}
-
-func (q *Queries) SearchConnectedAppsForCommand(ctx context.Context, arg SearchConnectedAppsForCommandParams) ([]SearchConnectedAppsForCommandRow, error) {
-	rows, err := q.db.Query(ctx, searchConnectedAppsForCommand, arg.SourceName, arg.Query, arg.LimitRows)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []SearchConnectedAppsForCommandRow
-	for rows.Next() {
-		var i SearchConnectedAppsForCommandRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.DisplayName,
-			&i.ExternalID,
-			&i.Status,
-			&i.ReviewState,
-			&i.EvidenceLastSeenAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const searchDiscoveryAppsForCommand = `-- name: SearchDiscoveryAppsForCommand :many
 WITH configured_sources AS (
   SELECT
     k.kind AS source_kind,
     n.name AS source_name
-  FROM unnest($3::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($4::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+  FROM unnest($10::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($11::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
 ),
 scoped_app_ids AS (
   SELECT DISTINCT sas.saas_app_id
@@ -248,72 +128,6 @@ scoped_app_ids AS (
    AND lower(trim(cs.source_name)) = lower(trim(sas.source_name))
   WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
-),
-posture_rows (
-  id,
-  canonical_key,
-  display_name,
-  primary_domain,
-  vendor_name,
-  first_seen_at,
-  last_seen_at,
-  created_at,
-  updated_at,
-  owner_identity_id,
-  actors_30d,
-  has_privileged_scope,
-  has_confidential_scope,
-  bound_connector_kind,
-  bound_connector_source_name,
-  connector_enabled,
-  connector_configured,
-  last_success_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  managed_state,
-  managed_reason,
-  risk_score,
-  risk_level
-) AS (
-  SELECT id, canonical_key, display_name, primary_domain, vendor_name, first_seen_at, last_seen_at, created_at, updated_at, owner_identity_id, actors_30d, has_privileged_scope, has_confidential_scope, bound_connector_kind, bound_connector_source_name, connector_enabled, connector_configured, last_success_at, suggested_business_criticality, suggested_data_classification, effective_business_criticality, effective_data_classification, managed_state, managed_reason, risk_score, risk_level
-  FROM saas_app_posture_rows(
-    $5::timestamptz,
-    $6::timestamptz,
-    $7::timestamptz,
-    $8::timestamptz,
-    $9::timestamptz,
-    $10::timestamptz,
-    $11::timestamptz
-  ) AS pr(
-    id,
-    canonical_key,
-    display_name,
-    primary_domain,
-    vendor_name,
-    first_seen_at,
-    last_seen_at,
-    created_at,
-    updated_at,
-    owner_identity_id,
-    actors_30d,
-    has_privileged_scope,
-    has_confidential_scope,
-    bound_connector_kind,
-    bound_connector_source_name,
-    connector_enabled,
-    connector_configured,
-    last_success_at,
-    suggested_business_criticality,
-    suggested_data_classification,
-    effective_business_criticality,
-    effective_data_classification,
-    managed_state,
-    managed_reason,
-    risk_score,
-    risk_level
-  )
 )
 SELECT
   pr.id::bigint AS id,
@@ -324,25 +138,33 @@ SELECT
   pr.risk_level::text AS risk_level,
   pr.risk_score::int AS risk_score,
   pr.last_seen_at::timestamptz AS last_seen_at
-FROM posture_rows pr
+FROM saas_app_posture_rows(
+  $1::timestamptz,
+  $2::timestamptz,
+  $3::timestamptz,
+  $4::timestamptz,
+  $5::timestamptz,
+  $6::timestamptz,
+  $7::timestamptz
+) AS pr
 JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
 WHERE (
-    pr.display_name ILIKE ('%' || $1::text || '%')
-    OR pr.primary_domain ILIKE ('%' || $1::text || '%')
-    OR pr.vendor_name ILIKE ('%' || $1::text || '%')
-    OR pr.canonical_key ILIKE ('%' || $1::text || '%')
+    pr.display_name ILIKE ('%' || $8::text || '%')
+    OR pr.primary_domain ILIKE ('%' || $8::text || '%')
+    OR pr.vendor_name ILIKE ('%' || $8::text || '%')
+    OR pr.canonical_key ILIKE ('%' || $8::text || '%')
   )
 ORDER BY
   CASE
-    WHEN lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) = lower(trim($1::text))
-      OR lower(COALESCE(pr.primary_domain, '')) = lower(trim($1::text))
-      OR lower(COALESCE(pr.vendor_name, '')) = lower(trim($1::text))
-      OR lower(pr.canonical_key) = lower(trim($1::text))
+    WHEN lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) = lower(trim($8::text))
+      OR lower(COALESCE(pr.primary_domain, '')) = lower(trim($8::text))
+      OR lower(COALESCE(pr.vendor_name, '')) = lower(trim($8::text))
+      OR lower(pr.canonical_key) = lower(trim($8::text))
     THEN 0
-    WHEN lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) LIKE lower(trim($1::text)) || '%'
-      OR lower(COALESCE(pr.primary_domain, '')) LIKE lower(trim($1::text)) || '%'
-      OR lower(COALESCE(pr.vendor_name, '')) LIKE lower(trim($1::text)) || '%'
-      OR lower(pr.canonical_key) LIKE lower(trim($1::text)) || '%'
+    WHEN lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) LIKE lower(trim($8::text)) || '%'
+      OR lower(COALESCE(pr.primary_domain, '')) LIKE lower(trim($8::text)) || '%'
+      OR lower(COALESCE(pr.vendor_name, '')) LIKE lower(trim($8::text)) || '%'
+      OR lower(pr.canonical_key) LIKE lower(trim($8::text)) || '%'
     THEN 1
     ELSE 2
   END ASC,
@@ -350,14 +172,10 @@ ORDER BY
   pr.last_seen_at DESC,
   lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) ASC,
   pr.id ASC
-LIMIT $2::int
+LIMIT $9::int
 `
 
 type SearchDiscoveryAppsForCommandParams struct {
-	Query                     string             `json:"query"`
-	LimitRows                 int32              `json:"limit_rows"`
-	ConfiguredSourceKinds     []string           `json:"configured_source_kinds"`
-	ConfiguredSourceNames     []string           `json:"configured_source_names"`
 	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
 	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
 	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
@@ -365,6 +183,10 @@ type SearchDiscoveryAppsForCommandParams struct {
 	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
 	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
 	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
+	Query                     string             `json:"query"`
+	LimitRows                 int32              `json:"limit_rows"`
+	ConfiguredSourceKinds     []string           `json:"configured_source_kinds"`
+	ConfiguredSourceNames     []string           `json:"configured_source_names"`
 }
 
 type SearchDiscoveryAppsForCommandRow struct {
@@ -380,10 +202,6 @@ type SearchDiscoveryAppsForCommandRow struct {
 
 func (q *Queries) SearchDiscoveryAppsForCommand(ctx context.Context, arg SearchDiscoveryAppsForCommandParams) ([]SearchDiscoveryAppsForCommandRow, error) {
 	rows, err := q.db.Query(ctx, searchDiscoveryAppsForCommand,
-		arg.Query,
-		arg.LimitRows,
-		arg.ConfiguredSourceKinds,
-		arg.ConfiguredSourceNames,
 		arg.OktaFreshAfter,
 		arg.EntraFreshAfter,
 		arg.GoogleWorkspaceFreshAfter,
@@ -391,6 +209,10 @@ func (q *Queries) SearchDiscoveryAppsForCommand(ctx context.Context, arg SearchD
 		arg.DatadogFreshAfter,
 		arg.AwsFreshAfter,
 		arg.DefaultFreshAfter,
+		arg.Query,
+		arg.LimitRows,
+		arg.ConfiguredSourceKinds,
+		arg.ConfiguredSourceNames,
 	)
 	if err != nil {
 		return nil, err

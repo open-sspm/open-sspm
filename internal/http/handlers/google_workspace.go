@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"strings"
 
 	"github.com/labstack/echo/v5"
@@ -14,62 +13,29 @@ import (
 )
 
 func (h *Handlers) HandleGoogleWorkspaceUsers(c *echo.Context) error {
+	queries := h.sourceAccountInventoryQueries(sourceAccountInventoryQueryOptions{
+		SourceKind:            configstore.KindGoogleWorkspace,
+		EntityCategory:        registry.EntityCategoryUser,
+		DistinctResourceKind1: "google_group_member",
+		DistinctResourceKind2: "google_admin_role",
+	})
 	inventory, err := h.buildSourceAccountInventoryPage(c, sourceAccountInventoryOptions{
 		Title:              "Google Workspace Users",
 		BasePath:           "/accounts/google-workspace",
 		ConnectorName:      "Google Workspace",
 		ConnectorKind:      configstore.KindGoogleWorkspace,
-		SourceKind:         querySourceKind(configstore.KindGoogleWorkspace),
 		EmptyStateHref:     "/settings/connectors?open=google_workspace",
 		SyncedEmptyState:   "No Google Workspace users synced yet.",
 		FilteredEmptyState: "No Google Workspace users match the current search.",
-		Count: func(ctx context.Context, sourceName, query string) (int64, error) {
-			return h.Q.CountSourceAccountsBySourceAndQuery(ctx, gen.CountSourceAccountsBySourceAndQueryParams{
-				SourceKind:     configstore.KindGoogleWorkspace,
-				SourceName:     sourceName,
-				EntityCategory: registry.EntityCategoryUser,
-				Query:          query,
-			})
-		},
-		List: func(ctx context.Context, sourceName, query string, offset, limit int) ([]sourceAccountInventoryAccount, error) {
-			users, err := h.Q.ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(ctx, gen.ListSourceAccountsPageBySourceAndQueryWithEntitlementCountsParams{
-				SourceKind:            configstore.KindGoogleWorkspace,
-				SourceName:            sourceName,
-				EntityCategory:        registry.EntityCategoryUser,
-				Query:                 query,
-				PageLimit:             int32(limit),
-				PageOffset:            int32(offset),
-				DistinctResourceKind1: "google_group_member",
-				DistinctResourceKind2: "google_admin_role",
-			})
-			if err != nil {
-				return nil, err
-			}
-
-			accounts := make([]sourceAccountInventoryAccount, 0, len(users))
-			for _, user := range users {
-				accounts = append(accounts, sourceAccountInventoryAccount{
-					ID:          user.ID,
-					ExternalID:  strings.TrimSpace(user.ExternalID),
-					Email:       strings.TrimSpace(user.Email),
-					DisplayName: sourceAccountInventoryDisplayName(user.DisplayName, user.Email, user.ExternalID),
-					IdentityID:  user.IdentityID,
-					Summary: sourceAccountInventorySummary{
-						DistinctResourceCount1: int(user.DistinctResourceCount1),
-						DistinctResourceCount2: int(user.DistinctResourceCount2),
-					},
-				})
-			}
-			return accounts, nil
-		},
+		Count:              queries.Count,
+		List:               queries.List,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
-	items := make([]viewmodels.GoogleWorkspaceUserListItem, 0, len(inventory.Accounts))
-	for _, user := range inventory.Accounts {
-		items = append(items, viewmodels.GoogleWorkspaceUserListItem{
+	items := mapSourceAccountInventoryItems(inventory.Accounts, func(user sourceAccountInventoryAccount) viewmodels.GoogleWorkspaceUserListItem {
+		return viewmodels.GoogleWorkspaceUserListItem{
 			ID:             user.ID,
 			ExternalID:     user.ExternalID,
 			Email:          user.Email,
@@ -77,8 +43,8 @@ func (h *Handlers) HandleGoogleWorkspaceUsers(c *echo.Context) error {
 			IdentityID:     user.IdentityID,
 			GroupCount:     user.Summary.DistinctResourceCount1,
 			AdminRoleCount: user.Summary.DistinctResourceCount2,
-		})
-	}
+		}
+	})
 
 	data := viewmodels.GoogleWorkspaceUsersViewData{
 		SourceAccountInventoryPageData: inventory.PageData,

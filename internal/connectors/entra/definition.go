@@ -1,11 +1,8 @@
 package entra
 
 import (
-	"context"
-
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
-	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
 type Definition struct{}
@@ -23,11 +20,7 @@ func (d *Definition) Role() registry.IntegrationRole {
 }
 
 func (d *Definition) DecodeConfig(raw []byte) (any, error) {
-	cfg, err := configstore.DecodeEntraConfig(raw)
-	if err != nil {
-		return nil, err
-	}
-	return cfg.Normalized(), nil
+	return registry.DecodeNormalizedConfig(raw, configstore.DecodeEntraConfig, configstore.EntraConfig.Normalized)
 }
 
 func (d *Definition) ValidateConfig(cfg any) error {
@@ -60,7 +53,7 @@ func (d *Definition) SettingsHref() string {
 }
 
 func (d *Definition) MetricsProvider() registry.MetricsProvider {
-	return &entraMetrics{}
+	return registry.NewSourceMetricsProvider(configstore.KindEntra)
 }
 
 func (d *Definition) NewIntegration(cfg any) (registry.Integration, error) {
@@ -70,35 +63,4 @@ func (d *Definition) NewIntegration(cfg any) (registry.Integration, error) {
 		return nil, err
 	}
 	return NewEntraIntegration(client, c.TenantID, c.DiscoveryEnabled), nil
-}
-
-type entraMetrics struct{}
-
-func (m *entraMetrics) FetchMetrics(ctx context.Context, q *gen.Queries, sourceName string) (registry.ConnectorMetrics, error) {
-	total, err := q.CountSourceAccountsBySource(ctx, gen.CountSourceAccountsBySourceParams{
-		SourceKind: "entra",
-		SourceName: sourceName,
-	})
-	if err != nil {
-		return registry.ConnectorMetrics{}, err
-	}
-	matched, err := q.CountLinkedSourceAccountsBySource(ctx, gen.CountLinkedSourceAccountsBySourceParams{
-		SourceKind: "entra",
-		SourceName: sourceName,
-	})
-	if err != nil {
-		return registry.ConnectorMetrics{}, err
-	}
-	unmatched, err := q.CountUnlinkedSourceAccountsBySource(ctx, gen.CountUnlinkedSourceAccountsBySourceParams{
-		SourceKind: "entra",
-		SourceName: sourceName,
-	})
-	if err != nil {
-		return registry.ConnectorMetrics{}, err
-	}
-	return registry.ConnectorMetrics{
-		Total:     total,
-		Matched:   matched,
-		Unmatched: unmatched,
-	}, nil
 }

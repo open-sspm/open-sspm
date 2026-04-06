@@ -1,11 +1,8 @@
 package github
 
 import (
-	"context"
-
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
-	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
 type Definition struct {
@@ -29,11 +26,7 @@ func (d *Definition) Role() registry.IntegrationRole {
 }
 
 func (d *Definition) DecodeConfig(raw []byte) (any, error) {
-	cfg, err := configstore.DecodeGitHubConfig(raw)
-	if err != nil {
-		return nil, err
-	}
-	return cfg.Normalized(), nil
+	return registry.DecodeNormalizedConfig(raw, configstore.DecodeGitHubConfig, configstore.GitHubConfig.Normalized)
 }
 
 func (d *Definition) ValidateConfig(cfg any) error {
@@ -66,7 +59,7 @@ func (d *Definition) SettingsHref() string {
 }
 
 func (d *Definition) MetricsProvider() registry.MetricsProvider {
-	return &githubMetrics{}
+	return registry.NewSourceMetricsProvider(configstore.KindGitHub)
 }
 
 func (d *Definition) NewIntegration(cfg any) (registry.Integration, error) {
@@ -76,35 +69,4 @@ func (d *Definition) NewIntegration(cfg any) (registry.Integration, error) {
 		return nil, err
 	}
 	return NewGitHubIntegration(client, c.Org, c.Enterprise, d.workers, c.SCIMEnabled), nil
-}
-
-type githubMetrics struct{}
-
-func (m *githubMetrics) FetchMetrics(ctx context.Context, q *gen.Queries, sourceName string) (registry.ConnectorMetrics, error) {
-	total, err := q.CountSourceAccountsBySource(ctx, gen.CountSourceAccountsBySourceParams{
-		SourceKind: "github",
-		SourceName: sourceName,
-	})
-	if err != nil {
-		return registry.ConnectorMetrics{}, err
-	}
-	matched, err := q.CountLinkedSourceAccountsBySource(ctx, gen.CountLinkedSourceAccountsBySourceParams{
-		SourceKind: "github",
-		SourceName: sourceName,
-	})
-	if err != nil {
-		return registry.ConnectorMetrics{}, err
-	}
-	unmatched, err := q.CountUnlinkedSourceAccountsBySource(ctx, gen.CountUnlinkedSourceAccountsBySourceParams{
-		SourceKind: "github",
-		SourceName: sourceName,
-	})
-	if err != nil {
-		return registry.ConnectorMetrics{}, err
-	}
-	return registry.ConnectorMetrics{
-		Total:     total,
-		Matched:   matched,
-		Unmatched: unmatched,
-	}, nil
 }
