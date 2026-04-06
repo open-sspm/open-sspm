@@ -26,6 +26,30 @@
       when: not app_css.stat.exists
 
   tasks:
+    - name: Check runtime env file exists
+      ansible.builtin.stat:
+        path: /etc/open-sspm.env
+      register: opensspm_env_file
+
+    - name: Fail if runtime env file is missing
+      ansible.builtin.fail:
+        msg: "/etc/open-sspm.env is missing. Run site.yml first so the demo server has its baseline runtime config."
+      when: not opensspm_env_file.stat.exists
+
+    - name: Ensure demo runtime env defaults are present
+      ansible.builtin.lineinfile:
+        path: /etc/open-sspm.env
+        regexp: "^{{ item.key }}="
+        line: "{{ item.key }}={{ item.value }}"
+      loop:
+        - { key: "STATIC_DIR", value: "/opt/open-sspm/web/static" }
+        - { key: "CONNECTOR_SECRET_KEY", value: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=" }
+        - { key: "LOG_FORMAT", value: "json" }
+        - { key: "LOG_LEVEL", value: "info" }
+        - { key: "SYNC_INTERVAL", value: "0s" }
+        - { key: "SYNC_DISCOVERY_INTERVAL", value: "0s" }
+        - { key: "RESYNC_ENABLED", value: "0" }
+
     - name: Stop open-sspm services before deployment
       ansible.builtin.service:
         name: "{{ item }}"

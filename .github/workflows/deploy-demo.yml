@@ -80,6 +80,17 @@ jobs:
           ssh -p "${{ inputs.port }}" "${{ inputs.user }}@${{ inputs.host }}" "sudo bash -s" <<'EOF'
           set -euo pipefail
 
+          upsert_env_var() {
+            local key="$1"
+            local value="$2"
+            local env_file="/etc/open-sspm.env"
+            if grep -q "^${key}=" "$env_file"; then
+              sed -i "s|^${key}=.*|${key}=${value}|" "$env_file"
+            else
+              printf '%s=%s\n' "$key" "$value" >> "$env_file"
+            fi
+          }
+
           tmp_dir="$(mktemp -d)"
           cleanup() { rm -rf "$tmp_dir"; }
           trap cleanup EXIT
@@ -103,6 +114,19 @@ jobs:
           mkdir -p /opt/open-sspm/demo
           rm -rf /opt/open-sspm/demo/*
           cp -a "$tmp_dir/demo/data/." /opt/open-sspm/demo/
+
+          if [ ! -f /etc/open-sspm.env ]; then
+            echo "/etc/open-sspm.env is missing; run demo/infra/ansible/site.yml first" >&2
+            exit 1
+          fi
+
+          upsert_env_var "STATIC_DIR" "/opt/open-sspm/web/static"
+          upsert_env_var "CONNECTOR_SECRET_KEY" "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+          upsert_env_var "LOG_FORMAT" "json"
+          upsert_env_var "LOG_LEVEL" "info"
+          upsert_env_var "SYNC_INTERVAL" "0s"
+          upsert_env_var "SYNC_DISCOVERY_INTERVAL" "0s"
+          upsert_env_var "RESYNC_ENABLED" "0"
 
           set -a
           source /etc/open-sspm.env
