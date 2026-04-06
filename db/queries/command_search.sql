@@ -134,22 +134,6 @@ ORDER BY
 LIMIT sqlc.arg(limit_rows)::int;
 
 -- name: SearchDiscoveryAppsForCommand :many
-WITH configured_sources AS (
-  SELECT
-    k.kind AS source_kind,
-    n.name AS source_name
-  FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-),
-scoped_app_ids AS (
-  SELECT DISTINCT sas.saas_app_id
-  FROM saas_app_sources sas
-  JOIN configured_sources cs
-    ON lower(trim(cs.source_kind)) = lower(trim(sas.source_kind))
-   AND lower(trim(cs.source_name)) = lower(trim(sas.source_name))
-  WHERE sas.expired_at IS NULL
-    AND sas.last_observed_run_id IS NOT NULL
-)
 SELECT
   pr.id::bigint AS id,
   COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)::text AS display_name,
@@ -159,17 +143,20 @@ SELECT
   pr.risk_level::text AS risk_level,
   pr.risk_score::int AS risk_score,
   pr.last_seen_at::timestamptz AS last_seen_at
-FROM saas_app_posture_rows(
-  sqlc.arg(okta_fresh_after)::timestamptz,
-  sqlc.arg(entra_fresh_after)::timestamptz,
-  sqlc.arg(google_workspace_fresh_after)::timestamptz,
-  sqlc.arg(github_fresh_after)::timestamptz,
-  sqlc.arg(datadog_fresh_after)::timestamptz,
-  sqlc.arg(aws_fresh_after)::timestamptz,
-  sqlc.arg(default_fresh_after)::timestamptz
-) AS pr
-JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
-WHERE (
+FROM discovery_app_read_models_v pr
+WHERE EXISTS (
+    SELECT 1
+    FROM saas_app_sources sas
+    JOIN connector_source_state css
+      ON lower(trim(css.source_kind)) = lower(trim(sas.source_kind))
+     AND lower(trim(css.source_name)) = lower(trim(sas.source_name))
+    WHERE sas.saas_app_id = pr.id
+      AND sas.expired_at IS NULL
+      AND sas.last_observed_run_id IS NOT NULL
+      AND css.configured
+      AND css.discovery_enabled
+  )
+  AND (
     pr.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
     OR pr.primary_domain ILIKE ('%' || sqlc.arg(query)::text || '%')
     OR pr.vendor_name ILIKE ('%' || sqlc.arg(query)::text || '%')

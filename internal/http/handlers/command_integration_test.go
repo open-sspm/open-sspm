@@ -25,6 +25,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	connregistry "github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/readmodels"
 )
 
 const commandSearchTestConnectorSecretKey = "0123456789abcdef0123456789abcdef"
@@ -502,6 +503,7 @@ func upsertCommandSearchConnectorConfig(t *testing.T, ctx context.Context, pool 
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatalf("commit connector config %s: %v", kind, err)
 	}
+	refreshCommandSearchSourceState(t, ctx, pool)
 }
 
 func seedCommandSearchFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) commandSearchFixture {
@@ -601,6 +603,7 @@ func insertCommandSearchSyncRun(t *testing.T, ctx context.Context, pool *pgxpool
 	if err != nil {
 		t.Fatalf("insert sync run %s/%s: %v", sourceKind, sourceName, err)
 	}
+	refreshCommandSearchSourceState(t, ctx, pool)
 	return id
 }
 
@@ -710,6 +713,7 @@ func insertCommandSearchAppAsset(t *testing.T, ctx context.Context, q *gen.Queri
 	if err != nil {
 		t.Fatalf("GetAppAssetBySourceAndKindAndExternalID %s/%s: %v", sourceKind, externalID, err)
 	}
+	refreshCommandSearchSourceReadModels(t, ctx, q, sourceKind, sourceName)
 	return appAsset.ID
 }
 
@@ -756,8 +760,36 @@ func insertCommandSearchDiscoveryApp(t *testing.T, ctx context.Context, pool *pg
 	}); err != nil {
 		t.Fatalf("PromoteSaaSAppSourcesSeenInRunBySource %s: %v", canonicalKey, err)
 	}
+	refreshCommandSearchSourceReadModels(t, ctx, q, sourceKind, sourceName)
 
 	return id
+}
+
+func refreshHandlerReadModels(t *testing.T, h *Handlers) {
+	t.Helper()
+	if h == nil || h.Q == nil {
+		return
+	}
+	projector := readmodels.NewProjector(h.Pool, h.Q, readmodels.RefreshConfigFromConfig(h.Cfg))
+	if err := projector.RebuildAllReadModels(context.Background()); err != nil {
+		t.Fatalf("RebuildAllReadModels(): %v", err)
+	}
+}
+
+func refreshCommandSearchSourceState(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+	t.Helper()
+	projector := readmodels.NewProjector(pool, gen.New(pool), readmodels.RefreshConfig{})
+	if err := projector.RefreshConnectorSourceState(ctx); err != nil {
+		t.Fatalf("RefreshConnectorSourceState(): %v", err)
+	}
+}
+
+func refreshCommandSearchSourceReadModels(t *testing.T, ctx context.Context, q *gen.Queries, sourceKind, sourceName string) {
+	t.Helper()
+	projector := readmodels.NewProjector(nil, q, readmodels.RefreshConfig{})
+	if err := projector.RefreshSourceReadModels(ctx, sourceKind, sourceName); err != nil {
+		t.Fatalf("RefreshSourceReadModels(%s/%s): %v", sourceKind, sourceName, err)
+	}
 }
 
 func insertCommandSearchOktaApp(t *testing.T, ctx context.Context, q *gen.Queries, runID int64, externalID, label, name, status string) {

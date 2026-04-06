@@ -72,7 +72,7 @@ func TestCommandActionSection(t *testing.T) {
 	t.Run("uses merged app assets action when google workspace is enabled and configured", func(t *testing.T) {
 		stateView := newTestConnectorStateView(t, testConnectorSpec{
 			kind:       configstore.KindGoogleWorkspace,
-			config:     configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
+			config:     configstore.GoogleWorkspaceConfig{CustomerID: "C0123", DiscoveryEnabled: true},
 			configured: true,
 			enabled:    true,
 			sourceName: "C0123",

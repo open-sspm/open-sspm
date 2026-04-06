@@ -16,6 +16,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/identity"
 	"github.com/open-sspm/open-sspm/internal/metrics"
+	"github.com/open-sspm/open-sspm/internal/readmodels"
 	"github.com/open-sspm/open-sspm/internal/rules/datasets"
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
 	"golang.org/x/sync/errgroup"
@@ -27,15 +28,17 @@ type integrationKey struct {
 }
 
 type Orchestrator struct {
-	pool           *pgxpool.Pool
-	q              *gen.Queries
-	registry       *registry.ConnectorRegistry
-	reporter       registry.Reporter
-	globalEvalMode string
-	locks          LockManager
-	mode           registry.RunMode
-	identityFn     func(context.Context, *gen.Queries) (identity.Stats, error)
-	globalEvalFn   func(context.Context, *gen.Queries, string, bool, func(registry.Event)) error
+	pool            *pgxpool.Pool
+	q               *gen.Queries
+	registry        *registry.ConnectorRegistry
+	reporter        registry.Reporter
+	globalEvalMode  string
+	locks           LockManager
+	mode            registry.RunMode
+	identityFn      func(context.Context, *gen.Queries) (identity.Stats, error)
+	globalEvalFn    func(context.Context, *gen.Queries, string, bool, func(registry.Event)) error
+	readModelConfig readmodels.RefreshConfig
+	hasReadModelCfg bool
 
 	mu           sync.Mutex
 	integrations []registry.Integration
@@ -133,6 +136,11 @@ func (o *Orchestrator) SetGlobalEvalMode(mode string) {
 
 func (o *Orchestrator) SetRunMode(mode registry.RunMode) {
 	o.mode = mode.Normalize()
+}
+
+func (o *Orchestrator) SetReadModelConfig(cfg readmodels.RefreshConfig) {
+	o.readModelConfig = cfg
+	o.hasReadModelCfg = true
 }
 
 func (o *Orchestrator) report(e registry.Event) {
@@ -356,6 +364,9 @@ func (o *Orchestrator) runIntegrationWithRetry(ctx context.Context, integration 
 		}
 
 		runErr = o.withConnectorLock(ctx, kind, name, func(lockCtx context.Context) error {
+			if o.hasReadModelCfg {
+				lockCtx = readmodels.WithRefreshConfig(lockCtx, o.readModelConfig)
+			}
 			return integration.Run(lockCtx, o.q, o.pool, o.report, mode)
 		})
 		if runErr == nil {

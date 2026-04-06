@@ -12,19 +12,19 @@ func TestDiscoverySourceOptionsUsePrimaryLabels(t *testing.T) {
 	options := discoverySourceOptions(newTestConnectorStateView(t,
 		testConnectorSpec{
 			kind:       configstore.KindOkta,
-			config:     configstore.OktaConfig{Domain: "acme.okta.com"},
+			config:     configstore.OktaConfig{Domain: "acme.okta.com", DiscoveryEnabled: true},
 			configured: true,
 			sourceName: "acme.okta.com",
 		},
 		testConnectorSpec{
 			kind:       configstore.KindEntra,
-			config:     configstore.EntraConfig{TenantID: "tenant-1"},
+			config:     configstore.EntraConfig{TenantID: "tenant-1", DiscoveryEnabled: true},
 			configured: true,
 			sourceName: "tenant-1",
 		},
 		testConnectorSpec{
 			kind:       configstore.KindGoogleWorkspace,
-			config:     configstore.GoogleWorkspaceConfig{CustomerID: "C0123"},
+			config:     configstore.GoogleWorkspaceConfig{CustomerID: "C0123", DiscoveryEnabled: true},
 			configured: true,
 			sourceName: "C0123",
 		},

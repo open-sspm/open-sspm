@@ -1,8 +1,13 @@
 package entra
 
 import (
+	"context"
+	"errors"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 )
 
 func TestBuildCredentialAuditEventRowsMapsCredentialAuditFields(t *testing.T) {
@@ -115,5 +120,129 @@ func TestGraphObservedAtOrNowUsesValidity(t *testing.T) {
 	want := time.Date(2026, 2, 8, 11, 22, 33, 0, time.UTC)
 	if !valid.Equal(want) {
 		t.Fatalf("valid timestamp parsed as %s want %s", valid.Format(time.RFC3339Nano), want.Format(time.RFC3339Nano))
+	}
+}
+
+type stubEntraClient struct {
+	lookupUsersByIDs func(context.Context, []string) ([]User, error)
+}
+
+func (s stubEntraClient) ListApplications(context.Context) ([]Application, error) {
+	panic("unexpected call")
+}
+
+func (s stubEntraClient) ListServicePrincipals(context.Context) ([]ServicePrincipal, error) {
+	panic("unexpected call")
+}
+
+func (s stubEntraClient) ListDirectoryAudits(context.Context, *time.Time) ([]DirectoryAuditEvent, error) {
+	panic("unexpected call")
+}
+
+func (s stubEntraClient) ListUsers(context.Context) ([]User, error) {
+	panic("unexpected call")
+}
+
+func (s stubEntraClient) ListGroups(context.Context) ([]Group, error) {
+	panic("unexpected call")
+}
+
+func (s stubEntraClient) ListApplicationOwners(context.Context, string) ([]DirectoryOwner, error) {
+	panic("unexpected call")
+}
+
+func (s stubEntraClient) ListServicePrincipalOwners(context.Context, string) ([]DirectoryOwner, error) {
+	panic("unexpected call")
+}
+
+func (s stubEntraClient) ListSignIns(context.Context, *time.Time) ([]SignInEvent, error) {
+	panic("unexpected call")
+}
+
+func (s stubEntraClient) ListOAuth2PermissionGrants(context.Context) ([]OAuth2PermissionGrant, error) {
+	panic("unexpected call")
+}
+
+func (s stubEntraClient) LookupUsersByIDs(ctx context.Context, ids []string) ([]User, error) {
+	if s.lookupUsersByIDs == nil {
+		panic("unexpected call")
+	}
+	return s.lookupUsersByIDs(ctx, ids)
+}
+
+func TestResolveGrantActorsReturnsDistinctResolvedUsers(t *testing.T) {
+	t.Parallel()
+
+	var gotIDs []string
+	integration := &EntraIntegration{
+		client: stubEntraClient{
+			lookupUsersByIDs: func(_ context.Context, ids []string) ([]User, error) {
+				gotIDs = append(gotIDs, ids...)
+				return []User{{ID: "user-1", DisplayName: "Alice"}}, nil
+			},
+		},
+	}
+
+	var events []registry.Event
+	users := integration.resolveGrantActors(context.Background(), func(event registry.Event) {
+		events = append(events, event)
+	}, []OAuth2PermissionGrant{
+		{PrincipalID: " user-1 "},
+		{PrincipalID: ""},
+		{PrincipalID: "user-2"},
+		{PrincipalID: "user-1"},
+	})
+
+	if len(gotIDs) != 2 || gotIDs[0] != "user-1" || gotIDs[1] != "user-2" {
+		t.Fatalf("gotIDs=%v want [user-1 user-2]", gotIDs)
+	}
+	if len(users) != 1 || users[0].ID != "user-1" {
+		t.Fatalf("users=%+v want [{ID:user-1}]", users)
+	}
+	if len(events) != 2 {
+		t.Fatalf("len(events)=%d want 2", len(events))
+	}
+	if events[0].Stage != "resolve-grant-actors" || !strings.Contains(events[0].Message, "resolving 2 Entra grant actors") {
+		t.Fatalf("unexpected start event: %+v", events[0])
+	}
+	if events[1].Stage != "resolve-grant-actors" || !strings.Contains(events[1].Message, "resolved 1 Entra grant actors") || events[1].Err != nil {
+		t.Fatalf("unexpected completion event: %+v", events[1])
+	}
+}
+
+func TestResolveGrantActorsLookupFailureIsNonFatal(t *testing.T) {
+	t.Parallel()
+
+	lookupErr := errors.New("graph api failed")
+	integration := &EntraIntegration{
+		client: stubEntraClient{
+			lookupUsersByIDs: func(_ context.Context, ids []string) ([]User, error) {
+				if len(ids) != 1 || ids[0] != "user-1" {
+					t.Fatalf("ids=%v want [user-1]", ids)
+				}
+				return nil, lookupErr
+			},
+		},
+	}
+
+	var events []registry.Event
+	users := integration.resolveGrantActors(context.Background(), func(event registry.Event) {
+		events = append(events, event)
+	}, []OAuth2PermissionGrant{{PrincipalID: "user-1"}})
+
+	if users != nil {
+		t.Fatalf("users=%v want nil", users)
+	}
+	if len(events) != 2 {
+		t.Fatalf("len(events)=%d want 2", len(events))
+	}
+	if events[1].Stage != "resolve-grant-actors" {
+		t.Fatalf("unexpected stage: %+v", events[1])
+	}
+	if events[1].Err == nil || !errors.Is(events[1].Err, lookupErr) {
+		t.Fatalf("expected lookup error to be reported, got %+v", events[1])
+	}
+	if !strings.Contains(events[1].Message, "skipping grant actor enrichment") {
+		t.Fatalf("unexpected failure event message: %+v", events[1])
 	}
 }

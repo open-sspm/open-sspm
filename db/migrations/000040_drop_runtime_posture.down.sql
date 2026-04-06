@@ -1,0 +1,2 @@
+-- Forward-only migration.
+-- Runtime posture functions and legacy posture views were intentionally removed.

@@ -542,14 +542,13 @@ func TestGovernanceSubjectOverridesMigrationBackfillsAndDropsLegacySchema(t *tes
 	})
 }
 
-func TestAppAssetPostureRowsDeriveEvidenceBuckets(t *testing.T) {
+func TestConnectedAppReadModelDerivesEvidenceBuckets(t *testing.T) {
 	t.Parallel()
 
 	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
 		migrateUp(t, migrator)
 
 		evaluatedAtTime := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
-		evaluatedAt := validTimestamptz(evaluatedAtTime)
 		runID := insertSyncRun(t, ctx, pool, "google_workspace", "C0123")
 		ownerID := insertIdentity(t, ctx, pool, "human", "owner@example.com", "Owner Example")
 
@@ -616,6 +615,13 @@ func TestAppAssetPostureRowsDeriveEvidenceBuckets(t *testing.T) {
 			Status:             "active",
 		})
 
+		if _, err := q.RefreshAppAssetReadModelsBySource(ctx, RefreshAppAssetReadModelsBySourceParams{
+			SourceKind: "google_workspace",
+			SourceName: "C0123",
+		}); err != nil {
+			t.Fatalf("RefreshAppAssetReadModelsBySource(): %v", err)
+		}
+
 		cases := []struct {
 			name               string
 			id                 int64
@@ -669,10 +675,7 @@ func TestAppAssetPostureRowsDeriveEvidenceBuckets(t *testing.T) {
 		}
 
 		for _, tc := range cases {
-			row, err := q.GetAppAssetPostureByID(ctx, GetAppAssetPostureByIDParams{
-				EvaluatedAt: evaluatedAt,
-				ID:          tc.id,
-			})
+			row, err := q.GetAppAssetPostureByID(ctx, tc.id)
 			if err != nil {
 				t.Fatalf("%s: GetAppAssetPostureByID(): %v", tc.name, err)
 			}
@@ -698,10 +701,10 @@ func TestAppAssetPostureRowsDeriveEvidenceBuckets(t *testing.T) {
 	})
 }
 
-func TestSaaSAppPostureRowsReadGovernanceOverrides(t *testing.T) {
+func TestDiscoveryAppReadModelReadsGovernanceOverrides(t *testing.T) {
 	t.Parallel()
 
-	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *Queries, migrator *migrate.Migrate) {
+	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
 		migrateUp(t, migrator)
 
 		evaluatedAt := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
@@ -725,13 +728,17 @@ func TestSaaSAppPostureRowsReadGovernanceOverrides(t *testing.T) {
 			t.Fatalf("insert governance_subject_overrides for saas_app: %v", err)
 		}
 
+		if _, err := q.RefreshAllSaaSAppReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllSaaSAppReadModels(): %v", err)
+		}
+
 		var governanceState, ticketRef, notes, managedState, riskLevel string
 		if err := pool.QueryRow(ctx, `
 			SELECT governance_state, ticket_ref, notes, managed_state, risk_level
-			FROM saas_app_posture_rows($1, $1, $1, $1, $1, $1, $1)
-			WHERE id = $2
-		`, evaluatedAt, saasAppID).Scan(&governanceState, &ticketRef, &notes, &managedState, &riskLevel); err != nil {
-			t.Fatalf("select saas_app_posture_rows: %v", err)
+			FROM discovery_app_read_models_v
+			WHERE id = $1
+		`, saasAppID).Scan(&governanceState, &ticketRef, &notes, &managedState, &riskLevel); err != nil {
+			t.Fatalf("select discovery_app_read_models_v: %v", err)
 		}
 
 		if governanceState != "ticketed" {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
+	"github.com/open-sspm/open-sspm/internal/readmodels"
 	"github.com/open-sspm/open-sspm/internal/sync"
 	"github.com/spf13/cobra"
 )
@@ -39,9 +40,13 @@ func runSyncDiscovery() error {
 		return err
 	}
 	defer runtimeDeps.pool.Close()
+	queries := runtimeDeps.queries
 
 	reg, err := buildConnectorRegistry(cfg)
 	if err != nil {
+		return err
+	}
+	if err := rebuildStoredReadModels(ctx, runtimeDeps.pool, queries, cfg); err != nil {
 		return err
 	}
 
@@ -61,7 +66,8 @@ func runSyncDiscovery() error {
 	dbRunner.SetLockManager(locks)
 	dbRunner.SetRunMode(registry.RunModeDiscovery)
 	dbRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
-	dbRunner.SetDiscoveryMetricsConfig(cfg)
+	dbRunner.SetReadModelConfig(readmodels.RefreshConfigFromConfig(cfg))
+	dbRunner.EnableDiscoveryMetricsRefresh()
 	runner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, dbRunner, sync.RunOnceScopeNameDiscovery)
 
 	syncErr := runner.RunOnce(ctx)

@@ -69,6 +69,7 @@ func TestHandleConnectedAppShowRedirectsToCanonicalAppAsset(t *testing.T) {
 
 func renderGoogleOAuthAppAssetShow(t *testing.T, h *Handlers, appID int64) string {
 	t.Helper()
+	refreshHandlerReadModels(t, h)
 
 	target := "http://example.com/app-assets/" + strconv.FormatInt(appID, 10)
 	c, rec := newTestContext(http.MethodGet, target)

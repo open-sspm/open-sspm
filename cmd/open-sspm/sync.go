@@ -9,6 +9,7 @@ import (
 
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
+	"github.com/open-sspm/open-sspm/internal/readmodels"
 	"github.com/open-sspm/open-sspm/internal/sync"
 	"github.com/spf13/cobra"
 )
@@ -36,9 +37,13 @@ func runSync() error {
 		return err
 	}
 	defer runtimeDeps.pool.Close()
+	queries := runtimeDeps.queries
 
 	reg, err := buildConnectorRegistry(cfg)
 	if err != nil {
+		return err
+	}
+	if err := rebuildStoredReadModels(ctx, runtimeDeps.pool, queries, cfg); err != nil {
 		return err
 	}
 
@@ -58,6 +63,7 @@ func runSync() error {
 	fullDBRunner.SetLockManager(locks)
 	fullDBRunner.SetRunMode(registry.RunModeFull)
 	fullDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
+	fullDBRunner.SetReadModelConfig(readmodels.RefreshConfigFromConfig(cfg))
 	fullRunner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, fullDBRunner, sync.RunOnceScopeNameFull)
 
 	discoveryDBRunner := sync.NewDBRunner(runtimeDeps.pool, reg)
@@ -65,7 +71,8 @@ func runSync() error {
 	discoveryDBRunner.SetLockManager(locks)
 	discoveryDBRunner.SetRunMode(registry.RunModeDiscovery)
 	discoveryDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
-	discoveryDBRunner.SetDiscoveryMetricsConfig(cfg)
+	discoveryDBRunner.SetReadModelConfig(readmodels.RefreshConfigFromConfig(cfg))
+	discoveryDBRunner.EnableDiscoveryMetricsRefresh()
 	runners := []sync.Runner{fullRunner}
 	if cfg.SyncDiscoveryEnabled {
 		discoveryRunner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, discoveryDBRunner, sync.RunOnceScopeNameDiscovery)

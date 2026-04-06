@@ -1,6 +1,7 @@
 package entra
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -256,6 +257,80 @@ func (c *Client) ListUsers(ctx context.Context) ([]User, error) {
 		u.RawJSON = raw
 		out = append(out, u)
 	}
+	return out, nil
+}
+
+func (c *Client) LookupUsersByIDs(ctx context.Context, ids []string) ([]User, error) {
+	endpoint, err := c.graphURL("/directoryObjects/getByIds", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	distinctIDs := distinctNonEmptyStrings(ids)
+	if len(distinctIDs) == 0 {
+		return []User{}, nil
+	}
+
+	out := make([]User, 0, len(distinctIDs))
+	seen := make(map[string]struct{}, len(distinctIDs))
+	for start := 0; start < len(distinctIDs); start += entraUserBatchSize {
+		end := start + entraUserBatchSize
+		if end > len(distinctIDs) {
+			end = len(distinctIDs)
+		}
+
+		reqBody, err := json.Marshal(struct {
+			IDs   []string `json:"ids"`
+			Types []string `json:"types"`
+		}{
+			IDs:   distinctIDs[start:end],
+			Types: []string{"user"},
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		body, err := c.postJSON(ctx, endpoint, reqBody)
+		if err != nil {
+			return nil, err
+		}
+
+		var payload struct {
+			Value []json.RawMessage `json:"value"`
+		}
+		if err := json.Unmarshal(body, &payload); err != nil {
+			return nil, err
+		}
+
+		for _, raw := range payload.Value {
+			var probe struct {
+				ODataType string `json:"@odata.type"`
+				ID        string `json:"id"`
+			}
+			if err := json.Unmarshal(raw, &probe); err != nil {
+				return nil, err
+			}
+			if probe.ODataType != "" && !strings.EqualFold(strings.TrimSpace(probe.ODataType), "#microsoft.graph.user") {
+				continue
+			}
+
+			var user User
+			if err := json.Unmarshal(raw, &user); err != nil {
+				return nil, err
+			}
+			userID := strings.TrimSpace(user.ID)
+			if userID == "" {
+				continue
+			}
+			if _, ok := seen[userID]; ok {
+				continue
+			}
+			seen[userID] = struct{}{}
+			user.RawJSON = raw
+			out = append(out, user)
+		}
+	}
+
 	return out, nil
 }
 
@@ -518,6 +593,14 @@ func (c *Client) graphURL(path string, query url.Values) (string, error) {
 }
 
 func (c *Client) get(ctx context.Context, endpoint string) ([]byte, error) {
+	return c.request(ctx, http.MethodGet, endpoint, nil, "")
+}
+
+func (c *Client) postJSON(ctx context.Context, endpoint string, body []byte) ([]byte, error) {
+	return c.request(ctx, http.MethodPost, endpoint, body, "application/json")
+}
+
+func (c *Client) request(ctx context.Context, method, endpoint string, requestBody []byte, contentType string) ([]byte, error) {
 	token, err := c.token(ctx)
 	if err != nil {
 		return nil, err
@@ -525,12 +608,19 @@ func (c *Client) get(ctx context.Context, endpoint string) ([]byte, error) {
 
 	var lastErr error
 	for attempt := 0; attempt <= maxRetriesOn429; attempt++ {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+		var bodyReader io.Reader
+		if len(requestBody) > 0 {
+			bodyReader = bytes.NewReader(requestBody)
+		}
+		req, err := http.NewRequestWithContext(ctx, method, endpoint, bodyReader)
 		if err != nil {
 			return nil, err
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("Accept", "application/json")
+		if strings.TrimSpace(contentType) != "" {
+			req.Header.Set("Content-Type", contentType)
+		}
 		req.Header.Set("User-Agent", "open-sspm")
 
 		resp, err := c.http.Do(req)
@@ -578,6 +668,23 @@ func (c *Client) get(ctx context.Context, endpoint string) ([]byte, error) {
 		return nil, lastErr
 	}
 	return nil, errors.New("entra request failed")
+}
+
+func distinctNonEmptyStrings(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
 }
 
 func (c *Client) token(ctx context.Context) (string, error) {

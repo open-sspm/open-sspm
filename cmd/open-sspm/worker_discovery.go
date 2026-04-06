@@ -12,6 +12,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/metrics"
+	"github.com/open-sspm/open-sspm/internal/readmodels"
 	"github.com/open-sspm/open-sspm/internal/sync"
 	"github.com/spf13/cobra"
 )
@@ -51,6 +52,9 @@ func runWorkerDiscovery() error {
 	if err != nil {
 		return err
 	}
+	if err := rebuildStoredReadModels(ctx, runtimeDeps.pool, queries, cfg); err != nil {
+		return err
+	}
 
 	locks, err := sync.NewLockManager(runtimeDeps.pool, sync.LockManagerConfig{
 		Mode:              cfg.SyncLockMode,
@@ -80,7 +84,8 @@ func runWorkerDiscovery() error {
 	dbRunner.SetLockManager(locks)
 	dbRunner.SetRunMode(registry.RunModeDiscovery)
 	dbRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
-	dbRunner.SetDiscoveryMetricsConfig(cfg)
+	dbRunner.SetReadModelConfig(readmodels.RefreshConfigFromConfig(cfg))
+	dbRunner.EnableDiscoveryMetricsRefresh()
 	backoffMax := cfg.SyncFailureBackoffMax
 	if backoffMax <= 0 {
 		backoffMax = cfg.SyncDiscoveryInterval * 10
@@ -121,7 +126,7 @@ func runWorkerDiscovery() error {
 	}()
 
 	scheduler := sync.Scheduler{Runner: executionRunner, Interval: cfg.SyncDiscoveryInterval}
-	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr, discoveryMetricsRefresh(queries, cfg))
+	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr, discoveryMetricsRefresh(queries))
 	doneCh := make(chan struct{})
 	go func() {
 		scheduler.Run(ctx)

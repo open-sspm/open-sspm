@@ -238,6 +238,89 @@ func TestHandleDiscoveryAppShowDisabledConnectorIsUnmanaged(t *testing.T) {
 	})
 }
 
+func TestListTopActorsForSaaSAppByIDPrefersDisplayNameForMixedActorEvidence(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{
+			TenantID:     "tenant-1",
+			ClientID:     "client-1",
+			ClientSecret: "secret-1",
+		})
+
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindEntra, "tenant-1")
+		appID := insertCommandSearchDiscoveryApp(
+			t,
+			ctx,
+			pool,
+			q,
+			runID,
+			configstore.KindEntra,
+			"tenant-1",
+			"shared-actor-app",
+			"Shared Actor App",
+			"shared.example.com",
+			"Example",
+			"shared-actor-app",
+		)
+
+		now := time.Now().UTC()
+		if _, err := q.UpsertSaaSAppEventsBulkBySource(ctx, gen.UpsertSaaSAppEventsBulkBySourceParams{
+			SeenInRunID:       runID,
+			SourceKind:        configstore.KindEntra,
+			SourceName:        "tenant-1",
+			CanonicalKeys:     []string{"shared-actor-app", "shared-actor-app"},
+			SignalKinds:       []string{"oauth_grant", "oauth_grant"},
+			EventExternalIds:  []string{"shared-actor-app-event-1", "shared-actor-app-event-2"},
+			SourceAppIds:      []string{"shared-actor-app", "shared-actor-app"},
+			SourceAppNames:    []string{"Shared Actor App", "Shared Actor App"},
+			SourceAppDomains:  []string{"shared.example.com", "shared.example.com"},
+			ActorExternalIds:  []string{"actor-1", "actor-1"},
+			ActorEmails:       []string{"alice@example.com", "alice@example.com"},
+			ActorDisplayNames: []string{"", "Alice Example"},
+			ObservedAts: []pgtype.Timestamptz{
+				{Time: now.Add(-time.Minute), Valid: true},
+				{Time: now, Valid: true},
+			},
+			ScopesJsons: [][]byte{[]byte(`["mail.read"]`), []byte(`["mail.read"]`)},
+			RawJsons:    [][]byte{[]byte(`{}`), []byte(`{}`)},
+		}); err != nil {
+			t.Fatalf("UpsertSaaSAppEventsBulkBySource shared actor app: %v", err)
+		}
+		if _, err := q.PromoteSaaSAppEventsSeenInRunBySource(ctx, gen.PromoteSaaSAppEventsSeenInRunBySourceParams{
+			LastObservedRunID: runID,
+			SourceKind:        configstore.KindEntra,
+			SourceName:        "tenant-1",
+		}); err != nil {
+			t.Fatalf("PromoteSaaSAppEventsSeenInRunBySource shared actor app: %v", err)
+		}
+
+		actors, err := q.ListTopActorsForSaaSAppByID(ctx, gen.ListTopActorsForSaaSAppByIDParams{
+			SaasAppID: appID,
+			LimitRows: 25,
+		})
+		if err != nil {
+			t.Fatalf("ListTopActorsForSaaSAppByID(%d): %v", appID, err)
+		}
+		if len(actors) != 1 {
+			t.Fatalf("actor rows = %d, want 1", len(actors))
+		}
+		if actors[0].ActorLabel != "Alice Example" {
+			t.Fatalf("actor label = %q, want %q", actors[0].ActorLabel, "Alice Example")
+		}
+		if actors[0].ActorEmail != "alice@example.com" {
+			t.Fatalf("actor email = %q, want %q", actors[0].ActorEmail, "alice@example.com")
+		}
+		if actors[0].ActorExternalID != "actor-1" {
+			t.Fatalf("actor external id = %q, want %q", actors[0].ActorExternalID, "actor-1")
+		}
+		if actors[0].EventCount != 2 {
+			t.Fatalf("event count = %d, want 2", actors[0].EventCount)
+		}
+
+		body := renderDiscoveryAppShow(t, h, appID)
+		assertContains(t, body, "Alice Example")
+	})
+}
+
 func TestHandleDiscoveryAppsFiltersManagedState(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindOkta, true, configstore.OktaConfig{
@@ -511,22 +594,12 @@ func setSyncRunFinishedAt(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
 	`, runID, finishedAt); err != nil {
 		t.Fatalf("update sync_runs finished_at: %v", err)
 	}
+	refreshCommandSearchSourceState(t, ctx, pool)
 }
 
 func getDiscoveryAppByIDForTest(t *testing.T, ctx context.Context, q *gen.Queries, h *Handlers, appID int64) gen.GetSaaSAppByIDRow {
 	t.Helper()
-
-	cutoffs := h.discoveryPostureCutoffs(time.Now().UTC())
-	row, err := q.GetSaaSAppByID(ctx, gen.GetSaaSAppByIDParams{
-		ID:                        appID,
-		OktaFreshAfter:            cutoffs.OktaFreshAfter,
-		EntraFreshAfter:           cutoffs.EntraFreshAfter,
-		GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
-		GithubFreshAfter:          cutoffs.GithubFreshAfter,
-		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
-		AwsFreshAfter:             cutoffs.AwsFreshAfter,
-		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
-	})
+	row, err := q.GetSaaSAppByID(ctx, appID)
 	if err != nil {
 		t.Fatalf("GetSaaSAppByID(%d): %v", appID, err)
 	}
@@ -595,6 +668,7 @@ func insertDiscoveryOAuthEvents(t *testing.T, ctx context.Context, q *gen.Querie
 	}); err != nil {
 		t.Fatalf("PromoteSaaSAppEventsSeenInRunBySource %s: %v", canonicalKey, err)
 	}
+	refreshCommandSearchSourceReadModels(t, ctx, q, sourceKind, sourceName)
 }
 
 func repeatStringForTest(value string, count int) []string {

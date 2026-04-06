@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/readmodels"
 )
 
 const (
@@ -251,7 +252,13 @@ func FinalizeOktaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, ru
 		"counts":      counts,
 		"duration_ms": duration.Milliseconds(),
 	})
+	if err := refreshSourceReadModelsInTx(ctx, qtx, "okta", sourceName); err != nil {
+		return err
+	}
 	if err := qtx.MarkSyncRunSuccess(ctx, gen.MarkSyncRunSuccessParams{ID: runID, Stats: stats}); err != nil {
+		return err
+	}
+	if err := refreshConnectorSourceStateInTx(ctx, qtx); err != nil {
 		return err
 	}
 
@@ -420,7 +427,13 @@ func FinalizeAppRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, run
 		"counts":      counts,
 		"duration_ms": duration.Milliseconds(),
 	})
+	if err := refreshSourceReadModelsInTx(ctx, qtx, sourceKind, sourceName); err != nil {
+		return err
+	}
 	if err := qtx.MarkSyncRunSuccess(ctx, gen.MarkSyncRunSuccessParams{ID: runID, Stats: stats}); err != nil {
+		return err
+	}
+	if err := refreshConnectorSourceStateInTx(ctx, qtx); err != nil {
 		return err
 	}
 
@@ -484,7 +497,13 @@ func FinalizeDiscoveryRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Poo
 		"counts":      counts,
 		"duration_ms": duration.Milliseconds(),
 	})
+	if err := refreshSourceReadModelsInTx(ctx, qtx, sourceKind, sourceName); err != nil {
+		return err
+	}
 	if err := qtx.MarkSyncRunSuccess(ctx, gen.MarkSyncRunSuccessParams{ID: runID, Stats: stats}); err != nil {
+		return err
+	}
+	if err := refreshConnectorSourceStateInTx(ctx, qtx); err != nil {
 		return err
 	}
 
@@ -511,6 +530,22 @@ func MarshalJSON(v any) []byte {
 		panic(fmt.Errorf("registry: marshal json: %w", err))
 	}
 	return b
+}
+
+func refreshSourceReadModelsInTx(ctx context.Context, q *gen.Queries, sourceKind, sourceName string) error {
+	projector := readmodels.ProjectorFromContext(ctx, q)
+	if projector == nil {
+		return nil
+	}
+	return projector.RefreshSourceReadModels(ctx, sourceKind, sourceName)
+}
+
+func refreshConnectorSourceStateInTx(ctx context.Context, q *gen.Queries) error {
+	projector := readmodels.ProjectorFromContext(ctx, q)
+	if projector == nil {
+		return nil
+	}
+	return projector.RefreshConnectorSourceState(ctx)
 }
 
 func NormalizeJSON(b []byte) []byte {

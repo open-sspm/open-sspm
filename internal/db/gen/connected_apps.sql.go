@@ -13,75 +13,31 @@ import (
 
 const countAppAssetGovernanceBySourceAndQueryAndState = `-- name: CountAppAssetGovernanceBySourceAndQueryAndState :one
 SELECT count(*)
-FROM app_asset_posture_rows(
-  $1::timestamptz
-) AS pr(
-  id,
-  source_kind,
-  source_name,
-  asset_kind,
-  external_id,
-  parent_external_id,
-  display_name,
-  status,
-  created_at_source,
-  updated_at_source,
-  raw_json,
-  seen_in_run_id,
-  seen_at,
-  last_observed_run_id,
-  last_observed_at,
-  expired_at,
-  expired_run_id,
-  created_at,
-  updated_at,
-  governance_state,
-  ticket_ref,
-  notes,
-  governance_owner_identity_id,
-  governance_owner_display_name,
-  governance_owner_primary_email,
-  governance_owner_kind,
-  owner_count,
-  grant_count,
-  actor_count,
-  discovery_source_count,
-  discovery_event_count_30d,
-  evidence_last_seen_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  evidence_freshness,
-  evidence_confidence,
-  evidence_confidence_reason
-)
-WHERE pr.source_kind = $2::text
-  AND pr.source_name = $3::text
-  AND pr.asset_kind = $4::text
+FROM connected_app_read_models_v pr
+WHERE pr.source_kind = $1::text
+  AND pr.source_name = $2::text
+  AND pr.asset_kind = $3::text
   AND (
-    $5::text = ''
-    OR pr.governance_state = $5::text
+    $4::text = ''
+    OR pr.governance_state = $4::text
   )
   AND (
-    $6::text = ''
-    OR pr.display_name ILIKE ('%' || $6::text || '%')
-    OR pr.external_id ILIKE ('%' || $6::text || '%')
+    $5::text = ''
+    OR pr.display_name ILIKE ('%' || $5::text || '%')
+    OR pr.external_id ILIKE ('%' || $5::text || '%')
   )
 `
 
 type CountAppAssetGovernanceBySourceAndQueryAndStateParams struct {
-	EvaluatedAt     pgtype.Timestamptz `json:"evaluated_at"`
-	SourceKind      string             `json:"source_kind"`
-	SourceName      string             `json:"source_name"`
-	AssetKind       string             `json:"asset_kind"`
-	GovernanceState string             `json:"governance_state"`
-	Query           string             `json:"query"`
+	SourceKind      string `json:"source_kind"`
+	SourceName      string `json:"source_name"`
+	AssetKind       string `json:"asset_kind"`
+	GovernanceState string `json:"governance_state"`
+	Query           string `json:"query"`
 }
 
 func (q *Queries) CountAppAssetGovernanceBySourceAndQueryAndState(ctx context.Context, arg CountAppAssetGovernanceBySourceAndQueryAndStateParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countAppAssetGovernanceBySourceAndQueryAndState,
-		arg.EvaluatedAt,
 		arg.SourceKind,
 		arg.SourceName,
 		arg.AssetKind,
@@ -97,56 +53,14 @@ const countAppAssetGovernanceGroupedByState = `-- name: CountAppAssetGovernanceG
 SELECT
   pr.governance_state::text AS governance_state,
   count(*)::bigint AS app_count
-FROM app_asset_posture_rows(
-  $1::timestamptz
-) AS pr(
-  id,
-  source_kind,
-  source_name,
-  asset_kind,
-  external_id,
-  parent_external_id,
-  display_name,
-  status,
-  created_at_source,
-  updated_at_source,
-  raw_json,
-  seen_in_run_id,
-  seen_at,
-  last_observed_run_id,
-  last_observed_at,
-  expired_at,
-  expired_run_id,
-  created_at,
-  updated_at,
-  governance_state,
-  ticket_ref,
-  notes,
-  governance_owner_identity_id,
-  governance_owner_display_name,
-  governance_owner_primary_email,
-  governance_owner_kind,
-  owner_count,
-  grant_count,
-  actor_count,
-  discovery_source_count,
-  discovery_event_count_30d,
-  evidence_last_seen_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  evidence_freshness,
-  evidence_confidence,
-  evidence_confidence_reason
-)
-WHERE pr.source_kind = $2::text
-  AND pr.source_name = $3::text
-  AND pr.asset_kind = $4::text
+FROM connected_app_read_models_v pr
+WHERE pr.source_kind = $1::text
+  AND pr.source_name = $2::text
+  AND pr.asset_kind = $3::text
   AND (
-    $5::text = ''
-    OR pr.display_name ILIKE ('%' || $5::text || '%')
-    OR pr.external_id ILIKE ('%' || $5::text || '%')
+    $4::text = ''
+    OR pr.display_name ILIKE ('%' || $4::text || '%')
+    OR pr.external_id ILIKE ('%' || $4::text || '%')
   )
 GROUP BY pr.governance_state
 ORDER BY CASE pr.governance_state
@@ -160,11 +74,10 @@ END
 `
 
 type CountAppAssetGovernanceGroupedByStateParams struct {
-	EvaluatedAt pgtype.Timestamptz `json:"evaluated_at"`
-	SourceKind  string             `json:"source_kind"`
-	SourceName  string             `json:"source_name"`
-	AssetKind   string             `json:"asset_kind"`
-	Query       string             `json:"query"`
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+	AssetKind  string `json:"asset_kind"`
+	Query      string `json:"query"`
 }
 
 type CountAppAssetGovernanceGroupedByStateRow struct {
@@ -174,7 +87,6 @@ type CountAppAssetGovernanceGroupedByStateRow struct {
 
 func (q *Queries) CountAppAssetGovernanceGroupedByState(ctx context.Context, arg CountAppAssetGovernanceGroupedByStateParams) ([]CountAppAssetGovernanceGroupedByStateRow, error) {
 	rows, err := q.db.Query(ctx, countAppAssetGovernanceGroupedByState,
-		arg.EvaluatedAt,
 		arg.SourceKind,
 		arg.SourceName,
 		arg.AssetKind,
@@ -239,56 +151,9 @@ SELECT
   pr.evidence_freshness::text AS evidence_freshness,
   pr.evidence_confidence::text AS evidence_confidence,
   pr.evidence_confidence_reason::text AS evidence_confidence_reason
-FROM app_asset_posture_rows(
-  $1::timestamptz
-) AS pr(
-  id,
-  source_kind,
-  source_name,
-  asset_kind,
-  external_id,
-  parent_external_id,
-  display_name,
-  status,
-  created_at_source,
-  updated_at_source,
-  raw_json,
-  seen_in_run_id,
-  seen_at,
-  last_observed_run_id,
-  last_observed_at,
-  expired_at,
-  expired_run_id,
-  created_at,
-  updated_at,
-  governance_state,
-  ticket_ref,
-  notes,
-  governance_owner_identity_id,
-  governance_owner_display_name,
-  governance_owner_primary_email,
-  governance_owner_kind,
-  owner_count,
-  grant_count,
-  actor_count,
-  discovery_source_count,
-  discovery_event_count_30d,
-  evidence_last_seen_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  evidence_freshness,
-  evidence_confidence,
-  evidence_confidence_reason
-)
-WHERE pr.id = $2::bigint
+FROM connected_app_read_models_v pr
+WHERE pr.id = $1::bigint
 `
-
-type GetAppAssetPostureByIDParams struct {
-	EvaluatedAt pgtype.Timestamptz `json:"evaluated_at"`
-	ID          int64              `json:"id"`
-}
 
 type GetAppAssetPostureByIDRow struct {
 	ID                           int64              `json:"id"`
@@ -332,8 +197,8 @@ type GetAppAssetPostureByIDRow struct {
 	EvidenceConfidenceReason     string             `json:"evidence_confidence_reason"`
 }
 
-func (q *Queries) GetAppAssetPostureByID(ctx context.Context, arg GetAppAssetPostureByIDParams) (GetAppAssetPostureByIDRow, error) {
-	row := q.db.QueryRow(ctx, getAppAssetPostureByID, arg.EvaluatedAt, arg.ID)
+func (q *Queries) GetAppAssetPostureByID(ctx context.Context, id int64) (GetAppAssetPostureByIDRow, error) {
+	row := q.db.QueryRow(ctx, getAppAssetPostureByID, id)
 	var i GetAppAssetPostureByIDRow
 	err := row.Scan(
 		&i.ID,
@@ -451,9 +316,9 @@ const listAppAssetDiscoverySourcesBySourceAppID = `-- name: ListAppAssetDiscover
 WITH scoped_sources AS (
   SELECT id, saas_app_id, source_kind, source_name, source_app_id, source_app_name, source_app_domain, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at
   FROM saas_app_sources sas
-  WHERE sas.source_kind = $8::text
-    AND sas.source_name = $9::text
-    AND sas.source_app_id = $10::text
+  WHERE sas.source_kind = $1::text
+    AND sas.source_name = $2::text
+    AND sas.source_app_id = $3::text
     AND sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
 )
@@ -466,29 +331,14 @@ SELECT
   pr.managed_state::text AS discovery_managed_state,
   pr.risk_level::text AS discovery_risk_level
 FROM scoped_sources sas
-JOIN saas_app_posture_rows(
-  $1::timestamptz,
-  $2::timestamptz,
-  $3::timestamptz,
-  $4::timestamptz,
-  $5::timestamptz,
-  $6::timestamptz,
-  $7::timestamptz
-) AS pr ON pr.id = sas.saas_app_id
+JOIN discovery_app_read_models_v pr ON pr.id = sas.saas_app_id
 ORDER BY sas.last_observed_at DESC, sas.id DESC
 `
 
 type ListAppAssetDiscoverySourcesBySourceAppIDParams struct {
-	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
-	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
-	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
-	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
-	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
-	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
-	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
-	SourceKind                string             `json:"source_kind"`
-	SourceName                string             `json:"source_name"`
-	SourceAppID               string             `json:"source_app_id"`
+	SourceKind  string `json:"source_kind"`
+	SourceName  string `json:"source_name"`
+	SourceAppID string `json:"source_app_id"`
 }
 
 type ListAppAssetDiscoverySourcesBySourceAppIDRow struct {
@@ -516,18 +366,7 @@ type ListAppAssetDiscoverySourcesBySourceAppIDRow struct {
 }
 
 func (q *Queries) ListAppAssetDiscoverySourcesBySourceAppID(ctx context.Context, arg ListAppAssetDiscoverySourcesBySourceAppIDParams) ([]ListAppAssetDiscoverySourcesBySourceAppIDRow, error) {
-	rows, err := q.db.Query(ctx, listAppAssetDiscoverySourcesBySourceAppID,
-		arg.OktaFreshAfter,
-		arg.EntraFreshAfter,
-		arg.GoogleWorkspaceFreshAfter,
-		arg.GithubFreshAfter,
-		arg.DatadogFreshAfter,
-		arg.AwsFreshAfter,
-		arg.DefaultFreshAfter,
-		arg.SourceKind,
-		arg.SourceName,
-		arg.SourceAppID,
-	)
+	rows, err := q.db.Query(ctx, listAppAssetDiscoverySourcesBySourceAppID, arg.SourceKind, arg.SourceName, arg.SourceAppID)
 	if err != nil {
 		return nil, err
 	}
@@ -609,60 +448,18 @@ SELECT
   pr.evidence_freshness::text AS evidence_freshness,
   pr.evidence_confidence::text AS evidence_confidence,
   pr.evidence_confidence_reason::text AS evidence_confidence_reason
-FROM app_asset_posture_rows(
-  $1::timestamptz
-) AS pr(
-  id,
-  source_kind,
-  source_name,
-  asset_kind,
-  external_id,
-  parent_external_id,
-  display_name,
-  status,
-  created_at_source,
-  updated_at_source,
-  raw_json,
-  seen_in_run_id,
-  seen_at,
-  last_observed_run_id,
-  last_observed_at,
-  expired_at,
-  expired_run_id,
-  created_at,
-  updated_at,
-  governance_state,
-  ticket_ref,
-  notes,
-  governance_owner_identity_id,
-  governance_owner_display_name,
-  governance_owner_primary_email,
-  governance_owner_kind,
-  owner_count,
-  grant_count,
-  actor_count,
-  discovery_source_count,
-  discovery_event_count_30d,
-  evidence_last_seen_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  evidence_freshness,
-  evidence_confidence,
-  evidence_confidence_reason
-)
-WHERE pr.source_kind = $2::text
-  AND pr.source_name = $3::text
-  AND pr.asset_kind = $4::text
+FROM connected_app_read_models_v pr
+WHERE pr.source_kind = $1::text
+  AND pr.source_name = $2::text
+  AND pr.asset_kind = $3::text
   AND (
-    $5::text = ''
-    OR pr.governance_state = $5::text
+    $4::text = ''
+    OR pr.governance_state = $4::text
   )
   AND (
-    $6::text = ''
-    OR pr.display_name ILIKE ('%' || $6::text || '%')
-    OR pr.external_id ILIKE ('%' || $6::text || '%')
+    $5::text = ''
+    OR pr.display_name ILIKE ('%' || $5::text || '%')
+    OR pr.external_id ILIKE ('%' || $5::text || '%')
   )
 ORDER BY
   CASE pr.governance_state
@@ -677,19 +474,18 @@ ORDER BY
   pr.evidence_last_seen_at DESC,
   lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.external_id)) ASC,
   pr.id ASC
-LIMIT $8::int
-OFFSET $7::int
+LIMIT $7::int
+OFFSET $6::int
 `
 
 type ListAppAssetGovernancePageBySourceAndQueryAndStateParams struct {
-	EvaluatedAt     pgtype.Timestamptz `json:"evaluated_at"`
-	SourceKind      string             `json:"source_kind"`
-	SourceName      string             `json:"source_name"`
-	AssetKind       string             `json:"asset_kind"`
-	GovernanceState string             `json:"governance_state"`
-	Query           string             `json:"query"`
-	PageOffset      int32              `json:"page_offset"`
-	PageLimit       int32              `json:"page_limit"`
+	SourceKind      string `json:"source_kind"`
+	SourceName      string `json:"source_name"`
+	AssetKind       string `json:"asset_kind"`
+	GovernanceState string `json:"governance_state"`
+	Query           string `json:"query"`
+	PageOffset      int32  `json:"page_offset"`
+	PageLimit       int32  `json:"page_limit"`
 }
 
 type ListAppAssetGovernancePageBySourceAndQueryAndStateRow struct {
@@ -736,7 +532,6 @@ type ListAppAssetGovernancePageBySourceAndQueryAndStateRow struct {
 
 func (q *Queries) ListAppAssetGovernancePageBySourceAndQueryAndState(ctx context.Context, arg ListAppAssetGovernancePageBySourceAndQueryAndStateParams) ([]ListAppAssetGovernancePageBySourceAndQueryAndStateRow, error) {
 	rows, err := q.db.Query(ctx, listAppAssetGovernancePageBySourceAndQueryAndState,
-		arg.EvaluatedAt,
 		arg.SourceKind,
 		arg.SourceName,
 		arg.AssetKind,

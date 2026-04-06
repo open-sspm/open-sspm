@@ -18,6 +18,7 @@ const (
 	defaultMetricsAddr           = ""
 	defaultSyncInterval          = 15 * time.Minute
 	defaultSyncDiscoveryInterval = 15 * time.Minute
+	defaultStartupReadModelMode  = StartupReadModelRebuildAuto
 
 	defaultSyncOktaWorkers    = 3
 	defaultSyncGitHubWorkers  = 6
@@ -27,6 +28,11 @@ const (
 	defaultSyncLockTTL               = 60 * time.Second
 	defaultSyncLockHeartbeatInterval = 15 * time.Second
 	defaultSyncLockHeartbeatTimeout  = 15 * time.Second
+)
+
+const (
+	StartupReadModelRebuildAuto   = "auto"
+	StartupReadModelRebuildAlways = "always"
 )
 
 type Config struct {
@@ -59,6 +65,7 @@ type Config struct {
 	SyncLockHeartbeatInterval   time.Duration
 	SyncLockHeartbeatTimeout    time.Duration
 	SyncLockInstanceID          string
+	StartupReadModelRebuildMode string
 }
 
 type LoadOptions struct {
@@ -82,23 +89,26 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 	}
 
 	cfg := Config{
-		DatabaseURL:               os.Getenv("DATABASE_URL"),
-		HTTPAddr:                  getenvDefault("HTTP_ADDR", defaultHTTPAddr),
-		MetricsAddr:               defaultMetricsAddr,
-		StaticDir:                 strings.TrimSpace(os.Getenv("STATIC_DIR")),
-		AuthCookieSecure:          getenvBoolDefault("AUTH_COOKIE_SECURE", false),
-		TrustedProxyCIDRs:         splitCommaSeparated(os.Getenv("TRUSTED_PROXY_CIDRS")),
-		DevSeedAdmin:              getenvBoolDefault("DEV_SEED_ADMIN", false),
-		SyncDiscoveryEnabled:      getenvBoolDefault("SYNC_DISCOVERY_ENABLED", true),
-		SyncInterval:              defaultSyncInterval,
-		SyncDiscoveryInterval:     defaultSyncDiscoveryInterval,
-		SyncOktaWorkers:           getenvIntDefault("SYNC_OKTA_WORKERS", defaultSyncOktaWorkers),
-		SyncGitHubWorkers:         getenvIntDefault("SYNC_GITHUB_WORKERS", defaultSyncGitHubWorkers),
-		SyncDatadogWorkers:        getenvIntDefault("SYNC_DATADOG_WORKERS", defaultSyncDatadogWorkers),
-		ResyncEnabled:             getenvBoolDefault("RESYNC_ENABLED", true),
-		ResyncMode:                getenvDefault("RESYNC_MODE", "signal"),
-		GlobalEvalMode:            strings.ToLower(strings.TrimSpace(getenvDefault("GLOBAL_EVAL_MODE", "best_effort"))),
-		SyncLockMode:              strings.ToLower(strings.TrimSpace(getenvDefault("SYNC_LOCK_MODE", defaultSyncLockMode))),
+		DatabaseURL:           os.Getenv("DATABASE_URL"),
+		HTTPAddr:              getenvDefault("HTTP_ADDR", defaultHTTPAddr),
+		MetricsAddr:           defaultMetricsAddr,
+		StaticDir:             strings.TrimSpace(os.Getenv("STATIC_DIR")),
+		AuthCookieSecure:      getenvBoolDefault("AUTH_COOKIE_SECURE", false),
+		TrustedProxyCIDRs:     splitCommaSeparated(os.Getenv("TRUSTED_PROXY_CIDRS")),
+		DevSeedAdmin:          getenvBoolDefault("DEV_SEED_ADMIN", false),
+		SyncDiscoveryEnabled:  getenvBoolDefault("SYNC_DISCOVERY_ENABLED", true),
+		SyncInterval:          defaultSyncInterval,
+		SyncDiscoveryInterval: defaultSyncDiscoveryInterval,
+		SyncOktaWorkers:       getenvIntDefault("SYNC_OKTA_WORKERS", defaultSyncOktaWorkers),
+		SyncGitHubWorkers:     getenvIntDefault("SYNC_GITHUB_WORKERS", defaultSyncGitHubWorkers),
+		SyncDatadogWorkers:    getenvIntDefault("SYNC_DATADOG_WORKERS", defaultSyncDatadogWorkers),
+		ResyncEnabled:         getenvBoolDefault("RESYNC_ENABLED", true),
+		ResyncMode:            getenvDefault("RESYNC_MODE", "signal"),
+		GlobalEvalMode:        strings.ToLower(strings.TrimSpace(getenvDefault("GLOBAL_EVAL_MODE", "best_effort"))),
+		SyncLockMode:          strings.ToLower(strings.TrimSpace(getenvDefault("SYNC_LOCK_MODE", defaultSyncLockMode))),
+		StartupReadModelRebuildMode: strings.ToLower(strings.TrimSpace(
+			getenvDefault("STARTUP_READ_MODEL_REBUILD_MODE", defaultStartupReadModelMode),
+		)),
 		SyncLockTTL:               defaultSyncLockTTL,
 		SyncLockHeartbeatInterval: defaultSyncLockHeartbeatInterval,
 		SyncLockHeartbeatTimeout:  defaultSyncLockHeartbeatTimeout,
@@ -193,6 +203,15 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
 			return cfg, fmt.Errorf("TRUSTED_PROXY_CIDRS contains invalid CIDR %q: %w", cidr, err)
 		}
+	}
+	switch cfg.StartupReadModelRebuildMode {
+	case StartupReadModelRebuildAuto, StartupReadModelRebuildAlways:
+	default:
+		return cfg, fmt.Errorf(
+			"STARTUP_READ_MODEL_REBUILD_MODE must be %q or %q",
+			StartupReadModelRebuildAuto,
+			StartupReadModelRebuildAlways,
+		)
 	}
 
 	return cfg, nil

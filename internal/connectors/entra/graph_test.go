@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -69,6 +70,151 @@ func TestListUsersPaging(t *testing.T) {
 	}
 	if userRequests != 2 {
 		t.Fatalf("userRequests=%d want 2", userRequests)
+	}
+}
+
+func TestLookupUsersByIDsUsesGetByIDsAndIgnoresNonUsers(t *testing.T) {
+	t.Parallel()
+
+	var tokenRequests int
+	var lookupRequests int
+	var requestBody struct {
+		IDs   []string `json:"ids"`
+		Types []string `json:"types"`
+	}
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/oauth2/v2.0/token"):
+			tokenRequests++
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"tkn","expires_in":3600,"token_type":"Bearer"}`))
+			return
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/directoryObjects/getByIds"):
+			lookupRequests++
+			if r.Method != http.MethodPost {
+				t.Fatalf("method=%s want POST", r.Method)
+			}
+			if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+				t.Fatalf("decode request body: %v", err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"value":[{"@odata.type":"#microsoft.graph.user","id":"u1","displayName":"One","userPrincipalName":"one@example.com"},{"@odata.type":"#microsoft.graph.group","id":"g1","displayName":"Group One"},{"id":"u2","displayName":"Two"}]}`))
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	c, err := NewWithOptions("tenant", "client", "secret", Options{
+		AuthorityBaseURL: srv.URL,
+		GraphBaseURL:     srv.URL + "/graph/v1.0",
+	})
+	if err != nil {
+		t.Fatalf("NewWithOptions: %v", err)
+	}
+
+	users, err := c.LookupUsersByIDs(context.Background(), []string{" u1 ", "", "u2", "u1"})
+	if err != nil {
+		t.Fatalf("LookupUsersByIDs: %v", err)
+	}
+	if len(users) != 2 {
+		t.Fatalf("len(users)=%d want 2", len(users))
+	}
+	if users[0].ID != "u1" || users[0].DisplayName != "One" {
+		t.Fatalf("unexpected first user: %+v", users[0])
+	}
+	if users[1].ID != "u2" || users[1].DisplayName != "Two" {
+		t.Fatalf("unexpected second user: %+v", users[1])
+	}
+	if len(users[1].RawJSON) == 0 {
+		t.Fatalf("expected partial user raw json to be retained")
+	}
+	if tokenRequests != 1 {
+		t.Fatalf("tokenRequests=%d want 1", tokenRequests)
+	}
+	if lookupRequests != 1 {
+		t.Fatalf("lookupRequests=%d want 1", lookupRequests)
+	}
+	if len(requestBody.Types) != 1 || requestBody.Types[0] != "user" {
+		t.Fatalf("types=%v want [user]", requestBody.Types)
+	}
+	if len(requestBody.IDs) != 2 || requestBody.IDs[0] != "u1" || requestBody.IDs[1] != "u2" {
+		t.Fatalf("ids=%v want [u1 u2]", requestBody.IDs)
+	}
+}
+
+func TestLookupUsersByIDsChunksLargeRequests(t *testing.T) {
+	t.Parallel()
+
+	var tokenRequests int
+	var lookupRequests int
+	chunkSizes := make([]int, 0, 2)
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/oauth2/v2.0/token"):
+			tokenRequests++
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"tkn","expires_in":3600,"token_type":"Bearer"}`))
+			return
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/directoryObjects/getByIds"):
+			lookupRequests++
+			var req struct {
+				IDs []string `json:"ids"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode request body: %v", err)
+			}
+			chunkSizes = append(chunkSizes, len(req.IDs))
+
+			users := make([]map[string]any, 0, len(req.IDs))
+			for _, id := range req.IDs {
+				users = append(users, map[string]any{
+					"@odata.type": "#microsoft.graph.user",
+					"id":          id,
+				})
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"value": users})
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	c, err := NewWithOptions("tenant", "client", "secret", Options{
+		AuthorityBaseURL: srv.URL,
+		GraphBaseURL:     srv.URL + "/graph/v1.0",
+	})
+	if err != nil {
+		t.Fatalf("NewWithOptions: %v", err)
+	}
+
+	ids := make([]string, 0, entraUserBatchSize+1)
+	for i := 0; i < entraUserBatchSize+1; i++ {
+		ids = append(ids, "user-"+strconv.Itoa(i))
+	}
+
+	users, err := c.LookupUsersByIDs(context.Background(), ids)
+	if err != nil {
+		t.Fatalf("LookupUsersByIDs: %v", err)
+	}
+	if len(users) != len(ids) {
+		t.Fatalf("len(users)=%d want %d", len(users), len(ids))
+	}
+	if tokenRequests != 1 {
+		t.Fatalf("tokenRequests=%d want 1", tokenRequests)
+	}
+	if lookupRequests != 2 {
+		t.Fatalf("lookupRequests=%d want 2", lookupRequests)
+	}
+	if len(chunkSizes) != 2 || chunkSizes[0] != entraUserBatchSize || chunkSizes[1] != 1 {
+		t.Fatalf("chunkSizes=%v want [%d 1]", chunkSizes, entraUserBatchSize)
 	}
 }
 
