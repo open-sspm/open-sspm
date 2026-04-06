@@ -467,4 +467,64 @@ LEFT JOIN LATERAL (
 WHERE aa.expired_at IS NULL
   AND aa.last_observed_run_id IS NOT NULL;
 
+INSERT INTO connected_app_governance (
+  app_asset_id,
+  review_state,
+  owner_identity_id,
+  ticket_ref,
+  notes,
+  updated_by_auth_user_id,
+  updated_at
+)
+SELECT
+  go.subject_id AS app_asset_id,
+  CASE go.governance_state
+    WHEN 'in_review' THEN 'under_review'
+    WHEN 'approved' THEN 'sanctioned'
+    WHEN 'action_required' THEN 'needs_revocation'
+    WHEN 'ticketed' THEN 'ticketed'
+    ELSE 'unreviewed'
+  END AS review_state,
+  go.owner_identity_id,
+  go.ticket_ref,
+  go.notes,
+  go.updated_by_auth_user_id,
+  go.updated_at
+FROM governance_subject_overrides go
+WHERE go.subject_kind = 'app_asset'
+ON CONFLICT (app_asset_id) DO UPDATE SET
+  review_state = EXCLUDED.review_state,
+  owner_identity_id = EXCLUDED.owner_identity_id,
+  ticket_ref = EXCLUDED.ticket_ref,
+  notes = EXCLUDED.notes,
+  updated_by_auth_user_id = EXCLUDED.updated_by_auth_user_id,
+  updated_at = EXCLUDED.updated_at;
+
+INSERT INTO saas_app_governance_overrides (
+  saas_app_id,
+  owner_identity_id,
+  business_criticality,
+  data_classification,
+  notes,
+  updated_by_auth_user_id,
+  updated_at
+)
+SELECT
+  go.subject_id AS saas_app_id,
+  go.owner_identity_id,
+  go.business_criticality,
+  go.data_classification,
+  go.notes,
+  go.updated_by_auth_user_id,
+  go.updated_at
+FROM governance_subject_overrides go
+WHERE go.subject_kind = 'saas_app'
+ON CONFLICT (saas_app_id) DO UPDATE SET
+  owner_identity_id = EXCLUDED.owner_identity_id,
+  business_criticality = EXCLUDED.business_criticality,
+  data_classification = EXCLUDED.data_classification,
+  notes = EXCLUDED.notes,
+  updated_by_auth_user_id = EXCLUDED.updated_by_auth_user_id,
+  updated_at = EXCLUDED.updated_at;
+
 DROP TABLE IF EXISTS governance_subject_overrides;

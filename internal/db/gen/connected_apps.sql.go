@@ -451,23 +451,11 @@ const listAppAssetDiscoverySourcesBySourceAppID = `-- name: ListAppAssetDiscover
 WITH scoped_sources AS (
   SELECT id, saas_app_id, source_kind, source_name, source_app_id, source_app_name, source_app_domain, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at
   FROM saas_app_sources sas
-  WHERE sas.source_kind = $1::text
-    AND sas.source_name = $2::text
-    AND sas.source_app_id = $3::text
+  WHERE sas.source_kind = $8::text
+    AND sas.source_name = $9::text
+    AND sas.source_app_id = $10::text
     AND sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
-),
-posture_rows AS (
-  SELECT pr
-  FROM saas_app_posture_rows(
-    $4::timestamptz,
-    $5::timestamptz,
-    $6::timestamptz,
-    $7::timestamptz,
-    $8::timestamptz,
-    $9::timestamptz,
-    $10::timestamptz
-  ) AS pr
 )
 SELECT
   sas.id, sas.saas_app_id, sas.source_kind, sas.source_name, sas.source_app_id, sas.source_app_name, sas.source_app_domain, sas.seen_in_run_id, sas.seen_at, sas.last_observed_run_id, sas.last_observed_at, sas.expired_at, sas.expired_run_id, sas.created_at, sas.updated_at,
@@ -478,14 +466,19 @@ SELECT
   pr.managed_state::text AS discovery_managed_state,
   pr.risk_level::text AS discovery_risk_level
 FROM scoped_sources sas
-JOIN posture_rows pr ON pr.id = sas.saas_app_id
+JOIN saas_app_posture_rows(
+  $1::timestamptz,
+  $2::timestamptz,
+  $3::timestamptz,
+  $4::timestamptz,
+  $5::timestamptz,
+  $6::timestamptz,
+  $7::timestamptz
+) AS pr ON pr.id = sas.saas_app_id
 ORDER BY sas.last_observed_at DESC, sas.id DESC
 `
 
 type ListAppAssetDiscoverySourcesBySourceAppIDParams struct {
-	SourceKind                string             `json:"source_kind"`
-	SourceName                string             `json:"source_name"`
-	SourceAppID               string             `json:"source_app_id"`
 	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
 	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
 	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
@@ -493,6 +486,9 @@ type ListAppAssetDiscoverySourcesBySourceAppIDParams struct {
 	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
 	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
 	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
+	SourceKind                string             `json:"source_kind"`
+	SourceName                string             `json:"source_name"`
+	SourceAppID               string             `json:"source_app_id"`
 }
 
 type ListAppAssetDiscoverySourcesBySourceAppIDRow struct {
@@ -521,9 +517,6 @@ type ListAppAssetDiscoverySourcesBySourceAppIDRow struct {
 
 func (q *Queries) ListAppAssetDiscoverySourcesBySourceAppID(ctx context.Context, arg ListAppAssetDiscoverySourcesBySourceAppIDParams) ([]ListAppAssetDiscoverySourcesBySourceAppIDRow, error) {
 	rows, err := q.db.Query(ctx, listAppAssetDiscoverySourcesBySourceAppID,
-		arg.SourceKind,
-		arg.SourceName,
-		arg.SourceAppID,
 		arg.OktaFreshAfter,
 		arg.EntraFreshAfter,
 		arg.GoogleWorkspaceFreshAfter,
@@ -531,6 +524,9 @@ func (q *Queries) ListAppAssetDiscoverySourcesBySourceAppID(ctx context.Context,
 		arg.DatadogFreshAfter,
 		arg.AwsFreshAfter,
 		arg.DefaultFreshAfter,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.SourceAppID,
 	)
 	if err != nil {
 		return nil, err

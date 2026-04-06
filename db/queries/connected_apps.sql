@@ -358,18 +358,6 @@ WITH scoped_sources AS (
     AND sas.source_app_id = sqlc.arg(source_app_id)::text
     AND sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
-),
-posture_rows AS (
-  SELECT *
-  FROM saas_app_posture_rows(
-    sqlc.arg(okta_fresh_after)::timestamptz,
-    sqlc.arg(entra_fresh_after)::timestamptz,
-    sqlc.arg(google_workspace_fresh_after)::timestamptz,
-    sqlc.arg(github_fresh_after)::timestamptz,
-    sqlc.arg(datadog_fresh_after)::timestamptz,
-    sqlc.arg(aws_fresh_after)::timestamptz,
-    sqlc.arg(default_fresh_after)::timestamptz
-  ) AS pr
 )
 SELECT
   sas.*,
@@ -380,7 +368,15 @@ SELECT
   pr.managed_state::text AS discovery_managed_state,
   pr.risk_level::text AS discovery_risk_level
 FROM scoped_sources sas
-JOIN posture_rows pr ON pr.id = sas.saas_app_id
+JOIN saas_app_posture_rows(
+  sqlc.arg(okta_fresh_after)::timestamptz,
+  sqlc.arg(entra_fresh_after)::timestamptz,
+  sqlc.arg(google_workspace_fresh_after)::timestamptz,
+  sqlc.arg(github_fresh_after)::timestamptz,
+  sqlc.arg(datadog_fresh_after)::timestamptz,
+  sqlc.arg(aws_fresh_after)::timestamptz,
+  sqlc.arg(default_fresh_after)::timestamptz
+) AS pr ON pr.id = sas.saas_app_id
 ORDER BY sas.last_observed_at DESC, sas.id DESC;
 
 -- name: ListAppAssetDiscoveryEventsBySourceAppID :many

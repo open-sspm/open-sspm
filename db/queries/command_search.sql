@@ -149,18 +149,6 @@ scoped_app_ids AS (
    AND lower(trim(cs.source_name)) = lower(trim(sas.source_name))
   WHERE sas.expired_at IS NULL
     AND sas.last_observed_run_id IS NOT NULL
-),
-posture_rows AS (
-  SELECT *
-  FROM saas_app_posture_rows(
-    sqlc.arg(okta_fresh_after)::timestamptz,
-    sqlc.arg(entra_fresh_after)::timestamptz,
-    sqlc.arg(google_workspace_fresh_after)::timestamptz,
-    sqlc.arg(github_fresh_after)::timestamptz,
-    sqlc.arg(datadog_fresh_after)::timestamptz,
-    sqlc.arg(aws_fresh_after)::timestamptz,
-    sqlc.arg(default_fresh_after)::timestamptz
-  ) AS pr
 )
 SELECT
   pr.id::bigint AS id,
@@ -171,7 +159,15 @@ SELECT
   pr.risk_level::text AS risk_level,
   pr.risk_score::int AS risk_score,
   pr.last_seen_at::timestamptz AS last_seen_at
-FROM posture_rows pr
+FROM saas_app_posture_rows(
+  sqlc.arg(okta_fresh_after)::timestamptz,
+  sqlc.arg(entra_fresh_after)::timestamptz,
+  sqlc.arg(google_workspace_fresh_after)::timestamptz,
+  sqlc.arg(github_fresh_after)::timestamptz,
+  sqlc.arg(datadog_fresh_after)::timestamptz,
+  sqlc.arg(aws_fresh_after)::timestamptz,
+  sqlc.arg(default_fresh_after)::timestamptz
+) AS pr
 JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
 WHERE (
     pr.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
