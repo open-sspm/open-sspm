@@ -12,6 +12,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 	"github.com/open-sspm/open-sspm/internal/identity"
+	"github.com/open-sspm/open-sspm/internal/readmodels"
 	"github.com/open-sspm/open-sspm/internal/sync"
 )
 
@@ -216,7 +217,22 @@ func (h *Handlers) handleConnectorToggle(c *echo.Context, kind string) error {
 			return h.renderConnectorsPage(c, kind, "", alert)
 		}
 	}
-	if _, err := h.Q.UpdateConnectorConfigEnabled(ctx, gen.UpdateConnectorConfigEnabledParams{Kind: kind, Enabled: enabled}); err != nil {
+	tx, err := h.Pool.Begin(ctx)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	qtx := h.Q.WithTx(tx)
+	if _, err := qtx.UpdateConnectorConfigEnabled(ctx, gen.UpdateConnectorConfigEnabledParams{Kind: kind, Enabled: enabled}); err != nil {
+		return h.RenderError(c, err)
+	}
+	if err := readmodels.NewProjector(nil, qtx, h.Cfg).RefreshConnectorSourceState(ctx); err != nil {
+		return h.RenderError(c, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return h.RenderError(c, err)
 	}
 	if isHX(c) {
@@ -262,6 +278,9 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 		if errors.Is(err, configstore.ErrConnectorSecretKeyRequired) {
 			return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
 		}
+		return h.RenderError(c, err)
+	}
+	if err := readmodels.NewProjector(nil, h.Q.WithTx(tx), h.Cfg).RefreshConnectorSourceState(ctx); err != nil {
 		return h.RenderError(c, err)
 	}
 	if err := tx.Commit(ctx); err != nil {

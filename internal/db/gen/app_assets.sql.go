@@ -127,7 +127,7 @@ func (q *Queries) ExpireAppAssetsNotSeenInRunBySource(ctx context.Context, arg E
 }
 
 const getAppAssetByID = `-- name: GetAppAssetByID :one
-SELECT id, source_kind, source_name, asset_kind, external_id, parent_external_id, display_name, status, created_at_source, updated_at_source, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at
+SELECT id, source_kind, source_name, asset_kind, external_id, parent_external_id, display_name, status, created_at_source, updated_at_source, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, owner_count, grant_count, actor_count, discovery_source_count, discovery_event_count_30d, evidence_last_seen_at, projection_refreshed_at
 FROM app_assets
 WHERE id = $1
   AND expired_at IS NULL
@@ -157,12 +157,19 @@ func (q *Queries) GetAppAssetByID(ctx context.Context, id int64) (AppAsset, erro
 		&i.ExpiredRunID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerCount,
+		&i.GrantCount,
+		&i.ActorCount,
+		&i.DiscoverySourceCount,
+		&i.DiscoveryEventCount30d,
+		&i.EvidenceLastSeenAt,
+		&i.ProjectionRefreshedAt,
 	)
 	return i, err
 }
 
 const getAppAssetBySourceAndKindAndExternalID = `-- name: GetAppAssetBySourceAndKindAndExternalID :one
-SELECT id, source_kind, source_name, asset_kind, external_id, parent_external_id, display_name, status, created_at_source, updated_at_source, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at
+SELECT id, source_kind, source_name, asset_kind, external_id, parent_external_id, display_name, status, created_at_source, updated_at_source, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, owner_count, grant_count, actor_count, discovery_source_count, discovery_event_count_30d, evidence_last_seen_at, projection_refreshed_at
 FROM app_assets
 WHERE source_kind = $1::text
   AND source_name = $2::text
@@ -207,12 +214,19 @@ func (q *Queries) GetAppAssetBySourceAndKindAndExternalID(ctx context.Context, a
 		&i.ExpiredRunID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerCount,
+		&i.GrantCount,
+		&i.ActorCount,
+		&i.DiscoverySourceCount,
+		&i.DiscoveryEventCount30d,
+		&i.EvidenceLastSeenAt,
+		&i.ProjectionRefreshedAt,
 	)
 	return i, err
 }
 
 const listAppAssetsPageBySourceAndQueryAndKind = `-- name: ListAppAssetsPageBySourceAndQueryAndKind :many
-SELECT aa.id, aa.source_kind, aa.source_name, aa.asset_kind, aa.external_id, aa.parent_external_id, aa.display_name, aa.status, aa.created_at_source, aa.updated_at_source, aa.raw_json, aa.seen_in_run_id, aa.seen_at, aa.last_observed_run_id, aa.last_observed_at, aa.expired_at, aa.expired_run_id, aa.created_at, aa.updated_at
+SELECT aa.id, aa.source_kind, aa.source_name, aa.asset_kind, aa.external_id, aa.parent_external_id, aa.display_name, aa.status, aa.created_at_source, aa.updated_at_source, aa.raw_json, aa.seen_in_run_id, aa.seen_at, aa.last_observed_run_id, aa.last_observed_at, aa.expired_at, aa.expired_run_id, aa.created_at, aa.updated_at, aa.owner_count, aa.grant_count, aa.actor_count, aa.discovery_source_count, aa.discovery_event_count_30d, aa.evidence_last_seen_at, aa.projection_refreshed_at
 FROM app_assets aa
 WHERE
   aa.source_kind = $1::text
@@ -281,6 +295,13 @@ func (q *Queries) ListAppAssetsPageBySourceAndQueryAndKind(ctx context.Context, 
 			&i.ExpiredRunID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.OwnerCount,
+			&i.GrantCount,
+			&i.ActorCount,
+			&i.DiscoverySourceCount,
+			&i.DiscoveryEventCount30d,
+			&i.EvidenceLastSeenAt,
+			&i.ProjectionRefreshedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -300,7 +321,7 @@ WITH configured_sources AS (
   FROM unnest($5::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest($6::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
 )
-SELECT aa.id, aa.source_kind, aa.source_name, aa.asset_kind, aa.external_id, aa.parent_external_id, aa.display_name, aa.status, aa.created_at_source, aa.updated_at_source, aa.raw_json, aa.seen_in_run_id, aa.seen_at, aa.last_observed_run_id, aa.last_observed_at, aa.expired_at, aa.expired_run_id, aa.created_at, aa.updated_at
+SELECT aa.id, aa.source_kind, aa.source_name, aa.asset_kind, aa.external_id, aa.parent_external_id, aa.display_name, aa.status, aa.created_at_source, aa.updated_at_source, aa.raw_json, aa.seen_in_run_id, aa.seen_at, aa.last_observed_run_id, aa.last_observed_at, aa.expired_at, aa.expired_run_id, aa.created_at, aa.updated_at, aa.owner_count, aa.grant_count, aa.actor_count, aa.discovery_source_count, aa.discovery_event_count_30d, aa.evidence_last_seen_at, aa.projection_refreshed_at
 FROM app_assets aa
 JOIN configured_sources cs
   ON cs.source_kind = aa.source_kind
@@ -372,6 +393,13 @@ func (q *Queries) ListAppAssetsPageBySourcesAndQueryAndKind(ctx context.Context,
 			&i.ExpiredRunID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.OwnerCount,
+			&i.GrantCount,
+			&i.ActorCount,
+			&i.DiscoverySourceCount,
+			&i.DiscoveryEventCount30d,
+			&i.EvidenceLastSeenAt,
+			&i.ProjectionRefreshedAt,
 		); err != nil {
 			return nil, err
 		}

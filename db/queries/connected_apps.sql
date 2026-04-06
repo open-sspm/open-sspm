@@ -1,48 +1,6 @@
 -- name: CountAppAssetGovernanceBySourceAndQueryAndState :one
 SELECT count(*)
-FROM app_asset_posture_rows(
-  sqlc.arg(evaluated_at)::timestamptz
-) AS pr(
-  id,
-  source_kind,
-  source_name,
-  asset_kind,
-  external_id,
-  parent_external_id,
-  display_name,
-  status,
-  created_at_source,
-  updated_at_source,
-  raw_json,
-  seen_in_run_id,
-  seen_at,
-  last_observed_run_id,
-  last_observed_at,
-  expired_at,
-  expired_run_id,
-  created_at,
-  updated_at,
-  governance_state,
-  ticket_ref,
-  notes,
-  governance_owner_identity_id,
-  governance_owner_display_name,
-  governance_owner_primary_email,
-  governance_owner_kind,
-  owner_count,
-  grant_count,
-  actor_count,
-  discovery_source_count,
-  discovery_event_count_30d,
-  evidence_last_seen_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  evidence_freshness,
-  evidence_confidence,
-  evidence_confidence_reason
-)
+FROM connected_app_read_models_v pr
 WHERE pr.source_kind = sqlc.arg(source_kind)::text
   AND pr.source_name = sqlc.arg(source_name)::text
   AND pr.asset_kind = sqlc.arg(asset_kind)::text
@@ -60,49 +18,7 @@ WHERE pr.source_kind = sqlc.arg(source_kind)::text
 SELECT
   pr.governance_state::text AS governance_state,
   count(*)::bigint AS app_count
-FROM app_asset_posture_rows(
-  sqlc.arg(evaluated_at)::timestamptz
-) AS pr(
-  id,
-  source_kind,
-  source_name,
-  asset_kind,
-  external_id,
-  parent_external_id,
-  display_name,
-  status,
-  created_at_source,
-  updated_at_source,
-  raw_json,
-  seen_in_run_id,
-  seen_at,
-  last_observed_run_id,
-  last_observed_at,
-  expired_at,
-  expired_run_id,
-  created_at,
-  updated_at,
-  governance_state,
-  ticket_ref,
-  notes,
-  governance_owner_identity_id,
-  governance_owner_display_name,
-  governance_owner_primary_email,
-  governance_owner_kind,
-  owner_count,
-  grant_count,
-  actor_count,
-  discovery_source_count,
-  discovery_event_count_30d,
-  evidence_last_seen_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  evidence_freshness,
-  evidence_confidence,
-  evidence_confidence_reason
-)
+FROM connected_app_read_models_v pr
 WHERE pr.source_kind = sqlc.arg(source_kind)::text
   AND pr.source_name = sqlc.arg(source_name)::text
   AND pr.asset_kind = sqlc.arg(asset_kind)::text
@@ -162,49 +78,7 @@ SELECT
   pr.evidence_freshness::text AS evidence_freshness,
   pr.evidence_confidence::text AS evidence_confidence,
   pr.evidence_confidence_reason::text AS evidence_confidence_reason
-FROM app_asset_posture_rows(
-  sqlc.arg(evaluated_at)::timestamptz
-) AS pr(
-  id,
-  source_kind,
-  source_name,
-  asset_kind,
-  external_id,
-  parent_external_id,
-  display_name,
-  status,
-  created_at_source,
-  updated_at_source,
-  raw_json,
-  seen_in_run_id,
-  seen_at,
-  last_observed_run_id,
-  last_observed_at,
-  expired_at,
-  expired_run_id,
-  created_at,
-  updated_at,
-  governance_state,
-  ticket_ref,
-  notes,
-  governance_owner_identity_id,
-  governance_owner_display_name,
-  governance_owner_primary_email,
-  governance_owner_kind,
-  owner_count,
-  grant_count,
-  actor_count,
-  discovery_source_count,
-  discovery_event_count_30d,
-  evidence_last_seen_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  evidence_freshness,
-  evidence_confidence,
-  evidence_confidence_reason
-)
+FROM connected_app_read_models_v pr
 WHERE pr.source_kind = sqlc.arg(source_kind)::text
   AND pr.source_name = sqlc.arg(source_name)::text
   AND pr.asset_kind = sqlc.arg(asset_kind)::text
@@ -274,49 +148,7 @@ SELECT
   pr.evidence_freshness::text AS evidence_freshness,
   pr.evidence_confidence::text AS evidence_confidence,
   pr.evidence_confidence_reason::text AS evidence_confidence_reason
-FROM app_asset_posture_rows(
-  sqlc.arg(evaluated_at)::timestamptz
-) AS pr(
-  id,
-  source_kind,
-  source_name,
-  asset_kind,
-  external_id,
-  parent_external_id,
-  display_name,
-  status,
-  created_at_source,
-  updated_at_source,
-  raw_json,
-  seen_in_run_id,
-  seen_at,
-  last_observed_run_id,
-  last_observed_at,
-  expired_at,
-  expired_run_id,
-  created_at,
-  updated_at,
-  governance_state,
-  ticket_ref,
-  notes,
-  governance_owner_identity_id,
-  governance_owner_display_name,
-  governance_owner_primary_email,
-  governance_owner_kind,
-  owner_count,
-  grant_count,
-  actor_count,
-  discovery_source_count,
-  discovery_event_count_30d,
-  evidence_last_seen_at,
-  suggested_business_criticality,
-  suggested_data_classification,
-  effective_business_criticality,
-  effective_data_classification,
-  evidence_freshness,
-  evidence_confidence,
-  evidence_confidence_reason
-)
+FROM connected_app_read_models_v pr
 WHERE pr.id = sqlc.arg(id)::bigint;
 
 -- name: UpsertAppAssetGovernance :one
@@ -368,15 +200,7 @@ SELECT
   pr.managed_state::text AS discovery_managed_state,
   pr.risk_level::text AS discovery_risk_level
 FROM scoped_sources sas
-JOIN saas_app_posture_rows(
-  sqlc.arg(okta_fresh_after)::timestamptz,
-  sqlc.arg(entra_fresh_after)::timestamptz,
-  sqlc.arg(google_workspace_fresh_after)::timestamptz,
-  sqlc.arg(github_fresh_after)::timestamptz,
-  sqlc.arg(datadog_fresh_after)::timestamptz,
-  sqlc.arg(aws_fresh_after)::timestamptz,
-  sqlc.arg(default_fresh_after)::timestamptz
-) AS pr ON pr.id = sas.saas_app_id
+JOIN discovery_app_read_models_v pr ON pr.id = sas.saas_app_id
 ORDER BY sas.last_observed_at DESC, sas.id DESC;
 
 -- name: ListAppAssetDiscoveryEventsBySourceAppID :many

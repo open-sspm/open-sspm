@@ -57,42 +57,29 @@ ON CONFLICT (canonical_key) DO UPDATE SET
   updated_at = now();
 
 -- name: CountSaaSAppsByFilters :one
-WITH configured_sources AS (
-  SELECT
-    k.kind AS source_kind,
-    n.name AS source_name
-  FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-),
-scoped_app_ids AS (
-  SELECT DISTINCT sas.saas_app_id
-  FROM saas_app_sources sas
-  JOIN configured_sources cfg
-    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
-   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
-  WHERE sas.expired_at IS NULL
-    AND sas.last_observed_run_id IS NOT NULL
-    AND (
-      sqlc.arg(source_kind)::text = ''
-      OR lower(trim(sas.source_kind)) = lower(trim(sqlc.arg(source_kind)::text))
-    )
-    AND (
-      sqlc.arg(source_name)::text = ''
-      OR lower(trim(sas.source_name)) = lower(trim(sqlc.arg(source_name)::text))
-    )
-)
 SELECT count(*)
-FROM saas_app_posture_rows(
-  sqlc.arg(okta_fresh_after)::timestamptz,
-  sqlc.arg(entra_fresh_after)::timestamptz,
-  sqlc.arg(google_workspace_fresh_after)::timestamptz,
-  sqlc.arg(github_fresh_after)::timestamptz,
-  sqlc.arg(datadog_fresh_after)::timestamptz,
-  sqlc.arg(aws_fresh_after)::timestamptz,
-  sqlc.arg(default_fresh_after)::timestamptz
-) AS pr
-JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
-WHERE (
+FROM discovery_app_read_models_v pr
+WHERE EXISTS (
+    SELECT 1
+    FROM saas_app_sources sas
+    JOIN connector_source_state css
+      ON lower(trim(css.source_kind)) = lower(trim(sas.source_kind))
+     AND lower(trim(css.source_name)) = lower(trim(sas.source_name))
+    WHERE sas.saas_app_id = pr.id
+      AND sas.expired_at IS NULL
+      AND sas.last_observed_run_id IS NOT NULL
+      AND css.configured
+      AND css.discovery_enabled
+      AND (
+        sqlc.arg(source_kind)::text = ''
+        OR lower(trim(sas.source_kind)) = lower(trim(sqlc.arg(source_kind)::text))
+      )
+      AND (
+        sqlc.arg(source_name)::text = ''
+        OR lower(trim(sas.source_name)) = lower(trim(sqlc.arg(source_name)::text))
+      )
+  )
+  AND (
     sqlc.arg(query)::text = ''
     OR pr.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
     OR pr.primary_domain ILIKE ('%' || sqlc.arg(query)::text || '%')
@@ -109,30 +96,6 @@ WHERE (
   );
 
 -- name: ListSaaSAppsPageByFilters :many
-WITH configured_sources AS (
-  SELECT
-    k.kind AS source_kind,
-    n.name AS source_name
-  FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-),
-scoped_app_ids AS (
-  SELECT DISTINCT sas.saas_app_id
-  FROM saas_app_sources sas
-  JOIN configured_sources cfg
-    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
-   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
-  WHERE sas.expired_at IS NULL
-    AND sas.last_observed_run_id IS NOT NULL
-    AND (
-      sqlc.arg(source_kind)::text = ''
-      OR lower(trim(sas.source_kind)) = lower(trim(sqlc.arg(source_kind)::text))
-    )
-    AND (
-      sqlc.arg(source_name)::text = ''
-      OR lower(trim(sas.source_name)) = lower(trim(sqlc.arg(source_name)::text))
-    )
-)
 SELECT
   pr.id::bigint AS id,
   pr.canonical_key::text AS canonical_key,
@@ -151,21 +114,31 @@ SELECT
   pr.last_seen_at::timestamptz AS last_seen_at,
   pr.created_at::timestamptz AS created_at,
   pr.updated_at::timestamptz AS updated_at,
-  COALESCE(owner.display_name, '') AS owner_display_name,
-  COALESCE(owner.primary_email, '') AS owner_primary_email,
+  pr.owner_display_name::text AS owner_display_name,
+  pr.owner_primary_email::text AS owner_primary_email,
   pr.actors_30d::bigint AS actors_30d
-FROM saas_app_posture_rows(
-  sqlc.arg(okta_fresh_after)::timestamptz,
-  sqlc.arg(entra_fresh_after)::timestamptz,
-  sqlc.arg(google_workspace_fresh_after)::timestamptz,
-  sqlc.arg(github_fresh_after)::timestamptz,
-  sqlc.arg(datadog_fresh_after)::timestamptz,
-  sqlc.arg(aws_fresh_after)::timestamptz,
-  sqlc.arg(default_fresh_after)::timestamptz
-) AS pr
-JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
-LEFT JOIN identities owner ON owner.id = NULLIF(pr.owner_identity_id, 0)
-WHERE (
+FROM discovery_app_read_models_v pr
+WHERE EXISTS (
+    SELECT 1
+    FROM saas_app_sources sas
+    JOIN connector_source_state css
+      ON lower(trim(css.source_kind)) = lower(trim(sas.source_kind))
+     AND lower(trim(css.source_name)) = lower(trim(sas.source_name))
+    WHERE sas.saas_app_id = pr.id
+      AND sas.expired_at IS NULL
+      AND sas.last_observed_run_id IS NOT NULL
+      AND css.configured
+      AND css.discovery_enabled
+      AND (
+        sqlc.arg(source_kind)::text = ''
+        OR lower(trim(sas.source_kind)) = lower(trim(sqlc.arg(source_kind)::text))
+      )
+      AND (
+        sqlc.arg(source_name)::text = ''
+        OR lower(trim(sas.source_name)) = lower(trim(sqlc.arg(source_name)::text))
+      )
+  )
+  AND (
     sqlc.arg(query)::text = ''
     OR pr.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
     OR pr.primary_domain ILIKE ('%' || sqlc.arg(query)::text || '%')
@@ -207,42 +180,10 @@ SELECT
   pr.last_seen_at::timestamptz AS last_seen_at,
   pr.created_at::timestamptz AS created_at,
   pr.updated_at::timestamptz AS updated_at
-FROM saas_app_posture_rows(
-  sqlc.arg(okta_fresh_after)::timestamptz,
-  sqlc.arg(entra_fresh_after)::timestamptz,
-  sqlc.arg(google_workspace_fresh_after)::timestamptz,
-  sqlc.arg(github_fresh_after)::timestamptz,
-  sqlc.arg(datadog_fresh_after)::timestamptz,
-  sqlc.arg(aws_fresh_after)::timestamptz,
-  sqlc.arg(default_fresh_after)::timestamptz
-) AS pr
+FROM discovery_app_read_models_v pr
 WHERE pr.id = sqlc.arg(id)::bigint;
 
 -- name: ListSaaSAppHotspots :many
-WITH configured_sources AS (
-  SELECT
-    k.kind AS source_kind,
-    n.name AS source_name
-  FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-),
-scoped_app_ids AS (
-  SELECT DISTINCT sas.saas_app_id
-  FROM saas_app_sources sas
-  JOIN configured_sources cfg
-    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
-   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
-  WHERE sas.expired_at IS NULL
-    AND sas.last_observed_run_id IS NOT NULL
-    AND (
-      sqlc.arg(source_kind)::text = ''
-      OR lower(trim(sas.source_kind)) = lower(trim(sqlc.arg(source_kind)::text))
-    )
-    AND (
-      sqlc.arg(source_name)::text = ''
-      OR lower(trim(sas.source_name)) = lower(trim(sqlc.arg(source_name)::text))
-    )
-)
 SELECT
   pr.id::bigint AS id,
   pr.canonical_key::text AS canonical_key,
@@ -261,82 +202,66 @@ SELECT
   pr.last_seen_at::timestamptz AS last_seen_at,
   pr.created_at::timestamptz AS created_at,
   pr.updated_at::timestamptz AS updated_at,
-  COALESCE(owner.display_name, '') AS owner_display_name,
-  COALESCE(owner.primary_email, '') AS owner_primary_email,
+  pr.owner_display_name::text AS owner_display_name,
+  pr.owner_primary_email::text AS owner_primary_email,
   pr.actors_30d::bigint AS actors_30d
-FROM saas_app_posture_rows(
-  sqlc.arg(okta_fresh_after)::timestamptz,
-  sqlc.arg(entra_fresh_after)::timestamptz,
-  sqlc.arg(google_workspace_fresh_after)::timestamptz,
-  sqlc.arg(github_fresh_after)::timestamptz,
-  sqlc.arg(datadog_fresh_after)::timestamptz,
-  sqlc.arg(aws_fresh_after)::timestamptz,
-  sqlc.arg(default_fresh_after)::timestamptz
-) AS pr
-JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
-LEFT JOIN identities owner ON owner.id = NULLIF(pr.owner_identity_id, 0)
+FROM discovery_app_read_models_v pr
 WHERE pr.risk_score >= 60
+  AND EXISTS (
+    SELECT 1
+    FROM saas_app_sources sas
+    JOIN connector_source_state css
+      ON lower(trim(css.source_kind)) = lower(trim(sas.source_kind))
+     AND lower(trim(css.source_name)) = lower(trim(sas.source_name))
+    WHERE sas.saas_app_id = pr.id
+      AND sas.expired_at IS NULL
+      AND sas.last_observed_run_id IS NOT NULL
+      AND css.configured
+      AND css.discovery_enabled
+      AND (
+        sqlc.arg(source_kind)::text = ''
+        OR lower(trim(sas.source_kind)) = lower(trim(sqlc.arg(source_kind)::text))
+      )
+      AND (
+        sqlc.arg(source_name)::text = ''
+        OR lower(trim(sas.source_name)) = lower(trim(sqlc.arg(source_name)::text))
+      )
+  )
 ORDER BY pr.risk_score DESC, pr.last_seen_at DESC, pr.id ASC
 LIMIT sqlc.arg(limit_rows)::int;
 
 -- name: CountSaaSAppsGroupedByManagedState :many
-WITH configured_sources AS (
-  SELECT
-    k.kind AS source_kind,
-    n.name AS source_name
-  FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-),
-scoped_app_ids AS (
-  SELECT DISTINCT sas.saas_app_id
-  FROM saas_app_sources sas
-  JOIN configured_sources cfg
-    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
-   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
-  WHERE sas.expired_at IS NULL
-    AND sas.last_observed_run_id IS NOT NULL
-)
 SELECT pr.managed_state::text AS managed_state, count(*) AS app_count
-FROM saas_app_posture_rows(
-  sqlc.arg(okta_fresh_after)::timestamptz,
-  sqlc.arg(entra_fresh_after)::timestamptz,
-  sqlc.arg(google_workspace_fresh_after)::timestamptz,
-  sqlc.arg(github_fresh_after)::timestamptz,
-  sqlc.arg(datadog_fresh_after)::timestamptz,
-  sqlc.arg(aws_fresh_after)::timestamptz,
-  sqlc.arg(default_fresh_after)::timestamptz
-) AS pr
-JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
+FROM discovery_app_read_models_v pr
+WHERE EXISTS (
+    SELECT 1
+    FROM saas_app_sources sas
+    JOIN connector_source_state css
+      ON lower(trim(css.source_kind)) = lower(trim(sas.source_kind))
+     AND lower(trim(css.source_name)) = lower(trim(sas.source_name))
+    WHERE sas.saas_app_id = pr.id
+      AND sas.expired_at IS NULL
+      AND sas.last_observed_run_id IS NOT NULL
+      AND css.configured
+      AND css.discovery_enabled
+  )
 GROUP BY 1
 ORDER BY 1;
 
 -- name: CountSaaSAppsGroupedByRiskLevel :many
-WITH configured_sources AS (
-  SELECT
-    k.kind AS source_kind,
-    n.name AS source_name
-  FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-),
-scoped_app_ids AS (
-  SELECT DISTINCT sas.saas_app_id
-  FROM saas_app_sources sas
-  JOIN configured_sources cfg
-    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
-   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
-  WHERE sas.expired_at IS NULL
-    AND sas.last_observed_run_id IS NOT NULL
-)
 SELECT pr.risk_level::text AS risk_level, count(*) AS app_count
-FROM saas_app_posture_rows(
-  sqlc.arg(okta_fresh_after)::timestamptz,
-  sqlc.arg(entra_fresh_after)::timestamptz,
-  sqlc.arg(google_workspace_fresh_after)::timestamptz,
-  sqlc.arg(github_fresh_after)::timestamptz,
-  sqlc.arg(datadog_fresh_after)::timestamptz,
-  sqlc.arg(aws_fresh_after)::timestamptz,
-  sqlc.arg(default_fresh_after)::timestamptz
-) AS pr
-JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
+FROM discovery_app_read_models_v pr
+WHERE EXISTS (
+    SELECT 1
+    FROM saas_app_sources sas
+    JOIN connector_source_state css
+      ON lower(trim(css.source_kind)) = lower(trim(sas.source_kind))
+     AND lower(trim(css.source_name)) = lower(trim(sas.source_name))
+    WHERE sas.saas_app_id = pr.id
+      AND sas.expired_at IS NULL
+      AND sas.last_observed_run_id IS NOT NULL
+      AND css.configured
+      AND css.discovery_enabled
+  )
 GROUP BY 1
 ORDER BY 1;

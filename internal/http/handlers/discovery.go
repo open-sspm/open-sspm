@@ -4,13 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
@@ -25,16 +22,6 @@ const (
 	discoveryHotspotsLimit = 200
 )
 
-type discoveryPostureCutoffs struct {
-	OktaFreshAfter            pgtype.Timestamptz
-	EntraFreshAfter           pgtype.Timestamptz
-	GoogleWorkspaceFreshAfter pgtype.Timestamptz
-	GithubFreshAfter          pgtype.Timestamptz
-	DatadogFreshAfter         pgtype.Timestamptz
-	AwsFreshAfter             pgtype.Timestamptz
-	DefaultFreshAfter         pgtype.Timestamptz
-}
-
 func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
@@ -47,25 +34,14 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 	sourceOptions := discoverySourceOptions(stateView)
 	queryState := querystate.ParseDiscoveryAppsQuery(c.Request().URL.Query(), discoveryQuerySources(sourceOptions))
 	sourceNameOptions := discoverySourceNameOptions(queryState.Source.Kind, sourceOptions)
-	configuredSourceKinds, configuredSourceNames := discoveryConfiguredSourcePairs(sourceOptions)
 	page := queryState.Page
-	cutoffs := h.discoveryPostureCutoffs(time.Now().UTC())
 
 	totalCount, err := h.Q.CountSaaSAppsByFilters(ctx, gen.CountSaaSAppsByFiltersParams{
-		ManagedState:              queryState.ManagedState,
-		RiskLevel:                 queryState.RiskLevel,
-		ConfiguredSourceKinds:     configuredSourceKinds,
-		ConfiguredSourceNames:     configuredSourceNames,
-		OktaFreshAfter:            cutoffs.OktaFreshAfter,
-		EntraFreshAfter:           cutoffs.EntraFreshAfter,
-		GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
-		GithubFreshAfter:          cutoffs.GithubFreshAfter,
-		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
-		AwsFreshAfter:             cutoffs.AwsFreshAfter,
-		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
-		SourceKind:                queryState.Source.Kind,
-		SourceName:                queryState.Source.Name,
-		Query:                     queryState.Q,
+		ManagedState: queryState.ManagedState,
+		RiskLevel:    queryState.RiskLevel,
+		SourceKind:   queryState.Source.Kind,
+		SourceName:   queryState.Source.Name,
+		Query:        queryState.Q,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -73,22 +49,13 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 
 	pagination := newPaginatedListState(totalCount, page, discoveryAppsPerPage)
 	rows, err := h.Q.ListSaaSAppsPageByFilters(ctx, gen.ListSaaSAppsPageByFiltersParams{
-		ManagedState:              queryState.ManagedState,
-		RiskLevel:                 queryState.RiskLevel,
-		PageOffset:                int32(pagination.Offset()),
-		PageLimit:                 int32(discoveryAppsPerPage),
-		ConfiguredSourceKinds:     configuredSourceKinds,
-		ConfiguredSourceNames:     configuredSourceNames,
-		OktaFreshAfter:            cutoffs.OktaFreshAfter,
-		EntraFreshAfter:           cutoffs.EntraFreshAfter,
-		GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
-		GithubFreshAfter:          cutoffs.GithubFreshAfter,
-		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
-		AwsFreshAfter:             cutoffs.AwsFreshAfter,
-		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
-		SourceKind:                queryState.Source.Kind,
-		SourceName:                queryState.Source.Name,
-		Query:                     queryState.Q,
+		ManagedState: queryState.ManagedState,
+		RiskLevel:    queryState.RiskLevel,
+		PageOffset:   int32(pagination.Offset()),
+		PageLimit:    int32(discoveryAppsPerPage),
+		SourceKind:   queryState.Source.Kind,
+		SourceName:   queryState.Source.Name,
+		Query:        queryState.Q,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -148,22 +115,11 @@ func (h *Handlers) HandleDiscoveryHotspots(c *echo.Context) error {
 	sourceOptions := discoverySourceOptions(stateView)
 	queryState := querystate.ParseDiscoveryHotspotsQuery(c.Request().URL.Query(), discoveryQuerySources(sourceOptions))
 	sourceNameOptions := discoverySourceNameOptions(queryState.Source.Kind, sourceOptions)
-	configuredSourceKinds, configuredSourceNames := discoveryConfiguredSourcePairs(sourceOptions)
-	cutoffs := h.discoveryPostureCutoffs(time.Now().UTC())
 
 	rows, err := h.Q.ListSaaSAppHotspots(ctx, gen.ListSaaSAppHotspotsParams{
-		LimitRows:                 discoveryHotspotsLimit,
-		ConfiguredSourceKinds:     configuredSourceKinds,
-		ConfiguredSourceNames:     configuredSourceNames,
-		OktaFreshAfter:            cutoffs.OktaFreshAfter,
-		EntraFreshAfter:           cutoffs.EntraFreshAfter,
-		GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
-		GithubFreshAfter:          cutoffs.GithubFreshAfter,
-		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
-		AwsFreshAfter:             cutoffs.AwsFreshAfter,
-		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
-		SourceKind:                queryState.Source.Kind,
-		SourceName:                queryState.Source.Name,
+		LimitRows:  discoveryHotspotsLimit,
+		SourceKind: queryState.Source.Kind,
+		SourceName: queryState.Source.Name,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -211,17 +167,7 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	cutoffs := h.discoveryPostureCutoffs(time.Now().UTC())
-	app, err := h.Q.GetSaaSAppByID(ctx, gen.GetSaaSAppByIDParams{
-		OktaFreshAfter:            cutoffs.OktaFreshAfter,
-		EntraFreshAfter:           cutoffs.EntraFreshAfter,
-		GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
-		GithubFreshAfter:          cutoffs.GithubFreshAfter,
-		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
-		AwsFreshAfter:             cutoffs.AwsFreshAfter,
-		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
-		ID:                        appID,
-	})
+	app, err := h.Q.GetSaaSAppByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -335,57 +281,10 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 	return h.RenderComponent(c, views.DiscoveryAppShowPage(data))
 }
 
-func (h *Handlers) discoveryFreshnessWindow(kind string) time.Duration {
-	interval := h.Cfg.SyncInterval
-	switch NormalizeConnectorKind(kind) {
-	case configstore.KindOkta:
-		if h.Cfg.SyncOktaInterval > 0 {
-			interval = h.Cfg.SyncOktaInterval
-		}
-	case configstore.KindEntra:
-		if h.Cfg.SyncEntraInterval > 0 {
-			interval = h.Cfg.SyncEntraInterval
-		}
-	case configstore.KindGoogleWorkspace:
-		if h.Cfg.SyncGoogleWorkspaceInterval > 0 {
-			interval = h.Cfg.SyncGoogleWorkspaceInterval
-		}
-	case configstore.KindGitHub:
-		if h.Cfg.SyncGitHubInterval > 0 {
-			interval = h.Cfg.SyncGitHubInterval
-		}
-	case configstore.KindDatadog:
-		if h.Cfg.SyncDatadogInterval > 0 {
-			interval = h.Cfg.SyncDatadogInterval
-		}
-	case configstore.KindAWSIdentityCenter:
-		if h.Cfg.SyncAWSInterval > 0 {
-			interval = h.Cfg.SyncAWSInterval
-		}
-	}
-	if interval <= 0 {
-		interval = 15 * time.Minute
-	}
-	window := max(interval*2, 30*time.Minute)
-	return window
-}
-
-func (h *Handlers) discoveryPostureCutoffs(now time.Time) discoveryPostureCutoffs {
-	return discoveryPostureCutoffs{
-		OktaFreshAfter:            pgtype.Timestamptz{Time: now.Add(-h.discoveryFreshnessWindow(configstore.KindOkta)), Valid: true},
-		EntraFreshAfter:           pgtype.Timestamptz{Time: now.Add(-h.discoveryFreshnessWindow(configstore.KindEntra)), Valid: true},
-		GoogleWorkspaceFreshAfter: pgtype.Timestamptz{Time: now.Add(-h.discoveryFreshnessWindow(configstore.KindGoogleWorkspace)), Valid: true},
-		GithubFreshAfter:          pgtype.Timestamptz{Time: now.Add(-h.discoveryFreshnessWindow(configstore.KindGitHub)), Valid: true},
-		DatadogFreshAfter:         pgtype.Timestamptz{Time: now.Add(-h.discoveryFreshnessWindow(configstore.KindDatadog)), Valid: true},
-		AwsFreshAfter:             pgtype.Timestamptz{Time: now.Add(-h.discoveryFreshnessWindow(configstore.KindAWSIdentityCenter)), Valid: true},
-		DefaultFreshAfter:         pgtype.Timestamptz{Time: now.Add(-h.discoveryFreshnessWindow("")), Valid: true},
-	}
-}
-
 func discoverySourceOptions(stateView connectorStateView) []viewmodels.DiscoverySourceOption {
 	options := make([]viewmodels.DiscoverySourceOption, 0, 3)
 	okta := stateView.Okta()
-	if okta.Configured() && okta.SourceName() != "" {
+	if okta.Configured() && okta.Config().DiscoveryEnabled && okta.SourceName() != "" {
 		options = append(options, viewmodels.DiscoverySourceOption{
 			SourceKind: querySourceKind("okta"),
 			SourceName: okta.SourceName(),
@@ -393,7 +292,7 @@ func discoverySourceOptions(stateView connectorStateView) []viewmodels.Discovery
 		})
 	}
 	entra := stateView.Entra()
-	if entra.Configured() && entra.SourceName() != "" {
+	if entra.Configured() && entra.Config().DiscoveryEnabled && entra.SourceName() != "" {
 		options = append(options, viewmodels.DiscoverySourceOption{
 			SourceKind: querySourceKind("entra"),
 			SourceName: entra.SourceName(),
@@ -401,7 +300,7 @@ func discoverySourceOptions(stateView connectorStateView) []viewmodels.Discovery
 		})
 	}
 	google := stateView.GoogleWorkspace()
-	if google.Configured() && google.SourceName() != "" {
+	if google.Configured() && google.Config().DiscoveryEnabled && google.SourceName() != "" {
 		options = append(options, viewmodels.DiscoverySourceOption{
 			SourceKind: configstore.KindGoogleWorkspace,
 			SourceName: google.SourceName(),
@@ -440,44 +339,6 @@ func discoverySourceNameOptions(selectedSourceKind string, sourceOptions []viewm
 		out = append(out, option)
 	}
 	return out
-}
-
-func discoveryConfiguredSourcePairs(sourceOptions []viewmodels.DiscoverySourceOption) ([]string, []string) {
-	type sourcePair struct {
-		kind string
-		name string
-	}
-
-	pairs := make([]sourcePair, 0, len(sourceOptions))
-	seen := make(map[string]struct{}, len(sourceOptions))
-	for _, option := range sourceOptions {
-		kind := normalizeDiscoverySourceKind(option.SourceKind)
-		name := strings.TrimSpace(option.SourceName)
-		if kind == "" || name == "" {
-			continue
-		}
-		key := kind + "\x00" + strings.ToLower(name)
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		pairs = append(pairs, sourcePair{kind: kind, name: name})
-	}
-
-	sort.Slice(pairs, func(i, j int) bool {
-		if pairs[i].kind == pairs[j].kind {
-			return strings.ToLower(pairs[i].name) < strings.ToLower(pairs[j].name)
-		}
-		return pairs[i].kind < pairs[j].kind
-	})
-
-	kinds := make([]string, 0, len(pairs))
-	names := make([]string, 0, len(pairs))
-	for _, pair := range pairs {
-		kinds = append(kinds, pair.kind)
-		names = append(names, pair.name)
-	}
-	return kinds, names
 }
 
 func normalizeDiscoverySourceKind(raw string) string {

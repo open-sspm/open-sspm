@@ -61,7 +61,8 @@ func runSyncDiscovery() error {
 	dbRunner.SetLockManager(locks)
 	dbRunner.SetRunMode(registry.RunModeDiscovery)
 	dbRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
-	dbRunner.SetDiscoveryMetricsConfig(cfg)
+	dbRunner.SetReadModelConfig(cfg)
+	dbRunner.EnableDiscoveryMetricsRefresh()
 	runner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, dbRunner, sync.RunOnceScopeNameDiscovery)
 
 	syncErr := runner.RunOnce(ctx)

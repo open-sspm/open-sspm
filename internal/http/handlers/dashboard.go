@@ -152,11 +152,7 @@ func (h *Handlers) dashboardDiscoveryAppCount(ctx context.Context, stateView con
 		return 0, nil
 	}
 
-	configuredKinds, configuredNames := discoveryConfiguredSourcePairs(sourceOptions)
-	return h.Q.CountSaaSAppsByFilters(ctx, gen.CountSaaSAppsByFiltersParams{
-		ConfiguredSourceKinds: configuredKinds,
-		ConfiguredSourceNames: configuredNames,
-	})
+	return h.Q.CountSaaSAppsByFilters(ctx, gen.CountSaaSAppsByFiltersParams{})
 }
 
 func (h *Handlers) dashboardAppAssetCount(ctx context.Context, stateView connectorStateView) (int64, error) {

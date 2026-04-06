@@ -1337,6 +1337,16 @@ func (i *EntraIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, re
 		metrics.DiscoveryIngestFailuresTotal.WithLabelValues("entra", "oauth_grant", "api_error").Inc()
 		return fmt.Errorf("list oauth2 permission grants: %w", err)
 	}
+	users := make([]User, 0)
+	if len(grants) > 0 {
+		report(registry.Event{Source: "entra", Stage: "list-users", Current: 0, Total: 1, Message: "listing Entra users for grant actor resolution"})
+		users, err = i.client.ListUsers(ctx)
+		if err != nil {
+			metrics.DiscoveryIngestFailuresTotal.WithLabelValues("entra", "oauth_grant", "api_error").Inc()
+			return fmt.Errorf("list entra users for grant actor resolution: %w", err)
+		}
+		report(registry.Event{Source: "entra", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users for grant actor resolution", len(users))})
+	}
 	report(registry.Event{
 		Source:  "entra",
 		Stage:   "list-discovery-events",
@@ -1346,7 +1356,7 @@ func (i *EntraIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, re
 	})
 
 	report(registry.Event{Source: "entra", Stage: "normalize-discovery", Current: 0, Total: 1, Message: "normalizing discovery evidence"})
-	sources, events := normalizeEntraDiscovery(signIns, grants, applications, servicePrincipals, i.tenantID, now)
+	sources, events := normalizeEntraDiscovery(signIns, grants, applications, servicePrincipals, users, i.tenantID, now)
 	report(registry.Event{
 		Source:  "entra",
 		Stage:   "normalize-discovery",
@@ -1365,7 +1375,7 @@ func (i *EntraIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, re
 	return nil
 }
 
-func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGrant, applications []Application, servicePrincipals []ServicePrincipal, tenantID string, now time.Time) ([]normalizedDiscoverySource, []normalizedDiscoveryEvent) {
+func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGrant, applications []Application, servicePrincipals []ServicePrincipal, users []User, tenantID string, now time.Time) ([]normalizedDiscoverySource, []normalizedDiscoveryEvent) {
 	sourceByID := map[string]normalizedDiscoverySource{}
 	events := make([]normalizedDiscoveryEvent, 0, len(signIns)+len(grants))
 
@@ -1410,6 +1420,15 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 		if _, exists := servicePrincipalVendorByAppID[appID]; !exists {
 			servicePrincipalVendorByAppID[appID] = vendorName
 		}
+	}
+
+	userByID := make(map[string]User, len(users))
+	for _, user := range users {
+		userID := strings.TrimSpace(user.ID)
+		if userID == "" {
+			continue
+		}
+		userByID[userID] = user
 	}
 
 	for _, signIn := range signIns {
@@ -1540,6 +1559,30 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			eventExternalID = fmt.Sprintf("grant:%s:%s:%s:%s", sourceAppID, strings.TrimSpace(grant.PrincipalID), strings.TrimSpace(grant.Scope), observedAt.Format(time.RFC3339Nano))
 		}
 
+		actorExternalID := strings.TrimSpace(grant.PrincipalID)
+		actorEmail := ""
+		actorDisplayName := ""
+		if actorExternalID != "" {
+			if user, ok := userByID[actorExternalID]; ok {
+				actorEmail = normalizeEmail(preferredEmail(user))
+				actorDisplayName = strings.TrimSpace(user.DisplayName)
+				if actorDisplayName == "" {
+					actorDisplayName = actorEmail
+				}
+			} else if servicePrincipal, ok := servicePrincipalByID[actorExternalID]; ok {
+				actorDisplayName = strings.TrimSpace(servicePrincipal.DisplayName)
+				if actorDisplayName == "" {
+					actorDisplayName = strings.TrimSpace(servicePrincipal.AppID)
+				}
+			}
+		}
+		if actorDisplayName == "" && strings.EqualFold(strings.TrimSpace(grant.ConsentType), "AllPrincipals") {
+			actorDisplayName = "All principals"
+		}
+		if actorDisplayName == "" {
+			actorDisplayName = actorExternalID
+		}
+
 		events = append(events, normalizedDiscoveryEvent{
 			CanonicalKey:     metadata.CanonicalKey,
 			SignalKind:       discovery.SignalKindOAuth,
@@ -1548,9 +1591,9 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			SourceAppName:    sourceAppName,
 			SourceAppDomain:  metadata.Domain,
 			SourceVendorName: metadata.VendorName,
-			ActorExternalID:  strings.TrimSpace(grant.PrincipalID),
-			ActorEmail:       "",
-			ActorDisplayName: strings.TrimSpace(grant.PrincipalID),
+			ActorExternalID:  actorExternalID,
+			ActorEmail:       actorEmail,
+			ActorDisplayName: actorDisplayName,
 			ObservedAt:       observedAt,
 			Scopes:           scopes,
 			RawJSON:          registry.NormalizeJSON(grant.RawJSON),

@@ -132,18 +132,34 @@ ORDER BY observed_at DESC, id DESC
 LIMIT sqlc.arg(limit_rows)::int;
 
 -- name: ListTopActorsForSaaSAppByID :many
+WITH normalized_events AS (
+  SELECT
+    NULLIF(trim(actor_display_name), '') AS actor_display_name,
+    NULLIF(trim(actor_email), '') AS actor_email,
+    NULLIF(trim(actor_external_id), '') AS actor_external_id,
+    observed_at
+  FROM saas_app_events
+  WHERE saas_app_id = sqlc.arg(saas_app_id)::bigint
+    AND expired_at IS NULL
+    AND last_observed_run_id IS NOT NULL
+    AND observed_at >= now() - interval '30 days'
+),
+grouped_actors AS (
+  SELECT
+    (array_agg(actor_display_name ORDER BY observed_at DESC) FILTER (WHERE actor_display_name IS NOT NULL))[1] AS actor_display_name,
+    (array_agg(actor_email ORDER BY observed_at DESC) FILTER (WHERE actor_email IS NOT NULL))[1] AS actor_email,
+    (array_agg(actor_external_id ORDER BY observed_at DESC) FILTER (WHERE actor_external_id IS NOT NULL))[1] AS actor_external_id,
+    count(*) AS event_count,
+    max(observed_at)::timestamptz AS last_observed_at
+  FROM normalized_events
+  GROUP BY COALESCE(actor_external_id, actor_email, actor_display_name, '')
+)
 SELECT
-  COALESCE(NULLIF(trim(actor_display_name), ''), NULLIF(trim(actor_email), ''), NULLIF(trim(actor_external_id), ''), '')::text AS actor_label,
-  COALESCE(NULLIF(trim(actor_email), ''), '')::text AS actor_email,
-  COALESCE(NULLIF(trim(actor_external_id), ''), '')::text AS actor_external_id,
-  count(*) AS event_count,
-  max(observed_at)::timestamptz AS last_observed_at
-FROM saas_app_events
-WHERE saas_app_id = sqlc.arg(saas_app_id)::bigint
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-  AND observed_at >= now() - interval '30 days'
-GROUP BY actor_label, actor_email, actor_external_id
+  COALESCE(actor_display_name, actor_email, actor_external_id, '')::text AS actor_label,
+  COALESCE(actor_email, '')::text AS actor_email,
+  COALESCE(actor_external_id, '')::text AS actor_external_id,
+  event_count,
+  last_observed_at
+FROM grouped_actors
 ORDER BY event_count DESC, last_observed_at DESC
 LIMIT sqlc.arg(limit_rows)::int;
-

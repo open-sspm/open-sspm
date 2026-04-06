@@ -25,9 +25,10 @@ type DBRunner struct {
 	globalEvalMode          string
 	locks                   LockManager
 	mode                    registry.RunMode
-	discoveryMetricsConfig  config.Config
-	hasDiscoveryMetricsCfg  bool
-	discoveryMetricsRefresh func(context.Context, *gen.Queries, config.Config, time.Time) error
+	readModelConfig         config.Config
+	hasReadModelConfig      bool
+	discoveryMetricsEnabled bool
+	discoveryMetricsRefresh func(context.Context, *gen.Queries, time.Time) error
 }
 
 type integrationCandidate struct {
@@ -85,9 +86,13 @@ func (r *DBRunner) SetRunMode(mode registry.RunMode) {
 	r.mode = mode.Normalize()
 }
 
-func (r *DBRunner) SetDiscoveryMetricsConfig(cfg config.Config) {
-	r.discoveryMetricsConfig = cfg
-	r.hasDiscoveryMetricsCfg = true
+func (r *DBRunner) SetReadModelConfig(cfg config.Config) {
+	r.readModelConfig = cfg
+	r.hasReadModelConfig = true
+}
+
+func (r *DBRunner) EnableDiscoveryMetricsRefresh() {
+	r.discoveryMetricsEnabled = true
 }
 
 func (r *DBRunner) Prepare(ctx context.Context) error {
@@ -122,7 +127,7 @@ func (r *DBRunner) RunOnce(ctx context.Context) error {
 }
 
 func (r *DBRunner) refreshDiscoveryMetricsBestEffort(ctx context.Context) {
-	if r == nil || r.runMode() != registry.RunModeDiscovery || !r.hasDiscoveryMetricsCfg {
+	if r == nil || r.runMode() != registry.RunModeDiscovery || !r.discoveryMetricsEnabled {
 		return
 	}
 	if r.q == nil || r.discoveryMetricsRefresh == nil {
@@ -136,7 +141,7 @@ func (r *DBRunner) refreshDiscoveryMetricsBestEffort(ctx context.Context) {
 		defer cancel()
 	}
 
-	if err := r.discoveryMetricsRefresh(refreshCtx, r.q, r.discoveryMetricsConfig, time.Now().UTC()); err != nil {
+	if err := r.discoveryMetricsRefresh(refreshCtx, r.q, time.Now().UTC()); err != nil {
 		slog.Warn("discovery metrics refresh failed", "err", err)
 	}
 }
@@ -170,6 +175,9 @@ func (r *DBRunner) prepareRun(ctx context.Context) (*preparedDBRun, error) {
 		orchestrator.SetGlobalEvalMode(r.globalEvalMode)
 	}
 	orchestrator.SetRunMode(r.runMode())
+	if r.hasReadModelConfig {
+		orchestrator.SetReadModelConfig(r.readModelConfig)
+	}
 	prepared := &preparedDBRun{
 		orchestrator: orchestrator,
 	}

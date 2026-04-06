@@ -12,91 +12,60 @@ import (
 )
 
 const countSaaSAppsByFilters = `-- name: CountSaaSAppsByFilters :one
-WITH configured_sources AS (
-  SELECT
-    k.kind AS source_kind,
-    n.name AS source_name
-  FROM unnest($11::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($12::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-),
-scoped_app_ids AS (
-  SELECT DISTINCT sas.saas_app_id
-  FROM saas_app_sources sas
-  JOIN configured_sources cfg
-    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
-   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
-  WHERE sas.expired_at IS NULL
-    AND sas.last_observed_run_id IS NOT NULL
-    AND (
-      $13::text = ''
-      OR lower(trim(sas.source_kind)) = lower(trim($13::text))
-    )
-    AND (
-      $14::text = ''
-      OR lower(trim(sas.source_name)) = lower(trim($14::text))
-    )
-)
 SELECT count(*)
-FROM saas_app_posture_rows(
-  $1::timestamptz,
-  $2::timestamptz,
-  $3::timestamptz,
-  $4::timestamptz,
-  $5::timestamptz,
-  $6::timestamptz,
-  $7::timestamptz
-) AS pr
-JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
-WHERE (
-    $8::text = ''
-    OR pr.display_name ILIKE ('%' || $8::text || '%')
-    OR pr.primary_domain ILIKE ('%' || $8::text || '%')
-    OR pr.vendor_name ILIKE ('%' || $8::text || '%')
-    OR pr.canonical_key ILIKE ('%' || $8::text || '%')
+FROM discovery_app_read_models_v pr
+WHERE EXISTS (
+    SELECT 1
+    FROM saas_app_sources sas
+    JOIN connector_source_state css
+      ON lower(trim(css.source_kind)) = lower(trim(sas.source_kind))
+     AND lower(trim(css.source_name)) = lower(trim(sas.source_name))
+    WHERE sas.saas_app_id = pr.id
+      AND sas.expired_at IS NULL
+      AND sas.last_observed_run_id IS NOT NULL
+      AND css.configured
+      AND css.discovery_enabled
+      AND (
+        $1::text = ''
+        OR lower(trim(sas.source_kind)) = lower(trim($1::text))
+      )
+      AND (
+        $2::text = ''
+        OR lower(trim(sas.source_name)) = lower(trim($2::text))
+      )
   )
   AND (
-    $9::text = ''
-    OR pr.managed_state = $9::text
+    $3::text = ''
+    OR pr.display_name ILIKE ('%' || $3::text || '%')
+    OR pr.primary_domain ILIKE ('%' || $3::text || '%')
+    OR pr.vendor_name ILIKE ('%' || $3::text || '%')
+    OR pr.canonical_key ILIKE ('%' || $3::text || '%')
   )
   AND (
-    $10::text = ''
-    OR pr.risk_level = $10::text
+    $4::text = ''
+    OR pr.managed_state = $4::text
+  )
+  AND (
+    $5::text = ''
+    OR pr.risk_level = $5::text
   )
 `
 
 type CountSaaSAppsByFiltersParams struct {
-	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
-	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
-	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
-	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
-	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
-	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
-	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
-	Query                     string             `json:"query"`
-	ManagedState              string             `json:"managed_state"`
-	RiskLevel                 string             `json:"risk_level"`
-	ConfiguredSourceKinds     []string           `json:"configured_source_kinds"`
-	ConfiguredSourceNames     []string           `json:"configured_source_names"`
-	SourceKind                string             `json:"source_kind"`
-	SourceName                string             `json:"source_name"`
+	SourceKind   string `json:"source_kind"`
+	SourceName   string `json:"source_name"`
+	Query        string `json:"query"`
+	ManagedState string `json:"managed_state"`
+	RiskLevel    string `json:"risk_level"`
 }
 
 func (q *Queries) CountSaaSAppsByFilters(ctx context.Context, arg CountSaaSAppsByFiltersParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countSaaSAppsByFilters,
-		arg.OktaFreshAfter,
-		arg.EntraFreshAfter,
-		arg.GoogleWorkspaceFreshAfter,
-		arg.GithubFreshAfter,
-		arg.DatadogFreshAfter,
-		arg.AwsFreshAfter,
-		arg.DefaultFreshAfter,
+		arg.SourceKind,
+		arg.SourceName,
 		arg.Query,
 		arg.ManagedState,
 		arg.RiskLevel,
-		arg.ConfiguredSourceKinds,
-		arg.ConfiguredSourceNames,
-		arg.SourceKind,
-		arg.SourceName,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -104,66 +73,31 @@ func (q *Queries) CountSaaSAppsByFilters(ctx context.Context, arg CountSaaSAppsB
 }
 
 const countSaaSAppsGroupedByManagedState = `-- name: CountSaaSAppsGroupedByManagedState :many
-WITH configured_sources AS (
-  SELECT
-    k.kind AS source_kind,
-    n.name AS source_name
-  FROM unnest($8::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($9::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-),
-scoped_app_ids AS (
-  SELECT DISTINCT sas.saas_app_id
-  FROM saas_app_sources sas
-  JOIN configured_sources cfg
-    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
-   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
-  WHERE sas.expired_at IS NULL
-    AND sas.last_observed_run_id IS NOT NULL
-)
 SELECT pr.managed_state::text AS managed_state, count(*) AS app_count
-FROM saas_app_posture_rows(
-  $1::timestamptz,
-  $2::timestamptz,
-  $3::timestamptz,
-  $4::timestamptz,
-  $5::timestamptz,
-  $6::timestamptz,
-  $7::timestamptz
-) AS pr
-JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
+FROM discovery_app_read_models_v pr
+WHERE EXISTS (
+    SELECT 1
+    FROM saas_app_sources sas
+    JOIN connector_source_state css
+      ON lower(trim(css.source_kind)) = lower(trim(sas.source_kind))
+     AND lower(trim(css.source_name)) = lower(trim(sas.source_name))
+    WHERE sas.saas_app_id = pr.id
+      AND sas.expired_at IS NULL
+      AND sas.last_observed_run_id IS NOT NULL
+      AND css.configured
+      AND css.discovery_enabled
+  )
 GROUP BY 1
 ORDER BY 1
 `
-
-type CountSaaSAppsGroupedByManagedStateParams struct {
-	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
-	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
-	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
-	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
-	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
-	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
-	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
-	ConfiguredSourceKinds     []string           `json:"configured_source_kinds"`
-	ConfiguredSourceNames     []string           `json:"configured_source_names"`
-}
 
 type CountSaaSAppsGroupedByManagedStateRow struct {
 	ManagedState string `json:"managed_state"`
 	AppCount     int64  `json:"app_count"`
 }
 
-func (q *Queries) CountSaaSAppsGroupedByManagedState(ctx context.Context, arg CountSaaSAppsGroupedByManagedStateParams) ([]CountSaaSAppsGroupedByManagedStateRow, error) {
-	rows, err := q.db.Query(ctx, countSaaSAppsGroupedByManagedState,
-		arg.OktaFreshAfter,
-		arg.EntraFreshAfter,
-		arg.GoogleWorkspaceFreshAfter,
-		arg.GithubFreshAfter,
-		arg.DatadogFreshAfter,
-		arg.AwsFreshAfter,
-		arg.DefaultFreshAfter,
-		arg.ConfiguredSourceKinds,
-		arg.ConfiguredSourceNames,
-	)
+func (q *Queries) CountSaaSAppsGroupedByManagedState(ctx context.Context) ([]CountSaaSAppsGroupedByManagedStateRow, error) {
+	rows, err := q.db.Query(ctx, countSaaSAppsGroupedByManagedState)
 	if err != nil {
 		return nil, err
 	}
@@ -183,66 +117,31 @@ func (q *Queries) CountSaaSAppsGroupedByManagedState(ctx context.Context, arg Co
 }
 
 const countSaaSAppsGroupedByRiskLevel = `-- name: CountSaaSAppsGroupedByRiskLevel :many
-WITH configured_sources AS (
-  SELECT
-    k.kind AS source_kind,
-    n.name AS source_name
-  FROM unnest($8::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($9::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-),
-scoped_app_ids AS (
-  SELECT DISTINCT sas.saas_app_id
-  FROM saas_app_sources sas
-  JOIN configured_sources cfg
-    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
-   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
-  WHERE sas.expired_at IS NULL
-    AND sas.last_observed_run_id IS NOT NULL
-)
 SELECT pr.risk_level::text AS risk_level, count(*) AS app_count
-FROM saas_app_posture_rows(
-  $1::timestamptz,
-  $2::timestamptz,
-  $3::timestamptz,
-  $4::timestamptz,
-  $5::timestamptz,
-  $6::timestamptz,
-  $7::timestamptz
-) AS pr
-JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
+FROM discovery_app_read_models_v pr
+WHERE EXISTS (
+    SELECT 1
+    FROM saas_app_sources sas
+    JOIN connector_source_state css
+      ON lower(trim(css.source_kind)) = lower(trim(sas.source_kind))
+     AND lower(trim(css.source_name)) = lower(trim(sas.source_name))
+    WHERE sas.saas_app_id = pr.id
+      AND sas.expired_at IS NULL
+      AND sas.last_observed_run_id IS NOT NULL
+      AND css.configured
+      AND css.discovery_enabled
+  )
 GROUP BY 1
 ORDER BY 1
 `
-
-type CountSaaSAppsGroupedByRiskLevelParams struct {
-	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
-	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
-	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
-	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
-	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
-	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
-	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
-	ConfiguredSourceKinds     []string           `json:"configured_source_kinds"`
-	ConfiguredSourceNames     []string           `json:"configured_source_names"`
-}
 
 type CountSaaSAppsGroupedByRiskLevelRow struct {
 	RiskLevel string `json:"risk_level"`
 	AppCount  int64  `json:"app_count"`
 }
 
-func (q *Queries) CountSaaSAppsGroupedByRiskLevel(ctx context.Context, arg CountSaaSAppsGroupedByRiskLevelParams) ([]CountSaaSAppsGroupedByRiskLevelRow, error) {
-	rows, err := q.db.Query(ctx, countSaaSAppsGroupedByRiskLevel,
-		arg.OktaFreshAfter,
-		arg.EntraFreshAfter,
-		arg.GoogleWorkspaceFreshAfter,
-		arg.GithubFreshAfter,
-		arg.DatadogFreshAfter,
-		arg.AwsFreshAfter,
-		arg.DefaultFreshAfter,
-		arg.ConfiguredSourceKinds,
-		arg.ConfiguredSourceNames,
-	)
+func (q *Queries) CountSaaSAppsGroupedByRiskLevel(ctx context.Context) ([]CountSaaSAppsGroupedByRiskLevelRow, error) {
+	rows, err := q.db.Query(ctx, countSaaSAppsGroupedByRiskLevel)
 	if err != nil {
 		return nil, err
 	}
@@ -280,28 +179,9 @@ SELECT
   pr.last_seen_at::timestamptz AS last_seen_at,
   pr.created_at::timestamptz AS created_at,
   pr.updated_at::timestamptz AS updated_at
-FROM saas_app_posture_rows(
-  $1::timestamptz,
-  $2::timestamptz,
-  $3::timestamptz,
-  $4::timestamptz,
-  $5::timestamptz,
-  $6::timestamptz,
-  $7::timestamptz
-) AS pr
-WHERE pr.id = $8::bigint
+FROM discovery_app_read_models_v pr
+WHERE pr.id = $1::bigint
 `
-
-type GetSaaSAppByIDParams struct {
-	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
-	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
-	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
-	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
-	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
-	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
-	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
-	ID                        int64              `json:"id"`
-}
 
 type GetSaaSAppByIDRow struct {
 	ID                           int64              `json:"id"`
@@ -323,17 +203,8 @@ type GetSaaSAppByIDRow struct {
 	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) GetSaaSAppByID(ctx context.Context, arg GetSaaSAppByIDParams) (GetSaaSAppByIDRow, error) {
-	row := q.db.QueryRow(ctx, getSaaSAppByID,
-		arg.OktaFreshAfter,
-		arg.EntraFreshAfter,
-		arg.GoogleWorkspaceFreshAfter,
-		arg.GithubFreshAfter,
-		arg.DatadogFreshAfter,
-		arg.AwsFreshAfter,
-		arg.DefaultFreshAfter,
-		arg.ID,
-	)
+func (q *Queries) GetSaaSAppByID(ctx context.Context, id int64) (GetSaaSAppByIDRow, error) {
+	row := q.db.QueryRow(ctx, getSaaSAppByID, id)
 	var i GetSaaSAppByIDRow
 	err := row.Scan(
 		&i.ID,
@@ -358,30 +229,6 @@ func (q *Queries) GetSaaSAppByID(ctx context.Context, arg GetSaaSAppByIDParams) 
 }
 
 const listSaaSAppHotspots = `-- name: ListSaaSAppHotspots :many
-WITH configured_sources AS (
-  SELECT
-    k.kind AS source_kind,
-    n.name AS source_name
-  FROM unnest($9::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($10::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-),
-scoped_app_ids AS (
-  SELECT DISTINCT sas.saas_app_id
-  FROM saas_app_sources sas
-  JOIN configured_sources cfg
-    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
-   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
-  WHERE sas.expired_at IS NULL
-    AND sas.last_observed_run_id IS NOT NULL
-    AND (
-      $11::text = ''
-      OR lower(trim(sas.source_kind)) = lower(trim($11::text))
-    )
-    AND (
-      $12::text = ''
-      OR lower(trim(sas.source_name)) = lower(trim($12::text))
-    )
-)
 SELECT
   pr.id::bigint AS id,
   pr.canonical_key::text AS canonical_key,
@@ -400,38 +247,39 @@ SELECT
   pr.last_seen_at::timestamptz AS last_seen_at,
   pr.created_at::timestamptz AS created_at,
   pr.updated_at::timestamptz AS updated_at,
-  COALESCE(owner.display_name, '') AS owner_display_name,
-  COALESCE(owner.primary_email, '') AS owner_primary_email,
+  pr.owner_display_name::text AS owner_display_name,
+  pr.owner_primary_email::text AS owner_primary_email,
   pr.actors_30d::bigint AS actors_30d
-FROM saas_app_posture_rows(
-  $1::timestamptz,
-  $2::timestamptz,
-  $3::timestamptz,
-  $4::timestamptz,
-  $5::timestamptz,
-  $6::timestamptz,
-  $7::timestamptz
-) AS pr
-JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
-LEFT JOIN identities owner ON owner.id = NULLIF(pr.owner_identity_id, 0)
+FROM discovery_app_read_models_v pr
 WHERE pr.risk_score >= 60
+  AND EXISTS (
+    SELECT 1
+    FROM saas_app_sources sas
+    JOIN connector_source_state css
+      ON lower(trim(css.source_kind)) = lower(trim(sas.source_kind))
+     AND lower(trim(css.source_name)) = lower(trim(sas.source_name))
+    WHERE sas.saas_app_id = pr.id
+      AND sas.expired_at IS NULL
+      AND sas.last_observed_run_id IS NOT NULL
+      AND css.configured
+      AND css.discovery_enabled
+      AND (
+        $1::text = ''
+        OR lower(trim(sas.source_kind)) = lower(trim($1::text))
+      )
+      AND (
+        $2::text = ''
+        OR lower(trim(sas.source_name)) = lower(trim($2::text))
+      )
+  )
 ORDER BY pr.risk_score DESC, pr.last_seen_at DESC, pr.id ASC
-LIMIT $8::int
+LIMIT $3::int
 `
 
 type ListSaaSAppHotspotsParams struct {
-	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
-	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
-	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
-	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
-	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
-	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
-	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
-	LimitRows                 int32              `json:"limit_rows"`
-	ConfiguredSourceKinds     []string           `json:"configured_source_kinds"`
-	ConfiguredSourceNames     []string           `json:"configured_source_names"`
-	SourceKind                string             `json:"source_kind"`
-	SourceName                string             `json:"source_name"`
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+	LimitRows  int32  `json:"limit_rows"`
 }
 
 type ListSaaSAppHotspotsRow struct {
@@ -458,20 +306,7 @@ type ListSaaSAppHotspotsRow struct {
 }
 
 func (q *Queries) ListSaaSAppHotspots(ctx context.Context, arg ListSaaSAppHotspotsParams) ([]ListSaaSAppHotspotsRow, error) {
-	rows, err := q.db.Query(ctx, listSaaSAppHotspots,
-		arg.OktaFreshAfter,
-		arg.EntraFreshAfter,
-		arg.GoogleWorkspaceFreshAfter,
-		arg.GithubFreshAfter,
-		arg.DatadogFreshAfter,
-		arg.AwsFreshAfter,
-		arg.DefaultFreshAfter,
-		arg.LimitRows,
-		arg.ConfiguredSourceKinds,
-		arg.ConfiguredSourceNames,
-		arg.SourceKind,
-		arg.SourceName,
-	)
+	rows, err := q.db.Query(ctx, listSaaSAppHotspots, arg.SourceKind, arg.SourceName, arg.LimitRows)
 	if err != nil {
 		return nil, err
 	}
@@ -512,30 +347,6 @@ func (q *Queries) ListSaaSAppHotspots(ctx context.Context, arg ListSaaSAppHotspo
 }
 
 const listSaaSAppsPageByFilters = `-- name: ListSaaSAppsPageByFilters :many
-WITH configured_sources AS (
-  SELECT
-    k.kind AS source_kind,
-    n.name AS source_name
-  FROM unnest($13::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($14::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
-),
-scoped_app_ids AS (
-  SELECT DISTINCT sas.saas_app_id
-  FROM saas_app_sources sas
-  JOIN configured_sources cfg
-    ON lower(trim(cfg.source_kind)) = lower(trim(sas.source_kind))
-   AND lower(trim(cfg.source_name)) = lower(trim(sas.source_name))
-  WHERE sas.expired_at IS NULL
-    AND sas.last_observed_run_id IS NOT NULL
-    AND (
-      $15::text = ''
-      OR lower(trim(sas.source_kind)) = lower(trim($15::text))
-    )
-    AND (
-      $16::text = ''
-      OR lower(trim(sas.source_name)) = lower(trim($16::text))
-    )
-)
 SELECT
   pr.id::bigint AS id,
   pr.canonical_key::text AS canonical_key,
@@ -554,61 +365,62 @@ SELECT
   pr.last_seen_at::timestamptz AS last_seen_at,
   pr.created_at::timestamptz AS created_at,
   pr.updated_at::timestamptz AS updated_at,
-  COALESCE(owner.display_name, '') AS owner_display_name,
-  COALESCE(owner.primary_email, '') AS owner_primary_email,
+  pr.owner_display_name::text AS owner_display_name,
+  pr.owner_primary_email::text AS owner_primary_email,
   pr.actors_30d::bigint AS actors_30d
-FROM saas_app_posture_rows(
-  $1::timestamptz,
-  $2::timestamptz,
-  $3::timestamptz,
-  $4::timestamptz,
-  $5::timestamptz,
-  $6::timestamptz,
-  $7::timestamptz
-) AS pr
-JOIN scoped_app_ids sai ON sai.saas_app_id = pr.id
-LEFT JOIN identities owner ON owner.id = NULLIF(pr.owner_identity_id, 0)
-WHERE (
-    $8::text = ''
-    OR pr.display_name ILIKE ('%' || $8::text || '%')
-    OR pr.primary_domain ILIKE ('%' || $8::text || '%')
-    OR pr.vendor_name ILIKE ('%' || $8::text || '%')
-    OR pr.canonical_key ILIKE ('%' || $8::text || '%')
+FROM discovery_app_read_models_v pr
+WHERE EXISTS (
+    SELECT 1
+    FROM saas_app_sources sas
+    JOIN connector_source_state css
+      ON lower(trim(css.source_kind)) = lower(trim(sas.source_kind))
+     AND lower(trim(css.source_name)) = lower(trim(sas.source_name))
+    WHERE sas.saas_app_id = pr.id
+      AND sas.expired_at IS NULL
+      AND sas.last_observed_run_id IS NOT NULL
+      AND css.configured
+      AND css.discovery_enabled
+      AND (
+        $1::text = ''
+        OR lower(trim(sas.source_kind)) = lower(trim($1::text))
+      )
+      AND (
+        $2::text = ''
+        OR lower(trim(sas.source_name)) = lower(trim($2::text))
+      )
   )
   AND (
-    $9::text = ''
-    OR pr.managed_state = $9::text
+    $3::text = ''
+    OR pr.display_name ILIKE ('%' || $3::text || '%')
+    OR pr.primary_domain ILIKE ('%' || $3::text || '%')
+    OR pr.vendor_name ILIKE ('%' || $3::text || '%')
+    OR pr.canonical_key ILIKE ('%' || $3::text || '%')
   )
   AND (
-    $10::text = ''
-    OR pr.risk_level = $10::text
+    $4::text = ''
+    OR pr.managed_state = $4::text
+  )
+  AND (
+    $5::text = ''
+    OR pr.risk_level = $5::text
   )
 ORDER BY
   pr.risk_score DESC,
   pr.last_seen_at DESC,
   lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) ASC,
   pr.id ASC
-LIMIT $12::int
-OFFSET $11::int
+LIMIT $7::int
+OFFSET $6::int
 `
 
 type ListSaaSAppsPageByFiltersParams struct {
-	OktaFreshAfter            pgtype.Timestamptz `json:"okta_fresh_after"`
-	EntraFreshAfter           pgtype.Timestamptz `json:"entra_fresh_after"`
-	GoogleWorkspaceFreshAfter pgtype.Timestamptz `json:"google_workspace_fresh_after"`
-	GithubFreshAfter          pgtype.Timestamptz `json:"github_fresh_after"`
-	DatadogFreshAfter         pgtype.Timestamptz `json:"datadog_fresh_after"`
-	AwsFreshAfter             pgtype.Timestamptz `json:"aws_fresh_after"`
-	DefaultFreshAfter         pgtype.Timestamptz `json:"default_fresh_after"`
-	Query                     string             `json:"query"`
-	ManagedState              string             `json:"managed_state"`
-	RiskLevel                 string             `json:"risk_level"`
-	PageOffset                int32              `json:"page_offset"`
-	PageLimit                 int32              `json:"page_limit"`
-	ConfiguredSourceKinds     []string           `json:"configured_source_kinds"`
-	ConfiguredSourceNames     []string           `json:"configured_source_names"`
-	SourceKind                string             `json:"source_kind"`
-	SourceName                string             `json:"source_name"`
+	SourceKind   string `json:"source_kind"`
+	SourceName   string `json:"source_name"`
+	Query        string `json:"query"`
+	ManagedState string `json:"managed_state"`
+	RiskLevel    string `json:"risk_level"`
+	PageOffset   int32  `json:"page_offset"`
+	PageLimit    int32  `json:"page_limit"`
 }
 
 type ListSaaSAppsPageByFiltersRow struct {
@@ -636,22 +448,13 @@ type ListSaaSAppsPageByFiltersRow struct {
 
 func (q *Queries) ListSaaSAppsPageByFilters(ctx context.Context, arg ListSaaSAppsPageByFiltersParams) ([]ListSaaSAppsPageByFiltersRow, error) {
 	rows, err := q.db.Query(ctx, listSaaSAppsPageByFilters,
-		arg.OktaFreshAfter,
-		arg.EntraFreshAfter,
-		arg.GoogleWorkspaceFreshAfter,
-		arg.GithubFreshAfter,
-		arg.DatadogFreshAfter,
-		arg.AwsFreshAfter,
-		arg.DefaultFreshAfter,
+		arg.SourceKind,
+		arg.SourceName,
 		arg.Query,
 		arg.ManagedState,
 		arg.RiskLevel,
 		arg.PageOffset,
 		arg.PageLimit,
-		arg.ConfiguredSourceKinds,
-		arg.ConfiguredSourceNames,
-		arg.SourceKind,
-		arg.SourceName,
 	)
 	if err != nil {
 		return nil, err

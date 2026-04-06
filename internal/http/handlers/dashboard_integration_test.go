@@ -103,6 +103,7 @@ func TestHandleDashboardCountsAppAssetsFromDisabledConfiguredConnector(t *testin
 
 func renderDashboard(t *testing.T, h *Handlers, target string) string {
 	t.Helper()
+	refreshHandlerReadModels(t, h)
 
 	c, rec := newTestContext(http.MethodGet, target)
 	if err := h.HandleDashboard(c); err != nil {
@@ -116,6 +117,7 @@ func renderDashboard(t *testing.T, h *Handlers, target string) string {
 
 func renderGoogleOAuthAppAssets(t *testing.T, h *Handlers, target string) string {
 	t.Helper()
+	refreshHandlerReadModels(t, h)
 
 	c, rec := newTestContext(http.MethodGet, target)
 	if err := h.HandleAppAssets(c); err != nil {

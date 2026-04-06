@@ -58,6 +58,7 @@ func runSync() error {
 	fullDBRunner.SetLockManager(locks)
 	fullDBRunner.SetRunMode(registry.RunModeFull)
 	fullDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
+	fullDBRunner.SetReadModelConfig(cfg)
 	fullRunner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, fullDBRunner, sync.RunOnceScopeNameFull)
 
 	discoveryDBRunner := sync.NewDBRunner(runtimeDeps.pool, reg)
@@ -65,7 +66,8 @@ func runSync() error {
 	discoveryDBRunner.SetLockManager(locks)
 	discoveryDBRunner.SetRunMode(registry.RunModeDiscovery)
 	discoveryDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
-	discoveryDBRunner.SetDiscoveryMetricsConfig(cfg)
+	discoveryDBRunner.SetReadModelConfig(cfg)
+	discoveryDBRunner.EnableDiscoveryMetricsRefresh()
 	runners := []sync.Runner{fullRunner}
 	if cfg.SyncDiscoveryEnabled {
 		discoveryRunner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, discoveryDBRunner, sync.RunOnceScopeNameDiscovery)

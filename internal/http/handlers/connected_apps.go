@@ -53,10 +53,7 @@ func (h *Handlers) HandleConnectedAppShow(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	summary, err := h.Q.GetAppAssetPostureByID(ctx, gen.GetAppAssetPostureByIDParams{
-		EvaluatedAt: pgTimestamptz(time.Now().UTC()),
-		ID:          appID,
-	})
+	summary, err := h.Q.GetAppAssetPostureByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -77,10 +74,7 @@ func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	summary, err := h.Q.GetAppAssetPostureByID(ctx, gen.GetAppAssetPostureByIDParams{
-		EvaluatedAt: pgTimestamptz(time.Now().UTC()),
-		ID:          appID,
-	})
+	summary, err := h.Q.GetAppAssetPostureByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -202,10 +196,7 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 
 	ctx := c.Request().Context()
 	now := time.Now().UTC()
-	summary, err := h.Q.GetAppAssetPostureByID(ctx, gen.GetAppAssetPostureByIDParams{
-		EvaluatedAt: pgTimestamptz(now),
-		ID:          appID,
-	})
+	summary, err := h.Q.GetAppAssetPostureByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -232,18 +223,10 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	cutoffs := h.discoveryPostureCutoffs(now)
 	discoverySources, err := h.Q.ListAppAssetDiscoverySourcesBySourceAppID(ctx, gen.ListAppAssetDiscoverySourcesBySourceAppIDParams{
-		SourceKind:                strings.TrimSpace(summary.SourceKind),
-		SourceName:                strings.TrimSpace(summary.SourceName),
-		SourceAppID:               strings.TrimSpace(summary.ExternalID),
-		OktaFreshAfter:            cutoffs.OktaFreshAfter,
-		EntraFreshAfter:           cutoffs.EntraFreshAfter,
-		GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
-		GithubFreshAfter:          cutoffs.GithubFreshAfter,
-		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
-		AwsFreshAfter:             cutoffs.AwsFreshAfter,
-		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
+		SourceKind:  strings.TrimSpace(summary.SourceKind),
+		SourceName:  strings.TrimSpace(summary.SourceName),
+		SourceAppID: strings.TrimSpace(summary.ExternalID),
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -302,10 +285,7 @@ func (h *Handlers) HandleConnectedAppExport(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	summary, err := h.Q.GetAppAssetPostureByID(ctx, gen.GetAppAssetPostureByIDParams{
-		EvaluatedAt: pgTimestamptz(time.Now().UTC()),
-		ID:          appID,
-	})
+	summary, err := h.Q.GetAppAssetPostureByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -331,10 +311,7 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 
 	ctx := c.Request().Context()
 	now := time.Now().UTC()
-	summary, err := h.Q.GetAppAssetPostureByID(ctx, gen.GetAppAssetPostureByIDParams{
-		EvaluatedAt: pgTimestamptz(now),
-		ID:          appID,
-	})
+	summary, err := h.Q.GetAppAssetPostureByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -345,10 +322,7 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 		return RenderNotFound(c)
 	}
 
-	credential, err := h.Q.GetCredentialArtifactByID(ctx, gen.GetCredentialArtifactByIDParams{
-		EvaluatedAt: pgTimestamptz(now),
-		ID:          credentialID,
-	})
+	credential, err := h.Q.GetCredentialArtifactByID(ctx, gen.GetCredentialArtifactByIDParams{EvaluatedAt: pgTimestamptz(now), ID: credentialID})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -479,9 +453,7 @@ func (h *Handlers) buildConnectedAppsViewData(ctx context.Context, layout viewmo
 		return data, nil
 	}
 
-	evaluatedAt := pgTimestamptz(time.Now().UTC())
 	totalCount, err := h.Q.CountAppAssetGovernanceBySourceAndQueryAndState(ctx, gen.CountAppAssetGovernanceBySourceAndQueryAndStateParams{
-		EvaluatedAt:     evaluatedAt,
 		SourceKind:      configstore.KindGoogleWorkspace,
 		SourceName:      sourceName,
 		AssetKind:       connectedAppAssetKindGoogle,
@@ -493,11 +465,10 @@ func (h *Handlers) buildConnectedAppsViewData(ctx context.Context, layout viewmo
 	}
 
 	countRows, err := h.Q.CountAppAssetGovernanceGroupedByState(ctx, gen.CountAppAssetGovernanceGroupedByStateParams{
-		EvaluatedAt: evaluatedAt,
-		SourceKind:  configstore.KindGoogleWorkspace,
-		SourceName:  sourceName,
-		AssetKind:   connectedAppAssetKindGoogle,
-		Query:       queryState.Q,
+		SourceKind: configstore.KindGoogleWorkspace,
+		SourceName: sourceName,
+		AssetKind:  connectedAppAssetKindGoogle,
+		Query:      queryState.Q,
 	})
 	if err != nil {
 		return data, err
@@ -506,7 +477,6 @@ func (h *Handlers) buildConnectedAppsViewData(ctx context.Context, layout viewmo
 
 	pagination = newPaginatedListState(totalCount, queryState.Page, connectedAppsPerPage)
 	rows, err := h.Q.ListAppAssetGovernancePageBySourceAndQueryAndState(ctx, gen.ListAppAssetGovernancePageBySourceAndQueryAndStateParams{
-		EvaluatedAt:     evaluatedAt,
 		SourceKind:      configstore.KindGoogleWorkspace,
 		SourceName:      sourceName,
 		AssetKind:       connectedAppAssetKindGoogle,
@@ -566,10 +536,7 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 	data := viewmodels.ConnectedAppShowViewData{}
 
 	now := time.Now().UTC()
-	summary, err := h.Q.GetAppAssetPostureByID(ctx, gen.GetAppAssetPostureByIDParams{
-		EvaluatedAt: pgTimestamptz(now),
-		ID:          appID,
-	})
+	summary, err := h.Q.GetAppAssetPostureByID(ctx, appID)
 	if err != nil {
 		return data, err
 	}
@@ -644,18 +611,10 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 		})
 	}
 
-	cutoffs := h.discoveryPostureCutoffs(now)
 	discoverySources, err := h.Q.ListAppAssetDiscoverySourcesBySourceAppID(ctx, gen.ListAppAssetDiscoverySourcesBySourceAppIDParams{
-		SourceKind:                strings.TrimSpace(summary.SourceKind),
-		SourceName:                strings.TrimSpace(summary.SourceName),
-		SourceAppID:               strings.TrimSpace(summary.ExternalID),
-		OktaFreshAfter:            cutoffs.OktaFreshAfter,
-		EntraFreshAfter:           cutoffs.EntraFreshAfter,
-		GoogleWorkspaceFreshAfter: cutoffs.GoogleWorkspaceFreshAfter,
-		GithubFreshAfter:          cutoffs.GithubFreshAfter,
-		DatadogFreshAfter:         cutoffs.DatadogFreshAfter,
-		AwsFreshAfter:             cutoffs.AwsFreshAfter,
-		DefaultFreshAfter:         cutoffs.DefaultFreshAfter,
+		SourceKind:  strings.TrimSpace(summary.SourceKind),
+		SourceName:  strings.TrimSpace(summary.SourceName),
+		SourceAppID: strings.TrimSpace(summary.ExternalID),
 	})
 	if err != nil {
 		return data, err

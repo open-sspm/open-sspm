@@ -70,17 +70,22 @@ func runServe() error {
 	if err != nil {
 		return err
 	}
+	if err := rebuildStoredReadModels(ctx, runtimeDeps.pool, queries, cfg); err != nil {
+		return err
+	}
 
 	fullDBRunner := sync.NewDBRunner(runtimeDeps.pool, reg)
 	fullDBRunner.SetLockManager(locks)
 	fullDBRunner.SetRunMode(registry.RunModeFull)
 	fullDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
+	fullDBRunner.SetReadModelConfig(cfg)
 
 	discoveryDBRunner := sync.NewDBRunner(runtimeDeps.pool, reg)
 	discoveryDBRunner.SetLockManager(locks)
 	discoveryDBRunner.SetRunMode(registry.RunModeDiscovery)
 	discoveryDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
-	discoveryDBRunner.SetDiscoveryMetricsConfig(cfg)
+	discoveryDBRunner.SetReadModelConfig(cfg)
+	discoveryDBRunner.EnableDiscoveryMetricsRefresh()
 
 	var syncer handlers.SyncRunner
 	if cfg.ResyncEnabled {
@@ -113,7 +118,7 @@ func runServe() error {
 	}
 
 	errCh := make(chan error, 1)
-	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr, discoveryMetricsRefresh(queries, cfg))
+	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr, discoveryMetricsRefresh(queries))
 	go func() {
 		slog.Info("listening", "addr", cfg.HTTPAddr)
 		if err := srv.StartServer(httpServer); err != nil && !errors.Is(err, http.ErrServerClosed) {

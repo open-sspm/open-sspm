@@ -18,7 +18,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/readmodels"
 )
 
 func TestReclaimRunningSyncRunsBySourcePreservesLatestFinishedRun(t *testing.T) {
@@ -318,6 +320,48 @@ func TestSyncRunsMigration31ReclaimsOnlyOldRunningRows(t *testing.T) {
 		}
 		if recentState.FinishedAt.Valid {
 			t.Fatalf("recent finished_at = %+v, want NULL", recentState.FinishedAt)
+		}
+	})
+}
+
+func TestFinalizeAppRunRollsBackSuccessWhenReadModelRefreshFails(t *testing.T) {
+	t.Parallel()
+
+	withSyncRunsTestDB(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateUp(t, migrator)
+
+		runID, err := StartSyncRun(ctx, q, "github", "acme")
+		if err != nil {
+			t.Fatalf("StartSyncRun() err = %v", err)
+		}
+
+		if _, err := pool.Exec(ctx, `
+			UPDATE connector_configs
+			SET config = '"broken"'::jsonb
+			WHERE kind = 'okta'
+		`); err != nil {
+			t.Fatalf("update connector_configs: %v", err)
+		}
+
+		finalizeCtx := readmodels.WithRefreshConfig(ctx, config.Config{})
+		err = FinalizeAppRun(finalizeCtx, q, pool, runID, "github", "acme", 2*time.Second, false)
+		if err == nil {
+			t.Fatalf("FinalizeAppRun() error = nil, want non-nil")
+		}
+
+		state := fetchSyncRunState(t, ctx, pool, runID)
+		if state.Status != "running" {
+			t.Fatalf("status after failed finalize = %q, want running", state.Status)
+		}
+
+		failedErr := FailSyncRun(ctx, q, runID, err, SyncErrorKindDB)
+		if failedErr == nil {
+			t.Fatalf("FailSyncRun() error = nil, want original error")
+		}
+
+		state = fetchSyncRunState(t, ctx, pool, runID)
+		if state.Status != SyncStatusError {
+			t.Fatalf("status after FailSyncRun = %q, want %q", state.Status, SyncStatusError)
 		}
 	})
 }

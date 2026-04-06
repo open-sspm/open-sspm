@@ -3,11 +3,14 @@ package sync
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/identity"
+	"github.com/open-sspm/open-sspm/internal/readmodels"
 )
 
 type orchestratorTestLock struct {
@@ -35,17 +38,38 @@ func (orchestratorTestLockManager) Acquire(_ context.Context, scopeKind, scopeNa
 type orchestratorCountingIntegration struct {
 	runCount        int
 	complianceCount int
+	runErr          error
+	runFn           func(context.Context, *gen.Queries)
+	kind            string
+	name            string
+	role            registry.IntegrationRole
 }
 
-func (i *orchestratorCountingIntegration) Kind() string { return "okta" }
-func (i *orchestratorCountingIntegration) Name() string { return "example.okta.com" }
+func (i *orchestratorCountingIntegration) Kind() string {
+	if i.kind == "" {
+		return "okta"
+	}
+	return i.kind
+}
+func (i *orchestratorCountingIntegration) Name() string {
+	if i.name == "" {
+		return "example.okta.com"
+	}
+	return i.name
+}
 func (i *orchestratorCountingIntegration) Role() registry.IntegrationRole {
-	return registry.RoleIdP
+	if i.role == "" {
+		return registry.RoleIdP
+	}
+	return i.role
 }
 func (i *orchestratorCountingIntegration) InitEvents() []registry.Event { return nil }
-func (i *orchestratorCountingIntegration) Run(context.Context, *gen.Queries, *pgxpool.Pool, func(registry.Event), registry.RunMode) error {
+func (i *orchestratorCountingIntegration) Run(ctx context.Context, q *gen.Queries, _ *pgxpool.Pool, _ func(registry.Event), _ registry.RunMode) error {
 	i.runCount++
-	return nil
+	if i.runFn != nil {
+		i.runFn(ctx, q)
+	}
+	return i.runErr
 }
 func (i *orchestratorCountingIntegration) EvaluateCompliance(context.Context, *gen.Queries, func(registry.Event)) error {
 	i.complianceCount++
@@ -131,5 +155,32 @@ func TestOrchestrator_FullModeRunsPostProcessing(t *testing.T) {
 	}
 	if !globalCalled {
 		t.Fatalf("global evaluator should run in full mode")
+	}
+}
+
+func TestOrchestrator_PassesReadModelConfigThroughIntegrationContext(t *testing.T) {
+	t.Parallel()
+
+	orch := NewOrchestrator(&pgxpool.Pool{}, nil)
+	orch.SetLockManager(orchestratorTestLockManager{})
+	orch.SetRunMode(registry.RunModeDiscovery)
+	orch.SetReadModelConfig(config.Config{SyncInterval: 20 * time.Minute})
+
+	integration := &orchestratorCountingIntegration{
+		kind: "okta",
+		name: "example.okta.com",
+		runFn: func(ctx context.Context, q *gen.Queries) {
+			projector := readmodels.ProjectorFromContext(ctx, q)
+			if projector == nil {
+				t.Fatalf("ProjectorFromContext() = nil, want projector")
+			}
+		},
+	}
+	if err := orch.AddIntegration(integration); err != nil {
+		t.Fatalf("AddIntegration() error = %v", err)
+	}
+
+	if err := orch.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce() error = %v", err)
 	}
 }

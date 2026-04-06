@@ -33,25 +33,32 @@ type Account struct {
 }
 
 type AppAsset struct {
-	ID                int64              `json:"id"`
-	SourceKind        string             `json:"source_kind"`
-	SourceName        string             `json:"source_name"`
-	AssetKind         string             `json:"asset_kind"`
-	ExternalID        string             `json:"external_id"`
-	ParentExternalID  string             `json:"parent_external_id"`
-	DisplayName       string             `json:"display_name"`
-	Status            string             `json:"status"`
-	CreatedAtSource   pgtype.Timestamptz `json:"created_at_source"`
-	UpdatedAtSource   pgtype.Timestamptz `json:"updated_at_source"`
-	RawJson           []byte             `json:"raw_json"`
-	SeenInRunID       pgtype.Int8        `json:"seen_in_run_id"`
-	SeenAt            pgtype.Timestamptz `json:"seen_at"`
-	LastObservedRunID pgtype.Int8        `json:"last_observed_run_id"`
-	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
-	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
-	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	ID                     int64              `json:"id"`
+	SourceKind             string             `json:"source_kind"`
+	SourceName             string             `json:"source_name"`
+	AssetKind              string             `json:"asset_kind"`
+	ExternalID             string             `json:"external_id"`
+	ParentExternalID       string             `json:"parent_external_id"`
+	DisplayName            string             `json:"display_name"`
+	Status                 string             `json:"status"`
+	CreatedAtSource        pgtype.Timestamptz `json:"created_at_source"`
+	UpdatedAtSource        pgtype.Timestamptz `json:"updated_at_source"`
+	RawJson                []byte             `json:"raw_json"`
+	SeenInRunID            pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt                 pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID      pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt         pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt              pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID           pgtype.Int8        `json:"expired_run_id"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	OwnerCount             int64              `json:"owner_count"`
+	GrantCount             int64              `json:"grant_count"`
+	ActorCount             int64              `json:"actor_count"`
+	DiscoverySourceCount   int64              `json:"discovery_source_count"`
+	DiscoveryEventCount30d int64              `json:"discovery_event_count_30d"`
+	EvidenceLastSeenAt     pgtype.Timestamptz `json:"evidence_last_seen_at"`
+	ProjectionRefreshedAt  pgtype.Timestamptz `json:"projection_refreshed_at"`
 }
 
 type AppAssetOwner struct {
@@ -72,7 +79,19 @@ type AppAssetOwner struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
-type AppAssetPostureInputsV struct {
+type AuthUser struct {
+	ID           int64              `json:"id"`
+	Email        string             `json:"email"`
+	PasswordHash string             `json:"password_hash"`
+	Role         string             `json:"role"`
+	IsActive     bool               `json:"is_active"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	LastLoginAt  pgtype.Timestamptz `json:"last_login_at"`
+	LastLoginIp  string             `json:"last_login_ip"`
+}
+
+type ConnectedAppReadModelsV struct {
 	ID                           int64              `json:"id"`
 	SourceKind                   string             `json:"source_kind"`
 	SourceName                   string             `json:"source_name"`
@@ -109,18 +128,10 @@ type AppAssetPostureInputsV struct {
 	SuggestedDataClassification  string             `json:"suggested_data_classification"`
 	EffectiveBusinessCriticality string             `json:"effective_business_criticality"`
 	EffectiveDataClassification  string             `json:"effective_data_classification"`
-}
-
-type AuthUser struct {
-	ID           int64              `json:"id"`
-	Email        string             `json:"email"`
-	PasswordHash string             `json:"password_hash"`
-	Role         string             `json:"role"`
-	IsActive     bool               `json:"is_active"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	LastLoginAt  pgtype.Timestamptz `json:"last_login_at"`
-	LastLoginIp  string             `json:"last_login_ip"`
+	EvidenceSignalCount          int32              `json:"evidence_signal_count"`
+	EvidenceFreshness            string             `json:"evidence_freshness"`
+	EvidenceConfidence           string             `json:"evidence_confidence"`
+	EvidenceConfidenceReason     string             `json:"evidence_confidence_reason"`
 }
 
 type ConnectorConfig struct {
@@ -139,6 +150,17 @@ type ConnectorSecret struct {
 	Version    int16              `json:"version"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ConnectorSourceState struct {
+	SourceKind       string             `json:"source_kind"`
+	SourceName       string             `json:"source_name"`
+	Enabled          bool               `json:"enabled"`
+	Configured       bool               `json:"configured"`
+	DiscoveryEnabled bool               `json:"discovery_enabled"`
+	LastSuccessAt    pgtype.Timestamptz `json:"last_success_at"`
+	FreshUntilAt     pgtype.Timestamptz `json:"fresh_until_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type CredentialArtifact struct {
@@ -190,6 +212,41 @@ type CredentialAuditEvent struct {
 	CredentialExternalID string             `json:"credential_external_id"`
 	RawJson              []byte             `json:"raw_json"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+type DiscoveryAppReadModelsV struct {
+	ID                           int64              `json:"id"`
+	CanonicalKey                 string             `json:"canonical_key"`
+	DisplayName                  string             `json:"display_name"`
+	PrimaryDomain                string             `json:"primary_domain"`
+	VendorName                   string             `json:"vendor_name"`
+	FirstSeenAt                  pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt                   pgtype.Timestamptz `json:"last_seen_at"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
+	OwnerIdentityID              int64              `json:"owner_identity_id"`
+	OwnerDisplayName             string             `json:"owner_display_name"`
+	OwnerPrimaryEmail            string             `json:"owner_primary_email"`
+	Actors30d                    int64              `json:"actors_30d"`
+	HasPrivilegedScope           bool               `json:"has_privileged_scope"`
+	HasConfidentialScope         bool               `json:"has_confidential_scope"`
+	BoundConnectorKind           string             `json:"bound_connector_kind"`
+	BoundConnectorSourceName     string             `json:"bound_connector_source_name"`
+	ConnectorEnabled             bool               `json:"connector_enabled"`
+	ConnectorConfigured          bool               `json:"connector_configured"`
+	LastSuccessAt                pgtype.Timestamptz `json:"last_success_at"`
+	FreshUntilAt                 pgtype.Timestamptz `json:"fresh_until_at"`
+	SuggestedBusinessCriticality string             `json:"suggested_business_criticality"`
+	SuggestedDataClassification  string             `json:"suggested_data_classification"`
+	EffectiveBusinessCriticality interface{}        `json:"effective_business_criticality"`
+	EffectiveDataClassification  interface{}        `json:"effective_data_classification"`
+	GovernanceState              string             `json:"governance_state"`
+	TicketRef                    string             `json:"ticket_ref"`
+	Notes                        string             `json:"notes"`
+	ManagedState                 string             `json:"managed_state"`
+	ManagedReason                string             `json:"managed_reason"`
+	RiskScore                    int32              `json:"risk_score"`
+	RiskLevel                    string             `json:"risk_level"`
 }
 
 type Entitlement struct {
@@ -442,15 +499,19 @@ type RulesetOverride struct {
 }
 
 type SaasApp struct {
-	ID            int64              `json:"id"`
-	CanonicalKey  string             `json:"canonical_key"`
-	DisplayName   string             `json:"display_name"`
-	PrimaryDomain string             `json:"primary_domain"`
-	VendorName    string             `json:"vendor_name"`
-	FirstSeenAt   pgtype.Timestamptz `json:"first_seen_at"`
-	LastSeenAt    pgtype.Timestamptz `json:"last_seen_at"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	ID                    int64              `json:"id"`
+	CanonicalKey          string             `json:"canonical_key"`
+	DisplayName           string             `json:"display_name"`
+	PrimaryDomain         string             `json:"primary_domain"`
+	VendorName            string             `json:"vendor_name"`
+	FirstSeenAt           pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt            pgtype.Timestamptz `json:"last_seen_at"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	Actors30d             int64              `json:"actors_30d"`
+	HasPrivilegedScope    bool               `json:"has_privileged_scope"`
+	HasConfidentialScope  bool               `json:"has_confidential_scope"`
+	ProjectionRefreshedAt pgtype.Timestamptz `json:"projection_refreshed_at"`
 }
 
 type SaasAppBinding struct {
@@ -490,34 +551,6 @@ type SaasAppEvent struct {
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
-}
-
-type SaasAppPostureInputsV struct {
-	ID                           int64              `json:"id"`
-	CanonicalKey                 string             `json:"canonical_key"`
-	DisplayName                  string             `json:"display_name"`
-	PrimaryDomain                string             `json:"primary_domain"`
-	VendorName                   string             `json:"vendor_name"`
-	FirstSeenAt                  pgtype.Timestamptz `json:"first_seen_at"`
-	LastSeenAt                   pgtype.Timestamptz `json:"last_seen_at"`
-	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
-	OwnerIdentityID              int64              `json:"owner_identity_id"`
-	Actors30d                    int64              `json:"actors_30d"`
-	HasPrivilegedScope           bool               `json:"has_privileged_scope"`
-	HasConfidentialScope         bool               `json:"has_confidential_scope"`
-	BoundConnectorKind           string             `json:"bound_connector_kind"`
-	BoundConnectorSourceName     string             `json:"bound_connector_source_name"`
-	ConnectorEnabled             bool               `json:"connector_enabled"`
-	ConnectorConfigured          bool               `json:"connector_configured"`
-	LastSuccessAt                pgtype.Timestamptz `json:"last_success_at"`
-	SuggestedBusinessCriticality string             `json:"suggested_business_criticality"`
-	SuggestedDataClassification  string             `json:"suggested_data_classification"`
-	EffectiveBusinessCriticality interface{}        `json:"effective_business_criticality"`
-	EffectiveDataClassification  interface{}        `json:"effective_data_classification"`
-	GovernanceState              string             `json:"governance_state"`
-	TicketRef                    string             `json:"ticket_ref"`
-	Notes                        string             `json:"notes"`
 }
 
 type SaasAppSource struct {
