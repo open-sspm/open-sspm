@@ -7,7 +7,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
@@ -15,7 +14,7 @@ import (
 type Projector struct {
 	pool *pgxpool.Pool
 	q    *gen.Queries
-	cfg  config.Config
+	cfg  RefreshConfig
 }
 
 type sourceState struct {
@@ -28,7 +27,14 @@ type sourceState struct {
 
 type refreshConfigContextKey struct{}
 
-func NewProjector(pool *pgxpool.Pool, q *gen.Queries, cfg config.Config) *Projector {
+func NewProjector(pool *pgxpool.Pool, q *gen.Queries, cfg RefreshConfig) *Projector {
+	// Projectors that own a pool must start from pool-backed queries and derive
+	// tx-scoped queries inside withQueries. Callers that already hold scoped
+	// queries should pass pool=nil (for example via ProjectorFromContext).
+	if pool != nil {
+		q = gen.New(pool)
+	}
+
 	return &Projector{
 		pool: pool,
 		q:    q,
@@ -36,7 +42,7 @@ func NewProjector(pool *pgxpool.Pool, q *gen.Queries, cfg config.Config) *Projec
 	}
 }
 
-func WithRefreshConfig(ctx context.Context, cfg config.Config) context.Context {
+func WithRefreshConfig(ctx context.Context, cfg RefreshConfig) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -47,7 +53,7 @@ func ProjectorFromContext(ctx context.Context, q *gen.Queries) *Projector {
 	if ctx == nil || q == nil {
 		return nil
 	}
-	cfg, ok := ctx.Value(refreshConfigContextKey{}).(config.Config)
+	cfg, ok := ctx.Value(refreshConfigContextKey{}).(RefreshConfig)
 	if !ok {
 		return nil
 	}
@@ -79,6 +85,13 @@ func (p *Projector) RefreshSourceReadModels(ctx context.Context, sourceKind, sou
 		}
 		return refreshAppAssetSource(ctx, q, sourceKind, sourceName)
 	})
+}
+
+func (p *Projector) StoredReadModelsNeedRebuild(ctx context.Context) (bool, error) {
+	if p == nil || p.q == nil {
+		return false, nil
+	}
+	return p.q.StoredReadModelsNeedRebuild(ctx)
 }
 
 func (p *Projector) RebuildAllReadModels(ctx context.Context) error {
@@ -115,7 +128,7 @@ func (p *Projector) withQueries(ctx context.Context, fn func(*gen.Queries) error
 	return tx.Commit(ctx)
 }
 
-func refreshConnectorSourceState(ctx context.Context, q *gen.Queries, cfg config.Config) error {
+func refreshConnectorSourceState(ctx context.Context, q *gen.Queries, cfg RefreshConfig) error {
 	configRows, err := q.ListConnectorConfigs(ctx)
 	if err != nil {
 		return err
@@ -200,7 +213,7 @@ func refreshAppAssetSource(ctx context.Context, q *gen.Queries, sourceKind, sour
 	return err
 }
 
-func FreshnessWindow(cfg config.Config, kind string) time.Duration {
+func FreshnessWindow(cfg RefreshConfig, kind string) time.Duration {
 	interval := cfg.SyncInterval
 
 	switch normalizeConfigKind(kind) {

@@ -54,7 +54,7 @@ func (h *Handlers) readModelProjector() *readmodels.Projector {
 	if h == nil {
 		return nil
 	}
-	return readmodels.NewProjector(h.Pool, h.Q, h.Cfg)
+	return readmodels.NewProjector(h.Pool, h.Q, readmodels.RefreshConfigFromConfig(h.Cfg))
 }
 
 // LayoutData builds the common layout data for page rendering.

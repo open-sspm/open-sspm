@@ -139,3 +139,39 @@ func TestLoadWithOptions_RejectsInvalidConnectorSecretKey(t *testing.T) {
 		t.Fatalf("expected invalid connector secret key error")
 	}
 }
+
+func TestLoadWithOptions_DefaultStartupReadModelRebuildMode(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("STARTUP_READ_MODEL_REBUILD_MODE", "")
+
+	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if cfg.StartupReadModelRebuildMode != StartupReadModelRebuildAuto {
+		t.Fatalf("StartupReadModelRebuildMode = %q, want %q", cfg.StartupReadModelRebuildMode, StartupReadModelRebuildAuto)
+	}
+}
+
+func TestLoadWithOptions_ParsesStartupReadModelRebuildMode(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("STARTUP_READ_MODEL_REBUILD_MODE", StartupReadModelRebuildAlways)
+
+	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if cfg.StartupReadModelRebuildMode != StartupReadModelRebuildAlways {
+		t.Fatalf("StartupReadModelRebuildMode = %q, want %q", cfg.StartupReadModelRebuildMode, StartupReadModelRebuildAlways)
+	}
+}
+
+func TestLoadWithOptions_RejectsInvalidStartupReadModelRebuildMode(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("STARTUP_READ_MODEL_REBUILD_MODE", "sometimes")
+
+	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err == nil {
+		t.Fatalf("expected invalid startup read model rebuild mode error")
+	}
+}

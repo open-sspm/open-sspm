@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/identity"
@@ -38,7 +37,7 @@ type Orchestrator struct {
 	mode            registry.RunMode
 	identityFn      func(context.Context, *gen.Queries) (identity.Stats, error)
 	globalEvalFn    func(context.Context, *gen.Queries, string, bool, func(registry.Event)) error
-	readModelConfig config.Config
+	readModelConfig readmodels.RefreshConfig
 	hasReadModelCfg bool
 
 	mu           sync.Mutex
@@ -139,7 +138,7 @@ func (o *Orchestrator) SetRunMode(mode registry.RunMode) {
 	o.mode = mode.Normalize()
 }
 
-func (o *Orchestrator) SetReadModelConfig(cfg config.Config) {
+func (o *Orchestrator) SetReadModelConfig(cfg readmodels.RefreshConfig) {
 	o.readModelConfig = cfg
 	o.hasReadModelCfg = true
 }

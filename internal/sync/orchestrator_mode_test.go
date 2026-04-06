@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/identity"
@@ -164,7 +163,7 @@ func TestOrchestrator_PassesReadModelConfigThroughIntegrationContext(t *testing.
 	orch := NewOrchestrator(&pgxpool.Pool{}, nil)
 	orch.SetLockManager(orchestratorTestLockManager{})
 	orch.SetRunMode(registry.RunModeDiscovery)
-	orch.SetReadModelConfig(config.Config{SyncInterval: 20 * time.Minute})
+	orch.SetReadModelConfig(readmodels.RefreshConfig{SyncInterval: 20 * time.Minute})
 
 	integration := &orchestratorCountingIntegration{
 		kind: "okta",

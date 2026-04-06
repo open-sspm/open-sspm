@@ -29,9 +29,22 @@ const (
 var credentialGUIDPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
 
 type EntraIntegration struct {
-	client           *Client
+	client           entraClient
 	tenantID         string
 	discoveryEnabled bool
+}
+
+type entraClient interface {
+	ListApplications(context.Context) ([]Application, error)
+	ListServicePrincipals(context.Context) ([]ServicePrincipal, error)
+	ListDirectoryAudits(context.Context, *time.Time) ([]DirectoryAuditEvent, error)
+	ListUsers(context.Context) ([]User, error)
+	ListGroups(context.Context) ([]Group, error)
+	ListApplicationOwners(context.Context, string) ([]DirectoryOwner, error)
+	ListServicePrincipalOwners(context.Context, string) ([]DirectoryOwner, error)
+	ListSignIns(context.Context, *time.Time) ([]SignInEvent, error)
+	ListOAuth2PermissionGrants(context.Context) ([]OAuth2PermissionGrant, error)
+	LookupUsersByIDs(context.Context, []string) ([]User, error)
 }
 
 type appAssetUpsertRow struct {
@@ -124,6 +137,7 @@ func (i *EntraIntegration) InitEvents() []registry.Event {
 		{Source: "entra", Stage: "list-audit-events", Current: 0, Total: 1, Message: "listing Entra directory audit events"},
 		{Source: "entra", Stage: "write-audit-events", Current: 0, Total: registry.UnknownTotal, Message: "writing Entra credential audit events"},
 		{Source: "entra", Stage: "list-discovery-events", Current: 0, Total: 1, Message: "listing Entra discovery signals"},
+		{Source: "entra", Stage: "resolve-grant-actors", Current: 0, Total: 1, Message: "resolving Entra grant actors"},
 		{Source: "entra", Stage: "normalize-discovery", Current: 0, Total: 1, Message: "normalizing discovery evidence"},
 		{Source: "entra", Stage: "write-discovery", Current: 0, Total: registry.UnknownTotal, Message: "writing discovery data"},
 	}
@@ -1337,16 +1351,7 @@ func (i *EntraIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, re
 		metrics.DiscoveryIngestFailuresTotal.WithLabelValues("entra", "oauth_grant", "api_error").Inc()
 		return fmt.Errorf("list oauth2 permission grants: %w", err)
 	}
-	users := make([]User, 0)
-	if len(grants) > 0 {
-		report(registry.Event{Source: "entra", Stage: "list-users", Current: 0, Total: 1, Message: "listing Entra users for grant actor resolution"})
-		users, err = i.client.ListUsers(ctx)
-		if err != nil {
-			metrics.DiscoveryIngestFailuresTotal.WithLabelValues("entra", "oauth_grant", "api_error").Inc()
-			return fmt.Errorf("list entra users for grant actor resolution: %w", err)
-		}
-		report(registry.Event{Source: "entra", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users for grant actor resolution", len(users))})
-	}
+	users := i.resolveGrantActors(ctx, report, grants)
 	report(registry.Event{
 		Source:  "entra",
 		Stage:   "list-discovery-events",
@@ -1373,6 +1378,45 @@ func (i *EntraIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, re
 		return err
 	}
 	return nil
+}
+
+func (i *EntraIntegration) resolveGrantActors(ctx context.Context, report func(registry.Event), grants []OAuth2PermissionGrant) []User {
+	actorIDs := make([]string, 0, len(grants))
+	for _, grant := range grants {
+		actorIDs = append(actorIDs, grant.PrincipalID)
+	}
+	actorIDs = distinctNonEmptyStrings(actorIDs)
+	if len(actorIDs) == 0 {
+		return nil
+	}
+
+	report(registry.Event{
+		Source:  "entra",
+		Stage:   "resolve-grant-actors",
+		Current: 0,
+		Total:   1,
+		Message: fmt.Sprintf("resolving %d Entra grant actors", len(actorIDs)),
+	})
+	users, err := i.client.LookupUsersByIDs(ctx, actorIDs)
+	if err != nil {
+		report(registry.Event{
+			Source:  "entra",
+			Stage:   "resolve-grant-actors",
+			Current: 1,
+			Total:   1,
+			Message: "skipping grant actor enrichment after lookup failure; continuing with principal ids",
+			Err:     err,
+		})
+		return nil
+	}
+	report(registry.Event{
+		Source:  "entra",
+		Stage:   "resolve-grant-actors",
+		Current: 1,
+		Total:   1,
+		Message: fmt.Sprintf("resolved %d Entra grant actors", len(users)),
+	})
+	return users
 }
 
 func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGrant, applications []Application, servicePrincipals []ServicePrincipal, users []User, tenantID string, now time.Time) ([]normalizedDiscoverySource, []normalizedDiscoveryEvent) {

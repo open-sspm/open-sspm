@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
 	"github.com/open-sspm/open-sspm/internal/normalize"
+	"github.com/open-sspm/open-sspm/internal/readmodels"
 )
 
 type DBRunner struct {
@@ -25,7 +25,7 @@ type DBRunner struct {
 	globalEvalMode          string
 	locks                   LockManager
 	mode                    registry.RunMode
-	readModelConfig         config.Config
+	readModelConfig         readmodels.RefreshConfig
 	hasReadModelConfig      bool
 	discoveryMetricsEnabled bool
 	discoveryMetricsRefresh func(context.Context, *gen.Queries, time.Time) error
@@ -86,7 +86,7 @@ func (r *DBRunner) SetRunMode(mode registry.RunMode) {
 	r.mode = mode.Normalize()
 }
 
-func (r *DBRunner) SetReadModelConfig(cfg config.Config) {
+func (r *DBRunner) SetReadModelConfig(cfg readmodels.RefreshConfig) {
 	r.readModelConfig = cfg
 	r.hasReadModelConfig = true
 }

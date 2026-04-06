@@ -21,21 +21,31 @@ func (q *Queries) DeleteConnectorSourceStateAll(ctx context.Context) error {
 }
 
 const listLatestSuccessfulSyncRunsBySource = `-- name: ListLatestSuccessfulSyncRunsBySource :many
-SELECT
-  CASE lower(trim(r.source_kind))
-    WHEN 'okta_discovery' THEN 'okta'
-    WHEN 'entra_discovery' THEN 'entra'
-    WHEN 'google_workspace_discovery' THEN 'google_workspace'
-    WHEN 'aws_identity_center' THEN 'aws'
-    ELSE lower(trim(r.source_kind))
-  END::text AS source_kind,
-  trim(r.source_name)::text AS source_name,
-  max(r.finished_at)::timestamptz AS last_success_at
-FROM sync_runs r
-WHERE r.status = 'success'
-  AND r.finished_at IS NOT NULL
-GROUP BY 1, trim(r.source_name)
-ORDER BY 1, 2
+WITH normalized AS (
+  SELECT
+    CASE lower(trim(r.source_kind))
+      WHEN 'okta_discovery' THEN 'okta'
+      WHEN 'entra_discovery' THEN 'entra'
+      WHEN 'google_workspace_discovery' THEN 'google_workspace'
+      WHEN 'aws_identity_center' THEN 'aws'
+      ELSE lower(trim(r.source_kind))
+    END::text AS source_kind,
+    trim(r.source_name)::text AS source_name,
+    r.finished_at
+  FROM sync_runs r
+  WHERE r.status = 'success'
+    AND r.finished_at IS NOT NULL
+)
+SELECT source_kind, source_name, finished_at::timestamptz AS last_success_at
+FROM (
+  SELECT DISTINCT ON (source_kind, source_name)
+    source_kind,
+    source_name,
+    finished_at
+  FROM normalized
+  ORDER BY source_kind, source_name, finished_at DESC
+) latest
+ORDER BY source_kind, source_name
 `
 
 type ListLatestSuccessfulSyncRunsBySourceRow struct {
@@ -482,6 +492,28 @@ func (q *Queries) RefreshSaaSAppReadModelsBySource(ctx context.Context, arg Refr
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const storedReadModelsNeedRebuild = `-- name: StoredReadModelsNeedRebuild :one
+SELECT (
+  EXISTS (
+    SELECT 1
+    FROM saas_apps sa
+    WHERE sa.projection_refreshed_at IS NULL
+  )
+  OR EXISTS (
+    SELECT 1
+    FROM app_assets aa
+    WHERE aa.projection_refreshed_at IS NULL
+  )
+)::bool AS needs_rebuild
+`
+
+func (q *Queries) StoredReadModelsNeedRebuild(ctx context.Context) (bool, error) {
+	row := q.db.QueryRow(ctx, storedReadModelsNeedRebuild)
+	var needs_rebuild bool
+	err := row.Scan(&needs_rebuild)
+	return needs_rebuild, err
 }
 
 const upsertConnectorSourceState = `-- name: UpsertConnectorSourceState :exec

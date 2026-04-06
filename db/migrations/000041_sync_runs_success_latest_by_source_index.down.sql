@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_sync_runs_success_latest_by_source;

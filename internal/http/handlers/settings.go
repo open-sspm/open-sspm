@@ -229,7 +229,7 @@ func (h *Handlers) handleConnectorToggle(c *echo.Context, kind string) error {
 	if _, err := qtx.UpdateConnectorConfigEnabled(ctx, gen.UpdateConnectorConfigEnabledParams{Kind: kind, Enabled: enabled}); err != nil {
 		return h.RenderError(c, err)
 	}
-	if err := readmodels.NewProjector(nil, qtx, h.Cfg).RefreshConnectorSourceState(ctx); err != nil {
+	if err := readmodels.NewProjector(nil, qtx, readmodels.RefreshConfigFromConfig(h.Cfg)).RefreshConnectorSourceState(ctx); err != nil {
 		return h.RenderError(c, err)
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -280,7 +280,7 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 		}
 		return h.RenderError(c, err)
 	}
-	if err := readmodels.NewProjector(nil, h.Q.WithTx(tx), h.Cfg).RefreshConnectorSourceState(ctx); err != nil {
+	if err := readmodels.NewProjector(nil, h.Q.WithTx(tx), readmodels.RefreshConfigFromConfig(h.Cfg)).RefreshConnectorSourceState(ctx); err != nil {
 		return h.RenderError(c, err)
 	}
 	if err := tx.Commit(ctx); err != nil {

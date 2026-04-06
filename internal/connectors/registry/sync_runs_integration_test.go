@@ -18,7 +18,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/readmodels"
 )
@@ -343,7 +342,7 @@ func TestFinalizeAppRunRollsBackSuccessWhenReadModelRefreshFails(t *testing.T) {
 			t.Fatalf("update connector_configs: %v", err)
 		}
 
-		finalizeCtx := readmodels.WithRefreshConfig(ctx, config.Config{})
+		finalizeCtx := readmodels.WithRefreshConfig(ctx, readmodels.RefreshConfig{})
 		err = FinalizeAppRun(finalizeCtx, q, pool, runID, "github", "acme", 2*time.Second, false)
 		if err == nil {
 			t.Fatalf("FinalizeAppRun() error = nil, want non-nil")

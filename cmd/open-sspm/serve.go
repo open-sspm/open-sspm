@@ -18,6 +18,7 @@ import (
 	httpapp "github.com/open-sspm/open-sspm/internal/http"
 	"github.com/open-sspm/open-sspm/internal/http/handlers"
 	"github.com/open-sspm/open-sspm/internal/metrics"
+	"github.com/open-sspm/open-sspm/internal/readmodels"
 	"github.com/open-sspm/open-sspm/internal/sync"
 	"github.com/spf13/cobra"
 )
@@ -78,13 +79,13 @@ func runServe() error {
 	fullDBRunner.SetLockManager(locks)
 	fullDBRunner.SetRunMode(registry.RunModeFull)
 	fullDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
-	fullDBRunner.SetReadModelConfig(cfg)
+	fullDBRunner.SetReadModelConfig(readmodels.RefreshConfigFromConfig(cfg))
 
 	discoveryDBRunner := sync.NewDBRunner(runtimeDeps.pool, reg)
 	discoveryDBRunner.SetLockManager(locks)
 	discoveryDBRunner.SetRunMode(registry.RunModeDiscovery)
 	discoveryDBRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
-	discoveryDBRunner.SetReadModelConfig(cfg)
+	discoveryDBRunner.SetReadModelConfig(readmodels.RefreshConfigFromConfig(cfg))
 	discoveryDBRunner.EnableDiscoveryMetricsRefresh()
 
 	var syncer handlers.SyncRunner

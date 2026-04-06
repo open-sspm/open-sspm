@@ -12,6 +12,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/metrics"
+	"github.com/open-sspm/open-sspm/internal/readmodels"
 	"github.com/open-sspm/open-sspm/internal/sync"
 	"github.com/spf13/cobra"
 )
@@ -80,7 +81,7 @@ func runWorker() error {
 	dbRunner.SetLockManager(locks)
 	dbRunner.SetRunMode(registry.RunModeFull)
 	dbRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
-	dbRunner.SetReadModelConfig(cfg)
+	dbRunner.SetReadModelConfig(readmodels.RefreshConfigFromConfig(cfg))
 	backoffMax := cfg.SyncFailureBackoffMax
 	if backoffMax <= 0 {
 		backoffMax = cfg.SyncInterval * 10

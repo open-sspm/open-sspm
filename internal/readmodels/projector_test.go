@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
@@ -122,7 +121,7 @@ func TestBuildSourceStateNormalizesAWSSourceKind(t *testing.T) {
 func TestFreshnessWindowUsesConnectorSpecificOverrides(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.Config{
+	cfg := RefreshConfig{
 		SyncInterval:      10 * time.Minute,
 		SyncEntraInterval: 20 * time.Minute,
 		SyncAWSInterval:   45 * time.Minute,
@@ -150,7 +149,7 @@ func TestProjectorFromContextReturnsNilWithoutConfig(t *testing.T) {
 func TestProjectorFromContextBuildsProjectorWithConfig(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.Config{
+	cfg := RefreshConfig{
 		SyncInterval: 15 * time.Minute,
 	}
 	projector := ProjectorFromContext(WithRefreshConfig(context.Background(), cfg), &gen.Queries{})

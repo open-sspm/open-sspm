@@ -9,6 +9,7 @@ import (
 
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
+	"github.com/open-sspm/open-sspm/internal/readmodels"
 	"github.com/open-sspm/open-sspm/internal/sync"
 	"github.com/spf13/cobra"
 )
@@ -61,7 +62,7 @@ func runSyncDiscovery() error {
 	dbRunner.SetLockManager(locks)
 	dbRunner.SetRunMode(registry.RunModeDiscovery)
 	dbRunner.SetGlobalEvalMode(cfg.GlobalEvalMode)
-	dbRunner.SetReadModelConfig(cfg)
+	dbRunner.SetReadModelConfig(readmodels.RefreshConfigFromConfig(cfg))
 	dbRunner.EnableDiscoveryMetricsRefresh()
 	runner := sync.NewBlockingRunOnceLockRunnerWithScope(locks, dbRunner, sync.RunOnceScopeNameDiscovery)
 

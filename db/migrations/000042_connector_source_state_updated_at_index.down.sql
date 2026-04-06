@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_connector_source_state_updated_at;
