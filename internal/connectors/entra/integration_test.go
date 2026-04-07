@@ -13,7 +13,7 @@ import (
 func TestBuildCredentialAuditEventRowsMapsCredentialAuditFields(t *testing.T) {
 	t.Parallel()
 
-	rows := buildCredentialAuditEventRows([]DirectoryAuditEvent{
+	rows, err := buildCredentialAuditEventRows([]DirectoryAuditEvent{
 		mustParseDirectoryAudit(t, `{
 			"id":"event-1",
 			"category":"ApplicationManagement",
@@ -24,6 +24,9 @@ func TestBuildCredentialAuditEventRowsMapsCredentialAuditFields(t *testing.T) {
 			"targetResources":[{"id":"app-1","displayName":"Payroll App","type":"Application","modifiedProperties":[{"displayName":"PasswordCredentials","newValue":"{\"keyId\":\"cred-1\"}"}]}]
 		}`),
 	})
+	if err != nil {
+		t.Fatalf("buildCredentialAuditEventRows() error = %v", err)
+	}
 
 	if len(rows) != 1 {
 		t.Fatalf("len(rows)=%d want 1", len(rows))
@@ -53,10 +56,13 @@ func TestBuildCredentialAuditEventRowsMapsCredentialAuditFields(t *testing.T) {
 func TestBuildCredentialAuditEventRowsSkipsInvalidOrIrrelevantEvents(t *testing.T) {
 	t.Parallel()
 
-	rows := buildCredentialAuditEventRows([]DirectoryAuditEvent{
+	rows, err := buildCredentialAuditEventRows([]DirectoryAuditEvent{
 		mustParseDirectoryAudit(t, `{"id":"sign-in-1","category":"SignInLogs","activityDisplayName":"User signed in","activityDateTime":"2026-02-07T23:00:00Z"}`),
 		mustParseDirectoryAudit(t, `{"id":"event-2","category":"ApplicationManagement","activityDisplayName":"Add application password credential"}`),
 	})
+	if err != nil {
+		t.Fatalf("buildCredentialAuditEventRows() error = %v", err)
+	}
 
 	if len(rows) != 0 {
 		t.Fatalf("len(rows)=%d want 0", len(rows))
@@ -98,9 +104,12 @@ func TestGraphObservedAtOrNowUsesValidity(t *testing.T) {
 func TestBuildOwnerRowsPrefixesServicePrincipalOwnerExternalID(t *testing.T) {
 	t.Parallel()
 
-	rows := buildOwnerRows("entra_application", "app-1", []DirectoryOwner{
+	rows, err := buildOwnerRows("entra_application", "app-1", []DirectoryOwner{
 		mustParseDirectoryOwner(t, `{"id":"owner-sp-1","@odata.type":"#microsoft.graph.servicePrincipal","displayName":"Owner Service Principal","appId":"owner-client-app"}`),
 	})
+	if err != nil {
+		t.Fatalf("buildOwnerRows() error = %v", err)
+	}
 	if len(rows) != 1 {
 		t.Fatalf("len(rows)=%d want 1", len(rows))
 	}
@@ -145,7 +154,7 @@ func (s stubEntraClient) ListGroups(context.Context) ([]Group, error) {
 	panic("unexpected call")
 }
 
-func (s stubEntraClient) ListGroupUserMembers(context.Context, string) ([]User, error) {
+func (s stubEntraClient) ListGroupTransitiveUserMembers(context.Context, string) ([]User, error) {
 	panic("unexpected call")
 }
 

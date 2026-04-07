@@ -253,21 +253,27 @@ func (c *Client) ListGroups(ctx context.Context) ([]Group, error) {
 	return collectPagedItems[Group](ctx, result, c.graph.GetAdapter(), msgraphmodels.CreateGroupCollectionResponseFromDiscriminatorValue)
 }
 
-func (c *Client) ListGroupUserMembers(ctx context.Context, groupID string) ([]User, error) {
+func (c *Client) ListGroupTransitiveUserMembers(ctx context.Context, groupID string) ([]User, error) {
 	groupID = strings.TrimSpace(groupID)
 	if groupID == "" {
 		return nil, errors.New("group id is required")
 	}
 
-	result, err := c.graph.Groups().ByGroupId(groupID).Members().GraphUser().Get(ctx, &groups.ItemMembersGraphUserRequestBuilderGetRequestConfiguration{
-		QueryParameters: &groups.ItemMembersGraphUserRequestBuilderGetQueryParameters{
+	headers := abstractions.NewRequestHeaders()
+	headers.Add("ConsistencyLevel", "eventual")
+
+	result, err := c.graph.Groups().ByGroupId(groupID).TransitiveMembers().GraphUser().Get(ctx, &groups.ItemTransitiveMembersGraphUserRequestBuilderGetRequestConfiguration{
+		Headers: headers,
+		QueryParameters: &groups.ItemTransitiveMembersGraphUserRequestBuilderGetQueryParameters{
+			Count:  boolPtr(true),
 			Select: []string{"id", "displayName", "mail", "userPrincipalName", "otherMails", "proxyAddresses", "userType", "accountEnabled", "createdDateTime"},
+			Top:    int32Ptr(defaultPageSize),
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list entra group members %s: %w", groupID, err)
+		return nil, fmt.Errorf("list entra transitive group members %s: %w", groupID, err)
 	}
-	return collectPagedItems[User](ctx, result, c.graph.GetAdapter(), msgraphmodels.CreateUserCollectionResponseFromDiscriminatorValue)
+	return collectPagedItems[User](ctx, result, c.graph.GetAdapter(), msgraphmodels.CreateUserCollectionResponseFromDiscriminatorValue, headers)
 }
 
 func (c *Client) ListDirectoryRoles(ctx context.Context) ([]DirectoryRole, error) {
@@ -383,7 +389,7 @@ func (c *Client) ListOAuth2PermissionGrants(ctx context.Context) ([]OAuth2Permis
 	return collectPagedItems[OAuth2PermissionGrant](ctx, result, c.graph.GetAdapter(), msgraphmodels.CreateOAuth2PermissionGrantCollectionResponseFromDiscriminatorValue)
 }
 
-func collectPagedItems[T any](ctx context.Context, result any, adapter abstractions.RequestAdapter, constructor absser.ParsableFactory) ([]T, error) {
+func collectPagedItems[T any](ctx context.Context, result any, adapter abstractions.RequestAdapter, constructor absser.ParsableFactory, headers ...*abstractions.RequestHeaders) ([]T, error) {
 	if result == nil {
 		return nil, nil
 	}
@@ -392,6 +398,9 @@ func collectPagedItems[T any](ctx context.Context, result any, adapter abstracti
 	iterator, err := msgraphcore.NewPageIterator[T](result, adapter, constructor)
 	if err != nil {
 		return nil, err
+	}
+	if len(headers) > 0 && headers[0] != nil {
+		iterator.SetHeaders(headers[0])
 	}
 	err = iterator.Iterate(ctx, func(item T) bool {
 		items = append(items, item)
@@ -428,6 +437,10 @@ func distinctNonEmptyStrings(values []string) []string {
 }
 
 func int32Ptr(v int32) *int32 {
+	return &v
+}
+
+func boolPtr(v bool) *bool {
 	return &v
 }
 
@@ -471,45 +484,58 @@ func bytesValueString(value []byte) string {
 }
 
 var graphSerializationInit sync.Once
+var graphSerializationInitErr error
 
-func ensureGraphSerializationRegistered() {
+func ensureGraphSerializationRegistered() error {
 	graphSerializationInit.Do(func() {
 		provider := absauth.NewBaseBearerTokenAuthenticationProvider(&entraStaticAccessTokenProvider{validator: &absauth.AllowedHostsValidator{}})
-		adapter, _ := msgraphsdkgo.NewGraphRequestAdapter(provider)
+		adapter, err := msgraphsdkgo.NewGraphRequestAdapter(provider)
+		if err != nil {
+			graphSerializationInitErr = fmt.Errorf("create graph request adapter for serialization registration: %w", err)
+			return
+		}
 		_ = msgraphsdkgo.NewGraphServiceClient(adapter)
 	})
+	return graphSerializationInitErr
 }
 
-func serializeSDKModel(model absser.Parsable) []byte {
+func serializeSDKModel(model absser.Parsable) ([]byte, error) {
 	if model == nil {
-		return nil
+		return nil, nil
 	}
-	ensureGraphSerializationRegistered()
+	if err := ensureGraphSerializationRegistered(); err != nil {
+		return nil, err
+	}
 	raw, err := absser.Serialize("application/json", model)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("serialize graph model %T: %w", model, err)
 	}
-	return raw
+	return raw, nil
 }
 
-func mergeSerializedSDKModel(model absser.Parsable, extras map[string]any) []byte {
-	raw := serializeSDKModel(model)
+func mergeSerializedSDKModel(model absser.Parsable, extras map[string]any) ([]byte, error) {
+	raw, err := serializeSDKModel(model)
+	if err != nil {
+		return nil, err
+	}
 	if len(extras) == 0 {
-		return raw
+		return raw, nil
 	}
 
 	payload := map[string]any{}
 	if len(raw) > 0 {
-		_ = json.Unmarshal(raw, &payload)
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			return nil, fmt.Errorf("decode serialized graph model %T for merge: %w", model, err)
+		}
 	}
 	for key, value := range extras {
 		payload[key] = value
 	}
 	merged, err := json.Marshal(payload)
 	if err != nil {
-		return raw
+		return nil, fmt.Errorf("encode merged graph model %T: %w", model, err)
 	}
-	return merged
+	return merged, nil
 }
 
 type entraStaticAccessTokenProvider struct {

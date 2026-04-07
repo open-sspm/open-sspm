@@ -25,7 +25,10 @@ func TestNormalizeEntraDiscovery_VendorPrecedence(t *testing.T) {
 		mustParseServicePrincipal(t, `{"id":"sp-3","appId":"client-app-3","displayName":"Service Principal Three","publisherName":"Publisher Three"}`),
 	}
 
-	sources, events := normalizeEntraDiscovery(signIns, grants, applications, servicePrincipals, nil, "tenant-1", now)
+	sources, events, err := normalizeEntraDiscovery(signIns, grants, applications, servicePrincipals, nil, "tenant-1", now)
+	if err != nil {
+		t.Fatalf("normalizeEntraDiscovery() error = %v", err)
+	}
 	if len(sources) != 3 {
 		t.Fatalf("len(sources)=%d want 3", len(sources))
 	}
@@ -79,7 +82,10 @@ func TestNormalizeEntraDiscovery_GrantActorResolution(t *testing.T) {
 		mustParseUser(t, `{"id":"user-1","displayName":"Alice Example","userPrincipalName":"alice@example.com"}`),
 	}
 
-	_, events := normalizeEntraDiscovery(nil, grants, nil, servicePrincipals, users, "tenant-1", now)
+	_, events, err := normalizeEntraDiscovery(nil, grants, nil, servicePrincipals, users, "tenant-1", now)
+	if err != nil {
+		t.Fatalf("normalizeEntraDiscovery() error = %v", err)
+	}
 	if len(events) != 3 {
 		t.Fatalf("len(events)=%d want 3", len(events))
 	}

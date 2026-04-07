@@ -10,7 +10,9 @@ import (
 func mustParseModel[T any](t *testing.T, raw string, factory absser.ParsableFactory) T {
 	t.Helper()
 
-	ensureGraphSerializationRegistered()
+	if err := ensureGraphSerializationRegistered(); err != nil {
+		t.Fatalf("ensureGraphSerializationRegistered(): %v", err)
+	}
 	model, err := absser.Deserialize("application/json", []byte(raw), factory)
 	if err != nil {
 		t.Fatalf("Deserialize(%T): %v", *new(T), err)
@@ -20,6 +22,16 @@ func mustParseModel[T any](t *testing.T, raw string, factory absser.ParsableFact
 		t.Fatalf("Deserialize(%T): unexpected type %T", *new(T), model)
 	}
 	return typed
+}
+
+func mustSerializeSDKModel(t *testing.T, model absser.Parsable) []byte {
+	t.Helper()
+
+	raw, err := serializeSDKModel(model)
+	if err != nil {
+		t.Fatalf("serializeSDKModel(%T): %v", model, err)
+	}
+	return raw
 }
 
 func mustParseUser(t *testing.T, raw string) User {

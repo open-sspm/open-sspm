@@ -59,7 +59,7 @@ func (c entitlementsTestClient) ListGroups(context.Context) ([]Group, error) {
 	panic("unexpected call")
 }
 
-func (c entitlementsTestClient) ListGroupUserMembers(_ context.Context, groupID string) ([]User, error) {
+func (c entitlementsTestClient) ListGroupTransitiveUserMembers(_ context.Context, groupID string) ([]User, error) {
 	return c.groupMembersByID[groupID], nil
 }
 

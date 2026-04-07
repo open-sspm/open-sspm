@@ -44,7 +44,7 @@ type entraClient interface {
 	ListDirectoryRoleAssignments(context.Context) ([]DirectoryRoleAssignment, error)
 	ListUsers(context.Context) ([]User, error)
 	ListGroups(context.Context) ([]Group, error)
-	ListGroupUserMembers(context.Context, string) ([]User, error)
+	ListGroupTransitiveUserMembers(context.Context, string) ([]User, error)
 	ListApplicationOwners(context.Context, string) ([]DirectoryOwner, error)
 	ListServicePrincipalOwners(context.Context, string) ([]DirectoryOwner, error)
 	ListSignIns(context.Context, *time.Time) ([]SignInEvent, error)
@@ -204,7 +204,10 @@ func (i *EntraIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pg
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 
-	assetRows, credentialRows := buildEntraAssetAndCredentialRows(applications, servicePrincipals)
+	assetRows, credentialRows, err := buildEntraAssetAndCredentialRows(applications, servicePrincipals)
+	if err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindUnknown)
+	}
 	if err := i.upsertAppAssets(ctx, q, report, runID, assetRows); err != nil {
 		report(registry.Event{Source: "entra", Stage: "write-app-assets", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
@@ -249,7 +252,10 @@ func (i *EntraIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pg
 		Message: fmt.Sprintf("found %d directory audit events", len(directoryAudits)),
 	})
 
-	auditEventRows := buildCredentialAuditEventRows(directoryAudits)
+	auditEventRows, err := buildCredentialAuditEventRows(directoryAudits)
+	if err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindUnknown)
+	}
 	if err := i.upsertCredentialAuditEvents(ctx, q, report, auditEventRows); err != nil {
 		report(registry.Event{Source: "entra", Stage: "write-audit-events", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
@@ -340,9 +346,12 @@ func (i *EntraIntegration) syncUsers(ctx context.Context, q *gen.Queries, report
 			display = externalID
 		}
 
-		raw := mergeSerializedSDKModel(user, map[string]any{
+		raw, err := mergeSerializedSDKModel(user, map[string]any{
 			"status": entraAccountStatus(user.GetAccountEnabled()),
 		})
+		if err != nil {
+			return 0, fmt.Errorf("serialize entra user %s: %w", externalID, err)
+		}
 
 		externalIDs = append(externalIDs, externalID)
 		emails = append(emails, email)
@@ -427,9 +436,12 @@ func (i *EntraIntegration) syncGroups(ctx context.Context, q *gen.Queries, repor
 		displayNames = append(displayNames, display)
 		accountKinds = append(accountKinds, entraGroupAccountKind(group))
 		entityCategories = append(entityCategories, registry.EntityCategoryGroup)
-		raw := mergeSerializedSDKModel(group, map[string]any{
+		raw, err := mergeSerializedSDKModel(group, map[string]any{
 			"status": "",
 		})
+		if err != nil {
+			return 0, fmt.Errorf("serialize entra group %s: %w", externalID, err)
+		}
 		rawJSONs = append(rawJSONs, registry.WithEntityCategory(raw, registry.EntityCategoryGroup))
 		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 		lastLoginIps = append(lastLoginIps, "")
@@ -511,9 +523,12 @@ func (i *EntraIntegration) syncServicePrincipalAccounts(ctx context.Context, q *
 		displayNames = append(displayNames, display)
 		accountKinds = append(accountKinds, entraServicePrincipalAccountKind(sp))
 		entityCategories = append(entityCategories, registry.EntityCategoryServicePrincipal)
-		raw := mergeSerializedSDKModel(sp, map[string]any{
+		raw, err := mergeSerializedSDKModel(sp, map[string]any{
 			"status": entraAccountStatus(sp.GetAccountEnabled()),
 		})
+		if err != nil {
+			return 0, fmt.Errorf("serialize entra service principal %s: %w", externalID, err)
+		}
 		rawJSONs = append(rawJSONs, registry.WithEntityCategory(raw, registry.EntityCategoryServicePrincipal))
 		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 		lastLoginIps = append(lastLoginIps, "")
@@ -553,7 +568,7 @@ func (i *EntraIntegration) syncServicePrincipalAccounts(ctx context.Context, q *
 	return len(externalIDs), nil
 }
 
-func buildEntraAssetAndCredentialRows(applications []Application, servicePrincipals []ServicePrincipal) ([]appAssetUpsertRow, []credentialArtifactUpsertRow) {
+func buildEntraAssetAndCredentialRows(applications []Application, servicePrincipals []ServicePrincipal) ([]appAssetUpsertRow, []credentialArtifactUpsertRow, error) {
 	assetRows := make([]appAssetUpsertRow, 0, len(applications)+len(servicePrincipals))
 	credentialRows := make([]credentialArtifactUpsertRow, 0)
 
@@ -567,6 +582,11 @@ func buildEntraAssetAndCredentialRows(applications []Application, servicePrincip
 			displayName = externalID
 		}
 
+		rawJSON, err := serializeSDKModel(app)
+		if err != nil {
+			return nil, nil, fmt.Errorf("serialize entra application %s: %w", externalID, err)
+		}
+
 		assetRows = append(assetRows, appAssetUpsertRow{
 			AssetKind:        "entra_application",
 			ExternalID:       externalID,
@@ -575,15 +595,23 @@ func buildEntraAssetAndCredentialRows(applications []Application, servicePrincip
 			Status:           "",
 			CreatedAtSource:  parseGraphTime(timeValueString(app.GetCreatedDateTime())),
 			UpdatedAtSource:  pgtype.Timestamptz{},
-			RawJSON:          registry.NormalizeJSON(serializeSDKModel(app)),
+			RawJSON:          registry.NormalizeJSON(rawJSON),
 		})
 
 		assetRefExternalID := appAssetRefExternalID("entra_application", externalID)
 		for _, credential := range app.GetPasswordCredentials() {
-			credentialRows = append(credentialRows, buildEntraPasswordCredentialRow("entra_application", externalID, assetRefExternalID, credential))
+			row, err := buildEntraPasswordCredentialRow("entra_application", externalID, assetRefExternalID, credential)
+			if err != nil {
+				return nil, nil, err
+			}
+			credentialRows = append(credentialRows, row)
 		}
 		for _, credential := range app.GetKeyCredentials() {
-			credentialRows = append(credentialRows, buildEntraCertificateCredentialRow("entra_application", externalID, assetRefExternalID, credential))
+			row, err := buildEntraCertificateCredentialRow("entra_application", externalID, assetRefExternalID, credential)
+			if err != nil {
+				return nil, nil, err
+			}
+			credentialRows = append(credentialRows, row)
 		}
 	}
 
@@ -597,6 +625,11 @@ func buildEntraAssetAndCredentialRows(applications []Application, servicePrincip
 			displayName = externalID
 		}
 
+		rawJSON, err := serializeSDKModel(sp)
+		if err != nil {
+			return nil, nil, fmt.Errorf("serialize entra service principal asset %s: %w", externalID, err)
+		}
+
 		assetRows = append(assetRows, appAssetUpsertRow{
 			AssetKind:        "entra_service_principal",
 			ExternalID:       externalID,
@@ -605,22 +638,30 @@ func buildEntraAssetAndCredentialRows(applications []Application, servicePrincip
 			Status:           entraAccountStatus(sp.GetAccountEnabled()),
 			CreatedAtSource:  parseGraphTime(servicePrincipalCreatedDateTime(sp)),
 			UpdatedAtSource:  pgtype.Timestamptz{},
-			RawJSON:          registry.NormalizeJSON(serializeSDKModel(sp)),
+			RawJSON:          registry.NormalizeJSON(rawJSON),
 		})
 
 		assetRefExternalID := appAssetRefExternalID("entra_service_principal", externalID)
 		for _, credential := range sp.GetPasswordCredentials() {
-			credentialRows = append(credentialRows, buildEntraPasswordCredentialRow("entra_service_principal", externalID, assetRefExternalID, credential))
+			row, err := buildEntraPasswordCredentialRow("entra_service_principal", externalID, assetRefExternalID, credential)
+			if err != nil {
+				return nil, nil, err
+			}
+			credentialRows = append(credentialRows, row)
 		}
 		for _, credential := range sp.GetKeyCredentials() {
-			credentialRows = append(credentialRows, buildEntraCertificateCredentialRow("entra_service_principal", externalID, assetRefExternalID, credential))
+			row, err := buildEntraCertificateCredentialRow("entra_service_principal", externalID, assetRefExternalID, credential)
+			if err != nil {
+				return nil, nil, err
+			}
+			credentialRows = append(credentialRows, row)
 		}
 	}
 
-	return assetRows, credentialRows
+	return assetRows, credentialRows, nil
 }
 
-func buildEntraPasswordCredentialRow(assetKind, assetExternalID, assetRefExternalID string, credential PasswordCredential) credentialArtifactUpsertRow {
+func buildEntraPasswordCredentialRow(assetKind, assetExternalID, assetRefExternalID string, credential PasswordCredential) (credentialArtifactUpsertRow, error) {
 	createdAt := parseGraphTime(timeValueString(credential.GetStartDateTime()))
 	expiresAt := parseGraphTime(timeValueString(credential.GetEndDateTime()))
 	externalID := uuidValueString(credential.GetKeyId())
@@ -641,6 +682,11 @@ func buildEntraPasswordCredentialRow(assetKind, assetExternalID, assetRefExterna
 		fingerprint = stringValue(credential.GetHint())
 	}
 
+	rawJSON, err := serializeSDKModel(credential)
+	if err != nil {
+		return credentialArtifactUpsertRow{}, fmt.Errorf("serialize entra password credential %s for %s %s: %w", externalID, assetKind, assetExternalID, err)
+	}
+
 	return credentialArtifactUpsertRow{
 		AssetRefKind:       "app_asset",
 		AssetRefExternalID: assetRefExternalID,
@@ -655,11 +701,11 @@ func buildEntraPasswordCredentialRow(assetKind, assetExternalID, assetRefExterna
 		Status:          credentialLifecycleStatus(createdAt, expiresAt),
 		CreatedAtSource: createdAt,
 		ExpiresAtSource: expiresAt,
-		RawJSON:         registry.NormalizeJSON(serializeSDKModel(credential)),
-	}
+		RawJSON:         registry.NormalizeJSON(rawJSON),
+	}, nil
 }
 
-func buildEntraCertificateCredentialRow(assetKind, assetExternalID, assetRefExternalID string, credential KeyCredential) credentialArtifactUpsertRow {
+func buildEntraCertificateCredentialRow(assetKind, assetExternalID, assetRefExternalID string, credential KeyCredential) (credentialArtifactUpsertRow, error) {
 	createdAt := parseGraphTime(timeValueString(credential.GetStartDateTime()))
 	expiresAt := parseGraphTime(timeValueString(credential.GetEndDateTime()))
 	externalID := uuidValueString(credential.GetKeyId())
@@ -682,6 +728,11 @@ func buildEntraCertificateCredentialRow(assetKind, assetExternalID, assetRefExte
 		fingerprint = uuidValueString(credential.GetKeyId())
 	}
 
+	rawJSON, err := serializeSDKModel(credential)
+	if err != nil {
+		return credentialArtifactUpsertRow{}, fmt.Errorf("serialize entra certificate credential %s for %s %s: %w", externalID, assetKind, assetExternalID, err)
+	}
+
 	return credentialArtifactUpsertRow{
 		AssetRefKind:       "app_asset",
 		AssetRefExternalID: assetRefExternalID,
@@ -696,8 +747,8 @@ func buildEntraCertificateCredentialRow(assetKind, assetExternalID, assetRefExte
 		Status:          credentialLifecycleStatus(createdAt, expiresAt),
 		CreatedAtSource: createdAt,
 		ExpiresAtSource: expiresAt,
-		RawJSON:         registry.NormalizeJSON(serializeSDKModel(credential)),
-	}
+		RawJSON:         registry.NormalizeJSON(rawJSON),
+	}, nil
 }
 
 func (i *EntraIntegration) collectAppAssetOwners(ctx context.Context, report func(registry.Event), applications []Application, servicePrincipals []ServicePrincipal) ([]appAssetOwnerUpsertRow, error) {
@@ -718,7 +769,11 @@ func (i *EntraIntegration) collectAppAssetOwners(ctx context.Context, report fun
 		if err != nil {
 			return nil, fmt.Errorf("entra application owners %s: %w", assetExternalID, err)
 		}
-		rows = append(rows, buildOwnerRows("entra_application", assetExternalID, owners)...)
+		ownerRows, err := buildOwnerRows("entra_application", assetExternalID, owners)
+		if err != nil {
+			return nil, err
+		}
+		rows = append(rows, ownerRows...)
 		processed++
 		report(registry.Event{Source: "entra", Stage: "list-owners", Current: int64(processed), Total: int64(totalAssets), Message: fmt.Sprintf("owners for assets %d/%d", processed, totalAssets)})
 	}
@@ -734,7 +789,11 @@ func (i *EntraIntegration) collectAppAssetOwners(ctx context.Context, report fun
 		if err != nil {
 			return nil, fmt.Errorf("entra service principal owners %s: %w", assetExternalID, err)
 		}
-		rows = append(rows, buildOwnerRows("entra_service_principal", assetExternalID, owners)...)
+		ownerRows, err := buildOwnerRows("entra_service_principal", assetExternalID, owners)
+		if err != nil {
+			return nil, err
+		}
+		rows = append(rows, ownerRows...)
 		processed++
 		report(registry.Event{Source: "entra", Stage: "list-owners", Current: int64(processed), Total: int64(totalAssets), Message: fmt.Sprintf("owners for assets %d/%d", processed, totalAssets)})
 	}
@@ -742,7 +801,7 @@ func (i *EntraIntegration) collectAppAssetOwners(ctx context.Context, report fun
 	return rows, nil
 }
 
-func buildOwnerRows(assetKind, assetExternalID string, owners []DirectoryOwner) []appAssetOwnerUpsertRow {
+func buildOwnerRows(assetKind, assetExternalID string, owners []DirectoryOwner) ([]appAssetOwnerUpsertRow, error) {
 	rows := make([]appAssetOwnerUpsertRow, 0, len(owners))
 	for _, owner := range owners {
 		ownerExternalID := entraOwnerExternalID(owner)
@@ -759,6 +818,11 @@ func buildOwnerRows(assetKind, assetExternalID string, owners []DirectoryOwner) 
 			ownerEmail = normalizeEmail(entraOwnerUserPrincipalName(owner))
 		}
 
+		rawJSON, err := serializeSDKModel(owner)
+		if err != nil {
+			return nil, fmt.Errorf("serialize entra owner %s for %s %s: %w", ownerExternalID, assetKind, assetExternalID, err)
+		}
+
 		rows = append(rows, appAssetOwnerUpsertRow{
 			AssetKind:        assetKind,
 			AssetExternalID:  assetExternalID,
@@ -766,10 +830,10 @@ func buildOwnerRows(assetKind, assetExternalID string, owners []DirectoryOwner) 
 			OwnerExternalID:  ownerExternalID,
 			OwnerDisplayName: ownerDisplayName,
 			OwnerEmail:       ownerEmail,
-			RawJSON:          registry.NormalizeJSON(serializeSDKModel(owner)),
+			RawJSON:          registry.NormalizeJSON(rawJSON),
 		})
 	}
-	return rows
+	return rows, nil
 }
 
 func (i *EntraIntegration) upsertAppAssets(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []appAssetUpsertRow) error {
@@ -952,7 +1016,7 @@ func (i *EntraIntegration) upsertCredentialArtifacts(ctx context.Context, q *gen
 	return nil
 }
 
-func buildCredentialAuditEventRows(events []DirectoryAuditEvent) []credentialAuditEventUpsertRow {
+func buildCredentialAuditEventRows(events []DirectoryAuditEvent) ([]credentialAuditEventUpsertRow, error) {
 	rows := make([]credentialAuditEventUpsertRow, 0, len(events))
 	for _, event := range events {
 		if !isEntraGovernanceAuditEvent(event) {
@@ -987,7 +1051,10 @@ func buildCredentialAuditEventRows(events []DirectoryAuditEvent) []credentialAud
 		targetKind, targetExternalID, targetDisplayName := entraAuditTarget(event.GetTargetResources())
 		credentialKind, credentialExternalID := entraAuditCredential(event)
 
-		rawJSON := registry.NormalizeJSON(serializeSDKModel(event))
+		rawJSON, err := serializeSDKModel(event)
+		if err != nil {
+			return nil, fmt.Errorf("serialize entra directory audit event %s: %w", eventExternalID, err)
+		}
 
 		rows = append(rows, credentialAuditEventUpsertRow{
 			EventExternalID:      eventExternalID,
@@ -1001,10 +1068,10 @@ func buildCredentialAuditEventRows(events []DirectoryAuditEvent) []credentialAud
 			TargetDisplayName:    targetDisplayName,
 			CredentialKind:       credentialKind,
 			CredentialExternalID: credentialExternalID,
-			RawJSON:              rawJSON,
+			RawJSON:              registry.NormalizeJSON(rawJSON),
 		})
 	}
-	return rows
+	return rows, nil
 }
 
 func isEntraGovernanceAuditEvent(event DirectoryAuditEvent) bool {
@@ -1321,7 +1388,10 @@ func (i *EntraIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, re
 	})
 
 	report(registry.Event{Source: "entra", Stage: "normalize-discovery", Current: 0, Total: 1, Message: "normalizing discovery evidence"})
-	sources, events := normalizeEntraDiscovery(signIns, grants, applications, servicePrincipals, users, i.tenantID, now)
+	sources, events, err := normalizeEntraDiscovery(signIns, grants, applications, servicePrincipals, users, i.tenantID, now)
+	if err != nil {
+		return fmt.Errorf("normalize entra discovery evidence: %w", err)
+	}
 	report(registry.Event{
 		Source:  "entra",
 		Stage:   "normalize-discovery",
@@ -1379,7 +1449,7 @@ func (i *EntraIntegration) resolveGrantActors(ctx context.Context, report func(r
 	return users
 }
 
-func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGrant, applications []Application, servicePrincipals []ServicePrincipal, users []User, tenantID string, now time.Time) ([]normalizedDiscoverySource, []normalizedDiscoveryEvent) {
+func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGrant, applications []Application, servicePrincipals []ServicePrincipal, users []User, tenantID string, now time.Time) ([]normalizedDiscoverySource, []normalizedDiscoveryEvent, error) {
 	sourceByID := map[string]normalizedDiscoverySource{}
 	events := make([]normalizedDiscoveryEvent, 0, len(signIns)+len(grants))
 
@@ -1488,6 +1558,11 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			eventExternalID = fmt.Sprintf("signin:%s:%s:%s", sourceAppID, stringValue(signIn.GetUserId()), observedAt.Format(time.RFC3339Nano))
 		}
 
+		rawJSON, err := serializeSDKModel(signIn)
+		if err != nil {
+			return nil, nil, fmt.Errorf("serialize entra sign-in %s: %w", eventExternalID, err)
+		}
+
 		events = append(events, normalizedDiscoveryEvent{
 			CanonicalKey:     metadata.CanonicalKey,
 			SignalKind:       discovery.SignalKindIDPSSO,
@@ -1501,7 +1576,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			ActorDisplayName: stringValue(signIn.GetUserDisplayName()),
 			ObservedAt:       observedAt,
 			Scopes:           nil,
-			RawJSON:          registry.NormalizeJSON(serializeSDKModel(signIn)),
+			RawJSON:          registry.NormalizeJSON(rawJSON),
 		})
 	}
 
@@ -1590,6 +1665,11 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			actorDisplayName = actorExternalID
 		}
 
+		rawJSON, err := serializeSDKModel(grant)
+		if err != nil {
+			return nil, nil, fmt.Errorf("serialize entra oauth grant %s: %w", eventExternalID, err)
+		}
+
 		events = append(events, normalizedDiscoveryEvent{
 			CanonicalKey:     metadata.CanonicalKey,
 			SignalKind:       discovery.SignalKindOAuth,
@@ -1603,7 +1683,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			ActorDisplayName: actorDisplayName,
 			ObservedAt:       observedAt,
 			Scopes:           scopes,
-			RawJSON:          registry.NormalizeJSON(serializeSDKModel(grant)),
+			RawJSON:          registry.NormalizeJSON(rawJSON),
 		})
 	}
 
@@ -1611,7 +1691,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 	for _, sourceRow := range sourceByID {
 		sourceRows = append(sourceRows, sourceRow)
 	}
-	return sourceRows, events
+	return sourceRows, events, nil
 }
 
 func (i *EntraIntegration) writeDiscoveryRows(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, sources []normalizedDiscoverySource, events []normalizedDiscoveryEvent) error {

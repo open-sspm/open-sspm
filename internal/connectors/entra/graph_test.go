@@ -3,12 +3,15 @@ package entra
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	absser "github.com/microsoft/kiota-abstractions-go/serialization"
 )
 
 func newGraphTestClient(t *testing.T, srv *httptest.Server) *Client {
@@ -74,7 +77,7 @@ func TestListUsersPaging(t *testing.T) {
 	if entityID(users[1]) != "u2" || stringValue(users[1].GetDisplayName()) != "Two" {
 		t.Fatalf("unexpected second user id=%q display_name=%q", entityID(users[1]), stringValue(users[1].GetDisplayName()))
 	}
-	if len(serializeSDKModel(users[1])) == 0 {
+	if len(mustSerializeSDKModel(t, users[1])) == 0 {
 		t.Fatalf("expected serialized user payload")
 	}
 	if userRequests != 2 {
@@ -126,7 +129,7 @@ func TestLookupUsersByIDsUsesGetByIDsAndIgnoresNonUsers(t *testing.T) {
 	if entityID(users[1]) != "u2" || stringValue(users[1].GetDisplayName()) != "Two" {
 		t.Fatalf("unexpected second user id=%q display_name=%q", entityID(users[1]), stringValue(users[1].GetDisplayName()))
 	}
-	if len(serializeSDKModel(users[1])) == 0 {
+	if len(mustSerializeSDKModel(t, users[1])) == 0 {
 		t.Fatalf("expected serialized user payload")
 	}
 	if lookupRequests != 1 {
@@ -275,7 +278,7 @@ func TestListApplicationsOwnersAndServicePrincipals(t *testing.T) {
 	if len(apps) != 2 {
 		t.Fatalf("len(apps)=%d want 2", len(apps))
 	}
-	if len(serializeSDKModel(apps[0])) == 0 {
+	if len(mustSerializeSDKModel(t, apps[0])) == 0 {
 		t.Fatalf("expected serialized app payload")
 	}
 	if got := stringValue(apps[0].GetVerifiedPublisher().GetDisplayName()); got != "Publisher One" {
@@ -478,7 +481,7 @@ func TestListDirectoryAudits(t *testing.T) {
 	if got := stringValue(events[0].GetActivityDisplayName()); got != "Add application password credential" {
 		t.Fatalf("activityDisplayName=%q want %q", got, "Add application password credential")
 	}
-	if len(serializeSDKModel(events[0])) == 0 {
+	if len(mustSerializeSDKModel(t, events[0])) == 0 {
 		t.Fatalf("expected serialized audit payload")
 	}
 	if !sawFilter {
@@ -688,7 +691,7 @@ func TestListServicePrincipalAssignedToPaging(t *testing.T) {
 	if got := uuidValueString(assignments[1].GetPrincipalId()); got != secondPrincipalID {
 		t.Fatalf("second principal id=%q want %q", got, secondPrincipalID)
 	}
-	if len(serializeSDKModel(assignments[0])) == 0 {
+	if len(mustSerializeSDKModel(t, assignments[0])) == 0 {
 		t.Fatalf("expected serialized assignment payload")
 	}
 	if assignmentRequests != 2 {
@@ -696,7 +699,7 @@ func TestListServicePrincipalAssignedToPaging(t *testing.T) {
 	}
 }
 
-func TestListGroupMembersAndDirectoryRoleAssignments(t *testing.T) {
+func TestListGroupTransitiveMembersAndDirectoryRoleAssignments(t *testing.T) {
 	t.Parallel()
 
 	var groupMemberRequests int
@@ -708,14 +711,23 @@ func TestListGroupMembersAndDirectoryRoleAssignments(t *testing.T) {
 		assertTestBearer(t, r)
 
 		switch {
-		case strings.Contains(r.URL.Path, "/groups/group-1/members/"):
+		case strings.Contains(r.URL.Path, "/groups/group-1/transitiveMembers/"):
 			groupMemberRequests++
+			if got := r.Header.Get("ConsistencyLevel"); got != "eventual" {
+				t.Fatalf("ConsistencyLevel=%q want %q", got, "eventual")
+			}
 			w.Header().Set("Content-Type", "application/json")
 			if r.URL.Query().Get("page") == "2" {
 				_, _ = w.Write([]byte(`{"value":[{"id":"user-2","displayName":"Bob","userPrincipalName":"bob@example.com"}]}`))
 				return
 			}
-			next := srv.URL + "/graph/v1.0/groups/group-1/members/graph.user?page=2"
+			if got := r.URL.Query().Get("$count"); got != "true" {
+				t.Fatalf("$count=%q want %q", got, "true")
+			}
+			if got := r.URL.Query().Get("$top"); got != "999" {
+				t.Fatalf("$top=%q want %q", got, "999")
+			}
+			next := srv.URL + "/graph/v1.0/groups/group-1/transitiveMembers/graph.user?page=2"
 			_, _ = w.Write([]byte(`{"value":[{"id":"user-1","displayName":"Alice","mail":"alice@example.com","userPrincipalName":"alice@example.com"}],"@odata.nextLink":"` + next + `"}`))
 			return
 		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/roleManagement/directory/roleDefinitions"):
@@ -740,9 +752,9 @@ func TestListGroupMembersAndDirectoryRoleAssignments(t *testing.T) {
 
 	client := newGraphTestClient(t, srv)
 
-	groupMembers, err := client.ListGroupUserMembers(context.Background(), "group-1")
+	groupMembers, err := client.ListGroupTransitiveUserMembers(context.Background(), "group-1")
 	if err != nil {
-		t.Fatalf("ListGroupUserMembers() error = %v", err)
+		t.Fatalf("ListGroupTransitiveUserMembers() error = %v", err)
 	}
 	if len(groupMembers) != 2 {
 		t.Fatalf("len(groupMembers)=%d want 2", len(groupMembers))
@@ -792,5 +804,27 @@ func TestListGroupMembersAndDirectoryRoleAssignments(t *testing.T) {
 	}
 	if directoryRoleAssignmentRequests != 1 {
 		t.Fatalf("directoryRoleAssignmentRequests=%d want 1", directoryRoleAssignmentRequests)
+	}
+}
+
+type failingParsable struct{}
+
+func (failingParsable) GetFieldDeserializers() map[string]func(absser.ParseNode) error {
+	return nil
+}
+
+func (failingParsable) Serialize(absser.SerializationWriter) error {
+	return errors.New("boom")
+}
+
+func TestSerializeSDKModelReturnsSerializationError(t *testing.T) {
+	t.Parallel()
+
+	_, err := serializeSDKModel(failingParsable{})
+	if err == nil {
+		t.Fatal("expected serializeSDKModel() error")
+	}
+	if !strings.Contains(err.Error(), "boom") {
+		t.Fatalf("serializeSDKModel() error = %v, want wrapped serialization error", err)
 	}
 }

@@ -72,7 +72,7 @@ func (c fullSyncTestClient) ListGroups(context.Context) ([]Group, error) {
 	return c.groups, nil
 }
 
-func (c fullSyncTestClient) ListGroupUserMembers(_ context.Context, groupID string) ([]User, error) {
+func (c fullSyncTestClient) ListGroupTransitiveUserMembers(_ context.Context, groupID string) ([]User, error) {
 	return c.groupMembersByID[groupID], nil
 }
 
