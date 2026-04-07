@@ -5,44 +5,55 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
 
+func newGraphTestClient(t *testing.T, srv *httptest.Server) *Client {
+	t.Helper()
+
+	client, err := newTestClient(srv.URL+"/graph/v1.0", srv.Client())
+	if err != nil {
+		t.Fatalf("newTestClient() error = %v", err)
+	}
+	return client
+}
+
+func assertTestBearer(t *testing.T, r *http.Request) {
+	t.Helper()
+
+	if got := r.Header.Get("Authorization"); got != "Bearer test-token" {
+		t.Fatalf("Authorization=%q want %q", got, "Bearer test-token")
+	}
+}
+
 func TestListUsersPaging(t *testing.T) {
 	t.Parallel()
 
-	var tokenRequests int
 	var userRequests int
 
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
 		switch {
-		case strings.HasSuffix(r.URL.Path, "/oauth2/v2.0/token"):
-			tokenRequests++
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"access_token":"tkn","expires_in":3600,"token_type":"Bearer"}`))
-			return
 		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/users"):
 			userRequests++
 			w.Header().Set("Content-Type", "application/json")
-			page := r.URL.Query().Get("page")
-			if page == "2" {
+			if r.URL.Query().Get("page") == "2" {
 				_, _ = w.Write([]byte(`{"value":[{"id":"u2","displayName":"Two","mail":"two@example.com"}]}`))
 				return
 			}
 
 			next := srv.URL + "/graph/v1.0/users?page=2"
-			resp := map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"value": []map[string]any{
 					{"id": "u1", "displayName": "One", "mail": "one@example.com"},
 				},
 				"@odata.nextLink": next,
-			}
-			_ = json.NewEncoder(w).Encode(resp)
+			})
 			return
 		default:
 			http.NotFound(w, r)
@@ -50,23 +61,21 @@ func TestListUsersPaging(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c, err := NewWithOptions("tenant", "client", "secret", Options{
-		AuthorityBaseURL: srv.URL,
-		GraphBaseURL:     srv.URL + "/graph/v1.0",
-	})
+	users, err := newGraphTestClient(t, srv).ListUsers(context.Background())
 	if err != nil {
-		t.Fatalf("NewWithOptions: %v", err)
-	}
-
-	users, err := c.ListUsers(context.Background())
-	if err != nil {
-		t.Fatalf("ListUsers: %v", err)
+		t.Fatalf("ListUsers() error = %v", err)
 	}
 	if len(users) != 2 {
 		t.Fatalf("len(users)=%d want 2", len(users))
 	}
-	if tokenRequests != 1 {
-		t.Fatalf("tokenRequests=%d want 1", tokenRequests)
+	if entityID(users[0]) != "u1" || stringValue(users[0].GetDisplayName()) != "One" {
+		t.Fatalf("unexpected first user id=%q display_name=%q", entityID(users[0]), stringValue(users[0].GetDisplayName()))
+	}
+	if entityID(users[1]) != "u2" || stringValue(users[1].GetDisplayName()) != "Two" {
+		t.Fatalf("unexpected second user id=%q display_name=%q", entityID(users[1]), stringValue(users[1].GetDisplayName()))
+	}
+	if len(serializeSDKModel(users[1])) == 0 {
+		t.Fatalf("expected serialized user payload")
 	}
 	if userRequests != 2 {
 		t.Fatalf("userRequests=%d want 2", userRequests)
@@ -76,7 +85,6 @@ func TestListUsersPaging(t *testing.T) {
 func TestLookupUsersByIDsUsesGetByIDsAndIgnoresNonUsers(t *testing.T) {
 	t.Parallel()
 
-	var tokenRequests int
 	var lookupRequests int
 	var requestBody struct {
 		IDs   []string `json:"ids"`
@@ -85,22 +93,19 @@ func TestLookupUsersByIDsUsesGetByIDsAndIgnoresNonUsers(t *testing.T) {
 
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
 		switch {
-		case strings.HasSuffix(r.URL.Path, "/oauth2/v2.0/token"):
-			tokenRequests++
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"access_token":"tkn","expires_in":3600,"token_type":"Bearer"}`))
-			return
 		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/directoryObjects/getByIds"):
 			lookupRequests++
 			if r.Method != http.MethodPost {
 				t.Fatalf("method=%s want POST", r.Method)
 			}
 			if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-				t.Fatalf("decode request body: %v", err)
+				t.Fatalf("Decode(requestBody) error = %v", err)
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"value":[{"@odata.type":"#microsoft.graph.user","id":"u1","displayName":"One","userPrincipalName":"one@example.com"},{"@odata.type":"#microsoft.graph.group","id":"g1","displayName":"Group One"},{"id":"u2","displayName":"Two"}]}`))
+			_, _ = w.Write([]byte(`{"value":[{"@odata.type":"#microsoft.graph.user","id":"u1","displayName":"One","userPrincipalName":"one@example.com"},{"@odata.type":"#microsoft.graph.group","id":"g1","displayName":"Group One"},{"@odata.type":"#microsoft.graph.user","id":"u2","displayName":"Two"}]}`))
 			return
 		default:
 			http.NotFound(w, r)
@@ -108,32 +113,21 @@ func TestLookupUsersByIDsUsesGetByIDsAndIgnoresNonUsers(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c, err := NewWithOptions("tenant", "client", "secret", Options{
-		AuthorityBaseURL: srv.URL,
-		GraphBaseURL:     srv.URL + "/graph/v1.0",
-	})
+	users, err := newGraphTestClient(t, srv).LookupUsersByIDs(context.Background(), []string{" u1 ", "", "u2", "u1"})
 	if err != nil {
-		t.Fatalf("NewWithOptions: %v", err)
-	}
-
-	users, err := c.LookupUsersByIDs(context.Background(), []string{" u1 ", "", "u2", "u1"})
-	if err != nil {
-		t.Fatalf("LookupUsersByIDs: %v", err)
+		t.Fatalf("LookupUsersByIDs() error = %v", err)
 	}
 	if len(users) != 2 {
 		t.Fatalf("len(users)=%d want 2", len(users))
 	}
-	if users[0].ID != "u1" || users[0].DisplayName != "One" {
-		t.Fatalf("unexpected first user: %+v", users[0])
+	if entityID(users[0]) != "u1" || stringValue(users[0].GetDisplayName()) != "One" {
+		t.Fatalf("unexpected first user id=%q display_name=%q", entityID(users[0]), stringValue(users[0].GetDisplayName()))
 	}
-	if users[1].ID != "u2" || users[1].DisplayName != "Two" {
-		t.Fatalf("unexpected second user: %+v", users[1])
+	if entityID(users[1]) != "u2" || stringValue(users[1].GetDisplayName()) != "Two" {
+		t.Fatalf("unexpected second user id=%q display_name=%q", entityID(users[1]), stringValue(users[1].GetDisplayName()))
 	}
-	if len(users[1].RawJSON) == 0 {
-		t.Fatalf("expected partial user raw json to be retained")
-	}
-	if tokenRequests != 1 {
-		t.Fatalf("tokenRequests=%d want 1", tokenRequests)
+	if len(serializeSDKModel(users[1])) == 0 {
+		t.Fatalf("expected serialized user payload")
 	}
 	if lookupRequests != 1 {
 		t.Fatalf("lookupRequests=%d want 1", lookupRequests)
@@ -149,25 +143,21 @@ func TestLookupUsersByIDsUsesGetByIDsAndIgnoresNonUsers(t *testing.T) {
 func TestLookupUsersByIDsChunksLargeRequests(t *testing.T) {
 	t.Parallel()
 
-	var tokenRequests int
 	var lookupRequests int
 	chunkSizes := make([]int, 0, 2)
 
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
 		switch {
-		case strings.HasSuffix(r.URL.Path, "/oauth2/v2.0/token"):
-			tokenRequests++
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"access_token":"tkn","expires_in":3600,"token_type":"Bearer"}`))
-			return
 		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/directoryObjects/getByIds"):
 			lookupRequests++
 			var req struct {
 				IDs []string `json:"ids"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				t.Fatalf("decode request body: %v", err)
+				t.Fatalf("Decode(request body) error = %v", err)
 			}
 			chunkSizes = append(chunkSizes, len(req.IDs))
 
@@ -187,28 +177,17 @@ func TestLookupUsersByIDsChunksLargeRequests(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c, err := NewWithOptions("tenant", "client", "secret", Options{
-		AuthorityBaseURL: srv.URL,
-		GraphBaseURL:     srv.URL + "/graph/v1.0",
-	})
-	if err != nil {
-		t.Fatalf("NewWithOptions: %v", err)
-	}
-
 	ids := make([]string, 0, entraUserBatchSize+1)
 	for i := 0; i < entraUserBatchSize+1; i++ {
 		ids = append(ids, "user-"+strconv.Itoa(i))
 	}
 
-	users, err := c.LookupUsersByIDs(context.Background(), ids)
+	users, err := newGraphTestClient(t, srv).LookupUsersByIDs(context.Background(), ids)
 	if err != nil {
-		t.Fatalf("LookupUsersByIDs: %v", err)
+		t.Fatalf("LookupUsersByIDs() error = %v", err)
 	}
 	if len(users) != len(ids) {
 		t.Fatalf("len(users)=%d want %d", len(users), len(ids))
-	}
-	if tokenRequests != 1 {
-		t.Fatalf("tokenRequests=%d want 1", tokenRequests)
 	}
 	if lookupRequests != 2 {
 		t.Fatalf("lookupRequests=%d want 2", lookupRequests)
@@ -222,63 +201,64 @@ func TestNormalizeGUID(t *testing.T) {
 	t.Parallel()
 
 	if got := normalizeGUID("{ABC}"); got != "abc" {
-		t.Fatalf("normalizeGUID = %q want %q", got, "abc")
+		t.Fatalf("normalizeGUID()=%q want %q", got, "abc")
 	}
 	if got := normalizeGUID("  "); got != "" {
-		t.Fatalf("normalizeGUID = %q want empty", got)
+		t.Fatalf("normalizeGUID()=%q want empty", got)
 	}
 }
 
 func TestListApplicationsOwnersAndServicePrincipals(t *testing.T) {
 	t.Parallel()
 
-	var tokenRequests int
+	const appRoleID = "77777777-7777-7777-7777-777777777777"
+	const passwordKeyID = "88888888-8888-8888-8888-888888888888"
+	const certificateKeyID = "99999999-9999-9999-9999-999999999999"
+
 	var applicationRequests int
 	var servicePrincipalRequests int
 	var groupRequests int
 	var appOwnerRequests int
 	var spOwnerRequests int
+	var sawServicePrincipalVerifiedPublisherSelect bool
 
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
 		switch {
-		case strings.HasSuffix(r.URL.Path, "/oauth2/v2.0/token"):
-			tokenRequests++
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/applications/") && strings.Contains(r.URL.Path, "/owners"):
+			appOwnerRequests++
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"access_token":"tkn","expires_in":3600,"token_type":"Bearer"}`))
+			_, _ = w.Write([]byte(`{"value":[{"id":"owner-user-1","@odata.type":"#microsoft.graph.user","displayName":"Owner One","mail":"owner1@example.com","userPrincipalName":"owner1@example.com"}]}`))
 			return
 		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/applications"):
-			if strings.Contains(r.URL.Path, "/owners") {
-				appOwnerRequests++
-				w.Header().Set("Content-Type", "application/json")
-				_, _ = w.Write([]byte(`{"value":[{"id":"owner-user-1","@odata.type":"#microsoft.graph.user","displayName":"Owner One","mail":"owner1@example.com","userPrincipalName":"owner1@example.com"}]}`))
-				return
-			}
 			applicationRequests++
 			w.Header().Set("Content-Type", "application/json")
-			page := r.URL.Query().Get("page")
-			if page == "2" {
+			if r.URL.Query().Get("page") == "2" {
 				_, _ = w.Write([]byte(`{"value":[{"id":"app-2","appId":"client-app-2","displayName":"App Two","publisherDomain":"apps.contoso.com","verifiedPublisher":{"displayName":""},"createdDateTime":"2026-01-01T00:00:00Z","passwordCredentials":[],"keyCredentials":[]}]}`))
 				return
 			}
 			next := srv.URL + "/graph/v1.0/applications?page=2"
-			_, _ = w.Write([]byte(`{"value":[{"id":"app-1","appId":"client-app-1","displayName":"App One","publisherDomain":"one.example.com","verifiedPublisher":{"displayName":"Publisher One"},"createdDateTime":"2025-01-01T00:00:00Z","passwordCredentials":[{"keyId":"pwd-1","displayName":"Secret One","startDateTime":"2025-01-01T00:00:00Z","endDateTime":"2026-01-01T00:00:00Z"}],"keyCredentials":[{"keyId":"cert-1","displayName":"Cert One","type":"AsymmetricX509Cert","usage":"Verify","startDateTime":"2025-01-01T00:00:00Z","endDateTime":"2027-01-01T00:00:00Z"}]}],"@odata.nextLink":"` + next + `"}`))
+			_, _ = w.Write([]byte(`{"value":[{"id":"app-1","appId":"client-app-1","displayName":"App One","publisherDomain":"one.example.com","verifiedPublisher":{"displayName":"Publisher One"},"createdDateTime":"2025-01-01T00:00:00Z","passwordCredentials":[{"keyId":"` + passwordKeyID + `","displayName":"Secret One","startDateTime":"2025-01-01T00:00:00Z","endDateTime":"2026-01-01T00:00:00Z"}],"keyCredentials":[{"keyId":"` + certificateKeyID + `","displayName":"Cert One","type":"AsymmetricX509Cert","usage":"Verify","startDateTime":"2025-01-01T00:00:00Z","endDateTime":"2027-01-01T00:00:00Z"}]}],"@odata.nextLink":"` + next + `"}`))
+			return
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/servicePrincipals/") && strings.Contains(r.URL.Path, "/owners"):
+			spOwnerRequests++
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"value":[{"id":"owner-sp-1","@odata.type":"#microsoft.graph.servicePrincipal","displayName":"SP Owner","appId":"owner-app-id"}]}`))
 			return
 		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/servicePrincipals"):
-			if strings.Contains(r.URL.Path, "/owners") {
-				spOwnerRequests++
-				w.Header().Set("Content-Type", "application/json")
-				_, _ = w.Write([]byte(`{"value":[{"id":"owner-sp-1","@odata.type":"#microsoft.graph.servicePrincipal","displayName":"SP Owner","appId":"owner-app-id"}]}`))
-				return
-			}
 			servicePrincipalRequests++
+			if strings.Contains(r.URL.Query().Get("$select"), "verifiedPublisher") {
+				sawServicePrincipalVerifiedPublisherSelect = true
+			}
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"value":[{"id":"sp-1","appId":"client-app-1","displayName":"Service Principal One","publisherName":"Publisher One","accountEnabled":true,"servicePrincipalType":"Application","createdDateTime":"2025-01-02T00:00:00Z","passwordCredentials":[],"keyCredentials":[]}]}`))
+			_, _ = w.Write([]byte(`{"value":[{"id":"sp-1","appId":"client-app-1","displayName":"Service Principal One","publisherName":"Publisher One","verifiedPublisher":{"displayName":"Publisher One"},"accountEnabled":true,"servicePrincipalType":"Application","createdDateTime":"2025-01-02T00:00:00Z","appRoles":[{"id":"` + appRoleID + `","displayName":"Reader","value":"Reader","isEnabled":true,"allowedMemberTypes":["User"]}],"passwordCredentials":[],"keyCredentials":[]}]}`))
 			return
 		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/groups"):
 			groupRequests++
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"value":[{"id":"group-1","displayName":"Engineering","mail":"engineering@example.com","mailEnabled":true,"securityEnabled":true,"groupTypes":[]} ]}`))
+			_, _ = w.Write([]byte(`{"value":[{"id":"group-1","displayName":"Engineering","mail":"engineering@example.com","mailEnabled":true,"securityEnabled":true,"groupTypes":[]}]}`))
 			return
 		default:
 			http.NotFound(w, r)
@@ -286,83 +266,80 @@ func TestListApplicationsOwnersAndServicePrincipals(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c, err := NewWithOptions("tenant", "client", "secret", Options{
-		AuthorityBaseURL: srv.URL,
-		GraphBaseURL:     srv.URL + "/graph/v1.0",
-	})
-	if err != nil {
-		t.Fatalf("NewWithOptions: %v", err)
-	}
+	client := newGraphTestClient(t, srv)
 
-	apps, err := c.ListApplications(context.Background())
+	apps, err := client.ListApplications(context.Background())
 	if err != nil {
-		t.Fatalf("ListApplications: %v", err)
+		t.Fatalf("ListApplications() error = %v", err)
 	}
 	if len(apps) != 2 {
 		t.Fatalf("len(apps)=%d want 2", len(apps))
 	}
-	if len(apps[0].RawJSON) == 0 {
-		t.Fatalf("expected app raw json")
+	if len(serializeSDKModel(apps[0])) == 0 {
+		t.Fatalf("expected serialized app payload")
 	}
-	if apps[0].VerifiedPublisher.DisplayName != "Publisher One" {
-		t.Fatalf("unexpected verified publisher %q", apps[0].VerifiedPublisher.DisplayName)
+	if got := stringValue(apps[0].GetVerifiedPublisher().GetDisplayName()); got != "Publisher One" {
+		t.Fatalf("verifiedPublisher.displayName=%q want %q", got, "Publisher One")
 	}
-	if apps[1].PublisherDomain != "apps.contoso.com" {
-		t.Fatalf("unexpected publisher domain %q", apps[1].PublisherDomain)
+	if got := stringValue(apps[1].GetPublisherDomain()); got != "apps.contoso.com" {
+		t.Fatalf("publisherDomain=%q want %q", got, "apps.contoso.com")
 	}
 
-	servicePrincipals, err := c.ListServicePrincipals(context.Background())
+	servicePrincipals, err := client.ListServicePrincipals(context.Background())
 	if err != nil {
-		t.Fatalf("ListServicePrincipals: %v", err)
+		t.Fatalf("ListServicePrincipals() error = %v", err)
 	}
 	if len(servicePrincipals) != 1 {
 		t.Fatalf("len(servicePrincipals)=%d want 1", len(servicePrincipals))
 	}
-	if servicePrincipals[0].DisplayName != "Service Principal One" {
-		t.Fatalf("unexpected service principal name %q", servicePrincipals[0].DisplayName)
+	if got := stringValue(servicePrincipals[0].GetDisplayName()); got != "Service Principal One" {
+		t.Fatalf("displayName=%q want %q", got, "Service Principal One")
 	}
-	if servicePrincipals[0].PublisherName != "Publisher One" {
-		t.Fatalf("unexpected service principal publisher %q", servicePrincipals[0].PublisherName)
+	if got := stringValue(servicePrincipals[0].GetVerifiedPublisher().GetDisplayName()); got != "Publisher One" {
+		t.Fatalf("verifiedPublisher.displayName=%q want %q", got, "Publisher One")
+	}
+	if roles := servicePrincipals[0].GetAppRoles(); len(roles) != 1 || stringValue(roles[0].GetDisplayName()) != "Reader" {
+		t.Fatalf("unexpected service principal app roles count=%d", len(roles))
 	}
 
-	groups, err := c.ListGroups(context.Background())
+	groups, err := client.ListGroups(context.Background())
 	if err != nil {
-		t.Fatalf("ListGroups: %v", err)
+		t.Fatalf("ListGroups() error = %v", err)
 	}
 	if len(groups) != 1 {
 		t.Fatalf("len(groups)=%d want 1", len(groups))
 	}
-	if groups[0].DisplayName != "Engineering" {
-		t.Fatalf("unexpected group name %q", groups[0].DisplayName)
+	if got := stringValue(groups[0].GetDisplayName()); got != "Engineering" {
+		t.Fatalf("displayName=%q want %q", got, "Engineering")
 	}
 
-	appOwners, err := c.ListApplicationOwners(context.Background(), "app-1")
+	appOwners, err := client.ListApplicationOwners(context.Background(), "app-1")
 	if err != nil {
-		t.Fatalf("ListApplicationOwners: %v", err)
+		t.Fatalf("ListApplicationOwners() error = %v", err)
 	}
 	if len(appOwners) != 1 {
 		t.Fatalf("len(appOwners)=%d want 1", len(appOwners))
 	}
-	if appOwners[0].ODataType == "" {
-		t.Fatalf("expected owner type from response")
+	if stringValue(appOwners[0].GetOdataType()) == "" {
+		t.Fatalf("expected owner @odata.type")
 	}
 
-	spOwners, err := c.ListServicePrincipalOwners(context.Background(), "sp-1")
+	spOwners, err := client.ListServicePrincipalOwners(context.Background(), "sp-1")
 	if err != nil {
-		t.Fatalf("ListServicePrincipalOwners: %v", err)
+		t.Fatalf("ListServicePrincipalOwners() error = %v", err)
 	}
 	if len(spOwners) != 1 {
 		t.Fatalf("len(spOwners)=%d want 1", len(spOwners))
 	}
 
-	if tokenRequests != 1 {
-		t.Fatalf("tokenRequests=%d want 1", tokenRequests)
-	}
 	if applicationRequests != 2 {
 		t.Fatalf("applicationRequests=%d want 2", applicationRequests)
 	}
 	if servicePrincipalRequests != 1 {
 		t.Fatalf("servicePrincipalRequests=%d want 1", servicePrincipalRequests)
+	}
+	if !sawServicePrincipalVerifiedPublisherSelect {
+		t.Fatalf("expected verifiedPublisher in service principal select")
 	}
 	if groupRequests != 1 {
 		t.Fatalf("groupRequests=%d want 1", groupRequests)
@@ -375,24 +352,110 @@ func TestListApplicationsOwnersAndServicePrincipals(t *testing.T) {
 	}
 }
 
+func TestListServicePrincipalsPaging(t *testing.T) {
+	t.Parallel()
+
+	var servicePrincipalRequests int
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/servicePrincipals"):
+			servicePrincipalRequests++
+			w.Header().Set("Content-Type", "application/json")
+			if r.URL.Query().Get("page") == "2" {
+				_, _ = w.Write([]byte(`{"value":[{"id":"sp-2","appId":"client-app-2","displayName":"Service Principal Two","accountEnabled":false}]}`))
+				return
+			}
+
+			next := srv.URL + "/graph/v1.0/servicePrincipals?page=2"
+			_, _ = w.Write([]byte(`{"value":[{"id":"sp-1","appId":"client-app-1","displayName":"Service Principal One","accountEnabled":true}],"@odata.nextLink":"` + next + `"}`))
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	servicePrincipals, err := newGraphTestClient(t, srv).ListServicePrincipals(context.Background())
+	if err != nil {
+		t.Fatalf("ListServicePrincipals() error = %v", err)
+	}
+	if len(servicePrincipals) != 2 {
+		t.Fatalf("len(servicePrincipals)=%d want 2", len(servicePrincipals))
+	}
+	if entityID(servicePrincipals[0]) != "sp-1" || entityID(servicePrincipals[1]) != "sp-2" {
+		t.Fatalf("unexpected service principal ids [%q %q]", entityID(servicePrincipals[0]), entityID(servicePrincipals[1]))
+	}
+	if servicePrincipalRequests != 2 {
+		t.Fatalf("servicePrincipalRequests=%d want 2", servicePrincipalRequests)
+	}
+}
+
+func TestListGroupsPaging(t *testing.T) {
+	t.Parallel()
+
+	var groupRequests int
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/groups"):
+			groupRequests++
+			w.Header().Set("Content-Type", "application/json")
+			if r.URL.Query().Get("page") == "2" {
+				_, _ = w.Write([]byte(`{"value":[{"id":"group-2","displayName":"Security"}]}`))
+				return
+			}
+
+			next := srv.URL + "/graph/v1.0/groups?page=2"
+			_, _ = w.Write([]byte(`{"value":[{"id":"group-1","displayName":"Engineering"}],"@odata.nextLink":"` + next + `"}`))
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	groups, err := newGraphTestClient(t, srv).ListGroups(context.Background())
+	if err != nil {
+		t.Fatalf("ListGroups() error = %v", err)
+	}
+	if len(groups) != 2 {
+		t.Fatalf("len(groups)=%d want 2", len(groups))
+	}
+	if entityID(groups[0]) != "group-1" || entityID(groups[1]) != "group-2" {
+		t.Fatalf("unexpected group ids [%q %q]", entityID(groups[0]), entityID(groups[1]))
+	}
+	if groupRequests != 2 {
+		t.Fatalf("groupRequests=%d want 2", groupRequests)
+	}
+}
+
 func TestListDirectoryAudits(t *testing.T) {
 	t.Parallel()
 
 	var sawFilter bool
+	var sawOrder bool
 	var sawTop bool
 
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
 		switch {
-		case strings.HasSuffix(r.URL.Path, "/oauth2/v2.0/token"):
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"access_token":"tkn","expires_in":3600,"token_type":"Bearer"}`))
-			return
 		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/auditLogs/directoryAudits"):
 			if strings.Contains(r.URL.Query().Get("$filter"), "activityDateTime ge") {
 				sawFilter = true
 			}
-			if r.URL.Query().Get("$top") == directoryAuditsTop {
+			if r.URL.Query().Get("$orderby") == "activityDateTime desc" {
+				sawOrder = true
+			}
+			if r.URL.Query().Get("$top") == strconv.Itoa(int(directoryAuditsTop)) {
 				sawTop = true
 			}
 			w.Header().Set("Content-Type", "application/json")
@@ -404,40 +467,35 @@ func TestListDirectoryAudits(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c, err := NewWithOptions("tenant", "client", "secret", Options{
-		AuthorityBaseURL: srv.URL,
-		GraphBaseURL:     srv.URL + "/graph/v1.0",
-	})
-	if err != nil {
-		t.Fatalf("NewWithOptions: %v", err)
-	}
-
 	since := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
-	events, err := c.ListDirectoryAudits(context.Background(), &since)
+	events, err := newGraphTestClient(t, srv).ListDirectoryAudits(context.Background(), &since)
 	if err != nil {
-		t.Fatalf("ListDirectoryAudits: %v", err)
+		t.Fatalf("ListDirectoryAudits() error = %v", err)
 	}
 	if len(events) != 1 {
 		t.Fatalf("len(events)=%d want 1", len(events))
 	}
-	if events[0].ActivityDisplayName != "Add application password credential" {
-		t.Fatalf("unexpected activity display name %q", events[0].ActivityDisplayName)
+	if got := stringValue(events[0].GetActivityDisplayName()); got != "Add application password credential" {
+		t.Fatalf("activityDisplayName=%q want %q", got, "Add application password credential")
 	}
-	if len(events[0].RawJSON) == 0 {
-		t.Fatalf("expected raw json")
+	if len(serializeSDKModel(events[0])) == 0 {
+		t.Fatalf("expected serialized audit payload")
 	}
 	if !sawFilter {
 		t.Fatalf("expected since filter in request")
 	}
+	if !sawOrder {
+		t.Fatalf("expected order by in request")
+	}
 	if !sawTop {
-		t.Fatalf("expected $top=%s in request", directoryAuditsTop)
+		t.Fatalf("expected $top=%d in request", directoryAuditsTop)
 	}
 }
 
 func TestListDirectoryAuditsLargeResponseBody(t *testing.T) {
 	t.Parallel()
 
-	largePayload := map[string]any{
+	payload, err := json.Marshal(map[string]any{
 		"value": []map[string]any{
 			{
 				"id":                  "event-1",
@@ -455,27 +513,21 @@ func TestListDirectoryAuditsLargeResponseBody(t *testing.T) {
 				"targetResources": []map[string]any{
 					{"id": "app-1", "displayName": "App One", "type": "Application"},
 				},
-				// Ensure response body exceeds maxErrorBodySize to catch truncation on success paths.
-				"padding": strings.Repeat("x", maxErrorBodySize+512),
+				"padding": strings.Repeat("x", 8192),
 			},
 		},
-	}
-
-	encodedLargePayload, err := json.Marshal(largePayload)
+	})
 	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
+		t.Fatalf("json.Marshal() error = %v", err)
 	}
 
-	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
 		switch {
-		case strings.HasSuffix(r.URL.Path, "/oauth2/v2.0/token"):
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"access_token":"tkn","expires_in":3600,"token_type":"Bearer"}`))
-			return
 		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/auditLogs/directoryAudits"):
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write(encodedLargePayload)
+			_, _ = w.Write(payload)
 			return
 		default:
 			http.NotFound(w, r)
@@ -483,23 +535,67 @@ func TestListDirectoryAuditsLargeResponseBody(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c, err := NewWithOptions("tenant", "client", "secret", Options{
-		AuthorityBaseURL: srv.URL,
-		GraphBaseURL:     srv.URL + "/graph/v1.0",
-	})
+	events, err := newGraphTestClient(t, srv).ListDirectoryAudits(context.Background(), nil)
 	if err != nil {
-		t.Fatalf("NewWithOptions: %v", err)
-	}
-
-	events, err := c.ListDirectoryAudits(context.Background(), nil)
-	if err != nil {
-		t.Fatalf("ListDirectoryAudits: %v", err)
+		t.Fatalf("ListDirectoryAudits() error = %v", err)
 	}
 	if len(events) != 1 {
 		t.Fatalf("len(events)=%d want 1", len(events))
 	}
-	if events[0].ActivityDisplayName != "Large payload event" {
-		t.Fatalf("unexpected activity display name %q", events[0].ActivityDisplayName)
+	if got := stringValue(events[0].GetActivityDisplayName()); got != "Large payload event" {
+		t.Fatalf("activityDisplayName=%q want %q", got, "Large payload event")
+	}
+}
+
+func TestListSignIns(t *testing.T) {
+	t.Parallel()
+
+	var sawFilter bool
+	var sawOrder bool
+	var sawTop bool
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/auditLogs/signIns"):
+			if strings.Contains(r.URL.Query().Get("$filter"), "createdDateTime ge") {
+				sawFilter = true
+			}
+			if r.URL.Query().Get("$orderby") == "createdDateTime desc" {
+				sawOrder = true
+			}
+			if r.URL.Query().Get("$top") == strconv.Itoa(int(defaultPageSize)) {
+				sawTop = true
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"value":[{"id":"signin-1","createdDateTime":"2026-02-01T10:00:00Z","appId":"client-app-1","appDisplayName":"App One","resourceDisplayName":"Graph","userId":"user-1","userDisplayName":"Alice","userPrincipalName":"alice@example.com"}]}`))
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	since := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	signIns, err := newGraphTestClient(t, srv).ListSignIns(context.Background(), &since)
+	if err != nil {
+		t.Fatalf("ListSignIns() error = %v", err)
+	}
+	if len(signIns) != 1 {
+		t.Fatalf("len(signIns)=%d want 1", len(signIns))
+	}
+	if got := stringValue(signIns[0].GetAppDisplayName()); got != "App One" {
+		t.Fatalf("appDisplayName=%q want %q", got, "App One")
+	}
+	if !sawFilter {
+		t.Fatalf("expected since filter in request")
+	}
+	if !sawOrder {
+		t.Fatalf("expected order by in request")
+	}
+	if !sawTop {
+		t.Fatalf("expected $top=%d in request", defaultPageSize)
 	}
 }
 
@@ -509,13 +605,10 @@ func TestListOAuth2PermissionGrants(t *testing.T) {
 	var sawUnsupportedSelect bool
 	var grantRequests int
 
-	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
 		switch {
-		case strings.HasSuffix(r.URL.Path, "/oauth2/v2.0/token"):
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"access_token":"tkn","expires_in":3600,"token_type":"Bearer"}`))
-			return
 		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/oauth2PermissionGrants"):
 			grantRequests++
 			if strings.Contains(r.URL.Query().Get("$select"), "createdDateTime") {
@@ -532,23 +625,15 @@ func TestListOAuth2PermissionGrants(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c, err := NewWithOptions("tenant", "client", "secret", Options{
-		AuthorityBaseURL: srv.URL,
-		GraphBaseURL:     srv.URL + "/graph/v1.0",
-	})
+	grants, err := newGraphTestClient(t, srv).ListOAuth2PermissionGrants(context.Background())
 	if err != nil {
-		t.Fatalf("NewWithOptions: %v", err)
-	}
-
-	grants, err := c.ListOAuth2PermissionGrants(context.Background())
-	if err != nil {
-		t.Fatalf("ListOAuth2PermissionGrants: %v", err)
+		t.Fatalf("ListOAuth2PermissionGrants() error = %v", err)
 	}
 	if len(grants) != 1 {
 		t.Fatalf("len(grants)=%d want 1", len(grants))
 	}
-	if grants[0].ID != "grant-1" {
-		t.Fatalf("unexpected grant id %q", grants[0].ID)
+	if got := entityID(grants[0]); got != "grant-1" {
+		t.Fatalf("grant id=%q want %q", got, "grant-1")
 	}
 	if sawUnsupportedSelect {
 		t.Fatalf("request included unsupported createdDateTime select field")
@@ -558,15 +643,154 @@ func TestListOAuth2PermissionGrants(t *testing.T) {
 	}
 }
 
-func TestGraphURL(t *testing.T) {
+func TestListServicePrincipalAssignedToPaging(t *testing.T) {
 	t.Parallel()
 
-	c := &Client{graphBaseURL: "https://example.com/graph/v1.0"}
-	got, err := c.graphURL("/users", url.Values{"$top": []string{"1"}})
+	const firstPrincipalID = "22222222-2222-2222-2222-222222222222"
+	const secondPrincipalID = "33333333-3333-3333-3333-333333333333"
+	const firstRoleID = "77777777-7777-7777-7777-777777777777"
+	const secondRoleID = "88888888-8888-8888-8888-888888888888"
+	const resourceID = "11111111-1111-1111-1111-111111111111"
+
+	var assignmentRequests int
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/servicePrincipals/sp-1/appRoleAssignedTo"):
+			assignmentRequests++
+			w.Header().Set("Content-Type", "application/json")
+			if r.URL.Query().Get("page") == "2" {
+				_, _ = w.Write([]byte(`{"value":[{"id":"assign-2","appRoleId":"` + secondRoleID + `","principalDisplayName":"Engineering","principalId":"` + secondPrincipalID + `","principalType":"Group","resourceDisplayName":"App One","resourceId":"` + resourceID + `"}]}`))
+				return
+			}
+			next := srv.URL + "/graph/v1.0/servicePrincipals/sp-1/appRoleAssignedTo?page=2"
+			_, _ = w.Write([]byte(`{"value":[{"id":"assign-1","appRoleId":"` + firstRoleID + `","principalDisplayName":"Alice","principalId":"` + firstPrincipalID + `","principalType":"User","resourceDisplayName":"App One","resourceId":"` + resourceID + `"}],"@odata.nextLink":"` + next + `"}`))
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	assignments, err := newGraphTestClient(t, srv).ListServicePrincipalAssignedTo(context.Background(), "sp-1")
 	if err != nil {
-		t.Fatalf("graphURL: %v", err)
+		t.Fatalf("ListServicePrincipalAssignedTo() error = %v", err)
 	}
-	if got != "https://example.com/graph/v1.0/users?%24top=1" {
-		t.Fatalf("graphURL=%q", got)
+	if len(assignments) != 2 {
+		t.Fatalf("len(assignments)=%d want 2", len(assignments))
+	}
+	if got := uuidValueString(assignments[0].GetPrincipalId()); got != firstPrincipalID {
+		t.Fatalf("first principal id=%q want %q", got, firstPrincipalID)
+	}
+	if got := uuidValueString(assignments[1].GetPrincipalId()); got != secondPrincipalID {
+		t.Fatalf("second principal id=%q want %q", got, secondPrincipalID)
+	}
+	if len(serializeSDKModel(assignments[0])) == 0 {
+		t.Fatalf("expected serialized assignment payload")
+	}
+	if assignmentRequests != 2 {
+		t.Fatalf("assignmentRequests=%d want 2", assignmentRequests)
+	}
+}
+
+func TestListGroupMembersAndDirectoryRoleAssignments(t *testing.T) {
+	t.Parallel()
+
+	var groupMemberRequests int
+	var directoryRoleRequests int
+	var directoryRoleAssignmentRequests int
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
+		switch {
+		case strings.Contains(r.URL.Path, "/groups/group-1/members/"):
+			groupMemberRequests++
+			w.Header().Set("Content-Type", "application/json")
+			if r.URL.Query().Get("page") == "2" {
+				_, _ = w.Write([]byte(`{"value":[{"id":"user-2","displayName":"Bob","userPrincipalName":"bob@example.com"}]}`))
+				return
+			}
+			next := srv.URL + "/graph/v1.0/groups/group-1/members/graph.user?page=2"
+			_, _ = w.Write([]byte(`{"value":[{"id":"user-1","displayName":"Alice","mail":"alice@example.com","userPrincipalName":"alice@example.com"}],"@odata.nextLink":"` + next + `"}`))
+			return
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/roleManagement/directory/roleDefinitions"):
+			directoryRoleRequests++
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"value":[{"id":"role-def-1","displayName":"Global Administrator","templateId":"tmpl-1","isBuiltIn":true},{"id":"role-def-2","displayName":"Scoped Custom Role","isBuiltIn":false}]}`))
+			return
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/roleManagement/directory/roleAssignments"):
+			directoryRoleAssignmentRequests++
+			if got := r.URL.Query().Get("$expand"); got != "principal" {
+				http.Error(w, "missing expand", http.StatusBadRequest)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"value":[{"id":"assign-1","principalId":"user-3","roleDefinitionId":"role-def-1","directoryScopeId":"/","principal":{"id":"user-3","displayName":"Carol","@odata.type":"#microsoft.graph.user"}},{"id":"assign-2","principalId":"group-1","roleDefinitionId":"role-def-2","directoryScopeId":"/administrativeUnits/au-1","principal":{"id":"group-1","displayName":"Privileged Ops","@odata.type":"#microsoft.graph.group"}}]}`))
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	client := newGraphTestClient(t, srv)
+
+	groupMembers, err := client.ListGroupUserMembers(context.Background(), "group-1")
+	if err != nil {
+		t.Fatalf("ListGroupUserMembers() error = %v", err)
+	}
+	if len(groupMembers) != 2 {
+		t.Fatalf("len(groupMembers)=%d want 2", len(groupMembers))
+	}
+	if entityID(groupMembers[0]) != "user-1" || entityID(groupMembers[1]) != "user-2" {
+		t.Fatalf("unexpected group member ids [%q %q]", entityID(groupMembers[0]), entityID(groupMembers[1]))
+	}
+
+	roles, err := client.ListDirectoryRoles(context.Background())
+	if err != nil {
+		t.Fatalf("ListDirectoryRoles() error = %v", err)
+	}
+	if len(roles) != 2 {
+		t.Fatalf("len(roles)=%d want 2", len(roles))
+	}
+	if got := stringValue(roles[0].GetTemplateId()); got != "tmpl-1" {
+		t.Fatalf("first templateId=%q want %q", got, "tmpl-1")
+	}
+	if entityID(roles[0]) != "role-def-1" || entityID(roles[1]) != "role-def-2" || stringValue(roles[1].GetTemplateId()) != "" {
+		t.Fatalf("unexpected role definitions ids=[%q %q] template2=%q", entityID(roles[0]), entityID(roles[1]), stringValue(roles[1].GetTemplateId()))
+	}
+
+	assignments, err := client.ListDirectoryRoleAssignments(context.Background())
+	if err != nil {
+		t.Fatalf("ListDirectoryRoleAssignments() error = %v", err)
+	}
+	if len(assignments) != 2 {
+		t.Fatalf("len(assignments)=%d want 2", len(assignments))
+	}
+	if got := stringValue(assignments[0].GetPrincipalId()); got != "user-3" {
+		t.Fatalf("first principalId=%q want %q", got, "user-3")
+	}
+	if got := stringValue(assignments[0].GetPrincipal().GetOdataType()); got != "#microsoft.graph.user" {
+		t.Fatalf("first principal @odata.type=%q want %q", got, "#microsoft.graph.user")
+	}
+	if got := stringValue(assignments[1].GetPrincipalId()); got != "group-1" {
+		t.Fatalf("second principalId=%q want %q", got, "group-1")
+	}
+	if got := entraDirectoryObjectDisplayName(assignments[1].GetPrincipal()); got != "Privileged Ops" {
+		t.Fatalf("second principal displayName=%q want %q", got, "Privileged Ops")
+	}
+	if groupMemberRequests != 2 {
+		t.Fatalf("groupMemberRequests=%d want 2", groupMemberRequests)
+	}
+	if directoryRoleRequests != 1 {
+		t.Fatalf("directoryRoleRequests=%d want 1", directoryRoleRequests)
+	}
+	if directoryRoleAssignmentRequests != 1 {
+		t.Fatalf("directoryRoleAssignmentRequests=%d want 1", directoryRoleAssignmentRequests)
 	}
 }

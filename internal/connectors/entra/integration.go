@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	msgraphmodels "github.com/microsoftgraph/msgraph-sdk-go/models"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
@@ -37,9 +38,13 @@ type EntraIntegration struct {
 type entraClient interface {
 	ListApplications(context.Context) ([]Application, error)
 	ListServicePrincipals(context.Context) ([]ServicePrincipal, error)
+	ListServicePrincipalAssignedTo(context.Context, string) ([]ServicePrincipalAppRoleAssignment, error)
 	ListDirectoryAudits(context.Context, *time.Time) ([]DirectoryAuditEvent, error)
+	ListDirectoryRoles(context.Context) ([]DirectoryRole, error)
+	ListDirectoryRoleAssignments(context.Context) ([]DirectoryRoleAssignment, error)
 	ListUsers(context.Context) ([]User, error)
 	ListGroups(context.Context) ([]Group, error)
+	ListGroupUserMembers(context.Context, string) ([]User, error)
 	ListApplicationOwners(context.Context, string) ([]DirectoryOwner, error)
 	ListServicePrincipalOwners(context.Context, string) ([]DirectoryOwner, error)
 	ListSignIns(context.Context, *time.Time) ([]SignInEvent, error)
@@ -98,7 +103,7 @@ type credentialAuditEventUpsertRow struct {
 	RawJSON              []byte
 }
 
-func NewEntraIntegration(client *Client, tenantID string, discoveryEnabled bool) *EntraIntegration {
+func NewEntraIntegration(client entraClient, tenantID string, discoveryEnabled bool) *EntraIntegration {
 	return &EntraIntegration{
 		client:           client,
 		tenantID:         strings.ToLower(strings.TrimSpace(tenantID)),
@@ -131,6 +136,8 @@ func (i *EntraIntegration) InitEvents() []registry.Event {
 		{Source: "entra", Stage: "write-users", Current: 0, Total: registry.UnknownTotal, Message: "writing Entra users"},
 		{Source: "entra", Stage: "list-app-assets", Current: 0, Total: 1, Message: "listing Entra applications and service principals"},
 		{Source: "entra", Stage: "write-app-assets", Current: 0, Total: registry.UnknownTotal, Message: "writing Entra app assets"},
+		{Source: "entra", Stage: "list-entitlements", Current: 0, Total: registry.UnknownTotal, Message: "listing Entra entitlements"},
+		{Source: "entra", Stage: "write-entitlements", Current: 0, Total: registry.UnknownTotal, Message: "writing Entra entitlements"},
 		{Source: "entra", Stage: "list-owners", Current: 0, Total: registry.UnknownTotal, Message: "listing Entra app owners"},
 		{Source: "entra", Stage: "write-owners", Current: 0, Total: registry.UnknownTotal, Message: "writing Entra app owners"},
 		{Source: "entra", Stage: "write-credentials", Current: 0, Total: registry.UnknownTotal, Message: "writing Entra credential metadata"},
@@ -218,6 +225,16 @@ func (i *EntraIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pg
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 
+	entitlementRows, err := i.collectEntraEntitlements(ctx, report, servicePrincipals)
+	if err != nil {
+		report(registry.Event{Source: "entra", Stage: "list-entitlements", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
+	}
+	if err := i.upsertEntraEntitlements(ctx, q, report, runID, entitlementRows); err != nil {
+		report(registry.Event{Source: "entra", Stage: "write-entitlements", Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+	}
+
 	report(registry.Event{Source: "entra", Stage: "list-audit-events", Current: 0, Total: 1, Message: "listing directory audit events"})
 	directoryAudits, err := i.client.ListDirectoryAudits(ctx, nil)
 	if err != nil {
@@ -251,6 +268,7 @@ func (i *EntraIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pg
 		"app_assets", len(assetRows),
 		"owners", len(ownerRows),
 		"credentials", len(credentialRows),
+		"entitlements", len(entitlementRows),
 		"audit_events", len(auditEventRows),
 	)
 	return nil
@@ -307,14 +325,14 @@ func (i *EntraIntegration) syncUsers(ctx context.Context, q *gen.Queries, report
 	lastLoginRegions := make([]string, 0, len(users))
 
 	for _, user := range users {
-		externalID := strings.TrimSpace(user.ID)
+		externalID := entityID(user)
 		if externalID == "" {
 			continue
 		}
 
 		email := normalizeEmail(preferredEmail(user))
 
-		display := strings.TrimSpace(user.DisplayName)
+		display := stringValue(user.GetDisplayName())
 		if display == "" {
 			display = strings.TrimSpace(email)
 		}
@@ -322,21 +340,9 @@ func (i *EntraIntegration) syncUsers(ctx context.Context, q *gen.Queries, report
 			display = externalID
 		}
 
-		raw, err := json.Marshal(sanitizedUser{
-			ID:                 externalID,
-			DisplayName:        strings.TrimSpace(user.DisplayName),
-			Mail:               strings.TrimSpace(user.Mail),
-			UserPrincipalName:  strings.TrimSpace(user.UserPrincipalName),
-			OtherMails:         user.OtherMails,
-			ProxyAddresses:     user.ProxyAddresses,
-			UserType:           strings.TrimSpace(user.UserType),
-			AccountEnabled:     user.AccountEnabled,
-			Status:             entraAccountStatus(user.AccountEnabled),
-			CreatedDateTimeRaw: strings.TrimSpace(user.CreatedDateTimeRaw),
+		raw := mergeSerializedSDKModel(user, map[string]any{
+			"status": entraAccountStatus(user.GetAccountEnabled()),
 		})
-		if err != nil {
-			return 0, err
-		}
 
 		externalIDs = append(externalIDs, externalID)
 		emails = append(emails, email)
@@ -406,22 +412,25 @@ func (i *EntraIntegration) syncGroups(ctx context.Context, q *gen.Queries, repor
 	lastLoginRegions := make([]string, 0, len(groups))
 
 	for _, group := range groups {
-		externalID := entraGroupExternalID(group.ID)
+		externalID := entraGroupExternalID(entityID(group))
 		if externalID == "" {
 			continue
 		}
 
-		display := strings.TrimSpace(group.DisplayName)
+		display := stringValue(group.GetDisplayName())
 		if display == "" {
 			display = externalID
 		}
 
 		externalIDs = append(externalIDs, externalID)
-		emails = append(emails, normalizeEmail(strings.TrimSpace(group.Mail)))
+		emails = append(emails, normalizeEmail(stringValue(group.GetMail())))
 		displayNames = append(displayNames, display)
 		accountKinds = append(accountKinds, entraGroupAccountKind(group))
 		entityCategories = append(entityCategories, registry.EntityCategoryGroup)
-		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(group.RawJSON), registry.EntityCategoryGroup))
+		raw := mergeSerializedSDKModel(group, map[string]any{
+			"status": "",
+		})
+		rawJSONs = append(rawJSONs, registry.WithEntityCategory(raw, registry.EntityCategoryGroup))
 		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 		lastLoginIps = append(lastLoginIps, "")
 		lastLoginRegions = append(lastLoginRegions, "")
@@ -484,14 +493,14 @@ func (i *EntraIntegration) syncServicePrincipalAccounts(ctx context.Context, q *
 	lastLoginRegions := make([]string, 0, len(servicePrincipals))
 
 	for _, sp := range servicePrincipals {
-		externalID := entraServicePrincipalExternalID(sp.ID)
+		externalID := entraServicePrincipalExternalID(entityID(sp))
 		if externalID == "" {
 			continue
 		}
 
-		display := strings.TrimSpace(sp.DisplayName)
+		display := stringValue(sp.GetDisplayName())
 		if display == "" {
-			display = strings.TrimSpace(sp.AppID)
+			display = stringValue(sp.GetAppId())
 		}
 		if display == "" {
 			display = externalID
@@ -502,7 +511,10 @@ func (i *EntraIntegration) syncServicePrincipalAccounts(ctx context.Context, q *
 		displayNames = append(displayNames, display)
 		accountKinds = append(accountKinds, entraServicePrincipalAccountKind(sp))
 		entityCategories = append(entityCategories, registry.EntityCategoryServicePrincipal)
-		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(sp.RawJSON), registry.EntityCategoryServicePrincipal))
+		raw := mergeSerializedSDKModel(sp, map[string]any{
+			"status": entraAccountStatus(sp.GetAccountEnabled()),
+		})
+		rawJSONs = append(rawJSONs, registry.WithEntityCategory(raw, registry.EntityCategoryServicePrincipal))
 		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
 		lastLoginIps = append(lastLoginIps, "")
 		lastLoginRegions = append(lastLoginRegions, "")
@@ -546,11 +558,11 @@ func buildEntraAssetAndCredentialRows(applications []Application, servicePrincip
 	credentialRows := make([]credentialArtifactUpsertRow, 0)
 
 	for _, app := range applications {
-		externalID := strings.TrimSpace(app.ID)
+		externalID := entityID(app)
 		if externalID == "" {
 			continue
 		}
-		displayName := strings.TrimSpace(app.DisplayName)
+		displayName := stringValue(app.GetDisplayName())
 		if displayName == "" {
 			displayName = externalID
 		}
@@ -561,35 +573,26 @@ func buildEntraAssetAndCredentialRows(applications []Application, servicePrincip
 			ParentExternalID: "",
 			DisplayName:      displayName,
 			Status:           "",
-			CreatedAtSource:  parseGraphTime(app.CreatedDateTimeRaw),
+			CreatedAtSource:  parseGraphTime(timeValueString(app.GetCreatedDateTime())),
 			UpdatedAtSource:  pgtype.Timestamptz{},
-			RawJSON: registry.MarshalJSON(map[string]any{
-				"id":                              externalID,
-				"app_id":                          strings.TrimSpace(app.AppID),
-				"display_name":                    strings.TrimSpace(app.DisplayName),
-				"publisher_domain":                strings.TrimSpace(app.PublisherDomain),
-				"verified_publisher_display_name": strings.TrimSpace(app.VerifiedPublisher.DisplayName),
-				"created_date_time":               strings.TrimSpace(app.CreatedDateTimeRaw),
-				"password_credentials":            sanitizePasswordCredentials(app.PasswordCredentials),
-				"key_credentials":                 sanitizeKeyCredentials(app.KeyCredentials),
-			}),
+			RawJSON:          registry.NormalizeJSON(serializeSDKModel(app)),
 		})
 
 		assetRefExternalID := appAssetRefExternalID("entra_application", externalID)
-		for _, credential := range app.PasswordCredentials {
+		for _, credential := range app.GetPasswordCredentials() {
 			credentialRows = append(credentialRows, buildEntraPasswordCredentialRow("entra_application", externalID, assetRefExternalID, credential))
 		}
-		for _, credential := range app.KeyCredentials {
+		for _, credential := range app.GetKeyCredentials() {
 			credentialRows = append(credentialRows, buildEntraCertificateCredentialRow("entra_application", externalID, assetRefExternalID, credential))
 		}
 	}
 
 	for _, sp := range servicePrincipals {
-		externalID := strings.TrimSpace(sp.ID)
+		externalID := entityID(sp)
 		if externalID == "" {
 			continue
 		}
-		displayName := strings.TrimSpace(sp.DisplayName)
+		displayName := stringValue(sp.GetDisplayName())
 		if displayName == "" {
 			displayName = externalID
 		}
@@ -597,29 +600,19 @@ func buildEntraAssetAndCredentialRows(applications []Application, servicePrincip
 		assetRows = append(assetRows, appAssetUpsertRow{
 			AssetKind:        "entra_service_principal",
 			ExternalID:       externalID,
-			ParentExternalID: strings.TrimSpace(sp.AppID),
+			ParentExternalID: stringValue(sp.GetAppId()),
 			DisplayName:      displayName,
-			Status:           entraAccountStatus(sp.AccountEnabled),
-			CreatedAtSource:  parseGraphTime(sp.CreatedDateTimeRaw),
+			Status:           entraAccountStatus(sp.GetAccountEnabled()),
+			CreatedAtSource:  parseGraphTime(servicePrincipalCreatedDateTime(sp)),
 			UpdatedAtSource:  pgtype.Timestamptz{},
-			RawJSON: registry.MarshalJSON(map[string]any{
-				"id":                     externalID,
-				"app_id":                 strings.TrimSpace(sp.AppID),
-				"display_name":           strings.TrimSpace(sp.DisplayName),
-				"publisher_name":         strings.TrimSpace(sp.PublisherName),
-				"account_enabled":        sp.AccountEnabled,
-				"service_principal_type": strings.TrimSpace(sp.ServicePrincipalType),
-				"created_date_time":      strings.TrimSpace(sp.CreatedDateTimeRaw),
-				"password_credentials":   sanitizePasswordCredentials(sp.PasswordCredentials),
-				"key_credentials":        sanitizeKeyCredentials(sp.KeyCredentials),
-			}),
+			RawJSON:          registry.NormalizeJSON(serializeSDKModel(sp)),
 		})
 
 		assetRefExternalID := appAssetRefExternalID("entra_service_principal", externalID)
-		for _, credential := range sp.PasswordCredentials {
+		for _, credential := range sp.GetPasswordCredentials() {
 			credentialRows = append(credentialRows, buildEntraPasswordCredentialRow("entra_service_principal", externalID, assetRefExternalID, credential))
 		}
-		for _, credential := range sp.KeyCredentials {
+		for _, credential := range sp.GetKeyCredentials() {
 			credentialRows = append(credentialRows, buildEntraCertificateCredentialRow("entra_service_principal", externalID, assetRefExternalID, credential))
 		}
 	}
@@ -628,24 +621,24 @@ func buildEntraAssetAndCredentialRows(applications []Application, servicePrincip
 }
 
 func buildEntraPasswordCredentialRow(assetKind, assetExternalID, assetRefExternalID string, credential PasswordCredential) credentialArtifactUpsertRow {
-	createdAt := parseGraphTime(credential.StartDateTimeRaw)
-	expiresAt := parseGraphTime(credential.EndDateTimeRaw)
-	externalID := strings.TrimSpace(credential.KeyID)
+	createdAt := parseGraphTime(timeValueString(credential.GetStartDateTime()))
+	expiresAt := parseGraphTime(timeValueString(credential.GetEndDateTime()))
+	externalID := uuidValueString(credential.GetKeyId())
 	if externalID == "" {
 		externalID = syntheticCredentialExternalID("entra_client_secret", assetExternalID,
-			credential.DisplayName,
-			credential.StartDateTimeRaw,
-			credential.EndDateTimeRaw,
-			credential.Hint,
+			stringValue(credential.GetDisplayName()),
+			timeValueString(credential.GetStartDateTime()),
+			timeValueString(credential.GetEndDateTime()),
+			stringValue(credential.GetHint()),
 		)
 	}
-	displayName := strings.TrimSpace(credential.DisplayName)
+	displayName := stringValue(credential.GetDisplayName())
 	if displayName == "" {
 		displayName = externalID
 	}
-	fingerprint := strings.TrimSpace(credential.KeyID)
+	fingerprint := uuidValueString(credential.GetKeyId())
 	if fingerprint == "" {
-		fingerprint = strings.TrimSpace(credential.Hint)
+		fingerprint = stringValue(credential.GetHint())
 	}
 
 	return credentialArtifactUpsertRow{
@@ -662,39 +655,31 @@ func buildEntraPasswordCredentialRow(assetKind, assetExternalID, assetRefExterna
 		Status:          credentialLifecycleStatus(createdAt, expiresAt),
 		CreatedAtSource: createdAt,
 		ExpiresAtSource: expiresAt,
-		RawJSON: registry.MarshalJSON(map[string]string{
-			"key_id":            strings.TrimSpace(credential.KeyID),
-			"display_name":      strings.TrimSpace(credential.DisplayName),
-			"start_date_time":   strings.TrimSpace(credential.StartDateTimeRaw),
-			"end_date_time":     strings.TrimSpace(credential.EndDateTimeRaw),
-			"hint":              strings.TrimSpace(credential.Hint),
-			"asset_kind":        assetKind,
-			"asset_external_id": assetExternalID,
-		}),
+		RawJSON:         registry.NormalizeJSON(serializeSDKModel(credential)),
 	}
 }
 
 func buildEntraCertificateCredentialRow(assetKind, assetExternalID, assetRefExternalID string, credential KeyCredential) credentialArtifactUpsertRow {
-	createdAt := parseGraphTime(credential.StartDateTimeRaw)
-	expiresAt := parseGraphTime(credential.EndDateTimeRaw)
-	externalID := strings.TrimSpace(credential.KeyID)
+	createdAt := parseGraphTime(timeValueString(credential.GetStartDateTime()))
+	expiresAt := parseGraphTime(timeValueString(credential.GetEndDateTime()))
+	externalID := uuidValueString(credential.GetKeyId())
 	if externalID == "" {
 		externalID = syntheticCredentialExternalID("entra_certificate", assetExternalID,
-			credential.DisplayName,
-			credential.StartDateTimeRaw,
-			credential.EndDateTimeRaw,
-			credential.Type,
-			credential.Usage,
-			credential.CustomKeyIdentifier,
+			stringValue(credential.GetDisplayName()),
+			timeValueString(credential.GetStartDateTime()),
+			timeValueString(credential.GetEndDateTime()),
+			stringValue(credential.GetTypeEscaped()),
+			stringValue(credential.GetUsage()),
+			bytesValueString(credential.GetCustomKeyIdentifier()),
 		)
 	}
-	displayName := strings.TrimSpace(credential.DisplayName)
+	displayName := stringValue(credential.GetDisplayName())
 	if displayName == "" {
 		displayName = externalID
 	}
-	fingerprint := strings.TrimSpace(credential.CustomKeyIdentifier)
+	fingerprint := bytesValueString(credential.GetCustomKeyIdentifier())
 	if fingerprint == "" {
-		fingerprint = strings.TrimSpace(credential.KeyID)
+		fingerprint = uuidValueString(credential.GetKeyId())
 	}
 
 	return credentialArtifactUpsertRow{
@@ -711,17 +696,7 @@ func buildEntraCertificateCredentialRow(assetKind, assetExternalID, assetRefExte
 		Status:          credentialLifecycleStatus(createdAt, expiresAt),
 		CreatedAtSource: createdAt,
 		ExpiresAtSource: expiresAt,
-		RawJSON: registry.MarshalJSON(map[string]string{
-			"key_id":                strings.TrimSpace(credential.KeyID),
-			"display_name":          strings.TrimSpace(credential.DisplayName),
-			"type":                  strings.TrimSpace(credential.Type),
-			"usage":                 strings.TrimSpace(credential.Usage),
-			"start_date_time":       strings.TrimSpace(credential.StartDateTimeRaw),
-			"end_date_time":         strings.TrimSpace(credential.EndDateTimeRaw),
-			"custom_key_identifier": strings.TrimSpace(credential.CustomKeyIdentifier),
-			"asset_kind":            assetKind,
-			"asset_external_id":     assetExternalID,
-		}),
+		RawJSON:         registry.NormalizeJSON(serializeSDKModel(credential)),
 	}
 }
 
@@ -733,7 +708,7 @@ func (i *EntraIntegration) collectAppAssetOwners(ctx context.Context, report fun
 	processed := 0
 
 	for _, app := range applications {
-		assetExternalID := strings.TrimSpace(app.ID)
+		assetExternalID := entityID(app)
 		if assetExternalID == "" {
 			processed++
 			continue
@@ -749,7 +724,7 @@ func (i *EntraIntegration) collectAppAssetOwners(ctx context.Context, report fun
 	}
 
 	for _, sp := range servicePrincipals {
-		assetExternalID := strings.TrimSpace(sp.ID)
+		assetExternalID := entityID(sp)
 		if assetExternalID == "" {
 			processed++
 			continue
@@ -770,38 +745,28 @@ func (i *EntraIntegration) collectAppAssetOwners(ctx context.Context, report fun
 func buildOwnerRows(assetKind, assetExternalID string, owners []DirectoryOwner) []appAssetOwnerUpsertRow {
 	rows := make([]appAssetOwnerUpsertRow, 0, len(owners))
 	for _, owner := range owners {
-		ownerExternalID := strings.TrimSpace(owner.ID)
-		if ownerExternalID == "" {
-			ownerExternalID = strings.TrimSpace(owner.AppID)
-		}
+		ownerExternalID := entraOwnerExternalID(owner)
 		if ownerExternalID == "" {
 			continue
 		}
 
-		ownerDisplayName := strings.TrimSpace(owner.DisplayName)
+		ownerDisplayName := entraOwnerDisplayName(owner)
 		if ownerDisplayName == "" {
 			ownerDisplayName = ownerExternalID
 		}
-		ownerEmail := normalizeEmail(strings.TrimSpace(owner.Mail))
+		ownerEmail := normalizeEmail(entraOwnerMail(owner))
 		if ownerEmail == "" {
-			ownerEmail = normalizeEmail(strings.TrimSpace(owner.UserPrincipalName))
+			ownerEmail = normalizeEmail(entraOwnerUserPrincipalName(owner))
 		}
 
 		rows = append(rows, appAssetOwnerUpsertRow{
 			AssetKind:        assetKind,
 			AssetExternalID:  assetExternalID,
-			OwnerKind:        entraOwnerKind(owner.ODataType),
+			OwnerKind:        entraOwnerKind(stringValue(owner.GetOdataType())),
 			OwnerExternalID:  ownerExternalID,
 			OwnerDisplayName: ownerDisplayName,
 			OwnerEmail:       ownerEmail,
-			RawJSON: registry.MarshalJSON(map[string]string{
-				"id":                  strings.TrimSpace(owner.ID),
-				"odata_type":          strings.TrimSpace(owner.ODataType),
-				"display_name":        strings.TrimSpace(owner.DisplayName),
-				"mail":                strings.TrimSpace(owner.Mail),
-				"user_principal_name": strings.TrimSpace(owner.UserPrincipalName),
-				"app_id":              strings.TrimSpace(owner.AppID),
-			}),
+			RawJSON:          registry.NormalizeJSON(serializeSDKModel(owner)),
 		})
 	}
 	return rows
@@ -994,44 +959,35 @@ func buildCredentialAuditEventRows(events []DirectoryAuditEvent) []credentialAud
 			continue
 		}
 
-		eventTime := parseGraphTime(event.ActivityDateTimeRaw)
+		eventTime := parseGraphTime(timeValueString(event.GetActivityDateTime()))
 		if !eventTime.Valid {
 			continue
 		}
 
-		eventExternalID := strings.TrimSpace(event.ID)
+		eventExternalID := entityID(event)
 		if eventExternalID == "" {
 			eventExternalID = syntheticCredentialExternalID(
 				"entra_audit_event",
-				strings.TrimSpace(event.ActivityDateTimeRaw),
-				strings.TrimSpace(event.Category),
-				strings.TrimSpace(event.ActivityDisplayName),
-				strings.TrimSpace(event.Result),
+				timeValueString(event.GetActivityDateTime()),
+				stringValue(event.GetCategory()),
+				stringValue(event.GetActivityDisplayName()),
+				directoryAuditResultString(event),
 			)
 		}
 
-		eventType := strings.TrimSpace(event.ActivityDisplayName)
+		eventType := stringValue(event.GetActivityDisplayName())
 		if eventType == "" {
-			eventType = strings.TrimSpace(event.Category)
+			eventType = stringValue(event.GetCategory())
 		}
 		if eventType == "" {
 			eventType = "entra_directory_audit"
 		}
 
-		actorKind, actorExternalID, actorDisplayName := entraAuditActor(event.InitiatedBy)
-		targetKind, targetExternalID, targetDisplayName := entraAuditTarget(event.TargetResources)
+		actorKind, actorExternalID, actorDisplayName := entraAuditActor(event.GetInitiatedBy())
+		targetKind, targetExternalID, targetDisplayName := entraAuditTarget(event.GetTargetResources())
 		credentialKind, credentialExternalID := entraAuditCredential(event)
 
-		rawJSON := event.RawJSON
-		if len(rawJSON) == 0 {
-			rawJSON = registry.MarshalJSON(map[string]any{
-				"id":                    strings.TrimSpace(event.ID),
-				"category":              strings.TrimSpace(event.Category),
-				"result":                strings.TrimSpace(event.Result),
-				"activity_display_name": strings.TrimSpace(event.ActivityDisplayName),
-				"activity_date_time":    strings.TrimSpace(event.ActivityDateTimeRaw),
-			})
-		}
+		rawJSON := registry.NormalizeJSON(serializeSDKModel(event))
 
 		rows = append(rows, credentialAuditEventUpsertRow{
 			EventExternalID:      eventExternalID,
@@ -1052,20 +1008,20 @@ func buildCredentialAuditEventRows(events []DirectoryAuditEvent) []credentialAud
 }
 
 func isEntraGovernanceAuditEvent(event DirectoryAuditEvent) bool {
-	category := strings.ToLower(strings.TrimSpace(event.Category))
+	category := strings.ToLower(stringValue(event.GetCategory()))
 	if strings.Contains(category, "application") || strings.Contains(category, "serviceprincipal") {
 		return true
 	}
 
-	activity := strings.ToLower(strings.TrimSpace(event.ActivityDisplayName))
+	activity := strings.ToLower(stringValue(event.GetActivityDisplayName()))
 	for _, keyword := range []string{"credential", "certificate", "secret", "application", "service principal", "owner"} {
 		if strings.Contains(activity, keyword) {
 			return true
 		}
 	}
 
-	for _, target := range event.TargetResources {
-		targetType := strings.ToLower(strings.TrimSpace(target.Type))
+	for _, target := range event.GetTargetResources() {
+		targetType := strings.ToLower(stringValue(target.GetTypeEscaped()))
 		if strings.Contains(targetType, "application") || strings.Contains(targetType, "serviceprincipal") {
 			return true
 		}
@@ -1074,14 +1030,18 @@ func isEntraGovernanceAuditEvent(event DirectoryAuditEvent) bool {
 }
 
 func entraAuditActor(initiatedBy DirectoryAuditInitiatedBy) (string, string, string) {
-	if initiatedBy.User != nil {
-		externalID := strings.TrimSpace(initiatedBy.User.ID)
+	if initiatedBy == nil {
+		return "unknown", "", ""
+	}
+
+	if initiatedBy.GetUser() != nil {
+		externalID := stringValue(initiatedBy.GetUser().GetId())
 		if externalID == "" {
-			externalID = normalizeEmail(strings.TrimSpace(initiatedBy.User.UserPrincipalName))
+			externalID = normalizeEmail(stringValue(initiatedBy.GetUser().GetUserPrincipalName()))
 		}
-		displayName := strings.TrimSpace(initiatedBy.User.DisplayName)
+		displayName := stringValue(initiatedBy.GetUser().GetDisplayName())
 		if displayName == "" {
-			displayName = strings.TrimSpace(initiatedBy.User.UserPrincipalName)
+			displayName = stringValue(initiatedBy.GetUser().GetUserPrincipalName())
 		}
 		if displayName == "" {
 			displayName = externalID
@@ -1089,12 +1049,12 @@ func entraAuditActor(initiatedBy DirectoryAuditInitiatedBy) (string, string, str
 		return "entra_user", externalID, displayName
 	}
 
-	if initiatedBy.App != nil {
-		externalID := strings.TrimSpace(initiatedBy.App.ServicePrincipalID)
+	if initiatedBy.GetApp() != nil {
+		externalID := stringValue(initiatedBy.GetApp().GetServicePrincipalId())
 		if externalID == "" {
-			externalID = strings.TrimSpace(initiatedBy.App.AppID)
+			externalID = stringValue(initiatedBy.GetApp().GetAppId())
 		}
-		displayName := strings.TrimSpace(initiatedBy.App.DisplayName)
+		displayName := stringValue(initiatedBy.GetApp().GetDisplayName())
 		if displayName == "" {
 			displayName = externalID
 		}
@@ -1106,9 +1066,9 @@ func entraAuditActor(initiatedBy DirectoryAuditInitiatedBy) (string, string, str
 
 func entraAuditTarget(targets []DirectoryAuditTargetResource) (string, string, string) {
 	for _, target := range targets {
-		targetExternalID := strings.TrimSpace(target.ID)
-		targetDisplayName := strings.TrimSpace(target.DisplayName)
-		targetType := strings.TrimSpace(target.Type)
+		targetExternalID := stringValue(target.GetId())
+		targetDisplayName := stringValue(target.GetDisplayName())
+		targetType := stringValue(target.GetTypeEscaped())
 		if targetExternalID == "" && targetDisplayName == "" && targetType == "" {
 			continue
 		}
@@ -1135,16 +1095,16 @@ func entraAuditTargetKind(targetType string) string {
 }
 
 func entraAuditCredential(event DirectoryAuditEvent) (string, string) {
-	kind := entraAuditCredentialKind(event.ActivityDisplayName, event.Category)
+	kind := entraAuditCredentialKind(stringValue(event.GetActivityDisplayName()), stringValue(event.GetCategory()))
 	externalID := ""
 
-	for _, target := range event.TargetResources {
-		for _, prop := range target.ModifiedProperties {
-			if id := extractCredentialExternalID(prop.NewValue); id != "" {
+	for _, target := range event.GetTargetResources() {
+		for _, prop := range target.GetModifiedProperties() {
+			if id := extractCredentialExternalID(stringValue(prop.GetNewValue())); id != "" {
 				externalID = id
 				break
 			}
-			if id := extractCredentialExternalID(prop.OldValue); id != "" {
+			if id := extractCredentialExternalID(stringValue(prop.GetOldValue())); id != "" {
 				externalID = id
 				break
 			}
@@ -1383,7 +1343,7 @@ func (i *EntraIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, re
 func (i *EntraIntegration) resolveGrantActors(ctx context.Context, report func(registry.Event), grants []OAuth2PermissionGrant) []User {
 	actorIDs := make([]string, 0, len(grants))
 	for _, grant := range grants {
-		actorIDs = append(actorIDs, grant.PrincipalID)
+		actorIDs = append(actorIDs, stringValue(grant.GetPrincipalId()))
 	}
 	actorIDs = distinctNonEmptyStrings(actorIDs)
 	if len(actorIDs) == 0 {
@@ -1426,19 +1386,22 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 	appDisplayByAppID := make(map[string]string, len(applications))
 	appVendorByAppID := make(map[string]string, len(applications))
 	for _, app := range applications {
-		appID := strings.TrimSpace(app.AppID)
+		appID := stringValue(app.GetAppId())
 		if appID == "" {
 			continue
 		}
-		name := strings.TrimSpace(app.DisplayName)
+		name := stringValue(app.GetDisplayName())
 		if name == "" {
 			name = appID
 		}
 		appDisplayByAppID[appID] = name
 
-		vendorName := strings.TrimSpace(app.VerifiedPublisher.DisplayName)
+		vendorName := ""
+		if app.GetVerifiedPublisher() != nil {
+			vendorName = stringValue(app.GetVerifiedPublisher().GetDisplayName())
+		}
 		if vendorName == "" {
-			vendorName = discovery.VendorLabelFromDomain(app.PublisherDomain)
+			vendorName = discovery.VendorLabelFromDomain(stringValue(app.GetPublisherDomain()))
 		}
 		if vendorName != "" {
 			appVendorByAppID[appID] = vendorName
@@ -1448,16 +1411,16 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 	servicePrincipalByID := make(map[string]ServicePrincipal, len(servicePrincipals))
 	servicePrincipalVendorByAppID := make(map[string]string, len(servicePrincipals))
 	for _, servicePrincipal := range servicePrincipals {
-		spID := strings.TrimSpace(servicePrincipal.ID)
+		spID := entityID(servicePrincipal)
 		if spID == "" {
 			continue
 		}
 		servicePrincipalByID[spID] = servicePrincipal
-		appID := strings.TrimSpace(servicePrincipal.AppID)
+		appID := stringValue(servicePrincipal.GetAppId())
 		if appID == "" {
 			continue
 		}
-		vendorName := strings.TrimSpace(servicePrincipal.PublisherName)
+		vendorName := servicePrincipalVendorName(servicePrincipal)
 		if vendorName == "" {
 			continue
 		}
@@ -1468,7 +1431,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 
 	userByID := make(map[string]User, len(users))
 	for _, user := range users {
-		userID := strings.TrimSpace(user.ID)
+		userID := entityID(user)
 		if userID == "" {
 			continue
 		}
@@ -1476,15 +1439,15 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 	}
 
 	for _, signIn := range signIns {
-		sourceAppID := strings.TrimSpace(signIn.AppID)
+		sourceAppID := stringValue(signIn.GetAppId())
 		if sourceAppID == "" {
-			sourceAppID = strings.TrimSpace(signIn.AppDisplayName)
+			sourceAppID = stringValue(signIn.GetAppDisplayName())
 		}
 		if sourceAppID == "" {
 			continue
 		}
 
-		sourceAppName := strings.TrimSpace(signIn.AppDisplayName)
+		sourceAppName := stringValue(signIn.GetAppDisplayName())
 		if sourceAppName == "" {
 			sourceAppName = appDisplayByAppID[sourceAppID]
 		}
@@ -1492,7 +1455,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			sourceAppName = sourceAppID
 		}
 
-		observedAt := graphObservedAtOrNow(signIn.CreatedDateTimeRaw, now)
+		observedAt := graphObservedAtOrNow(timeValueString(signIn.GetCreatedDateTime()), now)
 		sourceVendorName := appVendorByAppID[sourceAppID]
 		if sourceVendorName == "" {
 			sourceVendorName = servicePrincipalVendorByAppID[sourceAppID]
@@ -1505,7 +1468,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			SourceAppName:    sourceAppName,
 			SourceDomain:     "",
 			SourceVendorName: sourceVendorName,
-			EntraAppID:       strings.TrimSpace(signIn.AppID),
+			EntraAppID:       stringValue(signIn.GetAppId()),
 		})
 
 		current := sourceByID[sourceAppID]
@@ -1520,9 +1483,9 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			}
 		}
 
-		eventExternalID := strings.TrimSpace(signIn.ID)
+		eventExternalID := entityID(signIn)
 		if eventExternalID == "" {
-			eventExternalID = fmt.Sprintf("signin:%s:%s:%s", sourceAppID, strings.TrimSpace(signIn.UserID), observedAt.Format(time.RFC3339Nano))
+			eventExternalID = fmt.Sprintf("signin:%s:%s:%s", sourceAppID, stringValue(signIn.GetUserId()), observedAt.Format(time.RFC3339Nano))
 		}
 
 		events = append(events, normalizedDiscoveryEvent{
@@ -1533,32 +1496,32 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			SourceAppName:    sourceAppName,
 			SourceAppDomain:  metadata.Domain,
 			SourceVendorName: metadata.VendorName,
-			ActorExternalID:  strings.TrimSpace(signIn.UserID),
-			ActorEmail:       normalizeEmail(strings.TrimSpace(signIn.UserPrincipalName)),
-			ActorDisplayName: strings.TrimSpace(signIn.UserDisplayName),
+			ActorExternalID:  stringValue(signIn.GetUserId()),
+			ActorEmail:       normalizeEmail(stringValue(signIn.GetUserPrincipalName())),
+			ActorDisplayName: stringValue(signIn.GetUserDisplayName()),
 			ObservedAt:       observedAt,
 			Scopes:           nil,
-			RawJSON:          registry.NormalizeJSON(signIn.RawJSON),
+			RawJSON:          registry.NormalizeJSON(serializeSDKModel(signIn)),
 		})
 	}
 
 	for _, grant := range grants {
-		spID := strings.TrimSpace(grant.ClientID)
+		spID := stringValue(grant.GetClientId())
 		servicePrincipal := servicePrincipalByID[spID]
 
-		entraAppID := strings.TrimSpace(servicePrincipal.AppID)
+		entraAppID := stringValue(servicePrincipal.GetAppId())
 		if entraAppID == "" {
-			entraAppID = strings.TrimSpace(grant.ClientID)
+			entraAppID = stringValue(grant.GetClientId())
 		}
 		sourceAppID := entraAppID
 		if sourceAppID == "" {
-			sourceAppID = strings.TrimSpace(grant.ClientID)
+			sourceAppID = stringValue(grant.GetClientId())
 		}
 		if sourceAppID == "" {
 			continue
 		}
 
-		sourceAppName := strings.TrimSpace(servicePrincipal.DisplayName)
+		sourceAppName := stringValue(servicePrincipal.GetDisplayName())
 		if sourceAppName == "" {
 			sourceAppName = appDisplayByAppID[entraAppID]
 		}
@@ -1566,11 +1529,11 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			sourceAppName = sourceAppID
 		}
 
-		observedAt := graphObservedAtOrNow(grant.CreatedDateTimeRaw, now)
-		scopes := discovery.NormalizeScopes(strings.Fields(strings.ReplaceAll(grant.Scope, ",", " ")))
+		observedAt := now
+		scopes := discovery.NormalizeScopes(strings.Fields(strings.ReplaceAll(stringValue(grant.GetScope()), ",", " ")))
 		sourceVendorName := appVendorByAppID[entraAppID]
 		if sourceVendorName == "" {
-			sourceVendorName = strings.TrimSpace(servicePrincipal.PublisherName)
+			sourceVendorName = servicePrincipalVendorName(servicePrincipal)
 		}
 		if sourceVendorName == "" {
 			sourceVendorName = servicePrincipalVendorByAppID[entraAppID]
@@ -1598,29 +1561,29 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			}
 		}
 
-		eventExternalID := strings.TrimSpace(grant.ID)
+		eventExternalID := entityID(grant)
 		if eventExternalID == "" {
-			eventExternalID = fmt.Sprintf("grant:%s:%s:%s:%s", sourceAppID, strings.TrimSpace(grant.PrincipalID), strings.TrimSpace(grant.Scope), observedAt.Format(time.RFC3339Nano))
+			eventExternalID = fmt.Sprintf("grant:%s:%s:%s:%s", sourceAppID, stringValue(grant.GetPrincipalId()), stringValue(grant.GetScope()), observedAt.Format(time.RFC3339Nano))
 		}
 
-		actorExternalID := strings.TrimSpace(grant.PrincipalID)
+		actorExternalID := stringValue(grant.GetPrincipalId())
 		actorEmail := ""
 		actorDisplayName := ""
 		if actorExternalID != "" {
 			if user, ok := userByID[actorExternalID]; ok {
 				actorEmail = normalizeEmail(preferredEmail(user))
-				actorDisplayName = strings.TrimSpace(user.DisplayName)
+				actorDisplayName = stringValue(user.GetDisplayName())
 				if actorDisplayName == "" {
 					actorDisplayName = actorEmail
 				}
 			} else if servicePrincipal, ok := servicePrincipalByID[actorExternalID]; ok {
-				actorDisplayName = strings.TrimSpace(servicePrincipal.DisplayName)
+				actorDisplayName = stringValue(servicePrincipal.GetDisplayName())
 				if actorDisplayName == "" {
-					actorDisplayName = strings.TrimSpace(servicePrincipal.AppID)
+					actorDisplayName = stringValue(servicePrincipal.GetAppId())
 				}
 			}
 		}
-		if actorDisplayName == "" && strings.EqualFold(strings.TrimSpace(grant.ConsentType), "AllPrincipals") {
+		if actorDisplayName == "" && strings.EqualFold(stringValue(grant.GetConsentType()), "AllPrincipals") {
 			actorDisplayName = "All principals"
 		}
 		if actorDisplayName == "" {
@@ -1640,7 +1603,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			ActorDisplayName: actorDisplayName,
 			ObservedAt:       observedAt,
 			Scopes:           scopes,
-			RawJSON:          registry.NormalizeJSON(grant.RawJSON),
+			RawJSON:          registry.NormalizeJSON(serializeSDKModel(grant)),
 		})
 	}
 
@@ -1883,6 +1846,13 @@ func appAssetRefExternalID(assetKind, externalID string) string {
 	return assetKind + ":" + externalID
 }
 
+func directoryAuditResultString(event DirectoryAuditEvent) string {
+	if event.GetResult() == nil {
+		return ""
+	}
+	return strings.TrimSpace((*event.GetResult()).String())
+}
+
 func parseGraphTime(raw string) pgtype.Timestamptz {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -1929,6 +1899,69 @@ func syntheticCredentialExternalID(prefix, assetExternalID string, fields ...str
 	return fmt.Sprintf("%s:%s:%x", strings.TrimSpace(prefix), strings.TrimSpace(assetExternalID), h.Sum64())
 }
 
+func servicePrincipalVendorName(servicePrincipal ServicePrincipal) string {
+	if servicePrincipal == nil {
+		return ""
+	}
+
+	verifiedPublisherName := ""
+	if servicePrincipal.GetVerifiedPublisher() != nil {
+		verifiedPublisherName = stringValue(servicePrincipal.GetVerifiedPublisher().GetDisplayName())
+	}
+
+	return firstNonEmptyTrimmed(verifiedPublisherName, entityAdditionalString(servicePrincipal, "publisherName"))
+}
+
+func servicePrincipalCreatedDateTime(servicePrincipal ServicePrincipal) string {
+	return entityAdditionalTimeString(servicePrincipal, "createdDateTime")
+}
+
+func entityAdditionalString(entity msgraphmodels.Entityable, key string) string {
+	if entity == nil {
+		return ""
+	}
+
+	value, ok := entity.GetAdditionalData()[key]
+	if !ok {
+		return ""
+	}
+
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed)
+	case *string:
+		return stringValue(typed)
+	case []byte:
+		return strings.TrimSpace(string(typed))
+	default:
+		return strings.TrimSpace(fmt.Sprint(typed))
+	}
+}
+
+func entityAdditionalTimeString(entity msgraphmodels.Entityable, key string) string {
+	if entity == nil {
+		return ""
+	}
+
+	value, ok := entity.GetAdditionalData()[key]
+	if !ok {
+		return ""
+	}
+
+	switch typed := value.(type) {
+	case time.Time:
+		return typed.UTC().Format(time.RFC3339)
+	case *time.Time:
+		return timeValueString(typed)
+	case string:
+		return strings.TrimSpace(typed)
+	case *string:
+		return stringValue(typed)
+	default:
+		return strings.TrimSpace(fmt.Sprint(typed))
+	}
+}
+
 func entraOwnerKind(odataType string) string {
 	t := strings.ToLower(strings.TrimSpace(odataType))
 	switch {
@@ -1941,48 +1974,50 @@ func entraOwnerKind(odataType string) string {
 	}
 }
 
-func sanitizePasswordCredentials(credentials []PasswordCredential) []map[string]string {
-	out := make([]map[string]string, 0, len(credentials))
-	for _, credential := range credentials {
-		out = append(out, map[string]string{
-			"key_id":          strings.TrimSpace(credential.KeyID),
-			"display_name":    strings.TrimSpace(credential.DisplayName),
-			"start_date_time": strings.TrimSpace(credential.StartDateTimeRaw),
-			"end_date_time":   strings.TrimSpace(credential.EndDateTimeRaw),
-			"hint":            strings.TrimSpace(credential.Hint),
-		})
+func entraOwnerDisplayName(owner DirectoryOwner) string {
+	switch typed := owner.(type) {
+	case User:
+		return stringValue(typed.GetDisplayName())
+	case ServicePrincipal:
+		return stringValue(typed.GetDisplayName())
+	default:
+		return ""
 	}
-	return out
 }
 
-func sanitizeKeyCredentials(credentials []KeyCredential) []map[string]string {
-	out := make([]map[string]string, 0, len(credentials))
-	for _, credential := range credentials {
-		out = append(out, map[string]string{
-			"key_id":                strings.TrimSpace(credential.KeyID),
-			"display_name":          strings.TrimSpace(credential.DisplayName),
-			"type":                  strings.TrimSpace(credential.Type),
-			"usage":                 strings.TrimSpace(credential.Usage),
-			"start_date_time":       strings.TrimSpace(credential.StartDateTimeRaw),
-			"end_date_time":         strings.TrimSpace(credential.EndDateTimeRaw),
-			"custom_key_identifier": strings.TrimSpace(credential.CustomKeyIdentifier),
-		})
+func entraOwnerExternalID(owner DirectoryOwner) string {
+	switch typed := owner.(type) {
+	case ServicePrincipal:
+		if id := entityID(typed); id != "" {
+			return entraServicePrincipalExternalID(id)
+		}
+	default:
+		if id := entityID(owner); id != "" {
+			return id
+		}
 	}
-	return out
+	return entraOwnerAppID(owner)
 }
 
-type sanitizedUser struct {
-	ID                string   `json:"id"`
-	DisplayName       string   `json:"display_name,omitempty"`
-	Mail              string   `json:"mail,omitempty"`
-	UserPrincipalName string   `json:"user_principal_name,omitempty"`
-	OtherMails        []string `json:"other_mails,omitempty"`
-	ProxyAddresses    []string `json:"proxy_addresses,omitempty"`
-	UserType          string   `json:"user_type,omitempty"`
-	AccountEnabled    *bool    `json:"account_enabled,omitempty"`
-	Status            string   `json:"status,omitempty"`
-	// Kept as-is to avoid timezone parsing/format churn until needed.
-	CreatedDateTimeRaw string `json:"created_date_time,omitempty"`
+func entraOwnerMail(owner DirectoryOwner) string {
+	if typed, ok := owner.(User); ok {
+		return stringValue(typed.GetMail())
+	}
+	return ""
+}
+
+func entraOwnerUserPrincipalName(owner DirectoryOwner) string {
+	if typed, ok := owner.(User); ok {
+		return stringValue(typed.GetUserPrincipalName())
+	}
+	return ""
+}
+
+func entraOwnerAppID(owner DirectoryOwner) string {
+	if typed, ok := owner.(ServicePrincipal); ok {
+		return stringValue(typed.GetAppId())
+	}
+	return ""
 }
 
 func entraAccountStatus(accountEnabled *bool) string {

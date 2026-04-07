@@ -109,7 +109,7 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 			AccountEmail:          strings.TrimSpace(row.AccountEmail),
 			AccountDisplayName:    strings.TrimSpace(row.AccountDisplayName),
 			EntitlementKind:       strings.TrimSpace(row.EntitlementKind),
-			EntitlementPermission: strings.TrimSpace(row.EntitlementPermission),
+			EntitlementPermission: accessgraph.DisplayEntitlementPermission(row.EntitlementKind, row.EntitlementPermission, row.EntitlementRawJson),
 			LinkReason:            linkReason,
 		})
 	}
@@ -147,6 +147,10 @@ func humanizeResourceKind(resourceKind string) string {
 		return "Role"
 	case accessgraph.ResourceKindAWSAccount:
 		return "AWS account"
+	case accessgraph.ResourceKindEntraServicePrincipal:
+		return "Enterprise app"
+	case accessgraph.ResourceKindEntraDirectoryRole:
+		return "Directory role"
 	case accessgraph.ResourceKindVaultPolicy:
 		return "Vault policy"
 	case accessgraph.ResourceKindVaultGroup:

@@ -14,33 +14,15 @@ func TestBuildCredentialAuditEventRowsMapsCredentialAuditFields(t *testing.T) {
 	t.Parallel()
 
 	rows := buildCredentialAuditEventRows([]DirectoryAuditEvent{
-		{
-			ID:                  "event-1",
-			Category:            "ApplicationManagement",
-			Result:              "success",
-			ActivityDisplayName: "Add application password credential",
-			ActivityDateTimeRaw: "2026-02-07T23:00:00Z",
-			InitiatedBy: DirectoryAuditInitiatedBy{
-				User: &DirectoryAuditActorUser{
-					ID:                "user-1",
-					DisplayName:       "Alice Admin",
-					UserPrincipalName: "alice@example.com",
-				},
-			},
-			TargetResources: []DirectoryAuditTargetResource{
-				{
-					ID:          "app-1",
-					DisplayName: "Payroll App",
-					Type:        "Application",
-					ModifiedProperties: []DirectoryAuditModifiedProperty{
-						{
-							DisplayName: "PasswordCredentials",
-							NewValue:    `{"keyId":"cred-1"}`,
-						},
-					},
-				},
-			},
-		},
+		mustParseDirectoryAudit(t, `{
+			"id":"event-1",
+			"category":"ApplicationManagement",
+			"result":"success",
+			"activityDisplayName":"Add application password credential",
+			"activityDateTime":"2026-02-07T23:00:00Z",
+			"initiatedBy":{"user":{"id":"user-1","displayName":"Alice Admin","userPrincipalName":"alice@example.com"}},
+			"targetResources":[{"id":"app-1","displayName":"Payroll App","type":"Application","modifiedProperties":[{"displayName":"PasswordCredentials","newValue":"{\"keyId\":\"cred-1\"}"}]}]
+		}`),
 	})
 
 	if len(rows) != 1 {
@@ -72,18 +54,8 @@ func TestBuildCredentialAuditEventRowsSkipsInvalidOrIrrelevantEvents(t *testing.
 	t.Parallel()
 
 	rows := buildCredentialAuditEventRows([]DirectoryAuditEvent{
-		{
-			ID:                  "sign-in-1",
-			Category:            "SignInLogs",
-			ActivityDisplayName: "User signed in",
-			ActivityDateTimeRaw: "2026-02-07T23:00:00Z",
-		},
-		{
-			ID:                  "event-2",
-			Category:            "ApplicationManagement",
-			ActivityDisplayName: "Add application password credential",
-			ActivityDateTimeRaw: "not-a-time",
-		},
+		mustParseDirectoryAudit(t, `{"id":"sign-in-1","category":"SignInLogs","activityDisplayName":"User signed in","activityDateTime":"2026-02-07T23:00:00Z"}`),
+		mustParseDirectoryAudit(t, `{"id":"event-2","category":"ApplicationManagement","activityDisplayName":"Add application password credential"}`),
 	})
 
 	if len(rows) != 0 {
@@ -123,6 +95,20 @@ func TestGraphObservedAtOrNowUsesValidity(t *testing.T) {
 	}
 }
 
+func TestBuildOwnerRowsPrefixesServicePrincipalOwnerExternalID(t *testing.T) {
+	t.Parallel()
+
+	rows := buildOwnerRows("entra_application", "app-1", []DirectoryOwner{
+		mustParseDirectoryOwner(t, `{"id":"owner-sp-1","@odata.type":"#microsoft.graph.servicePrincipal","displayName":"Owner Service Principal","appId":"owner-client-app"}`),
+	})
+	if len(rows) != 1 {
+		t.Fatalf("len(rows)=%d want 1", len(rows))
+	}
+	if rows[0].OwnerExternalID != entraServicePrincipalExternalID("owner-sp-1") {
+		t.Fatalf("OwnerExternalID=%q want %q", rows[0].OwnerExternalID, entraServicePrincipalExternalID("owner-sp-1"))
+	}
+}
+
 type stubEntraClient struct {
 	lookupUsersByIDs func(context.Context, []string) ([]User, error)
 }
@@ -135,7 +121,19 @@ func (s stubEntraClient) ListServicePrincipals(context.Context) ([]ServicePrinci
 	panic("unexpected call")
 }
 
+func (s stubEntraClient) ListServicePrincipalAssignedTo(context.Context, string) ([]ServicePrincipalAppRoleAssignment, error) {
+	panic("unexpected call")
+}
+
 func (s stubEntraClient) ListDirectoryAudits(context.Context, *time.Time) ([]DirectoryAuditEvent, error) {
+	panic("unexpected call")
+}
+
+func (s stubEntraClient) ListDirectoryRoles(context.Context) ([]DirectoryRole, error) {
+	panic("unexpected call")
+}
+
+func (s stubEntraClient) ListDirectoryRoleAssignments(context.Context) ([]DirectoryRoleAssignment, error) {
 	panic("unexpected call")
 }
 
@@ -144,6 +142,10 @@ func (s stubEntraClient) ListUsers(context.Context) ([]User, error) {
 }
 
 func (s stubEntraClient) ListGroups(context.Context) ([]Group, error) {
+	panic("unexpected call")
+}
+
+func (s stubEntraClient) ListGroupUserMembers(context.Context, string) ([]User, error) {
 	panic("unexpected call")
 }
 
@@ -178,7 +180,7 @@ func TestResolveGrantActorsReturnsDistinctResolvedUsers(t *testing.T) {
 		client: stubEntraClient{
 			lookupUsersByIDs: func(_ context.Context, ids []string) ([]User, error) {
 				gotIDs = append(gotIDs, ids...)
-				return []User{{ID: "user-1", DisplayName: "Alice"}}, nil
+				return []User{mustParseUser(t, `{"id":"user-1","displayName":"Alice"}`)}, nil
 			},
 		},
 	}
@@ -187,17 +189,17 @@ func TestResolveGrantActorsReturnsDistinctResolvedUsers(t *testing.T) {
 	users := integration.resolveGrantActors(context.Background(), func(event registry.Event) {
 		events = append(events, event)
 	}, []OAuth2PermissionGrant{
-		{PrincipalID: " user-1 "},
-		{PrincipalID: ""},
-		{PrincipalID: "user-2"},
-		{PrincipalID: "user-1"},
+		mustParseGrant(t, `{"id":"grant-1","principalId":" user-1 "}`),
+		mustParseGrant(t, `{"id":"grant-2","principalId":""}`),
+		mustParseGrant(t, `{"id":"grant-3","principalId":"user-2"}`),
+		mustParseGrant(t, `{"id":"grant-4","principalId":"user-1"}`),
 	})
 
 	if len(gotIDs) != 2 || gotIDs[0] != "user-1" || gotIDs[1] != "user-2" {
 		t.Fatalf("gotIDs=%v want [user-1 user-2]", gotIDs)
 	}
-	if len(users) != 1 || users[0].ID != "user-1" {
-		t.Fatalf("users=%+v want [{ID:user-1}]", users)
+	if len(users) != 1 || entityID(users[0]) != "user-1" {
+		t.Fatalf("users=%v want [{ID:user-1}]", users)
 	}
 	if len(events) != 2 {
 		t.Fatalf("len(events)=%d want 2", len(events))
@@ -228,7 +230,7 @@ func TestResolveGrantActorsLookupFailureIsNonFatal(t *testing.T) {
 	var events []registry.Event
 	users := integration.resolveGrantActors(context.Background(), func(event registry.Event) {
 		events = append(events, event)
-	}, []OAuth2PermissionGrant{{PrincipalID: "user-1"}})
+	}, []OAuth2PermissionGrant{mustParseGrant(t, `{"id":"grant-1","principalId":"user-1"}`)})
 
 	if users != nil {
 		t.Fatalf("users=%v want nil", users)

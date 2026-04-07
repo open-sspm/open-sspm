@@ -7,7 +7,12 @@ import (
 )
 
 func entraUserAccountKind(user User) string {
-	signal := registry.ClassifyKindFromSignals(user.DisplayName, user.Mail, user.UserPrincipalName, user.UserType)
+	signal := registry.ClassifyKindFromSignals(
+		stringValue(user.GetDisplayName()),
+		stringValue(user.GetMail()),
+		stringValue(user.GetUserPrincipalName()),
+		stringValue(user.GetUserType()),
+	)
 	switch signal {
 	case registry.AccountKindBot, registry.AccountKindService:
 		return signal

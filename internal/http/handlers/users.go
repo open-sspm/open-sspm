@@ -138,7 +138,7 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 				ResourceID:    resourceID,
 				ResourceLabel: resourceLabel,
 				ResourceHref:  resourceHref,
-				Permission:    strings.TrimSpace(ent.Permission),
+				Permission:    accessgraph.DisplayEntitlementPermission(ent.Kind, ent.Permission, ent.RawJson),
 			})
 		}
 		linkedAccounts = append(linkedAccounts, viewmodels.LinkedAccountView{Account: account, Entitlements: entitlementViews})
@@ -798,7 +798,7 @@ func (h *Handlers) HandleOktaAccountAccessTree(c *echo.Context) error {
 				if kind := strings.TrimSpace(ent.Kind); kind != "" {
 					badges = append(badges, kind)
 				}
-				if perm := strings.TrimSpace(ent.Permission); perm != "" {
+				if perm := accessgraph.DisplayEntitlementPermission(ent.Kind, ent.Permission, ent.RawJson); perm != "" {
 					badges = append(badges, perm)
 				}
 				unmapped = append(unmapped, viewmodels.AccessTreeNode{
@@ -919,7 +919,7 @@ func (h *Handlers) HandleOktaAccountAccessTree(c *echo.Context) error {
 			if kind != resourceKind || eid != externalID {
 				continue
 			}
-			label := strings.TrimSpace(ent.Permission)
+			label := accessgraph.DisplayEntitlementPermission(ent.Kind, ent.Permission, ent.RawJson)
 			if label == "" {
 				label = "(no permission)"
 			}
