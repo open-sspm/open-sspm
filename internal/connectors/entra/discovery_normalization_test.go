@@ -10,57 +10,25 @@ func TestNormalizeEntraDiscovery_VendorPrecedence(t *testing.T) {
 
 	now := time.Date(2026, time.February, 10, 12, 0, 0, 0, time.UTC)
 	signIns := []SignInEvent{
-		{
-			ID:                 "signin-1",
-			CreatedDateTimeRaw: "2026-02-10T10:00:00Z",
-			AppID:              "client-app-1",
-			AppDisplayName:     "App One",
-			UserID:             "user-1",
-		},
-		{
-			ID:                 "signin-2",
-			CreatedDateTimeRaw: "2026-02-10T11:00:00Z",
-			AppID:              "client-app-2",
-			AppDisplayName:     "",
-			UserID:             "user-2",
-		},
+		mustParseSignIn(t, `{"id":"signin-1","createdDateTime":"2026-02-10T10:00:00Z","appId":"client-app-1","appDisplayName":"App One","userId":"user-1"}`),
+		mustParseSignIn(t, `{"id":"signin-2","createdDateTime":"2026-02-10T11:00:00Z","appId":"client-app-2","appDisplayName":"","userId":"user-2"}`),
 	}
 	grants := []OAuth2PermissionGrant{
-		{
-			ID:                 "grant-1",
-			ClientID:           "sp-3",
-			PrincipalID:        "principal-1",
-			Scope:              "User.Read",
-			CreatedDateTimeRaw: "2026-02-10T09:00:00Z",
-		},
+		mustParseGrant(t, `{"id":"grant-1","clientId":"sp-3","principalId":"principal-1","scope":"User.Read"}`),
 	}
 	applications := []Application{
-		{
-			AppID:             "client-app-1",
-			DisplayName:       "App One",
-			PublisherDomain:   "one.example.com",
-			VerifiedPublisher: VerifiedPublisher{DisplayName: "Verified One"},
-		},
-		{
-			AppID:           "client-app-2",
-			DisplayName:     "App Two",
-			PublisherDomain: "jira.com",
-		},
-		{
-			AppID:       "client-app-3",
-			DisplayName: "App Three",
-		},
+		mustParseApplication(t, `{"id":"app-1","appId":"client-app-1","displayName":"App One","publisherDomain":"one.example.com","verifiedPublisher":{"displayName":"Verified One"}}`),
+		mustParseApplication(t, `{"id":"app-2","appId":"client-app-2","displayName":"App Two","publisherDomain":"jira.com"}`),
+		mustParseApplication(t, `{"id":"app-3","appId":"client-app-3","displayName":"App Three"}`),
 	}
 	servicePrincipals := []ServicePrincipal{
-		{
-			ID:            "sp-3",
-			AppID:         "client-app-3",
-			DisplayName:   "Service Principal Three",
-			PublisherName: "Publisher Three",
-		},
+		mustParseServicePrincipal(t, `{"id":"sp-3","appId":"client-app-3","displayName":"Service Principal Three","publisherName":"Publisher Three"}`),
 	}
 
-	sources, events := normalizeEntraDiscovery(signIns, grants, applications, servicePrincipals, nil, "tenant-1", now)
+	sources, events, err := normalizeEntraDiscovery(signIns, grants, applications, servicePrincipals, nil, "tenant-1", now)
+	if err != nil {
+		t.Fatalf("normalizeEntraDiscovery() error = %v", err)
+	}
 	if len(sources) != 3 {
 		t.Fatalf("len(sources)=%d want 3", len(sources))
 	}
@@ -103,47 +71,21 @@ func TestNormalizeEntraDiscovery_GrantActorResolution(t *testing.T) {
 
 	now := time.Date(2026, time.April, 6, 12, 0, 0, 0, time.UTC)
 	grants := []OAuth2PermissionGrant{
-		{
-			ID:                 "grant-user",
-			ClientID:           "sp-1",
-			ConsentType:        "Principal",
-			PrincipalID:        "user-1",
-			Scope:              "User.Read",
-			CreatedDateTimeRaw: "2026-04-06T11:00:00Z",
-		},
-		{
-			ID:                 "grant-admin",
-			ClientID:           "sp-1",
-			ConsentType:        "AllPrincipals",
-			PrincipalID:        "",
-			Scope:              "Files.Read",
-			CreatedDateTimeRaw: "2026-04-06T11:05:00Z",
-		},
-		{
-			ID:                 "grant-fallback",
-			ClientID:           "sp-1",
-			ConsentType:        "Principal",
-			PrincipalID:        "missing-user-1",
-			Scope:              "Mail.Read",
-			CreatedDateTimeRaw: "2026-04-06T11:10:00Z",
-		},
+		mustParseGrant(t, `{"id":"grant-user","clientId":"sp-1","consentType":"Principal","principalId":"user-1","scope":"User.Read"}`),
+		mustParseGrant(t, `{"id":"grant-admin","clientId":"sp-1","consentType":"AllPrincipals","principalId":"","scope":"Files.Read"}`),
+		mustParseGrant(t, `{"id":"grant-fallback","clientId":"sp-1","consentType":"Principal","principalId":"missing-user-1","scope":"Mail.Read"}`),
 	}
 	servicePrincipals := []ServicePrincipal{
-		{
-			ID:          "sp-1",
-			AppID:       "client-app-1",
-			DisplayName: "App One SP",
-		},
+		mustParseServicePrincipal(t, `{"id":"sp-1","appId":"client-app-1","displayName":"App One SP"}`),
 	}
 	users := []User{
-		{
-			ID:                "user-1",
-			DisplayName:       "Alice Example",
-			UserPrincipalName: "alice@example.com",
-		},
+		mustParseUser(t, `{"id":"user-1","displayName":"Alice Example","userPrincipalName":"alice@example.com"}`),
 	}
 
-	_, events := normalizeEntraDiscovery(nil, grants, nil, servicePrincipals, users, "tenant-1", now)
+	_, events, err := normalizeEntraDiscovery(nil, grants, nil, servicePrincipals, users, "tenant-1", now)
+	if err != nil {
+		t.Fatalf("normalizeEntraDiscovery() error = %v", err)
+	}
 	if len(events) != 3 {
 		t.Fatalf("len(events)=%d want 3", len(events))
 	}

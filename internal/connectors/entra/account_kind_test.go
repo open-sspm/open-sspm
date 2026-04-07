@@ -9,13 +9,13 @@ import (
 func TestEntraUserAccountKind(t *testing.T) {
 	t.Parallel()
 
-	if got := entraUserAccountKind(User{DisplayName: "Alice", Mail: "alice@example.com", UserType: "Member"}); got != registry.AccountKindHuman {
+	if got := entraUserAccountKind(mustParseUser(t, `{"id":"user-1","displayName":"Alice","mail":"alice@example.com","userType":"Member"}`)); got != registry.AccountKindHuman {
 		t.Fatalf("entraUserAccountKind(human)=%q want %q", got, registry.AccountKindHuman)
 	}
-	if got := entraUserAccountKind(User{DisplayName: "Deploy Bot"}); got != registry.AccountKindBot {
+	if got := entraUserAccountKind(mustParseUser(t, `{"id":"user-2","displayName":"Deploy Bot"}`)); got != registry.AccountKindBot {
 		t.Fatalf("entraUserAccountKind(bot)=%q want %q", got, registry.AccountKindBot)
 	}
-	if got := entraUserAccountKind(User{DisplayName: "CI Service Account"}); got != registry.AccountKindService {
+	if got := entraUserAccountKind(mustParseUser(t, `{"id":"user-3","displayName":"CI Service Account"}`)); got != registry.AccountKindService {
 		t.Fatalf("entraUserAccountKind(service)=%q want %q", got, registry.AccountKindService)
 	}
 }

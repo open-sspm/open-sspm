@@ -10,32 +10,32 @@ func TestPreferredEmail(t *testing.T) {
 	}{
 		{
 			name: "prefer_mail",
-			user: User{Mail: "Alice@example.com", UserPrincipalName: "alice@corp.example.com"},
+			user: mustParseUser(t, `{"id":"user-1","mail":"Alice@example.com","userPrincipalName":"alice@corp.example.com"}`),
 			want: "Alice@example.com",
 		},
 		{
 			name: "fallback_to_upn",
-			user: User{UserPrincipalName: "bob@corp.example.com"},
+			user: mustParseUser(t, `{"id":"user-2","userPrincipalName":"bob@corp.example.com"}`),
 			want: "bob@corp.example.com",
 		},
 		{
 			name: "guest_prefers_other_mails_over_upn",
-			user: User{UserType: "Guest", UserPrincipalName: "bob_example.com#EXT#@tenant.onmicrosoft.com", OtherMails: []string{"bob@example.com"}},
+			user: mustParseUser(t, `{"id":"user-3","userType":"Guest","userPrincipalName":"bob_example.com#EXT#@tenant.onmicrosoft.com","otherMails":["bob@example.com"]}`),
 			want: "bob@example.com",
 		},
 		{
 			name: "fallback_to_other_mails",
-			user: User{OtherMails: []string{"", "carol@example.com"}},
+			user: mustParseUser(t, `{"id":"user-4","otherMails":["","carol@example.com"]}`),
 			want: "carol@example.com",
 		},
 		{
 			name: "fallback_to_proxy_addresses",
-			user: User{ProxyAddresses: []string{"smtp:dave@example.com"}},
+			user: mustParseUser(t, `{"id":"user-5","proxyAddresses":["smtp:dave@example.com"]}`),
 			want: "dave@example.com",
 		},
 		{
 			name: "missing_email",
-			user: User{Mail: "", UserPrincipalName: "not-an-email"},
+			user: mustParseUser(t, `{"id":"user-6","mail":"","userPrincipalName":"not-an-email"}`),
 			want: "",
 		},
 	}

@@ -15,6 +15,9 @@ const (
 
 	ResourceKindAWSAccount = "aws_account"
 
+	ResourceKindEntraServicePrincipal = "entra_service_principal"
+	ResourceKindEntraDirectoryRole    = "entra_directory_role"
+
 	ResourceKindVaultPolicy       = "vault_policy"
 	ResourceKindVaultGroup        = "vault_group"
 	ResourceKindVaultAuthMount    = "vault_auth_mount"
@@ -90,7 +93,67 @@ func DisplayResourceLabel(resourceRef string, rawJSON []byte) string {
 		}
 	}
 
+	if resourceKind == ResourceKindEntraServicePrincipal && len(rawJSON) > 0 {
+		var payload struct {
+			ServicePrincipalID   string `json:"service_principal_id"`
+			ServicePrincipalName string `json:"service_principal_name"`
+		}
+		if err := json.Unmarshal(rawJSON, &payload); err == nil {
+			if name := strings.TrimSpace(payload.ServicePrincipalName); name != "" {
+				return name
+			}
+			if id := strings.TrimSpace(payload.ServicePrincipalID); id != "" {
+				return id
+			}
+		}
+	}
+
+	if resourceKind == ResourceKindEntraDirectoryRole && len(rawJSON) > 0 {
+		var payload struct {
+			RoleDefinitionID string `json:"role_definition_id"`
+			RoleTemplateID   string `json:"role_template_id"`
+			RoleName         string `json:"role_display_name"`
+		}
+		if err := json.Unmarshal(rawJSON, &payload); err == nil {
+			if name := strings.TrimSpace(payload.RoleName); name != "" {
+				return name
+			}
+			if id := strings.TrimSpace(payload.RoleTemplateID); id != "" {
+				return id
+			}
+			if id := strings.TrimSpace(payload.RoleDefinitionID); id != "" {
+				return id
+			}
+		}
+	}
+
 	return externalID
+}
+
+func DisplayEntitlementPermission(kind, permission string, rawJSON []byte) string {
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	permission = strings.TrimSpace(permission)
+
+	if kind == "entra_app_role" && len(rawJSON) > 0 {
+		var payload struct {
+			RoleName  string `json:"role_name"`
+			AppRoleID string `json:"app_role_id"`
+		}
+		if err := json.Unmarshal(rawJSON, &payload); err == nil {
+			roleName := strings.TrimSpace(payload.RoleName)
+			appRoleID := strings.TrimSpace(payload.AppRoleID)
+			switch {
+			case roleName == "":
+				return permission
+			case appRoleID != "" && permission != "" && permission != roleName:
+				return roleName + " (" + appRoleID + ")"
+			default:
+				return roleName
+			}
+		}
+	}
+
+	return permission
 }
 
 func ExternalConsoleHref(sourceKind, sourceName, resourceKind, externalID string) string {

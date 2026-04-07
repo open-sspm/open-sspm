@@ -1,11 +1,13 @@
 # Microsoft Entra ID Connector
 
-The Microsoft Entra ID connector syncs users, groups, app registrations, service principals, and optional discovery data from Microsoft Graph.
+The Microsoft Entra ID connector syncs users, groups, directory-role memberships, enterprise app access entitlements, app registrations, service principals, and optional discovery data from Microsoft Graph.
 
 ## What Gets Synced
 
 - Users
 - Groups
+- Active directory-role memberships
+- Effective enterprise app access entitlements
 - App registrations
 - Service principals
 - Discovery evidence when enabled

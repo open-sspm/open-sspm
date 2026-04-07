@@ -20,25 +20,25 @@ func looksLikeEmail(s string) bool {
 }
 
 func preferredEmail(u User) string {
-	if v := strings.TrimSpace(u.Mail); looksLikeEmail(v) {
+	if v := stringValue(u.GetMail()); looksLikeEmail(v) {
 		return v
 	}
-	if strings.EqualFold(strings.TrimSpace(u.UserType), "Guest") {
-		for _, v := range u.OtherMails {
+	if strings.EqualFold(stringValue(u.GetUserType()), "Guest") {
+		for _, v := range u.GetOtherMails() {
 			if v = strings.TrimSpace(v); looksLikeEmail(v) {
 				return v
 			}
 		}
 	}
-	if v := strings.TrimSpace(u.UserPrincipalName); looksLikeEmail(v) {
+	if v := stringValue(u.GetUserPrincipalName()); looksLikeEmail(v) {
 		return v
 	}
-	for _, v := range u.OtherMails {
+	for _, v := range u.GetOtherMails() {
 		if v = strings.TrimSpace(v); looksLikeEmail(v) {
 			return v
 		}
 	}
-	for _, v := range u.ProxyAddresses {
+	for _, v := range u.GetProxyAddresses() {
 		v = strings.TrimSpace(v)
 		if v == "" {
 			continue
