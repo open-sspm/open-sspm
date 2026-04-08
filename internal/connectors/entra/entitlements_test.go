@@ -21,10 +21,11 @@ const (
 )
 
 type entitlementsTestClient struct {
-	assignmentsBySP          map[string][]ServicePrincipalAppRoleAssignment
-	groupMembersByID         map[string][]User
-	directoryRoles           []DirectoryRole
-	directoryRoleAssignments []DirectoryRoleAssignment
+	assignmentsBySP            map[string][]ServicePrincipalAppRoleAssignment
+	groupMembersByID           map[string][]User
+	transitiveGroupMembersByID map[string][]User
+	directoryRoles             []DirectoryRole
+	directoryRoleAssignments   []DirectoryRoleAssignment
 }
 
 func (c entitlementsTestClient) ListApplications(context.Context) ([]Application, error) {
@@ -59,7 +60,14 @@ func (c entitlementsTestClient) ListGroups(context.Context) ([]Group, error) {
 	panic("unexpected call")
 }
 
+func (c entitlementsTestClient) ListGroupUserMembers(_ context.Context, groupID string) ([]User, error) {
+	return c.groupMembersByID[groupID], nil
+}
+
 func (c entitlementsTestClient) ListGroupTransitiveUserMembers(_ context.Context, groupID string) ([]User, error) {
+	if c.transitiveGroupMembersByID != nil {
+		return c.transitiveGroupMembersByID[groupID], nil
+	}
 	return c.groupMembersByID[groupID], nil
 }
 
@@ -258,6 +266,38 @@ func TestCollectEntraAppRoleEntitlementsKeepsDistinctRolesWithSharedName(t *test
 	}
 	if _, ok := seenRoleIDs[duplicateRoleID2]; !ok {
 		t.Fatalf("missing app role id %q", duplicateRoleID2)
+	}
+}
+
+func TestCollectEntraAppRoleEntitlementsSkipsNestedGroupMembers(t *testing.T) {
+	t.Parallel()
+
+	integration := &EntraIntegration{
+		client: entitlementsTestClient{
+			assignmentsBySP: map[string][]ServicePrincipalAppRoleAssignment{
+				appRoleSPID: {
+					mustParseAppRoleAssignment(t, `{"id":"assign-nested-1","principalId":"`+appRoleGroup1+`","principalType":"Group","principalDisplayName":"Engineering","resourceId":"`+appRoleSPID+`","resourceDisplayName":"Zendesk","appRoleId":"`+appRoleID+`"}`),
+				},
+			},
+			groupMembersByID: map[string][]User{
+				appRoleGroup1: nil,
+			},
+			transitiveGroupMembersByID: map[string][]User{
+				appRoleGroup1: {
+					mustParseUser(t, `{"id":"`+appRoleUser3ID+`"}`),
+				},
+			},
+		},
+	}
+
+	rows, err := integration.collectEntraAppRoleEntitlements(context.Background(), func(registry.Event) {}, []ServicePrincipal{
+		mustParseServicePrincipal(t, `{"id":"`+appRoleSPID+`","displayName":"Zendesk","appRoles":[{"id":"`+appRoleID+`","displayName":"Agent","value":"agent"}]}`),
+	})
+	if err != nil {
+		t.Fatalf("collectEntraAppRoleEntitlements() error = %v", err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("len(rows)=%d want 0", len(rows))
 	}
 }
 

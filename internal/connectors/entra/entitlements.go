@@ -246,7 +246,7 @@ func (i *EntraIntegration) collectEntraAppRoleEntitlements(ctx context.Context, 
 		Stage:   "list-entitlements",
 		Current: 0,
 		Total:   int64(len(groupIDs)),
-		Message: fmt.Sprintf("listing transitive members for %d granting groups", len(groupIDs)),
+		Message: fmt.Sprintf("listing direct members for %d granting groups", len(groupIDs)),
 	})
 	if len(groupIDs) == 0 {
 		return buildEntraAppEntitlementRows(appEntitlements), nil
@@ -272,7 +272,7 @@ func (i *EntraIntegration) collectEntraAppRoleEntitlements(ctx context.Context, 
 				if groupCtx.Err() != nil {
 					return
 				}
-				users, err := i.client.ListGroupTransitiveUserMembers(groupCtx, groupID)
+				users, err := i.client.ListGroupUserMembers(groupCtx, groupID)
 				if err != nil {
 					groupResults <- entraGroupMembersResult{
 						GroupID: groupID,
