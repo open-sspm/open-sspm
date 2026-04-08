@@ -262,6 +262,7 @@ func (c *Client) ListGroupUserMembers(ctx context.Context, groupID string) ([]Us
 	result, err := c.graph.Groups().ByGroupId(groupID).Members().GraphUser().Get(ctx, &groups.ItemMembersGraphUserRequestBuilderGetRequestConfiguration{
 		QueryParameters: &groups.ItemMembersGraphUserRequestBuilderGetQueryParameters{
 			Select: []string{"id", "displayName", "mail", "userPrincipalName", "otherMails", "proxyAddresses", "userType", "accountEnabled", "createdDateTime"},
+			Top:    int32Ptr(defaultPageSize),
 		},
 	})
 	if err != nil {
