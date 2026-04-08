@@ -120,14 +120,6 @@ func (c DatadogConfig) Normalized() DatadogConfig {
 	return out
 }
 
-func (c DatadogConfig) APIBaseURL() string {
-	site := normalizeDatadogSite(c.Site)
-	if site == "" {
-		site = defaultDatadogSite
-	}
-	return "https://api." + site
-}
-
 func (c DatadogConfig) Validate() error {
 	c = c.Normalized()
 	if c.APIKey == "" {

@@ -64,9 +64,9 @@ func (d *Definition) MetricsProvider() registry.MetricsProvider {
 
 func (d *Definition) NewIntegration(cfg any) (registry.Integration, error) {
 	c := cfg.(configstore.DatadogConfig)
-	client, err := New(c.APIBaseURL(), c.APIKey, c.AppKey)
+	adapter, err := newSDKAdapter(c)
 	if err != nil {
 		return nil, err
 	}
-	return NewDatadogIntegration(client, c.Site, d.workers), nil
+	return NewDatadogIntegration(adapter, c.Site, d.workers), nil
 }

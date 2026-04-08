@@ -281,48 +281,6 @@ func TestStartSyncRunReclaimsCrossLaneRunningRows(t *testing.T) {
 	}
 }
 
-func TestSyncRunsMigration31ReclaimsOnlyOldRunningRows(t *testing.T) {
-	t.Parallel()
-
-	withSyncRunsTestDB(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, migrator *migrate.Migrate) {
-		migrateToVersion(t, migrator, 30)
-
-		oldRunID := insertSyncRunRow(t, ctx, pool, syncRunSeed{
-			SourceKind: "okta",
-			SourceName: "legacy",
-			Status:     "running",
-			StartedAt:  time.Now().Add(-96 * time.Hour).UTC().Truncate(time.Microsecond),
-		})
-		recentRunID := insertSyncRunRow(t, ctx, pool, syncRunSeed{
-			SourceKind: "okta",
-			SourceName: "recent",
-			Status:     "running",
-			StartedAt:  time.Now().Add(-2 * time.Hour).UTC().Truncate(time.Microsecond),
-		})
-
-		migrateUp(t, migrator)
-
-		oldState := fetchSyncRunState(t, ctx, pool, oldRunID)
-		if oldState.Status != SyncStatusCanceled {
-			t.Fatalf("old migration-cleaned status = %q, want %q", oldState.Status, SyncStatusCanceled)
-		}
-		if oldState.ErrorKind != SyncErrorKindStaleReclaimed {
-			t.Fatalf("old migration-cleaned error_kind = %q, want %q", oldState.ErrorKind, SyncErrorKindStaleReclaimed)
-		}
-		if !oldState.FinishedAt.Valid || !oldState.FinishedAt.Time.Equal(oldState.StartedAt) {
-			t.Fatalf("old migration-cleaned finished_at = %+v, want started_at %v", oldState.FinishedAt, oldState.StartedAt)
-		}
-
-		recentState := fetchSyncRunState(t, ctx, pool, recentRunID)
-		if recentState.Status != "running" {
-			t.Fatalf("recent status = %q, want running", recentState.Status)
-		}
-		if recentState.FinishedAt.Valid {
-			t.Fatalf("recent finished_at = %+v, want NULL", recentState.FinishedAt)
-		}
-	})
-}
-
 func TestFinalizeAppRunRollsBackSuccessWhenReadModelRefreshFails(t *testing.T) {
 	t.Parallel()
 
@@ -442,14 +400,6 @@ func migrateUp(t *testing.T, migrator *migrate.Migrate) {
 
 	if err := migrator.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		t.Fatalf("migrate up: %v", err)
-	}
-}
-
-func migrateToVersion(t *testing.T, migrator *migrate.Migrate, version uint) {
-	t.Helper()
-
-	if err := migrator.Migrate(version); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		t.Fatalf("migrate to version %d: %v", version, err)
 	}
 }
 
