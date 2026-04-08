@@ -154,6 +154,10 @@ func (s stubEntraClient) ListGroups(context.Context) ([]Group, error) {
 	panic("unexpected call")
 }
 
+func (s stubEntraClient) ListGroupUserMembers(context.Context, string) ([]User, error) {
+	panic("unexpected call")
+}
+
 func (s stubEntraClient) ListGroupTransitiveUserMembers(context.Context, string) ([]User, error) {
 	panic("unexpected call")
 }

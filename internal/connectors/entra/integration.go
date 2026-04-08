@@ -44,6 +44,7 @@ type entraClient interface {
 	ListDirectoryRoleAssignments(context.Context) ([]DirectoryRoleAssignment, error)
 	ListUsers(context.Context) ([]User, error)
 	ListGroups(context.Context) ([]Group, error)
+	ListGroupUserMembers(context.Context, string) ([]User, error)
 	ListGroupTransitiveUserMembers(context.Context, string) ([]User, error)
 	ListApplicationOwners(context.Context, string) ([]DirectoryOwner, error)
 	ListServicePrincipalOwners(context.Context, string) ([]DirectoryOwner, error)

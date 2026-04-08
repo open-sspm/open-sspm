@@ -253,6 +253,24 @@ func (c *Client) ListGroups(ctx context.Context) ([]Group, error) {
 	return collectPagedItems[Group](ctx, result, c.graph.GetAdapter(), msgraphmodels.CreateGroupCollectionResponseFromDiscriminatorValue)
 }
 
+func (c *Client) ListGroupUserMembers(ctx context.Context, groupID string) ([]User, error) {
+	groupID = strings.TrimSpace(groupID)
+	if groupID == "" {
+		return nil, errors.New("group id is required")
+	}
+
+	result, err := c.graph.Groups().ByGroupId(groupID).Members().GraphUser().Get(ctx, &groups.ItemMembersGraphUserRequestBuilderGetRequestConfiguration{
+		QueryParameters: &groups.ItemMembersGraphUserRequestBuilderGetQueryParameters{
+			Select: []string{"id", "displayName", "mail", "userPrincipalName", "otherMails", "proxyAddresses", "userType", "accountEnabled", "createdDateTime"},
+			Top:    int32Ptr(defaultPageSize),
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list entra group members %s: %w", groupID, err)
+	}
+	return collectPagedItems[User](ctx, result, c.graph.GetAdapter(), msgraphmodels.CreateUserCollectionResponseFromDiscriminatorValue)
+}
+
 func (c *Client) ListGroupTransitiveUserMembers(ctx context.Context, groupID string) ([]User, error) {
 	groupID = strings.TrimSpace(groupID)
 	if groupID == "" {

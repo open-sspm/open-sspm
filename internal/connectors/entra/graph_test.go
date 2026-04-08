@@ -699,9 +699,10 @@ func TestListServicePrincipalAssignedToPaging(t *testing.T) {
 	}
 }
 
-func TestListGroupTransitiveMembersAndDirectoryRoleAssignments(t *testing.T) {
+func TestListGroupMembersTransitiveMembersAndDirectoryRoleAssignments(t *testing.T) {
 	t.Parallel()
 
+	var directGroupMemberRequests int
 	var groupMemberRequests int
 	var directoryRoleRequests int
 	var directoryRoleAssignmentRequests int
@@ -711,6 +712,16 @@ func TestListGroupTransitiveMembersAndDirectoryRoleAssignments(t *testing.T) {
 		assertTestBearer(t, r)
 
 		switch {
+		case strings.Contains(r.URL.Path, "/groups/group-1/members/"):
+			directGroupMemberRequests++
+			w.Header().Set("Content-Type", "application/json")
+			if r.URL.Query().Get("page") == "2" {
+				_, _ = w.Write([]byte(`{"value":[{"id":"user-2","displayName":"Bob","userPrincipalName":"bob@example.com"}]}`))
+				return
+			}
+			next := srv.URL + "/graph/v1.0/groups/group-1/members/graph.user?page=2"
+			_, _ = w.Write([]byte(`{"value":[{"id":"user-1","displayName":"Alice","mail":"alice@example.com","userPrincipalName":"alice@example.com"}],"@odata.nextLink":"` + next + `"}`))
+			return
 		case strings.Contains(r.URL.Path, "/groups/group-1/transitiveMembers/"):
 			groupMemberRequests++
 			if got := r.Header.Get("ConsistencyLevel"); got != "eventual" {
@@ -751,6 +762,17 @@ func TestListGroupTransitiveMembersAndDirectoryRoleAssignments(t *testing.T) {
 	defer srv.Close()
 
 	client := newGraphTestClient(t, srv)
+
+	directGroupMembers, err := client.ListGroupUserMembers(context.Background(), "group-1")
+	if err != nil {
+		t.Fatalf("ListGroupUserMembers() error = %v", err)
+	}
+	if len(directGroupMembers) != 2 {
+		t.Fatalf("len(directGroupMembers)=%d want 2", len(directGroupMembers))
+	}
+	if entityID(directGroupMembers[0]) != "user-1" || entityID(directGroupMembers[1]) != "user-2" {
+		t.Fatalf("unexpected direct group member ids [%q %q]", entityID(directGroupMembers[0]), entityID(directGroupMembers[1]))
+	}
 
 	groupMembers, err := client.ListGroupTransitiveUserMembers(context.Background(), "group-1")
 	if err != nil {
@@ -795,6 +817,9 @@ func TestListGroupTransitiveMembersAndDirectoryRoleAssignments(t *testing.T) {
 	}
 	if got := entraDirectoryObjectDisplayName(assignments[1].GetPrincipal()); got != "Privileged Ops" {
 		t.Fatalf("second principal displayName=%q want %q", got, "Privileged Ops")
+	}
+	if directGroupMemberRequests != 2 {
+		t.Fatalf("directGroupMemberRequests=%d want 2", directGroupMemberRequests)
 	}
 	if groupMemberRequests != 2 {
 		t.Fatalf("groupMemberRequests=%d want 2", groupMemberRequests)
