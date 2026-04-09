@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -114,7 +115,7 @@ func TestNewSDKAdapterConfiguresHTTPTimeoutAndRetry(t *testing.T) {
 	}
 }
 
-func TestSDKAdapterAPIErrorsIncludeBodyMessage(t *testing.T) {
+func TestSDKAdapterAPIErrorsIncludeBodyMessageAndResponseDetails(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -162,6 +163,11 @@ func TestSDKAdapterAPIErrorsIncludeBodyMessage(t *testing.T) {
 					t.Fatalf("path = %q, want %q", r.URL.Path, tc.path)
 				}
 				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("X-Request-Id", "req-123")
+				w.Header().Set("X-RateLimit-Remaining", "9")
+				w.Header().Set("X-RateLimit-Limit", "10")
+				w.Header().Set("X-RateLimit-Reset", "30")
+				w.Header().Set("Retry-After", "5")
 				w.WriteHeader(http.StatusForbidden)
 				_, _ = w.Write([]byte(`{"errors":["invalid API key"]}`))
 			})
@@ -179,7 +185,45 @@ func TestSDKAdapterAPIErrorsIncludeBodyMessage(t *testing.T) {
 			if !strings.Contains(err.Error(), "invalid API key") {
 				t.Fatalf("error %q missing Datadog body message", err.Error())
 			}
+			if !strings.Contains(err.Error(), "request_id=req-123") {
+				t.Fatalf("error %q missing request id details", err.Error())
+			}
+			if !strings.Contains(err.Error(), "rate_remaining=9") {
+				t.Fatalf("error %q missing rate remaining details", err.Error())
+			}
+			if !strings.Contains(err.Error(), "rate_limit=10") {
+				t.Fatalf("error %q missing rate limit details", err.Error())
+			}
+			if !strings.Contains(err.Error(), "rate_reset=30") {
+				t.Fatalf("error %q missing rate reset details", err.Error())
+			}
+			if !strings.Contains(err.Error(), "retry_after=5") {
+				t.Fatalf("error %q missing retry-after details", err.Error())
+			}
+			if !strings.Contains(err.Error(), "url=http://") || !strings.Contains(err.Error(), tc.path) {
+				t.Fatalf("error %q missing request URL details for %q", err.Error(), tc.path)
+			}
 		})
+	}
+}
+
+func TestDatadogAPIErrorMessageTruncatesPlainTextFallback(t *testing.T) {
+	t.Parallel()
+
+	message := datadogAPIErrorMessage([]byte(strings.Repeat("x", 350)))
+	if len(message) != 303 {
+		t.Fatalf("len(message) = %d, want 303", len(message))
+	}
+	if !strings.HasSuffix(message, "...") {
+		t.Fatalf("message = %q, want truncated suffix", message)
+	}
+}
+
+func TestDatadogAPIErrorMessageDropsHTMLFallback(t *testing.T) {
+	t.Parallel()
+
+	if message := datadogAPIErrorMessage([]byte("<html><body>gateway error</body></html>")); message != "" {
+		t.Fatalf("message = %q, want empty string for HTML fallback", message)
 	}
 }
 
@@ -223,6 +267,44 @@ func TestSDKAdapterListAccounts(t *testing.T) {
 	}
 	if accounts[1].ExternalID != "service_account:sa-1" || accounts[1].EntityCategory != registry.EntityCategoryServiceAccount {
 		t.Fatalf("unexpected service account: %#v", accounts[1])
+	}
+}
+
+func TestSDKAdapterListAccountsPaginatesUntilShortPage(t *testing.T) {
+	t.Parallel()
+
+	var calls int
+	adapter := newTestSDKAdapter(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.URL.Path != "/api/v2/users" {
+			t.Fatalf("path = %q, want /api/v2/users", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		switch got := r.URL.Query().Get("page[number]"); got {
+		case "0":
+			_, _ = w.Write([]byte(datadogUsersResponseJSON(0, datadogPageSize)))
+		case "1":
+			_, _ = w.Write([]byte(datadogUsersResponseJSON(datadogPageSize, 1)))
+		default:
+			t.Fatalf("page[number] = %q, want 0 or 1", got)
+		}
+	})
+
+	accounts, err := adapter.ListAccounts(context.Background())
+	if err != nil {
+		t.Fatalf("ListAccounts(): %v", err)
+	}
+	if len(accounts) != datadogPageSize+1 {
+		t.Fatalf("len(accounts) = %d, want %d", len(accounts), datadogPageSize+1)
+	}
+	if calls != 2 {
+		t.Fatalf("requests = %d, want 2", calls)
+	}
+	if accounts[0].ExternalID != "u-0" {
+		t.Fatalf("accounts[0].ExternalID = %q, want %q", accounts[0].ExternalID, "u-0")
+	}
+	if accounts[len(accounts)-1].ExternalID != "u-100" {
+		t.Fatalf("last external id = %q, want %q", accounts[len(accounts)-1].ExternalID, "u-100")
 	}
 }
 
@@ -334,4 +416,22 @@ func newTestSDKAdapter(t *testing.T, handler http.HandlerFunc) *sdkAdapter {
 		apiKey: "api-key",
 		appKey: "app-key",
 	}
+}
+
+func datadogUsersResponseJSON(start, count int) string {
+	var body strings.Builder
+	body.WriteString(`{"data":[`)
+	for i := 0; i < count; i++ {
+		if i > 0 {
+			body.WriteByte(',')
+		}
+		id := start + i
+		body.WriteString(`{"id":"u-`)
+		body.WriteString(strconv.Itoa(id))
+		body.WriteString(`","attributes":{"handle":"user-`)
+		body.WriteString(strconv.Itoa(id))
+		body.WriteString(`@example.com","status":"Active"}}`)
+	}
+	body.WriteString(`]}`)
+	return body.String()
 }

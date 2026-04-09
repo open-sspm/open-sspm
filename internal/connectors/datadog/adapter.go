@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -74,24 +75,33 @@ func newSDKAdapter(cfg configstore.DatadogConfig) (*sdkAdapter, error) {
 
 func (a *sdkAdapter) ListAccounts(ctx context.Context) ([]Account, error) {
 	api := datadogv2.NewUsersApi(a.client)
-	params := *datadogv2.NewListUsersOptionalParameters().WithPageSize(datadogPageSize)
-	items, cancel := api.ListUsersWithPagination(a.requestContext(ctx), params)
-	defer cancel()
-
 	out := make([]Account, 0)
-	for item := range items {
-		if item.Error != nil {
-			return nil, formatDatadogAPIError("list datadog accounts", item.Error)
-		}
-		account, err := mapDatadogAccount(item.Item)
+
+	for page := int64(0); ; page++ {
+		params := *datadogv2.NewListUsersOptionalParameters().
+			WithPageSize(datadogPageSize).
+			WithPageNumber(page)
+		resp, httpResp, err := api.ListUsers(a.requestContext(ctx), params)
 		if err != nil {
-			return nil, err
+			return nil, formatDatadogAPIError("list datadog accounts", httpResp, err)
 		}
-		if strings.TrimSpace(account.ExternalID) == "" {
-			continue
+
+		for _, item := range resp.Data {
+			account, err := mapDatadogAccount(item)
+			if err != nil {
+				return nil, err
+			}
+			if strings.TrimSpace(account.ExternalID) == "" {
+				continue
+			}
+			out = append(out, account)
 		}
-		out = append(out, account)
+
+		if len(resp.Data) < datadogPageSize {
+			break
+		}
 	}
+
 	return out, nil
 }
 
@@ -103,9 +113,9 @@ func (a *sdkAdapter) ListRoles(ctx context.Context) ([]Role, error) {
 		params := *datadogv2.NewListRolesOptionalParameters().
 			WithPageSize(datadogPageSize).
 			WithPageNumber(page)
-		resp, _, err := api.ListRoles(a.requestContext(ctx), params)
+		resp, httpResp, err := api.ListRoles(a.requestContext(ctx), params)
 		if err != nil {
-			return nil, formatDatadogAPIError("list datadog roles", err)
+			return nil, formatDatadogAPIError("list datadog roles", httpResp, err)
 		}
 		if len(resp.Data) == 0 {
 			break
@@ -138,14 +148,16 @@ func (a *sdkAdapter) ListRoleMembers(ctx context.Context, roleID string) ([]stri
 		params := *datadogv2.NewListRoleUsersOptionalParameters().
 			WithPageSize(datadogPageSize).
 			WithPageNumber(page)
-		resp, _, err := api.ListRoleUsers(a.requestContext(ctx), roleID, params)
+		resp, httpResp, err := api.ListRoleUsers(a.requestContext(ctx), roleID, params)
 		if err != nil {
-			return nil, formatDatadogAPIError("list datadog role members", err)
+			return nil, formatDatadogAPIError("list datadog role members", httpResp, err)
 		}
 		if len(resp.Data) == 0 {
 			break
 		}
 		for _, item := range resp.Data {
+			// RolesApi.ListRoleUsers returns User objects whose documented schema includes
+			// service_account, so canonical external IDs rely on that flag being present.
 			externalID := datadogAccountExternalID(strings.TrimSpace(item.GetId()), datadogUserIsServiceAccount(item))
 			if externalID == "" {
 				continue
@@ -165,12 +177,14 @@ func (a *sdkAdapter) requestContext(ctx context.Context) context.Context {
 		"apiKeyAuth": {Key: a.apiKey},
 		"appKeyAuth": {Key: a.appKey},
 	})
+	// Server index 2 uses the SDK's unrestricted {site} template while the site
+	// variable below still controls the actual Datadog endpoint selection.
 	ctx = context.WithValue(ctx, datadogsdk.ContextServerIndex, 2)
 	ctx = context.WithValue(ctx, datadogsdk.ContextServerVariables, map[string]string{"site": a.site})
 	return ctx
 }
 
-func formatDatadogAPIError(prefix string, err error) error {
+func formatDatadogAPIError(prefix string, resp *http.Response, err error) error {
 	if err == nil {
 		return nil
 	}
@@ -182,11 +196,26 @@ func formatDatadogAPIError(prefix string, err error) error {
 
 	status := strings.TrimSpace(apiErr.Error())
 	message := datadogAPIErrorMessage(apiErr.Body())
-	if status == "" || message == "" {
+	details := datadogAPIErrorDetails(resp)
+
+	switch {
+	case status != "" && message != "" && details != "":
+		return fmt.Errorf("%s: %s: %s (%s)", prefix, status, message, details)
+	case status != "" && message != "":
+		return fmt.Errorf("%s: %s: %s", prefix, status, message)
+	case status != "" && details != "":
+		return fmt.Errorf("%s: %s (%s)", prefix, status, details)
+	case status != "":
+		return fmt.Errorf("%s: %s", prefix, status)
+	case message != "" && details != "":
+		return fmt.Errorf("%s: %s (%s)", prefix, message, details)
+	case message != "":
+		return fmt.Errorf("%s: %s", prefix, message)
+	case details != "":
+		return fmt.Errorf("%s (%s)", prefix, details)
+	default:
 		return fmt.Errorf("%s: %w", prefix, err)
 	}
-
-	return fmt.Errorf("%s: %s: %s", prefix, status, message)
 }
 
 func datadogAPIErrorMessage(body []byte) string {
@@ -213,7 +242,63 @@ func datadogAPIErrorMessage(body []byte) string {
 	if message == "" {
 		return ""
 	}
-	return strings.Join(strings.Fields(message), " ")
+	if strings.HasPrefix(message, "<!DOCTYPE html") || strings.HasPrefix(message, "<html") {
+		return ""
+	}
+	message = strings.Join(strings.Fields(message), " ")
+	const maxLen = 300
+	if len(message) > maxLen {
+		message = message[:maxLen] + "..."
+	}
+	return message
+}
+
+func datadogAPIErrorDetails(resp *http.Response) string {
+	if resp == nil {
+		return ""
+	}
+
+	var parts []string
+	if resp.Request != nil && resp.Request.URL != nil {
+		if requestURL := safeURL(resp.Request.URL); requestURL != "" {
+			parts = append(parts, "url="+requestURL)
+		}
+	}
+	if requestID := headerAny(resp.Header, "x-request-id", "x-datadog-trace-id"); requestID != "" {
+		parts = append(parts, "request_id="+requestID)
+	}
+	if rateRemaining := strings.TrimSpace(resp.Header.Get("x-ratelimit-remaining")); rateRemaining != "" {
+		parts = append(parts, "rate_remaining="+rateRemaining)
+	}
+	if rateLimit := strings.TrimSpace(resp.Header.Get("x-ratelimit-limit")); rateLimit != "" {
+		parts = append(parts, "rate_limit="+rateLimit)
+	}
+	if rateReset := strings.TrimSpace(resp.Header.Get("x-ratelimit-reset")); rateReset != "" {
+		parts = append(parts, "rate_reset="+rateReset)
+	}
+	if retryAfter := strings.TrimSpace(resp.Header.Get("Retry-After")); retryAfter != "" {
+		parts = append(parts, "retry_after="+retryAfter)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func headerAny(h http.Header, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(h.Get(key)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func safeURL(u *url.URL) string {
+	if u == nil {
+		return ""
+	}
+	safe := *u
+	safe.User = nil
+	safe.Fragment = ""
+	return safe.String()
 }
 
 func mapDatadogAccount(item datadogv2.User) (Account, error) {
