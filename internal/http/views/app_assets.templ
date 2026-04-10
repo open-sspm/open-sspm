@@ -7,14 +7,14 @@ templ AppAssetsPage(data viewmodels.AppAssetsViewData) {
 		if data.GoogleOAuthView != nil {
 			@PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
-				{Label: "Programmatic Access"},
+				{Label: "Non-Human Access"},
 				{Label: "App Assets"},
 			}, "Saved view for Google Workspace OAuth apps with governance state, grant activity, ownership, and discovery evidence.") {
 			}
 		} else {
 			@PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
-				{Label: "Programmatic Access"},
+				{Label: "Non-Human Access"},
 				{Label: "App Assets"},
 			}, "Inventory of applications and service principals discovered from connected providers.") {
 			}

@@ -326,6 +326,123 @@ type IntegrationOktaAppMap struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type NonHumanAccessEvent struct {
+	ID              int64              `json:"id"`
+	AuthUserID      pgtype.Int8        `json:"auth_user_id"`
+	AuthUserRole    string             `json:"auth_user_role"`
+	EventKind       string             `json:"event_kind"`
+	PrincipalRef    string             `json:"principal_ref"`
+	TargetKind      string             `json:"target_kind"`
+	TargetRef       string             `json:"target_ref"`
+	FilterSignature string             `json:"filter_signature"`
+	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+type NonHumanAppAssetCredentialRefsV struct {
+	AppAssetID         int64  `json:"app_asset_id"`
+	SourceKind         string `json:"source_kind"`
+	SourceName         string `json:"source_name"`
+	AssetRefKind       string `json:"asset_ref_kind"`
+	AssetRefExternalID string `json:"asset_ref_external_id"`
+}
+
+type NonHumanPrincipal struct {
+	PrincipalRef                 string             `json:"principal_ref"`
+	IdentityID                   int64              `json:"identity_id"`
+	AppAssetID                   int64              `json:"app_asset_id"`
+	PrincipalType                string             `json:"principal_type"`
+	SourceKind                   string             `json:"source_kind"`
+	SourceName                   string             `json:"source_name"`
+	DisplayName                  string             `json:"display_name"`
+	SecondaryName                string             `json:"secondary_name"`
+	LinkedAssetsCount            int64              `json:"linked_assets_count"`
+	LinkedCredentialsCount       int64              `json:"linked_credentials_count"`
+	LastSeenAt                   pgtype.Timestamptz `json:"last_seen_at"`
+	ActivityState                string             `json:"activity_state"`
+	FreshnessState               string             `json:"freshness_state"`
+	GovernanceState              string             `json:"governance_state"`
+	AccountableOwnerIdentityID   int64              `json:"accountable_owner_identity_id"`
+	AccountableOwnerDisplayName  string             `json:"accountable_owner_display_name"`
+	AccountableOwnerPrimaryEmail string             `json:"accountable_owner_primary_email"`
+	OwnerPresence                string             `json:"owner_presence"`
+	HasCriticalCredential        bool               `json:"has_critical_credential"`
+	HasHighRiskCredential        bool               `json:"has_high_risk_credential"`
+	HasExpiredCredential         bool               `json:"has_expired_credential"`
+	HasExpiringCredential        bool               `json:"has_expiring_credential"`
+	HasUnusedCredential          bool               `json:"has_unused_credential"`
+	HasStaleEvidence             bool               `json:"has_stale_evidence"`
+	RiskReasonCount              int32              `json:"risk_reason_count"`
+	RiskLevel                    string             `json:"risk_level"`
+	ProjectionRefreshedAt        pgtype.Timestamptz `json:"projection_refreshed_at"`
+}
+
+type NonHumanPrincipalAssetLinksV struct {
+	PrincipalRef string `json:"principal_ref"`
+	IdentityID   int64  `json:"identity_id"`
+	AppAssetID   int64  `json:"app_asset_id"`
+	SourceKind   string `json:"source_kind"`
+	SourceName   string `json:"source_name"`
+}
+
+type NonHumanPrincipalProjectionV struct {
+	PrincipalRef                 string             `json:"principal_ref"`
+	IdentityID                   int64              `json:"identity_id"`
+	AppAssetID                   int64              `json:"app_asset_id"`
+	PrincipalType                string             `json:"principal_type"`
+	SourceKind                   string             `json:"source_kind"`
+	SourceName                   string             `json:"source_name"`
+	DisplayName                  string             `json:"display_name"`
+	SecondaryName                string             `json:"secondary_name"`
+	LinkedAssetsCount            int64              `json:"linked_assets_count"`
+	LinkedCredentialsCount       int64              `json:"linked_credentials_count"`
+	LastSeenAt                   pgtype.Timestamptz `json:"last_seen_at"`
+	ActivityState                string             `json:"activity_state"`
+	FreshnessState               string             `json:"freshness_state"`
+	GovernanceState              string             `json:"governance_state"`
+	AccountableOwnerIdentityID   int64              `json:"accountable_owner_identity_id"`
+	AccountableOwnerDisplayName  string             `json:"accountable_owner_display_name"`
+	AccountableOwnerPrimaryEmail string             `json:"accountable_owner_primary_email"`
+	OwnerPresence                string             `json:"owner_presence"`
+	HasCriticalCredential        bool               `json:"has_critical_credential"`
+	HasHighRiskCredential        bool               `json:"has_high_risk_credential"`
+	HasExpiredCredential         bool               `json:"has_expired_credential"`
+	HasExpiringCredential        bool               `json:"has_expiring_credential"`
+	HasUnusedCredential          bool               `json:"has_unused_credential"`
+	HasStaleEvidence             bool               `json:"has_stale_evidence"`
+	RiskReasonCount              int32              `json:"risk_reason_count"`
+	RiskLevel                    string             `json:"risk_level"`
+}
+
+type NonHumanPrincipalReadModelsV struct {
+	PrincipalRef                 string             `json:"principal_ref"`
+	IdentityID                   int64              `json:"identity_id"`
+	AppAssetID                   int64              `json:"app_asset_id"`
+	PrincipalType                string             `json:"principal_type"`
+	SourceKind                   string             `json:"source_kind"`
+	SourceName                   string             `json:"source_name"`
+	DisplayName                  string             `json:"display_name"`
+	SecondaryName                string             `json:"secondary_name"`
+	LinkedAssetsCount            int64              `json:"linked_assets_count"`
+	LinkedCredentialsCount       int64              `json:"linked_credentials_count"`
+	LastSeenAt                   pgtype.Timestamptz `json:"last_seen_at"`
+	ActivityState                string             `json:"activity_state"`
+	FreshnessState               string             `json:"freshness_state"`
+	GovernanceState              string             `json:"governance_state"`
+	AccountableOwnerIdentityID   int64              `json:"accountable_owner_identity_id"`
+	AccountableOwnerDisplayName  string             `json:"accountable_owner_display_name"`
+	AccountableOwnerPrimaryEmail string             `json:"accountable_owner_primary_email"`
+	OwnerPresence                string             `json:"owner_presence"`
+	HasCriticalCredential        bool               `json:"has_critical_credential"`
+	HasHighRiskCredential        bool               `json:"has_high_risk_credential"`
+	HasExpiredCredential         bool               `json:"has_expired_credential"`
+	HasExpiringCredential        bool               `json:"has_expiring_credential"`
+	HasUnusedCredential          bool               `json:"has_unused_credential"`
+	HasStaleEvidence             bool               `json:"has_stale_evidence"`
+	RiskReasonCount              int32              `json:"risk_reason_count"`
+	RiskLevel                    string             `json:"risk_level"`
+}
+
 type OktaApp struct {
 	ID                int64              `json:"id"`
 	ExternalID        string             `json:"external_id"`

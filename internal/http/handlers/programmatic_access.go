@@ -359,6 +359,8 @@ func (h *Handlers) HandleAppAssetShow(c *echo.Context) error {
 		HasAuditEvents: len(auditItems) > 0,
 	}
 
+	h.trackNonHumanAccessOutboundClick(c, "app_asset", asset.ID)
+
 	return h.RenderComponent(c, views.AppAssetShowPage(data))
 }
 
@@ -648,6 +650,8 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 		RiskReasons: riskReasons,
 		HasEvents:   len(eventItems) > 0,
 	}
+
+	h.trackNonHumanAccessOutboundClick(c, "credential", credential.ID)
 
 	return h.RenderComponent(c, views.CredentialShowPage(data))
 }

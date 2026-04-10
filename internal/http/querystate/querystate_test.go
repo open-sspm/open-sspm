@@ -232,45 +232,63 @@ func TestConnectedAppsQuery(t *testing.T) {
 			t.Fatalf("href = %q", got)
 		}
 	})
+}
 
-	t.Run("maps legacy review states to canonical governance states", func(t *testing.T) {
-		cases := []struct {
-			name string
-			raw  string
-			want string
-		}{
-			{name: "under review", raw: "under_review", want: "in_review"},
-			{name: "needs revocation", raw: "needs_revocation", want: "action_required"},
-			{name: "sanctioned", raw: "sanctioned", want: "approved"},
-			{name: "ticketed", raw: "ticketed", want: "ticketed"},
-			{name: "unreviewed", raw: "unreviewed", want: "unreviewed"},
+func TestParseNonHumanAccessQuery(t *testing.T) {
+	sources := []SourceSelection{
+		{Kind: "github", Name: "acme"},
+		{Kind: "entra", Name: "tenant-1"},
+	}
+
+	t.Run("normalizes canonical filters and sort defaults", func(t *testing.T) {
+		query := ParseNonHumanAccessQuery(url.Values{
+			"source_name":      []string{"tenant-1"},
+			"q":                []string{" svc "},
+			"principal_type":   []string{"SERVICE"},
+			"owner_presence":   []string{"unknown"},
+			"governance_state": []string{"action_required"},
+			"risk_level":       []string{"HIGH"},
+			"activity_state":   []string{"stale"},
+			"freshness_state":  []string{"STALE"},
+			"sort_by":          []string{"risk"},
+			"page":             []string{"0"},
+		}, sources)
+
+		if query.Source.Kind != "entra" || query.Source.Name != "tenant-1" {
+			t.Fatalf("source = %#v", query.Source)
 		}
-
-		for _, tc := range cases {
-			query := ParseConnectedAppsQuery(url.Values{
-				"review_state": []string{tc.raw},
-			})
-			if query.GovernanceState != tc.want {
-				t.Fatalf("%s: state = %q, want %q", tc.name, query.GovernanceState, tc.want)
-			}
-			wantHref := "/app-assets?asset_kind=google_oauth_client&governance_state=" + tc.want + "&source_kind=google_workspace"
-			if query.Href() != wantHref {
-				t.Fatalf("%s: href = %q, want %q", tc.name, query.Href(), wantHref)
-			}
+		if query.Q != "svc" || query.PrincipalType != "service" || query.OwnerPresence != "unknown" {
+			t.Fatalf("query = %#v", query)
+		}
+		if query.GovernanceState != "action_required" || query.RiskLevel != "high" || query.ActivityState != "stale" || query.FreshnessState != "stale" {
+			t.Fatalf("query = %#v", query)
+		}
+		if query.SortDir != "desc" || query.Page != 1 {
+			t.Fatalf("sort/page = (%q, %d)", query.SortDir, query.Page)
+		}
+		if got := query.TrackingSignature(); got != "activity_state=stale&freshness_state=stale&governance_state=action_required&owner_presence=unknown&principal_type=service&q=svc&risk_level=high&sort_by=risk&sort_dir=desc&source_kind=entra&source_name=tenant-1" {
+			t.Fatalf("signature = %q", got)
 		}
 	})
 
-	t.Run("drops blank and unknown legacy states", func(t *testing.T) {
-		for _, raw := range []string{"", "missing"} {
-			query := ParseConnectedAppsQuery(url.Values{
-				"review_state": []string{raw},
-			})
-			if query.GovernanceState != "" {
-				t.Fatalf("raw %q: state = %q, want blank", raw, query.GovernanceState)
-			}
-			if query.Href() != "/app-assets?asset_kind=google_oauth_client&source_kind=google_workspace" {
-				t.Fatalf("raw %q: href = %q", raw, query.Href())
-			}
+	t.Run("drops unsupported legacy aliases from hrefs", func(t *testing.T) {
+		query := ParseNonHumanAccessQuery(url.Values{
+			"source_kind":      []string{"entra"},
+			"source_name":      []string{"tenant-1"},
+			"principal_type":   []string{"legacy"},
+			"owner_presence":   []string{"missing"},
+			"governance_state": []string{"under_review"},
+			"sort_by":          []string{"owner"},
+			"sort_dir":         []string{"sideways"},
+			"page":             []string{"2"},
+		}, sources)
+
+		want := "/non-human-access?page=2&sort_by=owner&sort_dir=asc&source_kind=entra&source_name=tenant-1"
+		if query.Href() != want {
+			t.Fatalf("href = %q, want %q", query.Href(), want)
+		}
+		if query.PrincipalType != "" || query.OwnerPresence != "" || query.GovernanceState != "" {
+			t.Fatalf("expected unsupported aliases to be dropped: %#v", query)
 		}
 	})
 }

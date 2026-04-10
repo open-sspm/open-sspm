@@ -205,6 +205,8 @@ func TestRegisterRoutesUsesCapabilityFirstSurface(t *testing.T) {
 		"/oauth-apps",
 		"/oauth-apps/:id",
 		"/oauth-apps/:id/export",
+		"/non-human-access",
+		"/non-human-access/:ref",
 		"/app-assets/:id/export",
 		"/app-assets/:id/governance",
 		"/app-assets/:id/grants/:credentialID/revoke",

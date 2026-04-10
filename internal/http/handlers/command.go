@@ -326,11 +326,11 @@ func commandActionSection(stateView connectorStateView, query string) viewmodels
 			commandQueryURL("/identities", query),
 		))
 	}
-	if commandHasAppAssetsSurface(stateView) {
+	if commandHasNonHumanAccessSurface(stateView) {
 		items = append(items, commandActionItem(
-			"cmd-action-app-assets",
-			fmt.Sprintf("Search App Assets for “%s”", query),
-			commandQueryURL("/app-assets", query),
+			"cmd-action-non-human-access",
+			fmt.Sprintf("Search Non-Human Access for “%s”", query),
+			commandQueryURL("/non-human-access", query),
 		))
 	}
 	if commandHasDiscoverySurface(stateView) {
@@ -370,8 +370,8 @@ func commandHasIdentitySurface(stateView connectorStateView) bool {
 	return len(availableIdentitySourcePairs(stateView)) > 0
 }
 
-func commandHasAppAssetsSurface(stateView connectorStateView) bool {
-	return len(availableProgrammaticSources(stateView)) > 0
+func commandHasNonHumanAccessSurface(stateView connectorStateView) bool {
+	return len(availableIdentitySourcePairs(stateView)) > 0
 }
 
 func commandHasDiscoverySurface(stateView connectorStateView) bool {

@@ -60,7 +60,7 @@ func AppAssetsPage(data viewmodels.AppAssetsViewData) templ.Component {
 				})
 				templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 					{Label: "Dashboard", Href: "/"},
-					{Label: "Programmatic Access"},
+					{Label: "Non-Human Access"},
 					{Label: "App Assets"},
 				}, "Saved view for Google Workspace OAuth apps with governance state, grant activity, ownership, and discovery evidence.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
@@ -83,7 +83,7 @@ func AppAssetsPage(data viewmodels.AppAssetsViewData) templ.Component {
 				})
 				templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 					{Label: "Dashboard", Href: "/"},
-					{Label: "Programmatic Access"},
+					{Label: "Non-Human Access"},
 					{Label: "App Assets"},
 				}, "Inventory of applications and service principals discovered from connected providers.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var4), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {

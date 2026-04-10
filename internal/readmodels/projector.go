@@ -83,7 +83,25 @@ func (p *Projector) RefreshSourceReadModels(ctx context.Context, sourceKind, sou
 		if err := refreshDiscoverySource(ctx, q, sourceKind, sourceName); err != nil {
 			return err
 		}
-		return refreshAppAssetSource(ctx, q, sourceKind, sourceName)
+		if err := refreshAppAssetSource(ctx, q, sourceKind, sourceName); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (p *Projector) RefreshNonHumanPrincipalSourceReadModels(ctx context.Context, sourceKind, sourceName string) error {
+	return p.withQueries(ctx, func(q *gen.Queries) error {
+		sourceKind = normalizeSourceKind(sourceKind)
+		sourceName = strings.TrimSpace(sourceName)
+		if sourceKind == "" || sourceName == "" {
+			return nil
+		}
+		_, err := q.RefreshNonHumanPrincipalReadModelsBySource(ctx, gen.RefreshNonHumanPrincipalReadModelsBySourceParams{
+			SourceKind: sourceKind,
+			SourceName: sourceName,
+		})
+		return err
 	})
 }
 
@@ -102,7 +120,11 @@ func (p *Projector) RebuildAllReadModels(ctx context.Context) error {
 		if _, err := q.RefreshAllAppAssetReadModels(ctx); err != nil {
 			return err
 		}
-		return refreshConnectorSourceState(ctx, q, p.cfg)
+		if err := refreshConnectorSourceState(ctx, q, p.cfg); err != nil {
+			return err
+		}
+		_, err := q.RefreshAllNonHumanPrincipalReadModels(ctx)
+		return err
 	})
 }
 

@@ -123,46 +123,6 @@ func TestHandleAppAssetsRendersGoogleOAuthSlice(t *testing.T) {
 	})
 }
 
-func TestHandleAppAssetsRendersGoogleOAuthSliceForLegacyReviewStateFilter(t *testing.T) {
-	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
-		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGoogleWorkspace, true, configstore.GoogleWorkspaceConfig{
-			CustomerID:          "C0123",
-			DelegatedAdminEmail: "admin@example.com",
-			AuthType:            configstore.GoogleWorkspaceAuthTypeADC,
-			ServiceAccountEmail: "svc@example.com",
-		})
-
-		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGoogleWorkspace, "C0123")
-		actionRequiredID := insertCommandSearchAppAsset(t, ctx, q, runID, configstore.KindGoogleWorkspace, "C0123", connectedAppAssetKindGoogle, "client-123.apps.googleusercontent.com", "", "OAuth Approval Client", "active")
-		unreviewedID := insertCommandSearchAppAsset(t, ctx, q, runID, configstore.KindGoogleWorkspace, "C0123", connectedAppAssetKindGoogle, "client-456.apps.googleusercontent.com", "", "Shadow OAuth Client", "active")
-
-		if _, err := q.UpsertAppAssetGovernance(ctx, gen.UpsertAppAssetGovernanceParams{
-			AppAssetID:      actionRequiredID,
-			GovernanceState: "action_required",
-		}); err != nil {
-			t.Fatalf("UpsertAppAssetGovernance: %v", err)
-		}
-
-		target := "http://example.com/app-assets?source_kind=google_workspace&asset_kind=google_oauth_client&review_state=needs_revocation"
-		c, rec := newTestContext(http.MethodGet, target)
-
-		if err := h.HandleAppAssets(c); err != nil {
-			t.Fatalf("HandleAppAssets(): %v", err)
-		}
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
-		}
-
-		body := rec.Body.String()
-		assertContains(t, body, "OAuth Apps")
-		assertContains(t, body, "/app-assets/"+fmt.Sprint(actionRequiredID))
-		assertNotContains(t, body, "/app-assets/"+fmt.Sprint(unreviewedID))
-		assertContains(t, body, "Action Required")
-		assertContains(t, body, `hx-get="/app-assets?asset_kind=google_oauth_client&amp;governance_state=action_required&amp;source_kind=google_workspace&amp;page=1"`)
-		assertNotContains(t, body, "review_state=needs_revocation")
-	})
-}
-
 func TestHandleAppAssetsRendersGoogleOAuthSliceWhenGoogleWorkspaceUnavailable(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		c, rec := newTestContext(http.MethodGet, "http://example.com/app-assets?source_kind=google_workspace&asset_kind=google_oauth_client")
@@ -209,24 +169,6 @@ func TestHandleConnectedAppsRedirectPreservesUnavailableOAuthSlice(t *testing.T)
 		assertContains(t, body, "OAuth Apps")
 		assertContains(t, body, connectorUnavailableMessage("Google Workspace", false, false))
 		assertNotContains(t, body, "Configure and enable GitHub, Google Workspace, Microsoft Entra, or Vault connectors to populate app assets.")
-	})
-}
-
-func TestHandleConnectedAppsRedirectCanonicalizesLegacyReviewState(t *testing.T) {
-	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
-		c, rec := newTestContext(http.MethodGet, "http://example.com/oauth-apps?review_state=under_review")
-
-		if err := h.HandleConnectedApps(c); err != nil {
-			t.Fatalf("HandleConnectedApps(): %v", err)
-		}
-		if rec.Code != http.StatusSeeOther {
-			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusSeeOther, rec.Body.String())
-		}
-
-		location := rec.Header().Get(echo.HeaderLocation)
-		if location != "/app-assets?asset_kind=google_oauth_client&governance_state=in_review&source_kind=google_workspace" {
-			t.Fatalf("location = %q", location)
-		}
 	})
 }
 

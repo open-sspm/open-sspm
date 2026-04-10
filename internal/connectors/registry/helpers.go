@@ -252,13 +252,7 @@ func FinalizeOktaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, ru
 		"counts":      counts,
 		"duration_ms": duration.Milliseconds(),
 	})
-	if err := refreshSourceReadModelsInTx(ctx, qtx, "okta", sourceName); err != nil {
-		return err
-	}
-	if err := qtx.MarkSyncRunSuccess(ctx, gen.MarkSyncRunSuccessParams{ID: runID, Stats: stats}); err != nil {
-		return err
-	}
-	if err := refreshConnectorSourceStateInTx(ctx, qtx); err != nil {
+	if err := finalizeSuccessfulRunInTx(ctx, qtx, runID, stats, "okta", sourceName); err != nil {
 		return err
 	}
 
@@ -427,13 +421,7 @@ func FinalizeAppRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, run
 		"counts":      counts,
 		"duration_ms": duration.Milliseconds(),
 	})
-	if err := refreshSourceReadModelsInTx(ctx, qtx, sourceKind, sourceName); err != nil {
-		return err
-	}
-	if err := qtx.MarkSyncRunSuccess(ctx, gen.MarkSyncRunSuccessParams{ID: runID, Stats: stats}); err != nil {
-		return err
-	}
-	if err := refreshConnectorSourceStateInTx(ctx, qtx); err != nil {
+	if err := finalizeSuccessfulRunInTx(ctx, qtx, runID, stats, sourceKind, sourceName); err != nil {
 		return err
 	}
 
@@ -497,13 +485,7 @@ func FinalizeDiscoveryRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Poo
 		"counts":      counts,
 		"duration_ms": duration.Milliseconds(),
 	})
-	if err := refreshSourceReadModelsInTx(ctx, qtx, sourceKind, sourceName); err != nil {
-		return err
-	}
-	if err := qtx.MarkSyncRunSuccess(ctx, gen.MarkSyncRunSuccessParams{ID: runID, Stats: stats}); err != nil {
-		return err
-	}
-	if err := refreshConnectorSourceStateInTx(ctx, qtx); err != nil {
+	if err := finalizeSuccessfulRunInTx(ctx, qtx, runID, stats, sourceKind, sourceName); err != nil {
 		return err
 	}
 
@@ -532,6 +514,16 @@ func MarshalJSON(v any) []byte {
 	return b
 }
 
+func finalizeSuccessfulRunInTx(ctx context.Context, q *gen.Queries, runID int64, stats []byte, sourceKind, sourceName string) error {
+	if err := refreshSourceReadModelsInTx(ctx, q, sourceKind, sourceName); err != nil {
+		return err
+	}
+	if err := q.MarkSyncRunSuccess(ctx, gen.MarkSyncRunSuccessParams{ID: runID, Stats: stats}); err != nil {
+		return err
+	}
+	return refreshPostSuccessReadModelsInTx(ctx, q, sourceKind, sourceName)
+}
+
 func refreshSourceReadModelsInTx(ctx context.Context, q *gen.Queries, sourceKind, sourceName string) error {
 	projector := readmodels.ProjectorFromContext(ctx, q)
 	if projector == nil {
@@ -540,12 +532,27 @@ func refreshSourceReadModelsInTx(ctx context.Context, q *gen.Queries, sourceKind
 	return projector.RefreshSourceReadModels(ctx, sourceKind, sourceName)
 }
 
+func refreshPostSuccessReadModelsInTx(ctx context.Context, q *gen.Queries, sourceKind, sourceName string) error {
+	if err := refreshConnectorSourceStateInTx(ctx, q); err != nil {
+		return err
+	}
+	return refreshNonHumanPrincipalReadModelsInTx(ctx, q, sourceKind, sourceName)
+}
+
 func refreshConnectorSourceStateInTx(ctx context.Context, q *gen.Queries) error {
 	projector := readmodels.ProjectorFromContext(ctx, q)
 	if projector == nil {
 		return nil
 	}
 	return projector.RefreshConnectorSourceState(ctx)
+}
+
+func refreshNonHumanPrincipalReadModelsInTx(ctx context.Context, q *gen.Queries, sourceKind, sourceName string) error {
+	projector := readmodels.ProjectorFromContext(ctx, q)
+	if projector == nil {
+		return nil
+	}
+	return projector.RefreshNonHumanPrincipalSourceReadModels(ctx, sourceKind, sourceName)
 }
 
 func NormalizeJSON(b []byte) []byte {

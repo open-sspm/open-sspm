@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -18,9 +19,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/readmodels"
 )
+
+const syncRunsTestConnectorSecretKey = "0123456789abcdef0123456789abcdef"
 
 func TestReclaimRunningSyncRunsBySourcePreservesLatestFinishedRun(t *testing.T) {
 	t.Parallel()
@@ -323,6 +327,46 @@ func TestFinalizeAppRunRollsBackSuccessWhenReadModelRefreshFails(t *testing.T) {
 	})
 }
 
+func TestFinalizeAppRunRefreshesNonHumanFreshnessFromCurrentSuccess(t *testing.T) {
+	t.Parallel()
+
+	withSyncRunsTestDB(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateUp(t, migrator)
+
+		upsertSyncRunsTestConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{Org: "acme"})
+
+		runID, err := StartSyncRun(ctx, q, configstore.KindGitHub, "acme")
+		if err != nil {
+			t.Fatalf("StartSyncRun() err = %v", err)
+		}
+
+		appAssetID := insertSyncRunsTestAppAsset(t, ctx, q, runID, configstore.KindGitHub, "acme", "github_app", "github-actions", "GitHub Actions")
+
+		finalizeCtx := readmodels.WithRefreshConfig(ctx, readmodels.RefreshConfig{SyncGitHubInterval: time.Hour})
+		if err := FinalizeAppRun(finalizeCtx, q, pool, runID, configstore.KindGitHub, "acme", 2*time.Second, false); err != nil {
+			t.Fatalf("FinalizeAppRun() err = %v", err)
+		}
+
+		var (
+			freshnessState   string
+			hasStaleEvidence bool
+		)
+		if err := pool.QueryRow(ctx, `
+			SELECT freshness_state, has_stale_evidence
+			FROM non_human_principals
+			WHERE principal_ref = $1
+		`, "app-asset-"+strconv.FormatInt(appAssetID, 10)).Scan(&freshnessState, &hasStaleEvidence); err != nil {
+			t.Fatalf("select non_human_principals freshness: %v", err)
+		}
+		if freshnessState != "current" {
+			t.Fatalf("freshness_state = %q, want current", freshnessState)
+		}
+		if hasStaleEvidence {
+			t.Fatalf("has_stale_evidence = true, want false")
+		}
+	})
+}
+
 type syncRunSeed struct {
 	SourceKind string
 	SourceName string
@@ -444,6 +488,68 @@ func fetchSyncRunState(t *testing.T, ctx context.Context, pool *pgxpool.Pool, ru
 		t.Fatalf("fetch sync run %d: %v", runID, err)
 	}
 	return state
+}
+
+func upsertSyncRunsTestConnectorConfig(t *testing.T, ctx context.Context, pool *pgxpool.Pool, kind string, enabled bool, cfg any) {
+	t.Helper()
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin connector config tx %s: %v", kind, err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	qtx := gen.New(pool).WithTx(tx)
+	if _, err := qtx.UpdateConnectorConfigEnabled(ctx, gen.UpdateConnectorConfigEnabledParams{
+		Kind:    kind,
+		Enabled: enabled,
+	}); err != nil {
+		t.Fatalf("UpdateConnectorConfigEnabled(%s): %v", kind, err)
+	}
+
+	store := configstore.NewStore(nil, qtx, []byte(syncRunsTestConnectorSecretKey))
+	if err := store.SaveConnectorConfigTx(ctx, qtx, kind, cfg); err != nil {
+		t.Fatalf("SaveConnectorConfigTx(%s): %v", kind, err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("commit connector config %s: %v", kind, err)
+	}
+}
+
+func insertSyncRunsTestAppAsset(t *testing.T, ctx context.Context, q *gen.Queries, runID int64, sourceKind, sourceName, assetKind, externalID, displayName string) int64 {
+	t.Helper()
+
+	now := pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
+	if _, err := q.UpsertAppAssetsBulkBySource(ctx, gen.UpsertAppAssetsBulkBySourceParams{
+		SourceKind:        sourceKind,
+		SourceName:        sourceName,
+		SeenInRunID:       runID,
+		AssetKinds:        []string{assetKind},
+		ExternalIds:       []string{externalID},
+		ParentExternalIds: []string{""},
+		DisplayNames:      []string{displayName},
+		Statuses:          []string{"active"},
+		CreatedAtSources:  []pgtype.Timestamptz{now},
+		UpdatedAtSources:  []pgtype.Timestamptz{now},
+		RawJsons:          [][]byte{[]byte(`{}`)},
+	}); err != nil {
+		t.Fatalf("UpsertAppAssetsBulkBySource(%s/%s): %v", sourceKind, externalID, err)
+	}
+
+	appAsset, err := q.GetAppAssetBySourceAndKindAndExternalID(ctx, gen.GetAppAssetBySourceAndKindAndExternalIDParams{
+		SourceKind: sourceKind,
+		SourceName: sourceName,
+		AssetKind:  assetKind,
+		ExternalID: externalID,
+	})
+	if err != nil {
+		t.Fatalf("GetAppAssetBySourceAndKindAndExternalID(%s/%s): %v", sourceKind, externalID, err)
+	}
+
+	return appAsset.ID
 }
 
 func testMigrationsDir(t *testing.T) string {

@@ -44,8 +44,8 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 						<dd>{ data.UpdatedOn }</dd>
 					</div>
 				</dl>
-				if data.ProgrammaticAccessHref != "" {
-					<a class="btn-sm-link px-0" href={ data.ProgrammaticAccessHref }>Search credentials</a>
+				if data.NonHumanAccessHref != "" {
+					<a class="btn-sm-link px-0" href={ data.NonHumanAccessHref }>Search non-human access</a>
 				}
 			</div>
 		</section>
