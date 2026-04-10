@@ -70,7 +70,6 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 								if data.App.FollowUpDueDate != "" {
 									<div class="flex flex-wrap items-center gap-2">
 										<span class={ DiscoveryFollowUpBadgeClass(data.App.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(data.App.FollowUpDueDate, data.App.IsFollowUpOverdue) }</span>
-										<span class="font-medium">{ FormatDateLabel(data.App.FollowUpDueDate) }</span>
 									</div>
 								} else {
 									<p class="text-muted-foreground">—</p>
@@ -156,7 +155,6 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 												if item.FollowUpDueDate != "" {
 													<div class="flex flex-wrap items-center gap-2">
 														<span class={ DiscoveryFollowUpBadgeClass(item.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(item.FollowUpDueDate, item.IsFollowUpOverdue) }</span>
-														<span>{ FormatDateLabel(item.FollowUpDueDate) }</span>
 													</div>
 												} else {
 													<span class="text-muted-foreground">—</span>
