@@ -334,7 +334,7 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 
 								<label class="field">
 									<span class="label">Disposition</span>
-									<select class="select" name="review_disposition">
+									<select class="select" name="review_disposition" data-discovery-review-disposition>
 										<option value="unreviewed" selected?={ data.ReviewDispositionInput == "unreviewed" }>Unreviewed</option>
 										<option value="under_review" selected?={ data.ReviewDispositionInput == "under_review" }>Under review</option>
 										<option value="sanctioned" selected?={ data.ReviewDispositionInput == "sanctioned" }>Sanctioned</option>
@@ -358,27 +358,30 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 									<textarea class="textarea min-h-32" name="notes" placeholder="Capture rationale, status, or next step context.">{ data.NotesInput }</textarea>
 								</label>
 
-								if data.ReviewDispositionInput == "replace" {
-									<div class="space-y-2">
-										<label class="field">
-											<span class="label">Replacement search</span>
-											<input
-												class="input"
-												type="search"
-												name="replacement_query"
-												value={ data.ReplacementQueryInput }
-												placeholder="Search managed discovery apps"
-												autocomplete="off"
-												hx-get="/discovery/apps/replacement-candidates"
-												hx-trigger="input changed delay:150ms, search"
-												hx-target="#discovery-replacement-candidates"
-												hx-swap="outerHTML"
-												hx-include="closest form"
-											/>
-										</label>
-										@DiscoveryReplacementCandidateResults(data.ReplacementPicker)
-									</div>
-								}
+								<div
+									id="discovery-replacement-fields"
+									class="space-y-2"
+									data-discovery-replacement-fields
+									hidden?={ data.ReviewDispositionInput != "replace" }
+								>
+									<label class="field">
+										<span class="label">Replacement search</span>
+										<input
+											class="input"
+											type="search"
+											name="replacement_query"
+											value={ data.ReplacementQueryInput }
+											placeholder="Search managed discovery apps"
+											autocomplete="off"
+											hx-get="/discovery/apps/replacement-candidates"
+											hx-trigger="input changed delay:150ms, search"
+											hx-target="#discovery-replacement-candidates"
+											hx-swap="outerHTML"
+											hx-include="closest form"
+										/>
+									</label>
+									@DiscoveryReplacementCandidateResults(data.ReplacementPicker)
+								</div>
 
 								<button type="submit" class="btn-primary w-full">Save governance</button>
 							</form>

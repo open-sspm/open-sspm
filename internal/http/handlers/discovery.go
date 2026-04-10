@@ -357,6 +357,13 @@ func (h *Handlers) validateDiscoveryGovernanceUpdate(ctx context.Context, summar
 			Destructive: true,
 		}, nil
 	}
+	if isDateOverdue(followUpDueDate) {
+		return validated, &viewmodels.DiscoveryAlert{
+			Title:       "Invalid due date",
+			Message:     "Follow-up date must be today or in the future.",
+			Destructive: true,
+		}, nil
+	}
 	validated.followUpDueDate = followUpDueDate
 
 	if form.reviewDispositionInput == "replace" {
@@ -605,7 +612,7 @@ func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout vie
 			ReviewOwner:              discoveryOwnerLabel(row.ReviewOwnerDisplayName, row.ReviewOwnerPrimaryEmail),
 			ReviewDisposition:        normalizeDiscoveryReviewDisposition(row.ReviewDisposition),
 			FollowUpDueDate:          formatDate(row.FollowUpDueDate),
-			IsFollowUpOverdue:        isDateOverdue(row.FollowUpDueDate),
+			IsFollowUpOverdue:        false,
 			TicketRef:                strings.TrimSpace(row.TicketRef),
 			Notes:                    strings.TrimSpace(row.Notes),
 			ReplacementDisplayName:   strings.TrimSpace(row.ReplacementDisplayName),
@@ -638,7 +645,7 @@ func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout vie
 	}
 
 	var replacementPicker viewmodels.DiscoveryReplacementCandidatesViewData
-	if layout.IsAdmin && reviewDispositionInput == "replace" {
+	if layout.IsAdmin {
 		replacementPicker, err = h.buildDiscoveryReplacementCandidatesViewData(ctx, appID, replacementQueryInput, replacementSaaSAppIDInput)
 		if err != nil {
 			return data, err

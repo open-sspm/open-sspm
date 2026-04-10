@@ -21,6 +21,19 @@ SELECT
   pr.risk_level::text AS risk_level
 FROM discovery_app_read_models_v pr
 WHERE pr.id = $1::bigint
+  AND pr.managed_state = 'managed'
+  AND EXISTS (
+    SELECT 1
+    FROM saas_app_sources sas
+    JOIN connector_source_state css
+      ON lower(trim(css.source_kind)) = lower(trim(sas.source_kind))
+     AND lower(trim(css.source_name)) = lower(trim(sas.source_name))
+    WHERE sas.saas_app_id = pr.id
+      AND sas.expired_at IS NULL
+      AND sas.last_observed_run_id IS NOT NULL
+      AND css.configured
+      AND css.discovery_enabled
+  )
 `
 
 type GetSaaSAppReplacementCandidateByIDRow struct {
@@ -284,6 +297,7 @@ const upsertSaaSAppReviewGovernance = `-- name: UpsertSaaSAppReviewGovernance :o
 INSERT INTO governance_subject_overrides (
   subject_kind,
   subject_id,
+  governance_state,
   owner_identity_id,
   ticket_ref,
   notes,
@@ -297,10 +311,17 @@ INSERT INTO governance_subject_overrides (
 VALUES (
   'saas_app',
   $1::bigint,
-  $2::bigint,
-  $3::text,
+  CASE $2::text
+    WHEN 'under_review' THEN 'in_review'
+    WHEN 'sanctioned' THEN 'approved'
+    WHEN 'tolerated' THEN 'approved'
+    WHEN 'replace' THEN 'action_required'
+    ELSE 'unreviewed'
+  END,
+  $3::bigint,
   $4::text,
   $5::text,
+  $2::text,
   $6::bigint,
   $7::date,
   $8::bigint,
@@ -308,6 +329,7 @@ VALUES (
   now()
 )
 ON CONFLICT (subject_kind, subject_id) DO UPDATE SET
+  governance_state = EXCLUDED.governance_state,
   owner_identity_id = EXCLUDED.owner_identity_id,
   ticket_ref = EXCLUDED.ticket_ref,
   notes = EXCLUDED.notes,
@@ -322,10 +344,10 @@ RETURNING subject_kind, subject_id, governance_state, owner_identity_id, busines
 
 type UpsertSaaSAppReviewGovernanceParams struct {
 	SaasAppID             int64       `json:"saas_app_id"`
+	ReviewDisposition     string      `json:"review_disposition"`
 	OwnerIdentityID       pgtype.Int8 `json:"owner_identity_id"`
 	TicketRef             string      `json:"ticket_ref"`
 	Notes                 string      `json:"notes"`
-	ReviewDisposition     string      `json:"review_disposition"`
 	ReviewOwnerIdentityID pgtype.Int8 `json:"review_owner_identity_id"`
 	FollowUpDueDate       pgtype.Date `json:"follow_up_due_date"`
 	ReplacementSaasAppID  pgtype.Int8 `json:"replacement_saas_app_id"`
@@ -335,10 +357,10 @@ type UpsertSaaSAppReviewGovernanceParams struct {
 func (q *Queries) UpsertSaaSAppReviewGovernance(ctx context.Context, arg UpsertSaaSAppReviewGovernanceParams) (GovernanceSubjectOverride, error) {
 	row := q.db.QueryRow(ctx, upsertSaaSAppReviewGovernance,
 		arg.SaasAppID,
+		arg.ReviewDisposition,
 		arg.OwnerIdentityID,
 		arg.TicketRef,
 		arg.Notes,
-		arg.ReviewDisposition,
 		arg.ReviewOwnerIdentityID,
 		arg.FollowUpDueDate,
 		arg.ReplacementSaasAppID,

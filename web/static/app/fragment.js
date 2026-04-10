@@ -71,6 +71,33 @@ export const wireAutosubmit = (root = document) => {
   });
 };
 
+const syncDiscoveryReplacementFields = (select) => {
+  if (!(select instanceof HTMLSelectElement)) return;
+  const form = select.closest("form");
+  if (!(form instanceof HTMLFormElement)) return;
+
+  const replacementFields = form.querySelector("[data-discovery-replacement-fields]");
+  if (!(replacementFields instanceof HTMLElement)) return;
+
+  replacementFields.hidden = (select.value || "").trim() !== "replace";
+};
+
+export const wireDiscoveryGovernanceDisposition = (root = document) => {
+  root.querySelectorAll("select[data-discovery-review-disposition]").forEach((element) => {
+    if (!(element instanceof HTMLSelectElement)) return;
+    if (element.dataset.discoveryReviewDispositionBound === "true") {
+      syncDiscoveryReplacementFields(element);
+      return;
+    }
+
+    element.addEventListener("change", () => {
+      syncDiscoveryReplacementFields(element);
+    });
+    element.dataset.discoveryReviewDispositionBound = "true";
+    syncDiscoveryReplacementFields(element);
+  });
+};
+
 export const triggerVisibleLazyHx = (root = document) => {
   const htmxApi = window.htmx;
   if (!htmxApi || typeof htmxApi.trigger !== "function") return;
@@ -188,6 +215,7 @@ export const initFragment = (root = document) => {
   wireCopyButtons(root);
   wireColumnControls(root);
   wireAutosubmit(root);
+  wireDiscoveryGovernanceDisposition(root);
   wireRowLinks(root);
   triggerVisibleLazyHx(root);
 };

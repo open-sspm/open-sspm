@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { initFragment, triggerVisibleLazyHx, wireAutosubmit, wireRowLinks } from "open-sspm-app/fragment.js";
+import {
+  initFragment,
+  triggerVisibleLazyHx,
+  wireAutosubmit,
+  wireDiscoveryGovernanceDisposition,
+  wireRowLinks,
+} from "open-sspm-app/fragment.js";
 
 describe("fragment", () => {
   beforeEach(() => {
@@ -49,6 +55,32 @@ describe("fragment", () => {
     input.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(submitSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows replacement fields immediately when discovery disposition changes to replace", () => {
+    document.body.innerHTML = `
+      <form>
+        <select id="disposition" data-discovery-review-disposition>
+          <option value="under_review" selected>Under review</option>
+          <option value="replace">Replace</option>
+        </select>
+        <div id="replacement-fields" data-discovery-replacement-fields hidden>
+          <input type="search" name="replacement_query" />
+        </div>
+      </form>
+    `;
+
+    wireDiscoveryGovernanceDisposition(document);
+
+    const disposition = document.getElementById("disposition");
+    const replacementFields = document.getElementById("replacement-fields");
+
+    expect(replacementFields.hidden).toBe(true);
+
+    disposition.value = "replace";
+    disposition.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(replacementFields.hidden).toBe(false);
   });
 
   it("triggers visible lazy panels only when they are idle", () => {

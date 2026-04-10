@@ -620,10 +620,27 @@ func TestHandleDiscoveryAppGovernanceUpdateValidation(t *testing.T) {
 			Org:   "acme",
 			Token: "github-token",
 		})
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindDatadog, true, configstore.DatadogConfig{
+			Site:   "datadoghq.com",
+			APIKey: "api-key",
+			AppKey: "app-key",
+		})
 
 		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
+		datadogRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindDatadog, "datadoghq.com")
 		currentID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "shadow-app", "Shadow App", "shadow.example.com", "Example", "shadow-app")
 		unmanagedReplacementID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "legacy-app", "Legacy App", "legacy.example.com", "Example", "legacy-app")
+		hiddenManagedReplacementID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, datadogRunID, configstore.KindDatadog, "datadoghq.com", "hidden-app", "Hidden App", "hidden.example.com", "Example", "hidden-app")
+		upsertDiscoveryPrimaryBinding(t, ctx, q, hiddenManagedReplacementID, configstore.KindDatadog, "datadoghq.com")
+		if _, err := pool.Exec(ctx, `
+			UPDATE connector_source_state
+			SET discovery_enabled = false,
+			    updated_at = now()
+			WHERE source_kind = $1
+			  AND source_name = $2
+		`, configstore.KindDatadog, "datadoghq.com"); err != nil {
+			t.Fatalf("disable datadog discovery source: %v", err)
+		}
 
 		adminUserID := insertDiscoveryAuthUser(t, ctx, pool, "admin@example.com", "admin")
 		insertCommandSearchIdentity(t, ctx, pool, "human", "owner@example.com", "Owner User")
@@ -661,6 +678,19 @@ func TestHandleDiscoveryAppGovernanceUpdateValidation(t *testing.T) {
 				want: "Owner required",
 			},
 			{
+				name: "past due date rejected",
+				form: url.Values{
+					"owner_email":        []string{"owner@example.com"},
+					"review_disposition": []string{"under_review"},
+					"follow_up_due_date": []string{"2024-01-01"},
+				},
+				want: "Invalid due date",
+				wantBody: []string{
+					"Follow-up date must be today or in the future.",
+					`value="2024-01-01"`,
+				},
+			},
+			{
 				name: "replacement required",
 				form: url.Values{
 					"owner_email":        []string{"owner@example.com"},
@@ -669,13 +699,22 @@ func TestHandleDiscoveryAppGovernanceUpdateValidation(t *testing.T) {
 				want: "Replacement required",
 			},
 			{
-				name: "replacement must be managed",
+				name: "replacement not found when unmanaged",
 				form: url.Values{
 					"owner_email":             []string{"owner@example.com"},
 					"review_disposition":      []string{"replace"},
 					"replacement_saas_app_id": []string{strconv.FormatInt(unmanagedReplacementID, 10)},
 				},
-				want: "Replacement must be managed",
+				want: "Replacement not found",
+			},
+			{
+				name: "replacement not found when outside discovery scope",
+				form: url.Values{
+					"owner_email":             []string{"owner@example.com"},
+					"review_disposition":      []string{"replace"},
+					"replacement_saas_app_id": []string{strconv.FormatInt(hiddenManagedReplacementID, 10)},
+				},
+				want: "Replacement not found",
 			},
 		}
 
@@ -803,6 +842,27 @@ func TestHandleDiscoveryAppShowRendersGovernanceForAdminAndViewer(t *testing.T) 
 		assertContains(t, adminBody, "/discovery/apps/"+strconv.FormatInt(appID, 10)+"/governance")
 		assertContains(t, adminBody, "Decision History")
 		assertContains(t, adminBody, "SEC-999")
+	})
+}
+
+func TestHandleDiscoveryAppShowDoesNotMarkHistoricalFollowUpAsOverdue(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindEntra, "tenant-1")
+		appID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindEntra, "tenant-1", "shadow-app", "Shadow App", "shadow.example.com", "Example", "shadow-app")
+
+		adminUserID := insertDiscoveryAuthUser(t, ctx, pool, "admin@example.com", "admin")
+		if err := q.InsertSaaSAppReviewDecision(ctx, gen.InsertSaaSAppReviewDecisionParams{
+			SaasAppID:           appID,
+			ReviewDisposition:   "sanctioned",
+			FollowUpDueDate:     pgtype.Date{Time: time.Date(2020, time.January, 2, 0, 0, 0, 0, time.UTC), Valid: true},
+			ChangedByAuthUserID: pgtype.Int8{Int64: adminUserID, Valid: true},
+		}); err != nil {
+			t.Fatalf("InsertSaaSAppReviewDecision(): %v", err)
+		}
+
+		body := renderDiscoveryAppShow(t, h, appID)
+		assertContains(t, body, "Jan 2, 2020")
+		assertNotContains(t, body, "Overdue")
 	})
 }
 

@@ -1352,7 +1352,7 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "\" placeholder=\"reviewer@example.com\"> <span class=\"text-xs text-muted-foreground\">Optional in MVP. Must match an existing identity email if provided.</span></label> <label class=\"field\"><span class=\"label\">Disposition</span> <select class=\"select\" name=\"review_disposition\"><option value=\"unreviewed\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "\" placeholder=\"reviewer@example.com\"> <span class=\"text-xs text-muted-foreground\">Optional in MVP. Must match an existing identity email if provided.</span></label> <label class=\"field\"><span class=\"label\">Disposition</span> <select class=\"select\" name=\"review_disposition\" data-discovery-review-disposition><option value=\"unreviewed\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1441,38 +1441,38 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "</textarea></label> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "</textarea></label><div id=\"discovery-replacement-fields\" class=\"space-y-2\" data-discovery-replacement-fields")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if data.ReviewDispositionInput == "replace" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 135, "<div class=\"space-y-2\"><label class=\"field\"><span class=\"label\">Replacement search</span> <input class=\"input\" type=\"search\" name=\"replacement_query\" value=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var87 string
-				templ_7745c5c3_Var87, templ_7745c5c3_Err = templ.JoinStringErrs(data.ReplacementQueryInput)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 369, Col: 46}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var87))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 136, "\" placeholder=\"Search managed discovery apps\" autocomplete=\"off\" hx-get=\"/discovery/apps/replacement-candidates\" hx-trigger=\"input changed delay:150ms, search\" hx-target=\"#discovery-replacement-candidates\" hx-swap=\"outerHTML\" hx-include=\"closest form\"></label>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = DiscoveryReplacementCandidateResults(data.ReplacementPicker).Render(ctx, templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "</div>")
+			if data.ReviewDispositionInput != "replace" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 135, " hidden")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 138, "<button type=\"submit\" class=\"btn-primary w-full\">Save governance</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 136, "><label class=\"field\"><span class=\"label\">Replacement search</span> <input class=\"input\" type=\"search\" name=\"replacement_query\" value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var87 string
+			templ_7745c5c3_Var87, templ_7745c5c3_Err = templ.JoinStringErrs(data.ReplacementQueryInput)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 373, Col: 45}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var87))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "\" placeholder=\"Search managed discovery apps\" autocomplete=\"off\" hx-get=\"/discovery/apps/replacement-candidates\" hx-trigger=\"input changed delay:150ms, search\" hx-target=\"#discovery-replacement-candidates\" hx-swap=\"outerHTML\" hx-include=\"closest form\"></label>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = DiscoveryReplacementCandidateResults(data.ReplacementPicker).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 138, "</div><button type=\"submit\" class=\"btn-primary w-full\">Save governance</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1506,7 +1506,7 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 			var templ_7745c5c3_Var90 string
 			templ_7745c5c3_Var90, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeDiscoveryReviewDisposition(data.App.ReviewDisposition))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 390, Col: 155}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 393, Col: 155}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var90))
 			if templ_7745c5c3_Err != nil {
@@ -1542,7 +1542,7 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 				var templ_7745c5c3_Var93 string
 				templ_7745c5c3_Var93, templ_7745c5c3_Err = templ.JoinStringErrs(DiscoveryFollowUpLabel(data.App.FollowUpDueDate, data.App.IsFollowUpOverdue))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 392, Col: 161}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 395, Col: 161}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var93))
 				if templ_7745c5c3_Err != nil {
@@ -1560,7 +1560,7 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 			var templ_7745c5c3_Var94 string
 			templ_7745c5c3_Var94, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.Owner)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 398, Col: 53}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 401, Col: 53}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var94))
 			if templ_7745c5c3_Err != nil {
@@ -1573,7 +1573,7 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 			var templ_7745c5c3_Var95 string
 			templ_7745c5c3_Var95, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.ReviewOwner)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 399, Col: 72}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 402, Col: 72}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var95))
 			if templ_7745c5c3_Err != nil {
@@ -1625,7 +1625,7 @@ func DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCa
 			var templ_7745c5c3_Var97 string
 			templ_7745c5c3_Var97, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(data.SelectedCandidate.ID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 416, Col: 115}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 419, Col: 115}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var97))
 			if templ_7745c5c3_Err != nil {
@@ -1638,7 +1638,7 @@ func DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCa
 			var templ_7745c5c3_Var98 string
 			templ_7745c5c3_Var98, templ_7745c5c3_Err = templ.JoinStringErrs(data.SelectedCandidate.DisplayName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 418, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 421, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var98))
 			if templ_7745c5c3_Err != nil {
@@ -1656,7 +1656,7 @@ func DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCa
 				var templ_7745c5c3_Var99 string
 				templ_7745c5c3_Var99, templ_7745c5c3_Err = templ.JoinStringErrs(data.SelectedCandidate.Domain)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 421, Col: 45}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 424, Col: 45}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var99))
 				if templ_7745c5c3_Err != nil {
@@ -1675,7 +1675,7 @@ func DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCa
 				var templ_7745c5c3_Var100 string
 				templ_7745c5c3_Var100, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 424, Col: 22}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 427, Col: 22}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var100))
 				if templ_7745c5c3_Err != nil {
@@ -1684,7 +1684,7 @@ func DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCa
 				var templ_7745c5c3_Var101 string
 				templ_7745c5c3_Var101, templ_7745c5c3_Err = templ.JoinStringErrs(data.SelectedCandidate.VendorName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 424, Col: 59}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 427, Col: 59}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var101))
 				if templ_7745c5c3_Err != nil {
@@ -1724,7 +1724,7 @@ func DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCa
 			var templ_7745c5c3_Var104 string
 			templ_7745c5c3_Var104, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeDiscoveryManagedState(data.SelectedCandidate.ManagedState))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 429, Col: 155}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 432, Col: 155}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var104))
 			if templ_7745c5c3_Err != nil {
@@ -1759,7 +1759,7 @@ func DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCa
 			var templ_7745c5c3_Var107 string
 			templ_7745c5c3_Var107, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeCredentialRisk(data.SelectedCandidate.RiskLevel))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 430, Col: 140}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 433, Col: 140}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var107))
 			if templ_7745c5c3_Err != nil {
@@ -1784,7 +1784,7 @@ func DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCa
 					var templ_7745c5c3_Var108 string
 					templ_7745c5c3_Var108, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(item.ID))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 442, Col: 99}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 445, Col: 99}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var108))
 					if templ_7745c5c3_Err != nil {
@@ -1807,7 +1807,7 @@ func DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCa
 					var templ_7745c5c3_Var109 string
 					templ_7745c5c3_Var109, templ_7745c5c3_Err = templ.JoinStringErrs(item.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 444, Col: 51}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 447, Col: 51}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var109))
 					if templ_7745c5c3_Err != nil {
@@ -1825,7 +1825,7 @@ func DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCa
 						var templ_7745c5c3_Var110 string
 						templ_7745c5c3_Var110, templ_7745c5c3_Err = templ.JoinStringErrs(item.Domain)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 447, Col: 29}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 450, Col: 29}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var110))
 						if templ_7745c5c3_Err != nil {
@@ -1844,7 +1844,7 @@ func DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCa
 						var templ_7745c5c3_Var111 string
 						templ_7745c5c3_Var111, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 450, Col: 24}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 453, Col: 24}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var111))
 						if templ_7745c5c3_Err != nil {
@@ -1853,7 +1853,7 @@ func DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCa
 						var templ_7745c5c3_Var112 string
 						templ_7745c5c3_Var112, templ_7745c5c3_Err = templ.JoinStringErrs(item.VendorName)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 450, Col: 43}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 453, Col: 43}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var112))
 						if templ_7745c5c3_Err != nil {
@@ -1893,7 +1893,7 @@ func DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCa
 					var templ_7745c5c3_Var115 string
 					templ_7745c5c3_Var115, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeDiscoveryManagedState(item.ManagedState))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 454, Col: 121}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 457, Col: 121}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var115))
 					if templ_7745c5c3_Err != nil {
@@ -1928,7 +1928,7 @@ func DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCa
 					var templ_7745c5c3_Var118 string
 					templ_7745c5c3_Var118, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeCredentialRisk(item.RiskLevel))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 455, Col: 106}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 458, Col: 106}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var118))
 					if templ_7745c5c3_Err != nil {
@@ -1952,7 +1952,7 @@ func DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCa
 			var templ_7745c5c3_Var119 string
 			templ_7745c5c3_Var119, templ_7745c5c3_Err = templ.JoinStringErrs(data.EmptyStateMsg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 463, Col: 64}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 466, Col: 64}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var119))
 			if templ_7745c5c3_Err != nil {

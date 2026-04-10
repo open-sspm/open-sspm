@@ -2,6 +2,7 @@
 INSERT INTO governance_subject_overrides (
   subject_kind,
   subject_id,
+  governance_state,
   owner_identity_id,
   ticket_ref,
   notes,
@@ -15,6 +16,13 @@ INSERT INTO governance_subject_overrides (
 VALUES (
   'saas_app',
   sqlc.arg(saas_app_id)::bigint,
+  CASE sqlc.arg(review_disposition)::text
+    WHEN 'under_review' THEN 'in_review'
+    WHEN 'sanctioned' THEN 'approved'
+    WHEN 'tolerated' THEN 'approved'
+    WHEN 'replace' THEN 'action_required'
+    ELSE 'unreviewed'
+  END,
   sqlc.narg(owner_identity_id)::bigint,
   sqlc.arg(ticket_ref)::text,
   sqlc.arg(notes)::text,
@@ -26,6 +34,7 @@ VALUES (
   now()
 )
 ON CONFLICT (subject_kind, subject_id) DO UPDATE SET
+  governance_state = EXCLUDED.governance_state,
   owner_identity_id = EXCLUDED.owner_identity_id,
   ticket_ref = EXCLUDED.ticket_ref,
   notes = EXCLUDED.notes,
@@ -151,4 +160,17 @@ SELECT
   pr.managed_state::text AS managed_state,
   pr.risk_level::text AS risk_level
 FROM discovery_app_read_models_v pr
-WHERE pr.id = sqlc.arg(id)::bigint;
+WHERE pr.id = sqlc.arg(id)::bigint
+  AND pr.managed_state = 'managed'
+  AND EXISTS (
+    SELECT 1
+    FROM saas_app_sources sas
+    JOIN connector_source_state css
+      ON lower(trim(css.source_kind)) = lower(trim(sas.source_kind))
+     AND lower(trim(css.source_name)) = lower(trim(sas.source_name))
+    WHERE sas.saas_app_id = pr.id
+      AND sas.expired_at IS NULL
+      AND sas.last_observed_run_id IS NOT NULL
+      AND css.configured
+      AND css.discovery_enabled
+  );

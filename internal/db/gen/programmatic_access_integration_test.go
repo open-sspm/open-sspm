@@ -2,11 +2,13 @@ package gen
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -758,6 +760,52 @@ func TestDiscoveryAppReadModelReadsReviewGovernance(t *testing.T) {
 	})
 }
 
+func TestUpsertSaaSAppReviewGovernanceSyncsGovernanceState(t *testing.T) {
+	t.Parallel()
+
+	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
+		migrateUp(t, migrator)
+
+		evaluatedAt := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
+		tests := []struct {
+			name                string
+			reviewDisposition   string
+			wantGovernanceState string
+		}{
+			{name: "unreviewed", reviewDisposition: "unreviewed", wantGovernanceState: "unreviewed"},
+			{name: "under review", reviewDisposition: "under_review", wantGovernanceState: "in_review"},
+			{name: "sanctioned", reviewDisposition: "sanctioned", wantGovernanceState: "approved"},
+			{name: "tolerated", reviewDisposition: "tolerated", wantGovernanceState: "approved"},
+			{name: "replace", reviewDisposition: "replace", wantGovernanceState: "action_required"},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				saasAppID := insertSaaSApp(t, ctx, pool, "sync-state-"+tc.reviewDisposition, "Sync State "+tc.reviewDisposition, tc.reviewDisposition+".example.com", "Example", evaluatedAt.Add(-48*time.Hour), evaluatedAt.Add(-24*time.Hour))
+
+				if _, err := q.UpsertSaaSAppReviewGovernance(ctx, UpsertSaaSAppReviewGovernanceParams{
+					SaasAppID:         saasAppID,
+					ReviewDisposition: tc.reviewDisposition,
+				}); err != nil {
+					t.Fatalf("UpsertSaaSAppReviewGovernance(): %v", err)
+				}
+
+				var governanceState string
+				if err := pool.QueryRow(ctx, `
+					SELECT governance_state
+					FROM governance_subject_overrides
+					WHERE subject_kind = 'saas_app' AND subject_id = $1
+				`, saasAppID).Scan(&governanceState); err != nil {
+					t.Fatalf("select governance_state: %v", err)
+				}
+				if governanceState != tc.wantGovernanceState {
+					t.Fatalf("governance_state=%q want %q", governanceState, tc.wantGovernanceState)
+				}
+			})
+		}
+	})
+}
+
 func TestDiscoveryAppReadModelDefaultsDiscoveryReviewWorkflowFields(t *testing.T) {
 	t.Parallel()
 
@@ -880,6 +928,116 @@ func TestSearchManagedReplacementSaaSAppsFiltersManagedAlternatives(t *testing.T
 		}
 		if rows[0].DisplayName != "Approved App" {
 			t.Fatalf("replacement display_name=%q want Approved App", rows[0].DisplayName)
+		}
+	})
+}
+
+func TestGetSaaSAppReplacementCandidateByIDFiltersManagedDiscoveryScopedAlternatives(t *testing.T) {
+	t.Parallel()
+
+	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
+		migrateUp(t, migrator)
+
+		evaluatedAt := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
+		runID := insertSyncRun(t, ctx, pool, "github", "acme")
+		hiddenRunID := insertSyncRun(t, ctx, pool, "datadog", "datadoghq.com")
+
+		managedID := insertSaaSApp(t, ctx, pool, "approved-app", "Approved App", "approved.example.com", "Example", evaluatedAt.Add(-72*time.Hour), evaluatedAt.Add(-2*time.Hour))
+		unmanagedID := insertSaaSApp(t, ctx, pool, "legacy-app", "Legacy App", "legacy.example.com", "Example", evaluatedAt.Add(-96*time.Hour), evaluatedAt.Add(-4*time.Hour))
+		hiddenManagedID := insertSaaSApp(t, ctx, pool, "hidden-app", "Hidden App", "hidden.example.com", "Example", evaluatedAt.Add(-48*time.Hour), evaluatedAt.Add(-90*time.Minute))
+
+		insertSaaSAppSource(t, ctx, pool, managedID, runID, "github", "acme", "approved-app", "Approved App", "approved.example.com", evaluatedAt.Add(-2*time.Hour))
+		insertSaaSAppSource(t, ctx, pool, unmanagedID, runID, "github", "acme", "legacy-app", "Legacy App", "legacy.example.com", evaluatedAt.Add(-4*time.Hour))
+		insertSaaSAppSource(t, ctx, pool, hiddenManagedID, hiddenRunID, "datadog", "datadoghq.com", "hidden-app", "Hidden App", "hidden.example.com", evaluatedAt.Add(-90*time.Minute))
+
+		if err := q.UpsertSaaSAppBinding(ctx, UpsertSaaSAppBindingParams{
+			SaasAppID:           managedID,
+			ConnectorKind:       "github",
+			ConnectorSourceName: "acme",
+			BindingSource:       "seed",
+			Confidence:          1,
+			IsPrimary:           true,
+			CreatedByAuthUserID: pgtype.Int8{},
+		}); err != nil {
+			t.Fatalf("UpsertSaaSAppBinding(managed): %v", err)
+		}
+		if err := q.UpsertSaaSAppBinding(ctx, UpsertSaaSAppBindingParams{
+			SaasAppID:           hiddenManagedID,
+			ConnectorKind:       "datadog",
+			ConnectorSourceName: "datadoghq.com",
+			BindingSource:       "seed",
+			Confidence:          1,
+			IsPrimary:           true,
+			CreatedByAuthUserID: pgtype.Int8{},
+		}); err != nil {
+			t.Fatalf("UpsertSaaSAppBinding(hidden managed): %v", err)
+		}
+
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO connector_source_state (
+				source_kind,
+				source_name,
+				enabled,
+				configured,
+				discovery_enabled,
+				last_success_at,
+				fresh_until_at,
+				updated_at
+			)
+			VALUES ($1, $2, true, true, true, $3, $4, now())
+			ON CONFLICT (source_kind, source_name) DO UPDATE SET
+				enabled = EXCLUDED.enabled,
+				configured = EXCLUDED.configured,
+				discovery_enabled = EXCLUDED.discovery_enabled,
+				last_success_at = EXCLUDED.last_success_at,
+				fresh_until_at = EXCLUDED.fresh_until_at,
+				updated_at = now()
+		`, "github", "acme", evaluatedAt.Add(-30*time.Minute), evaluatedAt.Add(2*time.Hour)); err != nil {
+			t.Fatalf("insert connector_source_state: %v", err)
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO connector_source_state (
+				source_kind,
+				source_name,
+				enabled,
+				configured,
+				discovery_enabled,
+				last_success_at,
+				fresh_until_at,
+				updated_at
+			)
+			VALUES ($1, $2, true, true, false, $3, $4, now())
+			ON CONFLICT (source_kind, source_name) DO UPDATE SET
+				enabled = EXCLUDED.enabled,
+				configured = EXCLUDED.configured,
+				discovery_enabled = EXCLUDED.discovery_enabled,
+				last_success_at = EXCLUDED.last_success_at,
+				fresh_until_at = EXCLUDED.fresh_until_at,
+				updated_at = now()
+		`, "datadog", "datadoghq.com", evaluatedAt.Add(-30*time.Minute), evaluatedAt.Add(2*time.Hour)); err != nil {
+			t.Fatalf("insert hidden connector_source_state: %v", err)
+		}
+
+		if _, err := q.RefreshAllSaaSAppReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllSaaSAppReadModels(): %v", err)
+		}
+
+		row, err := q.GetSaaSAppReplacementCandidateByID(ctx, managedID)
+		if err != nil {
+			t.Fatalf("GetSaaSAppReplacementCandidateByID(managed): %v", err)
+		}
+		if row.ID != managedID {
+			t.Fatalf("replacement id=%d want %d", row.ID, managedID)
+		}
+
+		_, err = q.GetSaaSAppReplacementCandidateByID(ctx, unmanagedID)
+		if !errors.Is(err, pgx.ErrNoRows) {
+			t.Fatalf("GetSaaSAppReplacementCandidateByID(unmanaged) err=%v want %v", err, pgx.ErrNoRows)
+		}
+
+		_, err = q.GetSaaSAppReplacementCandidateByID(ctx, hiddenManagedID)
+		if !errors.Is(err, pgx.ErrNoRows) {
+			t.Fatalf("GetSaaSAppReplacementCandidateByID(hidden managed) err=%v want %v", err, pgx.ErrNoRows)
 		}
 	})
 }
