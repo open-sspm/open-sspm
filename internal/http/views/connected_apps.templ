@@ -6,7 +6,7 @@ templ ConnectedAppsPage(data viewmodels.ConnectedAppsViewData) {
 	@Layout(data.Layout) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
-			{Label: "Programmatic Access"},
+			{Label: "Non-Human Access"},
 			{Label: "App Assets", Href: "/app-assets"},
 			{Label: "OAuth Apps"},
 		}, "Saved view for Google Workspace OAuth apps with governance state, grant activity, ownership, and discovery evidence.") {
@@ -224,7 +224,7 @@ templ ConnectedAppShowPage(data viewmodels.ConnectedAppShowViewData) {
 	@Layout(data.Layout) {
 		@PageHeader([]Breadcrumb{
 			{Label: "Dashboard", Href: "/"},
-			{Label: "Programmatic Access"},
+			{Label: "Non-Human Access"},
 			{Label: "App Assets", Href: "/app-assets"},
 			{Label: data.App.DisplayName},
 		}, "Inspect governance, grant scope, evidence, and containment actions for a Google Workspace OAuth app.") {

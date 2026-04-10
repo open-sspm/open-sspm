@@ -382,22 +382,24 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		})
 	}
 
-	programmaticAccessHref := ""
+	nonHumanAccessHref := ""
 	if email := strings.TrimSpace(summary.PrimaryEmail); email != "" {
-		programmaticAccessHref = "/credentials?q=" + url.QueryEscape(email)
+		nonHumanAccessHref = "/non-human-access?q=" + url.QueryEscape(email)
 	}
 
+	h.trackNonHumanAccessOutboundClick(c, "identity", summary.ID)
+
 	return h.RenderComponent(c, views.IdentityShowPage(viewmodels.IdentityShowViewData{
-		Layout:                 layout,
-		Identity:               summary,
-		NamePrimary:            identityNamePrimary(summary.DisplayName, summary.PrimaryEmail, summary.ID),
-		NameSecondary:          identityNameSecondary(summary.DisplayName, summary.PrimaryEmail),
-		CreatedOn:              identityCalendarDate(summary.CreatedAt),
-		UpdatedOn:              identityCalendarDate(summary.UpdatedAt),
-		TotalEntitlements:      totalEntitlements,
-		LinkedAccounts:         linkedAccounts,
-		ProgrammaticAccessHref: programmaticAccessHref,
-		HasLinkedAccounts:      len(linkedAccounts) > 0,
+		Layout:             layout,
+		Identity:           summary,
+		NamePrimary:        identityNamePrimary(summary.DisplayName, summary.PrimaryEmail, summary.ID),
+		NameSecondary:      identityNameSecondary(summary.DisplayName, summary.PrimaryEmail),
+		CreatedOn:          identityCalendarDate(summary.CreatedAt),
+		UpdatedOn:          identityCalendarDate(summary.UpdatedAt),
+		TotalEntitlements:  totalEntitlements,
+		LinkedAccounts:     linkedAccounts,
+		NonHumanAccessHref: nonHumanAccessHref,
+		HasLinkedAccounts:  len(linkedAccounts) > 0,
 	}))
 }
 

@@ -199,14 +199,25 @@ func TestHandleCommandSearchShellAndShortQuery(t *testing.T) {
 		if !strings.Contains(body, `href="/identities?q=g"`) {
 			t.Fatalf("short-query body missing identities action: %s", body)
 		}
-		if !strings.Contains(body, `href="/app-assets?q=g"`) {
-			t.Fatalf("short-query body missing app-assets action: %s", body)
+		if !strings.Contains(body, `href="/non-human-access?q=g"`) {
+			t.Fatalf("short-query body missing non-human-access action: %s", body)
 		}
 		if strings.Contains(body, `href="/oauth-apps?q=g"`) {
 			t.Fatalf("short-query body unexpectedly rendered oauth-apps action: %s", body)
 		}
 		if strings.Contains(body, `href="/assigned-apps?q=g"`) {
 			t.Fatalf("short-query body unexpectedly rendered assigned-apps action: %s", body)
+		}
+	})
+}
+
+func TestHandleCommandSearchShowsNonHumanAccessActionForIdentityOnlySource(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindOkta, true, configstore.OktaConfig{Domain: "acme.okta.com"})
+
+		body := renderCommandSearch(t, h, "http://example.com/command/search?q=ac")
+		if !strings.Contains(body, `href="/non-human-access?q=ac"`) {
+			t.Fatalf("identity-only body missing non-human-access action: %s", body)
 		}
 	})
 }
@@ -302,8 +313,8 @@ func TestHandleCommandSearchQueryFailureFallsBack(t *testing.T) {
 		if !strings.Contains(body, `href="/identities?q=azure"`) {
 			t.Fatalf("query-failure body missing identities action: %s", body)
 		}
-		if !strings.Contains(body, `href="/app-assets?q=azure"`) {
-			t.Fatalf("query-failure body missing app-assets action: %s", body)
+		if !strings.Contains(body, `href="/non-human-access?q=azure"`) {
+			t.Fatalf("query-failure body missing non-human-access action: %s", body)
 		}
 	})
 }

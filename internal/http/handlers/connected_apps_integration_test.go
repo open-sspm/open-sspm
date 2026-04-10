@@ -45,6 +45,22 @@ func TestHandleConnectedAppShowUsesLiveDiscoveryPosture(t *testing.T) {
 	})
 }
 
+func TestHandleConnectedAppsRedirectNormalizesLegacyReviewState(t *testing.T) {
+	h := &Handlers{}
+
+	c, rec := newTestContext(http.MethodGet, "http://example.com/oauth-apps?review_state=needs_revocation&page=2&q=drive")
+
+	if err := h.HandleConnectedApps(c); err != nil {
+		t.Fatalf("HandleConnectedApps(): %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusSeeOther, rec.Body.String())
+	}
+	if got := rec.Header().Get(echo.HeaderLocation); got != "/app-assets?asset_kind=google_oauth_client&governance_state=action_required&page=2&q=drive&source_kind=google_workspace" {
+		t.Fatalf("location = %q", got)
+	}
+}
+
 func TestHandleConnectedAppShowRedirectsToCanonicalAppAsset(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGoogleWorkspace, "C0123")

@@ -59,7 +59,7 @@ func CredentialShowPage(data viewmodels.CredentialShowViewData) templ.Component 
 			})
 			templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
-				{Label: "Programmatic Access"},
+				{Label: "Non-Human Access"},
 				{Label: "Credentials", Href: "/credentials"},
 				{Label: "Credential #" + FormatInt64(data.Credential.ID)},
 			}, "Credential metadata, provenance, and related audit history.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)

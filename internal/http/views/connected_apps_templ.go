@@ -59,7 +59,7 @@ func ConnectedAppsPage(data viewmodels.ConnectedAppsViewData) templ.Component {
 			})
 			templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
-				{Label: "Programmatic Access"},
+				{Label: "Non-Human Access"},
 				{Label: "App Assets", Href: "/app-assets"},
 				{Label: "OAuth Apps"},
 			}, "Saved view for Google Workspace OAuth apps with governance state, grant activity, ownership, and discovery evidence.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
@@ -1351,7 +1351,7 @@ func ConnectedAppShowPage(data viewmodels.ConnectedAppShowViewData) templ.Compon
 			})
 			templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
-				{Label: "Programmatic Access"},
+				{Label: "Non-Human Access"},
 				{Label: "App Assets", Href: "/app-assets"},
 				{Label: data.App.DisplayName},
 			}, "Inspect governance, grant scope, evidence, and containment actions for a Google Workspace OAuth app.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var89), templ_7745c5c3_Buffer)

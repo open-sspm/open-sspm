@@ -256,6 +256,8 @@ func (es *EchoServer) registerRoutes() {
 	authed.GET("/app-assets/:id/export", es.h.HandleAppAssetExport)
 	authed.GET("/identities", es.h.HandleIdentities)
 	authed.GET("/identities/:id", es.h.HandleIdentityShow)
+	authed.GET("/non-human-access", es.h.HandleNonHumanAccess)
+	authed.GET("/non-human-access/:ref", es.h.HandleNonHumanAccessShow)
 	authed.GET("/credentials", es.h.HandleCredentials)
 	authed.GET("/credentials/:id", es.h.HandleCredentialShow)
 	authed.GET("/accounts/okta", es.h.HandleOktaAccounts)

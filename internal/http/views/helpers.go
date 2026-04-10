@@ -433,6 +433,95 @@ func HumanizeIdentityType(identityType string) string {
 	}
 }
 
+func HumanizeNonHumanPrincipalType(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "service":
+		return "Service"
+	case "bot":
+		return "Bot"
+	case "app":
+		return "App"
+	default:
+		return fallbackHumanized(value)
+	}
+}
+
+func NonHumanOwnerPresenceBadgeClass(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "owned":
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	case "unknown":
+		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+	default:
+		return "badge-outline"
+	}
+}
+
+func HumanizeNonHumanOwnerPresence(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "owned":
+		return "Owned"
+	case "unknown":
+		return "Unknown"
+	default:
+		return fallbackHumanized(value)
+	}
+}
+
+func NonHumanActivityStateBadgeClass(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "recent":
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	case "aging":
+		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+	case "stale", "never_seen":
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+	default:
+		return "badge-outline"
+	}
+}
+
+func HumanizeNonHumanActivityState(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "recent":
+		return "Seen < 30d"
+	case "aging":
+		return "30-89d"
+	case "stale":
+		return "90d+"
+	case "never_seen":
+		return "Never seen"
+	default:
+		return fallbackHumanized(value)
+	}
+}
+
+func NonHumanFreshnessStateBadgeClass(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "current":
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	case "stale":
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+	case "unknown":
+		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+	default:
+		return "badge-outline"
+	}
+}
+
+func HumanizeNonHumanFreshnessState(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "current":
+		return "Current evidence"
+	case "stale":
+		return "Stale evidence"
+	case "unknown":
+		return "Freshness unknown"
+	default:
+		return fallbackHumanized(value)
+	}
+}
+
 func HumanizeAccountStatus(status string) string {
 	switch strings.ToUpper(strings.TrimSpace(status)) {
 	case "ACTIVE":
@@ -744,8 +833,8 @@ func AriaCurrent(activePath, target string) string {
 	return ""
 }
 
-func AriaCurrentProgrammatic(activePath string) string {
-	if IsActivePath(activePath, "/app-assets") || IsActivePath(activePath, "/credentials") {
+func AriaCurrentNonHumanAccessSurface(activePath string) string {
+	if IsActivePath(activePath, "/non-human-access") || IsActivePath(activePath, "/app-assets") || IsActivePath(activePath, "/credentials") {
 		return "page"
 	}
 	return ""

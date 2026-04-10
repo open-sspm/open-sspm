@@ -1,0 +1,354 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ NonHumanAccessPage(data viewmodels.NonHumanAccessViewData) {
+	@Layout(data.Layout) {
+		@PageHeader([]Breadcrumb{
+			{Label: "Dashboard", Href: "/"},
+			{Label: "Non-Human Access"},
+		}, "Review non-human principals, accountable ownership, credential risk, and linked programmatic assets in one workflow.") {
+		}
+		@NonHumanAccessPageResults(data)
+	}
+}
+
+templ NonHumanAccessPageResults(data viewmodels.NonHumanAccessViewData) {
+	<div id="non-human-access-results" class="space-y-6">
+		@BusyInlineIndicator("Updating results...", false)
+		<form
+			method="get"
+			action="/non-human-access"
+			data-enter-only-query="q"
+			hx-get="/non-human-access"
+			hx-trigger="change delay:150ms from:select, submit"
+			hx-target="#non-human-access-results"
+			hx-swap="outerHTML"
+			hx-push-url="true"
+			class="space-y-4 border-b border-border/70 pb-5"
+		>
+			<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+				<label class="field w-full lg:max-w-xl">
+					<span class="sr-only">Query</span>
+					<div class="relative">
+						<input type="search" name="q" value={ data.Query.Q } placeholder="Search principal, external ID, or owner" class="input pr-10"/>
+						if data.Query.Q != "" {
+							<a
+								class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
+								aria-label="Clear query"
+								href={ data.Query.ClearQuery().Href() }
+								hx-get={ data.Query.ClearQuery().Href() }
+								hx-target="#non-human-access-results"
+								hx-swap="outerHTML"
+								hx-push-url="true"
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+									<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
+								</svg>
+							</a>
+						}
+					</div>
+				</label>
+				<div class="text-sm text-muted-foreground lg:text-right">
+					if data.TotalCount > 0 {
+						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+					} else {
+						Showing 0
+					}
+				</div>
+			</div>
+
+			<div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Quick filters">
+				<a
+					class={ FilterPillClass(data.Query.OwnerPresence == "") }
+					href={ data.Query.WithOwnerPresence("").Href() }
+					hx-get={ data.Query.WithOwnerPresence("").Href() }
+					hx-target="#non-human-access-results"
+					hx-swap="outerHTML"
+					hx-push-url="true"
+				>
+					Any owner
+				</a>
+				<a
+					class={ FilterPillClass(data.Query.OwnerPresence == "unknown") }
+					href={ data.Query.WithOwnerPresence("unknown").Href() }
+					hx-get={ data.Query.WithOwnerPresence("unknown").Href() }
+					hx-target="#non-human-access-results"
+					hx-swap="outerHTML"
+					hx-push-url="true"
+				>
+					Unknown owner
+				</a>
+				<a
+					class={ FilterPillClass(data.Query.RiskLevel == "high") }
+					href={ data.Query.WithRiskLevel("high").Href() }
+					hx-get={ data.Query.WithRiskLevel("high").Href() }
+					hx-target="#non-human-access-results"
+					hx-swap="outerHTML"
+					hx-push-url="true"
+				>
+					High risk
+				</a>
+				<a
+					class={ FilterPillClass(data.Query.RiskLevel == "critical") }
+					href={ data.Query.WithRiskLevel("critical").Href() }
+					hx-get={ data.Query.WithRiskLevel("critical").Href() }
+					hx-target="#non-human-access-results"
+					hx-swap="outerHTML"
+					hx-push-url="true"
+				>
+					Critical
+				</a>
+				<a
+					class={ FilterPillClass(data.Query.ActivityState == "stale") }
+					href={ data.Query.WithActivityState("stale").Href() }
+					hx-get={ data.Query.WithActivityState("stale").Href() }
+					hx-target="#non-human-access-results"
+					hx-swap="outerHTML"
+					hx-push-url="true"
+				>
+					Stale activity
+				</a>
+				<a
+					class={ FilterPillClass(data.Query.FreshnessState == "stale") }
+					href={ data.Query.WithFreshnessState("stale").Href() }
+					hx-get={ data.Query.WithFreshnessState("stale").Href() }
+					hx-target="#non-human-access-results"
+					hx-swap="outerHTML"
+					hx-push-url="true"
+				>
+					Stale evidence
+				</a>
+			</div>
+
+			<details class="group">
+				<summary class="inline-flex cursor-pointer list-none items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+					<span class="text-base leading-none group-open:hidden">+</span>
+					<span class="text-base leading-none hidden group-open:inline">−</span>
+					<span>More filters and sorting</span>
+				</summary>
+				<div class="mt-4 grid gap-4 rounded-lg border border-border/70 bg-muted/15 p-4 md:grid-cols-3 xl:grid-cols-9">
+					<label class="field">
+						<span class="label">Source</span>
+						<select class="select" name="source_kind">
+							<option value="" selected?={ data.Query.Source.Kind == "" }>All configured</option>
+							for _, source := range data.Sources {
+								<option value={ source.SourceKind } selected?={ source.SourceKind == data.Query.Source.Kind } title={ source.Label }>{ source.Label }</option>
+							}
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Source name</span>
+						<select class="select" name="source_name">
+							<option value="" selected?={ data.Query.Source.Name == "" }>All source names</option>
+							for _, source := range data.SourceNameOptions {
+								<option value={ source.SourceName } selected?={ source.SourceName == data.Query.Source.Name }>{ source.SourceName }</option>
+							}
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Type</span>
+						<select class="select" name="principal_type">
+							<option value="" selected?={ data.Query.PrincipalType == "" }>Any</option>
+							<option value="service" selected?={ data.Query.PrincipalType == "service" }>Service</option>
+							<option value="bot" selected?={ data.Query.PrincipalType == "bot" }>Bot</option>
+							<option value="app" selected?={ data.Query.PrincipalType == "app" }>App only</option>
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Owner</span>
+						<select class="select" name="owner_presence">
+							<option value="" selected?={ data.Query.OwnerPresence == "" }>Any</option>
+							<option value="owned" selected?={ data.Query.OwnerPresence == "owned" }>Owned</option>
+							<option value="unknown" selected?={ data.Query.OwnerPresence == "unknown" }>Unknown</option>
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Governance</span>
+						<select class="select" name="governance_state">
+							<option value="" selected?={ data.Query.GovernanceState == "" }>Any</option>
+							<option value="unreviewed" selected?={ data.Query.GovernanceState == "unreviewed" }>Unreviewed</option>
+							<option value="in_review" selected?={ data.Query.GovernanceState == "in_review" }>In review</option>
+							<option value="approved" selected?={ data.Query.GovernanceState == "approved" }>Approved</option>
+							<option value="action_required" selected?={ data.Query.GovernanceState == "action_required" }>Action required</option>
+							<option value="ticketed" selected?={ data.Query.GovernanceState == "ticketed" }>Ticketed</option>
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Risk</span>
+						<select class="select" name="risk_level">
+							<option value="" selected?={ data.Query.RiskLevel == "" }>Any</option>
+							<option value="critical" selected?={ data.Query.RiskLevel == "critical" }>Critical</option>
+							<option value="high" selected?={ data.Query.RiskLevel == "high" }>High</option>
+							<option value="medium" selected?={ data.Query.RiskLevel == "medium" }>Medium</option>
+							<option value="low" selected?={ data.Query.RiskLevel == "low" }>Low</option>
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Activity</span>
+						<select class="select" name="activity_state">
+							<option value="" selected?={ data.Query.ActivityState == "" }>Any</option>
+							<option value="recent" selected?={ data.Query.ActivityState == "recent" }>Seen &lt; 30d</option>
+							<option value="aging" selected?={ data.Query.ActivityState == "aging" }>30-89d</option>
+							<option value="stale" selected?={ data.Query.ActivityState == "stale" }>90d+</option>
+							<option value="never_seen" selected?={ data.Query.ActivityState == "never_seen" }>Never seen</option>
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Freshness</span>
+						<select class="select" name="freshness_state">
+							<option value="" selected?={ data.Query.FreshnessState == "" }>Any</option>
+							<option value="current" selected?={ data.Query.FreshnessState == "current" }>Current</option>
+							<option value="stale" selected?={ data.Query.FreshnessState == "stale" }>Stale</option>
+							<option value="unknown" selected?={ data.Query.FreshnessState == "unknown" }>Unknown</option>
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Sort</span>
+						<select class="select" name="sort_by">
+							<option value="" selected?={ data.Query.SortBy == "" }>Priority (default)</option>
+							<option value="principal" selected?={ data.Query.SortBy == "principal" }>Principal</option>
+							<option value="principal_type" selected?={ data.Query.SortBy == "principal_type" }>Principal type</option>
+							<option value="source" selected?={ data.Query.SortBy == "source" }>Source</option>
+							<option value="owner" selected?={ data.Query.SortBy == "owner" }>Owner</option>
+							<option value="governance" selected?={ data.Query.SortBy == "governance" }>Governance</option>
+							<option value="risk" selected?={ data.Query.SortBy == "risk" }>Risk</option>
+							<option value="last_seen" selected?={ data.Query.SortBy == "last_seen" }>Last seen</option>
+							<option value="freshness" selected?={ data.Query.SortBy == "freshness" }>Freshness</option>
+						</select>
+					</label>
+					<label class="field">
+						<span class="label">Direction</span>
+						<select class="select" name="sort_dir">
+							<option value="asc" selected?={ data.Query.SortDir == "asc" }>Ascending</option>
+							<option value="desc" selected?={ data.Query.SortDir == "desc" }>Descending</option>
+						</select>
+					</label>
+				</div>
+			</details>
+			<button class="sr-only" type="submit">Apply filters</button>
+		</form>
+
+		<section class="space-y-3">
+			if data.HasItems {
+				<div class="space-y-3 lg:hidden">
+					for _, item := range data.Items {
+						<article class="rounded-lg border border-border/70 bg-card p-4">
+							<div class="flex items-start justify-between gap-3">
+								<div class="min-w-0">
+									<a class="block font-medium no-underline hover:underline" href={ "/non-human-access/" + item.PrincipalRef } title={ item.DisplayName }>
+										<span class="osspm-truncate">{ item.DisplayName }</span>
+									</a>
+									if item.SecondaryName != "" {
+										<div class="text-sm text-muted-foreground osspm-truncate" title={ item.SecondaryName }>{ item.SecondaryName }</div>
+									}
+									<div class="mt-1 text-xs text-muted-foreground">{ HumanizeConnectorKind(item.SourceKind) }{ " • " }{ item.SourceName }</div>
+								</div>
+								<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
+							</div>
+							<div class="mt-3 flex flex-wrap items-center gap-2">
+								<span class="badge-outline">{ HumanizeNonHumanPrincipalType(item.PrincipalType) }</span>
+								<span class={ NonHumanOwnerPresenceBadgeClass(item.OwnerPresence) }>{ HumanizeNonHumanOwnerPresence(item.OwnerPresence) }</span>
+								<span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span>
+								<span class={ NonHumanActivityStateBadgeClass(item.ActivityState) }>{ HumanizeNonHumanActivityState(item.ActivityState) }</span>
+								<span class={ NonHumanFreshnessStateBadgeClass(item.FreshnessState) }>{ HumanizeNonHumanFreshnessState(item.FreshnessState) }</span>
+							</div>
+							<div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+								<div>
+									<div class="text-xs uppercase tracking-wide text-muted-foreground">Owner</div>
+									if item.AccountableOwnerHref != "" {
+										<a class="btn-sm-link px-0" href={ item.AccountableOwnerHref }>{ item.AccountableOwner }</a>
+									} else {
+										<div>{ item.AccountableOwner }</div>
+									}
+								</div>
+								<div>
+									<div class="text-xs uppercase tracking-wide text-muted-foreground">Last seen</div>
+									<div>{ item.LastSeenOn }</div>
+								</div>
+								<div>
+									<div class="text-xs uppercase tracking-wide text-muted-foreground">Linked assets</div>
+									<div>{ FormatInt64(item.LinkedAssetsCount) }</div>
+								</div>
+								<div>
+									<div class="text-xs uppercase tracking-wide text-muted-foreground">Credentials</div>
+									<div>{ FormatInt64(item.LinkedCredentialsCount) }</div>
+								</div>
+							</div>
+						</article>
+					}
+				</div>
+
+				@ColumnsTable("non-human-access--main", "hidden lg:block") {
+					<table data-columns-id="non-human-access--main" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+						<thead>
+							<tr>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Principal</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Type</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Owner</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Governance</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Risk</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Activity</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Freshness</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Links</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, item := range data.Items {
+								<tr data-row-href={ "/non-human-access/" + item.PrincipalRef } class="cursor-pointer hover:bg-muted/50">
+									<td>
+										<a class="btn-sm-link px-0 osspm-cell-primary osspm-truncate" href={ "/non-human-access/" + item.PrincipalRef } title={ item.DisplayName }>{ item.DisplayName }</a>
+										<div class="osspm-cell-secondary">
+											{ HumanizeConnectorKind(item.SourceKind) }{ " • " }{ item.SourceName }
+										</div>
+										if item.SecondaryName != "" {
+											<div class="text-xs text-muted-foreground osspm-truncate" title={ item.SecondaryName }>{ item.SecondaryName }</div>
+										}
+									</td>
+									<td><span class="badge-outline">{ HumanizeNonHumanPrincipalType(item.PrincipalType) }</span></td>
+									<td>
+										if item.AccountableOwnerHref != "" {
+											<a class="btn-sm-link px-0" href={ item.AccountableOwnerHref }>{ item.AccountableOwner }</a>
+										} else {
+											{ item.AccountableOwner }
+										}
+									</td>
+									<td><span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span></td>
+									<td><span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span></td>
+									<td>
+										<div>{ item.LastSeenOn }</div>
+										<div class="text-xs text-muted-foreground">{ HumanizeNonHumanActivityState(item.ActivityState) }</div>
+									</td>
+									<td><span class={ NonHumanFreshnessStateBadgeClass(item.FreshnessState) }>{ HumanizeNonHumanFreshnessState(item.FreshnessState) }</span></td>
+									<td class="text-sm text-muted-foreground">
+										{ FormatInt64(item.LinkedAssetsCount) }{ " assets • " }{ FormatInt64(item.LinkedCredentialsCount) }{ " creds" }
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			} else {
+				@EmptyState("No non-human principals", data.EmptyStateMsg)
+			}
+		</section>
+
+		if data.TotalPages > 1 {
+			<div class="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
+				<p class="text-sm text-muted-foreground">Page { FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</p>
+				<div class="flex items-center gap-2">
+					if data.Page > 1 {
+						<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#non-human-access-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
+					} else {
+						<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
+					}
+					if data.Page < data.TotalPages {
+						<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#non-human-access-results" hx-swap="outerHTML" hx-push-url="true">Next</a>
+					} else {
+						<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
+					}
+				</div>
+			</div>
+		}
+	</div>
+}

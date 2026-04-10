@@ -69,6 +69,36 @@ var (
 		Help:      "Current discovered SaaS hotspots by risk level.",
 	}, []string{"risk_level"})
 
+	NonHumanPrincipalsTotal = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "non_human_principals_total",
+		Help:      "Current non-human principal inventory across configured sources.",
+	})
+
+	NonHumanPrincipalsWithAccountableOwnerTotal = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "non_human_principals_with_accountable_owner_total",
+		Help:      "Configured non-human principals that have an accountable owner.",
+	})
+
+	NonHumanHighRiskCredentialsTotal = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "non_human_high_risk_credentials_total",
+		Help:      "High-risk linked credentials associated with configured non-human principals.",
+	})
+
+	NonHumanHighRiskCredentialsWithAttributionTotal = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "non_human_high_risk_credentials_with_attribution_total",
+		Help:      "High-risk linked credentials that have accountable ownership or actor attribution.",
+	})
+
+	NonHumanAccessWeeklyAdminReviewSessions = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "non_human_access_weekly_admin_review_sessions",
+		Help:      "Distinct admin users who interacted with the non-human access workflow in the last 7 days.",
+	})
+
 	AutoLinksTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Name:      "auto_links_total",

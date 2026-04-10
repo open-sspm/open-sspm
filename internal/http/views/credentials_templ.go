@@ -59,7 +59,7 @@ func CredentialsPage(data viewmodels.CredentialsViewData) templ.Component {
 			})
 			templ_7745c5c3_Err = PageHeader([]Breadcrumb{
 				{Label: "Dashboard", Href: "/"},
-				{Label: "Programmatic Access"},
+				{Label: "Non-Human Access"},
 				{Label: "Credentials"},
 			}, "Search and triage non-human credential metadata across connectors.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
