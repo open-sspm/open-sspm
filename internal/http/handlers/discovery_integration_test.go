@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -11,8 +13,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v5"
+	"github.com/open-sspm/open-sspm/internal/auth"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/authn"
 )
 
 func TestHandleDiscoveryAppShowUsesLivePostureWithoutPersisting(t *testing.T) {
@@ -537,13 +541,377 @@ func TestGetSaaSAppByIDComputesLivePostureScenarios(t *testing.T) {
 	})
 }
 
+func TestHandleDiscoveryAppGovernanceUpdatePersistsDecisionHistory(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
+			Org:   "acme",
+			Token: "github-token",
+		})
+
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
+		currentID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "shadow-app", "Shadow App", "shadow.example.com", "Example", "shadow-app")
+		replacementID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "approved-app", "Approved App", "approved.example.com", "Example", "approved-app")
+		upsertDiscoveryPrimaryBinding(t, ctx, q, replacementID, configstore.KindGitHub, "acme")
+
+		adminUserID := insertDiscoveryAuthUser(t, ctx, pool, "admin@example.com", "admin")
+		insertCommandSearchIdentity(t, ctx, pool, "human", "owner@example.com", "Owner User")
+		insertCommandSearchIdentity(t, ctx, pool, "human", "reviewer@example.com", "Reviewer User")
+
+		form := url.Values{
+			"owner_email":             []string{"owner@example.com"},
+			"review_owner_email":      []string{"reviewer@example.com"},
+			"review_disposition":      []string{"replace"},
+			"follow_up_due_date":      []string{"2026-04-20"},
+			"ticket_ref":              []string{"SEC-123"},
+			"notes":                   []string{"Needs migration"},
+			"replacement_saas_app_id": []string{strconv.FormatInt(replacementID, 10)},
+		}
+		c, rec := newFormTestContext(http.MethodPost, "http://example.com/discovery/apps/"+strconv.FormatInt(currentID, 10)+"/governance", form)
+		(*c).SetPath("/discovery/apps/:id/governance")
+		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(currentID, 10)}})
+		(*c).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: adminUserID, Email: "admin@example.com", Role: "admin"})
+
+		if err := h.HandleDiscoveryAppGovernanceUpdate(c); err != nil {
+			t.Fatalf("HandleDiscoveryAppGovernanceUpdate(): %v", err)
+		}
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusSeeOther, rec.Body.String())
+		}
+
+		row := getDiscoveryAppByIDForTest(t, ctx, q, h, currentID)
+		if row.ReviewDisposition != "replace" {
+			t.Fatalf("review disposition = %q, want replace", row.ReviewDisposition)
+		}
+		if row.OwnerPrimaryEmail != "owner@example.com" {
+			t.Fatalf("owner email = %q, want owner@example.com", row.OwnerPrimaryEmail)
+		}
+		if row.ReviewOwnerPrimaryEmail != "reviewer@example.com" {
+			t.Fatalf("review owner email = %q, want reviewer@example.com", row.ReviewOwnerPrimaryEmail)
+		}
+		if !row.FollowUpDueDate.Valid || row.FollowUpDueDate.Time.UTC().Format("2006-01-02") != "2026-04-20" {
+			t.Fatalf("follow-up date = %+v, want 2026-04-20", row.FollowUpDueDate)
+		}
+		if row.TicketRef != "SEC-123" || row.Notes != "Needs migration" {
+			t.Fatalf("ticket/notes = %q/%q, want SEC-123/Needs migration", row.TicketRef, row.Notes)
+		}
+		if row.ReplacementSaasAppID != replacementID || row.ReplacementDisplayName != "Approved App" {
+			t.Fatalf("replacement = %d/%q, want %d/Approved App", row.ReplacementSaasAppID, row.ReplacementDisplayName, replacementID)
+		}
+
+		history, err := q.ListSaaSAppReviewDecisionsBySaaSAppID(ctx, gen.ListSaaSAppReviewDecisionsBySaaSAppIDParams{
+			SaasAppID: currentID,
+			LimitRows: 10,
+		})
+		if err != nil {
+			t.Fatalf("ListSaaSAppReviewDecisionsBySaaSAppID(): %v", err)
+		}
+		if len(history) != 1 {
+			t.Fatalf("history len = %d, want 1", len(history))
+		}
+		if history[0].ChangedByAuthUserEmail != "admin@example.com" || history[0].ReviewDisposition != "replace" {
+			t.Fatalf("history row = %+v", history[0])
+		}
+	})
+}
+
+func TestHandleDiscoveryAppGovernanceUpdateValidation(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
+			Org:   "acme",
+			Token: "github-token",
+		})
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindDatadog, true, configstore.DatadogConfig{
+			Site:   "datadoghq.com",
+			APIKey: "api-key",
+			AppKey: "app-key",
+		})
+
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
+		datadogRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindDatadog, "datadoghq.com")
+		currentID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "shadow-app", "Shadow App", "shadow.example.com", "Example", "shadow-app")
+		unmanagedReplacementID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "legacy-app", "Legacy App", "legacy.example.com", "Example", "legacy-app")
+		hiddenManagedReplacementID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, datadogRunID, configstore.KindDatadog, "datadoghq.com", "hidden-app", "Hidden App", "hidden.example.com", "Example", "hidden-app")
+		upsertDiscoveryPrimaryBinding(t, ctx, q, hiddenManagedReplacementID, configstore.KindDatadog, "datadoghq.com")
+		if _, err := pool.Exec(ctx, `
+			UPDATE connector_source_state
+			SET discovery_enabled = false,
+			    updated_at = now()
+			WHERE source_kind = $1
+			  AND source_name = $2
+		`, configstore.KindDatadog, "datadoghq.com"); err != nil {
+			t.Fatalf("disable datadog discovery source: %v", err)
+		}
+
+		adminUserID := insertDiscoveryAuthUser(t, ctx, pool, "admin@example.com", "admin")
+		insertCommandSearchIdentity(t, ctx, pool, "human", "owner@example.com", "Owner User")
+
+		tests := []struct {
+			name     string
+			form     url.Values
+			want     string
+			wantBody []string
+		}{
+			{
+				name: "review owner not found",
+				form: url.Values{
+					"owner_email":        []string{"owner@example.com"},
+					"review_disposition": []string{"under_review"},
+					"review_owner_email": []string{"missing@example.com"},
+					"follow_up_due_date": []string{"2026-04-22"},
+					"ticket_ref":         []string{"SEC-404"},
+					"notes":              []string{"Keep this note"},
+				},
+				want: "Review owner not found",
+				wantBody: []string{
+					`value="owner@example.com"`,
+					`value="missing@example.com"`,
+					`value="2026-04-22"`,
+					`value="SEC-404"`,
+					"Keep this note",
+				},
+			},
+			{
+				name: "owner required",
+				form: url.Values{
+					"review_disposition": []string{"sanctioned"},
+				},
+				want: "Owner required",
+			},
+			{
+				name: "past due date rejected",
+				form: url.Values{
+					"owner_email":        []string{"owner@example.com"},
+					"review_disposition": []string{"under_review"},
+					"follow_up_due_date": []string{"2024-01-01"},
+				},
+				want: "Invalid due date",
+				wantBody: []string{
+					"Follow-up date must be today or in the future.",
+					`value="2024-01-01"`,
+				},
+			},
+			{
+				name: "replacement required",
+				form: url.Values{
+					"owner_email":        []string{"owner@example.com"},
+					"review_disposition": []string{"replace"},
+				},
+				want: "Replacement required",
+			},
+			{
+				name: "replacement not found when unmanaged",
+				form: url.Values{
+					"owner_email":             []string{"owner@example.com"},
+					"review_disposition":      []string{"replace"},
+					"replacement_saas_app_id": []string{strconv.FormatInt(unmanagedReplacementID, 10)},
+				},
+				want: "Replacement not found",
+			},
+			{
+				name: "replacement not found when outside discovery scope",
+				form: url.Values{
+					"owner_email":             []string{"owner@example.com"},
+					"review_disposition":      []string{"replace"},
+					"replacement_saas_app_id": []string{strconv.FormatInt(hiddenManagedReplacementID, 10)},
+				},
+				want: "Replacement not found",
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				c, rec := newFormTestContext(http.MethodPost, "http://example.com/discovery/apps/"+strconv.FormatInt(currentID, 10)+"/governance", tc.form)
+				(*c).SetPath("/discovery/apps/:id/governance")
+				(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(currentID, 10)}})
+				(*c).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: adminUserID, Email: "admin@example.com", Role: "admin"})
+
+				if err := h.HandleDiscoveryAppGovernanceUpdate(c); err != nil {
+					t.Fatalf("HandleDiscoveryAppGovernanceUpdate(): %v", err)
+				}
+				if rec.Code != http.StatusOK {
+					t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+				}
+				body := rec.Body.String()
+				assertContains(t, body, tc.want)
+				for _, want := range tc.wantBody {
+					assertContains(t, body, want)
+				}
+			})
+		}
+	})
+}
+
+func TestHandleDiscoveryAppGovernanceUpdateValidationPreservesClearedOwners(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
+		appID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "shadow-app", "Shadow App", "shadow.example.com", "Example", "shadow-app")
+
+		adminUserID := insertDiscoveryAuthUser(t, ctx, pool, "admin@example.com", "admin")
+		ownerID := insertCommandSearchIdentity(t, ctx, pool, "human", "owner@example.com", "Owner User")
+		reviewOwnerID := insertCommandSearchIdentity(t, ctx, pool, "human", "reviewer@example.com", "Reviewer User")
+
+		if _, err := q.UpsertSaaSAppReviewGovernance(ctx, gen.UpsertSaaSAppReviewGovernanceParams{
+			SaasAppID:             appID,
+			OwnerIdentityID:       pgtype.Int8{Int64: ownerID, Valid: true},
+			ReviewOwnerIdentityID: pgtype.Int8{Int64: reviewOwnerID, Valid: true},
+			ReviewDisposition:     "under_review",
+			UpdatedByAuthUserID:   pgtype.Int8{Int64: adminUserID, Valid: true},
+		}); err != nil {
+			t.Fatalf("UpsertSaaSAppReviewGovernance(): %v", err)
+		}
+
+		form := url.Values{
+			"owner_email":        []string{""},
+			"review_owner_email": []string{""},
+			"review_disposition": []string{"under_review"},
+			"follow_up_due_date": []string{"not-a-date"},
+		}
+		c, rec := newFormTestContext(http.MethodPost, "http://example.com/discovery/apps/"+strconv.FormatInt(appID, 10)+"/governance", form)
+		(*c).SetPath("/discovery/apps/:id/governance")
+		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(appID, 10)}})
+		(*c).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: adminUserID, Email: "admin@example.com", Role: "admin"})
+
+		if err := h.HandleDiscoveryAppGovernanceUpdate(c); err != nil {
+			t.Fatalf("HandleDiscoveryAppGovernanceUpdate(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		body := rec.Body.String()
+		assertContains(t, body, "Invalid due date")
+		assertContains(t, body, `name="owner_email" value=""`)
+		assertContains(t, body, `name="review_owner_email" value=""`)
+		assertNotContains(t, body, `name="owner_email" value="owner@example.com"`)
+		assertNotContains(t, body, `name="review_owner_email" value="reviewer@example.com"`)
+	})
+}
+
+func TestHandleDiscoveryAppGovernanceUpdateRequiresPrincipal(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindEntra, "tenant-1")
+		appID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindEntra, "tenant-1", "shadow-app", "Shadow App", "shadow.example.com", "Example", "shadow-app")
+
+		form := url.Values{
+			"review_disposition": []string{"under_review"},
+		}
+		c, rec := newFormTestContext(http.MethodPost, "http://example.com/discovery/apps/"+strconv.FormatInt(appID, 10)+"/governance", form)
+		(*c).SetPath("/discovery/apps/:id/governance")
+		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(appID, 10)}})
+
+		if err := h.HandleDiscoveryAppGovernanceUpdate(c); err != nil {
+			t.Fatalf("HandleDiscoveryAppGovernanceUpdate(): %v", err)
+		}
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusForbidden, rec.Body.String())
+		}
+	})
+}
+
+func TestHandleDiscoveryAppShowRendersGovernanceForAdminAndViewer(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindEntra, "tenant-1")
+		appID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindEntra, "tenant-1", "shadow-app", "Shadow App", "shadow.example.com", "Example", "shadow-app")
+
+		adminUserID := insertDiscoveryAuthUser(t, ctx, pool, "admin@example.com", "admin")
+		if _, err := q.UpsertSaaSAppReviewGovernance(ctx, gen.UpsertSaaSAppReviewGovernanceParams{
+			SaasAppID:           appID,
+			TicketRef:           "SEC-999",
+			Notes:               "Escalated to app owner",
+			ReviewDisposition:   "under_review",
+			UpdatedByAuthUserID: pgtype.Int8{Int64: adminUserID, Valid: true},
+		}); err != nil {
+			t.Fatalf("UpsertSaaSAppReviewGovernance(): %v", err)
+		}
+		if err := q.InsertSaaSAppReviewDecision(ctx, gen.InsertSaaSAppReviewDecisionParams{
+			SaasAppID:           appID,
+			ReviewDisposition:   "under_review",
+			TicketRef:           "SEC-999",
+			Notes:               "Escalated to app owner",
+			ChangedByAuthUserID: pgtype.Int8{Int64: adminUserID, Valid: true},
+		}); err != nil {
+			t.Fatalf("InsertSaaSAppReviewDecision(): %v", err)
+		}
+
+		viewerBody := renderDiscoveryAppShow(t, h, appID)
+		assertContains(t, viewerBody, "Decision History")
+		assertContains(t, viewerBody, "Governance changes require an admin account.")
+		assertNotContains(t, viewerBody, "/discovery/apps/"+strconv.FormatInt(appID, 10)+"/governance")
+
+		adminBody := renderDiscoveryAppShowAsPrincipal(t, h, appID, auth.Principal{UserID: adminUserID, Email: "admin@example.com", Role: "admin"})
+		assertContains(t, adminBody, "/discovery/apps/"+strconv.FormatInt(appID, 10)+"/governance")
+		assertContains(t, adminBody, "Decision History")
+		assertContains(t, adminBody, "SEC-999")
+	})
+}
+
+func TestHandleDiscoveryAppShowDoesNotMarkHistoricalFollowUpAsOverdue(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindEntra, "tenant-1")
+		appID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindEntra, "tenant-1", "shadow-app", "Shadow App", "shadow.example.com", "Example", "shadow-app")
+
+		adminUserID := insertDiscoveryAuthUser(t, ctx, pool, "admin@example.com", "admin")
+		if err := q.InsertSaaSAppReviewDecision(ctx, gen.InsertSaaSAppReviewDecisionParams{
+			SaasAppID:           appID,
+			ReviewDisposition:   "sanctioned",
+			FollowUpDueDate:     pgtype.Date{Time: time.Date(2020, time.January, 2, 0, 0, 0, 0, time.UTC), Valid: true},
+			ChangedByAuthUserID: pgtype.Int8{Int64: adminUserID, Valid: true},
+		}); err != nil {
+			t.Fatalf("InsertSaaSAppReviewDecision(): %v", err)
+		}
+
+		body := renderDiscoveryAppShow(t, h, appID)
+		assertContains(t, body, "Jan 2, 2020")
+		assertNotContains(t, body, "Overdue")
+	})
+}
+
+func TestHandleDiscoveryReplacementCandidatesOnlyReturnsManagedAlternatives(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
+			Org:   "acme",
+			Token: "github-token",
+		})
+
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
+		currentID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "current-app", "Current App", "current.example.com", "Example", "current-app")
+		managedID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "approved-app", "Approved App", "approved.example.com", "Example", "approved-app")
+		_ = insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "legacy-app", "Legacy App", "legacy.example.com", "Example", "legacy-app")
+		upsertDiscoveryPrimaryBinding(t, ctx, q, managedID, configstore.KindGitHub, "acme")
+
+		target := "http://example.com/discovery/apps/replacement-candidates?q=app&exclude_id=" + strconv.FormatInt(currentID, 10)
+		c, rec := newTestContext(http.MethodGet, target)
+		(*c).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: 1, Email: "viewer@example.com", Role: "viewer"})
+
+		if err := h.HandleDiscoveryReplacementCandidates(c); err != nil {
+			t.Fatalf("HandleDiscoveryReplacementCandidates(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		body := rec.Body.String()
+		assertContains(t, body, "Approved App")
+		assertNotContains(t, body, "Current App")
+		assertNotContains(t, body, "Legacy App")
+	})
+}
+
 func renderDiscoveryAppShow(t *testing.T, h *Handlers, appID int64) string {
+	t.Helper()
+
+	return renderDiscoveryAppShowAsPrincipal(t, h, appID, auth.Principal{})
+}
+
+func renderDiscoveryAppShowAsPrincipal(t *testing.T, h *Handlers, appID int64, principal auth.Principal) string {
 	t.Helper()
 
 	target := "http://example.com/discovery/apps/" + strconv.FormatInt(appID, 10)
 	c, rec := newTestContext(http.MethodGet, target)
 	(*c).SetPath("/discovery/apps/:id")
 	(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(appID, 10)}})
+	if principal.UserID > 0 {
+		(*c).Set(authn.ContextKeyPrincipal, principal)
+	}
 
 	if err := h.HandleDiscoveryAppShow(c); err != nil {
 		t.Fatalf("HandleDiscoveryAppShow(%d): %v", appID, err)
@@ -565,6 +933,15 @@ func renderDiscoveryApps(t *testing.T, h *Handlers, target string) string {
 		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
 	return rec.Body.String()
+}
+
+func newFormTestContext(method, target string, form url.Values) (*echo.Context, *httptest.ResponseRecorder) {
+	e := echo.New()
+	req := httptest.NewRequest(method, target, strings.NewReader(form.Encode()))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	return c, rec
 }
 
 func upsertDiscoveryPrimaryBinding(t *testing.T, ctx context.Context, q *gen.Queries, appID int64, connectorKind, sourceName string) {
@@ -604,6 +981,22 @@ func getDiscoveryAppByIDForTest(t *testing.T, ctx context.Context, q *gen.Querie
 		t.Fatalf("GetSaaSAppByID(%d): %v", appID, err)
 	}
 	return row
+}
+
+func insertDiscoveryAuthUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool, email, role string) int64 {
+	t.Helper()
+
+	q := gen.New(pool)
+	user, err := q.CreateAuthUser(ctx, gen.CreateAuthUserParams{
+		Email:        email,
+		PasswordHash: "test-password-hash",
+		Role:         role,
+		IsActive:     true,
+	})
+	if err != nil {
+		t.Fatalf("CreateAuthUser(%q): %v", email, err)
+	}
+	return user.ID
 }
 
 func insertDiscoveryOAuthEvents(t *testing.T, ctx context.Context, q *gen.Queries, runID int64, sourceKind, sourceName, canonicalKey, sourceAppID, sourceAppName, sourceAppDomain string, actorCount int, privileged bool) {

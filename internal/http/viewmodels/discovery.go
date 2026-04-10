@@ -9,17 +9,23 @@ type DiscoverySourceOption struct {
 }
 
 type DiscoveryAppListItem struct {
-	ID            int64
-	DisplayName   string
-	Domain        string
-	VendorName    string
-	ManagedState  string
-	ManagedReason string
-	RiskScore     int32
-	RiskLevel     string
-	Owner         string
-	Actors30d     int64
-	LastSeenAt    string
+	ID                     int64
+	DisplayName            string
+	Domain                 string
+	VendorName             string
+	ManagedState           string
+	ManagedReason          string
+	RiskScore              int32
+	RiskLevel              string
+	Owner                  string
+	ReviewOwner            string
+	ReviewDisposition      string
+	FollowUpDueDate        string
+	IsFollowUpOverdue      bool
+	ReplacementDisplayName string
+	TicketRef              string
+	Actors30d              int64
+	LastSeenAt             string
 }
 
 type DiscoveryAppsViewData struct {
@@ -32,14 +38,20 @@ type DiscoveryAppsViewData struct {
 }
 
 type DiscoveryHotspotItem struct {
-	ID           int64
-	DisplayName  string
-	Domain       string
-	ManagedState string
-	RiskScore    int32
-	RiskLevel    string
-	Owner        string
-	Actors30d    int64
+	ID                     int64
+	DisplayName            string
+	Domain                 string
+	ManagedState           string
+	RiskScore              int32
+	RiskLevel              string
+	Owner                  string
+	ReviewOwner            string
+	ReviewDisposition      string
+	FollowUpDueDate        string
+	IsFollowUpOverdue      bool
+	ReplacementDisplayName string
+	TicketRef              string
+	Actors30d              int64
 }
 
 type DiscoveryHotspotsViewData struct {
@@ -89,17 +101,74 @@ type DiscoveryAppSummaryView struct {
 	RiskLevel                    string
 	SuggestedBusinessCriticality string
 	SuggestedDataClassification  string
+	Owner                        string
+	ReviewOwner                  string
+	ReviewDisposition            string
+	FollowUpDueDate              string
+	IsFollowUpOverdue            bool
+	TicketRef                    string
+	Notes                        string
+	ReplacementDisplayName       string
+	ReplacementPrimaryDomain     string
 	FirstSeenAt                  string
 	LastSeenAt                   string
 }
 
+type DiscoveryAlert struct {
+	Title       string
+	Message     string
+	Destructive bool
+}
+
+type DiscoveryReplacementCandidateItem struct {
+	ID           int64
+	DisplayName  string
+	Domain       string
+	VendorName   string
+	ManagedState string
+	RiskLevel    string
+	IsSelected   bool
+}
+
+type DiscoveryReplacementCandidatesViewData struct {
+	SelectedCandidate *DiscoveryReplacementCandidateItem
+	Candidates        []DiscoveryReplacementCandidateItem
+	HasCandidates     bool
+	EmptyStateMsg     string
+}
+
+type DiscoveryReviewDecisionItem struct {
+	ChangedAt                string
+	ChangedBy                string
+	Owner                    string
+	ReviewOwner              string
+	ReviewDisposition        string
+	FollowUpDueDate          string
+	IsFollowUpOverdue        bool
+	TicketRef                string
+	Notes                    string
+	ReplacementDisplayName   string
+	ReplacementPrimaryDomain string
+}
+
 type DiscoveryAppShowViewData struct {
-	Layout       LayoutData
-	App          DiscoveryAppSummaryView
-	Sources      []DiscoverySourceEvidenceItem
-	TopActors    []DiscoveryActorItem
-	Events       []DiscoveryEventItem
-	HasSources   bool
-	HasTopActors bool
-	HasEvents    bool
+	Layout                     LayoutData
+	App                        DiscoveryAppSummaryView
+	Sources                    []DiscoverySourceEvidenceItem
+	TopActors                  []DiscoveryActorItem
+	Events                     []DiscoveryEventItem
+	DecisionHistory            []DiscoveryReviewDecisionItem
+	Alert                      *DiscoveryAlert
+	AccountableOwnerEmailInput string
+	ReviewOwnerEmailInput      string
+	ReviewDispositionInput     string
+	FollowUpDueDateInput       string
+	TicketRefInput             string
+	NotesInput                 string
+	ReplacementQueryInput      string
+	ReplacementPicker          DiscoveryReplacementCandidatesViewData
+	HasSources                 bool
+	HasTopActors               bool
+	HasEvents                  bool
+	HasDecisionHistory         bool
 }

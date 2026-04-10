@@ -116,6 +116,14 @@ SELECT
   pr.updated_at::timestamptz AS updated_at,
   pr.owner_display_name::text AS owner_display_name,
   pr.owner_primary_email::text AS owner_primary_email,
+  pr.review_owner_display_name::text AS review_owner_display_name,
+  pr.review_owner_primary_email::text AS review_owner_primary_email,
+  pr.review_disposition::text AS review_disposition,
+  pr.follow_up_due_date::date AS follow_up_due_date,
+  pr.is_follow_up_overdue::boolean AS is_follow_up_overdue,
+  pr.replacement_saas_app_id::bigint AS replacement_saas_app_id,
+  pr.replacement_display_name::text AS replacement_display_name,
+  pr.ticket_ref::text AS ticket_ref,
   pr.actors_30d::bigint AS actors_30d
 FROM discovery_app_read_models_v pr
 WHERE EXISTS (
@@ -179,7 +187,21 @@ SELECT
   pr.first_seen_at::timestamptz AS first_seen_at,
   pr.last_seen_at::timestamptz AS last_seen_at,
   pr.created_at::timestamptz AS created_at,
-  pr.updated_at::timestamptz AS updated_at
+  pr.updated_at::timestamptz AS updated_at,
+  pr.owner_identity_id::bigint AS owner_identity_id,
+  pr.owner_display_name::text AS owner_display_name,
+  pr.owner_primary_email::text AS owner_primary_email,
+  pr.review_owner_identity_id::bigint AS review_owner_identity_id,
+  pr.review_owner_display_name::text AS review_owner_display_name,
+  pr.review_owner_primary_email::text AS review_owner_primary_email,
+  pr.review_disposition::text AS review_disposition,
+  pr.ticket_ref::text AS ticket_ref,
+  pr.notes::text AS notes,
+  pr.follow_up_due_date::date AS follow_up_due_date,
+  pr.is_follow_up_overdue::boolean AS is_follow_up_overdue,
+  pr.replacement_saas_app_id::bigint AS replacement_saas_app_id,
+  pr.replacement_display_name::text AS replacement_display_name,
+  pr.replacement_primary_domain::text AS replacement_primary_domain
 FROM discovery_app_read_models_v pr
 WHERE pr.id = sqlc.arg(id)::bigint;
 
@@ -204,6 +226,14 @@ SELECT
   pr.updated_at::timestamptz AS updated_at,
   pr.owner_display_name::text AS owner_display_name,
   pr.owner_primary_email::text AS owner_primary_email,
+  pr.review_owner_display_name::text AS review_owner_display_name,
+  pr.review_owner_primary_email::text AS review_owner_primary_email,
+  pr.review_disposition::text AS review_disposition,
+  pr.follow_up_due_date::date AS follow_up_due_date,
+  pr.is_follow_up_overdue::boolean AS is_follow_up_overdue,
+  pr.replacement_saas_app_id::bigint AS replacement_saas_app_id,
+  pr.replacement_display_name::text AS replacement_display_name,
+  pr.ticket_ref::text AS ticket_ref,
   pr.actors_30d::bigint AS actors_30d
 FROM discovery_app_read_models_v pr
 WHERE pr.risk_score >= 60

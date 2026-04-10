@@ -105,6 +105,7 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Managed</th>
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Risk</th>
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Owner</th>
+								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Governance</th>
 								<th class="osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground">Actors (30d)</th>
 								<th class="osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground">Last seen</th>
 							</tr>
@@ -131,13 +132,30 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 												<span class="osspm-cell-secondary">{ FormatInt(int(item.RiskScore)) }</span>
 											</td>
 											<td><span class="osspm-truncate" title={ item.Owner }>{ item.Owner }</span></td>
+											<td class="whitespace-normal">
+												<div class="flex flex-wrap items-center gap-2">
+													<span class={ DiscoveryReviewDispositionBadgeClass(item.ReviewDisposition) }>{ HumanizeDiscoveryReviewDisposition(item.ReviewDisposition) }</span>
+													if item.TicketRef != "" {
+														<span class="badge-outline">{ item.TicketRef }</span>
+													}
+													if item.FollowUpDueDate != "" {
+														<span class={ DiscoveryFollowUpBadgeClass(item.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(item.FollowUpDueDate, item.IsFollowUpOverdue) }</span>
+													}
+												</div>
+												if item.ReviewOwner != "—" {
+													<div class="osspm-cell-secondary">{ "Review: " }{ item.ReviewOwner }</div>
+												}
+												if item.ReplacementDisplayName != "" {
+													<div class="osspm-cell-secondary">{ "Replace with " }{ item.ReplacementDisplayName }</div>
+												}
+											</td>
 											<td class="osspm-num"><span class="badge-outline">{ FormatInt64(item.Actors30d) }</span></td>
 											<td class="osspm-num text-muted-foreground">{ item.LastSeenAt }</td>
 										</tr>
 									}
 								} else {
 								<tr>
-									<td colspan="6">
+									<td colspan="7">
 										@EmptyState("No discovery apps found", data.EmptyStateMsg)
 									</td>
 								</tr>

@@ -1,26 +1,59 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
+	"github.com/open-sspm/open-sspm/internal/auth"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
+	"github.com/open-sspm/open-sspm/internal/http/authn"
 	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
 
 const (
-	discoveryAppsPerPage   = 20
-	discoveryHotspotsLimit = 200
+	discoveryAppsPerPage               = 20
+	discoveryHotspotsLimit             = 200
+	discoveryReplacementCandidateLimit = 8
 )
+
+type discoveryAppShowOptions struct {
+	alert          *viewmodels.DiscoveryAlert
+	governanceForm *discoveryGovernanceFormInput
+}
+
+type discoveryGovernanceFormInput struct {
+	accountableOwnerEmailInput string
+	reviewOwnerEmailInput      string
+	reviewDispositionInput     string
+	followUpDueDateInput       string
+	ticketRefInput             string
+	notesInput                 string
+	replacementQueryInput      string
+	replacementSaaSAppIDInput  int64
+}
+
+type discoveryGovernanceIdentityRefs struct {
+	ownerIdentityID       pgtype.Int8
+	reviewOwnerIdentityID pgtype.Int8
+}
+
+type discoveryGovernanceValidatedInput struct {
+	followUpDueDate pgtype.Date
+	replacementRef  pgtype.Int8
+}
 
 func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
@@ -71,17 +104,23 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 		ownerLabel := discoveryOwnerLabel(row.OwnerDisplayName, row.OwnerPrimaryEmail)
 
 		items = append(items, viewmodels.DiscoveryAppListItem{
-			ID:            row.ID,
-			DisplayName:   displayName,
-			Domain:        domainLabel,
-			VendorName:    vendorLabel,
-			ManagedState:  strings.TrimSpace(row.ManagedState),
-			ManagedReason: strings.TrimSpace(row.ManagedReason),
-			RiskScore:     row.RiskScore,
-			RiskLevel:     strings.TrimSpace(row.RiskLevel),
-			Owner:         ownerLabel,
-			Actors30d:     row.Actors30d,
-			LastSeenAt:    formatProgrammaticDate(row.LastSeenAt),
+			ID:                     row.ID,
+			DisplayName:            displayName,
+			Domain:                 domainLabel,
+			VendorName:             vendorLabel,
+			ManagedState:           strings.TrimSpace(row.ManagedState),
+			ManagedReason:          strings.TrimSpace(row.ManagedReason),
+			RiskScore:              row.RiskScore,
+			RiskLevel:              strings.TrimSpace(row.RiskLevel),
+			Owner:                  ownerLabel,
+			ReviewOwner:            discoveryOwnerLabel(row.ReviewOwnerDisplayName, row.ReviewOwnerPrimaryEmail),
+			ReviewDisposition:      normalizeDiscoveryReviewDisposition(row.ReviewDisposition),
+			FollowUpDueDate:        formatDate(row.FollowUpDueDate),
+			IsFollowUpOverdue:      row.IsFollowUpOverdue,
+			ReplacementDisplayName: strings.TrimSpace(row.ReplacementDisplayName),
+			TicketRef:              strings.TrimSpace(row.TicketRef),
+			Actors30d:              row.Actors30d,
+			LastSeenAt:             formatProgrammaticDate(row.LastSeenAt),
 		})
 	}
 
@@ -133,14 +172,20 @@ func (h *Handlers) HandleDiscoveryHotspots(c *echo.Context) error {
 		}
 		domainLabel, _ := discoveryAppSecondaryLabels(displayName, row.PrimaryDomain, row.VendorName)
 		items = append(items, viewmodels.DiscoveryHotspotItem{
-			ID:           row.ID,
-			DisplayName:  displayName,
-			Domain:       domainLabel,
-			ManagedState: strings.TrimSpace(row.ManagedState),
-			RiskScore:    row.RiskScore,
-			RiskLevel:    strings.TrimSpace(row.RiskLevel),
-			Owner:        discoveryOwnerLabel(row.OwnerDisplayName, row.OwnerPrimaryEmail),
-			Actors30d:    row.Actors30d,
+			ID:                     row.ID,
+			DisplayName:            displayName,
+			Domain:                 domainLabel,
+			ManagedState:           strings.TrimSpace(row.ManagedState),
+			RiskScore:              row.RiskScore,
+			RiskLevel:              strings.TrimSpace(row.RiskLevel),
+			Owner:                  discoveryOwnerLabel(row.OwnerDisplayName, row.OwnerPrimaryEmail),
+			ReviewOwner:            discoveryOwnerLabel(row.ReviewOwnerDisplayName, row.ReviewOwnerPrimaryEmail),
+			ReviewDisposition:      normalizeDiscoveryReviewDisposition(row.ReviewDisposition),
+			FollowUpDueDate:        formatDate(row.FollowUpDueDate),
+			IsFollowUpOverdue:      row.IsFollowUpOverdue,
+			ReplacementDisplayName: strings.TrimSpace(row.ReplacementDisplayName),
+			TicketRef:              strings.TrimSpace(row.TicketRef),
+			Actors30d:              row.Actors30d,
 		})
 	}
 
@@ -166,8 +211,17 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 		return RenderNotFound(c)
 	}
 
+	return h.renderDiscoveryAppShow(c, appID, discoveryAppShowOptions{})
+}
+
+func (h *Handlers) HandleDiscoveryAppGovernanceUpdate(c *echo.Context) error {
+	appID, err := parsePositiveInt64Param(c.Param("id"))
+	if err != nil {
+		return RenderNotFound(c)
+	}
+
 	ctx := c.Request().Context()
-	app, err := h.Q.GetSaaSAppByID(ctx, appID)
+	summary, err := h.Q.GetSaaSAppByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -175,19 +229,310 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
+	form := parseDiscoveryGovernanceForm(c)
+	reviewDisposition := normalizeDiscoveryReviewDisposition(form.reviewDispositionInput)
+	if reviewDisposition == "" {
+		return h.renderDiscoveryGovernanceValidationError(c, appID, form, "Invalid disposition", "Choose a valid discovery disposition before saving governance.")
+	}
+	form.reviewDispositionInput = reviewDisposition
+	if form.reviewDispositionInput != "replace" {
+		form.replacementSaaSAppIDInput = 0
+	}
+	form.accountableOwnerEmailInput = auth.NormalizeEmail(form.accountableOwnerEmailInput)
+	form.reviewOwnerEmailInput = auth.NormalizeEmail(form.reviewOwnerEmailInput)
+
+	identityRefs, alert, err := h.resolveDiscoveryGovernanceIdentities(ctx, form)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	if alert != nil {
+		return h.renderDiscoveryGovernanceAlert(c, appID, form, alert)
+	}
+
+	validated, alert, err := h.validateDiscoveryGovernanceUpdate(ctx, summary, form, identityRefs)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	if alert != nil {
+		return h.renderDiscoveryGovernanceAlert(c, appID, form, alert)
+	}
+
+	principal, ok := authn.PrincipalFromContext(c)
+	if !ok {
+		return c.NoContent(http.StatusForbidden)
+	}
+
+	if err := h.persistDiscoveryGovernanceUpdate(ctx, appID, form, identityRefs, validated, principal); err != nil {
+		return h.RenderError(c, err)
+	}
+
+	return h.renderDiscoveryGovernanceSuccess(c, appID)
+}
+
+func parseDiscoveryGovernanceForm(c *echo.Context) discoveryGovernanceFormInput {
+	return discoveryGovernanceFormInput{
+		accountableOwnerEmailInput: strings.TrimSpace(c.FormValue("owner_email")),
+		reviewOwnerEmailInput:      strings.TrimSpace(c.FormValue("review_owner_email")),
+		reviewDispositionInput:     strings.TrimSpace(c.FormValue("review_disposition")),
+		followUpDueDateInput:       strings.TrimSpace(c.FormValue("follow_up_due_date")),
+		ticketRefInput:             strings.TrimSpace(c.FormValue("ticket_ref")),
+		notesInput:                 strings.TrimSpace(c.FormValue("notes")),
+		replacementQueryInput:      strings.TrimSpace(c.FormValue("replacement_query")),
+		replacementSaaSAppIDInput:  parseOptionalPositiveInt64(c.FormValue("replacement_saas_app_id")),
+	}
+}
+
+func discoveryAppShowOptionsForGovernance(form discoveryGovernanceFormInput, alert *viewmodels.DiscoveryAlert) discoveryAppShowOptions {
+	formCopy := form
+	return discoveryAppShowOptions{
+		alert:          alert,
+		governanceForm: &formCopy,
+	}
+}
+
+func (h *Handlers) renderDiscoveryGovernanceAlert(c *echo.Context, appID int64, form discoveryGovernanceFormInput, alert *viewmodels.DiscoveryAlert) error {
+	return h.renderDiscoveryAppShow(c, appID, discoveryAppShowOptionsForGovernance(form, alert))
+}
+
+func (h *Handlers) renderDiscoveryGovernanceValidationError(c *echo.Context, appID int64, form discoveryGovernanceFormInput, title, message string) error {
+	return h.renderDiscoveryGovernanceAlert(c, appID, form, &viewmodels.DiscoveryAlert{
+		Title:       title,
+		Message:     message,
+		Destructive: true,
+	})
+}
+
+func (h *Handlers) resolveDiscoveryGovernanceIdentities(ctx context.Context, form discoveryGovernanceFormInput) (discoveryGovernanceIdentityRefs, *viewmodels.DiscoveryAlert, error) {
+	refs := discoveryGovernanceIdentityRefs{}
+
+	if form.accountableOwnerEmailInput != "" {
+		ownerIdentity, err := h.Q.GetPreferredIdentityByPrimaryEmail(ctx, form.accountableOwnerEmailInput)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return refs, &viewmodels.DiscoveryAlert{
+					Title:       "Owner not found",
+					Message:     "Assign an accountable owner using an existing identity email address.",
+					Destructive: true,
+				}, nil
+			}
+			return refs, nil, err
+		}
+		refs.ownerIdentityID = pgtype.Int8{Int64: ownerIdentity.ID, Valid: true}
+	}
+
+	if form.reviewOwnerEmailInput != "" {
+		reviewOwner, err := h.Q.GetPreferredIdentityByPrimaryEmail(ctx, form.reviewOwnerEmailInput)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return refs, &viewmodels.DiscoveryAlert{
+					Title:       "Review owner not found",
+					Message:     "Assign a review owner using an existing identity email address.",
+					Destructive: true,
+				}, nil
+			}
+			return refs, nil, err
+		}
+		refs.reviewOwnerIdentityID = pgtype.Int8{Int64: reviewOwner.ID, Valid: true}
+	}
+
+	return refs, nil, nil
+}
+
+func (h *Handlers) validateDiscoveryGovernanceUpdate(ctx context.Context, summary gen.GetSaaSAppByIDRow, form discoveryGovernanceFormInput, identityRefs discoveryGovernanceIdentityRefs) (discoveryGovernanceValidatedInput, *viewmodels.DiscoveryAlert, error) {
+	validated := discoveryGovernanceValidatedInput{}
+
+	if discoveryDispositionRequiresOwner(form.reviewDispositionInput) && !identityRefs.ownerIdentityID.Valid {
+		return validated, &viewmodels.DiscoveryAlert{
+			Title:       "Owner required",
+			Message:     "Assign an accountable owner before saving this disposition.",
+			Destructive: true,
+		}, nil
+	}
+
+	followUpDueDate, err := parseDateInput(form.followUpDueDateInput)
+	if err != nil {
+		return validated, &viewmodels.DiscoveryAlert{
+			Title:       "Invalid due date",
+			Message:     "Enter a valid follow-up date.",
+			Destructive: true,
+		}, nil
+	}
+	if isDateOverdue(followUpDueDate) {
+		return validated, &viewmodels.DiscoveryAlert{
+			Title:       "Invalid due date",
+			Message:     "Follow-up date must be today or in the future.",
+			Destructive: true,
+		}, nil
+	}
+	validated.followUpDueDate = followUpDueDate
+
+	if form.reviewDispositionInput == "replace" {
+		if form.replacementSaaSAppIDInput <= 0 {
+			return validated, &viewmodels.DiscoveryAlert{
+				Title:       "Replacement required",
+				Message:     "Choose a managed replacement app before saving a replace decision.",
+				Destructive: true,
+			}, nil
+		}
+		if form.replacementSaaSAppIDInput == summary.ID {
+			return validated, &viewmodels.DiscoveryAlert{
+				Title:       "Invalid replacement",
+				Message:     "Choose a different managed app as the replacement target.",
+				Destructive: true,
+			}, nil
+		}
+
+		replacement, err := h.Q.GetSaaSAppReplacementCandidateByID(ctx, form.replacementSaaSAppIDInput)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return validated, &viewmodels.DiscoveryAlert{
+					Title:       "Replacement not found",
+					Message:     "Choose a managed discovered app as the replacement target.",
+					Destructive: true,
+				}, nil
+			}
+			return validated, nil, err
+		}
+		if !strings.EqualFold(strings.TrimSpace(replacement.ManagedState), "managed") {
+			return validated, &viewmodels.DiscoveryAlert{
+				Title:       "Replacement must be managed",
+				Message:     "Choose a replacement target that is currently managed.",
+				Destructive: true,
+			}, nil
+		}
+
+		validated.replacementRef = pgtype.Int8{Int64: form.replacementSaaSAppIDInput, Valid: true}
+	}
+
+	if len(form.notesInput) > 4000 {
+		return validated, &viewmodels.DiscoveryAlert{
+			Title:       "Notes too long",
+			Message:     "Keep governance notes under 4000 characters.",
+			Destructive: true,
+		}, nil
+	}
+
+	return validated, nil, nil
+}
+
+func (h *Handlers) persistDiscoveryGovernanceUpdate(ctx context.Context, appID int64, form discoveryGovernanceFormInput, identityRefs discoveryGovernanceIdentityRefs, validated discoveryGovernanceValidatedInput, principal auth.Principal) error {
+	tx, err := h.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+	qtx := h.Q.WithTx(tx)
+
+	authUserID := pgtype.Int8{Int64: principal.UserID, Valid: principal.UserID > 0}
+	if _, err := qtx.UpsertSaaSAppReviewGovernance(ctx, gen.UpsertSaaSAppReviewGovernanceParams{
+		SaasAppID:             appID,
+		OwnerIdentityID:       identityRefs.ownerIdentityID,
+		TicketRef:             form.ticketRefInput,
+		Notes:                 form.notesInput,
+		ReviewDisposition:     form.reviewDispositionInput,
+		ReviewOwnerIdentityID: identityRefs.reviewOwnerIdentityID,
+		FollowUpDueDate:       validated.followUpDueDate,
+		ReplacementSaasAppID:  validated.replacementRef,
+		UpdatedByAuthUserID:   authUserID,
+	}); err != nil {
+		return err
+	}
+
+	if err := qtx.InsertSaaSAppReviewDecision(ctx, gen.InsertSaaSAppReviewDecisionParams{
+		SaasAppID:             appID,
+		OwnerIdentityID:       identityRefs.ownerIdentityID,
+		ReviewOwnerIdentityID: identityRefs.reviewOwnerIdentityID,
+		ReviewDisposition:     form.reviewDispositionInput,
+		TicketRef:             form.ticketRefInput,
+		Notes:                 form.notesInput,
+		FollowUpDueDate:       validated.followUpDueDate,
+		ReplacementSaasAppID:  validated.replacementRef,
+		ChangedByAuthUserID:   authUserID,
+	}); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (h *Handlers) renderDiscoveryGovernanceSuccess(c *echo.Context, appID int64) error {
+	setFlashToast(c, viewmodels.ToastViewData{
+		Category:    "success",
+		Title:       "Discovery governance saved",
+		Description: "The discovery disposition and review details were updated.",
+	})
+	if isHX(c) {
+		return h.renderDiscoveryAppShow(c, appID, discoveryAppShowOptions{
+			alert: &viewmodels.DiscoveryAlert{
+				Title:       "Discovery governance saved",
+				Message:     "The discovery disposition and review details were updated.",
+				Destructive: false,
+			},
+		})
+	}
+	return c.Redirect(http.StatusSeeOther, discoveryAppHref(appID))
+}
+
+func (h *Handlers) HandleDiscoveryReplacementCandidates(c *echo.Context) error {
+	addVary(c, "HX-Request", "HX-Target")
+
+	ctx := c.Request().Context()
+	query := strings.TrimSpace(c.QueryParam("replacement_query"))
+	if query == "" {
+		query = strings.TrimSpace(c.QueryParam("q"))
+	}
+	excludeID := parseOptionalPositiveInt64(c.QueryParam("exclude_id"))
+	selectedReplacementID := parseOptionalPositiveInt64(c.QueryParam("replacement_saas_app_id"))
+
+	data, err := h.buildDiscoveryReplacementCandidatesViewData(ctx, excludeID, query, selectedReplacementID)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	return h.RenderComponent(c, views.DiscoveryReplacementCandidateResults(data))
+}
+
+func (h *Handlers) renderDiscoveryAppShow(c *echo.Context, appID int64, opts discoveryAppShowOptions) error {
+	addVary(c, "HX-Request", "HX-Target")
+
+	ctx := c.Request().Context()
+	layout, _, err := h.LayoutData(ctx, c, "Discovery App")
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+
+	data, err := h.buildDiscoveryAppShowViewData(ctx, layout, appID, opts)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return RenderNotFound(c)
+		}
+		return h.RenderError(c, err)
+	}
+
+	if isHX(c) && isHXTarget(c, "discovery-app-show-shell") {
+		return h.RenderComponent(c, views.DiscoveryAppShowBody(data))
+	}
+	return h.RenderComponent(c, views.DiscoveryAppShowPage(data))
+}
+
+func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout viewmodels.LayoutData, appID int64, opts discoveryAppShowOptions) (viewmodels.DiscoveryAppShowViewData, error) {
+	data := viewmodels.DiscoveryAppShowViewData{}
+
+	app, err := h.Q.GetSaaSAppByID(ctx, appID)
+	if err != nil {
+		return data, err
+	}
+
 	displayName := strings.TrimSpace(app.DisplayName)
 	if displayName == "" {
 		displayName = strings.TrimSpace(app.CanonicalKey)
 	}
-
-	layout, _, err := h.LayoutData(ctx, c, displayName)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
+	domainLabel, vendorLabel := discoveryAppSecondaryLabels(displayName, app.PrimaryDomain, app.VendorName)
 
 	sources, err := h.Q.ListSaaSAppSourcesBySaaSAppID(ctx, appID)
 	if err != nil {
-		return h.RenderError(c, err)
+		return data, err
 	}
 	sourceItems := make([]viewmodels.DiscoverySourceEvidenceItem, 0, len(sources))
 	for _, source := range sources {
@@ -206,7 +551,7 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 		LimitRows: 100,
 	})
 	if err != nil {
-		return h.RenderError(c, err)
+		return data, err
 	}
 	eventItems := make([]viewmodels.DiscoveryEventItem, 0, len(events))
 	for _, event := range events {
@@ -238,7 +583,7 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 		LimitRows: 25,
 	})
 	if err != nil {
-		return h.RenderError(c, err)
+		return data, err
 	}
 	actorItems := make([]viewmodels.DiscoveryActorItem, 0, len(actors))
 	for _, actor := range actors {
@@ -251,9 +596,63 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 		})
 	}
 
-	domainLabel, vendorLabel := discoveryAppSecondaryLabels(displayName, app.PrimaryDomain, app.VendorName)
+	historyRows, err := h.Q.ListSaaSAppReviewDecisionsBySaaSAppID(ctx, gen.ListSaaSAppReviewDecisionsBySaaSAppIDParams{
+		SaasAppID: appID,
+		LimitRows: 25,
+	})
+	if err != nil {
+		return data, err
+	}
+	historyItems := make([]viewmodels.DiscoveryReviewDecisionItem, 0, len(historyRows))
+	for _, row := range historyRows {
+		historyItems = append(historyItems, viewmodels.DiscoveryReviewDecisionItem{
+			ChangedAt:                formatProgrammaticDate(row.ChangedAt),
+			ChangedBy:                fallbackDash(strings.TrimSpace(row.ChangedByAuthUserEmail)),
+			Owner:                    discoveryOwnerLabel(row.OwnerDisplayName, row.OwnerPrimaryEmail),
+			ReviewOwner:              discoveryOwnerLabel(row.ReviewOwnerDisplayName, row.ReviewOwnerPrimaryEmail),
+			ReviewDisposition:        normalizeDiscoveryReviewDisposition(row.ReviewDisposition),
+			FollowUpDueDate:          formatDate(row.FollowUpDueDate),
+			IsFollowUpOverdue:        false,
+			TicketRef:                strings.TrimSpace(row.TicketRef),
+			Notes:                    strings.TrimSpace(row.Notes),
+			ReplacementDisplayName:   strings.TrimSpace(row.ReplacementDisplayName),
+			ReplacementPrimaryDomain: strings.TrimSpace(row.ReplacementPrimaryDomain),
+		})
+	}
 
-	data := viewmodels.DiscoveryAppShowViewData{
+	accountableOwnerEmailInput := auth.NormalizeEmail(app.OwnerPrimaryEmail)
+	reviewOwnerEmailInput := auth.NormalizeEmail(app.ReviewOwnerPrimaryEmail)
+	reviewDispositionInput := normalizeDiscoveryReviewDisposition(app.ReviewDisposition)
+	if reviewDispositionInput == "" {
+		reviewDispositionInput = "unreviewed"
+	}
+	followUpDueDateInput := formatDate(app.FollowUpDueDate)
+	ticketRefInput := strings.TrimSpace(app.TicketRef)
+	notesInput := strings.TrimSpace(app.Notes)
+	replacementQueryInput := ""
+	replacementSaaSAppIDInput := app.ReplacementSaasAppID
+	if opts.governanceForm != nil {
+		accountableOwnerEmailInput = auth.NormalizeEmail(opts.governanceForm.accountableOwnerEmailInput)
+		reviewOwnerEmailInput = auth.NormalizeEmail(opts.governanceForm.reviewOwnerEmailInput)
+		if normalized := normalizeDiscoveryReviewDisposition(opts.governanceForm.reviewDispositionInput); normalized != "" {
+			reviewDispositionInput = normalized
+		}
+		followUpDueDateInput = strings.TrimSpace(opts.governanceForm.followUpDueDateInput)
+		ticketRefInput = strings.TrimSpace(opts.governanceForm.ticketRefInput)
+		notesInput = strings.TrimSpace(opts.governanceForm.notesInput)
+		replacementQueryInput = strings.TrimSpace(opts.governanceForm.replacementQueryInput)
+		replacementSaaSAppIDInput = opts.governanceForm.replacementSaaSAppIDInput
+	}
+
+	var replacementPicker viewmodels.DiscoveryReplacementCandidatesViewData
+	if layout.IsAdmin {
+		replacementPicker, err = h.buildDiscoveryReplacementCandidatesViewData(ctx, appID, replacementQueryInput, replacementSaaSAppIDInput)
+		if err != nil {
+			return data, err
+		}
+	}
+
+	data = viewmodels.DiscoveryAppShowViewData{
 		Layout: layout,
 		App: viewmodels.DiscoveryAppSummaryView{
 			ID:                           app.ID,
@@ -267,18 +666,94 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 			RiskLevel:                    strings.TrimSpace(app.RiskLevel),
 			SuggestedBusinessCriticality: strings.TrimSpace(app.SuggestedBusinessCriticality),
 			SuggestedDataClassification:  strings.TrimSpace(app.SuggestedDataClassification),
+			Owner:                        discoveryOwnerLabel(app.OwnerDisplayName, app.OwnerPrimaryEmail),
+			ReviewOwner:                  discoveryOwnerLabel(app.ReviewOwnerDisplayName, app.ReviewOwnerPrimaryEmail),
+			ReviewDisposition:            normalizeDiscoveryReviewDisposition(app.ReviewDisposition),
+			FollowUpDueDate:              formatDate(app.FollowUpDueDate),
+			IsFollowUpOverdue:            app.IsFollowUpOverdue,
+			TicketRef:                    strings.TrimSpace(app.TicketRef),
+			Notes:                        strings.TrimSpace(app.Notes),
+			ReplacementDisplayName:       strings.TrimSpace(app.ReplacementDisplayName),
+			ReplacementPrimaryDomain:     strings.TrimSpace(app.ReplacementPrimaryDomain),
 			FirstSeenAt:                  formatProgrammaticDate(app.FirstSeenAt),
 			LastSeenAt:                   formatProgrammaticDate(app.LastSeenAt),
 		},
-		Sources:      sourceItems,
-		TopActors:    actorItems,
-		Events:       eventItems,
-		HasSources:   len(sourceItems) > 0,
-		HasTopActors: len(actorItems) > 0,
-		HasEvents:    len(eventItems) > 0,
+		Sources:                    sourceItems,
+		TopActors:                  actorItems,
+		Events:                     eventItems,
+		DecisionHistory:            historyItems,
+		Alert:                      opts.alert,
+		AccountableOwnerEmailInput: accountableOwnerEmailInput,
+		ReviewOwnerEmailInput:      reviewOwnerEmailInput,
+		ReviewDispositionInput:     reviewDispositionInput,
+		FollowUpDueDateInput:       followUpDueDateInput,
+		TicketRefInput:             ticketRefInput,
+		NotesInput:                 notesInput,
+		ReplacementQueryInput:      replacementQueryInput,
+		ReplacementPicker:          replacementPicker,
+		HasSources:                 len(sourceItems) > 0,
+		HasTopActors:               len(actorItems) > 0,
+		HasEvents:                  len(eventItems) > 0,
+		HasDecisionHistory:         len(historyItems) > 0,
+	}
+	return data, nil
+}
+
+func (h *Handlers) buildDiscoveryReplacementCandidatesViewData(ctx context.Context, excludeID int64, query string, selectedReplacementID int64) (viewmodels.DiscoveryReplacementCandidatesViewData, error) {
+	data := viewmodels.DiscoveryReplacementCandidatesViewData{}
+
+	if selectedReplacementID > 0 {
+		selected, err := h.Q.GetSaaSAppReplacementCandidateByID(ctx, selectedReplacementID)
+		if err != nil {
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return data, err
+			}
+		} else if selected.ID != excludeID {
+			item := discoveryReplacementCandidateItem(selected.ID, selected.DisplayName, selected.PrimaryDomain, selected.VendorName, selected.ManagedState, selected.RiskLevel, true)
+			data.SelectedCandidate = &item
+		}
 	}
 
-	return h.RenderComponent(c, views.DiscoveryAppShowPage(data))
+	query = strings.TrimSpace(query)
+	switch {
+	case query == "":
+		data.EmptyStateMsg = "Type at least 2 characters to search managed discovery apps."
+		return data, nil
+	case len([]rune(query)) < 2:
+		data.EmptyStateMsg = "Type at least 2 characters to search managed discovery apps."
+		return data, nil
+	}
+
+	rows, err := h.Q.SearchManagedReplacementSaaSApps(ctx, gen.SearchManagedReplacementSaaSAppsParams{
+		ExcludeID: excludeID,
+		Query:     query,
+		LimitRows: discoveryReplacementCandidateLimit,
+	})
+	if err != nil {
+		return data, err
+	}
+
+	candidates := make([]viewmodels.DiscoveryReplacementCandidateItem, 0, len(rows))
+	for _, row := range rows {
+		if data.SelectedCandidate != nil && row.ID == data.SelectedCandidate.ID {
+			data.SelectedCandidate.IsSelected = true
+		}
+		candidates = append(candidates, discoveryReplacementCandidateItem(
+			row.ID,
+			row.DisplayName,
+			row.PrimaryDomain,
+			row.VendorName,
+			row.ManagedState,
+			row.RiskLevel,
+			data.SelectedCandidate != nil && row.ID == data.SelectedCandidate.ID,
+		))
+	}
+	data.Candidates = candidates
+	data.HasCandidates = len(candidates) > 0
+	if !data.HasCandidates {
+		data.EmptyStateMsg = "No managed discovery apps match the current search."
+	}
+	return data, nil
 }
 
 func discoverySourceOptions(stateView connectorStateView) []viewmodels.DiscoverySourceOption {
@@ -412,6 +887,87 @@ func discoveryOwnerLabel(displayName, email string) string {
 		return email
 	default:
 		return "—"
+	}
+}
+
+func discoveryDispositionRequiresOwner(disposition string) bool {
+	switch normalizeDiscoveryReviewDisposition(disposition) {
+	case "sanctioned", "tolerated", "replace":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeDiscoveryReviewDisposition(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "":
+		return ""
+	case "unreviewed":
+		return "unreviewed"
+	case "under_review", "under review":
+		return "under_review"
+	case "sanctioned":
+		return "sanctioned"
+	case "tolerated":
+		return "tolerated"
+	case "replace":
+		return "replace"
+	default:
+		return ""
+	}
+}
+
+func parseOptionalPositiveInt64(value string) int64 {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0
+	}
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || parsed <= 0 {
+		return 0
+	}
+	return parsed
+}
+
+func parseDateInput(value string) (pgtype.Date, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return pgtype.Date{}, nil
+	}
+	parsed, err := time.Parse("2006-01-02", value)
+	if err != nil {
+		return pgtype.Date{}, err
+	}
+	return pgtype.Date{Time: parsed.UTC(), Valid: true}, nil
+}
+
+func formatDate(value pgtype.Date) string {
+	if !value.Valid {
+		return ""
+	}
+	return value.Time.UTC().Format("2006-01-02")
+}
+
+func isDateOverdue(value pgtype.Date) bool {
+	if !value.Valid {
+		return false
+	}
+	now := time.Now().UTC()
+	current := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	due := time.Date(value.Time.UTC().Year(), value.Time.UTC().Month(), value.Time.UTC().Day(), 0, 0, 0, 0, time.UTC)
+	return due.Before(current)
+}
+
+func discoveryReplacementCandidateItem(id int64, displayName, domain, vendorName, managedState, riskLevel string, selected bool) viewmodels.DiscoveryReplacementCandidateItem {
+	return viewmodels.DiscoveryReplacementCandidateItem{
+		ID:           id,
+		DisplayName:  strings.TrimSpace(displayName),
+		Domain:       strings.TrimSpace(domain),
+		VendorName:   strings.TrimSpace(vendorName),
+		ManagedState: strings.TrimSpace(managedState),
+		RiskLevel:    strings.TrimSpace(riskLevel),
+		IsSelected:   selected,
 	}
 }
 
