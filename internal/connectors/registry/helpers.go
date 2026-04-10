@@ -515,7 +515,7 @@ func MarshalJSON(v any) []byte {
 }
 
 func finalizeSuccessfulRunInTx(ctx context.Context, q *gen.Queries, runID int64, stats []byte, sourceKind, sourceName string) error {
-	if err := refreshSourceReadModelsInTx(ctx, q, sourceKind, sourceName); err != nil {
+	if err := refreshPreSuccessSourceReadModelsInTx(ctx, q, sourceKind, sourceName); err != nil {
 		return err
 	}
 	if err := q.MarkSyncRunSuccess(ctx, gen.MarkSyncRunSuccessParams{ID: runID, Stats: stats}); err != nil {
@@ -524,12 +524,15 @@ func finalizeSuccessfulRunInTx(ctx context.Context, q *gen.Queries, runID int64,
 	return refreshPostSuccessReadModelsInTx(ctx, q, sourceKind, sourceName)
 }
 
-func refreshSourceReadModelsInTx(ctx context.Context, q *gen.Queries, sourceKind, sourceName string) error {
+func refreshPreSuccessSourceReadModelsInTx(ctx context.Context, q *gen.Queries, sourceKind, sourceName string) error {
 	projector := readmodels.ProjectorFromContext(ctx, q)
 	if projector == nil {
 		return nil
 	}
-	return projector.RefreshSourceReadModels(ctx, sourceKind, sourceName)
+	if err := projector.RefreshDiscoverySource(ctx, sourceKind, sourceName); err != nil {
+		return err
+	}
+	return projector.RefreshAppAssetSource(ctx, sourceKind, sourceName)
 }
 
 func refreshPostSuccessReadModelsInTx(ctx context.Context, q *gen.Queries, sourceKind, sourceName string) error {

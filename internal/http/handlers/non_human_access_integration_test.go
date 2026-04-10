@@ -93,6 +93,47 @@ func TestHandleNonHumanAccessRendersUnifiedInventory(t *testing.T) {
 	})
 }
 
+func TestRefreshCommandSearchSourceReadModelsPopulatesNonHumanPrincipals(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, _ *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
+			Org:   "acme",
+			Token: "token-1",
+		})
+
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
+		insertCommandSearchAppAsset(t, ctx, q, runID, configstore.KindGitHub, "acme", "github_app", "github-actions", "", "GitHub Actions", "active")
+		insertNonHumanCredentialArtifact(t, ctx, pool, runID, nonHumanCredentialArtifactSeed{
+			SourceKind:         configstore.KindGitHub,
+			SourceName:         "acme",
+			AssetRefKind:       "app_asset",
+			AssetRefExternalID: "github_app:github-actions",
+			CredentialKind:     "github_pat_fine_grained",
+			ExternalID:         "pat-123",
+			DisplayName:        "GitHub Actions PAT",
+			Status:             "active",
+		})
+
+		refreshCommandSearchSourceReadModels(t, ctx, q, configstore.KindGitHub, "acme")
+
+		rows, err := q.ListNonHumanPrincipalsPageByFilters(ctx, gen.ListNonHumanPrincipalsPageByFiltersParams{
+			PageLimit:             20,
+			ConfiguredSourceKinds: []string{configstore.KindGitHub},
+			ConfiguredSourceNames: []string{"acme"},
+			SourceKind:            configstore.KindGitHub,
+			SourceName:            "acme",
+		})
+		if err != nil {
+			t.Fatalf("ListNonHumanPrincipalsPageByFilters(): %v", err)
+		}
+		if len(rows) != 1 {
+			t.Fatalf("rows len = %d, want 1 (%+v)", len(rows), rows)
+		}
+		if rows[0].DisplayName != "GitHub Actions" {
+			t.Fatalf("display name = %q, want %q", rows[0].DisplayName, "GitHub Actions")
+		}
+	})
+}
+
 func TestHandleNonHumanAccessShowRendersDetailLinksAndRiskReasons(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{

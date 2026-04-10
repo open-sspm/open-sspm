@@ -18,7 +18,7 @@ type ConnectedAppsQuery struct {
 }
 
 func ParseConnectedAppsQuery(values url.Values) ConnectedAppsQuery {
-	governanceState := NormalizeConnectedAppGovernanceState(values.Get("governance_state"), true)
+	governanceState := parseConnectedAppsGovernanceState(values)
 	return ConnectedAppsQuery{
 		Q:               strings.TrimSpace(values.Get("q")),
 		GovernanceState: governanceState,
@@ -35,17 +35,26 @@ func NormalizeConnectedAppGovernanceState(raw string, allowBlank bool) string {
 		return ""
 	case "unreviewed":
 		return "unreviewed"
-	case "in_review":
+	case "in_review", "under_review", "under review":
 		return "in_review"
-	case "approved":
+	case "approved", "sanctioned":
 		return "approved"
-	case "action_required":
+	case "action_required", "action required", "needs_revocation", "needs revocation":
 		return "action_required"
 	case "ticketed":
 		return "ticketed"
 	default:
 		return ""
 	}
+}
+
+func parseConnectedAppsGovernanceState(values url.Values) string {
+	for _, key := range []string{"governance_state", "review_state"} {
+		if normalized := NormalizeConnectedAppGovernanceState(values.Get(key), true); normalized != "" {
+			return normalized
+		}
+	}
+	return ""
 }
 
 func (q ConnectedAppsQuery) Values() url.Values {

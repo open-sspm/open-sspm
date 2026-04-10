@@ -107,7 +107,7 @@ func nonHumanAccessRefererInfo(c *echo.Context) (nonHumanAccessReferer, bool) {
 	if err != nil {
 		return nonHumanAccessReferer{}, false
 	}
-	if parsed.Host != "" && !strings.EqualFold(parsed.Host, c.Request().Host) {
+	if parsed.Host != "" && !sameHostname(parsed.Host, c.Request().Host) {
 		return nonHumanAccessReferer{}, false
 	}
 
@@ -124,6 +124,24 @@ func nonHumanAccessRefererInfo(c *echo.Context) (nonHumanAccessReferer, bool) {
 		info.principalRef = strings.TrimPrefix(path, querystate.NonHumanAccessBasePath()+"/")
 	}
 	return info, true
+}
+
+func sameHostname(a, b string) bool {
+	a = strings.TrimSpace(a)
+	b = strings.TrimSpace(b)
+	if a == "" || b == "" {
+		return a == b
+	}
+
+	aHostname := (&url.URL{Host: a}).Hostname()
+	if aHostname == "" {
+		aHostname = a
+	}
+	bHostname := (&url.URL{Host: b}).Hostname()
+	if bHostname == "" {
+		bHostname = b
+	}
+	return strings.EqualFold(aHostname, bHostname)
 }
 
 func nonHumanAccessRefererQuerySignature(c *echo.Context) (string, bool) {

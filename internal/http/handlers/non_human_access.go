@@ -384,12 +384,19 @@ func nonHumanPrincipalRiskReasons(principal gen.NonHumanPrincipalReadModelsV) []
 }
 
 func nonHumanBestAvailableAttribution(linkResolver *identityLinkResolver, rows []gen.ListNonHumanPrincipalCredentialsByRefRow) (string, string) {
+	resolve := func(sourceKind, sourceName, externalID, displayName string) string {
+		if linkResolver == nil {
+			return ""
+		}
+		return linkResolver.Resolve(strings.TrimSpace(sourceKind), strings.TrimSpace(sourceName), externalID, "", displayName)
+	}
+
 	for _, row := range rows {
 		label := actorDisplayName(row.CreatedByDisplayName, row.CreatedByExternalID)
 		if strings.TrimSpace(label) == "" {
 			continue
 		}
-		return label, linkResolver.Resolve(strings.TrimSpace(row.SourceKind), strings.TrimSpace(row.SourceName), row.CreatedByExternalID, "", row.CreatedByDisplayName)
+		return label, resolve(row.SourceKind, row.SourceName, row.CreatedByExternalID, row.CreatedByDisplayName)
 	}
 
 	for _, row := range rows {
@@ -397,7 +404,7 @@ func nonHumanBestAvailableAttribution(linkResolver *identityLinkResolver, rows [
 		if strings.TrimSpace(label) == "" {
 			continue
 		}
-		return label, linkResolver.Resolve(strings.TrimSpace(row.SourceKind), strings.TrimSpace(row.SourceName), row.ApprovedByExternalID, "", row.ApprovedByDisplayName)
+		return label, resolve(row.SourceKind, row.SourceName, row.ApprovedByExternalID, row.ApprovedByDisplayName)
 	}
 
 	return "", ""

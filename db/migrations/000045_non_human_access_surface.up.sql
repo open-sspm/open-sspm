@@ -615,7 +615,11 @@ scored AS (
     END::text AS freshness_state,
     (
       CASE WHEN b.owner_presence = 'unknown' THEN 1 ELSE 0 END
-      + CASE WHEN b.has_high_risk_credential THEN 1 ELSE 0 END
+      + CASE
+          WHEN b.has_critical_credential THEN 1
+          WHEN b.has_high_risk_credential THEN 1
+          ELSE 0
+        END
       + CASE WHEN b.has_expired_credential THEN 1 ELSE 0 END
       + CASE WHEN b.has_expiring_credential THEN 1 ELSE 0 END
       + CASE WHEN b.has_unused_credential THEN 1 ELSE 0 END

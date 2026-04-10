@@ -86,22 +86,13 @@ func (p *Projector) RefreshSourceReadModels(ctx context.Context, sourceKind, sou
 		if err := refreshAppAssetSource(ctx, q, sourceKind, sourceName); err != nil {
 			return err
 		}
-		return nil
+		return refreshNonHumanPrincipalSource(ctx, q, sourceKind, sourceName)
 	})
 }
 
 func (p *Projector) RefreshNonHumanPrincipalSourceReadModels(ctx context.Context, sourceKind, sourceName string) error {
 	return p.withQueries(ctx, func(q *gen.Queries) error {
-		sourceKind = normalizeSourceKind(sourceKind)
-		sourceName = strings.TrimSpace(sourceName)
-		if sourceKind == "" || sourceName == "" {
-			return nil
-		}
-		_, err := q.RefreshNonHumanPrincipalReadModelsBySource(ctx, gen.RefreshNonHumanPrincipalReadModelsBySourceParams{
-			SourceKind: sourceKind,
-			SourceName: sourceName,
-		})
-		return err
+		return refreshNonHumanPrincipalSource(ctx, q, sourceKind, sourceName)
 	})
 }
 
@@ -229,6 +220,19 @@ func refreshAppAssetSource(ctx context.Context, q *gen.Queries, sourceKind, sour
 		return nil
 	}
 	_, err := q.RefreshAppAssetReadModelsBySource(ctx, gen.RefreshAppAssetReadModelsBySourceParams{
+		SourceKind: sourceKind,
+		SourceName: sourceName,
+	})
+	return err
+}
+
+func refreshNonHumanPrincipalSource(ctx context.Context, q *gen.Queries, sourceKind, sourceName string) error {
+	sourceKind = normalizeSourceKind(sourceKind)
+	sourceName = strings.TrimSpace(sourceName)
+	if sourceKind == "" || sourceName == "" {
+		return nil
+	}
+	_, err := q.RefreshNonHumanPrincipalReadModelsBySource(ctx, gen.RefreshNonHumanPrincipalReadModelsBySourceParams{
 		SourceKind: sourceKind,
 		SourceName: sourceName,
 	})

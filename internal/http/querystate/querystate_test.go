@@ -232,6 +232,25 @@ func TestConnectedAppsQuery(t *testing.T) {
 			t.Fatalf("href = %q", got)
 		}
 	})
+
+	t.Run("maps legacy review state aliases to canonical governance hrefs", func(t *testing.T) {
+		query := ParseConnectedAppsQuery(url.Values{
+			"q":            []string{"drive"},
+			"review_state": []string{"needs_revocation"},
+			"page":         []string{"2"},
+		})
+		want := "/app-assets?asset_kind=google_oauth_client&governance_state=action_required&page=2&q=drive&source_kind=google_workspace"
+		if query.Href() != want {
+			t.Fatalf("href = %q, want %q", query.Href(), want)
+		}
+
+		query = ParseConnectedAppsQuery(url.Values{
+			"governance_state": []string{"under_review"},
+		})
+		if query.GovernanceState != "in_review" {
+			t.Fatalf("governance state = %q, want %q", query.GovernanceState, "in_review")
+		}
+	})
 }
 
 func TestParseNonHumanAccessQuery(t *testing.T) {
