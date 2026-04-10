@@ -89,9 +89,6 @@ func TestIdentitiesQueryMutations(t *testing.T) {
 	if got := query.TogglePrivilegedOnly(); got.PrivilegedOnly || got.Page != 1 {
 		t.Fatalf("TogglePrivilegedOnly() = %#v", got)
 	}
-	if got := query.WithSourceName("tenant-1").WithSourceKind(""); got.Source.Kind != "" || got.Source.Name != "" || got.Page != 1 {
-		t.Fatalf("WithSourceKind(\"\") = %#v", got)
-	}
 	if !query.HasFilters() {
 		t.Fatalf("expected active filters")
 	}
@@ -166,8 +163,12 @@ func TestAppAssetsQuery(t *testing.T) {
 		if !query.IsConnectedAppsSlice() {
 			t.Fatalf("expected connected apps slice: %#v", query)
 		}
-		if query.WithSourceKind("github").IsConnectedAppsSlice() {
-			t.Fatalf("unexpected connected apps slice after source change: %#v", query)
+		other := ParseAppAssetsQuery(url.Values{
+			"source_kind": []string{"github"},
+			"asset_kind":  []string{"google_oauth_client"},
+		}, nil)
+		if other.IsConnectedAppsSlice() {
+			t.Fatalf("unexpected connected apps slice after source change: %#v", other)
 		}
 	})
 }
@@ -197,9 +198,6 @@ func TestParseDiscoveryQueries(t *testing.T) {
 	}, sources)
 	if hotspots.Source.Kind != "okta" || hotspots.Source.Name != "" {
 		t.Fatalf("source = %#v", hotspots.Source)
-	}
-	if hotspots.Href() != "/discovery/hotspots?source_kind=okta" {
-		t.Fatalf("href = %q", hotspots.Href())
 	}
 
 	t.Run("drops unknown selection back to all configured", func(t *testing.T) {
@@ -308,6 +306,45 @@ func TestParseNonHumanAccessQuery(t *testing.T) {
 		}
 		if query.PrincipalType != "" || query.OwnerPresence != "" || query.GovernanceState != "" {
 			t.Fatalf("expected unsupported aliases to be dropped: %#v", query)
+		}
+	})
+
+	t.Run("toggle pills deactivate when already active", func(t *testing.T) {
+		base := ParseNonHumanAccessQuery(url.Values{
+			"owner_presence":  []string{"unknown"},
+			"risk_level":      []string{"high"},
+			"activity_state":  []string{"stale"},
+			"freshness_state": []string{"stale"},
+		}, sources)
+
+		if q := base.ToggleOwnerPresence("unknown"); q.OwnerPresence != "" {
+			t.Fatalf("ToggleOwnerPresence should clear, got %q", q.OwnerPresence)
+		}
+		if q := base.ToggleRiskLevel("high"); q.RiskLevel != "" {
+			t.Fatalf("ToggleRiskLevel should clear, got %q", q.RiskLevel)
+		}
+		if q := base.ToggleActivityState("stale"); q.ActivityState != "" {
+			t.Fatalf("ToggleActivityState should clear, got %q", q.ActivityState)
+		}
+		if q := base.ToggleFreshnessState("stale"); q.FreshnessState != "" {
+			t.Fatalf("ToggleFreshnessState should clear, got %q", q.FreshnessState)
+		}
+	})
+
+	t.Run("toggle pills activate when inactive", func(t *testing.T) {
+		base := ParseNonHumanAccessQuery(url.Values{}, sources)
+
+		if q := base.ToggleOwnerPresence("unknown"); q.OwnerPresence != "unknown" {
+			t.Fatalf("ToggleOwnerPresence should set, got %q", q.OwnerPresence)
+		}
+		if q := base.ToggleRiskLevel("critical"); q.RiskLevel != "critical" {
+			t.Fatalf("ToggleRiskLevel should set, got %q", q.RiskLevel)
+		}
+		if q := base.ToggleActivityState("stale"); q.ActivityState != "stale" {
+			t.Fatalf("ToggleActivityState should set, got %q", q.ActivityState)
+		}
+		if q := base.ToggleFreshnessState("stale"); q.FreshnessState != "stale" {
+			t.Fatalf("ToggleFreshnessState should set, got %q", q.FreshnessState)
 		}
 	})
 }

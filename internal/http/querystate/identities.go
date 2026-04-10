@@ -83,33 +83,6 @@ func (q IdentitiesQuery) ClearQuery() IdentitiesQuery {
 	return q
 }
 
-func (q IdentitiesQuery) WithSourceKind(kind string) IdentitiesQuery {
-	q.Source.Kind = normalizeSourceKind(kind)
-	if q.Source.Kind == "" {
-		q.Source.Name = ""
-	}
-	q.Page = 1
-	return q
-}
-
-func (q IdentitiesQuery) WithSourceName(name string) IdentitiesQuery {
-	q.Source.Name = strings.TrimSpace(name)
-	q.Page = 1
-	return q
-}
-
-func (q IdentitiesQuery) WithManagedState(state string) IdentitiesQuery {
-	q.ManagedState = normalizeIdentityManagedState(state)
-	q.Page = 1
-	return q
-}
-
-func (q IdentitiesQuery) WithStatus(status string) IdentitiesQuery {
-	q.Status = normalizeIdentityStatus(status)
-	q.Page = 1
-	return q
-}
-
 func (q IdentitiesQuery) WithActivityState(state string) IdentitiesQuery {
 	q.ActivityState = normalizeIdentityActivityState(state)
 	q.Page = 1

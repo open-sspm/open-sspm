@@ -829,36 +829,6 @@ func normalizeDiscoverySourceKind(raw string) string {
 	}
 }
 
-func normalizeDiscoveryBusinessCriticality(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "low":
-		return "low"
-	case "medium":
-		return "medium"
-	case "high":
-		return "high"
-	case "critical":
-		return "critical"
-	default:
-		return "unknown"
-	}
-}
-
-func normalizeDiscoveryDataClassification(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "public":
-		return "public"
-	case "internal":
-		return "internal"
-	case "confidential":
-		return "confidential"
-	case "restricted":
-		return "restricted"
-	default:
-		return "unknown"
-	}
-}
-
 func discoveryAppSecondaryLabels(displayName, domain, vendor string) (string, string) {
 	displayName = strings.TrimSpace(displayName)
 	domain = strings.TrimSpace(domain)

@@ -6,12 +6,16 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	abstractions "github.com/microsoft/kiota-abstractions-go"
+	absauth "github.com/microsoft/kiota-abstractions-go/authentication"
 	absser "github.com/microsoft/kiota-abstractions-go/serialization"
+	msgraphsdkgo "github.com/microsoftgraph/msgraph-sdk-go"
 )
 
 func newGraphTestClient(t *testing.T, srv *httptest.Server) *Client {
@@ -22,6 +26,42 @@ func newGraphTestClient(t *testing.T, srv *httptest.Server) *Client {
 		t.Fatalf("newTestClient() error = %v", err)
 	}
 	return client
+}
+
+func newTestClient(graphBaseURL string, httpClient *http.Client) (*Client, error) {
+	adapter, err := newStaticTokenRequestAdapter(graphBaseURL, httpClient)
+	if err != nil {
+		return nil, err
+	}
+	return newClientFromAdapter(adapter)
+}
+
+func newStaticTokenRequestAdapter(graphBaseURL string, httpClient *http.Client) (abstractions.RequestAdapter, error) {
+	graphBaseURL = strings.TrimRight(strings.TrimSpace(graphBaseURL), "/")
+	if graphBaseURL == "" {
+		return nil, errors.New("entra graph base url is required")
+	}
+
+	parsed, err := url.Parse(graphBaseURL)
+	if err != nil {
+		return nil, err
+	}
+	validator, err := absauth.NewAllowedHostsValidatorErrorCheck([]string{parsed.Hostname()})
+	if err != nil {
+		return nil, err
+	}
+
+	tokenProvider := &entraStaticAccessTokenProvider{
+		token:     "test-token",
+		validator: validator,
+	}
+	authProvider := absauth.NewBaseBearerTokenAuthenticationProvider(tokenProvider)
+	adapter, err := msgraphsdkgo.NewGraphRequestAdapterWithParseNodeFactoryAndSerializationWriterFactoryAndHttpClient(authProvider, nil, nil, httpClient)
+	if err != nil {
+		return nil, err
+	}
+	adapter.SetBaseUrl(graphBaseURL)
+	return adapter, nil
 }
 
 func assertTestBearer(t *testing.T, r *http.Request) {

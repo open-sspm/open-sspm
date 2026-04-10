@@ -84,12 +84,44 @@ func TestHandleNonHumanAccessRendersUnifiedInventory(t *testing.T) {
 		body := rec.Body.String()
 		assertContains(t, body, "Non-Human Access")
 		assertContains(t, body, `id="non-human-access-results"`)
+		assertContains(t, body, `id="non-human-access-filters"`)
+		assertContains(t, body, `id="non-human-access-inventory"`)
 		assertContains(t, body, `data-enter-only-query="q"`)
+		assertContains(t, body, `hx-target="#non-human-access-inventory"`)
 		assertContains(t, body, `hx-get="/non-human-access?owner_presence=unknown&amp;page=1"`)
 		assertContains(t, body, "/non-human-access/app-asset-"+fmt.Sprint(githubAssetID))
 		assertContains(t, body, "GitHub Actions")
 		assertContains(t, body, "Unknown")
 		assertNotContains(t, body, "/non-human-access/identity-"+fmt.Sprint(serviceIdentityID))
+	})
+}
+
+func TestHandleNonHumanAccessHTMXReturnsInventoryAndFilterSwap(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
+			Org:   "acme",
+			Token: "token-1",
+		})
+
+		c, rec := newTestContext(http.MethodGet, "http://example.com/non-human-access")
+		(*c).Request().Header.Set("HX-Request", "true")
+		(*c).Request().Header.Set("HX-Target", "non-human-access-inventory")
+
+		if err := h.HandleNonHumanAccess(c); err != nil {
+			t.Fatalf("HandleNonHumanAccess(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		body := rec.Body.String()
+		assertContains(t, body, `id="non-human-access-filters"`)
+		assertContains(t, body, `hx-swap-oob="outerHTML"`)
+		assertContains(t, body, `id="non-human-access-inventory"`)
+		assertContains(t, body, `data-busy-inline-indicator`)
+		assertContains(t, body, `data-enter-only-query="q"`)
+		assertContains(t, body, `hx-target="#non-human-access-inventory"`)
+		assertNotContains(t, body, "<!doctype html>")
 	})
 }
 

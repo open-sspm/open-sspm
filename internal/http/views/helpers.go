@@ -22,13 +22,6 @@ func FilterPillClass(active bool) string {
 	return "inline-flex items-center rounded-md px-2.5 py-1 text-xs text-muted-foreground no-underline hover:bg-muted/60 hover:text-foreground"
 }
 
-func IdentityManagedTextClass(managed bool) string {
-	if managed {
-		return "text-sm font-medium text-emerald-700 dark:text-emerald-300"
-	}
-	return "text-sm font-medium text-amber-700 dark:text-amber-300"
-}
-
 func AppDetailURL(integratedHref, externalID string) string {
 	if integratedHref = strings.TrimSpace(integratedHref); integratedHref != "" {
 		return integratedHref
@@ -394,30 +387,6 @@ func HumanizeAppAssetEvidenceConfidence(value string) string {
 	}
 }
 
-func ConnectedAppReviewStateBadgeClass(state string) string {
-	return AppAssetGovernanceStateBadgeClass(state)
-}
-
-func HumanizeConnectedAppReviewState(state string) string {
-	return HumanizeAppAssetGovernanceState(state)
-}
-
-func ConnectedAppFreshnessBadgeClass(value string) string {
-	return AppAssetEvidenceFreshnessBadgeClass(value)
-}
-
-func HumanizeConnectedAppFreshness(value string) string {
-	return HumanizeAppAssetEvidenceFreshness(value)
-}
-
-func ConnectedAppConfidenceBadgeClass(value string) string {
-	return AppAssetEvidenceConfidenceBadgeClass(value)
-}
-
-func HumanizeConnectedAppConfidence(value string) string {
-	return HumanizeAppAssetEvidenceConfidence(value)
-}
-
 func HumanizeIdentityType(identityType string) string {
 	switch strings.ToLower(strings.TrimSpace(identityType)) {
 	case "human":
@@ -595,20 +564,6 @@ func FormatIdentityLinkConfidence(value float32) string {
 	return strconv.FormatFloat(percent, 'f', 0, 64) + "%"
 }
 
-func IdentityInventoryColSpan(showFirstSeen, showLinkQuality, showLinkReason bool) string {
-	cols := 9
-	if showFirstSeen {
-		cols++
-	}
-	if showLinkQuality {
-		cols++
-	}
-	if showLinkReason {
-		cols++
-	}
-	return strconv.Itoa(cols)
-}
-
 func HumanizeIdentityRowState(state string) string {
 	switch strings.ToLower(strings.TrimSpace(state)) {
 	case "action_required":
@@ -667,10 +622,8 @@ func IdentityPrivilegedRoleClass(count int64) string {
 }
 
 func IdentityRowStateBadgeClass(state string) string {
-	switch strings.ToLower(strings.TrimSpace(state)) {
-	default:
-		return "badge-outline"
-	}
+	_ = state
+	return "badge-outline"
 }
 
 func IdentityLinkQualityBadgeClass(linkQuality string) string {

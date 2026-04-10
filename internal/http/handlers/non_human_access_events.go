@@ -25,7 +25,7 @@ func (h *Handlers) trackNonHumanAccessListEvents(c *echo.Context, query querysta
 		return
 	}
 
-	if !(isHX(c) && isHXTarget(c, "non-human-access-results")) {
+	if !(isNonHumanAccessInventoryTarget(c) || isNonHumanAccessResultsTarget(c)) {
 		h.insertNonHumanAccessEvent(c, nonHumanAccessEventInventoryView, "", "", "", query.TrackingSignature())
 	}
 

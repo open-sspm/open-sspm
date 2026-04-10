@@ -1067,20 +1067,6 @@ func selectSignOnPolicy(policies []oktaapi.Policy) (oktaapi.Policy, bool, string
 	return oktaapi.Policy{}, false, "multiple OKTA_SIGN_ON policies found; unable to select primary"
 }
 
-func intPtr(v *int32) any {
-	if v == nil {
-		return nil
-	}
-	return int(*v)
-}
-
-func boolPtr(v *bool) bool {
-	if v == nil {
-		return false
-	}
-	return *v
-}
-
 func getString(m map[string]any, key string) string {
 	if m == nil {
 		return ""

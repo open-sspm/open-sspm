@@ -798,8 +798,14 @@ func refreshCommandSearchSourceState(t *testing.T, ctx context.Context, pool *pg
 func refreshCommandSearchSourceReadModels(t *testing.T, ctx context.Context, q *gen.Queries, sourceKind, sourceName string) {
 	t.Helper()
 	projector := readmodels.NewProjector(nil, q, readmodels.RefreshConfig{})
-	if err := projector.RefreshSourceReadModels(ctx, sourceKind, sourceName); err != nil {
-		t.Fatalf("RefreshSourceReadModels(%s/%s): %v", sourceKind, sourceName, err)
+	if err := projector.RefreshDiscoverySource(ctx, sourceKind, sourceName); err != nil {
+		t.Fatalf("RefreshDiscoverySource(%s/%s): %v", sourceKind, sourceName, err)
+	}
+	if err := projector.RefreshAppAssetSource(ctx, sourceKind, sourceName); err != nil {
+		t.Fatalf("RefreshAppAssetSource(%s/%s): %v", sourceKind, sourceName, err)
+	}
+	if err := projector.RefreshNonHumanPrincipalSourceReadModels(ctx, sourceKind, sourceName); err != nil {
+		t.Fatalf("RefreshNonHumanPrincipalSourceReadModels(%s/%s): %v", sourceKind, sourceName, err)
 	}
 }
 

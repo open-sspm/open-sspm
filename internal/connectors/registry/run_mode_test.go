@@ -30,17 +30,17 @@ func TestSyncRunSourceKind(t *testing.T) {
 	}
 }
 
-func TestParseRunMode(t *testing.T) {
+func TestRunModeNormalize(t *testing.T) {
 	t.Parallel()
 
-	if got := ParseRunMode("discovery"); got != RunModeDiscovery {
-		t.Fatalf("ParseRunMode(discovery) = %q, want %q", got, RunModeDiscovery)
+	if got := RunMode("discovery").Normalize(); got != RunModeDiscovery {
+		t.Fatalf("RunMode(discovery).Normalize() = %q, want %q", got, RunModeDiscovery)
 	}
-	if got := ParseRunMode(""); got != RunModeFull {
-		t.Fatalf("ParseRunMode(empty) = %q, want %q", got, RunModeFull)
+	if got := RunMode("").Normalize(); got != RunModeFull {
+		t.Fatalf("RunMode(empty).Normalize() = %q, want %q", got, RunModeFull)
 	}
-	if got := ParseRunMode("unexpected"); got != RunModeFull {
-		t.Fatalf("ParseRunMode(unexpected) = %q, want %q", got, RunModeFull)
+	if got := RunMode("unexpected").Normalize(); got != RunModeFull {
+		t.Fatalf("RunMode(unexpected).Normalize() = %q, want %q", got, RunModeFull)
 	}
 }
 

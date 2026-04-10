@@ -89,7 +89,10 @@ func (h *Handlers) HandleNonHumanAccess(c *echo.Context) error {
 	}
 
 	render := func() error {
-		if isHX(c) && isHXTarget(c, "non-human-access-results") {
+		if isNonHumanAccessInventoryTarget(c) {
+			return h.RenderComponent(c, views.NonHumanAccessInventorySwap(data))
+		}
+		if isNonHumanAccessResultsTarget(c) {
 			return h.RenderComponent(c, views.NonHumanAccessPageResults(data))
 		}
 		return h.RenderComponent(c, views.NonHumanAccessPage(data))
@@ -127,6 +130,14 @@ func (h *Handlers) HandleNonHumanAccess(c *echo.Context) error {
 	h.trackNonHumanAccessListEvents(c, queryState)
 
 	return render()
+}
+
+func isNonHumanAccessInventoryTarget(c *echo.Context) bool {
+	return isHX(c) && isHXTarget(c, "non-human-access-inventory")
+}
+
+func isNonHumanAccessResultsTarget(c *echo.Context) bool {
+	return isHX(c) && isHXTarget(c, "non-human-access-results")
 }
 
 func (h *Handlers) HandleNonHumanAccessShow(c *echo.Context) error {

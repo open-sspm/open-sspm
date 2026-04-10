@@ -93,7 +93,7 @@ func TestResyncQueueRunner_QueuesForcedScopedWork(t *testing.T) {
 	t.Parallel()
 
 	store := &stubSyncJobStore{}
-	runner := NewResyncQueueRunner(store, registry.RunModeFull)
+	runner := NewResyncQueueRunnerWithPlanner(store, nil, registry.RunModeFull)
 
 	err := runner.RunOnce(WithConnectorScope(context.Background(), " GitHub ", " Acme "))
 	if !errors.Is(err, ErrSyncQueued) {
@@ -111,7 +111,7 @@ func TestResyncQueueRunner_DuplicateActiveJobReturnsBusy(t *testing.T) {
 	t.Parallel()
 
 	store := &stubSyncJobStore{enqueueManualErr: errActiveSyncJobExists}
-	runner := NewResyncQueueRunner(store, registry.RunModeFull)
+	runner := NewResyncQueueRunnerWithPlanner(store, nil, registry.RunModeFull)
 
 	err := runner.RunOnce(context.Background())
 	if !errors.Is(err, ErrSyncAlreadyRunning) {
@@ -123,7 +123,7 @@ func TestResyncQueueRunner_DuplicatePendingJobReturnsQueued(t *testing.T) {
 	t.Parallel()
 
 	store := &stubSyncJobStore{enqueueManualErr: errPendingSyncJobExists}
-	runner := NewResyncQueueRunner(store, registry.RunModeFull)
+	runner := NewResyncQueueRunnerWithPlanner(store, nil, registry.RunModeFull)
 
 	err := runner.RunOnce(context.Background())
 	if !errors.Is(err, ErrSyncQueued) {
@@ -135,7 +135,7 @@ func TestResyncQueueRunner_DiscoveryUnsupportedScopeReturnsNoWork(t *testing.T) 
 	t.Parallel()
 
 	store := &stubSyncJobStore{}
-	runner := NewResyncQueueRunner(store, registry.RunModeDiscovery)
+	runner := NewResyncQueueRunnerWithPlanner(store, nil, registry.RunModeDiscovery)
 
 	err := runner.RunOnce(WithConnectorScope(context.Background(), "github", "acme"))
 	if !errors.Is(err, ErrNoConnectorsDue) {
@@ -151,7 +151,7 @@ func TestResyncQueueRunner_PropagatesEnqueueErrors(t *testing.T) {
 
 	sentinel := errors.New("enqueue failed")
 	store := &stubSyncJobStore{enqueueManualErr: sentinel}
-	runner := NewResyncQueueRunner(store, registry.RunModeFull)
+	runner := NewResyncQueueRunnerWithPlanner(store, nil, registry.RunModeFull)
 
 	err := runner.RunOnce(context.Background())
 	if !errors.Is(err, sentinel) {
@@ -210,7 +210,7 @@ func TestResyncQueueRunner_DiscoverySupportsGoogleWorkspaceScope(t *testing.T) {
 	t.Parallel()
 
 	store := &stubSyncJobStore{}
-	runner := NewResyncQueueRunner(store, registry.RunModeDiscovery)
+	runner := NewResyncQueueRunnerWithPlanner(store, nil, registry.RunModeDiscovery)
 
 	err := runner.RunOnce(WithConnectorScope(context.Background(), "google_workspace", "C0123"))
 	if !errors.Is(err, ErrSyncQueued) {
@@ -222,49 +222,4 @@ func TestResyncQueueRunner_DiscoverySupportsGoogleWorkspaceScope(t *testing.T) {
 	if store.enqueueLane != syncJobLaneDiscovery || store.enqueueKind != "google_workspace" || store.enqueueSource != "C0123" {
 		t.Fatalf("stored job = lane=%q kind=%q source=%q", store.enqueueLane, store.enqueueKind, store.enqueueSource)
 	}
-}
-
-func TestScheduledQueueRunner_EnqueuesLaneJob(t *testing.T) {
-	t.Parallel()
-
-	planner := &stubScheduledPlanner{
-		requests: []TriggerRequest{
-			{ConnectorKind: "entra", SourceName: "Tenant A"},
-			{ConnectorKind: "okta", SourceName: "Org B"},
-		},
-	}
-	store := &stubSyncJobStore{}
-	runner := NewScheduledQueueRunner(store, planner, registry.RunModeDiscovery)
-
-	if err := runner.RunOnce(context.Background()); err != nil {
-		t.Fatalf("RunOnce() err = %v, want nil", err)
-	}
-	if store.enqueueScheduledCalls != 2 {
-		t.Fatalf("scheduled enqueue calls = %d, want 2", store.enqueueScheduledCalls)
-	}
-	if got, want := store.enqueueLane, syncJobLaneDiscovery; got != want {
-		t.Fatalf("last scheduled enqueue lane = %q, want %q", got, want)
-	}
-	if got, want := planner.calls, 1; got != want {
-		t.Fatalf("planner calls = %d, want %d", got, want)
-	}
-	if got := store.scheduledRequests; len(got) != 2 || got[0].ConnectorKind != "entra" || got[0].SourceName != "Tenant A" || got[1].ConnectorKind != "okta" || got[1].SourceName != "Org B" {
-		t.Fatalf("scheduled requests = %#v", got)
-	}
-}
-
-type stubScheduledPlanner struct {
-	requests []TriggerRequest
-	err      error
-	calls    int
-}
-
-func (p *stubScheduledPlanner) PlannedConnectorScopes(context.Context) ([]TriggerRequest, error) {
-	p.calls++
-	if p.err != nil {
-		return nil, p.err
-	}
-	out := make([]TriggerRequest, len(p.requests))
-	copy(out, p.requests)
-	return out, nil
 }

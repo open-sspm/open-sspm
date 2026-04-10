@@ -34,9 +34,7 @@ templ Alert(title string, destructive bool) {
 
 templ EmptyState(title, description string) {
 	<div class="flex flex-col items-center justify-center gap-2 py-12 text-center">
-		<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 4h.01m-6.938 4h13.856C19.622 20 21 18.622 21 16.928V7.072C21 5.378 19.622 4 17.928 4H6.072C4.378 4 3 5.378 3 7.072v9.856C3 18.622 4.378 20 6.072 20z"/>
-		</svg>
+		<i class="ti ti-info-circle text-4xl text-muted-foreground" aria-hidden="true"></i>
 		<h2 class="text-lg font-semibold">{ title }</h2>
 		if description != "" {
 			<p class="max-w-md text-muted-foreground">{ description }</p>

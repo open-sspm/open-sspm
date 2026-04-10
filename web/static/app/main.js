@@ -4,7 +4,7 @@ import { triggerVisibleLazyHx, initFragment } from "open-sspm-app/fragment.js";
 import { wireSidebarToggle } from "open-sspm-app/sidebar.js";
 import { showFlashToast } from "open-sspm-app/toast.js";
 
-export const initGlobal = () => {
+const initGlobal = () => {
   showFlashToast();
   wireSidebarToggle();
   openServerDialogs();

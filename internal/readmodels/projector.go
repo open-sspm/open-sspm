@@ -78,18 +78,6 @@ func (p *Projector) RefreshAppAssetSource(ctx context.Context, sourceKind, sourc
 	})
 }
 
-func (p *Projector) RefreshSourceReadModels(ctx context.Context, sourceKind, sourceName string) error {
-	return p.withQueries(ctx, func(q *gen.Queries) error {
-		if err := refreshDiscoverySource(ctx, q, sourceKind, sourceName); err != nil {
-			return err
-		}
-		if err := refreshAppAssetSource(ctx, q, sourceKind, sourceName); err != nil {
-			return err
-		}
-		return refreshNonHumanPrincipalSource(ctx, q, sourceKind, sourceName)
-	})
-}
-
 func (p *Projector) RefreshNonHumanPrincipalSourceReadModels(ctx context.Context, sourceKind, sourceName string) error {
 	return p.withQueries(ctx, func(q *gen.Queries) error {
 		return refreshNonHumanPrincipalSource(ctx, q, sourceKind, sourceName)

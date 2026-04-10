@@ -9,11 +9,6 @@ const (
 	RunModeDiscovery RunMode = "discovery"
 )
 
-func ParseRunMode(v string) RunMode {
-	mode := RunMode(strings.ToLower(strings.TrimSpace(v)))
-	return mode.Normalize()
-}
-
 func (m RunMode) Normalize() RunMode {
 	switch m {
 	case RunModeDiscovery:

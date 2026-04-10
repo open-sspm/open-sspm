@@ -54,18 +54,6 @@ func (q AppAssetsQuery) ClearQuery() AppAssetsQuery {
 	return q
 }
 
-func (q AppAssetsQuery) WithSourceKind(kind string) AppAssetsQuery {
-	q.Source = SourceSelection{Kind: normalizeSourceKind(kind)}
-	q.Page = 1
-	return q
-}
-
-func (q AppAssetsQuery) WithAssetKind(assetKind string) AppAssetsQuery {
-	q.AssetKind = strings.TrimSpace(assetKind)
-	q.Page = 1
-	return q
-}
-
 func (q AppAssetsQuery) IsConnectedAppsSlice() bool {
 	return normalizeSourceKind(q.Source.Kind) == connectedAppsSourceKey &&
 		strings.TrimSpace(q.AssetKind) == connectedAppsAssetKind
@@ -152,12 +140,6 @@ func (q CredentialsQuery) WithPage(page int) CredentialsQuery {
 
 func (q CredentialsQuery) ClearQuery() CredentialsQuery {
 	q.Q = ""
-	q.Page = 1
-	return q
-}
-
-func (q CredentialsQuery) WithSourceKind(kind string) CredentialsQuery {
-	q.Source = SourceSelection{Kind: normalizeSourceKind(kind)}
 	q.Page = 1
 	return q
 }

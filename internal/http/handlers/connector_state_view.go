@@ -47,14 +47,6 @@ func newConnectorStateView(states []registry.ConnectorState) connectorStateView 
 	return view
 }
 
-func (v connectorStateView) State(kind string) (registry.ConnectorState, bool) {
-	state := v.Raw(kind)
-	if state == nil {
-		return registry.ConnectorState{}, false
-	}
-	return *state, true
-}
-
 func (v connectorStateView) Raw(kind string) *registry.ConnectorState {
 	kind = NormalizeConnectorKind(kind)
 	if kind == "" {
@@ -111,10 +103,6 @@ func (v connectorStateView) Vault() typedConnectorState[configstore.VaultConfig]
 
 func newTypedConnectorState[T any](state *registry.ConnectorState) typedConnectorState[T] {
 	return typedConnectorState[T]{state: state}
-}
-
-func (s typedConnectorState[T]) Raw() *registry.ConnectorState {
-	return s.state
 }
 
 func (s typedConnectorState[T]) Config() T {

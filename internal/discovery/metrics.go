@@ -9,12 +9,9 @@ import (
 	"github.com/open-sspm/open-sspm/internal/metrics"
 )
 
-func RefreshMetrics(ctx context.Context, q *gen.Queries, now time.Time) error {
+func RefreshMetrics(ctx context.Context, q *gen.Queries, _ time.Time) error {
 	if q == nil {
 		return nil
-	}
-	if now.IsZero() {
-		now = time.Now().UTC()
 	}
 
 	for _, state := range []string{"managed", "unmanaged"} {

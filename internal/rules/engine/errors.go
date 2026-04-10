@@ -1,9 +1,6 @@
 package engine
 
-import (
-	"errors"
-	"fmt"
-)
+import "fmt"
 
 type DatasetErrorKind string
 
@@ -27,14 +24,3 @@ func (e DatasetError) Error() string {
 }
 
 func (e DatasetError) Unwrap() error { return e.Err }
-
-func asDatasetError(err error) (DatasetError, bool) {
-	if err == nil {
-		return DatasetError{}, false
-	}
-	var de DatasetError
-	if errors.As(err, &de) {
-		return de, true
-	}
-	return DatasetError{}, false
-}

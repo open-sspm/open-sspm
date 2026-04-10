@@ -76,14 +76,9 @@ func Load() (Config, error) {
 	return LoadWithOptions(LoadOptions{RequireDatabaseURL: true})
 }
 
-func LoadOptionalDB() (Config, error) {
-	return LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
-}
-
 func LoadWithOptions(opts LoadOptions) (Config, error) {
 	if err := godotenv.Load(); err != nil {
-		var pathErr *os.PathError
-		if !errors.As(err, &pathErr) {
+		if _, ok := errors.AsType[*os.PathError](err); !ok {
 			return Config{}, err
 		}
 	}
@@ -115,80 +110,9 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		SyncLockInstanceID:        strings.TrimSpace(os.Getenv("SYNC_LOCK_INSTANCE_ID")),
 	}
 
-	// Metrics are disabled by default in the Go binary (empty address). Some deployment methods (e.g. Helm)
-	// may choose a safer non-empty default (like 127.0.0.1:9090) for defense in depth.
-	//
-	// Set METRICS_ADDR to:
-	// - "127.0.0.1:9090" to bind localhost only (not reachable via pod IP / Service)
-	// - ":9090" to bind all interfaces (0.0.0.0) inside the container/pod; restrict access via NetworkPolicy / mTLS
-	// Metrics may include sensitive identifiers; use "off"/"disabled"/"false" to force-disable.
-	if v, ok := os.LookupEnv("METRICS_ADDR"); ok {
-		cfg.MetricsAddr = strings.TrimSpace(v)
-	}
-	switch strings.ToLower(strings.TrimSpace(cfg.MetricsAddr)) {
-	case "off", "disabled", "false":
-		cfg.MetricsAddr = ""
-	}
-
-	if d, ok, err := parseDurationEnv("SYNC_INTERVAL", false); err != nil {
+	cfg.MetricsAddr = loadMetricsAddr(cfg.MetricsAddr)
+	if err := applyDurationEnvOverrides(&cfg); err != nil {
 		return cfg, err
-	} else if ok {
-		cfg.SyncInterval = d
-	}
-	if d, ok, err := parseDurationEnv("SYNC_DISCOVERY_INTERVAL", false); err != nil {
-		return cfg, err
-	} else if ok {
-		cfg.SyncDiscoveryInterval = d
-	}
-	if d, ok, err := parseDurationEnv("SYNC_OKTA_INTERVAL", true); err != nil {
-		return cfg, err
-	} else if ok {
-		cfg.SyncOktaInterval = d
-	}
-	if d, ok, err := parseDurationEnv("SYNC_ENTRA_INTERVAL", true); err != nil {
-		return cfg, err
-	} else if ok {
-		cfg.SyncEntraInterval = d
-	}
-	if d, ok, err := parseDurationEnv("SYNC_GOOGLE_WORKSPACE_INTERVAL", true); err != nil {
-		return cfg, err
-	} else if ok {
-		cfg.SyncGoogleWorkspaceInterval = d
-	}
-	if d, ok, err := parseDurationEnv("SYNC_GITHUB_INTERVAL", true); err != nil {
-		return cfg, err
-	} else if ok {
-		cfg.SyncGitHubInterval = d
-	}
-	if d, ok, err := parseDurationEnv("SYNC_DATADOG_INTERVAL", true); err != nil {
-		return cfg, err
-	} else if ok {
-		cfg.SyncDatadogInterval = d
-	}
-	if d, ok, err := parseDurationEnv("SYNC_AWS_INTERVAL", true); err != nil {
-		return cfg, err
-	} else if ok {
-		cfg.SyncAWSInterval = d
-	}
-	if d, ok, err := parseDurationEnv("SYNC_FAILURE_BACKOFF_MAX", true); err != nil {
-		return cfg, err
-	} else if ok {
-		cfg.SyncFailureBackoffMax = d
-	}
-	if d, ok, err := parseDurationEnv("SYNC_LOCK_TTL", true); err != nil {
-		return cfg, err
-	} else if ok {
-		cfg.SyncLockTTL = d
-	}
-	if d, ok, err := parseDurationEnv("SYNC_LOCK_HEARTBEAT_INTERVAL", true); err != nil {
-		return cfg, err
-	} else if ok {
-		cfg.SyncLockHeartbeatInterval = d
-	}
-	if d, ok, err := parseDurationEnv("SYNC_LOCK_HEARTBEAT_TIMEOUT", true); err != nil {
-		return cfg, err
-	} else if ok {
-		cfg.SyncLockHeartbeatTimeout = d
 	}
 	connectorSecretKey, err := loadConnectorSecretKey()
 	if err != nil {
@@ -196,25 +120,90 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 	}
 	cfg.ConnectorSecretKey = connectorSecretKey
 
+	if err := validate(cfg, opts); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
+}
+
+func loadMetricsAddr(def string) string {
+	// Metrics are disabled by default in the Go binary (empty address). Some deployment methods (e.g. Helm)
+	// may choose a safer non-empty default (like 127.0.0.1:9090) for defense in depth.
+	//
+	// Set METRICS_ADDR to:
+	// - "127.0.0.1:9090" to bind localhost only (not reachable via pod IP / Service)
+	// - ":9090" to bind all interfaces (0.0.0.0) inside the container/pod; restrict access via NetworkPolicy / mTLS
+	// Metrics may include sensitive identifiers; use "off"/"disabled"/"false" to force-disable.
+	addr := def
+	if v, ok := os.LookupEnv("METRICS_ADDR"); ok {
+		addr = strings.TrimSpace(v)
+	}
+	switch strings.ToLower(strings.TrimSpace(addr)) {
+	case "off", "disabled", "false":
+		return ""
+	default:
+		return addr
+	}
+}
+
+func applyDurationEnvOverrides(cfg *Config) error {
+	overrides := []struct {
+		key             string
+		target          *time.Duration
+		requirePositive bool
+	}{
+		{key: "SYNC_INTERVAL", target: &cfg.SyncInterval},
+		{key: "SYNC_DISCOVERY_INTERVAL", target: &cfg.SyncDiscoveryInterval},
+		{key: "SYNC_OKTA_INTERVAL", target: &cfg.SyncOktaInterval, requirePositive: true},
+		{key: "SYNC_ENTRA_INTERVAL", target: &cfg.SyncEntraInterval, requirePositive: true},
+		{key: "SYNC_GOOGLE_WORKSPACE_INTERVAL", target: &cfg.SyncGoogleWorkspaceInterval, requirePositive: true},
+		{key: "SYNC_GITHUB_INTERVAL", target: &cfg.SyncGitHubInterval, requirePositive: true},
+		{key: "SYNC_DATADOG_INTERVAL", target: &cfg.SyncDatadogInterval, requirePositive: true},
+		{key: "SYNC_AWS_INTERVAL", target: &cfg.SyncAWSInterval, requirePositive: true},
+		{key: "SYNC_FAILURE_BACKOFF_MAX", target: &cfg.SyncFailureBackoffMax, requirePositive: true},
+		{key: "SYNC_LOCK_TTL", target: &cfg.SyncLockTTL, requirePositive: true},
+		{key: "SYNC_LOCK_HEARTBEAT_INTERVAL", target: &cfg.SyncLockHeartbeatInterval, requirePositive: true},
+		{key: "SYNC_LOCK_HEARTBEAT_TIMEOUT", target: &cfg.SyncLockHeartbeatTimeout, requirePositive: true},
+	}
+	for _, override := range overrides {
+		if err := applyDurationEnvOverride(override.target, override.key, override.requirePositive); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func applyDurationEnvOverride(target *time.Duration, key string, requirePositive bool) error {
+	d, ok, err := parseDurationEnv(key, requirePositive)
+	if err != nil {
+		return err
+	}
+	if ok {
+		*target = d
+	}
+	return nil
+}
+
+func validate(cfg Config, opts LoadOptions) error {
 	if opts.RequireDatabaseURL && cfg.DatabaseURL == "" {
-		return cfg, errors.New("DATABASE_URL is required")
+		return errors.New("DATABASE_URL is required")
 	}
 	for _, cidr := range cfg.TrustedProxyCIDRs {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return cfg, fmt.Errorf("TRUSTED_PROXY_CIDRS contains invalid CIDR %q: %w", cidr, err)
+			return fmt.Errorf("TRUSTED_PROXY_CIDRS contains invalid CIDR %q: %w", cidr, err)
 		}
 	}
 	switch cfg.StartupReadModelRebuildMode {
 	case StartupReadModelRebuildAuto, StartupReadModelRebuildAlways:
 	default:
-		return cfg, fmt.Errorf(
+		return fmt.Errorf(
 			"STARTUP_READ_MODEL_REBUILD_MODE must be %q or %q",
 			StartupReadModelRebuildAuto,
 			StartupReadModelRebuildAlways,
 		)
 	}
 
-	return cfg, nil
+	return nil
 }
 
 func loadConnectorSecretKey() ([]byte, error) {

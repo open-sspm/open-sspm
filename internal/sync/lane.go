@@ -29,15 +29,6 @@ const (
 	syncJobConsumerScopeNameDiscovery = "consume_discovery"
 )
 
-func RunOnceScopeNameForMode(mode registry.RunMode) string {
-	switch mode.Normalize() {
-	case registry.RunModeDiscovery:
-		return RunOnceScopeNameDiscovery
-	default:
-		return RunOnceScopeNameFull
-	}
-}
-
 func SyncJobLaneForMode(mode registry.RunMode) string {
 	switch mode.Normalize() {
 	case registry.RunModeDiscovery:

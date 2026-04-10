@@ -1,22 +1,5 @@
 package handlers
 
-import (
-	"strconv"
-	"strings"
-
-	"github.com/labstack/echo/v5"
-)
-
-func parsePageParam(c *echo.Context) int {
-	page := 1
-	if rawPage := strings.TrimSpace(c.QueryParam("page")); rawPage != "" {
-		if parsed, err := strconv.Atoi(rawPage); err == nil && parsed > 0 {
-			page = parsed
-		}
-	}
-	return page
-}
-
 func paginate(totalCount int64, page, perPage int) (int, int, int) {
 	if perPage < 1 {
 		perPage = 1

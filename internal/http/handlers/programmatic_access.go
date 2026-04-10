@@ -770,18 +770,6 @@ func parsePositiveInt64Param(value string) (int64, error) {
 	return parsed, nil
 }
 
-func parseIntParamDefault(raw string, defaultValue int) int {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return defaultValue
-	}
-	value, err := strconv.Atoi(raw)
-	if err != nil {
-		return defaultValue
-	}
-	return value
-}
-
 func fallbackDash(value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -798,31 +786,12 @@ func actorDisplayName(displayName, externalID string) string {
 	return strings.TrimSpace(externalID)
 }
 
-func formatProgrammaticTime(value pgtype.Timestamptz) string {
-	if !value.Valid {
-		return "—"
-	}
-	return value.Time.UTC().Format("Jan 2, 2006 15:04 UTC")
-}
-
 func formatProgrammaticDate(value pgtype.Timestamptz) string {
 	return identityCalendarDate(value)
 }
 
 func pgTimestamptz(ts time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: ts.UTC(), Valid: true}
-}
-
-func credentialRiskReasons(credential gen.CredentialArtifact, now time.Time) []string {
-	return credentialRiskReasonsFor(
-		credential.Status,
-		credential.CredentialKind,
-		credential.CreatedByExternalID,
-		credential.ApprovedByExternalID,
-		credential.ExpiresAtSource,
-		credential.LastUsedAtSource,
-		now,
-	)
 }
 
 func credentialRiskReasonsFor(statusValue, credentialKindValue, createdByValue, approvedByValue string, expiresAt, lastUsedAt pgtype.Timestamptz, now time.Time) []string {
@@ -1136,10 +1105,6 @@ func (h *Handlers) listCredentialArtifactsForAsset(ctx context.Context, asset ge
 		return left < right
 	})
 	return out, nil
-}
-
-func credentialAssetLookupKey(credential gen.CredentialArtifact) (string, string, bool) {
-	return credentialAssetLookupKeyValues(credential.AssetRefKind, credential.AssetRefExternalID)
 }
 
 func credentialAssetLookupKeyValues(assetRefKind, assetRefExternalID string) (string, string, bool) {

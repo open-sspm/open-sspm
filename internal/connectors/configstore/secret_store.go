@@ -194,17 +194,6 @@ func (s *Store) Bootstrap(ctx context.Context) error {
 	return tx.Commit(ctx)
 }
 
-func (s *Store) ListResolvedConnectorConfigs(ctx context.Context) ([]ResolvedConnectorConfig, error) {
-	if s == nil || s.q == nil {
-		return nil, errors.New("connector config store is not configured")
-	}
-	rows, secretsByKind, err := s.ListConnectorConfigsWithSecretRows(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return s.resolveRows(rows, secretsByKind)
-}
-
 func (s *Store) ListConnectorConfigsWithSecretRows(ctx context.Context) ([]gen.ConnectorConfig, map[string][]gen.ConnectorSecret, error) {
 	if s == nil || s.q == nil {
 		return nil, nil, errors.New("connector config store is not configured")
@@ -271,18 +260,6 @@ func (s *Store) SaveConnectorConfigTx(ctx context.Context, qtx *gen.Queries, kin
 		return err
 	}
 	return s.replaceConnectorSecrets(ctx, qtx, kind, secretValues)
-}
-
-func (s *Store) resolveRows(rows []gen.ConnectorConfig, secretsByKind map[string][]gen.ConnectorSecret) ([]ResolvedConnectorConfig, error) {
-	out := make([]ResolvedConnectorConfig, 0, len(rows))
-	for _, row := range rows {
-		resolved, err := s.resolveRow(row, secretsByKind[normalizeKind(row.Kind)])
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, resolved)
-	}
-	return out, nil
 }
 
 func (s *Store) resolveRow(row gen.ConnectorConfig, secretRows []gen.ConnectorSecret) (ResolvedConnectorConfig, error) {

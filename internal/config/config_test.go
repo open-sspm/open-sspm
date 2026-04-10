@@ -91,6 +91,7 @@ func TestLoadWithOptions_RejectsInvalidTrustedProxyCIDRs(t *testing.T) {
 
 func TestLoadWithOptions_LoadsConnectorSecretKeyFromEnv(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
+	t.Setenv("CONNECTOR_SECRET_KEY_FILE", "")
 	t.Setenv("CONNECTOR_SECRET_KEY", base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")))
 
 	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
@@ -104,6 +105,7 @@ func TestLoadWithOptions_LoadsConnectorSecretKeyFromEnv(t *testing.T) {
 
 func TestLoadWithOptions_LoadsConnectorSecretKeyFromFile(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
+	t.Setenv("CONNECTOR_SECRET_KEY", "")
 	path := filepath.Join(t.TempDir(), "connector-key")
 	if err := os.WriteFile(path, []byte(base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef"))), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
@@ -132,6 +134,7 @@ func TestLoadWithOptions_RejectsConflictingConnectorSecretKeySources(t *testing.
 
 func TestLoadWithOptions_RejectsInvalidConnectorSecretKey(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
+	t.Setenv("CONNECTOR_SECRET_KEY_FILE", "")
 	t.Setenv("CONNECTOR_SECRET_KEY", "not-base64")
 
 	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
