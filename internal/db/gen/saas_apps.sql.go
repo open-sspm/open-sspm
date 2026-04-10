@@ -178,7 +178,21 @@ SELECT
   pr.first_seen_at::timestamptz AS first_seen_at,
   pr.last_seen_at::timestamptz AS last_seen_at,
   pr.created_at::timestamptz AS created_at,
-  pr.updated_at::timestamptz AS updated_at
+  pr.updated_at::timestamptz AS updated_at,
+  pr.owner_identity_id::bigint AS owner_identity_id,
+  pr.owner_display_name::text AS owner_display_name,
+  pr.owner_primary_email::text AS owner_primary_email,
+  pr.review_owner_identity_id::bigint AS review_owner_identity_id,
+  pr.review_owner_display_name::text AS review_owner_display_name,
+  pr.review_owner_primary_email::text AS review_owner_primary_email,
+  pr.review_disposition::text AS review_disposition,
+  pr.ticket_ref::text AS ticket_ref,
+  pr.notes::text AS notes,
+  pr.follow_up_due_date::date AS follow_up_due_date,
+  pr.is_follow_up_overdue::boolean AS is_follow_up_overdue,
+  pr.replacement_saas_app_id::bigint AS replacement_saas_app_id,
+  pr.replacement_display_name::text AS replacement_display_name,
+  pr.replacement_primary_domain::text AS replacement_primary_domain
 FROM discovery_app_read_models_v pr
 WHERE pr.id = $1::bigint
 `
@@ -201,6 +215,20 @@ type GetSaaSAppByIDRow struct {
 	LastSeenAt                   pgtype.Timestamptz `json:"last_seen_at"`
 	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
+	OwnerIdentityID              int64              `json:"owner_identity_id"`
+	OwnerDisplayName             string             `json:"owner_display_name"`
+	OwnerPrimaryEmail            string             `json:"owner_primary_email"`
+	ReviewOwnerIdentityID        int64              `json:"review_owner_identity_id"`
+	ReviewOwnerDisplayName       string             `json:"review_owner_display_name"`
+	ReviewOwnerPrimaryEmail      string             `json:"review_owner_primary_email"`
+	ReviewDisposition            string             `json:"review_disposition"`
+	TicketRef                    string             `json:"ticket_ref"`
+	Notes                        string             `json:"notes"`
+	FollowUpDueDate              pgtype.Date        `json:"follow_up_due_date"`
+	IsFollowUpOverdue            bool               `json:"is_follow_up_overdue"`
+	ReplacementSaasAppID         int64              `json:"replacement_saas_app_id"`
+	ReplacementDisplayName       string             `json:"replacement_display_name"`
+	ReplacementPrimaryDomain     string             `json:"replacement_primary_domain"`
 }
 
 func (q *Queries) GetSaaSAppByID(ctx context.Context, id int64) (GetSaaSAppByIDRow, error) {
@@ -224,6 +252,20 @@ func (q *Queries) GetSaaSAppByID(ctx context.Context, id int64) (GetSaaSAppByIDR
 		&i.LastSeenAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerIdentityID,
+		&i.OwnerDisplayName,
+		&i.OwnerPrimaryEmail,
+		&i.ReviewOwnerIdentityID,
+		&i.ReviewOwnerDisplayName,
+		&i.ReviewOwnerPrimaryEmail,
+		&i.ReviewDisposition,
+		&i.TicketRef,
+		&i.Notes,
+		&i.FollowUpDueDate,
+		&i.IsFollowUpOverdue,
+		&i.ReplacementSaasAppID,
+		&i.ReplacementDisplayName,
+		&i.ReplacementPrimaryDomain,
 	)
 	return i, err
 }
@@ -249,6 +291,14 @@ SELECT
   pr.updated_at::timestamptz AS updated_at,
   pr.owner_display_name::text AS owner_display_name,
   pr.owner_primary_email::text AS owner_primary_email,
+  pr.review_owner_display_name::text AS review_owner_display_name,
+  pr.review_owner_primary_email::text AS review_owner_primary_email,
+  pr.review_disposition::text AS review_disposition,
+  pr.follow_up_due_date::date AS follow_up_due_date,
+  pr.is_follow_up_overdue::boolean AS is_follow_up_overdue,
+  pr.replacement_saas_app_id::bigint AS replacement_saas_app_id,
+  pr.replacement_display_name::text AS replacement_display_name,
+  pr.ticket_ref::text AS ticket_ref,
   pr.actors_30d::bigint AS actors_30d
 FROM discovery_app_read_models_v pr
 WHERE pr.risk_score >= 60
@@ -302,6 +352,14 @@ type ListSaaSAppHotspotsRow struct {
 	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
 	OwnerDisplayName             string             `json:"owner_display_name"`
 	OwnerPrimaryEmail            string             `json:"owner_primary_email"`
+	ReviewOwnerDisplayName       string             `json:"review_owner_display_name"`
+	ReviewOwnerPrimaryEmail      string             `json:"review_owner_primary_email"`
+	ReviewDisposition            string             `json:"review_disposition"`
+	FollowUpDueDate              pgtype.Date        `json:"follow_up_due_date"`
+	IsFollowUpOverdue            bool               `json:"is_follow_up_overdue"`
+	ReplacementSaasAppID         int64              `json:"replacement_saas_app_id"`
+	ReplacementDisplayName       string             `json:"replacement_display_name"`
+	TicketRef                    string             `json:"ticket_ref"`
 	Actors30d                    int64              `json:"actors_30d"`
 }
 
@@ -334,6 +392,14 @@ func (q *Queries) ListSaaSAppHotspots(ctx context.Context, arg ListSaaSAppHotspo
 			&i.UpdatedAt,
 			&i.OwnerDisplayName,
 			&i.OwnerPrimaryEmail,
+			&i.ReviewOwnerDisplayName,
+			&i.ReviewOwnerPrimaryEmail,
+			&i.ReviewDisposition,
+			&i.FollowUpDueDate,
+			&i.IsFollowUpOverdue,
+			&i.ReplacementSaasAppID,
+			&i.ReplacementDisplayName,
+			&i.TicketRef,
 			&i.Actors30d,
 		); err != nil {
 			return nil, err
@@ -367,6 +433,14 @@ SELECT
   pr.updated_at::timestamptz AS updated_at,
   pr.owner_display_name::text AS owner_display_name,
   pr.owner_primary_email::text AS owner_primary_email,
+  pr.review_owner_display_name::text AS review_owner_display_name,
+  pr.review_owner_primary_email::text AS review_owner_primary_email,
+  pr.review_disposition::text AS review_disposition,
+  pr.follow_up_due_date::date AS follow_up_due_date,
+  pr.is_follow_up_overdue::boolean AS is_follow_up_overdue,
+  pr.replacement_saas_app_id::bigint AS replacement_saas_app_id,
+  pr.replacement_display_name::text AS replacement_display_name,
+  pr.ticket_ref::text AS ticket_ref,
   pr.actors_30d::bigint AS actors_30d
 FROM discovery_app_read_models_v pr
 WHERE EXISTS (
@@ -443,6 +517,14 @@ type ListSaaSAppsPageByFiltersRow struct {
 	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
 	OwnerDisplayName             string             `json:"owner_display_name"`
 	OwnerPrimaryEmail            string             `json:"owner_primary_email"`
+	ReviewOwnerDisplayName       string             `json:"review_owner_display_name"`
+	ReviewOwnerPrimaryEmail      string             `json:"review_owner_primary_email"`
+	ReviewDisposition            string             `json:"review_disposition"`
+	FollowUpDueDate              pgtype.Date        `json:"follow_up_due_date"`
+	IsFollowUpOverdue            bool               `json:"is_follow_up_overdue"`
+	ReplacementSaasAppID         int64              `json:"replacement_saas_app_id"`
+	ReplacementDisplayName       string             `json:"replacement_display_name"`
+	TicketRef                    string             `json:"ticket_ref"`
 	Actors30d                    int64              `json:"actors_30d"`
 }
 
@@ -483,6 +565,14 @@ func (q *Queries) ListSaaSAppsPageByFilters(ctx context.Context, arg ListSaaSApp
 			&i.UpdatedAt,
 			&i.OwnerDisplayName,
 			&i.OwnerPrimaryEmail,
+			&i.ReviewOwnerDisplayName,
+			&i.ReviewOwnerPrimaryEmail,
+			&i.ReviewDisposition,
+			&i.FollowUpDueDate,
+			&i.IsFollowUpOverdue,
+			&i.ReplacementSaasAppID,
+			&i.ReplacementDisplayName,
+			&i.TicketRef,
 			&i.Actors30d,
 		); err != nil {
 			return nil, err

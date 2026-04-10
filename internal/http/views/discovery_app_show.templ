@@ -9,167 +9,458 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 			{Label: "SaaS Discovery"},
 			{Label: "Apps", Href: "/discovery/apps"},
 			{Label: data.App.DisplayName},
-		}, "Evidence-backed posture details for a discovered SaaS app.") {
+		}, "Evidence-backed posture and governance details for a discovered SaaS app.") {
 		}
 
-		<article class="card">
-			<header>
-				<h2>{ data.App.DisplayName }</h2>
-				<span data-slot="card-action" class="flex items-center gap-2">
-					<span class={ DiscoveryManagedBadgeClass(data.App.ManagedState) }>{ HumanizeDiscoveryManagedState(data.App.ManagedState) }</span>
-					<span class={ CredentialRiskBadgeClass(data.App.RiskLevel) }>{ HumanizeCredentialRisk(data.App.RiskLevel) }</span>
-				</span>
-				<p class="flex items-center gap-1.5 text-sm text-muted-foreground">
-					<span>{ data.App.CanonicalKey }</span>
-					@CopyTextButton(data.App.CanonicalKey, "Copy canonical key")
-				</p>
-			</header>
-			<section>
-				<div class="grid gap-3 md:grid-cols-4">
-					<div>
-						<p class="text-xs uppercase tracking-wide text-muted-foreground">Domain</p>
-						if data.App.PrimaryDomain != "" {
-							<p class="font-medium">{ data.App.PrimaryDomain }</p>
-						} else {
-							<p class="text-muted-foreground">Not available</p>
-						}
-					</div>
-					<div>
-						<p class="text-xs uppercase tracking-wide text-muted-foreground">Vendor</p>
-						if data.App.VendorName != "" {
-							<p class="font-medium">{ data.App.VendorName }</p>
-						} else {
-							<p class="text-muted-foreground">Not available</p>
-						}
-					</div>
-					<div>
-						<p class="text-xs uppercase tracking-wide text-muted-foreground">Suggested criticality</p>
-						<p class="font-medium">{ HumanizeBusinessCriticality(data.App.SuggestedBusinessCriticality) }</p>
-					</div>
-					<div>
-						<p class="text-xs uppercase tracking-wide text-muted-foreground">Suggested data class</p>
-						<p class="font-medium">{ HumanizeDataClassification(data.App.SuggestedDataClassification) }</p>
-					</div>
-				</div>
-				<p class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-					<span>{ HumanizeDiscoveryManagedReason(data.App.ManagedReason) }</span>
-					<span>·</span>
-					<span class={ RiskScoreClass(data.App.RiskLevel) }>{ "Score " }{ FormatInt(int(data.App.RiskScore)) }</span>
-					<span>·</span>
-					<span>{ "First seen " }{ data.App.FirstSeenAt }</span>
-					<span>·</span>
-					<span>{ "Last seen " }{ data.App.LastSeenAt }</span>
-				</p>
-			</section>
-		</article>
-
-		<div class="space-y-3">
-			<div class="flex items-baseline justify-between">
-				<h2 class="text-lg font-semibold">Source Evidence</h2>
-				<span class="badge-outline">{ FormatInt(len(data.Sources)) }</span>
-			</div>
-			if data.HasSources {
-				<div class="overflow-x-auto">
-					<table class="table min-w-[40rem] md:w-full osspm-table-compact osspm-table-list">
-						<thead>
-							<tr>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source app</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Domain</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last observed</th>
-							</tr>
-						</thead>
-						<tbody>
-							for _, source := range data.Sources {
-								<tr>
-									<td>
-										<div class="break-words">{ source.SourceKind }</div>
-										<div class="text-xs text-muted-foreground break-all">{ source.SourceName }</div>
-									</td>
-									<td>
-										<div class="break-words">{ source.SourceAppName }</div>
-										<div class="text-xs text-muted-foreground break-all">{ source.SourceAppID }</div>
-									</td>
-									<td class="break-all">{ source.SourceAppDomain }</td>
-									<td class="whitespace-nowrap">{ source.LastObservedAt }</td>
-								</tr>
-							}
-						</tbody>
-					</table>
-				</div>
-			} else {
-				@EmptyState("No source evidence", "No active source rows are currently linked to this app.")
-			}
-		</div>
-
-		<div class="space-y-3">
-			<div class="flex items-baseline justify-between">
-				<h2 class="text-lg font-semibold">Top Actors (30d)</h2>
-				<span class="badge-outline">{ FormatInt(len(data.TopActors)) }</span>
-			</div>
-			if data.HasTopActors {
-				<div class="overflow-x-auto">
-					<table class="table min-w-[48rem] md:w-full osspm-table-compact osspm-table-list">
-						<thead>
-							<tr>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Actor</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">External ID</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Events</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last observed</th>
-							</tr>
-						</thead>
-						<tbody>
-							for _, actor := range data.TopActors {
-								<tr>
-									<td class="break-words">{ actor.ActorLabel }</td>
-									<td class="break-all">{ actor.ActorEmail }</td>
-									<td class="break-all">{ actor.ActorExternalID }</td>
-									<td class="whitespace-nowrap"><span class="badge-outline">{ FormatInt64(actor.EventCount) }</span></td>
-									<td class="whitespace-nowrap">{ actor.LastObservedAt }</td>
-								</tr>
-							}
-						</tbody>
-					</table>
-				</div>
-			} else {
-				@EmptyState("No actor data", "No actor evidence was observed in the last 30 days.")
-			}
-		</div>
-
-		<div class="space-y-3">
-			<div class="flex items-baseline justify-between">
-				<h2 class="text-lg font-semibold">Recent Events</h2>
-				<span class="badge-outline">{ FormatInt(len(data.Events)) }</span>
-			</div>
-			if data.HasEvents {
-				<div class="overflow-x-auto">
-					<table class="table min-w-[52rem] md:w-full osspm-table-compact osspm-table-list">
-						<thead>
-							<tr>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Observed</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Signal</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Actor</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source app</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Scopes</th>
-							</tr>
-						</thead>
-						<tbody>
-							for _, event := range data.Events {
-								<tr>
-									<td class="whitespace-nowrap">{ event.ObservedAt }</td>
-									<td class="whitespace-nowrap"><span class="badge-outline">{ HumanizeDiscoverySignalKind(event.SignalKind) }</span></td>
-									<td class="break-words">{ event.Actor }</td>
-									<td class="break-words">{ event.SourceApp }</td>
-									<td class="text-muted-foreground break-words">{ event.ScopesSummary }</td>
-								</tr>
-							}
-						</tbody>
-					</table>
-				</div>
-			} else {
-				@EmptyState("No events", "No recent SSO or OAuth grant events are available for this app.")
-			}
-		</div>
+		@DiscoveryAppShowBody(data)
 	}
+}
+
+templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
+	<div id="discovery-app-show-shell" class="space-y-6">
+		if data.Alert != nil {
+			@Alert(data.Alert.Title, data.Alert.Destructive) {
+				<p>{ data.Alert.Message }</p>
+			}
+		}
+
+		<div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+			<div class="space-y-6">
+				<article class="card">
+					<header>
+						<h2>{ data.App.DisplayName }</h2>
+						<span data-slot="card-action" class="flex flex-wrap items-center gap-2">
+							<span class={ DiscoveryManagedBadgeClass(data.App.ManagedState) }>{ HumanizeDiscoveryManagedState(data.App.ManagedState) }</span>
+							<span class={ CredentialRiskBadgeClass(data.App.RiskLevel) }>{ HumanizeCredentialRisk(data.App.RiskLevel) }</span>
+							<span class={ DiscoveryReviewDispositionBadgeClass(data.App.ReviewDisposition) }>{ HumanizeDiscoveryReviewDisposition(data.App.ReviewDisposition) }</span>
+						</span>
+						<p class="flex items-center gap-1.5 text-sm text-muted-foreground">
+							<span>{ data.App.CanonicalKey }</span>
+							@CopyTextButton(data.App.CanonicalKey, "Copy canonical key")
+						</p>
+					</header>
+					<section class="space-y-4">
+						<div class="grid gap-3 md:grid-cols-3">
+							<div>
+								<p class="text-xs uppercase tracking-wide text-muted-foreground">Domain</p>
+								if data.App.PrimaryDomain != "" {
+									<p class="font-medium">{ data.App.PrimaryDomain }</p>
+								} else {
+									<p class="text-muted-foreground">Not available</p>
+								}
+							</div>
+							<div>
+								<p class="text-xs uppercase tracking-wide text-muted-foreground">Vendor</p>
+								if data.App.VendorName != "" {
+									<p class="font-medium">{ data.App.VendorName }</p>
+								} else {
+									<p class="text-muted-foreground">Not available</p>
+								}
+							</div>
+							<div>
+								<p class="text-xs uppercase tracking-wide text-muted-foreground">Accountable owner</p>
+								<p class="font-medium">{ data.App.Owner }</p>
+							</div>
+							<div>
+								<p class="text-xs uppercase tracking-wide text-muted-foreground">Review owner</p>
+								<p class="font-medium">{ data.App.ReviewOwner }</p>
+							</div>
+							<div>
+								<p class="text-xs uppercase tracking-wide text-muted-foreground">Follow-up date</p>
+								if data.App.FollowUpDueDate != "" {
+									<div class="flex flex-wrap items-center gap-2">
+										<span class={ DiscoveryFollowUpBadgeClass(data.App.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(data.App.FollowUpDueDate, data.App.IsFollowUpOverdue) }</span>
+										<span class="font-medium">{ FormatDateLabel(data.App.FollowUpDueDate) }</span>
+									</div>
+								} else {
+									<p class="text-muted-foreground">—</p>
+								}
+							</div>
+							<div>
+								<p class="text-xs uppercase tracking-wide text-muted-foreground">Replacement</p>
+								if data.App.ReplacementDisplayName != "" {
+									<p class="font-medium">{ data.App.ReplacementDisplayName }</p>
+									if data.App.ReplacementPrimaryDomain != "" {
+										<p class="text-xs text-muted-foreground">{ data.App.ReplacementPrimaryDomain }</p>
+									}
+								} else {
+									<p class="text-muted-foreground">—</p>
+								}
+							</div>
+							<div>
+								<p class="text-xs uppercase tracking-wide text-muted-foreground">Suggested criticality</p>
+								<p class="font-medium">{ HumanizeBusinessCriticality(data.App.SuggestedBusinessCriticality) }</p>
+							</div>
+							<div>
+								<p class="text-xs uppercase tracking-wide text-muted-foreground">Suggested data class</p>
+								<p class="font-medium">{ HumanizeDataClassification(data.App.SuggestedDataClassification) }</p>
+							</div>
+							<div>
+								<p class="text-xs uppercase tracking-wide text-muted-foreground">Ticket</p>
+								if data.App.TicketRef != "" {
+									<p class="font-medium">{ data.App.TicketRef }</p>
+								} else {
+									<p class="text-muted-foreground">—</p>
+								}
+							</div>
+						</div>
+						if data.App.Notes != "" {
+							<div class="rounded-lg border border-border/70 bg-muted/20 p-4">
+								<p class="text-xs uppercase tracking-wide text-muted-foreground">Governance notes</p>
+								<p class="mt-2 text-sm">{ data.App.Notes }</p>
+							</div>
+						}
+						<p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+							<span>{ HumanizeDiscoveryManagedReason(data.App.ManagedReason) }</span>
+							<span>·</span>
+							<span class={ RiskScoreClass(data.App.RiskLevel) }>{ "Score " }{ FormatInt(int(data.App.RiskScore)) }</span>
+							<span>·</span>
+							<span>{ "First seen " }{ data.App.FirstSeenAt }</span>
+							<span>·</span>
+							<span>{ "Last seen " }{ data.App.LastSeenAt }</span>
+						</p>
+					</section>
+				</article>
+
+				<div class="space-y-3">
+					<div class="flex items-baseline justify-between">
+						<h2 class="text-lg font-semibold">Decision History</h2>
+						<span class="badge-outline">{ FormatInt(len(data.DecisionHistory)) }</span>
+					</div>
+					if data.HasDecisionHistory {
+						<div class="overflow-x-auto">
+							<table class="table min-w-[56rem] md:w-full osspm-table-compact osspm-table-list">
+								<thead>
+									<tr>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Changed</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">By</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Disposition</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Owners</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Follow-up</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tracking</th>
+									</tr>
+								</thead>
+								<tbody>
+									for _, item := range data.DecisionHistory {
+										<tr>
+											<td class="whitespace-nowrap">{ item.ChangedAt }</td>
+											<td class="break-all">{ item.ChangedBy }</td>
+											<td>
+												<span class={ DiscoveryReviewDispositionBadgeClass(item.ReviewDisposition) }>{ HumanizeDiscoveryReviewDisposition(item.ReviewDisposition) }</span>
+											</td>
+											<td class="whitespace-normal">
+												<div>{ item.Owner }</div>
+												<div class="text-xs text-muted-foreground">{ item.ReviewOwner }</div>
+											</td>
+											<td class="whitespace-normal">
+												if item.FollowUpDueDate != "" {
+													<div class="flex flex-wrap items-center gap-2">
+														<span class={ DiscoveryFollowUpBadgeClass(item.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(item.FollowUpDueDate, item.IsFollowUpOverdue) }</span>
+														<span>{ FormatDateLabel(item.FollowUpDueDate) }</span>
+													</div>
+												} else {
+													<span class="text-muted-foreground">—</span>
+												}
+											</td>
+											<td class="whitespace-normal">
+												if item.TicketRef != "" {
+													<div class="text-sm">{ item.TicketRef }</div>
+												}
+												if item.ReplacementDisplayName != "" {
+													<div class="text-xs text-muted-foreground">
+														{ "Replace with " }{ item.ReplacementDisplayName }
+														if item.ReplacementPrimaryDomain != "" {
+															{ " (" }{ item.ReplacementPrimaryDomain }{ ")" }
+														}
+													</div>
+												}
+												if item.Notes != "" {
+													<div class="text-xs text-muted-foreground">{ item.Notes }</div>
+												}
+												if item.TicketRef == "" && item.ReplacementDisplayName == "" && item.Notes == "" {
+													<span class="text-muted-foreground">—</span>
+												}
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					} else {
+						@EmptyState("No decisions yet", "No discovery review decisions have been recorded for this app.")
+					}
+				</div>
+
+				<div class="space-y-3">
+					<div class="flex items-baseline justify-between">
+						<h2 class="text-lg font-semibold">Source Evidence</h2>
+						<span class="badge-outline">{ FormatInt(len(data.Sources)) }</span>
+					</div>
+					if data.HasSources {
+						<div class="overflow-x-auto">
+							<table class="table min-w-[40rem] md:w-full osspm-table-compact osspm-table-list">
+								<thead>
+									<tr>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source app</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Domain</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last observed</th>
+									</tr>
+								</thead>
+								<tbody>
+									for _, source := range data.Sources {
+										<tr>
+											<td>
+												<div class="break-words">{ source.SourceKind }</div>
+												<div class="text-xs text-muted-foreground break-all">{ source.SourceName }</div>
+											</td>
+											<td>
+												<div class="break-words">{ source.SourceAppName }</div>
+												<div class="text-xs text-muted-foreground break-all">{ source.SourceAppID }</div>
+											</td>
+											<td class="break-all">{ source.SourceAppDomain }</td>
+											<td class="whitespace-nowrap">{ source.LastObservedAt }</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					} else {
+						@EmptyState("No source evidence", "No active source rows are currently linked to this app.")
+					}
+				</div>
+
+				<div class="space-y-3">
+					<div class="flex items-baseline justify-between">
+						<h2 class="text-lg font-semibold">Top Actors (30d)</h2>
+						<span class="badge-outline">{ FormatInt(len(data.TopActors)) }</span>
+					</div>
+					if data.HasTopActors {
+						<div class="overflow-x-auto">
+							<table class="table min-w-[48rem] md:w-full osspm-table-compact osspm-table-list">
+								<thead>
+									<tr>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Actor</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">External ID</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Events</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last observed</th>
+									</tr>
+								</thead>
+								<tbody>
+									for _, actor := range data.TopActors {
+										<tr>
+											<td class="break-words">{ actor.ActorLabel }</td>
+											<td class="break-all">{ actor.ActorEmail }</td>
+											<td class="break-all">{ actor.ActorExternalID }</td>
+											<td class="whitespace-nowrap"><span class="badge-outline">{ FormatInt64(actor.EventCount) }</span></td>
+											<td class="whitespace-nowrap">{ actor.LastObservedAt }</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					} else {
+						@EmptyState("No actor data", "No actor evidence was observed in the last 30 days.")
+					}
+				</div>
+
+				<div class="space-y-3">
+					<div class="flex items-baseline justify-between">
+						<h2 class="text-lg font-semibold">Recent Events</h2>
+						<span class="badge-outline">{ FormatInt(len(data.Events)) }</span>
+					</div>
+					if data.HasEvents {
+						<div class="overflow-x-auto">
+							<table class="table min-w-[52rem] md:w-full osspm-table-compact osspm-table-list">
+								<thead>
+									<tr>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Observed</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Signal</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Actor</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source app</th>
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Scopes</th>
+									</tr>
+								</thead>
+								<tbody>
+									for _, event := range data.Events {
+										<tr>
+											<td class="whitespace-nowrap">{ event.ObservedAt }</td>
+											<td class="whitespace-nowrap"><span class="badge-outline">{ HumanizeDiscoverySignalKind(event.SignalKind) }</span></td>
+											<td class="break-words">{ event.Actor }</td>
+											<td class="break-words">{ event.SourceApp }</td>
+											<td class="text-muted-foreground break-words">{ event.ScopesSummary }</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					} else {
+						@EmptyState("No events", "No recent SSO or OAuth grant events are available for this app.")
+					}
+				</div>
+			</div>
+
+			<aside class="self-start xl:sticky xl:top-6">
+				<article class="card">
+					<header>
+						<h2>Governance</h2>
+						<p class="text-sm text-muted-foreground">Assign owners, record a disposition, and track follow-up for this discovered app.</p>
+					</header>
+					<section class="space-y-4">
+						if data.Layout.IsAdmin {
+							<form
+								method="post"
+								action={ "/discovery/apps/" + FormatInt64(data.App.ID) + "/governance" }
+								hx-post={ "/discovery/apps/" + FormatInt64(data.App.ID) + "/governance" }
+								hx-target="#discovery-app-show-shell"
+								hx-swap="outerHTML"
+								hx-disabled-elt="this"
+								class="space-y-4"
+							>
+								@CSRFInput(data.Layout.CSRFToken)
+								<input type="hidden" name="exclude_id" value={ FormatInt64(data.App.ID) }/>
+								<label class="field">
+									<span class="label">Accountable owner email</span>
+									<input class="input" type="email" name="owner_email" value={ data.AccountableOwnerEmailInput } placeholder="owner@example.com"/>
+									<span class="text-xs text-muted-foreground">Required for sanctioned, tolerated, and replace decisions.</span>
+								</label>
+
+								<label class="field">
+									<span class="label">Review owner email</span>
+									<input class="input" type="email" name="review_owner_email" value={ data.ReviewOwnerEmailInput } placeholder="reviewer@example.com"/>
+									<span class="text-xs text-muted-foreground">Optional in MVP. Must match an existing identity email if provided.</span>
+								</label>
+
+								<label class="field">
+									<span class="label">Disposition</span>
+									<select class="select" name="review_disposition">
+										<option value="unreviewed" selected?={ data.ReviewDispositionInput == "unreviewed" }>Unreviewed</option>
+										<option value="under_review" selected?={ data.ReviewDispositionInput == "under_review" }>Under review</option>
+										<option value="sanctioned" selected?={ data.ReviewDispositionInput == "sanctioned" }>Sanctioned</option>
+										<option value="tolerated" selected?={ data.ReviewDispositionInput == "tolerated" }>Tolerated</option>
+										<option value="replace" selected?={ data.ReviewDispositionInput == "replace" }>Replace</option>
+									</select>
+								</label>
+
+								<label class="field">
+									<span class="label">Follow-up date</span>
+									<input class="input" type="date" name="follow_up_due_date" value={ data.FollowUpDueDateInput }/>
+								</label>
+
+								<label class="field">
+									<span class="label">Ticket reference</span>
+									<input class="input" type="text" name="ticket_ref" value={ data.TicketRefInput } placeholder="SEC-123"/>
+								</label>
+
+								<label class="field">
+									<span class="label">Notes</span>
+									<textarea class="textarea min-h-32" name="notes" placeholder="Capture rationale, status, or next step context.">{ data.NotesInput }</textarea>
+								</label>
+
+								if data.ReviewDispositionInput == "replace" {
+									<div class="space-y-2">
+										<label class="field">
+											<span class="label">Replacement search</span>
+											<input
+												class="input"
+												type="search"
+												name="replacement_query"
+												value={ data.ReplacementQueryInput }
+												placeholder="Search managed discovery apps"
+												autocomplete="off"
+												hx-get="/discovery/apps/replacement-candidates"
+												hx-trigger="input changed delay:150ms, search"
+												hx-target="#discovery-replacement-candidates"
+												hx-swap="outerHTML"
+												hx-include="closest form"
+											/>
+										</label>
+										@DiscoveryReplacementCandidateResults(data.ReplacementPicker)
+									</div>
+								}
+
+								<button type="submit" class="btn-primary w-full">Save governance</button>
+							</form>
+						} else {
+							<div class="space-y-3 text-sm">
+								<div class="rounded-lg border border-border/70 bg-muted/15 p-4">
+									<p class="text-xs uppercase tracking-wide text-muted-foreground">Disposition</p>
+									<div class="mt-2 flex flex-wrap items-center gap-2">
+										<span class={ DiscoveryReviewDispositionBadgeClass(data.App.ReviewDisposition) }>{ HumanizeDiscoveryReviewDisposition(data.App.ReviewDisposition) }</span>
+										if data.App.FollowUpDueDate != "" {
+											<span class={ DiscoveryFollowUpBadgeClass(data.App.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(data.App.FollowUpDueDate, data.App.IsFollowUpOverdue) }</span>
+										}
+									</div>
+								</div>
+								<div class="rounded-lg border border-border/70 bg-muted/15 p-4">
+									<p class="text-xs uppercase tracking-wide text-muted-foreground">Owners</p>
+									<p class="mt-2 font-medium">{ data.App.Owner }</p>
+									<p class="text-xs text-muted-foreground">{ data.App.ReviewOwner }</p>
+								</div>
+								<p class="text-xs text-muted-foreground">Governance changes require an admin account.</p>
+							</div>
+						}
+					</section>
+				</article>
+			</aside>
+		</div>
+	</div>
+}
+
+templ DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCandidatesViewData) {
+	<div id="discovery-replacement-candidates" class="space-y-3">
+		if data.SelectedCandidate != nil {
+			<div class="rounded-lg border border-border/70 bg-muted/15 p-3">
+				<label class="flex cursor-pointer items-start gap-3">
+					<input class="mt-1" type="radio" name="replacement_saas_app_id" value={ FormatInt64(data.SelectedCandidate.ID) } checked/>
+					<div class="min-w-0">
+						<div class="font-medium">{ data.SelectedCandidate.DisplayName }</div>
+						<div class="text-xs text-muted-foreground">
+							if data.SelectedCandidate.Domain != "" {
+								<span>{ data.SelectedCandidate.Domain }</span>
+							}
+							if data.SelectedCandidate.VendorName != "" {
+								<span>{ " · " }{ data.SelectedCandidate.VendorName }</span>
+							}
+						</div>
+						<div class="mt-2 flex flex-wrap items-center gap-2">
+							<span class="badge-outline">Selected</span>
+							<span class={ DiscoveryManagedBadgeClass(data.SelectedCandidate.ManagedState) }>{ HumanizeDiscoveryManagedState(data.SelectedCandidate.ManagedState) }</span>
+							<span class={ CredentialRiskBadgeClass(data.SelectedCandidate.RiskLevel) }>{ HumanizeCredentialRisk(data.SelectedCandidate.RiskLevel) }</span>
+						</div>
+					</div>
+				</label>
+			</div>
+		}
+
+		if data.HasCandidates {
+			<div class="space-y-2">
+				for _, item := range data.Candidates {
+					if data.SelectedCandidate == nil || data.SelectedCandidate.ID != item.ID {
+						<label class="flex cursor-pointer items-start gap-3 rounded-lg border border-border/70 bg-card/80 p-3">
+							<input class="mt-1" type="radio" name="replacement_saas_app_id" value={ FormatInt64(item.ID) } checked?={ item.IsSelected }/>
+							<div class="min-w-0">
+								<div class="font-medium">{ item.DisplayName }</div>
+								<div class="text-xs text-muted-foreground">
+									if item.Domain != "" {
+										<span>{ item.Domain }</span>
+									}
+									if item.VendorName != "" {
+										<span>{ " · " }{ item.VendorName }</span>
+									}
+								</div>
+								<div class="mt-2 flex flex-wrap items-center gap-2">
+									<span class={ DiscoveryManagedBadgeClass(item.ManagedState) }>{ HumanizeDiscoveryManagedState(item.ManagedState) }</span>
+									<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
+								</div>
+							</div>
+						</label>
+					}
+				}
+			</div>
+		} else if data.EmptyStateMsg != "" {
+			<p class="text-xs text-muted-foreground">{ data.EmptyStateMsg }</p>
+		}
+	</div>
 }

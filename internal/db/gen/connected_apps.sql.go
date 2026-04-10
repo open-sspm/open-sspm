@@ -626,7 +626,7 @@ ON CONFLICT (subject_kind, subject_id) DO UPDATE SET
   notes = EXCLUDED.notes,
   updated_by_auth_user_id = EXCLUDED.updated_by_auth_user_id,
   updated_at = now()
-RETURNING subject_kind, subject_id, governance_state, owner_identity_id, business_criticality, data_classification, ticket_ref, notes, updated_by_auth_user_id, updated_at
+RETURNING subject_kind, subject_id, governance_state, owner_identity_id, business_criticality, data_classification, ticket_ref, notes, updated_by_auth_user_id, updated_at, review_disposition, review_owner_identity_id, follow_up_due_date, replacement_saas_app_id
 `
 
 type UpsertAppAssetGovernanceParams struct {
@@ -659,6 +659,10 @@ func (q *Queries) UpsertAppAssetGovernance(ctx context.Context, arg UpsertAppAss
 		&i.Notes,
 		&i.UpdatedByAuthUserID,
 		&i.UpdatedAt,
+		&i.ReviewDisposition,
+		&i.ReviewOwnerIdentityID,
+		&i.FollowUpDueDate,
+		&i.ReplacementSaasAppID,
 	)
 	return i, err
 }

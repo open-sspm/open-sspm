@@ -701,7 +701,7 @@ func TestConnectedAppReadModelDerivesEvidenceBuckets(t *testing.T) {
 	})
 }
 
-func TestDiscoveryAppReadModelReadsGovernanceOverrides(t *testing.T) {
+func TestDiscoveryAppReadModelReadsReviewGovernance(t *testing.T) {
 	t.Parallel()
 
 	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
@@ -709,49 +709,177 @@ func TestDiscoveryAppReadModelReadsGovernanceOverrides(t *testing.T) {
 
 		evaluatedAt := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
 		ownerID := insertIdentity(t, ctx, pool, "human", "owner@example.com", "Owner Example")
-		saasAppID := insertSaaSApp(t, ctx, pool, "ticketed-shadow-app", "Ticketed Shadow App", "shadow.example.com", "Example", evaluatedAt.Add(-48*time.Hour), evaluatedAt.Add(-24*time.Hour))
+		reviewOwnerID := insertIdentity(t, ctx, pool, "human", "reviewer@example.com", "Reviewer Example")
+		saasAppID := insertSaaSApp(t, ctx, pool, "replace-shadow-app", "Replace Shadow App", "shadow.example.com", "Example", evaluatedAt.Add(-48*time.Hour), evaluatedAt.Add(-24*time.Hour))
+		replacementID := insertSaaSApp(t, ctx, pool, "approved-app", "Approved App", "approved.example.com", "Example", evaluatedAt.Add(-72*time.Hour), evaluatedAt.Add(-2*time.Hour))
 
-		if _, err := pool.Exec(ctx, `
-			INSERT INTO governance_subject_overrides (
-				subject_kind,
-				subject_id,
-				governance_state,
-				owner_identity_id,
-				business_criticality,
-				data_classification,
-				ticket_ref,
-				notes,
-				updated_at
-			)
-			VALUES ('saas_app', $1, 'ticketed', $2, 'high', 'confidential', 'SEC-456', 'Needs follow-up', now())
-		`, saasAppID, ownerID); err != nil {
-			t.Fatalf("insert governance_subject_overrides for saas_app: %v", err)
+		if _, err := q.UpsertSaaSAppReviewGovernance(ctx, UpsertSaaSAppReviewGovernanceParams{
+			SaasAppID:             saasAppID,
+			OwnerIdentityID:       pgtype.Int8{Int64: ownerID, Valid: true},
+			TicketRef:             "SEC-456",
+			Notes:                 "Needs follow-up",
+			ReviewDisposition:     "replace",
+			ReviewOwnerIdentityID: pgtype.Int8{Int64: reviewOwnerID, Valid: true},
+			ReplacementSaasAppID:  pgtype.Int8{Int64: replacementID, Valid: true},
+		}); err != nil {
+			t.Fatalf("UpsertSaaSAppReviewGovernance(): %v", err)
 		}
 
 		if _, err := q.RefreshAllSaaSAppReadModels(ctx); err != nil {
 			t.Fatalf("RefreshAllSaaSAppReadModels(): %v", err)
 		}
 
-		var governanceState, ticketRef, notes, managedState, riskLevel string
-		if err := pool.QueryRow(ctx, `
-			SELECT governance_state, ticket_ref, notes, managed_state, risk_level
-			FROM discovery_app_read_models_v
-			WHERE id = $1
-		`, saasAppID).Scan(&governanceState, &ticketRef, &notes, &managedState, &riskLevel); err != nil {
-			t.Fatalf("select discovery_app_read_models_v: %v", err)
+		row, err := q.GetSaaSAppByID(ctx, saasAppID)
+		if err != nil {
+			t.Fatalf("GetSaaSAppByID(): %v", err)
 		}
 
-		if governanceState != "ticketed" {
-			t.Fatalf("governance_state=%q want ticketed", governanceState)
+		if row.ReviewDisposition != "replace" {
+			t.Fatalf("review_disposition=%q want replace", row.ReviewDisposition)
 		}
-		if ticketRef != "SEC-456" || notes != "Needs follow-up" {
-			t.Fatalf("ticket_ref/notes=%q/%q want SEC-456/Needs follow-up", ticketRef, notes)
+		if row.OwnerPrimaryEmail != "owner@example.com" {
+			t.Fatalf("owner_primary_email=%q want owner@example.com", row.OwnerPrimaryEmail)
 		}
-		if managedState != "unmanaged" {
-			t.Fatalf("managed_state=%q want unmanaged", managedState)
+		if row.ReviewOwnerPrimaryEmail != "reviewer@example.com" {
+			t.Fatalf("review_owner_primary_email=%q want reviewer@example.com", row.ReviewOwnerPrimaryEmail)
 		}
-		if riskLevel != "high" {
-			t.Fatalf("risk_level=%q want high", riskLevel)
+		if row.TicketRef != "SEC-456" || row.Notes != "Needs follow-up" {
+			t.Fatalf("ticket_ref/notes=%q/%q want SEC-456/Needs follow-up", row.TicketRef, row.Notes)
+		}
+		if row.ReplacementSaasAppID != replacementID || row.ReplacementDisplayName != "Approved App" {
+			t.Fatalf("replacement=%d/%q want %d/Approved App", row.ReplacementSaasAppID, row.ReplacementDisplayName, replacementID)
+		}
+		if row.ManagedState != "unmanaged" {
+			t.Fatalf("managed_state=%q want unmanaged", row.ManagedState)
+		}
+		if row.RiskLevel != "high" {
+			t.Fatalf("risk_level=%q want high", row.RiskLevel)
+		}
+	})
+}
+
+func TestDiscoveryAppReadModelDefaultsDiscoveryReviewWorkflowFields(t *testing.T) {
+	t.Parallel()
+
+	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
+		migrateUp(t, migrator)
+
+		evaluatedAt := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
+		saasAppID := insertSaaSApp(t, ctx, pool, "default-shadow-app", "Default Shadow App", "default.example.com", "Example", evaluatedAt.Add(-48*time.Hour), evaluatedAt.Add(-24*time.Hour))
+
+		if _, err := q.RefreshAllSaaSAppReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllSaaSAppReadModels(): %v", err)
+		}
+
+		row, err := q.GetSaaSAppByID(ctx, saasAppID)
+		if err != nil {
+			t.Fatalf("GetSaaSAppByID(): %v", err)
+		}
+
+		if row.ReviewDisposition != "unreviewed" {
+			t.Fatalf("review_disposition=%q want unreviewed", row.ReviewDisposition)
+		}
+		if row.ReviewOwnerPrimaryEmail != "" {
+			t.Fatalf("review_owner_primary_email=%q want empty", row.ReviewOwnerPrimaryEmail)
+		}
+		if row.FollowUpDueDate.Valid {
+			t.Fatalf("follow_up_due_date valid=%t want false", row.FollowUpDueDate.Valid)
+		}
+		if row.IsFollowUpOverdue {
+			t.Fatalf("is_follow_up_overdue=true want false")
+		}
+		if row.ReplacementSaasAppID != 0 {
+			t.Fatalf("replacement_saas_app_id=%d want 0", row.ReplacementSaasAppID)
+		}
+		if row.ReplacementDisplayName != "" {
+			t.Fatalf("replacement_display_name=%q want empty", row.ReplacementDisplayName)
+		}
+	})
+}
+
+func TestSearchManagedReplacementSaaSAppsFiltersManagedAlternatives(t *testing.T) {
+	t.Parallel()
+
+	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
+		migrateUp(t, migrator)
+
+		evaluatedAt := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
+		runID := insertSyncRun(t, ctx, pool, "github", "acme")
+
+		currentID := insertSaaSApp(t, ctx, pool, "current-shadow-app", "Current Shadow App", "current.example.com", "Example", evaluatedAt.Add(-48*time.Hour), evaluatedAt.Add(-24*time.Hour))
+		managedID := insertSaaSApp(t, ctx, pool, "approved-app", "Approved App", "approved.example.com", "Example", evaluatedAt.Add(-72*time.Hour), evaluatedAt.Add(-2*time.Hour))
+		unmanagedID := insertSaaSApp(t, ctx, pool, "legacy-app", "Legacy App", "legacy.example.com", "Example", evaluatedAt.Add(-96*time.Hour), evaluatedAt.Add(-4*time.Hour))
+
+		insertSaaSAppSource(t, ctx, pool, currentID, runID, "github", "acme", "current-shadow-app", "Current Shadow App", "current.example.com", evaluatedAt.Add(-24*time.Hour))
+		insertSaaSAppSource(t, ctx, pool, managedID, runID, "github", "acme", "approved-app", "Approved App", "approved.example.com", evaluatedAt.Add(-2*time.Hour))
+		insertSaaSAppSource(t, ctx, pool, unmanagedID, runID, "github", "acme", "legacy-app", "Legacy App", "legacy.example.com", evaluatedAt.Add(-4*time.Hour))
+
+		if err := q.UpsertSaaSAppBinding(ctx, UpsertSaaSAppBindingParams{
+			SaasAppID:           currentID,
+			ConnectorKind:       "github",
+			ConnectorSourceName: "acme",
+			BindingSource:       "seed",
+			Confidence:          1,
+			IsPrimary:           true,
+			CreatedByAuthUserID: pgtype.Int8{},
+		}); err != nil {
+			t.Fatalf("UpsertSaaSAppBinding(current): %v", err)
+		}
+		if err := q.UpsertSaaSAppBinding(ctx, UpsertSaaSAppBindingParams{
+			SaasAppID:           managedID,
+			ConnectorKind:       "github",
+			ConnectorSourceName: "acme",
+			BindingSource:       "seed",
+			Confidence:          1,
+			IsPrimary:           true,
+			CreatedByAuthUserID: pgtype.Int8{},
+		}); err != nil {
+			t.Fatalf("UpsertSaaSAppBinding(managed): %v", err)
+		}
+
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO connector_source_state (
+				source_kind,
+				source_name,
+				enabled,
+				configured,
+				discovery_enabled,
+				last_success_at,
+				fresh_until_at,
+				updated_at
+			)
+			VALUES ($1, $2, true, true, true, $3, $4, now())
+			ON CONFLICT (source_kind, source_name) DO UPDATE SET
+				enabled = EXCLUDED.enabled,
+				configured = EXCLUDED.configured,
+				discovery_enabled = EXCLUDED.discovery_enabled,
+				last_success_at = EXCLUDED.last_success_at,
+				fresh_until_at = EXCLUDED.fresh_until_at,
+				updated_at = now()
+		`, "github", "acme", evaluatedAt.Add(-30*time.Minute), evaluatedAt.Add(2*time.Hour)); err != nil {
+			t.Fatalf("insert connector_source_state: %v", err)
+		}
+
+		if _, err := q.RefreshAllSaaSAppReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllSaaSAppReadModels(): %v", err)
+		}
+
+		rows, err := q.SearchManagedReplacementSaaSApps(ctx, SearchManagedReplacementSaaSAppsParams{
+			ExcludeID: currentID,
+			Query:     "app",
+			LimitRows: 10,
+		})
+		if err != nil {
+			t.Fatalf("SearchManagedReplacementSaaSApps(): %v", err)
+		}
+		if len(rows) != 1 {
+			t.Fatalf("rows len=%d want 1", len(rows))
+		}
+		if rows[0].ID != managedID {
+			t.Fatalf("replacement id=%d want %d", rows[0].ID, managedID)
+		}
+		if rows[0].DisplayName != "Approved App" {
+			t.Fatalf("replacement display_name=%q want Approved App", rows[0].DisplayName)
 		}
 	})
 }

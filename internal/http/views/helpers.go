@@ -3,6 +3,7 @@ package views
 import (
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -177,6 +178,23 @@ func HumanizeDiscoveryManagedState(state string) string {
 	}
 }
 
+func DiscoveryReviewDispositionBadgeClass(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "sanctioned":
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	case "under_review":
+		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+	case "tolerated":
+		return "badge bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-100"
+	case "replace":
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+	case "unreviewed":
+		return "badge bg-slate-100 text-slate-800 dark:bg-slate-900/50 dark:text-slate-100"
+	default:
+		return "badge-outline"
+	}
+}
+
 func HumanizeAppAssetGovernanceState(state string) string {
 	switch strings.ToLower(strings.TrimSpace(state)) {
 	case "unreviewed":
@@ -192,6 +210,53 @@ func HumanizeAppAssetGovernanceState(state string) string {
 	default:
 		return fallbackHumanized(state)
 	}
+}
+
+func HumanizeDiscoveryReviewDisposition(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "unreviewed":
+		return "Unreviewed"
+	case "under_review":
+		return "Under Review"
+	case "sanctioned":
+		return "Sanctioned"
+	case "tolerated":
+		return "Tolerated"
+	case "replace":
+		return "Replace"
+	default:
+		return fallbackHumanized(state)
+	}
+}
+
+func DiscoveryFollowUpBadgeClass(overdue bool) string {
+	if overdue {
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+	}
+	return "badge-outline"
+}
+
+func DiscoveryFollowUpLabel(date string, overdue bool) string {
+	if overdue {
+		return "Overdue"
+	}
+	date = strings.TrimSpace(date)
+	if date == "" {
+		return "Due"
+	}
+	return "Due " + FormatDateLabel(date)
+}
+
+func FormatDateLabel(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || value == "—" {
+		return "—"
+	}
+	ts, err := time.Parse("2006-01-02", value)
+	if err != nil {
+		return value
+	}
+	return ts.Format("Jan 2, 2006")
 }
 
 func HumanizeDiscoveryManagedReason(reason string) string {

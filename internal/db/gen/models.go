@@ -227,6 +227,9 @@ type DiscoveryAppReadModelsV struct {
 	OwnerIdentityID              int64              `json:"owner_identity_id"`
 	OwnerDisplayName             string             `json:"owner_display_name"`
 	OwnerPrimaryEmail            string             `json:"owner_primary_email"`
+	ReviewOwnerIdentityID        int64              `json:"review_owner_identity_id"`
+	ReviewOwnerDisplayName       string             `json:"review_owner_display_name"`
+	ReviewOwnerPrimaryEmail      string             `json:"review_owner_primary_email"`
 	Actors30d                    int64              `json:"actors_30d"`
 	HasPrivilegedScope           bool               `json:"has_privileged_scope"`
 	HasConfidentialScope         bool               `json:"has_confidential_scope"`
@@ -241,8 +244,14 @@ type DiscoveryAppReadModelsV struct {
 	EffectiveBusinessCriticality interface{}        `json:"effective_business_criticality"`
 	EffectiveDataClassification  interface{}        `json:"effective_data_classification"`
 	GovernanceState              string             `json:"governance_state"`
+	ReviewDisposition            string             `json:"review_disposition"`
 	TicketRef                    string             `json:"ticket_ref"`
 	Notes                        string             `json:"notes"`
+	FollowUpDueDate              pgtype.Date        `json:"follow_up_due_date"`
+	IsFollowUpOverdue            bool               `json:"is_follow_up_overdue"`
+	ReplacementSaasAppID         int64              `json:"replacement_saas_app_id"`
+	ReplacementDisplayName       string             `json:"replacement_display_name"`
+	ReplacementPrimaryDomain     string             `json:"replacement_primary_domain"`
 	ManagedState                 string             `json:"managed_state"`
 	ManagedReason                string             `json:"managed_reason"`
 	RiskScore                    int32              `json:"risk_score"`
@@ -267,16 +276,20 @@ type Entitlement struct {
 }
 
 type GovernanceSubjectOverride struct {
-	SubjectKind         string             `json:"subject_kind"`
-	SubjectID           int64              `json:"subject_id"`
-	GovernanceState     string             `json:"governance_state"`
-	OwnerIdentityID     pgtype.Int8        `json:"owner_identity_id"`
-	BusinessCriticality string             `json:"business_criticality"`
-	DataClassification  string             `json:"data_classification"`
-	TicketRef           string             `json:"ticket_ref"`
-	Notes               string             `json:"notes"`
-	UpdatedByAuthUserID pgtype.Int8        `json:"updated_by_auth_user_id"`
-	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	SubjectKind           string             `json:"subject_kind"`
+	SubjectID             int64              `json:"subject_id"`
+	GovernanceState       string             `json:"governance_state"`
+	OwnerIdentityID       pgtype.Int8        `json:"owner_identity_id"`
+	BusinessCriticality   string             `json:"business_criticality"`
+	DataClassification    string             `json:"data_classification"`
+	TicketRef             string             `json:"ticket_ref"`
+	Notes                 string             `json:"notes"`
+	UpdatedByAuthUserID   pgtype.Int8        `json:"updated_by_auth_user_id"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	ReviewDisposition     string             `json:"review_disposition"`
+	ReviewOwnerIdentityID pgtype.Int8        `json:"review_owner_identity_id"`
+	FollowUpDueDate       pgtype.Date        `json:"follow_up_due_date"`
+	ReplacementSaasAppID  pgtype.Int8        `json:"replacement_saas_app_id"`
 }
 
 type Identity struct {
@@ -551,6 +564,20 @@ type SaasAppEvent struct {
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SaasAppReviewDecision struct {
+	ID                    int64              `json:"id"`
+	SaasAppID             int64              `json:"saas_app_id"`
+	OwnerIdentityID       pgtype.Int8        `json:"owner_identity_id"`
+	ReviewOwnerIdentityID pgtype.Int8        `json:"review_owner_identity_id"`
+	ReviewDisposition     string             `json:"review_disposition"`
+	TicketRef             string             `json:"ticket_ref"`
+	Notes                 string             `json:"notes"`
+	FollowUpDueDate       pgtype.Date        `json:"follow_up_due_date"`
+	ReplacementSaasAppID  pgtype.Int8        `json:"replacement_saas_app_id"`
+	ChangedByAuthUserID   pgtype.Int8        `json:"changed_by_auth_user_id"`
+	ChangedAt             pgtype.Timestamptz `json:"changed_at"`
 }
 
 type SaasAppSource struct {
