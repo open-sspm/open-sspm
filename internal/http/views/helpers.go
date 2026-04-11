@@ -595,8 +595,7 @@ func IdentityPrivilegedRoleClass(count int64) string {
 	}
 }
 
-func IdentityRowStateBadgeClass(state string) string {
-	_ = state
+func IdentityRowStateBadgeClass(_ string) string {
 	return "badge-outline"
 }
 

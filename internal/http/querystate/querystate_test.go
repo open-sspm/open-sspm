@@ -306,44 +306,6 @@ func TestParseNonHumanAccessQuery(t *testing.T) {
 		}
 	})
 
-	t.Run("toggle pills deactivate when already active", func(t *testing.T) {
-		base := ParseNonHumanAccessQuery(url.Values{
-			"owner_presence":  []string{"unknown"},
-			"risk_level":      []string{"high"},
-			"activity_state":  []string{"stale"},
-			"freshness_state": []string{"stale"},
-		}, sources)
-
-		if q := base.ToggleOwnerPresence("unknown"); q.OwnerPresence != "" {
-			t.Fatalf("ToggleOwnerPresence should clear, got %q", q.OwnerPresence)
-		}
-		if q := base.ToggleRiskLevel("high"); q.RiskLevel != "" {
-			t.Fatalf("ToggleRiskLevel should clear, got %q", q.RiskLevel)
-		}
-		if q := base.ToggleActivityState("stale"); q.ActivityState != "" {
-			t.Fatalf("ToggleActivityState should clear, got %q", q.ActivityState)
-		}
-		if q := base.ToggleFreshnessState("stale"); q.FreshnessState != "" {
-			t.Fatalf("ToggleFreshnessState should clear, got %q", q.FreshnessState)
-		}
-	})
-
-	t.Run("toggle pills activate when inactive", func(t *testing.T) {
-		base := ParseNonHumanAccessQuery(url.Values{}, sources)
-
-		if q := base.ToggleOwnerPresence("unknown"); q.OwnerPresence != "unknown" {
-			t.Fatalf("ToggleOwnerPresence should set, got %q", q.OwnerPresence)
-		}
-		if q := base.ToggleRiskLevel("critical"); q.RiskLevel != "critical" {
-			t.Fatalf("ToggleRiskLevel should set, got %q", q.RiskLevel)
-		}
-		if q := base.ToggleActivityState("stale"); q.ActivityState != "stale" {
-			t.Fatalf("ToggleActivityState should set, got %q", q.ActivityState)
-		}
-		if q := base.ToggleFreshnessState("stale"); q.FreshnessState != "stale" {
-			t.Fatalf("ToggleFreshnessState should set, got %q", q.FreshnessState)
-		}
-	})
 }
 
 func TestBasicListQuery(t *testing.T) {

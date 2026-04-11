@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"net/url"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -78,7 +79,7 @@ func (h *Handlers) HandleNonHumanAccess(c *echo.Context) error {
 	sourceKindOptions := identitySourceKindOptions(sourcePairs)
 	queryValues := c.Request().URL.Query()
 	if queryValues.Has("source_name") {
-		clonedValues := make(map[string][]string, len(queryValues))
+		clonedValues := make(url.Values, len(queryValues))
 		for key, values := range queryValues {
 			clonedValues[key] = append([]string(nil), values...)
 		}

@@ -120,34 +120,6 @@ func (q NonHumanAccessQuery) WithRiskLevel(level string) NonHumanAccessQuery {
 	return q
 }
 
-func (q NonHumanAccessQuery) ToggleOwnerPresence(state string) NonHumanAccessQuery {
-	if q.OwnerPresence == normalizeNonHumanAccessOwnerPresence(state) {
-		return q.WithOwnerPresence("")
-	}
-	return q.WithOwnerPresence(state)
-}
-
-func (q NonHumanAccessQuery) ToggleRiskLevel(level string) NonHumanAccessQuery {
-	if q.RiskLevel == NormalizeCredentialRiskLevel(level) {
-		return q.WithRiskLevel("")
-	}
-	return q.WithRiskLevel(level)
-}
-
-func (q NonHumanAccessQuery) ToggleActivityState(state string) NonHumanAccessQuery {
-	if q.ActivityState == normalizeIdentityActivityState(state) {
-		return q.WithActivityState("")
-	}
-	return q.WithActivityState(state)
-}
-
-func (q NonHumanAccessQuery) ToggleFreshnessState(state string) NonHumanAccessQuery {
-	if q.FreshnessState == normalizeNonHumanAccessFreshnessState(state) {
-		return q.WithFreshnessState("")
-	}
-	return q.WithFreshnessState(state)
-}
-
 func (q NonHumanAccessQuery) HasAdvancedFilters() bool {
 	return q.PrincipalType != "" ||
 		q.GovernanceState != "" ||
