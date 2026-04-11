@@ -20,7 +20,7 @@ type FindingsRuleViewData struct {
 	RemediationEffort       string
 
 	CurrentStatus      string
-	CurrentEvaluatedAt string
+	CurrentEvaluatedAt TimeDisplay
 	CurrentErrorKind   string
 	EvidenceSummary    string
 	Evidence           FindingsEvidenceViewData
@@ -30,7 +30,7 @@ type FindingsRuleViewData struct {
 	RuleOverride FindingsRuleOverrideViewData
 	Attestation  FindingsRuleAttestationViewData
 
-	Alert *FindingsAlert
+	Alert *AlertViewData
 }
 
 type FindingsEvidenceViewData struct {
@@ -74,8 +74,8 @@ type FindingsParamField struct {
 }
 
 type FindingsRuleAttestationViewData struct {
-	Status           string
-	Notes            string
-	ExpiresAt        string
-	ExpiresAtDisplay string
+	Status         string
+	Notes          string
+	ExpiresAtInput string
+	ExpiresAt      TimeDisplay
 }

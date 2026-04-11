@@ -91,8 +91,11 @@ func TestNonHumanAccessReadModelsAndMetrics(t *testing.T) {
 		if _, err := q.RefreshAllAppAssetReadModels(ctx); err != nil {
 			t.Fatalf("RefreshAllAppAssetReadModels(): %v", err)
 		}
-		if _, err := q.RefreshAllNonHumanPrincipalReadModels(ctx); err != nil {
-			t.Fatalf("RefreshAllNonHumanPrincipalReadModels(): %v", err)
+		if _, err := q.RefreshAllNonHumanPrincipalReadModelsSafely(ctx); err != nil {
+			t.Fatalf("RefreshAllNonHumanPrincipalReadModelsSafely(): %v", err)
+		}
+		if _, err := q.RefreshAllNonHumanPrincipalReadModelsSafely(ctx); err != nil {
+			t.Fatalf("second RefreshAllNonHumanPrincipalReadModelsSafely(): %v", err)
 		}
 
 		servicePrincipal, err := q.GetNonHumanPrincipalByRef(ctx, "identity-"+int64String(serviceIdentityID))
@@ -223,8 +226,8 @@ func TestRefreshNonHumanPrincipalReadModelsBySourceKeepsUnrelatedRowsUntouched(t
 		if _, err := q.RefreshAllAppAssetReadModels(ctx); err != nil {
 			t.Fatalf("RefreshAllAppAssetReadModels(): %v", err)
 		}
-		if _, err := q.RefreshAllNonHumanPrincipalReadModels(ctx); err != nil {
-			t.Fatalf("RefreshAllNonHumanPrincipalReadModels(): %v", err)
+		if _, err := q.RefreshAllNonHumanPrincipalReadModelsSafely(ctx); err != nil {
+			t.Fatalf("RefreshAllNonHumanPrincipalReadModelsSafely(): %v", err)
 		}
 
 		affectedRef := "app-asset-" + int64String(githubAssetID)
@@ -244,11 +247,11 @@ func TestRefreshNonHumanPrincipalReadModelsBySourceKeepsUnrelatedRowsUntouched(t
 			t.Fatalf("seed non_human_principals projection_refreshed_at: %v", err)
 		}
 
-		if _, err := q.RefreshNonHumanPrincipalReadModelsBySource(ctx, RefreshNonHumanPrincipalReadModelsBySourceParams{
+		if _, err := q.RefreshNonHumanPrincipalReadModelsBySourceSafely(ctx, RefreshNonHumanPrincipalReadModelsBySourceParams{
 			SourceKind: "github",
 			SourceName: "acme",
 		}); err != nil {
-			t.Fatalf("RefreshNonHumanPrincipalReadModelsBySource(): %v", err)
+			t.Fatalf("RefreshNonHumanPrincipalReadModelsBySourceSafely(): %v", err)
 		}
 
 		var (

@@ -204,10 +204,10 @@ func TestLoadConnectorStateViewToleratesBrokenConnectorSecret(t *testing.T) {
 		}
 		github := stateView.GitHub()
 		if !github.Configured() || github.Config().Org != "acme" {
-			t.Fatalf("GitHub view = %#v", github.Raw())
+			t.Fatalf("GitHub view configured=%v org=%q", github.Configured(), github.Config().Org)
 		}
 		if stateView.Datadog().Configured() {
-			t.Fatalf("Datadog view should remain unconfigured: %#v", stateView.Datadog().Raw())
+			t.Fatalf("Datadog view should remain unconfigured")
 		}
 	})
 }

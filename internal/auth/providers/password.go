@@ -17,10 +17,6 @@ func NewPasswordProvider(q *gen.Queries) *PasswordProvider {
 	return &PasswordProvider{Q: q}
 }
 
-func (p *PasswordProvider) Name() string {
-	return auth.MethodPassword
-}
-
 func (p *PasswordProvider) Authenticate(ctx context.Context, email, password string) (auth.Principal, error) {
 	email = auth.NormalizeEmail(email)
 	if email == "" || password == "" {

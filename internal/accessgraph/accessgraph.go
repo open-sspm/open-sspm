@@ -64,14 +64,6 @@ func BuildResourceHref(sourceKind, sourceName, resourceKind, externalID string) 
 	return "/resources/" + url.PathEscape(sourceKind) + "/" + url.PathEscape(sourceName) + "/" + url.PathEscape(resourceKind) + "/" + EscapePathPreservingSlashes(externalID)
 }
 
-func BuildResourceHrefFromResourceRef(sourceKind, sourceName, resourceRef string) string {
-	resourceKind, externalID, ok := ParseCanonicalResourceRef(resourceRef)
-	if !ok {
-		return ""
-	}
-	return BuildResourceHref(sourceKind, sourceName, resourceKind, externalID)
-}
-
 func DisplayResourceLabel(resourceRef string, rawJSON []byte) string {
 	resourceKind, externalID, ok := ParseCanonicalResourceRef(resourceRef)
 	if !ok {

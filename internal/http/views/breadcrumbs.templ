@@ -16,12 +16,12 @@ templ Breadcrumbs(items []Breadcrumb) {
 				} else if item.Href != "" {
 					<li class="flex items-center gap-2">
 						<a href={ item.Href } class="hover:text-foreground">{ item.Label }</a>
-						<span aria-hidden="true" class="text-muted-foreground/70">/</span>
+						<span aria-hidden="true" class="text-muted-foreground/70">></span>
 					</li>
 				} else {
 					<li class="flex items-center gap-2">
 						<span>{ item.Label }</span>
-						<span aria-hidden="true" class="text-muted-foreground/70">/</span>
+						<span aria-hidden="true" class="text-muted-foreground/70">></span>
 					</li>
 				}
 			}

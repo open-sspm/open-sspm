@@ -2,7 +2,6 @@ package discovery
 
 import (
 	"encoding/json"
-	"slices"
 	"strings"
 )
 
@@ -36,48 +35,4 @@ func ScopesJSON(scopes []string) []byte {
 		return []byte("[]")
 	}
 	return encoded
-}
-
-func HasPrivilegedScopes(scopes []string) bool {
-	return slices.ContainsFunc(NormalizeScopes(scopes), isPrivilegedScope)
-}
-
-func HasConfidentialScopes(scopes []string) bool {
-	return slices.ContainsFunc(NormalizeScopes(scopes), isConfidentialScope)
-}
-
-func isPrivilegedScope(scope string) bool {
-	privilegedNeedles := []string{
-		"directory.readwrite.all",
-		"application.readwrite.all",
-		"rolemanagement.readwrite.directory",
-		"mailboxsettings.readwrite",
-		"full_access_as_app",
-		"files.readwrite.all",
-		"sites.readwrite.all",
-		"user.readwrite.all",
-		"offline_access",
-	}
-	for _, needle := range privilegedNeedles {
-		if strings.Contains(scope, needle) {
-			return true
-		}
-	}
-	return false
-}
-
-func isConfidentialScope(scope string) bool {
-	confidentialNeedles := []string{
-		"mail.",
-		"files.",
-		"calendar.",
-		"readwrite",
-		"sites.read",
-	}
-	for _, needle := range confidentialNeedles {
-		if strings.Contains(scope, needle) {
-			return true
-		}
-	}
-	return false
 }

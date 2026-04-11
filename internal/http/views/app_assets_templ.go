@@ -422,7 +422,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<table data-columns-id=\"app-assets--main\" class=\"table osspm-table-compact osspm-table-list\"><caption class=\"sr-only\">Programmatic app assets with source, kind, owner counts, credential counts, and last-seen time.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Source</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Name</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">External ID</th><th class=\"osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owners</th><th class=\"osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credentials</th><th class=\"osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last seen</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<table class=\"table osspm-table-compact osspm-table-list\"><caption class=\"sr-only\">Programmatic app assets with source, kind, owner counts, credential counts, and last-seen time.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Source</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Name</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">External ID</th><th class=\"osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owners</th><th class=\"osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credentials</th><th class=\"osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last seen</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -576,9 +576,9 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var30 string
-						templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeenAt)
+						templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeen.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 145, Col: 72}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 145, Col: 76}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 						if templ_7745c5c3_Err != nil {
@@ -629,7 +629,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ColumnsTable("app-assets--main", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var18), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var18), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

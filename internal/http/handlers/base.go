@@ -20,7 +20,6 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/authn"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
-	"github.com/open-sspm/open-sspm/internal/readmodels"
 )
 
 const (
@@ -48,13 +47,6 @@ type Handlers struct {
 
 func (h *Handlers) connectorConfigStore() *configstore.Store {
 	return configstore.NewStore(h.Pool, h.Q, h.Cfg.ConnectorSecretKey)
-}
-
-func (h *Handlers) readModelProjector() *readmodels.Projector {
-	if h == nil {
-		return nil
-	}
-	return readmodels.NewProjector(h.Pool, h.Q, readmodels.RefreshConfigFromConfig(h.Cfg))
 }
 
 // LayoutData builds the common layout data for page rendering.

@@ -275,7 +275,7 @@ func ResourceShowPage(data viewmodels.ResourceShowViewData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<table data-columns-id=\"resource-show--main\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><caption class=\"sr-only\">People and accounts with access to this resource.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Identity</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Account</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Permission</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Link</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><caption class=\"sr-only\">People and accounts with access to this resource.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Identity</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Account</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Permission</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Link</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -583,7 +583,7 @@ func ResourceShowPage(data viewmodels.ResourceShowViewData) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ColumnsTable("resource-show--main", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var20), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var20), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

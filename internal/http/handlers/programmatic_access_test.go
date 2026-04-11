@@ -9,7 +9,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
-func TestFormatProgrammaticDate(t *testing.T) {
+func TestCalendarDateDisplay(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -32,8 +32,8 @@ func TestFormatProgrammaticDate(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if got := formatProgrammaticDate(tc.value); got != tc.want {
-				t.Fatalf("formatProgrammaticDate() = %q, want %q", got, tc.want)
+			if got := calendarDateDisplay(tc.value); got.Label != tc.want {
+				t.Fatalf("calendarDateDisplay() label = %q, want %q", got.Label, tc.want)
 			}
 		})
 	}
@@ -50,7 +50,15 @@ func TestCredentialRiskReasons(t *testing.T) {
 		LastUsedAtSource: timestamptz(now.Add(-120 * 24 * time.Hour)),
 	}
 
-	reasons := credentialRiskReasons(credential, now)
+	reasons := credentialRiskReasonsFor(
+		credential.Status,
+		credential.CredentialKind,
+		credential.CreatedByExternalID,
+		credential.ApprovedByExternalID,
+		credential.ExpiresAtSource,
+		credential.LastUsedAtSource,
+		now,
+	)
 	if len(reasons) < 3 {
 		t.Fatalf("expected multiple reasons, got %v", reasons)
 	}
@@ -268,15 +276,15 @@ func TestCredentialAssetLookupKey(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			gotKind, gotID, gotOK := credentialAssetLookupKey(tc.credential)
+			gotKind, gotID, gotOK := credentialAssetLookupKeyValues(tc.credential.AssetRefKind, tc.credential.AssetRefExternalID)
 			if gotOK != tc.wantOK {
-				t.Fatalf("credentialAssetLookupKey() ok = %v, want %v", gotOK, tc.wantOK)
+				t.Fatalf("credentialAssetLookupKeyValues() ok = %v, want %v", gotOK, tc.wantOK)
 			}
 			if gotKind != tc.wantKind {
-				t.Fatalf("credentialAssetLookupKey() kind = %q, want %q", gotKind, tc.wantKind)
+				t.Fatalf("credentialAssetLookupKeyValues() kind = %q, want %q", gotKind, tc.wantKind)
 			}
 			if gotID != tc.wantID {
-				t.Fatalf("credentialAssetLookupKey() external id = %q, want %q", gotID, tc.wantID)
+				t.Fatalf("credentialAssetLookupKeyValues() external id = %q, want %q", gotID, tc.wantID)
 			}
 		})
 	}

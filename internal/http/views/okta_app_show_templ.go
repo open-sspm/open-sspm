@@ -322,7 +322,7 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<table data-columns-id=\"okta-app-show--users\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><caption class=\"sr-only\">Okta accounts assigned to this app, including assignment source, groups, and permission attributes.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Account</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Status</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Assigned via</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Group(s)</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Attributes</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><caption class=\"sr-only\">Okta accounts assigned to this app, including assignment source, groups, and permission attributes.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Account</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Status</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Assigned via</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Group(s)</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Attributes</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -544,7 +544,7 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ColumnsTable("okta-app-show--users", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var20), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var20), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

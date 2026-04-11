@@ -8,11 +8,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
@@ -63,7 +61,6 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		PrivilegedOnly:        queryState.PrivilegedOnly,
 		Status:                queryState.Status,
 		ActivityState:         queryState.ActivityState,
-		LinkQuality:           queryState.LinkQuality,
 		ConfiguredSourceKinds: configuredSourceKinds,
 		ConfiguredSourceNames: configuredSourceNames,
 		Query:                 queryState.Q,
@@ -81,7 +78,6 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		PrivilegedOnly:        queryState.PrivilegedOnly,
 		Status:                queryState.Status,
 		ActivityState:         queryState.ActivityState,
-		LinkQuality:           queryState.LinkQuality,
 		SortBy:                queryState.SortBy,
 		SortDir:               queryState.SortDir,
 		PageOffset:            int32(pagination.Offset()),
@@ -99,10 +95,6 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 
 	items := make([]viewmodels.IdentityListItem, 0, len(rows))
 	for _, row := range rows {
-		linkReason := strings.TrimSpace(row.LinkReason)
-		if linkReason == "" {
-			linkReason = "—"
-		}
 		items = append(items, viewmodels.IdentityListItem{
 			ID:                row.ID,
 			Initials:          identityInitials(row.DisplayName, row.PrimaryEmail),
@@ -116,12 +108,8 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 			PrivilegedRoles:   row.PrivilegedRoles,
 			Status:            strings.TrimSpace(row.Status),
 			ActivityState:     strings.TrimSpace(row.ActivityState),
-			LastSeenOn:        identityCalendarDate(row.LastSeenAt),
-			LastSeenRelative:  identityRelativeDate(row.LastSeenAt),
-			FirstSeenOn:       identityCalendarDate(row.FirstSeenAt),
-			LinkQuality:       strings.TrimSpace(row.LinkQuality),
-			LinkReason:        linkReason,
-			MinLinkConfidence: row.MinLinkConfidence,
+			LastSeen:          calendarDateWithRelativeDisplay(row.LastSeenAt),
+			FirstSeen:         calendarDateDisplay(row.FirstSeenAt),
 			RowState:          strings.TrimSpace(row.RowState),
 		})
 	}
@@ -290,30 +278,6 @@ func identityNameSecondary(displayName, primaryEmail string) string {
 	return primaryEmail
 }
 
-func identityCalendarDate(value pgtype.Timestamptz) string {
-	if !value.Valid {
-		return "—"
-	}
-	return value.Time.UTC().Format("Jan 2, 2006")
-}
-
-func identityRelativeDate(value pgtype.Timestamptz) string {
-	if !value.Valid {
-		return ""
-	}
-	days := int(time.Since(value.Time).Hours() / 24)
-	switch {
-	case days <= 0:
-		return "today"
-	case days == 1:
-		return "1d ago"
-	case days < 365:
-		return strconv.Itoa(days) + "d ago"
-	default:
-		return strconv.Itoa(days/365) + "y ago"
-	}
-}
-
 func identityInitials(displayName, primaryEmail string) string {
 	name := strings.TrimSpace(displayName)
 	if name == "" {
@@ -394,8 +358,8 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		Identity:           summary,
 		NamePrimary:        identityNamePrimary(summary.DisplayName, summary.PrimaryEmail, summary.ID),
 		NameSecondary:      identityNameSecondary(summary.DisplayName, summary.PrimaryEmail),
-		CreatedOn:          identityCalendarDate(summary.CreatedAt),
-		UpdatedOn:          identityCalendarDate(summary.UpdatedAt),
+		CreatedOn:          calendarDateDisplay(summary.CreatedAt),
+		UpdatedOn:          calendarDateDisplay(summary.UpdatedAt),
 		TotalEntitlements:  totalEntitlements,
 		LinkedAccounts:     linkedAccounts,
 		NonHumanAccessHref: nonHumanAccessHref,

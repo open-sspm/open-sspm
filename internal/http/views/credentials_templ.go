@@ -850,9 +850,9 @@ func CredentialsPageResults(data viewmodels.CredentialsViewData) templ.Component
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var39 string
-				templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(item.ExpiresAt)
+				templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(item.ExpiresAt.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 178, Col: 31}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 178, Col: 37}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 				if templ_7745c5c3_Err != nil {
@@ -863,9 +863,9 @@ func CredentialsPageResults(data viewmodels.CredentialsViewData) templ.Component
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var40 string
-				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastUsedAt)
+				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastUsedAt.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 182, Col: 32}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 182, Col: 38}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 				if templ_7745c5c3_Err != nil {
@@ -892,7 +892,7 @@ func CredentialsPageResults(data viewmodels.CredentialsViewData) templ.Component
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<table data-columns-id=\"credentials--main\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list osspm-table-credentials\"><caption class=\"sr-only\">Credentials with source, status, risk, expiration, and asset metadata.</caption> <colgroup><col class=\"osspm-col-credential\"> <col class=\"osspm-col-kind\"> <col class=\"osspm-col-asset\"> <col class=\"osspm-col-status\"> <col class=\"osspm-col-risk\"> <col class=\"osspm-col-time\"> <col class=\"osspm-col-time\"></colgroup> <thead><tr><th class=\"osspm-col-credential text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential</th><th class=\"osspm-col-kind text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th><th class=\"osspm-col-asset text-xs font-medium uppercase tracking-wide text-muted-foreground\">Asset</th><th class=\"osspm-col-status text-xs font-medium uppercase tracking-wide text-muted-foreground\">Status</th><th class=\"osspm-col-risk text-xs font-medium uppercase tracking-wide text-muted-foreground\">Risk</th><th class=\"osspm-col-time osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Expires</th><th class=\"osspm-col-time osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last used</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list osspm-table-credentials\"><caption class=\"sr-only\">Credentials with source, status, risk, expiration, and asset metadata.</caption> <colgroup><col class=\"osspm-col-credential\"> <col class=\"osspm-col-kind\"> <col class=\"osspm-col-asset\"> <col class=\"osspm-col-status\"> <col class=\"osspm-col-risk\"> <col class=\"osspm-col-time\"> <col class=\"osspm-col-time\"></colgroup> <thead><tr><th class=\"osspm-col-credential text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential</th><th class=\"osspm-col-kind text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th><th class=\"osspm-col-asset text-xs font-medium uppercase tracking-wide text-muted-foreground\">Asset</th><th class=\"osspm-col-status text-xs font-medium uppercase tracking-wide text-muted-foreground\">Status</th><th class=\"osspm-col-risk text-xs font-medium uppercase tracking-wide text-muted-foreground\">Risk</th><th class=\"osspm-col-time osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Expires</th><th class=\"osspm-col-time osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last used</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1101,9 +1101,9 @@ func CredentialsPageResults(data viewmodels.CredentialsViewData) templ.Component
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var57 string
-					templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(item.ExpiresAt)
+					templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(item.ExpiresAt.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 233, Col: 33}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 233, Col: 39}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
 					if templ_7745c5c3_Err != nil {
@@ -1114,9 +1114,9 @@ func CredentialsPageResults(data viewmodels.CredentialsViewData) templ.Component
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var58 string
-					templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastUsedAt)
+					templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastUsedAt.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 236, Col: 34}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credentials.templ`, Line: 236, Col: 40}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 					if templ_7745c5c3_Err != nil {
@@ -1133,7 +1133,7 @@ func CredentialsPageResults(data viewmodels.CredentialsViewData) templ.Component
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ColumnsTable("credentials--main", "hidden md:block").Render(templ.WithChildren(ctx, templ_7745c5c3_Var41), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ColumnsTable("hidden md:block").Render(templ.WithChildren(ctx, templ_7745c5c3_Var41), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

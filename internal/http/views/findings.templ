@@ -18,8 +18,8 @@ templ FindingsPage(data viewmodels.FindingsRulesetsViewData) {
 						<p class="text-sm text-muted-foreground">Rulesets loaded from Postgres (seeded from the rule registry).</p>
 					</div>
 				</div>
-				@ColumnsTable("findings--main", "") {
-					<table data-columns-id="findings--main" class="table osspm-table-compact osspm-table-list">
+				@ColumnsTable("") {
+					<table class="table osspm-table-compact osspm-table-list">
 						<thead>
 							<tr>
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ruleset</th>
@@ -54,4 +54,3 @@ templ FindingsPage(data viewmodels.FindingsRulesetsViewData) {
 		}
 	}
 }
-

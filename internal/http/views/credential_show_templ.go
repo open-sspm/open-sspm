@@ -302,9 +302,9 @@ func CredentialShowPage(data viewmodels.CredentialShowViewData) templ.Component 
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var24 string
-			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(data.Credential.CreatedAtSource)
+			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(data.Credential.CreatedAtSource.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 41, Col: 62}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 41, Col: 68}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 			if templ_7745c5c3_Err != nil {
@@ -315,9 +315,9 @@ func CredentialShowPage(data viewmodels.CredentialShowViewData) templ.Component 
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var25 string
-			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(data.Credential.ExpiresAtSource)
+			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(data.Credential.ExpiresAtSource.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 45, Col: 62}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 45, Col: 68}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 			if templ_7745c5c3_Err != nil {
@@ -328,9 +328,9 @@ func CredentialShowPage(data viewmodels.CredentialShowViewData) templ.Component 
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var26 string
-			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(data.Credential.LastUsedAtSource)
+			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(data.Credential.LastUsedAtSource.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 49, Col: 63}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 49, Col: 69}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 			if templ_7745c5c3_Err != nil {
@@ -509,7 +509,7 @@ func CredentialShowPage(data viewmodels.CredentialShowViewData) templ.Component 
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<table data-columns-id=\"credential-show--events\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Time</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Event</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Actor</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Target</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential ref</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Time</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Event</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Actor</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Target</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential ref</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -520,9 +520,9 @@ func CredentialShowPage(data viewmodels.CredentialShowViewData) templ.Component 
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var37 string
-						templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(event.EventTime)
+						templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(event.EventTime.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 114, Col: 31}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 114, Col: 37}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 						if templ_7745c5c3_Err != nil {
@@ -623,7 +623,7 @@ func CredentialShowPage(data viewmodels.CredentialShowViewData) templ.Component 
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ColumnsTable("credential-show--events", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var36), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var36), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -371,7 +371,7 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if data.App.FollowUpDueDate != "" {
+		if data.App.FollowUpDueDate.Label != "" {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<div class=\"flex flex-wrap items-center gap-2\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -399,9 +399,9 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var24 string
-			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(DiscoveryFollowUpLabel(data.App.FollowUpDueDate, data.App.IsFollowUpOverdue))
+			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(DiscoveryFollowUpLabel(data.App.FollowUpDueDate.Label, data.App.IsFollowUpOverdue))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 72, Col: 160}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 72, Col: 166}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 			if templ_7745c5c3_Err != nil {
@@ -612,9 +612,9 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var37 string
-		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.FirstSeenAt)
+		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.FirstSeen.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 117, Col: 52}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 117, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 		if templ_7745c5c3_Err != nil {
@@ -634,9 +634,9 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var39 string
-		templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.LastSeenAt)
+		templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.LastSeen.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 119, Col: 50}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 119, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 		if templ_7745c5c3_Err != nil {
@@ -670,9 +670,9 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var41 string
-				templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(item.ChangedAt)
+				templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(item.ChangedAt.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 145, Col: 57}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 145, Col: 63}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 				if templ_7745c5c3_Err != nil {
@@ -756,7 +756,7 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if item.FollowUpDueDate != "" {
+				if item.FollowUpDueDate.Label != "" {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "<div class=\"flex flex-wrap items-center gap-2\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
@@ -784,9 +784,9 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var50 string
-					templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(DiscoveryFollowUpLabel(item.FollowUpDueDate, item.IsFollowUpOverdue))
+					templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(DiscoveryFollowUpLabel(item.FollowUpDueDate.Label, item.IsFollowUpOverdue))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 157, Col: 152}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 157, Col: 158}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 					if templ_7745c5c3_Err != nil {
@@ -1019,9 +1019,9 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var64 string
-				templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinStringErrs(source.LastObservedAt)
+				templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinStringErrs(source.LastObservedAt.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 220, Col: 64}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 220, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
 				if templ_7745c5c3_Err != nil {
@@ -1122,9 +1122,9 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var70 string
-				templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(actor.LastObservedAt)
+				templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(actor.LastObservedAt.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 255, Col: 63}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 255, Col: 69}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var70))
 				if templ_7745c5c3_Err != nil {
@@ -1173,9 +1173,9 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var72 string
-				templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.JoinStringErrs(event.ObservedAt)
+				templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.JoinStringErrs(event.ObservedAt.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 286, Col: 59}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 286, Col: 65}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var72))
 				if templ_7745c5c3_Err != nil {
@@ -1490,7 +1490,7 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if data.App.FollowUpDueDate != "" {
+			if data.App.FollowUpDueDate.Label != "" {
 				var templ_7745c5c3_Var89 = []any{DiscoveryFollowUpBadgeClass(data.App.IsFollowUpOverdue)}
 				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var89...)
 				if templ_7745c5c3_Err != nil {
@@ -1514,9 +1514,9 @@ func DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) templ.Compon
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var91 string
-				templ_7745c5c3_Var91, templ_7745c5c3_Err = templ.JoinStringErrs(DiscoveryFollowUpLabel(data.App.FollowUpDueDate, data.App.IsFollowUpOverdue))
+				templ_7745c5c3_Var91, templ_7745c5c3_Err = templ.JoinStringErrs(DiscoveryFollowUpLabel(data.App.FollowUpDueDate.Label, data.App.IsFollowUpOverdue))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 393, Col: 161}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_app_show.templ`, Line: 393, Col: 167}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var91))
 				if templ_7745c5c3_Err != nil {

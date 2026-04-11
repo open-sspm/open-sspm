@@ -675,7 +675,6 @@ func (i *GitHubIntegration) syncProgrammaticAccess(ctx context.Context, q *gen.Q
 	}
 
 	report(registry.Event{Source: "github", Stage: "list-installations", Current: 0, Total: 1, Message: "listing GitHub app installations"})
-	installationRows := make([]githubAppAssetUpsertRow, 0)
 	installations, err := i.client.ListOrgInstallations(ctx, i.org)
 	if err != nil {
 		if errors.Is(err, ErrDatasetUnavailable) {

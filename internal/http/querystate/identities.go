@@ -6,40 +6,32 @@ import (
 )
 
 type IdentitiesQuery struct {
-	Source          SourceSelection
-	Q               string
-	IdentityType    string
-	ManagedState    string
-	PrivilegedOnly  bool
-	Status          string
-	ActivityState   string
-	LinkQuality     string
-	SortBy          string
-	SortDir         string
-	ShowFirstSeen   bool
-	ShowLinkQuality bool
-	ShowLinkReason  bool
-	Page            int
+	Source         SourceSelection
+	Q              string
+	IdentityType   string
+	ManagedState   string
+	PrivilegedOnly bool
+	Status         string
+	ActivityState  string
+	SortBy         string
+	SortDir        string
+	Page           int
 }
 
 func ParseIdentitiesQuery(values url.Values, sources []SourceSelection) IdentitiesQuery {
 	source := parseIdentitySourceSelection(values, sources)
 	sortBy := normalizeIdentitySortBy(values.Get("sort_by"))
 	return IdentitiesQuery{
-		Source:          source,
-		Q:               strings.TrimSpace(values.Get("q")),
-		IdentityType:    normalizeIdentityType(values.Get("identity_type")),
-		ManagedState:    normalizeIdentityManagedState(values.Get("managed_state")),
-		PrivilegedOnly:  parseBool(values.Get("privileged")),
-		Status:          normalizeIdentityStatus(values.Get("status")),
-		ActivityState:   normalizeIdentityActivityState(values.Get("activity_state")),
-		LinkQuality:     normalizeIdentityLinkQuality(values.Get("link_quality")),
-		SortBy:          sortBy,
-		SortDir:         normalizeIdentitySortDir(values.Get("sort_dir"), sortBy),
-		ShowFirstSeen:   parseBool(values.Get("show_first_seen")),
-		ShowLinkQuality: parseBool(values.Get("show_link_quality")),
-		ShowLinkReason:  parseBool(values.Get("show_link_reason")),
-		Page:            parsePage(values.Get("page")),
+		Source:         source,
+		Q:              strings.TrimSpace(values.Get("q")),
+		IdentityType:   normalizeIdentityType(values.Get("identity_type")),
+		ManagedState:   normalizeIdentityManagedState(values.Get("managed_state")),
+		PrivilegedOnly: parseBool(values.Get("privileged")),
+		Status:         normalizeIdentityStatus(values.Get("status")),
+		ActivityState:  normalizeIdentityActivityState(values.Get("activity_state")),
+		SortBy:         sortBy,
+		SortDir:        normalizeIdentitySortDir(values.Get("sort_dir"), sortBy),
+		Page:           parsePage(values.Get("page")),
 	}
 }
 
@@ -53,14 +45,10 @@ func (q IdentitiesQuery) Values() url.Values {
 	setIfTrue(values, "privileged", q.PrivilegedOnly)
 	setIfNotEmpty(values, "status", q.Status)
 	setIfNotEmpty(values, "activity_state", q.ActivityState)
-	setIfNotEmpty(values, "link_quality", q.LinkQuality)
 	setIfNotEmpty(values, "sort_by", q.SortBy)
 	if q.SortBy != "" {
 		setIfNotEmpty(values, "sort_dir", q.SortDir)
 	}
-	setIfTrue(values, "show_first_seen", q.ShowFirstSeen)
-	setIfTrue(values, "show_link_quality", q.ShowLinkQuality)
-	setIfTrue(values, "show_link_reason", q.ShowLinkReason)
 	setIfPage(values, q.Page)
 	return values
 }
@@ -79,33 +67,6 @@ func (q IdentitiesQuery) WithPage(page int) IdentitiesQuery {
 
 func (q IdentitiesQuery) ClearQuery() IdentitiesQuery {
 	q.Q = ""
-	q.Page = 1
-	return q
-}
-
-func (q IdentitiesQuery) WithSourceKind(kind string) IdentitiesQuery {
-	q.Source.Kind = normalizeSourceKind(kind)
-	if q.Source.Kind == "" {
-		q.Source.Name = ""
-	}
-	q.Page = 1
-	return q
-}
-
-func (q IdentitiesQuery) WithSourceName(name string) IdentitiesQuery {
-	q.Source.Name = strings.TrimSpace(name)
-	q.Page = 1
-	return q
-}
-
-func (q IdentitiesQuery) WithManagedState(state string) IdentitiesQuery {
-	q.ManagedState = normalizeIdentityManagedState(state)
-	q.Page = 1
-	return q
-}
-
-func (q IdentitiesQuery) WithStatus(status string) IdentitiesQuery {
-	q.Status = normalizeIdentityStatus(status)
 	q.Page = 1
 	return q
 }
@@ -129,7 +90,6 @@ func (q IdentitiesQuery) HasFilters() bool {
 		q.PrivilegedOnly ||
 		q.Status != "" ||
 		q.ActivityState != "" ||
-		q.LinkQuality != "" ||
 		q.Source.Kind != "" ||
 		q.Source.Name != ""
 }
@@ -272,21 +232,6 @@ func normalizeIdentityActivityState(raw string) string {
 		return "stale"
 	case "never_seen":
 		return "never_seen"
-	default:
-		return ""
-	}
-}
-
-func normalizeIdentityLinkQuality(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "high":
-		return "high"
-	case "medium":
-		return "medium"
-	case "low":
-		return "low"
-	case "unknown":
-		return "unknown"
 	default:
 		return ""
 	}

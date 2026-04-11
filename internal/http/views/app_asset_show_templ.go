@@ -231,9 +231,9 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var16 string
-				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(data.Asset.CreatedAtSource)
+				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(data.Asset.CreatedAtSource.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 48, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 48, Col: 64}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -244,9 +244,9 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var17 string
-				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(data.Asset.UpdatedAtSource)
+				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(data.Asset.UpdatedAtSource.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 52, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 52, Col: 64}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
@@ -257,9 +257,9 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var18 string
-				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(data.Asset.LastObservedAt)
+				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(data.Asset.LastObservedAt.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 56, Col: 57}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 56, Col: 63}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 				if templ_7745c5c3_Err != nil {
@@ -294,7 +294,7 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<table data-columns-id=\"app-asset-show--owners\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owner</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Email</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">External ID</th></tr></thead> <tbody>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owner</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Email</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">External ID</th></tr></thead> <tbody>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -410,7 +410,7 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = ColumnsTable("app-asset-show--owners", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var20), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var20), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -443,7 +443,7 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<table data-columns-id=\"app-asset-show--credentials\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Status</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Risk</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Expires</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last used</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Creator</th></tr></thead> <tbody>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Status</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Risk</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Expires</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last used</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Creator</th></tr></thead> <tbody>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -541,9 +541,9 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 								return templ_7745c5c3_Err
 							}
 							var templ_7745c5c3_Var36 string
-							templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(credential.ExpiresAt)
+							templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(credential.ExpiresAt.Label)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 132, Col: 37}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 132, Col: 43}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 							if templ_7745c5c3_Err != nil {
@@ -554,9 +554,9 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 								return templ_7745c5c3_Err
 							}
 							var templ_7745c5c3_Var37 string
-							templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(credential.LastUsedAt)
+							templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(credential.LastUsedAt.Label)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 133, Col: 38}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 133, Col: 44}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 							if templ_7745c5c3_Err != nil {
@@ -633,7 +633,7 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = ColumnsTable("app-asset-show--credentials", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var28), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var28), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -666,7 +666,7 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<table data-columns-id=\"app-asset-show--events\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Time</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Event</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Actor</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Target</th></tr></thead> <tbody>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Time</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Event</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Actor</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Target</th></tr></thead> <tbody>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -677,9 +677,9 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 								return templ_7745c5c3_Err
 							}
 							var templ_7745c5c3_Var43 string
-							templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(event.EventTime)
+							templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(event.EventTime.Label)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 175, Col: 32}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 175, Col: 38}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 							if templ_7745c5c3_Err != nil {
@@ -793,7 +793,7 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = ColumnsTable("app-asset-show--events", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var42), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var42), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

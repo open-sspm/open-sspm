@@ -19,10 +19,6 @@ type manualSyncPlanner interface {
 	Prepare(context.Context) error
 }
 
-func NewResyncQueueRunner(dbStore syncJobStore, mode registry.RunMode) Runner {
-	return NewResyncQueueRunnerWithPlanner(dbStore, nil, mode)
-}
-
 func NewResyncQueueRunnerWithPlanner(dbStore syncJobStore, planner manualSyncPlanner, mode registry.RunMode) Runner {
 	return &ResyncQueueRunner{
 		store:   dbStore,

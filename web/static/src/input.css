@@ -113,6 +113,10 @@
     width: calc(100% - calc(var(--spacing) * 3.5));
   }
 
+  .osspm-filters-disclosure::details-content {
+    transition: none;
+  }
+
   .sidebar a.sidebar-unconfigured-link {
     opacity: 0.55;
   }
@@ -181,6 +185,26 @@
     min-width: 84rem;
   }
 
+  .osspm-table-non-human-access {
+    min-width: 86rem;
+  }
+
+  .osspm-col-principal {
+    width: 24rem;
+  }
+
+  .osspm-col-type {
+    width: 8rem;
+  }
+
+  .osspm-col-owner {
+    width: 10rem;
+  }
+
+  .osspm-col-governance {
+    width: 10rem;
+  }
+
   .osspm-col-credential {
     width: 19rem;
   }
@@ -203,6 +227,18 @@
 
   .osspm-col-time {
     width: 9rem;
+  }
+
+  .osspm-col-activity {
+    width: 11rem;
+  }
+
+  .osspm-col-freshness {
+    width: 11rem;
+  }
+
+  .osspm-col-links {
+    width: 8rem;
   }
 
   .osspm-token {

@@ -19,14 +19,6 @@ type runOnceScope struct {
 	name string
 }
 
-func NewBlockingRunOnceLockRunner(locks LockManager, inner Runner) Runner {
-	return NewBlockingRunOnceLockRunnerWithScope(locks, inner, legacyRunOnceScopeName)
-}
-
-func NewTryRunOnceLockRunner(locks LockManager, inner Runner) Runner {
-	return NewTryRunOnceLockRunnerWithScope(locks, inner, legacyRunOnceScopeName)
-}
-
 func NewBlockingRunOnceLockRunnerWithScope(locks LockManager, inner Runner, scopeName string) Runner {
 	return newRunOnceLockRunner(locks, inner, false, scopeName)
 }

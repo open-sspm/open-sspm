@@ -15,14 +15,36 @@ templ NonHumanAccessPage(data viewmodels.NonHumanAccessViewData) {
 
 templ NonHumanAccessPageResults(data viewmodels.NonHumanAccessViewData) {
 	<div id="non-human-access-results" class="space-y-6">
-		@BusyInlineIndicator("Updating results...", false)
+		@NonHumanAccessPageFilters(data)
+		@NonHumanAccessInventoryResults(data)
+	</div>
+}
+
+templ NonHumanAccessInventorySwap(data viewmodels.NonHumanAccessViewData) {
+	@NonHumanAccessPageFiltersOOB(data)
+	@NonHumanAccessInventoryResults(data)
+}
+
+templ NonHumanAccessPageFilters(data viewmodels.NonHumanAccessViewData) {
+	<div id="non-human-access-filters">
+		@NonHumanAccessFiltersForm(data)
+	</div>
+}
+
+templ NonHumanAccessPageFiltersOOB(data viewmodels.NonHumanAccessViewData) {
+	<div id="non-human-access-filters" hx-swap-oob="outerHTML">
+		@NonHumanAccessFiltersForm(data)
+	</div>
+}
+
+templ NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) {
 		<form
 			method="get"
 			action="/non-human-access"
 			data-enter-only-query="q"
 			hx-get="/non-human-access"
 			hx-trigger="change delay:150ms from:select, submit"
-			hx-target="#non-human-access-results"
+			hx-target="#non-human-access-inventory"
 			hx-swap="outerHTML"
 			hx-push-url="true"
 			class="space-y-4 border-b border-border/70 pb-5"
@@ -38,13 +60,11 @@ templ NonHumanAccessPageResults(data viewmodels.NonHumanAccessViewData) {
 								aria-label="Clear query"
 								href={ data.Query.ClearQuery().Href() }
 								hx-get={ data.Query.ClearQuery().Href() }
-								hx-target="#non-human-access-results"
+								hx-target="#non-human-access-inventory"
 								hx-swap="outerHTML"
 								hx-push-url="true"
 							>
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
-									<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
-								</svg>
+								<i class="ti ti-x text-base" aria-hidden="true"></i>
 							</a>
 						}
 					</div>
@@ -58,94 +78,59 @@ templ NonHumanAccessPageResults(data viewmodels.NonHumanAccessViewData) {
 				</div>
 			</div>
 
-			<div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Quick filters">
-				<a
-					class={ FilterPillClass(data.Query.OwnerPresence == "") }
-					href={ data.Query.WithOwnerPresence("").Href() }
-					hx-get={ data.Query.WithOwnerPresence("").Href() }
-					hx-target="#non-human-access-results"
-					hx-swap="outerHTML"
-					hx-push-url="true"
-				>
-					Any owner
-				</a>
-				<a
-					class={ FilterPillClass(data.Query.OwnerPresence == "unknown") }
-					href={ data.Query.WithOwnerPresence("unknown").Href() }
-					hx-get={ data.Query.WithOwnerPresence("unknown").Href() }
-					hx-target="#non-human-access-results"
-					hx-swap="outerHTML"
-					hx-push-url="true"
-				>
-					Unknown owner
-				</a>
-				<a
-					class={ FilterPillClass(data.Query.RiskLevel == "high") }
-					href={ data.Query.WithRiskLevel("high").Href() }
-					hx-get={ data.Query.WithRiskLevel("high").Href() }
-					hx-target="#non-human-access-results"
-					hx-swap="outerHTML"
-					hx-push-url="true"
-				>
-					High risk
-				</a>
-				<a
-					class={ FilterPillClass(data.Query.RiskLevel == "critical") }
-					href={ data.Query.WithRiskLevel("critical").Href() }
-					hx-get={ data.Query.WithRiskLevel("critical").Href() }
-					hx-target="#non-human-access-results"
-					hx-swap="outerHTML"
-					hx-push-url="true"
-				>
-					Critical
-				</a>
-				<a
-					class={ FilterPillClass(data.Query.ActivityState == "stale") }
-					href={ data.Query.WithActivityState("stale").Href() }
-					hx-get={ data.Query.WithActivityState("stale").Href() }
-					hx-target="#non-human-access-results"
-					hx-swap="outerHTML"
-					hx-push-url="true"
-				>
-					Stale activity
-				</a>
-				<a
-					class={ FilterPillClass(data.Query.FreshnessState == "stale") }
-					href={ data.Query.WithFreshnessState("stale").Href() }
-					hx-get={ data.Query.WithFreshnessState("stale").Href() }
-					hx-target="#non-human-access-results"
-					hx-swap="outerHTML"
-					hx-push-url="true"
-				>
-					Stale evidence
-				</a>
+			<div class="rounded-2xl border border-border/70 bg-muted/20 p-3">
+				<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+					<label class="relative flex h-11 min-w-0 items-center gap-2 rounded-xl bg-background px-4 pr-10 shadow-xs ring-1 ring-border/60">
+						<span class="shrink-0 text-sm text-muted-foreground">Risk:</span>
+						<select name="risk_level" class="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-foreground outline-none">
+							<option value="" selected?={ data.Query.RiskLevel == "" }>All Levels</option>
+							<option value="critical" selected?={ data.Query.RiskLevel == "critical" }>Critical</option>
+							<option value="high" selected?={ data.Query.RiskLevel == "high" }>High</option>
+							<option value="medium" selected?={ data.Query.RiskLevel == "medium" }>Medium</option>
+							<option value="low" selected?={ data.Query.RiskLevel == "low" }>Low</option>
+						</select>
+						<i class="ti ti-chevron-down pointer-events-none absolute right-3 text-base text-muted-foreground" aria-hidden="true"></i>
+					</label>
+					<label class="relative flex h-11 min-w-0 items-center gap-2 rounded-xl bg-background px-4 pr-10 shadow-xs ring-1 ring-border/60">
+						<span class="shrink-0 text-sm text-muted-foreground">Owner:</span>
+						<select name="owner_presence" class="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-foreground outline-none">
+							<option value="" selected?={ data.Query.OwnerPresence == "" }>All Owners</option>
+							<option value="owned" selected?={ data.Query.OwnerPresence == "owned" }>Owned</option>
+							<option value="unknown" selected?={ data.Query.OwnerPresence == "unknown" }>Unknown owner</option>
+						</select>
+						<i class="ti ti-chevron-down pointer-events-none absolute right-3 text-base text-muted-foreground" aria-hidden="true"></i>
+					</label>
+					<label class="relative flex h-11 min-w-0 items-center gap-2 rounded-xl bg-background px-4 pr-10 shadow-xs ring-1 ring-border/60">
+						<span class="shrink-0 text-sm text-muted-foreground">Provider:</span>
+						<select name="source_kind" class="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-foreground outline-none">
+							<option value="" selected?={ data.Query.Source.Kind == "" }>All Providers</option>
+							for _, source := range data.Sources {
+								<option value={ source.SourceKind } selected?={ source.SourceKind == data.Query.Source.Kind } title={ source.Label }>{ source.Label }</option>
+							}
+						</select>
+						<i class="ti ti-chevron-down pointer-events-none absolute right-3 text-base text-muted-foreground" aria-hidden="true"></i>
+					</label>
+					<label class="relative flex h-11 min-w-0 items-center gap-2 rounded-xl bg-background px-4 pr-10 shadow-xs ring-1 ring-border/60">
+						<span class="shrink-0 text-sm text-muted-foreground">Activity:</span>
+						<select name="activity_state" class="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-foreground outline-none">
+							<option value="" selected?={ data.Query.ActivityState == "" }>Any Activity</option>
+							<option value="recent" selected?={ data.Query.ActivityState == "recent" }>Seen &lt; 30d</option>
+							<option value="aging" selected?={ data.Query.ActivityState == "aging" }>30-89d</option>
+							<option value="stale" selected?={ data.Query.ActivityState == "stale" }>90d+</option>
+							<option value="never_seen" selected?={ data.Query.ActivityState == "never_seen" }>Never seen</option>
+						</select>
+						<i class="ti ti-chevron-down pointer-events-none absolute right-3 text-base text-muted-foreground" aria-hidden="true"></i>
+					</label>
+				</div>
 			</div>
 
-			<details class="group">
+			<details class="group osspm-filters-disclosure" open?={ data.Query.HasAdvancedFilters() }>
 				<summary class="inline-flex cursor-pointer list-none items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
 					<span class="text-base leading-none group-open:hidden">+</span>
 					<span class="text-base leading-none hidden group-open:inline">−</span>
 					<span>More filters and sorting</span>
 				</summary>
-				<div class="mt-4 grid gap-4 rounded-lg border border-border/70 bg-muted/15 p-4 md:grid-cols-3 xl:grid-cols-9">
-					<label class="field">
-						<span class="label">Source</span>
-						<select class="select" name="source_kind">
-							<option value="" selected?={ data.Query.Source.Kind == "" }>All configured</option>
-							for _, source := range data.Sources {
-								<option value={ source.SourceKind } selected?={ source.SourceKind == data.Query.Source.Kind } title={ source.Label }>{ source.Label }</option>
-							}
-						</select>
-					</label>
-					<label class="field">
-						<span class="label">Source name</span>
-						<select class="select" name="source_name">
-							<option value="" selected?={ data.Query.Source.Name == "" }>All source names</option>
-							for _, source := range data.SourceNameOptions {
-								<option value={ source.SourceName } selected?={ source.SourceName == data.Query.Source.Name }>{ source.SourceName }</option>
-							}
-						</select>
-					</label>
+				<div class="mt-4 grid gap-4 rounded-lg border border-border/70 bg-muted/15 p-4 md:grid-cols-2 xl:grid-cols-5">
 					<label class="field">
 						<span class="label">Type</span>
 						<select class="select" name="principal_type">
@@ -153,14 +138,6 @@ templ NonHumanAccessPageResults(data viewmodels.NonHumanAccessViewData) {
 							<option value="service" selected?={ data.Query.PrincipalType == "service" }>Service</option>
 							<option value="bot" selected?={ data.Query.PrincipalType == "bot" }>Bot</option>
 							<option value="app" selected?={ data.Query.PrincipalType == "app" }>App only</option>
-						</select>
-					</label>
-					<label class="field">
-						<span class="label">Owner</span>
-						<select class="select" name="owner_presence">
-							<option value="" selected?={ data.Query.OwnerPresence == "" }>Any</option>
-							<option value="owned" selected?={ data.Query.OwnerPresence == "owned" }>Owned</option>
-							<option value="unknown" selected?={ data.Query.OwnerPresence == "unknown" }>Unknown</option>
 						</select>
 					</label>
 					<label class="field">
@@ -172,26 +149,6 @@ templ NonHumanAccessPageResults(data viewmodels.NonHumanAccessViewData) {
 							<option value="approved" selected?={ data.Query.GovernanceState == "approved" }>Approved</option>
 							<option value="action_required" selected?={ data.Query.GovernanceState == "action_required" }>Action required</option>
 							<option value="ticketed" selected?={ data.Query.GovernanceState == "ticketed" }>Ticketed</option>
-						</select>
-					</label>
-					<label class="field">
-						<span class="label">Risk</span>
-						<select class="select" name="risk_level">
-							<option value="" selected?={ data.Query.RiskLevel == "" }>Any</option>
-							<option value="critical" selected?={ data.Query.RiskLevel == "critical" }>Critical</option>
-							<option value="high" selected?={ data.Query.RiskLevel == "high" }>High</option>
-							<option value="medium" selected?={ data.Query.RiskLevel == "medium" }>Medium</option>
-							<option value="low" selected?={ data.Query.RiskLevel == "low" }>Low</option>
-						</select>
-					</label>
-					<label class="field">
-						<span class="label">Activity</span>
-						<select class="select" name="activity_state">
-							<option value="" selected?={ data.Query.ActivityState == "" }>Any</option>
-							<option value="recent" selected?={ data.Query.ActivityState == "recent" }>Seen &lt; 30d</option>
-							<option value="aging" selected?={ data.Query.ActivityState == "aging" }>30-89d</option>
-							<option value="stale" selected?={ data.Query.ActivityState == "stale" }>90d+</option>
-							<option value="never_seen" selected?={ data.Query.ActivityState == "never_seen" }>Never seen</option>
 						</select>
 					</label>
 					<label class="field">
@@ -228,7 +185,11 @@ templ NonHumanAccessPageResults(data viewmodels.NonHumanAccessViewData) {
 			</details>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
+}
 
+templ NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) {
+	<div id="non-human-access-inventory" class="space-y-6">
+		@BusyInlineIndicator("Updating results...", false)
 		<section class="space-y-3">
 			if data.HasItems {
 				<div class="space-y-3 lg:hidden">
@@ -236,18 +197,19 @@ templ NonHumanAccessPageResults(data viewmodels.NonHumanAccessViewData) {
 						<article class="rounded-lg border border-border/70 bg-card p-4">
 							<div class="flex items-start justify-between gap-3">
 								<div class="min-w-0">
-									<a class="block font-medium no-underline hover:underline" href={ "/non-human-access/" + item.PrincipalRef } title={ item.DisplayName }>
+									<a class="block font-medium text-foreground no-underline hover:underline" href={ "/non-human-access/" + item.PrincipalRef } title={ item.DisplayName }>
 										<span class="osspm-truncate">{ item.DisplayName }</span>
 									</a>
 									if item.SecondaryName != "" {
-										<div class="text-sm text-muted-foreground osspm-truncate" title={ item.SecondaryName }>{ item.SecondaryName }</div>
+										<span class="block text-sm text-muted-foreground" title={ item.SecondaryName }>
+											<span class="osspm-truncate">{ item.SecondaryName }</span>
+										</span>
 									}
-									<div class="mt-1 text-xs text-muted-foreground">{ HumanizeConnectorKind(item.SourceKind) }{ " • " }{ item.SourceName }</div>
 								</div>
 								<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
 							</div>
-							<div class="mt-3 flex flex-wrap items-center gap-2">
-								<span class="badge-outline">{ HumanizeNonHumanPrincipalType(item.PrincipalType) }</span>
+							<div class="mt-2 flex flex-wrap items-center gap-2">
+								<span class="text-sm text-muted-foreground">{ HumanizeNonHumanPrincipalType(item.PrincipalType) }</span>
 								<span class={ NonHumanOwnerPresenceBadgeClass(item.OwnerPresence) }>{ HumanizeNonHumanOwnerPresence(item.OwnerPresence) }</span>
 								<span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span>
 								<span class={ NonHumanActivityStateBadgeClass(item.ActivityState) }>{ HumanizeNonHumanActivityState(item.ActivityState) }</span>
@@ -257,71 +219,82 @@ templ NonHumanAccessPageResults(data viewmodels.NonHumanAccessViewData) {
 								<div>
 									<div class="text-xs uppercase tracking-wide text-muted-foreground">Owner</div>
 									if item.AccountableOwnerHref != "" {
-										<a class="btn-sm-link px-0" href={ item.AccountableOwnerHref }>{ item.AccountableOwner }</a>
+										<a class="text-foreground hover:underline" href={ item.AccountableOwnerHref }>{ item.AccountableOwner }</a>
 									} else {
-										<div>{ item.AccountableOwner }</div>
+										<div class="text-foreground">{ item.AccountableOwner }</div>
 									}
 								</div>
 								<div>
+									<div class="text-xs uppercase tracking-wide text-muted-foreground">Source</div>
+									<div>{ HumanizeConnectorKind(item.SourceKind) }</div>
+									<div class="osspm-truncate text-xs text-muted-foreground" title={ item.SourceName }>{ item.SourceName }</div>
+								</div>
+								<div>
 									<div class="text-xs uppercase tracking-wide text-muted-foreground">Last seen</div>
-									<div>{ item.LastSeenOn }</div>
+									<div class="text-foreground">{ item.LastSeen.Label }</div>
 								</div>
 								<div>
-									<div class="text-xs uppercase tracking-wide text-muted-foreground">Linked assets</div>
-									<div>{ FormatInt64(item.LinkedAssetsCount) }</div>
-								</div>
-								<div>
-									<div class="text-xs uppercase tracking-wide text-muted-foreground">Credentials</div>
-									<div>{ FormatInt64(item.LinkedCredentialsCount) }</div>
+									<div class="text-xs uppercase tracking-wide text-muted-foreground">Links</div>
+									<div class="text-foreground">{ FormatInt64(item.LinkedAssetsCount) }{ " assets • " }{ FormatInt64(item.LinkedCredentialsCount) }{ " creds" }</div>
 								</div>
 							</div>
 						</article>
 					}
 				</div>
 
-				@ColumnsTable("non-human-access--main", "hidden lg:block") {
-					<table data-columns-id="non-human-access--main" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+				@ColumnsTable("hidden lg:block") {
+					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list osspm-table-non-human-access text-sm">
+						<colgroup>
+							<col class="osspm-col-principal"/>
+							<col class="osspm-col-type"/>
+							<col class="osspm-col-owner"/>
+							<col class="osspm-col-governance"/>
+							<col class="osspm-col-risk"/>
+							<col class="osspm-col-activity"/>
+							<col class="osspm-col-freshness"/>
+							<col class="osspm-col-links"/>
+						</colgroup>
 						<thead>
 							<tr>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Principal</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Type</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Owner</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Governance</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Risk</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Activity</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Freshness</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Links</th>
+								<th class="osspm-col-principal text-xs font-medium uppercase tracking-wide text-muted-foreground">Principal</th>
+								<th class="osspm-col-type text-xs font-medium uppercase tracking-wide text-muted-foreground">Type</th>
+								<th class="osspm-col-owner text-xs font-medium uppercase tracking-wide text-muted-foreground">Owner</th>
+								<th class="osspm-col-governance text-xs font-medium uppercase tracking-wide text-muted-foreground">Governance</th>
+								<th class="osspm-col-risk text-xs font-medium uppercase tracking-wide text-muted-foreground">Risk</th>
+								<th class="osspm-col-activity text-xs font-medium uppercase tracking-wide text-muted-foreground">Activity</th>
+								<th class="osspm-col-freshness text-xs font-medium uppercase tracking-wide text-muted-foreground">Freshness</th>
+								<th class="osspm-col-links text-xs font-medium uppercase tracking-wide text-muted-foreground">Links</th>
 							</tr>
 						</thead>
 						<tbody>
 							for _, item := range data.Items {
-								<tr data-row-href={ "/non-human-access/" + item.PrincipalRef } class="cursor-pointer hover:bg-muted/50">
-									<td>
-										<a class="btn-sm-link px-0 osspm-cell-primary osspm-truncate" href={ "/non-human-access/" + item.PrincipalRef } title={ item.DisplayName }>{ item.DisplayName }</a>
-										<div class="osspm-cell-secondary">
+								<tr data-row-href={ "/non-human-access/" + item.PrincipalRef } class="group cursor-pointer hover:bg-muted/30 transition-colors">
+									<td class="osspm-col-principal py-4 align-top pr-4">
+										<a class="font-medium text-foreground no-underline group-hover:underline osspm-truncate block" href={ "/non-human-access/" + item.PrincipalRef } title={ item.DisplayName }>{ item.DisplayName }</a>
+										<div class="osspm-truncate text-muted-foreground mt-0.5" title={ HumanizeConnectorKind(item.SourceKind) + " • " + item.SourceName }>
 											{ HumanizeConnectorKind(item.SourceKind) }{ " • " }{ item.SourceName }
 										</div>
 										if item.SecondaryName != "" {
-											<div class="text-xs text-muted-foreground osspm-truncate" title={ item.SecondaryName }>{ item.SecondaryName }</div>
+											<div class="text-muted-foreground/70 osspm-truncate mt-0.5" title={ item.SecondaryName }>{ item.SecondaryName }</div>
 										}
 									</td>
-									<td><span class="badge-outline">{ HumanizeNonHumanPrincipalType(item.PrincipalType) }</span></td>
-									<td>
+									<td class="osspm-col-type py-4 align-top pr-4"><span class="text-muted-foreground">{ HumanizeNonHumanPrincipalType(item.PrincipalType) }</span></td>
+									<td class="osspm-col-owner py-4 align-top pr-4">
 										if item.AccountableOwnerHref != "" {
-											<a class="btn-sm-link px-0" href={ item.AccountableOwnerHref }>{ item.AccountableOwner }</a>
+											<a class="osspm-truncate text-foreground hover:underline" href={ item.AccountableOwnerHref } title={ item.AccountableOwner }>{ item.AccountableOwner }</a>
 										} else {
-											{ item.AccountableOwner }
+											<span class="osspm-truncate text-foreground" title={ item.AccountableOwner }>{ item.AccountableOwner }</span>
 										}
 									</td>
-									<td><span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span></td>
-									<td><span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span></td>
-									<td>
-										<div>{ item.LastSeenOn }</div>
-										<div class="text-xs text-muted-foreground">{ HumanizeNonHumanActivityState(item.ActivityState) }</div>
+									<td class="osspm-col-governance py-4 align-top pr-4"><span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span></td>
+									<td class="osspm-col-risk py-4 align-top pr-4"><span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span></td>
+									<td class="osspm-col-activity py-4 align-top pr-4">
+										<div class="text-foreground">{ item.LastSeen.Label }</div>
+										<div class="text-muted-foreground mt-0.5">{ HumanizeNonHumanActivityState(item.ActivityState) }</div>
 									</td>
-									<td><span class={ NonHumanFreshnessStateBadgeClass(item.FreshnessState) }>{ HumanizeNonHumanFreshnessState(item.FreshnessState) }</span></td>
-									<td class="text-sm text-muted-foreground">
-										{ FormatInt64(item.LinkedAssetsCount) }{ " assets • " }{ FormatInt64(item.LinkedCredentialsCount) }{ " creds" }
+									<td class="osspm-col-freshness py-4 align-top pr-4"><span class={ NonHumanFreshnessStateBadgeClass(item.FreshnessState) }>{ HumanizeNonHumanFreshnessState(item.FreshnessState) }</span></td>
+									<td class="osspm-col-links py-4 align-top text-muted-foreground">
+										<span class="text-foreground">{ FormatInt64(item.LinkedAssetsCount) }</span> assets &middot; <span class="text-foreground">{ FormatInt64(item.LinkedCredentialsCount) }</span> creds
 									</td>
 								</tr>
 							}
@@ -333,21 +306,21 @@ templ NonHumanAccessPageResults(data viewmodels.NonHumanAccessViewData) {
 			}
 		</section>
 
-		if data.TotalPages > 1 {
-			<div class="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
-				<p class="text-sm text-muted-foreground">Page { FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</p>
-				<div class="flex items-center gap-2">
-					if data.Page > 1 {
-						<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#non-human-access-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
-					} else {
-						<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
-					}
-					if data.Page < data.TotalPages {
-						<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#non-human-access-results" hx-swap="outerHTML" hx-push-url="true">Next</a>
-					} else {
-						<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
-					}
-				</div>
+			if data.TotalPages > 1 {
+				<div class="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
+					<p class="text-sm text-muted-foreground">Page { FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</p>
+					<div class="flex items-center gap-2">
+						if data.Page > 1 {
+							<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#non-human-access-inventory" hx-swap="outerHTML" hx-push-url="true">Previous</a>
+						} else {
+							<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
+						}
+						if data.Page < data.TotalPages {
+							<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#non-human-access-inventory" hx-swap="outerHTML" hx-push-url="true">Next</a>
+						} else {
+							<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
+						}
+					</div>
 			</div>
 		}
 	</div>

@@ -18,7 +18,7 @@ type AppAssetListItem struct {
 	Status           string
 	OwnersCount      int
 	CredentialsCount int
-	LastSeenAt       string
+	LastSeen         TimeDisplay
 }
 
 type AppAssetsViewData struct {
@@ -32,7 +32,7 @@ type AppAssetsViewData struct {
 
 type ProgrammaticAuditEventItem struct {
 	EventType             string
-	EventTime             string
+	EventTime             TimeDisplay
 	Actor                 string
 	Target                string
 	CredentialKind        string
@@ -55,8 +55,8 @@ type AppAssetCredentialItem struct {
 	DisplayName    string
 	Status         string
 	RiskLevel      string
-	ExpiresAt      string
-	LastUsedAt     string
+	ExpiresAt      TimeDisplay
+	LastUsedAt     TimeDisplay
 	CreatedBy      string
 	CreatedByHref  string
 }
@@ -70,9 +70,9 @@ type AppAssetSummaryView struct {
 	ExternalID       string
 	ParentExternalID string
 	Status           string
-	CreatedAtSource  string
-	UpdatedAtSource  string
-	LastObservedAt   string
+	CreatedAtSource  TimeDisplay
+	UpdatedAtSource  TimeDisplay
+	LastObservedAt   TimeDisplay
 }
 
 type AppAssetShowViewData struct {
@@ -99,8 +99,8 @@ type CredentialArtifactListItem struct {
 	AssetRefID     string
 	Status         string
 	RiskLevel      string
-	ExpiresAt      string
-	LastUsedAt     string
+	ExpiresAt      TimeDisplay
+	LastUsedAt     TimeDisplay
 	CreatedBy      string
 	CreatedByHref  string
 	ApprovedBy     string
@@ -126,9 +126,9 @@ type CredentialArtifactSummaryView struct {
 	AssetRefExternalID string
 	Status             string
 	RiskLevel          string
-	CreatedAtSource    string
-	ExpiresAtSource    string
-	LastUsedAtSource   string
+	CreatedAtSource    TimeDisplay
+	ExpiresAtSource    TimeDisplay
+	LastUsedAtSource   TimeDisplay
 	CreatedBy          string
 	CreatedByHref      string
 	ApprovedBy         string

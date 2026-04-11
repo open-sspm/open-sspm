@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"net/url"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -76,20 +77,31 @@ func (h *Handlers) HandleNonHumanAccess(c *echo.Context) error {
 
 	sourcePairs := availableIdentitySourcePairs(stateView)
 	sourceKindOptions := identitySourceKindOptions(sourcePairs)
-	queryState := querystate.ParseNonHumanAccessQuery(c.Request().URL.Query(), programmaticQuerySources(sourcePairs))
-	sourceNameOptions := identitySourceNameOptions(queryState.Source.Kind, sourcePairs)
+	queryValues := c.Request().URL.Query()
+	if queryValues.Has("source_name") {
+		clonedValues := make(url.Values, len(queryValues))
+		for key, values := range queryValues {
+			clonedValues[key] = append([]string(nil), values...)
+		}
+		queryValues = clonedValues
+		// Non-human access no longer exposes source_name, so drop stale/manual params.
+		queryValues.Del("source_name")
+	}
+	queryState := querystate.ParseNonHumanAccessQuery(queryValues, programmaticQuerySources(sourcePairs))
 	queryParams := newNonHumanAccessInventoryQuery(queryState, sourcePairs)
 	pagination := newPaginatedListState(0, queryState.Page, nonHumanAccessPerPage)
 
 	data := viewmodels.NonHumanAccessViewData{
 		PaginatedListPageData: pagination.PageData(layout, 0, "No non-human principals match the current filters.", ""),
 		Sources:               sourceKindOptions,
-		SourceNameOptions:     sourceNameOptions,
 		Query:                 queryState,
 	}
 
 	render := func() error {
-		if isHX(c) && isHXTarget(c, "non-human-access-results") {
+		if isNonHumanAccessInventoryTarget(c) {
+			return h.RenderComponent(c, views.NonHumanAccessInventorySwap(data))
+		}
+		if isNonHumanAccessResultsTarget(c) {
 			return h.RenderComponent(c, views.NonHumanAccessPageResults(data))
 		}
 		return h.RenderComponent(c, views.NonHumanAccessPage(data))
@@ -127,6 +139,14 @@ func (h *Handlers) HandleNonHumanAccess(c *echo.Context) error {
 	h.trackNonHumanAccessListEvents(c, queryState)
 
 	return render()
+}
+
+func isNonHumanAccessInventoryTarget(c *echo.Context) bool {
+	return isHX(c) && isHXTarget(c, "non-human-access-inventory")
+}
+
+func isNonHumanAccessResultsTarget(c *echo.Context) bool {
+	return isHX(c) && isHXTarget(c, "non-human-access-results")
 }
 
 func (h *Handlers) HandleNonHumanAccessShow(c *echo.Context) error {
@@ -207,8 +227,7 @@ func nonHumanAccessListItemFromRow(linkResolver *identityLinkResolver, row gen.L
 		SecondaryName:          strings.TrimSpace(row.SecondaryName),
 		LinkedAssetsCount:      row.LinkedAssetsCount,
 		LinkedCredentialsCount: row.LinkedCredentialsCount,
-		LastSeenOn:             identityCalendarDate(row.LastSeenAt),
-		LastSeenRelative:       identityRelativeDate(row.LastSeenAt),
+		LastSeen:               calendarDateWithRelativeDisplay(row.LastSeenAt),
 		ActivityState:          strings.TrimSpace(row.ActivityState),
 		FreshnessState:         strings.TrimSpace(row.FreshnessState),
 		GovernanceState:        strings.TrimSpace(row.GovernanceState),
@@ -237,8 +256,7 @@ func nonHumanAccessSummaryFromRow(linkResolver *identityLinkResolver, principal 
 		SourceName:             sourceName,
 		LinkedAssetsCount:      principal.LinkedAssetsCount,
 		LinkedCredentialsCount: principal.LinkedCredentialsCount,
-		LastSeenOn:             identityCalendarDate(principal.LastSeenAt),
-		LastSeenRelative:       identityRelativeDate(principal.LastSeenAt),
+		LastSeen:               calendarDateWithRelativeDisplay(principal.LastSeenAt),
 		ActivityState:          strings.TrimSpace(principal.ActivityState),
 		FreshnessState:         strings.TrimSpace(principal.FreshnessState),
 		GovernanceState:        strings.TrimSpace(principal.GovernanceState),
@@ -275,7 +293,7 @@ func nonHumanAccessRelatedAssetItemFromRow(linkResolver *identityLinkResolver, r
 		LinkedCredentials:   row.GrantCount,
 		EvidenceFreshness:   strings.TrimSpace(row.EvidenceFreshness),
 		EvidenceConfidence:  strings.TrimSpace(row.EvidenceConfidence),
-		EvidenceSeenOn:      identityCalendarDate(row.EvidenceLastSeenAt),
+		EvidenceSeen:        calendarDateDisplay(row.EvidenceLastSeenAt),
 	}
 }
 
@@ -293,8 +311,8 @@ func nonHumanAccessRelatedCredentialItemFromRow(linkResolver *identityLinkResolv
 		ExternalID:      strings.TrimSpace(row.ExternalID),
 		Status:          fallbackDash(strings.TrimSpace(row.Status)),
 		RiskLevel:       strings.TrimSpace(row.RiskLevel),
-		ExpiresAt:       identityCalendarDate(row.ExpiresAtSource),
-		LastUsedAt:      identityCalendarDate(row.LastUsedAtSource),
+		ExpiresAt:       calendarDateDisplay(row.ExpiresAtSource),
+		LastUsedAt:      calendarDateDisplay(row.LastUsedAtSource),
 		CreatedBy:       fallbackDash(actorDisplayName(row.CreatedByDisplayName, row.CreatedByExternalID)),
 		CreatedByHref:   linkResolver.Resolve(sourceKind, sourceName, row.CreatedByExternalID, "", row.CreatedByDisplayName),
 		ApprovedBy:      fallbackDash(actorDisplayName(row.ApprovedByDisplayName, row.ApprovedByExternalID)),

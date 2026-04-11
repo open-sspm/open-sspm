@@ -18,12 +18,8 @@ type IdentityListItem struct {
 	PrivilegedRoles   int64
 	Status            string
 	ActivityState     string
-	LastSeenOn        string
-	LastSeenRelative  string
-	FirstSeenOn       string
-	LinkQuality       string
-	LinkReason        string
-	MinLinkConfidence float32
+	LastSeen          TimeDisplay
+	FirstSeen         TimeDisplay
 	RowState          string
 }
 
@@ -47,8 +43,8 @@ type IdentityShowViewData struct {
 	Identity           gen.GetIdentitySummaryByIDRow
 	NamePrimary        string
 	NameSecondary      string
-	CreatedOn          string
-	UpdatedOn          string
+	CreatedOn          TimeDisplay
+	UpdatedOn          TimeDisplay
 	TotalEntitlements  int
 	LinkedAccounts     []IdentityLinkedAccountView
 	NonHumanAccessHref string

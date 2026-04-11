@@ -126,7 +126,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<table data-columns-id=\"settings-users--main\" class=\"table osspm-table-compact osspm-table-list\"><caption class=\"sr-only\">Local users, roles, status, last login, and account actions.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Email</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Group</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Status</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last login</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\"></th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<table class=\"table osspm-table-compact osspm-table-list\"><caption class=\"sr-only\">Local users, roles, status, last login, and account actions.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Email</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Group</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Status</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last login</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\"></th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -220,9 +220,9 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var14 string
-						templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(u.LastLoginTitle)
+						templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(u.LastLogin.Title)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 48, Col: 85}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 48, Col: 86}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 						if templ_7745c5c3_Err != nil {
@@ -233,9 +233,9 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var15 string
-						templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(u.LastLogin)
+						templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(u.LastLogin.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 48, Col: 101}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 48, Col: 108}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 						if templ_7745c5c3_Err != nil {
@@ -416,7 +416,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ColumnsTable("settings-users--main", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

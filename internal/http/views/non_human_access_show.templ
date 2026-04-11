@@ -47,9 +47,9 @@ templ NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) {
 							</div>
 								<div>
 									<p class="text-xs uppercase tracking-wide text-muted-foreground">Last seen</p>
-									<p class="mt-1 font-medium">{ data.Principal.LastSeenOn }</p>
-									if data.Principal.LastSeenRelative != "" && data.Principal.LastSeenRelative != "—" {
-										<p class="text-xs text-muted-foreground">{ data.Principal.LastSeenRelative }</p>
+									<p class="mt-1 font-medium">{ data.Principal.LastSeen.Label }</p>
+									if data.Principal.LastSeen.Relative != "" && data.Principal.LastSeen.Relative != "—" {
+										<p class="text-xs text-muted-foreground">{ data.Principal.LastSeen.Relative }</p>
 									}
 								</div>
 								<div>
@@ -97,8 +97,8 @@ templ NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) {
 						<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.RelatedAssets)) }</span>
 					</header>
 					<section>
-						@ColumnsTable("non-human-access-show--assets", "") {
-							<table data-columns-id="non-human-access-show--assets" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+						@ColumnsTable("") {
+							<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 								<thead>
 									<tr>
 										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Asset</th>
@@ -138,7 +138,7 @@ templ NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) {
 														<span class={ AppAssetEvidenceFreshnessBadgeClass(item.EvidenceFreshness) }>{ HumanizeAppAssetEvidenceFreshness(item.EvidenceFreshness) }</span>
 														<span class={ AppAssetEvidenceConfidenceBadgeClass(item.EvidenceConfidence) }>{ HumanizeAppAssetEvidenceConfidence(item.EvidenceConfidence) }</span>
 													</div>
-													<div class="text-xs text-muted-foreground">{ item.EvidenceSeenOn }</div>
+													<div class="text-xs text-muted-foreground">{ item.EvidenceSeen.Label }</div>
 												</td>
 											</tr>
 										}
@@ -159,8 +159,8 @@ templ NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) {
 						<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Credentials)) }</span>
 					</header>
 					<section>
-						@ColumnsTable("non-human-access-show--credentials", "") {
-							<table data-columns-id="non-human-access-show--credentials" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+						@ColumnsTable("") {
+							<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 								<thead>
 									<tr>
 										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Credential</th>
@@ -183,8 +183,8 @@ templ NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) {
 													}
 												</td>
 												<td><span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span></td>
-												<td>{ item.ExpiresAt }</td>
-												<td>{ item.LastUsedAt }</td>
+												<td>{ item.ExpiresAt.Label }</td>
+												<td>{ item.LastUsedAt.Label }</td>
 												<td class="whitespace-normal">
 													<div>
 														<span class="text-xs uppercase tracking-wide text-muted-foreground">Created by</span>

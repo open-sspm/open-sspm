@@ -25,7 +25,7 @@ type ConnectedAppListItem struct {
 	EvidenceFreshness        string
 	EvidenceConfidence       string
 	EvidenceConfidenceReason string
-	LastSeenAt               string
+	LastSeen                 TimeDisplay
 	TicketRef                string
 }
 
@@ -35,12 +35,6 @@ type ConnectedAppsViewData struct {
 	GovernanceCounts []ConnectedAppsGovernanceCount
 	Items            []ConnectedAppListItem
 	HasItems         bool
-}
-
-type ConnectedAppsAlert struct {
-	Title       string
-	Message     string
-	Destructive bool
 }
 
 type ConnectedAppSummaryView struct {
@@ -64,7 +58,7 @@ type ConnectedAppSummaryView struct {
 	EvidenceFreshness        string
 	EvidenceConfidence       string
 	EvidenceConfidenceReason string
-	LastSeenAt               string
+	LastSeen                 TimeDisplay
 	ExportHref               string
 }
 
@@ -79,7 +73,7 @@ type ConnectedAppGrantItem struct {
 	RiskLevel      string
 	ScopeSummary   string
 	ScopeCount     int
-	LastUsedAt     string
+	LastUsedAt     TimeDisplay
 	CanRevoke      bool
 }
 
@@ -91,12 +85,12 @@ type ConnectedAppDiscoverySourceItem struct {
 	ManagedState         string
 	RiskLevel            string
 	SourceName           string
-	LastObservedAt       string
+	LastObservedAt       TimeDisplay
 }
 
 type ConnectedAppDiscoveryEventItem struct {
 	SignalKind    string
-	ObservedAt    string
+	ObservedAt    TimeDisplay
 	Actor         string
 	ScopesSummary string
 }
@@ -108,7 +102,7 @@ type ConnectedAppShowViewData struct {
 	Grants               []ConnectedAppGrantItem
 	DiscoverySources     []ConnectedAppDiscoverySourceItem
 	Events               []ConnectedAppDiscoveryEventItem
-	Alert                *ConnectedAppsAlert
+	Alert                *AlertViewData
 	OwnerEmailInput      string
 	GovernanceStateInput string
 	TicketRefInput       string

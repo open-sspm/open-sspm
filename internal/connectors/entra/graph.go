@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -103,42 +102,6 @@ func newClientFromAdapter(adapter abstractions.RequestAdapter) (*Client, error) 
 		return nil, errors.New("entra request adapter is required")
 	}
 	return &Client{graph: msgraphsdkgo.NewGraphServiceClient(adapter)}, nil
-}
-
-func newTestClient(graphBaseURL string, httpClient *http.Client) (*Client, error) {
-	adapter, err := newStaticTokenRequestAdapter(graphBaseURL, httpClient)
-	if err != nil {
-		return nil, err
-	}
-	return newClientFromAdapter(adapter)
-}
-
-func newStaticTokenRequestAdapter(graphBaseURL string, httpClient *http.Client) (abstractions.RequestAdapter, error) {
-	graphBaseURL = strings.TrimRight(strings.TrimSpace(graphBaseURL), "/")
-	if graphBaseURL == "" {
-		return nil, errors.New("entra graph base url is required")
-	}
-
-	parsed, err := url.Parse(graphBaseURL)
-	if err != nil {
-		return nil, fmt.Errorf("parse entra graph base url: %w", err)
-	}
-	validator, err := absauth.NewAllowedHostsValidatorErrorCheck([]string{parsed.Hostname()})
-	if err != nil {
-		return nil, fmt.Errorf("build entra allowed hosts validator: %w", err)
-	}
-
-	tokenProvider := &entraStaticAccessTokenProvider{
-		token:     "test-token",
-		validator: validator,
-	}
-	authProvider := absauth.NewBaseBearerTokenAuthenticationProvider(tokenProvider)
-	adapter, err := msgraphsdkgo.NewGraphRequestAdapterWithParseNodeFactoryAndSerializationWriterFactoryAndHttpClient(authProvider, nil, nil, httpClient)
-	if err != nil {
-		return nil, fmt.Errorf("create entra test request adapter: %w", err)
-	}
-	adapter.SetBaseUrl(graphBaseURL)
-	return adapter, nil
 }
 
 func (c *Client) ListUsers(ctx context.Context) ([]User, error) {

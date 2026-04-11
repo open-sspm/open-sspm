@@ -713,9 +713,9 @@ func ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) templ.Compo
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var47 string
-				templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeenAt)
+				templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeen.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 133, Col: 76}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 133, Col: 80}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 				if templ_7745c5c3_Err != nil {
@@ -742,7 +742,7 @@ func ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) templ.Compo
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<table data-columns-id=\"connected-apps--main\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><caption class=\"sr-only\">OAuth apps with governance state, ownership, and evidence posture.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">OAuth app</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Governance</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owner</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Evidence</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Confidence</th><th class=\"osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last seen</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><caption class=\"sr-only\">OAuth apps with governance state, ownership, and evidence posture.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">OAuth app</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Governance</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owner</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Evidence</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Confidence</th><th class=\"osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last seen</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1100,9 +1100,9 @@ func ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) templ.Compo
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var77 string
-					templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeenAt)
+					templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeen.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 188, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 188, Col: 75}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var77))
 					if templ_7745c5c3_Err != nil {
@@ -1119,7 +1119,7 @@ func ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) templ.Compo
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ColumnsTable("connected-apps--main", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var48), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var48), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1733,9 +1733,9 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var117 string
-		templ_7745c5c3_Var117, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.LastSeenAt)
+		templ_7745c5c3_Var117, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.LastSeen.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 299, Col: 52}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 299, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var117))
 		if templ_7745c5c3_Err != nil {
@@ -1793,7 +1793,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "<table data-columns-id=\"connected-app-show--grants\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Granted to</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Scopes</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Status</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last seen</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Action</th></tr></thead> <tbody>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Granted to</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Scopes</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Status</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last seen</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Action</th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1967,9 +1967,9 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var133 string
-					templ_7745c5c3_Var133, templ_7745c5c3_Err = templ.JoinStringErrs(grant.LastUsedAt)
+					templ_7745c5c3_Var133, templ_7745c5c3_Err = templ.JoinStringErrs(grant.LastUsedAt.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 351, Col: 64}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 351, Col: 70}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var133))
 					if templ_7745c5c3_Err != nil {
@@ -2049,7 +2049,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ColumnsTable("connected-app-show--grants", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var120), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var120), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2082,7 +2082,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, "<table data-columns-id=\"connected-app-show--owners\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owner</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Email</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th></tr></thead> <tbody>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owner</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Email</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2185,7 +2185,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ColumnsTable("connected-app-show--owners", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var137), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var137), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2218,7 +2218,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 178, "<table data-columns-id=\"connected-app-show--sources\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">App</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Domain</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Managed</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Risk</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last observed</th></tr></thead> <tbody>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 178, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">App</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Domain</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Managed</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Risk</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last observed</th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2351,9 +2351,9 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var155 string
-					templ_7745c5c3_Var155, templ_7745c5c3_Err = templ.JoinStringErrs(source.LastObservedAt)
+					templ_7745c5c3_Var155, templ_7745c5c3_Err = templ.JoinStringErrs(source.LastObservedAt.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 455, Col: 69}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 455, Col: 75}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var155))
 					if templ_7745c5c3_Err != nil {
@@ -2384,7 +2384,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ColumnsTable("connected-app-show--sources", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var144), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var144), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2417,7 +2417,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 196, "<table data-columns-id=\"connected-app-show--events\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Observed</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Signal</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Actor</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Scopes</th></tr></thead> <tbody>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 196, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Observed</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Signal</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Actor</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Scopes</th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2428,9 +2428,9 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var158 string
-					templ_7745c5c3_Var158, templ_7745c5c3_Err = templ.JoinStringErrs(event.ObservedAt)
+					templ_7745c5c3_Var158, templ_7745c5c3_Err = templ.JoinStringErrs(event.ObservedAt.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 489, Col: 34}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 489, Col: 40}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var158))
 					if templ_7745c5c3_Err != nil {
@@ -2500,7 +2500,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ColumnsTable("connected-app-show--events", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var157), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var157), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

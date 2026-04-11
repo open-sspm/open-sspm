@@ -29,7 +29,7 @@ const (
 )
 
 type connectedAppShowOptions struct {
-	alert                *viewmodels.ConnectedAppsAlert
+	alert                *viewmodels.AlertViewData
 	ownerEmailInput      string
 	governanceStateInput string
 	ticketRefInput       string
@@ -88,7 +88,7 @@ func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 	governanceState := querystate.NormalizeConnectedAppGovernanceState(c.FormValue("governance_state"), false)
 	if governanceState == "" {
 		return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-			alert: &viewmodels.ConnectedAppsAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "Invalid governance state",
 				Message:     "Choose a valid state before saving governance.",
 				Destructive: true,
@@ -107,7 +107,7 @@ func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-					alert: &viewmodels.ConnectedAppsAlert{
+					alert: &viewmodels.AlertViewData{
 						Title:       "Owner not found",
 						Message:     "Assign an owner using an existing identity email address.",
 						Destructive: true,
@@ -126,7 +126,7 @@ func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 	ticketRef := strings.TrimSpace(c.FormValue("ticket_ref"))
 	if governanceState == "ticketed" && ticketRef == "" {
 		return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-			alert: &viewmodels.ConnectedAppsAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "Ticket reference required",
 				Message:     "Enter a ticket reference before marking this app as ticketed.",
 				Destructive: true,
@@ -141,7 +141,7 @@ func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 	notes := strings.TrimSpace(c.FormValue("notes"))
 	if len(notes) > 4000 {
 		return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-			alert: &viewmodels.ConnectedAppsAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "Notes too long",
 				Message:     "Keep governance notes under 4000 characters.",
 				Destructive: true,
@@ -176,7 +176,7 @@ func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 	})
 	if isHX(c) {
 		return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-			alert: &viewmodels.ConnectedAppsAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "OAuth app governance saved",
 				Message:     "Owner assignment and governance state updated.",
 				Destructive: false,
@@ -264,7 +264,7 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 			"evidence_freshness":            strings.TrimSpace(summary.EvidenceFreshness),
 			"evidence_confidence":           strings.TrimSpace(summary.EvidenceConfidence),
 			"evidence_confidence_reason":    strings.TrimSpace(summary.EvidenceConfidenceReason),
-			"last_seen_at":                  formatProgrammaticDate(summary.EvidenceLastSeenAt),
+			"last_seen_at":                  calendarDateDisplay(summary.EvidenceLastSeenAt).Label,
 		},
 		"likely_owners":     owners,
 		"grant_inventory":   connectedAppGrantExport(grants),
@@ -346,7 +346,7 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 	if raw.UserKey == "" || raw.ClientID == "" {
 		if isHX(c) {
 			return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-				alert: &viewmodels.ConnectedAppsAlert{
+				alert: &viewmodels.AlertViewData{
 					Title:       "Unable to revoke grant",
 					Message:     "The synced grant record is missing the Google user or client identifier.",
 					Destructive: true,
@@ -369,7 +369,7 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 	if !google.Configured() || !google.Enabled() {
 		if isHX(c) {
 			return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-				alert: &viewmodels.ConnectedAppsAlert{
+				alert: &viewmodels.AlertViewData{
 					Title:       "Google Workspace unavailable",
 					Message:     "Enable the Google Workspace connector before revoking grants.",
 					Destructive: true,
@@ -391,7 +391,7 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 	if err := client.DeleteOAuthTokenGrant(ctx, raw.UserKey, raw.ClientID); err != nil {
 		if isHX(c) {
 			return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-				alert: &viewmodels.ConnectedAppsAlert{
+				alert: &viewmodels.AlertViewData{
 					Title:       "Grant revoke failed",
 					Message:     err.Error(),
 					Destructive: true,
@@ -413,7 +413,7 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 	})
 	if isHX(c) {
 		return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-			alert: &viewmodels.ConnectedAppsAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "Grant revoked",
 				Message:     "The Google Workspace token grant was revoked. Run sync to refresh inventory state.",
 				Destructive: false,
@@ -518,7 +518,7 @@ func (h *Handlers) buildConnectedAppsViewData(ctx context.Context, layout viewmo
 			EvidenceFreshness:        strings.TrimSpace(row.EvidenceFreshness),
 			EvidenceConfidence:       strings.TrimSpace(row.EvidenceConfidence),
 			EvidenceConfidenceReason: strings.TrimSpace(row.EvidenceConfidenceReason),
-			LastSeenAt:               formatProgrammaticDate(row.EvidenceLastSeenAt),
+			LastSeen:                 calendarDateDisplay(row.EvidenceLastSeenAt),
 			TicketRef:                strings.TrimSpace(row.TicketRef),
 		})
 	}
@@ -606,7 +606,7 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 			RiskLevel:      strings.TrimSpace(row.RiskLevel),
 			ScopeSummary:   summarizeDiscoveryScopes(row.ScopeJson),
 			ScopeCount:     connectedAppScopeCount(row.ScopeJson),
-			LastUsedAt:     formatProgrammaticDate(maxTimestamp(row.LastUsedAtSource, row.LastObservedAt)),
+			LastUsedAt:     calendarDateDisplay(maxTimestamp(row.LastUsedAtSource, row.LastObservedAt)),
 			CanRevoke:      layout.IsAdmin && strings.TrimSpace(raw.UserKey) != "" && strings.TrimSpace(raw.ClientID) != "",
 		})
 	}
@@ -629,7 +629,7 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 			ManagedState:         strings.TrimSpace(source.DiscoveryManagedState),
 			RiskLevel:            strings.TrimSpace(source.DiscoveryRiskLevel),
 			SourceName:           fallbackDash(strings.TrimSpace(source.SourceName)),
-			LastObservedAt:       formatProgrammaticDate(source.LastObservedAt),
+			LastObservedAt:       calendarDateDisplay(source.LastObservedAt),
 		})
 	}
 
@@ -653,7 +653,7 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 		}
 		eventItems = append(eventItems, viewmodels.ConnectedAppDiscoveryEventItem{
 			SignalKind:    strings.TrimSpace(event.SignalKind),
-			ObservedAt:    formatProgrammaticDate(event.ObservedAt),
+			ObservedAt:    calendarDateDisplay(event.ObservedAt),
 			Actor:         fallbackDash(actor),
 			ScopesSummary: summarizeDiscoveryScopes(event.ScopesJson),
 		})
@@ -713,7 +713,7 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 			EvidenceFreshness:        strings.TrimSpace(summary.EvidenceFreshness),
 			EvidenceConfidence:       strings.TrimSpace(summary.EvidenceConfidence),
 			EvidenceConfidenceReason: strings.TrimSpace(summary.EvidenceConfidenceReason),
-			LastSeenAt:               formatProgrammaticDate(summary.EvidenceLastSeenAt),
+			LastSeen:                 calendarDateDisplay(summary.EvidenceLastSeenAt),
 			ExportHref:               canonicalAppAssetDetailURL(summary.ID) + "/export",
 		},
 		LikelyOwners:         likelyOwners,
@@ -760,7 +760,7 @@ func (h *Handlers) renderAppAssetShow(c *echo.Context, appID int64, opts connect
 			ExternalID:       oauthData.App.ExternalID,
 			ParentExternalID: "—",
 			Status:           oauthData.App.Status,
-			LastObservedAt:   oauthData.App.LastSeenAt,
+			LastObservedAt:   oauthData.App.LastSeen,
 		},
 		GoogleOAuthView: &oauthData,
 	}
@@ -829,7 +829,7 @@ func connectedAppGrantExport(rows []gen.ListCredentialArtifactsForAssetRefRow) [
 			"scope_summary":           summarizeDiscoveryScopes(row.ScopeJson),
 			"scope_json":              json.RawMessage(row.ScopeJson),
 			"raw_json":                json.RawMessage(row.RawJson),
-			"last_used_at":            formatProgrammaticDate(maxTimestamp(row.LastUsedAtSource, row.LastObservedAt)),
+			"last_used_at":            calendarDateDisplay(maxTimestamp(row.LastUsedAtSource, row.LastObservedAt)).Label,
 		})
 	}
 	return out

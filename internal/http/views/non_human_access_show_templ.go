@@ -439,9 +439,9 @@ func NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) templ.Co
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var32 string
-			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(data.Principal.LastSeenOn)
+			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(data.Principal.LastSeen.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access_show.templ`, Line: 50, Col: 64}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access_show.templ`, Line: 50, Col: 68}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 			if templ_7745c5c3_Err != nil {
@@ -451,15 +451,15 @@ func NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) templ.Co
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if data.Principal.LastSeenRelative != "" && data.Principal.LastSeenRelative != "—" {
+			if data.Principal.LastSeen.Relative != "" && data.Principal.LastSeen.Relative != "—" {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<p class=\"text-xs text-muted-foreground\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var33 string
-				templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(data.Principal.LastSeenRelative)
+				templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(data.Principal.LastSeen.Relative)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access_show.templ`, Line: 52, Col: 84}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access_show.templ`, Line: 52, Col: 85}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 				if templ_7745c5c3_Err != nil {
@@ -734,7 +734,7 @@ func NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) templ.Co
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "<table data-columns-id=\"non-human-access-show--assets\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Asset</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Governance</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owner</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credentials</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Evidence</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Asset</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Governance</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owner</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credentials</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Evidence</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1002,9 +1002,9 @@ func NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) templ.Co
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var72 string
-						templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.JoinStringErrs(item.EvidenceSeenOn)
+						templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.JoinStringErrs(item.EvidenceSeen.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access_show.templ`, Line: 141, Col: 77}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access_show.templ`, Line: 141, Col: 81}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var72))
 						if templ_7745c5c3_Err != nil {
@@ -1035,7 +1035,7 @@ func NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) templ.Co
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ColumnsTable("non-human-access-show--assets", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var51), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var51), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1068,7 +1068,7 @@ func NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) templ.Co
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "<table data-columns-id=\"non-human-access-show--credentials\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Risk</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Expires</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last used</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Attribution</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Asset</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Risk</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Expires</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last used</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Attribution</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Asset</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1194,9 +1194,9 @@ func NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) templ.Co
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var84 string
-						templ_7745c5c3_Var84, templ_7745c5c3_Err = templ.JoinStringErrs(item.ExpiresAt)
+						templ_7745c5c3_Var84, templ_7745c5c3_Err = templ.JoinStringErrs(item.ExpiresAt.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access_show.templ`, Line: 186, Col: 32}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access_show.templ`, Line: 186, Col: 38}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var84))
 						if templ_7745c5c3_Err != nil {
@@ -1207,9 +1207,9 @@ func NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) templ.Co
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var85 string
-						templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastUsedAt)
+						templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastUsedAt.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access_show.templ`, Line: 187, Col: 33}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access_show.templ`, Line: 187, Col: 39}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var85))
 						if templ_7745c5c3_Err != nil {
@@ -1394,7 +1394,7 @@ func NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) templ.Co
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ColumnsTable("non-human-access-show--credentials", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var74), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var74), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

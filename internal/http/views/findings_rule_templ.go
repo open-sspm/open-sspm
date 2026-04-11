@@ -343,15 +343,15 @@ func FindingsRulePage(data viewmodels.FindingsRuleViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			if data.CurrentEvaluatedAt != "" {
+			if data.CurrentEvaluatedAt.Label != "" {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<span class=\"text-sm text-muted-foreground\">Evaluated ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var22 string
-				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(data.CurrentEvaluatedAt)
+				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(data.CurrentEvaluatedAt.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_rule.templ`, Line: 69, Col: 86}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_rule.templ`, Line: 69, Col: 92}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 				if templ_7745c5c3_Err != nil {
@@ -503,7 +503,7 @@ func FindingsRulePage(data viewmodels.FindingsRuleViewData) templ.Component {
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<table data-columns-id=\"findings-rule--violations\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Resource</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Display</th></tr></thead> <tbody>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Resource</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Display</th></tr></thead> <tbody>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -545,7 +545,7 @@ func FindingsRulePage(data viewmodels.FindingsRuleViewData) templ.Component {
 						}
 						return nil
 					})
-					templ_7745c5c3_Err = ColumnsTable("findings-rule--violations", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var29), templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var29), templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1006,9 +1006,9 @@ func FindingsRulePage(data viewmodels.FindingsRuleViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var51 string
-				templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(data.Attestation.ExpiresAt)
+				templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(data.Attestation.ExpiresAtInput)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_rule.templ`, Line: 249, Col: 103}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_rule.templ`, Line: 249, Col: 108}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 				if templ_7745c5c3_Err != nil {
@@ -1054,15 +1054,15 @@ func FindingsRulePage(data viewmodels.FindingsRuleViewData) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					if data.Attestation.ExpiresAtDisplay != "" {
+					if data.Attestation.ExpiresAt.Label != "" {
 						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, "<div><span class=\"font-medium text-foreground\">Expires at:</span> ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var54 string
-						templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(data.Attestation.ExpiresAtDisplay)
+						templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(data.Attestation.ExpiresAt.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_rule.templ`, Line: 268, Col: 107}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_rule.templ`, Line: 268, Col: 106}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
 						if templ_7745c5c3_Err != nil {

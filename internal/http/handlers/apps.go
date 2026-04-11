@@ -46,7 +46,7 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 
 	pagination := newPaginatedListState(totalCount, page, perPage)
 
-	items := make([]viewmodels.AppListItem, 0, perPage)
+	var items []viewmodels.AppListItem
 	if queryState.Q == "" {
 		apps, err := h.Q.ListOktaAppsPage(ctx, gen.ListOktaAppsPageParams{
 			PageLimit:  int32(perPage),

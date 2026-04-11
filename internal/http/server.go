@@ -313,11 +313,6 @@ func (es *EchoServer) registerRoutes() {
 	es.e.Static("/static", staticDir)
 }
 
-// Start starts the HTTP server.
-func (es *EchoServer) Start(addr string) error {
-	return es.StartServer(&http.Server{Addr: addr})
-}
-
 // StartServer starts the HTTP server with a custom http.Server.
 func (es *EchoServer) StartServer(server *http.Server) error {
 	if server == nil {

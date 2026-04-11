@@ -67,12 +67,6 @@ func (q BasicListQuery) ClearQuery() BasicListQuery {
 	return q
 }
 
-func (q BasicListQuery) WithState(state string) BasicListQuery {
-	q.State = strings.TrimSpace(state)
-	q.Page = 1
-	return q
-}
-
 func (q BasicListQuery) HasFilters() bool {
 	return strings.TrimSpace(q.Q) != "" || strings.TrimSpace(q.State) != ""
 }

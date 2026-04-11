@@ -42,15 +42,12 @@ func TestParseIdentitiesQuery(t *testing.T) {
 
 	t.Run("normalizes booleans and sort defaults", func(t *testing.T) {
 		query := ParseIdentitiesQuery(url.Values{
-			"q":                 []string{" alice "},
-			"privileged":        []string{"true"},
-			"show_first_seen":   []string{"1"},
-			"show_link_quality": []string{"yes"},
-			"show_link_reason":  []string{"on"},
-			"sort_by":           []string{"identity"},
-			"page":              []string{"0"},
+			"q":          []string{" alice "},
+			"privileged": []string{"true"},
+			"sort_by":    []string{"identity"},
+			"page":       []string{"0"},
 		}, sources)
-		if query.Q != "alice" || !query.PrivilegedOnly || !query.ShowFirstSeen || !query.ShowLinkQuality || !query.ShowLinkReason {
+		if query.Q != "alice" || !query.PrivilegedOnly {
 			t.Fatalf("query = %#v", query)
 		}
 		if query.SortDir != "desc" || query.Page != 1 {
@@ -88,9 +85,6 @@ func TestIdentitiesQueryMutations(t *testing.T) {
 	}
 	if got := query.TogglePrivilegedOnly(); got.PrivilegedOnly || got.Page != 1 {
 		t.Fatalf("TogglePrivilegedOnly() = %#v", got)
-	}
-	if got := query.WithSourceName("tenant-1").WithSourceKind(""); got.Source.Kind != "" || got.Source.Name != "" || got.Page != 1 {
-		t.Fatalf("WithSourceKind(\"\") = %#v", got)
 	}
 	if !query.HasFilters() {
 		t.Fatalf("expected active filters")
@@ -166,8 +160,12 @@ func TestAppAssetsQuery(t *testing.T) {
 		if !query.IsConnectedAppsSlice() {
 			t.Fatalf("expected connected apps slice: %#v", query)
 		}
-		if query.WithSourceKind("github").IsConnectedAppsSlice() {
-			t.Fatalf("unexpected connected apps slice after source change: %#v", query)
+		other := ParseAppAssetsQuery(url.Values{
+			"source_kind": []string{"github"},
+			"asset_kind":  []string{"google_oauth_client"},
+		}, nil)
+		if other.IsConnectedAppsSlice() {
+			t.Fatalf("unexpected connected apps slice after source change: %#v", other)
 		}
 	})
 }
@@ -197,9 +195,6 @@ func TestParseDiscoveryQueries(t *testing.T) {
 	}, sources)
 	if hotspots.Source.Kind != "okta" || hotspots.Source.Name != "" {
 		t.Fatalf("source = %#v", hotspots.Source)
-	}
-	if hotspots.Href() != "/discovery/hotspots?source_kind=okta" {
-		t.Fatalf("href = %q", hotspots.Href())
 	}
 
 	t.Run("drops unknown selection back to all configured", func(t *testing.T) {
@@ -310,6 +305,7 @@ func TestParseNonHumanAccessQuery(t *testing.T) {
 			t.Fatalf("expected unsupported aliases to be dropped: %#v", query)
 		}
 	})
+
 }
 
 func TestBasicListQuery(t *testing.T) {

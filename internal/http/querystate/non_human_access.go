@@ -120,6 +120,13 @@ func (q NonHumanAccessQuery) WithRiskLevel(level string) NonHumanAccessQuery {
 	return q
 }
 
+func (q NonHumanAccessQuery) HasAdvancedFilters() bool {
+	return q.PrincipalType != "" ||
+		q.GovernanceState != "" ||
+		q.FreshnessState != "" ||
+		q.SortBy != ""
+}
+
 func (q NonHumanAccessQuery) HasFilters() bool {
 	return strings.TrimSpace(q.Q) != "" ||
 		q.Source.Kind != "" ||

@@ -18,10 +18,44 @@ WITH configured_sources AS (
     n.name AS source_name
   FROM unnest($10::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest($11::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+available_sources AS (
+  SELECT DISTINCT
+    pr.source_kind,
+    pr.source_name
+  FROM non_human_principal_read_models_v pr
+),
+exact_configured_sources AS (
+  SELECT
+    cs.source_kind,
+    cs.source_name
+  FROM configured_sources cs
+  JOIN available_sources av
+    ON av.source_kind = cs.source_kind
+   AND av.source_name = cs.source_name
+),
+effective_configured_sources AS (
+  SELECT
+    ecs.source_kind,
+    ecs.source_name
+  FROM exact_configured_sources ecs
+  UNION
+  SELECT
+    cs.source_kind,
+    av.source_name
+  FROM configured_sources cs
+  JOIN available_sources av
+    ON av.source_kind = cs.source_kind
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM exact_configured_sources ecs
+    WHERE ecs.source_kind = cs.source_kind
+      AND ecs.source_name = cs.source_name
+  )
 )
 SELECT count(*)
 FROM non_human_principal_read_models_v pr
-JOIN configured_sources cs
+JOIN effective_configured_sources cs
   ON cs.source_kind = pr.source_kind
  AND cs.source_name = pr.source_name
 WHERE (
@@ -397,10 +431,44 @@ WITH configured_sources AS (
   FROM unnest($5::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest($6::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
 ),
+available_sources AS (
+  SELECT DISTINCT
+    pr.source_kind,
+    pr.source_name
+  FROM non_human_principal_read_models_v pr
+),
+exact_configured_sources AS (
+  SELECT
+    cs.source_kind,
+    cs.source_name
+  FROM configured_sources cs
+  JOIN available_sources av
+    ON av.source_kind = cs.source_kind
+   AND av.source_name = cs.source_name
+),
+effective_configured_sources AS (
+  SELECT
+    ecs.source_kind,
+    ecs.source_name
+  FROM exact_configured_sources ecs
+  UNION
+  SELECT
+    cs.source_kind,
+    av.source_name
+  FROM configured_sources cs
+  JOIN available_sources av
+    ON av.source_kind = cs.source_kind
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM exact_configured_sources ecs
+    WHERE ecs.source_kind = cs.source_kind
+      AND ecs.source_name = cs.source_name
+  )
+),
 base AS (
   SELECT pr.principal_ref, pr.identity_id, pr.app_asset_id, pr.principal_type, pr.source_kind, pr.source_name, pr.display_name, pr.secondary_name, pr.linked_assets_count, pr.linked_credentials_count, pr.last_seen_at, pr.activity_state, pr.freshness_state, pr.governance_state, pr.accountable_owner_identity_id, pr.accountable_owner_display_name, pr.accountable_owner_primary_email, pr.owner_presence, pr.has_critical_credential, pr.has_high_risk_credential, pr.has_expired_credential, pr.has_expiring_credential, pr.has_unused_credential, pr.has_stale_evidence, pr.risk_reason_count, pr.risk_level
   FROM non_human_principal_read_models_v pr
-  JOIN configured_sources cs
+  JOIN effective_configured_sources cs
     ON cs.source_kind = pr.source_kind
    AND cs.source_name = pr.source_name
   WHERE (

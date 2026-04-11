@@ -25,7 +25,7 @@ type FindingsRuleItem struct {
 	Summary          string
 	MonitoringStatus string
 	Status           string
-	EvaluatedAt      string
+	EvaluatedAt      TimeDisplay
 	EvidenceSummary  string
 	ErrorKind        string
 	Href             string
@@ -42,10 +42,4 @@ type FindingsFrameworkMappingItem struct {
 	FrameworkVersion string
 	Control          string
 	Coverage         string
-}
-
-type FindingsAlert struct {
-	Title       string
-	Message     string
-	Destructive bool
 }
