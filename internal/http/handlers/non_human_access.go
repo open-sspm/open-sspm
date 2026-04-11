@@ -76,8 +76,17 @@ func (h *Handlers) HandleNonHumanAccess(c *echo.Context) error {
 
 	sourcePairs := availableIdentitySourcePairs(stateView)
 	sourceKindOptions := identitySourceKindOptions(sourcePairs)
-	queryState := querystate.ParseNonHumanAccessQuery(c.Request().URL.Query(), programmaticQuerySources(sourcePairs))
-	queryState.Source.Name = ""
+	queryValues := c.Request().URL.Query()
+	if queryValues.Has("source_name") {
+		clonedValues := make(map[string][]string, len(queryValues))
+		for key, values := range queryValues {
+			clonedValues[key] = append([]string(nil), values...)
+		}
+		queryValues = clonedValues
+		// Non-human access no longer exposes source_name, so drop stale/manual params.
+		queryValues.Del("source_name")
+	}
+	queryState := querystate.ParseNonHumanAccessQuery(queryValues, programmaticQuerySources(sourcePairs))
 	queryParams := newNonHumanAccessInventoryQuery(queryState, sourcePairs)
 	pagination := newPaginatedListState(0, queryState.Page, nonHumanAccessPerPage)
 
