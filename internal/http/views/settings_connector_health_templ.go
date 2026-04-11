@@ -145,7 +145,7 @@ func SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) templ.
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<table data-columns-id=\"settings-connector-health--summary\" class=\"table osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Connector</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Health</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last success</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last run</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<table class=\"table osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Connector</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Health</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last success</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last run</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -625,7 +625,7 @@ func SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) templ.
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ColumnsTable("settings-connector-health--summary", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -798,7 +798,7 @@ func ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDetai
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<table data-columns-id=\"settings-connector-health--failures\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list align-top\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Finished</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Lane</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Status</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Error kind</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Preview</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Details</th></tr></thead> <tbody>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list align-top\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Finished</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Lane</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Status</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Error kind</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Preview</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Details</th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1006,7 +1006,7 @@ func ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDetai
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ColumnsTable("settings-connector-health--failures", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var47), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var47), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

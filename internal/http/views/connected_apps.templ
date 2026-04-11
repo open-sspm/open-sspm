@@ -138,8 +138,8 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 				</div>
 
 				<div class="hidden lg:block">
-					@ColumnsTable("connected-apps--main", "") {
-						<table data-columns-id="connected-apps--main" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					@ColumnsTable("") {
+						<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 							<caption class="sr-only">OAuth apps with governance state, ownership, and evidence posture.</caption>
 							<thead>
 								<tr>
@@ -314,8 +314,8 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 						<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Grants)) }</span>
 					</header>
 					<section>
-						@ColumnsTable("connected-app-show--grants", "") {
-							<table data-columns-id="connected-app-show--grants" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+						@ColumnsTable("") {
+							<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 								<thead>
 									<tr>
 										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Granted to</th>
@@ -386,8 +386,8 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 						<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.LikelyOwners)) }</span>
 					</header>
 					<section>
-						@ColumnsTable("connected-app-show--owners", "") {
-							<table data-columns-id="connected-app-show--owners" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+						@ColumnsTable("") {
+							<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 								<thead>
 									<tr>
 										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Owner</th>
@@ -427,8 +427,8 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 						<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.DiscoverySources)) }</span>
 					</header>
 					<section>
-						@ColumnsTable("connected-app-show--sources", "") {
-							<table data-columns-id="connected-app-show--sources" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+						@ColumnsTable("") {
+							<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 								<thead>
 									<tr>
 										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">App</th>
@@ -472,8 +472,8 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 						<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Events)) }</span>
 					</header>
 					<section>
-						@ColumnsTable("connected-app-show--events", "") {
-							<table data-columns-id="connected-app-show--events" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+						@ColumnsTable("") {
+							<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 								<thead>
 									<tr>
 										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Observed</th>

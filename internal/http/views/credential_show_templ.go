@@ -509,7 +509,7 @@ func CredentialShowPage(data viewmodels.CredentialShowViewData) templ.Component 
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<table data-columns-id=\"credential-show--events\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Time</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Event</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Actor</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Target</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential ref</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Time</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Event</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Actor</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Target</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential ref</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -623,7 +623,7 @@ func CredentialShowPage(data viewmodels.CredentialShowViewData) templ.Component 
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ColumnsTable("credential-show--events", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var36), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var36), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

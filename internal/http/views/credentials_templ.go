@@ -892,7 +892,7 @@ func CredentialsPageResults(data viewmodels.CredentialsViewData) templ.Component
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<table data-columns-id=\"credentials--main\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list osspm-table-credentials\"><caption class=\"sr-only\">Credentials with source, status, risk, expiration, and asset metadata.</caption> <colgroup><col class=\"osspm-col-credential\"> <col class=\"osspm-col-kind\"> <col class=\"osspm-col-asset\"> <col class=\"osspm-col-status\"> <col class=\"osspm-col-risk\"> <col class=\"osspm-col-time\"> <col class=\"osspm-col-time\"></colgroup> <thead><tr><th class=\"osspm-col-credential text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential</th><th class=\"osspm-col-kind text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th><th class=\"osspm-col-asset text-xs font-medium uppercase tracking-wide text-muted-foreground\">Asset</th><th class=\"osspm-col-status text-xs font-medium uppercase tracking-wide text-muted-foreground\">Status</th><th class=\"osspm-col-risk text-xs font-medium uppercase tracking-wide text-muted-foreground\">Risk</th><th class=\"osspm-col-time osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Expires</th><th class=\"osspm-col-time osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last used</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list osspm-table-credentials\"><caption class=\"sr-only\">Credentials with source, status, risk, expiration, and asset metadata.</caption> <colgroup><col class=\"osspm-col-credential\"> <col class=\"osspm-col-kind\"> <col class=\"osspm-col-asset\"> <col class=\"osspm-col-status\"> <col class=\"osspm-col-risk\"> <col class=\"osspm-col-time\"> <col class=\"osspm-col-time\"></colgroup> <thead><tr><th class=\"osspm-col-credential text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential</th><th class=\"osspm-col-kind text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th><th class=\"osspm-col-asset text-xs font-medium uppercase tracking-wide text-muted-foreground\">Asset</th><th class=\"osspm-col-status text-xs font-medium uppercase tracking-wide text-muted-foreground\">Status</th><th class=\"osspm-col-risk text-xs font-medium uppercase tracking-wide text-muted-foreground\">Risk</th><th class=\"osspm-col-time osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Expires</th><th class=\"osspm-col-time osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last used</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1133,7 +1133,7 @@ func CredentialsPageResults(data viewmodels.CredentialsViewData) templ.Component
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ColumnsTable("credentials--main", "hidden md:block").Render(templ.WithChildren(ctx, templ_7745c5c3_Var41), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ColumnsTable("hidden md:block").Render(templ.WithChildren(ctx, templ_7745c5c3_Var41), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

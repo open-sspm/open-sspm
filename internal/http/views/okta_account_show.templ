@@ -60,8 +60,8 @@ templ OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) {
 						</div>
 					</header>
 					<section>
-						@ColumnsTable("okta-account-show--app-access", "") {
-						<table data-columns-id="okta-account-show--app-access" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+						@ColumnsTable("") {
+						<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 							<thead>
 								<tr>
 									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">App</th>
@@ -178,8 +178,8 @@ templ OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) {
 
 										<div class="space-y-2">
 											<h3 class="text-sm font-semibold">Entitlements</h3>
-											@ColumnsTable("okta-account-show--entitlements", "") {
-											<table data-columns-id="okta-account-show--entitlements" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+											@ColumnsTable("") {
+											<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 												<thead>
 													<tr>
 														<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Kind</th>

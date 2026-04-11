@@ -273,8 +273,8 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 					@EmptyState("No identities found", data.EmptyStateMsg)
 				</div>
 			}
-			@ColumnsTable("identities--main", "hidden lg:block") {
-				<table data-columns-id="identities--main" data-columns-default-hidden="9,10,11" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+			@ColumnsTable("hidden lg:block") {
+				<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 						<caption class="sr-only">Identity inventory with source, status, privilege, and activity context.</caption>
 						<thead>
 							<tr>

@@ -99,8 +99,8 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 						if len(data.Evidence.Violations) > 0 {
 							<div class="space-y-2">
 								<div class="text-sm font-medium">Violations</div>
-								@ColumnsTable("findings-rule--violations", "") {
-								<table data-columns-id="findings-rule--violations" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+								@ColumnsTable("") {
+								<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 									<thead>
 										<tr>
 											<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Resource</th>
@@ -301,4 +301,3 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 		}
 	}
 }
-

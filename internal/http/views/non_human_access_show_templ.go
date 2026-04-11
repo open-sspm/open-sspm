@@ -734,7 +734,7 @@ func NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) templ.Co
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "<table data-columns-id=\"non-human-access-show--assets\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Asset</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Governance</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owner</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credentials</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Evidence</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Asset</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Governance</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owner</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credentials</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Evidence</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1035,7 +1035,7 @@ func NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) templ.Co
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ColumnsTable("non-human-access-show--assets", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var51), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var51), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1068,7 +1068,7 @@ func NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) templ.Co
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "<table data-columns-id=\"non-human-access-show--credentials\" class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Risk</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Expires</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last used</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Attribution</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Asset</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Credential</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Risk</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Expires</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last used</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Attribution</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Asset</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1394,7 +1394,7 @@ func NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) templ.Co
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ColumnsTable("non-human-access-show--credentials", "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var74), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ColumnsTable("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var74), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

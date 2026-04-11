@@ -97,8 +97,8 @@ templ NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) {
 						<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.RelatedAssets)) }</span>
 					</header>
 					<section>
-						@ColumnsTable("non-human-access-show--assets", "") {
-							<table data-columns-id="non-human-access-show--assets" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+						@ColumnsTable("") {
+							<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 								<thead>
 									<tr>
 										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Asset</th>
@@ -159,8 +159,8 @@ templ NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) {
 						<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Credentials)) }</span>
 					</header>
 					<section>
-						@ColumnsTable("non-human-access-show--credentials", "") {
-							<table data-columns-id="non-human-access-show--credentials" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+						@ColumnsTable("") {
+							<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 								<thead>
 									<tr>
 										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Credential</th>

@@ -24,8 +24,8 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 					<p class="text-sm text-muted-foreground">{ data.SummaryLabel }</p>
 				}
 			</div>
-			@ColumnsTable("settings-connector-health--summary", "") {
-			<table data-columns-id="settings-connector-health--summary" class="table osspm-table-compact osspm-table-list">
+			@ColumnsTable("") {
+			<table class="table osspm-table-compact osspm-table-list">
 				<thead>
 					<tr>
 						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Connector</th>
@@ -184,8 +184,8 @@ templ ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDeta
 				</p>
 			</header>
 			<section class="space-y-4">
-				@ColumnsTable("settings-connector-health--failures", "") {
-				<table data-columns-id="settings-connector-health--failures" class="table osspm-table-fixed osspm-table-compact osspm-table-list align-top">
+				@ColumnsTable("") {
+				<table class="table osspm-table-fixed osspm-table-compact osspm-table-list align-top">
 					<thead>
 						<tr>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Finished</th>

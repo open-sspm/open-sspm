@@ -63,8 +63,8 @@ templ UnmatchedAWSPage(data viewmodels.UnmatchedAWSViewData) {
 					<p class="text-sm text-muted-foreground">Unlinked AWS Identity Center users awaiting identity linking.</p>
 				</div>
 			</div>
-			@ColumnsTable("unmatched-aws--main", "") {
-			<table data-columns-id="unmatched-aws--main" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+			@ColumnsTable("") {
+			<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 				<caption class="sr-only">Unlinked AWS Identity Center users and actions to link each user to an identity.</caption>
 				<thead>
 					<tr>

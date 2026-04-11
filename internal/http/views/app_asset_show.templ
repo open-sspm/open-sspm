@@ -65,8 +65,8 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 					<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Owners)) }</span>
 				</header>
 				<section>
-					@ColumnsTable("app-asset-show--owners", "") {
-					<table data-columns-id="app-asset-show--owners" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					@ColumnsTable("") {
+					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 						<thead>
 							<tr>
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Owner</th>
@@ -108,8 +108,8 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 					<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Credentials)) }</span>
 				</header>
 				<section>
-					@ColumnsTable("app-asset-show--credentials", "") {
-					<table data-columns-id="app-asset-show--credentials" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					@ColumnsTable("") {
+					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 						<thead>
 							<tr>
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Credential</th>
@@ -157,8 +157,8 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 					<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.AuditEvents)) }</span>
 				</header>
 				<section>
-					@ColumnsTable("app-asset-show--events", "") {
-					<table data-columns-id="app-asset-show--events" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					@ColumnsTable("") {
+					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 						<thead>
 							<tr>
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Time</th>

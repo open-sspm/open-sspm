@@ -91,8 +91,8 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 					<p class="text-sm text-muted-foreground">Okta accounts assigned to this app.</p>
 				</div>
 			</div>
-			@ColumnsTable("okta-app-show--users", "") {
-				<table data-columns-id="okta-app-show--users" class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+			@ColumnsTable("") {
+				<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 					<caption class="sr-only">Okta accounts assigned to this app, including assignment source, groups, and permission attributes.</caption>
 					<thead>
 						<tr>
