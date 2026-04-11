@@ -130,7 +130,7 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 								</div>
 								<div class="flex items-start justify-between gap-3 border-t border-border/60 pt-3">
 									<p class="text-xs text-muted-foreground">{ item.EvidenceConfidenceReason }</p>
-									<p class="shrink-0 text-xs text-muted-foreground">{ item.LastSeenAt }</p>
+									<p class="shrink-0 text-xs text-muted-foreground">{ item.LastSeen.Label }</p>
 								</div>
 							</div>
 						</article>
@@ -185,7 +185,7 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 											</div>
 											<div class="text-xs text-muted-foreground">{ item.EvidenceConfidenceReason }</div>
 										</td>
-										<td class="osspm-num text-muted-foreground">{ item.LastSeenAt }</td>
+										<td class="osspm-num text-muted-foreground">{ item.LastSeen.Label }</td>
 									</tr>
 								}
 							</tbody>
@@ -296,7 +296,7 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 							</div>
 							<div>
 								<p class="text-xs uppercase tracking-wide text-muted-foreground">Last evidence</p>
-								<p class="font-medium">{ data.App.LastSeenAt }</p>
+								<p class="font-medium">{ data.App.LastSeen.Label }</p>
 							</div>
 						</div>
 						if data.App.Notes != "" {
@@ -348,7 +348,7 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 														<span class={ CredentialRiskBadgeClass(grant.RiskLevel) }>{ HumanizeCredentialRisk(grant.RiskLevel) }</span>
 													</div>
 												</td>
-												<td class="text-muted-foreground">{ grant.LastUsedAt }</td>
+												<td class="text-muted-foreground">{ grant.LastUsedAt.Label }</td>
 												<td>
 													if data.Layout.IsAdmin && grant.CanRevoke {
 														<form
@@ -452,7 +452,7 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 												</td>
 												<td><span class={ DiscoveryManagedBadgeClass(source.ManagedState) }>{ HumanizeDiscoveryManagedState(source.ManagedState) }</span></td>
 												<td><span class={ CredentialRiskBadgeClass(source.RiskLevel) }>{ HumanizeCredentialRisk(source.RiskLevel) }</span></td>
-												<td class="text-muted-foreground">{ source.LastObservedAt }</td>
+												<td class="text-muted-foreground">{ source.LastObservedAt.Label }</td>
 											</tr>
 										}
 									} else {
@@ -486,7 +486,7 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 									if data.HasEvents {
 										for _, event := range data.Events {
 											<tr>
-												<td>{ event.ObservedAt }</td>
+												<td>{ event.ObservedAt.Label }</td>
 												<td><span class="badge-outline">{ HumanizeDiscoverySignalKind(event.SignalKind) }</span></td>
 												<td>{ event.Actor }</td>
 												<td class="text-muted-foreground">{ event.ScopesSummary }</td>

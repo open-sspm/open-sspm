@@ -200,7 +200,7 @@ templ ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDeta
 							if data.HasRows {
 								for _, row := range data.Rows {
 									<tr>
-										<td class="text-muted-foreground whitespace-nowrap" title={ row.FinishedAtTitle }>{ row.FinishedAtLabel }</td>
+										<td class="text-muted-foreground whitespace-nowrap" title={ row.FinishedAt.Title }>{ row.FinishedAt.Label }</td>
 										<td class="text-muted-foreground whitespace-nowrap">{ row.LaneLabel }</td>
 										<td><span class={ row.StatusClass }>{ row.StatusLabel }</span></td>
 										<td class="text-muted-foreground whitespace-nowrap">{ row.ErrorKind }</td>

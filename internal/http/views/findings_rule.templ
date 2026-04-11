@@ -65,8 +65,8 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 						if data.CurrentErrorKind != "" {
 							<span class="badge-outline">{ data.CurrentErrorKind }</span>
 						}
-						if data.CurrentEvaluatedAt != "" {
-							<span class="text-sm text-muted-foreground">Evaluated { data.CurrentEvaluatedAt }</span>
+						if data.CurrentEvaluatedAt.Label != "" {
+							<span class="text-sm text-muted-foreground">Evaluated { data.CurrentEvaluatedAt.Label }</span>
 						}
 					</div>
 
@@ -246,7 +246,7 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 
 							<label class="space-y-1 block">
 								<div class="text-sm font-medium">Expires at</div>
-								<input class="input" type="datetime-local" name="expires_at" value={ data.Attestation.ExpiresAt }/>
+								<input class="input" type="datetime-local" name="expires_at" value={ data.Attestation.ExpiresAtInput }/>
 							</label>
 
 							<label class="space-y-1 block">
@@ -263,9 +263,9 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 								<div>
 									<span class="font-medium text-foreground">Status:</span> { strings.ToUpper(data.Attestation.Status) }
 								</div>
-									if data.Attestation.ExpiresAtDisplay != "" {
+									if data.Attestation.ExpiresAt.Label != "" {
 										<div>
-											<span class="font-medium text-foreground">Expires at:</span> { data.Attestation.ExpiresAtDisplay }
+											<span class="font-medium text-foreground">Expires at:</span> { data.Attestation.ExpiresAt.Label }
 										</div>
 									}
 								if data.Attestation.Notes != "" {

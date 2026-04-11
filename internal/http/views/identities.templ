@@ -259,9 +259,9 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 								</div>
 								<div>
 									<div class="text-xs uppercase tracking-wide text-muted-foreground">Last seen</div>
-									<div>{ item.LastSeenOn }</div>
-									if item.LastSeenRelative != "" {
-										<div class="text-xs text-muted-foreground">{ item.LastSeenRelative }</div>
+									<div>{ item.LastSeen.Label }</div>
+									if item.LastSeen.Relative != "" {
+										<div class="text-xs text-muted-foreground">{ item.LastSeen.Relative }</div>
 									}
 								</div>
 							</div>
@@ -336,12 +336,12 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 											<span class={ IdentityStatusBadgeClass(item.Status) }>{ HumanizeIdentityStatus(item.Status) }</span>
 										</td>
 										<td>
-											<span class="osspm-cell-primary">{ item.LastSeenOn }</span>
-											if item.LastSeenRelative != "" {
-												<span class="osspm-cell-secondary">{ item.LastSeenRelative }</span>
+											<span class="osspm-cell-primary">{ item.LastSeen.Label }</span>
+											if item.LastSeen.Relative != "" {
+												<span class="osspm-cell-secondary">{ item.LastSeen.Relative }</span>
 											}
 										</td>
-										<td>{ item.FirstSeenOn }</td>
+										<td>{ item.FirstSeen.Label }</td>
 										<td>
 											<span class={ IdentityLinkQualityBadgeClass(item.LinkQuality) }>{ HumanizeIdentityLinkQuality(item.LinkQuality) }</span>
 											if item.LinkQuality != "unknown" {

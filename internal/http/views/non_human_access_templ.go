@@ -1232,9 +1232,9 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var49 string
-				templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeenOn)
+				templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeen.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access.templ`, Line: 234, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access.templ`, Line: 234, Col: 59}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 				if templ_7745c5c3_Err != nil {
@@ -1606,9 +1606,9 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var77 string
-					templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeenOn)
+					templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeen.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access.templ`, Line: 292, Col: 56}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access.templ`, Line: 292, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var77))
 					if templ_7745c5c3_Err != nil {

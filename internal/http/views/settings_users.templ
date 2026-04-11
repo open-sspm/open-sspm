@@ -45,7 +45,7 @@ templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
 									<td>
 										<span class={ AuthUserStatusBadgeClass(u.IsActive) }>{ AuthUserStatusLabel(u.IsActive) }</span>
 									</td>
-									<td class="text-muted-foreground whitespace-nowrap" title={ u.LastLoginTitle }>{ u.LastLogin }</td>
+									<td class="text-muted-foreground whitespace-nowrap" title={ u.LastLogin.Title }>{ u.LastLogin.Label }</td>
 									<td class="text-right">
 										<div class="dropdown-menu">
 											<button type="button" id={ "settings-users-actions-" + FormatInt64(u.ID) + "-trigger" } aria-haspopup="menu" aria-controls={ "settings-users-actions-" + FormatInt64(u.ID) + "-menu" } aria-expanded="false" class="btn-icon-ghost cursor-pointer" aria-label={ "Actions for " + u.Email }>

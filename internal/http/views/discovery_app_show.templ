@@ -67,9 +67,9 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 							</div>
 							<div>
 								<p class="text-xs uppercase tracking-wide text-muted-foreground">Follow-up date</p>
-								if data.App.FollowUpDueDate != "" {
+								if data.App.FollowUpDueDate.Label != "" {
 									<div class="flex flex-wrap items-center gap-2">
-										<span class={ DiscoveryFollowUpBadgeClass(data.App.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(data.App.FollowUpDueDate, data.App.IsFollowUpOverdue) }</span>
+										<span class={ DiscoveryFollowUpBadgeClass(data.App.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(data.App.FollowUpDueDate.Label, data.App.IsFollowUpOverdue) }</span>
 									</div>
 								} else {
 									<p class="text-muted-foreground">—</p>
@@ -114,9 +114,9 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 							<span>·</span>
 							<span class={ RiskScoreClass(data.App.RiskLevel) }>{ "Score " }{ FormatInt(int(data.App.RiskScore)) }</span>
 							<span>·</span>
-							<span>{ "First seen " }{ data.App.FirstSeenAt }</span>
+							<span>{ "First seen " }{ data.App.FirstSeen.Label }</span>
 							<span>·</span>
-							<span>{ "Last seen " }{ data.App.LastSeenAt }</span>
+							<span>{ "Last seen " }{ data.App.LastSeen.Label }</span>
 						</p>
 					</section>
 				</article>
@@ -142,7 +142,7 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 								<tbody>
 									for _, item := range data.DecisionHistory {
 										<tr>
-											<td class="whitespace-nowrap">{ item.ChangedAt }</td>
+											<td class="whitespace-nowrap">{ item.ChangedAt.Label }</td>
 											<td class="break-all">{ item.ChangedBy }</td>
 											<td>
 												<span class={ DiscoveryReviewDispositionBadgeClass(item.ReviewDisposition) }>{ HumanizeDiscoveryReviewDisposition(item.ReviewDisposition) }</span>
@@ -152,9 +152,9 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 												<div class="text-xs text-muted-foreground">{ item.ReviewOwner }</div>
 											</td>
 											<td class="whitespace-normal">
-												if item.FollowUpDueDate != "" {
+												if item.FollowUpDueDate.Label != "" {
 													<div class="flex flex-wrap items-center gap-2">
-														<span class={ DiscoveryFollowUpBadgeClass(item.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(item.FollowUpDueDate, item.IsFollowUpOverdue) }</span>
+														<span class={ DiscoveryFollowUpBadgeClass(item.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(item.FollowUpDueDate.Label, item.IsFollowUpOverdue) }</span>
 													</div>
 												} else {
 													<span class="text-muted-foreground">—</span>
@@ -217,7 +217,7 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 												<div class="text-xs text-muted-foreground break-all">{ source.SourceAppID }</div>
 											</td>
 											<td class="break-all">{ source.SourceAppDomain }</td>
-											<td class="whitespace-nowrap">{ source.LastObservedAt }</td>
+											<td class="whitespace-nowrap">{ source.LastObservedAt.Label }</td>
 										</tr>
 									}
 								</tbody>
@@ -252,7 +252,7 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 											<td class="break-all">{ actor.ActorEmail }</td>
 											<td class="break-all">{ actor.ActorExternalID }</td>
 											<td class="whitespace-nowrap"><span class="badge-outline">{ FormatInt64(actor.EventCount) }</span></td>
-											<td class="whitespace-nowrap">{ actor.LastObservedAt }</td>
+											<td class="whitespace-nowrap">{ actor.LastObservedAt.Label }</td>
 										</tr>
 									}
 								</tbody>
@@ -283,7 +283,7 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 								<tbody>
 									for _, event := range data.Events {
 										<tr>
-											<td class="whitespace-nowrap">{ event.ObservedAt }</td>
+											<td class="whitespace-nowrap">{ event.ObservedAt.Label }</td>
 											<td class="whitespace-nowrap"><span class="badge-outline">{ HumanizeDiscoverySignalKind(event.SignalKind) }</span></td>
 											<td class="break-words">{ event.Actor }</td>
 											<td class="break-words">{ event.SourceApp }</td>
@@ -389,8 +389,8 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 									<p class="text-xs uppercase tracking-wide text-muted-foreground">Disposition</p>
 									<div class="mt-2 flex flex-wrap items-center gap-2">
 										<span class={ DiscoveryReviewDispositionBadgeClass(data.App.ReviewDisposition) }>{ HumanizeDiscoveryReviewDisposition(data.App.ReviewDisposition) }</span>
-										if data.App.FollowUpDueDate != "" {
-											<span class={ DiscoveryFollowUpBadgeClass(data.App.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(data.App.FollowUpDueDate, data.App.IsFollowUpOverdue) }</span>
+										if data.App.FollowUpDueDate.Label != "" {
+											<span class={ DiscoveryFollowUpBadgeClass(data.App.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(data.App.FollowUpDueDate.Label, data.App.IsFollowUpOverdue) }</span>
 										}
 									</div>
 								</div>

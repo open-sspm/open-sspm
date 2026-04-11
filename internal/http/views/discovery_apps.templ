@@ -138,8 +138,8 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 													if item.TicketRef != "" {
 														<span class="badge-outline">{ item.TicketRef }</span>
 													}
-													if item.FollowUpDueDate != "" {
-														<span class={ DiscoveryFollowUpBadgeClass(item.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(item.FollowUpDueDate, item.IsFollowUpOverdue) }</span>
+													if item.FollowUpDueDate.Label != "" {
+														<span class={ DiscoveryFollowUpBadgeClass(item.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(item.FollowUpDueDate.Label, item.IsFollowUpOverdue) }</span>
 													}
 												</div>
 												if item.ReviewOwner != "—" {
@@ -150,7 +150,7 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 												}
 											</td>
 											<td class="osspm-num"><span class="badge-outline">{ FormatInt64(item.Actors30d) }</span></td>
-											<td class="osspm-num text-muted-foreground">{ item.LastSeenAt }</td>
+											<td class="osspm-num text-muted-foreground">{ item.LastSeen.Label }</td>
 										</tr>
 									}
 								} else {

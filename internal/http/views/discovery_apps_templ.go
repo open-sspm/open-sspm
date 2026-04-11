@@ -697,7 +697,7 @@ func DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) templ.Compo
 							return templ_7745c5c3_Err
 						}
 					}
-					if item.FollowUpDueDate != "" {
+					if item.FollowUpDueDate.Label != "" {
 						var templ_7745c5c3_Var40 = []any{DiscoveryFollowUpBadgeClass(item.IsFollowUpOverdue)}
 						templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var40...)
 						if templ_7745c5c3_Err != nil {
@@ -721,9 +721,9 @@ func DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) templ.Compo
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var42 string
-						templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(DiscoveryFollowUpLabel(item.FollowUpDueDate, item.IsFollowUpOverdue))
+						templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(DiscoveryFollowUpLabel(item.FollowUpDueDate.Label, item.IsFollowUpOverdue))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_apps.templ`, Line: 142, Col: 152}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_apps.templ`, Line: 142, Col: 158}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 						if templ_7745c5c3_Err != nil {
@@ -812,9 +812,9 @@ func DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) templ.Compo
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var48 string
-					templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeenAt)
+					templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeen.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_apps.templ`, Line: 153, Col: 72}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_apps.templ`, Line: 153, Col: 76}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 					if templ_7745c5c3_Err != nil {

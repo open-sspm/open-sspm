@@ -231,9 +231,9 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var16 string
-				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(data.Asset.CreatedAtSource)
+				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(data.Asset.CreatedAtSource.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 48, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 48, Col: 64}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -244,9 +244,9 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var17 string
-				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(data.Asset.UpdatedAtSource)
+				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(data.Asset.UpdatedAtSource.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 52, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 52, Col: 64}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
@@ -257,9 +257,9 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var18 string
-				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(data.Asset.LastObservedAt)
+				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(data.Asset.LastObservedAt.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 56, Col: 57}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 56, Col: 63}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 				if templ_7745c5c3_Err != nil {
@@ -541,9 +541,9 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 								return templ_7745c5c3_Err
 							}
 							var templ_7745c5c3_Var36 string
-							templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(credential.ExpiresAt)
+							templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(credential.ExpiresAt.Label)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 132, Col: 37}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 132, Col: 43}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 							if templ_7745c5c3_Err != nil {
@@ -554,9 +554,9 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 								return templ_7745c5c3_Err
 							}
 							var templ_7745c5c3_Var37 string
-							templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(credential.LastUsedAt)
+							templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(credential.LastUsedAt.Label)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 133, Col: 38}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 133, Col: 44}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 							if templ_7745c5c3_Err != nil {
@@ -677,9 +677,9 @@ func AppAssetShowPage(data viewmodels.AppAssetShowViewData) templ.Component {
 								return templ_7745c5c3_Err
 							}
 							var templ_7745c5c3_Var43 string
-							templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(event.EventTime)
+							templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(event.EventTime.Label)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 175, Col: 32}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_asset_show.templ`, Line: 175, Col: 38}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 							if templ_7745c5c3_Err != nil {

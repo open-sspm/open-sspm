@@ -6,15 +6,15 @@ type SettingsUsersForm struct {
 }
 
 type SettingsUsersUserItem struct {
-	ID             int64
-	Email          string
-	Role           string
-	IsActive       bool
-	LastLogin      TimeDisplay
-	IsSelf         bool
-	IsLastAdmin    bool
-	CanEditRole    bool
-	CanDelete      bool
+	ID          int64
+	Email       string
+	Role        string
+	IsActive    bool
+	LastLogin   TimeDisplay
+	IsSelf      bool
+	IsLastAdmin bool
+	CanEditRole bool
+	CanDelete   bool
 }
 
 type SettingsUsersEditForm struct {

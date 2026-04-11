@@ -504,15 +504,15 @@ func (h *Handlers) buildSettingsUsersViewData(ctx context.Context, c *echo.Conte
 		lastLogin := relativeWithTitleDisplay(now, row.LastLoginAt, "Never", "Never logged in")
 
 		users = append(users, viewmodels.SettingsUsersUserItem{
-			ID:             row.ID,
-			Email:          strings.TrimSpace(row.Email),
-			Role:           role,
-			IsActive:       row.IsActive,
-			LastLogin:      lastLogin,
-			IsSelf:         isSelf,
-			IsLastAdmin:    isLastAdmin,
-			CanEditRole:    !isSelf && !isLastAdmin,
-			CanDelete:      !isSelf && !isLastAdmin,
+			ID:          row.ID,
+			Email:       strings.TrimSpace(row.Email),
+			Role:        role,
+			IsActive:    row.IsActive,
+			LastLogin:   lastLogin,
+			IsSelf:      isSelf,
+			IsLastAdmin: isLastAdmin,
+			CanEditRole: !isSelf && !isLastAdmin,
+			CanDelete:   !isSelf && !isLastAdmin,
 		})
 	}
 

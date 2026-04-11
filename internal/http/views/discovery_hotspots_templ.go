@@ -400,7 +400,7 @@ func DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) tem
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					if item.FollowUpDueDate != "" {
+					if item.FollowUpDueDate.Label != "" {
 						var templ_7745c5c3_Var24 = []any{DiscoveryFollowUpBadgeClass(item.IsFollowUpOverdue)}
 						templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var24...)
 						if templ_7745c5c3_Err != nil {
@@ -424,9 +424,9 @@ func DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) tem
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var26 string
-						templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(DiscoveryFollowUpLabel(item.FollowUpDueDate, item.IsFollowUpOverdue))
+						templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(DiscoveryFollowUpLabel(item.FollowUpDueDate.Label, item.IsFollowUpOverdue))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_hotspots.templ`, Line: 86, Col: 151}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `discovery_hotspots.templ`, Line: 86, Col: 157}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 						if templ_7745c5c3_Err != nil {

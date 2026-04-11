@@ -231,7 +231,7 @@ templ NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) {
 								</div>
 								<div>
 									<div class="text-xs uppercase tracking-wide text-muted-foreground">Last seen</div>
-									<div class="text-foreground">{ item.LastSeenOn }</div>
+									<div class="text-foreground">{ item.LastSeen.Label }</div>
 								</div>
 								<div>
 									<div class="text-xs uppercase tracking-wide text-muted-foreground">Links</div>
@@ -289,7 +289,7 @@ templ NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) {
 									<td class="osspm-col-governance py-4 align-top pr-4"><span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span></td>
 									<td class="osspm-col-risk py-4 align-top pr-4"><span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span></td>
 									<td class="osspm-col-activity py-4 align-top pr-4">
-										<div class="text-foreground">{ item.LastSeenOn }</div>
+										<div class="text-foreground">{ item.LastSeen.Label }</div>
 										<div class="text-muted-foreground mt-0.5">{ HumanizeNonHumanActivityState(item.ActivityState) }</div>
 									</td>
 									<td class="osspm-col-freshness py-4 align-top pr-4"><span class={ NonHumanFreshnessStateBadgeClass(item.FreshnessState) }>{ HumanizeNonHumanFreshnessState(item.FreshnessState) }</span></td>

@@ -45,15 +45,15 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 						</div>
 						<div>
 							<p class="text-xs uppercase tracking-wide text-muted-foreground">Created at source</p>
-							<p class="font-medium">{ data.Asset.CreatedAtSource }</p>
+							<p class="font-medium">{ data.Asset.CreatedAtSource.Label }</p>
 						</div>
 						<div>
 							<p class="text-xs uppercase tracking-wide text-muted-foreground">Updated at source</p>
-							<p class="font-medium">{ data.Asset.UpdatedAtSource }</p>
+							<p class="font-medium">{ data.Asset.UpdatedAtSource.Label }</p>
 						</div>
 						<div>
 							<p class="text-xs uppercase tracking-wide text-muted-foreground">Last observed</p>
-							<p class="font-medium">{ data.Asset.LastObservedAt }</p>
+							<p class="font-medium">{ data.Asset.LastObservedAt.Label }</p>
 						</div>
 					</div>
 				</section>
@@ -129,8 +129,8 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 											<td><span class="badge-outline">{ credential.CredentialKind }</span></td>
 											<td>{ credential.Status }</td>
 											<td><span class={ CredentialRiskBadgeClass(credential.RiskLevel) }>{ HumanizeCredentialRisk(credential.RiskLevel) }</span></td>
-											<td>{ credential.ExpiresAt }</td>
-											<td>{ credential.LastUsedAt }</td>
+											<td>{ credential.ExpiresAt.Label }</td>
+											<td>{ credential.LastUsedAt.Label }</td>
 											<td>
 												if credential.CreatedByHref != "" {
 													<a class="btn-sm-link px-0 font-medium" href={ credential.CreatedByHref }>{ credential.CreatedBy }</a>
@@ -172,7 +172,7 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 								if data.HasAuditEvents {
 									for _, event := range data.AuditEvents {
 										<tr>
-											<td>{ event.EventTime }</td>
+											<td>{ event.EventTime.Label }</td>
 											<td>{ event.EventType }</td>
 											<td>{ event.Actor }</td>
 											<td>

@@ -1275,9 +1275,9 @@ func IdentitiesPageResults(data viewmodels.IdentitiesViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var69 string
-				templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeenOn)
+				templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeen.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identities.templ`, Line: 262, Col: 31}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identities.templ`, Line: 262, Col: 35}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
 				if templ_7745c5c3_Err != nil {
@@ -1287,15 +1287,15 @@ func IdentitiesPageResults(data viewmodels.IdentitiesViewData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if item.LastSeenRelative != "" {
+				if item.LastSeen.Relative != "" {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 141, "<div class=\"text-xs text-muted-foreground\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var70 string
-					templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeenRelative)
+					templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeen.Relative)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identities.templ`, Line: 264, Col: 76}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identities.templ`, Line: 264, Col: 77}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var70))
 					if templ_7745c5c3_Err != nil {
@@ -1705,9 +1705,9 @@ func IdentitiesPageResults(data viewmodels.IdentitiesViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var97 string
-					templ_7745c5c3_Var97, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeenOn)
+					templ_7745c5c3_Var97, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeen.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identities.templ`, Line: 339, Col: 61}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identities.templ`, Line: 339, Col: 65}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var97))
 					if templ_7745c5c3_Err != nil {
@@ -1717,15 +1717,15 @@ func IdentitiesPageResults(data viewmodels.IdentitiesViewData) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					if item.LastSeenRelative != "" {
+					if item.LastSeen.Relative != "" {
 						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 184, "<span class=\"osspm-cell-secondary\">")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var98 string
-						templ_7745c5c3_Var98, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeenRelative)
+						templ_7745c5c3_Var98, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeen.Relative)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `identities.templ`, Line: 341, Col: 70}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `identities.templ`, Line: 341, Col: 71}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var98))
 						if templ_7745c5c3_Err != nil {
@@ -1741,9 +1741,9 @@ func IdentitiesPageResults(data viewmodels.IdentitiesViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var99 string
-					templ_7745c5c3_Var99, templ_7745c5c3_Err = templ.JoinStringErrs(item.FirstSeenOn)
+					templ_7745c5c3_Var99, templ_7745c5c3_Err = templ.JoinStringErrs(item.FirstSeen.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identities.templ`, Line: 344, Col: 32}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identities.templ`, Line: 344, Col: 36}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var99))
 					if templ_7745c5c3_Err != nil {

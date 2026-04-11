@@ -37,11 +37,11 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 					</div>
 					<div class="flex items-baseline gap-2">
 						<dt class="text-muted-foreground">Created</dt>
-						<dd>{ data.CreatedOn }</dd>
+						<dd>{ data.CreatedOn.Label }</dd>
 					</div>
 					<div class="flex items-baseline gap-2">
 						<dt class="text-muted-foreground">Updated</dt>
-						<dd>{ data.UpdatedOn }</dd>
+						<dd>{ data.UpdatedOn.Label }</dd>
 					</div>
 				</dl>
 				if data.NonHumanAccessHref != "" {

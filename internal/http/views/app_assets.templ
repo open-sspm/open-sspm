@@ -142,7 +142,7 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 											</td>
 											<td class="osspm-num"><span class="badge-outline">{ FormatInt(item.OwnersCount) }</span></td>
 											<td class="osspm-num"><span class="badge-outline">{ FormatInt(item.CredentialsCount) }</span></td>
-											<td class="osspm-num text-muted-foreground">{ item.LastSeenAt }</td>
+											<td class="osspm-num text-muted-foreground">{ item.LastSeen.Label }</td>
 										</tr>
 									}
 								} else {

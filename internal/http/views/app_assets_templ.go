@@ -576,9 +576,9 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var30 string
-						templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeenAt)
+						templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeen.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 145, Col: 72}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 145, Col: 76}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 						if templ_7745c5c3_Err != nil {

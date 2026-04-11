@@ -982,15 +982,15 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 							return templ_7745c5c3_Err
 						}
 					}
-					if r.EvaluatedAt != "" {
+					if r.EvaluatedAt.Label != "" {
 						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, "<div class=\"text-sm text-muted-foreground\">")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var42 string
-						templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(r.EvaluatedAt)
+						templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(r.EvaluatedAt.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 228, Col: 69}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 228, Col: 75}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 						if templ_7745c5c3_Err != nil {

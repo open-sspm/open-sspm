@@ -9,7 +9,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
-func TestFormatProgrammaticDate(t *testing.T) {
+func TestCalendarDateDisplay(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -32,8 +32,8 @@ func TestFormatProgrammaticDate(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if got := formatProgrammaticDate(tc.value); got != tc.want {
-				t.Fatalf("formatProgrammaticDate() = %q, want %q", got, tc.want)
+			if got := calendarDateDisplay(tc.value); got.Label != tc.want {
+				t.Fatalf("calendarDateDisplay() label = %q, want %q", got.Label, tc.want)
 			}
 		})
 	}

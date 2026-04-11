@@ -224,8 +224,8 @@ templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 										if r.ErrorKind != "" {
 											<div class="text-sm text-muted-foreground">{ r.ErrorKind }</div>
 										}
-										if r.EvaluatedAt != "" {
-											<div class="text-sm text-muted-foreground">{ r.EvaluatedAt }</div>
+										if r.EvaluatedAt.Label != "" {
+											<div class="text-sm text-muted-foreground">{ r.EvaluatedAt.Label }</div>
 										}
 									</td>
 								</tr>
