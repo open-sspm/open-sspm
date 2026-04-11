@@ -77,14 +77,13 @@ func (h *Handlers) HandleNonHumanAccess(c *echo.Context) error {
 	sourcePairs := availableIdentitySourcePairs(stateView)
 	sourceKindOptions := identitySourceKindOptions(sourcePairs)
 	queryState := querystate.ParseNonHumanAccessQuery(c.Request().URL.Query(), programmaticQuerySources(sourcePairs))
-	sourceNameOptions := identitySourceNameOptions(queryState.Source.Kind, sourcePairs)
+	queryState.Source.Name = ""
 	queryParams := newNonHumanAccessInventoryQuery(queryState, sourcePairs)
 	pagination := newPaginatedListState(0, queryState.Page, nonHumanAccessPerPage)
 
 	data := viewmodels.NonHumanAccessViewData{
 		PaginatedListPageData: pagination.PageData(layout, 0, "No non-human principals match the current filters.", ""),
 		Sources:               sourceKindOptions,
-		SourceNameOptions:     sourceNameOptions,
 		Query:                 queryState,
 	}
 

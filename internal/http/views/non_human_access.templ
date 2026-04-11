@@ -78,88 +78,59 @@ templ NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) {
 				</div>
 			</div>
 
-			<div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Quick filters">
-					<a
-						class={ FilterPillClass(data.Query.OwnerPresence == "unknown") }
-						href={ data.Query.ToggleOwnerPresence("unknown").Href() }
-						hx-get={ data.Query.ToggleOwnerPresence("unknown").Href() }
-						hx-target="#non-human-access-inventory"
-						hx-swap="outerHTML"
-						hx-push-url="true"
-					>
-						<i class="ti ti-alert-circle mr-1 text-xs" aria-hidden="true"></i>
-					Unknown owner
-				</a>
-				<span class="mx-2 h-4 w-px bg-border" aria-hidden="true"></span>
-					<a
-						class={ FilterPillClass(data.Query.RiskLevel == "high") }
-						href={ data.Query.ToggleRiskLevel("high").Href() }
-						hx-get={ data.Query.ToggleRiskLevel("high").Href() }
-						hx-target="#non-human-access-inventory"
-						hx-swap="outerHTML"
-						hx-push-url="true"
-					>
-						High risk
-				</a>
-					<a
-						class={ FilterPillClass(data.Query.RiskLevel == "critical") }
-						href={ data.Query.ToggleRiskLevel("critical").Href() }
-						hx-get={ data.Query.ToggleRiskLevel("critical").Href() }
-						hx-target="#non-human-access-inventory"
-						hx-swap="outerHTML"
-						hx-push-url="true"
-					>
-						Critical risk
-				</a>
-				<span class="mx-2 h-4 w-px bg-border" aria-hidden="true"></span>
-					<a
-						class={ FilterPillClass(data.Query.ActivityState == "stale") }
-						href={ data.Query.ToggleActivityState("stale").Href() }
-						hx-get={ data.Query.ToggleActivityState("stale").Href() }
-						hx-target="#non-human-access-inventory"
-						hx-swap="outerHTML"
-						hx-push-url="true"
-					>
-						<i class="ti ti-clock mr-1 text-xs" aria-hidden="true"></i>
-					Stale activity
-				</a>
-					<a
-						class={ FilterPillClass(data.Query.FreshnessState == "stale") }
-						href={ data.Query.ToggleFreshnessState("stale").Href() }
-						hx-get={ data.Query.ToggleFreshnessState("stale").Href() }
-						hx-target="#non-human-access-inventory"
-						hx-swap="outerHTML"
-						hx-push-url="true"
-					>
-						Stale evidence
-				</a>
+			<div class="rounded-2xl border border-border/70 bg-muted/20 p-3">
+				<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+					<label class="relative flex h-11 min-w-0 items-center gap-2 rounded-xl bg-background px-4 pr-10 shadow-xs ring-1 ring-border/60">
+						<span class="shrink-0 text-sm text-muted-foreground">Risk:</span>
+						<select name="risk_level" class="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-foreground outline-none">
+							<option value="" selected?={ data.Query.RiskLevel == "" }>All Levels</option>
+							<option value="critical" selected?={ data.Query.RiskLevel == "critical" }>Critical</option>
+							<option value="high" selected?={ data.Query.RiskLevel == "high" }>High</option>
+							<option value="medium" selected?={ data.Query.RiskLevel == "medium" }>Medium</option>
+							<option value="low" selected?={ data.Query.RiskLevel == "low" }>Low</option>
+						</select>
+						<i class="ti ti-chevron-down pointer-events-none absolute right-3 text-base text-muted-foreground" aria-hidden="true"></i>
+					</label>
+					<label class="relative flex h-11 min-w-0 items-center gap-2 rounded-xl bg-background px-4 pr-10 shadow-xs ring-1 ring-border/60">
+						<span class="shrink-0 text-sm text-muted-foreground">Owner:</span>
+						<select name="owner_presence" class="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-foreground outline-none">
+							<option value="" selected?={ data.Query.OwnerPresence == "" }>All Owners</option>
+							<option value="owned" selected?={ data.Query.OwnerPresence == "owned" }>Owned</option>
+							<option value="unknown" selected?={ data.Query.OwnerPresence == "unknown" }>Unknown owner</option>
+						</select>
+						<i class="ti ti-chevron-down pointer-events-none absolute right-3 text-base text-muted-foreground" aria-hidden="true"></i>
+					</label>
+					<label class="relative flex h-11 min-w-0 items-center gap-2 rounded-xl bg-background px-4 pr-10 shadow-xs ring-1 ring-border/60">
+						<span class="shrink-0 text-sm text-muted-foreground">Provider:</span>
+						<select name="source_kind" class="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-foreground outline-none">
+							<option value="" selected?={ data.Query.Source.Kind == "" }>All Providers</option>
+							for _, source := range data.Sources {
+								<option value={ source.SourceKind } selected?={ source.SourceKind == data.Query.Source.Kind } title={ source.Label }>{ source.Label }</option>
+							}
+						</select>
+						<i class="ti ti-chevron-down pointer-events-none absolute right-3 text-base text-muted-foreground" aria-hidden="true"></i>
+					</label>
+					<label class="relative flex h-11 min-w-0 items-center gap-2 rounded-xl bg-background px-4 pr-10 shadow-xs ring-1 ring-border/60">
+						<span class="shrink-0 text-sm text-muted-foreground">Activity:</span>
+						<select name="activity_state" class="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-foreground outline-none">
+							<option value="" selected?={ data.Query.ActivityState == "" }>Any Activity</option>
+							<option value="recent" selected?={ data.Query.ActivityState == "recent" }>Seen &lt; 30d</option>
+							<option value="aging" selected?={ data.Query.ActivityState == "aging" }>30-89d</option>
+							<option value="stale" selected?={ data.Query.ActivityState == "stale" }>90d+</option>
+							<option value="never_seen" selected?={ data.Query.ActivityState == "never_seen" }>Never seen</option>
+						</select>
+						<i class="ti ti-chevron-down pointer-events-none absolute right-3 text-base text-muted-foreground" aria-hidden="true"></i>
+					</label>
+				</div>
 			</div>
 
-			<details class="group">
+			<details class="group osspm-filters-disclosure" open?={ data.Query.HasAdvancedFilters() }>
 				<summary class="inline-flex cursor-pointer list-none items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
 					<span class="text-base leading-none group-open:hidden">+</span>
 					<span class="text-base leading-none hidden group-open:inline">−</span>
 					<span>More filters and sorting</span>
 				</summary>
-				<div class="mt-4 grid gap-4 rounded-lg border border-border/70 bg-muted/15 p-4 md:grid-cols-3 xl:grid-cols-5">
-					<label class="field">
-						<span class="label">Source</span>
-						<select class="select" name="source_kind">
-							<option value="" selected?={ data.Query.Source.Kind == "" }>All configured</option>
-							for _, source := range data.Sources {
-								<option value={ source.SourceKind } selected?={ source.SourceKind == data.Query.Source.Kind } title={ source.Label }>{ source.Label }</option>
-							}
-						</select>
-					</label>
-					<label class="field">
-						<span class="label">Source name</span>
-						<select class="select" name="source_name">
-							<option value="" selected?={ data.Query.Source.Name == "" }>All source names</option>
-							for _, source := range data.SourceNameOptions {
-								<option value={ source.SourceName } selected?={ source.SourceName == data.Query.Source.Name }>{ source.SourceName }</option>
-							}
-						</select>
-					</label>
+				<div class="mt-4 grid gap-4 rounded-lg border border-border/70 bg-muted/15 p-4 md:grid-cols-2 xl:grid-cols-5">
 					<label class="field">
 						<span class="label">Type</span>
 						<select class="select" name="principal_type">
@@ -167,14 +138,6 @@ templ NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) {
 							<option value="service" selected?={ data.Query.PrincipalType == "service" }>Service</option>
 							<option value="bot" selected?={ data.Query.PrincipalType == "bot" }>Bot</option>
 							<option value="app" selected?={ data.Query.PrincipalType == "app" }>App only</option>
-						</select>
-					</label>
-					<label class="field">
-						<span class="label">Owner</span>
-						<select class="select" name="owner_presence">
-							<option value="" selected?={ data.Query.OwnerPresence == "" }>Any</option>
-							<option value="owned" selected?={ data.Query.OwnerPresence == "owned" }>Owned</option>
-							<option value="unknown" selected?={ data.Query.OwnerPresence == "unknown" }>Unknown</option>
 						</select>
 					</label>
 					<label class="field">
@@ -186,26 +149,6 @@ templ NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) {
 							<option value="approved" selected?={ data.Query.GovernanceState == "approved" }>Approved</option>
 							<option value="action_required" selected?={ data.Query.GovernanceState == "action_required" }>Action required</option>
 							<option value="ticketed" selected?={ data.Query.GovernanceState == "ticketed" }>Ticketed</option>
-						</select>
-					</label>
-					<label class="field">
-						<span class="label">Risk</span>
-						<select class="select" name="risk_level">
-							<option value="" selected?={ data.Query.RiskLevel == "" }>Any</option>
-							<option value="critical" selected?={ data.Query.RiskLevel == "critical" }>Critical</option>
-							<option value="high" selected?={ data.Query.RiskLevel == "high" }>High</option>
-							<option value="medium" selected?={ data.Query.RiskLevel == "medium" }>Medium</option>
-							<option value="low" selected?={ data.Query.RiskLevel == "low" }>Low</option>
-						</select>
-					</label>
-					<label class="field">
-						<span class="label">Activity</span>
-						<select class="select" name="activity_state">
-							<option value="" selected?={ data.Query.ActivityState == "" }>Any</option>
-							<option value="recent" selected?={ data.Query.ActivityState == "recent" }>Seen &lt; 30d</option>
-							<option value="aging" selected?={ data.Query.ActivityState == "aging" }>30-89d</option>
-							<option value="stale" selected?={ data.Query.ActivityState == "stale" }>90d+</option>
-							<option value="never_seen" selected?={ data.Query.ActivityState == "never_seen" }>Never seen</option>
 						</select>
 					</label>
 					<label class="field">

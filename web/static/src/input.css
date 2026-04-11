@@ -113,6 +113,10 @@
     width: calc(100% - calc(var(--spacing) * 3.5));
   }
 
+  .osspm-filters-disclosure::details-content {
+    transition: none;
+  }
+
   .sidebar a.sidebar-unconfigured-link {
     opacity: 0.55;
   }

@@ -26,11 +26,10 @@ type NonHumanAccessListItem struct {
 
 type NonHumanAccessViewData struct {
 	PaginatedListPageData
-	Items             []NonHumanAccessListItem
-	Sources           []ProgrammaticSourceOption
-	SourceNameOptions []ProgrammaticSourceOption
-	Query             querystate.NonHumanAccessQuery
-	HasItems          bool
+	Items    []NonHumanAccessListItem
+	Sources  []ProgrammaticSourceOption
+	Query    querystate.NonHumanAccessQuery
+	HasItems bool
 }
 
 type NonHumanAccessSummaryView struct {
