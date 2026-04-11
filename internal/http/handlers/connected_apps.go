@@ -29,7 +29,7 @@ const (
 )
 
 type connectedAppShowOptions struct {
-	alert                *viewmodels.ConnectedAppsAlert
+	alert                *viewmodels.AlertViewData
 	ownerEmailInput      string
 	governanceStateInput string
 	ticketRefInput       string
@@ -88,7 +88,7 @@ func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 	governanceState := querystate.NormalizeConnectedAppGovernanceState(c.FormValue("governance_state"), false)
 	if governanceState == "" {
 		return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-			alert: &viewmodels.ConnectedAppsAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "Invalid governance state",
 				Message:     "Choose a valid state before saving governance.",
 				Destructive: true,
@@ -107,7 +107,7 @@ func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-					alert: &viewmodels.ConnectedAppsAlert{
+					alert: &viewmodels.AlertViewData{
 						Title:       "Owner not found",
 						Message:     "Assign an owner using an existing identity email address.",
 						Destructive: true,
@@ -126,7 +126,7 @@ func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 	ticketRef := strings.TrimSpace(c.FormValue("ticket_ref"))
 	if governanceState == "ticketed" && ticketRef == "" {
 		return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-			alert: &viewmodels.ConnectedAppsAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "Ticket reference required",
 				Message:     "Enter a ticket reference before marking this app as ticketed.",
 				Destructive: true,
@@ -141,7 +141,7 @@ func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 	notes := strings.TrimSpace(c.FormValue("notes"))
 	if len(notes) > 4000 {
 		return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-			alert: &viewmodels.ConnectedAppsAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "Notes too long",
 				Message:     "Keep governance notes under 4000 characters.",
 				Destructive: true,
@@ -176,7 +176,7 @@ func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 	})
 	if isHX(c) {
 		return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-			alert: &viewmodels.ConnectedAppsAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "OAuth app governance saved",
 				Message:     "Owner assignment and governance state updated.",
 				Destructive: false,
@@ -346,7 +346,7 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 	if raw.UserKey == "" || raw.ClientID == "" {
 		if isHX(c) {
 			return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-				alert: &viewmodels.ConnectedAppsAlert{
+				alert: &viewmodels.AlertViewData{
 					Title:       "Unable to revoke grant",
 					Message:     "The synced grant record is missing the Google user or client identifier.",
 					Destructive: true,
@@ -369,7 +369,7 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 	if !google.Configured() || !google.Enabled() {
 		if isHX(c) {
 			return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-				alert: &viewmodels.ConnectedAppsAlert{
+				alert: &viewmodels.AlertViewData{
 					Title:       "Google Workspace unavailable",
 					Message:     "Enable the Google Workspace connector before revoking grants.",
 					Destructive: true,
@@ -391,7 +391,7 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 	if err := client.DeleteOAuthTokenGrant(ctx, raw.UserKey, raw.ClientID); err != nil {
 		if isHX(c) {
 			return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-				alert: &viewmodels.ConnectedAppsAlert{
+				alert: &viewmodels.AlertViewData{
 					Title:       "Grant revoke failed",
 					Message:     err.Error(),
 					Destructive: true,
@@ -413,7 +413,7 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 	})
 	if isHX(c) {
 		return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-			alert: &viewmodels.ConnectedAppsAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "Grant revoked",
 				Message:     "The Google Workspace token grant was revoked. Run sync to refresh inventory state.",
 				Destructive: false,

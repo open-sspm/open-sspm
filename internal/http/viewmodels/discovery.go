@@ -114,12 +114,6 @@ type DiscoveryAppSummaryView struct {
 	LastSeenAt                   string
 }
 
-type DiscoveryAlert struct {
-	Title       string
-	Message     string
-	Destructive bool
-}
-
 type DiscoveryReplacementCandidateItem struct {
 	ID           int64
 	DisplayName  string
@@ -158,7 +152,7 @@ type DiscoveryAppShowViewData struct {
 	TopActors                  []DiscoveryActorItem
 	Events                     []DiscoveryEventItem
 	DecisionHistory            []DiscoveryReviewDecisionItem
-	Alert                      *DiscoveryAlert
+	Alert                      *AlertViewData
 	AccountableOwnerEmailInput string
 	ReviewOwnerEmailInput      string
 	ReviewDispositionInput     string

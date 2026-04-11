@@ -37,12 +37,6 @@ type ConnectedAppsViewData struct {
 	HasItems         bool
 }
 
-type ConnectedAppsAlert struct {
-	Title       string
-	Message     string
-	Destructive bool
-}
-
 type ConnectedAppSummaryView struct {
 	ID                       int64
 	DisplayName              string
@@ -108,7 +102,7 @@ type ConnectedAppShowViewData struct {
 	Grants               []ConnectedAppGrantItem
 	DiscoverySources     []ConnectedAppDiscoverySourceItem
 	Events               []ConnectedAppDiscoveryEventItem
-	Alert                *ConnectedAppsAlert
+	Alert                *AlertViewData
 	OwnerEmailInput      string
 	GovernanceStateInput string
 	TicketRefInput       string

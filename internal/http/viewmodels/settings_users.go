@@ -1,11 +1,5 @@
 package viewmodels
 
-type SettingsUsersAlert struct {
-	Title       string
-	Message     string
-	Destructive bool
-}
-
 type SettingsUsersForm struct {
 	Email string
 	Role  string
@@ -47,5 +41,5 @@ type SettingsUsersViewData struct {
 	Form       SettingsUsersForm
 	EditForm   SettingsUsersEditForm
 	Delete     SettingsUsersDeleteViewData
-	Alert      *SettingsUsersAlert
+	Alert      *AlertViewData
 }

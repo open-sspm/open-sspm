@@ -30,7 +30,7 @@ type FindingsRuleViewData struct {
 	RuleOverride FindingsRuleOverrideViewData
 	Attestation  FindingsRuleAttestationViewData
 
-	Alert *FindingsAlert
+	Alert *AlertViewData
 }
 
 type FindingsEvidenceViewData struct {

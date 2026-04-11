@@ -43,9 +43,3 @@ type FindingsFrameworkMappingItem struct {
 	Control          string
 	Coverage         string
 }
-
-type FindingsAlert struct {
-	Title       string
-	Message     string
-	Destructive bool
-}

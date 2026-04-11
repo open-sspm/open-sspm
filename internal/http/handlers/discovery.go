@@ -30,7 +30,7 @@ const (
 )
 
 type discoveryAppShowOptions struct {
-	alert          *viewmodels.DiscoveryAlert
+	alert          *viewmodels.AlertViewData
 	governanceForm *discoveryGovernanceFormInput
 }
 
@@ -282,7 +282,7 @@ func parseDiscoveryGovernanceForm(c *echo.Context) discoveryGovernanceFormInput 
 	}
 }
 
-func discoveryAppShowOptionsForGovernance(form discoveryGovernanceFormInput, alert *viewmodels.DiscoveryAlert) discoveryAppShowOptions {
+func discoveryAppShowOptionsForGovernance(form discoveryGovernanceFormInput, alert *viewmodels.AlertViewData) discoveryAppShowOptions {
 	formCopy := form
 	return discoveryAppShowOptions{
 		alert:          alert,
@@ -290,26 +290,26 @@ func discoveryAppShowOptionsForGovernance(form discoveryGovernanceFormInput, ale
 	}
 }
 
-func (h *Handlers) renderDiscoveryGovernanceAlert(c *echo.Context, appID int64, form discoveryGovernanceFormInput, alert *viewmodels.DiscoveryAlert) error {
+func (h *Handlers) renderDiscoveryGovernanceAlert(c *echo.Context, appID int64, form discoveryGovernanceFormInput, alert *viewmodels.AlertViewData) error {
 	return h.renderDiscoveryAppShow(c, appID, discoveryAppShowOptionsForGovernance(form, alert))
 }
 
 func (h *Handlers) renderDiscoveryGovernanceValidationError(c *echo.Context, appID int64, form discoveryGovernanceFormInput, title, message string) error {
-	return h.renderDiscoveryGovernanceAlert(c, appID, form, &viewmodels.DiscoveryAlert{
+	return h.renderDiscoveryGovernanceAlert(c, appID, form, &viewmodels.AlertViewData{
 		Title:       title,
 		Message:     message,
 		Destructive: true,
 	})
 }
 
-func (h *Handlers) resolveDiscoveryGovernanceIdentities(ctx context.Context, form discoveryGovernanceFormInput) (discoveryGovernanceIdentityRefs, *viewmodels.DiscoveryAlert, error) {
+func (h *Handlers) resolveDiscoveryGovernanceIdentities(ctx context.Context, form discoveryGovernanceFormInput) (discoveryGovernanceIdentityRefs, *viewmodels.AlertViewData, error) {
 	refs := discoveryGovernanceIdentityRefs{}
 
 	if form.accountableOwnerEmailInput != "" {
 		ownerIdentity, err := h.Q.GetPreferredIdentityByPrimaryEmail(ctx, form.accountableOwnerEmailInput)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return refs, &viewmodels.DiscoveryAlert{
+				return refs, &viewmodels.AlertViewData{
 					Title:       "Owner not found",
 					Message:     "Assign an accountable owner using an existing identity email address.",
 					Destructive: true,
@@ -324,7 +324,7 @@ func (h *Handlers) resolveDiscoveryGovernanceIdentities(ctx context.Context, for
 		reviewOwner, err := h.Q.GetPreferredIdentityByPrimaryEmail(ctx, form.reviewOwnerEmailInput)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return refs, &viewmodels.DiscoveryAlert{
+				return refs, &viewmodels.AlertViewData{
 					Title:       "Review owner not found",
 					Message:     "Assign a review owner using an existing identity email address.",
 					Destructive: true,
@@ -338,11 +338,11 @@ func (h *Handlers) resolveDiscoveryGovernanceIdentities(ctx context.Context, for
 	return refs, nil, nil
 }
 
-func (h *Handlers) validateDiscoveryGovernanceUpdate(ctx context.Context, summary gen.GetSaaSAppByIDRow, form discoveryGovernanceFormInput, identityRefs discoveryGovernanceIdentityRefs) (discoveryGovernanceValidatedInput, *viewmodels.DiscoveryAlert, error) {
+func (h *Handlers) validateDiscoveryGovernanceUpdate(ctx context.Context, summary gen.GetSaaSAppByIDRow, form discoveryGovernanceFormInput, identityRefs discoveryGovernanceIdentityRefs) (discoveryGovernanceValidatedInput, *viewmodels.AlertViewData, error) {
 	validated := discoveryGovernanceValidatedInput{}
 
 	if discoveryDispositionRequiresOwner(form.reviewDispositionInput) && !identityRefs.ownerIdentityID.Valid {
-		return validated, &viewmodels.DiscoveryAlert{
+		return validated, &viewmodels.AlertViewData{
 			Title:       "Owner required",
 			Message:     "Assign an accountable owner before saving this disposition.",
 			Destructive: true,
@@ -351,14 +351,14 @@ func (h *Handlers) validateDiscoveryGovernanceUpdate(ctx context.Context, summar
 
 	followUpDueDate, err := parseDateInput(form.followUpDueDateInput)
 	if err != nil {
-		return validated, &viewmodels.DiscoveryAlert{
+		return validated, &viewmodels.AlertViewData{
 			Title:       "Invalid due date",
 			Message:     "Enter a valid follow-up date.",
 			Destructive: true,
 		}, nil
 	}
 	if isDateOverdue(followUpDueDate) {
-		return validated, &viewmodels.DiscoveryAlert{
+		return validated, &viewmodels.AlertViewData{
 			Title:       "Invalid due date",
 			Message:     "Follow-up date must be today or in the future.",
 			Destructive: true,
@@ -368,14 +368,14 @@ func (h *Handlers) validateDiscoveryGovernanceUpdate(ctx context.Context, summar
 
 	if form.reviewDispositionInput == "replace" {
 		if form.replacementSaaSAppIDInput <= 0 {
-			return validated, &viewmodels.DiscoveryAlert{
+			return validated, &viewmodels.AlertViewData{
 				Title:       "Replacement required",
 				Message:     "Choose a managed replacement app before saving a replace decision.",
 				Destructive: true,
 			}, nil
 		}
 		if form.replacementSaaSAppIDInput == summary.ID {
-			return validated, &viewmodels.DiscoveryAlert{
+			return validated, &viewmodels.AlertViewData{
 				Title:       "Invalid replacement",
 				Message:     "Choose a different managed app as the replacement target.",
 				Destructive: true,
@@ -385,7 +385,7 @@ func (h *Handlers) validateDiscoveryGovernanceUpdate(ctx context.Context, summar
 		replacement, err := h.Q.GetSaaSAppReplacementCandidateByID(ctx, form.replacementSaaSAppIDInput)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return validated, &viewmodels.DiscoveryAlert{
+				return validated, &viewmodels.AlertViewData{
 					Title:       "Replacement not found",
 					Message:     "Choose a managed discovered app as the replacement target.",
 					Destructive: true,
@@ -394,7 +394,7 @@ func (h *Handlers) validateDiscoveryGovernanceUpdate(ctx context.Context, summar
 			return validated, nil, err
 		}
 		if !strings.EqualFold(strings.TrimSpace(replacement.ManagedState), "managed") {
-			return validated, &viewmodels.DiscoveryAlert{
+			return validated, &viewmodels.AlertViewData{
 				Title:       "Replacement must be managed",
 				Message:     "Choose a replacement target that is currently managed.",
 				Destructive: true,
@@ -405,7 +405,7 @@ func (h *Handlers) validateDiscoveryGovernanceUpdate(ctx context.Context, summar
 	}
 
 	if len(form.notesInput) > 4000 {
-		return validated, &viewmodels.DiscoveryAlert{
+		return validated, &viewmodels.AlertViewData{
 			Title:       "Notes too long",
 			Message:     "Keep governance notes under 4000 characters.",
 			Destructive: true,
@@ -465,7 +465,7 @@ func (h *Handlers) renderDiscoveryGovernanceSuccess(c *echo.Context, appID int64
 	})
 	if isHX(c) {
 		return h.renderDiscoveryAppShow(c, appID, discoveryAppShowOptions{
-			alert: &viewmodels.DiscoveryAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "Discovery governance saved",
 				Message:     "The discovery disposition and review details were updated.",
 				Destructive: false,

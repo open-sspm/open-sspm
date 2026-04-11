@@ -401,12 +401,12 @@ func (h *Handlers) HandleFindingsRuleOverride(c *echo.Context) error {
 	def := parseRuleDefinition(r.DefinitionJson)
 	params, err := parseOverrideParamsFromForm(c, def.ParamSchema)
 	if err != nil {
-		return h.renderRuleWithAlert(c, rs, r, scope, viewmodels.FindingsAlert{Title: "Invalid override params", Message: err.Error(), Destructive: true})
+		return h.renderRuleWithAlert(c, rs, r, scope, viewmodels.AlertViewData{Title: "Invalid override params", Message: err.Error(), Destructive: true})
 	}
 
 	if len(def.ParamSchema) > 0 {
 		if err := engine.ValidateParams(params, def.ParamSchema); err != nil {
-			return h.renderRuleWithAlert(c, rs, r, scope, viewmodels.FindingsAlert{Title: "Invalid parameters", Message: err.Error(), Destructive: true})
+			return h.renderRuleWithAlert(c, rs, r, scope, viewmodels.AlertViewData{Title: "Invalid parameters", Message: err.Error(), Destructive: true})
 		}
 	}
 
@@ -470,12 +470,12 @@ func (h *Handlers) HandleFindingsRuleAttestation(c *echo.Context) error {
 	switch status {
 	case "pass", "fail", "not_applicable":
 	default:
-		return h.renderRuleWithAlert(c, rs, r, scope, viewmodels.FindingsAlert{Title: "Invalid attestation status", Message: "Status must be pass, fail, or not_applicable.", Destructive: true})
+		return h.renderRuleWithAlert(c, rs, r, scope, viewmodels.AlertViewData{Title: "Invalid attestation status", Message: "Status must be pass, fail, or not_applicable.", Destructive: true})
 	}
 
 	expiresAt, err := parseDatetimeLocal(c.FormValue("expires_at"))
 	if err != nil {
-		return h.renderRuleWithAlert(c, rs, r, scope, viewmodels.FindingsAlert{Title: "Invalid expiry", Message: err.Error(), Destructive: true})
+		return h.renderRuleWithAlert(c, rs, r, scope, viewmodels.AlertViewData{Title: "Invalid expiry", Message: err.Error(), Destructive: true})
 	}
 
 	notes := strings.TrimSpace(c.FormValue("notes"))
@@ -867,7 +867,7 @@ func parseDatetimeLocal(v string) (pgtype.Timestamptz, error) {
 	return pgtype.Timestamptz{Time: t, Valid: true}, nil
 }
 
-func (h *Handlers) buildFindingsRuleViewData(ctx context.Context, c *echo.Context, rs gen.Ruleset, r gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow, scope findingsScope, alert *viewmodels.FindingsAlert) (viewmodels.FindingsRuleViewData, error) {
+func (h *Handlers) buildFindingsRuleViewData(ctx context.Context, c *echo.Context, rs gen.Ruleset, r gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow, scope findingsScope, alert *viewmodels.AlertViewData) (viewmodels.FindingsRuleViewData, error) {
 	layout, _, err := h.LayoutData(ctx, c, strings.TrimSpace(rs.Name))
 	if err != nil {
 		return viewmodels.FindingsRuleViewData{}, err
@@ -931,7 +931,7 @@ func (h *Handlers) buildFindingsRuleViewData(ctx context.Context, c *echo.Contex
 	}, nil
 }
 
-func (h *Handlers) renderRuleWithAlert(c *echo.Context, rs gen.Ruleset, r gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow, scope findingsScope, alert viewmodels.FindingsAlert) error {
+func (h *Handlers) renderRuleWithAlert(c *echo.Context, rs gen.Ruleset, r gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow, scope findingsScope, alert viewmodels.AlertViewData) error {
 	ctx := c.Request().Context()
 
 	data, err := h.buildFindingsRuleViewData(ctx, c, rs, r, scope, &alert)

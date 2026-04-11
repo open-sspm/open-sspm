@@ -25,7 +25,7 @@ type settingsUsersPageOptions struct {
 	addForm    viewmodels.SettingsUsersForm
 	editUserID int64
 	editRole   string
-	alert      *viewmodels.SettingsUsersAlert
+	alert      *viewmodels.AlertViewData
 }
 
 func (h *Handlers) HandleSettingsUsers(c *echo.Context) error {
@@ -65,7 +65,7 @@ func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 		return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 			openAdd: true,
 			addForm: form,
-			alert: &viewmodels.SettingsUsersAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "Email required",
 				Message:     "Provide an email address for the user.",
 				Destructive: true,
@@ -79,7 +79,7 @@ func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 		return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 			openAdd: true,
 			addForm: form,
-			alert: &viewmodels.SettingsUsersAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "Invalid group",
 				Message:     "Group must be admin or viewer.",
 				Destructive: true,
@@ -91,7 +91,7 @@ func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 		return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 			openAdd: true,
 			addForm: form,
-			alert: &viewmodels.SettingsUsersAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "Password required",
 				Message:     "Provide a password for the user.",
 				Destructive: true,
@@ -106,7 +106,7 @@ func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 		return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 			openAdd: true,
 			addForm: form,
-			alert: &viewmodels.SettingsUsersAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "Passwords do not match",
 				Message:     "Confirm the password to continue.",
 				Destructive: true,
@@ -118,7 +118,7 @@ func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 		return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 			openAdd: true,
 			addForm: form,
-			alert: &viewmodels.SettingsUsersAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "Password too short",
 				Message:     "Use at least 8 characters.",
 				Destructive: true,
@@ -129,7 +129,7 @@ func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 		return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 			openAdd: true,
 			addForm: form,
-			alert: &viewmodels.SettingsUsersAlert{
+			alert: &viewmodels.AlertViewData{
 				Title:       "Password too long",
 				Message:     "Use at most 128 characters.",
 				Destructive: true,
@@ -153,7 +153,7 @@ func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 			return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 				openAdd: true,
 				addForm: form,
-				alert: &viewmodels.SettingsUsersAlert{
+				alert: &viewmodels.AlertViewData{
 					Title:       "User already exists",
 					Message:     "A user with that email address already exists.",
 					Destructive: true,
@@ -209,7 +209,7 @@ func (h *Handlers) HandleSettingsUserUpdate(c *echo.Context) error {
 				openEdit:   true,
 				editUserID: userID,
 				editRole:   role,
-				alert: &viewmodels.SettingsUsersAlert{
+				alert: &viewmodels.AlertViewData{
 					Title:       "Invalid group",
 					Message:     "Group must be admin or viewer.",
 					Destructive: true,
@@ -226,7 +226,7 @@ func (h *Handlers) HandleSettingsUserUpdate(c *echo.Context) error {
 				openEdit:   true,
 				editUserID: userID,
 				editRole:   role,
-				alert: &viewmodels.SettingsUsersAlert{
+				alert: &viewmodels.AlertViewData{
 					Title:       "Password required",
 					Message:     "Provide a new password or leave both fields blank.",
 					Destructive: true,
@@ -242,7 +242,7 @@ func (h *Handlers) HandleSettingsUserUpdate(c *echo.Context) error {
 				openEdit:   true,
 				editUserID: userID,
 				editRole:   role,
-				alert: &viewmodels.SettingsUsersAlert{
+				alert: &viewmodels.AlertViewData{
 					Title:       "Passwords do not match",
 					Message:     "Confirm the new password to continue.",
 					Destructive: true,
@@ -254,7 +254,7 @@ func (h *Handlers) HandleSettingsUserUpdate(c *echo.Context) error {
 				openEdit:   true,
 				editUserID: userID,
 				editRole:   role,
-				alert: &viewmodels.SettingsUsersAlert{
+				alert: &viewmodels.AlertViewData{
 					Title:       "Password too short",
 					Message:     "Use at least 8 characters.",
 					Destructive: true,
@@ -266,7 +266,7 @@ func (h *Handlers) HandleSettingsUserUpdate(c *echo.Context) error {
 				openEdit:   true,
 				editUserID: userID,
 				editRole:   role,
-				alert: &viewmodels.SettingsUsersAlert{
+				alert: &viewmodels.AlertViewData{
 					Title:       "Password too long",
 					Message:     "Use at most 128 characters.",
 					Destructive: true,
@@ -289,7 +289,7 @@ func (h *Handlers) HandleSettingsUserUpdate(c *echo.Context) error {
 				openEdit:   true,
 				editUserID: userID,
 				editRole:   role,
-				alert: &viewmodels.SettingsUsersAlert{
+				alert: &viewmodels.AlertViewData{
 					Title:       "Group change not allowed",
 					Message:     "You cannot change your own group.",
 					Destructive: true,
@@ -327,7 +327,7 @@ func (h *Handlers) HandleSettingsUserUpdate(c *echo.Context) error {
 				openEdit:   true,
 				editUserID: userID,
 				editRole:   role,
-				alert: &viewmodels.SettingsUsersAlert{
+				alert: &viewmodels.AlertViewData{
 					Title:       "Group change not allowed",
 					Message:     "You cannot downgrade the last active admin.",
 					Destructive: true,
@@ -542,7 +542,7 @@ func (h *Handlers) buildSettingsUsersViewData(ctx context.Context, c *echo.Conte
 	if opts.openEdit {
 		if opts.editUserID <= 0 {
 			if data.Alert == nil {
-				data.Alert = &viewmodels.SettingsUsersAlert{
+				data.Alert = &viewmodels.AlertViewData{
 					Title:       "Invalid user",
 					Message:     "Select a valid user to edit.",
 					Destructive: true,
@@ -551,7 +551,7 @@ func (h *Handlers) buildSettingsUsersViewData(ctx context.Context, c *echo.Conte
 		} else if user, err := h.Q.GetAuthUser(ctx, opts.editUserID); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				if data.Alert == nil {
-					data.Alert = &viewmodels.SettingsUsersAlert{
+					data.Alert = &viewmodels.AlertViewData{
 						Title:       "User not found",
 						Message:     "That user no longer exists.",
 						Destructive: true,
@@ -591,7 +591,7 @@ func (h *Handlers) buildSettingsUsersViewData(ctx context.Context, c *echo.Conte
 		userID := opts.editUserID
 		if userID <= 0 {
 			if data.Alert == nil {
-				data.Alert = &viewmodels.SettingsUsersAlert{
+				data.Alert = &viewmodels.AlertViewData{
 					Title:       "Invalid user",
 					Message:     "Select a valid user to delete.",
 					Destructive: true,
@@ -600,7 +600,7 @@ func (h *Handlers) buildSettingsUsersViewData(ctx context.Context, c *echo.Conte
 		} else if user, err := h.Q.GetAuthUser(ctx, userID); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				if data.Alert == nil {
-					data.Alert = &viewmodels.SettingsUsersAlert{
+					data.Alert = &viewmodels.AlertViewData{
 						Title:       "User not found",
 						Message:     "That user no longer exists.",
 						Destructive: true,
@@ -614,7 +614,7 @@ func (h *Handlers) buildSettingsUsersViewData(ctx context.Context, c *echo.Conte
 			if principal.UserID == user.ID {
 				canDelete = false
 				if data.Alert == nil {
-					data.Alert = &viewmodels.SettingsUsersAlert{
+					data.Alert = &viewmodels.AlertViewData{
 						Title:       "Delete not allowed",
 						Message:     "You cannot delete your own user.",
 						Destructive: true,
@@ -623,7 +623,7 @@ func (h *Handlers) buildSettingsUsersViewData(ctx context.Context, c *echo.Conte
 			} else if user.IsActive && strings.ToLower(strings.TrimSpace(user.Role)) == auth.RoleAdmin && adminCount == 1 {
 				canDelete = false
 				if data.Alert == nil {
-					data.Alert = &viewmodels.SettingsUsersAlert{
+					data.Alert = &viewmodels.AlertViewData{
 						Title:       "Delete not allowed",
 						Message:     "You cannot delete the last active admin.",
 						Destructive: true,

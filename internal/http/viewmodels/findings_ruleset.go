@@ -23,5 +23,5 @@ type FindingsRulesetViewData struct {
 	Rules    []FindingsRuleItem
 	HasRules bool
 
-	Alert *FindingsAlert
+	Alert *AlertViewData
 }
