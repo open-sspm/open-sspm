@@ -42,15 +42,12 @@ func TestParseIdentitiesQuery(t *testing.T) {
 
 	t.Run("normalizes booleans and sort defaults", func(t *testing.T) {
 		query := ParseIdentitiesQuery(url.Values{
-			"q":                 []string{" alice "},
-			"privileged":        []string{"true"},
-			"show_first_seen":   []string{"1"},
-			"show_link_quality": []string{"yes"},
-			"show_link_reason":  []string{"on"},
-			"sort_by":           []string{"identity"},
-			"page":              []string{"0"},
+			"q":          []string{" alice "},
+			"privileged": []string{"true"},
+			"sort_by":    []string{"identity"},
+			"page":       []string{"0"},
 		}, sources)
-		if query.Q != "alice" || !query.PrivilegedOnly || !query.ShowFirstSeen || !query.ShowLinkQuality || !query.ShowLinkReason {
+		if query.Q != "alice" || !query.PrivilegedOnly {
 			t.Fatalf("query = %#v", query)
 		}
 		if query.SortDir != "desc" || query.Page != 1 {

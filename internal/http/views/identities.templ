@@ -287,8 +287,6 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last seen</th>
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">First seen</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Link quality</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Link reason</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -342,18 +340,11 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 											}
 										</td>
 										<td>{ item.FirstSeen.Label }</td>
-										<td>
-											<span class={ IdentityLinkQualityBadgeClass(item.LinkQuality) }>{ HumanizeIdentityLinkQuality(item.LinkQuality) }</span>
-											if item.LinkQuality != "unknown" {
-												<span class="osspm-cell-secondary">{ FormatIdentityLinkConfidence(item.MinLinkConfidence) }</span>
-											}
-										</td>
-										<td><span class="osspm-truncate" title={ item.LinkReason }>{ fallbackHumanized(item.LinkReason) }</span></td>
 									</tr>
 								}
 							} else {
 								<tr>
-									<td colspan="11">
+									<td colspan="9">
 										@EmptyState("No identities found", data.EmptyStateMsg)
 									</td>
 								</tr>

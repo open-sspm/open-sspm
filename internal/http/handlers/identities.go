@@ -61,7 +61,6 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		PrivilegedOnly:        queryState.PrivilegedOnly,
 		Status:                queryState.Status,
 		ActivityState:         queryState.ActivityState,
-		LinkQuality:           queryState.LinkQuality,
 		ConfiguredSourceKinds: configuredSourceKinds,
 		ConfiguredSourceNames: configuredSourceNames,
 		Query:                 queryState.Q,
@@ -79,7 +78,6 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		PrivilegedOnly:        queryState.PrivilegedOnly,
 		Status:                queryState.Status,
 		ActivityState:         queryState.ActivityState,
-		LinkQuality:           queryState.LinkQuality,
 		SortBy:                queryState.SortBy,
 		SortDir:               queryState.SortDir,
 		PageOffset:            int32(pagination.Offset()),
@@ -97,10 +95,6 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 
 	items := make([]viewmodels.IdentityListItem, 0, len(rows))
 	for _, row := range rows {
-		linkReason := strings.TrimSpace(row.LinkReason)
-		if linkReason == "" {
-			linkReason = "—"
-		}
 		items = append(items, viewmodels.IdentityListItem{
 			ID:                row.ID,
 			Initials:          identityInitials(row.DisplayName, row.PrimaryEmail),
@@ -116,9 +110,6 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 			ActivityState:     strings.TrimSpace(row.ActivityState),
 			LastSeen:          calendarDateWithRelativeDisplay(row.LastSeenAt),
 			FirstSeen:         calendarDateDisplay(row.FirstSeenAt),
-			LinkQuality:       strings.TrimSpace(row.LinkQuality),
-			LinkReason:        linkReason,
-			MinLinkConfidence: row.MinLinkConfidence,
 			RowState:          strings.TrimSpace(row.RowState),
 		})
 	}

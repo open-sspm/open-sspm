@@ -20,9 +20,6 @@ type IdentityListItem struct {
 	ActivityState     string
 	LastSeen          TimeDisplay
 	FirstSeen         TimeDisplay
-	LinkQuality       string
-	LinkReason        string
-	MinLinkConfidence float32
 	RowState          string
 }
 

@@ -538,32 +538,6 @@ func HumanizeIdentityStatus(status string) string {
 	}
 }
 
-func HumanizeIdentityLinkQuality(linkQuality string) string {
-	switch strings.ToLower(strings.TrimSpace(linkQuality)) {
-	case "high":
-		return "High"
-	case "medium":
-		return "Medium"
-	case "low":
-		return "Low"
-	case "unknown":
-		return "Unknown"
-	default:
-		return fallbackHumanized(linkQuality)
-	}
-}
-
-func FormatIdentityLinkConfidence(value float32) string {
-	percent := float64(value) * 100
-	if percent < 0 {
-		percent = 0
-	}
-	if percent > 100 {
-		percent = 100
-	}
-	return strconv.FormatFloat(percent, 'f', 0, 64) + "%"
-}
-
 func HumanizeIdentityRowState(state string) string {
 	switch strings.ToLower(strings.TrimSpace(state)) {
 	case "action_required":
@@ -624,19 +598,6 @@ func IdentityPrivilegedRoleClass(count int64) string {
 func IdentityRowStateBadgeClass(state string) string {
 	_ = state
 	return "badge-outline"
-}
-
-func IdentityLinkQualityBadgeClass(linkQuality string) string {
-	switch strings.ToLower(strings.TrimSpace(linkQuality)) {
-	case "high":
-		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
-	case "medium":
-		return "badge bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-100"
-	case "low":
-		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
-	default:
-		return "badge-outline"
-	}
 }
 
 func HumanizeCredentialKind(kind string) string {

@@ -52,9 +52,7 @@ all_active_accounts AS (
     a.external_id,
     a.created_at,
     a.last_observed_at,
-    lower(trim(COALESCE(NULLIF(a.status, ''), NULLIF(a.raw_json->>'status', ''), 'unknown'))) AS normalized_status,
-    ia.confidence,
-    trim(ia.link_reason) AS link_reason
+    lower(trim(COALESCE(NULLIF(a.status, ''), NULLIF(a.raw_json->>'status', ''), 'unknown'))) AS normalized_status
   FROM identity_accounts ia
   JOIN accounts a ON a.id = ia.account_id
   JOIN configured_sources cs
@@ -171,15 +169,6 @@ status_stats AS (
   FROM all_active_accounts aa
   GROUP BY aa.identity_id
 ),
-link_stats AS (
-  SELECT
-    aa.identity_id,
-    MIN(aa.confidence)::real AS min_link_confidence,
-    COUNT(DISTINCT lower(aa.link_reason)) FILTER (WHERE aa.link_reason <> '')::bigint AS reason_kinds,
-    MIN(lower(aa.link_reason)) FILTER (WHERE aa.link_reason <> '') AS single_reason
-  FROM all_active_accounts aa
-  GROUP BY aa.identity_id
-),
 primary_source AS (
   SELECT DISTINCT ON (sa.identity_id)
     sa.identity_id,
@@ -217,19 +206,7 @@ base_metrics AS (
       WHEN ast.last_seen_at >= now() - interval '30 days' THEN 'recent'
       WHEN ast.last_seen_at >= now() - interval '90 days' THEN 'aging'
       ELSE 'stale'
-    END AS activity_state,
-    CASE
-      WHEN ls.min_link_confidence IS NULL THEN 'unknown'
-      WHEN ls.min_link_confidence >= 0.95 THEN 'high'
-      WHEN ls.min_link_confidence >= 0.80 THEN 'medium'
-      ELSE 'low'
-    END AS link_quality,
-    CASE
-      WHEN COALESCE(ls.reason_kinds, 0) = 0 THEN '—'
-      WHEN ls.reason_kinds = 1 THEN COALESCE(ls.single_reason, '—')
-      ELSE 'mixed'
-    END AS link_reason,
-    COALESCE(ls.min_link_confidence, 0)::real AS min_link_confidence
+    END AS activity_state
   FROM candidate_identities ci
   JOIN identities i ON i.id = ci.id
   LEFT JOIN managed_identities mi ON mi.identity_id = ci.id
@@ -238,7 +215,6 @@ base_metrics AS (
   LEFT JOIN privileged_counts pc ON pc.identity_id = ci.id
   LEFT JOIN activity_stats ast ON ast.identity_id = ci.id
   LEFT JOIN status_stats ss ON ss.identity_id = ci.id
-  LEFT JOIN link_stats ls ON ls.identity_id = ci.id
 ),
 base AS (
   SELECT
@@ -248,7 +224,6 @@ base AS (
       WHEN bm.privileged_roles > 0 AND bm.activity_state IN ('stale', 'never_seen') THEN 'action_required'
       WHEN NOT bm.managed THEN 'review'
       WHEN bm.activity_state IN ('aging', 'stale', 'never_seen') THEN 'review'
-      WHEN bm.link_quality = 'low' THEN 'review'
       ELSE 'healthy'
     END AS row_state
   FROM base_metrics bm
@@ -278,10 +253,6 @@ WHERE
   AND (
     sqlc.arg(activity_state)::text = ''
     OR b.activity_state = sqlc.arg(activity_state)::text
-  )
-  AND (
-    sqlc.arg(link_quality)::text = ''
-    OR b.link_quality = sqlc.arg(link_quality)::text
   );
 
 -- name: ListIdentitiesInventoryPageByFilters :many
@@ -301,9 +272,7 @@ all_active_accounts AS (
     a.external_id,
     a.created_at,
     a.last_observed_at,
-    lower(trim(COALESCE(NULLIF(a.status, ''), NULLIF(a.raw_json->>'status', ''), 'unknown'))) AS normalized_status,
-    ia.confidence,
-    trim(ia.link_reason) AS link_reason
+    lower(trim(COALESCE(NULLIF(a.status, ''), NULLIF(a.raw_json->>'status', ''), 'unknown'))) AS normalized_status
   FROM identity_accounts ia
   JOIN accounts a ON a.id = ia.account_id
   JOIN configured_sources cs
@@ -420,15 +389,6 @@ status_stats AS (
   FROM all_active_accounts aa
   GROUP BY aa.identity_id
 ),
-link_stats AS (
-  SELECT
-    aa.identity_id,
-    MIN(aa.confidence)::real AS min_link_confidence,
-    COUNT(DISTINCT lower(aa.link_reason)) FILTER (WHERE aa.link_reason <> '')::bigint AS reason_kinds,
-    MIN(lower(aa.link_reason)) FILTER (WHERE aa.link_reason <> '') AS single_reason
-  FROM all_active_accounts aa
-  GROUP BY aa.identity_id
-),
 primary_source AS (
   SELECT DISTINCT ON (sa.identity_id)
     sa.identity_id,
@@ -466,19 +426,7 @@ base_metrics AS (
       WHEN ast.last_seen_at >= now() - interval '30 days' THEN 'recent'
       WHEN ast.last_seen_at >= now() - interval '90 days' THEN 'aging'
       ELSE 'stale'
-    END AS activity_state,
-    CASE
-      WHEN ls.min_link_confidence IS NULL THEN 'unknown'
-      WHEN ls.min_link_confidence >= 0.95 THEN 'high'
-      WHEN ls.min_link_confidence >= 0.80 THEN 'medium'
-      ELSE 'low'
-    END AS link_quality,
-    CASE
-      WHEN COALESCE(ls.reason_kinds, 0) = 0 THEN '—'
-      WHEN ls.reason_kinds = 1 THEN COALESCE(ls.single_reason, '—')
-      ELSE 'mixed'
-    END AS link_reason,
-    COALESCE(ls.min_link_confidence, 0)::real AS min_link_confidence
+    END AS activity_state
   FROM candidate_identities ci
   JOIN identities i ON i.id = ci.id
   LEFT JOIN managed_identities mi ON mi.identity_id = ci.id
@@ -487,7 +435,6 @@ base_metrics AS (
   LEFT JOIN privileged_counts pc ON pc.identity_id = ci.id
   LEFT JOIN activity_stats ast ON ast.identity_id = ci.id
   LEFT JOIN status_stats ss ON ss.identity_id = ci.id
-  LEFT JOIN link_stats ls ON ls.identity_id = ci.id
 ),
 base AS (
   SELECT
@@ -497,7 +444,6 @@ base AS (
       WHEN bm.privileged_roles > 0 AND bm.activity_state IN ('stale', 'never_seen') THEN 'action_required'
       WHEN NOT bm.managed THEN 'review'
       WHEN bm.activity_state IN ('aging', 'stale', 'never_seen') THEN 'review'
-      WHEN bm.link_quality = 'low' THEN 'review'
       ELSE 'healthy'
     END AS row_state
   FROM base_metrics bm
@@ -516,9 +462,6 @@ SELECT
   b.first_seen_at,
   b.status,
   b.activity_state,
-  b.link_quality,
-  b.link_reason,
-  b.min_link_confidence,
   b.row_state
 FROM base b
 WHERE
@@ -544,10 +487,6 @@ WHERE
   AND (
     sqlc.arg(activity_state)::text = ''
     OR b.activity_state = sqlc.arg(activity_state)::text
-  )
-  AND (
-    sqlc.arg(link_quality)::text = ''
-    OR b.link_quality = sqlc.arg(link_quality)::text
   )
 ORDER BY
   CASE
@@ -688,4 +627,3 @@ LEFT JOIN identity_accounts ia ON ia.identity_id = i.id
 LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
 WHERE i.id = $1
 GROUP BY i.id, ai.identity_id;
-
