@@ -51,8 +51,7 @@ type ConnectorHealthErrorDetailsRow struct {
 	LaneLabel         string
 	StatusLabel       string
 	StatusClass       string
-	FinishedAtLabel   string
-	FinishedAtTitle   string
+	FinishedAt        TimeDisplay
 	ErrorKind         string
 	MessagePreview    string
 	MessageFull       string

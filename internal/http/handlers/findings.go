@@ -531,26 +531,23 @@ func (h *Handlers) getRuleAttestation(ctx context.Context, ruleID int64, scope f
 		return viewmodels.FindingsRuleAttestationViewData{}, err
 	}
 
-	expires := ""
-	expiresDisplay := ""
+	expiresInput := ""
+	expiresDisplay := viewmodels.TimeDisplay{}
 	if row.ExpiresAt.Valid {
-		expires = row.ExpiresAt.Time.Format("2006-01-02T15:04")
-		expiresDisplay = row.ExpiresAt.Time.UTC().Format("Jan 2, 2006")
+		expiresInput = row.ExpiresAt.Time.Format("2006-01-02T15:04")
+		expiresDisplay = calendarDateDisplay(row.ExpiresAt)
 	}
 
 	return viewmodels.FindingsRuleAttestationViewData{
-		Status:           strings.ToLower(strings.TrimSpace(row.Status)),
-		Notes:            strings.TrimSpace(row.Notes),
-		ExpiresAt:        expires,
-		ExpiresAtDisplay: expiresDisplay,
+		Status:         strings.ToLower(strings.TrimSpace(row.Status)),
+		Notes:          strings.TrimSpace(row.Notes),
+		ExpiresAtInput: expiresInput,
+		ExpiresAt:      expiresDisplay,
 	}, nil
 }
 
-func formatTimeTable(t pgtype.Timestamptz) string {
-	if !t.Valid {
-		return ""
-	}
-	return t.Time.UTC().Format("Jan 2, 2006")
+func formatTimeTable(t pgtype.Timestamptz) viewmodels.TimeDisplay {
+	return calendarDateDisplayOrEmpty(t)
 }
 
 func normalizeRuleStatusFilter(v string) string {

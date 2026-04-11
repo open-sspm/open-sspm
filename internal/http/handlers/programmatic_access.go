@@ -211,7 +211,7 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 			Status:           fallbackDash(strings.TrimSpace(asset.Status)),
 			OwnersCount:      ownerCounts[asset.ID],
 			CredentialsCount: credentialCounts[asset.ID],
-			LastSeenAt:       formatProgrammaticDate(asset.LastObservedAt),
+			LastSeen:         calendarDateDisplay(asset.LastObservedAt),
 		})
 	}
 
@@ -293,8 +293,8 @@ func (h *Handlers) HandleAppAssetShow(c *echo.Context) error {
 			DisplayName:    fallbackDash(displayName),
 			Status:         fallbackDash(strings.TrimSpace(credential.Status)),
 			RiskLevel:      strings.TrimSpace(credential.RiskLevel),
-			ExpiresAt:      formatProgrammaticDate(credential.ExpiresAtSource),
-			LastUsedAt:     formatProgrammaticDate(credential.LastUsedAtSource),
+			ExpiresAt:      calendarDateDisplay(credential.ExpiresAtSource),
+			LastUsedAt:     calendarDateDisplay(credential.LastUsedAtSource),
 			CreatedBy:      fallbackDash(actorDisplayName(credential.CreatedByDisplayName, credential.CreatedByExternalID)),
 			CreatedByHref:  linkResolver.Resolve(strings.TrimSpace(credential.SourceKind), strings.TrimSpace(credential.SourceName), credential.CreatedByExternalID, "", credential.CreatedByDisplayName),
 		})
@@ -319,7 +319,7 @@ func (h *Handlers) HandleAppAssetShow(c *echo.Context) error {
 		credentialName := credentialDisplayByRef[credentialRefKey(credentialKind, credentialExternalID)]
 		auditItems = append(auditItems, viewmodels.ProgrammaticAuditEventItem{
 			EventType:             fallbackDash(strings.TrimSpace(event.EventType)),
-			EventTime:             formatProgrammaticDate(event.EventTime),
+			EventTime:             calendarDateDisplay(event.EventTime),
 			Actor:                 fallbackDash(actorDisplayName(event.ActorDisplayName, event.ActorExternalID)),
 			Target:                fallbackDash(actorDisplayName(event.TargetDisplayName, event.TargetExternalID)),
 			CredentialKind:        fallbackDash(credentialKind),
@@ -347,9 +347,9 @@ func (h *Handlers) HandleAppAssetShow(c *echo.Context) error {
 			ExternalID:       strings.TrimSpace(asset.ExternalID),
 			ParentExternalID: fallbackDash(strings.TrimSpace(asset.ParentExternalID)),
 			Status:           fallbackDash(strings.TrimSpace(asset.Status)),
-			CreatedAtSource:  formatProgrammaticDate(asset.CreatedAtSource),
-			UpdatedAtSource:  formatProgrammaticDate(asset.UpdatedAtSource),
-			LastObservedAt:   formatProgrammaticDate(asset.LastObservedAt),
+			CreatedAtSource:  calendarDateDisplay(asset.CreatedAtSource),
+			UpdatedAtSource:  calendarDateDisplay(asset.UpdatedAtSource),
+			LastObservedAt:   calendarDateDisplay(asset.LastObservedAt),
 		},
 		Owners:         ownerItems,
 		Credentials:    credentialItems,
@@ -474,8 +474,8 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 				AssetRefID:     fallbackDash(assetRefExternalID),
 				Status:         fallbackDash(strings.TrimSpace(row.Status)),
 				RiskLevel:      strings.TrimSpace(row.RiskLevel),
-				ExpiresAt:      formatProgrammaticDate(row.ExpiresAtSource),
-				LastUsedAt:     formatProgrammaticDate(row.LastUsedAtSource),
+				ExpiresAt:      calendarDateDisplay(row.ExpiresAtSource),
+				LastUsedAt:     calendarDateDisplay(row.LastUsedAtSource),
 				CreatedBy:      createdBy,
 				CreatedByHref:  linkResolver.Resolve(strings.TrimSpace(row.SourceKind), strings.TrimSpace(row.SourceName), row.CreatedByExternalID, "", row.CreatedByDisplayName),
 				ApprovedBy:     approvedBy,
@@ -547,8 +547,8 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 				AssetRefID:     fallbackDash(assetRefExternalID),
 				Status:         fallbackDash(strings.TrimSpace(row.Status)),
 				RiskLevel:      strings.TrimSpace(row.RiskLevel),
-				ExpiresAt:      formatProgrammaticDate(row.ExpiresAtSource),
-				LastUsedAt:     formatProgrammaticDate(row.LastUsedAtSource),
+				ExpiresAt:      calendarDateDisplay(row.ExpiresAtSource),
+				LastUsedAt:     calendarDateDisplay(row.LastUsedAtSource),
 				CreatedBy:      createdBy,
 				CreatedByHref:  linkResolver.Resolve(strings.TrimSpace(row.SourceKind), strings.TrimSpace(row.SourceName), row.CreatedByExternalID, "", row.CreatedByDisplayName),
 				ApprovedBy:     approvedBy,
@@ -606,7 +606,7 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 	for _, event := range events {
 		eventItems = append(eventItems, viewmodels.ProgrammaticAuditEventItem{
 			EventType:            fallbackDash(strings.TrimSpace(event.EventType)),
-			EventTime:            formatProgrammaticDate(event.EventTime),
+			EventTime:            calendarDateDisplay(event.EventTime),
 			Actor:                fallbackDash(actorDisplayName(event.ActorDisplayName, event.ActorExternalID)),
 			Target:               fallbackDash(actorDisplayName(event.TargetDisplayName, event.TargetExternalID)),
 			CredentialKind:       fallbackDash(strings.TrimSpace(event.CredentialKind)),
@@ -636,9 +636,9 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 			AssetRefExternalID: fallbackDash(strings.TrimSpace(credential.AssetRefExternalID)),
 			Status:             fallbackDash(strings.TrimSpace(credential.Status)),
 			RiskLevel:          riskLevel,
-			CreatedAtSource:    formatProgrammaticDate(credential.CreatedAtSource),
-			ExpiresAtSource:    formatProgrammaticDate(credential.ExpiresAtSource),
-			LastUsedAtSource:   formatProgrammaticDate(credential.LastUsedAtSource),
+			CreatedAtSource:    calendarDateDisplay(credential.CreatedAtSource),
+			ExpiresAtSource:    calendarDateDisplay(credential.ExpiresAtSource),
+			LastUsedAtSource:   calendarDateDisplay(credential.LastUsedAtSource),
 			CreatedBy:          fallbackDash(actorDisplayName(credential.CreatedByDisplayName, credential.CreatedByExternalID)),
 			CreatedByHref:      linkResolver.Resolve(strings.TrimSpace(credential.SourceKind), strings.TrimSpace(credential.SourceName), credential.CreatedByExternalID, "", credential.CreatedByDisplayName),
 			ApprovedBy:         fallbackDash(actorDisplayName(credential.ApprovedByDisplayName, credential.ApprovedByExternalID)),
@@ -784,10 +784,6 @@ func actorDisplayName(displayName, externalID string) string {
 		return displayName
 	}
 	return strings.TrimSpace(externalID)
-}
-
-func formatProgrammaticDate(value pgtype.Timestamptz) string {
-	return identityCalendarDate(value)
 }
 
 func pgTimestamptz(ts time.Time) pgtype.Timestamptz {

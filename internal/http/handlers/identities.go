@@ -8,11 +8,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
@@ -116,9 +114,8 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 			PrivilegedRoles:   row.PrivilegedRoles,
 			Status:            strings.TrimSpace(row.Status),
 			ActivityState:     strings.TrimSpace(row.ActivityState),
-			LastSeenOn:        identityCalendarDate(row.LastSeenAt),
-			LastSeenRelative:  identityRelativeDate(row.LastSeenAt),
-			FirstSeenOn:       identityCalendarDate(row.FirstSeenAt),
+			LastSeen:          calendarDateWithRelativeDisplay(row.LastSeenAt),
+			FirstSeen:         calendarDateDisplay(row.FirstSeenAt),
 			LinkQuality:       strings.TrimSpace(row.LinkQuality),
 			LinkReason:        linkReason,
 			MinLinkConfidence: row.MinLinkConfidence,
@@ -290,30 +287,6 @@ func identityNameSecondary(displayName, primaryEmail string) string {
 	return primaryEmail
 }
 
-func identityCalendarDate(value pgtype.Timestamptz) string {
-	if !value.Valid {
-		return "—"
-	}
-	return value.Time.UTC().Format("Jan 2, 2006")
-}
-
-func identityRelativeDate(value pgtype.Timestamptz) string {
-	if !value.Valid {
-		return ""
-	}
-	days := int(time.Since(value.Time).Hours() / 24)
-	switch {
-	case days <= 0:
-		return "today"
-	case days == 1:
-		return "1d ago"
-	case days < 365:
-		return strconv.Itoa(days) + "d ago"
-	default:
-		return strconv.Itoa(days/365) + "y ago"
-	}
-}
-
 func identityInitials(displayName, primaryEmail string) string {
 	name := strings.TrimSpace(displayName)
 	if name == "" {
@@ -394,8 +367,8 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		Identity:           summary,
 		NamePrimary:        identityNamePrimary(summary.DisplayName, summary.PrimaryEmail, summary.ID),
 		NameSecondary:      identityNameSecondary(summary.DisplayName, summary.PrimaryEmail),
-		CreatedOn:          identityCalendarDate(summary.CreatedAt),
-		UpdatedOn:          identityCalendarDate(summary.UpdatedAt),
+		CreatedOn:          calendarDateDisplay(summary.CreatedAt),
+		UpdatedOn:          calendarDateDisplay(summary.UpdatedAt),
 		TotalEntitlements:  totalEntitlements,
 		LinkedAccounts:     linkedAccounts,
 		NonHumanAccessHref: nonHumanAccessHref,

@@ -25,7 +25,7 @@ type FindingsRuleItem struct {
 	Summary          string
 	MonitoringStatus string
 	Status           string
-	EvaluatedAt      string
+	EvaluatedAt      TimeDisplay
 	EvidenceSummary  string
 	ErrorKind        string
 	Href             string

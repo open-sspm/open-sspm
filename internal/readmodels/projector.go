@@ -102,7 +102,7 @@ func (p *Projector) RebuildAllReadModels(ctx context.Context) error {
 		if err := refreshConnectorSourceState(ctx, q, p.cfg); err != nil {
 			return err
 		}
-		_, err := q.RefreshAllNonHumanPrincipalReadModels(ctx)
+		_, err := q.RefreshAllNonHumanPrincipalReadModelsSafely(ctx)
 		return err
 	})
 }
@@ -220,7 +220,7 @@ func refreshNonHumanPrincipalSource(ctx context.Context, q *gen.Queries, sourceK
 	if sourceKind == "" || sourceName == "" {
 		return nil
 	}
-	_, err := q.RefreshNonHumanPrincipalReadModelsBySource(ctx, gen.RefreshNonHumanPrincipalReadModelsBySourceParams{
+	_, err := q.RefreshNonHumanPrincipalReadModelsBySourceSafely(ctx, gen.RefreshNonHumanPrincipalReadModelsBySourceParams{
 		SourceKind: sourceKind,
 		SourceName: sourceName,
 	})

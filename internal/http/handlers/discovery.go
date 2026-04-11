@@ -115,12 +115,12 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 			Owner:                  ownerLabel,
 			ReviewOwner:            discoveryOwnerLabel(row.ReviewOwnerDisplayName, row.ReviewOwnerPrimaryEmail),
 			ReviewDisposition:      normalizeDiscoveryReviewDisposition(row.ReviewDisposition),
-			FollowUpDueDate:        formatDate(row.FollowUpDueDate),
+			FollowUpDueDate:        dateDisplay(row.FollowUpDueDate),
 			IsFollowUpOverdue:      row.IsFollowUpOverdue,
 			ReplacementDisplayName: strings.TrimSpace(row.ReplacementDisplayName),
 			TicketRef:              strings.TrimSpace(row.TicketRef),
 			Actors30d:              row.Actors30d,
-			LastSeenAt:             formatProgrammaticDate(row.LastSeenAt),
+			LastSeen:               calendarDateDisplay(row.LastSeenAt),
 		})
 	}
 
@@ -181,7 +181,7 @@ func (h *Handlers) HandleDiscoveryHotspots(c *echo.Context) error {
 			Owner:                  discoveryOwnerLabel(row.OwnerDisplayName, row.OwnerPrimaryEmail),
 			ReviewOwner:            discoveryOwnerLabel(row.ReviewOwnerDisplayName, row.ReviewOwnerPrimaryEmail),
 			ReviewDisposition:      normalizeDiscoveryReviewDisposition(row.ReviewDisposition),
-			FollowUpDueDate:        formatDate(row.FollowUpDueDate),
+			FollowUpDueDate:        dateDisplay(row.FollowUpDueDate),
 			IsFollowUpOverdue:      row.IsFollowUpOverdue,
 			ReplacementDisplayName: strings.TrimSpace(row.ReplacementDisplayName),
 			TicketRef:              strings.TrimSpace(row.TicketRef),
@@ -542,7 +542,7 @@ func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout vie
 			SourceAppID:     fallbackDash(strings.TrimSpace(source.SourceAppID)),
 			SourceAppName:   fallbackDash(strings.TrimSpace(source.SourceAppName)),
 			SourceAppDomain: fallbackDash(strings.TrimSpace(source.SourceAppDomain)),
-			LastObservedAt:  formatProgrammaticDate(source.LastObservedAt),
+			LastObservedAt:  calendarDateDisplay(source.LastObservedAt),
 		})
 	}
 
@@ -571,7 +571,7 @@ func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout vie
 		}
 		eventItems = append(eventItems, viewmodels.DiscoveryEventItem{
 			SignalKind:    strings.TrimSpace(event.SignalKind),
-			ObservedAt:    formatProgrammaticDate(event.ObservedAt),
+			ObservedAt:    calendarDateDisplay(event.ObservedAt),
 			Actor:         fallbackDash(actor),
 			SourceApp:     fallbackDash(sourceApp),
 			ScopesSummary: summarizeDiscoveryScopes(event.ScopesJson),
@@ -592,7 +592,7 @@ func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout vie
 			ActorEmail:      fallbackDash(strings.TrimSpace(actor.ActorEmail)),
 			ActorExternalID: fallbackDash(strings.TrimSpace(actor.ActorExternalID)),
 			EventCount:      actor.EventCount,
-			LastObservedAt:  formatProgrammaticDate(actor.LastObservedAt),
+			LastObservedAt:  calendarDateDisplay(actor.LastObservedAt),
 		})
 	}
 
@@ -606,12 +606,12 @@ func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout vie
 	historyItems := make([]viewmodels.DiscoveryReviewDecisionItem, 0, len(historyRows))
 	for _, row := range historyRows {
 		historyItems = append(historyItems, viewmodels.DiscoveryReviewDecisionItem{
-			ChangedAt:                formatProgrammaticDate(row.ChangedAt),
+			ChangedAt:                calendarDateDisplay(row.ChangedAt),
 			ChangedBy:                fallbackDash(strings.TrimSpace(row.ChangedByAuthUserEmail)),
 			Owner:                    discoveryOwnerLabel(row.OwnerDisplayName, row.OwnerPrimaryEmail),
 			ReviewOwner:              discoveryOwnerLabel(row.ReviewOwnerDisplayName, row.ReviewOwnerPrimaryEmail),
 			ReviewDisposition:        normalizeDiscoveryReviewDisposition(row.ReviewDisposition),
-			FollowUpDueDate:          formatDate(row.FollowUpDueDate),
+			FollowUpDueDate:          dateDisplay(row.FollowUpDueDate),
 			IsFollowUpOverdue:        false,
 			TicketRef:                strings.TrimSpace(row.TicketRef),
 			Notes:                    strings.TrimSpace(row.Notes),
@@ -626,7 +626,7 @@ func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout vie
 	if reviewDispositionInput == "" {
 		reviewDispositionInput = "unreviewed"
 	}
-	followUpDueDateInput := formatDate(app.FollowUpDueDate)
+	followUpDueDateInput := dateDisplay(app.FollowUpDueDate).Label
 	ticketRefInput := strings.TrimSpace(app.TicketRef)
 	notesInput := strings.TrimSpace(app.Notes)
 	replacementQueryInput := ""
@@ -669,14 +669,14 @@ func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout vie
 			Owner:                        discoveryOwnerLabel(app.OwnerDisplayName, app.OwnerPrimaryEmail),
 			ReviewOwner:                  discoveryOwnerLabel(app.ReviewOwnerDisplayName, app.ReviewOwnerPrimaryEmail),
 			ReviewDisposition:            normalizeDiscoveryReviewDisposition(app.ReviewDisposition),
-			FollowUpDueDate:              formatDate(app.FollowUpDueDate),
+			FollowUpDueDate:              dateDisplay(app.FollowUpDueDate),
 			IsFollowUpOverdue:            app.IsFollowUpOverdue,
 			TicketRef:                    strings.TrimSpace(app.TicketRef),
 			Notes:                        strings.TrimSpace(app.Notes),
 			ReplacementDisplayName:       strings.TrimSpace(app.ReplacementDisplayName),
 			ReplacementPrimaryDomain:     strings.TrimSpace(app.ReplacementPrimaryDomain),
-			FirstSeenAt:                  formatProgrammaticDate(app.FirstSeenAt),
-			LastSeenAt:                   formatProgrammaticDate(app.LastSeenAt),
+			FirstSeen:                    calendarDateDisplay(app.FirstSeenAt),
+			LastSeen:                     calendarDateDisplay(app.LastSeenAt),
 		},
 		Sources:                    sourceItems,
 		TopActors:                  actorItems,
@@ -912,11 +912,8 @@ func parseDateInput(value string) (pgtype.Date, error) {
 	return pgtype.Date{Time: parsed.UTC(), Valid: true}, nil
 }
 
-func formatDate(value pgtype.Date) string {
-	if !value.Valid {
-		return ""
-	}
-	return value.Time.UTC().Format("2006-01-02")
+func formatDate(value pgtype.Date) viewmodels.TimeDisplay {
+	return dateDisplay(value)
 }
 
 func isDateOverdue(value pgtype.Date) bool {

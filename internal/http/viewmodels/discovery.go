@@ -20,12 +20,12 @@ type DiscoveryAppListItem struct {
 	Owner                  string
 	ReviewOwner            string
 	ReviewDisposition      string
-	FollowUpDueDate        string
+	FollowUpDueDate        TimeDisplay
 	IsFollowUpOverdue      bool
 	ReplacementDisplayName string
 	TicketRef              string
 	Actors30d              int64
-	LastSeenAt             string
+	LastSeen               TimeDisplay
 }
 
 type DiscoveryAppsViewData struct {
@@ -47,7 +47,7 @@ type DiscoveryHotspotItem struct {
 	Owner                  string
 	ReviewOwner            string
 	ReviewDisposition      string
-	FollowUpDueDate        string
+	FollowUpDueDate        TimeDisplay
 	IsFollowUpOverdue      bool
 	ReplacementDisplayName string
 	TicketRef              string
@@ -70,7 +70,7 @@ type DiscoverySourceEvidenceItem struct {
 	SourceAppID     string
 	SourceAppName   string
 	SourceAppDomain string
-	LastObservedAt  string
+	LastObservedAt  TimeDisplay
 }
 
 type DiscoveryActorItem struct {
@@ -78,12 +78,12 @@ type DiscoveryActorItem struct {
 	ActorEmail      string
 	ActorExternalID string
 	EventCount      int64
-	LastObservedAt  string
+	LastObservedAt  TimeDisplay
 }
 
 type DiscoveryEventItem struct {
 	SignalKind    string
-	ObservedAt    string
+	ObservedAt    TimeDisplay
 	Actor         string
 	SourceApp     string
 	ScopesSummary string
@@ -104,14 +104,14 @@ type DiscoveryAppSummaryView struct {
 	Owner                        string
 	ReviewOwner                  string
 	ReviewDisposition            string
-	FollowUpDueDate              string
+	FollowUpDueDate              TimeDisplay
 	IsFollowUpOverdue            bool
 	TicketRef                    string
 	Notes                        string
 	ReplacementDisplayName       string
 	ReplacementPrimaryDomain     string
-	FirstSeenAt                  string
-	LastSeenAt                   string
+	FirstSeen                    TimeDisplay
+	LastSeen                     TimeDisplay
 }
 
 type DiscoveryReplacementCandidateItem struct {
@@ -132,12 +132,12 @@ type DiscoveryReplacementCandidatesViewData struct {
 }
 
 type DiscoveryReviewDecisionItem struct {
-	ChangedAt                string
+	ChangedAt                TimeDisplay
 	ChangedBy                string
 	Owner                    string
 	ReviewOwner              string
 	ReviewDisposition        string
-	FollowUpDueDate          string
+	FollowUpDueDate          TimeDisplay
 	IsFollowUpOverdue        bool
 	TicketRef                string
 	Notes                    string

@@ -471,14 +471,6 @@ func migrateUp(t *testing.T, migrator *migrate.Migrate) {
 	}
 }
 
-func migrateToVersion(t *testing.T, migrator *migrate.Migrate, version uint) {
-	t.Helper()
-
-	if err := migrator.Migrate(version); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		t.Fatalf("migrate to version %d: %v", version, err)
-	}
-}
-
 func insertSyncRun(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceKind, sourceName string) int64 {
 	t.Helper()
 

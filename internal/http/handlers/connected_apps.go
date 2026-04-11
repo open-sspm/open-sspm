@@ -264,7 +264,7 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 			"evidence_freshness":            strings.TrimSpace(summary.EvidenceFreshness),
 			"evidence_confidence":           strings.TrimSpace(summary.EvidenceConfidence),
 			"evidence_confidence_reason":    strings.TrimSpace(summary.EvidenceConfidenceReason),
-			"last_seen_at":                  formatProgrammaticDate(summary.EvidenceLastSeenAt),
+			"last_seen_at":                  calendarDateDisplay(summary.EvidenceLastSeenAt).Label,
 		},
 		"likely_owners":     owners,
 		"grant_inventory":   connectedAppGrantExport(grants),
@@ -518,7 +518,7 @@ func (h *Handlers) buildConnectedAppsViewData(ctx context.Context, layout viewmo
 			EvidenceFreshness:        strings.TrimSpace(row.EvidenceFreshness),
 			EvidenceConfidence:       strings.TrimSpace(row.EvidenceConfidence),
 			EvidenceConfidenceReason: strings.TrimSpace(row.EvidenceConfidenceReason),
-			LastSeenAt:               formatProgrammaticDate(row.EvidenceLastSeenAt),
+			LastSeen:                 calendarDateDisplay(row.EvidenceLastSeenAt),
 			TicketRef:                strings.TrimSpace(row.TicketRef),
 		})
 	}
@@ -606,7 +606,7 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 			RiskLevel:      strings.TrimSpace(row.RiskLevel),
 			ScopeSummary:   summarizeDiscoveryScopes(row.ScopeJson),
 			ScopeCount:     connectedAppScopeCount(row.ScopeJson),
-			LastUsedAt:     formatProgrammaticDate(maxTimestamp(row.LastUsedAtSource, row.LastObservedAt)),
+			LastUsedAt:     calendarDateDisplay(maxTimestamp(row.LastUsedAtSource, row.LastObservedAt)),
 			CanRevoke:      layout.IsAdmin && strings.TrimSpace(raw.UserKey) != "" && strings.TrimSpace(raw.ClientID) != "",
 		})
 	}
@@ -629,7 +629,7 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 			ManagedState:         strings.TrimSpace(source.DiscoveryManagedState),
 			RiskLevel:            strings.TrimSpace(source.DiscoveryRiskLevel),
 			SourceName:           fallbackDash(strings.TrimSpace(source.SourceName)),
-			LastObservedAt:       formatProgrammaticDate(source.LastObservedAt),
+			LastObservedAt:       calendarDateDisplay(source.LastObservedAt),
 		})
 	}
 
@@ -653,7 +653,7 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 		}
 		eventItems = append(eventItems, viewmodels.ConnectedAppDiscoveryEventItem{
 			SignalKind:    strings.TrimSpace(event.SignalKind),
-			ObservedAt:    formatProgrammaticDate(event.ObservedAt),
+			ObservedAt:    calendarDateDisplay(event.ObservedAt),
 			Actor:         fallbackDash(actor),
 			ScopesSummary: summarizeDiscoveryScopes(event.ScopesJson),
 		})
@@ -713,7 +713,7 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 			EvidenceFreshness:        strings.TrimSpace(summary.EvidenceFreshness),
 			EvidenceConfidence:       strings.TrimSpace(summary.EvidenceConfidence),
 			EvidenceConfidenceReason: strings.TrimSpace(summary.EvidenceConfidenceReason),
-			LastSeenAt:               formatProgrammaticDate(summary.EvidenceLastSeenAt),
+			LastSeen:                 calendarDateDisplay(summary.EvidenceLastSeenAt),
 			ExportHref:               canonicalAppAssetDetailURL(summary.ID) + "/export",
 		},
 		LikelyOwners:         likelyOwners,
@@ -760,7 +760,7 @@ func (h *Handlers) renderAppAssetShow(c *echo.Context, appID int64, opts connect
 			ExternalID:       oauthData.App.ExternalID,
 			ParentExternalID: "—",
 			Status:           oauthData.App.Status,
-			LastObservedAt:   oauthData.App.LastSeenAt,
+			LastObservedAt:   oauthData.App.LastSeen,
 		},
 		GoogleOAuthView: &oauthData,
 	}
@@ -829,7 +829,7 @@ func connectedAppGrantExport(rows []gen.ListCredentialArtifactsForAssetRefRow) [
 			"scope_summary":           summarizeDiscoveryScopes(row.ScopeJson),
 			"scope_json":              json.RawMessage(row.ScopeJson),
 			"raw_json":                json.RawMessage(row.RawJson),
-			"last_used_at":            formatProgrammaticDate(maxTimestamp(row.LastUsedAtSource, row.LastObservedAt)),
+			"last_used_at":            calendarDateDisplay(maxTimestamp(row.LastUsedAtSource, row.LastObservedAt)).Label,
 		})
 	}
 	return out

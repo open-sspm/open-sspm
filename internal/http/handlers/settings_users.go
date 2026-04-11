@@ -501,12 +501,7 @@ func (h *Handlers) buildSettingsUsersViewData(ctx context.Context, c *echo.Conte
 		role := strings.ToLower(strings.TrimSpace(row.Role))
 		isSelf := principal.UserID == row.ID
 		isLastAdmin := row.IsActive && role == auth.RoleAdmin && adminCount == 1
-		lastLogin := "Never"
-		lastLoginTitle := "Never logged in"
-		if row.LastLoginAt.Valid {
-			lastLogin = formatAge(now, row.LastLoginAt.Time)
-			lastLoginTitle = row.LastLoginAt.Time.UTC().Format("Jan 2, 2006 3:04 PM UTC")
-		}
+		lastLogin := relativeWithTitleDisplay(now, row.LastLoginAt, "Never", "Never logged in")
 
 		users = append(users, viewmodels.SettingsUsersUserItem{
 			ID:             row.ID,
@@ -514,7 +509,6 @@ func (h *Handlers) buildSettingsUsersViewData(ctx context.Context, c *echo.Conte
 			Role:           role,
 			IsActive:       row.IsActive,
 			LastLogin:      lastLogin,
-			LastLoginTitle: lastLoginTitle,
 			IsSelf:         isSelf,
 			IsLastAdmin:    isLastAdmin,
 			CanEditRole:    !isSelf && !isLastAdmin,

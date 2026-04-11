@@ -10,8 +10,7 @@ type SettingsUsersUserItem struct {
 	Email          string
 	Role           string
 	IsActive       bool
-	LastLogin      string
-	LastLoginTitle string
+	LastLogin      TimeDisplay
 	IsSelf         bool
 	IsLastAdmin    bool
 	CanEditRole    bool

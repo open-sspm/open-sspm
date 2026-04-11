@@ -25,7 +25,7 @@ type ConnectedAppListItem struct {
 	EvidenceFreshness        string
 	EvidenceConfidence       string
 	EvidenceConfidenceReason string
-	LastSeenAt               string
+	LastSeen                 TimeDisplay
 	TicketRef                string
 }
 
@@ -58,7 +58,7 @@ type ConnectedAppSummaryView struct {
 	EvidenceFreshness        string
 	EvidenceConfidence       string
 	EvidenceConfidenceReason string
-	LastSeenAt               string
+	LastSeen                 TimeDisplay
 	ExportHref               string
 }
 
@@ -73,7 +73,7 @@ type ConnectedAppGrantItem struct {
 	RiskLevel      string
 	ScopeSummary   string
 	ScopeCount     int
-	LastUsedAt     string
+	LastUsedAt     TimeDisplay
 	CanRevoke      bool
 }
 
@@ -85,12 +85,12 @@ type ConnectedAppDiscoverySourceItem struct {
 	ManagedState         string
 	RiskLevel            string
 	SourceName           string
-	LastObservedAt       string
+	LastObservedAt       TimeDisplay
 }
 
 type ConnectedAppDiscoveryEventItem struct {
 	SignalKind    string
-	ObservedAt    string
+	ObservedAt    TimeDisplay
 	Actor         string
 	ScopesSummary string
 }

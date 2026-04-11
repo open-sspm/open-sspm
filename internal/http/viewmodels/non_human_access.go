@@ -13,8 +13,7 @@ type NonHumanAccessListItem struct {
 	SecondaryName          string
 	LinkedAssetsCount      int64
 	LinkedCredentialsCount int64
-	LastSeenOn             string
-	LastSeenRelative       string
+	LastSeen               TimeDisplay
 	ActivityState          string
 	FreshnessState         string
 	GovernanceState        string
@@ -45,8 +44,7 @@ type NonHumanAccessSummaryView struct {
 	SourceName                   string
 	LinkedAssetsCount            int64
 	LinkedCredentialsCount       int64
-	LastSeenOn                   string
-	LastSeenRelative             string
+	LastSeen                     TimeDisplay
 	ActivityState                string
 	FreshnessState               string
 	GovernanceState              string
@@ -79,7 +77,7 @@ type NonHumanAccessRelatedAssetItem struct {
 	LinkedCredentials   int64
 	EvidenceFreshness   string
 	EvidenceConfidence  string
-	EvidenceSeenOn      string
+	EvidenceSeen        TimeDisplay
 }
 
 type NonHumanAccessRelatedCredentialItem struct {
@@ -92,8 +90,8 @@ type NonHumanAccessRelatedCredentialItem struct {
 	ExternalID      string
 	Status          string
 	RiskLevel       string
-	ExpiresAt       string
-	LastUsedAt      string
+	ExpiresAt       TimeDisplay
+	LastUsedAt      TimeDisplay
 	CreatedBy       string
 	CreatedByHref   string
 	ApprovedBy      string
