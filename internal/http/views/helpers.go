@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
 func FormatInt(v int) string {
@@ -20,6 +22,24 @@ func FilterPillClass(active bool) string {
 		return "inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-foreground no-underline"
 	}
 	return "inline-flex items-center rounded-md px-2.5 py-1 text-xs text-muted-foreground no-underline hover:bg-muted/60 hover:text-foreground"
+}
+
+func FindingsRulesetFilterCount(data viewmodels.FindingsRulesetViewData) int {
+	count := 0
+	if strings.TrimSpace(data.StatusFilter) != "" {
+		count++
+	}
+	if strings.TrimSpace(data.SeverityFilter) != "" {
+		count++
+	}
+	if strings.TrimSpace(data.MonitoringFilter) != "" {
+		count++
+	}
+	return count
+}
+
+func FindingsRulesetClearFiltersHref(data viewmodels.FindingsRulesetViewData) string {
+	return "/findings/rulesets/" + strings.TrimSpace(data.Ruleset.Key)
 }
 
 func AppDetailURL(integratedHref, externalID string) string {

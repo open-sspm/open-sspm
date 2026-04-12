@@ -30,8 +30,8 @@ templ UnmatchedAWSPage(data viewmodels.UnmatchedAWSViewData) {
 			}
 		}
 
-		<form method="get" class="space-y-4 border-b border-border/70 pb-5">
-			<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+			<form method="get" class="osspm-list-form">
+				<div class="osspm-list-toolbar">
 				<label class="field w-full lg:max-w-xl">
 					<span class="sr-only">Query</span>
 					<div class="relative">
@@ -45,7 +45,7 @@ templ UnmatchedAWSPage(data viewmodels.UnmatchedAWSViewData) {
 						}
 					</div>
 				</label>
-				<div class="text-sm text-muted-foreground lg:text-right">
+					<div class="osspm-list-summary">
 					if data.TotalCount > 0 {
 						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
 					} else {
@@ -57,7 +57,7 @@ templ UnmatchedAWSPage(data viewmodels.UnmatchedAWSViewData) {
 		</form>
 
 		<section class="space-y-3">
-			<div class="flex items-center gap-3">
+				<div class="osspm-list-section-header">
 				<div>
 					<h2 class="text-base font-semibold">Unlinked AWS Identity Center users</h2>
 					<p class="text-sm text-muted-foreground">Unlinked AWS Identity Center users awaiting identity linking.</p>
@@ -121,7 +121,7 @@ templ UnmatchedAWSPage(data viewmodels.UnmatchedAWSViewData) {
 				</table>
 			}
 			if data.TotalPages > 1 {
-				<div class="flex flex-wrap items-center gap-3 border-t py-3">
+					<div class="osspm-list-pagination">
 						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
 						<div class="button-group ml-auto">
 							if data.Page > 1 {

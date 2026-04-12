@@ -67,6 +67,10 @@ func (q AppsQuery) ClearPanelFilters() AppsQuery {
 	return q
 }
 
+func (q AppsQuery) ClearFilters() AppsQuery {
+	return q.ClearPanelFilters()
+}
+
 func (q AppsQuery) HasFilters() bool {
 	return q.Q != "" || q.Integration != "" || q.Status != ""
 }

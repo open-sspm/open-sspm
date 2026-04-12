@@ -25,11 +25,11 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 			hx-target="#apps-results"
 			hx-swap="outerHTML"
 			hx-push-url="true"
-			class="border-b border-border/70 pb-5"
+			class="osspm-list-form"
 		>
 			<input type="hidden" name="integration" value={ data.Query.Integration }/>
 			<input type="hidden" name="status" value={ data.Query.Status }/>
-			<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+			<div class="osspm-list-toolbar">
 				<div class="flex flex-1 items-center gap-2 lg:max-w-xl">
 					<label class="field flex-1">
 						<span class="sr-only">Search apps</span>
@@ -50,91 +50,78 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 							}
 						</div>
 					</label>
-					<details class="relative osspm-filters-disclosure" open?={ data.Query.FilterCount() > 0 }>
-						<summary class="inline-flex cursor-pointer list-none items-center gap-1.5 whitespace-nowrap rounded-md border border-border px-3 h-9 text-sm select-none transition-colors hover:bg-muted/50">
-							@IconFilter("h-4 w-4 text-muted-foreground")
-							Filters
-							if data.Query.FilterCount() > 0 {
-								<span class="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-medium text-primary-foreground">
-									{ strconv.Itoa(data.Query.FilterCount()) }
-								</span>
-							}
-						</summary>
-						<div class="filter-popover absolute left-0 top-full z-20 mt-2 w-72 rounded-lg border border-border bg-popover p-4 shadow-lg">
-							<div class="space-y-4">
-								<div class="space-y-2">
-									<p class="text-xs font-medium text-muted-foreground">Integration</p>
-									<div class="flex flex-wrap items-center gap-1.5">
-										<a
-											class={ FilterPillClass(data.Query.Integration == "") }
-											href={ data.Query.WithIntegration("").Href() }
-											hx-get={ data.Query.WithIntegration("").Href() }
-											hx-target="#apps-results"
-											hx-swap="outerHTML"
-											hx-push-url="true"
-										>All</a>
-										<a
-											class={ FilterPillClass(data.Query.Integration == "connected") }
-											href={ data.Query.WithIntegration("connected").Href() }
-											hx-get={ data.Query.WithIntegration("connected").Href() }
-											hx-target="#apps-results"
-											hx-swap="outerHTML"
-											hx-push-url="true"
-										>Connected</a>
-										<a
-											class={ FilterPillClass(data.Query.Integration == "not_connected") }
-											href={ data.Query.WithIntegration("not_connected").Href() }
-											hx-get={ data.Query.WithIntegration("not_connected").Href() }
-											hx-target="#apps-results"
-											hx-swap="outerHTML"
-											hx-push-url="true"
-										>Not connected</a>
-									</div>
+						@FilterPopover("Filters", data.Query.FilterCount(), data.Query.FilterCount() > 0, "w-[min(92vw,24rem)] space-y-4") {
+							<div class="space-y-2">
+								<p class="text-xs font-medium text-muted-foreground">Integration</p>
+								<div class="flex flex-wrap items-center gap-1.5">
+									<a
+										class={ FilterPillClass(data.Query.Integration == "") }
+										href={ data.Query.WithIntegration("").Href() }
+										hx-get={ data.Query.WithIntegration("").Href() }
+										hx-target="#apps-results"
+										hx-swap="outerHTML"
+										hx-push-url="true"
+									>All</a>
+									<a
+										class={ FilterPillClass(data.Query.Integration == "connected") }
+										href={ data.Query.WithIntegration("connected").Href() }
+										hx-get={ data.Query.WithIntegration("connected").Href() }
+										hx-target="#apps-results"
+										hx-swap="outerHTML"
+										hx-push-url="true"
+									>Connected</a>
+									<a
+										class={ FilterPillClass(data.Query.Integration == "not_connected") }
+										href={ data.Query.WithIntegration("not_connected").Href() }
+										hx-get={ data.Query.WithIntegration("not_connected").Href() }
+										hx-target="#apps-results"
+										hx-swap="outerHTML"
+										hx-push-url="true"
+									>Not connected</a>
 								</div>
-								<div class="h-px bg-border/50"></div>
-								<div class="space-y-2">
-									<p class="text-xs font-medium text-muted-foreground">Status</p>
-									<div class="flex flex-wrap items-center gap-1.5">
-										<a
-											class={ FilterPillClass(data.Query.Status == "") }
-											href={ data.Query.WithStatus("").Href() }
-											hx-get={ data.Query.WithStatus("").Href() }
-											hx-target="#apps-results"
-											hx-swap="outerHTML"
-											hx-push-url="true"
-										>Any</a>
-										for _, status := range data.StatusOptions {
-											<a
-												class={ FilterPillClass(data.Query.Status == status) }
-												href={ data.Query.WithStatus(status).Href() }
-												hx-get={ data.Query.WithStatus(status).Href() }
-												hx-target="#apps-results"
-												hx-swap="outerHTML"
-												hx-push-url="true"
-											>{ fallbackHumanized(status) }</a>
-										}
-									</div>
-								</div>
-								if data.Query.FilterCount() > 0 {
-									<div class="border-t border-border/60 pt-3">
-										<a
-											class="text-xs text-muted-foreground no-underline hover:text-foreground"
-											href={ data.Query.ClearPanelFilters().Href() }
-											hx-get={ data.Query.ClearPanelFilters().Href() }
-											hx-target="#apps-results"
-											hx-swap="outerHTML"
-											hx-push-url="true"
-										>Clear all filters</a>
-									</div>
-								}
 							</div>
-						</div>
-					</details>
-				</div>
-				<p class="text-sm tabular-nums text-muted-foreground lg:text-right">
-					if data.TotalCount > 0 {
-						<span class="font-medium text-foreground">{ FormatInt64(data.TotalCount) }</span>
-						if data.Query.HasFilters() {
+							<div class="h-px bg-border/50"></div>
+							<div class="space-y-2">
+								<p class="text-xs font-medium text-muted-foreground">Status</p>
+								<div class="flex flex-wrap items-center gap-1.5">
+									<a
+										class={ FilterPillClass(data.Query.Status == "") }
+										href={ data.Query.WithStatus("").Href() }
+										hx-get={ data.Query.WithStatus("").Href() }
+										hx-target="#apps-results"
+										hx-swap="outerHTML"
+										hx-push-url="true"
+									>Any</a>
+									for _, status := range data.StatusOptions {
+										<a
+											class={ FilterPillClass(data.Query.Status == status) }
+											href={ data.Query.WithStatus(status).Href() }
+											hx-get={ data.Query.WithStatus(status).Href() }
+											hx-target="#apps-results"
+											hx-swap="outerHTML"
+											hx-push-url="true"
+										>{ fallbackHumanized(status) }</a>
+									}
+								</div>
+							</div>
+							if data.Query.FilterCount() > 0 {
+								<div class="border-t border-border/60 pt-3">
+									<a
+										class="text-xs text-muted-foreground no-underline hover:text-foreground"
+										href={ data.Query.ClearFilters().Href() }
+										hx-get={ data.Query.ClearFilters().Href() }
+										hx-target="#apps-results"
+										hx-swap="outerHTML"
+										hx-push-url="true"
+									>Clear all filters</a>
+								</div>
+							}
+						}
+					</div>
+					<p class="osspm-list-summary">
+						if data.TotalCount > 0 {
+							<span class="font-medium text-foreground">{ FormatInt64(data.TotalCount) }</span>
+							if data.Query.HasFilters() {
 							{ " results" }
 						} else {
 							{ " apps" }
@@ -154,21 +141,21 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 					@AppRowMobile(app, data.Layout.IsAdmin, data.Layout.CSRFToken, i)
 				}
 			</div>
-			<!-- Desktop table -->
-			<div class="hidden lg:block">
-				<div class="overflow-x-auto">
-					<table class="w-full text-sm">
-						<caption class="sr-only">Assigned apps with status, sign-on mode, and integration state.</caption>
-						<thead>
-							<tr class="border-b border-border/60">
-								<th class="pb-2.5 pr-3 text-left text-xs font-medium tracking-wide text-muted-foreground">App</th>
-								<th class="pb-2.5 px-3 text-left text-xs font-medium tracking-wide text-muted-foreground w-28">Status</th>
-								<th class="pb-2.5 px-3 text-left text-xs font-medium tracking-wide text-muted-foreground w-40">Sign-on</th>
-								<th class="pb-2.5 px-3 text-left text-xs font-medium tracking-wide text-muted-foreground w-32">Integration</th>
-								<th class="pb-2.5 pl-3 text-right text-xs font-medium tracking-wide text-muted-foreground w-28"></th>
-							</tr>
-						</thead>
-						<tbody>
+				<!-- Desktop table -->
+				<div class="hidden lg:block">
+					<div class="overflow-x-auto">
+						<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+							<caption class="sr-only">Assigned apps with status, sign-on mode, and integration state.</caption>
+							<thead>
+								<tr>
+									<th class="pr-3 text-left text-xs font-medium tracking-wide text-muted-foreground">App</th>
+									<th class="w-28 px-3 text-left text-xs font-medium tracking-wide text-muted-foreground">Status</th>
+									<th class="w-40 px-3 text-left text-xs font-medium tracking-wide text-muted-foreground">Sign-on</th>
+									<th class="w-32 px-3 text-left text-xs font-medium tracking-wide text-muted-foreground">Integration</th>
+									<th class="w-28 pl-3 text-right text-xs font-medium tracking-wide text-muted-foreground"></th>
+								</tr>
+							</thead>
+							<tbody>
 							for i, app := range data.Apps {
 								@AppRowDesktop(app, data.Layout.IsAdmin, data.Layout.CSRFToken, i)
 							}
@@ -178,13 +165,13 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 			</div>
 		} else {
 			@EmptyState("No apps found", data.EmptyStateMsg)
-		}
+			}
 
-		if data.TotalPages > 1 {
-			<div class="flex flex-col items-center gap-3 border-t border-border/60 pt-4 sm:flex-row sm:justify-between">
-				<p class="text-sm tabular-nums text-muted-foreground">
-					{ FormatInt(data.ShowingFrom) }–{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
-				</p>
+			if data.TotalPages > 1 {
+				<div class="osspm-list-pagination-split">
+					<p class="text-sm tabular-nums text-muted-foreground">
+						{ FormatInt(data.ShowingFrom) }–{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+					</p>
 				<div class="button-group">
 					if data.Page > 1 {
 						<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#apps-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
@@ -204,7 +191,7 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 
 templ AppRowDesktop(app viewmodels.AppListItem, isAdmin bool, csrfToken string, index int) {
 	<tr
-		class="app-row group border-b border-border/40 last:border-0 transition-colors hover:bg-muted/30"
+		class="app-row group cursor-pointer"
 		style={ "animation-delay:" + strconv.Itoa(index*25) + "ms" }
 		data-row-href={ AppDetailURL(app.IntegratedHref, app.ExternalID) }
 	>

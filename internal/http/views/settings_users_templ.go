@@ -110,7 +110,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " <section class=\"space-y-3\"><div><h2 class=\"text-base font-semibold\">Team Management</h2></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " <section class=\"space-y-3\"><div class=\"osspm-list-section-header\"><h2 class=\"text-base font-semibold\">Team Management</h2></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

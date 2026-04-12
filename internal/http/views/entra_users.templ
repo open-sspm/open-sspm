@@ -31,8 +31,8 @@ templ EntraUsersPage(data viewmodels.EntraUsersViewData) {
 			}
 		}
 
-		<form method="get" class="space-y-4 border-b border-border/70 pb-5">
-			<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+			<form method="get" class="osspm-list-form">
+				<div class="osspm-list-toolbar">
 				<label class="field w-full lg:max-w-xl">
 					<span class="sr-only">Query</span>
 					<div class="relative">
@@ -46,7 +46,7 @@ templ EntraUsersPage(data viewmodels.EntraUsersViewData) {
 						}
 					</div>
 				</label>
-				<div class="text-sm text-muted-foreground lg:text-right">
+					<div class="osspm-list-summary">
 					if data.TotalCount > 0 {
 						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
 					} else {
@@ -58,7 +58,7 @@ templ EntraUsersPage(data viewmodels.EntraUsersViewData) {
 		</form>
 
 		<section class="space-y-3">
-			<div class="flex items-center gap-3">
+				<div class="osspm-list-section-header">
 				<div>
 					<h2 class="text-base font-semibold">Microsoft Entra ID users</h2>
 					<p class="text-sm text-muted-foreground">Microsoft Entra ID users and their access entitlements.</p>
@@ -121,7 +121,7 @@ templ EntraUsersPage(data viewmodels.EntraUsersViewData) {
 				</table>
 			}
 			if data.TotalPages > 1 {
-				<div class="flex flex-wrap items-center gap-3 border-t py-3">
+					<div class="osspm-list-pagination">
 						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
 						<div class="button-group ml-auto">
 							if data.Page > 1 {

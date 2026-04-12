@@ -69,7 +69,7 @@ func FindingsPage(data viewmodels.FindingsRulesetsViewData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if data.HasRulesets {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<section class=\"space-y-3\"><div class=\"flex items-center gap-3\"></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<section class=\"space-y-3\"><div class=\"osspm-list-section-header\"></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

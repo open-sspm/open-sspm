@@ -25,183 +25,142 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 			hx-target="#identities-results"
 			hx-swap="outerHTML"
 			hx-push-url="true"
-			class="space-y-4 border-b border-border/70 pb-5"
-		>
-			<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-				<label class="field w-full lg:max-w-xl">
-					<span class="sr-only">Query</span>
-					<div class="relative">
-							<input type="search" name="q" value={ data.Query.Q } placeholder="Search name, email, or external ID" class="input pr-10"/>
-							if data.Query.Q != "" {
-								<a
-									class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
-									aria-label="Clear query"
-									href={ data.Query.ClearQuery().Href() }
-									hx-get={ data.Query.ClearQuery().Href() }
-								hx-target="#identities-results"
-								hx-swap="outerHTML"
-								hx-push-url="true"
-							>
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
-									<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
-								</svg>
-							</a>
-						}
+				class="osspm-list-form"
+			>
+					<div class="osspm-list-toolbar">
+						<div class="flex flex-1 items-center gap-2 lg:max-w-xl">
+							<label class="field flex-1">
+								<span class="sr-only">Query</span>
+								<div class="relative">
+									<input type="search" name="q" value={ data.Query.Q } placeholder="Search name, email, or external ID" class="input pr-10"/>
+									if data.Query.Q != "" {
+										<a
+											class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
+											aria-label="Clear query"
+											href={ data.Query.ClearQuery().Href() }
+											hx-get={ data.Query.ClearQuery().Href() }
+											hx-target="#identities-results"
+											hx-swap="outerHTML"
+											hx-push-url="true"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+												<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
+											</svg>
+										</a>
+									}
+								</div>
+							</label>
+							@FilterPopover("Filters", data.Query.FilterCount(), data.Query.FilterCount() > 0, "w-[min(92vw,48rem)] space-y-4") {
+								<div class="space-y-2">
+									<p class="text-xs font-medium text-muted-foreground">Activity</p>
+									<div class="flex flex-wrap items-center gap-1.5">
+										<a class={ FilterPillClass(data.Query.ActivityState == "") } href={ data.Query.WithActivityState("").Href() } hx-get={ data.Query.WithActivityState("").Href() } hx-target="#identities-results" hx-swap="outerHTML" hx-push-url="true">Any activity</a>
+										<a class={ FilterPillClass(data.Query.ActivityState == "recent") } href={ data.Query.WithActivityState("recent").Href() } hx-get={ data.Query.WithActivityState("recent").Href() } hx-target="#identities-results" hx-swap="outerHTML" hx-push-url="true">Seen &lt; 30d</a>
+										<a class={ FilterPillClass(data.Query.ActivityState == "aging") } href={ data.Query.WithActivityState("aging").Href() } hx-get={ data.Query.WithActivityState("aging").Href() } hx-target="#identities-results" hx-swap="outerHTML" hx-push-url="true">30-89d</a>
+										<a class={ FilterPillClass(data.Query.ActivityState == "stale") } href={ data.Query.WithActivityState("stale").Href() } hx-get={ data.Query.WithActivityState("stale").Href() } hx-target="#identities-results" hx-swap="outerHTML" hx-push-url="true">90d+</a>
+										<a class={ FilterPillClass(data.Query.ActivityState == "never_seen") } href={ data.Query.WithActivityState("never_seen").Href() } hx-get={ data.Query.WithActivityState("never_seen").Href() } hx-target="#identities-results" hx-swap="outerHTML" hx-push-url="true">Never seen</a>
+									</div>
+								</div>
+								<div class="space-y-2">
+									<p class="text-xs font-medium text-muted-foreground">Access</p>
+									<div class="flex flex-wrap items-center gap-1.5">
+										<a class={ FilterPillClass(!data.Query.PrivilegedOnly) } href={ data.Query.WithPrivilegedOnly(false).Href() } hx-get={ data.Query.WithPrivilegedOnly(false).Href() } hx-target="#identities-results" hx-swap="outerHTML" hx-push-url="true">All identities</a>
+										<a class={ FilterPillClass(data.Query.PrivilegedOnly) } href={ data.Query.WithPrivilegedOnly(true).Href() } hx-get={ data.Query.WithPrivilegedOnly(true).Href() } hx-target="#identities-results" hx-swap="outerHTML" hx-push-url="true">
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="mr-1 h-3 w-3" aria-hidden="true">
+												<path fill-rule="evenodd" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7A1.5 1.5 0 0 0 3 8.5v4A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5v-4A1.5 1.5 0 0 0 11 7V4.5A3.5 3.5 0 0 0 8 1Zm2 6V4.5a2 2 0 1 0-4 0V7h4Z" clip-rule="evenodd"/>
+											</svg>
+											Privileged only
+										</a>
+									</div>
+								</div>
+								<div class="h-px bg-border/50"></div>
+								<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+									<label class="field">
+										<span class="label">Status</span>
+										<select class="select" name="status">
+											<option value="" selected?={ data.Query.Status == "" }>Any</option>
+											<option value="active" selected?={ data.Query.Status == "active" }>Active</option>
+											<option value="suspended" selected?={ data.Query.Status == "suspended" }>Suspended</option>
+											<option value="orphaned" selected?={ data.Query.Status == "orphaned" }>Orphaned</option>
+											<option value="deleted" selected?={ data.Query.Status == "deleted" }>Deleted</option>
+											<option value="unknown" selected?={ data.Query.Status == "unknown" }>Unknown</option>
+										</select>
+									</label>
+									<label class="field">
+										<span class="label">Source</span>
+										<select class="select" name="source_kind">
+											<option value="" selected?={ data.Query.Source.Kind == "" }>All configured</option>
+											for _, source := range data.Sources {
+												<option value={ source.SourceKind } selected?={ source.SourceKind == data.Query.Source.Kind } title={ source.Label }>{ source.Label }</option>
+											}
+										</select>
+									</label>
+									<label class="field">
+										<span class="label">Source name</span>
+										<select class="select" name="source_name">
+											<option value="" selected?={ data.Query.Source.Name == "" }>All source names</option>
+											for _, source := range data.SourceNameOptions {
+												<option value={ source.SourceName } selected?={ source.SourceName == data.Query.Source.Name }>{ source.SourceName }</option>
+											}
+										</select>
+									</label>
+									<label class="field">
+										<span class="label">Type</span>
+										<select class="select" name="identity_type">
+											<option value="" selected?={ data.Query.IdentityType == "" }>Any</option>
+											<option value="human" selected?={ data.Query.IdentityType == "human" }>Human</option>
+											<option value="service" selected?={ data.Query.IdentityType == "service" }>Service</option>
+											<option value="bot" selected?={ data.Query.IdentityType == "bot" }>Bot</option>
+											<option value="unknown" selected?={ data.Query.IdentityType == "unknown" }>Unknown</option>
+										</select>
+									</label>
+									<label class="field">
+										<span class="label">Managed</span>
+										<select class="select" name="managed_state">
+											<option value="" selected?={ data.Query.ManagedState == "" }>Any</option>
+											<option value="managed" selected?={ data.Query.ManagedState == "managed" }>Managed</option>
+											<option value="unmanaged" selected?={ data.Query.ManagedState == "unmanaged" }>Unmanaged</option>
+										</select>
+									</label>
+									<label class="field">
+										<span class="label">Sort</span>
+										<select class="select" name="sort_by">
+											<option value="" selected?={ data.Query.SortBy == "" }>Priority (default)</option>
+											<option value="identity" selected?={ data.Query.SortBy == "identity" }>Identity</option>
+											<option value="identity_type" selected?={ data.Query.SortBy == "identity_type" }>Identity type</option>
+											<option value="managed" selected?={ data.Query.SortBy == "managed" }>Managed</option>
+											<option value="source_type" selected?={ data.Query.SortBy == "source_type" }>Source type</option>
+											<option value="linked_sources" selected?={ data.Query.SortBy == "linked_sources" }>Linked sources</option>
+											<option value="privileged_roles" selected?={ data.Query.SortBy == "privileged_roles" }>Privileged roles</option>
+											<option value="status" selected?={ data.Query.SortBy == "status" }>Status</option>
+											<option value="last_seen" selected?={ data.Query.SortBy == "last_seen" }>Last seen</option>
+										</select>
+									</label>
+									<label class="field">
+										<span class="label">Direction</span>
+										<select class="select" name="sort_dir">
+											<option value="desc" selected?={ data.Query.SortDir == "desc" || data.Query.SortDir == "" }>Descending</option>
+											<option value="asc" selected?={ data.Query.SortDir == "asc" }>Ascending</option>
+										</select>
+									</label>
+								</div>
+								if data.Query.FilterCount() > 0 {
+									<div class="border-t border-border/60 pt-3">
+										<a class="text-xs text-muted-foreground no-underline hover:text-foreground" href={ data.Query.ClearFilters().Href() } hx-get={ data.Query.ClearFilters().Href() } hx-target="#identities-results" hx-swap="outerHTML" hx-push-url="true">Clear all filters</a>
+									</div>
+								}
+							}
+						</div>
+						<div class="osspm-list-summary">
+							if data.TotalCount > 0 {
+								{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+							} else {
+								Showing 0
+							}
+						</div>
 					</div>
-				</label>
-				<div class="text-sm text-muted-foreground lg:text-right">
-					if data.TotalCount > 0 {
-						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
-					} else {
-						Showing 0
-					}
-				</div>
-			</div>
-			<div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Activity filters">
-				<a
-						class={ FilterPillClass(data.Query.ActivityState == "") }
-						href={ data.Query.WithActivityState("").Href() }
-						hx-get={ data.Query.WithActivityState("").Href() }
-					hx-target="#identities-results"
-					hx-swap="outerHTML"
-					hx-push-url="true"
-				>
-					Any activity
-				</a>
-				<a
-						class={ FilterPillClass(data.Query.ActivityState == "recent") }
-						href={ data.Query.WithActivityState("recent").Href() }
-						hx-get={ data.Query.WithActivityState("recent").Href() }
-					hx-target="#identities-results"
-					hx-swap="outerHTML"
-					hx-push-url="true"
-				>
-					Seen &lt; 30d
-				</a>
-				<a
-						class={ FilterPillClass(data.Query.ActivityState == "aging") }
-						href={ data.Query.WithActivityState("aging").Href() }
-						hx-get={ data.Query.WithActivityState("aging").Href() }
-					hx-target="#identities-results"
-					hx-swap="outerHTML"
-					hx-push-url="true"
-				>
-					30-89d
-				</a>
-				<a
-						class={ FilterPillClass(data.Query.ActivityState == "stale") }
-						href={ data.Query.WithActivityState("stale").Href() }
-						hx-get={ data.Query.WithActivityState("stale").Href() }
-					hx-target="#identities-results"
-					hx-swap="outerHTML"
-					hx-push-url="true"
-				>
-					90d+
-				</a>
-				<a
-						class={ FilterPillClass(data.Query.ActivityState == "never_seen") }
-						href={ data.Query.WithActivityState("never_seen").Href() }
-						hx-get={ data.Query.WithActivityState("never_seen").Href() }
-					hx-target="#identities-results"
-					hx-swap="outerHTML"
-					hx-push-url="true"
-				>
-					Never seen
-				</a>
-				<span class="mx-2 h-4 w-px bg-border" aria-hidden="true"></span>
-				<a
-						class={ FilterPillClass(data.Query.PrivilegedOnly) }
-						href={ data.Query.TogglePrivilegedOnly().Href() }
-						hx-get={ data.Query.TogglePrivilegedOnly().Href() }
-					hx-target="#identities-results"
-					hx-swap="outerHTML"
-					hx-push-url="true"
-				>
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="mr-1 h-3 w-3" aria-hidden="true">
-						<path fill-rule="evenodd" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7A1.5 1.5 0 0 0 3 8.5v4A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5v-4A1.5 1.5 0 0 0 11 7V4.5A3.5 3.5 0 0 0 8 1Zm2 6V4.5a2 2 0 1 0-4 0V7h4Z" clip-rule="evenodd"/>
-					</svg>
-					Privileged only
-				</a>
-			</div>
-			<details class="group">
-				<summary class="inline-flex cursor-pointer list-none items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-					<span class="text-base leading-none group-open:hidden">+</span>
-					<span class="text-base leading-none hidden group-open:inline">−</span>
-					<span>More filters and sorting</span>
-				</summary>
-				<div class="mt-4 grid gap-4 rounded-lg border border-border/70 bg-muted/15 p-4 md:grid-cols-3 xl:grid-cols-6">
-					<label class="field">
-						<span class="label">Status</span>
-						<select class="select" name="status">
-								<option value="" selected?={ data.Query.Status == "" }>Any</option>
-								<option value="active" selected?={ data.Query.Status == "active" }>Active</option>
-								<option value="suspended" selected?={ data.Query.Status == "suspended" }>Suspended</option>
-								<option value="orphaned" selected?={ data.Query.Status == "orphaned" }>Orphaned</option>
-								<option value="deleted" selected?={ data.Query.Status == "deleted" }>Deleted</option>
-								<option value="unknown" selected?={ data.Query.Status == "unknown" }>Unknown</option>
-						</select>
-					</label>
-					<label class="field">
-						<span class="label">Source</span>
-						<select class="select" name="source_kind">
-								<option value="" selected?={ data.Query.Source.Kind == "" }>All configured</option>
-								for _, source := range data.Sources {
-									<option value={ source.SourceKind } selected?={ source.SourceKind == data.Query.Source.Kind } title={ source.Label }>{ source.Label }</option>
-								}
-							</select>
-						</label>
-					<label class="field">
-						<span class="label">Source name</span>
-						<select class="select" name="source_name">
-								<option value="" selected?={ data.Query.Source.Name == "" }>All source names</option>
-								for _, source := range data.SourceNameOptions {
-									<option value={ source.SourceName } selected?={ source.SourceName == data.Query.Source.Name }>{ source.SourceName }</option>
-								}
-							</select>
-						</label>
-					<label class="field">
-						<span class="label">Type</span>
-						<select class="select" name="identity_type">
-								<option value="" selected?={ data.Query.IdentityType == "" }>Any</option>
-								<option value="human" selected?={ data.Query.IdentityType == "human" }>Human</option>
-								<option value="service" selected?={ data.Query.IdentityType == "service" }>Service</option>
-								<option value="bot" selected?={ data.Query.IdentityType == "bot" }>Bot</option>
-								<option value="unknown" selected?={ data.Query.IdentityType == "unknown" }>Unknown</option>
-						</select>
-					</label>
-					<label class="field">
-						<span class="label">Managed</span>
-						<select class="select" name="managed_state">
-								<option value="" selected?={ data.Query.ManagedState == "" }>Any</option>
-								<option value="managed" selected?={ data.Query.ManagedState == "managed" }>Managed</option>
-								<option value="unmanaged" selected?={ data.Query.ManagedState == "unmanaged" }>Unmanaged</option>
-						</select>
-					</label>
-					<label class="field">
-						<span class="label">Sort</span>
-						<select class="select" name="sort_by">
-								<option value="" selected?={ data.Query.SortBy == "" }>Priority (default)</option>
-								<option value="identity" selected?={ data.Query.SortBy == "identity" }>Identity</option>
-								<option value="identity_type" selected?={ data.Query.SortBy == "identity_type" }>Identity type</option>
-								<option value="managed" selected?={ data.Query.SortBy == "managed" }>Managed</option>
-								<option value="source_type" selected?={ data.Query.SortBy == "source_type" }>Source type</option>
-								<option value="linked_sources" selected?={ data.Query.SortBy == "linked_sources" }>Linked sources</option>
-								<option value="privileged_roles" selected?={ data.Query.SortBy == "privileged_roles" }>Privileged roles</option>
-								<option value="status" selected?={ data.Query.SortBy == "status" }>Status</option>
-								<option value="last_seen" selected?={ data.Query.SortBy == "last_seen" }>Last seen</option>
-						</select>
-					</label>
-					<label class="field">
-						<span class="label">Direction</span>
-						<select class="select" name="sort_dir">
-								<option value="desc" selected?={ data.Query.SortDir == "desc" || data.Query.SortDir == "" }>Descending</option>
-								<option value="asc" selected?={ data.Query.SortDir == "asc" }>Ascending</option>
-						</select>
-					</label>
-				</div>
-			</details>
-			<button class="sr-only" type="submit">Apply filters</button>
-		</form>
+				<button class="sr-only" type="submit">Apply filters</button>
+			</form>
 
 		<section class="space-y-3">
 			if data.HasIdentities {
@@ -353,7 +312,7 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 				</table>
 			}
 			if data.TotalPages > 1 {
-				<div class="flex flex-wrap items-center gap-3 border-t py-3">
+					<div class="osspm-list-pagination">
 					<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
 					<div class="button-group ml-auto">
 						if data.Page > 1 {

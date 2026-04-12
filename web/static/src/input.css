@@ -1001,14 +1001,53 @@
    --------------------------------------------------------------------------- */
 
 @layer components {
+  .osspm-list-form {
+    @apply space-y-4 border-b border-border/70 pb-5;
+  }
+
+  .osspm-list-form-tight {
+    @apply space-y-3 border-b border-border/70 pb-5;
+  }
+
+  .osspm-list-toolbar {
+    @apply flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between;
+  }
+
+  .osspm-list-summary {
+    @apply text-sm text-muted-foreground tabular-nums lg:text-right;
+  }
+
+  .osspm-list-section-header {
+    @apply flex items-center gap-3;
+  }
+
+  .osspm-list-pagination {
+    @apply flex flex-wrap items-center gap-3 border-t py-3;
+  }
+
+  .osspm-list-pagination-split {
+    @apply flex flex-col items-center gap-3 border-t border-border/60 pt-4 sm:flex-row sm:justify-between;
+  }
+
+  .osspm-filter-summary {
+    @apply inline-flex h-9 cursor-pointer list-none items-center gap-1.5 whitespace-nowrap rounded-md border border-border px-3 text-sm text-foreground select-none transition-colors hover:bg-muted/50;
+  }
+
+  .osspm-filter-panel {
+    @apply mt-4 rounded-lg border border-border/70 bg-muted/15 p-4;
+  }
+
+  .osspm-filter-panel-popover {
+    @apply absolute right-0 top-full z-20 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-popover p-4 shadow-lg sm:left-0 sm:right-auto;
+  }
+
   .table {
     @apply w-full caption-bottom text-sm;
-    thead { @apply [&_tr]:border-b; }
-    tbody { @apply [&_tr:last-child]:border-0; }
+    thead { @apply [&_tr]:border-b [&_tr]:border-border/60; }
+    tbody { @apply [&_tr:last-child]:border-0 [&_tr]:transition-colors; }
     tfoot { @apply bg-muted/50 border-t font-medium [&>tr]:last:border-b-0; }
-    tr { @apply hover:bg-muted/50 border-b transition-colors; }
-    th { @apply text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]; }
-    td { @apply p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]; }
+    th { @apply text-foreground h-10 px-3 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]; }
+    td { @apply px-3 py-3 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]; }
     caption { @apply text-muted-foreground mt-4 text-sm; }
   }
 }
@@ -1119,13 +1158,14 @@
 @layer components {
   .osspm-table-fixed { width: 100%; table-layout: fixed; }
   .osspm-table-compact :is(th, td) {
-    padding-top: calc(var(--spacing) * 2);
-    padding-bottom: calc(var(--spacing) * 2);
+    padding-top: calc(var(--spacing) * 3);
+    padding-bottom: calc(var(--spacing) * 3);
     vertical-align: top;
   }
   .osspm-table-list thead th { color: var(--color-muted-foreground); }
-  .osspm-table-list tbody td { border-top: 1px solid rgb(from var(--color-border) r g b / 0.55); }
-  .osspm-table-list tbody tr:hover td { background: rgb(from var(--color-muted) r g b / 0.2); }
+  .osspm-table-list tbody tr { border-bottom: 1px solid rgb(from var(--color-border) r g b / 0.4); }
+  .osspm-table-list tbody tr:last-child { border-bottom: 0; }
+  .osspm-table-list tbody tr:hover td { background: rgb(from var(--color-muted) r g b / 0.16); }
 
   .osspm-col-id { width: 12rem; }
   .osspm-col-id-wide { width: 16rem; }
@@ -1246,6 +1286,10 @@
     animation: filter-popover-in 150ms ease-out;
   }
 
+  .osspm-filter-panel-popover {
+    animation: filter-popover-in 150ms ease-out;
+  }
+
   @keyframes filter-popover-in {
     from {
       opacity: 0;
@@ -1261,7 +1305,8 @@
     .dashboard-kpi,
     .dashboard-progress-bar,
     .app-row,
-    .filter-popover {
+    .filter-popover,
+    .osspm-filter-panel-popover {
       animation: none !important;
     }
   }

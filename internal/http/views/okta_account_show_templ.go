@@ -61,7 +61,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs("ID ")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 34, Col: 70}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 34, Col: 70}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -70,7 +70,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(data.User.ID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 34, Col: 99}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 34, Col: 99}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -92,7 +92,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var5).String())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 1, Col: 0}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 1, Col: 0}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -105,7 +105,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(data.User.Status)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 38, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 38, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -118,7 +118,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(data.User.Email)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 42, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 42, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -131,7 +131,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(data.User.DisplayName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 46, Col: 75}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 46, Col: 75}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -144,7 +144,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.OktaAppCount))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 59, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 59, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -153,7 +153,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(" apps")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 59, Col: 76}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 59, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -193,7 +193,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 							var templ_7745c5c3_Var13 templ.SafeURL
 							templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs(a.AppHref)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 79, Col: 70}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 79, Col: 70}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 							if templ_7745c5c3_Err != nil {
@@ -206,7 +206,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 							var templ_7745c5c3_Var14 string
 							templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(a.AppLabel)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 79, Col: 85}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 79, Col: 85}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 							if templ_7745c5c3_Err != nil {
@@ -224,7 +224,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 							var templ_7745c5c3_Var15 string
 							templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(a.AppLabel)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 81, Col: 51}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 81, Col: 51}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 							if templ_7745c5c3_Err != nil {
@@ -243,7 +243,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 							var templ_7745c5c3_Var16 string
 							templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(a.AppName)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 84, Col: 68}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 84, Col: 68}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 							if templ_7745c5c3_Err != nil {
@@ -261,7 +261,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 						var templ_7745c5c3_Var17 string
 						templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(a.AssignedVia)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 88, Col: 56}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 88, Col: 56}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 						if templ_7745c5c3_Err != nil {
@@ -284,7 +284,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 								var templ_7745c5c3_Var18 string
 								templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(group)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 94, Col: 51}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 94, Col: 51}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 								if templ_7745c5c3_Err != nil {
@@ -322,7 +322,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 								var templ_7745c5c3_Var19 string
 								templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(p.Text)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 105, Col: 52}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 105, Col: 52}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 								if templ_7745c5c3_Err != nil {
@@ -379,7 +379,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("/api/accounts/okta/%d/access-tree?node=root", data.User.ID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 139, Col: 88}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 139, Col: 88}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
@@ -400,7 +400,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.LinkedAccountsCount))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 153, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 153, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
@@ -409,7 +409,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 			var templ_7745c5c3_Var22 string
 			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(" connected")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 153, Col: 87}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 153, Col: 87}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 			if templ_7745c5c3_Err != nil {
@@ -432,7 +432,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 					var templ_7745c5c3_Var23 string
 					templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(account.Account.SourceName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 161, Col: 42}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 161, Col: 42}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 					if templ_7745c5c3_Err != nil {
@@ -445,7 +445,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 					var templ_7745c5c3_Var24 string
 					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs("External ID ")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 162, Col: 59}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 162, Col: 59}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 					if templ_7745c5c3_Err != nil {
@@ -454,7 +454,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 					var templ_7745c5c3_Var25 string
 					templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(account.Account.ExternalID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 162, Col: 89}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 162, Col: 89}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 					if templ_7745c5c3_Err != nil {
@@ -467,7 +467,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 					var templ_7745c5c3_Var26 string
 					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(account.Account.SourceKind)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 164, Col: 59}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 164, Col: 59}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 					if templ_7745c5c3_Err != nil {
@@ -480,7 +480,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 					var templ_7745c5c3_Var27 string
 					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(account.Account.Email)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 171, Col: 59}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 171, Col: 59}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 					if templ_7745c5c3_Err != nil {
@@ -493,7 +493,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 					var templ_7745c5c3_Var28 string
 					templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(account.Account.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 175, Col: 65}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 175, Col: 65}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 					if templ_7745c5c3_Err != nil {
@@ -528,7 +528,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 								var templ_7745c5c3_Var30 string
 								templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(ent.Kind)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 194, Col: 59}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 194, Col: 59}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 								if templ_7745c5c3_Err != nil {
@@ -546,7 +546,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 									var templ_7745c5c3_Var31 templ.SafeURL
 									templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinURLErrs(ent.ResourceHref)
 									if templ_7745c5c3_Err != nil {
-										return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 197, Col: 82}
+										return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 197, Col: 82}
 									}
 									_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 									if templ_7745c5c3_Err != nil {
@@ -559,7 +559,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 									var templ_7745c5c3_Var32 string
 									templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(ent.ResourceLabel)
 									if templ_7745c5c3_Err != nil {
-										return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 197, Col: 104}
+										return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 197, Col: 104}
 									}
 									_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 									if templ_7745c5c3_Err != nil {
@@ -577,7 +577,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 									var templ_7745c5c3_Var33 string
 									templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(ent.ResourceLabel)
 									if templ_7745c5c3_Err != nil {
-										return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 199, Col: 73}
+										return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 199, Col: 73}
 									}
 									_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 									if templ_7745c5c3_Err != nil {
@@ -596,7 +596,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 									var templ_7745c5c3_Var34 string
 									templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(ent.ResourceID)
 									if templ_7745c5c3_Err != nil {
-										return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 202, Col: 88}
+										return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 202, Col: 88}
 									}
 									_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 									if templ_7745c5c3_Err != nil {
@@ -619,7 +619,7 @@ func OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) templ.Componen
 									var templ_7745c5c3_Var35 string
 									templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(ent.Permission)
 									if templ_7745c5c3_Err != nil {
-										return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_account_show.templ`, Line: 207, Col: 63}
+										return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/okta_account_show.templ`, Line: 207, Col: 63}
 									}
 									_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 									if templ_7745c5c3_Err != nil {

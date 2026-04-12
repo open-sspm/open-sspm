@@ -120,6 +120,20 @@ func (q NonHumanAccessQuery) WithRiskLevel(level string) NonHumanAccessQuery {
 	return q
 }
 
+func (q NonHumanAccessQuery) ClearFilters() NonHumanAccessQuery {
+	q.Source = SourceSelection{}
+	q.PrincipalType = ""
+	q.OwnerPresence = ""
+	q.GovernanceState = ""
+	q.RiskLevel = ""
+	q.ActivityState = ""
+	q.FreshnessState = ""
+	q.SortBy = ""
+	q.SortDir = ""
+	q.Page = 1
+	return q
+}
+
 func (q NonHumanAccessQuery) HasAdvancedFilters() bool {
 	return q.PrincipalType != "" ||
 		q.GovernanceState != "" ||
@@ -137,6 +151,38 @@ func (q NonHumanAccessQuery) HasFilters() bool {
 		q.RiskLevel != "" ||
 		q.ActivityState != "" ||
 		q.FreshnessState != ""
+}
+
+func (q NonHumanAccessQuery) FilterCount() int {
+	count := 0
+	if q.RiskLevel != "" {
+		count++
+	}
+	if q.OwnerPresence != "" {
+		count++
+	}
+	if q.Source.Kind != "" {
+		count++
+	}
+	if q.Source.Name != "" {
+		count++
+	}
+	if q.ActivityState != "" {
+		count++
+	}
+	if q.PrincipalType != "" {
+		count++
+	}
+	if q.GovernanceState != "" {
+		count++
+	}
+	if q.FreshnessState != "" {
+		count++
+	}
+	if q.SortBy != "" {
+		count++
+	}
+	return count
 }
 
 func normalizeNonHumanAccessPrincipalType(raw string) string {
