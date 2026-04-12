@@ -39,10 +39,14 @@ const init = (el) => {
     const items = menu.querySelectorAll("[data-filter]");
 
     items.forEach((item) => {
+      const forced = item.hasAttribute("data-force");
       const filter = (item.dataset.filter || "").toLowerCase();
       const keywords = (item.dataset.keywords || "").toLowerCase();
       const match =
-        !query || filter.includes(query) || keywords.includes(query);
+        forced ||
+        !query ||
+        filter.includes(query) ||
+        keywords.includes(query);
       item.setAttribute("aria-hidden", String(!match));
     });
 
