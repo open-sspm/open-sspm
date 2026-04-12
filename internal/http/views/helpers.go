@@ -106,6 +106,31 @@ func StatusBadgeClass(status string) string {
 	}
 }
 
+func AssignedAppIntegrationBadgeClass(integrated bool) string {
+	if integrated {
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	}
+	return "badge-outline"
+}
+
+func AssignedAppIntegrationLabel(integrated bool) string {
+	if integrated {
+		return "Integrated"
+	}
+	return "Unmapped"
+}
+
+func SuggestedIntegrationActionLabel(kind string) string {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "github":
+		return "Map GitHub"
+	case "datadog":
+		return "Map Datadog"
+	default:
+		return "Map"
+	}
+}
+
 func CredentialRiskBadgeClass(risk string) string {
 	switch strings.ToLower(strings.TrimSpace(risk)) {
 	case "critical":

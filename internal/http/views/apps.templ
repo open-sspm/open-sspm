@@ -12,10 +12,49 @@ templ AppsPage(data viewmodels.AppsViewData) {
 	}
 }
 
+templ AssignedAppMobileRow(app viewmodels.AppListItem, isAdmin bool, csrfToken string) {
+	<article class="rounded-lg border border-border/70 bg-card p-4">
+		<div class="flex items-start justify-between gap-3">
+			<div class="min-w-0">
+				<a class="block font-medium text-foreground no-underline hover:underline" href={ AppDetailURL(app.IntegratedHref, app.ExternalID) } title={ app.Label }>
+					<span class="osspm-truncate">{ app.Label }</span>
+				</a>
+				if app.Name != "" {
+					<span class="block text-sm text-muted-foreground" title={ app.Name }>
+						<span class="osspm-truncate">{ app.Name }</span>
+					</span>
+				}
+			</div>
+			<span class={ StatusBadgeClass(app.Status) }>{ app.Status }</span>
+		</div>
+		<div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+			<div>
+				<div class="text-xs uppercase tracking-wide text-muted-foreground">Sign-on</div>
+				<div>{ fallbackHumanized(app.SignOnMode) }</div>
+			</div>
+			<div>
+				<div class="text-xs uppercase tracking-wide text-muted-foreground">Integration</div>
+				<span class={ AssignedAppIntegrationBadgeClass(app.IntegratedHref != "") }>{ AssignedAppIntegrationLabel(app.IntegratedHref != "") }</span>
+			</div>
+		</div>
+		<div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/60 pt-3 text-sm">
+			<a class="btn-sm-link px-0" href={ AppDetailURL(app.IntegratedHref, app.ExternalID) } aria-label={ "View users for " + app.Label }>View</a>
+			if isAdmin && app.IntegratedHref == "" && app.SuggestedKind != "" {
+				<form method="post" action="/assigned-apps/map" class="inline-flex">
+					@CSRFInput(csrfToken)
+					<input type="hidden" name="integration_kind" value={ app.SuggestedKind }/>
+					<input type="hidden" name="okta_app_external_id" value={ app.ExternalID }/>
+					<button class="btn-sm-link px-0" type="submit">{ SuggestedIntegrationActionLabel(app.SuggestedKind) }</button>
+				</form>
+			}
+		</div>
+	</article>
+}
+
 templ AppsPageResults(data viewmodels.AppsViewData) {
 	<div id="apps-results" class="space-y-6">
 		@BusyInlineIndicator("Updating results...", false)
-			<form
+				<form
 				method="get"
 				action="/assigned-apps"
 				data-enter-only-query="q"
@@ -59,18 +98,29 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
 
-		<section class="space-y-3">
-			<div class="flex items-center gap-3">
-				<div>
-					<h2 class="text-base font-semibold">Assigned Apps</h2>
-					<p class="text-sm text-muted-foreground">Browse apps discovered from Okta assignments.</p>
+			<section class="space-y-3">
+				<div class="flex items-center gap-3">
+					<div>
+						<h2 class="text-base font-semibold">Assigned Apps</h2>
+						<p class="text-sm text-muted-foreground">Browse apps discovered from Okta assignments.</p>
+					</div>
 				</div>
-			</div>
-			@ColumnsTable("") {
-				<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-					<caption class="sr-only">Discovered apps with status, integration state, and user access actions.</caption>
-					<thead>
-						<tr>
+				if data.HasApps {
+					<div class="space-y-3 lg:hidden">
+						for _, app := range data.Apps {
+							@AssignedAppMobileRow(app, data.Layout.IsAdmin, data.Layout.CSRFToken)
+						}
+					</div>
+				} else {
+					<div class="lg:hidden">
+						@EmptyState("No apps found", data.EmptyStateMsg)
+					</div>
+				}
+				@ColumnsTable("hidden lg:block") {
+					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+						<caption class="sr-only">Discovered apps with status, integration state, and user access actions.</caption>
+						<thead>
+							<tr>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">App</th>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
 							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Sign-on</th>
@@ -109,26 +159,18 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 										}
 									</td>
 									<td>
-										<div class="flex flex-wrap items-center gap-3">
-											<a class="btn-sm-link px-0" href={ AppDetailURL(a.IntegratedHref, a.ExternalID) } aria-label={ "View users for " + a.Label }>View</a>
-											if data.Layout.IsAdmin && a.IntegratedHref == "" && a.SuggestedKind != "" {
-												<form method="post" action="/assigned-apps/map" class="inline-flex">
-													@CSRFInput(data.Layout.CSRFToken)
-													<input type="hidden" name="integration_kind" value={ a.SuggestedKind }/>
-													<input type="hidden" name="okta_app_external_id" value={ a.ExternalID }/>
-													<button class="btn-sm-link px-0" type="submit">
-														if a.SuggestedKind == "github" {
-															<span>Map GitHub</span>
-														} else if a.SuggestedKind == "datadog" {
-															<span>Map Datadog</span>
-														} else {
-															<span>Map</span>
-														}
-													</button>
-												</form>
-											}
-										</div>
-									</td>
+											<div class="flex flex-wrap items-center gap-3">
+												<a class="btn-sm-link px-0" href={ AppDetailURL(a.IntegratedHref, a.ExternalID) } aria-label={ "View users for " + a.Label }>View</a>
+												if data.Layout.IsAdmin && a.IntegratedHref == "" && a.SuggestedKind != "" {
+													<form method="post" action="/assigned-apps/map" class="inline-flex">
+														@CSRFInput(data.Layout.CSRFToken)
+														<input type="hidden" name="integration_kind" value={ a.SuggestedKind }/>
+														<input type="hidden" name="okta_app_external_id" value={ a.ExternalID }/>
+														<button class="btn-sm-link px-0" type="submit">{ SuggestedIntegrationActionLabel(a.SuggestedKind) }</button>
+													</form>
+												}
+											</div>
+										</td>
 								</tr>
 							}
 						} else {

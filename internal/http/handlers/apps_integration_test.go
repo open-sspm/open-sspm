@@ -11,6 +11,22 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
+func TestHandleAppsRendersMobileListAndDesktopTable(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindOkta, "acme.okta.com")
+		insertCommandSearchOktaApp(t, ctx, q, runID, "legacy-app", "Legacy HR App", "legacy-hr", "active")
+
+		body := renderApps(t, h, "http://example.com/assigned-apps")
+		assertContains(t, body, `id="apps-results"`)
+		assertContains(t, body, `class="space-y-3 lg:hidden"`)
+		assertContains(t, body, `class="hidden lg:block"`)
+		assertContains(t, body, "Legacy HR App")
+		assertContains(t, body, "Unmapped")
+		assertContains(t, body, "Bookmark")
+		assertContains(t, body, `aria-label="View users for Legacy HR App"`)
+	})
+}
+
 func TestHandleOktaAppShowRedirectsIntegratedApps(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindOkta, "acme.okta.com")
@@ -51,4 +67,17 @@ func TestHandleOktaAppShowRejectsNestedExternalIDs(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
 	}
+}
+
+func renderApps(t *testing.T, h *Handlers, target string) string {
+	t.Helper()
+
+	c, rec := newTestContext(http.MethodGet, target)
+	if err := h.HandleApps(c); err != nil {
+		t.Fatalf("HandleApps(%s): %v", target, err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	return rec.Body.String()
 }
