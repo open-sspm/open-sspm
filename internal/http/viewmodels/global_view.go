@@ -11,8 +11,6 @@ type GlobalViewAppCard struct {
 	Subtitle       string
 	StatusLabel    string
 	StatusClass    string
-	Score          int
-	ScoreLabel     string
 	Metrics        []GlobalViewKV
 	Highlights     []GlobalViewKV
 	PrimaryHref    string

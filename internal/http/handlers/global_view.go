@@ -41,8 +41,6 @@ func (h *Handlers) buildGlobalViewCard(state registry.ConnectorState) viewmodels
 		Subtitle:       state.Subtitle(),
 		StatusLabel:    state.StatusLabel(),
 		StatusClass:    state.StatusClass(),
-		Score:          state.CoverageScore(),
-		ScoreLabel:     state.ScoreLabel(),
 		Metrics:        state.MetricsKV(),
 		Highlights:     state.HighlightsKV(),
 		PrimaryHref:    state.PrimaryHref(),
