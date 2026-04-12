@@ -4,10 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ OktaAccountsPage(data viewmodels.OktaAccountsViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Okta Accounts"},
-		}, "Okta accounts synced from your Okta source.") {
+		@PageHeader("Okta accounts synced from your Okta source.") {
 		}
 
 			<form method="get" class="osspm-list-form">

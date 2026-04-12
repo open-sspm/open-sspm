@@ -5,10 +5,7 @@ import "strconv"
 
 templ AppsPage(data viewmodels.AppsViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Assigned Apps"},
-		}, "Apps discovered from Okta assignments.")
+		@PageHeader("Apps discovered from Okta assignments.")
 		@AppsPageResults(data)
 	}
 }

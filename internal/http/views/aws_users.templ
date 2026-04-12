@@ -4,10 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ AWSUsersPage(data viewmodels.AWSUsersViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "AWS Identity Center users"},
-		}, "Synced AWS Identity Center users and their account assignments.") {
+		@PageHeader("Synced AWS Identity Center users and their account assignments.") {
 			if data.Layout.AWSIdentityCenterConfigured && data.Layout.AWSIdentityCenterEnabled {
 				<a class="btn-sm-outline" href="/accounts/unlinked/aws">Unlinked</a>
 			} else {

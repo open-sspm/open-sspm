@@ -4,11 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ SettingsUsersPage(data viewmodels.SettingsUsersViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Settings", Href: "/settings"},
-			{Label: "Team Management"},
-		}, "Manage local users that can sign into Open-SSPM.") {
+		@PageHeader("Manage local users that can sign into Open-SSPM.") {
 			<a id="settings-users-add-trigger" class="btn-sm-primary" href="/settings/users?open=add">Add user</a>
 		}
 

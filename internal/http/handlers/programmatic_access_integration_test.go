@@ -120,6 +120,7 @@ func TestHandleAppAssetsRendersGoogleOAuthSlice(t *testing.T) {
 		assertContains(t, body, `hx-get="/app-assets?asset_kind=google_oauth_client&amp;governance_state=action_required&amp;source_kind=google_workspace&amp;page=1"`)
 		assertContains(t, body, `name="source_kind" value="google_workspace"`)
 		assertContains(t, body, `name="asset_kind" value="google_oauth_client"`)
+		assertContains(t, body, `name="governance_state" value="action_required"`)
 	})
 }
 

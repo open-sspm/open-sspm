@@ -5,23 +5,13 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 	@Layout(data.Layout) {
 		if data.GoogleOAuthView != nil {
-			@PageHeader([]Breadcrumb{
-				{Label: "Dashboard", Href: "/"},
-				{Label: "Non-Human Access"},
-				{Label: "App Assets", Href: "/app-assets"},
-				{Label: data.GoogleOAuthView.App.DisplayName},
-			}, "Inspect governance, grant scope, evidence, and containment actions for a Google Workspace OAuth app.") {
+			@PageHeader("Inspect governance, grant scope, evidence, and containment actions for a Google Workspace OAuth app.") {
 				<a class="btn-sm-outline" href={ data.GoogleOAuthView.App.ExportHref }>Export JSON</a>
 			}
 
 			@ConnectedAppShowBody(*data.GoogleOAuthView)
 		} else {
-			@PageHeader([]Breadcrumb{
-				{Label: "Dashboard", Href: "/"},
-				{Label: "Non-Human Access"},
-				{Label: "App Assets", Href: "/app-assets"},
-				{Label: "Asset #" + FormatInt64(data.Asset.ID)},
-			}, "Detailed ownership, credential metadata, and related audit activity.") {
+			@PageHeader("Detailed ownership, credential metadata, and related audit activity.") {
 			}
 
 			<article class="card">

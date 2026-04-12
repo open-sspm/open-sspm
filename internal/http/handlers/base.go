@@ -43,6 +43,8 @@ type Handlers struct {
 	Sessions *scs.SessionManager
 	Syncer   SyncRunner
 	Registry *registry.ConnectorRegistry
+
+	oktaAppStatusesCache oktaAppStatusesCache
 }
 
 func (h *Handlers) connectorConfigStore() *configstore.Store {

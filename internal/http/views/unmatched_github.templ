@@ -4,10 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Unlinked GitHub Accounts"},
-		}, "Match GitHub identities to identities for complete access coverage.") {
+		@PageHeader("Match GitHub identities to identities for complete access coverage.") {
 			if data.Layout.GitHubConfigured {
 				<span class="badge-outline">{ data.Layout.GitHubOrg }</span>
 			} else {

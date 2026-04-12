@@ -4,10 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ EntraUsersPage(data viewmodels.EntraUsersViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Microsoft Entra ID users"},
-		}, "Synced Microsoft Entra ID users and their access entitlements.") {
+		@PageHeader("Synced Microsoft Entra ID users and their access entitlements.") {
 			if data.Layout.EntraConfigured && data.Layout.EntraEnabled {
 				<a class="btn-sm-outline" href="/accounts/unlinked/entra">Unlinked</a>
 			} else {

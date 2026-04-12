@@ -4,11 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ DiscoveryHotspotsPage(data viewmodels.DiscoveryHotspotsViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "SaaS Discovery"},
-			{Label: "Hotspots"},
-		}, "Highest-risk unmanaged and over-privileged SaaS apps.") {
+		@PageHeader("Highest-risk unmanaged and over-privileged SaaS apps.") {
 		}
 		@DiscoveryHotspotsPageResults(data)
 	}

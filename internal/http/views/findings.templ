@@ -4,10 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ FindingsPage(data viewmodels.FindingsRulesetsViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Findings"},
-		}, "Rulesets and checks across your integrations.") {
+		@PageHeader("Rulesets and checks across your integrations.") {
 		}
 
 		if data.HasRulesets {

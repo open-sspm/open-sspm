@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"path"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v5"
@@ -16,6 +19,57 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
+
+const oktaAppStatusesCacheTTL = time.Minute
+
+type oktaAppStatusesCache struct {
+	mu        sync.RWMutex
+	statuses  []string
+	expiresAt time.Time
+	now       func() time.Time
+}
+
+func (c *oktaAppStatusesCache) get(fetch func() ([]string, error)) ([]string, error) {
+	now := c.timeNow()
+
+	c.mu.RLock()
+	if now.Before(c.expiresAt) {
+		statuses := append([]string(nil), c.statuses...)
+		c.mu.RUnlock()
+		return statuses, nil
+	}
+	c.mu.RUnlock()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	now = c.timeNow()
+	if now.Before(c.expiresAt) {
+		return append([]string(nil), c.statuses...), nil
+	}
+
+	statuses, err := fetch()
+	if err != nil {
+		return nil, err
+	}
+
+	c.statuses = append([]string(nil), statuses...)
+	c.expiresAt = now.Add(oktaAppStatusesCacheTTL)
+	return append([]string(nil), c.statuses...), nil
+}
+
+func (c *oktaAppStatusesCache) timeNow() time.Time {
+	if c.now != nil {
+		return c.now()
+	}
+	return time.Now().UTC()
+}
+
+func (h *Handlers) listOktaAppStatuses(ctx context.Context) ([]string, error) {
+	return h.oktaAppStatusesCache.get(func() ([]string, error) {
+		return h.Q.ListDistinctOktaAppStatuses(ctx)
+	})
+}
 
 // HandleApps renders the apps list page.
 func (h *Handlers) HandleApps(c *echo.Context) error {
@@ -60,7 +114,7 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 		items = append(items, oktaAppListItem(app.ExternalID, app.Label, app.Name, app.Status, app.SignOnMode, app.IntegrationKind))
 	}
 
-	statusOptions, err := h.Q.ListDistinctOktaAppStatuses(ctx)
+	statusOptions, err := h.listOktaAppStatuses(ctx)
 	if err != nil {
 		return h.RenderError(c, err)
 	}

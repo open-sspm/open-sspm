@@ -4,11 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Non-Human Access", Href: "/non-human-access"},
-			{Label: data.Principal.DisplayName},
-		}, "Inspect the principal, its accountable owner, linked credentials, related assets, and explainable risk signals.") {
+		@PageHeader("Inspect the principal, its accountable owner, linked credentials, related assets, and explainable risk signals.") {
 			if data.Principal.IdentityHref != "" {
 				<a class="btn-sm-outline" href={ data.Principal.IdentityHref }>Open identity</a>
 			}

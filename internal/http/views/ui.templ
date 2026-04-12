@@ -1,6 +1,6 @@
 package views
 
-templ PageHeader(items []Breadcrumb, description string) {
+templ PageHeader(description string) {
 	<div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
 		if description != "" {
 			<div class="space-y-2">

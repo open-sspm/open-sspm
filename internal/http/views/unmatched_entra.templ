@@ -4,10 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ UnmatchedEntraPage(data viewmodels.UnmatchedEntraViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Unlinked Microsoft Entra ID Accounts"},
-		}, "Match Microsoft Entra ID identities to identities for complete access coverage.") {
+		@PageHeader("Match Microsoft Entra ID identities to identities for complete access coverage.") {
 			if data.Layout.EntraConfigured {
 				<span class="badge-outline cursor-help" title={ "Tenant ID: " + data.Layout.EntraTenantID }>Entra tenant ID</span>
 			} else {

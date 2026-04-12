@@ -8,12 +8,7 @@ import (
 
 templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Findings", Href: "/findings"},
-			{Label: data.Ruleset.Name, Href: "/findings/rulesets/" + data.Ruleset.Key},
-			{Label: data.RuleKey},
-		}, "Rule details, evidence, overrides, and attestations.") {
+		@PageHeader("Rule details, evidence, overrides, and attestations.") {
 		}
 
 		if data.Alert != nil {

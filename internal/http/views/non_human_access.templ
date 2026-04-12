@@ -4,10 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ NonHumanAccessPage(data viewmodels.NonHumanAccessViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Non-Human Access"},
-		}, "Review non-human principals, accountable ownership, credential risk, and linked programmatic assets in one workflow.") {
+		@PageHeader("Review non-human principals, accountable ownership, credential risk, and linked programmatic assets in one workflow.") {
 		}
 		@NonHumanAccessPageResults(data)
 	}

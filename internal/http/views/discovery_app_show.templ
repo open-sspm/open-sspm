@@ -4,12 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "SaaS Discovery"},
-			{Label: "Apps", Href: "/discovery/apps"},
-			{Label: data.App.DisplayName},
-		}, "Evidence-backed posture and governance details for a discovered SaaS app.") {
+		@PageHeader("Evidence-backed posture and governance details for a discovered SaaS app.") {
 		}
 
 		@DiscoveryAppShowBody(data)

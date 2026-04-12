@@ -4,11 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: data.SourceLabel, Href: data.SourceHref},
-			{Label: data.ResourceKindLabel},
-		}, data.SourceName) {
+		@PageHeader(data.SourceName) {
 			<span class="badge-outline">{ FormatInt(data.LinkedIdentityCount) }{ " identities" }</span>
 			<span class="badge-outline">{ FormatInt(data.AccountCount) }{ " accounts" }</span>
 			<span class="badge-outline">{ FormatInt(data.EntitlementCount) }{ " entitlements" }</span>

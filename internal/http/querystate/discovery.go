@@ -109,9 +109,6 @@ func (q DiscoveryHotspotsQuery) FilterCount() int {
 	if q.Source.Kind != "" {
 		count++
 	}
-	if q.Source.Name != "" {
-		count++
-	}
 	return count
 }
 

@@ -7,10 +7,7 @@ import (
 
 templ GoogleWorkspaceGroupsPage(data viewmodels.GoogleWorkspaceGroupsViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Google Workspace groups"},
-		}, "Synced Google Workspace groups with membership visibility.") {
+		@PageHeader("Synced Google Workspace groups with membership visibility.") {
 			<a class="btn-sm-outline" href="/accounts/google-workspace">Users</a>
 			<a class="btn-sm-outline" href={ querystate.ConnectedAppsQuery{}.Href() }>OAuth Apps</a>
 		}

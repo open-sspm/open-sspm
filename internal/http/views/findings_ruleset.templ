@@ -8,11 +8,7 @@ import (
 
 templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Findings", Href: "/findings"},
-			{Label: data.Ruleset.Name},
-		}, "Rules and current results for this ruleset.") {
+		@PageHeader("Rules and current results for this ruleset.") {
 			if data.Layout.IsAdmin {
 				<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" } class="flex items-center gap-2">
 					@CSRFInput(data.Layout.CSRFToken)

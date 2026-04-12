@@ -110,7 +110,7 @@ WHERE
   )
   AND (
     $2::text = ''
-    OR UPPER(oa.status) = UPPER($2::text)
+    OR UPPER(TRIM(oa.status)) = UPPER(TRIM($2::text))
   )
   AND (
     $3::text = ''
@@ -247,7 +247,7 @@ func (q *Queries) GetOktaAppByExternalIDWithIntegration(ctx context.Context, ext
 }
 
 const listDistinctOktaAppStatuses = `-- name: ListDistinctOktaAppStatuses :many
-SELECT DISTINCT UPPER(oa.status)::text AS status
+SELECT DISTINCT UPPER(TRIM(oa.status))::text AS status
 FROM okta_apps oa
 WHERE oa.expired_at IS NULL
   AND oa.last_observed_run_id IS NOT NULL
@@ -777,7 +777,7 @@ WHERE
   )
   AND (
     $2::text = ''
-    OR UPPER(oa.status) = UPPER($2::text)
+    OR UPPER(TRIM(oa.status)) = UPPER(TRIM($2::text))
   )
   AND (
     $3::text = ''

@@ -4,10 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "GitHub users"},
-		}, "Synced GitHub accounts and their identity links.") {
+		@PageHeader("Synced GitHub accounts and their identity links.") {
 			if data.Layout.GitHubConfigured && data.Layout.GitHubEnabled {
 				<a class="btn-sm-outline" href={ "/accounts/unlinked/github/" + data.Layout.GitHubOrg }>Unlinked</a>
 			} else {

@@ -4,11 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Identities", Href: "/identities"},
-			{Label: data.NamePrimary},
-		}, "")
+		@PageHeader("")
 
 		<section class="mb-6 border-b border-border pb-5">
 			<div class="max-w-4xl space-y-3">

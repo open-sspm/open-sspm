@@ -4,11 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Settings", Href: "/settings"},
-			{Label: "Connector health"},
-		}, "Operational reliability and freshness indicators for connector syncs.") {
+		@PageHeader("Operational reliability and freshness indicators for connector syncs.") {
 		}
 
 		if data.ShowWarning && data.WarningMessage != "" {

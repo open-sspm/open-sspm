@@ -58,11 +58,7 @@ func AppAssetsPage(data viewmodels.AppAssetsViewData) templ.Component {
 					ctx = templ.InitializeContext(ctx)
 					return nil
 				})
-				templ_7745c5c3_Err = PageHeader([]Breadcrumb{
-					{Label: "Dashboard", Href: "/"},
-					{Label: "Non-Human Access"},
-					{Label: "App Assets"},
-				}, "Saved view for Google Workspace OAuth apps with governance state, grant activity, ownership, and discovery evidence.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = PageHeader("Saved view for Google Workspace OAuth apps with governance state, grant activity, ownership, and discovery evidence.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -81,11 +77,7 @@ func AppAssetsPage(data viewmodels.AppAssetsViewData) templ.Component {
 					ctx = templ.InitializeContext(ctx)
 					return nil
 				})
-				templ_7745c5c3_Err = PageHeader([]Breadcrumb{
-					{Label: "Dashboard", Href: "/"},
-					{Label: "Non-Human Access"},
-					{Label: "App Assets"},
-				}, "Inventory of applications and service principals discovered from connected providers.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var4), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = PageHeader("Inventory of applications and service principals discovered from connected providers.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var4), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -150,7 +142,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(data.Query.Q)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 48, Col: 135}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 40, Col: 135}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -168,7 +160,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 				var templ_7745c5c3_Var7 templ.SafeURL
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(data.Query.ClearQuery().Href())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 53, Col: 48}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 45, Col: 48}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -181,7 +173,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(data.Query.ClearQuery().Href())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 54, Col: 50}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 46, Col: 50}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
@@ -230,7 +222,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 					var templ_7745c5c3_Var10 string
 					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(source.SourceKind)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 73, Col: 45}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 65, Col: 45}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 					if templ_7745c5c3_Err != nil {
@@ -253,7 +245,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 					var templ_7745c5c3_Var11 string
 					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(source.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 73, Col: 126}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 65, Col: 126}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 					if templ_7745c5c3_Err != nil {
@@ -266,7 +258,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 					var templ_7745c5c3_Var12 string
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(source.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 73, Col: 143}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 65, Col: 143}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
@@ -369,7 +361,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 					var templ_7745c5c3_Var13 templ.SafeURL
 					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs(data.Query.ClearFilters().Href())
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 95, Col: 50}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 87, Col: 50}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {
@@ -382,7 +374,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 					var templ_7745c5c3_Var14 string
 					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(data.Query.ClearFilters().Href())
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 96, Col: 52}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 88, Col: 52}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 					if templ_7745c5c3_Err != nil {
@@ -407,7 +399,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs("Showing ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 107, Col: 20}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 99, Col: 20}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -416,7 +408,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.ShowingFrom))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 107, Col: 51}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 99, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -425,7 +417,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs("-")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 107, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 99, Col: 58}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
@@ -434,7 +426,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 				var templ_7745c5c3_Var18 string
 				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.ShowingTo))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 107, Col: 87}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 99, Col: 87}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 				if templ_7745c5c3_Err != nil {
@@ -443,7 +435,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(" of ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 107, Col: 97}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 99, Col: 97}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -452,7 +444,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(data.TotalCount))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 107, Col: 129}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 99, Col: 129}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
@@ -493,7 +485,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 						var templ_7745c5c3_Var22 string
 						templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs("/app-assets/" + FormatInt64(item.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 140, Col: 67}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 132, Col: 67}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 						if templ_7745c5c3_Err != nil {
@@ -506,7 +498,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 						var templ_7745c5c3_Var23 string
 						templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeProgrammaticKind(item.SourceKind))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 142, Col: 83}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 134, Col: 83}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 						if templ_7745c5c3_Err != nil {
@@ -519,7 +511,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 						var templ_7745c5c3_Var24 string
 						templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeProgrammaticKind(item.AssetKind))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 144, Col: 85}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 136, Col: 85}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 						if templ_7745c5c3_Err != nil {
@@ -532,7 +524,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 						var templ_7745c5c3_Var25 templ.SafeURL
 						templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinURLErrs("/app-assets/" + FormatInt64(item.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 146, Col: 96}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 138, Col: 96}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 						if templ_7745c5c3_Err != nil {
@@ -545,7 +537,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 						var templ_7745c5c3_Var26 string
 						templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(item.DisplayName)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 146, Col: 123}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 138, Col: 123}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 						if templ_7745c5c3_Err != nil {
@@ -558,7 +550,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 						var templ_7745c5c3_Var27 string
 						templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(item.DisplayName)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 146, Col: 144}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 138, Col: 144}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 						if templ_7745c5c3_Err != nil {
@@ -571,7 +563,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 						var templ_7745c5c3_Var28 string
 						templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(item.Status)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 147, Col: 68}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 139, Col: 68}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 						if templ_7745c5c3_Err != nil {
@@ -584,7 +576,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 						var templ_7745c5c3_Var29 string
 						templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(item.ExternalID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 150, Col: 76}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 142, Col: 76}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 						if templ_7745c5c3_Err != nil {
@@ -597,7 +589,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 						var templ_7745c5c3_Var30 string
 						templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(item.ExternalID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 150, Col: 96}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 142, Col: 96}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 						if templ_7745c5c3_Err != nil {
@@ -610,7 +602,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 						var templ_7745c5c3_Var31 string
 						templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(item.OwnersCount))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 152, Col: 90}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 144, Col: 90}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 						if templ_7745c5c3_Err != nil {
@@ -623,7 +615,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 						var templ_7745c5c3_Var32 string
 						templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(item.CredentialsCount))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 153, Col: 95}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 145, Col: 95}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 						if templ_7745c5c3_Err != nil {
@@ -636,7 +628,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 						var templ_7745c5c3_Var33 string
 						templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeen.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 154, Col: 76}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 146, Col: 76}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 						if templ_7745c5c3_Err != nil {
@@ -699,7 +691,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 				var templ_7745c5c3_Var35 string
 				templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs("Page ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 173, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 165, Col: 58}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 				if templ_7745c5c3_Err != nil {
@@ -708,7 +700,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 				var templ_7745c5c3_Var36 string
 				templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.Page))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 173, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 165, Col: 82}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 				if templ_7745c5c3_Err != nil {
@@ -717,7 +709,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 				var templ_7745c5c3_Var37 string
 				templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(" of ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 173, Col: 92}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 165, Col: 92}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 				if templ_7745c5c3_Err != nil {
@@ -726,7 +718,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 				var templ_7745c5c3_Var38 string
 				templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.TotalPages))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 173, Col: 122}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 165, Col: 122}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 				if templ_7745c5c3_Err != nil {
@@ -744,7 +736,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 					var templ_7745c5c3_Var39 templ.SafeURL
 					templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinURLErrs(data.Query.WithPage(data.Page - 1).Href())
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 176, Col: 81}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 168, Col: 81}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 					if templ_7745c5c3_Err != nil {
@@ -757,7 +749,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 					var templ_7745c5c3_Var40 string
 					templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(data.Query.WithPage(data.Page - 1).Href())
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 176, Col: 132}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 168, Col: 132}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 					if templ_7745c5c3_Err != nil {
@@ -781,7 +773,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 					var templ_7745c5c3_Var41 templ.SafeURL
 					templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinURLErrs(data.Query.WithPage(data.Page + 1).Href())
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 181, Col: 81}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 173, Col: 81}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 					if templ_7745c5c3_Err != nil {
@@ -794,7 +786,7 @@ func AppAssetsPageResults(data viewmodels.AppAssetsViewData) templ.Component {
 					var templ_7745c5c3_Var42 string
 					templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(data.Query.WithPage(data.Page + 1).Href())
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 181, Col: 132}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `app_assets.templ`, Line: 173, Col: 132}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 					if templ_7745c5c3_Err != nil {

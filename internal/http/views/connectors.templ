@@ -4,11 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Settings", Href: "/settings"},
-			{Label: "Connectors"},
-		}, "Manage integrations for Okta, Google Workspace, Microsoft Entra ID, GitHub, Datadog, AWS Identity Center, and Vault.")
+		@PageHeader("Manage integrations for Okta, Google Workspace, Microsoft Entra ID, GitHub, Datadog, AWS Identity Center, and Vault.")
 
 		if data.Alert != nil {
 			@Alert(data.Alert.Title, IsAlertDestructive(data.Alert.Class)) {

@@ -4,10 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ IdentitiesPage(data viewmodels.IdentitiesViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Identities"},
-		}, "Unified identities resolved across configured connectors.") {
+		@PageHeader("Unified identities resolved across configured connectors.") {
 		}
 		@IdentitiesPageResults(data)
 	}

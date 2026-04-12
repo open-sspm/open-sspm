@@ -394,7 +394,7 @@ WHERE
   )
   AND (
     sqlc.arg(status_filter)::text = ''
-    OR UPPER(oa.status) = UPPER(sqlc.arg(status_filter)::text)
+    OR UPPER(TRIM(oa.status)) = UPPER(TRIM(sqlc.arg(status_filter)::text))
   )
   AND (
     sqlc.arg(integration_filter)::text = ''
@@ -423,7 +423,7 @@ WHERE
   )
   AND (
     sqlc.arg(status_filter)::text = ''
-    OR UPPER(oa.status) = UPPER(sqlc.arg(status_filter)::text)
+    OR UPPER(TRIM(oa.status)) = UPPER(TRIM(sqlc.arg(status_filter)::text))
   )
   AND (
     sqlc.arg(integration_filter)::text = ''
@@ -435,7 +435,7 @@ LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
 -- name: ListDistinctOktaAppStatuses :many
-SELECT DISTINCT UPPER(oa.status)::text AS status
+SELECT DISTINCT UPPER(TRIM(oa.status))::text AS status
 FROM okta_apps oa
 WHERE oa.expired_at IS NULL
   AND oa.last_observed_run_id IS NOT NULL

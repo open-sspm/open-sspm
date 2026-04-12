@@ -4,10 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ UnmatchedAWSPage(data viewmodels.UnmatchedAWSViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Unlinked AWS Identity Center Accounts"},
-		}, "Match AWS Identity Center identities to identities for complete access coverage.") {
+		@PageHeader("Match AWS Identity Center identities to identities for complete access coverage.") {
 			if data.Layout.AWSIdentityCenterConfigured {
 				<span class="badge-outline">{ data.Layout.AWSIdentityCenterName }</span>
 			} else {

@@ -11,6 +11,28 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
+func TestHandleAppsTrimsStatusFilterMatches(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindOkta, "acme.okta.com")
+		insertCommandSearchOktaApp(t, ctx, q, runID, "active-app", "Whitespace Active App", "whitespace-active", " active ")
+		insertCommandSearchOktaApp(t, ctx, q, runID, "inactive-app", "Inactive App", "inactive-app", "inactive")
+
+		c, rec := newTestContext(http.MethodGet, "http://example.com/assigned-apps?status=ACTIVE")
+
+		if err := h.HandleApps(c); err != nil {
+			t.Fatalf("HandleApps(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		body := rec.Body.String()
+		assertContains(t, body, "Whitespace Active App")
+		assertNotContains(t, body, "Inactive App")
+		assertContains(t, body, `href="/assigned-apps?status=ACTIVE"`)
+	})
+}
+
 func TestHandleOktaAppShowRedirectsIntegratedApps(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindOkta, "acme.okta.com")
