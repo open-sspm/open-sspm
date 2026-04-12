@@ -417,6 +417,9 @@ func TestHandleDiscoveryAppsHTMXReturnsResultsShellOnly(t *testing.T) {
 		assertContains(t, body, `data-enter-only-query="q"`)
 		assertContains(t, body, `hx-get="/discovery/apps?page=1"`)
 		assertContains(t, body, `hx-trigger="change delay:150ms from:select, submit"`)
+		assertContains(t, body, `class="space-y-3 lg:hidden"`)
+		assertContains(t, body, `class="hidden lg:block"`)
+		assertContains(t, body, `aria-label="View details for Managed GitHub App"`)
 		assertNotContains(t, body, "<!doctype html>")
 	})
 }

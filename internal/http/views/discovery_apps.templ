@@ -14,6 +14,70 @@ templ DiscoveryAppsPage(data viewmodels.DiscoveryAppsViewData) {
 	}
 }
 
+templ DiscoveryAppMobileRow(item viewmodels.DiscoveryAppListItem) {
+	<article class="rounded-lg border border-border/70 bg-card p-4">
+		<div class="flex items-start justify-between gap-3">
+			<div class="min-w-0">
+				<a class="block font-medium text-foreground no-underline hover:underline" href={ "/discovery/apps/" + FormatInt64(item.ID) } title={ item.DisplayName }>
+					<span class="osspm-truncate">{ item.DisplayName }</span>
+				</a>
+				if item.Domain != "" {
+					<div class="text-sm text-muted-foreground break-all">{ item.Domain }</div>
+				}
+				if item.VendorName != "" {
+					<div class="osspm-truncate text-sm text-muted-foreground" title={ item.VendorName }>{ item.VendorName }</div>
+				}
+			</div>
+			<div class="shrink-0 text-right">
+				<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
+				<div class={ RiskScoreClass(item.RiskLevel) }>{ "Score " }{ FormatInt(int(item.RiskScore)) }</div>
+			</div>
+		</div>
+		<div class="mt-2 flex flex-wrap items-center gap-2">
+			<span class={ DiscoveryManagedBadgeClass(item.ManagedState) }>{ HumanizeDiscoveryManagedState(item.ManagedState) }</span>
+			<span class={ DiscoveryReviewDispositionBadgeClass(item.ReviewDisposition) }>{ HumanizeDiscoveryReviewDisposition(item.ReviewDisposition) }</span>
+			if item.TicketRef != "" {
+				<span class="badge-outline">{ item.TicketRef }</span>
+			}
+			if item.FollowUpDueDate.Label != "" {
+				<span class={ DiscoveryFollowUpBadgeClass(item.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(item.FollowUpDueDate.Label, item.IsFollowUpOverdue) }</span>
+			}
+		</div>
+		<div class="mt-2 text-sm text-muted-foreground">{ HumanizeDiscoveryManagedReason(item.ManagedReason) }</div>
+		<div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+			<div>
+				<div class="text-xs uppercase tracking-wide text-muted-foreground">Owner</div>
+				<div class="osspm-truncate" title={ item.Owner }>{ item.Owner }</div>
+			</div>
+			<div>
+				<div class="text-xs uppercase tracking-wide text-muted-foreground">Actors (30d)</div>
+				<div>{ FormatInt64(item.Actors30d) }</div>
+			</div>
+			<div>
+				<div class="text-xs uppercase tracking-wide text-muted-foreground">Last seen</div>
+				<div>{ item.LastSeen.Label }</div>
+			</div>
+			<div>
+				<div class="text-xs uppercase tracking-wide text-muted-foreground">Review</div>
+				if item.ReviewOwner != "—" {
+					<div class="osspm-truncate" title={ item.ReviewOwner }>{ item.ReviewOwner }</div>
+				} else {
+					<div class="text-muted-foreground">—</div>
+				}
+			</div>
+		</div>
+		if item.ReplacementDisplayName != "" {
+			<div class="mt-3 border-t border-border/60 pt-3 text-sm">
+				<div class="text-xs uppercase tracking-wide text-muted-foreground">Replacement</div>
+				<div class="osspm-truncate" title={ item.ReplacementDisplayName }>{ item.ReplacementDisplayName }</div>
+			</div>
+		}
+		<div class="mt-3 border-t border-border/60 pt-3">
+			<a class="btn-sm-link px-0" href={ "/discovery/apps/" + FormatInt64(item.ID) } aria-label={ "View details for " + item.DisplayName }>View details</a>
+		</div>
+	</article>
+}
+
 templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 	<div id="discovery-apps-results" class="space-y-6">
 		@BusyInlineIndicator("Updating results...", false)
@@ -89,16 +153,27 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
 
-		<section class="space-y-3">
-			<div class="flex items-center gap-3">
-				<div>
-					<h2 class="text-base font-semibold">Discovered Apps</h2>
-					<p class="text-sm text-muted-foreground">Discovered SaaS inventory from IdP SSO and OAuth evidence.</p>
+			<section class="space-y-3">
+				<div class="flex items-center gap-3">
+					<div>
+						<h2 class="text-base font-semibold">Discovered Apps</h2>
+						<p class="text-sm text-muted-foreground">Discovered SaaS inventory from IdP SSO and OAuth evidence.</p>
+					</div>
 				</div>
-			</div>
-					@ColumnsTable("") {
-					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-						<caption class="sr-only">Discovered SaaS applications with managed state and risk posture.</caption>
+				if data.HasItems {
+					<div class="space-y-3 lg:hidden">
+						for _, item := range data.Items {
+							@DiscoveryAppMobileRow(item)
+						}
+					</div>
+				} else {
+					<div class="lg:hidden">
+						@EmptyState("No discovery apps found", data.EmptyStateMsg)
+					</div>
+				}
+				@ColumnsTable("hidden lg:block") {
+						<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+							<caption class="sr-only">Discovered SaaS applications with managed state and risk posture.</caption>
 						<thead>
 							<tr>
 								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">App</th>
