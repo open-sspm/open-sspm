@@ -3,10 +3,12 @@ import { openServerDialogs, wireDialogCloseNavigation } from "open-sspm-app/dial
 import { triggerVisibleLazyHx, initFragment } from "open-sspm-app/fragment.js";
 import { wireSidebarToggle } from "open-sspm-app/sidebar.js";
 import { showFlashToast } from "open-sspm-app/toast.js";
+import { wireCommandPalette } from "open-sspm-app/command_palette.js";
 
 const initGlobal = () => {
   showFlashToast();
   wireSidebarToggle();
+  wireCommandPalette();
   openServerDialogs();
   wireDialogCloseNavigation();
   triggerVisibleLazyHx(document);

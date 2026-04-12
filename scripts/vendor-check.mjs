@@ -52,6 +52,26 @@ const readManifest = async () => {
   return manifest.assets;
 };
 
+const listVendorFiles = async (directoryPath) => {
+  const entries = await readdir(directoryPath, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(directoryPath, entry.name);
+
+    if (entry.isDirectory()) {
+      files.push(...await listVendorFiles(fullPath));
+      continue;
+    }
+
+    if (entry.isFile()) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+};
+
 const main = async () => {
   const assets = await readManifest();
   const failures = [];
@@ -90,14 +110,11 @@ const main = async () => {
     }
   }
 
-  const entries = await readdir(vendorDir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (!entry.isFile()) continue;
-    if (!entry.name.endsWith(".js")) continue;
-
-    const fullPath = path.join(vendorDir, entry.name);
+  const vendorFiles = await listVendorFiles(vendorDir);
+  for (const fullPath of vendorFiles) {
+    if (fullPath === manifestPath) continue;
     if (!managedDestinationPaths.has(fullPath)) {
-      failures.push(`unmanaged vendor JS: ${path.relative(rootDir, fullPath)}`);
+      failures.push(`unmanaged vendor file: ${path.relative(rootDir, fullPath)}`);
     }
   }
 

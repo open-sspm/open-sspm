@@ -4,68 +4,63 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ DashboardPage(data viewmodels.DashboardViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard"},
-		}, "Overview of synced identities and access data.") {
-		}
-
-		<article class="card">
-			<section>
-				<ul class="grid gap-6 sm:grid-cols-3">
-					<li class="flex items-center gap-4">
-						<span class="text-xs font-medium text-muted-foreground">Identities</span>
-						<i class="ti ti-users text-lg text-muted-foreground" aria-hidden="true"></i>
-						<span class="text-2xl font-semibold tracking-tight">{ FormatInt64(data.IdentityCount) }</span>
-					</li>
-					<li class="flex items-center gap-4">
-						<span class="text-xs font-medium text-muted-foreground">Discovered SaaS apps</span>
-						<i class="ti ti-apps text-lg text-muted-foreground" aria-hidden="true"></i>
-						<span class="text-2xl font-semibold tracking-tight">{ FormatInt64(data.DiscoveryAppCount) }</span>
-					</li>
-					<li class="flex items-center gap-4">
-						<span class="text-xs font-medium text-muted-foreground">App assets</span>
-						<i class="ti ti-plug-connected text-lg text-muted-foreground" aria-hidden="true"></i>
-						<span class="text-2xl font-semibold tracking-tight">{ FormatInt64(data.AppAssetCount) }</span>
-					</li>
-				</ul>
-			</section>
-		</article>
-
-		<article class="card">
-			<header class="border-b">
-				<h2 class="text-xl font-semibold tracking-wide">Compliance Frameworks</h2>
-			</header>
-			<section>
-				if len(data.FrameworkPosture) == 0 {
-					@EmptyState("No findings yet", "Run a sync to evaluate compliance frameworks and populate posture data.") {
-						<a class="btn-sm-outline" href="/findings">Browse findings</a>
-					}
-				} else {
-					<div class="space-y-6">
-						for _, fw := range data.FrameworkPosture {
-							<div class="space-y-2">
-								<div class="flex items-center justify-between gap-4">
-									<div class="min-w-0 truncate text-sm font-medium text-muted-foreground">{ fw.Name }</div>
-									<div class="shrink-0 text-sm font-medium text-muted-foreground">
-										{ FormatInt64(fw.PassedCount) } / { FormatInt64(fw.TotalCount) } pass
-									</div>
-								</div>
-								<div
-										class="bg-primary/20 relative h-2 w-full overflow-hidden rounded-full"
-										role="progressbar"
-										aria-label={ fw.Name + " pass rate" }
-										aria-valuemin="0"
-										aria-valuemax="100"
-										aria-valuenow={ FormatInt(fw.PassPercent) }
-										aria-valuetext={ FormatInt(fw.PassPercent) + "% pass" }
-									>
-										<div class="bg-primary h-full w-full flex-1 transition-all" style={ "width: " + FormatInt(fw.PassPercent) + "%" }></div>
-									</div>
-								</div>
-							}
-						</div>
+		<section class="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-3" aria-label="Key metrics">
+			<a href="/identities" class="dashboard-kpi group block space-y-1 no-underline">
+				<p class="text-4xl font-semibold tracking-tight tabular-nums">{ FormatInt64(data.IdentityCount) }</p>
+				<p class="text-sm text-muted-foreground transition-colors group-hover:text-foreground">Identities</p>
+			</a>
+			<a href="/discovery/apps" class="dashboard-kpi group block space-y-1 no-underline" style="--stagger: 1">
+				<p class="text-4xl font-semibold tracking-tight tabular-nums">{ FormatInt64(data.DiscoveryAppCount) }</p>
+				<p class="text-sm text-muted-foreground transition-colors group-hover:text-foreground">Discovered SaaS apps</p>
+			</a>
+			<a href="/app-assets" class="dashboard-kpi group block space-y-1 no-underline" style="--stagger: 2">
+				<p class="text-4xl font-semibold tracking-tight tabular-nums">{ FormatInt64(data.AppAssetCount) }</p>
+				<p class="text-sm text-muted-foreground transition-colors group-hover:text-foreground">App assets</p>
+			</a>
+		</section>
+		<hr class="border-border"/>
+		<section aria-label="Compliance posture">
+			<div class="flex items-baseline justify-between gap-4">
+				<div class="space-y-1">
+					<h2 class="text-lg font-semibold tracking-tight">Compliance posture</h2>
+					<p class="text-sm text-muted-foreground">Top frameworks by lowest pass rate</p>
+				</div>
+				if len(data.FrameworkPosture) > 0 {
+					<a href="/findings" class="shrink-0 text-sm text-muted-foreground no-underline transition-colors hover:text-foreground">All findings <span aria-hidden="true">→</span></a>
 				}
-			</section>
-		</article>
+			</div>
+			if len(data.FrameworkPosture) == 0 {
+				@EmptyState("No findings yet", "Run a sync to evaluate compliance frameworks and populate posture data.") {
+					<a class="btn-sm-outline" href="/findings">Browse findings</a>
+				}
+			} else {
+				<div class="mt-6 divide-y divide-border">
+					for _, fw := range data.FrameworkPosture {
+						<a
+							href={ templ.SafeURL(fw.Href) }
+							class="group flex flex-col gap-3 py-4 no-underline first:pt-0 last:pb-0"
+						>
+							<div class="flex items-center gap-3">
+								<span class="badge-secondary w-10 shrink-0 justify-center font-mono text-[11px] uppercase tracking-wide">{ fw.BadgeLabel }</span>
+								<span class="min-w-0 flex-1 truncate text-sm font-medium text-foreground transition-colors group-hover:text-accent-foreground">{ fw.Name }</span>
+								<span class="text-sm tabular-nums text-muted-foreground">{ FormatInt64(fw.PassedCount) }/{ FormatInt64(fw.TotalCount) }</span>
+								<span class="w-10 text-right text-sm font-semibold tabular-nums">{ FormatInt(fw.PassPercent) }%</span>
+							</div>
+							<div
+								class="h-1.5 w-full overflow-hidden rounded-full bg-primary/10"
+								role="progressbar"
+								aria-label={ fw.Name + " pass rate" }
+								aria-valuemin="0"
+								aria-valuemax="100"
+								aria-valuenow={ FormatInt(fw.PassPercent) }
+								aria-valuetext={ FormatInt(fw.PassPercent) + "% pass" }
+							>
+								<div class="dashboard-progress-bar h-full rounded-full bg-primary" style={ "width: " + FormatInt(fw.PassPercent) + "%" }></div>
+							</div>
+						</a>
+					}
+				</div>
+			}
+		</section>
 	}
 }

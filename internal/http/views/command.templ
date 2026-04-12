@@ -3,31 +3,31 @@ package views
 import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ CommandSearch(data viewmodels.CommandSearchViewData) {
-	<div class="relative w-full max-w-md" data-command-root>
-		<div class="rounded-md border border-border/50 bg-background overflow-visible">
-			<div class="command header-command">
-				<header>
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-						<path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l2.828 2.829a1 1 0 0 1-1.414 1.414l-2.829-2.828A7 7 0 0 1 2 9Z" clip-rule="evenodd"/>
-					</svg>
-					<input
-						type="text"
-						id="command-search-input"
-						name="q"
-						value={ data.Query }
-						placeholder={ data.Placeholder }
-						autocomplete="off"
-						spellcheck="false"
-						aria-label={ data.AriaLabel }
-						hx-get="/command/search"
-						hx-trigger="input changed delay:150ms, search"
-						hx-target="closest [data-command-root]"
-						hx-swap="outerHTML"
-						hx-push-url="false"
-						hx-sync="this:replace"
-					/>
-				</header>
-				<div role="menu" aria-label="Command search results" data-empty="No matches." class="max-h-[420px] overflow-y-auto lg:max-h-[520px]">
+	<div class="w-full" data-command-root>
+		<div class="command">
+			<header>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+					<path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l2.828 2.829a1 1 0 0 1-1.414 1.414l-2.829-2.828A7 7 0 0 1 2 9Z" clip-rule="evenodd"/>
+				</svg>
+				<input
+					type="text"
+					id="command-search-input"
+					name="q"
+					value={ data.Query }
+					placeholder={ data.Placeholder }
+					autocomplete="off"
+					spellcheck="false"
+					aria-label={ data.AriaLabel }
+					hx-get="/command/search"
+					hx-trigger="input changed delay:150ms, search"
+					hx-target="closest [data-command-root]"
+					hx-swap="outerHTML"
+					hx-push-url="false"
+					hx-sync="this:replace"
+				/>
+			</header>
+			if len(data.Notices) > 0 || len(data.Sections) > 0 {
+				<div role="menu" aria-label="Command search results" data-empty="No matches.">
 					if len(data.Notices) > 0 {
 						<div role="group">
 							for _, item := range data.Notices {
@@ -50,7 +50,7 @@ templ CommandSearch(data viewmodels.CommandSearchViewData) {
 						</div>
 					}
 				</div>
-			</div>
+			}
 		</div>
 	</div>
 }
@@ -82,30 +82,56 @@ templ CommandSearchItem(item viewmodels.CommandItemView) {
 }
 
 templ CommandSearchItemBody(item viewmodels.CommandItemView) {
-	<div class="flex min-w-0 items-start gap-3">
-		<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
-			if item.Kind == "identity" {
-				<i class="ti ti-user text-base" aria-hidden="true"></i>
-			} else if item.Kind == "action" {
-				<i class="ti ti-arrow-up-right text-base" aria-hidden="true"></i>
-			} else if item.Kind == "notice" {
-				<i class="ti ti-info-circle text-base" aria-hidden="true"></i>
-			} else {
-				<i class="ti ti-apps text-base" aria-hidden="true"></i>
-			}
-		</div>
-		<div class="flex min-w-0 flex-1 flex-col gap-1">
-			<span class="truncate font-medium">{ item.Primary }</span>
-			if item.Secondary != "" {
-				<span class="truncate text-xs text-muted-foreground">{ item.Secondary }</span>
-			}
-		</div>
-		if len(item.Badges) > 0 {
-			<div class="flex shrink-0 flex-wrap justify-end gap-1.5">
-				for _, badge := range item.Badges {
-					<span class={ badge.Class }>{ badge.Label }</span>
-				}
-			</div>
+	<div class="command-item-icon">
+		if item.Kind == "identity" {
+			@IconUser("size-4")
+		} else if item.Kind == "action" {
+			@IconExternalLink("size-4")
+		} else if item.Kind == "notice" {
+			@IconInfo("size-4")
+		} else {
+			@IconLayoutGrid("size-4")
 		}
 	</div>
+	<div class="flex min-w-0 flex-1 flex-col">
+		<span class="truncate text-[13px] font-medium leading-snug">{ item.Primary }</span>
+		if item.Secondary != "" {
+			<span class="truncate text-xs leading-snug text-muted-foreground">{ item.Secondary }</span>
+		}
+	</div>
+	if len(item.Badges) > 0 {
+		<div class="flex shrink-0 items-center gap-1.5">
+			for _, badge := range item.Badges {
+				<span class={ badge.Class }>{ badge.Label }</span>
+			}
+		</div>
+	}
+}
+
+templ CommandPaletteTrigger() {
+	<button
+		type="button"
+		class="command-trigger"
+		data-command-palette-trigger
+		aria-label="Open command palette"
+	>
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+			<path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l2.828 2.829a1 1 0 0 1-1.414 1.414l-2.829-2.828A7 7 0 0 1 2 9Z" clip-rule="evenodd"/>
+		</svg>
+		<span>Search…</span>
+		<kbd><span>⌘</span>K</kbd>
+	</button>
+}
+
+templ CommandPaletteDialog(data viewmodels.CommandSearchViewData) {
+	<dialog id="command-palette" class="command-dialog" aria-label="Command palette">
+		<div>
+			@CommandSearch(data)
+			<footer class="command-palette-hints">
+				<span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+				<span><kbd>↵</kbd> Open</span>
+				<span><kbd>esc</kbd> Close</span>
+			</footer>
+		</div>
+	</dialog>
 }

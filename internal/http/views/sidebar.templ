@@ -7,63 +7,48 @@ templ Sidebar(data viewmodels.LayoutData) {
 	<div role="group">
 		<h3>Explore</h3>
 		<ul>
-			<li>
-				<a href="/" aria-current={ AriaCurrent(data.ActivePath, "/") }>
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-						<path fill-rule="evenodd" d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z" clip-rule="evenodd"/>
-					</svg>
-					<span>Dashboard</span>
-				</a>
-			</li>
-			<li>
-				<a href="/global-view" aria-current={ AriaCurrent(data.ActivePath, "/global-view") }>
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M2 10h16"/>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M10 2a12 12 0 0 1 0 16"/>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M10 2a12 12 0 0 0 0 16"/>
-					</svg>
-					<span>Global View</span>
-				</a>
-			</li>
-			<li>
-				<a href="/assigned-apps" aria-current={ AriaCurrent(data.ActivePath, "/assigned-apps") }>
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-						<path fill-rule="evenodd" d="M3 3.75A.75.75 0 0 1 3.75 3h3.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-3.5A.75.75 0 0 1 3 7.25v-3.5Zm9 0a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-3.5A.75.75 0 0 1 12 7.25v-3.5ZM3 12.75a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-3.5a.75.75 0 0 1-.75-.75v-3.5Zm9 0a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-3.5a.75.75 0 0 1-.75-.75v-3.5Z" clip-rule="evenodd"/>
-					</svg>
-					<span>Assigned Apps</span>
-				</a>
-			</li>
-			<li>
-				<details open?={ strings.HasPrefix(data.ActivePath, "/discovery") }>
-					<summary aria-current={ AriaCurrent(data.ActivePath, "/discovery") }>
-						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-							<path fill-rule="evenodd" d="M2.5 5A2.5 2.5 0 0 1 5 2.5h7A2.5 2.5 0 0 1 14.5 5v10A2.5 2.5 0 0 1 12 17.5H5A2.5 2.5 0 0 1 2.5 15V5Zm3.25.75a.75.75 0 0 0 0 1.5h5.5a.75.75 0 0 0 0-1.5h-5.5Zm0 4a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5h-3.5Zm9.47-4.72a.75.75 0 0 1 1.06 0l1.44 1.44a.75.75 0 0 1 0 1.06L15.06 10.2a.75.75 0 1 1-1.06-1.06l1.37-1.37-1.37-1.37a.75.75 0 0 1 0-1.06Zm-2.69 7.19a.75.75 0 0 1 1.06 0l1.44 1.44a.75.75 0 1 1-1.06 1.06l-.91-.91-.91.91a.75.75 0 1 1-1.06-1.06l1.44-1.44Z" clip-rule="evenodd"/>
-						</svg>
-						<span>SaaS Discovery</span>
-					</summary>
+				<li>
+					<a href="/" aria-current={ AriaCurrent(data.ActivePath, "/") }>
+						@IconHome("sidebar-icon")
+						<span>Dashboard</span>
+					</a>
+				</li>
+				<li>
+					<a href="/global-view" aria-current={ AriaCurrent(data.ActivePath, "/global-view") }>
+						@IconGlobe("sidebar-icon")
+						<span>Global View</span>
+					</a>
+				</li>
+				<li>
+					<a href="/assigned-apps" aria-current={ AriaCurrent(data.ActivePath, "/assigned-apps") }>
+						@IconLayoutGrid("sidebar-icon")
+						<span>Assigned Apps</span>
+					</a>
+				</li>
+				<li>
+					<details open?={ strings.HasPrefix(data.ActivePath, "/discovery") }>
+						<summary aria-current={ AriaCurrent(data.ActivePath, "/discovery") }>
+							@IconAppWindow("sidebar-icon")
+							<span>SaaS Discovery</span>
+						</summary>
 					<ul>
 						<li><a href="/discovery/apps" aria-current={ AriaCurrent(data.ActivePath, "/discovery/apps") }><span>Apps</span></a></li>
 						<li><a href="/discovery/hotspots" aria-current={ AriaCurrent(data.ActivePath, "/discovery/hotspots") }><span>Hotspots</span></a></li>
 					</ul>
 				</details>
 			</li>
-			<li>
-				<a href="/identities" aria-current={ AriaCurrent(data.ActivePath, "/identities") }>
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-						<path d="M7 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM14.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM1.615 16.428a1.224 1.224 0 0 1-.569-1.175 6.002 6.002 0 0 1 11.908 0c.058.467-.172.92-.57 1.174A9.953 9.953 0 0 1 7 18a9.953 9.953 0 0 1-5.385-1.572ZM14.5 16h-.106c.07-.297.088-.611.048-.933a7.47 7.47 0 0 0-1.588-3.755 4.502 4.502 0 0 1 5.874 2.636.818.818 0 0 1-.36.98A7.465 7.465 0 0 1 14.5 16Z"/>
-					</svg>
-					<span>Identities</span>
-				</a>
-			</li>
-			<li>
-				<details open?={ strings.HasPrefix(data.ActivePath, "/non-human-access") || strings.HasPrefix(data.ActivePath, "/app-assets") || strings.HasPrefix(data.ActivePath, "/credentials") }>
-					<summary aria-current={ AriaCurrentNonHumanAccessSurface(data.ActivePath) }>
-						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-							<path d="M6.5 5.5a2.5 2.5 0 1 1 5 0v1.586l.707.707A1 1 0 0 1 12.5 8.5v4a1 1 0 0 1-.293.707l-2 2A1 1 0 0 1 9.5 15.5h-3a1 1 0 0 1-.707-.293l-2-2A1 1 0 0 1 3.5 12.5v-4a1 1 0 0 1 .293-.707l2-2A1 1 0 0 1 6.5 5.5Zm7 2a2 2 0 1 1 3.999.102L17.5 7.5v5a1 1 0 0 1-.293.707l-1 1A1 1 0 0 1 15.5 14.5h-1a1 1 0 0 1 0-2h.586l.414-.414V7.5Zm-8.586.414-.414.414v3.172l1.414 1.414h2.172L9.5 11.914V8.742l-.414-.414H4.914Z"/>
-						</svg>
-						<span>Non-Human Access</span>
-					</summary>
+				<li>
+					<a href="/identities" aria-current={ AriaCurrent(data.ActivePath, "/identities") }>
+						@IconUsers("sidebar-icon")
+						<span>Identities</span>
+					</a>
+				</li>
+				<li>
+					<details open?={ strings.HasPrefix(data.ActivePath, "/non-human-access") || strings.HasPrefix(data.ActivePath, "/app-assets") || strings.HasPrefix(data.ActivePath, "/credentials") }>
+						<summary aria-current={ AriaCurrentNonHumanAccessSurface(data.ActivePath) }>
+							@IconBot("sidebar-icon")
+							<span>Non-Human Access</span>
+						</summary>
 					<ul>
 						<li><a href="/non-human-access" aria-current={ AriaCurrent(data.ActivePath, "/non-human-access") }><span>Inventory</span></a></li>
 						<li><a href="/app-assets" aria-current={ AriaCurrent(data.ActivePath, "/app-assets") }><span>App Assets</span></a></li>
@@ -71,14 +56,12 @@ templ Sidebar(data viewmodels.LayoutData) {
 					</ul>
 				</details>
 			</li>
-			<li>
-				<details open?={ strings.HasPrefix(data.ActivePath, "/findings") }>
-					<summary aria-current={ AriaCurrent(data.ActivePath, "/findings") }>
-						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-							<path fill-rule="evenodd" d="M9 2a1 1 0 0 1 1 1v.5h3.5A1.5 1.5 0 0 1 15 5v1.5h.5a1 1 0 1 1 0 2H15V10h.5a1 1 0 1 1 0 2H15v1.5A1.5 1.5 0 0 1 13.5 15H10v.5a1 1 0 1 1-2 0V15H4.5A1.5 1.5 0 0 1 3 13.5V12h-.5a1 1 0 1 1 0-2H3V8.5h-.5a1 1 0 1 1 0-2H3V5a1.5 1.5 0 0 1 1.5-1.5H8V3a1 1 0 0 1 1-1Zm-4 6.5A1.5 1.5 0 0 1 6.5 7h7A1.5 1.5 0 0 1 15 8.5v3A1.5 1.5 0 0 1 13.5 13h-7A1.5 1.5 0 0 1 5 11.5v-3Zm1.5.5v2h7V9h-7Z" clip-rule="evenodd"/>
-						</svg>
-						<span>Findings</span>
-					</summary>
+				<li>
+					<details open?={ strings.HasPrefix(data.ActivePath, "/findings") }>
+						<summary aria-current={ AriaCurrent(data.ActivePath, "/findings") }>
+							@IconFileWarning("sidebar-icon")
+							<span>Findings</span>
+						</summary>
 						<ul>
 							<li><a href="/findings" aria-current={ AriaCurrentExact(data.ActivePath, "/findings") }><span>Overview</span></a></li>
 							for _, ruleset := range data.FindingsRulesets {
@@ -88,14 +71,12 @@ templ Sidebar(data viewmodels.LayoutData) {
 					</details>
 				</li>
 			if data.IsAdmin {
-				<li>
-					<details open?={ strings.HasPrefix(data.ActivePath, "/settings") }>
-						<summary aria-current={ AriaCurrent(data.ActivePath, "/settings") }>
-							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-								<path fill-rule="evenodd" d="M7.84 1.804A1 1 0 0 1 8.82 1h2.36a1 1 0 0 1 .98.804l.331 1.652a6.993 6.993 0 0 1 1.929 1.115l1.598-.54a1 1 0 0 1 1.186.447l1.18 2.044a1 1 0 0 1-.205 1.251l-1.267 1.113a7.047 7.047 0 0 1 0 2.228l1.267 1.113a1 1 0 0 1 .206 1.25l-1.18 2.045a1 1 0 0 1-1.187.447l-1.598-.54a6.993 6.993 0 0 1-1.929 1.115l-.33 1.652a1 1 0 0 1-.98.804H8.82a1 1 0 0 1-.98-.804l-.331-1.652a6.993 6.993 0 0 1-1.929-1.115l-1.598.54a1 1 0 0 1-1.186-.447l-1.18-2.044a1 1 0 0 1 .205-1.251l1.267-1.114a7.05 7.05 0 0 1 0-2.227L1.821 7.773a1 1 0 0 1-.206-1.25l1.18-2.045a1 1 0 0 1 1.187-.447l1.598.54A6.992 6.992 0 0 1 7.51 3.456l.33-1.652ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clip-rule="evenodd"/>
-							</svg>
-							<span>Settings</span>
-						</summary>
+					<li>
+						<details open?={ strings.HasPrefix(data.ActivePath, "/settings") }>
+							<summary aria-current={ AriaCurrent(data.ActivePath, "/settings") }>
+								@IconSettings("sidebar-icon")
+								<span>Settings</span>
+							</summary>
 						<ul>
 							<li><a href="/settings" aria-current={ AriaCurrentExact(data.ActivePath, "/settings") }><span>Overview</span></a></li>
 							<li><a href="/settings/connectors" aria-current={ AriaCurrent(data.ActivePath, "/settings/connectors") }><span>Connectors</span></a></li>

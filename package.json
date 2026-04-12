@@ -23,7 +23,6 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@tabler/icons-webfont": "^3.41.1",
     "htmx.org": "2.0.8"
   }
 }
