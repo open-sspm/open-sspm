@@ -56,7 +56,7 @@ func DashboardPage(data viewmodels.DashboardViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</p><p class=\"text-sm text-muted-foreground transition-colors group-hover:text-foreground\">Identities</p></a> <a href=\"/discovery/apps\" class=\"dashboard-kpi group block space-y-1 no-underline\"><p class=\"text-4xl font-semibold tracking-tight tabular-nums\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</p><p class=\"text-sm text-muted-foreground transition-colors group-hover:text-foreground\">Identities</p></a> <a href=\"/discovery/apps\" class=\"dashboard-kpi group block space-y-1 no-underline\" style=\"--stagger: 1\"><p class=\"text-4xl font-semibold tracking-tight tabular-nums\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -69,7 +69,7 @@ func DashboardPage(data viewmodels.DashboardViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</p><p class=\"text-sm text-muted-foreground transition-colors group-hover:text-foreground\">Discovered SaaS apps</p></a> <a href=\"/app-assets\" class=\"dashboard-kpi group block space-y-1 no-underline\"><p class=\"text-4xl font-semibold tracking-tight tabular-nums\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</p><p class=\"text-sm text-muted-foreground transition-colors group-hover:text-foreground\">Discovered SaaS apps</p></a> <a href=\"/app-assets\" class=\"dashboard-kpi group block space-y-1 no-underline\" style=\"--stagger: 2\"><p class=\"text-4xl font-semibold tracking-tight tabular-nums\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

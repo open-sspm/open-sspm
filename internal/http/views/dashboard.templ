@@ -9,11 +9,11 @@ templ DashboardPage(data viewmodels.DashboardViewData) {
 				<p class="text-4xl font-semibold tracking-tight tabular-nums">{ FormatInt64(data.IdentityCount) }</p>
 				<p class="text-sm text-muted-foreground transition-colors group-hover:text-foreground">Identities</p>
 			</a>
-			<a href="/discovery/apps" class="dashboard-kpi group block space-y-1 no-underline">
+			<a href="/discovery/apps" class="dashboard-kpi group block space-y-1 no-underline" style="--stagger: 1">
 				<p class="text-4xl font-semibold tracking-tight tabular-nums">{ FormatInt64(data.DiscoveryAppCount) }</p>
 				<p class="text-sm text-muted-foreground transition-colors group-hover:text-foreground">Discovered SaaS apps</p>
 			</a>
-			<a href="/app-assets" class="dashboard-kpi group block space-y-1 no-underline">
+			<a href="/app-assets" class="dashboard-kpi group block space-y-1 no-underline" style="--stagger: 2">
 				<p class="text-4xl font-semibold tracking-tight tabular-nums">{ FormatInt64(data.AppAssetCount) }</p>
 				<p class="text-sm text-muted-foreground transition-colors group-hover:text-foreground">App assets</p>
 			</a>
