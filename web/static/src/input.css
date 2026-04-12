@@ -3,6 +3,30 @@
 @source "../../../internal/http/views/**/*.templ";
 @source "../../../internal/http/views/helpers.go";
 
+@font-face {
+  font-family: "Mona Sans";
+  src:
+    url("/static/fonts/MonaSansVF[wdth,wght,opsz,ital].woff2") format("woff2 supports variations"),
+    url("/static/fonts/MonaSansVF[wdth,wght,opsz,ital].woff2") format("woff2-variations");
+  font-weight: 200 900;
+  font-stretch: 75% 125%;
+  font-style: normal;
+  font-display: swap;
+  font-optical-sizing: auto;
+}
+
+@font-face {
+  font-family: "Mona Sans";
+  src:
+    url("/static/fonts/MonaSansVF[wdth,wght,opsz,ital].woff2") format("woff2 supports variations"),
+    url("/static/fonts/MonaSansVF[wdth,wght,opsz,ital].woff2") format("woff2-variations");
+  font-weight: 200 900;
+  font-stretch: 75% 125%;
+  font-style: italic;
+  font-display: swap;
+  font-optical-sizing: auto;
+}
+
 /* ============================================================================
    Open-SSPM Design System
    A Tailwind-native component library. No external UI frameworks.
@@ -98,6 +122,7 @@
 }
 
 @theme {
+  --font-sans: "Mona Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -148,6 +173,8 @@
   }
   body {
     @apply bg-background text-foreground overscroll-none antialiased;
+    font-family: var(--font-sans);
+    font-optical-sizing: auto;
   }
 
   a {
@@ -1064,6 +1091,41 @@
     pointer-events: none;
     z-index: 10;
   }
+  /* Dashboard ------------------------------------------------------------ */
+
+  .dashboard-kpi {
+    animation: dashboard-fade-in 0.4s ease-out both;
+    &:nth-child(2) { animation-delay: 80ms; }
+    &:nth-child(3) { animation-delay: 160ms; }
+  }
+
+  .dashboard-progress-bar {
+    animation: dashboard-progress-grow 0.6s ease-out 0.3s both;
+    transform-origin: left;
+  }
+
+  @keyframes dashboard-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+
+  @keyframes dashboard-progress-grow {
+    from {
+      transform: scaleX(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dashboard-kpi,
+    .dashboard-progress-bar {
+      animation: none !important;
+    }
+  }
+
+  /* Busy Overlay --------------------------------------------------------- */
+
   [data-busy-region][aria-busy="true"]::before,
   .card[aria-busy="true"]::before {
     content: "";
