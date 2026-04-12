@@ -110,7 +110,7 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 											aria-label={ "Actions for " + item.Name }
 											disabled?={ !item.CanViewDetails && !item.CanTriggerSync }
 										>
-											<i class="ti ti-dots text-lg text-muted-foreground" aria-hidden="true"></i>
+											@IconEllipsis("size-4 text-muted-foreground")
 										</button>
 										<div data-popover data-side="bottom" data-align="end" aria-hidden="true" class="min-w-56">
 											<div role="menu" id={ "connector-health-actions-" + FormatInt(idx) + "-menu" } aria-labelledby={ "connector-health-actions-" + FormatInt(idx) + "-trigger" }>
@@ -123,12 +123,12 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 														hx-target="#connector-health-error-details-host"
 														hx-swap="innerHTML"
 													>
-														<i class="ti ti-alert-circle text-base text-muted-foreground shrink-0" aria-hidden="true"></i>
+														@IconCircleAlert("size-4 text-muted-foreground")
 														View errors
 													</button>
 												} else {
 													<div role="menuitem" aria-disabled="true">
-														<i class="ti ti-alert-circle text-base text-muted-foreground shrink-0" aria-hidden="true"></i>
+														@IconCircleAlert("size-4 text-muted-foreground")
 														View errors
 													</div>
 												}
@@ -138,13 +138,13 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 														<input type="hidden" name="connector_kind" value={ item.Kind }/>
 														<input type="hidden" name="source_name" value={ item.SourceName }/>
 														<button type="submit" role="menuitem" class="cursor-pointer">
-															<i class="ti ti-refresh text-base text-muted-foreground shrink-0" aria-hidden="true"></i>
+															@IconRefreshCw("size-4 text-muted-foreground")
 															Trigger sync
 														</button>
 													</form>
 												} else {
 													<div role="menuitem" aria-disabled="true">
-														<i class="ti ti-refresh text-base text-muted-foreground shrink-0" aria-hidden="true"></i>
+														@IconRefreshCw("size-4 text-muted-foreground")
 														Trigger sync
 													</div>
 												}

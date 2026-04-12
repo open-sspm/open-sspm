@@ -84,13 +84,13 @@ templ CommandSearchItem(item viewmodels.CommandItemView) {
 templ CommandSearchItemBody(item viewmodels.CommandItemView) {
 	<div class="command-item-icon">
 		if item.Kind == "identity" {
-			<i class="ti ti-user" aria-hidden="true"></i>
+			@IconUser("size-4")
 		} else if item.Kind == "action" {
-			<i class="ti ti-arrow-up-right" aria-hidden="true"></i>
+			@IconExternalLink("size-4")
 		} else if item.Kind == "notice" {
-			<i class="ti ti-info-circle" aria-hidden="true"></i>
+			@IconInfo("size-4")
 		} else {
-			<i class="ti ti-apps" aria-hidden="true"></i>
+			@IconLayoutGrid("size-4")
 		}
 	</div>
 	<div class="flex min-w-0 flex-1 flex-col">

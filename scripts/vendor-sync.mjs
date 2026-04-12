@@ -38,6 +38,42 @@ const readBufferIfExists = async (filePath) => {
   }
 };
 
+const listVendorFiles = async (directoryPath) => {
+  const entries = await readdir(directoryPath, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(directoryPath, entry.name);
+
+    if (entry.isDirectory()) {
+      files.push(...await listVendorFiles(fullPath));
+      continue;
+    }
+
+    if (entry.isFile()) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+};
+
+const pruneEmptyVendorDirs = async (directoryPath) => {
+  const entries = await readdir(directoryPath, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+
+    const fullPath = path.join(directoryPath, entry.name);
+    await pruneEmptyVendorDirs(fullPath);
+
+    const remainingEntries = await readdir(fullPath, { withFileTypes: true });
+    if (remainingEntries.length === 0) {
+      await rm(fullPath, { recursive: true, force: true });
+    }
+  }
+};
+
 const writeFileAtomic = async (destinationPath, buffer) => {
   const destinationDir = path.dirname(destinationPath);
   const tempPath = path.join(
@@ -85,19 +121,18 @@ const readManifest = async () => {
 };
 
 const pruneUnmanaged = async (managedDestinationPaths) => {
-  const entries = await readdir(vendorDir, { withFileTypes: true });
+  const files = await listVendorFiles(vendorDir);
   const removed = [];
 
-  for (const entry of entries) {
-    if (!entry.isFile()) continue;
-    if (!entry.name.endsWith(".js")) continue;
-
-    const fullPath = path.join(vendorDir, entry.name);
+  for (const fullPath of files) {
+    if (fullPath === manifestPath) continue;
     if (managedDestinationPaths.has(fullPath)) continue;
 
     await rm(fullPath);
     removed.push(path.relative(rootDir, fullPath));
   }
+
+  await pruneEmptyVendorDirs(vendorDir);
 
   return removed;
 };

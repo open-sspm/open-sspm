@@ -26,7 +26,7 @@ templ DashboardPage(data viewmodels.DashboardViewData) {
 					<p class="text-sm text-muted-foreground">Top frameworks by lowest pass rate</p>
 				</div>
 				if len(data.FrameworkPosture) > 0 {
-					<a href="/findings" class="shrink-0 text-sm text-muted-foreground no-underline transition-colors hover:text-foreground">All findings<span aria-hidden="true"> →</span></a>
+					<a href="/findings" class="shrink-0 text-sm text-muted-foreground no-underline transition-colors hover:text-foreground">All findings <span aria-hidden="true">→</span></a>
 				}
 			</div>
 			if len(data.FrameworkPosture) == 0 {

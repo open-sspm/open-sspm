@@ -87,7 +87,7 @@ func DashboardPage(data viewmodels.DashboardViewData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if len(data.FrameworkPosture) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<a href=\"/findings\" class=\"shrink-0 text-sm text-muted-foreground no-underline transition-colors hover:text-foreground\">All findings<span aria-hidden=\"true\">→</span></a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<a href=\"/findings\" class=\"shrink-0 text-sm text-muted-foreground no-underline transition-colors hover:text-foreground\">All findings <span aria-hidden=\"true\">→</span></a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
