@@ -31,7 +31,7 @@ describe("toast", () => {
     `;
 
     const listener = vi.fn();
-    document.addEventListener("basecoat:toast", listener);
+    document.addEventListener("osspm:toast", listener);
 
     showFlashToast();
 
@@ -39,7 +39,7 @@ describe("toast", () => {
     expect(listener).not.toHaveBeenCalled();
     expect(document.getElementById("flash-toast")).toBeNull();
 
-    document.removeEventListener("basecoat:toast", listener);
+    document.removeEventListener("osspm:toast", listener);
   });
 
   it("does not duplicate toasts when called more than once", () => {
@@ -55,13 +55,13 @@ describe("toast", () => {
     expect(document.getElementById("flash-toast")).toBeNull();
   });
 
-  it("falls back to dispatching basecoat:toast when toaster is missing", () => {
+  it("falls back to dispatching osspm:toast when toaster is missing", () => {
     document.body.innerHTML = `
       <div id="flash-toast" data-category="warning" data-title="Heads up" data-description="Try again soon"></div>
     `;
 
     const listener = vi.fn();
-    document.addEventListener("basecoat:toast", listener);
+    document.addEventListener("osspm:toast", listener);
 
     showFlashToast();
 
@@ -73,6 +73,6 @@ describe("toast", () => {
     });
     expect(document.getElementById("flash-toast")).toBeNull();
 
-    document.removeEventListener("basecoat:toast", listener);
+    document.removeEventListener("osspm:toast", listener);
   });
 });

@@ -22,7 +22,7 @@ describe("copy", () => {
 
     document.body.innerHTML = `<button type="button" data-copy-text="tenant-1234" data-copy-label="Copy source ID">Copy</button>`;
     const listener = vi.fn();
-    document.addEventListener("basecoat:toast", listener);
+    document.addEventListener("osspm:toast", listener);
 
     wireCopyButtons(document);
     const button = document.querySelector("button");
@@ -37,7 +37,7 @@ describe("copy", () => {
       description: "source ID",
     });
 
-    document.removeEventListener("basecoat:toast", listener);
+    document.removeEventListener("osspm:toast", listener);
   });
 
   it("emits error toast when clipboard write fails", async () => {
@@ -49,7 +49,7 @@ describe("copy", () => {
 
     document.body.innerHTML = `<button type="button" data-copy-text="asset-999">Copy</button>`;
     const listener = vi.fn();
-    document.addEventListener("basecoat:toast", listener);
+    document.addEventListener("osspm:toast", listener);
 
     wireCopyButtons(document);
     const button = document.querySelector("button");
@@ -63,7 +63,7 @@ describe("copy", () => {
       description: "Clipboard is unavailable in this browser.",
     });
 
-    document.removeEventListener("basecoat:toast", listener);
+    document.removeEventListener("osspm:toast", listener);
   });
 
   it("does not bind handlers multiple times", async () => {

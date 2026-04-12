@@ -57,7 +57,7 @@ const buildToastElement = ({ category, title, description }) => {
 
 const dispatchToastEvent = ({ category, title, description }) => {
   document.dispatchEvent(
-    new CustomEvent("basecoat:toast", {
+    new CustomEvent("osspm:toast", {
       detail: {
         config: {
           category,
