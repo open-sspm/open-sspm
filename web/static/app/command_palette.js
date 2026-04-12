@@ -16,6 +16,12 @@ const getInput = (dialog) => {
   return dialog.querySelector(".command > header input");
 };
 
+const isTextEntryElement = (element) => {
+  if (!(element instanceof HTMLElement)) return false;
+  if (element.isContentEditable) return true;
+  return ["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName);
+};
+
 const open = () => {
   const dialog = getDialog();
   if (!dialog || dialog.open) return;
@@ -46,15 +52,29 @@ const close = () => {
 };
 
 const handleShortcutKeydown = (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-    e.preventDefault();
-    e.stopPropagation();
-    const dialog = getDialog();
-    if (dialog && dialog.open) {
-      close();
-    } else {
-      open();
-    }
+  const activeElement = document.activeElement;
+  const isCommandShortcut =
+    e.key.toLowerCase() === "k" &&
+    (e.metaKey || e.ctrlKey) &&
+    !e.altKey &&
+    !e.shiftKey;
+  if (!isCommandShortcut) return;
+  if (
+    isTextEntryElement(activeElement) &&
+    activeElement instanceof HTMLElement &&
+    activeElement.id !== "command-search-input"
+  ) {
+    return;
+  }
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  const dialog = getDialog();
+  if (dialog && dialog.open) {
+    close();
+  } else {
+    open();
   }
 };
 
