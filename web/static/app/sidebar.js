@@ -27,7 +27,7 @@ const writeDesktopSidebarPreference = (open) => {
 
 const dispatchSidebarEvent = (detail = {}) => {
   document.dispatchEvent(
-    new CustomEvent("basecoat:sidebar", {
+    new CustomEvent("osspm:sidebar", {
       detail: {
         id: SIDEBAR_ID,
         ...detail,
@@ -66,7 +66,7 @@ export const wireSidebarToggle = (root = document) => {
 
   const isMobileViewport = () => window.innerWidth < mobileBreakpoint;
   const isSidebarOpen = () => sidebar.getAttribute("aria-hidden") !== "true";
-  const isBasecoatSidebarReady = () => sidebar.dataset.sidebarInitialized === "true";
+  const isSidebarComponentReady = () => sidebar.dataset.sidebarInitialized === "true";
 
   const persistDesktopPreference = (open) => {
     if (!desktopPersistenceReady) return;
@@ -80,7 +80,7 @@ export const wireSidebarToggle = (root = document) => {
     if (isMobileViewport()) return true;
     if (desktopOpenPreference === null) return true;
     if (isSidebarOpen() === desktopOpenPreference) return true;
-    if (!isBasecoatSidebarReady()) return false;
+    if (!isSidebarComponentReady()) return false;
 
     dispatchSidebarEvent({ action: desktopOpenPreference ? "open" : "close" });
     return true;
@@ -89,7 +89,7 @@ export const wireSidebarToggle = (root = document) => {
   const initializeDesktopPersistence = () => {
     if (desktopPersistenceReady) return;
     if (isMobileViewport()) return;
-    if (!isBasecoatSidebarReady()) return;
+    if (!isSidebarComponentReady()) return;
 
     const applied = applyDesktopPreference();
     if (!applied) return;
@@ -186,7 +186,7 @@ export const wireSidebarToggle = (root = document) => {
   window.addEventListener("resize", sidebarResizeHandler);
 
   if (sidebar.dataset.sidebarInitialized !== "true") {
-    sidebar.addEventListener("basecoat:initialized", initializeDesktopPersistence, { once: true });
+    sidebar.addEventListener("osspm:initialized", initializeDesktopPersistence, { once: true });
   }
 
   initializeDesktopPersistence();

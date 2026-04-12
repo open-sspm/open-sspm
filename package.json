@@ -16,7 +16,6 @@
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.2.2",
-    "basecoat-css": "^0.3.11",
     "jsdom": "^26.1.0",
     "playwright": "^1.59.1",
     "tailwindcss": "^4.2.2",

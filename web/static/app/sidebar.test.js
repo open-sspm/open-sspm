@@ -76,7 +76,7 @@ describe("sidebar", () => {
     `;
 
     const listener = vi.fn();
-    document.addEventListener("basecoat:sidebar", listener);
+    document.addEventListener("osspm:sidebar", listener);
 
     wireSidebarToggle(document);
 
@@ -88,7 +88,7 @@ describe("sidebar", () => {
       }),
     );
 
-    document.removeEventListener("basecoat:sidebar", listener);
+    document.removeEventListener("osspm:sidebar", listener);
   });
 
   it("does not close sidebar on Escape when a dialog is open", () => {
@@ -102,7 +102,7 @@ describe("sidebar", () => {
     `;
 
     const listener = vi.fn();
-    document.addEventListener("basecoat:sidebar", listener);
+    document.addEventListener("osspm:sidebar", listener);
 
     wireSidebarToggle(document);
 
@@ -115,7 +115,7 @@ describe("sidebar", () => {
       }),
     );
 
-    document.removeEventListener("basecoat:sidebar", listener);
+    document.removeEventListener("osspm:sidebar", listener);
   });
 
   it("persists desktop sidebar state when visibility changes", async () => {
@@ -175,7 +175,7 @@ describe("sidebar", () => {
     `;
 
     const listener = vi.fn();
-    document.addEventListener("basecoat:sidebar", listener);
+    document.addEventListener("osspm:sidebar", listener);
 
     wireSidebarToggle(document);
     await waitForAsyncWork();
@@ -186,6 +186,6 @@ describe("sidebar", () => {
       }),
     );
 
-    document.removeEventListener("basecoat:sidebar", listener);
+    document.removeEventListener("osspm:sidebar", listener);
   });
 });

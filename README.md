@@ -20,7 +20,7 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 - Programmatic access governance: browse app assets and credentials with risk labels, expiry filters, and actor attribution links.
 - Matching: automatic by email (case-insensitive) + manual linking for accounts without email.
 - Findings: Okta CIS benchmark rule evaluations (rules must be seeded; see below).
-- Server-rendered UI: Echo + templ; Tailwind v4 + Basecoat; minimal vanilla JS for UX.
+- Server-rendered UI: Echo + templ; Tailwind v4 with custom component library; minimal vanilla JS for UX.
 
 ## Requirements
 - Go 1.26.x (go.mod uses toolchain `go1.26.0`)

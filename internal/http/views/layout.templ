@@ -26,7 +26,7 @@ templ Layout(data viewmodels.LayoutData) {
 						try { localStorage.setItem('themeMode', dark ? 'dark' : 'light'); } catch (_) {}
 					};
 
-					document.addEventListener('basecoat:theme', (event) => {
+					document.addEventListener('osspm:theme', (event) => {
 						const mode = event.detail?.mode;
 						apply(mode === 'dark' ? true : mode === 'light' ? false : !document.documentElement.classList.contains('dark'));
 					});
@@ -95,7 +95,7 @@ templ Layout(data viewmodels.LayoutData) {
 							@CommandSearch(data.CommandSearch)
 						</div>
 						<div class="flex items-center gap-3">
-							<button type="button" aria-label="Toggle dark mode" data-tooltip="Toggle dark mode" data-side="bottom" data-align="end" onclick="document.dispatchEvent(new CustomEvent('basecoat:theme'))" class="btn-icon-outline size-8">
+							<button type="button" aria-label="Toggle dark mode" data-tooltip="Toggle dark mode" data-side="bottom" data-align="end" onclick="document.dispatchEvent(new CustomEvent('osspm:theme'))" class="btn-icon-outline size-8">
 								<span class="hidden dark:block">
 									<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 										<circle cx="12" cy="12" r="4"></circle>
@@ -149,7 +149,6 @@ templ Layout(data viewmodels.LayoutData) {
 			<script type="importmap">
 				{
 					"imports": {
-						"basecoat": "/static/vendor/basecoat.all.min.js",
 						"open-sspm-app/": "/static/app/"
 					}
 				}
