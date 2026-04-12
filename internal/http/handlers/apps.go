@@ -28,62 +28,54 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 	}
 
 	const perPage = 20
-	queryState := querystate.ParseBasicListQuery("/assigned-apps", c.Request().URL.Query(), querystate.BasicListOptions{})
+	queryState := querystate.ParseAppsQuery(c.Request().URL.Query())
 	page := queryState.Page
 
-	var totalCount int64
-	if queryState.Q == "" {
-		totalCount, err = h.Q.CountOktaApps(ctx)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-	} else {
-		totalCount, err = h.Q.CountOktaAppsByQuery(ctx, queryState.Q)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
+	filterParams := gen.CountOktaAppsFilteredParams{
+		Query:             queryState.Q,
+		StatusFilter:      queryState.Status,
+		IntegrationFilter: queryState.Integration,
+	}
+
+	totalCount, err := h.Q.CountOktaAppsFiltered(ctx, filterParams)
+	if err != nil {
+		return h.RenderError(c, err)
 	}
 
 	pagination := newPaginatedListState(totalCount, page, perPage)
 
-	var items []viewmodels.AppListItem
-	if queryState.Q == "" {
-		apps, err := h.Q.ListOktaAppsPage(ctx, gen.ListOktaAppsPageParams{
-			PageLimit:  int32(perPage),
-			PageOffset: int32(pagination.Offset()),
-		})
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		items = make([]viewmodels.AppListItem, 0, len(apps))
-		for _, app := range apps {
-			items = append(items, oktaAppListItem(app.ExternalID, app.Label, app.Name, app.Status, app.SignOnMode, app.IntegrationKind))
-		}
-	} else {
-		apps, err := h.Q.ListOktaAppsPageByQuery(ctx, gen.ListOktaAppsPageByQueryParams{
-			Query:      queryState.Q,
-			PageLimit:  int32(perPage),
-			PageOffset: int32(pagination.Offset()),
-		})
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		items = make([]viewmodels.AppListItem, 0, len(apps))
-		for _, app := range apps {
-			items = append(items, oktaAppListItem(app.ExternalID, app.Label, app.Name, app.Status, app.SignOnMode, app.IntegrationKind))
-		}
+	apps, err := h.Q.ListOktaAppsPageFiltered(ctx, gen.ListOktaAppsPageFilteredParams{
+		Query:             queryState.Q,
+		StatusFilter:      queryState.Status,
+		IntegrationFilter: queryState.Integration,
+		PageLimit:         int32(perPage),
+		PageOffset:        int32(pagination.Offset()),
+	})
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+
+	items := make([]viewmodels.AppListItem, 0, len(apps))
+	for _, app := range apps {
+		items = append(items, oktaAppListItem(app.ExternalID, app.Label, app.Name, app.Status, app.SignOnMode, app.IntegrationKind))
+	}
+
+	statusOptions, err := h.Q.ListDistinctOktaAppStatuses(ctx)
+	if err != nil {
+		return h.RenderError(c, err)
 	}
 
 	data := viewmodels.AppsViewData{
 		PaginatedListPageData: pagination.PageData(layout, len(items), func() string {
 			if queryState.HasFilters() {
-				return "No assigned apps match the current search."
+				return "No assigned apps match the current filters."
 			}
 			return "No assigned apps have been synced yet. Run a sync to discover assignments."
 		}(), ""),
-		Apps:    items,
-		Query:   queryState,
-		HasApps: len(items) > 0,
+		Apps:          items,
+		Query:         queryState,
+		StatusOptions: statusOptions,
+		HasApps:       len(items) > 0,
 	}
 
 	if isHX(c) && isHXTarget(c, "apps-results") {

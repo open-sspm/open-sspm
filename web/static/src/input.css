@@ -1227,9 +1227,41 @@
     }
   }
 
+  /* App Row -------------------------------------------------------------- */
+
+  .app-row {
+    animation: app-row-in 0.3s ease-out both;
+  }
+
+  @keyframes app-row-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+
+  /* Filter Popover ------------------------------------------------------- */
+
+  .filter-popover {
+    animation: filter-popover-in 150ms ease-out;
+  }
+
+  @keyframes filter-popover-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .dashboard-kpi,
-    .dashboard-progress-bar {
+    .dashboard-progress-bar,
+    .app-row,
+    .filter-popover {
       animation: none !important;
     }
   }

@@ -145,3 +145,21 @@ templ IconInfo(className string) {
 		<path d="M12 8h.01"></path>
 	</svg>
 }
+
+templ IconFilter(className string) {
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={ templ.Classes("icon", templ.KV(className, className != "")) } aria-hidden="true">
+		<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+	</svg>
+}
+
+templ IconCheck(className string) {
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={ templ.Classes("icon", templ.KV(className, className != "")) } aria-hidden="true">
+		<path d="M20 6 9 17l-5-5"></path>
+	</svg>
+}
+
+templ IconChevronRight(className string) {
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={ templ.Classes("icon", templ.KV(className, className != "")) } aria-hidden="true">
+		<path d="m9 18 6-6-6-6"></path>
+	</svg>
+}

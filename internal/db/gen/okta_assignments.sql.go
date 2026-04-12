@@ -95,6 +95,43 @@ func (q *Queries) CountOktaAppsByQuery(ctx context.Context, query string) (int64
 	return count, err
 }
 
+const countOktaAppsFiltered = `-- name: CountOktaAppsFiltered :one
+SELECT count(*)
+FROM okta_apps oa
+LEFT JOIN integration_okta_app_map m ON m.okta_app_external_id = oa.external_id
+WHERE
+  oa.expired_at IS NULL
+  AND oa.last_observed_run_id IS NOT NULL
+  AND (
+    $1::text = ''
+    OR oa.label ILIKE ('%' || $1::text || '%')
+    OR oa.name ILIKE ('%' || $1::text || '%')
+    OR oa.external_id ILIKE ('%' || $1::text || '%')
+  )
+  AND (
+    $2::text = ''
+    OR UPPER(oa.status) = UPPER($2::text)
+  )
+  AND (
+    $3::text = ''
+    OR ($3::text = 'connected' AND m.integration_kind IS NOT NULL)
+    OR ($3::text = 'not_connected' AND m.integration_kind IS NULL)
+  )
+`
+
+type CountOktaAppsFilteredParams struct {
+	Query             string `json:"query"`
+	StatusFilter      string `json:"status_filter"`
+	IntegrationFilter string `json:"integration_filter"`
+}
+
+func (q *Queries) CountOktaAppsFiltered(ctx context.Context, arg CountOktaAppsFilteredParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOktaAppsFiltered, arg.Query, arg.StatusFilter, arg.IntegrationFilter)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getOktaAppAssignmentForOktaAccountByOktaAppExternalID = `-- name: GetOktaAppAssignmentForOktaAccountByOktaAppExternalID :one
 SELECT
   ouaa.okta_user_account_id AS okta_account_id,
@@ -207,6 +244,35 @@ func (q *Queries) GetOktaAppByExternalIDWithIntegration(ctx context.Context, ext
 		&i.IntegrationKind,
 	)
 	return i, err
+}
+
+const listDistinctOktaAppStatuses = `-- name: ListDistinctOktaAppStatuses :many
+SELECT DISTINCT UPPER(oa.status)::text AS status
+FROM okta_apps oa
+WHERE oa.expired_at IS NULL
+  AND oa.last_observed_run_id IS NOT NULL
+  AND TRIM(oa.status) != ''
+ORDER BY status
+`
+
+func (q *Queries) ListDistinctOktaAppStatuses(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listDistinctOktaAppStatuses)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var status string
+		if err := rows.Scan(&status); err != nil {
+			return nil, err
+		}
+		items = append(items, status)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listOktaAppAssignedAccountsPageByQuery = `-- name: ListOktaAppAssignedAccountsPageByQuery :many
@@ -672,6 +738,89 @@ func (q *Queries) ListOktaAppsPageByQuery(ctx context.Context, arg ListOktaAppsP
 	var items []ListOktaAppsPageByQueryRow
 	for rows.Next() {
 		var i ListOktaAppsPageByQueryRow
+		if err := rows.Scan(
+			&i.ExternalID,
+			&i.Label,
+			&i.Name,
+			&i.Status,
+			&i.SignOnMode,
+			&i.IntegrationKind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOktaAppsPageFiltered = `-- name: ListOktaAppsPageFiltered :many
+SELECT
+  oa.external_id,
+  oa.label,
+  oa.name,
+  oa.status,
+  oa.sign_on_mode,
+  COALESCE(m.integration_kind, '') AS integration_kind
+FROM okta_apps oa
+LEFT JOIN integration_okta_app_map m ON m.okta_app_external_id = oa.external_id
+WHERE
+  oa.expired_at IS NULL
+  AND oa.last_observed_run_id IS NOT NULL
+  AND (
+    $1::text = ''
+    OR oa.label ILIKE ('%' || $1::text || '%')
+    OR oa.name ILIKE ('%' || $1::text || '%')
+    OR oa.external_id ILIKE ('%' || $1::text || '%')
+  )
+  AND (
+    $2::text = ''
+    OR UPPER(oa.status) = UPPER($2::text)
+  )
+  AND (
+    $3::text = ''
+    OR ($3::text = 'connected' AND m.integration_kind IS NOT NULL)
+    OR ($3::text = 'not_connected' AND m.integration_kind IS NULL)
+  )
+ORDER BY (m.integration_kind IS NULL), oa.label, oa.name, oa.external_id
+LIMIT $5::int
+OFFSET $4::int
+`
+
+type ListOktaAppsPageFilteredParams struct {
+	Query             string `json:"query"`
+	StatusFilter      string `json:"status_filter"`
+	IntegrationFilter string `json:"integration_filter"`
+	PageOffset        int32  `json:"page_offset"`
+	PageLimit         int32  `json:"page_limit"`
+}
+
+type ListOktaAppsPageFilteredRow struct {
+	ExternalID      string `json:"external_id"`
+	Label           string `json:"label"`
+	Name            string `json:"name"`
+	Status          string `json:"status"`
+	SignOnMode      string `json:"sign_on_mode"`
+	IntegrationKind string `json:"integration_kind"`
+}
+
+func (q *Queries) ListOktaAppsPageFiltered(ctx context.Context, arg ListOktaAppsPageFilteredParams) ([]ListOktaAppsPageFilteredRow, error) {
+	rows, err := q.db.Query(ctx, listOktaAppsPageFiltered,
+		arg.Query,
+		arg.StatusFilter,
+		arg.IntegrationFilter,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOktaAppsPageFilteredRow
+	for rows.Next() {
+		var i ListOktaAppsPageFilteredRow
 		if err := rows.Scan(
 			&i.ExternalID,
 			&i.Label,

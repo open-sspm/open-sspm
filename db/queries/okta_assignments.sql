@@ -379,6 +379,69 @@ ORDER BY (m.integration_kind IS NULL), oa.label, oa.name, oa.external_id
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
+-- name: CountOktaAppsFiltered :one
+SELECT count(*)
+FROM okta_apps oa
+LEFT JOIN integration_okta_app_map m ON m.okta_app_external_id = oa.external_id
+WHERE
+  oa.expired_at IS NULL
+  AND oa.last_observed_run_id IS NOT NULL
+  AND (
+    sqlc.arg(query)::text = ''
+    OR oa.label ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR oa.name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR oa.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+  )
+  AND (
+    sqlc.arg(status_filter)::text = ''
+    OR UPPER(oa.status) = UPPER(sqlc.arg(status_filter)::text)
+  )
+  AND (
+    sqlc.arg(integration_filter)::text = ''
+    OR (sqlc.arg(integration_filter)::text = 'connected' AND m.integration_kind IS NOT NULL)
+    OR (sqlc.arg(integration_filter)::text = 'not_connected' AND m.integration_kind IS NULL)
+  );
+
+-- name: ListOktaAppsPageFiltered :many
+SELECT
+  oa.external_id,
+  oa.label,
+  oa.name,
+  oa.status,
+  oa.sign_on_mode,
+  COALESCE(m.integration_kind, '') AS integration_kind
+FROM okta_apps oa
+LEFT JOIN integration_okta_app_map m ON m.okta_app_external_id = oa.external_id
+WHERE
+  oa.expired_at IS NULL
+  AND oa.last_observed_run_id IS NOT NULL
+  AND (
+    sqlc.arg(query)::text = ''
+    OR oa.label ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR oa.name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR oa.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+  )
+  AND (
+    sqlc.arg(status_filter)::text = ''
+    OR UPPER(oa.status) = UPPER(sqlc.arg(status_filter)::text)
+  )
+  AND (
+    sqlc.arg(integration_filter)::text = ''
+    OR (sqlc.arg(integration_filter)::text = 'connected' AND m.integration_kind IS NOT NULL)
+    OR (sqlc.arg(integration_filter)::text = 'not_connected' AND m.integration_kind IS NULL)
+  )
+ORDER BY (m.integration_kind IS NULL), oa.label, oa.name, oa.external_id
+LIMIT sqlc.arg(page_limit)::int
+OFFSET sqlc.arg(page_offset)::int;
+
+-- name: ListDistinctOktaAppStatuses :many
+SELECT DISTINCT UPPER(oa.status)::text AS status
+FROM okta_apps oa
+WHERE oa.expired_at IS NULL
+  AND oa.last_observed_run_id IS NOT NULL
+  AND TRIM(oa.status) != ''
+ORDER BY status;
+
 -- name: GetOktaAppByExternalIDWithIntegration :one
 SELECT
   oa.id,

@@ -120,6 +120,60 @@ func AssignedAppIntegrationLabel(integrated bool) string {
 	return "Unmapped"
 }
 
+func AppInitial(label string) string {
+	label = strings.TrimSpace(label)
+	if label == "" {
+		return "?"
+	}
+	for _, r := range label {
+		return strings.ToUpper(string(r))
+	}
+	return "?"
+}
+
+func AppAvatarClass(label string) string {
+	h := 0
+	for _, c := range label {
+		h = h*31 + int(c)
+	}
+	if h < 0 {
+		h = -h
+	}
+	palette := []string{
+		"bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+		"bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
+		"bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+		"bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+		"bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
+		"bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300",
+		"bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
+		"bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300",
+	}
+	return palette[h%len(palette)]
+}
+
+func AppStatusDotClass(status string) string {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "ACTIVE":
+		return "bg-emerald-500"
+	case "SUSPENDED", "INACTIVE":
+		return "bg-amber-500"
+	default:
+		return "bg-muted-foreground/50"
+	}
+}
+
+func StatusTextClass(status string) string {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "ACTIVE":
+		return "text-emerald-700 dark:text-emerald-400"
+	case "SUSPENDED", "INACTIVE":
+		return "text-amber-700 dark:text-amber-400"
+	default:
+		return "text-muted-foreground"
+	}
+}
+
 func SuggestedIntegrationActionLabel(kind string) string {
 	switch strings.ToLower(strings.TrimSpace(kind)) {
 	case "github":

@@ -14,7 +14,8 @@ type AppListItem struct {
 
 type AppsViewData struct {
 	PaginatedListPageData
-	Apps    []AppListItem
-	Query   querystate.BasicListQuery
-	HasApps bool
+	Apps           []AppListItem
+	Query          querystate.AppsQuery
+	StatusOptions  []string
+	HasApps        bool
 }

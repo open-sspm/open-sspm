@@ -1,6 +1,7 @@
 package views
 
 import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+import "strconv"
 
 templ AppsPage(data viewmodels.AppsViewData) {
 	@Layout(data.Layout) {
@@ -12,194 +13,280 @@ templ AppsPage(data viewmodels.AppsViewData) {
 	}
 }
 
-templ AssignedAppMobileRow(app viewmodels.AppListItem, isAdmin bool, csrfToken string) {
-	<article class="rounded-lg border border-border/70 bg-card p-4">
-		<div class="flex items-start justify-between gap-3">
-			<div class="min-w-0">
-				<a class="block font-medium text-foreground no-underline hover:underline" href={ AppDetailURL(app.IntegratedHref, app.ExternalID) } title={ app.Label }>
-					<span class="osspm-truncate">{ app.Label }</span>
-				</a>
-				if app.Name != "" {
-					<span class="block text-sm text-muted-foreground" title={ app.Name }>
-						<span class="osspm-truncate">{ app.Name }</span>
-					</span>
-				}
-			</div>
-			<span class={ StatusBadgeClass(app.Status) }>{ app.Status }</span>
-		</div>
-		<div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-			<div>
-				<div class="text-xs uppercase tracking-wide text-muted-foreground">Sign-on</div>
-				<div>{ fallbackHumanized(app.SignOnMode) }</div>
-			</div>
-			<div>
-				<div class="text-xs uppercase tracking-wide text-muted-foreground">Integration</div>
-				<span class={ AssignedAppIntegrationBadgeClass(app.IntegratedHref != "") }>{ AssignedAppIntegrationLabel(app.IntegratedHref != "") }</span>
-			</div>
-		</div>
-		<div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/60 pt-3 text-sm">
-			<a class="btn-sm-link px-0" href={ AppDetailURL(app.IntegratedHref, app.ExternalID) } aria-label={ "View users for " + app.Label }>View</a>
-			if isAdmin && app.IntegratedHref == "" && app.SuggestedKind != "" {
-				<form method="post" action="/assigned-apps/map" class="inline-flex">
-					@CSRFInput(csrfToken)
-					<input type="hidden" name="integration_kind" value={ app.SuggestedKind }/>
-					<input type="hidden" name="okta_app_external_id" value={ app.ExternalID }/>
-					<button class="btn-sm-link px-0" type="submit">{ SuggestedIntegrationActionLabel(app.SuggestedKind) }</button>
-				</form>
-			}
-		</div>
-	</article>
-}
-
 templ AppsPageResults(data viewmodels.AppsViewData) {
-	<div id="apps-results" class="space-y-6">
+	<div id="apps-results" class="space-y-5">
 		@BusyInlineIndicator("Updating results...", false)
-				<form
-				method="get"
-				action="/assigned-apps"
-				data-enter-only-query="q"
-				hx-get="/assigned-apps"
-				hx-trigger="change delay:150ms from:select, submit"
-				hx-target="#apps-results"
-				hx-swap="outerHTML"
-				hx-push-url="true"
-				class="space-y-4 border-b border-border/70 pb-5"
-			>
+		<form
+			method="get"
+			action="/assigned-apps"
+			data-enter-only-query="q"
+			hx-get="/assigned-apps"
+			hx-trigger="submit"
+			hx-target="#apps-results"
+			hx-swap="outerHTML"
+			hx-push-url="true"
+			class="border-b border-border/70 pb-5"
+		>
+			<input type="hidden" name="integration" value={ data.Query.Integration }/>
+			<input type="hidden" name="status" value={ data.Query.Status }/>
 			<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-				<label class="field w-full lg:max-w-xl">
-					<span class="sr-only">Query</span>
-					<div class="relative">
-						<input type="search" name="q" value={ data.Query.Q } placeholder="Search label, name, or Okta ID" class="input pr-10"/>
-						if data.Query.Q != "" {
-							<a
-								class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
-								aria-label="Clear query"
-								href={ data.Query.ClearQuery().Href() }
-								hx-get={ data.Query.ClearQuery().Href() }
-								hx-target="#apps-results"
-								hx-swap="outerHTML"
-								hx-push-url="true"
-							>
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
-									<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
-								</svg>
-							</a>
-						}
-					</div>
-				</label>
-				<div class="text-sm text-muted-foreground lg:text-right">
-					if data.TotalCount > 0 {
-						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
-					} else {
-						Showing 0
-					}
+				<div class="flex flex-1 items-center gap-2 lg:max-w-xl">
+					<label class="field flex-1">
+						<span class="sr-only">Search apps</span>
+						<div class="relative">
+							<input type="search" name="q" value={ data.Query.Q } placeholder="Search apps…" class="input pr-10"/>
+							if data.Query.Q != "" {
+								<a
+									class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
+									aria-label="Clear query"
+									href={ data.Query.ClearQuery().Href() }
+									hx-get={ data.Query.ClearQuery().Href() }
+									hx-target="#apps-results"
+									hx-swap="outerHTML"
+									hx-push-url="true"
+								>
+									@IconX("h-4 w-4")
+								</a>
+							}
+						</div>
+					</label>
+					<details class="relative osspm-filters-disclosure" open?={ data.Query.FilterCount() > 0 }>
+						<summary class="inline-flex cursor-pointer list-none items-center gap-1.5 whitespace-nowrap rounded-md border border-border px-3 h-9 text-sm select-none transition-colors hover:bg-muted/50">
+							@IconFilter("h-4 w-4 text-muted-foreground")
+							Filters
+							if data.Query.FilterCount() > 0 {
+								<span class="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-medium text-primary-foreground">
+									{ strconv.Itoa(data.Query.FilterCount()) }
+								</span>
+							}
+						</summary>
+						<div class="filter-popover absolute left-0 top-full z-20 mt-2 w-72 rounded-lg border border-border bg-popover p-4 shadow-lg">
+							<div class="space-y-4">
+								<div class="space-y-2">
+									<p class="text-xs font-medium text-muted-foreground">Integration</p>
+									<div class="flex flex-wrap items-center gap-1.5">
+										<a
+											class={ FilterPillClass(data.Query.Integration == "") }
+											href={ data.Query.WithIntegration("").Href() }
+											hx-get={ data.Query.WithIntegration("").Href() }
+											hx-target="#apps-results"
+											hx-swap="outerHTML"
+											hx-push-url="true"
+										>All</a>
+										<a
+											class={ FilterPillClass(data.Query.Integration == "connected") }
+											href={ data.Query.WithIntegration("connected").Href() }
+											hx-get={ data.Query.WithIntegration("connected").Href() }
+											hx-target="#apps-results"
+											hx-swap="outerHTML"
+											hx-push-url="true"
+										>Connected</a>
+										<a
+											class={ FilterPillClass(data.Query.Integration == "not_connected") }
+											href={ data.Query.WithIntegration("not_connected").Href() }
+											hx-get={ data.Query.WithIntegration("not_connected").Href() }
+											hx-target="#apps-results"
+											hx-swap="outerHTML"
+											hx-push-url="true"
+										>Not connected</a>
+									</div>
+								</div>
+								<div class="h-px bg-border/50"></div>
+								<div class="space-y-2">
+									<p class="text-xs font-medium text-muted-foreground">Status</p>
+									<div class="flex flex-wrap items-center gap-1.5">
+										<a
+											class={ FilterPillClass(data.Query.Status == "") }
+											href={ data.Query.WithStatus("").Href() }
+											hx-get={ data.Query.WithStatus("").Href() }
+											hx-target="#apps-results"
+											hx-swap="outerHTML"
+											hx-push-url="true"
+										>Any</a>
+										for _, status := range data.StatusOptions {
+											<a
+												class={ FilterPillClass(data.Query.Status == status) }
+												href={ data.Query.WithStatus(status).Href() }
+												hx-get={ data.Query.WithStatus(status).Href() }
+												hx-target="#apps-results"
+												hx-swap="outerHTML"
+												hx-push-url="true"
+											>{ fallbackHumanized(status) }</a>
+										}
+									</div>
+								</div>
+								if data.Query.FilterCount() > 0 {
+									<div class="border-t border-border/60 pt-3">
+										<a
+											class="text-xs text-muted-foreground no-underline hover:text-foreground"
+											href={ data.Query.ClearPanelFilters().Href() }
+											hx-get={ data.Query.ClearPanelFilters().Href() }
+											hx-target="#apps-results"
+											hx-swap="outerHTML"
+											hx-push-url="true"
+										>Clear all filters</a>
+									</div>
+								}
+							</div>
+						</div>
+					</details>
 				</div>
+				<p class="text-sm tabular-nums text-muted-foreground lg:text-right">
+					if data.TotalCount > 0 {
+						<span class="font-medium text-foreground">{ FormatInt64(data.TotalCount) }</span>
+						if data.Query.HasFilters() {
+							{ " results" }
+						} else {
+							{ " apps" }
+						}
+					} else {
+						0 results
+					}
+				</p>
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
 
-			<section class="space-y-3">
-				<div class="flex items-center gap-3">
-					<div>
-						<h2 class="text-base font-semibold">Assigned Apps</h2>
-						<p class="text-sm text-muted-foreground">Browse apps discovered from Okta assignments.</p>
-					</div>
-				</div>
-				if data.HasApps {
-					<div class="space-y-3 lg:hidden">
-						for _, app := range data.Apps {
-							@AssignedAppMobileRow(app, data.Layout.IsAdmin, data.Layout.CSRFToken)
-						}
-					</div>
-				} else {
-					<div class="lg:hidden">
-						@EmptyState("No apps found", data.EmptyStateMsg)
-					</div>
+		if data.HasApps {
+			<!-- Mobile list -->
+			<div class="divide-y divide-border/60 lg:hidden">
+				for i, app := range data.Apps {
+					@AppRowMobile(app, data.Layout.IsAdmin, data.Layout.CSRFToken, i)
 				}
-				@ColumnsTable("hidden lg:block") {
-					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-						<caption class="sr-only">Discovered apps with status, integration state, and user access actions.</caption>
+			</div>
+			<!-- Desktop table -->
+			<div class="hidden lg:block">
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm">
+						<caption class="sr-only">Assigned apps with status, sign-on mode, and integration state.</caption>
 						<thead>
-							<tr>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">App</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Sign-on</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Integration</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">View Users</th>
-						</tr>
-					</thead>
-					<tbody>
-						if data.HasApps {
-							for _, a := range data.Apps {
-								<tr data-row-href={ AppDetailURL(a.IntegratedHref, a.ExternalID) } class="cursor-pointer hover:bg-muted/50">
-									<td>
-										<div class="flex min-w-0 flex-col">
-											<a class="block px-0 font-medium no-underline hover:underline" href={ AppDetailURL(a.IntegratedHref, a.ExternalID) } data-tooltip={ a.Label } data-side="top" data-align="start">
-												<span class="osspm-truncate">{ a.Label }</span>
-											</a>
-											if a.Name != "" {
-												<span class="block text-muted-foreground" data-tooltip={ a.Name } data-side="top" data-align="start">
-													<span class="osspm-truncate">{ a.Name }</span>
-												</span>
-											}
-										</div>
-									</td>
-									<td><span class={ StatusBadgeClass(a.Status) }>{ a.Status }</span></td>
-									<td class="text-muted-foreground">{ a.SignOnMode }</td>
-									<td>
-										if a.IntegratedHref != "" {
-											<div class="inline-flex items-center justify-center">
-												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-emerald-700 dark:text-emerald-300" aria-hidden="true">
-													<path fill-rule="evenodd" d="M16.704 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L8 12.586l7.296-7.293a1 1 0 0 1 1.408 0Z" clip-rule="evenodd"/>
-												</svg>
-												<span class="sr-only">Integrated</span>
-											</div>
-										} else {
-											<span class="text-muted-foreground">-</span>
-										}
-									</td>
-									<td>
-											<div class="flex flex-wrap items-center gap-3">
-												<a class="btn-sm-link px-0" href={ AppDetailURL(a.IntegratedHref, a.ExternalID) } aria-label={ "View users for " + a.Label }>View</a>
-												if data.Layout.IsAdmin && a.IntegratedHref == "" && a.SuggestedKind != "" {
-													<form method="post" action="/assigned-apps/map" class="inline-flex">
-														@CSRFInput(data.Layout.CSRFToken)
-														<input type="hidden" name="integration_kind" value={ a.SuggestedKind }/>
-														<input type="hidden" name="okta_app_external_id" value={ a.ExternalID }/>
-														<button class="btn-sm-link px-0" type="submit">{ SuggestedIntegrationActionLabel(a.SuggestedKind) }</button>
-													</form>
-												}
-											</div>
-										</td>
-								</tr>
-							}
-						} else {
-							<tr>
-								<td colspan="5">
-									@EmptyState("No apps found", data.EmptyStateMsg)
-								</td>
+							<tr class="border-b border-border/60">
+								<th class="pb-2.5 pr-3 text-left text-xs font-medium tracking-wide text-muted-foreground">App</th>
+								<th class="pb-2.5 px-3 text-left text-xs font-medium tracking-wide text-muted-foreground w-28">Status</th>
+								<th class="pb-2.5 px-3 text-left text-xs font-medium tracking-wide text-muted-foreground w-40">Sign-on</th>
+								<th class="pb-2.5 px-3 text-left text-xs font-medium tracking-wide text-muted-foreground w-32">Integration</th>
+								<th class="pb-2.5 pl-3 text-right text-xs font-medium tracking-wide text-muted-foreground w-28"></th>
 							</tr>
-						}
-					</tbody>
-				</table>
-			}
-			if data.TotalPages > 1 {
-				<div class="flex flex-wrap items-center gap-3 border-t py-3">
-						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
-						<div class="button-group ml-auto">
-							if data.Page > 1 {
-								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#apps-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
-							} else {
-								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
+						</thead>
+						<tbody>
+							for i, app := range data.Apps {
+								@AppRowDesktop(app, data.Layout.IsAdmin, data.Layout.CSRFToken, i)
 							}
-							if data.Page < data.TotalPages {
-								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#apps-results" hx-swap="outerHTML" hx-push-url="true">Next</a>
-							} else {
-								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
-							}
-					</div>
+						</tbody>
+					</table>
 				</div>
-			}
-		</section>
+			</div>
+		} else {
+			@EmptyState("No apps found", data.EmptyStateMsg)
+		}
+
+		if data.TotalPages > 1 {
+			<div class="flex flex-col items-center gap-3 border-t border-border/60 pt-4 sm:flex-row sm:justify-between">
+				<p class="text-sm tabular-nums text-muted-foreground">
+					{ FormatInt(data.ShowingFrom) }–{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+				</p>
+				<div class="button-group">
+					if data.Page > 1 {
+						<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#apps-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
+					} else {
+						<span class="btn-sm-outline opacity-40" aria-disabled="true">Previous</span>
+					}
+					if data.Page < data.TotalPages {
+						<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#apps-results" hx-swap="outerHTML" hx-push-url="true">Next</a>
+					} else {
+						<span class="btn-sm-outline opacity-40" aria-disabled="true">Next</span>
+					}
+				</div>
+			</div>
+		}
 	</div>
+}
+
+templ AppRowDesktop(app viewmodels.AppListItem, isAdmin bool, csrfToken string, index int) {
+	<tr
+		class="app-row group border-b border-border/40 last:border-0 transition-colors hover:bg-muted/30"
+		style={ "animation-delay:" + strconv.Itoa(index*25) + "ms" }
+		data-row-href={ AppDetailURL(app.IntegratedHref, app.ExternalID) }
+	>
+		<!-- App -->
+		<td class="py-3 pr-3">
+			<a href={ AppDetailURL(app.IntegratedHref, app.ExternalID) } class="min-w-0 no-underline">
+				<span class="osspm-truncate font-medium text-foreground">{ app.Label }</span>
+				if app.Name != "" {
+					<span class="osspm-truncate text-xs text-muted-foreground">{ app.Name }</span>
+				}
+			</a>
+		</td>
+		<!-- Status -->
+		<td class="py-3 px-3">
+			<span class="inline-flex items-center gap-1.5 text-xs">
+				<span class={ "h-1.5 w-1.5 rounded-full", AppStatusDotClass(app.Status) }></span>
+				<span class={ StatusTextClass(app.Status) }>{ app.Status }</span>
+			</span>
+		</td>
+		<!-- Sign-on -->
+		<td class="py-3 px-3 text-muted-foreground">
+			{ fallbackHumanized(app.SignOnMode) }
+		</td>
+		<!-- Integration -->
+		<td class="py-3 px-3">
+			if app.IntegratedHref != "" {
+				<span class="inline-flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400">
+					@IconCheck("h-3.5 w-3.5")
+					Connected
+				</span>
+			} else {
+				<span class="text-xs text-muted-foreground/50">—</span>
+			}
+		</td>
+		<!-- Actions -->
+		<td class="py-3 pl-3 text-right">
+			<span class="inline-flex items-center gap-2">
+				if isAdmin && app.IntegratedHref == "" && app.SuggestedKind != "" {
+					<form method="post" action="/assigned-apps/map" class="inline-flex">
+						@CSRFInput(csrfToken)
+						<input type="hidden" name="integration_kind" value={ app.SuggestedKind }/>
+						<input type="hidden" name="okta_app_external_id" value={ app.ExternalID }/>
+						<button class="btn-sm-ghost h-7 px-2 text-xs opacity-0 transition-opacity group-hover:opacity-100" type="submit">
+							{ SuggestedIntegrationActionLabel(app.SuggestedKind) }
+						</button>
+					</form>
+				}
+				<a
+					class="btn-sm-ghost h-7 px-2 text-xs no-underline"
+					href={ AppDetailURL(app.IntegratedHref, app.ExternalID) }
+					aria-label={ "View " + app.Label }
+				>
+					View
+					@IconChevronRight("h-3 w-3")
+				</a>
+			</span>
+		</td>
+	</tr>
+}
+
+templ AppRowMobile(app viewmodels.AppListItem, isAdmin bool, csrfToken string, index int) {
+	<a
+		href={ AppDetailURL(app.IntegratedHref, app.ExternalID) }
+		class="app-row flex items-center gap-3 py-3.5 no-underline transition-colors hover:bg-muted/30"
+		style={ "animation-delay:" + strconv.Itoa(index*25) + "ms" }
+	>
+		<span class="min-w-0 flex-1">
+			<span class="flex items-center gap-2">
+				<span class="truncate text-sm font-medium text-foreground">{ app.Label }</span>
+				<span class={ "ml-auto inline-flex shrink-0 items-center gap-1 text-xs", StatusTextClass(app.Status) }>
+					<span class={ "h-1.5 w-1.5 rounded-full", AppStatusDotClass(app.Status) }></span>
+					{ app.Status }
+				</span>
+			</span>
+			<span class="flex items-center gap-2 text-xs text-muted-foreground">
+				<span>{ fallbackHumanized(app.SignOnMode) }</span>
+				if app.IntegratedHref != "" {
+					<span class="text-border/60" aria-hidden="true">·</span>
+					<span class="text-emerald-700 dark:text-emerald-400">Connected</span>
+				}
+			</span>
+		</span>
+		@IconChevronRight("h-4 w-4 shrink-0 text-muted-foreground/30")
+	</a>
 }
