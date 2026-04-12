@@ -90,6 +90,8 @@ const manageToast = (toast) => {
 };
 
 const init = (el) => {
+  const doc = el.ownerDocument;
+
   // Manage any existing toasts
   el.querySelectorAll(".toast:not([aria-hidden])").forEach(manageToast);
 
@@ -106,12 +108,18 @@ const init = (el) => {
   observer.observe(el, { childList: true });
 
   // Listen for programmatic toast events
-  document.addEventListener("osspm:toast", (event) => {
+  const onToast = (event) => {
     const config = event.detail?.config;
     if (!config) return;
     const toast = buildToast(config);
     el.append(toast);
-  });
+  };
+  doc.addEventListener("osspm:toast", onToast);
+
+  return () => {
+    observer.disconnect();
+    doc.removeEventListener("osspm:toast", onToast);
+  };
 };
 
 register("toaster", ".toaster:not([data-toaster-initialized])", init);

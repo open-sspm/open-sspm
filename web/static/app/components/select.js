@@ -7,6 +7,7 @@
 import { register } from "./registry.js";
 
 const init = (el) => {
+  const doc = el.ownerDocument;
   const trigger = el.querySelector("button[aria-expanded]");
   const popover = el.querySelector("[data-popover]");
   if (!trigger || !popover) return;
@@ -43,7 +44,7 @@ const init = (el) => {
   };
 
   const open = () => {
-    document.dispatchEvent(
+    doc.dispatchEvent(
       new CustomEvent("osspm:popover", { detail: { source: el } }),
     );
     popover.setAttribute("aria-hidden", "false");
@@ -144,22 +145,26 @@ const init = (el) => {
   };
 
   // Trigger click
-  trigger.addEventListener("click", (e) => {
+  const onTriggerClick = (e) => {
     e.preventDefault();
     if (isOpen()) close();
     else open();
-  });
+  };
+  trigger.addEventListener("click", onTriggerClick);
 
   // Option click
-  listbox.addEventListener("click", (e) => {
+  const onListboxClick = (e) => {
     const option = e.target.closest('[role="option"]');
     if (!option || option.matches("[aria-disabled='true'], [disabled]")) return;
     selectOption(option);
-  });
+  };
+  listbox.addEventListener("click", onListboxClick);
 
   // Search input
+  let onSearchInput = null;
   if (searchInput) {
-    searchInput.addEventListener("input", filterOptions);
+    onSearchInput = filterOptions;
+    searchInput.addEventListener("input", onSearchInput);
   }
 
   // Keyboard
@@ -171,7 +176,7 @@ const init = (el) => {
         e.key === "Enter" ||
         e.key === " "
       ) {
-        if (document.activeElement === trigger) {
+        if (doc.activeElement === trigger) {
           e.preventDefault();
           open();
         }
@@ -225,31 +230,48 @@ const init = (el) => {
   el.addEventListener("keydown", handleKeydown);
 
   // Click outside
-  document.addEventListener("click", (e) => {
+  const onDocumentClick = (e) => {
     if (!isOpen()) return;
     if (el.contains(e.target)) return;
     close();
-  });
+  };
+  doc.addEventListener("click", onDocumentClick);
 
   // Close when another popover opens
-  document.addEventListener("osspm:popover", (e) => {
+  const onPopover = (e) => {
     if (e.detail?.source !== el && isOpen()) close();
-  });
+  };
+  doc.addEventListener("osspm:popover", onPopover);
 
   // Mouse hover
-  listbox.addEventListener("mousemove", (e) => {
+  const onMouseMove = (e) => {
     const option = e.target.closest('[role="option"]');
     if (option && !option.matches("[aria-disabled='true'], [disabled]")) {
       setActive(option);
     }
-  });
+  };
+  listbox.addEventListener("mousemove", onMouseMove);
 
-  listbox.addEventListener("mouseleave", () => {
+  const onMouseLeave = () => {
     clearActive();
-  });
+  };
+  listbox.addEventListener("mouseleave", onMouseLeave);
 
   // Initial sync
   syncTriggerLabel();
+
+  return () => {
+    trigger.removeEventListener("click", onTriggerClick);
+    listbox.removeEventListener("click", onListboxClick);
+    if (searchInput && onSearchInput) {
+      searchInput.removeEventListener("input", onSearchInput);
+    }
+    el.removeEventListener("keydown", handleKeydown);
+    doc.removeEventListener("click", onDocumentClick);
+    doc.removeEventListener("osspm:popover", onPopover);
+    listbox.removeEventListener("mousemove", onMouseMove);
+    listbox.removeEventListener("mouseleave", onMouseLeave);
+  };
 };
 
 register("select", "*:not(select).select:not([data-select-initialized])", init);

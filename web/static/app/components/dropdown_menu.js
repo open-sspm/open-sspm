@@ -6,6 +6,7 @@
 import { register } from "./registry.js";
 
 const init = (el) => {
+  const doc = el.ownerDocument;
   const trigger = el.querySelector("[aria-controls], [aria-expanded]");
   const popover = el.querySelector("[data-popover]");
   if (!trigger || !popover) return;
@@ -39,7 +40,7 @@ const init = (el) => {
   };
 
   const open = () => {
-    document.dispatchEvent(
+    doc.dispatchEvent(
       new CustomEvent("osspm:popover", { detail: { source: el } }),
     );
     popover.setAttribute("aria-hidden", "false");
@@ -54,13 +55,14 @@ const init = (el) => {
     trigger.setAttribute("aria-expanded", "false");
   };
 
-  trigger.addEventListener("click", (e) => {
+  const onTriggerClick = (e) => {
     e.preventDefault();
     if (isOpen()) close();
     else open();
-  });
+  };
+  trigger.addEventListener("click", onTriggerClick);
 
-  document.addEventListener("keydown", (e) => {
+  const onKeydown = (e) => {
     if (!isOpen()) return;
 
     const items = getItems();
@@ -107,32 +109,46 @@ const init = (el) => {
         break;
       }
     }
-  });
+  };
+  doc.addEventListener("keydown", onKeydown);
 
-  document.addEventListener("click", (e) => {
+  const onDocumentClick = (e) => {
     if (!isOpen()) return;
     if (el.contains(e.target)) return;
     close();
-  });
+  };
+  doc.addEventListener("click", onDocumentClick);
 
   // Close when another popover opens
-  document.addEventListener("osspm:popover", (e) => {
+  const onPopover = (e) => {
     if (e.detail?.source !== el && isOpen()) close();
-  });
+  };
+  doc.addEventListener("osspm:popover", onPopover);
 
   // Mouse hover activates items
-  popover.addEventListener("mousemove", (e) => {
+  const onMouseMove = (e) => {
     const item = e.target.closest(
       '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]',
     );
     if (item && !item.matches("[aria-disabled='true'], [disabled]")) {
       setActive(item);
     }
-  });
+  };
+  popover.addEventListener("mousemove", onMouseMove);
 
-  popover.addEventListener("mouseleave", () => {
+  const onMouseLeave = () => {
     clearActive();
-  });
+  };
+  popover.addEventListener("mouseleave", onMouseLeave);
+
+  return () => {
+    trigger.removeEventListener("click", onTriggerClick);
+    doc.removeEventListener("keydown", onKeydown);
+    doc.removeEventListener("click", onDocumentClick);
+    doc.removeEventListener("osspm:popover", onPopover);
+    popover.removeEventListener("mousemove", onMouseMove);
+    popover.removeEventListener("mouseleave", onMouseLeave);
+  };
 };
 
 register(

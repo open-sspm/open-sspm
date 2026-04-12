@@ -7,6 +7,7 @@
 import { register } from "./registry.js";
 
 const init = (el) => {
+  const doc = el.ownerDocument;
   const trigger = el.querySelector("[aria-controls], [aria-expanded]");
   const popover = el.querySelector("[data-popover]");
   if (!trigger || !popover) return;
@@ -14,7 +15,7 @@ const init = (el) => {
   const isOpen = () => popover.getAttribute("aria-hidden") !== "true";
 
   const open = () => {
-    document.dispatchEvent(
+    doc.dispatchEvent(
       new CustomEvent("osspm:popover", { detail: { source: el } }),
     );
     popover.setAttribute("aria-hidden", "false");
@@ -26,30 +27,41 @@ const init = (el) => {
     trigger.setAttribute("aria-expanded", "false");
   };
 
-  trigger.addEventListener("click", (e) => {
+  const onTriggerClick = (e) => {
     e.preventDefault();
     if (isOpen()) close();
     else open();
-  });
+  };
+  trigger.addEventListener("click", onTriggerClick);
 
-  document.addEventListener("keydown", (e) => {
+  const onKeydown = (e) => {
     if (e.key === "Escape" && isOpen()) {
       e.preventDefault();
       close();
       trigger.focus();
     }
-  });
+  };
+  doc.addEventListener("keydown", onKeydown);
 
-  document.addEventListener("click", (e) => {
+  const onDocumentClick = (e) => {
     if (!isOpen()) return;
     if (el.contains(e.target)) return;
     close();
-  });
+  };
+  doc.addEventListener("click", onDocumentClick);
 
   // Close when another popover opens
-  document.addEventListener("osspm:popover", (e) => {
+  const onPopover = (e) => {
     if (e.detail?.source !== el && isOpen()) close();
-  });
+  };
+  doc.addEventListener("osspm:popover", onPopover);
+
+  return () => {
+    trigger.removeEventListener("click", onTriggerClick);
+    doc.removeEventListener("keydown", onKeydown);
+    doc.removeEventListener("click", onDocumentClick);
+    doc.removeEventListener("osspm:popover", onPopover);
+  };
 };
 
 register("popover", ".popover:not([data-popover-initialized])", init);

@@ -7,22 +7,34 @@
 import { register } from "./registry.js";
 
 const init = (el) => {
+  const doc = el.ownerDocument;
+  const view = doc.defaultView;
+  const resizeTarget =
+    view &&
+    typeof view.addEventListener === "function" &&
+    typeof view.removeEventListener === "function"
+      ? view
+      : null;
   const nav = el.querySelector("nav");
   if (!nav) return;
 
   const breakpoint = Number.parseInt(el.dataset.breakpoint || "", 10) || 768;
-  const isMobile = () => window.innerWidth < breakpoint;
+  const isMobile = () =>
+    (typeof resizeTarget?.innerWidth === "number"
+      ? resizeTarget.innerWidth
+      : window.innerWidth) < breakpoint;
 
   const initialOpen = el.dataset.initialOpen !== "false";
   const initialMobileOpen = el.dataset.initialMobileOpen === "true";
 
+  const syncInteractivity = () => {
+    const open = el.getAttribute("aria-hidden") !== "true";
+    nav.inert = !open;
+  };
+
   const setOpen = (open) => {
     el.setAttribute("aria-hidden", String(!open));
-    if (isMobile()) {
-      nav.inert = !open;
-    } else {
-      nav.inert = false;
-    }
+    syncInteractivity();
   };
 
   // Set initial state
@@ -45,17 +57,22 @@ const init = (el) => {
     else setOpen(!isOpen);
   };
 
-  document.addEventListener("osspm:sidebar", handler);
+  doc.addEventListener("osspm:sidebar", handler);
 
-  // Handle resize: update inert state
-  window.addEventListener("resize", () => {
-    const isOpen = el.getAttribute("aria-hidden") !== "true";
-    if (isMobile()) {
-      nav.inert = !isOpen;
-    } else {
-      nav.inert = false;
+  // Keep inert in sync when the visible state changes across breakpoints.
+  const onResize = () => {
+    syncInteractivity();
+  };
+  if (resizeTarget && typeof resizeTarget.addEventListener === "function") {
+    resizeTarget.addEventListener("resize", onResize);
+  }
+
+  return () => {
+    doc.removeEventListener("osspm:sidebar", handler);
+    if (resizeTarget && typeof resizeTarget.removeEventListener === "function") {
+      resizeTarget.removeEventListener("resize", onResize);
     }
-  });
+  };
 };
 
 register("sidebar", ".sidebar:not([data-sidebar-initialized])", init);

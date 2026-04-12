@@ -12,7 +12,7 @@ const init = (el) => {
   const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
   if (tabs.length === 0) return;
 
-  const activate = (tab) => {
+  const activate = (tab, moveFocus = false) => {
     tabs.forEach((t) => {
       const selected = t === tab;
       t.setAttribute("aria-selected", String(selected));
@@ -23,7 +23,7 @@ const init = (el) => {
         if (panel) panel.hidden = !selected;
       }
     });
-    tab.focus();
+    if (moveFocus) tab.focus();
   };
 
   // Initialize: ensure first selected tab is active
@@ -40,27 +40,27 @@ const init = (el) => {
       case "ArrowDown":
         e.preventDefault();
         nextIndex = (currentIndex + 1) % tabs.length;
-        activate(tabs[nextIndex]);
+        activate(tabs[nextIndex], true);
         break;
       case "ArrowLeft":
       case "ArrowUp":
         e.preventDefault();
         nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-        activate(tabs[nextIndex]);
+        activate(tabs[nextIndex], true);
         break;
       case "Home":
         e.preventDefault();
-        activate(tabs[0]);
+        activate(tabs[0], true);
         break;
       case "End":
         e.preventDefault();
-        activate(tabs[tabs.length - 1]);
+        activate(tabs[tabs.length - 1], true);
         break;
     }
   });
 
   tabs.forEach((tab) => {
-    tab.addEventListener("click", () => activate(tab));
+    tab.addEventListener("click", () => activate(tab, true));
   });
 };
 
