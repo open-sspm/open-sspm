@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"path"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v5"
@@ -16,6 +19,57 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
+
+const oktaAppStatusesCacheTTL = time.Minute
+
+type oktaAppStatusesCache struct {
+	mu        sync.RWMutex
+	statuses  []string
+	expiresAt time.Time
+	now       func() time.Time
+}
+
+func (c *oktaAppStatusesCache) get(fetch func() ([]string, error)) ([]string, error) {
+	now := c.timeNow()
+
+	c.mu.RLock()
+	if now.Before(c.expiresAt) {
+		statuses := append([]string(nil), c.statuses...)
+		c.mu.RUnlock()
+		return statuses, nil
+	}
+	c.mu.RUnlock()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	now = c.timeNow()
+	if now.Before(c.expiresAt) {
+		return append([]string(nil), c.statuses...), nil
+	}
+
+	statuses, err := fetch()
+	if err != nil {
+		return nil, err
+	}
+
+	c.statuses = append([]string(nil), statuses...)
+	c.expiresAt = now.Add(oktaAppStatusesCacheTTL)
+	return append([]string(nil), c.statuses...), nil
+}
+
+func (c *oktaAppStatusesCache) timeNow() time.Time {
+	if c.now != nil {
+		return c.now()
+	}
+	return time.Now().UTC()
+}
+
+func (h *Handlers) listOktaAppStatuses(ctx context.Context) ([]string, error) {
+	return h.oktaAppStatusesCache.get(func() ([]string, error) {
+		return h.Q.ListDistinctOktaAppStatuses(ctx)
+	})
+}
 
 // HandleApps renders the apps list page.
 func (h *Handlers) HandleApps(c *echo.Context) error {
@@ -28,62 +82,54 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 	}
 
 	const perPage = 20
-	queryState := querystate.ParseBasicListQuery("/assigned-apps", c.Request().URL.Query(), querystate.BasicListOptions{})
+	queryState := querystate.ParseAppsQuery(c.Request().URL.Query())
 	page := queryState.Page
 
-	var totalCount int64
-	if queryState.Q == "" {
-		totalCount, err = h.Q.CountOktaApps(ctx)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-	} else {
-		totalCount, err = h.Q.CountOktaAppsByQuery(ctx, queryState.Q)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
+	filterParams := gen.CountOktaAppsFilteredParams{
+		Query:             queryState.Q,
+		StatusFilter:      queryState.Status,
+		IntegrationFilter: queryState.Integration,
+	}
+
+	totalCount, err := h.Q.CountOktaAppsFiltered(ctx, filterParams)
+	if err != nil {
+		return h.RenderError(c, err)
 	}
 
 	pagination := newPaginatedListState(totalCount, page, perPage)
 
-	var items []viewmodels.AppListItem
-	if queryState.Q == "" {
-		apps, err := h.Q.ListOktaAppsPage(ctx, gen.ListOktaAppsPageParams{
-			PageLimit:  int32(perPage),
-			PageOffset: int32(pagination.Offset()),
-		})
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		items = make([]viewmodels.AppListItem, 0, len(apps))
-		for _, app := range apps {
-			items = append(items, oktaAppListItem(app.ExternalID, app.Label, app.Name, app.Status, app.SignOnMode, app.IntegrationKind))
-		}
-	} else {
-		apps, err := h.Q.ListOktaAppsPageByQuery(ctx, gen.ListOktaAppsPageByQueryParams{
-			Query:      queryState.Q,
-			PageLimit:  int32(perPage),
-			PageOffset: int32(pagination.Offset()),
-		})
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		items = make([]viewmodels.AppListItem, 0, len(apps))
-		for _, app := range apps {
-			items = append(items, oktaAppListItem(app.ExternalID, app.Label, app.Name, app.Status, app.SignOnMode, app.IntegrationKind))
-		}
+	apps, err := h.Q.ListOktaAppsPageFiltered(ctx, gen.ListOktaAppsPageFilteredParams{
+		Query:             queryState.Q,
+		StatusFilter:      queryState.Status,
+		IntegrationFilter: queryState.Integration,
+		PageLimit:         int32(perPage),
+		PageOffset:        int32(pagination.Offset()),
+	})
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+
+	items := make([]viewmodels.AppListItem, 0, len(apps))
+	for _, app := range apps {
+		items = append(items, oktaAppListItem(app.ExternalID, app.Label, app.Name, app.Status, app.SignOnMode, app.IntegrationKind))
+	}
+
+	statusOptions, err := h.listOktaAppStatuses(ctx)
+	if err != nil {
+		return h.RenderError(c, err)
 	}
 
 	data := viewmodels.AppsViewData{
 		PaginatedListPageData: pagination.PageData(layout, len(items), func() string {
 			if queryState.HasFilters() {
-				return "No assigned apps match the current search."
+				return "No assigned apps match the current filters."
 			}
 			return "No assigned apps have been synced yet. Run a sync to discover assignments."
 		}(), ""),
-		Apps:    items,
-		Query:   queryState,
-		HasApps: len(items) > 0,
+		Apps:          items,
+		Query:         queryState,
+		StatusOptions: statusOptions,
+		HasApps:       len(items) > 0,
 	}
 
 	if isHX(c) && isHXTarget(c, "apps-results") {

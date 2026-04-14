@@ -53,6 +53,28 @@ func (q DiscoveryAppsQuery) ClearQuery() DiscoveryAppsQuery {
 	return q
 }
 
+func (q DiscoveryAppsQuery) ClearFilters() DiscoveryAppsQuery {
+	q.Source = SourceSelection{}
+	q.ManagedState = ""
+	q.RiskLevel = ""
+	q.Page = 1
+	return q
+}
+
+func (q DiscoveryAppsQuery) FilterCount() int {
+	count := 0
+	if q.Source.Kind != "" {
+		count++
+	}
+	if q.ManagedState != "" {
+		count++
+	}
+	if q.RiskLevel != "" {
+		count++
+	}
+	return count
+}
+
 type DiscoveryHotspotsQuery struct {
 	Source SourceSelection
 	Page   int
@@ -63,6 +85,31 @@ func ParseDiscoveryHotspotsQuery(values url.Values, sources []SourceSelection) D
 		Source: canonicalSourceSelection(values, sources),
 		Page:   parsePage(values.Get("page")),
 	}
+}
+
+func (q DiscoveryHotspotsQuery) Values() url.Values {
+	values := url.Values{}
+	setIfNotEmpty(values, "source_kind", normalizeSourceKind(q.Source.Kind))
+	setIfPage(values, q.Page)
+	return values
+}
+
+func (q DiscoveryHotspotsQuery) Href() string {
+	return encodeURL("/discovery/hotspots", q.Values())
+}
+
+func (q DiscoveryHotspotsQuery) ClearFilters() DiscoveryHotspotsQuery {
+	q.Source = SourceSelection{}
+	q.Page = 1
+	return q
+}
+
+func (q DiscoveryHotspotsQuery) FilterCount() int {
+	count := 0
+	if q.Source.Kind != "" {
+		count++
+	}
+	return count
 }
 
 func normalizeDiscoveryManagedState(raw string) string {

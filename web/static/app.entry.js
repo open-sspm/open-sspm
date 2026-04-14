@@ -5,6 +5,7 @@ import "open-sspm-app/components/tabs.js";
 import "open-sspm-app/components/toast.js";
 import "open-sspm-app/components/dropdown_menu.js";
 import "open-sspm-app/components/select.js";
+import "open-sspm-app/components/filter_disclosure.js";
 import { start } from "open-sspm-app/components/registry.js";
 import { bootOpenSspmApp } from "open-sspm-app/main.js";
 

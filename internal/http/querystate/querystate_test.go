@@ -210,6 +210,15 @@ func TestParseDiscoveryQueries(t *testing.T) {
 			t.Fatalf("href = %q", query.Href())
 		}
 	})
+
+	t.Run("hotspots only count preserved source filters", func(t *testing.T) {
+		query := ParseDiscoveryHotspotsQuery(url.Values{
+			"source_name": []string{"acme.okta.com"},
+		}, sources)
+		if got := query.FilterCount(); got != 1 {
+			t.Fatalf("filter count = %d, want 1", got)
+		}
+	})
 }
 
 func TestConnectedAppsQuery(t *testing.T) {

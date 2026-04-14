@@ -4,10 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "GitHub users"},
-		}, "Synced GitHub accounts and their identity links.") {
+		@PageHeader("Synced GitHub accounts and their identity links.") {
 			if data.Layout.GitHubConfigured && data.Layout.GitHubEnabled {
 				<a class="btn-sm-outline" href={ "/accounts/unlinked/github/" + data.Layout.GitHubOrg }>Unlinked</a>
 			} else {
@@ -31,8 +28,8 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 			}
 		}
 
-		<form method="get" class="space-y-4 border-b border-border/70 pb-5">
-			<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+			<form method="get" class="osspm-list-form">
+				<div class="osspm-list-toolbar">
 				<label class="field w-full lg:max-w-xl">
 					<span class="sr-only">Query</span>
 					<div class="relative">
@@ -46,7 +43,7 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 						}
 					</div>
 				</label>
-				<div class="text-sm text-muted-foreground lg:text-right">
+					<div class="osspm-list-summary">
 					if data.TotalCount > 0 {
 						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
 					} else {
@@ -58,7 +55,7 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 		</form>
 
 		<section class="space-y-3">
-			<div class="flex items-center gap-3">
+				<div class="osspm-list-section-header">
 				<div>
 					<h2 class="text-base font-semibold">GitHub users</h2>
 					<p class="text-sm text-muted-foreground">GitHub accounts synced from your organization.</p>
@@ -100,7 +97,7 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 				</table>
 			}
 			if data.TotalPages > 1 {
-				<div class="flex flex-wrap items-center gap-3 border-t py-3">
+					<div class="osspm-list-pagination">
 						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
 						<div class="button-group ml-auto">
 							if data.Page > 1 {

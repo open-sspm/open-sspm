@@ -1,16 +1,13 @@
 package views
 
-templ PageHeader(items []Breadcrumb, description string) {
+templ PageHeader(description string) {
 	<div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-		<div class="space-y-2">
-			if len(items) > 0 {
-				@Breadcrumbs(items)
-			}
-			if description != "" {
+		if description != "" {
+			<div class="space-y-2">
 				<p class="text-muted-foreground">{ description }</p>
-			}
-		</div>
-		<div class="flex flex-wrap items-center justify-start gap-2 md:justify-end empty:hidden">
+			</div>
+		}
+		<div class="flex flex-wrap items-center justify-start gap-2 md:ml-auto md:justify-end empty:hidden">
 			{ children... }
 		</div>
 	</div>
@@ -63,7 +60,7 @@ templ BusyInlineIndicator(label string, initiallyVisible bool) {
 }
 
 templ TableCard(title, description string) {
-	<article class="card">
+	<article class="card min-w-0">
 		if title != "" || description != "" {
 			<header>
 				if title != "" {
@@ -74,8 +71,8 @@ templ TableCard(title, description string) {
 				}
 			</header>
 		}
-		<section>
-			<div class="overflow-x-auto">
+		<section class="min-w-0">
+			<div class="min-w-0 overflow-x-auto">
 				{ children... }
 			</div>
 		</section>
@@ -83,11 +80,28 @@ templ TableCard(title, description string) {
 }
 
 templ ColumnsTable(containerClass string) {
-	<div class={ templ.Classes(templ.KV(containerClass, containerClass != "")) }>
-		<div class="overflow-x-auto">
+	<div class={ templ.Classes("min-w-0", templ.KV(containerClass, containerClass != "")) }>
+		<div class="min-w-0 overflow-x-auto">
 			{ children... }
 		</div>
 	</div>
+}
+
+templ FilterPopover(label string, activeCount int, open bool, panelClass string) {
+	<details class="relative osspm-filters-disclosure" open?={ open }>
+		<summary class="osspm-filter-summary">
+			@IconFilter("h-4 w-4 text-muted-foreground")
+			<span>{ label }</span>
+			if activeCount > 0 {
+				<span class="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-medium text-primary-foreground">
+					{ FormatInt(activeCount) }
+				</span>
+			}
+		</summary>
+		<div class={ templ.Classes("filter-popover osspm-filter-panel-popover", templ.KV(panelClass, panelClass != "")) }>
+			{ children... }
+		</div>
+	</details>
 }
 
 templ CSRFInput(token string) {

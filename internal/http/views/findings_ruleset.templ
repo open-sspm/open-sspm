@@ -8,11 +8,7 @@ import (
 
 templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Findings", Href: "/findings"},
-			{Label: data.Ruleset.Name},
-		}, "Rules and current results for this ruleset.") {
+		@PageHeader("Rules and current results for this ruleset.") {
 			if data.Layout.IsAdmin {
 				<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" } class="flex items-center gap-2">
 					@CSRFInput(data.Layout.CSRFToken)
@@ -33,8 +29,8 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 			}
 		}
 
-		<div class="grid gap-6">
-				<article class="card">
+			<div class="grid min-w-0 gap-6">
+					<article class="card min-w-0">
 					<header>
 						<h2>Ruleset</h2>
 						<p class="text-muted-foreground"><code class="osspm-token">{ data.Ruleset.Key }</code></p>
@@ -85,7 +81,7 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 		</div>
 
 		if data.HasMetadata {
-			<article class="card">
+				<article class="card min-w-0">
 				<header>
 					<h2>Metadata</h2>
 					<p class="text-muted-foreground">Ruleset metadata from definition_json.</p>
@@ -148,50 +144,60 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 }
 
 templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
-	<section id="rules-card" class="space-y-3">
+	<section id="rules-card" class="min-w-0 space-y-3">
 		@BusyInlineIndicator("Updating rules...", false)
-		<div>
-			<h2 class="text-base font-semibold">Rules</h2>
-			<p class="text-sm text-muted-foreground">Filter and review the current results for this ruleset.</p>
-		</div>
-		<div class="space-y-4">
-			<form method="get" action={ "/findings/rulesets/" + data.Ruleset.Key } hx-get={ "/findings/rulesets/" + data.Ruleset.Key } hx-trigger="change delay:150ms, submit" hx-target="#rules-card" hx-swap="outerHTML" hx-push-url="true" class="flex flex-wrap items-end gap-3">
-				<label class="space-y-1">
-					<div class="text-sm font-medium">Status</div>
-					<select class="select" name="status">
-						<option value="" selected?={ data.StatusFilter == "" }>All</option>
-						<option value="pass" selected?={ data.StatusFilter == "pass" }>Pass</option>
-						<option value="fail" selected?={ data.StatusFilter == "fail" }>Fail</option>
-						<option value="unknown" selected?={ data.StatusFilter == "unknown" }>Unknown</option>
-						<option value="error" selected?={ data.StatusFilter == "error" }>Error</option>
-						<option value="not_applicable" selected?={ data.StatusFilter == "not_applicable" }>Not applicable</option>
-					</select>
-				</label>
-				<label class="space-y-1">
-					<div class="text-sm font-medium">Severity</div>
-					<select class="select" name="severity">
-						<option value="" selected?={ data.SeverityFilter == "" }>All</option>
-						<option value="critical" selected?={ data.SeverityFilter == "critical" }>Critical</option>
-						<option value="high" selected?={ data.SeverityFilter == "high" }>High</option>
-						<option value="medium" selected?={ data.SeverityFilter == "medium" }>Medium</option>
-						<option value="low" selected?={ data.SeverityFilter == "low" }>Low</option>
-						<option value="info" selected?={ data.SeverityFilter == "info" }>Info</option>
-					</select>
-				</label>
-				<label class="space-y-1">
-					<div class="text-sm font-medium">Monitoring</div>
-					<select class="select" name="monitoring">
-						<option value="" selected?={ data.MonitoringFilter == "" }>All</option>
-						<option value="automated" selected?={ data.MonitoringFilter == "automated" }>Automated</option>
-						<option value="partial" selected?={ data.MonitoringFilter == "partial" }>Partial</option>
-						<option value="manual" selected?={ data.MonitoringFilter == "manual" }>Manual</option>
-						<option value="unsupported" selected?={ data.MonitoringFilter == "unsupported" }>Unsupported</option>
-					</select>
-				</label>
-				<button class="sr-only" type="submit">Apply filters</button>
-			</form>
+				<div class="osspm-list-toolbar min-w-0">
+					<div class="osspm-list-section-header min-w-0">
+						<h2 class="text-base font-semibold">Rules</h2>
+						<p class="text-sm text-muted-foreground">Filter and review the current results for this ruleset.</p>
+					</div>
+						<form method="get" action={ "/findings/rulesets/" + data.Ruleset.Key } hx-get={ "/findings/rulesets/" + data.Ruleset.Key } hx-trigger="change delay:150ms from:select, submit" hx-target="#rules-card" hx-swap="outerHTML" hx-push-url="true" class="min-w-0">
+							@FilterPopover("Filters", FindingsRulesetFilterCount(data), FindingsRulesetFilterCount(data) > 0, "left-auto right-0 w-[min(92vw,32rem)] space-y-4 sm:left-auto sm:right-0") {
+							<div class="grid gap-4 sm:grid-cols-2">
+								<label class="field">
+									<span class="label">Status</span>
+									<select class="select" name="status">
+										<option value="" selected?={ data.StatusFilter == "" }>All</option>
+										<option value="pass" selected?={ data.StatusFilter == "pass" }>Pass</option>
+										<option value="fail" selected?={ data.StatusFilter == "fail" }>Fail</option>
+										<option value="unknown" selected?={ data.StatusFilter == "unknown" }>Unknown</option>
+										<option value="error" selected?={ data.StatusFilter == "error" }>Error</option>
+										<option value="not_applicable" selected?={ data.StatusFilter == "not_applicable" }>Not applicable</option>
+									</select>
+								</label>
+								<label class="field">
+									<span class="label">Severity</span>
+									<select class="select" name="severity">
+										<option value="" selected?={ data.SeverityFilter == "" }>All</option>
+										<option value="critical" selected?={ data.SeverityFilter == "critical" }>Critical</option>
+										<option value="high" selected?={ data.SeverityFilter == "high" }>High</option>
+										<option value="medium" selected?={ data.SeverityFilter == "medium" }>Medium</option>
+										<option value="low" selected?={ data.SeverityFilter == "low" }>Low</option>
+										<option value="info" selected?={ data.SeverityFilter == "info" }>Info</option>
+									</select>
+								</label>
+								<label class="field sm:col-span-2">
+									<span class="label">Monitoring</span>
+									<select class="select" name="monitoring">
+										<option value="" selected?={ data.MonitoringFilter == "" }>All</option>
+										<option value="automated" selected?={ data.MonitoringFilter == "automated" }>Automated</option>
+										<option value="partial" selected?={ data.MonitoringFilter == "partial" }>Partial</option>
+										<option value="manual" selected?={ data.MonitoringFilter == "manual" }>Manual</option>
+										<option value="unsupported" selected?={ data.MonitoringFilter == "unsupported" }>Unsupported</option>
+									</select>
+								</label>
+							</div>
+							if FindingsRulesetFilterCount(data) > 0 {
+								<div class="border-t border-border/60 pt-3">
+									<a class="text-xs text-muted-foreground no-underline hover:text-foreground" href={ FindingsRulesetClearFiltersHref(data) } hx-get={ FindingsRulesetClearFiltersHref(data) } hx-target="#rules-card" hx-swap="outerHTML" hx-push-url="true">Clear all filters</a>
+								</div>
+							}
+						}
+						<button class="sr-only" type="submit">Apply filters</button>
+					</form>
+				</div>
 
-			if data.HasRules {
+				if data.HasRules {
 				@ColumnsTable("") {
 					<table class="table osspm-table-compact osspm-table-list">
 						<caption class="sr-only">Rules in this ruleset with severity, monitoring, and current status.</caption>
@@ -237,6 +243,5 @@ templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 				@EmptyState("No rules found", "This ruleset has no active rules.") {
 				}
 			}
-		</div>
-	</section>
-}
+		</section>
+	}

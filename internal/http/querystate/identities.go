@@ -83,6 +83,25 @@ func (q IdentitiesQuery) TogglePrivilegedOnly() IdentitiesQuery {
 	return q
 }
 
+func (q IdentitiesQuery) WithPrivilegedOnly(enabled bool) IdentitiesQuery {
+	q.PrivilegedOnly = enabled
+	q.Page = 1
+	return q
+}
+
+func (q IdentitiesQuery) ClearFilters() IdentitiesQuery {
+	q.Source = SourceSelection{}
+	q.IdentityType = ""
+	q.ManagedState = ""
+	q.PrivilegedOnly = false
+	q.Status = ""
+	q.ActivityState = ""
+	q.SortBy = ""
+	q.SortDir = ""
+	q.Page = 1
+	return q
+}
+
 func (q IdentitiesQuery) HasFilters() bool {
 	return strings.TrimSpace(q.Q) != "" ||
 		q.IdentityType != "" ||
@@ -92,6 +111,35 @@ func (q IdentitiesQuery) HasFilters() bool {
 		q.ActivityState != "" ||
 		q.Source.Kind != "" ||
 		q.Source.Name != ""
+}
+
+func (q IdentitiesQuery) FilterCount() int {
+	count := 0
+	if q.ActivityState != "" {
+		count++
+	}
+	if q.PrivilegedOnly {
+		count++
+	}
+	if q.Status != "" {
+		count++
+	}
+	if q.Source.Kind != "" {
+		count++
+	}
+	if q.Source.Name != "" {
+		count++
+	}
+	if q.IdentityType != "" {
+		count++
+	}
+	if q.ManagedState != "" {
+		count++
+	}
+	if q.SortBy != "" {
+		count++
+	}
+	return count
 }
 
 func parseIdentitySourceSelection(values url.Values, sources []SourceSelection) SourceSelection {

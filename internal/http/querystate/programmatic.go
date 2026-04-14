@@ -54,6 +54,13 @@ func (q AppAssetsQuery) ClearQuery() AppAssetsQuery {
 	return q
 }
 
+func (q AppAssetsQuery) ClearFilters() AppAssetsQuery {
+	q.Source = SourceSelection{}
+	q.AssetKind = ""
+	q.Page = 1
+	return q
+}
+
 func (q AppAssetsQuery) IsConnectedAppsSlice() bool {
 	return normalizeSourceKind(q.Source.Kind) == connectedAppsSourceKey &&
 		strings.TrimSpace(q.AssetKind) == connectedAppsAssetKind
@@ -61,6 +68,17 @@ func (q AppAssetsQuery) IsConnectedAppsSlice() bool {
 
 func (q AppAssetsQuery) HasFilters() bool {
 	return q.Source.Kind != "" || strings.TrimSpace(q.Q) != "" || strings.TrimSpace(q.AssetKind) != ""
+}
+
+func (q AppAssetsQuery) FilterCount() int {
+	count := 0
+	if q.Source.Kind != "" {
+		count++
+	}
+	if q.AssetKind != "" {
+		count++
+	}
+	return count
 }
 
 type CredentialsQuery struct {
@@ -180,6 +198,17 @@ func (q CredentialsQuery) WithExpiresInDays(days int) CredentialsQuery {
 	return q
 }
 
+func (q CredentialsQuery) ClearFilters() CredentialsQuery {
+	q.Source = SourceSelection{}
+	q.CredentialKind = ""
+	q.Status = ""
+	q.RiskLevel = ""
+	q.ExpiryState = ""
+	q.ExpiresInDays = 0
+	q.Page = 1
+	return q
+}
+
 func (q CredentialsQuery) HasFilters() bool {
 	return q.Source.Kind != "" ||
 		strings.TrimSpace(q.Q) != "" ||
@@ -188,4 +217,27 @@ func (q CredentialsQuery) HasFilters() bool {
 		strings.TrimSpace(q.RiskLevel) != "" ||
 		strings.TrimSpace(q.ExpiryState) != "" ||
 		q.ExpiresInDays > 0
+}
+
+func (q CredentialsQuery) FilterCount() int {
+	count := 0
+	if q.Source.Kind != "" {
+		count++
+	}
+	if q.CredentialKind != "" {
+		count++
+	}
+	if q.Status != "" {
+		count++
+	}
+	if q.RiskLevel != "" {
+		count++
+	}
+	if q.ExpiryState != "" {
+		count++
+	}
+	if q.ExpiresInDays > 0 {
+		count++
+	}
+	return count
 }

@@ -4,10 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ GlobalViewPage(data viewmodels.GlobalViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Global View"},
-		}, "Per-application overview of connector coverage and identity linking.") {
+		@PageHeader("Per-application overview of connector coverage and identity linking.") {
 			if data.Layout.IsAdmin {
 				<a class="btn-sm-outline" href="/settings/connectors">Manage connectors</a>
 			}
@@ -38,38 +35,31 @@ templ GlobalAppCard(card viewmodels.GlobalViewAppCard) {
 			</div>
 		</header>
 		<section class="p-0">
-			<div class="grid md:grid-cols-[280px_1fr]">
-				<div class="border-b p-6 md:border-b-0 md:border-r">
-					<div class="flex flex-col items-center justify-center gap-4">
-						@ScoreRing(card.Score, card.ScoreLabel)
+			<div class="p-6">
+				if len(card.Metrics) > 0 {
+					<div class="grid gap-4 sm:grid-cols-3">
+						for _, metric := range card.Metrics {
+							<div class="space-y-1">
+								<p class="text-sm text-muted-foreground">{ metric.Label }</p>
+								<p class="text-xl font-semibold tracking-tight">{ metric.Value }</p>
+							</div>
+						}
 					</div>
-				</div>
-				<div class="p-6">
-					if len(card.Metrics) > 0 {
-						<div class="grid gap-4 sm:grid-cols-3">
-							for _, metric := range card.Metrics {
-								<div class="space-y-1">
-									<p class="text-sm text-muted-foreground">{ metric.Label }</p>
-									<p class="text-xl font-semibold tracking-tight">{ metric.Value }</p>
+				}
+
+				if len(card.Highlights) > 0 {
+					<div class="mt-6 space-y-3">
+						<h3 class="text-sm font-medium">Highlights</h3>
+						<div class="space-y-2 text-sm">
+							for _, item := range card.Highlights {
+								<div class="flex items-center justify-between gap-3">
+									<span class="text-muted-foreground">{ item.Label }</span>
+									<span class="font-medium">{ item.Value }</span>
 								</div>
 							}
 						</div>
-					}
-
-					if len(card.Highlights) > 0 {
-						<div class="mt-6 space-y-3">
-							<h3 class="text-sm font-medium">Highlights</h3>
-							<div class="space-y-2 text-sm">
-								for _, item := range card.Highlights {
-									<div class="flex items-center justify-between gap-3">
-										<span class="text-muted-foreground">{ item.Label }</span>
-										<span class="font-medium">{ item.Value }</span>
-									</div>
-								}
-							</div>
-						</div>
-					}
-				</div>
+					</div>
+				}
 			</div>
 		</section>
 		if card.PrimaryHref != "" || card.SecondaryHref != "" {
@@ -85,39 +75,6 @@ templ GlobalAppCard(card viewmodels.GlobalViewAppCard) {
 			</footer>
 		}
 	</article>
-}
-
-templ ScoreRing(score int, label string) {
-	<div class="relative grid h-28 w-28 place-items-center">
-		<svg viewBox="0 0 36 36" class="h-28 w-28" aria-hidden="true">
-			<circle
-				cx="18"
-				cy="18"
-				r="15.9155"
-				fill="none"
-				stroke="var(--muted)"
-				stroke-width="3.5"
-			/>
-			<circle
-				cx="18"
-				cy="18"
-				r="15.9155"
-				fill="none"
-				stroke="var(--primary)"
-				stroke-width="3.5"
-				stroke-linecap="round"
-				pathLength="100"
-				transform="rotate(-90 18 18)"
-				style={ "stroke-dasharray: " + FormatInt(score) + " 100;" }
-			/>
-		</svg>
-		<div class="absolute inset-0 flex flex-col items-center justify-center text-center">
-			<p class="text-2xl font-semibold leading-none tracking-tight">{ FormatInt(score) }%</p>
-			if label != "" {
-				<p class="mt-1 max-w-[4.5rem] text-balance text-xs leading-tight text-muted-foreground">{ label }</p>
-			}
-		</div>
-	</div>
 }
 
 templ GlobalAppIcon(kind string) {

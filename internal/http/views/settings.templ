@@ -4,10 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ SettingsPage(data viewmodels.SettingsViewData) {
 	@Layout(data.Layout) {
-		@PageHeader([]Breadcrumb{
-			{Label: "Dashboard", Href: "/"},
-			{Label: "Settings"},
-		}, "Operational controls for access data.") {
+		@PageHeader("Operational controls for access data.") {
 			<a class="btn-sm-outline" href="/settings/connector-health">Connector health</a>
 		}
 
