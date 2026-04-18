@@ -288,10 +288,10 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 
 	// Evaluate global-scope rulesets (normalized datasets) after connector syncs and
 	// per-integration compliance evaluations have completed.
-	anySyncErrors := false
+	hasPrerequisiteErrors := resolveErr != nil
 	for _, err := range runErrByKey {
 		if err != nil {
-			anySyncErrors = true
+			hasPrerequisiteErrors = true
 			break
 		}
 	}
@@ -300,7 +300,7 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 	if globalEvalFn == nil {
 		globalEvalFn = runGlobalComplianceEvaluations
 	}
-	if err := globalEvalFn(ctx, o.q, o.globalEvalMode, anySyncErrors, o.report); err != nil {
+	if err := globalEvalFn(ctx, o.q, o.globalEvalMode, hasPrerequisiteErrors, o.report); err != nil {
 		wrapped := fmt.Errorf("global compliance: %w", err)
 		slog.Error("global compliance evaluation failed", "err", err)
 		errs = append(errs, wrapped)
@@ -311,11 +311,11 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 	return err
 }
 
-func runGlobalComplianceEvaluations(ctx context.Context, q *gen.Queries, mode string, anySyncErrors bool, report func(registry.Event)) error {
-	if mode == globalEvalModeStrict && anySyncErrors {
-		slog.Info("skipping global compliance evaluation due to integration errors")
+func runGlobalComplianceEvaluations(ctx context.Context, q *gen.Queries, mode string, hasPrerequisiteErrors bool, report func(registry.Event)) error {
+	if mode == globalEvalModeStrict && hasPrerequisiteErrors {
+		slog.Info("skipping global compliance evaluation due to prerequisite errors")
 		if report != nil {
-			report(registry.Event{Source: "rules", Stage: "global", Message: "skipping global compliance evaluation due to integration errors"})
+			report(registry.Event{Source: "rules", Stage: "global", Message: "skipping global compliance evaluation due to prerequisite errors"})
 		}
 		return nil
 	}

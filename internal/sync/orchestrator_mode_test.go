@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -181,5 +182,93 @@ func TestOrchestrator_PassesReadModelConfigThroughIntegrationContext(t *testing.
 
 	if err := orch.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce() error = %v", err)
+	}
+}
+
+func TestOrchestrator_StrictModeSkipsGlobalComplianceWhenIdentityResolutionFails(t *testing.T) {
+	t.Parallel()
+
+	orch := NewOrchestrator(&pgxpool.Pool{}, nil)
+	orch.SetLockManager(orchestratorTestLockManager{})
+	orch.SetRunMode(registry.RunModeFull)
+	orch.SetGlobalEvalMode(globalEvalModeStrict)
+
+	identityErr := errors.New("identity exploded")
+	orch.identityFn = func(context.Context, *gen.Queries) (identity.Stats, error) {
+		return identity.Stats{}, identityErr
+	}
+
+	var globalRan bool
+	var globalSkipped bool
+	orch.globalEvalFn = func(_ context.Context, _ *gen.Queries, mode string, hasPrerequisiteErrors bool, _ func(registry.Event)) error {
+		if mode == globalEvalModeStrict && hasPrerequisiteErrors {
+			globalSkipped = true
+			return nil
+		}
+		globalRan = true
+		return nil
+	}
+
+	integration := &orchestratorCountingIntegration{}
+	if err := orch.AddIntegration(integration); err != nil {
+		t.Fatalf("AddIntegration() error = %v", err)
+	}
+
+	err := orch.RunOnce(context.Background())
+	if err == nil {
+		t.Fatalf("RunOnce() error = nil, want identity error")
+	}
+	if integration.complianceCount != 1 {
+		t.Fatalf("complianceCount = %d, want 1", integration.complianceCount)
+	}
+	if globalRan {
+		t.Fatalf("global evaluator ran, want skipped")
+	}
+	if !globalSkipped {
+		t.Fatalf("global evaluator skip flag = false, want true")
+	}
+}
+
+func TestOrchestrator_BestEffortModeRunsGlobalComplianceWhenIdentityResolutionFails(t *testing.T) {
+	t.Parallel()
+
+	orch := NewOrchestrator(&pgxpool.Pool{}, nil)
+	orch.SetLockManager(orchestratorTestLockManager{})
+	orch.SetRunMode(registry.RunModeFull)
+	orch.SetGlobalEvalMode(globalEvalModeBestEffort)
+
+	identityErr := errors.New("identity exploded")
+	orch.identityFn = func(context.Context, *gen.Queries) (identity.Stats, error) {
+		return identity.Stats{}, identityErr
+	}
+
+	var globalRan bool
+	var receivedPrereqErrors bool
+	orch.globalEvalFn = func(_ context.Context, _ *gen.Queries, mode string, hasPrerequisiteErrors bool, _ func(registry.Event)) error {
+		if mode != globalEvalModeBestEffort {
+			t.Fatalf("mode = %q, want %q", mode, globalEvalModeBestEffort)
+		}
+		receivedPrereqErrors = hasPrerequisiteErrors
+		globalRan = true
+		return nil
+	}
+
+	integration := &orchestratorCountingIntegration{}
+	if err := orch.AddIntegration(integration); err != nil {
+		t.Fatalf("AddIntegration() error = %v", err)
+	}
+
+	err := orch.RunOnce(context.Background())
+	if err == nil {
+		t.Fatalf("RunOnce() error = nil, want identity error")
+	}
+	if integration.complianceCount != 1 {
+		t.Fatalf("complianceCount = %d, want 1", integration.complianceCount)
+	}
+	if !globalRan {
+		t.Fatalf("global evaluator did not run in best-effort mode")
+	}
+	if !receivedPrereqErrors {
+		t.Fatalf("hasPrerequisiteErrors = false, want true")
 	}
 }
