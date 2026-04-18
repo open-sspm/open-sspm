@@ -55,6 +55,28 @@ func TestNewSMTPNormalizesFromMailbox(t *testing.T) {
 	}
 }
 
+func TestNewSMTPPreservesPasswordBytes(t *testing.T) {
+	m, err := NewSMTP(SMTPConfig{
+		Host:        "smtp.example.com",
+		Port:        587,
+		Username:    "mailer",
+		Password:    "secret\r\n",
+		FromAddress: "noreply@example.com",
+		TLSMode:     TLSModeStartTLS,
+	})
+	if err != nil {
+		t.Fatalf("NewSMTP() error = %v", err)
+	}
+
+	smtpMailer, ok := m.(*smtpMailer)
+	if !ok {
+		t.Fatalf("NewSMTP() returned %T, want *smtpMailer", m)
+	}
+	if got, want := smtpMailer.config.Password, "secret\r\n"; got != want {
+		t.Fatalf("Password = %q, want %q", got, want)
+	}
+}
+
 func TestBuildMessageFormatsHeadersAndRecipients(t *testing.T) {
 	payload, recipients, err := buildMessage(SMTPConfig{
 		Host:        "smtp.example.com",

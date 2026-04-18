@@ -182,7 +182,7 @@ kubectl port-forward svc/<service-name> 8080:80
 
 - `smtp.enabled` controls `SMTP_ENABLED`
 - `smtp.host`, `smtp.port`, `smtp.tlsMode`, `smtp.fromAddress`, and `smtp.fromName` configure the relay
-- `smtp.existingSecret.name` injects optional `SMTP_USERNAME` / `SMTP_PASSWORD` credentials from a Secret
+- `smtp.existingSecret.name` injects `SMTP_USERNAME` / `SMTP_PASSWORD` credentials from a Secret when configured
 - The chart passes SMTP env vars to the Deployments and hook Jobs so `migrate`, `seed-rules`, and `bootstrap-admin` all see the same config contract
 
 ### Metrics service component selector

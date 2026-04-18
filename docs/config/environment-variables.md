@@ -183,7 +183,7 @@ Sender email address. Required when `SMTP_ENABLED=1`.
 SMTP_FROM_ADDRESS=noreply@example.com
 ```
 
-Use a bare email address here. Put any display name in `SMTP_FROM_NAME`.
+Supports either a bare email address or a full mailbox such as `noreply@example.com` or `"Open SSPM <noreply@example.com>"`. Prefer setting any display name in `SMTP_FROM_NAME`; if `SMTP_FROM_NAME` is empty and a display name is included here, it will be used.
 
 ### SMTP_FROM_NAME
 

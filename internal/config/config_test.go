@@ -252,6 +252,36 @@ func TestLoadWithOptions_NormalizesSMTPFromAddress(t *testing.T) {
 	}
 }
 
+func TestLoadWithOptions_RejectsSMTPFromNameWithHeaderBreak(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("SMTP_ENABLED", "1")
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("SMTP_FROM_ADDRESS", "noreply@example.com")
+	t.Setenv("SMTP_FROM_NAME", "Open\r\nSSPM")
+
+	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err == nil {
+		t.Fatalf("expected SMTP from name validation error")
+	}
+}
+
+func TestLoadWithOptions_PreservesSMTPPasswordBytes(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("SMTP_ENABLED", "1")
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("SMTP_FROM_ADDRESS", "noreply@example.com")
+	t.Setenv("SMTP_USERNAME", "mailer")
+	t.Setenv("SMTP_PASSWORD", "secret\r\n")
+
+	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if got, want := cfg.SMTP.Password, "secret\r\n"; got != want {
+		t.Fatalf("SMTP.Password = %q, want %q", got, want)
+	}
+}
+
 func TestLoadWithOptions_SMTPEnabledRequiresHost(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("SMTP_ENABLED", "1")

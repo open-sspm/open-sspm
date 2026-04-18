@@ -60,14 +60,14 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   valueFrom:
     secretKeyRef:
       name: {{ .Values.smtp.existingSecret.name }}
-      key: {{ .Values.smtp.existingSecret.usernameKey | quote }}
-      optional: true
+      key: {{ required "smtp.existingSecret.usernameKey is required when smtp.existingSecret.name is set" .Values.smtp.existingSecret.usernameKey | quote }}
+      optional: false
 - name: SMTP_PASSWORD
   valueFrom:
     secretKeyRef:
       name: {{ .Values.smtp.existingSecret.name }}
-      key: {{ .Values.smtp.existingSecret.passwordKey | quote }}
-      optional: true
+      key: {{ required "smtp.existingSecret.passwordKey is required when smtp.existingSecret.name is set" .Values.smtp.existingSecret.passwordKey | quote }}
+      optional: false
 {{- end }}
 {{- end }}
 {{- end -}}

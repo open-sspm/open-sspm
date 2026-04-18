@@ -280,6 +280,9 @@ func loadSMTPConfig() (SMTPConfig, error) {
 	if cfg.FromName == "" && strings.TrimSpace(addr.Name) != "" {
 		cfg.FromName = addr.Name
 	}
+	if strings.ContainsAny(cfg.FromName, "\r\n") {
+		return cfg, errors.New("SMTP_FROM_NAME must not contain carriage returns or line feeds")
+	}
 	if (cfg.Username == "") != (cfg.Password == "") {
 		return cfg, errors.New("SMTP_USERNAME and SMTP_PASSWORD must either both be set or both be empty")
 	}
