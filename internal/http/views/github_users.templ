@@ -2,6 +2,31 @@ package views
 
 import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
+templ GitHubUserMobileRow(user viewmodels.GitHubUserListItem) {
+	<article class="rounded-lg border border-border/70 bg-card p-4">
+		<div class="flex items-start justify-between gap-3">
+			<div class="min-w-0">
+				<div class="font-medium break-all">{ user.ExternalID }</div>
+				if user.DisplayName != "" {
+					<div class="text-sm text-muted-foreground" title={ user.DisplayName }>
+						<span class="osspm-truncate">{ user.DisplayName }</span>
+					</div>
+				}
+			</div>
+		</div>
+		<div class="mt-3 grid grid-cols-1 gap-3 text-sm">
+			<div>
+				<div class="text-xs uppercase tracking-wide text-muted-foreground">Identity</div>
+				if user.IdentityID > 0 {
+					<a class="btn-sm-link px-0" href={ "/identities/" + FormatInt64(user.IdentityID) }>{ "Identity #" }{ FormatInt64(user.IdentityID) }</a>
+				} else {
+					<div class="text-muted-foreground">—</div>
+				}
+			</div>
+		</div>
+	</article>
+}
+
 templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 	@Layout(data.Layout) {
 		@PageHeader("Synced GitHub accounts and their identity links.") {
@@ -30,19 +55,9 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 
 			<form method="get" class="osspm-list-form">
 				<div class="osspm-list-toolbar">
-				<label class="field w-full lg:max-w-xl">
-					<span class="sr-only">Query</span>
-					<div class="relative">
-						<input type="search" name="q" value={ data.Query.Q } placeholder="Search login or name" class="input pr-10"/>
-						if data.Query.Q != "" {
-							<a class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2" aria-label="Clear query" href={ data.Query.ClearQuery().Href() }>
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
-									<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
-								</svg>
-							</a>
-						}
-					</div>
-				</label>
+				<div class="min-w-0 flex-1">
+					@TableQueryBar(SearchOnlyBasicListQueryBar(data.Query, "Search login or name"))
+				</div>
 					<div class="osspm-list-summary">
 					if data.TotalCount > 0 {
 						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
@@ -61,7 +76,18 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 					<p class="text-sm text-muted-foreground">GitHub accounts synced from your organization.</p>
 				</div>
 			</div>
-			@ColumnsTable("") {
+			if data.HasUsers {
+				<div class="space-y-3 lg:hidden">
+					for _, u := range data.Users {
+						@GitHubUserMobileRow(u)
+					}
+				</div>
+			} else {
+				<div class="lg:hidden">
+					@EmptyState("No users found", data.EmptyStateMsg)
+				</div>
+			}
+			@ColumnsTable("hidden lg:block") {
 				<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 					<caption class="sr-only">GitHub users with display names and linked identity references.</caption>
 					<thead>

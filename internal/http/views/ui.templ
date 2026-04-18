@@ -1,5 +1,7 @@
 package views
 
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
 templ PageHeader(description string) {
 	<div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
 		if description != "" {
@@ -102,6 +104,140 @@ templ FilterPopover(label string, activeCount int, open bool, panelClass string)
 			{ children... }
 		</div>
 	</details>
+}
+
+templ TableQueryBar(data viewmodels.TableQueryBarData) {
+	<div class="osspm-table-query-bar" data-table-query-bar>
+		<div class="osspm-table-query-bar-row">
+			if data.HasSearch() {
+				<label class="field osspm-table-query-bar-search">
+					<span class="sr-only">Query</span>
+					<div class="relative">
+						<input
+							type="search"
+							name={ data.Search.Name }
+							value={ data.Search.Value }
+							placeholder={ data.Search.Placeholder }
+							class="input pr-10"
+						/>
+						if data.Search.Value != "" {
+							<button
+								type="button"
+								class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
+								aria-label="Clear query"
+								data-table-query-clear-search
+							>
+								@IconX("size-4")
+							</button>
+						}
+					</div>
+				</label>
+			}
+			<div class="osspm-table-query-actions">
+				if data.HasActiveFilters() {
+					<button type="button" class="btn-sm-ghost osspm-table-query-clear" data-table-query-clear-filters>Clear filters</button>
+				}
+				if data.HasAddFilter() {
+					<button
+						type="button"
+						class="btn-sm-outline osspm-table-query-add"
+						aria-expanded="false"
+						aria-haspopup="dialog"
+						data-table-query-add-trigger
+					>+ Add filter</button>
+				}
+			</div>
+		</div>
+		if len(data.Fields) > 0 {
+			<div class="osspm-table-query-chip-list" data-table-query-chip-list>
+				for _, chip := range data.ActiveChips {
+					<div class="osspm-table-query-chip" data-table-query-chip data-field-id={ chip.FieldID }>
+						<button
+							type="button"
+							class="osspm-table-query-chip-trigger"
+							aria-expanded="false"
+							aria-haspopup="dialog"
+							data-table-query-chip-trigger
+							data-field-id={ chip.FieldID }
+						>
+							<span>{ chip.Label }</span>
+						</button>
+						<button
+							type="button"
+							class="osspm-table-query-chip-remove"
+							aria-label={ "Remove " + chip.Label }
+							data-table-query-chip-remove
+							data-field-id={ chip.FieldID }
+						>
+							@IconX("size-3.5")
+						</button>
+					</div>
+				}
+			</div>
+		}
+		<div class="hidden" aria-hidden="true" data-table-query-controls data-table-query-trigger>
+			for _, control := range data.HiddenControls {
+				<input type="hidden" name={ control.Name } value={ control.Value } data-table-query-control data-table-query-control-name={ control.Name }/>
+			}
+		</div>
+		<div class="hidden" aria-hidden="true" data-table-query-fields>
+			for _, field := range data.Fields {
+				<div
+					data-table-query-field
+					data-field-id={ field.ID }
+					data-field-label={ field.Label }
+					data-field-kind={ string(field.Kind) }
+					data-field-active-value={ field.ActiveValue }
+					data-field-picker-visible?={ field.PickerVisible }
+				>
+					for _, inputName := range field.InputNames {
+						<input type="hidden" value={ inputName } data-table-query-input-name/>
+					}
+					for _, option := range field.Options {
+						<div data-table-query-option data-option-value={ option.Value } data-option-label={ option.Label }>
+							for _, control := range option.Controls {
+								<input type="hidden" value={ control.Value } data-table-query-option-control data-control-name={ control.Name }/>
+							}
+						</div>
+					}
+				</div>
+			}
+		</div>
+		if data.HasAddFilter() {
+			<div class="osspm-table-query-floating osspm-table-query-picker" hidden data-table-query-picker data-state="closed" role="dialog" aria-label="Add filter">
+				<div class="osspm-table-query-picker-search">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4 text-muted-foreground" aria-hidden="true">
+						<path fill-rule="evenodd" d="M8.5 3a5.5 5.5 0 1 0 3.473 9.765l3.63 3.631a1 1 0 0 0 1.414-1.414l-3.63-3.63A5.5 5.5 0 0 0 8.5 3Zm-4 5.5a4 4 0 1 1 8 0 4 4 0 0 1-8 0Z" clip-rule="evenodd"></path>
+					</svg>
+					<input type="search" placeholder="Filter by..." data-table-query-picker-search-input/>
+				</div>
+				<div class="osspm-table-query-picker-list" data-table-query-picker-list>
+					for _, field := range data.Fields {
+						if field.PickerVisible {
+							<button type="button" class="osspm-table-query-picker-item" data-table-query-picker-item data-field-id={ field.ID }>
+								<span class="osspm-table-query-picker-item-label">{ field.Label }</span>
+								<span class="osspm-table-query-picker-item-action">Add</span>
+							</button>
+						}
+					}
+				</div>
+			</div>
+		}
+		if len(data.Fields) > 0 {
+			<div class="osspm-table-query-floating osspm-table-query-editor" hidden data-table-query-editor data-state="closed" role="dialog" aria-label="Edit filter">
+				<div class="osspm-table-query-editor-header">
+					<h3 class="osspm-table-query-editor-title" data-table-query-editor-title></h3>
+					<button type="button" class="btn-icon-ghost osspm-table-query-editor-close" aria-label="Close" data-table-query-editor-close>
+						@IconX("size-4")
+					</button>
+				</div>
+				<label class="field">
+					<span class="sr-only">Filter value</span>
+					<select class="select" data-table-query-editor-select></select>
+				</label>
+			</div>
+		}
+	</div>
 }
 
 templ CSRFInput(token string) {

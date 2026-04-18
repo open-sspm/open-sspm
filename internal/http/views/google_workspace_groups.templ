@@ -5,6 +5,35 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
+templ GoogleWorkspaceGroupMobileRow(group viewmodels.GoogleWorkspaceGroupListItem) {
+	<article class="rounded-lg border border-border/70 bg-card p-4">
+		<div class="min-w-0">
+			<div class="font-medium" title={ group.DisplayName }>
+				<span class="osspm-truncate">{ group.DisplayName }</span>
+			</div>
+			if group.Email != "" {
+				<div class="text-sm text-muted-foreground break-all">{ group.Email }</div>
+			} else if group.ExternalID != "" {
+				<div class="text-sm text-muted-foreground break-all">{ group.ExternalID }</div>
+			}
+		</div>
+		<div class="mt-3 grid grid-cols-3 gap-x-4 gap-y-3 text-sm">
+			<div>
+				<div class="text-xs uppercase tracking-wide text-muted-foreground">Members</div>
+				<div><span class="badge-outline">{ FormatInt(group.MemberCount) }</span></div>
+			</div>
+			<div>
+				<div class="text-xs uppercase tracking-wide text-muted-foreground">Owners</div>
+				<div><span class="badge-outline">{ FormatInt(group.OwnerCount) }</span></div>
+			</div>
+			<div>
+				<div class="text-xs uppercase tracking-wide text-muted-foreground">Managers</div>
+				<div><span class="badge-outline">{ FormatInt(group.ManagerCount) }</span></div>
+			</div>
+		</div>
+	</article>
+}
+
 templ GoogleWorkspaceGroupsPage(data viewmodels.GoogleWorkspaceGroupsViewData) {
 	@Layout(data.Layout) {
 		@PageHeader("Synced Google Workspace groups with membership visibility.") {
@@ -22,19 +51,9 @@ templ GoogleWorkspaceGroupsPage(data viewmodels.GoogleWorkspaceGroupsViewData) {
 
 			<form method="get" class="osspm-list-form">
 				<div class="osspm-list-toolbar">
-				<label class="field w-full lg:max-w-xl">
-					<span class="sr-only">Query</span>
-					<div class="relative">
-						<input type="search" name="q" value={ data.Query.Q } placeholder="Search email, name, or group ID" class="input pr-10"/>
-						if data.Query.Q != "" {
-							<a class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2" aria-label="Clear query" href={ data.Query.ClearQuery().Href() }>
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
-									<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
-								</svg>
-							</a>
-						}
-					</div>
-				</label>
+				<div class="min-w-0 flex-1">
+					@TableQueryBar(SearchOnlyBasicListQueryBar(data.Query, "Search email, name, or group ID"))
+				</div>
 					<div class="osspm-list-summary">
 					if data.TotalCount > 0 {
 						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
@@ -53,7 +72,18 @@ templ GoogleWorkspaceGroupsPage(data viewmodels.GoogleWorkspaceGroupsViewData) {
 					<p class="text-sm text-muted-foreground">Google Workspace groups with membership counts.</p>
 				</div>
 			</div>
-			@ColumnsTable("") {
+			if data.HasGroups {
+				<div class="space-y-3 lg:hidden">
+					for _, g := range data.Groups {
+						@GoogleWorkspaceGroupMobileRow(g)
+					}
+				</div>
+			} else {
+				<div class="lg:hidden">
+					@EmptyState("No groups found", data.EmptyStateMsg)
+				</div>
+			}
+			@ColumnsTable("hidden lg:block") {
 				<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 					<caption class="sr-only">Google Workspace groups with member and owner counts.</caption>
 					<thead>

@@ -40,129 +40,15 @@ templ NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) {
 			action="/non-human-access"
 			data-enter-only-query="q"
 			hx-get="/non-human-access"
-			hx-trigger="change delay:150ms from:select, submit"
+			hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
 			hx-target="#non-human-access-inventory"
 			hx-swap="outerHTML"
 			hx-push-url="true"
 				class="osspm-list-form"
 			>
 					<div class="osspm-list-toolbar">
-						<div class="flex flex-1 items-center gap-2 lg:max-w-xl">
-							<label class="field flex-1">
-								<span class="sr-only">Query</span>
-								<div class="relative">
-									<input type="search" name="q" value={ data.Query.Q } placeholder="Search principal, external ID, or owner" class="input pr-10"/>
-									if data.Query.Q != "" {
-										<a
-											class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
-											aria-label="Clear query"
-											href={ data.Query.ClearQuery().Href() }
-											hx-get={ data.Query.ClearQuery().Href() }
-											hx-target="#non-human-access-inventory"
-											hx-swap="outerHTML"
-											hx-push-url="true"
-										>
-											@IconX("size-4")
-										</a>
-									}
-								</div>
-							</label>
-							@FilterPopover("Filters", data.Query.FilterCount(), data.Query.FilterCount() > 0, "w-[min(92vw,48rem)] space-y-4") {
-								<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-									<label class="field">
-										<span class="label">Risk</span>
-										<select class="select" name="risk_level">
-											<option value="" selected?={ data.Query.RiskLevel == "" }>All levels</option>
-											<option value="critical" selected?={ data.Query.RiskLevel == "critical" }>Critical</option>
-											<option value="high" selected?={ data.Query.RiskLevel == "high" }>High</option>
-											<option value="medium" selected?={ data.Query.RiskLevel == "medium" }>Medium</option>
-											<option value="low" selected?={ data.Query.RiskLevel == "low" }>Low</option>
-										</select>
-									</label>
-									<label class="field">
-										<span class="label">Owner</span>
-										<select class="select" name="owner_presence">
-											<option value="" selected?={ data.Query.OwnerPresence == "" }>All owners</option>
-											<option value="owned" selected?={ data.Query.OwnerPresence == "owned" }>Owned</option>
-											<option value="unknown" selected?={ data.Query.OwnerPresence == "unknown" }>Unknown owner</option>
-										</select>
-									</label>
-									<label class="field">
-										<span class="label">Provider</span>
-										<select class="select" name="source_kind">
-											<option value="" selected?={ data.Query.Source.Kind == "" }>All providers</option>
-											for _, source := range data.Sources {
-												<option value={ source.SourceKind } selected?={ source.SourceKind == data.Query.Source.Kind } title={ source.Label }>{ source.Label }</option>
-											}
-										</select>
-									</label>
-									<label class="field">
-										<span class="label">Activity</span>
-										<select class="select" name="activity_state">
-											<option value="" selected?={ data.Query.ActivityState == "" }>Any activity</option>
-											<option value="recent" selected?={ data.Query.ActivityState == "recent" }>Seen &lt; 30d</option>
-											<option value="aging" selected?={ data.Query.ActivityState == "aging" }>30-89d</option>
-											<option value="stale" selected?={ data.Query.ActivityState == "stale" }>90d+</option>
-											<option value="never_seen" selected?={ data.Query.ActivityState == "never_seen" }>Never seen</option>
-										</select>
-									</label>
-									<label class="field">
-										<span class="label">Type</span>
-										<select class="select" name="principal_type">
-											<option value="" selected?={ data.Query.PrincipalType == "" }>Any</option>
-											<option value="service" selected?={ data.Query.PrincipalType == "service" }>Service</option>
-											<option value="bot" selected?={ data.Query.PrincipalType == "bot" }>Bot</option>
-											<option value="app" selected?={ data.Query.PrincipalType == "app" }>App only</option>
-										</select>
-									</label>
-									<label class="field">
-										<span class="label">Governance</span>
-										<select class="select" name="governance_state">
-											<option value="" selected?={ data.Query.GovernanceState == "" }>Any</option>
-											<option value="unreviewed" selected?={ data.Query.GovernanceState == "unreviewed" }>Unreviewed</option>
-											<option value="in_review" selected?={ data.Query.GovernanceState == "in_review" }>In review</option>
-											<option value="approved" selected?={ data.Query.GovernanceState == "approved" }>Approved</option>
-											<option value="action_required" selected?={ data.Query.GovernanceState == "action_required" }>Action required</option>
-											<option value="ticketed" selected?={ data.Query.GovernanceState == "ticketed" }>Ticketed</option>
-										</select>
-									</label>
-									<label class="field">
-										<span class="label">Freshness</span>
-										<select class="select" name="freshness_state">
-											<option value="" selected?={ data.Query.FreshnessState == "" }>Any</option>
-											<option value="current" selected?={ data.Query.FreshnessState == "current" }>Current</option>
-											<option value="stale" selected?={ data.Query.FreshnessState == "stale" }>Stale</option>
-											<option value="unknown" selected?={ data.Query.FreshnessState == "unknown" }>Unknown</option>
-										</select>
-									</label>
-									<label class="field">
-										<span class="label">Sort</span>
-										<select class="select" name="sort_by">
-											<option value="" selected?={ data.Query.SortBy == "" }>Priority (default)</option>
-											<option value="principal" selected?={ data.Query.SortBy == "principal" }>Principal</option>
-											<option value="principal_type" selected?={ data.Query.SortBy == "principal_type" }>Principal type</option>
-											<option value="source" selected?={ data.Query.SortBy == "source" }>Source</option>
-											<option value="owner" selected?={ data.Query.SortBy == "owner" }>Owner</option>
-											<option value="governance" selected?={ data.Query.SortBy == "governance" }>Governance</option>
-											<option value="risk" selected?={ data.Query.SortBy == "risk" }>Risk</option>
-											<option value="last_seen" selected?={ data.Query.SortBy == "last_seen" }>Last seen</option>
-											<option value="freshness" selected?={ data.Query.SortBy == "freshness" }>Freshness</option>
-										</select>
-									</label>
-									<label class="field">
-										<span class="label">Direction</span>
-										<select class="select" name="sort_dir">
-											<option value="asc" selected?={ data.Query.SortDir == "asc" }>Ascending</option>
-											<option value="desc" selected?={ data.Query.SortDir == "desc" }>Descending</option>
-										</select>
-									</label>
-								</div>
-								if data.Query.FilterCount() > 0 {
-									<div class="border-t border-border/60 pt-3">
-										<a class="text-xs text-muted-foreground no-underline hover:text-foreground" href={ data.Query.ClearFilters().Href() } hx-get={ data.Query.ClearFilters().Href() } hx-target="#non-human-access-inventory" hx-swap="outerHTML" hx-push-url="true">Clear all filters</a>
-									</div>
-								}
-							}
+						<div class="min-w-0 flex-1">
+							@TableQueryBar(NonHumanAccessTableQueryBar(data))
 						</div>
 						<div class="osspm-list-summary">
 							if data.TotalCount > 0 {

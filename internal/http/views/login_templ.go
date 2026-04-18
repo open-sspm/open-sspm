@@ -45,7 +45,7 @@ func LoginPage(data viewmodels.LoginViewData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"mx-auto w-full max-w-md\"><article class=\"card\"><header><h1>Sign in</h1><p>Sign in to manage and view your Open-SSPM workspace.</p></header><section class=\"space-y-4\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"mx-auto w-full max-w-lg\"><article class=\"card gap-7 rounded-2xl\"><header class=\"!gap-2 !px-8 !pt-8 !pb-0\"><h1 class=\"text-3xl font-semibold tracking-tight\">Sign in</h1><p class=\"max-w-md text-base leading-7\">Sign in to manage and view your Open-SSPM workspace.</p></header><section class=\"space-y-5 !px-8 !pb-8\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -110,7 +110,7 @@ func LoginPage(data viewmodels.LoginViewData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " <form method=\"post\" action=\"/login\" class=\"space-y-4\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " <form method=\"post\" action=\"/login\" class=\"space-y-6\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -131,20 +131,20 @@ func LoginPage(data viewmodels.LoginViewData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"> <label class=\"field\"><span class=\"label\">Email</span> <input type=\"email\" name=\"email\" class=\"input\" autocomplete=\"username\" required value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"> <label class=\"field\"><span class=\"label text-base\">Email</span> <input type=\"email\" name=\"email\" class=\"input h-14 rounded-xl px-4 text-base\" autocomplete=\"username\" required value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(data.Email)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `login.templ`, Line: 35, Col: 106}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `login.templ`, Line: 35, Col: 137}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\"></label> <label class=\"field\"><span class=\"label\">Password</span> <input type=\"password\" name=\"password\" class=\"input\" autocomplete=\"current-password\" required></label> <button type=\"submit\" class=\"btn-primary w-full\">Sign in</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\"></label> <label class=\"field\"><span class=\"label text-base\">Password</span> <input type=\"password\" name=\"password\" class=\"input h-14 rounded-xl px-4 text-base\" autocomplete=\"current-password\" required></label> <button type=\"submit\" class=\"btn-primary h-12 w-full rounded-xl text-base font-semibold\">Sign in</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

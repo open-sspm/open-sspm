@@ -2,6 +2,40 @@ package views
 
 import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
+templ AppAssetMobileRow(item viewmodels.AppAssetListItem) {
+	<article class="rounded-lg border border-border/70 bg-card p-4">
+		<div class="flex items-start justify-between gap-3">
+			<div class="min-w-0">
+				<a class="block font-medium no-underline hover:underline" href={ "/app-assets/" + FormatInt64(item.ID) } title={ item.DisplayName }>
+					<span class="osspm-truncate">{ item.DisplayName }</span>
+				</a>
+				<div class="mt-2 flex flex-wrap items-center gap-2">
+					<span class="badge-outline">{ HumanizeProgrammaticKind(item.SourceKind) }</span>
+					<span class="badge-outline">{ HumanizeProgrammaticKind(item.AssetKind) }</span>
+				</div>
+				<div class="mt-2 text-sm text-muted-foreground">{ item.Status }</div>
+				<div class="text-sm text-muted-foreground break-all">
+					<code class="osspm-token">{ item.ExternalID }</code>
+				</div>
+			</div>
+		</div>
+		<div class="mt-3 grid grid-cols-3 gap-x-4 gap-y-3 text-sm">
+			<div>
+				<div class="text-xs uppercase tracking-wide text-muted-foreground">Owners</div>
+				<div><span class="badge-outline">{ FormatInt(item.OwnersCount) }</span></div>
+			</div>
+			<div>
+				<div class="text-xs uppercase tracking-wide text-muted-foreground">Credentials</div>
+				<div><span class="badge-outline">{ FormatInt(item.CredentialsCount) }</span></div>
+			</div>
+			<div>
+				<div class="text-xs uppercase tracking-wide text-muted-foreground">Last seen</div>
+				<div>{ item.LastSeen.Label }</div>
+			</div>
+		</div>
+	</article>
+}
+
 templ AppAssetsPage(data viewmodels.AppAssetsViewData) {
 	@Layout(data.Layout) {
 		if data.GoogleOAuthView != nil {
@@ -26,73 +60,15 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 				action="/app-assets"
 				data-enter-only-query="q"
 				hx-get="/app-assets"
-				hx-trigger="change delay:150ms from:select, submit"
+				hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
 				hx-target="#app-assets-results"
 				hx-swap="outerHTML"
 				hx-push-url="true"
 					class="osspm-list-form"
 				>
 					<div class="osspm-list-toolbar">
-						<div class="flex flex-1 items-center gap-2 lg:max-w-xl">
-							<label class="field flex-1">
-								<span class="sr-only">Query</span>
-								<div class="relative">
-									<input type="search" name="q" class="input pr-10" placeholder="Search by name, external ID, or parent ID" value={ data.Query.Q }/>
-									if data.Query.Q != "" {
-										<a
-											class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
-											aria-label="Clear query"
-											href={ data.Query.ClearQuery().Href() }
-											hx-get={ data.Query.ClearQuery().Href() }
-											hx-target="#app-assets-results"
-											hx-swap="outerHTML"
-											hx-push-url="true"
-										>
-											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
-												<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
-											</svg>
-										</a>
-									}
-								</div>
-							</label>
-							@FilterPopover("Filters", data.Query.FilterCount(), data.Query.FilterCount() > 0, "w-[min(92vw,32rem)] space-y-4") {
-								<div class="grid gap-4 sm:grid-cols-2">
-									<label class="field">
-										<span class="label">Source</span>
-										<select class="select" name="source_kind">
-											<option value="" selected?={ data.Query.Source.Kind == "" }>All configured</option>
-											for _, source := range data.Sources {
-												<option value={ source.SourceKind } selected?={ source.SourceKind == data.Query.Source.Kind } title={ source.Label }>{ source.Label }</option>
-											}
-										</select>
-									</label>
-									<label class="field">
-										<span class="label">Asset kind</span>
-										<select class="select" name="asset_kind">
-											<option value="" selected?={ data.Query.AssetKind == "" }>All</option>
-											<option value="entra_application" selected?={ data.Query.AssetKind == "entra_application" }>Entra application</option>
-											<option value="entra_service_principal" selected?={ data.Query.AssetKind == "entra_service_principal" }>Entra service principal</option>
-											<option value="github_app_installation" selected?={ data.Query.AssetKind == "github_app_installation" }>GitHub app installation</option>
-											<option value="google_oauth_client" selected?={ data.Query.AssetKind == "google_oauth_client" }>Google OAuth client</option>
-											<option value="vault_auth_mount" selected?={ data.Query.AssetKind == "vault_auth_mount" }>Vault auth mount</option>
-											<option value="vault_secrets_mount" selected?={ data.Query.AssetKind == "vault_secrets_mount" }>Vault secrets mount</option>
-											<option value="vault_auth_role" selected?={ data.Query.AssetKind == "vault_auth_role" }>Vault auth role</option>
-										</select>
-									</label>
-								</div>
-								if data.Query.FilterCount() > 0 {
-									<div class="border-t border-border/60 pt-3">
-										<a
-											class="text-xs text-muted-foreground no-underline hover:text-foreground"
-											href={ data.Query.ClearFilters().Href() }
-											hx-get={ data.Query.ClearFilters().Href() }
-											hx-target="#app-assets-results"
-											hx-swap="outerHTML"
-											hx-push-url="true"
-										>Clear all filters</a>
-									</div>
-								}
-							}
+						<div class="min-w-0 flex-1">
+							@TableQueryBar(AppAssetsTableQueryBar(data))
 						</div>
 						<div class="osspm-list-summary">
 							if data.TotalCount > 0 {
@@ -112,7 +88,22 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 					<p class="text-sm text-muted-foreground">Applications and service principals from connected providers.</p>
 				</div>
 			</div>
-					@ColumnsTable("") {
+			if data.HasItems {
+				<div class="space-y-3 lg:hidden">
+					for _, item := range data.Items {
+						@AppAssetMobileRow(item)
+					}
+				</div>
+			} else {
+				<div class="lg:hidden">
+					@EmptyState("No app assets found", data.EmptyStateMsg) {
+						if data.Layout.IsAdmin {
+							<a class="btn-sm-outline" href="/settings/connectors">Configure connectors</a>
+						}
+					}
+				</div>
+			}
+					@ColumnsTable("hidden lg:block") {
 					<table class="table osspm-table-compact osspm-table-list">
 						<caption class="sr-only">Programmatic app assets with source, kind, owner counts, credential counts, and last-seen time.</caption>
 						<thead>
