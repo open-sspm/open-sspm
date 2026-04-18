@@ -131,20 +131,20 @@ func LoginPage(data viewmodels.LoginViewData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"> <label class=\"field gap-3\"><span class=\"label text-base\">Email</span> <input type=\"email\" name=\"email\" class=\"input h-14 rounded-xl px-4 text-base md:text-base\" autocomplete=\"username\" required value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"> <label class=\"field\"><span class=\"label text-base\">Email</span> <input type=\"email\" name=\"email\" class=\"input h-14 rounded-xl px-4 text-base\" autocomplete=\"username\" required value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(data.Email)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `login.templ`, Line: 35, Col: 150}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `login.templ`, Line: 35, Col: 137}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\"></label> <label class=\"field gap-3\"><span class=\"label text-base\">Password</span> <input type=\"password\" name=\"password\" class=\"input h-14 rounded-xl px-4 text-base md:text-base\" autocomplete=\"current-password\" required></label> <button type=\"submit\" class=\"btn-primary h-12 w-full rounded-xl text-base font-semibold\">Sign in</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\"></label> <label class=\"field\"><span class=\"label text-base\">Password</span> <input type=\"password\" name=\"password\" class=\"input h-14 rounded-xl px-4 text-base\" autocomplete=\"current-password\" required></label> <button type=\"submit\" class=\"btn-primary h-12 w-full rounded-xl text-base font-semibold\">Sign in</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

@@ -30,14 +30,14 @@ templ LoginPage(data viewmodels.LoginViewData) {
 							@CSRFInput(data.CSRFToken)
 							<input type="hidden" name="next" value={ data.Next }/>
 
-							<label class="field gap-3">
+							<label class="field">
 								<span class="label text-base">Email</span>
-								<input type="email" name="email" class="input h-14 rounded-xl px-4 text-base md:text-base" autocomplete="username" required value={ data.Email }/>
+								<input type="email" name="email" class="input h-14 rounded-xl px-4 text-base" autocomplete="username" required value={ data.Email }/>
 							</label>
 
-							<label class="field gap-3">
+							<label class="field">
 								<span class="label text-base">Password</span>
-								<input type="password" name="password" class="input h-14 rounded-xl px-4 text-base md:text-base" autocomplete="current-password" required/>
+								<input type="password" name="password" class="input h-14 rounded-xl px-4 text-base" autocomplete="current-password" required/>
 							</label>
 
 							<button type="submit" class="btn-primary h-12 w-full rounded-xl text-base font-semibold">Sign in</button>
