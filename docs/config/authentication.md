@@ -138,4 +138,4 @@ Preferred recovery paths:
 1. Sign in as another admin and reset the password in **Settings → Users**
 2. If no admin can sign in, recover directly in Postgres against the `auth_users` table, then sign in again
 
-There is no built-in email-based password reset flow in the current application.
+There is no built-in email-based password reset flow in the current application, even if SMTP is configured.
