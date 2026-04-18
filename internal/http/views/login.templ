@@ -6,13 +6,13 @@ import (
 
 templ LoginPage(data viewmodels.LoginViewData) {
 	@PublicLayout("Sign in", data.Toast) {
-		<div class="mx-auto w-full max-w-md">
-			<article class="card">
-				<header>
-					<h1>Sign in</h1>
-					<p>Sign in to manage and view your Open-SSPM workspace.</p>
+		<div class="mx-auto w-full max-w-lg">
+			<article class="card gap-7 rounded-2xl">
+				<header class="!gap-2 !px-8 !pt-8 !pb-0">
+					<h1 class="text-3xl font-semibold tracking-tight">Sign in</h1>
+					<p class="max-w-md text-base leading-7">Sign in to manage and view your Open-SSPM workspace.</p>
 				</header>
-				<section class="space-y-4">
+				<section class="space-y-5 !px-8 !pb-8">
 					if data.SetupRequired {
 						@Alert("Setup required", false) {
 							<p>No login users exist yet.</p>
@@ -26,21 +26,21 @@ templ LoginPage(data viewmodels.LoginViewData) {
 								<p>{ data.ErrorMessage }</p>
 							}
 						}
-						<form method="post" action="/login" class="space-y-4">
+						<form method="post" action="/login" class="space-y-6">
 							@CSRFInput(data.CSRFToken)
 							<input type="hidden" name="next" value={ data.Next }/>
 
-							<label class="field">
-								<span class="label">Email</span>
-								<input type="email" name="email" class="input" autocomplete="username" required value={ data.Email }/>
+							<label class="field gap-3">
+								<span class="label text-base">Email</span>
+								<input type="email" name="email" class="input h-14 rounded-xl px-4 text-base md:text-base" autocomplete="username" required value={ data.Email }/>
 							</label>
 
-							<label class="field">
-								<span class="label">Password</span>
-								<input type="password" name="password" class="input" autocomplete="current-password" required/>
+							<label class="field gap-3">
+								<span class="label text-base">Password</span>
+								<input type="password" name="password" class="input h-14 rounded-xl px-4 text-base md:text-base" autocomplete="current-password" required/>
 							</label>
 
-							<button type="submit" class="btn-primary w-full">Sign in</button>
+							<button type="submit" class="btn-primary h-12 w-full rounded-xl text-base font-semibold">Sign in</button>
 						</form>
 					}
 				</section>
@@ -48,4 +48,3 @@ templ LoginPage(data viewmodels.LoginViewData) {
 		</div>
 	}
 }
-

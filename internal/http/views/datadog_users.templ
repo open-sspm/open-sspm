@@ -2,6 +2,24 @@ package views
 
 import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
+templ DatadogUserMobileRow(user viewmodels.DatadogUserListItem) {
+	<article class="rounded-lg border border-border/70 bg-card p-4">
+		<div class="flex items-start justify-between gap-3">
+			<div class="min-w-0">
+				<div class="font-medium break-all">{ user.UserName }</div>
+				if user.RolesDisplay != "" {
+					<div class="mt-1 text-sm text-muted-foreground">{ user.RolesDisplay }</div>
+				}
+			</div>
+			if user.Status != "" {
+				<span class={ StatusBadgeClass(user.Status) }>{ user.Status }</span>
+			} else {
+				<span class="text-sm text-muted-foreground">—</span>
+			}
+		</div>
+	</article>
+}
+
 templ DatadogUsersPage(data viewmodels.DatadogUsersViewData) {
 	@Layout(data.Layout) {
 		@PageHeader("Synced Datadog users and their role assignments.") {
@@ -22,39 +40,8 @@ templ DatadogUsersPage(data viewmodels.DatadogUsersViewData) {
 
 			<form method="get" class="osspm-list-form">
 					<div class="osspm-list-toolbar">
-						<div class="flex flex-1 items-center gap-2 lg:max-w-xl">
-							<label class="field flex-1">
-								<span class="sr-only">Query</span>
-								<div class="relative">
-									<input type="search" name="q" value={ data.Query.Q } placeholder="Search name or email" class="input pr-10"/>
-									if data.Query.Q != "" {
-										<a
-											class="btn-icon-ghost absolute right-2 top-1/2 -translate-y-1/2"
-											aria-label="Clear query"
-											href={ data.Query.ClearQuery().Href() }
-										>
-											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
-												<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path>
-											</svg>
-										</a>
-									}
-								</div>
-							</label>
-							@FilterPopover("Filters", data.Query.FilterCount(), data.Query.FilterCount() > 0, "w-[min(92vw,22rem)] space-y-4") {
-								<label class="field">
-									<span class="label">State</span>
-									<select name="state" class="select" data-autosubmit="true">
-										<option value="" selected?={ data.Query.State == "" }>All states</option>
-										<option value="active" selected?={ data.Query.State == "active" }>Active</option>
-										<option value="inactive" selected?={ data.Query.State == "inactive" }>Inactive</option>
-									</select>
-								</label>
-								if data.Query.FilterCount() > 0 {
-									<div class="border-t border-border/60 pt-3">
-										<a class="text-xs text-muted-foreground no-underline hover:text-foreground" href={ data.Query.ClearFilters().Href() }>Clear all filters</a>
-									</div>
-								}
-							}
+						<div class="min-w-0 flex-1">
+							@TableQueryBar(ActiveInactiveStateTableQueryBar(data.Query, "Search name or email"))
 						</div>
 						<div class="osspm-list-summary">
 							if data.TotalCount > 0 {
@@ -74,7 +61,18 @@ templ DatadogUsersPage(data viewmodels.DatadogUsersViewData) {
 					<p class="text-sm text-muted-foreground">Datadog users and their role assignments.</p>
 				</div>
 			</div>
-			@ColumnsTable("") {
+			if data.HasUsers {
+				<div class="space-y-3 lg:hidden">
+					for _, u := range data.Users {
+						@DatadogUserMobileRow(u)
+					}
+				</div>
+			} else {
+				<div class="lg:hidden">
+					@EmptyState("No users found", data.EmptyStateMsg)
+				</div>
+			}
+			@ColumnsTable("hidden lg:block") {
 				<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 					<caption class="sr-only">Datadog users with status and assigned role summaries.</caption>
 					<thead>
