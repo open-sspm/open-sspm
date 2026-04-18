@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/mail"
 	"os"
 	"strconv"
 	"strings"
@@ -19,6 +20,8 @@ const (
 	defaultSyncInterval          = 15 * time.Minute
 	defaultSyncDiscoveryInterval = 15 * time.Minute
 	defaultStartupReadModelMode  = StartupReadModelRebuildAuto
+	defaultSMTPPort              = 587
+	defaultSMTPTLSMode           = SMTPTLSModeStartTLS
 
 	defaultSyncOktaWorkers    = 3
 	defaultSyncGitHubWorkers  = 6
@@ -33,11 +36,16 @@ const (
 const (
 	StartupReadModelRebuildAuto   = "auto"
 	StartupReadModelRebuildAlways = "always"
+
+	SMTPTLSModeStartTLS = "starttls"
+	SMTPTLSModeTLS      = "tls"
+	SMTPTLSModePlain    = "plain"
 )
 
 type Config struct {
 	DatabaseURL                 string
 	ConnectorSecretKey          []byte
+	SMTP                        SMTPConfig
 	HTTPAddr                    string
 	MetricsAddr                 string
 	StaticDir                   string
@@ -66,6 +74,17 @@ type Config struct {
 	SyncLockHeartbeatTimeout    time.Duration
 	SyncLockInstanceID          string
 	StartupReadModelRebuildMode string
+}
+
+type SMTPConfig struct {
+	Enabled     bool
+	Host        string
+	Port        int
+	Username    string
+	Password    string
+	FromAddress string
+	FromName    string
+	TLSMode     string
 }
 
 type LoadOptions struct {
@@ -109,6 +128,11 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		SyncLockHeartbeatTimeout:  defaultSyncLockHeartbeatTimeout,
 		SyncLockInstanceID:        strings.TrimSpace(os.Getenv("SYNC_LOCK_INSTANCE_ID")),
 	}
+	smtpConfig, err := loadSMTPConfig()
+	if err != nil {
+		return cfg, err
+	}
+	cfg.SMTP = smtpConfig
 
 	cfg.MetricsAddr = loadMetricsAddr(cfg.MetricsAddr)
 	if err := applyDurationEnvOverrides(&cfg); err != nil {
@@ -206,6 +230,75 @@ func validate(cfg Config, opts LoadOptions) error {
 	return nil
 }
 
+func loadSMTPConfig() (SMTPConfig, error) {
+	cfg := SMTPConfig{
+		Enabled: getenvBoolDefault("SMTP_ENABLED", false),
+		Port:    defaultSMTPPort,
+		TLSMode: defaultSMTPTLSMode,
+	}
+	if !cfg.Enabled {
+		return cfg, nil
+	}
+
+	cfg.Host = strings.TrimSpace(os.Getenv("SMTP_HOST"))
+	cfg.Username = strings.TrimSpace(os.Getenv("SMTP_USERNAME"))
+	cfg.Password = os.Getenv("SMTP_PASSWORD")
+	cfg.FromAddress = strings.TrimSpace(os.Getenv("SMTP_FROM_ADDRESS"))
+	cfg.FromName = strings.TrimSpace(os.Getenv("SMTP_FROM_NAME"))
+	cfg.TLSMode = strings.ToLower(strings.TrimSpace(getenvDefault("SMTP_TLS_MODE", defaultSMTPTLSMode)))
+
+	port, err := getenvRequiredPositiveIntDefault("SMTP_PORT", defaultSMTPPort)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Port = port
+
+	if cfg.Host == "" {
+		return cfg, errors.New("SMTP_HOST is required when SMTP_ENABLED=1")
+	}
+	if cfg.FromAddress == "" {
+		return cfg, errors.New("SMTP_FROM_ADDRESS is required when SMTP_ENABLED=1")
+	}
+	if cfg.Port > 65535 {
+		return cfg, errors.New("SMTP_PORT must be between 1 and 65535")
+	}
+	switch cfg.TLSMode {
+	case SMTPTLSModeStartTLS, SMTPTLSModeTLS, SMTPTLSModePlain:
+	default:
+		return cfg, fmt.Errorf(
+			"SMTP_TLS_MODE must be one of: %s, %s, %s",
+			SMTPTLSModeStartTLS,
+			SMTPTLSModeTLS,
+			SMTPTLSModePlain,
+		)
+	}
+	addr, err := mail.ParseAddress(cfg.FromAddress)
+	if err != nil {
+		return cfg, fmt.Errorf("SMTP_FROM_ADDRESS must be a valid email address: %w", err)
+	}
+	cfg.FromAddress = addr.Address
+	if cfg.FromName == "" && strings.TrimSpace(addr.Name) != "" {
+		cfg.FromName = addr.Name
+	}
+	if (cfg.Username == "") != (cfg.Password == "") {
+		return cfg, errors.New("SMTP_USERNAME and SMTP_PASSWORD must either both be set or both be empty")
+	}
+	if cfg.Username != "" && cfg.TLSMode == SMTPTLSModePlain && !smtpPlainAuthAllowsInsecureHost(cfg.Host) {
+		return cfg, errors.New("SMTP_TLS_MODE=plain only supports SMTP authentication on localhost")
+	}
+
+	return cfg, nil
+}
+
+func smtpPlainAuthAllowsInsecureHost(host string) bool {
+	switch host {
+	case "localhost", "127.0.0.1", "::1":
+		return true
+	default:
+		return false
+	}
+}
+
 func loadConnectorSecretKey() ([]byte, error) {
 	raw := strings.TrimSpace(os.Getenv("CONNECTOR_SECRET_KEY"))
 	path := strings.TrimSpace(os.Getenv("CONNECTOR_SECRET_KEY_FILE"))
@@ -249,6 +342,21 @@ func getenvIntDefault(key string, def int) int {
 		return def
 	}
 	return n
+}
+
+func getenvRequiredPositiveIntDefault(key string, def int) (int, error) {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return def, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be a whole number", key)
+	}
+	if n < 1 {
+		return 0, fmt.Errorf("%s must be greater than zero", key)
+	}
+	return n, nil
 }
 
 func getenvBoolDefault(key string, def bool) bool {

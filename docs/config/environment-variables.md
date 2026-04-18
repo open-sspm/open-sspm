@@ -131,6 +131,79 @@ Development-only helper that creates `admin@admin.com` / `admin` if no auth user
 DEV_SEED_ADMIN=1
 ```
 
+## SMTP
+
+Open-SSPM can be configured to send email through an SMTP relay. SMTP is disabled by default.
+
+::: info
+The current release adds SMTP transport configuration only. There is not yet a built-in password reset, invitation, or email verification flow.
+:::
+
+### SMTP_ENABLED
+
+- **Values:** `0`, `1`
+- **Default:** `0`
+
+```bash
+SMTP_ENABLED=1
+```
+
+### SMTP_HOST
+
+SMTP server hostname. Required when `SMTP_ENABLED=1`.
+
+```bash
+SMTP_HOST=smtp.example.com
+```
+
+### SMTP_PORT
+
+- **Default:** `587`
+
+```bash
+SMTP_PORT=587
+```
+
+### SMTP_TLS_MODE
+
+- **Values:** `starttls`, `tls`, `plain`
+- **Default:** `starttls`
+
+```bash
+SMTP_TLS_MODE=starttls
+```
+
+Use `tls` for implicit TLS (commonly port `465`). Use `plain` only for trusted relays without authentication, or for localhost SMTP testing.
+
+### SMTP_FROM_ADDRESS
+
+Sender email address. Required when `SMTP_ENABLED=1`.
+
+```bash
+SMTP_FROM_ADDRESS=noreply@example.com
+```
+
+Use a bare email address here. Put any display name in `SMTP_FROM_NAME`.
+
+### SMTP_FROM_NAME
+
+Optional sender display name.
+
+```bash
+SMTP_FROM_NAME="Open SSPM"
+```
+
+### SMTP_USERNAME / SMTP_PASSWORD
+
+Optional SMTP authentication credentials. Set both or leave both empty.
+
+```bash
+SMTP_USERNAME=mailer
+SMTP_PASSWORD=change-me
+```
+
+When `SMTP_TLS_MODE=plain`, authenticated SMTP is supported only for localhost relays.
+
 ## Sync
 
 ### SYNC_INTERVAL

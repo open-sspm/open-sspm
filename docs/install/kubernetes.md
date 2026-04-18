@@ -91,6 +91,16 @@ connectorSecret:
     name: open-sspm-app
     key: CONNECTOR_SECRET_KEY
 
+smtp:
+  enabled: true
+  host: smtp.example.com
+  port: 587
+  tlsMode: starttls
+  fromAddress: noreply@example.com
+  fromName: Open SSPM
+  existingSecret:
+    name: open-sspm-smtp
+
 config:
   syncInterval: 15m
   syncDiscoveryInterval: 15m
@@ -143,6 +153,32 @@ Install with a values file:
 ```bash
 helm upgrade --install open-sspm ./helm/open-sspm -f values.yaml
 ```
+
+### SMTP Relay
+
+If you want Open-SSPM to send email through an SMTP relay, create a Secret with the relay credentials and reference it from `smtp.existingSecret.name`.
+
+```bash
+kubectl create secret generic open-sspm-smtp \
+  --from-literal=SMTP_USERNAME='mailer' \
+  --from-literal=SMTP_PASSWORD='change-me'
+```
+
+Then configure the chart:
+
+```yaml
+smtp:
+  enabled: true
+  host: smtp.example.com
+  port: 587
+  tlsMode: starttls
+  fromAddress: noreply@example.com
+  fromName: Open SSPM
+  existingSecret:
+    name: open-sspm-smtp
+```
+
+SMTP credentials are optional; if your relay does not require authentication, leave `smtp.existingSecret.name` empty.
 
 ### Ingress
 

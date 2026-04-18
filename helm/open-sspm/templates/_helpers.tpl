@@ -40,3 +40,34 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- default "default" .Values.serviceAccount.name -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "open-sspm.smtpEnv" -}}
+- name: SMTP_ENABLED
+  value: {{ ternary "1" "0" .Values.smtp.enabled | quote }}
+{{- if .Values.smtp.enabled }}
+- name: SMTP_HOST
+  value: {{ .Values.smtp.host | quote }}
+- name: SMTP_PORT
+  value: {{ .Values.smtp.port | quote }}
+- name: SMTP_TLS_MODE
+  value: {{ .Values.smtp.tlsMode | quote }}
+- name: SMTP_FROM_ADDRESS
+  value: {{ .Values.smtp.fromAddress | quote }}
+- name: SMTP_FROM_NAME
+  value: {{ .Values.smtp.fromName | quote }}
+{{- if .Values.smtp.existingSecret.name }}
+- name: SMTP_USERNAME
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.smtp.existingSecret.name }}
+      key: {{ .Values.smtp.existingSecret.usernameKey | quote }}
+      optional: true
+- name: SMTP_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.smtp.existingSecret.name }}
+      key: {{ .Values.smtp.existingSecret.passwordKey | quote }}
+      optional: true
+{{- end }}
+{{- end }}
+{{- end -}}

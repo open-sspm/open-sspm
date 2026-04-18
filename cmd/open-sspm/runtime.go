@@ -7,11 +7,13 @@ import (
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/mailer"
 )
 
 type runtimeDependencies struct {
 	pool    *pgxpool.Pool
 	queries *gen.Queries
+	mailer  mailer.Mailer
 }
 
 func openRuntimeDependencies(ctx context.Context, cfg config.Config) (*runtimeDependencies, error) {
@@ -25,8 +27,29 @@ func openRuntimeDependencies(ctx context.Context, cfg config.Config) (*runtimeDe
 		pool.Close()
 		return nil, err
 	}
+	mailAdapter, err := openMailer(cfg)
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
 	return &runtimeDependencies{
 		pool:    pool,
 		queries: queries,
+		mailer:  mailAdapter,
 	}, nil
+}
+
+func openMailer(cfg config.Config) (mailer.Mailer, error) {
+	if !cfg.SMTP.Enabled {
+		return mailer.NewNoop(), nil
+	}
+	return mailer.NewSMTP(mailer.SMTPConfig{
+		Host:        cfg.SMTP.Host,
+		Port:        cfg.SMTP.Port,
+		Username:    cfg.SMTP.Username,
+		Password:    cfg.SMTP.Password,
+		FromAddress: cfg.SMTP.FromAddress,
+		FromName:    cfg.SMTP.FromName,
+		TLSMode:     cfg.SMTP.TLSMode,
+	})
 }

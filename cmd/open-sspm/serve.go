@@ -108,7 +108,7 @@ func runServe() error {
 		syncer = nil
 	}
 
-	srv, err := httpapp.NewEchoServer(cfg, runtimeDeps.pool, queries, syncer, reg)
+	srv, err := httpapp.NewEchoServer(cfg, runtimeDeps.pool, queries, syncer, reg, runtimeDeps.mailer)
 	if err != nil {
 		return err
 	}

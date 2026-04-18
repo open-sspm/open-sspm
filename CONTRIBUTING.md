@@ -10,23 +10,18 @@ Thanks for helping improve Open-SSPM!
 
 ## PR title format (required)
 
-PR titles must follow Conventional Commits (scope is optional):
+PR titles must use this format:
 
-- `type(scope): summary`
 - `type: summary`
-- `type(scope)!: summary` for breaking changes
-- `type!: summary` for breaking changes
 
 Allowed `type` values:
-- `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `chore`
-
-Suggested `scope` values (optional):
-- `okta`, `github`, `datadog`, `aws`, `rules`, `sync`, `http`, `db`, `ui`, `helm`, `docker`
+- `feat`, `fix`, `docs`, `chore`, `ci`, `refactor`, `perf`
 
 Examples:
-- `feat(sync): add incremental GitHub sync`
-- `fix(helm): run seed-rules as pre-install hook`
-- `docs(readme): clarify managed Postgres requirement`
-- `feat(api)!: change findings JSON output`
-
-If you use `!` (breaking change), include migration notes in the PR description.
+- `feat: add incremental GitHub sync`
+- `fix: run seed-rules as pre-install hook`
+- `docs: clarify managed Postgres requirement`
+- `chore: update demo deployment docs`
+- `ci: tighten Helm validation job`
+- `refactor: simplify SMTP config loading`
+- `perf: reduce sync query overhead`

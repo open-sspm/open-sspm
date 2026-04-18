@@ -25,6 +25,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/authn"
 	"github.com/open-sspm/open-sspm/internal/http/handlers"
+	"github.com/open-sspm/open-sspm/internal/mailer"
 )
 
 // EchoServer is the HTTP server wrapper.
@@ -37,7 +38,14 @@ type EchoServer struct {
 }
 
 // NewEchoServer creates a new HTTP server.
-func NewEchoServer(cfg config.Config, pool *pgxpool.Pool, q *gen.Queries, syncer handlers.SyncRunner, reg *registry.ConnectorRegistry) (*EchoServer, error) {
+func NewEchoServer(
+	cfg config.Config,
+	pool *pgxpool.Pool,
+	q *gen.Queries,
+	syncer handlers.SyncRunner,
+	reg *registry.ConnectorRegistry,
+	mailAdapter mailer.Mailer,
+) (*EchoServer, error) {
 	sessions := scs.New()
 	sessions.Store = pgxstore.New(pool)
 	sessions.HashTokenInStore = true
@@ -49,7 +57,15 @@ func NewEchoServer(cfg config.Config, pool *pgxpool.Pool, q *gen.Queries, syncer
 	sessions.Cookie.SameSite = http.SameSiteLaxMode
 	sessions.Cookie.Secure = cfg.AuthCookieSecure
 
-	h := &handlers.Handlers{Cfg: cfg, Q: q, Pool: pool, Syncer: syncer, Registry: reg, Sessions: sessions}
+	h := &handlers.Handlers{
+		Cfg:      cfg,
+		Q:        q,
+		Pool:     pool,
+		Sessions: sessions,
+		Syncer:   syncer,
+		Registry: reg,
+		Mailer:   mailAdapter,
+	}
 	es := &EchoServer{h: h, e: newEcho(cfg)}
 	es.e.Use(middleware.RequestIDWithConfig(middleware.RequestIDConfig{
 		RequestIDHandler: func(c *echo.Context, id string) {

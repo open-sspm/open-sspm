@@ -178,3 +178,148 @@ func TestLoadWithOptions_RejectsInvalidStartupReadModelRebuildMode(t *testing.T)
 		t.Fatalf("expected invalid startup read model rebuild mode error")
 	}
 }
+
+func TestLoadWithOptions_SMTPDisabledByDefault(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("SMTP_ENABLED", "")
+
+	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if cfg.SMTP.Enabled {
+		t.Fatalf("SMTP.Enabled = true, want false")
+	}
+}
+
+func TestLoadWithOptions_LoadsSMTPConfig(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("SMTP_ENABLED", "1")
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("SMTP_FROM_ADDRESS", "noreply@example.com")
+	t.Setenv("SMTP_FROM_NAME", "Open SSPM")
+	t.Setenv("SMTP_USERNAME", "mailer")
+	t.Setenv("SMTP_PASSWORD", "secret")
+	t.Setenv("SMTP_PORT", "2525")
+	t.Setenv("SMTP_TLS_MODE", SMTPTLSModeTLS)
+
+	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if !cfg.SMTP.Enabled {
+		t.Fatalf("SMTP.Enabled = false, want true")
+	}
+	if got, want := cfg.SMTP.Host, "smtp.example.com"; got != want {
+		t.Fatalf("SMTP.Host = %q, want %q", got, want)
+	}
+	if got, want := cfg.SMTP.Port, 2525; got != want {
+		t.Fatalf("SMTP.Port = %d, want %d", got, want)
+	}
+	if got, want := cfg.SMTP.TLSMode, SMTPTLSModeTLS; got != want {
+		t.Fatalf("SMTP.TLSMode = %q, want %q", got, want)
+	}
+	if got, want := cfg.SMTP.FromAddress, "noreply@example.com"; got != want {
+		t.Fatalf("SMTP.FromAddress = %q, want %q", got, want)
+	}
+	if got, want := cfg.SMTP.FromName, "Open SSPM"; got != want {
+		t.Fatalf("SMTP.FromName = %q, want %q", got, want)
+	}
+	if got, want := cfg.SMTP.Username, "mailer"; got != want {
+		t.Fatalf("SMTP.Username = %q, want %q", got, want)
+	}
+	if got, want := cfg.SMTP.Password, "secret"; got != want {
+		t.Fatalf("SMTP.Password = %q, want %q", got, want)
+	}
+}
+
+func TestLoadWithOptions_NormalizesSMTPFromAddress(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("SMTP_ENABLED", "1")
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("SMTP_FROM_ADDRESS", "Open SSPM <noreply@example.com>")
+	t.Setenv("SMTP_FROM_NAME", "")
+
+	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if got, want := cfg.SMTP.FromAddress, "noreply@example.com"; got != want {
+		t.Fatalf("SMTP.FromAddress = %q, want %q", got, want)
+	}
+	if got, want := cfg.SMTP.FromName, "Open SSPM"; got != want {
+		t.Fatalf("SMTP.FromName = %q, want %q", got, want)
+	}
+}
+
+func TestLoadWithOptions_SMTPEnabledRequiresHost(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("SMTP_ENABLED", "1")
+	t.Setenv("SMTP_HOST", "")
+	t.Setenv("SMTP_FROM_ADDRESS", "noreply@example.com")
+
+	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err == nil {
+		t.Fatalf("expected SMTP host validation error")
+	}
+}
+
+func TestLoadWithOptions_SMTPEnabledRejectsInvalidTLSMode(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("SMTP_ENABLED", "1")
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("SMTP_FROM_ADDRESS", "noreply@example.com")
+	t.Setenv("SMTP_TLS_MODE", "invalid")
+
+	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err == nil {
+		t.Fatalf("expected SMTP TLS mode validation error")
+	}
+}
+
+func TestLoadWithOptions_SMTPEnabledRejectsPartialAuth(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("SMTP_ENABLED", "1")
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("SMTP_FROM_ADDRESS", "noreply@example.com")
+	t.Setenv("SMTP_USERNAME", "mailer")
+	t.Setenv("SMTP_PASSWORD", "")
+
+	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err == nil {
+		t.Fatalf("expected SMTP auth validation error")
+	}
+}
+
+func TestLoadWithOptions_SMTPEnabledRejectsPlainAuthForRemoteHost(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("SMTP_ENABLED", "1")
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("SMTP_FROM_ADDRESS", "noreply@example.com")
+	t.Setenv("SMTP_USERNAME", "mailer")
+	t.Setenv("SMTP_PASSWORD", "secret")
+	t.Setenv("SMTP_TLS_MODE", SMTPTLSModePlain)
+
+	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err == nil {
+		t.Fatalf("expected plain SMTP auth validation error")
+	}
+}
+
+func TestLoadWithOptions_SMTPEnabledAllowsPlainAuthOnLocalhost(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("SMTP_ENABLED", "1")
+	t.Setenv("SMTP_HOST", "localhost")
+	t.Setenv("SMTP_FROM_ADDRESS", "noreply@example.com")
+	t.Setenv("SMTP_USERNAME", "mailer")
+	t.Setenv("SMTP_PASSWORD", "secret")
+	t.Setenv("SMTP_TLS_MODE", SMTPTLSModePlain)
+
+	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if got, want := cfg.SMTP.TLSMode, SMTPTLSModePlain; got != want {
+		t.Fatalf("SMTP.TLSMode = %q, want %q", got, want)
+	}
+}
