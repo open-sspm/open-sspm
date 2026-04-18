@@ -34,9 +34,6 @@ ON CONFLICT (source_kind, source_name) DO UPDATE SET
 WITH normalized AS (
   SELECT
     CASE lower(trim(r.source_kind))
-      WHEN 'okta_discovery' THEN 'okta'
-      WHEN 'entra_discovery' THEN 'entra'
-      WHEN 'google_workspace_discovery' THEN 'google_workspace'
       WHEN 'aws_identity_center' THEN 'aws'
       ELSE lower(trim(r.source_kind))
     END::text AS source_kind,
@@ -45,6 +42,7 @@ WITH normalized AS (
   FROM sync_runs r
   WHERE r.status = 'success'
     AND r.finished_at IS NOT NULL
+    AND lower(trim(r.source_kind)) NOT IN ('okta_discovery', 'entra_discovery', 'google_workspace_discovery')
 )
 SELECT source_kind, source_name, finished_at::timestamptz AS last_success_at
 FROM (

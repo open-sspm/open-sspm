@@ -1091,7 +1091,7 @@ SELECT
   now()
 FROM dedup input
 ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
-  email = EXCLUDED.email,
+  email = COALESCE(NULLIF(EXCLUDED.email, ''), accounts.email),
   display_name = EXCLUDED.display_name,
   account_kind = EXCLUDED.account_kind,
   entity_category = EXCLUDED.entity_category,
