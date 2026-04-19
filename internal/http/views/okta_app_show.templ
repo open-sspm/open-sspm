@@ -52,15 +52,32 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 								<span class={ StatusBadgeClass(account.OktaAccountStatus) }>{ account.OktaAccountStatus }</span>
 							</div>
 							if !data.Summary.UniformAssignedVia || len(account.Groups) > 0 || len(account.Permissions) > 0 {
-								<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted-foreground">
+								<div class="mt-2 space-y-1.5 text-sm">
 									if !data.Summary.UniformAssignedVia {
-										<span>via { account.AssignedVia }</span>
+										<div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+											<span class="text-muted-foreground">Assigned via</span>
+											<span class="text-foreground">{ account.AssignedVia }</span>
+										</div>
 									}
-									for _, group := range account.Groups {
-										<span class="badge-outline">{ group }</span>
+									if len(account.Groups) > 0 {
+										<div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+											<span class="text-muted-foreground">Groups</span>
+											<div class="space-y-0.5 text-foreground">
+												for _, group := range account.Groups {
+													<div class="break-words">{ group }</div>
+												}
+											</div>
+										</div>
 									}
-									for _, p := range account.Permissions {
-										<span class="badge-outline">{ p.Text }</span>
+									if len(account.Permissions) > 0 {
+										<div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+											<span class="text-muted-foreground">Attributes</span>
+											<div class="space-y-0.5 text-foreground">
+												for _, p := range account.Permissions {
+													<div class="break-words">{ p.Text }</div>
+												}
+											</div>
+										</div>
 									}
 								</div>
 							}
@@ -108,9 +125,9 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 										if showGroups {
 											<td>
 												if len(account.Groups) > 0 {
-													<div class="flex flex-wrap gap-2">
+													<div class="space-y-1 text-sm text-foreground">
 														for _, group := range account.Groups {
-															<span class="badge-outline">{ group }</span>
+															<div class="break-words">{ group }</div>
 														}
 													</div>
 												}
@@ -119,9 +136,9 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 										if showPermissions {
 											<td>
 												if len(account.Permissions) > 0 {
-													<div class="flex flex-wrap gap-2">
+													<div class="space-y-1 text-sm text-foreground">
 														for _, p := range account.Permissions {
-															<span class="badge-outline">{ p.Text }</span>
+															<div class="break-words">{ p.Text }</div>
 														}
 													</div>
 												}

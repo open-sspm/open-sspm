@@ -298,7 +298,7 @@ func DiscoveryManagedBadgeClass(state string) string {
 	case "managed":
 		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
 	case "unmanaged":
-		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100 before:mr-1 before:content-['✕']"
 	default:
 		return "badge-outline"
 	}
@@ -346,6 +346,23 @@ func DiscoveryReviewDispositionBadgeClass(state string) string {
 		return "badge bg-slate-100 text-slate-800 dark:bg-slate-900/50 dark:text-slate-100"
 	default:
 		return "badge-outline"
+	}
+}
+
+func DiscoveryReviewDispositionTextClass(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "sanctioned":
+		return "text-emerald-700 dark:text-emerald-400"
+	case "under_review":
+		return "text-amber-700 dark:text-amber-400"
+	case "tolerated":
+		return "text-sky-700 dark:text-sky-400"
+	case "replace":
+		return "text-rose-700 dark:text-rose-400"
+	case "unreviewed":
+		return "text-foreground"
+	default:
+		return "text-muted-foreground"
 	}
 }
 

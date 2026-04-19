@@ -373,7 +373,6 @@ func TestHandleDiscoveryAppsFiltersManagedState(t *testing.T) {
 		body := renderDiscoveryApps(t, h, "http://example.com/discovery/apps?managed_state=managed")
 		assertContains(t, body, "Managed GitHub App")
 		assertNotContains(t, body, "Unmanaged No Binding")
-		assertContains(t, body, "Primary binding has fresh sync")
 	})
 }
 
