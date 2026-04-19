@@ -86,10 +86,10 @@ templ GlobalViewGroup(title, hint string, cards []viewmodels.GlobalViewAppCard, 
 
 templ GlobalViewRow(card viewmodels.GlobalViewAppCard, active bool) {
 	<article class={ templ.Classes(
-		"grid gap-4 py-4 md:grid-cols-[minmax(18rem,1.6fr)_minmax(12rem,1fr)_minmax(0,1.1fr)_auto] md:items-center md:gap-6",
+		"grid gap-4 py-4 md:grid-cols-[minmax(20rem,1.7fr)_minmax(12rem,1fr)_auto] md:items-center md:gap-6",
 		templ.KV("opacity-75", !active),
 	) }>
-		<div class="flex min-w-0 items-center gap-3">
+		<div class="flex min-w-0 items-start gap-3">
 			<div class="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-border bg-muted/30 text-muted-foreground">
 				@GlobalAppIcon(card.Kind)
 			</div>
@@ -103,6 +103,14 @@ templ GlobalViewRow(card viewmodels.GlobalViewAppCard, active bool) {
 				if card.Subtitle != "" {
 					<p class="truncate text-sm text-muted-foreground" title={ card.Subtitle }>{ card.Subtitle }</p>
 				}
+				<dl class="mt-2 flex flex-wrap gap-x-5 gap-y-1 empty:hidden">
+					for _, metric := range card.Metrics {
+						<div class="min-w-0">
+							<dt class="text-xs text-muted-foreground">{ metric.Label }</dt>
+							<dd class="text-sm font-medium tabular-nums text-foreground">{ metric.Value }</dd>
+						</div>
+					}
+				</dl>
 			</div>
 		</div>
 
@@ -130,22 +138,12 @@ templ GlobalViewRow(card viewmodels.GlobalViewAppCard, active bool) {
 			<div class="text-xs text-muted-foreground">Not reporting</div>
 		}
 
-		<dl class="flex flex-wrap gap-x-6 gap-y-1 empty:hidden">
-			for _, metric := range card.Metrics {
-				<div class="min-w-0">
-					<dt class="text-xs text-muted-foreground">{ metric.Label }</dt>
-					<dd class="text-sm font-medium tabular-nums text-foreground">{ metric.Value }</dd>
-				</div>
-			}
-		</dl>
-
-		<div class="flex flex-wrap items-center gap-3 md:justify-end">
-			<span class={ GlobalViewStatusClass(card.StatusTone) }>{ card.StatusLabel }</span>
+		<div class="flex flex-col items-start gap-1 md:justify-self-end xl:w-[12rem]">
 			if card.PrimaryHref != "" && card.PrimaryLabel != "" {
 				<a class="btn-sm-ghost" href={ templ.SafeURL(card.PrimaryHref) }>{ card.PrimaryLabel }<span aria-hidden="true"> →</span></a>
 			}
 			if card.SecondaryHref != "" && card.SecondaryLabel != "" {
-				<a class="text-xs text-muted-foreground no-underline hover:text-foreground" href={ templ.SafeURL(card.SecondaryHref) }>{ card.SecondaryLabel }</a>
+				<a class="btn-sm-ghost" href={ templ.SafeURL(card.SecondaryHref) }>{ card.SecondaryLabel }<span aria-hidden="true"> →</span></a>
 			}
 		</div>
 	</article>

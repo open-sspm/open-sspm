@@ -1199,23 +1199,6 @@ func GlobalViewScoreBarClass(score int) string {
 	}
 }
 
-// GlobalViewStatusClass returns a small, text-only status treatment. One
-// accent (emerald) is reserved for the healthy state; everything else stays
-// quiet so the page doesn't light up red for connectors that simply aren't
-// configured yet.
-func GlobalViewStatusClass(tone string) string {
-	switch tone {
-	case "ok":
-		return "inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 before:h-1.5 before:w-1.5 before:rounded-full before:bg-emerald-500"
-	case "warn":
-		return "inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 before:h-1.5 before:w-1.5 before:rounded-full before:bg-amber-500"
-	case "error":
-		return "inline-flex items-center gap-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 before:h-1.5 before:w-1.5 before:rounded-full before:bg-rose-500"
-	default:
-		return "inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground before:h-1.5 before:w-1.5 before:rounded-full before:bg-muted-foreground/60"
-	}
-}
-
 // GlobalViewActiveCards returns cards that are configured, enabled, and error-free.
 func GlobalViewActiveCards(cards []viewmodels.GlobalViewAppCard) []viewmodels.GlobalViewAppCard {
 	out := make([]viewmodels.GlobalViewAppCard, 0, len(cards))

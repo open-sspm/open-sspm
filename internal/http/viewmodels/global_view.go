@@ -10,10 +10,8 @@ type GlobalViewAppCard struct {
 	Name           string
 	CategoryLabel  string
 	Subtitle       string
-	StatusLabel    string
-	StatusTone     string // "ok", "muted", "warn", "error"
-	IsActive       bool   // configured + enabled + no config error
-	ShowScore      bool   // whether to render the score bar and metrics
+	IsActive       bool // configured + enabled + no config error
+	ShowScore      bool // whether to render the score bar and metrics
 	ScoreLabel     string
 	ScoreValue     int
 	Metrics        []GlobalViewKV

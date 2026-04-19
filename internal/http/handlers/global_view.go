@@ -44,8 +44,6 @@ func (h *Handlers) buildGlobalViewCard(state registry.ConnectorState) viewmodels
 		Name:           def.DisplayName(),
 		CategoryLabel:  globalViewCategoryLabel(def.Role()),
 		Subtitle:       state.Subtitle(),
-		StatusLabel:    state.StatusLabel(),
-		StatusTone:     globalViewStatusTone(state),
 		IsActive:       active,
 		ShowScore:      active,
 		ScoreLabel:     state.ScoreLabel(),
@@ -68,21 +66,8 @@ func globalViewCategoryLabel(role registry.IntegrationRole) string {
 	}
 }
 
-func globalViewStatusTone(state registry.ConnectorState) string {
-	if strings.TrimSpace(state.ConfigError) != "" {
-		return "error"
-	}
-	if !state.Configured {
-		return "warn"
-	}
-	if !state.Enabled {
-		return "muted"
-	}
-	return "ok"
-}
-
-// filterStatusKV removes rows that duplicate information already shown by the
-// status badge, and drops entries with empty/placeholder values.
+// filterStatusKV removes rows that duplicate the section-level state framing,
+// and drops entries with empty/placeholder values.
 func filterStatusKV(items []viewmodels.GlobalViewKV) []viewmodels.GlobalViewKV {
 	out := make([]viewmodels.GlobalViewKV, 0, len(items))
 	for _, kv := range items {
