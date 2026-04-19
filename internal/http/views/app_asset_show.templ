@@ -11,177 +11,244 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 
 			@ConnectedAppShowBody(*data.GoogleOAuthView)
 		} else {
-			@PageHeader("Detailed ownership, credential metadata, and related audit activity.") {
-			}
-
-			<article class="card">
-				<header>
-					<h2>{ data.Asset.DisplayName }</h2>
-					<p class="text-sm text-muted-foreground">{ data.Asset.AssetKind }{ " • " }{ data.Asset.SourceKind }{ " (" }{ data.Asset.SourceName }{ ")" }</p>
-				</header>
-				<section>
-					<div class="grid gap-3 md:grid-cols-3">
-						<div>
-							<p class="text-xs uppercase tracking-wide text-muted-foreground">External ID</p>
-							<p class="font-medium break-all">{ data.Asset.ExternalID }</p>
-						</div>
-						<div>
-							<p class="text-xs uppercase tracking-wide text-muted-foreground">Parent external ID</p>
-							<p class="font-medium break-all">{ data.Asset.ParentExternalID }</p>
-						</div>
-						<div>
-							<p class="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
-							<p class="font-medium">{ data.Asset.Status }</p>
-						</div>
-						<div>
-							<p class="text-xs uppercase tracking-wide text-muted-foreground">Created at source</p>
-							<p class="font-medium">{ data.Asset.CreatedAtSource.Label }</p>
-						</div>
-						<div>
-							<p class="text-xs uppercase tracking-wide text-muted-foreground">Updated at source</p>
-							<p class="font-medium">{ data.Asset.UpdatedAtSource.Label }</p>
-						</div>
-						<div>
-							<p class="text-xs uppercase tracking-wide text-muted-foreground">Last observed</p>
-							<p class="font-medium">{ data.Asset.LastObservedAt.Label }</p>
-						</div>
-					</div>
-				</section>
-			</article>
-
-			<article class="card">
-				<header>
-					<h2>Owners</h2>
-					<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Owners)) }</span>
-				</header>
-				<section>
-					@ColumnsTable("") {
-					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-						<thead>
-							<tr>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Owner</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Kind</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">External ID</th>
-							</tr>
-						</thead>
-							<tbody>
-								if data.HasOwners {
-									for _, owner := range data.Owners {
-										<tr>
-											<td>
-												if owner.OwnerIdentityHref != "" {
-													<a class="btn-sm-link px-0 font-medium" href={ owner.OwnerIdentityHref }>{ owner.OwnerDisplayName }</a>
-												} else {
-													{ owner.OwnerDisplayName }
-												}
-											</td>
-											<td>{ owner.OwnerEmail }</td>
-											<td><span class="badge-outline">{ owner.OwnerKind }</span></td>
-											<td class="text-muted-foreground">{ owner.OwnerExternalID }</td>
-										</tr>
-									}
-								} else {
-									<tr>
-										<td colspan="4">@EmptyState("No owners", "No owner records are available for this asset.")</td>
-									</tr>
-								}
-							</tbody>
-						</table>
-					}
-				</section>
-			</article>
-
-			<article class="card">
-				<header>
-					<h2>Credentials</h2>
-					<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Credentials)) }</span>
-				</header>
-				<section>
-					@ColumnsTable("") {
-					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-						<thead>
-							<tr>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Credential</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Kind</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Risk</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Expires</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last used</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Creator</th>
-							</tr>
-						</thead>
-							<tbody>
-								if data.HasCredentials {
-									for _, credential := range data.Credentials {
-										<tr>
-											<td><a class="btn-sm-link px-0 font-medium" href={ credential.Href }>{ credential.DisplayName }</a></td>
-											<td><span class="badge-outline">{ credential.CredentialKind }</span></td>
-											<td>{ credential.Status }</td>
-											<td><span class={ CredentialRiskBadgeClass(credential.RiskLevel) }>{ HumanizeCredentialRisk(credential.RiskLevel) }</span></td>
-											<td>{ credential.ExpiresAt.Label }</td>
-											<td>{ credential.LastUsedAt.Label }</td>
-											<td>
-												if credential.CreatedByHref != "" {
-													<a class="btn-sm-link px-0 font-medium" href={ credential.CreatedByHref }>{ credential.CreatedBy }</a>
-												} else {
-													{ credential.CreatedBy }
-												}
-											</td>
-										</tr>
-									}
-								} else {
-									<tr>
-										<td colspan="7">@EmptyState("No credentials", "No credentials are currently linked to this asset.")</td>
-									</tr>
-								}
-							</tbody>
-						</table>
-					}
-				</section>
-			</article>
-
-			<article class="card">
-				<header>
-					<h2>Recent Audit Events</h2>
-					<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.AuditEvents)) }</span>
-				</header>
-				<section>
-					@ColumnsTable("") {
-					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-						<thead>
-							<tr>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Time</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Event</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Actor</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Credential</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Target</th>
-							</tr>
-						</thead>
-							<tbody>
-								if data.HasAuditEvents {
-									for _, event := range data.AuditEvents {
-										<tr>
-											<td>{ event.EventTime.Label }</td>
-											<td>{ event.EventType }</td>
-											<td>{ event.Actor }</td>
-											<td>
-												<div class="text-sm">{ event.CredentialDisplayName }</div>
-												<div class="text-xs text-muted-foreground">{ event.CredentialKind }{ " • " }{ event.CredentialExternalID }</div>
-											</td>
-											<td>{ event.Target }</td>
-										</tr>
-									}
-								} else {
-									<tr>
-										<td colspan="5">@EmptyState("No events", "No credential audit events were found for this asset target.")</td>
-									</tr>
-								}
-							</tbody>
-						</table>
-					}
-				</section>
-			</article>
+			@PageHeader("")
+			<div class="mx-auto w-full min-w-0 max-w-6xl space-y-10 py-2">
+				@appAssetShowHeader(data.Asset)
+				@appAssetShowMetadata(data.Asset)
+				@appAssetShowOwners(data)
+				@appAssetShowCredentials(data)
+				@appAssetShowAuditEvents(data)
+			</div>
 		}
 	}
+}
+
+templ appAssetShowHeader(a viewmodels.AppAssetSummaryView) {
+	<header class="space-y-4 border-b border-border/60 pb-6">
+		<div>
+			<a class="text-xs text-muted-foreground hover:text-foreground" href="/app-assets">← App Assets</a>
+		</div>
+		<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+			<div class="min-w-0 space-y-2">
+				<p class="text-xs uppercase tracking-wide text-muted-foreground">
+					<span>{ HumanizeProgrammaticKind(a.AssetKind) }</span>
+					<span class="px-1.5 text-muted-foreground/50">·</span>
+					<span>{ HumanizeConnectorKind(a.SourceKind) }</span>
+					if a.SourceName != "" {
+						<span class="text-muted-foreground/70">{ " (" }{ a.SourceName }{ ")" }</span>
+					}
+				</p>
+				<h1 class="text-2xl font-semibold leading-tight tracking-tight break-words md:text-3xl">{ a.DisplayName }</h1>
+				if a.ExternalID != "" {
+					<div class="flex min-w-0 items-center gap-2">
+						<p class="font-mono text-xs text-muted-foreground break-all">{ a.ExternalID }</p>
+						@CopyTextButton(a.ExternalID, "Copy external ID")
+					</div>
+				}
+			</div>
+		</div>
+	</header>
+}
+
+templ appAssetShowMetadata(a viewmodels.AppAssetSummaryView) {
+	<section aria-label="Asset details" class="space-y-6">
+		<dl class="grid grid-cols-2 gap-x-6 gap-y-6 md:grid-cols-4">
+			<div class="min-w-0 space-y-1">
+				<dt class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Status</dt>
+				if a.Status == "" {
+					<dd class="text-sm text-muted-foreground/60">—</dd>
+				} else {
+					<dd class="text-sm font-medium break-words">{ fallbackHumanized(a.Status) }</dd>
+				}
+			</div>
+			<div class="min-w-0 space-y-1">
+				<dt class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Parent external ID</dt>
+				if a.ParentExternalID == "" {
+					<dd class="text-sm text-muted-foreground/60">—</dd>
+				} else {
+					<dd class="font-mono text-xs break-all">{ a.ParentExternalID }</dd>
+				}
+			</div>
+			@appAssetShowDateField("Created at source", a.CreatedAtSource)
+			@appAssetShowDateField("Updated at source", a.UpdatedAtSource)
+			@appAssetShowDateField("Last observed", a.LastObservedAt)
+		</dl>
+	</section>
+}
+
+templ appAssetShowDateField(label string, value viewmodels.TimeDisplay) {
+	<div class="min-w-0 space-y-1">
+		<dt class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{ label }</dt>
+		if value.Label == "" || value.Label == "—" {
+			<dd class="text-sm text-muted-foreground/60">—</dd>
+		} else {
+			<dd class="text-sm font-medium tabular-nums">{ value.Label }</dd>
+			if value.Relative != "" && value.Relative != "—" {
+				<dd class="text-xs text-muted-foreground">{ value.Relative }</dd>
+			}
+		}
+	</div>
+}
+
+templ appAssetShowOwners(data viewmodels.AppAssetShowViewData) {
+	<section aria-label="Owners" class="space-y-4">
+		<div class="flex items-baseline justify-between">
+			<h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Owners</h2>
+			if data.HasOwners {
+				<span class="text-xs text-muted-foreground">{ FormatInt(len(data.Owners)) }{ pluralizeSuffix(len(data.Owners), " owner", " owners") }</span>
+			}
+		</div>
+		if data.HasOwners {
+			<div class="overflow-x-auto border-t border-border/60">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="border-b border-border/60 text-left">
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Owner</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Kind</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">External ID</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, owner := range data.Owners {
+							<tr class="border-b border-border/40 last:border-0 align-top">
+								<td class="py-3 pr-4">
+									if owner.OwnerIdentityHref != "" {
+										<a class="btn-sm-link px-0 font-medium break-words" href={ owner.OwnerIdentityHref }>{ owner.OwnerDisplayName }</a>
+									} else {
+										<span class="font-medium break-words">{ owner.OwnerDisplayName }</span>
+									}
+								</td>
+								<td class="py-3 pr-4 break-all">
+									if owner.OwnerEmail == "" {
+										<span class="text-muted-foreground/60">—</span>
+									} else {
+										{ owner.OwnerEmail }
+									}
+								</td>
+								<td class="py-3 pr-4 text-muted-foreground">{ fallbackHumanized(owner.OwnerKind) }</td>
+								<td class="py-3 pr-4 font-mono text-[11px] text-muted-foreground break-all">
+									if owner.OwnerExternalID == "" {
+										<span class="text-muted-foreground/60">—</span>
+									} else {
+										{ owner.OwnerExternalID }
+									}
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		} else {
+			<div class="border-t border-border/60">
+				@EmptyState("No owners", "No owner records are available for this asset.")
+			</div>
+		}
+	</section>
+}
+
+templ appAssetShowCredentials(data viewmodels.AppAssetShowViewData) {
+	<section aria-label="Credentials" class="space-y-4">
+		<div class="flex items-baseline justify-between">
+			<h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Credentials</h2>
+			if data.HasCredentials {
+				<span class="text-xs text-muted-foreground">{ FormatInt(len(data.Credentials)) }{ pluralizeSuffix(len(data.Credentials), " credential", " credentials") }</span>
+			}
+		</div>
+		if data.HasCredentials {
+			<div class="overflow-x-auto border-t border-border/60">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="border-b border-border/60 text-left">
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Credential</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Kind</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Risk</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Expires</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Last used</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Creator</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, credential := range data.Credentials {
+							<tr class="border-b border-border/40 last:border-0 align-top">
+								<td class="py-3 pr-4">
+									<a class="btn-sm-link px-0 font-medium break-words" href={ credential.Href }>{ credential.DisplayName }</a>
+								</td>
+								<td class="py-3 pr-4 text-muted-foreground">{ HumanizeCredentialKind(credential.CredentialKind) }</td>
+								<td class="py-3 pr-4">{ fallbackHumanized(credential.Status) }</td>
+								<td class="py-3 pr-4">
+									<span class={ CredentialRiskBadgeClass(credential.RiskLevel) }>{ HumanizeCredentialRisk(credential.RiskLevel) }</span>
+								</td>
+								<td class="py-3 pr-4 tabular-nums">{ credential.ExpiresAt.Label }</td>
+								<td class="py-3 pr-4 tabular-nums">{ credential.LastUsedAt.Label }</td>
+								<td class="py-3 pr-4">
+									if credential.CreatedByHref != "" {
+										<a class="btn-sm-link px-0 break-words" href={ credential.CreatedByHref }>{ credential.CreatedBy }</a>
+									} else {
+										<span class="break-words">{ credential.CreatedBy }</span>
+									}
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		} else {
+			<div class="border-t border-border/60">
+				@EmptyState("No credentials", "No credentials are currently linked to this asset.")
+			</div>
+		}
+	</section>
+}
+
+templ appAssetShowAuditEvents(data viewmodels.AppAssetShowViewData) {
+	<section aria-label="Recent activity" class="space-y-4">
+		<div class="flex items-baseline justify-between">
+			<h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Recent activity</h2>
+			if data.HasAuditEvents {
+				<span class="text-xs text-muted-foreground">{ FormatInt(len(data.AuditEvents)) }{ pluralizeSuffix(len(data.AuditEvents), " event", " events") }</span>
+			}
+		</div>
+		if data.HasAuditEvents {
+			<div class="overflow-x-auto border-t border-border/60">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="border-b border-border/60 text-left">
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Time</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Event</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Actor</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Credential</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Target</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, event := range data.AuditEvents {
+							<tr class="border-b border-border/40 last:border-0 align-top">
+								<td class="py-3 pr-4 tabular-nums text-muted-foreground">{ event.EventTime.Label }</td>
+								<td class="py-3 pr-4 font-medium">{ fallbackHumanized(event.EventType) }</td>
+								<td class="py-3 pr-4 break-words">{ event.Actor }</td>
+								<td class="py-3 pr-4">
+									<div class="text-sm break-words">{ event.CredentialDisplayName }</div>
+									if event.CredentialKind != "" || event.CredentialExternalID != "" {
+										<div class="text-xs text-muted-foreground break-all">
+											{ HumanizeCredentialKind(event.CredentialKind) }
+											if event.CredentialExternalID != "" {
+												{ " · " }{ event.CredentialExternalID }
+											}
+										</div>
+									}
+								</td>
+								<td class="py-3 pr-4 break-words">{ event.Target }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		} else {
+			<div class="border-t border-border/60">
+				@EmptyState("No events", "No credential audit events were found for this asset target.")
+			</div>
+		}
+	</section>
 }

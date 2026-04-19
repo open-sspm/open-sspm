@@ -101,10 +101,17 @@ type NonHumanAccessRelatedCredentialItem struct {
 	AppAssetHref    string
 }
 
+type NonHumanAccessRiskSignal struct {
+	Severity string
+	Title    string
+	Evidence string
+}
+
 type NonHumanAccessShowViewData struct {
 	Layout         LayoutData
 	Principal      NonHumanAccessSummaryView
-	RiskReasons    []string
+	RiskSignals    []NonHumanAccessRiskSignal
+	HasRiskSignals bool
 	RelatedAssets  []NonHumanAccessRelatedAssetItem
 	Credentials    []NonHumanAccessRelatedCredentialItem
 	HasAssets      bool
