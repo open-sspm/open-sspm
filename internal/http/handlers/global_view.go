@@ -44,6 +44,8 @@ func (h *Handlers) buildGlobalViewCard(state registry.ConnectorState) viewmodels
 		Name:           def.DisplayName(),
 		CategoryLabel:  globalViewCategoryLabel(def.Role()),
 		Subtitle:       state.Subtitle(),
+		StatusLabel:    state.StatusLabel(),
+		StatusClass:    state.StatusClass(),
 		IsActive:       active,
 		ShowScore:      active,
 		ScoreLabel:     state.ScoreLabel(),

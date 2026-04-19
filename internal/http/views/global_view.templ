@@ -134,6 +134,10 @@ templ GlobalViewRow(card viewmodels.GlobalViewAppCard, active bool) {
 					></div>
 				</div>
 			</div>
+		} else if card.StatusLabel != "" {
+			<div>
+				<span class={ card.StatusClass }>{ card.StatusLabel }</span>
+			</div>
 		} else {
 			<div class="text-xs text-muted-foreground">Not reporting</div>
 		}

@@ -10,6 +10,8 @@ type GlobalViewAppCard struct {
 	Name           string
 	CategoryLabel  string
 	Subtitle       string
+	StatusLabel    string
+	StatusClass    string
 	IsActive       bool // configured + enabled + no config error
 	ShowScore      bool // whether to render the score bar and metrics
 	ScoreLabel     string

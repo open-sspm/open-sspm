@@ -972,12 +972,12 @@ func nonHumanShouldShowGovernance(state string) bool {
 }
 
 // nonHumanShouldShowActivity hides the activity/freshness sub-line when both
-// are in their healthy default state, so rows with nothing interesting stay
-// calm.
+// are in their healthy default state ("recent" activity with "current"
+// evidence), so rows with nothing interesting stay calm.
 func nonHumanShouldShowActivity(activity, freshness string) bool {
 	activity = strings.ToLower(strings.TrimSpace(activity))
 	freshness = strings.ToLower(strings.TrimSpace(freshness))
-	if activity != "" && activity != "active" {
+	if activity != "" && activity != "recent" {
 		return true
 	}
 	if freshness != "" && freshness != "current" {

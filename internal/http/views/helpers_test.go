@@ -86,3 +86,17 @@ func TestNonHumanAccessInventoryResultsOmitCurrentFreshnessLabel(t *testing.T) {
 		t.Fatalf("inventory should not render default current freshness label: %s", html)
 	}
 }
+
+func TestNonHumanShouldShowActivityUsesHealthyBaseline(t *testing.T) {
+	t.Parallel()
+
+	if nonHumanShouldShowActivity("recent", "current") {
+		t.Fatal("recent/current should be treated as the quiet baseline")
+	}
+	if !nonHumanShouldShowActivity("aging", "current") {
+		t.Fatal("aging activity should still be surfaced")
+	}
+	if !nonHumanShouldShowActivity("recent", "stale") {
+		t.Fatal("stale freshness should still be surfaced")
+	}
+}
