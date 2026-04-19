@@ -801,7 +801,7 @@ func credentialRiskFindingsFor(statusValue, credentialKindValue, createdByValue,
 	approvedByExternalID := strings.TrimSpace(approvedByValue)
 
 	if expiresAt.Valid && expiresAt.Time.UTC().Before(now) {
-		evidence := "Expired " + relativeDateLabel(expiresAt.Time)
+		evidence := "Expired " + relativeDateLabelAt(now, expiresAt.Time)
 		if isCredentialStatusActiveLike(status) {
 			findings = append(findings, viewmodels.CredentialRiskFinding{
 				Severity: "critical",
@@ -831,13 +831,13 @@ func credentialRiskFindingsFor(statusValue, credentialKindValue, createdByValue,
 			findings = append(findings, viewmodels.CredentialRiskFinding{
 				Severity: "high",
 				Title:    "Credential expires within 7 days",
-				Evidence: "Expires " + relativeDateLabel(expiresAtTime),
+				Evidence: "Expires " + relativeDateLabelAt(now, expiresAtTime),
 			})
 		} else if !expiresAtTime.Before(now) && !expiresAtTime.After(now.Add(30*24*time.Hour)) {
 			findings = append(findings, viewmodels.CredentialRiskFinding{
 				Severity: "medium",
 				Title:    "Credential expires within 30 days",
-				Evidence: "Expires " + relativeDateLabel(expiresAtTime),
+				Evidence: "Expires " + relativeDateLabelAt(now, expiresAtTime),
 			})
 		}
 	}
@@ -854,7 +854,7 @@ func credentialRiskFindingsFor(statusValue, credentialKindValue, createdByValue,
 		findings = append(findings, viewmodels.CredentialRiskFinding{
 			Severity: "medium",
 			Title:    "Credential has not been used in over 90 days",
-			Evidence: "Last used " + relativeDateLabel(lastUsedAt.Time),
+			Evidence: "Last used " + relativeDateLabelAt(now, lastUsedAt.Time),
 		})
 	}
 

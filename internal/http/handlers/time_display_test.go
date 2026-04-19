@@ -90,3 +90,40 @@ func TestDateDisplay(t *testing.T) {
 		t.Fatalf("invalid label = %q, want empty", invalid.Label)
 	}
 }
+
+func TestRelativeDateLabelAt(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 4, 19, 12, 0, 0, 0, time.UTC)
+
+	cases := []struct {
+		name string
+		when time.Time
+		want string
+	}{
+		{
+			name: "later today",
+			when: now.Add(6 * time.Hour),
+			want: "today",
+		},
+		{
+			name: "future days",
+			when: now.Add(4 * 24 * time.Hour),
+			want: "in 4d",
+		},
+		{
+			name: "past days",
+			when: now.Add(-3 * 24 * time.Hour),
+			want: "3d ago",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := relativeDateLabelAt(now, tc.when); got != tc.want {
+				t.Fatalf("relativeDateLabelAt() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

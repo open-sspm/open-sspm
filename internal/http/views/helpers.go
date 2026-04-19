@@ -87,13 +87,13 @@ func HumanizeSignOnMode(mode string) string {
 		return "OpenID Connect"
 	case "browser_plugin", "browser plugin":
 		return "Browser plugin"
-	case "secure_web_authentication", "secure web authentication", "swa":
+	case "secure_web_authentication", "secure web authentication", "secure_password_store", "secure password store", "swa":
 		return "SWA"
 	case "auto_login", "auto login":
 		return "Auto-login"
 	case "bookmark":
 		return "Bookmark"
-	case "wsfed", "ws_fed", "ws fed":
+	case "wsfed", "ws_fed", "ws fed", "ws_federation", "ws federation":
 		return "WS-Fed"
 	}
 	return fallbackHumanized(mode)
@@ -283,21 +283,14 @@ func CredentialRiskBadgeClass(risk string) string {
 }
 
 func CredentialRiskTextClass(risk string) string {
-	switch strings.ToLower(strings.TrimSpace(risk)) {
-	case "critical":
-		return "text-rose-700 dark:text-rose-400"
-	case "high":
-		return "text-amber-700 dark:text-amber-400"
-	case "medium":
-		return "text-sky-700 dark:text-sky-400"
-	case "low":
-		return "text-emerald-700 dark:text-emerald-400"
-	default:
-		return "text-muted-foreground"
-	}
+	return severityTextClass(risk)
 }
 
 func RuleSeverityTextClass(severity string) string {
+	return severityTextClass(severity)
+}
+
+func severityTextClass(severity string) string {
 	switch strings.ToLower(strings.TrimSpace(severity)) {
 	case "critical":
 		return "text-rose-700 dark:text-rose-400"
@@ -987,7 +980,7 @@ func nonHumanShouldShowActivity(activity, freshness string) bool {
 	if activity != "" && activity != "active" {
 		return true
 	}
-	if freshness != "" && freshness != "fresh" {
+	if freshness != "" && freshness != "current" {
 		return true
 	}
 	return false
@@ -1290,25 +1283,12 @@ func OktaAppMetaParts(app viewmodels.OktaAppSummaryView) []MetaPart {
 		parts = append(parts, MetaPart{Text: s})
 	}
 	if s := strings.TrimSpace(app.SignOnMode); s != "" && s != "—" {
-		parts = append(parts, MetaPart{Text: humanizeSignOnMode(s)})
+		parts = append(parts, MetaPart{Text: HumanizeSignOnMode(s)})
 	}
 	if s := strings.TrimSpace(app.ExternalID); s != "" {
 		parts = append(parts, MetaPart{Text: s, Mono: true})
 	}
 	return parts
-}
-
-func humanizeSignOnMode(mode string) string {
-	switch strings.ToUpper(strings.TrimSpace(mode)) {
-	case "SAML_2_0":
-		return "SAML 2.0"
-	case "OPENID_CONNECT":
-		return "OIDC"
-	case "BROWSER_PLUGIN", "SECURE_PASSWORD_STORE", "AUTO_LOGIN":
-		return "SWA"
-	default:
-		return mode
-	}
 }
 
 // OktaAppSummaryParts renders the short operator summary under the account count.

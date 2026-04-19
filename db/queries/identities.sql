@@ -719,7 +719,7 @@ SELECT
   COUNT(*) FILTER (WHERE privileged_roles > 0)::bigint                      AS privileged_count,
   COUNT(*) FILTER (WHERE NOT managed)::bigint                               AS unmanaged_count,
   COUNT(*) FILTER (WHERE status = 'suspended')::bigint                      AS suspended_count,
-  COUNT(*) FILTER (WHERE activity_state IN ('stale', 'never_seen'))::bigint AS stale_count
+  COUNT(*) FILTER (WHERE activity_state = 'stale')::bigint                   AS stale_count
 FROM base;
 
 -- name: GetIdentitySummaryByID :one

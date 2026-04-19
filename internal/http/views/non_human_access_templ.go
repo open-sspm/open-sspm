@@ -843,7 +843,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 						var templ_7745c5c3_Var49 string
 						templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeNonHumanActivityState(item.ActivityState))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access.templ`, Line: 169, Col: 63}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access.templ`, Line: 169, Col: 64}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 						if templ_7745c5c3_Err != nil {
@@ -853,11 +853,11 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						if item.FreshnessState != "" && item.FreshnessState != "fresh" {
+						if item.FreshnessState != "" && item.FreshnessState != "current" {
 							var templ_7745c5c3_Var50 string
 							templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access.templ`, Line: 171, Col: 21}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access.templ`, Line: 171, Col: 22}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 							if templ_7745c5c3_Err != nil {
@@ -866,7 +866,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 							var templ_7745c5c3_Var51 string
 							templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeNonHumanFreshnessState(item.FreshnessState))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access.templ`, Line: 171, Col: 76}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_access.templ`, Line: 171, Col: 77}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 							if templ_7745c5c3_Err != nil {

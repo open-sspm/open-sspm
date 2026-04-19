@@ -164,14 +164,14 @@ templ NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) {
 										} else {
 											<span class="text-muted-foreground">—</span>
 										}
-										if nonHumanShouldShowActivity(item.ActivityState, item.FreshnessState) {
-											<span class="osspm-cell-secondary">
-												{ HumanizeNonHumanActivityState(item.ActivityState) }
-												if item.FreshnessState != "" && item.FreshnessState != "fresh" {
-													{ " · " }{ HumanizeNonHumanFreshnessState(item.FreshnessState) }
-												}
-											</span>
-										}
+											if nonHumanShouldShowActivity(item.ActivityState, item.FreshnessState) {
+												<span class="osspm-cell-secondary">
+													{ HumanizeNonHumanActivityState(item.ActivityState) }
+													if item.FreshnessState != "" && item.FreshnessState != "current" {
+														{ " · " }{ HumanizeNonHumanFreshnessState(item.FreshnessState) }
+													}
+												</span>
+											}
 									</td>
 									<td class="osspm-num">
 										<span class="font-medium tabular-nums">{ FormatInt64(item.LinkedAssetsCount) }</span>
