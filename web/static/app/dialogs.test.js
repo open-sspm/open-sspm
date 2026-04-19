@@ -6,6 +6,7 @@ import {
   openServerDialogs,
   wireDialogCloseButtons,
   wireDialogCloseNavigation,
+  wireDialogOpenTriggers,
 } from "open-sspm-app/dialogs.js";
 
 const waitForAsyncWork = async () => {
@@ -103,6 +104,29 @@ describe("dialogs", () => {
     closeButton.click();
 
     expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("binds dialog open triggers only once", () => {
+    const root = document.createElement("div");
+    root.innerHTML = `
+      <button type="button" data-dialog-open="#inside">Open</button>
+      <dialog id="inside"></dialog>
+    `;
+    document.body.appendChild(root);
+
+    const dialog = root.querySelector("#inside");
+    const showModal = vi.fn(function showModalStub() {
+      this.setAttribute("open", "");
+    });
+    Object.defineProperty(dialog, "showModal", { value: showModal, configurable: true });
+
+    wireDialogOpenTriggers(root);
+    wireDialogOpenTriggers(root);
+
+    const trigger = root.querySelector("[data-dialog-open]");
+    trigger.click();
+
+    expect(showModal).toHaveBeenCalledTimes(1);
   });
 
   it("opens server dialogs in provided root and consumes data-open", () => {

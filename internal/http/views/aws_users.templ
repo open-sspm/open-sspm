@@ -39,7 +39,7 @@ templ AWSUserMobileRow(user viewmodels.AWSUserListItem) {
 
 templ AWSUsersPage(data viewmodels.AWSUsersViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("Synced AWS Identity Center users and their account assignments.") {
+		@PageHeader("") {
 			if data.Layout.AWSIdentityCenterConfigured && data.Layout.AWSIdentityCenterEnabled {
 				<a class="btn-sm-outline" href="/accounts/unlinked/aws">Unlinked</a>
 			} else {

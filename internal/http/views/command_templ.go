@@ -470,7 +470,7 @@ func CommandPaletteTrigger() templ.Component {
 			templ_7745c5c3_Var20 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<button type=\"button\" class=\"command-trigger\" data-command-palette-trigger aria-label=\"Open command palette\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l2.828 2.829a1 1 0 0 1-1.414 1.414l-2.829-2.828A7 7 0 0 1 2 9Z\" clip-rule=\"evenodd\"></path></svg> <span>Search…</span> <kbd><span>⌘</span>K</kbd></button>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<button type=\"button\" class=\"command-trigger\" data-command-palette-trigger aria-label=\"Open command palette\"><span class=\"command-trigger__lead\"><span class=\"command-trigger__icon\" aria-hidden=\"true\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l2.828 2.829a1 1 0 0 1-1.414 1.414l-2.829-2.828A7 7 0 0 1 2 9Z\" clip-rule=\"evenodd\"></path></svg></span> <span class=\"command-trigger__label\">Search</span></span> <kbd><span>⌘</span>K</kbd></button>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

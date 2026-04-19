@@ -50,7 +50,7 @@ func TestCredentialRiskReasons(t *testing.T) {
 		LastUsedAtSource: timestamptz(now.Add(-120 * 24 * time.Hour)),
 	}
 
-	reasons := credentialRiskReasonsFor(
+	findings := credentialRiskFindingsFor(
 		credential.Status,
 		credential.CredentialKind,
 		credential.CreatedByExternalID,
@@ -59,9 +59,41 @@ func TestCredentialRiskReasons(t *testing.T) {
 		credential.LastUsedAtSource,
 		now,
 	)
-	if len(reasons) < 3 {
-		t.Fatalf("expected multiple reasons, got %v", reasons)
+	if len(findings) < 3 {
+		t.Fatalf("expected multiple findings, got %v", findings)
 	}
+	for _, f := range findings {
+		if f.Severity == "" || f.Title == "" {
+			t.Fatalf("finding missing severity or title: %+v", f)
+		}
+	}
+}
+
+func TestCredentialRiskReasonsUseFutureAwareExpiryLabel(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 2, 7, 12, 0, 0, 0, time.UTC)
+
+	findings := credentialRiskFindingsFor(
+		"active",
+		"entra_client_secret",
+		"owner@example.com",
+		"",
+		timestamptz(now.Add(4*24*time.Hour)),
+		pgtype.Timestamptz{},
+		now,
+	)
+
+	for _, finding := range findings {
+		if finding.Title == "Credential expires within 7 days" {
+			if finding.Evidence != "Expires in 4d" {
+				t.Fatalf("evidence = %q, want %q", finding.Evidence, "Expires in 4d")
+			}
+			return
+		}
+	}
+
+	t.Fatalf("missing expiry finding: %+v", findings)
 }
 
 func TestEmailCandidate(t *testing.T) {

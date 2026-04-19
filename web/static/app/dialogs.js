@@ -80,6 +80,36 @@ export const openServerDialogs = (root = document) => {
   });
 };
 
+const resolveDialogTarget = (trigger) => {
+  if (!(trigger instanceof HTMLElement)) return null;
+
+  const selector = (trigger.getAttribute("data-dialog-open") || "").trim();
+  if (!selector) return null;
+
+  try {
+    return document.querySelector(selector);
+  } catch {
+    return null;
+  }
+};
+
+export const wireDialogOpenTriggers = (root = document) => {
+  root.querySelectorAll("[data-dialog-open]").forEach((element) => {
+    if (!(element instanceof HTMLElement)) return;
+    if (element.dataset.dialogOpenBound === "true") return;
+
+    element.addEventListener("click", (event) => {
+      const dialog = resolveDialogTarget(element);
+      if (!(dialog instanceof HTMLElement)) return;
+
+      event.preventDefault();
+      openDialog(dialog);
+    });
+
+    element.dataset.dialogOpenBound = "true";
+  });
+};
+
 export const wireDialogCloseButtons = (root = document) => {
   root.querySelectorAll("[data-dialog-close]").forEach((element) => {
     if (!(element instanceof HTMLElement)) return;

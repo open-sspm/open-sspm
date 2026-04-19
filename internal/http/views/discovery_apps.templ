@@ -4,74 +4,56 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ DiscoveryAppsPage(data viewmodels.DiscoveryAppsViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("Discovered SaaS inventory from IdP SSO and OAuth evidence.") {
-		}
 		@DiscoveryAppsPageResults(data)
 	}
 }
 
 templ DiscoveryAppMobileRow(item viewmodels.DiscoveryAppListItem) {
-	<article class="rounded-lg border border-border/70 bg-card p-4">
+	<a href={ templ.SafeURL("/discovery/apps/" + FormatInt64(item.ID)) } class="osspm-identity-card">
 		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0">
-				<a class="block font-medium text-foreground no-underline hover:underline" href={ "/discovery/apps/" + FormatInt64(item.ID) } title={ item.DisplayName }>
-					<span class="osspm-truncate">{ item.DisplayName }</span>
-				</a>
+				<div class="font-medium truncate">{ item.DisplayName }</div>
 				if item.Domain != "" {
-					<div class="text-sm text-muted-foreground break-all">{ item.Domain }</div>
+					<div class="osspm-token text-sm text-muted-foreground break-all">{ item.Domain }</div>
 				}
-				if item.VendorName != "" {
-					<div class="osspm-truncate text-sm text-muted-foreground" title={ item.VendorName }>{ item.VendorName }</div>
-				}
+				<div class="mt-1 flex flex-wrap items-center gap-2 text-xs">
+					if item.ManagedState == "unmanaged" {
+						<span class="text-sm leading-none" aria-label="Unmanaged" title="Unmanaged">❌</span>
+					} else {
+						<span class={ DiscoveryManagedBadgeClass(item.ManagedState) }>{ HumanizeDiscoveryManagedState(item.ManagedState) }</span>
+					}
+					<span class={ templ.Classes("font-medium", DiscoveryReviewDispositionTextClass(item.ReviewDisposition)) }>{ HumanizeDiscoveryReviewDisposition(item.ReviewDisposition) }</span>
+				</div>
 			</div>
-			<div class="shrink-0 text-right">
-				<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
-				<div class={ RiskScoreClass(item.RiskLevel) }>{ "Score " }{ FormatInt(int(item.RiskScore)) }</div>
-			</div>
+			<span
+				class={ templ.Classes(CredentialRiskBadgeClass(item.RiskLevel), "cursor-help") }
+				data-tooltip={ "Score " + FormatInt(int(item.RiskScore)) }
+				data-side="top"
+				data-align="end"
+				title={ "Score " + FormatInt(int(item.RiskScore)) }
+			>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
 		</div>
-		<div class="mt-2 flex flex-wrap items-center gap-2">
-			<span class={ DiscoveryManagedBadgeClass(item.ManagedState) }>{ HumanizeDiscoveryManagedState(item.ManagedState) }</span>
-			<span class={ DiscoveryReviewDispositionBadgeClass(item.ReviewDisposition) }>{ HumanizeDiscoveryReviewDisposition(item.ReviewDisposition) }</span>
-			if item.TicketRef != "" {
-				<span class="badge-outline">{ item.TicketRef }</span>
-			}
-			if item.FollowUpDueDate.Label != "" {
-				<span class={ DiscoveryFollowUpBadgeClass(item.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(item.FollowUpDueDate.Label, item.IsFollowUpOverdue) }</span>
-			}
-		</div>
-		<div class="mt-2 text-sm text-muted-foreground">{ HumanizeDiscoveryManagedReason(item.ManagedReason) }</div>
-		<div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+		<dl class="mt-3 grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
 			<div>
-				<div class="text-xs uppercase tracking-wide text-muted-foreground">Owner</div>
-				<div class="osspm-truncate" title={ item.Owner }>{ item.Owner }</div>
-			</div>
-			<div>
-				<div class="text-xs uppercase tracking-wide text-muted-foreground">Actors (30d)</div>
-				<div>{ FormatInt64(item.Actors30d) }</div>
-			</div>
-			<div>
-				<div class="text-xs uppercase tracking-wide text-muted-foreground">Last seen</div>
-				<div>{ item.LastSeen.Label }</div>
+				<dt class="osspm-stat-label">Owner</dt>
+				<dd class="truncate">
+					if item.Owner != "" {
+						{ item.Owner }
+					} else {
+						<span class="text-muted-foreground">—</span>
+					}
+				</dd>
 			</div>
 			<div>
-				<div class="text-xs uppercase tracking-wide text-muted-foreground">Review</div>
-				if item.ReviewOwner != "—" {
-					<div class="osspm-truncate" title={ item.ReviewOwner }>{ item.ReviewOwner }</div>
-				} else {
-					<div class="text-muted-foreground">—</div>
-				}
+				<dt class="osspm-stat-label">Actors 30d</dt>
+				<dd class="tabular-nums">{ FormatInt64(item.Actors30d) }</dd>
 			</div>
-		</div>
-		if item.ReplacementDisplayName != "" {
-			<div class="mt-3 border-t border-border/60 pt-3 text-sm">
-				<div class="text-xs uppercase tracking-wide text-muted-foreground">Replacement</div>
-				<div class="osspm-truncate" title={ item.ReplacementDisplayName }>{ item.ReplacementDisplayName }</div>
+			<div>
+				<dt class="osspm-stat-label">Last seen</dt>
+				<dd class="truncate">{ item.LastSeen.Label }</dd>
 			</div>
-		}
-		<div class="mt-3 border-t border-border/60 pt-3">
-			<a class="btn-sm-link px-0" href={ "/discovery/apps/" + FormatInt64(item.ID) } aria-label={ "View details for " + item.DisplayName }>View details</a>
-		</div>
-	</article>
+		</dl>
+	</a>
 }
 
 templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
@@ -104,12 +86,6 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 			</form>
 
 			<section class="space-y-3">
-					<div class="osspm-list-section-header">
-					<div>
-						<h2 class="text-base font-semibold">Discovered Apps</h2>
-						<p class="text-sm text-muted-foreground">Discovered SaaS inventory from IdP SSO and OAuth evidence.</p>
-					</div>
-				</div>
 				if data.HasItems {
 					<div class="space-y-3 lg:hidden">
 						for _, item := range data.Items {
@@ -122,63 +98,83 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 					</div>
 				}
 				@ColumnsTable("hidden lg:block") {
-						<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-							<caption class="sr-only">Discovered SaaS applications with managed state and risk posture.</caption>
+					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+						<caption class="sr-only">Discovered SaaS applications with managed state and risk posture.</caption>
 						<thead>
 							<tr>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">App</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Managed</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Risk</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Owner</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Governance</th>
-								<th class="osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground">Actors (30d)</th>
-								<th class="osspm-num text-xs font-medium uppercase tracking-wide text-muted-foreground">Last seen</th>
+								<th>App</th>
+								<th>Managed</th>
+								<th>Risk</th>
+								<th>Owner</th>
+								<th>Review</th>
+								<th class="osspm-num">Actors 30d</th>
+								<th>Last seen</th>
 							</tr>
 						</thead>
-							<tbody>
-								if data.HasItems {
-									for _, item := range data.Items {
-										<tr data-row-href={ "/discovery/apps/" + FormatInt64(item.ID) } class="cursor-pointer hover:bg-muted/50">
-											<td>
-												<a class="btn-sm-link px-0 osspm-cell-primary osspm-truncate" href={ "/discovery/apps/" + FormatInt64(item.ID) } title={ item.DisplayName }>{ item.DisplayName }</a>
-												if item.Domain != "" {
-													<span class="osspm-cell-secondary osspm-token" title={ item.Domain }>{ item.Domain }</span>
-												}
-												if item.VendorName != "" {
-													<span class="osspm-cell-secondary osspm-truncate" title={ item.VendorName }>{ item.VendorName }</span>
-												}
-											</td>
-											<td>
+						<tbody>
+							if data.HasItems {
+								for _, item := range data.Items {
+									<tr data-row-href={ "/discovery/apps/" + FormatInt64(item.ID) }>
+										<td>
+											<a class="osspm-identity-link" href={ templ.SafeURL("/discovery/apps/" + FormatInt64(item.ID)) }>
+												<span class="osspm-identity-name">{ item.DisplayName }</span>
+												<span class="osspm-identity-meta">
+													if item.Domain != "" {
+														<span class="osspm-token truncate">{ item.Domain }</span>
+													} else if item.VendorName != "" {
+														<span class="truncate">{ item.VendorName }</span>
+													}
+												</span>
+											</a>
+										</td>
+										<td>
+											if item.ManagedState == "unmanaged" {
+												<span class="text-sm leading-none" aria-label="Unmanaged" title="Unmanaged">❌</span>
+											} else {
 												<span class={ DiscoveryManagedBadgeClass(item.ManagedState) }>{ HumanizeDiscoveryManagedState(item.ManagedState) }</span>
-												<span class="osspm-cell-secondary">{ HumanizeDiscoveryManagedReason(item.ManagedReason) }</span>
-											</td>
-											<td>
-												<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
-												<span class="osspm-cell-secondary">{ FormatInt(int(item.RiskScore)) }</span>
-											</td>
-											<td><span class="osspm-truncate" title={ item.Owner }>{ item.Owner }</span></td>
-											<td class="whitespace-normal">
-												<div class="flex flex-wrap items-center gap-2">
-													<span class={ DiscoveryReviewDispositionBadgeClass(item.ReviewDisposition) }>{ HumanizeDiscoveryReviewDisposition(item.ReviewDisposition) }</span>
-													if item.TicketRef != "" {
-														<span class="badge-outline">{ item.TicketRef }</span>
-													}
+											}
+										</td>
+										<td>
+											<span
+												class={ templ.Classes(CredentialRiskBadgeClass(item.RiskLevel), "cursor-help") }
+												data-tooltip={ "Score " + FormatInt(int(item.RiskScore)) }
+												data-side="top"
+												data-align="start"
+												title={ "Score " + FormatInt(int(item.RiskScore)) }
+											>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
+										</td>
+										<td>
+											if item.Owner != "" {
+												<span class="osspm-cell-primary font-normal truncate" title={ item.Owner }>{ item.Owner }</span>
+											} else {
+												<span class="text-muted-foreground">—</span>
+											}
+										</td>
+										<td class="whitespace-normal">
+											<span class={ templ.Classes("text-sm font-medium", DiscoveryReviewDispositionTextClass(item.ReviewDisposition)) }>{ HumanizeDiscoveryReviewDisposition(item.ReviewDisposition) }</span>
+											if item.FollowUpDueDate.Label != "" || item.TicketRef != "" || (item.ReviewOwner != "" && item.ReviewOwner != "—") || item.ReplacementDisplayName != "" {
+												<span class="osspm-cell-secondary">
 													if item.FollowUpDueDate.Label != "" {
-														<span class={ DiscoveryFollowUpBadgeClass(item.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(item.FollowUpDueDate.Label, item.IsFollowUpOverdue) }</span>
+														if item.IsFollowUpOverdue {
+															<span class="text-rose-700 dark:text-rose-400">{ "Due " }{ item.FollowUpDueDate.Label }</span>
+														} else {
+															{ "Due " }{ item.FollowUpDueDate.Label }
+														}
+													} else if item.TicketRef != "" {
+														{ item.TicketRef }
+													} else if item.ReviewOwner != "" && item.ReviewOwner != "—" {
+														{ item.ReviewOwner }
+													} else if item.ReplacementDisplayName != "" {
+														{ "Replace: " }{ item.ReplacementDisplayName }
 													}
-												</div>
-												if item.ReviewOwner != "—" {
-													<div class="osspm-cell-secondary">{ "Review: " }{ item.ReviewOwner }</div>
-												}
-												if item.ReplacementDisplayName != "" {
-													<div class="osspm-cell-secondary">{ "Replace with " }{ item.ReplacementDisplayName }</div>
-												}
-											</td>
-											<td class="osspm-num"><span class="badge-outline">{ FormatInt64(item.Actors30d) }</span></td>
-											<td class="osspm-num text-muted-foreground">{ item.LastSeen.Label }</td>
-										</tr>
-									}
-								} else {
+												</span>
+											}
+										</td>
+										<td class="osspm-num tabular-nums">{ FormatInt64(item.Actors30d) }</td>
+										<td class="text-muted-foreground">{ item.LastSeen.Label }</td>
+									</tr>
+								}
+							} else {
 								<tr>
 									<td colspan="7">
 										@EmptyState("No discovery apps found", data.EmptyStateMsg)

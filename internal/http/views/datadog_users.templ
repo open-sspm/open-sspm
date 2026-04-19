@@ -22,7 +22,7 @@ templ DatadogUserMobileRow(user viewmodels.DatadogUserListItem) {
 
 templ DatadogUsersPage(data viewmodels.DatadogUsersViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("Synced Datadog users and their role assignments.") {
+		@PageHeader("") {
 			if data.Layout.DatadogConfigured && data.Layout.DatadogEnabled {
 				<a class="btn-sm-outline" href={ "/accounts/unlinked/datadog/" + data.Layout.DatadogSite }>Unlinked</a>
 			} else {

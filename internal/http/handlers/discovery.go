@@ -30,8 +30,9 @@ const (
 )
 
 type discoveryAppShowOptions struct {
-	alert          *viewmodels.AlertViewData
-	governanceForm *discoveryGovernanceFormInput
+	alert                *viewmodels.AlertViewData
+	governanceForm       *discoveryGovernanceFormInput
+	openGovernanceDialog bool
 }
 
 type discoveryGovernanceFormInput struct {
@@ -285,8 +286,9 @@ func parseDiscoveryGovernanceForm(c *echo.Context) discoveryGovernanceFormInput 
 func discoveryAppShowOptionsForGovernance(form discoveryGovernanceFormInput, alert *viewmodels.AlertViewData) discoveryAppShowOptions {
 	formCopy := form
 	return discoveryAppShowOptions{
-		alert:          alert,
-		governanceForm: &formCopy,
+		alert:                alert,
+		governanceForm:       &formCopy,
+		openGovernanceDialog: true,
 	}
 }
 
@@ -691,6 +693,7 @@ func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout vie
 		NotesInput:                 notesInput,
 		ReplacementQueryInput:      replacementQueryInput,
 		ReplacementPicker:          replacementPicker,
+		OpenGovernanceDialog:       opts.openGovernanceDialog,
 		HasSources:                 len(sourceItems) > 0,
 		HasTopActors:               len(actorItems) > 0,
 		HasEvents:                  len(eventItems) > 0,

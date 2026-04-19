@@ -5,7 +5,10 @@ import "strconv"
 
 templ AppsPage(data viewmodels.AppsViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("Apps discovered from Okta assignments.")
+		<div class="space-y-1">
+			<h1 class="text-2xl font-semibold tracking-tight">Assigned apps</h1>
+			<p class="text-sm text-muted-foreground">Apps discovered from Okta assignments.</p>
+		</div>
 		@AppsPageResults(data)
 	}
 }
@@ -28,10 +31,10 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 				<div class="min-w-0 flex-1">
 					@TableQueryBar(AppsTableQueryBar(data))
 				</div>
-					<p class="osspm-list-summary">
-						if data.TotalCount > 0 {
-							<span class="font-medium text-foreground">{ FormatInt64(data.TotalCount) }</span>
-							if data.Query.HasFilters() {
+				<p class="osspm-list-summary">
+					if data.TotalCount > 0 {
+						<span class="font-medium text-foreground">{ FormatInt64(data.TotalCount) }</span>
+						if data.Query.HasFilters() {
 							{ " results" }
 						} else {
 							{ " apps" }
@@ -51,23 +54,27 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 					@AppRowMobile(app, data.Layout.IsAdmin, data.Layout.CSRFToken, i)
 				}
 			</div>
-				<!-- Desktop table -->
-				<div class="hidden lg:block">
-					<div class="overflow-x-auto">
-						<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-							<caption class="sr-only">Assigned apps with status, sign-on mode, and integration state.</caption>
-							<thead>
-								<tr>
-									<th class="pr-3 text-left text-xs font-medium tracking-wide text-muted-foreground">App</th>
+			<!-- Desktop table -->
+			<div class="hidden lg:block">
+				<div class="overflow-x-auto">
+					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+						<caption class="sr-only">Assigned apps with status, sign-on mode, and integration state.</caption>
+						<thead>
+							<tr>
+								<th class="pr-3 text-left text-xs font-medium tracking-wide text-muted-foreground">App</th>
+								if appsHasStatusVariance(data.Apps) {
 									<th class="w-28 px-3 text-left text-xs font-medium tracking-wide text-muted-foreground">Status</th>
-									<th class="w-40 px-3 text-left text-xs font-medium tracking-wide text-muted-foreground">Sign-on</th>
+								}
+								<th class="w-40 px-3 text-left text-xs font-medium tracking-wide text-muted-foreground">Sign-on</th>
+								if appsHasAnyIntegration(data.Apps) {
 									<th class="w-32 px-3 text-left text-xs font-medium tracking-wide text-muted-foreground">Integration</th>
-									<th class="w-28 pl-3 text-right text-xs font-medium tracking-wide text-muted-foreground"></th>
-								</tr>
-							</thead>
-							<tbody>
+								}
+								<th class="w-10 pl-3 text-right" aria-hidden="true"></th>
+							</tr>
+						</thead>
+						<tbody>
 							for i, app := range data.Apps {
-								@AppRowDesktop(app, data.Layout.IsAdmin, data.Layout.CSRFToken, i)
+								@AppRowDesktop(app, data.Layout.IsAdmin, data.Layout.CSRFToken, i, appsHasStatusVariance(data.Apps), appsHasAnyIntegration(data.Apps))
 							}
 						</tbody>
 					</table>
@@ -75,13 +82,13 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 			</div>
 		} else {
 			@EmptyState("No apps found", data.EmptyStateMsg)
-			}
+		}
 
-			if data.TotalPages > 1 {
-				<div class="osspm-list-pagination-split">
-					<p class="text-sm tabular-nums text-muted-foreground">
-						{ FormatInt(data.ShowingFrom) }–{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
-					</p>
+		if data.TotalPages > 1 {
+			<div class="osspm-list-pagination-split">
+				<p class="text-sm tabular-nums text-muted-foreground">
+					{ FormatInt(data.ShowingFrom) }–{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
+				</p>
 				<div class="button-group">
 					if data.Page > 1 {
 						<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#apps-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
@@ -99,7 +106,7 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 	</div>
 }
 
-templ AppRowDesktop(app viewmodels.AppListItem, isAdmin bool, csrfToken string, index int) {
+templ AppRowDesktop(app viewmodels.AppListItem, isAdmin bool, csrfToken string, index int, showStatus, showIntegration bool) {
 	<tr
 		class="app-row group cursor-pointer"
 		style={ "animation-delay:" + strconv.Itoa(index*25) + "ms" }
@@ -110,36 +117,32 @@ templ AppRowDesktop(app viewmodels.AppListItem, isAdmin bool, csrfToken string, 
 			<a href={ AppDetailURL(app.IntegratedHref, app.ExternalID) } class="min-w-0 no-underline">
 				<span class="osspm-truncate font-medium text-foreground">{ app.Label }</span>
 				if app.Name != "" {
-					<span class="osspm-truncate text-xs text-muted-foreground">{ app.Name }</span>
+					<span class="osspm-truncate text-xs text-muted-foreground/70">{ app.Name }</span>
 				}
 			</a>
 		</td>
-		<!-- Status -->
-		<td class="py-3 px-3">
-			<span class="inline-flex items-center gap-1.5 text-xs">
-				<span class={ "h-1.5 w-1.5 rounded-full", AppStatusDotClass(app.Status) }></span>
-				<span class={ StatusTextClass(app.Status) }>{ app.Status }</span>
-			</span>
-		</td>
-		<!-- Sign-on -->
-		<td class="py-3 px-3 text-muted-foreground">
-			{ fallbackHumanized(app.SignOnMode) }
-		</td>
-		<!-- Integration -->
-		<td class="py-3 px-3">
-			if app.IntegratedHref != "" {
-				<span class="inline-flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400">
-					@IconCheck("h-3.5 w-3.5")
-					Connected
+		if showStatus {
+			<!-- Status -->
+			<td class="py-3 px-3">
+				<span class="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+					<span class={ "h-1.5 w-1.5 rounded-full", AppStatusDotClass(app.Status) }></span>
+					<span class={ StatusTextClass(app.Status) }>{ fallbackHumanized(app.Status) }</span>
 				</span>
-			} else {
-				<span class="text-xs text-muted-foreground/50">—</span>
-			}
+			</td>
+		}
+		<!-- Sign-on -->
+		<td class="py-3 px-3 text-sm text-muted-foreground">
+			{ HumanizeSignOnMode(app.SignOnMode) }
 		</td>
-		<!-- Actions -->
-		<td class="py-3 pl-3 text-right">
-			<span class="inline-flex items-center gap-2">
-				if isAdmin && app.IntegratedHref == "" && app.SuggestedKind != "" {
+		if showIntegration {
+			<!-- Integration -->
+			<td class="py-3 px-3">
+				if app.IntegratedHref != "" {
+					<span class="inline-flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400">
+						@IconCheck("h-3.5 w-3.5")
+						Connected
+					</span>
+				} else if isAdmin && app.SuggestedKind != "" {
 					<form method="post" action="/assigned-apps/map" class="inline-flex">
 						@CSRFInput(csrfToken)
 						<input type="hidden" name="integration_kind" value={ app.SuggestedKind }/>
@@ -148,16 +151,14 @@ templ AppRowDesktop(app viewmodels.AppListItem, isAdmin bool, csrfToken string, 
 							{ SuggestedIntegrationActionLabel(app.SuggestedKind) }
 						</button>
 					</form>
+				} else {
+					<span class="text-xs text-muted-foreground/40">—</span>
 				}
-				<a
-					class="btn-sm-ghost h-7 px-2 text-xs no-underline"
-					href={ AppDetailURL(app.IntegratedHref, app.ExternalID) }
-					aria-label={ "View " + app.Label }
-				>
-					View
-					@IconChevronRight("h-3 w-3")
-				</a>
-			</span>
+			</td>
+		}
+		<!-- Chevron -->
+		<td class="py-3 pl-3 text-right align-middle">
+			@IconChevronRight("inline-block h-3.5 w-3.5 text-muted-foreground/30 transition-colors group-hover:text-muted-foreground")
 		</td>
 	</tr>
 }
@@ -173,11 +174,11 @@ templ AppRowMobile(app viewmodels.AppListItem, isAdmin bool, csrfToken string, i
 				<span class="truncate text-sm font-medium text-foreground">{ app.Label }</span>
 				<span class={ "ml-auto inline-flex shrink-0 items-center gap-1 text-xs", StatusTextClass(app.Status) }>
 					<span class={ "h-1.5 w-1.5 rounded-full", AppStatusDotClass(app.Status) }></span>
-					{ app.Status }
+					{ fallbackHumanized(app.Status) }
 				</span>
 			</span>
 			<span class="flex items-center gap-2 text-xs text-muted-foreground">
-				<span>{ fallbackHumanized(app.SignOnMode) }</span>
+				<span>{ HumanizeSignOnMode(app.SignOnMode) }</span>
 				if app.IntegratedHref != "" {
 					<span class="text-border/60" aria-hidden="true">·</span>
 					<span class="text-emerald-700 dark:text-emerald-400">Connected</span>

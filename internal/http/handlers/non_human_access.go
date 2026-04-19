@@ -197,10 +197,12 @@ func (h *Handlers) HandleNonHumanAccessShow(c *echo.Context) error {
 		summary.BestAvailableAttributionHref = bestAvailableAttributionHref
 	}
 
+	signals := nonHumanPrincipalRiskSignals(principal)
 	data := viewmodels.NonHumanAccessShowViewData{
 		Layout:         layout,
 		Principal:      summary,
-		RiskReasons:    nonHumanPrincipalRiskReasons(principal),
+		RiskSignals:    signals,
+		HasRiskSignals: len(signals) > 0,
 		RelatedAssets:  assets,
 		Credentials:    credentials,
 		HasAssets:      len(assets) > 0,
@@ -370,35 +372,64 @@ func nonHumanAccountableOwnerLabel(ownerDisplayName, ownerPrimaryEmail, ownerPre
 	return "Unknown"
 }
 
-func nonHumanPrincipalRiskReasons(principal gen.NonHumanPrincipalReadModelsV) []string {
-	reasons := make([]string, 0, 8)
+func nonHumanPrincipalRiskSignals(principal gen.NonHumanPrincipalReadModelsV) []viewmodels.NonHumanAccessRiskSignal {
+	signals := make([]viewmodels.NonHumanAccessRiskSignal, 0, 8)
 	if strings.TrimSpace(principal.OwnerPresence) == "unknown" {
-		reasons = append(reasons, "No accountable owner is assigned.")
+		signals = append(signals, viewmodels.NonHumanAccessRiskSignal{
+			Severity: "high",
+			Title:    "No accountable owner",
+			Evidence: "No accountable owner is assigned.",
+		})
 	}
 	if principal.HasCriticalCredential {
-		reasons = append(reasons, "At least one linked credential is critical.")
+		signals = append(signals, viewmodels.NonHumanAccessRiskSignal{
+			Severity: "critical",
+			Title:    "Linked credential is critical",
+			Evidence: "At least one linked credential is critical.",
+		})
 	} else if principal.HasHighRiskCredential {
-		reasons = append(reasons, "At least one linked credential is high risk.")
+		signals = append(signals, viewmodels.NonHumanAccessRiskSignal{
+			Severity: "high",
+			Title:    "Linked credential is high risk",
+			Evidence: "At least one linked credential is high risk.",
+		})
 	}
 	if principal.HasExpiredCredential {
-		reasons = append(reasons, "A linked credential is expired.")
+		signals = append(signals, viewmodels.NonHumanAccessRiskSignal{
+			Severity: "high",
+			Title:    "Credential expired",
+			Evidence: "A linked credential is expired.",
+		})
 	}
 	if principal.HasExpiringCredential {
-		reasons = append(reasons, "A linked credential expires within 30 days.")
+		signals = append(signals, viewmodels.NonHumanAccessRiskSignal{
+			Severity: "medium",
+			Title:    "Credential expiring soon",
+			Evidence: "A linked credential expires within 30 days.",
+		})
 	}
 	if principal.HasUnusedCredential {
-		reasons = append(reasons, "A linked credential has been unused for over 90 days.")
+		signals = append(signals, viewmodels.NonHumanAccessRiskSignal{
+			Severity: "medium",
+			Title:    "Credential unused",
+			Evidence: "A linked credential has been unused for over 90 days.",
+		})
 	}
 	if principal.HasStaleEvidence {
-		reasons = append(reasons, "Supporting evidence or source freshness is stale.")
+		signals = append(signals, viewmodels.NonHumanAccessRiskSignal{
+			Severity: "medium",
+			Title:    "Source freshness is stale",
+			Evidence: "Supporting evidence or source freshness is stale.",
+		})
 	}
-	if strings.TrimSpace(principal.GovernanceState) == "unreviewed" && len(reasons) > 0 {
-		reasons = append(reasons, "Risk signals are present while governance is still unreviewed.")
+	if strings.TrimSpace(principal.GovernanceState) == "unreviewed" && len(signals) > 0 {
+		signals = append(signals, viewmodels.NonHumanAccessRiskSignal{
+			Severity: "medium",
+			Title:    "Governance still unreviewed",
+			Evidence: "Risk signals are present while governance is still unreviewed.",
+		})
 	}
-	if len(reasons) == 0 {
-		reasons = append(reasons, "No active risk signals are present under the current heuristics.")
-	}
-	return reasons
+	return signals
 }
 
 func nonHumanBestAvailableAttribution(linkResolver *identityLinkResolver, rows []gen.ListNonHumanPrincipalCredentialsByRefRow) (string, string) {

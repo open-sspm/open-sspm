@@ -61,7 +61,7 @@ func SettingsPage(data viewmodels.SettingsViewData) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = PageHeader("Operational controls for access data.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = PageHeader("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -6,46 +6,40 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 	@Layout(data.Layout) {
 		@PageHeader("")
 
-		<section class="mb-6 border-b border-border pb-5">
-			<div class="max-w-4xl space-y-3">
-				<div class="space-y-1.5">
+		<section class="mb-8">
+			<div class="max-w-4xl">
+				<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
 					<h1 class="text-2xl font-semibold tracking-tight break-words">{ data.App.Label }</h1>
-					if data.App.Name != "" {
-						<p class="text-sm text-muted-foreground break-all">{ data.App.Name }</p>
-					}
-				</div>
-				<div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-					<span class="flex items-center gap-1.5">
+					<span class="inline-flex items-center gap-1.5 text-sm">
 						<span class={ "inline-block h-2 w-2 shrink-0 rounded-full", AppStatusDotClass(data.App.Status) }></span>
-						<span>{ data.App.Status }</span>
+						<span class={ StatusTextClass(data.App.Status) }>{ HumanizeStatus(data.App.Status) }</span>
 					</span>
-					if data.App.SignOnMode != "" {
-						<span class="text-muted-foreground">{ data.App.SignOnMode }</span>
-					}
-					<span class="badge-outline text-xs">{ "Okta ID " }{ data.App.ExternalID }</span>
 				</div>
+				@OktaAppMetaLine(data.App)
 			</div>
 		</section>
 
 		<section class="space-y-3">
 			<form method="get" class="osspm-list-form-tight">
-					<div class="osspm-list-toolbar">
-						<div class="flex items-baseline gap-2">
-							<h2 class="text-base font-semibold">Assigned accounts</h2>
-							<span class="text-sm text-muted-foreground">({ FormatInt64(data.TotalCount) })</span>
+				<div class="osspm-list-toolbar">
+					<div class="min-w-0">
+						<div class="text-sm font-medium">
+							{ FormatInt64(data.TotalCount) } { Pluralize(data.TotalCount, "account", "accounts") }
 						</div>
-						<div class="min-w-0 flex-1 sm:max-w-xl">
-							@TableQueryBar(ActiveInactiveStateTableQueryBar(data.Query, "Search name, email, or Okta ID"))
-						</div>
+						@OktaAppAssignmentSummaryLine(data.Summary)
 					</div>
+					<div class="min-w-0 flex-1 sm:max-w-sm">
+						@TableQueryBar(ActiveInactiveStateTableQueryBar(data.Query, "Search name, email, or Okta ID"))
+					</div>
+				</div>
 				<button class="sr-only" type="submit">Apply filters</button>
 			</form>
 
 			if data.HasAccounts {
-				<!-- Mobile card view -->
-				<div class="divide-y divide-border lg:hidden">
+				<!-- Mobile list -->
+				<ul class="divide-y divide-border lg:hidden">
 					for _, account := range data.Accounts {
-						<article class="py-4">
+						<li class="py-3">
 							<div class="flex items-start justify-between gap-3">
 								<div class="min-w-0 space-y-0.5">
 									<a class="btn-sm-link px-0 font-medium" href={ account.AccountHref }>{ account.AccountDisplayName }</a>
@@ -57,53 +51,65 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 								</div>
 								<span class={ StatusBadgeClass(account.OktaAccountStatus) }>{ account.OktaAccountStatus }</span>
 							</div>
-							<div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-								<div class="flex items-baseline gap-1.5">
-									<span class="text-muted-foreground">Via</span>
-									<span class="badge-outline">{ account.AssignedVia }</span>
+							if !data.Summary.UniformAssignedVia || len(account.Groups) > 0 || len(account.Permissions) > 0 {
+								<div class="mt-2 space-y-1.5 text-sm">
+									if !data.Summary.UniformAssignedVia {
+										<div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+											<span class="text-muted-foreground">Assigned via</span>
+											<span class="text-foreground">{ account.AssignedVia }</span>
+										</div>
+									}
+									if len(account.Groups) > 0 {
+										<div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+											<span class="text-muted-foreground">Groups</span>
+											<div class="space-y-0.5 text-foreground">
+												for _, group := range account.Groups {
+													<div class="break-words">{ group }</div>
+												}
+											</div>
+										</div>
+									}
+									if len(account.Permissions) > 0 {
+										<div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+											<span class="text-muted-foreground">Attributes</span>
+											<div class="space-y-0.5 text-foreground">
+												for _, p := range account.Permissions {
+													<div class="break-words">{ p.Text }</div>
+												}
+											</div>
+										</div>
+									}
 								</div>
-								if len(account.Groups) > 0 {
-									<div class="flex items-baseline gap-1.5">
-										<span class="text-muted-foreground">Groups</span>
-										<div class="flex flex-wrap gap-1">
-											for _, group := range account.Groups {
-												<span class="badge-outline">{ group }</span>
-											}
-										</div>
-									</div>
-								}
-								if len(account.Permissions) > 0 {
-									<div class="flex items-baseline gap-1.5">
-										<span class="text-muted-foreground">Attrs</span>
-										<div class="flex flex-wrap gap-1">
-											for _, p := range account.Permissions {
-												<span class="badge-outline">{ p.Text }</span>
-											}
-										</div>
-									</div>
-								}
-							</div>
-						</article>
+							}
+						</li>
 					}
-				</div>
+				</ul>
 
 				<!-- Desktop table -->
 				<div class="hidden lg:block">
+					{{ showGroups := data.Summary.AnyGroups || !data.Summary.SinglePage }}
+					{{ showPermissions := data.Summary.AnyPermissions || !data.Summary.SinglePage }}
 					@ColumnsTable("") {
 						<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-							<caption class="sr-only">Okta accounts assigned to this app, including assignment source, groups, and permission attributes.</caption>
+							<caption class="sr-only">Okta accounts assigned to this app.</caption>
 							<thead>
 								<tr>
 									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account</th>
 									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
-									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Assigned via</th>
-									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Group(s)</th>
-									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Attributes</th>
+									if !data.Summary.UniformAssignedVia {
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Assigned via</th>
+									}
+									if showGroups {
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Group(s)</th>
+									}
+									if showPermissions {
+										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Attributes</th>
+									}
 								</tr>
 							</thead>
 							<tbody>
 								for _, account := range data.Accounts {
-									<tr class="align-top">
+									<tr>
 										<td>
 											<a class="btn-sm-link px-0 font-medium" href={ account.AccountHref }>{ account.AccountDisplayName }</a>
 											if account.AccountEmail != "" {
@@ -113,29 +119,31 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 											}
 										</td>
 										<td><span class={ StatusBadgeClass(account.OktaAccountStatus) }>{ account.OktaAccountStatus }</span></td>
-										<td><span class="badge-outline">{ account.AssignedVia }</span></td>
-										<td>
-											if len(account.Groups) > 0 {
-												<div class="flex flex-wrap gap-2">
-													for _, group := range account.Groups {
-														<span class="badge-outline">{ group }</span>
-													}
-												</div>
-											} else {
-												<span class="text-muted-foreground">&mdash;</span>
-											}
-										</td>
-										<td>
-											if len(account.Permissions) > 0 {
-												<div class="flex flex-wrap gap-2">
-													for _, p := range account.Permissions {
-														<span class="badge-outline">{ p.Text }</span>
-													}
-												</div>
-											} else {
-												<span class="text-muted-foreground">&mdash;</span>
-											}
-										</td>
+										if !data.Summary.UniformAssignedVia {
+											<td class="text-sm text-muted-foreground">{ account.AssignedVia }</td>
+										}
+										if showGroups {
+											<td>
+												if len(account.Groups) > 0 {
+													<div class="space-y-1 text-sm text-foreground">
+														for _, group := range account.Groups {
+															<div class="break-words">{ group }</div>
+														}
+													</div>
+												}
+											</td>
+										}
+										if showPermissions {
+											<td>
+												if len(account.Permissions) > 0 {
+													<div class="space-y-1 text-sm text-foreground">
+														for _, p := range account.Permissions {
+															<div class="break-words">{ p.Text }</div>
+														}
+													</div>
+												}
+											</td>
+										}
 									</tr>
 								}
 							</tbody>
@@ -166,5 +174,37 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 				</div>
 			}
 		</section>
+	}
+}
+
+templ OktaAppMetaLine(app viewmodels.OktaAppSummaryView) {
+	{{ parts := OktaAppMetaParts(app) }}
+	if len(parts) > 0 {
+		<p class="mt-1 text-sm text-muted-foreground">
+			for i, part := range parts {
+				if i > 0 {
+					<span class="mx-2 text-muted-foreground/50">·</span>
+				}
+				if part.Mono {
+					<span class="font-mono">{ part.Text }</span>
+				} else {
+					<span>{ part.Text }</span>
+				}
+			}
+		</p>
+	}
+}
+
+templ OktaAppAssignmentSummaryLine(summary viewmodels.OktaAppAssignmentSummary) {
+	{{ parts := OktaAppSummaryParts(summary) }}
+	if len(parts) > 0 {
+		<p class="mt-0.5 text-sm text-muted-foreground">
+			for i, part := range parts {
+				if i > 0 {
+					<span class="mx-1.5 text-muted-foreground/50">·</span>
+				}
+				<span>{ part }</span>
+			}
+		</p>
 	}
 }

@@ -373,7 +373,6 @@ func TestHandleDiscoveryAppsFiltersManagedState(t *testing.T) {
 		body := renderDiscoveryApps(t, h, "http://example.com/discovery/apps?managed_state=managed")
 		assertContains(t, body, "Managed GitHub App")
 		assertNotContains(t, body, "Unmanaged No Binding")
-		assertContains(t, body, "Primary binding has fresh sync")
 	})
 }
 
@@ -736,6 +735,8 @@ func TestHandleDiscoveryAppGovernanceUpdateValidation(t *testing.T) {
 				}
 				body := rec.Body.String()
 				assertContains(t, body, tc.want)
+				assertContains(t, body, `id="discovery-governance-dialog"`)
+				assertContains(t, body, `data-open`)
 				for _, want := range tc.wantBody {
 					assertContains(t, body, want)
 				}
@@ -783,6 +784,8 @@ func TestHandleDiscoveryAppGovernanceUpdateValidationPreservesClearedOwners(t *t
 
 		body := rec.Body.String()
 		assertContains(t, body, "Invalid due date")
+		assertContains(t, body, `id="discovery-governance-dialog"`)
+		assertContains(t, body, `data-open`)
 		assertContains(t, body, `name="owner_email" value=""`)
 		assertContains(t, body, `name="review_owner_email" value=""`)
 		assertNotContains(t, body, `name="owner_email" value="owner@example.com"`)
@@ -839,12 +842,14 @@ func TestHandleDiscoveryAppShowRendersGovernanceForAdminAndViewer(t *testing.T) 
 		viewerBody := renderDiscoveryAppShow(t, h, appID)
 		assertContains(t, viewerBody, "Decision History")
 		assertContains(t, viewerBody, "Governance changes require an admin account.")
-		assertNotContains(t, viewerBody, "/discovery/apps/"+strconv.FormatInt(appID, 10)+"/governance")
+		assertContains(t, viewerBody, `data-dialog-open="#discovery-governance-dialog"`)
+		assertContains(t, viewerBody, `id="discovery-governance-dialog"`)
 
 		adminBody := renderDiscoveryAppShowAsPrincipal(t, h, appID, auth.Principal{UserID: adminUserID, Email: "admin@example.com", Role: "admin"})
 		assertContains(t, adminBody, "/discovery/apps/"+strconv.FormatInt(appID, 10)+"/governance")
 		assertContains(t, adminBody, "Decision History")
 		assertContains(t, adminBody, "SEC-999")
+		assertContains(t, adminBody, `data-dialog-open="#discovery-governance-dialog"`)
 	})
 }
 

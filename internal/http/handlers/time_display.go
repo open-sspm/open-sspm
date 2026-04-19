@@ -56,7 +56,31 @@ func relativeWithTitleDisplay(now time.Time, value pgtype.Timestamptz, emptyLabe
 }
 
 func relativeDateLabel(t time.Time) string {
-	days := int(time.Since(t).Hours() / 24)
+	return relativeDateLabelAt(time.Now().UTC(), t)
+}
+
+func relativeDateLabelAt(now, t time.Time) string {
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	now = now.UTC()
+	t = t.UTC()
+
+	if t.After(now) {
+		days := int(t.Sub(now).Hours() / 24)
+		switch {
+		case days <= 0:
+			return "today"
+		case days == 1:
+			return "in 1d"
+		case days < 365:
+			return "in " + strconv.Itoa(days) + "d"
+		default:
+			return "in " + strconv.Itoa(days/365) + "y"
+		}
+	}
+
+	days := int(now.Sub(t).Hours() / 24)
 	switch {
 	case days <= 0:
 		return "today"

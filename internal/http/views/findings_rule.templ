@@ -8,9 +8,6 @@ import (
 
 templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("Rule details, evidence, overrides, and attestations.") {
-		}
-
 		if data.Alert != nil {
 			@Alert(data.Alert.Title, data.Alert.Destructive) {
 				<p>{ data.Alert.Message }</p>
