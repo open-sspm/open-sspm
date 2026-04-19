@@ -161,6 +161,7 @@ type DiscoveryAppShowViewData struct {
 	NotesInput                 string
 	ReplacementQueryInput      string
 	ReplacementPicker          DiscoveryReplacementCandidatesViewData
+	OpenGovernanceDialog       bool
 	HasSources                 bool
 	HasTopActors               bool
 	HasEvents                  bool

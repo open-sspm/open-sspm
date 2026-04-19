@@ -1,5 +1,5 @@
 import { scheduleSoon } from "open-sspm-app/dom_focus.js";
-import { openServerDialogs, wireDialogCloseButtons, wireDialogCloseNavigation } from "open-sspm-app/dialogs.js";
+import { openServerDialogs, wireDialogCloseButtons, wireDialogCloseNavigation, wireDialogOpenTriggers } from "open-sspm-app/dialogs.js";
 import { wireCopyButtons } from "open-sspm-app/copy.js";
 
 const INTERACTIVE_ROW_SELECTOR = [
@@ -209,6 +209,7 @@ export const wireRowLinks = (root = document) => {
 
 export const initFragment = (root = document) => {
   openServerDialogs(root);
+  wireDialogOpenTriggers(root);
   wireDialogCloseNavigation(root);
   wireDialogCloseButtons(root);
   wireCopyButtons(root);

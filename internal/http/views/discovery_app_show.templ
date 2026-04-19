@@ -21,6 +21,17 @@ templ discoveryAppShowSectionEmpty(message string) {
 	<p class="text-sm text-muted-foreground">{ message }</p>
 }
 
+templ discoveryAppShowManagedState(state string) {
+	<span class={ templ.Classes("inline-flex items-center gap-1.5 text-sm font-medium", DiscoveryManagedTextClass(state)) }>
+		if state == "managed" {
+			@IconCheck("size-3.5")
+		} else if state == "unmanaged" {
+			@IconX("size-3.5")
+		}
+		<span>{ HumanizeDiscoveryManagedState(state) }</span>
+	</span>
+}
+
 templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 	<div id="discovery-app-show-shell" class="space-y-6">
 		if data.Alert != nil {
@@ -29,44 +40,55 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 			}
 		}
 
-		<div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
-			<div class="space-y-8">
-				<header class="space-y-3">
-					<div class="flex flex-wrap items-start justify-between gap-3">
+		<div class="space-y-8">
+			<header class="space-y-4">
+				<div class="flex flex-wrap items-start justify-between gap-4">
+					<div class="space-y-3">
 						<h2 class="text-2xl font-semibold leading-tight">{ data.App.DisplayName }</h2>
-						<div class="flex flex-wrap items-center gap-2">
-							<span class={ DiscoveryManagedBadgeClass(data.App.ManagedState) }>{ HumanizeDiscoveryManagedState(data.App.ManagedState) }</span>
-							<span class={ CredentialRiskBadgeClass(data.App.RiskLevel) }>{ HumanizeCredentialRisk(data.App.RiskLevel) }</span>
-							<span class={ DiscoveryReviewDispositionBadgeClass(data.App.ReviewDisposition) }>{ HumanizeDiscoveryReviewDisposition(data.App.ReviewDisposition) }</span>
-						</div>
+						<p class="flex items-center gap-1.5 text-sm text-muted-foreground">
+							<span class="break-all">{ data.App.CanonicalKey }</span>
+							@CopyTextButton(data.App.CanonicalKey, "Copy canonical key")
+						</p>
 					</div>
-					<p class="flex items-center gap-1.5 text-sm text-muted-foreground">
-						<span class="break-all">{ data.App.CanonicalKey }</span>
-						@CopyTextButton(data.App.CanonicalKey, "Copy canonical key")
-					</p>
-					if data.App.PrimaryDomain != "" || data.App.VendorName != "" || data.App.SuggestedBusinessCriticality != "" || data.App.SuggestedDataClassification != "" {
-						<dl class="grid gap-x-6 gap-y-3 pt-2 sm:grid-cols-2 md:grid-cols-4">
-							@discoveryAppShowFact("Domain", data.App.PrimaryDomain)
-							@discoveryAppShowFact("Vendor", data.App.VendorName)
-							@discoveryAppShowFact("Suggested criticality", HumanizeBusinessCriticality(data.App.SuggestedBusinessCriticality))
-							@discoveryAppShowFact("Suggested data class", HumanizeDataClassification(data.App.SuggestedDataClassification))
-						</dl>
-					}
-					if data.App.Notes != "" {
-						<p class="text-sm text-muted-foreground">{ data.App.Notes }</p>
-					}
-					<p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-						<span>{ HumanizeDiscoveryManagedReason(data.App.ManagedReason) }</span>
-						<span aria-hidden="true">·</span>
-						<span class={ RiskScoreClass(data.App.RiskLevel) }>{ "Score " }{ FormatInt(int(data.App.RiskScore)) }</span>
-						<span aria-hidden="true">·</span>
-						<span>{ "First seen " }{ data.App.FirstSeen.Label }</span>
-						<span aria-hidden="true">·</span>
-						<span>{ "Last seen " }{ data.App.LastSeen.Label }</span>
-					</p>
-				</header>
+					<div class="flex flex-col items-start gap-3 sm:items-end">
+						<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+							@discoveryAppShowManagedState(data.App.ManagedState)
+							<span class={ templ.Classes("text-sm font-medium", CredentialRiskTextClass(data.App.RiskLevel)) } title={ "Score " + FormatInt(int(data.App.RiskScore)) }>{ HumanizeCredentialRisk(data.App.RiskLevel) }</span>
+							<span class={ templ.Classes("text-sm font-medium", DiscoveryReviewDispositionTextClass(data.App.ReviewDisposition)) }>{ HumanizeDiscoveryReviewDisposition(data.App.ReviewDisposition) }</span>
+						</div>
+						<button id="discovery-app-governance-trigger" type="button" class="btn-sm-ghost" data-dialog-open="#discovery-governance-dialog">
+							@IconSettings("size-4 text-muted-foreground")
+							if data.Layout.IsAdmin {
+								Edit governance
+							} else {
+								View governance
+							}
+						</button>
+					</div>
+				</div>
+				if data.App.PrimaryDomain != "" || data.App.VendorName != "" || data.App.SuggestedBusinessCriticality != "" || data.App.SuggestedDataClassification != "" {
+					<dl class="grid gap-x-6 gap-y-3 pt-2 sm:grid-cols-2 md:grid-cols-4">
+						@discoveryAppShowFact("Domain", data.App.PrimaryDomain)
+						@discoveryAppShowFact("Vendor", data.App.VendorName)
+						@discoveryAppShowFact("Suggested criticality", HumanizeBusinessCriticality(data.App.SuggestedBusinessCriticality))
+						@discoveryAppShowFact("Suggested data class", HumanizeDataClassification(data.App.SuggestedDataClassification))
+					</dl>
+				}
+				if data.App.Notes != "" {
+					<p class="text-sm text-muted-foreground">{ data.App.Notes }</p>
+				}
+				<p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+					<span>{ HumanizeDiscoveryManagedReason(data.App.ManagedReason) }</span>
+					<span aria-hidden="true">·</span>
+					<span class={ RiskScoreClass(data.App.RiskLevel) }>{ "Score " }{ FormatInt(int(data.App.RiskScore)) }</span>
+					<span aria-hidden="true">·</span>
+					<span>{ "First seen " }{ data.App.FirstSeen.Label }</span>
+					<span aria-hidden="true">·</span>
+					<span>{ "Last seen " }{ data.App.LastSeen.Label }</span>
+				</p>
+			</header>
 
-				<section class="space-y-3">
+			<section class="space-y-3">
 					<div class="flex items-baseline justify-between">
 						<h2 class="text-lg font-semibold">Decision History</h2>
 						if len(data.DecisionHistory) > 0 {
@@ -250,115 +272,179 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 						@discoveryAppShowSectionEmpty("No recent SSO or OAuth grant events.")
 					}
 				</section>
-			</div>
-
-			<aside class="self-start xl:sticky xl:top-6">
-				<article class="card">
-					<header>
-						<h2>Governance</h2>
-					</header>
-					<section class="space-y-4">
-						if data.Layout.IsAdmin {
-							<form
-								method="post"
-								action={ "/discovery/apps/" + FormatInt64(data.App.ID) + "/governance" }
-								hx-post={ "/discovery/apps/" + FormatInt64(data.App.ID) + "/governance" }
-								hx-target="#discovery-app-show-shell"
-								hx-swap="outerHTML"
-								hx-disabled-elt="this"
-								class="space-y-4"
-							>
-								@CSRFInput(data.Layout.CSRFToken)
-								<input type="hidden" name="exclude_id" value={ FormatInt64(data.App.ID) }/>
-								<label class="field">
-									<span class="label">Accountable owner email</span>
-									<input class="input" type="email" name="owner_email" value={ data.AccountableOwnerEmailInput } placeholder="owner@example.com"/>
-									<span class="text-xs text-muted-foreground">Required for sanctioned, tolerated, and replace decisions.</span>
-								</label>
-
-								<label class="field">
-									<span class="label">Review owner email</span>
-									<input class="input" type="email" name="review_owner_email" value={ data.ReviewOwnerEmailInput } placeholder="reviewer@example.com"/>
-									<span class="text-xs text-muted-foreground">Optional in MVP. Must match an existing identity email if provided.</span>
-								</label>
-
-								<label class="field">
-									<span class="label">Disposition</span>
-									<select class="select" name="review_disposition" data-discovery-review-disposition>
-										<option value="unreviewed" selected?={ data.ReviewDispositionInput == "unreviewed" }>Unreviewed</option>
-										<option value="under_review" selected?={ data.ReviewDispositionInput == "under_review" }>Under review</option>
-										<option value="sanctioned" selected?={ data.ReviewDispositionInput == "sanctioned" }>Sanctioned</option>
-										<option value="tolerated" selected?={ data.ReviewDispositionInput == "tolerated" }>Tolerated</option>
-										<option value="replace" selected?={ data.ReviewDispositionInput == "replace" }>Replace</option>
-									</select>
-								</label>
-
-								<label class="field">
-									<span class="label">Follow-up date</span>
-									<input class="input" type="date" name="follow_up_due_date" value={ data.FollowUpDueDateInput }/>
-								</label>
-
-								<label class="field">
-									<span class="label">Ticket reference</span>
-									<input class="input" type="text" name="ticket_ref" value={ data.TicketRefInput } placeholder="SEC-123"/>
-								</label>
-
-								<label class="field">
-									<span class="label">Notes</span>
-									<textarea class="textarea min-h-32" name="notes" placeholder="Capture rationale, status, or next step context.">{ data.NotesInput }</textarea>
-								</label>
-
-								<div
-									id="discovery-replacement-fields"
-									class="space-y-2"
-									data-discovery-replacement-fields
-									hidden?={ data.ReviewDispositionInput != "replace" }
-								>
-									<label class="field">
-										<span class="label">Replacement search</span>
-										<input
-											class="input"
-											type="search"
-											name="replacement_query"
-											value={ data.ReplacementQueryInput }
-											placeholder="Search managed discovery apps"
-											autocomplete="off"
-											hx-get="/discovery/apps/replacement-candidates"
-											hx-trigger="input changed delay:150ms, search"
-											hx-target="#discovery-replacement-candidates"
-											hx-swap="outerHTML"
-											hx-include="closest form"
-										/>
-									</label>
-									@DiscoveryReplacementCandidateResults(data.ReplacementPicker)
-								</div>
-
-								<button type="submit" class="btn-primary w-full">Save governance</button>
-							</form>
-						} else {
-							<div class="space-y-3 text-sm">
-								<div class="rounded-lg border border-border/70 bg-muted/15 p-4">
-									<p class="text-xs uppercase tracking-wide text-muted-foreground">Disposition</p>
-									<div class="mt-2 flex flex-wrap items-center gap-2">
-										<span class={ DiscoveryReviewDispositionBadgeClass(data.App.ReviewDisposition) }>{ HumanizeDiscoveryReviewDisposition(data.App.ReviewDisposition) }</span>
-										if data.App.FollowUpDueDate.Label != "" {
-											<span class={ DiscoveryFollowUpBadgeClass(data.App.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(data.App.FollowUpDueDate.Label, data.App.IsFollowUpOverdue) }</span>
-										}
-									</div>
-								</div>
-								<div class="rounded-lg border border-border/70 bg-muted/15 p-4">
-									<p class="text-xs uppercase tracking-wide text-muted-foreground">Owners</p>
-									<p class="mt-2 font-medium">{ data.App.Owner }</p>
-									<p class="text-xs text-muted-foreground">{ data.App.ReviewOwner }</p>
-								</div>
-								<p class="text-xs text-muted-foreground">Governance changes require an admin account.</p>
-							</div>
-						}
-					</section>
-				</article>
-			</aside>
 		</div>
+		@DiscoveryAppShowGovernanceDialog(data)
 	</div>
+}
+
+templ discoveryAppShowGovernanceFormFields(data viewmodels.DiscoveryAppShowViewData) {
+	<input type="hidden" name="exclude_id" value={ FormatInt64(data.App.ID) }/>
+	<label class="field">
+		<span class="label">Accountable owner email</span>
+		<input class="input" type="email" name="owner_email" value={ data.AccountableOwnerEmailInput } placeholder="owner@example.com"/>
+		<span class="text-xs text-muted-foreground">Required for sanctioned, tolerated, and replace decisions.</span>
+	</label>
+
+	<label class="field">
+		<span class="label">Review owner email</span>
+		<input class="input" type="email" name="review_owner_email" value={ data.ReviewOwnerEmailInput } placeholder="reviewer@example.com"/>
+		<span class="text-xs text-muted-foreground">Optional in MVP. Must match an existing identity email if provided.</span>
+	</label>
+
+	<label class="field">
+		<span class="label">Disposition</span>
+		<select class="select" name="review_disposition" data-discovery-review-disposition>
+			<option value="unreviewed" selected?={ data.ReviewDispositionInput == "unreviewed" }>Unreviewed</option>
+			<option value="under_review" selected?={ data.ReviewDispositionInput == "under_review" }>Under review</option>
+			<option value="sanctioned" selected?={ data.ReviewDispositionInput == "sanctioned" }>Sanctioned</option>
+			<option value="tolerated" selected?={ data.ReviewDispositionInput == "tolerated" }>Tolerated</option>
+			<option value="replace" selected?={ data.ReviewDispositionInput == "replace" }>Replace</option>
+		</select>
+	</label>
+
+	<label class="field">
+		<span class="label">Follow-up date</span>
+		<input class="input" type="date" name="follow_up_due_date" value={ data.FollowUpDueDateInput }/>
+	</label>
+
+	<label class="field">
+		<span class="label">Ticket reference</span>
+		<input class="input" type="text" name="ticket_ref" value={ data.TicketRefInput } placeholder="SEC-123"/>
+	</label>
+
+	<label class="field">
+		<span class="label">Notes</span>
+		<textarea class="textarea min-h-32" name="notes" placeholder="Capture rationale, status, or next step context.">{ data.NotesInput }</textarea>
+	</label>
+
+	<div
+		id="discovery-replacement-fields"
+		class="space-y-2"
+		data-discovery-replacement-fields
+		hidden?={ data.ReviewDispositionInput != "replace" }
+	>
+		<label class="field">
+			<span class="label">Replacement search</span>
+			<input
+				class="input"
+				type="search"
+				name="replacement_query"
+				value={ data.ReplacementQueryInput }
+				placeholder="Search managed discovery apps"
+				autocomplete="off"
+				hx-get="/discovery/apps/replacement-candidates"
+				hx-trigger="input changed delay:150ms, search"
+				hx-target="#discovery-replacement-candidates"
+				hx-swap="outerHTML"
+				hx-include="closest form"
+			/>
+		</label>
+		@DiscoveryReplacementCandidateResults(data.ReplacementPicker)
+	</div>
+}
+
+templ discoveryAppShowGovernanceSummary(data viewmodels.DiscoveryAppShowViewData) {
+	<div class="grid gap-4 sm:grid-cols-2">
+		<div>
+			<p class="text-xs uppercase tracking-wide text-muted-foreground">Disposition</p>
+			<p class={ templ.Classes("mt-1 font-medium", DiscoveryReviewDispositionTextClass(data.App.ReviewDisposition)) }>{ HumanizeDiscoveryReviewDisposition(data.App.ReviewDisposition) }</p>
+		</div>
+		if data.App.FollowUpDueDate.Label != "" {
+			<div>
+				<p class="text-xs uppercase tracking-wide text-muted-foreground">Follow-up</p>
+				<p class="mt-1 font-medium">{ DiscoveryFollowUpLabel(data.App.FollowUpDueDate.Label, data.App.IsFollowUpOverdue) }</p>
+			</div>
+		}
+		<div>
+			<p class="text-xs uppercase tracking-wide text-muted-foreground">Accountable owner</p>
+			<p class="mt-1 font-medium">{ data.App.Owner }</p>
+		</div>
+		<div>
+			<p class="text-xs uppercase tracking-wide text-muted-foreground">Review owner</p>
+			<p class="mt-1 font-medium">{ data.App.ReviewOwner }</p>
+		</div>
+		<div>
+			<p class="text-xs uppercase tracking-wide text-muted-foreground">Ticket reference</p>
+			<p class="mt-1 font-medium">
+				if data.App.TicketRef != "" {
+					{ data.App.TicketRef }
+				} else {
+					—
+				}
+			</p>
+		</div>
+		if data.App.ReplacementDisplayName != "" {
+			<div>
+				<p class="text-xs uppercase tracking-wide text-muted-foreground">Replacement</p>
+				<p class="mt-1 font-medium">
+					{ data.App.ReplacementDisplayName }
+					if data.App.ReplacementPrimaryDomain != "" {
+						<span class="text-muted-foreground">{ " (" }{ data.App.ReplacementPrimaryDomain }{ ")" }</span>
+					}
+				</p>
+			</div>
+		}
+	</div>
+	if data.App.Notes != "" {
+		<div class="space-y-2">
+			<p class="text-xs uppercase tracking-wide text-muted-foreground">Notes</p>
+			<p class="text-sm text-muted-foreground">{ data.App.Notes }</p>
+		</div>
+	}
+	<p class="text-xs text-muted-foreground">Governance changes require an admin account.</p>
+}
+
+templ DiscoveryAppShowGovernanceDialog(data viewmodels.DiscoveryAppShowViewData) {
+	<dialog
+		id="discovery-governance-dialog"
+		class="dialog w-full max-w-2xl"
+		data-open?={ data.OpenGovernanceDialog }
+		aria-labelledby="discovery-governance-dialog-title"
+		aria-describedby="discovery-governance-dialog-description"
+	>
+		if data.Layout.IsAdmin {
+			<form
+				method="post"
+				action={ "/discovery/apps/" + FormatInt64(data.App.ID) + "/governance" }
+				hx-post={ "/discovery/apps/" + FormatInt64(data.App.ID) + "/governance" }
+				hx-target="#discovery-app-show-shell"
+				hx-swap="outerHTML"
+				hx-disabled-elt="this"
+			>
+				@CSRFInput(data.Layout.CSRFToken)
+				<button type="button" class="btn-icon-ghost" aria-label="Close" data-dialog-close>
+					@IconX("size-4")
+				</button>
+				<header>
+					<h2 id="discovery-governance-dialog-title">Governance</h2>
+					<p id="discovery-governance-dialog-description" class="text-sm text-muted-foreground">Set owners, disposition, follow-up, and migration context for this discovery app.</p>
+				</header>
+				<section class="space-y-4">
+					@discoveryAppShowGovernanceFormFields(data)
+				</section>
+				<footer>
+					<button type="button" class="btn-ghost" data-dialog-close>Cancel</button>
+					<button type="submit" class="btn-primary">Save governance</button>
+				</footer>
+			</form>
+		} else {
+			<form method="dialog">
+				<button type="button" class="btn-icon-ghost" aria-label="Close" data-dialog-close>
+					@IconX("size-4")
+				</button>
+				<header>
+					<h2 id="discovery-governance-dialog-title">Governance</h2>
+					<p id="discovery-governance-dialog-description" class="text-sm text-muted-foreground">Review the current ownership and disposition details for this discovery app.</p>
+				</header>
+				<section class="space-y-4">
+					@discoveryAppShowGovernanceSummary(data)
+				</section>
+				<footer>
+					<button type="button" class="btn-primary" data-dialog-close>Close</button>
+				</footer>
+			</form>
+		}
+	</dialog>
 }
 
 templ DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementCandidatesViewData) {

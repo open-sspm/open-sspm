@@ -282,6 +282,21 @@ func CredentialRiskBadgeClass(risk string) string {
 	}
 }
 
+func CredentialRiskTextClass(risk string) string {
+	switch strings.ToLower(strings.TrimSpace(risk)) {
+	case "critical":
+		return "text-rose-700 dark:text-rose-400"
+	case "high":
+		return "text-amber-700 dark:text-amber-400"
+	case "medium":
+		return "text-sky-700 dark:text-sky-400"
+	case "low":
+		return "text-emerald-700 dark:text-emerald-400"
+	default:
+		return "text-muted-foreground"
+	}
+}
+
 func RiskScoreClass(riskLevel string) string {
 	switch strings.ToLower(strings.TrimSpace(riskLevel)) {
 	case "critical":
@@ -301,6 +316,17 @@ func DiscoveryManagedBadgeClass(state string) string {
 		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100 before:mr-1 before:content-['✕']"
 	default:
 		return "badge-outline"
+	}
+}
+
+func DiscoveryManagedTextClass(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "managed":
+		return "text-emerald-700 dark:text-emerald-400"
+	case "unmanaged":
+		return "text-rose-700 dark:text-rose-400"
+	default:
+		return "text-muted-foreground"
 	}
 }
 
