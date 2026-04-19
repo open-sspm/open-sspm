@@ -13,227 +13,267 @@ templ NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) {
 			}
 		}
 
-		<div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-			<div class="space-y-6">
-				<article class="card">
-					<header>
-						<h2>{ data.Principal.DisplayName }</h2>
-							<div data-slot="card-action" class="flex flex-wrap items-center gap-2">
-								<span class={ CredentialRiskBadgeClass(data.Principal.RiskLevel) }>{ HumanizeCredentialRisk(data.Principal.RiskLevel) }{ " risk" }</span>
-								<span class="badge-outline">{ HumanizeNonHumanPrincipalType(data.Principal.PrincipalType) }</span>
-								<span class={ AppAssetGovernanceStateBadgeClass(data.Principal.GovernanceState) }>{ HumanizeAppAssetGovernanceState(data.Principal.GovernanceState) }</span>
-								<span class={ NonHumanActivityStateBadgeClass(data.Principal.ActivityState) }>{ HumanizeNonHumanActivityState(data.Principal.ActivityState) }</span>
-								<span class={ NonHumanFreshnessStateBadgeClass(data.Principal.FreshnessState) }>{ HumanizeNonHumanFreshnessState(data.Principal.FreshnessState) }</span>
-							</div>
-						if data.Principal.SecondaryName != "" {
-							<p class="text-sm text-muted-foreground break-all">{ data.Principal.SecondaryName }</p>
-						}
-						<p class="text-sm text-muted-foreground">{ HumanizeConnectorKind(data.Principal.SourceKind) }{ " (" }{ data.Principal.SourceName }{ ")" }</p>
-					</header>
-					<section>
-						<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-							<div>
-								<p class="text-xs uppercase tracking-wide text-muted-foreground">Accountable owner</p>
-								if data.Principal.AccountableOwnerHref != "" {
-									<a class="btn-sm-link mt-1 px-0" href={ data.Principal.AccountableOwnerHref }>{ data.Principal.AccountableOwner }</a>
-								} else {
-									<p class="mt-1 font-medium">{ data.Principal.AccountableOwner }</p>
-								}
-								<p class="mt-1"><span class={ NonHumanOwnerPresenceBadgeClass(data.Principal.OwnerPresence) }>{ HumanizeNonHumanOwnerPresence(data.Principal.OwnerPresence) }</span></p>
-							</div>
-								<div>
-									<p class="text-xs uppercase tracking-wide text-muted-foreground">Last seen</p>
-									<p class="mt-1 font-medium">{ data.Principal.LastSeen.Label }</p>
-									if data.Principal.LastSeen.Relative != "" && data.Principal.LastSeen.Relative != "—" {
-										<p class="text-xs text-muted-foreground">{ data.Principal.LastSeen.Relative }</p>
-									}
+		<div class="space-y-6">
+			<div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+				<div class="min-w-0 space-y-6">
+					<article class="card">
+						<header>
+							<h2>{ data.Principal.DisplayName }</h2>
+								<div data-slot="card-action" class="flex flex-wrap items-center gap-2">
+									<span class={ CredentialRiskBadgeClass(data.Principal.RiskLevel) }>{ HumanizeCredentialRisk(data.Principal.RiskLevel) }{ " risk" }</span>
+									<span class="badge-outline">{ HumanizeNonHumanPrincipalType(data.Principal.PrincipalType) }</span>
+									<span class={ AppAssetGovernanceStateBadgeClass(data.Principal.GovernanceState) }>{ HumanizeAppAssetGovernanceState(data.Principal.GovernanceState) }</span>
+									<span class={ NonHumanActivityStateBadgeClass(data.Principal.ActivityState) }>{ HumanizeNonHumanActivityState(data.Principal.ActivityState) }</span>
+									<span class={ NonHumanFreshnessStateBadgeClass(data.Principal.FreshnessState) }>{ HumanizeNonHumanFreshnessState(data.Principal.FreshnessState) }</span>
 								</div>
-								<div>
-									<p class="text-xs uppercase tracking-wide text-muted-foreground">Freshness</p>
-									<p class="mt-1"><span class={ NonHumanFreshnessStateBadgeClass(data.Principal.FreshnessState) }>{ HumanizeNonHumanFreshnessState(data.Principal.FreshnessState) }</span></p>
-									if data.Principal.HasStaleEvidence {
-										<p class="text-xs text-muted-foreground">Connector or supporting evidence needs refresh.</p>
-									}
-								</div>
-								<div>
-									<p class="text-xs uppercase tracking-wide text-muted-foreground">Coverage</p>
-								<p class="mt-1 font-medium">{ FormatInt64(data.Principal.LinkedAssetsCount) }{ " related asset(s)" }</p>
-								<p class="text-xs text-muted-foreground">{ FormatInt64(data.Principal.LinkedCredentialsCount) }{ " linked credential(s)" }</p>
-							</div>
-							if data.Principal.IdentityHref != "" {
-								<div>
-									<p class="text-xs uppercase tracking-wide text-muted-foreground">Identity record</p>
-									<a class="btn-sm-link mt-1 px-0" href={ data.Principal.IdentityHref }>{ "Identity #" }{ FormatInt64(data.Principal.IdentityID) }</a>
-								</div>
+							if data.Principal.SecondaryName != "" {
+								<p class="text-sm text-muted-foreground break-all">{ data.Principal.SecondaryName }</p>
 							}
-							if data.Principal.AppAssetHref != "" {
+							<p class="text-sm text-muted-foreground">{ HumanizeConnectorKind(data.Principal.SourceKind) }{ " (" }{ data.Principal.SourceName }{ ")" }</p>
+						</header>
+						<section>
+							<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
 								<div>
-									<p class="text-xs uppercase tracking-wide text-muted-foreground">Primary app asset</p>
-									<a class="btn-sm-link mt-1 px-0" href={ data.Principal.AppAssetHref }>{ "App asset #" }{ FormatInt64(data.Principal.AppAssetID) }</a>
-								</div>
-							}
-							if data.Principal.BestAvailableAttribution != "" {
-								<div>
-									<p class="text-xs uppercase tracking-wide text-muted-foreground">Best-available attribution</p>
-									if data.Principal.BestAvailableAttributionHref != "" {
-										<a class="btn-sm-link mt-1 px-0" href={ data.Principal.BestAvailableAttributionHref }>{ data.Principal.BestAvailableAttribution }</a>
+									<p class="text-xs uppercase tracking-wide text-muted-foreground">Accountable owner</p>
+									if data.Principal.AccountableOwnerHref != "" {
+										<a class="btn-sm-link mt-1 px-0" href={ data.Principal.AccountableOwnerHref }>{ data.Principal.AccountableOwner }</a>
 									} else {
-										<p class="mt-1 font-medium">{ data.Principal.BestAvailableAttribution }</p>
+										<p class="mt-1 font-medium">{ data.Principal.AccountableOwner }</p>
 									}
-									<p class="text-xs text-muted-foreground">Secondary context only. Not counted as accountable owner.</p>
+									<p class="mt-1"><span class={ NonHumanOwnerPresenceBadgeClass(data.Principal.OwnerPresence) }>{ HumanizeNonHumanOwnerPresence(data.Principal.OwnerPresence) }</span></p>
 								</div>
+									<div>
+										<p class="text-xs uppercase tracking-wide text-muted-foreground">Last seen</p>
+										<p class="mt-1 font-medium">{ data.Principal.LastSeen.Label }</p>
+										if data.Principal.LastSeen.Relative != "" && data.Principal.LastSeen.Relative != "—" {
+											<p class="text-xs text-muted-foreground">{ data.Principal.LastSeen.Relative }</p>
+										}
+									</div>
+									<div class="space-y-1">
+										<p class="text-xs uppercase tracking-wide text-muted-foreground">Freshness</p>
+										<p class={ templ.Classes("font-medium leading-6", NonHumanFreshnessStateTextClass(data.Principal.FreshnessState)) }>{ HumanizeNonHumanFreshnessState(data.Principal.FreshnessState) }</p>
+										if data.Principal.HasStaleEvidence {
+											<p class="max-w-xs text-xs leading-5 text-muted-foreground">Connector or supporting evidence needs refresh.</p>
+										}
+									</div>
+									<div>
+										<p class="text-xs uppercase tracking-wide text-muted-foreground">Coverage</p>
+									<p class="mt-1 font-medium">{ FormatInt64(data.Principal.LinkedAssetsCount) }{ " related asset(s)" }</p>
+									<p class="text-xs text-muted-foreground">{ FormatInt64(data.Principal.LinkedCredentialsCount) }{ " linked credential(s)" }</p>
+								</div>
+								if data.Principal.IdentityHref != "" {
+									<div>
+										<p class="text-xs uppercase tracking-wide text-muted-foreground">Identity record</p>
+										<a class="btn-sm-link mt-1 px-0" href={ data.Principal.IdentityHref }>{ "Identity #" }{ FormatInt64(data.Principal.IdentityID) }</a>
+									</div>
+								}
+								if data.Principal.AppAssetHref != "" {
+									<div>
+										<p class="text-xs uppercase tracking-wide text-muted-foreground">Primary app asset</p>
+										<a class="btn-sm-link mt-1 px-0" href={ data.Principal.AppAssetHref }>{ "App asset #" }{ FormatInt64(data.Principal.AppAssetID) }</a>
+									</div>
+								}
+								if data.Principal.BestAvailableAttribution != "" {
+									<div>
+										<p class="text-xs uppercase tracking-wide text-muted-foreground">Best-available attribution</p>
+										if data.Principal.BestAvailableAttributionHref != "" {
+											<a class="btn-sm-link mt-1 px-0" href={ data.Principal.BestAvailableAttributionHref }>{ data.Principal.BestAvailableAttribution }</a>
+										} else {
+											<p class="mt-1 font-medium">{ data.Principal.BestAvailableAttribution }</p>
+										}
+										<p class="text-xs text-muted-foreground">Secondary context only. Not counted as accountable owner.</p>
+									</div>
+								}
+							</div>
+						</section>
+					</article>
+
+					<article class="card">
+						<header>
+							<h2>Related Assets</h2>
+							<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.RelatedAssets)) }</span>
+						</header>
+						<section>
+							@ColumnsTable("") {
+								<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+									<thead>
+										<tr>
+											<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Asset</th>
+											<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Governance</th>
+											<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Owner</th>
+											<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Credentials</th>
+											<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Evidence</th>
+										</tr>
+									</thead>
+									<tbody>
+										if data.HasAssets {
+											for _, item := range data.RelatedAssets {
+												<tr>
+													<td class="whitespace-normal">
+														<a class="btn-sm-link px-0 font-medium" href={ item.Href }>{ item.DisplayName }</a>
+														<div class="text-sm text-muted-foreground">{ HumanizeProgrammaticKind(item.AssetKind) }{ " • " }{ HumanizeConnectorKind(item.SourceKind) }</div>
+														if item.ExternalID != "" {
+															<div class="text-xs text-muted-foreground break-all">{ item.ExternalID }</div>
+														}
+													</td>
+													<td>
+														<div class="space-y-1">
+															<div class={ templ.Classes("font-medium leading-5", AppAssetGovernanceStateTextClass(item.GovernanceState)) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</div>
+															<div class="text-sm text-muted-foreground">{ fallbackHumanized(item.Status) }</div>
+														</div>
+													</td>
+													<td>
+														if item.GovernanceOwnerHref != "" {
+															<a class="btn-sm-link px-0" href={ item.GovernanceOwnerHref }>{ item.GovernanceOwner }</a>
+														} else {
+															{ item.GovernanceOwner }
+														}
+													</td>
+													<td>{ FormatInt64(item.LinkedCredentials) }</td>
+													<td>
+														<div class="flex flex-wrap items-center gap-2">
+															<span class={ AppAssetEvidenceFreshnessBadgeClass(item.EvidenceFreshness) }>{ HumanizeAppAssetEvidenceFreshness(item.EvidenceFreshness) }</span>
+															<span class={ AppAssetEvidenceConfidenceBadgeClass(item.EvidenceConfidence) }>{ HumanizeAppAssetEvidenceConfidence(item.EvidenceConfidence) }</span>
+														</div>
+														<div class="text-xs text-muted-foreground">{ item.EvidenceSeen.Label }</div>
+													</td>
+												</tr>
+											}
+										} else {
+											<tr>
+												<td colspan="5">@EmptyState("No related assets", "No app assets are currently linked to this principal.")</td>
+											</tr>
+										}
+									</tbody>
+								</table>
+							}
+						</section>
+					</article>
+				</div>
+
+				<div class="min-w-0 space-y-6">
+						<article class="card">
+							<header>
+								<h2>Risk Signals</h2>
+							</header>
+							<section>
+								<ul class="list-disc space-y-2 pl-5 text-sm marker:text-muted-foreground">
+									for _, reason := range data.RiskReasons {
+										<li>{ reason }</li>
+									}
+								</ul>
+							</section>
+						</article>
+				</div>
+			</div>
+
+			<article class="card min-w-0">
+				<header>
+					<h2>Linked Credentials</h2>
+					<p>Credential inventory, lifecycle, attribution, and linked asset context for this principal.</p>
+				</header>
+				<section class="space-y-5">
+					if data.HasCredentials {
+						<div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border/70 pb-4 text-sm">
+							<span class="font-medium text-foreground">{ FormatInt64(data.Principal.LinkedCredentialsCount) }{ " linked credential(s)" }</span>
+							if data.Principal.HasCriticalCredential {
+								<span class={ templ.Classes("font-medium", CredentialRiskTextClass("critical")) }>Critical risk present</span>
+							} else if data.Principal.HasHighRiskCredential {
+								<span class={ templ.Classes("font-medium", CredentialRiskTextClass("high")) }>High risk present</span>
+							}
+							if data.Principal.HasExpiredCredential {
+								<span class="text-muted-foreground">Expired credential present</span>
+							}
+							if data.Principal.HasExpiringCredential {
+								<span class="text-muted-foreground">Expiring credential present</span>
+							}
+							if data.Principal.HasUnusedCredential {
+								<span class="text-muted-foreground">Unused over 90 days</span>
+							}
+							if data.Principal.HasStaleEvidence {
+								<span class={ templ.Classes("font-medium", NonHumanFreshnessStateTextClass(data.Principal.FreshnessState)) }>Stale evidence</span>
 							}
 						</div>
-					</section>
-				</article>
 
-				<article class="card">
-					<header>
-						<h2>Related Assets</h2>
-						<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.RelatedAssets)) }</span>
-					</header>
-					<section>
-						@ColumnsTable("") {
-							<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-								<thead>
-									<tr>
-										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Asset</th>
-										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Governance</th>
-										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Owner</th>
-										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Credentials</th>
-										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Evidence</th>
-									</tr>
-								</thead>
-								<tbody>
-									if data.HasAssets {
-										for _, item := range data.RelatedAssets {
-											<tr>
-												<td class="whitespace-normal">
-													<a class="btn-sm-link px-0 font-medium" href={ item.Href }>{ item.DisplayName }</a>
-													<div class="text-sm text-muted-foreground">{ HumanizeProgrammaticKind(item.AssetKind) }{ " • " }{ HumanizeConnectorKind(item.SourceKind) }</div>
-													if item.ExternalID != "" {
-														<div class="text-xs text-muted-foreground break-all">{ item.ExternalID }</div>
-													}
-												</td>
-												<td>
-													<div class="flex flex-wrap items-center gap-2">
-														<span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span>
-														<span class="text-sm text-muted-foreground">{ item.Status }</span>
-													</div>
-												</td>
-												<td>
-													if item.GovernanceOwnerHref != "" {
-														<a class="btn-sm-link px-0" href={ item.GovernanceOwnerHref }>{ item.GovernanceOwner }</a>
-													} else {
-														{ item.GovernanceOwner }
-													}
-												</td>
-												<td>{ FormatInt64(item.LinkedCredentials) }</td>
-												<td>
-													<div class="flex flex-wrap items-center gap-2">
-														<span class={ AppAssetEvidenceFreshnessBadgeClass(item.EvidenceFreshness) }>{ HumanizeAppAssetEvidenceFreshness(item.EvidenceFreshness) }</span>
-														<span class={ AppAssetEvidenceConfidenceBadgeClass(item.EvidenceConfidence) }>{ HumanizeAppAssetEvidenceConfidence(item.EvidenceConfidence) }</span>
-													</div>
-													<div class="text-xs text-muted-foreground">{ item.EvidenceSeen.Label }</div>
-												</td>
-											</tr>
-										}
-									} else {
-										<tr>
-											<td colspan="5">@EmptyState("No related assets", "No app assets are currently linked to this principal.")</td>
-										</tr>
-									}
-								</tbody>
-							</table>
-						}
-					</section>
-				</article>
+						<div class="hidden xl:grid xl:grid-cols-[minmax(0,1.9fr)_minmax(8rem,0.7fr)_minmax(12rem,0.9fr)_minmax(0,1.2fr)_minmax(0,0.9fr)] xl:gap-6">
+							<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Credential</p>
+							<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Risk</p>
+							<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Lifecycle</p>
+							<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Attribution</p>
+							<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Asset</p>
+						</div>
 
-				<article class="card">
-					<header>
-						<h2>Linked Credentials</h2>
-						<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Credentials)) }</span>
-					</header>
-					<section>
-						@ColumnsTable("") {
-							<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-								<thead>
-									<tr>
-										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Credential</th>
-										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Risk</th>
-										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Expires</th>
-										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last used</th>
-										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Attribution</th>
-										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Asset</th>
-									</tr>
-								</thead>
-								<tbody>
-									if data.HasCredentials {
-										for _, item := range data.Credentials {
-											<tr>
-												<td class="whitespace-normal">
-													<a class="btn-sm-link px-0 font-medium" href={ item.Href }>{ item.DisplayName }</a>
-													<div class="text-sm text-muted-foreground">{ HumanizeCredentialKind(item.CredentialKind) }{ " • " }{ HumanizeConnectorKind(item.SourceKind) }</div>
-													if item.ExternalID != "" {
-														<div class="text-xs text-muted-foreground break-all">{ item.ExternalID }</div>
-													}
-												</td>
-												<td><span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span></td>
-												<td>{ item.ExpiresAt.Label }</td>
-												<td>{ item.LastUsedAt.Label }</td>
-												<td class="whitespace-normal">
-													<div>
-														<span class="text-xs uppercase tracking-wide text-muted-foreground">Created by</span>
-														if item.CreatedByHref != "" {
-															<div><a class="btn-sm-link px-0" href={ item.CreatedByHref }>{ item.CreatedBy }</a></div>
-														} else {
-															<div>{ item.CreatedBy }</div>
+						<div class="divide-y divide-border/70">
+							for _, item := range data.Credentials {
+								<article class="grid gap-5 py-5 first:pt-0 last:pb-0 xl:grid-cols-[minmax(0,1.9fr)_minmax(8rem,0.7fr)_minmax(12rem,0.9fr)_minmax(0,1.2fr)_minmax(0,0.9fr)] xl:gap-6">
+									<div class="min-w-0 space-y-2">
+										<div class="flex flex-wrap items-start gap-3">
+											<div class="min-w-0 flex-1">
+												<a class="btn-sm-link px-0 font-medium break-words" href={ item.Href }>{ item.DisplayName }</a>
+													<div class="text-sm text-muted-foreground">
+														{ HumanizeCredentialKind(item.CredentialKind) }{ " • " }{ HumanizeConnectorKind(item.SourceKind) }
+														if item.Status != "—" {
+															{ " • " }{ fallbackHumanized(item.Status) }
 														}
 													</div>
-													<div class="mt-2">
-														<span class="text-xs uppercase tracking-wide text-muted-foreground">Approved by</span>
-														if item.ApprovedByHref != "" {
-															<div><a class="btn-sm-link px-0" href={ item.ApprovedByHref }>{ item.ApprovedBy }</a></div>
-														} else {
-															<div>{ item.ApprovedBy }</div>
-														}
-													</div>
-												</td>
-												<td>
-													if item.AppAssetHref != "" {
-														<a class="btn-sm-link px-0" href={ item.AppAssetHref }>{ item.AppAssetDisplay }</a>
-													} else {
-														{ item.AppAssetDisplay }
-													}
-												</td>
-											</tr>
+												</div>
+											</div>
+										if item.ExternalID != "" {
+											<div class="text-xs text-muted-foreground break-all">{ item.ExternalID }</div>
 										}
-									} else {
-										<tr>
-											<td colspan="6">@EmptyState("No linked credentials", "No credentials are currently linked to this principal.")</td>
-										</tr>
-									}
-								</tbody>
-							</table>
-						}
-					</section>
-				</article>
-			</div>
+									</div>
 
-			<div class="space-y-6">
-				<article class="card">
-					<header>
-						<h2>Risk Signals</h2>
-					</header>
-					<section>
-						<ul class="space-y-2 text-sm">
-							for _, reason := range data.RiskReasons {
-								<li class="rounded-md border border-border/70 bg-muted/20 px-3 py-2">{ reason }</li>
+										<div class="space-y-1">
+											<p class="text-xs uppercase tracking-wide text-muted-foreground xl:hidden">Risk</p>
+											<span class={ templ.Classes("font-medium", CredentialRiskTextClass(item.RiskLevel)) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
+										</div>
+
+									<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+										<div class="space-y-1">
+											<p class="text-xs uppercase tracking-wide text-muted-foreground">Expires</p>
+											<p class="font-medium tabular-nums">{ item.ExpiresAt.Label }</p>
+										</div>
+										<div class="space-y-1">
+											<p class="text-xs uppercase tracking-wide text-muted-foreground">Last used</p>
+											<p class="font-medium tabular-nums">{ item.LastUsedAt.Label }</p>
+										</div>
+									</div>
+
+									<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+										<div class="space-y-1">
+											<p class="text-xs uppercase tracking-wide text-muted-foreground">Created by</p>
+											if item.CreatedByHref != "" {
+												<div><a class="btn-sm-link px-0 break-words" href={ item.CreatedByHref }>{ item.CreatedBy }</a></div>
+											} else {
+												<div class="font-medium break-words">{ item.CreatedBy }</div>
+											}
+										</div>
+										<div class="space-y-1">
+											<p class="text-xs uppercase tracking-wide text-muted-foreground">Approved by</p>
+											if item.ApprovedByHref != "" {
+												<div><a class="btn-sm-link px-0 break-words" href={ item.ApprovedByHref }>{ item.ApprovedBy }</a></div>
+											} else {
+												<div class="font-medium break-words">{ item.ApprovedBy }</div>
+											}
+										</div>
+									</div>
+
+									<div class="min-w-0 space-y-1">
+										<p class="text-xs uppercase tracking-wide text-muted-foreground xl:hidden">Asset</p>
+										if item.AppAssetHref != "" {
+											<a class="btn-sm-link px-0 font-medium break-words" href={ item.AppAssetHref }>{ item.AppAssetDisplay }</a>
+										} else {
+											<p class="font-medium break-words">{ item.AppAssetDisplay }</p>
+										}
+									</div>
+								</article>
 							}
-						</ul>
-					</section>
-				</article>
-			</div>
+						</div>
+					} else {
+						@EmptyState("No linked credentials", "No credentials are currently linked to this principal.")
+					}
+				</section>
+			</article>
 		</div>
 	}
 }

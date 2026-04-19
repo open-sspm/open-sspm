@@ -136,11 +136,18 @@ type CredentialArtifactSummaryView struct {
 	AssetHref          string
 }
 
+type CredentialRiskFinding struct {
+	Severity string // "critical", "high", "medium", "low", "info"
+	Title    string
+	Evidence string
+}
+
 type CredentialShowViewData struct {
-	Layout      LayoutData
-	Credential  CredentialArtifactSummaryView
-	ScopeJSON   string
-	AuditEvents []ProgrammaticAuditEventItem
-	RiskReasons []string
-	HasEvents   bool
+	Layout       LayoutData
+	Credential   CredentialArtifactSummaryView
+	ScopeJSON    string
+	AuditEvents  []ProgrammaticAuditEventItem
+	RiskFindings []CredentialRiskFinding
+	HasEvents    bool
+	HasFindings  bool
 }

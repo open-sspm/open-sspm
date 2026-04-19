@@ -362,6 +362,23 @@ func AppAssetGovernanceStateBadgeClass(state string) string {
 	}
 }
 
+func AppAssetGovernanceStateTextClass(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "action_required":
+		return "text-rose-700 dark:text-rose-400"
+	case "in_review":
+		return "text-amber-700 dark:text-amber-400"
+	case "approved":
+		return "text-emerald-700 dark:text-emerald-400"
+	case "ticketed":
+		return "text-sky-700 dark:text-sky-400"
+	case "unreviewed":
+		return "text-foreground"
+	default:
+		return "text-muted-foreground"
+	}
+}
+
 func HumanizeDiscoveryManagedState(state string) string {
 	switch strings.ToLower(strings.TrimSpace(state)) {
 	case "managed":
@@ -552,6 +569,74 @@ func HumanizeCredentialRisk(risk string) string {
 	}
 }
 
+func CredentialStatusBadgeClass(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "expired":
+		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+	case "revoked":
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+	case "active", "approved":
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	case "pending_approval", "pending":
+		return "badge bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-100"
+	default:
+		return "badge-outline"
+	}
+}
+
+func HumanizeCredentialStatus(status string) string {
+	value := strings.TrimSpace(status)
+	if value == "" || value == "—" {
+		return "Unknown"
+	}
+	switch strings.ToLower(value) {
+	case "pending_approval":
+		return "Pending approval"
+	}
+	// Convert snake_case to "Title case".
+	parts := strings.Split(value, "_")
+	for i, part := range parts {
+		if part == "" {
+			continue
+		}
+		parts[i] = strings.ToUpper(part[:1]) + strings.ToLower(part[1:])
+	}
+	return strings.Join(parts, " ")
+}
+
+// RiskSeverityDotClass returns a small colored dot class for severity markers.
+func RiskSeverityDotClass(severity string) string {
+	switch strings.ToLower(strings.TrimSpace(severity)) {
+	case "critical":
+		return "bg-rose-500"
+	case "high":
+		return "bg-amber-500"
+	case "medium":
+		return "bg-sky-500"
+	case "low":
+		return "bg-emerald-500"
+	default:
+		return "bg-muted-foreground/50"
+	}
+}
+
+func HumanizeRiskSeverity(severity string) string {
+	switch strings.ToLower(strings.TrimSpace(severity)) {
+	case "critical":
+		return "Critical"
+	case "high":
+		return "High"
+	case "medium":
+		return "Medium"
+	case "low":
+		return "Low"
+	case "info":
+		return "Info"
+	default:
+		return "—"
+	}
+}
+
 func AppAssetEvidenceFreshnessBadgeClass(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "fresh":
@@ -694,6 +779,19 @@ func NonHumanFreshnessStateBadgeClass(value string) string {
 		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
 	default:
 		return "badge-outline"
+	}
+}
+
+func NonHumanFreshnessStateTextClass(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "current":
+		return "text-emerald-700 dark:text-emerald-400"
+	case "stale":
+		return "text-rose-700 dark:text-rose-400"
+	case "unknown":
+		return "text-amber-700 dark:text-amber-400"
+	default:
+		return "text-muted-foreground"
 	}
 }
 
@@ -1164,6 +1262,14 @@ func HumanizeStatus(status string) string {
 
 // Pluralize returns singular when n == 1, otherwise plural.
 func Pluralize(n int64, singular, plural string) string {
+	if n == 1 {
+		return singular
+	}
+	return plural
+}
+
+// pluralizeSuffix is an int convenience for templ that returns singular when n == 1.
+func pluralizeSuffix(n int, singular, plural string) string {
 	if n == 1 {
 		return singular
 	}

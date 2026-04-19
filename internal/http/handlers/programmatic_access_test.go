@@ -50,7 +50,7 @@ func TestCredentialRiskReasons(t *testing.T) {
 		LastUsedAtSource: timestamptz(now.Add(-120 * 24 * time.Hour)),
 	}
 
-	reasons := credentialRiskReasonsFor(
+	findings := credentialRiskFindingsFor(
 		credential.Status,
 		credential.CredentialKind,
 		credential.CreatedByExternalID,
@@ -59,8 +59,13 @@ func TestCredentialRiskReasons(t *testing.T) {
 		credential.LastUsedAtSource,
 		now,
 	)
-	if len(reasons) < 3 {
-		t.Fatalf("expected multiple reasons, got %v", reasons)
+	if len(findings) < 3 {
+		t.Fatalf("expected multiple findings, got %v", findings)
+	}
+	for _, f := range findings {
+		if f.Severity == "" || f.Title == "" {
+			t.Fatalf("finding missing severity or title: %+v", f)
+		}
 	}
 }
 

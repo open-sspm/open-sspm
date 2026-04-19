@@ -620,7 +620,7 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 		displayName = strings.TrimSpace(credential.ExternalID)
 	}
 	riskLevel := strings.TrimSpace(credential.RiskLevel)
-	riskReasons := credentialRiskReasonsFor(credential.Status, credential.CredentialKind, credential.CreatedByExternalID, credential.ApprovedByExternalID, credential.ExpiresAtSource, credential.LastUsedAtSource, now)
+	riskFindings := credentialRiskFindingsFor(credential.Status, credential.CredentialKind, credential.CreatedByExternalID, credential.ApprovedByExternalID, credential.ExpiresAtSource, credential.LastUsedAtSource, now)
 	linkResolver := newIdentityLinkResolver(h, ctx)
 
 	data := viewmodels.CredentialShowViewData{
@@ -636,19 +636,20 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 			AssetRefExternalID: fallbackDash(strings.TrimSpace(credential.AssetRefExternalID)),
 			Status:             fallbackDash(strings.TrimSpace(credential.Status)),
 			RiskLevel:          riskLevel,
-			CreatedAtSource:    calendarDateDisplay(credential.CreatedAtSource),
-			ExpiresAtSource:    calendarDateDisplay(credential.ExpiresAtSource),
-			LastUsedAtSource:   calendarDateDisplay(credential.LastUsedAtSource),
+			CreatedAtSource:    calendarDateWithRelativeDisplay(credential.CreatedAtSource),
+			ExpiresAtSource:    calendarDateWithRelativeDisplay(credential.ExpiresAtSource),
+			LastUsedAtSource:   calendarDateWithRelativeDisplay(credential.LastUsedAtSource),
 			CreatedBy:          fallbackDash(actorDisplayName(credential.CreatedByDisplayName, credential.CreatedByExternalID)),
 			CreatedByHref:      linkResolver.Resolve(strings.TrimSpace(credential.SourceKind), strings.TrimSpace(credential.SourceName), credential.CreatedByExternalID, "", credential.CreatedByDisplayName),
 			ApprovedBy:         fallbackDash(actorDisplayName(credential.ApprovedByDisplayName, credential.ApprovedByExternalID)),
 			ApprovedByHref:     linkResolver.Resolve(strings.TrimSpace(credential.SourceKind), strings.TrimSpace(credential.SourceName), credential.ApprovedByExternalID, "", credential.ApprovedByDisplayName),
 			AssetHref:          assetHref,
 		},
-		ScopeJSON:   prettyProgrammaticJSON(credential.ScopeJson),
-		AuditEvents: eventItems,
-		RiskReasons: riskReasons,
-		HasEvents:   len(eventItems) > 0,
+		ScopeJSON:    prettyProgrammaticJSON(credential.ScopeJson),
+		AuditEvents:  eventItems,
+		RiskFindings: riskFindings,
+		HasEvents:    len(eventItems) > 0,
+		HasFindings:  len(riskFindings) > 0,
 	}
 
 	h.trackNonHumanAccessOutboundClick(c, "credential", credential.ID)
@@ -790,9 +791,9 @@ func pgTimestamptz(ts time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: ts.UTC(), Valid: true}
 }
 
-func credentialRiskReasonsFor(statusValue, credentialKindValue, createdByValue, approvedByValue string, expiresAt, lastUsedAt pgtype.Timestamptz, now time.Time) []string {
+func credentialRiskFindingsFor(statusValue, credentialKindValue, createdByValue, approvedByValue string, expiresAt, lastUsedAt pgtype.Timestamptz, now time.Time) []viewmodels.CredentialRiskFinding {
 	now = now.UTC()
-	reasons := make([]string, 0, 4)
+	findings := make([]viewmodels.CredentialRiskFinding, 0, 4)
 
 	status := strings.ToLower(strings.TrimSpace(statusValue))
 	credentialKind := strings.ToLower(strings.TrimSpace(credentialKindValue))
@@ -800,39 +801,64 @@ func credentialRiskReasonsFor(statusValue, credentialKindValue, createdByValue, 
 	approvedByExternalID := strings.TrimSpace(approvedByValue)
 
 	if expiresAt.Valid && expiresAt.Time.UTC().Before(now) {
+		evidence := "Expired " + relativeDateLabel(expiresAt.Time)
 		if isCredentialStatusActiveLike(status) {
-			reasons = append(reasons, "Credential has expired while still marked active.")
+			findings = append(findings, viewmodels.CredentialRiskFinding{
+				Severity: "critical",
+				Title:    "Credential has expired while still marked active",
+				Evidence: evidence,
+			})
 		} else {
-			reasons = append(reasons, "Credential has expired.")
+			findings = append(findings, viewmodels.CredentialRiskFinding{
+				Severity: "critical",
+				Title:    "Credential has expired",
+				Evidence: evidence,
+			})
 		}
 	}
 
 	if isHighPrivilegeCredentialKind(credentialKind) && createdByExternalID == "" && approvedByExternalID == "" {
-		reasons = append(reasons, "High-privilege credential has no creator or approver attribution.")
+		findings = append(findings, viewmodels.CredentialRiskFinding{
+			Severity: "high",
+			Title:    "High-privilege credential has no creator or approver",
+			Evidence: "No provenance recorded at source",
+		})
 	}
 
 	if expiresAt.Valid {
 		expiresAtTime := expiresAt.Time.UTC()
 		if !expiresAtTime.Before(now) && !expiresAtTime.After(now.Add(7*24*time.Hour)) {
-			reasons = append(reasons, "Credential expires within 7 days.")
+			findings = append(findings, viewmodels.CredentialRiskFinding{
+				Severity: "high",
+				Title:    "Credential expires within 7 days",
+				Evidence: "Expires " + relativeDateLabel(expiresAtTime),
+			})
 		} else if !expiresAtTime.Before(now) && !expiresAtTime.After(now.Add(30*24*time.Hour)) {
-			reasons = append(reasons, "Credential expires within 30 days.")
+			findings = append(findings, viewmodels.CredentialRiskFinding{
+				Severity: "medium",
+				Title:    "Credential expires within 30 days",
+				Evidence: "Expires " + relativeDateLabel(expiresAtTime),
+			})
 		}
 	}
 
 	if createdByExternalID == "" {
-		reasons = append(reasons, "Creator attribution is missing.")
+		findings = append(findings, viewmodels.CredentialRiskFinding{
+			Severity: "medium",
+			Title:    "Creator attribution is missing",
+			Evidence: "No provenance recorded at source",
+		})
 	}
 
 	if lastUsedAt.Valid && lastUsedAt.Time.UTC().Before(now.Add(-90*24*time.Hour)) {
-		reasons = append(reasons, "Credential has not been used in over 90 days.")
+		findings = append(findings, viewmodels.CredentialRiskFinding{
+			Severity: "medium",
+			Title:    "Credential has not been used in over 90 days",
+			Evidence: "Last used " + relativeDateLabel(lastUsedAt.Time),
+		})
 	}
 
-	if len(reasons) == 0 {
-		reasons = append(reasons, "Credential metadata appears healthy based on current heuristics.")
-	}
-
-	return reasons
+	return findings
 }
 
 func isCredentialStatusActiveLike(status string) bool {
