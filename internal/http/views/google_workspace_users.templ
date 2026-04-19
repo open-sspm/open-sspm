@@ -42,7 +42,7 @@ templ GoogleWorkspaceUserMobileRow(user viewmodels.GoogleWorkspaceUserListItem) 
 
 templ GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("Synced Google Workspace users with group/admin-role visibility.") {
+		@PageHeader("") {
 			if data.Layout.GoogleWorkspaceConfigured && data.Layout.GoogleWorkspaceEnabled {
 				<a class="btn-sm-outline" href="/accounts/google-workspace/groups">Groups</a>
 				<a class="btn-sm-outline" href={ querystate.ConnectedAppsQuery{}.Href() }>OAuth Apps</a>

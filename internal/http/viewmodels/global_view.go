@@ -8,9 +8,14 @@ type GlobalViewData struct {
 type GlobalViewAppCard struct {
 	Kind           string
 	Name           string
+	CategoryLabel  string
 	Subtitle       string
 	StatusLabel    string
-	StatusClass    string
+	StatusTone     string // "ok", "muted", "warn", "error"
+	IsActive       bool   // configured + enabled + no config error
+	ShowScore      bool   // whether to render the score bar and metrics
+	ScoreLabel     string
+	ScoreValue     int
 	Metrics        []GlobalViewKV
 	Highlights     []GlobalViewKV
 	PrimaryHref    string

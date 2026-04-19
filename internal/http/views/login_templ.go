@@ -45,7 +45,7 @@ func LoginPage(data viewmodels.LoginViewData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"mx-auto w-full max-w-lg\"><article class=\"card gap-7 rounded-2xl\"><header class=\"!gap-2 !px-8 !pt-8 !pb-0\"><h1 class=\"text-3xl font-semibold tracking-tight\">Sign in</h1><p class=\"max-w-md text-base leading-7\">Sign in to manage and view your Open-SSPM workspace.</p></header><section class=\"space-y-5 !px-8 !pb-8\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"-mx-4 -my-8 lg:-mx-10 lg:-my-12\"><div class=\"mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-sm flex-col justify-center px-6 py-16\"><div class=\"mb-8 inline-flex w-fit items-center gap-3 self-start rounded-full border border-border bg-background/90 px-3 py-2 shadow-sm sm:mb-10\"><div class=\"grid h-8 w-8 place-items-center rounded-full bg-background ring-1 ring-border\"><img src=\"/static/brand/shield.png\" alt=\"\" class=\"h-4 w-4\"></div><span class=\"text-sm font-semibold tracking-tight text-foreground\">Open-SSPM</span></div><h1 class=\"mb-8 text-2xl font-semibold tracking-tight\">Workspace access</h1>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -74,6 +74,10 @@ func LoginPage(data viewmodels.LoginViewData) templ.Component {
 				}
 			} else {
 				if data.ErrorMessage != "" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"mb-5\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
 					templ_7745c5c3_Var4 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 						templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 						templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
@@ -86,20 +90,20 @@ func LoginPage(data viewmodels.LoginViewData) templ.Component {
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<p>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<p>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var5 string
 						templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.ErrorMessage)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `login.templ`, Line: 26, Col: 30}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `login.templ`, Line: 31, Col: 30}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</p>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</p>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -109,8 +113,12 @@ func LoginPage(data viewmodels.LoginViewData) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " <form method=\"post\" action=\"/login\" class=\"space-y-6\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, " <form method=\"post\" action=\"/login\" class=\"space-y-5\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -118,38 +126,38 @@ func LoginPage(data viewmodels.LoginViewData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<input type=\"hidden\" name=\"next\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<input type=\"hidden\" name=\"next\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(data.Next)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `login.templ`, Line: 31, Col: 57}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `login.templ`, Line: 37, Col: 56}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"> <label class=\"field\"><span class=\"label text-base\">Email</span> <input type=\"email\" name=\"email\" class=\"input h-14 rounded-xl px-4 text-base\" autocomplete=\"username\" required value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\"> <label class=\"field\"><span class=\"label\">Email</span> <input type=\"email\" name=\"email\" class=\"input\" autocomplete=\"username\" required value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(data.Email)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `login.templ`, Line: 35, Col: 137}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `login.templ`, Line: 41, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\"></label> <label class=\"field\"><span class=\"label text-base\">Password</span> <input type=\"password\" name=\"password\" class=\"input h-14 rounded-xl px-4 text-base\" autocomplete=\"current-password\" required></label> <button type=\"submit\" class=\"btn-primary h-12 w-full rounded-xl text-base font-semibold\">Sign in</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" autofocus></label> <label class=\"field\"><span class=\"label\">Password</span> <input type=\"password\" name=\"password\" class=\"input\" autocomplete=\"current-password\" required></label> <button type=\"submit\" class=\"btn-primary w-full\">Sign in</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</section></article></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

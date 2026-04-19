@@ -4,8 +4,6 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ NonHumanAccessPage(data viewmodels.NonHumanAccessViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("Review non-human principals, accountable ownership, credential risk, and linked programmatic assets in one workflow.") {
-		}
 		@NonHumanAccessPageResults(data)
 	}
 }
@@ -69,107 +67,115 @@ templ NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) {
 			if data.HasItems {
 				<div class="space-y-3 lg:hidden">
 					for _, item := range data.Items {
-						<article class="rounded-lg border border-border/70 bg-card p-4">
+						<a href={ templ.SafeURL("/non-human-access/" + item.PrincipalRef) } class="osspm-identity-card">
 							<div class="flex items-start justify-between gap-3">
 								<div class="min-w-0">
-									<a class="block font-medium text-foreground no-underline hover:underline" href={ "/non-human-access/" + item.PrincipalRef } title={ item.DisplayName }>
-										<span class="osspm-truncate">{ item.DisplayName }</span>
-									</a>
+									<div class="font-medium truncate">{ item.DisplayName }</div>
 									if item.SecondaryName != "" {
-										<span class="block text-sm text-muted-foreground" title={ item.SecondaryName }>
-											<span class="osspm-truncate">{ item.SecondaryName }</span>
-										</span>
+										<div class="text-sm text-muted-foreground truncate">{ item.SecondaryName }</div>
 									}
+									<div class="mt-1 text-xs text-muted-foreground">
+										{ HumanizeNonHumanPrincipalType(item.PrincipalType) }
+										{ " · " }{ HumanizeConnectorKind(item.SourceKind) }
+										if item.SourceName != "" {
+											{ " · " }{ item.SourceName }
+										}
+									</div>
 								</div>
 								<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
 							</div>
-							<div class="mt-2 flex flex-wrap items-center gap-2">
-								<span class="text-sm text-muted-foreground">{ HumanizeNonHumanPrincipalType(item.PrincipalType) }</span>
-								<span class={ NonHumanOwnerPresenceBadgeClass(item.OwnerPresence) }>{ HumanizeNonHumanOwnerPresence(item.OwnerPresence) }</span>
-								<span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span>
-								<span class={ NonHumanActivityStateBadgeClass(item.ActivityState) }>{ HumanizeNonHumanActivityState(item.ActivityState) }</span>
-								<span class={ NonHumanFreshnessStateBadgeClass(item.FreshnessState) }>{ HumanizeNonHumanFreshnessState(item.FreshnessState) }</span>
-							</div>
-							<div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+							<dl class="mt-3 grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
 								<div>
-									<div class="text-xs uppercase tracking-wide text-muted-foreground">Owner</div>
-									if item.AccountableOwnerHref != "" {
-										<a class="text-foreground hover:underline" href={ item.AccountableOwnerHref }>{ item.AccountableOwner }</a>
-									} else {
-										<div class="text-foreground">{ item.AccountableOwner }</div>
-									}
+									<dt class="osspm-stat-label">Owner</dt>
+									<dd class="truncate">
+										if item.AccountableOwner != "" {
+											{ item.AccountableOwner }
+										} else {
+											<span class="text-muted-foreground">—</span>
+										}
+									</dd>
 								</div>
 								<div>
-									<div class="text-xs uppercase tracking-wide text-muted-foreground">Source</div>
-									<div>{ HumanizeConnectorKind(item.SourceKind) }</div>
-									<div class="osspm-truncate text-xs text-muted-foreground" title={ item.SourceName }>{ item.SourceName }</div>
+									<dt class="osspm-stat-label">Links</dt>
+									<dd class="tabular-nums">{ FormatInt64(item.LinkedAssetsCount) }{ " · " }{ FormatInt64(item.LinkedCredentialsCount) }</dd>
 								</div>
 								<div>
-									<div class="text-xs uppercase tracking-wide text-muted-foreground">Last seen</div>
-									<div class="text-foreground">{ item.LastSeen.Label }</div>
+									<dt class="osspm-stat-label">Last seen</dt>
+									<dd class="truncate">{ item.LastSeen.Label }</dd>
 								</div>
-								<div>
-									<div class="text-xs uppercase tracking-wide text-muted-foreground">Links</div>
-									<div class="text-foreground">{ FormatInt64(item.LinkedAssetsCount) }{ " assets • " }{ FormatInt64(item.LinkedCredentialsCount) }{ " creds" }</div>
-								</div>
-							</div>
-						</article>
+							</dl>
+						</a>
 					}
 				</div>
 
 				@ColumnsTable("hidden lg:block") {
-					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list osspm-table-non-human-access text-sm">
+					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list osspm-table-non-human-access">
+						<caption class="sr-only">Non-human principals with ownership, credential risk, and activity.</caption>
 						<colgroup>
 							<col class="osspm-col-principal"/>
-							<col class="osspm-col-type"/>
 							<col class="osspm-col-owner"/>
-							<col class="osspm-col-governance"/>
 							<col class="osspm-col-risk"/>
 							<col class="osspm-col-activity"/>
-							<col class="osspm-col-freshness"/>
 							<col class="osspm-col-links"/>
 						</colgroup>
 						<thead>
 							<tr>
-								<th class="osspm-col-principal text-xs font-medium uppercase tracking-wide text-muted-foreground">Principal</th>
-								<th class="osspm-col-type text-xs font-medium uppercase tracking-wide text-muted-foreground">Type</th>
-								<th class="osspm-col-owner text-xs font-medium uppercase tracking-wide text-muted-foreground">Owner</th>
-								<th class="osspm-col-governance text-xs font-medium uppercase tracking-wide text-muted-foreground">Governance</th>
-								<th class="osspm-col-risk text-xs font-medium uppercase tracking-wide text-muted-foreground">Risk</th>
-								<th class="osspm-col-activity text-xs font-medium uppercase tracking-wide text-muted-foreground">Activity</th>
-								<th class="osspm-col-freshness text-xs font-medium uppercase tracking-wide text-muted-foreground">Freshness</th>
-								<th class="osspm-col-links text-xs font-medium uppercase tracking-wide text-muted-foreground">Links</th>
+								<th>Principal</th>
+								<th>Owner</th>
+								<th>Risk</th>
+								<th>Activity</th>
+								<th class="osspm-num">Links</th>
 							</tr>
 						</thead>
 						<tbody>
 							for _, item := range data.Items {
-								<tr data-row-href={ "/non-human-access/" + item.PrincipalRef } class="group cursor-pointer hover:bg-muted/30 transition-colors">
-									<td class="osspm-col-principal py-4 align-top pr-4">
-										<a class="font-medium text-foreground no-underline group-hover:underline osspm-truncate block" href={ "/non-human-access/" + item.PrincipalRef } title={ item.DisplayName }>{ item.DisplayName }</a>
-										<div class="osspm-truncate text-muted-foreground mt-0.5" title={ HumanizeConnectorKind(item.SourceKind) + " • " + item.SourceName }>
-											{ HumanizeConnectorKind(item.SourceKind) }{ " • " }{ item.SourceName }
-										</div>
-										if item.SecondaryName != "" {
-											<div class="text-muted-foreground/70 osspm-truncate mt-0.5" title={ item.SecondaryName }>{ item.SecondaryName }</div>
-										}
+								<tr data-row-href={ "/non-human-access/" + item.PrincipalRef }>
+									<td>
+										<a class="osspm-identity-link" href={ templ.SafeURL("/non-human-access/" + item.PrincipalRef) }>
+											<span class="osspm-identity-name">{ item.DisplayName }</span>
+											<span class="osspm-identity-meta">
+												<span class="truncate">
+													{ HumanizeNonHumanPrincipalType(item.PrincipalType) }
+													{ " · " }{ HumanizeConnectorKind(item.SourceKind) }
+													if item.SourceName != "" {
+														{ " · " }{ item.SourceName }
+													}
+												</span>
+												if nonHumanShouldShowGovernance(item.GovernanceState) {
+													<span class="osspm-identity-status">{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span>
+												}
+											</span>
+										</a>
 									</td>
-									<td class="osspm-col-type py-4 align-top pr-4"><span class="text-muted-foreground">{ HumanizeNonHumanPrincipalType(item.PrincipalType) }</span></td>
-									<td class="osspm-col-owner py-4 align-top pr-4">
+									<td>
 										if item.AccountableOwnerHref != "" {
-											<a class="osspm-truncate text-foreground hover:underline" href={ item.AccountableOwnerHref } title={ item.AccountableOwner }>{ item.AccountableOwner }</a>
+											<a class="osspm-cell-primary no-underline hover:underline" href={ item.AccountableOwnerHref }>{ item.AccountableOwner }</a>
+										} else if item.AccountableOwner != "" {
+											<span class="osspm-cell-primary font-normal">{ item.AccountableOwner }</span>
 										} else {
-											<span class="osspm-truncate text-foreground" title={ item.AccountableOwner }>{ item.AccountableOwner }</span>
+											<span class="text-muted-foreground">—</span>
+										}
+										<span class="osspm-cell-secondary">{ HumanizeNonHumanOwnerPresence(item.OwnerPresence) }</span>
+									</td>
+									<td><span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span></td>
+									<td>
+										if item.LastSeen.Label != "" {
+											<span class="osspm-cell-primary">{ item.LastSeen.Label }</span>
+										} else {
+											<span class="text-muted-foreground">—</span>
+										}
+										if nonHumanShouldShowActivity(item.ActivityState, item.FreshnessState) {
+											<span class="osspm-cell-secondary">
+												{ HumanizeNonHumanActivityState(item.ActivityState) }
+												if item.FreshnessState != "" && item.FreshnessState != "fresh" {
+													{ " · " }{ HumanizeNonHumanFreshnessState(item.FreshnessState) }
+												}
+											</span>
 										}
 									</td>
-									<td class="osspm-col-governance py-4 align-top pr-4"><span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span></td>
-									<td class="osspm-col-risk py-4 align-top pr-4"><span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span></td>
-									<td class="osspm-col-activity py-4 align-top pr-4">
-										<div class="text-foreground">{ item.LastSeen.Label }</div>
-										<div class="text-muted-foreground mt-0.5">{ HumanizeNonHumanActivityState(item.ActivityState) }</div>
-									</td>
-									<td class="osspm-col-freshness py-4 align-top pr-4"><span class={ NonHumanFreshnessStateBadgeClass(item.FreshnessState) }>{ HumanizeNonHumanFreshnessState(item.FreshnessState) }</span></td>
-									<td class="osspm-col-links py-4 align-top text-muted-foreground">
-										<span class="text-foreground">{ FormatInt64(item.LinkedAssetsCount) }</span> assets &middot; <span class="text-foreground">{ FormatInt64(item.LinkedCredentialsCount) }</span> creds
+									<td class="osspm-num">
+										<span class="font-medium tabular-nums">{ FormatInt64(item.LinkedAssetsCount) }</span>
+										<span class="osspm-cell-secondary">{ FormatInt64(item.LinkedCredentialsCount) }{ " creds" }</span>
 									</td>
 								</tr>
 							}

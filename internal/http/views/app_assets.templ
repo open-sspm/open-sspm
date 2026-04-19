@@ -38,13 +38,6 @@ templ AppAssetMobileRow(item viewmodels.AppAssetListItem) {
 
 templ AppAssetsPage(data viewmodels.AppAssetsViewData) {
 	@Layout(data.Layout) {
-		if data.GoogleOAuthView != nil {
-			@PageHeader("Saved view for Google Workspace OAuth apps with governance state, grant activity, ownership, and discovery evidence.") {
-			}
-		} else {
-			@PageHeader("Inventory of applications and service principals discovered from connected providers.") {
-			}
-		}
 		@AppAssetsPageResults(data)
 	}
 }
@@ -82,12 +75,6 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 			</form>
 
 		<section class="space-y-3">
-				<div class="osspm-list-section-header">
-				<div>
-					<h2 class="text-base font-semibold">App Assets</h2>
-					<p class="text-sm text-muted-foreground">Applications and service principals from connected providers.</p>
-				</div>
-			</div>
 			if data.HasItems {
 				<div class="space-y-3 lg:hidden">
 					for _, item := range data.Items {

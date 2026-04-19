@@ -4,8 +4,6 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ ConnectedAppsPage(data viewmodels.ConnectedAppsViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("Saved view for Google Workspace OAuth apps with governance state, grant activity, ownership, and discovery evidence.") {
-		}
 		@ConnectedAppsPageResults(data)
 	}
 }

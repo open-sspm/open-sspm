@@ -4,7 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ UnmatchedDatadogPage(data viewmodels.UnmatchedDatadogViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("Match Datadog identities to identities for complete access coverage.") {
+		@PageHeader("") {
 			if data.Layout.DatadogConfigured {
 				<span class="badge-outline">{ data.Layout.DatadogSite }</span>
 			} else {

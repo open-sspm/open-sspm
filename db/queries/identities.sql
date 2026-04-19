@@ -61,8 +61,21 @@ all_active_accounts AS (
   WHERE a.expired_at IS NULL
     AND a.last_observed_run_id IS NOT NULL
 ),
+filtered_source_accounts AS (
+  SELECT *
+  FROM all_active_accounts aa
+  WHERE (
+      sqlc.arg(source_kind)::text = ''
+      OR aa.source_kind = sqlc.arg(source_kind)::text
+    )
+    AND (
+      sqlc.arg(source_name)::text = ''
+      OR aa.source_name = sqlc.arg(source_name)::text
+    )
+),
 filtered_identities AS (
-  SELECT i.id
+  SELECT
+    i.id
   FROM identities i
   WHERE
     (
@@ -81,40 +94,29 @@ filtered_identities AS (
       OR i.kind = sqlc.arg(identity_type)::text
     )
 ),
-source_accounts AS (
-  SELECT *
-  FROM all_active_accounts aa
-  WHERE (
-      sqlc.arg(source_kind)::text = ''
-      OR aa.source_kind = sqlc.arg(source_kind)::text
-    )
-    AND (
-      sqlc.arg(source_name)::text = ''
-      OR aa.source_name = sqlc.arg(source_name)::text
-    )
-),
 candidate_identities AS (
   SELECT fi.id
   FROM filtered_identities fi
   WHERE EXISTS (
     SELECT 1
-    FROM source_accounts sa
-    WHERE sa.identity_id = fi.id
+    FROM filtered_source_accounts fsa
+    WHERE fsa.identity_id = fi.id
   )
 ),
-managed_identities AS (
-  SELECT DISTINCT aa.identity_id
+account_rollups AS (
+  SELECT
+    aa.identity_id,
+    MAX(aa.last_observed_at) AS last_seen_at,
+    COUNT(*)::bigint AS account_count,
+    BOOL_OR(aa.normalized_status IN ('active', 'enabled')) AS has_active,
+    BOOL_OR(aa.normalized_status IN ('suspended', 'disabled', 'inactive', 'locked')) AS has_suspended,
+    BOOL_AND(aa.normalized_status IN ('deleted', 'deprovisioned', 'terminated')) AS all_deleted,
+    BOOL_OR(COALESCE(iss.is_authoritative, FALSE)) AS managed
   FROM all_active_accounts aa
-  JOIN identity_source_settings iss
+  LEFT JOIN identity_source_settings iss
     ON iss.source_kind = aa.source_kind
    AND iss.source_name = aa.source_name
    AND iss.is_authoritative
-),
-integration_counts AS (
-  SELECT
-    aa.identity_id,
-    COUNT(DISTINCT (aa.source_kind, aa.source_name))::bigint AS integration_count
-  FROM all_active_accounts aa
   GROUP BY aa.identity_id
 ),
 privileged_counts AS (
@@ -151,70 +153,28 @@ privileged_counts AS (
     )
   GROUP BY aa.identity_id
 ),
-activity_stats AS (
-  SELECT
-    aa.identity_id,
-    MAX(aa.last_observed_at) AS last_seen_at,
-    MIN(aa.created_at) AS first_seen_at
-  FROM all_active_accounts aa
-  GROUP BY aa.identity_id
-),
-status_stats AS (
-  SELECT
-    aa.identity_id,
-    COUNT(*)::bigint AS account_count,
-    BOOL_OR(aa.normalized_status IN ('active', 'enabled')) AS has_active,
-    BOOL_OR(aa.normalized_status IN ('suspended', 'disabled', 'inactive', 'locked')) AS has_suspended,
-    BOOL_AND(aa.normalized_status IN ('deleted', 'deprovisioned', 'terminated')) AS all_deleted
-  FROM all_active_accounts aa
-  GROUP BY aa.identity_id
-),
-primary_source AS (
-  SELECT DISTINCT ON (sa.identity_id)
-    sa.identity_id,
-    sa.source_kind,
-    sa.source_name
-  FROM source_accounts sa
-  LEFT JOIN identity_source_settings iss
-    ON iss.source_kind = sa.source_kind
-   AND iss.source_name = sa.source_name
-   AND iss.is_authoritative
-  ORDER BY sa.identity_id, (iss.is_authoritative IS NOT TRUE), sa.account_id
-),
 base_metrics AS (
   SELECT
-    i.id,
-    i.display_name,
-    i.primary_email,
-    i.kind AS identity_type,
-    (mi.identity_id IS NOT NULL)::boolean AS managed,
-    COALESCE(ps.source_kind, '') AS source_kind,
-    COALESCE(ps.source_name, '') AS source_name,
-    COALESCE(ic.integration_count, 0)::bigint AS integration_count,
+    ci.id,
+    COALESCE(ar.managed, FALSE)::boolean AS managed,
     COALESCE(pc.privileged_roles, 0)::bigint AS privileged_roles,
-    ast.last_seen_at::timestamptz AS last_seen_at,
-    COALESCE(ast.first_seen_at, i.created_at)::timestamptz AS first_seen_at,
+    ar.last_seen_at::timestamptz AS last_seen_at,
     CASE
-      WHEN COALESCE(ss.account_count, 0) = 0 THEN 'orphaned'
-      WHEN COALESCE(ss.has_active, FALSE) THEN 'active'
-      WHEN COALESCE(ss.all_deleted, FALSE) THEN 'deleted'
-      WHEN COALESCE(ss.has_suspended, FALSE) THEN 'suspended'
+      WHEN COALESCE(ar.account_count, 0) = 0 THEN 'orphaned'
+      WHEN COALESCE(ar.has_active, FALSE) THEN 'active'
+      WHEN COALESCE(ar.all_deleted, FALSE) THEN 'deleted'
+      WHEN COALESCE(ar.has_suspended, FALSE) THEN 'suspended'
       ELSE 'unknown'
     END AS status,
     CASE
-      WHEN ast.last_seen_at IS NULL THEN 'never_seen'
-      WHEN ast.last_seen_at >= now() - interval '30 days' THEN 'recent'
-      WHEN ast.last_seen_at >= now() - interval '90 days' THEN 'aging'
+      WHEN ar.last_seen_at IS NULL THEN 'never_seen'
+      WHEN ar.last_seen_at >= now() - interval '30 days' THEN 'recent'
+      WHEN ar.last_seen_at >= now() - interval '90 days' THEN 'aging'
       ELSE 'stale'
     END AS activity_state
   FROM candidate_identities ci
-  JOIN identities i ON i.id = ci.id
-  LEFT JOIN managed_identities mi ON mi.identity_id = ci.id
-  LEFT JOIN primary_source ps ON ps.identity_id = ci.id
-  LEFT JOIN integration_counts ic ON ic.identity_id = ci.id
+  LEFT JOIN account_rollups ar ON ar.identity_id = ci.id
   LEFT JOIN privileged_counts pc ON pc.identity_id = ci.id
-  LEFT JOIN activity_stats ast ON ast.identity_id = ci.id
-  LEFT JOIN status_stats ss ON ss.identity_id = ci.id
 ),
 base AS (
   SELECT
@@ -281,8 +241,25 @@ all_active_accounts AS (
   WHERE a.expired_at IS NULL
     AND a.last_observed_run_id IS NOT NULL
 ),
+filtered_source_accounts AS (
+  SELECT *
+  FROM all_active_accounts aa
+  WHERE (
+      sqlc.arg(source_kind)::text = ''
+      OR aa.source_kind = sqlc.arg(source_kind)::text
+    )
+    AND (
+      sqlc.arg(source_name)::text = ''
+      OR aa.source_name = sqlc.arg(source_name)::text
+    )
+),
 filtered_identities AS (
-  SELECT i.id
+  SELECT
+    i.id,
+    i.display_name,
+    i.primary_email,
+    i.kind AS identity_type,
+    i.created_at AS identity_created_at
   FROM identities i
   WHERE
     (
@@ -301,40 +278,31 @@ filtered_identities AS (
       OR i.kind = sqlc.arg(identity_type)::text
     )
 ),
-source_accounts AS (
-  SELECT *
-  FROM all_active_accounts aa
-  WHERE (
-      sqlc.arg(source_kind)::text = ''
-      OR aa.source_kind = sqlc.arg(source_kind)::text
-    )
-    AND (
-      sqlc.arg(source_name)::text = ''
-      OR aa.source_name = sqlc.arg(source_name)::text
-    )
-),
 candidate_identities AS (
-  SELECT fi.id
+  SELECT fi.*
   FROM filtered_identities fi
   WHERE EXISTS (
     SELECT 1
-    FROM source_accounts sa
-    WHERE sa.identity_id = fi.id
+    FROM filtered_source_accounts fsa
+    WHERE fsa.identity_id = fi.id
   )
 ),
-managed_identities AS (
-  SELECT DISTINCT aa.identity_id
+account_rollups AS (
+  SELECT
+    aa.identity_id,
+    COUNT(DISTINCT (aa.source_kind, aa.source_name))::bigint AS integration_count,
+    MAX(aa.last_observed_at) AS last_seen_at,
+    MIN(aa.created_at) AS first_seen_at,
+    COUNT(*)::bigint AS account_count,
+    BOOL_OR(aa.normalized_status IN ('active', 'enabled')) AS has_active,
+    BOOL_OR(aa.normalized_status IN ('suspended', 'disabled', 'inactive', 'locked')) AS has_suspended,
+    BOOL_AND(aa.normalized_status IN ('deleted', 'deprovisioned', 'terminated')) AS all_deleted,
+    BOOL_OR(COALESCE(iss.is_authoritative, FALSE)) AS managed
   FROM all_active_accounts aa
-  JOIN identity_source_settings iss
+  LEFT JOIN identity_source_settings iss
     ON iss.source_kind = aa.source_kind
    AND iss.source_name = aa.source_name
    AND iss.is_authoritative
-),
-integration_counts AS (
-  SELECT
-    aa.identity_id,
-    COUNT(DISTINCT (aa.source_kind, aa.source_name))::bigint AS integration_count
-  FROM all_active_accounts aa
   GROUP BY aa.identity_id
 ),
 privileged_counts AS (
@@ -371,70 +339,48 @@ privileged_counts AS (
     )
   GROUP BY aa.identity_id
 ),
-activity_stats AS (
-  SELECT
-    aa.identity_id,
-    MAX(aa.last_observed_at) AS last_seen_at,
-    MIN(aa.created_at) AS first_seen_at
-  FROM all_active_accounts aa
-  GROUP BY aa.identity_id
-),
-status_stats AS (
-  SELECT
-    aa.identity_id,
-    COUNT(*)::bigint AS account_count,
-    BOOL_OR(aa.normalized_status IN ('active', 'enabled')) AS has_active,
-    BOOL_OR(aa.normalized_status IN ('suspended', 'disabled', 'inactive', 'locked')) AS has_suspended,
-    BOOL_AND(aa.normalized_status IN ('deleted', 'deprovisioned', 'terminated')) AS all_deleted
-  FROM all_active_accounts aa
-  GROUP BY aa.identity_id
-),
 primary_source AS (
-  SELECT DISTINCT ON (sa.identity_id)
-    sa.identity_id,
-    sa.source_kind,
-    sa.source_name
-  FROM source_accounts sa
+  SELECT DISTINCT ON (fsa.identity_id)
+    fsa.identity_id,
+    fsa.source_kind,
+    fsa.source_name
+  FROM filtered_source_accounts fsa
   LEFT JOIN identity_source_settings iss
-    ON iss.source_kind = sa.source_kind
-   AND iss.source_name = sa.source_name
+    ON iss.source_kind = fsa.source_kind
+   AND iss.source_name = fsa.source_name
    AND iss.is_authoritative
-  ORDER BY sa.identity_id, (iss.is_authoritative IS NOT TRUE), sa.account_id
+  ORDER BY fsa.identity_id, (iss.is_authoritative IS NOT TRUE), fsa.account_id
 ),
 base_metrics AS (
   SELECT
-    i.id,
-    i.display_name,
-    i.primary_email,
-    i.kind AS identity_type,
-    (mi.identity_id IS NOT NULL)::boolean AS managed,
+    ci.id,
+    ci.display_name,
+    ci.primary_email,
+    ci.identity_type,
+    COALESCE(ar.managed, FALSE)::boolean AS managed,
     COALESCE(ps.source_kind, '') AS source_kind,
     COALESCE(ps.source_name, '') AS source_name,
-    COALESCE(ic.integration_count, 0)::bigint AS integration_count,
+    COALESCE(ar.integration_count, 0)::bigint AS integration_count,
     COALESCE(pc.privileged_roles, 0)::bigint AS privileged_roles,
-    ast.last_seen_at::timestamptz AS last_seen_at,
-    COALESCE(ast.first_seen_at, i.created_at)::timestamptz AS first_seen_at,
+    ar.last_seen_at::timestamptz AS last_seen_at,
+    COALESCE(ar.first_seen_at, ci.identity_created_at)::timestamptz AS first_seen_at,
     CASE
-      WHEN COALESCE(ss.account_count, 0) = 0 THEN 'orphaned'
-      WHEN COALESCE(ss.has_active, FALSE) THEN 'active'
-      WHEN COALESCE(ss.all_deleted, FALSE) THEN 'deleted'
-      WHEN COALESCE(ss.has_suspended, FALSE) THEN 'suspended'
+      WHEN COALESCE(ar.account_count, 0) = 0 THEN 'orphaned'
+      WHEN COALESCE(ar.has_active, FALSE) THEN 'active'
+      WHEN COALESCE(ar.all_deleted, FALSE) THEN 'deleted'
+      WHEN COALESCE(ar.has_suspended, FALSE) THEN 'suspended'
       ELSE 'unknown'
     END AS status,
     CASE
-      WHEN ast.last_seen_at IS NULL THEN 'never_seen'
-      WHEN ast.last_seen_at >= now() - interval '30 days' THEN 'recent'
-      WHEN ast.last_seen_at >= now() - interval '90 days' THEN 'aging'
+      WHEN ar.last_seen_at IS NULL THEN 'never_seen'
+      WHEN ar.last_seen_at >= now() - interval '30 days' THEN 'recent'
+      WHEN ar.last_seen_at >= now() - interval '90 days' THEN 'aging'
       ELSE 'stale'
     END AS activity_state
   FROM candidate_identities ci
-  JOIN identities i ON i.id = ci.id
-  LEFT JOIN managed_identities mi ON mi.identity_id = ci.id
+  LEFT JOIN account_rollups ar ON ar.identity_id = ci.id
   LEFT JOIN primary_source ps ON ps.identity_id = ci.id
-  LEFT JOIN integration_counts ic ON ic.identity_id = ci.id
   LEFT JOIN privileged_counts pc ON pc.identity_id = ci.id
-  LEFT JOIN activity_stats ast ON ast.identity_id = ci.id
-  LEFT JOIN status_stats ss ON ss.identity_id = ci.id
 ),
 base AS (
   SELECT
@@ -462,7 +408,8 @@ SELECT
   b.first_seen_at,
   b.status,
   b.activity_state,
-  b.row_state
+  b.row_state,
+  COUNT(*) OVER()::bigint AS total_count
 FROM base b
 WHERE
   (
@@ -605,6 +552,175 @@ ORDER BY
   b.id DESC
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
+
+-- name: SummarizeIdentitiesInventoryByFilters :one
+-- Returns bucketed counts for the identity inventory, scoped to the
+-- user-applied source, search, and identity_type filters but ignoring
+-- segment-like filters (managed_state, privileged, status, activity_state).
+-- The result is used to drive the operator stat strip and segment chips on
+-- the identities list: it tells the user the shape of the population they
+-- are currently looking at, independent of any segment they have already
+-- applied. Buckets are counts, not exclusive categories (an identity can be
+-- both privileged and unmanaged).
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+all_active_accounts AS (
+  SELECT
+    ia.identity_id,
+    a.id AS account_id,
+    a.source_kind,
+    a.source_name,
+    a.external_id,
+    a.created_at,
+    a.last_observed_at,
+    lower(trim(COALESCE(NULLIF(a.status, ''), NULLIF(a.raw_json->>'status', ''), 'unknown'))) AS normalized_status
+  FROM identity_accounts ia
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN configured_sources cs
+    ON cs.source_kind = a.source_kind
+   AND cs.source_name = a.source_name
+  WHERE a.expired_at IS NULL
+    AND a.last_observed_run_id IS NOT NULL
+),
+filtered_source_accounts AS (
+  SELECT *
+  FROM all_active_accounts aa
+  WHERE (
+      sqlc.arg(source_kind)::text = ''
+      OR aa.source_kind = sqlc.arg(source_kind)::text
+    )
+    AND (
+      sqlc.arg(source_name)::text = ''
+      OR aa.source_name = sqlc.arg(source_name)::text
+    )
+),
+filtered_identities AS (
+  SELECT i.id
+  FROM identities i
+  WHERE
+    (
+      sqlc.arg(query)::text = ''
+      OR i.primary_email ILIKE ('%' || sqlc.arg(query)::text || '%')
+      OR i.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+      OR EXISTS (
+        SELECT 1
+        FROM all_active_accounts aa
+        WHERE aa.identity_id = i.id
+          AND aa.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+      )
+    )
+    AND (
+      sqlc.arg(identity_type)::text = ''
+      OR i.kind = sqlc.arg(identity_type)::text
+    )
+),
+candidate_identities AS (
+  SELECT fi.id
+  FROM filtered_identities fi
+  WHERE EXISTS (
+    SELECT 1
+    FROM filtered_source_accounts fsa
+    WHERE fsa.identity_id = fi.id
+  )
+),
+account_rollups AS (
+  SELECT
+    aa.identity_id,
+    MAX(aa.last_observed_at) AS last_seen_at,
+    COUNT(*)::bigint AS account_count,
+    BOOL_OR(aa.normalized_status IN ('active', 'enabled')) AS has_active,
+    BOOL_OR(aa.normalized_status IN ('suspended', 'disabled', 'inactive', 'locked')) AS has_suspended,
+    BOOL_AND(aa.normalized_status IN ('deleted', 'deprovisioned', 'terminated')) AS all_deleted,
+    BOOL_OR(COALESCE(iss.is_authoritative, FALSE)) AS managed
+  FROM all_active_accounts aa
+  LEFT JOIN identity_source_settings iss
+    ON iss.source_kind = aa.source_kind
+   AND iss.source_name = aa.source_name
+   AND iss.is_authoritative
+  GROUP BY aa.identity_id
+),
+privileged_counts AS (
+  SELECT
+    aa.identity_id,
+    COUNT(DISTINCT e.id)::bigint AS privileged_roles
+  FROM all_active_accounts aa
+  JOIN entitlements e ON e.app_user_id = aa.account_id
+  WHERE e.expired_at IS NULL
+    AND e.last_observed_run_id IS NOT NULL
+    AND (
+      (
+        e.kind = 'github_team_repo_permission'
+        AND lower(trim(e.permission)) IN ('admin', 'maintain')
+      )
+      OR (
+        e.kind = 'datadog_role'
+        AND (
+          lower(trim(COALESCE(NULLIF(e.raw_json->>'role_name', ''), NULLIF(split_part(e.resource, ':', 2), '')))) LIKE '%admin%'
+          OR lower(trim(COALESCE(NULLIF(e.raw_json->>'role_name', ''), NULLIF(split_part(e.resource, ':', 2), '')))) LIKE '%administrator%'
+          OR lower(trim(COALESCE(NULLIF(e.raw_json->>'role_name', ''), NULLIF(split_part(e.resource, ':', 2), '')))) LIKE '%owner%'
+        )
+      )
+      OR (
+        e.kind = 'aws_permission_set'
+        AND (
+          lower(trim(e.permission)) LIKE '%admin%'
+          OR lower(trim(e.permission)) LIKE '%administrator%'
+          OR lower(trim(e.permission)) LIKE '%poweruser%'
+          OR lower(trim(e.permission)) LIKE '%owner%'
+          OR lower(trim(e.permission)) LIKE '%root%'
+        )
+      )
+    )
+  GROUP BY aa.identity_id
+),
+base_metrics AS (
+  SELECT
+    ci.id,
+    COALESCE(ar.managed, FALSE)::boolean AS managed,
+    COALESCE(pc.privileged_roles, 0)::bigint AS privileged_roles,
+    CASE
+      WHEN COALESCE(ar.account_count, 0) = 0 THEN 'orphaned'
+      WHEN COALESCE(ar.has_active, FALSE) THEN 'active'
+      WHEN COALESCE(ar.all_deleted, FALSE) THEN 'deleted'
+      WHEN COALESCE(ar.has_suspended, FALSE) THEN 'suspended'
+      ELSE 'unknown'
+    END AS status,
+    CASE
+      WHEN ar.last_seen_at IS NULL THEN 'never_seen'
+      WHEN ar.last_seen_at >= now() - interval '30 days' THEN 'recent'
+      WHEN ar.last_seen_at >= now() - interval '90 days' THEN 'aging'
+      ELSE 'stale'
+    END AS activity_state
+  FROM candidate_identities ci
+  LEFT JOIN account_rollups ar ON ar.identity_id = ci.id
+  LEFT JOIN privileged_counts pc ON pc.identity_id = ci.id
+),
+base AS (
+  SELECT
+    bm.*,
+    CASE
+      WHEN (NOT bm.managed) AND bm.privileged_roles > 0 THEN 'action_required'
+      WHEN bm.privileged_roles > 0 AND bm.activity_state IN ('stale', 'never_seen') THEN 'action_required'
+      WHEN NOT bm.managed THEN 'review'
+      WHEN bm.activity_state IN ('aging', 'stale', 'never_seen') THEN 'review'
+      ELSE 'healthy'
+    END AS row_state
+  FROM base_metrics bm
+)
+SELECT
+  COUNT(*)::bigint                                                          AS total_count,
+  COUNT(*) FILTER (WHERE row_state = 'action_required')::bigint             AS action_required_count,
+  COUNT(*) FILTER (WHERE row_state = 'review')::bigint                      AS review_count,
+  COUNT(*) FILTER (WHERE privileged_roles > 0)::bigint                      AS privileged_count,
+  COUNT(*) FILTER (WHERE NOT managed)::bigint                               AS unmanaged_count,
+  COUNT(*) FILTER (WHERE status = 'suspended')::bigint                      AS suspended_count,
+  COUNT(*) FILTER (WHERE activity_state IN ('stale', 'never_seen'))::bigint AS stale_count
+FROM base;
 
 -- name: GetIdentitySummaryByID :one
 WITH authoritative_identities AS (

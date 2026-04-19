@@ -4,9 +4,6 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("Operational reliability and freshness indicators for connector syncs.") {
-		}
-
 		if data.ShowWarning && data.WarningMessage != "" {
 			@Alert("Attention required", data.WarningDestructive) {
 				<p>{ data.WarningMessage }</p>

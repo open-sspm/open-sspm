@@ -56,7 +56,47 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 	}
 
 	configuredSourceKinds, configuredSourceNames := identityConfiguredSourcePairs(sourcePairs)
-	totalCount, err := h.Q.CountIdentitiesInventoryByFilters(ctx, gen.CountIdentitiesInventoryByFiltersParams{
+
+	summaryRow, err := h.Q.SummarizeIdentitiesInventoryByFilters(ctx, gen.SummarizeIdentitiesInventoryByFiltersParams{
+		ConfiguredSourceKinds: configuredSourceKinds,
+		ConfiguredSourceNames: configuredSourceNames,
+		Query:                 queryState.Q,
+		IdentityType:          queryState.IdentityType,
+		SourceKind:            queryState.Source.Kind,
+		SourceName:            queryState.Source.Name,
+	})
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	data.Summary = viewmodels.IdentitiesSummary{
+		Total:          summaryRow.TotalCount,
+		ActionRequired: summaryRow.ActionRequiredCount,
+		Review:         summaryRow.ReviewCount,
+		Privileged:     summaryRow.PrivilegedCount,
+		Unmanaged:      summaryRow.UnmanagedCount,
+		Suspended:      summaryRow.SuspendedCount,
+		Stale:          summaryRow.StaleCount,
+	}
+
+	listParams := func(offset int32) gen.ListIdentitiesInventoryPageByFiltersParams {
+		return gen.ListIdentitiesInventoryPageByFiltersParams{
+			ManagedState:          queryState.ManagedState,
+			PrivilegedOnly:        queryState.PrivilegedOnly,
+			Status:                queryState.Status,
+			ActivityState:         queryState.ActivityState,
+			SortBy:                queryState.SortBy,
+			SortDir:               queryState.SortDir,
+			PageOffset:            offset,
+			PageLimit:             int32(perPage),
+			ConfiguredSourceKinds: configuredSourceKinds,
+			ConfiguredSourceNames: configuredSourceNames,
+			Query:                 queryState.Q,
+			IdentityType:          queryState.IdentityType,
+			SourceKind:            queryState.Source.Kind,
+			SourceName:            queryState.Source.Name,
+		}
+	}
+	countParams := gen.CountIdentitiesInventoryByFiltersParams{
 		ManagedState:          queryState.ManagedState,
 		PrivilegedOnly:        queryState.PrivilegedOnly,
 		Status:                queryState.Status,
@@ -67,31 +107,38 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		IdentityType:          queryState.IdentityType,
 		SourceKind:            queryState.Source.Kind,
 		SourceName:            queryState.Source.Name,
-	})
+	}
+
+	requestedPage := page
+	if requestedPage < 1 {
+		requestedPage = 1
+	}
+	requestedOffset := int32((requestedPage - 1) * perPage)
+
+	rows, err := h.Q.ListIdentitiesInventoryPageByFilters(ctx, listParams(requestedOffset))
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
-	pagination = newPaginatedListState(totalCount, page, perPage)
-	rows, err := h.Q.ListIdentitiesInventoryPageByFilters(ctx, gen.ListIdentitiesInventoryPageByFiltersParams{
-		ManagedState:          queryState.ManagedState,
-		PrivilegedOnly:        queryState.PrivilegedOnly,
-		Status:                queryState.Status,
-		ActivityState:         queryState.ActivityState,
-		SortBy:                queryState.SortBy,
-		SortDir:               queryState.SortDir,
-		PageOffset:            int32(pagination.Offset()),
-		PageLimit:             int32(perPage),
-		ConfiguredSourceKinds: configuredSourceKinds,
-		ConfiguredSourceNames: configuredSourceNames,
-		Query:                 queryState.Q,
-		IdentityType:          queryState.IdentityType,
-		SourceKind:            queryState.Source.Kind,
-		SourceName:            queryState.Source.Name,
-	})
-	if err != nil {
-		return h.RenderError(c, err)
+	totalCount := int64(0)
+	switch {
+	case len(rows) > 0:
+		totalCount = rows[0].TotalCount
+	case requestedPage > 1:
+		totalCount, err = h.Q.CountIdentitiesInventoryByFilters(ctx, countParams)
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		pagination = newPaginatedListState(totalCount, page, perPage)
+		if totalCount > 0 && pagination.Offset() != int(requestedOffset) {
+			rows, err = h.Q.ListIdentitiesInventoryPageByFilters(ctx, listParams(int32(pagination.Offset())))
+			if err != nil {
+				return h.RenderError(c, err)
+			}
+		}
 	}
+
+	pagination = newPaginatedListState(totalCount, page, perPage)
 
 	items := make([]viewmodels.IdentityListItem, 0, len(rows))
 	for _, row := range rows {

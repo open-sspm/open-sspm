@@ -37,36 +37,37 @@ all_active_accounts AS (
   WHERE a.expired_at IS NULL
     AND a.last_observed_run_id IS NOT NULL
 ),
+filtered_source_accounts AS (
+  SELECT identity_id, account_id, source_kind, source_name, external_id, created_at, last_observed_at, normalized_status
+  FROM all_active_accounts aa
+  WHERE (
+      $7::text = ''
+      OR aa.source_kind = $7::text
+    )
+    AND (
+      $8::text = ''
+      OR aa.source_name = $8::text
+    )
+),
 filtered_identities AS (
-  SELECT i.id
+  SELECT
+    i.id
   FROM identities i
   WHERE
     (
-      $7::text = ''
-      OR i.primary_email ILIKE ('%' || $7::text || '%')
-      OR i.display_name ILIKE ('%' || $7::text || '%')
+      $9::text = ''
+      OR i.primary_email ILIKE ('%' || $9::text || '%')
+      OR i.display_name ILIKE ('%' || $9::text || '%')
       OR EXISTS (
         SELECT 1
         FROM all_active_accounts aa
         WHERE aa.identity_id = i.id
-          AND aa.external_id ILIKE ('%' || $7::text || '%')
+          AND aa.external_id ILIKE ('%' || $9::text || '%')
       )
     )
     AND (
-      $8::text = ''
-      OR i.kind = $8::text
-    )
-),
-source_accounts AS (
-  SELECT identity_id, account_id, source_kind, source_name, external_id, created_at, last_observed_at, normalized_status
-  FROM all_active_accounts aa
-  WHERE (
-      $9::text = ''
-      OR aa.source_kind = $9::text
-    )
-    AND (
       $10::text = ''
-      OR aa.source_name = $10::text
+      OR i.kind = $10::text
     )
 ),
 candidate_identities AS (
@@ -74,23 +75,24 @@ candidate_identities AS (
   FROM filtered_identities fi
   WHERE EXISTS (
     SELECT 1
-    FROM source_accounts sa
-    WHERE sa.identity_id = fi.id
+    FROM filtered_source_accounts fsa
+    WHERE fsa.identity_id = fi.id
   )
 ),
-managed_identities AS (
-  SELECT DISTINCT aa.identity_id
+account_rollups AS (
+  SELECT
+    aa.identity_id,
+    MAX(aa.last_observed_at) AS last_seen_at,
+    COUNT(*)::bigint AS account_count,
+    BOOL_OR(aa.normalized_status IN ('active', 'enabled')) AS has_active,
+    BOOL_OR(aa.normalized_status IN ('suspended', 'disabled', 'inactive', 'locked')) AS has_suspended,
+    BOOL_AND(aa.normalized_status IN ('deleted', 'deprovisioned', 'terminated')) AS all_deleted,
+    BOOL_OR(COALESCE(iss.is_authoritative, FALSE)) AS managed
   FROM all_active_accounts aa
-  JOIN identity_source_settings iss
+  LEFT JOIN identity_source_settings iss
     ON iss.source_kind = aa.source_kind
    AND iss.source_name = aa.source_name
    AND iss.is_authoritative
-),
-integration_counts AS (
-  SELECT
-    aa.identity_id,
-    COUNT(DISTINCT (aa.source_kind, aa.source_name))::bigint AS integration_count
-  FROM all_active_accounts aa
   GROUP BY aa.identity_id
 ),
 privileged_counts AS (
@@ -127,74 +129,32 @@ privileged_counts AS (
     )
   GROUP BY aa.identity_id
 ),
-activity_stats AS (
-  SELECT
-    aa.identity_id,
-    MAX(aa.last_observed_at) AS last_seen_at,
-    MIN(aa.created_at) AS first_seen_at
-  FROM all_active_accounts aa
-  GROUP BY aa.identity_id
-),
-status_stats AS (
-  SELECT
-    aa.identity_id,
-    COUNT(*)::bigint AS account_count,
-    BOOL_OR(aa.normalized_status IN ('active', 'enabled')) AS has_active,
-    BOOL_OR(aa.normalized_status IN ('suspended', 'disabled', 'inactive', 'locked')) AS has_suspended,
-    BOOL_AND(aa.normalized_status IN ('deleted', 'deprovisioned', 'terminated')) AS all_deleted
-  FROM all_active_accounts aa
-  GROUP BY aa.identity_id
-),
-primary_source AS (
-  SELECT DISTINCT ON (sa.identity_id)
-    sa.identity_id,
-    sa.source_kind,
-    sa.source_name
-  FROM source_accounts sa
-  LEFT JOIN identity_source_settings iss
-    ON iss.source_kind = sa.source_kind
-   AND iss.source_name = sa.source_name
-   AND iss.is_authoritative
-  ORDER BY sa.identity_id, (iss.is_authoritative IS NOT TRUE), sa.account_id
-),
 base_metrics AS (
   SELECT
-    i.id,
-    i.display_name,
-    i.primary_email,
-    i.kind AS identity_type,
-    (mi.identity_id IS NOT NULL)::boolean AS managed,
-    COALESCE(ps.source_kind, '') AS source_kind,
-    COALESCE(ps.source_name, '') AS source_name,
-    COALESCE(ic.integration_count, 0)::bigint AS integration_count,
+    ci.id,
+    COALESCE(ar.managed, FALSE)::boolean AS managed,
     COALESCE(pc.privileged_roles, 0)::bigint AS privileged_roles,
-    ast.last_seen_at::timestamptz AS last_seen_at,
-    COALESCE(ast.first_seen_at, i.created_at)::timestamptz AS first_seen_at,
+    ar.last_seen_at::timestamptz AS last_seen_at,
     CASE
-      WHEN COALESCE(ss.account_count, 0) = 0 THEN 'orphaned'
-      WHEN COALESCE(ss.has_active, FALSE) THEN 'active'
-      WHEN COALESCE(ss.all_deleted, FALSE) THEN 'deleted'
-      WHEN COALESCE(ss.has_suspended, FALSE) THEN 'suspended'
+      WHEN COALESCE(ar.account_count, 0) = 0 THEN 'orphaned'
+      WHEN COALESCE(ar.has_active, FALSE) THEN 'active'
+      WHEN COALESCE(ar.all_deleted, FALSE) THEN 'deleted'
+      WHEN COALESCE(ar.has_suspended, FALSE) THEN 'suspended'
       ELSE 'unknown'
     END AS status,
     CASE
-      WHEN ast.last_seen_at IS NULL THEN 'never_seen'
-      WHEN ast.last_seen_at >= now() - interval '30 days' THEN 'recent'
-      WHEN ast.last_seen_at >= now() - interval '90 days' THEN 'aging'
+      WHEN ar.last_seen_at IS NULL THEN 'never_seen'
+      WHEN ar.last_seen_at >= now() - interval '30 days' THEN 'recent'
+      WHEN ar.last_seen_at >= now() - interval '90 days' THEN 'aging'
       ELSE 'stale'
     END AS activity_state
   FROM candidate_identities ci
-  JOIN identities i ON i.id = ci.id
-  LEFT JOIN managed_identities mi ON mi.identity_id = ci.id
-  LEFT JOIN primary_source ps ON ps.identity_id = ci.id
-  LEFT JOIN integration_counts ic ON ic.identity_id = ci.id
+  LEFT JOIN account_rollups ar ON ar.identity_id = ci.id
   LEFT JOIN privileged_counts pc ON pc.identity_id = ci.id
-  LEFT JOIN activity_stats ast ON ast.identity_id = ci.id
-  LEFT JOIN status_stats ss ON ss.identity_id = ci.id
 ),
 base AS (
   SELECT
-    bm.id, bm.display_name, bm.primary_email, bm.identity_type, bm.managed, bm.source_kind, bm.source_name, bm.integration_count, bm.privileged_roles, bm.last_seen_at, bm.first_seen_at, bm.status, bm.activity_state,
+    bm.id, bm.managed, bm.privileged_roles, bm.last_seen_at, bm.status, bm.activity_state,
     CASE
       WHEN (NOT bm.managed) AND bm.privileged_roles > 0 THEN 'action_required'
       WHEN bm.privileged_roles > 0 AND bm.activity_state IN ('stale', 'never_seen') THEN 'action_required'
@@ -239,10 +199,10 @@ type CountIdentitiesInventoryByFiltersParams struct {
 	ActivityState         string   `json:"activity_state"`
 	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
 	ConfiguredSourceNames []string `json:"configured_source_names"`
-	Query                 string   `json:"query"`
-	IdentityType          string   `json:"identity_type"`
 	SourceKind            string   `json:"source_kind"`
 	SourceName            string   `json:"source_name"`
+	Query                 string   `json:"query"`
+	IdentityType          string   `json:"identity_type"`
 }
 
 func (q *Queries) CountIdentitiesInventoryByFilters(ctx context.Context, arg CountIdentitiesInventoryByFiltersParams) (int64, error) {
@@ -253,10 +213,10 @@ func (q *Queries) CountIdentitiesInventoryByFilters(ctx context.Context, arg Cou
 		arg.ActivityState,
 		arg.ConfiguredSourceKinds,
 		arg.ConfiguredSourceNames,
-		arg.Query,
-		arg.IdentityType,
 		arg.SourceKind,
 		arg.SourceName,
+		arg.Query,
+		arg.IdentityType,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -403,60 +363,68 @@ all_active_accounts AS (
   WHERE a.expired_at IS NULL
     AND a.last_observed_run_id IS NOT NULL
 ),
+filtered_source_accounts AS (
+  SELECT identity_id, account_id, source_kind, source_name, external_id, created_at, last_observed_at, normalized_status
+  FROM all_active_accounts aa
+  WHERE (
+      $11::text = ''
+      OR aa.source_kind = $11::text
+    )
+    AND (
+      $12::text = ''
+      OR aa.source_name = $12::text
+    )
+),
 filtered_identities AS (
-  SELECT i.id
+  SELECT
+    i.id,
+    i.display_name,
+    i.primary_email,
+    i.kind AS identity_type,
+    i.created_at AS identity_created_at
   FROM identities i
   WHERE
     (
-      $11::text = ''
-      OR i.primary_email ILIKE ('%' || $11::text || '%')
-      OR i.display_name ILIKE ('%' || $11::text || '%')
+      $13::text = ''
+      OR i.primary_email ILIKE ('%' || $13::text || '%')
+      OR i.display_name ILIKE ('%' || $13::text || '%')
       OR EXISTS (
         SELECT 1
         FROM all_active_accounts aa
         WHERE aa.identity_id = i.id
-          AND aa.external_id ILIKE ('%' || $11::text || '%')
+          AND aa.external_id ILIKE ('%' || $13::text || '%')
       )
     )
     AND (
-      $12::text = ''
-      OR i.kind = $12::text
-    )
-),
-source_accounts AS (
-  SELECT identity_id, account_id, source_kind, source_name, external_id, created_at, last_observed_at, normalized_status
-  FROM all_active_accounts aa
-  WHERE (
-      $13::text = ''
-      OR aa.source_kind = $13::text
-    )
-    AND (
       $14::text = ''
-      OR aa.source_name = $14::text
+      OR i.kind = $14::text
     )
 ),
 candidate_identities AS (
-  SELECT fi.id
+  SELECT fi.id, fi.display_name, fi.primary_email, fi.identity_type, fi.identity_created_at
   FROM filtered_identities fi
   WHERE EXISTS (
     SELECT 1
-    FROM source_accounts sa
-    WHERE sa.identity_id = fi.id
+    FROM filtered_source_accounts fsa
+    WHERE fsa.identity_id = fi.id
   )
 ),
-managed_identities AS (
-  SELECT DISTINCT aa.identity_id
+account_rollups AS (
+  SELECT
+    aa.identity_id,
+    COUNT(DISTINCT (aa.source_kind, aa.source_name))::bigint AS integration_count,
+    MAX(aa.last_observed_at) AS last_seen_at,
+    MIN(aa.created_at) AS first_seen_at,
+    COUNT(*)::bigint AS account_count,
+    BOOL_OR(aa.normalized_status IN ('active', 'enabled')) AS has_active,
+    BOOL_OR(aa.normalized_status IN ('suspended', 'disabled', 'inactive', 'locked')) AS has_suspended,
+    BOOL_AND(aa.normalized_status IN ('deleted', 'deprovisioned', 'terminated')) AS all_deleted,
+    BOOL_OR(COALESCE(iss.is_authoritative, FALSE)) AS managed
   FROM all_active_accounts aa
-  JOIN identity_source_settings iss
+  LEFT JOIN identity_source_settings iss
     ON iss.source_kind = aa.source_kind
    AND iss.source_name = aa.source_name
    AND iss.is_authoritative
-),
-integration_counts AS (
-  SELECT
-    aa.identity_id,
-    COUNT(DISTINCT (aa.source_kind, aa.source_name))::bigint AS integration_count
-  FROM all_active_accounts aa
   GROUP BY aa.identity_id
 ),
 privileged_counts AS (
@@ -493,70 +461,48 @@ privileged_counts AS (
     )
   GROUP BY aa.identity_id
 ),
-activity_stats AS (
-  SELECT
-    aa.identity_id,
-    MAX(aa.last_observed_at) AS last_seen_at,
-    MIN(aa.created_at) AS first_seen_at
-  FROM all_active_accounts aa
-  GROUP BY aa.identity_id
-),
-status_stats AS (
-  SELECT
-    aa.identity_id,
-    COUNT(*)::bigint AS account_count,
-    BOOL_OR(aa.normalized_status IN ('active', 'enabled')) AS has_active,
-    BOOL_OR(aa.normalized_status IN ('suspended', 'disabled', 'inactive', 'locked')) AS has_suspended,
-    BOOL_AND(aa.normalized_status IN ('deleted', 'deprovisioned', 'terminated')) AS all_deleted
-  FROM all_active_accounts aa
-  GROUP BY aa.identity_id
-),
 primary_source AS (
-  SELECT DISTINCT ON (sa.identity_id)
-    sa.identity_id,
-    sa.source_kind,
-    sa.source_name
-  FROM source_accounts sa
+  SELECT DISTINCT ON (fsa.identity_id)
+    fsa.identity_id,
+    fsa.source_kind,
+    fsa.source_name
+  FROM filtered_source_accounts fsa
   LEFT JOIN identity_source_settings iss
-    ON iss.source_kind = sa.source_kind
-   AND iss.source_name = sa.source_name
+    ON iss.source_kind = fsa.source_kind
+   AND iss.source_name = fsa.source_name
    AND iss.is_authoritative
-  ORDER BY sa.identity_id, (iss.is_authoritative IS NOT TRUE), sa.account_id
+  ORDER BY fsa.identity_id, (iss.is_authoritative IS NOT TRUE), fsa.account_id
 ),
 base_metrics AS (
   SELECT
-    i.id,
-    i.display_name,
-    i.primary_email,
-    i.kind AS identity_type,
-    (mi.identity_id IS NOT NULL)::boolean AS managed,
+    ci.id,
+    ci.display_name,
+    ci.primary_email,
+    ci.identity_type,
+    COALESCE(ar.managed, FALSE)::boolean AS managed,
     COALESCE(ps.source_kind, '') AS source_kind,
     COALESCE(ps.source_name, '') AS source_name,
-    COALESCE(ic.integration_count, 0)::bigint AS integration_count,
+    COALESCE(ar.integration_count, 0)::bigint AS integration_count,
     COALESCE(pc.privileged_roles, 0)::bigint AS privileged_roles,
-    ast.last_seen_at::timestamptz AS last_seen_at,
-    COALESCE(ast.first_seen_at, i.created_at)::timestamptz AS first_seen_at,
+    ar.last_seen_at::timestamptz AS last_seen_at,
+    COALESCE(ar.first_seen_at, ci.identity_created_at)::timestamptz AS first_seen_at,
     CASE
-      WHEN COALESCE(ss.account_count, 0) = 0 THEN 'orphaned'
-      WHEN COALESCE(ss.has_active, FALSE) THEN 'active'
-      WHEN COALESCE(ss.all_deleted, FALSE) THEN 'deleted'
-      WHEN COALESCE(ss.has_suspended, FALSE) THEN 'suspended'
+      WHEN COALESCE(ar.account_count, 0) = 0 THEN 'orphaned'
+      WHEN COALESCE(ar.has_active, FALSE) THEN 'active'
+      WHEN COALESCE(ar.all_deleted, FALSE) THEN 'deleted'
+      WHEN COALESCE(ar.has_suspended, FALSE) THEN 'suspended'
       ELSE 'unknown'
     END AS status,
     CASE
-      WHEN ast.last_seen_at IS NULL THEN 'never_seen'
-      WHEN ast.last_seen_at >= now() - interval '30 days' THEN 'recent'
-      WHEN ast.last_seen_at >= now() - interval '90 days' THEN 'aging'
+      WHEN ar.last_seen_at IS NULL THEN 'never_seen'
+      WHEN ar.last_seen_at >= now() - interval '30 days' THEN 'recent'
+      WHEN ar.last_seen_at >= now() - interval '90 days' THEN 'aging'
       ELSE 'stale'
     END AS activity_state
   FROM candidate_identities ci
-  JOIN identities i ON i.id = ci.id
-  LEFT JOIN managed_identities mi ON mi.identity_id = ci.id
+  LEFT JOIN account_rollups ar ON ar.identity_id = ci.id
   LEFT JOIN primary_source ps ON ps.identity_id = ci.id
-  LEFT JOIN integration_counts ic ON ic.identity_id = ci.id
   LEFT JOIN privileged_counts pc ON pc.identity_id = ci.id
-  LEFT JOIN activity_stats ast ON ast.identity_id = ci.id
-  LEFT JOIN status_stats ss ON ss.identity_id = ci.id
 ),
 base AS (
   SELECT
@@ -584,7 +530,8 @@ SELECT
   b.first_seen_at,
   b.status,
   b.activity_state,
-  b.row_state
+  b.row_state,
+  COUNT(*) OVER()::bigint AS total_count
 FROM base b
 WHERE
   (
@@ -740,10 +687,10 @@ type ListIdentitiesInventoryPageByFiltersParams struct {
 	PageLimit             int32    `json:"page_limit"`
 	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
 	ConfiguredSourceNames []string `json:"configured_source_names"`
-	Query                 string   `json:"query"`
-	IdentityType          string   `json:"identity_type"`
 	SourceKind            string   `json:"source_kind"`
 	SourceName            string   `json:"source_name"`
+	Query                 string   `json:"query"`
+	IdentityType          string   `json:"identity_type"`
 }
 
 type ListIdentitiesInventoryPageByFiltersRow struct {
@@ -761,6 +708,7 @@ type ListIdentitiesInventoryPageByFiltersRow struct {
 	Status           string             `json:"status"`
 	ActivityState    string             `json:"activity_state"`
 	RowState         string             `json:"row_state"`
+	TotalCount       int64              `json:"total_count"`
 }
 
 func (q *Queries) ListIdentitiesInventoryPageByFilters(ctx context.Context, arg ListIdentitiesInventoryPageByFiltersParams) ([]ListIdentitiesInventoryPageByFiltersRow, error) {
@@ -775,10 +723,10 @@ func (q *Queries) ListIdentitiesInventoryPageByFilters(ctx context.Context, arg 
 		arg.PageLimit,
 		arg.ConfiguredSourceKinds,
 		arg.ConfiguredSourceNames,
-		arg.Query,
-		arg.IdentityType,
 		arg.SourceKind,
 		arg.SourceName,
+		arg.Query,
+		arg.IdentityType,
 	)
 	if err != nil {
 		return nil, err
@@ -802,6 +750,7 @@ func (q *Queries) ListIdentitiesInventoryPageByFilters(ctx context.Context, arg 
 			&i.Status,
 			&i.ActivityState,
 			&i.RowState,
+			&i.TotalCount,
 		); err != nil {
 			return nil, err
 		}
@@ -811,6 +760,217 @@ func (q *Queries) ListIdentitiesInventoryPageByFilters(ctx context.Context, arg 
 		return nil, err
 	}
 	return items, nil
+}
+
+const summarizeIdentitiesInventoryByFilters = `-- name: SummarizeIdentitiesInventoryByFilters :one
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($1::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($2::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+all_active_accounts AS (
+  SELECT
+    ia.identity_id,
+    a.id AS account_id,
+    a.source_kind,
+    a.source_name,
+    a.external_id,
+    a.created_at,
+    a.last_observed_at,
+    lower(trim(COALESCE(NULLIF(a.status, ''), NULLIF(a.raw_json->>'status', ''), 'unknown'))) AS normalized_status
+  FROM identity_accounts ia
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN configured_sources cs
+    ON cs.source_kind = a.source_kind
+   AND cs.source_name = a.source_name
+  WHERE a.expired_at IS NULL
+    AND a.last_observed_run_id IS NOT NULL
+),
+filtered_source_accounts AS (
+  SELECT identity_id, account_id, source_kind, source_name, external_id, created_at, last_observed_at, normalized_status
+  FROM all_active_accounts aa
+  WHERE (
+      $3::text = ''
+      OR aa.source_kind = $3::text
+    )
+    AND (
+      $4::text = ''
+      OR aa.source_name = $4::text
+    )
+),
+filtered_identities AS (
+  SELECT i.id
+  FROM identities i
+  WHERE
+    (
+      $5::text = ''
+      OR i.primary_email ILIKE ('%' || $5::text || '%')
+      OR i.display_name ILIKE ('%' || $5::text || '%')
+      OR EXISTS (
+        SELECT 1
+        FROM all_active_accounts aa
+        WHERE aa.identity_id = i.id
+          AND aa.external_id ILIKE ('%' || $5::text || '%')
+      )
+    )
+    AND (
+      $6::text = ''
+      OR i.kind = $6::text
+    )
+),
+candidate_identities AS (
+  SELECT fi.id
+  FROM filtered_identities fi
+  WHERE EXISTS (
+    SELECT 1
+    FROM filtered_source_accounts fsa
+    WHERE fsa.identity_id = fi.id
+  )
+),
+account_rollups AS (
+  SELECT
+    aa.identity_id,
+    MAX(aa.last_observed_at) AS last_seen_at,
+    COUNT(*)::bigint AS account_count,
+    BOOL_OR(aa.normalized_status IN ('active', 'enabled')) AS has_active,
+    BOOL_OR(aa.normalized_status IN ('suspended', 'disabled', 'inactive', 'locked')) AS has_suspended,
+    BOOL_AND(aa.normalized_status IN ('deleted', 'deprovisioned', 'terminated')) AS all_deleted,
+    BOOL_OR(COALESCE(iss.is_authoritative, FALSE)) AS managed
+  FROM all_active_accounts aa
+  LEFT JOIN identity_source_settings iss
+    ON iss.source_kind = aa.source_kind
+   AND iss.source_name = aa.source_name
+   AND iss.is_authoritative
+  GROUP BY aa.identity_id
+),
+privileged_counts AS (
+  SELECT
+    aa.identity_id,
+    COUNT(DISTINCT e.id)::bigint AS privileged_roles
+  FROM all_active_accounts aa
+  JOIN entitlements e ON e.app_user_id = aa.account_id
+  WHERE e.expired_at IS NULL
+    AND e.last_observed_run_id IS NOT NULL
+    AND (
+      (
+        e.kind = 'github_team_repo_permission'
+        AND lower(trim(e.permission)) IN ('admin', 'maintain')
+      )
+      OR (
+        e.kind = 'datadog_role'
+        AND (
+          lower(trim(COALESCE(NULLIF(e.raw_json->>'role_name', ''), NULLIF(split_part(e.resource, ':', 2), '')))) LIKE '%admin%'
+          OR lower(trim(COALESCE(NULLIF(e.raw_json->>'role_name', ''), NULLIF(split_part(e.resource, ':', 2), '')))) LIKE '%administrator%'
+          OR lower(trim(COALESCE(NULLIF(e.raw_json->>'role_name', ''), NULLIF(split_part(e.resource, ':', 2), '')))) LIKE '%owner%'
+        )
+      )
+      OR (
+        e.kind = 'aws_permission_set'
+        AND (
+          lower(trim(e.permission)) LIKE '%admin%'
+          OR lower(trim(e.permission)) LIKE '%administrator%'
+          OR lower(trim(e.permission)) LIKE '%poweruser%'
+          OR lower(trim(e.permission)) LIKE '%owner%'
+          OR lower(trim(e.permission)) LIKE '%root%'
+        )
+      )
+    )
+  GROUP BY aa.identity_id
+),
+base_metrics AS (
+  SELECT
+    ci.id,
+    COALESCE(ar.managed, FALSE)::boolean AS managed,
+    COALESCE(pc.privileged_roles, 0)::bigint AS privileged_roles,
+    CASE
+      WHEN COALESCE(ar.account_count, 0) = 0 THEN 'orphaned'
+      WHEN COALESCE(ar.has_active, FALSE) THEN 'active'
+      WHEN COALESCE(ar.all_deleted, FALSE) THEN 'deleted'
+      WHEN COALESCE(ar.has_suspended, FALSE) THEN 'suspended'
+      ELSE 'unknown'
+    END AS status,
+    CASE
+      WHEN ar.last_seen_at IS NULL THEN 'never_seen'
+      WHEN ar.last_seen_at >= now() - interval '30 days' THEN 'recent'
+      WHEN ar.last_seen_at >= now() - interval '90 days' THEN 'aging'
+      ELSE 'stale'
+    END AS activity_state
+  FROM candidate_identities ci
+  LEFT JOIN account_rollups ar ON ar.identity_id = ci.id
+  LEFT JOIN privileged_counts pc ON pc.identity_id = ci.id
+),
+base AS (
+  SELECT
+    bm.id, bm.managed, bm.privileged_roles, bm.status, bm.activity_state,
+    CASE
+      WHEN (NOT bm.managed) AND bm.privileged_roles > 0 THEN 'action_required'
+      WHEN bm.privileged_roles > 0 AND bm.activity_state IN ('stale', 'never_seen') THEN 'action_required'
+      WHEN NOT bm.managed THEN 'review'
+      WHEN bm.activity_state IN ('aging', 'stale', 'never_seen') THEN 'review'
+      ELSE 'healthy'
+    END AS row_state
+  FROM base_metrics bm
+)
+SELECT
+  COUNT(*)::bigint                                                          AS total_count,
+  COUNT(*) FILTER (WHERE row_state = 'action_required')::bigint             AS action_required_count,
+  COUNT(*) FILTER (WHERE row_state = 'review')::bigint                      AS review_count,
+  COUNT(*) FILTER (WHERE privileged_roles > 0)::bigint                      AS privileged_count,
+  COUNT(*) FILTER (WHERE NOT managed)::bigint                               AS unmanaged_count,
+  COUNT(*) FILTER (WHERE status = 'suspended')::bigint                      AS suspended_count,
+  COUNT(*) FILTER (WHERE activity_state IN ('stale', 'never_seen'))::bigint AS stale_count
+FROM base
+`
+
+type SummarizeIdentitiesInventoryByFiltersParams struct {
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+	SourceKind            string   `json:"source_kind"`
+	SourceName            string   `json:"source_name"`
+	Query                 string   `json:"query"`
+	IdentityType          string   `json:"identity_type"`
+}
+
+type SummarizeIdentitiesInventoryByFiltersRow struct {
+	TotalCount          int64 `json:"total_count"`
+	ActionRequiredCount int64 `json:"action_required_count"`
+	ReviewCount         int64 `json:"review_count"`
+	PrivilegedCount     int64 `json:"privileged_count"`
+	UnmanagedCount      int64 `json:"unmanaged_count"`
+	SuspendedCount      int64 `json:"suspended_count"`
+	StaleCount          int64 `json:"stale_count"`
+}
+
+// Returns bucketed counts for the identity inventory, scoped to the
+// user-applied source, search, and identity_type filters but ignoring
+// segment-like filters (managed_state, privileged, status, activity_state).
+// The result is used to drive the operator stat strip and segment chips on
+// the identities list: it tells the user the shape of the population they
+// are currently looking at, independent of any segment they have already
+// applied. Buckets are counts, not exclusive categories (an identity can be
+// both privileged and unmanaged).
+func (q *Queries) SummarizeIdentitiesInventoryByFilters(ctx context.Context, arg SummarizeIdentitiesInventoryByFiltersParams) (SummarizeIdentitiesInventoryByFiltersRow, error) {
+	row := q.db.QueryRow(ctx, summarizeIdentitiesInventoryByFilters,
+		arg.ConfiguredSourceKinds,
+		arg.ConfiguredSourceNames,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.Query,
+		arg.IdentityType,
+	)
+	var i SummarizeIdentitiesInventoryByFiltersRow
+	err := row.Scan(
+		&i.TotalCount,
+		&i.ActionRequiredCount,
+		&i.ReviewCount,
+		&i.PrivilegedCount,
+		&i.UnmanagedCount,
+		&i.SuspendedCount,
+		&i.StaleCount,
+	)
+	return i, err
 }
 
 const updateIdentityAttributes = `-- name: UpdateIdentityAttributes :exec

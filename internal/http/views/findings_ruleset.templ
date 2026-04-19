@@ -8,7 +8,7 @@ import (
 
 templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("Rules and current results for this ruleset.") {
+		@PageHeader("") {
 			if data.Layout.IsAdmin {
 				<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" } class="flex items-center gap-2">
 					@CSRFInput(data.Layout.CSRFToken)
@@ -197,30 +197,30 @@ templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 					</form>
 				</div>
 
-				if data.HasRules {
+			if data.HasRules {
 				@ColumnsTable("") {
 					<table class="table osspm-table-compact osspm-table-list">
 						<caption class="sr-only">Rules in this ruleset with severity, monitoring, and current status.</caption>
 						<thead>
 							<tr>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Rule</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Severity</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Monitoring</th>
-								<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
+								<th>Rule</th>
+								<th>Severity</th>
+								<th>Monitoring</th>
+								<th>Status</th>
 							</tr>
 						</thead>
 						<tbody>
 							for _, r := range data.Rules {
-								<tr data-row-href={ r.Href } class="cursor-pointer hover:bg-muted/50">
+								<tr data-row-href={ r.Href }>
 									<td class="whitespace-normal">
-										<a class="btn-sm-link px-0 font-medium osspm-token" href={ r.Href } title={ r.Key }>{ r.Key }</a>
+										<a class="osspm-cell-primary osspm-token no-underline hover:underline" href={ r.Href } title={ r.Key }>{ r.Key }</a>
 										if r.Title != "" && r.Title != r.Key {
-											<div class="text-sm text-muted-foreground">{ r.Title }</div>
+											<span class="osspm-cell-secondary">{ r.Title }</span>
 										} else if r.Summary != "" {
-											<div class="text-sm text-muted-foreground">{ r.Summary }</div>
+											<span class="osspm-cell-secondary">{ r.Summary }</span>
 										}
 										if r.EvidenceSummary != "" && r.EvidenceSummary != "Manual check requires attestation" && !strings.HasPrefix(r.EvidenceSummary, "Demo seeded:") && r.EvidenceSummary != r.Summary && r.EvidenceSummary != r.Title {
-											<div class="text-sm text-muted-foreground">{ r.EvidenceSummary }</div>
+											<span class="osspm-cell-secondary">{ r.EvidenceSummary }</span>
 										}
 									</td>
 									<td><span class="badge-outline">{ r.Severity }</span></td>
@@ -228,10 +228,10 @@ templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 									<td>
 										<span class={ RuleStatusBadgeClass(r.Status) }>{ HumanizeRuleStatus(r.Status) }</span>
 										if r.ErrorKind != "" {
-											<div class="text-sm text-muted-foreground">{ r.ErrorKind }</div>
+											<span class="osspm-cell-secondary">{ r.ErrorKind }</span>
 										}
 										if r.EvaluatedAt.Label != "" {
-											<div class="text-sm text-muted-foreground">{ r.EvaluatedAt.Label }</div>
+											<span class="osspm-cell-secondary">{ r.EvaluatedAt.Label }</span>
 										}
 									</td>
 								</tr>

@@ -240,6 +240,7 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 		Accounts:    items,
 		Query:       queryState,
 		HasAccounts: len(items) > 0,
+		Summary:     oktaAppAssignmentSummary(items, totalCount),
 	}
 
 	return h.RenderComponent(c, views.OktaAppShowPage(data))
@@ -302,6 +303,47 @@ func oktaAppAssignedAccountView(assignment gen.ListOktaAppAssignedAccountsPageBy
 		Groups:                oktaAssignmentGroups(assignment.Scope, grantingGroups),
 		Permissions:           SummarizeProfilePermissions(assignment.ProfileJson),
 	}
+}
+
+func oktaAppAssignmentSummary(items []viewmodels.OktaAppAssignedAccountView, totalCount int64) viewmodels.OktaAppAssignmentSummary {
+	summary := viewmodels.OktaAppAssignmentSummary{
+		SinglePage: int64(len(items)) == totalCount,
+	}
+	if len(items) == 0 {
+		return summary
+	}
+
+	viaSeen := make(map[string]struct{}, 2)
+	firstVia := ""
+	for _, item := range items {
+		switch strings.ToUpper(item.OktaAccountStatus) {
+		case "ACTIVE":
+			summary.ActiveCount++
+		case "INACTIVE", "SUSPENDED", "DEPROVISIONED":
+			summary.InactiveCount++
+		}
+		via := strings.TrimSpace(item.AssignedVia)
+		if via != "" && via != "Unknown" {
+			if _, ok := viaSeen[via]; !ok {
+				viaSeen[via] = struct{}{}
+				if firstVia == "" {
+					firstVia = via
+				}
+			}
+		}
+		if len(item.Groups) > 0 {
+			summary.AnyGroups = true
+		}
+		if len(item.Permissions) > 0 {
+			summary.AnyPermissions = true
+		}
+	}
+
+	if summary.SinglePage && len(viaSeen) == 1 {
+		summary.UniformAssignedVia = true
+		summary.AssignedViaLabel = firstVia
+	}
+	return summary
 }
 
 func oktaAssignedVia(scope string) string {

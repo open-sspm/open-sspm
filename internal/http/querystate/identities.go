@@ -77,6 +77,44 @@ func (q IdentitiesQuery) WithActivityState(state string) IdentitiesQuery {
 	return q
 }
 
+func (q IdentitiesQuery) WithStatus(status string) IdentitiesQuery {
+	q.Status = normalizeIdentityStatus(status)
+	q.Page = 1
+	return q
+}
+
+func (q IdentitiesQuery) WithManagedState(state string) IdentitiesQuery {
+	q.ManagedState = normalizeIdentityManagedState(state)
+	q.Page = 1
+	return q
+}
+
+// ClearSegments resets the segment-style filters (activity, status, managed,
+// privileged) while preserving source, search, type, and sort. It powers the
+// "All" chip on the identities list.
+func (q IdentitiesQuery) ClearSegments() IdentitiesQuery {
+	q.ActivityState = ""
+	q.Status = ""
+	q.ManagedState = ""
+	q.PrivilegedOnly = false
+	q.Page = 1
+	return q
+}
+
+// SegmentPrivileged returns a query that selects the privileged-only segment
+// without leaking any other segment filter into the URL.
+func (q IdentitiesQuery) SegmentPrivileged() IdentitiesQuery {
+	q = q.ClearSegments()
+	q.PrivilegedOnly = true
+	return q
+}
+
+// HasSegment reports whether any segment-style filter is currently active.
+// Used to highlight the "All" chip when no segment is selected.
+func (q IdentitiesQuery) HasSegment() bool {
+	return q.ActivityState != "" || q.Status != "" || q.ManagedState != "" || q.PrivilegedOnly
+}
+
 func (q IdentitiesQuery) TogglePrivilegedOnly() IdentitiesQuery {
 	q.PrivilegedOnly = !q.PrivilegedOnly
 	q.Page = 1

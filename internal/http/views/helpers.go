@@ -73,6 +73,32 @@ func HumanizeProgrammaticKind(kind string) string {
 	return strings.Join(parts, " ")
 }
 
+// HumanizeSignOnMode renders Okta sign-on mode codes with their conventional
+// casing (SAML 2.0, OpenID Connect) instead of the raw machine form.
+func HumanizeSignOnMode(mode string) string {
+	normalized := strings.ToLower(strings.TrimSpace(mode))
+	if normalized == "" {
+		return "—"
+	}
+	switch normalized {
+	case "saml_2_0", "saml 2 0", "saml2", "saml":
+		return "SAML 2.0"
+	case "openid_connect", "openid connect", "oidc":
+		return "OpenID Connect"
+	case "browser_plugin", "browser plugin":
+		return "Browser plugin"
+	case "secure_web_authentication", "secure web authentication", "swa":
+		return "SWA"
+	case "auto_login", "auto login":
+		return "Auto-login"
+	case "bookmark":
+		return "Bookmark"
+	case "wsfed", "ws_fed", "ws fed":
+		return "WS-Fed"
+	}
+	return fallbackHumanized(mode)
+}
+
 func HumanizeConnectorKind(kind string) string {
 	switch strings.ToLower(strings.TrimSpace(kind)) {
 	case "okta":
@@ -124,6 +150,42 @@ func StatusBadgeClass(status string) string {
 	default:
 		return "badge-outline"
 	}
+}
+
+// appsHasStatusVariance reports whether the visible apps include more than one
+// distinct status value. When every row shares the same status (typically
+// "ACTIVE"), the column carries no signal and should be hidden so the filter
+// facet is the only surface for that state.
+func appsHasStatusVariance(apps []viewmodels.AppListItem) bool {
+	var seen string
+	for _, app := range apps {
+		if app.Status == "" {
+			continue
+		}
+		if seen == "" {
+			seen = app.Status
+			continue
+		}
+		if app.Status != seen {
+			return true
+		}
+	}
+	return false
+}
+
+// appsHasAnyIntegration reports whether any visible app has a mapped deeper
+// integration. If none do, the Integration column is just noise on every row.
+func appsHasAnyIntegration(apps []viewmodels.AppListItem) bool {
+	for _, app := range apps {
+		if app.IntegratedHref != "" {
+			return true
+		}
+		if app.SuggestedKind != "" {
+			// Retain the column so the suggested action surfaces on hover.
+			return true
+		}
+	}
+	return false
 }
 
 func AssignedAppIntegrationBadgeClass(integrated bool) string {
@@ -672,15 +734,10 @@ func IdentityStatusBadgeClass(status string) string {
 	}
 }
 
-func IdentityRowClass(state string) string {
-	switch strings.ToLower(strings.TrimSpace(state)) {
-	case "action_required":
-		return "cursor-pointer hover:bg-muted/50 border-l-2 border-l-rose-500"
-	case "review":
-		return "cursor-pointer hover:bg-muted/50 border-l-2 border-l-amber-400"
-	default:
-		return "cursor-pointer hover:bg-muted/50"
-	}
+func IdentityRowClass(_ string) string {
+	// Row severity is signalled by the RowState badge only. The full-row accent
+	// was too loud on dense tables and competed with the badge.
+	return "cursor-pointer hover:bg-muted/50"
 }
 
 func IdentityPrivilegedRoleClass(count int64) string {
@@ -689,13 +746,110 @@ func IdentityPrivilegedRoleClass(count int64) string {
 		return "font-semibold text-rose-700 dark:text-rose-400"
 	case count >= 5:
 		return "font-medium text-amber-700 dark:text-amber-400"
+	case count > 0:
+		return "font-medium text-foreground"
+	default:
+		return "text-muted-foreground"
+	}
+}
+
+func IdentityRowStateBadgeClass(state string) string {
+	// Make the RowState badge the single severity signal per row. We encode
+	// severity via tint rather than adding a separate coloured column.
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "action_required":
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+	case "review":
+		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+	case "healthy":
+		return "badge bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-100"
+	default:
+		return "badge-outline"
+	}
+}
+
+// identityShouldShowStatusInline decides when to expose the raw account status
+// next to the identity name. "active" is the dominant value on the page so we
+// suppress it; anything non-standard (suspended, deleted, orphaned, unknown)
+// is worth surfacing inline since the Status column is no longer separate.
+func identityShouldShowStatusInline(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "", "active":
+		return false
+	default:
+		return true
+	}
+}
+
+// identityStatTone returns an optional tone class for a stat-strip value.
+// Only applied when the count is non-zero so the empty state reads as calm.
+func identityStatTone(count int64, tone string) string {
+	if count == 0 {
+		return ""
+	}
+	switch tone {
+	case "danger":
+		return "osspm-stat-value-danger"
+	case "warn":
+		return "osspm-stat-value-warn"
 	default:
 		return ""
 	}
 }
 
-func IdentityRowStateBadgeClass(_ string) string {
-	return "badge-outline"
+// credentialShouldShowStatusInline surfaces credential status only when it
+// departs from the dominant "active" value, keeping rows quiet for the common
+// case.
+func credentialShouldShowStatusInline(status string) bool {
+	s := strings.ToLower(strings.TrimSpace(status))
+	if s == "" {
+		return false
+	}
+	if strings.Contains(s, "active") && !strings.Contains(s, "inactive") {
+		return false
+	}
+	return true
+}
+
+// nonHumanShouldShowGovernance suppresses the Unreviewed default so it doesn't
+// appear on every row. Only meaningful governance states are surfaced inline.
+func nonHumanShouldShowGovernance(state string) bool {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "", "unreviewed":
+		return false
+	default:
+		return true
+	}
+}
+
+// nonHumanShouldShowActivity hides the activity/freshness sub-line when both
+// are in their healthy default state, so rows with nothing interesting stay
+// calm.
+func nonHumanShouldShowActivity(activity, freshness string) bool {
+	activity = strings.ToLower(strings.TrimSpace(activity))
+	freshness = strings.ToLower(strings.TrimSpace(freshness))
+	if activity != "" && activity != "active" {
+		return true
+	}
+	if freshness != "" && freshness != "fresh" {
+		return true
+	}
+	return false
+}
+
+// segmentChipClass returns the class list for a segment chip anchor.
+// Active chips get a filled background; inactive ones a quiet outline.
+func segmentChipClass(active bool, tone string) string {
+	base := "osspm-segment-chip"
+	if active {
+		switch tone {
+		case "warn":
+			return base + " osspm-segment-chip-active osspm-segment-chip-warn"
+		default:
+			return base + " osspm-segment-chip-active"
+		}
+	}
+	return base
 }
 
 func HumanizeCredentialKind(kind string) string {
@@ -906,4 +1060,180 @@ func AuthUserStatusBadgeClass(active bool) string {
 		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
 	}
 	return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+}
+
+// HumanizeStatus title-cases an enum-style status like "ACTIVE" -> "Active".
+func HumanizeStatus(status string) string {
+	s := strings.TrimSpace(status)
+	if s == "" || s == "—" {
+		return s
+	}
+	lower := strings.ToLower(s)
+	runes := []rune(lower)
+	runes[0] = unicode.ToUpper(runes[0])
+	return string(runes)
+}
+
+// Pluralize returns singular when n == 1, otherwise plural.
+func Pluralize(n int64, singular, plural string) string {
+	if n == 1 {
+		return singular
+	}
+	return plural
+}
+
+// MetaPart is a single segment of a middle-dot separated meta line.
+type MetaPart struct {
+	Text string
+	Mono bool
+}
+
+// OktaAppMetaParts assembles the secondary identity line for an Okta app.
+// Empty or placeholder fields are skipped so the line stays tight.
+func OktaAppMetaParts(app viewmodels.OktaAppSummaryView) []MetaPart {
+	parts := make([]MetaPart, 0, 3)
+	if s := strings.TrimSpace(app.Name); s != "" && s != "—" {
+		parts = append(parts, MetaPart{Text: s})
+	}
+	if s := strings.TrimSpace(app.SignOnMode); s != "" && s != "—" {
+		parts = append(parts, MetaPart{Text: humanizeSignOnMode(s)})
+	}
+	if s := strings.TrimSpace(app.ExternalID); s != "" {
+		parts = append(parts, MetaPart{Text: s, Mono: true})
+	}
+	return parts
+}
+
+func humanizeSignOnMode(mode string) string {
+	switch strings.ToUpper(strings.TrimSpace(mode)) {
+	case "SAML_2_0":
+		return "SAML 2.0"
+	case "OPENID_CONNECT":
+		return "OIDC"
+	case "BROWSER_PLUGIN", "SECURE_PASSWORD_STORE", "AUTO_LOGIN":
+		return "SWA"
+	default:
+		return mode
+	}
+}
+
+// OktaAppSummaryParts renders the short operator summary under the account count.
+// Facts that only apply to the currently-visible page are omitted when paginated.
+func OktaAppSummaryParts(summary viewmodels.OktaAppAssignmentSummary) []string {
+	parts := make([]string, 0, 3)
+	if !summary.SinglePage {
+		return parts
+	}
+	if summary.ActiveCount > 0 && summary.InactiveCount == 0 {
+		parts = append(parts, "all active")
+	} else if summary.InactiveCount > 0 && summary.ActiveCount == 0 {
+		parts = append(parts, "all inactive")
+	} else if summary.ActiveCount > 0 || summary.InactiveCount > 0 {
+		parts = append(parts, strconv.Itoa(summary.ActiveCount)+" active")
+		if summary.InactiveCount > 0 {
+			parts = append(parts, strconv.Itoa(summary.InactiveCount)+" inactive")
+		}
+	}
+	if summary.UniformAssignedVia && summary.AssignedViaLabel != "" {
+		parts = append(parts, "assigned "+strings.ToLower(summary.AssignedViaLabel))
+	}
+	return parts
+}
+
+func GlobalViewEnabledCount(cards []viewmodels.GlobalViewAppCard) int {
+	count := 0
+	for _, card := range cards {
+		if card.IsActive {
+			count++
+		}
+	}
+	return count
+}
+
+func GlobalViewAttentionCount(cards []viewmodels.GlobalViewAppCard) int {
+	count := 0
+	for _, card := range cards {
+		if !card.IsActive {
+			count++
+		}
+	}
+	return count
+}
+
+func GlobalViewAverageScore(cards []viewmodels.GlobalViewAppCard) int {
+	total := 0
+	count := 0
+	for _, card := range cards {
+		if !card.ShowScore {
+			continue
+		}
+		if card.ScoreValue < 0 {
+			continue
+		}
+		total += card.ScoreValue
+		count++
+	}
+	if count == 0 {
+		return 0
+	}
+	return (total + count/2) / count
+}
+
+func GlobalViewHasActiveScore(cards []viewmodels.GlobalViewAppCard) bool {
+	for _, card := range cards {
+		if card.ShowScore {
+			return true
+		}
+	}
+	return false
+}
+
+func GlobalViewScoreBarClass(score int) string {
+	switch {
+	case score >= 90:
+		return "bg-emerald-500"
+	case score >= 60:
+		return "bg-amber-500"
+	default:
+		return "bg-rose-500"
+	}
+}
+
+// GlobalViewStatusClass returns a small, text-only status treatment. One
+// accent (emerald) is reserved for the healthy state; everything else stays
+// quiet so the page doesn't light up red for connectors that simply aren't
+// configured yet.
+func GlobalViewStatusClass(tone string) string {
+	switch tone {
+	case "ok":
+		return "inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 before:h-1.5 before:w-1.5 before:rounded-full before:bg-emerald-500"
+	case "warn":
+		return "inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 before:h-1.5 before:w-1.5 before:rounded-full before:bg-amber-500"
+	case "error":
+		return "inline-flex items-center gap-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 before:h-1.5 before:w-1.5 before:rounded-full before:bg-rose-500"
+	default:
+		return "inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground before:h-1.5 before:w-1.5 before:rounded-full before:bg-muted-foreground/60"
+	}
+}
+
+// GlobalViewActiveCards returns cards that are configured, enabled, and error-free.
+func GlobalViewActiveCards(cards []viewmodels.GlobalViewAppCard) []viewmodels.GlobalViewAppCard {
+	out := make([]viewmodels.GlobalViewAppCard, 0, len(cards))
+	for _, card := range cards {
+		if card.IsActive {
+			out = append(out, card)
+		}
+	}
+	return out
+}
+
+// GlobalViewInactiveCards returns cards that still need setup or attention.
+func GlobalViewInactiveCards(cards []viewmodels.GlobalViewAppCard) []viewmodels.GlobalViewAppCard {
+	out := make([]viewmodels.GlobalViewAppCard, 0, len(cards))
+	for _, card := range cards {
+		if !card.IsActive {
+			out = append(out, card)
+		}
+	}
+	return out
 }

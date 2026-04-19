@@ -4,7 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ UnmatchedGoogleWorkspacePage(data viewmodels.UnmatchedGoogleWorkspaceViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("Match Google Workspace users to identities for complete access coverage.") {
+		@PageHeader("") {
 			if data.Layout.GoogleWorkspaceConfigured {
 				<span class="badge-outline cursor-help" title={ "Customer ID: " + data.Layout.GoogleWorkspaceCustomerID }>Google customer</span>
 			} else {

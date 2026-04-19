@@ -26,12 +26,27 @@ type OktaAppAssignedAccountView struct {
 	Permissions           []PermissionBadge
 }
 
+// OktaAppAssignmentSummary describes the shape of the current result set so
+// the UI can replace chrome (badges, repetitive columns) with a single
+// informative line. Counts describe the current page unless SinglePage is
+// true, in which case they describe every assigned account.
+type OktaAppAssignmentSummary struct {
+	SinglePage         bool
+	ActiveCount        int
+	InactiveCount      int
+	UniformAssignedVia bool
+	AssignedViaLabel   string
+	AnyGroups          bool
+	AnyPermissions     bool
+}
+
 type OktaAppShowViewData struct {
 	PaginatedListPageData
 	App         OktaAppSummaryView
 	Accounts    []OktaAppAssignedAccountView
 	Query       querystate.BasicListQuery
 	HasAccounts bool
+	Summary     OktaAppAssignmentSummary
 }
 
 type OktaAssignmentView struct {

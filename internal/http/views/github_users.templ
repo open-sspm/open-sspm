@@ -29,7 +29,7 @@ templ GitHubUserMobileRow(user viewmodels.GitHubUserListItem) {
 
 templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("Synced GitHub accounts and their identity links.") {
+		@PageHeader("") {
 			if data.Layout.GitHubConfigured && data.Layout.GitHubEnabled {
 				<a class="btn-sm-outline" href={ "/accounts/unlinked/github/" + data.Layout.GitHubOrg }>Unlinked</a>
 			} else {
