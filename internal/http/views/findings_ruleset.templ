@@ -29,117 +29,10 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 			}
 		}
 
-			<div class="grid min-w-0 gap-6">
-					<article class="card min-w-0">
-					<header>
-						<h2>Ruleset</h2>
-						<p class="text-muted-foreground"><code class="osspm-token">{ data.Ruleset.Key }</code></p>
-					</header>
-				<section class="space-y-3">
-					if data.Ruleset.Description != "" {
-						<p class="text-sm text-muted-foreground whitespace-pre-wrap">{ data.Ruleset.Description }</p>
-					}
-					<div class="flex flex-wrap gap-2 text-sm">
-						<span class="badge-outline">{ data.Ruleset.ScopeKind }</span>
-						if data.Ruleset.ConnectorKind != "" {
-							<span class="badge-outline">{ data.Ruleset.ConnectorKind }</span>
-						}
-						<span class="badge-outline">{ data.Ruleset.Status }</span>
-					</div>
-					if data.SourceName != "" {
-						<div class="text-sm text-muted-foreground">
-							<span class="font-medium text-foreground">Source:</span> { data.SourceName }
-						</div>
-					} else if data.ConnectorHintHref != "" {
-						<div class="text-sm text-muted-foreground">
-							No connector instance selected. <a class="btn-sm-link" href={ data.ConnectorHintHref }>Configure connector</a>
-						</div>
-					}
-
-					if len(data.Tags) > 0 {
-						<div class="space-y-1">
-							<div class="text-sm font-medium">Tags</div>
-							<div class="flex flex-wrap gap-2">
-								for _, t := range data.Tags {
-									<span class="badge-outline">{ t }</span>
-								}
-							</div>
-						</div>
-					}
-
-					if data.OverrideExists {
-						if data.OverrideEnabled {
-							<div class="text-sm text-muted-foreground">Override: enabled</div>
-						} else {
-							<div class="text-sm text-muted-foreground">Override: disabled</div>
-						}
-					}
-				</section>
-			</article>
-
+		<div class="grid min-w-0 gap-6">
 			@FindingsRulesetRulesCard(data)
 		</div>
 
-		if data.HasMetadata {
-				<article class="card min-w-0">
-				<header>
-					<h2>Metadata</h2>
-					<p class="text-muted-foreground">Ruleset metadata from definition_json.</p>
-				</header>
-				<section class="space-y-6">
-					if len(data.References) > 0 {
-						<div class="space-y-2">
-							<h3 class="text-sm font-medium">References</h3>
-							<ul class="space-y-1 text-sm">
-								for _, ref := range data.References {
-									<li>
-										<a class="btn-sm-link" href={ ref.URL } target="_blank" rel="noreferrer">
-											{ ref.Title }
-											<span class="sr-only"> (opens in new tab)</span>
-										</a>
-										if ref.Type != "" {
-											<span class="text-muted-foreground">({ ref.Type })</span>
-										}
-									</li>
-								}
-							</ul>
-						</div>
-					}
-
-					if len(data.FrameworkMappings) > 0 {
-						<div class="space-y-2">
-							<h3 class="text-sm font-medium">Framework mappings</h3>
-							@ColumnsTable("") {
-							<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-								<caption class="sr-only">Framework mapping controls and their coverage status.</caption>
-								<thead>
-									<tr>
-										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Framework</th>
-										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Control</th>
-										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Coverage</th>
-									</tr>
-								</thead>
-									<tbody>
-										for _, m := range data.FrameworkMappings {
-											<tr>
-												<td class="text-muted-foreground">
-													{ m.Framework }
-													if m.FrameworkVersion != "" {
-														<span class="text-muted-foreground"> { m.FrameworkVersion }</span>
-													}
-												</td>
-												<td class="text-muted-foreground">{ m.Control }</td>
-												<td class="text-muted-foreground">{ m.Coverage }</td>
-											</tr>
-										}
-									</tbody>
-								</table>
-							}
-						</div>
-					}
-				</section>
-			</article>
-		}
 	}
 }
 
@@ -213,7 +106,7 @@ templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 							for _, r := range data.Rules {
 								<tr data-row-href={ r.Href }>
 									<td class="whitespace-normal">
-										<a class="osspm-cell-primary osspm-token no-underline hover:underline" href={ r.Href } title={ r.Key }>{ r.Key }</a>
+										<a class="osspm-cell-primary no-underline hover:underline" href={ r.Href } title={ r.Key }>{ r.Key }</a>
 										if r.Title != "" && r.Title != r.Key {
 											<span class="osspm-cell-secondary">{ r.Title }</span>
 										} else if r.Summary != "" {
@@ -223,16 +116,18 @@ templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 											<span class="osspm-cell-secondary">{ r.EvidenceSummary }</span>
 										}
 									</td>
-									<td><span class="badge-outline">{ r.Severity }</span></td>
-									<td><span class={ RuleMonitoringBadgeClass(r.MonitoringStatus) }>{ r.MonitoringStatus }</span></td>
+									<td><span class={ templ.Classes("text-sm font-medium", RuleSeverityTextClass(r.Severity)) }>{ r.Severity }</span></td>
+									<td><span class={ templ.Classes("text-sm font-medium", RuleMonitoringTextClass(r.MonitoringStatus)) }>{ r.MonitoringStatus }</span></td>
 									<td>
-										<span class={ RuleStatusBadgeClass(r.Status) }>{ HumanizeRuleStatus(r.Status) }</span>
+										<div class="space-y-1.5 leading-5">
+											<div class={ templ.Classes("text-sm font-medium", RuleStatusTextClass(r.Status)) }>{ HumanizeRuleStatus(r.Status) }</div>
 										if r.ErrorKind != "" {
 											<span class="osspm-cell-secondary">{ r.ErrorKind }</span>
 										}
 										if r.EvaluatedAt.Label != "" {
 											<span class="osspm-cell-secondary">{ r.EvaluatedAt.Label }</span>
 										}
+										</div>
 									</td>
 								</tr>
 							}

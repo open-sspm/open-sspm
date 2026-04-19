@@ -92,7 +92,7 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 					<div class="flex items-baseline justify-between">
 						<h2 class="text-lg font-semibold">Decision History</h2>
 						if len(data.DecisionHistory) > 0 {
-							<span class="badge-outline">{ FormatInt(len(data.DecisionHistory)) }</span>
+							<span class="text-sm text-muted-foreground">{ FormatInt(len(data.DecisionHistory)) }</span>
 						}
 					</div>
 					if data.HasDecisionHistory {
@@ -162,7 +162,7 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 					<div class="flex items-baseline justify-between">
 						<h2 class="text-lg font-semibold">Source Evidence</h2>
 						if len(data.Sources) > 0 {
-							<span class="badge-outline">{ FormatInt(len(data.Sources)) }</span>
+							<span class="text-sm text-muted-foreground">{ FormatInt(len(data.Sources)) }</span>
 						}
 					</div>
 					if data.HasSources {
@@ -203,7 +203,7 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 					<div class="flex items-baseline justify-between">
 						<h2 class="text-lg font-semibold">Top Actors (30d)</h2>
 						if len(data.TopActors) > 0 {
-							<span class="badge-outline">{ FormatInt(len(data.TopActors)) }</span>
+							<span class="text-sm text-muted-foreground">{ FormatInt(len(data.TopActors)) }</span>
 						}
 					</div>
 					if data.HasTopActors {
@@ -240,7 +240,7 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 					<div class="flex items-baseline justify-between">
 						<h2 class="text-lg font-semibold">Recent Events</h2>
 						if len(data.Events) > 0 {
-							<span class="badge-outline">{ FormatInt(len(data.Events)) }</span>
+							<span class="text-sm text-muted-foreground">{ FormatInt(len(data.Events)) }</span>
 						}
 					</div>
 					if data.HasEvents {

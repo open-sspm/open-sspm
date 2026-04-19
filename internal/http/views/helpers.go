@@ -297,6 +297,21 @@ func CredentialRiskTextClass(risk string) string {
 	}
 }
 
+func RuleSeverityTextClass(severity string) string {
+	switch strings.ToLower(strings.TrimSpace(severity)) {
+	case "critical":
+		return "text-rose-700 dark:text-rose-400"
+	case "high":
+		return "text-amber-700 dark:text-amber-400"
+	case "medium":
+		return "text-sky-700 dark:text-sky-400"
+	case "low":
+		return "text-emerald-700 dark:text-emerald-400"
+	default:
+		return "text-muted-foreground"
+	}
+}
+
 func RiskScoreClass(riskLevel string) string {
 	switch strings.ToLower(strings.TrimSpace(riskLevel)) {
 	case "critical":
@@ -949,6 +964,23 @@ func RuleStatusBadgeClass(status string) string {
 	}
 }
 
+func RuleStatusTextClass(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "pass":
+		return "text-emerald-700 dark:text-emerald-400"
+	case "fail":
+		return "text-rose-700 dark:text-rose-400"
+	case "error":
+		return "text-amber-700 dark:text-amber-400"
+	case "unknown":
+		return "text-foreground"
+	case "not_applicable":
+		return "text-muted-foreground"
+	default:
+		return "text-muted-foreground"
+	}
+}
+
 func RuleMonitoringBadgeClass(status string) string {
 	switch strings.ToLower(strings.TrimSpace(status)) {
 	case "automated":
@@ -959,6 +991,19 @@ func RuleMonitoringBadgeClass(status string) string {
 		return "badge bg-slate-100 text-slate-800 dark:bg-slate-900/50 dark:text-slate-100"
 	default:
 		return "badge-outline"
+	}
+}
+
+func RuleMonitoringTextClass(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "automated":
+		return "text-sky-700 dark:text-sky-400"
+	case "partial":
+		return "text-amber-700 dark:text-amber-400"
+	case "manual":
+		return "text-foreground"
+	default:
+		return "text-muted-foreground"
 	}
 }
 
