@@ -212,24 +212,22 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 		})
 	}
 
-	for start := 0; start < len(accountRows); start += userBatchSize {
-		end := min(start+userBatchSize, len(accountRows))
-		_, err := registry.WriteSourceAccountRows(ctx, q, registry.WriteSourceAccountRowsParams{
-			SourceKind: "datadog",
-			SourceName: i.site,
-			RunID:      runID,
-			BatchSize:  userBatchSize,
-			Rows:       accountRows[start:end],
-		})
-		if err != nil {
-			return registry.ReportAndFailSyncRun(ctx, q, runID, report, registry.Event{Source: "datadog", Stage: "write-principals"}, err, registry.SyncErrorKindDB)
-		}
+	if _, err := registry.WriteSourceAccountRows(ctx, q, registry.WriteSourceAccountRowsParams{
+		SourceKind: "datadog",
+		SourceName: i.site,
+		RunID:      runID,
+		BatchSize:  userBatchSize,
+		Rows:       accountRows,
+	}); err != nil {
+		return registry.ReportAndFailSyncRun(ctx, q, runID, report, registry.Event{Source: "datadog", Stage: "write-principals"}, err, registry.SyncErrorKindDB)
+	}
+	if len(accountRows) > 0 {
 		report(registry.Event{
 			Source:  "datadog",
 			Stage:   "write-principals",
-			Current: int64(end),
+			Current: int64(len(accountRows)),
 			Total:   int64(len(accountRows)),
-			Message: fmt.Sprintf("principals %d/%d", end, len(accountRows)),
+			Message: fmt.Sprintf("principals %d/%d", len(accountRows), len(accountRows)),
 		})
 	}
 

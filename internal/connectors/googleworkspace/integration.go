@@ -1338,23 +1338,8 @@ func (i *GoogleWorkspaceIntegration) writeDiscoveryRows(ctx context.Context, q *
 		RunID:      runID,
 		Sources:    sources,
 		Events:     events,
-		Report:     discoveryProgressReporter(report),
+		Report:     registry.DiscoveryProgressReporter(report),
 	})
-}
-
-func discoveryProgressReporter(report func(registry.Event)) func(discovery.ProgressEvent) {
-	return func(event discovery.ProgressEvent) {
-		if report == nil {
-			return
-		}
-		report(registry.Event{
-			Source:  event.Source,
-			Stage:   event.Stage,
-			Current: event.Current,
-			Total:   event.Total,
-			Message: event.Message,
-		})
-	}
 }
 
 func (i *GoogleWorkspaceIntegration) seedGoogleWorkspaceAutoBindings(ctx context.Context, q *gen.Queries, runID int64) error {
