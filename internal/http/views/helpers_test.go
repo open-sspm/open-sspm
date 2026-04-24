@@ -33,6 +33,101 @@ func TestSeverityTextHelpersStayAligned(t *testing.T) {
 	}
 }
 
+func TestOverviewMapSourceClassUsesExplicitUnknownFallback(t *testing.T) {
+	t.Parallel()
+
+	if got := OverviewMapSourceClass("github"); !strings.Contains(got, "overview-map-source-github") {
+		t.Fatalf("github tone class = %q, want github class", got)
+	}
+	if got := OverviewMapSourceClass("gitub"); !strings.Contains(got, "overview-map-source-unknown") {
+		t.Fatalf("typo tone class = %q, want explicit unknown class", got)
+	}
+	if got := OverviewMapSourceClass(viewmodels.OverviewMapToneDefault); strings.Contains(got, "overview-map-source-unknown") {
+		t.Fatalf("default tone class = %q, should not be unknown", got)
+	}
+}
+
+func TestOverviewMapSeverityClassIsExplicit(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]string{
+		"critical": "overview-risk-bucket-critical",
+		"high":     "overview-risk-bucket-high",
+		"medium":   "overview-risk-bucket-medium",
+		"low":      "overview-risk-bucket-low",
+		"info":     "overview-risk-bucket-info",
+		"":         "overview-risk-bucket-unknown",
+		"typo":     "overview-risk-bucket-unknown",
+	}
+
+	for severity, want := range tests {
+		if got := OverviewMapSeverityClass(severity); !strings.Contains(got, want) {
+			t.Fatalf("severity %q class = %q, want %q", severity, got, want)
+		}
+	}
+}
+
+func TestOverviewMapCoordinatesClampBeforeRendering(t *testing.T) {
+	t.Parallel()
+
+	if got, want := OverviewMapNodeStyle(-50, 150), "left: 0%; top: 100%;"; got != want {
+		t.Fatalf("node style = %q, want %q", got, want)
+	}
+	if got, want := OverviewMapEdgePath(-1, 25, 120, 75), "M 0 25 C 50 25, 50 75, 100 75"; got != want {
+		t.Fatalf("edge path = %q, want %q", got, want)
+	}
+}
+
+func TestOverviewMapRendersStableHooks(t *testing.T) {
+	t.Parallel()
+
+	var body bytes.Buffer
+	err := OverviewMap(viewmodels.OverviewMapGraph{
+		CenterX:       50,
+		CenterY:       50,
+		IdentityCount: 3,
+		AccountCount:  5,
+		Sources: []viewmodels.OverviewMapSourceNode{
+			{
+				Kind:            "github",
+				Label:           "GitHub",
+				Href:            "/accounts/github",
+				X:               50,
+				Y:               16,
+				AccountCount:    5,
+				CoveragePercent: 80,
+				Tone:            viewmodels.OverviewMapToneGitHub,
+				Buckets: []viewmodels.OverviewMapBucket{
+					{Label: "Admins", Severity: viewmodels.OverviewMapSeverityHigh, AffectedCount: 2},
+				},
+			},
+		},
+	}).Render(context.Background(), &body)
+	if err != nil {
+		t.Fatalf("render overview map: %v", err)
+	}
+
+	html := body.String()
+	for _, hook := range []string{
+		`data-testid="overview-map"`,
+		`data-testid="overview-map-center"`,
+		`data-testid="overview-map-edge"`,
+		`data-testid="overview-map-node"`,
+		`data-testid="overview-map-list-item"`,
+		`data-testid="overview-map-bucket"`,
+		`data-overview-map-surface`,
+		`data-overview-map-edge="0"`,
+		`data-overview-map-node="0"`,
+	} {
+		if !strings.Contains(html, hook) {
+			t.Fatalf("overview map should render %s: %s", hook, html)
+		}
+	}
+	if strings.Contains(html, `overview-map-source-count`) {
+		t.Fatalf("overview map source title should not render a separate account count: %s", html)
+	}
+}
+
 func TestSegmentChipUsesAriaCurrentForActiveLink(t *testing.T) {
 	t.Parallel()
 

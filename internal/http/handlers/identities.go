@@ -173,6 +173,27 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		data.PaginatedListPageData.EmptyStateMsg = "No identities match the current filters."
 	}
 
+	overviewMapSourcePairs := sourcePairs
+	if queryState.Source.Kind != "" {
+		filtered := make([]viewmodels.ProgrammaticSourceOption, 0, len(sourcePairs))
+		for _, sp := range sourcePairs {
+			if NormalizeConnectorKind(sp.SourceKind) == NormalizeConnectorKind(queryState.Source.Kind) {
+				if queryState.Source.Name != "" && sp.SourceName != queryState.Source.Name {
+					continue
+				}
+				filtered = append(filtered, sp)
+			}
+		}
+		if len(filtered) > 0 {
+			overviewMapSourcePairs = filtered
+		}
+	}
+	overviewMap, err := h.buildIdentitiesOverviewMap(ctx, overviewMapSourcePairs, data.Summary.Total)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	data.OverviewMap = overviewMap
+
 	return renderIdentities()
 }
 
@@ -208,31 +229,31 @@ func availableIdentitySourcePairs(stateView connectorStateView) []viewmodels.Pro
 	}
 
 	okta := stateView.Okta()
-	if okta.Configured() {
+	if okta.Configured() && okta.Enabled() {
 		appendSource("okta", okta.SourceName())
 	}
 	entra := stateView.Entra()
-	if entra.Configured() {
+	if entra.Configured() && entra.Enabled() {
 		appendSource("entra", entra.SourceName())
 	}
 	google := stateView.GoogleWorkspace()
-	if google.Configured() {
+	if google.Configured() && google.Enabled() {
 		appendSource(configstore.KindGoogleWorkspace, google.SourceName())
 	}
 	github := stateView.GitHub()
-	if github.Configured() {
+	if github.Configured() && github.Enabled() {
 		appendSource("github", github.SourceName())
 	}
 	datadog := stateView.Datadog()
-	if datadog.Configured() {
+	if datadog.Configured() && datadog.Enabled() {
 		appendSource("datadog", datadog.SourceName())
 	}
 	aws := stateView.AWSIdentityCenter()
-	if aws.Configured() {
+	if aws.Configured() && aws.Enabled() {
 		appendSource(configstore.KindAWSIdentityCenter, aws.SourceName())
 	}
 	vault := stateView.Vault()
-	if vault.Configured() {
+	if vault.Configured() && vault.Enabled() {
 		appendSource("vault", vault.SourceName())
 	}
 
@@ -421,6 +442,12 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 
 	h.trackNonHumanAccessOutboundClick(c, "identity", summary.ID)
 
+	overviewMap, err := h.buildIdentityShowOverviewMap(ctx, summary.ID)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	overviewMap.IdentityCount = 1
+
 	return h.RenderComponent(c, views.IdentityShowPage(viewmodels.IdentityShowViewData{
 		Layout:             layout,
 		Identity:           summary,
@@ -432,6 +459,7 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		LinkedAccounts:     linkedAccounts,
 		NonHumanAccessHref: nonHumanAccessHref,
 		HasLinkedAccounts:  len(linkedAccounts) > 0,
+		OverviewMap:        overviewMap,
 	}))
 }
 

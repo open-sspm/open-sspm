@@ -141,6 +141,57 @@ func (q *Queries) ListIdentityAccountAttributes(ctx context.Context) ([]ListIden
 	return items, nil
 }
 
+const listIdentitySourceSummaries = `-- name: ListIdentitySourceSummaries :many
+SELECT
+  a.source_kind,
+  a.source_name,
+  COUNT(DISTINCT a.id)::bigint AS account_count,
+  BOOL_OR(COALESCE(iss.is_authoritative, FALSE))::boolean AS has_authoritative
+FROM accounts a
+JOIN identity_accounts ia ON ia.account_id = a.id
+LEFT JOIN identity_source_settings iss
+  ON iss.source_kind = a.source_kind
+  AND iss.source_name = a.source_name
+  AND iss.is_authoritative
+WHERE ia.identity_id = $1
+  AND a.expired_at IS NULL
+  AND a.last_observed_run_id IS NOT NULL
+GROUP BY a.source_kind, a.source_name
+ORDER BY a.source_kind, a.source_name
+`
+
+type ListIdentitySourceSummariesRow struct {
+	SourceKind       string `json:"source_kind"`
+	SourceName       string `json:"source_name"`
+	AccountCount     int64  `json:"account_count"`
+	HasAuthoritative bool   `json:"has_authoritative"`
+}
+
+func (q *Queries) ListIdentitySourceSummaries(ctx context.Context, identityID int64) ([]ListIdentitySourceSummariesRow, error) {
+	rows, err := q.db.Query(ctx, listIdentitySourceSummaries, identityID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIdentitySourceSummariesRow
+	for rows.Next() {
+		var i ListIdentitySourceSummariesRow
+		if err := rows.Scan(
+			&i.SourceKind,
+			&i.SourceName,
+			&i.AccountCount,
+			&i.HasAuthoritative,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLinkedAccountsForIdentity = `-- name: ListLinkedAccountsForIdentity :many
 SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status, a.account_kind, a.entity_category
 FROM accounts a

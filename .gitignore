@@ -38,3 +38,4 @@ override.tf.json
 
 # Ansible (demo)
 demo/infra/ansible/inventory.ini
+.blackboxcli/
