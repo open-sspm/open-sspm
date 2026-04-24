@@ -32,24 +32,35 @@ func TestHandleIdentitiesClampsOutOfRangePage(t *testing.T) {
 		identityID := insertCommandSearchIdentity(t, ctx, pool, "human", "person@example.com", "Example Person")
 		insertCommandSearchIdentityAccountLink(t, ctx, pool, identityID, accountID)
 
-		c, rec := newTestContext(http.MethodGet, "http://example.com/identities?page=200000000")
-		if err := h.HandleIdentities(c); err != nil {
-			t.Fatalf("HandleIdentities() error = %v", err)
+		tests := []struct {
+			name string
+			page string
+		}{
+			{name: "valid offset beyond last page", page: "2"},
+			{name: "overflowing offset", page: "200000000"},
 		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				c, rec := newTestContext(http.MethodGet, "http://example.com/identities?page="+tt.page)
+				if err := h.HandleIdentities(c); err != nil {
+					t.Fatalf("HandleIdentities() error = %v", err)
+				}
 
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
-		}
+				if rec.Code != http.StatusOK {
+					t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+				}
 
-		body := rec.Body.String()
-		if !strings.Contains(body, "Example Person") {
-			t.Fatalf("body missing identity row: %s", body)
-		}
-		if !strings.Contains(body, "Showing 1-1 of 1") {
-			t.Fatalf("body missing showing summary: %s", body)
-		}
-		if strings.Contains(body, "No identities found") {
-			t.Fatalf("body unexpectedly rendered empty state: %s", body)
+				body := rec.Body.String()
+				if !strings.Contains(body, "Example Person") {
+					t.Fatalf("body missing identity row: %s", body)
+				}
+				if !strings.Contains(body, "Showing 1-1 of 1") {
+					t.Fatalf("body missing showing summary: %s", body)
+				}
+				if strings.Contains(body, "No identities found") {
+					t.Fatalf("body unexpectedly rendered empty state: %s", body)
+				}
+			})
 		}
 	})
 }
