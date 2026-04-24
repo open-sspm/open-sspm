@@ -2,23 +2,16 @@ package readmodels
 
 import (
 	"context"
-	"errors"
-	"net/url"
-	"os"
-	"path/filepath"
-	"runtime"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/testdb"
 )
 
 const readModelsTestConnectorSecretKey = "0123456789abcdef0123456789abcdef"
@@ -146,63 +139,15 @@ func TestProjectorRefreshConnectorSourceStateDoesNotLetDiscoveryFreshnessKeepNon
 func withReadModelsTestDatabase(t *testing.T, fn func(context.Context, *pgxpool.Pool, *gen.Queries, *migrate.Migrate)) {
 	t.Helper()
 
-	baseURL := strings.TrimSpace(os.Getenv("OPENSSPM_TEST_DATABASE_URL"))
-	if baseURL == "" {
-		t.Skip("OPENSSPM_TEST_DATABASE_URL is not set")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	adminURL, err := testDatabaseAdminURL(baseURL)
-	if err != nil {
-		t.Fatalf("testDatabaseAdminURL() err = %v", err)
-	}
-
-	adminConn, err := pgx.Connect(ctx, adminURL)
-	if err != nil {
-		t.Fatalf("pgx.Connect(admin) err = %v", err)
-	}
-	defer adminConn.Close(ctx)
-
-	dbName := "opensspm_readmodels_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	if _, err := adminConn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{dbName}.Sanitize()); err != nil {
-		t.Fatalf("CREATE DATABASE err = %v", err)
-	}
-	defer func() {
-		dropCtx, dropCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer dropCancel()
-		_, _ = adminConn.Exec(dropCtx, "DROP DATABASE IF EXISTS "+pgx.Identifier{dbName}.Sanitize()+" WITH (FORCE)")
-	}()
-
-	testURL, err := testDatabaseURLWithName(baseURL, dbName)
-	if err != nil {
-		t.Fatalf("testDatabaseURLWithName() err = %v", err)
-	}
-
-	migrator, err := migrate.New("file://"+readModelsMigrationsDir(t), testURL)
-	if err != nil {
-		t.Fatalf("migrate.New() err = %v", err)
-	}
-	defer func() {
-		_, _ = migrator.Close()
-	}()
-
-	pool, err := pgxpool.New(ctx, testURL)
-	if err != nil {
-		t.Fatalf("pgxpool.New() err = %v", err)
-	}
-	defer pool.Close()
-
-	fn(ctx, pool, gen.New(pool), migrator)
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "opensspm_readmodels"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+		fn(ctx, pool, gen.New(pool), migrator)
+	})
 }
 
 func migrateUpReadModels(t *testing.T, migrator *migrate.Migrate) {
 	t.Helper()
 
-	if err := migrator.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		t.Fatalf("migrate up: %v", err)
-	}
+	testdb.MigrateUp(t, migrator)
 }
 
 func insertReadModelsConnectorConfig(t *testing.T, ctx context.Context, pool *pgxpool.Pool, kind string, enabled bool, cfg any) {
@@ -298,32 +243,4 @@ func fetchConnectorSourceStateTimes(t *testing.T, ctx context.Context, pool *pgx
 
 func int64String(v int64) string {
 	return strconv.FormatInt(v, 10)
-}
-
-func readModelsMigrationsDir(t *testing.T) string {
-	t.Helper()
-
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "db", "migrations"))
-}
-
-func testDatabaseAdminURL(baseURL string) (string, error) {
-	parsed, err := url.Parse(baseURL)
-	if err != nil {
-		return "", err
-	}
-	parsed.Path = "/postgres"
-	return parsed.String(), nil
-}
-
-func testDatabaseURLWithName(baseURL, dbName string) (string, error) {
-	parsed, err := url.Parse(baseURL)
-	if err != nil {
-		return "", err
-	}
-	parsed.Path = "/" + dbName
-	return parsed.String(), nil
 }

@@ -3,24 +3,17 @@ package entra
 import (
 	"context"
 	"encoding/json"
-	"net/url"
-	"os"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
+	"github.com/open-sspm/open-sspm/internal/testdb"
 )
 
 type fullSyncTestClient struct {
@@ -694,89 +687,13 @@ func TestEntraRunDiscoveryPersistsSourcesAndEvents(t *testing.T) {
 func withEntraTestDB(t *testing.T, fn func(context.Context, *pgxpool.Pool, *gen.Queries, *migrate.Migrate)) {
 	t.Helper()
 
-	baseURL := strings.TrimSpace(os.Getenv("OPENSSPM_TEST_DATABASE_URL"))
-	if baseURL == "" {
-		t.Skip("OPENSSPM_TEST_DATABASE_URL is not set")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	adminURL, err := entraTestDatabaseAdminURL(baseURL)
-	if err != nil {
-		t.Fatalf("entraTestDatabaseAdminURL() err = %v", err)
-	}
-
-	adminConn, err := pgx.Connect(ctx, adminURL)
-	if err != nil {
-		t.Fatalf("pgx.Connect(admin) err = %v", err)
-	}
-	defer adminConn.Close(ctx)
-
-	dbName := "opensspm_entra_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	if _, err := adminConn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{dbName}.Sanitize()); err != nil {
-		t.Fatalf("CREATE DATABASE err = %v", err)
-	}
-	defer func() {
-		dropCtx, dropCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer dropCancel()
-		_, _ = adminConn.Exec(dropCtx, "DROP DATABASE IF EXISTS "+pgx.Identifier{dbName}.Sanitize()+" WITH (FORCE)")
-	}()
-
-	testURL, err := entraTestDatabaseURLWithName(baseURL, dbName)
-	if err != nil {
-		t.Fatalf("entraTestDatabaseURLWithName() err = %v", err)
-	}
-
-	migrator, err := migrate.New("file://"+entraTestMigrationsDir(t), testURL)
-	if err != nil {
-		t.Fatalf("migrate.New() err = %v", err)
-	}
-	defer func() {
-		_, _ = migrator.Close()
-	}()
-
-	pool, err := pgxpool.New(ctx, testURL)
-	if err != nil {
-		t.Fatalf("pgxpool.New() err = %v", err)
-	}
-	defer pool.Close()
-
-	fn(ctx, pool, gen.New(pool), migrator)
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "opensspm_entra"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+		fn(ctx, pool, gen.New(pool), migrator)
+	})
 }
 
 func migrateEntraUp(t *testing.T, migrator *migrate.Migrate) {
 	t.Helper()
 
-	if err := migrator.Up(); err != nil && err != migrate.ErrNoChange {
-		t.Fatalf("migrate up: %v", err)
-	}
-}
-
-func entraTestMigrationsDir(t *testing.T) string {
-	t.Helper()
-
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-	return filepath.Join(filepath.Dir(file), "..", "..", "..", "db", "migrations")
-}
-
-func entraTestDatabaseAdminURL(raw string) (string, error) {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return "", err
-	}
-	parsed.Path = "/postgres"
-	return parsed.String(), nil
-}
-
-func entraTestDatabaseURLWithName(raw, dbName string) (string, error) {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return "", err
-	}
-	parsed.Path = "/" + dbName
-	return parsed.String(), nil
+	testdb.MigrateUp(t, migrator)
 }

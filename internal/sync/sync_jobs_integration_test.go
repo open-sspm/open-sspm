@@ -3,21 +3,12 @@ package sync
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net/url"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/testdb"
 )
 
 func TestSyncJobStore_ManualPromotesPendingScheduledJob(t *testing.T) {
@@ -155,90 +146,14 @@ func TestSyncJobStore_DuplicateClaimedManualJobReturnsBusyError(t *testing.T) {
 func withSyncJobsTestDB(t *testing.T, fn func(context.Context, *dbSyncJobStore)) {
 	t.Helper()
 
-	baseURL := strings.TrimSpace(os.Getenv("OPENSSPM_TEST_DATABASE_URL"))
-	if baseURL == "" {
-		t.Skip("OPENSSPM_TEST_DATABASE_URL is not set")
-	}
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "opensspm_syncjobs"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+		testdb.MigrateUp(t, migrator)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
+		store, ok := NewSyncJobStore(pool).(*dbSyncJobStore)
+		if !ok || store == nil {
+			t.Fatalf("NewSyncJobStore() did not return *dbSyncJobStore")
+		}
 
-	adminURL, err := testDatabaseAdminURL(baseURL)
-	if err != nil {
-		t.Fatalf("testDatabaseAdminURL() err = %v", err)
-	}
-
-	adminConn, err := pgx.Connect(ctx, adminURL)
-	if err != nil {
-		t.Fatalf("pgx.Connect(admin) err = %v", err)
-	}
-	defer adminConn.Close(ctx)
-
-	dbName := "opensspm_syncjobs_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	if _, err := adminConn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{dbName}.Sanitize()); err != nil {
-		t.Fatalf("CREATE DATABASE err = %v", err)
-	}
-	defer func() {
-		dropCtx, dropCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer dropCancel()
-		_, _ = adminConn.Exec(dropCtx, "DROP DATABASE IF EXISTS "+pgx.Identifier{dbName}.Sanitize()+" WITH (FORCE)")
-	}()
-
-	testURL, err := testDatabaseURLWithName(baseURL, dbName)
-	if err != nil {
-		t.Fatalf("testDatabaseURLWithName() err = %v", err)
-	}
-	if err := applyTestMigrations(testURL); err != nil {
-		t.Fatalf("applyTestMigrations() err = %v", err)
-	}
-
-	pool, err := pgxpool.New(ctx, testURL)
-	if err != nil {
-		t.Fatalf("pgxpool.New() err = %v", err)
-	}
-	defer pool.Close()
-
-	store, ok := NewSyncJobStore(pool).(*dbSyncJobStore)
-	if !ok || store == nil {
-		t.Fatalf("NewSyncJobStore() did not return *dbSyncJobStore")
-	}
-
-	fn(ctx, store)
-}
-
-func testDatabaseAdminURL(raw string) (string, error) {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return "", err
-	}
-	parsed.Path = "/postgres"
-	return parsed.String(), nil
-}
-
-func testDatabaseURLWithName(raw, dbName string) (string, error) {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return "", err
-	}
-	parsed.Path = "/" + dbName
-	return parsed.String(), nil
-}
-
-func applyTestMigrations(databaseURL string) error {
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		return fmt.Errorf("runtime.Caller failed")
-	}
-	migrationsDir := filepath.Join(filepath.Dir(file), "..", "..", "db", "migrations")
-	m, err := migrate.New("file://"+migrationsDir, databaseURL)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_, _ = m.Close()
-	}()
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		return err
-	}
-	return nil
+		fn(ctx, store)
+	})
 }

@@ -111,31 +111,6 @@ type googleWorkspaceCredentialAuditEventRow struct {
 	RawJSON              []byte
 }
 
-type normalizedDiscoverySource struct {
-	CanonicalKey     string
-	SourceAppID      string
-	SourceAppName    string
-	SourceAppDomain  string
-	SourceVendorName string
-	SeenAt           time.Time
-}
-
-type normalizedDiscoveryEvent struct {
-	CanonicalKey     string
-	SignalKind       string
-	EventExternalID  string
-	SourceAppID      string
-	SourceAppName    string
-	SourceAppDomain  string
-	SourceVendorName string
-	ActorExternalID  string
-	ActorEmail       string
-	ActorDisplayName string
-	ObservedAt       time.Time
-	Scopes           []string
-	RawJSON          []byte
-}
-
 func NewGoogleWorkspaceIntegration(client *Client, customerID, primaryDomain string, discoveryEnabled bool) *GoogleWorkspaceIntegration {
 	return &GoogleWorkspaceIntegration{
 		client:           client,
@@ -1114,9 +1089,9 @@ func (i *GoogleWorkspaceIntegration) syncDiscovery(ctx context.Context, q *gen.Q
 	return nil
 }
 
-func (i *GoogleWorkspaceIntegration) normalizeDiscovery(loginActivities, tokenActivities []WorkspaceActivity, tokenGrants []WorkspaceOAuthTokenGrant, now time.Time) ([]normalizedDiscoverySource, []normalizedDiscoveryEvent) {
-	sourceByID := map[string]normalizedDiscoverySource{}
-	events := make([]normalizedDiscoveryEvent, 0, len(loginActivities)+len(tokenActivities)+len(tokenGrants))
+func (i *GoogleWorkspaceIntegration) normalizeDiscovery(loginActivities, tokenActivities []WorkspaceActivity, tokenGrants []WorkspaceOAuthTokenGrant, now time.Time) ([]discovery.SourceRow, []discovery.EventRow) {
+	sourceByID := map[string]discovery.SourceRow{}
+	events := make([]discovery.EventRow, 0, len(loginActivities)+len(tokenActivities)+len(tokenGrants))
 
 	upsertSource := func(signalKind, sourceAppID, sourceAppName, sourceDomain, sourceVendor string, seenAt time.Time) (discovery.AppMetadata, bool) {
 		sourceAppID = strings.TrimSpace(sourceAppID)
@@ -1140,7 +1115,7 @@ func (i *GoogleWorkspaceIntegration) normalizeDiscovery(loginActivities, tokenAc
 		})
 		current := sourceByID[sourceAppID]
 		if current.SourceAppID == "" || seenAt.After(current.SeenAt) {
-			sourceByID[sourceAppID] = normalizedDiscoverySource{
+			sourceByID[sourceAppID] = discovery.SourceRow{
 				CanonicalKey:     metadata.CanonicalKey,
 				SourceAppID:      sourceAppID,
 				SourceAppName:    sourceAppName,
@@ -1169,7 +1144,7 @@ func (i *GoogleWorkspaceIntegration) normalizeDiscovery(loginActivities, tokenAc
 			actorExternalID = actorEmail
 		}
 		if len(activity.Events) == 0 {
-			events = append(events, normalizedDiscoveryEvent{
+			events = append(events, discovery.EventRow{
 				CanonicalKey:     metadata.CanonicalKey,
 				SignalKind:       discovery.SignalKindIDPSSO,
 				EventExternalID:  activityEventExternalID("login", activity, 0),
@@ -1187,7 +1162,7 @@ func (i *GoogleWorkspaceIntegration) normalizeDiscovery(loginActivities, tokenAc
 			continue
 		}
 		for idx := range activity.Events {
-			events = append(events, normalizedDiscoveryEvent{
+			events = append(events, discovery.EventRow{
 				CanonicalKey:     metadata.CanonicalKey,
 				SignalKind:       discovery.SignalKindIDPSSO,
 				EventExternalID:  activityEventExternalID("login", activity, idx),
@@ -1222,7 +1197,7 @@ func (i *GoogleWorkspaceIntegration) normalizeDiscovery(loginActivities, tokenAc
 		}
 		scopes := discovery.NormalizeScopes(append(activity.ParameterValues("scope"), activity.ParameterValues("scopes")...))
 		if len(activity.Events) == 0 {
-			events = append(events, normalizedDiscoveryEvent{
+			events = append(events, discovery.EventRow{
 				CanonicalKey:     metadata.CanonicalKey,
 				SignalKind:       discovery.SignalKindOAuth,
 				EventExternalID:  activityEventExternalID("token", activity, 0),
@@ -1240,7 +1215,7 @@ func (i *GoogleWorkspaceIntegration) normalizeDiscovery(loginActivities, tokenAc
 			continue
 		}
 		for idx := range activity.Events {
-			events = append(events, normalizedDiscoveryEvent{
+			events = append(events, discovery.EventRow{
 				CanonicalKey:     metadata.CanonicalKey,
 				SignalKind:       discovery.SignalKindOAuth,
 				EventExternalID:  activityEventExternalID("token", activity, idx),
@@ -1267,7 +1242,7 @@ func (i *GoogleWorkspaceIntegration) normalizeDiscovery(loginActivities, tokenAc
 		}
 		userKey := strings.TrimSpace(grant.UserKey)
 		actorEmail := normalizeEmail(userKey)
-		events = append(events, normalizedDiscoveryEvent{
+		events = append(events, discovery.EventRow{
 			CanonicalKey:     metadata.CanonicalKey,
 			SignalKind:       discovery.SignalKindOAuth,
 			EventExternalID:  "inventory:" + googleWorkspaceGrantExternalID(sourceAppID, userKey),
@@ -1284,7 +1259,7 @@ func (i *GoogleWorkspaceIntegration) normalizeDiscovery(loginActivities, tokenAc
 		})
 	}
 
-	sources := make([]normalizedDiscoverySource, 0, len(sourceByID))
+	sources := make([]discovery.SourceRow, 0, len(sourceByID))
 	for _, row := range sourceByID {
 		sources = append(sources, row)
 	}
@@ -1356,174 +1331,30 @@ func activityEventExternalID(prefix string, activity WorkspaceActivity, idx int)
 	return fmt.Sprintf("%s:%x", prefix, h.Sum64())
 }
 
-func (i *GoogleWorkspaceIntegration) writeDiscoveryRows(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, sources []normalizedDiscoverySource, events []normalizedDiscoveryEvent) error {
-	total := len(sources) + len(events)
-	report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-discovery", Current: 0, Total: int64(total), Message: fmt.Sprintf("writing %d discovery records", total)})
+func (i *GoogleWorkspaceIntegration) writeDiscoveryRows(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, sources []discovery.SourceRow, events []discovery.EventRow) error {
+	return discovery.WriteRows(ctx, q, discovery.WriteRowsParams{
+		SourceKind: configstore.KindGoogleWorkspace,
+		SourceName: i.customerID,
+		RunID:      runID,
+		Sources:    sources,
+		Events:     events,
+		Report:     discoveryProgressReporter(report),
+	})
+}
 
-	appMeta := map[string]discovery.AppMetadata{}
-	firstSeenByKey := map[string]time.Time{}
-	lastSeenByKey := map[string]time.Time{}
-	addMeta := func(key string, seenAt time.Time, sample discovery.AppMetadata) {
-		if key == "" {
+func discoveryProgressReporter(report func(registry.Event)) func(discovery.ProgressEvent) {
+	return func(event discovery.ProgressEvent) {
+		if report == nil {
 			return
 		}
-		if _, ok := appMeta[key]; !ok {
-			appMeta[key] = sample
-			firstSeenByKey[key] = seenAt
-			lastSeenByKey[key] = seenAt
-			return
-		}
-		if seenAt.Before(firstSeenByKey[key]) {
-			firstSeenByKey[key] = seenAt
-		}
-		if seenAt.After(lastSeenByKey[key]) {
-			lastSeenByKey[key] = seenAt
-		}
-	}
-
-	for _, source := range sources {
-		meta := discovery.BuildMetadata(discovery.CanonicalInput{
-			SourceKind:       configstore.KindGoogleWorkspace,
-			SourceName:       i.customerID,
-			SourceAppID:      source.SourceAppID,
-			SourceAppName:    source.SourceAppName,
-			SourceDomain:     source.SourceAppDomain,
-			SourceVendorName: source.SourceVendorName,
+		report(registry.Event{
+			Source:  event.Source,
+			Stage:   event.Stage,
+			Current: event.Current,
+			Total:   event.Total,
+			Message: event.Message,
 		})
-		meta.CanonicalKey = source.CanonicalKey
-		addMeta(source.CanonicalKey, source.SeenAt, meta)
 	}
-	for _, event := range events {
-		meta := discovery.BuildMetadata(discovery.CanonicalInput{
-			SourceKind:       configstore.KindGoogleWorkspace,
-			SourceName:       i.customerID,
-			SourceAppID:      event.SourceAppID,
-			SourceAppName:    event.SourceAppName,
-			SourceDomain:     event.SourceAppDomain,
-			SourceVendorName: event.SourceVendorName,
-		})
-		meta.CanonicalKey = event.CanonicalKey
-		addMeta(event.CanonicalKey, event.ObservedAt, meta)
-	}
-
-	if len(appMeta) > 0 {
-		canonicalKeys := make([]string, 0, len(appMeta))
-		displayNames := make([]string, 0, len(appMeta))
-		primaryDomains := make([]string, 0, len(appMeta))
-		vendorNames := make([]string, 0, len(appMeta))
-		firstSeenAts := make([]pgtype.Timestamptz, 0, len(appMeta))
-		lastSeenAts := make([]pgtype.Timestamptz, 0, len(appMeta))
-		for key, meta := range appMeta {
-			canonicalKeys = append(canonicalKeys, key)
-			displayNames = append(displayNames, meta.DisplayName)
-			primaryDomains = append(primaryDomains, meta.Domain)
-			vendorNames = append(vendorNames, meta.VendorName)
-			firstSeenAt := firstSeenByKey[key]
-			lastSeenAt := lastSeenByKey[key]
-			firstSeenAts = append(firstSeenAts, registry.PgTimestamptzPtr(&firstSeenAt))
-			lastSeenAts = append(lastSeenAts, registry.PgTimestamptzPtr(&lastSeenAt))
-		}
-		if _, err := q.UpsertSaaSAppsBulk(ctx, gen.UpsertSaaSAppsBulkParams{
-			CanonicalKeys:  canonicalKeys,
-			DisplayNames:   displayNames,
-			PrimaryDomains: primaryDomains,
-			VendorNames:    vendorNames,
-			FirstSeenAts:   firstSeenAts,
-			LastSeenAts:    lastSeenAts,
-		}); err != nil {
-			return fmt.Errorf("upsert saas apps: %w", err)
-		}
-	}
-
-	written := 0
-	if len(sources) > 0 {
-		canonicalKeys := make([]string, 0, len(sources))
-		sourceAppIDs := make([]string, 0, len(sources))
-		sourceAppNames := make([]string, 0, len(sources))
-		sourceAppDomains := make([]string, 0, len(sources))
-		seenAts := make([]pgtype.Timestamptz, 0, len(sources))
-		for _, source := range sources {
-			canonicalKeys = append(canonicalKeys, source.CanonicalKey)
-			sourceAppIDs = append(sourceAppIDs, source.SourceAppID)
-			sourceAppNames = append(sourceAppNames, source.SourceAppName)
-			sourceAppDomains = append(sourceAppDomains, source.SourceAppDomain)
-			seenAts = append(seenAts, registry.PgTimestamptzPtr(&source.SeenAt))
-		}
-		if _, err := q.UpsertSaaSAppSourcesBulkBySource(ctx, gen.UpsertSaaSAppSourcesBulkBySourceParams{
-			SourceKind:       configstore.KindGoogleWorkspace,
-			SourceName:       i.customerID,
-			SeenInRunID:      runID,
-			CanonicalKeys:    canonicalKeys,
-			SourceAppIds:     sourceAppIDs,
-			SourceAppNames:   sourceAppNames,
-			SourceAppDomains: sourceAppDomains,
-			SeenAts:          seenAts,
-		}); err != nil {
-			return fmt.Errorf("upsert saas app sources: %w", err)
-		}
-		written += len(sources)
-		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-discovery", Current: int64(written), Total: int64(total), Message: fmt.Sprintf("sources %d/%d", written, total)})
-	}
-
-	if len(events) > 0 {
-		canonicalKeys := make([]string, 0, len(events))
-		signalKinds := make([]string, 0, len(events))
-		eventExternalIDs := make([]string, 0, len(events))
-		sourceAppIDs := make([]string, 0, len(events))
-		sourceAppNames := make([]string, 0, len(events))
-		sourceAppDomains := make([]string, 0, len(events))
-		actorExternalIDs := make([]string, 0, len(events))
-		actorEmails := make([]string, 0, len(events))
-		actorDisplayNames := make([]string, 0, len(events))
-		observedAts := make([]pgtype.Timestamptz, 0, len(events))
-		scopesJSONs := make([][]byte, 0, len(events))
-		rawJSONs := make([][]byte, 0, len(events))
-		ingestedBySignal := map[string]int{}
-		for _, event := range events {
-			canonicalKeys = append(canonicalKeys, event.CanonicalKey)
-			signalKinds = append(signalKinds, event.SignalKind)
-			eventExternalIDs = append(eventExternalIDs, event.EventExternalID)
-			sourceAppIDs = append(sourceAppIDs, event.SourceAppID)
-			sourceAppNames = append(sourceAppNames, event.SourceAppName)
-			sourceAppDomains = append(sourceAppDomains, event.SourceAppDomain)
-			actorExternalIDs = append(actorExternalIDs, event.ActorExternalID)
-			actorEmails = append(actorEmails, event.ActorEmail)
-			actorDisplayNames = append(actorDisplayNames, event.ActorDisplayName)
-			observedAts = append(observedAts, registry.PgTimestamptzPtr(&event.ObservedAt))
-			scopesJSONs = append(scopesJSONs, discovery.ScopesJSON(event.Scopes))
-			rawJSONs = append(rawJSONs, registry.NormalizeJSON(event.RawJSON))
-			ingestedBySignal[event.SignalKind]++
-		}
-		if _, err := q.UpsertSaaSAppEventsBulkBySource(ctx, gen.UpsertSaaSAppEventsBulkBySourceParams{
-			SourceKind:        configstore.KindGoogleWorkspace,
-			SourceName:        i.customerID,
-			SeenInRunID:       runID,
-			CanonicalKeys:     canonicalKeys,
-			SignalKinds:       signalKinds,
-			EventExternalIds:  eventExternalIDs,
-			SourceAppIds:      sourceAppIDs,
-			SourceAppNames:    sourceAppNames,
-			SourceAppDomains:  sourceAppDomains,
-			ActorExternalIds:  actorExternalIDs,
-			ActorEmails:       actorEmails,
-			ActorDisplayNames: actorDisplayNames,
-			ObservedAts:       observedAts,
-			ScopesJsons:       scopesJSONs,
-			RawJsons:          rawJSONs,
-		}); err != nil {
-			return fmt.Errorf("upsert saas app events: %w", err)
-		}
-		for signalKind, count := range ingestedBySignal {
-			metrics.DiscoveryEventsIngestedTotal.WithLabelValues(configstore.KindGoogleWorkspace, signalKind).Add(float64(count))
-		}
-		written += len(events)
-		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-discovery", Current: int64(written), Total: int64(total), Message: fmt.Sprintf("events %d/%d", written, total)})
-	}
-
-	if written == 0 {
-		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-discovery", Current: 0, Total: 0, Message: "no discovery records to write"})
-	}
-	return nil
 }
 
 func (i *GoogleWorkspaceIntegration) seedGoogleWorkspaceAutoBindings(ctx context.Context, q *gen.Queries, runID int64) error {

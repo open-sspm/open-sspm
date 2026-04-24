@@ -418,45 +418,37 @@ func (h *Handlers) validateDiscoveryGovernanceUpdate(ctx context.Context, summar
 }
 
 func (h *Handlers) persistDiscoveryGovernanceUpdate(ctx context.Context, appID int64, form discoveryGovernanceFormInput, identityRefs discoveryGovernanceIdentityRefs, validated discoveryGovernanceValidatedInput, principal auth.Principal) error {
-	tx, err := h.Pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-	qtx := h.Q.WithTx(tx)
-
 	authUserID := pgtype.Int8{Int64: principal.UserID, Valid: principal.UserID > 0}
-	if _, err := qtx.UpsertSaaSAppReviewGovernance(ctx, gen.UpsertSaaSAppReviewGovernanceParams{
-		SaasAppID:             appID,
-		OwnerIdentityID:       identityRefs.ownerIdentityID,
-		TicketRef:             form.ticketRefInput,
-		Notes:                 form.notesInput,
-		ReviewDisposition:     form.reviewDispositionInput,
-		ReviewOwnerIdentityID: identityRefs.reviewOwnerIdentityID,
-		FollowUpDueDate:       validated.followUpDueDate,
-		ReplacementSaasAppID:  validated.replacementRef,
-		UpdatedByAuthUserID:   authUserID,
-	}); err != nil {
-		return err
-	}
+	return h.WithTx(ctx, func(qtx *gen.Queries) error {
+		if _, err := qtx.UpsertSaaSAppReviewGovernance(ctx, gen.UpsertSaaSAppReviewGovernanceParams{
+			SaasAppID:             appID,
+			OwnerIdentityID:       identityRefs.ownerIdentityID,
+			TicketRef:             form.ticketRefInput,
+			Notes:                 form.notesInput,
+			ReviewDisposition:     form.reviewDispositionInput,
+			ReviewOwnerIdentityID: identityRefs.reviewOwnerIdentityID,
+			FollowUpDueDate:       validated.followUpDueDate,
+			ReplacementSaasAppID:  validated.replacementRef,
+			UpdatedByAuthUserID:   authUserID,
+		}); err != nil {
+			return err
+		}
 
-	if err := qtx.InsertSaaSAppReviewDecision(ctx, gen.InsertSaaSAppReviewDecisionParams{
-		SaasAppID:             appID,
-		OwnerIdentityID:       identityRefs.ownerIdentityID,
-		ReviewOwnerIdentityID: identityRefs.reviewOwnerIdentityID,
-		ReviewDisposition:     form.reviewDispositionInput,
-		TicketRef:             form.ticketRefInput,
-		Notes:                 form.notesInput,
-		FollowUpDueDate:       validated.followUpDueDate,
-		ReplacementSaasAppID:  validated.replacementRef,
-		ChangedByAuthUserID:   authUserID,
-	}); err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
+		if err := qtx.InsertSaaSAppReviewDecision(ctx, gen.InsertSaaSAppReviewDecisionParams{
+			SaasAppID:             appID,
+			OwnerIdentityID:       identityRefs.ownerIdentityID,
+			ReviewOwnerIdentityID: identityRefs.reviewOwnerIdentityID,
+			ReviewDisposition:     form.reviewDispositionInput,
+			TicketRef:             form.ticketRefInput,
+			Notes:                 form.notesInput,
+			FollowUpDueDate:       validated.followUpDueDate,
+			ReplacementSaasAppID:  validated.replacementRef,
+			ChangedByAuthUserID:   authUserID,
+		}); err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func (h *Handlers) renderDiscoveryGovernanceSuccess(c *echo.Context, appID int64) error {

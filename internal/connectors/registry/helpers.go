@@ -123,6 +123,22 @@ func FailSyncRun(ctx context.Context, q *gen.Queries, runID int64, err error, er
 	return err
 }
 
+func ReportAndFailSyncRun(ctx context.Context, q *gen.Queries, runID int64, report func(Event), event Event, err error, errorKind string) error {
+	if err == nil {
+		return nil
+	}
+	if event.Message == "" {
+		event.Message = err.Error()
+	}
+	if event.Err == nil {
+		event.Err = err
+	}
+	if report != nil {
+		report(event)
+	}
+	return FailSyncRun(ctx, q, runID, err, errorKind)
+}
+
 func FinalizeOktaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceName string, duration time.Duration, finalizeDiscovery bool) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -248,11 +264,7 @@ func FinalizeOktaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, ru
 		counts["saas_app_events_expired"] = expired
 	}
 
-	stats := MarshalJSON(map[string]any{
-		"counts":      counts,
-		"duration_ms": duration.Milliseconds(),
-	})
-	if err := finalizeSuccessfulRunInTx(ctx, qtx, runID, stats, "okta", sourceName); err != nil {
+	if err := finalizeRunCountsInTx(ctx, qtx, runID, counts, duration, "okta", sourceName); err != nil {
 		return err
 	}
 
@@ -417,11 +429,7 @@ func FinalizeAppRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, run
 		counts["saas_app_events_expired"] = expired
 	}
 
-	stats := MarshalJSON(map[string]any{
-		"counts":      counts,
-		"duration_ms": duration.Milliseconds(),
-	})
-	if err := finalizeSuccessfulRunInTx(ctx, qtx, runID, stats, sourceKind, sourceName); err != nil {
+	if err := finalizeRunCountsInTx(ctx, qtx, runID, counts, duration, sourceKind, sourceName); err != nil {
 		return err
 	}
 
@@ -481,11 +489,7 @@ func FinalizeDiscoveryRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Poo
 	}
 	counts["saas_app_events_expired"] = expired
 
-	stats := MarshalJSON(map[string]any{
-		"counts":      counts,
-		"duration_ms": duration.Milliseconds(),
-	})
-	if err := finalizeSuccessfulRunInTx(ctx, qtx, runID, stats, sourceKind, sourceName); err != nil {
+	if err := finalizeRunCountsInTx(ctx, qtx, runID, counts, duration, sourceKind, sourceName); err != nil {
 		return err
 	}
 
@@ -512,6 +516,14 @@ func MarshalJSON(v any) []byte {
 		panic(fmt.Errorf("registry: marshal json: %w", err))
 	}
 	return b
+}
+
+func finalizeRunCountsInTx(ctx context.Context, q *gen.Queries, runID int64, counts map[string]int64, duration time.Duration, sourceKind, sourceName string) error {
+	stats := MarshalJSON(map[string]any{
+		"counts":      counts,
+		"duration_ms": duration.Milliseconds(),
+	})
+	return finalizeSuccessfulRunInTx(ctx, q, runID, stats, sourceKind, sourceName)
 }
 
 func finalizeSuccessfulRunInTx(ctx context.Context, q *gen.Queries, runID int64, stats []byte, sourceKind, sourceName string) error {

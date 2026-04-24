@@ -3,22 +3,13 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
-	"net/url"
-	"os"
-	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/config"
@@ -26,6 +17,7 @@ import (
 	connregistry "github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/readmodels"
+	"github.com/open-sspm/open-sspm/internal/testdb"
 )
 
 const commandSearchTestConnectorSecretKey = "0123456789abcdef0123456789abcdef"
@@ -362,64 +354,16 @@ func TestHandleCommandSearchUsesLiveDiscoveryPostureBadges(t *testing.T) {
 func withCommandSearchTestDatabase(t *testing.T, fn func(context.Context, *pgxpool.Pool, *gen.Queries, *Handlers)) {
 	t.Helper()
 
-	baseURL := strings.TrimSpace(os.Getenv("OPENSSPM_TEST_DATABASE_URL"))
-	if baseURL == "" {
-		t.Skip("OPENSSPM_TEST_DATABASE_URL is not set")
-	}
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "opensspm_command_search"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+		testdb.MigrateUp(t, migrator)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	adminURL, err := commandSearchTestDatabaseAdminURL(baseURL)
-	if err != nil {
-		t.Fatalf("commandSearchTestDatabaseAdminURL() err = %v", err)
-	}
-
-	adminConn, err := pgx.Connect(ctx, adminURL)
-	if err != nil {
-		t.Fatalf("pgx.Connect(admin) err = %v", err)
-	}
-	defer adminConn.Close(ctx)
-
-	dbName := "opensspm_command_search_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	if _, err := adminConn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{dbName}.Sanitize()); err != nil {
-		t.Fatalf("CREATE DATABASE err = %v", err)
-	}
-	defer func() {
-		dropCtx, dropCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer dropCancel()
-		_, _ = adminConn.Exec(dropCtx, "DROP DATABASE IF EXISTS "+pgx.Identifier{dbName}.Sanitize()+" WITH (FORCE)")
-	}()
-
-	testURL, err := commandSearchTestDatabaseURLWithName(baseURL, dbName)
-	if err != nil {
-		t.Fatalf("commandSearchTestDatabaseURLWithName() err = %v", err)
-	}
-
-	migrator, err := migrate.New("file://"+commandSearchTestMigrationsDir(t), testURL)
-	if err != nil {
-		t.Fatalf("migrate.New() err = %v", err)
-	}
-	defer func() {
-		_, _ = migrator.Close()
-	}()
-
-	if err := migrator.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		t.Fatalf("migrate up: %v", err)
-	}
-
-	pool, err := pgxpool.New(ctx, testURL)
-	if err != nil {
-		t.Fatalf("pgxpool.New() err = %v", err)
-	}
-	defer pool.Close()
-
-	q := gen.New(pool)
-	fn(ctx, pool, q, &Handlers{
-		Cfg:      config.Config{ConnectorSecretKey: []byte(commandSearchTestConnectorSecretKey)},
-		Q:        q,
-		Pool:     pool,
-		Registry: newCommandSearchTestRegistry(t),
+		q := gen.New(pool)
+		fn(ctx, pool, q, &Handlers{
+			Cfg:      config.Config{ConnectorSecretKey: []byte(commandSearchTestConnectorSecretKey)},
+			Q:        q,
+			Pool:     pool,
+			Registry: newCommandSearchTestRegistry(t),
+		})
 	})
 }
 
@@ -826,32 +770,4 @@ func insertCommandSearchOktaApp(t *testing.T, ctx context.Context, q *gen.Querie
 	if _, err := q.PromoteOktaAppsSeenInRun(ctx, pgtype.Int8{Int64: runID, Valid: true}); err != nil {
 		t.Fatalf("PromoteOktaAppsSeenInRun %s: %v", externalID, err)
 	}
-}
-
-func commandSearchTestMigrationsDir(t *testing.T) string {
-	t.Helper()
-
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-	return filepath.Join(filepath.Dir(file), "..", "..", "..", "db", "migrations")
-}
-
-func commandSearchTestDatabaseAdminURL(raw string) (string, error) {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return "", err
-	}
-	parsed.Path = "/postgres"
-	return parsed.String(), nil
-}
-
-func commandSearchTestDatabaseURLWithName(raw, dbName string) (string, error) {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return "", err
-	}
-	parsed.Path = "/" + dbName
-	return parsed.String(), nil
 }

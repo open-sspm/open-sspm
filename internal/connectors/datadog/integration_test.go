@@ -4,22 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/url"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/testdb"
 )
 
 type stubDatadogAdapter struct {
@@ -434,89 +426,17 @@ func TestDatadogIntegrationRunFailsWhenRoleMemberFetchFails(t *testing.T) {
 func withDatadogTestDatabase(t *testing.T, fn func(context.Context, *pgxpool.Pool, *gen.Queries, *migrate.Migrate)) {
 	t.Helper()
 
-	baseURL := os.Getenv("TEST_DATABASE_URL")
-	if baseURL == "" {
-		t.Skip("TEST_DATABASE_URL is not set")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-	defer cancel()
-
-	adminURL, err := datadogTestDatabaseAdminURL(baseURL)
-	if err != nil {
-		t.Fatalf("datadogTestDatabaseAdminURL() err = %v", err)
-	}
-
-	adminConn, err := pgx.Connect(ctx, adminURL)
-	if err != nil {
-		t.Fatalf("pgx.Connect() err = %v", err)
-	}
-	defer adminConn.Close(ctx)
-
-	dbName := "test_datadog_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	if _, err := adminConn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{dbName}.Sanitize()); err != nil {
-		t.Fatalf("CREATE DATABASE %s: %v", dbName, err)
-	}
-	defer func() {
-		dropCtx, dropCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer dropCancel()
-		_, _ = adminConn.Exec(dropCtx, "DROP DATABASE IF EXISTS "+pgx.Identifier{dbName}.Sanitize()+" WITH (FORCE)")
-	}()
-
-	testURL, err := datadogTestDatabaseURLWithName(baseURL, dbName)
-	if err != nil {
-		t.Fatalf("datadogTestDatabaseURLWithName() err = %v", err)
-	}
-
-	migrator, err := migrate.New("file://"+datadogTestMigrationsDir(t), testURL)
-	if err != nil {
-		t.Fatalf("migrate.New() err = %v", err)
-	}
-	defer func() {
-		_, _ = migrator.Close()
-	}()
-
-	pool, err := pgxpool.New(ctx, testURL)
-	if err != nil {
-		t.Fatalf("pgxpool.New() err = %v", err)
-	}
-	defer pool.Close()
-
-	fn(ctx, pool, gen.New(pool), migrator)
+	testdb.WithDatabase(t, testdb.Options{
+		DatabaseURLVars: []string{"TEST_DATABASE_URL"},
+		NamePrefix:      "test_datadog",
+		Timeout:         90 * time.Second,
+	}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+		fn(ctx, pool, gen.New(pool), migrator)
+	})
 }
 
 func migrateDatadogUp(t *testing.T, migrator *migrate.Migrate) {
 	t.Helper()
 
-	if err := migrator.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		t.Fatalf("migrate up: %v", err)
-	}
-}
-
-func datadogTestMigrationsDir(t *testing.T) string {
-	t.Helper()
-
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-	return filepath.Join(filepath.Dir(file), "..", "..", "..", "db", "migrations")
-}
-
-func datadogTestDatabaseAdminURL(raw string) (string, error) {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return "", err
-	}
-	parsed.Path = "/postgres"
-	return parsed.String(), nil
-}
-
-func datadogTestDatabaseURLWithName(raw, dbName string) (string, error) {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return "", err
-	}
-	parsed.Path = "/" + dbName
-	return parsed.String(), nil
+	testdb.MigrateUp(t, migrator)
 }
