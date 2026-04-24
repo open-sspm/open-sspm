@@ -205,11 +205,58 @@ spec:
 	}
 }
 
+func TestLoadDocumentsAllowsScopedRulesToReuseInnerRuleIDs(t *testing.T) {
+	t.Parallel()
+
+	_, err := LoadDocuments(map[string][]byte{
+		"ok.yaml": []byte(`
+api_version: risk.open-sspm.io/v1
+kind: RiskPolicyPack
+metadata:
+  id: ok
+  version: 1.0.0
+  domain: saas
+spec:
+  scoped_rules:
+    - id: github_policy
+      scope:
+        app:
+          canonical_key: github
+      rules:
+        - id: missing_owner
+          severity: high
+          when: owner_identity_id == 0
+          title: GitHub app has no accountable owner
+    - id: finance_policy
+      scope:
+        app:
+          category: finance
+      rules:
+        - id: missing_owner
+          severity: high
+          when: owner_identity_id == 0
+          title: Finance app has no accountable owner
+`),
+	})
+	if err != nil {
+		t.Fatalf("LoadDocuments() error = %v, want nil", err)
+	}
+}
+
 func TestSeverityOrdering(t *testing.T) {
 	t.Parallel()
 
 	if got := MaxSeverity("low", "critical", "medium"); got != "critical" {
 		t.Fatalf("MaxSeverity() = %q, want critical", got)
+	}
+	if got := MaxSeverity(); got != "" {
+		t.Fatalf("MaxSeverity() = %q, want empty", got)
+	}
+	if got := MaxSeverity("urgent", ""); got != "" {
+		t.Fatalf("MaxSeverity(invalid) = %q, want empty", got)
+	}
+	if got := MaxSeverity("low"); got != "low" {
+		t.Fatalf("MaxSeverity(low) = %q, want low", got)
 	}
 	if ValidSeverity("urgent") {
 		t.Fatal("ValidSeverity(\"urgent\") = true, want false")

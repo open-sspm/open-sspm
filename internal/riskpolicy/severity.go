@@ -34,7 +34,7 @@ func ValidSeverity(value string) bool {
 
 func MaxSeverity(values ...string) string {
 	maxRank := 0
-	maxSeverity := SeverityLow
+	maxSeverity := ""
 	for _, value := range values {
 		rank := SeverityRank(value)
 		if rank > maxRank {

@@ -150,7 +150,8 @@ func validateScopedRules(errs *[]error, scopedRules []ScopedRule, ruleIDs map[st
 			*errs = append(*errs, fmt.Errorf("%s.scope.app must include at least one selector", path))
 		}
 		validateScopedSuggestions(errs, path+".suggestions", scopedRule.Suggestions)
-		validateRules(errs, path+".rules", scopedRule.Rules, ruleIDs)
+		scopedRuleIDs := make(map[string]string, len(scopedRule.Rules))
+		validateRules(errs, path+".rules", scopedRule.Rules, scopedRuleIDs)
 	}
 }
 
