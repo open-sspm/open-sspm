@@ -446,7 +446,7 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 	if err != nil {
 		return h.RenderError(c, err)
 	}
-	overviewMap.IdentityCount = summary.LinkedAccounts
+	overviewMap.IdentityCount = 1
 
 	return h.RenderComponent(c, views.IdentityShowPage(viewmodels.IdentityShowViewData{
 		Layout:             layout,

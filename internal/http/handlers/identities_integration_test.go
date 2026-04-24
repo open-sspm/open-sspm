@@ -3,10 +3,12 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
@@ -132,5 +134,29 @@ func TestBuildIdentityShowOverviewMapCountsCurrentIdentityPerSource(t *testing.T
 		if accountCountsByKind[configstore.KindGitHub] != 1 {
 			t.Fatalf("github account count = %d, want 1", accountCountsByKind[configstore.KindGitHub])
 		}
+
+		body := renderIdentityShow(t, h, identityID)
+		if !strings.Contains(body, `overview-map-center-count">1</span><span>3 source accounts`) {
+			t.Fatalf("identity show overview center count should render 1 identity with 3 source accounts: %s", body)
+		}
+		if strings.Contains(body, `overview-map-center-count">3</span><span>3 source accounts`) {
+			t.Fatalf("identity show overview center count rendered linked account count as identity count: %s", body)
+		}
 	})
+}
+
+func renderIdentityShow(t *testing.T, h *Handlers, identityID int64) string {
+	t.Helper()
+
+	target := "http://example.com/identities/" + strconv.FormatInt(identityID, 10)
+	c, rec := newTestContext(http.MethodGet, target)
+	(*c).SetPath("/identities/:id")
+	(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(identityID, 10)}})
+	if err := h.HandleIdentityShow(c); err != nil {
+		t.Fatalf("HandleIdentityShow(%s): %v", target, err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	return rec.Body.String()
 }
