@@ -8,12 +8,19 @@ import (
 	"io/fs"
 	"sort"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
 
 //go:embed policies/*.yaml
 var builtinPolicyFS embed.FS
+
+var (
+	builtinRegistryOnce sync.Once
+	builtinRegistry     *Registry
+	builtinRegistryErr  error
+)
 
 type Registry struct {
 	packs []CompiledPack
@@ -38,6 +45,13 @@ func LoadBuiltin() (*Registry, error) {
 		docs[name] = data
 	}
 	return LoadDocuments(docs)
+}
+
+func BuiltinRegistry() (*Registry, error) {
+	builtinRegistryOnce.Do(func() {
+		builtinRegistry, builtinRegistryErr = LoadBuiltin()
+	})
+	return builtinRegistry, builtinRegistryErr
 }
 
 func LoadDocuments(docs map[string][]byte) (*Registry, error) {

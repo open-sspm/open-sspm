@@ -43,22 +43,18 @@ func TestCredentialRiskReasons(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, 2, 7, 12, 0, 0, 0, time.UTC)
-	credential := gen.CredentialArtifact{
+	credential := gen.GetCredentialArtifactByIDRow{
 		Status:           "active",
 		CredentialKind:   "github_pat_fine_grained",
 		ExpiresAtSource:  timestamptz(now.Add(2 * 24 * time.Hour)),
 		LastUsedAtSource: timestamptz(now.Add(-120 * 24 * time.Hour)),
 	}
 
-	findings := credentialRiskFindingsFor(
-		credential.Status,
-		credential.CredentialKind,
-		credential.CreatedByExternalID,
-		credential.ApprovedByExternalID,
-		credential.ExpiresAtSource,
-		credential.LastUsedAtSource,
-		now,
-	)
+	result, err := (&Handlers{}).evaluateCredentialRisk(credential, now)
+	if err != nil {
+		t.Fatalf("evaluateCredentialRisk() error = %v", err)
+	}
+	findings := credentialRiskFindingsFromSignals(result.Signals, credential.ExpiresAtSource, credential.LastUsedAtSource, now)
 	if len(findings) < 3 {
 		t.Fatalf("expected multiple findings, got %v", findings)
 	}
@@ -74,15 +70,18 @@ func TestCredentialRiskReasonsUseFutureAwareExpiryLabel(t *testing.T) {
 
 	now := time.Date(2026, 2, 7, 12, 0, 0, 0, time.UTC)
 
-	findings := credentialRiskFindingsFor(
-		"active",
-		"entra_client_secret",
-		"owner@example.com",
-		"",
-		timestamptz(now.Add(4*24*time.Hour)),
-		pgtype.Timestamptz{},
-		now,
-	)
+	credential := gen.GetCredentialArtifactByIDRow{
+		Status:              "active",
+		CredentialKind:      "entra_client_secret",
+		CreatedByExternalID: "owner@example.com",
+		ExpiresAtSource:     timestamptz(now.Add(4 * 24 * time.Hour)),
+	}
+
+	result, err := (&Handlers{}).evaluateCredentialRisk(credential, now)
+	if err != nil {
+		t.Fatalf("evaluateCredentialRisk() error = %v", err)
+	}
+	findings := credentialRiskFindingsFromSignals(result.Signals, credential.ExpiresAtSource, credential.LastUsedAtSource, now)
 
 	for _, finding := range findings {
 		if finding.Title == "Credential expires within 7 days" {

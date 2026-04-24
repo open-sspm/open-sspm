@@ -22,6 +22,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/authn"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/mailer"
+	"github.com/open-sspm/open-sspm/internal/riskpolicy"
 )
 
 const (
@@ -46,6 +47,8 @@ type Handlers struct {
 	Syncer   SyncRunner
 	Registry *registry.ConnectorRegistry
 	Mailer   mailer.Mailer
+
+	RiskPolicies *riskpolicy.Registry
 
 	oktaAppStatusesCache oktaAppStatusesCache
 }
