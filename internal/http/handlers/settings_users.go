@@ -65,11 +65,7 @@ func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 		return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 			openAdd: true,
 			addForm: form,
-			alert: &viewmodels.AlertViewData{
-				Title:       "Email required",
-				Message:     "Provide an email address for the user.",
-				Destructive: true,
-			},
+			alert:   destructiveAlert("Email required", "Provide an email address for the user."),
 		})
 	}
 
@@ -79,11 +75,7 @@ func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 		return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 			openAdd: true,
 			addForm: form,
-			alert: &viewmodels.AlertViewData{
-				Title:       "Invalid group",
-				Message:     "Group must be admin or viewer.",
-				Destructive: true,
-			},
+			alert:   destructiveAlert("Invalid group", "Group must be admin or viewer."),
 		})
 	}
 
@@ -91,11 +83,7 @@ func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 		return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 			openAdd: true,
 			addForm: form,
-			alert: &viewmodels.AlertViewData{
-				Title:       "Password required",
-				Message:     "Provide a password for the user.",
-				Destructive: true,
-			},
+			alert:   destructiveAlert("Password required", "Provide a password for the user."),
 		})
 	}
 
@@ -106,11 +94,7 @@ func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 		return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 			openAdd: true,
 			addForm: form,
-			alert: &viewmodels.AlertViewData{
-				Title:       "Passwords do not match",
-				Message:     "Confirm the password to continue.",
-				Destructive: true,
-			},
+			alert:   destructiveAlert("Passwords do not match", "Confirm the password to continue."),
 		})
 	}
 
@@ -118,22 +102,14 @@ func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 		return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 			openAdd: true,
 			addForm: form,
-			alert: &viewmodels.AlertViewData{
-				Title:       "Password too short",
-				Message:     "Use at least 8 characters.",
-				Destructive: true,
-			},
+			alert:   destructiveAlert("Password too short", "Use at least 8 characters."),
 		})
 	}
 	if len(password) > 128 {
 		return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 			openAdd: true,
 			addForm: form,
-			alert: &viewmodels.AlertViewData{
-				Title:       "Password too long",
-				Message:     "Use at most 128 characters.",
-				Destructive: true,
-			},
+			alert:   destructiveAlert("Password too long", "Use at most 128 characters."),
 		})
 	}
 
@@ -153,23 +129,17 @@ func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 			return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
 				openAdd: true,
 				addForm: form,
-				alert: &viewmodels.AlertViewData{
-					Title:       "User already exists",
-					Message:     "A user with that email address already exists.",
-					Destructive: true,
-				},
+				alert:   destructiveAlert("User already exists", "A user with that email address already exists."),
 			})
 		}
 		return h.RenderError(c, err)
 	}
 
-	setFlashToast(c, viewmodels.ToastViewData{
+	return redirectWithFlash(c, "/settings/users", viewmodels.ToastViewData{
 		Category:    "success",
 		Title:       "User created",
 		Description: form.Email,
 	})
-
-	return c.Redirect(http.StatusSeeOther, "/settings/users")
 }
 
 func (h *Handlers) HandleSettingsUserUpdate(c *echo.Context) error {
@@ -358,19 +328,17 @@ func (h *Handlers) HandleSettingsUserUpdate(c *echo.Context) error {
 	}
 
 	if !changeRole && !changePassword {
-		setFlashToast(c, viewmodels.ToastViewData{
+		return redirectWithFlash(c, "/settings/users", viewmodels.ToastViewData{
 			Category: "info",
 			Title:    "No changes",
 		})
-		return c.Redirect(http.StatusSeeOther, "/settings/users")
 	}
 
-	setFlashToast(c, viewmodels.ToastViewData{
+	return redirectWithFlash(c, "/settings/users", viewmodels.ToastViewData{
 		Category:    "success",
 		Title:       settingsUserUpdateSuccessTitle(changeRole, changePassword),
 		Description: strings.TrimSpace(user.Email),
 	})
-	return c.Redirect(http.StatusSeeOther, "/settings/users")
 }
 
 func settingsUserUpdateSuccessTitle(changeRole, changePassword bool) string {

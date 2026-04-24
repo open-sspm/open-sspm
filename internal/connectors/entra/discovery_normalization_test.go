@@ -3,6 +3,8 @@ package entra
 import (
 	"testing"
 	"time"
+
+	"github.com/open-sspm/open-sspm/internal/discovery"
 )
 
 func TestNormalizeEntraDiscovery_VendorPrecedence(t *testing.T) {
@@ -36,7 +38,7 @@ func TestNormalizeEntraDiscovery_VendorPrecedence(t *testing.T) {
 		t.Fatalf("len(events)=%d want 3", len(events))
 	}
 
-	sourceByAppID := map[string]normalizedDiscoverySource{}
+	sourceByAppID := map[string]discovery.SourceRow{}
 	for _, source := range sources {
 		sourceByAppID[source.SourceAppID] = source
 	}
@@ -51,7 +53,7 @@ func TestNormalizeEntraDiscovery_VendorPrecedence(t *testing.T) {
 		t.Fatalf("service principal vendor = %q want %q", got, "Publisher Three")
 	}
 
-	eventByID := map[string]normalizedDiscoveryEvent{}
+	eventByID := map[string]discovery.EventRow{}
 	for _, event := range events {
 		eventByID[event.EventExternalID] = event
 	}
@@ -90,7 +92,7 @@ func TestNormalizeEntraDiscovery_GrantActorResolution(t *testing.T) {
 		t.Fatalf("len(events)=%d want 3", len(events))
 	}
 
-	eventByID := map[string]normalizedDiscoveryEvent{}
+	eventByID := map[string]discovery.EventRow{}
 	for _, event := range events {
 		eventByID[event.EventExternalID] = event
 	}

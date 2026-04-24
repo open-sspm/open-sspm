@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
@@ -60,15 +59,13 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 
 	accounts, err := i.adapter.ListAccounts(ctx)
 	if err != nil {
-		report(registry.Event{Source: "datadog", Stage: "list-accounts", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
+		return registry.ReportAndFailSyncRun(ctx, q, runID, report, registry.Event{Source: "datadog", Stage: "list-accounts"}, err, registry.SyncErrorKindAPI)
 	}
 	report(registry.Event{Source: "datadog", Stage: "list-accounts", Current: 1, Total: 1, Message: fmt.Sprintf("found %d accounts", len(accounts))})
 
 	roles, err := i.adapter.ListRoles(ctx)
 	if err != nil {
-		report(registry.Event{Source: "datadog", Stage: "list-roles", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
+		return registry.ReportAndFailSyncRun(ctx, q, runID, report, registry.Event{Source: "datadog", Stage: "list-roles"}, err, registry.SyncErrorKindAPI)
 	}
 	report(registry.Event{Source: "datadog", Stage: "list-roles", Current: 1, Total: 1, Message: fmt.Sprintf("found %d roles", len(roles))})
 
@@ -161,8 +158,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 			firstErr = firstNonCancelErr
 		}
 		if firstErr != nil {
-			report(registry.Event{Source: "datadog", Stage: "fetch-role-members", Message: firstErr.Error(), Err: firstErr})
-			return registry.FailSyncRun(ctx, q, runID, firstErr, registry.SyncErrorKindAPI)
+			return registry.ReportAndFailSyncRun(ctx, q, runID, report, registry.Event{Source: "datadog", Stage: "fetch-role-members"}, firstErr, registry.SyncErrorKindAPI)
 		}
 	}
 
@@ -176,15 +172,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 
 	const userBatchSize = 1000
 	totalPrincipals := len(accounts) + len(roles)
-	externalIDs := make([]string, 0, totalPrincipals)
-	emails := make([]string, 0, totalPrincipals)
-	displayNames := make([]string, 0, totalPrincipals)
-	accountKinds := make([]string, 0, totalPrincipals)
-	entityCategories := make([]string, 0, totalPrincipals)
-	rawJSONs := make([][]byte, 0, totalPrincipals)
-	lastLoginAts := make([]pgtype.Timestamptz, 0, totalPrincipals)
-	lastLoginIps := make([]string, 0, totalPrincipals)
-	lastLoginRegions := make([]string, 0, totalPrincipals)
+	accountRows := make([]registry.SourceAccountRow, 0, totalPrincipals)
 
 	for _, account := range accounts {
 		externalID := strings.TrimSpace(account.ExternalID)
@@ -195,15 +183,15 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 		if display == "" {
 			display = externalID
 		}
-		externalIDs = append(externalIDs, externalID)
-		emails = append(emails, matching.NormalizeEmail(account.Email))
-		displayNames = append(displayNames, display)
-		accountKinds = append(accountKinds, account.AccountKind)
-		entityCategories = append(entityCategories, account.EntityCategory)
-		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(account.RawJSON), account.EntityCategory))
-		lastLoginAts = append(lastLoginAts, registry.PgTimestamptzPtr(account.LastLoginAt))
-		lastLoginIps = append(lastLoginIps, "")
-		lastLoginRegions = append(lastLoginRegions, "")
+		accountRows = append(accountRows, registry.SourceAccountRow{
+			ExternalID:     externalID,
+			Email:          matching.NormalizeEmail(account.Email),
+			DisplayName:    display,
+			AccountKind:    account.AccountKind,
+			EntityCategory: account.EntityCategory,
+			RawJSON:        registry.WithEntityCategory(registry.NormalizeJSON(account.RawJSON), account.EntityCategory),
+			LastLoginAt:    registry.PgTimestamptzPtr(account.LastLoginAt),
+		})
 	}
 
 	for _, role := range roles {
@@ -215,52 +203,36 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 		if display == "" {
 			display = roleExternalID
 		}
-		externalIDs = append(externalIDs, roleExternalID)
-		emails = append(emails, "")
-		displayNames = append(displayNames, display)
-		accountKinds = append(accountKinds, registry.AccountKindService)
-		entityCategories = append(entityCategories, registry.EntityCategoryRole)
-		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(role.RawJSON), registry.EntityCategoryRole))
-		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
-		lastLoginIps = append(lastLoginIps, "")
-		lastLoginRegions = append(lastLoginRegions, "")
+		accountRows = append(accountRows, registry.SourceAccountRow{
+			ExternalID:     roleExternalID,
+			DisplayName:    display,
+			AccountKind:    registry.AccountKindService,
+			EntityCategory: registry.EntityCategoryRole,
+			RawJSON:        registry.WithEntityCategory(registry.NormalizeJSON(role.RawJSON), registry.EntityCategoryRole),
+		})
 	}
 
-	for start := 0; start < len(externalIDs); start += userBatchSize {
-		end := min(start+userBatchSize, len(externalIDs))
-		_, err := q.UpsertSourceAccountsBulkBySource(ctx, gen.UpsertSourceAccountsBulkBySourceParams{
-			SourceKind:       "datadog",
-			SourceName:       i.site,
-			SeenInRunID:      runID,
-			ExternalIds:      externalIDs[start:end],
-			Emails:           emails[start:end],
-			DisplayNames:     displayNames[start:end],
-			AccountKinds:     accountKinds[start:end],
-			EntityCategories: entityCategories[start:end],
-			RawJsons:         rawJSONs[start:end],
-			LastLoginAts:     lastLoginAts[start:end],
-			LastLoginIps:     lastLoginIps[start:end],
-			LastLoginRegions: lastLoginRegions[start:end],
-		})
-		if err != nil {
-			report(registry.Event{Source: "datadog", Stage: "write-principals", Message: err.Error(), Err: err})
-			return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
-		}
+	if _, err := registry.WriteSourceAccountRows(ctx, q, registry.WriteSourceAccountRowsParams{
+		SourceKind: "datadog",
+		SourceName: i.site,
+		RunID:      runID,
+		BatchSize:  userBatchSize,
+		Rows:       accountRows,
+	}); err != nil {
+		return registry.ReportAndFailSyncRun(ctx, q, runID, report, registry.Event{Source: "datadog", Stage: "write-principals"}, err, registry.SyncErrorKindDB)
+	}
+	if len(accountRows) > 0 {
 		report(registry.Event{
 			Source:  "datadog",
 			Stage:   "write-principals",
-			Current: int64(end),
-			Total:   int64(len(externalIDs)),
-			Message: fmt.Sprintf("principals %d/%d", end, len(externalIDs)),
+			Current: int64(len(accountRows)),
+			Total:   int64(len(accountRows)),
+			Message: fmt.Sprintf("principals %d/%d", len(accountRows), len(accountRows)),
 		})
 	}
 
 	const entitlementBatchSize = 5000
-	entAccountExternalIDs := make([]string, 0, len(accounts))
-	entKinds := make([]string, 0, len(accounts))
-	entResources := make([]string, 0, len(accounts))
-	entPermissions := make([]string, 0, len(accounts))
-	entRawJSONs := make([][]byte, 0, len(accounts))
+	entitlementRows := make([]registry.EntitlementRow, 0, len(accounts))
 
 	for _, account := range accounts {
 		accountExternalID := strings.TrimSpace(account.ExternalID)
@@ -277,33 +249,27 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 			if externalID == "" {
 				continue
 			}
-			entAccountExternalIDs = append(entAccountExternalIDs, accountExternalID)
-			entKinds = append(entKinds, "datadog_role")
-			entResources = append(entResources, "datadog_role:"+externalID)
-			entPermissions = append(entPermissions, "member")
-			entRawJSONs = append(entRawJSONs, registry.MarshalJSON(map[string]string{
-				"role_id":   roleID,
-				"role_name": roleName,
-			}))
+			entitlementRows = append(entitlementRows, registry.EntitlementRow{
+				AccountExternalID: accountExternalID,
+				Kind:              "datadog_role",
+				Resource:          "datadog_role:" + externalID,
+				Permission:        "member",
+				RawJSON: registry.MarshalJSON(map[string]string{
+					"role_id":   roleID,
+					"role_name": roleName,
+				}),
+			})
 		}
 	}
 
-	for start := 0; start < len(entAccountExternalIDs); start += entitlementBatchSize {
-		end := min(start+entitlementBatchSize, len(entAccountExternalIDs))
-		_, err := q.UpsertEntitlementsBulkBySource(ctx, gen.UpsertEntitlementsBulkBySourceParams{
-			SeenInRunID:        runID,
-			SourceKind:         "datadog",
-			SourceName:         i.site,
-			AccountExternalIds: entAccountExternalIDs[start:end],
-			Kinds:              entKinds[start:end],
-			Resources:          entResources[start:end],
-			Permissions:        entPermissions[start:end],
-			RawJsons:           entRawJSONs[start:end],
-		})
-		if err != nil {
-			report(registry.Event{Source: "datadog", Stage: "write-principals", Message: err.Error(), Err: err})
-			return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
-		}
+	if _, err := registry.WriteEntitlementRows(ctx, q, registry.WriteEntitlementRowsParams{
+		SourceKind: "datadog",
+		SourceName: i.site,
+		RunID:      runID,
+		BatchSize:  entitlementBatchSize,
+		Rows:       entitlementRows,
+	}); err != nil {
+		return registry.ReportAndFailSyncRun(ctx, q, runID, report, registry.Event{Source: "datadog", Stage: "write-principals"}, err, registry.SyncErrorKindDB)
 	}
 
 	if err := registry.FinalizeAppRun(ctx, q, pool, runID, "datadog", i.site, time.Since(started), false); err != nil {

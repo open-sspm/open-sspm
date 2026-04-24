@@ -2,22 +2,12 @@ package gen
 
 import (
 	"context"
-	"errors"
-	"net/url"
-	"os"
-	"path/filepath"
-	"runtime"
 	"slices"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/testdb"
 )
 
 func TestGenericAccountQueriesFilterEntityCategory(t *testing.T) {
@@ -412,63 +402,15 @@ type accountSeed struct {
 func withEntityCategoryTestDatabase(t *testing.T, fn func(context.Context, *pgxpool.Pool, *Queries, *migrate.Migrate)) {
 	t.Helper()
 
-	baseURL := strings.TrimSpace(os.Getenv("OPENSSPM_TEST_DATABASE_URL"))
-	if baseURL == "" {
-		t.Skip("OPENSSPM_TEST_DATABASE_URL is not set")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	adminURL, err := testDatabaseAdminURL(baseURL)
-	if err != nil {
-		t.Fatalf("testDatabaseAdminURL() err = %v", err)
-	}
-
-	adminConn, err := pgx.Connect(ctx, adminURL)
-	if err != nil {
-		t.Fatalf("pgx.Connect(admin) err = %v", err)
-	}
-	defer adminConn.Close(ctx)
-
-	dbName := "opensspm_entity_category_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	if _, err := adminConn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{dbName}.Sanitize()); err != nil {
-		t.Fatalf("CREATE DATABASE err = %v", err)
-	}
-	defer func() {
-		dropCtx, dropCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer dropCancel()
-		_, _ = adminConn.Exec(dropCtx, "DROP DATABASE IF EXISTS "+pgx.Identifier{dbName}.Sanitize()+" WITH (FORCE)")
-	}()
-
-	testURL, err := testDatabaseURLWithName(baseURL, dbName)
-	if err != nil {
-		t.Fatalf("testDatabaseURLWithName() err = %v", err)
-	}
-
-	migrator, err := migrate.New("file://"+testMigrationsDir(t), testURL)
-	if err != nil {
-		t.Fatalf("migrate.New() err = %v", err)
-	}
-	defer func() {
-		_, _ = migrator.Close()
-	}()
-
-	pool, err := pgxpool.New(ctx, testURL)
-	if err != nil {
-		t.Fatalf("pgxpool.New() err = %v", err)
-	}
-	defer pool.Close()
-
-	fn(ctx, pool, New(pool), migrator)
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "opensspm_entity_category"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+		fn(ctx, pool, New(pool), migrator)
+	})
 }
 
 func migrateUp(t *testing.T, migrator *migrate.Migrate) {
 	t.Helper()
 
-	if err := migrator.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		t.Fatalf("migrate up: %v", err)
-	}
+	testdb.MigrateUp(t, migrator)
 }
 
 func insertSyncRun(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceKind, sourceName string) int64 {
@@ -594,32 +536,4 @@ func accountExternalIDs(rows []Account) []string {
 	}
 	slices.Sort(ids)
 	return ids
-}
-
-func testMigrationsDir(t *testing.T) string {
-	t.Helper()
-
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-	return filepath.Join(filepath.Dir(file), "..", "..", "..", "db", "migrations")
-}
-
-func testDatabaseAdminURL(raw string) (string, error) {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return "", err
-	}
-	parsed.Path = "/postgres"
-	return parsed.String(), nil
-}
-
-func testDatabaseURLWithName(raw, dbName string) (string, error) {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return "", err
-	}
-	parsed.Path = "/" + dbName
-	return parsed.String(), nil
 }

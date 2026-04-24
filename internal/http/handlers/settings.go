@@ -217,22 +217,12 @@ func (h *Handlers) handleConnectorToggle(c *echo.Context, kind string) error {
 			return h.renderConnectorsPage(c, kind, "", alert)
 		}
 	}
-	tx, err := h.Pool.Begin(ctx)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-
-	qtx := h.Q.WithTx(tx)
-	if _, err := qtx.UpdateConnectorConfigEnabled(ctx, gen.UpdateConnectorConfigEnabledParams{Kind: kind, Enabled: enabled}); err != nil {
-		return h.RenderError(c, err)
-	}
-	if err := readmodels.NewProjector(nil, qtx, readmodels.RefreshConfigFromConfig(h.Cfg)).RefreshConnectorSourceState(ctx); err != nil {
-		return h.RenderError(c, err)
-	}
-	if err := tx.Commit(ctx); err != nil {
+	if err := h.WithTx(ctx, func(qtx *gen.Queries) error {
+		if _, err := qtx.UpdateConnectorConfigEnabled(ctx, gen.UpdateConnectorConfigEnabledParams{Kind: kind, Enabled: enabled}); err != nil {
+			return err
+		}
+		return readmodels.NewProjector(nil, qtx, readmodels.RefreshConfigFromConfig(h.Cfg)).RefreshConnectorSourceState(ctx)
+	}); err != nil {
 		return h.RenderError(c, err)
 	}
 	if isHX(c) {
@@ -267,23 +257,15 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 		}
 	}
 
-	tx, err := h.Pool.Begin(ctx)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-	if err := configStore.SaveConnectorConfigTx(ctx, h.Q.WithTx(tx), kind, mergedConfig); err != nil {
+	if err := h.WithTx(ctx, func(qtx *gen.Queries) error {
+		if err := configStore.SaveConnectorConfigTx(ctx, qtx, kind, mergedConfig); err != nil {
+			return err
+		}
+		return readmodels.NewProjector(nil, qtx, readmodels.RefreshConfigFromConfig(h.Cfg)).RefreshConnectorSourceState(ctx)
+	}); err != nil {
 		if errors.Is(err, configstore.ErrConnectorSecretKeyRequired) {
 			return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
 		}
-		return h.RenderError(c, err)
-	}
-	if err := readmodels.NewProjector(nil, h.Q.WithTx(tx), readmodels.RefreshConfigFromConfig(h.Cfg)).RefreshConnectorSourceState(ctx); err != nil {
-		return h.RenderError(c, err)
-	}
-	if err := tx.Commit(ctx); err != nil {
 		return h.RenderError(c, err)
 	}
 	return c.Redirect(http.StatusSeeOther, "/settings/connectors?saved="+kind)

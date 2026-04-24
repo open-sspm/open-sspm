@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
@@ -53,15 +52,13 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 
 	users, err := i.client.ListUsers(ctx)
 	if err != nil {
-		report(registry.Event{Source: "aws", Stage: "list-users", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
+		return registry.ReportAndFailSyncRun(ctx, q, runID, report, registry.Event{Source: "aws", Stage: "list-users"}, err, registry.SyncErrorKindAPI)
 	}
 	report(registry.Event{Source: "aws", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
 
 	groups, err := i.client.ListGroups(ctx)
 	if err != nil {
-		report(registry.Event{Source: "aws", Stage: "list-groups", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
+		return registry.ReportAndFailSyncRun(ctx, q, runID, report, registry.Event{Source: "aws", Stage: "list-groups"}, err, registry.SyncErrorKindAPI)
 	}
 	report(registry.Event{Source: "aws", Stage: "list-groups", Current: 1, Total: 1, Message: fmt.Sprintf("found %d groups", len(groups))})
 	report(registry.Event{
@@ -74,22 +71,13 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 
 	entitlementsByUser, err := i.client.ListUserEntitlements(ctx)
 	if err != nil {
-		report(registry.Event{Source: "aws", Stage: "list-assignments", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
+		return registry.ReportAndFailSyncRun(ctx, q, runID, report, registry.Event{Source: "aws", Stage: "list-assignments"}, err, registry.SyncErrorKindAPI)
 	}
 	report(registry.Event{Source: "aws", Stage: "list-assignments", Current: 1, Total: 1, Message: "assignments fetched"})
 
 	const userBatchSize = 1000
 	totalPrincipals := len(users) + len(groups)
-	externalIDs := make([]string, 0, totalPrincipals)
-	emails := make([]string, 0, totalPrincipals)
-	displayNames := make([]string, 0, totalPrincipals)
-	accountKinds := make([]string, 0, totalPrincipals)
-	entityCategories := make([]string, 0, totalPrincipals)
-	rawJSONs := make([][]byte, 0, totalPrincipals)
-	lastLoginAts := make([]pgtype.Timestamptz, 0, totalPrincipals)
-	lastLoginIps := make([]string, 0, totalPrincipals)
-	lastLoginRegions := make([]string, 0, totalPrincipals)
+	accountRows := make([]registry.SourceAccountRow, 0, totalPrincipals)
 
 	for _, user := range users {
 		externalID := strings.TrimSpace(user.ID)
@@ -105,15 +93,14 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 			display = externalID
 		}
 
-		externalIDs = append(externalIDs, externalID)
-		emails = append(emails, email)
-		displayNames = append(displayNames, display)
-		accountKinds = append(accountKinds, awsUserAccountKind(user))
-		entityCategories = append(entityCategories, registry.EntityCategoryUser)
-		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(user.RawJSON), registry.EntityCategoryUser))
-		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
-		lastLoginIps = append(lastLoginIps, "")
-		lastLoginRegions = append(lastLoginRegions, "")
+		accountRows = append(accountRows, registry.SourceAccountRow{
+			ExternalID:     externalID,
+			Email:          email,
+			DisplayName:    display,
+			AccountKind:    awsUserAccountKind(user),
+			EntityCategory: registry.EntityCategoryUser,
+			RawJSON:        registry.WithEntityCategory(registry.NormalizeJSON(user.RawJSON), registry.EntityCategoryUser),
+		})
 	}
 
 	for _, group := range groups {
@@ -126,52 +113,36 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 			display = externalID
 		}
 
-		externalIDs = append(externalIDs, externalID)
-		emails = append(emails, "")
-		displayNames = append(displayNames, display)
-		accountKinds = append(accountKinds, registry.AccountKindService)
-		entityCategories = append(entityCategories, registry.EntityCategoryGroup)
-		rawJSONs = append(rawJSONs, registry.WithEntityCategory(registry.NormalizeJSON(group.RawJSON), registry.EntityCategoryGroup))
-		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
-		lastLoginIps = append(lastLoginIps, "")
-		lastLoginRegions = append(lastLoginRegions, "")
+		accountRows = append(accountRows, registry.SourceAccountRow{
+			ExternalID:     externalID,
+			DisplayName:    display,
+			AccountKind:    registry.AccountKindService,
+			EntityCategory: registry.EntityCategoryGroup,
+			RawJSON:        registry.WithEntityCategory(registry.NormalizeJSON(group.RawJSON), registry.EntityCategoryGroup),
+		})
 	}
 
-	for start := 0; start < len(externalIDs); start += userBatchSize {
-		end := min(start+userBatchSize, len(externalIDs))
-		_, err := q.UpsertSourceAccountsBulkBySource(ctx, gen.UpsertSourceAccountsBulkBySourceParams{
-			SourceKind:       "aws",
-			SourceName:       i.sourceName,
-			SeenInRunID:      runID,
-			ExternalIds:      externalIDs[start:end],
-			Emails:           emails[start:end],
-			DisplayNames:     displayNames[start:end],
-			AccountKinds:     accountKinds[start:end],
-			EntityCategories: entityCategories[start:end],
-			RawJsons:         rawJSONs[start:end],
-			LastLoginAts:     lastLoginAts[start:end],
-			LastLoginIps:     lastLoginIps[start:end],
-			LastLoginRegions: lastLoginRegions[start:end],
-		})
-		if err != nil {
-			report(registry.Event{Source: "aws", Stage: "write-users", Message: err.Error(), Err: err})
-			return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
-		}
+	if _, err := registry.WriteSourceAccountRows(ctx, q, registry.WriteSourceAccountRowsParams{
+		SourceKind: "aws",
+		SourceName: i.sourceName,
+		RunID:      runID,
+		BatchSize:  userBatchSize,
+		Rows:       accountRows,
+	}); err != nil {
+		return registry.ReportAndFailSyncRun(ctx, q, runID, report, registry.Event{Source: "aws", Stage: "write-users"}, err, registry.SyncErrorKindDB)
+	}
+	if len(accountRows) > 0 {
 		report(registry.Event{
 			Source:  "aws",
 			Stage:   "write-users",
-			Current: int64(end),
-			Total:   int64(len(externalIDs)),
-			Message: fmt.Sprintf("principals %d/%d", end, len(externalIDs)),
+			Current: int64(len(accountRows)),
+			Total:   int64(len(accountRows)),
+			Message: fmt.Sprintf("principals %d/%d", len(accountRows), len(accountRows)),
 		})
 	}
 
 	const entitlementBatchSize = 5000
-	entAccountExternalIDs := make([]string, 0, len(users))
-	entKinds := make([]string, 0, len(users))
-	entResources := make([]string, 0, len(users))
-	entPermissions := make([]string, 0, len(users))
-	entRawJSONs := make([][]byte, 0, len(users))
+	entitlementRows := make([]registry.EntitlementRow, 0, len(users))
 
 	for _, user := range users {
 		userID := strings.TrimSpace(user.ID)
@@ -191,30 +162,24 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 			if groupID := strings.TrimSpace(fact.GroupID); groupID != "" {
 				raw["group_id"] = groupID
 			}
-			entAccountExternalIDs = append(entAccountExternalIDs, userID)
-			entKinds = append(entKinds, "aws_permission_set")
-			entResources = append(entResources, "aws_account:"+strings.TrimSpace(fact.AccountID))
-			entPermissions = append(entPermissions, permission)
-			entRawJSONs = append(entRawJSONs, registry.MarshalJSON(raw))
+			entitlementRows = append(entitlementRows, registry.EntitlementRow{
+				AccountExternalID: userID,
+				Kind:              "aws_permission_set",
+				Resource:          "aws_account:" + strings.TrimSpace(fact.AccountID),
+				Permission:        permission,
+				RawJSON:           registry.MarshalJSON(raw),
+			})
 		}
 	}
 
-	for start := 0; start < len(entAccountExternalIDs); start += entitlementBatchSize {
-		end := min(start+entitlementBatchSize, len(entAccountExternalIDs))
-		_, err := q.UpsertEntitlementsBulkBySource(ctx, gen.UpsertEntitlementsBulkBySourceParams{
-			SeenInRunID:        runID,
-			SourceKind:         "aws",
-			SourceName:         i.sourceName,
-			AccountExternalIds: entAccountExternalIDs[start:end],
-			Kinds:              entKinds[start:end],
-			Resources:          entResources[start:end],
-			Permissions:        entPermissions[start:end],
-			RawJsons:           entRawJSONs[start:end],
-		})
-		if err != nil {
-			report(registry.Event{Source: "aws", Stage: "write-users", Message: err.Error(), Err: err})
-			return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
-		}
+	if _, err := registry.WriteEntitlementRows(ctx, q, registry.WriteEntitlementRowsParams{
+		SourceKind: "aws",
+		SourceName: i.sourceName,
+		RunID:      runID,
+		BatchSize:  entitlementBatchSize,
+		Rows:       entitlementRows,
+	}); err != nil {
+		return registry.ReportAndFailSyncRun(ctx, q, runID, report, registry.Event{Source: "aws", Stage: "write-users"}, err, registry.SyncErrorKindDB)
 	}
 
 	if err := registry.FinalizeAppRun(ctx, q, pool, runID, "aws", i.sourceName, time.Since(started), false); err != nil {
