@@ -67,6 +67,7 @@ func (h *Handlers) buildIdentityShowOverviewMap(ctx context.Context, identityID 
 			Href:                  identitiesSourceHref(kind),
 			X:                     x,
 			Y:                     y,
+			IdentityCount:         1,
 			AccountCount:          row.AccountCount,
 			ManagedAccountCount:   managedAccountCount(row.AccountCount, row.HasAuthoritative),
 			UnmanagedAccountCount: unmanagedAccountCount(row.AccountCount, row.HasAuthoritative),

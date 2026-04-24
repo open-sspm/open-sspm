@@ -146,13 +146,9 @@ SELECT
   a.source_kind,
   a.source_name,
   COUNT(DISTINCT a.id)::bigint AS account_count,
-  COUNT(DISTINCT e.id)::bigint AS entitlement_count,
   BOOL_OR(COALESCE(iss.is_authoritative, FALSE))::boolean AS has_authoritative
 FROM accounts a
 JOIN identity_accounts ia ON ia.account_id = a.id
-LEFT JOIN entitlements e ON e.app_user_id = a.id
-  AND e.expired_at IS NULL
-  AND e.last_observed_run_id IS NOT NULL
 LEFT JOIN identity_source_settings iss
   ON iss.source_kind = a.source_kind
   AND iss.source_name = a.source_name
@@ -168,7 +164,6 @@ type ListIdentitySourceSummariesRow struct {
 	SourceKind       string `json:"source_kind"`
 	SourceName       string `json:"source_name"`
 	AccountCount     int64  `json:"account_count"`
-	EntitlementCount int64  `json:"entitlement_count"`
 	HasAuthoritative bool   `json:"has_authoritative"`
 }
 
@@ -185,7 +180,6 @@ func (q *Queries) ListIdentitySourceSummaries(ctx context.Context, identityID in
 			&i.SourceKind,
 			&i.SourceName,
 			&i.AccountCount,
-			&i.EntitlementCount,
 			&i.HasAuthoritative,
 		); err != nil {
 			return nil, err
