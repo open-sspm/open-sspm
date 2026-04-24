@@ -1629,12 +1629,8 @@
   }
 
   .overview-map-surface {
-    @apply relative isolate overflow-hidden rounded-lg border border-border bg-card;
+    @apply relative isolate overflow-hidden rounded-lg border border-border bg-card transition-colors;
     height: clamp(34rem, 56vw, 46rem);
-    background-image:
-      linear-gradient(to right, rgb(from var(--color-border) r g b / 0.45) 1px, transparent 1px),
-      linear-gradient(to bottom, rgb(from var(--color-border) r g b / 0.45) 1px, transparent 1px);
-    background-size: 2rem 2rem;
   }
 
   .overview-map-lines {
@@ -1647,12 +1643,21 @@
     stroke-width: 0.35;
     stroke-linecap: round;
     stroke-dasharray: 1.4 1;
+    opacity: 1;
+    pointer-events: none;
+    transition:
+      opacity 160ms ease,
+      stroke 160ms ease,
+      stroke-width 160ms ease,
+      filter 160ms ease;
     animation: overview-map-edge-in 0.7s ease-out both;
+    animation-delay: calc(var(--overview-map-index, 0) * 45ms);
   }
 
   .overview-map-node {
-    @apply absolute z-10 rounded-lg border border-border bg-background/95 text-foreground shadow-sm backdrop-blur no-underline;
+    @apply absolute z-10 rounded-lg border border-border bg-background/95 text-foreground shadow-sm backdrop-blur no-underline outline-none;
     animation: overview-map-node-in 0.45s ease-out both;
+    animation-delay: calc(var(--overview-map-index, 0) * 45ms);
     transform: translate(-50%, -50%);
   }
 
@@ -1674,14 +1679,48 @@
 
   .overview-map-source {
     --overview-map-accent: var(--color-chart-2);
-    @apply block w-60 p-3 transition-[border-color,box-shadow,transform] duration-200;
+    @apply block w-60 p-3 transition-[border-color,box-shadow,transform,opacity,filter] duration-200;
     border-color: rgb(from var(--overview-map-accent) r g b / 0.28);
+    will-change: transform;
 
     &:hover,
-    &:focus-visible {
+    &:focus-visible,
+    &[data-overview-map-active] {
       border-color: rgb(from var(--overview-map-accent) r g b / 0.62);
-      box-shadow: 0 14px 32px rgb(0 0 0 / 0.11);
+      box-shadow:
+        0 0 0 1px rgb(from var(--overview-map-accent) r g b / 0.18),
+        0 14px 32px rgb(0 0 0 / 0.11);
       transform: translate(-50%, -50%) translateY(-2px);
+    }
+
+    &:focus-visible {
+      @apply ring-2 ring-ring/40 ring-offset-2 ring-offset-background;
+    }
+  }
+
+  a.overview-map-source { cursor: pointer; }
+
+  .overview-map-surface[data-overview-map-active] {
+    .overview-map-source:not([data-overview-map-active]) {
+      opacity: 0.52;
+      filter: saturate(0.7);
+    }
+
+    .overview-map-edge:not([data-overview-map-active]) {
+      opacity: 0.18;
+    }
+
+    .overview-map-edge[data-overview-map-active] {
+      filter: drop-shadow(0 0 6px rgb(from var(--overview-map-active-accent, var(--color-chart-2)) r g b / 0.3));
+      opacity: 0.95;
+      stroke: var(--overview-map-active-accent, var(--color-chart-2));
+      stroke-width: 0.52;
+    }
+
+    .overview-map-center {
+      box-shadow:
+        0 0 0 1px rgb(from var(--color-chart-3) r g b / 0.2),
+        0 18px 45px rgb(0 0 0 / 0.1);
     }
   }
 
@@ -1707,13 +1746,7 @@
   }
 
   .overview-map-source-title {
-    @apply flex min-w-0 items-baseline justify-between gap-3;
-
-    span:not(.overview-map-source-count) { @apply truncate text-sm font-semibold; }
-  }
-
-  .overview-map-source-count {
-    @apply shrink-0 text-sm font-semibold tabular-nums;
+    @apply min-w-0 truncate text-sm font-semibold;
   }
 
   .overview-map-source-main p {
@@ -1726,6 +1759,9 @@
     div {
       @apply h-full rounded-full transition-[width] duration-500;
       background: var(--overview-map-accent, var(--color-primary));
+      animation: overview-map-meter-in 0.5s ease-out both;
+      animation-delay: calc(120ms + var(--overview-map-index, 0) * 45ms);
+      transform-origin: left;
     }
   }
 
@@ -1776,7 +1812,7 @@
   }
 
   .overview-map-list-item {
-    @apply block p-4 text-foreground no-underline transition-colors hover:bg-muted/40;
+    @apply block p-4 text-foreground no-underline transition-[background-color,box-shadow] hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40;
   }
 
   @keyframes dashboard-fade-in {
@@ -1797,6 +1833,12 @@
     from {
       opacity: 0;
       stroke-dashoffset: 8;
+    }
+  }
+
+  @keyframes overview-map-meter-in {
+    from {
+      transform: scaleX(0);
     }
   }
 
@@ -1845,10 +1887,18 @@
     .dashboard-progress-bar,
     .overview-map-edge,
     .overview-map-node,
+    .overview-map-meter div,
     .app-row,
     .filter-popover,
     .osspm-filter-panel-popover {
       animation: none !important;
+    }
+
+    .overview-map-edge,
+    .overview-map-source,
+    .overview-map-meter div,
+    .overview-map-list-item {
+      transition: none !important;
     }
   }
 

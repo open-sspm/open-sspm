@@ -7,6 +7,7 @@ import "open-sspm-app/components/dropdown_menu.js";
 import "open-sspm-app/components/select.js";
 import "open-sspm-app/components/filter_disclosure.js";
 import "open-sspm-app/components/table_query_bar.js";
+import "open-sspm-app/components/overview_map.js";
 import { start } from "open-sspm-app/components/registry.js";
 import { bootOpenSspmApp } from "open-sspm-app/main.js";
 

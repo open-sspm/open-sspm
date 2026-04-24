@@ -195,6 +195,36 @@ func TestAvailableProgrammaticSourcesIncludesGoogleWorkspace(t *testing.T) {
 	}
 }
 
+func TestAvailableIdentitySourcePairsRequiresEnabledConnector(t *testing.T) {
+	t.Parallel()
+
+	sources := availableIdentitySourcePairs(newTestConnectorStateView(t,
+		testConnectorSpec{
+			kind:       configstore.KindOkta,
+			config:     configstore.OktaConfig{Domain: "acme.okta.com"},
+			configured: true,
+			enabled:    true,
+			sourceName: "acme.okta.com",
+		},
+		testConnectorSpec{
+			kind:       configstore.KindGitHub,
+			config:     configstore.GitHubConfig{Org: "disabled-org"},
+			configured: true,
+			enabled:    false,
+			sourceName: "disabled-org",
+		},
+	))
+	if len(sources) != 1 {
+		t.Fatalf("sources length = %d, want 1", len(sources))
+	}
+	if sources[0].SourceKind != "okta" {
+		t.Fatalf("source kind = %q, want okta", sources[0].SourceKind)
+	}
+	if sources[0].SourceName != "acme.okta.com" {
+		t.Fatalf("source name = %q, want acme.okta.com", sources[0].SourceName)
+	}
+}
+
 func TestConfiguredProgrammaticSourcesIncludesDisabledConfiguredConnector(t *testing.T) {
 	t.Parallel()
 

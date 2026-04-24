@@ -115,10 +115,16 @@ func TestOverviewMapRendersStableHooks(t *testing.T) {
 		`data-testid="overview-map-node"`,
 		`data-testid="overview-map-list-item"`,
 		`data-testid="overview-map-bucket"`,
+		`data-overview-map-surface`,
+		`data-overview-map-edge="0"`,
+		`data-overview-map-node="0"`,
 	} {
 		if !strings.Contains(html, hook) {
 			t.Fatalf("overview map should render %s: %s", hook, html)
 		}
+	}
+	if strings.Contains(html, `overview-map-source-count`) {
+		t.Fatalf("overview map source title should not render a separate account count: %s", html)
 	}
 }
 

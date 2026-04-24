@@ -13,10 +13,10 @@ templ OverviewMap(graph viewmodels.OverviewMapGraph) {
 				<a class="btn-sm-ghost" href="/global-view">Connector coverage <span aria-hidden="true">→</span></a>
 			</header>
 
-			<div class="overview-map-surface hidden lg:block">
+			<div class="overview-map-surface hidden lg:block" data-overview-map-surface>
 				<svg class="overview-map-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-					for _, source := range graph.Sources {
-						<path class="overview-map-edge" d={ OverviewMapEdgePath(graph.CenterX, graph.CenterY, source.X, source.Y) } data-testid="overview-map-edge"></path>
+					for idx, source := range graph.Sources {
+						<path class="overview-map-edge" d={ OverviewMapEdgePath(graph.CenterX, graph.CenterY, source.X, source.Y) } style={ "--overview-map-index: " + FormatInt(idx) + ";" } data-overview-map-edge={ FormatInt(idx) } data-testid="overview-map-edge"></path>
 					}
 				</svg>
 				<div class="overview-map-node overview-map-center" style={ OverviewMapNodeStyle(graph.CenterX, graph.CenterY) } data-testid="overview-map-center">
@@ -27,8 +27,8 @@ templ OverviewMap(graph viewmodels.OverviewMapGraph) {
 					<span class="overview-map-center-count">{ FormatInt64(graph.IdentityCount) }</span>
 					<span>{ FormatInt64(graph.AccountCount) } source accounts</span>
 				</div>
-				for _, source := range graph.Sources {
-					@overviewMapSourceNode(source)
+				for idx, source := range graph.Sources {
+					@overviewMapSourceNode(source, idx)
 				}
 			</div>
 
@@ -41,9 +41,15 @@ templ OverviewMap(graph viewmodels.OverviewMapGraph) {
 	}
 }
 
-templ overviewMapSourceNode(source viewmodels.OverviewMapSourceNode) {
-	@overviewMapMaybeLink(source.Href, OverviewMapSourceClass(source.Tone), OverviewMapNodeStyle(source.X, source.Y), "overview-map-node") {
-		@overviewMapSourceNodeContent(source)
+templ overviewMapSourceNode(source viewmodels.OverviewMapSourceNode, index int) {
+	if source.Href != "" {
+		<a class={ OverviewMapSourceClass(source.Tone) } style={ OverviewMapNodeStyle(source.X, source.Y) + " --overview-map-index: " + FormatInt(index) + ";" } href={ templ.SafeURL(source.Href) } data-overview-map-node={ FormatInt(index) } data-testid="overview-map-node">
+			@overviewMapSourceNodeContent(source)
+		</a>
+	} else {
+		<div class={ OverviewMapSourceClass(source.Tone) } style={ OverviewMapNodeStyle(source.X, source.Y) + " --overview-map-index: " + FormatInt(index) + ";" } data-overview-map-node={ FormatInt(index) } data-testid="overview-map-node">
+			@overviewMapSourceNodeContent(source)
+		</div>
 	}
 }
 
@@ -55,7 +61,6 @@ templ overviewMapSourceNodeContent(source viewmodels.OverviewMapSourceNode) {
 		<div class="min-w-0">
 			<div class="overview-map-source-title">
 				<span>{ source.Label }</span>
-				<span class="overview-map-source-count">{ FormatInt64(source.AccountCount) }</span>
 			</div>
 			if source.SourceName != "" {
 				<p title={ source.SourceName }>{ source.SourceName }</p>

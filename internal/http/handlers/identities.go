@@ -229,31 +229,31 @@ func availableIdentitySourcePairs(stateView connectorStateView) []viewmodels.Pro
 	}
 
 	okta := stateView.Okta()
-	if okta.Configured() {
+	if okta.Configured() && okta.Enabled() {
 		appendSource("okta", okta.SourceName())
 	}
 	entra := stateView.Entra()
-	if entra.Configured() {
+	if entra.Configured() && entra.Enabled() {
 		appendSource("entra", entra.SourceName())
 	}
 	google := stateView.GoogleWorkspace()
-	if google.Configured() {
+	if google.Configured() && google.Enabled() {
 		appendSource(configstore.KindGoogleWorkspace, google.SourceName())
 	}
 	github := stateView.GitHub()
-	if github.Configured() {
+	if github.Configured() && github.Enabled() {
 		appendSource("github", github.SourceName())
 	}
 	datadog := stateView.Datadog()
-	if datadog.Configured() {
+	if datadog.Configured() && datadog.Enabled() {
 		appendSource("datadog", datadog.SourceName())
 	}
 	aws := stateView.AWSIdentityCenter()
-	if aws.Configured() {
+	if aws.Configured() && aws.Enabled() {
 		appendSource(configstore.KindAWSIdentityCenter, aws.SourceName())
 	}
 	vault := stateView.Vault()
-	if vault.Configured() {
+	if vault.Configured() && vault.Enabled() {
 		appendSource("vault", vault.SourceName())
 	}
 
