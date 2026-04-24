@@ -118,6 +118,93 @@ spec:
 	}
 }
 
+func TestLoadDocumentsRejectsNonBooleanCEL(t *testing.T) {
+	t.Parallel()
+
+	_, err := LoadDocuments(map[string][]byte{
+		"bad.yaml": []byte(`
+api_version: risk.open-sspm.io/v1
+kind: RiskPolicyPack
+metadata:
+  id: bad
+  version: 1.0.0
+  domain: saas
+spec:
+  inputs:
+    schema: saas_app_risk_input.v1
+  suggestions:
+    business_criticality:
+      - id: non_bool
+        level: high
+        when: actors_30d
+`),
+	})
+	if err == nil {
+		t.Fatal("LoadDocuments() error = nil, want non-boolean CEL error")
+	}
+	if !strings.Contains(err.Error(), "must return bool") {
+		t.Fatalf("LoadDocuments() error = %v, want bool type error", err)
+	}
+}
+
+func TestLoadDocumentsRejectsInvalidSuggestionLevels(t *testing.T) {
+	t.Parallel()
+
+	_, err := LoadDocuments(map[string][]byte{
+		"bad.yaml": []byte(`
+api_version: risk.open-sspm.io/v1
+kind: RiskPolicyPack
+metadata:
+  id: bad
+  version: 1.0.0
+  domain: saas
+spec:
+  inputs:
+    schema: saas_app_risk_input.v1
+  suggestions:
+    business_criticality:
+      - id: invalid_business_criticality
+        level: severe
+        when: "true"
+`),
+	})
+	if err == nil {
+		t.Fatal("LoadDocuments() error = nil, want invalid suggestion level error")
+	}
+	if !strings.Contains(err.Error(), "severe") {
+		t.Fatalf("LoadDocuments() error = %v, want invalid level in error", err)
+	}
+}
+
+func TestLoadDocumentsRejectsInvalidScopedSuggestionLevels(t *testing.T) {
+	t.Parallel()
+
+	_, err := LoadDocuments(map[string][]byte{
+		"bad.yaml": []byte(`
+api_version: risk.open-sspm.io/v1
+kind: RiskPolicyPack
+metadata:
+  id: bad
+  version: 1.0.0
+  domain: saas
+spec:
+  scoped_rules:
+    - id: invalid_scoped_suggestion
+      scope:
+        app:
+          canonical_key: github
+      suggestions:
+        data_classification: restriced
+`),
+	})
+	if err == nil {
+		t.Fatal("LoadDocuments() error = nil, want invalid scoped suggestion level error")
+	}
+	if !strings.Contains(err.Error(), "restriced") {
+		t.Fatalf("LoadDocuments() error = %v, want invalid scoped suggestion in error", err)
+	}
+}
+
 func TestSeverityOrdering(t *testing.T) {
 	t.Parallel()
 

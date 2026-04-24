@@ -28,8 +28,8 @@ func validatePolicyPack(name string, pack PolicyPack) error {
 	}
 
 	ruleIDs := make(map[string]string)
-	validateSuggestions(&errs, "spec.suggestions.business_criticality", pack.Spec.Suggestions.BusinessCriticality, ruleIDs)
-	validateSuggestions(&errs, "spec.suggestions.data_classification", pack.Spec.Suggestions.DataClassification, ruleIDs)
+	validateSuggestions(&errs, "spec.suggestions.business_criticality", pack.Spec.Suggestions.BusinessCriticality, ruleIDs, validBusinessCriticality)
+	validateSuggestions(&errs, "spec.suggestions.data_classification", pack.Spec.Suggestions.DataClassification, ruleIDs, validDataClassification)
 	validateScoring(&errs, pack.Spec.Scoring, ruleIDs)
 	validateLevelRules(&errs, "spec.levels", pack.Spec.Levels)
 	validateRules(&errs, "spec.rules", pack.Spec.Rules, ruleIDs)
@@ -51,12 +51,14 @@ func validDomain(domain Domain) bool {
 	}
 }
 
-func validateSuggestions(errs *[]error, path string, rules []SuggestionRule, ruleIDs map[string]string) {
+func validateSuggestions(errs *[]error, path string, rules []SuggestionRule, ruleIDs map[string]string, validLevel func(string) bool) {
 	for i, rule := range rules {
 		currentPath := fmt.Sprintf("%s[%d]", path, i)
 		validateID(errs, currentPath+".id", rule.ID, ruleIDs)
 		if rule.Level == "" {
 			*errs = append(*errs, fmt.Errorf("%s.level is required", currentPath))
+		} else if !validLevel(rule.Level) {
+			*errs = append(*errs, fmt.Errorf("%s.level %q is invalid", currentPath, rule.Level))
 		}
 		if rule.When == "" {
 			*errs = append(*errs, fmt.Errorf("%s.when is required", currentPath))
@@ -147,7 +149,35 @@ func validateScopedRules(errs *[]error, scopedRules []ScopedRule, ruleIDs map[st
 		if !scopedRule.Scope.App.hasSelector() {
 			*errs = append(*errs, fmt.Errorf("%s.scope.app must include at least one selector", path))
 		}
+		validateScopedSuggestions(errs, path+".suggestions", scopedRule.Suggestions)
 		validateRules(errs, path+".rules", scopedRule.Rules, ruleIDs)
+	}
+}
+
+func validateScopedSuggestions(errs *[]error, path string, suggestions ScopedSuggestions) {
+	if suggestions.BusinessCriticality != "" && !validBusinessCriticality(suggestions.BusinessCriticality) {
+		*errs = append(*errs, fmt.Errorf("%s.business_criticality %q is invalid", path, suggestions.BusinessCriticality))
+	}
+	if suggestions.DataClassification != "" && !validDataClassification(suggestions.DataClassification) {
+		*errs = append(*errs, fmt.Errorf("%s.data_classification %q is invalid", path, suggestions.DataClassification))
+	}
+}
+
+func validBusinessCriticality(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "unknown", "low", "medium", "high", "critical":
+		return true
+	default:
+		return false
+	}
+}
+
+func validDataClassification(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "unknown", "public", "internal", "confidential", "restricted":
+		return true
+	default:
+		return false
 	}
 }
 

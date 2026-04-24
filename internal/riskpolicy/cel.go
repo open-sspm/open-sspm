@@ -30,6 +30,9 @@ func compilePack(name string, pack PolicyPack) (CompiledPack, error) {
 		if issues != nil && issues.Err() != nil {
 			return fmt.Errorf("%s: %s: compile %q: %w", name, ruleID, expression, issues.Err())
 		}
+		if !ast.OutputType().IsExactType(cel.BoolType) {
+			return fmt.Errorf("%s: %s: compile %q: expression must return bool, got %s", name, ruleID, expression, ast.OutputType())
+		}
 		compiled.expressions = append(compiled.expressions, CompiledExpression{
 			RuleID:     ruleID,
 			Expression: expression,
