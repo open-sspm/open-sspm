@@ -9,14 +9,15 @@ import (
 )
 
 var structuredLoggingCommandNames = map[string]struct{}{
-	"serve":            {},
-	"worker":           {},
-	"worker-discovery": {},
-	"sync":             {},
-	"sync-discovery":   {},
-	"migrate":          {},
-	"seed-rules":       {},
-	"validate-rules":   {},
+	"serve":                  {},
+	"worker":                 {},
+	"worker-discovery":       {},
+	"sync":                   {},
+	"sync-discovery":         {},
+	"migrate":                {},
+	"seed-rules":             {},
+	"validate-rules":         {},
+	"validate-risk-policies": {},
 }
 
 type commandExecutionContext struct {
@@ -106,6 +107,7 @@ func init() {
 		migrateCmd,
 		seedRulesCmd,
 		validateRulesCmd,
+		validateRiskPoliciesCmd,
 		specVersionCmd,
 		usersCmd,
 	)

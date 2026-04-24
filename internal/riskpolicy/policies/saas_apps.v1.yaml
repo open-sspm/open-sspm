@@ -1,0 +1,39 @@
+api_version: risk.open-sspm.io/v1
+kind: RiskPolicyPack
+metadata:
+  id: builtin-saas-app-overrides
+  version: 1.0.0
+  domain: saas
+spec:
+  scoped_rules:
+    - id: github_app_policy
+      scope:
+        app:
+          canonical_key: github
+      suggestions:
+        business_criticality: high
+      rules:
+        - id: github_missing_owner
+          severity: critical
+          score_delta: 20
+          when: owner_identity_id == 0
+          title: GitHub app has no accountable owner
+    - id: source_control_app_policy
+      scope:
+        app:
+          category: source_control
+      suggestions:
+        business_criticality: high
+      rules:
+        - id: source_control_missing_owner
+          severity: high
+          score_delta: 15
+          when: owner_identity_id == 0
+          title: Source control app has no accountable owner
+    - id: finance_app_policy
+      scope:
+        app:
+          category: finance
+      suggestions:
+        business_criticality: high
+        data_classification: restricted
