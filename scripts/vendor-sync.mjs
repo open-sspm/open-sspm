@@ -38,26 +38,6 @@ const readBufferIfExists = async (filePath) => {
   }
 };
 
-const listVendorFiles = async (directoryPath) => {
-  const entries = await readdir(directoryPath, { withFileTypes: true });
-  const files = [];
-
-  for (const entry of entries) {
-    const fullPath = path.join(directoryPath, entry.name);
-
-    if (entry.isDirectory()) {
-      files.push(...await listVendorFiles(fullPath));
-      continue;
-    }
-
-    if (entry.isFile()) {
-      files.push(fullPath);
-    }
-  }
-
-  return files;
-};
-
 const listFiles = async (directoryPath) => {
   const entries = await readdir(directoryPath, { withFileTypes: true });
   const files = [];
@@ -141,7 +121,7 @@ const readManifest = async () => {
 };
 
 const pruneUnmanaged = async (managedDestinationPaths) => {
-  const files = await listVendorFiles(vendorDir);
+  const files = await listFiles(vendorDir);
   const removed = [];
 
   for (const fullPath of files) {
@@ -173,7 +153,6 @@ const main = async () => {
 
     const sourcePath = path.join(rootDir, "node_modules", packageName, sourceRel);
     const destinationPath = ensureSafeDestination(destinationRel);
-    managedDestinationPaths.add(destinationPath);
 
     let sourceStat;
     try {

@@ -124,7 +124,7 @@ func (h *Handlers) LayoutData(ctx context.Context, c *echo.Context, title string
 func (h *Handlers) RenderComponent(c *echo.Context, component templ.Component) error {
 	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := component.Render(c.Request().Context(), c.Response()); err != nil {
-		if isClientCanceled(c, err) {
+		if IsClientCanceled(c, err) {
 			return nil
 		}
 		return h.RenderError(c, err)
@@ -134,7 +134,7 @@ func (h *Handlers) RenderComponent(c *echo.Context, component templ.Component) e
 
 // RenderError returns a plain text error response.
 func (h *Handlers) RenderError(c *echo.Context, err error) error {
-	if isClientCanceled(c, err) || responseCommitted(c) {
+	if IsClientCanceled(c, err) || responseCommitted(c) {
 		return nil
 	}
 
@@ -164,7 +164,8 @@ func (h *Handlers) RenderError(c *echo.Context, err error) error {
 	return c.String(http.StatusInternalServerError, msg)
 }
 
-func isClientCanceled(c *echo.Context, err error) bool {
+// IsClientCanceled reports whether a request failure came from client disconnect or timeout.
+func IsClientCanceled(c *echo.Context, err error) bool {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return true
 	}

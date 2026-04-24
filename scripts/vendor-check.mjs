@@ -52,26 +52,6 @@ const readManifest = async () => {
   return manifest.assets;
 };
 
-const listVendorFiles = async (directoryPath) => {
-  const entries = await readdir(directoryPath, { withFileTypes: true });
-  const files = [];
-
-  for (const entry of entries) {
-    const fullPath = path.join(directoryPath, entry.name);
-
-    if (entry.isDirectory()) {
-      files.push(...await listVendorFiles(fullPath));
-      continue;
-    }
-
-    if (entry.isFile()) {
-      files.push(fullPath);
-    }
-  }
-
-  return files;
-};
-
 const listFiles = async (directoryPath) => {
   const entries = await readdir(directoryPath, { withFileTypes: true });
   const files = [];
@@ -151,7 +131,7 @@ const main = async () => {
     }
   }
 
-  const vendorFiles = await listVendorFiles(vendorDir);
+  const vendorFiles = await listFiles(vendorDir);
   for (const fullPath of vendorFiles) {
     if (fullPath === manifestPath) continue;
     if (!managedDestinationPaths.has(fullPath)) {

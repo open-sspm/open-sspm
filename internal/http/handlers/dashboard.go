@@ -91,14 +91,6 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 			continue
 		}
 
-		passPercent := 0
-		if counts.TotalRules > 0 {
-			passPercent = max(int((counts.PassedRules*100)/counts.TotalRules), 0)
-			if passPercent > 100 {
-				passPercent = 100
-			}
-		}
-
 		name := strings.TrimSpace(rs.Name)
 		if name == "" {
 			name = strings.TrimSpace(rs.Key)
@@ -109,7 +101,7 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 			Name:        name,
 			PassedCount: counts.PassedRules,
 			TotalCount:  counts.TotalRules,
-			PassPercent: passPercent,
+			PassPercent: dashboardPercent(counts.PassedRules, counts.TotalRules),
 			BadgeLabel:  dashboardFrameworkBadgeLabel(name),
 			Href:        "/findings/rulesets/" + strings.TrimSpace(rs.Key),
 		})

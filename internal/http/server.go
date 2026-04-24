@@ -192,7 +192,7 @@ func resolveStaticDir(preferred string) (resolved string, ok bool) {
 }
 
 func (es *EchoServer) httpErrorHandler(c *echo.Context, err error) {
-	if isRequestCanceled(c, err) {
+	if handlers.IsClientCanceled(c, err) {
 		return
 	}
 
@@ -216,17 +216,6 @@ func (es *EchoServer) httpErrorHandler(c *echo.Context, err error) {
 		return
 	}
 	_ = c.String(status, http.StatusText(status))
-}
-
-func isRequestCanceled(c *echo.Context, err error) bool {
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return true
-	}
-	if c == nil || c.Request() == nil {
-		return false
-	}
-	ctx := c.Request().Context()
-	return ctx != nil && ctx.Err() != nil
 }
 
 func httpStatusFromError(err error) int {
