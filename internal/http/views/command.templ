@@ -89,6 +89,8 @@ templ CommandSearchItemBody(item viewmodels.CommandItemView) {
 			@IconExternalLink("size-4")
 		} else if item.Kind == "notice" {
 			@IconInfo("size-4")
+		} else if item.Kind == "discovery_app" || item.Kind == "okta_app" {
+			@ProductIcon(item.Primary, item.Secondary, "", "size-5")
 		} else {
 			@IconLayoutGrid("size-4")
 		}

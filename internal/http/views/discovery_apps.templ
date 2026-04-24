@@ -11,18 +11,21 @@ templ DiscoveryAppsPage(data viewmodels.DiscoveryAppsViewData) {
 templ DiscoveryAppMobileRow(item viewmodels.DiscoveryAppListItem) {
 	<a href={ templ.SafeURL("/discovery/apps/" + FormatInt64(item.ID)) } class="osspm-identity-card">
 		<div class="flex items-start justify-between gap-3">
-			<div class="min-w-0">
-				<div class="font-medium truncate">{ item.DisplayName }</div>
-				if item.Domain != "" {
-					<div class="osspm-token text-sm text-muted-foreground break-all">{ item.Domain }</div>
-				}
-				<div class="mt-1 flex flex-wrap items-center gap-2 text-xs">
-					if item.ManagedState == "unmanaged" {
-						<span class="text-sm leading-none" aria-label="Unmanaged" title="Unmanaged">❌</span>
-					} else {
-						<span class={ DiscoveryManagedBadgeClass(item.ManagedState) }>{ HumanizeDiscoveryManagedState(item.ManagedState) }</span>
+			<div class="flex min-w-0 items-start gap-3">
+				@ProductIcon(item.DisplayName, item.VendorName, item.Domain, "size-8")
+				<div class="min-w-0">
+					<div class="font-medium truncate">{ item.DisplayName }</div>
+					if item.Domain != "" {
+						<div class="osspm-token text-sm text-muted-foreground break-all">{ item.Domain }</div>
 					}
-					<span class={ templ.Classes("font-medium", DiscoveryReviewDispositionTextClass(item.ReviewDisposition)) }>{ HumanizeDiscoveryReviewDisposition(item.ReviewDisposition) }</span>
+					<div class="mt-1 flex flex-wrap items-center gap-2 text-xs">
+						if item.ManagedState == "unmanaged" {
+							<span class="text-sm leading-none" aria-label="Unmanaged" title="Unmanaged">❌</span>
+						} else {
+							<span class={ DiscoveryManagedBadgeClass(item.ManagedState) }>{ HumanizeDiscoveryManagedState(item.ManagedState) }</span>
+						}
+						<span class={ templ.Classes("font-medium", DiscoveryReviewDispositionTextClass(item.ReviewDisposition)) }>{ HumanizeDiscoveryReviewDisposition(item.ReviewDisposition) }</span>
+					</div>
 				</div>
 			</div>
 			<span
@@ -117,13 +120,18 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 									<tr data-row-href={ "/discovery/apps/" + FormatInt64(item.ID) }>
 										<td>
 											<a class="osspm-identity-link" href={ templ.SafeURL("/discovery/apps/" + FormatInt64(item.ID)) }>
-												<span class="osspm-identity-name">{ item.DisplayName }</span>
-												<span class="osspm-identity-meta">
-													if item.Domain != "" {
-														<span class="osspm-token truncate">{ item.Domain }</span>
-													} else if item.VendorName != "" {
-														<span class="truncate">{ item.VendorName }</span>
-													}
+												<span class="flex min-w-0 items-center gap-3">
+													@ProductIcon(item.DisplayName, item.VendorName, item.Domain, "size-8")
+													<span class="min-w-0 flex-1">
+														<span class="osspm-identity-name">{ item.DisplayName }</span>
+														<span class="osspm-identity-meta">
+															if item.Domain != "" {
+																<span class="osspm-token truncate">{ item.Domain }</span>
+															} else if item.VendorName != "" {
+																<span class="truncate">{ item.VendorName }</span>
+															}
+														</span>
+													</span>
 												</span>
 											</a>
 										</td>

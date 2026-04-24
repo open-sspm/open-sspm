@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"io"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/a-h/templ"
 	"github.com/labstack/echo/v5"
 )
 
@@ -64,5 +66,28 @@ func TestRenderNotFoundSetsPlainTextContentType(t *testing.T) {
 	}
 	if got := rec.Header().Get(echo.HeaderContentType); got != echo.MIMETextPlainCharsetUTF8 {
 		t.Fatalf("content-type=%q want %q", got, echo.MIMETextPlainCharsetUTF8)
+	}
+}
+
+func TestRenderComponentIgnoresClientCanceledRender(t *testing.T) {
+	e := echo.New()
+	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/test", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	h := &Handlers{}
+	component := templ.ComponentFunc(func(context.Context, io.Writer) error {
+		return context.Canceled
+	})
+	if err := h.RenderComponent(c, component); err != nil {
+		t.Fatalf("RenderComponent: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d want untouched default %d", rec.Code, http.StatusOK)
+	}
+	if got := rec.Body.String(); got != "" {
+		t.Fatalf("body=%q want empty", got)
 	}
 }

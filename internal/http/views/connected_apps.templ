@@ -49,10 +49,13 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 					for _, item := range data.Items {
 						<article class="rounded-xl border border-border/70 bg-card/80 p-4 shadow-sm">
 							<div class="space-y-3">
-								<div class="space-y-1">
-									<a class="text-base font-semibold hover:underline" href={ "/app-assets/" + FormatInt64(item.ID) }>{ item.DisplayName }</a>
-									<div class="text-sm text-muted-foreground">{ item.Status }</div>
-									<div class="text-xs text-muted-foreground break-all">{ item.ExternalID }</div>
+								<div class="flex min-w-0 items-start gap-3">
+									@ProductIcon(item.DisplayName, item.ExternalID, "", "size-8")
+									<div class="min-w-0 space-y-1">
+										<a class="text-base font-semibold hover:underline" href={ "/app-assets/" + FormatInt64(item.ID) }>{ item.DisplayName }</a>
+										<div class="text-sm text-muted-foreground">{ item.Status }</div>
+										<div class="text-xs text-muted-foreground break-all">{ item.ExternalID }</div>
+									</div>
 								</div>
 								<div class="flex flex-wrap items-center gap-2">
 									<span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span>
@@ -104,9 +107,14 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 								for _, item := range data.Items {
 									<tr data-row-href={ "/app-assets/" + FormatInt64(item.ID) } class="cursor-pointer transition-colors duration-150 hover:bg-muted/50">
 										<td class="whitespace-normal">
-											<a class="btn-sm-link px-0 font-medium" href={ "/app-assets/" + FormatInt64(item.ID) } title={ item.DisplayName }>{ item.DisplayName }</a>
-											<div class="text-sm text-muted-foreground">{ item.Status }</div>
-											<div class="text-xs text-muted-foreground break-all">{ item.ExternalID }</div>
+											<div class="flex min-w-0 items-center gap-3">
+												@ProductIcon(item.DisplayName, item.ExternalID, "", "size-8")
+												<div class="min-w-0 flex-1">
+													<a class="btn-sm-link px-0 font-medium" href={ "/app-assets/" + FormatInt64(item.ID) } title={ item.DisplayName }>{ item.DisplayName }</a>
+													<div class="text-sm text-muted-foreground">{ item.Status }</div>
+													<div class="text-xs text-muted-foreground break-all">{ item.ExternalID }</div>
+												</div>
+											</div>
 										</td>
 										<td>
 											<div class="flex flex-wrap items-center gap-2">
@@ -191,7 +199,10 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 			<div class="space-y-6">
 				<article class="card">
 					<header>
-						<h2>{ data.App.DisplayName }</h2>
+						<div class="flex min-w-0 items-center gap-3">
+							@ProductIcon(data.App.DisplayName, data.App.ExternalID, data.App.SourceKind, "size-10")
+							<h2>{ data.App.DisplayName }</h2>
+						</div>
 						<div data-slot="card-action" class="flex flex-wrap items-center gap-2">
 							<span class={ AppAssetGovernanceStateBadgeClass(data.App.GovernanceState) }>{ HumanizeAppAssetGovernanceState(data.App.GovernanceState) }</span>
 							<span class={ AppAssetEvidenceConfidenceBadgeClass(data.App.EvidenceConfidence) }>{ HumanizeAppAssetEvidenceConfidence(data.App.EvidenceConfidence) }</span>

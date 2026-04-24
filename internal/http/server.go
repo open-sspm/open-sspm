@@ -192,6 +192,10 @@ func resolveStaticDir(preferred string) (resolved string, ok bool) {
 }
 
 func (es *EchoServer) httpErrorHandler(c *echo.Context, err error) {
+	if handlers.IsClientCanceled(c, err) {
+		return
+	}
+
 	resp, _ := echo.UnwrapResponse(c.Response())
 	if resp != nil && resp.Committed {
 		return

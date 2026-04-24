@@ -4,6 +4,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -123,6 +124,9 @@ func (h *Handlers) LayoutData(ctx context.Context, c *echo.Context, title string
 func (h *Handlers) RenderComponent(c *echo.Context, component templ.Component) error {
 	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := component.Render(c.Request().Context(), c.Response()); err != nil {
+		if IsClientCanceled(c, err) {
+			return nil
+		}
 		return h.RenderError(c, err)
 	}
 	return nil
@@ -130,6 +134,10 @@ func (h *Handlers) RenderComponent(c *echo.Context, component templ.Component) e
 
 // RenderError returns a plain text error response.
 func (h *Handlers) RenderError(c *echo.Context, err error) error {
+	if IsClientCanceled(c, err) || responseCommitted(c) {
+		return nil
+	}
+
 	requestID, _ := c.Get(ContextKeyRequestID).(string)
 	path := ""
 	if req := c.Request(); req != nil && req.URL != nil {
@@ -154,6 +162,26 @@ func (h *Handlers) RenderError(c *echo.Context, err error) error {
 	msg = fmt.Sprintf("%s Code: %s.", msg, InternalErrorCode)
 	c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextPlainCharsetUTF8)
 	return c.String(http.StatusInternalServerError, msg)
+}
+
+// IsClientCanceled reports whether a request failure came from client disconnect or timeout.
+func IsClientCanceled(c *echo.Context, err error) bool {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	if c == nil || c.Request() == nil {
+		return false
+	}
+	ctx := c.Request().Context()
+	return ctx != nil && ctx.Err() != nil
+}
+
+func responseCommitted(c *echo.Context) bool {
+	if c == nil {
+		return false
+	}
+	resp, _ := echo.UnwrapResponse(c.Response())
+	return resp != nil && resp.Committed
 }
 
 // RenderNotFound returns a 404 response.

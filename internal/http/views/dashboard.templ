@@ -4,6 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ DashboardPage(data viewmodels.DashboardViewData) {
 	@Layout(data.Layout) {
+		@DashboardRelationshipMap(data.RelationshipGraph)
 		<section class="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-3" aria-label="Key metrics">
 			<a href="/identities" class="dashboard-kpi group block space-y-1 no-underline">
 				<p class="text-4xl font-semibold tracking-tight tabular-nums">{ FormatInt64(data.IdentityCount) }</p>
@@ -63,4 +64,130 @@ templ DashboardPage(data viewmodels.DashboardViewData) {
 			}
 		</section>
 	}
+}
+
+templ DashboardRelationshipMap(graph viewmodels.DashboardRelationshipGraph) {
+	if len(graph.Sources) > 0 {
+		<section class="dashboard-map" aria-label="Relationship map">
+			<header class="dashboard-map-header">
+				<div>
+					<h2>Relationship map</h2>
+					<p>Configured identity sources, managed account coverage, and highest-risk privileged buckets.</p>
+				</div>
+				<a class="btn-sm-ghost" href="/global-view">Connector coverage <span aria-hidden="true">→</span></a>
+			</header>
+
+			<div class="dashboard-map-surface hidden lg:block">
+				<svg class="dashboard-map-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+					for _, source := range graph.Sources {
+						<path class="dashboard-map-edge" d={ DashboardGraphEdgePath(graph.CenterX, graph.CenterY, source.X, source.Y) }></path>
+					}
+				</svg>
+				<div class="dashboard-map-node dashboard-map-center" style={ DashboardGraphNodeStyle(graph.CenterX, graph.CenterY) }>
+					<div class="dashboard-map-center-icon" aria-hidden="true">
+						@IconUsers("size-7")
+					</div>
+					<p>Identities</p>
+					<strong>{ FormatInt64(graph.IdentityCount) }</strong>
+					<span>{ FormatInt64(graph.AccountCount) } source accounts</span>
+				</div>
+				for _, source := range graph.Sources {
+					@dashboardMapSourceNode(source)
+				}
+			</div>
+
+			<div class="dashboard-map-list lg:hidden">
+				for _, source := range graph.Sources {
+					@dashboardMapSourceListItem(source)
+				}
+			</div>
+		</section>
+	}
+}
+
+templ dashboardMapSourceNode(source viewmodels.DashboardGraphSourceNode) {
+	if source.Href != "" {
+		<a class={ DashboardGraphSourceClass(source.Tone) } style={ DashboardGraphNodeStyle(source.X, source.Y) } href={ templ.SafeURL(source.Href) }>
+			@dashboardMapSourceNodeContent(source)
+		</a>
+	} else {
+		<div class={ DashboardGraphSourceClass(source.Tone) } style={ DashboardGraphNodeStyle(source.X, source.Y) }>
+			@dashboardMapSourceNodeContent(source)
+		</div>
+	}
+}
+
+templ dashboardMapSourceNodeContent(source viewmodels.DashboardGraphSourceNode) {
+	<div class="dashboard-map-source-main">
+		<div class="dashboard-map-source-icon" aria-hidden="true">
+			@GlobalAppIcon(source.Kind)
+		</div>
+		<div class="min-w-0">
+			<div class="dashboard-map-source-title">
+				<span>{ source.Label }</span>
+				<strong>{ FormatInt64(source.AccountCount) }</strong>
+			</div>
+			if source.SourceName != "" {
+				<p title={ source.SourceName }>{ source.SourceName }</p>
+			}
+		</div>
+	</div>
+	<div class="dashboard-map-meter" role="progressbar" aria-label={ source.Label + " managed account coverage" } aria-valuemin="0" aria-valuemax="100" aria-valuenow={ FormatInt(source.CoveragePercent) }>
+		<div style={ "width: " + FormatInt(source.CoveragePercent) + "%" }></div>
+	</div>
+	<div class="dashboard-map-source-stats">
+		<span>{ FormatInt64(source.IdentityCount) } identities</span>
+		<span>{ FormatInt64(source.UnmanagedAccountCount) } unmanaged</span>
+	</div>
+	if len(source.Buckets) > 0 {
+		<div class="dashboard-risk-buckets">
+			for _, bucket := range source.Buckets {
+				<span class={ DashboardGraphSeverityClass(bucket.Severity) }>
+					<span>{ bucket.Label }</span>
+					<strong>{ FormatInt64(bucket.AffectedCount) }</strong>
+				</span>
+			}
+		</div>
+	}
+}
+
+templ dashboardMapSourceListItem(source viewmodels.DashboardGraphSourceNode) {
+	if source.Href != "" {
+		<a class="dashboard-map-list-item" href={ templ.SafeURL(source.Href) }>
+			@dashboardMapSourceListContent(source)
+		</a>
+	} else {
+		<div class="dashboard-map-list-item">
+			@dashboardMapSourceListContent(source)
+		</div>
+	}
+}
+
+templ dashboardMapSourceListContent(source viewmodels.DashboardGraphSourceNode) {
+	<div class="flex min-w-0 items-center gap-3">
+		<div class="dashboard-map-source-icon" aria-hidden="true">
+			@GlobalAppIcon(source.Kind)
+		</div>
+		<div class="min-w-0">
+			<div class="flex items-baseline gap-2">
+				<p class="truncate text-sm font-semibold">{ source.Label }</p>
+				<span class="text-xs text-muted-foreground">{ FormatInt64(source.AccountCount) } accounts</span>
+			</div>
+			if source.SourceName != "" {
+				<p class="truncate text-xs text-muted-foreground">{ source.SourceName }</p>
+			}
+		</div>
+	</div>
+	<div class="mt-3 flex flex-wrap gap-2">
+		<span class="badge-outline">{ FormatInt(source.CoveragePercent) }% managed</span>
+		if source.UnmanagedAccountCount > 0 {
+			<span class="badge-outline">{ FormatInt64(source.UnmanagedAccountCount) } unmanaged</span>
+		}
+		for _, bucket := range source.Buckets {
+			<span class={ DashboardGraphSeverityClass(bucket.Severity) }>
+				<span>{ bucket.Label }</span>
+				<strong>{ FormatInt64(bucket.AffectedCount) }</strong>
+			</span>
+		}
+	</div>
 }

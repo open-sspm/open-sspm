@@ -50,6 +50,62 @@ func TestSegmentChipUsesAriaCurrentForActiveLink(t *testing.T) {
 	}
 }
 
+func TestProductIconForUsesVendoredSimpleIcons(t *testing.T) {
+	t.Parallel()
+
+	icon := ProductIconFor("GitHub")
+	if !icon.HasIcon() {
+		t.Fatal("expected GitHub to resolve to a vendored product icon")
+	}
+	if icon.Slug != "github" {
+		t.Fatalf("slug = %q, want github", icon.Slug)
+	}
+	if icon.Path == "" {
+		t.Fatal("expected GitHub icon path data from vendored SVG")
+	}
+}
+
+func TestProductIconRendersVendoredMask(t *testing.T) {
+	t.Parallel()
+
+	var body bytes.Buffer
+	if err := ProductIcon("GitHub", "", "", "size-8").Render(context.Background(), &body); err != nil {
+		t.Fatalf("render product icon: %v", err)
+	}
+
+	html := body.String()
+	if !strings.Contains(html, "product-icon-svg") {
+		t.Fatalf("product icon should render inline svg element: %s", html)
+	}
+	if !strings.Contains(html, "<path d=") {
+		t.Fatalf("product icon should render vendored SVG path data: %s", html)
+	}
+}
+
+func TestProductIconForUsesConnectorAliases(t *testing.T) {
+	t.Parallel()
+
+	icon := ProductIconFor("google_workspace")
+	if !icon.HasIcon() {
+		t.Fatal("expected google_workspace to resolve via product icon alias")
+	}
+	if icon.Slug != "google" {
+		t.Fatalf("slug = %q, want google", icon.Slug)
+	}
+}
+
+func TestProductIconForFallsBackToInitials(t *testing.T) {
+	t.Parallel()
+
+	icon := ProductIconFor("Internal Payroll Portal")
+	if icon.HasIcon() {
+		t.Fatalf("unexpected icon match: %+v", icon)
+	}
+	if got := icon.Initial(); got != "I" {
+		t.Fatalf("initial = %q, want I", got)
+	}
+}
+
 func TestNonHumanAccessInventoryResultsOmitCurrentFreshnessLabel(t *testing.T) {
 	t.Parallel()
 

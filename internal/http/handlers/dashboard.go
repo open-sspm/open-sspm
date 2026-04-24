@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"math"
 	"sort"
 	"strings"
 
@@ -30,6 +31,11 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 	}
 
 	appAssetCount, err := h.dashboardAppAssetCount(ctx, stateView)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+
+	relationshipGraph, err := h.dashboardRelationshipGraph(ctx, stateView, identityCount)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -85,14 +91,6 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 			continue
 		}
 
-		passPercent := 0
-		if counts.TotalRules > 0 {
-			passPercent = max(int((counts.PassedRules*100)/counts.TotalRules), 0)
-			if passPercent > 100 {
-				passPercent = 100
-			}
-		}
-
 		name := strings.TrimSpace(rs.Name)
 		if name == "" {
 			name = strings.TrimSpace(rs.Key)
@@ -103,7 +101,7 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 			Name:        name,
 			PassedCount: counts.PassedRules,
 			TotalCount:  counts.TotalRules,
-			PassPercent: passPercent,
+			PassPercent: dashboardPercent(counts.PassedRules, counts.TotalRules),
 			BadgeLabel:  dashboardFrameworkBadgeLabel(name),
 			Href:        "/findings/rulesets/" + strings.TrimSpace(rs.Key),
 		})
@@ -127,6 +125,7 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 		IdentityCount:     identityCount,
 		DiscoveryAppCount: discoveryAppCount,
 		AppAssetCount:     appAssetCount,
+		RelationshipGraph: relationshipGraph,
 		FrameworkPosture:  frameworkPosture,
 	}
 
@@ -166,6 +165,163 @@ func (h *Handlers) dashboardAppAssetCount(ctx context.Context, stateView connect
 		ConfiguredSourceKinds: configuredKinds,
 		ConfiguredSourceNames: configuredNames,
 	})
+}
+
+func (h *Handlers) dashboardRelationshipGraph(ctx context.Context, stateView connectorStateView, identityCount int64) (viewmodels.DashboardRelationshipGraph, error) {
+	graph := viewmodels.DashboardRelationshipGraph{
+		CenterX:       50,
+		CenterY:       50,
+		IdentityCount: identityCount,
+	}
+
+	sourcePairs := availableIdentitySourcePairs(stateView)
+	if len(sourcePairs) == 0 {
+		return graph, nil
+	}
+
+	configuredKinds, configuredNames := identityConfiguredSourcePairs(sourcePairs)
+	sourceRows, err := h.Q.ListDashboardSourceAccountSummaries(ctx, gen.ListDashboardSourceAccountSummariesParams{
+		ConfiguredSourceKinds: configuredKinds,
+		ConfiguredSourceNames: configuredNames,
+	})
+	if err != nil {
+		return graph, err
+	}
+
+	bucketRows, err := h.Q.ListDashboardPrivilegedAccessBuckets(ctx, gen.ListDashboardPrivilegedAccessBucketsParams{
+		ConfiguredSourceKinds: configuredKinds,
+		ConfiguredSourceNames: configuredNames,
+		BucketLimit:           2,
+	})
+	if err != nil {
+		return graph, err
+	}
+
+	bucketsBySource := make(map[string][]viewmodels.DashboardGraphBucket)
+	for _, row := range bucketRows {
+		label := strings.TrimSpace(row.BucketLabel)
+		if label == "" {
+			continue
+		}
+		key := dashboardSourceGraphKey(row.SourceKind, row.SourceName)
+		bucketsBySource[key] = append(bucketsBySource[key], viewmodels.DashboardGraphBucket{
+			Label:            label,
+			Severity:         strings.TrimSpace(row.Severity),
+			AffectedCount:    row.AffectedCount,
+			EntitlementCount: row.EntitlementCount,
+		})
+	}
+
+	const (
+		radius   = 37.0
+		minNodeX = 16
+		maxNodeX = 84
+		minNodeY = 22
+		maxNodeY = 78
+	)
+	totalSources := len(sourceRows)
+	if totalSources == 0 {
+		return graph, nil
+	}
+
+	graph.Sources = make([]viewmodels.DashboardGraphSourceNode, 0, totalSources)
+	for idx, row := range sourceRows {
+		angle := -math.Pi / 2
+		if totalSources > 1 {
+			angle += (2 * math.Pi * float64(idx)) / float64(totalSources)
+		}
+		x := clampInt(int(math.Round(float64(graph.CenterX)+radius*math.Cos(angle))), minNodeX, maxNodeX)
+		y := clampInt(int(math.Round(float64(graph.CenterY)+radius*math.Sin(angle))), minNodeY, maxNodeY)
+		kind := strings.TrimSpace(row.SourceKind)
+		sourceName := strings.TrimSpace(row.SourceName)
+
+		graph.AccountCount += row.AccountCount
+		graph.Sources = append(graph.Sources, viewmodels.DashboardGraphSourceNode{
+			Kind:                  kind,
+			SourceName:            sourceName,
+			Label:                 sourcePrimaryLabel(kind),
+			Href:                  dashboardSourceHref(kind),
+			X:                     x,
+			Y:                     y,
+			IdentityCount:         row.IdentityCount,
+			AccountCount:          row.AccountCount,
+			ManagedAccountCount:   row.ManagedAccountCount,
+			UnmanagedAccountCount: row.UnmanagedAccountCount,
+			CoveragePercent:       dashboardPercent(row.ManagedAccountCount, row.AccountCount),
+			Tone:                  dashboardGraphTone(kind),
+			Buckets:               bucketsBySource[dashboardSourceGraphKey(kind, sourceName)],
+		})
+	}
+
+	return graph, nil
+}
+
+func dashboardSourceGraphKey(sourceKind, sourceName string) string {
+	return strings.ToLower(strings.TrimSpace(sourceKind)) + "\x00" + strings.ToLower(strings.TrimSpace(sourceName))
+}
+
+func dashboardPercent(numerator, denominator int64) int {
+	if denominator <= 0 || numerator <= 0 {
+		return 0
+	}
+	percent := int((numerator * 100) / denominator)
+	if percent < 0 {
+		return 0
+	}
+	if percent > 100 {
+		return 100
+	}
+	return percent
+}
+
+func dashboardGraphTone(kind string) string {
+	switch NormalizeConnectorKind(kind) {
+	case "okta":
+		return "okta"
+	case "entra":
+		return "entra"
+	case "google_workspace":
+		return "google"
+	case "github":
+		return "github"
+	case "datadog":
+		return "datadog"
+	case "aws_identity_center":
+		return "aws"
+	case "vault":
+		return "vault"
+	default:
+		return "default"
+	}
+}
+
+func dashboardSourceHref(kind string) string {
+	switch NormalizeConnectorKind(kind) {
+	case "okta":
+		return "/accounts/okta"
+	case "entra":
+		return "/accounts/entra"
+	case "google_workspace":
+		return "/accounts/google-workspace"
+	case "github":
+		return "/accounts/github"
+	case "datadog":
+		return "/accounts/datadog"
+	case "aws_identity_center":
+		return "/accounts/aws"
+	default:
+		return ""
+	}
+}
+
+func clampInt(v, minValue, maxValue int) int {
+	if v < minValue {
+		return minValue
+	}
+	if v > maxValue {
+		return maxValue
+	}
+	return v
 }
 
 func dashboardFrameworkBadgeLabel(name string) string {

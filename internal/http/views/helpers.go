@@ -1,6 +1,7 @@
 package views
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +16,47 @@ func FormatInt(v int) string {
 
 func FormatInt64(v int64) string {
 	return strconv.FormatInt(v, 10)
+}
+
+func DashboardGraphNodeStyle(x, y int) string {
+	return fmt.Sprintf("left: %d%%; top: %d%%;", x, y)
+}
+
+func DashboardGraphEdgePath(fromX, fromY, toX, toY int) string {
+	controlX := (fromX + toX) / 2
+	return fmt.Sprintf("M %d %d C %d %d, %d %d, %d %d", fromX, fromY, controlX, fromY, controlX, toY, toX, toY)
+}
+
+func DashboardGraphSourceClass(tone string) string {
+	switch strings.TrimSpace(tone) {
+	case "okta":
+		return "dashboard-map-node dashboard-map-source dashboard-map-source-okta"
+	case "entra":
+		return "dashboard-map-node dashboard-map-source dashboard-map-source-entra"
+	case "google":
+		return "dashboard-map-node dashboard-map-source dashboard-map-source-google"
+	case "github":
+		return "dashboard-map-node dashboard-map-source dashboard-map-source-github"
+	case "datadog":
+		return "dashboard-map-node dashboard-map-source dashboard-map-source-datadog"
+	case "aws":
+		return "dashboard-map-node dashboard-map-source dashboard-map-source-aws"
+	case "vault":
+		return "dashboard-map-node dashboard-map-source dashboard-map-source-vault"
+	default:
+		return "dashboard-map-node dashboard-map-source"
+	}
+}
+
+func DashboardGraphSeverityClass(severity string) string {
+	switch strings.ToLower(strings.TrimSpace(severity)) {
+	case "critical":
+		return "dashboard-risk-bucket dashboard-risk-bucket-critical"
+	case "high":
+		return "dashboard-risk-bucket dashboard-risk-bucket-high"
+	default:
+		return "dashboard-risk-bucket dashboard-risk-bucket-medium"
+	}
 }
 
 func FilterPillClass(active bool) string {

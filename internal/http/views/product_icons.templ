@@ -1,0 +1,32 @@
+package views
+
+templ ProductIcon(label, hintA, hintB, className string) {
+	{{ icon := ProductIconFor(label, hintA, hintB) }}
+	<span
+		class={ templ.Classes(
+			"product-icon",
+			templ.KV("product-icon-brand", icon.HasIcon()),
+			templ.KV(AppAvatarClass(icon.Label), !icon.HasIcon()),
+			templ.KV(className, className != ""),
+		) }
+		style={ icon.Style() }
+		aria-hidden="true"
+	>
+		if icon.HasIcon() {
+			<svg class="product-icon-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+				<path d={ icon.Path }></path>
+			</svg>
+		} else {
+			<span class="product-icon-initial">{ icon.Initial() }</span>
+		}
+	</span>
+}
+
+templ ProductIconMark(label, hintA, hintB, className string) {
+	{{ icon := ProductIconFor(label, hintA, hintB) }}
+	if icon.HasIcon() {
+		<svg class={ templ.Classes("product-icon-svg", templ.KV(className, className != "")) } viewBox="0 0 24 24" fill="currentColor" style={ icon.Style() } aria-hidden="true">
+			<path d={ icon.Path }></path>
+		</svg>
+	}
+}
