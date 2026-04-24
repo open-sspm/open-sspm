@@ -10,6 +10,7 @@ type CompiledExpression struct {
 	RuleID     string
 	Expression string
 	ast        *cel.Ast
+	program    cel.Program
 }
 
 func compilePack(name string, pack PolicyPack) (CompiledPack, error) {
@@ -33,10 +34,15 @@ func compilePack(name string, pack PolicyPack) (CompiledPack, error) {
 		if !ast.OutputType().IsExactType(cel.BoolType) {
 			return fmt.Errorf("%s: %s: compile %q: expression must return bool, got %s", name, ruleID, expression, ast.OutputType())
 		}
+		program, err := env.Program(ast, cel.EvalOptions(cel.OptOptimize))
+		if err != nil {
+			return fmt.Errorf("%s: %s: create CEL program for %q: %w", name, ruleID, expression, err)
+		}
 		compiled.expressions = append(compiled.expressions, CompiledExpression{
 			RuleID:     ruleID,
 			Expression: expression,
 			ast:        ast,
+			program:    program,
 		})
 		return nil
 	}

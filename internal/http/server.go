@@ -26,6 +26,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/authn"
 	"github.com/open-sspm/open-sspm/internal/http/handlers"
 	"github.com/open-sspm/open-sspm/internal/mailer"
+	"github.com/open-sspm/open-sspm/internal/riskpolicy"
 )
 
 // EchoServer is the HTTP server wrapper.
@@ -57,14 +58,20 @@ func NewEchoServer(
 	sessions.Cookie.SameSite = http.SameSiteLaxMode
 	sessions.Cookie.Secure = cfg.AuthCookieSecure
 
+	riskPolicies, err := riskpolicy.BuiltinRegistry()
+	if err != nil {
+		return nil, err
+	}
+
 	h := &handlers.Handlers{
-		Cfg:      cfg,
-		Q:        q,
-		Pool:     pool,
-		Sessions: sessions,
-		Syncer:   syncer,
-		Registry: reg,
-		Mailer:   mailAdapter,
+		Cfg:          cfg,
+		Q:            q,
+		Pool:         pool,
+		Sessions:     sessions,
+		Syncer:       syncer,
+		Registry:     reg,
+		Mailer:       mailAdapter,
+		RiskPolicies: riskPolicies,
 	}
 	es := &EchoServer{h: h, e: newEcho(cfg)}
 	es.e.Use(middleware.RequestIDWithConfig(middleware.RequestIDConfig{

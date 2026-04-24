@@ -19,6 +19,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
+	"github.com/open-sspm/open-sspm/internal/riskpolicy"
 )
 
 func (h *Handlers) HandleAppAssets(c *echo.Context) error {
@@ -619,8 +620,12 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 	if displayName == "" {
 		displayName = strings.TrimSpace(credential.ExternalID)
 	}
-	riskLevel := strings.TrimSpace(credential.RiskLevel)
-	riskFindings := credentialRiskFindingsFor(credential.Status, credential.CredentialKind, credential.CreatedByExternalID, credential.ApprovedByExternalID, credential.ExpiresAtSource, credential.LastUsedAtSource, now)
+	credentialRisk, err := h.evaluateCredentialRisk(credential, now)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	riskLevel := credentialRisk.RiskLevel
+	riskFindings := credentialRiskFindingsFromSignals(credentialRisk.Signals, credential.ExpiresAtSource, credential.LastUsedAtSource, now)
 	linkResolver := newIdentityLinkResolver(h, ctx)
 
 	data := viewmodels.CredentialShowViewData{
@@ -791,92 +796,74 @@ func pgTimestamptz(ts time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: ts.UTC(), Valid: true}
 }
 
-func credentialRiskFindingsFor(statusValue, credentialKindValue, createdByValue, approvedByValue string, expiresAt, lastUsedAt pgtype.Timestamptz, now time.Time) []viewmodels.CredentialRiskFinding {
-	now = now.UTC()
-	findings := make([]viewmodels.CredentialRiskFinding, 0, 4)
-
-	status := strings.ToLower(strings.TrimSpace(statusValue))
-	credentialKind := strings.ToLower(strings.TrimSpace(credentialKindValue))
-	createdByExternalID := strings.TrimSpace(createdByValue)
-	approvedByExternalID := strings.TrimSpace(approvedByValue)
-
-	if expiresAt.Valid && expiresAt.Time.UTC().Before(now) {
-		evidence := "Expired " + relativeDateLabelAt(now, expiresAt.Time)
-		if isCredentialStatusActiveLike(status) {
-			findings = append(findings, viewmodels.CredentialRiskFinding{
-				Severity: "critical",
-				Title:    "Credential has expired while still marked active",
-				Evidence: evidence,
-			})
-		} else {
-			findings = append(findings, viewmodels.CredentialRiskFinding{
-				Severity: "critical",
-				Title:    "Credential has expired",
-				Evidence: evidence,
-			})
+func (h *Handlers) evaluateCredentialRisk(credential gen.GetCredentialArtifactByIDRow, now time.Time) (riskpolicy.CredentialResult, error) {
+	registry := h.RiskPolicies
+	if registry == nil {
+		var err error
+		registry, err = riskpolicy.BuiltinRegistry()
+		if err != nil {
+			return riskpolicy.CredentialResult{}, err
 		}
 	}
+	return registry.EvaluateCredential(credentialPolicyInput(credential, now))
+}
 
-	if isHighPrivilegeCredentialKind(credentialKind) && createdByExternalID == "" && approvedByExternalID == "" {
+func credentialPolicyInput(credential gen.GetCredentialArtifactByIDRow, now time.Time) riskpolicy.CredentialInput {
+	return riskpolicy.CredentialInput{
+		SourceKind:            credential.SourceKind,
+		SourceName:            credential.SourceName,
+		CredentialKind:        credential.CredentialKind,
+		Status:                credential.Status,
+		ExpiresAt:             timestamptzTimePtr(credential.ExpiresAtSource),
+		LastUsedAt:            timestamptzTimePtr(credential.LastUsedAtSource),
+		CreatedAt:             timestamptzTimePtr(credential.CreatedAtSource),
+		CreatedByExternalID:   credential.CreatedByExternalID,
+		CreatedByDisplayName:  credential.CreatedByDisplayName,
+		ApprovedByExternalID:  credential.ApprovedByExternalID,
+		ApprovedByDisplayName: credential.ApprovedByDisplayName,
+		AssetRefKind:          credential.AssetRefKind,
+		AssetRefExternalID:    credential.AssetRefExternalID,
+		ScopeJSON:             credential.ScopeJson,
+		EvaluatedAt:           now,
+	}
+}
+
+func timestamptzTimePtr(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	t := value.Time.UTC()
+	return &t
+}
+
+func credentialRiskFindingsFromSignals(signals []riskpolicy.RiskSignal, expiresAt, lastUsedAt pgtype.Timestamptz, now time.Time) []viewmodels.CredentialRiskFinding {
+	findings := make([]viewmodels.CredentialRiskFinding, 0, len(signals))
+	for _, signal := range signals {
 		findings = append(findings, viewmodels.CredentialRiskFinding{
-			Severity: "high",
-			Title:    "High-privilege credential has no creator or approver",
-			Evidence: "No provenance recorded at source",
+			Severity: signal.Severity,
+			Title:    signal.Title,
+			Evidence: credentialSignalEvidence(signal, expiresAt, lastUsedAt, now),
 		})
 	}
-
-	if expiresAt.Valid {
-		expiresAtTime := expiresAt.Time.UTC()
-		if !expiresAtTime.Before(now) && !expiresAtTime.After(now.Add(7*24*time.Hour)) {
-			findings = append(findings, viewmodels.CredentialRiskFinding{
-				Severity: "high",
-				Title:    "Credential expires within 7 days",
-				Evidence: "Expires " + relativeDateLabelAt(now, expiresAtTime),
-			})
-		} else if !expiresAtTime.Before(now) && !expiresAtTime.After(now.Add(30*24*time.Hour)) {
-			findings = append(findings, viewmodels.CredentialRiskFinding{
-				Severity: "medium",
-				Title:    "Credential expires within 30 days",
-				Evidence: "Expires " + relativeDateLabelAt(now, expiresAtTime),
-			})
-		}
-	}
-
-	if createdByExternalID == "" {
-		findings = append(findings, viewmodels.CredentialRiskFinding{
-			Severity: "medium",
-			Title:    "Creator attribution is missing",
-			Evidence: "No provenance recorded at source",
-		})
-	}
-
-	if lastUsedAt.Valid && lastUsedAt.Time.UTC().Before(now.Add(-90*24*time.Hour)) {
-		findings = append(findings, viewmodels.CredentialRiskFinding{
-			Severity: "medium",
-			Title:    "Credential has not been used in over 90 days",
-			Evidence: "Last used " + relativeDateLabelAt(now, lastUsedAt.Time),
-		})
-	}
-
 	return findings
 }
 
-func isCredentialStatusActiveLike(status string) bool {
-	switch strings.ToLower(strings.TrimSpace(status)) {
-	case "", "active", "approved", "pending_approval":
-		return true
-	default:
-		return false
+func credentialSignalEvidence(signal riskpolicy.RiskSignal, expiresAt, lastUsedAt pgtype.Timestamptz, now time.Time) string {
+	switch signal.ID {
+	case "expired_active", "expired_inactive":
+		if expiresAt.Valid {
+			return "Expired " + relativeDateLabelAt(now.UTC(), expiresAt.Time.UTC())
+		}
+	case "expiring_within_7_days", "expiring_within_30_days":
+		if expiresAt.Valid {
+			return "Expires " + relativeDateLabelAt(now.UTC(), expiresAt.Time.UTC())
+		}
+	case "unused_over_90_days":
+		if lastUsedAt.Valid {
+			return "Last used " + relativeDateLabelAt(now.UTC(), lastUsedAt.Time.UTC())
+		}
 	}
-}
-
-func isHighPrivilegeCredentialKind(kind string) bool {
-	switch strings.ToLower(strings.TrimSpace(kind)) {
-	case "entra_client_secret", "github_deploy_key", "github_pat_request", "github_pat_fine_grained":
-		return true
-	default:
-		return false
-	}
+	return strings.TrimSpace(signal.Evidence)
 }
 
 type identityLinkResolver struct {
