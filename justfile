@@ -94,6 +94,10 @@ sync-discovery:
 validate-rules:
     go run ./cmd/open-sspm validate-rules
 
+# Validate risk policy packs
+validate-risk-policies:
+    go run ./cmd/open-sspm validate-risk-policies
+
 #
 # UI / CSS
 #

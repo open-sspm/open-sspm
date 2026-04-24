@@ -1,0 +1,89 @@
+api_version: risk.open-sspm.io/v1
+kind: RiskPolicyPack
+metadata:
+  id: builtin-saas-risk
+  version: 1.0.0
+  domain: saas
+spec:
+  inputs:
+    schema: saas_app_risk_input.v1
+  constants:
+    high_business_criticalities:
+      - high
+      - critical
+    sensitive_data_classifications:
+      - confidential
+      - restricted
+  suggestions:
+    business_criticality:
+      - id: high_usage_critical
+        level: critical
+        when: actors_30d >= 200
+      - id: high_usage_or_privileged
+        level: high
+        when: actors_30d >= 50 || has_privileged_scope
+      - id: moderate_usage
+        level: medium
+        when: actors_30d >= 10
+      - id: default_business_low
+        level: low
+        when: "true"
+    data_classification:
+      - id: privileged_scopes_restricted
+        level: restricted
+        when: has_privileged_scope
+      - id: confidential_scopes_confidential
+        level: confidential
+        when: has_confidential_scope
+      - id: default_data_internal
+        level: internal
+        when: "true"
+  scoring:
+    base: 0
+    max: 100
+    rules:
+      - id: unmanaged_app
+        points: 45
+        when: managed_state != "managed"
+        signal:
+          severity: high
+          title: App is not managed by a fresh connector binding
+      - id: privileged_scopes
+        points: 20
+        when: has_privileged_scope
+        signal:
+          severity: high
+          title: App has privileged OAuth scopes
+      - id: missing_owner
+        points: 15
+        when: owner_identity_id == 0
+        signal:
+          severity: high
+          title: App has no accountable owner
+      - id: high_actor_count
+        points: 20
+        when: actors_30d >= 50
+        signal:
+          severity: medium
+          title: App has broad recent usage
+      - id: unmanaged_high_business_app
+        points: 15
+        when: managed_state != "managed" && effective_business_criticality in high_business_criticalities
+        signal:
+          severity: high
+          title: Unmanaged app appears business critical
+      - id: unmanaged_sensitive_data_app
+        points: 15
+        when: managed_state != "managed" && effective_data_classification in sensitive_data_classifications
+        signal:
+          severity: high
+          title: Unmanaged app may access sensitive data
+  levels:
+    - level: critical
+      when: score >= 80
+    - level: high
+      when: score >= 60
+    - level: medium
+      when: score >= 30
+    - level: low
+      when: "true"
