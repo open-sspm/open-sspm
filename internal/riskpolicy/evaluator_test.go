@@ -41,10 +41,29 @@ func TestEvaluateCredentialGoldenCases(t *testing.T) {
 					t.Fatalf("signal missing source policy metadata: %+v", signal)
 				}
 			}
-			if !sameStrings(gotSignalIDs, tc.wantSignalIDs) {
+			if !sameStringSet(gotSignalIDs, tc.wantSignalIDs) {
 				t.Fatalf("signal IDs = %v, want %v", gotSignalIDs, tc.wantSignalIDs)
 			}
 		})
+	}
+}
+
+func TestEvaluateCredentialRejectsMalformedScopeJSON(t *testing.T) {
+	t.Parallel()
+
+	registry, err := LoadBuiltin()
+	if err != nil {
+		t.Fatalf("LoadBuiltin() error = %v", err)
+	}
+
+	_, err = registry.EvaluateCredential(CredentialInput{
+		CredentialKind:      "vault_token",
+		CreatedByExternalID: "alice",
+		ScopeJSON:           []byte(`{"broken":`),
+		EvaluatedAt:         time.Date(2026, 2, 7, 12, 0, 0, 0, time.UTC),
+	})
+	if err == nil {
+		t.Fatal("EvaluateCredential() error = nil, want malformed scope_json error")
 	}
 }
 
@@ -195,12 +214,17 @@ func timePtr(value time.Time) *time.Time {
 	return &value
 }
 
-func sameStrings(got, want []string) bool {
+func sameStringSet(got, want []string) bool {
 	if len(got) != len(want) {
 		return false
 	}
-	for i := range got {
-		if got[i] != want[i] {
+	counts := make(map[string]int, len(got))
+	for _, value := range got {
+		counts[value]++
+	}
+	for _, value := range want {
+		counts[value]--
+		if counts[value] < 0 {
 			return false
 		}
 	}

@@ -56,7 +56,10 @@ func (r *Registry) EvaluateCredential(input CredentialInput) (CredentialResult, 
 		return CredentialResult{}, errors.New("risk policy registry is nil")
 	}
 
-	input = normalizeCredentialInput(input)
+	input, err := normalizeCredentialInput(input)
+	if err != nil {
+		return CredentialResult{}, err
+	}
 	result := CredentialResult{
 		Signals: make([]RiskSignal, 0, 4),
 	}
@@ -125,7 +128,7 @@ func (pack CompiledPack) evaluateBool(ruleID string, activation map[string]any) 
 	return false, fmt.Errorf("%s: compiled expression %q not found", pack.Policy.Metadata.ID, ruleID)
 }
 
-func normalizeCredentialInput(input CredentialInput) CredentialInput {
+func normalizeCredentialInput(input CredentialInput) (CredentialInput, error) {
 	input.SourceKind = strings.ToLower(strings.TrimSpace(input.SourceKind))
 	input.SourceName = strings.TrimSpace(input.SourceName)
 	input.CredentialKind = strings.ToLower(strings.TrimSpace(input.CredentialKind))
@@ -143,8 +146,12 @@ func normalizeCredentialInput(input CredentialInput) CredentialInput {
 		input.EvaluatedAt = time.Now()
 	}
 	input.EvaluatedAt = input.EvaluatedAt.UTC()
-	input.ScopeJSON = normalizeScopeJSON(input.ScopeJSON)
-	return input
+	scopeJSON, err := normalizeScopeJSON(input.ScopeJSON)
+	if err != nil {
+		return CredentialInput{}, err
+	}
+	input.ScopeJSON = scopeJSON
+	return input, nil
 }
 
 func credentialActivation(input CredentialInput, constants map[string][]string) map[string]any {
@@ -186,26 +193,26 @@ func nullableTime(value *time.Time) any {
 	return *value
 }
 
-func normalizeScopeJSON(value any) any {
+func normalizeScopeJSON(value any) (any, error) {
 	switch v := value.(type) {
 	case nil:
-		return map[string]any{}
+		return map[string]any{}, nil
 	case []byte:
 		return decodeScopeJSON(v)
 	case json.RawMessage:
 		return decodeScopeJSON(v)
 	default:
-		return value
+		return value, nil
 	}
 }
 
-func decodeScopeJSON(data []byte) any {
+func decodeScopeJSON(data []byte) (any, error) {
 	if len(data) == 0 {
-		return map[string]any{}
+		return map[string]any{}, nil
 	}
 	var decoded any
 	if err := json.Unmarshal(data, &decoded); err != nil {
-		return map[string]any{}
+		return nil, fmt.Errorf("decode credential scope_json: %w", err)
 	}
-	return decoded
+	return decoded, nil
 }
