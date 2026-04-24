@@ -5,6 +5,21 @@
       "package": "htmx.org",
       "source": "dist/htmx.min.js",
       "destination": "web/static/vendor/htmx.min.js"
+    },
+    {
+      "package": "simple-icons",
+      "source": "data/simple-icons.json",
+      "destination": "web/static/vendor/simple-icons/simple-icons.json"
+    },
+    {
+      "package": "simple-icons",
+      "source": "LICENSE.md",
+      "destination": "web/static/vendor/simple-icons/LICENSE.md"
+    },
+    {
+      "package": "simple-icons",
+      "source": "icons",
+      "destination": "web/static/vendor/simple-icons/icons"
     }
   ]
 }

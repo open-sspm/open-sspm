@@ -2,6 +2,7 @@ package httpapp
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -107,6 +108,25 @@ func TestHTTPErrorHandlerInternalErrorIsGeneric(t *testing.T) {
 	}
 	if !strings.Contains(body, "Code: "+handlers.InternalErrorCode) {
 		t.Fatalf("response missing error code: %q", body)
+	}
+}
+
+func TestHTTPErrorHandlerIgnoresRequestCanceled(t *testing.T) {
+	e := echo.New()
+	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/test", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	es := &EchoServer{h: &handlers.Handlers{}, e: e}
+	es.httpErrorHandler(c, context.Canceled)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d want untouched default %d", rec.Code, http.StatusOK)
+	}
+	if got := rec.Body.String(); got != "" {
+		t.Fatalf("body=%q want empty", got)
 	}
 }
 

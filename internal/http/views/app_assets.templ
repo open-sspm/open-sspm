@@ -5,17 +5,20 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 templ AppAssetMobileRow(item viewmodels.AppAssetListItem) {
 	<article class="rounded-lg border border-border/70 bg-card p-4">
 		<div class="flex items-start justify-between gap-3">
-			<div class="min-w-0">
-				<a class="block font-medium no-underline hover:underline" href={ "/app-assets/" + FormatInt64(item.ID) } title={ item.DisplayName }>
-					<span class="osspm-truncate">{ item.DisplayName }</span>
-				</a>
-				<div class="mt-2 flex flex-wrap items-center gap-2">
-					<span class="badge-outline">{ HumanizeProgrammaticKind(item.SourceKind) }</span>
-					<span class="badge-outline">{ HumanizeProgrammaticKind(item.AssetKind) }</span>
-				</div>
-				<div class="mt-2 text-sm text-muted-foreground">{ item.Status }</div>
-				<div class="text-sm text-muted-foreground break-all">
-					<code class="osspm-token">{ item.ExternalID }</code>
+			<div class="flex min-w-0 items-start gap-3">
+				@ProductIcon(item.DisplayName, item.SourceKind, item.AssetKind, "size-8")
+				<div class="min-w-0">
+					<a class="block font-medium no-underline hover:underline" href={ "/app-assets/" + FormatInt64(item.ID) } title={ item.DisplayName }>
+						<span class="osspm-truncate">{ item.DisplayName }</span>
+					</a>
+					<div class="mt-2 flex flex-wrap items-center gap-2">
+						<span class="badge-outline">{ HumanizeProgrammaticKind(item.SourceKind) }</span>
+						<span class="badge-outline">{ HumanizeProgrammaticKind(item.AssetKind) }</span>
+					</div>
+					<div class="mt-2 text-sm text-muted-foreground">{ item.Status }</div>
+					<div class="text-sm text-muted-foreground break-all">
+						<code class="osspm-token">{ item.ExternalID }</code>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -113,8 +116,13 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 											</td>
 											<td><span class="badge-outline">{ HumanizeProgrammaticKind(item.AssetKind) }</span></td>
 											<td class="whitespace-normal">
-												<a class="btn-sm-link px-0 font-medium" href={ "/app-assets/" + FormatInt64(item.ID) } title={ item.DisplayName }>{ item.DisplayName }</a>
-												<div class="text-sm text-muted-foreground">{ item.Status }</div>
+												<div class="flex min-w-0 items-center gap-3">
+													@ProductIcon(item.DisplayName, item.SourceKind, item.AssetKind, "size-8")
+													<div class="min-w-0 flex-1">
+														<a class="btn-sm-link px-0 font-medium" href={ "/app-assets/" + FormatInt64(item.ID) } title={ item.DisplayName }>{ item.DisplayName }</a>
+														<div class="text-sm text-muted-foreground">{ item.Status }</div>
+													</div>
+												</div>
 											</td>
 											<td class="text-muted-foreground">
 												<code class="osspm-token osspm-truncate" title={ item.ExternalID }>{ item.ExternalID }</code>

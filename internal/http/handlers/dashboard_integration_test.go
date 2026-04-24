@@ -49,6 +49,7 @@ func TestHandleDashboardUsesGenericInventoryMetrics(t *testing.T) {
 		})
 		githubIdentityID := insertCommandSearchIdentity(t, ctx, pool, "human", "bob@example.com", "Bob GitHub")
 		insertCommandSearchIdentityAccountLink(t, ctx, pool, githubIdentityID, githubAccountID)
+		insertDashboardEntitlement(t, ctx, pool, githubRunID, githubAccountID, "github_team_repo_permission", "github_repo:acme/platform", "admin", `{"repo":"acme/platform"}`)
 
 		insertCommandSearchDiscoveryApp(t, ctx, pool, q, entraRunID, configstore.KindEntra, "tenant-1", "azure-cloud", "Azure Cloud", "azure.com", "Microsoft", "azure-cloud")
 
@@ -69,6 +70,10 @@ func TestHandleDashboardUsesGenericInventoryMetrics(t *testing.T) {
 		assertDashboardMetric(t, body, "Identities", 2)
 		assertDashboardMetric(t, body, "Discovered SaaS apps", 1)
 		assertDashboardMetric(t, body, "App assets", 2)
+		assertDashboardText(t, body, "Relationship map")
+		assertDashboardText(t, body, "Okta")
+		assertDashboardText(t, body, "GitHub")
+		assertDashboardText(t, body, "Admin repositories")
 	})
 }
 
@@ -138,5 +143,35 @@ func assertDashboardMetric(t *testing.T, body, label string, count int64) {
 	}
 	if !strings.Contains(body, countStr) {
 		t.Fatalf("dashboard missing metric count %q for label %q: %s", countStr, label, body)
+	}
+}
+
+func assertDashboardText(t *testing.T, body, text string) {
+	t.Helper()
+
+	if !strings.Contains(body, text) {
+		t.Fatalf("dashboard missing %q: %s", text, body)
+	}
+}
+
+func insertDashboardEntitlement(t *testing.T, ctx context.Context, pool *pgxpool.Pool, runID, accountID int64, kind, resource, permission, rawJSON string) {
+	t.Helper()
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO entitlements (
+			app_user_id,
+			kind,
+			resource,
+			permission,
+			raw_json,
+			seen_in_run_id,
+			seen_at,
+			last_observed_run_id,
+			last_observed_at,
+			updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5::jsonb, $6, now(), $6, now(), now())
+	`, accountID, kind, resource, permission, rawJSON, runID); err != nil {
+		t.Fatalf("insert dashboard entitlement %s/%s: %v", kind, permission, err)
 	}
 }

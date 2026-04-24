@@ -29,22 +29,25 @@ templ appAssetShowHeader(a viewmodels.AppAssetSummaryView) {
 			<a class="text-xs text-muted-foreground hover:text-foreground" href="/app-assets">← App Assets</a>
 		</div>
 		<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-			<div class="min-w-0 space-y-2">
-				<p class="text-xs uppercase tracking-wide text-muted-foreground">
-					<span>{ HumanizeProgrammaticKind(a.AssetKind) }</span>
-					<span class="px-1.5 text-muted-foreground/50">·</span>
-					<span>{ HumanizeConnectorKind(a.SourceKind) }</span>
-					if a.SourceName != "" {
-						<span class="text-muted-foreground/70">{ " (" }{ a.SourceName }{ ")" }</span>
+			<div class="flex min-w-0 items-start gap-4">
+				@ProductIcon(a.DisplayName, a.SourceKind, a.AssetKind, "size-12")
+				<div class="min-w-0 space-y-2">
+					<p class="text-xs uppercase tracking-wide text-muted-foreground">
+						<span>{ HumanizeProgrammaticKind(a.AssetKind) }</span>
+						<span class="px-1.5 text-muted-foreground/50">·</span>
+						<span>{ HumanizeConnectorKind(a.SourceKind) }</span>
+						if a.SourceName != "" {
+							<span class="text-muted-foreground/70">{ " (" }{ a.SourceName }{ ")" }</span>
+						}
+					</p>
+					<h1 class="text-2xl font-semibold leading-tight tracking-tight break-words md:text-3xl">{ a.DisplayName }</h1>
+					if a.ExternalID != "" {
+						<div class="flex min-w-0 items-center gap-2">
+							<p class="font-mono text-xs text-muted-foreground break-all">{ a.ExternalID }</p>
+							@CopyTextButton(a.ExternalID, "Copy external ID")
+						</div>
 					}
-				</p>
-				<h1 class="text-2xl font-semibold leading-tight tracking-tight break-words md:text-3xl">{ a.DisplayName }</h1>
-				if a.ExternalID != "" {
-					<div class="flex min-w-0 items-center gap-2">
-						<p class="font-mono text-xs text-muted-foreground break-all">{ a.ExternalID }</p>
-						@CopyTextButton(a.ExternalID, "Copy external ID")
-					</div>
-				}
+				</div>
 			</div>
 		</div>
 	</header>

@@ -114,11 +114,14 @@ templ AppRowDesktop(app viewmodels.AppListItem, isAdmin bool, csrfToken string, 
 	>
 		<!-- App -->
 		<td class="py-3 pr-3">
-			<a href={ AppDetailURL(app.IntegratedHref, app.ExternalID) } class="min-w-0 no-underline">
-				<span class="osspm-truncate font-medium text-foreground">{ app.Label }</span>
-				if app.Name != "" {
-					<span class="osspm-truncate text-xs text-muted-foreground/70">{ app.Name }</span>
-				}
+			<a href={ AppDetailURL(app.IntegratedHref, app.ExternalID) } class="flex min-w-0 items-center gap-3 no-underline">
+				@ProductIcon(app.Label, app.Name, "", "size-8")
+				<span class="min-w-0 flex-1">
+					<span class="osspm-truncate font-medium text-foreground">{ app.Label }</span>
+					if app.Name != "" {
+						<span class="osspm-truncate text-xs text-muted-foreground/70">{ app.Name }</span>
+					}
+				</span>
 			</a>
 		</td>
 		if showStatus {
@@ -169,6 +172,7 @@ templ AppRowMobile(app viewmodels.AppListItem, isAdmin bool, csrfToken string, i
 		class="app-row flex items-center gap-3 py-3.5 no-underline transition-colors hover:bg-muted/30"
 		style={ "animation-delay:" + strconv.Itoa(index*25) + "ms" }
 	>
+		@ProductIcon(app.Label, app.Name, "", "size-8")
 		<span class="min-w-0 flex-1">
 			<span class="flex items-center gap-2">
 				<span class="truncate text-sm font-medium text-foreground">{ app.Label }</span>

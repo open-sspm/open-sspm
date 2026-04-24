@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -47,6 +47,26 @@ const listVendorFiles = async (directoryPath) => {
 
     if (entry.isDirectory()) {
       files.push(...await listVendorFiles(fullPath));
+      continue;
+    }
+
+    if (entry.isFile()) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+};
+
+const listFiles = async (directoryPath) => {
+  const entries = await readdir(directoryPath, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(directoryPath, entry.name);
+
+    if (entry.isDirectory()) {
+      files.push(...await listFiles(fullPath));
       continue;
     }
 
@@ -155,23 +175,47 @@ const main = async () => {
     const destinationPath = ensureSafeDestination(destinationRel);
     managedDestinationPaths.add(destinationPath);
 
-    const sourceBuffer = await readBufferIfExists(sourcePath);
-    if (!sourceBuffer) {
+    let sourceStat;
+    try {
+      sourceStat = await stat(sourcePath);
+    } catch (error) {
+      if (error && error.code === "ENOENT") {
+        fail(`source file not found: ${path.relative(rootDir, sourcePath)}`);
+      }
+      throw error;
+    }
+
+    const sourceFiles = sourceStat.isDirectory()
+      ? await listFiles(sourcePath)
+      : [sourcePath];
+    if (sourceFiles.length === 0) {
       fail(`source file not found: ${path.relative(rootDir, sourcePath)}`);
     }
 
-    const destinationBuffer = await readBufferIfExists(destinationPath);
-    const sameContent =
-      destinationBuffer !== null && digest(sourceBuffer) === digest(destinationBuffer);
+    for (const sourceFile of sourceFiles) {
+      const destinationFile = sourceStat.isDirectory()
+        ? path.join(destinationPath, path.relative(sourcePath, sourceFile))
+        : destinationPath;
+      managedDestinationPaths.add(destinationFile);
 
-    if (sameContent) {
-      unchangedCount += 1;
-      continue;
+      const sourceBuffer = await readBufferIfExists(sourceFile);
+      if (!sourceBuffer) {
+        fail(`source file not found: ${path.relative(rootDir, sourceFile)}`);
+      }
+
+      const destinationBuffer = await readBufferIfExists(destinationFile);
+      const sameContent =
+        destinationBuffer !== null && digest(sourceBuffer) === digest(destinationBuffer);
+
+      if (sameContent) {
+        unchangedCount += 1;
+        continue;
+      }
+
+      await mkdir(path.dirname(destinationFile), { recursive: true });
+      await writeFileAtomic(destinationFile, sourceBuffer);
+      changedCount += 1;
     }
-
-    await mkdir(path.dirname(destinationPath), { recursive: true });
-    await writeFileAtomic(destinationPath, sourceBuffer);
-    changedCount += 1;
   }
 
   const removed = await pruneUnmanaged(managedDestinationPaths);

@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -72,6 +72,26 @@ const listVendorFiles = async (directoryPath) => {
   return files;
 };
 
+const listFiles = async (directoryPath) => {
+  const entries = await readdir(directoryPath, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(directoryPath, entry.name);
+
+    if (entry.isDirectory()) {
+      files.push(...await listFiles(fullPath));
+      continue;
+    }
+
+    if (entry.isFile()) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+};
+
 const main = async () => {
   const assets = await readManifest();
   const failures = [];
@@ -89,24 +109,45 @@ const main = async () => {
 
     const sourcePath = path.join(rootDir, "node_modules", packageName, sourceRel);
     const destinationPath = ensureSafeDestination(destinationRel);
-    managedDestinationPaths.add(destinationPath);
 
-    if (!existsSync(sourcePath)) {
+    let sourceStat;
+    try {
+      sourceStat = await stat(sourcePath);
+    } catch (error) {
+      if (error && error.code === "ENOENT") {
+        failures.push(`missing source: ${path.relative(rootDir, sourcePath)}`);
+        continue;
+      }
+      throw error;
+    }
+
+    const sourceFiles = sourceStat.isDirectory()
+      ? await listFiles(sourcePath)
+      : [sourcePath];
+    if (sourceFiles.length === 0) {
       failures.push(`missing source: ${path.relative(rootDir, sourcePath)}`);
       continue;
     }
-    if (!existsSync(destinationPath)) {
-      failures.push(`missing vendored file: ${path.relative(rootDir, destinationPath)}`);
-      continue;
-    }
 
-    const [sourceBuffer, destinationBuffer] = await Promise.all([
-      readFile(sourcePath),
-      readFile(destinationPath),
-    ]);
+    for (const sourceFile of sourceFiles) {
+      const destinationFile = sourceStat.isDirectory()
+        ? path.join(destinationPath, path.relative(sourcePath, sourceFile))
+        : destinationPath;
+      managedDestinationPaths.add(destinationFile);
 
-    if (digest(sourceBuffer) !== digest(destinationBuffer)) {
-      failures.push(`out of sync: ${path.relative(rootDir, destinationPath)}`);
+      if (!existsSync(destinationFile)) {
+        failures.push(`missing vendored file: ${path.relative(rootDir, destinationFile)}`);
+        continue;
+      }
+
+      const [sourceBuffer, destinationBuffer] = await Promise.all([
+        readFile(sourceFile),
+        readFile(destinationFile),
+      ]);
+
+      if (digest(sourceBuffer) !== digest(destinationBuffer)) {
+        failures.push(`out of sync: ${path.relative(rootDir, destinationFile)}`);
+      }
     }
   }
 
