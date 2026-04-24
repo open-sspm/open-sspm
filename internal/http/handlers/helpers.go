@@ -27,6 +27,9 @@ func (h *Handlers) WithTx(ctx context.Context, fn func(*gen.Queries) error) erro
 	if h.Pool == nil {
 		return errors.New("database pool not configured")
 	}
+	if h.Q == nil {
+		return errors.New("database queries not configured")
+	}
 	tx, err := h.Pool.Begin(ctx)
 	if err != nil {
 		return err
