@@ -32,7 +32,7 @@ func TestHandleIdentitiesClampsOutOfRangePage(t *testing.T) {
 		identityID := insertCommandSearchIdentity(t, ctx, pool, "human", "person@example.com", "Example Person")
 		insertCommandSearchIdentityAccountLink(t, ctx, pool, identityID, accountID)
 
-		c, rec := newTestContext(http.MethodGet, "http://example.com/identities?page=2")
+		c, rec := newTestContext(http.MethodGet, "http://example.com/identities?page=200000000")
 		if err := h.HandleIdentities(c); err != nil {
 			t.Fatalf("HandleIdentities() error = %v", err)
 		}

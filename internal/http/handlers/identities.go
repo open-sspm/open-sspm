@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"sort"
@@ -113,25 +114,29 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 	if requestedPage < 1 {
 		requestedPage = 1
 	}
-	requestedOffset := int32((requestedPage - 1) * perPage)
+	requestedOffset, requestedOffsetOK := pageOffsetInt32(requestedPage, perPage)
 
-	rows, err := h.Q.ListIdentitiesInventoryPageByFilters(ctx, listParams(requestedOffset))
-	if err != nil {
-		return h.RenderError(c, err)
+	var rows []gen.ListIdentitiesInventoryPageByFiltersRow
+	if requestedOffsetOK {
+		rows, err = h.Q.ListIdentitiesInventoryPageByFilters(ctx, listParams(requestedOffset))
+		if err != nil {
+			return h.RenderError(c, err)
+		}
 	}
 
 	totalCount := int64(0)
 	switch {
 	case len(rows) > 0:
 		totalCount = rows[0].TotalCount
-	case requestedPage > 1:
+	case requestedPage > 1 || !requestedOffsetOK:
 		totalCount, err = h.Q.CountIdentitiesInventoryByFilters(ctx, countParams)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
 		pagination = newPaginatedListState(totalCount, page, perPage)
-		if totalCount > 0 && pagination.Offset() != int(requestedOffset) {
-			rows, err = h.Q.ListIdentitiesInventoryPageByFilters(ctx, listParams(int32(pagination.Offset())))
+		clampedOffset, clampedOffsetOK := pageOffsetInt32(pagination.page, perPage)
+		if totalCount > 0 && clampedOffsetOK && (!requestedOffsetOK || clampedOffset != requestedOffset) {
+			rows, err = h.Q.ListIdentitiesInventoryPageByFilters(ctx, listParams(clampedOffset))
 			if err != nil {
 				return h.RenderError(c, err)
 			}
@@ -169,6 +174,22 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 	}
 
 	return renderIdentities()
+}
+
+func pageOffsetInt32(page, perPage int) (int32, bool) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 1
+	}
+	pageIndex := int64(page - 1)
+	perPage64 := int64(perPage)
+	if pageIndex > math.MaxInt32/perPage64 {
+		return 0, false
+	}
+	offset := pageIndex * perPage64
+	return int32(offset), true
 }
 
 func availableIdentitySourcePairs(stateView connectorStateView) []viewmodels.ProgrammaticSourceOption {
