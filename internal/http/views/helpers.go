@@ -18,45 +18,60 @@ func FormatInt64(v int64) string {
 	return strconv.FormatInt(v, 10)
 }
 
-func DashboardGraphNodeStyle(x, y int) string {
+func OverviewMapNodeStyle(x, y int) string {
+	x = viewmodels.ClampOverviewMapPercent(x)
+	y = viewmodels.ClampOverviewMapPercent(y)
 	return fmt.Sprintf("left: %d%%; top: %d%%;", x, y)
 }
 
-func DashboardGraphEdgePath(fromX, fromY, toX, toY int) string {
+func OverviewMapEdgePath(fromX, fromY, toX, toY int) string {
+	fromX = viewmodels.ClampOverviewMapPercent(fromX)
+	fromY = viewmodels.ClampOverviewMapPercent(fromY)
+	toX = viewmodels.ClampOverviewMapPercent(toX)
+	toY = viewmodels.ClampOverviewMapPercent(toY)
 	controlX := (fromX + toX) / 2
 	return fmt.Sprintf("M %d %d C %d %d, %d %d, %d %d", fromX, fromY, controlX, fromY, controlX, toY, toX, toY)
 }
 
-func DashboardGraphSourceClass(tone string) string {
-	switch strings.TrimSpace(tone) {
-	case "okta":
-		return "dashboard-map-node dashboard-map-source dashboard-map-source-okta"
-	case "entra":
-		return "dashboard-map-node dashboard-map-source dashboard-map-source-entra"
-	case "google":
-		return "dashboard-map-node dashboard-map-source dashboard-map-source-google"
-	case "github":
-		return "dashboard-map-node dashboard-map-source dashboard-map-source-github"
-	case "datadog":
-		return "dashboard-map-node dashboard-map-source dashboard-map-source-datadog"
-	case "aws":
-		return "dashboard-map-node dashboard-map-source dashboard-map-source-aws"
-	case "vault":
-		return "dashboard-map-node dashboard-map-source dashboard-map-source-vault"
-	default:
-		return "dashboard-map-node dashboard-map-source"
-	}
+var overviewMapToneClasses = map[string]string{
+	viewmodels.OverviewMapToneOkta:    "overview-map-source-okta",
+	viewmodels.OverviewMapToneEntra:   "overview-map-source-entra",
+	viewmodels.OverviewMapToneGoogle:  "overview-map-source-google",
+	viewmodels.OverviewMapToneGitHub:  "overview-map-source-github",
+	viewmodels.OverviewMapToneDatadog: "overview-map-source-datadog",
+	viewmodels.OverviewMapToneAWS:     "overview-map-source-aws",
+	viewmodels.OverviewMapToneVault:   "overview-map-source-vault",
 }
 
-func DashboardGraphSeverityClass(severity string) string {
-	switch strings.ToLower(strings.TrimSpace(severity)) {
-	case "critical":
-		return "dashboard-risk-bucket dashboard-risk-bucket-critical"
-	case "high":
-		return "dashboard-risk-bucket dashboard-risk-bucket-high"
-	default:
-		return "dashboard-risk-bucket dashboard-risk-bucket-medium"
+func OverviewMapSourceClass(tone string) string {
+	const baseClass = "overview-map-node overview-map-source"
+
+	tone = strings.ToLower(strings.TrimSpace(tone))
+	if tone == "" || tone == viewmodels.OverviewMapToneDefault {
+		return baseClass
 	}
+	if toneClass, ok := overviewMapToneClasses[tone]; ok {
+		return baseClass + " " + toneClass
+	}
+	return baseClass + " overview-map-source-unknown"
+}
+
+var overviewMapSeverityClasses = map[string]string{
+	viewmodels.OverviewMapSeverityCritical: "overview-risk-bucket-critical",
+	viewmodels.OverviewMapSeverityHigh:     "overview-risk-bucket-high",
+	viewmodels.OverviewMapSeverityMedium:   "overview-risk-bucket-medium",
+	viewmodels.OverviewMapSeverityLow:      "overview-risk-bucket-low",
+	viewmodels.OverviewMapSeverityInfo:     "overview-risk-bucket-info",
+}
+
+func OverviewMapSeverityClass(severity string) string {
+	const baseClass = "overview-risk-bucket"
+
+	severity = strings.ToLower(strings.TrimSpace(severity))
+	if severityClass, ok := overviewMapSeverityClasses[severity]; ok {
+		return baseClass + " " + severityClass
+	}
+	return baseClass + " overview-risk-bucket-unknown"
 }
 
 func FilterPillClass(active bool) string {

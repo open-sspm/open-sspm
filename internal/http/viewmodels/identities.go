@@ -46,6 +46,7 @@ type IdentitiesViewData struct {
 	Query             querystate.IdentitiesQuery
 	Summary           IdentitiesSummary
 	HasIdentities     bool
+	OverviewMap       OverviewMapGraph
 }
 
 type IdentityLinkedAccountView struct {
@@ -65,4 +66,5 @@ type IdentityShowViewData struct {
 	LinkedAccounts     []IdentityLinkedAccountView
 	NonHumanAccessHref string
 	HasLinkedAccounts  bool
+	OverviewMap        OverviewMapGraph
 }
