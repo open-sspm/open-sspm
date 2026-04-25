@@ -68,7 +68,6 @@ SELECT (
     LEFT JOIN saas_app_risk_read_models risk
       ON risk.saas_app_id = sa.id
     WHERE risk.saas_app_id IS NULL
-      OR risk.projection_refreshed_at IS NULL
   )
   OR EXISTS (
     SELECT 1
@@ -126,6 +125,8 @@ SELECT
   COALESCE(pr.fresh_until_at < now(), false)::boolean AS connector_binding_stale,
   (pr.managed_state = 'managed')::boolean AS connector_binding_healthy
 FROM discovery_app_read_models_v pr
+-- Re-read governance overrides directly because the risk evaluator needs raw
+-- configured values; discovery_app_read_models_v exposes resolved effective values.
 LEFT JOIN governance_subject_overrides go
   ON go.subject_kind = 'saas_app'
  AND go.subject_id = pr.id
@@ -156,6 +157,8 @@ SELECT
   COALESCE(pr.fresh_until_at < now(), false)::boolean AS connector_binding_stale,
   (pr.managed_state = 'managed')::boolean AS connector_binding_healthy
 FROM discovery_app_read_models_v pr
+-- Re-read governance overrides directly because the risk evaluator needs raw
+-- configured values; discovery_app_read_models_v exposes resolved effective values.
 LEFT JOIN governance_subject_overrides go
   ON go.subject_kind = 'saas_app'
  AND go.subject_id = pr.id
@@ -193,6 +196,8 @@ SELECT
   COALESCE(pr.fresh_until_at < now(), false)::boolean AS connector_binding_stale,
   (pr.managed_state = 'managed')::boolean AS connector_binding_healthy
 FROM discovery_app_read_models_v pr
+-- Re-read governance overrides directly because the risk evaluator needs raw
+-- configured values; discovery_app_read_models_v exposes resolved effective values.
 LEFT JOIN governance_subject_overrides go
   ON go.subject_kind = 'saas_app'
  AND go.subject_id = pr.id

@@ -3,9 +3,11 @@ package readmodels
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
@@ -333,6 +335,9 @@ func refreshSaaSAppRiskReadModelByID(ctx context.Context, q *gen.Queries, saasAp
 	}
 	row, err := q.GetSaaSAppRiskInputByID(ctx, saasAppID)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
 		return err
 	}
 	return refreshSaaSAppRiskReadModels(ctx, q, []saasAppRiskInputRow{{
@@ -408,27 +413,27 @@ func refreshSaaSAppRiskReadModels(ctx context.Context, q *gen.Queries, rows []sa
 
 func saasPolicyInput(row saasAppRiskInputRow) riskpolicy.SaaSInput {
 	return riskpolicy.SaaSInput{
-		CanonicalKey:                 row.canonicalKey,
-		DisplayName:                  row.displayName,
-		PrimaryDomain:                row.primaryDomain,
-		VendorName:                   row.vendorName,
-		SourceKind:                   row.sourceKind,
-		SourceName:                   row.sourceName,
-		Actors30d:                    row.actors30d,
-		HasPrivilegedScope:           row.hasPrivilegedScope,
-		HasConfidentialScope:         row.hasConfidentialScope,
-		ManagedState:                 row.managedState,
-		ManagedReason:                row.managedReason,
-		OwnerIdentityID:              row.ownerIdentityID,
-		GovernanceState:              row.governanceState,
-		ReviewDisposition:            row.reviewDisposition,
-		FollowUpDueDate:              datePtr(row.followUpDueDate),
-		EffectiveBusinessCriticality: row.configuredBusinessCriticality,
-		EffectiveDataClassification:  row.configuredDataClassification,
-		ConnectorBindingConfigured:   row.connectorBindingConfigured,
-		ConnectorBindingEnabled:      row.connectorBindingEnabled,
-		ConnectorBindingStale:        row.connectorBindingStale,
-		ConnectorBindingHealthy:      row.connectorBindingHealthy,
+		CanonicalKey:                  row.canonicalKey,
+		DisplayName:                   row.displayName,
+		PrimaryDomain:                 row.primaryDomain,
+		VendorName:                    row.vendorName,
+		SourceKind:                    row.sourceKind,
+		SourceName:                    row.sourceName,
+		Actors30d:                     row.actors30d,
+		HasPrivilegedScope:            row.hasPrivilegedScope,
+		HasConfidentialScope:          row.hasConfidentialScope,
+		ManagedState:                  row.managedState,
+		ManagedReason:                 row.managedReason,
+		OwnerIdentityID:               row.ownerIdentityID,
+		GovernanceState:               row.governanceState,
+		ReviewDisposition:             row.reviewDisposition,
+		FollowUpDueDate:               datePtr(row.followUpDueDate),
+		ConfiguredBusinessCriticality: row.configuredBusinessCriticality,
+		ConfiguredDataClassification:  row.configuredDataClassification,
+		ConnectorBindingConfigured:    row.connectorBindingConfigured,
+		ConnectorBindingEnabled:       row.connectorBindingEnabled,
+		ConnectorBindingStale:         row.connectorBindingStale,
+		ConnectorBindingHealthy:       row.connectorBindingHealthy,
 	}
 }
 

@@ -494,10 +494,10 @@ func saasGoldenCases() []saasGoldenCase {
 		{
 			name: "governance override lowers effective criticality",
 			input: SaaSInput{
-				Actors30d:                    250,
-				ManagedState:                 "unmanaged",
-				OwnerIdentityID:              42,
-				EffectiveBusinessCriticality: "low",
+				Actors30d:                     250,
+				ManagedState:                  "unmanaged",
+				OwnerIdentityID:               42,
+				ConfiguredBusinessCriticality: "low",
 			},
 			wantScore:                        55,
 			wantLevel:                        SeverityMedium,
@@ -528,14 +528,14 @@ func saasGoldenCases() []saasGoldenCase {
 }
 
 type saasParityCase struct {
-	name                         string
-	actors30d                    int64
-	hasPrivilegedScope           bool
-	hasConfidentialScope         bool
-	bindingState                 string
-	hasOwner                     bool
-	effectiveBusinessCriticality string
-	effectiveDataClassification  string
+	name                          string
+	actors30d                     int64
+	hasPrivilegedScope            bool
+	hasConfidentialScope          bool
+	bindingState                  string
+	hasOwner                      bool
+	configuredBusinessCriticality string
+	configuredDataClassification  string
 }
 
 func saasParityCases() []saasParityCase {
@@ -606,19 +606,19 @@ type saasParityReadModel struct {
 func saasParityInput(index int, tc saasParityCase, ownerID int64) SaaSInput {
 	canonicalKey := fmt.Sprintf("saas-risk-parity-%d", index)
 	input := SaaSInput{
-		CanonicalKey:                 canonicalKey,
-		DisplayName:                  fmt.Sprintf("SaaS Risk Parity %d", index),
-		PrimaryDomain:                canonicalKey + ".example.com",
-		VendorName:                   "Example",
-		Actors30d:                    tc.actors30d,
-		HasPrivilegedScope:           tc.hasPrivilegedScope,
-		HasConfidentialScope:         tc.hasConfidentialScope,
-		ManagedState:                 "unmanaged",
-		ManagedReason:                "no_binding",
-		GovernanceState:              "unreviewed",
-		ReviewDisposition:            "unreviewed",
-		EffectiveBusinessCriticality: configuredOrUnknown(tc.effectiveBusinessCriticality),
-		EffectiveDataClassification:  configuredOrUnknown(tc.effectiveDataClassification),
+		CanonicalKey:                  canonicalKey,
+		DisplayName:                   fmt.Sprintf("SaaS Risk Parity %d", index),
+		PrimaryDomain:                 canonicalKey + ".example.com",
+		VendorName:                    "Example",
+		Actors30d:                     tc.actors30d,
+		HasPrivilegedScope:            tc.hasPrivilegedScope,
+		HasConfidentialScope:          tc.hasConfidentialScope,
+		ManagedState:                  "unmanaged",
+		ManagedReason:                 "no_binding",
+		GovernanceState:               "unreviewed",
+		ReviewDisposition:             "unreviewed",
+		ConfiguredBusinessCriticality: configuredOrUnknown(tc.configuredBusinessCriticality),
+		ConfiguredDataClassification:  configuredOrUnknown(tc.configuredDataClassification),
 	}
 	if tc.hasOwner {
 		input.OwnerIdentityID = ownerID
@@ -748,7 +748,7 @@ func insertSaaSParityApp(t *testing.T, ctx context.Context, pool *pgxpool.Pool, 
 		t.Fatalf("insert saas app: %v", err)
 	}
 
-	if tc.hasOwner || tc.effectiveBusinessCriticality != "" || tc.effectiveDataClassification != "" {
+	if tc.hasOwner || tc.configuredBusinessCriticality != "" || tc.configuredDataClassification != "" {
 		insertSaaSParityGovernance(t, ctx, pool, appID, ownerID, tc)
 	}
 	if tc.bindingState != "" {
@@ -760,11 +760,11 @@ func insertSaaSParityApp(t *testing.T, ctx context.Context, pool *pgxpool.Pool, 
 func insertSaaSParityGovernance(t *testing.T, ctx context.Context, pool *pgxpool.Pool, appID, ownerID int64, tc saasParityCase) {
 	t.Helper()
 
-	businessCriticality := tc.effectiveBusinessCriticality
+	businessCriticality := tc.configuredBusinessCriticality
 	if businessCriticality == "" {
 		businessCriticality = "unknown"
 	}
-	dataClassification := tc.effectiveDataClassification
+	dataClassification := tc.configuredDataClassification
 	if dataClassification == "" {
 		dataClassification = "unknown"
 	}

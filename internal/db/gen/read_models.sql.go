@@ -76,6 +76,8 @@ type GetSaaSAppRiskInputByIDRow struct {
 	ConnectorBindingHealthy       bool        `json:"connector_binding_healthy"`
 }
 
+// Re-read governance overrides directly because the risk evaluator needs raw
+// configured values; discovery_app_read_models_v exposes resolved effective values.
 func (q *Queries) GetSaaSAppRiskInputByID(ctx context.Context, saasAppID int64) (GetSaaSAppRiskInputByIDRow, error) {
 	row := q.db.QueryRow(ctx, getSaaSAppRiskInputByID, saasAppID)
 	var i GetSaaSAppRiskInputByIDRow
@@ -162,6 +164,8 @@ type ListAllSaaSAppRiskInputsRow struct {
 	ConnectorBindingHealthy       bool        `json:"connector_binding_healthy"`
 }
 
+// Re-read governance overrides directly because the risk evaluator needs raw
+// configured values; discovery_app_read_models_v exposes resolved effective values.
 func (q *Queries) ListAllSaaSAppRiskInputs(ctx context.Context) ([]ListAllSaaSAppRiskInputsRow, error) {
 	rows, err := q.db.Query(ctx, listAllSaaSAppRiskInputs)
 	if err != nil {
@@ -325,6 +329,8 @@ type ListSaaSAppRiskInputsBySourceRow struct {
 	ConnectorBindingHealthy       bool        `json:"connector_binding_healthy"`
 }
 
+// Re-read governance overrides directly because the risk evaluator needs raw
+// configured values; discovery_app_read_models_v exposes resolved effective values.
 func (q *Queries) ListSaaSAppRiskInputsBySource(ctx context.Context, arg ListSaaSAppRiskInputsBySourceParams) ([]ListSaaSAppRiskInputsBySourceRow, error) {
 	rows, err := q.db.Query(ctx, listSaaSAppRiskInputsBySource, arg.SourceKind, arg.SourceName)
 	if err != nil {
@@ -1005,7 +1011,6 @@ SELECT (
     LEFT JOIN saas_app_risk_read_models risk
       ON risk.saas_app_id = sa.id
     WHERE risk.saas_app_id IS NULL
-      OR risk.projection_refreshed_at IS NULL
   )
   OR EXISTS (
     SELECT 1

@@ -7,28 +7,28 @@ import (
 )
 
 type SaaSInput struct {
-	CanonicalKey                 string
-	DisplayName                  string
-	PrimaryDomain                string
-	VendorName                   string
-	SourceKind                   string
-	SourceName                   string
-	Category                     string
-	Actors30d                    int64
-	HasPrivilegedScope           bool
-	HasConfidentialScope         bool
-	ManagedState                 string
-	ManagedReason                string
-	OwnerIdentityID              int64
-	GovernanceState              string
-	ReviewDisposition            string
-	FollowUpDueDate              *time.Time
-	EffectiveBusinessCriticality string
-	EffectiveDataClassification  string
-	ConnectorBindingConfigured   bool
-	ConnectorBindingEnabled      bool
-	ConnectorBindingStale        bool
-	ConnectorBindingHealthy      bool
+	CanonicalKey                  string
+	DisplayName                   string
+	PrimaryDomain                 string
+	VendorName                    string
+	SourceKind                    string
+	SourceName                    string
+	Category                      string
+	Actors30d                     int64
+	HasPrivilegedScope            bool
+	HasConfidentialScope          bool
+	ManagedState                  string
+	ManagedReason                 string
+	OwnerIdentityID               int64
+	GovernanceState               string
+	ReviewDisposition             string
+	FollowUpDueDate               *time.Time
+	ConfiguredBusinessCriticality string
+	ConfiguredDataClassification  string
+	ConnectorBindingConfigured    bool
+	ConnectorBindingEnabled       bool
+	ConnectorBindingStale         bool
+	ConnectorBindingHealthy       bool
 }
 
 type SaaSResult struct {
@@ -81,7 +81,13 @@ func (r *Registry) EvaluateSaaS(input SaaSInput) (SaaSResult, error) {
 	for _, scopedRule := range scopedRules {
 		result.PolicyPacks = appendPolicyPackRef(result.PolicyPacks, scopedRule.Pack.Policy.Metadata)
 	}
-	activation := saasActivation(input, globalPack.Policy.Spec.Constants, globalPack.Policy.Spec.Scoring.Base)
+	activation := saasActivation(
+		input,
+		input.ConfiguredBusinessCriticality,
+		input.ConfiguredDataClassification,
+		globalPack.Policy.Spec.Constants,
+		globalPack.Policy.Spec.Scoring.Base,
+	)
 	businessCriticality, err := evaluateSuggestionRules(globalPack, globalPack.Policy.Spec.Suggestions.BusinessCriticality, activation)
 	if err != nil {
 		return SaaSResult{}, err
@@ -101,14 +107,18 @@ func (r *Registry) EvaluateSaaS(input SaaSInput) (SaaSResult, error) {
 		result.SuggestedBusinessCriticality = maxBusinessCriticality(result.SuggestedBusinessCriticality, scopedRule.Rule.Suggestions.BusinessCriticality)
 		result.SuggestedDataClassification = maxDataClassification(result.SuggestedDataClassification, scopedRule.Rule.Suggestions.DataClassification)
 	}
-	input.EffectiveBusinessCriticality = effectiveBusinessCriticality(input.EffectiveBusinessCriticality, result.SuggestedBusinessCriticality)
-	input.EffectiveDataClassification = effectiveDataClassification(input.EffectiveDataClassification, result.SuggestedDataClassification)
-	result.EffectiveBusinessCriticality = input.EffectiveBusinessCriticality
-	result.EffectiveDataClassification = input.EffectiveDataClassification
+	result.EffectiveBusinessCriticality = effectiveBusinessCriticality(input.ConfiguredBusinessCriticality, result.SuggestedBusinessCriticality)
+	result.EffectiveDataClassification = effectiveDataClassification(input.ConfiguredDataClassification, result.SuggestedDataClassification)
 
 	score := globalPack.Policy.Spec.Scoring.Base
 	for _, rule := range globalPack.Policy.Spec.Scoring.Rules {
-		activation = saasActivation(input, globalPack.Policy.Spec.Constants, score)
+		activation = saasActivation(
+			input,
+			result.EffectiveBusinessCriticality,
+			result.EffectiveDataClassification,
+			globalPack.Policy.Spec.Constants,
+			score,
+		)
 		matched, err := globalPack.evaluateBool(rule.ID, activation)
 		if err != nil {
 			return SaaSResult{}, err
@@ -135,7 +145,13 @@ func (r *Registry) EvaluateSaaS(input SaaSInput) (SaaSResult, error) {
 	appliedScopedSignals := make(map[scopedSignalDedupeKey]struct{})
 	for _, scopedRule := range scopedRules {
 		for _, rule := range scopedRule.Rule.Rules {
-			activation = saasActivation(input, scopedRule.Pack.Policy.Spec.Constants, score)
+			activation = saasActivation(
+				input,
+				result.EffectiveBusinessCriticality,
+				result.EffectiveDataClassification,
+				scopedRule.Pack.Policy.Spec.Constants,
+				score,
+			)
 			matched, err := scopedRule.Pack.evaluateBool(scopedRule.Rule.ID+"/"+rule.ID, activation)
 			if err != nil {
 				return SaaSResult{}, err
@@ -164,7 +180,13 @@ func (r *Registry) EvaluateSaaS(input SaaSInput) (SaaSResult, error) {
 	}
 
 	result.RiskScore = clampScore(score, globalPack.Policy.Spec.Scoring.Max)
-	activation = saasActivation(input, globalPack.Policy.Spec.Constants, result.RiskScore)
+	activation = saasActivation(
+		input,
+		result.EffectiveBusinessCriticality,
+		result.EffectiveDataClassification,
+		globalPack.Policy.Spec.Constants,
+		result.RiskScore,
+	)
 	level, err := evaluateLevelRules(globalPack, globalPack.Policy.Spec.Levels, activation)
 	if err != nil {
 		return SaaSResult{}, err
@@ -217,8 +239,8 @@ func normalizeSaaSInput(input SaaSInput) SaaSInput {
 	input.ManagedReason = strings.ToLower(strings.TrimSpace(input.ManagedReason))
 	input.GovernanceState = strings.ToLower(strings.TrimSpace(input.GovernanceState))
 	input.ReviewDisposition = strings.ToLower(strings.TrimSpace(input.ReviewDisposition))
-	input.EffectiveBusinessCriticality = strings.ToLower(strings.TrimSpace(input.EffectiveBusinessCriticality))
-	input.EffectiveDataClassification = strings.ToLower(strings.TrimSpace(input.EffectiveDataClassification))
+	input.ConfiguredBusinessCriticality = strings.ToLower(strings.TrimSpace(input.ConfiguredBusinessCriticality))
+	input.ConfiguredDataClassification = strings.ToLower(strings.TrimSpace(input.ConfiguredDataClassification))
 	input.FollowUpDueDate = normalizeTimePtr(input.FollowUpDueDate)
 	return input
 }
@@ -333,7 +355,13 @@ func matchesDomainPatterns(domain string, patterns []string) bool {
 	return false
 }
 
-func saasActivation(input SaaSInput, constants map[string][]string, score int) map[string]any {
+func saasActivation(
+	input SaaSInput,
+	effectiveBusinessCriticality string,
+	effectiveDataClassification string,
+	constants map[string][]string,
+	score int,
+) map[string]any {
 	activation := map[string]any{
 		"canonical_key":                  input.CanonicalKey,
 		"display_name":                   input.DisplayName,
@@ -350,8 +378,8 @@ func saasActivation(input SaaSInput, constants map[string][]string, score int) m
 		"governance_state":               input.GovernanceState,
 		"review_disposition":             input.ReviewDisposition,
 		"follow_up_due_date":             nullableTime(input.FollowUpDueDate),
-		"effective_business_criticality": input.EffectiveBusinessCriticality,
-		"effective_data_classification":  input.EffectiveDataClassification,
+		"effective_business_criticality": effectiveBusinessCriticality,
+		"effective_data_classification":  effectiveDataClassification,
 		"connector_binding_configured":   input.ConnectorBindingConfigured,
 		"connector_binding_enabled":      input.ConnectorBindingEnabled,
 		"connector_binding_stale":        input.ConnectorBindingStale,
