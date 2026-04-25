@@ -221,7 +221,7 @@ func normalizeAggregation(aggregation *Aggregation) {
 func normalizeAppScope(scope *AppScope) {
 	scope.CanonicalKey = strings.ToLower(strings.TrimSpace(scope.CanonicalKey))
 	scope.PrimaryDomain = strings.ToLower(strings.TrimSpace(scope.PrimaryDomain))
-	scope.VendorName = strings.TrimSpace(scope.VendorName)
+	scope.VendorName = strings.ToLower(strings.TrimSpace(scope.VendorName))
 	scope.SourceKind = strings.ToLower(strings.TrimSpace(scope.SourceKind))
 	scope.SourceName = strings.TrimSpace(scope.SourceName)
 	scope.Category = strings.ToLower(strings.TrimSpace(scope.Category))

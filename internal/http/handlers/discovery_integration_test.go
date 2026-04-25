@@ -17,6 +17,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/authn"
+	"github.com/open-sspm/open-sspm/internal/readmodels"
 )
 
 func TestHandleDiscoveryAppShowUsesLivePostureWithoutPersisting(t *testing.T) {
@@ -100,7 +101,7 @@ func TestHandleDiscoveryAppShowManagedBindingsAcrossConnectorKinds(t *testing.T)
 			body := renderDiscoveryAppShow(t, h, appID)
 			assertContains(t, body, "GitHub Actions")
 			assertContains(t, body, "Primary binding has fresh sync")
-			assertContains(t, body, "Score 15")
+			assertContains(t, body, "Score 35")
 		})
 
 		t.Run("datadog binding discovered from okta is managed when datadog is fresh", func(t *testing.T) {
@@ -238,7 +239,7 @@ func TestHandleDiscoveryAppShowDisabledConnectorIsUnmanaged(t *testing.T) {
 		body := renderDiscoveryAppShow(t, h, appID)
 		assertContains(t, body, "Disabled GitHub App")
 		assertContains(t, body, "Bound connector is disabled")
-		assertContains(t, body, "Score 60")
+		assertContains(t, body, "Score 90")
 	})
 }
 
@@ -966,6 +967,14 @@ func upsertDiscoveryPrimaryBinding(t *testing.T, ctx context.Context, q *gen.Que
 	}); err != nil {
 		t.Fatalf("UpsertSaaSAppBinding %s/%s: %v", connectorKind, sourceName, err)
 	}
+
+	projector := readmodels.NewProjector(nil, q, readmodels.RefreshConfig{})
+	if err := projector.RefreshConnectorSourceState(ctx); err != nil {
+		t.Fatalf("RefreshConnectorSourceState(): %v", err)
+	}
+	if err := projector.RefreshSaaSAppRiskReadModelByID(ctx, appID); err != nil {
+		t.Fatalf("RefreshSaaSAppRiskReadModelByID(%d): %v", appID, err)
+	}
 }
 
 func setSyncRunFinishedAt(t *testing.T, ctx context.Context, pool *pgxpool.Pool, runID int64, finishedAt time.Time) {
@@ -980,6 +989,10 @@ func setSyncRunFinishedAt(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
 		t.Fatalf("update sync_runs finished_at: %v", err)
 	}
 	refreshCommandSearchSourceState(t, ctx, pool)
+	projector := readmodels.NewProjector(pool, gen.New(pool), readmodels.RefreshConfig{})
+	if err := projector.RefreshAllSaaSAppRiskReadModels(ctx); err != nil {
+		t.Fatalf("RefreshAllSaaSAppRiskReadModels(): %v", err)
+	}
 }
 
 func getDiscoveryAppByIDForTest(t *testing.T, ctx context.Context, q *gen.Queries, h *Handlers, appID int64) gen.GetSaaSAppByIDRow {

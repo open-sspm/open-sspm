@@ -20,6 +20,195 @@ func (q *Queries) DeleteConnectorSourceStateAll(ctx context.Context) error {
 	return err
 }
 
+const getSaaSAppRiskInputByID = `-- name: GetSaaSAppRiskInputByID :one
+SELECT
+  pr.id::bigint AS saas_app_id,
+  pr.canonical_key::text AS canonical_key,
+  pr.display_name::text AS display_name,
+  pr.primary_domain::text AS primary_domain,
+  pr.vendor_name::text AS vendor_name,
+  pr.bound_connector_kind::text AS source_kind,
+  pr.bound_connector_source_name::text AS source_name,
+  pr.actors_30d::bigint AS actors_30d,
+  pr.has_privileged_scope::boolean AS has_privileged_scope,
+  pr.has_confidential_scope::boolean AS has_confidential_scope,
+  pr.managed_state::text AS managed_state,
+  pr.managed_reason::text AS managed_reason,
+  pr.owner_identity_id::bigint AS owner_identity_id,
+  pr.governance_state::text AS governance_state,
+  pr.review_disposition::text AS review_disposition,
+  pr.follow_up_due_date::date AS follow_up_due_date,
+  COALESCE(NULLIF(trim(go.business_criticality), ''), 'unknown')::text AS configured_business_criticality,
+  COALESCE(NULLIF(trim(go.data_classification), ''), 'unknown')::text AS configured_data_classification,
+  pr.connector_configured::boolean AS connector_binding_configured,
+  pr.connector_enabled::boolean AS connector_binding_enabled,
+  COALESCE(pr.fresh_until_at < now(), false)::boolean AS connector_binding_stale,
+  (pr.managed_state = 'managed')::boolean AS connector_binding_healthy
+FROM discovery_app_read_models_v pr
+LEFT JOIN governance_subject_overrides go
+  ON go.subject_kind = 'saas_app'
+ AND go.subject_id = pr.id
+WHERE pr.id = $1::bigint
+`
+
+type GetSaaSAppRiskInputByIDRow struct {
+	SaasAppID                     int64       `json:"saas_app_id"`
+	CanonicalKey                  string      `json:"canonical_key"`
+	DisplayName                   string      `json:"display_name"`
+	PrimaryDomain                 string      `json:"primary_domain"`
+	VendorName                    string      `json:"vendor_name"`
+	SourceKind                    string      `json:"source_kind"`
+	SourceName                    string      `json:"source_name"`
+	Actors30d                     int64       `json:"actors_30d"`
+	HasPrivilegedScope            bool        `json:"has_privileged_scope"`
+	HasConfidentialScope          bool        `json:"has_confidential_scope"`
+	ManagedState                  string      `json:"managed_state"`
+	ManagedReason                 string      `json:"managed_reason"`
+	OwnerIdentityID               int64       `json:"owner_identity_id"`
+	GovernanceState               string      `json:"governance_state"`
+	ReviewDisposition             string      `json:"review_disposition"`
+	FollowUpDueDate               pgtype.Date `json:"follow_up_due_date"`
+	ConfiguredBusinessCriticality string      `json:"configured_business_criticality"`
+	ConfiguredDataClassification  string      `json:"configured_data_classification"`
+	ConnectorBindingConfigured    bool        `json:"connector_binding_configured"`
+	ConnectorBindingEnabled       bool        `json:"connector_binding_enabled"`
+	ConnectorBindingStale         bool        `json:"connector_binding_stale"`
+	ConnectorBindingHealthy       bool        `json:"connector_binding_healthy"`
+}
+
+// Re-read governance overrides directly because the risk evaluator needs raw
+// configured values; discovery_app_read_models_v exposes resolved effective values.
+func (q *Queries) GetSaaSAppRiskInputByID(ctx context.Context, saasAppID int64) (GetSaaSAppRiskInputByIDRow, error) {
+	row := q.db.QueryRow(ctx, getSaaSAppRiskInputByID, saasAppID)
+	var i GetSaaSAppRiskInputByIDRow
+	err := row.Scan(
+		&i.SaasAppID,
+		&i.CanonicalKey,
+		&i.DisplayName,
+		&i.PrimaryDomain,
+		&i.VendorName,
+		&i.SourceKind,
+		&i.SourceName,
+		&i.Actors30d,
+		&i.HasPrivilegedScope,
+		&i.HasConfidentialScope,
+		&i.ManagedState,
+		&i.ManagedReason,
+		&i.OwnerIdentityID,
+		&i.GovernanceState,
+		&i.ReviewDisposition,
+		&i.FollowUpDueDate,
+		&i.ConfiguredBusinessCriticality,
+		&i.ConfiguredDataClassification,
+		&i.ConnectorBindingConfigured,
+		&i.ConnectorBindingEnabled,
+		&i.ConnectorBindingStale,
+		&i.ConnectorBindingHealthy,
+	)
+	return i, err
+}
+
+const listAllSaaSAppRiskInputs = `-- name: ListAllSaaSAppRiskInputs :many
+SELECT
+  pr.id::bigint AS saas_app_id,
+  pr.canonical_key::text AS canonical_key,
+  pr.display_name::text AS display_name,
+  pr.primary_domain::text AS primary_domain,
+  pr.vendor_name::text AS vendor_name,
+  pr.bound_connector_kind::text AS source_kind,
+  pr.bound_connector_source_name::text AS source_name,
+  pr.actors_30d::bigint AS actors_30d,
+  pr.has_privileged_scope::boolean AS has_privileged_scope,
+  pr.has_confidential_scope::boolean AS has_confidential_scope,
+  pr.managed_state::text AS managed_state,
+  pr.managed_reason::text AS managed_reason,
+  pr.owner_identity_id::bigint AS owner_identity_id,
+  pr.governance_state::text AS governance_state,
+  pr.review_disposition::text AS review_disposition,
+  pr.follow_up_due_date::date AS follow_up_due_date,
+  COALESCE(NULLIF(trim(go.business_criticality), ''), 'unknown')::text AS configured_business_criticality,
+  COALESCE(NULLIF(trim(go.data_classification), ''), 'unknown')::text AS configured_data_classification,
+  pr.connector_configured::boolean AS connector_binding_configured,
+  pr.connector_enabled::boolean AS connector_binding_enabled,
+  COALESCE(pr.fresh_until_at < now(), false)::boolean AS connector_binding_stale,
+  (pr.managed_state = 'managed')::boolean AS connector_binding_healthy
+FROM discovery_app_read_models_v pr
+LEFT JOIN governance_subject_overrides go
+  ON go.subject_kind = 'saas_app'
+ AND go.subject_id = pr.id
+ORDER BY pr.id ASC
+`
+
+type ListAllSaaSAppRiskInputsRow struct {
+	SaasAppID                     int64       `json:"saas_app_id"`
+	CanonicalKey                  string      `json:"canonical_key"`
+	DisplayName                   string      `json:"display_name"`
+	PrimaryDomain                 string      `json:"primary_domain"`
+	VendorName                    string      `json:"vendor_name"`
+	SourceKind                    string      `json:"source_kind"`
+	SourceName                    string      `json:"source_name"`
+	Actors30d                     int64       `json:"actors_30d"`
+	HasPrivilegedScope            bool        `json:"has_privileged_scope"`
+	HasConfidentialScope          bool        `json:"has_confidential_scope"`
+	ManagedState                  string      `json:"managed_state"`
+	ManagedReason                 string      `json:"managed_reason"`
+	OwnerIdentityID               int64       `json:"owner_identity_id"`
+	GovernanceState               string      `json:"governance_state"`
+	ReviewDisposition             string      `json:"review_disposition"`
+	FollowUpDueDate               pgtype.Date `json:"follow_up_due_date"`
+	ConfiguredBusinessCriticality string      `json:"configured_business_criticality"`
+	ConfiguredDataClassification  string      `json:"configured_data_classification"`
+	ConnectorBindingConfigured    bool        `json:"connector_binding_configured"`
+	ConnectorBindingEnabled       bool        `json:"connector_binding_enabled"`
+	ConnectorBindingStale         bool        `json:"connector_binding_stale"`
+	ConnectorBindingHealthy       bool        `json:"connector_binding_healthy"`
+}
+
+// Re-read governance overrides directly because the risk evaluator needs raw
+// configured values; discovery_app_read_models_v exposes resolved effective values.
+func (q *Queries) ListAllSaaSAppRiskInputs(ctx context.Context) ([]ListAllSaaSAppRiskInputsRow, error) {
+	rows, err := q.db.Query(ctx, listAllSaaSAppRiskInputs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllSaaSAppRiskInputsRow
+	for rows.Next() {
+		var i ListAllSaaSAppRiskInputsRow
+		if err := rows.Scan(
+			&i.SaasAppID,
+			&i.CanonicalKey,
+			&i.DisplayName,
+			&i.PrimaryDomain,
+			&i.VendorName,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.Actors30d,
+			&i.HasPrivilegedScope,
+			&i.HasConfidentialScope,
+			&i.ManagedState,
+			&i.ManagedReason,
+			&i.OwnerIdentityID,
+			&i.GovernanceState,
+			&i.ReviewDisposition,
+			&i.FollowUpDueDate,
+			&i.ConfiguredBusinessCriticality,
+			&i.ConfiguredDataClassification,
+			&i.ConnectorBindingConfigured,
+			&i.ConnectorBindingEnabled,
+			&i.ConnectorBindingStale,
+			&i.ConnectorBindingHealthy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLatestSuccessfulSyncRunsBySource = `-- name: ListLatestSuccessfulSyncRunsBySource :many
 WITH normalized AS (
   SELECT
@@ -62,6 +251,119 @@ func (q *Queries) ListLatestSuccessfulSyncRunsBySource(ctx context.Context) ([]L
 	for rows.Next() {
 		var i ListLatestSuccessfulSyncRunsBySourceRow
 		if err := rows.Scan(&i.SourceKind, &i.SourceName, &i.LastSuccessAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSaaSAppRiskInputsBySource = `-- name: ListSaaSAppRiskInputsBySource :many
+SELECT
+  pr.id::bigint AS saas_app_id,
+  pr.canonical_key::text AS canonical_key,
+  pr.display_name::text AS display_name,
+  pr.primary_domain::text AS primary_domain,
+  pr.vendor_name::text AS vendor_name,
+  pr.bound_connector_kind::text AS source_kind,
+  pr.bound_connector_source_name::text AS source_name,
+  pr.actors_30d::bigint AS actors_30d,
+  pr.has_privileged_scope::boolean AS has_privileged_scope,
+  pr.has_confidential_scope::boolean AS has_confidential_scope,
+  pr.managed_state::text AS managed_state,
+  pr.managed_reason::text AS managed_reason,
+  pr.owner_identity_id::bigint AS owner_identity_id,
+  pr.governance_state::text AS governance_state,
+  pr.review_disposition::text AS review_disposition,
+  pr.follow_up_due_date::date AS follow_up_due_date,
+  COALESCE(NULLIF(trim(go.business_criticality), ''), 'unknown')::text AS configured_business_criticality,
+  COALESCE(NULLIF(trim(go.data_classification), ''), 'unknown')::text AS configured_data_classification,
+  pr.connector_configured::boolean AS connector_binding_configured,
+  pr.connector_enabled::boolean AS connector_binding_enabled,
+  COALESCE(pr.fresh_until_at < now(), false)::boolean AS connector_binding_stale,
+  (pr.managed_state = 'managed')::boolean AS connector_binding_healthy
+FROM discovery_app_read_models_v pr
+LEFT JOIN governance_subject_overrides go
+  ON go.subject_kind = 'saas_app'
+ AND go.subject_id = pr.id
+WHERE EXISTS (
+  SELECT 1
+  FROM saas_app_sources sas
+  WHERE sas.saas_app_id = pr.id
+    AND lower(trim(sas.source_kind)) = lower(trim($1::text))
+    AND lower(trim(sas.source_name)) = lower(trim($2::text))
+)
+ORDER BY pr.id ASC
+`
+
+type ListSaaSAppRiskInputsBySourceParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+}
+
+type ListSaaSAppRiskInputsBySourceRow struct {
+	SaasAppID                     int64       `json:"saas_app_id"`
+	CanonicalKey                  string      `json:"canonical_key"`
+	DisplayName                   string      `json:"display_name"`
+	PrimaryDomain                 string      `json:"primary_domain"`
+	VendorName                    string      `json:"vendor_name"`
+	SourceKind                    string      `json:"source_kind"`
+	SourceName                    string      `json:"source_name"`
+	Actors30d                     int64       `json:"actors_30d"`
+	HasPrivilegedScope            bool        `json:"has_privileged_scope"`
+	HasConfidentialScope          bool        `json:"has_confidential_scope"`
+	ManagedState                  string      `json:"managed_state"`
+	ManagedReason                 string      `json:"managed_reason"`
+	OwnerIdentityID               int64       `json:"owner_identity_id"`
+	GovernanceState               string      `json:"governance_state"`
+	ReviewDisposition             string      `json:"review_disposition"`
+	FollowUpDueDate               pgtype.Date `json:"follow_up_due_date"`
+	ConfiguredBusinessCriticality string      `json:"configured_business_criticality"`
+	ConfiguredDataClassification  string      `json:"configured_data_classification"`
+	ConnectorBindingConfigured    bool        `json:"connector_binding_configured"`
+	ConnectorBindingEnabled       bool        `json:"connector_binding_enabled"`
+	ConnectorBindingStale         bool        `json:"connector_binding_stale"`
+	ConnectorBindingHealthy       bool        `json:"connector_binding_healthy"`
+}
+
+// Re-read governance overrides directly because the risk evaluator needs raw
+// configured values; discovery_app_read_models_v exposes resolved effective values.
+func (q *Queries) ListSaaSAppRiskInputsBySource(ctx context.Context, arg ListSaaSAppRiskInputsBySourceParams) ([]ListSaaSAppRiskInputsBySourceRow, error) {
+	rows, err := q.db.Query(ctx, listSaaSAppRiskInputsBySource, arg.SourceKind, arg.SourceName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSaaSAppRiskInputsBySourceRow
+	for rows.Next() {
+		var i ListSaaSAppRiskInputsBySourceRow
+		if err := rows.Scan(
+			&i.SaasAppID,
+			&i.CanonicalKey,
+			&i.DisplayName,
+			&i.PrimaryDomain,
+			&i.VendorName,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.Actors30d,
+			&i.HasPrivilegedScope,
+			&i.HasConfidentialScope,
+			&i.ManagedState,
+			&i.ManagedReason,
+			&i.OwnerIdentityID,
+			&i.GovernanceState,
+			&i.ReviewDisposition,
+			&i.FollowUpDueDate,
+			&i.ConfiguredBusinessCriticality,
+			&i.ConfiguredDataClassification,
+			&i.ConnectorBindingConfigured,
+			&i.ConnectorBindingEnabled,
+			&i.ConnectorBindingStale,
+			&i.ConnectorBindingHealthy,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -705,6 +1007,13 @@ SELECT (
   )
   OR EXISTS (
     SELECT 1
+    FROM saas_apps sa
+    LEFT JOIN saas_app_risk_read_models risk
+      ON risk.saas_app_id = sa.id
+    WHERE risk.saas_app_id IS NULL
+  )
+  OR EXISTS (
+    SELECT 1
     FROM app_assets aa
     WHERE aa.projection_refreshed_at IS NULL
   )
@@ -793,4 +1102,85 @@ func (q *Queries) UpsertConnectorSourceState(ctx context.Context, arg UpsertConn
 		arg.FreshUntilAt,
 	)
 	return err
+}
+
+const upsertSaaSAppRiskReadModelsBulk = `-- name: UpsertSaaSAppRiskReadModelsBulk :execrows
+WITH input AS (
+  SELECT
+    i,
+    ($1::bigint[])[i] AS saas_app_id,
+    ($2::int[])[i] AS risk_score,
+    ($3::text[])[i] AS risk_level,
+    ($4::int[])[i] AS risk_rank,
+    ($5::text[])[i] AS suggested_business_criticality,
+    ($6::text[])[i] AS suggested_data_classification,
+    ($7::text[])[i] AS effective_business_criticality,
+    ($8::text[])[i] AS effective_data_classification,
+    ($9::jsonb[])[i] AS policy_packs_json
+  FROM generate_subscripts($1::bigint[], 1) AS s(i)
+)
+INSERT INTO saas_app_risk_read_models (
+  saas_app_id,
+  risk_score,
+  risk_level,
+  risk_rank,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  policy_packs_json,
+  projection_refreshed_at
+)
+SELECT
+  input.saas_app_id,
+  input.risk_score,
+  input.risk_level,
+  input.risk_rank,
+  input.suggested_business_criticality,
+  input.suggested_data_classification,
+  input.effective_business_criticality,
+  input.effective_data_classification,
+  input.policy_packs_json,
+  now()
+FROM input
+ON CONFLICT (saas_app_id) DO UPDATE SET
+  risk_score = EXCLUDED.risk_score,
+  risk_level = EXCLUDED.risk_level,
+  risk_rank = EXCLUDED.risk_rank,
+  suggested_business_criticality = EXCLUDED.suggested_business_criticality,
+  suggested_data_classification = EXCLUDED.suggested_data_classification,
+  effective_business_criticality = EXCLUDED.effective_business_criticality,
+  effective_data_classification = EXCLUDED.effective_data_classification,
+  policy_packs_json = EXCLUDED.policy_packs_json,
+  projection_refreshed_at = now()
+`
+
+type UpsertSaaSAppRiskReadModelsBulkParams struct {
+	SaasAppIds                     []int64  `json:"saas_app_ids"`
+	RiskScores                     []int32  `json:"risk_scores"`
+	RiskLevels                     []string `json:"risk_levels"`
+	RiskRanks                      []int32  `json:"risk_ranks"`
+	SuggestedBusinessCriticalities []string `json:"suggested_business_criticalities"`
+	SuggestedDataClassifications   []string `json:"suggested_data_classifications"`
+	EffectiveBusinessCriticalities []string `json:"effective_business_criticalities"`
+	EffectiveDataClassifications   []string `json:"effective_data_classifications"`
+	PolicyPacksJsons               [][]byte `json:"policy_packs_jsons"`
+}
+
+func (q *Queries) UpsertSaaSAppRiskReadModelsBulk(ctx context.Context, arg UpsertSaaSAppRiskReadModelsBulkParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertSaaSAppRiskReadModelsBulk,
+		arg.SaasAppIds,
+		arg.RiskScores,
+		arg.RiskLevels,
+		arg.RiskRanks,
+		arg.SuggestedBusinessCriticalities,
+		arg.SuggestedDataClassifications,
+		arg.EffectiveBusinessCriticalities,
+		arg.EffectiveDataClassifications,
+		arg.PolicyPacksJsons,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

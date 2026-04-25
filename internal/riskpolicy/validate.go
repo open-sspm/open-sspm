@@ -64,6 +64,9 @@ func validateSuggestions(errs *[]error, path string, rules []SuggestionRule, rul
 			*errs = append(*errs, fmt.Errorf("%s.when is required", currentPath))
 		}
 	}
+	if len(rules) > 0 && strings.TrimSpace(rules[len(rules)-1].When) != "true" {
+		*errs = append(*errs, fmt.Errorf("%s must end with a deterministic fallback where when is true", path))
+	}
 }
 
 func validateScoring(errs *[]error, scoring Scoring, ruleIDs map[string]string) {
@@ -166,7 +169,7 @@ func validateScopedSuggestions(errs *[]error, path string, suggestions ScopedSug
 
 func validBusinessCriticality(value string) bool {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "unknown", "low", "medium", "high", "critical":
+	case "low", "medium", "high", "critical":
 		return true
 	default:
 		return false
@@ -175,7 +178,7 @@ func validBusinessCriticality(value string) bool {
 
 func validDataClassification(value string) bool {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "unknown", "public", "internal", "confidential", "restricted":
+	case "public", "internal", "confidential", "restricted":
 		return true
 	default:
 		return false

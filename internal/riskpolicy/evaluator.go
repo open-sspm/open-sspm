@@ -19,6 +19,11 @@ type RiskSignal struct {
 	PolicyPackVersion string
 }
 
+type PolicyPackRef struct {
+	ID      string `json:"id"`
+	Version string `json:"version"`
+}
+
 type CredentialInput struct {
 	SourceKind            string
 	SourceName            string

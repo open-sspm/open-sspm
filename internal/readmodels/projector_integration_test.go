@@ -136,6 +136,85 @@ func TestProjectorRefreshConnectorSourceStateDoesNotLetDiscoveryFreshnessKeepNon
 	})
 }
 
+func TestProjectorRefreshSaaSAppRiskReadModelsBySourceEvaluatesAndStoresPolicy(t *testing.T) {
+	t.Parallel()
+
+	withReadModelsTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateUpReadModels(t, migrator)
+
+		sourceKind := "google_workspace"
+		sourceName := "C0123"
+		now := time.Now().UTC().Truncate(time.Second)
+		runID := insertReadModelsSyncRun(t, ctx, pool, sourceKind, sourceName, now)
+		otherRunID := insertReadModelsSyncRun(t, ctx, pool, "okta", "acme.okta.com", now)
+
+		appID := upsertReadModelsSaaSApp(t, ctx, pool, q, "projector-risk-app", "Projector Risk App", "projector.example.com", "Example", now)
+		otherAppID := upsertReadModelsSaaSApp(t, ctx, pool, q, "other-risk-app", "Other Risk App", "other.example.com", "Example", now)
+		upsertReadModelsSaaSAppSource(t, ctx, q, runID, sourceKind, sourceName, "projector-risk-app", "projector-risk-app", "Projector Risk App", "projector.example.com", now)
+		upsertReadModelsSaaSAppSource(t, ctx, q, otherRunID, "okta", "acme.okta.com", "other-risk-app", "other-risk-app", "Other Risk App", "other.example.com", now)
+		upsertReadModelsPrivilegedSaaSAppEvent(t, ctx, q, runID, sourceKind, sourceName, "projector-risk-app", "projector-risk-app", "Projector Risk App", "projector.example.com", now)
+
+		projector := NewProjector(pool, nil, RefreshConfig{})
+		if err := projector.RefreshDiscoverySource(ctx, sourceKind, sourceName); err != nil {
+			t.Fatalf("RefreshDiscoverySource(): %v", err)
+		}
+		if err := projector.RefreshSaaSAppRiskReadModelsBySource(ctx, sourceKind, sourceName); err != nil {
+			t.Fatalf("RefreshSaaSAppRiskReadModelsBySource(): %v", err)
+		}
+
+		row, err := q.GetSaaSAppByID(ctx, appID)
+		if err != nil {
+			t.Fatalf("GetSaaSAppByID(): %v", err)
+		}
+		if row.RiskScore != 95 {
+			t.Fatalf("risk_score = %d, want 95", row.RiskScore)
+		}
+		if row.RiskLevel != "critical" {
+			t.Fatalf("risk_level = %q, want critical", row.RiskLevel)
+		}
+		if row.SuggestedBusinessCriticality != "high" {
+			t.Fatalf("suggested_business_criticality = %q, want high", row.SuggestedBusinessCriticality)
+		}
+		if row.SuggestedDataClassification != "restricted" {
+			t.Fatalf("suggested_data_classification = %q, want restricted", row.SuggestedDataClassification)
+		}
+
+		var effectiveBusinessCriticality, effectiveDataClassification string
+		var policyPackCount int
+		if err := pool.QueryRow(ctx, `
+			SELECT
+				effective_business_criticality,
+				effective_data_classification,
+				jsonb_array_length(policy_packs_json)
+			FROM saas_app_risk_read_models
+			WHERE saas_app_id = $1
+		`, appID).Scan(&effectiveBusinessCriticality, &effectiveDataClassification, &policyPackCount); err != nil {
+			t.Fatalf("select saas_app_risk_read_models: %v", err)
+		}
+		if effectiveBusinessCriticality != "high" {
+			t.Fatalf("effective_business_criticality = %q, want high", effectiveBusinessCriticality)
+		}
+		if effectiveDataClassification != "restricted" {
+			t.Fatalf("effective_data_classification = %q, want restricted", effectiveDataClassification)
+		}
+		if policyPackCount == 0 {
+			t.Fatalf("policy_packs_json length = 0, want policy metadata")
+		}
+
+		var otherRiskRows int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM saas_app_risk_read_models
+			WHERE saas_app_id = $1
+		`, otherAppID).Scan(&otherRiskRows); err != nil {
+			t.Fatalf("select other saas_app_risk_read_models count: %v", err)
+		}
+		if otherRiskRows != 0 {
+			t.Fatalf("other source risk rows = %d, want 0", otherRiskRows)
+		}
+	})
+}
+
 func withReadModelsTestDatabase(t *testing.T, fn func(context.Context, *pgxpool.Pool, *gen.Queries, *migrate.Migrate)) {
 	t.Helper()
 
@@ -224,6 +303,89 @@ func upsertReadModelsAppAsset(t *testing.T, ctx context.Context, q *gen.Queries,
 		t.Fatalf("GetAppAssetBySourceAndKindAndExternalID(): %v", err)
 	}
 	return appAsset.ID
+}
+
+func upsertReadModelsSaaSApp(t *testing.T, ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, canonicalKey, displayName, primaryDomain, vendorName string, observedAt time.Time) int64 {
+	t.Helper()
+
+	observed := pgtype.Timestamptz{Time: observedAt.UTC(), Valid: true}
+	if _, err := q.UpsertSaaSAppsBulk(ctx, gen.UpsertSaaSAppsBulkParams{
+		CanonicalKeys:  []string{canonicalKey},
+		DisplayNames:   []string{displayName},
+		PrimaryDomains: []string{primaryDomain},
+		VendorNames:    []string{vendorName},
+		FirstSeenAts:   []pgtype.Timestamptz{observed},
+		LastSeenAts:    []pgtype.Timestamptz{observed},
+	}); err != nil {
+		t.Fatalf("UpsertSaaSAppsBulk(%s): %v", canonicalKey, err)
+	}
+
+	var id int64
+	if err := pool.QueryRow(ctx, `
+		SELECT id
+		FROM saas_apps
+		WHERE canonical_key = $1
+	`, canonicalKey).Scan(&id); err != nil {
+		t.Fatalf("select saas app %s: %v", canonicalKey, err)
+	}
+	return id
+}
+
+func upsertReadModelsSaaSAppSource(t *testing.T, ctx context.Context, q *gen.Queries, runID int64, sourceKind, sourceName, canonicalKey, sourceAppID, sourceAppName, sourceAppDomain string, observedAt time.Time) {
+	t.Helper()
+
+	observed := pgtype.Timestamptz{Time: observedAt.UTC(), Valid: true}
+	if _, err := q.UpsertSaaSAppSourcesBulkBySource(ctx, gen.UpsertSaaSAppSourcesBulkBySourceParams{
+		SeenInRunID:      runID,
+		SourceKind:       sourceKind,
+		SourceName:       sourceName,
+		CanonicalKeys:    []string{canonicalKey},
+		SourceAppIds:     []string{sourceAppID},
+		SourceAppNames:   []string{sourceAppName},
+		SourceAppDomains: []string{sourceAppDomain},
+		SeenAts:          []pgtype.Timestamptz{observed},
+	}); err != nil {
+		t.Fatalf("UpsertSaaSAppSourcesBulkBySource(%s): %v", canonicalKey, err)
+	}
+	if _, err := q.PromoteSaaSAppSourcesSeenInRunBySource(ctx, gen.PromoteSaaSAppSourcesSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        sourceKind,
+		SourceName:        sourceName,
+	}); err != nil {
+		t.Fatalf("PromoteSaaSAppSourcesSeenInRunBySource(%s): %v", canonicalKey, err)
+	}
+}
+
+func upsertReadModelsPrivilegedSaaSAppEvent(t *testing.T, ctx context.Context, q *gen.Queries, runID int64, sourceKind, sourceName, canonicalKey, sourceAppID, sourceAppName, sourceAppDomain string, observedAt time.Time) {
+	t.Helper()
+
+	observed := pgtype.Timestamptz{Time: observedAt.UTC(), Valid: true}
+	if _, err := q.UpsertSaaSAppEventsBulkBySource(ctx, gen.UpsertSaaSAppEventsBulkBySourceParams{
+		SeenInRunID:       runID,
+		SourceKind:        sourceKind,
+		SourceName:        sourceName,
+		CanonicalKeys:     []string{canonicalKey},
+		SignalKinds:       []string{"oauth_grant"},
+		EventExternalIds:  []string{sourceAppID + ":grant"},
+		SourceAppIds:      []string{sourceAppID},
+		SourceAppNames:    []string{sourceAppName},
+		SourceAppDomains:  []string{sourceAppDomain},
+		ActorExternalIds:  []string{"actor-1"},
+		ActorEmails:       []string{"actor@example.com"},
+		ActorDisplayNames: []string{"Actor Example"},
+		ObservedAts:       []pgtype.Timestamptz{observed},
+		ScopesJsons:       [][]byte{[]byte(`["files.readwrite.all"]`)},
+		RawJsons:          [][]byte{[]byte(`{}`)},
+	}); err != nil {
+		t.Fatalf("UpsertSaaSAppEventsBulkBySource(%s): %v", canonicalKey, err)
+	}
+	if _, err := q.PromoteSaaSAppEventsSeenInRunBySource(ctx, gen.PromoteSaaSAppEventsSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        sourceKind,
+		SourceName:        sourceName,
+	}); err != nil {
+		t.Fatalf("PromoteSaaSAppEventsSeenInRunBySource(%s): %v", canonicalKey, err)
+	}
 }
 
 func fetchConnectorSourceStateTimes(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceKind, sourceName string) (time.Time, time.Time) {

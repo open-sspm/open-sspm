@@ -6,10 +6,12 @@ metadata:
   domain: saas
 spec:
   scoped_rules:
-    - id: github_app_policy
+    - id: github_domain_policy
       scope:
         app:
-          canonical_key: github
+          domain_matches:
+            - github.com
+            - "*.github.com"
       suggestions:
         business_criticality: high
       rules:
@@ -18,22 +20,15 @@ spec:
           score_delta: 20
           when: owner_identity_id == 0
           title: GitHub app has no accountable owner
-    - id: source_control_app_policy
+    - id: github_vendor_policy
       scope:
         app:
-          category: source_control
+          vendor_name: github
       suggestions:
         business_criticality: high
       rules:
-        - id: source_control_missing_owner
-          severity: high
-          score_delta: 15
+        - id: github_missing_owner
+          severity: critical
+          score_delta: 20
           when: owner_identity_id == 0
-          title: Source control app has no accountable owner
-    - id: finance_app_policy
-      scope:
-        app:
-          category: finance
-      suggestions:
-        business_criticality: high
-        data_classification: restricted
+          title: GitHub app has no accountable owner
