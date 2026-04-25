@@ -118,7 +118,6 @@ func domainEnvOptions(domain Domain) []cel.EnvOption {
 			cel.Variable("vendor_name", cel.StringType),
 			cel.Variable("source_kind", cel.StringType),
 			cel.Variable("source_name", cel.StringType),
-			cel.Variable("category", cel.StringType),
 			cel.Variable("actors_30d", cel.IntType),
 			cel.Variable("has_privileged_scope", cel.BoolType),
 			cel.Variable("has_confidential_scope", cel.BoolType),

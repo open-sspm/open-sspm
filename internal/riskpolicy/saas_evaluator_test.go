@@ -3,6 +3,7 @@ package riskpolicy
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -109,6 +110,52 @@ func TestEvaluateSaaSMatchesDiscoveryReadModelView(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestEvaluateSaaSRejectsDuplicateGlobalPacks(t *testing.T) {
+	t.Parallel()
+
+	registry, err := LoadDocuments(map[string][]byte{
+		"a.yaml": []byte(`
+api_version: risk.open-sspm.io/v1
+kind: RiskPolicyPack
+metadata:
+  id: a
+  version: 1.0.0
+  domain: saas
+spec:
+  inputs:
+    schema: saas_app_risk_input.v1
+  levels:
+    - level: low
+      when: "true"
+`),
+		"b.yaml": []byte(`
+api_version: risk.open-sspm.io/v1
+kind: RiskPolicyPack
+metadata:
+  id: b
+  version: 1.0.0
+  domain: saas
+spec:
+  inputs:
+    schema: saas_app_risk_input.v1
+  levels:
+    - level: low
+      when: "true"
+`),
+	})
+	if err != nil {
+		t.Fatalf("LoadDocuments() error = %v", err)
+	}
+
+	_, err = registry.EvaluateSaaS(SaaSInput{})
+	if err == nil {
+		t.Fatal("EvaluateSaaS() error = nil, want duplicate pack error")
+	}
+	if !strings.Contains(err.Error(), "multiple saas risk policy packs") {
+		t.Fatalf("EvaluateSaaS() error = %v, want duplicate pack error", err)
+	}
 }
 
 type saasGoldenCase struct {

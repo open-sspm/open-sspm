@@ -13,7 +13,6 @@ type SaaSInput struct {
 	VendorName                   string
 	SourceKind                   string
 	SourceName                   string
-	Category                     string
 	Actors30d                    int64
 	HasPrivilegedScope           bool
 	HasConfidentialScope         bool
@@ -59,74 +58,77 @@ func (r *Registry) EvaluateSaaS(input SaaSInput) (SaaSResult, error) {
 	result := SaaSResult{
 		Signals: make([]RiskSignal, 0, 6),
 	}
-	foundPack := false
 
-	for _, pack := range r.packs {
-		if pack.Policy.Metadata.Domain != DomainSaaS || pack.Policy.Spec.Inputs.Schema != "saas_app_risk_input.v1" {
+	var matchedPack *CompiledPack
+	for i := range r.packs {
+		if r.packs[i].Policy.Metadata.Domain != DomainSaaS || r.packs[i].Policy.Spec.Inputs.Schema != "saas_app_risk_input.v1" {
 			continue
 		}
-		foundPack = true
+		if matchedPack != nil {
+			return SaaSResult{}, errors.New("multiple saas risk policy packs found for saas_app_risk_input.v1")
+		}
+		matchedPack = &r.packs[i]
+	}
+	if matchedPack == nil {
+		return SaaSResult{}, errors.New("saas risk policy pack not found")
+	}
 
-		activation := saasActivation(input, pack.Policy.Spec.Constants, pack.Policy.Spec.Scoring.Base)
-		businessCriticality, err := evaluateSuggestionRules(pack, pack.Policy.Spec.Suggestions.BusinessCriticality, activation)
+	pack := *matchedPack
+	activation := saasActivation(input, pack.Policy.Spec.Constants, pack.Policy.Spec.Scoring.Base)
+	businessCriticality, err := evaluateSuggestionRules(pack, pack.Policy.Spec.Suggestions.BusinessCriticality, activation)
+	if err != nil {
+		return SaaSResult{}, err
+	}
+	dataClassification, err := evaluateSuggestionRules(pack, pack.Policy.Spec.Suggestions.DataClassification, activation)
+	if err != nil {
+		return SaaSResult{}, err
+	}
+
+	if businessCriticality != "" {
+		result.SuggestedBusinessCriticality = businessCriticality
+	}
+	if dataClassification != "" {
+		result.SuggestedDataClassification = dataClassification
+	}
+	input.EffectiveBusinessCriticality = effectiveBusinessCriticality(input.EffectiveBusinessCriticality, result.SuggestedBusinessCriticality)
+	input.EffectiveDataClassification = effectiveDataClassification(input.EffectiveDataClassification, result.SuggestedDataClassification)
+	result.EffectiveBusinessCriticality = input.EffectiveBusinessCriticality
+	result.EffectiveDataClassification = input.EffectiveDataClassification
+
+	score := pack.Policy.Spec.Scoring.Base
+	for _, rule := range pack.Policy.Spec.Scoring.Rules {
+		activation = saasActivation(input, pack.Policy.Spec.Constants, score)
+		matched, err := pack.evaluateBool(rule.ID, activation)
 		if err != nil {
 			return SaaSResult{}, err
 		}
-		dataClassification, err := evaluateSuggestionRules(pack, pack.Policy.Spec.Suggestions.DataClassification, activation)
-		if err != nil {
-			return SaaSResult{}, err
+		if !matched {
+			continue
 		}
 
-		if businessCriticality != "" {
-			result.SuggestedBusinessCriticality = businessCriticality
-		}
-		if dataClassification != "" {
-			result.SuggestedDataClassification = dataClassification
-		}
-		input.EffectiveBusinessCriticality = effectiveBusinessCriticality(input.EffectiveBusinessCriticality, result.SuggestedBusinessCriticality)
-		input.EffectiveDataClassification = effectiveDataClassification(input.EffectiveDataClassification, result.SuggestedDataClassification)
-		result.EffectiveBusinessCriticality = input.EffectiveBusinessCriticality
-		result.EffectiveDataClassification = input.EffectiveDataClassification
-
-		score := pack.Policy.Spec.Scoring.Base
-		for _, rule := range pack.Policy.Spec.Scoring.Rules {
-			activation = saasActivation(input, pack.Policy.Spec.Constants, score)
-			matched, err := pack.evaluateBool(rule.ID, activation)
-			if err != nil {
-				return SaaSResult{}, err
-			}
-			if !matched {
-				continue
-			}
-
-			score += rule.Points
-			if rule.Signal.Severity != "" {
-				result.Signals = append(result.Signals, RiskSignal{
-					ID:                rule.ID,
-					Domain:            DomainSaaS,
-					Severity:          rule.Signal.Severity,
-					ScoreDelta:        rule.Points,
-					Title:             rule.Signal.Title,
-					Evidence:          rule.Signal.Evidence,
-					PolicyPackID:      pack.Policy.Metadata.ID,
-					PolicyPackVersion: pack.Policy.Metadata.Version,
-				})
-			}
-		}
-
-		result.RiskScore = clampScore(score, pack.Policy.Spec.Scoring.Max)
-		activation = saasActivation(input, pack.Policy.Spec.Constants, result.RiskScore)
-		level, err := evaluateLevelRules(pack, pack.Policy.Spec.Levels, activation)
-		if err != nil {
-			return SaaSResult{}, err
-		}
-		if level != "" {
-			result.RiskLevel = level
+		score += rule.Points
+		if rule.Signal.Severity != "" {
+			result.Signals = append(result.Signals, RiskSignal{
+				ID:                rule.ID,
+				Domain:            DomainSaaS,
+				Severity:          rule.Signal.Severity,
+				ScoreDelta:        rule.Points,
+				Title:             rule.Signal.Title,
+				Evidence:          rule.Signal.Evidence,
+				PolicyPackID:      pack.Policy.Metadata.ID,
+				PolicyPackVersion: pack.Policy.Metadata.Version,
+			})
 		}
 	}
 
-	if !foundPack {
-		return SaaSResult{}, errors.New("saas risk policy pack not found")
+	result.RiskScore = clampScore(score, pack.Policy.Spec.Scoring.Max)
+	activation = saasActivation(input, pack.Policy.Spec.Constants, result.RiskScore)
+	level, err := evaluateLevelRules(pack, pack.Policy.Spec.Levels, activation)
+	if err != nil {
+		return SaaSResult{}, err
+	}
+	if level != "" {
+		result.RiskLevel = level
 	}
 	if result.RiskLevel == "" {
 		result.RiskLevel = SeverityLow
@@ -168,7 +170,6 @@ func normalizeSaaSInput(input SaaSInput) SaaSInput {
 	input.VendorName = strings.TrimSpace(input.VendorName)
 	input.SourceKind = strings.ToLower(strings.TrimSpace(input.SourceKind))
 	input.SourceName = strings.TrimSpace(input.SourceName)
-	input.Category = strings.ToLower(strings.TrimSpace(input.Category))
 	input.ManagedState = strings.ToLower(strings.TrimSpace(input.ManagedState))
 	input.ManagedReason = strings.ToLower(strings.TrimSpace(input.ManagedReason))
 	input.GovernanceState = strings.ToLower(strings.TrimSpace(input.GovernanceState))
@@ -187,7 +188,6 @@ func saasActivation(input SaaSInput, constants map[string][]string, score int) m
 		"vendor_name":                    input.VendorName,
 		"source_kind":                    input.SourceKind,
 		"source_name":                    input.SourceName,
-		"category":                       input.Category,
 		"actors_30d":                     input.Actors30d,
 		"has_privileged_scope":           input.HasPrivilegedScope,
 		"has_confidential_scope":         input.HasConfidentialScope,
