@@ -1,13 +1,8 @@
 package riskpolicy
 
 import (
-	"context"
 	"testing"
 	"time"
-
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/open-sspm/open-sspm/internal/testdb"
 )
 
 func TestEvaluateCredentialGoldenCases(t *testing.T) {
@@ -30,6 +25,9 @@ func TestEvaluateCredentialGoldenCases(t *testing.T) {
 			}
 			if result.RiskRank != SeverityRank(tc.wantLevel) {
 				t.Fatalf("RiskRank = %d, want %d", result.RiskRank, SeverityRank(tc.wantLevel))
+			}
+			if len(result.PolicyPacks) != 1 || result.PolicyPacks[0].ID != "builtin-credential-risk" {
+				t.Fatalf("PolicyPacks = %+v, want builtin credential pack", result.PolicyPacks)
 			}
 			gotSignalIDs := make([]string, 0, len(result.Signals))
 			for _, signal := range result.Signals {
@@ -65,47 +63,6 @@ func TestEvaluateCredentialRejectsMalformedScopeJSON(t *testing.T) {
 	if err == nil {
 		t.Fatal("EvaluateCredential() error = nil, want malformed scope_json error")
 	}
-}
-
-func TestEvaluateCredentialMatchesSQLFunction(t *testing.T) {
-	t.Parallel()
-
-	registry, err := LoadBuiltin()
-	if err != nil {
-		t.Fatalf("LoadBuiltin() error = %v", err)
-	}
-
-	testdb.WithDatabase(t, testdb.Options{NamePrefix: "opensspm_riskpolicy"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
-		testdb.MigrateUp(t, migrator)
-
-		for _, tc := range credentialGoldenCases() {
-			t.Run(tc.name, func(t *testing.T) {
-				result, err := registry.EvaluateCredential(tc.input)
-				if err != nil {
-					t.Fatalf("EvaluateCredential() error = %v", err)
-				}
-
-				var sqlLevel string
-				err = pool.QueryRow(ctx, `
-					SELECT credential_artifact_risk_level($1, $2, $3, $4, $5, $6, $7)
-				`,
-					tc.input.Status,
-					tc.input.CredentialKind,
-					nullableTime(tc.input.ExpiresAt),
-					nullableTime(tc.input.LastUsedAt),
-					tc.input.CreatedByExternalID,
-					tc.input.ApprovedByExternalID,
-					tc.input.EvaluatedAt,
-				).Scan(&sqlLevel)
-				if err != nil {
-					t.Fatalf("credential_artifact_risk_level() error = %v", err)
-				}
-				if result.RiskLevel != sqlLevel {
-					t.Fatalf("policy RiskLevel = %q, SQL risk_level = %q", result.RiskLevel, sqlLevel)
-				}
-			})
-		}
-	})
 }
 
 type credentialGoldenCase struct {

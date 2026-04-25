@@ -554,6 +554,9 @@ func refreshPostSuccessReadModelsInTx(ctx context.Context, q *gen.Queries, sourc
 	if err := refreshSaaSAppRiskReadModelsInTx(ctx, q, sourceKind, sourceName); err != nil {
 		return err
 	}
+	if err := refreshCredentialArtifactRiskReadModelsInTx(ctx, q, sourceKind, sourceName); err != nil {
+		return err
+	}
 	return refreshNonHumanPrincipalReadModelsInTx(ctx, q, sourceKind, sourceName)
 }
 
@@ -571,6 +574,14 @@ func refreshSaaSAppRiskReadModelsInTx(ctx context.Context, q *gen.Queries, sourc
 		return nil
 	}
 	return projector.RefreshSaaSAppRiskReadModelsBySource(ctx, sourceKind, sourceName)
+}
+
+func refreshCredentialArtifactRiskReadModelsInTx(ctx context.Context, q *gen.Queries, sourceKind, sourceName string) error {
+	projector := readmodels.ProjectorFromContext(ctx, q)
+	if projector == nil {
+		return nil
+	}
+	return projector.RefreshCredentialArtifactRiskReadModelsBySource(ctx, sourceKind, sourceName)
 }
 
 func refreshNonHumanPrincipalReadModelsInTx(ctx context.Context, q *gen.Queries, sourceKind, sourceName string) error {

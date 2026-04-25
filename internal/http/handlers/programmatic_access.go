@@ -254,7 +254,6 @@ func (h *Handlers) HandleAppAssetShow(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	now := time.Now().UTC()
 	linkResolver := newIdentityLinkResolver(h, ctx)
 
 	ownerItems := make([]viewmodels.AppAssetOwnerItem, 0, len(owners))
@@ -275,7 +274,7 @@ func (h *Handlers) HandleAppAssetShow(c *echo.Context) error {
 		})
 	}
 
-	credentialRows, err := h.listCredentialArtifactsForAsset(ctx, asset, pgTimestamptz(now))
+	credentialRows, err := h.listCredentialArtifactsForAsset(ctx, asset)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -576,10 +575,7 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 
 	ctx := c.Request().Context()
 	now := time.Now().UTC()
-	credential, err := h.Q.GetCredentialArtifactByID(ctx, gen.GetCredentialArtifactByIDParams{
-		EvaluatedAt: pgTimestamptz(now),
-		ID:          credentialID,
-	})
+	credential, err := h.Q.GetCredentialArtifactByID(ctx, credentialID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -620,12 +616,8 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 	if displayName == "" {
 		displayName = strings.TrimSpace(credential.ExternalID)
 	}
-	credentialRisk, err := h.evaluateCredentialRisk(credential, now)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-	riskLevel := credentialRisk.RiskLevel
-	riskFindings := credentialRiskFindingsFromSignals(credentialRisk.Signals, credential.ExpiresAtSource, credential.LastUsedAtSource, now)
+	riskLevel := strings.TrimSpace(credential.RiskLevel)
+	riskFindings := credentialRiskFindingsFromSignals(credentialRiskSignalsFromStoredJSON(credential.RiskSignalsJson), credential.ExpiresAtSource, credential.LastUsedAtSource, now)
 	linkResolver := newIdentityLinkResolver(h, ctx)
 
 	data := viewmodels.CredentialShowViewData{
@@ -796,46 +788,6 @@ func pgTimestamptz(ts time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: ts.UTC(), Valid: true}
 }
 
-func (h *Handlers) evaluateCredentialRisk(credential gen.GetCredentialArtifactByIDRow, now time.Time) (riskpolicy.CredentialResult, error) {
-	registry := h.RiskPolicies
-	if registry == nil {
-		var err error
-		registry, err = riskpolicy.BuiltinRegistry()
-		if err != nil {
-			return riskpolicy.CredentialResult{}, err
-		}
-	}
-	return registry.EvaluateCredential(credentialPolicyInput(credential, now))
-}
-
-func credentialPolicyInput(credential gen.GetCredentialArtifactByIDRow, now time.Time) riskpolicy.CredentialInput {
-	return riskpolicy.CredentialInput{
-		SourceKind:            credential.SourceKind,
-		SourceName:            credential.SourceName,
-		CredentialKind:        credential.CredentialKind,
-		Status:                credential.Status,
-		ExpiresAt:             timestamptzTimePtr(credential.ExpiresAtSource),
-		LastUsedAt:            timestamptzTimePtr(credential.LastUsedAtSource),
-		CreatedAt:             timestamptzTimePtr(credential.CreatedAtSource),
-		CreatedByExternalID:   credential.CreatedByExternalID,
-		CreatedByDisplayName:  credential.CreatedByDisplayName,
-		ApprovedByExternalID:  credential.ApprovedByExternalID,
-		ApprovedByDisplayName: credential.ApprovedByDisplayName,
-		AssetRefKind:          credential.AssetRefKind,
-		AssetRefExternalID:    credential.AssetRefExternalID,
-		ScopeJSON:             credential.ScopeJson,
-		EvaluatedAt:           now,
-	}
-}
-
-func timestamptzTimePtr(value pgtype.Timestamptz) *time.Time {
-	if !value.Valid {
-		return nil
-	}
-	t := value.Time.UTC()
-	return &t
-}
-
 func credentialRiskFindingsFromSignals(signals []riskpolicy.RiskSignal, expiresAt, lastUsedAt pgtype.Timestamptz, now time.Time) []viewmodels.CredentialRiskFinding {
 	findings := make([]viewmodels.CredentialRiskFinding, 0, len(signals))
 	for _, signal := range signals {
@@ -846,6 +798,27 @@ func credentialRiskFindingsFromSignals(signals []riskpolicy.RiskSignal, expiresA
 		})
 	}
 	return findings
+}
+
+func credentialRiskSignalsFromStoredJSON(raw []byte) []riskpolicy.RiskSignal {
+	if len(raw) == 0 {
+		return nil
+	}
+	var signals []riskpolicy.RiskSignal
+	if err := json.Unmarshal(raw, &signals); err != nil {
+		return nil
+	}
+	out := make([]riskpolicy.RiskSignal, 0, len(signals))
+	for _, signal := range signals {
+		signal.Severity = strings.TrimSpace(signal.Severity)
+		signal.Title = strings.TrimSpace(signal.Title)
+		signal.Evidence = strings.TrimSpace(signal.Evidence)
+		if signal.Severity == "" || signal.Title == "" {
+			continue
+		}
+		out = append(out, signal)
+	}
+	return out
 }
 
 func credentialSignalEvidence(signal riskpolicy.RiskSignal, expiresAt, lastUsedAt pgtype.Timestamptz, now time.Time) string {
@@ -1083,7 +1056,7 @@ func appAssetRefExternalID(assetKind, externalID string) string {
 	return assetKind + ":" + externalID
 }
 
-func (h *Handlers) listCredentialArtifactsForAsset(ctx context.Context, asset gen.AppAsset, evaluatedAt pgtype.Timestamptz) ([]gen.ListCredentialArtifactsForAssetRefRow, error) {
+func (h *Handlers) listCredentialArtifactsForAsset(ctx context.Context, asset gen.AppAsset) ([]gen.ListCredentialArtifactsForAssetRefRow, error) {
 	refs := appAssetCredentialRefs(asset)
 	if len(refs) == 0 {
 		return nil, nil
@@ -1091,7 +1064,6 @@ func (h *Handlers) listCredentialArtifactsForAsset(ctx context.Context, asset ge
 
 	credentialsByID := map[int64]gen.ListCredentialArtifactsForAssetRefRow{}
 	for _, ref := range refs {
-		ref.EvaluatedAt = evaluatedAt
 		rows, err := h.Q.ListCredentialArtifactsForAssetRef(ctx, ref)
 		if err != nil {
 			return nil, err

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
@@ -381,10 +380,7 @@ func TestEntraRunFullPersistsEffectiveEntitlements(t *testing.T) {
 			t.Fatalf("unexpected service principal owner: %+v", servicePrincipalOwners[0])
 		}
 
-		nowTS := pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
-
 		applicationCredentials, err := q.ListCredentialArtifactsForAssetRef(ctx, gen.ListCredentialArtifactsForAssetRefParams{
-			EvaluatedAt:        nowTS,
 			SourceKind:         "entra",
 			SourceName:         fullSyncTenantID,
 			AssetRefKind:       "app_asset",
@@ -408,7 +404,6 @@ func TestEntraRunFullPersistsEffectiveEntitlements(t *testing.T) {
 		}
 
 		servicePrincipalCredentials, err := q.ListCredentialArtifactsForAssetRef(ctx, gen.ListCredentialArtifactsForAssetRefParams{
-			EvaluatedAt:        nowTS,
 			SourceKind:         "entra",
 			SourceName:         fullSyncTenantID,
 			AssetRefKind:       "app_asset",

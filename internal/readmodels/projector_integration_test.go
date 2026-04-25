@@ -157,6 +157,9 @@ func TestProjectorRefreshAllNonHumanPrincipalReadModelsEvaluatesAndStoresPolicy(
 		}
 
 		projector := NewProjector(pool, nil, RefreshConfig{})
+		if err := projector.RefreshAllCredentialArtifactRiskReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllCredentialArtifactRiskReadModels(): %v", err)
+		}
 		if err := projector.RefreshAllNonHumanPrincipalReadModels(ctx); err != nil {
 			t.Fatalf("RefreshAllNonHumanPrincipalReadModels(): %v", err)
 		}
@@ -454,6 +457,73 @@ func TestProjectorNonHumanPolicyRiskFeedsFiltersSortAndMetrics(t *testing.T) {
 		if credentialCoverage.HighRiskCredentialCount != wantHighRiskCredentials ||
 			credentialCoverage.HighRiskWithAttributionCount != wantHighRiskCredentialsWithAttribution {
 			t.Fatalf("credential coverage = %+v, want %d/%d", credentialCoverage, wantHighRiskCredentials, wantHighRiskCredentialsWithAttribution)
+		}
+	})
+}
+
+func TestProjectorRefreshCredentialArtifactRiskReadModelsBySourceEvaluatesAndStoresPolicy(t *testing.T) {
+	t.Parallel()
+
+	withReadModelsTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateUpReadModels(t, migrator)
+
+		now := time.Now().UTC().Truncate(time.Second)
+		runID := insertReadModelsSyncRun(t, ctx, pool, "github", "acme", now)
+		otherRunID := insertReadModelsSyncRun(t, ctx, pool, "entra", "tenant-1", now)
+		credentialID := insertReadModelsCredentialArtifact(t, ctx, pool, runID, readModelsCredentialArtifactSeed{
+			SourceKind:         "github",
+			SourceName:         "acme",
+			AssetRefKind:       "app_asset",
+			AssetRefExternalID: "github_app:automation",
+			CredentialKind:     "generic_api_key",
+			ExternalID:         "stale-key",
+			DisplayName:        "Stale Key",
+			Status:             "active",
+			LastUsedAtSource:   now.Add(-120 * 24 * time.Hour),
+		})
+		otherCredentialID := insertReadModelsCredentialArtifact(t, ctx, pool, otherRunID, readModelsCredentialArtifactSeed{
+			SourceKind:         "entra",
+			SourceName:         "tenant-1",
+			AssetRefKind:       "app_asset",
+			AssetRefExternalID: "entra_service_principal:automation",
+			CredentialKind:     "entra_client_secret",
+			ExternalID:         "other-secret",
+			DisplayName:        "Other Secret",
+			Status:             "active",
+			ExpiresAtSource:    now.Add(-24 * time.Hour),
+		})
+
+		projector := NewProjector(pool, nil, RefreshConfig{})
+		if err := projector.RefreshCredentialArtifactRiskReadModelsBySource(ctx, "github", "acme"); err != nil {
+			t.Fatalf("RefreshCredentialArtifactRiskReadModelsBySource(): %v", err)
+		}
+
+		var riskLevel string
+		var riskRank, signalCount, policyPackCount int
+		if err := pool.QueryRow(ctx, `
+			SELECT risk_level, risk_rank, jsonb_array_length(risk_signals_json), jsonb_array_length(policy_packs_json)
+			FROM credential_artifact_risk_read_models
+			WHERE credential_artifact_id = $1
+		`, credentialID).Scan(&riskLevel, &riskRank, &signalCount, &policyPackCount); err != nil {
+			t.Fatalf("select credential_artifact_risk_read_models: %v", err)
+		}
+		if riskLevel != "high" || riskRank != riskpolicy.SeverityRank(riskpolicy.SeverityHigh) {
+			t.Fatalf("stored credential risk = %q/%d, want high/%d", riskLevel, riskRank, riskpolicy.SeverityRank(riskpolicy.SeverityHigh))
+		}
+		if signalCount == 0 || policyPackCount == 0 {
+			t.Fatalf("stored credential policy output has signals=%d packs=%d, want both present", signalCount, policyPackCount)
+		}
+
+		var otherRiskRows int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM credential_artifact_risk_read_models
+			WHERE credential_artifact_id = $1
+		`, otherCredentialID).Scan(&otherRiskRows); err != nil {
+			t.Fatalf("select other credential risk rows: %v", err)
+		}
+		if otherRiskRows != 0 {
+			t.Fatalf("other source credential risk rows = %d, want 0", otherRiskRows)
 		}
 	})
 }

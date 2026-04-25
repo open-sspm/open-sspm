@@ -36,15 +36,7 @@ WHERE css.configured = true;
 WITH linked_credentials AS (
   SELECT
     ca.id::bigint AS credential_id,
-    credential_artifact_risk_level(
-      ca.status,
-      ca.credential_kind,
-      ca.expires_at_source,
-      ca.last_used_at_source,
-      ca.created_by_external_id,
-      ca.approved_by_external_id,
-      now()
-    )::text AS risk_level,
+    COALESCE(risk.risk_rank, 1)::int AS risk_rank,
     (
       pr.owner_presence = 'owned'
       OR NULLIF(trim(ca.created_by_display_name), '') IS NOT NULL
@@ -70,25 +62,20 @@ WITH linked_credentials AS (
    AND ca.asset_ref_external_id = nhac.asset_ref_external_id
    AND ca.expired_at IS NULL
    AND ca.last_observed_run_id IS NOT NULL
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
 ),
 deduped AS (
   SELECT
     lc.credential_id,
-    max(
-      CASE lc.risk_level
-        WHEN 'critical' THEN 3
-        WHEN 'high' THEN 2
-        WHEN 'medium' THEN 1
-        ELSE 0
-      END
-    )::int AS risk_rank,
+    max(lc.risk_rank)::int AS risk_rank,
     bool_or(lc.has_attribution)::boolean AS has_attribution
   FROM linked_credentials lc
   GROUP BY lc.credential_id
 )
 SELECT
-  count(*) FILTER (WHERE d.risk_rank >= 2)::bigint AS high_risk_credential_count,
-  count(*) FILTER (WHERE d.risk_rank >= 2 AND d.has_attribution)::bigint AS high_risk_with_attribution_count
+  count(*) FILTER (WHERE d.risk_rank >= 3)::bigint AS high_risk_credential_count,
+  count(*) FILTER (WHERE d.risk_rank >= 3 AND d.has_attribution)::bigint AS high_risk_with_attribution_count
 FROM deduped d;
 
 -- name: CountNonHumanAccessWeeklyAdminReviewSessions :one

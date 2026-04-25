@@ -44,6 +44,9 @@ func rebuildStoredReadModels(ctx context.Context, pool *pgxpool.Pool, q *gen.Que
 		if err := projector.RefreshAllSaaSAppRiskReadModels(ctx); err != nil {
 			return err
 		}
+		if err := projector.RefreshAllCredentialArtifactRiskReadModels(ctx); err != nil {
+			return err
+		}
 		return projector.RefreshAllNonHumanPrincipalReadModels(ctx)
 	case startupReadModelsActionRebuildAll:
 		reason := "forced"

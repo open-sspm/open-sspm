@@ -43,18 +43,14 @@ func TestCredentialRiskReasons(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, 2, 7, 12, 0, 0, 0, time.UTC)
-	credential := gen.GetCredentialArtifactByIDRow{
-		Status:           "active",
-		CredentialKind:   "github_pat_fine_grained",
-		ExpiresAtSource:  timestamptz(now.Add(2 * 24 * time.Hour)),
-		LastUsedAtSource: timestamptz(now.Add(-120 * 24 * time.Hour)),
-	}
-
-	result, err := (&Handlers{}).evaluateCredentialRisk(credential, now)
-	if err != nil {
-		t.Fatalf("evaluateCredentialRisk() error = %v", err)
-	}
-	findings := credentialRiskFindingsFromSignals(result.Signals, credential.ExpiresAtSource, credential.LastUsedAtSource, now)
+	expiresAt := timestamptz(now.Add(2 * 24 * time.Hour))
+	lastUsedAt := timestamptz(now.Add(-120 * 24 * time.Hour))
+	signals := credentialRiskSignalsFromStoredJSON([]byte(`[
+		{"id":"expiring_within_7_days","severity":"high","title":"Credential expires within 7 days"},
+		{"id":"unused_over_90_days","severity":"high","title":"Credential has not been used in over 90 days"},
+		{"id":"missing_creator","severity":"high","title":"Creator attribution is missing"}
+	]`))
+	findings := credentialRiskFindingsFromSignals(signals, expiresAt, lastUsedAt, now)
 	if len(findings) < 3 {
 		t.Fatalf("expected multiple findings, got %v", findings)
 	}
@@ -70,18 +66,11 @@ func TestCredentialRiskReasonsUseFutureAwareExpiryLabel(t *testing.T) {
 
 	now := time.Date(2026, 2, 7, 12, 0, 0, 0, time.UTC)
 
-	credential := gen.GetCredentialArtifactByIDRow{
-		Status:              "active",
-		CredentialKind:      "entra_client_secret",
-		CreatedByExternalID: "owner@example.com",
-		ExpiresAtSource:     timestamptz(now.Add(4 * 24 * time.Hour)),
-	}
-
-	result, err := (&Handlers{}).evaluateCredentialRisk(credential, now)
-	if err != nil {
-		t.Fatalf("evaluateCredentialRisk() error = %v", err)
-	}
-	findings := credentialRiskFindingsFromSignals(result.Signals, credential.ExpiresAtSource, credential.LastUsedAtSource, now)
+	expiresAt := timestamptz(now.Add(4 * 24 * time.Hour))
+	signals := credentialRiskSignalsFromStoredJSON([]byte(`[
+		{"id":"expiring_within_7_days","severity":"high","title":"Credential expires within 7 days"}
+	]`))
+	findings := credentialRiskFindingsFromSignals(signals, expiresAt, pgtype.Timestamptz{}, now)
 
 	for _, finding := range findings {
 		if finding.Title == "Credential expires within 7 days" {

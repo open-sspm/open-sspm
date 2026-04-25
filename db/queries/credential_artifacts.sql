@@ -118,16 +118,10 @@ ON CONFLICT (source_kind, source_name, credential_kind, external_id, asset_ref_k
 WITH rated_credentials AS (
   SELECT
     ca.*,
-    credential_artifact_risk_level(
-      ca.status,
-      ca.credential_kind,
-      ca.expires_at_source,
-      ca.last_used_at_source,
-      ca.created_by_external_id,
-      ca.approved_by_external_id,
-      sqlc.arg(evaluated_at)::timestamptz
-    ) AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level
   FROM credential_artifacts ca
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
   WHERE
     ca.source_kind = sqlc.arg(source_kind)::text
     AND ca.source_name = sqlc.arg(source_name)::text
@@ -182,16 +176,10 @@ WHERE
 WITH rated_credentials AS (
   SELECT
     ca.*,
-    credential_artifact_risk_level(
-      ca.status,
-      ca.credential_kind,
-      ca.expires_at_source,
-      ca.last_used_at_source,
-      ca.created_by_external_id,
-      ca.approved_by_external_id,
-      sqlc.arg(evaluated_at)::timestamptz
-    ) AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level
   FROM credential_artifacts ca
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
   WHERE
     ca.source_kind = sqlc.arg(source_kind)::text
     AND ca.source_name = sqlc.arg(source_name)::text
@@ -259,16 +247,10 @@ WITH configured_sources AS (
 rated_credentials AS (
   SELECT
     ca.*,
-    credential_artifact_risk_level(
-      ca.status,
-      ca.credential_kind,
-      ca.expires_at_source,
-      ca.last_used_at_source,
-      ca.created_by_external_id,
-      ca.approved_by_external_id,
-      sqlc.arg(evaluated_at)::timestamptz
-    ) AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level
   FROM credential_artifacts ca
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
   JOIN configured_sources cs
     ON cs.source_kind = ca.source_kind
    AND cs.source_name = ca.source_name
@@ -331,16 +313,10 @@ WITH configured_sources AS (
 rated_credentials AS (
   SELECT
     ca.*,
-    credential_artifact_risk_level(
-      ca.status,
-      ca.credential_kind,
-      ca.expires_at_source,
-      ca.last_used_at_source,
-      ca.created_by_external_id,
-      ca.approved_by_external_id,
-      sqlc.arg(evaluated_at)::timestamptz
-    ) AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level
   FROM credential_artifacts ca
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
   JOIN configured_sources cs
     ON cs.source_kind = ca.source_kind
    AND cs.source_name = ca.source_name
@@ -403,16 +379,10 @@ OFFSET sqlc.arg(page_offset)::int;
 -- name: ListCredentialArtifactsForAssetRef :many
 SELECT
   ca.*,
-  credential_artifact_risk_level(
-    ca.status,
-    ca.credential_kind,
-    ca.expires_at_source,
-    ca.last_used_at_source,
-    ca.created_by_external_id,
-    ca.approved_by_external_id,
-    sqlc.arg(evaluated_at)::timestamptz
-  ) AS risk_level
+  COALESCE(risk.risk_level, 'low')::text AS risk_level
 FROM credential_artifacts ca
+LEFT JOIN credential_artifact_risk_read_models risk
+  ON risk.credential_artifact_id = ca.id
 WHERE ca.source_kind = sqlc.arg(source_kind)::text
   AND ca.source_name = sqlc.arg(source_name)::text
   AND ca.asset_ref_kind = sqlc.arg(asset_ref_kind)::text
@@ -426,16 +396,12 @@ ORDER BY
 -- name: GetCredentialArtifactByID :one
 SELECT
   ca.*,
-  credential_artifact_risk_level(
-    ca.status,
-    ca.credential_kind,
-    ca.expires_at_source,
-    ca.last_used_at_source,
-    ca.created_by_external_id,
-    ca.approved_by_external_id,
-    sqlc.arg(evaluated_at)::timestamptz
-  ) AS risk_level
+  COALESCE(risk.risk_level, 'low')::text AS risk_level,
+  COALESCE(risk.risk_signals_json, '[]'::jsonb)::jsonb AS risk_signals_json,
+  COALESCE(risk.policy_packs_json, '[]'::jsonb)::jsonb AS policy_packs_json
 FROM credential_artifacts ca
+LEFT JOIN credential_artifact_risk_read_models risk
+  ON risk.credential_artifact_id = ca.id
 WHERE ca.id = sqlc.arg(id)::bigint
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL;

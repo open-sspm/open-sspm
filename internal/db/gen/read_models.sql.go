@@ -11,6 +11,15 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const deleteAllCredentialArtifactRiskReadModels = `-- name: DeleteAllCredentialArtifactRiskReadModels :exec
+DELETE FROM credential_artifact_risk_read_models
+`
+
+func (q *Queries) DeleteAllCredentialArtifactRiskReadModels(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteAllCredentialArtifactRiskReadModels)
+	return err
+}
+
 const deleteAllNonHumanPrincipalReadModels = `-- name: DeleteAllNonHumanPrincipalReadModels :exec
 DELETE FROM non_human_principals
 `
@@ -26,6 +35,24 @@ DELETE FROM connector_source_state
 
 func (q *Queries) DeleteConnectorSourceStateAll(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, deleteConnectorSourceStateAll)
+	return err
+}
+
+const deleteCredentialArtifactRiskReadModelsBySource = `-- name: DeleteCredentialArtifactRiskReadModelsBySource :exec
+DELETE FROM credential_artifact_risk_read_models risk
+USING credential_artifacts ca
+WHERE risk.credential_artifact_id = ca.id
+  AND lower(trim(ca.source_kind)) = lower(trim($1::text))
+  AND lower(trim(ca.source_name)) = lower(trim($2::text))
+`
+
+type DeleteCredentialArtifactRiskReadModelsBySourceParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+}
+
+func (q *Queries) DeleteCredentialArtifactRiskReadModelsBySource(ctx context.Context, arg DeleteCredentialArtifactRiskReadModelsBySourceParams) error {
+	_, err := q.db.Exec(ctx, deleteCredentialArtifactRiskReadModelsBySource, arg.SourceKind, arg.SourceName)
 	return err
 }
 
@@ -182,6 +209,83 @@ func (q *Queries) GetSaaSAppRiskInputByID(ctx context.Context, saasAppID int64) 
 		&i.ConnectorBindingHealthy,
 	)
 	return i, err
+}
+
+const listAllCredentialArtifactRiskInputs = `-- name: ListAllCredentialArtifactRiskInputs :many
+SELECT
+  ca.id::bigint AS credential_artifact_id,
+  ca.source_kind::text AS source_kind,
+  ca.source_name::text AS source_name,
+  ca.credential_kind::text AS credential_kind,
+  ca.status::text AS status,
+  ca.expires_at_source::timestamptz AS expires_at_source,
+  ca.last_used_at_source::timestamptz AS last_used_at_source,
+  ca.created_at_source::timestamptz AS created_at_source,
+  ca.created_by_external_id::text AS created_by_external_id,
+  ca.created_by_display_name::text AS created_by_display_name,
+  ca.approved_by_external_id::text AS approved_by_external_id,
+  ca.approved_by_display_name::text AS approved_by_display_name,
+  ca.asset_ref_kind::text AS asset_ref_kind,
+  ca.asset_ref_external_id::text AS asset_ref_external_id,
+  ca.scope_json::jsonb AS scope_json
+FROM credential_artifacts ca
+WHERE ca.expired_at IS NULL
+  AND ca.last_observed_run_id IS NOT NULL
+ORDER BY ca.id ASC
+`
+
+type ListAllCredentialArtifactRiskInputsRow struct {
+	CredentialArtifactID  int64              `json:"credential_artifact_id"`
+	SourceKind            string             `json:"source_kind"`
+	SourceName            string             `json:"source_name"`
+	CredentialKind        string             `json:"credential_kind"`
+	Status                string             `json:"status"`
+	ExpiresAtSource       pgtype.Timestamptz `json:"expires_at_source"`
+	LastUsedAtSource      pgtype.Timestamptz `json:"last_used_at_source"`
+	CreatedAtSource       pgtype.Timestamptz `json:"created_at_source"`
+	CreatedByExternalID   string             `json:"created_by_external_id"`
+	CreatedByDisplayName  string             `json:"created_by_display_name"`
+	ApprovedByExternalID  string             `json:"approved_by_external_id"`
+	ApprovedByDisplayName string             `json:"approved_by_display_name"`
+	AssetRefKind          string             `json:"asset_ref_kind"`
+	AssetRefExternalID    string             `json:"asset_ref_external_id"`
+	ScopeJson             []byte             `json:"scope_json"`
+}
+
+func (q *Queries) ListAllCredentialArtifactRiskInputs(ctx context.Context) ([]ListAllCredentialArtifactRiskInputsRow, error) {
+	rows, err := q.db.Query(ctx, listAllCredentialArtifactRiskInputs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllCredentialArtifactRiskInputsRow
+	for rows.Next() {
+		var i ListAllCredentialArtifactRiskInputsRow
+		if err := rows.Scan(
+			&i.CredentialArtifactID,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.CredentialKind,
+			&i.Status,
+			&i.ExpiresAtSource,
+			&i.LastUsedAtSource,
+			&i.CreatedAtSource,
+			&i.CreatedByExternalID,
+			&i.CreatedByDisplayName,
+			&i.ApprovedByExternalID,
+			&i.ApprovedByDisplayName,
+			&i.AssetRefKind,
+			&i.AssetRefExternalID,
+			&i.ScopeJson,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAllNonHumanPrincipalRiskInputs = `-- name: ListAllNonHumanPrincipalRiskInputs :many
@@ -379,6 +483,90 @@ func (q *Queries) ListAllSaaSAppRiskInputs(ctx context.Context) ([]ListAllSaaSAp
 			&i.ConnectorBindingEnabled,
 			&i.ConnectorBindingStale,
 			&i.ConnectorBindingHealthy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCredentialArtifactRiskInputsBySource = `-- name: ListCredentialArtifactRiskInputsBySource :many
+SELECT
+  ca.id::bigint AS credential_artifact_id,
+  ca.source_kind::text AS source_kind,
+  ca.source_name::text AS source_name,
+  ca.credential_kind::text AS credential_kind,
+  ca.status::text AS status,
+  ca.expires_at_source::timestamptz AS expires_at_source,
+  ca.last_used_at_source::timestamptz AS last_used_at_source,
+  ca.created_at_source::timestamptz AS created_at_source,
+  ca.created_by_external_id::text AS created_by_external_id,
+  ca.created_by_display_name::text AS created_by_display_name,
+  ca.approved_by_external_id::text AS approved_by_external_id,
+  ca.approved_by_display_name::text AS approved_by_display_name,
+  ca.asset_ref_kind::text AS asset_ref_kind,
+  ca.asset_ref_external_id::text AS asset_ref_external_id,
+  ca.scope_json::jsonb AS scope_json
+FROM credential_artifacts ca
+WHERE ca.expired_at IS NULL
+  AND ca.last_observed_run_id IS NOT NULL
+  AND lower(trim(ca.source_kind)) = lower(trim($1::text))
+  AND lower(trim(ca.source_name)) = lower(trim($2::text))
+ORDER BY ca.id ASC
+`
+
+type ListCredentialArtifactRiskInputsBySourceParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+}
+
+type ListCredentialArtifactRiskInputsBySourceRow struct {
+	CredentialArtifactID  int64              `json:"credential_artifact_id"`
+	SourceKind            string             `json:"source_kind"`
+	SourceName            string             `json:"source_name"`
+	CredentialKind        string             `json:"credential_kind"`
+	Status                string             `json:"status"`
+	ExpiresAtSource       pgtype.Timestamptz `json:"expires_at_source"`
+	LastUsedAtSource      pgtype.Timestamptz `json:"last_used_at_source"`
+	CreatedAtSource       pgtype.Timestamptz `json:"created_at_source"`
+	CreatedByExternalID   string             `json:"created_by_external_id"`
+	CreatedByDisplayName  string             `json:"created_by_display_name"`
+	ApprovedByExternalID  string             `json:"approved_by_external_id"`
+	ApprovedByDisplayName string             `json:"approved_by_display_name"`
+	AssetRefKind          string             `json:"asset_ref_kind"`
+	AssetRefExternalID    string             `json:"asset_ref_external_id"`
+	ScopeJson             []byte             `json:"scope_json"`
+}
+
+func (q *Queries) ListCredentialArtifactRiskInputsBySource(ctx context.Context, arg ListCredentialArtifactRiskInputsBySourceParams) ([]ListCredentialArtifactRiskInputsBySourceRow, error) {
+	rows, err := q.db.Query(ctx, listCredentialArtifactRiskInputsBySource, arg.SourceKind, arg.SourceName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCredentialArtifactRiskInputsBySourceRow
+	for rows.Next() {
+		var i ListCredentialArtifactRiskInputsBySourceRow
+		if err := rows.Scan(
+			&i.CredentialArtifactID,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.CredentialKind,
+			&i.Status,
+			&i.ExpiresAtSource,
+			&i.LastUsedAtSource,
+			&i.CreatedAtSource,
+			&i.CreatedByExternalID,
+			&i.CreatedByDisplayName,
+			&i.ApprovedByExternalID,
+			&i.ApprovedByDisplayName,
+			&i.AssetRefKind,
+			&i.AssetRefExternalID,
+			&i.ScopeJson,
 		); err != nil {
 			return nil, err
 		}
@@ -1363,6 +1551,18 @@ SELECT (
   )
   OR EXISTS (
     SELECT 1
+    FROM credential_artifacts ca
+    LEFT JOIN credential_artifact_risk_read_models risk
+      ON risk.credential_artifact_id = ca.id
+    WHERE ca.expired_at IS NULL
+      AND ca.last_observed_run_id IS NOT NULL
+      AND (
+        risk.credential_artifact_id IS NULL
+        OR risk.policy_packs_json = '[]'::jsonb
+      )
+  )
+  OR EXISTS (
+    SELECT 1
     FROM non_human_principals nhp
     WHERE nhp.projection_refreshed_at IS NULL
       OR nhp.policy_packs_json = '[]'::jsonb
@@ -1447,6 +1647,63 @@ func (q *Queries) UpsertConnectorSourceState(ctx context.Context, arg UpsertConn
 		arg.FreshUntilAt,
 	)
 	return err
+}
+
+const upsertCredentialArtifactRiskReadModelsBulk = `-- name: UpsertCredentialArtifactRiskReadModelsBulk :execrows
+WITH input AS (
+  SELECT
+    i,
+    ($1::bigint[])[i] AS credential_artifact_id,
+    ($2::text[])[i] AS risk_level,
+    ($3::int[])[i] AS risk_rank,
+    ($4::jsonb[])[i] AS risk_signals_json,
+    ($5::jsonb[])[i] AS policy_packs_json
+  FROM generate_subscripts($1::bigint[], 1) AS s(i)
+)
+INSERT INTO credential_artifact_risk_read_models (
+  credential_artifact_id,
+  risk_level,
+  risk_rank,
+  risk_signals_json,
+  policy_packs_json,
+  projection_refreshed_at
+)
+SELECT
+  input.credential_artifact_id,
+  input.risk_level,
+  input.risk_rank,
+  input.risk_signals_json,
+  input.policy_packs_json,
+  now()
+FROM input
+ON CONFLICT (credential_artifact_id) DO UPDATE SET
+  risk_level = EXCLUDED.risk_level,
+  risk_rank = EXCLUDED.risk_rank,
+  risk_signals_json = EXCLUDED.risk_signals_json,
+  policy_packs_json = EXCLUDED.policy_packs_json,
+  projection_refreshed_at = now()
+`
+
+type UpsertCredentialArtifactRiskReadModelsBulkParams struct {
+	CredentialArtifactIds []int64  `json:"credential_artifact_ids"`
+	RiskLevels            []string `json:"risk_levels"`
+	RiskRanks             []int32  `json:"risk_ranks"`
+	RiskSignalsJsons      [][]byte `json:"risk_signals_jsons"`
+	PolicyPacksJsons      [][]byte `json:"policy_packs_jsons"`
+}
+
+func (q *Queries) UpsertCredentialArtifactRiskReadModelsBulk(ctx context.Context, arg UpsertCredentialArtifactRiskReadModelsBulkParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertCredentialArtifactRiskReadModelsBulk,
+		arg.CredentialArtifactIds,
+		arg.RiskLevels,
+		arg.RiskRanks,
+		arg.RiskSignalsJsons,
+		arg.PolicyPacksJsons,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const upsertNonHumanPrincipalReadModelsBulk = `-- name: UpsertNonHumanPrincipalReadModelsBulk :execrows

@@ -55,7 +55,7 @@ func TestNonHumanAccessReadModelsAndMetrics(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("UpsertAppAssetGovernance(service): %v", err)
 		}
-		insertCredentialArtifact(t, ctx, pool, entraRunID, credentialArtifactSeed{
+		ownedCredentialID := insertCredentialArtifact(t, ctx, pool, entraRunID, credentialArtifactSeed{
 			SourceKind:          "entra",
 			SourceName:          "tenant-1",
 			AssetRefKind:        "app_asset",
@@ -76,7 +76,7 @@ func TestNonHumanAccessReadModelsAndMetrics(t *testing.T) {
 			ExternalID:  "github-actions",
 			DisplayName: "GitHub Actions",
 		})
-		insertCredentialArtifact(t, ctx, pool, githubRunID, credentialArtifactSeed{
+		unownedCredentialID := insertCredentialArtifact(t, ctx, pool, githubRunID, credentialArtifactSeed{
 			SourceKind:         "github",
 			SourceName:         "acme",
 			AssetRefKind:       "app_asset",
@@ -87,6 +87,8 @@ func TestNonHumanAccessReadModelsAndMetrics(t *testing.T) {
 			Status:             "active",
 			LastUsedAtSource:   now.Add(-120 * 24 * time.Hour),
 		})
+		insertCredentialRiskReadModel(t, ctx, pool, ownedCredentialID, "critical", 4)
+		insertCredentialRiskReadModel(t, ctx, pool, unownedCredentialID, "critical", 4)
 
 		if _, err := q.RefreshAllAppAssetReadModels(ctx); err != nil {
 			t.Fatalf("RefreshAllAppAssetReadModels(): %v", err)
@@ -193,6 +195,30 @@ func TestNonHumanAccessReadModelsAndMetrics(t *testing.T) {
 			t.Fatalf("weekly sessions = %d want 1", weeklySessions)
 		}
 	})
+}
+
+func insertCredentialRiskReadModel(t *testing.T, ctx context.Context, pool *pgxpool.Pool, credentialID int64, riskLevel string, riskRank int) {
+	t.Helper()
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO credential_artifact_risk_read_models (
+			credential_artifact_id,
+			risk_level,
+			risk_rank,
+			risk_signals_json,
+			policy_packs_json,
+			projection_refreshed_at
+		)
+		VALUES ($1, $2, $3, '[]'::jsonb, '[{"id":"builtin-credential-risk","version":"1.0.0"}]'::jsonb, now())
+		ON CONFLICT (credential_artifact_id) DO UPDATE SET
+			risk_level = EXCLUDED.risk_level,
+			risk_rank = EXCLUDED.risk_rank,
+			risk_signals_json = EXCLUDED.risk_signals_json,
+			policy_packs_json = EXCLUDED.policy_packs_json,
+			projection_refreshed_at = now()
+	`, credentialID, riskLevel, riskRank); err != nil {
+		t.Fatalf("insert credential risk read model %d: %v", credentialID, err)
+	}
 }
 
 func TestRefreshNonHumanPrincipalReadModelsBySourceKeepsUnrelatedRowsUntouched(t *testing.T) {

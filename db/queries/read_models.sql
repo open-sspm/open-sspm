@@ -76,6 +76,18 @@ SELECT (
   )
   OR EXISTS (
     SELECT 1
+    FROM credential_artifacts ca
+    LEFT JOIN credential_artifact_risk_read_models risk
+      ON risk.credential_artifact_id = ca.id
+    WHERE ca.expired_at IS NULL
+      AND ca.last_observed_run_id IS NOT NULL
+      AND (
+        risk.credential_artifact_id IS NULL
+        OR risk.policy_packs_json = '[]'::jsonb
+      )
+  )
+  OR EXISTS (
+    SELECT 1
     FROM non_human_principals nhp
     WHERE nhp.projection_refreshed_at IS NULL
       OR nhp.policy_packs_json = '[]'::jsonb
@@ -251,6 +263,96 @@ ON CONFLICT (saas_app_id) DO UPDATE SET
   suggested_data_classification = EXCLUDED.suggested_data_classification,
   effective_business_criticality = EXCLUDED.effective_business_criticality,
   effective_data_classification = EXCLUDED.effective_data_classification,
+  policy_packs_json = EXCLUDED.policy_packs_json,
+  projection_refreshed_at = now();
+
+-- name: DeleteAllCredentialArtifactRiskReadModels :exec
+DELETE FROM credential_artifact_risk_read_models;
+
+-- name: DeleteCredentialArtifactRiskReadModelsBySource :exec
+DELETE FROM credential_artifact_risk_read_models risk
+USING credential_artifacts ca
+WHERE risk.credential_artifact_id = ca.id
+  AND lower(trim(ca.source_kind)) = lower(trim(sqlc.arg(source_kind)::text))
+  AND lower(trim(ca.source_name)) = lower(trim(sqlc.arg(source_name)::text));
+
+-- name: ListAllCredentialArtifactRiskInputs :many
+SELECT
+  ca.id::bigint AS credential_artifact_id,
+  ca.source_kind::text AS source_kind,
+  ca.source_name::text AS source_name,
+  ca.credential_kind::text AS credential_kind,
+  ca.status::text AS status,
+  ca.expires_at_source::timestamptz AS expires_at_source,
+  ca.last_used_at_source::timestamptz AS last_used_at_source,
+  ca.created_at_source::timestamptz AS created_at_source,
+  ca.created_by_external_id::text AS created_by_external_id,
+  ca.created_by_display_name::text AS created_by_display_name,
+  ca.approved_by_external_id::text AS approved_by_external_id,
+  ca.approved_by_display_name::text AS approved_by_display_name,
+  ca.asset_ref_kind::text AS asset_ref_kind,
+  ca.asset_ref_external_id::text AS asset_ref_external_id,
+  ca.scope_json::jsonb AS scope_json
+FROM credential_artifacts ca
+WHERE ca.expired_at IS NULL
+  AND ca.last_observed_run_id IS NOT NULL
+ORDER BY ca.id ASC;
+
+-- name: ListCredentialArtifactRiskInputsBySource :many
+SELECT
+  ca.id::bigint AS credential_artifact_id,
+  ca.source_kind::text AS source_kind,
+  ca.source_name::text AS source_name,
+  ca.credential_kind::text AS credential_kind,
+  ca.status::text AS status,
+  ca.expires_at_source::timestamptz AS expires_at_source,
+  ca.last_used_at_source::timestamptz AS last_used_at_source,
+  ca.created_at_source::timestamptz AS created_at_source,
+  ca.created_by_external_id::text AS created_by_external_id,
+  ca.created_by_display_name::text AS created_by_display_name,
+  ca.approved_by_external_id::text AS approved_by_external_id,
+  ca.approved_by_display_name::text AS approved_by_display_name,
+  ca.asset_ref_kind::text AS asset_ref_kind,
+  ca.asset_ref_external_id::text AS asset_ref_external_id,
+  ca.scope_json::jsonb AS scope_json
+FROM credential_artifacts ca
+WHERE ca.expired_at IS NULL
+  AND ca.last_observed_run_id IS NOT NULL
+  AND lower(trim(ca.source_kind)) = lower(trim(sqlc.arg(source_kind)::text))
+  AND lower(trim(ca.source_name)) = lower(trim(sqlc.arg(source_name)::text))
+ORDER BY ca.id ASC;
+
+-- name: UpsertCredentialArtifactRiskReadModelsBulk :execrows
+WITH input AS (
+  SELECT
+    i,
+    (sqlc.arg(credential_artifact_ids)::bigint[])[i] AS credential_artifact_id,
+    (sqlc.arg(risk_levels)::text[])[i] AS risk_level,
+    (sqlc.arg(risk_ranks)::int[])[i] AS risk_rank,
+    (sqlc.arg(risk_signals_jsons)::jsonb[])[i] AS risk_signals_json,
+    (sqlc.arg(policy_packs_jsons)::jsonb[])[i] AS policy_packs_json
+  FROM generate_subscripts(sqlc.arg(credential_artifact_ids)::bigint[], 1) AS s(i)
+)
+INSERT INTO credential_artifact_risk_read_models (
+  credential_artifact_id,
+  risk_level,
+  risk_rank,
+  risk_signals_json,
+  policy_packs_json,
+  projection_refreshed_at
+)
+SELECT
+  input.credential_artifact_id,
+  input.risk_level,
+  input.risk_rank,
+  input.risk_signals_json,
+  input.policy_packs_json,
+  now()
+FROM input
+ON CONFLICT (credential_artifact_id) DO UPDATE SET
+  risk_level = EXCLUDED.risk_level,
+  risk_rank = EXCLUDED.risk_rank,
+  risk_signals_json = EXCLUDED.risk_signals_json,
   policy_packs_json = EXCLUDED.policy_packs_json,
   projection_refreshed_at = now();
 

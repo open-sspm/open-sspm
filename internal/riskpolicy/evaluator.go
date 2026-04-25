@@ -43,9 +43,10 @@ type CredentialInput struct {
 }
 
 type CredentialResult struct {
-	RiskLevel string
-	RiskRank  int
-	Signals   []RiskSignal
+	RiskLevel   string
+	RiskRank    int
+	PolicyPacks []PolicyPackRef
+	Signals     []RiskSignal
 }
 
 func EvaluateCredential(input CredentialInput) (CredentialResult, error) {
@@ -76,6 +77,7 @@ func (r *Registry) EvaluateCredential(input CredentialInput) (CredentialResult, 
 			continue
 		}
 		foundPack = true
+		result.PolicyPacks = appendPolicyPackRef(result.PolicyPacks, pack.Policy.Metadata)
 		if pack.Policy.Spec.Aggregation.RiskLevel.Default != "" {
 			defaultLevel = MaxSeverity(defaultLevel, pack.Policy.Spec.Aggregation.RiskLevel.Default)
 		}

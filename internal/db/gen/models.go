@@ -195,6 +195,15 @@ type CredentialArtifact struct {
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
 
+type CredentialArtifactRiskReadModel struct {
+	CredentialArtifactID  int64              `json:"credential_artifact_id"`
+	RiskLevel             string             `json:"risk_level"`
+	RiskRank              int32              `json:"risk_rank"`
+	RiskSignalsJson       []byte             `json:"risk_signals_json"`
+	PolicyPacksJson       []byte             `json:"policy_packs_json"`
+	ProjectionRefreshedAt pgtype.Timestamptz `json:"projection_refreshed_at"`
+}
+
 type CredentialAuditEvent struct {
 	ID                   int64              `json:"id"`
 	SourceKind           string             `json:"source_kind"`

@@ -94,6 +94,18 @@ func (p *Projector) RefreshSaaSAppRiskReadModelByID(ctx context.Context, saasApp
 	})
 }
 
+func (p *Projector) RefreshCredentialArtifactRiskReadModelsBySource(ctx context.Context, sourceKind, sourceName string) error {
+	return p.withQueries(ctx, func(q *gen.Queries) error {
+		return refreshCredentialArtifactRiskReadModelsBySource(ctx, q, sourceKind, sourceName)
+	})
+}
+
+func (p *Projector) RefreshAllCredentialArtifactRiskReadModels(ctx context.Context) error {
+	return p.withQueries(ctx, func(q *gen.Queries) error {
+		return refreshAllCredentialArtifactRiskReadModels(ctx, q)
+	})
+}
+
 func (p *Projector) RefreshAppAssetSource(ctx context.Context, sourceKind, sourceName string) error {
 	return p.withQueries(ctx, func(q *gen.Queries) error {
 		return refreshAppAssetSource(ctx, q, sourceKind, sourceName)
@@ -131,6 +143,9 @@ func (p *Projector) RebuildAllReadModels(ctx context.Context) error {
 			return err
 		}
 		if err := refreshAllSaaSAppRiskReadModels(ctx, q); err != nil {
+			return err
+		}
+		if err := refreshAllCredentialArtifactRiskReadModels(ctx, q); err != nil {
 			return err
 		}
 		return refreshAllNonHumanPrincipalReadModels(ctx, q)
@@ -282,6 +297,24 @@ type nonHumanPrincipalRiskInputRow struct {
 	hasExpiringCredential        bool
 	hasUnusedCredential          bool
 	hasStaleEvidence             bool
+}
+
+type credentialArtifactRiskInputRow struct {
+	credentialArtifactID  int64
+	sourceKind            string
+	sourceName            string
+	credentialKind        string
+	status                string
+	expiresAtSource       pgtype.Timestamptz
+	lastUsedAtSource      pgtype.Timestamptz
+	createdAtSource       pgtype.Timestamptz
+	createdByExternalID   string
+	createdByDisplayName  string
+	approvedByExternalID  string
+	approvedByDisplayName string
+	assetRefKind          string
+	assetRefExternalID    string
+	scopeJSON             []byte
 }
 
 func refreshAllSaaSAppRiskReadModels(ctx context.Context, q *gen.Queries) error {
@@ -467,6 +500,147 @@ func saasPolicyInput(row saasAppRiskInputRow) riskpolicy.SaaSInput {
 		ConnectorBindingEnabled:       row.connectorBindingEnabled,
 		ConnectorBindingStale:         row.connectorBindingStale,
 		ConnectorBindingHealthy:       row.connectorBindingHealthy,
+	}
+}
+
+func refreshAllCredentialArtifactRiskReadModels(ctx context.Context, q *gen.Queries) error {
+	rows, err := q.ListAllCredentialArtifactRiskInputs(ctx)
+	if err != nil {
+		return err
+	}
+	inputs := make([]credentialArtifactRiskInputRow, 0, len(rows))
+	for _, row := range rows {
+		inputs = append(inputs, credentialArtifactRiskInputRowFromAllRow(row))
+	}
+	if err := q.DeleteAllCredentialArtifactRiskReadModels(ctx); err != nil {
+		return err
+	}
+	return refreshCredentialArtifactRiskReadModels(ctx, q, inputs)
+}
+
+func refreshCredentialArtifactRiskReadModelsBySource(ctx context.Context, q *gen.Queries, sourceKind, sourceName string) error {
+	sourceKind = normalizeSourceKind(sourceKind)
+	sourceName = strings.TrimSpace(sourceName)
+	if sourceKind == "" || sourceName == "" {
+		return nil
+	}
+	arg := gen.ListCredentialArtifactRiskInputsBySourceParams{
+		SourceKind: sourceKind,
+		SourceName: sourceName,
+	}
+	rows, err := q.ListCredentialArtifactRiskInputsBySource(ctx, arg)
+	if err != nil {
+		return err
+	}
+	inputs := make([]credentialArtifactRiskInputRow, 0, len(rows))
+	for _, row := range rows {
+		inputs = append(inputs, credentialArtifactRiskInputRowFromSourceRow(row))
+	}
+	if err := q.DeleteCredentialArtifactRiskReadModelsBySource(ctx, gen.DeleteCredentialArtifactRiskReadModelsBySourceParams(arg)); err != nil {
+		return err
+	}
+	return refreshCredentialArtifactRiskReadModels(ctx, q, inputs)
+}
+
+func refreshCredentialArtifactRiskReadModels(ctx context.Context, q *gen.Queries, rows []credentialArtifactRiskInputRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	registry, err := riskpolicy.BuiltinRegistry()
+	if err != nil {
+		return err
+	}
+
+	evaluatedAt := time.Now().UTC()
+	params := gen.UpsertCredentialArtifactRiskReadModelsBulkParams{
+		CredentialArtifactIds: make([]int64, 0, len(rows)),
+		RiskLevels:            make([]string, 0, len(rows)),
+		RiskRanks:             make([]int32, 0, len(rows)),
+		RiskSignalsJsons:      make([][]byte, 0, len(rows)),
+		PolicyPacksJsons:      make([][]byte, 0, len(rows)),
+	}
+	for _, row := range rows {
+		result, err := registry.EvaluateCredential(credentialArtifactPolicyInput(row, evaluatedAt))
+		if err != nil {
+			return err
+		}
+		riskSignalsJSON, err := json.Marshal(result.Signals)
+		if err != nil {
+			return err
+		}
+		policyPacksJSON, err := json.Marshal(result.PolicyPacks)
+		if err != nil {
+			return err
+		}
+
+		params.CredentialArtifactIds = append(params.CredentialArtifactIds, row.credentialArtifactID)
+		params.RiskLevels = append(params.RiskLevels, result.RiskLevel)
+		params.RiskRanks = append(params.RiskRanks, int32(result.RiskRank))
+		params.RiskSignalsJsons = append(params.RiskSignalsJsons, riskSignalsJSON)
+		params.PolicyPacksJsons = append(params.PolicyPacksJsons, policyPacksJSON)
+	}
+
+	_, err = q.UpsertCredentialArtifactRiskReadModelsBulk(ctx, params)
+	return err
+}
+
+func credentialArtifactPolicyInput(row credentialArtifactRiskInputRow, evaluatedAt time.Time) riskpolicy.CredentialInput {
+	return riskpolicy.CredentialInput{
+		SourceKind:            row.sourceKind,
+		SourceName:            row.sourceName,
+		CredentialKind:        row.credentialKind,
+		Status:                row.status,
+		ExpiresAt:             timestamptzPtr(row.expiresAtSource),
+		LastUsedAt:            timestamptzPtr(row.lastUsedAtSource),
+		CreatedAt:             timestamptzPtr(row.createdAtSource),
+		CreatedByExternalID:   row.createdByExternalID,
+		CreatedByDisplayName:  row.createdByDisplayName,
+		ApprovedByExternalID:  row.approvedByExternalID,
+		ApprovedByDisplayName: row.approvedByDisplayName,
+		AssetRefKind:          row.assetRefKind,
+		AssetRefExternalID:    row.assetRefExternalID,
+		ScopeJSON:             row.scopeJSON,
+		EvaluatedAt:           evaluatedAt,
+	}
+}
+
+func credentialArtifactRiskInputRowFromAllRow(row gen.ListAllCredentialArtifactRiskInputsRow) credentialArtifactRiskInputRow {
+	return credentialArtifactRiskInputRow{
+		credentialArtifactID:  row.CredentialArtifactID,
+		sourceKind:            row.SourceKind,
+		sourceName:            row.SourceName,
+		credentialKind:        row.CredentialKind,
+		status:                row.Status,
+		expiresAtSource:       row.ExpiresAtSource,
+		lastUsedAtSource:      row.LastUsedAtSource,
+		createdAtSource:       row.CreatedAtSource,
+		createdByExternalID:   row.CreatedByExternalID,
+		createdByDisplayName:  row.CreatedByDisplayName,
+		approvedByExternalID:  row.ApprovedByExternalID,
+		approvedByDisplayName: row.ApprovedByDisplayName,
+		assetRefKind:          row.AssetRefKind,
+		assetRefExternalID:    row.AssetRefExternalID,
+		scopeJSON:             row.ScopeJson,
+	}
+}
+
+func credentialArtifactRiskInputRowFromSourceRow(row gen.ListCredentialArtifactRiskInputsBySourceRow) credentialArtifactRiskInputRow {
+	return credentialArtifactRiskInputRow{
+		credentialArtifactID:  row.CredentialArtifactID,
+		sourceKind:            row.SourceKind,
+		sourceName:            row.SourceName,
+		credentialKind:        row.CredentialKind,
+		status:                row.Status,
+		expiresAtSource:       row.ExpiresAtSource,
+		lastUsedAtSource:      row.LastUsedAtSource,
+		createdAtSource:       row.CreatedAtSource,
+		createdByExternalID:   row.CreatedByExternalID,
+		createdByDisplayName:  row.CreatedByDisplayName,
+		approvedByExternalID:  row.ApprovedByExternalID,
+		approvedByDisplayName: row.ApprovedByDisplayName,
+		assetRefKind:          row.AssetRefKind,
+		assetRefExternalID:    row.AssetRefExternalID,
+		scopeJSON:             row.ScopeJson,
 	}
 }
 
