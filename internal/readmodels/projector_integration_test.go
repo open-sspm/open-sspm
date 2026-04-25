@@ -379,6 +379,9 @@ func TestProjectorNonHumanPolicyRiskFeedsFiltersSortAndMetrics(t *testing.T) {
 		}
 
 		projector := NewProjector(pool, nil, RefreshConfig{})
+		if err := projector.RefreshAllCredentialArtifactRiskReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllCredentialArtifactRiskReadModels(): %v", err)
+		}
 		if err := projector.RefreshAllNonHumanPrincipalReadModels(ctx); err != nil {
 			t.Fatalf("RefreshAllNonHumanPrincipalReadModels(): %v", err)
 		}
