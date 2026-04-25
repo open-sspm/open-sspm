@@ -2,6 +2,7 @@ package riskpolicy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -67,7 +68,7 @@ func TestEvaluateSaaSGoldenCases(t *testing.T) {
 	}
 }
 
-func TestEvaluateSaaSMatchesDiscoveryReadModelView(t *testing.T) {
+func TestEvaluateSaaSStoredRiskMatchesDiscoveryReadModelView(t *testing.T) {
 	t.Parallel()
 
 	registry, err := LoadBuiltin()
@@ -83,29 +84,32 @@ func TestEvaluateSaaSMatchesDiscoveryReadModelView(t *testing.T) {
 		for i, tc := range saasParityCases() {
 			t.Run(tc.name, func(t *testing.T) {
 				appID := insertSaaSParityApp(t, ctx, pool, i, tc, ownerID, now)
-				row := getSaaSParityReadModel(t, ctx, pool, appID)
+				input := saasParityInput(i, tc, ownerID)
 
-				result, err := registry.EvaluateSaaS(row.input())
+				result, err := registry.EvaluateSaaS(input)
 				if err != nil {
 					t.Fatalf("EvaluateSaaS() error = %v", err)
 				}
+				upsertSaaSParityRiskReadModel(t, ctx, pool, appID, result)
+
+				row := getSaaSParityReadModel(t, ctx, pool, appID)
 				if result.RiskScore != int(row.RiskScore) {
-					t.Fatalf("policy RiskScore = %d, SQL risk_score = %d", result.RiskScore, row.RiskScore)
+					t.Fatalf("policy RiskScore = %d, stored view risk_score = %d", result.RiskScore, row.RiskScore)
 				}
 				if result.RiskLevel != row.RiskLevel {
-					t.Fatalf("policy RiskLevel = %q, SQL risk_level = %q", result.RiskLevel, row.RiskLevel)
+					t.Fatalf("policy RiskLevel = %q, stored view risk_level = %q", result.RiskLevel, row.RiskLevel)
 				}
 				if result.SuggestedBusinessCriticality != row.SuggestedBusinessCriticality {
-					t.Fatalf("policy SuggestedBusinessCriticality = %q, SQL suggested_business_criticality = %q", result.SuggestedBusinessCriticality, row.SuggestedBusinessCriticality)
+					t.Fatalf("policy SuggestedBusinessCriticality = %q, stored view suggested_business_criticality = %q", result.SuggestedBusinessCriticality, row.SuggestedBusinessCriticality)
 				}
 				if result.SuggestedDataClassification != row.SuggestedDataClassification {
-					t.Fatalf("policy SuggestedDataClassification = %q, SQL suggested_data_classification = %q", result.SuggestedDataClassification, row.SuggestedDataClassification)
+					t.Fatalf("policy SuggestedDataClassification = %q, stored view suggested_data_classification = %q", result.SuggestedDataClassification, row.SuggestedDataClassification)
 				}
 				if result.EffectiveBusinessCriticality != row.EffectiveBusinessCriticality {
-					t.Fatalf("policy EffectiveBusinessCriticality = %q, SQL effective_business_criticality = %q", result.EffectiveBusinessCriticality, row.EffectiveBusinessCriticality)
+					t.Fatalf("policy EffectiveBusinessCriticality = %q, stored view effective_business_criticality = %q", result.EffectiveBusinessCriticality, row.EffectiveBusinessCriticality)
 				}
 				if result.EffectiveDataClassification != row.EffectiveDataClassification {
-					t.Fatalf("policy EffectiveDataClassification = %q, SQL effective_data_classification = %q", result.EffectiveDataClassification, row.EffectiveDataClassification)
+					t.Fatalf("policy EffectiveDataClassification = %q, stored view effective_data_classification = %q", result.EffectiveDataClassification, row.EffectiveDataClassification)
 				}
 			})
 		}
@@ -155,6 +159,139 @@ spec:
 	}
 	if !strings.Contains(err.Error(), "multiple saas risk policy packs") {
 		t.Fatalf("EvaluateSaaS() error = %v, want duplicate pack error", err)
+	}
+}
+
+func TestEvaluateSaaSAllowsDifferentScopedSignalsWithSameInnerRuleID(t *testing.T) {
+	t.Parallel()
+
+	registry, err := LoadDocuments(map[string][]byte{
+		"global.yaml": []byte(`
+api_version: risk.open-sspm.io/v1
+kind: RiskPolicyPack
+metadata:
+  id: global
+  version: 1.0.0
+  domain: saas
+spec:
+  inputs:
+    schema: saas_app_risk_input.v1
+  levels:
+    - level: low
+      when: "true"
+`),
+		"scoped.yaml": []byte(`
+api_version: risk.open-sspm.io/v1
+kind: RiskPolicyPack
+metadata:
+  id: scoped
+  version: 1.0.0
+  domain: saas
+spec:
+  scoped_rules:
+    - id: github_owner_policy
+      scope:
+        app:
+          canonical_key: github
+      rules:
+        - id: missing_owner
+          severity: high
+          score_delta: 5
+          when: owner_identity_id == 0
+          title: GitHub app has no owner
+    - id: github_security_policy
+      scope:
+        app:
+          canonical_key: github
+      rules:
+        - id: missing_owner
+          severity: medium
+          score_delta: 7
+          when: owner_identity_id == 0
+          title: GitHub security review owner is missing
+`),
+	})
+	if err != nil {
+		t.Fatalf("LoadDocuments() error = %v", err)
+	}
+
+	result, err := registry.EvaluateSaaS(SaaSInput{
+		CanonicalKey:    "github",
+		OwnerIdentityID: 0,
+	})
+	if err != nil {
+		t.Fatalf("EvaluateSaaS() error = %v", err)
+	}
+	if result.RiskScore != 12 {
+		t.Fatalf("RiskScore = %d, want 12; result=%+v", result.RiskScore, result)
+	}
+	if len(result.Signals) != 2 {
+		t.Fatalf("len(Signals) = %d, want 2; signals=%+v", len(result.Signals), result.Signals)
+	}
+	gotTitles := []string{result.Signals[0].Title, result.Signals[1].Title}
+	wantTitles := []string{
+		"GitHub app has no owner",
+		"GitHub security review owner is missing",
+	}
+	if !sameStringSet(gotTitles, wantTitles) {
+		t.Fatalf("signal titles = %v, want %v", gotTitles, wantTitles)
+	}
+}
+
+func TestEvaluateSaaSNormalizesAWSIdentityCenterSourceKindForScopedRules(t *testing.T) {
+	t.Parallel()
+
+	registry, err := LoadDocuments(map[string][]byte{
+		"global.yaml": []byte(`
+api_version: risk.open-sspm.io/v1
+kind: RiskPolicyPack
+metadata:
+  id: global
+  version: 1.0.0
+  domain: saas
+spec:
+  inputs:
+    schema: saas_app_risk_input.v1
+  levels:
+    - level: low
+      when: "true"
+`),
+		"scoped.yaml": []byte(`
+api_version: risk.open-sspm.io/v1
+kind: RiskPolicyPack
+metadata:
+  id: scoped
+  version: 1.0.0
+  domain: saas
+spec:
+  scoped_rules:
+    - id: aws_policy
+      scope:
+        app:
+          source_kind: aws
+      rules:
+        - id: aws_scoped_signal
+          severity: medium
+          score_delta: 11
+          when: "true"
+          title: AWS app matched scoped source policy
+`),
+	})
+	if err != nil {
+		t.Fatalf("LoadDocuments() error = %v", err)
+	}
+
+	result, err := registry.EvaluateSaaS(SaaSInput{
+		SourceKind: "aws_identity_center",
+	})
+	if err != nil {
+		t.Fatalf("EvaluateSaaS() error = %v", err)
+	}
+	if result.RiskScore != 11 {
+		t.Fatalf("RiskScore = %d, want 11; result=%+v", result.RiskScore, result)
+	}
+	if len(result.Signals) != 1 || result.Signals[0].ID != "aws_scoped_signal" {
+		t.Fatalf("signals = %+v, want aws scoped signal", result.Signals)
 	}
 }
 
@@ -263,9 +400,10 @@ func saasGoldenCases() []saasGoldenCase {
 			wantSignalIDs:                    []string{"privileged_scopes"},
 		},
 		{
-			name: "github missing owner matches scoped policy",
+			name: "github missing owner matches scoped policy by domain",
 			input: SaaSInput{
-				CanonicalKey:    "github",
+				CanonicalKey:    "domain:github.com",
+				PrimaryDomain:   "github.com",
 				ManagedState:    "managed",
 				OwnerIdentityID: 0,
 			},
@@ -281,28 +419,66 @@ func saasGoldenCases() []saasGoldenCase {
 			},
 		},
 		{
-			name: "finance category suggestions feed global scoring",
+			name: "github missing owner matches scoped policy by vendor",
+			input: SaaSInput{
+				CanonicalKey:    "okta_app:acme.okta.com:00ogithub",
+				VendorName:      "GitHub",
+				ManagedState:    "managed",
+				OwnerIdentityID: 0,
+			},
+			wantScore:                        35,
+			wantLevel:                        SeverityMedium,
+			wantBusinessCriticality:          "high",
+			wantDataClassification:           "internal",
+			wantEffectiveBusinessCriticality: "high",
+			wantEffectiveDataClassification:  "internal",
+			wantSignalIDs: []string{
+				"missing_owner",
+				"github_missing_owner",
+			},
+		},
+		{
+			name: "github domain and vendor do not double score scoped policy",
+			input: SaaSInput{
+				CanonicalKey:    "domain:github.com",
+				PrimaryDomain:   "github.com",
+				VendorName:      "GitHub",
+				ManagedState:    "managed",
+				OwnerIdentityID: 0,
+			},
+			wantScore:                        35,
+			wantLevel:                        SeverityMedium,
+			wantBusinessCriticality:          "high",
+			wantDataClassification:           "internal",
+			wantEffectiveBusinessCriticality: "high",
+			wantEffectiveDataClassification:  "internal",
+			wantSignalIDs: []string{
+				"missing_owner",
+				"github_missing_owner",
+			},
+		},
+		{
+			name: "category selectors are dormant until app catalog exists",
 			input: SaaSInput{
 				Category:        "finance",
 				ManagedState:    "unmanaged",
 				OwnerIdentityID: 42,
 			},
-			wantScore:                        60,
-			wantLevel:                        SeverityHigh,
-			wantBusinessCriticality:          "high",
-			wantDataClassification:           "restricted",
-			wantEffectiveBusinessCriticality: "high",
-			wantEffectiveDataClassification:  "restricted",
+			wantScore:                        45,
+			wantLevel:                        SeverityMedium,
+			wantBusinessCriticality:          "low",
+			wantDataClassification:           "internal",
+			wantEffectiveBusinessCriticality: "low",
+			wantEffectiveDataClassification:  "internal",
 			wantSignalIDs: []string{
 				"unmanaged_app",
-				"unmanaged_high_business_app",
-				"unmanaged_sensitive_data_app",
 			},
 		},
 		{
 			name: "github policy does not lower critical usage suggestion",
 			input: SaaSInput{
-				CanonicalKey:    "github",
+				CanonicalKey:    "domain:github.com",
+				PrimaryDomain:   "github.com",
 				Actors30d:       250,
 				ManagedState:    "managed",
 				OwnerIdentityID: 42,
@@ -427,26 +603,103 @@ type saasParityReadModel struct {
 	SuggestedDataClassification  string
 }
 
-func (row saasParityReadModel) input() SaaSInput {
-	return SaaSInput{
-		CanonicalKey:                 row.CanonicalKey,
-		DisplayName:                  row.DisplayName,
-		PrimaryDomain:                row.PrimaryDomain,
-		VendorName:                   row.VendorName,
-		Actors30d:                    row.Actors30d,
-		HasPrivilegedScope:           row.HasPrivilegedScope,
-		HasConfidentialScope:         row.HasConfidentialScope,
-		ManagedState:                 row.ManagedState,
-		ManagedReason:                row.ManagedReason,
-		OwnerIdentityID:              row.OwnerIdentityID,
-		GovernanceState:              row.GovernanceState,
-		ReviewDisposition:            row.ReviewDisposition,
-		EffectiveBusinessCriticality: row.EffectiveBusinessCriticality,
-		EffectiveDataClassification:  row.EffectiveDataClassification,
-		ConnectorBindingConfigured:   row.ConnectorConfigured,
-		ConnectorBindingEnabled:      row.ConnectorEnabled,
-		ConnectorBindingStale:        row.ConnectorStale,
-		ConnectorBindingHealthy:      row.ConnectorHealthy,
+func saasParityInput(index int, tc saasParityCase, ownerID int64) SaaSInput {
+	canonicalKey := fmt.Sprintf("saas-risk-parity-%d", index)
+	input := SaaSInput{
+		CanonicalKey:                 canonicalKey,
+		DisplayName:                  fmt.Sprintf("SaaS Risk Parity %d", index),
+		PrimaryDomain:                canonicalKey + ".example.com",
+		VendorName:                   "Example",
+		Actors30d:                    tc.actors30d,
+		HasPrivilegedScope:           tc.hasPrivilegedScope,
+		HasConfidentialScope:         tc.hasConfidentialScope,
+		ManagedState:                 "unmanaged",
+		ManagedReason:                "no_binding",
+		GovernanceState:              "unreviewed",
+		ReviewDisposition:            "unreviewed",
+		EffectiveBusinessCriticality: configuredOrUnknown(tc.effectiveBusinessCriticality),
+		EffectiveDataClassification:  configuredOrUnknown(tc.effectiveDataClassification),
+	}
+	if tc.hasOwner {
+		input.OwnerIdentityID = ownerID
+	}
+
+	if tc.bindingState == "" {
+		return input
+	}
+
+	input.SourceKind = "entra"
+	input.SourceName = fmt.Sprintf("tenant-%d", index)
+	input.ConnectorBindingConfigured = true
+	input.ConnectorBindingEnabled = true
+	switch tc.bindingState {
+	case "disabled":
+		input.ManagedReason = "connector_disabled"
+		input.ConnectorBindingEnabled = false
+	case "not_configured":
+		input.ManagedReason = "connector_not_configured"
+		input.ConnectorBindingConfigured = false
+	case "stale":
+		input.ManagedReason = "stale_sync"
+		input.ConnectorBindingStale = true
+	case "managed":
+		input.ManagedState = "managed"
+		input.ManagedReason = "active_binding_fresh_sync"
+		input.ConnectorBindingHealthy = true
+	}
+	return input
+}
+
+func configuredOrUnknown(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "unknown"
+	}
+	return value
+}
+
+func upsertSaaSParityRiskReadModel(t *testing.T, ctx context.Context, pool *pgxpool.Pool, appID int64, result SaaSResult) {
+	t.Helper()
+
+	policyPacksJSON, err := json.Marshal(result.PolicyPacks)
+	if err != nil {
+		t.Fatalf("marshal policy packs: %v", err)
+	}
+
+	_, err = pool.Exec(ctx, `
+		INSERT INTO saas_app_risk_read_models (
+			saas_app_id,
+			risk_score,
+			risk_level,
+			risk_rank,
+			suggested_business_criticality,
+			suggested_data_classification,
+			effective_business_criticality,
+			effective_data_classification,
+			policy_packs_json
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		ON CONFLICT (saas_app_id) DO UPDATE SET
+			risk_score = EXCLUDED.risk_score,
+			risk_level = EXCLUDED.risk_level,
+			risk_rank = EXCLUDED.risk_rank,
+			suggested_business_criticality = EXCLUDED.suggested_business_criticality,
+			suggested_data_classification = EXCLUDED.suggested_data_classification,
+			effective_business_criticality = EXCLUDED.effective_business_criticality,
+			effective_data_classification = EXCLUDED.effective_data_classification,
+			policy_packs_json = EXCLUDED.policy_packs_json,
+			projection_refreshed_at = now()
+	`, appID,
+		result.RiskScore,
+		result.RiskLevel,
+		result.RiskRank,
+		result.SuggestedBusinessCriticality,
+		result.SuggestedDataClassification,
+		result.EffectiveBusinessCriticality,
+		result.EffectiveDataClassification,
+		policyPacksJSON,
+	)
+	if err != nil {
+		t.Fatalf("upsert saas app risk read model: %v", err)
 	}
 }
 

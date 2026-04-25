@@ -748,6 +748,12 @@ func refreshCommandSearchSourceReadModels(t *testing.T, ctx context.Context, q *
 	if err := projector.RefreshAppAssetSource(ctx, sourceKind, sourceName); err != nil {
 		t.Fatalf("RefreshAppAssetSource(%s/%s): %v", sourceKind, sourceName, err)
 	}
+	if err := projector.RefreshConnectorSourceState(ctx); err != nil {
+		t.Fatalf("RefreshConnectorSourceState(): %v", err)
+	}
+	if err := projector.RefreshSaaSAppRiskReadModelsBySource(ctx, sourceKind, sourceName); err != nil {
+		t.Fatalf("RefreshSaaSAppRiskReadModelsBySource(%s/%s): %v", sourceKind, sourceName, err)
+	}
 	if err := projector.RefreshNonHumanPrincipalSourceReadModels(ctx, sourceKind, sourceName); err != nil {
 		t.Fatalf("RefreshNonHumanPrincipalSourceReadModels(%s/%s): %v", sourceKind, sourceName, err)
 	}

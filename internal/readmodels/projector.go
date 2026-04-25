@@ -2,6 +2,7 @@ package readmodels
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/riskpolicy"
 )
 
 type Projector struct {
@@ -72,6 +74,24 @@ func (p *Projector) RefreshDiscoverySource(ctx context.Context, sourceKind, sour
 	})
 }
 
+func (p *Projector) RefreshSaaSAppRiskReadModelsBySource(ctx context.Context, sourceKind, sourceName string) error {
+	return p.withQueries(ctx, func(q *gen.Queries) error {
+		return refreshSaaSAppRiskReadModelsBySource(ctx, q, sourceKind, sourceName)
+	})
+}
+
+func (p *Projector) RefreshAllSaaSAppRiskReadModels(ctx context.Context) error {
+	return p.withQueries(ctx, func(q *gen.Queries) error {
+		return refreshAllSaaSAppRiskReadModels(ctx, q)
+	})
+}
+
+func (p *Projector) RefreshSaaSAppRiskReadModelByID(ctx context.Context, saasAppID int64) error {
+	return p.withQueries(ctx, func(q *gen.Queries) error {
+		return refreshSaaSAppRiskReadModelByID(ctx, q, saasAppID)
+	})
+}
+
 func (p *Projector) RefreshAppAssetSource(ctx context.Context, sourceKind, sourceName string) error {
 	return p.withQueries(ctx, func(q *gen.Queries) error {
 		return refreshAppAssetSource(ctx, q, sourceKind, sourceName)
@@ -100,6 +120,9 @@ func (p *Projector) RebuildAllReadModels(ctx context.Context) error {
 			return err
 		}
 		if err := refreshConnectorSourceState(ctx, q, p.cfg); err != nil {
+			return err
+		}
+		if err := refreshAllSaaSAppRiskReadModels(ctx, q); err != nil {
 			return err
 		}
 		_, err := q.RefreshAllNonHumanPrincipalReadModelsSafely(ctx)
@@ -199,6 +222,222 @@ func refreshDiscoverySource(ctx context.Context, q *gen.Queries, sourceKind, sou
 		SourceName: sourceName,
 	})
 	return err
+}
+
+type saasAppRiskInputRow struct {
+	saasAppID                     int64
+	canonicalKey                  string
+	displayName                   string
+	primaryDomain                 string
+	vendorName                    string
+	sourceKind                    string
+	sourceName                    string
+	actors30d                     int64
+	hasPrivilegedScope            bool
+	hasConfidentialScope          bool
+	managedState                  string
+	managedReason                 string
+	ownerIdentityID               int64
+	governanceState               string
+	reviewDisposition             string
+	followUpDueDate               pgtype.Date
+	configuredBusinessCriticality string
+	configuredDataClassification  string
+	connectorBindingConfigured    bool
+	connectorBindingEnabled       bool
+	connectorBindingStale         bool
+	connectorBindingHealthy       bool
+}
+
+func refreshAllSaaSAppRiskReadModels(ctx context.Context, q *gen.Queries) error {
+	rows, err := q.ListAllSaaSAppRiskInputs(ctx)
+	if err != nil {
+		return err
+	}
+	inputs := make([]saasAppRiskInputRow, 0, len(rows))
+	for _, row := range rows {
+		inputs = append(inputs, saasAppRiskInputRow{
+			saasAppID:                     row.SaasAppID,
+			canonicalKey:                  row.CanonicalKey,
+			displayName:                   row.DisplayName,
+			primaryDomain:                 row.PrimaryDomain,
+			vendorName:                    row.VendorName,
+			sourceKind:                    row.SourceKind,
+			sourceName:                    row.SourceName,
+			actors30d:                     row.Actors30d,
+			hasPrivilegedScope:            row.HasPrivilegedScope,
+			hasConfidentialScope:          row.HasConfidentialScope,
+			managedState:                  row.ManagedState,
+			managedReason:                 row.ManagedReason,
+			ownerIdentityID:               row.OwnerIdentityID,
+			governanceState:               row.GovernanceState,
+			reviewDisposition:             row.ReviewDisposition,
+			followUpDueDate:               row.FollowUpDueDate,
+			configuredBusinessCriticality: row.ConfiguredBusinessCriticality,
+			configuredDataClassification:  row.ConfiguredDataClassification,
+			connectorBindingConfigured:    row.ConnectorBindingConfigured,
+			connectorBindingEnabled:       row.ConnectorBindingEnabled,
+			connectorBindingStale:         row.ConnectorBindingStale,
+			connectorBindingHealthy:       row.ConnectorBindingHealthy,
+		})
+	}
+	return refreshSaaSAppRiskReadModels(ctx, q, inputs)
+}
+
+func refreshSaaSAppRiskReadModelsBySource(ctx context.Context, q *gen.Queries, sourceKind, sourceName string) error {
+	sourceKind = normalizeSourceKind(sourceKind)
+	sourceName = strings.TrimSpace(sourceName)
+	if sourceKind == "" || sourceName == "" {
+		return nil
+	}
+	rows, err := q.ListSaaSAppRiskInputsBySource(ctx, gen.ListSaaSAppRiskInputsBySourceParams{
+		SourceKind: sourceKind,
+		SourceName: sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	inputs := make([]saasAppRiskInputRow, 0, len(rows))
+	for _, row := range rows {
+		inputs = append(inputs, saasAppRiskInputRow{
+			saasAppID:                     row.SaasAppID,
+			canonicalKey:                  row.CanonicalKey,
+			displayName:                   row.DisplayName,
+			primaryDomain:                 row.PrimaryDomain,
+			vendorName:                    row.VendorName,
+			sourceKind:                    row.SourceKind,
+			sourceName:                    row.SourceName,
+			actors30d:                     row.Actors30d,
+			hasPrivilegedScope:            row.HasPrivilegedScope,
+			hasConfidentialScope:          row.HasConfidentialScope,
+			managedState:                  row.ManagedState,
+			managedReason:                 row.ManagedReason,
+			ownerIdentityID:               row.OwnerIdentityID,
+			governanceState:               row.GovernanceState,
+			reviewDisposition:             row.ReviewDisposition,
+			followUpDueDate:               row.FollowUpDueDate,
+			configuredBusinessCriticality: row.ConfiguredBusinessCriticality,
+			configuredDataClassification:  row.ConfiguredDataClassification,
+			connectorBindingConfigured:    row.ConnectorBindingConfigured,
+			connectorBindingEnabled:       row.ConnectorBindingEnabled,
+			connectorBindingStale:         row.ConnectorBindingStale,
+			connectorBindingHealthy:       row.ConnectorBindingHealthy,
+		})
+	}
+	return refreshSaaSAppRiskReadModels(ctx, q, inputs)
+}
+
+func refreshSaaSAppRiskReadModelByID(ctx context.Context, q *gen.Queries, saasAppID int64) error {
+	if saasAppID <= 0 {
+		return nil
+	}
+	row, err := q.GetSaaSAppRiskInputByID(ctx, saasAppID)
+	if err != nil {
+		return err
+	}
+	return refreshSaaSAppRiskReadModels(ctx, q, []saasAppRiskInputRow{{
+		saasAppID:                     row.SaasAppID,
+		canonicalKey:                  row.CanonicalKey,
+		displayName:                   row.DisplayName,
+		primaryDomain:                 row.PrimaryDomain,
+		vendorName:                    row.VendorName,
+		sourceKind:                    row.SourceKind,
+		sourceName:                    row.SourceName,
+		actors30d:                     row.Actors30d,
+		hasPrivilegedScope:            row.HasPrivilegedScope,
+		hasConfidentialScope:          row.HasConfidentialScope,
+		managedState:                  row.ManagedState,
+		managedReason:                 row.ManagedReason,
+		ownerIdentityID:               row.OwnerIdentityID,
+		governanceState:               row.GovernanceState,
+		reviewDisposition:             row.ReviewDisposition,
+		followUpDueDate:               row.FollowUpDueDate,
+		configuredBusinessCriticality: row.ConfiguredBusinessCriticality,
+		configuredDataClassification:  row.ConfiguredDataClassification,
+		connectorBindingConfigured:    row.ConnectorBindingConfigured,
+		connectorBindingEnabled:       row.ConnectorBindingEnabled,
+		connectorBindingStale:         row.ConnectorBindingStale,
+		connectorBindingHealthy:       row.ConnectorBindingHealthy,
+	}})
+}
+
+func refreshSaaSAppRiskReadModels(ctx context.Context, q *gen.Queries, rows []saasAppRiskInputRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	registry, err := riskpolicy.BuiltinRegistry()
+	if err != nil {
+		return err
+	}
+
+	params := gen.UpsertSaaSAppRiskReadModelsBulkParams{
+		SaasAppIds:                     make([]int64, 0, len(rows)),
+		RiskScores:                     make([]int32, 0, len(rows)),
+		RiskLevels:                     make([]string, 0, len(rows)),
+		RiskRanks:                      make([]int32, 0, len(rows)),
+		SuggestedBusinessCriticalities: make([]string, 0, len(rows)),
+		SuggestedDataClassifications:   make([]string, 0, len(rows)),
+		EffectiveBusinessCriticalities: make([]string, 0, len(rows)),
+		EffectiveDataClassifications:   make([]string, 0, len(rows)),
+		PolicyPacksJsons:               make([][]byte, 0, len(rows)),
+	}
+	for _, row := range rows {
+		result, err := registry.EvaluateSaaS(saasPolicyInput(row))
+		if err != nil {
+			return err
+		}
+		policyPacksJSON, err := json.Marshal(result.PolicyPacks)
+		if err != nil {
+			return err
+		}
+
+		params.SaasAppIds = append(params.SaasAppIds, row.saasAppID)
+		params.RiskScores = append(params.RiskScores, int32(result.RiskScore))
+		params.RiskLevels = append(params.RiskLevels, result.RiskLevel)
+		params.RiskRanks = append(params.RiskRanks, int32(result.RiskRank))
+		params.SuggestedBusinessCriticalities = append(params.SuggestedBusinessCriticalities, result.SuggestedBusinessCriticality)
+		params.SuggestedDataClassifications = append(params.SuggestedDataClassifications, result.SuggestedDataClassification)
+		params.EffectiveBusinessCriticalities = append(params.EffectiveBusinessCriticalities, result.EffectiveBusinessCriticality)
+		params.EffectiveDataClassifications = append(params.EffectiveDataClassifications, result.EffectiveDataClassification)
+		params.PolicyPacksJsons = append(params.PolicyPacksJsons, policyPacksJSON)
+	}
+
+	_, err = q.UpsertSaaSAppRiskReadModelsBulk(ctx, params)
+	return err
+}
+
+func saasPolicyInput(row saasAppRiskInputRow) riskpolicy.SaaSInput {
+	return riskpolicy.SaaSInput{
+		CanonicalKey:                 row.canonicalKey,
+		DisplayName:                  row.displayName,
+		PrimaryDomain:                row.primaryDomain,
+		VendorName:                   row.vendorName,
+		SourceKind:                   row.sourceKind,
+		SourceName:                   row.sourceName,
+		Actors30d:                    row.actors30d,
+		HasPrivilegedScope:           row.hasPrivilegedScope,
+		HasConfidentialScope:         row.hasConfidentialScope,
+		ManagedState:                 row.managedState,
+		ManagedReason:                row.managedReason,
+		OwnerIdentityID:              row.ownerIdentityID,
+		GovernanceState:              row.governanceState,
+		ReviewDisposition:            row.reviewDisposition,
+		FollowUpDueDate:              datePtr(row.followUpDueDate),
+		EffectiveBusinessCriticality: row.configuredBusinessCriticality,
+		EffectiveDataClassification:  row.configuredDataClassification,
+		ConnectorBindingConfigured:   row.connectorBindingConfigured,
+		ConnectorBindingEnabled:      row.connectorBindingEnabled,
+		ConnectorBindingStale:        row.connectorBindingStale,
+		ConnectorBindingHealthy:      row.connectorBindingHealthy,
+	}
+}
+
+func datePtr(value pgtype.Date) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	t := value.Time.UTC()
+	return &t
 }
 
 func refreshAppAssetSource(ctx context.Context, q *gen.Queries, sourceKind, sourceName string) error {

@@ -221,7 +221,11 @@ func (h *Handlers) handleConnectorToggle(c *echo.Context, kind string) error {
 		if _, err := qtx.UpdateConnectorConfigEnabled(ctx, gen.UpdateConnectorConfigEnabledParams{Kind: kind, Enabled: enabled}); err != nil {
 			return err
 		}
-		return readmodels.NewProjector(nil, qtx, readmodels.RefreshConfigFromConfig(h.Cfg)).RefreshConnectorSourceState(ctx)
+		projector := readmodels.NewProjector(nil, qtx, readmodels.RefreshConfigFromConfig(h.Cfg))
+		if err := projector.RefreshConnectorSourceState(ctx); err != nil {
+			return err
+		}
+		return projector.RefreshAllSaaSAppRiskReadModels(ctx)
 	}); err != nil {
 		return h.RenderError(c, err)
 	}
@@ -261,7 +265,11 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 		if err := configStore.SaveConnectorConfigTx(ctx, qtx, kind, mergedConfig); err != nil {
 			return err
 		}
-		return readmodels.NewProjector(nil, qtx, readmodels.RefreshConfigFromConfig(h.Cfg)).RefreshConnectorSourceState(ctx)
+		projector := readmodels.NewProjector(nil, qtx, readmodels.RefreshConfigFromConfig(h.Cfg))
+		if err := projector.RefreshConnectorSourceState(ctx); err != nil {
+			return err
+		}
+		return projector.RefreshAllSaaSAppRiskReadModels(ctx)
 	}); err != nil {
 		if errors.Is(err, configstore.ErrConnectorSecretKeyRequired) {
 			return h.renderConnectorsPage(c, kind, "", connectorAlert(err))

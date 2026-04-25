@@ -21,6 +21,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
+	"github.com/open-sspm/open-sspm/internal/readmodels"
 )
 
 const (
@@ -447,7 +448,7 @@ func (h *Handlers) persistDiscoveryGovernanceUpdate(ctx context.Context, appID i
 		}); err != nil {
 			return err
 		}
-		return nil
+		return readmodels.NewProjector(nil, qtx, readmodels.RefreshConfigFromConfig(h.Cfg)).RefreshSaaSAppRiskReadModelByID(ctx, appID)
 	})
 }
 

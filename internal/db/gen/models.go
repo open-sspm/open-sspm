@@ -241,8 +241,8 @@ type DiscoveryAppReadModelsV struct {
 	FreshUntilAt                 pgtype.Timestamptz `json:"fresh_until_at"`
 	SuggestedBusinessCriticality string             `json:"suggested_business_criticality"`
 	SuggestedDataClassification  string             `json:"suggested_data_classification"`
-	EffectiveBusinessCriticality interface{}        `json:"effective_business_criticality"`
-	EffectiveDataClassification  interface{}        `json:"effective_data_classification"`
+	EffectiveBusinessCriticality string             `json:"effective_business_criticality"`
+	EffectiveDataClassification  string             `json:"effective_data_classification"`
 	GovernanceState              string             `json:"governance_state"`
 	ReviewDisposition            string             `json:"review_disposition"`
 	TicketRef                    string             `json:"ticket_ref"`
@@ -695,6 +695,19 @@ type SaasAppReviewDecision struct {
 	ReplacementSaasAppID  pgtype.Int8        `json:"replacement_saas_app_id"`
 	ChangedByAuthUserID   pgtype.Int8        `json:"changed_by_auth_user_id"`
 	ChangedAt             pgtype.Timestamptz `json:"changed_at"`
+}
+
+type SaasAppRiskReadModel struct {
+	SaasAppID                    int64              `json:"saas_app_id"`
+	RiskScore                    int32              `json:"risk_score"`
+	RiskLevel                    string             `json:"risk_level"`
+	RiskRank                     int32              `json:"risk_rank"`
+	SuggestedBusinessCriticality string             `json:"suggested_business_criticality"`
+	SuggestedDataClassification  string             `json:"suggested_data_classification"`
+	EffectiveBusinessCriticality string             `json:"effective_business_criticality"`
+	EffectiveDataClassification  string             `json:"effective_data_classification"`
+	PolicyPacksJson              []byte             `json:"policy_packs_json"`
+	ProjectionRefreshedAt        pgtype.Timestamptz `json:"projection_refreshed_at"`
 }
 
 type SaasAppSource struct {

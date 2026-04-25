@@ -604,6 +604,7 @@ func TestDiscoveryAppReadModelReadsReviewGovernance(t *testing.T) {
 		if _, err := q.RefreshAllSaaSAppReadModels(ctx); err != nil {
 			t.Fatalf("RefreshAllSaaSAppReadModels(): %v", err)
 		}
+		upsertSaaSAppRiskReadModel(t, ctx, pool, saasAppID, 65, "high")
 
 		row, err := q.GetSaaSAppByID(ctx, saasAppID)
 		if err != nil {
@@ -630,6 +631,76 @@ func TestDiscoveryAppReadModelReadsReviewGovernance(t *testing.T) {
 		}
 		if row.RiskLevel != "high" {
 			t.Fatalf("risk_level=%q want high", row.RiskLevel)
+		}
+	})
+}
+
+func TestListSaaSAppHotspotsUsesStoredPolicyRiskLevel(t *testing.T) {
+	t.Parallel()
+
+	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
+		migrateUp(t, migrator)
+
+		evaluatedAt := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
+		runID := insertSyncRun(t, ctx, pool, "github", "acme")
+
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO connector_source_state (
+				source_kind,
+				source_name,
+				enabled,
+				configured,
+				discovery_enabled,
+				last_success_at,
+				fresh_until_at,
+				updated_at
+			)
+			VALUES ($1, $2, true, true, true, $3, $4, now())
+			ON CONFLICT (source_kind, source_name) DO UPDATE SET
+				enabled = EXCLUDED.enabled,
+				configured = EXCLUDED.configured,
+				discovery_enabled = EXCLUDED.discovery_enabled,
+				last_success_at = EXCLUDED.last_success_at,
+				fresh_until_at = EXCLUDED.fresh_until_at,
+				updated_at = now()
+		`, "github", "acme", evaluatedAt.Add(-30*time.Minute), evaluatedAt.Add(2*time.Hour)); err != nil {
+			t.Fatalf("insert connector_source_state: %v", err)
+		}
+
+		criticalID := insertSaaSApp(t, ctx, pool, "critical-policy-hotspot", "Critical Policy Hotspot", "critical.example.com", "Example", evaluatedAt.Add(-72*time.Hour), evaluatedAt.Add(-2*time.Hour))
+		highID := insertSaaSApp(t, ctx, pool, "high-policy-hotspot", "High Policy Hotspot", "high.example.com", "Example", evaluatedAt.Add(-48*time.Hour), evaluatedAt.Add(-time.Hour))
+		mediumOldThresholdID := insertSaaSApp(t, ctx, pool, "medium-policy-not-hotspot", "Medium Policy Not Hotspot", "medium.example.com", "Example", evaluatedAt.Add(-24*time.Hour), evaluatedAt)
+
+		insertSaaSAppSource(t, ctx, pool, criticalID, runID, "github", "acme", "critical-policy-hotspot", "Critical Policy Hotspot", "critical.example.com", evaluatedAt.Add(-2*time.Hour))
+		insertSaaSAppSource(t, ctx, pool, highID, runID, "github", "acme", "high-policy-hotspot", "High Policy Hotspot", "high.example.com", evaluatedAt.Add(-time.Hour))
+		insertSaaSAppSource(t, ctx, pool, mediumOldThresholdID, runID, "github", "acme", "medium-policy-not-hotspot", "Medium Policy Not Hotspot", "medium.example.com", evaluatedAt)
+
+		if _, err := q.RefreshAllSaaSAppReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllSaaSAppReadModels(): %v", err)
+		}
+		upsertSaaSAppRiskReadModel(t, ctx, pool, criticalID, 85, "critical")
+		upsertSaaSAppRiskReadModel(t, ctx, pool, highID, 60, "high")
+		upsertSaaSAppRiskReadModel(t, ctx, pool, mediumOldThresholdID, 70, "medium")
+
+		rows, err := q.ListSaaSAppHotspots(ctx, ListSaaSAppHotspotsParams{
+			LimitRows: 10,
+		})
+		if err != nil {
+			t.Fatalf("ListSaaSAppHotspots(): %v", err)
+		}
+
+		gotByID := map[int64]string{}
+		for _, row := range rows {
+			gotByID[row.ID] = row.RiskLevel
+		}
+		if gotByID[criticalID] != "critical" {
+			t.Fatalf("critical hotspot risk_level=%q want critical; rows=%v", gotByID[criticalID], gotByID)
+		}
+		if gotByID[highID] != "high" {
+			t.Fatalf("high hotspot risk_level=%q want high; rows=%v", gotByID[highID], gotByID)
+		}
+		if _, ok := gotByID[mediumOldThresholdID]; ok {
+			t.Fatalf("medium policy app was returned as hotspot; rows=%v", gotByID)
 		}
 	})
 }
@@ -1010,6 +1081,54 @@ func insertSaaSAppSource(t *testing.T, ctx context.Context, pool *pgxpool.Pool, 
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $7, $8, now(), now())
 	`, saasAppID, sourceKind, sourceName, sourceAppID, sourceAppName, sourceAppDomain, runID, observedAt.UTC()); err != nil {
 		t.Fatalf("insert saas app source %s/%s: %v", sourceKind, sourceAppID, err)
+	}
+}
+
+func upsertSaaSAppRiskReadModel(t *testing.T, ctx context.Context, pool *pgxpool.Pool, saasAppID int64, riskScore int, riskLevel string) {
+	t.Helper()
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO saas_app_risk_read_models (
+			saas_app_id,
+			risk_score,
+			risk_level,
+			risk_rank,
+			suggested_business_criticality,
+			suggested_data_classification,
+			effective_business_criticality,
+			effective_data_classification,
+			policy_packs_json,
+			projection_refreshed_at
+		)
+		VALUES (
+			$1,
+			$2,
+			$3,
+			CASE $3
+				WHEN 'critical' THEN 4
+				WHEN 'high' THEN 3
+				WHEN 'medium' THEN 2
+				ELSE 1
+			END,
+			'low',
+			'internal',
+			'low',
+			'internal',
+			'[]'::jsonb,
+			now()
+		)
+		ON CONFLICT (saas_app_id) DO UPDATE SET
+			risk_score = EXCLUDED.risk_score,
+			risk_level = EXCLUDED.risk_level,
+			risk_rank = EXCLUDED.risk_rank,
+			suggested_business_criticality = EXCLUDED.suggested_business_criticality,
+			suggested_data_classification = EXCLUDED.suggested_data_classification,
+			effective_business_criticality = EXCLUDED.effective_business_criticality,
+			effective_data_classification = EXCLUDED.effective_data_classification,
+			policy_packs_json = EXCLUDED.policy_packs_json,
+			projection_refreshed_at = now()
+	`, saasAppID, riskScore, riskLevel); err != nil {
+		t.Fatalf("upsert saas app risk read model %d: %v", saasAppID, err)
 	}
 }
 

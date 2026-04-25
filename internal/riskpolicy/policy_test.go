@@ -137,6 +137,9 @@ spec:
       - id: non_bool
         level: high
         when: actors_30d
+      - id: default_low
+        level: low
+        when: "true"
 `),
 	})
 	if err == nil {
@@ -173,6 +176,64 @@ spec:
 	}
 	if !strings.Contains(err.Error(), "severe") {
 		t.Fatalf("LoadDocuments() error = %v, want invalid level in error", err)
+	}
+}
+
+func TestLoadDocumentsRejectsUnknownSuggestionLevels(t *testing.T) {
+	t.Parallel()
+
+	_, err := LoadDocuments(map[string][]byte{
+		"bad.yaml": []byte(`
+api_version: risk.open-sspm.io/v1
+kind: RiskPolicyPack
+metadata:
+  id: bad
+  version: 1.0.0
+  domain: saas
+spec:
+  inputs:
+    schema: saas_app_risk_input.v1
+  suggestions:
+    data_classification:
+      - id: invalid_unknown_data_classification
+        level: unknown
+        when: "true"
+`),
+	})
+	if err == nil {
+		t.Fatal("LoadDocuments() error = nil, want unknown suggestion level error")
+	}
+	if !strings.Contains(err.Error(), "unknown") {
+		t.Fatalf("LoadDocuments() error = %v, want unknown level in error", err)
+	}
+}
+
+func TestLoadDocumentsRejectsSuggestionRulesWithoutFallback(t *testing.T) {
+	t.Parallel()
+
+	_, err := LoadDocuments(map[string][]byte{
+		"bad.yaml": []byte(`
+api_version: risk.open-sspm.io/v1
+kind: RiskPolicyPack
+metadata:
+  id: bad
+  version: 1.0.0
+  domain: saas
+spec:
+  inputs:
+    schema: saas_app_risk_input.v1
+  suggestions:
+    business_criticality:
+      - id: high_usage
+        level: high
+        when: actors_30d >= 50
+`),
+	})
+	if err == nil {
+		t.Fatal("LoadDocuments() error = nil, want deterministic fallback error")
+	}
+	if !strings.Contains(err.Error(), "deterministic fallback") {
+		t.Fatalf("LoadDocuments() error = %v, want deterministic fallback error", err)
 	}
 }
 

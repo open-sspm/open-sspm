@@ -64,6 +64,14 @@ SELECT (
   )
   OR EXISTS (
     SELECT 1
+    FROM saas_apps sa
+    LEFT JOIN saas_app_risk_read_models risk
+      ON risk.saas_app_id = sa.id
+    WHERE risk.saas_app_id IS NULL
+      OR risk.projection_refreshed_at IS NULL
+  )
+  OR EXISTS (
+    SELECT 1
     FROM app_assets aa
     WHERE aa.projection_refreshed_at IS NULL
   )
@@ -92,6 +100,153 @@ SELECT (
     )
   )
 )::bool AS needs_rebuild;
+
+-- name: ListAllSaaSAppRiskInputs :many
+SELECT
+  pr.id::bigint AS saas_app_id,
+  pr.canonical_key::text AS canonical_key,
+  pr.display_name::text AS display_name,
+  pr.primary_domain::text AS primary_domain,
+  pr.vendor_name::text AS vendor_name,
+  pr.bound_connector_kind::text AS source_kind,
+  pr.bound_connector_source_name::text AS source_name,
+  pr.actors_30d::bigint AS actors_30d,
+  pr.has_privileged_scope::boolean AS has_privileged_scope,
+  pr.has_confidential_scope::boolean AS has_confidential_scope,
+  pr.managed_state::text AS managed_state,
+  pr.managed_reason::text AS managed_reason,
+  pr.owner_identity_id::bigint AS owner_identity_id,
+  pr.governance_state::text AS governance_state,
+  pr.review_disposition::text AS review_disposition,
+  pr.follow_up_due_date::date AS follow_up_due_date,
+  COALESCE(NULLIF(trim(go.business_criticality), ''), 'unknown')::text AS configured_business_criticality,
+  COALESCE(NULLIF(trim(go.data_classification), ''), 'unknown')::text AS configured_data_classification,
+  pr.connector_configured::boolean AS connector_binding_configured,
+  pr.connector_enabled::boolean AS connector_binding_enabled,
+  COALESCE(pr.fresh_until_at < now(), false)::boolean AS connector_binding_stale,
+  (pr.managed_state = 'managed')::boolean AS connector_binding_healthy
+FROM discovery_app_read_models_v pr
+LEFT JOIN governance_subject_overrides go
+  ON go.subject_kind = 'saas_app'
+ AND go.subject_id = pr.id
+ORDER BY pr.id ASC;
+
+-- name: ListSaaSAppRiskInputsBySource :many
+SELECT
+  pr.id::bigint AS saas_app_id,
+  pr.canonical_key::text AS canonical_key,
+  pr.display_name::text AS display_name,
+  pr.primary_domain::text AS primary_domain,
+  pr.vendor_name::text AS vendor_name,
+  pr.bound_connector_kind::text AS source_kind,
+  pr.bound_connector_source_name::text AS source_name,
+  pr.actors_30d::bigint AS actors_30d,
+  pr.has_privileged_scope::boolean AS has_privileged_scope,
+  pr.has_confidential_scope::boolean AS has_confidential_scope,
+  pr.managed_state::text AS managed_state,
+  pr.managed_reason::text AS managed_reason,
+  pr.owner_identity_id::bigint AS owner_identity_id,
+  pr.governance_state::text AS governance_state,
+  pr.review_disposition::text AS review_disposition,
+  pr.follow_up_due_date::date AS follow_up_due_date,
+  COALESCE(NULLIF(trim(go.business_criticality), ''), 'unknown')::text AS configured_business_criticality,
+  COALESCE(NULLIF(trim(go.data_classification), ''), 'unknown')::text AS configured_data_classification,
+  pr.connector_configured::boolean AS connector_binding_configured,
+  pr.connector_enabled::boolean AS connector_binding_enabled,
+  COALESCE(pr.fresh_until_at < now(), false)::boolean AS connector_binding_stale,
+  (pr.managed_state = 'managed')::boolean AS connector_binding_healthy
+FROM discovery_app_read_models_v pr
+LEFT JOIN governance_subject_overrides go
+  ON go.subject_kind = 'saas_app'
+ AND go.subject_id = pr.id
+WHERE EXISTS (
+  SELECT 1
+  FROM saas_app_sources sas
+  WHERE sas.saas_app_id = pr.id
+    AND lower(trim(sas.source_kind)) = lower(trim(sqlc.arg(source_kind)::text))
+    AND lower(trim(sas.source_name)) = lower(trim(sqlc.arg(source_name)::text))
+)
+ORDER BY pr.id ASC;
+
+-- name: GetSaaSAppRiskInputByID :one
+SELECT
+  pr.id::bigint AS saas_app_id,
+  pr.canonical_key::text AS canonical_key,
+  pr.display_name::text AS display_name,
+  pr.primary_domain::text AS primary_domain,
+  pr.vendor_name::text AS vendor_name,
+  pr.bound_connector_kind::text AS source_kind,
+  pr.bound_connector_source_name::text AS source_name,
+  pr.actors_30d::bigint AS actors_30d,
+  pr.has_privileged_scope::boolean AS has_privileged_scope,
+  pr.has_confidential_scope::boolean AS has_confidential_scope,
+  pr.managed_state::text AS managed_state,
+  pr.managed_reason::text AS managed_reason,
+  pr.owner_identity_id::bigint AS owner_identity_id,
+  pr.governance_state::text AS governance_state,
+  pr.review_disposition::text AS review_disposition,
+  pr.follow_up_due_date::date AS follow_up_due_date,
+  COALESCE(NULLIF(trim(go.business_criticality), ''), 'unknown')::text AS configured_business_criticality,
+  COALESCE(NULLIF(trim(go.data_classification), ''), 'unknown')::text AS configured_data_classification,
+  pr.connector_configured::boolean AS connector_binding_configured,
+  pr.connector_enabled::boolean AS connector_binding_enabled,
+  COALESCE(pr.fresh_until_at < now(), false)::boolean AS connector_binding_stale,
+  (pr.managed_state = 'managed')::boolean AS connector_binding_healthy
+FROM discovery_app_read_models_v pr
+LEFT JOIN governance_subject_overrides go
+  ON go.subject_kind = 'saas_app'
+ AND go.subject_id = pr.id
+WHERE pr.id = sqlc.arg(saas_app_id)::bigint;
+
+-- name: UpsertSaaSAppRiskReadModelsBulk :execrows
+WITH input AS (
+  SELECT
+    i,
+    (sqlc.arg(saas_app_ids)::bigint[])[i] AS saas_app_id,
+    (sqlc.arg(risk_scores)::int[])[i] AS risk_score,
+    (sqlc.arg(risk_levels)::text[])[i] AS risk_level,
+    (sqlc.arg(risk_ranks)::int[])[i] AS risk_rank,
+    (sqlc.arg(suggested_business_criticalities)::text[])[i] AS suggested_business_criticality,
+    (sqlc.arg(suggested_data_classifications)::text[])[i] AS suggested_data_classification,
+    (sqlc.arg(effective_business_criticalities)::text[])[i] AS effective_business_criticality,
+    (sqlc.arg(effective_data_classifications)::text[])[i] AS effective_data_classification,
+    (sqlc.arg(policy_packs_jsons)::jsonb[])[i] AS policy_packs_json
+  FROM generate_subscripts(sqlc.arg(saas_app_ids)::bigint[], 1) AS s(i)
+)
+INSERT INTO saas_app_risk_read_models (
+  saas_app_id,
+  risk_score,
+  risk_level,
+  risk_rank,
+  suggested_business_criticality,
+  suggested_data_classification,
+  effective_business_criticality,
+  effective_data_classification,
+  policy_packs_json,
+  projection_refreshed_at
+)
+SELECT
+  input.saas_app_id,
+  input.risk_score,
+  input.risk_level,
+  input.risk_rank,
+  input.suggested_business_criticality,
+  input.suggested_data_classification,
+  input.effective_business_criticality,
+  input.effective_data_classification,
+  input.policy_packs_json,
+  now()
+FROM input
+ON CONFLICT (saas_app_id) DO UPDATE SET
+  risk_score = EXCLUDED.risk_score,
+  risk_level = EXCLUDED.risk_level,
+  risk_rank = EXCLUDED.risk_rank,
+  suggested_business_criticality = EXCLUDED.suggested_business_criticality,
+  suggested_data_classification = EXCLUDED.suggested_data_classification,
+  effective_business_criticality = EXCLUDED.effective_business_criticality,
+  effective_data_classification = EXCLUDED.effective_data_classification,
+  policy_packs_json = EXCLUDED.policy_packs_json,
+  projection_refreshed_at = now();
 
 -- name: RefreshAllSaaSAppReadModels :execrows
 WITH actor_stats AS (

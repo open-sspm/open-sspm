@@ -236,7 +236,7 @@ SELECT
   pr.ticket_ref::text AS ticket_ref,
   pr.actors_30d::bigint AS actors_30d
 FROM discovery_app_read_models_v pr
-WHERE pr.risk_score >= 60
+WHERE pr.risk_level IN ('high', 'critical')
   AND EXISTS (
     SELECT 1
     FROM saas_app_sources sas

@@ -39,6 +39,7 @@ type SaaSResult struct {
 	SuggestedDataClassification  string
 	EffectiveBusinessCriticality string
 	EffectiveDataClassification  string
+	PolicyPacks                  []PolicyPackRef
 	Signals                      []RiskSignal
 }
 
@@ -76,6 +77,10 @@ func (r *Registry) EvaluateSaaS(input SaaSInput) (SaaSResult, error) {
 
 	globalPack := *matchedPack
 	scopedRules := r.matchingSaaSScopedRules(input)
+	result.PolicyPacks = appendPolicyPackRef(result.PolicyPacks, globalPack.Policy.Metadata)
+	for _, scopedRule := range scopedRules {
+		result.PolicyPacks = appendPolicyPackRef(result.PolicyPacks, scopedRule.Pack.Policy.Metadata)
+	}
 	activation := saasActivation(input, globalPack.Policy.Spec.Constants, globalPack.Policy.Spec.Scoring.Base)
 	businessCriticality, err := evaluateSuggestionRules(globalPack, globalPack.Policy.Spec.Suggestions.BusinessCriticality, activation)
 	if err != nil {
@@ -127,6 +132,7 @@ func (r *Registry) EvaluateSaaS(input SaaSInput) (SaaSResult, error) {
 		}
 	}
 
+	appliedScopedSignals := make(map[scopedSignalDedupeKey]struct{})
 	for _, scopedRule := range scopedRules {
 		for _, rule := range scopedRule.Rule.Rules {
 			activation = saasActivation(input, scopedRule.Pack.Policy.Spec.Constants, score)
@@ -137,6 +143,11 @@ func (r *Registry) EvaluateSaaS(input SaaSInput) (SaaSResult, error) {
 			if !matched {
 				continue
 			}
+			dedupeKey := scopedSignalKey(scopedRule.Pack.Policy.Metadata, rule)
+			if _, ok := appliedScopedSignals[dedupeKey]; ok {
+				continue
+			}
+			appliedScopedSignals[dedupeKey] = struct{}{}
 
 			score += rule.ScoreDelta
 			result.Signals = append(result.Signals, RiskSignal{
@@ -198,8 +209,8 @@ func normalizeSaaSInput(input SaaSInput) SaaSInput {
 	input.CanonicalKey = strings.ToLower(strings.TrimSpace(input.CanonicalKey))
 	input.DisplayName = strings.TrimSpace(input.DisplayName)
 	input.PrimaryDomain = strings.ToLower(strings.TrimSpace(input.PrimaryDomain))
-	input.VendorName = strings.TrimSpace(input.VendorName)
-	input.SourceKind = strings.ToLower(strings.TrimSpace(input.SourceKind))
+	input.VendorName = strings.ToLower(strings.TrimSpace(input.VendorName))
+	input.SourceKind = normalizeSaaSSourceKind(input.SourceKind)
 	input.SourceName = strings.TrimSpace(input.SourceName)
 	input.Category = strings.ToLower(strings.TrimSpace(input.Category))
 	input.ManagedState = strings.ToLower(strings.TrimSpace(input.ManagedState))
@@ -212,9 +223,52 @@ func normalizeSaaSInput(input SaaSInput) SaaSInput {
 	return input
 }
 
+func normalizeSaaSSourceKind(kind string) string {
+	switch normalized := strings.ToLower(strings.TrimSpace(kind)); normalized {
+	case "aws_identity_center":
+		return "aws"
+	default:
+		return normalized
+	}
+}
+
 type matchedSaaSScopedRule struct {
 	Pack CompiledPack
 	Rule ScopedRule
+}
+
+type scopedSignalDedupeKey struct {
+	PolicyPackID      string
+	PolicyPackVersion string
+	RuleID            string
+	Severity          string
+	ScoreDelta        int
+	Title             string
+	Evidence          string
+}
+
+func scopedSignalKey(metadata PolicyMetadata, rule Rule) scopedSignalDedupeKey {
+	return scopedSignalDedupeKey{
+		PolicyPackID:      metadata.ID,
+		PolicyPackVersion: metadata.Version,
+		RuleID:            rule.ID,
+		Severity:          rule.Severity,
+		ScoreDelta:        rule.ScoreDelta,
+		Title:             rule.Title,
+		Evidence:          rule.Evidence,
+	}
+}
+
+func appendPolicyPackRef(refs []PolicyPackRef, metadata PolicyMetadata) []PolicyPackRef {
+	for _, ref := range refs {
+		if ref.ID == metadata.ID && ref.Version == metadata.Version {
+			return refs
+		}
+	}
+	return append(refs, PolicyPackRef{
+		ID:      metadata.ID,
+		Version: metadata.Version,
+	})
 }
 
 func (r *Registry) matchingSaaSScopedRules(input SaaSInput) []matchedSaaSScopedRule {

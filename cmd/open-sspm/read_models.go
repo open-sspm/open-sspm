@@ -37,8 +37,11 @@ func rebuildStoredReadModels(ctx context.Context, pool *pgxpool.Pool, q *gen.Que
 
 	switch action {
 	case startupReadModelsActionRefreshConnectorState:
-		slog.Info("refreshing connector source state on startup")
-		return projector.RefreshConnectorSourceState(ctx)
+		slog.Info("refreshing connector source state and SaaS risk read models on startup")
+		if err := projector.RefreshConnectorSourceState(ctx); err != nil {
+			return err
+		}
+		return projector.RefreshAllSaaSAppRiskReadModels(ctx)
 	case startupReadModelsActionRebuildAll:
 		reason := "forced"
 		if needsRebuild {
