@@ -61,19 +61,19 @@ spec:
           severity: high
           title: App has no accountable owner
       - id: high_actor_count
-        points: 20
+        points: 10
         when: actors_30d >= 50
         signal:
           severity: medium
           title: App has broad recent usage
       - id: unmanaged_high_business_app
-        points: 15
+        points: 10
         when: managed_state != "managed" && effective_business_criticality in high_business_criticalities
         signal:
           severity: high
           title: Unmanaged app appears business critical
       - id: unmanaged_sensitive_data_app
-        points: 15
+        points: 5
         when: managed_state != "managed" && effective_data_classification in sensitive_data_classifications
         signal:
           severity: high
