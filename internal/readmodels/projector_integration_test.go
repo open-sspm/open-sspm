@@ -2,6 +2,7 @@ package readmodels
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/riskpolicy"
 	"github.com/open-sspm/open-sspm/internal/testdb"
 )
 
@@ -119,8 +121,8 @@ func TestProjectorRefreshConnectorSourceStateDoesNotLetDiscoveryFreshnessKeepNon
 			t.Fatalf("RefreshConnectorSourceState(): %v", err)
 		}
 
-		if _, err := q.RefreshAllNonHumanPrincipalReadModelsSafely(ctx); err != nil {
-			t.Fatalf("RefreshAllNonHumanPrincipalReadModelsSafely(): %v", err)
+		if err := projector.RefreshAllNonHumanPrincipalReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllNonHumanPrincipalReadModels(): %v", err)
 		}
 
 		principal, err := q.GetNonHumanPrincipalByRef(ctx, "app-asset-"+int64String(appAssetID))
@@ -132,6 +134,399 @@ func TestProjectorRefreshConnectorSourceStateDoesNotLetDiscoveryFreshnessKeepNon
 		}
 		if !principal.HasStaleEvidence {
 			t.Fatalf("has_stale_evidence = false, want true")
+		}
+	})
+}
+
+func TestProjectorRefreshAllNonHumanPrincipalReadModelsEvaluatesAndStoresPolicy(t *testing.T) {
+	t.Parallel()
+
+	withReadModelsTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateUpReadModels(t, migrator)
+
+		sourceKind := "entra"
+		sourceName := "11111111-1111-1111-1111-111111111111"
+		now := time.Now().UTC().Truncate(time.Second)
+		runID := insertReadModelsSyncRun(t, ctx, pool, sourceKind, sourceName, now.Add(-4*time.Hour))
+		upsertConfiguredSourceState(t, ctx, pool, sourceKind, sourceName, now.Add(-4*time.Hour), now.Add(-90*time.Minute))
+
+		appAssetID := upsertReadModelsAppAsset(t, ctx, q, runID, sourceKind, sourceName, "entra_service_principal", "svc-policy", "Policy Service Principal")
+
+		if _, err := q.RefreshAllAppAssetReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllAppAssetReadModels(): %v", err)
+		}
+
+		projector := NewProjector(pool, nil, RefreshConfig{})
+		if err := projector.RefreshAllCredentialArtifactRiskReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllCredentialArtifactRiskReadModels(): %v", err)
+		}
+		if err := projector.RefreshAllNonHumanPrincipalReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllNonHumanPrincipalReadModels(): %v", err)
+		}
+
+		principal, err := q.GetNonHumanPrincipalByRef(ctx, "app-asset-"+int64String(appAssetID))
+		if err != nil {
+			t.Fatalf("GetNonHumanPrincipalByRef(): %v", err)
+		}
+		expected, err := riskpolicy.EvaluateIdentity(riskpolicy.IdentityInput{
+			IdentityID:             principal.IdentityID,
+			PrincipalRef:           principal.PrincipalRef,
+			PrincipalType:          principal.PrincipalType,
+			SourceKind:             principal.SourceKind,
+			SourceName:             principal.SourceName,
+			DisplayName:            principal.DisplayName,
+			PrimaryEmail:           principal.SecondaryName,
+			LastSeenAt:             timestamptzPtr(principal.LastSeenAt),
+			OwnerPresence:          principal.OwnerPresence,
+			GovernanceState:        principal.GovernanceState,
+			LinkedAssetsCount:      principal.LinkedAssetsCount,
+			LinkedCredentialsCount: principal.LinkedCredentialsCount,
+			HasCriticalCredential:  principal.HasCriticalCredential,
+			HasHighRiskCredential:  principal.HasHighRiskCredential,
+			HasExpiredCredential:   principal.HasExpiredCredential,
+			HasExpiringCredential:  principal.HasExpiringCredential,
+			HasUnusedCredential:    principal.HasUnusedCredential,
+			HasStaleEvidence:       principal.HasStaleEvidence,
+		})
+		if err != nil {
+			t.Fatalf("EvaluateIdentity(): %v", err)
+		}
+		if principal.RiskLevel != expected.RiskLevel {
+			t.Fatalf("stored risk_level = %q, policy risk_level = %q", principal.RiskLevel, expected.RiskLevel)
+		}
+		if principal.RiskReasonCount != int32(expected.RiskReasonCount) {
+			t.Fatalf("stored risk_reason_count = %d, policy risk_reason_count = %d", principal.RiskReasonCount, expected.RiskReasonCount)
+		}
+		if principal.RiskLevel != "high" || principal.RiskReasonCount != 3 {
+			t.Fatalf("stored policy risk = %q/%d, want high/3", principal.RiskLevel, principal.RiskReasonCount)
+		}
+
+		var signals []riskpolicy.RiskSignal
+		if err := json.Unmarshal(principal.RiskSignalsJson, &signals); err != nil {
+			t.Fatalf("unmarshal risk_signals_json: %v", err)
+		}
+		if len(signals) != expected.RiskReasonCount {
+			t.Fatalf("risk_signals_json length = %d, want %d", len(signals), expected.RiskReasonCount)
+		}
+		var packs []riskpolicy.PolicyPackRef
+		if err := json.Unmarshal(principal.PolicyPacksJson, &packs); err != nil {
+			t.Fatalf("unmarshal policy_packs_json: %v", err)
+		}
+		if len(packs) != len(expected.PolicyPacks) || packs[0].ID != expected.PolicyPacks[0].ID {
+			t.Fatalf("policy_packs_json = %+v, want %+v", packs, expected.PolicyPacks)
+		}
+	})
+}
+
+func TestProjectorRefreshNonHumanPrincipalSourceReadModelsKeepsUnrelatedRowsUntouched(t *testing.T) {
+	t.Parallel()
+
+	withReadModelsTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateUpReadModels(t, migrator)
+
+		now := time.Now().UTC().Truncate(time.Second)
+		githubRunID := insertReadModelsSyncRun(t, ctx, pool, "github", "acme", now)
+		datadogRunID := insertReadModelsSyncRun(t, ctx, pool, "datadog", "us5.datadoghq.com", now)
+
+		upsertConfiguredSourceState(t, ctx, pool, "github", "acme", now.Add(-10*time.Minute), now.Add(time.Hour))
+		upsertConfiguredSourceState(t, ctx, pool, "datadog", "us5.datadoghq.com", now.Add(-10*time.Minute), now.Add(time.Hour))
+
+		githubAssetID := upsertReadModelsAppAsset(t, ctx, q, githubRunID, "github", "acme", "github_app", "github-actions", "GitHub Actions")
+		datadogAssetID := upsertReadModelsAppAsset(t, ctx, q, datadogRunID, "datadog", "us5.datadoghq.com", "datadog_app_key", "datadog-app-key", "Datadog App Key")
+
+		if _, err := q.RefreshAllAppAssetReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllAppAssetReadModels(): %v", err)
+		}
+
+		projector := NewProjector(pool, nil, RefreshConfig{})
+		if err := projector.RefreshAllNonHumanPrincipalReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllNonHumanPrincipalReadModels(): %v", err)
+		}
+
+		affectedRef := "app-asset-" + int64String(githubAssetID)
+		unaffectedRef := "app-asset-" + int64String(datadogAssetID)
+		affectedSentinel := now.Add(-48 * time.Hour)
+		unaffectedSentinel := now.Add(-24 * time.Hour)
+
+		if _, err := pool.Exec(ctx, `
+			UPDATE non_human_principals
+			SET projection_refreshed_at = CASE principal_ref
+				WHEN $1 THEN $2
+				WHEN $3 THEN $4
+				ELSE projection_refreshed_at
+			END
+			WHERE principal_ref IN ($1, $3)
+		`, affectedRef, affectedSentinel, unaffectedRef, unaffectedSentinel); err != nil {
+			t.Fatalf("seed non_human_principals projection_refreshed_at: %v", err)
+		}
+
+		if err := projector.RefreshNonHumanPrincipalSourceReadModels(ctx, "github", "acme"); err != nil {
+			t.Fatalf("RefreshNonHumanPrincipalSourceReadModels(): %v", err)
+		}
+
+		affectedRefreshedAt := fetchNonHumanProjectionRefreshedAt(t, ctx, pool, affectedRef)
+		unaffectedRefreshedAt := fetchNonHumanProjectionRefreshedAt(t, ctx, pool, unaffectedRef)
+		if !affectedRefreshedAt.Valid || affectedRefreshedAt.Time.Equal(affectedSentinel) {
+			t.Fatalf("affected projection_refreshed_at = %+v, want refreshed timestamp", affectedRefreshedAt)
+		}
+		if !unaffectedRefreshedAt.Valid || !unaffectedRefreshedAt.Time.Equal(unaffectedSentinel) {
+			t.Fatalf("unaffected projection_refreshed_at = %+v, want %v", unaffectedRefreshedAt, unaffectedSentinel)
+		}
+
+		affected, err := q.GetNonHumanPrincipalByRef(ctx, affectedRef)
+		if err != nil {
+			t.Fatalf("GetNonHumanPrincipalByRef(affected): %v", err)
+		}
+		if affected.RiskLevel != "high" || affected.RiskReasonCount != 1 {
+			t.Fatalf("affected policy risk = %q/%d, want high/1", affected.RiskLevel, affected.RiskReasonCount)
+		}
+	})
+}
+
+func TestProjectorNonHumanPolicyRiskFeedsFiltersSortAndMetrics(t *testing.T) {
+	t.Parallel()
+
+	withReadModelsTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateUpReadModels(t, migrator)
+
+		now := time.Now().UTC().Truncate(time.Second)
+		ownerID := insertReadModelsIdentity(t, ctx, pool, "human", "owner@example.com", "Owner Example")
+		githubRunID := insertReadModelsSyncRun(t, ctx, pool, "github", "acme", now)
+		entraRunID := insertReadModelsSyncRun(t, ctx, pool, "entra", "tenant-1", now)
+		datadogRunID := insertReadModelsSyncRun(t, ctx, pool, "datadog", "rogue", now)
+
+		upsertConfiguredSourceState(t, ctx, pool, "github", "acme", now.Add(-15*time.Minute), now.Add(time.Hour))
+		upsertConfiguredSourceState(t, ctx, pool, "entra", "tenant-1", now.Add(-15*time.Minute), now.Add(time.Hour))
+
+		criticalAssetID := upsertReadModelsAppAsset(t, ctx, q, githubRunID, "github", "acme", "github_app", "critical-app", "Critical GitHub App")
+		highAssetID := upsertReadModelsAppAsset(t, ctx, q, githubRunID, "github", "acme", "github_app", "high-app", "High GitHub App")
+		mediumAssetID := upsertReadModelsAppAsset(t, ctx, q, entraRunID, "entra", "tenant-1", "entra_service_principal", "medium-sp", "Medium Service Principal")
+		lowAssetID := upsertReadModelsAppAsset(t, ctx, q, entraRunID, "entra", "tenant-1", "entra_service_principal", "low-sp", "Low Service Principal")
+		rogueAssetID := upsertReadModelsAppAsset(t, ctx, q, datadogRunID, "datadog", "rogue", "datadog_app_key", "rogue-key", "Rogue Datadog Key")
+
+		for _, appAssetID := range []int64{mediumAssetID, lowAssetID} {
+			if _, err := q.UpsertAppAssetGovernance(ctx, gen.UpsertAppAssetGovernanceParams{
+				AppAssetID:      appAssetID,
+				GovernanceState: "approved",
+				OwnerIdentityID: pgtype.Int8{Int64: ownerID, Valid: true},
+			}); err != nil {
+				t.Fatalf("UpsertAppAssetGovernance(%d): %v", appAssetID, err)
+			}
+		}
+
+		criticalCredential := readModelsCredentialArtifactSeed{
+			SourceKind:           "github",
+			SourceName:           "acme",
+			AssetRefKind:         "app_asset",
+			AssetRefExternalID:   "github_app:critical-app",
+			CredentialKind:       "generic_api_key",
+			ExternalID:           "critical-expired",
+			DisplayName:          "Critical Expired Credential",
+			Status:               "active",
+			ExpiresAtSource:      now.Add(-24 * time.Hour),
+			CreatedByExternalID:  "owner@example.com",
+			CreatedByDisplayName: "Owner Example",
+		}
+		highCredential := readModelsCredentialArtifactSeed{
+			SourceKind:         "github",
+			SourceName:         "acme",
+			AssetRefKind:       "app_asset",
+			AssetRefExternalID: "github_app:high-app",
+			CredentialKind:     "generic_api_key",
+			ExternalID:         "high-unattributed",
+			DisplayName:        "High Unattributed Credential",
+			Status:             "active",
+			LastUsedAtSource:   now.Add(-120 * 24 * time.Hour),
+		}
+		mediumCredential := readModelsCredentialArtifactSeed{
+			SourceKind:           "entra",
+			SourceName:           "tenant-1",
+			AssetRefKind:         "app_asset",
+			AssetRefExternalID:   "entra_service_principal:medium-sp",
+			CredentialKind:       "generic_api_key",
+			ExternalID:           "medium-expiring",
+			DisplayName:          "Medium Expiring Credential",
+			Status:               "active",
+			ExpiresAtSource:      now.Add(20 * 24 * time.Hour),
+			CreatedByExternalID:  "owner@example.com",
+			CreatedByDisplayName: "Owner Example",
+		}
+		rogueCredential := readModelsCredentialArtifactSeed{
+			SourceKind:         "datadog",
+			SourceName:         "rogue",
+			AssetRefKind:       "app_asset",
+			AssetRefExternalID: "datadog_app_key:rogue-key",
+			CredentialKind:     "generic_api_key",
+			ExternalID:         "rogue-expired",
+			DisplayName:        "Rogue Expired Credential",
+			Status:             "active",
+			ExpiresAtSource:    now.Add(-24 * time.Hour),
+		}
+		for _, fixture := range []struct {
+			runID int64
+			seed  readModelsCredentialArtifactSeed
+		}{
+			{runID: githubRunID, seed: criticalCredential},
+			{runID: githubRunID, seed: highCredential},
+			{runID: entraRunID, seed: mediumCredential},
+			{runID: datadogRunID, seed: rogueCredential},
+		} {
+			insertReadModelsCredentialArtifact(t, ctx, pool, fixture.runID, fixture.seed)
+		}
+
+		if _, err := q.RefreshAllAppAssetReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllAppAssetReadModels(): %v", err)
+		}
+
+		projector := NewProjector(pool, nil, RefreshConfig{})
+		if err := projector.RefreshAllCredentialArtifactRiskReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllCredentialArtifactRiskReadModels(): %v", err)
+		}
+		if err := projector.RefreshAllNonHumanPrincipalReadModels(ctx); err != nil {
+			t.Fatalf("RefreshAllNonHumanPrincipalReadModels(): %v", err)
+		}
+
+		configuredSourceKinds := []string{"github", "entra"}
+		configuredSourceNames := []string{"acme", "tenant-1"}
+		criticalRef := "app-asset-" + int64String(criticalAssetID)
+		highRef := "app-asset-" + int64String(highAssetID)
+		mediumRef := "app-asset-" + int64String(mediumAssetID)
+		lowRef := "app-asset-" + int64String(lowAssetID)
+		rogueRef := "app-asset-" + int64String(rogueAssetID)
+
+		rows, err := q.ListNonHumanPrincipalsPageByFilters(ctx, gen.ListNonHumanPrincipalsPageByFiltersParams{
+			ConfiguredSourceKinds: configuredSourceKinds,
+			ConfiguredSourceNames: configuredSourceNames,
+			PageLimit:             10,
+		})
+		if err != nil {
+			t.Fatalf("ListNonHumanPrincipalsPageByFilters(all configured): %v", err)
+		}
+		rowRefs := principalRefsFromRows(rows)
+		assertPrincipalRefs(t, rowRefs, []string{criticalRef, highRef, mediumRef, lowRef})
+		assertNoPrincipalRef(t, rowRefs, rogueRef)
+
+		highRows, err := q.ListNonHumanPrincipalsPageByFilters(ctx, gen.ListNonHumanPrincipalsPageByFiltersParams{
+			ConfiguredSourceKinds: configuredSourceKinds,
+			ConfiguredSourceNames: configuredSourceNames,
+			RiskLevel:             "high",
+			PageLimit:             10,
+		})
+		if err != nil {
+			t.Fatalf("ListNonHumanPrincipalsPageByFilters(high): %v", err)
+		}
+		assertPrincipalRefs(t, principalRefsFromRows(highRows), []string{highRef})
+
+		githubRows, err := q.ListNonHumanPrincipalsPageByFilters(ctx, gen.ListNonHumanPrincipalsPageByFiltersParams{
+			ConfiguredSourceKinds: configuredSourceKinds,
+			ConfiguredSourceNames: configuredSourceNames,
+			SourceKind:            "github",
+			PageLimit:             10,
+		})
+		if err != nil {
+			t.Fatalf("ListNonHumanPrincipalsPageByFilters(github): %v", err)
+		}
+		assertPrincipalRefs(t, principalRefsFromRows(githubRows), []string{criticalRef, highRef})
+
+		criticalCount, err := q.CountNonHumanPrincipalsByFilters(ctx, gen.CountNonHumanPrincipalsByFiltersParams{
+			ConfiguredSourceKinds: configuredSourceKinds,
+			ConfiguredSourceNames: configuredSourceNames,
+			RiskLevel:             "critical",
+		})
+		if err != nil {
+			t.Fatalf("CountNonHumanPrincipalsByFilters(critical): %v", err)
+		}
+		if criticalCount != 1 {
+			t.Fatalf("critical count = %d, want 1", criticalCount)
+		}
+
+		ownerCoverage, err := q.CountConfiguredNonHumanPrincipalOwnerCoverage(ctx)
+		if err != nil {
+			t.Fatalf("CountConfiguredNonHumanPrincipalOwnerCoverage(): %v", err)
+		}
+		if ownerCoverage.PrincipalCount != 4 || ownerCoverage.WithOwnerCount != 2 {
+			t.Fatalf("owner coverage = %+v, want 4 principals and 2 with owner", ownerCoverage)
+		}
+
+		wantHighRiskCredentials, wantHighRiskCredentialsWithAttribution := expectedHighRiskCredentialAttributionFromPolicy(t, now, []readModelsCredentialMetricCase{
+			{seed: criticalCredential, hasAttribution: true},
+			{seed: highCredential, hasAttribution: false},
+			{seed: mediumCredential, hasAttribution: true},
+		})
+		credentialCoverage, err := q.CountConfiguredNonHumanHighRiskCredentialAttribution(ctx)
+		if err != nil {
+			t.Fatalf("CountConfiguredNonHumanHighRiskCredentialAttribution(): %v", err)
+		}
+		if credentialCoverage.HighRiskCredentialCount != wantHighRiskCredentials ||
+			credentialCoverage.HighRiskWithAttributionCount != wantHighRiskCredentialsWithAttribution {
+			t.Fatalf("credential coverage = %+v, want %d/%d", credentialCoverage, wantHighRiskCredentials, wantHighRiskCredentialsWithAttribution)
+		}
+	})
+}
+
+func TestProjectorRefreshCredentialArtifactRiskReadModelsBySourceEvaluatesAndStoresPolicy(t *testing.T) {
+	t.Parallel()
+
+	withReadModelsTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateUpReadModels(t, migrator)
+
+		now := time.Now().UTC().Truncate(time.Second)
+		runID := insertReadModelsSyncRun(t, ctx, pool, "github", "acme", now)
+		otherRunID := insertReadModelsSyncRun(t, ctx, pool, "entra", "tenant-1", now)
+		credentialID := insertReadModelsCredentialArtifact(t, ctx, pool, runID, readModelsCredentialArtifactSeed{
+			SourceKind:         "github",
+			SourceName:         "acme",
+			AssetRefKind:       "app_asset",
+			AssetRefExternalID: "github_app:automation",
+			CredentialKind:     "generic_api_key",
+			ExternalID:         "stale-key",
+			DisplayName:        "Stale Key",
+			Status:             "active",
+			LastUsedAtSource:   now.Add(-120 * 24 * time.Hour),
+		})
+		otherCredentialID := insertReadModelsCredentialArtifact(t, ctx, pool, otherRunID, readModelsCredentialArtifactSeed{
+			SourceKind:         "entra",
+			SourceName:         "tenant-1",
+			AssetRefKind:       "app_asset",
+			AssetRefExternalID: "entra_service_principal:automation",
+			CredentialKind:     "entra_client_secret",
+			ExternalID:         "other-secret",
+			DisplayName:        "Other Secret",
+			Status:             "active",
+			ExpiresAtSource:    now.Add(-24 * time.Hour),
+		})
+
+		projector := NewProjector(pool, nil, RefreshConfig{})
+		if err := projector.RefreshCredentialArtifactRiskReadModelsBySource(ctx, "github", "acme"); err != nil {
+			t.Fatalf("RefreshCredentialArtifactRiskReadModelsBySource(): %v", err)
+		}
+
+		var riskLevel string
+		var riskRank, signalCount, policyPackCount int
+		if err := pool.QueryRow(ctx, `
+			SELECT risk_level, risk_rank, jsonb_array_length(risk_signals_json), jsonb_array_length(policy_packs_json)
+			FROM credential_artifact_risk_read_models
+			WHERE credential_artifact_id = $1
+		`, credentialID).Scan(&riskLevel, &riskRank, &signalCount, &policyPackCount); err != nil {
+			t.Fatalf("select credential_artifact_risk_read_models: %v", err)
+		}
+		if riskLevel != "high" || riskRank != riskpolicy.SeverityRank(riskpolicy.SeverityHigh) {
+			t.Fatalf("stored credential risk = %q/%d, want high/%d", riskLevel, riskRank, riskpolicy.SeverityRank(riskpolicy.SeverityHigh))
+		}
+		if signalCount == 0 || policyPackCount == 0 {
+			t.Fatalf("stored credential policy output has signals=%d packs=%d, want both present", signalCount, policyPackCount)
+		}
+
+		var otherRiskRows int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM credential_artifact_risk_read_models
+			WHERE credential_artifact_id = $1
+		`, otherCredentialID).Scan(&otherRiskRows); err != nil {
+			t.Fatalf("select other credential risk rows: %v", err)
+		}
+		if otherRiskRows != 0 {
+			t.Fatalf("other source credential risk rows = %d, want 0", otherRiskRows)
 		}
 	})
 }
@@ -305,6 +700,166 @@ func upsertReadModelsAppAsset(t *testing.T, ctx context.Context, q *gen.Queries,
 	return appAsset.ID
 }
 
+func insertReadModelsIdentity(t *testing.T, ctx context.Context, pool *pgxpool.Pool, kind, email, displayName string) int64 {
+	t.Helper()
+
+	var id int64
+	err := pool.QueryRow(ctx, `
+		INSERT INTO identities (kind, display_name, primary_email, created_at, updated_at)
+		VALUES ($1, $2, $3, now(), now())
+		RETURNING id
+	`, kind, displayName, email).Scan(&id)
+	if err != nil {
+		t.Fatalf("insert identity %s: %v", email, err)
+	}
+	return id
+}
+
+type readModelsCredentialArtifactSeed struct {
+	SourceKind            string
+	SourceName            string
+	AssetRefKind          string
+	AssetRefExternalID    string
+	CredentialKind        string
+	ExternalID            string
+	DisplayName           string
+	Status                string
+	ExpiresAtSource       time.Time
+	LastUsedAtSource      time.Time
+	CreatedByExternalID   string
+	CreatedByDisplayName  string
+	ApprovedByExternalID  string
+	ApprovedByDisplayName string
+}
+
+func insertReadModelsCredentialArtifact(t *testing.T, ctx context.Context, pool *pgxpool.Pool, runID int64, seed readModelsCredentialArtifactSeed) int64 {
+	t.Helper()
+
+	var id int64
+	err := pool.QueryRow(ctx, `
+		INSERT INTO credential_artifacts (
+			source_kind,
+			source_name,
+			asset_ref_kind,
+			asset_ref_external_id,
+			credential_kind,
+			external_id,
+			display_name,
+			scope_json,
+			raw_json,
+			status,
+			seen_in_run_id,
+			seen_at,
+			last_observed_run_id,
+			last_observed_at,
+			expires_at_source,
+			last_used_at_source,
+			created_by_kind,
+			created_by_external_id,
+			created_by_display_name,
+			approved_by_kind,
+			approved_by_external_id,
+			approved_by_display_name,
+			updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, '{}'::jsonb, '{}'::jsonb, $8, $9, now(), $9, now(), $10, $11, 'user', $12, $13, 'user', $14, $15, now())
+		RETURNING id
+	`, seed.SourceKind, seed.SourceName, seed.AssetRefKind, seed.AssetRefExternalID, seed.CredentialKind, seed.ExternalID, seed.DisplayName, seed.Status, runID, readModelsNullableTime(seed.ExpiresAtSource), readModelsNullableTime(seed.LastUsedAtSource), seed.CreatedByExternalID, seed.CreatedByDisplayName, seed.ApprovedByExternalID, seed.ApprovedByDisplayName).Scan(&id)
+	if err != nil {
+		t.Fatalf("insert credential artifact %s/%s: %v", seed.SourceKind, seed.ExternalID, err)
+	}
+	return id
+}
+
+func readModelsNullableTime(value time.Time) any {
+	if value.IsZero() {
+		return nil
+	}
+	return value.UTC()
+}
+
+type readModelsCredentialMetricCase struct {
+	seed           readModelsCredentialArtifactSeed
+	hasAttribution bool
+}
+
+func expectedHighRiskCredentialAttributionFromPolicy(t *testing.T, evaluatedAt time.Time, cases []readModelsCredentialMetricCase) (int64, int64) {
+	t.Helper()
+
+	var highRiskCount, highRiskWithAttributionCount int64
+	for _, tc := range cases {
+		result, err := riskpolicy.EvaluateCredential(readModelsCredentialPolicyInput(tc.seed, evaluatedAt))
+		if err != nil {
+			t.Fatalf("EvaluateCredential(%s): %v", tc.seed.ExternalID, err)
+		}
+		if result.RiskRank < riskpolicy.SeverityRank(riskpolicy.SeverityHigh) {
+			continue
+		}
+		highRiskCount++
+		if tc.hasAttribution {
+			highRiskWithAttributionCount++
+		}
+	}
+	return highRiskCount, highRiskWithAttributionCount
+}
+
+func readModelsCredentialPolicyInput(seed readModelsCredentialArtifactSeed, evaluatedAt time.Time) riskpolicy.CredentialInput {
+	return riskpolicy.CredentialInput{
+		SourceKind:            seed.SourceKind,
+		SourceName:            seed.SourceName,
+		CredentialKind:        seed.CredentialKind,
+		Status:                seed.Status,
+		ExpiresAt:             readModelsTimePtr(seed.ExpiresAtSource),
+		LastUsedAt:            readModelsTimePtr(seed.LastUsedAtSource),
+		CreatedByExternalID:   seed.CreatedByExternalID,
+		CreatedByDisplayName:  seed.CreatedByDisplayName,
+		ApprovedByExternalID:  seed.ApprovedByExternalID,
+		ApprovedByDisplayName: seed.ApprovedByDisplayName,
+		AssetRefKind:          seed.AssetRefKind,
+		AssetRefExternalID:    seed.AssetRefExternalID,
+		EvaluatedAt:           evaluatedAt,
+	}
+}
+
+func readModelsTimePtr(value time.Time) *time.Time {
+	if value.IsZero() {
+		return nil
+	}
+	normalized := value.UTC()
+	return &normalized
+}
+
+func principalRefsFromRows(rows []gen.ListNonHumanPrincipalsPageByFiltersRow) []string {
+	refs := make([]string, 0, len(rows))
+	for _, row := range rows {
+		refs = append(refs, row.PrincipalRef)
+	}
+	return refs
+}
+
+func assertPrincipalRefs(t *testing.T, got, want []string) {
+	t.Helper()
+
+	if len(got) != len(want) {
+		t.Fatalf("principal refs = %#v, want %#v", got, want)
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("principal refs = %#v, want %#v", got, want)
+		}
+	}
+}
+
+func assertNoPrincipalRef(t *testing.T, got []string, unwanted string) {
+	t.Helper()
+
+	for _, ref := range got {
+		if ref == unwanted {
+			t.Fatalf("principal refs = %#v, did not expect %q", got, unwanted)
+		}
+	}
+}
+
 func upsertReadModelsSaaSApp(t *testing.T, ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, canonicalKey, displayName, primaryDomain, vendorName string, observedAt time.Time) int64 {
 	t.Helper()
 
@@ -386,6 +941,47 @@ func upsertReadModelsPrivilegedSaaSAppEvent(t *testing.T, ctx context.Context, q
 	}); err != nil {
 		t.Fatalf("PromoteSaaSAppEventsSeenInRunBySource(%s): %v", canonicalKey, err)
 	}
+}
+
+func upsertConfiguredSourceState(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceKind, sourceName string, lastSuccessAt, freshUntilAt time.Time) {
+	t.Helper()
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO connector_source_state (
+			source_kind,
+			source_name,
+			enabled,
+			configured,
+			discovery_enabled,
+			last_success_at,
+			fresh_until_at,
+			updated_at
+		)
+		VALUES ($1, $2, true, true, true, $3, $4, now())
+		ON CONFLICT (source_kind, source_name) DO UPDATE SET
+			enabled = EXCLUDED.enabled,
+			configured = EXCLUDED.configured,
+			discovery_enabled = EXCLUDED.discovery_enabled,
+			last_success_at = EXCLUDED.last_success_at,
+			fresh_until_at = EXCLUDED.fresh_until_at,
+			updated_at = now()
+	`, sourceKind, sourceName, lastSuccessAt.UTC(), freshUntilAt.UTC()); err != nil {
+		t.Fatalf("upsert connector_source_state %s/%s: %v", sourceKind, sourceName, err)
+	}
+}
+
+func fetchNonHumanProjectionRefreshedAt(t *testing.T, ctx context.Context, pool *pgxpool.Pool, principalRef string) pgtype.Timestamptz {
+	t.Helper()
+
+	var refreshedAt pgtype.Timestamptz
+	if err := pool.QueryRow(ctx, `
+		SELECT projection_refreshed_at
+		FROM non_human_principals
+		WHERE principal_ref = $1
+	`, principalRef).Scan(&refreshedAt); err != nil {
+		t.Fatalf("select non_human_principals projection_refreshed_at: %v", err)
+	}
+	return refreshedAt
 }
 
 func fetchConnectorSourceStateTimes(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceKind, sourceName string) (time.Time, time.Time) {

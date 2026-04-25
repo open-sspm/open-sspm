@@ -11,12 +11,115 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const deleteAllCredentialArtifactRiskReadModels = `-- name: DeleteAllCredentialArtifactRiskReadModels :exec
+DELETE FROM credential_artifact_risk_read_models
+`
+
+func (q *Queries) DeleteAllCredentialArtifactRiskReadModels(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteAllCredentialArtifactRiskReadModels)
+	return err
+}
+
+const deleteAllNonHumanPrincipalReadModels = `-- name: DeleteAllNonHumanPrincipalReadModels :exec
+DELETE FROM non_human_principals
+`
+
+func (q *Queries) DeleteAllNonHumanPrincipalReadModels(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteAllNonHumanPrincipalReadModels)
+	return err
+}
+
 const deleteConnectorSourceStateAll = `-- name: DeleteConnectorSourceStateAll :exec
 DELETE FROM connector_source_state
 `
 
 func (q *Queries) DeleteConnectorSourceStateAll(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, deleteConnectorSourceStateAll)
+	return err
+}
+
+const deleteCredentialArtifactRiskReadModelsBySource = `-- name: DeleteCredentialArtifactRiskReadModelsBySource :exec
+DELETE FROM credential_artifact_risk_read_models risk
+USING credential_artifacts ca
+WHERE risk.credential_artifact_id = ca.id
+  AND lower(trim(ca.source_kind)) = lower(trim($1::text))
+  AND lower(trim(ca.source_name)) = lower(trim($2::text))
+`
+
+type DeleteCredentialArtifactRiskReadModelsBySourceParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+}
+
+func (q *Queries) DeleteCredentialArtifactRiskReadModelsBySource(ctx context.Context, arg DeleteCredentialArtifactRiskReadModelsBySourceParams) error {
+	_, err := q.db.Exec(ctx, deleteCredentialArtifactRiskReadModelsBySource, arg.SourceKind, arg.SourceName)
+	return err
+}
+
+const deleteNonHumanPrincipalPolicyReadModelsBySource = `-- name: DeleteNonHumanPrincipalPolicyReadModelsBySource :exec
+WITH requested_source AS (
+  SELECT
+    lower(trim($1::text)) AS source_kind,
+    lower(trim($2::text)) AS source_name
+),
+affected_identity_ids AS (
+  SELECT DISTINCT i.id AS identity_id
+  FROM identities i
+  JOIN identity_accounts ia ON ia.identity_id = i.id
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(a.source_kind)) = rs.source_kind
+   AND lower(trim(a.source_name)) = rs.source_name
+  WHERE i.kind IN ('service', 'bot')
+  UNION
+  SELECT DISTINCT nhp.identity_id
+  FROM non_human_principals nhp
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(nhp.source_kind)) = rs.source_kind
+   AND lower(trim(nhp.source_name)) = rs.source_name
+  WHERE nhp.identity_id > 0
+),
+affected_asset_ids AS (
+  SELECT DISTINCT aa.id AS app_asset_id
+  FROM app_assets aa
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(aa.source_kind)) = rs.source_kind
+   AND lower(trim(aa.source_name)) = rs.source_name
+  UNION
+  SELECT DISTINCT nhp.app_asset_id
+  FROM non_human_principals nhp
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(nhp.source_kind)) = rs.source_kind
+   AND lower(trim(nhp.source_name)) = rs.source_name
+  WHERE nhp.app_asset_id > 0
+),
+affected_principal_refs AS (
+  SELECT 'identity-' || ai.identity_id::text AS principal_ref
+  FROM affected_identity_ids ai
+  UNION
+  SELECT 'app-asset-' || aa.app_asset_id::text AS principal_ref
+  FROM affected_asset_ids aa
+)
+DELETE FROM non_human_principals nhp
+USING affected_principal_refs apr
+WHERE nhp.principal_ref = apr.principal_ref
+`
+
+type DeleteNonHumanPrincipalPolicyReadModelsBySourceParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+}
+
+func (q *Queries) DeleteNonHumanPrincipalPolicyReadModelsBySource(ctx context.Context, arg DeleteNonHumanPrincipalPolicyReadModelsBySourceParams) error {
+	_, err := q.db.Exec(ctx, deleteNonHumanPrincipalPolicyReadModelsBySource, arg.SourceKind, arg.SourceName)
 	return err
 }
 
@@ -106,6 +209,189 @@ func (q *Queries) GetSaaSAppRiskInputByID(ctx context.Context, saasAppID int64) 
 		&i.ConnectorBindingHealthy,
 	)
 	return i, err
+}
+
+const listAllCredentialArtifactRiskInputs = `-- name: ListAllCredentialArtifactRiskInputs :many
+SELECT
+  ca.id::bigint AS credential_artifact_id,
+  ca.source_kind::text AS source_kind,
+  ca.source_name::text AS source_name,
+  ca.credential_kind::text AS credential_kind,
+  ca.status::text AS status,
+  ca.expires_at_source::timestamptz AS expires_at_source,
+  ca.last_used_at_source::timestamptz AS last_used_at_source,
+  ca.created_at_source::timestamptz AS created_at_source,
+  ca.created_by_external_id::text AS created_by_external_id,
+  ca.created_by_display_name::text AS created_by_display_name,
+  ca.approved_by_external_id::text AS approved_by_external_id,
+  ca.approved_by_display_name::text AS approved_by_display_name,
+  ca.asset_ref_kind::text AS asset_ref_kind,
+  ca.asset_ref_external_id::text AS asset_ref_external_id,
+  ca.scope_json::jsonb AS scope_json
+FROM credential_artifacts ca
+WHERE ca.expired_at IS NULL
+  AND ca.last_observed_run_id IS NOT NULL
+ORDER BY ca.id ASC
+`
+
+type ListAllCredentialArtifactRiskInputsRow struct {
+	CredentialArtifactID  int64              `json:"credential_artifact_id"`
+	SourceKind            string             `json:"source_kind"`
+	SourceName            string             `json:"source_name"`
+	CredentialKind        string             `json:"credential_kind"`
+	Status                string             `json:"status"`
+	ExpiresAtSource       pgtype.Timestamptz `json:"expires_at_source"`
+	LastUsedAtSource      pgtype.Timestamptz `json:"last_used_at_source"`
+	CreatedAtSource       pgtype.Timestamptz `json:"created_at_source"`
+	CreatedByExternalID   string             `json:"created_by_external_id"`
+	CreatedByDisplayName  string             `json:"created_by_display_name"`
+	ApprovedByExternalID  string             `json:"approved_by_external_id"`
+	ApprovedByDisplayName string             `json:"approved_by_display_name"`
+	AssetRefKind          string             `json:"asset_ref_kind"`
+	AssetRefExternalID    string             `json:"asset_ref_external_id"`
+	ScopeJson             []byte             `json:"scope_json"`
+}
+
+func (q *Queries) ListAllCredentialArtifactRiskInputs(ctx context.Context) ([]ListAllCredentialArtifactRiskInputsRow, error) {
+	rows, err := q.db.Query(ctx, listAllCredentialArtifactRiskInputs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllCredentialArtifactRiskInputsRow
+	for rows.Next() {
+		var i ListAllCredentialArtifactRiskInputsRow
+		if err := rows.Scan(
+			&i.CredentialArtifactID,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.CredentialKind,
+			&i.Status,
+			&i.ExpiresAtSource,
+			&i.LastUsedAtSource,
+			&i.CreatedAtSource,
+			&i.CreatedByExternalID,
+			&i.CreatedByDisplayName,
+			&i.ApprovedByExternalID,
+			&i.ApprovedByDisplayName,
+			&i.AssetRefKind,
+			&i.AssetRefExternalID,
+			&i.ScopeJson,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAllNonHumanPrincipalRiskInputs = `-- name: ListAllNonHumanPrincipalRiskInputs :many
+SELECT
+  pr.principal_ref::text AS principal_ref,
+  pr.identity_id::bigint AS identity_id,
+  pr.app_asset_id::bigint AS app_asset_id,
+  pr.principal_type::text AS principal_type,
+  pr.source_kind::text AS source_kind,
+  pr.source_name::text AS source_name,
+  pr.display_name::text AS display_name,
+  pr.secondary_name::text AS secondary_name,
+  -- Projection folds identity primary email into secondary_name, falling back to external ID.
+  pr.secondary_name::text AS primary_email,
+  pr.linked_assets_count::bigint AS linked_assets_count,
+  pr.linked_credentials_count::bigint AS linked_credentials_count,
+  pr.last_seen_at::timestamptz AS last_seen_at,
+  pr.activity_state::text AS activity_state,
+  pr.freshness_state::text AS freshness_state,
+  pr.governance_state::text AS governance_state,
+  pr.accountable_owner_identity_id::bigint AS accountable_owner_identity_id,
+  pr.accountable_owner_display_name::text AS accountable_owner_display_name,
+  pr.accountable_owner_primary_email::text AS accountable_owner_primary_email,
+  pr.owner_presence::text AS owner_presence,
+  pr.has_critical_credential::boolean AS has_critical_credential,
+  pr.has_high_risk_credential::boolean AS has_high_risk_credential,
+  pr.has_expired_credential::boolean AS has_expired_credential,
+  pr.has_expiring_credential::boolean AS has_expiring_credential,
+  pr.has_unused_credential::boolean AS has_unused_credential,
+  pr.has_stale_evidence::boolean AS has_stale_evidence
+FROM non_human_principal_projection_v pr
+ORDER BY pr.principal_ref
+`
+
+type ListAllNonHumanPrincipalRiskInputsRow struct {
+	PrincipalRef                 string             `json:"principal_ref"`
+	IdentityID                   int64              `json:"identity_id"`
+	AppAssetID                   int64              `json:"app_asset_id"`
+	PrincipalType                string             `json:"principal_type"`
+	SourceKind                   string             `json:"source_kind"`
+	SourceName                   string             `json:"source_name"`
+	DisplayName                  string             `json:"display_name"`
+	SecondaryName                string             `json:"secondary_name"`
+	PrimaryEmail                 string             `json:"primary_email"`
+	LinkedAssetsCount            int64              `json:"linked_assets_count"`
+	LinkedCredentialsCount       int64              `json:"linked_credentials_count"`
+	LastSeenAt                   pgtype.Timestamptz `json:"last_seen_at"`
+	ActivityState                string             `json:"activity_state"`
+	FreshnessState               string             `json:"freshness_state"`
+	GovernanceState              string             `json:"governance_state"`
+	AccountableOwnerIdentityID   int64              `json:"accountable_owner_identity_id"`
+	AccountableOwnerDisplayName  string             `json:"accountable_owner_display_name"`
+	AccountableOwnerPrimaryEmail string             `json:"accountable_owner_primary_email"`
+	OwnerPresence                string             `json:"owner_presence"`
+	HasCriticalCredential        bool               `json:"has_critical_credential"`
+	HasHighRiskCredential        bool               `json:"has_high_risk_credential"`
+	HasExpiredCredential         bool               `json:"has_expired_credential"`
+	HasExpiringCredential        bool               `json:"has_expiring_credential"`
+	HasUnusedCredential          bool               `json:"has_unused_credential"`
+	HasStaleEvidence             bool               `json:"has_stale_evidence"`
+}
+
+func (q *Queries) ListAllNonHumanPrincipalRiskInputs(ctx context.Context) ([]ListAllNonHumanPrincipalRiskInputsRow, error) {
+	rows, err := q.db.Query(ctx, listAllNonHumanPrincipalRiskInputs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllNonHumanPrincipalRiskInputsRow
+	for rows.Next() {
+		var i ListAllNonHumanPrincipalRiskInputsRow
+		if err := rows.Scan(
+			&i.PrincipalRef,
+			&i.IdentityID,
+			&i.AppAssetID,
+			&i.PrincipalType,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.DisplayName,
+			&i.SecondaryName,
+			&i.PrimaryEmail,
+			&i.LinkedAssetsCount,
+			&i.LinkedCredentialsCount,
+			&i.LastSeenAt,
+			&i.ActivityState,
+			&i.FreshnessState,
+			&i.GovernanceState,
+			&i.AccountableOwnerIdentityID,
+			&i.AccountableOwnerDisplayName,
+			&i.AccountableOwnerPrimaryEmail,
+			&i.OwnerPresence,
+			&i.HasCriticalCredential,
+			&i.HasHighRiskCredential,
+			&i.HasExpiredCredential,
+			&i.HasExpiringCredential,
+			&i.HasUnusedCredential,
+			&i.HasStaleEvidence,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAllSaaSAppRiskInputs = `-- name: ListAllSaaSAppRiskInputs :many
@@ -209,6 +495,90 @@ func (q *Queries) ListAllSaaSAppRiskInputs(ctx context.Context) ([]ListAllSaaSAp
 	return items, nil
 }
 
+const listCredentialArtifactRiskInputsBySource = `-- name: ListCredentialArtifactRiskInputsBySource :many
+SELECT
+  ca.id::bigint AS credential_artifact_id,
+  ca.source_kind::text AS source_kind,
+  ca.source_name::text AS source_name,
+  ca.credential_kind::text AS credential_kind,
+  ca.status::text AS status,
+  ca.expires_at_source::timestamptz AS expires_at_source,
+  ca.last_used_at_source::timestamptz AS last_used_at_source,
+  ca.created_at_source::timestamptz AS created_at_source,
+  ca.created_by_external_id::text AS created_by_external_id,
+  ca.created_by_display_name::text AS created_by_display_name,
+  ca.approved_by_external_id::text AS approved_by_external_id,
+  ca.approved_by_display_name::text AS approved_by_display_name,
+  ca.asset_ref_kind::text AS asset_ref_kind,
+  ca.asset_ref_external_id::text AS asset_ref_external_id,
+  ca.scope_json::jsonb AS scope_json
+FROM credential_artifacts ca
+WHERE ca.expired_at IS NULL
+  AND ca.last_observed_run_id IS NOT NULL
+  AND lower(trim(ca.source_kind)) = lower(trim($1::text))
+  AND lower(trim(ca.source_name)) = lower(trim($2::text))
+ORDER BY ca.id ASC
+`
+
+type ListCredentialArtifactRiskInputsBySourceParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+}
+
+type ListCredentialArtifactRiskInputsBySourceRow struct {
+	CredentialArtifactID  int64              `json:"credential_artifact_id"`
+	SourceKind            string             `json:"source_kind"`
+	SourceName            string             `json:"source_name"`
+	CredentialKind        string             `json:"credential_kind"`
+	Status                string             `json:"status"`
+	ExpiresAtSource       pgtype.Timestamptz `json:"expires_at_source"`
+	LastUsedAtSource      pgtype.Timestamptz `json:"last_used_at_source"`
+	CreatedAtSource       pgtype.Timestamptz `json:"created_at_source"`
+	CreatedByExternalID   string             `json:"created_by_external_id"`
+	CreatedByDisplayName  string             `json:"created_by_display_name"`
+	ApprovedByExternalID  string             `json:"approved_by_external_id"`
+	ApprovedByDisplayName string             `json:"approved_by_display_name"`
+	AssetRefKind          string             `json:"asset_ref_kind"`
+	AssetRefExternalID    string             `json:"asset_ref_external_id"`
+	ScopeJson             []byte             `json:"scope_json"`
+}
+
+func (q *Queries) ListCredentialArtifactRiskInputsBySource(ctx context.Context, arg ListCredentialArtifactRiskInputsBySourceParams) ([]ListCredentialArtifactRiskInputsBySourceRow, error) {
+	rows, err := q.db.Query(ctx, listCredentialArtifactRiskInputsBySource, arg.SourceKind, arg.SourceName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCredentialArtifactRiskInputsBySourceRow
+	for rows.Next() {
+		var i ListCredentialArtifactRiskInputsBySourceRow
+		if err := rows.Scan(
+			&i.CredentialArtifactID,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.CredentialKind,
+			&i.Status,
+			&i.ExpiresAtSource,
+			&i.LastUsedAtSource,
+			&i.CreatedAtSource,
+			&i.CreatedByExternalID,
+			&i.CreatedByDisplayName,
+			&i.ApprovedByExternalID,
+			&i.ApprovedByDisplayName,
+			&i.AssetRefKind,
+			&i.AssetRefExternalID,
+			&i.ScopeJson,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLatestSuccessfulSyncRunsBySource = `-- name: ListLatestSuccessfulSyncRunsBySource :many
 WITH normalized AS (
   SELECT
@@ -251,6 +621,170 @@ func (q *Queries) ListLatestSuccessfulSyncRunsBySource(ctx context.Context) ([]L
 	for rows.Next() {
 		var i ListLatestSuccessfulSyncRunsBySourceRow
 		if err := rows.Scan(&i.SourceKind, &i.SourceName, &i.LastSuccessAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listNonHumanPrincipalRiskInputsBySource = `-- name: ListNonHumanPrincipalRiskInputsBySource :many
+WITH requested_source AS (
+  SELECT
+    lower(trim($1::text)) AS source_kind,
+    lower(trim($2::text)) AS source_name
+),
+affected_identity_ids AS (
+  SELECT DISTINCT i.id AS identity_id
+  FROM identities i
+  JOIN identity_accounts ia ON ia.identity_id = i.id
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(a.source_kind)) = rs.source_kind
+   AND lower(trim(a.source_name)) = rs.source_name
+  WHERE i.kind IN ('service', 'bot')
+  UNION
+  SELECT DISTINCT nhp.identity_id
+  FROM non_human_principals nhp
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(nhp.source_kind)) = rs.source_kind
+   AND lower(trim(nhp.source_name)) = rs.source_name
+  WHERE nhp.identity_id > 0
+),
+affected_asset_ids AS (
+  SELECT DISTINCT aa.id AS app_asset_id
+  FROM app_assets aa
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(aa.source_kind)) = rs.source_kind
+   AND lower(trim(aa.source_name)) = rs.source_name
+  UNION
+  SELECT DISTINCT nhp.app_asset_id
+  FROM non_human_principals nhp
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(nhp.source_kind)) = rs.source_kind
+   AND lower(trim(nhp.source_name)) = rs.source_name
+  WHERE nhp.app_asset_id > 0
+),
+affected_principal_refs AS (
+  SELECT 'identity-' || ai.identity_id::text AS principal_ref
+  FROM affected_identity_ids ai
+  UNION
+  SELECT 'app-asset-' || aa.app_asset_id::text AS principal_ref
+  FROM affected_asset_ids aa
+)
+SELECT
+  pr.principal_ref::text AS principal_ref,
+  pr.identity_id::bigint AS identity_id,
+  pr.app_asset_id::bigint AS app_asset_id,
+  pr.principal_type::text AS principal_type,
+  pr.source_kind::text AS source_kind,
+  pr.source_name::text AS source_name,
+  pr.display_name::text AS display_name,
+  pr.secondary_name::text AS secondary_name,
+  -- Projection folds identity primary email into secondary_name, falling back to external ID.
+  pr.secondary_name::text AS primary_email,
+  pr.linked_assets_count::bigint AS linked_assets_count,
+  pr.linked_credentials_count::bigint AS linked_credentials_count,
+  pr.last_seen_at::timestamptz AS last_seen_at,
+  pr.activity_state::text AS activity_state,
+  pr.freshness_state::text AS freshness_state,
+  pr.governance_state::text AS governance_state,
+  pr.accountable_owner_identity_id::bigint AS accountable_owner_identity_id,
+  pr.accountable_owner_display_name::text AS accountable_owner_display_name,
+  pr.accountable_owner_primary_email::text AS accountable_owner_primary_email,
+  pr.owner_presence::text AS owner_presence,
+  pr.has_critical_credential::boolean AS has_critical_credential,
+  pr.has_high_risk_credential::boolean AS has_high_risk_credential,
+  pr.has_expired_credential::boolean AS has_expired_credential,
+  pr.has_expiring_credential::boolean AS has_expiring_credential,
+  pr.has_unused_credential::boolean AS has_unused_credential,
+  pr.has_stale_evidence::boolean AS has_stale_evidence
+FROM non_human_principal_projection_v pr
+JOIN affected_principal_refs apr
+  ON apr.principal_ref = pr.principal_ref
+ORDER BY pr.principal_ref
+`
+
+type ListNonHumanPrincipalRiskInputsBySourceParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+}
+
+type ListNonHumanPrincipalRiskInputsBySourceRow struct {
+	PrincipalRef                 string             `json:"principal_ref"`
+	IdentityID                   int64              `json:"identity_id"`
+	AppAssetID                   int64              `json:"app_asset_id"`
+	PrincipalType                string             `json:"principal_type"`
+	SourceKind                   string             `json:"source_kind"`
+	SourceName                   string             `json:"source_name"`
+	DisplayName                  string             `json:"display_name"`
+	SecondaryName                string             `json:"secondary_name"`
+	PrimaryEmail                 string             `json:"primary_email"`
+	LinkedAssetsCount            int64              `json:"linked_assets_count"`
+	LinkedCredentialsCount       int64              `json:"linked_credentials_count"`
+	LastSeenAt                   pgtype.Timestamptz `json:"last_seen_at"`
+	ActivityState                string             `json:"activity_state"`
+	FreshnessState               string             `json:"freshness_state"`
+	GovernanceState              string             `json:"governance_state"`
+	AccountableOwnerIdentityID   int64              `json:"accountable_owner_identity_id"`
+	AccountableOwnerDisplayName  string             `json:"accountable_owner_display_name"`
+	AccountableOwnerPrimaryEmail string             `json:"accountable_owner_primary_email"`
+	OwnerPresence                string             `json:"owner_presence"`
+	HasCriticalCredential        bool               `json:"has_critical_credential"`
+	HasHighRiskCredential        bool               `json:"has_high_risk_credential"`
+	HasExpiredCredential         bool               `json:"has_expired_credential"`
+	HasExpiringCredential        bool               `json:"has_expiring_credential"`
+	HasUnusedCredential          bool               `json:"has_unused_credential"`
+	HasStaleEvidence             bool               `json:"has_stale_evidence"`
+}
+
+func (q *Queries) ListNonHumanPrincipalRiskInputsBySource(ctx context.Context, arg ListNonHumanPrincipalRiskInputsBySourceParams) ([]ListNonHumanPrincipalRiskInputsBySourceRow, error) {
+	rows, err := q.db.Query(ctx, listNonHumanPrincipalRiskInputsBySource, arg.SourceKind, arg.SourceName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListNonHumanPrincipalRiskInputsBySourceRow
+	for rows.Next() {
+		var i ListNonHumanPrincipalRiskInputsBySourceRow
+		if err := rows.Scan(
+			&i.PrincipalRef,
+			&i.IdentityID,
+			&i.AppAssetID,
+			&i.PrincipalType,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.DisplayName,
+			&i.SecondaryName,
+			&i.PrimaryEmail,
+			&i.LinkedAssetsCount,
+			&i.LinkedCredentialsCount,
+			&i.LastSeenAt,
+			&i.ActivityState,
+			&i.FreshnessState,
+			&i.GovernanceState,
+			&i.AccountableOwnerIdentityID,
+			&i.AccountableOwnerDisplayName,
+			&i.AccountableOwnerPrimaryEmail,
+			&i.OwnerPresence,
+			&i.HasCriticalCredential,
+			&i.HasHighRiskCredential,
+			&i.HasExpiredCredential,
+			&i.HasExpiringCredential,
+			&i.HasUnusedCredential,
+			&i.HasStaleEvidence,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1019,8 +1553,21 @@ SELECT (
   )
   OR EXISTS (
     SELECT 1
+    FROM credential_artifacts ca
+    LEFT JOIN credential_artifact_risk_read_models risk
+      ON risk.credential_artifact_id = ca.id
+    WHERE ca.expired_at IS NULL
+      AND ca.last_observed_run_id IS NOT NULL
+      AND (
+        risk.credential_artifact_id IS NULL
+        OR risk.policy_packs_json = '[]'::jsonb
+      )
+  )
+  OR EXISTS (
+    SELECT 1
     FROM non_human_principals nhp
     WHERE nhp.projection_refreshed_at IS NULL
+      OR nhp.policy_packs_json = '[]'::jsonb
   )
   OR (
     NOT EXISTS (
@@ -1102,6 +1649,258 @@ func (q *Queries) UpsertConnectorSourceState(ctx context.Context, arg UpsertConn
 		arg.FreshUntilAt,
 	)
 	return err
+}
+
+const upsertCredentialArtifactRiskReadModelsBulk = `-- name: UpsertCredentialArtifactRiskReadModelsBulk :execrows
+WITH input AS (
+  SELECT
+    i,
+    ($1::bigint[])[i] AS credential_artifact_id,
+    ($2::text[])[i] AS risk_level,
+    ($3::int[])[i] AS risk_rank,
+    ($4::jsonb[])[i] AS risk_signals_json,
+    ($5::jsonb[])[i] AS policy_packs_json
+  FROM generate_subscripts($1::bigint[], 1) AS s(i)
+)
+INSERT INTO credential_artifact_risk_read_models (
+  credential_artifact_id,
+  risk_level,
+  risk_rank,
+  risk_signals_json,
+  policy_packs_json,
+  projection_refreshed_at
+)
+SELECT
+  input.credential_artifact_id,
+  input.risk_level,
+  input.risk_rank,
+  input.risk_signals_json,
+  input.policy_packs_json,
+  now()
+FROM input
+ON CONFLICT (credential_artifact_id) DO UPDATE SET
+  risk_level = EXCLUDED.risk_level,
+  risk_rank = EXCLUDED.risk_rank,
+  risk_signals_json = EXCLUDED.risk_signals_json,
+  policy_packs_json = EXCLUDED.policy_packs_json,
+  projection_refreshed_at = now()
+`
+
+type UpsertCredentialArtifactRiskReadModelsBulkParams struct {
+	CredentialArtifactIds []int64  `json:"credential_artifact_ids"`
+	RiskLevels            []string `json:"risk_levels"`
+	RiskRanks             []int32  `json:"risk_ranks"`
+	RiskSignalsJsons      [][]byte `json:"risk_signals_jsons"`
+	PolicyPacksJsons      [][]byte `json:"policy_packs_jsons"`
+}
+
+func (q *Queries) UpsertCredentialArtifactRiskReadModelsBulk(ctx context.Context, arg UpsertCredentialArtifactRiskReadModelsBulkParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertCredentialArtifactRiskReadModelsBulk,
+		arg.CredentialArtifactIds,
+		arg.RiskLevels,
+		arg.RiskRanks,
+		arg.RiskSignalsJsons,
+		arg.PolicyPacksJsons,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const upsertNonHumanPrincipalReadModelsBulk = `-- name: UpsertNonHumanPrincipalReadModelsBulk :execrows
+WITH input AS (
+  SELECT
+    i,
+    ($1::text[])[i] AS principal_ref,
+    ($2::bigint[])[i] AS identity_id,
+    ($3::bigint[])[i] AS app_asset_id,
+    ($4::text[])[i] AS principal_type,
+    ($5::text[])[i] AS source_kind,
+    ($6::text[])[i] AS source_name,
+    ($7::text[])[i] AS display_name,
+    ($8::text[])[i] AS secondary_name,
+    ($9::bigint[])[i] AS linked_assets_count,
+    ($10::bigint[])[i] AS linked_credentials_count,
+    ($11::timestamptz[])[i] AS last_seen_at,
+    ($12::text[])[i] AS activity_state,
+    ($13::text[])[i] AS freshness_state,
+    ($14::text[])[i] AS governance_state,
+    ($15::bigint[])[i] AS accountable_owner_identity_id,
+    ($16::text[])[i] AS accountable_owner_display_name,
+    ($17::text[])[i] AS accountable_owner_primary_email,
+    ($18::text[])[i] AS owner_presence,
+    ($19::boolean[])[i] AS has_critical_credential,
+    ($20::boolean[])[i] AS has_high_risk_credential,
+    ($21::boolean[])[i] AS has_expired_credential,
+    ($22::boolean[])[i] AS has_expiring_credential,
+    ($23::boolean[])[i] AS has_unused_credential,
+    ($24::boolean[])[i] AS has_stale_evidence,
+    ($25::int[])[i] AS risk_reason_count,
+    ($26::text[])[i] AS risk_level,
+    ($27::jsonb[])[i] AS risk_signals_json,
+    ($28::jsonb[])[i] AS policy_packs_json
+  FROM generate_subscripts($1::text[], 1) AS s(i)
+)
+INSERT INTO non_human_principals (
+  principal_ref,
+  identity_id,
+  app_asset_id,
+  principal_type,
+  source_kind,
+  source_name,
+  display_name,
+  secondary_name,
+  linked_assets_count,
+  linked_credentials_count,
+  last_seen_at,
+  activity_state,
+  freshness_state,
+  governance_state,
+  accountable_owner_identity_id,
+  accountable_owner_display_name,
+  accountable_owner_primary_email,
+  owner_presence,
+  has_critical_credential,
+  has_high_risk_credential,
+  has_expired_credential,
+  has_expiring_credential,
+  has_unused_credential,
+  has_stale_evidence,
+  risk_reason_count,
+  risk_level,
+  risk_signals_json,
+  policy_packs_json,
+  projection_refreshed_at
+)
+SELECT
+  input.principal_ref,
+  input.identity_id,
+  input.app_asset_id,
+  input.principal_type,
+  input.source_kind,
+  input.source_name,
+  input.display_name,
+  input.secondary_name,
+  input.linked_assets_count,
+  input.linked_credentials_count,
+  input.last_seen_at,
+  input.activity_state,
+  input.freshness_state,
+  input.governance_state,
+  input.accountable_owner_identity_id,
+  input.accountable_owner_display_name,
+  input.accountable_owner_primary_email,
+  input.owner_presence,
+  input.has_critical_credential,
+  input.has_high_risk_credential,
+  input.has_expired_credential,
+  input.has_expiring_credential,
+  input.has_unused_credential,
+  input.has_stale_evidence,
+  input.risk_reason_count,
+  input.risk_level,
+  input.risk_signals_json,
+  input.policy_packs_json,
+  now()
+FROM input
+ON CONFLICT (principal_ref) DO UPDATE SET
+  identity_id = EXCLUDED.identity_id,
+  app_asset_id = EXCLUDED.app_asset_id,
+  principal_type = EXCLUDED.principal_type,
+  source_kind = EXCLUDED.source_kind,
+  source_name = EXCLUDED.source_name,
+  display_name = EXCLUDED.display_name,
+  secondary_name = EXCLUDED.secondary_name,
+  linked_assets_count = EXCLUDED.linked_assets_count,
+  linked_credentials_count = EXCLUDED.linked_credentials_count,
+  last_seen_at = EXCLUDED.last_seen_at,
+  activity_state = EXCLUDED.activity_state,
+  freshness_state = EXCLUDED.freshness_state,
+  governance_state = EXCLUDED.governance_state,
+  accountable_owner_identity_id = EXCLUDED.accountable_owner_identity_id,
+  accountable_owner_display_name = EXCLUDED.accountable_owner_display_name,
+  accountable_owner_primary_email = EXCLUDED.accountable_owner_primary_email,
+  owner_presence = EXCLUDED.owner_presence,
+  has_critical_credential = EXCLUDED.has_critical_credential,
+  has_high_risk_credential = EXCLUDED.has_high_risk_credential,
+  has_expired_credential = EXCLUDED.has_expired_credential,
+  has_expiring_credential = EXCLUDED.has_expiring_credential,
+  has_unused_credential = EXCLUDED.has_unused_credential,
+  has_stale_evidence = EXCLUDED.has_stale_evidence,
+  risk_reason_count = EXCLUDED.risk_reason_count,
+  risk_level = EXCLUDED.risk_level,
+  risk_signals_json = EXCLUDED.risk_signals_json,
+  policy_packs_json = EXCLUDED.policy_packs_json,
+  projection_refreshed_at = now()
+`
+
+type UpsertNonHumanPrincipalReadModelsBulkParams struct {
+	PrincipalRefs                 []string             `json:"principal_refs"`
+	IdentityIds                   []int64              `json:"identity_ids"`
+	AppAssetIds                   []int64              `json:"app_asset_ids"`
+	PrincipalTypes                []string             `json:"principal_types"`
+	SourceKinds                   []string             `json:"source_kinds"`
+	SourceNames                   []string             `json:"source_names"`
+	DisplayNames                  []string             `json:"display_names"`
+	SecondaryNames                []string             `json:"secondary_names"`
+	LinkedAssetsCounts            []int64              `json:"linked_assets_counts"`
+	LinkedCredentialsCounts       []int64              `json:"linked_credentials_counts"`
+	LastSeenAts                   []pgtype.Timestamptz `json:"last_seen_ats"`
+	ActivityStates                []string             `json:"activity_states"`
+	FreshnessStates               []string             `json:"freshness_states"`
+	GovernanceStates              []string             `json:"governance_states"`
+	AccountableOwnerIdentityIds   []int64              `json:"accountable_owner_identity_ids"`
+	AccountableOwnerDisplayNames  []string             `json:"accountable_owner_display_names"`
+	AccountableOwnerPrimaryEmails []string             `json:"accountable_owner_primary_emails"`
+	OwnerPresences                []string             `json:"owner_presences"`
+	HasCriticalCredentials        []bool               `json:"has_critical_credentials"`
+	HasHighRiskCredentials        []bool               `json:"has_high_risk_credentials"`
+	HasExpiredCredentials         []bool               `json:"has_expired_credentials"`
+	HasExpiringCredentials        []bool               `json:"has_expiring_credentials"`
+	HasUnusedCredentials          []bool               `json:"has_unused_credentials"`
+	HasStaleEvidences             []bool               `json:"has_stale_evidences"`
+	RiskReasonCounts              []int32              `json:"risk_reason_counts"`
+	RiskLevels                    []string             `json:"risk_levels"`
+	RiskSignalsJsons              [][]byte             `json:"risk_signals_jsons"`
+	PolicyPacksJsons              [][]byte             `json:"policy_packs_jsons"`
+}
+
+func (q *Queries) UpsertNonHumanPrincipalReadModelsBulk(ctx context.Context, arg UpsertNonHumanPrincipalReadModelsBulkParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertNonHumanPrincipalReadModelsBulk,
+		arg.PrincipalRefs,
+		arg.IdentityIds,
+		arg.AppAssetIds,
+		arg.PrincipalTypes,
+		arg.SourceKinds,
+		arg.SourceNames,
+		arg.DisplayNames,
+		arg.SecondaryNames,
+		arg.LinkedAssetsCounts,
+		arg.LinkedCredentialsCounts,
+		arg.LastSeenAts,
+		arg.ActivityStates,
+		arg.FreshnessStates,
+		arg.GovernanceStates,
+		arg.AccountableOwnerIdentityIds,
+		arg.AccountableOwnerDisplayNames,
+		arg.AccountableOwnerPrimaryEmails,
+		arg.OwnerPresences,
+		arg.HasCriticalCredentials,
+		arg.HasHighRiskCredentials,
+		arg.HasExpiredCredentials,
+		arg.HasExpiringCredentials,
+		arg.HasUnusedCredentials,
+		arg.HasStaleEvidences,
+		arg.RiskReasonCounts,
+		arg.RiskLevels,
+		arg.RiskSignalsJsons,
+		arg.PolicyPacksJsons,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const upsertSaaSAppRiskReadModelsBulk = `-- name: UpsertSaaSAppRiskReadModelsBulk :execrows

@@ -15,16 +15,10 @@ const countCredentialArtifactsBySourceAndQueryAndFilters = `-- name: CountCreden
 WITH rated_credentials AS (
   SELECT
     ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
-    credential_artifact_risk_level(
-      ca.status,
-      ca.credential_kind,
-      ca.expires_at_source,
-      ca.last_used_at_source,
-      ca.created_by_external_id,
-      ca.approved_by_external_id,
-      $3::timestamptz
-    ) AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level
   FROM credential_artifacts ca
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
   WHERE
     ca.source_kind = $6::text
     AND ca.source_name = $7::text
@@ -116,16 +110,10 @@ WITH configured_sources AS (
 rated_credentials AS (
   SELECT
     ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
-    credential_artifact_risk_level(
-      ca.status,
-      ca.credential_kind,
-      ca.expires_at_source,
-      ca.last_used_at_source,
-      ca.created_by_external_id,
-      ca.approved_by_external_id,
-      $3::timestamptz
-    ) AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level
   FROM credential_artifacts ca
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
   JOIN configured_sources cs
     ON cs.source_kind = ca.source_kind
    AND cs.source_name = ca.source_name
@@ -239,25 +227,16 @@ func (q *Queries) ExpireCredentialArtifactsNotSeenInRunBySource(ctx context.Cont
 const getCredentialArtifactByID = `-- name: GetCredentialArtifactByID :one
 SELECT
   ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
-  credential_artifact_risk_level(
-    ca.status,
-    ca.credential_kind,
-    ca.expires_at_source,
-    ca.last_used_at_source,
-    ca.created_by_external_id,
-    ca.approved_by_external_id,
-    $1::timestamptz
-  ) AS risk_level
+  COALESCE(risk.risk_level, 'low')::text AS risk_level,
+  COALESCE(risk.risk_signals_json, '[]'::jsonb)::jsonb AS risk_signals_json,
+  COALESCE(risk.policy_packs_json, '[]'::jsonb)::jsonb AS policy_packs_json
 FROM credential_artifacts ca
-WHERE ca.id = $2::bigint
+LEFT JOIN credential_artifact_risk_read_models risk
+  ON risk.credential_artifact_id = ca.id
+WHERE ca.id = $1::bigint
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL
 `
-
-type GetCredentialArtifactByIDParams struct {
-	EvaluatedAt pgtype.Timestamptz `json:"evaluated_at"`
-	ID          int64              `json:"id"`
-}
 
 type GetCredentialArtifactByIDRow struct {
 	ID                    int64              `json:"id"`
@@ -290,10 +269,12 @@ type GetCredentialArtifactByIDRow struct {
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 	RiskLevel             string             `json:"risk_level"`
+	RiskSignalsJson       []byte             `json:"risk_signals_json"`
+	PolicyPacksJson       []byte             `json:"policy_packs_json"`
 }
 
-func (q *Queries) GetCredentialArtifactByID(ctx context.Context, arg GetCredentialArtifactByIDParams) (GetCredentialArtifactByIDRow, error) {
-	row := q.db.QueryRow(ctx, getCredentialArtifactByID, arg.EvaluatedAt, arg.ID)
+func (q *Queries) GetCredentialArtifactByID(ctx context.Context, id int64) (GetCredentialArtifactByIDRow, error) {
+	row := q.db.QueryRow(ctx, getCredentialArtifactByID, id)
 	var i GetCredentialArtifactByIDRow
 	err := row.Scan(
 		&i.ID,
@@ -326,6 +307,8 @@ func (q *Queries) GetCredentialArtifactByID(ctx context.Context, arg GetCredenti
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.RiskLevel,
+		&i.RiskSignalsJson,
+		&i.PolicyPacksJson,
 	)
 	return i, err
 }
@@ -396,20 +379,14 @@ func (q *Queries) ListCredentialArtifactCountsByAssetRef(ctx context.Context, ar
 const listCredentialArtifactsForAssetRef = `-- name: ListCredentialArtifactsForAssetRef :many
 SELECT
   ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
-  credential_artifact_risk_level(
-    ca.status,
-    ca.credential_kind,
-    ca.expires_at_source,
-    ca.last_used_at_source,
-    ca.created_by_external_id,
-    ca.approved_by_external_id,
-    $1::timestamptz
-  ) AS risk_level
+  COALESCE(risk.risk_level, 'low')::text AS risk_level
 FROM credential_artifacts ca
-WHERE ca.source_kind = $2::text
-  AND ca.source_name = $3::text
-  AND ca.asset_ref_kind = $4::text
-  AND ca.asset_ref_external_id = $5::text
+LEFT JOIN credential_artifact_risk_read_models risk
+  ON risk.credential_artifact_id = ca.id
+WHERE ca.source_kind = $1::text
+  AND ca.source_name = $2::text
+  AND ca.asset_ref_kind = $3::text
+  AND ca.asset_ref_external_id = $4::text
   AND ca.expired_at IS NULL
   AND ca.last_observed_run_id IS NOT NULL
 ORDER BY
@@ -418,11 +395,10 @@ ORDER BY
 `
 
 type ListCredentialArtifactsForAssetRefParams struct {
-	EvaluatedAt        pgtype.Timestamptz `json:"evaluated_at"`
-	SourceKind         string             `json:"source_kind"`
-	SourceName         string             `json:"source_name"`
-	AssetRefKind       string             `json:"asset_ref_kind"`
-	AssetRefExternalID string             `json:"asset_ref_external_id"`
+	SourceKind         string `json:"source_kind"`
+	SourceName         string `json:"source_name"`
+	AssetRefKind       string `json:"asset_ref_kind"`
+	AssetRefExternalID string `json:"asset_ref_external_id"`
 }
 
 type ListCredentialArtifactsForAssetRefRow struct {
@@ -460,7 +436,6 @@ type ListCredentialArtifactsForAssetRefRow struct {
 
 func (q *Queries) ListCredentialArtifactsForAssetRef(ctx context.Context, arg ListCredentialArtifactsForAssetRefParams) ([]ListCredentialArtifactsForAssetRefRow, error) {
 	rows, err := q.db.Query(ctx, listCredentialArtifactsForAssetRef,
-		arg.EvaluatedAt,
 		arg.SourceKind,
 		arg.SourceName,
 		arg.AssetRefKind,
@@ -519,16 +494,10 @@ const listCredentialArtifactsPageBySourceAndQueryAndFilters = `-- name: ListCred
 WITH rated_credentials AS (
   SELECT
     ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
-    credential_artifact_risk_level(
-      ca.status,
-      ca.credential_kind,
-      ca.expires_at_source,
-      ca.last_used_at_source,
-      ca.created_by_external_id,
-      ca.approved_by_external_id,
-      $3::timestamptz
-    ) AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level
   FROM credential_artifacts ca
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
   WHERE
     ca.source_kind = $8::text
     AND ca.source_name = $9::text
@@ -707,16 +676,10 @@ WITH configured_sources AS (
 rated_credentials AS (
   SELECT
     ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
-    credential_artifact_risk_level(
-      ca.status,
-      ca.credential_kind,
-      ca.expires_at_source,
-      ca.last_used_at_source,
-      ca.created_by_external_id,
-      ca.approved_by_external_id,
-      $3::timestamptz
-    ) AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level
   FROM credential_artifacts ca
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
   JOIN configured_sources cs
     ON cs.source_kind = ca.source_kind
    AND cs.source_name = ca.source_name

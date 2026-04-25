@@ -159,7 +159,9 @@ SELECT
   pr.has_unused_credential,
   pr.has_stale_evidence,
   pr.risk_reason_count,
-  pr.risk_level
+  pr.risk_level,
+  pr.risk_signals_json,
+  pr.policy_packs_json
 FROM non_human_principal_read_models_v pr
 WHERE pr.principal_ref = $1::text
 `
@@ -194,6 +196,8 @@ func (q *Queries) GetNonHumanPrincipalByRef(ctx context.Context, principalRef st
 		&i.HasStaleEvidence,
 		&i.RiskReasonCount,
 		&i.RiskLevel,
+		&i.RiskSignalsJson,
+		&i.PolicyPacksJson,
 	)
 	return i, err
 }
@@ -300,15 +304,7 @@ WITH credential_matches AS (
     ca.external_id::text AS external_id,
     COALESCE(NULLIF(trim(ca.display_name), ''), ca.external_id)::text AS display_name,
     ca.status::text AS status,
-    credential_artifact_risk_level(
-      ca.status,
-      ca.credential_kind,
-      ca.expires_at_source,
-      ca.last_used_at_source,
-      ca.created_by_external_id,
-      ca.approved_by_external_id,
-      now()
-    )::text AS risk_level,
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
     ca.expires_at_source::timestamptz AS expires_at_source,
     ca.last_used_at_source::timestamptz AS last_used_at_source,
     ca.created_by_display_name::text AS created_by_display_name,
@@ -328,6 +324,8 @@ WITH credential_matches AS (
    AND ca.asset_ref_external_id = nhac.asset_ref_external_id
    AND ca.expired_at IS NULL
    AND ca.last_observed_run_id IS NOT NULL
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
   WHERE nhpal.principal_ref = $1::text
   ORDER BY
     ca.id,
@@ -466,7 +464,7 @@ effective_configured_sources AS (
   )
 ),
 base AS (
-  SELECT pr.principal_ref, pr.identity_id, pr.app_asset_id, pr.principal_type, pr.source_kind, pr.source_name, pr.display_name, pr.secondary_name, pr.linked_assets_count, pr.linked_credentials_count, pr.last_seen_at, pr.activity_state, pr.freshness_state, pr.governance_state, pr.accountable_owner_identity_id, pr.accountable_owner_display_name, pr.accountable_owner_primary_email, pr.owner_presence, pr.has_critical_credential, pr.has_high_risk_credential, pr.has_expired_credential, pr.has_expiring_credential, pr.has_unused_credential, pr.has_stale_evidence, pr.risk_reason_count, pr.risk_level
+  SELECT pr.principal_ref, pr.identity_id, pr.app_asset_id, pr.principal_type, pr.source_kind, pr.source_name, pr.display_name, pr.secondary_name, pr.linked_assets_count, pr.linked_credentials_count, pr.last_seen_at, pr.activity_state, pr.freshness_state, pr.governance_state, pr.accountable_owner_identity_id, pr.accountable_owner_display_name, pr.accountable_owner_primary_email, pr.owner_presence, pr.has_critical_credential, pr.has_high_risk_credential, pr.has_expired_credential, pr.has_expiring_credential, pr.has_unused_credential, pr.has_stale_evidence, pr.risk_reason_count, pr.risk_level, pr.risk_signals_json, pr.policy_packs_json
   FROM non_human_principal_read_models_v pr
   JOIN effective_configured_sources cs
     ON cs.source_kind = pr.source_kind

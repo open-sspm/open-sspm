@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -195,7 +194,6 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	now := time.Now().UTC()
 	summary, err := h.Q.GetAppAssetPostureByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -213,7 +211,6 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 	}
 
 	grants, err := h.Q.ListCredentialArtifactsForAssetRef(ctx, gen.ListCredentialArtifactsForAssetRefParams{
-		EvaluatedAt:        pgTimestamptz(now),
 		SourceKind:         strings.TrimSpace(summary.SourceKind),
 		SourceName:         strings.TrimSpace(summary.SourceName),
 		AssetRefKind:       strings.TrimSpace(summary.AssetKind),
@@ -310,7 +307,6 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	now := time.Now().UTC()
 	summary, err := h.Q.GetAppAssetPostureByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -322,7 +318,7 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 		return RenderNotFound(c)
 	}
 
-	credential, err := h.Q.GetCredentialArtifactByID(ctx, gen.GetCredentialArtifactByIDParams{EvaluatedAt: pgTimestamptz(now), ID: credentialID})
+	credential, err := h.Q.GetCredentialArtifactByID(ctx, credentialID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -535,7 +531,6 @@ func (h *Handlers) buildConnectedAppsViewData(ctx context.Context, layout viewmo
 func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout viewmodels.LayoutData, appID int64, opts connectedAppShowOptions) (viewmodels.ConnectedAppShowViewData, error) {
 	data := viewmodels.ConnectedAppShowViewData{}
 
-	now := time.Now().UTC()
 	summary, err := h.Q.GetAppAssetPostureByID(ctx, appID)
 	if err != nil {
 		return data, err
@@ -569,7 +564,6 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 	}
 
 	grantRows, err := h.Q.ListCredentialArtifactsForAssetRef(ctx, gen.ListCredentialArtifactsForAssetRefParams{
-		EvaluatedAt:        pgTimestamptz(now),
 		SourceKind:         strings.TrimSpace(summary.SourceKind),
 		SourceName:         strings.TrimSpace(summary.SourceName),
 		AssetRefKind:       strings.TrimSpace(summary.AssetKind),

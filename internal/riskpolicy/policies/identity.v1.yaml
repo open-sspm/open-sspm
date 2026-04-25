@@ -18,7 +18,7 @@ spec:
       title: No accountable owner
     - id: linked_high_risk_credential
       severity: high
-      when: has_high_risk_credential
+      when: has_high_risk_credential && !has_critical_credential
       title: Linked credential is high risk
     - id: linked_expired_credential
       severity: high
@@ -26,7 +26,7 @@ spec:
       title: Linked credential is expired
     - id: unreviewed_risky_principal
       severity: high
-      when: governance_state != "reviewed" && (has_high_risk_credential || has_expired_credential || has_stale_evidence)
+      when: governance_state == "unreviewed" && (has_high_risk_credential || has_expired_credential || has_expiring_credential || has_unused_credential || has_stale_evidence)
       title: Unreviewed principal has risky evidence
     - id: stale_or_unused_evidence
       severity: medium

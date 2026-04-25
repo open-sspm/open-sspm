@@ -9,14 +9,14 @@ import (
 )
 
 type RiskSignal struct {
-	ID                string
-	Domain            Domain
-	Severity          string
-	ScoreDelta        int
-	Title             string
-	Evidence          string
-	PolicyPackID      string
-	PolicyPackVersion string
+	ID                string `json:"id"`
+	Domain            Domain `json:"domain"`
+	Severity          string `json:"severity"`
+	ScoreDelta        int    `json:"score_delta,omitempty"`
+	Title             string `json:"title"`
+	Evidence          string `json:"evidence,omitempty"`
+	PolicyPackID      string `json:"policy_pack_id"`
+	PolicyPackVersion string `json:"policy_pack_version"`
 }
 
 type PolicyPackRef struct {
@@ -43,9 +43,10 @@ type CredentialInput struct {
 }
 
 type CredentialResult struct {
-	RiskLevel string
-	RiskRank  int
-	Signals   []RiskSignal
+	RiskLevel   string
+	RiskRank    int
+	PolicyPacks []PolicyPackRef
+	Signals     []RiskSignal
 }
 
 func EvaluateCredential(input CredentialInput) (CredentialResult, error) {
@@ -76,6 +77,7 @@ func (r *Registry) EvaluateCredential(input CredentialInput) (CredentialResult, 
 			continue
 		}
 		foundPack = true
+		result.PolicyPacks = appendPolicyPackRef(result.PolicyPacks, pack.Policy.Metadata)
 		if pack.Policy.Spec.Aggregation.RiskLevel.Default != "" {
 			defaultLevel = MaxSeverity(defaultLevel, pack.Policy.Spec.Aggregation.RiskLevel.Default)
 		}

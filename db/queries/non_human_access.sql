@@ -395,7 +395,9 @@ SELECT
   pr.has_unused_credential,
   pr.has_stale_evidence,
   pr.risk_reason_count,
-  pr.risk_level
+  pr.risk_level,
+  pr.risk_signals_json,
+  pr.policy_packs_json
 FROM non_human_principal_read_models_v pr
 WHERE pr.principal_ref = sqlc.arg(principal_ref)::text;
 
@@ -442,15 +444,7 @@ WITH credential_matches AS (
     ca.external_id::text AS external_id,
     COALESCE(NULLIF(trim(ca.display_name), ''), ca.external_id)::text AS display_name,
     ca.status::text AS status,
-    credential_artifact_risk_level(
-      ca.status,
-      ca.credential_kind,
-      ca.expires_at_source,
-      ca.last_used_at_source,
-      ca.created_by_external_id,
-      ca.approved_by_external_id,
-      now()
-    )::text AS risk_level,
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
     ca.expires_at_source::timestamptz AS expires_at_source,
     ca.last_used_at_source::timestamptz AS last_used_at_source,
     ca.created_by_display_name::text AS created_by_display_name,
@@ -470,6 +464,8 @@ WITH credential_matches AS (
    AND ca.asset_ref_external_id = nhac.asset_ref_external_id
    AND ca.expired_at IS NULL
    AND ca.last_observed_run_id IS NOT NULL
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
   WHERE nhpal.principal_ref = sqlc.arg(principal_ref)::text
   ORDER BY
     ca.id,

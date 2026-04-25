@@ -203,7 +203,7 @@ func TestListCredentialArtifactsPageBySourcesAndQueryAndFiltersPaginatesGlobally
 	})
 }
 
-func TestCredentialArtifactRiskLevelConsistentAcrossQueries(t *testing.T) {
+func TestCredentialArtifactStoredRiskLevelConsistentAcrossQueries(t *testing.T) {
 	t.Parallel()
 
 	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
@@ -326,11 +326,9 @@ func TestCredentialArtifactRiskLevelConsistentAcrossQueries(t *testing.T) {
 				CreatedByExternalID:  tc.seed.CreatedByExternalID,
 				ApprovedByExternalID: tc.seed.ApprovedByExternalID,
 			})
+			insertCredentialRiskReadModel(t, ctx, pool, credentialID, tc.want, credentialRiskRank(tc.want))
 
-			gotByID, err := q.GetCredentialArtifactByID(ctx, GetCredentialArtifactByIDParams{
-				EvaluatedAt: evaluatedAt,
-				ID:          credentialID,
-			})
+			gotByID, err := q.GetCredentialArtifactByID(ctx, credentialID)
 			if err != nil {
 				t.Fatalf("%s: GetCredentialArtifactByID(): %v", tc.name, err)
 			}
@@ -339,7 +337,6 @@ func TestCredentialArtifactRiskLevelConsistentAcrossQueries(t *testing.T) {
 			}
 
 			assetRows, err := q.ListCredentialArtifactsForAssetRef(ctx, ListCredentialArtifactsForAssetRefParams{
-				EvaluatedAt:        evaluatedAt,
 				SourceKind:         "github",
 				SourceName:         sourceName,
 				AssetRefKind:       "repository",
@@ -1187,6 +1184,19 @@ func nullableTime(value time.Time) any {
 		return nil
 	}
 	return value.UTC()
+}
+
+func credentialRiskRank(value string) int {
+	switch value {
+	case "critical":
+		return 4
+	case "high":
+		return 3
+	case "medium":
+		return 2
+	default:
+		return 1
+	}
 }
 
 func validTimestamptz(value time.Time) pgtype.Timestamptz {
