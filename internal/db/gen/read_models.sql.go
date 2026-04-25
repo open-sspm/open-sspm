@@ -298,6 +298,7 @@ SELECT
   pr.source_name::text AS source_name,
   pr.display_name::text AS display_name,
   pr.secondary_name::text AS secondary_name,
+  -- Projection folds identity primary email into secondary_name, falling back to external ID.
   pr.secondary_name::text AS primary_email,
   pr.linked_assets_count::bigint AS linked_assets_count,
   pr.linked_credentials_count::bigint AS linked_credentials_count,
@@ -691,6 +692,7 @@ SELECT
   pr.source_name::text AS source_name,
   pr.display_name::text AS display_name,
   pr.secondary_name::text AS secondary_name,
+  -- Projection folds identity primary email into secondary_name, falling back to external ID.
   pr.secondary_name::text AS primary_email,
   pr.linked_assets_count::bigint AS linked_assets_count,
   pr.linked_credentials_count::bigint AS linked_credentials_count,

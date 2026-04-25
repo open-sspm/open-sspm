@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/url"
 	"strings"
 
@@ -379,9 +380,10 @@ func nonHumanPrincipalRiskSignals(principal gen.NonHumanPrincipalReadModelsV) []
 	}
 	var signals []viewmodels.NonHumanAccessRiskSignal
 	if err := json.Unmarshal(principal.RiskSignalsJson, &signals); err != nil {
+		slog.Warn("failed to decode non-human principal risk signals", "principal_ref", principal.PrincipalRef, "error", err)
 		return nil
 	}
-	filtered := signals[:0]
+	filtered := make([]viewmodels.NonHumanAccessRiskSignal, 0, len(signals))
 	for _, signal := range signals {
 		if strings.TrimSpace(signal.Title) == "" {
 			continue
