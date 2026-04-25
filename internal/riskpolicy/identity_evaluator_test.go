@@ -172,6 +172,17 @@ func identityGoldenCases() []identityGoldenCase {
 			wantSignalIDs:   []string{"linked_critical_credential"},
 		},
 		{
+			name: "critical linked credential with aggregate high flag",
+			input: with(func(input *IdentityInput) {
+				input.LinkedCredentialsCount = 1
+				input.HasCriticalCredential = true
+				input.HasHighRiskCredential = true
+			}),
+			wantLevel:       SeverityCritical,
+			wantReasonCount: 1,
+			wantSignalIDs:   []string{"linked_critical_credential"},
+		},
+		{
 			name: "unknown owner",
 			input: with(func(input *IdentityInput) {
 				input.OwnerPresence = "unknown"

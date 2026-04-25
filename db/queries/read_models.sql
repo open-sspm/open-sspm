@@ -78,6 +78,7 @@ SELECT (
     SELECT 1
     FROM non_human_principals nhp
     WHERE nhp.projection_refreshed_at IS NULL
+      OR nhp.policy_packs_json = '[]'::jsonb
   )
   OR (
     NOT EXISTS (
@@ -506,6 +507,304 @@ SET
   projection_refreshed_at = now()
 FROM merged
 WHERE aa.id = merged.id;
+
+-- name: DeleteAllNonHumanPrincipalReadModels :exec
+DELETE FROM non_human_principals;
+
+-- name: DeleteNonHumanPrincipalPolicyReadModelsBySource :exec
+WITH requested_source AS (
+  SELECT
+    lower(trim(sqlc.arg(source_kind)::text)) AS source_kind,
+    lower(trim(sqlc.arg(source_name)::text)) AS source_name
+),
+affected_identity_ids AS (
+  SELECT DISTINCT i.id AS identity_id
+  FROM identities i
+  JOIN identity_accounts ia ON ia.identity_id = i.id
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(a.source_kind)) = rs.source_kind
+   AND lower(trim(a.source_name)) = rs.source_name
+  WHERE i.kind IN ('service', 'bot')
+  UNION
+  SELECT DISTINCT nhp.identity_id
+  FROM non_human_principals nhp
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(nhp.source_kind)) = rs.source_kind
+   AND lower(trim(nhp.source_name)) = rs.source_name
+  WHERE nhp.identity_id > 0
+),
+affected_asset_ids AS (
+  SELECT DISTINCT aa.id AS app_asset_id
+  FROM app_assets aa
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(aa.source_kind)) = rs.source_kind
+   AND lower(trim(aa.source_name)) = rs.source_name
+  UNION
+  SELECT DISTINCT nhp.app_asset_id
+  FROM non_human_principals nhp
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(nhp.source_kind)) = rs.source_kind
+   AND lower(trim(nhp.source_name)) = rs.source_name
+  WHERE nhp.app_asset_id > 0
+),
+affected_principal_refs AS (
+  SELECT 'identity-' || ai.identity_id::text AS principal_ref
+  FROM affected_identity_ids ai
+  UNION
+  SELECT 'app-asset-' || aa.app_asset_id::text AS principal_ref
+  FROM affected_asset_ids aa
+)
+DELETE FROM non_human_principals nhp
+USING affected_principal_refs apr
+WHERE nhp.principal_ref = apr.principal_ref;
+
+-- name: ListAllNonHumanPrincipalRiskInputs :many
+SELECT
+  pr.principal_ref::text AS principal_ref,
+  pr.identity_id::bigint AS identity_id,
+  pr.app_asset_id::bigint AS app_asset_id,
+  pr.principal_type::text AS principal_type,
+  pr.source_kind::text AS source_kind,
+  pr.source_name::text AS source_name,
+  pr.display_name::text AS display_name,
+  pr.secondary_name::text AS secondary_name,
+  pr.secondary_name::text AS primary_email,
+  pr.linked_assets_count::bigint AS linked_assets_count,
+  pr.linked_credentials_count::bigint AS linked_credentials_count,
+  pr.last_seen_at::timestamptz AS last_seen_at,
+  pr.activity_state::text AS activity_state,
+  pr.freshness_state::text AS freshness_state,
+  pr.governance_state::text AS governance_state,
+  pr.accountable_owner_identity_id::bigint AS accountable_owner_identity_id,
+  pr.accountable_owner_display_name::text AS accountable_owner_display_name,
+  pr.accountable_owner_primary_email::text AS accountable_owner_primary_email,
+  pr.owner_presence::text AS owner_presence,
+  pr.has_critical_credential::boolean AS has_critical_credential,
+  pr.has_high_risk_credential::boolean AS has_high_risk_credential,
+  pr.has_expired_credential::boolean AS has_expired_credential,
+  pr.has_expiring_credential::boolean AS has_expiring_credential,
+  pr.has_unused_credential::boolean AS has_unused_credential,
+  pr.has_stale_evidence::boolean AS has_stale_evidence
+FROM non_human_principal_projection_v pr
+ORDER BY pr.principal_ref;
+
+-- name: ListNonHumanPrincipalRiskInputsBySource :many
+WITH requested_source AS (
+  SELECT
+    lower(trim(sqlc.arg(source_kind)::text)) AS source_kind,
+    lower(trim(sqlc.arg(source_name)::text)) AS source_name
+),
+affected_identity_ids AS (
+  SELECT DISTINCT i.id AS identity_id
+  FROM identities i
+  JOIN identity_accounts ia ON ia.identity_id = i.id
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(a.source_kind)) = rs.source_kind
+   AND lower(trim(a.source_name)) = rs.source_name
+  WHERE i.kind IN ('service', 'bot')
+  UNION
+  SELECT DISTINCT nhp.identity_id
+  FROM non_human_principals nhp
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(nhp.source_kind)) = rs.source_kind
+   AND lower(trim(nhp.source_name)) = rs.source_name
+  WHERE nhp.identity_id > 0
+),
+affected_asset_ids AS (
+  SELECT DISTINCT aa.id AS app_asset_id
+  FROM app_assets aa
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(aa.source_kind)) = rs.source_kind
+   AND lower(trim(aa.source_name)) = rs.source_name
+  UNION
+  SELECT DISTINCT nhp.app_asset_id
+  FROM non_human_principals nhp
+  JOIN requested_source rs
+    ON rs.source_kind <> ''
+   AND rs.source_name <> ''
+   AND lower(trim(nhp.source_kind)) = rs.source_kind
+   AND lower(trim(nhp.source_name)) = rs.source_name
+  WHERE nhp.app_asset_id > 0
+),
+affected_principal_refs AS (
+  SELECT 'identity-' || ai.identity_id::text AS principal_ref
+  FROM affected_identity_ids ai
+  UNION
+  SELECT 'app-asset-' || aa.app_asset_id::text AS principal_ref
+  FROM affected_asset_ids aa
+)
+SELECT
+  pr.principal_ref::text AS principal_ref,
+  pr.identity_id::bigint AS identity_id,
+  pr.app_asset_id::bigint AS app_asset_id,
+  pr.principal_type::text AS principal_type,
+  pr.source_kind::text AS source_kind,
+  pr.source_name::text AS source_name,
+  pr.display_name::text AS display_name,
+  pr.secondary_name::text AS secondary_name,
+  pr.secondary_name::text AS primary_email,
+  pr.linked_assets_count::bigint AS linked_assets_count,
+  pr.linked_credentials_count::bigint AS linked_credentials_count,
+  pr.last_seen_at::timestamptz AS last_seen_at,
+  pr.activity_state::text AS activity_state,
+  pr.freshness_state::text AS freshness_state,
+  pr.governance_state::text AS governance_state,
+  pr.accountable_owner_identity_id::bigint AS accountable_owner_identity_id,
+  pr.accountable_owner_display_name::text AS accountable_owner_display_name,
+  pr.accountable_owner_primary_email::text AS accountable_owner_primary_email,
+  pr.owner_presence::text AS owner_presence,
+  pr.has_critical_credential::boolean AS has_critical_credential,
+  pr.has_high_risk_credential::boolean AS has_high_risk_credential,
+  pr.has_expired_credential::boolean AS has_expired_credential,
+  pr.has_expiring_credential::boolean AS has_expiring_credential,
+  pr.has_unused_credential::boolean AS has_unused_credential,
+  pr.has_stale_evidence::boolean AS has_stale_evidence
+FROM non_human_principal_projection_v pr
+JOIN affected_principal_refs apr
+  ON apr.principal_ref = pr.principal_ref
+ORDER BY pr.principal_ref;
+
+-- name: UpsertNonHumanPrincipalReadModelsBulk :execrows
+WITH input AS (
+  SELECT
+    i,
+    (sqlc.arg(principal_refs)::text[])[i] AS principal_ref,
+    (sqlc.arg(identity_ids)::bigint[])[i] AS identity_id,
+    (sqlc.arg(app_asset_ids)::bigint[])[i] AS app_asset_id,
+    (sqlc.arg(principal_types)::text[])[i] AS principal_type,
+    (sqlc.arg(source_kinds)::text[])[i] AS source_kind,
+    (sqlc.arg(source_names)::text[])[i] AS source_name,
+    (sqlc.arg(display_names)::text[])[i] AS display_name,
+    (sqlc.arg(secondary_names)::text[])[i] AS secondary_name,
+    (sqlc.arg(linked_assets_counts)::bigint[])[i] AS linked_assets_count,
+    (sqlc.arg(linked_credentials_counts)::bigint[])[i] AS linked_credentials_count,
+    (sqlc.arg(last_seen_ats)::timestamptz[])[i] AS last_seen_at,
+    (sqlc.arg(activity_states)::text[])[i] AS activity_state,
+    (sqlc.arg(freshness_states)::text[])[i] AS freshness_state,
+    (sqlc.arg(governance_states)::text[])[i] AS governance_state,
+    (sqlc.arg(accountable_owner_identity_ids)::bigint[])[i] AS accountable_owner_identity_id,
+    (sqlc.arg(accountable_owner_display_names)::text[])[i] AS accountable_owner_display_name,
+    (sqlc.arg(accountable_owner_primary_emails)::text[])[i] AS accountable_owner_primary_email,
+    (sqlc.arg(owner_presences)::text[])[i] AS owner_presence,
+    (sqlc.arg(has_critical_credentials)::boolean[])[i] AS has_critical_credential,
+    (sqlc.arg(has_high_risk_credentials)::boolean[])[i] AS has_high_risk_credential,
+    (sqlc.arg(has_expired_credentials)::boolean[])[i] AS has_expired_credential,
+    (sqlc.arg(has_expiring_credentials)::boolean[])[i] AS has_expiring_credential,
+    (sqlc.arg(has_unused_credentials)::boolean[])[i] AS has_unused_credential,
+    (sqlc.arg(has_stale_evidences)::boolean[])[i] AS has_stale_evidence,
+    (sqlc.arg(risk_reason_counts)::int[])[i] AS risk_reason_count,
+    (sqlc.arg(risk_levels)::text[])[i] AS risk_level,
+    (sqlc.arg(risk_signals_jsons)::jsonb[])[i] AS risk_signals_json,
+    (sqlc.arg(policy_packs_jsons)::jsonb[])[i] AS policy_packs_json
+  FROM generate_subscripts(sqlc.arg(principal_refs)::text[], 1) AS s(i)
+)
+INSERT INTO non_human_principals (
+  principal_ref,
+  identity_id,
+  app_asset_id,
+  principal_type,
+  source_kind,
+  source_name,
+  display_name,
+  secondary_name,
+  linked_assets_count,
+  linked_credentials_count,
+  last_seen_at,
+  activity_state,
+  freshness_state,
+  governance_state,
+  accountable_owner_identity_id,
+  accountable_owner_display_name,
+  accountable_owner_primary_email,
+  owner_presence,
+  has_critical_credential,
+  has_high_risk_credential,
+  has_expired_credential,
+  has_expiring_credential,
+  has_unused_credential,
+  has_stale_evidence,
+  risk_reason_count,
+  risk_level,
+  risk_signals_json,
+  policy_packs_json,
+  projection_refreshed_at
+)
+SELECT
+  input.principal_ref,
+  input.identity_id,
+  input.app_asset_id,
+  input.principal_type,
+  input.source_kind,
+  input.source_name,
+  input.display_name,
+  input.secondary_name,
+  input.linked_assets_count,
+  input.linked_credentials_count,
+  input.last_seen_at,
+  input.activity_state,
+  input.freshness_state,
+  input.governance_state,
+  input.accountable_owner_identity_id,
+  input.accountable_owner_display_name,
+  input.accountable_owner_primary_email,
+  input.owner_presence,
+  input.has_critical_credential,
+  input.has_high_risk_credential,
+  input.has_expired_credential,
+  input.has_expiring_credential,
+  input.has_unused_credential,
+  input.has_stale_evidence,
+  input.risk_reason_count,
+  input.risk_level,
+  input.risk_signals_json,
+  input.policy_packs_json,
+  now()
+FROM input
+ON CONFLICT (principal_ref) DO UPDATE SET
+  identity_id = EXCLUDED.identity_id,
+  app_asset_id = EXCLUDED.app_asset_id,
+  principal_type = EXCLUDED.principal_type,
+  source_kind = EXCLUDED.source_kind,
+  source_name = EXCLUDED.source_name,
+  display_name = EXCLUDED.display_name,
+  secondary_name = EXCLUDED.secondary_name,
+  linked_assets_count = EXCLUDED.linked_assets_count,
+  linked_credentials_count = EXCLUDED.linked_credentials_count,
+  last_seen_at = EXCLUDED.last_seen_at,
+  activity_state = EXCLUDED.activity_state,
+  freshness_state = EXCLUDED.freshness_state,
+  governance_state = EXCLUDED.governance_state,
+  accountable_owner_identity_id = EXCLUDED.accountable_owner_identity_id,
+  accountable_owner_display_name = EXCLUDED.accountable_owner_display_name,
+  accountable_owner_primary_email = EXCLUDED.accountable_owner_primary_email,
+  owner_presence = EXCLUDED.owner_presence,
+  has_critical_credential = EXCLUDED.has_critical_credential,
+  has_high_risk_credential = EXCLUDED.has_high_risk_credential,
+  has_expired_credential = EXCLUDED.has_expired_credential,
+  has_expiring_credential = EXCLUDED.has_expiring_credential,
+  has_unused_credential = EXCLUDED.has_unused_credential,
+  has_stale_evidence = EXCLUDED.has_stale_evidence,
+  risk_reason_count = EXCLUDED.risk_reason_count,
+  risk_level = EXCLUDED.risk_level,
+  risk_signals_json = EXCLUDED.risk_signals_json,
+  policy_packs_json = EXCLUDED.policy_packs_json,
+  projection_refreshed_at = now();
 
 -- name: RefreshAllNonHumanPrincipalReadModels :execrows
 WITH cleared AS (

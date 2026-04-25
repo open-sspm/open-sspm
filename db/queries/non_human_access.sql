@@ -395,7 +395,9 @@ SELECT
   pr.has_unused_credential,
   pr.has_stale_evidence,
   pr.risk_reason_count,
-  pr.risk_level
+  pr.risk_level,
+  pr.risk_signals_json,
+  pr.policy_packs_json
 FROM non_human_principal_read_models_v pr
 WHERE pr.principal_ref = sqlc.arg(principal_ref)::text;
 

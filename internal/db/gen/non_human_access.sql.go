@@ -159,7 +159,9 @@ SELECT
   pr.has_unused_credential,
   pr.has_stale_evidence,
   pr.risk_reason_count,
-  pr.risk_level
+  pr.risk_level,
+  pr.risk_signals_json,
+  pr.policy_packs_json
 FROM non_human_principal_read_models_v pr
 WHERE pr.principal_ref = $1::text
 `
@@ -194,6 +196,8 @@ func (q *Queries) GetNonHumanPrincipalByRef(ctx context.Context, principalRef st
 		&i.HasStaleEvidence,
 		&i.RiskReasonCount,
 		&i.RiskLevel,
+		&i.RiskSignalsJson,
+		&i.PolicyPacksJson,
 	)
 	return i, err
 }
@@ -466,7 +470,7 @@ effective_configured_sources AS (
   )
 ),
 base AS (
-  SELECT pr.principal_ref, pr.identity_id, pr.app_asset_id, pr.principal_type, pr.source_kind, pr.source_name, pr.display_name, pr.secondary_name, pr.linked_assets_count, pr.linked_credentials_count, pr.last_seen_at, pr.activity_state, pr.freshness_state, pr.governance_state, pr.accountable_owner_identity_id, pr.accountable_owner_display_name, pr.accountable_owner_primary_email, pr.owner_presence, pr.has_critical_credential, pr.has_high_risk_credential, pr.has_expired_credential, pr.has_expiring_credential, pr.has_unused_credential, pr.has_stale_evidence, pr.risk_reason_count, pr.risk_level
+  SELECT pr.principal_ref, pr.identity_id, pr.app_asset_id, pr.principal_type, pr.source_kind, pr.source_name, pr.display_name, pr.secondary_name, pr.linked_assets_count, pr.linked_credentials_count, pr.last_seen_at, pr.activity_state, pr.freshness_state, pr.governance_state, pr.accountable_owner_identity_id, pr.accountable_owner_display_name, pr.accountable_owner_primary_email, pr.owner_presence, pr.has_critical_credential, pr.has_high_risk_credential, pr.has_expired_credential, pr.has_expiring_credential, pr.has_unused_credential, pr.has_stale_evidence, pr.risk_reason_count, pr.risk_level, pr.risk_signals_json, pr.policy_packs_json
   FROM non_human_principal_read_models_v pr
   JOIN effective_configured_sources cs
     ON cs.source_kind = pr.source_kind
