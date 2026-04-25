@@ -13,6 +13,7 @@ type SaaSInput struct {
 	VendorName                   string
 	SourceKind                   string
 	SourceName                   string
+	Category                     string
 	Actors30d                    int64
 	HasPrivilegedScope           bool
 	HasConfidentialScope         bool
@@ -73,13 +74,14 @@ func (r *Registry) EvaluateSaaS(input SaaSInput) (SaaSResult, error) {
 		return SaaSResult{}, errors.New("saas risk policy pack not found")
 	}
 
-	pack := *matchedPack
-	activation := saasActivation(input, pack.Policy.Spec.Constants, pack.Policy.Spec.Scoring.Base)
-	businessCriticality, err := evaluateSuggestionRules(pack, pack.Policy.Spec.Suggestions.BusinessCriticality, activation)
+	globalPack := *matchedPack
+	scopedRules := r.matchingSaaSScopedRules(input)
+	activation := saasActivation(input, globalPack.Policy.Spec.Constants, globalPack.Policy.Spec.Scoring.Base)
+	businessCriticality, err := evaluateSuggestionRules(globalPack, globalPack.Policy.Spec.Suggestions.BusinessCriticality, activation)
 	if err != nil {
 		return SaaSResult{}, err
 	}
-	dataClassification, err := evaluateSuggestionRules(pack, pack.Policy.Spec.Suggestions.DataClassification, activation)
+	dataClassification, err := evaluateSuggestionRules(globalPack, globalPack.Policy.Spec.Suggestions.DataClassification, activation)
 	if err != nil {
 		return SaaSResult{}, err
 	}
@@ -90,15 +92,19 @@ func (r *Registry) EvaluateSaaS(input SaaSInput) (SaaSResult, error) {
 	if dataClassification != "" {
 		result.SuggestedDataClassification = dataClassification
 	}
+	for _, scopedRule := range scopedRules {
+		result.SuggestedBusinessCriticality = maxBusinessCriticality(result.SuggestedBusinessCriticality, scopedRule.Rule.Suggestions.BusinessCriticality)
+		result.SuggestedDataClassification = maxDataClassification(result.SuggestedDataClassification, scopedRule.Rule.Suggestions.DataClassification)
+	}
 	input.EffectiveBusinessCriticality = effectiveBusinessCriticality(input.EffectiveBusinessCriticality, result.SuggestedBusinessCriticality)
 	input.EffectiveDataClassification = effectiveDataClassification(input.EffectiveDataClassification, result.SuggestedDataClassification)
 	result.EffectiveBusinessCriticality = input.EffectiveBusinessCriticality
 	result.EffectiveDataClassification = input.EffectiveDataClassification
 
-	score := pack.Policy.Spec.Scoring.Base
-	for _, rule := range pack.Policy.Spec.Scoring.Rules {
-		activation = saasActivation(input, pack.Policy.Spec.Constants, score)
-		matched, err := pack.evaluateBool(rule.ID, activation)
+	score := globalPack.Policy.Spec.Scoring.Base
+	for _, rule := range globalPack.Policy.Spec.Scoring.Rules {
+		activation = saasActivation(input, globalPack.Policy.Spec.Constants, score)
+		matched, err := globalPack.evaluateBool(rule.ID, activation)
 		if err != nil {
 			return SaaSResult{}, err
 		}
@@ -115,15 +121,40 @@ func (r *Registry) EvaluateSaaS(input SaaSInput) (SaaSResult, error) {
 				ScoreDelta:        rule.Points,
 				Title:             rule.Signal.Title,
 				Evidence:          rule.Signal.Evidence,
-				PolicyPackID:      pack.Policy.Metadata.ID,
-				PolicyPackVersion: pack.Policy.Metadata.Version,
+				PolicyPackID:      globalPack.Policy.Metadata.ID,
+				PolicyPackVersion: globalPack.Policy.Metadata.Version,
 			})
 		}
 	}
 
-	result.RiskScore = clampScore(score, pack.Policy.Spec.Scoring.Max)
-	activation = saasActivation(input, pack.Policy.Spec.Constants, result.RiskScore)
-	level, err := evaluateLevelRules(pack, pack.Policy.Spec.Levels, activation)
+	for _, scopedRule := range scopedRules {
+		for _, rule := range scopedRule.Rule.Rules {
+			activation = saasActivation(input, scopedRule.Pack.Policy.Spec.Constants, score)
+			matched, err := scopedRule.Pack.evaluateBool(scopedRule.Rule.ID+"/"+rule.ID, activation)
+			if err != nil {
+				return SaaSResult{}, err
+			}
+			if !matched {
+				continue
+			}
+
+			score += rule.ScoreDelta
+			result.Signals = append(result.Signals, RiskSignal{
+				ID:                rule.ID,
+				Domain:            DomainSaaS,
+				Severity:          rule.Severity,
+				ScoreDelta:        rule.ScoreDelta,
+				Title:             rule.Title,
+				Evidence:          rule.Evidence,
+				PolicyPackID:      scopedRule.Pack.Policy.Metadata.ID,
+				PolicyPackVersion: scopedRule.Pack.Policy.Metadata.Version,
+			})
+		}
+	}
+
+	result.RiskScore = clampScore(score, globalPack.Policy.Spec.Scoring.Max)
+	activation = saasActivation(input, globalPack.Policy.Spec.Constants, result.RiskScore)
+	level, err := evaluateLevelRules(globalPack, globalPack.Policy.Spec.Levels, activation)
 	if err != nil {
 		return SaaSResult{}, err
 	}
@@ -170,6 +201,7 @@ func normalizeSaaSInput(input SaaSInput) SaaSInput {
 	input.VendorName = strings.TrimSpace(input.VendorName)
 	input.SourceKind = strings.ToLower(strings.TrimSpace(input.SourceKind))
 	input.SourceName = strings.TrimSpace(input.SourceName)
+	input.Category = strings.ToLower(strings.TrimSpace(input.Category))
 	input.ManagedState = strings.ToLower(strings.TrimSpace(input.ManagedState))
 	input.ManagedReason = strings.ToLower(strings.TrimSpace(input.ManagedReason))
 	input.GovernanceState = strings.ToLower(strings.TrimSpace(input.GovernanceState))
@@ -178,6 +210,73 @@ func normalizeSaaSInput(input SaaSInput) SaaSInput {
 	input.EffectiveDataClassification = strings.ToLower(strings.TrimSpace(input.EffectiveDataClassification))
 	input.FollowUpDueDate = normalizeTimePtr(input.FollowUpDueDate)
 	return input
+}
+
+type matchedSaaSScopedRule struct {
+	Pack CompiledPack
+	Rule ScopedRule
+}
+
+func (r *Registry) matchingSaaSScopedRules(input SaaSInput) []matchedSaaSScopedRule {
+	matches := make([]matchedSaaSScopedRule, 0, 2)
+	for _, pack := range r.packs {
+		if pack.Policy.Metadata.Domain != DomainSaaS {
+			continue
+		}
+		for _, scopedRule := range pack.Policy.Spec.ScopedRules {
+			if !scopedRule.Scope.App.matchesSaaSInput(input) {
+				continue
+			}
+			matches = append(matches, matchedSaaSScopedRule{
+				Pack: pack,
+				Rule: scopedRule,
+			})
+		}
+	}
+	return matches
+}
+
+func (scope AppScope) matchesSaaSInput(input SaaSInput) bool {
+	if scope.CanonicalKey != "" && scope.CanonicalKey != input.CanonicalKey {
+		return false
+	}
+	if scope.PrimaryDomain != "" && scope.PrimaryDomain != input.PrimaryDomain {
+		return false
+	}
+	if len(scope.DomainMatches) > 0 && !matchesDomainPatterns(input.PrimaryDomain, scope.DomainMatches) {
+		return false
+	}
+	if scope.VendorName != "" && scope.VendorName != input.VendorName {
+		return false
+	}
+	if scope.SourceKind != "" && scope.SourceKind != input.SourceKind {
+		return false
+	}
+	if scope.SourceName != "" && scope.SourceName != input.SourceName {
+		return false
+	}
+	if scope.Category != "" && scope.Category != input.Category {
+		return false
+	}
+	return true
+}
+
+func matchesDomainPatterns(domain string, patterns []string) bool {
+	for _, pattern := range patterns {
+		if pattern == domain {
+			return true
+		}
+		if strings.HasPrefix(pattern, "*.") {
+			suffix := strings.TrimPrefix(pattern, "*")
+			if domain == strings.TrimPrefix(suffix, ".") || strings.HasSuffix(domain, suffix) {
+				return true
+			}
+		}
+		if strings.HasPrefix(pattern, ".") && strings.HasSuffix(domain, pattern) {
+			return true
+		}
+	}
+	return false
 }
 
 func saasActivation(input SaaSInput, constants map[string][]string, score int) map[string]any {
@@ -223,6 +322,57 @@ func effectiveDataClassification(value, suggested string) string {
 		return value
 	}
 	return suggested
+}
+
+func maxBusinessCriticality(values ...string) string {
+	return maxRankedValue(businessCriticalityRank, values...)
+}
+
+func maxDataClassification(values ...string) string {
+	return maxRankedValue(dataClassificationRank, values...)
+}
+
+func maxRankedValue(rank func(string) int, values ...string) string {
+	maxRank := -1
+	maxValue := ""
+	for _, value := range values {
+		value = strings.ToLower(strings.TrimSpace(value))
+		if currentRank := rank(value); currentRank > maxRank {
+			maxRank = currentRank
+			maxValue = value
+		}
+	}
+	return maxValue
+}
+
+func businessCriticalityRank(value string) int {
+	switch value {
+	case "low":
+		return 1
+	case "medium":
+		return 2
+	case "high":
+		return 3
+	case "critical":
+		return 4
+	default:
+		return 0
+	}
+}
+
+func dataClassificationRank(value string) int {
+	switch value {
+	case "public":
+		return 1
+	case "internal":
+		return 2
+	case "confidential":
+		return 3
+	case "restricted":
+		return 4
+	default:
+		return 0
+	}
 }
 
 func clampScore(score, maxScore int) int {
