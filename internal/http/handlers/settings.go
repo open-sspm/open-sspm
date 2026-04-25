@@ -78,13 +78,13 @@ func riskPolicyPackSummaries(registry *riskpolicy.Registry) []viewmodels.RiskPol
 	if registry == nil {
 		return nil
 	}
-	packs := registry.Packs()
-	summaries := make([]viewmodels.RiskPolicyPackSummary, 0, len(packs))
-	for _, pack := range packs {
+	metadatas := registry.PackMetadatas()
+	summaries := make([]viewmodels.RiskPolicyPackSummary, 0, len(metadatas))
+	for _, metadata := range metadatas {
 		summaries = append(summaries, viewmodels.RiskPolicyPackSummary{
-			Domain:  string(pack.Metadata.Domain),
-			ID:      pack.Metadata.ID,
-			Version: pack.Metadata.Version,
+			Domain:  string(metadata.Domain),
+			ID:      metadata.ID,
+			Version: metadata.Version,
 		})
 	}
 	sort.SliceStable(summaries, func(i, j int) bool {
