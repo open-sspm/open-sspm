@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/labstack/echo/v5"
@@ -13,6 +14,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/views"
 	"github.com/open-sspm/open-sspm/internal/identity"
 	"github.com/open-sspm/open-sspm/internal/readmodels"
+	"github.com/open-sspm/open-sspm/internal/riskpolicy"
 	"github.com/open-sspm/open-sspm/internal/sync"
 )
 
@@ -65,9 +67,40 @@ func (h *Handlers) HandleSettings(c *echo.Context) error {
 		SyncDiscoveryEnabled:  h.Cfg.SyncDiscoveryEnabled,
 		ResyncEnabled:         h.Syncer != nil,
 		ResyncBanner:          banner,
+		RiskPolicyPacks:       riskPolicyPackSummaries(h.RiskPolicies),
+		RiskPolicyExpressions: riskPolicyExpressionCount(h.RiskPolicies),
 	}
 
 	return h.RenderComponent(c, views.SettingsPage(data))
+}
+
+func riskPolicyPackSummaries(registry *riskpolicy.Registry) []viewmodels.RiskPolicyPackSummary {
+	if registry == nil {
+		return nil
+	}
+	metadatas := registry.PackMetadatas()
+	summaries := make([]viewmodels.RiskPolicyPackSummary, 0, len(metadatas))
+	for _, metadata := range metadatas {
+		summaries = append(summaries, viewmodels.RiskPolicyPackSummary{
+			Domain:  string(metadata.Domain),
+			ID:      metadata.ID,
+			Version: metadata.Version,
+		})
+	}
+	sort.SliceStable(summaries, func(i, j int) bool {
+		if summaries[i].Domain != summaries[j].Domain {
+			return summaries[i].Domain < summaries[j].Domain
+		}
+		return summaries[i].ID < summaries[j].ID
+	})
+	return summaries
+}
+
+func riskPolicyExpressionCount(registry *riskpolicy.Registry) int {
+	if registry == nil {
+		return 0
+	}
+	return registry.CompiledExpressionCount()
 }
 
 // HandleConnectors renders the connectors page.

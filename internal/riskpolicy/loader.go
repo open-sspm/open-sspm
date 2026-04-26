@@ -95,6 +95,17 @@ func (r *Registry) Packs() []PolicyPack {
 	return packs
 }
 
+func (r *Registry) PackMetadatas() []PolicyMetadata {
+	if r == nil {
+		return nil
+	}
+	metadatas := make([]PolicyMetadata, 0, len(r.packs))
+	for _, pack := range r.packs {
+		metadatas = append(metadatas, pack.Policy.Metadata)
+	}
+	return metadatas
+}
+
 func (r *Registry) PackCount() int {
 	if r == nil {
 		return 0

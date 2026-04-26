@@ -4,45 +4,82 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ SettingsPage(data viewmodels.SettingsViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("") {
-			<a class="btn-sm-outline" href="/settings/connector-health">Connector health</a>
-		}
-
 		if data.ResyncBanner != nil {
 			@Alert(data.ResyncBanner.Title, IsAlertDestructive(data.ResyncBanner.Class)) {
 				<p>{ data.ResyncBanner.Message }</p>
 			}
 		}
 
-		<section class="grid gap-6 lg:grid-cols-2">
-			<article class="card">
-				<header>
-					<h2>Resync data</h2>
-					<p>Run a sync immediately.</p>
-				</header>
-				<section class="space-y-3">
-					if data.SyncDiscoveryEnabled {
-						<p class="text-muted-foreground">
-							Trigger immediate full + discovery sync lanes. Full sync refreshes identities and app access; discovery sync ingests discovery signals for enabled connectors.
-						</p>
-					} else {
-						<p class="text-muted-foreground">
-							Trigger the immediate full sync lane. Discovery sync is disabled on this server.
-						</p>
-					}
-					<div class="flex flex-wrap items-center gap-4">
-						<form method="post" action="/settings/resync">
-							@CSRFInput(data.Layout.CSRFToken)
-							<button type="submit" class="btn-primary" disabled?={ !data.ResyncEnabled }>Resync now</button>
-						</form>
+		<section class="space-y-8">
+			<section class="space-y-3">
+				<div class="flex flex-col gap-3 border-b border-border pb-3 md:flex-row md:items-end md:justify-between">
+					<div>
+						<h2 class="text-base font-semibold">System operations</h2>
+						<p class="text-sm text-muted-foreground">Run sync lanes and inspect connector health.</p>
+					</div>
+					<a class="btn-sm-outline" href="/settings/connector-health">Connector health</a>
+				</div>
+				<div class="flex flex-col gap-4 rounded-md border border-border bg-card px-4 py-4 md:flex-row md:items-center md:justify-between">
+					<div class="min-w-0">
+						<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+							<h3 class="text-sm font-semibold">Sync</h3>
+							if data.SyncDiscoveryEnabled {
+								<span class="text-xs text-muted-foreground">{ "Full " }{ data.SyncInterval }{ " · Discovery " }{ data.SyncDiscoveryInterval }</span>
+							} else {
+								<span class="text-xs text-muted-foreground">{ "Full " }{ data.SyncInterval }{ " · Discovery disabled" }</span>
+							}
+						</div>
 						if data.SyncDiscoveryEnabled {
-							<div class="text-sm text-muted-foreground">{ "Worker intervals (if running): full " }{ data.SyncInterval }{ " · discovery " }{ data.SyncDiscoveryInterval }</div>
+							<p class="mt-1 text-sm text-muted-foreground">Refresh identities, app access, and discovery signals.</p>
 						} else {
-							<div class="text-sm text-muted-foreground">{ "Worker interval (if running): " }{ data.SyncInterval }</div>
+							<p class="mt-1 text-sm text-muted-foreground">Refresh identities and app access.</p>
 						}
 					</div>
-				</section>
-			</article>
+					<div class="shrink-0">
+						<form method="post" action="/settings/resync">
+							@CSRFInput(data.Layout.CSRFToken)
+							<button type="submit" class="btn-sm-primary" disabled?={ !data.ResyncEnabled }>Resync now</button>
+						</form>
+					</div>
+				</div>
+			</section>
+
+			<section class="space-y-3">
+				<div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+					<div>
+						<h2 class="text-base font-semibold">Risk policies</h2>
+						<p class="text-sm text-muted-foreground">Built-in policy packs loaded by this server.</p>
+					</div>
+					<div class="text-xs text-muted-foreground">
+						{ FormatInt(len(data.RiskPolicyPacks)) }{ pluralizeSuffix(len(data.RiskPolicyPacks), " pack", " packs") }{ " · " }{ FormatInt(data.RiskPolicyExpressions) }{ pluralizeSuffix(data.RiskPolicyExpressions, " CEL expression", " CEL expressions") }
+					</div>
+				</div>
+				if len(data.RiskPolicyPacks) > 0 {
+					@ColumnsTable("") {
+						<table class="table osspm-table-fixed osspm-table-compact osspm-table-list align-top">
+							<caption class="sr-only">Active risk policy packs loaded by this server.</caption>
+							<thead>
+								<tr>
+									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Domain</th>
+									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Policy pack</th>
+									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Version</th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, pack := range data.RiskPolicyPacks {
+									<tr>
+										<td class="text-muted-foreground whitespace-nowrap">{ pack.Domain }</td>
+										<td class="font-medium">{ pack.ID }</td>
+										<td class="text-muted-foreground whitespace-nowrap">{ pack.Version }</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					}
+				} else {
+					<p class="text-sm text-muted-foreground">No policy packs loaded.</p>
+				}
+			</section>
 
 		</section>
 	}

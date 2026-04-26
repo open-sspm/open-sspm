@@ -6,6 +6,12 @@ type ResyncBanner struct {
 	Message string
 }
 
+type RiskPolicyPackSummary struct {
+	Domain  string
+	ID      string
+	Version string
+}
+
 type SettingsViewData struct {
 	Layout                LayoutData
 	SyncInterval          string
@@ -13,4 +19,6 @@ type SettingsViewData struct {
 	SyncDiscoveryEnabled  bool
 	ResyncEnabled         bool
 	ResyncBanner          *ResyncBanner
+	RiskPolicyPacks       []RiskPolicyPackSummary
+	RiskPolicyExpressions int
 }

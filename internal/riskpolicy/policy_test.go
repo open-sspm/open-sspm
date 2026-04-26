@@ -23,6 +23,10 @@ func TestLoadBuiltinPolicies(t *testing.T) {
 	for _, pack := range registry.Packs() {
 		byID[pack.Metadata.ID] = pack
 	}
+	metadataByID := make(map[string]PolicyMetadata)
+	for _, metadata := range registry.PackMetadatas() {
+		metadataByID[metadata.ID] = metadata
+	}
 	for _, id := range []string{
 		"builtin-credential-risk",
 		"builtin-saas-risk",
@@ -31,6 +35,9 @@ func TestLoadBuiltinPolicies(t *testing.T) {
 	} {
 		if _, ok := byID[id]; !ok {
 			t.Fatalf("missing built-in policy pack %q", id)
+		}
+		if metadata := metadataByID[id]; metadata.ID == "" || metadata.Version == "" || metadata.Domain == "" {
+			t.Fatalf("missing built-in policy metadata %q: %+v", id, metadata)
 		}
 	}
 }
