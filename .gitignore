@@ -19,6 +19,7 @@ air_errors.log
 # IDE
 .vscode/
 .idea/
+.claude/
 
 # Personal
 plans/

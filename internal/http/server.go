@@ -289,7 +289,6 @@ func (es *EchoServer) registerRoutes() {
 	authed.GET("/credentials/:id", es.h.HandleCredentialShow)
 	authed.GET("/accounts/okta", es.h.HandleOktaAccounts)
 	authed.GET("/accounts/okta/:id", es.h.HandleOktaAccountShow)
-	authed.GET("/api/accounts/okta/:id/access-tree", es.h.HandleOktaAccountAccessTree)
 	authed.GET("/resources/:sourceKind/:sourceName/:resourceKind/*", es.h.HandleResourceShow)
 	authed.GET("/findings", es.h.HandleFindings)
 	authed.GET("/findings/rulesets/:rulesetKey", es.h.HandleFindingsRuleset)

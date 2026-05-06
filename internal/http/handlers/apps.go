@@ -301,7 +301,7 @@ func oktaAppAssignedAccountView(assignment gen.ListOktaAppAssignedAccountsPageBy
 		OktaAccountStatus:     fallbackDisplayValue(assignment.OktaAccountStatus),
 		AssignedVia:           oktaAssignedVia(assignment.Scope),
 		Groups:                oktaAssignmentGroups(assignment.Scope, grantingGroups),
-		Permissions:           SummarizeProfilePermissions(assignment.ProfileJson),
+		Attributes:            SummarizeProfileAttributes(assignment.ProfileJson),
 	}
 }
 
@@ -334,8 +334,8 @@ func oktaAppAssignmentSummary(items []viewmodels.OktaAppAssignedAccountView, tot
 		if len(item.Groups) > 0 {
 			summary.AnyGroups = true
 		}
-		if len(item.Permissions) > 0 {
-			summary.AnyPermissions = true
+		if len(item.Attributes) > 0 {
+			summary.AnyAttributes = true
 		}
 	}
 

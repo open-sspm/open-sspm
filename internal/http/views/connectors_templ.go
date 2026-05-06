@@ -63,7 +63,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					var templ_7745c5c3_Var4 string
 					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.Alert.Message)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 9, Col: 27}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 9, Col: 27}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 					if templ_7745c5c3_Err != nil {
@@ -163,7 +163,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(data.Okta.Domain)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 45, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 45, Col: 82}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -181,7 +181,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					var templ_7745c5c3_Var8 string
 					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(data.Okta.TokenMasked)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 51, Col: 78}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 51, Col: 78}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 					if templ_7745c5c3_Err != nil {
@@ -235,7 +235,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(data.GoogleWorkspace.CustomerID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 68, Col: 102}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 68, Col: 102}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
@@ -248,7 +248,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(data.GoogleWorkspace.PrimaryDomain)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 73, Col: 108}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 73, Col: 108}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -261,7 +261,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var12 string
 				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(data.GoogleWorkspace.DelegatedAdminEmail)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 77, Col: 121}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 77, Col: 121}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 				if templ_7745c5c3_Err != nil {
@@ -299,7 +299,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					var templ_7745c5c3_Var13 string
 					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(data.GoogleWorkspace.ServiceAccountMask)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 91, Col: 96}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 91, Col: 96}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {
@@ -317,7 +317,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var14 string
 				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(data.GoogleWorkspace.ServiceAccountEmail)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 96, Col: 121}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 96, Col: 121}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
@@ -366,7 +366,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(data.Entra.TenantID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 111, Col: 88}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 111, Col: 88}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -379,7 +379,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(data.Entra.ClientID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 115, Col: 88}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 115, Col: 88}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
@@ -397,7 +397,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					var templ_7745c5c3_Var18 string
 					templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(data.Entra.ClientSecretMasked)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 121, Col: 86}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 121, Col: 86}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 					if templ_7745c5c3_Err != nil {
@@ -451,7 +451,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(data.GitHub.Org)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 139, Col: 78}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 139, Col: 78}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
@@ -464,7 +464,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var21 string
 				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(data.GitHub.APIBase)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 143, Col: 87}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 143, Col: 87}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 				if templ_7745c5c3_Err != nil {
@@ -477,7 +477,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var22 string
 				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(data.GitHub.Enterprise)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 147, Col: 92}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 147, Col: 92}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 				if templ_7745c5c3_Err != nil {
@@ -495,7 +495,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					var templ_7745c5c3_Var23 string
 					templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(data.GitHub.TokenMasked)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 154, Col: 80}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 154, Col: 80}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 					if templ_7745c5c3_Err != nil {
@@ -549,7 +549,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var25 string
 				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(data.Datadog.Site)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 170, Col: 81}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 170, Col: 81}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 				if templ_7745c5c3_Err != nil {
@@ -567,7 +567,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					var templ_7745c5c3_Var26 string
 					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(data.Datadog.APIKeyMasked)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 176, Col: 82}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 176, Col: 82}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 					if templ_7745c5c3_Err != nil {
@@ -590,7 +590,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					var templ_7745c5c3_Var27 string
 					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(data.Datadog.AppKeyMasked)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 183, Col: 82}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 183, Col: 82}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 					if templ_7745c5c3_Err != nil {
@@ -634,7 +634,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var29 string
 				templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(data.AWSIdentityCenter.Region)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 191, Col: 95}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 191, Col: 95}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 				if templ_7745c5c3_Err != nil {
@@ -647,7 +647,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var30 string
 				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(data.AWSIdentityCenter.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 195, Col: 91}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 195, Col: 91}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 				if templ_7745c5c3_Err != nil {
@@ -685,7 +685,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					var templ_7745c5c3_Var31 string
 					templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(data.AWSIdentityCenter.AccessKeyIDMask)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 209, Col: 95}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 209, Col: 95}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 					if templ_7745c5c3_Err != nil {
@@ -708,7 +708,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					var templ_7745c5c3_Var32 string
 					templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(data.AWSIdentityCenter.SecretKeyMask)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 216, Col: 93}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 216, Col: 93}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 					if templ_7745c5c3_Err != nil {
@@ -731,7 +731,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					var templ_7745c5c3_Var33 string
 					templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(data.AWSIdentityCenter.SessionTokenMask)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 223, Col: 96}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 223, Col: 96}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 					if templ_7745c5c3_Err != nil {
@@ -749,7 +749,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var34 string
 				templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(data.AWSIdentityCenter.InstanceARN)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 228, Col: 106}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 228, Col: 106}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 				if templ_7745c5c3_Err != nil {
@@ -762,7 +762,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var35 string
 				templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(data.AWSIdentityCenter.IdentityStoreID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 232, Col: 115}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 232, Col: 115}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 				if templ_7745c5c3_Err != nil {
@@ -801,7 +801,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var37 string
 				templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(data.Vault.Address)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 239, Col: 85}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 239, Col: 85}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 				if templ_7745c5c3_Err != nil {
@@ -814,7 +814,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var38 string
 				templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(data.Vault.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 243, Col: 79}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 243, Col: 79}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 				if templ_7745c5c3_Err != nil {
@@ -827,7 +827,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var39 string
 				templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(data.Vault.Namespace)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 247, Col: 89}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 247, Col: 89}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 				if templ_7745c5c3_Err != nil {
@@ -865,7 +865,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					var templ_7745c5c3_Var40 string
 					templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(data.Vault.TokenMasked)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 261, Col: 79}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 261, Col: 79}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 					if templ_7745c5c3_Err != nil {
@@ -883,7 +883,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var41 string
 				templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(data.Vault.AppRoleMountPath)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 266, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 266, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 				if templ_7745c5c3_Err != nil {
@@ -896,7 +896,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 				var templ_7745c5c3_Var42 string
 				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(data.Vault.AppRoleRoleID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 270, Col: 99}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 270, Col: 99}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 				if templ_7745c5c3_Err != nil {
@@ -924,7 +924,7 @@ func ConnectorsPage(data viewmodels.ConnectorsViewData) templ.Component {
 					var templ_7745c5c3_Var43 string
 					templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(data.Vault.AppRoleSecretMasked)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 279, Col: 87}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/connectors.templ`, Line: 279, Col: 87}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 					if templ_7745c5c3_Err != nil {

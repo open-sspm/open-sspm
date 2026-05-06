@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v5"
+	"github.com/open-sspm/open-sspm/internal/accessgraph"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/querystate"
@@ -409,7 +410,13 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
+	accountByID := make(map[int64]gen.Account, len(accounts))
+	for _, account := range accounts {
+		accountByID[account.ID] = account
+	}
+
 	entitlementsByAccountID := make(map[int64]int, len(accounts))
+	entitlementViews := []viewmodels.IdentityEntitlementView{}
 	if len(accounts) > 0 {
 		accountIDs := make([]int64, 0, len(accounts))
 		for _, account := range accounts {
@@ -421,6 +428,11 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		}
 		for _, entitlement := range entitlements {
 			entitlementsByAccountID[entitlement.AccountID]++
+			account, ok := accountByID[entitlement.AccountID]
+			if !ok {
+				continue
+			}
+			entitlementViews = append(entitlementViews, identityEntitlementView(account, entitlement))
 		}
 	}
 
@@ -457,8 +469,10 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		UpdatedOn:          calendarDateDisplay(summary.UpdatedAt),
 		TotalEntitlements:  totalEntitlements,
 		LinkedAccounts:     linkedAccounts,
+		Entitlements:       entitlementViews,
 		NonHumanAccessHref: nonHumanAccessHref,
 		HasLinkedAccounts:  len(linkedAccounts) > 0,
+		HasEntitlements:    len(entitlementViews) > 0,
 		OverviewMap:        overviewMap,
 	}))
 }
@@ -483,6 +497,52 @@ func linkedAccountDetailHref(account gen.Account) string {
 	default:
 		return ""
 	}
+}
+
+func identityEntitlementView(account gen.Account, ent gen.ListEntitlementsForAccountIDsRow) viewmodels.IdentityEntitlementView {
+	resourceKind, resourceID, ok := accessgraph.ParseCanonicalResourceRef(ent.Resource)
+	if !ok {
+		resourceID = strings.TrimSpace(ent.Resource)
+	}
+
+	resourceHref := ""
+	if ok {
+		resourceHref = accessgraph.BuildResourceHref(account.SourceKind, account.SourceName, resourceKind, resourceID)
+	}
+
+	resourceLabel := strings.TrimSpace(accessgraph.DisplayResourceLabel(ent.Resource, ent.RawJson))
+	if resourceLabel == "" {
+		resourceLabel = resourceID
+	}
+	if resourceLabel == "" {
+		resourceLabel = "(unknown resource)"
+	}
+
+	return viewmodels.IdentityEntitlementView{
+		AccountLabel:      linkedAccountLabel(account),
+		AccountHref:       linkedAccountDetailHref(account),
+		AccountSourceKind: strings.TrimSpace(account.SourceKind),
+		AccountSourceName: strings.TrimSpace(account.SourceName),
+		Kind:              strings.TrimSpace(ent.Kind),
+		ResourceKind:      resourceKind,
+		ResourceID:        resourceID,
+		ResourceLabel:     resourceLabel,
+		ResourceHref:      resourceHref,
+		Permission:        accessgraph.DisplayEntitlementPermission(ent.Kind, ent.Permission, ent.RawJson),
+	}
+}
+
+func linkedAccountLabel(account gen.Account) string {
+	if value := strings.TrimSpace(account.Email); value != "" {
+		return value
+	}
+	if value := strings.TrimSpace(account.ExternalID); value != "" {
+		return value
+	}
+	if value := strings.TrimSpace(account.DisplayName); value != "" {
+		return value
+	}
+	return "Account " + strconv.FormatInt(account.ID, 10)
 }
 
 func listAccountHref(basePath, externalID string) string {

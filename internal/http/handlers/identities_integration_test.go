@@ -145,6 +145,39 @@ func TestBuildIdentityShowOverviewMapCountsCurrentIdentityPerSource(t *testing.T
 	})
 }
 
+func TestHandleIdentityShowRendersEntitlementDetails(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
+		identityID := insertCommandSearchIdentity(t, ctx, pool, "human", "person@example.com", "Example Person")
+		accountID := insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
+			SourceKind:     configstore.KindGitHub,
+			SourceName:     "acme",
+			ExternalID:     "github-user-1",
+			Email:          "person@example.com",
+			DisplayName:    "Example Person",
+			Status:         "active",
+			AccountKind:    "human",
+			EntityCategory: "user",
+			RawJSON:        `{"status":"active"}`,
+		})
+		insertCommandSearchIdentityAccountLink(t, ctx, pool, identityID, accountID)
+		insertDashboardEntitlement(t, ctx, pool, runID, accountID, "github_team_repo_permission", "github_repo:acme/private-repo", "admin", `{}`)
+
+		body := renderIdentityShow(t, h, identityID)
+		for _, want := range []string{
+			"Entitlements",
+			"github_team_repo_permission",
+			"acme/private-repo",
+			"admin",
+			"person@example.com",
+		} {
+			if !strings.Contains(body, want) {
+				t.Fatalf("identity show missing %q: %s", want, body)
+			}
+		}
+	})
+}
+
 func renderIdentityShow(t *testing.T, h *Handlers, identityID int64) string {
 	t.Helper()
 
