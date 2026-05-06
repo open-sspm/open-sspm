@@ -109,7 +109,7 @@ func credentialShowHeader(c viewmodels.CredentialArtifactSummaryView) templ.Comp
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(c.CredentialKind)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 25, Col: 29}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 25, Col: 29}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -122,7 +122,7 @@ func credentialShowHeader(c viewmodels.CredentialArtifactSummaryView) templ.Comp
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(c.SourceKind)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 27, Col: 25}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 27, Col: 25}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -140,7 +140,7 @@ func credentialShowHeader(c viewmodels.CredentialArtifactSummaryView) templ.Comp
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(" (")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 29, Col: 51}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 29, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -149,7 +149,7 @@ func credentialShowHeader(c viewmodels.CredentialArtifactSummaryView) templ.Comp
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(c.SourceName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 29, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 29, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -158,7 +158,7 @@ func credentialShowHeader(c viewmodels.CredentialArtifactSummaryView) templ.Comp
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(")")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 29, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 29, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -176,7 +176,7 @@ func credentialShowHeader(c viewmodels.CredentialArtifactSummaryView) templ.Comp
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(c.DisplayName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 32, Col: 107}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 32, Col: 107}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -189,7 +189,7 @@ func credentialShowHeader(c viewmodels.CredentialArtifactSummaryView) templ.Comp
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(c.ExternalID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 33, Col: 79}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 33, Col: 79}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -211,7 +211,7 @@ func credentialShowHeader(c viewmodels.CredentialArtifactSummaryView) templ.Comp
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var11).String())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 1, Col: 0}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 1, Col: 0}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -224,7 +224,7 @@ func credentialShowHeader(c viewmodels.CredentialArtifactSummaryView) templ.Comp
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeCredentialStatus(c.Status))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 36, Col: 93}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 36, Col: 93}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -246,7 +246,7 @@ func credentialShowHeader(c viewmodels.CredentialArtifactSummaryView) templ.Comp
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var14).String())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 1, Col: 0}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 1, Col: 0}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
@@ -259,7 +259,7 @@ func credentialShowHeader(c viewmodels.CredentialArtifactSummaryView) templ.Comp
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeCredentialRisk(c.RiskLevel))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 37, Col: 95}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 37, Col: 95}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -268,7 +268,7 @@ func credentialShowHeader(c viewmodels.CredentialArtifactSummaryView) templ.Comp
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(" risk")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 37, Col: 106}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 37, Col: 106}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
@@ -371,7 +371,7 @@ func credentialShowField(label, value, relative, valueClass string) templ.Compon
 		var templ_7745c5c3_Var20 string
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 58, Col: 91}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 58, Col: 91}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
@@ -399,7 +399,7 @@ func credentialShowField(label, value, relative, valueClass string) templ.Compon
 			var templ_7745c5c3_Var22 string
 			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var21).String())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 1, Col: 0}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 1, Col: 0}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 			if templ_7745c5c3_Err != nil {
@@ -412,7 +412,7 @@ func credentialShowField(label, value, relative, valueClass string) templ.Compon
 			var templ_7745c5c3_Var23 string
 			templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 62, Col: 70}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 62, Col: 70}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 			if templ_7745c5c3_Err != nil {
@@ -430,7 +430,7 @@ func credentialShowField(label, value, relative, valueClass string) templ.Compon
 				var templ_7745c5c3_Var24 string
 				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(relative)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 64, Col: 56}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 64, Col: 56}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
@@ -478,7 +478,7 @@ func credentialShowLinkField(label, value, href string) templ.Component {
 		var templ_7745c5c3_Var26 string
 		templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 72, Col: 91}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 72, Col: 91}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 		if templ_7745c5c3_Err != nil {
@@ -501,7 +501,7 @@ func credentialShowLinkField(label, value, href string) templ.Component {
 			var templ_7745c5c3_Var27 templ.SafeURL
 			templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinURLErrs(href)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 76, Col: 94}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 76, Col: 94}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 			if templ_7745c5c3_Err != nil {
@@ -514,7 +514,7 @@ func credentialShowLinkField(label, value, href string) templ.Component {
 			var templ_7745c5c3_Var28 string
 			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 76, Col: 104}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 76, Col: 104}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 			if templ_7745c5c3_Err != nil {
@@ -532,7 +532,7 @@ func credentialShowLinkField(label, value, href string) templ.Component {
 			var templ_7745c5c3_Var29 string
 			templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 78, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 78, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 			if templ_7745c5c3_Err != nil {
@@ -589,7 +589,7 @@ func credentialShowAssetField(c viewmodels.CredentialArtifactSummaryView) templ.
 			var templ_7745c5c3_Var31 templ.SafeURL
 			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinURLErrs(c.AssetHref)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 89, Col: 99}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 89, Col: 99}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 			if templ_7745c5c3_Err != nil {
@@ -602,7 +602,7 @@ func credentialShowAssetField(c viewmodels.CredentialArtifactSummaryView) templ.
 			var templ_7745c5c3_Var32 string
 			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(c.AssetRefKind)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 89, Col: 118}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 89, Col: 118}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 			if templ_7745c5c3_Err != nil {
@@ -611,7 +611,7 @@ func credentialShowAssetField(c viewmodels.CredentialArtifactSummaryView) templ.
 			var templ_7745c5c3_Var33 string
 			templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 89, Col: 128}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 89, Col: 128}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 			if templ_7745c5c3_Err != nil {
@@ -620,7 +620,7 @@ func credentialShowAssetField(c viewmodels.CredentialArtifactSummaryView) templ.
 			var templ_7745c5c3_Var34 string
 			templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(c.AssetRefExternalID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 89, Col: 152}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 89, Col: 152}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 			if templ_7745c5c3_Err != nil {
@@ -638,7 +638,7 @@ func credentialShowAssetField(c viewmodels.CredentialArtifactSummaryView) templ.
 			var templ_7745c5c3_Var35 string
 			templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(c.AssetRefKind)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 91, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 91, Col: 61}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 			if templ_7745c5c3_Err != nil {
@@ -647,7 +647,7 @@ func credentialShowAssetField(c viewmodels.CredentialArtifactSummaryView) templ.
 			var templ_7745c5c3_Var36 string
 			templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 91, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 91, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 			if templ_7745c5c3_Err != nil {
@@ -656,7 +656,7 @@ func credentialShowAssetField(c viewmodels.CredentialArtifactSummaryView) templ.
 			var templ_7745c5c3_Var37 string
 			templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(c.AssetRefExternalID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 91, Col: 95}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 91, Col: 95}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 			if templ_7745c5c3_Err != nil {
@@ -708,7 +708,7 @@ func credentialShowFindings(data viewmodels.CredentialShowViewData) templ.Compon
 			var templ_7745c5c3_Var39 string
 			templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(len(data.RiskFindings)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 101, Col: 83}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 101, Col: 83}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 			if templ_7745c5c3_Err != nil {
@@ -717,7 +717,7 @@ func credentialShowFindings(data viewmodels.CredentialShowViewData) templ.Compon
 			var templ_7745c5c3_Var40 string
 			templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(pluralizeSuffix(len(data.RiskFindings), " finding", " findings"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 101, Col: 151}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 101, Col: 151}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 			if templ_7745c5c3_Err != nil {
@@ -754,7 +754,7 @@ func credentialShowFindings(data viewmodels.CredentialShowViewData) templ.Compon
 				var templ_7745c5c3_Var42 string
 				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var41).String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 1, Col: 0}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 1, Col: 0}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 				if templ_7745c5c3_Err != nil {
@@ -776,7 +776,7 @@ func credentialShowFindings(data viewmodels.CredentialShowViewData) templ.Compon
 				var templ_7745c5c3_Var44 string
 				templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var43).String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 1, Col: 0}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 1, Col: 0}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 				if templ_7745c5c3_Err != nil {
@@ -789,7 +789,7 @@ func credentialShowFindings(data viewmodels.CredentialShowViewData) templ.Compon
 				var templ_7745c5c3_Var45 string
 				templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeRiskSeverity(finding.Severity))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 110, Col: 128}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 110, Col: 128}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 				if templ_7745c5c3_Err != nil {
@@ -802,7 +802,7 @@ func credentialShowFindings(data viewmodels.CredentialShowViewData) templ.Compon
 				var templ_7745c5c3_Var46 string
 				templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(finding.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 113, Col: 53}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 113, Col: 53}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 				if templ_7745c5c3_Err != nil {
@@ -820,7 +820,7 @@ func credentialShowFindings(data viewmodels.CredentialShowViewData) templ.Compon
 					var templ_7745c5c3_Var47 string
 					templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(finding.Evidence)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 115, Col: 67}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 115, Col: 67}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 					if templ_7745c5c3_Err != nil {
@@ -882,7 +882,7 @@ func credentialShowScope(c viewmodels.CredentialArtifactSummaryView, scopeJSON s
 		var templ_7745c5c3_Var49 string
 		templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(c.AssetRefKind)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 133, Col: 135}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 133, Col: 135}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 		if templ_7745c5c3_Err != nil {
@@ -891,7 +891,7 @@ func credentialShowScope(c viewmodels.CredentialArtifactSummaryView, scopeJSON s
 		var templ_7745c5c3_Var50 string
 		templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 133, Col: 145}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 133, Col: 145}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 		if templ_7745c5c3_Err != nil {
@@ -900,7 +900,7 @@ func credentialShowScope(c viewmodels.CredentialArtifactSummaryView, scopeJSON s
 		var templ_7745c5c3_Var51 string
 		templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(c.AssetRefExternalID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 133, Col: 169}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 133, Col: 169}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 		if templ_7745c5c3_Err != nil {
@@ -913,7 +913,7 @@ func credentialShowScope(c viewmodels.CredentialArtifactSummaryView, scopeJSON s
 		var templ_7745c5c3_Var52 string
 		templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(scopeJSON)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 135, Col: 139}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 135, Col: 139}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 		if templ_7745c5c3_Err != nil {
@@ -960,7 +960,7 @@ func credentialShowActivity(data viewmodels.CredentialShowViewData) templ.Compon
 			var templ_7745c5c3_Var54 string
 			templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(len(data.AuditEvents)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 145, Col: 82}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 145, Col: 82}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
 			if templ_7745c5c3_Err != nil {
@@ -969,7 +969,7 @@ func credentialShowActivity(data viewmodels.CredentialShowViewData) templ.Compon
 			var templ_7745c5c3_Var55 string
 			templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(pluralizeSuffix(len(data.AuditEvents), " event", " events"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 145, Col: 145}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 145, Col: 145}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 			if templ_7745c5c3_Err != nil {
@@ -997,7 +997,7 @@ func credentialShowActivity(data viewmodels.CredentialShowViewData) templ.Compon
 				var templ_7745c5c3_Var56 string
 				templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(event.EventTime.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 162, Col: 81}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 162, Col: 81}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
 				if templ_7745c5c3_Err != nil {
@@ -1010,7 +1010,7 @@ func credentialShowActivity(data viewmodels.CredentialShowViewData) templ.Compon
 				var templ_7745c5c3_Var57 string
 				templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(event.EventType)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 163, Col: 57}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 163, Col: 57}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
 				if templ_7745c5c3_Err != nil {
@@ -1023,7 +1023,7 @@ func credentialShowActivity(data viewmodels.CredentialShowViewData) templ.Compon
 				var templ_7745c5c3_Var58 string
 				templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(event.Actor)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 164, Col: 53}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 164, Col: 53}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 				if templ_7745c5c3_Err != nil {
@@ -1036,7 +1036,7 @@ func credentialShowActivity(data viewmodels.CredentialShowViewData) templ.Compon
 				var templ_7745c5c3_Var59 string
 				templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(event.Target)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `credential_show.templ`, Line: 165, Col: 54}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/credential_show.templ`, Line: 165, Col: 54}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
 				if templ_7745c5c3_Err != nil {

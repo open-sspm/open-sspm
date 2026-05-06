@@ -5,7 +5,6 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 	@Layout(data.Layout) {
 		@PageHeader("")
-
 		<section class="mb-6 border-b border-border pb-5">
 			<div class="max-w-4xl space-y-3">
 				<div class="space-y-1.5">
@@ -45,7 +44,6 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 				}
 			</div>
 		</section>
-
 		<section class="space-y-3">
 			<div class="flex flex-wrap items-end justify-between gap-3">
 				<div class="space-y-1">
@@ -100,55 +98,135 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 						}
 					</div>
 					<div class="hidden overflow-x-auto lg:block">
-					<table class="table osspm-table-compact osspm-table-list min-w-[54rem]">
-						<caption class="sr-only">Linked source accounts merged into this identity.</caption>
-						<thead>
-							<tr>
-								<th class="w-56 text-sm font-medium text-muted-foreground">Source</th>
-								<th class="text-sm font-medium text-muted-foreground">Account</th>
-								<th class="w-28 text-sm font-medium text-muted-foreground">Status</th>
-								<th class="w-24 text-sm font-medium text-muted-foreground">Entitlements</th>
-							</tr>
-						</thead>
-						<tbody>
-							for _, linked := range data.LinkedAccounts {
+						<table class="table osspm-table-compact osspm-table-list min-w-[54rem]">
+							<caption class="sr-only">Linked source accounts merged into this identity.</caption>
+							<thead>
 								<tr>
-									<td>
-										<div class="space-y-0.5">
-											<div class="font-medium">{ HumanizeConnectorKind(linked.Account.SourceKind) }</div>
-											if linked.Account.SourceName != "" {
-												<div class="text-sm text-muted-foreground break-all">{ ConnectorScopeLabel(linked.Account.SourceKind) }{ ": " }{ linked.Account.SourceName }</div>
-											}
-										</div>
-									</td>
-									<td>
-										<div class="space-y-0.5">
-											@IdentityLinkedAccountPrimary(linked)
-											if linked.Account.DisplayName != "" {
-												<div class="text-sm text-muted-foreground break-words">{ linked.Account.DisplayName }</div>
-											}
-											if linked.Account.ExternalID != "" && linked.Account.ExternalID != linked.Account.Email {
-												<div class="text-xs text-muted-foreground break-all">{ "External ID: " }{ linked.Account.ExternalID }</div>
-											}
-										</div>
-									</td>
-									<td>
-										if linked.Account.Status != "" {
-											<span class={ AccountStatusBadgeClass(linked.Account.Status) }>{ HumanizeAccountStatus(linked.Account.Status) }</span>
-										} else {
-											<span class="text-muted-foreground">—</span>
-										}
-									</td>
-									<td class="font-medium">{ FormatInt(linked.EntitlementCount) }</td>
+									<th class="w-56 text-sm font-medium text-muted-foreground">Source</th>
+									<th class="text-sm font-medium text-muted-foreground">Account</th>
+									<th class="w-28 text-sm font-medium text-muted-foreground">Status</th>
+									<th class="w-24 text-sm font-medium text-muted-foreground">Entitlements</th>
 								</tr>
-							}
-						</tbody>
-					</table>
+							</thead>
+							<tbody>
+								for _, linked := range data.LinkedAccounts {
+									<tr>
+										<td>
+											<div class="space-y-0.5">
+												<div class="font-medium">{ HumanizeConnectorKind(linked.Account.SourceKind) }</div>
+												if linked.Account.SourceName != "" {
+													<div class="text-sm text-muted-foreground break-all">{ ConnectorScopeLabel(linked.Account.SourceKind) }{ ": " }{ linked.Account.SourceName }</div>
+												}
+											</div>
+										</td>
+										<td>
+											<div class="space-y-0.5">
+												@IdentityLinkedAccountPrimary(linked)
+												if linked.Account.DisplayName != "" {
+													<div class="text-sm text-muted-foreground break-words">{ linked.Account.DisplayName }</div>
+												}
+												if linked.Account.ExternalID != "" && linked.Account.ExternalID != linked.Account.Email {
+													<div class="text-xs text-muted-foreground break-all">{ "External ID: " }{ linked.Account.ExternalID }</div>
+												}
+											</div>
+										</td>
+										<td>
+											if linked.Account.Status != "" {
+												<span class={ AccountStatusBadgeClass(linked.Account.Status) }>{ HumanizeAccountStatus(linked.Account.Status) }</span>
+											} else {
+												<span class="text-muted-foreground">—</span>
+											}
+										</td>
+										<td class="font-medium">{ FormatInt(linked.EntitlementCount) }</td>
+									</tr>
+								}
+							</tbody>
+						</table>
 					</div>
 				</div>
 			} else {
 				<div class="border-t border-border">
 					@EmptyState("No linked accounts", "No linked accounts.")
+				</div>
+			}
+		</section>
+		<section class="mt-8 space-y-3">
+			<div class="flex flex-wrap items-end justify-between gap-3">
+				<div class="space-y-1">
+					<h2 class="text-base font-semibold">Entitlements</h2>
+					<p class="text-sm text-muted-foreground">Access granted to linked source accounts.</p>
+				</div>
+				<p class="shrink-0 text-sm text-muted-foreground">
+					if data.HasEntitlements {
+						{ FormatInt(data.TotalEntitlements) }{ " total" }
+					} else {
+						0 total
+					}
+				</p>
+			</div>
+			if data.HasEntitlements {
+				<div class="divide-y divide-border border-t border-border lg:hidden">
+					for _, ent := range data.Entitlements {
+						<article class="space-y-2 py-4">
+							<div class="min-w-0">
+								@IdentityEntitlementResource(ent)
+								<div class="mt-1 text-xs text-muted-foreground break-all">
+									@IdentityEntitlementAccount(ent)
+								</div>
+							</div>
+							<div class="flex flex-wrap items-center gap-2">
+								if ent.Kind != "" {
+									<span class="badge-outline">{ ent.Kind }</span>
+								}
+								if ent.Permission != "" {
+									<span class="badge-outline">{ ent.Permission }</span>
+								}
+							</div>
+						</article>
+					}
+				</div>
+				<div class="hidden overflow-x-auto lg:block">
+					<table class="table osspm-table-compact osspm-table-list min-w-[58rem]">
+						<caption class="sr-only">Entitlements granted to linked source accounts.</caption>
+						<thead>
+							<tr>
+								<th class="w-56 text-sm font-medium text-muted-foreground">Account</th>
+								<th class="w-28 text-sm font-medium text-muted-foreground">Kind</th>
+								<th class="text-sm font-medium text-muted-foreground">Resource</th>
+								<th class="w-40 text-sm font-medium text-muted-foreground">Permission</th>
+							</tr>
+						</thead>
+						<tbody>
+								for _, ent := range data.Entitlements {
+									<tr>
+										<td>
+											@IdentityEntitlementAccount(ent)
+										</td>
+									<td>
+										if ent.Kind != "" {
+											<span class="badge-outline">{ ent.Kind }</span>
+										} else {
+											<span class="text-muted-foreground">—</span>
+										}
+									</td>
+										<td>
+											@IdentityEntitlementResource(ent)
+										</td>
+									<td>
+										if ent.Permission != "" {
+											<span class="badge-outline">{ ent.Permission }</span>
+										} else {
+											<span class="text-muted-foreground">—</span>
+										}
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			} else {
+				<div class="border-t border-border">
+					@EmptyState("No entitlements", "No entitlements found for linked accounts.")
 				</div>
 			}
 		</section>
@@ -181,5 +259,32 @@ templ IdentityLinkedAccountPrimary(linked viewmodels.IdentityLinkedAccountView) 
 		} else {
 			<div class="osspm-cell-primary">{ "Account " }{ FormatInt64(linked.Account.ID) }</div>
 		}
+	}
+}
+
+templ IdentityEntitlementAccount(ent viewmodels.IdentityEntitlementView) {
+	<div class="min-w-0 space-y-0.5">
+		<div class="text-xs text-muted-foreground">
+			{ HumanizeConnectorKind(ent.AccountSourceKind) }
+			if ent.AccountSourceName != "" {
+				{ " · " }{ ConnectorScopeLabel(ent.AccountSourceKind) }{ ": " }{ ent.AccountSourceName }
+			}
+		</div>
+		if ent.AccountHref != "" {
+			<a class="btn-sm-link px-0 osspm-cell-primary break-all" href={ ent.AccountHref }>{ ent.AccountLabel }</a>
+		} else {
+			<div class="osspm-cell-primary break-all">{ ent.AccountLabel }</div>
+		}
+	</div>
+}
+
+templ IdentityEntitlementResource(ent viewmodels.IdentityEntitlementView) {
+	if ent.ResourceHref != "" {
+		<a class="btn-sm-link px-0 osspm-cell-primary break-words" href={ ent.ResourceHref }>{ ent.ResourceLabel }</a>
+	} else {
+		<div class="osspm-cell-primary break-words">{ ent.ResourceLabel }</div>
+	}
+	if ent.ResourceID != "" && ent.ResourceID != ent.ResourceLabel {
+		<div class="text-xs text-muted-foreground break-all">{ ent.ResourceID }</div>
 	}
 }

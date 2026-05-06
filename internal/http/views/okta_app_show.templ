@@ -56,7 +56,7 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 								</div>
 								<span class={ StatusBadgeClass(account.OktaAccountStatus) }>{ account.OktaAccountStatus }</span>
 							</div>
-							if !data.Summary.UniformAssignedVia || len(account.Groups) > 0 || len(account.Permissions) > 0 {
+								if !data.Summary.UniformAssignedVia || len(account.Groups) > 0 || len(account.Attributes) > 0 {
 								<div class="mt-2 space-y-1.5 text-sm">
 									if !data.Summary.UniformAssignedVia {
 										<div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
@@ -74,15 +74,15 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 											</div>
 										</div>
 									}
-									if len(account.Permissions) > 0 {
-										<div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-											<span class="text-muted-foreground">Attributes</span>
-											<div class="space-y-0.5 text-foreground">
-												for _, p := range account.Permissions {
-													<div class="break-words">{ p.Text }</div>
-												}
+										if len(account.Attributes) > 0 {
+											<div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+												<span class="text-muted-foreground">Attributes</span>
+												<div class="space-y-0.5 text-foreground">
+													for _, attr := range account.Attributes {
+														<div class="break-words">{ attr.Text }</div>
+													}
+												</div>
 											</div>
-										</div>
 									}
 								</div>
 							}
@@ -93,7 +93,7 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 				<!-- Desktop table -->
 				<div class="hidden lg:block">
 					{{ showGroups := data.Summary.AnyGroups || !data.Summary.SinglePage }}
-					{{ showPermissions := data.Summary.AnyPermissions || !data.Summary.SinglePage }}
+						{{ showAttributes := data.Summary.AnyAttributes || !data.Summary.SinglePage }}
 					@ColumnsTable("") {
 						<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
 							<caption class="sr-only">Okta accounts assigned to this app.</caption>
@@ -107,9 +107,9 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 									if showGroups {
 										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Group(s)</th>
 									}
-									if showPermissions {
-										<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Attributes</th>
-									}
+										if showAttributes {
+											<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Attributes</th>
+										}
 								</tr>
 							</thead>
 							<tbody>
@@ -138,12 +138,12 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 												}
 											</td>
 										}
-										if showPermissions {
+										if showAttributes {
 											<td>
-												if len(account.Permissions) > 0 {
+												if len(account.Attributes) > 0 {
 													<div class="space-y-1 text-sm text-foreground">
-														for _, p := range account.Permissions {
-															<div class="break-words">{ p.Text }</div>
+														for _, attr := range account.Attributes {
+															<div class="break-words">{ attr.Text }</div>
 														}
 													</div>
 												}

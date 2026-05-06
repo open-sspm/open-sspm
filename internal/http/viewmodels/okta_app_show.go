@@ -10,7 +10,7 @@ type OktaAppSummaryView struct {
 	SignOnMode string
 }
 
-type PermissionBadge struct {
+type ProfileAttributeBadge struct {
 	Text string
 }
 
@@ -23,7 +23,7 @@ type OktaAppAssignedAccountView struct {
 	OktaAccountStatus     string
 	AssignedVia           string
 	Groups                []string
-	Permissions           []PermissionBadge
+	Attributes            []ProfileAttributeBadge
 }
 
 // OktaAppAssignmentSummary describes the shape of the current result set so
@@ -37,7 +37,7 @@ type OktaAppAssignmentSummary struct {
 	UniformAssignedVia bool
 	AssignedViaLabel   string
 	AnyGroups          bool
-	AnyPermissions     bool
+	AnyAttributes      bool
 }
 
 type OktaAppShowViewData struct {
@@ -55,5 +55,5 @@ type OktaAssignmentView struct {
 	AppHref     string
 	AssignedVia string
 	Groups      []string
-	Permissions []PermissionBadge
+	Attributes  []ProfileAttributeBadge
 }

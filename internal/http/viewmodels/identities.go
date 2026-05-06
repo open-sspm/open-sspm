@@ -55,6 +55,19 @@ type IdentityLinkedAccountView struct {
 	DetailHref       string
 }
 
+type IdentityEntitlementView struct {
+	AccountLabel      string
+	AccountHref       string
+	AccountSourceKind string
+	AccountSourceName string
+	Kind              string
+	ResourceKind      string
+	ResourceID        string
+	ResourceLabel     string
+	ResourceHref      string
+	Permission        string
+}
+
 type IdentityShowViewData struct {
 	Layout             LayoutData
 	Identity           gen.GetIdentitySummaryByIDRow
@@ -64,7 +77,9 @@ type IdentityShowViewData struct {
 	UpdatedOn          TimeDisplay
 	TotalEntitlements  int
 	LinkedAccounts     []IdentityLinkedAccountView
+	Entitlements       []IdentityEntitlementView
 	NonHumanAccessHref string
 	HasLinkedAccounts  bool
+	HasEntitlements    bool
 	OverviewMap        OverviewMapGraph
 }

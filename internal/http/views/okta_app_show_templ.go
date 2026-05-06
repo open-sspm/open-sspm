@@ -291,7 +291,7 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					if !data.Summary.UniformAssignedVia || len(account.Groups) > 0 || len(account.Permissions) > 0 {
+					if !data.Summary.UniformAssignedVia || len(account.Groups) > 0 || len(account.Attributes) > 0 {
 						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<div class=\"mt-2 space-y-1.5 text-sm\">")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
@@ -344,20 +344,20 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 								return templ_7745c5c3_Err
 							}
 						}
-						if len(account.Permissions) > 0 {
+						if len(account.Attributes) > 0 {
 							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<div class=\"grid grid-cols-[auto_1fr] gap-x-3 gap-y-1\"><span class=\"text-muted-foreground\">Attributes</span><div class=\"space-y-0.5 text-foreground\">")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							for _, p := range account.Permissions {
+							for _, attr := range account.Attributes {
 								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<div class=\"break-words\">")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
 								var templ_7745c5c3_Var20 string
-								templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(p.Text)
+								templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(attr.Text)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_app_show.templ`, Line: 82, Col: 46}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_app_show.templ`, Line: 82, Col: 50}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 								if templ_7745c5c3_Err != nil {
@@ -388,7 +388,7 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				showGroups := data.Summary.AnyGroups || !data.Summary.SinglePage
-				showPermissions := data.Summary.AnyPermissions || !data.Summary.SinglePage
+				showAttributes := data.Summary.AnyAttributes || !data.Summary.SinglePage
 				templ_7745c5c3_Var21 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
@@ -417,7 +417,7 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 							return templ_7745c5c3_Err
 						}
 					}
-					if showPermissions {
+					if showAttributes {
 						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Attributes</th>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
@@ -592,25 +592,25 @@ func OktaAppShowPage(data viewmodels.OktaAppShowViewData) templ.Component {
 								return templ_7745c5c3_Err
 							}
 						}
-						if showPermissions {
+						if showAttributes {
 							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "<td>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							if len(account.Permissions) > 0 {
+							if len(account.Attributes) > 0 {
 								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "<div class=\"space-y-1 text-sm text-foreground\">")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
-								for _, p := range account.Permissions {
+								for _, attr := range account.Attributes {
 									templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<div class=\"break-words\">")
 									if templ_7745c5c3_Err != nil {
 										return templ_7745c5c3_Err
 									}
 									var templ_7745c5c3_Var31 string
-									templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(p.Text)
+									templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(attr.Text)
 									if templ_7745c5c3_Err != nil {
-										return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_app_show.templ`, Line: 146, Col: 48}
+										return templ.Error{Err: templ_7745c5c3_Err, FileName: `okta_app_show.templ`, Line: 146, Col: 51}
 									}
 									_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 									if templ_7745c5c3_Err != nil {

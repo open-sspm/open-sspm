@@ -264,8 +264,8 @@ func ParseBoolForm(value string) bool {
 	}
 }
 
-// SummarizeProfilePermissions extracts permission badges from a profile JSON.
-func SummarizeProfilePermissions(profileJSON []byte) []viewmodels.PermissionBadge {
+// SummarizeProfileAttributes extracts non-sensitive scalar attributes from a profile JSON.
+func SummarizeProfileAttributes(profileJSON []byte) []viewmodels.ProfileAttributeBadge {
 	if len(profileJSON) == 0 {
 		return nil
 	}
@@ -293,11 +293,11 @@ func SummarizeProfilePermissions(profileJSON []byte) []viewmodels.PermissionBadg
 	if len(keys) > 5 {
 		keys = keys[:5]
 	}
-	badges := make([]viewmodels.PermissionBadge, 0, len(keys))
+	badges := make([]viewmodels.ProfileAttributeBadge, 0, len(keys))
 	for _, key := range keys {
 		value := profile[key]
 		text := fmt.Sprintf("%s: %s", key, truncateProfileValue(fmt.Sprint(value), 80))
-		badges = append(badges, viewmodels.PermissionBadge{Text: text})
+		badges = append(badges, viewmodels.ProfileAttributeBadge{Text: text})
 	}
 	return badges
 }

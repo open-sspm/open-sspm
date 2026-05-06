@@ -1,230 +1,177 @@
 package views
 
-import (
-	"fmt"
-	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
-)
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
-templ OktaAccountShowPage(data viewmodels.OktaAccountShowViewData) {
+templ OktaAccountShowPage(data viewmodels.SourceAccountShowViewData) {
 	@Layout(data.Layout) {
-		@PageHeader(data.User.Email)
+		@PageHeader("")
+		<div class="mx-auto w-full min-w-0 max-w-5xl space-y-12 py-2">
+			@oktaAccountShowHeader(data)
+			if data.OktaSection != nil {
+				@oktaAccountShowGroups(data.OktaSection.Groups)
+				@oktaAccountShowAssignments(data.OktaSection)
+			}
+			@oktaAccountShowIdentityFooter(data)
+		</div>
+	}
+}
 
-		<div class="tabs">
-			<div role="tablist" aria-label="Okta account">
-				<button id="tab-summary-trigger" role="tab" aria-controls="tab-summary" aria-selected="true" tabindex="0">Summary</button>
-				<button id="tab-assignments-trigger" role="tab" aria-controls="tab-assignments" aria-selected="false" tabindex="-1">Assignments</button>
-				<button id="tab-access-graph-trigger" role="tab" aria-controls="tab-access-graph" aria-selected="false" tabindex="-1">Access graph</button>
-				<button id="tab-linked-trigger" role="tab" aria-controls="tab-linked" aria-selected="false" tabindex="-1">Linked accounts</button>
-			</div>
-
-			<section id="tab-summary" role="tabpanel" aria-labelledby="tab-summary-trigger" tabindex="0">
-				<article class="card">
-					<header>
-						<h2>Account summary</h2>
-						<p>Okta account details.</p>
-					</header>
-						<section>
-							<dl class="space-y-4">
-								<div class="space-y-1">
-									<dt class="sr-only">ID</dt>
-									<dd class="text-sm font-medium text-muted-foreground">{ "ID " }{ FormatInt64(data.User.ID) }</dd>
-								</div>
-								<div class="space-y-1">
-									<dt class="text-xs font-medium text-muted-foreground">Status</dt>
-								<dd><span class={ StatusBadgeClass(data.User.Status) }>{ data.User.Status }</span></dd>
-							</div>
-							<div class="space-y-1">
-								<dt class="text-xs font-medium text-muted-foreground">Email</dt>
-								<dd class="text-lg font-medium break-all">{ data.User.Email }</dd>
-							</div>
-							<div class="space-y-1">
-								<dt class="text-xs font-medium text-muted-foreground">Name</dt>
-								<dd class="text-lg font-medium break-words">{ data.User.DisplayName }</dd>
-							</div>
-						</dl>
-					</section>
-				</article>
-			</section>
-
-			<section id="tab-assignments" role="tabpanel" aria-labelledby="tab-assignments-trigger" tabindex="0" hidden>
-				<article class="card">
-					<header>
-						<h2>Okta assignments</h2>
-						<p>Apps and groups that grant access.</p>
-						<div data-slot="card-action">
-							<span class="badge-outline">{ FormatInt(data.OktaAppCount) }{ " apps" }</span>
-						</div>
-					</header>
-					<section>
-						@ColumnsTable("") {
-						<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-							<thead>
-								<tr>
-									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">App</th>
-									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Assigned via</th>
-									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Group(s)</th>
-									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Permissions</th>
-								</tr>
-							</thead>
-								<tbody>
-									if len(data.OktaAssignments) > 0 {
-										for _, a := range data.OktaAssignments {
-											<tr class="align-top">
-												<td>
-													if a.AppHref != "" {
-														<a class="btn-sm-link px-0 font-medium" href={ a.AppHref }>{ a.AppLabel }</a>
-													} else {
-														<div class="font-medium">{ a.AppLabel }</div>
-													}
-													if a.AppName != "" {
-														<div class="text-xs text-muted-foreground">{ a.AppName }</div>
-													}
-												</td>
-												<td>
-													<span class="badge-outline">{ a.AssignedVia }</span>
-												</td>
-												<td>
-													if len(a.Groups) > 0 {
-														<div class="flex flex-wrap gap-2">
-															for _, group := range a.Groups {
-																<span class="badge-outline">{ group }</span>
-															}
-														</div>
-													} else {
-														<span class="text-muted-foreground">&mdash;</span>
-													}
-												</td>
-												<td>
-													if len(a.Permissions) > 0 {
-														<div class="flex flex-wrap gap-2">
-															for _, p := range a.Permissions {
-																<span class="badge-outline">{ p.Text }</span>
-															}
-														</div>
-													} else {
-														<span class="text-muted-foreground">&mdash;</span>
-													}
-												</td>
-											</tr>
-										}
-									} else {
-										<tr>
-											<td colspan="4">
-												@EmptyState("No assignments found", "No Okta assignments synced yet.")
-											</td>
-										</tr>
-									}
-								</tbody>
-							</table>
-						}
-					</section>
-				</article>
-			</section>
-
-			<section id="tab-access-graph" role="tabpanel" aria-labelledby="tab-access-graph-trigger" tabindex="0" hidden>
-				<article class="card">
-					<header>
-						<h2>Access graph</h2>
-						<p>Expand nodes to lazy-load access details across connectors.</p>
-					</header>
-					<section>
-						<div
-							class="space-y-1"
-							data-hx-lazy-load
-							data-hx-lazy-panel="tab-access-graph"
-							hx-get={ fmt.Sprintf("/api/accounts/okta/%d/access-tree?node=root", data.User.ID) }
-							hx-trigger="oss-panel-visible"
-							hx-swap="innerHTML"
-						>
-							@BusyInlineIndicator("Loading access graph...", true)
-						</div>
-					</section>
-				</article>
-			</section>
-
-			<section id="tab-linked" role="tabpanel" aria-labelledby="tab-linked-trigger" tabindex="0" hidden>
-				<div class="space-y-4">
-					<div class="flex flex-wrap items-center justify-between gap-3">
-						<h2 class="text-lg font-semibold">Linked accounts</h2>
-						<span class="badge-outline">{ FormatInt(data.LinkedAccountsCount) }{ " connected" }</span>
-					</div>
-
-					if data.HasLinkedAccounts {
-						<div class="grid gap-4">
-							for _, account := range data.LinkedAccounts {
-								<article class="card">
-									<header>
-										<h2>{ account.Account.SourceName }</h2>
-										<p class="text-muted-foreground">{ "External ID " }{ account.Account.ExternalID }</p>
-										<div data-slot="card-action">
-											<span class="badge">{ account.Account.SourceKind }</span>
-										</div>
-									</header>
-									<section class="space-y-4">
-										<dl class="grid gap-4 md:grid-cols-2">
-											<div>
-												<dt class="text-xs font-medium text-muted-foreground">Email</dt>
-												<dd class="font-medium">{ account.Account.Email }</dd>
-											</div>
-											<div>
-												<dt class="text-xs font-medium text-muted-foreground">Name</dt>
-												<dd class="font-medium">{ account.Account.DisplayName }</dd>
-											</div>
-										</dl>
-
-										<div class="space-y-2">
-											<h3 class="text-sm font-semibold">Entitlements</h3>
-											@ColumnsTable("") {
-											<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-												<thead>
-													<tr>
-														<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Kind</th>
-														<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Resource</th>
-														<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Permission</th>
-													</tr>
-												</thead>
-													<tbody>
-														if len(account.Entitlements) > 0 {
-															for _, ent := range account.Entitlements {
-																<tr>
-																	<td><span class="badge-outline">{ ent.Kind }</span></td>
-																	<td>
-																		if ent.ResourceHref != "" {
-																			<a class="btn-sm-link px-0 font-medium" href={ ent.ResourceHref }>{ ent.ResourceLabel }</a>
-																		} else {
-																			<div class="font-medium break-all">{ ent.ResourceLabel }</div>
-																		}
-																		if ent.ResourceID != "" && ent.ResourceID != ent.ResourceLabel {
-																			<div class="text-xs text-muted-foreground break-all">{ ent.ResourceID }</div>
-																		}
-																	</td>
-																	<td>
-																		if ent.Permission != "" {
-																			<span class="badge-outline">{ ent.Permission }</span>
-																		} else {
-																			<span class="text-muted-foreground">&mdash;</span>
-																		}
-																	</td>
-																</tr>
-															}
-														} else {
-															<tr>
-																<td colspan="3" class="text-muted-foreground">No entitlements found.</td>
-															</tr>
-														}
-													</tbody>
-												</table>
-											}
-										</div>
-									</section>
-								</article>
-							}
-						</div>
-					} else {
-						@EmptyState("No linked accounts yet", "Match identities to see entitlements here.")
-					}
+templ oktaAccountShowHeader(data viewmodels.SourceAccountShowViewData) {
+	<header class="space-y-4">
+		<div>
+			<a class="text-xs text-muted-foreground hover:text-foreground" href="/accounts/okta">← Okta accounts</a>
+		</div>
+		<div class="space-y-3">
+			<h1 class="text-3xl font-semibold leading-tight tracking-tight break-words md:text-4xl">
+				if data.Account.Email != "" {
+					{ data.Account.Email }
+				} else {
+					{ data.Account.DisplayName }
+				}
+			</h1>
+			<p class="text-sm text-muted-foreground break-words">
+				@oktaAccountShowMetaLine(data)
+			</p>
+			if data.Account.ExternalID != "" {
+				<div class="flex min-w-0 items-center gap-2">
+					<span class="font-mono text-xs text-muted-foreground/80 break-all">{ data.Account.ExternalID }</span>
+					@CopyTextButton(data.Account.ExternalID, "Copy external ID")
 				</div>
-			</section>
+			}
+		</div>
+	</header>
+}
+
+templ oktaAccountShowMetaLine(data viewmodels.SourceAccountShowViewData) {
+	<span>{ HumanizeAccountStatus(data.Account.Status) }</span>
+	{{ source := data.Account.SourceName }}
+	if source != "" {
+		<span class="px-1.5 text-muted-foreground/50">·</span>
+		<span>{ source }</span>
+	}
+	if data.Account.DisplayName != "" && data.Account.DisplayName != data.Account.Email {
+		<span class="px-1.5 text-muted-foreground/50">·</span>
+		<span>{ data.Account.DisplayName }</span>
+	}
+	if data.LastLoginAt.Relative != "" && data.LastLoginAt.Relative != "—" {
+		<span class="px-1.5 text-muted-foreground/50">·</span>
+		<span>{ "Last login " }{ data.LastLoginAt.Relative }</span>
+	} else if data.LastObservedAt.Relative != "" && data.LastObservedAt.Relative != "—" {
+		<span class="px-1.5 text-muted-foreground/50">·</span>
+		<span>{ "Last seen " }{ data.LastObservedAt.Relative }</span>
+	}
+}
+
+templ oktaAccountShowGroups(groups []viewmodels.OktaGroupBadge) {
+	<section aria-label="Group memberships" class="space-y-3">
+		<div class="flex items-baseline justify-between">
+			<h2 class="text-base font-medium">Groups</h2>
+			if len(groups) > 0 {
+				<span class="text-xs text-muted-foreground tabular-nums">{ FormatInt(len(groups)) }</span>
+			}
+		</div>
+		if len(groups) > 0 {
+			<div class="flex flex-wrap gap-1.5">
+				for _, group := range groups {
+					<span class="inline-flex items-center rounded-md border border-border/50 px-2 py-0.5 text-xs text-muted-foreground" title={ group.ExternalID }>{ group.Name }</span>
+				}
+			</div>
+		} else {
+			<p class="text-sm text-muted-foreground">Not a member of any synced groups.</p>
+		}
+	</section>
+}
+
+templ oktaAccountShowAssignments(section *viewmodels.OktaInspectorSection) {
+	<section aria-label="App assignments" class="space-y-3">
+		<div class="flex items-baseline justify-between">
+			<h2 class="text-base font-medium">Apps</h2>
+			if section.AssignmentCount > 0 {
+				<span class="text-xs text-muted-foreground tabular-nums">{ FormatInt(section.AssignmentCount) }</span>
+			}
+		</div>
+		if section.AssignmentCount > 0 {
+			@ColumnsTable("") {
+				<table class="table min-w-[52rem] osspm-table-fixed osspm-table-compact osspm-table-list">
+					<caption class="sr-only">Okta apps assigned to this account.</caption>
+					<colgroup>
+						<col class="w-[42%]"/>
+						<col class="w-[20%]"/>
+						<col class="w-[32%]"/>
+						<col class="w-[6%]"/>
+					</colgroup>
+					<thead>
+						<tr>
+							<th>App</th>
+							<th>Assigned via</th>
+							<th>Attributes</th>
+							<th aria-hidden="true"></th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, a := range section.Assignments {
+							<tr class="app-row group" data-row-href={ a.AppHref }>
+								<td class="pr-3">
+									<div class="flex min-w-0 items-center gap-3">
+										@ProductIcon(a.AppLabel, a.AppName, "", "size-8")
+										<span class="min-w-0 flex-1">
+											if a.AppHref != "" {
+												<a class="osspm-truncate font-medium text-foreground no-underline hover:underline" href={ a.AppHref } title={ a.AppLabel }>{ a.AppLabel }</a>
+											} else {
+												<span class="osspm-truncate font-medium text-foreground" title={ a.AppLabel }>{ a.AppLabel }</span>
+											}
+											if a.AppName != "" && a.AppName != a.AppLabel {
+												<span class="osspm-truncate text-xs text-muted-foreground/70" title={ a.AppName }>{ a.AppName }</span>
+											}
+										</span>
+									</div>
+								</td>
+								<td class="px-3">
+									<span class="osspm-cell-primary font-normal text-muted-foreground">{ a.AssignedVia }</span>
+									if a.AssignedVia == "Group" && len(a.Groups) > 0 {
+										<span class="osspm-cell-secondary truncate" title={ a.Groups[0] }>
+											{ a.Groups[0] }
+											if len(a.Groups) > 1 {
+												<span class="text-muted-foreground/50">{ " +" }{ FormatInt(len(a.Groups) - 1) }</span>
+											}
+										</span>
+									}
+								</td>
+								<td class="px-3">
+									if len(a.Attributes) > 0 {
+										<span class="osspm-cell-primary truncate font-normal text-muted-foreground" title={ a.Attributes[0].Text }>{ a.Attributes[0].Text }</span>
+										if len(a.Attributes) > 1 {
+											<span class="osspm-cell-secondary">
+												{ "+" }{ FormatInt(len(a.Attributes) - 1) }{ " attributes" }
+											</span>
+										}
+									}
+								</td>
+								<td class="pl-3 text-right align-middle">
+									if a.AppHref != "" {
+										@IconChevronRight("inline-block h-3.5 w-3.5 text-muted-foreground/30 transition-colors group-hover:text-muted-foreground")
+									}
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		} else {
+			@EmptyState("No apps assigned", "No apps assigned to this account.")
+		}
+	</section>
+}
+
+templ oktaAccountShowIdentityFooter(data viewmodels.SourceAccountShowViewData) {
+	if data.IdentityHref != "" {
+		<div class="pt-4">
+			<a class="text-sm text-muted-foreground hover:text-foreground" href={ data.IdentityHref }>
+				{ "← Part of identity " }
+				if data.IdentityName != "" {
+					<span class="font-medium text-foreground">{ data.IdentityName }</span>
+				}
+			</a>
 		</div>
 	}
 }

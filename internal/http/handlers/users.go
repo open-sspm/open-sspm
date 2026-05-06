@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"path"
 	"sort"
 	"strconv"
@@ -94,55 +93,6 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 	if err != nil {
 		return RenderNotFound(c)
 	}
-	_, linked, err := h.linkedAccountsForOktaAccount(ctx, user.ID)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-	linkedIDs := make([]int64, 0, len(linked))
-	for _, app := range linked {
-		linkedIDs = append(linkedIDs, app.ID)
-	}
-	entitlementsByAccountID := make(map[int64][]gen.ListEntitlementsForAccountIDsRow, len(linked))
-	if len(linkedIDs) > 0 {
-		ents, err := h.Q.ListEntitlementsForAccountIDs(ctx, linkedIDs)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		for _, ent := range ents {
-			entitlementsByAccountID[ent.AccountID] = append(entitlementsByAccountID[ent.AccountID], ent)
-		}
-	}
-	var linkedAccounts []viewmodels.LinkedAccountView
-	for _, account := range linked {
-		entitlementViews := make([]viewmodels.LinkedEntitlementView, 0, len(entitlementsByAccountID[account.ID]))
-		for _, ent := range entitlementsByAccountID[account.ID] {
-			resourceKind, resourceID, ok := accessgraph.ParseCanonicalResourceRef(ent.Resource)
-			if !ok {
-				resourceID = strings.TrimSpace(ent.Resource)
-			}
-			resourceHref := ""
-			if ok {
-				resourceHref = accessgraph.BuildResourceHref(account.SourceKind, account.SourceName, resourceKind, resourceID)
-			}
-			resourceLabel := accessgraph.DisplayResourceLabel(ent.Resource, ent.RawJson)
-			if strings.TrimSpace(resourceLabel) == "" {
-				if ok {
-					resourceLabel = resourceID
-				} else {
-					resourceLabel = strings.TrimSpace(ent.Resource)
-				}
-			}
-			entitlementViews = append(entitlementViews, viewmodels.LinkedEntitlementView{
-				Kind:          strings.TrimSpace(ent.Kind),
-				ResourceKind:  resourceKind,
-				ResourceID:    resourceID,
-				ResourceLabel: resourceLabel,
-				ResourceHref:  resourceHref,
-				Permission:    accessgraph.DisplayEntitlementPermission(ent.Kind, ent.Permission, ent.RawJson),
-			})
-		}
-		linkedAccounts = append(linkedAccounts, viewmodels.LinkedAccountView{Account: account, Entitlements: entitlementViews})
-	}
 
 	assignments, err := h.Q.ListOktaAppAssignmentsForOktaAccount(ctx, user.ID)
 	if err != nil {
@@ -154,13 +104,24 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 	}
 
 	groupNames := make(map[int64]string)
+	groupBadges := make([]viewmodels.OktaGroupBadge, 0, len(userGroups))
 	for _, group := range userGroups {
-		name := group.Name
+		name := strings.TrimSpace(group.Name)
 		if name == "" {
-			name = group.ExternalID
+			name = strings.TrimSpace(group.ExternalID)
+		}
+		if name == "" {
+			continue
 		}
 		groupNames[group.ID] = name
+		groupBadges = append(groupBadges, viewmodels.OktaGroupBadge{
+			Name:       name,
+			ExternalID: strings.TrimSpace(group.ExternalID),
+		})
 	}
+	sort.Slice(groupBadges, func(i, j int) bool {
+		return strings.ToLower(groupBadges[i].Name) < strings.ToLower(groupBadges[j].Name)
+	})
 
 	appIDSet := make(map[int64]struct{})
 	for _, assignment := range assignments {
@@ -184,7 +145,7 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 		appGroupIDs[row.OktaAppID] = append(appGroupIDs[row.OktaAppID], row.OktaGroupID)
 	}
 
-	var oktaAssignments []viewmodels.OktaAssignmentView
+	oktaAssignments := make([]viewmodels.OktaAssignmentView, 0, len(assignments))
 	for _, assignment := range assignments {
 		appLabel := assignment.AppLabel
 		if appLabel == "" {
@@ -223,21 +184,50 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 			}(),
 			AssignedVia: assignedVia,
 			Groups:      groups,
-			Permissions: SummarizeProfilePermissions(assignment.ProfileJson),
+			Attributes:  SummarizeProfileAttributes(assignment.ProfileJson),
 		})
 	}
 
-	data := viewmodels.OktaAccountShowViewData{
-		Layout:              layout,
-		User:                user,
-		OktaAssignments:     oktaAssignments,
-		OktaAppCount:        len(oktaAssignments),
-		LinkedAccounts:      linkedAccounts,
-		LinkedAccountsCount: len(linkedAccounts),
-		HasLinkedAccounts:   len(linkedAccounts) > 0,
+	identityHref, identityName := h.identityBacklinkForAccount(ctx, user.ID)
+
+	data := viewmodels.SourceAccountShowViewData{
+		Layout:         layout,
+		Account:        user,
+		LastLoginAt:    calendarDateWithRelativeDisplay(user.LastLoginAt),
+		LastObservedAt: calendarDateWithRelativeDisplay(user.LastObservedAt),
+		IdentityHref:   identityHref,
+		IdentityName:   identityName,
+		OktaSection: &viewmodels.OktaInspectorSection{
+			Groups:          groupBadges,
+			Assignments:     oktaAssignments,
+			AssignmentCount: len(oktaAssignments),
+		},
 	}
 
 	return h.RenderComponent(c, views.OktaAccountShowPage(data))
+}
+
+// identityBacklinkForAccount resolves the identity that owns the given source
+// account so the inspector page can offer a "Part of identity X" upward link.
+// Returns empty strings if the account is unlinked or the lookup fails — the
+// caller renders nothing in that case rather than surfacing an error.
+func (h *Handlers) identityBacklinkForAccount(ctx context.Context, accountID int64) (string, string) {
+	link, err := h.Q.GetIdentityAccountLinkByAccountID(ctx, accountID)
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			slog.Warn("identity backlink lookup failed", "account_id", accountID, "err", err)
+		}
+		return "", ""
+	}
+	summary, err := h.Q.GetIdentitySummaryByID(ctx, link.IdentityID)
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			slog.Warn("identity backlink summary lookup failed", "account_id", accountID, "identity_id", link.IdentityID, "err", err)
+		}
+		return "/identities/" + strconv.FormatInt(link.IdentityID, 10), ""
+	}
+	return "/identities/" + strconv.FormatInt(summary.ID, 10),
+		identityNamePrimary(summary.DisplayName, summary.PrimaryEmail, summary.ID)
 }
 
 // HandleGitHubUsers renders the GitHub users page.
@@ -546,550 +536,6 @@ func parseCreateLinkForm(c *echo.Context) (identityID int64, accountID int64, re
 	return identityID, accountID, reason, nil
 }
 
-// HandleOktaAccountAccessTree handles the access tree API endpoint.
-func (h *Handlers) HandleOktaAccountAccessTree(c *echo.Context) error {
-	addVary(c, "HX-Request")
-
-	renderAccessTreeError := func(status int, message string) error {
-		if isHX(c) {
-			return h.RenderComponent(c, views.AccessGraphError(message))
-		}
-		return c.String(status, message)
-	}
-
-	id, err := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
-	if err != nil || id <= 0 {
-		return renderAccessTreeError(http.StatusBadRequest, "invalid okta account id")
-	}
-
-	ctx := c.Request().Context()
-	_, err = h.Q.GetOktaAccount(ctx, id)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return renderAccessTreeError(http.StatusNotFound, "okta account not found")
-		}
-		return renderAccessTreeError(http.StatusInternalServerError, "internal error")
-	}
-	currentIdentityID, linkedAccounts, err := h.linkedAccountsForOktaAccount(ctx, id)
-	if err != nil {
-		return renderAccessTreeError(http.StatusInternalServerError, "internal error")
-	}
-
-	nodeID := strings.TrimSpace(c.QueryParam("node"))
-	if nodeID == "" {
-		nodeID = "root"
-	}
-
-	encodeNodePart := func(v string) string {
-		return url.PathEscape(v)
-	}
-	decodeNodePart := func(v string) (string, error) {
-		return url.PathUnescape(v)
-	}
-
-	var nodes []viewmodels.AccessTreeNode
-
-	switch {
-	case nodeID == "root":
-		nodes = []viewmodels.AccessTreeNode{
-			{ID: "connector:okta", Label: "Okta", HasChildren: true},
-			{ID: "connector:github", Label: "GitHub", HasChildren: true},
-			{ID: "connector:datadog", Label: "Datadog", HasChildren: true},
-			{ID: "connector:aws", Label: "AWS Identity Center", HasChildren: true},
-		}
-	case nodeID == "connector:okta":
-		nodes = []viewmodels.AccessTreeNode{{ID: "okta_apps", Label: "Apps", HasChildren: true}}
-	case nodeID == "okta_apps":
-		assignments, err := h.Q.ListOktaAppAssignmentsForOktaAccount(ctx, id)
-		if err != nil {
-			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
-		}
-		for _, assignment := range assignments {
-			externalID := strings.TrimSpace(assignment.OktaAppExternalID)
-			if externalID == "" {
-				continue
-			}
-			label := strings.TrimSpace(assignment.AppLabel)
-			if label == "" {
-				label = externalID
-			}
-			subLabel := strings.TrimSpace(assignment.AppName)
-
-			var badges []string
-			if status := strings.TrimSpace(assignment.AppStatus); status != "" {
-				badges = append(badges, status)
-			}
-			if mode := strings.TrimSpace(assignment.AppSignOnMode); mode != "" {
-				badges = append(badges, mode)
-			}
-
-			scope := strings.ToUpper(strings.TrimSpace(assignment.Scope))
-			switch scope {
-			case "USER":
-				badges = append(badges, "Direct")
-			case "GROUP":
-				badges = append(badges, "Group")
-			case "":
-			default:
-				badges = append(badges, "Unknown")
-			}
-
-			href := IntegratedAppHref(assignment.IntegrationKind)
-			if href == "" {
-				href = "/assigned-apps/" + externalID
-			}
-
-			nodes = append(nodes, viewmodels.AccessTreeNode{
-				ID:          "app:" + externalID,
-				Label:       label,
-				SubLabel:    subLabel,
-				Badges:      badges,
-				HasChildren: true,
-				Href:        href,
-			})
-		}
-		if len(nodes) == 0 {
-			nodes = []viewmodels.AccessTreeNode{{
-				ID:          "apps-empty",
-				Label:       "No assigned apps found.",
-				HasChildren: false,
-			}}
-		}
-	case nodeID == "connector:github" || nodeID == "connector:datadog" || nodeID == "connector:aws":
-		sourceKind := strings.TrimSpace(strings.TrimPrefix(nodeID, "connector:"))
-		if sourceKind == "" {
-			return renderAccessTreeError(http.StatusBadRequest, "invalid connector node")
-		}
-
-		sourceCounts := make(map[string]int)
-		for _, app := range linkedAccounts {
-			if strings.EqualFold(strings.TrimSpace(app.SourceKind), sourceKind) {
-				sourceCounts[app.SourceName]++
-			}
-		}
-
-		sourceNames := make([]string, 0, len(sourceCounts))
-		for name := range sourceCounts {
-			sourceNames = append(sourceNames, name)
-		}
-		sort.Strings(sourceNames)
-
-		for _, name := range sourceNames {
-			count := sourceCounts[name]
-			badge := "1 account"
-			if count != 1 {
-				badge = fmt.Sprintf("%d accounts", count)
-			}
-			label := strings.TrimSpace(name)
-			if label == "" {
-				label = "(unknown)"
-			}
-			nodes = append(nodes, viewmodels.AccessTreeNode{
-				ID:          "inst:" + strings.ToLower(sourceKind) + ":" + encodeNodePart(name),
-				Label:       label,
-				Badges:      []string{badge},
-				HasChildren: true,
-			})
-		}
-		if len(nodes) == 0 {
-			nodes = []viewmodels.AccessTreeNode{{
-				ID:          sourceKind + "-empty",
-				Label:       "No linked accounts found.",
-				HasChildren: false,
-			}}
-		}
-	case strings.HasPrefix(nodeID, "inst:"):
-		raw := strings.TrimSpace(strings.TrimPrefix(nodeID, "inst:"))
-		parts := strings.SplitN(raw, ":", 2)
-		if len(parts) != 2 {
-			return renderAccessTreeError(http.StatusBadRequest, "invalid instance node")
-		}
-		sourceKind := strings.TrimSpace(parts[0])
-		sourceName, err := decodeNodePart(parts[1])
-		if err != nil {
-			return renderAccessTreeError(http.StatusBadRequest, "invalid instance node")
-		}
-		if sourceKind == "" || sourceName == "" {
-			return renderAccessTreeError(http.StatusBadRequest, "invalid instance node")
-		}
-
-		for _, app := range linkedAccounts {
-			if !strings.EqualFold(strings.TrimSpace(app.SourceKind), sourceKind) {
-				continue
-			}
-			if app.SourceName != sourceName {
-				continue
-			}
-			label := strings.TrimSpace(app.DisplayName)
-			if label == "" {
-				label = strings.TrimSpace(app.ExternalID)
-			}
-			if label == "" {
-				label = "(unknown)"
-			}
-
-			subLabel := strings.TrimSpace(app.Email)
-			if subLabel == "" {
-				subLabel = strings.TrimSpace(app.ExternalID)
-			}
-
-			nodes = append(nodes, viewmodels.AccessTreeNode{
-				ID:          "account:" + strconv.FormatInt(app.ID, 10),
-				Label:       label,
-				SubLabel:    subLabel,
-				HasChildren: true,
-			})
-		}
-		if len(nodes) == 0 {
-			nodes = []viewmodels.AccessTreeNode{{ID: "inst-empty:" + raw, Label: "No linked accounts found.", HasChildren: false}}
-		}
-	case strings.HasPrefix(nodeID, "account:"):
-		rawID := strings.TrimSpace(strings.TrimPrefix(nodeID, "account:"))
-		accountID, err := strconv.ParseInt(rawID, 10, 64)
-		if err != nil || accountID <= 0 {
-			return renderAccessTreeError(http.StatusBadRequest, "invalid account node")
-		}
-
-		link, err := h.Q.GetIdentityAccountLinkByAccountID(ctx, accountID)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return renderAccessTreeError(http.StatusNotFound, "account not linked")
-			}
-			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
-		}
-		if currentIdentityID == 0 || link.IdentityID != currentIdentityID {
-			return renderAccessTreeError(http.StatusNotFound, "account not linked")
-		}
-
-		account, err := h.Q.GetSourceAccount(ctx, accountID)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return renderAccessTreeError(http.StatusNotFound, "account not found")
-			}
-			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
-		}
-
-		ents, err := h.Q.ListEntitlementsForAccount(ctx, accountID)
-		if err != nil {
-			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
-		}
-
-		type resourceGroup struct {
-			resourceKind string
-			externalID   string
-			label        string
-			count        int
-		}
-
-		resourceGroups := make(map[string]*resourceGroup)
-		var unmapped []viewmodels.AccessTreeNode
-
-		for _, ent := range ents {
-			resourceKind, externalID, ok := accessgraph.ParseCanonicalResourceRef(ent.Resource)
-			if !ok {
-				label := strings.TrimSpace(ent.Resource)
-				if label == "" {
-					label = strings.TrimSpace(ent.Kind)
-				}
-				if label == "" {
-					label = "(unknown)"
-				}
-				var badges []string
-				if kind := strings.TrimSpace(ent.Kind); kind != "" {
-					badges = append(badges, kind)
-				}
-				if perm := accessgraph.DisplayEntitlementPermission(ent.Kind, ent.Permission, ent.RawJson); perm != "" {
-					badges = append(badges, perm)
-				}
-				unmapped = append(unmapped, viewmodels.AccessTreeNode{
-					ID:          "ent:" + strconv.FormatInt(ent.ID, 10),
-					Label:       label,
-					Badges:      badges,
-					HasChildren: false,
-				})
-				continue
-			}
-
-			key := resourceKind + "\x00" + externalID
-			if existing := resourceGroups[key]; existing != nil {
-				existing.count++
-				continue
-			}
-
-			label := accessgraph.DisplayResourceLabel(ent.Resource, ent.RawJson)
-			if strings.TrimSpace(label) == "" {
-				label = externalID
-			}
-			resourceGroups[key] = &resourceGroup{
-				resourceKind: resourceKind,
-				externalID:   externalID,
-				label:        label,
-				count:        1,
-			}
-		}
-
-		keys := make([]string, 0, len(resourceGroups))
-		for key := range resourceGroups {
-			keys = append(keys, key)
-		}
-		sort.Slice(keys, func(i, j int) bool {
-			left := resourceGroups[keys[i]]
-			right := resourceGroups[keys[j]]
-			if left.resourceKind == right.resourceKind {
-				return strings.ToLower(left.label) < strings.ToLower(right.label)
-			}
-			return left.resourceKind < right.resourceKind
-		})
-
-		for _, key := range keys {
-			group := resourceGroups[key]
-			if group == nil {
-				continue
-			}
-			var badges []string
-			if kindLabel := humanizeResourceKind(group.resourceKind); kindLabel != "" {
-				badges = append(badges, kindLabel)
-			}
-			if group.count > 1 {
-				badges = append(badges, fmt.Sprintf("%d entitlements", group.count))
-			}
-
-			subLabel := ""
-			if group.label != group.externalID {
-				subLabel = group.externalID
-			}
-
-			nodes = append(nodes, viewmodels.AccessTreeNode{
-				ID:          "res:" + strconv.FormatInt(accountID, 10) + ":" + group.resourceKind + ":" + encodeNodePart(group.externalID),
-				Label:       group.label,
-				SubLabel:    subLabel,
-				Badges:      badges,
-				HasChildren: true,
-				Href:        accessgraph.BuildResourceHref(account.SourceKind, account.SourceName, group.resourceKind, group.externalID),
-			})
-		}
-
-		if len(unmapped) > 0 {
-			sort.Slice(unmapped, func(i, j int) bool {
-				return strings.ToLower(unmapped[i].Label) < strings.ToLower(unmapped[j].Label)
-			})
-			nodes = append(nodes, unmapped...)
-		}
-
-		if len(nodes) == 0 {
-			nodes = []viewmodels.AccessTreeNode{{ID: "entitlements-empty:" + rawID, Label: "No entitlements found.", HasChildren: false}}
-		}
-	case strings.HasPrefix(nodeID, "res:"):
-		raw := strings.TrimSpace(strings.TrimPrefix(nodeID, "res:"))
-		parts := strings.SplitN(raw, ":", 3)
-		if len(parts) != 3 {
-			return renderAccessTreeError(http.StatusBadRequest, "invalid resource node")
-		}
-		accountID, err := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
-		if err != nil || accountID <= 0 {
-			return renderAccessTreeError(http.StatusBadRequest, "invalid resource node")
-		}
-		resourceKind := strings.TrimSpace(parts[1])
-		externalID, err := decodeNodePart(parts[2])
-		if err != nil || resourceKind == "" || externalID == "" {
-			return renderAccessTreeError(http.StatusBadRequest, "invalid resource node")
-		}
-
-		link, err := h.Q.GetIdentityAccountLinkByAccountID(ctx, accountID)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return renderAccessTreeError(http.StatusNotFound, "account not linked")
-			}
-			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
-		}
-		if currentIdentityID == 0 || link.IdentityID != currentIdentityID {
-			return renderAccessTreeError(http.StatusNotFound, "account not linked")
-		}
-
-		ents, err := h.Q.ListEntitlementsForAccount(ctx, accountID)
-		if err != nil {
-			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
-		}
-
-		for _, ent := range ents {
-			kind, eid, ok := accessgraph.ParseCanonicalResourceRef(ent.Resource)
-			if !ok {
-				continue
-			}
-			if kind != resourceKind || eid != externalID {
-				continue
-			}
-			label := accessgraph.DisplayEntitlementPermission(ent.Kind, ent.Permission, ent.RawJson)
-			if label == "" {
-				label = "(no permission)"
-			}
-			subLabel := strings.TrimSpace(ent.Kind)
-			if subLabel == "" {
-				subLabel = strings.TrimSpace(ent.Resource)
-			}
-			nodes = append(nodes, viewmodels.AccessTreeNode{
-				ID:          "ent:" + strconv.FormatInt(ent.ID, 10),
-				Label:       label,
-				SubLabel:    subLabel,
-				HasChildren: false,
-			})
-		}
-
-		if len(nodes) == 0 {
-			nodes = []viewmodels.AccessTreeNode{{ID: "perms-empty:" + raw, Label: "No permissions found.", HasChildren: false}}
-		} else {
-			sort.Slice(nodes, func(i, j int) bool {
-				return strings.ToLower(nodes[i].Label) < strings.ToLower(nodes[j].Label)
-			})
-		}
-	case strings.HasPrefix(nodeID, "app:"):
-		externalID := strings.TrimPrefix(nodeID, "app:")
-		externalID = strings.TrimSpace(externalID)
-		if externalID == "" {
-			return renderAccessTreeError(http.StatusBadRequest, "invalid app node")
-		}
-		_, err := h.Q.GetOktaAppAssignmentForOktaAccountByOktaAppExternalID(ctx, gen.GetOktaAppAssignmentForOktaAccountByOktaAppExternalIDParams{
-			OktaAccountID:     id,
-			OktaAppExternalID: externalID,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return renderAccessTreeError(http.StatusNotFound, "app assignment not found")
-			}
-			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
-		}
-		nodes = []viewmodels.AccessTreeNode{
-			{ID: "appattrs:" + externalID, Label: "Attributes", HasChildren: true},
-			{ID: "appgroups:" + externalID, Label: "Groups", HasChildren: true},
-			{ID: "appperms:" + externalID, Label: "Permissions", HasChildren: true},
-		}
-	case strings.HasPrefix(nodeID, "appattrs:"):
-		externalID := strings.TrimSpace(strings.TrimPrefix(nodeID, "appattrs:"))
-		if externalID == "" {
-			return renderAccessTreeError(http.StatusBadRequest, "invalid app attributes node")
-		}
-		assignment, err := h.Q.GetOktaAppAssignmentForOktaAccountByOktaAppExternalID(ctx, gen.GetOktaAppAssignmentForOktaAccountByOktaAppExternalIDParams{
-			OktaAccountID:     id,
-			OktaAppExternalID: externalID,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return renderAccessTreeError(http.StatusNotFound, "app assignment not found")
-			}
-			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
-		}
-
-		assignedVia := "Unknown"
-		scope := strings.ToUpper(strings.TrimSpace(assignment.Scope))
-		switch scope {
-		case "USER":
-			assignedVia = "Direct"
-		case "GROUP":
-			assignedVia = "Group"
-		}
-
-		nodes = []viewmodels.AccessTreeNode{
-			{ID: "attr:status:" + externalID, Label: "Status", SubLabel: strings.TrimSpace(assignment.AppStatus), HasChildren: false},
-			{ID: "attr:signon:" + externalID, Label: "Sign-on", SubLabel: strings.TrimSpace(assignment.AppSignOnMode), HasChildren: false},
-			{ID: "attr:assignedvia:" + externalID, Label: "Assigned via", SubLabel: assignedVia, HasChildren: false},
-			{ID: "attr:externalid:" + externalID, Label: "Okta app external id", SubLabel: externalID, HasChildren: false},
-		}
-
-		if kind := strings.TrimSpace(assignment.IntegrationKind); kind != "" {
-			label := strings.TrimSpace(ConnectorDisplayName(kind))
-			if label == "" {
-				label = kind
-			}
-			nodes = append(nodes, viewmodels.AccessTreeNode{
-				ID:          "attr:integration:" + externalID,
-				Label:       "Integration",
-				SubLabel:    label,
-				HasChildren: false,
-				Href:        IntegratedAppHref(kind),
-			})
-		}
-	case strings.HasPrefix(nodeID, "appgroups:"):
-		externalID := strings.TrimSpace(strings.TrimPrefix(nodeID, "appgroups:"))
-		if externalID == "" {
-			return renderAccessTreeError(http.StatusBadRequest, "invalid app groups node")
-		}
-		_, err := h.Q.GetOktaAppAssignmentForOktaAccountByOktaAppExternalID(ctx, gen.GetOktaAppAssignmentForOktaAccountByOktaAppExternalIDParams{
-			OktaAccountID:     id,
-			OktaAppExternalID: externalID,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return renderAccessTreeError(http.StatusNotFound, "app assignment not found")
-			}
-			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
-		}
-
-		groups, err := h.Q.ListOktaAppGrantingGroupsForOktaAccountByOktaAppExternalID(ctx, gen.ListOktaAppGrantingGroupsForOktaAccountByOktaAppExternalIDParams{
-			OktaAccountID:     id,
-			OktaAppExternalID: externalID,
-		})
-		if err != nil {
-			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
-		}
-		if len(groups) == 0 {
-			nodes = []viewmodels.AccessTreeNode{{ID: "groups-empty:" + externalID, Label: "No granting groups found.", HasChildren: false}}
-		} else {
-			for _, group := range groups {
-				name := strings.TrimSpace(group.OktaGroupName)
-				ext := strings.TrimSpace(group.OktaGroupExternalID)
-				if name == "" {
-					name = ext
-				}
-				nodes = append(nodes, viewmodels.AccessTreeNode{
-					ID:          "group:" + ext,
-					Label:       name,
-					SubLabel:    ext,
-					HasChildren: false,
-				})
-			}
-		}
-	case strings.HasPrefix(nodeID, "appperms:"):
-		externalID := strings.TrimSpace(strings.TrimPrefix(nodeID, "appperms:"))
-		if externalID == "" {
-			return renderAccessTreeError(http.StatusBadRequest, "invalid app permissions node")
-		}
-		assignment, err := h.Q.GetOktaAppAssignmentForOktaAccountByOktaAppExternalID(ctx, gen.GetOktaAppAssignmentForOktaAccountByOktaAppExternalIDParams{
-			OktaAccountID:     id,
-			OktaAppExternalID: externalID,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return renderAccessTreeError(http.StatusNotFound, "app assignment not found")
-			}
-			return renderAccessTreeError(http.StatusInternalServerError, "internal error")
-		}
-
-		perms := SummarizeProfilePermissions(assignment.ProfileJson)
-		if len(perms) == 0 {
-			nodes = []viewmodels.AccessTreeNode{{ID: "perms-empty:" + externalID, Label: "No permissions found.", HasChildren: false}}
-		} else {
-			for i, perm := range perms {
-				text := strings.TrimSpace(perm.Text)
-				if text == "" {
-					continue
-				}
-				nodes = append(nodes, viewmodels.AccessTreeNode{
-					ID:          "perm:" + externalID + ":" + strconv.Itoa(i),
-					Label:       text,
-					HasChildren: false,
-				})
-			}
-			if len(nodes) == 0 {
-				nodes = []viewmodels.AccessTreeNode{{ID: "perms-empty:" + externalID, Label: "No permissions found.", HasChildren: false}}
-			}
-		}
-	default:
-		return renderAccessTreeError(http.StatusBadRequest, "unknown node")
-	}
-
-	return h.RenderComponent(c, views.AccessGraphChildren(id, nodes))
-}
-
 func datadogUserStatus(accountID int64, externalID string, rawJSON []byte) string {
 	var payload struct {
 		Status string `json:"status"`
@@ -1099,33 +545,4 @@ func datadogUserStatus(accountID int64, externalID string, rawJSON []byte) strin
 		return ""
 	}
 	return strings.TrimSpace(payload.Status)
-}
-
-func (h *Handlers) linkedAccountsForOktaAccount(ctx context.Context, oktaAccountID int64) (int64, []gen.Account, error) {
-	link, err := h.Q.GetIdentityAccountLinkByAccountID(ctx, oktaAccountID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, nil, nil
-		}
-		return 0, nil, err
-	}
-
-	identityID := link.IdentityID
-	linked, err := h.Q.ListLinkedAccountsForIdentity(ctx, identityID)
-	if err != nil {
-		return 0, nil, err
-	}
-
-	filtered := make([]gen.Account, 0, len(linked))
-	for _, account := range linked {
-		if account.ID == oktaAccountID {
-			continue
-		}
-		if strings.EqualFold(strings.TrimSpace(account.SourceKind), "okta") {
-			continue
-		}
-		filtered = append(filtered, account)
-	}
-
-	return identityID, filtered, nil
 }
