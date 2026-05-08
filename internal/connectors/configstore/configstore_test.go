@@ -2,6 +2,213 @@ package configstore
 
 import "testing"
 
+func TestOktaConfigValidate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		config  OktaConfig
+		wantErr bool
+	}{
+		{
+			name: "polling valid",
+			config: OktaConfig{
+				Domain: "acme.okta.com",
+				Token:  "token",
+			},
+		},
+		{
+			name: "event hook push only valid",
+			config: OktaConfig{
+				Domain:              "acme.okta.com",
+				DiscoveryIngestMode: OktaDiscoveryIngestModeEventHook,
+				EventHookEnabled:    true,
+				EventHookSecret:     "hook-secret",
+			},
+		},
+		{
+			name: "eventbridge push only valid",
+			config: OktaConfig{
+				Domain:              "acme.okta.com",
+				DiscoveryIngestMode: OktaDiscoveryIngestModeEventBridge,
+				EventBridgeEnabled:  true,
+				EventBridgeSecret:   "eventbridge-secret",
+			},
+		},
+		{
+			name: "hybrid valid",
+			config: OktaConfig{
+				Domain:              "acme.okta.com",
+				Token:               "token",
+				DiscoveryIngestMode: OktaDiscoveryIngestModeHybrid,
+				EventHookEnabled:    true,
+				EventHookSecret:     "hook-secret",
+			},
+		},
+		{
+			name: "missing domain",
+			config: OktaConfig{
+				Token: "token",
+			},
+			wantErr: true,
+		},
+		{
+			name: "polling missing token",
+			config: OktaConfig{
+				Domain: "acme.okta.com",
+			},
+			wantErr: true,
+		},
+		{
+			name: "enabled event hook missing secret",
+			config: OktaConfig{
+				Domain:           "acme.okta.com",
+				Token:            "token",
+				EventHookEnabled: true,
+			},
+			wantErr: true,
+		},
+		{
+			name: "event hook missing secret",
+			config: OktaConfig{
+				Domain:              "acme.okta.com",
+				DiscoveryIngestMode: OktaDiscoveryIngestModeEventHook,
+				EventHookEnabled:    true,
+			},
+			wantErr: true,
+		},
+		{
+			name: "event hook receiver disabled",
+			config: OktaConfig{
+				Domain:              "acme.okta.com",
+				DiscoveryIngestMode: OktaDiscoveryIngestModeEventHook,
+				EventHookSecret:     "hook-secret",
+			},
+			wantErr: true,
+		},
+		{
+			name: "hybrid missing push channel",
+			config: OktaConfig{
+				Domain:              "acme.okta.com",
+				Token:               "token",
+				DiscoveryIngestMode: OktaDiscoveryIngestModeHybrid,
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid mode",
+			config: OktaConfig{
+				Domain:              "acme.okta.com",
+				Token:               "token",
+				DiscoveryIngestMode: "fast",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := test.config.Validate()
+			if test.wantErr && err == nil {
+				t.Fatalf("Validate() error = nil, want error")
+			}
+			if !test.wantErr && err != nil {
+				t.Fatalf("Validate() error = %v, want nil", err)
+			}
+		})
+	}
+}
+
+func TestNormalizeOktaDomain(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{in: "Acme.Okta.Com", want: "acme.okta.com"},
+		{in: "https://Acme.Okta.Com/", want: "acme.okta.com"},
+		{in: "https://acme.okta.com/oauth2/default", want: "acme.okta.com"},
+		{in: "acme.oktapreview.com/", want: "acme.oktapreview.com"},
+	}
+	for _, tc := range tests {
+		if got := NormalizeOktaDomain(tc.in); got != tc.want {
+			t.Fatalf("NormalizeOktaDomain(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestMergeOktaConfig(t *testing.T) {
+	t.Parallel()
+
+	existing := OktaConfig{
+		Domain:              "old.okta.com",
+		Token:               "old-token",
+		DiscoveryEnabled:    true,
+		DiscoveryIngestMode: OktaDiscoveryIngestModeHybrid,
+		EventHookEnabled:    true,
+		EventHookSecret:     "old-hook",
+		EventBridgeEnabled:  true,
+		EventBridgeSecret:   "old-eventbridge",
+	}
+
+	merged := MergeOktaConfig(existing, OktaConfig{
+		Domain:              "new.okta.com",
+		DiscoveryEnabled:    false,
+		DiscoveryIngestMode: OktaDiscoveryIngestModeEventHook,
+		EventHookEnabled:    true,
+		EventBridgeEnabled:  false,
+	})
+
+	if merged.Domain != "new.okta.com" {
+		t.Fatalf("Domain = %q, want new.okta.com", merged.Domain)
+	}
+	if merged.Token != "old-token" {
+		t.Fatalf("Token = %q, want preserved old token", merged.Token)
+	}
+	if merged.EventHookSecret != "old-hook" {
+		t.Fatalf("EventHookSecret = %q, want preserved old hook secret", merged.EventHookSecret)
+	}
+	if merged.EventBridgeSecret != "old-eventbridge" {
+		t.Fatalf("EventBridgeSecret = %q, want preserved old EventBridge secret", merged.EventBridgeSecret)
+	}
+	if merged.DiscoveryEnabled {
+		t.Fatalf("DiscoveryEnabled = true, want false")
+	}
+	if merged.DiscoveryIngestMode != OktaDiscoveryIngestModeEventHook {
+		t.Fatalf("DiscoveryIngestMode = %q, want %q", merged.DiscoveryIngestMode, OktaDiscoveryIngestModeEventHook)
+	}
+	if !merged.EventHookEnabled || merged.EventBridgeEnabled {
+		t.Fatalf("push flags = hook:%v eventbridge:%v, want hook true eventbridge false", merged.EventHookEnabled, merged.EventBridgeEnabled)
+	}
+}
+
+func TestMergeOktaConfigPreservesDiscoveryModeWhenOmitted(t *testing.T) {
+	t.Parallel()
+
+	existing := OktaConfig{
+		Domain:              "old.okta.com",
+		Token:               "old-token",
+		DiscoveryEnabled:    true,
+		DiscoveryIngestMode: OktaDiscoveryIngestModeHybrid,
+		EventHookEnabled:    true,
+		EventHookSecret:     "old-hook",
+	}
+
+	merged := MergeOktaConfig(existing, OktaConfig{
+		Domain:           "new.okta.com",
+		DiscoveryEnabled: true,
+		EventHookEnabled: true,
+	})
+
+	if merged.DiscoveryIngestMode != OktaDiscoveryIngestModeHybrid {
+		t.Fatalf("DiscoveryIngestMode = %q, want preserved hybrid", merged.DiscoveryIngestMode)
+	}
+}
+
 func TestVaultConfigValidate(t *testing.T) {
 	t.Parallel()
 

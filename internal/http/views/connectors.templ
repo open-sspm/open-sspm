@@ -1,6 +1,9 @@
 package views
 
-import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+import (
+	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
+	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
+)
 
 templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 	@Layout(data.Layout) {
@@ -60,6 +63,80 @@ templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 				</div>
 				<p class="text-xs text-muted-foreground">Requires API token permissions for System Log access.</p>
 			</label>
+			<label class="field">
+				<span class="label">Discovery ingest mode</span>
+				<select name="discovery_ingest_mode" class="input w-full">
+					<option value={ configstore.OktaDiscoveryIngestModePolling } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModePolling }>Polling</option>
+					<option value={ configstore.OktaDiscoveryIngestModeEventHook } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModeEventHook }>Event Hook</option>
+					<option value={ configstore.OktaDiscoveryIngestModeEventBridge } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModeEventBridge }>EventBridge</option>
+					<option value={ configstore.OktaDiscoveryIngestModeHybrid } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModeHybrid }>Hybrid</option>
+				</select>
+				<p class="text-xs text-muted-foreground">Polling remains the backfill and recovery path; EventBridge is optional for AWS customers.</p>
+			</label>
+			<label class="field">
+				<span class="label">Event Hook receiver</span>
+				<div class="flex items-center gap-3">
+					<input type="checkbox" role="switch" aria-label="Okta Event Hook receiver" name="event_hook_enabled" value="true" checked?={ data.Okta.EventHookEnabled } class="input"/>
+					<input type="hidden" name="event_hook_enabled" value="false"/>
+					<span class="text-sm text-muted-foreground">Accept selected Okta push events without AWS.</span>
+				</div>
+				<p class="text-xs text-muted-foreground">Endpoint: <code>/ingest/okta/events</code>. Recommended events: SSO, OAuth consent, and application user membership.</p>
+			</label>
+			<label class="field">
+				<span class="label">Event Hook secret</span>
+				<input type="password" name="event_hook_secret" class="input w-full" placeholder="Leave blank to keep"/>
+				if data.Okta.HasEventHookSecret {
+					<p class="text-xs text-muted-foreground">Current: { data.Okta.EventHookMasked }</p>
+				}
+			</label>
+			<label class="field">
+				<span class="label">EventBridge receiver</span>
+				<div class="flex items-center gap-3">
+					<input type="checkbox" role="switch" aria-label="Okta EventBridge receiver" name="eventbridge_enabled" value="true" checked?={ data.Okta.EventBridgeEnabled } class="input"/>
+					<input type="hidden" name="eventbridge_enabled" value="false"/>
+					<span class="text-sm text-muted-foreground">Accept full System Log push from AWS EventBridge relay paths.</span>
+				</div>
+				<p class="text-xs text-muted-foreground">Endpoint: <code>/ingest/okta/eventbridge</code>. Use this for full System Log push when AWS is available.</p>
+			</label>
+			<label class="field">
+				<span class="label">EventBridge secret</span>
+				<input type="password" name="eventbridge_secret" class="input w-full" placeholder="Leave blank to keep"/>
+				if data.Okta.HasEventBridgeSecret {
+					<p class="text-xs text-muted-foreground">Current: { data.Okta.EventBridgeMasked }</p>
+				}
+			</label>
+			if data.Okta.PushCompletenessNote != "" {
+				<p class="text-xs text-amber-700 dark:text-amber-300">{ data.Okta.PushCompletenessNote }</p>
+			}
+			if data.Okta.PushStatusVisible {
+				<div class="space-y-2 border-t border-border pt-4">
+					<div class="flex items-center justify-between gap-3">
+						<span class="label">Push ingest</span>
+						<span class="badge">{ data.Okta.PushStatusLabel }</span>
+					</div>
+					<div class="grid gap-2 text-sm sm:grid-cols-2">
+						<div class="flex items-center justify-between gap-3">
+							<span class="text-muted-foreground">Last received</span>
+							<span>{ data.Okta.PushLastReceived }</span>
+						</div>
+						<div class="flex items-center justify-between gap-3">
+							<span class="text-muted-foreground">Last processed</span>
+							<span>{ data.Okta.PushLastProcessed }</span>
+						</div>
+						<div class="flex items-center justify-between gap-3">
+							<span class="text-muted-foreground">Queue</span>
+							<span>{ data.Okta.PushQueueLabel }</span>
+						</div>
+						<div class="flex items-center justify-between gap-3">
+							<span class="text-muted-foreground">Dead letter</span>
+							<span>{ data.Okta.PushDeadLetterLabel }</span>
+						</div>
+					</div>
+					if data.Okta.PushLastError != "" {
+						<p class="text-xs text-muted-foreground break-words">{ data.Okta.PushLastError }</p>
+					}
+				</div>
+			}
 		}
 
 		@FormDialog("connector-google-workspace-modal", data.OpenKind == "google_workspace", "Google Workspace configuration", "Users, groups, OAuth grants, and audit signals from Google Workspace.", "/settings/connectors#connector-google-workspace-configure", "/settings/connectors/google_workspace", "Save", data.Layout.CSRFToken) {
@@ -326,6 +403,9 @@ templ OktaConnectorRow(data viewmodels.ConnectorsViewData) {
 			<div class="space-y-1">
 				<div class="font-medium">Okta</div>
 				<div class="text-xs text-muted-foreground">Identity provider source for users and groups.</div>
+				if data.Okta.PushStatusVisible {
+					<div class="text-xs text-muted-foreground">Push: { data.Okta.PushStatusLabel }</div>
+				}
 			</div>
 		</td>
 		<td>@ConfiguredBadge(data.Okta.Configured)</td>

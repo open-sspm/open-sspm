@@ -1,0 +1,29 @@
+{
+  "eventId": "delivery-sso-1",
+  "eventType": "com.okta.event_hook",
+  "data": {
+    "events": [
+      {
+        "uuid": "evt-sso-1",
+        "eventType": "user.authentication.sso",
+        "published": "2026-01-01T12:00:00Z",
+        "actor": {
+          "id": "00u1",
+          "alternateId": "alice@example.com",
+          "displayName": "Alice Example"
+        },
+        "target": [
+          {
+            "id": "0oa1",
+            "type": "AppInstance",
+            "alternateId": "https://app.example.com",
+            "displayName": "Example App"
+          }
+        ],
+        "outcome": {
+          "result": "SUCCESS"
+        }
+      }
+    ]
+  }
+}

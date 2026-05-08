@@ -22,22 +22,28 @@ import (
 )
 
 type OktaIntegration struct {
-	client           *Client
-	sourceName       string
-	workers          int
-	discoveryEnabled bool
-	lastRunID        int64
+	client                 *Client
+	sourceName             string
+	workers                int
+	discoveryEnabled       bool
+	discoveryPollerEnabled bool
+	lastRunID              int64
 }
 
 func NewOktaIntegration(client *Client, sourceName string, workers int, discoveryEnabled bool) *OktaIntegration {
+	return NewOktaIntegrationWithDiscoveryPolling(client, sourceName, workers, discoveryEnabled, true)
+}
+
+func NewOktaIntegrationWithDiscoveryPolling(client *Client, sourceName string, workers int, discoveryEnabled, discoveryPollerEnabled bool) *OktaIntegration {
 	if workers < 1 {
 		workers = 3
 	}
 	return &OktaIntegration{
-		client:           client,
-		sourceName:       strings.TrimSpace(sourceName),
-		workers:          workers,
-		discoveryEnabled: discoveryEnabled,
+		client:                 client,
+		sourceName:             strings.TrimSpace(sourceName),
+		workers:                workers,
+		discoveryEnabled:       discoveryEnabled,
+		discoveryPollerEnabled: discoveryPollerEnabled,
 	}
 }
 
@@ -53,9 +59,9 @@ func (i *OktaIntegration) SupportsRunMode(mode registry.RunMode) bool {
 	}
 	switch mode.Normalize() {
 	case registry.RunModeDiscovery:
-		return i.discoveryEnabled
+		return i.client != nil && i.discoveryEnabled && i.discoveryPollerEnabled
 	default:
-		return true
+		return i.client != nil
 	}
 }
 
@@ -86,6 +92,9 @@ func (i *OktaIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool
 }
 
 func (i *OktaIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
+	if i.client == nil {
+		return fmt.Errorf("okta API token is required for full sync")
+	}
 	started := time.Now()
 	runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("okta", registry.RunModeFull), i.sourceName)
 	if err != nil {
@@ -132,6 +141,9 @@ func (i *OktaIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pgx
 }
 
 func (i *OktaIntegration) runDiscovery(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
+	if i.client == nil {
+		return fmt.Errorf("okta API token is required for discovery polling")
+	}
 	started := time.Now()
 	runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("okta", registry.RunModeDiscovery), i.sourceName)
 	if err != nil {
@@ -763,7 +775,7 @@ func (i *OktaIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, rep
 	})
 
 	report(registry.Event{Source: "okta", Stage: "normalize-discovery", Current: 0, Total: 1, Message: "normalizing discovery events"})
-	sources, normalizedEvents := normalizeOktaDiscovery(events, i.sourceName, now)
+	sources, normalizedEvents := NormalizeDiscoveryEvents(events, i.sourceName, now)
 	report(registry.Event{
 		Source:  "okta",
 		Stage:   "normalize-discovery",
@@ -782,7 +794,7 @@ func (i *OktaIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, rep
 	return nil
 }
 
-func normalizeOktaDiscovery(events []SystemLogEvent, sourceName string, now time.Time) ([]discovery.SourceRow, []discovery.EventRow) {
+func NormalizeDiscoveryEvents(events []SystemLogEvent, sourceName string, now time.Time) ([]discovery.SourceRow, []discovery.EventRow) {
 	sourceByID := make(map[string]discovery.SourceRow, len(events))
 	normalizedEvents := make([]discovery.EventRow, 0, len(events))
 
@@ -800,8 +812,8 @@ func normalizeOktaDiscovery(events []SystemLogEvent, sourceName string, now time
 			sourceAppName = sourceAppID
 		}
 		sourceAppDomain := strings.TrimSpace(event.AppDomain)
-		signalKind := oktaDiscoverySignalKind(event.EventType, sourceAppID != "")
-		if signalKind == "" {
+		signalKind, ok := DiscoverySignalKind(event)
+		if !ok {
 			continue
 		}
 
@@ -864,23 +876,35 @@ func normalizeOktaDiscovery(events []SystemLogEvent, sourceName string, now time
 	return sourceRows, normalizedEvents
 }
 
-func oktaDiscoverySignalKind(eventType string, hasApp bool) string {
-	eventType = strings.ToLower(strings.TrimSpace(eventType))
-	if eventType == "" {
-		if hasApp {
-			return discovery.SignalKindIDPSSO
+// DiscoverySignalKind recognizes only the event types we treat as real access
+// evidence. Other app-tagged events (e.g. policy.lifecycle.update,
+// user.session.start, partner application.user_membership.* variants) are
+// intentionally dropped — the prior catch-all-to-IDPSSO behavior produced too
+// much incidental signal once Okta push ingestion broadened the input stream.
+func DiscoverySignalKind(event SystemLogEvent) (string, bool) {
+	eventType := strings.ToLower(strings.TrimSpace(event.EventType))
+	hasApp := strings.TrimSpace(event.AppID) != "" || strings.TrimSpace(event.AppName) != ""
+	if !hasApp {
+		return "", false
+	}
+	if strings.HasPrefix(eventType, "application.user_membership.") {
+		switch eventType {
+		case "application.user_membership.add", "application.user_membership.remove", "application.user_membership.update":
+			return discovery.SignalKindAssignment, true
+		default:
+			return "", false
 		}
-		return ""
+	}
+	switch eventType {
+	case "user.authentication.sso", "app.oauth2.signon":
+		return discovery.SignalKindIDPSSO, true
 	}
 	if strings.Contains(eventType, "oauth") ||
 		strings.Contains(eventType, "grant") ||
 		strings.Contains(eventType, "consent") {
-		return discovery.SignalKindOAuth
+		return discovery.SignalKindOAuth, true
 	}
-	if hasApp {
-		return discovery.SignalKindIDPSSO
-	}
-	return ""
+	return "", false
 }
 
 func (i *OktaIntegration) writeDiscoveryRows(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, sources []discovery.SourceRow, events []discovery.EventRow) error {

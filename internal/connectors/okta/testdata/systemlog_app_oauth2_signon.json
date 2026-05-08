@@ -1,0 +1,21 @@
+{
+  "uuid": "evt-systemlog-signon-1",
+  "eventType": "app.oauth2.signon",
+  "published": "2026-01-01T12:20:00Z",
+  "actor": {
+    "id": "00u1",
+    "alternateId": "alice@example.com",
+    "displayName": "Alice Example"
+  },
+  "target": [
+    {
+      "id": "0oa4",
+      "type": "AppInstance",
+      "alternateId": "https://oidc.example.com",
+      "displayName": "OIDC App"
+    }
+  ],
+  "outcome": {
+    "result": "SUCCESS"
+  }
+}

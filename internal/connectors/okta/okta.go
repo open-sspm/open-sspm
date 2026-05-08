@@ -74,6 +74,8 @@ type SystemLogEvent struct {
 	ID            string
 	EventType     string
 	Published     time.Time
+	OutcomeResult string
+	OutcomeReason string
 	AppID         string
 	AppName       string
 	AppDomain     string
@@ -84,8 +86,40 @@ type SystemLogEvent struct {
 	RawJSON       []byte
 }
 
-// New creates a new Okta client. It validates that both baseURL and token are
-// provided and returns an error if the SDK configuration fails.
+type rawSystemLogEvent struct {
+	UUID         string               `json:"uuid"`
+	EventType    string               `json:"eventType"`
+	Published    *time.Time           `json:"published"`
+	Actor        rawSystemLogActor    `json:"actor"`
+	Outcome      rawSystemLogOutcome  `json:"outcome"`
+	Targets      []rawSystemLogTarget `json:"target"`
+	DebugContext rawSystemLogDebugCtx `json:"debugContext"`
+}
+
+type rawSystemLogActor struct {
+	ID          string `json:"id"`
+	AlternateID string `json:"alternateId"`
+	DisplayName string `json:"displayName"`
+}
+
+type rawSystemLogOutcome struct {
+	Result string `json:"result"`
+	Reason string `json:"reason"`
+}
+
+type rawSystemLogTarget struct {
+	ID          string         `json:"id"`
+	Type        string         `json:"type"`
+	AlternateID string         `json:"alternateId"`
+	DisplayName string         `json:"displayName"`
+	DetailEntry map[string]any `json:"detailEntry"`
+}
+
+type rawSystemLogDebugCtx struct {
+	DebugData map[string]any `json:"debugData"`
+}
+
+// New creates a new Okta client.
 func New(baseURL, token string) (*Client, error) {
 	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	token = strings.TrimSpace(token)
@@ -117,6 +151,49 @@ func (c *Client) ensureClient() error {
 		return errors.New("okta client is not initialized")
 	}
 	return nil
+}
+
+func MapSystemLogEventJSON(raw []byte) (SystemLogEvent, error) {
+	if len(strings.TrimSpace(string(raw))) == 0 {
+		return SystemLogEvent{}, errors.New("okta system log event json is empty")
+	}
+	var event rawSystemLogEvent
+	if err := json.Unmarshal(raw, &event); err != nil {
+		return SystemLogEvent{}, fmt.Errorf("decode okta system log event: %w", err)
+	}
+
+	published := time.Time{}
+	if event.Published != nil {
+		published = event.Published.UTC()
+	}
+	eventType := strings.TrimSpace(event.EventType)
+	eventID := strings.TrimSpace(event.UUID)
+
+	actorID := strings.TrimSpace(event.Actor.ID)
+	actorEmail := strings.TrimSpace(event.Actor.AlternateID)
+	actorName := strings.TrimSpace(event.Actor.DisplayName)
+
+	appID, appName, appDomain := appTargetFromRawSystemLogTargets(event.Targets)
+	scopes := extractSystemLogScopes(event.DebugContext.DebugData)
+	if eventID == "" {
+		eventID = fallbackSystemLogEventID(eventType, published, appID, actorID)
+	}
+
+	return SystemLogEvent{
+		ID:            eventID,
+		EventType:     eventType,
+		Published:     published,
+		OutcomeResult: strings.TrimSpace(event.Outcome.Result),
+		OutcomeReason: strings.TrimSpace(event.Outcome.Reason),
+		AppID:         appID,
+		AppName:       appName,
+		AppDomain:     appDomain,
+		ActorID:       actorID,
+		ActorEmail:    actorEmail,
+		ActorName:     actorName,
+		GrantedScopes: scopes,
+		RawJSON:       raw,
+	}, nil
 }
 
 func (c *Client) GetLastLogin(ctx context.Context, userID string) (LastLogin, error) {
@@ -509,6 +586,7 @@ func mapSystemLogEvent(event sdk.LogEvent) (SystemLogEvent, error) {
 	actorID := strings.TrimSpace(actor.GetId())
 	actorEmail := strings.TrimSpace(actor.GetAlternateId())
 	actorName := strings.TrimSpace(actor.GetDisplayName())
+	outcome := event.GetOutcome()
 
 	var appID string
 	var appName string
@@ -544,13 +622,15 @@ func mapSystemLogEvent(event sdk.LogEvent) (SystemLogEvent, error) {
 	scopes := extractSystemLogScopes(debugContext.GetDebugData())
 
 	if eventID == "" {
-		eventID = strings.TrimSpace(eventType + ":" + published.Format(time.RFC3339Nano) + ":" + appID + ":" + actorID)
+		eventID = fallbackSystemLogEventID(eventType, published, appID, actorID)
 	}
 
 	return SystemLogEvent{
 		ID:            eventID,
 		EventType:     eventType,
 		Published:     published,
+		OutcomeResult: strings.TrimSpace(outcome.GetResult()),
+		OutcomeReason: strings.TrimSpace(outcome.GetReason()),
 		AppID:         appID,
 		AppName:       appName,
 		AppDomain:     appDomain,
@@ -560,6 +640,43 @@ func mapSystemLogEvent(event sdk.LogEvent) (SystemLogEvent, error) {
 		GrantedScopes: scopes,
 		RawJSON:       raw,
 	}, nil
+}
+
+func appTargetFromRawSystemLogTargets(targets []rawSystemLogTarget) (string, string, string) {
+	var appID string
+	var appName string
+	var appDomain string
+	for _, target := range targets {
+		targetType := strings.ToLower(strings.TrimSpace(target.Type))
+		if !strings.Contains(targetType, "app") {
+			continue
+		}
+		if appID == "" {
+			appID = strings.TrimSpace(target.ID)
+		}
+		if appName == "" {
+			appName = strings.TrimSpace(target.DisplayName)
+		}
+		if appDomain == "" {
+			appDomain = strings.TrimSpace(target.AlternateID)
+		}
+		if target.DetailEntry != nil {
+			if appID == "" {
+				appID = strings.TrimSpace(getStringValue(target.DetailEntry["appId"]))
+			}
+			if appName == "" {
+				appName = strings.TrimSpace(getStringValue(target.DetailEntry["appName"]))
+			}
+			if appDomain == "" {
+				appDomain = strings.TrimSpace(getStringValue(target.DetailEntry["domain"]))
+			}
+		}
+	}
+	return appID, appName, appDomain
+}
+
+func fallbackSystemLogEventID(eventType string, published time.Time, appID, actorID string) string {
+	return strings.TrimSpace(strings.TrimSpace(eventType) + ":" + published.UTC().Format(time.RFC3339Nano) + ":" + strings.TrimSpace(appID) + ":" + strings.TrimSpace(actorID))
 }
 
 func extractSystemLogScopes(debugData map[string]any) []string {

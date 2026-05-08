@@ -359,7 +359,10 @@ func withCommandSearchTestDatabase(t *testing.T, fn func(context.Context, *pgxpo
 
 		q := gen.New(pool)
 		fn(ctx, pool, q, &Handlers{
-			Cfg:      config.Config{ConnectorSecretKey: []byte(commandSearchTestConnectorSecretKey)},
+			Cfg: config.Config{
+				ConnectorSecretKey:   []byte(commandSearchTestConnectorSecretKey),
+				SyncDiscoveryEnabled: true,
+			},
 			Q:        q,
 			Pool:     pool,
 			Registry: newCommandSearchTestRegistry(t),

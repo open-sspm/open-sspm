@@ -507,6 +507,27 @@ type OktaGroup struct {
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
 }
 
+type OktaPushInbox struct {
+	ID                 int64              `json:"id"`
+	SourceName         string             `json:"source_name"`
+	Channel            string             `json:"channel"`
+	DeliveryExternalID string             `json:"delivery_external_id"`
+	EventExternalID    string             `json:"event_external_id"`
+	EventType          string             `json:"event_type"`
+	EventIndex         int32              `json:"event_index"`
+	PublishedAt        pgtype.Timestamptz `json:"published_at"`
+	Status             string             `json:"status"`
+	RawJson            []byte             `json:"raw_json"`
+	Attempts           int32              `json:"attempts"`
+	NextAttemptAt      pgtype.Timestamptz `json:"next_attempt_at"`
+	ProcessedRunID     pgtype.Int8        `json:"processed_run_id"`
+	ProcessedAt        pgtype.Timestamptz `json:"processed_at"`
+	LastReceivedAt     pgtype.Timestamptz `json:"last_received_at"`
+	ErrorMessage       string             `json:"error_message"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
 type OktaUserAppAssignment struct {
 	ID                int64              `json:"id"`
 	OktaAppID         int64              `json:"okta_app_id"`

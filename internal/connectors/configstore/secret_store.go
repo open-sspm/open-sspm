@@ -25,6 +25,8 @@ const (
 	secretNameToken              = "token"
 	secretNameAPIKey             = "api_key"
 	secretNameAppKey             = "app_key"
+	secretNameEventHookSecret    = "event_hook_secret"
+	secretNameEventBridgeSecret  = "eventbridge_secret"
 	secretNameClientSecret       = "client_secret"
 	secretNameServiceAccountJSON = "service_account_json"
 	secretNameSecretAccessKey    = "secret_access_key"
@@ -368,7 +370,15 @@ func SplitConfig(kind string, cfg any) (any, SecretValues, error) {
 		if token := strings.TrimSpace(typed.Token); token != "" {
 			secrets[secretNameToken] = token
 		}
+		if eventHookSecret := strings.TrimSpace(typed.EventHookSecret); eventHookSecret != "" {
+			secrets[secretNameEventHookSecret] = eventHookSecret
+		}
+		if eventBridgeSecret := strings.TrimSpace(typed.EventBridgeSecret); eventBridgeSecret != "" {
+			secrets[secretNameEventBridgeSecret] = eventBridgeSecret
+		}
 		public.Token = ""
+		public.EventHookSecret = ""
+		public.EventBridgeSecret = ""
 		return public, secrets, nil
 	case KindGitHub:
 		typed, ok := cfg.(GitHubConfig)
@@ -473,6 +483,8 @@ func ResolveConfig(kind string, publicRaw []byte, secretValues SecretValues) ([]
 			return nil, err
 		}
 		cfg.Token = strings.TrimSpace(secretValues[secretNameToken])
+		cfg.EventHookSecret = strings.TrimSpace(secretValues[secretNameEventHookSecret])
+		cfg.EventBridgeSecret = strings.TrimSpace(secretValues[secretNameEventBridgeSecret])
 		return EncodeConfig(cfg.Normalized())
 	case KindGitHub:
 		cfg, err := DecodeGitHubConfig(publicRaw)

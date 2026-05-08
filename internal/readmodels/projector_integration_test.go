@@ -55,6 +55,41 @@ func TestProjectorRefreshConnectorSourceStateUsesLatestFullRunForFreshness(t *te
 	})
 }
 
+func TestProjectorRefreshConnectorSourceStateIgnoresOktaPushRuns(t *testing.T) {
+	t.Parallel()
+
+	withReadModelsTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateUpReadModels(t, migrator)
+
+		sourceName := "acme.okta.com"
+		insertReadModelsConnectorConfig(t, ctx, pool, configstore.KindOkta, true, configstore.OktaConfig{
+			Domain:           sourceName,
+			Token:            "secret",
+			DiscoveryEnabled: true,
+		})
+
+		now := time.Now().UTC().Truncate(time.Second)
+		fullFinishedAt := now.Add(-3 * time.Hour)
+		pushFinishedAt := now.Add(-5 * time.Minute)
+		insertReadModelsSyncRun(t, ctx, pool, "okta", sourceName, fullFinishedAt)
+		insertReadModelsSyncRun(t, ctx, pool, "okta_push", sourceName, pushFinishedAt)
+
+		projector := NewProjector(pool, nil, RefreshConfig{SyncOktaInterval: time.Hour})
+		if err := projector.RefreshConnectorSourceState(ctx); err != nil {
+			t.Fatalf("RefreshConnectorSourceState(): %v", err)
+		}
+
+		lastSuccessAt, freshUntilAt := fetchConnectorSourceStateTimes(t, ctx, pool, "okta", sourceName)
+		if !lastSuccessAt.Equal(fullFinishedAt) {
+			t.Fatalf("last_success_at = %s, want %s", lastSuccessAt, fullFinishedAt)
+		}
+		wantFreshUntil := fullFinishedAt.Add(2 * time.Hour)
+		if !freshUntilAt.Equal(wantFreshUntil) {
+			t.Fatalf("fresh_until_at = %s, want %s", freshUntilAt, wantFreshUntil)
+		}
+	})
+}
+
 func TestProjectorRefreshConnectorSourceStateKeepsCurrentFullRunCurrent(t *testing.T) {
 	t.Parallel()
 
@@ -610,6 +645,41 @@ func TestProjectorRefreshSaaSAppRiskReadModelsBySourceEvaluatesAndStoresPolicy(t
 	})
 }
 
+func TestProjectorRefreshSaaSAppReadModelsDoesNotCountAssignmentsAsActors(t *testing.T) {
+	t.Parallel()
+
+	withReadModelsTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateUpReadModels(t, migrator)
+
+		sourceKind := "okta"
+		sourceName := "acme.okta.com"
+		now := time.Now().UTC().Truncate(time.Second)
+		runID := insertReadModelsSyncRun(t, ctx, pool, sourceKind, sourceName, now)
+		upsertReadModelsSaaSApp(t, ctx, pool, q, "assignment-app", "Assignment App", "assignment.example.com", "Example", now)
+		upsertReadModelsSaaSAppSource(t, ctx, q, runID, sourceKind, sourceName, "assignment-app", "0oa-assignment", "Assignment App", "assignment.example.com", now)
+		upsertReadModelsSaaSAppEvent(t, ctx, q, runID, sourceKind, sourceName, "assignment-app", "0oa-assignment", "Assignment App", "assignment.example.com", "app_assignment", "assign-1", "actor-1", "actor@example.com", now)
+
+		if _, err := q.RefreshSaaSAppReadModelsBySource(ctx, gen.RefreshSaaSAppReadModelsBySourceParams{
+			SourceKind: sourceKind,
+			SourceName: sourceName,
+		}); err != nil {
+			t.Fatalf("RefreshSaaSAppReadModelsBySource(): %v", err)
+		}
+
+		var actors30d int64
+		if err := pool.QueryRow(ctx, `
+			SELECT actors_30d
+			FROM saas_apps
+			WHERE canonical_key = 'assignment-app'
+		`).Scan(&actors30d); err != nil {
+			t.Fatalf("select actors_30d: %v", err)
+		}
+		if actors30d != 0 {
+			t.Fatalf("actors_30d = %d, want 0 for assignment-only evidence", actors30d)
+		}
+	})
+}
+
 func withReadModelsTestDatabase(t *testing.T, fn func(context.Context, *pgxpool.Pool, *gen.Queries, *migrate.Migrate)) {
 	t.Helper()
 
@@ -914,19 +984,25 @@ func upsertReadModelsSaaSAppSource(t *testing.T, ctx context.Context, q *gen.Que
 func upsertReadModelsPrivilegedSaaSAppEvent(t *testing.T, ctx context.Context, q *gen.Queries, runID int64, sourceKind, sourceName, canonicalKey, sourceAppID, sourceAppName, sourceAppDomain string, observedAt time.Time) {
 	t.Helper()
 
+	upsertReadModelsSaaSAppEvent(t, ctx, q, runID, sourceKind, sourceName, canonicalKey, sourceAppID, sourceAppName, sourceAppDomain, "oauth_grant", sourceAppID+":grant", "actor-1", "actor@example.com", observedAt)
+}
+
+func upsertReadModelsSaaSAppEvent(t *testing.T, ctx context.Context, q *gen.Queries, runID int64, sourceKind, sourceName, canonicalKey, sourceAppID, sourceAppName, sourceAppDomain, signalKind, eventExternalID, actorExternalID, actorEmail string, observedAt time.Time) {
+	t.Helper()
+
 	observed := pgtype.Timestamptz{Time: observedAt.UTC(), Valid: true}
 	if _, err := q.UpsertSaaSAppEventsBulkBySource(ctx, gen.UpsertSaaSAppEventsBulkBySourceParams{
 		SeenInRunID:       runID,
 		SourceKind:        sourceKind,
 		SourceName:        sourceName,
 		CanonicalKeys:     []string{canonicalKey},
-		SignalKinds:       []string{"oauth_grant"},
-		EventExternalIds:  []string{sourceAppID + ":grant"},
+		SignalKinds:       []string{signalKind},
+		EventExternalIds:  []string{eventExternalID},
 		SourceAppIds:      []string{sourceAppID},
 		SourceAppNames:    []string{sourceAppName},
 		SourceAppDomains:  []string{sourceAppDomain},
-		ActorExternalIds:  []string{"actor-1"},
-		ActorEmails:       []string{"actor@example.com"},
+		ActorExternalIds:  []string{actorExternalID},
+		ActorEmails:       []string{actorEmail},
 		ActorDisplayNames: []string{"Actor Example"},
 		ObservedAts:       []pgtype.Timestamptz{observed},
 		ScopesJsons:       [][]byte{[]byte(`["files.readwrite.all"]`)},

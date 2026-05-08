@@ -42,7 +42,7 @@ WITH normalized AS (
   FROM sync_runs r
   WHERE r.status = 'success'
     AND r.finished_at IS NOT NULL
-    AND lower(trim(r.source_kind)) NOT IN ('okta_discovery', 'entra_discovery', 'google_workspace_discovery')
+    AND lower(trim(r.source_kind)) NOT IN ('okta_discovery', 'entra_discovery', 'google_workspace_discovery', 'okta_push')
 )
 SELECT source_kind, source_name, finished_at::timestamptz AS last_success_at
 FROM (
@@ -370,6 +370,7 @@ WITH actor_stats AS (
   WHERE e.expired_at IS NULL
     AND e.last_observed_run_id IS NOT NULL
     AND e.observed_at >= now() - interval '30 days'
+    AND e.signal_kind <> 'app_assignment'
   GROUP BY e.saas_app_id
 ),
 scope_flags AS (
@@ -442,6 +443,7 @@ actor_stats AS (
   WHERE e.expired_at IS NULL
     AND e.last_observed_run_id IS NOT NULL
     AND e.observed_at >= now() - interval '30 days'
+    AND e.signal_kind <> 'app_assignment'
   GROUP BY e.saas_app_id
 ),
 scope_flags AS (

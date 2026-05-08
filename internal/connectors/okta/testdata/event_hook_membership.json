@@ -1,0 +1,29 @@
+{
+  "eventId": "delivery-membership-1",
+  "eventType": "com.okta.event_hook",
+  "data": {
+    "events": [
+      {
+        "uuid": "evt-membership-1",
+        "eventType": "application.user_membership.add",
+        "published": "2026-01-01T12:10:00Z",
+        "actor": {
+          "id": "00u-admin",
+          "alternateId": "admin@example.com",
+          "displayName": "Admin Example"
+        },
+        "target": [
+          {
+            "id": "0oa3",
+            "type": "AppInstance",
+            "alternateId": "https://assigned.example.com",
+            "displayName": "Assigned App"
+          }
+        ],
+        "outcome": {
+          "result": "SUCCESS"
+        }
+      }
+    ]
+  }
+}

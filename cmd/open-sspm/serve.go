@@ -17,6 +17,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	httpapp "github.com/open-sspm/open-sspm/internal/http"
 	"github.com/open-sspm/open-sspm/internal/http/handlers"
+	oktaingest "github.com/open-sspm/open-sspm/internal/ingest/okta"
 	"github.com/open-sspm/open-sspm/internal/metrics"
 	"github.com/open-sspm/open-sspm/internal/readmodels"
 	"github.com/open-sspm/open-sspm/internal/sync"
@@ -120,6 +121,13 @@ func runServe() error {
 
 	errCh := make(chan error, 1)
 	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr, discoveryMetricsRefresh(queries))
+	if cfg.SyncDiscoveryEnabled {
+		go func() {
+			if err := oktaingest.RunLoop(ctx, queries, runtimeDeps.pool, oktaingest.DefaultConfig()); err != nil {
+				errCh <- err
+			}
+		}()
+	}
 	go func() {
 		slog.Info("listening", "addr", cfg.HTTPAddr)
 		if err := srv.StartServer(httpServer); err != nil && !errors.Is(err, http.ErrServerClosed) {
