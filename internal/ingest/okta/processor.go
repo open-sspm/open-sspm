@@ -2,6 +2,7 @@ package oktaingest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -124,16 +125,17 @@ func ProcessQueuedWithConfig(ctx context.Context, q *gen.Queries, pool *pgxpool.
 	}
 
 	groups := groupInboxRowsBySource(rows)
+	var errs []error
 	for sourceName, group := range groups {
 		groupResult, err := processSourceRows(ctx, q, pool, sourceName, group, cfg)
 		result.Processed += groupResult.Processed
 		result.Ignored += groupResult.Ignored
 		result.DeadLetter += groupResult.DeadLetter
 		if err != nil {
-			return result, err
+			errs = append(errs, err)
 		}
 	}
-	return result, nil
+	return result, errors.Join(errs...)
 }
 
 type parsedInboxEvent struct {

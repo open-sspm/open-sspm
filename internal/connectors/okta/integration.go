@@ -876,6 +876,11 @@ func NormalizeDiscoveryEvents(events []SystemLogEvent, sourceName string, now ti
 	return sourceRows, normalizedEvents
 }
 
+// DiscoverySignalKind recognizes only the event types we treat as real access
+// evidence. Other app-tagged events (e.g. policy.lifecycle.update,
+// user.session.start, partner application.user_membership.* variants) are
+// intentionally dropped — the prior catch-all-to-IDPSSO behavior produced too
+// much incidental signal once Okta push ingestion broadened the input stream.
 func DiscoverySignalKind(event SystemLogEvent) (string, bool) {
 	eventType := strings.ToLower(strings.TrimSpace(event.EventType))
 	hasApp := strings.TrimSpace(event.AppID) != "" || strings.TrimSpace(event.AppName) != ""

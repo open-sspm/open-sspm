@@ -102,10 +102,10 @@ func (h *Handlers) HandleOktaEventBridgePost(c *echo.Context) error {
 	if err := json.NewDecoder(c.Request().Body).Decode(&envelope); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid Okta EventBridge JSON")
 	}
-	if strings.TrimSpace(envelope.DetailType) != "" && strings.TrimSpace(envelope.DetailType) != "SystemLog" {
+	if strings.TrimSpace(envelope.DetailType) != "SystemLog" {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid Okta EventBridge detail type")
 	}
-	if eventSource := strings.TrimSpace(envelope.Source); eventSource != "" && !strings.HasPrefix(eventSource, "aws.partner/okta.com/") {
+	if !strings.HasPrefix(strings.TrimSpace(envelope.Source), "aws.partner/okta.com/") {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid Okta EventBridge source")
 	}
 	if len(envelope.Detail) == 0 {
