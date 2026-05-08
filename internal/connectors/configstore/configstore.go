@@ -26,6 +26,10 @@ const (
 const (
 	AWSIdentityCenterAuthTypeDefaultChain     = "default_chain"
 	AWSIdentityCenterAuthTypeAccessKey        = "access_key"
+	OktaDiscoveryIngestModePolling            = "polling"
+	OktaDiscoveryIngestModeEventHook          = "event_hook"
+	OktaDiscoveryIngestModeEventBridge        = "eventbridge"
+	OktaDiscoveryIngestModeHybrid             = "hybrid"
 	VaultAuthTypeToken                        = "token"
 	VaultAuthTypeAppRole                      = "approle"
 	GoogleWorkspaceAuthTypeServiceAccountJSON = "service_account_json"
@@ -33,15 +37,26 @@ const (
 )
 
 type OktaConfig struct {
-	Domain           string `json:"domain"`
-	Token            string `json:"token"`
-	DiscoveryEnabled bool   `json:"discovery_enabled"`
+	Domain              string `json:"domain"`
+	Token               string `json:"token"`
+	DiscoveryEnabled    bool   `json:"discovery_enabled"`
+	DiscoveryIngestMode string `json:"discovery_ingest_mode"`
+	EventHookEnabled    bool   `json:"event_hook_enabled"`
+	EventHookSecret     string `json:"event_hook_secret"`
+	EventBridgeEnabled  bool   `json:"eventbridge_enabled"`
+	EventBridgeSecret   string `json:"eventbridge_secret"`
 }
 
 func (c OktaConfig) Normalized() OktaConfig {
 	out := c
-	out.Domain = strings.TrimSpace(out.Domain)
+	out.Domain = NormalizeOktaDomain(out.Domain)
 	out.Token = strings.TrimSpace(out.Token)
+	out.DiscoveryIngestMode = strings.ToLower(strings.TrimSpace(out.DiscoveryIngestMode))
+	if out.DiscoveryIngestMode == "" {
+		out.DiscoveryIngestMode = OktaDiscoveryIngestModePolling
+	}
+	out.EventHookSecret = strings.TrimSpace(out.EventHookSecret)
+	out.EventBridgeSecret = strings.TrimSpace(out.EventBridgeSecret)
 	return out
 }
 
@@ -61,10 +76,56 @@ func (c OktaConfig) Validate() error {
 	if c.Domain == "" {
 		return errors.New("Okta domain is required")
 	}
-	if c.Token == "" {
-		return errors.New("Okta token is required")
+	if c.EventHookEnabled && c.EventHookSecret == "" {
+		return errors.New("Okta Event Hook secret is required")
+	}
+	if c.EventBridgeEnabled && c.EventBridgeSecret == "" {
+		return errors.New("Okta EventBridge secret is required")
+	}
+	switch c.DiscoveryIngestMode {
+	case OktaDiscoveryIngestModePolling:
+		if c.Token == "" {
+			return errors.New("Okta token is required")
+		}
+	case OktaDiscoveryIngestModeEventHook:
+		if !c.EventHookEnabled {
+			return errors.New("Okta Event Hook receiver must be enabled")
+		}
+	case OktaDiscoveryIngestModeEventBridge:
+		if !c.EventBridgeEnabled {
+			return errors.New("Okta EventBridge receiver must be enabled")
+		}
+	case OktaDiscoveryIngestModeHybrid:
+		if c.Token == "" {
+			return errors.New("Okta token is required for hybrid ingestion")
+		}
+		if !c.EventHookEnabled && !c.EventBridgeEnabled {
+			return errors.New("at least one Okta push channel is required for hybrid ingestion")
+		}
+	default:
+		return errors.New("Okta discovery ingest mode is invalid")
 	}
 	return nil
+}
+
+func NormalizeOktaDomain(domain string) string {
+	domain = strings.TrimSpace(domain)
+	if domain == "" {
+		return ""
+	}
+	parseValue := domain
+	if !strings.Contains(parseValue, "://") {
+		parseValue = "https://" + parseValue
+	}
+	if parsed, err := url.Parse(parseValue); err == nil && strings.TrimSpace(parsed.Host) != "" {
+		return strings.ToLower(strings.TrimRight(strings.TrimSpace(parsed.Host), "/"))
+	}
+	domain = strings.TrimPrefix(domain, "https://")
+	domain = strings.TrimPrefix(domain, "http://")
+	if idx := strings.IndexByte(domain, '/'); idx >= 0 {
+		domain = domain[:idx]
+	}
+	return strings.ToLower(strings.TrimRight(strings.TrimSpace(domain), "/"))
 }
 
 type GitHubConfig struct {
@@ -365,7 +426,8 @@ func (c VaultConfig) Validate() error {
 
 func DecodeOktaConfig(raw []byte) (OktaConfig, error) {
 	var cfg OktaConfig
-	return cfg, decodeJSON(raw, &cfg)
+	err := decodeJSON(raw, &cfg)
+	return cfg.Normalized(), err
 }
 
 func DecodeGitHubConfig(raw []byte) (GitHubConfig, error) {
@@ -411,8 +473,13 @@ func MergeOktaConfig(existing OktaConfig, update OktaConfig) OktaConfig {
 	merged := existing
 	replaceTrimmed(&merged.Domain, update.Domain)
 	merged.DiscoveryEnabled = update.DiscoveryEnabled
+	replaceIfNonEmptyTrimmed(&merged.DiscoveryIngestMode, update.DiscoveryIngestMode)
+	merged.EventHookEnabled = update.EventHookEnabled
+	merged.EventBridgeEnabled = update.EventBridgeEnabled
 	replaceIfNonEmptyTrimmed(&merged.Token, update.Token)
-	return merged
+	replaceIfNonEmptyTrimmed(&merged.EventHookSecret, update.EventHookSecret)
+	replaceIfNonEmptyTrimmed(&merged.EventBridgeSecret, update.EventBridgeSecret)
+	return merged.Normalized()
 }
 
 func MergeGitHubConfig(existing GitHubConfig, update GitHubConfig) GitHubConfig {

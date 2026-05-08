@@ -91,6 +91,9 @@ func NewEchoServer(
 		CookieHTTPOnly: true,
 		CookieSameSite: http.SameSiteLaxMode,
 		CookieSecure:   cfg.AuthCookieSecure,
+		Skipper: func(c *echo.Context) bool {
+			return strings.HasPrefix(c.Request().URL.Path, "/ingest/")
+		},
 	}))
 	es.e.HTTPErrorHandler = es.httpErrorHandler
 	es.registerRoutes()
@@ -247,6 +250,11 @@ func (es *EchoServer) registerRoutes() {
 		c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
 		return c.Redirect(http.StatusMovedPermanently, "/static/favicon.ico")
 	})
+	ingest := es.e.Group("/ingest")
+	ingest.Use(middleware.BodyLimit(1 << 20))
+	ingest.GET("/okta/events", es.h.HandleOktaEventHookVerify)
+	ingest.POST("/okta/events", es.h.HandleOktaEventHookPost)
+	ingest.POST("/okta/eventbridge", es.h.HandleOktaEventBridgePost)
 
 	authed := es.e.Group("")
 

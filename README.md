@@ -13,7 +13,7 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 - Okta: users, groups, apps, and assignments (IdP source).
 - Microsoft Entra ID: users plus application/service principal governance metadata.
 - Google Workspace: users, groups, admin roles, OAuth app/grant inventory, and token audit activity.
-- SaaS Discovery: discovered app inventory + hotspots from IdP SSO and OAuth grant evidence (Okta System Log + Entra sign-ins/grants), with governance and binding workflows.
+- SaaS Discovery: discovered app inventory + hotspots from IdP SSO and OAuth grant evidence (Okta System Log polling or push + Entra sign-ins/grants), with governance and binding workflows.
 - GitHub: org members/teams/repo permissions (optional SCIM lookup for emails).
 - Datadog: users + role assignments.
 - AWS Identity Center: users + account/permission set assignments.
@@ -68,7 +68,7 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 - Connector credentials: configured in-app under Settings → Connectors. Public connector metadata stays in Postgres, and secret values are stored separately in encrypted form using `CONNECTOR_SECRET_KEY` / `CONNECTOR_SECRET_KEY_FILE`.
 - AWS Identity Center uses the AWS SDK default credentials chain (env/shared config/role), not DB-stored keys.
 - SaaS discovery is per-connector (`discovery_enabled`) for Okta, Entra, and Google Workspace.
-  - Okta discovery uses System Log access.
+  - Okta discovery uses System Log access; optional Event Hook and EventBridge receivers run in `open-sspm serve` for push-assisted discovery.
   - Entra discovery uses sign-in and OAuth grant APIs (`AuditLog.Read.All`, `Directory.Read.All`, `DelegatedPermissionGrant.Read.All`).
   - Google Workspace discovery uses Reports API login/token activity and token inventory.
 
@@ -97,6 +97,14 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
   - `opensspm_discovery_ingest_failures_total`
   - `opensspm_discovery_apps_total`
   - `opensspm_discovery_hotspots_total`
+- Okta push ingest metrics include:
+  - `opensspm_okta_push_events_received_total{source_name,channel,status}`
+  - `opensspm_okta_push_events_processed_total{source_name,channel,status}`
+  - `opensspm_okta_push_processing_duration_seconds{source_name,channel}`
+  - `opensspm_okta_push_queue_depth{source_name,channel}`
+  - `opensspm_okta_push_dead_letter_rows{source_name,channel}`
+  - `opensspm_okta_push_last_received_timestamp_seconds{source_name,channel}`
+  - `opensspm_okta_push_last_processed_timestamp_seconds{source_name,channel}`
 
 ## Security notes
 - Open-SSPM includes in-app authentication (email/password) using server-side sessions stored in Postgres.

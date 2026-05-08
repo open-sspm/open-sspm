@@ -3,6 +3,7 @@ package discovery
 const (
 	SignalKindIDPSSO      = "idp_sso"
 	SignalKindOAuth       = "oauth_grant"
+	SignalKindAssignment  = "app_assignment"
 	ManagedStateManaged   = "managed"
 	ManagedStateUnmanaged = "unmanaged"
 

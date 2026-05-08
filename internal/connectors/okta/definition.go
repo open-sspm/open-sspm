@@ -38,7 +38,7 @@ func (d *Definition) ValidateConfig(cfg any) error {
 
 func (d *Definition) IsConfigured(cfg any) bool {
 	c := cfg.(configstore.OktaConfig)
-	return c.Domain != "" && c.Token != ""
+	return c.Normalized().Validate() == nil
 }
 
 func (d *Definition) SourceName(cfg any) string {
@@ -66,12 +66,25 @@ func (d *Definition) MetricsProvider() registry.MetricsProvider {
 }
 
 func (d *Definition) NewIntegration(cfg any) (registry.Integration, error) {
-	c := cfg.(configstore.OktaConfig)
-	client, err := New(c.BaseURL(), c.Token)
-	if err != nil {
-		return nil, err
+	c := cfg.(configstore.OktaConfig).Normalized()
+	var client *Client
+	if c.Token != "" {
+		var err error
+		client, err = New(c.BaseURL(), c.Token)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return NewOktaIntegration(client, c.Domain, d.workers, c.DiscoveryEnabled), nil
+	return NewOktaIntegrationWithDiscoveryPolling(client, c.Domain, d.workers, c.DiscoveryEnabled, oktaDiscoveryPollingEnabled(c)), nil
+}
+
+func oktaDiscoveryPollingEnabled(c configstore.OktaConfig) bool {
+	switch c.Normalized().DiscoveryIngestMode {
+	case configstore.OktaDiscoveryIngestModePolling, configstore.OktaDiscoveryIngestModeHybrid:
+		return true
+	default:
+		return false
+	}
 }
 
 type oktaMetrics struct{}

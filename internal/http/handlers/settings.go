@@ -5,8 +5,11 @@ import (
 	"errors"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
@@ -314,9 +317,14 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 
 func readOktaConfigUpdate(c *echo.Context) configstore.OktaConfig {
 	return configstore.OktaConfig{
-		Domain:           c.FormValue("domain"),
-		Token:            c.FormValue("token"),
-		DiscoveryEnabled: ParseBoolForm(c.FormValue("discovery_enabled")),
+		Domain:              c.FormValue("domain"),
+		Token:               c.FormValue("token"),
+		DiscoveryEnabled:    ParseBoolForm(c.FormValue("discovery_enabled")),
+		DiscoveryIngestMode: c.FormValue("discovery_ingest_mode"),
+		EventHookEnabled:    ParseBoolForm(c.FormValue("event_hook_enabled")),
+		EventHookSecret:     c.FormValue("event_hook_secret"),
+		EventBridgeEnabled:  ParseBoolForm(c.FormValue("eventbridge_enabled")),
+		EventBridgeSecret:   c.FormValue("eventbridge_secret"),
 	}
 }
 
@@ -464,6 +472,7 @@ func (h *Handlers) renderConnectorRow(c *echo.Context, kind string, data viewmod
 }
 
 func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context, openKind, savedKind string, alert *viewmodels.ConnectorAlert) (viewmodels.ConnectorsViewData, error) {
+	now := time.Now()
 	states, err := h.Registry.LoadStates(ctx, h.Q)
 	if err != nil {
 		return viewmodels.ConnectorsViewData{}, err
@@ -479,7 +488,6 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context,
 
 	var data viewmodels.ConnectorsViewData
 
-	// Populate connector-specific view data
 	for _, state := range states {
 		switch state.Definition.Kind() {
 		case configstore.KindOkta:
@@ -492,15 +500,58 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context,
 				if !exists && state.Configured {
 					authoritative = true
 				}
-				data.Okta = viewmodels.OktaConnectorViewData{
-					Enabled:          state.Enabled,
-					Configured:       state.Configured,
-					Domain:           cfg.Domain,
-					TokenMasked:      configstore.MaskSecret(cfg.Token),
-					HasToken:         cfg.Token != "",
-					DiscoveryEnabled: cfg.DiscoveryEnabled,
-					Authoritative:    authoritative,
+				oktaData := viewmodels.OktaConnectorViewData{
+					Enabled:              state.Enabled,
+					Configured:           state.Configured,
+					Domain:               cfg.Domain,
+					DiscoveryIngestMode:  cfg.DiscoveryIngestMode,
+					TokenMasked:          configstore.MaskSecret(cfg.Token),
+					HasToken:             cfg.Token != "",
+					DiscoveryEnabled:     cfg.DiscoveryEnabled,
+					EventHookEnabled:     cfg.EventHookEnabled,
+					EventHookMasked:      configstore.MaskSecret(cfg.EventHookSecret),
+					HasEventHookSecret:   cfg.EventHookSecret != "",
+					EventBridgeEnabled:   cfg.EventBridgeEnabled,
+					EventBridgeMasked:    configstore.MaskSecret(cfg.EventBridgeSecret),
+					HasEventBridgeSecret: cfg.EventBridgeSecret != "",
+					Authoritative:        authoritative,
 				}
+				switch cfg.DiscoveryIngestMode {
+				case configstore.OktaDiscoveryIngestModeEventHook, configstore.OktaDiscoveryIngestModeEventBridge:
+					if cfg.Token == "" {
+						oktaData.PushCompletenessNote = "Push-only discovery is degraded for completeness and backfill until an Okta API token is configured."
+					}
+				}
+				if sourceName != "" && (cfg.EventHookEnabled || cfg.EventBridgeEnabled) {
+					status, err := h.Q.GetOktaPushIngestStatusBySource(ctx, sourceName)
+					if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+						return viewmodels.ConnectorsViewData{}, err
+					}
+					oktaData.PushStatusVisible = true
+					oktaData.PushStatusLabel = "Waiting for events"
+					oktaData.PushLastReceived = "—"
+					oktaData.PushLastProcessed = "—"
+					oktaData.PushQueueLabel = "0 queued"
+					oktaData.PushDeadLetterLabel = "0 dead-letter"
+					if err == nil {
+						oktaData.PushLastReceived = relativeWithTitleDisplay(now, status.LastReceivedAt, "—", "").Label
+						oktaData.PushLastProcessed = relativeWithTitleDisplay(now, status.LastProcessedAt, "—", "").Label
+						oktaData.PushQueueLabel = formatCountLabel(status.QueuedCount+status.ProcessingCount, "pending")
+						oktaData.PushDeadLetterLabel = formatCountLabel(status.DeadLetterCount, "dead-letter")
+						switch {
+						case status.DeadLetterCount > 0:
+							oktaData.PushStatusLabel = "Needs attention"
+						case status.QueuedCount+status.ProcessingCount > 0:
+							oktaData.PushStatusLabel = "Processing"
+						case status.LastProcessedAt.Valid:
+							oktaData.PushStatusLabel = "Processing normally"
+						case status.LastReceivedAt.Valid:
+							oktaData.PushStatusLabel = "Received"
+						}
+						oktaData.PushLastError = strings.TrimSpace(status.LastDeadLetterError)
+					}
+				}
+				data.Okta = oktaData
 			}
 		case configstore.KindGoogleWorkspace:
 			if cfg, ok := state.Config.(configstore.GoogleWorkspaceConfig); ok {
@@ -711,6 +762,14 @@ func (h *Handlers) authoritativeSourceName(ctx context.Context, kind string) (st
 
 func sourceKey(kind, name string) string {
 	return strings.ToLower(strings.TrimSpace(kind)) + "::" + strings.ToLower(strings.TrimSpace(name))
+}
+
+func formatCountLabel(count int64, noun string) string {
+	noun = strings.TrimSpace(noun)
+	if noun == "" {
+		noun = "row"
+	}
+	return strconv.FormatInt(max(count, 0), 10) + " " + noun
 }
 
 // HandleResync triggers a manual resync.

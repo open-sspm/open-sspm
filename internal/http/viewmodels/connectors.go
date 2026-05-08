@@ -7,13 +7,28 @@ type ConnectorAlert struct {
 }
 
 type OktaConnectorViewData struct {
-	Enabled          bool
-	Configured       bool
-	Domain           string
-	TokenMasked      string
-	HasToken         bool
-	DiscoveryEnabled bool
-	Authoritative    bool
+	Enabled              bool
+	Configured           bool
+	Domain               string
+	DiscoveryIngestMode  string
+	TokenMasked          string
+	HasToken             bool
+	DiscoveryEnabled     bool
+	EventHookEnabled     bool
+	EventHookMasked      string
+	HasEventHookSecret   bool
+	EventBridgeEnabled   bool
+	EventBridgeMasked    string
+	HasEventBridgeSecret bool
+	Authoritative        bool
+	PushStatusVisible    bool
+	PushStatusLabel      string
+	PushLastReceived     string
+	PushLastProcessed    string
+	PushQueueLabel       string
+	PushDeadLetterLabel  string
+	PushLastError        string
+	PushCompletenessNote string
 }
 
 type GoogleWorkspaceConnectorViewData struct {

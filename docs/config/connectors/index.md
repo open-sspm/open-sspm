@@ -10,7 +10,7 @@ IdP connectors import users, groups, and application assignments.
 
 | Connector | Discovery Support | Description |
 |-----------|-------------------|-------------|
-| [Okta](/config/connectors/okta) | Yes | Users, groups, apps, and assignments |
+| [Okta](/config/connectors/okta) | Yes, polling or push-assisted | Users, groups, apps, and assignments |
 | [Microsoft Entra ID](/config/connectors/entra) | Yes | Users, groups, app registrations, and service principals |
 
 ### Connected Apps

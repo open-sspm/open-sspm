@@ -1,0 +1,29 @@
+{
+  "eventId": "delivery-consent-1",
+  "eventType": "com.okta.event_hook",
+  "data": {
+    "events": [
+      {
+        "uuid": "evt-consent-1",
+        "eventType": "app.oauth2.as.consent.grant",
+        "published": "2026-01-01T12:05:00Z",
+        "actor": {
+          "id": "00u1",
+          "alternateId": "alice@example.com",
+          "displayName": "Alice Example"
+        },
+        "target": [
+          {
+            "id": "0oa2",
+            "type": "AppInstance",
+            "alternateId": "https://oauth.example.com",
+            "displayName": "Example OAuth App"
+          }
+        ],
+        "outcome": {
+          "result": "SUCCESS"
+        }
+      }
+    ]
+  }
+}

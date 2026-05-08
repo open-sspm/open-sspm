@@ -561,6 +561,8 @@ func HumanizeDiscoverySignalKind(kind string) string {
 		return "IdP SSO"
 	case "oauth_grant":
 		return "OAuth grant"
+	case "app_assignment":
+		return "App assignment"
 	default:
 		return fallbackHumanized(kind)
 	}

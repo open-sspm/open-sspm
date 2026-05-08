@@ -57,6 +57,49 @@ var (
 		Help:      "Number of discovery ingestion failures.",
 	}, []string{"source_kind", "signal_kind", "error_kind"})
 
+	OktaPushEventsReceivedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "okta_push_events_received_total",
+		Help:      "Number of Okta push events received by the ingest endpoint.",
+	}, []string{"source_name", "channel", "status"})
+
+	OktaPushEventsProcessedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "okta_push_events_processed_total",
+		Help:      "Number of Okta push inbox events processed by final status.",
+	}, []string{"source_name", "channel", "status"})
+
+	OktaPushProcessingDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Name:      "okta_push_processing_duration_seconds",
+		Help:      "Time spent processing a batch of Okta push inbox events.",
+		Buckets:   prometheus.DefBuckets,
+	}, []string{"source_name", "channel"})
+
+	OktaPushQueueDepth = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "okta_push_queue_depth",
+		Help:      "Current number of queued Okta push inbox events.",
+	}, []string{"source_name", "channel"})
+
+	OktaPushDeadLetterRows = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "okta_push_dead_letter_rows",
+		Help:      "Current number of Okta push inbox rows in dead letter status.",
+	}, []string{"source_name", "channel"})
+
+	OktaPushLastReceivedTimestamp = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "okta_push_last_received_timestamp_seconds",
+		Help:      "Unix timestamp of the last Okta push event received.",
+	}, []string{"source_name", "channel"})
+
+	OktaPushLastProcessedTimestamp = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "okta_push_last_processed_timestamp_seconds",
+		Help:      "Unix timestamp of the last Okta push inbox event processed.",
+	}, []string{"source_name", "channel"})
+
 	DiscoveryAppsTotal = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Name:      "discovery_apps_total",
