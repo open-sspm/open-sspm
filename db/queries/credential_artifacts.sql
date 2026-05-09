@@ -454,3 +454,19 @@ WHERE source_kind = sqlc.arg(source_kind)::text
     seen_in_run_id <> sqlc.arg(expired_run_id)::bigint
     OR seen_in_run_id IS NULL
   );
+
+-- name: ExpireCredentialArtifactsForAssetRefsNotSeenInRunBySource :execrows
+UPDATE credential_artifacts
+SET
+  expired_at = now(),
+  expired_run_id = sqlc.arg(expired_run_id)::bigint
+WHERE source_kind = sqlc.arg(source_kind)::text
+  AND source_name = sqlc.arg(source_name)::text
+  AND asset_ref_kind = 'app_asset'
+  AND asset_ref_external_id = ANY(sqlc.arg(asset_ref_external_ids)::text[])
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND (
+    seen_in_run_id <> sqlc.arg(expired_run_id)::bigint
+    OR seen_in_run_id IS NULL
+  );

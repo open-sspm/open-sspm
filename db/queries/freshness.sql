@@ -130,6 +130,17 @@ WHERE source_kind = $2
   AND last_observed_run_id IS NOT NULL
   AND (seen_in_run_id <> $1 OR seen_in_run_id IS NULL);
 
+-- name: ExpireSourceAccountsByExternalIDs :execrows
+UPDATE accounts
+SET
+  expired_at = now(),
+  expired_run_id = sqlc.arg(expired_run_id)::bigint
+WHERE source_kind = sqlc.arg(source_kind)::text
+  AND source_name = sqlc.arg(source_name)::text
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND external_id = ANY(sqlc.arg(external_ids)::text[]);
+
 -- name: PromoteEntitlementsSeenInRunBySource :execrows
 UPDATE entitlements e
 SET

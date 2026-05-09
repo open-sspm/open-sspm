@@ -78,6 +78,12 @@ ON CONFLICT (source_kind, source_name, event_external_id) DO UPDATE SET
   credential_external_id = EXCLUDED.credential_external_id,
   raw_json = EXCLUDED.raw_json;
 
+-- name: GetLatestCredentialAuditEventTimeBySource :one
+SELECT max(event_time)::timestamptz
+FROM credential_audit_events
+WHERE source_kind = sqlc.arg(source_kind)::text
+  AND source_name = sqlc.arg(source_name)::text;
+
 -- name: ListCredentialAuditEventsForCredential :many
 SELECT cae.*
 FROM credential_audit_events cae

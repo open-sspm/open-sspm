@@ -125,6 +125,136 @@ func TestListUsersPaging(t *testing.T) {
 	}
 }
 
+func TestDeltaUsersPagingRemovedAndDeltaLink(t *testing.T) {
+	t.Parallel()
+
+	var userRequests int
+	var sawSelect bool
+	var sawTop bool
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/users/delta"):
+			userRequests++
+			w.Header().Set("Content-Type", "application/json")
+			if r.URL.Query().Get("page") == "2" {
+				delta := srv.URL + "/graph/v1.0/users/delta?$deltatoken=done"
+				_, _ = w.Write([]byte(`{"value":[{"id":"u2","displayName":"Two","mail":"two@example.com"}],"@odata.deltaLink":"` + delta + `"}`))
+				return
+			}
+
+			if strings.Contains(r.URL.Query().Get("$select"), "displayName") {
+				sawSelect = true
+			}
+			if r.URL.Query().Has("$top") {
+				sawTop = true
+			}
+			next := srv.URL + "/graph/v1.0/users/delta?page=2"
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"value": []map[string]any{
+					{"id": "u1", "displayName": "One", "mail": "one@example.com"},
+					{"id": "u-deleted", "@removed": map[string]string{"reason": "deleted"}},
+					{"id": "u-changed", "@removed": map[string]string{"reason": "changed"}},
+				},
+				"@odata.nextLink": next,
+			})
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	result, err := newGraphTestClient(t, srv).DeltaUsers(context.Background(), "")
+	if err != nil {
+		t.Fatalf("DeltaUsers() error = %v", err)
+	}
+	if len(result.Items) != 2 {
+		t.Fatalf("len(result.Items)=%d want 2", len(result.Items))
+	}
+	if entityID(result.Items[0]) != "u1" || entityID(result.Items[1]) != "u2" {
+		t.Fatalf("unexpected users: %q %q", entityID(result.Items[0]), entityID(result.Items[1]))
+	}
+	if len(result.RemovedIDs) != 2 || result.RemovedIDs[0] != "u-deleted" || result.RemovedIDs[1] != "u-changed" {
+		t.Fatalf("RemovedIDs=%v want [u-deleted u-changed]", result.RemovedIDs)
+	}
+	if !strings.Contains(result.DeltaLink, "$deltatoken=done") {
+		t.Fatalf("DeltaLink=%q want final delta token", result.DeltaLink)
+	}
+	if userRequests != 2 {
+		t.Fatalf("userRequests=%d want 2", userRequests)
+	}
+	if !sawSelect {
+		t.Fatalf("expected initial delta request to include select")
+	}
+	if sawTop {
+		t.Fatalf("expected initial delta request to omit unsupported $top")
+	}
+}
+
+func TestDeltaUsersResumeUsesStoredDeltaLink(t *testing.T) {
+	t.Parallel()
+
+	var sawResumeToken bool
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/users/delta"):
+			if r.URL.Query().Get("$deltatoken") == "abc" {
+				sawResumeToken = true
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"value":[{"id":"u1","displayName":"One"}],"@odata.deltaLink":"` + srv.URL + `/graph/v1.0/users/delta?$deltatoken=next"}`))
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	resume := srv.URL + "/graph/v1.0/users/delta?$deltatoken=abc"
+	result, err := newGraphTestClient(t, srv).DeltaUsers(context.Background(), resume)
+	if err != nil {
+		t.Fatalf("DeltaUsers(resume) error = %v", err)
+	}
+	if len(result.Items) != 1 || entityID(result.Items[0]) != "u1" {
+		t.Fatalf("unexpected resumed items: %+v", result.Items)
+	}
+	if !sawResumeToken {
+		t.Fatalf("expected stored delta link to be used directly")
+	}
+}
+
+func TestDeltaUsersExpiredCursor(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/users/delta"):
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusGone)
+			_, _ = w.Write([]byte(`{"error":{"code":"SyncStateNotFound","message":"syncState not found"}}`))
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	_, err := newGraphTestClient(t, srv).DeltaUsers(context.Background(), srv.URL+"/graph/v1.0/users/delta?$deltatoken=stale")
+	if !errors.Is(err, ErrDeltaCursorExpired) {
+		t.Fatalf("DeltaUsers() error = %v, want ErrDeltaCursorExpired", err)
+	}
+}
+
 func TestLookupUsersByIDsUsesGetByIDsAndIgnoresNonUsers(t *testing.T) {
 	t.Parallel()
 

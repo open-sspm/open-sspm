@@ -187,6 +187,23 @@ WHERE source_kind = sqlc.arg(source_kind)::text
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL;
 
+-- name: ListAppAssetsForDeltaReconcileBySourceAndKind :many
+SELECT *
+FROM app_assets
+WHERE source_kind = sqlc.arg(source_kind)::text
+  AND source_name = sqlc.arg(source_name)::text
+  AND asset_kind = sqlc.arg(asset_kind)::text
+  -- Include rows seen in this run so resurrected delta items can be reconciled
+  -- before finalization clears their previous expired_at marker.
+  AND (
+    (
+      expired_at IS NULL
+      AND last_observed_run_id IS NOT NULL
+    )
+    OR seen_in_run_id = sqlc.arg(seen_in_run_id)::bigint
+  )
+ORDER BY external_id ASC;
+
 -- name: PromoteAppAssetsSeenInRunBySource :execrows
 UPDATE app_assets
 SET
@@ -211,3 +228,15 @@ WHERE source_kind = sqlc.arg(source_kind)::text
     seen_in_run_id <> sqlc.arg(expired_run_id)::bigint
     OR seen_in_run_id IS NULL
   );
+
+-- name: ExpireAppAssetsBySourceKindAndExternalIDs :execrows
+UPDATE app_assets
+SET
+  expired_at = now(),
+  expired_run_id = sqlc.arg(expired_run_id)::bigint
+WHERE source_kind = sqlc.arg(source_kind)::text
+  AND source_name = sqlc.arg(source_name)::text
+  AND asset_kind = sqlc.arg(asset_kind)::text
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND external_id = ANY(sqlc.arg(external_ids)::text[]);

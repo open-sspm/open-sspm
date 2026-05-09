@@ -195,6 +195,43 @@ func (q *Queries) CountCredentialArtifactsBySourcesAndQueryAndFilters(ctx contex
 	return count, err
 }
 
+const expireCredentialArtifactsForAssetRefsNotSeenInRunBySource = `-- name: ExpireCredentialArtifactsForAssetRefsNotSeenInRunBySource :execrows
+UPDATE credential_artifacts
+SET
+  expired_at = now(),
+  expired_run_id = $1::bigint
+WHERE source_kind = $2::text
+  AND source_name = $3::text
+  AND asset_ref_kind = 'app_asset'
+  AND asset_ref_external_id = ANY($4::text[])
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND (
+    seen_in_run_id <> $1::bigint
+    OR seen_in_run_id IS NULL
+  )
+`
+
+type ExpireCredentialArtifactsForAssetRefsNotSeenInRunBySourceParams struct {
+	ExpiredRunID        int64    `json:"expired_run_id"`
+	SourceKind          string   `json:"source_kind"`
+	SourceName          string   `json:"source_name"`
+	AssetRefExternalIds []string `json:"asset_ref_external_ids"`
+}
+
+func (q *Queries) ExpireCredentialArtifactsForAssetRefsNotSeenInRunBySource(ctx context.Context, arg ExpireCredentialArtifactsForAssetRefsNotSeenInRunBySourceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, expireCredentialArtifactsForAssetRefsNotSeenInRunBySource,
+		arg.ExpiredRunID,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.AssetRefExternalIds,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const expireCredentialArtifactsNotSeenInRunBySource = `-- name: ExpireCredentialArtifactsNotSeenInRunBySource :execrows
 UPDATE credential_artifacts
 SET

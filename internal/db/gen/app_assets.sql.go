@@ -97,6 +97,41 @@ func (q *Queries) CountAppAssetsBySourcesAndQueryAndKind(ctx context.Context, ar
 	return count, err
 }
 
+const expireAppAssetsBySourceKindAndExternalIDs = `-- name: ExpireAppAssetsBySourceKindAndExternalIDs :execrows
+UPDATE app_assets
+SET
+  expired_at = now(),
+  expired_run_id = $1::bigint
+WHERE source_kind = $2::text
+  AND source_name = $3::text
+  AND asset_kind = $4::text
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND external_id = ANY($5::text[])
+`
+
+type ExpireAppAssetsBySourceKindAndExternalIDsParams struct {
+	ExpiredRunID int64    `json:"expired_run_id"`
+	SourceKind   string   `json:"source_kind"`
+	SourceName   string   `json:"source_name"`
+	AssetKind    string   `json:"asset_kind"`
+	ExternalIds  []string `json:"external_ids"`
+}
+
+func (q *Queries) ExpireAppAssetsBySourceKindAndExternalIDs(ctx context.Context, arg ExpireAppAssetsBySourceKindAndExternalIDsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, expireAppAssetsBySourceKindAndExternalIDs,
+		arg.ExpiredRunID,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.AssetKind,
+		arg.ExternalIds,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const expireAppAssetsNotSeenInRunBySource = `-- name: ExpireAppAssetsNotSeenInRunBySource :execrows
 UPDATE app_assets
 SET
@@ -223,6 +258,83 @@ func (q *Queries) GetAppAssetBySourceAndKindAndExternalID(ctx context.Context, a
 		&i.ProjectionRefreshedAt,
 	)
 	return i, err
+}
+
+const listAppAssetsForDeltaReconcileBySourceAndKind = `-- name: ListAppAssetsForDeltaReconcileBySourceAndKind :many
+SELECT id, source_kind, source_name, asset_kind, external_id, parent_external_id, display_name, status, created_at_source, updated_at_source, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, owner_count, grant_count, actor_count, discovery_source_count, discovery_event_count_30d, evidence_last_seen_at, projection_refreshed_at
+FROM app_assets
+WHERE source_kind = $1::text
+  AND source_name = $2::text
+  AND asset_kind = $3::text
+  -- Include rows seen in this run so resurrected delta items can be reconciled
+  -- before finalization clears their previous expired_at marker.
+  AND (
+    (
+      expired_at IS NULL
+      AND last_observed_run_id IS NOT NULL
+    )
+    OR seen_in_run_id = $4::bigint
+  )
+ORDER BY external_id ASC
+`
+
+type ListAppAssetsForDeltaReconcileBySourceAndKindParams struct {
+	SourceKind  string `json:"source_kind"`
+	SourceName  string `json:"source_name"`
+	AssetKind   string `json:"asset_kind"`
+	SeenInRunID int64  `json:"seen_in_run_id"`
+}
+
+func (q *Queries) ListAppAssetsForDeltaReconcileBySourceAndKind(ctx context.Context, arg ListAppAssetsForDeltaReconcileBySourceAndKindParams) ([]AppAsset, error) {
+	rows, err := q.db.Query(ctx, listAppAssetsForDeltaReconcileBySourceAndKind,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.AssetKind,
+		arg.SeenInRunID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AppAsset
+	for rows.Next() {
+		var i AppAsset
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.AssetKind,
+			&i.ExternalID,
+			&i.ParentExternalID,
+			&i.DisplayName,
+			&i.Status,
+			&i.CreatedAtSource,
+			&i.UpdatedAtSource,
+			&i.RawJson,
+			&i.SeenInRunID,
+			&i.SeenAt,
+			&i.LastObservedRunID,
+			&i.LastObservedAt,
+			&i.ExpiredAt,
+			&i.ExpiredRunID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.OwnerCount,
+			&i.GrantCount,
+			&i.ActorCount,
+			&i.DiscoverySourceCount,
+			&i.DiscoveryEventCount30d,
+			&i.EvidenceLastSeenAt,
+			&i.ProjectionRefreshedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAppAssetsPageBySourceAndQueryAndKind = `-- name: ListAppAssetsPageBySourceAndQueryAndKind :many

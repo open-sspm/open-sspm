@@ -148,6 +148,38 @@ func (q *Queries) ExpireOktaGroupsNotSeenInRun(ctx context.Context, expiredRunID
 	return result.RowsAffected(), nil
 }
 
+const expireSourceAccountsByExternalIDs = `-- name: ExpireSourceAccountsByExternalIDs :execrows
+UPDATE accounts
+SET
+  expired_at = now(),
+  expired_run_id = $1::bigint
+WHERE source_kind = $2::text
+  AND source_name = $3::text
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND external_id = ANY($4::text[])
+`
+
+type ExpireSourceAccountsByExternalIDsParams struct {
+	ExpiredRunID int64    `json:"expired_run_id"`
+	SourceKind   string   `json:"source_kind"`
+	SourceName   string   `json:"source_name"`
+	ExternalIds  []string `json:"external_ids"`
+}
+
+func (q *Queries) ExpireSourceAccountsByExternalIDs(ctx context.Context, arg ExpireSourceAccountsByExternalIDsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, expireSourceAccountsByExternalIDs,
+		arg.ExpiredRunID,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.ExternalIds,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const expireSourceAccountsNotSeenInRun = `-- name: ExpireSourceAccountsNotSeenInRun :execrows
 UPDATE accounts
 SET

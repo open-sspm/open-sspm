@@ -164,121 +164,10 @@ func (i *EntraIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpoo
 }
 
 func (i *EntraIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
-	started := time.Now()
-	slog.Info("syncing Microsoft Entra ID")
-
-	runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("entra", registry.RunModeFull), i.tenantID)
-	if err != nil {
-		return err
-	}
-
-	usersWritten, err := i.syncUsers(ctx, q, report, runID)
-	if err != nil {
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindUnknown)
-	}
-	groupsWritten, err := i.syncGroups(ctx, q, report, runID)
-	if err != nil {
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindUnknown)
-	}
-
-	report(registry.Event{Source: "entra", Stage: "list-app-assets", Current: 0, Total: 1, Message: "listing applications and service principals"})
-	applications, err := i.client.ListApplications(ctx)
-	if err != nil {
-		report(registry.Event{Source: "entra", Stage: "list-app-assets", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
-	}
-	servicePrincipals, err := i.client.ListServicePrincipals(ctx)
-	if err != nil {
-		report(registry.Event{Source: "entra", Stage: "list-app-assets", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
-	}
-	report(registry.Event{
-		Source:  "entra",
-		Stage:   "list-app-assets",
-		Current: 1,
-		Total:   1,
-		Message: fmt.Sprintf("found %d applications and %d service principals", len(applications), len(servicePrincipals)),
-	})
-
-	servicePrincipalsWritten, err := i.syncServicePrincipalAccounts(ctx, q, report, runID, servicePrincipals)
-	if err != nil {
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
-	}
-
-	assetRows, credentialRows, err := buildEntraAssetAndCredentialRows(applications, servicePrincipals)
-	if err != nil {
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindUnknown)
-	}
-	if err := i.upsertAppAssets(ctx, q, report, runID, assetRows); err != nil {
-		report(registry.Event{Source: "entra", Stage: "write-app-assets", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
-	}
-
-	ownerRows, err := i.collectAppAssetOwners(ctx, report, applications, servicePrincipals)
-	if err != nil {
-		report(registry.Event{Source: "entra", Stage: "list-owners", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
-	}
-	if err := i.upsertAppAssetOwners(ctx, q, report, runID, ownerRows); err != nil {
-		report(registry.Event{Source: "entra", Stage: "write-owners", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
-	}
-
-	if err := i.upsertCredentialArtifacts(ctx, q, report, runID, credentialRows); err != nil {
-		report(registry.Event{Source: "entra", Stage: "write-credentials", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
-	}
-
-	entitlementRows, err := i.collectEntraEntitlements(ctx, report, servicePrincipals)
-	if err != nil {
-		report(registry.Event{Source: "entra", Stage: "list-entitlements", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
-	}
-	if err := i.upsertEntraEntitlements(ctx, q, report, runID, entitlementRows); err != nil {
-		report(registry.Event{Source: "entra", Stage: "write-entitlements", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
-	}
-
-	report(registry.Event{Source: "entra", Stage: "list-audit-events", Current: 0, Total: 1, Message: "listing directory audit events"})
-	directoryAudits, err := i.client.ListDirectoryAudits(ctx, nil)
-	if err != nil {
-		report(registry.Event{Source: "entra", Stage: "list-audit-events", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
-	}
-	report(registry.Event{
-		Source:  "entra",
-		Stage:   "list-audit-events",
-		Current: 1,
-		Total:   1,
-		Message: fmt.Sprintf("found %d directory audit events", len(directoryAudits)),
-	})
-
-	auditEventRows, err := buildCredentialAuditEventRows(directoryAudits)
-	if err != nil {
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindUnknown)
-	}
-	if err := i.upsertCredentialAuditEvents(ctx, q, report, auditEventRows); err != nil {
-		report(registry.Event{Source: "entra", Stage: "write-audit-events", Message: err.Error(), Err: err})
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
-	}
-
-	if err := registry.FinalizeAppRun(ctx, q, pool, runID, "entra", i.tenantID, time.Since(started), false); err != nil {
-		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
-	}
-
-	slog.Info(
-		"entra sync complete",
-		"tenant", i.tenantID,
-		"users", usersWritten,
-		"groups", groupsWritten,
-		"service_principals", servicePrincipalsWritten,
-		"app_assets", len(assetRows),
-		"owners", len(ownerRows),
-		"credentials", len(credentialRows),
-		"entitlements", len(entitlementRows),
-		"audit_events", len(auditEventRows),
-	)
-	return nil
+	// "Full" is the scheduler-facing inventory mode. Entra implements it with
+	// Graph delta bootstrap/incremental semantics so unchanged objects are not
+	// re-read on every run.
+	return i.runDeltaFull(ctx, q, pool, report)
 }
 
 func (i *EntraIntegration) runDiscovery(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
@@ -312,12 +201,7 @@ func (i *EntraIntegration) runDiscovery(ctx context.Context, q *gen.Queries, poo
 	return nil
 }
 
-func (i *EntraIntegration) syncUsers(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64) (int, error) {
-	users, err := i.client.ListUsers(ctx)
-	if err != nil {
-		report(registry.Event{Source: "entra", Stage: "list-users", Message: err.Error(), Err: err})
-		return 0, err
-	}
+func (i *EntraIntegration) writeUsers(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, users []User) (int, error) {
 	report(registry.Event{Source: "entra", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
 	report(registry.Event{Source: "entra", Stage: "write-users", Current: 0, Total: int64(len(users)), Message: fmt.Sprintf("writing %d users", len(users))})
 
@@ -398,12 +282,7 @@ func (i *EntraIntegration) syncUsers(ctx context.Context, q *gen.Queries, report
 	return len(externalIDs), nil
 }
 
-func (i *EntraIntegration) syncGroups(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64) (int, error) {
-	groups, err := i.client.ListGroups(ctx)
-	if err != nil {
-		report(registry.Event{Source: "entra", Stage: "list-groups", Message: err.Error(), Err: err})
-		return 0, err
-	}
+func (i *EntraIntegration) writeGroups(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, groups []Group) (int, error) {
 	report(registry.Event{Source: "entra", Stage: "list-groups", Current: 1, Total: 1, Message: fmt.Sprintf("found %d groups", len(groups))})
 	if len(groups) == 0 {
 		return 0, nil
@@ -482,7 +361,7 @@ func (i *EntraIntegration) syncGroups(ctx context.Context, q *gen.Queries, repor
 	return len(externalIDs), nil
 }
 
-func (i *EntraIntegration) syncServicePrincipalAccounts(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, servicePrincipals []ServicePrincipal) (int, error) {
+func (i *EntraIntegration) writeServicePrincipalAccounts(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, servicePrincipals []ServicePrincipal) (int, error) {
 	if len(servicePrincipals) == 0 {
 		return 0, nil
 	}
