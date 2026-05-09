@@ -57,7 +57,7 @@ ON CONFLICT (canonical_key) DO UPDATE SET
     ELSE saas_apps.vendor_name
   END,
   category = CASE
-    WHEN trim(EXCLUDED.category) <> '' THEN EXCLUDED.category
+    WHEN trim(EXCLUDED.category) <> '' THEN lower(trim(EXCLUDED.category))
     ELSE saas_apps.category
   END,
   first_seen_at = LEAST(saas_apps.first_seen_at, COALESCE(EXCLUDED.first_seen_at, saas_apps.first_seen_at)),

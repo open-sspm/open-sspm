@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	nonKeyNameChars      = regexp.MustCompile(`[^a-z0-9]+`)
-	nonCategoryNameChars = regexp.MustCompile(`[^a-z0-9_]+`)
+	nonKeyNameChars                 = regexp.MustCompile(`[^a-z0-9]+`)
+	nonCategoryNameChars            = regexp.MustCompile(`[^a-z0-9_]+`)
+	repeatedCategoryUnderscoreChars = regexp.MustCompile(`_+`)
 )
 
 type appCategoryHint struct {
@@ -238,10 +239,7 @@ func normalizeAppCategory(raw string) string {
 	raw = strings.ReplaceAll(raw, "-", "_")
 	raw = nonCategoryNameChars.ReplaceAllString(raw, "_")
 	raw = strings.Trim(raw, "_")
-	for strings.Contains(raw, "__") {
-		raw = strings.ReplaceAll(raw, "__", "_")
-	}
-	return raw
+	return repeatedCategoryUnderscoreChars.ReplaceAllString(raw, "_")
 }
 
 func categoryMatchText(parts ...string) string {

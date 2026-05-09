@@ -84,6 +84,9 @@ func WriteRows(ctx context.Context, q *gen.Queries, params WriteRowsParams) erro
 			lastSeenByKey[key] = seenAt
 			return
 		}
+		// Within a batch, keep the first non-empty category to avoid row-order
+		// churn. The DB upsert lets later non-empty batches replace it so
+		// connector/catalog improvements can supersede earlier inferred metadata.
 		if appMeta[key].Category == "" && sample.Category != "" {
 			meta := appMeta[key]
 			meta.Category = sample.Category
