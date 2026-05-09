@@ -11,11 +11,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	oktaconnector "github.com/open-sspm/open-sspm/internal/connectors/okta"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
 	"github.com/open-sspm/open-sspm/internal/metrics"
+	osspmsync "github.com/open-sspm/open-sspm/internal/sync"
 )
 
 const (
@@ -163,7 +165,7 @@ func processSourceRows(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, 
 			deadLetterIDs = append(deadLetterIDs, row.ID)
 			continue
 		}
-		if _, ok := oktaconnector.DiscoverySignalKind(event); !ok {
+		if !oktaconnector.ShouldIngestPushEvent(event) {
 			ignoredIDs = append(ignoredIDs, row.ID)
 			continue
 		}
@@ -176,25 +178,33 @@ func processSourceRows(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, 
 	if err := flushDeadLetter(ctx, q, sourceName, rows, deadLetterIDs, "invalid Okta System Log event JSON", "mark okta push inbox dead-letter", &result); err != nil {
 		return result, err
 	}
-	if err := flushIgnored(ctx, q, sourceName, rows, ignoredIDs, "event is not discovery evidence", &result); err != nil {
+	if err := flushIgnored(ctx, q, sourceName, rows, ignoredIDs, "event is not discovery or state-refresh evidence", &result); err != nil {
 		return result, err
 	}
 	if len(parsed) == 0 {
 		return result, nil
 	}
 
-	events := make([]oktaconnector.SystemLogEvent, 0, len(parsed))
+	discoveryEvents := make([]oktaconnector.SystemLogEvent, 0, len(parsed))
 	processedIDs := make([]int64, 0, len(parsed))
+	refreshCounts := make(map[string]int64)
 	for _, item := range parsed {
-		events = append(events, item.event)
+		if _, ok := oktaconnector.DiscoverySignalKind(item.event); ok {
+			discoveryEvents = append(discoveryEvents, item.event)
+		}
+		if kind, ok := oktaconnector.StateRefreshSignalKind(item.event); ok {
+			refreshCounts[kind]++
+		}
 		processedIDs = append(processedIDs, item.row.ID)
 	}
 
-	sources, normalizedEvents := oktaconnector.NormalizeDiscoveryEvents(events, sourceName, time.Now().UTC())
-	if len(sources) == 0 && len(normalizedEvents) == 0 {
+	sources, normalizedEvents := oktaconnector.NormalizeDiscoveryEvents(discoveryEvents, sourceName, time.Now().UTC())
+	hasDiscoveryRows := len(sources) > 0 || len(normalizedEvents) > 0
+	hasStateRefresh := len(refreshCounts) > 0
+	if !hasDiscoveryRows && !hasStateRefresh {
 		if _, err := q.MarkOktaPushInboxIgnored(ctx, gen.MarkOktaPushInboxIgnoredParams{
 			ProcessedRunID: pgtype.Int8{},
-			ErrorMessage:   "event did not normalize to discovery evidence",
+			ErrorMessage:   "event did not normalize to discovery or state-refresh evidence",
 			Ids:            processedIDs,
 		}); err != nil {
 			return result, fmt.Errorf("mark okta push inbox ignored: %w", err)
@@ -211,18 +221,29 @@ func processSourceRows(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, 
 		return result, err
 	}
 
-	if err := discovery.WriteRows(ctx, q, discovery.WriteRowsParams{
-		SourceKind: "okta",
-		SourceName: sourceName,
-		RunID:      runID,
-		Sources:    sources,
-		Events:     normalizedEvents,
-	}); err != nil {
-		_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
-		_ = retryOrDeadLetterRows(ctx, q, sourceName, inboxRowsFromParsed(parsed), err, cfg)
-		return result, err
+	if hasDiscoveryRows {
+		if err := discovery.WriteRows(ctx, q, discovery.WriteRowsParams{
+			SourceKind: "okta",
+			SourceName: sourceName,
+			RunID:      runID,
+			Sources:    sources,
+			Events:     normalizedEvents,
+		}); err != nil {
+			_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+			_ = retryOrDeadLetterRows(ctx, q, sourceName, inboxRowsFromParsed(parsed), err, cfg)
+			return result, err
+		}
 	}
-	if err := registry.FinalizeDiscoveryRun(ctx, q, pool, runID, "okta", sourceName, time.Since(runStarted)); err != nil {
+
+	if hasStateRefresh {
+		if err := enqueueOktaFullSync(ctx, pool, sourceName); err != nil {
+			_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+			_ = retryOrDeadLetterRows(ctx, q, sourceName, inboxRowsFromParsed(parsed), err, cfg)
+			return result, err
+		}
+	}
+
+	if err := finalizeOktaPushRun(ctx, q, pool, runID, sourceName, time.Since(runStarted), hasDiscoveryRows, refreshCounts); err != nil {
 		_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 		_ = retryOrDeadLetterRows(ctx, q, sourceName, inboxRowsFromParsed(parsed), err, cfg)
 		return result, err
@@ -254,6 +275,48 @@ func startOktaPushSyncRun(ctx context.Context, q *gen.Queries, sourceName string
 		return 0, fmt.Errorf("create sync run for %s/%s: %w", SourceKindOktaPush, sourceName, err)
 	}
 	return runID, nil
+}
+
+func finalizeOktaPushRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceName string, duration time.Duration, hasDiscoveryRows bool, refreshCounts map[string]int64) error {
+	counts := oktaStateRefreshRunCounts(refreshCounts)
+	if hasDiscoveryRows {
+		return registry.FinalizeDiscoveryRunWithCounts(ctx, q, pool, runID, "okta", sourceName, duration, counts)
+	}
+	stats := registry.MarshalJSON(map[string]any{
+		"counts":      counts,
+		"duration_ms": duration.Milliseconds(),
+	})
+	return q.MarkSyncRunSuccess(ctx, gen.MarkSyncRunSuccessParams{ID: runID, Stats: stats})
+}
+
+func oktaStateRefreshRunCounts(refreshCounts map[string]int64) map[string]int64 {
+	counts := map[string]int64{}
+	var total int64
+	for kind, count := range refreshCounts {
+		counts["state_refresh_"+kind] = count
+		total += count
+	}
+	if total > 0 {
+		counts["state_refresh_events"] = total
+	}
+	return counts
+}
+
+func enqueueOktaFullSync(ctx context.Context, pool *pgxpool.Pool, sourceName string) error {
+	if pool == nil {
+		return fmt.Errorf("queue okta full sync: pool is nil")
+	}
+	store := osspmsync.NewSyncJobStore(pool)
+	runner := osspmsync.NewResyncQueueRunnerWithPlanner(store, nil, registry.RunModeFull)
+	err := runner.RunOnce(osspmsync.WithConnectorScope(ctx, configstore.KindOkta, sourceName))
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, osspmsync.ErrSyncQueued), errors.Is(err, osspmsync.ErrSyncAlreadyRunning):
+		return nil
+	default:
+		return fmt.Errorf("queue okta full sync for %s: %w", sourceName, err)
+	}
 }
 
 func flushDeadLetter(ctx context.Context, q *gen.Queries, sourceName string, rows []gen.OktaPushInbox, ids []int64, errMsg, wrapPrefix string, result *ProcessResult) error {

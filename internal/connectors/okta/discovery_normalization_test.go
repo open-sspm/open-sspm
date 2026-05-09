@@ -336,3 +336,47 @@ func TestNormalizeOktaDiscoverySignalKinds(t *testing.T) {
 		t.Fatalf("no-app signal = %q, want absent", got["no-app"])
 	}
 }
+
+func TestOktaStateRefreshSignalKinds(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name      string
+		eventType string
+		wantKind  string
+		wantOK    bool
+	}{
+		{name: "app membership add", eventType: "application.user_membership.add", wantKind: "app_assignment", wantOK: true},
+		{name: "app membership remove", eventType: "application.user_membership.remove", wantKind: "app_assignment", wantOK: true},
+		{name: "group membership add", eventType: "group.user_membership.add", wantKind: "group_membership", wantOK: true},
+		{name: "user lifecycle", eventType: "user.lifecycle.deactivate", wantKind: "user", wantOK: true},
+		{name: "user account", eventType: "user.account.update_profile", wantKind: "user", wantOK: true},
+		{name: "group lifecycle", eventType: "group.lifecycle.update", wantKind: "group", wantOK: true},
+		{name: "application lifecycle", eventType: "application.lifecycle.update", wantKind: "app", wantOK: true},
+		{name: "policy lifecycle ignored", eventType: "policy.lifecycle.update", wantOK: false},
+		{name: "sso ignored for state refresh", eventType: "user.authentication.sso", wantOK: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotKind, gotOK := StateRefreshSignalKind(SystemLogEvent{EventType: tc.eventType})
+			if gotOK != tc.wantOK || gotKind != tc.wantKind {
+				t.Fatalf("StateRefreshSignalKind(%q) = %q/%v, want %q/%v", tc.eventType, gotKind, gotOK, tc.wantKind, tc.wantOK)
+			}
+		})
+	}
+}
+
+func TestShouldIngestOktaPushEventIncludesStateRefreshOnlyEvents(t *testing.T) {
+	t.Parallel()
+
+	if !ShouldIngestPushEvent(SystemLogEvent{EventType: "user.authentication.sso", AppID: "0oa1"}) {
+		t.Fatalf("SSO event with app target should be ingested")
+	}
+	if !ShouldIngestPushEvent(SystemLogEvent{EventType: "user.lifecycle.deactivate"}) {
+		t.Fatalf("state-refresh event should be ingested")
+	}
+	if ShouldIngestPushEvent(SystemLogEvent{EventType: "policy.lifecycle.update", AppID: "0oa1"}) {
+		t.Fatalf("policy lifecycle event should not be ingested")
+	}
+}

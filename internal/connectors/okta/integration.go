@@ -884,29 +884,68 @@ func NormalizeDiscoveryEvents(events []SystemLogEvent, sourceName string, now ti
 // intentionally dropped — the prior catch-all-to-IDPSSO behavior produced too
 // much incidental signal once Okta push ingestion broadened the input stream.
 func DiscoverySignalKind(event SystemLogEvent) (string, bool) {
-	eventType := strings.ToLower(strings.TrimSpace(event.EventType))
+	normalizedEventType := strings.ToLower(strings.TrimSpace(event.EventType))
 	hasApp := strings.TrimSpace(event.AppID) != "" || strings.TrimSpace(event.AppName) != ""
 	if !hasApp {
 		return "", false
 	}
-	if strings.HasPrefix(eventType, "application.user_membership.") {
-		switch eventType {
-		case "application.user_membership.add", "application.user_membership.remove", "application.user_membership.update":
-			return discovery.SignalKindAssignment, true
-		default:
-			return "", false
-		}
+	if isApplicationMembershipEvent(normalizedEventType) {
+		return discovery.SignalKindAssignment, true
 	}
-	switch eventType {
+	switch normalizedEventType {
 	case "user.authentication.sso", "app.oauth2.signon":
 		return discovery.SignalKindIDPSSO, true
 	}
-	if strings.Contains(eventType, "oauth") ||
-		strings.Contains(eventType, "grant") ||
-		strings.Contains(eventType, "consent") {
+	if strings.Contains(normalizedEventType, "oauth") ||
+		strings.Contains(normalizedEventType, "grant") ||
+		strings.Contains(normalizedEventType, "consent") {
 		return discovery.SignalKindOAuth, true
 	}
 	return "", false
+}
+
+func StateRefreshSignalKind(event SystemLogEvent) (string, bool) {
+	normalizedEventType := strings.ToLower(strings.TrimSpace(event.EventType))
+	switch {
+	case isApplicationMembershipEvent(normalizedEventType):
+		return "app_assignment", true
+	case isGroupMembershipEvent(normalizedEventType):
+		return "group_membership", true
+	case strings.HasPrefix(normalizedEventType, "user.lifecycle.") || strings.HasPrefix(normalizedEventType, "user.account."):
+		return "user", true
+	case strings.HasPrefix(normalizedEventType, "group.lifecycle."):
+		return "group", true
+	case strings.HasPrefix(normalizedEventType, "application.lifecycle.") || strings.HasPrefix(normalizedEventType, "app.lifecycle."):
+		return "app", true
+	default:
+		return "", false
+	}
+}
+
+func ShouldIngestPushEvent(event SystemLogEvent) bool {
+	if _, ok := DiscoverySignalKind(event); ok {
+		return true
+	}
+	_, ok := StateRefreshSignalKind(event)
+	return ok
+}
+
+func isApplicationMembershipEvent(eventType string) bool {
+	switch eventType {
+	case "application.user_membership.add", "application.user_membership.remove", "application.user_membership.update":
+		return true
+	default:
+		return false
+	}
+}
+
+func isGroupMembershipEvent(eventType string) bool {
+	switch eventType {
+	case "group.user_membership.add", "group.user_membership.remove", "group.user_membership.update":
+		return true
+	default:
+		return false
+	}
 }
 
 func (i *OktaIntegration) writeDiscoveryRows(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, sources []discovery.SourceRow, events []discovery.EventRow) error {

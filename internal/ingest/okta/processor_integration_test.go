@@ -2,6 +2,7 @@ package oktaingest
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -52,6 +53,131 @@ func TestProcessQueuedWritesDiscoveryRows(t *testing.T) {
 		if status != "processed" || !processedRunID.Valid {
 			t.Fatalf("inbox status/run = %q/%+v, want processed with run", status, processedRunID)
 		}
+	})
+}
+
+func TestProcessQueuedQueuesOktaFullSyncForAssignmentChanges(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-assignment-refresh", `{
+			"uuid": "evt-assignment-refresh",
+			"eventType": "application.user_membership.add",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"},
+			"target": [{"id": "0oa1", "type": "AppInstance", "alternateId": "https://app.example.com", "displayName": "Example App"}]
+		}`)
+
+		result, err := ProcessQueued(ctx, q, pool, 100)
+		if err != nil {
+			t.Fatalf("ProcessQueued(): %v", err)
+		}
+		if result.Processed != 1 {
+			t.Fatalf("processed = %d, want 1", result.Processed)
+		}
+
+		assertQueuedOktaFullSync(t, ctx, pool, "acme.okta.com")
+	})
+}
+
+func TestProcessQueuedQueuesOktaFullSyncForStateRefreshOnlyEvents(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-user-refresh", `{
+			"uuid": "evt-user-refresh",
+			"eventType": "user.lifecycle.deactivate",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"}
+		}`)
+
+		result, err := ProcessQueued(ctx, q, pool, 100)
+		if err != nil {
+			t.Fatalf("ProcessQueued(): %v", err)
+		}
+		if result.Processed != 1 || result.Ignored != 0 {
+			t.Fatalf("result = %+v, want processed=1 ignored=0", result)
+		}
+
+		var status, runStatus, sourceKind string
+		var processedRunID pgtype.Int8
+		if err := pool.QueryRow(ctx, `
+			SELECT i.status, i.processed_run_id, sr.source_kind, sr.status
+			FROM okta_push_inbox i
+			JOIN sync_runs sr ON sr.id = i.processed_run_id
+			WHERE i.event_external_id = 'evt-user-refresh'
+		`).Scan(&status, &processedRunID, &sourceKind, &runStatus); err != nil {
+			t.Fatalf("select processed state-refresh event: %v", err)
+		}
+		if status != "processed" || !processedRunID.Valid {
+			t.Fatalf("inbox status/run = %q/%+v, want processed with run", status, processedRunID)
+		}
+		if sourceKind != SourceKindOktaPush || runStatus != "success" {
+			t.Fatalf("run = %s/%s, want %s/success", sourceKind, runStatus, SourceKindOktaPush)
+		}
+
+		var discoveryEvents int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM saas_app_events
+			WHERE event_external_id = 'evt-user-refresh'
+		`).Scan(&discoveryEvents); err != nil {
+			t.Fatalf("count discovery events: %v", err)
+		}
+		if discoveryEvents != 0 {
+			t.Fatalf("discovery events = %d, want 0", discoveryEvents)
+		}
+
+		assertQueuedOktaFullSync(t, ctx, pool, "acme.okta.com")
+	})
+}
+
+func TestProcessQueuedRecordsStateRefreshStatsForMixedBatch(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-sso-1", `{
+			"uuid": "evt-sso-1",
+			"eventType": "user.authentication.sso",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"},
+			"target": [{"id": "0oa1", "type": "AppInstance", "alternateId": "https://app.example.com", "displayName": "Example App"}]
+		}`)
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-user-refresh", `{
+			"uuid": "evt-user-refresh",
+			"eventType": "user.lifecycle.deactivate",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"}
+		}`)
+
+		result, err := ProcessQueued(ctx, q, pool, 100)
+		if err != nil {
+			t.Fatalf("ProcessQueued(): %v", err)
+		}
+		if result.Processed != 2 {
+			t.Fatalf("processed = %d, want 2", result.Processed)
+		}
+
+		var rawStats []byte
+		if err := pool.QueryRow(ctx, `
+			SELECT stats
+			FROM sync_runs
+			WHERE source_kind = 'okta_push'
+			  AND source_name = 'acme.okta.com'
+			  AND status = 'success'
+			ORDER BY id DESC
+			LIMIT 1
+		`).Scan(&rawStats); err != nil {
+			t.Fatalf("select okta_push stats: %v", err)
+		}
+		var stats struct {
+			Counts map[string]int64 `json:"counts"`
+		}
+		if err := json.Unmarshal(rawStats, &stats); err != nil {
+			t.Fatalf("unmarshal okta_push stats: %v", err)
+		}
+		if stats.Counts["state_refresh_user"] != 1 || stats.Counts["state_refresh_events"] != 1 {
+			t.Fatalf("state refresh counts = %+v, want user=1 events=1", stats.Counts)
+		}
+		if stats.Counts["saas_app_events_observed"] != 1 {
+			t.Fatalf("saas_app_events_observed = %d, want 1", stats.Counts["saas_app_events_observed"])
+		}
+
+		assertQueuedOktaFullSync(t, ctx, pool, "acme.okta.com")
 	})
 }
 
@@ -426,5 +552,25 @@ func queueOktaPushEvent(t *testing.T, ctx context.Context, q *gen.Queries, sourc
 		RawJsons:            [][]byte{[]byte(raw)},
 	}); err != nil {
 		t.Fatalf("queue okta push event: %v", err)
+	}
+}
+
+func assertQueuedOktaFullSync(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceName string) {
+	t.Helper()
+
+	var count int
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*)
+		FROM sync_jobs
+		WHERE lane = 'full'
+		  AND connector_kind = 'okta'
+		  AND source_name = $1
+		  AND trigger_kind = 'manual'
+		  AND status = 'pending'
+	`, sourceName).Scan(&count); err != nil {
+		t.Fatalf("count queued okta full sync jobs: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("queued okta full sync jobs = %d, want 1", count)
 	}
 }

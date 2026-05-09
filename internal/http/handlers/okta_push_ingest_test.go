@@ -125,6 +125,35 @@ func TestHandleOktaEventHookPostDropsNonDiscoveryEventsBeforeStorage(t *testing.
 	})
 }
 
+func TestHandleOktaEventHookPostQueuesStateRefreshEvents(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		upsertOktaPushIngestConfig(t, ctx, pool)
+
+		body := `{
+			"eventId": "delivery-user-refresh",
+			"data": {
+				"events": [{
+					"uuid": "evt-user-refresh-1",
+					"eventType": "user.lifecycle.deactivate",
+					"published": "2026-01-01T12:00:00Z",
+					"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"}
+				}]
+			}
+		}`
+		c, rec := newOktaIngestContext(http.MethodPost, "http://example.com/ingest/okta/events", body)
+		c.Request().Header.Set(echo.HeaderAuthorization, "hook-secret")
+
+		if err := h.HandleOktaEventHookPost(c); err != nil {
+			t.Fatalf("HandleOktaEventHookPost(): %v", err)
+		}
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusNoContent, rec.Body.String())
+		}
+
+		assertOktaPushInboxRow(t, ctx, pool, "acme.okta.com", "event_hook", "delivery-user-refresh", "evt-user-refresh-1", "user.lifecycle.deactivate")
+	})
+}
+
 func TestHandleOktaEventHookPostRejectsDisabledIngestConfigurations(t *testing.T) {
 	tests := []struct {
 		name   string

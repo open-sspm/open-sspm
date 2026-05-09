@@ -281,7 +281,7 @@ func oktaPushInboxParamsFromRawEvents(sourceName, channel, deliveryExternalID st
 		if err != nil {
 			return gen.UpsertOktaPushInboxEventsBulkParams{}, 0, echo.NewHTTPError(http.StatusBadRequest, "invalid Okta System Log event")
 		}
-		if _, ok := oktaconnector.DiscoverySignalKind(event); !ok {
+		if !oktaconnector.ShouldIngestPushEvent(event) {
 			ignored++
 			continue
 		}
