@@ -988,6 +988,61 @@ func TestEntraRunFullDeltaDeleteExpiresApplicationAndServicePrincipalAssets(t *t
 	})
 }
 
+func TestEntraRunFullDeltaRefreshesUnchangedCredentialLifecycleStatus(t *testing.T) {
+	t.Parallel()
+
+	withEntraTestDB(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateEntraUp(t, migrator)
+
+		integration := &EntraIntegration{client: fullSyncFixtureClient(t), tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err != nil {
+			t.Fatalf("bootstrap runFull() error = %v", err)
+		}
+
+		if _, err := pool.Exec(ctx, `
+			UPDATE credential_artifacts
+			SET status = 'active',
+			    expires_at_source = now() - interval '1 hour'
+			WHERE source_kind = 'entra'
+			  AND source_name = $1
+			  AND external_id = $2
+		`, fullSyncTenantID, fullSyncAppSecretID); err != nil {
+			t.Fatalf("make credential stale: %v", err)
+		}
+
+		users := DeltaResult[User]{DeltaLink: "delta://users-noop-credential-status"}
+		groups := DeltaResult[Group]{DeltaLink: "delta://groups-noop-credential-status"}
+		applications := DeltaResult[Application]{DeltaLink: "delta://applications-noop-credential-status"}
+		servicePrincipals := DeltaResult[ServicePrincipal]{DeltaLink: "delta://service-principals-noop-credential-status"}
+		incremental := fullSyncFixtureClient(t)
+		incremental.deltaUsers = &users
+		incremental.deltaGroups = &groups
+		incremental.deltaApplications = &applications
+		incremental.deltaServicePrincipals = &servicePrincipals
+
+		integration = &EntraIntegration{client: incremental, tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err != nil {
+			t.Fatalf("incremental runFull() error = %v", err)
+		}
+
+		var status string
+		if err := pool.QueryRow(ctx, `
+			SELECT status
+			FROM credential_artifacts
+			WHERE source_kind = 'entra'
+			  AND source_name = $1
+			  AND external_id = $2
+			  AND expired_at IS NULL
+			  AND last_observed_run_id IS NOT NULL
+		`, fullSyncTenantID, fullSyncAppSecretID).Scan(&status); err != nil {
+			t.Fatalf("query credential status: %v", err)
+		}
+		if status != "expired" {
+			t.Fatalf("credential status=%q want expired", status)
+		}
+	})
+}
+
 func TestEntraRunFullDeltaDoesNotAdvanceCursorOnFailure(t *testing.T) {
 	t.Parallel()
 

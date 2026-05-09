@@ -255,6 +255,70 @@ func TestDeltaUsersExpiredCursor(t *testing.T) {
 	}
 }
 
+func TestDeltaUsersExpiredCursorFromODataErrorCode(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertTestBearer(t, r)
+
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/users/delta"):
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":{"code":"syncStateNotFound","message":"delta token expired"}}`))
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	_, err := newGraphTestClient(t, srv).DeltaUsers(context.Background(), srv.URL+"/graph/v1.0/users/delta?$deltatoken=stale")
+	if !errors.Is(err, ErrDeltaCursorExpired) {
+		t.Fatalf("DeltaUsers() error = %v, want ErrDeltaCursorExpired", err)
+	}
+}
+
+type testUserDeltaResponse struct {
+	value     []User
+	nextLink  *string
+	deltaLink *string
+}
+
+func (r testUserDeltaResponse) GetValue() []User {
+	return r.value
+}
+
+func (r testUserDeltaResponse) GetOdataNextLink() *string {
+	return r.nextLink
+}
+
+func (r testUserDeltaResponse) GetOdataDeltaLink() *string {
+	return r.deltaLink
+}
+
+func TestCollectDeltaItemsStopsAfterPageLimit(t *testing.T) {
+	t.Parallel()
+
+	next := "https://graph.example.test/users/delta?page=2"
+	calls := 0
+	_, err := collectDeltaItemsWithPageLimit[User, testUserDeltaResponse](
+		context.Background(),
+		testUserDeltaResponse{nextLink: &next},
+		func(context.Context, string) (testUserDeltaResponse, error) {
+			calls++
+			return testUserDeltaResponse{nextLink: &next}, nil
+		},
+		2,
+	)
+	if err == nil || !strings.Contains(err.Error(), "exceeded 2 pages") {
+		t.Fatalf("collectDeltaItemsWithPageLimit() error = %v, want page limit error", err)
+	}
+	if calls != 1 {
+		t.Fatalf("fetch calls=%d want 1", calls)
+	}
+}
+
 func TestLookupUsersByIDsUsesGetByIDsAndIgnoresNonUsers(t *testing.T) {
 	t.Parallel()
 

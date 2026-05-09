@@ -441,6 +441,25 @@ WHERE source_kind = sqlc.arg(source_kind)::text
   AND source_name = sqlc.arg(source_name)::text
   AND seen_in_run_id = sqlc.arg(last_observed_run_id)::bigint;
 
+-- name: RefreshCredentialArtifactLifecycleStatusesBySource :execrows
+UPDATE credential_artifacts
+SET
+  status = CASE
+    WHEN expires_at_source IS NOT NULL AND expires_at_source < now() THEN 'expired'
+    WHEN created_at_source IS NOT NULL AND created_at_source > now() THEN 'inactive'
+    ELSE 'active'
+  END,
+  updated_at = now()
+WHERE source_kind = sqlc.arg(source_kind)::text
+  AND source_name = sqlc.arg(source_name)::text
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND status IS DISTINCT FROM CASE
+    WHEN expires_at_source IS NOT NULL AND expires_at_source < now() THEN 'expired'
+    WHEN created_at_source IS NOT NULL AND created_at_source > now() THEN 'inactive'
+    ELSE 'active'
+  END;
+
 -- name: ExpireCredentialArtifactsNotSeenInRunBySource :execrows
 UPDATE credential_artifacts
 SET

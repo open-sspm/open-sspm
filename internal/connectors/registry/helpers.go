@@ -623,6 +623,15 @@ func FinalizeAppDeltaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool
 		counts["credential_artifacts_expired"] = 0
 	}
 
+	refreshed, err := qtx.RefreshCredentialArtifactLifecycleStatusesBySource(ctx, gen.RefreshCredentialArtifactLifecycleStatusesBySourceParams{
+		SourceKind: sourceKind,
+		SourceName: sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	counts["credential_artifact_statuses_refreshed"] = refreshed
+
 	if opts.ResetDeltaCursors {
 		if err := qtx.DeleteConnectorDeltaStatesBySource(ctx, gen.DeleteConnectorDeltaStatesBySourceParams{
 			SourceKind: sourceKind,

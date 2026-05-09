@@ -913,6 +913,39 @@ func (q *Queries) PromoteCredentialArtifactsSeenInRunBySource(ctx context.Contex
 	return result.RowsAffected(), nil
 }
 
+const refreshCredentialArtifactLifecycleStatusesBySource = `-- name: RefreshCredentialArtifactLifecycleStatusesBySource :execrows
+UPDATE credential_artifacts
+SET
+  status = CASE
+    WHEN expires_at_source IS NOT NULL AND expires_at_source < now() THEN 'expired'
+    WHEN created_at_source IS NOT NULL AND created_at_source > now() THEN 'inactive'
+    ELSE 'active'
+  END,
+  updated_at = now()
+WHERE source_kind = $1::text
+  AND source_name = $2::text
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND status IS DISTINCT FROM CASE
+    WHEN expires_at_source IS NOT NULL AND expires_at_source < now() THEN 'expired'
+    WHEN created_at_source IS NOT NULL AND created_at_source > now() THEN 'inactive'
+    ELSE 'active'
+  END
+`
+
+type RefreshCredentialArtifactLifecycleStatusesBySourceParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+}
+
+func (q *Queries) RefreshCredentialArtifactLifecycleStatusesBySource(ctx context.Context, arg RefreshCredentialArtifactLifecycleStatusesBySourceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, refreshCredentialArtifactLifecycleStatusesBySource, arg.SourceKind, arg.SourceName)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const upsertCredentialArtifactsBulkBySource = `-- name: UpsertCredentialArtifactsBulkBySource :execrows
 WITH input AS (
   SELECT

@@ -23,6 +23,7 @@ import (
 	"github.com/microsoftgraph/msgraph-sdk-go/directoryobjects"
 	"github.com/microsoftgraph/msgraph-sdk-go/groups"
 	msgraphmodels "github.com/microsoftgraph/msgraph-sdk-go/models"
+	"github.com/microsoftgraph/msgraph-sdk-go/models/odataerrors"
 	"github.com/microsoftgraph/msgraph-sdk-go/oauth2permissiongrants"
 	"github.com/microsoftgraph/msgraph-sdk-go/rolemanagement"
 	"github.com/microsoftgraph/msgraph-sdk-go/serviceprincipals"
@@ -34,6 +35,7 @@ const (
 	defaultTokenScope  = "https://graph.microsoft.com/.default"
 	directoryAuditsTop = int32(200)
 	defaultPageSize    = int32(999)
+	maxDeltaPages      = 10000
 )
 
 type User = msgraphmodels.Userable
@@ -492,9 +494,16 @@ type deltaResponse[T msgraphmodels.Entityable] interface {
 }
 
 func collectDeltaItems[T msgraphmodels.Entityable, R deltaResponse[T]](ctx context.Context, first R, fetch func(context.Context, string) (R, error)) (DeltaResult[T], error) {
+	return collectDeltaItemsWithPageLimit(ctx, first, fetch, maxDeltaPages)
+}
+
+func collectDeltaItemsWithPageLimit[T msgraphmodels.Entityable, R deltaResponse[T]](ctx context.Context, first R, fetch func(context.Context, string) (R, error), pageLimit int) (DeltaResult[T], error) {
 	out := DeltaResult[T]{}
 	response := first
-	for {
+	if pageLimit < 1 {
+		return out, errors.New("delta page limit must be positive")
+	}
+	for page := 1; ; page++ {
 		if any(response) == nil {
 			return out, errors.New("empty delta response")
 		}
@@ -517,6 +526,9 @@ func collectDeltaItems[T msgraphmodels.Entityable, R deltaResponse[T]](ctx conte
 		nextLink := stringValue(response.GetOdataNextLink())
 		if nextLink == "" {
 			return out, errors.New("delta response did not include nextLink or deltaLink")
+		}
+		if page >= pageLimit {
+			return out, fmt.Errorf("delta response exceeded %d pages without deltaLink", pageLimit)
 		}
 		next, err := fetch(ctx, nextLink)
 		if err != nil {
@@ -542,12 +554,27 @@ func normalizeDeltaError(err error) error {
 	if errors.As(err, &apiErr) && apiErr.GetStatusCode() == http.StatusGone {
 		return ErrDeltaCursorExpired
 	}
-	msg := strings.ToLower(err.Error())
-	if strings.Contains(msg, "syncstate not found") ||
-		strings.Contains(msg, "sync state not found") {
+	var graphErr odataerrors.ODataErrorable
+	if errors.As(err, &graphErr) && isDeltaCursorExpiredCode(graphErrorCode(graphErr)) {
 		return ErrDeltaCursorExpired
 	}
 	return err
+}
+
+func graphErrorCode(err odataerrors.ODataErrorable) string {
+	if err == nil || err.GetErrorEscaped() == nil || err.GetErrorEscaped().GetCode() == nil {
+		return ""
+	}
+	return *err.GetErrorEscaped().GetCode()
+}
+
+func isDeltaCursorExpiredCode(code string) bool {
+	switch strings.ToLower(strings.TrimSpace(code)) {
+	case "syncstatenotfound", "invalidsynctoken", "resyncrequired":
+		return true
+	default:
+		return false
+	}
 }
 
 func collectPagedItems[T any](ctx context.Context, result any, adapter abstractions.RequestAdapter, constructor absser.ParsableFactory, headers ...*abstractions.RequestHeaders) ([]T, error) {
