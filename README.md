@@ -9,7 +9,7 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 - Login: `admin@admin.com` / `admin`
 
 ## Features
-- HTTP server (`open-sspm serve`) + background full sync worker (`open-sspm worker`) + background discovery worker (`open-sspm worker-discovery`) + one-off syncs (`open-sspm sync`, `open-sspm sync-discovery`) + in-app “Resync” (queued async by default).
+- API/web server (`open-sspm api`) + background full sync worker (`open-sspm worker`) + background discovery worker (`open-sspm worker-discovery`) + background ingest worker (`open-sspm worker-ingest`) + one-off syncs (`open-sspm sync`, `open-sspm sync-discovery`) + in-app “Resync” (queued async by default).
 - Okta: users, groups, apps, and assignments (IdP source).
 - Microsoft Entra ID: users plus application/service principal governance metadata.
 - Google Workspace: users, groups, admin roles, OAuth app/grant inventory, and token audit activity.
@@ -33,8 +33,8 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 2. Start Postgres: `just dev-up`
 3. Run migrations: `just migrate`
 4. Install JS deps + build CSS: `npm install && just ui`
-5. Run the server: `just run`
-6. Run background workers: `just worker` (full lane) and `go run ./cmd/open-sspm worker-discovery` (discovery lane).
+5. Run the API/web server: `just run`
+6. Run background workers: `just worker` (full lane), `just worker-discovery` (discovery lane), and `just worker-ingest` (push ingest).
 7. Generate a stable connector secret key and export it before configuring connectors:
    - `export CONNECTOR_SECRET_KEY="$(openssl rand -base64 32)"`
 8. Open `http://localhost:8080`, configure connectors under Settings → Connectors, then run a sync (Settings → Resync queues workers by default, or use `just sync` for one-off inline execution).
@@ -49,7 +49,8 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 ## Dev workflows
 - Live-reload server: `just dev` (requires `air` + `templ`)
 - Run background full sync worker: `just worker`
-- Run background discovery sync worker: `go run ./cmd/open-sspm worker-discovery`
+- Run background discovery sync worker: `just worker-discovery`
+- Run background ingest worker: `just worker-ingest`
 - Watch CSS: `just ui-watch`
 - Sync vendored runtime JS: `npm run vendor:sync` (also runs automatically after `npm install` / `npm ci`)
 - Check vendored runtime JS drift: `npm run vendor:check`
@@ -68,7 +69,7 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 - Connector credentials: configured in-app under Settings → Connectors. Public connector metadata stays in Postgres, and secret values are stored separately in encrypted form using `CONNECTOR_SECRET_KEY` / `CONNECTOR_SECRET_KEY_FILE`.
 - AWS Identity Center uses the AWS SDK default credentials chain (env/shared config/role), not DB-stored keys.
 - SaaS discovery is per-connector (`discovery_enabled`) for Okta, Entra, and Google Workspace.
-  - Okta discovery uses System Log access; optional Event Hook and EventBridge receivers run in `open-sspm serve` for push-assisted discovery.
+  - Okta discovery uses System Log access; optional Event Hook and EventBridge receivers run in `open-sspm api` and queue push-assisted discovery work for `open-sspm worker-ingest`.
   - Entra discovery uses sign-in and OAuth grant APIs (`AuditLog.Read.All`, `Directory.Read.All`, `DelegatedPermissionGrant.Read.All`).
   - Google Workspace discovery uses Reports API login/token activity and token inventory.
 
@@ -109,7 +110,7 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 ## Security notes
 - Open-SSPM includes in-app authentication (email/password) using server-side sessions stored in Postgres.
 - Avoid logging connector secrets.
-- Set a stable base64-encoded 32-byte `CONNECTOR_SECRET_KEY` (or `CONNECTOR_SECRET_KEY_FILE`) anywhere you run `serve`, `worker`, or sync commands. Losing that key means stored connector secrets must be re-entered.
+- Set a stable base64-encoded 32-byte `CONNECTOR_SECRET_KEY` (or `CONNECTOR_SECRET_KEY_FILE`) anywhere you run `api`, `worker`, `worker-discovery`, `worker-ingest`, or sync commands. Losing that key means stored connector secrets must be re-entered.
 
 ## Contributing
 

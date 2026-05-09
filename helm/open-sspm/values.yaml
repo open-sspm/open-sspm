@@ -51,8 +51,8 @@ config:
   # Dev-only convenience: seeds admin@admin.com / admin if no auth_users exist.
   devSeedAdmin: false
   resyncEnabled: true
-  # Enables the discovery lane system-wide. When false, serve does not queue
-  # discovery work and the discovery worker Deployment is omitted.
+  # Enables the discovery lane system-wide. When false, api does not queue
+  # discovery work and discovery/ingest worker Deployments are omitted.
   syncDiscoveryEnabled: true
   syncInterval: 15m
   syncDiscoveryInterval: 15m
@@ -67,7 +67,7 @@ metrics:
   service:
     enabled: false
     port: 9090
-    # Which component to expose metrics for: serve, worker, or worker-discovery.
+    # Which component to expose metrics for: api, worker, worker-discovery, or worker-ingest.
     component: worker
     annotations: {}
 
@@ -90,6 +90,11 @@ ingress:
           pathType: Prefix
   tls: []
 
+# Preferred API deployment settings for new installs. When unset, the chart
+# falls back to the deprecated serve.* block below for upgrade compatibility.
+api: {}
+
+# Deprecated alias for API deployment settings. Use api.* for new values files.
 serve:
   replicaCount: 1
   podAnnotations: {}
@@ -113,6 +118,18 @@ worker:
   affinity: {}
 
 discoveryWorker:
+  enabled: true
+  replicaCount: 1
+  podAnnotations: {}
+  podLabels: {}
+  extraEnv: []
+  extraEnvFrom: []
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+ingestWorker:
   enabled: true
   replicaCount: 1
   podAnnotations: {}

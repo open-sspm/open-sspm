@@ -7,9 +7,10 @@ This folder contains Helm charts for deploying Open-SSPM to Kubernetes.
 Location: `helm/open-sspm`
 
 Deploys:
-- `open-sspm serve` (HTTP/UI) as a Deployment + Service (+ optional Ingress)
+- `open-sspm api` (HTTP/UI/API) as a Deployment + Service (+ optional Ingress)
 - `open-sspm worker` (background full sync loop) as a Deployment
 - `open-sspm worker-discovery` (background SaaS discovery sync loop) as a Deployment (enabled by default)
+- `open-sspm worker-ingest` (background push ingest queue processing) as a Deployment (enabled by default when discovery is enabled)
 - Helm hook Jobs:
   - `open-sspm migrate` as a pre-install/pre-upgrade Job
   - `open-sspm seed-rules` as a pre-install Job (optionally also pre-upgrade)
@@ -167,10 +168,12 @@ kubectl port-forward svc/<service-name> 8080:80
 
 ### Worker lanes
 
+- API Deployment settings use `api.*`. The chart still accepts `serve.*` as a deprecated alias so existing values files keep working during upgrade.
 - Full sync worker interval is configured with `config.syncInterval`.
 - Discovery sync worker interval is configured with `config.syncDiscoveryInterval`.
 - Set `config.syncDiscoveryEnabled=false` to disable the discovery lane system-wide.
-- Set `discoveryWorker.enabled=false` to omit only the discovery worker Deployment. The chart also disables discovery queuing on `serve` when this is false so manual resyncs do not strand discovery jobs.
+- Set `discoveryWorker.enabled=false` to omit only the discovery worker Deployment. The chart also disables discovery queuing on `api` when this is false so manual resyncs do not strand discovery jobs.
+- Set `ingestWorker.enabled=false` to omit push ingest queue processing.
 
 ### Structured logging
 
@@ -188,9 +191,10 @@ kubectl port-forward svc/<service-name> 8080:80
 ### Metrics service component selector
 
 If `metrics.service.enabled=true`, choose which pod to target with `metrics.service.component`:
-- `serve`
+- `api`
 - `worker`
 - `worker-discovery`
+- `worker-ingest`
 
 ### UI authentication
 
@@ -229,7 +233,7 @@ Keep it `false` for plain HTTP / port-forward, otherwise the browser will not st
 
 `/login` rate limiting uses the client IP derived from `X-Forwarded-For`.
 By default, Open SSPM trusts private, link-local, and loopback upstream hops, which matches typical in-cluster ingress setups.
-If your direct upstream load balancer uses public IPs, pass `TRUSTED_PROXY_CIDRS` via `serve.extraEnv` so the app can trust those ingress CIDRs too.
+If your direct upstream load balancer uses public IPs, pass `TRUSTED_PROXY_CIDRS` via `api.extraEnv` so the app can trust those ingress CIDRs too.
 
 ### Dev-only seeding (`DEV_SEED_ADMIN`)
 

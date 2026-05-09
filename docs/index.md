@@ -46,7 +46,7 @@ just run
 # Open http://localhost:8080
 ```
 
-Run `just worker-discovery` in a third terminal if you want discovery syncs and `SYNC_DISCOVERY_ENABLED=1`.
+Run `just worker-discovery` in a third terminal if you want discovery syncs and `SYNC_DISCOVERY_ENABLED=1`. Run `just worker-ingest` as well if you enable push ingest such as Okta Event Hooks or EventBridge.
 
 See the [Installation Guide](/install/) for production deployment options and the full Docker-backed local setup.
 

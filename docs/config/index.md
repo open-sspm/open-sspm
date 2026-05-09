@@ -81,7 +81,7 @@ After setting configuration:
 1. Verify the database connection.
 2. Run migrations.
 3. Bootstrap the first admin user.
-4. Start `serve` and the worker processes.
+4. Start `api` and the worker processes.
 5. Configure connectors in the UI.
 6. Run an initial sync.
 

@@ -2,8 +2,8 @@
 
 Target:
 - a single Scaleway VM (Ubuntu 24.04) with local Postgres
-- `open-sspm` runs as a systemd service and serves HTTP on `127.0.0.1:8080`
-- optional `open-sspm-worker` and `open-sspm-discovery-worker` systemd services are provisioned but disabled by default
+- `open-sspm` runs `open-sspm api` as a systemd service and serves HTTP on `127.0.0.1:8080`
+- optional `open-sspm-worker`, `open-sspm-discovery-worker`, and `open-sspm-ingest-worker` systemd services are provisioned but disabled by default
 - nginx listens on `:80` and reverse-proxies to `open-sspm`
 
 This repo expects **runtime files** to exist on disk:
@@ -40,7 +40,7 @@ Extract it on the server into `/opt/open-sspm/`.
    - `demo/data/`
 4) Copy to the server over SSH (GitHub Actions secret key).
 5) Run on the server:
-   - stop `open-sspm`, `open-sspm-worker`, and `open-sspm-discovery-worker` (if running)
+   - stop `open-sspm`, `open-sspm-worker`, `open-sspm-discovery-worker`, and `open-sspm-ingest-worker` (if running)
    - reset the demo database (drop + recreate)
    - `open-sspm migrate`
    - `open-sspm seed-rules`

@@ -18,9 +18,10 @@ The chart does not deploy PostgreSQL. Use a managed or separately operated Postg
 
 The chart creates:
 
-- **Serve Deployment** - `open-sspm serve`
+- **API Deployment** - `open-sspm api`
 - **Worker Deployment** - `open-sspm worker`
 - **Discovery Worker Deployment** - `open-sspm worker-discovery` (enabled by default)
+- **Ingest Worker Deployment** - `open-sspm worker-ingest` (enabled by default when discovery is enabled)
 - **Service** - Network access for the web UI
 - **Ingress** (optional)
 - **Hook Jobs** - Migrations, optional rule seeding, and optional admin bootstrap
@@ -109,7 +110,7 @@ config:
   logLevel: info
   authCookieSecure: true
 
-serve:
+api:
   replicaCount: 1
   resources:
     limits:
@@ -133,6 +134,14 @@ discoveryWorker:
     limits:
       cpu: 500m
       memory: 512Mi
+
+ingestWorker:
+  enabled: true
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
 
 ingress:
   enabled: true
@@ -215,10 +224,10 @@ serviceAccount:
 
 ### Trusted Proxy CIDRs
 
-If your direct upstream proxy uses public IPs, pass `TRUSTED_PROXY_CIDRS` via `serve.extraEnv`:
+If your direct upstream proxy uses public IPs, pass `TRUSTED_PROXY_CIDRS` via `api.extraEnv`:
 
 ```yaml
-serve:
+api:
   extraEnv:
     - name: TRUSTED_PROXY_CIDRS
       value: "35.191.0.0/16,130.211.0.0/22"
@@ -253,7 +262,7 @@ bootstrapAdmin:
 
 ```bash
 helm upgrade open-sspm ./helm/open-sspm -f values.yaml
-kubectl rollout status deployment/open-sspm-serve
+kubectl rollout status deployment/open-sspm-api
 ```
 
 ## Troubleshooting
@@ -267,9 +276,10 @@ kubectl get pods -l app.kubernetes.io/name=open-sspm
 ### View Logs
 
 ```bash
-kubectl logs -l app.kubernetes.io/component=serve
+kubectl logs -l app.kubernetes.io/component=api
 kubectl logs -l app.kubernetes.io/component=worker
 kubectl logs -l app.kubernetes.io/component=worker-discovery
+kubectl logs -l app.kubernetes.io/component=worker-ingest
 ```
 
 ### Database Connection Issues

@@ -24,19 +24,40 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "Run the HTTP server.",
+var apiCmd = &cobra.Command{
+	Use:   "api",
+	Short: "Run the API and web UI HTTP server.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runServe()
+		return runAPI()
 	},
 }
 
-func runServe() error {
+var serveCmd = &cobra.Command{
+	Use:        "serve",
+	Short:      "Run the API and web UI HTTP server.",
+	Deprecated: "use api instead",
+	Args:       cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runAPIWithOptions(apiRunOptions{StartIngestWorker: true})
+	},
+}
+
+type apiRunOptions struct {
+	StartIngestWorker bool
+}
+
+func runAPI() error {
+	return runAPIWithOptions(apiRunOptions{})
+}
+
+func runAPIWithOptions(opts apiRunOptions) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
+	}
+	if opts.StartIngestWorker {
+		slog.Warn("open-sspm serve is deprecated; use open-sspm api plus open-sspm worker-ingest")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -121,7 +142,7 @@ func runServe() error {
 
 	errCh := make(chan error, 1)
 	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr, discoveryMetricsRefresh(queries))
-	if cfg.SyncDiscoveryEnabled {
+	if opts.StartIngestWorker && cfg.SyncDiscoveryEnabled {
 		go func() {
 			if err := oktaingest.RunLoop(ctx, queries, runtimeDeps.pool, oktaingest.DefaultConfig()); err != nil {
 				errCh <- err

@@ -6,9 +6,10 @@ This guide covers day-to-day operation of Open-SSPM.
 
 | Command | Purpose | Normally Running? |
 |---------|---------|-------------------|
-| `open-sspm serve` | Web UI and API | Yes |
+| `open-sspm api` | Web UI and API | Yes |
 | `open-sspm worker` | Background full sync loop | Yes |
 | `open-sspm worker-discovery` | Background discovery sync loop | Optional |
+| `open-sspm worker-ingest` | Background push ingest queue processing | Optional |
 
 ## Starting the Application
 
@@ -34,7 +35,11 @@ just worker
 just worker-discovery
 ```
 
-The discovery worker is only needed when `SYNC_DISCOVERY_ENABLED=1` and you want discovery data.
+```bash
+just worker-ingest
+```
+
+The discovery worker is only needed when `SYNC_DISCOVERY_ENABLED=1` and you want polling-based discovery data. The ingest worker is needed when you enable push ingest such as Okta Event Hooks or EventBridge.
 
 ### Kubernetes
 
@@ -48,16 +53,17 @@ kubectl get pods -l app.kubernetes.io/name=open-sspm
 Scale a component:
 
 ```bash
-kubectl scale deployment open-sspm-serve --replicas=2
+kubectl scale deployment open-sspm-api --replicas=2
 kubectl scale deployment open-sspm-worker --replicas=1
 kubectl scale deployment open-sspm-worker-discovery --replicas=1
+kubectl scale deployment open-sspm-worker-ingest --replicas=1
 ```
 
 ## Stopping the Application
 
 ### Repo-Local Workflow
 
-- Stop `serve` and worker processes with `Ctrl-C` in each terminal.
+- Stop `api` and worker processes with `Ctrl-C` in each terminal.
 - Stop the local Postgres dependency with:
 
 ```bash
@@ -69,16 +75,17 @@ just dev-down
 Scale Deployments to zero:
 
 ```bash
-kubectl scale deployment open-sspm-serve --replicas=0
+kubectl scale deployment open-sspm-api --replicas=0
 kubectl scale deployment open-sspm-worker --replicas=0
 kubectl scale deployment open-sspm-worker-discovery --replicas=0
+kubectl scale deployment open-sspm-worker-ingest --replicas=0
 ```
 
 ## Viewing Logs
 
 ### Repo-Local Workflow
 
-`just run`, `just worker`, and `just worker-discovery` log directly to their terminal sessions.
+`just run`, `just worker`, `just worker-discovery`, and `just worker-ingest` log directly to their terminal sessions.
 
 For the local Postgres container:
 
@@ -89,9 +96,10 @@ docker compose logs db
 ### Kubernetes
 
 ```bash
-kubectl logs -l app.kubernetes.io/component=serve -f
+kubectl logs -l app.kubernetes.io/component=api -f
 kubectl logs -l app.kubernetes.io/component=worker -f
 kubectl logs -l app.kubernetes.io/component=worker-discovery -f
+kubectl logs -l app.kubernetes.io/component=worker-ingest -f
 ```
 
 ## Manual Sync Operations
@@ -195,13 +203,13 @@ just migrate
 just ui
 ```
 
-Then restart `serve` and the worker processes.
+Then restart `api` and the worker processes.
 
 ### Kubernetes
 
 ```bash
 helm upgrade open-sspm ./helm/open-sspm -f values.yaml
-kubectl rollout status deployment/open-sspm-serve
+kubectl rollout status deployment/open-sspm-api
 ```
 
 ## Troubleshooting
@@ -230,6 +238,14 @@ Check:
 1. `SYNC_DISCOVERY_ENABLED=1`
 2. `just worker-discovery` is running
 3. Discovery is enabled on the relevant IdP connector
+
+### Okta push ingest is not processing
+
+Check:
+
+1. `just worker-ingest` is running.
+2. The Okta Event Hook or EventBridge endpoint reaches the API process.
+3. The connector ingest mode and shared secret match the delivery channel.
 
 ### Database connection errors
 

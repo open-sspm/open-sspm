@@ -70,9 +70,13 @@ lint:
 # Application Commands
 #
 
-# Start the HTTP server
+# Start the API and web UI HTTP server
 run:
-    go run ./cmd/open-sspm serve
+    go run ./cmd/open-sspm api
+
+# Start the API and web UI HTTP server
+api:
+    go run ./cmd/open-sspm api
 
 # Run the background worker
 worker:
@@ -81,6 +85,10 @@ worker:
 # Run the background discovery worker
 worker-discovery:
     go run ./cmd/open-sspm worker-discovery
+
+# Run background ingest queue processors
+worker-ingest:
+    go run ./cmd/open-sspm worker-ingest
 
 # Run a one-off sync
 sync:
