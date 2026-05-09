@@ -17,6 +17,7 @@ type SourceRow struct {
 	SourceAppName    string
 	SourceAppDomain  string
 	SourceVendorName string
+	SourceCategory   string
 	SeenAt           time.Time
 }
 
@@ -28,6 +29,7 @@ type EventRow struct {
 	SourceAppName    string
 	SourceAppDomain  string
 	SourceVendorName string
+	SourceCategory   string
 	ActorExternalID  string
 	ActorEmail       string
 	ActorDisplayName string
@@ -82,6 +84,11 @@ func WriteRows(ctx context.Context, q *gen.Queries, params WriteRowsParams) erro
 			lastSeenByKey[key] = seenAt
 			return
 		}
+		if appMeta[key].Category == "" && sample.Category != "" {
+			meta := appMeta[key]
+			meta.Category = sample.Category
+			appMeta[key] = meta
+		}
 		if seenAt.Before(firstSeenByKey[key]) {
 			firstSeenByKey[key] = seenAt
 		}
@@ -98,6 +105,7 @@ func WriteRows(ctx context.Context, q *gen.Queries, params WriteRowsParams) erro
 			SourceAppName:    source.SourceAppName,
 			SourceDomain:     source.SourceAppDomain,
 			SourceVendorName: source.SourceVendorName,
+			SourceCategory:   source.SourceCategory,
 		})
 		meta.CanonicalKey = source.CanonicalKey
 		addMeta(source.CanonicalKey, source.SeenAt, meta)
@@ -110,6 +118,7 @@ func WriteRows(ctx context.Context, q *gen.Queries, params WriteRowsParams) erro
 			SourceAppName:    event.SourceAppName,
 			SourceDomain:     event.SourceAppDomain,
 			SourceVendorName: event.SourceVendorName,
+			SourceCategory:   event.SourceCategory,
 		})
 		meta.CanonicalKey = event.CanonicalKey
 		addMeta(event.CanonicalKey, event.ObservedAt, meta)
@@ -120,6 +129,7 @@ func WriteRows(ctx context.Context, q *gen.Queries, params WriteRowsParams) erro
 		displayNames := make([]string, 0, len(appMeta))
 		primaryDomains := make([]string, 0, len(appMeta))
 		vendorNames := make([]string, 0, len(appMeta))
+		categories := make([]string, 0, len(appMeta))
 		firstSeenAts := make([]pgtype.Timestamptz, 0, len(appMeta))
 		lastSeenAts := make([]pgtype.Timestamptz, 0, len(appMeta))
 		for key, meta := range appMeta {
@@ -129,6 +139,7 @@ func WriteRows(ctx context.Context, q *gen.Queries, params WriteRowsParams) erro
 			displayNames = append(displayNames, meta.DisplayName)
 			primaryDomains = append(primaryDomains, meta.Domain)
 			vendorNames = append(vendorNames, meta.VendorName)
+			categories = append(categories, meta.Category)
 			firstSeenAts = append(firstSeenAts, pgTimestamptz(firstSeenAt))
 			lastSeenAts = append(lastSeenAts, pgTimestamptz(lastSeenAt))
 		}
@@ -137,6 +148,7 @@ func WriteRows(ctx context.Context, q *gen.Queries, params WriteRowsParams) erro
 			DisplayNames:   displayNames,
 			PrimaryDomains: primaryDomains,
 			VendorNames:    vendorNames,
+			Categories:     categories,
 			FirstSeenAts:   firstSeenAts,
 			LastSeenAts:    lastSeenAts,
 		}); err != nil {

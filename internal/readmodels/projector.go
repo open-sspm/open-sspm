@@ -252,6 +252,7 @@ type saasAppRiskInputRow struct {
 	displayName                   string
 	primaryDomain                 string
 	vendorName                    string
+	category                      string
 	sourceKind                    string
 	sourceName                    string
 	actors30d                     int64
@@ -330,6 +331,7 @@ func refreshAllSaaSAppRiskReadModels(ctx context.Context, q *gen.Queries) error 
 			displayName:                   row.DisplayName,
 			primaryDomain:                 row.PrimaryDomain,
 			vendorName:                    row.VendorName,
+			category:                      row.Category,
 			sourceKind:                    row.SourceKind,
 			sourceName:                    row.SourceName,
 			actors30d:                     row.Actors30d,
@@ -373,6 +375,7 @@ func refreshSaaSAppRiskReadModelsBySource(ctx context.Context, q *gen.Queries, s
 			displayName:                   row.DisplayName,
 			primaryDomain:                 row.PrimaryDomain,
 			vendorName:                    row.VendorName,
+			category:                      row.Category,
 			sourceKind:                    row.SourceKind,
 			sourceName:                    row.SourceName,
 			actors30d:                     row.Actors30d,
@@ -412,6 +415,7 @@ func refreshSaaSAppRiskReadModelByID(ctx context.Context, q *gen.Queries, saasAp
 		displayName:                   row.DisplayName,
 		primaryDomain:                 row.PrimaryDomain,
 		vendorName:                    row.VendorName,
+		category:                      row.Category,
 		sourceKind:                    row.SourceKind,
 		sourceName:                    row.SourceName,
 		actors30d:                     row.Actors30d,
@@ -483,6 +487,7 @@ func saasPolicyInput(row saasAppRiskInputRow) riskpolicy.SaaSInput {
 		DisplayName:                   row.displayName,
 		PrimaryDomain:                 row.primaryDomain,
 		VendorName:                    row.vendorName,
+		Category:                      row.category,
 		SourceKind:                    row.sourceKind,
 		SourceName:                    row.sourceName,
 		Actors30d:                     row.actors30d,

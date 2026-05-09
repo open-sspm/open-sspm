@@ -939,6 +939,7 @@ func upsertReadModelsSaaSApp(t *testing.T, ctx context.Context, pool *pgxpool.Po
 		DisplayNames:   []string{displayName},
 		PrimaryDomains: []string{primaryDomain},
 		VendorNames:    []string{vendorName},
+		Categories:     []string{""},
 		FirstSeenAts:   []pgtype.Timestamptz{observed},
 		LastSeenAts:    []pgtype.Timestamptz{observed},
 	}); err != nil {

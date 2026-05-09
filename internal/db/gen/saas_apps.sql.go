@@ -593,8 +593,9 @@ WITH input AS (
     ($2::text[])[i] AS display_name,
     ($3::text[])[i] AS primary_domain,
     ($4::text[])[i] AS vendor_name,
-    ($5::timestamptz[])[i] AS first_seen_at,
-    ($6::timestamptz[])[i] AS last_seen_at
+    ($5::text[])[i] AS category,
+    ($6::timestamptz[])[i] AS first_seen_at,
+    ($7::timestamptz[])[i] AS last_seen_at
   FROM generate_subscripts($1::text[], 1) AS s(i)
 ),
 dedup AS (
@@ -603,6 +604,7 @@ dedup AS (
     display_name,
     primary_domain,
     vendor_name,
+    category,
     first_seen_at,
     last_seen_at
   FROM input
@@ -613,6 +615,7 @@ INSERT INTO saas_apps (
   display_name,
   primary_domain,
   vendor_name,
+  category,
   first_seen_at,
   last_seen_at,
   updated_at
@@ -622,6 +625,7 @@ SELECT
   d.display_name,
   d.primary_domain,
   d.vendor_name,
+  COALESCE(lower(NULLIF(trim(d.category), '')), ''),
   COALESCE(d.first_seen_at, now()),
   COALESCE(d.last_seen_at, now()),
   now()
@@ -639,6 +643,10 @@ ON CONFLICT (canonical_key) DO UPDATE SET
     WHEN trim(EXCLUDED.vendor_name) <> '' THEN EXCLUDED.vendor_name
     ELSE saas_apps.vendor_name
   END,
+  category = CASE
+    WHEN trim(EXCLUDED.category) <> '' THEN EXCLUDED.category
+    ELSE saas_apps.category
+  END,
   first_seen_at = LEAST(saas_apps.first_seen_at, COALESCE(EXCLUDED.first_seen_at, saas_apps.first_seen_at)),
   last_seen_at = GREATEST(saas_apps.last_seen_at, COALESCE(EXCLUDED.last_seen_at, saas_apps.last_seen_at)),
   updated_at = now()
@@ -649,6 +657,7 @@ type UpsertSaaSAppsBulkParams struct {
 	DisplayNames   []string             `json:"display_names"`
 	PrimaryDomains []string             `json:"primary_domains"`
 	VendorNames    []string             `json:"vendor_names"`
+	Categories     []string             `json:"categories"`
 	FirstSeenAts   []pgtype.Timestamptz `json:"first_seen_ats"`
 	LastSeenAts    []pgtype.Timestamptz `json:"last_seen_ats"`
 }
@@ -659,6 +668,7 @@ func (q *Queries) UpsertSaaSAppsBulk(ctx context.Context, arg UpsertSaaSAppsBulk
 		arg.DisplayNames,
 		arg.PrimaryDomains,
 		arg.VendorNames,
+		arg.Categories,
 		arg.FirstSeenAts,
 		arg.LastSeenAts,
 	)

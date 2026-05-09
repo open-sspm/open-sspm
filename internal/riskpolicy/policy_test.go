@@ -28,10 +28,10 @@ func TestLoadBuiltinPolicies(t *testing.T) {
 		metadataByID[metadata.ID] = metadata
 	}
 	for _, id := range []string{
-		"builtin-credential-risk",
-		"builtin-saas-risk",
-		"builtin-identity-risk",
-		"builtin-saas-app-overrides",
+		"builtin.credential.risk",
+		"builtin.saas.risk",
+		"builtin.identity.risk",
+		"builtin.saas.app_overrides",
 	} {
 		if _, ok := byID[id]; !ok {
 			t.Fatalf("missing built-in policy pack %q", id)
@@ -42,21 +42,53 @@ func TestLoadBuiltinPolicies(t *testing.T) {
 	}
 }
 
+func TestLoadPolicyPacksRejectsDuplicateNormalizedIDs(t *testing.T) {
+	t.Parallel()
+
+	pack := PolicyPack{
+		Metadata: PolicyMetadata{
+			ID:      "duplicate",
+			Version: "1.0.0",
+			Domain:  DomainCredential,
+		},
+		Spec: PolicySpec{
+			Inputs: Inputs{Schema: "credential_risk_input.v1"},
+			Rules: []Rule{{
+				ID:       "always",
+				Severity: "low",
+				When:     "true",
+				Title:    "Always",
+			}},
+		},
+	}
+	duplicate := pack
+	duplicate.Metadata.ID = " duplicate "
+
+	_, err := LoadPolicyPacks([]PolicyPack{pack, duplicate})
+	if err == nil {
+		t.Fatal("LoadPolicyPacks() error = nil, want duplicate ID error")
+	}
+	if !strings.Contains(err.Error(), `duplicate policy pack id "duplicate"`) {
+		t.Fatalf("LoadPolicyPacks() error = %v, want normalized duplicate ID error", err)
+	}
+}
+
 func TestLoadDocumentsRejectsUnknownFields(t *testing.T) {
 	t.Parallel()
 
 	_, err := LoadDocuments(map[string][]byte{
 		"bad.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: bad
-  version: 1.0.0
-  domain: credential
-spec:
-  inputs:
-    schema: credential_risk_input.v1
-  unexpected: true
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: bad
+    version: 1.0.0
+    domain: credential
+  spec:
+    inputs:
+      schema: credential_risk_input.v1
+    unexpected: true
 `),
 	})
 	if err == nil {
@@ -72,20 +104,21 @@ func TestLoadDocumentsRejectsInvalidSeverity(t *testing.T) {
 
 	_, err := LoadDocuments(map[string][]byte{
 		"bad.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: bad
-  version: 1.0.0
-  domain: credential
-spec:
-  inputs:
-    schema: credential_risk_input.v1
-  rules:
-    - id: invalid_severity
-      severity: urgent
-      when: "true"
-      title: Invalid severity
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: bad
+    version: 1.0.0
+    domain: credential
+  spec:
+    inputs:
+      schema: credential_risk_input.v1
+    rules:
+      - id: invalid_severity
+        severity: urgent
+        when: "true"
+        title: Invalid severity
 `),
 	})
 	if err == nil {
@@ -101,20 +134,21 @@ func TestLoadDocumentsRejectsInvalidCEL(t *testing.T) {
 
 	_, err := LoadDocuments(map[string][]byte{
 		"bad.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: bad
-  version: 1.0.0
-  domain: credential
-spec:
-  inputs:
-    schema: credential_risk_input.v1
-  rules:
-    - id: invalid_cel
-      severity: high
-      when: unknown_field == "x"
-      title: Invalid CEL
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: bad
+    version: 1.0.0
+    domain: credential
+  spec:
+    inputs:
+      schema: credential_risk_input.v1
+    rules:
+      - id: invalid_cel
+        severity: high
+        when: unknown_field == "x"
+        title: Invalid CEL
 `),
 	})
 	if err == nil {
@@ -130,23 +164,24 @@ func TestLoadDocumentsRejectsNonBooleanCEL(t *testing.T) {
 
 	_, err := LoadDocuments(map[string][]byte{
 		"bad.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: bad
-  version: 1.0.0
-  domain: saas
-spec:
-  inputs:
-    schema: saas_app_risk_input.v1
-  suggestions:
-    business_criticality:
-      - id: non_bool
-        level: high
-        when: actors_30d
-      - id: default_low
-        level: low
-        when: "true"
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: bad
+    version: 1.0.0
+    domain: saas
+  spec:
+    inputs:
+      schema: saas_app_risk_input.v1
+    suggestions:
+      business_criticality:
+        - id: non_bool
+          level: high
+          when: actors_30d
+        - id: default_low
+          level: low
+          when: "true"
 `),
 	})
 	if err == nil {
@@ -162,20 +197,21 @@ func TestLoadDocumentsRejectsInvalidSuggestionLevels(t *testing.T) {
 
 	_, err := LoadDocuments(map[string][]byte{
 		"bad.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: bad
-  version: 1.0.0
-  domain: saas
-spec:
-  inputs:
-    schema: saas_app_risk_input.v1
-  suggestions:
-    business_criticality:
-      - id: invalid_business_criticality
-        level: severe
-        when: "true"
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: bad
+    version: 1.0.0
+    domain: saas
+  spec:
+    inputs:
+      schema: saas_app_risk_input.v1
+    suggestions:
+      business_criticality:
+        - id: invalid_business_criticality
+          level: severe
+          when: "true"
 `),
 	})
 	if err == nil {
@@ -191,20 +227,21 @@ func TestLoadDocumentsRejectsUnknownSuggestionLevels(t *testing.T) {
 
 	_, err := LoadDocuments(map[string][]byte{
 		"bad.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: bad
-  version: 1.0.0
-  domain: saas
-spec:
-  inputs:
-    schema: saas_app_risk_input.v1
-  suggestions:
-    data_classification:
-      - id: invalid_unknown_data_classification
-        level: unknown
-        when: "true"
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: bad
+    version: 1.0.0
+    domain: saas
+  spec:
+    inputs:
+      schema: saas_app_risk_input.v1
+    suggestions:
+      data_classification:
+        - id: invalid_unknown_data_classification
+          level: unknown
+          when: "true"
 `),
 	})
 	if err == nil {
@@ -220,20 +257,21 @@ func TestLoadDocumentsRejectsSuggestionRulesWithoutFallback(t *testing.T) {
 
 	_, err := LoadDocuments(map[string][]byte{
 		"bad.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: bad
-  version: 1.0.0
-  domain: saas
-spec:
-  inputs:
-    schema: saas_app_risk_input.v1
-  suggestions:
-    business_criticality:
-      - id: high_usage
-        level: high
-        when: actors_30d >= 50
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: bad
+    version: 1.0.0
+    domain: saas
+  spec:
+    inputs:
+      schema: saas_app_risk_input.v1
+    suggestions:
+      business_criticality:
+        - id: high_usage
+          level: high
+          when: actors_30d >= 50
 `),
 	})
 	if err == nil {
@@ -249,20 +287,21 @@ func TestLoadDocumentsRejectsInvalidScopedSuggestionLevels(t *testing.T) {
 
 	_, err := LoadDocuments(map[string][]byte{
 		"bad.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: bad
-  version: 1.0.0
-  domain: saas
-spec:
-  scoped_rules:
-    - id: invalid_scoped_suggestion
-      scope:
-        app:
-          canonical_key: github
-      suggestions:
-        data_classification: restriced
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: bad
+    version: 1.0.0
+    domain: saas
+  spec:
+    scoped_rules:
+      - id: invalid_scoped_suggestion
+        scope:
+          app:
+            canonical_key: github
+        suggestions:
+          data_classification: restriced
 `),
 	})
 	if err == nil {
@@ -278,32 +317,33 @@ func TestLoadDocumentsAllowsScopedRulesToReuseInnerRuleIDs(t *testing.T) {
 
 	_, err := LoadDocuments(map[string][]byte{
 		"ok.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: ok
-  version: 1.0.0
-  domain: saas
-spec:
-  scoped_rules:
-    - id: github_policy
-      scope:
-        app:
-          canonical_key: github
-      rules:
-        - id: missing_owner
-          severity: high
-          when: owner_identity_id == 0
-          title: GitHub app has no accountable owner
-    - id: finance_policy
-      scope:
-        app:
-          category: finance
-      rules:
-        - id: missing_owner
-          severity: high
-          when: owner_identity_id == 0
-          title: Finance app has no accountable owner
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: ok
+    version: 1.0.0
+    domain: saas
+  spec:
+    scoped_rules:
+      - id: github_policy
+        scope:
+          app:
+            canonical_key: github
+        rules:
+          - id: missing_owner
+            severity: high
+            when: owner_identity_id == 0
+            title: GitHub app has no accountable owner
+      - id: finance_policy
+        scope:
+          app:
+            category: finance
+        rules:
+          - id: missing_owner
+            severity: high
+            when: owner_identity_id == 0
+            title: Finance app has no accountable owner
 `),
 	})
 	if err != nil {

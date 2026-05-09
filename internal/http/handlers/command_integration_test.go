@@ -684,6 +684,7 @@ func insertCommandSearchDiscoveryApp(t *testing.T, ctx context.Context, pool *pg
 		DisplayNames:   []string{displayName},
 		PrimaryDomains: []string{primaryDomain},
 		VendorNames:    []string{vendorName},
+		Categories:     []string{""},
 		FirstSeenAts:   []pgtype.Timestamptz{now},
 		LastSeenAts:    []pgtype.Timestamptz{now},
 	}); err != nil {

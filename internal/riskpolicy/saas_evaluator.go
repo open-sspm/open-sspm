@@ -300,7 +300,7 @@ func (r *Registry) matchingSaaSScopedRules(input SaaSInput) []matchedSaaSScopedR
 			continue
 		}
 		for _, scopedRule := range pack.Policy.Spec.ScopedRules {
-			if !scopedRule.Scope.App.matchesSaaSInput(input) {
+			if !appScopeMatchesSaaSInput(scopedRule.Scope.App, input) {
 				continue
 			}
 			matches = append(matches, matchedSaaSScopedRule{
@@ -312,7 +312,7 @@ func (r *Registry) matchingSaaSScopedRules(input SaaSInput) []matchedSaaSScopedR
 	return matches
 }
 
-func (scope AppScope) matchesSaaSInput(input SaaSInput) bool {
+func appScopeMatchesSaaSInput(scope AppScope, input SaaSInput) bool {
 	if scope.CanonicalKey != "" && scope.CanonicalKey != input.CanonicalKey {
 		return false
 	}
@@ -363,28 +363,31 @@ func saasActivation(
 	score int,
 ) map[string]any {
 	activation := map[string]any{
-		"canonical_key":                  input.CanonicalKey,
-		"display_name":                   input.DisplayName,
-		"primary_domain":                 input.PrimaryDomain,
-		"vendor_name":                    input.VendorName,
-		"source_kind":                    input.SourceKind,
-		"source_name":                    input.SourceName,
-		"actors_30d":                     input.Actors30d,
-		"has_privileged_scope":           input.HasPrivilegedScope,
-		"has_confidential_scope":         input.HasConfidentialScope,
-		"managed_state":                  input.ManagedState,
-		"managed_reason":                 input.ManagedReason,
-		"owner_identity_id":              input.OwnerIdentityID,
-		"governance_state":               input.GovernanceState,
-		"review_disposition":             input.ReviewDisposition,
-		"follow_up_due_date":             nullableTime(input.FollowUpDueDate),
-		"effective_business_criticality": effectiveBusinessCriticality,
-		"effective_data_classification":  effectiveDataClassification,
-		"connector_binding_configured":   input.ConnectorBindingConfigured,
-		"connector_binding_enabled":      input.ConnectorBindingEnabled,
-		"connector_binding_stale":        input.ConnectorBindingStale,
-		"connector_binding_healthy":      input.ConnectorBindingHealthy,
-		"score":                          int64(score),
+		"canonical_key":                   input.CanonicalKey,
+		"display_name":                    input.DisplayName,
+		"primary_domain":                  input.PrimaryDomain,
+		"vendor_name":                     input.VendorName,
+		"source_kind":                     input.SourceKind,
+		"source_name":                     input.SourceName,
+		"category":                        input.Category,
+		"actors_30d":                      input.Actors30d,
+		"has_privileged_scope":            input.HasPrivilegedScope,
+		"has_confidential_scope":          input.HasConfidentialScope,
+		"managed_state":                   input.ManagedState,
+		"managed_reason":                  input.ManagedReason,
+		"owner_identity_id":               input.OwnerIdentityID,
+		"governance_state":                input.GovernanceState,
+		"review_disposition":              input.ReviewDisposition,
+		"follow_up_due_date":              nullableTime(input.FollowUpDueDate),
+		"configured_business_criticality": input.ConfiguredBusinessCriticality,
+		"configured_data_classification":  input.ConfiguredDataClassification,
+		"effective_business_criticality":  effectiveBusinessCriticality,
+		"effective_data_classification":   effectiveDataClassification,
+		"connector_binding_configured":    input.ConnectorBindingConfigured,
+		"connector_binding_enabled":       input.ConnectorBindingEnabled,
+		"connector_binding_stale":         input.ConnectorBindingStale,
+		"connector_binding_healthy":       input.ConnectorBindingHealthy,
+		"score":                           int64(score),
 	}
 	for name, values := range constants {
 		activation[name] = cloneSlice(values)

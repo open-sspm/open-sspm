@@ -18,8 +18,8 @@ func TestSettingsPageRendersRiskPolicyPacks(t *testing.T) {
 			Title: "Settings",
 		},
 		RiskPolicyPacks: []viewmodels.RiskPolicyPackSummary{
-			{Domain: "credential", ID: "builtin-credential-risk", Version: "1.0.0"},
-			{Domain: "saas", ID: "builtin-saas-risk", Version: "1.0.0"},
+			{Domain: "credential", ID: "builtin.credential.risk", Version: "1.0.0"},
+			{Domain: "saas", ID: "builtin.saas.risk", Version: "1.0.0"},
 		},
 		RiskPolicyExpressions: 12,
 	}).Render(context.Background(), &body)
@@ -35,8 +35,8 @@ func TestSettingsPageRendersRiskPolicyPacks(t *testing.T) {
 		"Built-in policy packs loaded by this server.",
 		"2 packs",
 		"12 CEL expressions",
-		"builtin-credential-risk",
-		"builtin-saas-risk",
+		"builtin.credential.risk",
+		"builtin.saas.risk",
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("settings page should render %q: %s", want, html)

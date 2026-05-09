@@ -31,7 +31,7 @@ func TestEvaluateIdentityGoldenCases(t *testing.T) {
 			if result.RiskReasonCount != tc.wantReasonCount {
 				t.Fatalf("RiskReasonCount = %d, want %d; signals=%+v", result.RiskReasonCount, tc.wantReasonCount, result.Signals)
 			}
-			if len(result.PolicyPacks) != 1 || result.PolicyPacks[0].ID != "builtin-identity-risk" || result.PolicyPacks[0].Version == "" {
+			if len(result.PolicyPacks) != 1 || result.PolicyPacks[0].ID != "builtin.identity.risk" || result.PolicyPacks[0].Version == "" {
 				t.Fatalf("PolicyPacks = %+v, want builtin identity pack metadata", result.PolicyPacks)
 			}
 
@@ -57,36 +57,38 @@ func TestEvaluateIdentityRejectsDuplicateGlobalPacks(t *testing.T) {
 
 	registry, err := LoadDocuments(map[string][]byte{
 		"a.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: a
-  version: 1.0.0
-  domain: identity
-spec:
-  inputs:
-    schema: identity_risk_input.v1
-  rules:
-    - id: low
-      severity: low
-      when: "true"
-      title: Low risk
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: a
+    version: 1.0.0
+    domain: identity
+  spec:
+    inputs:
+      schema: identity_risk_input.v1
+    rules:
+      - id: low
+        severity: low
+        when: "true"
+        title: Low risk
 `),
 		"b.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: b
-  version: 1.0.0
-  domain: identity
-spec:
-  inputs:
-    schema: identity_risk_input.v1
-  rules:
-    - id: low
-      severity: low
-      when: "true"
-      title: Low risk
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: b
+    version: 1.0.0
+    domain: identity
+  spec:
+    inputs:
+      schema: identity_risk_input.v1
+    rules:
+      - id: low
+        severity: low
+        when: "true"
+        title: Low risk
 `),
 	})
 	if err != nil {

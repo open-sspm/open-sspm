@@ -9,7 +9,59 @@ import (
 	"golang.org/x/net/publicsuffix"
 )
 
-var nonKeyNameChars = regexp.MustCompile(`[^a-z0-9]+`)
+var (
+	nonKeyNameChars      = regexp.MustCompile(`[^a-z0-9]+`)
+	nonCategoryNameChars = regexp.MustCompile(`[^a-z0-9_]+`)
+)
+
+type appCategoryHint struct {
+	category string
+	domains  []string
+	names    []string
+}
+
+var appCategoryHints = []appCategoryHint{
+	{
+		category: "developer_tools",
+		domains:  []string{"github.com", "gitlab.com", "bitbucket.org", "atlassian.com"},
+		names:    []string{"github", "gitlab", "bitbucket", "jira", "confluence", "atlassian"},
+	},
+	{
+		category: "collaboration",
+		domains:  []string{"slack.com", "zoom.us", "notion.so", "miro.com", "figma.com"},
+		names:    []string{"slack", "microsoft teams", "zoom", "notion", "miro", "figma"},
+	},
+	{
+		category: "finance",
+		domains:  []string{"intuit.com", "quickbooks.intuit.com", "bill.com", "stripe.com", "brex.com", "ramp.com"},
+		names:    []string{"quickbooks", "intuit", "bill.com", "stripe", "brex", "ramp"},
+	},
+	{
+		category: "hr",
+		domains:  []string{"workday.com", "bamboohr.com", "gusto.com", "greenhouse.io", "lever.co"},
+		names:    []string{"workday", "bamboohr", "gusto", "greenhouse", "lever"},
+	},
+	{
+		category: "sales",
+		domains:  []string{"salesforce.com", "hubspot.com", "zendesk.com", "intercom.com"},
+		names:    []string{"salesforce", "hubspot", "zendesk", "intercom"},
+	},
+	{
+		category: "identity_security",
+		domains:  []string{"okta.com", "duo.com", "onelogin.com", "1password.com", "lastpass.com"},
+		names:    []string{"okta", "duo", "onelogin", "1password", "lastpass"},
+	},
+	{
+		category: "cloud_infrastructure",
+		domains:  []string{"amazonaws.com", "azure.com"},
+		names:    []string{"aws", "amazon web services", "google cloud", "azure"},
+	},
+	{
+		category: "data_analytics",
+		domains:  []string{"snowflake.com", "looker.com", "tableau.com", "databricks.com"},
+		names:    []string{"snowflake", "looker", "tableau", "databricks"},
+	},
+}
 
 // BuildMetadata returns canonical metadata for discovery rows.
 func BuildMetadata(input CanonicalInput) AppMetadata {
@@ -22,11 +74,17 @@ func BuildMetadata(input CanonicalInput) AppMetadata {
 	if display == "" {
 		display = "Unknown app"
 	}
+	vendorName := inferVendorName(strings.TrimSpace(input.SourceVendorName), domain)
+	category := normalizeAppCategory(input.SourceCategory)
+	if category == "" {
+		category = inferAppCategory(input, domain, vendorName)
+	}
 	return AppMetadata{
 		CanonicalKey: canonical,
 		DisplayName:  display,
 		Domain:       domain,
-		VendorName:   inferVendorName(strings.TrimSpace(input.SourceVendorName), domain),
+		VendorName:   vendorName,
+		Category:     category,
 	}
 }
 
@@ -146,6 +204,69 @@ func inferVendorName(sourceVendorName, domain string) string {
 		return sourceVendorName
 	}
 	return VendorLabelFromDomain(domain)
+}
+
+func inferAppCategory(input CanonicalInput, domain, vendorName string) string {
+	for _, hint := range appCategoryHints {
+		for _, candidate := range hint.domains {
+			candidate = normalizeDomain(candidate)
+			if domain != "" && candidate != "" && domain == candidate {
+				return hint.category
+			}
+		}
+	}
+
+	text := categoryMatchText(input.SourceAppName, input.SourceVendorName, vendorName, input.SourceAppID)
+	if text == "" {
+		return ""
+	}
+	for _, hint := range appCategoryHints {
+		for _, name := range hint.names {
+			if categoryTextContains(text, name) {
+				return hint.category
+			}
+		}
+	}
+	return ""
+}
+
+func normalizeAppCategory(raw string) string {
+	raw = strings.ToLower(strings.TrimSpace(raw))
+	if raw == "" {
+		return ""
+	}
+	raw = strings.ReplaceAll(raw, "-", "_")
+	raw = nonCategoryNameChars.ReplaceAllString(raw, "_")
+	raw = strings.Trim(raw, "_")
+	for strings.Contains(raw, "__") {
+		raw = strings.ReplaceAll(raw, "__", "_")
+	}
+	return raw
+}
+
+func categoryMatchText(parts ...string) string {
+	normalized := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.ToLower(strings.TrimSpace(part))
+		if part == "" {
+			continue
+		}
+		part = strings.ReplaceAll(part, "_", " ")
+		part = nonKeyNameChars.ReplaceAllString(part, " ")
+		part = strings.TrimSpace(part)
+		if part != "" {
+			normalized = append(normalized, part)
+		}
+	}
+	return strings.Join(normalized, " ")
+}
+
+func categoryTextContains(text, name string) bool {
+	name = categoryMatchText(name)
+	if name == "" {
+		return false
+	}
+	return strings.Contains(" "+text+" ", " "+name+" ")
 }
 
 // VendorLabelFromDomain derives a human-readable vendor label from a domain-like

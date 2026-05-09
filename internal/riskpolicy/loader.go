@@ -2,19 +2,15 @@ package riskpolicy
 
 import (
 	"bytes"
-	"embed"
 	"fmt"
 	"io"
-	"io/fs"
 	"sort"
 	"strings"
 	"sync"
 
+	osspecv2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v2"
 	"gopkg.in/yaml.v3"
 )
-
-//go:embed policies/*.yaml
-var builtinPolicyFS embed.FS
 
 var (
 	builtinRegistryOnce sync.Once
@@ -32,19 +28,7 @@ type CompiledPack struct {
 }
 
 func LoadBuiltin() (*Registry, error) {
-	names, err := fs.Glob(builtinPolicyFS, "policies/*.yaml")
-	if err != nil {
-		return nil, err
-	}
-	docs := make(map[string][]byte, len(names))
-	for _, name := range names {
-		data, err := builtinPolicyFS.ReadFile(name)
-		if err != nil {
-			return nil, err
-		}
-		docs[name] = data
-	}
-	return LoadDocuments(docs)
+	return LoadPolicyPacks(specPolicyPacks())
 }
 
 func BuiltinRegistry() (*Registry, error) {
@@ -70,6 +54,28 @@ func LoadDocuments(docs map[string][]byte) (*Registry, error) {
 		if err != nil {
 			return nil, err
 		}
+		if previous := seenPackIDs[pack.Metadata.ID]; previous != "" {
+			return nil, fmt.Errorf("%s: duplicate policy pack id %q also defined in %s", name, pack.Metadata.ID, previous)
+		}
+		seenPackIDs[pack.Metadata.ID] = name
+
+		compiled, err := compilePack(name, pack)
+		if err != nil {
+			return nil, err
+		}
+		registry.packs = append(registry.packs, compiled)
+	}
+	return registry, nil
+}
+
+func LoadPolicyPacks(packs []PolicyPack) (*Registry, error) {
+	registry := &Registry{
+		packs: make([]CompiledPack, 0, len(packs)),
+	}
+	seenPackIDs := make(map[string]string, len(packs))
+	for i, pack := range packs {
+		name := fmt.Sprintf("entity_policy_packs[%d]", i)
+		normalizePolicyPack(&pack)
 		if previous := seenPackIDs[pack.Metadata.ID]; previous != "" {
 			return nil, fmt.Errorf("%s: duplicate policy pack id %q also defined in %s", name, pack.Metadata.ID, previous)
 		}
@@ -125,10 +131,10 @@ func (r *Registry) CompiledExpressionCount() int {
 }
 
 func decodePolicyPack(name string, data []byte) (PolicyPack, error) {
-	var pack PolicyPack
+	var doc osspecv2.EntityPolicyPackDoc
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
-	if err := dec.Decode(&pack); err != nil {
+	if err := dec.Decode(&doc); err != nil {
 		return PolicyPack{}, fmt.Errorf("%s: decode policy: %w", name, err)
 	}
 	var trailing any
@@ -137,8 +143,23 @@ func decodePolicyPack(name string, data []byte) (PolicyPack, error) {
 	} else if err == nil {
 		return PolicyPack{}, fmt.Errorf("%s: multiple YAML documents are not supported", name)
 	}
+	if doc.Kind != Kind {
+		return PolicyPack{}, fmt.Errorf("%s: kind must be %q", name, Kind)
+	}
+	if doc.SchemaVersion != 2 {
+		return PolicyPack{}, fmt.Errorf("%s: schema_version must be 2", name)
+	}
+	pack := doc.EntityPolicyPack
 	normalizePolicyPack(&pack)
 	return pack, nil
+}
+
+func specPolicyPacks() []PolicyPack {
+	out := make([]PolicyPack, 0, len(osspecv2.GeneratedDescriptor.EntityPolicyPacks))
+	for _, compiled := range osspecv2.GeneratedDescriptor.EntityPolicyPacks {
+		out = append(out, compiled.Object.EntityPolicyPack)
+	}
+	return out
 }
 
 func clonePolicyPack(pack PolicyPack) PolicyPack {
@@ -168,8 +189,6 @@ func cloneSlice[T any](values []T) []T {
 }
 
 func normalizePolicyPack(pack *PolicyPack) {
-	pack.APIVersion = strings.TrimSpace(pack.APIVersion)
-	pack.Kind = strings.TrimSpace(pack.Kind)
 	pack.Metadata.ID = strings.TrimSpace(pack.Metadata.ID)
 	pack.Metadata.Version = strings.TrimSpace(pack.Metadata.Version)
 	pack.Metadata.Domain = Domain(strings.ToLower(strings.TrimSpace(string(pack.Metadata.Domain))))

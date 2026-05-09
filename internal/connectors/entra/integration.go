@@ -1525,6 +1525,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 				SourceAppName:    sourceAppName,
 				SourceAppDomain:  metadata.Domain,
 				SourceVendorName: metadata.VendorName,
+				SourceCategory:   metadata.Category,
 				SeenAt:           observedAt,
 			}
 		}
@@ -1547,6 +1548,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			SourceAppName:    sourceAppName,
 			SourceAppDomain:  metadata.Domain,
 			SourceVendorName: metadata.VendorName,
+			SourceCategory:   metadata.Category,
 			ActorExternalID:  stringValue(signIn.GetUserId()),
 			ActorEmail:       normalizeEmail(stringValue(signIn.GetUserPrincipalName())),
 			ActorDisplayName: stringValue(signIn.GetUserDisplayName()),
@@ -1608,6 +1610,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 				SourceAppName:    sourceAppName,
 				SourceAppDomain:  metadata.Domain,
 				SourceVendorName: metadata.VendorName,
+				SourceCategory:   metadata.Category,
 				SeenAt:           observedAt,
 			}
 		}
@@ -1654,6 +1657,7 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 			SourceAppName:    sourceAppName,
 			SourceAppDomain:  metadata.Domain,
 			SourceVendorName: metadata.VendorName,
+			SourceCategory:   metadata.Category,
 			ActorExternalID:  actorExternalID,
 			ActorEmail:       actorEmail,
 			ActorDisplayName: actorDisplayName,

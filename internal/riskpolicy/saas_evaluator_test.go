@@ -121,32 +121,34 @@ func TestEvaluateSaaSRejectsDuplicateGlobalPacks(t *testing.T) {
 
 	registry, err := LoadDocuments(map[string][]byte{
 		"a.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: a
-  version: 1.0.0
-  domain: saas
-spec:
-  inputs:
-    schema: saas_app_risk_input.v1
-  levels:
-    - level: low
-      when: "true"
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: a
+    version: 1.0.0
+    domain: saas
+  spec:
+    inputs:
+      schema: saas_app_risk_input.v1
+    levels:
+      - level: low
+        when: "true"
 `),
 		"b.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: b
-  version: 1.0.0
-  domain: saas
-spec:
-  inputs:
-    schema: saas_app_risk_input.v1
-  levels:
-    - level: low
-      when: "true"
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: b
+    version: 1.0.0
+    domain: saas
+  spec:
+    inputs:
+      schema: saas_app_risk_input.v1
+    levels:
+      - level: low
+        when: "true"
 `),
 	})
 	if err != nil {
@@ -167,48 +169,50 @@ func TestEvaluateSaaSAllowsDifferentScopedSignalsWithSameInnerRuleID(t *testing.
 
 	registry, err := LoadDocuments(map[string][]byte{
 		"global.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: global
-  version: 1.0.0
-  domain: saas
-spec:
-  inputs:
-    schema: saas_app_risk_input.v1
-  levels:
-    - level: low
-      when: "true"
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: global
+    version: 1.0.0
+    domain: saas
+  spec:
+    inputs:
+      schema: saas_app_risk_input.v1
+    levels:
+      - level: low
+        when: "true"
 `),
 		"scoped.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: scoped
-  version: 1.0.0
-  domain: saas
-spec:
-  scoped_rules:
-    - id: github_owner_policy
-      scope:
-        app:
-          canonical_key: github
-      rules:
-        - id: missing_owner
-          severity: high
-          score_delta: 5
-          when: owner_identity_id == 0
-          title: GitHub app has no owner
-    - id: github_security_policy
-      scope:
-        app:
-          canonical_key: github
-      rules:
-        - id: missing_owner
-          severity: medium
-          score_delta: 7
-          when: owner_identity_id == 0
-          title: GitHub security review owner is missing
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: scoped
+    version: 1.0.0
+    domain: saas
+  spec:
+    scoped_rules:
+      - id: github_owner_policy
+        scope:
+          app:
+            canonical_key: github
+        rules:
+          - id: missing_owner
+            severity: high
+            score_delta: 5
+            when: owner_identity_id == 0
+            title: GitHub app has no owner
+      - id: github_security_policy
+        scope:
+          app:
+            canonical_key: github
+        rules:
+          - id: missing_owner
+            severity: medium
+            score_delta: 7
+            when: owner_identity_id == 0
+            title: GitHub security review owner is missing
 `),
 	})
 	if err != nil {
@@ -238,43 +242,96 @@ spec:
 	}
 }
 
+func TestEvaluateSaaSExposesCatalogAndConfiguredFieldsToCEL(t *testing.T) {
+	t.Parallel()
+
+	registry, err := LoadDocuments(map[string][]byte{
+		"global.yaml": []byte(`
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: global
+    version: 1.0.0
+    domain: saas
+  spec:
+    inputs:
+      schema: saas_app_risk_input.v1
+    scoring:
+      max: 100
+      rules:
+        - id: configured_high_finance
+          points: 35
+          when: category == "finance" && configured_business_criticality == "high" && configured_data_classification == "restricted"
+          signal:
+            severity: high
+            title: Finance app has configured high criticality and restricted data
+    levels:
+      - level: high
+        when: score >= 30
+      - level: low
+        when: "true"
+`),
+	})
+	if err != nil {
+		t.Fatalf("LoadDocuments() error = %v", err)
+	}
+
+	result, err := registry.EvaluateSaaS(SaaSInput{
+		Category:                      " FINANCE ",
+		ConfiguredBusinessCriticality: " HIGH ",
+		ConfiguredDataClassification:  " RESTRICTED ",
+	})
+	if err != nil {
+		t.Fatalf("EvaluateSaaS() error = %v", err)
+	}
+	if result.RiskScore != 35 || result.RiskLevel != SeverityHigh {
+		t.Fatalf("result = %+v, want score 35 and high risk", result)
+	}
+	if !sameStringSet(signalIDs(result.Signals), []string{"configured_high_finance"}) {
+		t.Fatalf("signal IDs = %v, want configured_high_finance", signalIDs(result.Signals))
+	}
+}
+
 func TestEvaluateSaaSNormalizesAWSIdentityCenterSourceKindForScopedRules(t *testing.T) {
 	t.Parallel()
 
 	registry, err := LoadDocuments(map[string][]byte{
 		"global.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: global
-  version: 1.0.0
-  domain: saas
-spec:
-  inputs:
-    schema: saas_app_risk_input.v1
-  levels:
-    - level: low
-      when: "true"
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: global
+    version: 1.0.0
+    domain: saas
+  spec:
+    inputs:
+      schema: saas_app_risk_input.v1
+    levels:
+      - level: low
+        when: "true"
 `),
 		"scoped.yaml": []byte(`
-api_version: risk.open-sspm.io/v1
-kind: RiskPolicyPack
-metadata:
-  id: scoped
-  version: 1.0.0
-  domain: saas
-spec:
-  scoped_rules:
-    - id: aws_policy
-      scope:
-        app:
-          source_kind: aws
-      rules:
-        - id: aws_scoped_signal
-          severity: medium
-          score_delta: 11
-          when: "true"
-          title: AWS app matched scoped source policy
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: scoped
+    version: 1.0.0
+    domain: saas
+  spec:
+    scoped_rules:
+      - id: aws_policy
+        scope:
+          app:
+            source_kind: aws
+        rules:
+          - id: aws_scoped_signal
+            severity: medium
+            score_delta: 11
+            when: "true"
+            title: AWS app matched scoped source policy
 `),
 	})
 	if err != nil {
