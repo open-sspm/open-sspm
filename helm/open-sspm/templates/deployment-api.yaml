@@ -1,26 +1,55 @@
+{{- $api := .Values.api | default dict -}}
+{{- $serve := .Values.serve | default dict -}}
+{{- $replicaCount := 1 -}}
+{{- $podAnnotations := dict -}}
+{{- $podLabels := dict -}}
+{{- $extraEnv := list -}}
+{{- $extraEnvFrom := list -}}
+{{- $resources := dict -}}
+{{- $nodeSelector := dict -}}
+{{- $tolerations := list -}}
+{{- $affinity := dict -}}
+{{- if hasKey $serve "replicaCount" }}{{- $replicaCount = $serve.replicaCount }}{{- end -}}
+{{- if hasKey $serve "podAnnotations" }}{{- $podAnnotations = $serve.podAnnotations }}{{- end -}}
+{{- if hasKey $serve "podLabels" }}{{- $podLabels = $serve.podLabels }}{{- end -}}
+{{- if hasKey $serve "extraEnv" }}{{- $extraEnv = $serve.extraEnv }}{{- end -}}
+{{- if hasKey $serve "extraEnvFrom" }}{{- $extraEnvFrom = $serve.extraEnvFrom }}{{- end -}}
+{{- if hasKey $serve "resources" }}{{- $resources = $serve.resources }}{{- end -}}
+{{- if hasKey $serve "nodeSelector" }}{{- $nodeSelector = $serve.nodeSelector }}{{- end -}}
+{{- if hasKey $serve "tolerations" }}{{- $tolerations = $serve.tolerations }}{{- end -}}
+{{- if hasKey $serve "affinity" }}{{- $affinity = $serve.affinity }}{{- end -}}
+{{- if hasKey $api "replicaCount" }}{{- $replicaCount = $api.replicaCount }}{{- end -}}
+{{- if hasKey $api "podAnnotations" }}{{- $podAnnotations = $api.podAnnotations }}{{- end -}}
+{{- if hasKey $api "podLabels" }}{{- $podLabels = $api.podLabels }}{{- end -}}
+{{- if hasKey $api "extraEnv" }}{{- $extraEnv = $api.extraEnv }}{{- end -}}
+{{- if hasKey $api "extraEnvFrom" }}{{- $extraEnvFrom = $api.extraEnvFrom }}{{- end -}}
+{{- if hasKey $api "resources" }}{{- $resources = $api.resources }}{{- end -}}
+{{- if hasKey $api "nodeSelector" }}{{- $nodeSelector = $api.nodeSelector }}{{- end -}}
+{{- if hasKey $api "tolerations" }}{{- $tolerations = $api.tolerations }}{{- end -}}
+{{- if hasKey $api "affinity" }}{{- $affinity = $api.affinity }}{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ printf "%s-serve" (include "open-sspm.fullname" .) | trunc 63 | trimSuffix "-" }}
+  name: {{ printf "%s-api" (include "open-sspm.fullname" .) | trunc 63 | trimSuffix "-" }}
   labels:
     {{- include "open-sspm.labels" . | nindent 4 }}
-    app.kubernetes.io/component: serve
+    app.kubernetes.io/component: api
 spec:
-  replicas: {{ .Values.serve.replicaCount }}
+  replicas: {{ $replicaCount }}
   selector:
     matchLabels:
       {{- include "open-sspm.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: serve
+      app.kubernetes.io/component: api
   template:
     metadata:
-      {{- with .Values.serve.podAnnotations }}
+      {{- with $podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
         {{- include "open-sspm.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: serve
-        {{- with .Values.serve.podLabels }}
+        app.kubernetes.io/component: api
+        {{- with $podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
@@ -38,7 +67,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
-            - serve
+            - api
           ports:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
@@ -98,10 +127,10 @@ spec:
             - name: SYNC_DATADOG_WORKERS
               value: {{ .Values.config.syncDatadogWorkers | quote }}
             {{- include "open-sspm.smtpEnv" . | nindent 12 }}
-            {{- with .Values.serve.extraEnv }}
+            {{- with $extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- with .Values.serve.extraEnvFrom }}
+          {{- with $extraEnvFrom }}
           envFrom:
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -109,19 +138,19 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.serve.resources }}
+          {{- with $resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .Values.serve.nodeSelector }}
+      {{- with $nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.serve.tolerations }}
+      {{- with $tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.serve.affinity }}
+      {{- with $affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}

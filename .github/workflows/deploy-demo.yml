@@ -137,6 +137,7 @@ jobs:
           systemctl stop open-sspm || true
           systemctl stop open-sspm-worker || true
           systemctl stop open-sspm-discovery-worker || true
+          systemctl stop open-sspm-ingest-worker || true
 
           if [ -z "${DATABASE_URL:-}" ]; then
             echo "DATABASE_URL is not set (expected in /etc/open-sspm.env)" >&2
@@ -172,6 +173,7 @@ jobs:
 
           systemctl disable open-sspm-worker || true
           systemctl disable open-sspm-discovery-worker || true
+          systemctl disable open-sspm-ingest-worker || true
           systemctl enable open-sspm
           systemctl restart open-sspm
           systemctl status open-sspm --no-pager -l || true

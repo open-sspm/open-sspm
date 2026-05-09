@@ -124,7 +124,7 @@ SYNC_OKTA_INTERVAL=15m
 SYNC_OKTA_WORKERS=3
 ```
 
-Push processing runs in the `serve` process and does not require a separate API service. The inbox processor polls queued rows every five seconds, reclaims stuck `processing` rows after five minutes, retries transient failures with exponential backoff (up to 10 attempts), then deletes processed and ignored rows after 30 days and dead-letter rows after 90 days.
+Push delivery is received by the `api` process and queued in Postgres. Push processing runs in the `worker-ingest` process. The inbox processor polls queued rows every five seconds, reclaims stuck `processing` rows after five minutes, retries transient failures with exponential backoff (up to 10 attempts), then deletes processed and ignored rows after 30 days and dead-letter rows after 90 days.
 
 After enabling a push channel, run an Okta discovery sync from **Settings → Connector Health**. That backfills recent history through the System Log API and keeps the source from looking healthy on push delivery alone.
 
@@ -141,7 +141,7 @@ After enabling a push channel, run an Okta discovery sync from **Settings → Co
 
 ### Event Hook Verification Fails
 
-- Confirm the public HTTPS endpoint reaches the Open-SSPM `serve` process.
+- Confirm the public HTTPS endpoint reaches the Open-SSPM `api` process.
 - Confirm the Event Hook receiver is enabled.
 - If Okta sends an `Authorization` header during verification, confirm it matches the configured Event Hook secret.
 
@@ -150,6 +150,7 @@ After enabling a push channel, run an Okta discovery sync from **Settings → Co
 - Check the connector configuration card for push ingest status, queue depth, and dead-letter count.
 - Confirm the request path is `/ingest/okta/events` for Event Hooks or `/ingest/okta/eventbridge` for EventBridge.
 - Confirm the `Authorization` header exactly matches the configured secret.
+- Make sure `open-sspm worker-ingest` is running.
 - For EventBridge, confirm the envelope has `detail-type: "SystemLog"` and an Okta partner `source`.
 
 ### Discovery Data Missing

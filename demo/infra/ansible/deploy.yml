@@ -58,6 +58,7 @@
         - open-sspm
         - open-sspm-worker
         - open-sspm-discovery-worker
+        - open-sspm-ingest-worker
       failed_when: false
 
     - name: Reset static assets directory

@@ -13,4 +13,4 @@ spec:
       targetPort: {{ .Values.service.targetPort }}
   selector:
     {{- include "open-sspm.selectorLabels" . | nindent 4 }}
-    app.kubernetes.io/component: serve
+    app.kubernetes.io/component: api

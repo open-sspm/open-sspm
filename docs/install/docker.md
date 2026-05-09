@@ -77,7 +77,11 @@ just worker
 just worker-discovery
 ```
 
-The discovery worker is optional, but it must be running if you want SaaS discovery syncs and `SYNC_DISCOVERY_ENABLED=1`.
+```bash
+just worker-ingest
+```
+
+The discovery worker is optional, but it must be running if you want polling-based SaaS discovery syncs and `SYNC_DISCOVERY_ENABLED=1`. The ingest worker is optional unless you enable push ingest such as Okta Event Hooks or EventBridge.
 
 ### 8. Access the Web UI
 
@@ -89,7 +93,7 @@ The repository compose file currently defines:
 
 - `db` - PostgreSQL with a persisted local data volume
 
-That is why repo-local commands use `just run`, `just worker`, and `just worker-discovery` instead of `docker compose exec web ...`.
+That is why repo-local commands use `just run`, `just worker`, `just worker-discovery`, and `just worker-ingest` instead of `docker compose exec web ...`.
 
 ## Optional: Fully Containerized Compose Example
 
@@ -107,9 +111,9 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
 
-  serve:
+  api:
     image: ghcr.io/open-sspm/open-sspm:latest
-    command: ["serve"]
+    command: ["api"]
     depends_on:
       - db
     environment:
@@ -137,6 +141,15 @@ services:
       DATABASE_URL: postgres://postgres:postgres@db:5432/opensspm?sslmode=disable
       CONNECTOR_SECRET_KEY: ${CONNECTOR_SECRET_KEY}
 
+  worker-ingest:
+    image: ghcr.io/open-sspm/open-sspm:latest
+    command: ["worker-ingest"]
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/opensspm?sslmode=disable
+      CONNECTOR_SECRET_KEY: ${CONNECTOR_SECRET_KEY}
+
 volumes:
   db-data:
 ```
@@ -144,8 +157,8 @@ volumes:
 For that sample file:
 
 ```bash
-docker compose run --rm serve migrate
-printf '%s\n' 'change-me-now' | docker compose run --rm -T serve users bootstrap-admin \
+docker compose run --rm api migrate
+printf '%s\n' 'change-me-now' | docker compose run --rm -T api users bootstrap-admin \
   --email admin@example.com \
   --password-stdin
 docker compose up -d
@@ -182,4 +195,10 @@ For discovery syncs, also run:
 
 ```bash
 just worker-discovery
+```
+
+For Okta push ingest, also run:
+
+```bash
+just worker-ingest
 ```

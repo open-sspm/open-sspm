@@ -9,9 +9,11 @@ import (
 )
 
 var structuredLoggingCommandNames = map[string]struct{}{
+	"api":                    {},
 	"serve":                  {},
 	"worker":                 {},
 	"worker-discovery":       {},
+	"worker-ingest":          {},
 	"sync":                   {},
 	"sync-discovery":         {},
 	"migrate":                {},
@@ -99,9 +101,11 @@ func setCommandExecutionContext(ctx commandExecutionContext) {
 
 func init() {
 	rootCmd.AddCommand(
+		apiCmd,
 		serveCmd,
 		workerCmd,
 		workerDiscoveryCmd,
+		workerIngestCmd,
 		syncCmd,
 		syncDiscoveryCmd,
 		migrateCmd,

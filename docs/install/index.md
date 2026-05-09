@@ -82,7 +82,7 @@ After installation:
 
 1. Run migrations.
 2. Create the first admin user.
-3. Start `serve` and the background worker processes.
+3. Start `api` and the background worker processes.
 4. Configure connectors in the web UI.
 5. Run an initial sync.
 
