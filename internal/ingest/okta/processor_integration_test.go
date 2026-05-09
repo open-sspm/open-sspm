@@ -2,6 +2,7 @@ package oktaingest
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -121,6 +122,59 @@ func TestProcessQueuedQueuesOktaFullSyncForStateRefreshOnlyEvents(t *testing.T) 
 		}
 		if discoveryEvents != 0 {
 			t.Fatalf("discovery events = %d, want 0", discoveryEvents)
+		}
+
+		assertQueuedOktaFullSync(t, ctx, pool, "acme.okta.com")
+	})
+}
+
+func TestProcessQueuedRecordsStateRefreshStatsForMixedBatch(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-sso-1", `{
+			"uuid": "evt-sso-1",
+			"eventType": "user.authentication.sso",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"},
+			"target": [{"id": "0oa1", "type": "AppInstance", "alternateId": "https://app.example.com", "displayName": "Example App"}]
+		}`)
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-user-refresh", `{
+			"uuid": "evt-user-refresh",
+			"eventType": "user.lifecycle.deactivate",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"}
+		}`)
+
+		result, err := ProcessQueued(ctx, q, pool, 100)
+		if err != nil {
+			t.Fatalf("ProcessQueued(): %v", err)
+		}
+		if result.Processed != 2 {
+			t.Fatalf("processed = %d, want 2", result.Processed)
+		}
+
+		var rawStats []byte
+		if err := pool.QueryRow(ctx, `
+			SELECT stats
+			FROM sync_runs
+			WHERE source_kind = 'okta_push'
+			  AND source_name = 'acme.okta.com'
+			  AND status = 'success'
+			ORDER BY id DESC
+			LIMIT 1
+		`).Scan(&rawStats); err != nil {
+			t.Fatalf("select okta_push stats: %v", err)
+		}
+		var stats struct {
+			Counts map[string]int64 `json:"counts"`
+		}
+		if err := json.Unmarshal(rawStats, &stats); err != nil {
+			t.Fatalf("unmarshal okta_push stats: %v", err)
+		}
+		if stats.Counts["state_refresh_user"] != 1 || stats.Counts["state_refresh_events"] != 1 {
+			t.Fatalf("state refresh counts = %+v, want user=1 events=1", stats.Counts)
+		}
+		if stats.Counts["saas_app_events_observed"] != 1 {
+			t.Fatalf("saas_app_events_observed = %d, want 1", stats.Counts["saas_app_events_observed"])
 		}
 
 		assertQueuedOktaFullSync(t, ctx, pool, "acme.okta.com")

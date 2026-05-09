@@ -278,21 +278,28 @@ func startOktaPushSyncRun(ctx context.Context, q *gen.Queries, sourceName string
 }
 
 func finalizeOktaPushRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceName string, duration time.Duration, hasDiscoveryRows bool, refreshCounts map[string]int64) error {
+	counts := oktaStateRefreshRunCounts(refreshCounts)
 	if hasDiscoveryRows {
-		return registry.FinalizeDiscoveryRun(ctx, q, pool, runID, "okta", sourceName, duration)
+		return registry.FinalizeDiscoveryRunWithCounts(ctx, q, pool, runID, "okta", sourceName, duration, counts)
 	}
+	stats := registry.MarshalJSON(map[string]any{
+		"counts":      counts,
+		"duration_ms": duration.Milliseconds(),
+	})
+	return q.MarkSyncRunSuccess(ctx, gen.MarkSyncRunSuccessParams{ID: runID, Stats: stats})
+}
+
+func oktaStateRefreshRunCounts(refreshCounts map[string]int64) map[string]int64 {
 	counts := map[string]int64{}
 	var total int64
 	for kind, count := range refreshCounts {
 		counts["state_refresh_"+kind] = count
 		total += count
 	}
-	counts["state_refresh_events"] = total
-	stats := registry.MarshalJSON(map[string]any{
-		"counts":      counts,
-		"duration_ms": duration.Milliseconds(),
-	})
-	return q.MarkSyncRunSuccess(ctx, gen.MarkSyncRunSuccessParams{ID: runID, Stats: stats})
+	if total > 0 {
+		counts["state_refresh_events"] = total
+	}
+	return counts
 }
 
 func enqueueOktaFullSync(ctx context.Context, pool *pgxpool.Pool, sourceName string) error {

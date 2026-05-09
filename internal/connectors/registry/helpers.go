@@ -440,6 +440,10 @@ func FinalizeAppRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, run
 }
 
 func FinalizeDiscoveryRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceKind, sourceName string, duration time.Duration) error {
+	return FinalizeDiscoveryRunWithCounts(ctx, q, pool, runID, sourceKind, sourceName, duration, nil)
+}
+
+func FinalizeDiscoveryRunWithCounts(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceKind, sourceName string, duration time.Duration, extraCounts map[string]int64) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -488,6 +492,10 @@ func FinalizeDiscoveryRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Poo
 		return err
 	}
 	counts["saas_app_events_expired"] = expired
+
+	for key, count := range extraCounts {
+		counts[key] += count
+	}
 
 	if err := finalizeRunCountsInTx(ctx, qtx, runID, counts, duration, sourceKind, sourceName); err != nil {
 		return err
