@@ -144,7 +144,7 @@ func runAPIWithOptions(opts apiRunOptions) error {
 	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr, discoveryMetricsRefresh(queries))
 	if opts.StartIngestWorker && cfg.SyncDiscoveryEnabled {
 		go func() {
-			if err := oktaingest.RunLoop(ctx, queries, runtimeDeps.pool, oktaingest.DefaultConfig()); err != nil {
+			if err := oktaingest.RunLoop(ctx, queries, runtimeDeps.pool, oktaingest.DefaultConfig()); err != nil && !errors.Is(err, context.Canceled) {
 				errCh <- err
 			}
 		}()
