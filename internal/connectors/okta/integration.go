@@ -889,13 +889,8 @@ func DiscoverySignalKind(event SystemLogEvent) (string, bool) {
 	if !hasApp {
 		return "", false
 	}
-	if strings.HasPrefix(eventType, "application.user_membership.") {
-		switch eventType {
-		case "application.user_membership.add", "application.user_membership.remove", "application.user_membership.update":
-			return discovery.SignalKindAssignment, true
-		default:
-			return "", false
-		}
+	if isApplicationMembershipEvent(eventType) {
+		return discovery.SignalKindAssignment, true
 	}
 	switch eventType {
 	case "user.authentication.sso", "app.oauth2.signon":
@@ -907,6 +902,50 @@ func DiscoverySignalKind(event SystemLogEvent) (string, bool) {
 		return discovery.SignalKindOAuth, true
 	}
 	return "", false
+}
+
+func StateRefreshSignalKind(event SystemLogEvent) (string, bool) {
+	eventType := strings.ToLower(strings.TrimSpace(event.EventType))
+	switch {
+	case isApplicationMembershipEvent(eventType):
+		return "app_assignment", true
+	case isGroupMembershipEvent(eventType):
+		return "group_membership", true
+	case strings.HasPrefix(eventType, "user.lifecycle.") || strings.HasPrefix(eventType, "user.account."):
+		return "user", true
+	case strings.HasPrefix(eventType, "group.lifecycle."):
+		return "group", true
+	case strings.HasPrefix(eventType, "application.lifecycle.") || strings.HasPrefix(eventType, "app.lifecycle."):
+		return "app", true
+	default:
+		return "", false
+	}
+}
+
+func ShouldIngestPushEvent(event SystemLogEvent) bool {
+	if _, ok := DiscoverySignalKind(event); ok {
+		return true
+	}
+	_, ok := StateRefreshSignalKind(event)
+	return ok
+}
+
+func isApplicationMembershipEvent(eventType string) bool {
+	switch strings.ToLower(strings.TrimSpace(eventType)) {
+	case "application.user_membership.add", "application.user_membership.remove", "application.user_membership.update":
+		return true
+	default:
+		return false
+	}
+}
+
+func isGroupMembershipEvent(eventType string) bool {
+	switch strings.ToLower(strings.TrimSpace(eventType)) {
+	case "group.user_membership.add", "group.user_membership.remove", "group.user_membership.update":
+		return true
+	default:
+		return false
+	}
 }
 
 func (i *OktaIntegration) writeDiscoveryRows(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, sources []discovery.SourceRow, events []discovery.EventRow) error {

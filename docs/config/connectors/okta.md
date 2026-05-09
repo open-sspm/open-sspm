@@ -9,19 +9,20 @@ The Okta connector syncs users, groups, applications, and assignments from your 
 - Applications
 - App assignments
 - Discovery evidence from SSO, OAuth consent, and app-assignment events
+- State refresh triggers from user, group, application, and membership change events
 
 ## Ingest Modes
 
-Open-SSPM supports polling and push for Okta discovery. Polling remains the completeness and backfill path because Okta push delivery is at-least-once and Log Streaming has no replay.
+Open-SSPM supports polling and push for Okta discovery and state freshness. Polling remains the completeness and backfill path because Okta push delivery is at-least-once and Log Streaming has no replay.
 
 | Mode | Requires | Best for | Notes |
 |------|----------|----------|-------|
 | Polling | Okta API token | Any deployment | Pulls the System Log API on a schedule. |
-| Event Hook | Public HTTPS `/ingest/okta/events` endpoint and shared secret | Non-AWS deployments that can expose inbound HTTPS | Queues only discovery-relevant eligible events. |
+| Event Hook | Public HTTPS `/ingest/okta/events` endpoint and shared secret | Non-AWS deployments that can expose inbound HTTPS | Queues discovery evidence and selected state-change signals. |
 | EventBridge | AWS EventBridge relay to `/ingest/okta/eventbridge` and shared secret | AWS customers who want full System Log push | Carries full System Log events, including `app.oauth2.signon`. |
 | Hybrid | API token plus one push channel | Recommended production setup | Push improves latency; polling covers history and gaps. |
 
-Open-SSPM does not store Okta push data as a long-term log archive. Push payloads are kept in a short-retention Postgres inbox for processing and dead-letter triage; non-discovery events are dropped before storage. Use a SIEM or object storage if you need full raw log retention.
+Open-SSPM does not store Okta push data as a long-term log archive. Push payloads are kept in a short-retention Postgres inbox for processing and dead-letter triage; events that are neither discovery evidence nor state-refresh signals are dropped before storage. Use a SIEM or object storage if you need full raw log retention.
 
 ## Prerequisites
 
@@ -70,7 +71,7 @@ Use the same secret value in Okta and in **Event Hook secret**. Open-SSPM compar
 
 Treat the Event Hook secret as a bearer credential: anyone who learns it can submit events until the secret is rotated. Open-SSPM does not verify a separate vendor HMAC signature for Event Hooks, so expose the endpoint only over HTTPS and consider a reverse proxy, WAF rule, or IP allowlist when your deployment model supports it. Replayed delivery IDs are deduplicated by Okta event ID, but replay protection does not stop fabricated events from a caller with the secret.
 
-Open-SSPM accepts and stores these discovery-relevant Event Hook events:
+Open-SSPM accepts and stores these discovery-relevant Event Hook events and selected state-change signals:
 
 - `user.authentication.sso`
 - `app.oauth2.as.consent.grant`
@@ -84,6 +85,10 @@ Open-SSPM accepts and stores these discovery-relevant Event Hook events:
 - `application.user_membership.add`
 - `application.user_membership.remove`
 - `application.user_membership.update`
+- `group.user_membership.add`, `group.user_membership.remove`, and `group.user_membership.update`
+- `user.lifecycle.*` and `user.account.*`
+- `group.lifecycle.*`
+- `application.lifecycle.*` and `app.lifecycle.*`
 
 Other valid Okta System Log events are acknowledged and dropped before storage.
 Event Hooks do not deliver every Okta System Log event; for example, `app.oauth2.signon` is handled by the poller or EventBridge.
@@ -124,7 +129,7 @@ SYNC_OKTA_INTERVAL=15m
 SYNC_OKTA_WORKERS=3
 ```
 
-Push delivery is received by the `api` process and queued in Postgres. Push processing runs in the `worker-ingest` process. The inbox processor polls queued rows every five seconds, reclaims stuck `processing` rows after five minutes, retries transient failures with exponential backoff (up to 10 attempts), then deletes processed and ignored rows after 30 days and dead-letter rows after 90 days.
+Push delivery is received by the `api` process and queued in Postgres. Push processing runs in the `worker-ingest` process. The inbox processor polls queued rows every five seconds, writes discovery evidence when present, and queues a scoped Okta full sync for user, group, application, or membership change events. It reclaims stuck `processing` rows after five minutes, retries transient failures with exponential backoff (up to 10 attempts), then deletes processed and ignored rows after 30 days and dead-letter rows after 90 days.
 
 After enabling a push channel, run an Okta discovery sync from **Settings → Connector Health**. That backfills recent history through the System Log API and keeps the source from looking healthy on push delivery alone.
 
