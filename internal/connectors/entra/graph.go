@@ -562,10 +562,14 @@ func normalizeDeltaError(err error) error {
 }
 
 func graphErrorCode(err odataerrors.ODataErrorable) string {
-	if err == nil || err.GetErrorEscaped() == nil || err.GetErrorEscaped().GetCode() == nil {
+	if err == nil {
 		return ""
 	}
-	return *err.GetErrorEscaped().GetCode()
+	main := err.GetErrorEscaped()
+	if main == nil {
+		return ""
+	}
+	return stringValue(main.GetCode())
 }
 
 func isDeltaCursorExpiredCode(code string) bool {

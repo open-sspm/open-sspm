@@ -234,48 +234,47 @@ func TestDeltaUsersResumeUsesStoredDeltaLink(t *testing.T) {
 func TestDeltaUsersExpiredCursor(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assertTestBearer(t, r)
-
-		switch {
-		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/users/delta"):
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusGone)
-			_, _ = w.Write([]byte(`{"error":{"code":"SyncStateNotFound","message":"syncState not found"}}`))
-			return
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer srv.Close()
-
-	_, err := newGraphTestClient(t, srv).DeltaUsers(context.Background(), srv.URL+"/graph/v1.0/users/delta?$deltatoken=stale")
-	if !errors.Is(err, ErrDeltaCursorExpired) {
-		t.Fatalf("DeltaUsers() error = %v, want ErrDeltaCursorExpired", err)
+	tests := []struct {
+		name   string
+		status int
+		body   string
+	}{
+		{
+			name:   "gone status",
+			status: http.StatusGone,
+			body:   `{"error":{"code":"SyncStateNotFound","message":"syncState not found"}}`,
+		},
+		{
+			name:   "odata error code",
+			status: http.StatusBadRequest,
+			body:   `{"error":{"code":"syncStateNotFound","message":"delta token expired"}}`,
+		},
 	}
-}
 
-func TestDeltaUsersExpiredCursorFromODataErrorCode(t *testing.T) {
-	t.Parallel()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assertTestBearer(t, r)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assertTestBearer(t, r)
 
-		switch {
-		case strings.HasPrefix(r.URL.Path, "/graph/v1.0/users/delta"):
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte(`{"error":{"code":"syncStateNotFound","message":"delta token expired"}}`))
-			return
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer srv.Close()
+				switch {
+				case strings.HasPrefix(r.URL.Path, "/graph/v1.0/users/delta"):
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(tt.status)
+					_, _ = w.Write([]byte(tt.body))
+					return
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer srv.Close()
 
-	_, err := newGraphTestClient(t, srv).DeltaUsers(context.Background(), srv.URL+"/graph/v1.0/users/delta?$deltatoken=stale")
-	if !errors.Is(err, ErrDeltaCursorExpired) {
-		t.Fatalf("DeltaUsers() error = %v, want ErrDeltaCursorExpired", err)
+			_, err := newGraphTestClient(t, srv).DeltaUsers(context.Background(), srv.URL+"/graph/v1.0/users/delta?$deltatoken=stale")
+			if !errors.Is(err, ErrDeltaCursorExpired) {
+				t.Fatalf("DeltaUsers() error = %v, want ErrDeltaCursorExpired", err)
+			}
+		})
 	}
 }
 

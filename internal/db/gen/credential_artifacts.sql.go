@@ -914,23 +914,27 @@ func (q *Queries) PromoteCredentialArtifactsSeenInRunBySource(ctx context.Contex
 }
 
 const refreshCredentialArtifactLifecycleStatusesBySource = `-- name: RefreshCredentialArtifactLifecycleStatusesBySource :execrows
-UPDATE credential_artifacts
+WITH next_status AS (
+  SELECT
+    id,
+    CASE
+      WHEN expires_at_source IS NOT NULL AND expires_at_source < now() THEN 'expired'
+      WHEN created_at_source IS NOT NULL AND created_at_source > now() THEN 'inactive'
+      ELSE 'active'
+    END AS status
+  FROM credential_artifacts
+  WHERE source_kind = $1::text
+    AND source_name = $2::text
+    AND expired_at IS NULL
+    AND last_observed_run_id IS NOT NULL
+)
+UPDATE credential_artifacts AS ca
 SET
-  status = CASE
-    WHEN expires_at_source IS NOT NULL AND expires_at_source < now() THEN 'expired'
-    WHEN created_at_source IS NOT NULL AND created_at_source > now() THEN 'inactive'
-    ELSE 'active'
-  END,
+  status = next_status.status,
   updated_at = now()
-WHERE source_kind = $1::text
-  AND source_name = $2::text
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-  AND status IS DISTINCT FROM CASE
-    WHEN expires_at_source IS NOT NULL AND expires_at_source < now() THEN 'expired'
-    WHEN created_at_source IS NOT NULL AND created_at_source > now() THEN 'inactive'
-    ELSE 'active'
-  END
+FROM next_status
+WHERE ca.id = next_status.id
+  AND ca.status IS DISTINCT FROM next_status.status
 `
 
 type RefreshCredentialArtifactLifecycleStatusesBySourceParams struct {

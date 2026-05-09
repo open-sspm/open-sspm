@@ -331,33 +331,32 @@ func (i *EntraIntegration) loadCurrentAppAssetsForReconcile(ctx context.Context,
 		return nil, nil, fmt.Errorf("list entra service principals for reconcile: %w", err)
 	}
 
-	deletedAppSet := stringSet(deletedApplications)
-	applications := make([]Application, 0, len(appRows))
-	for _, row := range appRows {
-		if _, deleted := deletedAppSet[row.ExternalID]; deleted {
-			continue
-		}
-		app, err := deserializeGraphModel[Application](row.RawJson, msgraphmodels.CreateApplicationFromDiscriminatorValue)
-		if err != nil {
-			return nil, nil, fmt.Errorf("decode entra application %s: %w", row.ExternalID, err)
-		}
-		applications = append(applications, app)
+	applications, err := decodeGraphAssetRows[Application](appRows, deletedApplications, msgraphmodels.CreateApplicationFromDiscriminatorValue, "application")
+	if err != nil {
+		return nil, nil, err
 	}
-
-	deletedSPSet := stringSet(deletedServicePrincipals)
-	servicePrincipals := make([]ServicePrincipal, 0, len(spRows))
-	for _, row := range spRows {
-		if _, deleted := deletedSPSet[row.ExternalID]; deleted {
-			continue
-		}
-		sp, err := deserializeGraphModel[ServicePrincipal](row.RawJson, msgraphmodels.CreateServicePrincipalFromDiscriminatorValue)
-		if err != nil {
-			return nil, nil, fmt.Errorf("decode entra service principal %s: %w", row.ExternalID, err)
-		}
-		servicePrincipals = append(servicePrincipals, sp)
+	servicePrincipals, err := decodeGraphAssetRows[ServicePrincipal](spRows, deletedServicePrincipals, msgraphmodels.CreateServicePrincipalFromDiscriminatorValue, "service principal")
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return applications, servicePrincipals, nil
+}
+
+func decodeGraphAssetRows[T any](rows []gen.AppAsset, deletedExternalIDs []string, factory absser.ParsableFactory, modelName string) ([]T, error) {
+	deleted := stringSet(deletedExternalIDs)
+	models := make([]T, 0, len(rows))
+	for _, row := range rows {
+		if _, ok := deleted[row.ExternalID]; ok {
+			continue
+		}
+		model, err := deserializeGraphModel[T](row.RawJson, factory)
+		if err != nil {
+			return nil, fmt.Errorf("decode entra %s %s: %w", modelName, row.ExternalID, err)
+		}
+		models = append(models, model)
+	}
+	return models, nil
 }
 
 func deserializeGraphModel[T any](raw []byte, factory absser.ParsableFactory) (T, error) {
