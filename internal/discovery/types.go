@@ -21,6 +21,7 @@ type CanonicalInput struct {
 	SourceAppName    string
 	SourceDomain     string
 	SourceVendorName string
+	SourceCategory   string
 	EntraAppID       string
 }
 
@@ -29,4 +30,5 @@ type AppMetadata struct {
 	DisplayName  string
 	Domain       string
 	VendorName   string
+	Category     string
 }

@@ -26,7 +26,7 @@ func TestEvaluateCredentialGoldenCases(t *testing.T) {
 			if result.RiskRank != SeverityRank(tc.wantLevel) {
 				t.Fatalf("RiskRank = %d, want %d", result.RiskRank, SeverityRank(tc.wantLevel))
 			}
-			if len(result.PolicyPacks) != 1 || result.PolicyPacks[0].ID != "builtin-credential-risk" {
+			if len(result.PolicyPacks) != 1 || result.PolicyPacks[0].ID != "builtin.credential.risk" {
 				t.Fatalf("PolicyPacks = %+v, want builtin credential pack", result.PolicyPacks)
 			}
 			gotSignalIDs := make([]string, 0, len(result.Signals))

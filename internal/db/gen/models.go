@@ -265,6 +265,7 @@ type DiscoveryAppReadModelsV struct {
 	ManagedReason                string             `json:"managed_reason"`
 	RiskScore                    int32              `json:"risk_score"`
 	RiskLevel                    string             `json:"risk_level"`
+	Category                     string             `json:"category"`
 }
 
 type Entitlement struct {
@@ -676,6 +677,7 @@ type SaasApp struct {
 	HasPrivilegedScope    bool               `json:"has_privileged_scope"`
 	HasConfidentialScope  bool               `json:"has_confidential_scope"`
 	ProjectionRefreshedAt pgtype.Timestamptz `json:"projection_refreshed_at"`
+	Category              string             `json:"category"`
 }
 
 type SaasAppBinding struct {

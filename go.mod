@@ -27,7 +27,7 @@ require (
 	github.com/microsoftgraph/msgraph-sdk-go v1.96.0
 	github.com/microsoftgraph/msgraph-sdk-go-core v1.4.0
 	github.com/okta/okta-sdk-golang/v6 v6.0.2
-	github.com/open-sspm/open-sspm-spec v0.0.0-20260207190238-3d8d4e19f779
+	github.com/open-sspm/open-sspm-spec v0.0.0-20260509121502-8dca06fff9d6
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/net v0.49.0

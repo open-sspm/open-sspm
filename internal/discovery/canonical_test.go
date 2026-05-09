@@ -110,6 +110,54 @@ func TestBuildMetadata(t *testing.T) {
 			t.Fatalf("CanonicalKey = %q", meta.CanonicalKey)
 		}
 	})
+
+	t.Run("uses provided category before inference", func(t *testing.T) {
+		t.Parallel()
+
+		meta := BuildMetadata(CanonicalInput{
+			SourceAppName:  "GitHub",
+			SourceDomain:   "github.com",
+			SourceCategory: " Finance Tools ",
+		})
+		if meta.Category != "finance_tools" {
+			t.Fatalf("Category = %q, want %q", meta.Category, "finance_tools")
+		}
+	})
+
+	t.Run("infers category from domain", func(t *testing.T) {
+		t.Parallel()
+
+		meta := BuildMetadata(CanonicalInput{
+			SourceAppName: "Slack",
+			SourceDomain:  "https://app.slack.com/client",
+		})
+		if meta.Category != "collaboration" {
+			t.Fatalf("Category = %q, want %q", meta.Category, "collaboration")
+		}
+	})
+
+	t.Run("infers category from vendor without domain", func(t *testing.T) {
+		t.Parallel()
+
+		meta := BuildMetadata(CanonicalInput{
+			SourceAppName:    "Production",
+			SourceVendorName: "GitHub",
+		})
+		if meta.Category != "developer_tools" {
+			t.Fatalf("Category = %q, want %q", meta.Category, "developer_tools")
+		}
+	})
+
+	t.Run("keeps category empty without confident hints", func(t *testing.T) {
+		t.Parallel()
+
+		meta := BuildMetadata(CanonicalInput{
+			SourceAppName: "Internal Tool",
+		})
+		if meta.Category != "" {
+			t.Fatalf("Category = %q, want empty", meta.Category)
+		}
+	})
 }
 
 func TestVendorLabelFromDomain(t *testing.T) {

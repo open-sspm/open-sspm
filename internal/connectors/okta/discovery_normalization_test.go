@@ -69,6 +69,34 @@ func TestNormalizeOktaDiscoveryVendorName(t *testing.T) {
 			t.Fatalf("events[0].SourceVendorName = %q, want %q", got, "Acme")
 		}
 	})
+
+	t.Run("carries inferred app category on sources and events", func(t *testing.T) {
+		t.Parallel()
+
+		sources, events := NormalizeDiscoveryEvents([]SystemLogEvent{
+			{
+				ID:        "evt-3",
+				EventType: "user.authentication.sso",
+				Published: now,
+				AppID:     "0oa3",
+				AppName:   "GitHub Enterprise",
+				AppDomain: "https://github.com/login",
+			},
+		}, "dev-123.okta.com", now)
+
+		if len(sources) != 1 {
+			t.Fatalf("len(sources) = %d, want 1", len(sources))
+		}
+		if got := sources[0].SourceCategory; got != "developer_tools" {
+			t.Fatalf("sources[0].SourceCategory = %q, want %q", got, "developer_tools")
+		}
+		if len(events) != 1 {
+			t.Fatalf("len(events) = %d, want 1", len(events))
+		}
+		if got := events[0].SourceCategory; got != "developer_tools" {
+			t.Fatalf("events[0].SourceCategory = %q, want %q", got, "developer_tools")
+		}
+	})
 }
 
 func TestOktaDiscoveryFixturesNormalize(t *testing.T) {

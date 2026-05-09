@@ -8,12 +8,6 @@ import (
 
 func validatePolicyPack(name string, pack PolicyPack) error {
 	var errs []error
-	if pack.APIVersion != APIVersion {
-		errs = append(errs, fmt.Errorf("api_version must be %q", APIVersion))
-	}
-	if pack.Kind != Kind {
-		errs = append(errs, fmt.Errorf("kind must be %q", Kind))
-	}
 	if pack.Metadata.ID == "" {
 		errs = append(errs, errors.New("metadata.id is required"))
 	}
@@ -149,7 +143,7 @@ func validateScopedRules(errs *[]error, scopedRules []ScopedRule, ruleIDs map[st
 	for i, scopedRule := range scopedRules {
 		path := fmt.Sprintf("spec.scoped_rules[%d]", i)
 		validateID(errs, path+".id", scopedRule.ID, ruleIDs)
-		if !scopedRule.Scope.App.hasSelector() {
+		if !appScopeHasSelector(scopedRule.Scope.App) {
 			*errs = append(*errs, fmt.Errorf("%s.scope.app must include at least one selector", path))
 		}
 		validateScopedSuggestions(errs, path+".suggestions", scopedRule.Suggestions)
@@ -185,7 +179,7 @@ func validDataClassification(value string) bool {
 	}
 }
 
-func (scope AppScope) hasSelector() bool {
+func appScopeHasSelector(scope AppScope) bool {
 	return scope.CanonicalKey != "" ||
 		scope.PrimaryDomain != "" ||
 		len(scope.DomainMatches) > 0 ||

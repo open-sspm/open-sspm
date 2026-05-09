@@ -130,6 +130,7 @@ SELECT
   pr.display_name::text AS display_name,
   pr.primary_domain::text AS primary_domain,
   pr.vendor_name::text AS vendor_name,
+  pr.category::text AS category,
   pr.bound_connector_kind::text AS source_kind,
   pr.bound_connector_source_name::text AS source_name,
   pr.actors_30d::bigint AS actors_30d,
@@ -160,6 +161,7 @@ type GetSaaSAppRiskInputByIDRow struct {
 	DisplayName                   string      `json:"display_name"`
 	PrimaryDomain                 string      `json:"primary_domain"`
 	VendorName                    string      `json:"vendor_name"`
+	Category                      string      `json:"category"`
 	SourceKind                    string      `json:"source_kind"`
 	SourceName                    string      `json:"source_name"`
 	Actors30d                     int64       `json:"actors_30d"`
@@ -190,6 +192,7 @@ func (q *Queries) GetSaaSAppRiskInputByID(ctx context.Context, saasAppID int64) 
 		&i.DisplayName,
 		&i.PrimaryDomain,
 		&i.VendorName,
+		&i.Category,
 		&i.SourceKind,
 		&i.SourceName,
 		&i.Actors30d,
@@ -401,6 +404,7 @@ SELECT
   pr.display_name::text AS display_name,
   pr.primary_domain::text AS primary_domain,
   pr.vendor_name::text AS vendor_name,
+  pr.category::text AS category,
   pr.bound_connector_kind::text AS source_kind,
   pr.bound_connector_source_name::text AS source_name,
   pr.actors_30d::bigint AS actors_30d,
@@ -431,6 +435,7 @@ type ListAllSaaSAppRiskInputsRow struct {
 	DisplayName                   string      `json:"display_name"`
 	PrimaryDomain                 string      `json:"primary_domain"`
 	VendorName                    string      `json:"vendor_name"`
+	Category                      string      `json:"category"`
 	SourceKind                    string      `json:"source_kind"`
 	SourceName                    string      `json:"source_name"`
 	Actors30d                     int64       `json:"actors_30d"`
@@ -467,6 +472,7 @@ func (q *Queries) ListAllSaaSAppRiskInputs(ctx context.Context) ([]ListAllSaaSAp
 			&i.DisplayName,
 			&i.PrimaryDomain,
 			&i.VendorName,
+			&i.Category,
 			&i.SourceKind,
 			&i.SourceName,
 			&i.Actors30d,
@@ -802,6 +808,7 @@ SELECT
   pr.display_name::text AS display_name,
   pr.primary_domain::text AS primary_domain,
   pr.vendor_name::text AS vendor_name,
+  pr.category::text AS category,
   pr.bound_connector_kind::text AS source_kind,
   pr.bound_connector_source_name::text AS source_name,
   pr.actors_30d::bigint AS actors_30d,
@@ -844,6 +851,7 @@ type ListSaaSAppRiskInputsBySourceRow struct {
 	DisplayName                   string      `json:"display_name"`
 	PrimaryDomain                 string      `json:"primary_domain"`
 	VendorName                    string      `json:"vendor_name"`
+	Category                      string      `json:"category"`
 	SourceKind                    string      `json:"source_kind"`
 	SourceName                    string      `json:"source_name"`
 	Actors30d                     int64       `json:"actors_30d"`
@@ -880,6 +888,7 @@ func (q *Queries) ListSaaSAppRiskInputsBySource(ctx context.Context, arg ListSaa
 			&i.DisplayName,
 			&i.PrimaryDomain,
 			&i.VendorName,
+			&i.Category,
 			&i.SourceKind,
 			&i.SourceName,
 			&i.Actors30d,

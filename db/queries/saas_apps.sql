@@ -6,6 +6,7 @@ WITH input AS (
     (sqlc.arg(display_names)::text[])[i] AS display_name,
     (sqlc.arg(primary_domains)::text[])[i] AS primary_domain,
     (sqlc.arg(vendor_names)::text[])[i] AS vendor_name,
+    (sqlc.arg(categories)::text[])[i] AS category,
     (sqlc.arg(first_seen_ats)::timestamptz[])[i] AS first_seen_at,
     (sqlc.arg(last_seen_ats)::timestamptz[])[i] AS last_seen_at
   FROM generate_subscripts(sqlc.arg(canonical_keys)::text[], 1) AS s(i)
@@ -16,6 +17,7 @@ dedup AS (
     display_name,
     primary_domain,
     vendor_name,
+    category,
     first_seen_at,
     last_seen_at
   FROM input
@@ -26,6 +28,7 @@ INSERT INTO saas_apps (
   display_name,
   primary_domain,
   vendor_name,
+  category,
   first_seen_at,
   last_seen_at,
   updated_at
@@ -35,6 +38,7 @@ SELECT
   d.display_name,
   d.primary_domain,
   d.vendor_name,
+  COALESCE(lower(NULLIF(trim(d.category), '')), ''),
   COALESCE(d.first_seen_at, now()),
   COALESCE(d.last_seen_at, now()),
   now()
@@ -51,6 +55,10 @@ ON CONFLICT (canonical_key) DO UPDATE SET
   vendor_name = CASE
     WHEN trim(EXCLUDED.vendor_name) <> '' THEN EXCLUDED.vendor_name
     ELSE saas_apps.vendor_name
+  END,
+  category = CASE
+    WHEN trim(EXCLUDED.category) <> '' THEN lower(trim(EXCLUDED.category))
+    ELSE saas_apps.category
   END,
   first_seen_at = LEAST(saas_apps.first_seen_at, COALESCE(EXCLUDED.first_seen_at, saas_apps.first_seen_at)),
   last_seen_at = GREATEST(saas_apps.last_seen_at, COALESCE(EXCLUDED.last_seen_at, saas_apps.last_seen_at)),

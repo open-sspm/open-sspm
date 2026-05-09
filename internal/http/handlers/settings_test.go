@@ -32,7 +32,7 @@ func TestRiskPolicyPackSummariesAreSortedForSettings(t *testing.T) {
 
 	foundCredential := false
 	for _, summary := range summaries {
-		if summary.Domain == "credential" && summary.ID == "builtin-credential-risk" && summary.Version != "" {
+		if summary.Domain == "credential" && summary.ID == "builtin.credential.risk" && summary.Version != "" {
 			foundCredential = true
 		}
 	}

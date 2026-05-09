@@ -209,7 +209,7 @@ func insertCredentialRiskReadModel(t *testing.T, ctx context.Context, pool *pgxp
 			policy_packs_json,
 			projection_refreshed_at
 		)
-		VALUES ($1, $2, $3, '[]'::jsonb, '[{"id":"builtin-credential-risk","version":"1.0.0"}]'::jsonb, now())
+		VALUES ($1, $2, $3, '[]'::jsonb, '[{"id":"builtin.credential.risk","version":"1.0.0"}]'::jsonb, now())
 		ON CONFLICT (credential_artifact_id) DO UPDATE SET
 			risk_level = EXCLUDED.risk_level,
 			risk_rank = EXCLUDED.risk_rank,

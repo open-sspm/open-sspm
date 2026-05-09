@@ -848,6 +848,7 @@ func NormalizeDiscoveryEvents(events []SystemLogEvent, sourceName string, now ti
 				SourceAppName:    sourceAppName,
 				SourceAppDomain:  metadata.Domain,
 				SourceVendorName: metadata.VendorName,
+				SourceCategory:   metadata.Category,
 				SeenAt:           observedAt,
 			}
 		}
@@ -860,6 +861,7 @@ func NormalizeDiscoveryEvents(events []SystemLogEvent, sourceName string, now ti
 			SourceAppName:    sourceAppName,
 			SourceAppDomain:  metadata.Domain,
 			SourceVendorName: metadata.VendorName,
+			SourceCategory:   metadata.Category,
 			ActorExternalID:  strings.TrimSpace(event.ActorID),
 			ActorEmail:       strings.ToLower(strings.TrimSpace(event.ActorEmail)),
 			ActorDisplayName: strings.TrimSpace(event.ActorName),
