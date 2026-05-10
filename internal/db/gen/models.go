@@ -142,6 +142,17 @@ type ConnectorConfig struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type ConnectorDeltaState struct {
+	SourceKind       string             `json:"source_kind"`
+	SourceName       string             `json:"source_name"`
+	Resource         string             `json:"resource"`
+	DeltaLink        string             `json:"delta_link"`
+	LastSuccessRunID pgtype.Int8        `json:"last_success_run_id"`
+	LastFinishedAt   pgtype.Timestamptz `json:"last_finished_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ConnectorSecret struct {
 	Kind       string             `json:"kind"`
 	SecretName string             `json:"secret_name"`

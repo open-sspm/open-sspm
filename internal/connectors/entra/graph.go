@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -22,6 +23,7 @@ import (
 	"github.com/microsoftgraph/msgraph-sdk-go/directoryobjects"
 	"github.com/microsoftgraph/msgraph-sdk-go/groups"
 	msgraphmodels "github.com/microsoftgraph/msgraph-sdk-go/models"
+	"github.com/microsoftgraph/msgraph-sdk-go/models/odataerrors"
 	"github.com/microsoftgraph/msgraph-sdk-go/oauth2permissiongrants"
 	"github.com/microsoftgraph/msgraph-sdk-go/rolemanagement"
 	"github.com/microsoftgraph/msgraph-sdk-go/serviceprincipals"
@@ -33,6 +35,7 @@ const (
 	defaultTokenScope  = "https://graph.microsoft.com/.default"
 	directoryAuditsTop = int32(200)
 	defaultPageSize    = int32(999)
+	maxDeltaPages      = 10000
 )
 
 type User = msgraphmodels.Userable
@@ -52,6 +55,14 @@ type OAuth2PermissionGrant = msgraphmodels.OAuth2PermissionGrantable
 type ServicePrincipalAppRoleAssignment = msgraphmodels.AppRoleAssignmentable
 type DirectoryRole = msgraphmodels.UnifiedRoleDefinitionable
 type DirectoryRoleAssignment = msgraphmodels.UnifiedRoleAssignmentable
+
+var ErrDeltaCursorExpired = errors.New("entra delta cursor expired")
+
+type DeltaResult[T msgraphmodels.Entityable] struct {
+	Items      []T
+	RemovedIDs []string
+	DeltaLink  string
+}
 
 type Options struct {
 	RequestAdapter abstractions.RequestAdapter
@@ -117,6 +128,32 @@ func (c *Client) ListUsers(ctx context.Context) ([]User, error) {
 	return collectPagedItems[User](ctx, result, c.graph.GetAdapter(), msgraphmodels.CreateUserCollectionResponseFromDiscriminatorValue)
 }
 
+func (c *Client) DeltaUsers(ctx context.Context, deltaLink string) (DeltaResult[User], error) {
+	fetch := func(ctx context.Context, link string) (users.DeltaGetResponseable, error) {
+		if strings.TrimSpace(link) != "" {
+			result, err := c.graph.Users().Delta().WithUrl(link).GetAsDeltaGetResponse(ctx, nil)
+			if err != nil {
+				return nil, normalizeDeltaError(err)
+			}
+			return result, nil
+		}
+		result, err := c.graph.Users().Delta().GetAsDeltaGetResponse(ctx, &users.DeltaRequestBuilderGetRequestConfiguration{
+			QueryParameters: &users.DeltaRequestBuilderGetQueryParameters{
+				Select: []string{"id", "displayName", "mail", "userPrincipalName", "otherMails", "proxyAddresses", "userType", "accountEnabled", "createdDateTime"},
+			},
+		})
+		if err != nil {
+			return nil, normalizeDeltaError(err)
+		}
+		return result, nil
+	}
+	result, err := fetch(ctx, strings.TrimSpace(deltaLink))
+	if err != nil {
+		return DeltaResult[User]{}, fmt.Errorf("delta entra users: %w", err)
+	}
+	return collectDeltaItems[User](ctx, result, fetch)
+}
+
 func (c *Client) LookupUsersByIDs(ctx context.Context, ids []string) ([]User, error) {
 	distinctIDs := distinctNonEmptyStrings(ids)
 	if len(distinctIDs) == 0 {
@@ -173,6 +210,33 @@ func (c *Client) ListApplications(ctx context.Context) ([]Application, error) {
 	return collectPagedItems[Application](ctx, result, c.graph.GetAdapter(), msgraphmodels.CreateApplicationCollectionResponseFromDiscriminatorValue)
 }
 
+func (c *Client) DeltaApplications(ctx context.Context, deltaLink string) (DeltaResult[Application], error) {
+	fetch := func(ctx context.Context, link string) (applications.DeltaGetResponseable, error) {
+		if strings.TrimSpace(link) != "" {
+			result, err := c.graph.Applications().Delta().WithUrl(link).GetAsDeltaGetResponse(ctx, nil)
+			if err != nil {
+				return nil, normalizeDeltaError(err)
+			}
+			return result, nil
+		}
+		result, err := c.graph.Applications().Delta().GetAsDeltaGetResponse(ctx, &applications.DeltaRequestBuilderGetRequestConfiguration{
+			QueryParameters: &applications.DeltaRequestBuilderGetQueryParameters{
+				Select: []string{"id", "appId", "displayName", "publisherDomain", "verifiedPublisher", "createdDateTime", "passwordCredentials", "keyCredentials"},
+				Top:    int32Ptr(defaultPageSize),
+			},
+		})
+		if err != nil {
+			return nil, normalizeDeltaError(err)
+		}
+		return result, nil
+	}
+	result, err := fetch(ctx, strings.TrimSpace(deltaLink))
+	if err != nil {
+		return DeltaResult[Application]{}, fmt.Errorf("delta entra applications: %w", err)
+	}
+	return collectDeltaItems[Application](ctx, result, fetch)
+}
+
 func (c *Client) ListServicePrincipals(ctx context.Context) ([]ServicePrincipal, error) {
 	result, err := c.graph.ServicePrincipals().Get(ctx, &serviceprincipals.ServicePrincipalsRequestBuilderGetRequestConfiguration{
 		QueryParameters: &serviceprincipals.ServicePrincipalsRequestBuilderGetQueryParameters{
@@ -184,6 +248,33 @@ func (c *Client) ListServicePrincipals(ctx context.Context) ([]ServicePrincipal,
 		return nil, fmt.Errorf("list entra service principals: %w", err)
 	}
 	return collectPagedItems[ServicePrincipal](ctx, result, c.graph.GetAdapter(), msgraphmodels.CreateServicePrincipalCollectionResponseFromDiscriminatorValue)
+}
+
+func (c *Client) DeltaServicePrincipals(ctx context.Context, deltaLink string) (DeltaResult[ServicePrincipal], error) {
+	fetch := func(ctx context.Context, link string) (serviceprincipals.DeltaGetResponseable, error) {
+		if strings.TrimSpace(link) != "" {
+			result, err := c.graph.ServicePrincipals().Delta().WithUrl(link).GetAsDeltaGetResponse(ctx, nil)
+			if err != nil {
+				return nil, normalizeDeltaError(err)
+			}
+			return result, nil
+		}
+		result, err := c.graph.ServicePrincipals().Delta().GetAsDeltaGetResponse(ctx, &serviceprincipals.DeltaRequestBuilderGetRequestConfiguration{
+			QueryParameters: &serviceprincipals.DeltaRequestBuilderGetQueryParameters{
+				Select: []string{"id", "appId", "displayName", "publisherName", "verifiedPublisher", "accountEnabled", "servicePrincipalType", "createdDateTime", "appRoles", "passwordCredentials", "keyCredentials"},
+				Top:    int32Ptr(defaultPageSize),
+			},
+		})
+		if err != nil {
+			return nil, normalizeDeltaError(err)
+		}
+		return result, nil
+	}
+	result, err := fetch(ctx, strings.TrimSpace(deltaLink))
+	if err != nil {
+		return DeltaResult[ServicePrincipal]{}, fmt.Errorf("delta entra service principals: %w", err)
+	}
+	return collectDeltaItems[ServicePrincipal](ctx, result, fetch)
 }
 
 func (c *Client) ListServicePrincipalAssignedTo(ctx context.Context, servicePrincipalID string) ([]ServicePrincipalAppRoleAssignment, error) {
@@ -214,6 +305,32 @@ func (c *Client) ListGroups(ctx context.Context) ([]Group, error) {
 		return nil, fmt.Errorf("list entra groups: %w", err)
 	}
 	return collectPagedItems[Group](ctx, result, c.graph.GetAdapter(), msgraphmodels.CreateGroupCollectionResponseFromDiscriminatorValue)
+}
+
+func (c *Client) DeltaGroups(ctx context.Context, deltaLink string) (DeltaResult[Group], error) {
+	fetch := func(ctx context.Context, link string) (groups.DeltaGetResponseable, error) {
+		if strings.TrimSpace(link) != "" {
+			result, err := c.graph.Groups().Delta().WithUrl(link).GetAsDeltaGetResponse(ctx, nil)
+			if err != nil {
+				return nil, normalizeDeltaError(err)
+			}
+			return result, nil
+		}
+		result, err := c.graph.Groups().Delta().GetAsDeltaGetResponse(ctx, &groups.DeltaRequestBuilderGetRequestConfiguration{
+			QueryParameters: &groups.DeltaRequestBuilderGetQueryParameters{
+				Select: []string{"id", "displayName", "mail", "mailEnabled", "securityEnabled", "groupTypes"},
+			},
+		})
+		if err != nil {
+			return nil, normalizeDeltaError(err)
+		}
+		return result, nil
+	}
+	result, err := fetch(ctx, strings.TrimSpace(deltaLink))
+	if err != nil {
+		return DeltaResult[Group]{}, fmt.Errorf("delta entra groups: %w", err)
+	}
+	return collectDeltaItems[Group](ctx, result, fetch)
 }
 
 func (c *Client) ListGroupUserMembers(ctx context.Context, groupID string) ([]User, error) {
@@ -368,6 +485,100 @@ func (c *Client) ListOAuth2PermissionGrants(ctx context.Context) ([]OAuth2Permis
 		return nil, fmt.Errorf("list entra oauth2 permission grants: %w", err)
 	}
 	return collectPagedItems[OAuth2PermissionGrant](ctx, result, c.graph.GetAdapter(), msgraphmodels.CreateOAuth2PermissionGrantCollectionResponseFromDiscriminatorValue)
+}
+
+type deltaResponse[T msgraphmodels.Entityable] interface {
+	GetValue() []T
+	GetOdataNextLink() *string
+	GetOdataDeltaLink() *string
+}
+
+func collectDeltaItems[T msgraphmodels.Entityable, R deltaResponse[T]](ctx context.Context, first R, fetch func(context.Context, string) (R, error)) (DeltaResult[T], error) {
+	return collectDeltaItemsWithPageLimit(ctx, first, fetch, maxDeltaPages)
+}
+
+func collectDeltaItemsWithPageLimit[T msgraphmodels.Entityable, R deltaResponse[T]](ctx context.Context, first R, fetch func(context.Context, string) (R, error), pageLimit int) (DeltaResult[T], error) {
+	out := DeltaResult[T]{}
+	response := first
+	if pageLimit < 1 {
+		return out, errors.New("delta page limit must be positive")
+	}
+	for page := 1; ; page++ {
+		if any(response) == nil {
+			return out, errors.New("empty delta response")
+		}
+		for _, item := range response.GetValue() {
+			if any(item) == nil {
+				continue
+			}
+			if isDeltaRemoved(item) {
+				if id := entityID(item); id != "" {
+					out.RemovedIDs = append(out.RemovedIDs, id)
+				}
+				continue
+			}
+			out.Items = append(out.Items, item)
+		}
+		if deltaLink := stringValue(response.GetOdataDeltaLink()); deltaLink != "" {
+			out.DeltaLink = deltaLink
+			return out, nil
+		}
+		nextLink := stringValue(response.GetOdataNextLink())
+		if nextLink == "" {
+			return out, errors.New("delta response did not include nextLink or deltaLink")
+		}
+		if page >= pageLimit {
+			return out, fmt.Errorf("delta response exceeded %d pages without deltaLink", pageLimit)
+		}
+		next, err := fetch(ctx, nextLink)
+		if err != nil {
+			return out, err
+		}
+		response = next
+	}
+}
+
+func isDeltaRemoved(entity msgraphmodels.Entityable) bool {
+	if entity == nil {
+		return false
+	}
+	_, ok := entity.GetAdditionalData()["@removed"]
+	return ok
+}
+
+func normalizeDeltaError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var apiErr abstractions.ApiErrorable
+	if errors.As(err, &apiErr) && apiErr.GetStatusCode() == http.StatusGone {
+		return ErrDeltaCursorExpired
+	}
+	var graphErr odataerrors.ODataErrorable
+	if errors.As(err, &graphErr) && isDeltaCursorExpiredCode(graphErrorCode(graphErr)) {
+		return ErrDeltaCursorExpired
+	}
+	return err
+}
+
+func graphErrorCode(err odataerrors.ODataErrorable) string {
+	if err == nil {
+		return ""
+	}
+	main := err.GetErrorEscaped()
+	if main == nil {
+		return ""
+	}
+	return stringValue(main.GetCode())
+}
+
+func isDeltaCursorExpiredCode(code string) bool {
+	switch strings.ToLower(strings.TrimSpace(code)) {
+	case "syncstatenotfound", "invalidsynctoken", "resyncrequired":
+		return true
+	default:
+		return false
+	}
 }
 
 func collectPagedItems[T any](ctx context.Context, result any, adapter abstractions.RequestAdapter, constructor absser.ParsableFactory, headers ...*abstractions.RequestHeaders) ([]T, error) {

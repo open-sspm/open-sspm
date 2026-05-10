@@ -441,6 +441,29 @@ WHERE source_kind = sqlc.arg(source_kind)::text
   AND source_name = sqlc.arg(source_name)::text
   AND seen_in_run_id = sqlc.arg(last_observed_run_id)::bigint;
 
+-- name: RefreshCredentialArtifactLifecycleStatusesBySource :execrows
+WITH next_status AS (
+  SELECT
+    id,
+    CASE
+      WHEN expires_at_source IS NOT NULL AND expires_at_source < now() THEN 'expired'
+      WHEN created_at_source IS NOT NULL AND created_at_source > now() THEN 'inactive'
+      ELSE 'active'
+    END AS status
+  FROM credential_artifacts
+  WHERE source_kind = sqlc.arg(source_kind)::text
+    AND source_name = sqlc.arg(source_name)::text
+    AND expired_at IS NULL
+    AND last_observed_run_id IS NOT NULL
+)
+UPDATE credential_artifacts AS ca
+SET
+  status = next_status.status,
+  updated_at = now()
+FROM next_status
+WHERE ca.id = next_status.id
+  AND ca.status IS DISTINCT FROM next_status.status;
+
 -- name: ExpireCredentialArtifactsNotSeenInRunBySource :execrows
 UPDATE credential_artifacts
 SET
@@ -448,6 +471,22 @@ SET
   expired_run_id = sqlc.arg(expired_run_id)::bigint
 WHERE source_kind = sqlc.arg(source_kind)::text
   AND source_name = sqlc.arg(source_name)::text
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND (
+    seen_in_run_id <> sqlc.arg(expired_run_id)::bigint
+    OR seen_in_run_id IS NULL
+  );
+
+-- name: ExpireCredentialArtifactsForAssetRefsNotSeenInRunBySource :execrows
+UPDATE credential_artifacts
+SET
+  expired_at = now(),
+  expired_run_id = sqlc.arg(expired_run_id)::bigint
+WHERE source_kind = sqlc.arg(source_kind)::text
+  AND source_name = sqlc.arg(source_name)::text
+  AND asset_ref_kind = 'app_asset'
+  AND asset_ref_external_id = ANY(sqlc.arg(asset_ref_external_ids)::text[])
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL
   AND (

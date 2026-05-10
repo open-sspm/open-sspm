@@ -11,6 +11,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getLatestCredentialAuditEventTimeBySource = `-- name: GetLatestCredentialAuditEventTimeBySource :one
+SELECT max(event_time)::timestamptz
+FROM credential_audit_events
+WHERE source_kind = $1::text
+  AND source_name = $2::text
+`
+
+type GetLatestCredentialAuditEventTimeBySourceParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+}
+
+func (q *Queries) GetLatestCredentialAuditEventTimeBySource(ctx context.Context, arg GetLatestCredentialAuditEventTimeBySourceParams) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, getLatestCredentialAuditEventTimeBySource, arg.SourceKind, arg.SourceName)
+	var column_1 pgtype.Timestamptz
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const listCredentialAuditEventsForCredential = `-- name: ListCredentialAuditEventsForCredential :many
 SELECT cae.id, cae.source_kind, cae.source_name, cae.event_external_id, cae.event_type, cae.event_time, cae.actor_kind, cae.actor_external_id, cae.actor_display_name, cae.target_kind, cae.target_external_id, cae.target_display_name, cae.credential_kind, cae.credential_external_id, cae.raw_json, cae.created_at
 FROM credential_audit_events cae

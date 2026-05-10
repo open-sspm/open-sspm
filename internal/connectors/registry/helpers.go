@@ -439,6 +439,235 @@ func FinalizeAppRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, run
 	return nil
 }
 
+type AppAssetDeltaDelete struct {
+	AssetKind   string
+	ExternalIDs []string
+}
+
+type ConnectorDeltaCursorUpdate struct {
+	Resource  string
+	DeltaLink string
+}
+
+type AppDeltaFinalizeOptions struct {
+	ResetDeltaCursors             bool
+	ExpireAbsent                  bool
+	DeletedAccountExternalIDs     []string
+	DeletedAppAssets              []AppAssetDeltaDelete
+	CredentialAssetRefExternalIDs []string
+	DeltaCursors                  []ConnectorDeltaCursorUpdate
+}
+
+func FinalizeAppDeltaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceKind, sourceName string, duration time.Duration, opts AppDeltaFinalizeOptions) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := q.WithTx(tx)
+
+	counts := map[string]int64{}
+	runIDKey := PgInt8(runID)
+
+	observed, err := qtx.PromoteSourceAccountsSeenInRun(ctx, gen.PromoteSourceAccountsSeenInRunParams{
+		LastObservedRunID: runIDKey,
+		SourceKind:        sourceKind,
+		SourceName:        sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	counts["source_accounts_observed"] = observed
+
+	if opts.ExpireAbsent {
+		expired, err := qtx.ExpireSourceAccountsNotSeenInRun(ctx, gen.ExpireSourceAccountsNotSeenInRunParams{
+			ExpiredRunID: runIDKey,
+			SourceKind:   sourceKind,
+			SourceName:   sourceName,
+		})
+		if err != nil {
+			return err
+		}
+		counts["source_accounts_expired"] = expired
+	} else if len(opts.DeletedAccountExternalIDs) > 0 {
+		expired, err := qtx.ExpireSourceAccountsByExternalIDs(ctx, gen.ExpireSourceAccountsByExternalIDsParams{
+			ExpiredRunID: runID,
+			SourceKind:   sourceKind,
+			SourceName:   sourceName,
+			ExternalIds:  distinctNonEmptyStrings(opts.DeletedAccountExternalIDs),
+		})
+		if err != nil {
+			return err
+		}
+		counts["source_accounts_expired"] = expired
+	} else {
+		counts["source_accounts_expired"] = 0
+	}
+
+	// Entra delta still reconciles relationship tables from the current active
+	// app inventory each run, so owners and entitlements keep snapshot expiry.
+	observed, err = qtx.PromoteEntitlementsSeenInRunBySource(ctx, gen.PromoteEntitlementsSeenInRunBySourceParams{
+		LastObservedRunID: runIDKey,
+		SourceKind:        sourceKind,
+		SourceName:        sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	counts["entitlements_observed"] = observed
+
+	expired, err := qtx.ExpireEntitlementsNotSeenInRunBySource(ctx, gen.ExpireEntitlementsNotSeenInRunBySourceParams{
+		ExpiredRunID: runIDKey,
+		SourceKind:   sourceKind,
+		SourceName:   sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	counts["entitlements_expired"] = expired
+
+	observed, err = qtx.PromoteAppAssetsSeenInRunBySource(ctx, gen.PromoteAppAssetsSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        sourceKind,
+		SourceName:        sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	counts["app_assets_observed"] = observed
+
+	var appAssetsExpired int64
+	if opts.ExpireAbsent {
+		appAssetsExpired, err = qtx.ExpireAppAssetsNotSeenInRunBySource(ctx, gen.ExpireAppAssetsNotSeenInRunBySourceParams{
+			ExpiredRunID: runID,
+			SourceKind:   sourceKind,
+			SourceName:   sourceName,
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		for _, deletion := range opts.DeletedAppAssets {
+			externalIDs := distinctNonEmptyStrings(deletion.ExternalIDs)
+			if strings.TrimSpace(deletion.AssetKind) == "" || len(externalIDs) == 0 {
+				continue
+			}
+			n, err := qtx.ExpireAppAssetsBySourceKindAndExternalIDs(ctx, gen.ExpireAppAssetsBySourceKindAndExternalIDsParams{
+				ExpiredRunID: runID,
+				SourceKind:   sourceKind,
+				SourceName:   sourceName,
+				AssetKind:    deletion.AssetKind,
+				ExternalIds:  externalIDs,
+			})
+			if err != nil {
+				return err
+			}
+			appAssetsExpired += n
+		}
+	}
+	counts["app_assets_expired"] = appAssetsExpired
+
+	observed, err = qtx.PromoteAppAssetOwnersSeenInRunBySource(ctx, gen.PromoteAppAssetOwnersSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        sourceKind,
+		SourceName:        sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	counts["app_asset_owners_observed"] = observed
+
+	expired, err = qtx.ExpireAppAssetOwnersNotSeenInRunBySource(ctx, gen.ExpireAppAssetOwnersNotSeenInRunBySourceParams{
+		ExpiredRunID: runID,
+		SourceKind:   sourceKind,
+		SourceName:   sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	counts["app_asset_owners_expired"] = expired
+
+	observed, err = qtx.PromoteCredentialArtifactsSeenInRunBySource(ctx, gen.PromoteCredentialArtifactsSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        sourceKind,
+		SourceName:        sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	counts["credential_artifacts_observed"] = observed
+
+	if opts.ExpireAbsent {
+		expired, err = qtx.ExpireCredentialArtifactsNotSeenInRunBySource(ctx, gen.ExpireCredentialArtifactsNotSeenInRunBySourceParams{
+			ExpiredRunID: runID,
+			SourceKind:   sourceKind,
+			SourceName:   sourceName,
+		})
+		if err != nil {
+			return err
+		}
+		counts["credential_artifacts_expired"] = expired
+	} else if len(opts.CredentialAssetRefExternalIDs) > 0 {
+		expired, err = qtx.ExpireCredentialArtifactsForAssetRefsNotSeenInRunBySource(ctx, gen.ExpireCredentialArtifactsForAssetRefsNotSeenInRunBySourceParams{
+			ExpiredRunID:        runID,
+			SourceKind:          sourceKind,
+			SourceName:          sourceName,
+			AssetRefExternalIds: distinctNonEmptyStrings(opts.CredentialAssetRefExternalIDs),
+		})
+		if err != nil {
+			return err
+		}
+		counts["credential_artifacts_expired"] = expired
+	} else {
+		counts["credential_artifacts_expired"] = 0
+	}
+
+	refreshed, err := qtx.RefreshCredentialArtifactLifecycleStatusesBySource(ctx, gen.RefreshCredentialArtifactLifecycleStatusesBySourceParams{
+		SourceKind: sourceKind,
+		SourceName: sourceName,
+	})
+	if err != nil {
+		return err
+	}
+	counts["credential_artifact_statuses_refreshed"] = refreshed
+
+	if opts.ResetDeltaCursors {
+		if err := qtx.DeleteConnectorDeltaStatesBySource(ctx, gen.DeleteConnectorDeltaStatesBySourceParams{
+			SourceKind: sourceKind,
+			SourceName: sourceName,
+		}); err != nil {
+			return err
+		}
+	}
+
+	for _, cursor := range opts.DeltaCursors {
+		resource := strings.TrimSpace(cursor.Resource)
+		deltaLink := strings.TrimSpace(cursor.DeltaLink)
+		if resource == "" || deltaLink == "" {
+			continue
+		}
+		if err := qtx.UpsertConnectorDeltaState(ctx, gen.UpsertConnectorDeltaStateParams{
+			SourceKind:       sourceKind,
+			SourceName:       sourceName,
+			Resource:         resource,
+			DeltaLink:        deltaLink,
+			LastSuccessRunID: PgInt8(runID),
+		}); err != nil {
+			return err
+		}
+	}
+
+	if err := finalizeRunCountsInTx(ctx, qtx, runID, counts, duration, sourceKind, sourceName); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
 func FinalizeDiscoveryRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceKind, sourceName string, duration time.Duration) error {
 	return FinalizeDiscoveryRunWithCounts(ctx, q, pool, runID, sourceKind, sourceName, duration, nil)
 }
@@ -605,4 +834,21 @@ func NormalizeJSON(b []byte) []byte {
 		return []byte("{}")
 	}
 	return b
+}
+
+func distinctNonEmptyStrings(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
 }

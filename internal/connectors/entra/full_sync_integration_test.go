@@ -3,6 +3,7 @@ package entra
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -27,9 +28,18 @@ type fullSyncTestClient struct {
 	applicationOwnersByID      map[string][]DirectoryOwner
 	servicePrincipalOwnersByID map[string][]DirectoryOwner
 	directoryAudits            []DirectoryAuditEvent
+	directoryAuditsErr         error
 	signIns                    []SignInEvent
 	grants                     []OAuth2PermissionGrant
 	lookupUsersByID            map[string]User
+	deltaUsers                 *DeltaResult[User]
+	deltaGroups                *DeltaResult[Group]
+	deltaApplications          *DeltaResult[Application]
+	deltaServicePrincipals     *DeltaResult[ServicePrincipal]
+	deltaUsersFunc             func(context.Context, string) (DeltaResult[User], error)
+	deltaGroupsFunc            func(context.Context, string) (DeltaResult[Group], error)
+	deltaApplicationsFunc      func(context.Context, string) (DeltaResult[Application], error)
+	deltaServicePrincipalsFunc func(context.Context, string) (DeltaResult[ServicePrincipal], error)
 }
 
 func (c fullSyncTestClient) ListApplications(context.Context) ([]Application, error) {
@@ -45,6 +55,9 @@ func (c fullSyncTestClient) ListServicePrincipalAssignedTo(_ context.Context, se
 }
 
 func (c fullSyncTestClient) ListDirectoryAudits(context.Context, *time.Time) ([]DirectoryAuditEvent, error) {
+	if c.directoryAuditsErr != nil {
+		return nil, c.directoryAuditsErr
+	}
 	return c.directoryAudits, nil
 }
 
@@ -60,8 +73,48 @@ func (c fullSyncTestClient) ListUsers(context.Context) ([]User, error) {
 	return c.users, nil
 }
 
+func (c fullSyncTestClient) DeltaUsers(ctx context.Context, deltaLink string) (DeltaResult[User], error) {
+	if c.deltaUsersFunc != nil {
+		return c.deltaUsersFunc(ctx, deltaLink)
+	}
+	if c.deltaUsers != nil {
+		return *c.deltaUsers, nil
+	}
+	return DeltaResult[User]{Items: c.users, DeltaLink: "delta://users"}, nil
+}
+
 func (c fullSyncTestClient) ListGroups(context.Context) ([]Group, error) {
 	return c.groups, nil
+}
+
+func (c fullSyncTestClient) DeltaGroups(ctx context.Context, deltaLink string) (DeltaResult[Group], error) {
+	if c.deltaGroupsFunc != nil {
+		return c.deltaGroupsFunc(ctx, deltaLink)
+	}
+	if c.deltaGroups != nil {
+		return *c.deltaGroups, nil
+	}
+	return DeltaResult[Group]{Items: c.groups, DeltaLink: "delta://groups"}, nil
+}
+
+func (c fullSyncTestClient) DeltaApplications(ctx context.Context, deltaLink string) (DeltaResult[Application], error) {
+	if c.deltaApplicationsFunc != nil {
+		return c.deltaApplicationsFunc(ctx, deltaLink)
+	}
+	if c.deltaApplications != nil {
+		return *c.deltaApplications, nil
+	}
+	return DeltaResult[Application]{Items: c.applications, DeltaLink: "delta://applications"}, nil
+}
+
+func (c fullSyncTestClient) DeltaServicePrincipals(ctx context.Context, deltaLink string) (DeltaResult[ServicePrincipal], error) {
+	if c.deltaServicePrincipalsFunc != nil {
+		return c.deltaServicePrincipalsFunc(ctx, deltaLink)
+	}
+	if c.deltaServicePrincipals != nil {
+		return *c.deltaServicePrincipals, nil
+	}
+	return DeltaResult[ServicePrincipal]{Items: c.servicePrincipals, DeltaLink: "delta://service-principals"}, nil
 }
 
 func (c fullSyncTestClient) ListGroupUserMembers(_ context.Context, groupID string) ([]User, error) {
@@ -578,6 +631,463 @@ func TestEntraRunFullPersistsEffectiveEntitlements(t *testing.T) {
 		}
 		if skippedNilPrincipalCount != 0 {
 			t.Fatalf("skippedNilPrincipalCount=%d want 0", skippedNilPrincipalCount)
+		}
+	})
+}
+
+func TestEntraRunFullDeltaIncrementalKeepsUnchangedAccounts(t *testing.T) {
+	t.Parallel()
+
+	withEntraTestDB(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateEntraUp(t, migrator)
+
+		bootstrap := fullSyncFixtureClient(t)
+		integration := &EntraIntegration{client: bootstrap, tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err != nil {
+			t.Fatalf("bootstrap runFull() error = %v", err)
+		}
+
+		users := DeltaResult[User]{
+			Items: []User{
+				mustParseUser(t, `{"id":"`+fullSyncUserAliceID+`","displayName":"Alice Updated","mail":"alice@example.com","userPrincipalName":"alice@example.com","accountEnabled":true}`),
+			},
+			DeltaLink: "delta://users-2",
+		}
+		groups := DeltaResult[Group]{DeltaLink: "delta://groups-2"}
+		applications := DeltaResult[Application]{DeltaLink: "delta://applications-2"}
+		servicePrincipals := DeltaResult[ServicePrincipal]{DeltaLink: "delta://service-principals-2"}
+		incremental := fullSyncFixtureClient(t)
+		incremental.deltaUsers = &users
+		incremental.deltaGroups = &groups
+		incremental.deltaApplications = &applications
+		incremental.deltaServicePrincipals = &servicePrincipals
+
+		integration = &EntraIntegration{client: incremental, tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err != nil {
+			t.Fatalf("incremental runFull() error = %v", err)
+		}
+
+		var aliceDisplayName string
+		if err := pool.QueryRow(ctx, `
+			SELECT display_name
+			FROM accounts
+			WHERE source_kind = 'entra'
+			  AND source_name = $1
+			  AND external_id = $2
+			  AND expired_at IS NULL
+			  AND last_observed_run_id IS NOT NULL
+		`, fullSyncTenantID, fullSyncUserAliceID).Scan(&aliceDisplayName); err != nil {
+			t.Fatalf("query alice display name: %v", err)
+		}
+		if aliceDisplayName != "Alice Updated" {
+			t.Fatalf("alice display_name=%q want %q", aliceDisplayName, "Alice Updated")
+		}
+
+		var bobActive int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM accounts
+			WHERE source_kind = 'entra'
+			  AND source_name = $1
+			  AND external_id = $2
+			  AND expired_at IS NULL
+			  AND last_observed_run_id IS NOT NULL
+		`, fullSyncTenantID, fullSyncUserBobID).Scan(&bobActive); err != nil {
+			t.Fatalf("count active bob: %v", err)
+		}
+		if bobActive != 1 {
+			t.Fatalf("bobActive=%d want 1", bobActive)
+		}
+
+		states, err := q.ListConnectorDeltaStatesBySource(ctx, gen.ListConnectorDeltaStatesBySourceParams{
+			SourceKind: "entra",
+			SourceName: fullSyncTenantID,
+		})
+		if err != nil {
+			t.Fatalf("ListConnectorDeltaStatesBySource(): %v", err)
+		}
+		links := make(map[string]string, len(states))
+		for _, state := range states {
+			links[state.Resource] = state.DeltaLink
+		}
+		if links[entraDeltaResourceUsers] != "delta://users-2" {
+			t.Fatalf("users delta link=%q want delta://users-2", links[entraDeltaResourceUsers])
+		}
+	})
+}
+
+func TestEntraRunFullDeltaUsesStoredCursorLinks(t *testing.T) {
+	t.Parallel()
+
+	withEntraTestDB(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateEntraUp(t, migrator)
+
+		integration := &EntraIntegration{client: fullSyncFixtureClient(t), tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err != nil {
+			t.Fatalf("bootstrap runFull() error = %v", err)
+		}
+
+		seenLinks := map[string]string{}
+		incremental := fullSyncFixtureClient(t)
+		incremental.deltaUsersFunc = func(_ context.Context, deltaLink string) (DeltaResult[User], error) {
+			seenLinks[entraDeltaResourceUsers] = deltaLink
+			return DeltaResult[User]{DeltaLink: "delta://users-next"}, nil
+		}
+		incremental.deltaGroupsFunc = func(_ context.Context, deltaLink string) (DeltaResult[Group], error) {
+			seenLinks[entraDeltaResourceGroups] = deltaLink
+			return DeltaResult[Group]{DeltaLink: "delta://groups-next"}, nil
+		}
+		incremental.deltaApplicationsFunc = func(_ context.Context, deltaLink string) (DeltaResult[Application], error) {
+			seenLinks[entraDeltaResourceApplications] = deltaLink
+			return DeltaResult[Application]{DeltaLink: "delta://applications-next"}, nil
+		}
+		incremental.deltaServicePrincipalsFunc = func(_ context.Context, deltaLink string) (DeltaResult[ServicePrincipal], error) {
+			seenLinks[entraDeltaResourceServicePrincipals] = deltaLink
+			return DeltaResult[ServicePrincipal]{DeltaLink: "delta://service-principals-next"}, nil
+		}
+
+		integration = &EntraIntegration{client: incremental, tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err != nil {
+			t.Fatalf("incremental runFull() error = %v", err)
+		}
+
+		want := map[string]string{
+			entraDeltaResourceUsers:             "delta://users",
+			entraDeltaResourceGroups:            "delta://groups",
+			entraDeltaResourceApplications:      "delta://applications",
+			entraDeltaResourceServicePrincipals: "delta://service-principals",
+		}
+		for resource, wantLink := range want {
+			if seenLinks[resource] != wantLink {
+				t.Fatalf("delta link for %s=%q want %q", resource, seenLinks[resource], wantLink)
+			}
+		}
+	})
+}
+
+func TestEntraRunFullDeltaExpiredCursorKeepsOldCursorsWhenRetryFails(t *testing.T) {
+	t.Parallel()
+
+	withEntraTestDB(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateEntraUp(t, migrator)
+
+		integration := &EntraIntegration{client: fullSyncFixtureClient(t), tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err != nil {
+			t.Fatalf("bootstrap runFull() error = %v", err)
+		}
+
+		failing := fullSyncFixtureClient(t)
+		userDeltaCalls := 0
+		failing.deltaUsersFunc = func(_ context.Context, deltaLink string) (DeltaResult[User], error) {
+			userDeltaCalls++
+			switch userDeltaCalls {
+			case 1:
+				if deltaLink != "delta://users" {
+					t.Fatalf("first users delta link=%q want delta://users", deltaLink)
+				}
+				return DeltaResult[User]{}, ErrDeltaCursorExpired
+			case 2:
+				if deltaLink != "" {
+					t.Fatalf("retry users delta link=%q want empty bootstrap cursor", deltaLink)
+				}
+				return DeltaResult[User]{Items: failing.users, DeltaLink: "delta://users-reset"}, nil
+			default:
+				t.Fatalf("DeltaUsers called %d times, want 2", userDeltaCalls)
+				return DeltaResult[User]{}, nil
+			}
+		}
+		failing.deltaGroups = &DeltaResult[Group]{Items: failing.groups, DeltaLink: "delta://groups-reset"}
+		failing.deltaApplications = &DeltaResult[Application]{Items: failing.applications, DeltaLink: "delta://applications-reset"}
+		failing.deltaServicePrincipals = &DeltaResult[ServicePrincipal]{Items: failing.servicePrincipals, DeltaLink: "delta://service-principals-reset"}
+		failing.directoryAuditsErr = errors.New("audit retry failed")
+
+		integration = &EntraIntegration{client: failing, tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err == nil {
+			t.Fatalf("retry runFull() error = nil, want error")
+		}
+		if userDeltaCalls != 2 {
+			t.Fatalf("DeltaUsers calls=%d want 2", userDeltaCalls)
+		}
+
+		states, err := q.ListConnectorDeltaStatesBySource(ctx, gen.ListConnectorDeltaStatesBySourceParams{
+			SourceKind: "entra",
+			SourceName: fullSyncTenantID,
+		})
+		if err != nil {
+			t.Fatalf("ListConnectorDeltaStatesBySource(): %v", err)
+		}
+		links := make(map[string]string, len(states))
+		for _, state := range states {
+			links[state.Resource] = state.DeltaLink
+		}
+		want := map[string]string{
+			entraDeltaResourceUsers:             "delta://users",
+			entraDeltaResourceGroups:            "delta://groups",
+			entraDeltaResourceApplications:      "delta://applications",
+			entraDeltaResourceServicePrincipals: "delta://service-principals",
+		}
+		for resource, wantLink := range want {
+			if links[resource] != wantLink {
+				t.Fatalf("delta link for %s=%q want %q", resource, links[resource], wantLink)
+			}
+		}
+	})
+}
+
+func TestEntraRunFullDeltaDeleteExpiresOnlyDeletedAccount(t *testing.T) {
+	t.Parallel()
+
+	withEntraTestDB(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateEntraUp(t, migrator)
+
+		integration := &EntraIntegration{client: fullSyncFixtureClient(t), tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err != nil {
+			t.Fatalf("bootstrap runFull() error = %v", err)
+		}
+
+		users := DeltaResult[User]{
+			RemovedIDs: []string{fullSyncUserBobID},
+			DeltaLink:  "delta://users-delete",
+		}
+		groups := DeltaResult[Group]{DeltaLink: "delta://groups-delete"}
+		applications := DeltaResult[Application]{DeltaLink: "delta://applications-delete"}
+		servicePrincipals := DeltaResult[ServicePrincipal]{DeltaLink: "delta://service-principals-delete"}
+		incremental := fullSyncFixtureClient(t)
+		incremental.deltaUsers = &users
+		incremental.deltaGroups = &groups
+		incremental.deltaApplications = &applications
+		incremental.deltaServicePrincipals = &servicePrincipals
+
+		integration = &EntraIntegration{client: incremental, tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err != nil {
+			t.Fatalf("incremental runFull() error = %v", err)
+		}
+
+		var bobExpired int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM accounts
+			WHERE source_kind = 'entra'
+			  AND source_name = $1
+			  AND external_id = $2
+			  AND expired_at IS NOT NULL
+		`, fullSyncTenantID, fullSyncUserBobID).Scan(&bobExpired); err != nil {
+			t.Fatalf("count expired bob: %v", err)
+		}
+		if bobExpired != 1 {
+			t.Fatalf("bobExpired=%d want 1", bobExpired)
+		}
+
+		var aliceActive int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM accounts
+			WHERE source_kind = 'entra'
+			  AND source_name = $1
+			  AND external_id = $2
+			  AND expired_at IS NULL
+			  AND last_observed_run_id IS NOT NULL
+		`, fullSyncTenantID, fullSyncUserAliceID).Scan(&aliceActive); err != nil {
+			t.Fatalf("count active alice: %v", err)
+		}
+		if aliceActive != 1 {
+			t.Fatalf("aliceActive=%d want 1", aliceActive)
+		}
+	})
+}
+
+func TestEntraRunFullDeltaDeleteExpiresApplicationAndServicePrincipalAssets(t *testing.T) {
+	t.Parallel()
+
+	withEntraTestDB(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateEntraUp(t, migrator)
+
+		integration := &EntraIntegration{client: fullSyncFixtureClient(t), tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err != nil {
+			t.Fatalf("bootstrap runFull() error = %v", err)
+		}
+
+		users := DeltaResult[User]{DeltaLink: "delta://users-assets-delete"}
+		groups := DeltaResult[Group]{DeltaLink: "delta://groups-assets-delete"}
+		applications := DeltaResult[Application]{
+			RemovedIDs: []string{fullSyncApplicationID},
+			DeltaLink:  "delta://applications-assets-delete",
+		}
+		servicePrincipals := DeltaResult[ServicePrincipal]{
+			RemovedIDs: []string{fullSyncServicePrincipalID},
+			DeltaLink:  "delta://service-principals-assets-delete",
+		}
+		incremental := fullSyncFixtureClient(t)
+		incremental.deltaUsers = &users
+		incremental.deltaGroups = &groups
+		incremental.deltaApplications = &applications
+		incremental.deltaServicePrincipals = &servicePrincipals
+
+		integration = &EntraIntegration{client: incremental, tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err != nil {
+			t.Fatalf("incremental runFull() error = %v", err)
+		}
+
+		assertExpiredAppAsset := func(assetKind, externalID string) {
+			t.Helper()
+			var expired int
+			if err := pool.QueryRow(ctx, `
+				SELECT count(*)
+				FROM app_assets
+				WHERE source_kind = 'entra'
+				  AND source_name = $1
+				  AND asset_kind = $2
+				  AND external_id = $3
+				  AND expired_at IS NOT NULL
+			`, fullSyncTenantID, assetKind, externalID).Scan(&expired); err != nil {
+				t.Fatalf("count expired app asset %s/%s: %v", assetKind, externalID, err)
+			}
+			if expired != 1 {
+				t.Fatalf("expired app asset %s/%s count=%d want 1", assetKind, externalID, expired)
+			}
+		}
+		assertExpiredAppAsset("entra_application", fullSyncApplicationID)
+		assertExpiredAppAsset("entra_service_principal", fullSyncServicePrincipalID)
+
+		var servicePrincipalAccountExpired int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM accounts
+			WHERE source_kind = 'entra'
+			  AND source_name = $1
+			  AND external_id = $2
+			  AND expired_at IS NOT NULL
+		`, fullSyncTenantID, entraServicePrincipalExternalID(fullSyncServicePrincipalID)).Scan(&servicePrincipalAccountExpired); err != nil {
+			t.Fatalf("count expired service principal account: %v", err)
+		}
+		if servicePrincipalAccountExpired != 1 {
+			t.Fatalf("servicePrincipalAccountExpired=%d want 1", servicePrincipalAccountExpired)
+		}
+
+		for _, assetRef := range []string{
+			appAssetRefExternalID("entra_application", fullSyncApplicationID),
+			appAssetRefExternalID("entra_service_principal", fullSyncServicePrincipalID),
+		} {
+			var activeCredentials int
+			if err := pool.QueryRow(ctx, `
+				SELECT count(*)
+				FROM credential_artifacts
+				WHERE source_kind = 'entra'
+				  AND source_name = $1
+				  AND asset_ref_kind = 'app_asset'
+				  AND asset_ref_external_id = $2
+				  AND expired_at IS NULL
+				  AND last_observed_run_id IS NOT NULL
+			`, fullSyncTenantID, assetRef).Scan(&activeCredentials); err != nil {
+				t.Fatalf("count active credentials for %s: %v", assetRef, err)
+			}
+			if activeCredentials != 0 {
+				t.Fatalf("active credentials for %s=%d want 0", assetRef, activeCredentials)
+			}
+		}
+	})
+}
+
+func TestEntraRunFullDeltaRefreshesUnchangedCredentialLifecycleStatus(t *testing.T) {
+	t.Parallel()
+
+	withEntraTestDB(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateEntraUp(t, migrator)
+
+		integration := &EntraIntegration{client: fullSyncFixtureClient(t), tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err != nil {
+			t.Fatalf("bootstrap runFull() error = %v", err)
+		}
+
+		if _, err := pool.Exec(ctx, `
+			UPDATE credential_artifacts
+			SET status = 'active',
+			    expires_at_source = now() - interval '1 hour'
+			WHERE source_kind = 'entra'
+			  AND source_name = $1
+			  AND external_id = $2
+		`, fullSyncTenantID, fullSyncAppSecretID); err != nil {
+			t.Fatalf("make credential stale: %v", err)
+		}
+
+		users := DeltaResult[User]{DeltaLink: "delta://users-noop-credential-status"}
+		groups := DeltaResult[Group]{DeltaLink: "delta://groups-noop-credential-status"}
+		applications := DeltaResult[Application]{DeltaLink: "delta://applications-noop-credential-status"}
+		servicePrincipals := DeltaResult[ServicePrincipal]{DeltaLink: "delta://service-principals-noop-credential-status"}
+		incremental := fullSyncFixtureClient(t)
+		incremental.deltaUsers = &users
+		incremental.deltaGroups = &groups
+		incremental.deltaApplications = &applications
+		incremental.deltaServicePrincipals = &servicePrincipals
+
+		integration = &EntraIntegration{client: incremental, tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err != nil {
+			t.Fatalf("incremental runFull() error = %v", err)
+		}
+
+		var status string
+		if err := pool.QueryRow(ctx, `
+			SELECT status
+			FROM credential_artifacts
+			WHERE source_kind = 'entra'
+			  AND source_name = $1
+			  AND external_id = $2
+			  AND expired_at IS NULL
+			  AND last_observed_run_id IS NOT NULL
+		`, fullSyncTenantID, fullSyncAppSecretID).Scan(&status); err != nil {
+			t.Fatalf("query credential status: %v", err)
+		}
+		if status != "expired" {
+			t.Fatalf("credential status=%q want expired", status)
+		}
+	})
+}
+
+func TestEntraRunFullDeltaDoesNotAdvanceCursorOnFailure(t *testing.T) {
+	t.Parallel()
+
+	withEntraTestDB(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateEntraUp(t, migrator)
+
+		integration := &EntraIntegration{client: fullSyncFixtureClient(t), tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err != nil {
+			t.Fatalf("bootstrap runFull() error = %v", err)
+		}
+
+		users := DeltaResult[User]{
+			Items: []User{
+				mustParseUser(t, `{"id":"`+fullSyncUserAliceID+`","displayName":"Alice Failed","mail":"alice@example.com","userPrincipalName":"alice@example.com","accountEnabled":true}`),
+			},
+			DeltaLink: "delta://users-failed",
+		}
+		groups := DeltaResult[Group]{DeltaLink: "delta://groups-failed"}
+		applications := DeltaResult[Application]{DeltaLink: "delta://applications-failed"}
+		servicePrincipals := DeltaResult[ServicePrincipal]{DeltaLink: "delta://service-principals-failed"}
+		failing := fullSyncFixtureClient(t)
+		failing.deltaUsers = &users
+		failing.deltaGroups = &groups
+		failing.deltaApplications = &applications
+		failing.deltaServicePrincipals = &servicePrincipals
+		failing.directoryAuditsErr = errors.New("audit api unavailable")
+
+		integration = &EntraIntegration{client: failing, tenantID: fullSyncTenantID}
+		if err := integration.runFull(ctx, q, pool, func(registry.Event) {}); err == nil {
+			t.Fatalf("incremental runFull() error = nil, want error")
+		}
+
+		states, err := q.ListConnectorDeltaStatesBySource(ctx, gen.ListConnectorDeltaStatesBySourceParams{
+			SourceKind: "entra",
+			SourceName: fullSyncTenantID,
+		})
+		if err != nil {
+			t.Fatalf("ListConnectorDeltaStatesBySource(): %v", err)
+		}
+		links := make(map[string]string, len(states))
+		for _, state := range states {
+			links[state.Resource] = state.DeltaLink
+		}
+		if links[entraDeltaResourceUsers] != "delta://users" {
+			t.Fatalf("users delta link=%q want original delta://users", links[entraDeltaResourceUsers])
 		}
 	})
 }
