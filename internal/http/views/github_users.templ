@@ -135,7 +135,7 @@ templ GitHubUsersPageResults(data viewmodels.GitHubUsersViewData) {
 				</table>
 			}
 			if data.TotalPages > 1 {
-				@ListPagination("github-users-results", data.Page, data.TotalPages, data.Query.WithPage(data.Page-1).Href(), data.Query.WithPage(data.Page+1).Href())
+				@ListPagination("github-users-results", data.Page, data.TotalPages, BasicListPageHref(data.Query))
 			}
 		</section>
 	</div>

@@ -72,16 +72,18 @@ templ ListSectionHeader(title, description string) {
 	</div>
 }
 
-templ ListPagination(targetID string, page, totalPages int, prevHref, nextHref string) {
+templ ListPagination(targetID string, page, totalPages int, hrefForPage func(int) string) {
 	<div class="osspm-list-pagination">
 		<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(page) }{ " of " }{ FormatInt(totalPages) }</div>
 		<div class="button-group ml-auto">
 			if page > 1 {
+				{{ prevHref := hrefForPage(page - 1) }}
 				<a class="btn-sm-outline" href={ prevHref } hx-get={ prevHref } hx-target={ "#" + targetID } hx-swap="outerHTML" hx-push-url="true">Previous</a>
 			} else {
 				<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
 			}
 			if page < totalPages {
+				{{ nextHref := hrefForPage(page + 1) }}
 				<a class="btn-sm-outline" href={ nextHref } hx-get={ nextHref } hx-target={ "#" + targetID } hx-swap="outerHTML" hx-push-url="true">Next</a>
 			} else {
 				<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>

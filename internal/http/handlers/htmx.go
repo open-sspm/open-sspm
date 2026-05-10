@@ -35,10 +35,13 @@ func setHXRedirect(c *echo.Context, url string) {
 // headers needed for safe caching across HX vs. non-HX responses.
 func (h *Handlers) renderListWithHX(c *echo.Context, targetID string, fragment, full templ.Component) error {
 	addVary(c, "HX-Request", "HX-Target")
-	if isHX(c) && isHXTarget(c, targetID) {
+	if !isHX(c) {
+		return h.RenderComponent(c, full)
+	}
+	if isHXTarget(c, targetID) {
 		return h.RenderComponent(c, fragment)
 	}
-	return h.RenderComponent(c, full)
+	return c.String(http.StatusBadRequest, "unexpected HTMX target")
 }
 
 func addVary(c *echo.Context, values ...string) {

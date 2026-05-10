@@ -8,6 +8,12 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
+func BasicListPageHref(query querystate.BasicListQuery) func(int) string {
+	return func(page int) string {
+		return query.WithPage(page).Href()
+	}
+}
+
 func SearchOnlyBasicListQueryBar(query querystate.BasicListQuery, placeholder string) viewmodels.TableQueryBarData {
 	return viewmodels.TableQueryBarData{
 		Search: tableQuerySearch(query.Q, placeholder),

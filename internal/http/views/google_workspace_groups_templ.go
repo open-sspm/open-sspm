@@ -41,7 +41,7 @@ func GoogleWorkspaceGroupMobileRow(group viewmodels.GoogleWorkspaceGroupListItem
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(group.DisplayName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 11, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 11, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -54,7 +54,7 @@ func GoogleWorkspaceGroupMobileRow(group viewmodels.GoogleWorkspaceGroupListItem
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(group.DisplayName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 12, Col: 52}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 12, Col: 52}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -72,7 +72,7 @@ func GoogleWorkspaceGroupMobileRow(group viewmodels.GoogleWorkspaceGroupListItem
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(group.Email)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 15, Col: 70}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 15, Col: 70}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -90,7 +90,7 @@ func GoogleWorkspaceGroupMobileRow(group viewmodels.GoogleWorkspaceGroupListItem
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(group.ExternalID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 17, Col: 75}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 17, Col: 75}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -108,7 +108,7 @@ func GoogleWorkspaceGroupMobileRow(group viewmodels.GoogleWorkspaceGroupListItem
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(group.MemberCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 23, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 23, Col: 67}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -121,7 +121,7 @@ func GoogleWorkspaceGroupMobileRow(group viewmodels.GoogleWorkspaceGroupListItem
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(group.OwnerCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 27, Col: 66}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 27, Col: 66}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -134,7 +134,7 @@ func GoogleWorkspaceGroupMobileRow(group viewmodels.GoogleWorkspaceGroupListItem
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(group.ManagerCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 31, Col: 68}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 31, Col: 68}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -200,7 +200,7 @@ func GoogleWorkspaceGroupsPage(data viewmodels.GoogleWorkspaceGroupsViewData) te
 				var templ_7745c5c3_Var12 templ.SafeURL
 				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinURLErrs(querystate.ConnectedAppsQuery{}.Href())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 41, Col: 74}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 41, Col: 74}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 				if templ_7745c5c3_Err != nil {
@@ -240,7 +240,7 @@ func GoogleWorkspaceGroupsPage(data viewmodels.GoogleWorkspaceGroupsViewData) te
 					var templ_7745c5c3_Var14 string
 					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(data.EmptyStateMsg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 47, Col: 25}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 47, Col: 25}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 					if templ_7745c5c3_Err != nil {
@@ -253,7 +253,7 @@ func GoogleWorkspaceGroupsPage(data viewmodels.GoogleWorkspaceGroupsViewData) te
 					var templ_7745c5c3_Var15 templ.SafeURL
 					templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinURLErrs(data.EmptyStateHref)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 47, Col: 82}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 47, Col: 82}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 					if templ_7745c5c3_Err != nil {
@@ -333,7 +333,7 @@ func GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsViewD
 			var templ_7745c5c3_Var17 string
 			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs("Showing ")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 76, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 76, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 			if templ_7745c5c3_Err != nil {
@@ -342,7 +342,7 @@ func GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsViewD
 			var templ_7745c5c3_Var18 string
 			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.ShowingFrom))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 76, Col: 49}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 76, Col: 49}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 			if templ_7745c5c3_Err != nil {
@@ -351,7 +351,7 @@ func GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsViewD
 			var templ_7745c5c3_Var19 string
 			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs("-")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 76, Col: 56}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 76, Col: 56}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 			if templ_7745c5c3_Err != nil {
@@ -360,7 +360,7 @@ func GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsViewD
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.ShowingTo))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 76, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 76, Col: 85}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
@@ -369,7 +369,7 @@ func GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsViewD
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(" of ")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 76, Col: 95}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 76, Col: 95}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
@@ -378,7 +378,7 @@ func GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsViewD
 			var templ_7745c5c3_Var22 string
 			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(data.TotalCount))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 76, Col: 127}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 76, Col: 127}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 			if templ_7745c5c3_Err != nil {
@@ -452,7 +452,7 @@ func GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsViewD
 					var templ_7745c5c3_Var24 string
 					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(g.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 116, Col: 51}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 116, Col: 51}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 					if templ_7745c5c3_Err != nil {
@@ -470,7 +470,7 @@ func GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsViewD
 						var templ_7745c5c3_Var25 string
 						templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(g.ExternalID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 118, Col: 69}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 118, Col: 69}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 						if templ_7745c5c3_Err != nil {
@@ -489,7 +489,7 @@ func GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsViewD
 						var templ_7745c5c3_Var26 string
 						templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(g.Email)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 124, Col: 20}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 124, Col: 20}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 						if templ_7745c5c3_Err != nil {
@@ -508,7 +508,7 @@ func GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsViewD
 					var templ_7745c5c3_Var27 string
 					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(g.MemberCount))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 129, Col: 67}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 129, Col: 67}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 					if templ_7745c5c3_Err != nil {
@@ -521,7 +521,7 @@ func GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsViewD
 					var templ_7745c5c3_Var28 string
 					templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(g.OwnerCount))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 130, Col: 66}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 130, Col: 66}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 					if templ_7745c5c3_Err != nil {
@@ -534,7 +534,7 @@ func GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsViewD
 					var templ_7745c5c3_Var29 string
 					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(g.ManagerCount))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_groups.templ`, Line: 131, Col: 68}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_groups.templ`, Line: 131, Col: 68}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 					if templ_7745c5c3_Err != nil {
@@ -570,7 +570,7 @@ func GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsViewD
 			return templ_7745c5c3_Err
 		}
 		if data.TotalPages > 1 {
-			templ_7745c5c3_Err = ListPagination("google-workspace-groups-results", data.Page, data.TotalPages, data.Query.WithPage(data.Page-1).Href(), data.Query.WithPage(data.Page+1).Href()).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ListPagination("google-workspace-groups-results", data.Page, data.TotalPages, BasicListPageHref(data.Query)).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

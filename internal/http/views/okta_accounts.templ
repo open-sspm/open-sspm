@@ -114,7 +114,7 @@ templ OktaAccountsPageResults(data viewmodels.OktaAccountsViewData) {
 				</table>
 			}
 			if data.TotalPages > 1 {
-				@ListPagination("okta-accounts-results", data.Page, data.TotalPages, data.Query.WithPage(data.Page-1).Href(), data.Query.WithPage(data.Page+1).Href())
+				@ListPagination("okta-accounts-results", data.Page, data.TotalPages, BasicListPageHref(data.Query))
 			}
 		</section>
 	</div>
