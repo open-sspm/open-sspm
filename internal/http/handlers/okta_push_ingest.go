@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/json"
+	"log/slog"
 	"mime"
 	"net/http"
 	"strings"
@@ -24,6 +25,8 @@ const (
 
 	oktaPushStatusQueued  = "queued"
 	oktaPushStatusIgnored = "ignored"
+
+	oktaPushInboxEnqueueTimeout = 2 * time.Second
 )
 
 type oktaEventHookEnvelope struct {
@@ -82,9 +85,11 @@ func (h *Handlers) HandleOktaEventHookPost(c *echo.Context) error {
 	if queued == 0 {
 		return c.NoContent(http.StatusNoContent)
 	}
-	if _, err := h.Q.UpsertOktaPushInboxEventsBulk(c.Request().Context(), params); err != nil {
+	ids, err := h.Q.UpsertOktaPushInboxEventsBulk(c.Request().Context(), params)
+	if err != nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "could not persist Okta Event Hook delivery")
 	}
+	h.enqueueOktaPushInboxRows(c.Request().Context(), ids)
 	metrics.OktaPushEventsReceivedTotal.WithLabelValues(sourceName, oktaPushChannelEventHook, oktaPushStatusQueued).Add(float64(queued))
 	return c.NoContent(http.StatusNoContent)
 }
@@ -123,11 +128,28 @@ func (h *Handlers) HandleOktaEventBridgePost(c *echo.Context) error {
 	if queued == 0 {
 		return c.NoContent(http.StatusNoContent)
 	}
-	if _, err := h.Q.UpsertOktaPushInboxEventsBulk(c.Request().Context(), params); err != nil {
+	ids, err := h.Q.UpsertOktaPushInboxEventsBulk(c.Request().Context(), params)
+	if err != nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "could not persist Okta EventBridge delivery")
 	}
+	h.enqueueOktaPushInboxRows(c.Request().Context(), ids)
 	metrics.OktaPushEventsReceivedTotal.WithLabelValues(sourceName, oktaPushChannelEventBridge, oktaPushStatusQueued).Add(float64(queued))
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *Handlers) enqueueOktaPushInboxRows(ctx context.Context, ids []int64) {
+	if h == nil || h.OktaPushInboxQueue == nil || len(ids) == 0 {
+		return
+	}
+	baseCtx := context.Background()
+	if ctx != nil {
+		baseCtx = context.WithoutCancel(ctx)
+	}
+	enqueueCtx, cancel := context.WithTimeout(baseCtx, oktaPushInboxEnqueueTimeout)
+	defer cancel()
+	if err := h.OktaPushInboxQueue.Enqueue(enqueueCtx, ids); err != nil {
+		slog.Warn("Okta push inbox redis enqueue failed; Postgres poller will recover", "error", err, "rows", len(ids))
+	}
 }
 
 func (h *Handlers) resolveOktaEventHookVerificationSource(ctx context.Context, authorization string) (string, error) {

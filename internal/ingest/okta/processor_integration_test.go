@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -52,6 +53,138 @@ func TestProcessQueuedWritesDiscoveryRows(t *testing.T) {
 		}
 		if status != "processed" || !processedRunID.Valid {
 			t.Fatalf("inbox status/run = %q/%+v, want processed with run", status, processedRunID)
+		}
+	})
+}
+
+func TestProcessQueuedIDsClaimsOnlyRedisQueuedRows(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-sso-redis", `{
+			"uuid": "evt-sso-redis",
+			"eventType": "user.authentication.sso",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"},
+			"target": [{"id": "0oa1", "type": "AppInstance", "alternateId": "https://app.example.com", "displayName": "Example App"}]
+		}`)
+
+		id := oktaPushInboxIDByExternalID(t, ctx, pool, "evt-sso-redis")
+
+		result, err := ProcessQueuedIDsWithConfig(ctx, q, pool, []int64{id}, 100, DefaultConfig())
+		if err != nil {
+			t.Fatalf("ProcessQueuedIDsWithConfig(): %v", err)
+		}
+		if result.Claimed != 1 || result.Processed != 1 {
+			t.Fatalf("result = %+v, want claimed=1 processed=1", result)
+		}
+
+		result, err = ProcessQueuedIDsWithConfig(ctx, q, pool, []int64{id}, 100, DefaultConfig())
+		if err != nil {
+			t.Fatalf("ProcessQueuedIDsWithConfig() duplicate: %v", err)
+		}
+		if result.Claimed != 0 {
+			t.Fatalf("duplicate result = %+v, want claimed=0", result)
+		}
+	})
+}
+
+func TestClaimQueuedOktaPushInboxEventsByIDsFiltersStatusAndLimit(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		raw := `{
+			"uuid": "evt-placeholder",
+			"eventType": "user.authentication.sso",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"},
+			"target": [{"id": "0oa1", "type": "AppInstance", "alternateId": "https://app.example.com", "displayName": "Example App"}]
+		}`
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-claim-a", raw)
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-claim-b", raw)
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-claim-c", raw)
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-claim-d", raw)
+		ids := oktaPushInboxIDsByExternalID(t, ctx, pool, "evt-claim-a", "evt-claim-b", "evt-claim-c", "evt-claim-d")
+		if _, err := pool.Exec(ctx, `
+			UPDATE okta_push_inbox
+			SET status = CASE event_external_id
+				WHEN 'evt-claim-b' THEN 'processing'
+				WHEN 'evt-claim-c' THEN 'processed'
+				ELSE status
+			END
+			WHERE event_external_id IN ('evt-claim-b', 'evt-claim-c')
+		`); err != nil {
+			t.Fatalf("seed non-queued statuses: %v", err)
+		}
+
+		missingID := ids["evt-claim-d"] + 999999
+		rows, err := q.ClaimQueuedOktaPushInboxEventsByIDs(ctx, gen.ClaimQueuedOktaPushInboxEventsByIDsParams{
+			Ids:       []int64{ids["evt-claim-d"], ids["evt-claim-c"], ids["evt-claim-b"], ids["evt-claim-a"], ids["evt-claim-a"], missingID},
+			LimitRows: 1,
+		})
+		if err != nil {
+			t.Fatalf("ClaimQueuedOktaPushInboxEventsByIDs() limit=1: %v", err)
+		}
+		if len(rows) != 1 || rows[0].EventExternalID != "evt-claim-a" {
+			t.Fatalf("claimed rows = %#v, want only evt-claim-a", rows)
+		}
+
+		rows, err = q.ClaimQueuedOktaPushInboxEventsByIDs(ctx, gen.ClaimQueuedOktaPushInboxEventsByIDsParams{
+			Ids:       []int64{ids["evt-claim-d"], ids["evt-claim-c"], ids["evt-claim-b"], ids["evt-claim-a"], missingID},
+			LimitRows: 10,
+		})
+		if err != nil {
+			t.Fatalf("ClaimQueuedOktaPushInboxEventsByIDs() remaining: %v", err)
+		}
+		if len(rows) != 1 || rows[0].EventExternalID != "evt-claim-d" {
+			t.Fatalf("claimed remaining rows = %#v, want only evt-claim-d", rows)
+		}
+	})
+}
+
+func TestRunLoopWithQueueProcessesRedisIDsAndStopsConsumer(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		redis := miniredis.RunT(t)
+		inboxQueue, err := NewRedisInboxQueue("redis://"+redis.Addr()+"/0", "test")
+		if err != nil {
+			t.Fatalf("NewRedisInboxQueue(): %v", err)
+		}
+		defer inboxQueue.Close()
+
+		runCtx, cancelRun := context.WithCancel(ctx)
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- RunLoopWithQueue(runCtx, q, pool, Config{
+				BatchSize:               10,
+				PollInterval:            5 * time.Second,
+				CleanupInterval:         time.Hour,
+				StaleProcessingAfter:    time.Hour,
+				ProcessedRetentionDays:  30,
+				DeadLetterRetentionDays: 90,
+			}, inboxQueue)
+		}()
+		defer cancelRun()
+
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-runloop-redis", `{
+			"uuid": "evt-runloop-redis",
+			"eventType": "user.authentication.sso",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"},
+			"target": [{"id": "0oa1", "type": "AppInstance", "alternateId": "https://app.example.com", "displayName": "Example App"}]
+		}`)
+		id := oktaPushInboxIDByExternalID(t, ctx, pool, "evt-runloop-redis")
+		if err := inboxQueue.Enqueue(ctx, []int64{id}); err != nil {
+			t.Fatalf("enqueue redis id: %v", err)
+		}
+
+		waitForOktaPushInboxStatus(t, ctx, pool, "evt-runloop-redis", "processed")
+		if got := testutil.ToFloat64(metrics.OktaPushRedisQueueDepth.WithLabelValues(oktaPushInboxQueueName)); got != 0 {
+			t.Fatalf("redis queue depth metric = %v, want 0", got)
+		}
+		cancelRun()
+		select {
+		case err := <-errCh:
+			if err != nil {
+				t.Fatalf("RunLoopWithQueue() error = %v", err)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("RunLoopWithQueue() did not stop after cancellation")
 		}
 	})
 }
@@ -552,6 +685,57 @@ func queueOktaPushEvent(t *testing.T, ctx context.Context, q *gen.Queries, sourc
 		RawJsons:            [][]byte{[]byte(raw)},
 	}); err != nil {
 		t.Fatalf("queue okta push event: %v", err)
+	}
+}
+
+func oktaPushInboxIDByExternalID(t *testing.T, ctx context.Context, pool *pgxpool.Pool, eventExternalID string) int64 {
+	t.Helper()
+	return oktaPushInboxIDsByExternalID(t, ctx, pool, eventExternalID)[eventExternalID]
+}
+
+func oktaPushInboxIDsByExternalID(t *testing.T, ctx context.Context, pool *pgxpool.Pool, eventExternalIDs ...string) map[string]int64 {
+	t.Helper()
+
+	ids := make(map[string]int64, len(eventExternalIDs))
+	for _, eventExternalID := range eventExternalIDs {
+		var id int64
+		if err := pool.QueryRow(ctx, `
+			SELECT id
+			FROM okta_push_inbox
+			WHERE event_external_id = $1
+		`, eventExternalID).Scan(&id); err != nil {
+			t.Fatalf("select inbox id for %q: %v", eventExternalID, err)
+		}
+		ids[eventExternalID] = id
+	}
+	return ids
+}
+
+func waitForOktaPushInboxStatus(t *testing.T, ctx context.Context, pool *pgxpool.Pool, eventExternalID, want string) {
+	t.Helper()
+
+	timeout := time.NewTimer(2 * time.Second)
+	defer timeout.Stop()
+	ticker := time.NewTicker(20 * time.Millisecond)
+	defer ticker.Stop()
+
+	var last string
+	for {
+		if err := pool.QueryRow(ctx, `
+			SELECT status
+			FROM okta_push_inbox
+			WHERE event_external_id = $1
+		`, eventExternalID).Scan(&last); err != nil {
+			t.Fatalf("select inbox status for %q: %v", eventExternalID, err)
+		}
+		if last == want {
+			return
+		}
+		select {
+		case <-ticker.C:
+		case <-timeout.C:
+			t.Fatalf("status for %q = %q, want %q", eventExternalID, last, want)
+		}
 	}
 }
 

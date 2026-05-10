@@ -68,6 +68,13 @@ func runAPIWithOptions(opts apiRunOptions) error {
 		return err
 	}
 	defer runtimeDeps.pool.Close()
+	oktaPushInboxQueue, err := openOktaPushInboxQueue(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	if oktaPushInboxQueue != nil {
+		defer func() { _ = oktaPushInboxQueue.Close() }()
+	}
 
 	locks, err := sync.NewLockManager(runtimeDeps.pool, sync.LockManagerConfig{
 		Mode:              cfg.SyncLockMode,
@@ -130,7 +137,7 @@ func runAPIWithOptions(opts apiRunOptions) error {
 		syncer = nil
 	}
 
-	srv, err := httpapp.NewEchoServer(cfg, runtimeDeps.pool, queries, syncer, reg, runtimeDeps.mailer)
+	srv, err := httpapp.NewEchoServer(cfg, runtimeDeps.pool, queries, syncer, oktaPushInboxQueue, reg, runtimeDeps.mailer)
 	if err != nil {
 		return err
 	}
@@ -144,7 +151,7 @@ func runAPIWithOptions(opts apiRunOptions) error {
 	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr, discoveryMetricsRefresh(queries))
 	if opts.StartIngestWorker && cfg.SyncDiscoveryEnabled {
 		go func() {
-			if err := oktaingest.RunLoop(ctx, queries, runtimeDeps.pool, oktaingest.DefaultConfig()); err != nil && !errors.Is(err, context.Canceled) {
+			if err := oktaingest.RunLoopWithQueue(ctx, queries, runtimeDeps.pool, oktaingest.DefaultConfig(), oktaPushInboxQueue); err != nil && !errors.Is(err, context.Canceled) {
 				errCh <- err
 			}
 		}()

@@ -41,6 +41,13 @@ func runWorkerIngest() error {
 		return err
 	}
 	defer runtimeDeps.pool.Close()
+	oktaPushInboxQueue, err := openOktaPushInboxQueue(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	if oktaPushInboxQueue != nil {
+		defer func() { _ = oktaPushInboxQueue.Close() }()
+	}
 	queries := runtimeDeps.queries
 
 	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr, oktaPushMetricsRefresh(queries))
@@ -48,7 +55,7 @@ func runWorkerIngest() error {
 	doneCh := make(chan struct{})
 	go func() {
 		defer close(doneCh)
-		if err := oktaingest.RunLoop(ctx, queries, runtimeDeps.pool, oktaingest.DefaultConfig()); err != nil && !errors.Is(err, context.Canceled) {
+		if err := oktaingest.RunLoopWithQueue(ctx, queries, runtimeDeps.pool, oktaingest.DefaultConfig(), oktaPushInboxQueue); err != nil && !errors.Is(err, context.Canceled) {
 			errCh <- err
 		}
 	}()

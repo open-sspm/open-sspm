@@ -82,6 +82,12 @@ var (
 		Help:      "Current number of queued Okta push inbox events.",
 	}, []string{"source_name", "channel"})
 
+	OktaPushRedisQueueDepth = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "okta_push_redis_queue_depth",
+		Help:      "Current number of queued Okta push Redis wake-up IDs.",
+	}, []string{"queue"})
+
 	OktaPushDeadLetterRows = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Name:      "okta_push_dead_letter_rows",

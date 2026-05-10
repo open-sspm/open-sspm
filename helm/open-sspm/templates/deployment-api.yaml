@@ -110,6 +110,7 @@ spec:
               value: {{ ternary "1" "0" .Values.config.devSeedAdmin | quote }}
             - name: RESYNC_ENABLED
               value: {{ ternary "1" "0" .Values.config.resyncEnabled | quote }}
+            {{- include "open-sspm.queueEnv" . | nindent 12 }}
             - name: SYNC_DISCOVERY_ENABLED
               value: {{ ternary "1" "0" (and .Values.config.syncDiscoveryEnabled .Values.discoveryWorker.enabled) | quote }}
             - name: SYNC_INTERVAL

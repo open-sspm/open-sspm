@@ -91,6 +91,7 @@
           CONNECTOR_SECRET_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
           LOG_FORMAT=json
           LOG_LEVEL=info
+          QUEUE_BACKEND=postgres
           SYNC_INTERVAL=0s
           SYNC_DISCOVERY_INTERVAL=0s
           # Optional per-connector full-sync interval (must be >0 when set)

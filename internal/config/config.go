@@ -20,6 +20,8 @@ const (
 	defaultSyncInterval          = 15 * time.Minute
 	defaultSyncDiscoveryInterval = 15 * time.Minute
 	defaultStartupReadModelMode  = StartupReadModelRebuildAuto
+	defaultQueueBackend          = QueueBackendPostgres
+	defaultRedisKeyPrefix        = "open-sspm"
 	defaultSMTPPort              = 587
 	defaultSMTPTLSMode           = SMTPTLSModeStartTLS
 
@@ -37,6 +39,9 @@ const (
 	StartupReadModelRebuildAuto   = "auto"
 	StartupReadModelRebuildAlways = "always"
 
+	QueueBackendPostgres = "postgres"
+	QueueBackendRedis    = "redis"
+
 	SMTPTLSModeStartTLS = "starttls"
 	SMTPTLSModeTLS      = "tls"
 	SMTPTLSModePlain    = "plain"
@@ -52,6 +57,9 @@ type Config struct {
 	AuthCookieSecure            bool
 	TrustedProxyCIDRs           []string
 	DevSeedAdmin                bool
+	QueueBackend                string
+	RedisURL                    string
+	RedisKeyPrefix              string
 	SyncDiscoveryEnabled        bool
 	SyncInterval                time.Duration
 	SyncDiscoveryInterval       time.Duration
@@ -110,6 +118,9 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		AuthCookieSecure:      getenvBoolDefault("AUTH_COOKIE_SECURE", false),
 		TrustedProxyCIDRs:     splitCommaSeparated(os.Getenv("TRUSTED_PROXY_CIDRS")),
 		DevSeedAdmin:          getenvBoolDefault("DEV_SEED_ADMIN", false),
+		QueueBackend:          strings.ToLower(strings.TrimSpace(getenvDefault("QUEUE_BACKEND", defaultQueueBackend))),
+		RedisURL:              strings.TrimSpace(os.Getenv("REDIS_URL")),
+		RedisKeyPrefix:        strings.TrimSpace(getenvDefault("REDIS_KEY_PREFIX", defaultRedisKeyPrefix)),
 		SyncDiscoveryEnabled:  getenvBoolDefault("SYNC_DISCOVERY_ENABLED", true),
 		SyncInterval:          defaultSyncInterval,
 		SyncDiscoveryInterval: defaultSyncDiscoveryInterval,
@@ -225,6 +236,14 @@ func validate(cfg Config, opts LoadOptions) error {
 			StartupReadModelRebuildAuto,
 			StartupReadModelRebuildAlways,
 		)
+	}
+	switch cfg.QueueBackend {
+	case QueueBackendPostgres, QueueBackendRedis:
+	default:
+		return fmt.Errorf("QUEUE_BACKEND must be %q or %q", QueueBackendPostgres, QueueBackendRedis)
+	}
+	if strings.TrimSpace(cfg.RedisKeyPrefix) == "" {
+		return errors.New("REDIS_KEY_PREFIX must not be empty")
 	}
 
 	return nil

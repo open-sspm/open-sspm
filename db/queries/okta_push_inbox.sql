@@ -1,4 +1,4 @@
--- name: UpsertOktaPushInboxEventsBulk :execrows
+-- name: UpsertOktaPushInboxEventsBulk :many
 WITH input AS (
   SELECT
     i,
@@ -68,7 +68,8 @@ ON CONFLICT (source_name, event_external_id) DO UPDATE SET
   updated_at = CASE
     WHEN okta_push_inbox.status = 'processing' THEN okta_push_inbox.updated_at
     ELSE now()
-  END;
+  END
+RETURNING id;
 
 -- name: ClaimQueuedOktaPushInboxEvents :many
 WITH candidates AS (
@@ -77,6 +78,28 @@ WITH candidates AS (
   WHERE status = 'queued'
     AND (next_attempt_at IS NULL OR next_attempt_at <= now())
   ORDER BY id
+  LIMIT sqlc.arg(limit_rows)::int
+  FOR UPDATE SKIP LOCKED
+)
+UPDATE okta_push_inbox i
+SET status = 'processing',
+    attempts = attempts + 1,
+    updated_at = now()
+FROM candidates c
+WHERE i.id = c.id
+RETURNING i.*;
+
+-- name: ClaimQueuedOktaPushInboxEventsByIDs :many
+WITH requested AS (
+  SELECT DISTINCT unnest(sqlc.arg(ids)::bigint[]) AS id
+),
+candidates AS (
+  SELECT i.id
+  FROM okta_push_inbox i
+  JOIN requested r ON r.id = i.id
+  WHERE i.status = 'queued'
+    AND (i.next_attempt_at IS NULL OR i.next_attempt_at <= now())
+  ORDER BY i.id
   LIMIT sqlc.arg(limit_rows)::int
   FOR UPDATE SKIP LOCKED
 )

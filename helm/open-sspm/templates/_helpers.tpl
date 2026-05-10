@@ -71,3 +71,28 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 {{- end }}
 {{- end -}}
+
+{{- define "open-sspm.queueEnv" -}}
+{{- $queueBackend := default "postgres" .Values.config.queueBackend | lower -}}
+{{- $redisValues := default dict .Values.redis -}}
+{{- $redisSecret := default dict $redisValues.existingSecret -}}
+{{- $redisSecretName := default "" $redisSecret.name -}}
+{{- $redisSecretURLKey := default "REDIS_URL" $redisSecret.urlKey -}}
+- name: QUEUE_BACKEND
+  value: {{ $queueBackend | quote }}
+{{- if eq $queueBackend "redis" }}
+{{- if $redisSecretName }}
+- name: REDIS_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ $redisSecretName | quote }}
+      key: {{ $redisSecretURLKey | quote }}
+      optional: false
+{{- else if .Values.config.redisUrl }}
+- name: REDIS_URL
+  value: {{ .Values.config.redisUrl | quote }}
+{{- end }}
+- name: REDIS_KEY_PREFIX
+  value: {{ default "open-sspm" .Values.config.redisKeyPrefix | quote }}
+{{- end }}
+{{- end -}}
