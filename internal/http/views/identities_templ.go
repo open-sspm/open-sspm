@@ -562,11 +562,11 @@ func identitiesSegmentChips(q querystate.IdentitiesQuery, s viewmodels.Identitie
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = segmentChip(q.SegmentPrivilegedUnmanaged().Href(), "Privileged unmanaged", FormatInt64(s.PrivilegedUnmanaged), q.PrivilegedOnly && q.ManagedState == "unmanaged" && q.RowState == "", "warn").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = segmentChip(q.SegmentPrivilegedUnmanaged().Href(), "Privileged unmanaged", FormatInt64(s.PrivilegedUnmanaged), q.PrivilegedOnly && q.ManagedState == "unmanaged" && q.ActivityState == "" && q.Status == "" && q.RowState == "", "warn").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = segmentChip(q.SegmentStalePrivileged().Href(), "Stale privileged", FormatInt64(s.StalePrivileged), q.PrivilegedOnly && q.ActivityState == "stale" && q.RowState == "", "warn").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = segmentChip(q.SegmentStalePrivileged().Href(), "Stale privileged", FormatInt64(s.StalePrivileged), q.PrivilegedOnly && q.ActivityState == "stale" && q.ManagedState == "" && q.Status == "" && q.RowState == "", "warn").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -143,8 +143,8 @@ templ identitiesSegmentChips(q querystate.IdentitiesQuery, s viewmodels.Identiti
 	<nav class="osspm-segment-chips" aria-label="Identity segments">
 		@segmentChip(q.ClearSegments().Href(), "All", FormatInt64(s.Total), !q.HasSegment(), "")
 		@segmentChip(q.SegmentNeedsAction().Href(), "Needs action", FormatInt64(s.ActionRequired), q.RowState == "action_required", "danger")
-		@segmentChip(q.SegmentPrivilegedUnmanaged().Href(), "Privileged unmanaged", FormatInt64(s.PrivilegedUnmanaged), q.PrivilegedOnly && q.ManagedState == "unmanaged" && q.RowState == "", "warn")
-		@segmentChip(q.SegmentStalePrivileged().Href(), "Stale privileged", FormatInt64(s.StalePrivileged), q.PrivilegedOnly && q.ActivityState == "stale" && q.RowState == "", "warn")
+		@segmentChip(q.SegmentPrivilegedUnmanaged().Href(), "Privileged unmanaged", FormatInt64(s.PrivilegedUnmanaged), q.PrivilegedOnly && q.ManagedState == "unmanaged" && q.ActivityState == "" && q.Status == "" && q.RowState == "", "warn")
+		@segmentChip(q.SegmentStalePrivileged().Href(), "Stale privileged", FormatInt64(s.StalePrivileged), q.PrivilegedOnly && q.ActivityState == "stale" && q.ManagedState == "" && q.Status == "" && q.RowState == "", "warn")
 		@segmentChip(q.ClearSegments().WithStatus("suspended").Href(), "Suspended", FormatInt64(s.Suspended), q.Status == "suspended", "")
 		@segmentChip(q.SegmentReview().Href(), "Review", FormatInt64(s.Review), q.RowState == "review", "warn")
 	</nav>
