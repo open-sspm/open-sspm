@@ -208,6 +208,43 @@ func TestFaviconRedirectSetsHTMLContentType(t *testing.T) {
 	}
 }
 
+func TestRegisterRoutesKeepsCapabilityFirstSurface(t *testing.T) {
+	e := echo.New()
+	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	es := &EchoServer{h: &handlers.Handlers{}, e: e}
+	es.registerRoutes()
+
+	paths := make(map[string]struct{})
+	for _, route := range e.Router().Routes() {
+		paths[route.Path] = struct{}{}
+	}
+
+	for _, want := range []string{
+		"/assigned-apps",
+		"/oauth-apps",
+		"/non-human-access",
+		"/accounts/okta",
+		"/accounts/unlinked/github/:org",
+		"/app-assets/:id/governance",
+	} {
+		if _, ok := paths[want]; !ok {
+			t.Fatalf("capability-first route %q not registered", want)
+		}
+	}
+
+	for _, legacy := range []string{
+		"/apps",
+		"/connected-apps",
+		"/okta-accounts",
+		"/github-users",
+		"/unmatched/github/*",
+	} {
+		if _, ok := paths[legacy]; ok {
+			t.Fatalf("legacy route %q still registered", legacy)
+		}
+	}
+}
+
 func TestHTTPErrorHandlerBadRequestUsesStatusText(t *testing.T) {
 	e := echo.New()
 	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
