@@ -142,23 +142,24 @@ templ identityStat(value, label, tone string) {
 templ identitiesSegmentChips(q querystate.IdentitiesQuery, s viewmodels.IdentitiesSummary) {
 	<nav class="osspm-segment-chips" aria-label="Identity segments">
 		@segmentChip(q.ClearSegments().Href(), "All", FormatInt64(s.Total), !q.HasSegment(), "")
-		@segmentChip(q.SegmentPrivileged().Href(), "Privileged", FormatInt64(s.Privileged), q.PrivilegedOnly, "warn")
-		@segmentChip(q.ClearSegments().WithManagedState("unmanaged").Href(), "Unmanaged", FormatInt64(s.Unmanaged), q.ManagedState == "unmanaged", "")
+		@segmentChip(q.SegmentNeedsAction().Href(), "Needs action", FormatInt64(s.ActionRequired), q.RowState == "action_required", "danger")
+		@segmentChip(q.SegmentPrivilegedUnmanaged().Href(), "Privileged unmanaged", FormatInt64(s.PrivilegedUnmanaged), q.PrivilegedOnly && q.ManagedState == "unmanaged" && q.RowState == "", "warn")
+		@segmentChip(q.SegmentStalePrivileged().Href(), "Stale privileged", FormatInt64(s.StalePrivileged), q.PrivilegedOnly && q.ActivityState == "stale" && q.RowState == "", "warn")
 		@segmentChip(q.ClearSegments().WithStatus("suspended").Href(), "Suspended", FormatInt64(s.Suspended), q.Status == "suspended", "")
-		@segmentChip(q.ClearSegments().WithActivityState("stale").Href(), "Stale 90d+", FormatInt64(s.Stale), q.ActivityState == "stale", "")
+		@segmentChip(q.SegmentReview().Href(), "Review", FormatInt64(s.Review), q.RowState == "review", "warn")
 	</nav>
 }
 
 templ segmentChip(href, label, count string, active bool, tone string) {
-		<a
-			href={ templ.SafeURL(href) }
-			hx-get={ href }
-			hx-target="#identities-results"
-			hx-swap="outerHTML"
-			hx-push-url="true"
-			class={ segmentChipClass(active, tone) }
-			aria-current={ AriaCurrentBool(active) }
-		>
+	<a
+		href={ templ.SafeURL(href) }
+		hx-get={ href }
+		hx-target="#identities-results"
+		hx-swap="outerHTML"
+		hx-push-url="true"
+		class={ segmentChipClass(active, tone) }
+		aria-current={ AriaCurrentBool(active) }
+	>
 		<span>{ label }</span>
 		<span class="osspm-segment-chip-count">{ count }</span>
 	</a>

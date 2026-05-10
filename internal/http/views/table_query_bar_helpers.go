@@ -57,6 +57,11 @@ func IdentitiesTableQueryBar(data viewmodels.IdentitiesViewData) viewmodels.Tabl
 	}
 
 	fields := []viewmodels.TableFilterField{
+		tableQueryField("row_state", "Attention", viewmodels.TableFilterFieldKindSingleSelect, []string{"row_state"}, query.RowState, query.RowState == "", []viewmodels.TableFilterOption{
+			tableQueryOption("action_required", "Needs action", tableQueryControl("row_state", "action_required")),
+			tableQueryOption("review", "Review", tableQueryControl("row_state", "review")),
+			tableQueryOption("healthy", "Healthy", tableQueryControl("row_state", "healthy")),
+		}),
 		tableQueryField("activity_state", "Activity", viewmodels.TableFilterFieldKindSingleSelect, []string{"activity_state"}, query.ActivityState, query.ActivityState == "", []viewmodels.TableFilterOption{
 			tableQueryOption("recent", "Seen < 30d", tableQueryControl("activity_state", "recent")),
 			tableQueryOption("aging", "30-89d", tableQueryControl("activity_state", "aging")),
@@ -93,15 +98,17 @@ func IdentitiesTableQueryBar(data viewmodels.IdentitiesViewData) viewmodels.Tabl
 		fields,
 		[]viewmodels.TableActiveChip{
 			maybeChip(fields[0]),
-			maybeBooleanChip(fields[1], query.PrivilegedOnly),
-			maybeChip(fields[2]),
+			maybeChip(fields[1]),
+			maybeBooleanChip(fields[2], query.PrivilegedOnly),
 			maybeChip(fields[3]),
 			maybeChip(fields[4]),
 			maybeChip(fields[5]),
 			maybeChip(fields[6]),
 			maybeChip(fields[7]),
+			maybeChip(fields[8]),
 		},
 		tableQueryControls(
+			controlIfNotEmpty("row_state", query.RowState),
 			controlIfNotEmpty("source_kind", query.Source.Kind),
 			controlIfNotEmpty("source_name", query.Source.Name),
 			controlIfNotEmpty("identity_type", query.IdentityType),

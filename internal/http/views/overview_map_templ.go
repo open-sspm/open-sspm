@@ -32,7 +32,7 @@ func OverviewMap(graph viewmodels.OverviewMapGraph) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if len(graph.Sources) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"overview-map\" aria-label=\"Relationship map\" data-testid=\"overview-map\"><header class=\"overview-map-header\"><div><h2>Relationship map</h2><p>Configured identity sources, managed account coverage, and highest-risk privileged buckets.</p></div><a class=\"btn-sm-ghost\" href=\"/global-view\">Connector coverage <span aria-hidden=\"true\">→</span></a></header><div class=\"overview-map-surface hidden lg:block\" data-overview-map-surface><svg class=\"overview-map-lines\" viewBox=\"0 0 100 100\" preserveAspectRatio=\"none\" aria-hidden=\"true\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"overview-map\" aria-label=\"Relationship map\" data-testid=\"overview-map\"><header class=\"overview-map-header\"><div><h2>Relationship map</h2><p>Configured identity sources, managed account coverage, and highest-risk privileged buckets.</p></div><a class=\"btn-sm-ghost\" href=\"/global-view\">Sources <span aria-hidden=\"true\">→</span></a></header><div class=\"overview-map-surface hidden lg:block\" data-overview-map-surface><svg class=\"overview-map-lines\" viewBox=\"0 0 100 100\" preserveAspectRatio=\"none\" aria-hidden=\"true\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -44,7 +44,7 @@ func OverviewMap(graph viewmodels.OverviewMapGraph) templ.Component {
 				var templ_7745c5c3_Var2 string
 				templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(OverviewMapEdgePath(graph.CenterX, graph.CenterY, source.X, source.Y))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 19, Col: 111}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 19, Col: 111}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 				if templ_7745c5c3_Err != nil {
@@ -57,7 +57,7 @@ func OverviewMap(graph viewmodels.OverviewMapGraph) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("--overview-map-index: " + FormatInt(idx) + ";")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 19, Col: 169}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 19, Col: 169}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -70,7 +70,7 @@ func OverviewMap(graph viewmodels.OverviewMapGraph) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(idx))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 19, Col: 211}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 19, Col: 211}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -88,7 +88,7 @@ func OverviewMap(graph viewmodels.OverviewMapGraph) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(OverviewMapNodeStyle(graph.CenterX, graph.CenterY))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 22, Col: 113}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 22, Col: 113}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -109,7 +109,7 @@ func OverviewMap(graph viewmodels.OverviewMapGraph) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(graph.IdentityCount))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 27, Col: 79}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 27, Col: 79}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -122,7 +122,7 @@ func OverviewMap(graph viewmodels.OverviewMapGraph) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(graph.AccountCount))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 28, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 28, Col: 44}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -191,7 +191,7 @@ func overviewMapSourceNode(source viewmodels.OverviewMapSourceNode, index int) t
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var9).String())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 1, Col: 0}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 1, Col: 0}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -204,7 +204,7 @@ func overviewMapSourceNode(source viewmodels.OverviewMapSourceNode, index int) t
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(OverviewMapNodeStyle(source.X, source.Y) + " --overview-map-index: " + FormatInt(index) + ";")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 46, Col: 152}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 46, Col: 152}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -217,7 +217,7 @@ func overviewMapSourceNode(source viewmodels.OverviewMapSourceNode, index int) t
 			var templ_7745c5c3_Var12 templ.SafeURL
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(source.Href))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 46, Col: 188}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 46, Col: 188}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -230,7 +230,7 @@ func overviewMapSourceNode(source viewmodels.OverviewMapSourceNode, index int) t
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(index))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 46, Col: 232}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 46, Col: 232}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -261,7 +261,7 @@ func overviewMapSourceNode(source viewmodels.OverviewMapSourceNode, index int) t
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var14).String())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 1, Col: 0}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 1, Col: 0}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {
@@ -274,7 +274,7 @@ func overviewMapSourceNode(source viewmodels.OverviewMapSourceNode, index int) t
 			var templ_7745c5c3_Var16 string
 			templ_7745c5c3_Var16, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(OverviewMapNodeStyle(source.X, source.Y) + " --overview-map-index: " + FormatInt(index) + ";")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 50, Col: 154}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 50, Col: 154}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {
@@ -287,7 +287,7 @@ func overviewMapSourceNode(source viewmodels.OverviewMapSourceNode, index int) t
 			var templ_7745c5c3_Var17 string
 			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(index))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 50, Col: 198}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 50, Col: 198}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 			if templ_7745c5c3_Err != nil {
@@ -346,7 +346,7 @@ func overviewMapSourceNodeContent(source viewmodels.OverviewMapSourceNode) templ
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(source.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 63, Col: 24}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 63, Col: 24}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
@@ -364,7 +364,7 @@ func overviewMapSourceNodeContent(source viewmodels.OverviewMapSourceNode) templ
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(source.SourceName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 66, Col: 32}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 66, Col: 32}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
@@ -377,7 +377,7 @@ func overviewMapSourceNodeContent(source viewmodels.OverviewMapSourceNode) templ
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(source.SourceName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 66, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 66, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
@@ -395,7 +395,7 @@ func overviewMapSourceNodeContent(source viewmodels.OverviewMapSourceNode) templ
 		var templ_7745c5c3_Var22 string
 		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(source.Label + " managed account coverage")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 70, Col: 107}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 70, Col: 107}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 		if templ_7745c5c3_Err != nil {
@@ -408,7 +408,7 @@ func overviewMapSourceNodeContent(source viewmodels.OverviewMapSourceNode) templ
 		var templ_7745c5c3_Var23 string
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(source.CoveragePercent))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 70, Col: 197}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 70, Col: 197}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 		if templ_7745c5c3_Err != nil {
@@ -421,7 +421,7 @@ func overviewMapSourceNodeContent(source viewmodels.OverviewMapSourceNode) templ
 		var templ_7745c5c3_Var24 string
 		templ_7745c5c3_Var24, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("width: " + FormatInt(source.CoveragePercent) + "%")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 71, Col: 66}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 71, Col: 66}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 		if templ_7745c5c3_Err != nil {
@@ -434,7 +434,7 @@ func overviewMapSourceNodeContent(source viewmodels.OverviewMapSourceNode) templ
 		var templ_7745c5c3_Var25 string
 		templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(source.IdentityCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 74, Col: 43}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 74, Col: 43}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 		if templ_7745c5c3_Err != nil {
@@ -447,7 +447,7 @@ func overviewMapSourceNodeContent(source viewmodels.OverviewMapSourceNode) templ
 		var templ_7745c5c3_Var26 string
 		templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(source.UnmanagedAccountCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 75, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 75, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 		if templ_7745c5c3_Err != nil {
@@ -548,7 +548,7 @@ func overviewMapSourceListContent(source viewmodels.OverviewMapSourceNode) templ
 		var templ_7745c5c3_Var30 string
 		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(source.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 93, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 93, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 		if templ_7745c5c3_Err != nil {
@@ -561,7 +561,7 @@ func overviewMapSourceListContent(source viewmodels.OverviewMapSourceNode) templ
 		var templ_7745c5c3_Var31 string
 		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(source.AccountCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 94, Col: 82}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 94, Col: 82}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 		if templ_7745c5c3_Err != nil {
@@ -579,7 +579,7 @@ func overviewMapSourceListContent(source viewmodels.OverviewMapSourceNode) templ
 			var templ_7745c5c3_Var32 string
 			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(source.SourceName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 97, Col: 73}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 97, Col: 73}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 			if templ_7745c5c3_Err != nil {
@@ -597,7 +597,7 @@ func overviewMapSourceListContent(source viewmodels.OverviewMapSourceNode) templ
 		var templ_7745c5c3_Var33 string
 		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(source.CoveragePercent))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 102, Col: 65}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 102, Col: 65}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 		if templ_7745c5c3_Err != nil {
@@ -615,7 +615,7 @@ func overviewMapSourceListContent(source viewmodels.OverviewMapSourceNode) templ
 			var templ_7745c5c3_Var34 string
 			templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(source.UnmanagedAccountCount))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 104, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 104, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 			if templ_7745c5c3_Err != nil {
@@ -673,7 +673,7 @@ func overviewMapMaybeLink(href, className, style, testID string) templ.Component
 				var templ_7745c5c3_Var37 string
 				templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var36).String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 1, Col: 0}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 1, Col: 0}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 				if templ_7745c5c3_Err != nil {
@@ -686,7 +686,7 @@ func overviewMapMaybeLink(href, className, style, testID string) templ.Component
 				var templ_7745c5c3_Var38 string
 				templ_7745c5c3_Var38, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(style)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 113, Col: 39}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 113, Col: 39}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 				if templ_7745c5c3_Err != nil {
@@ -699,7 +699,7 @@ func overviewMapMaybeLink(href, className, style, testID string) templ.Component
 				var templ_7745c5c3_Var39 templ.SafeURL
 				templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(href))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 113, Col: 68}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 113, Col: 68}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 				if templ_7745c5c3_Err != nil {
@@ -712,7 +712,7 @@ func overviewMapMaybeLink(href, className, style, testID string) templ.Component
 				var templ_7745c5c3_Var40 string
 				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(testID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 113, Col: 91}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 113, Col: 91}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 				if templ_7745c5c3_Err != nil {
@@ -743,7 +743,7 @@ func overviewMapMaybeLink(href, className, style, testID string) templ.Component
 				var templ_7745c5c3_Var42 string
 				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var41).String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 1, Col: 0}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 1, Col: 0}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 				if templ_7745c5c3_Err != nil {
@@ -756,7 +756,7 @@ func overviewMapMaybeLink(href, className, style, testID string) templ.Component
 				var templ_7745c5c3_Var43 templ.SafeURL
 				templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(href))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 117, Col: 52}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 117, Col: 52}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 				if templ_7745c5c3_Err != nil {
@@ -769,7 +769,7 @@ func overviewMapMaybeLink(href, className, style, testID string) templ.Component
 				var templ_7745c5c3_Var44 string
 				templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(testID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 117, Col: 75}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 117, Col: 75}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 				if templ_7745c5c3_Err != nil {
@@ -802,7 +802,7 @@ func overviewMapMaybeLink(href, className, style, testID string) templ.Component
 				var templ_7745c5c3_Var46 string
 				templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var45).String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 1, Col: 0}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 1, Col: 0}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 				if templ_7745c5c3_Err != nil {
@@ -815,7 +815,7 @@ func overviewMapMaybeLink(href, className, style, testID string) templ.Component
 				var templ_7745c5c3_Var47 string
 				templ_7745c5c3_Var47, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(style)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 123, Col: 41}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 123, Col: 41}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 				if templ_7745c5c3_Err != nil {
@@ -828,7 +828,7 @@ func overviewMapMaybeLink(href, className, style, testID string) templ.Component
 				var templ_7745c5c3_Var48 string
 				templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(testID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 123, Col: 64}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 123, Col: 64}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 				if templ_7745c5c3_Err != nil {
@@ -859,7 +859,7 @@ func overviewMapMaybeLink(href, className, style, testID string) templ.Component
 				var templ_7745c5c3_Var50 string
 				templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var49).String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 1, Col: 0}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 1, Col: 0}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 				if templ_7745c5c3_Err != nil {
@@ -872,7 +872,7 @@ func overviewMapMaybeLink(href, className, style, testID string) templ.Component
 				var templ_7745c5c3_Var51 string
 				templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(testID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 127, Col: 48}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 127, Col: 48}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 				if templ_7745c5c3_Err != nil {
@@ -930,7 +930,7 @@ func overviewMapBuckets(buckets []viewmodels.OverviewMapBucket, wrapperClass str
 			var templ_7745c5c3_Var54 string
 			templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var53).String())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 1, Col: 0}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 1, Col: 0}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
 			if templ_7745c5c3_Err != nil {
@@ -988,7 +988,7 @@ func overviewMapBucket(bucket viewmodels.OverviewMapBucket) templ.Component {
 		var templ_7745c5c3_Var57 string
 		templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var56).String())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 1, Col: 0}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 1, Col: 0}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
 		if templ_7745c5c3_Err != nil {
@@ -1001,7 +1001,7 @@ func overviewMapBucket(bucket viewmodels.OverviewMapBucket) templ.Component {
 		var templ_7745c5c3_Var58 string
 		templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(bucket.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 146, Col: 22}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 146, Col: 22}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 		if templ_7745c5c3_Err != nil {
@@ -1014,7 +1014,7 @@ func overviewMapBucket(bucket viewmodels.OverviewMapBucket) templ.Component {
 		var templ_7745c5c3_Var59 string
 		templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(bucket.AffectedCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/overview_map.templ`, Line: 147, Col: 78}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview_map.templ`, Line: 147, Col: 78}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
 		if templ_7745c5c3_Err != nil {

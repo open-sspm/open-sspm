@@ -72,7 +72,7 @@ func (h *Handlers) HandleNonHumanAccess(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	layout, stateView, err := h.LayoutData(ctx, c, "Non-Human Access")
+	layout, stateView, err := h.LayoutData(ctx, c, "Non-Human Principals")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -153,7 +153,7 @@ func isNonHumanAccessResultsTarget(c *echo.Context) bool {
 
 func (h *Handlers) HandleNonHumanAccessShow(c *echo.Context) error {
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Non-Human Access")
+	layout, _, err := h.LayoutData(ctx, c, "Non-Human Principal")
 	if err != nil {
 		return h.RenderError(c, err)
 	}

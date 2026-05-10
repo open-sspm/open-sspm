@@ -76,7 +76,7 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Assigned Apps")
+	layout, _, err := h.LayoutData(ctx, c, "Okta Assigned Apps")
 	if err != nil {
 		return h.RenderError(c, err)
 	}

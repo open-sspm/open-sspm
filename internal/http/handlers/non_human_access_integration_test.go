@@ -82,7 +82,7 @@ func TestHandleNonHumanAccessRendersUnifiedInventory(t *testing.T) {
 		}
 
 		body := rec.Body.String()
-		assertContains(t, body, "Non-Human Access")
+		assertContains(t, body, "Non-Human Principals")
 		assertContains(t, body, `id="non-human-access-results"`)
 		assertContains(t, body, `id="non-human-access-filters"`)
 		assertContains(t, body, `id="non-human-access-inventory"`)

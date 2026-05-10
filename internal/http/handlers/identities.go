@@ -71,13 +71,15 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 	data.Summary = viewmodels.IdentitiesSummary{
-		Total:          summaryRow.TotalCount,
-		ActionRequired: summaryRow.ActionRequiredCount,
-		Review:         summaryRow.ReviewCount,
-		Privileged:     summaryRow.PrivilegedCount,
-		Unmanaged:      summaryRow.UnmanagedCount,
-		Suspended:      summaryRow.SuspendedCount,
-		Stale:          summaryRow.StaleCount,
+		Total:               summaryRow.TotalCount,
+		ActionRequired:      summaryRow.ActionRequiredCount,
+		Review:              summaryRow.ReviewCount,
+		Privileged:          summaryRow.PrivilegedCount,
+		PrivilegedUnmanaged: summaryRow.PrivilegedUnmanagedCount,
+		StalePrivileged:     summaryRow.StalePrivilegedCount,
+		Unmanaged:           summaryRow.UnmanagedCount,
+		Suspended:           summaryRow.SuspendedCount,
+		Stale:               summaryRow.StaleCount,
 	}
 
 	listParams := func(offset int32) gen.ListIdentitiesInventoryPageByFiltersParams {
@@ -86,6 +88,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 			PrivilegedOnly:        queryState.PrivilegedOnly,
 			Status:                queryState.Status,
 			ActivityState:         queryState.ActivityState,
+			RowState:              queryState.RowState,
 			SortBy:                queryState.SortBy,
 			SortDir:               queryState.SortDir,
 			PageOffset:            offset,
@@ -103,6 +106,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		PrivilegedOnly:        queryState.PrivilegedOnly,
 		Status:                queryState.Status,
 		ActivityState:         queryState.ActivityState,
+		RowState:              queryState.RowState,
 		ConfiguredSourceKinds: configuredSourceKinds,
 		ConfiguredSourceNames: configuredSourceNames,
 		Query:                 queryState.Q,

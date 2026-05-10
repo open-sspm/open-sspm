@@ -13,6 +13,7 @@ type IdentitiesQuery struct {
 	PrivilegedOnly bool
 	Status         string
 	ActivityState  string
+	RowState       string
 	SortBy         string
 	SortDir        string
 	Page           int
@@ -29,6 +30,7 @@ func ParseIdentitiesQuery(values url.Values, sources []SourceSelection) Identiti
 		PrivilegedOnly: parseBool(values.Get("privileged")),
 		Status:         normalizeIdentityStatus(values.Get("status")),
 		ActivityState:  normalizeIdentityActivityState(values.Get("activity_state")),
+		RowState:       normalizeIdentityRowState(values.Get("row_state")),
 		SortBy:         sortBy,
 		SortDir:        normalizeIdentitySortDir(values.Get("sort_dir"), sortBy),
 		Page:           parsePage(values.Get("page")),
@@ -45,6 +47,7 @@ func (q IdentitiesQuery) Values() url.Values {
 	setIfTrue(values, "privileged", q.PrivilegedOnly)
 	setIfNotEmpty(values, "status", q.Status)
 	setIfNotEmpty(values, "activity_state", q.ActivityState)
+	setIfNotEmpty(values, "row_state", q.RowState)
 	setIfNotEmpty(values, "sort_by", q.SortBy)
 	if q.SortBy != "" {
 		setIfNotEmpty(values, "sort_dir", q.SortDir)
@@ -89,22 +92,46 @@ func (q IdentitiesQuery) WithManagedState(state string) IdentitiesQuery {
 	return q
 }
 
-// ClearSegments resets the segment-style filters (activity, status, managed,
-// privileged) while preserving source, search, type, and sort. It powers the
-// "All" chip on the identities list.
+func (q IdentitiesQuery) WithRowState(state string) IdentitiesQuery {
+	q.RowState = normalizeIdentityRowState(state)
+	q.Page = 1
+	return q
+}
+
+// ClearSegments resets the segment-style filters while preserving source,
+// search, type, and sort. It powers the "All" chip on the identities list.
 func (q IdentitiesQuery) ClearSegments() IdentitiesQuery {
 	q.ActivityState = ""
 	q.Status = ""
 	q.ManagedState = ""
 	q.PrivilegedOnly = false
+	q.RowState = ""
 	q.Page = 1
 	return q
 }
 
-// SegmentPrivileged returns a query that selects the privileged-only segment
-// without leaking any other segment filter into the URL.
-func (q IdentitiesQuery) SegmentPrivileged() IdentitiesQuery {
+func (q IdentitiesQuery) SegmentNeedsAction() IdentitiesQuery {
 	q = q.ClearSegments()
+	q.RowState = "action_required"
+	return q
+}
+
+func (q IdentitiesQuery) SegmentReview() IdentitiesQuery {
+	q = q.ClearSegments()
+	q.RowState = "review"
+	return q
+}
+
+func (q IdentitiesQuery) SegmentPrivilegedUnmanaged() IdentitiesQuery {
+	q = q.ClearSegments()
+	q.PrivilegedOnly = true
+	q.ManagedState = "unmanaged"
+	return q
+}
+
+func (q IdentitiesQuery) SegmentStalePrivileged() IdentitiesQuery {
+	q = q.ClearSegments()
+	q.ActivityState = "stale"
 	q.PrivilegedOnly = true
 	return q
 }
@@ -112,7 +139,7 @@ func (q IdentitiesQuery) SegmentPrivileged() IdentitiesQuery {
 // HasSegment reports whether any segment-style filter is currently active.
 // Used to highlight the "All" chip when no segment is selected.
 func (q IdentitiesQuery) HasSegment() bool {
-	return q.ActivityState != "" || q.Status != "" || q.ManagedState != "" || q.PrivilegedOnly
+	return q.ActivityState != "" || q.Status != "" || q.ManagedState != "" || q.PrivilegedOnly || q.RowState != ""
 }
 
 func (q IdentitiesQuery) TogglePrivilegedOnly() IdentitiesQuery {
@@ -134,6 +161,7 @@ func (q IdentitiesQuery) ClearFilters() IdentitiesQuery {
 	q.PrivilegedOnly = false
 	q.Status = ""
 	q.ActivityState = ""
+	q.RowState = ""
 	q.SortBy = ""
 	q.SortDir = ""
 	q.Page = 1
@@ -147,6 +175,7 @@ func (q IdentitiesQuery) HasFilters() bool {
 		q.PrivilegedOnly ||
 		q.Status != "" ||
 		q.ActivityState != "" ||
+		q.RowState != "" ||
 		q.Source.Kind != "" ||
 		q.Source.Name != ""
 }
@@ -154,6 +183,9 @@ func (q IdentitiesQuery) HasFilters() bool {
 func (q IdentitiesQuery) FilterCount() int {
 	count := 0
 	if q.ActivityState != "" {
+		count++
+	}
+	if q.RowState != "" {
 		count++
 	}
 	if q.PrivilegedOnly {
@@ -318,6 +350,19 @@ func normalizeIdentityActivityState(raw string) string {
 		return "stale"
 	case "never_seen":
 		return "never_seen"
+	default:
+		return ""
+	}
+}
+
+func normalizeIdentityRowState(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "action_required":
+		return "action_required"
+	case "review":
+		return "review"
+	case "healthy":
+		return "healthy"
 	default:
 		return ""
 	}

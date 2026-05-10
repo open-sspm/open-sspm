@@ -144,14 +144,14 @@ func (h *Handlers) HandleCommandSearch(c *echo.Context) error {
 	if len(discoveryRows) > 0 {
 		data.Sections = append(data.Sections, viewmodels.CommandSectionView{
 			Key:   "discovery-apps",
-			Title: "Discovery Apps",
+			Title: "Apps & Discovery",
 			Items: commandDiscoveryAppItems(discoveryRows),
 		})
 	}
 	if len(oktaAppRows) > 0 {
 		data.Sections = append(data.Sections, viewmodels.CommandSectionView{
 			Key:   "okta-apps",
-			Title: "Assigned Apps",
+			Title: "Okta Assigned Apps",
 			Items: commandOktaAppItems(oktaAppRows),
 		})
 	}
@@ -329,21 +329,21 @@ func commandActionSection(stateView connectorStateView, query string) viewmodels
 	if commandHasNonHumanAccessSurface(stateView) {
 		items = append(items, commandActionItem(
 			"cmd-action-non-human-access",
-			fmt.Sprintf("Search Non-Human Access for “%s”", query),
+			fmt.Sprintf("Search Non-Human Principals for “%s”", query),
 			commandQueryURL("/non-human-access", query),
 		))
 	}
 	if commandHasDiscoverySurface(stateView) {
 		items = append(items, commandActionItem(
 			"cmd-action-discovery-apps",
-			fmt.Sprintf("Search Discovery Apps for “%s”", query),
+			fmt.Sprintf("Search Apps & Discovery for “%s”", query),
 			commandQueryURL("/discovery/apps", query),
 		))
 	}
 	if commandOktaAppsAvailable(stateView) {
 		items = append(items, commandActionItem(
 			"cmd-action-okta-apps",
-			fmt.Sprintf("Search Assigned Apps for “%s”", query),
+			fmt.Sprintf("Search Okta Assigned Apps for “%s”", query),
 			commandQueryURL("/assigned-apps", query),
 		))
 	}

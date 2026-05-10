@@ -44,10 +44,11 @@ func TestParseIdentitiesQuery(t *testing.T) {
 		query := ParseIdentitiesQuery(url.Values{
 			"q":          []string{" alice "},
 			"privileged": []string{"true"},
+			"row_state":  []string{"action_required"},
 			"sort_by":    []string{"identity"},
 			"page":       []string{"0"},
 		}, sources)
-		if query.Q != "alice" || !query.PrivilegedOnly {
+		if query.Q != "alice" || !query.PrivilegedOnly || query.RowState != "action_required" {
 			t.Fatalf("query = %#v", query)
 		}
 		if query.SortDir != "desc" || query.Page != 1 {
@@ -82,6 +83,15 @@ func TestIdentitiesQueryMutations(t *testing.T) {
 	}
 	if got := query.WithActivityState("recent"); got.ActivityState != "recent" || got.Page != 1 {
 		t.Fatalf("WithActivityState() = %#v", got)
+	}
+	if got := query.SegmentNeedsAction(); got.RowState != "action_required" || got.ActivityState != "" || got.Page != 1 {
+		t.Fatalf("SegmentNeedsAction() = %#v", got)
+	}
+	if got := query.SegmentPrivilegedUnmanaged(); !got.PrivilegedOnly || got.ManagedState != "unmanaged" || got.ActivityState != "" || got.RowState != "" || got.Page != 1 {
+		t.Fatalf("SegmentPrivilegedUnmanaged() = %#v", got)
+	}
+	if got := query.SegmentStalePrivileged(); !got.PrivilegedOnly || got.ActivityState != "stale" || got.ManagedState != "" || got.RowState != "" || got.Page != 1 {
+		t.Fatalf("SegmentStalePrivileged() = %#v", got)
 	}
 	if got := query.TogglePrivilegedOnly(); got.PrivilegedOnly || got.Page != 1 {
 		t.Fatalf("TogglePrivilegedOnly() = %#v", got)

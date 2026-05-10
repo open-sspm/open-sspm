@@ -336,8 +336,8 @@ func TestHandleCommandSearchUsesLiveDiscoveryPostureBadges(t *testing.T) {
 		)
 
 		body := renderCommandSearch(t, h, "http://example.com/command/search?q=orphaned")
-		if !strings.Contains(body, `role="heading">Discovery Apps`) {
-			t.Fatalf("orphaned body missing discovery apps section: %s", body)
+		if !strings.Contains(body, `role="heading">Apps &amp; Discovery`) {
+			t.Fatalf("orphaned body missing apps and discovery section: %s", body)
 		}
 		if !strings.Contains(body, "Orphaned Portal") {
 			t.Fatalf("orphaned body missing discovery app row: %s", body)

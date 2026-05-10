@@ -213,6 +213,10 @@ WHERE
   AND (
     sqlc.arg(activity_state)::text = ''
     OR b.activity_state = sqlc.arg(activity_state)::text
+  )
+  AND (
+    sqlc.arg(row_state)::text = ''
+    OR b.row_state = sqlc.arg(row_state)::text
   );
 
 -- name: ListIdentitiesInventoryPageByFilters :many
@@ -434,6 +438,10 @@ WHERE
   AND (
     sqlc.arg(activity_state)::text = ''
     OR b.activity_state = sqlc.arg(activity_state)::text
+  )
+  AND (
+    sqlc.arg(row_state)::text = ''
+    OR b.row_state = sqlc.arg(row_state)::text
   )
 ORDER BY
   CASE
@@ -717,6 +725,11 @@ SELECT
   COUNT(*) FILTER (WHERE row_state = 'action_required')::bigint             AS action_required_count,
   COUNT(*) FILTER (WHERE row_state = 'review')::bigint                      AS review_count,
   COUNT(*) FILTER (WHERE privileged_roles > 0)::bigint                      AS privileged_count,
+  COUNT(*) FILTER (WHERE privileged_roles > 0 AND NOT managed)::bigint       AS privileged_unmanaged_count,
+  COUNT(*) FILTER (
+    WHERE privileged_roles > 0
+      AND activity_state = 'stale'
+  )::bigint                                                                 AS stale_privileged_count,
   COUNT(*) FILTER (WHERE NOT managed)::bigint                               AS unmanaged_count,
   COUNT(*) FILTER (WHERE status = 'suspended')::bigint                      AS suspended_count,
   COUNT(*) FILTER (WHERE activity_state = 'stale')::bigint                   AS stale_count

@@ -61,7 +61,7 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	layout, stateView, err := h.LayoutData(ctx, c, "SaaS Discovery")
+	layout, stateView, err := h.LayoutData(ctx, c, "Apps & Discovery")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
