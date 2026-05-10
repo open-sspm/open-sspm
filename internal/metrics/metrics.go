@@ -142,10 +142,11 @@ var (
 		Help:      "High-risk linked credentials that have accountable ownership or actor attribution.",
 	})
 
-	NonHumanAccessWeeklyAdminReviewSessions = promauto.NewGauge(prometheus.GaugeOpts{
+	// Metric name retains the legacy "non_human_access_" prefix for dashboard/alert continuity after the surface rename.
+	NonHumanIdentitiesWeeklyAdminReviewSessions = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Name:      "non_human_access_weekly_admin_review_sessions",
-		Help:      "Distinct admin users who interacted with the non-human access workflow in the last 7 days.",
+		Help:      "Distinct admin users who interacted with the non-human identities workflow in the last 7 days.",
 	})
 
 	AutoLinksTotal = promauto.NewCounterVec(prometheus.CounterOpts{

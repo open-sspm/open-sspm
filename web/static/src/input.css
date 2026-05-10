@@ -1541,7 +1541,7 @@
   .osspm-col-id { width: 12rem; }
   .osspm-col-id-wide { width: 16rem; }
   .osspm-table-credentials { min-width: 72rem; }
-  .osspm-table-non-human-access { min-width: 68rem; }
+  .osspm-table-non-human-identities { min-width: 68rem; }
   .osspm-col-principal { width: 26rem; }
   .osspm-col-type { width: 8rem; }
   .osspm-col-owner { width: 10rem; }

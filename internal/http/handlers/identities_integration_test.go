@@ -178,6 +178,137 @@ func TestHandleIdentityShowRendersEntitlementDetails(t *testing.T) {
 	})
 }
 
+func TestHandleIdentitiesPinsToHumanKindOnly(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{
+			TenantID: "tenant-1",
+		})
+
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindEntra, "tenant-1")
+
+		humanAccountID := insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
+			SourceKind:     configstore.KindEntra,
+			SourceName:     "tenant-1",
+			ExternalID:     "user-1",
+			Email:          "person@example.com",
+			DisplayName:    "Example Person",
+			Status:         "active",
+			AccountKind:    "human",
+			EntityCategory: "user",
+			RawJSON:        `{"status":"active"}`,
+		})
+		humanIdentityID := insertCommandSearchIdentity(t, ctx, pool, "human", "person@example.com", "Example Person")
+		insertCommandSearchIdentityAccountLink(t, ctx, pool, humanIdentityID, humanAccountID)
+
+		serviceAccountID := insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
+			SourceKind:     configstore.KindEntra,
+			SourceName:     "tenant-1",
+			ExternalID:     "sp:svc-123",
+			Email:          "service.principal@example.com",
+			DisplayName:    "Azure Service Principal",
+			Status:         "active",
+			AccountKind:    "service",
+			EntityCategory: "service_principal",
+			RawJSON:        `{"status":"active"}`,
+		})
+		serviceIdentityID := insertCommandSearchIdentity(t, ctx, pool, "service", "service.principal@example.com", "Azure Service Principal")
+		insertCommandSearchIdentityAccountLink(t, ctx, pool, serviceIdentityID, serviceAccountID)
+
+		unknownAccountID := insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
+			SourceKind:     configstore.KindEntra,
+			SourceName:     "tenant-1",
+			ExternalID:     "user-unknown",
+			Email:          "mystery@example.com",
+			DisplayName:    "Mystery Identity",
+			Status:         "active",
+			AccountKind:    "human",
+			EntityCategory: "user",
+			RawJSON:        `{"status":"active"}`,
+		})
+		unknownIdentityID := insertCommandSearchIdentity(t, ctx, pool, "unknown", "mystery@example.com", "Mystery Identity")
+		insertCommandSearchIdentityAccountLink(t, ctx, pool, unknownIdentityID, unknownAccountID)
+
+		t.Run("default request hides service kinds but keeps unknown", func(t *testing.T) {
+			c, rec := newTestContext(http.MethodGet, "http://example.com/identities")
+			if err := h.HandleIdentities(c); err != nil {
+				t.Fatalf("HandleIdentities() error = %v", err)
+			}
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+
+			body := rec.Body.String()
+			if !strings.Contains(body, "Example Person") {
+				t.Fatalf("body missing human row: %s", body)
+			}
+			if !strings.Contains(body, "Mystery Identity") {
+				t.Fatalf("body missing unknown-kind row: %s", body)
+			}
+			if strings.Contains(body, "Azure Service Principal") {
+				t.Fatalf("body unexpectedly rendered service identity row: %s", body)
+			}
+		})
+
+		t.Run("identity_type=service in deeplink is ignored", func(t *testing.T) {
+			c, rec := newTestContext(http.MethodGet, "http://example.com/identities?identity_type=service")
+			if err := h.HandleIdentities(c); err != nil {
+				t.Fatalf("HandleIdentities() error = %v", err)
+			}
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+
+			body := rec.Body.String()
+			if !strings.Contains(body, "Example Person") {
+				t.Fatalf("body missing human row: %s", body)
+			}
+			if strings.Contains(body, "Azure Service Principal") {
+				t.Fatalf("body unexpectedly rendered service identity row: %s", body)
+			}
+		})
+	})
+}
+
+func TestHandleIdentityShowRedirectsServiceIdentitiesToNonHumanRoute(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		serviceIdentityID := insertCommandSearchIdentity(t, ctx, pool, "service", "service.principal@example.com", "Azure Service Principal")
+		botIdentityID := insertCommandSearchIdentity(t, ctx, pool, "bot", "bot@example.com", "Automation Bot")
+		unknownIdentityID := insertCommandSearchIdentity(t, ctx, pool, "unknown", "mystery@example.com", "Mystery Identity")
+
+		tests := []struct {
+			name           string
+			id             int64
+			wantStatus     int
+			wantLocation   string
+			wantRedirected bool
+		}{
+			{name: "service redirects", id: serviceIdentityID, wantStatus: http.StatusSeeOther, wantLocation: "/non-human-identities/identity-" + strconv.FormatInt(serviceIdentityID, 10), wantRedirected: true},
+			{name: "bot redirects", id: botIdentityID, wantStatus: http.StatusSeeOther, wantLocation: "/non-human-identities/identity-" + strconv.FormatInt(botIdentityID, 10), wantRedirected: true},
+			{name: "unknown does not redirect", id: unknownIdentityID, wantStatus: http.StatusOK},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				target := "http://example.com/identities/" + strconv.FormatInt(tt.id, 10)
+				c, rec := newTestContext(http.MethodGet, target)
+				(*c).SetPath("/identities/:id")
+				(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(tt.id, 10)}})
+
+				if err := h.HandleIdentityShow(c); err != nil {
+					t.Fatalf("HandleIdentityShow(%s): %v", target, err)
+				}
+				if rec.Code != tt.wantStatus {
+					t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
+				}
+				if tt.wantRedirected {
+					if got := rec.Header().Get("Location"); got != tt.wantLocation {
+						t.Fatalf("Location = %q, want %q", got, tt.wantLocation)
+					}
+				}
+			})
+		}
+	})
+}
+
 func renderIdentityShow(t *testing.T, h *Handlers, identityID int64) string {
 	t.Helper()
 

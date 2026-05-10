@@ -2,7 +2,7 @@ package viewmodels
 
 import "github.com/open-sspm/open-sspm/internal/http/querystate"
 
-type NonHumanAccessListItem struct {
+type NonHumanIdentitiesListItem struct {
 	PrincipalRef           string
 	IdentityID             int64
 	AppAssetID             int64
@@ -23,15 +23,15 @@ type NonHumanAccessListItem struct {
 	RiskLevel              string
 }
 
-type NonHumanAccessViewData struct {
+type NonHumanIdentitiesViewData struct {
 	PaginatedListPageData
-	Items    []NonHumanAccessListItem
+	Items    []NonHumanIdentitiesListItem
 	Sources  []ProgrammaticSourceOption
-	Query    querystate.NonHumanAccessQuery
+	Query    querystate.NonHumanIdentitiesQuery
 	HasItems bool
 }
 
-type NonHumanAccessSummaryView struct {
+type NonHumanIdentitiesSummaryView struct {
 	PrincipalRef                 string
 	IdentityID                   int64
 	IdentityHref                 string
@@ -62,7 +62,7 @@ type NonHumanAccessSummaryView struct {
 	HasStaleEvidence             bool
 }
 
-type NonHumanAccessRelatedAssetItem struct {
+type NonHumanIdentitiesRelatedAssetItem struct {
 	ID                  int64
 	Href                string
 	SourceKind          string
@@ -80,7 +80,7 @@ type NonHumanAccessRelatedAssetItem struct {
 	EvidenceSeen        TimeDisplay
 }
 
-type NonHumanAccessRelatedCredentialItem struct {
+type NonHumanIdentitiesRelatedCredentialItem struct {
 	ID              int64
 	Href            string
 	SourceKind      string
@@ -101,19 +101,19 @@ type NonHumanAccessRelatedCredentialItem struct {
 	AppAssetHref    string
 }
 
-type NonHumanAccessRiskSignal struct {
+type NonHumanIdentitiesRiskSignal struct {
 	Severity string
 	Title    string
 	Evidence string
 }
 
-type NonHumanAccessShowViewData struct {
+type NonHumanIdentitiesShowViewData struct {
 	Layout         LayoutData
-	Principal      NonHumanAccessSummaryView
-	RiskSignals    []NonHumanAccessRiskSignal
+	Principal      NonHumanIdentitiesSummaryView
+	RiskSignals    []NonHumanIdentitiesRiskSignal
 	HasRiskSignals bool
-	RelatedAssets  []NonHumanAccessRelatedAssetItem
-	Credentials    []NonHumanAccessRelatedCredentialItem
+	RelatedAssets  []NonHumanIdentitiesRelatedAssetItem
+	Credentials    []NonHumanIdentitiesRelatedCredentialItem
 	HasAssets      bool
 	HasCredentials bool
 }

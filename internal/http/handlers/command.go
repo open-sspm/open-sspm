@@ -326,11 +326,11 @@ func commandActionSection(stateView connectorStateView, query string) viewmodels
 			commandQueryURL("/identities", query),
 		))
 	}
-	if commandHasNonHumanAccessSurface(stateView) {
+	if commandHasNonHumanIdentitiesSurface(stateView) {
 		items = append(items, commandActionItem(
-			"cmd-action-non-human-access",
-			fmt.Sprintf("Search Non-Human Principals for “%s”", query),
-			commandQueryURL("/non-human-access", query),
+			"cmd-action-non-human-identities",
+			fmt.Sprintf("Search Non-Human Identities for “%s”", query),
+			commandQueryURL("/non-human-identities", query),
 		))
 	}
 	if commandHasDiscoverySurface(stateView) {
@@ -370,7 +370,7 @@ func commandHasIdentitySurface(stateView connectorStateView) bool {
 	return len(availableIdentitySourcePairs(stateView)) > 0
 }
 
-func commandHasNonHumanAccessSurface(stateView connectorStateView) bool {
+func commandHasNonHumanIdentitiesSurface(stateView connectorStateView) bool {
 	return len(availableIdentitySourcePairs(stateView)) > 0
 }
 

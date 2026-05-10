@@ -21,7 +21,7 @@ func RefreshMetrics(ctx context.Context, q *gen.Queries, now time.Time) error {
 	metrics.NonHumanPrincipalsWithAccountableOwnerTotal.Set(0)
 	metrics.NonHumanHighRiskCredentialsTotal.Set(0)
 	metrics.NonHumanHighRiskCredentialsWithAttributionTotal.Set(0)
-	metrics.NonHumanAccessWeeklyAdminReviewSessions.Set(0)
+	metrics.NonHumanIdentitiesWeeklyAdminReviewSessions.Set(0)
 
 	ownerCoverage, err := q.CountConfiguredNonHumanPrincipalOwnerCoverage(ctx)
 	if err != nil {
@@ -44,7 +44,7 @@ func RefreshMetrics(ctx context.Context, q *gen.Queries, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	metrics.NonHumanAccessWeeklyAdminReviewSessions.Set(float64(weeklySessions))
+	metrics.NonHumanIdentitiesWeeklyAdminReviewSessions.Set(float64(weeklySessions))
 
 	return nil
 }

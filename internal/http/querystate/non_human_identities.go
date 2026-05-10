@@ -5,13 +5,13 @@ import (
 	"strings"
 )
 
-const nonHumanAccessBasePath = "/non-human-access"
+const nonHumanIdentitiesBasePath = "/non-human-identities"
 
-func NonHumanAccessBasePath() string {
-	return nonHumanAccessBasePath
+func NonHumanIdentitiesBasePath() string {
+	return nonHumanIdentitiesBasePath
 }
 
-type NonHumanAccessQuery struct {
+type NonHumanIdentitiesQuery struct {
 	Source          SourceSelection
 	Q               string
 	PrincipalType   string
@@ -25,24 +25,24 @@ type NonHumanAccessQuery struct {
 	Page            int
 }
 
-func ParseNonHumanAccessQuery(values url.Values, sources []SourceSelection) NonHumanAccessQuery {
-	sortBy := normalizeNonHumanAccessSortBy(values.Get("sort_by"))
-	return NonHumanAccessQuery{
+func ParseNonHumanIdentitiesQuery(values url.Values, sources []SourceSelection) NonHumanIdentitiesQuery {
+	sortBy := normalizeNonHumanIdentitiesSortBy(values.Get("sort_by"))
+	return NonHumanIdentitiesQuery{
 		Source:          parseIdentitySourceSelection(values, sources),
 		Q:               strings.TrimSpace(values.Get("q")),
-		PrincipalType:   normalizeNonHumanAccessPrincipalType(values.Get("principal_type")),
-		OwnerPresence:   normalizeNonHumanAccessOwnerPresence(values.Get("owner_presence")),
-		GovernanceState: normalizeNonHumanAccessGovernanceState(values.Get("governance_state")),
+		PrincipalType:   normalizeNonHumanIdentitiesPrincipalType(values.Get("principal_type")),
+		OwnerPresence:   normalizeNonHumanIdentitiesOwnerPresence(values.Get("owner_presence")),
+		GovernanceState: normalizeNonHumanIdentitiesGovernanceState(values.Get("governance_state")),
 		RiskLevel:       NormalizeCredentialRiskLevel(values.Get("risk_level")),
 		ActivityState:   normalizeIdentityActivityState(values.Get("activity_state")),
-		FreshnessState:  normalizeNonHumanAccessFreshnessState(values.Get("freshness_state")),
+		FreshnessState:  normalizeNonHumanIdentitiesFreshnessState(values.Get("freshness_state")),
 		SortBy:          sortBy,
-		SortDir:         normalizeNonHumanAccessSortDir(values.Get("sort_dir"), sortBy),
+		SortDir:         normalizeNonHumanIdentitiesSortDir(values.Get("sort_dir"), sortBy),
 		Page:            parsePage(values.Get("page")),
 	}
 }
 
-func (q NonHumanAccessQuery) Values() url.Values {
+func (q NonHumanIdentitiesQuery) Values() url.Values {
 	values := url.Values{}
 	setIfNotEmpty(values, "source_kind", normalizeSourceKind(q.Source.Kind))
 	setIfNotEmpty(values, "source_name", q.Source.Name)
@@ -61,15 +61,15 @@ func (q NonHumanAccessQuery) Values() url.Values {
 	return values
 }
 
-func (q NonHumanAccessQuery) Href() string {
-	return encodeURL(nonHumanAccessBasePath, q.Values())
+func (q NonHumanIdentitiesQuery) Href() string {
+	return encodeURL(nonHumanIdentitiesBasePath, q.Values())
 }
 
-func (q NonHumanAccessQuery) TrackingSignature() string {
-	return NonHumanAccessTrackingSignature(q.Values())
+func (q NonHumanIdentitiesQuery) TrackingSignature() string {
+	return NonHumanIdentitiesTrackingSignature(q.Values())
 }
 
-func NonHumanAccessTrackingSignature(values url.Values) string {
+func NonHumanIdentitiesTrackingSignature(values url.Values) string {
 	if len(values) == 0 {
 		return ""
 	}
@@ -82,7 +82,7 @@ func NonHumanAccessTrackingSignature(values url.Values) string {
 	return cloned.Encode()
 }
 
-func (q NonHumanAccessQuery) WithPage(page int) NonHumanAccessQuery {
+func (q NonHumanIdentitiesQuery) WithPage(page int) NonHumanIdentitiesQuery {
 	q.Page = page
 	if q.Page < 1 {
 		q.Page = 1
@@ -90,37 +90,37 @@ func (q NonHumanAccessQuery) WithPage(page int) NonHumanAccessQuery {
 	return q
 }
 
-func (q NonHumanAccessQuery) ClearQuery() NonHumanAccessQuery {
+func (q NonHumanIdentitiesQuery) ClearQuery() NonHumanIdentitiesQuery {
 	q.Q = ""
 	q.Page = 1
 	return q
 }
 
-func (q NonHumanAccessQuery) WithActivityState(state string) NonHumanAccessQuery {
+func (q NonHumanIdentitiesQuery) WithActivityState(state string) NonHumanIdentitiesQuery {
 	q.ActivityState = normalizeIdentityActivityState(state)
 	q.Page = 1
 	return q
 }
 
-func (q NonHumanAccessQuery) WithFreshnessState(state string) NonHumanAccessQuery {
-	q.FreshnessState = normalizeNonHumanAccessFreshnessState(state)
+func (q NonHumanIdentitiesQuery) WithFreshnessState(state string) NonHumanIdentitiesQuery {
+	q.FreshnessState = normalizeNonHumanIdentitiesFreshnessState(state)
 	q.Page = 1
 	return q
 }
 
-func (q NonHumanAccessQuery) WithOwnerPresence(state string) NonHumanAccessQuery {
-	q.OwnerPresence = normalizeNonHumanAccessOwnerPresence(state)
+func (q NonHumanIdentitiesQuery) WithOwnerPresence(state string) NonHumanIdentitiesQuery {
+	q.OwnerPresence = normalizeNonHumanIdentitiesOwnerPresence(state)
 	q.Page = 1
 	return q
 }
 
-func (q NonHumanAccessQuery) WithRiskLevel(level string) NonHumanAccessQuery {
+func (q NonHumanIdentitiesQuery) WithRiskLevel(level string) NonHumanIdentitiesQuery {
 	q.RiskLevel = NormalizeCredentialRiskLevel(level)
 	q.Page = 1
 	return q
 }
 
-func (q NonHumanAccessQuery) ClearFilters() NonHumanAccessQuery {
+func (q NonHumanIdentitiesQuery) ClearFilters() NonHumanIdentitiesQuery {
 	q.Source = SourceSelection{}
 	q.PrincipalType = ""
 	q.OwnerPresence = ""
@@ -134,14 +134,14 @@ func (q NonHumanAccessQuery) ClearFilters() NonHumanAccessQuery {
 	return q
 }
 
-func (q NonHumanAccessQuery) HasAdvancedFilters() bool {
+func (q NonHumanIdentitiesQuery) HasAdvancedFilters() bool {
 	return q.PrincipalType != "" ||
 		q.GovernanceState != "" ||
 		q.FreshnessState != "" ||
 		q.SortBy != ""
 }
 
-func (q NonHumanAccessQuery) HasFilters() bool {
+func (q NonHumanIdentitiesQuery) HasFilters() bool {
 	return strings.TrimSpace(q.Q) != "" ||
 		q.Source.Kind != "" ||
 		q.Source.Name != "" ||
@@ -153,7 +153,7 @@ func (q NonHumanAccessQuery) HasFilters() bool {
 		q.FreshnessState != ""
 }
 
-func (q NonHumanAccessQuery) FilterCount() int {
+func (q NonHumanIdentitiesQuery) FilterCount() int {
 	count := 0
 	if q.RiskLevel != "" {
 		count++
@@ -185,7 +185,7 @@ func (q NonHumanAccessQuery) FilterCount() int {
 	return count
 }
 
-func normalizeNonHumanAccessPrincipalType(raw string) string {
+func normalizeNonHumanIdentitiesPrincipalType(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "service":
 		return "service"
@@ -198,7 +198,7 @@ func normalizeNonHumanAccessPrincipalType(raw string) string {
 	}
 }
 
-func normalizeNonHumanAccessOwnerPresence(raw string) string {
+func normalizeNonHumanIdentitiesOwnerPresence(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "owned":
 		return "owned"
@@ -209,7 +209,7 @@ func normalizeNonHumanAccessOwnerPresence(raw string) string {
 	}
 }
 
-func normalizeNonHumanAccessGovernanceState(raw string) string {
+func normalizeNonHumanIdentitiesGovernanceState(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "unreviewed":
 		return "unreviewed"
@@ -226,7 +226,7 @@ func normalizeNonHumanAccessGovernanceState(raw string) string {
 	}
 }
 
-func normalizeNonHumanAccessFreshnessState(raw string) string {
+func normalizeNonHumanIdentitiesFreshnessState(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "current":
 		return "current"
@@ -239,7 +239,7 @@ func normalizeNonHumanAccessFreshnessState(raw string) string {
 	}
 }
 
-func normalizeNonHumanAccessSortBy(raw string) string {
+func normalizeNonHumanIdentitiesSortBy(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "principal":
 		return "principal"
@@ -262,8 +262,8 @@ func normalizeNonHumanAccessSortBy(raw string) string {
 	}
 }
 
-func normalizeNonHumanAccessSortDir(raw, sortBy string) string {
-	sortBy = normalizeNonHumanAccessSortBy(sortBy)
+func normalizeNonHumanIdentitiesSortDir(raw, sortBy string) string {
+	sortBy = normalizeNonHumanIdentitiesSortBy(sortBy)
 	if sortBy == "" {
 		return ""
 	}

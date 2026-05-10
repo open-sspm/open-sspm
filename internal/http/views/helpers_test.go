@@ -201,13 +201,13 @@ func TestProductIconForFallsBackToInitials(t *testing.T) {
 	}
 }
 
-func TestNonHumanAccessInventoryResultsOmitCurrentFreshnessLabel(t *testing.T) {
+func TestNonHumanIdentitiesInventoryResultsOmitCurrentFreshnessLabel(t *testing.T) {
 	t.Parallel()
 
 	var body bytes.Buffer
-	err := NonHumanAccessInventoryResults(viewmodels.NonHumanAccessViewData{
+	err := NonHumanIdentitiesInventoryResults(viewmodels.NonHumanIdentitiesViewData{
 		HasItems: true,
-		Items: []viewmodels.NonHumanAccessListItem{
+		Items: []viewmodels.NonHumanIdentitiesListItem{
 			{
 				PrincipalRef:           "svc-1",
 				DisplayName:            "Service Principal",

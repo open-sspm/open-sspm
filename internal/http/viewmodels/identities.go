@@ -80,7 +80,7 @@ type IdentityShowViewData struct {
 	TotalEntitlements  int
 	LinkedAccounts     []IdentityLinkedAccountView
 	Entitlements       []IdentityEntitlementView
-	NonHumanAccessHref string
+	NonHumanIdentitiesHref string
 	HasLinkedAccounts  bool
 	HasEntitlements    bool
 	OverviewMap        OverviewMapGraph
