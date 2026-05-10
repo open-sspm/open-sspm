@@ -68,6 +68,7 @@ filtered_identities AS (
     AND (
       $11::text = ''
       OR i.kind = $11::text
+      OR ($11::text = 'human' AND i.kind = 'unknown')
     )
 ),
 candidate_identities AS (
@@ -404,6 +405,7 @@ filtered_identities AS (
     AND (
       $15::text = ''
       OR i.kind = $15::text
+      OR ($15::text = 'human' AND i.kind = 'unknown')
     )
 ),
 candidate_identities AS (
@@ -830,6 +832,7 @@ filtered_identities AS (
     AND (
       $6::text = ''
       OR i.kind = $6::text
+      OR ($6::text = 'human' AND i.kind = 'unknown')
     )
 ),
 candidate_identities AS (

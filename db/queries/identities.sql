@@ -92,6 +92,7 @@ filtered_identities AS (
     AND (
       sqlc.arg(identity_type)::text = ''
       OR i.kind = sqlc.arg(identity_type)::text
+      OR (sqlc.arg(identity_type)::text = 'human' AND i.kind = 'unknown')
     )
 ),
 candidate_identities AS (
@@ -280,6 +281,7 @@ filtered_identities AS (
     AND (
       sqlc.arg(identity_type)::text = ''
       OR i.kind = sqlc.arg(identity_type)::text
+      OR (sqlc.arg(identity_type)::text = 'human' AND i.kind = 'unknown')
     )
 ),
 candidate_identities AS (
@@ -625,6 +627,7 @@ filtered_identities AS (
     AND (
       sqlc.arg(identity_type)::text = ''
       OR i.kind = sqlc.arg(identity_type)::text
+      OR (sqlc.arg(identity_type)::text = 'human' AND i.kind = 'unknown')
     )
 ),
 candidate_identities AS (

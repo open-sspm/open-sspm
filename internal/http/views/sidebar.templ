@@ -33,13 +33,18 @@ templ Sidebar(data viewmodels.LayoutData) {
 				</a>
 			</li>
 			<li>
-				<details open?={ strings.HasPrefix(data.ActivePath, "/non-human-access") || strings.HasPrefix(data.ActivePath, "/app-assets") || strings.HasPrefix(data.ActivePath, "/credentials") }>
-					<summary aria-current={ AriaCurrentNonHumanAccessSurface(data.ActivePath) }>
-						@IconBot("sidebar-icon")
-						<span>Access Risk</span>
+				<a href="/non-human-identities" aria-current={ AriaCurrent(data.ActivePath, "/non-human-identities") }>
+					@IconBot("sidebar-icon")
+					<span>Non-Human Identities</span>
+				</a>
+			</li>
+			<li>
+				<details open?={ strings.HasPrefix(data.ActivePath, "/app-assets") || strings.HasPrefix(data.ActivePath, "/credentials") }>
+					<summary aria-current={ AriaCurrentInventorySurface(data.ActivePath) }>
+						@IconAppWindow("sidebar-icon")
+						<span>Inventory</span>
 					</summary>
 					<ul>
-						<li><a href="/non-human-access" aria-current={ AriaCurrent(data.ActivePath, "/non-human-access") }><span>Principals</span></a></li>
 						<li><a href="/app-assets" aria-current={ AriaCurrent(data.ActivePath, "/app-assets") }><span>App Assets</span></a></li>
 						<li><a href="/credentials" aria-current={ AriaCurrent(data.ActivePath, "/credentials") }><span>Credentials</span></a></li>
 					</ul>

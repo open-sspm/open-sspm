@@ -2,51 +2,51 @@ package views
 
 import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
-templ NonHumanAccessPage(data viewmodels.NonHumanAccessViewData) {
+templ NonHumanIdentitiesPage(data viewmodels.NonHumanIdentitiesViewData) {
 	@Layout(data.Layout) {
-		@NonHumanAccessPageResults(data)
+		@NonHumanIdentitiesPageResults(data)
 	}
 }
 
-templ NonHumanAccessPageResults(data viewmodels.NonHumanAccessViewData) {
-	<div id="non-human-access-results" class="space-y-6">
-		@NonHumanAccessPageFilters(data)
-		@NonHumanAccessInventoryResults(data)
+templ NonHumanIdentitiesPageResults(data viewmodels.NonHumanIdentitiesViewData) {
+	<div id="non-human-identities-results" class="space-y-6">
+		@NonHumanIdentitiesPageFilters(data)
+		@NonHumanIdentitiesInventoryResults(data)
 	</div>
 }
 
-templ NonHumanAccessInventorySwap(data viewmodels.NonHumanAccessViewData) {
-	@NonHumanAccessPageFiltersOOB(data)
-	@NonHumanAccessInventoryResults(data)
+templ NonHumanIdentitiesInventorySwap(data viewmodels.NonHumanIdentitiesViewData) {
+	@NonHumanIdentitiesPageFiltersOOB(data)
+	@NonHumanIdentitiesInventoryResults(data)
 }
 
-templ NonHumanAccessPageFilters(data viewmodels.NonHumanAccessViewData) {
-	<div id="non-human-access-filters">
-		@NonHumanAccessFiltersForm(data)
+templ NonHumanIdentitiesPageFilters(data viewmodels.NonHumanIdentitiesViewData) {
+	<div id="non-human-identities-filters">
+		@NonHumanIdentitiesFiltersForm(data)
 	</div>
 }
 
-templ NonHumanAccessPageFiltersOOB(data viewmodels.NonHumanAccessViewData) {
-	<div id="non-human-access-filters" hx-swap-oob="outerHTML">
-		@NonHumanAccessFiltersForm(data)
+templ NonHumanIdentitiesPageFiltersOOB(data viewmodels.NonHumanIdentitiesViewData) {
+	<div id="non-human-identities-filters" hx-swap-oob="outerHTML">
+		@NonHumanIdentitiesFiltersForm(data)
 	</div>
 }
 
-templ NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) {
+templ NonHumanIdentitiesFiltersForm(data viewmodels.NonHumanIdentitiesViewData) {
 		<form
 			method="get"
-			action="/non-human-access"
+			action="/non-human-identities"
 			data-enter-only-query="q"
-			hx-get="/non-human-access"
+			hx-get="/non-human-identities"
 			hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
-			hx-target="#non-human-access-inventory"
+			hx-target="#non-human-identities-inventory"
 			hx-swap="outerHTML"
 			hx-push-url="true"
 				class="osspm-list-form"
 			>
 					<div class="osspm-list-toolbar">
 						<div class="min-w-0 flex-1">
-							@TableQueryBar(NonHumanAccessTableQueryBar(data))
+							@TableQueryBar(NonHumanIdentitiesTableQueryBar(data))
 						</div>
 						<div class="osspm-list-summary">
 							if data.TotalCount > 0 {
@@ -60,14 +60,14 @@ templ NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) {
 			</form>
 }
 
-templ NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) {
-	<div id="non-human-access-inventory" class="space-y-6">
+templ NonHumanIdentitiesInventoryResults(data viewmodels.NonHumanIdentitiesViewData) {
+	<div id="non-human-identities-inventory" class="space-y-6">
 		@BusyInlineIndicator("Updating results...", false)
 		<section class="space-y-3">
 			if data.HasItems {
 				<div class="space-y-3 lg:hidden">
 					for _, item := range data.Items {
-						<a href={ templ.SafeURL("/non-human-access/" + item.PrincipalRef) } class="osspm-identity-card">
+						<a href={ templ.SafeURL("/non-human-identities/" + item.PrincipalRef) } class="osspm-identity-card">
 							<div class="flex items-start justify-between gap-3">
 								<div class="min-w-0">
 									<div class="font-medium truncate">{ item.DisplayName }</div>
@@ -109,7 +109,7 @@ templ NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) {
 				</div>
 
 				@ColumnsTable("hidden lg:block") {
-					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list osspm-table-non-human-access">
+					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list osspm-table-non-human-identities">
 						<caption class="sr-only">Non-human principals with ownership, credential risk, and activity.</caption>
 						<colgroup>
 							<col class="osspm-col-principal"/>
@@ -129,9 +129,9 @@ templ NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) {
 						</thead>
 						<tbody>
 							for _, item := range data.Items {
-								<tr data-row-href={ "/non-human-access/" + item.PrincipalRef }>
+								<tr data-row-href={ "/non-human-identities/" + item.PrincipalRef }>
 									<td>
-										<a class="osspm-identity-link" href={ templ.SafeURL("/non-human-access/" + item.PrincipalRef) }>
+										<a class="osspm-identity-link" href={ templ.SafeURL("/non-human-identities/" + item.PrincipalRef) }>
 											<span class="osspm-identity-name">{ item.DisplayName }</span>
 											<span class="osspm-identity-meta">
 												<span class="truncate">
@@ -183,7 +183,7 @@ templ NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) {
 					</table>
 				}
 			} else {
-				@EmptyState("No non-human principals", data.EmptyStateMsg)
+				@EmptyState("No non-human identities", data.EmptyStateMsg)
 			}
 		</section>
 
@@ -192,12 +192,12 @@ templ NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) {
 					<p class="text-sm text-muted-foreground">Page { FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</p>
 					<div class="flex items-center gap-2">
 						if data.Page > 1 {
-							<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#non-human-access-inventory" hx-swap="outerHTML" hx-push-url="true">Previous</a>
+							<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#non-human-identities-inventory" hx-swap="outerHTML" hx-push-url="true">Previous</a>
 						} else {
 							<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
 						}
 						if data.Page < data.TotalPages {
-							<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#non-human-access-inventory" hx-swap="outerHTML" hx-push-url="true">Next</a>
+							<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#non-human-identities-inventory" hx-swap="outerHTML" hx-push-url="true">Next</a>
 						} else {
 							<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
 						}

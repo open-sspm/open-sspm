@@ -16,7 +16,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/authn"
 )
 
-func TestHandleNonHumanAccessRendersUnifiedInventory(t *testing.T) {
+func TestHandleNonHumanIdentitiesRendersUnifiedInventory(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{
 			TenantID:     "tenant-1",
@@ -72,55 +72,55 @@ func TestHandleNonHumanAccessRendersUnifiedInventory(t *testing.T) {
 		})
 		refreshCommandSearchSourceReadModels(t, ctx, q, configstore.KindGitHub, "acme")
 
-		c, rec := newTestContext(http.MethodGet, "http://example.com/non-human-access?owner_presence=unknown")
+		c, rec := newTestContext(http.MethodGet, "http://example.com/non-human-identities?owner_presence=unknown")
 
-		if err := h.HandleNonHumanAccess(c); err != nil {
-			t.Fatalf("HandleNonHumanAccess(): %v", err)
+		if err := h.HandleNonHumanIdentities(c); err != nil {
+			t.Fatalf("HandleNonHumanIdentities(): %v", err)
 		}
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
 		}
 
 		body := rec.Body.String()
-		assertContains(t, body, "Non-Human Principals")
-		assertContains(t, body, `id="non-human-access-results"`)
-		assertContains(t, body, `id="non-human-access-filters"`)
-		assertContains(t, body, `id="non-human-access-inventory"`)
+		assertContains(t, body, "Non-Human Identities")
+		assertContains(t, body, `id="non-human-identities-results"`)
+		assertContains(t, body, `id="non-human-identities-filters"`)
+		assertContains(t, body, `id="non-human-identities-inventory"`)
 		assertContains(t, body, `data-enter-only-query="q"`)
-		assertContains(t, body, `hx-target="#non-human-access-inventory"`)
-		assertContains(t, body, `hx-get="/non-human-access?owner_presence=unknown&amp;page=1"`)
-		assertContains(t, body, "/non-human-access/app-asset-"+fmt.Sprint(githubAssetID))
+		assertContains(t, body, `hx-target="#non-human-identities-inventory"`)
+		assertContains(t, body, `hx-get="/non-human-identities?owner_presence=unknown&amp;page=1"`)
+		assertContains(t, body, "/non-human-identities/app-asset-"+fmt.Sprint(githubAssetID))
 		assertContains(t, body, "GitHub Actions")
 		assertContains(t, body, "Unknown")
-		assertNotContains(t, body, "/non-human-access/identity-"+fmt.Sprint(serviceIdentityID))
+		assertNotContains(t, body, "/non-human-identities/identity-"+fmt.Sprint(serviceIdentityID))
 	})
 }
 
-func TestHandleNonHumanAccessHTMXReturnsInventoryAndFilterSwap(t *testing.T) {
+func TestHandleNonHumanIdentitiesHTMXReturnsInventoryAndFilterSwap(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
 			Org:   "acme",
 			Token: "token-1",
 		})
 
-		c, rec := newTestContext(http.MethodGet, "http://example.com/non-human-access")
+		c, rec := newTestContext(http.MethodGet, "http://example.com/non-human-identities")
 		(*c).Request().Header.Set("HX-Request", "true")
-		(*c).Request().Header.Set("HX-Target", "non-human-access-inventory")
+		(*c).Request().Header.Set("HX-Target", "non-human-identities-inventory")
 
-		if err := h.HandleNonHumanAccess(c); err != nil {
-			t.Fatalf("HandleNonHumanAccess(): %v", err)
+		if err := h.HandleNonHumanIdentities(c); err != nil {
+			t.Fatalf("HandleNonHumanIdentities(): %v", err)
 		}
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
 		}
 
 		body := rec.Body.String()
-		assertContains(t, body, `id="non-human-access-filters"`)
+		assertContains(t, body, `id="non-human-identities-filters"`)
 		assertContains(t, body, `hx-swap-oob="outerHTML"`)
-		assertContains(t, body, `id="non-human-access-inventory"`)
+		assertContains(t, body, `id="non-human-identities-inventory"`)
 		assertContains(t, body, `data-busy-inline-indicator`)
 		assertContains(t, body, `data-enter-only-query="q"`)
-		assertContains(t, body, `hx-target="#non-human-access-inventory"`)
+		assertContains(t, body, `hx-target="#non-human-identities-inventory"`)
 		assertNotContains(t, body, "<!doctype html>")
 	})
 }
@@ -166,7 +166,7 @@ func TestRefreshCommandSearchSourceReadModelsPopulatesNonHumanPrincipals(t *test
 	})
 }
 
-func TestHandleNonHumanAccessFallsBackWhenConfiguredSourceNameDrifts(t *testing.T) {
+func TestHandleNonHumanIdentitiesFallsBackWhenConfiguredSourceNameDrifts(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
 			Org:   "acme",
@@ -201,22 +201,22 @@ func TestHandleNonHumanAccessFallsBackWhenConfiguredSourceNameDrifts(t *testing.
 			t.Fatalf("rows = %+v, want app-asset-%d", rows, githubAssetID)
 		}
 
-		c, rec := newTestContext(http.MethodGet, "http://example.com/non-human-access")
+		c, rec := newTestContext(http.MethodGet, "http://example.com/non-human-identities")
 
-		if err := h.HandleNonHumanAccess(c); err != nil {
-			t.Fatalf("HandleNonHumanAccess(): %v", err)
+		if err := h.HandleNonHumanIdentities(c); err != nil {
+			t.Fatalf("HandleNonHumanIdentities(): %v", err)
 		}
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
 		}
 
 		body := rec.Body.String()
-		assertContains(t, body, "/non-human-access/app-asset-"+fmt.Sprint(githubAssetID))
+		assertContains(t, body, "/non-human-identities/app-asset-"+fmt.Sprint(githubAssetID))
 		assertContains(t, body, "GitHub Actions")
 	})
 }
 
-func TestHandleNonHumanAccessShowRendersDetailLinksAndRiskReasons(t *testing.T) {
+func TestHandleNonHumanIdentityShowRendersDetailLinksAndRiskReasons(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{
 			TenantID:     "tenant-1",
@@ -269,12 +269,12 @@ func TestHandleNonHumanAccessShowRendersDetailLinksAndRiskReasons(t *testing.T) 
 		})
 		refreshCommandSearchSourceReadModels(t, ctx, q, configstore.KindEntra, "tenant-1")
 
-		c, rec := newTestContext(http.MethodGet, "http://example.com/non-human-access/identity-"+fmt.Sprint(serviceIdentityID))
-		(*c).SetPath("/non-human-access/:ref")
+		c, rec := newTestContext(http.MethodGet, "http://example.com/non-human-identities/identity-"+fmt.Sprint(serviceIdentityID))
+		(*c).SetPath("/non-human-identities/:ref")
 		(*c).SetPathValues(echo.PathValues{{Name: "ref", Value: "identity-" + fmt.Sprint(serviceIdentityID)}})
 
-		if err := h.HandleNonHumanAccessShow(c); err != nil {
-			t.Fatalf("HandleNonHumanAccessShow(): %v", err)
+		if err := h.HandleNonHumanIdentityShow(c); err != nil {
+			t.Fatalf("HandleNonHumanIdentityShow(): %v", err)
 		}
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
@@ -283,15 +283,15 @@ func TestHandleNonHumanAccessShowRendersDetailLinksAndRiskReasons(t *testing.T) 
 		body := rec.Body.String()
 		assertContains(t, body, "Azure Service Principal")
 		assertContains(t, body, "Owner User")
-		assertContains(t, body, "A linked credential is expired.")
-		assertContains(t, body, "A linked credential has been unused for over 90 days.")
+		assertContains(t, body, "Linked credential is expired")
+		assertContains(t, body, "Principal has stale or aging evidence")
 		assertContains(t, body, "/identities/"+fmt.Sprint(serviceIdentityID))
 		assertContains(t, body, "/app-assets/"+fmt.Sprint(serviceAssetID))
 		assertContains(t, body, "/credentials/"+fmt.Sprint(credentialID))
 	})
 }
 
-func TestHandleNonHumanAccessShowUsesBestAvailableAttribution(t *testing.T) {
+func TestHandleNonHumanIdentityShowUsesBestAvailableAttribution(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
 			Org:   "acme",
@@ -316,12 +316,12 @@ func TestHandleNonHumanAccessShowUsesBestAvailableAttribution(t *testing.T) {
 		})
 		refreshCommandSearchSourceReadModels(t, ctx, q, configstore.KindGitHub, "acme")
 
-		c, rec := newTestContext(http.MethodGet, "http://example.com/non-human-access/app-asset-"+fmt.Sprint(githubAssetID))
-		(*c).SetPath("/non-human-access/:ref")
+		c, rec := newTestContext(http.MethodGet, "http://example.com/non-human-identities/app-asset-"+fmt.Sprint(githubAssetID))
+		(*c).SetPath("/non-human-identities/:ref")
 		(*c).SetPathValues(echo.PathValues{{Name: "ref", Value: "app-asset-" + fmt.Sprint(githubAssetID)}})
 
-		if err := h.HandleNonHumanAccessShow(c); err != nil {
-			t.Fatalf("HandleNonHumanAccessShow(): %v", err)
+		if err := h.HandleNonHumanIdentityShow(c); err != nil {
+			t.Fatalf("HandleNonHumanIdentityShow(): %v", err)
 		}
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
@@ -334,7 +334,7 @@ func TestHandleNonHumanAccessShowUsesBestAvailableAttribution(t *testing.T) {
 	})
 }
 
-func TestNonHumanAccessHandlersTrackUsageEvents(t *testing.T) {
+func TestNonHumanIdentitiesHandlersTrackUsageEvents(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{
 			TenantID:     "tenant-1",
@@ -375,30 +375,30 @@ func TestNonHumanAccessHandlersTrackUsageEvents(t *testing.T) {
 		})
 		refreshCommandSearchSourceReadModels(t, ctx, q, configstore.KindEntra, "tenant-1")
 
-		listCtx, listRec := newTestContext(http.MethodGet, "http://example.com/non-human-access?owner_presence=unknown")
-		(*listCtx).Request().Header.Set("Referer", "http://example.com/non-human-access?freshness_state=stale")
+		listCtx, listRec := newTestContext(http.MethodGet, "http://example.com/non-human-identities?owner_presence=unknown")
+		(*listCtx).Request().Header.Set("Referer", "http://example.com/non-human-identities?freshness_state=stale")
 		(*listCtx).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: adminUserID, Email: "admin@example.com", Role: "admin"})
 
-		if err := h.HandleNonHumanAccess(listCtx); err != nil {
-			t.Fatalf("HandleNonHumanAccess(): %v", err)
+		if err := h.HandleNonHumanIdentities(listCtx); err != nil {
+			t.Fatalf("HandleNonHumanIdentities(): %v", err)
 		}
 		if listRec.Code != http.StatusOK {
 			t.Fatalf("list status = %d, want %d", listRec.Code, http.StatusOK)
 		}
 
-		showCtx, showRec := newTestContext(http.MethodGet, "http://example.com/non-human-access/identity-"+fmt.Sprint(serviceIdentityID))
-		(*showCtx).SetPath("/non-human-access/:ref")
+		showCtx, showRec := newTestContext(http.MethodGet, "http://example.com/non-human-identities/identity-"+fmt.Sprint(serviceIdentityID))
+		(*showCtx).SetPath("/non-human-identities/:ref")
 		(*showCtx).SetPathValues(echo.PathValues{{Name: "ref", Value: "identity-" + fmt.Sprint(serviceIdentityID)}})
 		(*showCtx).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: adminUserID, Email: "admin@example.com", Role: "admin"})
-		if err := h.HandleNonHumanAccessShow(showCtx); err != nil {
-			t.Fatalf("HandleNonHumanAccessShow(): %v", err)
+		if err := h.HandleNonHumanIdentityShow(showCtx); err != nil {
+			t.Fatalf("HandleNonHumanIdentityShow(): %v", err)
 		}
 		if showRec.Code != http.StatusOK {
 			t.Fatalf("show status = %d, want %d", showRec.Code, http.StatusOK)
 		}
 
 		credentialCtx, credentialRec := newTestContext(http.MethodGet, "http://example.com/credentials/"+fmt.Sprint(credentialID))
-		(*credentialCtx).Request().Header.Set("Referer", "http://example.com/non-human-access/identity-"+fmt.Sprint(serviceIdentityID))
+		(*credentialCtx).Request().Header.Set("Referer", "http://example.com/non-human-identities/identity-"+fmt.Sprint(serviceIdentityID))
 		(*credentialCtx).SetPath("/credentials/:id")
 		(*credentialCtx).SetPathValues(echo.PathValues{{Name: "id", Value: fmt.Sprint(credentialID)}})
 		(*credentialCtx).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: adminUserID, Email: "admin@example.com", Role: "admin"})

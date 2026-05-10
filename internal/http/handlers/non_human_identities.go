@@ -15,24 +15,24 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
 
-const nonHumanAccessPerPage = 20
+const nonHumanIdentitiesPerPage = 20
 
-type nonHumanAccessInventoryQuery struct {
-	queryState            querystate.NonHumanAccessQuery
+type nonHumanIdentitiesInventoryQuery struct {
+	queryState            querystate.NonHumanIdentitiesQuery
 	configuredSourceKinds []string
 	configuredSourceNames []string
 }
 
-func newNonHumanAccessInventoryQuery(queryState querystate.NonHumanAccessQuery, sourcePairs []viewmodels.ProgrammaticSourceOption) nonHumanAccessInventoryQuery {
+func newNonHumanIdentitiesInventoryQuery(queryState querystate.NonHumanIdentitiesQuery, sourcePairs []viewmodels.ProgrammaticSourceOption) nonHumanIdentitiesInventoryQuery {
 	configuredSourceKinds, configuredSourceNames := identityConfiguredSourcePairs(sourcePairs)
-	return nonHumanAccessInventoryQuery{
+	return nonHumanIdentitiesInventoryQuery{
 		queryState:            queryState,
 		configuredSourceKinds: configuredSourceKinds,
 		configuredSourceNames: configuredSourceNames,
 	}
 }
 
-func (q nonHumanAccessInventoryQuery) CountParams() gen.CountNonHumanPrincipalsByFiltersParams {
+func (q nonHumanIdentitiesInventoryQuery) CountParams() gen.CountNonHumanPrincipalsByFiltersParams {
 	return gen.CountNonHumanPrincipalsByFiltersParams{
 		Query:                 q.queryState.Q,
 		SourceKind:            q.queryState.Source.Kind,
@@ -48,7 +48,7 @@ func (q nonHumanAccessInventoryQuery) CountParams() gen.CountNonHumanPrincipalsB
 	}
 }
 
-func (q nonHumanAccessInventoryQuery) ListParams(offset, limit int32) gen.ListNonHumanPrincipalsPageByFiltersParams {
+func (q nonHumanIdentitiesInventoryQuery) ListParams(offset, limit int32) gen.ListNonHumanPrincipalsPageByFiltersParams {
 	return gen.ListNonHumanPrincipalsPageByFiltersParams{
 		SortBy:                q.queryState.SortBy,
 		SortDir:               q.queryState.SortDir,
@@ -68,11 +68,11 @@ func (q nonHumanAccessInventoryQuery) ListParams(offset, limit int32) gen.ListNo
 	}
 }
 
-func (h *Handlers) HandleNonHumanAccess(c *echo.Context) error {
+func (h *Handlers) HandleNonHumanIdentities(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	ctx := c.Request().Context()
-	layout, stateView, err := h.LayoutData(ctx, c, "Non-Human Principals")
+	layout, stateView, err := h.LayoutData(ctx, c, "Non-Human Identities")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -86,31 +86,31 @@ func (h *Handlers) HandleNonHumanAccess(c *echo.Context) error {
 			clonedValues[key] = append([]string(nil), values...)
 		}
 		queryValues = clonedValues
-		// Non-human access no longer exposes source_name, so drop stale/manual params.
+		// Non-human identities no longer expose source_name, so drop stale/manual params.
 		queryValues.Del("source_name")
 	}
-	queryState := querystate.ParseNonHumanAccessQuery(queryValues, programmaticQuerySources(sourcePairs))
-	queryParams := newNonHumanAccessInventoryQuery(queryState, sourcePairs)
-	pagination := newPaginatedListState(0, queryState.Page, nonHumanAccessPerPage)
+	queryState := querystate.ParseNonHumanIdentitiesQuery(queryValues, programmaticQuerySources(sourcePairs))
+	queryParams := newNonHumanIdentitiesInventoryQuery(queryState, sourcePairs)
+	pagination := newPaginatedListState(0, queryState.Page, nonHumanIdentitiesPerPage)
 
-	data := viewmodels.NonHumanAccessViewData{
-		PaginatedListPageData: pagination.PageData(layout, 0, "No non-human principals match the current filters.", ""),
+	data := viewmodels.NonHumanIdentitiesViewData{
+		PaginatedListPageData: pagination.PageData(layout, 0, "No non-human identities match the current filters.", ""),
 		Sources:               sourceKindOptions,
 		Query:                 queryState,
 	}
 
 	render := func() error {
-		if isNonHumanAccessInventoryTarget(c) {
-			return h.RenderComponent(c, views.NonHumanAccessInventorySwap(data))
+		if isNonHumanIdentitiesInventoryTarget(c) {
+			return h.RenderComponent(c, views.NonHumanIdentitiesInventorySwap(data))
 		}
-		if isNonHumanAccessResultsTarget(c) {
-			return h.RenderComponent(c, views.NonHumanAccessPageResults(data))
+		if isNonHumanIdentitiesResultsTarget(c) {
+			return h.RenderComponent(c, views.NonHumanIdentitiesPageResults(data))
 		}
-		return h.RenderComponent(c, views.NonHumanAccessPage(data))
+		return h.RenderComponent(c, views.NonHumanIdentitiesPage(data))
 	}
 
 	if len(sourcePairs) == 0 {
-		data.PaginatedListPageData.EmptyStateMsg = "Configure a connector with identity or programmatic-access data to populate non-human access."
+		data.PaginatedListPageData.EmptyStateMsg = "Configure a connector with identity or programmatic-access data to populate non-human identities."
 		return render()
 	}
 
@@ -119,41 +119,41 @@ func (h *Handlers) HandleNonHumanAccess(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	pagination = newPaginatedListState(totalCount, queryState.Page, nonHumanAccessPerPage)
-	rows, err := h.Q.ListNonHumanPrincipalsPageByFilters(ctx, queryParams.ListParams(int32(pagination.Offset()), int32(nonHumanAccessPerPage)))
+	pagination = newPaginatedListState(totalCount, queryState.Page, nonHumanIdentitiesPerPage)
+	rows, err := h.Q.ListNonHumanPrincipalsPageByFilters(ctx, queryParams.ListParams(int32(pagination.Offset()), int32(nonHumanIdentitiesPerPage)))
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
 	linkResolver := newIdentityLinkResolver(h, ctx)
-	items := make([]viewmodels.NonHumanAccessListItem, 0, len(rows))
+	items := make([]viewmodels.NonHumanIdentitiesListItem, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, nonHumanAccessListItemFromRow(linkResolver, row))
+		items = append(items, nonHumanIdentitiesListItemFromRow(linkResolver, row))
 	}
 
 	data.Items = items
-	data.PaginatedListPageData = pagination.PageData(layout, len(items), "No non-human principals found yet.", "")
+	data.PaginatedListPageData = pagination.PageData(layout, len(items), "No non-human identities found yet.", "")
 	data.HasItems = len(items) > 0
 	if queryState.HasFilters() {
-		data.PaginatedListPageData.EmptyStateMsg = "No non-human principals match the current filters."
+		data.PaginatedListPageData.EmptyStateMsg = "No non-human identities match the current filters."
 	}
 
-	h.trackNonHumanAccessListEvents(c, queryState)
+	h.trackNonHumanIdentitiesListEvents(c, queryState)
 
 	return render()
 }
 
-func isNonHumanAccessInventoryTarget(c *echo.Context) bool {
-	return isHX(c) && isHXTarget(c, "non-human-access-inventory")
+func isNonHumanIdentitiesInventoryTarget(c *echo.Context) bool {
+	return isHX(c) && isHXTarget(c, "non-human-identities-inventory")
 }
 
-func isNonHumanAccessResultsTarget(c *echo.Context) bool {
-	return isHX(c) && isHXTarget(c, "non-human-access-results")
+func isNonHumanIdentitiesResultsTarget(c *echo.Context) bool {
+	return isHX(c) && isHXTarget(c, "non-human-identities-results")
 }
 
-func (h *Handlers) HandleNonHumanAccessShow(c *echo.Context) error {
+func (h *Handlers) HandleNonHumanIdentityShow(c *echo.Context) error {
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Non-Human Principal")
+	layout, _, err := h.LayoutData(ctx, c, "Non-Human Identity")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -181,16 +181,16 @@ func (h *Handlers) HandleNonHumanAccessShow(c *echo.Context) error {
 	}
 
 	linkResolver := newIdentityLinkResolver(h, ctx)
-	summary := nonHumanAccessSummaryFromRow(linkResolver, principal)
+	summary := nonHumanIdentitiesSummaryFromRow(linkResolver, principal)
 
-	assets := make([]viewmodels.NonHumanAccessRelatedAssetItem, 0, len(assetRows))
+	assets := make([]viewmodels.NonHumanIdentitiesRelatedAssetItem, 0, len(assetRows))
 	for _, row := range assetRows {
-		assets = append(assets, nonHumanAccessRelatedAssetItemFromRow(linkResolver, row))
+		assets = append(assets, nonHumanIdentitiesRelatedAssetItemFromRow(linkResolver, row))
 	}
 
-	credentials := make([]viewmodels.NonHumanAccessRelatedCredentialItem, 0, len(credentialRows))
+	credentials := make([]viewmodels.NonHumanIdentitiesRelatedCredentialItem, 0, len(credentialRows))
 	for _, row := range credentialRows {
-		credentials = append(credentials, nonHumanAccessRelatedCredentialItemFromRow(linkResolver, row))
+		credentials = append(credentials, nonHumanIdentitiesRelatedCredentialItemFromRow(linkResolver, row))
 	}
 
 	bestAvailableAttribution, bestAvailableAttributionHref := nonHumanBestAvailableAttribution(linkResolver, credentialRows)
@@ -200,7 +200,7 @@ func (h *Handlers) HandleNonHumanAccessShow(c *echo.Context) error {
 	}
 
 	signals := nonHumanPrincipalRiskSignals(principal)
-	data := viewmodels.NonHumanAccessShowViewData{
+	data := viewmodels.NonHumanIdentitiesShowViewData{
 		Layout:         layout,
 		Principal:      summary,
 		RiskSignals:    signals,
@@ -211,16 +211,16 @@ func (h *Handlers) HandleNonHumanAccessShow(c *echo.Context) error {
 		HasCredentials: len(credentials) > 0,
 	}
 
-	h.trackNonHumanAccessDetailOpen(c, principalRef)
-	return h.RenderComponent(c, views.NonHumanAccessShowPage(data))
+	h.trackNonHumanIdentityDetailOpen(c, principalRef)
+	return h.RenderComponent(c, views.NonHumanIdentityShowPage(data))
 }
 
-func nonHumanAccessListItemFromRow(linkResolver *identityLinkResolver, row gen.ListNonHumanPrincipalsPageByFiltersRow) viewmodels.NonHumanAccessListItem {
+func nonHumanIdentitiesListItemFromRow(linkResolver *identityLinkResolver, row gen.ListNonHumanPrincipalsPageByFiltersRow) viewmodels.NonHumanIdentitiesListItem {
 	sourceKind := strings.TrimSpace(row.SourceKind)
 	sourceName := strings.TrimSpace(row.SourceName)
 	ownerPresence := strings.TrimSpace(row.OwnerPresence)
 
-	return viewmodels.NonHumanAccessListItem{
+	return viewmodels.NonHumanIdentitiesListItem{
 		PrincipalRef:           row.PrincipalRef,
 		IdentityID:             row.IdentityID,
 		AppAssetID:             row.AppAssetID,
@@ -242,12 +242,12 @@ func nonHumanAccessListItemFromRow(linkResolver *identityLinkResolver, row gen.L
 	}
 }
 
-func nonHumanAccessSummaryFromRow(linkResolver *identityLinkResolver, principal gen.NonHumanPrincipalReadModelsV) viewmodels.NonHumanAccessSummaryView {
+func nonHumanIdentitiesSummaryFromRow(linkResolver *identityLinkResolver, principal gen.NonHumanPrincipalReadModelsV) viewmodels.NonHumanIdentitiesSummaryView {
 	sourceKind := strings.TrimSpace(principal.SourceKind)
 	sourceName := strings.TrimSpace(principal.SourceName)
 	ownerPresence := strings.TrimSpace(principal.OwnerPresence)
 
-	return viewmodels.NonHumanAccessSummaryView{
+	return viewmodels.NonHumanIdentitiesSummaryView{
 		PrincipalRef:           principal.PrincipalRef,
 		IdentityID:             principal.IdentityID,
 		IdentityHref:           nonHumanIdentityHref(principal.IdentityID),
@@ -277,12 +277,12 @@ func nonHumanAccessSummaryFromRow(linkResolver *identityLinkResolver, principal 
 	}
 }
 
-func nonHumanAccessRelatedAssetItemFromRow(linkResolver *identityLinkResolver, row gen.ListNonHumanPrincipalAssetsByRefRow) viewmodels.NonHumanAccessRelatedAssetItem {
+func nonHumanIdentitiesRelatedAssetItemFromRow(linkResolver *identityLinkResolver, row gen.ListNonHumanPrincipalAssetsByRefRow) viewmodels.NonHumanIdentitiesRelatedAssetItem {
 	sourceKind := strings.TrimSpace(row.SourceKind)
 	sourceName := strings.TrimSpace(row.SourceName)
 	ownerPresence := ownerPresenceForIDOrValue(row.GovernanceOwnerIdentityID, row.GovernanceOwnerDisplayName, row.GovernanceOwnerPrimaryEmail)
 
-	return viewmodels.NonHumanAccessRelatedAssetItem{
+	return viewmodels.NonHumanIdentitiesRelatedAssetItem{
 		ID:                  row.ID,
 		Href:                "/app-assets/" + views.FormatInt64(row.ID),
 		SourceKind:          sourceKind,
@@ -301,11 +301,11 @@ func nonHumanAccessRelatedAssetItemFromRow(linkResolver *identityLinkResolver, r
 	}
 }
 
-func nonHumanAccessRelatedCredentialItemFromRow(linkResolver *identityLinkResolver, row gen.ListNonHumanPrincipalCredentialsByRefRow) viewmodels.NonHumanAccessRelatedCredentialItem {
+func nonHumanIdentitiesRelatedCredentialItemFromRow(linkResolver *identityLinkResolver, row gen.ListNonHumanPrincipalCredentialsByRefRow) viewmodels.NonHumanIdentitiesRelatedCredentialItem {
 	sourceKind := strings.TrimSpace(row.SourceKind)
 	sourceName := strings.TrimSpace(row.SourceName)
 
-	return viewmodels.NonHumanAccessRelatedCredentialItem{
+	return viewmodels.NonHumanIdentitiesRelatedCredentialItem{
 		ID:              row.ID,
 		Href:            "/credentials/" + views.FormatInt64(row.ID),
 		SourceKind:      sourceKind,
@@ -374,21 +374,21 @@ func nonHumanAccountableOwnerLabel(ownerDisplayName, ownerPrimaryEmail, ownerPre
 	return "Unknown"
 }
 
-func nonHumanPrincipalRiskSignals(principal gen.NonHumanPrincipalReadModelsV) []viewmodels.NonHumanAccessRiskSignal {
+func nonHumanPrincipalRiskSignals(principal gen.NonHumanPrincipalReadModelsV) []viewmodels.NonHumanIdentitiesRiskSignal {
 	if len(principal.RiskSignalsJson) == 0 {
 		return nil
 	}
-	var signals []viewmodels.NonHumanAccessRiskSignal
+	var signals []viewmodels.NonHumanIdentitiesRiskSignal
 	if err := json.Unmarshal(principal.RiskSignalsJson, &signals); err != nil {
 		slog.Warn("failed to decode non-human principal risk signals", "principal_ref", principal.PrincipalRef, "error", err)
 		return nil
 	}
-	filtered := make([]viewmodels.NonHumanAccessRiskSignal, 0, len(signals))
+	filtered := make([]viewmodels.NonHumanIdentitiesRiskSignal, 0, len(signals))
 	for _, signal := range signals {
 		if strings.TrimSpace(signal.Title) == "" {
 			continue
 		}
-		filtered = append(filtered, viewmodels.NonHumanAccessRiskSignal{
+		filtered = append(filtered, viewmodels.NonHumanIdentitiesRiskSignal{
 			Severity: strings.TrimSpace(signal.Severity),
 			Title:    strings.TrimSpace(signal.Title),
 			Evidence: strings.TrimSpace(signal.Evidence),

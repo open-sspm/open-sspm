@@ -86,12 +86,6 @@ func IdentitiesTableQueryBar(data viewmodels.IdentitiesViewData) viewmodels.Tabl
 		}),
 		tableQueryField("source_kind", "Source", viewmodels.TableFilterFieldKindSingleSelect, []string{"source_kind"}, query.Source.Kind, query.Source.Kind == "", sourceOptions),
 		tableQueryField("source_name", "Source name", viewmodels.TableFilterFieldKindSingleSelect, []string{"source_name"}, query.Source.Name, query.Source.Name == "", sourceNameOptions),
-		tableQueryField("identity_type", "Type", viewmodels.TableFilterFieldKindSingleSelect, []string{"identity_type"}, query.IdentityType, query.IdentityType == "", []viewmodels.TableFilterOption{
-			tableQueryOption("human", "Human", tableQueryControl("identity_type", "human")),
-			tableQueryOption("service", "Service", tableQueryControl("identity_type", "service")),
-			tableQueryOption("bot", "Bot", tableQueryControl("identity_type", "bot")),
-			tableQueryOption("unknown", "Unknown", tableQueryControl("identity_type", "unknown")),
-		}),
 		tableQueryField("managed_state", "Managed", viewmodels.TableFilterFieldKindSingleSelect, []string{"managed_state"}, query.ManagedState, query.ManagedState == "", []viewmodels.TableFilterOption{
 			tableQueryOption("managed", "Managed", tableQueryControl("managed_state", "managed")),
 			tableQueryOption("unmanaged", "Unmanaged", tableQueryControl("managed_state", "unmanaged")),
@@ -111,13 +105,11 @@ func IdentitiesTableQueryBar(data viewmodels.IdentitiesViewData) viewmodels.Tabl
 			maybeChip(fields[5]),
 			maybeChip(fields[6]),
 			maybeChip(fields[7]),
-			maybeChip(fields[8]),
 		},
 		tableQueryControls(
 			controlIfNotEmpty("row_state", query.RowState),
 			controlIfNotEmpty("source_kind", query.Source.Kind),
 			controlIfNotEmpty("source_name", query.Source.Name),
-			controlIfNotEmpty("identity_type", query.IdentityType),
 			controlIfNotEmpty("managed_state", query.ManagedState),
 			controlIfTrue("privileged", query.PrivilegedOnly),
 			controlIfNotEmpty("status", query.Status),
@@ -128,7 +120,7 @@ func IdentitiesTableQueryBar(data viewmodels.IdentitiesViewData) viewmodels.Tabl
 	)
 }
 
-func NonHumanAccessTableQueryBar(data viewmodels.NonHumanAccessViewData) viewmodels.TableQueryBarData {
+func NonHumanIdentitiesTableQueryBar(data viewmodels.NonHumanIdentitiesViewData) viewmodels.TableQueryBarData {
 	query := data.Query
 
 	sourceOptions := make([]viewmodels.TableFilterOption, 0, len(data.Sources))
@@ -171,7 +163,7 @@ func NonHumanAccessTableQueryBar(data viewmodels.NonHumanAccessViewData) viewmod
 			tableQueryOption("owned", "Owned", tableQueryControl("owner_presence", "owned")),
 			tableQueryOption("unknown", "Unknown owner", tableQueryControl("owner_presence", "unknown")),
 		}),
-		tableQueryField("sort", "Sort", viewmodels.TableFilterFieldKindSort, []string{"sort_by", "sort_dir"}, nonHumanAccessSortValue(query.SortBy, query.SortDir), query.SortBy == "", nonHumanAccessSortOptions()),
+		tableQueryField("sort", "Sort", viewmodels.TableFilterFieldKindSort, []string{"sort_by", "sort_dir"}, nonHumanIdentitiesSortValue(query.SortBy, query.SortDir), query.SortBy == "", nonHumanIdentitiesSortOptions()),
 	}
 
 	return tableQueryBarData(
@@ -648,8 +640,6 @@ func identitySortOptions() []viewmodels.TableFilterOption {
 	return []viewmodels.TableFilterOption{
 		tableQueryOption("identity_asc", "Identity (A-Z)", tableQueryControl("sort_by", "identity"), tableQueryControl("sort_dir", "asc")),
 		tableQueryOption("identity_desc", "Identity (Z-A)", tableQueryControl("sort_by", "identity"), tableQueryControl("sort_dir", "desc")),
-		tableQueryOption("identity_type_asc", "Type (A-Z)", tableQueryControl("sort_by", "identity_type"), tableQueryControl("sort_dir", "asc")),
-		tableQueryOption("identity_type_desc", "Type (Z-A)", tableQueryControl("sort_by", "identity_type"), tableQueryControl("sort_dir", "desc")),
 		tableQueryOption("managed_desc", "Managed first", tableQueryControl("sort_by", "managed"), tableQueryControl("sort_dir", "desc")),
 		tableQueryOption("managed_asc", "Managed last", tableQueryControl("sort_by", "managed"), tableQueryControl("sort_dir", "asc")),
 		tableQueryOption("source_type_asc", "Source (A-Z)", tableQueryControl("sort_by", "source_type"), tableQueryControl("sort_dir", "asc")),
@@ -665,7 +655,7 @@ func identitySortOptions() []viewmodels.TableFilterOption {
 	}
 }
 
-func nonHumanAccessSortValue(sortBy, sortDir string) string {
+func nonHumanIdentitiesSortValue(sortBy, sortDir string) string {
 	sortBy = strings.TrimSpace(sortBy)
 	sortDir = strings.TrimSpace(sortDir)
 	if sortBy == "" {
@@ -677,7 +667,7 @@ func nonHumanAccessSortValue(sortBy, sortDir string) string {
 	return sortBy + "_" + sortDir
 }
 
-func nonHumanAccessSortOptions() []viewmodels.TableFilterOption {
+func nonHumanIdentitiesSortOptions() []viewmodels.TableFilterOption {
 	return []viewmodels.TableFilterOption{
 		tableQueryOption("principal_asc", "Principal (A-Z)", tableQueryControl("sort_by", "principal"), tableQueryControl("sort_dir", "asc")),
 		tableQueryOption("principal_desc", "Principal (Z-A)", tableQueryControl("sort_by", "principal"), tableQueryControl("sort_dir", "desc")),

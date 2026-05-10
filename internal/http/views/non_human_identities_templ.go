@@ -10,7 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
-func NonHumanAccessPage(data viewmodels.NonHumanAccessViewData) templ.Component {
+func NonHumanIdentitiesPage(data viewmodels.NonHumanIdentitiesViewData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -43,7 +43,7 @@ func NonHumanAccessPage(data viewmodels.NonHumanAccessViewData) templ.Component 
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = NonHumanAccessPageResults(data).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = NonHumanIdentitiesPageResults(data).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -57,7 +57,7 @@ func NonHumanAccessPage(data viewmodels.NonHumanAccessViewData) templ.Component 
 	})
 }
 
-func NonHumanAccessPageResults(data viewmodels.NonHumanAccessViewData) templ.Component {
+func NonHumanIdentitiesPageResults(data viewmodels.NonHumanIdentitiesViewData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -78,15 +78,15 @@ func NonHumanAccessPageResults(data viewmodels.NonHumanAccessViewData) templ.Com
 			templ_7745c5c3_Var3 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"non-human-access-results\" class=\"space-y-6\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"non-human-identities-results\" class=\"space-y-6\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = NonHumanAccessPageFilters(data).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = NonHumanIdentitiesPageFilters(data).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = NonHumanAccessInventoryResults(data).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = NonHumanIdentitiesInventoryResults(data).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -98,7 +98,7 @@ func NonHumanAccessPageResults(data viewmodels.NonHumanAccessViewData) templ.Com
 	})
 }
 
-func NonHumanAccessInventorySwap(data viewmodels.NonHumanAccessViewData) templ.Component {
+func NonHumanIdentitiesInventorySwap(data viewmodels.NonHumanIdentitiesViewData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -119,11 +119,11 @@ func NonHumanAccessInventorySwap(data viewmodels.NonHumanAccessViewData) templ.C
 			templ_7745c5c3_Var4 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = NonHumanAccessPageFiltersOOB(data).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = NonHumanIdentitiesPageFiltersOOB(data).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = NonHumanAccessInventoryResults(data).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = NonHumanIdentitiesInventoryResults(data).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -131,7 +131,7 @@ func NonHumanAccessInventorySwap(data viewmodels.NonHumanAccessViewData) templ.C
 	})
 }
 
-func NonHumanAccessPageFilters(data viewmodels.NonHumanAccessViewData) templ.Component {
+func NonHumanIdentitiesPageFilters(data viewmodels.NonHumanIdentitiesViewData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -152,11 +152,11 @@ func NonHumanAccessPageFilters(data viewmodels.NonHumanAccessViewData) templ.Com
 			templ_7745c5c3_Var5 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div id=\"non-human-access-filters\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div id=\"non-human-identities-filters\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = NonHumanAccessFiltersForm(data).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = NonHumanIdentitiesFiltersForm(data).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -168,7 +168,7 @@ func NonHumanAccessPageFilters(data viewmodels.NonHumanAccessViewData) templ.Com
 	})
 }
 
-func NonHumanAccessPageFiltersOOB(data viewmodels.NonHumanAccessViewData) templ.Component {
+func NonHumanIdentitiesPageFiltersOOB(data viewmodels.NonHumanIdentitiesViewData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -189,11 +189,11 @@ func NonHumanAccessPageFiltersOOB(data viewmodels.NonHumanAccessViewData) templ.
 			templ_7745c5c3_Var6 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div id=\"non-human-access-filters\" hx-swap-oob=\"outerHTML\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div id=\"non-human-identities-filters\" hx-swap-oob=\"outerHTML\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = NonHumanAccessFiltersForm(data).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = NonHumanIdentitiesFiltersForm(data).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -205,7 +205,7 @@ func NonHumanAccessPageFiltersOOB(data viewmodels.NonHumanAccessViewData) templ.
 	})
 }
 
-func NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) templ.Component {
+func NonHumanIdentitiesFiltersForm(data viewmodels.NonHumanIdentitiesViewData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -226,11 +226,11 @@ func NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) templ.Com
 			templ_7745c5c3_Var7 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<form method=\"get\" action=\"/non-human-access\" data-enter-only-query=\"q\" hx-get=\"/non-human-access\" hx-trigger=\"change delay:150ms from:[data-table-query-trigger], submit\" hx-target=\"#non-human-access-inventory\" hx-swap=\"outerHTML\" hx-push-url=\"true\" class=\"osspm-list-form\"><div class=\"osspm-list-toolbar\"><div class=\"min-w-0 flex-1\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<form method=\"get\" action=\"/non-human-identities\" data-enter-only-query=\"q\" hx-get=\"/non-human-identities\" hx-trigger=\"change delay:150ms from:[data-table-query-trigger], submit\" hx-target=\"#non-human-identities-inventory\" hx-swap=\"outerHTML\" hx-push-url=\"true\" class=\"osspm-list-form\"><div class=\"osspm-list-toolbar\"><div class=\"min-w-0 flex-1\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = TableQueryBar(NonHumanAccessTableQueryBar(data)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = TableQueryBar(NonHumanIdentitiesTableQueryBar(data)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -242,7 +242,7 @@ func NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) templ.Com
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs("Showing ")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 53, Col: 20}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 53, Col: 20}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -251,7 +251,7 @@ func NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) templ.Com
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.ShowingFrom))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 53, Col: 51}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 53, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -260,7 +260,7 @@ func NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) templ.Com
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs("-")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 53, Col: 58}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 53, Col: 58}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -269,7 +269,7 @@ func NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) templ.Com
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.ShowingTo))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 53, Col: 87}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 53, Col: 87}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -278,7 +278,7 @@ func NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) templ.Com
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(" of ")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 53, Col: 97}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 53, Col: 97}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -287,7 +287,7 @@ func NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) templ.Com
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(data.TotalCount))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 53, Col: 129}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 53, Col: 129}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -307,7 +307,7 @@ func NonHumanAccessFiltersForm(data viewmodels.NonHumanAccessViewData) templ.Com
 	})
 }
 
-func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) templ.Component {
+func NonHumanIdentitiesInventoryResults(data viewmodels.NonHumanIdentitiesViewData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -328,7 +328,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 			templ_7745c5c3_Var14 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div id=\"non-human-access-inventory\" class=\"space-y-6\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div id=\"non-human-identities-inventory\" class=\"space-y-6\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -351,9 +351,9 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var15 templ.SafeURL
-				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/non-human-access/" + item.PrincipalRef))
+				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/non-human-identities/" + item.PrincipalRef))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 70, Col: 71}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 70, Col: 75}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -366,7 +366,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(item.DisplayName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 73, Col: 61}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 73, Col: 61}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -384,7 +384,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					var templ_7745c5c3_Var17 string
 					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(item.SecondaryName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 75, Col: 82}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 75, Col: 82}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 					if templ_7745c5c3_Err != nil {
@@ -402,7 +402,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 				var templ_7745c5c3_Var18 string
 				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeNonHumanPrincipalType(item.PrincipalType))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 78, Col: 61}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 78, Col: 61}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 				if templ_7745c5c3_Err != nil {
@@ -415,7 +415,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 79, Col: 18}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 79, Col: 18}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -424,7 +424,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeConnectorKind(item.SourceKind))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 79, Col: 60}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 79, Col: 60}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
@@ -438,7 +438,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					var templ_7745c5c3_Var21 string
 					templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 81, Col: 19}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 81, Col: 19}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 					if templ_7745c5c3_Err != nil {
@@ -447,7 +447,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					var templ_7745c5c3_Var22 string
 					templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(item.SourceName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 81, Col: 38}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 81, Col: 38}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 					if templ_7745c5c3_Err != nil {
@@ -470,7 +470,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 				var templ_7745c5c3_Var24 string
 				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var23).String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 1, Col: 0}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 1, Col: 0}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
@@ -483,7 +483,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 				var templ_7745c5c3_Var25 string
 				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeCredentialRisk(item.RiskLevel))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 85, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 85, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 				if templ_7745c5c3_Err != nil {
@@ -497,7 +497,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					var templ_7745c5c3_Var26 string
 					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(item.AccountableOwner)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 92, Col: 34}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 92, Col: 34}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 					if templ_7745c5c3_Err != nil {
@@ -516,7 +516,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 				var templ_7745c5c3_Var27 string
 				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(item.LinkedAssetsCount))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 100, Col: 71}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 100, Col: 71}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 				if templ_7745c5c3_Err != nil {
@@ -525,7 +525,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 				var templ_7745c5c3_Var28 string
 				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 100, Col: 81}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 100, Col: 81}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 				if templ_7745c5c3_Err != nil {
@@ -534,7 +534,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 				var templ_7745c5c3_Var29 string
 				templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(item.LinkedCredentialsCount))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 100, Col: 125}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 100, Col: 125}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 				if templ_7745c5c3_Err != nil {
@@ -547,7 +547,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 				var templ_7745c5c3_Var30 string
 				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeen.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 104, Col: 51}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 104, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 				if templ_7745c5c3_Err != nil {
@@ -574,7 +574,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list osspm-table-non-human-access\"><caption class=\"sr-only\">Non-human principals with ownership, credential risk, and activity.</caption> <colgroup><col class=\"osspm-col-principal\"> <col class=\"osspm-col-owner\"> <col class=\"osspm-col-risk\"> <col class=\"osspm-col-activity\"> <col class=\"osspm-col-links\"></colgroup> <thead><tr><th>Principal</th><th>Owner</th><th>Risk</th><th>Activity</th><th class=\"osspm-num\">Links</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list osspm-table-non-human-identities\"><caption class=\"sr-only\">Non-human principals with ownership, credential risk, and activity.</caption> <colgroup><col class=\"osspm-col-principal\"> <col class=\"osspm-col-owner\"> <col class=\"osspm-col-risk\"> <col class=\"osspm-col-activity\"> <col class=\"osspm-col-links\"></colgroup> <thead><tr><th>Principal</th><th>Owner</th><th>Risk</th><th>Activity</th><th class=\"osspm-num\">Links</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -584,9 +584,9 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var32 string
-					templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs("/non-human-access/" + item.PrincipalRef)
+					templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs("/non-human-identities/" + item.PrincipalRef)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 132, Col: 68}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 132, Col: 72}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 					if templ_7745c5c3_Err != nil {
@@ -597,9 +597,9 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var33 templ.SafeURL
-					templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/non-human-access/" + item.PrincipalRef))
+					templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/non-human-identities/" + item.PrincipalRef))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 134, Col: 103}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 134, Col: 107}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 					if templ_7745c5c3_Err != nil {
@@ -612,7 +612,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					var templ_7745c5c3_Var34 string
 					templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(item.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 135, Col: 63}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 135, Col: 63}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 					if templ_7745c5c3_Err != nil {
@@ -625,7 +625,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					var templ_7745c5c3_Var35 string
 					templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeNonHumanPrincipalType(item.PrincipalType))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 138, Col: 64}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 138, Col: 64}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 					if templ_7745c5c3_Err != nil {
@@ -638,7 +638,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					var templ_7745c5c3_Var36 string
 					templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 139, Col: 21}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 139, Col: 21}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 					if templ_7745c5c3_Err != nil {
@@ -647,7 +647,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					var templ_7745c5c3_Var37 string
 					templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeConnectorKind(item.SourceKind))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 139, Col: 63}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 139, Col: 63}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 					if templ_7745c5c3_Err != nil {
@@ -661,7 +661,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 						var templ_7745c5c3_Var38 string
 						templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 141, Col: 22}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 141, Col: 22}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 						if templ_7745c5c3_Err != nil {
@@ -670,7 +670,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 						var templ_7745c5c3_Var39 string
 						templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(item.SourceName)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 141, Col: 41}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 141, Col: 41}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 						if templ_7745c5c3_Err != nil {
@@ -689,7 +689,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 						var templ_7745c5c3_Var40 string
 						templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeAppAssetGovernanceState(item.GovernanceState))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 145, Col: 104}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 145, Col: 104}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 						if templ_7745c5c3_Err != nil {
@@ -712,7 +712,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 						var templ_7745c5c3_Var41 templ.SafeURL
 						templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinURLErrs(item.AccountableOwnerHref)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 152, Col: 102}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 152, Col: 102}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 						if templ_7745c5c3_Err != nil {
@@ -725,7 +725,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 						var templ_7745c5c3_Var42 string
 						templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(item.AccountableOwner)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 152, Col: 128}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 152, Col: 128}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 						if templ_7745c5c3_Err != nil {
@@ -743,7 +743,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 						var templ_7745c5c3_Var43 string
 						templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(item.AccountableOwner)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 154, Col: 79}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 154, Col: 79}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 						if templ_7745c5c3_Err != nil {
@@ -766,7 +766,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					var templ_7745c5c3_Var44 string
 					templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeNonHumanOwnerPresence(item.OwnerPresence))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 158, Col: 96}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 158, Col: 96}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 					if templ_7745c5c3_Err != nil {
@@ -788,7 +788,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					var templ_7745c5c3_Var46 string
 					templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var45).String())
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 1, Col: 0}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 1, Col: 0}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 					if templ_7745c5c3_Err != nil {
@@ -801,7 +801,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					var templ_7745c5c3_Var47 string
 					templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeCredentialRisk(item.RiskLevel))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 160, Col: 110}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 160, Col: 110}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 					if templ_7745c5c3_Err != nil {
@@ -819,7 +819,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 						var templ_7745c5c3_Var48 string
 						templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(item.LastSeen.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 163, Col: 65}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 163, Col: 65}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 						if templ_7745c5c3_Err != nil {
@@ -843,7 +843,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 						var templ_7745c5c3_Var49 string
 						templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeNonHumanActivityState(item.ActivityState))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 169, Col: 64}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 169, Col: 64}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 						if templ_7745c5c3_Err != nil {
@@ -857,7 +857,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 							var templ_7745c5c3_Var50 string
 							templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 171, Col: 22}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 171, Col: 22}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 							if templ_7745c5c3_Err != nil {
@@ -866,7 +866,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 							var templ_7745c5c3_Var51 string
 							templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeNonHumanFreshnessState(item.FreshnessState))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 171, Col: 77}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 171, Col: 77}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 							if templ_7745c5c3_Err != nil {
@@ -885,7 +885,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					var templ_7745c5c3_Var52 string
 					templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(item.LinkedAssetsCount))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 177, Col: 86}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 177, Col: 86}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 					if templ_7745c5c3_Err != nil {
@@ -898,7 +898,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					var templ_7745c5c3_Var53 string
 					templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(item.LinkedCredentialsCount))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 178, Col: 87}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 178, Col: 87}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 					if templ_7745c5c3_Err != nil {
@@ -907,7 +907,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 					var templ_7745c5c3_Var54 string
 					templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(" creds")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 178, Col: 99}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 178, Col: 99}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
 					if templ_7745c5c3_Err != nil {
@@ -929,7 +929,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = EmptyState("No non-human principals", data.EmptyStateMsg).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = EmptyState("No non-human identities", data.EmptyStateMsg).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -946,7 +946,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 			var templ_7745c5c3_Var55 string
 			templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.Page))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 192, Col: 73}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 192, Col: 73}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 			if templ_7745c5c3_Err != nil {
@@ -955,7 +955,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 			var templ_7745c5c3_Var56 string
 			templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(" of ")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 192, Col: 83}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 192, Col: 83}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
 			if templ_7745c5c3_Err != nil {
@@ -964,7 +964,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 			var templ_7745c5c3_Var57 string
 			templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.TotalPages))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 192, Col: 113}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 192, Col: 113}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
 			if templ_7745c5c3_Err != nil {
@@ -982,7 +982,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 				var templ_7745c5c3_Var58 templ.SafeURL
 				templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinURLErrs(data.Query.WithPage(data.Page - 1).Href())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 195, Col: 79}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 195, Col: 79}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 				if templ_7745c5c3_Err != nil {
@@ -995,13 +995,13 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 				var templ_7745c5c3_Var59 string
 				templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(data.Query.WithPage(data.Page - 1).Href())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 195, Col: 130}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 195, Col: 130}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "\" hx-target=\"#non-human-access-inventory\" hx-swap=\"outerHTML\" hx-push-url=\"true\">Previous</a> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "\" hx-target=\"#non-human-identities-inventory\" hx-swap=\"outerHTML\" hx-push-url=\"true\">Previous</a> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1019,7 +1019,7 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 				var templ_7745c5c3_Var60 templ.SafeURL
 				templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinURLErrs(data.Query.WithPage(data.Page + 1).Href())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 200, Col: 79}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 200, Col: 79}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
 				if templ_7745c5c3_Err != nil {
@@ -1032,13 +1032,13 @@ func NonHumanAccessInventoryResults(data viewmodels.NonHumanAccessViewData) temp
 				var templ_7745c5c3_Var61 string
 				templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(data.Query.WithPage(data.Page + 1).Href())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/non_human_access.templ`, Line: 200, Col: 130}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `non_human_identities.templ`, Line: 200, Col: 130}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "\" hx-target=\"#non-human-access-inventory\" hx-swap=\"outerHTML\" hx-push-url=\"true\">Next</a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "\" hx-target=\"#non-human-identities-inventory\" hx-swap=\"outerHTML\" hx-push-url=\"true\">Next</a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

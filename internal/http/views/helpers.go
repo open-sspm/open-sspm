@@ -1239,8 +1239,8 @@ func AriaCurrent(activePath, target string) string {
 	return ""
 }
 
-func AriaCurrentNonHumanAccessSurface(activePath string) string {
-	if IsActivePath(activePath, "/non-human-access") || IsActivePath(activePath, "/app-assets") || IsActivePath(activePath, "/credentials") {
+func AriaCurrentInventorySurface(activePath string) string {
+	if IsActivePath(activePath, "/app-assets") || IsActivePath(activePath, "/credentials") {
 		return "page"
 	}
 	return ""

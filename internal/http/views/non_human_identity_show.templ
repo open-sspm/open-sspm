@@ -2,23 +2,23 @@ package views
 
 import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
-templ NonHumanAccessShowPage(data viewmodels.NonHumanAccessShowViewData) {
+templ NonHumanIdentityShowPage(data viewmodels.NonHumanIdentitiesShowViewData) {
 	@Layout(data.Layout) {
 		@PageHeader("")
 		<div class="mx-auto w-full min-w-0 max-w-6xl space-y-10 py-2">
-			@nonHumanAccessShowHeader(data.Principal)
-			@nonHumanAccessShowMetadata(data.Principal)
-			@nonHumanAccessShowSignals(data)
-			@nonHumanAccessShowRelatedAssets(data)
-			@nonHumanAccessShowCredentials(data)
+			@nonHumanIdentityShowHeader(data.Principal)
+			@nonHumanIdentityShowMetadata(data.Principal)
+			@nonHumanIdentityShowSignals(data)
+			@nonHumanIdentityShowRelatedAssets(data)
+			@nonHumanIdentityShowCredentials(data)
 		</div>
 	}
 }
 
-templ nonHumanAccessShowHeader(p viewmodels.NonHumanAccessSummaryView) {
+templ nonHumanIdentityShowHeader(p viewmodels.NonHumanIdentitiesSummaryView) {
 	<header class="space-y-4 border-b border-border/60 pb-6">
 		<div>
-			<a class="text-xs text-muted-foreground hover:text-foreground" href="/non-human-access">← Non-Human Principals</a>
+			<a class="text-xs text-muted-foreground hover:text-foreground" href="/non-human-identities">← Non-Human Identities</a>
 		</div>
 		<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 			<div class="min-w-0 space-y-2">
@@ -50,24 +50,24 @@ templ nonHumanAccessShowHeader(p viewmodels.NonHumanAccessSummaryView) {
 	</header>
 }
 
-templ nonHumanAccessShowMetadata(p viewmodels.NonHumanAccessSummaryView) {
+templ nonHumanIdentityShowMetadata(p viewmodels.NonHumanIdentitiesSummaryView) {
 	<section aria-label="Principal details" class="space-y-6">
 		<dl class="grid grid-cols-2 gap-x-6 gap-y-6 md:grid-cols-4">
-			@nonHumanAccessShowOwnerField(p)
-			@nonHumanAccessShowDateField("Last seen", p.LastSeen)
-			@nonHumanAccessShowFreshnessField(p)
-			@nonHumanAccessShowActivityField(p)
-			@nonHumanAccessShowIdentityField(p)
-			@nonHumanAccessShowAssetCountField(p)
-			@nonHumanAccessShowCredentialCountField(p)
+			@nonHumanIdentityShowOwnerField(p)
+			@nonHumanIdentityShowDateField("Last seen", p.LastSeen)
+			@nonHumanIdentityShowFreshnessField(p)
+			@nonHumanIdentityShowActivityField(p)
+			@nonHumanIdentityShowIdentityField(p)
+			@nonHumanIdentityShowAssetCountField(p)
+			@nonHumanIdentityShowCredentialCountField(p)
 			if p.BestAvailableAttribution != "" {
-				@nonHumanAccessShowAttributionField(p)
+				@nonHumanIdentityShowAttributionField(p)
 			}
 		</dl>
 	</section>
 }
 
-templ nonHumanAccessShowOwnerField(p viewmodels.NonHumanAccessSummaryView) {
+templ nonHumanIdentityShowOwnerField(p viewmodels.NonHumanIdentitiesSummaryView) {
 	<div class="min-w-0 space-y-1">
 		<dt class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Accountable owner</dt>
 		if p.AccountableOwnerHref != "" {
@@ -80,7 +80,7 @@ templ nonHumanAccessShowOwnerField(p viewmodels.NonHumanAccessSummaryView) {
 	</div>
 }
 
-templ nonHumanAccessShowDateField(label string, value viewmodels.TimeDisplay) {
+templ nonHumanIdentityShowDateField(label string, value viewmodels.TimeDisplay) {
 	<div class="min-w-0 space-y-1">
 		<dt class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{ label }</dt>
 		if value.Label == "" || value.Label == "—" {
@@ -94,7 +94,7 @@ templ nonHumanAccessShowDateField(label string, value viewmodels.TimeDisplay) {
 	</div>
 }
 
-templ nonHumanAccessShowFreshnessField(p viewmodels.NonHumanAccessSummaryView) {
+templ nonHumanIdentityShowFreshnessField(p viewmodels.NonHumanIdentitiesSummaryView) {
 	<div class="min-w-0 space-y-1">
 		<dt class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Freshness</dt>
 		<dd class={ "text-sm font-medium", NonHumanFreshnessStateTextClass(p.FreshnessState) }>{ HumanizeNonHumanFreshnessState(p.FreshnessState) }</dd>
@@ -104,14 +104,14 @@ templ nonHumanAccessShowFreshnessField(p viewmodels.NonHumanAccessSummaryView) {
 	</div>
 }
 
-templ nonHumanAccessShowActivityField(p viewmodels.NonHumanAccessSummaryView) {
+templ nonHumanIdentityShowActivityField(p viewmodels.NonHumanIdentitiesSummaryView) {
 	<div class="min-w-0 space-y-1">
 		<dt class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Activity</dt>
 		<dd class="text-sm font-medium">{ HumanizeNonHumanActivityState(p.ActivityState) }</dd>
 	</div>
 }
 
-templ nonHumanAccessShowIdentityField(p viewmodels.NonHumanAccessSummaryView) {
+templ nonHumanIdentityShowIdentityField(p viewmodels.NonHumanIdentitiesSummaryView) {
 	<div class="min-w-0 space-y-1">
 		<dt class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Identity record</dt>
 		if p.IdentityHref != "" {
@@ -122,21 +122,21 @@ templ nonHumanAccessShowIdentityField(p viewmodels.NonHumanAccessSummaryView) {
 	</div>
 }
 
-templ nonHumanAccessShowAssetCountField(p viewmodels.NonHumanAccessSummaryView) {
+templ nonHumanIdentityShowAssetCountField(p viewmodels.NonHumanIdentitiesSummaryView) {
 	<div class="min-w-0 space-y-1">
 		<dt class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Related assets</dt>
 		<dd class="text-sm font-medium tabular-nums">{ FormatInt64(p.LinkedAssetsCount) }</dd>
 	</div>
 }
 
-templ nonHumanAccessShowCredentialCountField(p viewmodels.NonHumanAccessSummaryView) {
+templ nonHumanIdentityShowCredentialCountField(p viewmodels.NonHumanIdentitiesSummaryView) {
 	<div class="min-w-0 space-y-1">
 		<dt class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Linked credentials</dt>
 		<dd class="text-sm font-medium tabular-nums">{ FormatInt64(p.LinkedCredentialsCount) }</dd>
 	</div>
 }
 
-templ nonHumanAccessShowAttributionField(p viewmodels.NonHumanAccessSummaryView) {
+templ nonHumanIdentityShowAttributionField(p viewmodels.NonHumanIdentitiesSummaryView) {
 	<div class="min-w-0 space-y-1">
 		<dt class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Best-available attribution</dt>
 		if p.BestAvailableAttributionHref != "" {
@@ -148,7 +148,7 @@ templ nonHumanAccessShowAttributionField(p viewmodels.NonHumanAccessSummaryView)
 	</div>
 }
 
-templ nonHumanAccessShowSignals(data viewmodels.NonHumanAccessShowViewData) {
+templ nonHumanIdentityShowSignals(data viewmodels.NonHumanIdentitiesShowViewData) {
 	<section aria-label="Risk signals" class="space-y-4">
 		<div class="flex items-baseline justify-between">
 			<h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Risk signals</h2>
@@ -179,7 +179,7 @@ templ nonHumanAccessShowSignals(data viewmodels.NonHumanAccessShowViewData) {
 	</section>
 }
 
-templ nonHumanAccessShowRelatedAssets(data viewmodels.NonHumanAccessShowViewData) {
+templ nonHumanIdentityShowRelatedAssets(data viewmodels.NonHumanIdentitiesShowViewData) {
 	<section aria-label="Related assets" class="space-y-4">
 		<div class="flex items-baseline justify-between">
 			<h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Related assets</h2>
@@ -242,7 +242,7 @@ templ nonHumanAccessShowRelatedAssets(data viewmodels.NonHumanAccessShowViewData
 	</section>
 }
 
-templ nonHumanAccessShowCredentials(data viewmodels.NonHumanAccessShowViewData) {
+templ nonHumanIdentityShowCredentials(data viewmodels.NonHumanIdentitiesShowViewData) {
 	<section aria-label="Linked credentials" class="space-y-4">
 		<div class="flex items-baseline justify-between gap-4">
 			<div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">

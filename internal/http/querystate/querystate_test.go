@@ -267,14 +267,14 @@ func TestConnectedAppsQuery(t *testing.T) {
 	})
 }
 
-func TestParseNonHumanAccessQuery(t *testing.T) {
+func TestParseNonHumanIdentitiesQuery(t *testing.T) {
 	sources := []SourceSelection{
 		{Kind: "github", Name: "acme"},
 		{Kind: "entra", Name: "tenant-1"},
 	}
 
 	t.Run("normalizes canonical filters and sort defaults", func(t *testing.T) {
-		query := ParseNonHumanAccessQuery(url.Values{
+		query := ParseNonHumanIdentitiesQuery(url.Values{
 			"source_name":      []string{"tenant-1"},
 			"q":                []string{" svc "},
 			"principal_type":   []string{"SERVICE"},
@@ -305,7 +305,7 @@ func TestParseNonHumanAccessQuery(t *testing.T) {
 	})
 
 	t.Run("drops unsupported legacy aliases from hrefs", func(t *testing.T) {
-		query := ParseNonHumanAccessQuery(url.Values{
+		query := ParseNonHumanIdentitiesQuery(url.Values{
 			"source_kind":      []string{"entra"},
 			"source_name":      []string{"tenant-1"},
 			"principal_type":   []string{"legacy"},
@@ -316,7 +316,7 @@ func TestParseNonHumanAccessQuery(t *testing.T) {
 			"page":             []string{"2"},
 		}, sources)
 
-		want := "/non-human-access?page=2&sort_by=owner&sort_dir=asc&source_kind=entra&source_name=tenant-1"
+		want := "/non-human-identities?page=2&sort_by=owner&sort_dir=asc&source_kind=entra&source_name=tenant-1"
 		if query.Href() != want {
 			t.Fatalf("href = %q, want %q", query.Href(), want)
 		}

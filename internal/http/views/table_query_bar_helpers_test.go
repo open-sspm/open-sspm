@@ -133,9 +133,9 @@ func TestConnectedAppsTableQueryBarKeepsSliceControls(t *testing.T) {
 	}
 }
 
-func TestNonHumanAccessTableQueryBarDropsSourceNameControl(t *testing.T) {
-	bar := NonHumanAccessTableQueryBar(viewmodels.NonHumanAccessViewData{
-		Query: querystate.NonHumanAccessQuery{
+func TestNonHumanIdentitiesTableQueryBarDropsSourceNameControl(t *testing.T) {
+	bar := NonHumanIdentitiesTableQueryBar(viewmodels.NonHumanIdentitiesViewData{
+		Query: querystate.NonHumanIdentitiesQuery{
 			Source: querystate.SourceSelection{
 				Kind: "entra",
 				Name: "tenant-1",

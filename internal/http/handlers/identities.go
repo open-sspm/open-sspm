@@ -34,6 +34,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 	sourcePairs := availableIdentitySourcePairs(stateView)
 	sourceKindOptions := identitySourceKindOptions(sourcePairs)
 	queryState := querystate.ParseIdentitiesQuery(c.Request().URL.Query(), programmaticQuerySources(sourcePairs))
+	queryState.IdentityType = "human"
 	sourceNameOptions := identitySourceNameOptions(queryState.Source.Kind, sourcePairs)
 	page := queryState.Page
 	pagination := newPaginatedListState(0, page, perPage)
@@ -409,6 +410,11 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
+	switch strings.TrimSpace(summary.Kind) {
+	case "service", "bot":
+		return c.Redirect(http.StatusSeeOther, "/non-human-identities/identity-"+strconv.FormatInt(summary.ID, 10))
+	}
+
 	accounts, err := h.Q.ListLinkedAccountsForIdentity(ctx, id)
 	if err != nil {
 		return h.RenderError(c, err)
@@ -451,12 +457,12 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		})
 	}
 
-	nonHumanAccessHref := ""
+	nonHumanIdentitiesHref := ""
 	if email := strings.TrimSpace(summary.PrimaryEmail); email != "" {
-		nonHumanAccessHref = "/non-human-access?q=" + url.QueryEscape(email)
+		nonHumanIdentitiesHref = "/non-human-identities?q=" + url.QueryEscape(email)
 	}
 
-	h.trackNonHumanAccessOutboundClick(c, "identity", summary.ID)
+	h.trackNonHumanIdentitiesOutboundClick(c, "identity", summary.ID)
 
 	overviewMap, err := h.buildIdentityShowOverviewMap(ctx, summary.ID)
 	if err != nil {
@@ -474,7 +480,7 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		TotalEntitlements:  totalEntitlements,
 		LinkedAccounts:     linkedAccounts,
 		Entitlements:       entitlementViews,
-		NonHumanAccessHref: nonHumanAccessHref,
+		NonHumanIdentitiesHref: nonHumanIdentitiesHref,
 		HasLinkedAccounts:  len(linkedAccounts) > 0,
 		HasEntitlements:    len(entitlementViews) > 0,
 		OverviewMap:        overviewMap,

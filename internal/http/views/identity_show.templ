@@ -39,8 +39,8 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 						<dd>{ data.UpdatedOn.Label }</dd>
 					</div>
 				</dl>
-				if data.NonHumanAccessHref != "" {
-					<a class="btn-sm-link px-0" href={ data.NonHumanAccessHref }>Search non-human access</a>
+				if data.NonHumanIdentitiesHref != "" {
+					<a class="btn-sm-link px-0" href={ data.NonHumanIdentitiesHref }>Search non-human identities</a>
 				}
 			</div>
 		</section>

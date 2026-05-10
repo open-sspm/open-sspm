@@ -222,7 +222,7 @@ func TestRegisterRoutesKeepsCapabilityFirstSurface(t *testing.T) {
 	for _, want := range []string{
 		"/assigned-apps",
 		"/oauth-apps",
-		"/non-human-access",
+		"/non-human-identities",
 		"/accounts/okta",
 		"/accounts/unlinked/github/:org",
 		"/app-assets/:id/governance",
