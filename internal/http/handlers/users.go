@@ -68,7 +68,7 @@ func (h *Handlers) HandleOktaAccounts(c *echo.Context) error {
 		HasUsers:              len(users) > 0,
 	}
 
-	return h.RenderComponent(c, views.OktaAccountsPage(data))
+	return h.renderListWithHX(c, "okta-accounts-results", views.OktaAccountsPageResults(data), views.OktaAccountsPage(data))
 }
 
 // HandleOktaAccountShow renders the Okta account detail page.
@@ -291,7 +291,7 @@ func (h *Handlers) HandleGitHubUsers(c *echo.Context) error {
 		HasUsers:                       inventory.PageData.HasAccounts,
 	}
 
-	return h.RenderComponent(c, views.GitHubUsersPage(data))
+	return h.renderListWithHX(c, "github-users-results", views.GitHubUsersPageResults(data), views.GitHubUsersPage(data))
 }
 
 // HandleDatadogUsers renders the Datadog users page.
@@ -318,7 +318,7 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 			Query:                 queryState,
 			HasUsers:              false,
 		}
-		return h.RenderComponent(c, views.DatadogUsersPage(data))
+		return h.renderListWithHX(c, "datadog-users-results", views.DatadogUsersPageResults(data), views.DatadogUsersPage(data))
 	}
 
 	totalCount, err := h.Q.CountSourceAccountsBySourceAndQueryAndState(ctx, gen.CountSourceAccountsBySourceAndQueryAndStateParams{
@@ -403,8 +403,7 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 		Query:                 queryState,
 		HasUsers:              len(items) > 0,
 	}
-
-	return h.RenderComponent(c, views.DatadogUsersPage(data))
+	return h.renderListWithHX(c, "datadog-users-results", views.DatadogUsersPageResults(data), views.DatadogUsersPage(data))
 }
 
 // HandleUnmatchedGitHub renders the unlinked GitHub accounts page.
@@ -437,7 +436,7 @@ func (h *Handlers) HandleUnmatchedGitHub(c *echo.Context) error {
 		UnmatchedSourceAccountsPageData: unmatched.PageData,
 	}
 
-	return h.RenderComponent(c, views.UnmatchedGitHubPage(data))
+	return h.renderListWithHX(c, "unmatched-github-results", views.UnmatchedGitHubPageResults(data), views.UnmatchedGitHubPage(data))
 }
 
 // HandleUnmatchedDatadog renders the unlinked Datadog accounts page.
@@ -470,7 +469,7 @@ func (h *Handlers) HandleUnmatchedDatadog(c *echo.Context) error {
 		UnmatchedSourceAccountsPageData: unmatched.PageData,
 	}
 
-	return h.RenderComponent(c, views.UnmatchedDatadogPage(data))
+	return h.renderListWithHX(c, "unmatched-datadog-results", views.UnmatchedDatadogPageResults(data), views.UnmatchedDatadogPage(data))
 }
 
 func connectorUnavailableMessage(connectorName string, configured, enabled bool) string {

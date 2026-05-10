@@ -61,6 +61,35 @@ templ BusyInlineIndicator(label string, initiallyVisible bool) {
 	</div>
 }
 
+templ ListSectionHeader(title, description string) {
+	<div class="osspm-list-section-header">
+		<div>
+			<h2 class="text-base font-semibold">{ title }</h2>
+			if description != "" {
+				<p class="text-sm text-muted-foreground">{ description }</p>
+			}
+		</div>
+	</div>
+}
+
+templ ListPagination(targetID string, page, totalPages int, prevHref, nextHref string) {
+	<div class="osspm-list-pagination">
+		<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(page) }{ " of " }{ FormatInt(totalPages) }</div>
+		<div class="button-group ml-auto">
+			if page > 1 {
+				<a class="btn-sm-outline" href={ prevHref } hx-get={ prevHref } hx-target={ "#" + targetID } hx-swap="outerHTML" hx-push-url="true">Previous</a>
+			} else {
+				<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
+			}
+			if page < totalPages {
+				<a class="btn-sm-outline" href={ nextHref } hx-get={ nextHref } hx-target={ "#" + targetID } hx-swap="outerHTML" hx-push-url="true">Next</a>
+			} else {
+				<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
+			}
+		</div>
+	</div>
+}
+
 templ TableCard(title, description string) {
 	<article class="card min-w-0">
 		if title != "" || description != "" {

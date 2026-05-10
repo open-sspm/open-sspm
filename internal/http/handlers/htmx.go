@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/a-h/templ"
 	"github.com/labstack/echo/v5"
 )
 
@@ -27,6 +28,17 @@ func setHXRedirect(c *echo.Context, url string) {
 		return
 	}
 	c.Response().Header().Set("HX-Redirect", url)
+}
+
+// renderListWithHX renders the partial fragment when the request is an HTMX
+// swap targeting targetID, and the full page otherwise. It also sets the Vary
+// headers needed for safe caching across HX vs. non-HX responses.
+func (h *Handlers) renderListWithHX(c *echo.Context, targetID string, fragment, full templ.Component) error {
+	addVary(c, "HX-Request", "HX-Target")
+	if isHX(c) && isHXTarget(c, targetID) {
+		return h.RenderComponent(c, fragment)
+	}
+	return h.RenderComponent(c, full)
 }
 
 func addVary(c *echo.Context, values ...string) {

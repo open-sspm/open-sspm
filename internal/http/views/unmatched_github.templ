@@ -27,12 +27,29 @@ templ UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) {
 			}
 		}
 
-			<form method="get" class="osspm-list-form">
-				<div class="osspm-list-toolbar">
+		@UnmatchedGitHubPageResults(data)
+	}
+}
+
+templ UnmatchedGitHubPageResults(data viewmodels.UnmatchedGitHubViewData) {
+	<div id="unmatched-github-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
+		<form
+			method="get"
+			action={ "/accounts/unlinked/github/" + data.Layout.GitHubOrg }
+			data-enter-only-query="q"
+			hx-get={ "/accounts/unlinked/github/" + data.Layout.GitHubOrg }
+			hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+			hx-target="#unmatched-github-results"
+			hx-swap="outerHTML"
+			hx-push-url="true"
+			class="osspm-list-form"
+		>
+			<div class="osspm-list-toolbar">
 				<div class="min-w-0 flex-1">
 					@TableQueryBar(SearchOnlyBasicListQueryBar(data.Query, "Search login, email, or name"))
 				</div>
-					<div class="osspm-list-summary">
+				<div class="osspm-list-summary">
 					if data.TotalCount > 0 {
 						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
 					} else {
@@ -44,23 +61,18 @@ templ UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) {
 		</form>
 
 		<section class="space-y-3">
-				<div class="osspm-list-section-header">
-				<div>
-					<h2 class="text-base font-semibold">Unlinked GitHub users</h2>
-					<p class="text-sm text-muted-foreground">Unlinked GitHub users awaiting identity linking.</p>
-				</div>
-			</div>
+			@ListSectionHeader("Unlinked GitHub users", "Unlinked GitHub users awaiting identity linking.")
 			@ColumnsTable("") {
-			<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-				<caption class="sr-only">Unlinked GitHub users and actions to link each account to an identity.</caption>
-				<thead>
-					<tr>
-						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">GitHub login</th>
-						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
-						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</th>
-						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Link</th>
-					</tr>
-				</thead>
+				<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					<caption class="sr-only">Unlinked GitHub users and actions to link each account to an identity.</caption>
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">GitHub login</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Link</th>
+						</tr>
+					</thead>
 					<tbody>
 						if data.HasUsers {
 							for _, u := range data.Users {
@@ -108,22 +120,8 @@ templ UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) {
 				</table>
 			}
 			if data.TotalPages > 1 {
-					<div class="osspm-list-pagination">
-						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
-						<div class="button-group ml-auto">
-							if data.Page > 1 {
-								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() }>Previous</a>
-							} else {
-								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
-							}
-							if data.Page < data.TotalPages {
-								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() }>Next</a>
-							} else {
-								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
-							}
-					</div>
-				</div>
+				@ListPagination("unmatched-github-results", data.Page, data.TotalPages, data.Query.WithPage(data.Page-1).Href(), data.Query.WithPage(data.Page+1).Href())
 			}
 		</section>
-	}
+	</div>
 }

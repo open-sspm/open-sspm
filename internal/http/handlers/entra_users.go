@@ -53,7 +53,7 @@ func (h *Handlers) HandleEntraUsers(c *echo.Context) error {
 		HasUsers:                       inventory.PageData.HasAccounts,
 	}
 
-	return h.RenderComponent(c, views.EntraUsersPage(data))
+	return h.renderListWithHX(c, "entra-users-results", views.EntraUsersPageResults(data), views.EntraUsersPage(data))
 }
 
 func (h *Handlers) HandleUnmatchedEntra(c *echo.Context) error {
@@ -85,5 +85,5 @@ func (h *Handlers) HandleUnmatchedEntra(c *echo.Context) error {
 		UnmatchedSourceAccountsPageData: unmatched.PageData,
 	}
 
-	return h.RenderComponent(c, views.UnmatchedEntraPage(data))
+	return h.renderListWithHX(c, "unmatched-entra-results", views.UnmatchedEntraPageResults(data), views.UnmatchedEntraPage(data))
 }
