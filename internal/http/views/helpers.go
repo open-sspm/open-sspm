@@ -910,7 +910,7 @@ func HumanizeIdentityStatus(status string) string {
 func HumanizeIdentityRowState(state string) string {
 	switch strings.ToLower(strings.TrimSpace(state)) {
 	case "action_required":
-		return "Action required"
+		return "Needs action"
 	case "review":
 		return "Review"
 	case "healthy":
@@ -1051,6 +1051,8 @@ func segmentChipClass(active bool, tone string) string {
 	base := "osspm-segment-chip"
 	if active {
 		switch tone {
+		case "danger":
+			return base + " osspm-segment-chip-active osspm-segment-chip-danger"
 		case "warn":
 			return base + " osspm-segment-chip-active osspm-segment-chip-warn"
 		default:
@@ -1239,6 +1241,13 @@ func AriaCurrent(activePath, target string) string {
 
 func AriaCurrentNonHumanAccessSurface(activePath string) string {
 	if IsActivePath(activePath, "/non-human-access") || IsActivePath(activePath, "/app-assets") || IsActivePath(activePath, "/credentials") {
+		return "page"
+	}
+	return ""
+}
+
+func AriaCurrentAppsSurface(activePath string) string {
+	if IsActivePath(activePath, "/discovery") || IsActivePath(activePath, "/assigned-apps") || IsActivePath(activePath, "/oauth-apps") {
 		return "page"
 	}
 	return ""

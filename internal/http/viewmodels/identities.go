@@ -29,13 +29,15 @@ type IdentityListItem struct {
 // stat strip and segment chips can show the shape of the population a user is
 // actually looking at, independent of which segment they have clicked.
 type IdentitiesSummary struct {
-	Total          int64
-	ActionRequired int64
-	Review         int64
-	Privileged     int64
-	Unmanaged      int64
-	Suspended      int64
-	Stale          int64
+	Total               int64
+	ActionRequired      int64
+	Review              int64
+	Privileged          int64
+	PrivilegedUnmanaged int64
+	StalePrivileged     int64
+	Unmanaged           int64
+	Suspended           int64
+	Stale               int64
 }
 
 type IdentitiesViewData struct {

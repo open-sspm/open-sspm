@@ -7,76 +7,71 @@ templ Sidebar(data viewmodels.LayoutData) {
 	<div role="group">
 		<h3>Explore</h3>
 		<ul>
-				<li>
-					<a href="/" aria-current={ AriaCurrent(data.ActivePath, "/") }>
-						@IconHome("sidebar-icon")
-						<span>Dashboard</span>
-					</a>
-				</li>
-				<li>
-					<a href="/global-view" aria-current={ AriaCurrent(data.ActivePath, "/global-view") }>
-						@IconGlobe("sidebar-icon")
-						<span>Global View</span>
-					</a>
-				</li>
-				<li>
-					<a href="/assigned-apps" aria-current={ AriaCurrent(data.ActivePath, "/assigned-apps") }>
-						@IconLayoutGrid("sidebar-icon")
-						<span>Assigned Apps</span>
-					</a>
-				</li>
-				<li>
-					<details open?={ strings.HasPrefix(data.ActivePath, "/discovery") }>
-						<summary aria-current={ AriaCurrent(data.ActivePath, "/discovery") }>
-							@IconAppWindow("sidebar-icon")
-							<span>SaaS Discovery</span>
-						</summary>
+			<li>
+				<a href="/" aria-current={ AriaCurrent(data.ActivePath, "/") }>
+					@IconHome("sidebar-icon")
+					<span>Posture</span>
+				</a>
+			</li>
+			<li>
+				<details open?={ strings.HasPrefix(data.ActivePath, "/discovery") || strings.HasPrefix(data.ActivePath, "/assigned-apps") || strings.HasPrefix(data.ActivePath, "/oauth-apps") }>
+					<summary aria-current={ AriaCurrentAppsSurface(data.ActivePath) }>
+						@IconAppWindow("sidebar-icon")
+						<span>Apps &amp; Discovery</span>
+					</summary>
 					<ul>
 						<li><a href="/discovery/apps" aria-current={ AriaCurrent(data.ActivePath, "/discovery/apps") }><span>Apps</span></a></li>
 						<li><a href="/discovery/hotspots" aria-current={ AriaCurrent(data.ActivePath, "/discovery/hotspots") }><span>Hotspots</span></a></li>
+						<li><a href="/assigned-apps" aria-current={ AriaCurrent(data.ActivePath, "/assigned-apps") }><span>Okta Assigned Apps</span></a></li>
 					</ul>
 				</details>
 			</li>
-				<li>
-					<a href="/identities" aria-current={ AriaCurrent(data.ActivePath, "/identities") }>
-						@IconUsers("sidebar-icon")
-						<span>Identities</span>
-					</a>
-				</li>
-				<li>
-					<details open?={ strings.HasPrefix(data.ActivePath, "/non-human-access") || strings.HasPrefix(data.ActivePath, "/app-assets") || strings.HasPrefix(data.ActivePath, "/credentials") }>
-						<summary aria-current={ AriaCurrentNonHumanAccessSurface(data.ActivePath) }>
-							@IconBot("sidebar-icon")
-							<span>Non-Human Access</span>
-						</summary>
+			<li>
+				<a href="/identities" aria-current={ AriaCurrent(data.ActivePath, "/identities") }>
+					@IconUsers("sidebar-icon")
+					<span>Identities</span>
+				</a>
+			</li>
+			<li>
+				<details open?={ strings.HasPrefix(data.ActivePath, "/non-human-access") || strings.HasPrefix(data.ActivePath, "/app-assets") || strings.HasPrefix(data.ActivePath, "/credentials") }>
+					<summary aria-current={ AriaCurrentNonHumanAccessSurface(data.ActivePath) }>
+						@IconBot("sidebar-icon")
+						<span>Access Risk</span>
+					</summary>
 					<ul>
-						<li><a href="/non-human-access" aria-current={ AriaCurrent(data.ActivePath, "/non-human-access") }><span>Inventory</span></a></li>
+						<li><a href="/non-human-access" aria-current={ AriaCurrent(data.ActivePath, "/non-human-access") }><span>Principals</span></a></li>
 						<li><a href="/app-assets" aria-current={ AriaCurrent(data.ActivePath, "/app-assets") }><span>App Assets</span></a></li>
 						<li><a href="/credentials" aria-current={ AriaCurrent(data.ActivePath, "/credentials") }><span>Credentials</span></a></li>
 					</ul>
 				</details>
 			</li>
-				<li>
-					<details open?={ strings.HasPrefix(data.ActivePath, "/findings") }>
-						<summary aria-current={ AriaCurrent(data.ActivePath, "/findings") }>
-							@IconFileWarning("sidebar-icon")
-							<span>Findings</span>
-						</summary>
-						<ul>
-							<li><a href="/findings" aria-current={ AriaCurrentExact(data.ActivePath, "/findings") }><span>Overview</span></a></li>
-							for _, ruleset := range data.FindingsRulesets {
-								<li><a href={ ruleset.Href } aria-current={ AriaCurrent(data.ActivePath, ruleset.Href) }><span class="truncate" title={ ruleset.Name }>{ ruleset.Name }</span></a></li>
-							}
-						</ul>
-					</details>
-				</li>
+			<li>
+				<a href="/global-view" aria-current={ AriaCurrent(data.ActivePath, "/global-view") }>
+					@IconGlobe("sidebar-icon")
+					<span>Sources</span>
+				</a>
+			</li>
+			<li>
+				<details open?={ strings.HasPrefix(data.ActivePath, "/findings") }>
+					<summary aria-current={ AriaCurrent(data.ActivePath, "/findings") }>
+						@IconFileWarning("sidebar-icon")
+						<span>Findings</span>
+					</summary>
+					<ul>
+						<li><a href="/findings" aria-current={ AriaCurrentExact(data.ActivePath, "/findings") }><span>Overview</span></a></li>
+						for _, ruleset := range data.FindingsRulesets {
+							<li><a href={ ruleset.Href } aria-current={ AriaCurrent(data.ActivePath, ruleset.Href) }><span class="truncate" title={ ruleset.Name }>{ ruleset.Name }</span></a></li>
+						}
+					</ul>
+				</details>
+			</li>
 			if data.IsAdmin {
-					<li>
-						<details open?={ strings.HasPrefix(data.ActivePath, "/settings") }>
-							<summary aria-current={ AriaCurrent(data.ActivePath, "/settings") }>
-								@IconSettings("sidebar-icon")
-								<span>Settings</span>
-							</summary>
+				<li>
+					<details open?={ strings.HasPrefix(data.ActivePath, "/settings") }>
+						<summary aria-current={ AriaCurrent(data.ActivePath, "/settings") }>
+							@IconSettings("sidebar-icon")
+							<span>Settings</span>
+						</summary>
 						<ul>
 							<li><a href="/settings" aria-current={ AriaCurrentExact(data.ActivePath, "/settings") }><span>Overview</span></a></li>
 							<li><a href="/settings/connectors" aria-current={ AriaCurrent(data.ActivePath, "/settings/connectors") }><span>Connectors</span></a></li>

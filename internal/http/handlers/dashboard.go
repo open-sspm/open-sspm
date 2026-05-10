@@ -14,7 +14,7 @@ import (
 // HandleDashboard renders the dashboard page.
 func (h *Handlers) HandleDashboard(c *echo.Context) error {
 	ctx := c.Request().Context()
-	layout, stateView, err := h.LayoutData(ctx, c, "Dashboard")
+	layout, stateView, err := h.LayoutData(ctx, c, "Posture")
 	if err != nil {
 		return h.RenderError(c, err)
 	}

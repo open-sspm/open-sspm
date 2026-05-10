@@ -11,7 +11,7 @@ import (
 
 func (h *Handlers) HandleGlobalView(c *echo.Context) error {
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Global View")
+	layout, _, err := h.LayoutData(ctx, c, "Sources")
 	if err != nil {
 		return h.RenderError(c, err)
 	}

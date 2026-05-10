@@ -5,12 +5,12 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 templ GlobalViewPage(data viewmodels.GlobalViewData) {
 	@Layout(data.Layout) {
 		<section class="space-y-1">
-			<h2 class="text-lg font-semibold tracking-tight">Connector coverage</h2>
+			<h2 class="text-lg font-semibold tracking-tight">Sources</h2>
 			<p class="text-sm text-muted-foreground">Identity and application sources configured in this workspace, with current coverage and state.</p>
 		</section>
 
 		if len(data.Cards) == 0 {
-			@EmptyState("No connectors yet", "Configure a connector to start tracking identity coverage and connector health from one place.") {
+			@EmptyState("No sources yet", "Configure a connector to start tracking identity coverage and source health from one place.") {
 				if data.Layout.IsAdmin {
 					<a class="btn-sm-outline" href="/settings/connectors">Manage connectors</a>
 				}
@@ -30,7 +30,7 @@ templ GlobalViewPage(data viewmodels.GlobalViewData) {
 
 templ GlobalViewSummary(cards []viewmodels.GlobalViewAppCard) {
 	<section aria-label="Summary" class="grid grid-cols-2 gap-x-8 gap-y-5 border-y border-border py-5 sm:grid-cols-4">
-		@globalViewStat("Connectors", FormatInt(len(cards)))
+		@globalViewStat("Sources", FormatInt(len(cards)))
 		@globalViewStat("Active", FormatInt(GlobalViewEnabledCount(cards)))
 		@globalViewStat("Needs setup", FormatInt(GlobalViewAttentionCount(cards)))
 		<div class="space-y-2">
@@ -40,7 +40,7 @@ templ GlobalViewSummary(cards []viewmodels.GlobalViewAppCard) {
 				<div
 					class="global-view-bar"
 					role="progressbar"
-					aria-label="Average connector score"
+					aria-label="Average source score"
 					aria-valuemin="0"
 					aria-valuemax="100"
 					aria-valuenow={ FormatInt(GlobalViewAverageScore(cards)) }
@@ -52,7 +52,7 @@ templ GlobalViewSummary(cards []viewmodels.GlobalViewAppCard) {
 				</div>
 			} else {
 				<p class="text-2xl font-semibold tabular-nums tracking-tight text-muted-foreground">—</p>
-				<p class="text-xs text-muted-foreground">No active connectors yet</p>
+				<p class="text-xs text-muted-foreground">No active sources yet</p>
 			}
 		</div>
 	</section>

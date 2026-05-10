@@ -1177,6 +1177,14 @@
     @apply bg-background/20 text-background;
   }
 
+  .osspm-segment-chip-danger.osspm-segment-chip-active {
+    @apply border-rose-700/30 bg-rose-700 text-rose-50 hover:bg-rose-700/90;
+  }
+
+  .osspm-segment-chip-danger.osspm-segment-chip-active .osspm-segment-chip-count {
+    @apply bg-rose-50/20 text-rose-50;
+  }
+
   .osspm-segment-chip-warn.osspm-segment-chip-active {
     @apply border-amber-700/30 bg-amber-700 text-amber-50 hover:bg-amber-700/90;
   }
