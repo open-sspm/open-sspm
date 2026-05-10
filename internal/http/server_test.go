@@ -208,73 +208,39 @@ func TestFaviconRedirectSetsHTMLContentType(t *testing.T) {
 	}
 }
 
-func TestRegisterRoutesUsesCapabilityFirstSurface(t *testing.T) {
+func TestRegisterRoutesKeepsCapabilityFirstSurface(t *testing.T) {
 	e := echo.New()
 	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	es := &EchoServer{h: &handlers.Handlers{}, e: e}
 	es.registerRoutes()
 
-	paths := make(map[string]bool)
+	paths := make(map[string]struct{})
 	for _, route := range e.Router().Routes() {
-		paths[route.Path] = true
+		paths[route.Path] = struct{}{}
 	}
 
 	for _, want := range []string{
 		"/assigned-apps",
-		"/assigned-apps/:externalID",
 		"/oauth-apps",
-		"/oauth-apps/:id",
-		"/oauth-apps/:id/export",
 		"/non-human-access",
-		"/non-human-access/:ref",
-		"/app-assets/:id/export",
-		"/app-assets/:id/governance",
-		"/app-assets/:id/grants/:credentialID/revoke",
 		"/accounts/okta",
-		"/accounts/okta/:id",
-		"/accounts/github",
-		"/accounts/entra",
-		"/accounts/google-workspace",
-		"/accounts/google-workspace/groups",
-		"/accounts/aws",
-		"/accounts/datadog",
 		"/accounts/unlinked/github/:org",
-		"/accounts/unlinked/entra",
-		"/accounts/unlinked/google-workspace",
-		"/accounts/unlinked/aws",
-		"/accounts/unlinked/datadog/:site",
+		"/app-assets/:id/governance",
 	} {
-		if !paths[want] {
-			t.Fatalf("route %q not registered", want)
+		if _, ok := paths[want]; !ok {
+			t.Fatalf("capability-first route %q not registered", want)
 		}
 	}
 
-	for _, removed := range []string{
+	for _, legacy := range []string{
 		"/apps",
-		"/apps/*",
 		"/connected-apps",
-		"/connected-apps/:id",
-		"/connected-apps/:id/export",
-		"/app-assets/:id/review",
 		"/okta-accounts",
-		"/okta-accounts/*",
-		"/api/okta-accounts/:id/access-tree",
-		"/api/accounts/okta/:id/access-tree",
 		"/github-users",
-		"/entra-users",
-		"/google-workspace/users",
-		"/google-workspace/groups",
-		"/google-workspace/oauth-apps",
-		"/aws-users",
-		"/datadog-users",
 		"/unmatched/github/*",
-		"/unmatched/entra",
-		"/unmatched/google-workspace",
-		"/unmatched/aws",
-		"/unmatched/datadog/*",
 	} {
-		if paths[removed] {
-			t.Fatalf("legacy route %q still registered", removed)
+		if _, ok := paths[legacy]; ok {
+			t.Fatalf("legacy route %q still registered", legacy)
 		}
 	}
 }

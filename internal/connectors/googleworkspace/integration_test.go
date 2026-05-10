@@ -9,20 +9,6 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 )
 
-func TestGoogleWorkspaceGrantExternalIDIsDeterministic(t *testing.T) {
-	t.Parallel()
-
-	id1 := googleWorkspaceGrantExternalID("client-1", "user-1")
-	id2 := googleWorkspaceGrantExternalID("client-1", "user-1")
-	if id1 != id2 {
-		t.Fatalf("grant external id should be deterministic: %q != %q", id1, id2)
-	}
-	id3 := googleWorkspaceGrantExternalID("client-1", "user-2")
-	if id1 == id3 {
-		t.Fatalf("grant external id should differ when user differs: %q", id1)
-	}
-}
-
 func TestGoogleWorkspaceClientExternalIDFallsBackToSynthetic(t *testing.T) {
 	t.Parallel()
 

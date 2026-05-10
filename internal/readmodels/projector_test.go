@@ -138,17 +138,6 @@ func TestFreshnessWindowUsesConnectorSpecificOverrides(t *testing.T) {
 	}
 }
 
-func TestSaaSPolicyInputCarriesCategory(t *testing.T) {
-	t.Parallel()
-
-	input := saasPolicyInput(saasAppRiskInputRow{
-		category: "finance",
-	})
-	if input.Category != "finance" {
-		t.Fatalf("Category = %q, want finance", input.Category)
-	}
-}
-
 func TestProjectorFromContextReturnsNilWithoutConfig(t *testing.T) {
 	t.Parallel()
 

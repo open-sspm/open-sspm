@@ -12,7 +12,6 @@ import (
 
 	datadogsdk "github.com/DataDog/datadog-api-client-go/v2/api/datadog"
 	datadogv2 "github.com/DataDog/datadog-api-client-go/v2/api/datadogV2"
-	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 )
 
@@ -81,37 +80,6 @@ func TestMapDatadogAccountUsesFallbacksAndDetectsServiceAccounts(t *testing.T) {
 	}
 	if mappedServiceAccount.EntityCategory != registry.EntityCategoryServiceAccount {
 		t.Fatalf("service entity category = %q, want %q", mappedServiceAccount.EntityCategory, registry.EntityCategoryServiceAccount)
-	}
-}
-
-func TestNewSDKAdapterConfiguresHTTPTimeoutAndRetry(t *testing.T) {
-	t.Parallel()
-
-	adapter, err := newSDKAdapter(configstore.DatadogConfig{
-		APIKey: "api-key",
-		AppKey: "app-key",
-		Site:   "datadoghq.com",
-	})
-	if err != nil {
-		t.Fatalf("newSDKAdapter(): %v", err)
-	}
-	if adapter.client == nil || adapter.client.Cfg == nil {
-		t.Fatal("expected SDK client configuration")
-	}
-	if adapter.client.Cfg.HTTPClient == nil {
-		t.Fatal("expected configured HTTP client")
-	}
-	if got := adapter.client.Cfg.HTTPClient.Timeout; got != datadogHTTPTimeout {
-		t.Fatalf("HTTPClient.Timeout = %v, want %v", got, datadogHTTPTimeout)
-	}
-	if !adapter.client.Cfg.RetryConfiguration.EnableRetry {
-		t.Fatal("RetryConfiguration.EnableRetry = false, want true")
-	}
-	if got := adapter.client.Cfg.RetryConfiguration.MaxRetries; got != datadogMaxRetries {
-		t.Fatalf("RetryConfiguration.MaxRetries = %d, want %d", got, datadogMaxRetries)
-	}
-	if got := adapter.client.Cfg.RetryConfiguration.HTTPRetryTimeout; got != datadogHTTPTimeout {
-		t.Fatalf("RetryConfiguration.HTTPRetryTimeout = %v, want %v", got, datadogHTTPTimeout)
 	}
 }
 

@@ -15,28 +15,38 @@ func TestCalendarDateDisplayWithRelative(t *testing.T) {
 	threeDaysAgo := now.Add(-72 * time.Hour)
 
 	cases := []struct {
-		name         string
-		value        pgtype.Timestamptz
-		wantLabel    string
-		wantRelative string
+		name          string
+		value         pgtype.Timestamptz
+		wantLabel     string
+		checkLabel    bool
+		wantRelative  string
+		checkRelative bool
 	}{
 		{
-			name:         "today",
-			value:        timestamptz(today),
-			wantLabel:    today.Format("Jan 2, 2006"),
-			wantRelative: "today",
+			name:       "formats label",
+			value:      timestamptz(time.Date(2026, 2, 14, 18, 45, 0, 0, time.UTC)),
+			wantLabel:  "Feb 14, 2026",
+			checkLabel: true,
 		},
 		{
-			name:         "days ago",
-			value:        timestamptz(threeDaysAgo),
-			wantLabel:    threeDaysAgo.Format("Jan 2, 2006"),
-			wantRelative: "3d ago",
+			name:          "today",
+			value:         timestamptz(today),
+			wantRelative:  "today",
+			checkRelative: true,
 		},
 		{
-			name:         "invalid",
-			value:        pgtype.Timestamptz{},
-			wantLabel:    "—",
-			wantRelative: "",
+			name:          "days ago",
+			value:         timestamptz(threeDaysAgo),
+			wantRelative:  "3d ago",
+			checkRelative: true,
+		},
+		{
+			name:          "invalid",
+			value:         pgtype.Timestamptz{},
+			wantLabel:     "—",
+			checkLabel:    true,
+			wantRelative:  "",
+			checkRelative: true,
 		},
 	}
 
@@ -44,10 +54,10 @@ func TestCalendarDateDisplayWithRelative(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			got := calendarDateWithRelativeDisplay(tc.value)
-			if got.Label != tc.wantLabel {
+			if tc.checkLabel && got.Label != tc.wantLabel {
 				t.Fatalf("label = %q, want %q", got.Label, tc.wantLabel)
 			}
-			if got.Relative != tc.wantRelative {
+			if tc.checkRelative && got.Relative != tc.wantRelative {
 				t.Fatalf("relative = %q, want %q", got.Relative, tc.wantRelative)
 			}
 		})
