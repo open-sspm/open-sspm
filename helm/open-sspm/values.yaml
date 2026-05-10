@@ -25,6 +25,8 @@ connectorSecret:
     key: CONNECTOR_SECRET_KEY
 
 redis:
+  # Set true only when REDIS_URL is injected through component extraEnv/extraEnvFrom.
+  allowExternalUrlEnv: false
   existingSecret:
     name: ""
     urlKey: REDIS_URL
@@ -59,7 +61,8 @@ config:
   # Queue backend for push ingest dispatch. Postgres remains the durable ledger.
   # Set to "redis" to enqueue persisted push inbox row IDs through Redis.
   queueBackend: postgres
-  # Plain-value convenience for REDIS_URL. Prefer redis.existingSecret for credentials.
+  # Plain-value convenience for non-secret REDIS_URL values. Credentialed URLs
+  # must use redis.existingSecret to avoid exposing secrets in rendered manifests.
   redisUrl: ""
   redisKeyPrefix: open-sspm
   # Enables the discovery lane system-wide. When false, api does not queue

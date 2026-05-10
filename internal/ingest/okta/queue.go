@@ -78,7 +78,7 @@ func (q *RedisInboxQueue) Dequeue(ctx context.Context, limit int32, wait time.Du
 		return nil, errors.New("okta push redis queue is not configured")
 	}
 	values, err := q.queue.Dequeue(ctx, oktaPushInboxQueueName, int(limit), wait)
-	if err != nil {
+	if err != nil && len(values) == 0 {
 		return nil, err
 	}
 	ids := make([]int64, 0, len(values))

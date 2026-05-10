@@ -78,9 +78,16 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- $redisSecret := default dict $redisValues.existingSecret -}}
 {{- $redisSecretName := default "" $redisSecret.name -}}
 {{- $redisSecretURLKey := default "REDIS_URL" $redisSecret.urlKey -}}
+{{- $allowExternalRedisURL := default false $redisValues.allowExternalUrlEnv -}}
 - name: QUEUE_BACKEND
   value: {{ $queueBackend | quote }}
 {{- if eq $queueBackend "redis" }}
+{{- if not (or $redisSecretName .Values.config.redisUrl $allowExternalRedisURL) }}
+{{- fail "REDIS_URL is required when config.queueBackend=redis; set redis.existingSecret.name, config.redisUrl, or redis.allowExternalUrlEnv=true when REDIS_URL is supplied through extraEnv/extraEnvFrom" }}
+{{- end }}
+{{- if and .Values.config.redisUrl (contains "@" .Values.config.redisUrl) }}
+{{- fail "config.redisUrl appears to contain credentials; store credentialed Redis URLs in a Kubernetes Secret with redis.existingSecret.name instead" }}
+{{- end }}
 {{- if $redisSecretName }}
 - name: REDIS_URL
   valueFrom:
