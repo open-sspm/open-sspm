@@ -52,7 +52,7 @@ func (h *Handlers) HandleGoogleWorkspaceUsers(c *echo.Context) error {
 		HasUsers:                       inventory.PageData.HasAccounts,
 	}
 
-	return h.RenderComponent(c, views.GoogleWorkspaceUsersPage(data))
+	return h.renderListWithHX(c, "google-workspace-users-results", views.GoogleWorkspaceUsersPageResults(data), views.GoogleWorkspaceUsersPage(data))
 }
 
 func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
@@ -76,7 +76,7 @@ func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
 			Query:                 queryState,
 			HasGroups:             false,
 		}
-		return h.RenderComponent(c, views.GoogleWorkspaceGroupsPage(data))
+		return h.renderListWithHX(c, "google-workspace-groups-results", views.GoogleWorkspaceGroupsPageResults(data), views.GoogleWorkspaceGroupsPage(data))
 	}
 
 	totalCount, err := h.Q.CountGoogleWorkspaceGroupsBySourceAndQuery(ctx, gen.CountGoogleWorkspaceGroupsBySourceAndQueryParams{
@@ -159,8 +159,7 @@ func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
 		Query:                 queryState,
 		HasGroups:             len(items) > 0,
 	}
-
-	return h.RenderComponent(c, views.GoogleWorkspaceGroupsPage(data))
+	return h.renderListWithHX(c, "google-workspace-groups-results", views.GoogleWorkspaceGroupsPageResults(data), views.GoogleWorkspaceGroupsPage(data))
 }
 
 func (h *Handlers) HandleUnmatchedGoogleWorkspace(c *echo.Context) error {
@@ -186,5 +185,5 @@ func (h *Handlers) HandleUnmatchedGoogleWorkspace(c *echo.Context) error {
 		UnmatchedSourceAccountsPageData: unmatched.PageData,
 	}
 
-	return h.RenderComponent(c, views.UnmatchedGoogleWorkspacePage(data))
+	return h.renderListWithHX(c, "unmatched-google-workspace-results", views.UnmatchedGoogleWorkspacePageResults(data), views.UnmatchedGoogleWorkspacePage(data))
 }

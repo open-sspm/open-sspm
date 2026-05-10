@@ -53,7 +53,7 @@ func (h *Handlers) HandleAWSUsers(c *echo.Context) error {
 		HasUsers:                       inventory.PageData.HasAccounts,
 	}
 
-	return h.RenderComponent(c, views.AWSUsersPage(data))
+	return h.renderListWithHX(c, "aws-users-results", views.AWSUsersPageResults(data), views.AWSUsersPage(data))
 }
 
 func (h *Handlers) HandleUnmatchedAWS(c *echo.Context) error {
@@ -85,5 +85,5 @@ func (h *Handlers) HandleUnmatchedAWS(c *echo.Context) error {
 		UnmatchedSourceAccountsPageData: unmatched.PageData,
 	}
 
-	return h.RenderComponent(c, views.UnmatchedAWSPage(data))
+	return h.renderListWithHX(c, "unmatched-aws-results", views.UnmatchedAWSPageResults(data), views.UnmatchedAWSPage(data))
 }

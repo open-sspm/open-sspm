@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/a-h/templ"
 	"github.com/labstack/echo/v5"
 )
 
@@ -28,6 +31,13 @@ func parseVaryHeader(value string) map[string]int {
 		out[token]++
 	}
 	return out
+}
+
+func staticTestComponent(body string) templ.Component {
+	return templ.ComponentFunc(func(_ context.Context, w io.Writer) error {
+		_, err := io.WriteString(w, body)
+		return err
+	})
 }
 
 func TestAddVary(t *testing.T) {
@@ -56,6 +66,55 @@ func TestAddVaryPreservesWildcard(t *testing.T) {
 
 	if got := c.Response().Header().Get(echo.HeaderVary); got != "*" {
 		t.Fatalf("Vary = %q, want *", got)
+	}
+}
+
+func TestRenderListWithHXUsesFullPageForNonHTMX(t *testing.T) {
+	c, rec := newTestContext(http.MethodGet, "http://example.com/accounts/okta")
+	h := &Handlers{}
+
+	err := h.renderListWithHX(c, "okta-accounts-results", staticTestComponent("fragment"), staticTestComponent("full"))
+	if err != nil {
+		t.Fatalf("renderListWithHX() error = %v", err)
+	}
+
+	if got := rec.Body.String(); got != "full" {
+		t.Fatalf("body = %q, want full", got)
+	}
+}
+
+func TestRenderListWithHXRendersFragmentForMatchingTarget(t *testing.T) {
+	c, rec := newTestContext(http.MethodGet, "http://example.com/accounts/okta")
+	c.Request().Header.Set("HX-Request", "true")
+	c.Request().Header.Set("HX-Target", "okta-accounts-results")
+	h := &Handlers{}
+
+	err := h.renderListWithHX(c, "okta-accounts-results", staticTestComponent("fragment"), staticTestComponent("full"))
+	if err != nil {
+		t.Fatalf("renderListWithHX() error = %v", err)
+	}
+
+	if got := rec.Body.String(); got != "fragment" {
+		t.Fatalf("body = %q, want fragment", got)
+	}
+}
+
+func TestRenderListWithHXRejectsMismatchedTarget(t *testing.T) {
+	c, rec := newTestContext(http.MethodGet, "http://example.com/accounts/okta")
+	c.Request().Header.Set("HX-Request", "true")
+	c.Request().Header.Set("HX-Target", "other-results")
+	h := &Handlers{}
+
+	err := h.renderListWithHX(c, "okta-accounts-results", staticTestComponent("fragment"), staticTestComponent("full"))
+	if err != nil {
+		t.Fatalf("renderListWithHX() error = %v", err)
+	}
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	if body := rec.Body.String(); strings.Contains(body, "full") || strings.Contains(body, "fragment") {
+		t.Fatalf("body rendered page content for mismatched target: %q", body)
 	}
 }
 

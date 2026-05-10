@@ -53,12 +53,29 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 			}
 		}
 
-			<form method="get" class="osspm-list-form">
-				<div class="osspm-list-toolbar">
+		@GitHubUsersPageResults(data)
+	}
+}
+
+templ GitHubUsersPageResults(data viewmodels.GitHubUsersViewData) {
+	<div id="github-users-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
+		<form
+			method="get"
+			action="/accounts/github"
+			data-enter-only-query="q"
+			hx-get="/accounts/github"
+			hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+			hx-target="#github-users-results"
+			hx-swap="outerHTML"
+			hx-push-url="true"
+			class="osspm-list-form"
+		>
+			<div class="osspm-list-toolbar">
 				<div class="min-w-0 flex-1">
 					@TableQueryBar(SearchOnlyBasicListQueryBar(data.Query, "Search login or name"))
 				</div>
-					<div class="osspm-list-summary">
+				<div class="osspm-list-summary">
 					if data.TotalCount > 0 {
 						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
 					} else {
@@ -70,12 +87,7 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 		</form>
 
 		<section class="space-y-3">
-				<div class="osspm-list-section-header">
-				<div>
-					<h2 class="text-base font-semibold">GitHub users</h2>
-					<p class="text-sm text-muted-foreground">GitHub accounts synced from your organization.</p>
-				</div>
-			</div>
+			@ListSectionHeader("GitHub users", "GitHub accounts synced from your organization.")
 			if data.HasUsers {
 				<div class="space-y-3 lg:hidden">
 					for _, u := range data.Users {
@@ -123,22 +135,8 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 				</table>
 			}
 			if data.TotalPages > 1 {
-					<div class="osspm-list-pagination">
-						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
-						<div class="button-group ml-auto">
-							if data.Page > 1 {
-								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() }>Previous</a>
-							} else {
-								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
-							}
-							if data.Page < data.TotalPages {
-								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() }>Next</a>
-							} else {
-								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
-							}
-					</div>
-				</div>
+				@ListPagination("github-users-results", data.Page, data.TotalPages, BasicListPageHref(data.Query))
 			}
 		</section>
-	}
+	</div>
 }
