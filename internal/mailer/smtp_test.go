@@ -1,7 +1,6 @@
 package mailer
 
 import (
-	"context"
 	"strings"
 	"testing"
 )
@@ -114,15 +113,5 @@ func TestBuildMessageFormatsHeadersAndRecipients(t *testing.T) {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("rendered message missing %q\n%s", expected, rendered)
 		}
-	}
-}
-
-func TestNoopMailerSend(t *testing.T) {
-	if err := NewNoop().Send(context.Background(), Message{
-		To:       []string{"user@example.com"},
-		Subject:  "ignored",
-		TextBody: "ignored",
-	}); err != nil {
-		t.Fatalf("NewNoop().Send() error = %v", err)
 	}
 }

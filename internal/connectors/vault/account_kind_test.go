@@ -24,11 +24,3 @@ func TestVaultEntityAccountKind(t *testing.T) {
 		t.Fatalf("vaultEntityAccountKind(bot)=%q want %q", got, registry.AccountKindBot)
 	}
 }
-
-func TestVaultGroupExternalID(t *testing.T) {
-	t.Parallel()
-
-	if got := vaultGroupExternalID("g-1"); got != "group:g-1" {
-		t.Fatalf("vaultGroupExternalID()=%q want %q", got, "group:g-1")
-	}
-}

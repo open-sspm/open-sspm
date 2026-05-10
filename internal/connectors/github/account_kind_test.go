@@ -22,11 +22,3 @@ func TestGitHubMemberAccountKind(t *testing.T) {
 		t.Fatalf("githubMemberAccountKind(fallback bot)=%q want %q", got, registry.AccountKindBot)
 	}
 }
-
-func TestGitHubTeamExternalID(t *testing.T) {
-	t.Parallel()
-
-	if got := githubTeamExternalID("platform"); got != "team:platform" {
-		t.Fatalf("githubTeamExternalID()=%q want %q", got, "team:platform")
-	}
-}

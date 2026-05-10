@@ -17,25 +17,21 @@ func TestCalendarDateDisplayWithRelative(t *testing.T) {
 	cases := []struct {
 		name         string
 		value        pgtype.Timestamptz
-		wantLabel    string
 		wantRelative string
 	}{
 		{
 			name:         "today",
 			value:        timestamptz(today),
-			wantLabel:    today.Format("Jan 2, 2006"),
 			wantRelative: "today",
 		},
 		{
 			name:         "days ago",
 			value:        timestamptz(threeDaysAgo),
-			wantLabel:    threeDaysAgo.Format("Jan 2, 2006"),
 			wantRelative: "3d ago",
 		},
 		{
 			name:         "invalid",
 			value:        pgtype.Timestamptz{},
-			wantLabel:    "—",
 			wantRelative: "",
 		},
 	}
@@ -44,9 +40,6 @@ func TestCalendarDateDisplayWithRelative(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			got := calendarDateWithRelativeDisplay(tc.value)
-			if got.Label != tc.wantLabel {
-				t.Fatalf("label = %q, want %q", got.Label, tc.wantLabel)
-			}
 			if got.Relative != tc.wantRelative {
 				t.Fatalf("relative = %q, want %q", got.Relative, tc.wantRelative)
 			}

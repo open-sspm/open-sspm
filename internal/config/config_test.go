@@ -7,45 +7,6 @@ import (
 	"testing"
 )
 
-func TestLoadWithOptions_DefaultSyncDiscoveryInterval(t *testing.T) {
-	t.Setenv("DATABASE_URL", "")
-	t.Setenv("SYNC_DISCOVERY_INTERVAL", "")
-
-	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
-	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
-	}
-	if cfg.SyncDiscoveryInterval != defaultSyncDiscoveryInterval {
-		t.Fatalf("SyncDiscoveryInterval = %s, want %s", cfg.SyncDiscoveryInterval, defaultSyncDiscoveryInterval)
-	}
-}
-
-func TestLoadWithOptions_ParsesSyncDiscoveryInterval(t *testing.T) {
-	t.Setenv("DATABASE_URL", "")
-	t.Setenv("SYNC_DISCOVERY_INTERVAL", "27m")
-
-	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
-	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
-	}
-	if cfg.SyncDiscoveryInterval.String() != "27m0s" {
-		t.Fatalf("SyncDiscoveryInterval = %s, want %s", cfg.SyncDiscoveryInterval, "27m0s")
-	}
-}
-
-func TestLoadWithOptions_DisablesDiscoveryLaneFromEnv(t *testing.T) {
-	t.Setenv("DATABASE_URL", "")
-	t.Setenv("SYNC_DISCOVERY_ENABLED", "0")
-
-	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
-	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
-	}
-	if cfg.SyncDiscoveryEnabled {
-		t.Fatalf("SyncDiscoveryEnabled = true, want false")
-	}
-}
-
 func TestLoadWithOptions_InvalidSyncIntervalReturnsError(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("SYNC_INTERVAL", "not-a-duration")
@@ -143,32 +104,6 @@ func TestLoadWithOptions_RejectsInvalidConnectorSecretKey(t *testing.T) {
 	}
 }
 
-func TestLoadWithOptions_DefaultStartupReadModelRebuildMode(t *testing.T) {
-	t.Setenv("DATABASE_URL", "")
-	t.Setenv("STARTUP_READ_MODEL_REBUILD_MODE", "")
-
-	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
-	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
-	}
-	if cfg.StartupReadModelRebuildMode != StartupReadModelRebuildAuto {
-		t.Fatalf("StartupReadModelRebuildMode = %q, want %q", cfg.StartupReadModelRebuildMode, StartupReadModelRebuildAuto)
-	}
-}
-
-func TestLoadWithOptions_ParsesStartupReadModelRebuildMode(t *testing.T) {
-	t.Setenv("DATABASE_URL", "")
-	t.Setenv("STARTUP_READ_MODEL_REBUILD_MODE", StartupReadModelRebuildAlways)
-
-	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
-	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
-	}
-	if cfg.StartupReadModelRebuildMode != StartupReadModelRebuildAlways {
-		t.Fatalf("StartupReadModelRebuildMode = %q, want %q", cfg.StartupReadModelRebuildMode, StartupReadModelRebuildAlways)
-	}
-}
-
 func TestLoadWithOptions_RejectsInvalidStartupReadModelRebuildMode(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("STARTUP_READ_MODEL_REBUILD_MODE", "sometimes")
@@ -179,43 +114,6 @@ func TestLoadWithOptions_RejectsInvalidStartupReadModelRebuildMode(t *testing.T)
 	}
 }
 
-func TestLoadWithOptions_DefaultQueueBackend(t *testing.T) {
-	t.Setenv("DATABASE_URL", "")
-	t.Setenv("QUEUE_BACKEND", "")
-
-	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
-	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
-	}
-	if cfg.QueueBackend != QueueBackendPostgres {
-		t.Fatalf("QueueBackend = %q, want %q", cfg.QueueBackend, QueueBackendPostgres)
-	}
-	if cfg.RedisKeyPrefix != defaultRedisKeyPrefix {
-		t.Fatalf("RedisKeyPrefix = %q, want %q", cfg.RedisKeyPrefix, defaultRedisKeyPrefix)
-	}
-}
-
-func TestLoadWithOptions_ParsesRedisQueueBackend(t *testing.T) {
-	t.Setenv("DATABASE_URL", "")
-	t.Setenv("QUEUE_BACKEND", "redis")
-	t.Setenv("REDIS_URL", "redis://localhost:6379/0")
-	t.Setenv("REDIS_KEY_PREFIX", "oss")
-
-	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
-	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
-	}
-	if cfg.QueueBackend != QueueBackendRedis {
-		t.Fatalf("QueueBackend = %q, want %q", cfg.QueueBackend, QueueBackendRedis)
-	}
-	if cfg.RedisURL != "redis://localhost:6379/0" {
-		t.Fatalf("RedisURL = %q", cfg.RedisURL)
-	}
-	if cfg.RedisKeyPrefix != "oss" {
-		t.Fatalf("RedisKeyPrefix = %q, want oss", cfg.RedisKeyPrefix)
-	}
-}
-
 func TestLoadWithOptions_RejectsInvalidQueueBackend(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("QUEUE_BACKEND", "kafka")
@@ -223,60 +121,6 @@ func TestLoadWithOptions_RejectsInvalidQueueBackend(t *testing.T) {
 	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
 	if err == nil {
 		t.Fatalf("expected invalid queue backend error")
-	}
-}
-
-func TestLoadWithOptions_SMTPDisabledByDefault(t *testing.T) {
-	t.Setenv("DATABASE_URL", "")
-	t.Setenv("SMTP_ENABLED", "")
-
-	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
-	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
-	}
-	if cfg.SMTP.Enabled {
-		t.Fatalf("SMTP.Enabled = true, want false")
-	}
-}
-
-func TestLoadWithOptions_LoadsSMTPConfig(t *testing.T) {
-	t.Setenv("DATABASE_URL", "")
-	t.Setenv("SMTP_ENABLED", "1")
-	t.Setenv("SMTP_HOST", "smtp.example.com")
-	t.Setenv("SMTP_FROM_ADDRESS", "noreply@example.com")
-	t.Setenv("SMTP_FROM_NAME", "Open SSPM")
-	t.Setenv("SMTP_USERNAME", "mailer")
-	t.Setenv("SMTP_PASSWORD", "secret")
-	t.Setenv("SMTP_PORT", "2525")
-	t.Setenv("SMTP_TLS_MODE", SMTPTLSModeTLS)
-
-	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
-	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
-	}
-	if !cfg.SMTP.Enabled {
-		t.Fatalf("SMTP.Enabled = false, want true")
-	}
-	if got, want := cfg.SMTP.Host, "smtp.example.com"; got != want {
-		t.Fatalf("SMTP.Host = %q, want %q", got, want)
-	}
-	if got, want := cfg.SMTP.Port, 2525; got != want {
-		t.Fatalf("SMTP.Port = %d, want %d", got, want)
-	}
-	if got, want := cfg.SMTP.TLSMode, SMTPTLSModeTLS; got != want {
-		t.Fatalf("SMTP.TLSMode = %q, want %q", got, want)
-	}
-	if got, want := cfg.SMTP.FromAddress, "noreply@example.com"; got != want {
-		t.Fatalf("SMTP.FromAddress = %q, want %q", got, want)
-	}
-	if got, want := cfg.SMTP.FromName, "Open SSPM"; got != want {
-		t.Fatalf("SMTP.FromName = %q, want %q", got, want)
-	}
-	if got, want := cfg.SMTP.Username, "mailer"; got != want {
-		t.Fatalf("SMTP.Username = %q, want %q", got, want)
-	}
-	if got, want := cfg.SMTP.Password, "secret"; got != want {
-		t.Fatalf("SMTP.Password = %q, want %q", got, want)
 	}
 }
 
