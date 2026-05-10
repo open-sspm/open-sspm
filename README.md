@@ -66,6 +66,7 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
   - Invalid logging values fail fast at startup.
 - Discovery lane: `SYNC_DISCOVERY_ENABLED=1` (default) enables the separate SaaS discovery lane; set `0` to disable discovery workers and discovery resyncs system-wide.
 - Manual resync mode: `RESYNC_MODE=signal` (default, creates a durable sync job for background workers) or `RESYNC_MODE=inline` (request runs sync directly).
+- Queue backend: `QUEUE_BACKEND=postgres` (default) uses the Postgres push inbox; `QUEUE_BACKEND=redis` also dispatches persisted push inbox rows through Redis via `REDIS_URL`.
 - Connector credentials: configured in-app under Settings → Connectors. Public connector metadata stays in Postgres, and secret values are stored separately in encrypted form using `CONNECTOR_SECRET_KEY` / `CONNECTOR_SECRET_KEY_FILE`.
 - AWS Identity Center uses the AWS SDK default credentials chain (env/shared config/role), not DB-stored keys.
 - SaaS discovery is per-connector (`discovery_enabled`) for Okta, Entra, and Google Workspace.

@@ -179,6 +179,53 @@ func TestLoadWithOptions_RejectsInvalidStartupReadModelRebuildMode(t *testing.T)
 	}
 }
 
+func TestLoadWithOptions_DefaultQueueBackend(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("QUEUE_BACKEND", "")
+
+	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if cfg.QueueBackend != QueueBackendPostgres {
+		t.Fatalf("QueueBackend = %q, want %q", cfg.QueueBackend, QueueBackendPostgres)
+	}
+	if cfg.RedisKeyPrefix != defaultRedisKeyPrefix {
+		t.Fatalf("RedisKeyPrefix = %q, want %q", cfg.RedisKeyPrefix, defaultRedisKeyPrefix)
+	}
+}
+
+func TestLoadWithOptions_ParsesRedisQueueBackend(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("QUEUE_BACKEND", "redis")
+	t.Setenv("REDIS_URL", "redis://localhost:6379/0")
+	t.Setenv("REDIS_KEY_PREFIX", "oss")
+
+	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if cfg.QueueBackend != QueueBackendRedis {
+		t.Fatalf("QueueBackend = %q, want %q", cfg.QueueBackend, QueueBackendRedis)
+	}
+	if cfg.RedisURL != "redis://localhost:6379/0" {
+		t.Fatalf("RedisURL = %q", cfg.RedisURL)
+	}
+	if cfg.RedisKeyPrefix != "oss" {
+		t.Fatalf("RedisKeyPrefix = %q, want oss", cfg.RedisKeyPrefix)
+	}
+}
+
+func TestLoadWithOptions_RejectsInvalidQueueBackend(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("QUEUE_BACKEND", "kafka")
+
+	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err == nil {
+		t.Fatalf("expected invalid queue backend error")
+	}
+}
+
 func TestLoadWithOptions_SMTPDisabledByDefault(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("SMTP_ENABLED", "")

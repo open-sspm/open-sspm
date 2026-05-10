@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -68,6 +69,8 @@ func TestHandleOktaEventHookVerifyMissingAuthorizationWithoutConfigIsUnauthorize
 func TestHandleOktaEventHookPostQueuesEvents(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		upsertOktaPushIngestConfig(t, ctx, pool)
+		queue := &stubOktaPushInboxQueue{}
+		h.OktaPushInboxQueue = queue
 
 		body := `{
 			"eventId": "delivery-1",
@@ -92,7 +95,65 @@ func TestHandleOktaEventHookPostQueuesEvents(t *testing.T) {
 		}
 
 		assertOktaPushInboxRow(t, ctx, pool, "acme.okta.com", "event_hook", "delivery-1", "evt-hook-1", "user.authentication.sso")
+		if len(queue.ids) != 1 || queue.ids[0] <= 0 {
+			t.Fatalf("queued redis ids = %#v, want one persisted row id", queue.ids)
+		}
 	})
+}
+
+func TestHandleOktaEventHookPostIgnoresQueueEnqueueFailure(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		upsertOktaPushIngestConfig(t, ctx, pool)
+		queue := &stubOktaPushInboxQueue{err: errors.New("redis unavailable")}
+		h.OktaPushInboxQueue = queue
+
+		body := `{
+			"eventId": "delivery-enqueue-error",
+			"data": {
+				"events": [{
+					"uuid": "evt-enqueue-error",
+					"eventType": "user.authentication.sso",
+					"published": "2026-01-01T12:00:00Z",
+					"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"},
+					"target": [{"id": "0oa1", "type": "AppInstance", "alternateId": "https://app.example.com", "displayName": "Example App"}]
+				}]
+			}
+		}`
+		c, rec := newOktaIngestContext(http.MethodPost, "http://example.com/ingest/okta/events", body)
+		c.Request().Header.Set(echo.HeaderAuthorization, "hook-secret")
+
+		if err := h.HandleOktaEventHookPost(c); err != nil {
+			t.Fatalf("HandleOktaEventHookPost(): %v", err)
+		}
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusNoContent, rec.Body.String())
+		}
+		assertOktaPushInboxRow(t, ctx, pool, "acme.okta.com", "event_hook", "delivery-enqueue-error", "evt-enqueue-error", "user.authentication.sso")
+		if len(queue.ids) != 1 || queue.ids[0] <= 0 {
+			t.Fatalf("queued redis ids = %#v, want one persisted row id", queue.ids)
+		}
+	})
+}
+
+func TestEnqueueOktaPushInboxRowsUsesIndependentContext(t *testing.T) {
+	requestCtx, cancelRequest := context.WithCancel(context.Background())
+	var gotErr error
+	queue := &stubOktaPushInboxQueue{
+		onEnqueue: func(ctx context.Context) {
+			cancelRequest()
+			gotErr = ctx.Err()
+		},
+	}
+	h := &Handlers{OktaPushInboxQueue: queue}
+
+	h.enqueueOktaPushInboxRows(requestCtx, []int64{42})
+
+	if gotErr != nil {
+		t.Fatalf("enqueue context error after request cancel = %v, want nil", gotErr)
+	}
+	if len(queue.ids) != 1 || queue.ids[0] != 42 {
+		t.Fatalf("queued ids = %#v, want [42]", queue.ids)
+	}
 }
 
 func TestHandleOktaEventHookPostDropsNonDiscoveryEventsBeforeStorage(t *testing.T) {
@@ -434,4 +495,18 @@ func assertNoOktaPushInboxRow(t *testing.T, ctx context.Context, pool *pgxpool.P
 	if count != 0 {
 		t.Fatalf("okta_push_inbox rows for %q = %d, want 0", eventExternalID, count)
 	}
+}
+
+type stubOktaPushInboxQueue struct {
+	ids       []int64
+	err       error
+	onEnqueue func(context.Context)
+}
+
+func (q *stubOktaPushInboxQueue) Enqueue(ctx context.Context, ids []int64) error {
+	if q.onEnqueue != nil {
+		q.onEnqueue(ctx)
+	}
+	q.ids = append(q.ids, ids...)
+	return q.err
 }

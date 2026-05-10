@@ -38,15 +38,20 @@ type SyncRunner interface {
 	RunOnce(context.Context) error
 }
 
+type OktaPushInboxQueue interface {
+	Enqueue(context.Context, []int64) error
+}
+
 // Handlers groups all HTTP handlers and shared dependencies.
 type Handlers struct {
-	Cfg      config.Config
-	Q        *gen.Queries
-	Pool     *pgxpool.Pool
-	Sessions *scs.SessionManager
-	Syncer   SyncRunner
-	Registry *registry.ConnectorRegistry
-	Mailer   mailer.Mailer
+	Cfg                config.Config
+	Q                  *gen.Queries
+	Pool               *pgxpool.Pool
+	Sessions           *scs.SessionManager
+	Syncer             SyncRunner
+	OktaPushInboxQueue OktaPushInboxQueue
+	Registry           *registry.ConnectorRegistry
+	Mailer             mailer.Mailer
 
 	RiskPolicies *riskpolicy.Registry
 

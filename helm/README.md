@@ -174,6 +174,7 @@ kubectl port-forward svc/<service-name> 8080:80
 - Set `config.syncDiscoveryEnabled=false` to disable the discovery lane system-wide.
 - Set `discoveryWorker.enabled=false` to omit only the discovery worker Deployment. The chart also disables discovery queuing on `api` when this is false so manual resyncs do not strand discovery jobs.
 - Set `ingestWorker.enabled=false` to omit push ingest queue processing.
+- Set `config.queueBackend=redis` to dispatch persisted push inbox rows through Redis. Provide `REDIS_URL` with `redis.existingSecret.name` / `redis.existingSecret.urlKey`, `config.redisUrl`, or component `extraEnv` / `extraEnvFrom` plus `redis.allowExternalUrlEnv=true`. Use `redis.existingSecret` for credentialed Redis URLs; `config.redisUrl` is rendered as plain Deployment env and is rejected when it appears to contain credentials. Postgres remains the durable inbox and fallback poller.
 
 ### Structured logging
 

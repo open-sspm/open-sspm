@@ -69,6 +69,73 @@ func (q *Queries) ClaimQueuedOktaPushInboxEvents(ctx context.Context, limitRows 
 	return items, nil
 }
 
+const claimQueuedOktaPushInboxEventsByIDs = `-- name: ClaimQueuedOktaPushInboxEventsByIDs :many
+WITH requested AS (
+  SELECT DISTINCT unnest($1::bigint[]) AS id
+),
+candidates AS (
+  SELECT i.id
+  FROM okta_push_inbox i
+  JOIN requested r ON r.id = i.id
+  WHERE i.status = 'queued'
+    AND (i.next_attempt_at IS NULL OR i.next_attempt_at <= now())
+  ORDER BY i.id
+  LIMIT $2::int
+  FOR UPDATE SKIP LOCKED
+)
+UPDATE okta_push_inbox i
+SET status = 'processing',
+    attempts = attempts + 1,
+    updated_at = now()
+FROM candidates c
+WHERE i.id = c.id
+RETURNING i.id, i.source_name, i.channel, i.delivery_external_id, i.event_external_id, i.event_type, i.event_index, i.published_at, i.status, i.raw_json, i.attempts, i.next_attempt_at, i.processed_run_id, i.processed_at, i.last_received_at, i.error_message, i.created_at, i.updated_at
+`
+
+type ClaimQueuedOktaPushInboxEventsByIDsParams struct {
+	Ids       []int64 `json:"ids"`
+	LimitRows int32   `json:"limit_rows"`
+}
+
+func (q *Queries) ClaimQueuedOktaPushInboxEventsByIDs(ctx context.Context, arg ClaimQueuedOktaPushInboxEventsByIDsParams) ([]OktaPushInbox, error) {
+	rows, err := q.db.Query(ctx, claimQueuedOktaPushInboxEventsByIDs, arg.Ids, arg.LimitRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OktaPushInbox
+	for rows.Next() {
+		var i OktaPushInbox
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceName,
+			&i.Channel,
+			&i.DeliveryExternalID,
+			&i.EventExternalID,
+			&i.EventType,
+			&i.EventIndex,
+			&i.PublishedAt,
+			&i.Status,
+			&i.RawJson,
+			&i.Attempts,
+			&i.NextAttemptAt,
+			&i.ProcessedRunID,
+			&i.ProcessedAt,
+			&i.LastReceivedAt,
+			&i.ErrorMessage,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countOktaPushInboxByStatus = `-- name: CountOktaPushInboxByStatus :many
 SELECT source_name, channel, status, count(*)::bigint AS row_count
 FROM okta_push_inbox
@@ -357,7 +424,7 @@ func (q *Queries) RequeueStaleOktaPushInboxProcessingRows(ctx context.Context, s
 	return result.RowsAffected(), nil
 }
 
-const upsertOktaPushInboxEventsBulk = `-- name: UpsertOktaPushInboxEventsBulk :execrows
+const upsertOktaPushInboxEventsBulk = `-- name: UpsertOktaPushInboxEventsBulk :many
 WITH input AS (
   SELECT
     i,
@@ -428,6 +495,7 @@ ON CONFLICT (source_name, event_external_id) DO UPDATE SET
     WHEN okta_push_inbox.status = 'processing' THEN okta_push_inbox.updated_at
     ELSE now()
   END
+RETURNING id
 `
 
 type UpsertOktaPushInboxEventsBulkParams struct {
@@ -441,8 +509,8 @@ type UpsertOktaPushInboxEventsBulkParams struct {
 	RawJsons            [][]byte             `json:"raw_jsons"`
 }
 
-func (q *Queries) UpsertOktaPushInboxEventsBulk(ctx context.Context, arg UpsertOktaPushInboxEventsBulkParams) (int64, error) {
-	result, err := q.db.Exec(ctx, upsertOktaPushInboxEventsBulk,
+func (q *Queries) UpsertOktaPushInboxEventsBulk(ctx context.Context, arg UpsertOktaPushInboxEventsBulkParams) ([]int64, error) {
+	rows, err := q.db.Query(ctx, upsertOktaPushInboxEventsBulk,
 		arg.SourceName,
 		arg.Channel,
 		arg.DeliveryExternalIds,
@@ -453,7 +521,19 @@ func (q *Queries) UpsertOktaPushInboxEventsBulk(ctx context.Context, arg UpsertO
 		arg.RawJsons,
 	)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected(), nil
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

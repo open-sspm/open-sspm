@@ -72,8 +72,20 @@ func DefaultConfig() Config {
 }
 
 func RunLoop(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, cfg Config) error {
+	return RunLoopWithQueue(ctx, q, pool, cfg, nil)
+}
+
+type inboxQueueDepthReporter interface {
+	Depth(context.Context) (int64, error)
+}
+
+func RunLoopWithQueue(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, cfg Config, inboxQueue InboxQueue) error {
 	cfg = cfg.normalized()
-	slog.Info("starting Okta push inbox processor", "interval", cfg.PollInterval, "batch_size", cfg.BatchSize)
+	queueBackend := "postgres"
+	if inboxQueue != nil {
+		queueBackend = "redis"
+	}
+	slog.Info("starting Okta push inbox processor", "interval", cfg.PollInterval, "batch_size", cfg.BatchSize, "queue_backend", queueBackend)
 
 	runProcessorIteration(ctx, q, pool, cfg)
 
@@ -87,12 +99,28 @@ func RunLoop(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, cfg Config
 	cleanupTicker := time.NewTicker(cfg.CleanupInterval)
 	defer cleanupTicker.Stop()
 
+	queueCtx, stopQueue := context.WithCancel(ctx)
+	queueCh, waitQueue := startInboxQueueConsumer(queueCtx, inboxQueue, cfg)
+	defer func() {
+		stopQueue()
+		waitQueue()
+	}()
+	refreshInboxQueueDepth(ctx, inboxQueue)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
+		case ids, ok := <-queueCh:
+			if !ok {
+				queueCh = nil
+				continue
+			}
+			runProcessorIDIteration(ctx, q, pool, ids, cfg)
+			refreshInboxQueueDepth(ctx, inboxQueue)
 		case <-ticker.C:
 			runProcessorIteration(ctx, q, pool, cfg)
+			refreshInboxQueueDepth(ctx, inboxQueue)
 		case <-staleTicker.C:
 			if err := requeueStaleProcessingRows(ctx, q, cfg); err != nil {
 				slog.Warn("Okta push inbox stale-row recovery failed", "error", err)
@@ -121,6 +149,28 @@ func ProcessQueuedWithConfig(ctx context.Context, q *gen.Queries, pool *pgxpool.
 	if err != nil {
 		return ProcessResult{}, fmt.Errorf("claim okta push inbox rows: %w", err)
 	}
+	return processClaimedRows(ctx, q, pool, rows, cfg)
+}
+
+func ProcessQueuedIDsWithConfig(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, ids []int64, limit int32, cfg Config) (ProcessResult, error) {
+	cfg = cfg.normalized()
+	if len(ids) == 0 {
+		return ProcessResult{}, nil
+	}
+	if limit <= 0 {
+		limit = cfg.BatchSize
+	}
+	rows, err := q.ClaimQueuedOktaPushInboxEventsByIDs(ctx, gen.ClaimQueuedOktaPushInboxEventsByIDsParams{
+		Ids:       ids,
+		LimitRows: limit,
+	})
+	if err != nil {
+		return ProcessResult{}, fmt.Errorf("claim okta push inbox rows by id: %w", err)
+	}
+	return processClaimedRows(ctx, q, pool, rows, cfg)
+}
+
+func processClaimedRows(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, rows []gen.OktaPushInbox, cfg Config) (ProcessResult, error) {
 	result := ProcessResult{Claimed: len(rows)}
 	if len(rows) == 0 {
 		return result, nil
@@ -453,6 +503,99 @@ func runProcessorIteration(ctx context.Context, q *gen.Queries, pool *pgxpool.Po
 		if int32(result.Claimed) < cfg.BatchSize {
 			return
 		}
+	}
+}
+
+func runProcessorIDIteration(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, ids []int64, cfg Config) {
+	if len(ids) == 0 {
+		return
+	}
+	cfg = cfg.normalized()
+	for len(ids) > 0 {
+		if err := ctx.Err(); err != nil {
+			return
+		}
+		end := min(int(cfg.BatchSize), len(ids))
+		batch := ids[:end]
+		ids = ids[end:]
+
+		result, err := ProcessQueuedIDsWithConfig(ctx, q, pool, batch, cfg.BatchSize, cfg)
+		if err != nil {
+			slog.Warn("Okta push inbox redis-queued processing failed", "error", err, "claimed", result.Claimed, "processed", result.Processed, "ignored", result.Ignored, "dead_letter", result.DeadLetter)
+		}
+		if result.Claimed == 0 {
+			continue
+		}
+		if err := RefreshMetrics(ctx, q); err != nil {
+			slog.Warn("Okta push inbox metrics refresh failed", "error", err)
+		}
+	}
+}
+
+func startInboxQueueConsumer(ctx context.Context, inboxQueue InboxQueue, cfg Config) (<-chan []int64, func()) {
+	if inboxQueue == nil {
+		return nil, func() {}
+	}
+	out := make(chan []int64, 1)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer close(out)
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+			ids, err := inboxQueue.Dequeue(ctx, cfg.BatchSize, cfg.PollInterval)
+			if err != nil {
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
+					return
+				}
+				slog.Warn("Okta push inbox redis dequeue failed", "error", err)
+				if !sleepContext(ctx, cfg.PollInterval) {
+					return
+				}
+				continue
+			}
+			if len(ids) == 0 {
+				continue
+			}
+			select {
+			case out <- ids:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return out, func() { <-done }
+}
+
+func refreshInboxQueueDepth(ctx context.Context, inboxQueue InboxQueue) {
+	reporter, ok := inboxQueue.(inboxQueueDepthReporter)
+	if !ok {
+		return
+	}
+	depth, err := reporter.Depth(ctx)
+	if err != nil {
+		if ctx.Err() == nil {
+			slog.Warn("Okta push inbox redis queue depth refresh failed", "error", err)
+		}
+		return
+	}
+	metrics.OktaPushRedisQueueDepth.WithLabelValues(oktaPushInboxQueueName).Set(float64(depth))
+}
+
+func sleepContext(ctx context.Context, d time.Duration) bool {
+	if d <= 0 {
+		return ctx == nil || ctx.Err() == nil
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+
+	select {
+	case <-timer.C:
+		return true
+	case <-ctx.Done():
+		return false
 	}
 }
 

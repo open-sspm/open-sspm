@@ -46,6 +46,7 @@
         - { key: "CONNECTOR_SECRET_KEY", value: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=" }
         - { key: "LOG_FORMAT", value: "json" }
         - { key: "LOG_LEVEL", value: "info" }
+        - { key: "QUEUE_BACKEND", value: "postgres" }
         - { key: "SYNC_INTERVAL", value: "0s" }
         - { key: "SYNC_DISCOVERY_INTERVAL", value: "0s" }
         - { key: "RESYNC_ENABLED", value: "0" }

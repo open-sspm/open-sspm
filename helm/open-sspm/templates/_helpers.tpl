@@ -71,3 +71,35 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 {{- end }}
 {{- end -}}
+
+{{- define "open-sspm.queueEnv" -}}
+{{- $queueBackend := default "postgres" .Values.config.queueBackend | lower -}}
+{{- $redisValues := default dict .Values.redis -}}
+{{- $redisSecret := default dict $redisValues.existingSecret -}}
+{{- $redisSecretName := default "" $redisSecret.name -}}
+{{- $redisSecretURLKey := default "REDIS_URL" $redisSecret.urlKey -}}
+{{- $allowExternalRedisURL := default false $redisValues.allowExternalUrlEnv -}}
+- name: QUEUE_BACKEND
+  value: {{ $queueBackend | quote }}
+{{- if eq $queueBackend "redis" }}
+{{- if not (or $redisSecretName .Values.config.redisUrl $allowExternalRedisURL) }}
+{{- fail "REDIS_URL is required when config.queueBackend=redis; set redis.existingSecret.name, config.redisUrl, or redis.allowExternalUrlEnv=true when REDIS_URL is supplied through extraEnv/extraEnvFrom" }}
+{{- end }}
+{{- if and .Values.config.redisUrl (contains "@" .Values.config.redisUrl) }}
+{{- fail "config.redisUrl appears to contain credentials; store credentialed Redis URLs in a Kubernetes Secret with redis.existingSecret.name instead" }}
+{{- end }}
+{{- if $redisSecretName }}
+- name: REDIS_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ $redisSecretName | quote }}
+      key: {{ $redisSecretURLKey | quote }}
+      optional: false
+{{- else if .Values.config.redisUrl }}
+- name: REDIS_URL
+  value: {{ .Values.config.redisUrl | quote }}
+{{- end }}
+- name: REDIS_KEY_PREFIX
+  value: {{ default "open-sspm" .Values.config.redisKeyPrefix | quote }}
+{{- end }}
+{{- end -}}

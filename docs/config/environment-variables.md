@@ -77,6 +77,38 @@ Absolute path to static assets. If unset, Open-SSPM searches common `web/static`
 STATIC_DIR=/opt/open-sspm/web/static
 ```
 
+## Queue Configuration
+
+### QUEUE_BACKEND
+
+Backend used for push ingest dispatch. Postgres remains the durable inbox and source of truth.
+
+- **Values:** `postgres`, `redis`
+- **Default:** `postgres`
+
+```bash
+QUEUE_BACKEND=redis
+```
+
+### REDIS_URL
+
+Redis connection URL. Required by the `api` and `worker-ingest` processes when `QUEUE_BACKEND=redis`.
+Use `rediss://` for TLS-enabled Redis endpoints. If Redis is unavailable, push processing falls back to Postgres inbox polling.
+
+```bash
+REDIS_URL=redis://localhost:6379/0
+```
+
+### REDIS_KEY_PREFIX
+
+Prefix for Open-SSPM Redis keys.
+
+- **Default:** `open-sspm`
+
+```bash
+REDIS_KEY_PREFIX=open-sspm
+```
+
 ## Logging
 
 ### LOG_FORMAT

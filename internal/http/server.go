@@ -44,6 +44,7 @@ func NewEchoServer(
 	pool *pgxpool.Pool,
 	q *gen.Queries,
 	syncer handlers.SyncRunner,
+	oktaPushInboxQueue handlers.OktaPushInboxQueue,
 	reg *registry.ConnectorRegistry,
 	mailAdapter mailer.Mailer,
 ) (*EchoServer, error) {
@@ -64,14 +65,15 @@ func NewEchoServer(
 	}
 
 	h := &handlers.Handlers{
-		Cfg:          cfg,
-		Q:            q,
-		Pool:         pool,
-		Sessions:     sessions,
-		Syncer:       syncer,
-		Registry:     reg,
-		Mailer:       mailAdapter,
-		RiskPolicies: riskPolicies,
+		Cfg:                cfg,
+		Q:                  q,
+		Pool:               pool,
+		Sessions:           sessions,
+		Syncer:             syncer,
+		OktaPushInboxQueue: oktaPushInboxQueue,
+		Registry:           reg,
+		Mailer:             mailAdapter,
+		RiskPolicies:       riskPolicies,
 	}
 	es := &EchoServer{h: h, e: newEcho(cfg)}
 	es.e.Use(middleware.RequestIDWithConfig(middleware.RequestIDConfig{
