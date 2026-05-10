@@ -250,7 +250,7 @@ func nonHumanIdentitiesSummaryFromRow(linkResolver *identityLinkResolver, princi
 	return viewmodels.NonHumanIdentitiesSummaryView{
 		PrincipalRef:           principal.PrincipalRef,
 		IdentityID:             principal.IdentityID,
-		IdentityHref:           nonHumanIdentityHref(principal.IdentityID),
+		IdentityHref:           identityHrefForPrincipal(principal.PrincipalRef, principal.IdentityID),
 		AppAssetID:             principal.AppAssetID,
 		AppAssetHref:           nonHumanAppAssetHref(principal.AppAssetID),
 		PrincipalType:          strings.TrimSpace(principal.PrincipalType),
@@ -332,6 +332,13 @@ func nonHumanIdentityHref(identityID int64) string {
 		return ""
 	}
 	return "/identities/" + views.FormatInt64(identityID)
+}
+
+func identityHrefForPrincipal(principalRef string, identityID int64) string {
+	if identityID > 0 && principalRef == "identity-"+views.FormatInt64(identityID) {
+		return ""
+	}
+	return nonHumanIdentityHref(identityID)
 }
 
 func nonHumanAppAssetHref(appAssetID int64) string {
