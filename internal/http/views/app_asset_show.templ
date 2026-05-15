@@ -6,7 +6,10 @@ templ AppAssetShowPage(data viewmodels.AppAssetShowViewData) {
 	@Layout(data.Layout) {
 		if data.GoogleOAuthView != nil {
 			@PageHeader("Inspect governance, grant scope, evidence, and containment actions for a Google Workspace OAuth app.") {
-				<a class="btn-sm-outline" href={ data.GoogleOAuthView.App.ExportHref }>Export JSON</a>
+				<a class="btn-sm-outline osspm-export-button" href={ data.GoogleOAuthView.App.ExportHref } hx-boost="false" download="connected-app-export.json">
+					@IconDownload("h-3.5 w-3.5")
+					<span>Export JSON</span>
+				</a>
 			}
 
 			@ConnectedAppShowBody(*data.GoogleOAuthView)

@@ -454,18 +454,7 @@
    --------------------------------------------------------------------------- */
 
 @layer components {
-  details {
-    &::details-content {
-      block-size: 0;
-      @apply block opacity-0 transition-discrete transition-all;
-    }
-    &[open]::details-content {
-      block-size: auto;
-      block-size: calc-size(auto, size);
-      @apply opacity-100;
-    }
-    summary { @apply inline-flex items-center cursor-pointer; }
-  }
+  details summary { @apply inline-flex items-center cursor-pointer; }
   details > summary::-webkit-details-marker { display: none; }
 }
 
@@ -503,9 +492,7 @@
       }
       &:not(:has([role='menu'])) > header { @apply border-b-0; }
       [role='menu'] {
-        @apply flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-1.5 scroll-smooth;
-        scrollbar-width: thin;
-        scrollbar-color: var(--color-border) transparent;
+        @apply flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-1.5 scroll-smooth scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent;
         [role='menuitem'] {
           @apply py-2.5 px-2.5 rounded-lg gap-3;
           .command-item-icon { @apply size-8 rounded-lg bg-muted/50 text-muted-foreground; }
@@ -955,7 +942,10 @@
 
 @layer components {
   .sidebar {
-    &:not([data-sidebar-initialized]) { @apply max-md:hidden; }
+    &:not([data-sidebar-initialized]) {
+      @apply max-md:hidden;
+      nav, & + * { transition: none; }
+    }
     &:not([aria-hidden]), &[aria-hidden=false] {
       @apply max-md:bg-black/50 max-md:fixed max-md:inset-0 max-md:z-40;
     }
@@ -1013,6 +1003,9 @@
       }
     }
   }
+
+  html[data-sidebar-pref="closed"] .sidebar:not([data-sidebar-initialized]) nav { @apply -translate-x-full; }
+  html[data-sidebar-pref="closed"] .sidebar:not([data-sidebar-initialized]) + * { @apply md:ml-0; }
 
   /* App-specific sidebar overrides */
   .sidebar nav > section ul li > details::details-content { padding-inline: 0; }
@@ -1086,11 +1079,11 @@
 
 @layer components {
   .osspm-list-form {
-    @apply space-y-4 border-b border-border/70 pb-5;
+    @apply space-y-3;
   }
 
   .osspm-list-form-tight {
-    @apply space-y-3 border-b border-border/70 pb-5;
+    @apply space-y-3;
   }
 
   .osspm-list-toolbar {
@@ -1102,15 +1095,6 @@
     .osspm-list-toolbar {
       grid-template-columns: minmax(0, 1fr) auto;
     }
-  }
-
-  .osspm-list-toolbar > .osspm-list-summary {
-    grid-column: 1 / -1;
-    justify-self: end;
-  }
-
-  .osspm-list-summary {
-    @apply text-sm text-muted-foreground tabular-nums text-right;
   }
 
   .osspm-list-section-header {
@@ -1157,40 +1141,354 @@
     @apply text-sm text-muted-foreground;
   }
 
-  .osspm-segment-chips {
+  /* ---------------------------------------------------------------------------
+     KPI strip
+     Three-card header row above list pages. Each card binds one filter scope:
+     clicking it scopes the list. The active card carries a dark ring so the
+     operator can tell which slice they're looking at. Cards are flat surfaces
+     with restrained borders — this is operator UI, not a marketing dashboard.
+     --------------------------------------------------------------------------- */
+
+  .osspm-kpi-strip {
+    @apply grid grid-cols-1 gap-3;
+  }
+
+  @media (min-width: 640px) {
+    .osspm-kpi-strip {
+      grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr);
+    }
+  }
+
+  .osspm-kpi-card {
+    @apply flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 no-underline;
+    min-height: 8.75rem;
+  }
+
+  .osspm-kpi-card-clickable {
+    @apply cursor-pointer transition-colors hover:border-border hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40;
+  }
+
+  .osspm-kpi-card-active {
+    @apply border-foreground bg-card;
+    box-shadow: 0 0 0 1px var(--color-foreground);
+  }
+
+  .osspm-kpi-header {
+    @apply flex items-center justify-between gap-2;
+  }
+
+  .osspm-kpi-label {
+    @apply text-sm font-medium text-muted-foreground;
+  }
+
+  .osspm-kpi-active-tag {
+    @apply rounded-full bg-foreground px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background;
+  }
+
+  .osspm-kpi-row {
+    @apply flex items-baseline gap-2;
+  }
+
+  .osspm-kpi-metric {
+    @apply text-3xl font-semibold tabular-nums leading-none text-foreground;
+  }
+
+  .osspm-kpi-metric-danger {
+    @apply text-rose-700 dark:text-rose-400;
+  }
+
+  .osspm-kpi-metric-warn {
+    @apply text-amber-700 dark:text-amber-400;
+  }
+
+  .osspm-kpi-caption {
+    @apply text-xs text-muted-foreground;
+  }
+
+  .osspm-kpi-breakdown {
+    @apply flex h-1.5 w-full overflow-hidden rounded-full bg-muted/60;
+  }
+
+  .osspm-kpi-breakdown-seg {
+    @apply h-full;
+  }
+
+  .osspm-kpi-breakdown-seg-critical {
+    @apply bg-rose-600;
+  }
+
+  .osspm-kpi-breakdown-seg-warn {
+    @apply bg-amber-500;
+  }
+
+  .osspm-kpi-breakdown-seg-ok {
+    @apply bg-emerald-600;
+  }
+
+  .osspm-kpi-breakdown-seg-neutral {
+    @apply bg-muted-foreground/40;
+  }
+
+  .osspm-kpi-breakdown-legend {
+    @apply flex flex-wrap items-center gap-1 text-xs text-muted-foreground;
+  }
+
+  .osspm-kpi-breakdown-legend-sep {
+    @apply text-muted-foreground/60;
+  }
+
+  .osspm-kpi-breakdown-legend-item {
+    @apply inline-flex items-baseline gap-1;
+  }
+
+  .osspm-kpi-breakdown-legend-count {
+    @apply font-semibold tabular-nums text-foreground;
+  }
+
+  .osspm-kpi-breakdown-legend-count-critical {
+    @apply text-rose-700 dark:text-rose-400;
+  }
+
+  .osspm-kpi-breakdown-legend-count-warn {
+    @apply text-amber-700 dark:text-amber-400;
+  }
+
+  .osspm-kpi-breakdown-legend-count-ok {
+    @apply text-emerald-700 dark:text-emerald-400;
+  }
+
+  .osspm-kpi-trend {
+    @apply text-xs text-muted-foreground;
+  }
+
+  /* ---------------------------------------------------------------------------
+     List meta strip
+     Thin row between the smart-query bar and the table. Left: count + sublabel
+     for grouped views. Right: per-page action slot (group toggle, sort, etc.).
+     --------------------------------------------------------------------------- */
+
+  .osspm-list-meta {
+    @apply flex flex-wrap items-center justify-between gap-3 border-y border-border/40 py-2 text-sm text-muted-foreground;
+  }
+
+  .osspm-list-meta-summary {
     @apply flex flex-wrap items-center gap-2;
   }
 
-  .osspm-segment-chip {
-    @apply inline-flex items-center gap-2 rounded-full border border-border/70 bg-background px-3 py-1.5 text-sm text-muted-foreground no-underline transition-colors hover:border-border hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40;
+  .osspm-list-meta-count {
+    @apply font-medium tabular-nums text-foreground;
   }
 
-  .osspm-segment-chip-count {
-    @apply rounded-full bg-muted/60 px-1.5 text-xs font-medium tabular-nums text-muted-foreground transition-colors;
+  .osspm-list-meta-sublabel {
+    @apply text-muted-foreground;
   }
 
-  .osspm-segment-chip-active {
+  .osspm-list-meta-link {
+    @apply font-medium text-foreground underline underline-offset-2;
+  }
+
+  .osspm-list-meta-actions {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .osspm-export-button {
+    @apply border-border/80 bg-background font-medium text-foreground opacity-100 shadow-sm hover:border-foreground/20 hover:bg-muted/60;
+  }
+
+  /* ---------------------------------------------------------------------------
+     Identities — ask bar
+     Single composite filter input where chips live inline with the typed text.
+     Inspired by the `prototype/ask.html` exploration: the bar IS the filter
+     language. Chips for status / source / etc. flow with the cursor; pressing
+     Enter promotes typed keywords into chips and fires the existing htmx form.
+     --------------------------------------------------------------------------- */
+
+  .osspm-askbar-container {
+    @apply relative w-full;
+  }
+
+  .osspm-askbar-row {
+    @apply flex w-full flex-col items-stretch gap-2 sm:flex-row;
+  }
+
+  .osspm-askbar {
+    @apply flex min-w-0 flex-1 flex-wrap items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 transition-colors;
+    min-height: 2.75rem;
+    cursor: text;
+  }
+
+  .osspm-askbar:focus-within {
+    @apply border-ring;
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--ring) 18%, transparent);
+  }
+
+  .osspm-askbar-leading {
+    @apply ml-0.5 mr-1 inline-flex items-center text-muted-foreground;
+  }
+
+  .osspm-askbar-chips {
+    @apply contents;
+  }
+
+  .osspm-askbar-input {
+    @apply min-w-[10rem] flex-1 border-0 bg-transparent text-sm text-foreground outline-none ring-0 placeholder:text-muted-foreground;
+    padding: 0.25rem 0.125rem;
+  }
+
+  .osspm-askbar-input[data-inline-cursor="true"] {
+    @apply min-w-0 flex-none;
+    width: var(--cursor-width, 1.25ch);
+  }
+
+  .osspm-askbar-input[data-inline-cursor="true"]::placeholder {
+    color: transparent;
+  }
+
+  .osspm-askbar-filter-add {
+    @apply inline-flex items-center gap-1 rounded-md border border-dashed border-border bg-background px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40;
+  }
+
+  .osspm-askbar-actions {
+    @apply flex items-center justify-end gap-2;
+  }
+
+  .osspm-askbar-action {
+    @apply inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-muted-foreground;
+  }
+
+  .osspm-askbar-action-label {
+    @apply text-muted-foreground;
+  }
+
+  .osspm-askbar-action-select {
+    @apply min-w-0 cursor-pointer border-0 bg-transparent text-sm font-medium text-foreground outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-80;
+  }
+
+  .osspm-askbar-action-button {
+    @apply inline-flex items-center gap-1 rounded-md bg-foreground px-3 py-1.5 text-xs font-medium text-background transition-colors hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-70;
+  }
+
+  .osspm-askbar-chip {
+    @apply inline-flex items-center gap-1 rounded-md border border-border/70 bg-muted/40 px-2 py-1 text-xs text-foreground;
+    user-select: none;
+  }
+
+  .osspm-askbar-chip-key {
+    @apply text-muted-foreground;
+  }
+
+  .osspm-askbar-chip-sep {
+    @apply text-muted-foreground/60;
+  }
+
+  .osspm-askbar-chip-label {
+    @apply font-medium text-foreground;
+  }
+
+  .osspm-askbar-chip-warn {
+    @apply border-amber-700/30 bg-amber-50 text-amber-900 dark:border-amber-300/30 dark:bg-amber-950/40 dark:text-amber-200;
+  }
+
+  .osspm-askbar-chip-warn .osspm-askbar-chip-key {
+    @apply text-amber-800/80 dark:text-amber-200/80;
+  }
+
+  .osspm-askbar-chip-warn .osspm-askbar-chip-label {
+    @apply text-amber-900 dark:text-amber-200;
+  }
+
+  .osspm-askbar-chip-danger {
+    @apply border-rose-700/30 bg-rose-50 text-rose-900 dark:border-rose-300/30 dark:bg-rose-950/40 dark:text-rose-200;
+  }
+
+  .osspm-askbar-chip-danger .osspm-askbar-chip-key {
+    @apply text-rose-800/80 dark:text-rose-200/80;
+  }
+
+  .osspm-askbar-chip-danger .osspm-askbar-chip-label {
+    @apply text-rose-900 dark:text-rose-200;
+  }
+
+  .osspm-askbar-chip-ok {
+    @apply border-emerald-700/30 bg-emerald-50 text-emerald-900 dark:border-emerald-300/30 dark:bg-emerald-950/40 dark:text-emerald-200;
+  }
+
+  .osspm-askbar-chip-ok .osspm-askbar-chip-key {
+    @apply text-emerald-800/80 dark:text-emerald-200/80;
+  }
+
+  .osspm-askbar-chip-ok .osspm-askbar-chip-label {
+    @apply text-emerald-900 dark:text-emerald-200;
+  }
+
+  .osspm-askbar-chip-remove {
+    @apply -mr-0.5 ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-sm text-base leading-none opacity-60 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    color: inherit;
+  }
+
+  .osspm-askbar-hints {
+    @apply mt-2 flex flex-wrap items-center gap-1.5 text-xs;
+  }
+
+  .osspm-askbar-hints-label {
+    @apply mr-1 text-muted-foreground;
+  }
+
+  .osspm-askbar-hint {
+    @apply inline-flex items-center rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 font-mono text-[11px] text-muted-foreground no-underline transition-colors hover:border-border hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40;
+  }
+
+  .osspm-askbar-hint[aria-current="page"] {
+    @apply border-foreground/40 bg-foreground text-background hover:bg-foreground/90 hover:text-background;
+  }
+
+  .osspm-askbar-suggest {
+    @apply absolute left-0 right-0 z-20 mt-1.5 max-h-72 overflow-auto rounded-lg border border-border bg-popover p-1.5 text-sm shadow-lg;
+    top: 100%;
+  }
+
+  .osspm-askbar-suggest[hidden] {
+    display: none;
+  }
+
+  .osspm-askbar-suggest-label {
+    @apply px-2.5 pb-1 pt-1.5 text-[11px] uppercase tracking-wider text-muted-foreground;
+  }
+
+  .osspm-askbar-suggest-item {
+    @apply flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5;
+  }
+
+  .osspm-askbar-suggest-item.is-hl,
+  .osspm-askbar-suggest-item:hover {
+    @apply bg-muted;
+  }
+
+  .osspm-askbar-suggest-key {
+    @apply min-w-[5.5rem] text-xs text-muted-foreground;
+  }
+
+  .osspm-askbar-suggest-val {
+    @apply text-foreground;
+  }
+
+  .osspm-saved-queries {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .osspm-saved-queries-label {
+    @apply text-xs text-muted-foreground;
+  }
+
+  .osspm-saved-queries-pill {
+    @apply inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground no-underline transition-colors hover:border-border hover:bg-muted/60 hover:text-foreground;
+  }
+
+  .osspm-saved-queries-pill[aria-current="true"] {
     @apply border-foreground/20 bg-foreground text-background hover:bg-foreground/90 hover:text-background;
-  }
-
-  .osspm-segment-chip-active .osspm-segment-chip-count {
-    @apply bg-background/20 text-background;
-  }
-
-  .osspm-segment-chip-danger.osspm-segment-chip-active {
-    @apply border-rose-700/30 bg-rose-700 text-rose-50 hover:bg-rose-700/90;
-  }
-
-  .osspm-segment-chip-danger.osspm-segment-chip-active .osspm-segment-chip-count {
-    @apply bg-rose-50/20 text-rose-50;
-  }
-
-  .osspm-segment-chip-warn.osspm-segment-chip-active {
-    @apply border-amber-700/30 bg-amber-700 text-amber-50 hover:bg-amber-700/90;
-  }
-
-  .osspm-segment-chip-warn.osspm-segment-chip-active .osspm-segment-chip-count {
-    @apply bg-amber-50/20 text-amber-50;
   }
 
   /* ---------------------------------------------------------------------------
@@ -1227,6 +1525,10 @@
 
   .osspm-identity-status {
     @apply shrink-0 rounded-full bg-muted/60 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground;
+  }
+
+  .osspm-version-pill {
+    @apply shrink-0 rounded-full bg-muted/40 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground tabular-nums;
   }
 
   .osspm-identity-card {
@@ -1540,7 +1842,7 @@
 
   .osspm-col-id { width: 12rem; }
   .osspm-col-id-wide { width: 16rem; }
-  .osspm-table-credentials { min-width: 72rem; }
+  .osspm-table-credentials { min-width: 0; }
   .osspm-table-non-human-identities { min-width: 68rem; }
   .osspm-col-principal { width: 26rem; }
   .osspm-col-type { width: 8rem; }
@@ -1555,6 +1857,42 @@
   .osspm-col-activity { width: 11rem; }
   .osspm-col-freshness { width: 11rem; }
   .osspm-col-links { width: 8rem; }
+
+  .osspm-table-credentials col.osspm-col-credential { width: 32%; }
+  .osspm-table-credentials col.osspm-col-kind { width: 18%; }
+  .osspm-table-credentials col.osspm-col-asset { width: 24%; }
+  .osspm-table-credentials col.osspm-col-time { width: 14%; }
+  .osspm-table-credentials col.osspm-col-risk { width: 12%; }
+
+  .osspm-credential-state-badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+
+  .osspm-credential-state-badge::before {
+    content: "";
+    @apply h-1.5 w-1.5 rounded-full;
+    background: currentColor;
+  }
+
+  .osspm-credential-state-critical {
+    @apply bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-200;
+  }
+
+  .osspm-credential-state-high {
+    @apply bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-200;
+  }
+
+  .osspm-credential-state-info {
+    @apply bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-200;
+  }
+
+  .osspm-credential-state-muted {
+    @apply bg-muted text-muted-foreground;
+  }
+
+  .osspm-credential-state-ok {
+    @apply bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200;
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -1581,7 +1919,6 @@
   .osspm-num { text-align: right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
   .osspm-truncate { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  .osspm-filters-disclosure::details-content { transition: none; }
 }
 
 /* ---------------------------------------------------------------------------

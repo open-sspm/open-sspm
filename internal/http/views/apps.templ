@@ -29,20 +29,8 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 		>
 			<div class="osspm-list-toolbar">
 				<div class="min-w-0 flex-1">
-					@TableQueryBar(AppsTableQueryBar(data))
+					@AskBar(AppsAskBar(data))
 				</div>
-				<p class="osspm-list-summary">
-					if data.TotalCount > 0 {
-						<span class="font-medium text-foreground">{ FormatInt64(data.TotalCount) }</span>
-						if data.Query.HasFilters() {
-							{ " results" }
-						} else {
-							{ " apps" }
-						}
-					} else {
-						0 results
-					}
-				</p>
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>

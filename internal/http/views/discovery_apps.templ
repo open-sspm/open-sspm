@@ -75,14 +75,7 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 			>
 					<div class="osspm-list-toolbar">
 						<div class="min-w-0 flex-1">
-							@TableQueryBar(DiscoveryAppsTableQueryBar(data))
-						</div>
-						<div class="osspm-list-summary">
-							if data.TotalCount > 0 {
-								{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
-							} else {
-								Showing 0
-							}
+							@AskBar(DiscoveryAppsAskBar(data))
 						</div>
 					</div>
 				<button class="sr-only" type="submit">Apply filters</button>

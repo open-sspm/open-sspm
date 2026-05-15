@@ -118,10 +118,35 @@ ON CONFLICT (source_kind, source_name, credential_kind, external_id, asset_ref_k
 WITH rated_credentials AS (
   SELECT
     ca.*,
-    COALESCE(risk.risk_level, 'low')::text AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
+    -- lineage_key collapses re-issued credentials into a single row. The
+    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
+    -- stripped so a credential renewed each year groups under one lineage.
+    -- This assumes the naming convention; if other sources start emitting
+    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
+    md5(
+      coalesce(ca.source_kind, '') || '|' ||
+      coalesce(ca.asset_ref_external_id, '') || '|' ||
+      coalesce(ca.credential_kind, '') || '|' ||
+      CASE
+        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+        ELSE
+          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
+      END
+    ) AS lineage_key
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
+  LEFT JOIN app_assets aa
+    ON aa.source_kind = ca.source_kind
+   AND aa.source_name = ca.source_name
+   AND aa.expired_at IS NULL
+   AND (
+        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+     OR ca.asset_ref_external_id = aa.external_id
+   )
   WHERE
     ca.source_kind = sqlc.arg(source_kind)::text
     AND ca.source_name = sqlc.arg(source_name)::text
@@ -129,19 +154,60 @@ WITH rated_credentials AS (
     AND ca.last_observed_run_id IS NOT NULL
     AND (
       sqlc.arg(credential_kind)::text = ''
-      OR ca.credential_kind = sqlc.arg(credential_kind)::text
+      OR ca.credential_kind = ANY(regexp_split_to_array(sqlc.arg(credential_kind)::text, '\s*,\s*'))
     )
     AND (
       sqlc.arg(status)::text = ''
       OR lower(ca.status) = lower(sqlc.arg(status)::text)
     )
+    AND (
+      sqlc.arg(owner)::text = ''
+      OR ca.created_by_external_id ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.created_by_display_name ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.approved_by_external_id ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.approved_by_display_name ILIKE ('%' || sqlc.arg(owner)::text || '%')
+    )
+    AND (
+      sqlc.arg(asset)::text = ''
+      OR COALESCE(NULLIF(trim(aa.display_name), ''), '') ILIKE ('%' || sqlc.arg(asset)::text || '%')
+      OR ca.asset_ref_external_id ILIKE ('%' || sqlc.arg(asset)::text || '%')
+      OR ca.asset_ref_kind ILIKE ('%' || sqlc.arg(asset)::text || '%')
+    )
+    AND (
+      sqlc.arg(newer_days)::int <= 0
+      OR (
+        ca.created_at_source IS NOT NULL
+        AND ca.created_at_source >= sqlc.arg(evaluated_at)::timestamptz - make_interval(days => sqlc.arg(newer_days)::int)
+      )
+    )
+),
+ranked AS (
+  SELECT rc.*,
+    ROW_NUMBER() OVER (
+      PARTITION BY rc.lineage_key
+      ORDER BY
+        CASE rc.risk_level
+          WHEN 'critical' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+          ELSE 5
+        END ASC,
+        COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
+        COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
+        rc.id DESC
+    ) AS lineage_rank
+  FROM rated_credentials rc
+),
+latest AS (
+  SELECT * FROM ranked WHERE lineage_rank = 1
 )
-SELECT count(*)
-FROM rated_credentials rc
+SELECT count(*)::bigint
+FROM latest rc
 WHERE
   (
     sqlc.arg(risk_level)::text = ''
-    OR lower(sqlc.arg(risk_level)::text) = rc.risk_level
+    OR rc.risk_level = ANY(regexp_split_to_array(lower(sqlc.arg(risk_level)::text), '\s*,\s*'))
   )
   AND (
     sqlc.arg(expiry_state)::text = ''
@@ -170,16 +236,42 @@ WHERE
     OR rc.asset_ref_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
     OR rc.created_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
     OR rc.approved_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.asset_name ILIKE ('%' || sqlc.arg(query)::text || '%')
   );
 
 -- name: ListCredentialArtifactsPageBySourceAndQueryAndFilters :many
 WITH rated_credentials AS (
   SELECT
     ca.*,
-    COALESCE(risk.risk_level, 'low')::text AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
+    -- lineage_key collapses re-issued credentials into a single row. The
+    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
+    -- stripped so a credential renewed each year groups under one lineage.
+    -- This assumes the naming convention; if other sources start emitting
+    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
+    md5(
+      coalesce(ca.source_kind, '') || '|' ||
+      coalesce(ca.asset_ref_external_id, '') || '|' ||
+      coalesce(ca.credential_kind, '') || '|' ||
+      CASE
+        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+        ELSE
+          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
+      END
+    ) AS lineage_key
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
+  LEFT JOIN app_assets aa
+    ON aa.source_kind = ca.source_kind
+   AND aa.source_name = ca.source_name
+   AND aa.expired_at IS NULL
+   AND (
+        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+     OR ca.asset_ref_external_id = aa.external_id
+   )
   WHERE
     ca.source_kind = sqlc.arg(source_kind)::text
     AND ca.source_name = sqlc.arg(source_name)::text
@@ -187,19 +279,63 @@ WITH rated_credentials AS (
     AND ca.last_observed_run_id IS NOT NULL
     AND (
       sqlc.arg(credential_kind)::text = ''
-      OR ca.credential_kind = sqlc.arg(credential_kind)::text
+      OR ca.credential_kind = ANY(regexp_split_to_array(sqlc.arg(credential_kind)::text, '\s*,\s*'))
     )
     AND (
       sqlc.arg(status)::text = ''
       OR lower(ca.status) = lower(sqlc.arg(status)::text)
     )
+    AND (
+      sqlc.arg(owner)::text = ''
+      OR ca.created_by_external_id ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.created_by_display_name ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.approved_by_external_id ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.approved_by_display_name ILIKE ('%' || sqlc.arg(owner)::text || '%')
+    )
+    AND (
+      sqlc.arg(asset)::text = ''
+      OR COALESCE(NULLIF(trim(aa.display_name), ''), '') ILIKE ('%' || sqlc.arg(asset)::text || '%')
+      OR ca.asset_ref_external_id ILIKE ('%' || sqlc.arg(asset)::text || '%')
+      OR ca.asset_ref_kind ILIKE ('%' || sqlc.arg(asset)::text || '%')
+    )
+    AND (
+      sqlc.arg(newer_days)::int <= 0
+      OR (
+        ca.created_at_source IS NOT NULL
+        AND ca.created_at_source >= sqlc.arg(evaluated_at)::timestamptz - make_interval(days => sqlc.arg(newer_days)::int)
+      )
+    )
+),
+ranked AS (
+  SELECT rc.*,
+    ROW_NUMBER() OVER (
+      PARTITION BY rc.lineage_key
+      ORDER BY
+        CASE rc.risk_level
+          WHEN 'critical' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+          ELSE 5
+        END ASC,
+        COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
+        COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
+        rc.id DESC
+    ) AS lineage_rank,
+    COUNT(*) OVER (PARTITION BY rc.lineage_key) AS lineage_version_count
+  FROM rated_credentials rc
+),
+latest AS (
+  SELECT * FROM ranked WHERE lineage_rank = 1
 )
-SELECT rc.*
-FROM rated_credentials rc
+SELECT
+  rc.*,
+  rc.lineage_version_count::bigint AS version_count
+FROM latest rc
 WHERE
   (
     sqlc.arg(risk_level)::text = ''
-    OR lower(sqlc.arg(risk_level)::text) = rc.risk_level
+    OR rc.risk_level = ANY(regexp_split_to_array(lower(sqlc.arg(risk_level)::text), '\s*,\s*'))
   )
   AND (
     sqlc.arg(expiry_state)::text = ''
@@ -228,8 +364,20 @@ WHERE
     OR rc.asset_ref_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
     OR rc.created_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
     OR rc.approved_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.asset_name ILIKE ('%' || sqlc.arg(query)::text || '%')
   )
 ORDER BY
+  CASE WHEN sqlc.arg(sort_by)::text = 'risk' THEN
+    CASE rc.risk_level
+      WHEN 'critical' THEN 1
+      WHEN 'high' THEN 2
+      WHEN 'medium' THEN 3
+      WHEN 'low' THEN 4
+      ELSE 5
+    END
+  END ASC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_by)::text = 'asset' THEN lower(COALESCE(NULLIF(trim(rc.asset_name), ''), rc.asset_ref_external_id)) END ASC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_by)::text = 'credential' THEN lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) END ASC NULLS LAST,
   COALESCE(rc.expires_at_source, 'infinity'::timestamptz) ASC,
   lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) ASC,
   rc.id ASC
@@ -247,31 +395,97 @@ WITH configured_sources AS (
 rated_credentials AS (
   SELECT
     ca.*,
-    COALESCE(risk.risk_level, 'low')::text AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
+    -- lineage_key collapses re-issued credentials into a single row. The
+    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
+    -- stripped so a credential renewed each year groups under one lineage.
+    -- This assumes the naming convention; if other sources start emitting
+    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
+    md5(
+      coalesce(ca.source_kind, '') || '|' ||
+      coalesce(ca.asset_ref_external_id, '') || '|' ||
+      coalesce(ca.credential_kind, '') || '|' ||
+      CASE
+        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+        ELSE
+          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
+      END
+    ) AS lineage_key
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
   JOIN configured_sources cs
     ON cs.source_kind = ca.source_kind
    AND cs.source_name = ca.source_name
+  LEFT JOIN app_assets aa
+    ON aa.source_kind = ca.source_kind
+   AND aa.source_name = ca.source_name
+   AND aa.expired_at IS NULL
+   AND (
+        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+     OR ca.asset_ref_external_id = aa.external_id
+   )
   WHERE
     ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
       sqlc.arg(credential_kind)::text = ''
-      OR ca.credential_kind = sqlc.arg(credential_kind)::text
+      OR ca.credential_kind = ANY(regexp_split_to_array(sqlc.arg(credential_kind)::text, '\s*,\s*'))
     )
     AND (
       sqlc.arg(status)::text = ''
       OR lower(ca.status) = lower(sqlc.arg(status)::text)
     )
+    AND (
+      sqlc.arg(owner)::text = ''
+      OR ca.created_by_external_id ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.created_by_display_name ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.approved_by_external_id ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.approved_by_display_name ILIKE ('%' || sqlc.arg(owner)::text || '%')
+    )
+    AND (
+      sqlc.arg(asset)::text = ''
+      OR COALESCE(NULLIF(trim(aa.display_name), ''), '') ILIKE ('%' || sqlc.arg(asset)::text || '%')
+      OR ca.asset_ref_external_id ILIKE ('%' || sqlc.arg(asset)::text || '%')
+      OR ca.asset_ref_kind ILIKE ('%' || sqlc.arg(asset)::text || '%')
+    )
+    AND (
+      sqlc.arg(newer_days)::int <= 0
+      OR (
+        ca.created_at_source IS NOT NULL
+        AND ca.created_at_source >= sqlc.arg(evaluated_at)::timestamptz - make_interval(days => sqlc.arg(newer_days)::int)
+      )
+    )
+),
+ranked AS (
+  SELECT rc.*,
+    ROW_NUMBER() OVER (
+      PARTITION BY rc.lineage_key
+      ORDER BY
+        CASE rc.risk_level
+          WHEN 'critical' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+          ELSE 5
+        END ASC,
+        COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
+        COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
+        rc.id DESC
+    ) AS lineage_rank
+  FROM rated_credentials rc
+),
+latest AS (
+  SELECT * FROM ranked WHERE lineage_rank = 1
 )
-SELECT count(*)
-FROM rated_credentials rc
+SELECT count(*)::bigint
+FROM latest rc
 WHERE
   (
     sqlc.arg(risk_level)::text = ''
-    OR lower(sqlc.arg(risk_level)::text) = rc.risk_level
+    OR rc.risk_level = ANY(regexp_split_to_array(lower(sqlc.arg(risk_level)::text), '\s*,\s*'))
   )
   AND (
     sqlc.arg(expiry_state)::text = ''
@@ -300,6 +514,7 @@ WHERE
     OR rc.asset_ref_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
     OR rc.created_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
     OR rc.approved_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.asset_name ILIKE ('%' || sqlc.arg(query)::text || '%')
   );
 
 -- name: ListCredentialArtifactsPageBySourcesAndQueryAndFilters :many
@@ -313,31 +528,100 @@ WITH configured_sources AS (
 rated_credentials AS (
   SELECT
     ca.*,
-    COALESCE(risk.risk_level, 'low')::text AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
+    -- lineage_key collapses re-issued credentials into a single row. The
+    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
+    -- stripped so a credential renewed each year groups under one lineage.
+    -- This assumes the naming convention; if other sources start emitting
+    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
+    md5(
+      coalesce(ca.source_kind, '') || '|' ||
+      coalesce(ca.asset_ref_external_id, '') || '|' ||
+      coalesce(ca.credential_kind, '') || '|' ||
+      CASE
+        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+        ELSE
+          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
+      END
+    ) AS lineage_key
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
   JOIN configured_sources cs
     ON cs.source_kind = ca.source_kind
    AND cs.source_name = ca.source_name
+  LEFT JOIN app_assets aa
+    ON aa.source_kind = ca.source_kind
+   AND aa.source_name = ca.source_name
+   AND aa.expired_at IS NULL
+   AND (
+        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+     OR ca.asset_ref_external_id = aa.external_id
+   )
   WHERE
     ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
       sqlc.arg(credential_kind)::text = ''
-      OR ca.credential_kind = sqlc.arg(credential_kind)::text
+      OR ca.credential_kind = ANY(regexp_split_to_array(sqlc.arg(credential_kind)::text, '\s*,\s*'))
     )
     AND (
       sqlc.arg(status)::text = ''
       OR lower(ca.status) = lower(sqlc.arg(status)::text)
     )
+    AND (
+      sqlc.arg(owner)::text = ''
+      OR ca.created_by_external_id ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.created_by_display_name ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.approved_by_external_id ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.approved_by_display_name ILIKE ('%' || sqlc.arg(owner)::text || '%')
+    )
+    AND (
+      sqlc.arg(asset)::text = ''
+      OR COALESCE(NULLIF(trim(aa.display_name), ''), '') ILIKE ('%' || sqlc.arg(asset)::text || '%')
+      OR ca.asset_ref_external_id ILIKE ('%' || sqlc.arg(asset)::text || '%')
+      OR ca.asset_ref_kind ILIKE ('%' || sqlc.arg(asset)::text || '%')
+    )
+    AND (
+      sqlc.arg(newer_days)::int <= 0
+      OR (
+        ca.created_at_source IS NOT NULL
+        AND ca.created_at_source >= sqlc.arg(evaluated_at)::timestamptz - make_interval(days => sqlc.arg(newer_days)::int)
+      )
+    )
+),
+ranked AS (
+  SELECT rc.*,
+    ROW_NUMBER() OVER (
+      PARTITION BY rc.lineage_key
+      ORDER BY
+        CASE rc.risk_level
+          WHEN 'critical' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+          ELSE 5
+        END ASC,
+        COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
+        COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
+        rc.id DESC
+    ) AS lineage_rank,
+    COUNT(*) OVER (PARTITION BY rc.lineage_key) AS lineage_version_count
+  FROM rated_credentials rc
+),
+latest AS (
+  SELECT * FROM ranked WHERE lineage_rank = 1
 )
-SELECT rc.*
-FROM rated_credentials rc
+SELECT
+  rc.*,
+  rc.lineage_version_count::bigint AS version_count
+FROM latest rc
 WHERE
   (
     sqlc.arg(risk_level)::text = ''
-    OR lower(sqlc.arg(risk_level)::text) = rc.risk_level
+    OR rc.risk_level = ANY(regexp_split_to_array(lower(sqlc.arg(risk_level)::text), '\s*,\s*'))
   )
   AND (
     sqlc.arg(expiry_state)::text = ''
@@ -366,8 +650,20 @@ WHERE
     OR rc.asset_ref_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
     OR rc.created_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
     OR rc.approved_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.asset_name ILIKE ('%' || sqlc.arg(query)::text || '%')
   )
 ORDER BY
+  CASE WHEN sqlc.arg(sort_by)::text = 'risk' THEN
+    CASE rc.risk_level
+      WHEN 'critical' THEN 1
+      WHEN 'high' THEN 2
+      WHEN 'medium' THEN 3
+      WHEN 'low' THEN 4
+      ELSE 5
+    END
+  END ASC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_by)::text = 'asset' THEN lower(COALESCE(NULLIF(trim(rc.asset_name), ''), rc.asset_ref_external_id)) END ASC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_by)::text = 'credential' THEN lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) END ASC NULLS LAST,
   COALESCE(rc.expires_at_source, 'infinity'::timestamptz) ASC,
   lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) ASC,
   rc.source_kind ASC,
@@ -375,6 +671,374 @@ ORDER BY
   rc.id ASC
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
+
+-- name: ListCredentialArtifactsForExportBySourcesAndQueryAndFilters :many
+-- Export-variant of the credentials list query. Returns every distinct active
+-- credential matching the filters, with no lineage collapse, so two
+-- same-named credentials with different external_id values both appear in the
+-- exported CSV. lineage_version_count is still surfaced so each row can carry
+-- a "this credential is part of an N-version lineage" hint for triage.
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+rated_credentials AS (
+  SELECT
+    ca.*,
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
+    md5(
+      coalesce(ca.source_kind, '') || '|' ||
+      coalesce(ca.asset_ref_external_id, '') || '|' ||
+      coalesce(ca.credential_kind, '') || '|' ||
+      CASE
+        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+        ELSE
+          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
+      END
+    ) AS lineage_key
+  FROM credential_artifacts ca
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
+  JOIN configured_sources cs
+    ON cs.source_kind = ca.source_kind
+   AND cs.source_name = ca.source_name
+  LEFT JOIN app_assets aa
+    ON aa.source_kind = ca.source_kind
+   AND aa.source_name = ca.source_name
+   AND aa.expired_at IS NULL
+   AND (
+        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+     OR ca.asset_ref_external_id = aa.external_id
+   )
+  WHERE
+    ca.expired_at IS NULL
+    AND ca.last_observed_run_id IS NOT NULL
+    AND (
+      sqlc.arg(credential_kind)::text = ''
+      OR ca.credential_kind = ANY(regexp_split_to_array(sqlc.arg(credential_kind)::text, '\s*,\s*'))
+    )
+    AND (
+      sqlc.arg(status)::text = ''
+      OR lower(ca.status) = lower(sqlc.arg(status)::text)
+    )
+    AND (
+      sqlc.arg(owner)::text = ''
+      OR ca.created_by_external_id ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.created_by_display_name ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.approved_by_external_id ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.approved_by_display_name ILIKE ('%' || sqlc.arg(owner)::text || '%')
+    )
+    AND (
+      sqlc.arg(asset)::text = ''
+      OR COALESCE(NULLIF(trim(aa.display_name), ''), '') ILIKE ('%' || sqlc.arg(asset)::text || '%')
+      OR ca.asset_ref_external_id ILIKE ('%' || sqlc.arg(asset)::text || '%')
+      OR ca.asset_ref_kind ILIKE ('%' || sqlc.arg(asset)::text || '%')
+    )
+    AND (
+      sqlc.arg(newer_days)::int <= 0
+      OR (
+        ca.created_at_source IS NOT NULL
+        AND ca.created_at_source >= sqlc.arg(evaluated_at)::timestamptz - make_interval(days => sqlc.arg(newer_days)::int)
+      )
+    )
+),
+versioned AS (
+  SELECT rc.*,
+    COUNT(*) OVER (PARTITION BY rc.lineage_key) AS lineage_version_count
+  FROM rated_credentials rc
+)
+SELECT
+  rc.*,
+  rc.lineage_version_count::bigint AS version_count
+FROM versioned rc
+WHERE
+  (
+    sqlc.arg(risk_level)::text = ''
+    OR rc.risk_level = ANY(regexp_split_to_array(lower(sqlc.arg(risk_level)::text), '\s*,\s*'))
+  )
+  AND (
+    sqlc.arg(expiry_state)::text = ''
+    OR (
+      sqlc.arg(expiry_state)::text = 'expired'
+      AND rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source < sqlc.arg(evaluated_at)::timestamptz
+    )
+    OR (
+      sqlc.arg(expiry_state)::text = 'active'
+      AND (rc.expires_at_source IS NULL OR rc.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz)
+    )
+  )
+  AND (
+    sqlc.arg(expires_in_days)::int <= 0
+    OR (
+      rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz
+      AND rc.expires_at_source <= sqlc.arg(evaluated_at)::timestamptz + make_interval(days => sqlc.arg(expires_in_days)::int)
+    )
+  )
+  AND (
+    sqlc.arg(query)::text = ''
+    OR rc.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.asset_ref_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.created_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.approved_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.asset_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+  )
+ORDER BY
+  CASE WHEN sqlc.arg(sort_by)::text = 'risk' THEN
+    CASE rc.risk_level
+      WHEN 'critical' THEN 1
+      WHEN 'high' THEN 2
+      WHEN 'medium' THEN 3
+      WHEN 'low' THEN 4
+      ELSE 5
+    END
+  END ASC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_by)::text = 'asset' THEN lower(COALESCE(NULLIF(trim(rc.asset_name), ''), rc.asset_ref_external_id)) END ASC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_by)::text = 'credential' THEN lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) END ASC NULLS LAST,
+  COALESCE(rc.expires_at_source, 'infinity'::timestamptz) ASC,
+  lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) ASC,
+  rc.source_kind ASC,
+  rc.source_name ASC,
+  rc.id ASC
+LIMIT sqlc.arg(page_limit)::int;
+
+-- name: SummarizeCredentialsBySourceAndQuery :one
+-- Returns counts of distinct active credentials for the credentials stat strip
+-- and segment chips. Distinct rather than lineage-grouped so that two
+-- same-named credentials with different external_id values both contribute to
+-- the risk-level counts and are not hidden behind a single lineage row.
+-- Respects source/q/credential_kind/owner/asset/newer scoping; segment-style
+-- filters (status/risk/expiry) are intentionally excluded so cards can show
+-- segment sizes while a segment is active.
+WITH rated_credentials AS (
+  SELECT
+    ca.*,
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
+    -- lineage_key collapses re-issued credentials into a single row. The
+    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
+    -- stripped so a credential renewed each year groups under one lineage.
+    -- This assumes the naming convention; if other sources start emitting
+    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
+    md5(
+      coalesce(ca.source_kind, '') || '|' ||
+      coalesce(ca.asset_ref_external_id, '') || '|' ||
+      coalesce(ca.credential_kind, '') || '|' ||
+      CASE
+        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+        ELSE
+          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
+      END
+    ) AS lineage_key
+  FROM credential_artifacts ca
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
+  LEFT JOIN app_assets aa
+    ON aa.source_kind = ca.source_kind
+   AND aa.source_name = ca.source_name
+   AND aa.expired_at IS NULL
+   AND (
+        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+     OR ca.asset_ref_external_id = aa.external_id
+   )
+  WHERE
+    ca.source_kind = sqlc.arg(source_kind)::text
+    AND ca.source_name = sqlc.arg(source_name)::text
+    AND ca.expired_at IS NULL
+    AND ca.last_observed_run_id IS NOT NULL
+    AND (
+      sqlc.arg(credential_kind)::text = ''
+      OR ca.credential_kind = ANY(regexp_split_to_array(sqlc.arg(credential_kind)::text, '\s*,\s*'))
+    )
+    AND (
+      sqlc.arg(owner)::text = ''
+      OR ca.created_by_external_id ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.created_by_display_name ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.approved_by_external_id ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.approved_by_display_name ILIKE ('%' || sqlc.arg(owner)::text || '%')
+    )
+    AND (
+      sqlc.arg(asset)::text = ''
+      OR COALESCE(NULLIF(trim(aa.display_name), ''), '') ILIKE ('%' || sqlc.arg(asset)::text || '%')
+      OR ca.asset_ref_external_id ILIKE ('%' || sqlc.arg(asset)::text || '%')
+      OR ca.asset_ref_kind ILIKE ('%' || sqlc.arg(asset)::text || '%')
+    )
+    AND (
+      sqlc.arg(newer_days)::int <= 0
+      OR (
+        ca.created_at_source IS NOT NULL
+        AND ca.created_at_source >= sqlc.arg(evaluated_at)::timestamptz - make_interval(days => sqlc.arg(newer_days)::int)
+      )
+    )
+),
+matched AS (
+  SELECT *
+  FROM rated_credentials rc
+  WHERE
+    sqlc.arg(query)::text = ''
+    OR rc.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.asset_ref_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.created_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.approved_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.asset_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+)
+SELECT
+  count(*)::bigint AS total,
+  count(*) FILTER (
+    WHERE m.expires_at_source IS NOT NULL
+      AND m.expires_at_source < sqlc.arg(evaluated_at)::timestamptz
+  )::bigint AS expired,
+  count(*) FILTER (
+    WHERE m.expires_at_source IS NOT NULL
+      AND m.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz
+      AND m.expires_at_source <= sqlc.arg(evaluated_at)::timestamptz + make_interval(days => 30)
+  )::bigint AS expiring_soon,
+  count(*) FILTER (WHERE m.risk_level = 'critical')::bigint AS critical,
+  count(*) FILTER (WHERE m.risk_level = 'high')::bigint AS high,
+  -- The "warning" tier mixes medium-risk credentials with non-critical/high
+  -- credentials inside the 30-day expiry window. If the expiry window
+  -- elsewhere (CredentialExpiryTextClass, expiryWordAndTone in helpers.go) is
+  -- ever retuned, update the interval below to keep the KPI consistent.
+  count(*) FILTER (
+    WHERE m.risk_level = 'medium'
+       OR (
+         m.expires_at_source IS NOT NULL
+         AND m.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz
+         AND m.expires_at_source <= sqlc.arg(evaluated_at)::timestamptz + make_interval(days => 30)
+         AND m.risk_level NOT IN ('critical', 'high')
+       )
+  )::bigint AS warning,
+  count(*) FILTER (WHERE lower(m.status) IN ('pending_approval', 'pending'))::bigint AS pending_approval,
+  count(*) FILTER (WHERE lower(m.status) = 'revoked')::bigint AS revoked,
+  count(*) FILTER (
+    WHERE m.expires_at_source IS NULL
+       OR m.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz
+  )::bigint AS active,
+  count(DISTINCT COALESCE(NULLIF(trim(m.asset_name), ''), m.asset_ref_kind || ':' || m.asset_ref_external_id))::bigint AS asset_count
+FROM matched m;
+
+-- name: SummarizeCredentialsBySourcesAndQuery :one
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+rated_credentials AS (
+  SELECT
+    ca.*,
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
+    -- lineage_key collapses re-issued credentials into a single row. The
+    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
+    -- stripped so a credential renewed each year groups under one lineage.
+    -- This assumes the naming convention; if other sources start emitting
+    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
+    md5(
+      coalesce(ca.source_kind, '') || '|' ||
+      coalesce(ca.asset_ref_external_id, '') || '|' ||
+      coalesce(ca.credential_kind, '') || '|' ||
+      CASE
+        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+        ELSE
+          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
+      END
+    ) AS lineage_key
+  FROM credential_artifacts ca
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
+  JOIN configured_sources cs
+    ON cs.source_kind = ca.source_kind
+   AND cs.source_name = ca.source_name
+  LEFT JOIN app_assets aa
+    ON aa.source_kind = ca.source_kind
+   AND aa.source_name = ca.source_name
+   AND aa.expired_at IS NULL
+   AND (
+        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+     OR ca.asset_ref_external_id = aa.external_id
+   )
+  WHERE
+    ca.expired_at IS NULL
+    AND ca.last_observed_run_id IS NOT NULL
+    AND (
+      sqlc.arg(credential_kind)::text = ''
+      OR ca.credential_kind = ANY(regexp_split_to_array(sqlc.arg(credential_kind)::text, '\s*,\s*'))
+    )
+    AND (
+      sqlc.arg(owner)::text = ''
+      OR ca.created_by_external_id ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.created_by_display_name ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.approved_by_external_id ILIKE ('%' || sqlc.arg(owner)::text || '%')
+      OR ca.approved_by_display_name ILIKE ('%' || sqlc.arg(owner)::text || '%')
+    )
+    AND (
+      sqlc.arg(asset)::text = ''
+      OR COALESCE(NULLIF(trim(aa.display_name), ''), '') ILIKE ('%' || sqlc.arg(asset)::text || '%')
+      OR ca.asset_ref_external_id ILIKE ('%' || sqlc.arg(asset)::text || '%')
+      OR ca.asset_ref_kind ILIKE ('%' || sqlc.arg(asset)::text || '%')
+    )
+    AND (
+      sqlc.arg(newer_days)::int <= 0
+      OR (
+        ca.created_at_source IS NOT NULL
+        AND ca.created_at_source >= sqlc.arg(evaluated_at)::timestamptz - make_interval(days => sqlc.arg(newer_days)::int)
+      )
+    )
+),
+matched AS (
+  SELECT *
+  FROM rated_credentials rc
+  WHERE
+    sqlc.arg(query)::text = ''
+    OR rc.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.asset_ref_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.created_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.approved_by_external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR rc.asset_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+)
+SELECT
+  count(*)::bigint AS total,
+  count(*) FILTER (
+    WHERE m.expires_at_source IS NOT NULL
+      AND m.expires_at_source < sqlc.arg(evaluated_at)::timestamptz
+  )::bigint AS expired,
+  count(*) FILTER (
+    WHERE m.expires_at_source IS NOT NULL
+      AND m.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz
+      AND m.expires_at_source <= sqlc.arg(evaluated_at)::timestamptz + make_interval(days => 30)
+  )::bigint AS expiring_soon,
+  count(*) FILTER (WHERE m.risk_level = 'critical')::bigint AS critical,
+  count(*) FILTER (WHERE m.risk_level = 'high')::bigint AS high,
+  count(*) FILTER (
+    WHERE m.risk_level = 'medium'
+       OR (
+         m.expires_at_source IS NOT NULL
+         AND m.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz
+         AND m.expires_at_source <= sqlc.arg(evaluated_at)::timestamptz + make_interval(days => 30)
+         AND m.risk_level NOT IN ('critical', 'high')
+       )
+  )::bigint AS warning,
+  count(*) FILTER (WHERE lower(m.status) IN ('pending_approval', 'pending'))::bigint AS pending_approval,
+  count(*) FILTER (WHERE lower(m.status) = 'revoked')::bigint AS revoked,
+  count(*) FILTER (
+    WHERE m.expires_at_source IS NULL
+       OR m.expires_at_source >= sqlc.arg(evaluated_at)::timestamptz
+  )::bigint AS active,
+  count(DISTINCT COALESCE(NULLIF(trim(m.asset_name), ''), m.asset_ref_kind || ':' || m.asset_ref_external_id))::bigint AS asset_count
+FROM matched m;
 
 -- name: ListCredentialArtifactsForAssetRef :many
 SELECT

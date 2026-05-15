@@ -34,7 +34,7 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 						@OktaAppAssignmentSummaryLine(data.Summary)
 					</div>
 					<div class="min-w-0 flex-1 sm:max-w-sm">
-						@TableQueryBar(ActiveInactiveStateTableQueryBar(data.Query, "Search name, email, or Okta ID"))
+						@AskBar(StateAskBar(data.Query, "Search name, email, or Okta ID", ""))
 					</div>
 				</div>
 				<button class="sr-only" type="submit">Apply filters</button>

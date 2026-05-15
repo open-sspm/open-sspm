@@ -128,20 +128,21 @@ func TestOverviewMapRendersStableHooks(t *testing.T) {
 	}
 }
 
-func TestSegmentChipUsesAriaCurrentForActiveLink(t *testing.T) {
+func TestAskBarSavedQueryPillUsesAriaCurrentForActiveLink(t *testing.T) {
 	t.Parallel()
 
 	var body bytes.Buffer
-	if err := segmentChip("/identities", "All", "12", true, "").Render(context.Background(), &body); err != nil {
-		t.Fatalf("render segmentChip: %v", err)
+	pill := AskBarSavedQuery{Href: "/identities", Label: "All", Active: true}
+	if err := askBarSavedQueryPill(pill, "#identities-results").Render(context.Background(), &body); err != nil {
+		t.Fatalf("render askBarSavedQueryPill: %v", err)
 	}
 
 	html := body.String()
 	if !strings.Contains(html, `aria-current="page"`) {
-		t.Fatalf("segment chip should render aria-current: %s", html)
+		t.Fatalf("saved query pill should render aria-current: %s", html)
 	}
 	if strings.Contains(html, `aria-pressed=`) {
-		t.Fatalf("segment chip should not render aria-pressed: %s", html)
+		t.Fatalf("saved query pill should not render aria-pressed: %s", html)
 	}
 }
 

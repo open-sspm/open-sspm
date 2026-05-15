@@ -21,6 +21,12 @@ templ Layout(data viewmodels.LayoutData) {
 						}
 					} catch (_) {}
 
+					try {
+						const sidebarPref = localStorage.getItem('openSspm.sidebar.desktopOpen');
+						if (sidebarPref === 'false') document.documentElement.dataset.sidebarPref = 'closed';
+						else if (sidebarPref === 'true') document.documentElement.dataset.sidebarPref = 'open';
+					} catch (_) {}
+
 					const apply = dark => {
 						document.documentElement.classList.toggle('dark', dark);
 						try { localStorage.setItem('themeMode', dark ? 'dark' : 'light'); } catch (_) {}

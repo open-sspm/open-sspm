@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -404,6 +405,7 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 
 	now := time.Now().UTC()
 	evaluatedAt := pgTimestamptz(now)
+	ownerFilter := credentialOwnerFilter(queryState.Owner, layout.UserEmail)
 	linkResolver := newIdentityLinkResolver(h, ctx)
 	var totalCount int64
 	var items []viewmodels.CredentialArtifactListItem
@@ -419,6 +421,9 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 			RiskLevel:      queryState.RiskLevel,
 			ExpiryState:    queryState.ExpiryState,
 			ExpiresInDays:  int32(queryState.ExpiresInDays),
+			Owner:          ownerFilter,
+			Asset:          queryState.Asset,
+			NewerDays:      int32(queryState.NewerThanDays),
 			Query:          queryState.Q,
 		})
 		if err != nil {
@@ -435,6 +440,10 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 			RiskLevel:      queryState.RiskLevel,
 			ExpiryState:    queryState.ExpiryState,
 			ExpiresInDays:  int32(queryState.ExpiresInDays),
+			Owner:          ownerFilter,
+			Asset:          queryState.Asset,
+			NewerDays:      int32(queryState.NewerThanDays),
+			SortBy:         queryState.SortBy,
 			Query:          queryState.Q,
 			PageLimit:      int32(perPage),
 			PageOffset:     int32(pagination.Offset()),
@@ -445,42 +454,33 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 
 		items = make([]viewmodels.CredentialArtifactListItem, 0, len(rows))
 		for _, row := range rows {
-			displayName := strings.TrimSpace(row.DisplayName)
-			if displayName == "" {
-				displayName = strings.TrimSpace(row.ExternalID)
-			}
-			assetRefKind := strings.TrimSpace(row.AssetRefKind)
-			assetRefExternalID := strings.TrimSpace(row.AssetRefExternalID)
-			assetRef := ""
-			switch {
-			case assetRefKind != "" && assetRefExternalID != "":
-				assetRef = assetRefKind + ":" + assetRefExternalID
-			case assetRefKind != "":
-				assetRef = assetRefKind
-			case assetRefExternalID != "":
-				assetRef = assetRefExternalID
-			}
-			createdBy := fallbackDash(actorDisplayName(row.CreatedByDisplayName, row.CreatedByExternalID))
-			approvedBy := fallbackDash(actorDisplayName(row.ApprovedByDisplayName, row.ApprovedByExternalID))
-			items = append(items, viewmodels.CredentialArtifactListItem{
-				ID:             row.ID,
-				SourceKind:     strings.TrimSpace(row.SourceKind),
-				SourceName:     strings.TrimSpace(row.SourceName),
-				CredentialKind: fallbackDash(strings.TrimSpace(row.CredentialKind)),
-				DisplayName:    fallbackDash(displayName),
-				ExternalID:     fallbackDash(strings.TrimSpace(row.ExternalID)),
-				AssetRef:       fallbackDash(assetRef),
-				AssetRefKind:   fallbackDash(assetRefKind),
-				AssetRefID:     fallbackDash(assetRefExternalID),
-				Status:         fallbackDash(strings.TrimSpace(row.Status)),
-				RiskLevel:      strings.TrimSpace(row.RiskLevel),
-				ExpiresAt:      calendarDateDisplay(row.ExpiresAtSource),
-				LastUsedAt:     calendarDateDisplay(row.LastUsedAtSource),
-				CreatedBy:      createdBy,
-				CreatedByHref:  linkResolver.Resolve(strings.TrimSpace(row.SourceKind), strings.TrimSpace(row.SourceName), row.CreatedByExternalID, "", row.CreatedByDisplayName),
-				ApprovedBy:     approvedBy,
-				ApprovedByHref: linkResolver.Resolve(strings.TrimSpace(row.SourceKind), strings.TrimSpace(row.SourceName), row.ApprovedByExternalID, "", row.ApprovedByDisplayName),
-			})
+			items = append(items, buildCredentialListItem(now, credentialListRowFromBySource(row), linkResolver))
+		}
+
+		summary, err := h.Q.SummarizeCredentialsBySourceAndQuery(ctx, gen.SummarizeCredentialsBySourceAndQueryParams{
+			EvaluatedAt:    evaluatedAt,
+			SourceKind:     source.SourceKind,
+			SourceName:     source.SourceName,
+			CredentialKind: queryState.CredentialKind,
+			Owner:          ownerFilter,
+			Asset:          queryState.Asset,
+			NewerDays:      int32(queryState.NewerThanDays),
+			Query:          queryState.Q,
+		})
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		data.Summary = viewmodels.CredentialsSummary{
+			Total:           summary.Total,
+			Active:          summary.Active,
+			Expired:         summary.Expired,
+			ExpiringSoon:    summary.ExpiringSoon,
+			Critical:        summary.Critical,
+			High:            summary.High,
+			Warning:         summary.Warning,
+			PendingApproval: summary.PendingApproval,
+			Revoked:         summary.Revoked,
+			AssetCount:      summary.AssetCount,
 		}
 	} else {
 		sourceKinds, sourceNames := programmaticConfiguredSourcePairs(activeSources)
@@ -493,6 +493,9 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 			RiskLevel:             queryState.RiskLevel,
 			ExpiryState:           queryState.ExpiryState,
 			ExpiresInDays:         int32(queryState.ExpiresInDays),
+			Owner:                 ownerFilter,
+			Asset:                 queryState.Asset,
+			NewerDays:             int32(queryState.NewerThanDays),
 			Query:                 queryState.Q,
 		})
 		if err != nil {
@@ -508,6 +511,10 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 			RiskLevel:             queryState.RiskLevel,
 			ExpiryState:           queryState.ExpiryState,
 			ExpiresInDays:         int32(queryState.ExpiresInDays),
+			Owner:                 ownerFilter,
+			Asset:                 queryState.Asset,
+			NewerDays:             int32(queryState.NewerThanDays),
+			SortBy:                queryState.SortBy,
 			Query:                 queryState.Q,
 			PageLimit:             int32(perPage),
 			PageOffset:            int32(pagination.Offset()),
@@ -518,53 +525,320 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 
 		items = make([]viewmodels.CredentialArtifactListItem, 0, len(rows))
 		for _, row := range rows {
-			displayName := strings.TrimSpace(row.DisplayName)
-			if displayName == "" {
-				displayName = strings.TrimSpace(row.ExternalID)
-			}
-			assetRefKind := strings.TrimSpace(row.AssetRefKind)
-			assetRefExternalID := strings.TrimSpace(row.AssetRefExternalID)
-			assetRef := ""
-			switch {
-			case assetRefKind != "" && assetRefExternalID != "":
-				assetRef = assetRefKind + ":" + assetRefExternalID
-			case assetRefKind != "":
-				assetRef = assetRefKind
-			case assetRefExternalID != "":
-				assetRef = assetRefExternalID
-			}
-			createdBy := fallbackDash(actorDisplayName(row.CreatedByDisplayName, row.CreatedByExternalID))
-			approvedBy := fallbackDash(actorDisplayName(row.ApprovedByDisplayName, row.ApprovedByExternalID))
-			items = append(items, viewmodels.CredentialArtifactListItem{
-				ID:             row.ID,
-				SourceKind:     strings.TrimSpace(row.SourceKind),
-				SourceName:     strings.TrimSpace(row.SourceName),
-				CredentialKind: fallbackDash(strings.TrimSpace(row.CredentialKind)),
-				DisplayName:    fallbackDash(displayName),
-				ExternalID:     fallbackDash(strings.TrimSpace(row.ExternalID)),
-				AssetRef:       fallbackDash(assetRef),
-				AssetRefKind:   fallbackDash(assetRefKind),
-				AssetRefID:     fallbackDash(assetRefExternalID),
-				Status:         fallbackDash(strings.TrimSpace(row.Status)),
-				RiskLevel:      strings.TrimSpace(row.RiskLevel),
-				ExpiresAt:      calendarDateDisplay(row.ExpiresAtSource),
-				LastUsedAt:     calendarDateDisplay(row.LastUsedAtSource),
-				CreatedBy:      createdBy,
-				CreatedByHref:  linkResolver.Resolve(strings.TrimSpace(row.SourceKind), strings.TrimSpace(row.SourceName), row.CreatedByExternalID, "", row.CreatedByDisplayName),
-				ApprovedBy:     approvedBy,
-				ApprovedByHref: linkResolver.Resolve(strings.TrimSpace(row.SourceKind), strings.TrimSpace(row.SourceName), row.ApprovedByExternalID, "", row.ApprovedByDisplayName),
-			})
+			items = append(items, buildCredentialListItem(now, credentialListRowFromBySources(row), linkResolver))
+		}
+
+		summary, err := h.Q.SummarizeCredentialsBySourcesAndQuery(ctx, gen.SummarizeCredentialsBySourcesAndQueryParams{
+			EvaluatedAt:           evaluatedAt,
+			ConfiguredSourceKinds: sourceKinds,
+			ConfiguredSourceNames: sourceNames,
+			CredentialKind:        queryState.CredentialKind,
+			Owner:                 ownerFilter,
+			Asset:                 queryState.Asset,
+			NewerDays:             int32(queryState.NewerThanDays),
+			Query:                 queryState.Q,
+		})
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		data.Summary = viewmodels.CredentialsSummary{
+			Total:           summary.Total,
+			Active:          summary.Active,
+			Expired:         summary.Expired,
+			ExpiringSoon:    summary.ExpiringSoon,
+			Critical:        summary.Critical,
+			High:            summary.High,
+			Warning:         summary.Warning,
+			PendingApproval: summary.PendingApproval,
+			Revoked:         summary.Revoked,
+			AssetCount:      summary.AssetCount,
 		}
 	}
 
 	data.Items = items
 	data.PaginatedListPageData = pagination.PageData(layout, len(items), "No credentials found for the current filters.", "")
 	data.HasItems = len(items) > 0
+	data.HasLastUsedData = views.CredentialsHasLastUsedVariance(items)
 	if queryState.HasFilters() {
 		data.PaginatedListPageData.EmptyStateMsg = "No credentials match the current search filters."
 	}
 
 	return renderCredentials()
+}
+
+type credentialExportRecord struct {
+	SourceKind     string
+	SourceName     string
+	CredentialKind string
+	DisplayName    string
+	ExternalID     string
+	AssetName      string
+	AssetRefKind   string
+	AssetRefID     string
+	Status         string
+	RiskLevel      string
+	ExpiresAt      string
+	LastUsedAt     string
+	CreatedBy      string
+	ApprovedBy     string
+}
+
+// credentialListRow is the subset of sqlc row fields the credentials list and
+// export handlers consume. Both ListCredentialArtifactsPageBySource* row types
+// have the same shape; this struct lets buildCredentialListItem and the export
+// builder take a single value instead of long positional argument lists.
+type credentialListRow struct {
+	ID                    int64
+	SourceKind            string
+	SourceName            string
+	CredentialKind        string
+	DisplayName           string
+	ExternalID            string
+	AssetRefKind          string
+	AssetRefExternalID    string
+	AssetName             string
+	Status                string
+	RiskLevel             string
+	ExpiresAtSource       pgtype.Timestamptz
+	LastUsedAtSource      pgtype.Timestamptz
+	CreatedByDisplayName  string
+	CreatedByExternalID   string
+	ApprovedByDisplayName string
+	ApprovedByExternalID  string
+	VersionCount          int64
+}
+
+func credentialListRowFromBySource(r gen.ListCredentialArtifactsPageBySourceAndQueryAndFiltersRow) credentialListRow {
+	return credentialListRow{
+		ID:                    r.ID,
+		SourceKind:            r.SourceKind,
+		SourceName:            r.SourceName,
+		CredentialKind:        r.CredentialKind,
+		DisplayName:           r.DisplayName,
+		ExternalID:            r.ExternalID,
+		AssetRefKind:          r.AssetRefKind,
+		AssetRefExternalID:    r.AssetRefExternalID,
+		AssetName:             r.AssetName,
+		Status:                r.Status,
+		RiskLevel:             r.RiskLevel,
+		ExpiresAtSource:       r.ExpiresAtSource,
+		LastUsedAtSource:      r.LastUsedAtSource,
+		CreatedByDisplayName:  r.CreatedByDisplayName,
+		CreatedByExternalID:   r.CreatedByExternalID,
+		ApprovedByDisplayName: r.ApprovedByDisplayName,
+		ApprovedByExternalID:  r.ApprovedByExternalID,
+		VersionCount:          r.VersionCount,
+	}
+}
+
+func credentialListRowFromBySources(r gen.ListCredentialArtifactsPageBySourcesAndQueryAndFiltersRow) credentialListRow {
+	return credentialListRow{
+		ID:                    r.ID,
+		SourceKind:            r.SourceKind,
+		SourceName:            r.SourceName,
+		CredentialKind:        r.CredentialKind,
+		DisplayName:           r.DisplayName,
+		ExternalID:            r.ExternalID,
+		AssetRefKind:          r.AssetRefKind,
+		AssetRefExternalID:    r.AssetRefExternalID,
+		AssetName:             r.AssetName,
+		Status:                r.Status,
+		RiskLevel:             r.RiskLevel,
+		ExpiresAtSource:       r.ExpiresAtSource,
+		LastUsedAtSource:      r.LastUsedAtSource,
+		CreatedByDisplayName:  r.CreatedByDisplayName,
+		CreatedByExternalID:   r.CreatedByExternalID,
+		ApprovedByDisplayName: r.ApprovedByDisplayName,
+		ApprovedByExternalID:  r.ApprovedByExternalID,
+		VersionCount:          r.VersionCount,
+	}
+}
+
+func credentialListRowFromForExport(r gen.ListCredentialArtifactsForExportBySourcesAndQueryAndFiltersRow) credentialListRow {
+	return credentialListRow{
+		ID:                    r.ID,
+		SourceKind:            r.SourceKind,
+		SourceName:            r.SourceName,
+		CredentialKind:        r.CredentialKind,
+		DisplayName:           r.DisplayName,
+		ExternalID:            r.ExternalID,
+		AssetRefKind:          r.AssetRefKind,
+		AssetRefExternalID:    r.AssetRefExternalID,
+		AssetName:             r.AssetName,
+		Status:                r.Status,
+		RiskLevel:             r.RiskLevel,
+		ExpiresAtSource:       r.ExpiresAtSource,
+		LastUsedAtSource:      r.LastUsedAtSource,
+		CreatedByDisplayName:  r.CreatedByDisplayName,
+		CreatedByExternalID:   r.CreatedByExternalID,
+		ApprovedByDisplayName: r.ApprovedByDisplayName,
+		ApprovedByExternalID:  r.ApprovedByExternalID,
+		VersionCount:          r.VersionCount,
+	}
+}
+
+func (h *Handlers) HandleCredentialsExport(c *echo.Context) error {
+	ctx := c.Request().Context()
+	layout, stateView, err := h.LayoutData(ctx, c, "Credentials Export")
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+
+	sources := availableProgrammaticSources(stateView)
+	queryState := querystate.ParseCredentialsQuery(c.Request().URL.Query(), programmaticQuerySources(sources))
+	activeSources := effectiveProgrammaticSources(queryState.Source, sources)
+	if len(activeSources) == 0 {
+		return h.RenderError(c, errors.New("no credential sources configured for export"))
+	}
+	now := time.Now().UTC()
+	evaluatedAt := pgTimestamptz(now)
+	ownerFilter := credentialOwnerFilter(queryState.Owner, layout.UserEmail)
+	const exportLimit = 5000
+
+	sourceKinds, sourceNames := programmaticConfiguredSourcePairs(activeSources)
+	rows, err := h.Q.ListCredentialArtifactsForExportBySourcesAndQueryAndFilters(ctx, gen.ListCredentialArtifactsForExportBySourcesAndQueryAndFiltersParams{
+		EvaluatedAt:           evaluatedAt,
+		ConfiguredSourceKinds: sourceKinds,
+		ConfiguredSourceNames: sourceNames,
+		CredentialKind:        queryState.CredentialKind,
+		Status:                queryState.Status,
+		RiskLevel:             queryState.RiskLevel,
+		ExpiryState:           queryState.ExpiryState,
+		ExpiresInDays:         int32(queryState.ExpiresInDays),
+		Owner:                 ownerFilter,
+		Asset:                 queryState.Asset,
+		NewerDays:             int32(queryState.NewerThanDays),
+		SortBy:                queryState.SortBy,
+		Query:                 queryState.Q,
+		PageLimit:             exportLimit,
+	})
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	records := make([]credentialExportRecord, 0, len(rows))
+	for _, row := range rows {
+		records = append(records, credentialExportRecordFromRow(credentialListRowFromForExport(row)))
+	}
+
+	if len(records) == exportLimit {
+		c.Response().Header().Set("X-Open-SSPM-Export-Truncated", "true")
+	}
+	c.Response().Header().Set(echo.HeaderContentType, "text/csv; charset=utf-8")
+	c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="credentials-export.csv"`)
+	writer := csv.NewWriter(c.Response())
+	if err := writer.Write([]string{"source_kind", "source_name", "credential_kind", "display_name", "external_id", "asset_name", "asset_ref_kind", "asset_ref_id", "status", "risk_level", "expires_at", "last_used_at", "created_by", "approved_by"}); err != nil {
+		return err
+	}
+	for _, record := range records {
+		if err := writer.Write([]string{record.SourceKind, record.SourceName, record.CredentialKind, record.DisplayName, record.ExternalID, record.AssetName, record.AssetRefKind, record.AssetRefID, record.Status, record.RiskLevel, record.ExpiresAt, record.LastUsedAt, record.CreatedBy, record.ApprovedBy}); err != nil {
+			return err
+		}
+	}
+	writer.Flush()
+	return writer.Error()
+}
+
+func credentialExportRecordFromRow(row credentialListRow) credentialExportRecord {
+	return credentialExportRecord{
+		SourceKind:     defangCSVCell(strings.TrimSpace(row.SourceKind)),
+		SourceName:     defangCSVCell(strings.TrimSpace(row.SourceName)),
+		CredentialKind: defangCSVCell(strings.TrimSpace(row.CredentialKind)),
+		DisplayName:    defangCSVCell(strings.TrimSpace(row.DisplayName)),
+		ExternalID:     defangCSVCell(strings.TrimSpace(row.ExternalID)),
+		AssetName:      defangCSVCell(strings.TrimSpace(row.AssetName)),
+		AssetRefKind:   defangCSVCell(strings.TrimSpace(row.AssetRefKind)),
+		AssetRefID:     defangCSVCell(strings.TrimSpace(row.AssetRefExternalID)),
+		Status:         defangCSVCell(strings.TrimSpace(row.Status)),
+		RiskLevel:      defangCSVCell(strings.TrimSpace(row.RiskLevel)),
+		ExpiresAt:      credentialExportTime(row.ExpiresAtSource),
+		LastUsedAt:     credentialExportTime(row.LastUsedAtSource),
+		CreatedBy:      defangCSVCell(actorDisplayName(row.CreatedByDisplayName, row.CreatedByExternalID)),
+		ApprovedBy:     defangCSVCell(actorDisplayName(row.ApprovedByDisplayName, row.ApprovedByExternalID)),
+	}
+}
+
+func credentialExportTime(value pgtype.Timestamptz) string {
+	if !value.Valid {
+		return ""
+	}
+	return value.Time.UTC().Format(time.RFC3339)
+}
+
+// credentialOwnerFilter resolves the synthetic "me" owner token to the
+// authenticated user's email. The SQL owner filter matches that string against
+// created_by_external_id, created_by_display_name, approved_by_external_id,
+// and approved_by_display_name via ILIKE — so "Owned by me" only works for
+// sources where one of those fields contains the user's email (Entra/Google
+// typically do, raw GitHub usernames do not).
+func credentialOwnerFilter(owner, userEmail string) string {
+	owner = strings.TrimSpace(owner)
+	if strings.EqualFold(owner, "me") {
+		return strings.TrimSpace(userEmail)
+	}
+	return owner
+}
+
+func buildCredentialListItem(now time.Time, row credentialListRow, linkResolver *identityLinkResolver) viewmodels.CredentialArtifactListItem {
+	rawDisplay := strings.TrimSpace(row.DisplayName)
+	if rawDisplay == "" {
+		rawDisplay = strings.TrimSpace(row.ExternalID)
+	}
+	assetRefKind := strings.TrimSpace(row.AssetRefKind)
+	assetRefExternalID := strings.TrimSpace(row.AssetRefExternalID)
+	assetRef := ""
+	switch {
+	case assetRefKind != "" && assetRefExternalID != "":
+		assetRef = assetRefKind + ":" + assetRefExternalID
+	case assetRefKind != "":
+		assetRef = assetRefKind
+	case assetRefExternalID != "":
+		assetRef = assetRefExternalID
+	}
+	cleanAssetName := strings.TrimSpace(row.AssetName)
+	namePrimary, nameSecondary := views.CredentialDisplayName(rawDisplay, cleanAssetName)
+
+	rowState := views.ComputeCredentialRowState(now, row.Status, row.RiskLevel, expiresAtTime(row.ExpiresAtSource), row.ExpiresAtSource.Valid)
+	expiryTone := views.CredentialExpiryTextClass(now, expiresAtTime(row.ExpiresAtSource), row.ExpiresAtSource.Valid)
+
+	createdBy := fallbackDash(actorDisplayName(row.CreatedByDisplayName, row.CreatedByExternalID))
+	approvedBy := fallbackDash(actorDisplayName(row.ApprovedByDisplayName, row.ApprovedByExternalID))
+
+	sourceKind := strings.TrimSpace(row.SourceKind)
+	sourceName := strings.TrimSpace(row.SourceName)
+
+	return viewmodels.CredentialArtifactListItem{
+		ID:             row.ID,
+		SourceKind:     sourceKind,
+		SourceName:     sourceName,
+		CredentialKind: fallbackDash(strings.TrimSpace(row.CredentialKind)),
+		DisplayName:    fallbackDash(rawDisplay),
+		NamePrimary:    namePrimary,
+		NameSecondary:  nameSecondary,
+		ExternalID:     fallbackDash(strings.TrimSpace(row.ExternalID)),
+		AssetRef:       fallbackDash(assetRef),
+		AssetRefKind:   fallbackDash(assetRefKind),
+		AssetRefID:     fallbackDash(assetRefExternalID),
+		AssetName:      cleanAssetName,
+		Status:         fallbackDash(strings.TrimSpace(row.Status)),
+		RiskLevel:      strings.TrimSpace(row.RiskLevel),
+		RowStateTone:   rowState.Tone,
+		RowStateLabel:  rowState.Label,
+		ExpiresAt:      calendarDateWithRelativeDisplay(row.ExpiresAtSource),
+		ExpiresTone:    expiryTone,
+		LastUsedAt:     calendarDateWithRelativeDisplay(row.LastUsedAtSource),
+		CreatedBy:      createdBy,
+		CreatedByHref:  linkResolver.Resolve(sourceKind, sourceName, row.CreatedByExternalID, "", row.CreatedByDisplayName),
+		ApprovedBy:     approvedBy,
+		ApprovedByHref: linkResolver.Resolve(sourceKind, sourceName, row.ApprovedByExternalID, "", row.ApprovedByDisplayName),
+		VersionCount:   row.VersionCount,
+	}
+}
+
+func expiresAtTime(value pgtype.Timestamptz) time.Time {
+	if !value.Valid {
+		return time.Time{}
+	}
+	return value.Time.UTC()
 }
 
 func (h *Handlers) HandleCredentialShow(c *echo.Context) error {

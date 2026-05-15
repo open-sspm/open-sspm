@@ -296,6 +296,7 @@ func (es *EchoServer) registerRoutes() {
 	authed.GET("/non-human-identities", es.h.HandleNonHumanIdentities)
 	authed.GET("/non-human-identities/:ref", es.h.HandleNonHumanIdentityShow)
 	authed.GET("/credentials", es.h.HandleCredentials)
+	authed.GET("/credentials/export", es.h.HandleCredentialsExport)
 	authed.GET("/credentials/:id", es.h.HandleCredentialShow)
 	authed.GET("/accounts/okta", es.h.HandleOktaAccounts)
 	authed.GET("/accounts/okta/:id", es.h.HandleOktaAccountShow)

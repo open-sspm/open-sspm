@@ -203,6 +203,124 @@ func TestListCredentialArtifactsPageBySourcesAndQueryAndFiltersPaginatesGlobally
 	})
 }
 
+func TestCredentialArtifactCountUsesSameLineageRepresentativeAsList(t *testing.T) {
+	t.Parallel()
+
+	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
+		migrateUp(t, migrator)
+
+		now := time.Date(2026, 5, 15, 12, 0, 0, 0, time.UTC)
+		evaluatedAt := validTimestamptz(now)
+		runID := insertSyncRun(t, ctx, pool, "entra", "tenant-1")
+
+		criticalID := insertCredentialArtifact(t, ctx, pool, runID, credentialArtifactSeed{
+			SourceKind:         "entra",
+			SourceName:         "tenant-1",
+			AssetRefKind:       "application",
+			AssetRefExternalID: "app-1",
+			CredentialKind:     "entra_client_secret",
+			ExternalID:         "secret-2025",
+			DisplayName:        "Payroll Secret [2025]",
+			Status:             "active",
+			ExpiresAtSource:    now.Add(30 * 24 * time.Hour),
+		})
+		insertCredentialRiskReadModel(t, ctx, pool, criticalID, "critical", credentialRiskRank("critical"))
+
+		lowID := insertCredentialArtifact(t, ctx, pool, runID, credentialArtifactSeed{
+			SourceKind:         "entra",
+			SourceName:         "tenant-1",
+			AssetRefKind:       "application",
+			AssetRefExternalID: "app-1",
+			CredentialKind:     "entra_client_secret",
+			ExternalID:         "secret-2026",
+			DisplayName:        "Payroll Secret [2026]",
+			Status:             "active",
+			ExpiresAtSource:    now.Add(365 * 24 * time.Hour),
+		})
+		insertCredentialRiskReadModel(t, ctx, pool, lowID, "low", credentialRiskRank("low"))
+
+		singleSourceCriticalCount, err := q.CountCredentialArtifactsBySourceAndQueryAndFilters(ctx, CountCredentialArtifactsBySourceAndQueryAndFiltersParams{
+			EvaluatedAt: evaluatedAt,
+			SourceKind:  "entra",
+			SourceName:  "tenant-1",
+			RiskLevel:   "critical",
+		})
+		if err != nil {
+			t.Fatalf("CountCredentialArtifactsBySourceAndQueryAndFilters(critical): %v", err)
+		}
+		if singleSourceCriticalCount != 1 {
+			t.Fatalf("single-source critical count = %d want 1", singleSourceCriticalCount)
+		}
+
+		singleSourceLowCount, err := q.CountCredentialArtifactsBySourceAndQueryAndFilters(ctx, CountCredentialArtifactsBySourceAndQueryAndFiltersParams{
+			EvaluatedAt: evaluatedAt,
+			SourceKind:  "entra",
+			SourceName:  "tenant-1",
+			RiskLevel:   "low",
+		})
+		if err != nil {
+			t.Fatalf("CountCredentialArtifactsBySourceAndQueryAndFilters(low): %v", err)
+		}
+		if singleSourceLowCount != 0 {
+			t.Fatalf("single-source low count = %d want 0", singleSourceLowCount)
+		}
+
+		singleSourceRows, err := q.ListCredentialArtifactsPageBySourceAndQueryAndFilters(ctx, ListCredentialArtifactsPageBySourceAndQueryAndFiltersParams{
+			EvaluatedAt: evaluatedAt,
+			SourceKind:  "entra",
+			SourceName:  "tenant-1",
+			RiskLevel:   "critical",
+			PageLimit:   10,
+		})
+		if err != nil {
+			t.Fatalf("ListCredentialArtifactsPageBySourceAndQueryAndFilters(critical): %v", err)
+		}
+		if len(singleSourceRows) != 1 || singleSourceRows[0].ID != criticalID {
+			t.Fatalf("single-source rows = %+v, want critical id %d", singleSourceRows, criticalID)
+		}
+
+		configuredCriticalCount, err := q.CountCredentialArtifactsBySourcesAndQueryAndFilters(ctx, CountCredentialArtifactsBySourcesAndQueryAndFiltersParams{
+			EvaluatedAt:           evaluatedAt,
+			ConfiguredSourceKinds: []string{"entra"},
+			ConfiguredSourceNames: []string{"tenant-1"},
+			RiskLevel:             "critical",
+		})
+		if err != nil {
+			t.Fatalf("CountCredentialArtifactsBySourcesAndQueryAndFilters(critical): %v", err)
+		}
+		if configuredCriticalCount != 1 {
+			t.Fatalf("configured-source critical count = %d want 1", configuredCriticalCount)
+		}
+
+		configuredLowCount, err := q.CountCredentialArtifactsBySourcesAndQueryAndFilters(ctx, CountCredentialArtifactsBySourcesAndQueryAndFiltersParams{
+			EvaluatedAt:           evaluatedAt,
+			ConfiguredSourceKinds: []string{"entra"},
+			ConfiguredSourceNames: []string{"tenant-1"},
+			RiskLevel:             "low",
+		})
+		if err != nil {
+			t.Fatalf("CountCredentialArtifactsBySourcesAndQueryAndFilters(low): %v", err)
+		}
+		if configuredLowCount != 0 {
+			t.Fatalf("configured-source low count = %d want 0", configuredLowCount)
+		}
+
+		configuredRows, err := q.ListCredentialArtifactsPageBySourcesAndQueryAndFilters(ctx, ListCredentialArtifactsPageBySourcesAndQueryAndFiltersParams{
+			EvaluatedAt:           evaluatedAt,
+			ConfiguredSourceKinds: []string{"entra"},
+			ConfiguredSourceNames: []string{"tenant-1"},
+			RiskLevel:             "critical",
+			PageLimit:             10,
+		})
+		if err != nil {
+			t.Fatalf("ListCredentialArtifactsPageBySourcesAndQueryAndFilters(critical): %v", err)
+		}
+		if len(configuredRows) != 1 || configuredRows[0].ID != criticalID {
+			t.Fatalf("configured-source rows = %+v, want critical id %d", configuredRows, criticalID)
+		}
+	})
+}
+
 func TestCredentialArtifactStoredRiskLevelConsistentAcrossQueries(t *testing.T) {
 	t.Parallel()
 
