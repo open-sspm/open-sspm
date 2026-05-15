@@ -185,9 +185,17 @@ ranked AS (
   SELECT rc.*,
     ROW_NUMBER() OVER (
       PARTITION BY rc.lineage_key
-      ORDER BY COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
-               COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
-               rc.id DESC
+      ORDER BY
+        CASE rc.risk_level
+          WHEN 'critical' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+          ELSE 5
+        END ASC,
+        COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
+        COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
+        rc.id DESC
     ) AS lineage_rank
   FROM rated_credentials rc
 ),
@@ -455,9 +463,17 @@ ranked AS (
   SELECT rc.*,
     ROW_NUMBER() OVER (
       PARTITION BY rc.lineage_key
-      ORDER BY COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
-               COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
-               rc.id DESC
+      ORDER BY
+        CASE rc.risk_level
+          WHEN 'critical' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+          ELSE 5
+        END ASC,
+        COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
+        COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
+        rc.id DESC
     ) AS lineage_rank
   FROM rated_credentials rc
 ),

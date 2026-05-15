@@ -82,9 +82,17 @@ ranked AS (
   SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key,
     ROW_NUMBER() OVER (
       PARTITION BY rc.lineage_key
-      ORDER BY COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
-               COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
-               rc.id DESC
+      ORDER BY
+        CASE rc.risk_level
+          WHEN 'critical' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+          ELSE 5
+        END ASC,
+        COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
+        COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
+        rc.id DESC
     ) AS lineage_rank
   FROM rated_credentials rc
 ),
@@ -243,9 +251,17 @@ ranked AS (
   SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key,
     ROW_NUMBER() OVER (
       PARTITION BY rc.lineage_key
-      ORDER BY COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
-               COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
-               rc.id DESC
+      ORDER BY
+        CASE rc.risk_level
+          WHEN 'critical' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+          ELSE 5
+        END ASC,
+        COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
+        COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
+        rc.id DESC
     ) AS lineage_rank
   FROM rated_credentials rc
 ),
