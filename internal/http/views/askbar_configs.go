@@ -199,13 +199,17 @@ func CredentialsAskBar(data viewmodels.CredentialsViewData) AskBarConfig {
 		chips = append(chips, AskBarChip{
 			Field:    "risk_level",
 			Value:    q.RiskLevel,
-			KeyLabel: "status",
+			KeyLabel: "risk",
 			Label:    credentialRiskFilterLabel(q.RiskLevel),
 			Tone:     credentialRiskFilterTone(q.RiskLevel),
 		})
 		hidden = append(hidden, AskBarHidden{Name: "risk_level", Value: q.RiskLevel})
 	}
-	if q.ExpiryState != "" {
+	// Suppress the implicit expiry_state=active chip when expires_in_days is
+	// already driving the scope: the days chip carries the meaningful signal
+	// and the two would otherwise render as near-duplicate "active" chips.
+	// Hidden input still ships so the filter round-trips on submit.
+	if q.ExpiryState != "" && !(q.ExpiryState == "active" && q.ExpiresInDays > 0) {
 		tone := ""
 		if q.ExpiryState == "expired" {
 			tone = "danger"
@@ -217,6 +221,8 @@ func CredentialsAskBar(data viewmodels.CredentialsViewData) AskBarConfig {
 			Label:    q.ExpiryState,
 			Tone:     tone,
 		})
+	}
+	if q.ExpiryState != "" {
 		hidden = append(hidden, AskBarHidden{Name: "expiry_state", Value: q.ExpiryState})
 	}
 	if q.ExpiresInDays > 0 {
@@ -336,7 +342,7 @@ func CredentialsAskBar(data viewmodels.CredentialsViewData) AskBarConfig {
 			"source_kind":     "source",
 			"credential_kind": "kind",
 			"status":          "status",
-			"risk_level":      "status",
+			"risk_level":      "risk",
 			"expiry_state":    "expiry",
 			"expires_in_days": "expires",
 			"owner":           "owner",
@@ -348,7 +354,7 @@ func CredentialsAskBar(data viewmodels.CredentialsViewData) AskBarConfig {
 			"source_kind":     "Source",
 			"credential_kind": "Credential kind",
 			"status":          "Status",
-			"risk_level":      "Status",
+			"risk_level":      "Risk",
 			"expiry_state":    "Expiry",
 			"expires_in_days": "Expires in",
 			"owner":           "Owner",

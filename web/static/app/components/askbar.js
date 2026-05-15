@@ -134,24 +134,30 @@ export const initAskbar = (el) => {
 
   const tokenFromFieldValue = (field, rawValue) => {
     const raw = String(rawValue ?? "").trim();
-    const value = raw
+    let value = raw
       .toLowerCase()
       .replace(/^[<≤]/, "")
       .replace(/^>/, "")
-      .replace(/d$/, "")
       .trim();
+    // Strip the trailing "d" only on numeric day expressions (e.g. "30d", "7d").
+    // Stripping unconditionally also mangles values like "not-connected" → "not-connecte".
+    if (/^\d+d$/.test(value)) {
+      value = value.slice(0, -1);
+    }
     if (!value) return null;
 
+    // Canonical keyword values use snake_case, but users type the hyphenated keyword
+    // form (e.g. action-required ≡ action_required). Normalize separators for matching.
+    const norm = (s) => String(s).toLowerCase().replace(/[-\s]+/g, "_");
+    const want = norm(value);
+
     const exact = tokensForField(field).find(
-      (tok) =>
-        String(tok.value).toLowerCase() === value ||
-        String(tok.label).toLowerCase() === value,
+      (tok) => norm(tok.value) === want || norm(tok.label) === want,
     );
     if (exact) return cloneToken(exact);
     const partial = tokensForField(field).find(
       (tok) =>
-        String(tok.value).toLowerCase().startsWith(value) ||
-        String(tok.label).toLowerCase().startsWith(value),
+        norm(tok.value).startsWith(want) || norm(tok.label).startsWith(want),
     );
     if (partial) return cloneToken(partial);
     if (FREE_TEXT_FIELDS.has(field)) {
@@ -192,10 +198,11 @@ export const initAskbar = (el) => {
         const field = FIELD_ALIASES[k];
         if (field) {
           const tok = tokenFromFieldValue(field, v);
-          if (tok) {
-            out.push(tok);
-            continue;
-          }
+          if (tok) out.push(tok);
+          // Field is recognized but value didn't match the vocabulary — drop
+          // the input silently. Falling back to text search would mangle a
+          // typo'd filter (e.g. `src:githubb`) into `q="src:githubb"`.
+          continue;
         }
         mergeSearchToken(out, word);
         continue;
@@ -285,7 +292,7 @@ export const initAskbar = (el) => {
       c.tone || "",
     )}" tabindex="-1" role="group" aria-label="Filter ${escapeHtml(c.label)}">${keyHtml}<span class="osspm-askbar-chip-label">${escapeHtml(
       c.label,
-    )}</span><button type="button" class="osspm-askbar-chip-remove" data-osspm-askbar-chip-remove data-idx="${idx}" aria-label="Remove">&times;</button></span>`;
+    )}</span><button type="button" class="osspm-askbar-chip-remove" data-osspm-askbar-chip-remove data-idx="${idx}" aria-label="Remove ${escapeHtml(c.label)}">&times;</button></span>`;
   };
 
   const renderChips = () => {

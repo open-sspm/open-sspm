@@ -219,12 +219,8 @@ func identitiesKeywordTokens() map[string]AskBarKeyword {
 		"healthy":      {Field: "row_state", Value: "healthy", Label: "healthy", Tone: "ok"},
 		"needs-action": {Field: "row_state", Value: "action_required", Label: "needs action", Tone: "danger"},
 
-		"human":    {Field: "identity_type", Value: "human", Label: "humans"},
-		"humans":   {Field: "identity_type", Value: "human", Label: "humans"},
-		"service":  {Field: "identity_type", Value: "service", Label: "service accts"},
-		"services": {Field: "identity_type", Value: "service", Label: "service accts"},
-		"bot":      {Field: "identity_type", Value: "bot", Label: "bots"},
-		"bots":     {Field: "identity_type", Value: "bot", Label: "bots"},
+		"human":  {Field: "identity_type", Value: "human", Label: "humans"},
+		"humans": {Field: "identity_type", Value: "human", Label: "humans"},
 
 		"managed":   {Field: "managed", Value: "managed", Label: "managed"},
 		"unmanaged": {Field: "managed", Value: "unmanaged", Label: "unmanaged", Tone: "warn"},

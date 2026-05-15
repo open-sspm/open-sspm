@@ -10,6 +10,8 @@ const config = {
     owner: "owner",
     asset: "asset",
     newer_days: "newer_days",
+    status: "status",
+    row_state: "row_state",
   },
   keyLabel: {
     search: "",
@@ -18,6 +20,8 @@ const config = {
     owner: "owner",
     asset: "asset",
     newer_days: "newer",
+    status: "status",
+    row_state: "state",
   },
   fieldLabel: {
     credential_kind: "Credential kind",
@@ -25,6 +29,8 @@ const config = {
     owner: "Owner",
     asset: "Asset",
     newer_days: "Newer than",
+    status: "Status",
+    row_state: "State",
   },
   keywordTokens: {
     pat: {
@@ -43,6 +49,18 @@ const config = {
       value: "7",
       label: "7d",
     },
+    revoked: {
+      field: "status",
+      value: "revoked",
+      label: "revoked",
+      tone: "danger",
+    },
+    "action-required": {
+      field: "row_state",
+      value: "action_required",
+      label: "needs action",
+      tone: "danger",
+    },
   },
   fieldAliases: {
     kind: "credential_kind",
@@ -50,6 +68,9 @@ const config = {
     owner: "owner",
     asset: "asset",
     newer: "newer_days",
+    status: "status",
+    row: "row_state",
+    state: "row_state",
   },
   stopwords: [],
   singletonFields: [
@@ -58,6 +79,8 @@ const config = {
     "owner",
     "asset",
     "newer_days",
+    "status",
+    "row_state",
   ],
   freeTextFields: ["owner", "asset"],
   staticHidden: [
@@ -218,6 +241,55 @@ describe("askbar", () => {
 
     expect(bankValues(root)).toMatchObject({ q: "notakey" });
     expect(bankDefaultValues(root)).toMatchObject({ q: "notakey" });
+  });
+
+  it("matches field:value where the canonical value uses underscores against the hyphenated keyword form", () => {
+    const root = renderAskbar();
+    initAskbar(root);
+
+    const input = root.querySelector("[data-osspm-askbar-input]");
+    input.value = "state:action-required";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+
+    expect(bankValues(root)).toMatchObject({ row_state: "action_required" });
+    expect(bankValues(root)).not.toHaveProperty("q");
+  });
+
+  it("does not strip a trailing 'd' from non-numeric field:value input", () => {
+    const root = renderAskbar();
+    initAskbar(root);
+
+    const input = root.querySelector("[data-osspm-askbar-input]");
+    input.value = "status:revoked";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+
+    expect(bankValues(root)).toMatchObject({ status: "revoked" });
+    expect(bankValues(root)).not.toHaveProperty("q");
+  });
+
+  it("drops field:value silently when the field is recognized but the value is unknown", () => {
+    const root = renderAskbar();
+    initAskbar(root);
+
+    const input = root.querySelector("[data-osspm-askbar-input]");
+    input.value = "kind:bogusvalue";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+
+    const values = bankValues(root);
+    expect(values).not.toHaveProperty("credential_kind");
+    expect(values).not.toHaveProperty("q");
+  });
+
+  it("writes the chip label on the remove button aria-label for screen readers", () => {
+    const root = renderAskbar();
+    initAskbar(root);
+
+    const input = root.querySelector("[data-osspm-askbar-input]");
+    input.value = "kind:PAT";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+
+    const removeBtn = root.querySelector("[data-osspm-askbar-chip-remove]");
+    expect(removeBtn?.getAttribute("aria-label")).toBe("Remove PAT");
   });
 
   it("submits a non-htmx form after a filter change", () => {
