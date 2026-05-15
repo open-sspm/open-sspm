@@ -24,8 +24,17 @@ const init = (el) => {
       ? resizeTarget.innerWidth
       : window.innerWidth) < breakpoint;
 
-  const initialOpen = el.dataset.initialOpen !== "false";
   const initialMobileOpen = el.dataset.initialMobileOpen === "true";
+
+  // Desktop open/closed precedence: client-persisted pref (data-sidebar-pref,
+  // written from localStorage in layout.templ) wins, then the server-rendered
+  // data-initial-open, then default to open.
+  const resolveDesktopInitialOpen = () => {
+    const pref = doc.documentElement.dataset.sidebarPref;
+    if (pref === "closed") return false;
+    if (pref === "open") return true;
+    return el.dataset.initialOpen !== "false";
+  };
 
   const syncInteractivity = () => {
     const open = el.getAttribute("aria-hidden") !== "true";
@@ -41,7 +50,7 @@ const init = (el) => {
   if (isMobile()) {
     setOpen(initialMobileOpen);
   } else {
-    setOpen(initialOpen);
+    setOpen(resolveDesktopInitialOpen());
   }
 
   // Listen for toggle/open/close events

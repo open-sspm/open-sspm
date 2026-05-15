@@ -2,13 +2,207 @@ package views
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
 
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
+
+var (
+	credentialUUIDPattern   = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+	credentialYearSuffixRE  = regexp.MustCompile(`\s*\[\d{4}\]\s*$`)
+	credentialDayBoundaries = []int{30, 90}
+)
+
+// CredentialDisplayName turns the raw imported subject DN / external label into
+// a human-friendly two-line name. For X.509 certs the import lands as
+// "CN=<thing>"; the CN= prefix is meaningless to a reader and the bracketed
+// "[yyyy]" Microsoft cohort suffix should not compete with the expiry column.
+// When the remaining body is just a UUID (machine-generated), the bound asset
+// name is promoted as primary and the UUID demoted to secondary mono.
+func CredentialDisplayName(rawName, assetName string) (primary, secondary string) {
+	cleanName := strings.TrimSpace(rawName)
+	if upper := strings.ToUpper(cleanName); strings.HasPrefix(upper, "CN=") {
+		cleanName = strings.TrimSpace(cleanName[3:])
+	}
+	cohort := ""
+	if loc := credentialYearSuffixRE.FindStringIndex(cleanName); loc != nil {
+		cohort = strings.TrimSpace(cleanName[loc[0]:loc[1]])
+		cleanName = strings.TrimSpace(cleanName[:loc[0]])
+	}
+
+	asset := strings.TrimSpace(assetName)
+	if asset == "—" {
+		asset = ""
+	}
+
+	switch {
+	case credentialUUIDPattern.MatchString(cleanName) && asset != "":
+		primary = asset
+		secondary = cleanName
+		if cohort != "" {
+			secondary = cohort + " · " + secondary
+		}
+	case cleanName == "" && asset != "":
+		primary = asset
+	case cleanName == "":
+		primary = strings.TrimSpace(rawName)
+		if primary == "" {
+			primary = "—"
+		}
+	default:
+		primary = cleanName
+		if cohort != "" {
+			secondary = cohort
+		}
+	}
+	return primary, secondary
+}
+
+// CredentialRowState renders the workflow/risk state badge. Expiry stays in
+// its own table column, so risk labels should not repeat the day count.
+type CredentialRowState struct {
+	Tone  string
+	Label string
+}
+
+func ComputeCredentialRowState(now time.Time, status, risk string, expiresAt time.Time, hasExpiry bool) CredentialRowState {
+	statusLower := strings.ToLower(strings.TrimSpace(status))
+	switch statusLower {
+	case "revoked":
+		return CredentialRowState{Tone: "slate", Label: "Revoked"}
+	case "pending_approval", "pending":
+		return CredentialRowState{Tone: "sky", Label: "Pending approval"}
+	}
+
+	riskLower := strings.ToLower(strings.TrimSpace(risk))
+	riskWord := ""
+	switch riskLower {
+	case "critical":
+		riskWord = "Critical"
+	case "high":
+		riskWord = "High"
+	}
+
+	expiryWord, expiryTone := expiryWordAndTone(now, expiresAt, hasExpiry)
+	tone := worstTone(riskTone(riskLower), expiryTone)
+
+	label := ""
+	switch {
+	case riskWord != "":
+		label = riskWord
+	case expiryWord != "":
+		label = expiryWord
+	default:
+		label = "Healthy"
+	}
+	return CredentialRowState{Tone: tone, Label: label}
+}
+
+func expiryWordAndTone(now, t time.Time, hasExpiry bool) (string, string) {
+	if !hasExpiry {
+		return "", "neutral"
+	}
+	t = t.UTC()
+	now = now.UTC()
+	if t.Before(now) {
+		return "Expired", "rose"
+	}
+	days := int(t.Sub(now).Hours() / 24)
+	if days <= 0 {
+		return "Today", "rose"
+	}
+	if days <= credentialDayBoundaries[0] {
+		return strconv.Itoa(days) + "d", "amber"
+	}
+	if days <= credentialDayBoundaries[1] {
+		return strconv.Itoa(days) + "d", "neutral"
+	}
+	return "", "neutral"
+}
+
+func riskTone(risk string) string {
+	switch risk {
+	case "critical":
+		return "rose"
+	case "high":
+		return "amber"
+	default:
+		return "neutral"
+	}
+}
+
+func worstTone(a, b string) string {
+	rank := map[string]int{"rose": 4, "amber": 3, "sky": 2, "slate": 1, "neutral": 0}
+	if rank[a] >= rank[b] {
+		return a
+	}
+	return b
+}
+
+// CredentialRowStateBadgeClass maps a tone token to the existing palette so we
+// stay consistent with the rest of the design system.
+func CredentialRowStateBadgeClass(tone string) string {
+	switch tone {
+	case "rose":
+		return "osspm-credential-state-badge osspm-credential-state-critical"
+	case "amber":
+		return "osspm-credential-state-badge osspm-credential-state-high"
+	case "sky":
+		return "osspm-credential-state-badge osspm-credential-state-info"
+	case "slate":
+		return "osspm-credential-state-badge osspm-credential-state-muted"
+	case "neutral":
+		return "osspm-credential-state-badge osspm-credential-state-ok"
+	default:
+		return "osspm-credential-state-badge osspm-credential-state-muted"
+	}
+}
+
+// CredentialExpiryTextClass tones the Expires cell value: rose past expiry,
+// amber for ≤30d, foreground default. Keeps the column readable without adding
+// another badge.
+func CredentialExpiryTextClass(now, t time.Time, hasExpiry bool) string {
+	if !hasExpiry {
+		return "text-muted-foreground"
+	}
+	t = t.UTC()
+	now = now.UTC()
+	if t.Before(now) {
+		return "text-rose-700 dark:text-rose-400"
+	}
+	if int(t.Sub(now).Hours()/24) <= credentialDayBoundaries[0] {
+		return "text-amber-700 dark:text-amber-400"
+	}
+	return ""
+}
+
+// CredentialsHasLastUsedVariance reports whether any visible credential has a
+// last-used timestamp. Currently most credential kinds don't carry this signal,
+// so the column is wallpaper across every row — hide it until we backfill.
+func CredentialsHasLastUsedVariance(items []viewmodels.CredentialArtifactListItem) bool {
+	for _, item := range items {
+		if strings.TrimSpace(item.LastUsedAt.Label) != "" && item.LastUsedAt.Label != "—" {
+			return true
+		}
+	}
+	return false
+}
+
+// credentialsActiveSegmentSelected reports whether the Active segment chip
+// should appear highlighted. The chip wins when expiry_state is active and no
+// other segment-style filter is applied — including the expires-in-days window
+// the "Expiring ≤30d" chip uses, which would otherwise visually claim both.
+func credentialsActiveSegmentSelected(q querystate.CredentialsQuery) bool {
+	return q.ExpiryState == "active" &&
+		q.ExpiresInDays == 0 &&
+		q.RiskLevel == "" &&
+		q.Status == ""
+}
 
 func FormatInt(v int) string {
 	return strconv.Itoa(v)
@@ -1043,23 +1237,6 @@ func nonHumanShouldShowActivity(activity, freshness string) bool {
 		return true
 	}
 	return false
-}
-
-// segmentChipClass returns the class list for a segment chip anchor.
-// Active chips get a filled background; inactive ones a quiet outline.
-func segmentChipClass(active bool, tone string) string {
-	base := "osspm-segment-chip"
-	if active {
-		switch tone {
-		case "danger":
-			return base + " osspm-segment-chip-active osspm-segment-chip-danger"
-		case "warn":
-			return base + " osspm-segment-chip-active osspm-segment-chip-warn"
-		default:
-			return base + " osspm-segment-chip-active"
-		}
-	}
-	return base
 }
 
 func HumanizeCredentialKind(kind string) string {

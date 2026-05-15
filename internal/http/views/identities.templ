@@ -3,7 +3,6 @@ package views
 import (
 	"fmt"
 
-	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
@@ -17,11 +16,9 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 	<div id="identities-results" class="space-y-5">
 		@BusyInlineIndicator("Updating results...", false)
 		@identitiesStatStrip(data)
-		@identitiesSegmentChips(data.Query, data.Summary)
 		<form
 			method="get"
 			action="/identities"
-			data-enter-only-query="q"
 			hx-get="/identities"
 			hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
 			hx-target="#identities-results"
@@ -31,18 +28,12 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 		>
 			<div class="osspm-list-toolbar">
 				<div class="min-w-0 flex-1">
-					@TableQueryBar(IdentitiesTableQueryBar(data))
-				</div>
-				<div class="osspm-list-summary">
-					if data.TotalCount > 0 {
-						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
-					} else {
-						Showing 0
-					}
+					@AskBar(IdentitiesAskBar(data.Query))
 				</div>
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
+		@AskBarSavedQueries(IdentitiesAskBar(data.Query))
 		<section class="space-y-3">
 			if data.HasIdentities {
 				<div class="space-y-3 lg:hidden">
@@ -133,36 +124,6 @@ templ identityStat(value, label, tone string) {
 		<div class={ "osspm-stat-value " + tone }>{ value }</div>
 		<div class="osspm-stat-label">{ label }</div>
 	</div>
-}
-
-// identitiesSegmentChips renders quick-filter links that scope the table to a
-// single operator-meaningful segment. Each chip is a plain anchor (GET-based,
-// per repo convention) rather than a toggle so it survives HTMX pushState and
-// plays nicely with the Back button.
-templ identitiesSegmentChips(q querystate.IdentitiesQuery, s viewmodels.IdentitiesSummary) {
-	<nav class="osspm-segment-chips" aria-label="Identity segments">
-		@segmentChip(q.ClearSegments().Href(), "All", FormatInt64(s.Total), !q.HasSegment(), "")
-		@segmentChip(q.SegmentNeedsAction().Href(), "Needs action", FormatInt64(s.ActionRequired), q.RowState == "action_required", "danger")
-		@segmentChip(q.SegmentPrivilegedUnmanaged().Href(), "Privileged unmanaged", FormatInt64(s.PrivilegedUnmanaged), q.PrivilegedOnly && q.ManagedState == "unmanaged" && q.ActivityState == "" && q.Status == "" && q.RowState == "", "warn")
-		@segmentChip(q.SegmentStalePrivileged().Href(), "Stale privileged", FormatInt64(s.StalePrivileged), q.PrivilegedOnly && q.ActivityState == "stale" && q.ManagedState == "" && q.Status == "" && q.RowState == "", "warn")
-		@segmentChip(q.ClearSegments().WithStatus("suspended").Href(), "Suspended", FormatInt64(s.Suspended), q.Status == "suspended", "")
-		@segmentChip(q.SegmentReview().Href(), "Review", FormatInt64(s.Review), q.RowState == "review", "warn")
-	</nav>
-}
-
-templ segmentChip(href, label, count string, active bool, tone string) {
-	<a
-		href={ templ.SafeURL(href) }
-		hx-get={ href }
-		hx-target="#identities-results"
-		hx-swap="outerHTML"
-		hx-push-url="true"
-		class={ segmentChipClass(active, tone) }
-		aria-current={ AriaCurrentBool(active) }
-	>
-		<span>{ label }</span>
-		<span class="osspm-segment-chip-count">{ count }</span>
-	</a>
 }
 
 templ identityCardMobile(item viewmodels.IdentityListItem) {

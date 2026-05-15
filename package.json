@@ -5,8 +5,8 @@
     "vendor:sync": "node ./scripts/vendor-sync.mjs",
     "vendor:check": "node ./scripts/vendor-check.mjs",
     "postinstall": "node ./scripts/vendor-sync.mjs --allow-missing-manifest",
-    "build:css": "npx -y @tailwindcss/cli -i ./web/static/src/input.css -o ./web/static/app.css --minify",
-    "watch:css": "npx -y @tailwindcss/cli -i ./web/static/src/input.css -o ./web/static/app.css --watch",
+    "build:css": "NODE_OPTIONS='--disable-warning=DEP0205' npx -y @tailwindcss/cli -i ./web/static/src/input.css -o ./web/static/app.css --minify",
+    "watch:css": "NODE_OPTIONS='--disable-warning=DEP0205' npx -y @tailwindcss/cli -i ./web/static/src/input.css -o ./web/static/app.css --watch",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
@@ -15,10 +15,10 @@
     "test:js:watch": "vitest"
   },
   "devDependencies": {
-    "@tailwindcss/cli": "^4.2.2",
+    "@tailwindcss/cli": "^4.3.0",
     "jsdom": "^26.1.0",
     "playwright": "^1.59.1",
-    "tailwindcss": "^4.2.2",
+    "tailwindcss": "^4.3.0",
     "vitepress": "^1.6.4",
     "vitest": "^3.2.4"
   },

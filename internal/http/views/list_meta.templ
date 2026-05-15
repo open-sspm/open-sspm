@@ -1,0 +1,19 @@
+package views
+
+// ListMeta renders the meta strip between the smart query and the list itself.
+// It sits at the seam where the count, grouping toggle, and per-page actions
+// belong. v1 is intentionally bare — count on the left, an action slot on the
+// right that callers fill via the children block.
+templ ListMeta(data ListMetaData) {
+	<div class="osspm-list-meta" role="status">
+		<div class="osspm-list-meta-summary">
+			<span class="osspm-list-meta-count">{ ListMetaCountLabel(data) }</span>
+			if data.SubLabel != "" {
+				<span class="osspm-list-meta-sublabel">{ data.SubLabel }</span>
+			}
+		</div>
+		<div class="osspm-list-meta-actions">
+			{ children... }
+		</div>
+	</div>
+}

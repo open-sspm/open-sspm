@@ -1,0 +1,85 @@
+package views
+
+// KPIStrip renders the three-card header above a list page. Each card may be
+// clickable (Href set) or a static stat. The active card carries a dark ring
+// so the operator can tell which filter is currently scoping the page.
+templ KPIStrip(cards []KPICard) {
+	if len(cards) > 0 {
+		<section class="osspm-kpi-strip" aria-label="Inventory summary">
+			for _, card := range cards {
+				@kpiCard(card)
+			}
+		</section>
+	}
+}
+
+templ kpiCard(card KPICard) {
+	if card.Href != "" {
+		<a
+			class={ KPICardClass(card) }
+			href={ templ.SafeURL(card.Href) }
+			hx-get={ card.Href }
+			hx-target={ card.HxTarget }
+			hx-swap="outerHTML"
+			hx-push-url="true"
+			aria-pressed={ AriaCurrentBool(card.Active) }
+		>
+			@kpiCardBody(card)
+		</a>
+	} else {
+		<div class={ KPICardClass(card) }>
+			@kpiCardBody(card)
+		</div>
+	}
+}
+
+templ kpiCardBody(card KPICard) {
+	<div class="osspm-kpi-header">
+		<span class="osspm-kpi-label">{ card.Label }</span>
+		if card.Active {
+			<span class="osspm-kpi-active-tag">active filter</span>
+		}
+	</div>
+	<div class="osspm-kpi-row">
+		<span class={ KPIMetricClass(card.MetricTone) }>{ card.Metric }</span>
+		if card.Caption != "" {
+			<span class="osspm-kpi-caption">{ card.Caption }</span>
+		}
+	</div>
+	if len(card.Breakdown) > 0 {
+		@kpiBreakdown(card.Breakdown)
+	}
+	if card.Trend != "" {
+		<div class="osspm-kpi-trend">{ card.Trend }</div>
+	}
+}
+
+templ kpiBreakdown(segments []KPIBreakdownSegment) {
+	{{ total := KPIBreakdownTotal(segments) }}
+	if total > 0 {
+		<div class="osspm-kpi-breakdown" role="presentation">
+			for _, seg := range segments {
+				if seg.Count > 0 {
+					<span
+						class={ KPIBreakdownSegmentClass(seg.Tone) }
+						style={ KPIBreakdownSegmentStyle(seg, total) }
+						aria-label={ FormatInt64(seg.Count) + " " + seg.Label }
+					></span>
+				}
+			}
+		</div>
+		<div class="osspm-kpi-breakdown-legend">
+			for i, seg := range segments {
+				if seg.Count > 0 {
+					if i > 0 {
+						<span class="osspm-kpi-breakdown-legend-sep">·</span>
+					}
+					<span class="osspm-kpi-breakdown-legend-item">
+						<strong class={ kpiLegendCountClass(seg.Tone) }>{ FormatInt64(seg.Count) }</strong>
+						{ " " }{ seg.Label }
+					</span>
+				}
+			}
+		</div>
+	}
+}

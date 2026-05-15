@@ -69,14 +69,7 @@ templ GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsView
 		>
 			<div class="osspm-list-toolbar">
 				<div class="min-w-0 flex-1">
-					@TableQueryBar(SearchOnlyBasicListQueryBar(data.Query, "Search email, name, or group ID"))
-				</div>
-				<div class="osspm-list-summary">
-					if data.TotalCount > 0 {
-						{ "Showing " }{ FormatInt(data.ShowingFrom) }{ "-" }{ FormatInt(data.ShowingTo) }{ " of " }{ FormatInt64(data.TotalCount) }
-					} else {
-						Showing 0
-					}
+					@AskBar(SearchOnlyAskBar(data.Query, "Search email, name, or group ID", "#google-workspace-groups-results"))
 				</div>
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>

@@ -93,26 +93,51 @@ type CredentialArtifactListItem struct {
 	SourceName     string
 	CredentialKind string
 	DisplayName    string
+	NamePrimary    string
+	NameSecondary  string
 	ExternalID     string
 	AssetRef       string
 	AssetRefKind   string
 	AssetRefID     string
+	AssetName      string
 	Status         string
 	RiskLevel      string
+	RowStateTone   string
+	RowStateLabel  string
 	ExpiresAt      TimeDisplay
+	ExpiresTone    string
 	LastUsedAt     TimeDisplay
 	CreatedBy      string
 	CreatedByHref  string
 	ApprovedBy     string
 	ApprovedByHref string
+	VersionCount   int64
+}
+
+// CredentialsSummary holds lineage-grouped operator counts for the stat strip
+// and segment chips on /credentials. Scoped by source/q/credential_kind so the
+// numbers reflect the population the user is actually browsing.
+type CredentialsSummary struct {
+	Total           int64
+	Active          int64
+	Expired         int64
+	ExpiringSoon    int64
+	Critical        int64
+	High            int64
+	Warning         int64
+	PendingApproval int64
+	Revoked         int64
+	AssetCount      int64
 }
 
 type CredentialsViewData struct {
 	PaginatedListPageData
-	Sources  []ProgrammaticSourceOption
-	Query    querystate.CredentialsQuery
-	Items    []CredentialArtifactListItem
-	HasItems bool
+	Sources         []ProgrammaticSourceOption
+	Query           querystate.CredentialsQuery
+	Items           []CredentialArtifactListItem
+	Summary         CredentialsSummary
+	HasItems        bool
+	HasLastUsedData bool
 }
 
 type CredentialArtifactSummaryView struct {

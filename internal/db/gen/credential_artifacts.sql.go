@@ -15,10 +15,35 @@ const countCredentialArtifactsBySourceAndQueryAndFilters = `-- name: CountCreden
 WITH rated_credentials AS (
   SELECT
     ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
-    COALESCE(risk.risk_level, 'low')::text AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
+    -- lineage_key collapses re-issued credentials into a single row. The
+    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
+    -- stripped so a credential renewed each year groups under one lineage.
+    -- This assumes the naming convention; if other sources start emitting
+    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
+    md5(
+      coalesce(ca.source_kind, '') || '|' ||
+      coalesce(ca.asset_ref_external_id, '') || '|' ||
+      coalesce(ca.credential_kind, '') || '|' ||
+      CASE
+        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+        ELSE
+          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
+      END
+    ) AS lineage_key
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
+  LEFT JOIN app_assets aa
+    ON aa.source_kind = ca.source_kind
+   AND aa.source_name = ca.source_name
+   AND aa.expired_at IS NULL
+   AND (
+        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+     OR ca.asset_ref_external_id = aa.external_id
+   )
   WHERE
     ca.source_kind = $6::text
     AND ca.source_name = $7::text
@@ -26,19 +51,52 @@ WITH rated_credentials AS (
     AND ca.last_observed_run_id IS NOT NULL
     AND (
       $8::text = ''
-      OR ca.credential_kind = $8::text
+      OR ca.credential_kind = ANY(regexp_split_to_array($8::text, '\s*,\s*'))
     )
     AND (
       $9::text = ''
       OR lower(ca.status) = lower($9::text)
     )
+    AND (
+      $10::text = ''
+      OR ca.created_by_external_id ILIKE ('%' || $10::text || '%')
+      OR ca.created_by_display_name ILIKE ('%' || $10::text || '%')
+      OR ca.approved_by_external_id ILIKE ('%' || $10::text || '%')
+      OR ca.approved_by_display_name ILIKE ('%' || $10::text || '%')
+    )
+    AND (
+      $11::text = ''
+      OR COALESCE(NULLIF(trim(aa.display_name), ''), '') ILIKE ('%' || $11::text || '%')
+      OR ca.asset_ref_external_id ILIKE ('%' || $11::text || '%')
+      OR ca.asset_ref_kind ILIKE ('%' || $11::text || '%')
+    )
+    AND (
+      $12::int <= 0
+      OR (
+        ca.created_at_source IS NOT NULL
+        AND ca.created_at_source >= $3::timestamptz - make_interval(days => $12::int)
+      )
+    )
+),
+ranked AS (
+  SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key,
+    ROW_NUMBER() OVER (
+      PARTITION BY rc.lineage_key
+      ORDER BY COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
+               COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
+               rc.id DESC
+    ) AS lineage_rank
+  FROM rated_credentials rc
+),
+latest AS (
+  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, risk_level, asset_name, lineage_key, lineage_rank FROM ranked WHERE lineage_rank = 1
 )
-SELECT count(*)
-FROM rated_credentials rc
+SELECT count(*)::bigint
+FROM latest rc
 WHERE
   (
     $1::text = ''
-    OR lower($1::text) = rc.risk_level
+    OR rc.risk_level = ANY(regexp_split_to_array(lower($1::text), '\s*,\s*'))
   )
   AND (
     $2::text = ''
@@ -67,6 +125,7 @@ WHERE
     OR rc.asset_ref_external_id ILIKE ('%' || $5::text || '%')
     OR rc.created_by_external_id ILIKE ('%' || $5::text || '%')
     OR rc.approved_by_external_id ILIKE ('%' || $5::text || '%')
+    OR rc.asset_name ILIKE ('%' || $5::text || '%')
   )
 `
 
@@ -80,6 +139,9 @@ type CountCredentialArtifactsBySourceAndQueryAndFiltersParams struct {
 	SourceName     string             `json:"source_name"`
 	CredentialKind string             `json:"credential_kind"`
 	Status         string             `json:"status"`
+	Owner          string             `json:"owner"`
+	Asset          string             `json:"asset"`
+	NewerDays      int32              `json:"newer_days"`
 }
 
 func (q *Queries) CountCredentialArtifactsBySourceAndQueryAndFilters(ctx context.Context, arg CountCredentialArtifactsBySourceAndQueryAndFiltersParams) (int64, error) {
@@ -93,10 +155,13 @@ func (q *Queries) CountCredentialArtifactsBySourceAndQueryAndFilters(ctx context
 		arg.SourceName,
 		arg.CredentialKind,
 		arg.Status,
+		arg.Owner,
+		arg.Asset,
+		arg.NewerDays,
 	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const countCredentialArtifactsBySourcesAndQueryAndFilters = `-- name: CountCredentialArtifactsBySourcesAndQueryAndFilters :one
@@ -110,31 +175,89 @@ WITH configured_sources AS (
 rated_credentials AS (
   SELECT
     ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
-    COALESCE(risk.risk_level, 'low')::text AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
+    -- lineage_key collapses re-issued credentials into a single row. The
+    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
+    -- stripped so a credential renewed each year groups under one lineage.
+    -- This assumes the naming convention; if other sources start emitting
+    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
+    md5(
+      coalesce(ca.source_kind, '') || '|' ||
+      coalesce(ca.asset_ref_external_id, '') || '|' ||
+      coalesce(ca.credential_kind, '') || '|' ||
+      CASE
+        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+        ELSE
+          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
+      END
+    ) AS lineage_key
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
   JOIN configured_sources cs
     ON cs.source_kind = ca.source_kind
    AND cs.source_name = ca.source_name
+  LEFT JOIN app_assets aa
+    ON aa.source_kind = ca.source_kind
+   AND aa.source_name = ca.source_name
+   AND aa.expired_at IS NULL
+   AND (
+        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+     OR ca.asset_ref_external_id = aa.external_id
+   )
   WHERE
     ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
       $8::text = ''
-      OR ca.credential_kind = $8::text
+      OR ca.credential_kind = ANY(regexp_split_to_array($8::text, '\s*,\s*'))
     )
     AND (
       $9::text = ''
       OR lower(ca.status) = lower($9::text)
     )
+    AND (
+      $10::text = ''
+      OR ca.created_by_external_id ILIKE ('%' || $10::text || '%')
+      OR ca.created_by_display_name ILIKE ('%' || $10::text || '%')
+      OR ca.approved_by_external_id ILIKE ('%' || $10::text || '%')
+      OR ca.approved_by_display_name ILIKE ('%' || $10::text || '%')
+    )
+    AND (
+      $11::text = ''
+      OR COALESCE(NULLIF(trim(aa.display_name), ''), '') ILIKE ('%' || $11::text || '%')
+      OR ca.asset_ref_external_id ILIKE ('%' || $11::text || '%')
+      OR ca.asset_ref_kind ILIKE ('%' || $11::text || '%')
+    )
+    AND (
+      $12::int <= 0
+      OR (
+        ca.created_at_source IS NOT NULL
+        AND ca.created_at_source >= $3::timestamptz - make_interval(days => $12::int)
+      )
+    )
+),
+ranked AS (
+  SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key,
+    ROW_NUMBER() OVER (
+      PARTITION BY rc.lineage_key
+      ORDER BY COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
+               COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
+               rc.id DESC
+    ) AS lineage_rank
+  FROM rated_credentials rc
+),
+latest AS (
+  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, risk_level, asset_name, lineage_key, lineage_rank FROM ranked WHERE lineage_rank = 1
 )
-SELECT count(*)
-FROM rated_credentials rc
+SELECT count(*)::bigint
+FROM latest rc
 WHERE
   (
     $1::text = ''
-    OR lower($1::text) = rc.risk_level
+    OR rc.risk_level = ANY(regexp_split_to_array(lower($1::text), '\s*,\s*'))
   )
   AND (
     $2::text = ''
@@ -163,6 +286,7 @@ WHERE
     OR rc.asset_ref_external_id ILIKE ('%' || $5::text || '%')
     OR rc.created_by_external_id ILIKE ('%' || $5::text || '%')
     OR rc.approved_by_external_id ILIKE ('%' || $5::text || '%')
+    OR rc.asset_name ILIKE ('%' || $5::text || '%')
   )
 `
 
@@ -176,6 +300,9 @@ type CountCredentialArtifactsBySourcesAndQueryAndFiltersParams struct {
 	ConfiguredSourceNames []string           `json:"configured_source_names"`
 	CredentialKind        string             `json:"credential_kind"`
 	Status                string             `json:"status"`
+	Owner                 string             `json:"owner"`
+	Asset                 string             `json:"asset"`
+	NewerDays             int32              `json:"newer_days"`
 }
 
 func (q *Queries) CountCredentialArtifactsBySourcesAndQueryAndFilters(ctx context.Context, arg CountCredentialArtifactsBySourcesAndQueryAndFiltersParams) (int64, error) {
@@ -189,10 +316,13 @@ func (q *Queries) CountCredentialArtifactsBySourcesAndQueryAndFilters(ctx contex
 		arg.ConfiguredSourceNames,
 		arg.CredentialKind,
 		arg.Status,
+		arg.Owner,
+		arg.Asset,
+		arg.NewerDays,
 	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const expireCredentialArtifactsForAssetRefsNotSeenInRunBySource = `-- name: ExpireCredentialArtifactsForAssetRefsNotSeenInRunBySource :execrows
@@ -527,34 +657,89 @@ func (q *Queries) ListCredentialArtifactsForAssetRef(ctx context.Context, arg Li
 	return items, nil
 }
 
-const listCredentialArtifactsPageBySourceAndQueryAndFilters = `-- name: ListCredentialArtifactsPageBySourceAndQueryAndFilters :many
-WITH rated_credentials AS (
+const listCredentialArtifactsForExportBySourcesAndQueryAndFilters = `-- name: ListCredentialArtifactsForExportBySourcesAndQueryAndFilters :many
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($8::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($9::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+rated_credentials AS (
   SELECT
     ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
-    COALESCE(risk.risk_level, 'low')::text AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
+    md5(
+      coalesce(ca.source_kind, '') || '|' ||
+      coalesce(ca.asset_ref_external_id, '') || '|' ||
+      coalesce(ca.credential_kind, '') || '|' ||
+      CASE
+        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+        ELSE
+          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
+      END
+    ) AS lineage_key
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
+  JOIN configured_sources cs
+    ON cs.source_kind = ca.source_kind
+   AND cs.source_name = ca.source_name
+  LEFT JOIN app_assets aa
+    ON aa.source_kind = ca.source_kind
+   AND aa.source_name = ca.source_name
+   AND aa.expired_at IS NULL
+   AND (
+        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+     OR ca.asset_ref_external_id = aa.external_id
+   )
   WHERE
-    ca.source_kind = $8::text
-    AND ca.source_name = $9::text
-    AND ca.expired_at IS NULL
+    ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
       $10::text = ''
-      OR ca.credential_kind = $10::text
+      OR ca.credential_kind = ANY(regexp_split_to_array($10::text, '\s*,\s*'))
     )
     AND (
       $11::text = ''
       OR lower(ca.status) = lower($11::text)
     )
+    AND (
+      $12::text = ''
+      OR ca.created_by_external_id ILIKE ('%' || $12::text || '%')
+      OR ca.created_by_display_name ILIKE ('%' || $12::text || '%')
+      OR ca.approved_by_external_id ILIKE ('%' || $12::text || '%')
+      OR ca.approved_by_display_name ILIKE ('%' || $12::text || '%')
+    )
+    AND (
+      $13::text = ''
+      OR COALESCE(NULLIF(trim(aa.display_name), ''), '') ILIKE ('%' || $13::text || '%')
+      OR ca.asset_ref_external_id ILIKE ('%' || $13::text || '%')
+      OR ca.asset_ref_kind ILIKE ('%' || $13::text || '%')
+    )
+    AND (
+      $14::int <= 0
+      OR (
+        ca.created_at_source IS NOT NULL
+        AND ca.created_at_source >= $3::timestamptz - make_interval(days => $14::int)
+      )
+    )
+),
+versioned AS (
+  SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key,
+    COUNT(*) OVER (PARTITION BY rc.lineage_key) AS lineage_version_count
+  FROM rated_credentials rc
 )
-SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level
-FROM rated_credentials rc
+SELECT
+  rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key, rc.lineage_version_count,
+  rc.lineage_version_count::bigint AS version_count
+FROM versioned rc
 WHERE
   (
     $1::text = ''
-    OR lower($1::text) = rc.risk_level
+    OR rc.risk_level = ANY(regexp_split_to_array(lower($1::text), '\s*,\s*'))
   )
   AND (
     $2::text = ''
@@ -583,13 +768,301 @@ WHERE
     OR rc.asset_ref_external_id ILIKE ('%' || $5::text || '%')
     OR rc.created_by_external_id ILIKE ('%' || $5::text || '%')
     OR rc.approved_by_external_id ILIKE ('%' || $5::text || '%')
+    OR rc.asset_name ILIKE ('%' || $5::text || '%')
   )
 ORDER BY
+  CASE WHEN $6::text = 'risk' THEN
+    CASE rc.risk_level
+      WHEN 'critical' THEN 1
+      WHEN 'high' THEN 2
+      WHEN 'medium' THEN 3
+      WHEN 'low' THEN 4
+      ELSE 5
+    END
+  END ASC NULLS LAST,
+  CASE WHEN $6::text = 'asset' THEN lower(COALESCE(NULLIF(trim(rc.asset_name), ''), rc.asset_ref_external_id)) END ASC NULLS LAST,
+  CASE WHEN $6::text = 'credential' THEN lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) END ASC NULLS LAST,
+  COALESCE(rc.expires_at_source, 'infinity'::timestamptz) ASC,
+  lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) ASC,
+  rc.source_kind ASC,
+  rc.source_name ASC,
+  rc.id ASC
+LIMIT $7::int
+`
+
+type ListCredentialArtifactsForExportBySourcesAndQueryAndFiltersParams struct {
+	RiskLevel             string             `json:"risk_level"`
+	ExpiryState           string             `json:"expiry_state"`
+	EvaluatedAt           pgtype.Timestamptz `json:"evaluated_at"`
+	ExpiresInDays         int32              `json:"expires_in_days"`
+	Query                 string             `json:"query"`
+	SortBy                string             `json:"sort_by"`
+	PageLimit             int32              `json:"page_limit"`
+	ConfiguredSourceKinds []string           `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string           `json:"configured_source_names"`
+	CredentialKind        string             `json:"credential_kind"`
+	Status                string             `json:"status"`
+	Owner                 string             `json:"owner"`
+	Asset                 string             `json:"asset"`
+	NewerDays             int32              `json:"newer_days"`
+}
+
+type ListCredentialArtifactsForExportBySourcesAndQueryAndFiltersRow struct {
+	ID                    int64              `json:"id"`
+	SourceKind            string             `json:"source_kind"`
+	SourceName            string             `json:"source_name"`
+	AssetRefKind          string             `json:"asset_ref_kind"`
+	AssetRefExternalID    string             `json:"asset_ref_external_id"`
+	CredentialKind        string             `json:"credential_kind"`
+	ExternalID            string             `json:"external_id"`
+	DisplayName           string             `json:"display_name"`
+	Fingerprint           string             `json:"fingerprint"`
+	ScopeJson             []byte             `json:"scope_json"`
+	Status                string             `json:"status"`
+	CreatedAtSource       pgtype.Timestamptz `json:"created_at_source"`
+	ExpiresAtSource       pgtype.Timestamptz `json:"expires_at_source"`
+	LastUsedAtSource      pgtype.Timestamptz `json:"last_used_at_source"`
+	CreatedByKind         string             `json:"created_by_kind"`
+	CreatedByExternalID   string             `json:"created_by_external_id"`
+	CreatedByDisplayName  string             `json:"created_by_display_name"`
+	ApprovedByKind        string             `json:"approved_by_kind"`
+	ApprovedByExternalID  string             `json:"approved_by_external_id"`
+	ApprovedByDisplayName string             `json:"approved_by_display_name"`
+	RawJson               []byte             `json:"raw_json"`
+	SeenInRunID           pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt                pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID     pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt        pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt             pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID          pgtype.Int8        `json:"expired_run_id"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	RiskLevel             string             `json:"risk_level"`
+	AssetName             string             `json:"asset_name"`
+	LineageKey            string             `json:"lineage_key"`
+	LineageVersionCount   int64              `json:"lineage_version_count"`
+	VersionCount          int64              `json:"version_count"`
+}
+
+// Export-variant of the credentials list query. Returns every distinct active
+// credential matching the filters, with no lineage collapse, so two
+// same-named credentials with different external_id values both appear in the
+// exported CSV. lineage_version_count is still surfaced so each row can carry
+// a "this credential is part of an N-version lineage" hint for triage.
+func (q *Queries) ListCredentialArtifactsForExportBySourcesAndQueryAndFilters(ctx context.Context, arg ListCredentialArtifactsForExportBySourcesAndQueryAndFiltersParams) ([]ListCredentialArtifactsForExportBySourcesAndQueryAndFiltersRow, error) {
+	rows, err := q.db.Query(ctx, listCredentialArtifactsForExportBySourcesAndQueryAndFilters,
+		arg.RiskLevel,
+		arg.ExpiryState,
+		arg.EvaluatedAt,
+		arg.ExpiresInDays,
+		arg.Query,
+		arg.SortBy,
+		arg.PageLimit,
+		arg.ConfiguredSourceKinds,
+		arg.ConfiguredSourceNames,
+		arg.CredentialKind,
+		arg.Status,
+		arg.Owner,
+		arg.Asset,
+		arg.NewerDays,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCredentialArtifactsForExportBySourcesAndQueryAndFiltersRow
+	for rows.Next() {
+		var i ListCredentialArtifactsForExportBySourcesAndQueryAndFiltersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.AssetRefKind,
+			&i.AssetRefExternalID,
+			&i.CredentialKind,
+			&i.ExternalID,
+			&i.DisplayName,
+			&i.Fingerprint,
+			&i.ScopeJson,
+			&i.Status,
+			&i.CreatedAtSource,
+			&i.ExpiresAtSource,
+			&i.LastUsedAtSource,
+			&i.CreatedByKind,
+			&i.CreatedByExternalID,
+			&i.CreatedByDisplayName,
+			&i.ApprovedByKind,
+			&i.ApprovedByExternalID,
+			&i.ApprovedByDisplayName,
+			&i.RawJson,
+			&i.SeenInRunID,
+			&i.SeenAt,
+			&i.LastObservedRunID,
+			&i.LastObservedAt,
+			&i.ExpiredAt,
+			&i.ExpiredRunID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.RiskLevel,
+			&i.AssetName,
+			&i.LineageKey,
+			&i.LineageVersionCount,
+			&i.VersionCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCredentialArtifactsPageBySourceAndQueryAndFilters = `-- name: ListCredentialArtifactsPageBySourceAndQueryAndFilters :many
+WITH rated_credentials AS (
+  SELECT
+    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
+    -- lineage_key collapses re-issued credentials into a single row. The
+    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
+    -- stripped so a credential renewed each year groups under one lineage.
+    -- This assumes the naming convention; if other sources start emitting
+    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
+    md5(
+      coalesce(ca.source_kind, '') || '|' ||
+      coalesce(ca.asset_ref_external_id, '') || '|' ||
+      coalesce(ca.credential_kind, '') || '|' ||
+      CASE
+        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+        ELSE
+          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
+      END
+    ) AS lineage_key
+  FROM credential_artifacts ca
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
+  LEFT JOIN app_assets aa
+    ON aa.source_kind = ca.source_kind
+   AND aa.source_name = ca.source_name
+   AND aa.expired_at IS NULL
+   AND (
+        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+     OR ca.asset_ref_external_id = aa.external_id
+   )
+  WHERE
+    ca.source_kind = $9::text
+    AND ca.source_name = $10::text
+    AND ca.expired_at IS NULL
+    AND ca.last_observed_run_id IS NOT NULL
+    AND (
+      $11::text = ''
+      OR ca.credential_kind = ANY(regexp_split_to_array($11::text, '\s*,\s*'))
+    )
+    AND (
+      $12::text = ''
+      OR lower(ca.status) = lower($12::text)
+    )
+    AND (
+      $13::text = ''
+      OR ca.created_by_external_id ILIKE ('%' || $13::text || '%')
+      OR ca.created_by_display_name ILIKE ('%' || $13::text || '%')
+      OR ca.approved_by_external_id ILIKE ('%' || $13::text || '%')
+      OR ca.approved_by_display_name ILIKE ('%' || $13::text || '%')
+    )
+    AND (
+      $14::text = ''
+      OR COALESCE(NULLIF(trim(aa.display_name), ''), '') ILIKE ('%' || $14::text || '%')
+      OR ca.asset_ref_external_id ILIKE ('%' || $14::text || '%')
+      OR ca.asset_ref_kind ILIKE ('%' || $14::text || '%')
+    )
+    AND (
+      $15::int <= 0
+      OR (
+        ca.created_at_source IS NOT NULL
+        AND ca.created_at_source >= $3::timestamptz - make_interval(days => $15::int)
+      )
+    )
+),
+ranked AS (
+  SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key,
+    ROW_NUMBER() OVER (
+      PARTITION BY rc.lineage_key
+      ORDER BY
+        CASE rc.risk_level
+          WHEN 'critical' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+          ELSE 5
+        END ASC,
+        COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
+        COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
+        rc.id DESC
+    ) AS lineage_rank,
+    COUNT(*) OVER (PARTITION BY rc.lineage_key) AS lineage_version_count
+  FROM rated_credentials rc
+),
+latest AS (
+  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, risk_level, asset_name, lineage_key, lineage_rank, lineage_version_count FROM ranked WHERE lineage_rank = 1
+)
+SELECT
+  rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key, rc.lineage_rank, rc.lineage_version_count,
+  rc.lineage_version_count::bigint AS version_count
+FROM latest rc
+WHERE
+  (
+    $1::text = ''
+    OR rc.risk_level = ANY(regexp_split_to_array(lower($1::text), '\s*,\s*'))
+  )
+  AND (
+    $2::text = ''
+    OR (
+      $2::text = 'expired'
+      AND rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source < $3::timestamptz
+    )
+    OR (
+      $2::text = 'active'
+      AND (rc.expires_at_source IS NULL OR rc.expires_at_source >= $3::timestamptz)
+    )
+  )
+  AND (
+    $4::int <= 0
+    OR (
+      rc.expires_at_source IS NOT NULL
+      AND rc.expires_at_source >= $3::timestamptz
+      AND rc.expires_at_source <= $3::timestamptz + make_interval(days => $4::int)
+    )
+  )
+  AND (
+    $5::text = ''
+    OR rc.display_name ILIKE ('%' || $5::text || '%')
+    OR rc.external_id ILIKE ('%' || $5::text || '%')
+    OR rc.asset_ref_external_id ILIKE ('%' || $5::text || '%')
+    OR rc.created_by_external_id ILIKE ('%' || $5::text || '%')
+    OR rc.approved_by_external_id ILIKE ('%' || $5::text || '%')
+    OR rc.asset_name ILIKE ('%' || $5::text || '%')
+  )
+ORDER BY
+  CASE WHEN $6::text = 'risk' THEN
+    CASE rc.risk_level
+      WHEN 'critical' THEN 1
+      WHEN 'high' THEN 2
+      WHEN 'medium' THEN 3
+      WHEN 'low' THEN 4
+      ELSE 5
+    END
+  END ASC NULLS LAST,
+  CASE WHEN $6::text = 'asset' THEN lower(COALESCE(NULLIF(trim(rc.asset_name), ''), rc.asset_ref_external_id)) END ASC NULLS LAST,
+  CASE WHEN $6::text = 'credential' THEN lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) END ASC NULLS LAST,
   COALESCE(rc.expires_at_source, 'infinity'::timestamptz) ASC,
   lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) ASC,
   rc.id ASC
-LIMIT $7::int
-OFFSET $6::int
+LIMIT $8::int
+OFFSET $7::int
 `
 
 type ListCredentialArtifactsPageBySourceAndQueryAndFiltersParams struct {
@@ -598,12 +1071,16 @@ type ListCredentialArtifactsPageBySourceAndQueryAndFiltersParams struct {
 	EvaluatedAt    pgtype.Timestamptz `json:"evaluated_at"`
 	ExpiresInDays  int32              `json:"expires_in_days"`
 	Query          string             `json:"query"`
+	SortBy         string             `json:"sort_by"`
 	PageOffset     int32              `json:"page_offset"`
 	PageLimit      int32              `json:"page_limit"`
 	SourceKind     string             `json:"source_kind"`
 	SourceName     string             `json:"source_name"`
 	CredentialKind string             `json:"credential_kind"`
 	Status         string             `json:"status"`
+	Owner          string             `json:"owner"`
+	Asset          string             `json:"asset"`
+	NewerDays      int32              `json:"newer_days"`
 }
 
 type ListCredentialArtifactsPageBySourceAndQueryAndFiltersRow struct {
@@ -637,6 +1114,11 @@ type ListCredentialArtifactsPageBySourceAndQueryAndFiltersRow struct {
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 	RiskLevel             string             `json:"risk_level"`
+	AssetName             string             `json:"asset_name"`
+	LineageKey            string             `json:"lineage_key"`
+	LineageRank           int64              `json:"lineage_rank"`
+	LineageVersionCount   int64              `json:"lineage_version_count"`
+	VersionCount          int64              `json:"version_count"`
 }
 
 func (q *Queries) ListCredentialArtifactsPageBySourceAndQueryAndFilters(ctx context.Context, arg ListCredentialArtifactsPageBySourceAndQueryAndFiltersParams) ([]ListCredentialArtifactsPageBySourceAndQueryAndFiltersRow, error) {
@@ -646,12 +1128,16 @@ func (q *Queries) ListCredentialArtifactsPageBySourceAndQueryAndFilters(ctx cont
 		arg.EvaluatedAt,
 		arg.ExpiresInDays,
 		arg.Query,
+		arg.SortBy,
 		arg.PageOffset,
 		arg.PageLimit,
 		arg.SourceKind,
 		arg.SourceName,
 		arg.CredentialKind,
 		arg.Status,
+		arg.Owner,
+		arg.Asset,
+		arg.NewerDays,
 	)
 	if err != nil {
 		return nil, err
@@ -691,6 +1177,11 @@ func (q *Queries) ListCredentialArtifactsPageBySourceAndQueryAndFilters(ctx cont
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.RiskLevel,
+			&i.AssetName,
+			&i.LineageKey,
+			&i.LineageRank,
+			&i.LineageVersionCount,
+			&i.VersionCount,
 		); err != nil {
 			return nil, err
 		}
@@ -707,37 +1198,106 @@ WITH configured_sources AS (
   SELECT
     k.kind AS source_kind,
     n.name AS source_name
-  FROM unnest($8::text[]) WITH ORDINALITY AS k(kind, ord)
-  JOIN unnest($9::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+  FROM unnest($9::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($10::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
 ),
 rated_credentials AS (
   SELECT
     ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
-    COALESCE(risk.risk_level, 'low')::text AS risk_level
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
+    -- lineage_key collapses re-issued credentials into a single row. The
+    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
+    -- stripped so a credential renewed each year groups under one lineage.
+    -- This assumes the naming convention; if other sources start emitting
+    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
+    md5(
+      coalesce(ca.source_kind, '') || '|' ||
+      coalesce(ca.asset_ref_external_id, '') || '|' ||
+      coalesce(ca.credential_kind, '') || '|' ||
+      CASE
+        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+        ELSE
+          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
+      END
+    ) AS lineage_key
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
   JOIN configured_sources cs
     ON cs.source_kind = ca.source_kind
    AND cs.source_name = ca.source_name
+  LEFT JOIN app_assets aa
+    ON aa.source_kind = ca.source_kind
+   AND aa.source_name = ca.source_name
+   AND aa.expired_at IS NULL
+   AND (
+        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+     OR ca.asset_ref_external_id = aa.external_id
+   )
   WHERE
     ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
-      $10::text = ''
-      OR ca.credential_kind = $10::text
+      $11::text = ''
+      OR ca.credential_kind = ANY(regexp_split_to_array($11::text, '\s*,\s*'))
     )
     AND (
-      $11::text = ''
-      OR lower(ca.status) = lower($11::text)
+      $12::text = ''
+      OR lower(ca.status) = lower($12::text)
     )
+    AND (
+      $13::text = ''
+      OR ca.created_by_external_id ILIKE ('%' || $13::text || '%')
+      OR ca.created_by_display_name ILIKE ('%' || $13::text || '%')
+      OR ca.approved_by_external_id ILIKE ('%' || $13::text || '%')
+      OR ca.approved_by_display_name ILIKE ('%' || $13::text || '%')
+    )
+    AND (
+      $14::text = ''
+      OR COALESCE(NULLIF(trim(aa.display_name), ''), '') ILIKE ('%' || $14::text || '%')
+      OR ca.asset_ref_external_id ILIKE ('%' || $14::text || '%')
+      OR ca.asset_ref_kind ILIKE ('%' || $14::text || '%')
+    )
+    AND (
+      $15::int <= 0
+      OR (
+        ca.created_at_source IS NOT NULL
+        AND ca.created_at_source >= $3::timestamptz - make_interval(days => $15::int)
+      )
+    )
+),
+ranked AS (
+  SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key,
+    ROW_NUMBER() OVER (
+      PARTITION BY rc.lineage_key
+      ORDER BY
+        CASE rc.risk_level
+          WHEN 'critical' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+          ELSE 5
+        END ASC,
+        COALESCE(rc.expires_at_source, 'infinity'::timestamptz) DESC,
+        COALESCE(rc.created_at_source, '-infinity'::timestamptz) DESC,
+        rc.id DESC
+    ) AS lineage_rank,
+    COUNT(*) OVER (PARTITION BY rc.lineage_key) AS lineage_version_count
+  FROM rated_credentials rc
+),
+latest AS (
+  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, risk_level, asset_name, lineage_key, lineage_rank, lineage_version_count FROM ranked WHERE lineage_rank = 1
 )
-SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level
-FROM rated_credentials rc
+SELECT
+  rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key, rc.lineage_rank, rc.lineage_version_count,
+  rc.lineage_version_count::bigint AS version_count
+FROM latest rc
 WHERE
   (
     $1::text = ''
-    OR lower($1::text) = rc.risk_level
+    OR rc.risk_level = ANY(regexp_split_to_array(lower($1::text), '\s*,\s*'))
   )
   AND (
     $2::text = ''
@@ -766,15 +1326,27 @@ WHERE
     OR rc.asset_ref_external_id ILIKE ('%' || $5::text || '%')
     OR rc.created_by_external_id ILIKE ('%' || $5::text || '%')
     OR rc.approved_by_external_id ILIKE ('%' || $5::text || '%')
+    OR rc.asset_name ILIKE ('%' || $5::text || '%')
   )
 ORDER BY
+  CASE WHEN $6::text = 'risk' THEN
+    CASE rc.risk_level
+      WHEN 'critical' THEN 1
+      WHEN 'high' THEN 2
+      WHEN 'medium' THEN 3
+      WHEN 'low' THEN 4
+      ELSE 5
+    END
+  END ASC NULLS LAST,
+  CASE WHEN $6::text = 'asset' THEN lower(COALESCE(NULLIF(trim(rc.asset_name), ''), rc.asset_ref_external_id)) END ASC NULLS LAST,
+  CASE WHEN $6::text = 'credential' THEN lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) END ASC NULLS LAST,
   COALESCE(rc.expires_at_source, 'infinity'::timestamptz) ASC,
   lower(COALESCE(NULLIF(trim(rc.display_name), ''), rc.external_id)) ASC,
   rc.source_kind ASC,
   rc.source_name ASC,
   rc.id ASC
-LIMIT $7::int
-OFFSET $6::int
+LIMIT $8::int
+OFFSET $7::int
 `
 
 type ListCredentialArtifactsPageBySourcesAndQueryAndFiltersParams struct {
@@ -783,12 +1355,16 @@ type ListCredentialArtifactsPageBySourcesAndQueryAndFiltersParams struct {
 	EvaluatedAt           pgtype.Timestamptz `json:"evaluated_at"`
 	ExpiresInDays         int32              `json:"expires_in_days"`
 	Query                 string             `json:"query"`
+	SortBy                string             `json:"sort_by"`
 	PageOffset            int32              `json:"page_offset"`
 	PageLimit             int32              `json:"page_limit"`
 	ConfiguredSourceKinds []string           `json:"configured_source_kinds"`
 	ConfiguredSourceNames []string           `json:"configured_source_names"`
 	CredentialKind        string             `json:"credential_kind"`
 	Status                string             `json:"status"`
+	Owner                 string             `json:"owner"`
+	Asset                 string             `json:"asset"`
+	NewerDays             int32              `json:"newer_days"`
 }
 
 type ListCredentialArtifactsPageBySourcesAndQueryAndFiltersRow struct {
@@ -822,6 +1398,11 @@ type ListCredentialArtifactsPageBySourcesAndQueryAndFiltersRow struct {
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 	RiskLevel             string             `json:"risk_level"`
+	AssetName             string             `json:"asset_name"`
+	LineageKey            string             `json:"lineage_key"`
+	LineageRank           int64              `json:"lineage_rank"`
+	LineageVersionCount   int64              `json:"lineage_version_count"`
+	VersionCount          int64              `json:"version_count"`
 }
 
 func (q *Queries) ListCredentialArtifactsPageBySourcesAndQueryAndFilters(ctx context.Context, arg ListCredentialArtifactsPageBySourcesAndQueryAndFiltersParams) ([]ListCredentialArtifactsPageBySourcesAndQueryAndFiltersRow, error) {
@@ -831,12 +1412,16 @@ func (q *Queries) ListCredentialArtifactsPageBySourcesAndQueryAndFilters(ctx con
 		arg.EvaluatedAt,
 		arg.ExpiresInDays,
 		arg.Query,
+		arg.SortBy,
 		arg.PageOffset,
 		arg.PageLimit,
 		arg.ConfiguredSourceKinds,
 		arg.ConfiguredSourceNames,
 		arg.CredentialKind,
 		arg.Status,
+		arg.Owner,
+		arg.Asset,
+		arg.NewerDays,
 	)
 	if err != nil {
 		return nil, err
@@ -876,6 +1461,11 @@ func (q *Queries) ListCredentialArtifactsPageBySourcesAndQueryAndFilters(ctx con
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.RiskLevel,
+			&i.AssetName,
+			&i.LineageKey,
+			&i.LineageRank,
+			&i.LineageVersionCount,
+			&i.VersionCount,
 		); err != nil {
 			return nil, err
 		}
@@ -948,6 +1538,341 @@ func (q *Queries) RefreshCredentialArtifactLifecycleStatusesBySource(ctx context
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const summarizeCredentialsBySourceAndQuery = `-- name: SummarizeCredentialsBySourceAndQuery :one
+WITH rated_credentials AS (
+  SELECT
+    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
+    -- lineage_key collapses re-issued credentials into a single row. The
+    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
+    -- stripped so a credential renewed each year groups under one lineage.
+    -- This assumes the naming convention; if other sources start emitting
+    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
+    md5(
+      coalesce(ca.source_kind, '') || '|' ||
+      coalesce(ca.asset_ref_external_id, '') || '|' ||
+      coalesce(ca.credential_kind, '') || '|' ||
+      CASE
+        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+        ELSE
+          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
+      END
+    ) AS lineage_key
+  FROM credential_artifacts ca
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
+  LEFT JOIN app_assets aa
+    ON aa.source_kind = ca.source_kind
+   AND aa.source_name = ca.source_name
+   AND aa.expired_at IS NULL
+   AND (
+        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+     OR ca.asset_ref_external_id = aa.external_id
+   )
+  WHERE
+    ca.source_kind = $2::text
+    AND ca.source_name = $3::text
+    AND ca.expired_at IS NULL
+    AND ca.last_observed_run_id IS NOT NULL
+    AND (
+      $4::text = ''
+      OR ca.credential_kind = ANY(regexp_split_to_array($4::text, '\s*,\s*'))
+    )
+    AND (
+      $5::text = ''
+      OR ca.created_by_external_id ILIKE ('%' || $5::text || '%')
+      OR ca.created_by_display_name ILIKE ('%' || $5::text || '%')
+      OR ca.approved_by_external_id ILIKE ('%' || $5::text || '%')
+      OR ca.approved_by_display_name ILIKE ('%' || $5::text || '%')
+    )
+    AND (
+      $6::text = ''
+      OR COALESCE(NULLIF(trim(aa.display_name), ''), '') ILIKE ('%' || $6::text || '%')
+      OR ca.asset_ref_external_id ILIKE ('%' || $6::text || '%')
+      OR ca.asset_ref_kind ILIKE ('%' || $6::text || '%')
+    )
+    AND (
+      $7::int <= 0
+      OR (
+        ca.created_at_source IS NOT NULL
+        AND ca.created_at_source >= $1::timestamptz - make_interval(days => $7::int)
+      )
+    )
+),
+matched AS (
+  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, risk_level, asset_name, lineage_key
+  FROM rated_credentials rc
+  WHERE
+    $8::text = ''
+    OR rc.display_name ILIKE ('%' || $8::text || '%')
+    OR rc.external_id ILIKE ('%' || $8::text || '%')
+    OR rc.asset_ref_external_id ILIKE ('%' || $8::text || '%')
+    OR rc.created_by_external_id ILIKE ('%' || $8::text || '%')
+    OR rc.approved_by_external_id ILIKE ('%' || $8::text || '%')
+    OR rc.asset_name ILIKE ('%' || $8::text || '%')
+)
+SELECT
+  count(*)::bigint AS total,
+  count(*) FILTER (
+    WHERE m.expires_at_source IS NOT NULL
+      AND m.expires_at_source < $1::timestamptz
+  )::bigint AS expired,
+  count(*) FILTER (
+    WHERE m.expires_at_source IS NOT NULL
+      AND m.expires_at_source >= $1::timestamptz
+      AND m.expires_at_source <= $1::timestamptz + make_interval(days => 30)
+  )::bigint AS expiring_soon,
+  count(*) FILTER (WHERE m.risk_level = 'critical')::bigint AS critical,
+  count(*) FILTER (WHERE m.risk_level = 'high')::bigint AS high,
+  -- The "warning" tier mixes medium-risk credentials with non-critical/high
+  -- credentials inside the 30-day expiry window. If the expiry window
+  -- elsewhere (CredentialExpiryTextClass, expiryWordAndTone in helpers.go) is
+  -- ever retuned, update the interval below to keep the KPI consistent.
+  count(*) FILTER (
+    WHERE m.risk_level = 'medium'
+       OR (
+         m.expires_at_source IS NOT NULL
+         AND m.expires_at_source >= $1::timestamptz
+         AND m.expires_at_source <= $1::timestamptz + make_interval(days => 30)
+         AND m.risk_level NOT IN ('critical', 'high')
+       )
+  )::bigint AS warning,
+  count(*) FILTER (WHERE lower(m.status) IN ('pending_approval', 'pending'))::bigint AS pending_approval,
+  count(*) FILTER (WHERE lower(m.status) = 'revoked')::bigint AS revoked,
+  count(*) FILTER (
+    WHERE m.expires_at_source IS NULL
+       OR m.expires_at_source >= $1::timestamptz
+  )::bigint AS active,
+  count(DISTINCT COALESCE(NULLIF(trim(m.asset_name), ''), m.asset_ref_kind || ':' || m.asset_ref_external_id))::bigint AS asset_count
+FROM matched m
+`
+
+type SummarizeCredentialsBySourceAndQueryParams struct {
+	EvaluatedAt    pgtype.Timestamptz `json:"evaluated_at"`
+	SourceKind     string             `json:"source_kind"`
+	SourceName     string             `json:"source_name"`
+	CredentialKind string             `json:"credential_kind"`
+	Owner          string             `json:"owner"`
+	Asset          string             `json:"asset"`
+	NewerDays      int32              `json:"newer_days"`
+	Query          string             `json:"query"`
+}
+
+type SummarizeCredentialsBySourceAndQueryRow struct {
+	Total           int64 `json:"total"`
+	Expired         int64 `json:"expired"`
+	ExpiringSoon    int64 `json:"expiring_soon"`
+	Critical        int64 `json:"critical"`
+	High            int64 `json:"high"`
+	Warning         int64 `json:"warning"`
+	PendingApproval int64 `json:"pending_approval"`
+	Revoked         int64 `json:"revoked"`
+	Active          int64 `json:"active"`
+	AssetCount      int64 `json:"asset_count"`
+}
+
+// Returns counts of distinct active credentials for the credentials stat strip
+// and segment chips. Distinct rather than lineage-grouped so that two
+// same-named credentials with different external_id values both contribute to
+// the risk-level counts and are not hidden behind a single lineage row.
+// Respects source/q/credential_kind/owner/asset/newer scoping; segment-style
+// filters (status/risk/expiry) are intentionally excluded so cards can show
+// segment sizes while a segment is active.
+func (q *Queries) SummarizeCredentialsBySourceAndQuery(ctx context.Context, arg SummarizeCredentialsBySourceAndQueryParams) (SummarizeCredentialsBySourceAndQueryRow, error) {
+	row := q.db.QueryRow(ctx, summarizeCredentialsBySourceAndQuery,
+		arg.EvaluatedAt,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.CredentialKind,
+		arg.Owner,
+		arg.Asset,
+		arg.NewerDays,
+		arg.Query,
+	)
+	var i SummarizeCredentialsBySourceAndQueryRow
+	err := row.Scan(
+		&i.Total,
+		&i.Expired,
+		&i.ExpiringSoon,
+		&i.Critical,
+		&i.High,
+		&i.Warning,
+		&i.PendingApproval,
+		&i.Revoked,
+		&i.Active,
+		&i.AssetCount,
+	)
+	return i, err
+}
+
+const summarizeCredentialsBySourcesAndQuery = `-- name: SummarizeCredentialsBySourcesAndQuery :one
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($2::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($3::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+rated_credentials AS (
+  SELECT
+    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+    COALESCE(risk.risk_level, 'low')::text AS risk_level,
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
+    -- lineage_key collapses re-issued credentials into a single row. The
+    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
+    -- stripped so a credential renewed each year groups under one lineage.
+    -- This assumes the naming convention; if other sources start emitting
+    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
+    md5(
+      coalesce(ca.source_kind, '') || '|' ||
+      coalesce(ca.asset_ref_external_id, '') || '|' ||
+      coalesce(ca.credential_kind, '') || '|' ||
+      CASE
+        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+        ELSE
+          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
+      END
+    ) AS lineage_key
+  FROM credential_artifacts ca
+  LEFT JOIN credential_artifact_risk_read_models risk
+    ON risk.credential_artifact_id = ca.id
+  JOIN configured_sources cs
+    ON cs.source_kind = ca.source_kind
+   AND cs.source_name = ca.source_name
+  LEFT JOIN app_assets aa
+    ON aa.source_kind = ca.source_kind
+   AND aa.source_name = ca.source_name
+   AND aa.expired_at IS NULL
+   AND (
+        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+     OR ca.asset_ref_external_id = aa.external_id
+   )
+  WHERE
+    ca.expired_at IS NULL
+    AND ca.last_observed_run_id IS NOT NULL
+    AND (
+      $4::text = ''
+      OR ca.credential_kind = ANY(regexp_split_to_array($4::text, '\s*,\s*'))
+    )
+    AND (
+      $5::text = ''
+      OR ca.created_by_external_id ILIKE ('%' || $5::text || '%')
+      OR ca.created_by_display_name ILIKE ('%' || $5::text || '%')
+      OR ca.approved_by_external_id ILIKE ('%' || $5::text || '%')
+      OR ca.approved_by_display_name ILIKE ('%' || $5::text || '%')
+    )
+    AND (
+      $6::text = ''
+      OR COALESCE(NULLIF(trim(aa.display_name), ''), '') ILIKE ('%' || $6::text || '%')
+      OR ca.asset_ref_external_id ILIKE ('%' || $6::text || '%')
+      OR ca.asset_ref_kind ILIKE ('%' || $6::text || '%')
+    )
+    AND (
+      $7::int <= 0
+      OR (
+        ca.created_at_source IS NOT NULL
+        AND ca.created_at_source >= $1::timestamptz - make_interval(days => $7::int)
+      )
+    )
+),
+matched AS (
+  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, risk_level, asset_name, lineage_key
+  FROM rated_credentials rc
+  WHERE
+    $8::text = ''
+    OR rc.display_name ILIKE ('%' || $8::text || '%')
+    OR rc.external_id ILIKE ('%' || $8::text || '%')
+    OR rc.asset_ref_external_id ILIKE ('%' || $8::text || '%')
+    OR rc.created_by_external_id ILIKE ('%' || $8::text || '%')
+    OR rc.approved_by_external_id ILIKE ('%' || $8::text || '%')
+    OR rc.asset_name ILIKE ('%' || $8::text || '%')
+)
+SELECT
+  count(*)::bigint AS total,
+  count(*) FILTER (
+    WHERE m.expires_at_source IS NOT NULL
+      AND m.expires_at_source < $1::timestamptz
+  )::bigint AS expired,
+  count(*) FILTER (
+    WHERE m.expires_at_source IS NOT NULL
+      AND m.expires_at_source >= $1::timestamptz
+      AND m.expires_at_source <= $1::timestamptz + make_interval(days => 30)
+  )::bigint AS expiring_soon,
+  count(*) FILTER (WHERE m.risk_level = 'critical')::bigint AS critical,
+  count(*) FILTER (WHERE m.risk_level = 'high')::bigint AS high,
+  count(*) FILTER (
+    WHERE m.risk_level = 'medium'
+       OR (
+         m.expires_at_source IS NOT NULL
+         AND m.expires_at_source >= $1::timestamptz
+         AND m.expires_at_source <= $1::timestamptz + make_interval(days => 30)
+         AND m.risk_level NOT IN ('critical', 'high')
+       )
+  )::bigint AS warning,
+  count(*) FILTER (WHERE lower(m.status) IN ('pending_approval', 'pending'))::bigint AS pending_approval,
+  count(*) FILTER (WHERE lower(m.status) = 'revoked')::bigint AS revoked,
+  count(*) FILTER (
+    WHERE m.expires_at_source IS NULL
+       OR m.expires_at_source >= $1::timestamptz
+  )::bigint AS active,
+  count(DISTINCT COALESCE(NULLIF(trim(m.asset_name), ''), m.asset_ref_kind || ':' || m.asset_ref_external_id))::bigint AS asset_count
+FROM matched m
+`
+
+type SummarizeCredentialsBySourcesAndQueryParams struct {
+	EvaluatedAt           pgtype.Timestamptz `json:"evaluated_at"`
+	ConfiguredSourceKinds []string           `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string           `json:"configured_source_names"`
+	CredentialKind        string             `json:"credential_kind"`
+	Owner                 string             `json:"owner"`
+	Asset                 string             `json:"asset"`
+	NewerDays             int32              `json:"newer_days"`
+	Query                 string             `json:"query"`
+}
+
+type SummarizeCredentialsBySourcesAndQueryRow struct {
+	Total           int64 `json:"total"`
+	Expired         int64 `json:"expired"`
+	ExpiringSoon    int64 `json:"expiring_soon"`
+	Critical        int64 `json:"critical"`
+	High            int64 `json:"high"`
+	Warning         int64 `json:"warning"`
+	PendingApproval int64 `json:"pending_approval"`
+	Revoked         int64 `json:"revoked"`
+	Active          int64 `json:"active"`
+	AssetCount      int64 `json:"asset_count"`
+}
+
+func (q *Queries) SummarizeCredentialsBySourcesAndQuery(ctx context.Context, arg SummarizeCredentialsBySourcesAndQueryParams) (SummarizeCredentialsBySourcesAndQueryRow, error) {
+	row := q.db.QueryRow(ctx, summarizeCredentialsBySourcesAndQuery,
+		arg.EvaluatedAt,
+		arg.ConfiguredSourceKinds,
+		arg.ConfiguredSourceNames,
+		arg.CredentialKind,
+		arg.Owner,
+		arg.Asset,
+		arg.NewerDays,
+		arg.Query,
+	)
+	var i SummarizeCredentialsBySourcesAndQueryRow
+	err := row.Scan(
+		&i.Total,
+		&i.Expired,
+		&i.ExpiringSoon,
+		&i.Critical,
+		&i.High,
+		&i.Warning,
+		&i.PendingApproval,
+		&i.Revoked,
+		&i.Active,
+		&i.AssetCount,
+	)
+	return i, err
 }
 
 const upsertCredentialArtifactsBulkBySource = `-- name: UpsertCredentialArtifactsBulkBySource :execrows
