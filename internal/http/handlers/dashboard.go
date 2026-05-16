@@ -34,11 +34,6 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	relationshipGraph, err := h.dashboardRelationshipGraph(ctx, stateView, identityCount)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-
 	sourceNameByKind := map[string]string{}
 	if h.Registry != nil {
 		states, err := h.Registry.LoadStates(ctx, h.Q)
@@ -100,7 +95,7 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 			Name:        name,
 			PassedCount: counts.PassedRules,
 			TotalCount:  counts.TotalRules,
-			PassPercent: overviewMapPercent(counts.PassedRules, counts.TotalRules),
+			PassPercent: dashboardPercent(counts.PassedRules, counts.TotalRules),
 			BadgeLabel:  dashboardFrameworkBadgeLabel(name),
 			Href:        "/findings/rulesets/" + strings.TrimSpace(rs.Key),
 		})
@@ -124,7 +119,6 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 		IdentityCount:     identityCount,
 		DiscoveryAppCount: discoveryAppCount,
 		AppAssetCount:     appAssetCount,
-		RelationshipGraph: relationshipGraph,
 		FrameworkPosture:  frameworkPosture,
 	}
 
@@ -166,81 +160,6 @@ func (h *Handlers) dashboardAppAssetCount(ctx context.Context, stateView connect
 	})
 }
 
-func (h *Handlers) dashboardRelationshipGraph(ctx context.Context, stateView connectorStateView, identityCount int64) (viewmodels.OverviewMapGraph, error) {
-	graph := newOverviewMapGraph(identityCount)
-
-	sourcePairs := availableIdentitySourcePairs(stateView)
-	if len(sourcePairs) == 0 {
-		return graph, nil
-	}
-
-	configuredKinds, configuredNames := identityConfiguredSourcePairs(sourcePairs)
-	sourceRows, err := h.Q.ListDashboardSourceAccountSummaries(ctx, gen.ListDashboardSourceAccountSummariesParams{
-		ConfiguredSourceKinds: configuredKinds,
-		ConfiguredSourceNames: configuredNames,
-	})
-	if err != nil {
-		return graph, err
-	}
-
-	bucketRows, err := h.Q.ListDashboardPrivilegedAccessBuckets(ctx, gen.ListDashboardPrivilegedAccessBucketsParams{
-		ConfiguredSourceKinds: configuredKinds,
-		ConfiguredSourceNames: configuredNames,
-		BucketLimit:           2,
-	})
-	if err != nil {
-		return graph, err
-	}
-
-	return assembleOverviewMapGraph(graph, sourceRows, bucketRows, dashboardSourceHref)
-}
-
-var dashboardGraphTonesByKind = map[string]string{
-	"okta":                viewmodels.OverviewMapToneOkta,
-	"entra":               viewmodels.OverviewMapToneEntra,
-	"google_workspace":    viewmodels.OverviewMapToneGoogle,
-	"github":              viewmodels.OverviewMapToneGitHub,
-	"datadog":             viewmodels.OverviewMapToneDatadog,
-	"aws_identity_center": viewmodels.OverviewMapToneAWS,
-	"vault":               viewmodels.OverviewMapToneVault,
-}
-
-func dashboardGraphTone(kind string) string {
-	if tone, ok := dashboardGraphTonesByKind[NormalizeConnectorKind(kind)]; ok {
-		return tone
-	}
-	return viewmodels.OverviewMapToneDefault
-}
-
-func dashboardSourceHref(kind string) string {
-	switch NormalizeConnectorKind(kind) {
-	case "okta":
-		return "/accounts/okta"
-	case "entra":
-		return "/accounts/entra"
-	case "google_workspace":
-		return "/accounts/google-workspace"
-	case "github":
-		return "/accounts/github"
-	case "datadog":
-		return "/accounts/datadog"
-	case "aws_identity_center":
-		return "/accounts/aws"
-	default:
-		return ""
-	}
-}
-
-func clampInt(v, minValue, maxValue int) int {
-	if v < minValue {
-		return minValue
-	}
-	if v > maxValue {
-		return maxValue
-	}
-	return v
-}
-
 func dashboardFrameworkBadgeLabel(name string) string {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -274,6 +193,17 @@ func safePrefix(s string, n int) string {
 		n = len(r)
 	}
 	return string(r[:n])
+}
+
+func dashboardPercent(numerator, denominator int64) int {
+	if denominator <= 0 || numerator <= 0 {
+		return 0
+	}
+	percent := int((numerator * 100) / denominator)
+	if percent > 100 {
+		return 100
+	}
+	return percent
 }
 
 // HandleHealthz returns a simple health check response.

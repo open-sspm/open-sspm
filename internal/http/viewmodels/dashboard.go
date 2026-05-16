@@ -5,7 +5,6 @@ type DashboardViewData struct {
 	IdentityCount     int64
 	DiscoveryAppCount int64
 	AppAssetCount     int64
-	RelationshipGraph OverviewMapGraph
 	FrameworkPosture  []DashboardFrameworkPostureItem
 }
 

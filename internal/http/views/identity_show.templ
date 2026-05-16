@@ -5,257 +5,569 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 	@Layout(data.Layout) {
 		@PageHeader("")
-		<section class="mb-6 border-b border-border pb-5">
-			<div class="max-w-4xl space-y-3">
-				<div class="space-y-1.5">
-					<h1 class="text-2xl font-semibold tracking-tight break-words">{ data.NamePrimary }</h1>
-					if data.NameSecondary != "" {
-						<p class="text-sm text-muted-foreground break-all">{ data.NameSecondary }</p>
+		<div class="mx-auto w-full min-w-0 max-w-7xl">
+			@identityShowBreadcrumb(data)
+			@identityShowHeader(data)
+			@identityShowSummaryTiles(data.Summary.Tiles)
+			@identityShowEntitlements(data)
+			@identityShowLinkedAccounts(data)
+		</div>
+	}
+}
+
+templ identityShowBreadcrumb(data viewmodels.IdentityShowViewData) {
+	<nav class="osspm-breadcrumb min-w-0 overflow-hidden" aria-label="Breadcrumb">
+		<a href={ templ.SafeURL(data.Breadcrumb.RootHref) }>{ data.Breadcrumb.RootLabel }</a>
+		<span class="osspm-breadcrumb-sep" aria-hidden="true">›</span>
+		if data.Breadcrumb.KindLabel != "" {
+			if data.Breadcrumb.KindHref != "" {
+				<a href={ templ.SafeURL(data.Breadcrumb.KindHref) }>{ data.Breadcrumb.KindLabel }</a>
+			} else {
+				<span>{ data.Breadcrumb.KindLabel }</span>
+			}
+			<span class="osspm-breadcrumb-sep" aria-hidden="true">›</span>
+		}
+		<span class="min-w-0 flex-1 truncate text-foreground" aria-current="page">{ data.Profile.NamePrimary }</span>
+	</nav>
+}
+
+templ identityShowHeader(data viewmodels.IdentityShowViewData) {
+	<section class="osspm-identity-profile">
+		<div class="flex min-w-0 flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+			<div class="flex min-w-0 items-start gap-4">
+				<div class={ templ.Classes("osspm-avatar-lg shrink-0", data.Profile.AvatarClass) }>{ data.Profile.Initials }</div>
+				<div class="min-w-0 space-y-2">
+					<div class="flex flex-wrap items-center gap-2">
+						<h1 class="text-2xl font-semibold tracking-tight break-words">{ data.Profile.NamePrimary }</h1>
+						if data.Profile.StatusTone == "active" && data.Profile.StatusLabel != "" {
+							<span class="badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100">
+								<span class="mr-1 inline-block size-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>
+								{ data.Profile.StatusLabel }
+							</span>
+						} else if data.Profile.StatusTone == "warn" && data.Profile.StatusLabel != "" {
+							<span class="badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100">
+								<span class="mr-1 inline-block size-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>
+								{ data.Profile.StatusLabel }
+							</span>
+						}
+					</div>
+					if data.Profile.NameSecondary != "" {
+						<p class="text-sm text-muted-foreground break-all">{ data.Profile.NameSecondary }</p>
 					}
+					<div class="flex flex-wrap items-center gap-2 pt-1">
+						if data.Profile.Identity.Managed {
+							<span class="badge-outline">Managed</span>
+						} else {
+							<span class="badge-outline">Unmanaged</span>
+						}
+						if data.Profile.IdentityTypeLabel != "" && data.Profile.IdentityTypeLabel != "Unknown" {
+							<span class="badge-outline">{ data.Profile.IdentityTypeLabel }</span>
+						}
+						for _, tag := range data.Profile.Tags {
+							<span class="badge-outline">{ tag }</span>
+						}
+						if data.Profile.AdminScopeSummary != "" {
+							<span class="badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100">{ "Admin · " }{ data.Profile.AdminScopeSummary }</span>
+						}
+						<span class="osspm-id-pill">{ "ID " }{ FormatInt64(data.Profile.Identity.ID) }</span>
+						if data.Profile.NonHumanIdentitiesHref != "" {
+							<a class="btn-sm-link px-0" href={ templ.SafeURL(data.Profile.NonHumanIdentitiesHref) }>Search non-human identities</a>
+						}
+					</div>
 				</div>
-				<div class="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground">
-					if data.Identity.Managed {
-						<span>Managed</span>
-					} else {
-						<span>Unmanaged</span>
-					}
-					if HumanizeIdentityType(data.Identity.Kind) != "Unknown" {
-						<span>{ HumanizeIdentityType(data.Identity.Kind) }</span>
-					}
-					<span>{ FormatInt64(data.Identity.LinkedAccounts) }{ " linked accounts" }</span>
-					<span>{ FormatInt(data.TotalEntitlements) }{ " entitlements" }</span>
-				</div>
-				<dl class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-					<div class="flex items-baseline gap-2">
-						<dt class="text-muted-foreground">Identity ID</dt>
-						<dd class="font-medium">{ FormatInt64(data.Identity.ID) }</dd>
+			</div>
+			if data.Profile.ReviewSummary.Label != "" {
+				@identityReviewSummary(data.Profile.ReviewSummary)
+			}
+		</div>
+		if len(data.Profile.Facts) > 0 {
+			<dl class="mt-5 grid grid-cols-2 gap-x-8 gap-y-3 border-t border-border/50 pt-4 text-sm sm:grid-cols-3 lg:grid-cols-6">
+				for _, fact := range data.Profile.Facts {
+					<div class="space-y-0.5">
+						<dt class="text-xs uppercase tracking-wide text-muted-foreground">{ fact.Label }</dt>
+						<dd class="font-medium">{ fact.Value }</dd>
 					</div>
-					<div class="flex items-baseline gap-2">
-						<dt class="text-muted-foreground">Created</dt>
-						<dd>{ data.CreatedOn.Label }</dd>
-					</div>
-					<div class="flex items-baseline gap-2">
-						<dt class="text-muted-foreground">Updated</dt>
-						<dd>{ data.UpdatedOn.Label }</dd>
-					</div>
-				</dl>
-				if data.NonHumanIdentitiesHref != "" {
-					<a class="btn-sm-link px-0" href={ data.NonHumanIdentitiesHref }>Search non-human identities</a>
+				}
+			</dl>
+		}
+	</section>
+}
+
+templ identityReviewSummary(summary viewmodels.IdentityReviewSummary) {
+	<div class={ templ.Classes("osspm-review-verdict", templ.KV("osspm-review-verdict-ok", summary.Tone == "ok"), templ.KV("osspm-review-verdict-warn", summary.Tone == "warn"), templ.KV("osspm-review-verdict-danger", summary.Tone == "danger")) }>
+		<span class="osspm-review-verdict-dot" aria-hidden="true"></span>
+		<div class="min-w-0">
+			<div class="osspm-review-verdict-label">{ summary.Label }</div>
+			if summary.Detail != "" {
+				<div class="osspm-review-verdict-detail">{ summary.Detail }</div>
+			}
+		</div>
+	</div>
+}
+
+templ identityShowSummaryTiles(tiles []viewmodels.IdentitySummaryTile) {
+	if len(tiles) > 0 {
+		<section class="osspm-summary-tiles">
+			for _, tile := range tiles {
+				@identitySummaryTile(tile)
+			}
+		</section>
+	}
+}
+
+templ identitySummaryTile(tile viewmodels.IdentitySummaryTile) {
+	<div class="osspm-summary-tile">
+		<div class="osspm-summary-tile-label">{ tile.Label }</div>
+		<div class={ templ.Classes("osspm-summary-tile-value", templ.KV("osspm-summary-tile-value-danger", tile.Danger), templ.KV("osspm-summary-tile-value-warn", tile.Warn)) }>{ tile.Value }</div>
+		if tile.Sublabel != "" {
+			<div class="osspm-summary-tile-sublabel">{ tile.Sublabel }</div>
+		}
+	</div>
+}
+
+templ identityShowLinkedAccounts(data viewmodels.IdentityShowViewData) {
+	<section class="osspm-data-section">
+		<div class="osspm-data-section-header">
+			<div class="space-y-1">
+				<h2 class="text-base font-semibold">{ "Source accounts " }<span class="text-sm font-normal text-muted-foreground">{ FormatInt(data.LinkedAccounts.Total) }{ " total" }</span></h2>
+				if data.LinkedAccounts.HasFilter {
+					<p class="text-sm text-muted-foreground">{ FormatInt(data.LinkedAccounts.Visible) }{ " shown" }</p>
 				}
 			</div>
-		</section>
-		<section class="space-y-3">
-			<div class="flex flex-wrap items-end justify-between gap-3">
-				<div class="space-y-1">
-					<h2 class="text-base font-semibold">Linked accounts</h2>
-					<p class="text-sm text-muted-foreground">Source accounts currently merged into this identity.</p>
+			if data.LinkedAccounts.Total > 0 {
+				<div class="flex flex-wrap items-center gap-3">
+					<span class="text-sm text-muted-foreground">
+						<span class="mr-1 inline-block size-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>
+						{ FormatInt(data.LinkedAccounts.Active) }{ " active" }
+					</span>
+					<span class="text-sm text-muted-foreground">
+						{ "· " }{ FormatInt(data.LinkedAccounts.Dormant) }{ " dormant" }
+					</span>
 				</div>
-				<p class="shrink-0 text-sm text-muted-foreground">
-					if data.HasLinkedAccounts {
-						{ FormatInt64(data.Identity.LinkedAccounts) }{ " total" }
-					} else {
-						0 total
-					}
-				</p>
+			}
+		</div>
+		if data.LinkedAccounts.Total > 1 || data.LinkedAccounts.HasFilter {
+			@identityLinkedAccountsToolbar(data)
+		}
+		if data.LinkedAccounts.HasItems {
+			if data.LinkedAccounts.Total == 1 && !data.LinkedAccounts.HasFilter {
+				for _, linked := range data.LinkedAccounts.Items {
+					@identitySingleLinkedAccount(linked)
+				}
+			}
+			if data.LinkedAccounts.Total != 1 || data.LinkedAccounts.HasFilter {
+				<div class="divide-y divide-border border-t border-border lg:hidden">
+				for _, linked := range data.LinkedAccounts.Items {
+					<article class="py-4">
+						<div class="flex items-start gap-3">
+							@ProductIcon(linked.Account.SourceKind, "", "", "h-7 w-7 rounded-md shrink-0")
+							<div class="min-w-0 flex-1 space-y-0.5">
+								<div class="font-medium">{ HumanizeConnectorKind(linked.Account.SourceKind) }</div>
+									if linked.Account.SourceName != "" {
+										<div class="text-sm text-muted-foreground break-all">{ ConnectorScopeLabel(linked.Account.SourceKind) }{ ": " }{ linked.Account.SourceName }</div>
+									}
+								</div>
+							if linked.Account.Status != "" {
+								<span class={ AccountStatusBadgeClass(linked.Account.Status) }>{ HumanizeAccountStatus(linked.Account.Status) }</span>
+							}
+						</div>
+						<div class="mt-3 space-y-1">
+							@IdentityLinkedAccountPrimary(linked)
+							if linked.Account.ExternalID != "" && linked.Account.ExternalID != linked.Account.Email {
+								<div class="text-xs text-muted-foreground break-all font-mono">{ linked.Account.ExternalID }</div>
+							}
+						</div>
+						<div class="mt-3 flex items-center justify-between gap-3 text-sm">
+							<div class="flex items-baseline gap-2">
+								<span class="text-muted-foreground">Grants</span>
+								<span class="font-medium">{ FormatInt(linked.EntitlementCount) }</span>
+							</div>
+							<div class="flex items-baseline gap-2">
+								<span class="text-muted-foreground">Last sign-in</span>
+								<span class={ templ.Classes("font-medium", templ.KV("text-amber-700 dark:text-amber-400", linked.Dormant)) }>{ linked.LastSignIn.Label }</span>
+							</div>
+							if linked.DetailHref != "" {
+								<a class="btn-sm-link px-0" href={ templ.SafeURL(linked.DetailHref) }>Open account</a>
+							}
+						</div>
+					</article>
+				}
 			</div>
-			if data.HasLinkedAccounts {
-				<div class="border-t border-border">
-					<div class="divide-y divide-border lg:hidden">
-						for _, linked := range data.LinkedAccounts {
-							<article class="py-4">
-								<div class="flex items-start justify-between gap-3">
-									<div class="min-w-0 space-y-0.5">
-										<div class="font-medium">{ HumanizeConnectorKind(linked.Account.SourceKind) }</div>
-										if linked.Account.SourceName != "" {
-											<div class="text-sm text-muted-foreground break-all">{ ConnectorScopeLabel(linked.Account.SourceKind) }{ ": " }{ linked.Account.SourceName }</div>
-										}
+				<div class="osspm-data-table-wrap hidden lg:block">
+				<table class="table osspm-table-compact osspm-table-list osspm-identity-linked-table">
+					<caption class="sr-only">Linked source accounts merged into this identity.</caption>
+					<colgroup>
+						<col class="w-[28%]"/>
+						<col class="w-[34%]"/>
+						<col class="w-[10%]"/>
+						<col class="w-[10%]"/>
+						<col class="w-[18%]"/>
+					</colgroup>
+					<thead>
+						<tr>
+							<th class="text-xs uppercase tracking-wide font-medium text-muted-foreground">Source</th>
+							<th class="text-xs uppercase tracking-wide font-medium text-muted-foreground">External ID</th>
+							<th class="text-xs uppercase tracking-wide font-medium text-muted-foreground">Status</th>
+							<th class="text-xs uppercase tracking-wide font-medium text-muted-foreground">Grants</th>
+							<th class="text-xs uppercase tracking-wide font-medium text-muted-foreground">Last sign-in</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, linked := range data.LinkedAccounts.Items {
+							<tr>
+								<td>
+									<div class="flex items-center gap-3">
+										@ProductIcon(linked.Account.SourceKind, "", "", "h-7 w-7 rounded-md shrink-0")
+										<div class="min-w-0 space-y-0.5">
+											<div class="font-medium">{ HumanizeConnectorKind(linked.Account.SourceKind) }</div>
+											if linked.Account.SourceName != "" {
+												<div class="truncate text-sm text-muted-foreground" title={ ConnectorScopeLabel(linked.Account.SourceKind) + ": " + linked.Account.SourceName }>{ ConnectorScopeLabel(linked.Account.SourceKind) }{ ": " }{ linked.Account.SourceName }</div>
+											}
+										</div>
 									</div>
+								</td>
+								<td>
+									if linked.Account.ExternalID != "" {
+										<div class="flex min-w-0 items-center gap-2">
+											if linked.DetailHref != "" {
+												<a class="btn-sm-link min-w-0 px-0 font-mono text-xs break-all" href={ templ.SafeURL(linked.DetailHref) }>{ linked.Account.ExternalID }</a>
+											} else {
+												<span class="min-w-0 font-mono text-xs break-all">{ linked.Account.ExternalID }</span>
+											}
+											@CopyTextButton(linked.Account.ExternalID, "Copy external ID")
+										</div>
+									} else {
+										<span class="text-muted-foreground/60">—</span>
+									}
+								</td>
+								<td>
 									if linked.Account.Status != "" {
 										<span class={ AccountStatusBadgeClass(linked.Account.Status) }>{ HumanizeAccountStatus(linked.Account.Status) }</span>
 									} else {
-										<span class="text-sm text-muted-foreground">—</span>
+										<span class="text-muted-foreground/60">—</span>
 									}
-								</div>
-								<div class="mt-3 min-w-0 space-y-0.5">
-									@IdentityLinkedAccountPrimary(linked)
-									if linked.Account.DisplayName != "" {
-										<div class="text-sm text-muted-foreground break-words">{ linked.Account.DisplayName }</div>
-									}
-									if linked.Account.ExternalID != "" && linked.Account.ExternalID != linked.Account.Email {
-										<div class="text-xs text-muted-foreground break-all">{ "External ID: " }{ linked.Account.ExternalID }</div>
-									}
-								</div>
-								<div class="mt-3 flex items-center justify-between gap-3 text-sm">
-									<div class="flex items-baseline gap-2">
-										<span class="text-muted-foreground">Entitlements</span>
-										<span class="font-medium">{ FormatInt(linked.EntitlementCount) }</span>
-									</div>
-									if linked.DetailHref != "" {
-										<a class="btn-sm-link px-0" href={ linked.DetailHref }>Open account</a>
-									}
-								</div>
-							</article>
-						}
-					</div>
-					<div class="hidden overflow-x-auto lg:block">
-						<table class="table osspm-table-compact osspm-table-list min-w-[54rem]">
-							<caption class="sr-only">Linked source accounts merged into this identity.</caption>
-							<thead>
-								<tr>
-									<th class="w-56 text-sm font-medium text-muted-foreground">Source</th>
-									<th class="text-sm font-medium text-muted-foreground">Account</th>
-									<th class="w-28 text-sm font-medium text-muted-foreground">Status</th>
-									<th class="w-24 text-sm font-medium text-muted-foreground">Entitlements</th>
-								</tr>
-							</thead>
-							<tbody>
-								for _, linked := range data.LinkedAccounts {
-									<tr>
-										<td>
-											<div class="space-y-0.5">
-												<div class="font-medium">{ HumanizeConnectorKind(linked.Account.SourceKind) }</div>
-												if linked.Account.SourceName != "" {
-													<div class="text-sm text-muted-foreground break-all">{ ConnectorScopeLabel(linked.Account.SourceKind) }{ ": " }{ linked.Account.SourceName }</div>
-												}
-											</div>
-										</td>
-										<td>
-											<div class="space-y-0.5">
-												@IdentityLinkedAccountPrimary(linked)
-												if linked.Account.DisplayName != "" {
-													<div class="text-sm text-muted-foreground break-words">{ linked.Account.DisplayName }</div>
-												}
-												if linked.Account.ExternalID != "" && linked.Account.ExternalID != linked.Account.Email {
-													<div class="text-xs text-muted-foreground break-all">{ "External ID: " }{ linked.Account.ExternalID }</div>
-												}
-											</div>
-										</td>
-										<td>
-											if linked.Account.Status != "" {
-												<span class={ AccountStatusBadgeClass(linked.Account.Status) }>{ HumanizeAccountStatus(linked.Account.Status) }</span>
-											} else {
-												<span class="text-muted-foreground">—</span>
-											}
-										</td>
-										<td class="font-medium">{ FormatInt(linked.EntitlementCount) }</td>
-									</tr>
-								}
-							</tbody>
-						</table>
-					</div>
-				</div>
-			} else {
-				<div class="border-t border-border">
-					@EmptyState("No linked accounts", "No linked accounts.")
-				</div>
-			}
-		</section>
-		<section class="mt-8 space-y-3">
-			<div class="flex flex-wrap items-end justify-between gap-3">
-				<div class="space-y-1">
-					<h2 class="text-base font-semibold">Entitlements</h2>
-					<p class="text-sm text-muted-foreground">Access granted to linked source accounts.</p>
-				</div>
-				<p class="shrink-0 text-sm text-muted-foreground">
-					if data.HasEntitlements {
-						{ FormatInt(data.TotalEntitlements) }{ " total" }
-					} else {
-						0 total
-					}
-				</p>
-			</div>
-			if data.HasEntitlements {
-				<div class="divide-y divide-border border-t border-border lg:hidden">
-					for _, ent := range data.Entitlements {
-						<article class="space-y-2 py-4">
-							<div class="min-w-0">
-								@IdentityEntitlementResource(ent)
-								<div class="mt-1 text-xs text-muted-foreground break-all">
-									@IdentityEntitlementAccount(ent)
-								</div>
-							</div>
-							<div class="flex flex-wrap items-center gap-2">
-								if ent.Kind != "" {
-									<span class="badge-outline">{ ent.Kind }</span>
-								}
-								if ent.Permission != "" {
-									<span class="badge-outline">{ ent.Permission }</span>
-								}
-							</div>
-						</article>
-					}
-				</div>
-				<div class="hidden overflow-x-auto lg:block">
-					<table class="table osspm-table-compact osspm-table-list min-w-[58rem]">
-						<caption class="sr-only">Entitlements granted to linked source accounts.</caption>
-						<thead>
-							<tr>
-								<th class="w-56 text-sm font-medium text-muted-foreground">Account</th>
-								<th class="w-28 text-sm font-medium text-muted-foreground">Kind</th>
-								<th class="text-sm font-medium text-muted-foreground">Resource</th>
-								<th class="w-40 text-sm font-medium text-muted-foreground">Permission</th>
+								</td>
+								<td class="font-medium tabular-nums">{ FormatInt(linked.EntitlementCount) }</td>
+								<td class={ templ.Classes("text-muted-foreground", templ.KV("text-amber-700 dark:text-amber-400", linked.Dormant), templ.KV("text-muted-foreground/60", !linked.Dormant && (linked.LastSignIn.Label == "—" || linked.LastSignIn.Label == ""))) }>{ linked.LastSignIn.Label }</td>
 							</tr>
-						</thead>
-						<tbody>
-								for _, ent := range data.Entitlements {
-									<tr>
-										<td>
-											@IdentityEntitlementAccount(ent)
-										</td>
-									<td>
-										if ent.Kind != "" {
-											<span class="badge-outline">{ ent.Kind }</span>
-										} else {
-											<span class="text-muted-foreground">—</span>
-										}
-									</td>
-										<td>
-											@IdentityEntitlementResource(ent)
-										</td>
-									<td>
-										if ent.Permission != "" {
-											<span class="badge-outline">{ ent.Permission }</span>
-										} else {
-											<span class="text-muted-foreground">—</span>
-										}
-									</td>
-								</tr>
-							}
-						</tbody>
-					</table>
-				</div>
-			} else {
-				<div class="border-t border-border">
-					@EmptyState("No entitlements", "No entitlements found for linked accounts.")
+						}
+					</tbody>
+				</table>
 				</div>
 			}
-		</section>
-		@OverviewMap(data.OverviewMap)
+		} else {
+			<div class="border-t border-border">
+				if data.LinkedAccounts.HasFilter {
+					@EmptyState("No linked accounts match", "Clear the account search to show all linked accounts.")
+				} else {
+					@EmptyState("No linked accounts", "No linked accounts.")
+				}
+			</div>
+		}
+	</section>
+}
+
+templ identitySingleLinkedAccount(linked viewmodels.IdentityLinkedAccountView) {
+	<article class="osspm-source-account-strip">
+		<div class="flex min-w-0 items-start gap-3">
+			@ProductIcon(linked.Account.SourceKind, "", "", "h-8 w-8 rounded-md shrink-0")
+			<div class="min-w-0 flex-1">
+				<div class="flex flex-wrap items-center gap-2">
+					<h3 class="text-sm font-semibold">{ HumanizeConnectorKind(linked.Account.SourceKind) }</h3>
+					if linked.Account.Status != "" {
+						<span class={ AccountStatusBadgeClass(linked.Account.Status) }>{ HumanizeAccountStatus(linked.Account.Status) }</span>
+					}
+				</div>
+				if linked.Account.SourceName != "" {
+					<p class="mt-0.5 text-sm text-muted-foreground break-all">{ ConnectorScopeLabel(linked.Account.SourceKind) }{ ": " }{ linked.Account.SourceName }</p>
+				}
+				<div class="mt-3 min-w-0">
+					@IdentityLinkedAccountPrimary(linked)
+					if linked.Account.ExternalID != "" && linked.Account.ExternalID != linked.Account.Email {
+						<div class="mt-1 flex min-w-0 items-center gap-2">
+							<span class="min-w-0 truncate font-mono text-xs text-muted-foreground" title={ linked.Account.ExternalID }>{ linked.Account.ExternalID }</span>
+							@CopyTextButton(linked.Account.ExternalID, "Copy external ID")
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+		<div class="osspm-source-account-strip-facts">
+			<div>
+				<span>Grants</span>
+				<strong>{ FormatInt(linked.EntitlementCount) }</strong>
+			</div>
+			<div>
+				<span>Last sign-in</span>
+				<strong class={ templ.Classes(templ.KV("text-amber-700 dark:text-amber-400", linked.Dormant), templ.KV("text-muted-foreground", !linked.Dormant)) }>{ linked.LastSignIn.Label }</strong>
+			</div>
+			if linked.DetailHref != "" {
+				<a class="btn-sm-outline" href={ templ.SafeURL(linked.DetailHref) }>
+					@IconExternalLink("size-3.5")
+					Open account
+				</a>
+			}
+		</div>
+	</article>
+}
+
+templ identityLinkedAccountsToolbar(data viewmodels.IdentityShowViewData) {
+	<form method="get" class="osspm-data-toolbar">
+		if data.Entitlements.Query != "" {
+			<input type="hidden" name="entitlement_q" value={ data.Entitlements.Query }/>
+		}
+		if data.Entitlements.AdminOnly {
+			<input type="hidden" name="admin" value="1"/>
+		}
+		if data.Entitlements.DormantOnly {
+			<input type="hidden" name="dormant" value="1"/>
+		}
+		if data.Entitlements.SourceFilter != "" {
+			<input type="hidden" name="source_kind" value={ data.Entitlements.SourceFilter }/>
+		}
+		<label class="relative block min-w-[16rem] flex-1 sm:max-w-md">
+			<span class="sr-only">Search source accounts</span>
+			<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+				@IconSearch("size-4")
+			</span>
+			<input
+				type="search"
+				name="account_q"
+				value={ data.LinkedAccounts.Query }
+				placeholder="Search accounts..."
+				aria-label="Search source accounts"
+				class="input pl-9 pr-10"
+			/>
+			if data.LinkedAccounts.Query != "" {
+				<a class="btn-sm-icon-ghost absolute right-1 top-1/2 -translate-y-1/2" href={ templ.SafeURL(data.LinkedAccounts.QueryClearHref) } aria-label="Clear account search">
+					@IconX("size-4")
+				</a>
+			}
+		</label>
+		<button type="submit" class="sr-only">Search accounts</button>
+		<label class="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+			<span>Sort:</span>
+			<select class="select" name="account_sort" data-autosubmit>
+				<option value="grants" selected?={ data.LinkedAccounts.SortMode == viewmodels.IdentityLinkedAccountSortGrants }>Grants</option>
+				<option value="source" selected?={ data.LinkedAccounts.SortMode == viewmodels.IdentityLinkedAccountSortSource }>Source</option>
+				<option value="activity" selected?={ data.LinkedAccounts.SortMode == viewmodels.IdentityLinkedAccountSortActivity }>Last sign-in</option>
+			</select>
+		</label>
+	</form>
+}
+
+templ identityShowEntitlements(data viewmodels.IdentityShowViewData) {
+	<section class="osspm-data-section">
+		<div class="space-y-4">
+			<div class="osspm-data-section-header pb-0">
+				<div class="space-y-1">
+					<h2 class="text-base font-semibold">{ "Access grants " }<span class="text-sm font-normal text-muted-foreground">{ FormatInt(data.Entitlements.Total) }{ " total" }</span></h2>
+					if data.Entitlements.HasFilter {
+						<p class="text-sm text-muted-foreground">{ FormatInt(data.Entitlements.Visible) }{ " shown" }</p>
+					}
+				</div>
+			</div>
+			if data.Entitlements.Total > 0 || data.Entitlements.HasFilter {
+				@identityEntitlementsToolbar(data)
+				@identityEntitlementFilterChips(data)
+			}
+		</div>
+		if data.Entitlements.HasItems {
+			<div class="osspm-entitlement-groups">
+				for _, group := range data.Entitlements.Groups {
+					@identityEntitlementGroup(data, group)
+				}
+			</div>
+		} else {
+			<div class="border-t border-border/60">
+				if data.Entitlements.HasFilter {
+					@EmptyState("No entitlements match", "Adjust search or filters to show more grants.")
+				} else {
+					@EmptyState("No entitlements", "No entitlements found for linked accounts.")
+				}
+			</div>
+		}
+	</section>
+}
+
+templ identityEntitlementsToolbar(data viewmodels.IdentityShowViewData) {
+	<form method="get" class="osspm-data-toolbar">
+		for _, hidden := range data.Entitlements.FormHiddenInputs {
+			<input type="hidden" name={ hidden.Name } value={ hidden.Value }/>
+		}
+		<label class="relative block min-w-[16rem] flex-1 sm:max-w-md">
+			<span class="sr-only">Search access grants</span>
+			<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+				@IconSearch("size-4")
+			</span>
+			<input
+				type="search"
+				name="entitlement_q"
+				value={ data.Entitlements.Query }
+				class="input pl-9 pr-10"
+				placeholder="Search entitlements..."
+				aria-label="Search access grants"
+			/>
+			if data.Entitlements.Query != "" {
+				<a class="btn-sm-icon-ghost absolute right-1 top-1/2 -translate-y-1/2" href={ templ.SafeURL(data.Entitlements.QueryClearHref) } aria-label="Clear entitlement search">
+					@IconX("size-4")
+				</a>
+			}
+		</label>
+		<button type="submit" class="sr-only">Search entitlements</button>
+		@FilterPopover("Filters", data.Entitlements.FilterCount, false, "left-auto right-0 w-[min(92vw,20rem)] space-y-3") {
+			<label class="flex items-center gap-2 text-sm">
+				<input class="input" type="checkbox" name="admin" value="1" checked?={ data.Entitlements.AdminOnly } data-autosubmit/>
+				<span>Admin only</span>
+			</label>
+			<label class="flex items-center gap-2 text-sm">
+				<input class="input" type="checkbox" name="dormant" value="1" checked?={ data.Entitlements.DormantOnly } data-autosubmit/>
+				<span>On dormant accounts</span>
+			</label>
+			if len(data.Entitlements.SourceOptions) > 0 {
+				<label class="field">
+					<span class="label">Source</span>
+					<select class="select" name="source_kind" data-autosubmit>
+						<option value="" selected?={ data.Entitlements.SourceFilter == "" }>All sources</option>
+						for _, opt := range data.Entitlements.SourceOptions {
+							<option value={ opt.Value } selected?={ opt.Selected }>{ opt.Label }</option>
+						}
+					</select>
+				</label>
+			}
+			<div class="flex items-center justify-between gap-2 border-t border-border/60 pt-3">
+				if data.Entitlements.FilterCount > 0 {
+					<a class="text-xs text-muted-foreground hover:text-foreground" href={ templ.SafeURL(data.Entitlements.ClearFiltersHref) }>Clear filters</a>
+				} else {
+					<span></span>
+				}
+				<button type="submit" class="btn-sm">Apply filters</button>
+			</div>
+		}
+	</form>
+}
+
+templ identityEntitlementFilterChips(data viewmodels.IdentityShowViewData) {
+	if len(data.Entitlements.FilterChips) > 0 {
+		<div class="osspm-active-filter-chips" aria-label="Active access grant filters">
+			for _, chip := range data.Entitlements.FilterChips {
+				<a class="osspm-active-filter-chip" href={ templ.SafeURL(chip.ClearHref) }>
+					<span>{ chip.Label }</span>
+					@IconX("size-3")
+				</a>
+			}
+			if len(data.Entitlements.FilterChips) > 1 {
+				<a class="osspm-active-filter-clear" href={ templ.SafeURL(data.Entitlements.ClearFiltersHref) }>Clear all</a>
+			}
+		</div>
 	}
+}
+
+templ identityEntitlementGroup(data viewmodels.IdentityShowViewData, group viewmodels.IdentityEntitlementGroup) {
+	<section class="osspm-entitlement-group">
+		<header class="osspm-entitlement-group-header">
+			if group.SourceKind != "" {
+				@ProductIcon(group.SourceKind, "", "", "h-5 w-5 rounded shrink-0")
+			}
+			<div class="min-w-0 flex-1">
+				if group.TitleHref != "" {
+					<a class="osspm-entitlement-group-header-title break-words" href={ templ.SafeURL(group.TitleHref) }>{ group.Title }</a>
+				} else {
+					<span class="osspm-entitlement-group-header-title break-words">{ group.Title }</span>
+				}
+				if group.Subtitle != "" {
+					<span class="osspm-entitlement-group-header-subtitle">{ group.Subtitle }</span>
+				}
+			</div>
+			if group.Count > 1 {
+				<span class="osspm-entitlement-group-header-count" aria-label={ FormatInt(group.Count) + " entitlements" }>{ FormatInt(group.Count) }</span>
+			}
+		</header>
+		@identityEntitlementRows(data, group.PreviewItems)
+		if group.OverflowCount > 0 {
+			<details class="osspm-entitlement-more">
+				<summary>{ "Show " }{ FormatInt(group.OverflowCount) }{ " more" }</summary>
+				@identityEntitlementRows(data, group.OverflowItems)
+			</details>
+		}
+	</section>
+}
+
+templ identityEntitlementRows(data viewmodels.IdentityShowViewData, items []viewmodels.IdentityEntitlementView) {
+	<ul class="osspm-entitlement-rows" role="list">
+		for _, ent := range items {
+			<li class="osspm-entitlement-row">
+				<div class="osspm-entitlement-row-main">
+					@identityPermissionBadge(ent)
+					<div class="min-w-0">
+						if data.LinkedAccounts.Total > 1 {
+							<div class="osspm-entitlement-row-account">
+								if ent.AccountHref != "" {
+									<a href={ templ.SafeURL(ent.AccountHref) }>{ ent.AccountLabel }</a>
+								} else {
+									<span>{ ent.AccountLabel }</span>
+								}
+							</div>
+						}
+						<div class="osspm-entitlement-row-meta">
+							if ent.AccountSourceKind != "" {
+								<span>{ HumanizeConnectorKind(ent.AccountSourceKind) }</span>
+							}
+							if data.LinkedAccounts.Total > 1 && ent.AccountSourceName != "" {
+								<span>{ ConnectorScopeLabel(ent.AccountSourceKind) }{ ": " }{ ent.AccountSourceName }</span>
+							}
+						</div>
+					</div>
+				</div>
+				<span title={ ent.AccountLastSignIn.Title } class={ templ.Classes("osspm-entitlement-row-time", templ.KV("text-amber-700 dark:text-amber-400", ent.Dormant), templ.KV("text-muted-foreground/60", !ent.Dormant && (ent.AccountLastSignIn.Label == "—" || ent.AccountLastSignIn.Label == ""))) }>{ "Account sign-in " }{ ent.AccountLastSignIn.Label }</span>
+			</li>
+		}
+	</ul>
+}
+
+templ identityPermissionBadge(ent viewmodels.IdentityEntitlementView) {
+	if ent.Permission == "" {
+		<span class="text-muted-foreground/60">—</span>
+	} else if ent.IsAdmin {
+		<span class="badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100">{ ent.Permission }</span>
+	} else {
+		<span class="badge-outline">{ ent.Permission }</span>
+	}
+}
+
+templ identityUnavailableButton(label, tooltip, sizeClass string) {
+	<span
+		class={ templ.Classes(sizeClass, "opacity-50 cursor-not-allowed select-none") }
+		role="button"
+		aria-disabled="true"
+		tabindex="-1"
+		data-tooltip={ tooltip }
+		data-side="top"
+	>{ label }</span>
 }
 
 templ IdentityLinkedAccountPrimary(linked viewmodels.IdentityLinkedAccountView) {
 	if linked.Account.Email != "" {
 		if linked.DetailHref != "" {
-			<a class="btn-sm-link px-0 osspm-cell-primary break-all" href={ linked.DetailHref }>{ linked.Account.Email }</a>
+			<a class="btn-sm-link px-0 osspm-cell-primary break-all" href={ templ.SafeURL(linked.DetailHref) }>{ linked.Account.Email }</a>
 		} else {
 			<div class="osspm-cell-primary break-all">{ linked.Account.Email }</div>
 		}
 	} else if linked.Account.ExternalID != "" {
 		if linked.DetailHref != "" {
-			<a class="btn-sm-link px-0 osspm-cell-primary break-all" href={ linked.DetailHref }>{ linked.Account.ExternalID }</a>
+			<a class="btn-sm-link px-0 osspm-cell-primary break-all" href={ templ.SafeURL(linked.DetailHref) }>{ linked.Account.ExternalID }</a>
 		} else {
 			<div class="osspm-cell-primary break-all">{ linked.Account.ExternalID }</div>
 		}
 	} else if linked.Account.DisplayName != "" {
 		if linked.DetailHref != "" {
-			<a class="btn-sm-link px-0 osspm-cell-primary break-words" href={ linked.DetailHref }>{ linked.Account.DisplayName }</a>
+			<a class="btn-sm-link px-0 osspm-cell-primary break-words" href={ templ.SafeURL(linked.DetailHref) }>{ linked.Account.DisplayName }</a>
 		} else {
 			<div class="osspm-cell-primary break-words">{ linked.Account.DisplayName }</div>
 		}
 	} else {
 		if linked.DetailHref != "" {
-			<a class="btn-sm-link px-0 osspm-cell-primary" href={ linked.DetailHref }>{ "Account " }{ FormatInt64(linked.Account.ID) }</a>
+			<a class="btn-sm-link px-0 osspm-cell-primary" href={ templ.SafeURL(linked.DetailHref) }>{ "Account " }{ FormatInt64(linked.Account.ID) }</a>
 		} else {
 			<div class="osspm-cell-primary">{ "Account " }{ FormatInt64(linked.Account.ID) }</div>
 		}
@@ -271,7 +583,7 @@ templ IdentityEntitlementAccount(ent viewmodels.IdentityEntitlementView) {
 			}
 		</div>
 		if ent.AccountHref != "" {
-			<a class="btn-sm-link px-0 osspm-cell-primary break-all" href={ ent.AccountHref }>{ ent.AccountLabel }</a>
+			<a class="btn-sm-link px-0 osspm-cell-primary break-all" href={ templ.SafeURL(ent.AccountHref) }>{ ent.AccountLabel }</a>
 		} else {
 			<div class="osspm-cell-primary break-all">{ ent.AccountLabel }</div>
 		}
@@ -280,7 +592,7 @@ templ IdentityEntitlementAccount(ent viewmodels.IdentityEntitlementView) {
 
 templ IdentityEntitlementResource(ent viewmodels.IdentityEntitlementView) {
 	if ent.ResourceHref != "" {
-		<a class="btn-sm-link px-0 osspm-cell-primary break-words" href={ ent.ResourceHref }>{ ent.ResourceLabel }</a>
+		<a class="btn-sm-link px-0 osspm-cell-primary break-words" href={ templ.SafeURL(ent.ResourceHref) }>{ ent.ResourceLabel }</a>
 	} else {
 		<div class="osspm-cell-primary break-words">{ ent.ResourceLabel }</div>
 	}

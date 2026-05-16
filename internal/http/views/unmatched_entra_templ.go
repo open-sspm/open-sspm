@@ -63,7 +63,7 @@ func UnmatchedEntraPage(data viewmodels.UnmatchedEntraViewData) templ.Component 
 					var templ_7745c5c3_Var4 string
 					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue("Tenant ID: " + data.Layout.EntraTenantID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_entra.templ`, Line: 9, Col: 93}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_entra.templ`, Line: 9, Col: 93}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 					if templ_7745c5c3_Err != nil {
@@ -136,7 +136,7 @@ func UnmatchedEntraPage(data viewmodels.UnmatchedEntraViewData) templ.Component 
 					var templ_7745c5c3_Var7 string
 					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(data.EmptyStateMsg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_entra.templ`, Line: 25, Col: 25}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_entra.templ`, Line: 25, Col: 25}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 					if templ_7745c5c3_Err != nil {
@@ -149,7 +149,7 @@ func UnmatchedEntraPage(data viewmodels.UnmatchedEntraViewData) templ.Component 
 					var templ_7745c5c3_Var8 templ.SafeURL
 					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(data.EmptyStateHref)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_entra.templ`, Line: 25, Col: 82}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_entra.templ`, Line: 25, Col: 82}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 					if templ_7745c5c3_Err != nil {
@@ -291,7 +291,7 @@ func UnmatchedEntraPageResults(data viewmodels.UnmatchedEntraViewData) templ.Com
 					var templ_7745c5c3_Var12 string
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(u.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_entra.templ`, Line: 77, Col: 79}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_entra.templ`, Line: 77, Col: 79}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 					if templ_7745c5c3_Err != nil {
@@ -304,7 +304,7 @@ func UnmatchedEntraPageResults(data viewmodels.UnmatchedEntraViewData) templ.Com
 					var templ_7745c5c3_Var13 string
 					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(u.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_entra.templ`, Line: 77, Col: 97}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_entra.templ`, Line: 77, Col: 97}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {
@@ -322,7 +322,7 @@ func UnmatchedEntraPageResults(data viewmodels.UnmatchedEntraViewData) templ.Com
 						var templ_7745c5c3_Var14 string
 						templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(u.Email)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_entra.templ`, Line: 81, Col: 74}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_entra.templ`, Line: 81, Col: 74}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 						if templ_7745c5c3_Err != nil {
@@ -335,7 +335,7 @@ func UnmatchedEntraPageResults(data viewmodels.UnmatchedEntraViewData) templ.Com
 						var templ_7745c5c3_Var15 string
 						templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(u.Email)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_entra.templ`, Line: 81, Col: 86}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_entra.templ`, Line: 81, Col: 86}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 						if templ_7745c5c3_Err != nil {
@@ -358,7 +358,7 @@ func UnmatchedEntraPageResults(data viewmodels.UnmatchedEntraViewData) templ.Com
 					var templ_7745c5c3_Var16 string
 					templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(u.ExternalID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_entra.templ`, Line: 87, Col: 56}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_entra.templ`, Line: 87, Col: 56}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
 					if templ_7745c5c3_Err != nil {
@@ -371,7 +371,7 @@ func UnmatchedEntraPageResults(data viewmodels.UnmatchedEntraViewData) templ.Com
 					var templ_7745c5c3_Var17 string
 					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(u.ExternalID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_entra.templ`, Line: 87, Col: 73}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_entra.templ`, Line: 87, Col: 73}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 					if templ_7745c5c3_Err != nil {
@@ -397,7 +397,7 @@ func UnmatchedEntraPageResults(data viewmodels.UnmatchedEntraViewData) templ.Com
 						var templ_7745c5c3_Var18 string
 						templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue(FormatInt64(u.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_entra.templ`, Line: 93, Col: 76}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_entra.templ`, Line: 93, Col: 76}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
 						if templ_7745c5c3_Err != nil {

@@ -67,84 +67,6 @@ func TestHandleIdentitiesClampsOutOfRangePage(t *testing.T) {
 	})
 }
 
-func TestBuildIdentityShowOverviewMapCountsCurrentIdentityPerSource(t *testing.T) {
-	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
-		oktaRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindOkta, "acme.okta.com")
-		githubRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
-
-		identityID := insertCommandSearchIdentity(t, ctx, pool, "human", "person@example.com", "Example Person")
-		oktaAccountID := insertCommandSearchAccount(t, ctx, pool, oktaRunID, commandSearchAccountSeed{
-			SourceKind:     configstore.KindOkta,
-			SourceName:     "acme.okta.com",
-			ExternalID:     "okta-user-1",
-			Email:          "person@example.com",
-			DisplayName:    "Example Person",
-			Status:         "active",
-			AccountKind:    "human",
-			EntityCategory: "user",
-			RawJSON:        `{"status":"active"}`,
-		})
-		secondOktaAccountID := insertCommandSearchAccount(t, ctx, pool, oktaRunID, commandSearchAccountSeed{
-			SourceKind:     configstore.KindOkta,
-			SourceName:     "acme.okta.com",
-			ExternalID:     "okta-user-2",
-			Email:          "person@example.com",
-			DisplayName:    "Example Person Admin",
-			Status:         "active",
-			AccountKind:    "human",
-			EntityCategory: "user",
-			RawJSON:        `{"status":"active"}`,
-		})
-		githubAccountID := insertCommandSearchAccount(t, ctx, pool, githubRunID, commandSearchAccountSeed{
-			SourceKind:     configstore.KindGitHub,
-			SourceName:     "acme",
-			ExternalID:     "github-user-1",
-			Email:          "person@example.com",
-			DisplayName:    "Example Person",
-			Status:         "active",
-			AccountKind:    "human",
-			EntityCategory: "user",
-			RawJSON:        `{"status":"active"}`,
-		})
-		insertCommandSearchIdentityAccountLink(t, ctx, pool, identityID, oktaAccountID)
-		insertCommandSearchIdentityAccountLink(t, ctx, pool, identityID, secondOktaAccountID)
-		insertCommandSearchIdentityAccountLink(t, ctx, pool, identityID, githubAccountID)
-
-		graph, err := h.buildIdentityShowOverviewMap(ctx, identityID)
-		if err != nil {
-			t.Fatalf("buildIdentityShowOverviewMap() error = %v", err)
-		}
-		if graph.AccountCount != 3 {
-			t.Fatalf("graph account count = %d, want 3", graph.AccountCount)
-		}
-		if len(graph.Sources) != 2 {
-			t.Fatalf("sources length = %d, want 2: %+v", len(graph.Sources), graph.Sources)
-		}
-
-		accountCountsByKind := map[string]int64{}
-		for _, source := range graph.Sources {
-			if source.IdentityCount != 1 {
-				t.Fatalf("%s identity count = %d, want 1: %+v", source.Kind, source.IdentityCount, source)
-			}
-			accountCountsByKind[source.Kind] = source.AccountCount
-		}
-		if accountCountsByKind[configstore.KindOkta] != 2 {
-			t.Fatalf("okta account count = %d, want 2", accountCountsByKind[configstore.KindOkta])
-		}
-		if accountCountsByKind[configstore.KindGitHub] != 1 {
-			t.Fatalf("github account count = %d, want 1", accountCountsByKind[configstore.KindGitHub])
-		}
-
-		body := renderIdentityShow(t, h, identityID)
-		if !strings.Contains(body, `overview-map-center-count">1</span><span>3 source accounts`) {
-			t.Fatalf("identity show overview center count should render 1 identity with 3 source accounts: %s", body)
-		}
-		if strings.Contains(body, `overview-map-center-count">3</span><span>3 source accounts`) {
-			t.Fatalf("identity show overview center count rendered linked account count as identity count: %s", body)
-		}
-	})
-}
-
 func TestHandleIdentityShowRendersEntitlementDetails(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
@@ -165,11 +87,13 @@ func TestHandleIdentityShowRendersEntitlementDetails(t *testing.T) {
 
 		body := renderIdentityShow(t, h, identityID)
 		for _, want := range []string{
-			"Entitlements",
+			"Access grants",
 			"github_team_repo_permission",
 			"acme/private-repo",
 			"admin",
 			"person@example.com",
+			`href="/non-human-identities?q=person%40example.com"`,
+			"Search non-human identities",
 		} {
 			if !strings.Contains(body, want) {
 				t.Fatalf("identity show missing %q: %s", want, body)
@@ -246,9 +170,6 @@ func TestHandleIdentitiesPinsToHumanKindOnly(t *testing.T) {
 			}
 			if strings.Contains(body, "Azure Service Principal") {
 				t.Fatalf("body unexpectedly rendered service identity row: %s", body)
-			}
-			if strings.Contains(body, "Relationship map") {
-				t.Fatalf("identity root unexpectedly rendered relationship map: %s", body)
 			}
 		})
 

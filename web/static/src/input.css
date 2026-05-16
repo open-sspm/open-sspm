@@ -1142,6 +1142,234 @@
   }
 
   /* ---------------------------------------------------------------------------
+     Identity detail page
+     This surface reads like an audit workspace: profile facts, counters, and
+     tables are separated with whitespace and hairlines instead of large cards.
+     --------------------------------------------------------------------------- */
+
+  .osspm-identity-profile {
+    @apply mb-7 border-b border-border/50 pb-6;
+  }
+
+  .osspm-avatar-lg {
+    @apply grid h-14 w-14 place-items-center rounded-full text-lg font-semibold shadow-none;
+  }
+
+  .osspm-review-verdict {
+    @apply flex w-full items-start gap-2.5 rounded-md border px-3 py-2.5 text-sm lg:w-80;
+  }
+
+  .osspm-review-verdict-dot {
+    @apply mt-1.5 size-2 shrink-0 rounded-full bg-muted-foreground;
+  }
+
+  .osspm-review-verdict-label {
+    @apply font-medium text-foreground;
+  }
+
+  .osspm-review-verdict-detail {
+    @apply mt-0.5 text-xs leading-5 text-muted-foreground;
+  }
+
+  .osspm-review-verdict-ok {
+    @apply border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/60 dark:bg-emerald-950/20;
+
+    .osspm-review-verdict-dot { @apply bg-emerald-500; }
+  }
+
+  .osspm-review-verdict-warn {
+    @apply border-amber-200 bg-amber-50/70 dark:border-amber-900/60 dark:bg-amber-950/25;
+
+    .osspm-review-verdict-dot { @apply bg-amber-500; }
+  }
+
+  .osspm-review-verdict-danger {
+    @apply border-rose-200 bg-rose-50/70 dark:border-rose-900/60 dark:bg-rose-950/25;
+
+    .osspm-review-verdict-dot { @apply bg-rose-500; }
+  }
+
+  .osspm-summary-tiles {
+    @apply mb-8 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 lg:grid-cols-4;
+  }
+
+  .osspm-summary-tile {
+    @apply flex flex-col gap-1 md:border-l md:border-border/60 md:pl-4 md:first:border-0 md:first:pl-0;
+  }
+
+  .osspm-summary-tile-value {
+    @apply mt-0.5 text-2xl font-semibold tabular-nums leading-none text-foreground;
+  }
+
+  .osspm-summary-tile-value-danger {
+    @apply text-rose-700 dark:text-rose-400;
+  }
+
+  .osspm-summary-tile-value-warn {
+    @apply text-amber-700 dark:text-amber-400;
+  }
+
+  .osspm-summary-tile-label {
+    @apply text-xs uppercase tracking-wide text-muted-foreground;
+  }
+
+  .osspm-summary-tile-sublabel {
+    @apply text-xs text-muted-foreground;
+  }
+
+  .osspm-data-section {
+    @apply mb-10 border-t border-border/50 pt-5;
+  }
+
+  .osspm-data-section-header {
+    @apply flex flex-wrap items-end justify-between gap-3 pb-5;
+  }
+
+  .osspm-data-toolbar {
+    @apply mb-4 flex flex-wrap items-center gap-3 pt-1;
+  }
+
+  .osspm-active-filter-chips {
+    @apply -mt-2 mb-4 flex flex-wrap items-center gap-2 text-xs;
+  }
+
+  .osspm-active-filter-chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-border bg-muted/35 px-2 py-1 text-foreground no-underline transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40;
+  }
+
+  .osspm-active-filter-clear {
+    @apply px-1 text-muted-foreground no-underline hover:text-foreground hover:underline;
+  }
+
+  .osspm-data-table-wrap {
+    @apply overflow-x-auto border-t border-border/60;
+  }
+
+  .osspm-source-account-strip {
+    @apply flex flex-col gap-4 rounded-md border border-border/60 bg-muted/10 px-4 py-3 sm:flex-row sm:items-start sm:justify-between dark:bg-muted/5;
+  }
+
+  .osspm-source-account-strip-facts {
+    @apply grid grid-cols-2 gap-4 text-sm sm:flex sm:items-center sm:justify-end sm:text-right;
+  }
+
+  .osspm-source-account-strip-facts div {
+    @apply min-w-0;
+  }
+
+  .osspm-source-account-strip-facts span {
+    @apply block text-xs text-muted-foreground;
+  }
+
+  .osspm-source-account-strip-facts strong {
+    @apply mt-0.5 block font-medium tabular-nums;
+  }
+
+  .osspm-identity-linked-table {
+    table-layout: fixed;
+  }
+
+  .osspm-identity-linked-table :is(th, td) {
+    @apply whitespace-normal;
+  }
+
+  .osspm-identity-linked-table :is(th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5)) {
+    @apply whitespace-nowrap;
+  }
+
+  .osspm-entitlement-groups {
+    @apply space-y-3 border-t border-border/50;
+  }
+
+  .osspm-entitlement-group {
+    @apply overflow-hidden rounded-md border border-border/60 bg-background dark:border-border/70;
+  }
+
+  .osspm-entitlement-group-header {
+    @apply flex items-center gap-3 bg-muted/25 px-3 py-2.5 dark:bg-muted/15;
+  }
+
+  .osspm-entitlement-group-header-title {
+    @apply text-sm font-semibold text-foreground;
+  }
+
+  a.osspm-entitlement-group-header-title {
+    @apply hover:text-primary hover:underline;
+  }
+
+  .osspm-entitlement-group-header-subtitle {
+    @apply ml-2 font-mono text-xs text-muted-foreground;
+  }
+
+  .osspm-entitlement-group-header-count {
+    @apply ml-auto inline-flex shrink-0 items-center justify-center rounded-full bg-background/80 px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground;
+  }
+
+  .osspm-entitlement-rows {
+    @apply divide-y divide-border/40;
+  }
+
+  .osspm-entitlement-row {
+    @apply flex flex-col gap-2 px-3 py-3 text-sm transition-colors hover:bg-muted/20 sm:flex-row sm:items-center sm:justify-between dark:hover:bg-muted/10;
+  }
+
+  .osspm-entitlement-row-main {
+    @apply flex min-w-0 items-start gap-3;
+  }
+
+  .osspm-entitlement-row-account {
+    @apply min-w-0 font-medium;
+  }
+
+  .osspm-entitlement-row-account a {
+    @apply text-foreground underline-offset-4 hover:underline;
+  }
+
+  .osspm-entitlement-row-meta {
+    @apply mt-0.5 flex min-w-0 flex-wrap gap-x-2 gap-y-0.5 text-xs leading-5 text-muted-foreground;
+  }
+
+  .osspm-entitlement-row-meta span {
+    @apply min-w-0 max-w-full truncate;
+  }
+
+  .osspm-entitlement-row-time {
+    @apply whitespace-nowrap text-xs text-muted-foreground sm:ml-4;
+  }
+
+  .osspm-entitlement-more {
+    @apply border-t border-border/40 bg-muted/10;
+  }
+
+  .osspm-entitlement-more > summary {
+    @apply cursor-pointer list-none px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground;
+  }
+
+  .osspm-entitlement-more > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .osspm-breadcrumb {
+    @apply mb-3 flex min-w-0 items-center gap-1.5 overflow-hidden text-sm text-muted-foreground;
+  }
+
+  .osspm-breadcrumb a {
+    @apply hover:text-foreground;
+  }
+
+  .osspm-breadcrumb [aria-current="page"] {
+    @apply min-w-0 truncate;
+  }
+
+  .osspm-breadcrumb-sep {
+    @apply text-muted-foreground/50;
+  }
+
+  .osspm-id-pill {
+    @apply inline-flex items-center rounded-md border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-xs text-muted-foreground;
+  }
+
+  /* ---------------------------------------------------------------------------
      KPI strip
      Three-card header row above list pages. Each card binds one filter scope:
      clicking it scopes the list. The active card carries a dark ring so the
@@ -1962,228 +2190,10 @@
     transform-origin: left;
   }
 
-  .overview-map {
-    @apply space-y-4;
-  }
-
-  .overview-map-header {
-    @apply flex flex-wrap items-start justify-between gap-3;
-
-    h2 { @apply text-lg font-semibold tracking-tight; }
-    p { @apply text-sm text-muted-foreground; }
-  }
-
-  .overview-map-surface {
-    @apply relative isolate overflow-hidden rounded-lg border border-border bg-card transition-colors;
-    height: clamp(34rem, 56vw, 46rem);
-  }
-
-  .overview-map-lines {
-    @apply absolute inset-0 h-full w-full;
-  }
-
-  .overview-map-edge {
-    fill: none;
-    stroke: rgb(from var(--color-chart-2) r g b / 0.48);
-    stroke-width: 0.35;
-    stroke-linecap: round;
-    stroke-dasharray: 1.4 1;
-    opacity: 1;
-    pointer-events: none;
-    transition:
-      opacity 160ms ease,
-      stroke 160ms ease,
-      stroke-width 160ms ease,
-      filter 160ms ease;
-    animation: overview-map-edge-in 0.7s ease-out both;
-    animation-delay: calc(var(--overview-map-index, 0) * 45ms);
-  }
-
-  .overview-map-node {
-    @apply absolute z-10 rounded-lg border border-border bg-background/95 text-foreground shadow-sm backdrop-blur no-underline outline-none;
-    animation: overview-map-node-in 0.45s ease-out both;
-    animation-delay: calc(var(--overview-map-index, 0) * 45ms);
-    transform: translate(-50%, -50%);
-  }
-
-  .overview-map-center {
-    @apply grid w-40 place-items-center gap-1 p-5 text-center;
-    box-shadow: 0 0 0 1px rgb(from var(--color-chart-3) r g b / 0.16), 0 18px 45px rgb(0 0 0 / 0.08);
-
-    p { @apply text-sm font-semibold; }
-    span:not(.overview-map-center-count) { @apply text-xs text-muted-foreground; }
-  }
-
-  .overview-map-center-count {
-    @apply text-3xl font-semibold tabular-nums tracking-tight text-foreground;
-  }
-
-  .overview-map-center-icon {
-    @apply grid size-12 place-items-center rounded-full bg-primary/5 text-primary ring-1 ring-primary/10;
-  }
-
-  .overview-map-source {
-    --overview-map-accent: var(--color-chart-2);
-    @apply block w-60 p-3 transition-[border-color,box-shadow,transform,opacity,filter] duration-200;
-    border-color: rgb(from var(--overview-map-accent) r g b / 0.28);
-    will-change: transform;
-
-    &:hover,
-    &:focus-visible,
-    &[data-overview-map-active] {
-      border-color: rgb(from var(--overview-map-accent) r g b / 0.62);
-      box-shadow:
-        0 0 0 1px rgb(from var(--overview-map-accent) r g b / 0.18),
-        0 14px 32px rgb(0 0 0 / 0.11);
-      transform: translate(-50%, -50%) translateY(-2px);
-    }
-
-    &:focus-visible {
-      @apply ring-2 ring-ring/40 ring-offset-2 ring-offset-background;
-    }
-  }
-
-  a.overview-map-source { cursor: pointer; }
-
-  .overview-map-surface[data-overview-map-active] {
-    .overview-map-source:not([data-overview-map-active]) {
-      opacity: 0.52;
-      filter: saturate(0.7);
-    }
-
-    .overview-map-edge:not([data-overview-map-active]) {
-      opacity: 0.18;
-    }
-
-    .overview-map-edge[data-overview-map-active] {
-      filter: drop-shadow(0 0 6px rgb(from var(--overview-map-active-accent, var(--color-chart-2)) r g b / 0.3));
-      opacity: 0.95;
-      stroke: var(--overview-map-active-accent, var(--color-chart-2));
-      stroke-width: 0.52;
-    }
-
-    .overview-map-center {
-      box-shadow:
-        0 0 0 1px rgb(from var(--color-chart-3) r g b / 0.2),
-        0 18px 45px rgb(0 0 0 / 0.1);
-    }
-  }
-
-  .overview-map-source-okta { --overview-map-accent: var(--color-chart-3); }
-  .overview-map-source-entra { --overview-map-accent: var(--color-chart-5); }
-  .overview-map-source-google { --overview-map-accent: var(--color-chart-2); }
-  .overview-map-source-github { --overview-map-accent: var(--color-foreground); }
-  .overview-map-source-datadog { --overview-map-accent: var(--color-chart-4); }
-  .overview-map-source-aws { --overview-map-accent: var(--color-chart-1); }
-  .overview-map-source-vault { --overview-map-accent: var(--color-ring); }
-  .overview-map-source-unknown {
-    --overview-map-accent: var(--color-destructive);
-    border-style: dashed;
-  }
-
-  .overview-map-source-main {
-    @apply flex min-w-0 items-start gap-3;
-  }
-
-  .overview-map-source-icon {
-    @apply grid size-8 shrink-0 place-items-center rounded-md border border-border bg-muted/40 text-muted-foreground;
-    color: var(--overview-map-accent, var(--color-muted-foreground));
-  }
-
-  .overview-map-source-title {
-    @apply min-w-0 truncate text-sm font-semibold;
-  }
-
-  .overview-map-source-main p {
-    @apply truncate text-xs text-muted-foreground;
-  }
-
-  .overview-map-meter {
-    @apply mt-3 h-1.5 overflow-hidden rounded-full bg-muted;
-
-    div {
-      @apply h-full rounded-full transition-[width] duration-500;
-      background: var(--overview-map-accent, var(--color-primary));
-      animation: overview-map-meter-in 0.5s ease-out both;
-      animation-delay: calc(120ms + var(--overview-map-index, 0) * 45ms);
-      transform-origin: left;
-    }
-  }
-
-  .overview-map-source-stats {
-    @apply mt-2 flex justify-between gap-2 text-xs text-muted-foreground;
-  }
-
-  .overview-risk-buckets {
-    @apply mt-3 flex flex-col gap-1.5;
-  }
-
-  .overview-risk-bucket {
-    @apply inline-flex max-w-full items-center justify-between gap-2 rounded-md border px-2 py-1 text-xs;
-
-    span:not(.overview-risk-bucket-count) { @apply min-w-0 truncate; }
-  }
-
-  .overview-risk-bucket-count {
-    @apply shrink-0 font-semibold tabular-nums;
-  }
-
-  .overview-risk-bucket-critical {
-    @apply border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100;
-  }
-
-  .overview-risk-bucket-high {
-    @apply border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100;
-  }
-
-  .overview-risk-bucket-medium {
-    @apply border-cyan-200 bg-cyan-50 text-cyan-900 dark:border-cyan-900/60 dark:bg-cyan-950/40 dark:text-cyan-100;
-  }
-
-  .overview-risk-bucket-low {
-    @apply border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-100;
-  }
-
-  .overview-risk-bucket-info {
-    @apply border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-800/70 dark:bg-slate-900/50 dark:text-slate-100;
-  }
-
-  .overview-risk-bucket-unknown {
-    @apply border-dashed border-border bg-muted/40 text-muted-foreground;
-  }
-
-  .overview-map-list {
-    @apply divide-y divide-border rounded-lg border border-border;
-  }
-
-  .overview-map-list-item {
-    @apply block p-4 text-foreground no-underline transition-[background-color,box-shadow] hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40;
-  }
-
   @keyframes dashboard-fade-in {
     from {
       opacity: 0;
       transform: translateY(6px);
-    }
-  }
-
-  @keyframes overview-map-node-in {
-    from {
-      opacity: 0;
-      transform: translate(-50%, -48%);
-    }
-  }
-
-  @keyframes overview-map-edge-in {
-    from {
-      opacity: 0;
-      stroke-dashoffset: 8;
-    }
-  }
-
-  @keyframes overview-map-meter-in {
-    from {
-      transform: scaleX(0);
     }
   }
 
@@ -2230,20 +2240,10 @@
   @media (prefers-reduced-motion: reduce) {
     .dashboard-kpi,
     .dashboard-progress-bar,
-    .overview-map-edge,
-    .overview-map-node,
-    .overview-map-meter div,
     .app-row,
     .filter-popover,
     .osspm-filter-panel-popover {
       animation: none !important;
-    }
-
-    .overview-map-edge,
-    .overview-map-source,
-    .overview-map-meter div,
-    .overview-map-list-item {
-      transition: none !important;
     }
   }
 
