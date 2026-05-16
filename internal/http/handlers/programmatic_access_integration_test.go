@@ -74,7 +74,7 @@ func TestHandleAppAssetsPaginatesAcrossConfiguredSources(t *testing.T) {
 		assertContains(t, body, `data-busy-inline-indicator`)
 		assertContains(t, body, `data-enter-only-query="q"`)
 		assertContains(t, body, `hx-get="/app-assets?page=1"`)
-		assertContains(t, body, `hx-trigger="change delay:150ms from:select, submit"`)
+		assertContains(t, body, `hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"`)
 		assertNotContains(t, body, "Asset 01")
 		assertNotContains(t, body, `input changed delay:300ms from:input[name='q']`)
 	})
@@ -192,7 +192,7 @@ func TestHandleCredentialsUsesSubmitOnlySearchTrigger(t *testing.T) {
 		body := rec.Body.String()
 		assertContains(t, body, `data-busy-inline-indicator`)
 		assertContains(t, body, `data-enter-only-query="q"`)
-		assertContains(t, body, `hx-trigger="change delay:150ms from:select, submit"`)
+		assertContains(t, body, `hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"`)
 		assertNotContains(t, body, `input changed delay:300ms from:input[name='q']`)
 	})
 }
@@ -217,6 +217,7 @@ func TestHandleCredentialsHTMXReturnsResultsShellOnly(t *testing.T) {
 
 		body := rec.Body.String()
 		assertContains(t, body, `id="credentials-results"`)
+		assertNotContains(t, body, `data-osspm-askbar`)
 		assertNotContains(t, body, "<!doctype html>")
 	})
 }

@@ -247,6 +247,9 @@ func TestHandleIdentitiesPinsToHumanKindOnly(t *testing.T) {
 			if strings.Contains(body, "Azure Service Principal") {
 				t.Fatalf("body unexpectedly rendered service identity row: %s", body)
 			}
+			if strings.Contains(body, "Relationship map") {
+				t.Fatalf("identity root unexpectedly rendered relationship map: %s", body)
+			}
 		})
 
 		t.Run("identity_type=service in deeplink is ignored", func(t *testing.T) {

@@ -8,14 +8,12 @@ import (
 
 templ IdentitiesPage(data viewmodels.IdentitiesViewData) {
 	@Layout(data.Layout) {
+		@IdentitiesPageFilters(data)
 		@IdentitiesPageResults(data)
 	}
 }
 
-templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
-	<div id="identities-results" class="space-y-5">
-		@BusyInlineIndicator("Updating results...", false)
-		@identitiesStatStrip(data)
+templ IdentitiesPageFilters(data viewmodels.IdentitiesViewData) {
 		<form
 			method="get"
 			action="/identities"
@@ -34,6 +32,12 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
 		@AskBarSavedQueries(IdentitiesAskBar(data.Query))
+}
+
+templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
+	<div id="identities-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
+		@identitiesStatStrip(data)
 		<section class="space-y-3">
 			if data.HasIdentities {
 				<div class="space-y-3 lg:hidden">
@@ -102,7 +106,6 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 				</div>
 			}
 		</section>
-		@OverviewMap(data.OverviewMap)
 	</div>
 }
 

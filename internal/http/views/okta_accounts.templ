@@ -34,13 +34,12 @@ templ OktaAccountsPage(data viewmodels.OktaAccountsViewData) {
 		@PageHeader("") {
 		}
 
+		@OktaAccountsPageFilters(data)
 		@OktaAccountsPageResults(data)
 	}
 }
 
-templ OktaAccountsPageResults(data viewmodels.OktaAccountsViewData) {
-	<div id="okta-accounts-results" class="space-y-5">
-		@BusyInlineIndicator("Updating results...", false)
+templ OktaAccountsPageFilters(data viewmodels.OktaAccountsViewData) {
 		<form
 			method="get"
 			action="/accounts/okta"
@@ -59,7 +58,11 @@ templ OktaAccountsPageResults(data viewmodels.OktaAccountsViewData) {
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
+}
 
+templ OktaAccountsPageResults(data viewmodels.OktaAccountsViewData) {
+	<div id="okta-accounts-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
 		<section class="space-y-3">
 			@ListSectionHeader("Okta Accounts", "Okta accounts synced from your Okta source.")
 			if data.HasUsers {

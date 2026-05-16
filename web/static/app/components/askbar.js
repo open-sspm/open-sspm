@@ -95,6 +95,7 @@ export const initAskbar = (el) => {
   const suggest = el.querySelector("[data-osspm-askbar-suggest]");
   const bank = el.querySelector("[data-osspm-askbar-bank]");
   const form = el.closest("form");
+  const win = doc.defaultView || window;
 
   if (!(bar instanceof HTMLElement)) return () => {};
   if (!(chipHost instanceof HTMLElement)) return () => {};
@@ -111,11 +112,80 @@ export const initAskbar = (el) => {
       form.hasAttribute(attr),
     );
 
+  const fieldByParam = Object.fromEntries(
+    Object.entries(FIELD_PARAM).map(([field, param]) => [param, field]),
+  );
+  const staticHiddenKeys = new Set(
+    STATIC_HIDDEN.map((hidden) => `${hidden?.name ?? ""}\u0000${hidden?.value ?? ""}`),
+  );
+  const urlExtraParamNames = new Set([
+    "expiry_state",
+    "sort_by",
+    "sort_dir",
+    "source_name",
+  ]);
+
+  const hiddenKey = (hidden) => `${hidden.name}\u0000${hidden.value}`;
+
+  const paramsForChips = (chips) => {
+    const params = {};
+    for (const c of chips) {
+      if (c.field === "search") {
+        params.q = params.q ? `${params.q} ${c.value}` : c.value;
+        continue;
+      }
+      const param = FIELD_PARAM[c.field];
+      if (!param) continue;
+      params[param] = c.value;
+    }
+    return params;
+  };
+
+  const hiddenEntriesFromBank = () =>
+    Array.from(bank.querySelectorAll("input[name]"), (input) => ({
+      name: input.name,
+      value: input.value,
+    }));
+
+  const namedFormControls = () => {
+    if (!(form instanceof HTMLFormElement)) return [];
+    return Array.from(
+      form.querySelectorAll("input[name], select[name], textarea[name]"),
+    ).filter((control) => {
+      if (bank.contains(control)) return false;
+      if (control === input) return false;
+      if (control.disabled) return false;
+      if (control instanceof HTMLInputElement) {
+        const type = control.type.toLowerCase();
+        return !["button", "file", "image", "reset", "submit"].includes(type);
+      }
+      return true;
+    });
+  };
+
+  const formControlParamNames = () =>
+    new Set(namedFormControls().map((control) => control.name).filter(Boolean));
+
+  const extraHiddenFromEntries = (entries, chips, { url = false } = {}) => {
+    const chipParamNames = new Set(Object.keys(paramsForChips(chips)));
+    const controlParamNames = formControlParamNames();
+    return entries.filter((hidden) => {
+      if (!hidden.name) return false;
+      if (hidden.name === "page") return false;
+      if (url && !urlExtraParamNames.has(hidden.name)) return false;
+      if (controlParamNames.has(hidden.name)) return false;
+      if (staticHiddenKeys.has(hiddenKey(hidden))) return false;
+      return !chipParamNames.has(hidden.name);
+    });
+  };
+
   const state = {
     chips: readInitialChips(chipHost),
     insertionIndex: 0,
+    extraHidden: [],
   };
   state.insertionIndex = state.chips.length;
+  state.extraHidden = extraHiddenFromEntries(hiddenEntriesFromBank(), state.chips);
 
   const toneFor = (kw) => kw.tone || "";
 
@@ -329,22 +399,38 @@ export const initAskbar = (el) => {
       });
   };
 
-  const syncAndSubmit = () => {
+  const hasChipField = (field) => state.chips.some((chip) => chip.field === field);
+
+  const shouldKeepExtraHidden = (hidden) => {
+    if (!hidden?.name) return false;
+    if (hidden.name === "expiry_state" && hidden.value === "active") {
+      return hasChipField("expires_in_days");
+    }
+    if (hidden.name === "source_name" && FIELD_PARAM.source_kind) {
+      return hasChipField("source_kind");
+    }
+    const field = fieldByParam[hidden.name];
+    if (field) return hasChipField(field);
+    return true;
+  };
+
+  const writeHiddenBankFromState = () => {
     bank.innerHTML = "";
     const params = {};
+    const controlParamNames = formControlParamNames();
     for (const hidden of STATIC_HIDDEN) {
       const name = String(hidden?.name ?? "").trim();
       if (!name) continue;
+      if (controlParamNames.has(name)) continue;
       params[name] = String(hidden?.value ?? "");
     }
-    for (const c of state.chips) {
-      if (c.field === "search") {
-        params.q = params.q ? `${params.q} ${c.value}` : c.value;
-        continue;
-      }
-      const param = FIELD_PARAM[c.field];
-      if (!param) continue;
-      params[param] = c.value;
+    for (const hidden of state.extraHidden) {
+      if (controlParamNames.has(hidden.name)) continue;
+      if (!shouldKeepExtraHidden(hidden)) continue;
+      params[hidden.name] = hidden.value;
+    }
+    for (const [name, value] of Object.entries(paramsForChips(state.chips))) {
+      params[name] = value;
     }
     for (const [name, value] of Object.entries(params)) {
       const node = doc.createElement("input");
@@ -354,6 +440,10 @@ export const initAskbar = (el) => {
       node.defaultValue = value;
       bank.append(node);
     }
+  };
+
+  const syncAndSubmit = () => {
+    writeHiddenBankFromState();
     bank.dispatchEvent(new Event("change", { bubbles: true }));
     if (form instanceof HTMLFormElement && !hasHtmxBehavior) {
       if (typeof form.requestSubmit === "function") {
@@ -363,6 +453,127 @@ export const initAskbar = (el) => {
       }
     }
   };
+
+  const tokenForFieldValue = (field, value) =>
+    Object.values(KEYWORD_TOKENS).find(
+      (tok) => tok.field === field && String(tok.value) === String(value),
+    );
+
+  const chipFromFieldValue = (field, value) => {
+    if (field === "search") {
+      return { field: "search", value, label: `"${value}"` };
+    }
+    const tok = tokenForFieldValue(field, value);
+    if (tok) return cloneToken(tok);
+    return { field, value, label: value };
+  };
+
+  const chipsFromSearch = (search) => {
+    const params = new URLSearchParams(search || "");
+    const next = [];
+    for (const [field, paramName] of Object.entries(FIELD_PARAM)) {
+      const value = params.get(paramName);
+      if (value === null || value === "") continue;
+      // Mirrors CredentialsAskBar: expiry_state=active is implicit when the
+      // expires_in_days chip carries the useful signal.
+      if (
+        field === "expiry_state" &&
+        value === "active" &&
+        params.get(FIELD_PARAM.expires_in_days || "") !== null &&
+        params.get(FIELD_PARAM.expires_in_days || "") !== ""
+      ) {
+        continue;
+      }
+      next.push(chipFromFieldValue(field, value));
+    }
+    return next;
+  };
+
+  const extraHiddenFromSearch = (search, chips) => {
+    const params = new URLSearchParams(search || "");
+    return extraHiddenFromEntries(
+      Array.from(params.entries(), ([name, value]) => ({ name, value })),
+      chips,
+      { url: true },
+    );
+  };
+
+  const resetSelectControl = (select) => {
+    const defaultIndex = Array.from(select.options).findIndex(
+      (option) => option.defaultSelected,
+    );
+    select.selectedIndex = defaultIndex >= 0 ? defaultIndex : 0;
+  };
+
+  const syncFormControlsFromSearch = (search) => {
+    const params = new URLSearchParams(search || "");
+    const controlsByName = new Map();
+    for (const control of namedFormControls()) {
+      const list = controlsByName.get(control.name) || [];
+      list.push(control);
+      controlsByName.set(control.name, list);
+    }
+
+    for (const [name, controls] of controlsByName) {
+      const values = params.getAll(name);
+      const hasValue = values.length > 0;
+      for (const control of controls) {
+        if (control instanceof HTMLInputElement) {
+          const type = control.type.toLowerCase();
+          if (type === "checkbox" || type === "radio") {
+            control.checked = hasValue
+              ? values.includes(control.value)
+              : control.defaultChecked;
+          } else {
+            control.value = hasValue ? values[0] : control.defaultValue;
+          }
+          continue;
+        }
+        if (control instanceof HTMLSelectElement) {
+          if (control.multiple) {
+            for (const option of control.options) {
+              option.selected = hasValue
+                ? values.includes(option.value)
+                : option.defaultSelected;
+            }
+          } else if (hasValue) {
+            control.value = values[0];
+          } else {
+            resetSelectControl(control);
+          }
+          continue;
+        }
+        if (control instanceof HTMLTextAreaElement) {
+          control.value = hasValue ? values[0] : control.defaultValue;
+        }
+      }
+    }
+  };
+
+  const chipKey = (chip) => `${chip.field}\u0000${chip.value}`;
+
+  const chipsSetEqual = (a, b) => {
+    if (a.length !== b.length) return false;
+    const seen = new Set(a.map(chipKey));
+    return b.every((chip) => seen.has(chipKey(chip)));
+  };
+
+  const syncChipsFromURL = () => {
+    const next = chipsFromSearch(win.location.search);
+    const extraHidden = extraHiddenFromSearch(win.location.search, next);
+    syncFormControlsFromSearch(win.location.search);
+    if (!chipsSetEqual(state.chips, next)) {
+      state.chips = next;
+      state.insertionIndex = state.chips.length;
+      input.value = "";
+      renderChips();
+      hideSuggest();
+    }
+    state.extraHidden = extraHidden;
+    writeHiddenBankFromState();
+  };
+
+  const onHistoryURLChange = () => syncChipsFromURL();
 
   const addChip = (c) => {
     const chip = cloneToken(c);
@@ -637,12 +848,18 @@ export const initAskbar = (el) => {
     addFilterButton.addEventListener("click", onAddFilterClick);
   }
   doc.addEventListener("click", onDocClick);
+  doc.addEventListener("htmx:pushedIntoHistory", onHistoryURLChange);
+  doc.addEventListener("htmx:replacedInHistory", onHistoryURLChange);
+  win.addEventListener("popstate", onHistoryURLChange);
 
   return () => {
     if (addFilterButton instanceof HTMLElement) {
       addFilterButton.removeEventListener("click", onAddFilterClick);
     }
     doc.removeEventListener("click", onDocClick);
+    doc.removeEventListener("htmx:pushedIntoHistory", onHistoryURLChange);
+    doc.removeEventListener("htmx:replacedInHistory", onHistoryURLChange);
+    win.removeEventListener("popstate", onHistoryURLChange);
   };
 };
 

@@ -6,6 +6,7 @@ const config = {
   fieldParam: {
     search: "q",
     credential_kind: "credential_kind",
+    expiry_state: "expiry_state",
     expires_in_days: "expires_in_days",
     owner: "owner",
     asset: "asset",
@@ -16,6 +17,7 @@ const config = {
   keyLabel: {
     search: "",
     credential_kind: "kind",
+    expiry_state: "expiry",
     expires_in_days: "expires",
     owner: "owner",
     asset: "asset",
@@ -25,6 +27,7 @@ const config = {
   },
   fieldLabel: {
     credential_kind: "Credential kind",
+    expiry_state: "Expiry",
     expires_in_days: "Expires in",
     owner: "Owner",
     asset: "Asset",
@@ -55,6 +58,12 @@ const config = {
       label: "revoked",
       tone: "danger",
     },
+    expired: {
+      field: "expiry_state",
+      value: "expired",
+      label: "expired",
+      tone: "danger",
+    },
     "action-required": {
       field: "row_state",
       value: "action_required",
@@ -64,6 +73,7 @@ const config = {
   },
   fieldAliases: {
     kind: "credential_kind",
+    expiry: "expiry_state",
     expires: "expires_in_days",
     owner: "owner",
     asset: "asset",
@@ -75,6 +85,7 @@ const config = {
   stopwords: [],
   singletonFields: [
     "credential_kind",
+    "expiry_state",
     "expires_in_days",
     "owner",
     "asset",
@@ -89,7 +100,7 @@ const config = {
   ],
 };
 
-const renderAskbar = ({ htmx = true } = {}) => {
+const renderAskbar = ({ htmx = true, extraControls = "" } = {}) => {
   document.body.innerHTML = `
     <form ${htmx ? 'hx-get="/items"' : ""}>
       <div data-osspm-askbar data-osspm-askbar-config='${JSON.stringify(config)}'>
@@ -101,6 +112,7 @@ const renderAskbar = ({ htmx = true } = {}) => {
         <div data-osspm-askbar-suggest hidden></div>
         <div data-osspm-askbar-bank data-table-query-trigger></div>
       </div>
+      ${extraControls}
     </form>
   `;
   return document.querySelector("[data-osspm-askbar]");
@@ -120,6 +132,11 @@ const bankDefaultValues = (root) =>
     ),
   );
 
+const chipLabels = (root) =>
+  Array.from(root.querySelectorAll(".osspm-askbar-chip-label"), (node) =>
+    node.textContent.trim(),
+  );
+
 describe("askbar", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -127,6 +144,7 @@ describe("askbar", () => {
 
   afterEach(() => {
     document.body.innerHTML = "";
+    window.history.replaceState({}, "", "/");
     vi.restoreAllMocks();
   });
 
@@ -290,6 +308,107 @@ describe("askbar", () => {
 
     const removeBtn = root.querySelector("[data-osspm-askbar-chip-remove]");
     expect(removeBtn?.getAttribute("aria-label")).toBe("Remove PAT");
+  });
+
+  it("reconciles chips and hidden inputs when htmx pushes a new URL", () => {
+    const root = renderAskbar();
+    initAskbar(root);
+    const bank = root.querySelector("[data-osspm-askbar-bank]");
+    const changeSpy = vi.fn();
+    bank.addEventListener("change", changeSpy);
+
+    window.history.pushState({}, "", "/items?q=alice&credential_kind=github_pat_request%2Cgithub_pat_fine_grained&status=revoked");
+    document.dispatchEvent(new CustomEvent("htmx:pushedIntoHistory", { bubbles: true }));
+
+    expect(chipLabels(root)).toEqual(['"alice"', "PAT", "revoked"]);
+    expect(bankValues(root)).toMatchObject({
+      source_kind: "google_workspace",
+      asset_kind: "google_oauth_client",
+      q: "alice",
+      credential_kind: "github_pat_request,github_pat_fine_grained",
+      status: "revoked",
+    });
+    expect(changeSpy).not.toHaveBeenCalled();
+  });
+
+  it("reconciles chips on browser history navigation without submitting", () => {
+    const root = renderAskbar();
+    initAskbar(root);
+    const bank = root.querySelector("[data-osspm-askbar-bank]");
+    const changeSpy = vi.fn();
+    bank.addEventListener("change", changeSpy);
+
+    window.history.pushState({}, "", "/items?status=revoked");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+
+    expect(chipLabels(root)).toEqual(["revoked"]);
+    expect(bankValues(root)).toMatchObject({
+      source_kind: "google_workspace",
+      asset_kind: "google_oauth_client",
+      status: "revoked",
+    });
+    expect(changeSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not rewrite existing chips for an idempotent history event", () => {
+    const root = renderAskbar();
+    initAskbar(root);
+
+    const input = root.querySelector("[data-osspm-askbar-input]");
+    input.value = "status:revoked";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    const firstChip = root.querySelector("[data-osspm-askbar-chip]");
+
+    window.history.pushState({}, "", "/items?status=revoked");
+    document.dispatchEvent(new CustomEvent("htmx:pushedIntoHistory", { bubbles: true }));
+
+    expect(root.querySelector("[data-osspm-askbar-chip]")).toBe(firstChip);
+    expect(chipLabels(root)).toEqual(["revoked"]);
+  });
+
+  it("suppresses implicit active expiry chips when expires_in_days is in the URL", () => {
+    const root = renderAskbar();
+    initAskbar(root);
+
+    window.history.pushState({}, "", "/items?expiry_state=active&expires_in_days=30");
+    document.dispatchEvent(new CustomEvent("htmx:pushedIntoHistory", { bubbles: true }));
+
+    expect(chipLabels(root)).toEqual(["< 30d"]);
+    expect(bankValues(root)).toMatchObject({
+      source_kind: "google_workspace",
+      asset_kind: "google_oauth_client",
+      expiry_state: "active",
+      expires_in_days: "30",
+    });
+  });
+
+  it("syncs ordinary form controls from htmx history without duplicating hidden params", () => {
+    const root = renderAskbar({
+      extraControls: `
+        <select name="sort_by" aria-label="Sort credentials">
+          <option value="expires_soonest" selected>Expires soonest</option>
+          <option value="highest_risk">Highest risk</option>
+        </select>
+      `,
+    });
+    initAskbar(root);
+    const form = root.closest("form");
+    const sort = form.querySelector("[name=sort_by]");
+
+    window.history.pushState({}, "", "/items?q=alice&sort_by=highest_risk");
+    document.dispatchEvent(new CustomEvent("htmx:pushedIntoHistory", { bubbles: true }));
+
+    expect(sort.value).toBe("highest_risk");
+    expect(chipLabels(root)).toEqual(['"alice"']);
+    expect(bankValues(root)).not.toHaveProperty("sort_by");
+    expect(new FormData(form).getAll("sort_by")).toEqual(["highest_risk"]);
+
+    window.history.pushState({}, "", "/items?q=alice");
+    document.dispatchEvent(new CustomEvent("htmx:pushedIntoHistory", { bubbles: true }));
+
+    expect(sort.value).toBe("expires_soonest");
+    expect(bankValues(root)).not.toHaveProperty("sort_by");
+    expect(new FormData(form).getAll("sort_by")).toEqual(["expires_soonest"]);
   });
 
   it("submits a non-htmx form after a filter change", () => {

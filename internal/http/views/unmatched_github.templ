@@ -27,13 +27,12 @@ templ UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) {
 			}
 		}
 
+		@UnmatchedGitHubPageFilters(data)
 		@UnmatchedGitHubPageResults(data)
 	}
 }
 
-templ UnmatchedGitHubPageResults(data viewmodels.UnmatchedGitHubViewData) {
-	<div id="unmatched-github-results" class="space-y-5">
-		@BusyInlineIndicator("Updating results...", false)
+templ UnmatchedGitHubPageFilters(data viewmodels.UnmatchedGitHubViewData) {
 		<form
 			method="get"
 			action={ "/accounts/unlinked/github/" + data.Layout.GitHubOrg }
@@ -52,7 +51,11 @@ templ UnmatchedGitHubPageResults(data viewmodels.UnmatchedGitHubViewData) {
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
+}
 
+templ UnmatchedGitHubPageResults(data viewmodels.UnmatchedGitHubViewData) {
+	<div id="unmatched-github-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
 		<section class="space-y-3">
 			@ListSectionHeader("Unlinked GitHub users", "Unlinked GitHub users awaiting identity linking.")
 			@ColumnsTable("") {

@@ -96,7 +96,7 @@ func TestHandleNonHumanIdentitiesRendersUnifiedInventory(t *testing.T) {
 	})
 }
 
-func TestHandleNonHumanIdentitiesHTMXReturnsInventoryAndFilterSwap(t *testing.T) {
+func TestHandleNonHumanIdentitiesHTMXReturnsInventoryOnly(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
 			Org:   "acme",
@@ -115,12 +115,11 @@ func TestHandleNonHumanIdentitiesHTMXReturnsInventoryAndFilterSwap(t *testing.T)
 		}
 
 		body := rec.Body.String()
-		assertContains(t, body, `id="non-human-identities-filters"`)
-		assertContains(t, body, `hx-swap-oob="outerHTML"`)
 		assertContains(t, body, `id="non-human-identities-inventory"`)
 		assertContains(t, body, `data-busy-inline-indicator`)
-		assertContains(t, body, `data-enter-only-query="q"`)
-		assertContains(t, body, `hx-target="#non-human-identities-inventory"`)
+		assertNotContains(t, body, `id="non-human-identities-filters"`)
+		assertNotContains(t, body, `hx-swap-oob="outerHTML"`)
+		assertNotContains(t, body, `data-osspm-askbar`)
 		assertNotContains(t, body, "<!doctype html>")
 	})
 }

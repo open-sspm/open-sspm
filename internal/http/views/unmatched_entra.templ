@@ -27,13 +27,12 @@ templ UnmatchedEntraPage(data viewmodels.UnmatchedEntraViewData) {
 			}
 		}
 
+		@UnmatchedEntraPageFilters(data)
 		@UnmatchedEntraPageResults(data)
 	}
 }
 
-templ UnmatchedEntraPageResults(data viewmodels.UnmatchedEntraViewData) {
-	<div id="unmatched-entra-results" class="space-y-5">
-		@BusyInlineIndicator("Updating results...", false)
+templ UnmatchedEntraPageFilters(data viewmodels.UnmatchedEntraViewData) {
 		<form
 			method="get"
 			action="/accounts/unlinked/entra"
@@ -52,7 +51,11 @@ templ UnmatchedEntraPageResults(data viewmodels.UnmatchedEntraViewData) {
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
+}
 
+templ UnmatchedEntraPageResults(data viewmodels.UnmatchedEntraViewData) {
+	<div id="unmatched-entra-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
 		<section class="space-y-3">
 			@ListSectionHeader("Unlinked Microsoft Entra ID users", "Unlinked Microsoft Entra ID users awaiting identity linking.")
 			@ColumnsTable("") {

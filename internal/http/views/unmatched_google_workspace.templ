@@ -25,13 +25,12 @@ templ UnmatchedGoogleWorkspacePage(data viewmodels.UnmatchedGoogleWorkspaceViewD
 			}
 		}
 
+		@UnmatchedGoogleWorkspacePageFilters(data)
 		@UnmatchedGoogleWorkspacePageResults(data)
 	}
 }
 
-templ UnmatchedGoogleWorkspacePageResults(data viewmodels.UnmatchedGoogleWorkspaceViewData) {
-	<div id="unmatched-google-workspace-results" class="space-y-5">
-		@BusyInlineIndicator("Updating results...", false)
+templ UnmatchedGoogleWorkspacePageFilters(data viewmodels.UnmatchedGoogleWorkspaceViewData) {
 		<form
 			method="get"
 			action="/accounts/unlinked/google-workspace"
@@ -50,7 +49,11 @@ templ UnmatchedGoogleWorkspacePageResults(data viewmodels.UnmatchedGoogleWorkspa
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
+}
 
+templ UnmatchedGoogleWorkspacePageResults(data viewmodels.UnmatchedGoogleWorkspaceViewData) {
+	<div id="unmatched-google-workspace-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
 		<section class="space-y-3">
 			@ListSectionHeader("Unlinked Google Workspace users", "Unlinked Google Workspace users awaiting identity linking.")
 			@ColumnsTable("") {
