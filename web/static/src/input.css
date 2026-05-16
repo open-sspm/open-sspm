@@ -203,12 +203,7 @@
   a[class*=" btn-"] {
     text-decoration-line: none;
   }
-  a.btn-link,
-  a.btn-sm-link,
-  a.btn-lg-link,
-  a.btn-icon-link,
-  a.btn-sm-icon-link,
-  a.btn-lg-icon-link {
+  a.btn-sm-link {
     text-decoration-line: underline;
   }
   .sidebar a {
@@ -273,20 +268,15 @@
 
 @layer components {
   .badge,
-  .badge-primary,
   .badge-secondary,
-  .badge-destructive,
   .badge-outline {
     @apply inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden;
   }
-  .badge, .badge-primary {
+  .badge {
     @apply border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90;
   }
   .badge-secondary {
     @apply border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90;
-  }
-  .badge-destructive {
-    @apply border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60;
   }
   .badge-outline {
     @apply text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground;
@@ -298,78 +288,50 @@
    --------------------------------------------------------------------------- */
 
 @layer components {
-  .btn, .btn-primary, .btn-secondary, .btn-outline, .btn-ghost, .btn-link, .btn-destructive,
-  .btn-sm, .btn-sm-primary, .btn-sm-secondary, .btn-sm-outline, .btn-sm-ghost, .btn-sm-link, .btn-sm-destructive,
-  .btn-lg, .btn-lg-primary, .btn-lg-secondary, .btn-lg-outline, .btn-lg-ghost, .btn-lg-link, .btn-lg-destructive,
-  .btn-icon, .btn-icon-primary, .btn-icon-secondary, .btn-icon-outline, .btn-icon-ghost, .btn-icon-link, .btn-icon-destructive,
-  .btn-sm-icon, .btn-sm-icon-primary, .btn-sm-icon-secondary, .btn-sm-icon-outline, .btn-sm-icon-ghost, .btn-sm-icon-link, .btn-sm-icon-destructive,
-  .btn-lg-icon, .btn-lg-icon-primary, .btn-lg-icon-secondary, .btn-lg-icon-outline, .btn-lg-icon-ghost, .btn-lg-icon-link, .btn-lg-icon-destructive {
+  .btn, .btn-primary, .btn-outline, .btn-ghost,
+  .btn-sm, .btn-sm-primary, .btn-sm-outline, .btn-sm-ghost, .btn-sm-link,
+  .btn-icon-outline, .btn-icon-ghost,
+  .btn-sm-icon-ghost {
     @apply inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive cursor-pointer rounded-md;
   }
 
   /* Size: default */
-  .btn, .btn-primary, .btn-secondary, .btn-outline, .btn-ghost, .btn-link, .btn-destructive {
+  .btn, .btn-primary, .btn-outline, .btn-ghost {
     @apply gap-2 h-9 px-4 py-2 has-[>svg]:px-3;
   }
-  .btn-icon, .btn-icon-primary, .btn-icon-secondary, .btn-icon-outline, .btn-icon-ghost, .btn-icon-link, .btn-icon-destructive {
+  .btn-icon-outline, .btn-icon-ghost {
     @apply size-9;
   }
 
   /* Size: sm */
-  .btn-sm, .btn-sm-primary, .btn-sm-secondary, .btn-sm-outline, .btn-sm-ghost, .btn-sm-link, .btn-sm-destructive {
+  .btn-sm, .btn-sm-primary, .btn-sm-outline, .btn-sm-ghost, .btn-sm-link {
     @apply gap-1.5 h-8 px-3 has-[>svg]:px-2.5;
   }
-  .btn-sm-icon, .btn-sm-icon-primary, .btn-sm-icon-secondary, .btn-sm-icon-outline, .btn-sm-icon-ghost, .btn-sm-icon-link, .btn-sm-icon-destructive {
+  .btn-sm-icon-ghost {
     @apply size-8;
   }
 
-  /* Size: lg */
-  .btn-lg, .btn-lg-primary, .btn-lg-secondary, .btn-lg-outline, .btn-lg-ghost, .btn-lg-link, .btn-lg-destructive {
-    @apply gap-2 h-10 px-6 has-[>svg]:px-4;
-  }
-  .btn-lg-icon, .btn-lg-icon-primary, .btn-lg-icon-secondary, .btn-lg-icon-outline, .btn-lg-icon-ghost, .btn-lg-icon-link, .btn-lg-icon-destructive {
-    @apply size-10;
-  }
-
   /* Variant: primary (default) */
-  .btn, .btn-primary, .btn-sm, .btn-sm-primary, .btn-lg, .btn-lg-primary,
-  .btn-icon, .btn-icon-primary, .btn-sm-icon, .btn-sm-icon-primary, .btn-lg-icon, .btn-lg-icon-primary {
+  .btn, .btn-primary, .btn-sm, .btn-sm-primary {
     @apply bg-primary text-primary-foreground shadow-xs hover:bg-primary/90;
     &[aria-pressed='true'] { @apply bg-primary/90; }
   }
 
-  /* Variant: secondary */
-  .btn-secondary, .btn-sm-secondary, .btn-lg-secondary,
-  .btn-icon-secondary, .btn-sm-icon-secondary, .btn-lg-icon-secondary {
-    @apply bg-secondary text-secondary-foreground shadow-xs;
-    &:hover, &[aria-pressed='true'] { @apply bg-secondary/80; }
-  }
-
   /* Variant: outline */
-  .btn-outline, .btn-sm-outline, .btn-lg-outline,
-  .btn-icon-outline, .btn-sm-icon-outline, .btn-lg-icon-outline {
+  .btn-outline, .btn-sm-outline, .btn-icon-outline {
     @apply border bg-background shadow-xs dark:bg-input/30 dark:border-input;
     &:hover, &[aria-pressed='true'] { @apply bg-accent text-accent-foreground dark:bg-accent/50; }
   }
 
   /* Variant: ghost */
-  .btn-ghost, .btn-sm-ghost, .btn-lg-ghost,
-  .btn-icon-ghost, .btn-sm-icon-ghost, .btn-lg-icon-ghost {
+  .btn-ghost, .btn-sm-ghost, .btn-icon-ghost, .btn-sm-icon-ghost {
     &:hover, &[aria-pressed='true'] { @apply bg-accent text-accent-foreground dark:bg-accent/50; }
   }
 
   /* Variant: link */
-  .btn-link, .btn-sm-link, .btn-lg-link,
-  .btn-icon-link, .btn-sm-icon-link, .btn-lg-icon-link {
+  .btn-sm-link {
     @apply text-primary underline-offset-4;
     &:hover, &[aria-pressed='true'] { @apply hover:underline; }
-  }
-
-  /* Variant: destructive */
-  .btn-destructive, .btn-sm-destructive, .btn-lg-destructive,
-  .btn-icon-destructive, .btn-sm-icon-destructive, .btn-lg-icon-destructive {
-    @apply bg-destructive text-white shadow-xs focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60;
-    &:hover, &[aria-pressed='true'] { @apply bg-destructive/90 dark:bg-destructive/50; }
   }
 }
 
@@ -1013,12 +975,6 @@
     margin-inline-start: calc(var(--spacing) * 3.5);
     width: calc(100% - calc(var(--spacing) * 3.5));
   }
-  .sidebar a.sidebar-unconfigured-link { opacity: 0.55; }
-  .sidebar a.sidebar-unconfigured-link > svg:last-child { margin-left: auto; opacity: 0.75; }
-  .sidebar a.sidebar-unconfigured-link:hover,
-  .sidebar a.sidebar-unconfigured-link:focus-visible { opacity: 1; }
-  .sidebar a.sidebar-unconfigured-link:hover > svg:last-child,
-  .sidebar a.sidebar-unconfigured-link:focus-visible > svg:last-child { opacity: 1; }
   .sidebar a > span.truncate { min-width: 0; flex: 1 1 auto; }
   .product-icon {
     @apply inline-grid size-8 shrink-0 place-items-center overflow-hidden rounded-md border border-border bg-muted/40 text-xs font-semibold leading-none;
@@ -1511,10 +1467,6 @@
     @apply text-muted-foreground;
   }
 
-  .osspm-list-meta-link {
-    @apply font-medium text-foreground underline underline-offset-2;
-  }
-
   .osspm-list-meta-actions {
     @apply flex flex-wrap items-center gap-2;
   }
@@ -1590,10 +1542,6 @@
 
   .osspm-askbar-action-select {
     @apply min-w-0 cursor-pointer border-0 bg-transparent text-sm font-medium text-foreground outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-80;
-  }
-
-  .osspm-askbar-action-button {
-    @apply inline-flex items-center gap-1 rounded-md bg-foreground px-3 py-1.5 text-xs font-medium text-background transition-colors hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-70;
   }
 
   .osspm-askbar-chip {
@@ -1765,10 +1713,6 @@
 
   .osspm-filter-summary {
     @apply inline-flex h-9 cursor-pointer list-none items-center gap-1.5 whitespace-nowrap rounded-md border border-border px-3 text-sm text-foreground select-none transition-colors hover:bg-muted/50;
-  }
-
-  .osspm-filter-panel {
-    @apply mt-4 rounded-lg border border-border/70 bg-muted/15 p-4;
   }
 
   .osspm-filter-panel-popover {
@@ -2068,22 +2012,18 @@
   .osspm-table-list tbody tr:hover td { background: rgb(from var(--color-muted) r g b / 0.2); }
   .osspm-table-list tbody tr[data-row-href] { cursor: pointer; }
 
-  .osspm-col-id { width: 12rem; }
   .osspm-col-id-wide { width: 16rem; }
   .osspm-table-credentials { min-width: 0; }
   .osspm-table-non-human-identities { min-width: 68rem; }
   .osspm-col-principal { width: 26rem; }
   .osspm-col-type { width: 8rem; }
   .osspm-col-owner { width: 10rem; }
-  .osspm-col-governance { width: 10rem; }
   .osspm-col-credential { width: 19rem; }
   .osspm-col-kind { width: 13rem; }
   .osspm-col-asset { width: 18rem; }
-  .osspm-col-status { width: 9rem; }
   .osspm-col-risk { width: 7rem; }
   .osspm-col-time { width: 9rem; }
   .osspm-col-activity { width: 11rem; }
-  .osspm-col-freshness { width: 11rem; }
   .osspm-col-links { width: 8rem; }
 
   .osspm-table-credentials col.osspm-col-credential { width: 32%; }
