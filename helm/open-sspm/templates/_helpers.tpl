@@ -103,3 +103,71 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   value: {{ default "open-sspm" .Values.config.redisKeyPrefix | quote }}
 {{- end }}
 {{- end -}}
+
+{{- define "open-sspm.oktaPushIngestEnabled" -}}
+{{- $value := .Values.config.oktaPushIngestEnabled -}}
+{{- if or (eq (toString $value) "") (eq (toString $value) "<nil>") -}}
+{{- ternary "1" "0" .Values.config.syncDiscoveryEnabled -}}
+{{- else -}}
+{{- $normalized := lower (toString $value) -}}
+{{- if or (eq $normalized "true") (eq $normalized "1") -}}1{{- else -}}0{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "open-sspm.fullSyncEnv" -}}
+- name: SYNC_FULL_ENABLED
+  value: {{ ternary "1" "0" .Values.config.syncFullEnabled | quote }}
+- name: SYNC_INTERVAL
+  value: {{ .Values.config.syncInterval | quote }}
+{{- if .Values.config.syncOktaInterval }}
+- name: SYNC_OKTA_INTERVAL
+  value: {{ .Values.config.syncOktaInterval | quote }}
+{{- end }}
+{{- if .Values.config.syncEntraInterval }}
+- name: SYNC_ENTRA_INTERVAL
+  value: {{ .Values.config.syncEntraInterval | quote }}
+{{- end }}
+{{- if .Values.config.syncGoogleWorkspaceInterval }}
+- name: SYNC_GOOGLE_WORKSPACE_INTERVAL
+  value: {{ .Values.config.syncGoogleWorkspaceInterval | quote }}
+{{- end }}
+{{- if .Values.config.syncGithubInterval }}
+- name: SYNC_GITHUB_INTERVAL
+  value: {{ .Values.config.syncGithubInterval | quote }}
+{{- end }}
+{{- if .Values.config.syncDatadogInterval }}
+- name: SYNC_DATADOG_INTERVAL
+  value: {{ .Values.config.syncDatadogInterval | quote }}
+{{- end }}
+{{- if .Values.config.syncAwsInterval }}
+- name: SYNC_AWS_INTERVAL
+  value: {{ .Values.config.syncAwsInterval | quote }}
+{{- end }}
+{{- if .Values.config.syncFailureBackoffMax }}
+- name: SYNC_FAILURE_BACKOFF_MAX
+  value: {{ .Values.config.syncFailureBackoffMax | quote }}
+{{- end }}
+{{- end -}}
+
+{{- define "open-sspm.oktaPushIngestEnv" -}}
+- name: OKTA_PUSH_INGEST_ENABLED
+  value: {{ include "open-sspm.oktaPushIngestEnabled" . | quote }}
+- name: OKTA_PUSH_INGEST_BATCH_SIZE
+  value: {{ .Values.config.oktaPushIngest.batchSize | quote }}
+- name: OKTA_PUSH_INGEST_POLL_INTERVAL
+  value: {{ .Values.config.oktaPushIngest.pollInterval | quote }}
+- name: OKTA_PUSH_INGEST_CLEANUP_INTERVAL
+  value: {{ .Values.config.oktaPushIngest.cleanupInterval | quote }}
+- name: OKTA_PUSH_INGEST_RETRY_DELAY
+  value: {{ .Values.config.oktaPushIngest.retryDelay | quote }}
+- name: OKTA_PUSH_INGEST_RETRY_MAX_DELAY
+  value: {{ .Values.config.oktaPushIngest.retryMaxDelay | quote }}
+- name: OKTA_PUSH_INGEST_STALE_PROCESSING_TIMEOUT
+  value: {{ .Values.config.oktaPushIngest.staleProcessingTimeout | quote }}
+- name: OKTA_PUSH_INGEST_MAX_ATTEMPTS
+  value: {{ .Values.config.oktaPushIngest.maxAttempts | quote }}
+- name: OKTA_PUSH_INGEST_PROCESSED_RETENTION_DAYS
+  value: {{ .Values.config.oktaPushIngest.processedRetentionDays | quote }}
+- name: OKTA_PUSH_INGEST_DEAD_LETTER_RETENTION_DAYS
+  value: {{ .Values.config.oktaPushIngest.deadLetterRetentionDays | quote }}
+{{- end -}}

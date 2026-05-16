@@ -3,6 +3,7 @@ package oktaingest
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -53,6 +54,26 @@ func TestProcessQueuedWritesDiscoveryRows(t *testing.T) {
 		}
 		if status != "processed" || !processedRunID.Valid {
 			t.Fatalf("inbox status/run = %q/%+v, want processed with run", status, processedRunID)
+		}
+	})
+}
+
+func TestProcessQueuedObservesLoopTickOnEmptyQueue(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		ticks := 0
+		result, err := ProcessQueuedWithConfig(ctx, q, pool, 100, Config{
+			OnLoopTick: func() {
+				ticks++
+			},
+		})
+		if err != nil {
+			t.Fatalf("ProcessQueuedWithConfig(): %v", err)
+		}
+		if result.Claimed != 0 {
+			t.Fatalf("claimed = %d, want 0", result.Claimed)
+		}
+		if ticks != 1 {
+			t.Fatalf("loop ticks = %d, want 1", ticks)
 		}
 	})
 }
@@ -115,8 +136,11 @@ func TestClaimQueuedOktaPushInboxEventsByIDsFiltersStatusAndLimit(t *testing.T) 
 
 		missingID := ids["evt-claim-d"] + 999999
 		rows, err := q.ClaimQueuedOktaPushInboxEventsByIDs(ctx, gen.ClaimQueuedOktaPushInboxEventsByIDsParams{
-			Ids:       []int64{ids["evt-claim-d"], ids["evt-claim-c"], ids["evt-claim-b"], ids["evt-claim-a"], ids["evt-claim-a"], missingID},
-			LimitRows: 1,
+			Ids:          []int64{ids["evt-claim-d"], ids["evt-claim-c"], ids["evt-claim-b"], ids["evt-claim-a"], ids["evt-claim-a"], missingID},
+			LimitRows:    1,
+			ClaimedBy:    "test-claimant",
+			ClaimToken:   "test-token-a",
+			LeaseSeconds: 60,
 		})
 		if err != nil {
 			t.Fatalf("ClaimQueuedOktaPushInboxEventsByIDs() limit=1: %v", err)
@@ -126,8 +150,11 @@ func TestClaimQueuedOktaPushInboxEventsByIDsFiltersStatusAndLimit(t *testing.T) 
 		}
 
 		rows, err = q.ClaimQueuedOktaPushInboxEventsByIDs(ctx, gen.ClaimQueuedOktaPushInboxEventsByIDsParams{
-			Ids:       []int64{ids["evt-claim-d"], ids["evt-claim-c"], ids["evt-claim-b"], ids["evt-claim-a"], missingID},
-			LimitRows: 10,
+			Ids:          []int64{ids["evt-claim-d"], ids["evt-claim-c"], ids["evt-claim-b"], ids["evt-claim-a"], missingID},
+			LimitRows:    10,
+			ClaimedBy:    "test-claimant",
+			ClaimToken:   "test-token-b",
+			LeaseSeconds: 60,
 		})
 		if err != nil {
 			t.Fatalf("ClaimQueuedOktaPushInboxEventsByIDs() remaining: %v", err)
@@ -496,6 +523,393 @@ func TestRequeueStaleProcessingRows(t *testing.T) {
 	})
 }
 
+func TestOktaPushInboxExpiredLeaseCanBeReclaimed(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-lease-reclaim", `{
+			"uuid": "evt-lease-reclaim",
+			"eventType": "user.authentication.sso",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"},
+			"target": [{"id": "0oa1", "type": "AppInstance", "alternateId": "https://app.example.com", "displayName": "Example App"}]
+		}`)
+
+		rows, err := q.ClaimQueuedOktaPushInboxEvents(ctx, gen.ClaimQueuedOktaPushInboxEventsParams{
+			ClaimedBy:    "old-processor",
+			ClaimToken:   "old-token",
+			LeaseSeconds: 1,
+			LimitRows:    10,
+		})
+		if err != nil {
+			t.Fatalf("initial claim: %v", err)
+		}
+		if len(rows) != 1 {
+			t.Fatalf("initial claim returned %d rows, want 1", len(rows))
+		}
+		if _, err := pool.Exec(ctx, `
+			UPDATE okta_push_inbox
+			SET lease_expires_at = now() - interval '1 second'
+			WHERE event_external_id = 'evt-lease-reclaim'
+		`); err != nil {
+			t.Fatalf("expire lease: %v", err)
+		}
+
+		if err := requeueStaleProcessingRows(ctx, q, Config{StaleProcessingAfter: time.Minute}); err != nil {
+			t.Fatalf("requeueStaleProcessingRows(): %v", err)
+		}
+		rows, err = q.ClaimQueuedOktaPushInboxEvents(ctx, gen.ClaimQueuedOktaPushInboxEventsParams{
+			ClaimedBy:    "new-processor",
+			ClaimToken:   "new-token",
+			LeaseSeconds: 60,
+			LimitRows:    10,
+		})
+		if err != nil {
+			t.Fatalf("reclaim: %v", err)
+		}
+		if len(rows) != 1 || rows[0].ClaimedBy.String != "new-processor" || rows[0].ClaimToken.String != "new-token" {
+			t.Fatalf("reclaimed rows = %#v, want new processor/token", rows)
+		}
+	})
+}
+
+func TestOktaPushInboxOldProcessorCannotFinalizeAfterLeaseLoss(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-lease-finalize", `{
+			"uuid": "evt-lease-finalize",
+			"eventType": "user.authentication.sso",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"},
+			"target": [{"id": "0oa1", "type": "AppInstance", "alternateId": "https://app.example.com", "displayName": "Example App"}]
+		}`)
+		rows, err := q.ClaimQueuedOktaPushInboxEvents(ctx, gen.ClaimQueuedOktaPushInboxEventsParams{
+			ClaimedBy:    "old-processor",
+			ClaimToken:   "old-token",
+			LeaseSeconds: 1,
+			LimitRows:    10,
+		})
+		if err != nil {
+			t.Fatalf("initial claim: %v", err)
+		}
+		if len(rows) != 1 {
+			t.Fatalf("initial claim returned %d rows, want 1", len(rows))
+		}
+		if _, err := pool.Exec(ctx, `
+			UPDATE okta_push_inbox
+			SET lease_expires_at = now() - interval '1 second'
+			WHERE event_external_id = 'evt-lease-finalize'
+		`); err != nil {
+			t.Fatalf("expire lease: %v", err)
+		}
+		if err := requeueStaleProcessingRows(ctx, q, Config{StaleProcessingAfter: time.Minute}); err != nil {
+			t.Fatalf("requeueStaleProcessingRows(): %v", err)
+		}
+		if _, err := q.ClaimQueuedOktaPushInboxEvents(ctx, gen.ClaimQueuedOktaPushInboxEventsParams{
+			ClaimedBy:    "new-processor",
+			ClaimToken:   "new-token",
+			LeaseSeconds: 60,
+			LimitRows:    10,
+		}); err != nil {
+			t.Fatalf("reclaim: %v", err)
+		}
+
+		var runID int64
+		if err := pool.QueryRow(ctx, `
+			INSERT INTO sync_runs (source_kind, source_name, status, started_at, message)
+			VALUES ('okta_push', 'acme.okta.com', 'running', now(), '')
+			RETURNING id
+		`).Scan(&runID); err != nil {
+			t.Fatalf("insert sync run: %v", err)
+		}
+		marked, err := q.MarkOktaPushInboxProcessed(ctx, gen.MarkOktaPushInboxProcessedParams{
+			ProcessedRunID: runID,
+			Ids:            []int64{rows[0].ID},
+			ClaimedBy:      "old-processor",
+			ClaimToken:     "old-token",
+		})
+		if err != nil {
+			t.Fatalf("old finalize: %v", err)
+		}
+		if marked != 0 {
+			t.Fatalf("old finalize marked %d rows, want 0", marked)
+		}
+
+		var status, claimedBy, claimToken string
+		if err := pool.QueryRow(ctx, `
+			SELECT status, claimed_by, claim_token
+			FROM okta_push_inbox
+			WHERE event_external_id = 'evt-lease-finalize'
+		`).Scan(&status, &claimedBy, &claimToken); err != nil {
+			t.Fatalf("select row after old finalize: %v", err)
+		}
+		if status != "processing" || claimedBy != "new-processor" || claimToken != "new-token" {
+			t.Fatalf("row = status %q claimed_by %q token %q, want processing/new-processor/new-token", status, claimedBy, claimToken)
+		}
+	})
+}
+
+func TestOktaPushInboxOldProcessorCannotCommitSideEffectsAfterLeaseLoss(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-lease-side-effects", `{
+			"uuid": "evt-lease-side-effects",
+			"eventType": "application.user_membership.add",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"},
+			"target": [{"id": "0oa1", "type": "AppInstance", "alternateId": "https://app.example.com", "displayName": "Example App"}]
+		}`)
+		rows, err := q.ClaimQueuedOktaPushInboxEvents(ctx, gen.ClaimQueuedOktaPushInboxEventsParams{
+			ClaimedBy:    "old-processor",
+			ClaimToken:   "old-token",
+			LeaseSeconds: 1,
+			LimitRows:    10,
+		})
+		if err != nil {
+			t.Fatalf("initial claim: %v", err)
+		}
+		if len(rows) != 1 {
+			t.Fatalf("initial claim returned %d rows, want 1", len(rows))
+		}
+		if _, err := pool.Exec(ctx, `
+			UPDATE okta_push_inbox
+			SET lease_expires_at = now() - interval '1 second'
+			WHERE event_external_id = 'evt-lease-side-effects'
+		`); err != nil {
+			t.Fatalf("expire lease: %v", err)
+		}
+		if err := requeueStaleProcessingRows(ctx, q, Config{StaleProcessingAfter: time.Minute}); err != nil {
+			t.Fatalf("requeueStaleProcessingRows(): %v", err)
+		}
+		if _, err := q.ClaimQueuedOktaPushInboxEvents(ctx, gen.ClaimQueuedOktaPushInboxEventsParams{
+			ClaimedBy:    "new-processor",
+			ClaimToken:   "new-token",
+			LeaseSeconds: 60,
+			LimitRows:    10,
+		}); err != nil {
+			t.Fatalf("reclaim: %v", err)
+		}
+
+		result, err := processClaimedRows(ctx, q, pool, rows, DefaultConfig())
+		if !errors.Is(err, errOktaPushInboxLeaseLost) {
+			t.Fatalf("processClaimedRows() error = %v, want lease lost", err)
+		}
+		if result.Processed != 0 || result.Ignored != 0 || result.DeadLetter != 0 {
+			t.Fatalf("result = %+v, want no terminal processing", result)
+		}
+
+		var pushRuns, discoveryEvents, fullJobs int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM sync_runs
+			WHERE source_kind = 'okta_push'
+			  AND source_name = 'acme.okta.com'
+		`).Scan(&pushRuns); err != nil {
+			t.Fatalf("count okta_push sync runs: %v", err)
+		}
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM saas_app_events
+			WHERE source_kind = 'okta'
+			  AND source_name = 'acme.okta.com'
+			  AND event_external_id = 'evt-lease-side-effects'
+		`).Scan(&discoveryEvents); err != nil {
+			t.Fatalf("count discovery events: %v", err)
+		}
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM sync_jobs
+			WHERE lane = 'full'
+			  AND connector_kind = 'okta'
+			  AND source_name = 'acme.okta.com'
+		`).Scan(&fullJobs); err != nil {
+			t.Fatalf("count full sync jobs: %v", err)
+		}
+		if pushRuns != 0 || discoveryEvents != 0 || fullJobs != 0 {
+			t.Fatalf("side effects = pushRuns:%d discoveryEvents:%d fullJobs:%d, want all zero", pushRuns, discoveryEvents, fullJobs)
+		}
+	})
+}
+
+func TestOktaPushInboxHeartbeatCancelsAfterLeaseLoss(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-heartbeat-lease-loss", `{
+			"uuid": "evt-heartbeat-lease-loss",
+			"eventType": "user.authentication.sso",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"},
+			"target": [{"id": "0oa1", "type": "AppInstance", "alternateId": "https://app.example.com", "displayName": "Example App"}]
+		}`)
+		rows, err := q.ClaimQueuedOktaPushInboxEvents(ctx, gen.ClaimQueuedOktaPushInboxEventsParams{
+			ClaimedBy:    "old-processor",
+			ClaimToken:   "old-token",
+			LeaseSeconds: 1,
+			LimitRows:    10,
+		})
+		if err != nil {
+			t.Fatalf("initial claim: %v", err)
+		}
+		claim, err := newProcessingClaim(q, rows, Config{LeaseTTL: time.Second})
+		if err != nil {
+			t.Fatalf("newProcessingClaim(): %v", err)
+		}
+		heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
+		defer cancelHeartbeat()
+		lostCh := make(chan error, 1)
+		stopHeartbeat := startProcessingLeaseHeartbeat(heartbeatCtx, claim, Config{
+			LeaseTTL:          time.Second,
+			HeartbeatInterval: 10 * time.Millisecond,
+		}.normalized(), func(err error) {
+			lostCh <- err
+		})
+		defer stopHeartbeat()
+
+		if _, err := pool.Exec(ctx, `
+			UPDATE okta_push_inbox
+			SET lease_expires_at = now() - interval '1 second'
+			WHERE event_external_id = 'evt-heartbeat-lease-loss'
+		`); err != nil {
+			t.Fatalf("expire lease: %v", err)
+		}
+		if err := requeueStaleProcessingRows(ctx, q, Config{StaleProcessingAfter: time.Minute}); err != nil {
+			t.Fatalf("requeueStaleProcessingRows(): %v", err)
+		}
+		if _, err := q.ClaimQueuedOktaPushInboxEvents(ctx, gen.ClaimQueuedOktaPushInboxEventsParams{
+			ClaimedBy:    "new-processor",
+			ClaimToken:   "new-token",
+			LeaseSeconds: 60,
+			LimitRows:    10,
+		}); err != nil {
+			t.Fatalf("reclaim: %v", err)
+		}
+
+		select {
+		case err := <-lostCh:
+			if !errors.Is(err, errOktaPushInboxLeaseLost) {
+				t.Fatalf("heartbeat error = %v, want lease lost", err)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("heartbeat did not report lease loss")
+		}
+	})
+}
+
+func TestOktaPushInboxHeartbeatRenewsActiveLease(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-heartbeat-renewal", `{
+			"uuid": "evt-heartbeat-renewal",
+			"eventType": "user.authentication.sso",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"},
+			"target": [{"id": "0oa1", "type": "AppInstance", "alternateId": "https://app.example.com", "displayName": "Example App"}]
+		}`)
+		rows, err := q.ClaimQueuedOktaPushInboxEvents(ctx, gen.ClaimQueuedOktaPushInboxEventsParams{
+			ClaimedBy:    "heartbeat-owner",
+			ClaimToken:   "heartbeat-token",
+			LeaseSeconds: 1,
+			LimitRows:    10,
+		})
+		if err != nil {
+			t.Fatalf("initial claim: %v", err)
+		}
+		if len(rows) != 1 {
+			t.Fatalf("initial claim returned %d rows, want 1", len(rows))
+		}
+		claim, err := newProcessingClaim(q, rows, Config{LeaseTTL: time.Second})
+		if err != nil {
+			t.Fatalf("newProcessingClaim(): %v", err)
+		}
+
+		initialLeaseExpiresAt := oktaPushInboxLeaseExpiresAt(t, ctx, pool, "evt-heartbeat-renewal")
+		heartbeatInterval := 20 * time.Millisecond
+		lostCh := make(chan error, 1)
+		stopHeartbeat := startProcessingLeaseHeartbeat(ctx, claim, Config{
+			LeaseTTL:          time.Second,
+			HeartbeatInterval: heartbeatInterval,
+		}.normalized(), func(err error) {
+			lostCh <- err
+		})
+		defer stopHeartbeat()
+
+		timeout := time.NewTimer(2 * time.Second)
+		defer timeout.Stop()
+		ticker := time.NewTicker(heartbeatInterval)
+		defer ticker.Stop()
+		for {
+			leaseExpiresAt := oktaPushInboxLeaseExpiresAt(t, ctx, pool, "evt-heartbeat-renewal")
+			if leaseExpiresAt.After(initialLeaseExpiresAt.Add(2 * heartbeatInterval)) {
+				return
+			}
+			select {
+			case err := <-lostCh:
+				t.Fatalf("heartbeat reported lease loss: %v", err)
+			case <-ticker.C:
+			case <-timeout.C:
+				t.Fatalf("lease_expires_at = %s, want after %s", leaseExpiresAt, initialLeaseExpiresAt.Add(2*heartbeatInterval))
+			}
+		}
+	})
+}
+
+func TestOktaPushInboxHeartbeatStopCancelsInFlightRenewal(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-heartbeat-stop-cancel", `{
+			"uuid": "evt-heartbeat-stop-cancel",
+			"eventType": "user.authentication.sso",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"},
+			"target": [{"id": "0oa1", "type": "AppInstance", "alternateId": "https://app.example.com", "displayName": "Example App"}]
+		}`)
+		rows, err := q.ClaimQueuedOktaPushInboxEvents(ctx, gen.ClaimQueuedOktaPushInboxEventsParams{
+			ClaimedBy:    "heartbeat-owner",
+			ClaimToken:   "heartbeat-token",
+			LeaseSeconds: 5,
+			LimitRows:    10,
+		})
+		if err != nil {
+			t.Fatalf("initial claim: %v", err)
+		}
+		claim, err := newProcessingClaim(q, rows, Config{LeaseTTL: 5 * time.Second})
+		if err != nil {
+			t.Fatalf("newProcessingClaim(): %v", err)
+		}
+
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			t.Fatalf("begin lock transaction: %v", err)
+		}
+		defer func() {
+			_ = tx.Rollback(context.Background())
+		}()
+		if _, err := tx.Exec(ctx, `
+			SELECT id
+			FROM okta_push_inbox
+			WHERE event_external_id = $1
+			FOR UPDATE
+		`, "evt-heartbeat-stop-cancel"); err != nil {
+			t.Fatalf("lock inbox row: %v", err)
+		}
+
+		lostCh := make(chan error, 1)
+		heartbeatInterval := 750 * time.Millisecond
+		stopHeartbeat := startProcessingLeaseHeartbeat(ctx, claim, Config{
+			LeaseTTL:          5 * time.Second,
+			HeartbeatInterval: heartbeatInterval,
+		}.normalized(), func(err error) {
+			lostCh <- err
+		})
+
+		time.Sleep(heartbeatInterval + 100*time.Millisecond)
+		startedStopping := time.Now()
+		stopHeartbeat()
+		if elapsed := time.Since(startedStopping); elapsed > 300*time.Millisecond {
+			t.Fatalf("stopHeartbeat() took %s, want under 300ms", elapsed)
+		}
+
+		select {
+		case err := <-lostCh:
+			t.Fatalf("heartbeat reported canceled renewal as lease loss: %v", err)
+		default:
+		}
+	})
+}
+
 func TestRedeliveryDoesNotRefreshProcessingUpdatedAt(t *testing.T) {
 	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
 		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-processing-redelivery", `{
@@ -564,7 +978,12 @@ func TestRetryOrDeadLetterAppliesExponentialBackoff(t *testing.T) {
 			t.Fatalf("seed attempts: %v", err)
 		}
 
-		rows, err := q.ClaimQueuedOktaPushInboxEvents(ctx, 10)
+		rows, err := q.ClaimQueuedOktaPushInboxEvents(ctx, gen.ClaimQueuedOktaPushInboxEventsParams{
+			LimitRows:    10,
+			ClaimedBy:    "test-claimant",
+			ClaimToken:   "test-token-retry",
+			LeaseSeconds: 60,
+		})
 		if err != nil {
 			t.Fatalf("ClaimQueuedOktaPushInboxEvents(): %v", err)
 		}
@@ -578,7 +997,11 @@ func TestRetryOrDeadLetterAppliesExponentialBackoff(t *testing.T) {
 			MaxAttempts:   10,
 		}.normalized()
 		before := time.Now().UTC()
-		if err := retryOrDeadLetterRows(ctx, q, "acme.okta.com", rows, errStub("simulated transient failure"), cfg); err != nil {
+		claim, err := newProcessingClaim(q, rows, cfg)
+		if err != nil {
+			t.Fatalf("newProcessingClaim(): %v", err)
+		}
+		if err := retryOrDeadLetterRows(ctx, "acme.okta.com", rows, errStub("simulated transient failure"), cfg, claim); err != nil {
 			t.Fatalf("retryOrDeadLetterRows(): %v", err)
 		}
 
@@ -691,6 +1114,23 @@ func queueOktaPushEvent(t *testing.T, ctx context.Context, q *gen.Queries, sourc
 func oktaPushInboxIDByExternalID(t *testing.T, ctx context.Context, pool *pgxpool.Pool, eventExternalID string) int64 {
 	t.Helper()
 	return oktaPushInboxIDsByExternalID(t, ctx, pool, eventExternalID)[eventExternalID]
+}
+
+func oktaPushInboxLeaseExpiresAt(t *testing.T, ctx context.Context, pool *pgxpool.Pool, eventExternalID string) time.Time {
+	t.Helper()
+
+	var leaseExpiresAt pgtype.Timestamptz
+	if err := pool.QueryRow(ctx, `
+		SELECT lease_expires_at
+		FROM okta_push_inbox
+		WHERE event_external_id = $1
+	`, eventExternalID).Scan(&leaseExpiresAt); err != nil {
+		t.Fatalf("select lease_expires_at for %q: %v", eventExternalID, err)
+	}
+	if !leaseExpiresAt.Valid {
+		t.Fatalf("lease_expires_at for %q is null", eventExternalID)
+	}
+	return leaseExpiresAt.Time
 }
 
 func oktaPushInboxIDsByExternalID(t *testing.T, ctx context.Context, pool *pgxpool.Pool, eventExternalIDs ...string) map[string]int64 {

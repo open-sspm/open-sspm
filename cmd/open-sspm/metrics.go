@@ -10,7 +10,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/nonhumanaccess"
 )
 
-func discoveryMetricsRefresh(q *gen.Queries) func(context.Context) error {
+func backgroundMetricsRefresh(q *gen.Queries) func(context.Context) error {
 	return func(ctx context.Context) error {
 		now := time.Now().UTC()
 		if err := discovery.RefreshMetrics(ctx, q, now); err != nil {

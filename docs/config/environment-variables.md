@@ -238,6 +238,19 @@ When `SMTP_TLS_MODE=plain`, authenticated SMTP is supported only for localhost r
 
 ## Sync
 
+### SYNC_FULL_ENABLED
+
+- **Values:** `0`, `1`
+- **Default:** `1`
+
+Controls the full-sync lane everywhere it can be triggered. When disabled, the
+full worker should not run and API-triggered resyncs will not enqueue full-sync
+jobs.
+
+```bash
+SYNC_FULL_ENABLED=1
+```
+
 ### SYNC_INTERVAL
 
 - **Default:** `15m`
@@ -261,6 +274,17 @@ SYNC_DISCOVERY_INTERVAL=15m
 
 ```bash
 SYNC_DISCOVERY_ENABLED=1
+```
+
+### OKTA_PUSH_INGEST_ENABLED
+
+Controls the Okta push ingest lane. If unset, it follows `SYNC_DISCOVERY_ENABLED` for backward compatibility.
+
+- **Values:** `0`, `1`
+- **Default:** inherited from `SYNC_DISCOVERY_ENABLED`
+
+```bash
+OKTA_PUSH_INGEST_ENABLED=1
 ```
 
 ### RESYNC_ENABLED
@@ -359,6 +383,22 @@ If unset, the workers derive it from the active lane interval:
 
 ```bash
 SYNC_FAILURE_BACKOFF_MAX=2h
+```
+
+## Okta Push Ingest
+
+These settings tune the `worker-ingest` Okta push inbox processor.
+
+```bash
+OKTA_PUSH_INGEST_BATCH_SIZE=500
+OKTA_PUSH_INGEST_POLL_INTERVAL=5s
+OKTA_PUSH_INGEST_CLEANUP_INTERVAL=1h
+OKTA_PUSH_INGEST_RETRY_DELAY=30s
+OKTA_PUSH_INGEST_RETRY_MAX_DELAY=15m
+OKTA_PUSH_INGEST_STALE_PROCESSING_TIMEOUT=5m
+OKTA_PUSH_INGEST_MAX_ATTEMPTS=10
+OKTA_PUSH_INGEST_PROCESSED_RETENTION_DAYS=30
+OKTA_PUSH_INGEST_DEAD_LETTER_RETENTION_DAYS=90
 ```
 
 ## Worker Concurrency

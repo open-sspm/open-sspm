@@ -38,6 +38,42 @@ var (
 		Help:      "Count of metrics collection failures after successful syncs.",
 	}, []string{"connector_kind", "connector_name", "reason"})
 
+	WorkerLaneUp = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "worker_lane_up",
+		Help:      "Whether a worker lane is currently running.",
+	}, []string{"lane"})
+
+	WorkerLaneLastLoopTickTimestamp = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "worker_lane_last_loop_tick_timestamp_seconds",
+		Help:      "Unix timestamp of the last successful worker lane loop tick.",
+	}, []string{"lane"})
+
+	WorkerLaneLastClaimAttemptTimestamp = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "worker_lane_last_claim_attempt_timestamp_seconds",
+		Help:      "Unix timestamp of the last queue claim attempt for a worker lane.",
+	}, []string{"lane"})
+
+	WorkerLaneLastListenerConnectTimestamp = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "worker_lane_last_listener_connect_timestamp_seconds",
+		Help:      "Unix timestamp of the last successful queue notification listener connection for a worker lane.",
+	}, []string{"lane"})
+
+	WorkerLaneFailuresTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "worker_lane_failures_total",
+		Help:      "Count of critical worker lane goroutine failures.",
+	}, []string{"lane", "component"})
+
+	WorkerLaneLeaseLostTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "worker_lane_lease_lost_total",
+		Help:      "Count of processing lease losses observed by worker lanes.",
+	}, []string{"lane"})
+
 	// Resource Metrics
 	ResourcesTotal = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,

@@ -122,17 +122,27 @@ func runAPIWithOptions(opts apiRunOptions) error {
 		runners := []sync.Runner{}
 		switch strings.ToLower(strings.TrimSpace(cfg.ResyncMode)) {
 		case "signal":
-			runners = append(runners, sync.NewResyncQueueRunnerWithPlanner(jobStore, fullDBRunner, registry.RunModeFull))
-			if cfg.SyncDiscoveryEnabled {
-				runners = append(runners, sync.NewResyncQueueRunnerWithPlanner(jobStore, discoveryDBRunner, registry.RunModeDiscovery))
+			for _, mode := range apiResyncModes(cfg) {
+				switch mode {
+				case registry.RunModeFull:
+					runners = append(runners, sync.NewResyncQueueRunnerWithPlanner(jobStore, fullDBRunner, registry.RunModeFull))
+				case registry.RunModeDiscovery:
+					runners = append(runners, sync.NewResyncQueueRunnerWithPlanner(jobStore, discoveryDBRunner, registry.RunModeDiscovery))
+				}
 			}
 		default:
-			runners = append(runners, sync.NewTryRunOnceLockRunnerWithScope(locks, fullDBRunner, sync.RunOnceScopeNameFull))
-			if cfg.SyncDiscoveryEnabled {
-				runners = append(runners, sync.NewTryRunOnceLockRunnerWithScope(locks, discoveryDBRunner, sync.RunOnceScopeNameDiscovery))
+			for _, mode := range apiResyncModes(cfg) {
+				switch mode {
+				case registry.RunModeFull:
+					runners = append(runners, sync.NewTryRunOnceLockRunnerWithScope(locks, fullDBRunner, sync.RunOnceScopeNameFull))
+				case registry.RunModeDiscovery:
+					runners = append(runners, sync.NewTryRunOnceLockRunnerWithScope(locks, discoveryDBRunner, sync.RunOnceScopeNameDiscovery))
+				}
 			}
 		}
-		syncer = sync.NewCompositeRunner(runners...)
+		if len(runners) > 0 {
+			syncer = sync.NewCompositeRunner(runners...)
+		}
 	} else {
 		syncer = nil
 	}
@@ -148,10 +158,10 @@ func runAPIWithOptions(opts apiRunOptions) error {
 	}
 
 	errCh := make(chan error, 1)
-	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr, discoveryMetricsRefresh(queries))
-	if opts.StartIngestWorker && cfg.SyncDiscoveryEnabled {
+	metricsServer, metricsErrCh := metrics.StartServer(ctx, cfg.MetricsAddr, backgroundMetricsRefresh(queries))
+	if opts.StartIngestWorker && cfg.OktaPushIngestEnabled {
 		go func() {
-			if err := oktaingest.RunLoopWithQueue(ctx, queries, runtimeDeps.pool, oktaingest.DefaultConfig(), oktaPushInboxQueue); err != nil && !errors.Is(err, context.Canceled) {
+			if err := oktaingest.RunLoopWithQueue(ctx, queries, runtimeDeps.pool, oktaPushIngestConfigFromConfig(cfg, nil, nil, nil), oktaPushInboxQueue); err != nil && !errors.Is(err, context.Canceled) {
 				errCh <- err
 			}
 		}()
@@ -194,6 +204,23 @@ func runAPIWithOptions(opts apiRunOptions) error {
 		shutdown()
 		return err
 	}
+}
+
+func apiResyncModes(cfg config.Config) []registry.RunMode {
+	if !cfg.ResyncEnabled {
+		return nil
+	}
+	modes := make([]registry.RunMode, 0, 2)
+	if cfg.SyncFullEnabled {
+		modes = append(modes, registry.RunModeFull)
+	}
+	if cfg.SyncDiscoveryEnabled {
+		modes = append(modes, registry.RunModeDiscovery)
+	}
+	if len(modes) == 0 {
+		return nil
+	}
+	return modes
 }
 
 func maybeSeedDevAdmin(ctx context.Context, q *gen.Queries) error {

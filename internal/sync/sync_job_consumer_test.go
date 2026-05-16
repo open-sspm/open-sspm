@@ -69,6 +69,9 @@ type consumerStoreStub struct {
 	schedSuccessCalls  []pgtype.UUID
 	schedFailureCalls  []scheduledFailureCall
 
+	renewStarted chan struct{}
+	renewCtxErr  chan error
+
 	manualSuccessOK bool
 	manualFailureOK bool
 	schedSuccessOK  bool
@@ -103,7 +106,18 @@ func (s *consumerStoreStub) ClaimNextSyncJobByLane(_ context.Context, lane, _ st
 	return next.job, next.ok, next.err
 }
 
-func (s *consumerStoreStub) RenewSyncJobLease(context.Context, pgtype.UUID, string, int64) (bool, error) {
+func (s *consumerStoreStub) RenewSyncJobLease(ctx context.Context, _ pgtype.UUID, _ string, _ int64) (bool, error) {
+	if s.renewStarted != nil {
+		select {
+		case s.renewStarted <- struct{}{}:
+		default:
+		}
+	}
+	if s.renewCtxErr != nil {
+		<-ctx.Done()
+		s.renewCtxErr <- ctx.Err()
+		return false, ctx.Err()
+	}
 	return true, nil
 }
 
@@ -275,6 +289,36 @@ func TestSyncJobConsumer_ProcessScheduledJobSkipsWithoutForcedMode(t *testing.T)
 	}
 }
 
+func TestSyncJobConsumer_ProcessScheduledJobTreatsNoEnabledConnectorsAsSuccess(t *testing.T) {
+	t.Parallel()
+
+	jobID := pgUUID(uuid.New())
+	store := &consumerStoreStub{
+		runningJob: syncJobRecord{
+			ID:          jobID,
+			Lane:        syncJobLaneFull,
+			TriggerKind: syncJobTriggerKindScheduled,
+		},
+		runningOK:      true,
+		schedSuccessOK: true,
+	}
+	runner := &capturingRunner{err: ErrNoEnabledConnectors}
+	consumer := NewSyncJobConsumer(store, noopLockManager{}, runner, SyncJobConsumerConfig{
+		Mode:              registry.RunModeFull,
+		HeartbeatInterval: time.Hour,
+		LeaseTTL:          time.Minute,
+		ClaimedBy:         "claimant",
+	})
+
+	err := consumer.processJob(context.Background(), syncJobRecord{ID: jobID, Lane: syncJobLaneFull})
+	if err != nil {
+		t.Fatalf("processJob() err = %v, want nil", err)
+	}
+	if len(store.schedSuccessCalls) != 1 || store.schedSuccessCalls[0] != jobID {
+		t.Fatalf("scheduled success calls = %#v", store.schedSuccessCalls)
+	}
+}
+
 func TestSyncJobConsumer_ProcessScheduledJobRequeuesFailureWithBackoff(t *testing.T) {
 	t.Parallel()
 
@@ -362,6 +406,52 @@ func TestSyncJobConsumer_ProcessJobLeavesCanceledJobRecoverable(t *testing.T) {
 	}
 	if len(store.manualFailureCalls) != 0 {
 		t.Fatalf("manual failure calls = %#v, want none", store.manualFailureCalls)
+	}
+}
+
+func TestSyncJobConsumer_HeartbeatRenewalCancelsWithParent(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	store := &consumerStoreStub{
+		renewStarted: make(chan struct{}, 1),
+		renewCtxErr:  make(chan error, 1),
+	}
+	consumer := NewSyncJobConsumer(store, noopLockManager{}, &capturingRunner{}, SyncJobConsumerConfig{
+		Mode:              registry.RunModeFull,
+		HeartbeatInterval: 10 * time.Millisecond,
+		LeaseTTL:          time.Minute,
+		ClaimedBy:         "claimant",
+	})
+	lostCh := make(chan error, 1)
+	stopHeartbeat := consumer.startHeartbeat(ctx, syncJobRecord{ID: pgUUID(uuid.New())}, func(err error) {
+		lostCh <- err
+	})
+	defer stopHeartbeat()
+
+	select {
+	case <-store.renewStarted:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for heartbeat renewal")
+	}
+
+	cancel()
+
+	select {
+	case err := <-store.renewCtxErr:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("renewal context error = %v, want context.Canceled", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for renewal context cancellation")
+	}
+
+	select {
+	case err := <-lostCh:
+		t.Fatalf("heartbeat reported canceled renewal as lease loss: %v", err)
+	case <-time.After(50 * time.Millisecond):
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -121,6 +122,83 @@ func TestLoadWithOptions_RejectsInvalidQueueBackend(t *testing.T) {
 	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
 	if err == nil {
 		t.Fatalf("expected invalid queue backend error")
+	}
+}
+
+func TestLoadWithOptions_OktaPushIngestDefaultsFollowDiscoveryFlag(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("SYNC_DISCOVERY_ENABLED", "0")
+	t.Setenv("OKTA_PUSH_INGEST_ENABLED", "")
+
+	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if cfg.SyncDiscoveryEnabled {
+		t.Fatalf("SyncDiscoveryEnabled = true, want false")
+	}
+	if cfg.OktaPushIngestEnabled {
+		t.Fatalf("OktaPushIngestEnabled = true, want false when unset and discovery disabled")
+	}
+	if cfg.OktaPushIngestEnabledSet {
+		t.Fatalf("OktaPushIngestEnabledSet = true, want false")
+	}
+}
+
+func TestLoadWithOptions_OktaPushIngestFlagCanOverrideDiscoveryFlag(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("SYNC_DISCOVERY_ENABLED", "0")
+	t.Setenv("OKTA_PUSH_INGEST_ENABLED", "1")
+
+	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if !cfg.OktaPushIngestEnabled {
+		t.Fatalf("OktaPushIngestEnabled = false, want explicit true")
+	}
+	if !cfg.OktaPushIngestEnabledSet {
+		t.Fatalf("OktaPushIngestEnabledSet = false, want true")
+	}
+}
+
+func TestLoadWithOptions_RejectsInvalidOktaPushIngestEnabledFlag(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("OKTA_PUSH_INGEST_ENABLED", "true")
+
+	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err == nil {
+		t.Fatal("expected invalid OKTA_PUSH_INGEST_ENABLED error")
+	}
+	if !strings.Contains(err.Error(), "OKTA_PUSH_INGEST_ENABLED must be 0 or 1") {
+		t.Fatalf("error = %v, want OKTA_PUSH_INGEST_ENABLED guidance", err)
+	}
+}
+
+func TestLoadWithOptions_LoadsOktaPushIngestConfig(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("OKTA_PUSH_INGEST_BATCH_SIZE", "42")
+	t.Setenv("OKTA_PUSH_INGEST_POLL_INTERVAL", "3s")
+	t.Setenv("OKTA_PUSH_INGEST_CLEANUP_INTERVAL", "4m")
+	t.Setenv("OKTA_PUSH_INGEST_RETRY_DELAY", "5s")
+	t.Setenv("OKTA_PUSH_INGEST_RETRY_MAX_DELAY", "30s")
+	t.Setenv("OKTA_PUSH_INGEST_STALE_PROCESSING_TIMEOUT", "6m")
+	t.Setenv("OKTA_PUSH_INGEST_MAX_ATTEMPTS", "7")
+	t.Setenv("OKTA_PUSH_INGEST_PROCESSED_RETENTION_DAYS", "8")
+	t.Setenv("OKTA_PUSH_INGEST_DEAD_LETTER_RETENTION_DAYS", "9")
+
+	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if got, want := cfg.OktaPushIngest.BatchSize, int32(42); got != want {
+		t.Fatalf("BatchSize = %d, want %d", got, want)
+	}
+	if got, want := cfg.OktaPushIngest.MaxAttempts, int32(7); got != want {
+		t.Fatalf("MaxAttempts = %d, want %d", got, want)
+	}
+	if got, want := cfg.OktaPushIngest.DeadLetterRetentionDays, int32(9); got != want {
+		t.Fatalf("DeadLetterRetentionDays = %d, want %d", got, want)
 	}
 }
 
