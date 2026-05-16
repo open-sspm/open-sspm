@@ -272,6 +272,31 @@ func TestHandleIdentitiesPinsToHumanKindOnly(t *testing.T) {
 	})
 }
 
+func TestHandleIdentitiesHTMXResultsIncludesSavedQueryState(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{
+			TenantID: "tenant-1",
+		})
+
+		c, rec := newTestContext(http.MethodGet, "http://example.com/identities?row_state=action_required")
+		(*c).Request().Header.Set("HX-Request", "true")
+		(*c).Request().Header.Set("HX-Target", "identities-results")
+		if err := h.HandleIdentities(c); err != nil {
+			t.Fatalf("HandleIdentities() error = %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		body := rec.Body.String()
+		assertContains(t, body, `id="identities-results"`)
+		assertContains(t, body, `aria-label="Saved queries"`)
+		assertContains(t, body, `aria-current="page">Needs action`)
+		assertNotContains(t, body, `data-osspm-askbar`)
+		assertNotContains(t, body, "<!doctype html>")
+	})
+}
+
 func TestHandleIdentityShowRedirectsServiceIdentitiesToNonHumanRoute(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		serviceIdentityID := insertCommandSearchIdentity(t, ctx, pool, "service", "service.principal@example.com", "Azure Service Principal")

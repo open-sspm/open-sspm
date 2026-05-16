@@ -559,9 +559,10 @@ export const initAskbar = (el) => {
   };
 
   const syncChipsFromURL = () => {
-    const next = chipsFromSearch(win.location.search);
-    const extraHidden = extraHiddenFromSearch(win.location.search, next);
-    syncFormControlsFromSearch(win.location.search);
+    const search = win.location.search;
+    const next = chipsFromSearch(search);
+    const extraHidden = extraHiddenFromSearch(search, next);
+    syncFormControlsFromSearch(search);
     if (!chipsSetEqual(state.chips, next)) {
       state.chips = next;
       state.insertionIndex = state.chips.length;
@@ -573,7 +574,7 @@ export const initAskbar = (el) => {
     writeHiddenBankFromState();
   };
 
-  const onHistoryURLChange = () => syncChipsFromURL();
+  const onHistoryURLChange = syncChipsFromURL;
 
   const addChip = (c) => {
     const chip = cloneToken(c);

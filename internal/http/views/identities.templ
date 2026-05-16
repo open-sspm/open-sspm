@@ -14,28 +14,28 @@ templ IdentitiesPage(data viewmodels.IdentitiesViewData) {
 }
 
 templ IdentitiesPageFilters(data viewmodels.IdentitiesViewData) {
-		<form
-			method="get"
-			action="/identities"
-			hx-get="/identities"
-			hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
-			hx-target="#identities-results"
-			hx-swap="outerHTML"
-			hx-push-url="true"
-			class="osspm-list-form-tight"
-		>
-			<div class="osspm-list-toolbar">
-				<div class="min-w-0 flex-1">
-					@AskBar(IdentitiesAskBar(data.Query))
-				</div>
+	<form
+		method="get"
+		action="/identities"
+		hx-get="/identities"
+		hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+		hx-target="#identities-results"
+		hx-swap="outerHTML"
+		hx-push-url="true"
+		class="osspm-list-form-tight"
+	>
+		<div class="osspm-list-toolbar">
+			<div class="min-w-0 flex-1">
+				@AskBar(IdentitiesAskBar(data.Query))
 			</div>
-			<button class="sr-only" type="submit">Apply filters</button>
-		</form>
-		@AskBarSavedQueries(IdentitiesAskBar(data.Query))
+		</div>
+		<button class="sr-only" type="submit">Apply filters</button>
+	</form>
 }
 
 templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 	<div id="identities-results" class="space-y-5">
+		@AskBarSavedQueries(IdentitiesAskBar(data.Query))
 		@BusyInlineIndicator("Updating results...", false)
 		@identitiesStatStrip(data)
 		<section class="space-y-3">
