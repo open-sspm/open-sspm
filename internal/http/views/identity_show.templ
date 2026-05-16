@@ -8,7 +8,7 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 		<div class="mx-auto w-full min-w-0 max-w-7xl">
 			@identityShowBreadcrumb(data)
 			@identityShowHeader(data)
-			@identityShowSummaryTiles(data.SummaryTiles)
+			@identityShowSummaryTiles(data.Summary.Tiles)
 			@identityShowEntitlements(data)
 			@identityShowLinkedAccounts(data)
 		</div>
@@ -19,15 +19,15 @@ templ identityShowBreadcrumb(data viewmodels.IdentityShowViewData) {
 	<nav class="osspm-breadcrumb min-w-0 overflow-hidden" aria-label="Breadcrumb">
 		<a href="/identities">Identities</a>
 		<span class="osspm-breadcrumb-sep" aria-hidden="true">›</span>
-		if data.BreadcrumbKindLabel != "" {
-			if data.BreadcrumbKindHref != "" {
-				<a href={ templ.SafeURL(data.BreadcrumbKindHref) }>{ data.BreadcrumbKindLabel }</a>
+		if data.Breadcrumb.KindLabel != "" {
+			if data.Breadcrumb.KindHref != "" {
+				<a href={ templ.SafeURL(data.Breadcrumb.KindHref) }>{ data.Breadcrumb.KindLabel }</a>
 			} else {
-				<span>{ data.BreadcrumbKindLabel }</span>
+				<span>{ data.Breadcrumb.KindLabel }</span>
 			}
 			<span class="osspm-breadcrumb-sep" aria-hidden="true">›</span>
 		}
-		<span class="min-w-0 flex-1 truncate text-foreground" aria-current="page">{ data.NamePrimary }</span>
+		<span class="min-w-0 flex-1 truncate text-foreground" aria-current="page">{ data.Profile.NamePrimary }</span>
 	</nav>
 }
 
@@ -35,51 +35,54 @@ templ identityShowHeader(data viewmodels.IdentityShowViewData) {
 	<section class="osspm-identity-profile">
 		<div class="flex min-w-0 flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
 			<div class="flex min-w-0 items-start gap-4">
-				<div class={ templ.Classes("osspm-avatar-lg shrink-0", data.AvatarClass) }>{ data.Initials }</div>
+				<div class={ templ.Classes("osspm-avatar-lg shrink-0", data.Profile.AvatarClass) }>{ data.Profile.Initials }</div>
 				<div class="min-w-0 space-y-2">
 					<div class="flex flex-wrap items-center gap-2">
-						<h1 class="text-2xl font-semibold tracking-tight break-words">{ data.NamePrimary }</h1>
-						if data.StatusTone == "active" && data.StatusLabel != "" {
+						<h1 class="text-2xl font-semibold tracking-tight break-words">{ data.Profile.NamePrimary }</h1>
+						if data.Profile.StatusTone == "active" && data.Profile.StatusLabel != "" {
 							<span class="badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100">
 								<span class="mr-1 inline-block size-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>
-								{ data.StatusLabel }
+								{ data.Profile.StatusLabel }
 							</span>
-						} else if data.StatusTone == "warn" && data.StatusLabel != "" {
+						} else if data.Profile.StatusTone == "warn" && data.Profile.StatusLabel != "" {
 							<span class="badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100">
 								<span class="mr-1 inline-block size-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>
-								{ data.StatusLabel }
+								{ data.Profile.StatusLabel }
 							</span>
 						}
 					</div>
-					if data.NameSecondary != "" {
-						<p class="text-sm text-muted-foreground break-all">{ data.NameSecondary }</p>
+					if data.Profile.NameSecondary != "" {
+						<p class="text-sm text-muted-foreground break-all">{ data.Profile.NameSecondary }</p>
 					}
 					<div class="flex flex-wrap items-center gap-2 pt-1">
-						if data.Identity.Managed {
+						if data.Profile.Identity.Managed {
 							<span class="badge-outline">Managed</span>
 						} else {
 							<span class="badge-outline">Unmanaged</span>
 						}
-						if data.IdentityTypeLabel != "" && data.IdentityTypeLabel != "Unknown" {
-							<span class="badge-outline">{ data.IdentityTypeLabel }</span>
+						if data.Profile.IdentityTypeLabel != "" && data.Profile.IdentityTypeLabel != "Unknown" {
+							<span class="badge-outline">{ data.Profile.IdentityTypeLabel }</span>
 						}
-						for _, tag := range data.IdentityTags {
+						for _, tag := range data.Profile.Tags {
 							<span class="badge-outline">{ tag }</span>
 						}
-						if data.AdminScopeSummary != "" {
-							<span class="badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100">{ "Admin · " }{ data.AdminScopeSummary }</span>
+						if data.Profile.AdminScopeSummary != "" {
+							<span class="badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100">{ "Admin · " }{ data.Profile.AdminScopeSummary }</span>
 						}
-						<span class="osspm-id-pill">{ "ID " }{ FormatInt64(data.Identity.ID) }</span>
+						<span class="osspm-id-pill">{ "ID " }{ FormatInt64(data.Profile.Identity.ID) }</span>
+						if data.Profile.NonHumanIdentitiesHref != "" {
+							<a class="btn-sm-link px-0" href={ templ.SafeURL(data.Profile.NonHumanIdentitiesHref) }>Search non-human identities</a>
+						}
 					</div>
 				</div>
 			</div>
-			if data.ReviewSummary.Label != "" {
-				@identityReviewSummary(data.ReviewSummary)
+			if data.Profile.ReviewSummary.Label != "" {
+				@identityReviewSummary(data.Profile.ReviewSummary)
 			}
 		</div>
-		if len(data.ProfileFacts) > 0 {
+		if len(data.Profile.Facts) > 0 {
 			<dl class="mt-5 grid grid-cols-2 gap-x-8 gap-y-3 border-t border-border/50 pt-4 text-sm sm:grid-cols-3 lg:grid-cols-6">
-				for _, fact := range data.ProfileFacts {
+				for _, fact := range data.Profile.Facts {
 					<div class="space-y-0.5">
 						<dt class="text-xs uppercase tracking-wide text-muted-foreground">{ fact.Label }</dt>
 						<dd class="font-medium">{ fact.Value }</dd>
@@ -126,35 +129,35 @@ templ identityShowLinkedAccounts(data viewmodels.IdentityShowViewData) {
 	<section class="osspm-data-section">
 		<div class="osspm-data-section-header">
 			<div class="space-y-1">
-				<h2 class="text-base font-semibold">{ "Source accounts " }<span class="text-sm font-normal text-muted-foreground">{ FormatInt(data.TotalLinkedAccounts) }{ " total" }</span></h2>
-				if data.HasLinkedAccountFilter {
-					<p class="text-sm text-muted-foreground">{ FormatInt(data.VisibleLinkedAccounts) }{ " shown" }</p>
+				<h2 class="text-base font-semibold">{ "Source accounts " }<span class="text-sm font-normal text-muted-foreground">{ FormatInt(data.LinkedAccounts.Total) }{ " total" }</span></h2>
+				if data.LinkedAccounts.HasFilter {
+					<p class="text-sm text-muted-foreground">{ FormatInt(data.LinkedAccounts.Visible) }{ " shown" }</p>
 				}
 			</div>
-			if data.TotalLinkedAccounts > 0 {
+			if data.LinkedAccounts.Total > 0 {
 				<div class="flex flex-wrap items-center gap-3">
 					<span class="text-sm text-muted-foreground">
 						<span class="mr-1 inline-block size-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>
-						{ FormatInt(data.ActiveLinkedAccounts) }{ " active" }
+						{ FormatInt(data.LinkedAccounts.Active) }{ " active" }
 					</span>
 					<span class="text-sm text-muted-foreground">
-						{ "· " }{ FormatInt(data.DormantLinkedAccounts) }{ " dormant" }
+						{ "· " }{ FormatInt(data.LinkedAccounts.Dormant) }{ " dormant" }
 					</span>
 				</div>
 			}
 		</div>
-		if data.TotalLinkedAccounts > 1 || data.HasLinkedAccountFilter {
+		if data.LinkedAccounts.Total > 1 || data.LinkedAccounts.HasFilter {
 			@identityLinkedAccountsToolbar(data)
 		}
-		if data.HasLinkedAccounts {
-			if data.TotalLinkedAccounts == 1 && !data.HasLinkedAccountFilter {
-				for _, linked := range data.LinkedAccounts {
+		if data.LinkedAccounts.HasItems {
+			if data.LinkedAccounts.Total == 1 && !data.LinkedAccounts.HasFilter {
+				for _, linked := range data.LinkedAccounts.Items {
 					@identitySingleLinkedAccount(linked)
 				}
 			}
-			if data.TotalLinkedAccounts != 1 || data.HasLinkedAccountFilter {
+			if data.LinkedAccounts.Total != 1 || data.LinkedAccounts.HasFilter {
 				<div class="divide-y divide-border border-t border-border lg:hidden">
-				for _, linked := range data.LinkedAccounts {
+				for _, linked := range data.LinkedAccounts.Items {
 					<article class="py-4">
 						<div class="flex items-start gap-3">
 							@ProductIcon(linked.Account.SourceKind, "", "", "h-7 w-7 rounded-md shrink-0")
@@ -210,7 +213,7 @@ templ identityShowLinkedAccounts(data viewmodels.IdentityShowViewData) {
 						</tr>
 					</thead>
 					<tbody>
-						for _, linked := range data.LinkedAccounts {
+						for _, linked := range data.LinkedAccounts.Items {
 							<tr>
 								<td>
 									<div class="flex items-center gap-3">
@@ -254,7 +257,7 @@ templ identityShowLinkedAccounts(data viewmodels.IdentityShowViewData) {
 			}
 		} else {
 			<div class="border-t border-border">
-				if data.HasLinkedAccountFilter {
+				if data.LinkedAccounts.HasFilter {
 					@EmptyState("No linked accounts match", "Clear the account search to show all linked accounts.")
 				} else {
 					@EmptyState("No linked accounts", "No linked accounts.")
@@ -310,17 +313,17 @@ templ identitySingleLinkedAccount(linked viewmodels.IdentityLinkedAccountView) {
 
 templ identityLinkedAccountsToolbar(data viewmodels.IdentityShowViewData) {
 	<form method="get" class="osspm-data-toolbar">
-		if data.EntitlementQuery != "" {
-			<input type="hidden" name="entitlement_q" value={ data.EntitlementQuery }/>
+		if data.Entitlements.Query != "" {
+			<input type="hidden" name="entitlement_q" value={ data.Entitlements.Query }/>
 		}
-		if data.EntitlementAdminOnly {
+		if data.Entitlements.AdminOnly {
 			<input type="hidden" name="admin" value="1"/>
 		}
-		if data.EntitlementDormantOnly {
+		if data.Entitlements.DormantOnly {
 			<input type="hidden" name="dormant" value="1"/>
 		}
-		if data.EntitlementSourceFilter != "" {
-			<input type="hidden" name="source_kind" value={ data.EntitlementSourceFilter }/>
+		if data.Entitlements.SourceFilter != "" {
+			<input type="hidden" name="source_kind" value={ data.Entitlements.SourceFilter }/>
 		}
 		<label class="relative block min-w-[16rem] flex-1 sm:max-w-md">
 			<span class="sr-only">Search source accounts</span>
@@ -330,13 +333,13 @@ templ identityLinkedAccountsToolbar(data viewmodels.IdentityShowViewData) {
 			<input
 				type="search"
 				name="account_q"
-				value={ data.AccountQuery }
+				value={ data.LinkedAccounts.Query }
 				placeholder="Search accounts..."
 				aria-label="Search source accounts"
 				class="input pl-9 pr-10"
 			/>
-			if data.AccountQuery != "" {
-				<a class="btn-sm-icon-ghost absolute right-1 top-1/2 -translate-y-1/2" href={ templ.SafeURL(data.AccountQueryClearHref) } aria-label="Clear account search">
+			if data.LinkedAccounts.Query != "" {
+				<a class="btn-sm-icon-ghost absolute right-1 top-1/2 -translate-y-1/2" href={ templ.SafeURL(data.LinkedAccounts.QueryClearHref) } aria-label="Clear account search">
 					@IconX("size-4")
 				</a>
 			}
@@ -345,9 +348,9 @@ templ identityLinkedAccountsToolbar(data viewmodels.IdentityShowViewData) {
 		<label class="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
 			<span>Sort:</span>
 			<select class="select" name="account_sort" data-autosubmit>
-				<option value="grants" selected?={ data.AccountSortMode == viewmodels.IdentityLinkedAccountSortGrants }>Grants</option>
-				<option value="source" selected?={ data.AccountSortMode == viewmodels.IdentityLinkedAccountSortSource }>Source</option>
-				<option value="activity" selected?={ data.AccountSortMode == viewmodels.IdentityLinkedAccountSortActivity }>Last sign-in</option>
+				<option value="grants" selected?={ data.LinkedAccounts.SortMode == viewmodels.IdentityLinkedAccountSortGrants }>Grants</option>
+				<option value="source" selected?={ data.LinkedAccounts.SortMode == viewmodels.IdentityLinkedAccountSortSource }>Source</option>
+				<option value="activity" selected?={ data.LinkedAccounts.SortMode == viewmodels.IdentityLinkedAccountSortActivity }>Last sign-in</option>
 			</select>
 		</label>
 	</form>
@@ -358,26 +361,26 @@ templ identityShowEntitlements(data viewmodels.IdentityShowViewData) {
 		<div class="space-y-4">
 			<div class="osspm-data-section-header pb-0">
 				<div class="space-y-1">
-					<h2 class="text-base font-semibold">{ "Access grants " }<span class="text-sm font-normal text-muted-foreground">{ FormatInt(data.TotalEntitlements) }{ " total" }</span></h2>
-					if data.HasEntitlementFilter {
-						<p class="text-sm text-muted-foreground">{ FormatInt(data.VisibleEntitlements) }{ " shown" }</p>
+					<h2 class="text-base font-semibold">{ "Access grants " }<span class="text-sm font-normal text-muted-foreground">{ FormatInt(data.Entitlements.Total) }{ " total" }</span></h2>
+					if data.Entitlements.HasFilter {
+						<p class="text-sm text-muted-foreground">{ FormatInt(data.Entitlements.Visible) }{ " shown" }</p>
 					}
 				</div>
 			</div>
-			if data.TotalEntitlements > 0 || data.HasEntitlementFilter {
+			if data.Entitlements.Total > 0 || data.Entitlements.HasFilter {
 				@identityEntitlementsToolbar(data)
 				@identityEntitlementFilterChips(data)
 			}
 		</div>
-		if data.HasEntitlements {
+		if data.Entitlements.HasItems {
 			<div class="osspm-entitlement-groups">
-				for _, group := range data.EntitlementGroups {
+				for _, group := range data.Entitlements.Groups {
 					@identityEntitlementGroup(data, group)
 				}
 			</div>
 		} else {
 			<div class="border-t border-border/60">
-				if data.HasEntitlementFilter {
+				if data.Entitlements.HasFilter {
 					@EmptyState("No entitlements match", "Adjust search or filters to show more grants.")
 				} else {
 					@EmptyState("No entitlements", "No entitlements found for linked accounts.")
@@ -389,7 +392,7 @@ templ identityShowEntitlements(data viewmodels.IdentityShowViewData) {
 
 templ identityEntitlementsToolbar(data viewmodels.IdentityShowViewData) {
 	<form method="get" class="osspm-data-toolbar">
-		for _, hidden := range data.EntitlementFormHiddenInputs {
+		for _, hidden := range data.Entitlements.FormHiddenInputs {
 			<input type="hidden" name={ hidden.Name } value={ hidden.Value }/>
 		}
 		<label class="relative block min-w-[16rem] flex-1 sm:max-w-md">
@@ -400,41 +403,41 @@ templ identityEntitlementsToolbar(data viewmodels.IdentityShowViewData) {
 			<input
 				type="search"
 				name="entitlement_q"
-				value={ data.EntitlementQuery }
+				value={ data.Entitlements.Query }
 				class="input pl-9 pr-10"
 				placeholder="Search entitlements..."
 				aria-label="Search access grants"
 			/>
-			if data.EntitlementQuery != "" {
-				<a class="btn-sm-icon-ghost absolute right-1 top-1/2 -translate-y-1/2" href={ templ.SafeURL(data.EntitlementClearHref) } aria-label="Clear entitlement search">
+			if data.Entitlements.Query != "" {
+				<a class="btn-sm-icon-ghost absolute right-1 top-1/2 -translate-y-1/2" href={ templ.SafeURL(data.Entitlements.QueryClearHref) } aria-label="Clear entitlement search">
 					@IconX("size-4")
 				</a>
 			}
 		</label>
 		<button type="submit" class="sr-only">Search entitlements</button>
-		@FilterPopover("Filters", data.EntitlementFilterCount, false, "left-auto right-0 w-[min(92vw,20rem)] space-y-3") {
+		@FilterPopover("Filters", data.Entitlements.FilterCount, false, "left-auto right-0 w-[min(92vw,20rem)] space-y-3") {
 			<label class="flex items-center gap-2 text-sm">
-				<input class="input" type="checkbox" name="admin" value="1" checked?={ data.EntitlementAdminOnly } data-autosubmit/>
+				<input class="input" type="checkbox" name="admin" value="1" checked?={ data.Entitlements.AdminOnly } data-autosubmit/>
 				<span>Admin only</span>
 			</label>
 			<label class="flex items-center gap-2 text-sm">
-				<input class="input" type="checkbox" name="dormant" value="1" checked?={ data.EntitlementDormantOnly } data-autosubmit/>
+				<input class="input" type="checkbox" name="dormant" value="1" checked?={ data.Entitlements.DormantOnly } data-autosubmit/>
 				<span>Dormant only</span>
 			</label>
-			if len(data.EntitlementSourceOptions) > 0 {
+			if len(data.Entitlements.SourceOptions) > 0 {
 				<label class="field">
 					<span class="label">Source</span>
 					<select class="select" name="source_kind" data-autosubmit>
-						<option value="" selected?={ data.EntitlementSourceFilter == "" }>All sources</option>
-						for _, opt := range data.EntitlementSourceOptions {
+						<option value="" selected?={ data.Entitlements.SourceFilter == "" }>All sources</option>
+						for _, opt := range data.Entitlements.SourceOptions {
 							<option value={ opt.Value } selected?={ opt.Selected }>{ opt.Label }</option>
 						}
 					</select>
 				</label>
 			}
 			<div class="flex items-center justify-between gap-2 border-t border-border/60 pt-3">
-				if data.EntitlementFilterCount > 0 {
-					<a class="text-xs text-muted-foreground hover:text-foreground" href={ templ.SafeURL(data.EntitlementClearFiltersHref) }>Clear filters</a>
+				if data.Entitlements.FilterCount > 0 {
+					<a class="text-xs text-muted-foreground hover:text-foreground" href={ templ.SafeURL(data.Entitlements.ClearFiltersHref) }>Clear filters</a>
 				} else {
 					<span></span>
 				}
@@ -445,16 +448,16 @@ templ identityEntitlementsToolbar(data viewmodels.IdentityShowViewData) {
 }
 
 templ identityEntitlementFilterChips(data viewmodels.IdentityShowViewData) {
-	if len(data.EntitlementFilterChips) > 0 {
+	if len(data.Entitlements.FilterChips) > 0 {
 		<div class="osspm-active-filter-chips" aria-label="Active access grant filters">
-			for _, chip := range data.EntitlementFilterChips {
+			for _, chip := range data.Entitlements.FilterChips {
 				<a class="osspm-active-filter-chip" href={ templ.SafeURL(chip.ClearHref) }>
 					<span>{ chip.Label }</span>
 					@IconX("size-3")
 				</a>
 			}
-			if len(data.EntitlementFilterChips) > 1 {
-				<a class="osspm-active-filter-clear" href={ templ.SafeURL(data.EntitlementClearFiltersHref) }>Clear all</a>
+			if len(data.Entitlements.FilterChips) > 1 {
+				<a class="osspm-active-filter-clear" href={ templ.SafeURL(data.Entitlements.ClearFiltersHref) }>Clear all</a>
 			}
 		</div>
 	}
@@ -497,7 +500,7 @@ templ identityEntitlementRows(data viewmodels.IdentityShowViewData, items []view
 				<div class="osspm-entitlement-row-main">
 					@identityPermissionBadge(ent)
 					<div class="min-w-0">
-						if data.TotalLinkedAccounts > 1 {
+						if data.LinkedAccounts.Total > 1 {
 							<div class="osspm-entitlement-row-account">
 								if ent.AccountHref != "" {
 									<a href={ templ.SafeURL(ent.AccountHref) }>{ ent.AccountLabel }</a>
@@ -510,7 +513,7 @@ templ identityEntitlementRows(data viewmodels.IdentityShowViewData, items []view
 							if ent.AccountSourceKind != "" {
 								<span>{ HumanizeConnectorKind(ent.AccountSourceKind) }</span>
 							}
-							if data.TotalLinkedAccounts > 1 && ent.AccountSourceName != "" {
+							if data.LinkedAccounts.Total > 1 && ent.AccountSourceName != "" {
 								<span>{ ConnectorScopeLabel(ent.AccountSourceKind) }{ ": " }{ ent.AccountSourceName }</span>
 							}
 						</div>

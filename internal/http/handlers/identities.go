@@ -22,6 +22,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
+	identitydomain "github.com/open-sspm/open-sspm/internal/identitydetail"
 )
 
 func (h *Handlers) HandleIdentities(c *echo.Context) error {
@@ -525,7 +526,7 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 	profileFacts := identityProfileFacts(summary, profileHints, lastActive)
 	reviewSummary := identityReviewSummary(summary.Managed, totalEntitlements, adminCount, dormantAccountCount, lastActive)
 
-	summaryTiles := viewmodels.BuildIdentitySummaryTiles(
+	summaryTiles := identitydomain.BuildSummaryTiles(
 		len(linkedAccounts),
 		totalEntitlements,
 		adminCount,
@@ -537,7 +538,7 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 	sortLinkedAccounts(linkedAccounts, accountSortMode)
 	filteredLinkedAccounts := filterLinkedAccounts(linkedAccounts, accountQuery)
 	filteredEntitlements := filterIdentityEntitlements(entitlementViews, entitlementQuery, entitlementAdminOnly, entitlementDormantOnly, entitlementSourceFilter)
-	adminScopeSummary := viewmodels.SummarizeAdminByKind(adminByKind)
+	adminScopeSummary := identitydomain.SummarizeAdminByKind(adminByKind)
 
 	entitlementSourceOptions := buildEntitlementSourceOptions(distinctSourceKinds, entitlementSourceFilter)
 	entitlementFilterCount := 0
@@ -598,51 +599,62 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 	hasEntitlementFilter := entitlementQuery != "" || entitlementFilterCount > 0
 
 	return h.RenderComponent(c, views.IdentityShowPage(viewmodels.IdentityShowViewData{
-		Layout:                      layout,
-		Identity:                    summary,
-		NamePrimary:                 namePrimary,
-		NameSecondary:               identityNameSecondary(summary.DisplayName, summary.PrimaryEmail),
-		Initials:                    identityInitials(summary.DisplayName, summary.PrimaryEmail),
-		AvatarClass:                 views.AppAvatarClass(namePrimary),
-		StatusLabel:                 statusLabel,
-		StatusTone:                  statusTone,
-		IdentityTypeLabel:           identityTypeLabel,
-		BreadcrumbKindLabel:         breadcrumbKindLabel,
-		BreadcrumbKindHref:          breadcrumbKindHref,
-		IdentityTags:                profileHints.Tags,
-		AdminScopeSummary:           adminScopeSummary,
-		ReviewSummary:               reviewSummary,
-		ProfileFacts:                profileFacts,
-		CreatedOn:                   calendarDateDisplay(summary.CreatedAt),
-		UpdatedOn:                   calendarDateDisplay(summary.UpdatedAt),
-		SummaryTiles:                summaryTiles,
-		TotalLinkedAccounts:         len(linkedAccounts),
-		ActiveLinkedAccounts:        activeAccountCount,
-		DormantLinkedAccounts:       dormantAccountCount,
-		TotalEntitlements:           totalEntitlements,
-		VisibleLinkedAccounts:       len(filteredLinkedAccounts),
-		VisibleEntitlements:         len(filteredEntitlements),
-		LinkedAccounts:              filteredLinkedAccounts,
-		Entitlements:                filteredEntitlements,
-		AccountQuery:                accountQuery,
-		AccountQueryClearHref:       viewmodels.BuildIdentityShowHref(basePath, clearAccountSearchQuery),
-		EntitlementQuery:            entitlementQuery,
-		EntitlementClearHref:        viewmodels.BuildIdentityShowHref(basePath, clearSearchQuery),
-		EntitlementAdminOnly:        entitlementAdminOnly,
-		EntitlementDormantOnly:      entitlementDormantOnly,
-		EntitlementSourceFilter:     entitlementSourceFilter,
-		EntitlementSourceOptions:    entitlementSourceOptions,
-		EntitlementFilterCount:      entitlementFilterCount,
-		EntitlementFilterChips:      entitlementFilterChips,
-		EntitlementClearFiltersHref: viewmodels.BuildIdentityShowHref(basePath, clearFiltersQuery),
-		EntitlementFormHiddenInputs: entitlementFormHiddenInputs,
-		AccountSortMode:             accountSortMode,
-		EntitlementGroups:           viewmodels.BuildEntitlementGroups(filteredEntitlements, groupMode),
-		NonHumanIdentitiesHref:      nonHumanIdentitiesHref,
-		HasLinkedAccounts:           len(filteredLinkedAccounts) > 0,
-		HasEntitlements:             len(filteredEntitlements) > 0,
-		HasLinkedAccountFilter:      accountQuery != "",
-		HasEntitlementFilter:        hasEntitlementFilter,
+		Layout: layout,
+		Breadcrumb: viewmodels.IdentityShowBreadcrumb{
+			KindLabel: breadcrumbKindLabel,
+			KindHref:  breadcrumbKindHref,
+			Current:   namePrimary,
+		},
+		Profile: viewmodels.IdentityShowProfile{
+			Identity:               summary,
+			NamePrimary:            namePrimary,
+			NameSecondary:          identityNameSecondary(summary.DisplayName, summary.PrimaryEmail),
+			Initials:               identityInitials(summary.DisplayName, summary.PrimaryEmail),
+			AvatarClass:            views.AppAvatarClass(namePrimary),
+			StatusLabel:            statusLabel,
+			StatusTone:             statusTone,
+			IdentityTypeLabel:      identityTypeLabel,
+			Tags:                   profileHints.Tags,
+			AdminScopeSummary:      adminScopeSummary,
+			ReviewSummary:          reviewSummary,
+			Facts:                  profileFacts,
+			CreatedOn:              calendarDateDisplay(summary.CreatedAt),
+			UpdatedOn:              calendarDateDisplay(summary.UpdatedAt),
+			NonHumanIdentitiesHref: nonHumanIdentitiesHref,
+		},
+		Summary: viewmodels.IdentityShowSummary{
+			Tiles: summaryTiles,
+		},
+		LinkedAccounts: viewmodels.IdentityShowLinkedAccountsPanel{
+			Total:          len(linkedAccounts),
+			Active:         activeAccountCount,
+			Dormant:        dormantAccountCount,
+			Visible:        len(filteredLinkedAccounts),
+			Items:          filteredLinkedAccounts,
+			Query:          accountQuery,
+			QueryClearHref: viewmodels.BuildIdentityShowHref(basePath, clearAccountSearchQuery),
+			SortMode:       accountSortMode,
+			HasItems:       len(filteredLinkedAccounts) > 0,
+			HasFilter:      accountQuery != "",
+		},
+		Entitlements: viewmodels.IdentityShowEntitlementsPanel{
+			Total:            totalEntitlements,
+			Visible:          len(filteredEntitlements),
+			Items:            filteredEntitlements,
+			Query:            entitlementQuery,
+			QueryClearHref:   viewmodels.BuildIdentityShowHref(basePath, clearSearchQuery),
+			AdminOnly:        entitlementAdminOnly,
+			DormantOnly:      entitlementDormantOnly,
+			SourceFilter:     entitlementSourceFilter,
+			SourceOptions:    entitlementSourceOptions,
+			FilterCount:      entitlementFilterCount,
+			FilterChips:      entitlementFilterChips,
+			ClearFiltersHref: viewmodels.BuildIdentityShowHref(basePath, clearFiltersQuery),
+			FormHiddenInputs: entitlementFormHiddenInputs,
+			Groups:           identitydomain.BuildEntitlementGroups(filteredEntitlements, groupMode),
+			HasItems:         len(filteredEntitlements) > 0,
+			HasFilter:        hasEntitlementFilter,
+		},
 	}))
 }
 
@@ -947,10 +959,7 @@ func isDormantAt(now time.Time, value pgtype.Timestamptz, threshold time.Duratio
 	if !value.Valid {
 		return false
 	}
-	if now.IsZero() {
-		now = time.Now().UTC()
-	}
-	return now.UTC().Sub(value.Time.UTC()) >= threshold
+	return identitydomain.IsDormantAt(now, value.Time, threshold)
 }
 
 func sortLinkedAccounts(accounts []viewmodels.IdentityLinkedAccountView, mode viewmodels.IdentityLinkedAccountSortMode) {
@@ -1160,35 +1169,7 @@ func identityEntitlementView(account gen.Account, ent gen.ListEntitlementsForAcc
 }
 
 func identityEntitlementIsAdmin(ent gen.ListEntitlementsForAccountIDsRow) bool {
-	if viewmodels.IsAdminPermission(ent.Permission) {
-		return true
-	}
-	permission := strings.ToLower(strings.TrimSpace(ent.Permission))
-	if strings.Contains(permission, "admin") ||
-		strings.Contains(permission, "owner") ||
-		strings.Contains(permission, "root") ||
-		strings.Contains(permission, "full_access") ||
-		strings.Contains(permission, "poweruser") ||
-		permission == "maintain" {
-		return true
-	}
-	raw := decodeRawJSONObject(ent.RawJson)
-	rawLabel := strings.ToLower(firstJSONText(raw,
-		"role_name",
-		"roleName",
-		"name",
-		"displayName",
-		"display_name",
-		"permissionSet",
-		"permission_set",
-		"permissionSetName",
-		"permission_set_name",
-	))
-	return strings.Contains(rawLabel, "admin") ||
-		strings.Contains(rawLabel, "administrator") ||
-		strings.Contains(rawLabel, "owner") ||
-		strings.Contains(rawLabel, "root") ||
-		strings.Contains(rawLabel, "poweruser")
+	return identitydomain.IsPrivilegedEntitlement(ent.Permission, ent.RawJson)
 }
 
 func linkedAccountLabel(account gen.Account) string {

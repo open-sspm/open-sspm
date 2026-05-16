@@ -92,6 +92,8 @@ func TestHandleIdentityShowRendersEntitlementDetails(t *testing.T) {
 			"acme/private-repo",
 			"admin",
 			"person@example.com",
+			`href="/non-human-identities?q=person%40example.com"`,
+			"Search non-human identities",
 		} {
 			if !strings.Contains(body, want) {
 				t.Fatalf("identity show missing %q: %s", want, body)
