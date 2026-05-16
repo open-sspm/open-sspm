@@ -499,7 +499,7 @@ func hasPrivilegedRoleText(raw string) bool {
 		return false
 	}
 	switch normalized {
-	case "admin", "administrator", "owner", "root", "superuser", "poweruser", "maintain", "manage", "write":
+	case "admin", "administrator", "owner", "root", "superuser", "poweruser", "maintain", "manage":
 		return true
 	case "full access", "fullaccess", "administrator access", "administratoraccess", "power user", "poweruser access", "poweruseraccess":
 		return true

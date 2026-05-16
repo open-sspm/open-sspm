@@ -57,6 +57,8 @@ func TestIsPrivilegedEntitlement(t *testing.T) {
 		{name: "admin view only is not privileged", permission: "admin_view_only", want: false},
 		{name: "audit admin is not privileged", permission: "site_admin_audit", want: false},
 		{name: "admin contact is not privileged", rawJSON: `{"role_name":"admin_contact"}`, want: false},
+		{name: "write is not privileged", permission: "write", want: false},
+		{name: "raw write role is not privileged", rawJSON: `{"role_name":"write"}`, want: false},
 		{name: "ordinary user", permission: "User", want: false},
 	}
 

@@ -80,3 +80,32 @@ func TestIdentityEntitlementDormancyUsesAccountLastLogin(t *testing.T) {
 func validTimestamptz(t time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t, Valid: true}
 }
+
+func TestMaxIdentityActivityIgnoresSyncObservation(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 5, 16, 12, 0, 0, 0, time.UTC)
+	accounts := []gen.Account{
+		{
+			ID:             1,
+			LastObservedAt: validTimestamptz(now.Add(-1 * time.Hour)),
+		},
+		{
+			ID:          2,
+			LastLoginAt: validTimestamptz(now.Add(-3 * 24 * time.Hour)),
+		},
+	}
+
+	got := maxIdentityActivity(accounts)
+	if !got.Valid {
+		t.Fatal("maxIdentityActivity() returned invalid timestamp")
+	}
+	if want := accounts[1].LastLoginAt.Time; !got.Time.Equal(want) {
+		t.Fatalf("maxIdentityActivity() = %s, want last login %s", got.Time, want)
+	}
+
+	got = maxIdentityActivity([]gen.Account{{ID: 3, LastObservedAt: validTimestamptz(now)}})
+	if got.Valid {
+		t.Fatalf("maxIdentityActivity() should ignore sync-only observation, got %s", got.Time)
+	}
+}

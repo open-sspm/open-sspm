@@ -942,9 +942,6 @@ func maxIdentityActivity(accounts []gen.Account) pgtype.Timestamptz {
 	for _, account := range accounts {
 		value := account.LastLoginAt
 		if !value.Valid {
-			value = account.LastObservedAt
-		}
-		if !value.Valid {
 			continue
 		}
 		if !maxValue.Valid || value.Time.After(maxValue.Time) {
