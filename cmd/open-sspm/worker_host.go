@@ -109,6 +109,8 @@ func runWorkerHostWithOptions(lane workerLane, opts workerHostOptions) error {
 	}
 	defer shutdownMetricsServer(metricsServer)
 
+	startEventPartitionMaintenance(run, runtimeDeps, cfg)
+
 	if err := lane.Start(ctx, run, runtimeDeps, cfg); err != nil {
 		return err
 	}

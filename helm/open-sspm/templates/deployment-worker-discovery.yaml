@@ -44,6 +44,7 @@ spec:
             - name: metrics
               containerPort: {{ .Values.metrics.port }}
               protocol: TCP
+          {{- include "open-sspm.workerProbes" . | nindent 10 }}
           env:
             - name: DATABASE_URL
               valueFrom:
@@ -85,6 +86,7 @@ spec:
               value: {{ .Values.config.syncGithubWorkers | quote }}
             - name: SYNC_DATADOG_WORKERS
               value: {{ .Values.config.syncDatadogWorkers | quote }}
+            {{- include "open-sspm.eventPartitionEnv" . | nindent 12 }}
             {{- include "open-sspm.smtpEnv" . | nindent 12 }}
             {{- with .Values.discoveryWorker.extraEnv }}
             {{- toYaml . | nindent 12 }}

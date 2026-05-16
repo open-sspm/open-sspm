@@ -20,10 +20,10 @@ func TestDemoSeedContractsHandleDuplicateOwnerIdentityEmails(t *testing.T) {
 
 		applyDemoSeedFiles(t, ctx, pool)
 
-		appID := lookupSaaSAppIDByCanonicalKey(t, ctx, pool, "azure-legacy-ops-portal")
+		appID := lookupSaaSAppIDByCanonicalKey(t, ctx, pool, "azure-reference-ops-portal")
 		ownerIdentityID := lookupGovernanceOwnerIdentityID(t, ctx, pool, "saas_app", appID)
 		if ownerIdentityID == 0 {
-			t.Fatalf("owner_identity_id for azure-legacy-ops-portal = 0, want non-zero")
+			t.Fatalf("owner_identity_id for azure-reference-ops-portal = 0, want non-zero")
 		}
 	})
 }

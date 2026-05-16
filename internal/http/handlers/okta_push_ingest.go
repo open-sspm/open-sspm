@@ -16,7 +16,9 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	oktaconnector "github.com/open-sspm/open-sspm/internal/connectors/okta"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	genericinbox "github.com/open-sspm/open-sspm/internal/ingest/inbox"
 	"github.com/open-sspm/open-sspm/internal/metrics"
+	"github.com/open-sspm/open-sspm/internal/records"
 )
 
 const (
@@ -74,7 +76,7 @@ func (h *Handlers) HandleOktaEventHookPost(c *echo.Context) error {
 		return c.NoContent(http.StatusNoContent)
 	}
 
-	params, ignored, err := oktaPushInboxParamsFromRawEvents(sourceName, oktaPushChannelEventHook, envelope.EventID, envelope.Data.Events)
+	params, genericDeliveries, ignored, err := oktaPushInboxParamsFromRawEvents(sourceName, oktaPushChannelEventHook, envelope.EventID, envelope.Data.Events)
 	if err != nil {
 		return err
 	}
@@ -84,6 +86,9 @@ func (h *Handlers) HandleOktaEventHookPost(c *echo.Context) error {
 	queued := len(params.EventExternalIds)
 	if queued == 0 {
 		return c.NoContent(http.StatusNoContent)
+	}
+	if err := h.enqueueGenericOktaInboxDeliveries(c.Request().Context(), genericDeliveries); err != nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "could not persist generic Okta Event Hook delivery")
 	}
 	ids, err := h.Q.UpsertOktaPushInboxEventsBulk(c.Request().Context(), params)
 	if err != nil {
@@ -117,7 +122,7 @@ func (h *Handlers) HandleOktaEventBridgePost(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "missing Okta EventBridge detail")
 	}
 
-	params, ignored, err := oktaPushInboxParamsFromRawEvents(sourceName, oktaPushChannelEventBridge, envelope.ID, []json.RawMessage{envelope.Detail})
+	params, genericDeliveries, ignored, err := oktaPushInboxParamsFromRawEvents(sourceName, oktaPushChannelEventBridge, envelope.ID, []json.RawMessage{envelope.Detail})
 	if err != nil {
 		return err
 	}
@@ -128,6 +133,9 @@ func (h *Handlers) HandleOktaEventBridgePost(c *echo.Context) error {
 	if queued == 0 {
 		return c.NoContent(http.StatusNoContent)
 	}
+	if err := h.enqueueGenericOktaInboxDeliveries(c.Request().Context(), genericDeliveries); err != nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "could not persist generic Okta EventBridge delivery")
+	}
 	ids, err := h.Q.UpsertOktaPushInboxEventsBulk(c.Request().Context(), params)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "could not persist Okta EventBridge delivery")
@@ -135,6 +143,19 @@ func (h *Handlers) HandleOktaEventBridgePost(c *echo.Context) error {
 	h.enqueueOktaPushInboxRows(c.Request().Context(), ids)
 	metrics.OktaPushEventsReceivedTotal.WithLabelValues(sourceName, oktaPushChannelEventBridge, oktaPushStatusQueued).Add(float64(queued))
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *Handlers) enqueueGenericOktaInboxDeliveries(ctx context.Context, deliveries []genericinbox.Delivery) error {
+	if h == nil || h.Q == nil || len(deliveries) == 0 {
+		return nil
+	}
+	store := genericinbox.NewStore(h.Q)
+	for _, delivery := range deliveries {
+		if _, err := store.Enqueue(ctx, delivery); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (h *Handlers) enqueueOktaPushInboxRows(ctx context.Context, ids []int64) {
@@ -286,7 +307,7 @@ func oktaPushChannelAllowed(cfg configstore.OktaConfig, channel string) bool {
 	}
 }
 
-func oktaPushInboxParamsFromRawEvents(sourceName, channel, deliveryExternalID string, rawEvents []json.RawMessage) (gen.UpsertOktaPushInboxEventsBulkParams, int, error) {
+func oktaPushInboxParamsFromRawEvents(sourceName, channel, deliveryExternalID string, rawEvents []json.RawMessage) (gen.UpsertOktaPushInboxEventsBulkParams, []genericinbox.Delivery, int, error) {
 	params := gen.UpsertOktaPushInboxEventsBulkParams{
 		SourceName:          sourceName,
 		Channel:             channel,
@@ -297,11 +318,12 @@ func oktaPushInboxParamsFromRawEvents(sourceName, channel, deliveryExternalID st
 		PublishedAts:        make([]pgtype.Timestamptz, 0, len(rawEvents)),
 		RawJsons:            make([][]byte, 0, len(rawEvents)),
 	}
+	genericDeliveries := make([]genericinbox.Delivery, 0, len(rawEvents))
 	ignored := 0
 	for idx, raw := range rawEvents {
 		event, err := oktaconnector.MapSystemLogEventJSON(raw)
 		if err != nil {
-			return gen.UpsertOktaPushInboxEventsBulkParams{}, 0, echo.NewHTTPError(http.StatusBadRequest, "invalid Okta System Log event")
+			return gen.UpsertOktaPushInboxEventsBulkParams{}, nil, 0, echo.NewHTTPError(http.StatusBadRequest, "invalid Okta System Log event")
 		}
 		if !oktaconnector.ShouldIngestPushEvent(event) {
 			ignored++
@@ -313,8 +335,21 @@ func oktaPushInboxParamsFromRawEvents(sourceName, channel, deliveryExternalID st
 		params.EventIndexes = append(params.EventIndexes, int32(idx))
 		params.PublishedAts = append(params.PublishedAts, timestamptzFromTime(event.Published))
 		params.RawJsons = append(params.RawJsons, []byte(raw))
+		genericDeliveries = append(genericDeliveries, genericinbox.Delivery{
+			Source:          records.SourceRef{Kind: configstore.KindOkta, Name: sourceName},
+			Channel:         channel,
+			ExternalEventID: strings.TrimSpace(event.ID),
+			DedupeKey:       "provider:" + strings.TrimSpace(event.ID),
+			RawBody:         []byte(raw),
+			DecodedSummary: map[string]any{
+				"delivery_external_id": strings.TrimSpace(deliveryExternalID),
+				"event_type":           strings.TrimSpace(event.EventType),
+				"event_index":          idx,
+				"published_at":         event.Published.UTC().Format(time.RFC3339),
+			},
+		})
 	}
-	return params, ignored, nil
+	return params, genericDeliveries, ignored, nil
 }
 
 func timestamptzFromTime(t time.Time) pgtype.Timestamptz {

@@ -14,6 +14,8 @@ The Microsoft Entra ID connector syncs users, groups, directory-role memberships
 
 The first sync bootstraps Microsoft Graph delta cursors for users, groups, app registrations, and service principals. Later syncs use those cursors to pull only changes and explicit deletes. Owners and app-role entitlements are reconciled from the current delta-backed inventory; Microsoft Graph does not expose the same delta shape for those relationships, so incremental runs still make per-asset owner and assignment calls. Credential audit events are pulled incrementally from the latest stored event time.
 
+Microsoft Graph change-notification push and a standalone `entra_tail` lane are not enabled yet. The existing Graph delta behavior remains inside the connector's full sync path until it can be split without changing full-run finalization semantics.
+
 ## Prerequisites
 
 - A Microsoft Entra tenant

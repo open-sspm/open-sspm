@@ -95,6 +95,7 @@ func TestHandleOktaEventHookPostQueuesEvents(t *testing.T) {
 		}
 
 		assertOktaPushInboxRow(t, ctx, pool, "acme.okta.com", "event_hook", "delivery-1", "evt-hook-1", "user.authentication.sso")
+		assertGenericEventInboxRow(t, ctx, pool, "okta", "acme.okta.com", "event_hook", "provider:evt-hook-1")
 		if len(queue.ids) != 1 || queue.ids[0] <= 0 {
 			t.Fatalf("queued redis ids = %#v, want one persisted row id", queue.ids)
 		}
@@ -183,6 +184,7 @@ func TestHandleOktaEventHookPostDropsNonDiscoveryEventsBeforeStorage(t *testing.
 		}
 
 		assertNoOktaPushInboxRow(t, ctx, pool, "evt-policy-1")
+		assertNoGenericEventInboxRow(t, ctx, pool, "provider:evt-policy-1")
 	})
 }
 
@@ -212,6 +214,7 @@ func TestHandleOktaEventHookPostQueuesStateRefreshEvents(t *testing.T) {
 		}
 
 		assertOktaPushInboxRow(t, ctx, pool, "acme.okta.com", "event_hook", "delivery-user-refresh", "evt-user-refresh-1", "user.lifecycle.deactivate")
+		assertGenericEventInboxRow(t, ctx, pool, "okta", "acme.okta.com", "event_hook", "provider:evt-user-refresh-1")
 	})
 }
 
@@ -494,6 +497,41 @@ func assertNoOktaPushInboxRow(t *testing.T, ctx context.Context, pool *pgxpool.P
 	}
 	if count != 0 {
 		t.Fatalf("okta_push_inbox rows for %q = %d, want 0", eventExternalID, count)
+	}
+}
+
+func assertGenericEventInboxRow(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceKind, sourceName, channel, dedupeKey string) {
+	t.Helper()
+
+	var gotStatus string
+	if err := pool.QueryRow(ctx, `
+		SELECT status::text
+		FROM event_inbox
+		WHERE source_kind = $1
+		  AND source_name = $2
+		  AND channel = $3
+		  AND dedupe_key = $4
+	`, sourceKind, sourceName, channel, dedupeKey).Scan(&gotStatus); err != nil {
+		t.Fatalf("select event_inbox row: %v", err)
+	}
+	if gotStatus != "queued" {
+		t.Fatalf("generic event_inbox status = %q, want queued", gotStatus)
+	}
+}
+
+func assertNoGenericEventInboxRow(t *testing.T, ctx context.Context, pool *pgxpool.Pool, dedupeKey string) {
+	t.Helper()
+
+	var count int
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*)
+		FROM event_inbox
+		WHERE dedupe_key = $1
+	`, dedupeKey).Scan(&count); err != nil {
+		t.Fatalf("count event_inbox rows: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("event_inbox rows for %q = %d, want 0", dedupeKey, count)
 	}
 }
 

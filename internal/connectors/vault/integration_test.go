@@ -99,7 +99,7 @@ func TestBuildVaultEntitlementRows(t *testing.T) {
 	seenKinds := make(map[string]bool)
 	for _, row := range rows {
 		seenKinds[row.Kind] = true
-		if row.RawJSON == nil || len(row.RawJSON) == 0 {
+		if len(row.RawJSON) == 0 {
 			t.Fatalf("expected raw json payload for row kind=%s", row.Kind)
 		}
 	}

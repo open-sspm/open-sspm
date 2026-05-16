@@ -13,7 +13,9 @@ import (
 	"github.com/open-sspm/open-sspm/internal/sync"
 )
 
-const defaultSyncWorkerConsumerPollInterval = 30 * time.Second
+const (
+	defaultSyncWorkerConsumerPollInterval = 30 * time.Second
+)
 
 type syncWorkerLane struct {
 	name                   string
@@ -82,6 +84,25 @@ func discoverySyncLane() syncWorkerLane {
 			}
 			return nil
 		},
+	}
+}
+
+func tailSyncLane() syncWorkerLane {
+	return syncWorkerLane{
+		name:                 "tail",
+		mode:                 registry.RunModeTail,
+		interval:             func(cfg config.Config) time.Duration { return cfg.SyncTailInterval },
+		scopeName:            sync.RunOnceScopeNameTail,
+		consumerPollInterval: defaultSyncWorkerConsumerPollInterval,
+		intervalByKind: func(cfg config.Config) map[string]time.Duration {
+			return map[string]time.Duration{
+				"okta_tail":             cfg.SyncTailInterval,
+				"google_workspace_tail": cfg.SyncTailInterval,
+				"datadog_tail":          cfg.SyncTailInterval,
+				"aws_tail":              cfg.SyncTailInterval,
+			}
+		},
+		notifyChannel: sync.SyncJobNotifyChannelForMode(registry.RunModeTail),
 	}
 }
 

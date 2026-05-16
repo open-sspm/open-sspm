@@ -74,36 +74,36 @@ func (c OktaConfig) BaseURL() string {
 func (c OktaConfig) Validate() error {
 	c = c.Normalized()
 	if c.Domain == "" {
-		return errors.New("Okta domain is required")
+		return errors.New("okta domain is required")
 	}
 	if c.EventHookEnabled && c.EventHookSecret == "" {
-		return errors.New("Okta Event Hook secret is required")
+		return errors.New("okta event hook secret is required")
 	}
 	if c.EventBridgeEnabled && c.EventBridgeSecret == "" {
-		return errors.New("Okta EventBridge secret is required")
+		return errors.New("okta eventbridge secret is required")
 	}
 	switch c.DiscoveryIngestMode {
 	case OktaDiscoveryIngestModePolling:
 		if c.Token == "" {
-			return errors.New("Okta token is required")
+			return errors.New("okta token is required")
 		}
 	case OktaDiscoveryIngestModeEventHook:
 		if !c.EventHookEnabled {
-			return errors.New("Okta Event Hook receiver must be enabled")
+			return errors.New("okta event hook receiver must be enabled")
 		}
 	case OktaDiscoveryIngestModeEventBridge:
 		if !c.EventBridgeEnabled {
-			return errors.New("Okta EventBridge receiver must be enabled")
+			return errors.New("okta eventbridge receiver must be enabled")
 		}
 	case OktaDiscoveryIngestModeHybrid:
 		if c.Token == "" {
-			return errors.New("Okta token is required for hybrid ingestion")
+			return errors.New("okta token is required for hybrid ingestion")
 		}
 		if !c.EventHookEnabled && !c.EventBridgeEnabled {
 			return errors.New("at least one Okta push channel is required for hybrid ingestion")
 		}
 	default:
-		return errors.New("Okta discovery ingest mode is invalid")
+		return errors.New("okta discovery ingest mode is invalid")
 	}
 	return nil
 }
@@ -153,13 +153,13 @@ func (c GitHubConfig) Normalized() GitHubConfig {
 func (c GitHubConfig) Validate() error {
 	c = c.Normalized()
 	if c.Token == "" {
-		return errors.New("GitHub token is required")
+		return errors.New("github token is required")
 	}
 	if c.Org == "" {
-		return errors.New("GitHub org is required")
+		return errors.New("github org is required")
 	}
 	if c.APIBase == "" {
-		return errors.New("GitHub API base is required")
+		return errors.New("github API base is required")
 	}
 	return nil
 }
@@ -184,13 +184,13 @@ func (c DatadogConfig) Normalized() DatadogConfig {
 func (c DatadogConfig) Validate() error {
 	c = c.Normalized()
 	if c.APIKey == "" {
-		return errors.New("Datadog API key is required")
+		return errors.New("datadog API key is required")
 	}
 	if c.AppKey == "" {
-		return errors.New("Datadog app key is required")
+		return errors.New("datadog app key is required")
 	}
 	if c.Site == "" {
-		return errors.New("Datadog site is required")
+		return errors.New("datadog site is required")
 	}
 	return nil
 }
@@ -225,21 +225,21 @@ func (c AWSIdentityCenterConfig) Normalized() AWSIdentityCenterConfig {
 func (c AWSIdentityCenterConfig) Validate() error {
 	c = c.Normalized()
 	if c.Region == "" {
-		return errors.New("AWS Identity Center region is required")
+		return errors.New("aws identity center region is required")
 	}
 	switch c.AuthType {
 	case AWSIdentityCenterAuthTypeDefaultChain:
 		return nil
 	case AWSIdentityCenterAuthTypeAccessKey:
 		if c.AccessKeyID == "" {
-			return errors.New("AWS access key ID is required")
+			return errors.New("aws access key ID is required")
 		}
 		if c.SecretAccessKey == "" {
-			return errors.New("AWS secret access key is required")
+			return errors.New("aws secret access key is required")
 		}
 		return nil
 	default:
-		return errors.New("AWS credentials type is invalid")
+		return errors.New("aws credentials type is invalid")
 	}
 }
 
@@ -285,13 +285,13 @@ func (c EntraConfig) Normalized() EntraConfig {
 func (c EntraConfig) Validate() error {
 	c = c.Normalized()
 	if c.TenantID == "" {
-		return errors.New("Entra tenant ID is required")
+		return errors.New("entra tenant ID is required")
 	}
 	if c.ClientID == "" {
-		return errors.New("Entra client ID is required")
+		return errors.New("entra client ID is required")
 	}
 	if c.ClientSecret == "" {
-		return errors.New("Entra client secret is required")
+		return errors.New("entra client secret is required")
 	}
 	return nil
 }
@@ -313,15 +313,15 @@ func (c GoogleWorkspaceConfig) Normalized() GoogleWorkspaceConfig {
 func (c GoogleWorkspaceConfig) Validate() error {
 	c = c.Normalized()
 	if c.CustomerID == "" {
-		return errors.New("Google Workspace customer ID is required")
+		return errors.New("google workspace customer ID is required")
 	}
 	if c.DelegatedAdminEmail == "" {
-		return errors.New("Google Workspace delegated admin email is required")
+		return errors.New("google workspace delegated admin email is required")
 	}
 	switch c.AuthType {
 	case GoogleWorkspaceAuthTypeServiceAccountJSON:
 		if c.ServiceAccountJSON == "" {
-			return errors.New("Google Workspace service account JSON is required")
+			return errors.New("google workspace service account JSON is required")
 		}
 		var payload struct {
 			ClientEmail string `json:"client_email"`
@@ -329,17 +329,17 @@ func (c GoogleWorkspaceConfig) Validate() error {
 			TokenURI    string `json:"token_uri"`
 		}
 		if err := json.Unmarshal([]byte(c.ServiceAccountJSON), &payload); err != nil {
-			return errors.New("Google Workspace service account JSON is invalid")
+			return errors.New("google workspace service account JSON is invalid")
 		}
 		if strings.TrimSpace(payload.ClientEmail) == "" || strings.TrimSpace(payload.PrivateKey) == "" {
-			return errors.New("Google Workspace service account JSON must include client_email and private_key")
+			return errors.New("google workspace service account JSON must include client_email and private_key")
 		}
 	case GoogleWorkspaceAuthTypeADC:
 		if c.ServiceAccountEmail == "" {
-			return errors.New("Google Workspace service account email is required for ADC auth")
+			return errors.New("google workspace service account email is required for ADC auth")
 		}
 	default:
-		return errors.New("Google Workspace auth type is invalid")
+		return errors.New("google workspace auth type is invalid")
 	}
 	return nil
 }
@@ -385,40 +385,40 @@ func (c VaultConfig) SourceName() string {
 func (c VaultConfig) Validate() error {
 	c = c.Normalized()
 	if c.Address == "" {
-		return errors.New("Vault address is required")
+		return errors.New("vault address is required")
 	}
 	parsed, err := url.Parse(c.Address)
 	if err != nil {
-		return errors.New("Vault address is invalid")
+		return errors.New("vault address is invalid")
 	}
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return errors.New("Vault address must use http or https")
+		return errors.New("vault address must use http or https")
 	}
 	if strings.TrimSpace(parsed.Hostname()) == "" {
-		return errors.New("Vault address host is required")
+		return errors.New("vault address host is required")
 	}
 	switch c.AuthType {
 	case VaultAuthTypeToken:
 		if c.Token == "" {
-			return errors.New("Vault token is required")
+			return errors.New("vault token is required")
 		}
 	case VaultAuthTypeAppRole:
 		if c.AppRoleMountPath == "" {
-			return errors.New("Vault AppRole mount path is required")
+			return errors.New("vault approle mount path is required")
 		}
 		if c.AppRoleRoleID == "" {
-			return errors.New("Vault AppRole role ID is required")
+			return errors.New("vault approle role ID is required")
 		}
 		if c.AppRoleSecretID == "" {
-			return errors.New("Vault AppRole secret ID is required")
+			return errors.New("vault approle secret ID is required")
 		}
 	default:
-		return errors.New("Vault auth type is invalid")
+		return errors.New("vault auth type is invalid")
 	}
 	if c.TLSCACertPEM != "" {
 		pool := x509.NewCertPool()
 		if ok := pool.AppendCertsFromPEM([]byte(c.TLSCACertPEM)); !ok {
-			return errors.New("Vault CA certificate PEM is invalid")
+			return errors.New("vault ca certificate PEM is invalid")
 		}
 	}
 	return nil

@@ -2,6 +2,8 @@
 
 The Datadog connector syncs users and role assignments from your Datadog organization.
 
+When `worker-tail` is running, Open-SSPM tails Datadog Audit Logs through the Audit Logs API. Datadog Audit Event Forwarding is not enabled as a push capability because it is treated as preview/optional; full sync remains the inventory repair path.
+
 ## What Gets Synced
 
 - Users
@@ -65,6 +67,7 @@ Open-SSPM normalizes full URLs and hostnames, but using the host directly is the
 ```bash
 SYNC_DATADOG_INTERVAL=15m
 SYNC_DATADOG_WORKERS=3
+SYNC_TAIL_INTERVAL=5m
 ```
 
 ## Troubleshooting
@@ -83,3 +86,8 @@ SYNC_DATADOG_WORKERS=3
 
 - Verify the key owner can read users and roles
 - Trigger a fresh sync from **Settings → Connector health**
+
+### Audit Events Are Not Fresh
+
+- Confirm `open-sspm worker-tail` is running.
+- Verify the application key owner can read Datadog audit logs.

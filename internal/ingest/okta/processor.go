@@ -17,8 +17,10 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
+	canonevents "github.com/open-sspm/open-sspm/internal/events"
 	"github.com/open-sspm/open-sspm/internal/metrics"
 	osspmsync "github.com/open-sspm/open-sspm/internal/sync"
+	"github.com/open-sspm/open-sspm/internal/tail"
 	"github.com/open-sspm/open-sspm/internal/timing"
 )
 
@@ -321,6 +323,18 @@ func processSourceRows(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, 
 		return result, err
 	}
 
+	if err := writeOktaCanonicalEvents(ctx, pool, sourceName, parsed); err != nil {
+		_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+		_ = retryOrDeadLetterRows(ctx, sourceName, inboxRowsFromParsed(parsed), err, cfg, claim)
+		return result, err
+	}
+
+	if err := enqueueOktaSystemLogTail(ctx, q, sourceName, len(parsed)); err != nil {
+		_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+		_ = retryOrDeadLetterRows(ctx, sourceName, inboxRowsFromParsed(parsed), err, cfg, claim)
+		return result, err
+	}
+
 	if hasDiscoveryRows {
 		if err := claim.RenewIDs(ctx, processedIDs); err != nil {
 			_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
@@ -411,6 +425,23 @@ func oktaStateRefreshRunCounts(refreshCounts map[string]int64) map[string]int64 
 	return counts
 }
 
+func writeOktaCanonicalEvents(ctx context.Context, pool *pgxpool.Pool, sourceName string, parsed []parsedInboxEvent) error {
+	if len(parsed) == 0 {
+		return nil
+	}
+	writer := canonevents.NewWriter(pool)
+	for _, item := range parsed {
+		record, err := oktaconnector.CanonicalEventRecord(sourceName, item.row.Channel, item.event)
+		if err != nil {
+			return err
+		}
+		if _, err := writer.WriteEvent(ctx, record, canonevents.WriteOptions{}); err != nil {
+			return fmt.Errorf("write canonical Okta event %s: %w", item.event.ID, err)
+		}
+	}
+	return nil
+}
+
 func enqueueOktaFullSync(ctx context.Context, pool *pgxpool.Pool, sourceName string) error {
 	if pool == nil {
 		return fmt.Errorf("queue okta full sync: pool is nil")
@@ -426,6 +457,25 @@ func enqueueOktaFullSync(ctx context.Context, pool *pgxpool.Pool, sourceName str
 	default:
 		return fmt.Errorf("queue okta full sync for %s: %w", sourceName, err)
 	}
+}
+
+func enqueueOktaSystemLogTail(ctx context.Context, q *gen.Queries, sourceName string, eventCount int) error {
+	scheduler := tail.NewScheduler(q)
+	_, err := scheduler.Wake(ctx, tail.Wakeup{
+		SourceKind: configstore.KindOkta,
+		SourceName: sourceName,
+		Resource:   oktaconnector.SystemLogTailResource,
+		Reason:     "okta_push_wakeup",
+		Priority:   10,
+		Payload: map[string]any{
+			"channel":     "okta_push",
+			"event_count": eventCount,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("queue okta system log tail for %s: %w", sourceName, err)
+	}
+	return nil
 }
 
 func flushDeadLetter(ctx context.Context, sourceName string, rows []gen.OktaPushInbox, ids []int64, errMsg, wrapPrefix string, claim *processingClaim, result *ProcessResult) error {

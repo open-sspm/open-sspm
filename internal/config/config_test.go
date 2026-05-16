@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLoadWithOptions_InvalidSyncIntervalReturnsError(t *testing.T) {
@@ -199,6 +200,56 @@ func TestLoadWithOptions_LoadsOktaPushIngestConfig(t *testing.T) {
 	}
 	if got, want := cfg.OktaPushIngest.DeadLetterRetentionDays, int32(9); got != want {
 		t.Fatalf("DeadLetterRetentionDays = %d, want %d", got, want)
+	}
+}
+
+func TestLoadWithOptions_LoadsRealtimeWorkerConfig(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("SYNC_TAIL_INTERVAL", "45s")
+	t.Setenv("RISKPOLICY_EVENT_WORKER_POLL_INTERVAL", "2s")
+	t.Setenv("RISKPOLICY_EVENT_WORKER_BATCH_SIZE", "37")
+	t.Setenv("RISKPOLICY_EVENT_WORKER_MAX_ATTEMPTS", "9")
+	t.Setenv("EVENT_PARTITION_MAINTENANCE_INTERVAL", "6h")
+	t.Setenv("EVENT_PARTITION_FUTURE_DAYS", "5")
+	t.Setenv("EVENT_RETENTION_DAYS", "120")
+
+	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if got, want := cfg.SyncTailInterval, 45*time.Second; got != want {
+		t.Fatalf("SyncTailInterval = %s, want %s", got, want)
+	}
+	if got, want := cfg.RiskpolicyEventWorker.PollInterval, 2*time.Second; got != want {
+		t.Fatalf("RiskpolicyEventWorker.PollInterval = %s, want %s", got, want)
+	}
+	if got, want := cfg.RiskpolicyEventWorker.BatchSize, int32(37); got != want {
+		t.Fatalf("RiskpolicyEventWorker.BatchSize = %d, want %d", got, want)
+	}
+	if got, want := cfg.RiskpolicyEventWorker.MaxAttempts, int32(9); got != want {
+		t.Fatalf("RiskpolicyEventWorker.MaxAttempts = %d, want %d", got, want)
+	}
+	if got, want := cfg.EventPartitions.MaintenanceInterval, 6*time.Hour; got != want {
+		t.Fatalf("EventPartitions.MaintenanceInterval = %s, want %s", got, want)
+	}
+	if got, want := cfg.EventPartitions.FutureDays, int32(5); got != want {
+		t.Fatalf("EventPartitions.FutureDays = %d, want %d", got, want)
+	}
+	if got, want := cfg.EventPartitions.RetentionDays, int32(120); got != want {
+		t.Fatalf("EventPartitions.RetentionDays = %d, want %d", got, want)
+	}
+}
+
+func TestLoadWithOptions_RejectsInvalidRealtimeWorkerConfig(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("RISKPOLICY_EVENT_WORKER_BATCH_SIZE", "0")
+
+	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err == nil {
+		t.Fatalf("expected invalid riskpolicy worker batch size error")
+	}
+	if !strings.Contains(err.Error(), "RISKPOLICY_EVENT_WORKER_BATCH_SIZE") {
+		t.Fatalf("error = %v, want riskpolicy batch size guidance", err)
 	}
 }
 

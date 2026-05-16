@@ -138,12 +138,12 @@ func TestNormalizedProviderEntitlementAssignmentsV1AndV2(t *testing.T) {
 				{
 					EntitlementID:         100,
 					IdentityID:            7,
-					IdentityEmail:         "legacy@example.com",
-					IdentityDisplayName:   "Legacy User",
+					IdentityEmail:         "reference@example.com",
+					IdentityDisplayName:   "Reference User",
 					IdentityStatus:        "DEPROVISIONED",
 					AccountSourceKind:     "github",
 					AccountSourceName:     "acme",
-					AccountExternalID:     "legacy-gh",
+					AccountExternalID:     "reference-gh",
 					EntitlementKind:       "repo_role",
 					EntitlementResource:   "repo:acme/private",
 					EntitlementPermission: "maintain",
@@ -190,8 +190,8 @@ func TestNormalizedProviderEntitlementAssignmentsV1AndV2(t *testing.T) {
 	if !ok {
 		t.Fatalf("v1 account = %#v, want map", v1Row["account"])
 	}
-	if got := accountV1["external_id"]; got != "legacy-gh" {
-		t.Fatalf("v1 account.external_id = %#v, want %q", got, "legacy-gh")
+	if got := accountV1["external_id"]; got != "reference-gh" {
+		t.Fatalf("v1 account.external_id = %#v, want %q", got, "reference-gh")
 	}
 
 	resV2 := provider.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{

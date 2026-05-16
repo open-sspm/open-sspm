@@ -34,6 +34,10 @@ type GoogleWorkspaceIntegration struct {
 	customerID       string
 	primaryDomain    string
 	discoveryEnabled bool
+
+	// reportsActivityLister is a test hook for the Reports API tail. Production
+	// runs use client.ListLoginActivities and client.ListTokenActivities.
+	reportsActivityLister func(context.Context, time.Time) ([]WorkspaceActivity, error)
 }
 
 type googleWorkspaceAccountRow struct {
@@ -133,6 +137,8 @@ func (i *GoogleWorkspaceIntegration) SupportsRunMode(mode registry.RunMode) bool
 	switch mode.Normalize() {
 	case registry.RunModeDiscovery:
 		return i.discoveryEnabled
+	case registry.RunModeTail:
+		return i.client != nil || i.reportsActivityLister != nil
 	default:
 		return true
 	}
@@ -165,6 +171,11 @@ func (i *GoogleWorkspaceIntegration) Run(ctx context.Context, q *gen.Queries, po
 			return nil
 		}
 		return i.runDiscovery(ctx, q, pool, report)
+	case registry.RunModeTail:
+		if !i.SupportsRunMode(registry.RunModeTail) {
+			return nil
+		}
+		return i.runReportsTail(ctx, q, pool, report)
 	default:
 		return i.runFull(ctx, q, pool, report)
 	}

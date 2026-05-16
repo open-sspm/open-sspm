@@ -4,7 +4,7 @@ ALTER TABLE governance_subject_overrides
   ADD COLUMN IF NOT EXISTS follow_up_due_date DATE,
   ADD COLUMN IF NOT EXISTS replacement_saas_app_id BIGINT REFERENCES saas_apps(id) ON DELETE SET NULL;
 
--- Discovery review workflow is forward-only; legacy SaaS governance starts unreviewed here.
+-- Discovery review workflow is forward-only; previous SaaS governance starts unreviewed here.
 UPDATE governance_subject_overrides
 SET review_disposition = 'unreviewed'
 WHERE subject_kind = 'saas_app';

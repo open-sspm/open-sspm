@@ -208,11 +208,14 @@ func (c *SyncJobConsumer) processJob(ctx context.Context, job syncJobRecord) err
 	}
 
 	execCtx := runCtx
-	if runningJob.TriggerKind == syncJobTriggerKindManual {
+	if runningJob.TriggerKind == syncJobTriggerKindManual || runningJob.Lane == syncJobLaneTail {
 		execCtx = WithForcedSync(execCtx)
 	}
 	if runningJob.ConnectorKind != "" && runningJob.SourceName != "" {
 		execCtx = WithConnectorScope(execCtx, runningJob.ConnectorKind, runningJob.SourceName)
+	}
+	if runningJob.Resource != "" {
+		execCtx = WithResourceScope(execCtx, runningJob.Resource)
 	}
 
 	runErr := c.runner.RunOnce(execCtx)

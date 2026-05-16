@@ -26,6 +26,7 @@ type syncJobRecord struct {
 	Lane           string
 	ConnectorKind  string
 	SourceName     string
+	Resource       string
 	TriggerKind    string
 	ClaimedBy      string
 	Status         string
@@ -285,6 +286,8 @@ func (s *dbSyncJobStore) notifyLane(ctx context.Context, lane string) {
 		channel = syncJobNotifyChannelDiscovery
 	case syncJobLaneFull:
 		channel = syncJobNotifyChannelFull
+	case syncJobLaneTail:
+		channel = syncJobNotifyChannelTail
 	}
 	if _, err := s.db.Exec(ctx, "SELECT pg_notify($1::text, '')", channel); err != nil {
 		slog.Warn("sync job notify failed", "lane", lane, "channel", channel, "err", err)
@@ -297,6 +300,7 @@ func syncJobRecordFromRow(row gen.SyncJob) syncJobRecord {
 		Lane:           row.Lane,
 		ConnectorKind:  normalizedNullableText(row.ConnectorKind),
 		SourceName:     normalizedSourceName(row.SourceName),
+		Resource:       normalizedNullableText(row.Resource),
 		TriggerKind:    strings.TrimSpace(row.TriggerKind),
 		ClaimedBy:      normalizedNullableText(row.ClaimedBy),
 		Status:         strings.TrimSpace(row.Status),

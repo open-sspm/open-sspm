@@ -270,7 +270,7 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 	}
 
 	fileName := connectedAppExportFilename(strings.TrimSpace(summary.DisplayName), summary.ID)
-	c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSONCharsetUTF8)
+	c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf("attachment; filename=%q", fileName))
 	return c.JSONPretty(http.StatusOK, payload, "  ")
 }

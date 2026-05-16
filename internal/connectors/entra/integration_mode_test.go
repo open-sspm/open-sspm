@@ -16,6 +16,9 @@ func TestEntraIntegration_SupportsRunMode(t *testing.T) {
 	if full.SupportsRunMode(registry.RunModeDiscovery) {
 		t.Fatalf("discovery mode should be disabled when discovery is not configured")
 	}
+	if full.SupportsRunMode(registry.RunModeTail) {
+		t.Fatalf("tail mode should be disabled until Entra tail is implemented")
+	}
 
 	discovery := NewEntraIntegration(nil, "tenant", true)
 	if !discovery.SupportsRunMode(registry.RunModeDiscovery) {

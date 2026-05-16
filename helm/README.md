@@ -11,6 +11,8 @@ Deploys:
 - `open-sspm worker` (background full sync loop) as a Deployment
 - `open-sspm worker-discovery` (background SaaS discovery sync loop) as a Deployment (enabled by default)
 - `open-sspm worker-ingest` (background push ingest queue processing) as a Deployment (enabled by default when discovery is enabled)
+- `open-sspm worker-tail` (background incremental audit/delta tail loop) as a Deployment (enabled by default)
+- `open-sspm worker-riskpolicy` (background shadow canonical-event riskpolicy loop) as a Deployment (enabled by default)
 - Helm hook Jobs:
   - `open-sspm migrate` as a pre-install/pre-upgrade Job
   - `open-sspm seed-rules` as a pre-install Job (optionally also pre-upgrade)
@@ -171,10 +173,18 @@ kubectl port-forward svc/<service-name> 8080:80
 - API Deployment settings use `api.*`. The chart still accepts `serve.*` as a deprecated alias so existing values files keep working during upgrade.
 - Full sync worker interval is configured with `config.syncInterval`.
 - Discovery sync worker interval is configured with `config.syncDiscoveryInterval`.
+- Tail sync worker interval is configured with `config.syncTailInterval`.
 - Set `config.syncDiscoveryEnabled=false` to disable the discovery lane system-wide.
 - Set `discoveryWorker.enabled=false` to omit only the discovery worker Deployment. The chart also disables discovery queuing on `api` when this is false so manual resyncs do not strand discovery jobs.
 - Set `ingestWorker.enabled=false` to omit push ingest queue processing.
+- Set `tailWorker.enabled=false` to omit incremental tail processing. Full reconciliation still runs if `config.syncFullEnabled=true`, but realtime catch-up will stop.
+- Set `riskpolicyWorker.enabled=false` to omit shadow event riskpolicy evaluation and shadow finding projection.
 - Set `config.queueBackend=redis` to dispatch persisted push inbox rows through Redis. Provide `REDIS_URL` with `redis.existingSecret.name` / `redis.existingSecret.urlKey`, `config.redisUrl`, or component `extraEnv` / `extraEnvFrom` plus `redis.allowExternalUrlEnv=true`. Use `redis.existingSecret` for credentialed Redis URLs; `config.redisUrl` is rendered as plain Deployment env and is rejected when it appears to contain credentials. Postgres remains the durable inbox and fallback poller.
+- Worker processes maintain canonical event partitions with:
+  - `config.eventPartitionMaintenanceInterval` (default `12h`)
+  - `config.eventPartitionFutureDays` (default `7`)
+  - `config.eventRetentionDays` (default `90`)
+- Shadow event riskpolicy processing is tuned with `config.riskpolicyEventWorker.pollInterval`, `config.riskpolicyEventWorker.batchSize`, and `config.riskpolicyEventWorker.maxAttempts`.
 
 ### Structured logging
 
@@ -196,6 +206,8 @@ If `metrics.service.enabled=true`, choose which pod to target with `metrics.serv
 - `worker`
 - `worker-discovery`
 - `worker-ingest`
+- `worker-tail`
+- `worker-riskpolicy`
 
 ### UI authentication
 

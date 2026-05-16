@@ -12,6 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/cloudtrail"
+	cloudtrailtypes "github.com/aws/aws-sdk-go-v2/service/cloudtrail/types"
 	"github.com/aws/aws-sdk-go-v2/service/identitystore"
 	identitystoretypes "github.com/aws/aws-sdk-go-v2/service/identitystore/types"
 	"github.com/aws/aws-sdk-go-v2/service/ssoadmin"
@@ -70,6 +72,7 @@ type Client struct {
 
 	ssoadmin      ssoAdminAPI
 	identitystore identityStoreAPI
+	cloudtrail    cloudTrailAPI
 }
 
 type ssoAdminAPI interface {
@@ -84,6 +87,21 @@ type identityStoreAPI interface {
 	ListUsers(context.Context, *identitystore.ListUsersInput, ...func(*identitystore.Options)) (*identitystore.ListUsersOutput, error)
 	ListGroups(context.Context, *identitystore.ListGroupsInput, ...func(*identitystore.Options)) (*identitystore.ListGroupsOutput, error)
 	ListGroupMemberships(context.Context, *identitystore.ListGroupMembershipsInput, ...func(*identitystore.Options)) (*identitystore.ListGroupMembershipsOutput, error)
+}
+
+type cloudTrailAPI interface {
+	LookupEvents(context.Context, *cloudtrail.LookupEventsInput, ...func(*cloudtrail.Options)) (*cloudtrail.LookupEventsOutput, error)
+}
+
+type CloudTrailEvent struct {
+	ID          string
+	Name        string
+	Source      string
+	Username    string
+	Timestamp   time.Time
+	CloudTrail  string
+	AccessKeyID string
+	RawJSON     []byte
 }
 
 func New(ctx context.Context, opts Options) (*Client, error) {
@@ -126,10 +144,14 @@ func New(ctx context.Context, opts Options) (*Client, error) {
 }
 
 func NewWithConfig(cfg aws.Config, opts Options) (*Client, error) {
-	return NewWithClients(opts, ssoadmin.NewFromConfig(cfg), identitystore.NewFromConfig(cfg))
+	return NewWithClientsAndCloudTrail(opts, ssoadmin.NewFromConfig(cfg), identitystore.NewFromConfig(cfg), cloudtrail.NewFromConfig(cfg))
 }
 
 func NewWithClients(opts Options, sso ssoAdminAPI, identity identityStoreAPI) (*Client, error) {
+	return NewWithClientsAndCloudTrail(opts, sso, identity, nil)
+}
+
+func NewWithClientsAndCloudTrail(opts Options, sso ssoAdminAPI, identity identityStoreAPI, trail cloudTrailAPI) (*Client, error) {
 	region := strings.TrimSpace(opts.Region)
 	if region == "" {
 		return nil, errors.New("aws identity center region is required")
@@ -140,7 +162,75 @@ func NewWithClients(opts Options, sso ssoAdminAPI, identity identityStoreAPI) (*
 		identityStoreID: strings.TrimSpace(opts.IdentityStoreID),
 		ssoadmin:        sso,
 		identitystore:   identity,
+		cloudtrail:      trail,
 	}, nil
+}
+
+func (c *Client) ListCloudTrailEvents(ctx context.Context, since time.Time) ([]CloudTrailEvent, error) {
+	if c.cloudtrail == nil {
+		return nil, errors.New("aws cloudtrail client is required")
+	}
+	if since.IsZero() {
+		since = time.Now().Add(-15 * time.Minute)
+	}
+	now := time.Now().UTC()
+	eventSources := []string{
+		"sso.amazonaws.com",
+		"identitystore.amazonaws.com",
+		"sso-directory.amazonaws.com",
+	}
+	out := make([]CloudTrailEvent, 0)
+	seen := make(map[string]struct{})
+	for _, eventSource := range eventSources {
+		var token *string
+		for {
+			resp, err := c.cloudtrail.LookupEvents(ctx, &cloudtrail.LookupEventsInput{
+				StartTime:  aws.Time(since.UTC()),
+				EndTime:    aws.Time(now),
+				MaxResults: aws.Int32(50),
+				NextToken:  token,
+				LookupAttributes: []cloudtrailtypes.LookupAttribute{
+					{
+						AttributeKey:   cloudtrailtypes.LookupAttributeKeyEventSource,
+						AttributeValue: aws.String(eventSource),
+					},
+				},
+			})
+			if err != nil {
+				return nil, err
+			}
+			for _, item := range resp.Events {
+				event := mapCloudTrailEvent(item)
+				if strings.TrimSpace(event.ID) == "" {
+					continue
+				}
+				if _, ok := seen[event.ID]; ok {
+					continue
+				}
+				seen[event.ID] = struct{}{}
+				out = append(out, event)
+			}
+			if resp.NextToken == nil || aws.ToString(resp.NextToken) == "" {
+				break
+			}
+			token = resp.NextToken
+		}
+	}
+	return out, nil
+}
+
+func mapCloudTrailEvent(item cloudtrailtypes.Event) CloudTrailEvent {
+	raw := []byte(strings.TrimSpace(aws.ToString(item.CloudTrailEvent)))
+	return CloudTrailEvent{
+		ID:          strings.TrimSpace(aws.ToString(item.EventId)),
+		Name:        strings.TrimSpace(aws.ToString(item.EventName)),
+		Source:      strings.TrimSpace(aws.ToString(item.EventSource)),
+		Username:    strings.TrimSpace(aws.ToString(item.Username)),
+		Timestamp:   aws.ToTime(item.EventTime).UTC(),
+		CloudTrail:  strings.TrimSpace(aws.ToString(item.CloudTrailEvent)),
+		AccessKeyID: strings.TrimSpace(aws.ToString(item.AccessKeyId)),
+		RawJSON:     raw,
+	}
 }
 
 func (c *Client) ListUsers(ctx context.Context) ([]User, error) {

@@ -45,6 +45,7 @@ spec:
             - name: metrics
               containerPort: {{ .Values.metrics.port }}
               protocol: TCP
+          {{- include "open-sspm.workerProbes" . | nindent 10 }}
           env:
             - name: DATABASE_URL
               valueFrom:
@@ -68,6 +69,7 @@ spec:
             - name: SYNC_DISCOVERY_ENABLED
               value: {{ ternary "1" "0" .Values.config.syncDiscoveryEnabled | quote }}
             {{- include "open-sspm.oktaPushIngestEnv" . | nindent 12 }}
+            {{- include "open-sspm.eventPartitionEnv" . | nindent 12 }}
             {{- include "open-sspm.smtpEnv" . | nindent 12 }}
             {{- with .Values.ingestWorker.extraEnv }}
             {{- toYaml . | nindent 12 }}

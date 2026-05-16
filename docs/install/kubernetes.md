@@ -22,6 +22,8 @@ The chart creates:
 - **Worker Deployment** - `open-sspm worker`
 - **Discovery Worker Deployment** - `open-sspm worker-discovery` (enabled by default)
 - **Ingest Worker Deployment** - `open-sspm worker-ingest` (enabled by default when discovery is enabled)
+- **Tail Worker Deployment** - `open-sspm worker-tail` (enabled by default)
+- **Riskpolicy Worker Deployment** - `open-sspm worker-riskpolicy` (enabled by default for shadow event evaluation)
 - **Service** - Network access for the web UI
 - **Ingress** (optional)
 - **Hook Jobs** - Migrations, optional rule seeding, and optional admin bootstrap
@@ -105,7 +107,10 @@ smtp:
 config:
   syncInterval: 15m
   syncDiscoveryInterval: 15m
+  syncTailInterval: 5m
   syncDiscoveryEnabled: true
+  eventRetentionDays: 90
+  eventPartitionFutureDays: 7
   logFormat: json
   logLevel: info
   authCookieSecure: true
@@ -136,6 +141,22 @@ discoveryWorker:
       memory: 512Mi
 
 ingestWorker:
+  enabled: true
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+tailWorker:
+  enabled: true
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+riskpolicyWorker:
   enabled: true
   replicaCount: 1
   resources:
@@ -280,6 +301,8 @@ kubectl logs -l app.kubernetes.io/component=api
 kubectl logs -l app.kubernetes.io/component=worker
 kubectl logs -l app.kubernetes.io/component=worker-discovery
 kubectl logs -l app.kubernetes.io/component=worker-ingest
+kubectl logs -l app.kubernetes.io/component=worker-tail
+kubectl logs -l app.kubernetes.io/component=worker-riskpolicy
 ```
 
 ### Database Connection Issues

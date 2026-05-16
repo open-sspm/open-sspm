@@ -26,6 +26,7 @@ type datadogAdapter interface {
 	ListAccounts(context.Context) ([]Account, error)
 	ListRoles(context.Context) ([]Role, error)
 	ListRoleMembers(context.Context, string) ([]string, error)
+	ListAuditEvents(context.Context, time.Time) ([]AuditEvent, error)
 }
 
 type Account struct {
@@ -43,6 +44,21 @@ type Role struct {
 	ID      string
 	Name    string
 	RawJSON []byte
+}
+
+type AuditEvent struct {
+	ID         string
+	Timestamp  time.Time
+	Action     string
+	Message    string
+	Service    string
+	ActorID    string
+	ActorEmail string
+	ActorName  string
+	TargetID   string
+	TargetName string
+	Attributes map[string]any
+	RawJSON    []byte
 }
 
 type sdkAdapter struct {
@@ -166,6 +182,46 @@ func (a *sdkAdapter) ListRoleMembers(ctx context.Context, roleID string) ([]stri
 		}
 	}
 
+	return out, nil
+}
+
+func (a *sdkAdapter) ListAuditEvents(ctx context.Context, since time.Time) ([]AuditEvent, error) {
+	if since.IsZero() {
+		since = time.Now().Add(-15 * time.Minute)
+	}
+	body := datadogv2.AuditLogsSearchEventsRequest{
+		Filter: &datadogv2.AuditLogsQueryFilter{
+			From: datadogsdk.PtrString(since.UTC().Format(time.RFC3339)),
+			To:   datadogsdk.PtrString("now"),
+		},
+		Options: &datadogv2.AuditLogsQueryOptions{
+			TimeOffset: datadogsdk.PtrInt64(0),
+			Timezone:   datadogsdk.PtrString("GMT"),
+		},
+		Page: &datadogv2.AuditLogsQueryPageOptions{
+			Limit: datadogsdk.PtrInt32(datadogPageSize),
+		},
+		Sort: datadogv2.AUDITLOGSSORT_TIMESTAMP_ASCENDING.Ptr(),
+	}
+	api := datadogv2.NewAuditApi(a.client)
+	params := *datadogv2.NewSearchAuditLogsOptionalParameters().WithBody(body)
+	results, cancel := api.SearchAuditLogsWithPagination(a.requestContext(ctx), params)
+	defer cancel()
+
+	out := make([]AuditEvent, 0)
+	for result := range results {
+		if result.Error != nil {
+			return nil, formatDatadogAPIError("search datadog audit logs", nil, result.Error)
+		}
+		event, err := mapDatadogAuditEvent(result.Item)
+		if err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(event.ID) == "" {
+			continue
+		}
+		out = append(out, event)
+	}
 	return out, nil
 }
 
@@ -389,6 +445,72 @@ func mapDatadogRole(item datadogv2.Role) (Role, error) {
 		Name:    name,
 		RawJSON: rawJSON,
 	}, nil
+}
+
+func mapDatadogAuditEvent(item datadogv2.AuditLogsEvent) (AuditEvent, error) {
+	id := strings.TrimSpace(item.GetId())
+	attrs, _ := item.GetAttributesOk()
+	eventAttrs := map[string]any{}
+	timestamp := time.Time{}
+	message := ""
+	service := ""
+	if attrs != nil {
+		for key, value := range attrs.GetAttributes() {
+			eventAttrs[key] = value
+		}
+		timestamp = attrs.GetTimestamp()
+		message = strings.TrimSpace(attrs.GetMessage())
+		service = strings.TrimSpace(attrs.GetService())
+	}
+
+	rawJSON, err := json.Marshal(item)
+	if err != nil {
+		return AuditEvent{}, err
+	}
+	action := firstDatadogAuditAttr(eventAttrs, "evt.name", "action", "operation", "audit.action")
+	if action == "" {
+		action = message
+	}
+	return AuditEvent{
+		ID:         id,
+		Timestamp:  timestamp,
+		Action:     action,
+		Message:    message,
+		Service:    service,
+		ActorID:    firstDatadogAuditAttr(eventAttrs, "usr.id", "user.id", "actor.id"),
+		ActorEmail: firstDatadogAuditAttr(eventAttrs, "usr.email", "user.email", "actor.email"),
+		ActorName:  firstDatadogAuditAttr(eventAttrs, "usr.name", "user.name", "actor.name"),
+		TargetID:   firstDatadogAuditAttr(eventAttrs, "target.id", "resource.id", "asset.id"),
+		TargetName: firstDatadogAuditAttr(eventAttrs, "target.name", "resource.name", "asset.name"),
+		Attributes: eventAttrs,
+		RawJSON:    rawJSON,
+	}, nil
+}
+
+func firstDatadogAuditAttr(attrs map[string]any, keys ...string) string {
+	for _, key := range keys {
+		value, ok := attrs[key]
+		if !ok {
+			continue
+		}
+		switch typed := value.(type) {
+		case string:
+			if trimmed := strings.TrimSpace(typed); trimmed != "" {
+				return trimmed
+			}
+		case fmt.Stringer:
+			if trimmed := strings.TrimSpace(typed.String()); trimmed != "" {
+				return trimmed
+			}
+		default:
+			if typed != nil {
+				if trimmed := strings.TrimSpace(fmt.Sprint(typed)); trimmed != "" {
+					return trimmed
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func datadogUserDisplayName(id string, attrs *datadogv2.UserAttributes) string {

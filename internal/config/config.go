@@ -19,6 +19,7 @@ const (
 	defaultMetricsAddr           = ""
 	defaultSyncInterval          = 15 * time.Minute
 	defaultSyncDiscoveryInterval = 15 * time.Minute
+	defaultSyncTailInterval      = 5 * time.Minute
 	defaultStartupReadModelMode  = StartupReadModelRebuildAuto
 	defaultQueueBackend          = QueueBackendPostgres
 	defaultRedisKeyPrefix        = "open-sspm"
@@ -43,6 +44,14 @@ const (
 	defaultOktaPushIngestMaxAttempts             = 10
 	defaultOktaPushIngestProcessedRetentionDays  = 30
 	defaultOktaPushIngestDeadLetterRetentionDays = 90
+
+	defaultRiskpolicyEventWorkerPollInterval = 5 * time.Second
+	defaultRiskpolicyEventWorkerBatchSize    = 100
+	defaultRiskpolicyEventWorkerMaxAttempts  = 10
+
+	defaultEventPartitionMaintenanceInterval = 12 * time.Hour
+	defaultEventPartitionFutureDays          = 7
+	defaultEventRetentionDays                = 90
 )
 
 const (
@@ -76,6 +85,7 @@ type Config struct {
 	OktaPushIngestEnabledSet    bool
 	SyncInterval                time.Duration
 	SyncDiscoveryInterval       time.Duration
+	SyncTailInterval            time.Duration
 	SyncOktaInterval            time.Duration
 	SyncEntraInterval           time.Duration
 	SyncGoogleWorkspaceInterval time.Duration
@@ -96,6 +106,8 @@ type Config struct {
 	SyncLockInstanceID          string
 	StartupReadModelRebuildMode string
 	OktaPushIngest              OktaPushIngestConfig
+	RiskpolicyEventWorker       RiskpolicyEventWorkerConfig
+	EventPartitions             EventPartitionConfig
 }
 
 type SMTPConfig struct {
@@ -119,6 +131,18 @@ type OktaPushIngestConfig struct {
 	MaxAttempts             int32
 	ProcessedRetentionDays  int32
 	DeadLetterRetentionDays int32
+}
+
+type RiskpolicyEventWorkerConfig struct {
+	PollInterval time.Duration
+	BatchSize    int32
+	MaxAttempts  int32
+}
+
+type EventPartitionConfig struct {
+	MaintenanceInterval time.Duration
+	FutureDays          int32
+	RetentionDays       int32
 }
 
 type LoadOptions struct {
@@ -151,6 +175,7 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		SyncDiscoveryEnabled:  getenvBoolDefault("SYNC_DISCOVERY_ENABLED", true),
 		SyncInterval:          defaultSyncInterval,
 		SyncDiscoveryInterval: defaultSyncDiscoveryInterval,
+		SyncTailInterval:      defaultSyncTailInterval,
 		SyncOktaWorkers:       getenvIntDefault("SYNC_OKTA_WORKERS", defaultSyncOktaWorkers),
 		SyncGitHubWorkers:     getenvIntDefault("SYNC_GITHUB_WORKERS", defaultSyncGitHubWorkers),
 		SyncDatadogWorkers:    getenvIntDefault("SYNC_DATADOG_WORKERS", defaultSyncDatadogWorkers),
@@ -175,6 +200,16 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 			MaxAttempts:             defaultOktaPushIngestMaxAttempts,
 			ProcessedRetentionDays:  defaultOktaPushIngestProcessedRetentionDays,
 			DeadLetterRetentionDays: defaultOktaPushIngestDeadLetterRetentionDays,
+		},
+		RiskpolicyEventWorker: RiskpolicyEventWorkerConfig{
+			PollInterval: defaultRiskpolicyEventWorkerPollInterval,
+			BatchSize:    defaultRiskpolicyEventWorkerBatchSize,
+			MaxAttempts:  defaultRiskpolicyEventWorkerMaxAttempts,
+		},
+		EventPartitions: EventPartitionConfig{
+			MaintenanceInterval: defaultEventPartitionMaintenanceInterval,
+			FutureDays:          defaultEventPartitionFutureDays,
+			RetentionDays:       defaultEventRetentionDays,
 		},
 	}
 	var err error
@@ -235,6 +270,7 @@ func applyDurationEnvOverrides(cfg *Config) error {
 	}{
 		{key: "SYNC_INTERVAL", target: &cfg.SyncInterval},
 		{key: "SYNC_DISCOVERY_INTERVAL", target: &cfg.SyncDiscoveryInterval},
+		{key: "SYNC_TAIL_INTERVAL", target: &cfg.SyncTailInterval, requirePositive: true},
 		{key: "SYNC_OKTA_INTERVAL", target: &cfg.SyncOktaInterval, requirePositive: true},
 		{key: "SYNC_ENTRA_INTERVAL", target: &cfg.SyncEntraInterval, requirePositive: true},
 		{key: "SYNC_GOOGLE_WORKSPACE_INTERVAL", target: &cfg.SyncGoogleWorkspaceInterval, requirePositive: true},
@@ -250,6 +286,8 @@ func applyDurationEnvOverrides(cfg *Config) error {
 		{key: "OKTA_PUSH_INGEST_RETRY_DELAY", target: &cfg.OktaPushIngest.RetryDelay, requirePositive: true},
 		{key: "OKTA_PUSH_INGEST_RETRY_MAX_DELAY", target: &cfg.OktaPushIngest.RetryDelayMax, requirePositive: true},
 		{key: "OKTA_PUSH_INGEST_STALE_PROCESSING_TIMEOUT", target: &cfg.OktaPushIngest.StaleProcessingTimeout, requirePositive: true},
+		{key: "RISKPOLICY_EVENT_WORKER_POLL_INTERVAL", target: &cfg.RiskpolicyEventWorker.PollInterval, requirePositive: true},
+		{key: "EVENT_PARTITION_MAINTENANCE_INTERVAL", target: &cfg.EventPartitions.MaintenanceInterval, requirePositive: true},
 	}
 	for _, override := range overrides {
 		if err := applyDurationEnvOverride(override.target, override.key, override.requirePositive); err != nil {
@@ -279,6 +317,10 @@ func applyIntEnvOverrides(cfg *Config) error {
 		{key: "OKTA_PUSH_INGEST_MAX_ATTEMPTS", target: &cfg.OktaPushIngest.MaxAttempts},
 		{key: "OKTA_PUSH_INGEST_PROCESSED_RETENTION_DAYS", target: &cfg.OktaPushIngest.ProcessedRetentionDays},
 		{key: "OKTA_PUSH_INGEST_DEAD_LETTER_RETENTION_DAYS", target: &cfg.OktaPushIngest.DeadLetterRetentionDays},
+		{key: "RISKPOLICY_EVENT_WORKER_BATCH_SIZE", target: &cfg.RiskpolicyEventWorker.BatchSize},
+		{key: "RISKPOLICY_EVENT_WORKER_MAX_ATTEMPTS", target: &cfg.RiskpolicyEventWorker.MaxAttempts},
+		{key: "EVENT_PARTITION_FUTURE_DAYS", target: &cfg.EventPartitions.FutureDays},
+		{key: "EVENT_RETENTION_DAYS", target: &cfg.EventPartitions.RetentionDays},
 	}
 	for _, override := range overrides {
 		n, ok, err := parsePositiveInt32Env(override.key)
@@ -320,6 +362,27 @@ func validate(cfg Config, opts LoadOptions) error {
 	}
 	if cfg.OktaPushIngest.RetryDelayMax < cfg.OktaPushIngest.RetryDelay {
 		return errors.New("OKTA_PUSH_INGEST_RETRY_MAX_DELAY must be greater than or equal to OKTA_PUSH_INGEST_RETRY_DELAY")
+	}
+	if cfg.SyncTailInterval <= 0 {
+		return errors.New("SYNC_TAIL_INTERVAL must be greater than zero")
+	}
+	if cfg.RiskpolicyEventWorker.PollInterval <= 0 {
+		return errors.New("RISKPOLICY_EVENT_WORKER_POLL_INTERVAL must be greater than zero")
+	}
+	if cfg.RiskpolicyEventWorker.BatchSize <= 0 {
+		return errors.New("RISKPOLICY_EVENT_WORKER_BATCH_SIZE must be greater than zero")
+	}
+	if cfg.RiskpolicyEventWorker.MaxAttempts <= 0 {
+		return errors.New("RISKPOLICY_EVENT_WORKER_MAX_ATTEMPTS must be greater than zero")
+	}
+	if cfg.EventPartitions.MaintenanceInterval <= 0 {
+		return errors.New("EVENT_PARTITION_MAINTENANCE_INTERVAL must be greater than zero")
+	}
+	if cfg.EventPartitions.FutureDays <= 0 {
+		return errors.New("EVENT_PARTITION_FUTURE_DAYS must be greater than zero")
+	}
+	if cfg.EventPartitions.RetentionDays <= 0 {
+		return errors.New("EVENT_RETENTION_DAYS must be greater than zero")
 	}
 
 	return nil

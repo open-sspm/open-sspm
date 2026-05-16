@@ -50,7 +50,7 @@ func TestWithForcedSyncRoundTrip(t *testing.T) {
 	if IsForcedSync(context.Background()) {
 		t.Fatalf("expected background context to be non-forced")
 	}
-	if !IsForcedSync(WithForcedSync(nil)) {
+	if !IsForcedSync(WithForcedSync(context.TODO())) {
 		t.Fatalf("expected forced context")
 	}
 }

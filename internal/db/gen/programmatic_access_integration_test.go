@@ -916,11 +916,11 @@ func TestSearchManagedReplacementSaaSAppsFiltersManagedAlternatives(t *testing.T
 
 		currentID := insertSaaSApp(t, ctx, pool, "current-shadow-app", "Current Shadow App", "current.example.com", "Example", evaluatedAt.Add(-48*time.Hour), evaluatedAt.Add(-24*time.Hour))
 		managedID := insertSaaSApp(t, ctx, pool, "approved-app", "Approved App", "approved.example.com", "Example", evaluatedAt.Add(-72*time.Hour), evaluatedAt.Add(-2*time.Hour))
-		unmanagedID := insertSaaSApp(t, ctx, pool, "legacy-app", "Legacy App", "legacy.example.com", "Example", evaluatedAt.Add(-96*time.Hour), evaluatedAt.Add(-4*time.Hour))
+		unmanagedID := insertSaaSApp(t, ctx, pool, "reference-app", "Reference App", "reference.example.com", "Example", evaluatedAt.Add(-96*time.Hour), evaluatedAt.Add(-4*time.Hour))
 
 		insertSaaSAppSource(t, ctx, pool, currentID, runID, "github", "acme", "current-shadow-app", "Current Shadow App", "current.example.com", evaluatedAt.Add(-24*time.Hour))
 		insertSaaSAppSource(t, ctx, pool, managedID, runID, "github", "acme", "approved-app", "Approved App", "approved.example.com", evaluatedAt.Add(-2*time.Hour))
-		insertSaaSAppSource(t, ctx, pool, unmanagedID, runID, "github", "acme", "legacy-app", "Legacy App", "legacy.example.com", evaluatedAt.Add(-4*time.Hour))
+		insertSaaSAppSource(t, ctx, pool, unmanagedID, runID, "github", "acme", "reference-app", "Reference App", "reference.example.com", evaluatedAt.Add(-4*time.Hour))
 
 		if err := q.UpsertSaaSAppBinding(ctx, UpsertSaaSAppBindingParams{
 			SaasAppID:           currentID,
@@ -1003,11 +1003,11 @@ func TestGetSaaSAppReplacementCandidateByIDFiltersManagedDiscoveryScopedAlternat
 		hiddenRunID := insertSyncRun(t, ctx, pool, "datadog", "datadoghq.com")
 
 		managedID := insertSaaSApp(t, ctx, pool, "approved-app", "Approved App", "approved.example.com", "Example", evaluatedAt.Add(-72*time.Hour), evaluatedAt.Add(-2*time.Hour))
-		unmanagedID := insertSaaSApp(t, ctx, pool, "legacy-app", "Legacy App", "legacy.example.com", "Example", evaluatedAt.Add(-96*time.Hour), evaluatedAt.Add(-4*time.Hour))
+		unmanagedID := insertSaaSApp(t, ctx, pool, "reference-app", "Reference App", "reference.example.com", "Example", evaluatedAt.Add(-96*time.Hour), evaluatedAt.Add(-4*time.Hour))
 		hiddenManagedID := insertSaaSApp(t, ctx, pool, "hidden-app", "Hidden App", "hidden.example.com", "Example", evaluatedAt.Add(-48*time.Hour), evaluatedAt.Add(-90*time.Minute))
 
 		insertSaaSAppSource(t, ctx, pool, managedID, runID, "github", "acme", "approved-app", "Approved App", "approved.example.com", evaluatedAt.Add(-2*time.Hour))
-		insertSaaSAppSource(t, ctx, pool, unmanagedID, runID, "github", "acme", "legacy-app", "Legacy App", "legacy.example.com", evaluatedAt.Add(-4*time.Hour))
+		insertSaaSAppSource(t, ctx, pool, unmanagedID, runID, "github", "acme", "reference-app", "Reference App", "reference.example.com", evaluatedAt.Add(-4*time.Hour))
 		insertSaaSAppSource(t, ctx, pool, hiddenManagedID, hiddenRunID, "datadog", "datadoghq.com", "hidden-app", "Hidden App", "hidden.example.com", evaluatedAt.Add(-90*time.Minute))
 
 		if err := q.UpsertSaaSAppBinding(ctx, UpsertSaaSAppBindingParams{

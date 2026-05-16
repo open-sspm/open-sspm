@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/connectors/capabilities"
 	"github.com/open-sspm/open-sspm/internal/connectors/entra"
 	"github.com/open-sspm/open-sspm/internal/connectors/okta"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
@@ -35,6 +36,15 @@ func (i stubModeAwareIntegration) SupportsRunMode(mode registry.RunMode) bool {
 	return i.supported[mode.Normalize()]
 }
 
+type stubCapabilityIntegration struct {
+	stubIntegration
+	caps capabilities.Capabilities
+}
+
+func (i stubCapabilityIntegration) Capabilities() capabilities.Capabilities {
+	return i.caps
+}
+
 func TestDBRunner_IntegrationRunSourceKindByMode(t *testing.T) {
 	t.Parallel()
 
@@ -55,6 +65,35 @@ func TestDBRunner_IntegrationRunSourceKindByMode(t *testing.T) {
 	}
 	if got := discoveryRunner.integrationRunSourceKind(entraIntegration); got != "entra_discovery" {
 		t.Fatalf("discovery entra run kind = %q, want entra_discovery", got)
+	}
+
+	tailRunner := &DBRunner{mode: registry.RunModeTail}
+	if got := tailRunner.integrationRunSourceKind(oktaIntegration); got != "okta_tail" {
+		t.Fatalf("tail okta run kind = %q, want okta_tail", got)
+	}
+	if got := tailRunner.integrationRunSourceKind(entraIntegration); got != "entra_tail" {
+		t.Fatalf("tail entra run kind = %q, want entra_tail", got)
+	}
+}
+
+func TestDBRunner_IntegrationSupportsRunModeFromCapabilities(t *testing.T) {
+	t.Parallel()
+
+	tailRunner := &DBRunner{mode: registry.RunModeTail}
+	integration := stubCapabilityIntegration{
+		stubIntegration: stubIntegration{kind: "okta", name: "example.okta.com", role: registry.RoleIdP},
+		caps:            capabilities.Capabilities{Tail: &capabilities.TailCapability{}},
+	}
+	if !tailRunner.integrationSupportsRunMode(integration) {
+		t.Fatalf("capability integration should run in tail mode when tail is declared")
+	}
+
+	fullOnly := stubCapabilityIntegration{
+		stubIntegration: stubIntegration{kind: "okta", name: "example.okta.com", role: registry.RoleIdP},
+		caps:            capabilities.Capabilities{Full: &capabilities.FullCapability{}},
+	}
+	if tailRunner.integrationSupportsRunMode(fullOnly) {
+		t.Fatalf("capability integration without tail should be skipped in tail mode")
 	}
 }
 

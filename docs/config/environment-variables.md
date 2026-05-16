@@ -267,6 +267,16 @@ SYNC_INTERVAL=15m
 SYNC_DISCOVERY_INTERVAL=15m
 ```
 
+### SYNC_TAIL_INTERVAL
+
+Cadence for the incremental tail worker. Tail jobs are also woken by push ingest when a provider event should trigger a scoped catch-up.
+
+- **Default:** `5m`
+
+```bash
+SYNC_TAIL_INTERVAL=5m
+```
+
 ### SYNC_DISCOVERY_ENABLED
 
 - **Values:** `0`, `1`
@@ -401,6 +411,26 @@ OKTA_PUSH_INGEST_PROCESSED_RETENTION_DAYS=30
 OKTA_PUSH_INGEST_DEAD_LETTER_RETENTION_DAYS=90
 ```
 
+## Riskpolicy Event Worker
+
+These settings tune `worker-riskpolicy`, which evaluates canonical provider events in shadow mode and projects shadow findings. It does not replace the user-facing current rules/finding behavior by itself.
+
+```bash
+RISKPOLICY_EVENT_WORKER_POLL_INTERVAL=5s
+RISKPOLICY_EVENT_WORKER_BATCH_SIZE=100
+RISKPOLICY_EVENT_WORKER_MAX_ATTEMPTS=10
+```
+
+## Event Storage Maintenance
+
+Worker processes maintain daily partitions for canonical `events` and `event_targets`. They create partitions ahead of time and drop expired daily partitions as the retention window advances.
+
+```bash
+EVENT_PARTITION_MAINTENANCE_INTERVAL=12h
+EVENT_PARTITION_FUTURE_DAYS=7
+EVENT_RETENTION_DAYS=90
+```
+
 ## Worker Concurrency
 
 ### SYNC_OKTA_WORKERS
@@ -440,8 +470,13 @@ AUTH_COOKIE_SECURE=0
 
 SYNC_INTERVAL=15m
 SYNC_DISCOVERY_INTERVAL=15m
+SYNC_TAIL_INTERVAL=5m
 SYNC_DISCOVERY_ENABLED=1
 RESYNC_MODE=signal
+
+EVENT_RETENTION_DAYS=90
+RISKPOLICY_EVENT_WORKER_BATCH_SIZE=100
+RISKPOLICY_EVENT_WORKER_MAX_ATTEMPTS=10
 
 SYNC_OKTA_WORKERS=3
 SYNC_GITHUB_WORKERS=6

@@ -172,11 +172,11 @@ func TestHandleNonHumanIdentitiesFallsBackWhenConfiguredSourceNameDrifts(t *test
 			Token: "token-1",
 		})
 
-		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "legacy-acme")
-		githubAssetID := insertCommandSearchAppAsset(t, ctx, q, runID, configstore.KindGitHub, "legacy-acme", "github_app", "github-actions", "", "GitHub Actions", "active")
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "reference-acme")
+		githubAssetID := insertCommandSearchAppAsset(t, ctx, q, runID, configstore.KindGitHub, "reference-acme", "github_app", "github-actions", "", "GitHub Actions", "active")
 		insertNonHumanCredentialArtifact(t, ctx, pool, runID, nonHumanCredentialArtifactSeed{
 			SourceKind:         configstore.KindGitHub,
-			SourceName:         "legacy-acme",
+			SourceName:         "reference-acme",
 			AssetRefKind:       "app_asset",
 			AssetRefExternalID: "github_app:github-actions",
 			CredentialKind:     "github_pat_fine_grained",
@@ -185,7 +185,7 @@ func TestHandleNonHumanIdentitiesFallsBackWhenConfiguredSourceNameDrifts(t *test
 			Status:             "active",
 		})
 
-		refreshCommandSearchSourceReadModels(t, ctx, q, configstore.KindGitHub, "legacy-acme")
+		refreshCommandSearchSourceReadModels(t, ctx, q, configstore.KindGitHub, "reference-acme")
 
 		rows, err := q.ListNonHumanPrincipalsPageByFilters(ctx, gen.ListNonHumanPrincipalsPageByFiltersParams{
 			PageLimit:             20,

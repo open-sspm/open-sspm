@@ -1,4 +1,4 @@
--- Repair legacy GitHub account rows that predate entity_category writes.
+-- Repair previous GitHub account rows that predate entity_category writes.
 UPDATE accounts
 SET entity_category = CASE
   WHEN lower(trim(external_id)) LIKE 'team:%'

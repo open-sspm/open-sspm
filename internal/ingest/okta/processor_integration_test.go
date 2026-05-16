@@ -55,6 +55,49 @@ func TestProcessQueuedWritesDiscoveryRows(t *testing.T) {
 		if status != "processed" || !processedRunID.Valid {
 			t.Fatalf("inbox status/run = %q/%+v, want processed with run", status, processedRunID)
 		}
+
+		var canonicalEvents, canonicalTargets int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM events
+			WHERE source_kind = 'okta'
+			  AND source_name = 'acme.okta.com'
+			  AND provider_event_id = 'evt-sso-1'
+		`).Scan(&canonicalEvents); err != nil {
+			t.Fatalf("count canonical events: %v", err)
+		}
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM event_targets et
+			JOIN events e
+			  ON e.received_at = et.event_received_at
+			 AND e.id = et.event_id
+			WHERE e.provider_event_id = 'evt-sso-1'
+		`).Scan(&canonicalTargets); err != nil {
+			t.Fatalf("count canonical targets: %v", err)
+		}
+		if canonicalEvents != 1 {
+			t.Fatalf("canonical events = %d, want 1", canonicalEvents)
+		}
+		if canonicalTargets != 1 {
+			t.Fatalf("canonical targets = %d, want 1", canonicalTargets)
+		}
+
+		var tailJobs int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM sync_jobs
+			WHERE lane = 'tail'
+			  AND connector_kind = 'okta'
+			  AND source_name = 'acme.okta.com'
+			  AND resource = 'system_log'
+			  AND status = 'pending'
+		`).Scan(&tailJobs); err != nil {
+			t.Fatalf("count queued tail jobs: %v", err)
+		}
+		if tailJobs != 1 {
+			t.Fatalf("tail jobs = %d, want 1", tailJobs)
+		}
 	})
 }
 

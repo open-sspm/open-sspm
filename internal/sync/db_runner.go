@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/connectors/capabilities"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
@@ -359,12 +360,16 @@ func (r *DBRunner) integrationSupportsRunMode(integration registry.Integration) 
 		return false
 	}
 
+	if supported, ok := capabilities.SupportsRunMode(integration, mode); ok {
+		return supported
+	}
+
 	modeAware, ok := integration.(registry.ModeAwareIntegration)
 	if ok {
 		return modeAware.SupportsRunMode(mode)
 	}
 
-	// Legacy integrations default to full-only.
+	// Existing integrations default to full-only.
 	return mode == registry.RunModeFull
 }
 

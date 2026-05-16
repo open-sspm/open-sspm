@@ -224,6 +224,18 @@ func TestStartSyncRunReclaimsCrossLaneRunningRows(t *testing.T) {
 			startSource:  "okta_discovery",
 			sourceName:   "acme",
 		},
+		{
+			name:         "starting tail reclaims full",
+			existingKind: "okta",
+			startSource:  "okta_tail",
+			sourceName:   "acme",
+		},
+		{
+			name:         "starting full reclaims tail",
+			existingKind: "okta_tail",
+			startSource:  "okta",
+			sourceName:   "acme",
+		},
 	}
 
 	for _, tt := range tests {

@@ -10,17 +10,17 @@ IdP connectors import users, groups, and application assignments.
 
 | Connector | Discovery Support | Description |
 |-----------|-------------------|-------------|
-| [Okta](/config/connectors/okta) | Yes, polling or push-assisted | Users, groups, apps, and assignments |
-| [Microsoft Entra ID](/config/connectors/entra) | Yes | Users, groups, app registrations, and service principals |
+| [Okta](/config/connectors/okta) | Yes, polling or push-assisted; System Log tail | Users, groups, apps, and assignments |
+| [Microsoft Entra ID](/config/connectors/entra) | Yes; delta remains in full lane | Users, groups, app registrations, and service principals |
 
 ### Connected Apps
 
 | Connector | Description |
 |-----------|-------------|
-| [Google Workspace](/config/connectors/google-workspace) | Users, groups, admin roles, OAuth grants, and token activity |
+| [Google Workspace](/config/connectors/google-workspace) | Users, groups, admin roles, OAuth grants, token activity, and Reports tail |
 | [GitHub](/config/connectors/github) | Organization members, teams, and repository permissions |
-| [Datadog](/config/connectors/datadog) | Users and role assignments |
-| [AWS Identity Center](/config/connectors/aws) | Users, groups, permission sets, and account assignments |
+| [Datadog](/config/connectors/datadog) | Users, role assignments, and Audit Logs tail |
+| [AWS Identity Center](/config/connectors/aws) | Users, groups, permission sets, account assignments, and CloudTrail tail |
 
 ## SaaS Discovery
 
@@ -35,6 +35,17 @@ Discovery requires:
 - `SYNC_DISCOVERY_ENABLED=1`
 - The discovery worker running
 - Discovery enabled on the relevant IdP connector
+
+## Realtime Sync
+
+Realtime and near-realtime support is capability-driven:
+
+- Push deliveries enter the generic inbox and are processed by `worker-ingest`.
+- Cursor-based provider tails run in `worker-tail`.
+- Canonical event evidence is stored in `events` and `event_targets`.
+- Event policy evaluation runs in shadow mode through `worker-riskpolicy`.
+
+See [Real-Time Synchronization](/run/real-time-synchronization) for the current provider matrix.
 
 ## Account Linking
 
@@ -87,7 +98,7 @@ Check:
 
 1. The connector is configured and enabled
 2. A sync has completed successfully
-3. The relevant lane is running (full or discovery)
+3. The relevant lane is running (full, discovery, ingest, tail, or riskpolicy)
 
 ## Next Steps
 

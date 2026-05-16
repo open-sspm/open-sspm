@@ -11,9 +11,9 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
-func TestConnectorSecretBootstrapMigratesLegacyPlaintext(t *testing.T) {
+func TestConnectorSecretBootstrapMigratesInlinePlaintext(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, _ *Handlers) {
-		raw := []byte(`{"domain":"acme.okta.com","token":"legacy-okta-token"}`)
+		raw := []byte(`{"domain":"acme.okta.com","token":"inline-okta-token"}`)
 		if _, err := q.UpdateConnectorConfig(ctx, gen.UpdateConnectorConfigParams{
 			Kind:   configstore.KindOkta,
 			Config: raw,
@@ -30,7 +30,7 @@ func TestConnectorSecretBootstrapMigratesLegacyPlaintext(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetConnectorConfig() error = %v", err)
 		}
-		if strings.Contains(string(row.Config), "legacy-okta-token") {
+		if strings.Contains(string(row.Config), "inline-okta-token") {
 			t.Fatalf("public connector config still contains plaintext token: %s", row.Config)
 		}
 
@@ -50,15 +50,15 @@ func TestConnectorSecretBootstrapMigratesLegacyPlaintext(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DecodeOktaConfig() error = %v", err)
 		}
-		if cfg.Token != "legacy-okta-token" {
-			t.Fatalf("resolved token = %q, want %q", cfg.Token, "legacy-okta-token")
+		if cfg.Token != "inline-okta-token" {
+			t.Fatalf("resolved token = %q, want %q", cfg.Token, "inline-okta-token")
 		}
 	})
 }
 
-func TestConnectorSecretBootstrapFailsWithoutKeyForLegacySecrets(t *testing.T) {
+func TestConnectorSecretBootstrapFailsWithoutKeyForInlineSecrets(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, _ *Handlers) {
-		raw := []byte(`{"domain":"acme.okta.com","token":"legacy-okta-token"}`)
+		raw := []byte(`{"domain":"acme.okta.com","token":"inline-okta-token"}`)
 		if _, err := q.UpdateConnectorConfig(ctx, gen.UpdateConnectorConfigParams{
 			Kind:   configstore.KindOkta,
 			Config: raw,

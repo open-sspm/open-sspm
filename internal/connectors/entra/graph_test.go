@@ -327,8 +327,7 @@ func TestLookupUsersByIDsUsesGetByIDsAndIgnoresNonUsers(t *testing.T) {
 		Types []string `json:"types"`
 	}
 
-	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assertTestBearer(t, r)
 
 		switch {
@@ -382,8 +381,7 @@ func TestLookupUsersByIDsChunksLargeRequests(t *testing.T) {
 	var lookupRequests int
 	chunkSizes := make([]int, 0, 2)
 
-	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assertTestBearer(t, r)
 
 		switch {
@@ -679,8 +677,7 @@ func TestListDirectoryAudits(t *testing.T) {
 	var sawOrder bool
 	var sawTop bool
 
-	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assertTestBearer(t, r)
 
 		switch {

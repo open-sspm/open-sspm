@@ -171,3 +171,56 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 - name: OKTA_PUSH_INGEST_DEAD_LETTER_RETENTION_DAYS
   value: {{ .Values.config.oktaPushIngest.deadLetterRetentionDays | quote }}
 {{- end -}}
+
+{{- define "open-sspm.tailSyncEnv" -}}
+- name: SYNC_TAIL_INTERVAL
+  value: {{ .Values.config.syncTailInterval | quote }}
+{{- end -}}
+
+{{- define "open-sspm.riskpolicyEventWorkerEnv" -}}
+- name: RISKPOLICY_EVENT_WORKER_POLL_INTERVAL
+  value: {{ .Values.config.riskpolicyEventWorker.pollInterval | quote }}
+- name: RISKPOLICY_EVENT_WORKER_BATCH_SIZE
+  value: {{ .Values.config.riskpolicyEventWorker.batchSize | quote }}
+- name: RISKPOLICY_EVENT_WORKER_MAX_ATTEMPTS
+  value: {{ .Values.config.riskpolicyEventWorker.maxAttempts | quote }}
+{{- end -}}
+
+{{- define "open-sspm.eventPartitionEnv" -}}
+- name: EVENT_PARTITION_MAINTENANCE_INTERVAL
+  value: {{ .Values.config.eventPartitionMaintenanceInterval | quote }}
+- name: EVENT_PARTITION_FUTURE_DAYS
+  value: {{ .Values.config.eventPartitionFutureDays | quote }}
+- name: EVENT_RETENTION_DAYS
+  value: {{ .Values.config.eventRetentionDays | quote }}
+{{- end -}}
+
+{{- define "open-sspm.workerProbes" -}}
+{{- $metricsAddr := lower (toString .Values.config.metricsAddr) -}}
+{{- if and $metricsAddr (not (or (eq $metricsAddr "off") (eq $metricsAddr "disabled") (eq $metricsAddr "false"))) }}
+livenessProbe:
+  exec:
+    command:
+      - wget
+      - --no-verbose
+      - --tries=1
+      - --spider
+      - http://127.0.0.1:{{ .Values.metrics.port }}/healthz
+  initialDelaySeconds: 20
+  periodSeconds: 30
+  timeoutSeconds: 3
+  failureThreshold: 3
+readinessProbe:
+  exec:
+    command:
+      - wget
+      - --no-verbose
+      - --tries=1
+      - --spider
+      - http://127.0.0.1:{{ .Values.metrics.port }}/healthz
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+{{- end }}
+{{- end -}}

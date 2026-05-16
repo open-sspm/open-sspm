@@ -5,6 +5,8 @@
 package gen
 
 import (
+	"net/netip"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -140,6 +142,26 @@ type ConnectorConfig struct {
 	Config    []byte             `json:"config"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ConnectorCursorState struct {
+	SourceKind          string             `json:"source_kind"`
+	SourceID            pgtype.Int8        `json:"source_id"`
+	SourceName          string             `json:"source_name"`
+	Resource            string             `json:"resource"`
+	CursorKind          string             `json:"cursor_kind"`
+	CursorJson          []byte             `json:"cursor_json"`
+	Watermark           pgtype.Timestamptz `json:"watermark"`
+	CursorExpiresAt     pgtype.Timestamptz `json:"cursor_expires_at"`
+	LastSuccessAt       pgtype.Timestamptz `json:"last_success_at"`
+	LastAttemptAt       pgtype.Timestamptz `json:"last_attempt_at"`
+	LastErrorAt         pgtype.Timestamptz `json:"last_error_at"`
+	LastError           string             `json:"last_error"`
+	LastRunID           pgtype.Int8        `json:"last_run_id"`
+	LastProviderEventID string             `json:"last_provider_event_id"`
+	NeedsFullResync     bool               `json:"needs_full_resync"`
+	Version             int64              `json:"version"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type ConnectorDeltaState struct {
@@ -294,6 +316,193 @@ type Entitlement struct {
 	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Event struct {
+	ID               pgtype.UUID        `json:"id"`
+	ReceivedAt       pgtype.Timestamptz `json:"received_at"`
+	OccurredAt       pgtype.Timestamptz `json:"occurred_at"`
+	ObservedAt       pgtype.Timestamptz `json:"observed_at"`
+	NormalizedAt     pgtype.Timestamptz `json:"normalized_at"`
+	IngestID         pgtype.Int8        `json:"ingest_id"`
+	SourceKind       string             `json:"source_kind"`
+	SourceID         pgtype.Int8        `json:"source_id"`
+	SourceName       string             `json:"source_name"`
+	Channel          string             `json:"channel"`
+	ProviderEventID  string             `json:"provider_event_id"`
+	DedupeKey        string             `json:"dedupe_key"`
+	DedupeHash       []byte             `json:"dedupe_hash"`
+	EventType        string             `json:"event_type"`
+	Category         string             `json:"category"`
+	Action           string             `json:"action"`
+	Severity         int16              `json:"severity"`
+	ActorKind        string             `json:"actor_kind"`
+	ActorID          string             `json:"actor_id"`
+	ActorEmail       string             `json:"actor_email"`
+	ActorDisplayName string             `json:"actor_display_name"`
+	TargetKind       string             `json:"target_kind"`
+	TargetID         string             `json:"target_id"`
+	TargetName       string             `json:"target_name"`
+	TargetRef        []byte             `json:"target_ref"`
+	Outcome          string             `json:"outcome"`
+	Ip               *netip.Addr        `json:"ip"`
+	UserAgent        string             `json:"user_agent"`
+	IdentityID       pgtype.Int8        `json:"identity_id"`
+	SaasAppID        pgtype.Int8        `json:"saas_app_id"`
+	Envelope         []byte             `json:"envelope"`
+	Raw              []byte             `json:"raw"`
+	TraceID          string             `json:"trace_id"`
+}
+
+type EventDedupeKey struct {
+	SourceKind      string             `json:"source_kind"`
+	SourceID        pgtype.Int8        `json:"source_id"`
+	SourceName      string             `json:"source_name"`
+	DedupeHash      []byte             `json:"dedupe_hash"`
+	DedupeKey       string             `json:"dedupe_key"`
+	EventReceivedAt pgtype.Timestamptz `json:"event_received_at"`
+	EventID         pgtype.UUID        `json:"event_id"`
+	FirstSeenAt     pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt      pgtype.Timestamptz `json:"last_seen_at"`
+	DuplicateCount  int64              `json:"duplicate_count"`
+}
+
+type EventInbox struct {
+	ID                  int64              `json:"id"`
+	SourceKind          string             `json:"source_kind"`
+	SourceID            pgtype.Int8        `json:"source_id"`
+	SourceName          string             `json:"source_name"`
+	Channel             string             `json:"channel"`
+	ExternalEventID     string             `json:"external_event_id"`
+	DedupeKey           string             `json:"dedupe_key"`
+	DedupeHash          []byte             `json:"dedupe_hash"`
+	PayloadHash         []byte             `json:"payload_hash"`
+	Status              interface{}        `json:"status"`
+	ReceivedAt          pgtype.Timestamptz `json:"received_at"`
+	AvailableAt         pgtype.Timestamptz `json:"available_at"`
+	ProcessingStartedAt pgtype.Timestamptz `json:"processing_started_at"`
+	ProcessedAt         pgtype.Timestamptz `json:"processed_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	AttemptCount        int32              `json:"attempt_count"`
+	MaxAttempts         int32              `json:"max_attempts"`
+	LeaseOwner          pgtype.Text        `json:"lease_owner"`
+	LeaseUntil          pgtype.Timestamptz `json:"lease_until"`
+	Headers             []byte             `json:"headers"`
+	Query               []byte             `json:"query"`
+	RawBody             []byte             `json:"raw_body"`
+	DecodedSummary      []byte             `json:"decoded_summary"`
+	IgnoreReason        string             `json:"ignore_reason"`
+	LastError           string             `json:"last_error"`
+	TraceID             string             `json:"trace_id"`
+}
+
+type EventProjectionCheckpoint struct {
+	ProjectionName      string             `json:"projection_name"`
+	SourceKind          string             `json:"source_kind"`
+	SourceName          string             `json:"source_name"`
+	LastEventReceivedAt pgtype.Timestamptz `json:"last_event_received_at"`
+	LastEventID         pgtype.UUID        `json:"last_event_id"`
+	LastProjectedAt     pgtype.Timestamptz `json:"last_projected_at"`
+	Stats               []byte             `json:"stats"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type EventProjectionDiffRun struct {
+	ID                       int64              `json:"id"`
+	ProjectionName           string             `json:"projection_name"`
+	SourceKind               string             `json:"source_kind"`
+	SourceName               string             `json:"source_name"`
+	WindowStart              pgtype.Timestamptz `json:"window_start"`
+	WindowEnd                pgtype.Timestamptz `json:"window_end"`
+	BaselineCount            int64              `json:"baseline_count"`
+	ProjectedCount           int64              `json:"projected_count"`
+	MatchingCount            int64              `json:"matching_count"`
+	MissingInProjectionCount int64              `json:"missing_in_projection_count"`
+	MissingInBaselineCount   int64              `json:"missing_in_baseline_count"`
+	Sample                   []byte             `json:"sample"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+}
+
+type EventProjectionShadowDiscoveryEvent struct {
+	ProjectionName   string             `json:"projection_name"`
+	SourceKind       string             `json:"source_kind"`
+	SourceName       string             `json:"source_name"`
+	SignalKind       string             `json:"signal_kind"`
+	EventExternalID  string             `json:"event_external_id"`
+	SourceAppID      string             `json:"source_app_id"`
+	SourceAppName    string             `json:"source_app_name"`
+	SourceAppDomain  string             `json:"source_app_domain"`
+	ActorExternalID  string             `json:"actor_external_id"`
+	ActorEmail       string             `json:"actor_email"`
+	ActorDisplayName string             `json:"actor_display_name"`
+	ObservedAt       pgtype.Timestamptz `json:"observed_at"`
+	EventReceivedAt  pgtype.Timestamptz `json:"event_received_at"`
+	EventID          pgtype.UUID        `json:"event_id"`
+	ProjectedAt      pgtype.Timestamptz `json:"projected_at"`
+}
+
+type EventTarget struct {
+	EventReceivedAt pgtype.Timestamptz `json:"event_received_at"`
+	EventID         pgtype.UUID        `json:"event_id"`
+	Ordinal         int32              `json:"ordinal"`
+	Role            string             `json:"role"`
+	TargetKind      string             `json:"target_kind"`
+	TargetID        string             `json:"target_id"`
+	TargetName      string             `json:"target_name"`
+	TargetEmail     string             `json:"target_email"`
+	IdentityID      pgtype.Int8        `json:"identity_id"`
+	SaasAppID       pgtype.Int8        `json:"saas_app_id"`
+	Envelope        []byte             `json:"envelope"`
+}
+
+type EventTargetsDefault struct {
+	EventReceivedAt pgtype.Timestamptz `json:"event_received_at"`
+	EventID         pgtype.UUID        `json:"event_id"`
+	Ordinal         int32              `json:"ordinal"`
+	Role            string             `json:"role"`
+	TargetKind      string             `json:"target_kind"`
+	TargetID        string             `json:"target_id"`
+	TargetName      string             `json:"target_name"`
+	TargetEmail     string             `json:"target_email"`
+	IdentityID      pgtype.Int8        `json:"identity_id"`
+	SaasAppID       pgtype.Int8        `json:"saas_app_id"`
+	Envelope        []byte             `json:"envelope"`
+}
+
+type EventsDefault struct {
+	ID               pgtype.UUID        `json:"id"`
+	ReceivedAt       pgtype.Timestamptz `json:"received_at"`
+	OccurredAt       pgtype.Timestamptz `json:"occurred_at"`
+	ObservedAt       pgtype.Timestamptz `json:"observed_at"`
+	NormalizedAt     pgtype.Timestamptz `json:"normalized_at"`
+	IngestID         pgtype.Int8        `json:"ingest_id"`
+	SourceKind       string             `json:"source_kind"`
+	SourceID         pgtype.Int8        `json:"source_id"`
+	SourceName       string             `json:"source_name"`
+	Channel          string             `json:"channel"`
+	ProviderEventID  string             `json:"provider_event_id"`
+	DedupeKey        string             `json:"dedupe_key"`
+	DedupeHash       []byte             `json:"dedupe_hash"`
+	EventType        string             `json:"event_type"`
+	Category         string             `json:"category"`
+	Action           string             `json:"action"`
+	Severity         int16              `json:"severity"`
+	ActorKind        string             `json:"actor_kind"`
+	ActorID          string             `json:"actor_id"`
+	ActorEmail       string             `json:"actor_email"`
+	ActorDisplayName string             `json:"actor_display_name"`
+	TargetKind       string             `json:"target_kind"`
+	TargetID         string             `json:"target_id"`
+	TargetName       string             `json:"target_name"`
+	TargetRef        []byte             `json:"target_ref"`
+	Outcome          string             `json:"outcome"`
+	Ip               *netip.Addr        `json:"ip"`
+	UserAgent        string             `json:"user_agent"`
+	IdentityID       pgtype.Int8        `json:"identity_id"`
+	SaasAppID        pgtype.Int8        `json:"saas_app_id"`
+	Envelope         []byte             `json:"envelope"`
+	Raw              []byte             `json:"raw"`
+	TraceID          string             `json:"trace_id"`
 }
 
 type GovernanceSubjectOverride struct {
@@ -574,6 +783,59 @@ type OktaUserGroup struct {
 	OktaUserAccountID int64              `json:"okta_user_account_id"`
 }
 
+type RiskpolicyEventQueue struct {
+	ID              int64              `json:"id"`
+	EventReceivedAt pgtype.Timestamptz `json:"event_received_at"`
+	EventID         pgtype.UUID        `json:"event_id"`
+	Status          string             `json:"status"`
+	Attempts        int32              `json:"attempts"`
+	AvailableAt     pgtype.Timestamptz `json:"available_at"`
+	ClaimedBy       pgtype.Text        `json:"claimed_by"`
+	ClaimedAt       pgtype.Timestamptz `json:"claimed_at"`
+	LeaseUntil      pgtype.Timestamptz `json:"lease_until"`
+	LastError       string             `json:"last_error"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RiskpolicyEventShadowSignal struct {
+	EventReceivedAt   pgtype.Timestamptz `json:"event_received_at"`
+	EventID           pgtype.UUID        `json:"event_id"`
+	SignalID          string             `json:"signal_id"`
+	PolicyPackID      string             `json:"policy_pack_id"`
+	PolicyPackVersion string             `json:"policy_pack_version"`
+	Severity          string             `json:"severity"`
+	Title             string             `json:"title"`
+	Evidence          string             `json:"evidence"`
+	Output            []byte             `json:"output"`
+	EvaluatedAt       pgtype.Timestamptz `json:"evaluated_at"`
+}
+
+type RiskpolicyFinding struct {
+	FindingKey        string             `json:"finding_key"`
+	Source            string             `json:"source"`
+	Shadow            bool               `json:"shadow"`
+	Status            string             `json:"status"`
+	SourceKind        string             `json:"source_kind"`
+	SourceName        string             `json:"source_name"`
+	EntityKind        string             `json:"entity_kind"`
+	EntityID          string             `json:"entity_id"`
+	EntityName        string             `json:"entity_name"`
+	EventReceivedAt   pgtype.Timestamptz `json:"event_received_at"`
+	EventID           pgtype.UUID        `json:"event_id"`
+	SignalID          string             `json:"signal_id"`
+	PolicyPackID      string             `json:"policy_pack_id"`
+	PolicyPackVersion string             `json:"policy_pack_version"`
+	Severity          string             `json:"severity"`
+	Title             string             `json:"title"`
+	Evidence          string             `json:"evidence"`
+	Output            []byte             `json:"output"`
+	FirstSeenAt       pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt        pgtype.Timestamptz `json:"last_seen_at"`
+	ResolvedAt        pgtype.Timestamptz `json:"resolved_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Rule struct {
 	ID               int64              `json:"id"`
 	RulesetID        int64              `json:"ruleset_id"`
@@ -804,6 +1066,10 @@ type SyncJob struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	AvailableAt    pgtype.Timestamptz `json:"available_at"`
 	RerunRequested bool               `json:"rerun_requested"`
+	Resource       pgtype.Text        `json:"resource"`
+	Payload        []byte             `json:"payload"`
+	Priority       int32              `json:"priority"`
+	CreatedReason  string             `json:"created_reason"`
 }
 
 type SyncLock struct {
