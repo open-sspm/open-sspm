@@ -177,7 +177,11 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 			DeadLetterRetentionDays: defaultOktaPushIngestDeadLetterRetentionDays,
 		},
 	}
-	cfg.OktaPushIngestEnabled, cfg.OktaPushIngestEnabledSet = getenvBoolDefaultWithLookup("OKTA_PUSH_INGEST_ENABLED", cfg.SyncDiscoveryEnabled)
+	var err error
+	cfg.OktaPushIngestEnabled, cfg.OktaPushIngestEnabledSet, err = getenvBoolDefaultWithLookupStrict("OKTA_PUSH_INGEST_ENABLED", cfg.SyncDiscoveryEnabled)
+	if err != nil {
+		return cfg, err
+	}
 	smtpConfig, err := loadSMTPConfig()
 	if err != nil {
 		return cfg, err
@@ -470,6 +474,21 @@ func getenvBoolDefaultWithLookup(key string, def bool) (bool, bool) {
 		return false, true
 	default:
 		return def, true
+	}
+}
+
+func getenvBoolDefaultWithLookupStrict(key string, def bool) (bool, bool, error) {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return def, false, nil
+	}
+	switch v {
+	case "1":
+		return true, true, nil
+	case "0":
+		return false, true, nil
+	default:
+		return def, true, fmt.Errorf("%s must be 0 or 1", key)
 	}
 }
 

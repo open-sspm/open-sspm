@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestWorkerHostRunCriticalGoroutineFailureIsObservable(t *testing.T) {
@@ -66,5 +67,39 @@ func TestWorkerHostRunCleanupRunsInReverseOrder(t *testing.T) {
 	}
 	if got, want := order, []string{"second", "first"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
 		t.Fatalf("cleanup order = %v, want %v", got, want)
+	}
+}
+
+func TestWorkerHostRunCleanupUsesFreshTimeoutPerHandler(t *testing.T) {
+	t.Parallel()
+
+	runCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	run := newWorkerHostRun(runCtx, cancel, "test-lane")
+	var firstDeadline, secondDeadline time.Time
+
+	run.OnShutdown("first", func(ctx context.Context) error {
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			t.Fatal("first cleanup context has no deadline")
+		}
+		firstDeadline = deadline
+		return nil
+	})
+	run.OnShutdown("second", func(ctx context.Context) error {
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			t.Fatal("second cleanup context has no deadline")
+		}
+		secondDeadline = deadline
+		time.Sleep(20 * time.Millisecond)
+		return nil
+	})
+
+	if err := run.Cleanup(); err != nil {
+		t.Fatalf("Cleanup() err = %v", err)
+	}
+	if !firstDeadline.After(secondDeadline) {
+		t.Fatalf("first cleanup deadline = %v, want after second cleanup deadline %v", firstDeadline, secondDeadline)
 	}
 }

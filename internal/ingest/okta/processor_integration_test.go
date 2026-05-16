@@ -58,6 +58,26 @@ func TestProcessQueuedWritesDiscoveryRows(t *testing.T) {
 	})
 }
 
+func TestProcessQueuedObservesLoopTickOnEmptyQueue(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		ticks := 0
+		result, err := ProcessQueuedWithConfig(ctx, q, pool, 100, Config{
+			OnLoopTick: func() {
+				ticks++
+			},
+		})
+		if err != nil {
+			t.Fatalf("ProcessQueuedWithConfig(): %v", err)
+		}
+		if result.Claimed != 0 {
+			t.Fatalf("claimed = %d, want 0", result.Claimed)
+		}
+		if ticks != 1 {
+			t.Fatalf("loop ticks = %d, want 1", ticks)
+		}
+	})
+}
+
 func TestProcessQueuedIDsClaimsOnlyRedisQueuedRows(t *testing.T) {
 	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
 		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-sso-redis", `{
@@ -823,6 +843,69 @@ func TestOktaPushInboxHeartbeatRenewsActiveLease(t *testing.T) {
 			case <-timeout.C:
 				t.Fatalf("lease_expires_at = %s, want after %s", leaseExpiresAt, initialLeaseExpiresAt.Add(2*heartbeatInterval))
 			}
+		}
+	})
+}
+
+func TestOktaPushInboxHeartbeatStopCancelsInFlightRenewal(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		queueOktaPushEvent(t, ctx, q, "acme.okta.com", "evt-heartbeat-stop-cancel", `{
+			"uuid": "evt-heartbeat-stop-cancel",
+			"eventType": "user.authentication.sso",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"},
+			"target": [{"id": "0oa1", "type": "AppInstance", "alternateId": "https://app.example.com", "displayName": "Example App"}]
+		}`)
+		rows, err := q.ClaimQueuedOktaPushInboxEvents(ctx, gen.ClaimQueuedOktaPushInboxEventsParams{
+			ClaimedBy:    "heartbeat-owner",
+			ClaimToken:   "heartbeat-token",
+			LeaseSeconds: 5,
+			LimitRows:    10,
+		})
+		if err != nil {
+			t.Fatalf("initial claim: %v", err)
+		}
+		claim, err := newProcessingClaim(q, rows, Config{LeaseTTL: 5 * time.Second})
+		if err != nil {
+			t.Fatalf("newProcessingClaim(): %v", err)
+		}
+
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			t.Fatalf("begin lock transaction: %v", err)
+		}
+		defer func() {
+			_ = tx.Rollback(context.Background())
+		}()
+		if _, err := tx.Exec(ctx, `
+			SELECT id
+			FROM okta_push_inbox
+			WHERE event_external_id = $1
+			FOR UPDATE
+		`, "evt-heartbeat-stop-cancel"); err != nil {
+			t.Fatalf("lock inbox row: %v", err)
+		}
+
+		lostCh := make(chan error, 1)
+		heartbeatInterval := 750 * time.Millisecond
+		stopHeartbeat := startProcessingLeaseHeartbeat(ctx, claim, Config{
+			LeaseTTL:          5 * time.Second,
+			HeartbeatInterval: heartbeatInterval,
+		}.normalized(), func(err error) {
+			lostCh <- err
+		})
+
+		time.Sleep(heartbeatInterval + 100*time.Millisecond)
+		startedStopping := time.Now()
+		stopHeartbeat()
+		if elapsed := time.Since(startedStopping); elapsed > 300*time.Millisecond {
+			t.Fatalf("stopHeartbeat() took %s, want under 300ms", elapsed)
+		}
+
+		select {
+		case err := <-lostCh:
+			t.Fatalf("heartbeat reported canceled renewal as lease loss: %v", err)
+		default:
 		}
 	})
 }

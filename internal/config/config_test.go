@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -158,6 +159,19 @@ func TestLoadWithOptions_OktaPushIngestFlagCanOverrideDiscoveryFlag(t *testing.T
 	}
 	if !cfg.OktaPushIngestEnabledSet {
 		t.Fatalf("OktaPushIngestEnabledSet = false, want true")
+	}
+}
+
+func TestLoadWithOptions_RejectsInvalidOktaPushIngestEnabledFlag(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("OKTA_PUSH_INGEST_ENABLED", "true")
+
+	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
+	if err == nil {
+		t.Fatal("expected invalid OKTA_PUSH_INGEST_ENABLED error")
+	}
+	if !strings.Contains(err.Error(), "OKTA_PUSH_INGEST_ENABLED must be 0 or 1") {
+		t.Fatalf("error = %v, want OKTA_PUSH_INGEST_ENABLED guidance", err)
 	}
 }
 

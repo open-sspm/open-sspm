@@ -171,6 +171,7 @@ func ProcessQueuedWithConfig(ctx context.Context, q *gen.Queries, pool *pgxpool.
 	if err != nil {
 		return ProcessResult{}, fmt.Errorf("claim okta push inbox rows: %w", err)
 	}
+	cfg.observeLoopTick()
 	return processClaimedRows(ctx, q, pool, rows, cfg)
 }
 
@@ -193,6 +194,7 @@ func ProcessQueuedIDsWithConfig(ctx context.Context, q *gen.Queries, pool *pgxpo
 	if err != nil {
 		return ProcessResult{}, fmt.Errorf("claim okta push inbox rows by id: %w", err)
 	}
+	cfg.observeLoopTick()
 	return processClaimedRows(ctx, q, pool, rows, cfg)
 }
 
@@ -236,7 +238,6 @@ func processClaimedRows(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool,
 			}
 		}
 	}
-	cfg.observeLoopTick()
 	return result, errors.Join(errs...)
 }
 
@@ -771,9 +772,12 @@ func startProcessingLeaseHeartbeat(ctx context.Context, claim *processingClaim, 
 			case <-ticker.C:
 			}
 
-			renewCtx, renewCancel := context.WithTimeout(context.WithoutCancel(hbCtx), cfg.HeartbeatInterval)
+			renewCtx, renewCancel := context.WithTimeout(hbCtx, cfg.HeartbeatInterval)
 			err := claim.RenewActive(renewCtx)
 			renewCancel()
+			if hbCtx.Err() != nil {
+				return
+			}
 			if err != nil {
 				if onLost != nil {
 					onLost(err)

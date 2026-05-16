@@ -41,8 +41,7 @@ type workerHostRun struct {
 	stop     context.CancelFunc
 	errCh    chan error
 
-	wgMu sync.Mutex
-	wg   sync.WaitGroup
+	wg sync.WaitGroup
 
 	cleanupMu sync.Mutex
 	cleanups  []workerCleanup
@@ -136,9 +135,7 @@ func (r *workerHostRun) Go(component string, critical bool, fn func(context.Cont
 		return
 	}
 	component = stringsTrimDefault(component, "worker")
-	r.wgMu.Lock()
 	r.wg.Add(1)
-	r.wgMu.Unlock()
 	go func() {
 		defer r.wg.Done()
 		err := fn(r.ctx)
@@ -200,14 +197,13 @@ func (r *workerHostRun) Cleanup() error {
 	cleanups := append([]workerCleanup(nil), r.cleanups...)
 	r.cleanupMu.Unlock()
 
-	// Cleanup needs a fresh context so shutdown handlers still get their full
-	// timeout after the worker context has already been canceled.
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), workerShutdownTimeout)
-	defer cancel()
 	var errs []error
 	for i := len(cleanups) - 1; i >= 0; i-- {
 		cleanup := cleanups[i]
-		if err := cleanup.fn(shutdownCtx); err != nil {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), workerShutdownTimeout)
+		err := cleanup.fn(cleanupCtx)
+		cancel()
+		if err != nil {
 			errs = append(errs, fmt.Errorf("%s cleanup: %w", cleanup.name, err))
 		}
 	}

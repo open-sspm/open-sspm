@@ -69,6 +69,9 @@ type consumerStoreStub struct {
 	schedSuccessCalls  []pgtype.UUID
 	schedFailureCalls  []scheduledFailureCall
 
+	renewStarted chan struct{}
+	renewCtxErr  chan error
+
 	manualSuccessOK bool
 	manualFailureOK bool
 	schedSuccessOK  bool
@@ -103,7 +106,18 @@ func (s *consumerStoreStub) ClaimNextSyncJobByLane(_ context.Context, lane, _ st
 	return next.job, next.ok, next.err
 }
 
-func (s *consumerStoreStub) RenewSyncJobLease(context.Context, pgtype.UUID, string, int64) (bool, error) {
+func (s *consumerStoreStub) RenewSyncJobLease(ctx context.Context, _ pgtype.UUID, _ string, _ int64) (bool, error) {
+	if s.renewStarted != nil {
+		select {
+		case s.renewStarted <- struct{}{}:
+		default:
+		}
+	}
+	if s.renewCtxErr != nil {
+		<-ctx.Done()
+		s.renewCtxErr <- ctx.Err()
+		return false, ctx.Err()
+	}
 	return true, nil
 }
 
@@ -392,6 +406,52 @@ func TestSyncJobConsumer_ProcessJobLeavesCanceledJobRecoverable(t *testing.T) {
 	}
 	if len(store.manualFailureCalls) != 0 {
 		t.Fatalf("manual failure calls = %#v, want none", store.manualFailureCalls)
+	}
+}
+
+func TestSyncJobConsumer_HeartbeatRenewalCancelsWithParent(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	store := &consumerStoreStub{
+		renewStarted: make(chan struct{}, 1),
+		renewCtxErr:  make(chan error, 1),
+	}
+	consumer := NewSyncJobConsumer(store, noopLockManager{}, &capturingRunner{}, SyncJobConsumerConfig{
+		Mode:              registry.RunModeFull,
+		HeartbeatInterval: 10 * time.Millisecond,
+		LeaseTTL:          time.Minute,
+		ClaimedBy:         "claimant",
+	})
+	lostCh := make(chan error, 1)
+	stopHeartbeat := consumer.startHeartbeat(ctx, syncJobRecord{ID: pgUUID(uuid.New())}, func(err error) {
+		lostCh <- err
+	})
+	defer stopHeartbeat()
+
+	select {
+	case <-store.renewStarted:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for heartbeat renewal")
+	}
+
+	cancel()
+
+	select {
+	case err := <-store.renewCtxErr:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("renewal context error = %v, want context.Canceled", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for renewal context cancellation")
+	}
+
+	select {
+	case err := <-lostCh:
+		t.Fatalf("heartbeat reported canceled renewal as lease loss: %v", err)
+	case <-time.After(50 * time.Millisecond):
 	}
 }
 

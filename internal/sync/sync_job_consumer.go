@@ -310,9 +310,12 @@ func (c *SyncJobConsumer) startHeartbeat(ctx context.Context, job syncJobRecord,
 			case <-ticker.C:
 			}
 
-			renewCtx, renewCancel := context.WithTimeout(context.WithoutCancel(hbCtx), c.heartbeatEvery)
+			renewCtx, renewCancel := context.WithTimeout(hbCtx, c.heartbeatEvery)
 			ok, err := c.store.RenewSyncJobLease(renewCtx, job.ID, c.claimedBy, c.leaseSeconds)
 			renewCancel()
+			if hbCtx.Err() != nil {
+				return
+			}
 			if err != nil {
 				onLost(err)
 				stop()
