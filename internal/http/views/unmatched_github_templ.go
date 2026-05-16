@@ -63,7 +63,7 @@ func UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) templ.Componen
 					var templ_7745c5c3_Var4 string
 					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.Layout.GitHubOrg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_github.templ`, Line: 9, Col: 55}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_github.templ`, Line: 9, Col: 55}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 					if templ_7745c5c3_Err != nil {
@@ -136,7 +136,7 @@ func UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) templ.Componen
 					var templ_7745c5c3_Var7 string
 					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(data.EmptyStateMsg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_github.templ`, Line: 25, Col: 25}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_github.templ`, Line: 25, Col: 25}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 					if templ_7745c5c3_Err != nil {
@@ -149,7 +149,7 @@ func UnmatchedGitHubPage(data viewmodels.UnmatchedGitHubViewData) templ.Componen
 					var templ_7745c5c3_Var8 templ.SafeURL
 					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(data.EmptyStateHref)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_github.templ`, Line: 25, Col: 82}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_github.templ`, Line: 25, Col: 82}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 					if templ_7745c5c3_Err != nil {
@@ -220,7 +220,7 @@ func UnmatchedGitHubPageFilters(data viewmodels.UnmatchedGitHubViewData) templ.C
 		var templ_7745c5c3_Var10 templ.SafeURL
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinURLErrs("/accounts/unlinked/github/" + data.Layout.GitHubOrg)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_github.templ`, Line: 38, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_github.templ`, Line: 38, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -233,7 +233,7 @@ func UnmatchedGitHubPageFilters(data viewmodels.UnmatchedGitHubViewData) templ.C
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue("/accounts/unlinked/github/" + data.Layout.GitHubOrg)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_github.templ`, Line: 40, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_github.templ`, Line: 40, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 		if templ_7745c5c3_Err != nil {
@@ -317,7 +317,7 @@ func UnmatchedGitHubPageResults(data viewmodels.UnmatchedGitHubViewData) templ.C
 					var templ_7745c5c3_Var14 string
 					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(u.ExternalID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_github.templ`, Line: 76, Col: 47}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_github.templ`, Line: 76, Col: 47}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 					if templ_7745c5c3_Err != nil {
@@ -331,7 +331,7 @@ func UnmatchedGitHubPageResults(data viewmodels.UnmatchedGitHubViewData) templ.C
 						var templ_7745c5c3_Var15 string
 						templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(u.Email)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_github.templ`, Line: 79, Col: 20}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_github.templ`, Line: 79, Col: 20}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 						if templ_7745c5c3_Err != nil {
@@ -350,7 +350,7 @@ func UnmatchedGitHubPageResults(data viewmodels.UnmatchedGitHubViewData) templ.C
 					var templ_7745c5c3_Var16 string
 					templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(u.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_github.templ`, Line: 84, Col: 58}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_github.templ`, Line: 84, Col: 58}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 					if templ_7745c5c3_Err != nil {
@@ -376,7 +376,7 @@ func UnmatchedGitHubPageResults(data viewmodels.UnmatchedGitHubViewData) templ.C
 						var templ_7745c5c3_Var17 string
 						templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(FormatInt64(u.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `unmatched_github.templ`, Line: 89, Col: 76}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_github.templ`, Line: 89, Col: 76}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 						if templ_7745c5c3_Err != nil {

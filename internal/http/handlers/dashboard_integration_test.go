@@ -49,7 +49,6 @@ func TestHandleDashboardUsesGenericInventoryMetrics(t *testing.T) {
 		})
 		githubIdentityID := insertCommandSearchIdentity(t, ctx, pool, "human", "bob@example.com", "Bob GitHub")
 		insertCommandSearchIdentityAccountLink(t, ctx, pool, githubIdentityID, githubAccountID)
-		insertDashboardEntitlement(t, ctx, pool, githubRunID, githubAccountID, "github_team_repo_permission", "github_repo:acme/platform", "admin", `{"repo":"acme/platform"}`)
 
 		insertCommandSearchDiscoveryApp(t, ctx, pool, q, entraRunID, configstore.KindEntra, "tenant-1", "azure-cloud", "Azure Cloud", "azure.com", "Microsoft", "azure-cloud")
 
@@ -70,11 +69,6 @@ func TestHandleDashboardUsesGenericInventoryMetrics(t *testing.T) {
 		assertDashboardMetric(t, body, "Identities", 2)
 		assertDashboardMetric(t, body, "Discovered SaaS apps", 1)
 		assertDashboardMetric(t, body, "App assets", 2)
-		assertDashboardText(t, body, "Relationship map")
-		assertDashboardTextOrder(t, body, `aria-label="Key metrics"`, "Relationship map")
-		assertDashboardText(t, body, "Okta")
-		assertDashboardText(t, body, "GitHub")
-		assertDashboardText(t, body, "Admin repositories")
 	})
 }
 
@@ -107,7 +101,7 @@ func TestHandleDashboardCountsAppAssetsFromDisabledConfiguredConnector(t *testin
 	})
 }
 
-func TestHandleDashboardRelationshipMapExcludesDisabledIdentitySources(t *testing.T) {
+func TestHandleDashboardExcludesDisabledIdentitySourcesFromIdentityMetric(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindOkta, true, configstore.OktaConfig{Domain: "acme.okta.com"})
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, false, configstore.GitHubConfig{Org: "disabled-github-org"})
@@ -145,10 +139,6 @@ func TestHandleDashboardRelationshipMapExcludesDisabledIdentitySources(t *testin
 
 		body := renderDashboard(t, h, "http://example.com/")
 		assertDashboardMetric(t, body, "Identities", 1)
-		assertDashboardText(t, body, "Okta")
-		if strings.Contains(body, "disabled-github-org") {
-			t.Fatalf("dashboard relationship map included disabled GitHub source: %s", body)
-		}
 	})
 }
 
@@ -189,30 +179,6 @@ func assertDashboardMetric(t *testing.T, body, label string, count int64) {
 	}
 	if !strings.Contains(body, countStr) {
 		t.Fatalf("dashboard missing metric count %q for label %q: %s", countStr, label, body)
-	}
-}
-
-func assertDashboardText(t *testing.T, body, text string) {
-	t.Helper()
-
-	if !strings.Contains(body, text) {
-		t.Fatalf("dashboard missing %q: %s", text, body)
-	}
-}
-
-func assertDashboardTextOrder(t *testing.T, body, before, after string) {
-	t.Helper()
-
-	beforeIndex := strings.Index(body, before)
-	if beforeIndex < 0 {
-		t.Fatalf("dashboard missing %q: %s", before, body)
-	}
-	afterIndex := strings.Index(body, after)
-	if afterIndex < 0 {
-		t.Fatalf("dashboard missing %q: %s", after, body)
-	}
-	if beforeIndex > afterIndex {
-		t.Fatalf("dashboard rendered %q after %q: %s", before, after, body)
 	}
 }
 

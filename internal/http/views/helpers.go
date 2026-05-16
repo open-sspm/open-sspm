@@ -1,7 +1,6 @@
 package views
 
 import (
-	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -210,62 +209,6 @@ func FormatInt(v int) string {
 
 func FormatInt64(v int64) string {
 	return strconv.FormatInt(v, 10)
-}
-
-func OverviewMapNodeStyle(x, y int) string {
-	x = viewmodels.ClampOverviewMapPercent(x)
-	y = viewmodels.ClampOverviewMapPercent(y)
-	return fmt.Sprintf("left: %d%%; top: %d%%;", x, y)
-}
-
-func OverviewMapEdgePath(fromX, fromY, toX, toY int) string {
-	fromX = viewmodels.ClampOverviewMapPercent(fromX)
-	fromY = viewmodels.ClampOverviewMapPercent(fromY)
-	toX = viewmodels.ClampOverviewMapPercent(toX)
-	toY = viewmodels.ClampOverviewMapPercent(toY)
-	controlX := (fromX + toX) / 2
-	return fmt.Sprintf("M %d %d C %d %d, %d %d, %d %d", fromX, fromY, controlX, fromY, controlX, toY, toX, toY)
-}
-
-var overviewMapToneClasses = map[string]string{
-	viewmodels.OverviewMapToneOkta:    "overview-map-source-okta",
-	viewmodels.OverviewMapToneEntra:   "overview-map-source-entra",
-	viewmodels.OverviewMapToneGoogle:  "overview-map-source-google",
-	viewmodels.OverviewMapToneGitHub:  "overview-map-source-github",
-	viewmodels.OverviewMapToneDatadog: "overview-map-source-datadog",
-	viewmodels.OverviewMapToneAWS:     "overview-map-source-aws",
-	viewmodels.OverviewMapToneVault:   "overview-map-source-vault",
-}
-
-func OverviewMapSourceClass(tone string) string {
-	const baseClass = "overview-map-node overview-map-source"
-
-	tone = strings.ToLower(strings.TrimSpace(tone))
-	if tone == "" || tone == viewmodels.OverviewMapToneDefault {
-		return baseClass
-	}
-	if toneClass, ok := overviewMapToneClasses[tone]; ok {
-		return baseClass + " " + toneClass
-	}
-	return baseClass + " overview-map-source-unknown"
-}
-
-var overviewMapSeverityClasses = map[string]string{
-	viewmodels.OverviewMapSeverityCritical: "overview-risk-bucket-critical",
-	viewmodels.OverviewMapSeverityHigh:     "overview-risk-bucket-high",
-	viewmodels.OverviewMapSeverityMedium:   "overview-risk-bucket-medium",
-	viewmodels.OverviewMapSeverityLow:      "overview-risk-bucket-low",
-	viewmodels.OverviewMapSeverityInfo:     "overview-risk-bucket-info",
-}
-
-func OverviewMapSeverityClass(severity string) string {
-	const baseClass = "overview-risk-bucket"
-
-	severity = strings.ToLower(strings.TrimSpace(severity))
-	if severityClass, ok := overviewMapSeverityClasses[severity]; ok {
-		return baseClass + " " + severityClass
-	}
-	return baseClass + " overview-risk-bucket-unknown"
 }
 
 func FilterPillClass(active bool) string {
