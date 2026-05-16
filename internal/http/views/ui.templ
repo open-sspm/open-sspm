@@ -3,16 +3,20 @@ package views
 import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ PageHeader(description string) {
-	<div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-		if description != "" {
+	if description != "" {
+		<div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
 			<div class="space-y-2">
 				<p class="text-muted-foreground">{ description }</p>
 			</div>
-		}
+			<div class="flex flex-wrap items-center justify-start gap-2 md:ml-auto md:justify-end empty:hidden">
+				{ children... }
+			</div>
+		</div>
+	} else {
 		<div class="flex flex-wrap items-center justify-start gap-2 md:ml-auto md:justify-end empty:hidden">
 			{ children... }
 		</div>
-	</div>
+	}
 }
 
 templ Alert(title string, destructive bool) {
