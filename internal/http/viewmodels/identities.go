@@ -64,20 +64,20 @@ type IdentityLinkedAccountView struct {
 }
 
 type IdentityEntitlementView struct {
-	AccountLabel      string
-	AccountHref       string
-	AccountSourceKind string
-	AccountSourceName string
-	Kind              string
-	ResourceKind      string
-	ResourceID        string
-	ResourceLabel     string
-	ResourceHref      string
-	Permission        string
-	IsAdmin           bool
-	LastUsed          TimeDisplay
-	LastUsedUnix      int64
-	Dormant           bool
+	AccountLabel        string
+	AccountHref         string
+	AccountSourceKind   string
+	AccountSourceName   string
+	Kind                string
+	ResourceKind        string
+	ResourceID          string
+	ResourceLabel       string
+	ResourceHref        string
+	Permission          string
+	IsAdmin             bool
+	AccountLastSignIn   TimeDisplay
+	AccountActivityUnix int64
+	Dormant             bool
 }
 
 func (v IdentityEntitlementView) EntitlementGroupFields() identitydomain.EntitlementGroupFields {
@@ -91,7 +91,7 @@ func (v IdentityEntitlementView) EntitlementGroupFields() identitydomain.Entitle
 		ResourceHref:      v.ResourceHref,
 		Permission:        v.Permission,
 		IsAdmin:           v.IsAdmin,
-		LastUsedUnix:      v.LastUsedUnix,
+		LastActivityUnix:  v.AccountActivityUnix,
 		Dormant:           v.Dormant,
 	}
 }

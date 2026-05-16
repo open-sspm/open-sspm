@@ -81,7 +81,7 @@ type EntitlementGroupFields struct {
 	ResourceHref      string
 	Permission        string
 	IsAdmin           bool
-	LastUsedUnix      int64
+	LastActivityUnix  int64
 	Dormant           bool
 }
 
@@ -291,8 +291,8 @@ func entitlementItemLess(left, right EntitlementGroupFields) bool {
 	if left.Dormant != right.Dormant {
 		return left.Dormant
 	}
-	if left.LastUsedUnix != right.LastUsedUnix {
-		return left.LastUsedUnix > right.LastUsedUnix
+	if left.LastActivityUnix != right.LastActivityUnix {
+		return left.LastActivityUnix > right.LastActivityUnix
 	}
 	return strings.ToLower(left.ResourceLabel) < strings.ToLower(right.ResourceLabel)
 }

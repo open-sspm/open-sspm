@@ -422,7 +422,7 @@ templ identityEntitlementsToolbar(data viewmodels.IdentityShowViewData) {
 			</label>
 			<label class="flex items-center gap-2 text-sm">
 				<input class="input" type="checkbox" name="dormant" value="1" checked?={ data.Entitlements.DormantOnly } data-autosubmit/>
-				<span>Dormant only</span>
+				<span>On dormant accounts</span>
 			</label>
 			if len(data.Entitlements.SourceOptions) > 0 {
 				<label class="field">
@@ -519,7 +519,7 @@ templ identityEntitlementRows(data viewmodels.IdentityShowViewData, items []view
 						</div>
 					</div>
 				</div>
-				<span title={ ent.LastUsed.Title } class={ templ.Classes("osspm-entitlement-row-time", templ.KV("text-amber-700 dark:text-amber-400", ent.Dormant), templ.KV("text-muted-foreground/60", !ent.Dormant && (ent.LastUsed.Label == "—" || ent.LastUsed.Label == ""))) }>{ "Last used " }{ ent.LastUsed.Label }</span>
+				<span title={ ent.AccountLastSignIn.Title } class={ templ.Classes("osspm-entitlement-row-time", templ.KV("text-amber-700 dark:text-amber-400", ent.Dormant), templ.KV("text-muted-foreground/60", !ent.Dormant && (ent.AccountLastSignIn.Label == "—" || ent.AccountLastSignIn.Label == ""))) }>{ "Account sign-in " }{ ent.AccountLastSignIn.Label }</span>
 			</li>
 		}
 	</ul>

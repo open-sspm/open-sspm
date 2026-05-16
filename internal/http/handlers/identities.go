@@ -421,8 +421,14 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 	now := time.Now().UTC()
 
 	accountByID := make(map[int64]gen.Account, len(accounts))
+	accountDormantByID := make(map[int64]bool, len(accounts))
+	accountLastSignInByID := make(map[int64]viewmodels.TimeDisplay, len(accounts))
+	accountLastSignInUnixByID := make(map[int64]int64, len(accounts))
 	for _, account := range accounts {
 		accountByID[account.ID] = account
+		accountDormantByID[account.ID] = isDormantAt(now, account.LastLoginAt, 60*24*time.Hour)
+		accountLastSignInByID[account.ID] = relativeWithTitleDisplay(now, account.LastLoginAt, "—", "No account sign-in observed")
+		accountLastSignInUnixByID[account.ID] = timestamptzUnix(account.LastLoginAt)
 	}
 
 	entitlementsByAccountID := make(map[int64]int, len(accounts))
@@ -465,8 +471,8 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		if isActive {
 			activeAccountCount++
 		}
-		lastSignIn := relativeWithTitleDisplay(now, account.LastLoginAt, "—", "No sign-in observed")
-		dormant := isDormantAt(now, account.LastLoginAt, 60*24*time.Hour)
+		lastSignIn := accountLastSignInByID[account.ID]
+		dormant := accountDormantByID[account.ID]
 		if dormant {
 			dormantAccountCount++
 		}
@@ -476,7 +482,7 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 			DetailHref:       linkedAccountDetailHref(account),
 			StatusActive:     isActive,
 			LastSignIn:       lastSignIn,
-			LastSignInUnix:   timestamptzUnix(account.LastLoginAt),
+			LastSignInUnix:   accountLastSignInUnixByID[account.ID],
 			Dormant:          dormant,
 		})
 
@@ -564,7 +570,7 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		withoutDormant := query
 		withoutDormant.EntitlementDormant = false
 		entitlementFilterChips = append(entitlementFilterChips, viewmodels.IdentityFilterChip{
-			Label:     "Dormant only",
+			Label:     "Dormant account grants",
 			ClearHref: viewmodels.BuildIdentityShowHref(basePath, withoutDormant),
 		})
 	}
@@ -1151,20 +1157,20 @@ func identityEntitlementView(account gen.Account, ent gen.ListEntitlementsForAcc
 	}
 
 	return viewmodels.IdentityEntitlementView{
-		AccountLabel:      linkedAccountLabel(account),
-		AccountHref:       linkedAccountDetailHref(account),
-		AccountSourceKind: strings.TrimSpace(account.SourceKind),
-		AccountSourceName: strings.TrimSpace(account.SourceName),
-		Kind:              strings.TrimSpace(ent.Kind),
-		ResourceKind:      resourceKind,
-		ResourceID:        resourceID,
-		ResourceLabel:     resourceLabel,
-		ResourceHref:      resourceHref,
-		Permission:        accessgraph.DisplayEntitlementPermission(ent.Kind, ent.Permission, ent.RawJson),
-		IsAdmin:           identityEntitlementIsAdmin(ent),
-		LastUsed:          relativeWithTitleDisplay(now, ent.LastObservedAt, "—", "Not observed"),
-		LastUsedUnix:      timestamptzUnix(ent.LastObservedAt),
-		Dormant:           isDormantAt(now, ent.LastObservedAt, 60*24*time.Hour),
+		AccountLabel:        linkedAccountLabel(account),
+		AccountHref:         linkedAccountDetailHref(account),
+		AccountSourceKind:   strings.TrimSpace(account.SourceKind),
+		AccountSourceName:   strings.TrimSpace(account.SourceName),
+		Kind:                strings.TrimSpace(ent.Kind),
+		ResourceKind:        resourceKind,
+		ResourceID:          resourceID,
+		ResourceLabel:       resourceLabel,
+		ResourceHref:        resourceHref,
+		Permission:          accessgraph.DisplayEntitlementPermission(ent.Kind, ent.Permission, ent.RawJson),
+		IsAdmin:             identityEntitlementIsAdmin(ent),
+		AccountLastSignIn:   relativeWithTitleDisplay(now, account.LastLoginAt, "—", "No account sign-in observed"),
+		AccountActivityUnix: timestamptzUnix(account.LastLoginAt),
+		Dormant:             isDormantAt(now, account.LastLoginAt, 60*24*time.Hour),
 	}
 }
 
