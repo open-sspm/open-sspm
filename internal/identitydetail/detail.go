@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/open-sspm/open-sspm/internal/connectordisplay"
 )
 
 // EntitlementGroupMode selects how identity detail entitlements are bucketed.
@@ -451,60 +453,11 @@ func shortKindLabel(kind string, count int) string {
 }
 
 func ConnectorKindLabel(kind string) string {
-	switch strings.ToLower(strings.TrimSpace(kind)) {
-	case "okta":
-		return "Okta"
-	case "entra":
-		return "Microsoft Entra"
-	case "github":
-		return "GitHub"
-	case "aws", "aws_identity_center":
-		return "AWS"
-	case "datadog":
-		return "Datadog"
-	case "google_workspace":
-		return "Google Workspace"
-	case "vault":
-		return "Vault"
-	case "slack":
-		return "Slack"
-	case "snowflake":
-		return "Snowflake"
-	case "pagerduty":
-		return "PagerDuty"
-	default:
-		if t := strings.TrimSpace(kind); t != "" {
-			return t
-		}
-		return "Source"
-	}
+	return connectordisplay.KindLabel(kind)
 }
 
 func ConnectorScopeLabel(kind string) string {
-	switch strings.ToLower(strings.TrimSpace(kind)) {
-	case "okta":
-		return "Domain"
-	case "entra":
-		return "Tenant"
-	case "github":
-		return "Org"
-	case "aws", "aws_identity_center":
-		return "Account"
-	case "datadog":
-		return "Org"
-	case "google_workspace":
-		return "Domain"
-	case "vault":
-		return "Namespace"
-	case "slack":
-		return "Workspace"
-	case "snowflake":
-		return "Account"
-	case "pagerduty":
-		return "Subdomain"
-	default:
-		return ""
-	}
+	return connectordisplay.ScopeLabel(kind)
 }
 
 func IsDormantAt(now, observedAt time.Time, threshold time.Duration) bool {

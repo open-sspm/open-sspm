@@ -7,6 +7,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/open-sspm/open-sspm/internal/connectordisplay"
 	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
@@ -294,45 +295,11 @@ func HumanizeSignOnMode(mode string) string {
 }
 
 func HumanizeConnectorKind(kind string) string {
-	switch strings.ToLower(strings.TrimSpace(kind)) {
-	case "okta":
-		return "Okta"
-	case "google_workspace":
-		return "Google Workspace"
-	case "github":
-		return "GitHub"
-	case "datadog":
-		return "Datadog"
-	case "aws", "aws_identity_center":
-		return "AWS Identity Center"
-	case "entra":
-		return "Microsoft Entra"
-	case "vault":
-		return "Vault"
-	default:
-		return fallbackHumanized(kind)
-	}
+	return connectordisplay.KindLabel(kind)
 }
 
 func ConnectorScopeLabel(kind string) string {
-	switch strings.ToLower(strings.TrimSpace(kind)) {
-	case "okta":
-		return "Org URL"
-	case "google_workspace":
-		return "Customer"
-	case "github":
-		return "Org"
-	case "datadog":
-		return "Site"
-	case "aws", "aws_identity_center":
-		return "Instance"
-	case "entra":
-		return "Tenant"
-	case "vault":
-		return "Vault"
-	default:
-		return "Source"
-	}
+	return connectordisplay.ScopeLabel(kind)
 }
 
 func StatusBadgeClass(status string) string {
