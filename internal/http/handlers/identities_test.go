@@ -109,3 +109,58 @@ func TestMaxIdentityActivityIgnoresSyncObservation(t *testing.T) {
 		t.Fatalf("maxIdentityActivity() should ignore sync-only observation, got %s", got.Time)
 	}
 }
+
+func TestIdentityBreadcrumbKindRoot(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		kind          string
+		wantRootLabel string
+		wantRootHref  string
+		wantKindLabel string
+		wantKindHref  string
+	}{
+		{
+			kind:          "human",
+			wantRootLabel: "Identities",
+			wantRootHref:  "/identities",
+			wantKindLabel: "Human",
+			wantKindHref:  "/identities",
+		},
+		{
+			kind:          "service",
+			wantRootLabel: "Non-human identities",
+			wantRootHref:  "/non-human-identities",
+			wantKindLabel: "Service",
+			wantKindHref:  "/non-human-identities",
+		},
+		{
+			kind:          "bot",
+			wantRootLabel: "Non-human identities",
+			wantRootHref:  "/non-human-identities",
+			wantKindLabel: "Bot",
+			wantKindHref:  "/non-human-identities",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.kind, func(t *testing.T) {
+			t.Parallel()
+
+			rootLabel, rootHref, kindLabel, kindHref := identityBreadcrumbKind(tt.kind)
+			if rootLabel != tt.wantRootLabel || rootHref != tt.wantRootHref || kindLabel != tt.wantKindLabel || kindHref != tt.wantKindHref {
+				t.Fatalf("identityBreadcrumbKind(%q) = (%q, %q, %q, %q), want (%q, %q, %q, %q)",
+					tt.kind,
+					rootLabel,
+					rootHref,
+					kindLabel,
+					kindHref,
+					tt.wantRootLabel,
+					tt.wantRootHref,
+					tt.wantKindLabel,
+					tt.wantKindHref,
+				)
+			}
+		})
+	}
+}

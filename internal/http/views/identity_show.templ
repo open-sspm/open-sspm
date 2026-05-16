@@ -17,7 +17,7 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 
 templ identityShowBreadcrumb(data viewmodels.IdentityShowViewData) {
 	<nav class="osspm-breadcrumb min-w-0 overflow-hidden" aria-label="Breadcrumb">
-		<a href="/identities">Identities</a>
+		<a href={ templ.SafeURL(data.Breadcrumb.RootHref) }>{ data.Breadcrumb.RootLabel }</a>
 		<span class="osspm-breadcrumb-sep" aria-hidden="true">›</span>
 		if data.Breadcrumb.KindLabel != "" {
 			if data.Breadcrumb.KindHref != "" {

@@ -153,6 +153,8 @@ type IdentityShowViewData struct {
 }
 
 type IdentityShowBreadcrumb struct {
+	RootLabel string
+	RootHref  string
 	KindLabel string
 	KindHref  string
 	Current   string

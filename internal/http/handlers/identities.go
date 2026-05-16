@@ -526,7 +526,7 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 	}
 
 	identityTypeLabel := views.HumanizeIdentityType(summary.Kind)
-	breadcrumbKindLabel, breadcrumbKindHref := identityBreadcrumbKind(summary.Kind)
+	breadcrumbRootLabel, breadcrumbRootHref, breadcrumbKindLabel, breadcrumbKindHref := identityBreadcrumbKind(summary.Kind)
 	profileHints := identityProfileHints(accounts)
 	lastActive := relativeWithTitleDisplay(now, maxIdentityActivity(accounts), "—", "No activity observed")
 	profileFacts := identityProfileFacts(summary, profileHints, lastActive)
@@ -607,6 +607,8 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 	return h.RenderComponent(c, views.IdentityShowPage(viewmodels.IdentityShowViewData{
 		Layout: layout,
 		Breadcrumb: viewmodels.IdentityShowBreadcrumb{
+			RootLabel: breadcrumbRootLabel,
+			RootHref:  breadcrumbRootHref,
 			KindLabel: breadcrumbKindLabel,
 			KindHref:  breadcrumbKindHref,
 			Current:   namePrimary,
@@ -685,16 +687,16 @@ func identityStatusFromAccounts(accounts []gen.Account) (string, string) {
 	}
 }
 
-func identityBreadcrumbKind(kind string) (string, string) {
+func identityBreadcrumbKind(kind string) (rootLabel, rootHref, kindLabel, kindHref string) {
 	switch strings.ToLower(strings.TrimSpace(kind)) {
 	case "human":
-		return "Human", "/identities"
+		return "Identities", "/identities", "Human", "/identities"
 	case "service":
-		return "Service", "/non-human-identities"
+		return "Non-human identities", "/non-human-identities", "Service", "/non-human-identities"
 	case "bot":
-		return "Bot", "/non-human-identities"
+		return "Non-human identities", "/non-human-identities", "Bot", "/non-human-identities"
 	default:
-		return views.HumanizeIdentityType(kind), ""
+		return "Identities", "/identities", views.HumanizeIdentityType(kind), ""
 	}
 }
 
