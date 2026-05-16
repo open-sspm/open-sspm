@@ -58,6 +58,7 @@ config:
   # Dev-only convenience: seeds admin@admin.com / admin if no auth_users exist.
   devSeedAdmin: false
   resyncEnabled: true
+  syncFullEnabled: true
   # Queue backend for push ingest dispatch. Postgres remains the durable ledger.
   # Set to "redis" to enqueue persisted push inbox row IDs through Redis.
   queueBackend: postgres
@@ -68,13 +69,32 @@ config:
   # Enables the discovery lane system-wide. When false, api does not queue
   # discovery work and discovery/ingest worker Deployments are omitted.
   syncDiscoveryEnabled: true
+  # Optional override for Okta push ingest. Empty inherits syncDiscoveryEnabled
+  # for backward compatibility.
+  oktaPushIngestEnabled: ""
   syncInterval: 15m
   syncDiscoveryInterval: 15m
   # Optional per-connector full-sync interval. Empty means use syncInterval cadence.
+  syncOktaInterval: ""
+  syncEntraInterval: ""
   syncGoogleWorkspaceInterval: ""
+  syncGithubInterval: ""
+  syncDatadogInterval: ""
+  syncAwsInterval: ""
+  syncFailureBackoffMax: ""
   syncOktaWorkers: 3
   syncGithubWorkers: 6
   syncDatadogWorkers: 3
+  oktaPushIngest:
+    batchSize: 500
+    pollInterval: 5s
+    cleanupInterval: 1h
+    retryDelay: 30s
+    retryMaxDelay: 15m
+    staleProcessingTimeout: 5m
+    maxAttempts: 10
+    processedRetentionDays: 30
+    deadLetterRetentionDays: 90
 
 metrics:
   port: 9090

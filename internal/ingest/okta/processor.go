@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
@@ -18,6 +19,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/discovery"
 	"github.com/open-sspm/open-sspm/internal/metrics"
 	osspmsync "github.com/open-sspm/open-sspm/internal/sync"
+	"github.com/open-sspm/open-sspm/internal/timing"
 )
 
 const (
@@ -27,16 +29,22 @@ const (
 	statusIgnored    = "ignored"
 	statusDeadLetter = "dead_letter"
 
-	defaultBatchSize               int32 = 500
-	defaultPollInterval                  = 5 * time.Second
-	defaultCleanupInterval               = time.Hour
-	defaultRetryDelay                    = 30 * time.Second
-	defaultRetryDelayMax                 = 15 * time.Minute
+	defaultBatchSize       int32 = 500
+	defaultPollInterval          = 5 * time.Second
+	defaultCleanupInterval       = time.Hour
+	defaultRetryDelay            = 30 * time.Second
+	defaultRetryDelayMax         = 15 * time.Minute
+	// Kill -9 recovery is lease-bound: processing rows can be reclaimed only
+	// after the lease expires, then on the next stale-requeue tick.
 	defaultStaleProcessingAfter          = 5 * time.Minute
+	defaultLeaseTTL                      = 5 * time.Minute
+	defaultHeartbeatInterval             = time.Minute
 	defaultMaxAttempts             int32 = 10
 	defaultProcessedRetentionDays  int32 = 30
 	defaultDeadLetterRetentionDays int32 = 90
 )
+
+var errOktaPushInboxLeaseLost = errors.New("okta push inbox lease lost")
 
 type Config struct {
 	BatchSize               int32
@@ -45,9 +53,15 @@ type Config struct {
 	RetryDelay              time.Duration
 	RetryDelayMax           time.Duration
 	StaleProcessingAfter    time.Duration
+	LeaseTTL                time.Duration
+	HeartbeatInterval       time.Duration
 	MaxAttempts             int32
 	ProcessedRetentionDays  int32
 	DeadLetterRetentionDays int32
+	ClaimedBy               string
+	OnLoopTick              func()
+	OnClaimAttempt          func()
+	OnLeaseLost             func()
 }
 
 type ProcessResult struct {
@@ -65,6 +79,8 @@ func DefaultConfig() Config {
 		RetryDelay:              defaultRetryDelay,
 		RetryDelayMax:           defaultRetryDelayMax,
 		StaleProcessingAfter:    defaultStaleProcessingAfter,
+		LeaseTTL:                defaultLeaseTTL,
+		HeartbeatInterval:       defaultHeartbeatInterval,
 		MaxAttempts:             defaultMaxAttempts,
 		ProcessedRetentionDays:  defaultProcessedRetentionDays,
 		DeadLetterRetentionDays: defaultDeadLetterRetentionDays,
@@ -145,7 +161,13 @@ func ProcessQueuedWithConfig(ctx context.Context, q *gen.Queries, pool *pgxpool.
 	if limit <= 0 {
 		limit = cfg.BatchSize
 	}
-	rows, err := q.ClaimQueuedOktaPushInboxEvents(ctx, limit)
+	cfg.observeClaimAttempt()
+	rows, err := q.ClaimQueuedOktaPushInboxEvents(ctx, gen.ClaimQueuedOktaPushInboxEventsParams{
+		LimitRows:    limit,
+		ClaimedBy:    cfg.ClaimedBy,
+		ClaimToken:   newClaimToken(),
+		LeaseSeconds: durationSecondsCeil(cfg.LeaseTTL),
+	})
 	if err != nil {
 		return ProcessResult{}, fmt.Errorf("claim okta push inbox rows: %w", err)
 	}
@@ -160,9 +182,13 @@ func ProcessQueuedIDsWithConfig(ctx context.Context, q *gen.Queries, pool *pgxpo
 	if limit <= 0 {
 		limit = cfg.BatchSize
 	}
+	cfg.observeClaimAttempt()
 	rows, err := q.ClaimQueuedOktaPushInboxEventsByIDs(ctx, gen.ClaimQueuedOktaPushInboxEventsByIDsParams{
-		Ids:       ids,
-		LimitRows: limit,
+		Ids:          ids,
+		LimitRows:    limit,
+		ClaimedBy:    cfg.ClaimedBy,
+		ClaimToken:   newClaimToken(),
+		LeaseSeconds: durationSecondsCeil(cfg.LeaseTTL),
 	})
 	if err != nil {
 		return ProcessResult{}, fmt.Errorf("claim okta push inbox rows by id: %w", err)
@@ -176,17 +202,41 @@ func processClaimedRows(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool,
 		return result, nil
 	}
 
+	claim, err := newProcessingClaim(q, rows, cfg)
+	if err != nil {
+		return result, err
+	}
+	processCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+	stopHeartbeat := startProcessingLeaseHeartbeat(processCtx, claim, cfg, func(err error) {
+		if errors.Is(err, errOktaPushInboxLeaseLost) {
+			cfg.observeLeaseLost()
+		}
+		slog.Error("Okta push inbox lease heartbeat failed", "error", err)
+		cancel(err)
+	})
+	defer stopHeartbeat()
+
 	groups := groupInboxRowsBySource(rows)
 	var errs []error
 	for sourceName, group := range groups {
-		groupResult, err := processSourceRows(ctx, q, pool, sourceName, group, cfg)
+		groupResult, err := processSourceRows(processCtx, q, pool, sourceName, group, cfg, claim)
 		result.Processed += groupResult.Processed
 		result.Ignored += groupResult.Ignored
 		result.DeadLetter += groupResult.DeadLetter
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				if cause := context.Cause(processCtx); cause != nil && !errors.Is(cause, context.Canceled) {
+					err = cause
+				}
+			}
 			errs = append(errs, err)
+			if errors.Is(err, errOktaPushInboxLeaseLost) || processCtx.Err() != nil {
+				break
+			}
 		}
 	}
+	cfg.observeLoopTick()
 	return result, errors.Join(errs...)
 }
 
@@ -195,7 +245,7 @@ type parsedInboxEvent struct {
 	event oktaconnector.SystemLogEvent
 }
 
-func processSourceRows(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, sourceName string, rows []gen.OktaPushInbox, cfg Config) (ProcessResult, error) {
+func processSourceRows(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, sourceName string, rows []gen.OktaPushInbox, cfg Config, claim *processingClaim) (ProcessResult, error) {
 	var result ProcessResult
 	started := time.Now()
 	defer observeProcessingDuration(sourceName, rows, started)
@@ -222,13 +272,13 @@ func processSourceRows(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, 
 		parsed = append(parsed, parsedInboxEvent{row: row, event: event})
 	}
 
-	if err := flushDeadLetter(ctx, q, sourceName, rows, maxAttemptIDs, "max processing attempts exceeded", "mark max-attempt okta push inbox dead-letter", &result); err != nil {
+	if err := flushDeadLetter(ctx, sourceName, rows, maxAttemptIDs, "max processing attempts exceeded", "mark max-attempt okta push inbox dead-letter", claim, &result); err != nil {
 		return result, err
 	}
-	if err := flushDeadLetter(ctx, q, sourceName, rows, deadLetterIDs, "invalid Okta System Log event JSON", "mark okta push inbox dead-letter", &result); err != nil {
+	if err := flushDeadLetter(ctx, sourceName, rows, deadLetterIDs, "invalid Okta System Log event JSON", "mark okta push inbox dead-letter", claim, &result); err != nil {
 		return result, err
 	}
-	if err := flushIgnored(ctx, q, sourceName, rows, ignoredIDs, "event is not discovery or state-refresh evidence", &result); err != nil {
+	if err := flushIgnored(ctx, sourceName, rows, ignoredIDs, "event is not discovery or state-refresh evidence", claim, &result); err != nil {
 		return result, err
 	}
 	if len(parsed) == 0 {
@@ -252,12 +302,8 @@ func processSourceRows(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, 
 	hasDiscoveryRows := len(sources) > 0 || len(normalizedEvents) > 0
 	hasStateRefresh := len(refreshCounts) > 0
 	if !hasDiscoveryRows && !hasStateRefresh {
-		if _, err := q.MarkOktaPushInboxIgnored(ctx, gen.MarkOktaPushInboxIgnoredParams{
-			ProcessedRunID: pgtype.Int8{},
-			ErrorMessage:   "event did not normalize to discovery or state-refresh evidence",
-			Ids:            processedIDs,
-		}); err != nil {
-			return result, fmt.Errorf("mark okta push inbox ignored: %w", err)
+		if err := claim.MarkIgnored(ctx, pgtype.Int8{}, "event did not normalize to discovery or state-refresh evidence", processedIDs); err != nil {
+			return result, err
 		}
 		result.Ignored += len(processedIDs)
 		incrementProcessedMetric(sourceName, inboxRowsFromParsed(parsed), statusIgnored)
@@ -265,13 +311,20 @@ func processSourceRows(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, 
 	}
 
 	runStarted := time.Now()
+	if err := claim.RenewIDs(ctx, processedIDs); err != nil {
+		return result, err
+	}
 	runID, err := startOktaPushSyncRun(ctx, q, sourceName)
 	if err != nil {
-		_ = retryOrDeadLetterRows(ctx, q, sourceName, inboxRowsFromParsed(parsed), err, cfg)
+		_ = retryOrDeadLetterRows(ctx, sourceName, inboxRowsFromParsed(parsed), err, cfg, claim)
 		return result, err
 	}
 
 	if hasDiscoveryRows {
+		if err := claim.RenewIDs(ctx, processedIDs); err != nil {
+			_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+			return result, err
+		}
 		if err := discovery.WriteRows(ctx, q, discovery.WriteRowsParams{
 			SourceKind: "okta",
 			SourceName: sourceName,
@@ -280,29 +333,34 @@ func processSourceRows(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, 
 			Events:     normalizedEvents,
 		}); err != nil {
 			_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
-			_ = retryOrDeadLetterRows(ctx, q, sourceName, inboxRowsFromParsed(parsed), err, cfg)
+			_ = retryOrDeadLetterRows(ctx, sourceName, inboxRowsFromParsed(parsed), err, cfg, claim)
 			return result, err
 		}
 	}
 
 	if hasStateRefresh {
+		if err := claim.RenewIDs(ctx, processedIDs); err != nil {
+			_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+			return result, err
+		}
 		if err := enqueueOktaFullSync(ctx, pool, sourceName); err != nil {
 			_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
-			_ = retryOrDeadLetterRows(ctx, q, sourceName, inboxRowsFromParsed(parsed), err, cfg)
+			_ = retryOrDeadLetterRows(ctx, sourceName, inboxRowsFromParsed(parsed), err, cfg, claim)
 			return result, err
 		}
 	}
 
-	if err := finalizeOktaPushRun(ctx, q, pool, runID, sourceName, time.Since(runStarted), hasDiscoveryRows, refreshCounts); err != nil {
+	if err := claim.RenewIDs(ctx, processedIDs); err != nil {
 		_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
-		_ = retryOrDeadLetterRows(ctx, q, sourceName, inboxRowsFromParsed(parsed), err, cfg)
 		return result, err
 	}
-	if _, err := q.MarkOktaPushInboxProcessed(ctx, gen.MarkOktaPushInboxProcessedParams{
-		ProcessedRunID: runID,
-		Ids:            processedIDs,
-	}); err != nil {
-		return result, fmt.Errorf("mark okta push inbox processed: %w", err)
+	if err := finalizeOktaPushRun(ctx, q, pool, runID, sourceName, time.Since(runStarted), hasDiscoveryRows, refreshCounts); err != nil {
+		_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+		_ = retryOrDeadLetterRows(ctx, sourceName, inboxRowsFromParsed(parsed), err, cfg, claim)
+		return result, err
+	}
+	if err := claim.MarkProcessed(ctx, runID, processedIDs); err != nil {
+		return result, err
 	}
 	result.Processed += len(processedIDs)
 	incrementProcessedMetric(sourceName, inboxRowsFromParsed(parsed), statusProcessed)
@@ -369,14 +427,11 @@ func enqueueOktaFullSync(ctx context.Context, pool *pgxpool.Pool, sourceName str
 	}
 }
 
-func flushDeadLetter(ctx context.Context, q *gen.Queries, sourceName string, rows []gen.OktaPushInbox, ids []int64, errMsg, wrapPrefix string, result *ProcessResult) error {
+func flushDeadLetter(ctx context.Context, sourceName string, rows []gen.OktaPushInbox, ids []int64, errMsg, wrapPrefix string, claim *processingClaim, result *ProcessResult) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	if _, err := q.MarkOktaPushInboxDeadLetter(ctx, gen.MarkOktaPushInboxDeadLetterParams{
-		ErrorMessage: errMsg,
-		Ids:          ids,
-	}); err != nil {
+	if err := claim.MarkDeadLetter(ctx, errMsg, ids); err != nil {
 		return fmt.Errorf("%s: %w", wrapPrefix, err)
 	}
 	result.DeadLetter += len(ids)
@@ -384,16 +439,12 @@ func flushDeadLetter(ctx context.Context, q *gen.Queries, sourceName string, row
 	return nil
 }
 
-func flushIgnored(ctx context.Context, q *gen.Queries, sourceName string, rows []gen.OktaPushInbox, ids []int64, errMsg string, result *ProcessResult) error {
+func flushIgnored(ctx context.Context, sourceName string, rows []gen.OktaPushInbox, ids []int64, errMsg string, claim *processingClaim, result *ProcessResult) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	if _, err := q.MarkOktaPushInboxIgnored(ctx, gen.MarkOktaPushInboxIgnoredParams{
-		ProcessedRunID: pgtype.Int8{},
-		ErrorMessage:   errMsg,
-		Ids:            ids,
-	}); err != nil {
-		return fmt.Errorf("mark okta push inbox ignored: %w", err)
+	if err := claim.MarkIgnored(ctx, pgtype.Int8{}, errMsg, ids); err != nil {
+		return err
 	}
 	result.Ignored += len(ids)
 	incrementProcessedMetric(sourceName, rowsByID(rows, ids), statusIgnored)
@@ -412,8 +463,13 @@ func groupInboxRowsBySource(rows []gen.OktaPushInbox) map[string][]gen.OktaPushI
 	return groups
 }
 
-func retryOrDeadLetterRows(ctx context.Context, q *gen.Queries, sourceName string, rows []gen.OktaPushInbox, cause error, cfg Config) error {
+func retryOrDeadLetterRows(ctx context.Context, sourceName string, rows []gen.OktaPushInbox, cause error, cfg Config, claim *processingClaim) error {
 	if len(rows) == 0 {
+		return nil
+	}
+	if errors.Is(cause, errOktaPushInboxLeaseLost) {
+		// The rows are no longer ours to mark; the next claim owner will retry
+		// them after requeueing under its own lease.
 		return nil
 	}
 	msg := "processing failed"
@@ -432,20 +488,13 @@ func retryOrDeadLetterRows(ctx context.Context, q *gen.Queries, sourceName strin
 		retryByDelay[delay] = append(retryByDelay[delay], row.ID)
 	}
 	if len(deadLetterIDs) > 0 {
-		if _, err := q.MarkOktaPushInboxDeadLetter(ctx, gen.MarkOktaPushInboxDeadLetterParams{
-			ErrorMessage: msg,
-			Ids:          deadLetterIDs,
-		}); err != nil {
+		if err := claim.MarkDeadLetter(ctx, msg, deadLetterIDs); err != nil {
 			return err
 		}
 		incrementProcessedMetric(sourceName, rowsByID(rows, deadLetterIDs), statusDeadLetter)
 	}
 	for delay, ids := range retryByDelay {
-		if _, err := q.MarkOktaPushInboxRetry(ctx, gen.MarkOktaPushInboxRetryParams{
-			NextAttemptAt: pgtype.Timestamptz{Time: now.Add(delay), Valid: true},
-			ErrorMessage:  msg,
-			Ids:           ids,
-		}); err != nil {
+		if err := claim.MarkRetry(ctx, pgtype.Timestamptz{Time: now.Add(delay), Valid: true}, msg, ids); err != nil {
 			return err
 		}
 	}
@@ -465,24 +514,287 @@ func backoffDelay(attempts int32, base, max time.Duration) time.Duration {
 	if max < base {
 		max = base
 	}
-	count := int(attempts)
-	if count < 1 {
-		count = 1
+	return timing.ExponentialBackoff(int(attempts), base, max)
+}
+
+type inboxClaim struct {
+	claimedBy  string
+	claimToken string
+}
+
+type processingClaim struct {
+	q            *gen.Queries
+	claimedBy    string
+	claimToken   string
+	leaseSeconds int64
+	mu           sync.Mutex
+	active       map[int64]struct{}
+}
+
+func newProcessingClaim(q *gen.Queries, rows []gen.OktaPushInbox, cfg Config) (*processingClaim, error) {
+	claim, err := claimFromRows(rows)
+	if err != nil {
+		return nil, err
 	}
-	delay := base
-	for idx := 1; idx < count; idx++ {
-		if delay >= max {
-			return max
+	active := make(map[int64]struct{}, len(rows))
+	for _, row := range rows {
+		active[row.ID] = struct{}{}
+	}
+	return &processingClaim{
+		q:            q,
+		claimedBy:    claim.claimedBy,
+		claimToken:   claim.claimToken,
+		leaseSeconds: durationSecondsCeil(cfg.LeaseTTL),
+		active:       active,
+	}, nil
+}
+
+func claimFromRows(rows []gen.OktaPushInbox) (inboxClaim, error) {
+	if len(rows) == 0 {
+		return inboxClaim{}, errors.New("okta push inbox claim requires at least one row")
+	}
+	claim := inboxClaim{
+		claimedBy:  strings.TrimSpace(rows[0].ClaimedBy.String),
+		claimToken: strings.TrimSpace(rows[0].ClaimToken.String),
+	}
+	if !rows[0].ClaimedBy.Valid || claim.claimedBy == "" || !rows[0].ClaimToken.Valid || claim.claimToken == "" {
+		return inboxClaim{}, errOktaPushInboxLeaseLost
+	}
+	for _, row := range rows[1:] {
+		claimedBy := strings.TrimSpace(row.ClaimedBy.String)
+		claimToken := strings.TrimSpace(row.ClaimToken.String)
+		if !row.ClaimedBy.Valid || !row.ClaimToken.Valid || claimedBy != claim.claimedBy || claimToken != claim.claimToken {
+			return inboxClaim{}, errOktaPushInboxLeaseLost
 		}
-		if delay > max/2 {
-			return max
+	}
+	return claim, nil
+}
+
+func (c *processingClaim) RenewIDs(ctx context.Context, ids []int64) error {
+	ids = uniquePositiveIDs(ids)
+	if len(ids) == 0 {
+		return nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.renewIDsLocked(ctx, ids)
+}
+
+func (c *processingClaim) RenewActive(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ids := c.activeIDsLocked()
+	if len(ids) == 0 {
+		return nil
+	}
+	return c.renewIDsLocked(ctx, ids)
+}
+
+func (c *processingClaim) MarkProcessed(ctx context.Context, runID int64, ids []int64) error {
+	ids = uniquePositiveIDs(ids)
+	if len(ids) == 0 {
+		return nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := c.renewIDsLocked(ctx, ids); err != nil {
+		return err
+	}
+	marked, err := c.q.MarkOktaPushInboxProcessed(ctx, gen.MarkOktaPushInboxProcessedParams{
+		ProcessedRunID: runID,
+		ClaimedBy:      c.claimedBy,
+		ClaimToken:     c.claimToken,
+		Ids:            ids,
+	})
+	if err != nil {
+		return fmt.Errorf("mark okta push inbox processed: %w", err)
+	}
+	if marked != int64(len(ids)) {
+		return errOktaPushInboxLeaseLost
+	}
+	c.releaseLocked(ids)
+	return nil
+}
+
+func (c *processingClaim) MarkIgnored(ctx context.Context, processedRunID pgtype.Int8, msg string, ids []int64) error {
+	ids = uniquePositiveIDs(ids)
+	if len(ids) == 0 {
+		return nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := c.renewIDsLocked(ctx, ids); err != nil {
+		return err
+	}
+	marked, err := c.q.MarkOktaPushInboxIgnored(ctx, gen.MarkOktaPushInboxIgnoredParams{
+		ProcessedRunID: processedRunID,
+		ErrorMessage:   msg,
+		ClaimedBy:      c.claimedBy,
+		ClaimToken:     c.claimToken,
+		Ids:            ids,
+	})
+	if err != nil {
+		return fmt.Errorf("mark okta push inbox ignored: %w", err)
+	}
+	if marked != int64(len(ids)) {
+		return errOktaPushInboxLeaseLost
+	}
+	c.releaseLocked(ids)
+	return nil
+}
+
+func (c *processingClaim) MarkDeadLetter(ctx context.Context, msg string, ids []int64) error {
+	ids = uniquePositiveIDs(ids)
+	if len(ids) == 0 {
+		return nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := c.renewIDsLocked(ctx, ids); err != nil {
+		return err
+	}
+	marked, err := c.q.MarkOktaPushInboxDeadLetter(ctx, gen.MarkOktaPushInboxDeadLetterParams{
+		ErrorMessage: msg,
+		ClaimedBy:    c.claimedBy,
+		ClaimToken:   c.claimToken,
+		Ids:          ids,
+	})
+	if err != nil {
+		return fmt.Errorf("mark okta push inbox dead-letter: %w", err)
+	}
+	if marked != int64(len(ids)) {
+		return errOktaPushInboxLeaseLost
+	}
+	c.releaseLocked(ids)
+	return nil
+}
+
+func (c *processingClaim) MarkRetry(ctx context.Context, nextAttemptAt pgtype.Timestamptz, msg string, ids []int64) error {
+	ids = uniquePositiveIDs(ids)
+	if len(ids) == 0 {
+		return nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := c.renewIDsLocked(ctx, ids); err != nil {
+		return err
+	}
+	marked, err := c.q.MarkOktaPushInboxRetry(ctx, gen.MarkOktaPushInboxRetryParams{
+		NextAttemptAt: nextAttemptAt,
+		ErrorMessage:  msg,
+		ClaimedBy:     c.claimedBy,
+		ClaimToken:    c.claimToken,
+		Ids:           ids,
+	})
+	if err != nil {
+		return fmt.Errorf("mark okta push inbox retry: %w", err)
+	}
+	if marked != int64(len(ids)) {
+		return errOktaPushInboxLeaseLost
+	}
+	c.releaseLocked(ids)
+	return nil
+}
+
+func (c *processingClaim) renewIDsLocked(ctx context.Context, ids []int64) error {
+	if c == nil || c.q == nil {
+		return errors.New("okta push inbox claim requires queries")
+	}
+	renewed, err := c.q.RenewOktaPushInboxProcessingLease(ctx, gen.RenewOktaPushInboxProcessingLeaseParams{
+		ClaimedBy:    c.claimedBy,
+		ClaimToken:   c.claimToken,
+		LeaseSeconds: c.leaseSeconds,
+		Ids:          ids,
+	})
+	if err != nil {
+		return fmt.Errorf("renew okta push inbox lease: %w", err)
+	}
+	if renewed != int64(len(ids)) {
+		return errOktaPushInboxLeaseLost
+	}
+	return nil
+}
+
+func (c *processingClaim) activeIDsLocked() []int64 {
+	ids := make([]int64, 0, len(c.active))
+	for id := range c.active {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+func (c *processingClaim) releaseLocked(ids []int64) {
+	for _, id := range ids {
+		delete(c.active, id)
+	}
+}
+
+func uniquePositiveIDs(ids []int64) []int64 {
+	if len(ids) == 0 {
+		return nil
+	}
+	seen := make(map[int64]struct{}, len(ids))
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			continue
 		}
-		delay *= 2
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
 	}
-	if delay > max {
-		return max
+	return out
+}
+
+func newClaimToken() string {
+	return uuid.NewString()
+}
+
+func startProcessingLeaseHeartbeat(ctx context.Context, claim *processingClaim, cfg Config, onLost func(error)) func() {
+	if claim == nil || cfg.HeartbeatInterval <= 0 || cfg.LeaseTTL <= 0 {
+		return func() {}
 	}
-	return delay
+
+	hbCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(cfg.HeartbeatInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-hbCtx.Done():
+				return
+			case <-ticker.C:
+			}
+
+			renewCtx, renewCancel := context.WithTimeout(context.WithoutCancel(hbCtx), cfg.HeartbeatInterval)
+			err := claim.RenewActive(renewCtx)
+			renewCancel()
+			if err != nil {
+				if onLost != nil {
+					onLost(err)
+				}
+				cancel()
+				return
+			}
+		}
+	}()
+
+	return func() {
+		cancel()
+		<-done
+	}
+}
+
+func durationSecondsCeil(d time.Duration) int64 {
+	if d <= 0 {
+		return 0
+	}
+	return int64((d + time.Second - 1) / time.Second)
 }
 
 func runProcessorIteration(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, cfg Config) {
@@ -551,7 +863,7 @@ func startInboxQueueConsumer(ctx context.Context, inboxQueue InboxQueue, cfg Con
 					return
 				}
 				slog.Warn("Okta push inbox redis dequeue failed", "error", err)
-				if !sleepContext(ctx, cfg.PollInterval) {
+				if !timing.SleepContext(ctx, cfg.PollInterval) {
 					return
 				}
 				continue
@@ -582,21 +894,6 @@ func refreshInboxQueueDepth(ctx context.Context, inboxQueue InboxQueue) {
 		return
 	}
 	metrics.OktaPushRedisQueueDepth.WithLabelValues(oktaPushInboxQueueName).Set(float64(depth))
-}
-
-func sleepContext(ctx context.Context, d time.Duration) bool {
-	if d <= 0 {
-		return ctx == nil || ctx.Err() == nil
-	}
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-
-	select {
-	case <-timer.C:
-		return true
-	case <-ctx.Done():
-		return false
-	}
 }
 
 func requeueStaleProcessingRows(ctx context.Context, q *gen.Queries, cfg Config) error {
@@ -684,6 +981,18 @@ func (cfg Config) normalized() Config {
 	if cfg.StaleProcessingAfter <= 0 {
 		cfg.StaleProcessingAfter = defaults.StaleProcessingAfter
 	}
+	if cfg.LeaseTTL <= 0 {
+		cfg.LeaseTTL = cfg.StaleProcessingAfter
+	}
+	if cfg.LeaseTTL <= 0 {
+		cfg.LeaseTTL = defaults.LeaseTTL
+	}
+	if cfg.HeartbeatInterval <= 0 {
+		cfg.HeartbeatInterval = defaults.HeartbeatInterval
+	}
+	if cfg.HeartbeatInterval >= cfg.LeaseTTL {
+		cfg.HeartbeatInterval = max(cfg.LeaseTTL/3, time.Second)
+	}
 	if cfg.MaxAttempts <= 0 {
 		cfg.MaxAttempts = defaults.MaxAttempts
 	}
@@ -693,7 +1002,29 @@ func (cfg Config) normalized() Config {
 	if cfg.DeadLetterRetentionDays <= 0 {
 		cfg.DeadLetterRetentionDays = defaults.DeadLetterRetentionDays
 	}
+	cfg.ClaimedBy = strings.TrimSpace(cfg.ClaimedBy)
+	if cfg.ClaimedBy == "" {
+		cfg.ClaimedBy = "okta-push-ingest/" + uuid.NewString()
+	}
 	return cfg
+}
+
+func (cfg Config) observeLoopTick() {
+	if cfg.OnLoopTick != nil {
+		cfg.OnLoopTick()
+	}
+}
+
+func (cfg Config) observeClaimAttempt() {
+	if cfg.OnClaimAttempt != nil {
+		cfg.OnClaimAttempt()
+	}
+}
+
+func (cfg Config) observeLeaseLost() {
+	if cfg.OnLeaseLost != nil {
+		cfg.OnLeaseLost()
+	}
 }
 
 func inboxRowsFromParsed(parsed []parsedInboxEvent) []gen.OktaPushInbox {

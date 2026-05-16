@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
+	"github.com/open-sspm/open-sspm/internal/timing"
 )
 
 const defaultSyncJobPollInterval = 2 * time.Second
@@ -27,6 +28,8 @@ type SyncJobConsumerConfig struct {
 	RetryMaxDelay     time.Duration
 	ClaimedBy         string
 	Wakeups           <-chan struct{}
+	OnLoopTick        func(lane string)
+	OnClaimAttempt    func(lane string)
 }
 
 type SyncJobConsumer struct {
@@ -42,6 +45,8 @@ type SyncJobConsumer struct {
 	retryMax          time.Duration
 	claimedBy         string
 	wakeups           <-chan struct{}
+	onLoopTick        func(lane string)
+	onClaimAttempt    func(lane string)
 }
 
 func NewSyncJobConsumer(store syncJobStore, locks LockManager, runner Runner, cfg SyncJobConsumerConfig) *SyncJobConsumer {
@@ -97,6 +102,8 @@ func NewSyncJobConsumer(store syncJobStore, locks LockManager, runner Runner, cf
 		retryMax:          retryMax,
 		claimedBy:         claimedBy,
 		wakeups:           cfg.Wakeups,
+		onLoopTick:        cfg.OnLoopTick,
+		onClaimAttempt:    cfg.OnClaimAttempt,
 	}
 }
 
@@ -119,7 +126,7 @@ func (c *SyncJobConsumer) Run(ctx context.Context) error {
 				return nil
 			}
 			slog.Error("sync job consumer failed to acquire lane lock", "lane", c.lane, "err", err)
-			if !sleepContext(ctx, c.pollInterval) {
+			if !timing.SleepContext(ctx, c.pollInterval) {
 				return nil
 			}
 			continue
@@ -135,7 +142,7 @@ func (c *SyncJobConsumer) Run(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return nil
 		}
-		if !sleepContext(ctx, c.pollInterval) {
+		if !timing.SleepContext(ctx, c.pollInterval) {
 			return nil
 		}
 	}
@@ -151,10 +158,12 @@ func (c *SyncJobConsumer) consumeLoop(ctx context.Context) error {
 			return err
 		}
 
+		c.observeClaimAttempt()
 		job, ok, err := c.store.ClaimNextSyncJobByLane(ctx, c.lane, c.claimedBy, c.leaseSeconds)
 		if err != nil {
 			return err
 		}
+		c.observeLoopTick()
 		if !ok {
 			if !c.waitForWork(ctx) {
 				return nil
@@ -245,7 +254,7 @@ func (c *SyncJobConsumer) processJob(ctx context.Context, job syncJobRecord) err
 		}
 		return runErr
 	case syncJobTriggerKindScheduled:
-		if runErr == nil || errors.Is(runErr, ErrNoConnectorsDue) {
+		if runErr == nil || isOnlyNoWorkError(runErr) {
 			marked, err := c.store.CompleteScheduledSyncJobSuccess(context.WithoutCancel(runCtx), job.ID, c.claimedBy)
 			if err != nil {
 				return errors.Join(runErr, err)
@@ -253,7 +262,7 @@ func (c *SyncJobConsumer) processJob(ctx context.Context, job syncJobRecord) err
 			if !marked {
 				return errors.Join(runErr, errSyncJobLeaseLost)
 			}
-			if errors.Is(runErr, ErrNoConnectorsDue) {
+			if isOnlyNoWorkError(runErr) {
 				return nil
 			}
 			return nil
@@ -325,7 +334,7 @@ func (c *SyncJobConsumer) waitForWork(ctx context.Context) bool {
 		return ctx == nil || ctx.Err() == nil
 	}
 	if c.wakeups == nil {
-		return sleepContext(ctx, c.pollInterval)
+		return timing.SleepContext(ctx, c.pollInterval)
 	}
 	if c.pollInterval <= 0 {
 		select {
@@ -349,21 +358,6 @@ func (c *SyncJobConsumer) waitForWork(ctx context.Context) bool {
 	}
 }
 
-func sleepContext(ctx context.Context, d time.Duration) bool {
-	if d <= 0 {
-		return ctx == nil || ctx.Err() == nil
-	}
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-
-	select {
-	case <-timer.C:
-		return true
-	case <-ctx.Done():
-		return false
-	}
-}
-
 func (c *SyncJobConsumer) nextRetryDelay(attemptCount int32) time.Duration {
 	base := c.retryBase
 	if base <= 0 {
@@ -377,23 +371,17 @@ func (c *SyncJobConsumer) nextRetryDelay(attemptCount int32) time.Duration {
 		maxDelay = base
 	}
 
-	attempts := int(attemptCount)
-	if attempts < 1 {
-		attempts = 1
-	}
+	return timing.ExponentialBackoff(int(attemptCount), base, maxDelay)
+}
 
-	delay := base
-	for idx := 1; idx < attempts; idx++ {
-		if delay >= maxDelay {
-			return maxDelay
-		}
-		if delay > maxDelay/2 {
-			return maxDelay
-		}
-		delay *= 2
+func (c *SyncJobConsumer) observeLoopTick() {
+	if c != nil && c.onLoopTick != nil {
+		c.onLoopTick(c.lane)
 	}
-	if delay > maxDelay {
-		return maxDelay
+}
+
+func (c *SyncJobConsumer) observeClaimAttempt() {
+	if c != nil && c.onClaimAttempt != nil {
+		c.onClaimAttempt(c.lane)
 	}
-	return delay
 }

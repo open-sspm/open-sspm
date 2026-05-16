@@ -1,3 +1,4 @@
+{{- if .Values.config.syncFullEnabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -72,14 +73,9 @@ spec:
               value: {{ ternary "1" "0" .Values.config.resyncEnabled | quote }}
             - name: SYNC_DISCOVERY_ENABLED
               value: {{ ternary "1" "0" (and .Values.config.syncDiscoveryEnabled .Values.discoveryWorker.enabled) | quote }}
-            - name: SYNC_INTERVAL
-              value: {{ .Values.config.syncInterval | quote }}
+            {{- include "open-sspm.fullSyncEnv" . | nindent 12 }}
             - name: SYNC_DISCOVERY_INTERVAL
               value: {{ .Values.config.syncDiscoveryInterval | quote }}
-            {{- if .Values.config.syncGoogleWorkspaceInterval }}
-            - name: SYNC_GOOGLE_WORKSPACE_INTERVAL
-              value: {{ .Values.config.syncGoogleWorkspaceInterval | quote }}
-            {{- end }}
             - name: SYNC_OKTA_WORKERS
               value: {{ .Values.config.syncOktaWorkers | quote }}
             - name: SYNC_GITHUB_WORKERS
@@ -114,3 +110,4 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}

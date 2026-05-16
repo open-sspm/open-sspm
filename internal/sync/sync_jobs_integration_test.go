@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/testdb"
 )
 
@@ -114,6 +115,34 @@ func TestSyncJobStore_DuplicatePendingManualJobReturnsQueuedError(t *testing.T) 
 		}
 		if err := store.EnqueueManualSyncJob(ctx, syncJobLaneFull, "", ""); !errors.Is(err, errPendingSyncJobExists) {
 			t.Fatalf("EnqueueManualSyncJob() err = %v, want errPendingSyncJobExists", err)
+		}
+	})
+}
+
+func TestScheduledSyncJobRunnerEnqueuesOneActiveJob(t *testing.T) {
+	t.Parallel()
+
+	withSyncJobsTestDB(t, func(ctx context.Context, store *dbSyncJobStore) {
+		runner := NewScheduledSyncJobRunner(store, registry.RunModeFull)
+		if err := runner.RunOnce(ctx); err != nil {
+			t.Fatalf("RunOnce() first err = %v", err)
+		}
+		if err := runner.RunOnce(ctx); err != nil {
+			t.Fatalf("RunOnce() second err = %v", err)
+		}
+
+		var count int
+		if err := store.db.QueryRow(ctx, `
+			SELECT count(*)
+			FROM sync_jobs
+			WHERE lane = 'full'
+			  AND trigger_kind = 'scheduled'
+			  AND status IN ('pending', 'claimed', 'running')
+		`).Scan(&count); err != nil {
+			t.Fatalf("count active scheduled jobs: %v", err)
+		}
+		if count != 1 {
+			t.Fatalf("active scheduled jobs = %d, want 1", count)
 		}
 	})
 }

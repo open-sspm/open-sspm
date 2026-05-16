@@ -84,6 +84,10 @@ WITH candidates AS (
 UPDATE okta_push_inbox i
 SET status = 'processing',
     attempts = attempts + 1,
+    claimed_by = sqlc.arg(claimed_by)::text,
+    claim_token = sqlc.arg(claim_token)::text,
+    claimed_at = now(),
+    lease_expires_at = now() + (sqlc.arg(lease_seconds)::bigint * interval '1 second'),
     updated_at = now()
 FROM candidates c
 WHERE i.id = c.id
@@ -106,22 +110,46 @@ candidates AS (
 UPDATE okta_push_inbox i
 SET status = 'processing',
     attempts = attempts + 1,
+    claimed_by = sqlc.arg(claimed_by)::text,
+    claim_token = sqlc.arg(claim_token)::text,
+    claimed_at = now(),
+    lease_expires_at = now() + (sqlc.arg(lease_seconds)::bigint * interval '1 second'),
     updated_at = now()
 FROM candidates c
 WHERE i.id = c.id
 RETURNING i.*;
 
+-- name: RenewOktaPushInboxProcessingLease :execrows
+UPDATE okta_push_inbox
+SET lease_expires_at = now() + (sqlc.arg(lease_seconds)::bigint * interval '1 second'),
+    updated_at = now()
+WHERE id = ANY(sqlc.arg(ids)::bigint[])
+  AND status = 'processing'
+  AND claimed_by = sqlc.arg(claimed_by)::text
+  AND claim_token = sqlc.arg(claim_token)::text
+  AND lease_expires_at > now();
+
 -- name: RequeueStaleOktaPushInboxProcessingRows :execrows
 UPDATE okta_push_inbox
 SET status = 'queued',
     next_attempt_at = now(),
+    claimed_by = NULL,
+    claim_token = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
     error_message = CASE
       WHEN trim(error_message) <> '' THEN error_message
       ELSE 'processing attempt timed out'
     END,
     updated_at = now()
 WHERE status = 'processing'
-  AND updated_at < now() - make_interval(secs => sqlc.arg(stale_after_seconds)::int);
+  AND (
+    lease_expires_at < now()
+    OR (
+      lease_expires_at IS NULL
+      AND updated_at < now() - make_interval(secs => sqlc.arg(stale_after_seconds)::int)
+    )
+  );
 
 -- name: MarkOktaPushInboxProcessed :execrows
 UPDATE okta_push_inbox
@@ -129,9 +157,17 @@ SET status = 'processed',
     processed_run_id = sqlc.arg(processed_run_id)::bigint,
     processed_at = now(),
     next_attempt_at = NULL,
+    claimed_by = NULL,
+    claim_token = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
     error_message = '',
     updated_at = now()
-WHERE id = ANY(sqlc.arg(ids)::bigint[]);
+WHERE id = ANY(sqlc.arg(ids)::bigint[])
+  AND status = 'processing'
+  AND claimed_by = sqlc.arg(claimed_by)::text
+  AND claim_token = sqlc.arg(claim_token)::text
+  AND lease_expires_at > now();
 
 -- name: MarkOktaPushInboxIgnored :execrows
 UPDATE okta_push_inbox
@@ -139,26 +175,50 @@ SET status = 'ignored',
     processed_run_id = sqlc.narg(processed_run_id)::bigint,
     processed_at = now(),
     next_attempt_at = NULL,
+    claimed_by = NULL,
+    claim_token = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
     error_message = sqlc.arg(error_message)::text,
     updated_at = now()
-WHERE id = ANY(sqlc.arg(ids)::bigint[]);
+WHERE id = ANY(sqlc.arg(ids)::bigint[])
+  AND status = 'processing'
+  AND claimed_by = sqlc.arg(claimed_by)::text
+  AND claim_token = sqlc.arg(claim_token)::text
+  AND lease_expires_at > now();
 
 -- name: MarkOktaPushInboxRetry :execrows
 UPDATE okta_push_inbox
 SET status = 'queued',
     next_attempt_at = sqlc.arg(next_attempt_at)::timestamptz,
+    claimed_by = NULL,
+    claim_token = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
     error_message = sqlc.arg(error_message)::text,
     updated_at = now()
-WHERE id = ANY(sqlc.arg(ids)::bigint[]);
+WHERE id = ANY(sqlc.arg(ids)::bigint[])
+  AND status = 'processing'
+  AND claimed_by = sqlc.arg(claimed_by)::text
+  AND claim_token = sqlc.arg(claim_token)::text
+  AND lease_expires_at > now();
 
 -- name: MarkOktaPushInboxDeadLetter :execrows
 UPDATE okta_push_inbox
 SET status = 'dead_letter',
     processed_at = now(),
     next_attempt_at = NULL,
+    claimed_by = NULL,
+    claim_token = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
     error_message = sqlc.arg(error_message)::text,
     updated_at = now()
-WHERE id = ANY(sqlc.arg(ids)::bigint[]);
+WHERE id = ANY(sqlc.arg(ids)::bigint[])
+  AND status = 'processing'
+  AND claimed_by = sqlc.arg(claimed_by)::text
+  AND claim_token = sqlc.arg(claim_token)::text
+  AND lease_expires_at > now();
 
 -- name: GetOktaPushIngestStatusBySource :one
 SELECT

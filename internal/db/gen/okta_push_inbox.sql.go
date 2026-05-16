@@ -18,20 +18,36 @@ WITH candidates AS (
   WHERE status = 'queued'
     AND (next_attempt_at IS NULL OR next_attempt_at <= now())
   ORDER BY id
-  LIMIT $1::int
+  LIMIT $4::int
   FOR UPDATE SKIP LOCKED
 )
 UPDATE okta_push_inbox i
 SET status = 'processing',
     attempts = attempts + 1,
+    claimed_by = $1::text,
+    claim_token = $2::text,
+    claimed_at = now(),
+    lease_expires_at = now() + ($3::bigint * interval '1 second'),
     updated_at = now()
 FROM candidates c
 WHERE i.id = c.id
-RETURNING i.id, i.source_name, i.channel, i.delivery_external_id, i.event_external_id, i.event_type, i.event_index, i.published_at, i.status, i.raw_json, i.attempts, i.next_attempt_at, i.processed_run_id, i.processed_at, i.last_received_at, i.error_message, i.created_at, i.updated_at
+RETURNING i.id, i.source_name, i.channel, i.delivery_external_id, i.event_external_id, i.event_type, i.event_index, i.published_at, i.status, i.raw_json, i.attempts, i.next_attempt_at, i.processed_run_id, i.processed_at, i.last_received_at, i.error_message, i.created_at, i.updated_at, i.claimed_by, i.claimed_at, i.lease_expires_at, i.claim_token
 `
 
-func (q *Queries) ClaimQueuedOktaPushInboxEvents(ctx context.Context, limitRows int32) ([]OktaPushInbox, error) {
-	rows, err := q.db.Query(ctx, claimQueuedOktaPushInboxEvents, limitRows)
+type ClaimQueuedOktaPushInboxEventsParams struct {
+	ClaimedBy    string `json:"claimed_by"`
+	ClaimToken   string `json:"claim_token"`
+	LeaseSeconds int64  `json:"lease_seconds"`
+	LimitRows    int32  `json:"limit_rows"`
+}
+
+func (q *Queries) ClaimQueuedOktaPushInboxEvents(ctx context.Context, arg ClaimQueuedOktaPushInboxEventsParams) ([]OktaPushInbox, error) {
+	rows, err := q.db.Query(ctx, claimQueuedOktaPushInboxEvents,
+		arg.ClaimedBy,
+		arg.ClaimToken,
+		arg.LeaseSeconds,
+		arg.LimitRows,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -58,6 +74,10 @@ func (q *Queries) ClaimQueuedOktaPushInboxEvents(ctx context.Context, limitRows 
 			&i.ErrorMessage,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ClaimedBy,
+			&i.ClaimedAt,
+			&i.LeaseExpiresAt,
+			&i.ClaimToken,
 		); err != nil {
 			return nil, err
 		}
@@ -71,7 +91,7 @@ func (q *Queries) ClaimQueuedOktaPushInboxEvents(ctx context.Context, limitRows 
 
 const claimQueuedOktaPushInboxEventsByIDs = `-- name: ClaimQueuedOktaPushInboxEventsByIDs :many
 WITH requested AS (
-  SELECT DISTINCT unnest($1::bigint[]) AS id
+  SELECT DISTINCT unnest($4::bigint[]) AS id
 ),
 candidates AS (
   SELECT i.id
@@ -80,25 +100,38 @@ candidates AS (
   WHERE i.status = 'queued'
     AND (i.next_attempt_at IS NULL OR i.next_attempt_at <= now())
   ORDER BY i.id
-  LIMIT $2::int
+  LIMIT $5::int
   FOR UPDATE SKIP LOCKED
 )
 UPDATE okta_push_inbox i
 SET status = 'processing',
     attempts = attempts + 1,
+    claimed_by = $1::text,
+    claim_token = $2::text,
+    claimed_at = now(),
+    lease_expires_at = now() + ($3::bigint * interval '1 second'),
     updated_at = now()
 FROM candidates c
 WHERE i.id = c.id
-RETURNING i.id, i.source_name, i.channel, i.delivery_external_id, i.event_external_id, i.event_type, i.event_index, i.published_at, i.status, i.raw_json, i.attempts, i.next_attempt_at, i.processed_run_id, i.processed_at, i.last_received_at, i.error_message, i.created_at, i.updated_at
+RETURNING i.id, i.source_name, i.channel, i.delivery_external_id, i.event_external_id, i.event_type, i.event_index, i.published_at, i.status, i.raw_json, i.attempts, i.next_attempt_at, i.processed_run_id, i.processed_at, i.last_received_at, i.error_message, i.created_at, i.updated_at, i.claimed_by, i.claimed_at, i.lease_expires_at, i.claim_token
 `
 
 type ClaimQueuedOktaPushInboxEventsByIDsParams struct {
-	Ids       []int64 `json:"ids"`
-	LimitRows int32   `json:"limit_rows"`
+	ClaimedBy    string  `json:"claimed_by"`
+	ClaimToken   string  `json:"claim_token"`
+	LeaseSeconds int64   `json:"lease_seconds"`
+	Ids          []int64 `json:"ids"`
+	LimitRows    int32   `json:"limit_rows"`
 }
 
 func (q *Queries) ClaimQueuedOktaPushInboxEventsByIDs(ctx context.Context, arg ClaimQueuedOktaPushInboxEventsByIDsParams) ([]OktaPushInbox, error) {
-	rows, err := q.db.Query(ctx, claimQueuedOktaPushInboxEventsByIDs, arg.Ids, arg.LimitRows)
+	rows, err := q.db.Query(ctx, claimQueuedOktaPushInboxEventsByIDs,
+		arg.ClaimedBy,
+		arg.ClaimToken,
+		arg.LeaseSeconds,
+		arg.Ids,
+		arg.LimitRows,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -125,6 +158,10 @@ func (q *Queries) ClaimQueuedOktaPushInboxEventsByIDs(ctx context.Context, arg C
 			&i.ErrorMessage,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ClaimedBy,
+			&i.ClaimedAt,
+			&i.LeaseExpiresAt,
+			&i.ClaimToken,
 		); err != nil {
 			return nil, err
 		}
@@ -313,18 +350,33 @@ UPDATE okta_push_inbox
 SET status = 'dead_letter',
     processed_at = now(),
     next_attempt_at = NULL,
+    claimed_by = NULL,
+    claim_token = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
     error_message = $1::text,
     updated_at = now()
 WHERE id = ANY($2::bigint[])
+  AND status = 'processing'
+  AND claimed_by = $3::text
+  AND claim_token = $4::text
+  AND lease_expires_at > now()
 `
 
 type MarkOktaPushInboxDeadLetterParams struct {
 	ErrorMessage string  `json:"error_message"`
 	Ids          []int64 `json:"ids"`
+	ClaimedBy    string  `json:"claimed_by"`
+	ClaimToken   string  `json:"claim_token"`
 }
 
 func (q *Queries) MarkOktaPushInboxDeadLetter(ctx context.Context, arg MarkOktaPushInboxDeadLetterParams) (int64, error) {
-	result, err := q.db.Exec(ctx, markOktaPushInboxDeadLetter, arg.ErrorMessage, arg.Ids)
+	result, err := q.db.Exec(ctx, markOktaPushInboxDeadLetter,
+		arg.ErrorMessage,
+		arg.Ids,
+		arg.ClaimedBy,
+		arg.ClaimToken,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -337,19 +389,35 @@ SET status = 'ignored',
     processed_run_id = $1::bigint,
     processed_at = now(),
     next_attempt_at = NULL,
+    claimed_by = NULL,
+    claim_token = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
     error_message = $2::text,
     updated_at = now()
 WHERE id = ANY($3::bigint[])
+  AND status = 'processing'
+  AND claimed_by = $4::text
+  AND claim_token = $5::text
+  AND lease_expires_at > now()
 `
 
 type MarkOktaPushInboxIgnoredParams struct {
 	ProcessedRunID pgtype.Int8 `json:"processed_run_id"`
 	ErrorMessage   string      `json:"error_message"`
 	Ids            []int64     `json:"ids"`
+	ClaimedBy      string      `json:"claimed_by"`
+	ClaimToken     string      `json:"claim_token"`
 }
 
 func (q *Queries) MarkOktaPushInboxIgnored(ctx context.Context, arg MarkOktaPushInboxIgnoredParams) (int64, error) {
-	result, err := q.db.Exec(ctx, markOktaPushInboxIgnored, arg.ProcessedRunID, arg.ErrorMessage, arg.Ids)
+	result, err := q.db.Exec(ctx, markOktaPushInboxIgnored,
+		arg.ProcessedRunID,
+		arg.ErrorMessage,
+		arg.Ids,
+		arg.ClaimedBy,
+		arg.ClaimToken,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -362,18 +430,33 @@ SET status = 'processed',
     processed_run_id = $1::bigint,
     processed_at = now(),
     next_attempt_at = NULL,
+    claimed_by = NULL,
+    claim_token = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
     error_message = '',
     updated_at = now()
 WHERE id = ANY($2::bigint[])
+  AND status = 'processing'
+  AND claimed_by = $3::text
+  AND claim_token = $4::text
+  AND lease_expires_at > now()
 `
 
 type MarkOktaPushInboxProcessedParams struct {
 	ProcessedRunID int64   `json:"processed_run_id"`
 	Ids            []int64 `json:"ids"`
+	ClaimedBy      string  `json:"claimed_by"`
+	ClaimToken     string  `json:"claim_token"`
 }
 
 func (q *Queries) MarkOktaPushInboxProcessed(ctx context.Context, arg MarkOktaPushInboxProcessedParams) (int64, error) {
-	result, err := q.db.Exec(ctx, markOktaPushInboxProcessed, arg.ProcessedRunID, arg.Ids)
+	result, err := q.db.Exec(ctx, markOktaPushInboxProcessed,
+		arg.ProcessedRunID,
+		arg.Ids,
+		arg.ClaimedBy,
+		arg.ClaimToken,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -384,19 +467,66 @@ const markOktaPushInboxRetry = `-- name: MarkOktaPushInboxRetry :execrows
 UPDATE okta_push_inbox
 SET status = 'queued',
     next_attempt_at = $1::timestamptz,
+    claimed_by = NULL,
+    claim_token = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
     error_message = $2::text,
     updated_at = now()
 WHERE id = ANY($3::bigint[])
+  AND status = 'processing'
+  AND claimed_by = $4::text
+  AND claim_token = $5::text
+  AND lease_expires_at > now()
 `
 
 type MarkOktaPushInboxRetryParams struct {
 	NextAttemptAt pgtype.Timestamptz `json:"next_attempt_at"`
 	ErrorMessage  string             `json:"error_message"`
 	Ids           []int64            `json:"ids"`
+	ClaimedBy     string             `json:"claimed_by"`
+	ClaimToken    string             `json:"claim_token"`
 }
 
 func (q *Queries) MarkOktaPushInboxRetry(ctx context.Context, arg MarkOktaPushInboxRetryParams) (int64, error) {
-	result, err := q.db.Exec(ctx, markOktaPushInboxRetry, arg.NextAttemptAt, arg.ErrorMessage, arg.Ids)
+	result, err := q.db.Exec(ctx, markOktaPushInboxRetry,
+		arg.NextAttemptAt,
+		arg.ErrorMessage,
+		arg.Ids,
+		arg.ClaimedBy,
+		arg.ClaimToken,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const renewOktaPushInboxProcessingLease = `-- name: RenewOktaPushInboxProcessingLease :execrows
+UPDATE okta_push_inbox
+SET lease_expires_at = now() + ($1::bigint * interval '1 second'),
+    updated_at = now()
+WHERE id = ANY($2::bigint[])
+  AND status = 'processing'
+  AND claimed_by = $3::text
+  AND claim_token = $4::text
+  AND lease_expires_at > now()
+`
+
+type RenewOktaPushInboxProcessingLeaseParams struct {
+	LeaseSeconds int64   `json:"lease_seconds"`
+	Ids          []int64 `json:"ids"`
+	ClaimedBy    string  `json:"claimed_by"`
+	ClaimToken   string  `json:"claim_token"`
+}
+
+func (q *Queries) RenewOktaPushInboxProcessingLease(ctx context.Context, arg RenewOktaPushInboxProcessingLeaseParams) (int64, error) {
+	result, err := q.db.Exec(ctx, renewOktaPushInboxProcessingLease,
+		arg.LeaseSeconds,
+		arg.Ids,
+		arg.ClaimedBy,
+		arg.ClaimToken,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -407,13 +537,23 @@ const requeueStaleOktaPushInboxProcessingRows = `-- name: RequeueStaleOktaPushIn
 UPDATE okta_push_inbox
 SET status = 'queued',
     next_attempt_at = now(),
+    claimed_by = NULL,
+    claim_token = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
     error_message = CASE
       WHEN trim(error_message) <> '' THEN error_message
       ELSE 'processing attempt timed out'
     END,
     updated_at = now()
 WHERE status = 'processing'
-  AND updated_at < now() - make_interval(secs => $1::int)
+  AND (
+    lease_expires_at < now()
+    OR (
+      lease_expires_at IS NULL
+      AND updated_at < now() - make_interval(secs => $1::int)
+    )
+  )
 `
 
 func (q *Queries) RequeueStaleOktaPushInboxProcessingRows(ctx context.Context, staleAfterSeconds int32) (int64, error) {

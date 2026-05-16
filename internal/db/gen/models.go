@@ -538,6 +538,10 @@ type OktaPushInbox struct {
 	ErrorMessage       string             `json:"error_message"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	ClaimedBy          pgtype.Text        `json:"claimed_by"`
+	ClaimedAt          pgtype.Timestamptz `json:"claimed_at"`
+	LeaseExpiresAt     pgtype.Timestamptz `json:"lease_expires_at"`
+	ClaimToken         pgtype.Text        `json:"claim_token"`
 }
 
 type OktaUserAppAssignment struct {

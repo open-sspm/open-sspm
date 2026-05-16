@@ -275,6 +275,36 @@ func TestSyncJobConsumer_ProcessScheduledJobSkipsWithoutForcedMode(t *testing.T)
 	}
 }
 
+func TestSyncJobConsumer_ProcessScheduledJobTreatsNoEnabledConnectorsAsSuccess(t *testing.T) {
+	t.Parallel()
+
+	jobID := pgUUID(uuid.New())
+	store := &consumerStoreStub{
+		runningJob: syncJobRecord{
+			ID:          jobID,
+			Lane:        syncJobLaneFull,
+			TriggerKind: syncJobTriggerKindScheduled,
+		},
+		runningOK:      true,
+		schedSuccessOK: true,
+	}
+	runner := &capturingRunner{err: ErrNoEnabledConnectors}
+	consumer := NewSyncJobConsumer(store, noopLockManager{}, runner, SyncJobConsumerConfig{
+		Mode:              registry.RunModeFull,
+		HeartbeatInterval: time.Hour,
+		LeaseTTL:          time.Minute,
+		ClaimedBy:         "claimant",
+	})
+
+	err := consumer.processJob(context.Background(), syncJobRecord{ID: jobID, Lane: syncJobLaneFull})
+	if err != nil {
+		t.Fatalf("processJob() err = %v, want nil", err)
+	}
+	if len(store.schedSuccessCalls) != 1 || store.schedSuccessCalls[0] != jobID {
+		t.Fatalf("scheduled success calls = %#v", store.schedSuccessCalls)
+	}
+}
+
 func TestSyncJobConsumer_ProcessScheduledJobRequeuesFailureWithBackoff(t *testing.T) {
 	t.Parallel()
 

@@ -9,11 +9,16 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/timing"
 )
 
 const syncJobSignalRetryDelay = 2 * time.Second
 
 func ListenForSyncJobSignals(ctx context.Context, pool *pgxpool.Pool, channel string, out chan<- struct{}) error {
+	return ListenForSyncJobSignalsWithObserver(ctx, pool, channel, out, nil)
+}
+
+func ListenForSyncJobSignalsWithObserver(ctx context.Context, pool *pgxpool.Pool, channel string, out chan<- struct{}, onConnect func(channel string)) error {
 	if pool == nil {
 		return errors.New("sync pool is nil")
 	}
@@ -40,10 +45,13 @@ func ListenForSyncJobSignals(ctx context.Context, pool *pgxpool.Pool, channel st
 				return nil
 			}
 			slog.Warn("sync job listener connect failed", "channel", channel, "err", err)
-			if !sleepContext(ctx, syncJobSignalRetryDelay) {
+			if !timing.SleepContext(ctx, syncJobSignalRetryDelay) {
 				return nil
 			}
 			continue
+		}
+		if onConnect != nil {
+			onConnect(channel)
 		}
 
 		runErr := listenForSyncJobSignals(ctx, conn, listenSQL, out)
@@ -59,7 +67,7 @@ func ListenForSyncJobSignals(ctx context.Context, pool *pgxpool.Pool, channel st
 			return nil
 		}
 		slog.Warn("sync job listener disconnected; retrying", "channel", channel, "err", runErr)
-		if !sleepContext(ctx, syncJobSignalRetryDelay) {
+		if !timing.SleepContext(ctx, syncJobSignalRetryDelay) {
 			return nil
 		}
 	}

@@ -33,6 +33,16 @@ const (
 	defaultSyncLockTTL               = 60 * time.Second
 	defaultSyncLockHeartbeatInterval = 15 * time.Second
 	defaultSyncLockHeartbeatTimeout  = 15 * time.Second
+
+	defaultOktaPushIngestBatchSize               = 500
+	defaultOktaPushIngestPollInterval            = 5 * time.Second
+	defaultOktaPushIngestCleanupInterval         = time.Hour
+	defaultOktaPushIngestRetryDelay              = 30 * time.Second
+	defaultOktaPushIngestRetryMaxDelay           = 15 * time.Minute
+	defaultOktaPushIngestStaleProcessingTimeout  = 5 * time.Minute
+	defaultOktaPushIngestMaxAttempts             = 10
+	defaultOktaPushIngestProcessedRetentionDays  = 30
+	defaultOktaPushIngestDeadLetterRetentionDays = 90
 )
 
 const (
@@ -60,7 +70,10 @@ type Config struct {
 	QueueBackend                string
 	RedisURL                    string
 	RedisKeyPrefix              string
+	SyncFullEnabled             bool
 	SyncDiscoveryEnabled        bool
+	OktaPushIngestEnabled       bool
+	OktaPushIngestEnabledSet    bool
 	SyncInterval                time.Duration
 	SyncDiscoveryInterval       time.Duration
 	SyncOktaInterval            time.Duration
@@ -82,6 +95,7 @@ type Config struct {
 	SyncLockHeartbeatTimeout    time.Duration
 	SyncLockInstanceID          string
 	StartupReadModelRebuildMode string
+	OktaPushIngest              OktaPushIngestConfig
 }
 
 type SMTPConfig struct {
@@ -93,6 +107,18 @@ type SMTPConfig struct {
 	FromAddress string
 	FromName    string
 	TLSMode     string
+}
+
+type OktaPushIngestConfig struct {
+	BatchSize               int32
+	PollInterval            time.Duration
+	CleanupInterval         time.Duration
+	RetryDelay              time.Duration
+	RetryDelayMax           time.Duration
+	StaleProcessingTimeout  time.Duration
+	MaxAttempts             int32
+	ProcessedRetentionDays  int32
+	DeadLetterRetentionDays int32
 }
 
 type LoadOptions struct {
@@ -121,6 +147,7 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		QueueBackend:          strings.ToLower(strings.TrimSpace(getenvDefault("QUEUE_BACKEND", defaultQueueBackend))),
 		RedisURL:              strings.TrimSpace(os.Getenv("REDIS_URL")),
 		RedisKeyPrefix:        strings.TrimSpace(getenvDefault("REDIS_KEY_PREFIX", defaultRedisKeyPrefix)),
+		SyncFullEnabled:       getenvBoolDefault("SYNC_FULL_ENABLED", true),
 		SyncDiscoveryEnabled:  getenvBoolDefault("SYNC_DISCOVERY_ENABLED", true),
 		SyncInterval:          defaultSyncInterval,
 		SyncDiscoveryInterval: defaultSyncDiscoveryInterval,
@@ -138,7 +165,19 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 		SyncLockHeartbeatInterval: defaultSyncLockHeartbeatInterval,
 		SyncLockHeartbeatTimeout:  defaultSyncLockHeartbeatTimeout,
 		SyncLockInstanceID:        strings.TrimSpace(os.Getenv("SYNC_LOCK_INSTANCE_ID")),
+		OktaPushIngest: OktaPushIngestConfig{
+			BatchSize:               defaultOktaPushIngestBatchSize,
+			PollInterval:            defaultOktaPushIngestPollInterval,
+			CleanupInterval:         defaultOktaPushIngestCleanupInterval,
+			RetryDelay:              defaultOktaPushIngestRetryDelay,
+			RetryDelayMax:           defaultOktaPushIngestRetryMaxDelay,
+			StaleProcessingTimeout:  defaultOktaPushIngestStaleProcessingTimeout,
+			MaxAttempts:             defaultOktaPushIngestMaxAttempts,
+			ProcessedRetentionDays:  defaultOktaPushIngestProcessedRetentionDays,
+			DeadLetterRetentionDays: defaultOktaPushIngestDeadLetterRetentionDays,
+		},
 	}
+	cfg.OktaPushIngestEnabled, cfg.OktaPushIngestEnabledSet = getenvBoolDefaultWithLookup("OKTA_PUSH_INGEST_ENABLED", cfg.SyncDiscoveryEnabled)
 	smtpConfig, err := loadSMTPConfig()
 	if err != nil {
 		return cfg, err
@@ -147,6 +186,9 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 
 	cfg.MetricsAddr = loadMetricsAddr(cfg.MetricsAddr)
 	if err := applyDurationEnvOverrides(&cfg); err != nil {
+		return cfg, err
+	}
+	if err := applyIntEnvOverrides(&cfg); err != nil {
 		return cfg, err
 	}
 	connectorSecretKey, err := loadConnectorSecretKey()
@@ -199,6 +241,11 @@ func applyDurationEnvOverrides(cfg *Config) error {
 		{key: "SYNC_LOCK_TTL", target: &cfg.SyncLockTTL, requirePositive: true},
 		{key: "SYNC_LOCK_HEARTBEAT_INTERVAL", target: &cfg.SyncLockHeartbeatInterval, requirePositive: true},
 		{key: "SYNC_LOCK_HEARTBEAT_TIMEOUT", target: &cfg.SyncLockHeartbeatTimeout, requirePositive: true},
+		{key: "OKTA_PUSH_INGEST_POLL_INTERVAL", target: &cfg.OktaPushIngest.PollInterval, requirePositive: true},
+		{key: "OKTA_PUSH_INGEST_CLEANUP_INTERVAL", target: &cfg.OktaPushIngest.CleanupInterval, requirePositive: true},
+		{key: "OKTA_PUSH_INGEST_RETRY_DELAY", target: &cfg.OktaPushIngest.RetryDelay, requirePositive: true},
+		{key: "OKTA_PUSH_INGEST_RETRY_MAX_DELAY", target: &cfg.OktaPushIngest.RetryDelayMax, requirePositive: true},
+		{key: "OKTA_PUSH_INGEST_STALE_PROCESSING_TIMEOUT", target: &cfg.OktaPushIngest.StaleProcessingTimeout, requirePositive: true},
 	}
 	for _, override := range overrides {
 		if err := applyDurationEnvOverride(override.target, override.key, override.requirePositive); err != nil {
@@ -215,6 +262,28 @@ func applyDurationEnvOverride(target *time.Duration, key string, requirePositive
 	}
 	if ok {
 		*target = d
+	}
+	return nil
+}
+
+func applyIntEnvOverrides(cfg *Config) error {
+	overrides := []struct {
+		key    string
+		target *int32
+	}{
+		{key: "OKTA_PUSH_INGEST_BATCH_SIZE", target: &cfg.OktaPushIngest.BatchSize},
+		{key: "OKTA_PUSH_INGEST_MAX_ATTEMPTS", target: &cfg.OktaPushIngest.MaxAttempts},
+		{key: "OKTA_PUSH_INGEST_PROCESSED_RETENTION_DAYS", target: &cfg.OktaPushIngest.ProcessedRetentionDays},
+		{key: "OKTA_PUSH_INGEST_DEAD_LETTER_RETENTION_DAYS", target: &cfg.OktaPushIngest.DeadLetterRetentionDays},
+	}
+	for _, override := range overrides {
+		n, ok, err := parsePositiveInt32Env(override.key)
+		if err != nil {
+			return err
+		}
+		if ok {
+			*override.target = n
+		}
 	}
 	return nil
 }
@@ -244,6 +313,9 @@ func validate(cfg Config, opts LoadOptions) error {
 	}
 	if strings.TrimSpace(cfg.RedisKeyPrefix) == "" {
 		return errors.New("REDIS_KEY_PREFIX must not be empty")
+	}
+	if cfg.OktaPushIngest.RetryDelayMax < cfg.OktaPushIngest.RetryDelay {
+		return errors.New("OKTA_PUSH_INGEST_RETRY_MAX_DELAY must be greater than or equal to OKTA_PUSH_INGEST_RETRY_DELAY")
 	}
 
 	return nil
@@ -382,17 +454,22 @@ func getenvRequiredPositiveIntDefault(key string, def int) (int, error) {
 }
 
 func getenvBoolDefault(key string, def bool) bool {
+	value, _ := getenvBoolDefaultWithLookup(key, def)
+	return value
+}
+
+func getenvBoolDefaultWithLookup(key string, def bool) (bool, bool) {
 	v := strings.TrimSpace(os.Getenv(key))
 	if v == "" {
-		return def
+		return def, false
 	}
 	switch v {
 	case "1":
-		return true
+		return true, true
 	case "0":
-		return false
+		return false, true
 	default:
-		return def
+		return def, true
 	}
 }
 
@@ -422,4 +499,22 @@ func parseDurationEnv(key string, requirePositive bool) (time.Duration, bool, er
 		return 0, false, fmt.Errorf("%s must be greater than zero", key)
 	}
 	return d, true, nil
+}
+
+func parsePositiveInt32Env(key string) (int32, bool, error) {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return 0, false, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return 0, false, fmt.Errorf("%s must be a whole number", key)
+	}
+	if n < 1 {
+		return 0, false, fmt.Errorf("%s must be greater than zero", key)
+	}
+	if n > 1<<31-1 {
+		return 0, false, fmt.Errorf("%s is too large", key)
+	}
+	return int32(n), true, nil
 }
