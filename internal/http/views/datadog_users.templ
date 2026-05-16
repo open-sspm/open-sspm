@@ -38,13 +38,12 @@ templ DatadogUsersPage(data viewmodels.DatadogUsersViewData) {
 			}
 		}
 
+		@DatadogUsersPageFilters(data)
 		@DatadogUsersPageResults(data)
 	}
 }
 
-templ DatadogUsersPageResults(data viewmodels.DatadogUsersViewData) {
-	<div id="datadog-users-results" class="space-y-5">
-		@BusyInlineIndicator("Updating results...", false)
+templ DatadogUsersPageFilters(data viewmodels.DatadogUsersViewData) {
 		<form
 			method="get"
 			action="/accounts/datadog"
@@ -63,7 +62,11 @@ templ DatadogUsersPageResults(data viewmodels.DatadogUsersViewData) {
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
+}
 
+templ DatadogUsersPageResults(data viewmodels.DatadogUsersViewData) {
+	<div id="datadog-users-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
 		<section class="space-y-3">
 			@ListSectionHeader("Datadog users", "Datadog users and their role assignments.")
 			if data.HasUsers {

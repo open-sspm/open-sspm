@@ -48,7 +48,6 @@ type IdentitiesViewData struct {
 	Query             querystate.IdentitiesQuery
 	Summary           IdentitiesSummary
 	HasIdentities     bool
-	OverviewMap       OverviewMapGraph
 }
 
 type IdentityLinkedAccountView struct {
@@ -71,17 +70,17 @@ type IdentityEntitlementView struct {
 }
 
 type IdentityShowViewData struct {
-	Layout             LayoutData
-	Identity           gen.GetIdentitySummaryByIDRow
-	NamePrimary        string
-	NameSecondary      string
-	CreatedOn          TimeDisplay
-	UpdatedOn          TimeDisplay
-	TotalEntitlements  int
-	LinkedAccounts     []IdentityLinkedAccountView
-	Entitlements       []IdentityEntitlementView
+	Layout                 LayoutData
+	Identity               gen.GetIdentitySummaryByIDRow
+	NamePrimary            string
+	NameSecondary          string
+	CreatedOn              TimeDisplay
+	UpdatedOn              TimeDisplay
+	TotalEntitlements      int
+	LinkedAccounts         []IdentityLinkedAccountView
+	Entitlements           []IdentityEntitlementView
 	NonHumanIdentitiesHref string
-	HasLinkedAccounts  bool
-	HasEntitlements    bool
-	OverviewMap        OverviewMapGraph
+	HasLinkedAccounts      bool
+	HasEntitlements        bool
+	OverviewMap            OverviewMapGraph
 }

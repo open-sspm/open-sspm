@@ -179,27 +179,6 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		data.PaginatedListPageData.EmptyStateMsg = "No identities match the current filters."
 	}
 
-	overviewMapSourcePairs := sourcePairs
-	if queryState.Source.Kind != "" {
-		filtered := make([]viewmodels.ProgrammaticSourceOption, 0, len(sourcePairs))
-		for _, sp := range sourcePairs {
-			if NormalizeConnectorKind(sp.SourceKind) == NormalizeConnectorKind(queryState.Source.Kind) {
-				if queryState.Source.Name != "" && sp.SourceName != queryState.Source.Name {
-					continue
-				}
-				filtered = append(filtered, sp)
-			}
-		}
-		if len(filtered) > 0 {
-			overviewMapSourcePairs = filtered
-		}
-	}
-	overviewMap, err := h.buildIdentitiesOverviewMap(ctx, overviewMapSourcePairs, data.Summary.Total)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-	data.OverviewMap = overviewMap
-
 	return renderIdentities()
 }
 
@@ -471,19 +450,19 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 	overviewMap.IdentityCount = 1
 
 	return h.RenderComponent(c, views.IdentityShowPage(viewmodels.IdentityShowViewData{
-		Layout:             layout,
-		Identity:           summary,
-		NamePrimary:        identityNamePrimary(summary.DisplayName, summary.PrimaryEmail, summary.ID),
-		NameSecondary:      identityNameSecondary(summary.DisplayName, summary.PrimaryEmail),
-		CreatedOn:          calendarDateDisplay(summary.CreatedAt),
-		UpdatedOn:          calendarDateDisplay(summary.UpdatedAt),
-		TotalEntitlements:  totalEntitlements,
-		LinkedAccounts:     linkedAccounts,
-		Entitlements:       entitlementViews,
+		Layout:                 layout,
+		Identity:               summary,
+		NamePrimary:            identityNamePrimary(summary.DisplayName, summary.PrimaryEmail, summary.ID),
+		NameSecondary:          identityNameSecondary(summary.DisplayName, summary.PrimaryEmail),
+		CreatedOn:              calendarDateDisplay(summary.CreatedAt),
+		UpdatedOn:              calendarDateDisplay(summary.UpdatedAt),
+		TotalEntitlements:      totalEntitlements,
+		LinkedAccounts:         linkedAccounts,
+		Entitlements:           entitlementViews,
 		NonHumanIdentitiesHref: nonHumanIdentitiesHref,
-		HasLinkedAccounts:  len(linkedAccounts) > 0,
-		HasEntitlements:    len(entitlementViews) > 0,
-		OverviewMap:        overviewMap,
+		HasLinkedAccounts:      len(linkedAccounts) > 0,
+		HasEntitlements:        len(entitlementViews) > 0,
+		OverviewMap:            overviewMap,
 	}))
 }
 

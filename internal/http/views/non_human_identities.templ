@@ -16,18 +16,11 @@ templ NonHumanIdentitiesPageResults(data viewmodels.NonHumanIdentitiesViewData) 
 }
 
 templ NonHumanIdentitiesInventorySwap(data viewmodels.NonHumanIdentitiesViewData) {
-	@NonHumanIdentitiesPageFiltersOOB(data)
 	@NonHumanIdentitiesInventoryResults(data)
 }
 
 templ NonHumanIdentitiesPageFilters(data viewmodels.NonHumanIdentitiesViewData) {
 	<div id="non-human-identities-filters">
-		@NonHumanIdentitiesFiltersForm(data)
-	</div>
-}
-
-templ NonHumanIdentitiesPageFiltersOOB(data viewmodels.NonHumanIdentitiesViewData) {
-	<div id="non-human-identities-filters" hx-swap-oob="outerHTML">
 		@NonHumanIdentitiesFiltersForm(data)
 	</div>
 }

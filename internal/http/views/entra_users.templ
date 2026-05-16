@@ -63,13 +63,12 @@ templ EntraUsersPage(data viewmodels.EntraUsersViewData) {
 			}
 		}
 
+		@EntraUsersPageFilters(data)
 		@EntraUsersPageResults(data)
 	}
 }
 
-templ EntraUsersPageResults(data viewmodels.EntraUsersViewData) {
-	<div id="entra-users-results" class="space-y-5">
-		@BusyInlineIndicator("Updating results...", false)
+templ EntraUsersPageFilters(data viewmodels.EntraUsersViewData) {
 		<form
 			method="get"
 			action="/accounts/entra"
@@ -88,7 +87,11 @@ templ EntraUsersPageResults(data viewmodels.EntraUsersViewData) {
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
+}
 
+templ EntraUsersPageResults(data viewmodels.EntraUsersViewData) {
+	<div id="entra-users-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
 		<section class="space-y-3">
 			@ListSectionHeader("Microsoft Entra ID users", "Microsoft Entra ID users and their access entitlements.")
 			if data.HasUsers {

@@ -53,13 +53,12 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 			}
 		}
 
+		@GitHubUsersPageFilters(data)
 		@GitHubUsersPageResults(data)
 	}
 }
 
-templ GitHubUsersPageResults(data viewmodels.GitHubUsersViewData) {
-	<div id="github-users-results" class="space-y-5">
-		@BusyInlineIndicator("Updating results...", false)
+templ GitHubUsersPageFilters(data viewmodels.GitHubUsersViewData) {
 		<form
 			method="get"
 			action="/accounts/github"
@@ -78,7 +77,11 @@ templ GitHubUsersPageResults(data viewmodels.GitHubUsersViewData) {
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
+}
 
+templ GitHubUsersPageResults(data viewmodels.GitHubUsersViewData) {
+	<div id="github-users-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
 		<section class="space-y-3">
 			@ListSectionHeader("GitHub users", "GitHub accounts synced from your organization.")
 			if data.HasUsers {

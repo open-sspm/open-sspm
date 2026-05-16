@@ -49,13 +49,12 @@ templ GoogleWorkspaceGroupsPage(data viewmodels.GoogleWorkspaceGroupsViewData) {
 			}
 		}
 
+		@GoogleWorkspaceGroupsPageFilters(data)
 		@GoogleWorkspaceGroupsPageResults(data)
 	}
 }
 
-templ GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsViewData) {
-	<div id="google-workspace-groups-results" class="space-y-5">
-		@BusyInlineIndicator("Updating results...", false)
+templ GoogleWorkspaceGroupsPageFilters(data viewmodels.GoogleWorkspaceGroupsViewData) {
 		<form
 			method="get"
 			action="/accounts/google-workspace/groups"
@@ -74,7 +73,11 @@ templ GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsView
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
+}
 
+templ GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsViewData) {
+	<div id="google-workspace-groups-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
 		<section class="space-y-3">
 			@ListSectionHeader("Google Workspace groups", "Google Workspace groups with membership counts.")
 			if data.HasGroups {

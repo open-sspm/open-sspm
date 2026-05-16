@@ -68,13 +68,12 @@ templ GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) {
 			}
 		}
 
+		@GoogleWorkspaceUsersPageFilters(data)
 		@GoogleWorkspaceUsersPageResults(data)
 	}
 }
 
-templ GoogleWorkspaceUsersPageResults(data viewmodels.GoogleWorkspaceUsersViewData) {
-	<div id="google-workspace-users-results" class="space-y-5">
-		@BusyInlineIndicator("Updating results...", false)
+templ GoogleWorkspaceUsersPageFilters(data viewmodels.GoogleWorkspaceUsersViewData) {
 		<form
 			method="get"
 			action="/accounts/google-workspace"
@@ -93,7 +92,11 @@ templ GoogleWorkspaceUsersPageResults(data viewmodels.GoogleWorkspaceUsersViewDa
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
+}
 
+templ GoogleWorkspaceUsersPageResults(data viewmodels.GoogleWorkspaceUsersViewData) {
+	<div id="google-workspace-users-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
 		<section class="space-y-3">
 			@ListSectionHeader("Google Workspace users", "Google Workspace users with group and admin-role visibility.")
 			if data.HasUsers {

@@ -9,13 +9,12 @@ templ AppsPage(data viewmodels.AppsViewData) {
 			<h1 class="text-2xl font-semibold tracking-tight">Assigned apps</h1>
 			<p class="text-sm text-muted-foreground">Apps discovered from Okta assignments.</p>
 		</div>
+		@AppsPageFilters(data)
 		@AppsPageResults(data)
 	}
 }
 
-templ AppsPageResults(data viewmodels.AppsViewData) {
-	<div id="apps-results" class="space-y-5">
-		@BusyInlineIndicator("Updating results...", false)
+templ AppsPageFilters(data viewmodels.AppsViewData) {
 		<form
 			method="get"
 			action="/assigned-apps"
@@ -34,7 +33,11 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
+}
 
+templ AppsPageResults(data viewmodels.AppsViewData) {
+	<div id="apps-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
 		if data.HasApps {
 			<!-- Mobile list -->
 			<div class="divide-y divide-border/60 lg:hidden">

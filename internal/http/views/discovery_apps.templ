@@ -4,6 +4,7 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ DiscoveryAppsPage(data viewmodels.DiscoveryAppsViewData) {
 	@Layout(data.Layout) {
+		@DiscoveryAppsPageFilters(data)
 		@DiscoveryAppsPageResults(data)
 	}
 }
@@ -59,9 +60,7 @@ templ DiscoveryAppMobileRow(item viewmodels.DiscoveryAppListItem) {
 	</a>
 }
 
-templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
-	<div id="discovery-apps-results" class="space-y-6">
-		@BusyInlineIndicator("Updating results...", false)
+templ DiscoveryAppsPageFilters(data viewmodels.DiscoveryAppsViewData) {
 		<form
 			method="get"
 			action="/discovery/apps"
@@ -80,7 +79,11 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 					</div>
 				<button class="sr-only" type="submit">Apply filters</button>
 			</form>
+}
 
+templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
+	<div id="discovery-apps-results" class="space-y-6">
+		@BusyInlineIndicator("Updating results...", false)
 			<section class="space-y-3">
 				if data.HasItems {
 					<div class="space-y-3 lg:hidden">

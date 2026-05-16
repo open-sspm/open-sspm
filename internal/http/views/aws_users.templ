@@ -63,13 +63,12 @@ templ AWSUsersPage(data viewmodels.AWSUsersViewData) {
 			}
 		}
 
+		@AWSUsersPageFilters(data)
 		@AWSUsersPageResults(data)
 	}
 }
 
-templ AWSUsersPageResults(data viewmodels.AWSUsersViewData) {
-	<div id="aws-users-results" class="space-y-5">
-		@BusyInlineIndicator("Updating results...", false)
+templ AWSUsersPageFilters(data viewmodels.AWSUsersViewData) {
 		<form
 			method="get"
 			action="/accounts/aws"
@@ -88,7 +87,11 @@ templ AWSUsersPageResults(data viewmodels.AWSUsersViewData) {
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
+}
 
+templ AWSUsersPageResults(data viewmodels.AWSUsersViewData) {
+	<div id="aws-users-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
 		<section class="space-y-3">
 			@ListSectionHeader("AWS Identity Center users", "AWS Identity Center users and their account assignments.")
 			if data.HasUsers {

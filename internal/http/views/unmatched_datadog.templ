@@ -27,13 +27,12 @@ templ UnmatchedDatadogPage(data viewmodels.UnmatchedDatadogViewData) {
 			}
 		}
 
+		@UnmatchedDatadogPageFilters(data)
 		@UnmatchedDatadogPageResults(data)
 	}
 }
 
-templ UnmatchedDatadogPageResults(data viewmodels.UnmatchedDatadogViewData) {
-	<div id="unmatched-datadog-results" class="space-y-5">
-		@BusyInlineIndicator("Updating results...", false)
+templ UnmatchedDatadogPageFilters(data viewmodels.UnmatchedDatadogViewData) {
 		<form
 			method="get"
 			action={ "/accounts/unlinked/datadog/" + data.Layout.DatadogSite }
@@ -52,7 +51,11 @@ templ UnmatchedDatadogPageResults(data viewmodels.UnmatchedDatadogViewData) {
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
+}
 
+templ UnmatchedDatadogPageResults(data viewmodels.UnmatchedDatadogViewData) {
+	<div id="unmatched-datadog-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
 		<section class="space-y-3">
 			@ListSectionHeader("Unlinked Datadog users", "Unlinked Datadog users awaiting identity linking.")
 			@ColumnsTable("") {

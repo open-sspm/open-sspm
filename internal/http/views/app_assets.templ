@@ -40,16 +40,17 @@ templ AppAssetMobileRow(item viewmodels.AppAssetListItem) {
 
 templ AppAssetsPage(data viewmodels.AppAssetsViewData) {
 	@Layout(data.Layout) {
-		@AppAssetsPageResults(data)
+		if data.GoogleOAuthView != nil {
+			@ConnectedAppsPageFilters(*data.GoogleOAuthView)
+			@ConnectedAppsPageResults(*data.GoogleOAuthView)
+		} else {
+			@AppAssetsPageFilters(data)
+			@AppAssetsPageResults(data)
+		}
 	}
 }
 
-templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
-	if data.GoogleOAuthView != nil {
-		@ConnectedAppsPageResults(*data.GoogleOAuthView)
-	} else {
-	<div id="app-assets-results" class="space-y-6">
-		@BusyInlineIndicator("Updating results...", false)
+templ AppAssetsPageFilters(data viewmodels.AppAssetsViewData) {
 			<form
 				method="get"
 				action="/app-assets"
@@ -68,7 +69,14 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 					</div>
 				<button class="sr-only" type="submit">Apply filters</button>
 			</form>
+}
 
+templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
+	if data.GoogleOAuthView != nil {
+		@ConnectedAppsPageResults(*data.GoogleOAuthView)
+	} else {
+	<div id="app-assets-results" class="space-y-6">
+		@BusyInlineIndicator("Updating results...", false)
 		<section class="space-y-3">
 			if data.HasItems {
 				<div class="space-y-3 lg:hidden">

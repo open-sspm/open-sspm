@@ -27,13 +27,12 @@ templ UnmatchedAWSPage(data viewmodels.UnmatchedAWSViewData) {
 			}
 		}
 
+		@UnmatchedAWSPageFilters(data)
 		@UnmatchedAWSPageResults(data)
 	}
 }
 
-templ UnmatchedAWSPageResults(data viewmodels.UnmatchedAWSViewData) {
-	<div id="unmatched-aws-results" class="space-y-5">
-		@BusyInlineIndicator("Updating results...", false)
+templ UnmatchedAWSPageFilters(data viewmodels.UnmatchedAWSViewData) {
 		<form
 			method="get"
 			action="/accounts/unlinked/aws"
@@ -52,7 +51,11 @@ templ UnmatchedAWSPageResults(data viewmodels.UnmatchedAWSViewData) {
 			</div>
 			<button class="sr-only" type="submit">Apply filters</button>
 		</form>
+}
 
+templ UnmatchedAWSPageResults(data viewmodels.UnmatchedAWSViewData) {
+	<div id="unmatched-aws-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
 		<section class="space-y-3">
 			@ListSectionHeader("Unlinked AWS Identity Center users", "Unlinked AWS Identity Center users awaiting identity linking.")
 			@ColumnsTable("") {
