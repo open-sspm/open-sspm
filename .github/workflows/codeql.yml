@@ -51,7 +51,8 @@ jobs:
         if: ${{ matrix.language == 'go' }}
         run: |
           set -euo pipefail
-          go list ./... \
+          go list -f '{{if or .GoFiles .CgoFiles}}{{.ImportPath}}{{end}}' ./... \
+            | awk 'NF' \
             | grep -Ev '(^github.com/open-sspm/open-sspm/cmd/open-sspm$|^github.com/open-sspm/open-sspm/internal/http($|/))' \
             | while read -r pkg; do
                 if go list -deps "$pkg" | grep -Eq '^github.com/open-sspm/open-sspm/internal/http($|/)'; then
