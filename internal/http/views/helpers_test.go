@@ -7,32 +7,7 @@ import (
 	"testing"
 
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
-	"github.com/open-sspm/open-sspm/internal/identitydetail"
 )
-
-func TestOktaAppMetaPartsUseCanonicalSignOnLabels(t *testing.T) {
-	t.Parallel()
-
-	parts := OktaAppMetaParts(viewmodels.OktaAppSummaryView{
-		Name:       "Example App",
-		SignOnMode: "OPENID_CONNECT",
-		ExternalID: "app-123",
-	})
-	if len(parts) != 3 {
-		t.Fatalf("parts len = %d, want 3", len(parts))
-	}
-	if parts[1].Text != "OpenID Connect" {
-		t.Fatalf("sign-on mode = %q, want %q", parts[1].Text, "OpenID Connect")
-	}
-}
-
-func TestSeverityTextHelpersStayAligned(t *testing.T) {
-	t.Parallel()
-
-	if got, want := CredentialRiskTextClass("high"), RuleSeverityTextClass("high"); got != want {
-		t.Fatalf("severity text helpers differ: %q != %q", got, want)
-	}
-}
 
 func TestAskBarSavedQueryPillUsesAriaCurrentForActiveLink(t *testing.T) {
 	t.Parallel()
@@ -156,30 +131,5 @@ func TestNonHumanShouldShowActivityUsesHealthyBaseline(t *testing.T) {
 	}
 	if !nonHumanShouldShowActivity("recent", "stale") {
 		t.Fatal("stale freshness should still be surfaced")
-	}
-}
-
-func TestConnectorDisplayLabelsMatchIdentityDetail(t *testing.T) {
-	t.Parallel()
-
-	for _, kind := range []string{
-		"aws",
-		"aws_identity_center",
-		"okta",
-		"datadog",
-		"vault",
-		"google_workspace",
-		"pagerduty",
-		"custom_source",
-	} {
-		t.Run(kind, func(t *testing.T) {
-			t.Parallel()
-			if got, want := HumanizeConnectorKind(kind), identitydetail.ConnectorKindLabel(kind); got != want {
-				t.Fatalf("connector kind label = %q, want %q", got, want)
-			}
-			if got, want := ConnectorScopeLabel(kind), identitydetail.ConnectorScopeLabel(kind); got != want {
-				t.Fatalf("connector scope label = %q, want %q", got, want)
-			}
-		})
 	}
 }

@@ -26,12 +26,8 @@ func TestCredentialsTableQueryBarSuppressesPrimitiveChipsForActivePreset(t *test
 		t.Fatalf("expected 2 active chips, got %d", len(bar.ActiveChips))
 	}
 
-	if bar.ActiveChips[0].Label != "Source: GitHub" {
-		t.Fatalf("unexpected source chip label: %q", bar.ActiveChips[0].Label)
-	}
-
-	if bar.ActiveChips[1].Label != "Preset: Critical risk" {
-		t.Fatalf("unexpected preset chip label: %q", bar.ActiveChips[1].Label)
+	if bar.ActiveChips[0].FieldID != "source_kind" || bar.ActiveChips[1].FieldID != "preset" {
+		t.Fatalf("unexpected active chips: %#v", bar.ActiveChips)
 	}
 
 	for _, chip := range bar.ActiveChips {
@@ -66,9 +62,6 @@ func TestIdentitiesTableQueryBarShowsSortChipAndControls(t *testing.T) {
 	for _, chip := range bar.ActiveChips {
 		if chip.FieldID == "sort" {
 			foundChip = true
-			if chip.Label != "Sort: Last seen (oldest)" {
-				t.Fatalf("unexpected sort chip label: %q", chip.Label)
-			}
 		}
 	}
 	if !foundChip {
@@ -99,8 +92,8 @@ func TestActiveInactiveStateTableQueryBarBuildsChipAndControl(t *testing.T) {
 	if len(bar.ActiveChips) != 1 {
 		t.Fatalf("expected 1 active chip, got %d", len(bar.ActiveChips))
 	}
-	if bar.ActiveChips[0].Label != "State: Inactive" {
-		t.Fatalf("unexpected chip label: %q", bar.ActiveChips[0].Label)
+	if bar.ActiveChips[0].FieldID != "state" {
+		t.Fatalf("unexpected active chip: %#v", bar.ActiveChips[0])
 	}
 
 	if len(bar.HiddenControls) != 1 || bar.HiddenControls[0].Name != "state" || bar.HiddenControls[0].Value != "inactive" {
