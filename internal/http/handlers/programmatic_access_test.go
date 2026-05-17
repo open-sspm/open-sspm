@@ -102,7 +102,7 @@ func TestEmailCandidate(t *testing.T) {
 	}
 }
 
-func TestAvailableProgrammaticSourcesUsesPrimaryLabels(t *testing.T) {
+func TestAvailableProgrammaticSourcesIncludesConfiguredSources(t *testing.T) {
 	t.Parallel()
 
 	sources := availableProgrammaticSources(newTestConnectorStateView(t,
@@ -124,8 +124,8 @@ func TestAvailableProgrammaticSourcesUsesPrimaryLabels(t *testing.T) {
 	if len(sources) != 2 {
 		t.Fatalf("sources length = %d, want 2", len(sources))
 	}
-	if sources[0].Label != "GitHub" || sources[1].Label != "Microsoft Entra" {
-		t.Fatalf("unexpected labels = [%q, %q]", sources[0].Label, sources[1].Label)
+	if sources[0].SourceKind != configstore.KindGitHub || sources[1].SourceKind != configstore.KindEntra {
+		t.Fatalf("unexpected source kinds = [%q, %q]", sources[0].SourceKind, sources[1].SourceKind)
 	}
 	if sources[0].SourceName != "acme-org" || sources[1].SourceName != "tenant-a" {
 		t.Fatalf("unexpected source names = [%q, %q]", sources[0].SourceName, sources[1].SourceName)
@@ -154,9 +154,6 @@ func TestAvailableProgrammaticSourcesIncludesVault(t *testing.T) {
 	if sources[0].SourceName != "prod-vault" {
 		t.Fatalf("source name = %q, want prod-vault", sources[0].SourceName)
 	}
-	if sources[0].Label != "Vault" {
-		t.Fatalf("source label = %q, want Vault", sources[0].Label)
-	}
 }
 
 func TestAvailableProgrammaticSourcesIncludesGoogleWorkspace(t *testing.T) {
@@ -177,9 +174,6 @@ func TestAvailableProgrammaticSourcesIncludesGoogleWorkspace(t *testing.T) {
 	}
 	if sources[0].SourceName != "C0123" {
 		t.Fatalf("source name = %q, want C0123", sources[0].SourceName)
-	}
-	if sources[0].Label != "Google Workspace" {
-		t.Fatalf("source label = %q, want Google Workspace", sources[0].Label)
 	}
 }
 
