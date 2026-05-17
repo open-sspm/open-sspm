@@ -2,6 +2,8 @@
 
 The GitHub connector syncs organization members, teams, and repository permissions from your GitHub organization.
 
+GitHub webhook push is not enabled yet. The connector currently advertises only the executable full reconciliation surface; webhook support will require a GitHub-specific secret, HMAC validation, generic inbox processor, and canonical event normalization before it is exposed.
+
 ## What Gets Synced
 
 - **Organization Members** - Users with access to your organization

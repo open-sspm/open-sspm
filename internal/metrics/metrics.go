@@ -74,6 +74,24 @@ var (
 		Help:      "Count of processing lease losses observed by worker lanes.",
 	}, []string{"lane"})
 
+	EventPartitionMaintenanceRunsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "event_partition_maintenance_runs_total",
+		Help:      "Count of event partition maintenance runs by status.",
+	}, []string{"status"})
+
+	EventPartitionEnsuredUntilTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "event_partition_ensured_until_timestamp_seconds",
+		Help:      "Unix timestamp of the latest event partition date ensured by maintenance.",
+	})
+
+	EventPartitionsDroppedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "event_partitions_dropped_total",
+		Help:      "Count of expired event and event target partitions dropped by maintenance.",
+	})
+
 	// Resource Metrics
 	ResourcesTotal = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
@@ -178,7 +196,7 @@ var (
 		Help:      "High-risk linked credentials that have accountable ownership or actor attribution.",
 	})
 
-	// Metric name retains the legacy "non_human_access_" prefix for dashboard/alert continuity after the surface rename.
+	// Metric name retains the established "non_human_access_" prefix for dashboard/alert continuity after the surface rename.
 	NonHumanIdentitiesWeeklyAdminReviewSessions = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Name:      "non_human_access_weekly_admin_review_sessions",

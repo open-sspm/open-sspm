@@ -18,7 +18,7 @@ import (
 
 const (
 	ConnectorSecretVersionAES256GCM int16 = 1
-	connectorSecretNonceSize              = 12
+	connectorSecretNonceSize        int   = 12
 )
 
 const (
@@ -151,17 +151,17 @@ func (s *Store) Bootstrap(ctx context.Context) error {
 	}
 	updates := make([]pendingUpdate, 0, len(rows))
 	hasEncryptedSecrets := len(secretRows) > 0
-	hasLegacySecrets := false
+	hasInlineSecrets := false
 
 	for _, row := range rows {
-		publicRaw, legacySecrets, err := SplitRawConfig(row.Kind, row.Config)
+		publicRaw, inlineSecrets, err := SplitRawConfig(row.Kind, row.Config)
 		if err != nil {
 			return err
 		}
-		if len(legacySecrets) == 0 {
+		if len(inlineSecrets) == 0 {
 			continue
 		}
-		hasLegacySecrets = true
+		hasInlineSecrets = true
 
 		storedSecrets, err := s.decryptConnectorSecretRows(row.Kind, secretsByKind[normalizeKind(row.Kind)])
 		if err != nil {
@@ -170,12 +170,12 @@ func (s *Store) Bootstrap(ctx context.Context) error {
 		updates = append(updates, pendingUpdate{
 			kind:         row.Kind,
 			publicRaw:    publicRaw,
-			secretValues: mergeSecretValues(legacySecrets, storedSecrets),
+			secretValues: mergeSecretValues(inlineSecrets, storedSecrets),
 		})
 	}
 
 	if !s.HasKey() {
-		if hasEncryptedSecrets || hasLegacySecrets {
+		if hasEncryptedSecrets || hasInlineSecrets {
 			return connectorSecretKeyRequiredError()
 		}
 		return tx.Commit(ctx)
@@ -265,7 +265,7 @@ func (s *Store) SaveConnectorConfigTx(ctx context.Context, qtx *gen.Queries, kin
 }
 
 func (s *Store) resolveRow(row gen.ConnectorConfig, secretRows []gen.ConnectorSecret) (ResolvedConnectorConfig, error) {
-	publicRaw, legacySecrets, err := SplitRawConfig(row.Kind, row.Config)
+	publicRaw, inlineSecrets, err := SplitRawConfig(row.Kind, row.Config)
 	if err != nil {
 		return ResolvedConnectorConfig{}, err
 	}
@@ -273,7 +273,7 @@ func (s *Store) resolveRow(row gen.ConnectorConfig, secretRows []gen.ConnectorSe
 	if err != nil {
 		return ResolvedConnectorConfig{}, err
 	}
-	effectiveSecrets := mergeSecretValues(legacySecrets, storedSecrets)
+	effectiveSecrets := mergeSecretValues(inlineSecrets, storedSecrets)
 	if !s.HasKey() && len(effectiveSecrets) > 0 {
 		return ResolvedConnectorConfig{}, connectorSecretKeyRequiredError()
 	}

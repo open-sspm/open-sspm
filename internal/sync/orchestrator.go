@@ -231,7 +231,8 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 
 	_ = g.Wait()
 
-	if o.mode.Normalize() == registry.RunModeDiscovery {
+	switch o.mode.Normalize() {
+	case registry.RunModeDiscovery, registry.RunModeTail:
 		err := errors.Join(errs...)
 		o.report(registry.Event{Source: "sync", Stage: "done", Done: true, Err: err})
 		return err

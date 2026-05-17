@@ -11,7 +11,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
-func TestHandleGitHubUsersIncludesLegacyUnknownUserRows(t *testing.T) {
+func TestHandleGitHubUsersIncludesCurrentUnknownUserRows(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{Org: "acme"})
 
@@ -19,13 +19,13 @@ func TestHandleGitHubUsersIncludesLegacyUnknownUserRows(t *testing.T) {
 		insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
 			SourceKind:     configstore.KindGitHub,
 			SourceName:     "acme",
-			ExternalID:     "github-member-legacy",
+			ExternalID:     "github-member-reference",
 			Email:          "member@example.com",
-			DisplayName:    "Legacy Member",
+			DisplayName:    "Reference Member",
 			Status:         "active",
 			AccountKind:    "human",
 			EntityCategory: "unknown",
-			RawJSON:        `{"login":"github-member-legacy","type":"User","status":"active"}`,
+			RawJSON:        `{"login":"github-member-reference","type":"User","status":"active"}`,
 		})
 		insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
 			SourceKind:     configstore.KindGitHub,
@@ -47,8 +47,8 @@ func TestHandleGitHubUsersIncludesLegacyUnknownUserRows(t *testing.T) {
 		}
 
 		body := rec.Body.String()
-		if !strings.Contains(body, "github-member-legacy") {
-			t.Fatalf("body missing legacy github user: %s", body)
+		if !strings.Contains(body, "github-member-reference") {
+			t.Fatalf("body missing current github user: %s", body)
 		}
 		if strings.Contains(body, "team:platform") {
 			t.Fatalf("body unexpectedly included github team row: %s", body)

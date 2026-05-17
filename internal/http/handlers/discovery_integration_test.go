@@ -631,7 +631,7 @@ func TestHandleDiscoveryAppGovernanceUpdateValidation(t *testing.T) {
 		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
 		datadogRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindDatadog, "datadoghq.com")
 		currentID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "shadow-app", "Shadow App", "shadow.example.com", "Example", "shadow-app")
-		unmanagedReplacementID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "legacy-app", "Legacy App", "legacy.example.com", "Example", "legacy-app")
+		unmanagedReplacementID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "reference-app", "Reference App", "reference.example.com", "Example", "reference-app")
 		hiddenManagedReplacementID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, datadogRunID, configstore.KindDatadog, "datadoghq.com", "hidden-app", "Hidden App", "hidden.example.com", "Example", "hidden-app")
 		upsertDiscoveryPrimaryBinding(t, ctx, q, hiddenManagedReplacementID, configstore.KindDatadog, "datadoghq.com")
 		if _, err := pool.Exec(ctx, `
@@ -884,7 +884,7 @@ func TestHandleDiscoveryReplacementCandidatesOnlyReturnsManagedAlternatives(t *t
 		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
 		currentID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "current-app", "Current App", "current.example.com", "Example", "current-app")
 		managedID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "approved-app", "Approved App", "approved.example.com", "Example", "approved-app")
-		_ = insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "legacy-app", "Legacy App", "legacy.example.com", "Example", "legacy-app")
+		_ = insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindGitHub, "acme", "reference-app", "Reference App", "reference.example.com", "Example", "reference-app")
 		upsertDiscoveryPrimaryBinding(t, ctx, q, managedID, configstore.KindGitHub, "acme")
 
 		target := "http://example.com/discovery/apps/replacement-candidates?q=app&exclude_id=" + strconv.FormatInt(currentID, 10)
@@ -900,7 +900,7 @@ func TestHandleDiscoveryReplacementCandidatesOnlyReturnsManagedAlternatives(t *t
 		body := rec.Body.String()
 		assertContains(t, body, "Approved App")
 		assertNotContains(t, body, "Current App")
-		assertNotContains(t, body, "Legacy App")
+		assertNotContains(t, body, "Reference App")
 	})
 }
 

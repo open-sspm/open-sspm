@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type connectorHealthStatus string
@@ -222,7 +225,7 @@ func formatRunLabel(status, errorKind, age string) string {
 	case "":
 		return "—"
 	default:
-		label = strings.Title(label) //nolint:staticcheck // acceptable for short UI labels
+		label = cases.Title(language.Und).String(label)
 	}
 
 	if age != "" && age != "—" {

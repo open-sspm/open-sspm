@@ -21,6 +21,7 @@ WITH next_job AS (
     AND queue_job.available_at <= clock_timestamp()
   ORDER BY
     CASE WHEN queue_job.trigger_kind = 'manual' THEN 0 ELSE 1 END,
+    queue_job.priority DESC,
     queue_job.available_at ASC,
     queue_job.created_at ASC,
     queue_job.id ASC
@@ -38,7 +39,7 @@ SET
   updated_at = clock_timestamp()
 FROM next_job
 WHERE sj.id = next_job.id
-RETURNING sj.id, sj.lane, sj.connector_kind, sj.source_name, sj.trigger_kind, sj.status, sj.attempt_count, sj.claimed_by, sj.claimed_at, sj.heartbeat_at, sj.lease_expires_at, sj.started_at, sj.finished_at, sj.last_error, sj.created_at, sj.updated_at, sj.available_at, sj.rerun_requested
+RETURNING sj.id, sj.lane, sj.connector_kind, sj.source_name, sj.trigger_kind, sj.status, sj.attempt_count, sj.claimed_by, sj.claimed_at, sj.heartbeat_at, sj.lease_expires_at, sj.started_at, sj.finished_at, sj.last_error, sj.created_at, sj.updated_at, sj.available_at, sj.rerun_requested, sj.resource, sj.payload, sj.priority, sj.created_reason
 `
 
 type ClaimNextSyncJobByLaneParams struct {
@@ -69,6 +70,10 @@ func (q *Queries) ClaimNextSyncJobByLane(ctx context.Context, arg ClaimNextSyncJ
 		&i.UpdatedAt,
 		&i.AvailableAt,
 		&i.RerunRequested,
+		&i.Resource,
+		&i.Payload,
+		&i.Priority,
+		&i.CreatedReason,
 	)
 	return i, err
 }
@@ -258,7 +263,7 @@ INSERT INTO sync_jobs (
   $8,
   $9
 )
-RETURNING id, lane, connector_kind, source_name, trigger_kind, status, attempt_count, claimed_by, claimed_at, heartbeat_at, lease_expires_at, started_at, finished_at, last_error, created_at, updated_at, available_at, rerun_requested
+RETURNING id, lane, connector_kind, source_name, trigger_kind, status, attempt_count, claimed_by, claimed_at, heartbeat_at, lease_expires_at, started_at, finished_at, last_error, created_at, updated_at, available_at, rerun_requested, resource, payload, priority, created_reason
 `
 
 type CreateSyncJobParams struct {
@@ -305,12 +310,16 @@ func (q *Queries) CreateSyncJob(ctx context.Context, arg CreateSyncJobParams) (S
 		&i.UpdatedAt,
 		&i.AvailableAt,
 		&i.RerunRequested,
+		&i.Resource,
+		&i.Payload,
+		&i.Priority,
+		&i.CreatedReason,
 	)
 	return i, err
 }
 
 const getActiveSyncJobByScope = `-- name: GetActiveSyncJobByScope :one
-SELECT id, lane, connector_kind, source_name, trigger_kind, status, attempt_count, claimed_by, claimed_at, heartbeat_at, lease_expires_at, started_at, finished_at, last_error, created_at, updated_at, available_at, rerun_requested
+SELECT id, lane, connector_kind, source_name, trigger_kind, status, attempt_count, claimed_by, claimed_at, heartbeat_at, lease_expires_at, started_at, finished_at, last_error, created_at, updated_at, available_at, rerun_requested, resource, payload, priority, created_reason
 FROM sync_jobs
 WHERE
   lane = $1
@@ -348,6 +357,10 @@ func (q *Queries) GetActiveSyncJobByScope(ctx context.Context, arg GetActiveSync
 		&i.UpdatedAt,
 		&i.AvailableAt,
 		&i.RerunRequested,
+		&i.Resource,
+		&i.Payload,
+		&i.Priority,
+		&i.CreatedReason,
 	)
 	return i, err
 }
@@ -362,7 +375,7 @@ WHERE
   id = $1
   AND claimed_by = $2
   AND status = 'claimed'
-RETURNING id, lane, connector_kind, source_name, trigger_kind, status, attempt_count, claimed_by, claimed_at, heartbeat_at, lease_expires_at, started_at, finished_at, last_error, created_at, updated_at, available_at, rerun_requested
+RETURNING id, lane, connector_kind, source_name, trigger_kind, status, attempt_count, claimed_by, claimed_at, heartbeat_at, lease_expires_at, started_at, finished_at, last_error, created_at, updated_at, available_at, rerun_requested, resource, payload, priority, created_reason
 `
 
 type MarkSyncJobRunningParams struct {
@@ -392,6 +405,10 @@ func (q *Queries) MarkSyncJobRunning(ctx context.Context, arg MarkSyncJobRunning
 		&i.UpdatedAt,
 		&i.AvailableAt,
 		&i.RerunRequested,
+		&i.Resource,
+		&i.Payload,
+		&i.Priority,
+		&i.CreatedReason,
 	)
 	return i, err
 }
@@ -413,7 +430,7 @@ WHERE
   id = $1
   AND status IN ('pending', 'claimed', 'running')
   AND trigger_kind = 'scheduled'
-RETURNING id, lane, connector_kind, source_name, trigger_kind, status, attempt_count, claimed_by, claimed_at, heartbeat_at, lease_expires_at, started_at, finished_at, last_error, created_at, updated_at, available_at, rerun_requested
+RETURNING id, lane, connector_kind, source_name, trigger_kind, status, attempt_count, claimed_by, claimed_at, heartbeat_at, lease_expires_at, started_at, finished_at, last_error, created_at, updated_at, available_at, rerun_requested, resource, payload, priority, created_reason
 `
 
 func (q *Queries) PromoteSyncJobForManualRequest(ctx context.Context, id pgtype.UUID) (SyncJob, error) {
@@ -438,6 +455,10 @@ func (q *Queries) PromoteSyncJobForManualRequest(ctx context.Context, id pgtype.
 		&i.UpdatedAt,
 		&i.AvailableAt,
 		&i.RerunRequested,
+		&i.Resource,
+		&i.Payload,
+		&i.Priority,
+		&i.CreatedReason,
 	)
 	return i, err
 }

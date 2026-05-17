@@ -41,7 +41,11 @@ func (i *AWSIntegration) InitEvents() []registry.Event {
 	}
 }
 
-func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event), _ registry.RunMode) error {
+func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event), mode registry.RunMode) error {
+	if mode.Normalize() == registry.RunModeTail {
+		return i.runCloudTrailTail(ctx, q, pool, report)
+	}
+
 	started := time.Now()
 	slog.Info("syncing AWS Identity Center")
 

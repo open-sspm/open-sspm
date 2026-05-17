@@ -117,6 +117,47 @@ func TestOrchestrator_DiscoveryModeSkipsPostProcessing(t *testing.T) {
 	}
 }
 
+func TestOrchestrator_TailModeSkipsPostProcessing(t *testing.T) {
+	t.Parallel()
+
+	orch := NewOrchestrator(&pgxpool.Pool{}, nil)
+	orch.SetLockManager(orchestratorTestLockManager{})
+	orch.SetRunMode(registry.RunModeTail)
+
+	var identityCalled bool
+	orch.identityFn = func(context.Context, *gen.Queries) (identity.Stats, error) {
+		identityCalled = true
+		return identity.Stats{}, nil
+	}
+
+	var globalCalled bool
+	orch.globalEvalFn = func(context.Context, *gen.Queries, string, bool, func(registry.Event)) error {
+		globalCalled = true
+		return nil
+	}
+
+	integration := &orchestratorCountingIntegration{}
+	if err := orch.AddIntegration(integration); err != nil {
+		t.Fatalf("AddIntegration() error = %v", err)
+	}
+
+	if err := orch.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce() error = %v", err)
+	}
+	if integration.runCount != 1 {
+		t.Fatalf("runCount = %d, want 1", integration.runCount)
+	}
+	if integration.complianceCount != 0 {
+		t.Fatalf("complianceCount = %d, want 0", integration.complianceCount)
+	}
+	if identityCalled {
+		t.Fatalf("identity resolver should be skipped in tail mode")
+	}
+	if globalCalled {
+		t.Fatalf("global evaluator should be skipped in tail mode")
+	}
+}
+
 func TestOrchestrator_FullModeRunsPostProcessing(t *testing.T) {
 	t.Parallel()
 

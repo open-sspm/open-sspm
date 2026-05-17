@@ -235,7 +235,7 @@ func TestHandleCommandSearchCrossInventoryResults(t *testing.T) {
 			if !strings.Contains(body, `/app-assets/`+strconv.FormatInt(fixture.azureAppAssetID, 10)) {
 				t.Fatalf("azure body missing app asset href: %s", body)
 			}
-			if strings.Contains(body, "Salesforce Legacy") {
+			if strings.Contains(body, "Salesforce Reference") {
 				t.Fatalf("azure body leaked unrelated okta app row: %s", body)
 			}
 		})
@@ -277,9 +277,9 @@ func TestHandleCommandSearchCrossInventoryResults(t *testing.T) {
 		})
 
 		t.Run("okta app rows link to direct destinations", func(t *testing.T) {
-			legacyBody := renderCommandSearch(t, h, "http://example.com/command/search?q=legacy")
-			if !strings.Contains(legacyBody, `href="/assigned-apps/legacy-app"`) {
-				t.Fatalf("legacy okta body missing /assigned-apps/{external_id} link: %s", legacyBody)
+			referenceBody := renderCommandSearch(t, h, "http://example.com/command/search?q=reference")
+			if !strings.Contains(referenceBody, `href="/assigned-apps/reference-app"`) {
+				t.Fatalf("current okta body missing /assigned-apps/{external_id} link: %s", referenceBody)
 			}
 
 			mappedBody := renderCommandSearch(t, h, "http://example.com/command/search?q=mapped")
@@ -517,8 +517,8 @@ func seedCommandSearchFixture(t *testing.T, ctx context.Context, pool *pgxpool.P
 
 	insertCommandSearchDiscoveryApp(t, ctx, pool, q, entraRunID, configstore.KindEntra, "tenant-1", "azure-cloud", "Azure Cloud", "azure.com", "Microsoft", "azure-cloud")
 
-	insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "salesforce-legacy", "Salesforce Legacy", "salesforce", "active")
-	insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "legacy-app", "Legacy HR App", "legacy-hr", "active")
+	insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "salesforce-reference", "Salesforce Reference", "salesforce", "active")
+	insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "reference-app", "Reference HR App", "reference-hr", "active")
 	insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "mapped-okta-app", "Mapped Directory App", "mapped-directory", "active")
 	if err := q.UpsertIntegrationOktaAppMap(ctx, gen.UpsertIntegrationOktaAppMapParams{
 		IntegrationKind:   configstore.KindGitHub,

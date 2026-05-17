@@ -17,9 +17,11 @@ import (
 type stubDatadogAdapter struct {
 	accounts            []Account
 	roles               []Role
+	auditEvents         []AuditEvent
 	roleMembersByRoleID map[string][]string
 	listAccountsErr     error
 	listRolesErr        error
+	listAuditEventsErr  error
 	listRoleMembersErr  map[string]error
 }
 
@@ -36,6 +38,10 @@ func (a stubDatadogAdapter) ListRoleMembers(_ context.Context, roleID string) ([
 		return nil, err
 	}
 	return a.roleMembersByRoleID[roleID], nil
+}
+
+func (a stubDatadogAdapter) ListAuditEvents(context.Context, time.Time) ([]AuditEvent, error) {
+	return a.auditEvents, a.listAuditEventsErr
 }
 
 func TestDatadogIntegrationRunWritesAccountsAndEntitlements(t *testing.T) {
@@ -194,12 +200,12 @@ func TestDatadogIntegrationRunPreservesExistingLinkedAccount(t *testing.T) {
 				'datadog',
 				'datadoghq.com',
 				'u-1',
-				'legacy@example.com',
-				'Legacy Name',
+				'reference@example.com',
+				'Reference Name',
 				'Inactive',
 				'human',
 				'user',
-				'{"user_name":"Legacy Name","status":"Inactive"}'::jsonb,
+				'{"user_name":"Reference Name","status":"Inactive"}'::jsonb,
 				$1,
 				now(),
 				$1,
@@ -208,7 +214,7 @@ func TestDatadogIntegrationRunPreservesExistingLinkedAccount(t *testing.T) {
 			)
 			RETURNING id
 		`, seedRunID).Scan(&existingAccountID); err != nil {
-			t.Fatalf("insert legacy datadog account: %v", err)
+			t.Fatalf("insert current datadog account: %v", err)
 		}
 
 		var identityID int64
@@ -245,7 +251,7 @@ func TestDatadogIntegrationRunPreservesExistingLinkedAccount(t *testing.T) {
 				'datadog_role',
 				'datadog_role:admin',
 				'member',
-				'{"role_id":"admin","role_name":"Legacy Admin"}'::jsonb,
+				'{"role_id":"admin","role_name":"Reference Admin"}'::jsonb,
 				$2,
 				now(),
 				$2,
@@ -253,7 +259,7 @@ func TestDatadogIntegrationRunPreservesExistingLinkedAccount(t *testing.T) {
 				now()
 			)
 		`, existingAccountID, seedRunID); err != nil {
-			t.Fatalf("insert legacy entitlement: %v", err)
+			t.Fatalf("insert reference entitlement: %v", err)
 		}
 
 		adapter := stubDatadogAdapter{
@@ -419,6 +425,144 @@ func TestDatadogIntegrationRunFailsWhenRoleMemberFetchFails(t *testing.T) {
 		}
 		if recentRuns[0].ErrorKind != registry.SyncErrorKindAPI {
 			t.Fatalf("run error_kind = %q, want %q", recentRuns[0].ErrorKind, registry.SyncErrorKindAPI)
+		}
+	})
+}
+
+func TestDatadogAuditTailWritesCanonicalEventsAndAdvancesCursor(t *testing.T) {
+	withDatadogTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateDatadogUp(t, migrator)
+
+		sourceName := "datadoghq.com"
+		runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("datadog", registry.RunModeTail), sourceName)
+		if err != nil {
+			t.Fatalf("StartSyncRun() err = %v", err)
+		}
+
+		occurredAt := time.Date(2026, time.May, 16, 12, 0, 0, 0, time.UTC)
+		event := AuditEvent{
+			ID:         "audit-1",
+			Timestamp:  occurredAt,
+			Action:     "role.updated",
+			Message:    "role updated",
+			Service:    "datadog",
+			ActorEmail: "alice@example.com",
+			ActorName:  "Alice",
+			TargetID:   "role-1",
+			TargetName: "Admins",
+			Attributes: map[string]any{"evt.name": "role.updated"},
+			RawJSON:    []byte(`{"id":"audit-1","attributes":{"message":"role updated"}}`),
+		}
+		integration := NewDatadogIntegration(stubDatadogAdapter{
+			auditEvents: []AuditEvent{event, event},
+		}, sourceName, 1)
+
+		stats, err := integration.tailAuditEventsWithCursor(ctx, pool, runID, DatadogAuditTailResource)
+		if err != nil {
+			t.Fatalf("tailAuditEventsWithCursor() err = %v", err)
+		}
+		if stats.Fetched != 2 || stats.Written != 1 || stats.Duplicates != 1 {
+			t.Fatalf("tail stats = %+v, want fetched=2 written=1 duplicates=1", stats)
+		}
+
+		var eventCount, targetCount int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM events WHERE source_kind = 'datadog' AND source_name = $1`, sourceName).Scan(&eventCount); err != nil {
+			t.Fatalf("count canonical events: %v", err)
+		}
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM event_targets`).Scan(&targetCount); err != nil {
+			t.Fatalf("count event targets: %v", err)
+		}
+		if eventCount != 1 {
+			t.Fatalf("event count = %d, want 1", eventCount)
+		}
+		if targetCount != 1 {
+			t.Fatalf("target count = %d, want 1", targetCount)
+		}
+
+		cursor, err := q.GetConnectorCursorState(ctx, gen.GetConnectorCursorStateParams{
+			SourceKind: "datadog",
+			SourceName: sourceName,
+			Resource:   DatadogAuditTailResource,
+		})
+		if err != nil {
+			t.Fatalf("GetConnectorCursorState() err = %v", err)
+		}
+		if !cursor.Watermark.Valid || !cursor.Watermark.Time.Equal(occurredAt) {
+			t.Fatalf("cursor watermark = %v, want %v", cursor.Watermark, occurredAt)
+		}
+		if !cursor.LastRunID.Valid || cursor.LastRunID.Int64 != runID {
+			t.Fatalf("cursor last_run_id = %+v, want %d", cursor.LastRunID, runID)
+		}
+		if cursor.LastProviderEventID != "audit-1" {
+			t.Fatalf("last provider event id = %q, want audit-1", cursor.LastProviderEventID)
+		}
+	})
+}
+
+func TestDatadogAuditTailDoesNotAdvanceCursorAfterPartialWriteFailure(t *testing.T) {
+	withDatadogTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
+		migrateDatadogUp(t, migrator)
+
+		sourceName := "datadoghq.com"
+		runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("datadog", registry.RunModeTail), sourceName)
+		if err != nil {
+			t.Fatalf("StartSyncRun() err = %v", err)
+		}
+
+		occurredAt := time.Date(2026, time.May, 16, 12, 0, 0, 0, time.UTC)
+		good := AuditEvent{
+			ID:         "audit-good",
+			Timestamp:  occurredAt,
+			Action:     "role.updated",
+			Message:    "role updated",
+			Service:    "datadog",
+			ActorEmail: "alice@example.com",
+			ActorName:  "Alice",
+			TargetID:   "role-1",
+			TargetName: "Admins",
+			Attributes: map[string]any{"evt.name": "role.updated"},
+			RawJSON:    []byte(`{"id":"audit-good","attributes":{"message":"role updated"}}`),
+		}
+		bad := good
+		bad.ID = "audit-bad"
+		bad.Timestamp = occurredAt.Add(time.Minute)
+		bad.RawJSON = []byte(`{`)
+		integration := NewDatadogIntegration(stubDatadogAdapter{
+			auditEvents: []AuditEvent{good, bad},
+		}, sourceName, 1)
+
+		stats, err := integration.tailAuditEventsWithCursor(ctx, pool, runID, DatadogAuditTailResource)
+		if err == nil {
+			t.Fatalf("tailAuditEventsWithCursor() err = nil, want bad raw JSON error")
+		}
+		if stats.Fetched != 2 || stats.Written != 1 {
+			t.Fatalf("tail stats = %+v, want fetched=2 written=1 before failure", stats)
+		}
+
+		var eventCount int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM events WHERE source_kind = 'datadog' AND source_name = $1`, sourceName).Scan(&eventCount); err != nil {
+			t.Fatalf("count canonical events: %v", err)
+		}
+		if eventCount != 1 {
+			t.Fatalf("event count = %d, want first event to remain durable", eventCount)
+		}
+
+		cursor, err := q.GetConnectorCursorState(ctx, gen.GetConnectorCursorStateParams{
+			SourceKind: "datadog",
+			SourceName: sourceName,
+			Resource:   DatadogAuditTailResource,
+		})
+		if err != nil {
+			t.Fatalf("GetConnectorCursorState() err = %v", err)
+		}
+		if cursor.Watermark.Valid {
+			t.Fatalf("cursor watermark = %+v, want no success watermark after failure", cursor.Watermark)
+		}
+		if cursor.LastSuccessAt.Valid {
+			t.Fatalf("cursor last_success_at = %+v, want invalid after failure", cursor.LastSuccessAt)
+		}
+		if cursor.LastError == "" {
+			t.Fatalf("cursor last_error is empty, want failure recorded")
 		}
 	})
 }

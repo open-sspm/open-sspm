@@ -22,8 +22,8 @@ import (
 
 const (
 	connectorHealthDetailsRunLimit   int32 = 5
-	connectorHealthErrorPreviewRunes       = 320
-	connectorHealthErrorFullRunes          = 20000
+	connectorHealthErrorPreviewRunes int   = 320
+	connectorHealthErrorFullRunes    int   = 20000
 )
 
 // HandleConnectorHealth renders connector health under Settings.

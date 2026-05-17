@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/open-sspm/open-sspm/internal/config"
 	oktaingest "github.com/open-sspm/open-sspm/internal/ingest/okta"
@@ -76,8 +78,17 @@ func oktaPushIngestConfigFromConfig(cfg config.Config, onLoopTick, onClaimAttemp
 }
 
 func workerClaimedBy(cfg config.Config, lane string) string {
-	if cfg.SyncLockInstanceID == "" {
-		return ""
+	instanceID := strings.TrimSpace(cfg.SyncLockInstanceID)
+	if instanceID == "" {
+		instanceID = strings.TrimSpace(os.Getenv("HOSTNAME"))
 	}
-	return fmt.Sprintf("%s/%s", cfg.SyncLockInstanceID, lane)
+	if instanceID == "" {
+		if host, err := os.Hostname(); err == nil {
+			instanceID = strings.TrimSpace(host)
+		}
+	}
+	if instanceID == "" {
+		instanceID = "pid"
+	}
+	return fmt.Sprintf("%s/%s/%d", instanceID, stringsTrimDefault(lane, "worker"), os.Getpid())
 }

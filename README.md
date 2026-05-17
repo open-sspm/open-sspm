@@ -9,7 +9,8 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 - Login: `admin@admin.com` / `admin`
 
 ## Features
-- API/web server (`open-sspm api`) + background full sync worker (`open-sspm worker`) + background discovery worker (`open-sspm worker-discovery`) + background ingest worker (`open-sspm worker-ingest`) + one-off syncs (`open-sspm sync`, `open-sspm sync-discovery`) + in-app “Resync” (queued async by default).
+- API/web server (`open-sspm api`) + background workers for full sync (`open-sspm worker`), discovery (`open-sspm worker-discovery`), push ingest (`open-sspm worker-ingest`), incremental tail sync (`open-sspm worker-tail`), and shadow riskpolicy event evaluation (`open-sspm worker-riskpolicy`) + one-off syncs (`open-sspm sync`, `open-sspm sync-discovery`) + in-app “Resync” (queued async by default).
+- Realtime synchronization foundation: canonical provider events, multi-target event storage, generic push inboxing, cursor-locked tail jobs, and shadow event/riskpolicy projections. Current findings and rules remain the user-facing source until parity gates are met.
 - Okta: users, groups, apps, and assignments (IdP source).
 - Microsoft Entra ID: users plus application/service principal governance metadata.
 - Google Workspace: users, groups, admin roles, OAuth app/grant inventory, and token audit activity.
@@ -34,7 +35,7 @@ Open-SSPM is a small “who has access to what” service. It syncs identities f
 3. Run migrations: `just migrate`
 4. Install JS deps + build CSS: `npm install && just ui`
 5. Run the API/web server: `just run`
-6. Run background workers: `just worker` (full lane), `just worker-discovery` (discovery lane), and `just worker-ingest` (push ingest).
+6. Run background workers: `just worker` (full lane), `just worker-discovery` (discovery lane), `just worker-ingest` (push ingest), `just worker-tail` (incremental tail), and `just worker-riskpolicy` (shadow event policy).
 7. Generate a stable connector secret key and export it before configuring connectors:
    - `export CONNECTOR_SECRET_KEY="$(openssl rand -base64 32)"`
 8. Open `http://localhost:8080`, configure connectors under Settings → Connectors, then run a sync (Settings → Resync queues workers by default, or use `just sync` for one-off inline execution).
@@ -51,6 +52,9 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 - Run background full sync worker: `just worker`
 - Run background discovery sync worker: `just worker-discovery`
 - Run background ingest worker: `just worker-ingest`
+- Run background incremental tail worker: `just worker-tail`
+- Run background shadow riskpolicy event worker: `just worker-riskpolicy`
+- Run shadow canonical event projection/parity diffing: `just event-projection -- --source-kind okta --source-name <okta-domain>`
 - Watch CSS: `just ui-watch`
 - Sync vendored runtime JS: `npm run vendor:sync` (also runs automatically after `npm install` / `npm ci`)
 - Check vendored runtime JS drift: `npm run vendor:check`
@@ -65,6 +69,9 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
   - `LOG_LEVEL=debug|info|warn|error` (default: `info`)
   - Invalid logging values fail fast at startup.
 - Discovery lane: `SYNC_DISCOVERY_ENABLED=1` (default) enables the separate SaaS discovery lane; set `0` to disable discovery workers and discovery resyncs system-wide.
+- Tail lane: `SYNC_TAIL_INTERVAL=5m` controls the incremental audit/delta tail cadence used by `worker-tail`.
+- Event partitions: worker processes keep `events` and `event_targets` daily partitions created ahead of time and drop partitions older than `EVENT_RETENTION_DAYS` (default `90`).
+- Riskpolicy event worker: `RISKPOLICY_EVENT_WORKER_POLL_INTERVAL`, `RISKPOLICY_EVENT_WORKER_BATCH_SIZE`, and `RISKPOLICY_EVENT_WORKER_MAX_ATTEMPTS` tune shadow event evaluation throughput and poison-event dead-lettering.
 - Manual resync mode: `RESYNC_MODE=signal` (default, creates a durable sync job for background workers) or `RESYNC_MODE=inline` (request runs sync directly).
 - Queue backend: `QUEUE_BACKEND=postgres` (default) uses the Postgres push inbox; `QUEUE_BACKEND=redis` also dispatches persisted push inbox rows through Redis via `REDIS_URL`.
 - Connector credentials: configured in-app under Settings → Connectors. Public connector metadata stays in Postgres, and secret values are stored separately in encrypted form using `CONNECTOR_SECRET_KEY` / `CONNECTOR_SECRET_KEY_FILE`.
@@ -94,6 +101,8 @@ After seeding, run an Okta sync and open `http://localhost:8080/findings/ruleset
 ## Metrics
 - Metrics are served on a dedicated listener (`METRICS_ADDR`) and are best-effort.
 - Metrics collection failures after successful syncs are tracked in `opensspm_sync_metrics_collection_failures_total`.
+- Worker liveness and loop metrics are exposed as `opensspm_worker_lane_*` for full, discovery, ingest, tail, and riskpolicy workers.
+- Event partition maintenance exposes `opensspm_event_partition_maintenance_runs_total`, `opensspm_event_partition_ensured_until_timestamp_seconds`, and `opensspm_event_partitions_dropped_total`.
 - Discovery metrics include:
   - `opensspm_discovery_events_ingested_total`
   - `opensspm_discovery_ingest_failures_total`

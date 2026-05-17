@@ -16,6 +16,9 @@ func TestOktaIntegration_SupportsRunMode(t *testing.T) {
 	if full.SupportsRunMode(registry.RunModeDiscovery) {
 		t.Fatalf("discovery mode should be disabled when discovery is not configured")
 	}
+	if !full.SupportsRunMode(registry.RunModeTail) {
+		t.Fatalf("tail mode should be supported when an API client is configured")
+	}
 
 	discovery := NewOktaIntegration(&Client{BaseURL: "https://example.okta.com", Token: "token"}, "example.okta.com", 1, true)
 	if !discovery.SupportsRunMode(registry.RunModeDiscovery) {
@@ -23,7 +26,7 @@ func TestOktaIntegration_SupportsRunMode(t *testing.T) {
 	}
 
 	pushOnly := NewOktaIntegrationWithDiscoveryPolling(nil, "example.okta.com", 1, true, false)
-	if pushOnly.SupportsRunMode(registry.RunModeFull) || pushOnly.SupportsRunMode(registry.RunModeDiscovery) {
-		t.Fatalf("push-only integration without an API client should not run full or polling syncs")
+	if pushOnly.SupportsRunMode(registry.RunModeFull) || pushOnly.SupportsRunMode(registry.RunModeDiscovery) || pushOnly.SupportsRunMode(registry.RunModeTail) {
+		t.Fatalf("push-only integration without an API client should not run full, discovery, or tail syncs")
 	}
 }

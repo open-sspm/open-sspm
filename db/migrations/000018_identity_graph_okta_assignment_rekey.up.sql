@@ -1,4 +1,4 @@
--- Rekey Okta assignment tables to point to accounts while keeping legacy columns for compatibility.
+-- Rekey Okta assignment tables to point to accounts while keeping compatibility columns for compatibility.
 
 ALTER TABLE okta_user_groups
   ADD COLUMN IF NOT EXISTS okta_user_account_id BIGINT;

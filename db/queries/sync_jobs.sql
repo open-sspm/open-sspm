@@ -78,6 +78,7 @@ WITH next_job AS (
     AND queue_job.available_at <= clock_timestamp()
   ORDER BY
     CASE WHEN queue_job.trigger_kind = 'manual' THEN 0 ELSE 1 END,
+    queue_job.priority DESC,
     queue_job.available_at ASC,
     queue_job.created_at ASC,
     queue_job.id ASC

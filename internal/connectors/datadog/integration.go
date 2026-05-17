@@ -48,7 +48,11 @@ func (i *DatadogIntegration) InitEvents() []registry.Event {
 	}
 }
 
-func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event), _ registry.RunMode) error {
+func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event), mode registry.RunMode) error {
+	if mode.Normalize() == registry.RunModeTail {
+		return i.runAuditTail(ctx, q, pool, report)
+	}
+
 	started := time.Now()
 	slog.Info("syncing Datadog")
 

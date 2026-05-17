@@ -257,6 +257,8 @@ func (es *EchoServer) registerRoutes() {
 	ingest.GET("/okta/events", es.h.HandleOktaEventHookVerify)
 	ingest.POST("/okta/events", es.h.HandleOktaEventHookPost)
 	ingest.POST("/okta/eventbridge", es.h.HandleOktaEventBridgePost)
+	ingest.GET("/:connector/:channel", es.h.HandleGenericIngestGet)
+	ingest.POST("/:connector/:channel", es.h.HandleGenericIngestPost)
 
 	authed := es.e.Group("")
 

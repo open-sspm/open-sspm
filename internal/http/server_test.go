@@ -232,15 +232,15 @@ func TestRegisterRoutesKeepsCapabilityFirstSurface(t *testing.T) {
 		}
 	}
 
-	for _, legacy := range []string{
+	for _, removedRoute := range []string{
 		"/apps",
 		"/connected-apps",
 		"/okta-accounts",
 		"/github-users",
 		"/unmatched/github/*",
 	} {
-		if _, ok := paths[legacy]; ok {
-			t.Fatalf("legacy route %q still registered", legacy)
+		if _, ok := paths[removedRoute]; ok {
+			t.Fatalf("removed route %q still registered", removedRoute)
 		}
 	}
 }

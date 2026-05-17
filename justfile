@@ -90,6 +90,14 @@ worker-discovery:
 worker-ingest:
     go run ./cmd/open-sspm worker-ingest
 
+# Run the background incremental tail worker
+worker-tail:
+    go run ./cmd/open-sspm worker-tail
+
+# Run the background shadow riskpolicy event worker
+worker-riskpolicy:
+    go run ./cmd/open-sspm worker-riskpolicy
+
 # Run a one-off sync
 sync:
     go run ./cmd/open-sspm sync
@@ -97,6 +105,10 @@ sync:
 # Run a one-off discovery-only sync
 sync-discovery:
     go run ./cmd/open-sspm sync-discovery
+
+# Run shadow canonical event projection and baseline parity diffing
+event-projection *args:
+    go run ./cmd/open-sspm event-projection {{args}}
 
 # Validate security rules
 validate-rules:

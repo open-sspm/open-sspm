@@ -908,10 +908,6 @@ func parseDateInput(value string) (pgtype.Date, error) {
 	return pgtype.Date{Time: parsed.UTC(), Valid: true}, nil
 }
 
-func formatDate(value pgtype.Date) viewmodels.TimeDisplay {
-	return dateDisplay(value)
-}
-
 func isDateOverdue(value pgtype.Date) bool {
 	if !value.Valid {
 		return false

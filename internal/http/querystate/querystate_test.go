@@ -247,7 +247,7 @@ func TestConnectedAppsQuery(t *testing.T) {
 		}
 	})
 
-	t.Run("maps legacy review state aliases to canonical governance hrefs", func(t *testing.T) {
+	t.Run("maps previous review state aliases to canonical governance hrefs", func(t *testing.T) {
 		query := ParseConnectedAppsQuery(url.Values{
 			"q":            []string{"drive"},
 			"review_state": []string{"needs_revocation"},
@@ -304,11 +304,11 @@ func TestParseNonHumanIdentitiesQuery(t *testing.T) {
 		}
 	})
 
-	t.Run("drops unsupported legacy aliases from hrefs", func(t *testing.T) {
+	t.Run("drops unsupported previous aliases from hrefs", func(t *testing.T) {
 		query := ParseNonHumanIdentitiesQuery(url.Values{
 			"source_kind":      []string{"entra"},
 			"source_name":      []string{"tenant-1"},
-			"principal_type":   []string{"legacy"},
+			"principal_type":   []string{"reference"},
 			"owner_presence":   []string{"missing"},
 			"governance_state": []string{"under_review"},
 			"sort_by":          []string{"owner"},

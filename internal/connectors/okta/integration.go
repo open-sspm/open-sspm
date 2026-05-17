@@ -2,6 +2,7 @@ package okta
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -15,10 +16,12 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
+	canonevents "github.com/open-sspm/open-sspm/internal/events"
 	"github.com/open-sspm/open-sspm/internal/matching"
 	"github.com/open-sspm/open-sspm/internal/metrics"
 	"github.com/open-sspm/open-sspm/internal/rules/datasets"
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
+	"github.com/open-sspm/open-sspm/internal/tail"
 )
 
 type OktaIntegration struct {
@@ -27,6 +30,7 @@ type OktaIntegration struct {
 	workers                int
 	discoveryEnabled       bool
 	discoveryPollerEnabled bool
+	systemLogLister        func(context.Context, time.Time) ([]SystemLogEvent, error)
 	lastRunID              int64
 }
 
@@ -60,6 +64,8 @@ func (i *OktaIntegration) SupportsRunMode(mode registry.RunMode) bool {
 	switch mode.Normalize() {
 	case registry.RunModeDiscovery:
 		return i.client != nil && i.discoveryEnabled && i.discoveryPollerEnabled
+	case registry.RunModeTail:
+		return i.client != nil || i.systemLogLister != nil
 	default:
 		return i.client != nil
 	}
@@ -86,6 +92,11 @@ func (i *OktaIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool
 			return nil
 		}
 		return i.runDiscovery(ctx, q, pool, report)
+	case registry.RunModeTail:
+		if !i.SupportsRunMode(registry.RunModeTail) {
+			return nil
+		}
+		return i.runSystemLogTail(ctx, q, pool, report)
 	default:
 		return i.runFull(ctx, q, pool, report)
 	}
@@ -158,6 +169,282 @@ func (i *OktaIntegration) runDiscovery(ctx context.Context, q *gen.Queries, pool
 	}
 	slog.Info("okta discovery sync complete", "source", i.sourceName)
 	return nil
+}
+
+const (
+	SystemLogTailResource            = "system_log"
+	SystemLogTailChannel             = "system_log_tail"
+	oktaSystemLogTailCursorKind      = "watermark_overlap"
+	oktaSystemLogTailDefaultLookback = 15 * time.Minute
+	oktaSystemLogTailOverlap         = 2 * time.Minute
+)
+
+type oktaSystemLogTailStats struct {
+	Fetched    int
+	Written    int
+	Duplicates int
+	Ignored    int
+	Since      time.Time
+	Watermark  time.Time
+}
+
+func (i *OktaIntegration) runSystemLogTail(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
+	if q == nil {
+		return errors.New("okta system log tail requires queries")
+	}
+	if pool == nil {
+		return errors.New("okta system log tail requires database pool")
+	}
+	if i == nil || !i.SupportsRunMode(registry.RunModeTail) {
+		return nil
+	}
+
+	resource := SystemLogTailResource
+	if scopedResource, ok := registry.ResourceScopeFromContext(ctx); ok {
+		if scopedResource != SystemLogTailResource {
+			return fmt.Errorf("okta tail resource %q is not supported", scopedResource)
+		}
+		resource = scopedResource
+	}
+
+	started := time.Now()
+	runKind := registry.SyncRunSourceKind("okta", registry.RunModeTail)
+	runID, err := registry.StartSyncRun(ctx, q, runKind, i.sourceName)
+	if err != nil {
+		return err
+	}
+
+	report(registry.Event{Source: "okta", Stage: "tail-system-log", Current: 0, Total: 1, Message: "tailing Okta System Log"})
+	stats, err := i.tailSystemLogWithCursor(ctx, pool, runID, resource)
+	if err != nil {
+		report(registry.Event{Source: "okta", Stage: "tail-system-log", Current: 1, Total: 1, Message: err.Error(), Err: err})
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
+	}
+
+	duration := time.Since(started)
+	statsPayload := registry.MarshalJSON(map[string]any{
+		"counts": map[string]int{
+			"fetched":    stats.Fetched,
+			"written":    stats.Written,
+			"duplicates": stats.Duplicates,
+			"ignored":    stats.Ignored,
+		},
+		"duration_ms": duration.Milliseconds(),
+		"resource":    resource,
+		"since":       formatOptionalTime(stats.Since),
+		"watermark":   formatOptionalTime(stats.Watermark),
+	})
+	if err := q.MarkSyncRunSuccess(ctx, gen.MarkSyncRunSuccessParams{ID: runID, Stats: statsPayload}); err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+	}
+	report(registry.Event{
+		Source:  "okta",
+		Stage:   "tail-system-log",
+		Current: 1,
+		Total:   1,
+		Message: fmt.Sprintf("tailed %d events since %s", stats.Fetched, stats.Since.Format(time.RFC3339)),
+	})
+	slog.Info("okta system log tail complete", "source", i.sourceName, "fetched", stats.Fetched, "written", stats.Written, "duplicates", stats.Duplicates, "ignored", stats.Ignored)
+	return nil
+}
+
+func (i *OktaIntegration) tailSystemLogWithCursor(ctx context.Context, pool *pgxpool.Pool, runID int64, resource string) (oktaSystemLogTailStats, error) {
+	var (
+		stats   oktaSystemLogTailStats
+		tailErr error
+	)
+	store := tail.NewCursorStore(pool)
+	err := store.WithLockedCursor(ctx, tail.CursorKey{
+		SourceKind: "okta",
+		SourceName: i.sourceName,
+		Resource:   resource,
+		CursorKind: oktaSystemLogTailCursorKind,
+	}, func(lockCtx context.Context, qtx *gen.Queries, state gen.ConnectorCursorState) error {
+		attemptedAt := time.Now().UTC()
+		since := oktaSystemLogTailSince(state, attemptedAt)
+		stats.Since = since
+
+		events, err := i.listSystemLogEventsSince(lockCtx, since)
+		if err != nil {
+			tailErr = fmt.Errorf("okta list system log events since %s: %w", since.Format(time.RFC3339), err)
+			return updateOktaTailCursorError(lockCtx, qtx, state, runID, attemptedAt, tailErr)
+		}
+
+		writer := canonevents.NewWriter(pool)
+		stats.Fetched = len(events)
+		watermark := maxOktaSystemLogWatermark(events)
+		if watermark.IsZero() {
+			watermark = attemptedAt
+		}
+		stats.Watermark = watermark
+		for _, event := range events {
+			if !oktaTailShouldWriteEvent(event) {
+				stats.Ignored++
+				continue
+			}
+			record, err := CanonicalEventRecord(i.sourceName, SystemLogTailChannel, event)
+			if err != nil {
+				tailErr = err
+				return updateOktaTailCursorError(lockCtx, qtx, state, runID, attemptedAt, tailErr)
+			}
+			result, err := writer.WriteEvent(lockCtx, record, canonevents.WriteOptions{})
+			if err != nil {
+				tailErr = fmt.Errorf("write canonical Okta tail event %s: %w", event.ID, err)
+				return updateOktaTailCursorError(lockCtx, qtx, state, runID, attemptedAt, tailErr)
+			}
+			if result.Inserted {
+				stats.Written++
+			} else {
+				stats.Duplicates++
+			}
+		}
+
+		lastProviderEventID := lastOktaSystemLogEventID(events)
+		return updateOktaTailCursorSuccess(lockCtx, qtx, state, runID, attemptedAt, watermark, lastProviderEventID, stats)
+	})
+	if err != nil {
+		return stats, err
+	}
+	if tailErr != nil {
+		return stats, tailErr
+	}
+	return stats, nil
+}
+
+func (i *OktaIntegration) listSystemLogEventsSince(ctx context.Context, since time.Time) ([]SystemLogEvent, error) {
+	if i == nil {
+		return nil, errors.New("okta integration is nil")
+	}
+	if i.systemLogLister != nil {
+		return i.systemLogLister(ctx, since)
+	}
+	if i.client == nil {
+		return nil, errors.New("okta API token is required for system log tail")
+	}
+	return i.client.ListSystemLogEventsSince(ctx, since)
+}
+
+func oktaSystemLogTailSince(state gen.ConnectorCursorState, now time.Time) time.Time {
+	now = now.UTC()
+	if state.Watermark.Valid && !state.Watermark.Time.IsZero() {
+		return state.Watermark.Time.UTC().Add(-oktaSystemLogTailOverlap)
+	}
+	return now.Add(-oktaSystemLogTailDefaultLookback)
+}
+
+func updateOktaTailCursorSuccess(ctx context.Context, q *gen.Queries, state gen.ConnectorCursorState, runID int64, attemptedAt, watermark time.Time, lastProviderEventID string, stats oktaSystemLogTailStats) error {
+	params := oktaTailCursorParams(state)
+	params.LastAttemptAt = pgtype.Timestamptz{Time: attemptedAt.UTC(), Valid: true}
+	params.LastSuccessAt = pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
+	params.LastErrorAt = pgtype.Timestamptz{}
+	params.LastError = ""
+	params.LastRunID = pgtype.Int8{Int64: runID, Valid: runID != 0}
+	params.LastProviderEventID = strings.TrimSpace(lastProviderEventID)
+	params.Watermark = pgtype.Timestamptz{Time: watermark.UTC(), Valid: !watermark.IsZero()}
+	params.CursorJson = registry.MarshalJSON(map[string]any{
+		"channel":         SystemLogTailChannel,
+		"overlap_seconds": int(oktaSystemLogTailOverlap.Seconds()),
+		"fetched":         stats.Fetched,
+		"written":         stats.Written,
+		"duplicates":      stats.Duplicates,
+		"ignored":         stats.Ignored,
+		"since":           formatOptionalTime(stats.Since),
+		"watermark":       formatOptionalTime(watermark),
+	})
+	params.NeedsFullResync = false
+	return q.UpsertConnectorCursorState(ctx, params)
+}
+
+func updateOktaTailCursorError(ctx context.Context, q *gen.Queries, state gen.ConnectorCursorState, runID int64, attemptedAt time.Time, err error) error {
+	params := oktaTailCursorParams(state)
+	params.LastAttemptAt = pgtype.Timestamptz{Time: attemptedAt.UTC(), Valid: true}
+	params.LastErrorAt = pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
+	params.LastError = truncateSyncMessage(err)
+	params.LastRunID = pgtype.Int8{Int64: runID, Valid: runID != 0}
+	return q.UpsertConnectorCursorState(ctx, params)
+}
+
+func oktaTailCursorParams(state gen.ConnectorCursorState) gen.UpsertConnectorCursorStateParams {
+	cursorJSON := state.CursorJson
+	if len(cursorJSON) == 0 {
+		cursorJSON = []byte(`{}`)
+	}
+	return gen.UpsertConnectorCursorStateParams{
+		SourceKind:          "okta",
+		SourceID:            state.SourceID,
+		SourceName:          strings.TrimSpace(state.SourceName),
+		Resource:            strings.TrimSpace(state.Resource),
+		CursorKind:          oktaSystemLogTailCursorKind,
+		CursorJson:          cursorJSON,
+		Watermark:           state.Watermark,
+		CursorExpiresAt:     state.CursorExpiresAt,
+		LastSuccessAt:       state.LastSuccessAt,
+		LastAttemptAt:       state.LastAttemptAt,
+		LastErrorAt:         state.LastErrorAt,
+		LastError:           strings.TrimSpace(state.LastError),
+		LastRunID:           state.LastRunID,
+		LastProviderEventID: strings.TrimSpace(state.LastProviderEventID),
+		NeedsFullResync:     state.NeedsFullResync,
+	}
+}
+
+func maxOktaSystemLogWatermark(events []SystemLogEvent) time.Time {
+	var watermark time.Time
+	for _, event := range events {
+		published := event.Published.UTC()
+		if published.IsZero() {
+			continue
+		}
+		if watermark.IsZero() || published.After(watermark) {
+			watermark = published
+		}
+	}
+	return watermark
+}
+
+func lastOktaSystemLogEventID(events []SystemLogEvent) string {
+	var (
+		lastID        string
+		lastPublished time.Time
+	)
+	for _, event := range events {
+		id := strings.TrimSpace(event.ID)
+		if id == "" {
+			continue
+		}
+		published := event.Published.UTC()
+		if lastID == "" || published.After(lastPublished) || published.Equal(lastPublished) {
+			lastID = id
+			lastPublished = published
+		}
+	}
+	return lastID
+}
+
+func oktaTailShouldWriteEvent(event SystemLogEvent) bool {
+	if strings.TrimSpace(event.ID) == "" {
+		return false
+	}
+	return ShouldIngestPushEvent(event)
+}
+
+func formatOptionalTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339Nano)
+}
+
+func truncateSyncMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := strings.TrimSpace(err.Error())
+	const limit = 2048
+	if len(msg) <= limit {
+		return msg
+	}
+	return msg[:limit]
 }
 
 func (i *OktaIntegration) EvaluateCompliance(ctx context.Context, q *gen.Queries, report func(registry.Event)) error {

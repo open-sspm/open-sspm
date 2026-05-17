@@ -25,6 +25,57 @@ func TestFullWorkerDeploymentFollowsSyncFullEnabled(t *testing.T) {
 	}
 }
 
+func TestRealtimeWorkerDeploymentsRenderByDefault(t *testing.T) {
+	helm, err := exec.LookPath("helm")
+	if err != nil {
+		t.Skip("helm is not installed")
+	}
+
+	rendered := renderHelmTemplate(t, helm)
+	tailBlock := renderedManifestBlock(t, rendered, "name: test-open-sspm-worker-tail\n")
+	if !strings.Contains(tailBlock, "- worker-tail") {
+		t.Fatalf("tail worker deployment does not run worker-tail")
+	}
+	if !strings.Contains(tailBlock, "- name: SYNC_TAIL_INTERVAL\n              value: \"5m\"") {
+		t.Fatalf("tail worker deployment does not set SYNC_TAIL_INTERVAL")
+	}
+	if !strings.Contains(tailBlock, "- name: EVENT_RETENTION_DAYS\n              value: \"90\"") {
+		t.Fatalf("tail worker deployment does not set event retention")
+	}
+	if !strings.Contains(tailBlock, "livenessProbe:") || !strings.Contains(tailBlock, "http://127.0.0.1:9090/healthz") {
+		t.Fatalf("tail worker deployment does not render metrics health probes")
+	}
+
+	riskpolicyBlock := renderedManifestBlock(t, rendered, "name: test-open-sspm-worker-riskpolicy\n")
+	if !strings.Contains(riskpolicyBlock, "- worker-riskpolicy") {
+		t.Fatalf("riskpolicy worker deployment does not run worker-riskpolicy")
+	}
+	if !strings.Contains(riskpolicyBlock, "- name: RISKPOLICY_EVENT_WORKER_BATCH_SIZE\n              value: \"100\"") {
+		t.Fatalf("riskpolicy worker deployment does not set RISKPOLICY_EVENT_WORKER_BATCH_SIZE")
+	}
+	if !strings.Contains(riskpolicyBlock, "- name: RISKPOLICY_EVENT_WORKER_MAX_ATTEMPTS\n              value: \"10\"") {
+		t.Fatalf("riskpolicy worker deployment does not set RISKPOLICY_EVENT_WORKER_MAX_ATTEMPTS")
+	}
+	if !strings.Contains(riskpolicyBlock, "readinessProbe:") || !strings.Contains(riskpolicyBlock, "http://127.0.0.1:9090/healthz") {
+		t.Fatalf("riskpolicy worker deployment does not render metrics health probes")
+	}
+}
+
+func TestRealtimeWorkerDeploymentsCanBeDisabled(t *testing.T) {
+	helm, err := exec.LookPath("helm")
+	if err != nil {
+		t.Skip("helm is not installed")
+	}
+
+	rendered := renderHelmTemplate(t, helm, "--set", "tailWorker.enabled=false", "--set", "riskpolicyWorker.enabled=false")
+	if strings.Contains(rendered, "name: test-open-sspm-worker-tail\n") {
+		t.Fatalf("render with tailWorker.enabled=false still contains tail worker Deployment")
+	}
+	if strings.Contains(rendered, "name: test-open-sspm-worker-riskpolicy\n") {
+		t.Fatalf("render with riskpolicyWorker.enabled=false still contains riskpolicy worker Deployment")
+	}
+}
+
 func renderHelmTemplate(t *testing.T, helm string, extraArgs ...string) string {
 	t.Helper()
 	args := []string{

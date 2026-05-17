@@ -55,12 +55,12 @@ func TestHandleDashboardUsesGenericInventoryMetrics(t *testing.T) {
 		insertCommandSearchAppAsset(t, ctx, q, entraRunID, configstore.KindEntra, "tenant-1", "entra_application", "azure-enterprise-app", "", "Azure Enterprise App", "active")
 		insertCommandSearchAppAsset(t, ctx, q, githubRunID, configstore.KindGitHub, "acme", "github_app", "github-actions", "", "GitHub Actions", "active")
 
-		insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "legacy-app-1", "Legacy App 1", "legacy-app-1", "active")
-		insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "legacy-app-2", "Legacy App 2", "legacy-app-2", "active")
-		insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "legacy-app-3", "Legacy App 3", "legacy-app-3", "active")
+		insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "reference-app-1", "Reference App 1", "reference-app-1", "active")
+		insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "reference-app-2", "Reference App 2", "reference-app-2", "active")
+		insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "reference-app-3", "Reference App 3", "reference-app-3", "active")
 		if err := q.UpsertIntegrationOktaAppMap(ctx, gen.UpsertIntegrationOktaAppMapParams{
 			IntegrationKind:   configstore.KindGitHub,
-			OktaAppExternalID: "legacy-app-1",
+			OktaAppExternalID: "reference-app-1",
 		}); err != nil {
 			t.Fatalf("UpsertIntegrationOktaAppMap: %v", err)
 		}
@@ -72,7 +72,7 @@ func TestHandleDashboardUsesGenericInventoryMetrics(t *testing.T) {
 	})
 }
 
-func TestHandleDashboardIgnoresLegacyGoogleConnectedAppsWithoutConfiguredConnector(t *testing.T) {
+func TestHandleDashboardIgnoresUnconfiguredGoogleConnectedAppsWithoutConfiguredConnector(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		googleRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGoogleWorkspace, "C0123")
 		insertCommandSearchAppAsset(t, ctx, q, googleRunID, configstore.KindGoogleWorkspace, "C0123", "google_oauth_client", "client-123.apps.googleusercontent.com", "", "OAuth Approval Client", "active")

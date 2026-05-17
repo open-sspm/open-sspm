@@ -45,7 +45,7 @@ func TestHandleConnectedAppShowUsesLiveDiscoveryPosture(t *testing.T) {
 	})
 }
 
-func TestHandleConnectedAppsRedirectNormalizesLegacyReviewState(t *testing.T) {
+func TestHandleConnectedAppsRedirectNormalizesPreviousReviewState(t *testing.T) {
 	h := &Handlers{}
 
 	c, rec := newTestContext(http.MethodGet, "http://example.com/oauth-apps?review_state=needs_revocation&page=2&q=drive")

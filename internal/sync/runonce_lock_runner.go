@@ -30,14 +30,14 @@ func NewTryRunOnceLockRunnerWithScope(locks LockManager, inner Runner, scopeName
 func newRunOnceLockRunner(locks LockManager, inner Runner, tryLock bool, scopeName string) Runner {
 	scopeName = strings.ToLower(strings.TrimSpace(scopeName))
 	if scopeName == "" {
-		scopeName = legacyRunOnceScopeName
+		scopeName = defaultRunOnceScopeName
 	}
 	return &runOnceLockRunner{
 		locks:   locks,
 		inner:   inner,
 		tryLock: tryLock,
 		scope: runOnceScope{
-			kind: legacyRunOnceScopeKind,
+			kind: defaultRunOnceScopeKind,
 			name: scopeName,
 		},
 	}
@@ -49,11 +49,11 @@ func (r *runOnceLockRunner) RunOnce(ctx context.Context) error {
 	}
 	scopeKind := strings.ToLower(strings.TrimSpace(r.scope.kind))
 	if scopeKind == "" {
-		scopeKind = legacyRunOnceScopeKind
+		scopeKind = defaultRunOnceScopeKind
 	}
 	scopeName := strings.ToLower(strings.TrimSpace(r.scope.name))
 	if scopeName == "" {
-		scopeName = legacyRunOnceScopeName
+		scopeName = defaultRunOnceScopeName
 	}
 
 	var (

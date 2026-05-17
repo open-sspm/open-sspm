@@ -125,6 +125,8 @@ func (i *EntraIntegration) SupportsRunMode(mode registry.RunMode) bool {
 	switch mode.Normalize() {
 	case registry.RunModeDiscovery:
 		return i.discoveryEnabled
+	case registry.RunModeTail:
+		return false
 	default:
 		return true
 	}

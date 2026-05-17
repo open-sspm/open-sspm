@@ -12,10 +12,11 @@ import (
 )
 
 type capturingRunner struct {
-	err    error
-	calls  int
-	forced bool
-	scope  TriggerRequest
+	err      error
+	calls    int
+	forced   bool
+	scope    TriggerRequest
+	resource string
 }
 
 func (r *capturingRunner) RunOnce(ctx context.Context) error {
@@ -23,6 +24,9 @@ func (r *capturingRunner) RunOnce(ctx context.Context) error {
 	r.forced = IsForcedSync(ctx)
 	if kind, name, ok := ConnectorScopeFromContext(ctx); ok {
 		r.scope = TriggerRequest{ConnectorKind: kind, SourceName: name}
+	}
+	if resource, ok := ResourceScopeFromContext(ctx); ok {
+		r.resource = resource
 	}
 	return r.err
 }
@@ -283,6 +287,48 @@ func TestSyncJobConsumer_ProcessScheduledJobSkipsWithoutForcedMode(t *testing.T)
 	}
 	if runner.forced {
 		t.Fatalf("scheduled execution should not force sync")
+	}
+	if len(store.schedSuccessCalls) != 1 || store.schedSuccessCalls[0] != jobID {
+		t.Fatalf("scheduled success calls = %#v", store.schedSuccessCalls)
+	}
+}
+
+func TestSyncJobConsumer_ProcessTailJobPassesForcedResourceScope(t *testing.T) {
+	t.Parallel()
+
+	jobID := pgUUID(uuid.New())
+	store := &consumerStoreStub{
+		runningJob: syncJobRecord{
+			ID:            jobID,
+			Lane:          syncJobLaneTail,
+			TriggerKind:   syncJobTriggerKindScheduled,
+			ConnectorKind: "okta",
+			SourceName:    "dev-123.okta.com",
+			Resource:      "system_log",
+		},
+		runningOK:      true,
+		schedSuccessOK: true,
+	}
+	runner := &capturingRunner{}
+	consumer := NewSyncJobConsumer(store, noopLockManager{}, runner, SyncJobConsumerConfig{
+		Mode:              registry.RunModeTail,
+		HeartbeatInterval: time.Hour,
+		LeaseTTL:          time.Minute,
+		ClaimedBy:         "claimant",
+	})
+
+	err := consumer.processJob(context.Background(), syncJobRecord{ID: jobID, Lane: syncJobLaneTail})
+	if err != nil {
+		t.Fatalf("processJob() err = %v, want nil", err)
+	}
+	if !runner.forced {
+		t.Fatalf("expected tail execution to force sync")
+	}
+	if runner.scope.ConnectorKind != "okta" || runner.scope.SourceName != "dev-123.okta.com" {
+		t.Fatalf("runner scope = %+v", runner.scope)
+	}
+	if runner.resource != "system_log" {
+		t.Fatalf("runner resource = %q, want system_log", runner.resource)
 	}
 	if len(store.schedSuccessCalls) != 1 || store.schedSuccessCalls[0] != jobID {
 		t.Fatalf("scheduled success calls = %#v", store.schedSuccessCalls)

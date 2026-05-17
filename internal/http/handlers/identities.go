@@ -973,10 +973,10 @@ func sortLinkedAccounts(accounts []viewmodels.IdentityLinkedAccountView, mode vi
 		right := accounts[j]
 		switch mode {
 		case viewmodels.IdentityLinkedAccountSortSource:
-			if strings.ToLower(left.Account.SourceKind) != strings.ToLower(right.Account.SourceKind) {
+			if !strings.EqualFold(left.Account.SourceKind, right.Account.SourceKind) {
 				return strings.ToLower(left.Account.SourceKind) < strings.ToLower(right.Account.SourceKind)
 			}
-			if strings.ToLower(left.Account.SourceName) != strings.ToLower(right.Account.SourceName) {
+			if !strings.EqualFold(left.Account.SourceName, right.Account.SourceName) {
 				return strings.ToLower(left.Account.SourceName) < strings.ToLower(right.Account.SourceName)
 			}
 		case viewmodels.IdentityLinkedAccountSortActivity:

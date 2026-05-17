@@ -2,6 +2,8 @@
 
 This guide covers day-to-day operation of Open-SSPM.
 
+For the realtime architecture and provider matrix, see [Real-Time Synchronization](/run/real-time-synchronization).
+
 ## Components
 
 | Command | Purpose | Normally Running? |
@@ -10,6 +12,8 @@ This guide covers day-to-day operation of Open-SSPM.
 | `open-sspm worker` | Background full sync loop | Yes |
 | `open-sspm worker-discovery` | Background discovery sync loop | Optional |
 | `open-sspm worker-ingest` | Background push ingest queue processing | Optional |
+| `open-sspm worker-tail` | Background incremental audit/delta tail loop | Yes for realtime sync |
+| `open-sspm worker-riskpolicy` | Background shadow canonical-event riskpolicy loop | Yes for event shadow evaluation |
 
 ## Starting the Application
 
@@ -39,7 +43,15 @@ just worker-discovery
 just worker-ingest
 ```
 
-The discovery worker is only needed when `SYNC_DISCOVERY_ENABLED=1` and you want polling-based discovery data. The ingest worker is needed when you enable push ingest such as Okta Event Hooks or EventBridge.
+```bash
+just worker-tail
+```
+
+```bash
+just worker-riskpolicy
+```
+
+The discovery worker is only needed when `SYNC_DISCOVERY_ENABLED=1` and you want polling-based discovery data. The ingest worker is needed when you enable push ingest such as Okta Event Hooks or EventBridge. The tail worker keeps cursor-based providers caught up, and the riskpolicy worker evaluates canonical events in shadow mode.
 
 ### Kubernetes
 
@@ -57,6 +69,8 @@ kubectl scale deployment open-sspm-api --replicas=2
 kubectl scale deployment open-sspm-worker --replicas=1
 kubectl scale deployment open-sspm-worker-discovery --replicas=1
 kubectl scale deployment open-sspm-worker-ingest --replicas=1
+kubectl scale deployment open-sspm-worker-tail --replicas=1
+kubectl scale deployment open-sspm-worker-riskpolicy --replicas=1
 ```
 
 ## Stopping the Application
@@ -79,13 +93,15 @@ kubectl scale deployment open-sspm-api --replicas=0
 kubectl scale deployment open-sspm-worker --replicas=0
 kubectl scale deployment open-sspm-worker-discovery --replicas=0
 kubectl scale deployment open-sspm-worker-ingest --replicas=0
+kubectl scale deployment open-sspm-worker-tail --replicas=0
+kubectl scale deployment open-sspm-worker-riskpolicy --replicas=0
 ```
 
 ## Viewing Logs
 
 ### Repo-Local Workflow
 
-`just run`, `just worker`, `just worker-discovery`, and `just worker-ingest` log directly to their terminal sessions.
+`just run`, `just worker`, `just worker-discovery`, `just worker-ingest`, `just worker-tail`, and `just worker-riskpolicy` log directly to their terminal sessions.
 
 For the local Postgres container:
 
@@ -100,6 +116,8 @@ kubectl logs -l app.kubernetes.io/component=api -f
 kubectl logs -l app.kubernetes.io/component=worker -f
 kubectl logs -l app.kubernetes.io/component=worker-discovery -f
 kubectl logs -l app.kubernetes.io/component=worker-ingest -f
+kubectl logs -l app.kubernetes.io/component=worker-tail -f
+kubectl logs -l app.kubernetes.io/component=worker-riskpolicy -f
 ```
 
 ## Manual Sync Operations
@@ -122,6 +140,17 @@ To run only the discovery lane:
 ```bash
 just sync-discovery
 ```
+
+### Shadow Event Projection
+
+Canonical events can be replayed into the shadow discovery projection and compared against baseline discovery event rows:
+
+```bash
+just event-projection -- --source-kind okta --source-name your-org.okta.com
+```
+
+This command records parity diff rows and does not cut the UI over to the shadow read model.
+When `--since` is omitted, projection resumes from the last stored checkpoint for that source.
 
 ### Manual Resync Mode
 
@@ -231,6 +260,22 @@ Check:
 2. `RESYNC_MODE=signal` has a background worker available.
 3. Connector health shows recent runs and errors.
 
+### Tail jobs are not running
+
+Check:
+
+1. `just worker-tail` is running.
+2. `SYNC_TAIL_INTERVAL` is a positive duration.
+3. The connector declares an executable tail capability. Current executable tails include Okta System Log, Google Workspace Reports activities, Datadog Audit Logs, and AWS CloudTrail when the provider client is configured.
+
+### Shadow event findings are not updating
+
+Check:
+
+1. `just worker-riskpolicy` is running.
+2. Canonical events are being written for the source.
+3. `riskpolicy_event_queue` rows are not stuck in `processing`; stale rows are requeued by the worker.
+
 ### Discovery data is missing
 
 Check:
@@ -246,6 +291,14 @@ Check:
 1. `just worker-ingest` is running.
 2. The Okta Event Hook or EventBridge endpoint reaches the API process.
 3. The connector ingest mode and shared secret match the delivery channel.
+
+### Event partitions are not advancing
+
+Check:
+
+1. At least one worker process is running.
+2. `EVENT_PARTITION_MAINTENANCE_INTERVAL`, `EVENT_PARTITION_FUTURE_DAYS`, and `EVENT_RETENTION_DAYS` are positive.
+3. Worker logs include `event partition maintenance complete`.
 
 ### Database connection errors
 

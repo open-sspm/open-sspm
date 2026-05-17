@@ -3,8 +3,13 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/open-sspm/open-sspm/internal/config"
 )
 
 func TestWorkerHostRunCriticalGoroutineFailureIsObservable(t *testing.T) {
@@ -101,5 +106,20 @@ func TestWorkerHostRunCleanupUsesFreshTimeoutPerHandler(t *testing.T) {
 	}
 	if !firstDeadline.After(secondDeadline) {
 		t.Fatalf("first cleanup deadline = %v, want after second cleanup deadline %v", firstDeadline, secondDeadline)
+	}
+}
+
+func TestWorkerClaimedByIncludesRuntimeIdentity(t *testing.T) {
+	t.Setenv("HOSTNAME", "pod-1")
+
+	got := workerClaimedBy(config.Config{}, "riskpolicy-event")
+	wantSuffix := fmt.Sprintf("/riskpolicy-event/%d", os.Getpid())
+	if !strings.HasPrefix(got, "pod-1/") || !strings.HasSuffix(got, wantSuffix) {
+		t.Fatalf("claimed by = %q, want hostname/lane/pid", got)
+	}
+
+	got = workerClaimedBy(config.Config{SyncLockInstanceID: "instance-1"}, "riskpolicy-event")
+	if !strings.HasPrefix(got, "instance-1/") || !strings.HasSuffix(got, wantSuffix) {
+		t.Fatalf("claimed by with configured instance = %q, want configured instance/lane/pid", got)
 	}
 }

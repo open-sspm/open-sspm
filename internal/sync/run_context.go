@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 
+	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/normalize"
 )
 
@@ -56,6 +57,10 @@ func WithConnectorScope(ctx context.Context, connectorKind, sourceName string) c
 	return context.WithValue(ctx, syncRunContextKeyConnectorScope, req)
 }
 
+func WithResourceScope(ctx context.Context, resource string) context.Context {
+	return registry.WithResourceScope(ctx, resource)
+}
+
 func IsForcedSync(ctx context.Context) bool {
 	v, ok := ctx.Value(syncRunContextKeyForce).(bool)
 	return ok && v
@@ -74,4 +79,8 @@ func ConnectorScopeFromContext(ctx context.Context) (connectorKind, sourceName s
 		return "", "", false
 	}
 	return req.ConnectorKind, req.SourceName, true
+}
+
+func ResourceScopeFromContext(ctx context.Context) (string, bool) {
+	return registry.ResourceScopeFromContext(ctx)
 }

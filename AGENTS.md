@@ -29,7 +29,7 @@
 ## Product Invariants
 
 - Empty `source_kind` and `source_name` mean "All configured"; aggregate across configured sources instead of defaulting to the first source.
-- Default discovery rollups should operate on configured sources only and should not pull legacy or unconfigured rows into the default view.
+- Default discovery rollups should operate on configured sources only and should not pull retired or unconfigured rows into the default view.
 - Sync runs must fail early on partial-stage errors; do not finalize or expire rows after a partial refresh.
 - Discovery ingestion is incremental, not a full snapshot. Expiration must be staleness-based rather than "not seen in this run" alone.
 
