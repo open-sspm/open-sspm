@@ -64,3 +64,75 @@ func TestRiskpolicyProjectorProjectsEventShadowSignalsToFindings(t *testing.T) {
 		}
 	})
 }
+
+func TestRiskpolicyProjectorBoundedProjectionSkipsCurrentFindings(t *testing.T) {
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "riskpolicy_findings_limit"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+		testdb.MigrateUp(t, migrator)
+
+		q := gen.New(pool)
+		processor, err := riskpolicy.NewEventQueueProcessor(q, riskpolicy.EventQueueProcessorConfig{ClaimedBy: "test"})
+		if err != nil {
+			t.Fatalf("NewEventQueueProcessor() err = %v", err)
+		}
+		writer := canonevents.NewWriter(pool)
+
+		base := time.Date(2026, time.May, 16, 12, 0, 0, 0, time.UTC)
+		writeRiskpolicyProjectionEvent(t, ctx, writer, "evt-old-1", base)
+		writeRiskpolicyProjectionEvent(t, ctx, writer, "evt-old-2", base.Add(time.Minute))
+		if _, err := processor.ProcessQueued(ctx, 10); err != nil {
+			t.Fatalf("ProcessQueued(old) err = %v", err)
+		}
+
+		projector := NewRiskpolicyProjector(q)
+		first, err := projector.ProjectEventShadowFindings(ctx, RiskpolicyProjectionParams{Limit: 2})
+		if err != nil {
+			t.Fatalf("ProjectEventShadowFindings(first) err = %v", err)
+		}
+		if first.Projected != 2 {
+			t.Fatalf("first projected = %d, want 2", first.Projected)
+		}
+
+		writeRiskpolicyProjectionEvent(t, ctx, writer, "evt-new-1", base.Add(2*time.Minute))
+		writeRiskpolicyProjectionEvent(t, ctx, writer, "evt-new-2", base.Add(3*time.Minute))
+		if _, err := processor.ProcessQueued(ctx, 10); err != nil {
+			t.Fatalf("ProcessQueued(new) err = %v", err)
+		}
+
+		second, err := projector.ProjectEventShadowFindings(ctx, RiskpolicyProjectionParams{Limit: 2})
+		if err != nil {
+			t.Fatalf("ProjectEventShadowFindings(second) err = %v", err)
+		}
+		if second.Projected != 2 {
+			t.Fatalf("second projected = %d, want 2", second.Projected)
+		}
+
+		count, err := q.CountRiskpolicyFindingsByShadowStatus(ctx, gen.CountRiskpolicyFindingsByShadowStatusParams{
+			Shadow: true,
+			Status: "open",
+		})
+		if err != nil {
+			t.Fatalf("CountRiskpolicyFindingsByShadowStatus() err = %v", err)
+		}
+		if count != 4 {
+			t.Fatalf("shadow open findings = %d, want 4; bounded projection reprocessed old findings instead of advancing", count)
+		}
+	})
+}
+
+func writeRiskpolicyProjectionEvent(t *testing.T, ctx context.Context, writer *canonevents.Writer, providerEventID string, occurredAt time.Time) {
+	t.Helper()
+	if _, err := writer.WriteEvent(ctx, records.EventRecord{
+		Source:          records.SourceRef{Kind: "okta", Name: "example.okta.com"},
+		Channel:         "event_hook",
+		ProviderEventID: providerEventID,
+		DedupeKeyValue:  "provider:" + providerEventID,
+		EventType:       "user.lifecycle.deactivate",
+		Category:        "state_refresh.user",
+		Action:          "user.lifecycle.deactivate",
+		OccurredAt:      occurredAt,
+		Targets:         []records.TargetRef{{Kind: "okta_user", ID: providerEventID, Name: providerEventID}},
+		Raw:             map[string]any{"uuid": providerEventID},
+	}, canonevents.WriteOptions{}); err != nil {
+		t.Fatalf("WriteEvent(%s) err = %v", providerEventID, err)
+	}
+}

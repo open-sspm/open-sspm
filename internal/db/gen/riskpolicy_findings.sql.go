@@ -50,8 +50,17 @@ FROM riskpolicy_event_shadow_signals s
 JOIN events e
   ON e.received_at = s.event_received_at
  AND e.id = s.event_id
+LEFT JOIN riskpolicy_findings f
+  ON f.source = 'riskpolicy_event_shadow'
+ AND f.event_received_at = s.event_received_at
+ AND f.event_id = s.event_id
+ AND f.signal_id = s.signal_id
 WHERE ($1::timestamptz IS NULL OR s.evaluated_at >= $1::timestamptz)
   AND ($2::timestamptz IS NULL OR s.evaluated_at < $2::timestamptz)
+  AND (
+    f.finding_key IS NULL
+    OR f.updated_at < s.evaluated_at
+  )
 ORDER BY s.evaluated_at ASC, s.event_received_at ASC, s.event_id ASC, s.signal_id ASC
 LIMIT $3::int
 `

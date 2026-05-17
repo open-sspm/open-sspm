@@ -18,8 +18,17 @@ FROM riskpolicy_event_shadow_signals s
 JOIN events e
   ON e.received_at = s.event_received_at
  AND e.id = s.event_id
+LEFT JOIN riskpolicy_findings f
+  ON f.source = 'riskpolicy_event_shadow'
+ AND f.event_received_at = s.event_received_at
+ AND f.event_id = s.event_id
+ AND f.signal_id = s.signal_id
 WHERE (sqlc.narg(since)::timestamptz IS NULL OR s.evaluated_at >= sqlc.narg(since)::timestamptz)
   AND (sqlc.narg(until)::timestamptz IS NULL OR s.evaluated_at < sqlc.narg(until)::timestamptz)
+  AND (
+    f.finding_key IS NULL
+    OR f.updated_at < s.evaluated_at
+  )
 ORDER BY s.evaluated_at ASC, s.event_received_at ASC, s.event_id ASC, s.signal_id ASC
 LIMIT sqlc.arg(limit_rows)::int;
 
