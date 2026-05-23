@@ -164,9 +164,12 @@ base AS (
       ELSE 'missing_anchor'
     END AS anchor_state,
     CASE
-	    WHEN (NOT bm.has_authoritative_anchor) AND bm.privileged_roles > 0 THEN 'action_required'
+      WHEN bm.identity_type NOT IN ('service', 'bot')
+           AND NOT bm.has_authoritative_anchor
+           AND bm.privileged_roles > 0 THEN 'action_required'
       WHEN bm.privileged_roles > 0 AND bm.activity_state IN ('stale', 'never_seen') THEN 'action_required'
-      WHEN NOT bm.has_authoritative_anchor THEN 'review'
+      WHEN bm.identity_type NOT IN ('service', 'bot')
+           AND NOT bm.has_authoritative_anchor THEN 'review'
       WHEN bm.activity_state IN ('aging', 'stale', 'never_seen') THEN 'review'
       ELSE 'healthy'
     END AS row_state
@@ -525,9 +528,12 @@ base AS (
       ELSE 'missing_anchor'
     END AS anchor_state,
     CASE
-      WHEN (NOT bm.has_authoritative_anchor) AND bm.privileged_roles > 0 THEN 'action_required'
+      WHEN bm.identity_type NOT IN ('service', 'bot')
+           AND NOT bm.has_authoritative_anchor
+           AND bm.privileged_roles > 0 THEN 'action_required'
       WHEN bm.privileged_roles > 0 AND bm.activity_state IN ('stale', 'never_seen') THEN 'action_required'
-      WHEN NOT bm.has_authoritative_anchor THEN 'review'
+      WHEN bm.identity_type NOT IN ('service', 'bot')
+           AND NOT bm.has_authoritative_anchor THEN 'review'
       WHEN bm.activity_state IN ('aging', 'stale', 'never_seen') THEN 'review'
       ELSE 'healthy'
     END AS row_state
@@ -930,9 +936,12 @@ base AS (
       ELSE 'missing_anchor'
     END AS anchor_state,
     CASE
-      WHEN (NOT bm.has_authoritative_anchor) AND bm.privileged_roles > 0 THEN 'action_required'
+      WHEN bm.identity_type NOT IN ('service', 'bot')
+           AND NOT bm.has_authoritative_anchor
+           AND bm.privileged_roles > 0 THEN 'action_required'
       WHEN bm.privileged_roles > 0 AND bm.activity_state IN ('stale', 'never_seen') THEN 'action_required'
-      WHEN NOT bm.has_authoritative_anchor THEN 'review'
+      WHEN bm.identity_type NOT IN ('service', 'bot')
+           AND NOT bm.has_authoritative_anchor THEN 'review'
       WHEN bm.activity_state IN ('aging', 'stale', 'never_seen') THEN 'review'
       ELSE 'healthy'
     END AS row_state

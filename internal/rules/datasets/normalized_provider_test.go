@@ -10,24 +10,116 @@ import (
 )
 
 type normalizedQueryStub struct {
-	identities             []gen.ListNormalizedIdentitiesRow
-	entitlementAssignments []gen.ListNormalizedEntitlementAssignmentsRow
+	identitiesV1             []gen.ListNormalizedIdentitiesV1Row
+	identitiesV2             []gen.ListNormalizedIdentitiesV2Row
+	identitiesV3             []gen.ListNormalizedIdentitiesV3Row
+	entitlementAssignmentsV1 []gen.ListNormalizedEntitlementAssignmentsV1Row
+	entitlementAssignmentsV2 []gen.ListNormalizedEntitlementAssignmentsV2Row
+	entitlementAssignmentsV3 []gen.ListNormalizedEntitlementAssignmentsV3Row
 }
 
-func (s normalizedQueryStub) ListNormalizedIdentities(context.Context) ([]gen.ListNormalizedIdentitiesRow, error) {
-	return s.identities, nil
+func (s normalizedQueryStub) ListNormalizedIdentitiesV1(context.Context) ([]gen.ListNormalizedIdentitiesV1Row, error) {
+	return s.identitiesV1, nil
 }
 
-func (s normalizedQueryStub) ListNormalizedEntitlementAssignments(context.Context) ([]gen.ListNormalizedEntitlementAssignmentsRow, error) {
-	return s.entitlementAssignments, nil
+func (s normalizedQueryStub) ListNormalizedIdentitiesV2(context.Context) ([]gen.ListNormalizedIdentitiesV2Row, error) {
+	return s.identitiesV2, nil
 }
 
-func TestNormalizedProviderIdentitiesExposePostureAndAnchor(t *testing.T) {
+func (s normalizedQueryStub) ListNormalizedIdentitiesV3(context.Context) ([]gen.ListNormalizedIdentitiesV3Row, error) {
+	return s.identitiesV3, nil
+}
+
+func (s normalizedQueryStub) ListNormalizedEntitlementAssignmentsV1(context.Context) ([]gen.ListNormalizedEntitlementAssignmentsV1Row, error) {
+	return s.entitlementAssignmentsV1, nil
+}
+
+func (s normalizedQueryStub) ListNormalizedEntitlementAssignmentsV2(context.Context) ([]gen.ListNormalizedEntitlementAssignmentsV2Row, error) {
+	return s.entitlementAssignmentsV2, nil
+}
+
+func (s normalizedQueryStub) ListNormalizedEntitlementAssignmentsV3(context.Context) ([]gen.ListNormalizedEntitlementAssignmentsV3Row, error) {
+	return s.entitlementAssignmentsV3, nil
+}
+
+func TestNormalizedProviderIdentitiesV1KeepsLegacyFields(t *testing.T) {
 	t.Parallel()
 
 	provider := &NormalizedProvider{
 		Q: normalizedQueryStub{
-			identities: []gen.ListNormalizedIdentitiesRow{
+			identitiesV1: []gen.ListNormalizedIdentitiesV1Row{
+				{
+					IdentityID:          1,
+					IdentityExternalID:  "00u123",
+					IdentityEmail:       "managed@example.com",
+					IdentityDisplayName: "Managed Person",
+					IdentityStatus:      "ACTIVE",
+				},
+			},
+		},
+	}
+
+	res := provider.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{
+		Dataset: "normalized:identities",
+		Version: 1,
+	})
+	if res.Error != nil {
+		t.Fatalf("GetDataset() error = %v", res.Error)
+	}
+
+	row := decodeRow(t, res.Rows[0])
+	if got := row["external_id"]; got != "00u123" {
+		t.Fatalf("external_id = %#v, want %q", got, "00u123")
+	}
+	if got := row["status"]; got != "active" {
+		t.Fatalf("status = %#v, want %q", got, "active")
+	}
+}
+
+func TestNormalizedProviderIdentitiesV2KeepsAuthoritativeAccount(t *testing.T) {
+	t.Parallel()
+
+	provider := &NormalizedProvider{
+		Q: normalizedQueryStub{
+			identitiesV2: []gen.ListNormalizedIdentitiesV2Row{
+				{
+					IdentityID:              1,
+					IdentityKind:            "human",
+					IdentityEmail:           "managed@example.com",
+					IdentityDisplayName:     "Managed Person",
+					IdentityManaged:         true,
+					AuthoritativeSourceKind: "okta",
+					AuthoritativeSourceName: "example.okta.com",
+					AuthoritativeExternalID: "00u123",
+				},
+			},
+		},
+	}
+
+	res := provider.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{
+		Dataset: "normalized:identities",
+		Version: 2,
+	})
+	if res.Error != nil {
+		t.Fatalf("GetDataset() error = %v", res.Error)
+	}
+
+	row := decodeRow(t, res.Rows[0])
+	account, ok := row["authoritative_account"].(map[string]any)
+	if !ok {
+		t.Fatalf("authoritative_account = %#v, want map", row["authoritative_account"])
+	}
+	if got := account["source_kind"]; got != "okta" {
+		t.Fatalf("authoritative_account.source_kind = %#v, want %q", got, "okta")
+	}
+}
+
+func TestNormalizedProviderIdentitiesV3ExposePostureAndAnchor(t *testing.T) {
+	t.Parallel()
+
+	provider := &NormalizedProvider{
+		Q: normalizedQueryStub{
+			identitiesV3: []gen.ListNormalizedIdentitiesV3Row{
 				{
 					IdentityID:              1,
 					IdentityKind:            "human",
@@ -55,7 +147,7 @@ func TestNormalizedProviderIdentitiesExposePostureAndAnchor(t *testing.T) {
 
 	res := provider.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{
 		Dataset: "normalized:identities",
-		Version: 1,
+		Version: 3,
 	})
 	if res.Error != nil {
 		t.Fatalf("GetDataset() error = %v", res.Error)
@@ -96,12 +188,12 @@ func TestNormalizedProviderIdentitiesExposePostureAndAnchor(t *testing.T) {
 	}
 }
 
-func TestNormalizedProviderEntitlementAssignmentsExposeIdentityPosture(t *testing.T) {
+func TestNormalizedProviderEntitlementAssignmentsV3ExposeIdentityPosture(t *testing.T) {
 	t.Parallel()
 
 	provider := &NormalizedProvider{
 		Q: normalizedQueryStub{
-			entitlementAssignments: []gen.ListNormalizedEntitlementAssignmentsRow{
+			entitlementAssignmentsV3: []gen.ListNormalizedEntitlementAssignmentsV3Row{
 				{
 					EntitlementID:         101,
 					IdentityID:            8,
@@ -124,7 +216,7 @@ func TestNormalizedProviderEntitlementAssignmentsExposeIdentityPosture(t *testin
 
 	res := provider.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{
 		Dataset: "normalized:entitlement_assignments",
-		Version: 1,
+		Version: 3,
 	})
 	if res.Error != nil {
 		t.Fatalf("GetDataset() error = %v", res.Error)

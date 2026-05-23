@@ -22,10 +22,12 @@ var (
 		"normalized:entitlement_assignments",
 		"normalized:identities",
 	}
+
+	normalizedDatasetVersions = []int{1, 2, 3}
 )
 
 func RuntimeCapabilities(p RouterProvider) []runtimev2.DatasetRef {
-	out := make([]runtimev2.DatasetRef, 0, len(oktaCapabilitiesV2)+len(normalizedCapabilities))
+	out := make([]runtimev2.DatasetRef, 0, len(oktaCapabilitiesV2)+len(normalizedCapabilities)*len(normalizedDatasetVersions))
 
 	if p.Okta != nil {
 		for _, ds := range oktaCapabilitiesV2 {
@@ -34,7 +36,9 @@ func RuntimeCapabilities(p RouterProvider) []runtimev2.DatasetRef {
 	}
 	if p.Normalized != nil {
 		for _, ds := range normalizedCapabilities {
-			out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: 1})
+			for _, version := range normalizedDatasetVersions {
+				out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: version})
+			}
 		}
 	}
 
