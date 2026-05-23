@@ -9,90 +9,7 @@ import (
 	"context"
 )
 
-const listNormalizedEntitlementAssignmentsV1 = `-- name: ListNormalizedEntitlementAssignmentsV1 :many
-WITH authoritative_identities AS (
-  SELECT DISTINCT ia.identity_id
-  FROM identity_accounts ia
-  JOIN accounts anchor ON anchor.id = ia.account_id
-  JOIN identity_source_settings iss
-    ON iss.source_kind = anchor.source_kind
-   AND iss.source_name = anchor.source_name
-   AND iss.is_authoritative
-  WHERE anchor.expired_at IS NULL
-    AND anchor.last_observed_run_id IS NOT NULL
-)
-SELECT
-  e.id AS entitlement_id,
-  i.id AS identity_id,
-  i.primary_email AS identity_email,
-  i.display_name AS identity_display_name,
-  i.kind AS identity_status,
-  au.source_kind AS account_source_kind,
-  au.source_name AS account_source_name,
-  au.external_id AS account_external_id,
-  e.kind AS entitlement_kind,
-  e.resource AS entitlement_resource,
-  e.permission AS entitlement_permission
-FROM entitlements e
-JOIN accounts au ON au.id = e.app_user_id
-JOIN identity_accounts ia ON ia.account_id = au.id
-JOIN identities i ON i.id = ia.identity_id
-JOIN authoritative_identities auth_i ON auth_i.identity_id = i.id
-WHERE
-  e.expired_at IS NULL
-  AND e.last_observed_run_id IS NOT NULL
-  AND au.expired_at IS NULL
-  AND au.last_observed_run_id IS NOT NULL
-ORDER BY i.id, au.id, e.id
-`
-
-type ListNormalizedEntitlementAssignmentsV1Row struct {
-	EntitlementID         int64  `json:"entitlement_id"`
-	IdentityID            int64  `json:"identity_id"`
-	IdentityEmail         string `json:"identity_email"`
-	IdentityDisplayName   string `json:"identity_display_name"`
-	IdentityStatus        string `json:"identity_status"`
-	AccountSourceKind     string `json:"account_source_kind"`
-	AccountSourceName     string `json:"account_source_name"`
-	AccountExternalID     string `json:"account_external_id"`
-	EntitlementKind       string `json:"entitlement_kind"`
-	EntitlementResource   string `json:"entitlement_resource"`
-	EntitlementPermission string `json:"entitlement_permission"`
-}
-
-func (q *Queries) ListNormalizedEntitlementAssignmentsV1(ctx context.Context) ([]ListNormalizedEntitlementAssignmentsV1Row, error) {
-	rows, err := q.db.Query(ctx, listNormalizedEntitlementAssignmentsV1)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListNormalizedEntitlementAssignmentsV1Row
-	for rows.Next() {
-		var i ListNormalizedEntitlementAssignmentsV1Row
-		if err := rows.Scan(
-			&i.EntitlementID,
-			&i.IdentityID,
-			&i.IdentityEmail,
-			&i.IdentityDisplayName,
-			&i.IdentityStatus,
-			&i.AccountSourceKind,
-			&i.AccountSourceName,
-			&i.AccountExternalID,
-			&i.EntitlementKind,
-			&i.EntitlementResource,
-			&i.EntitlementPermission,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listNormalizedEntitlementAssignmentsV2 = `-- name: ListNormalizedEntitlementAssignmentsV2 :many
+const listNormalizedEntitlementAssignments = `-- name: ListNormalizedEntitlementAssignments :many
 WITH authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
   FROM identity_accounts ia
@@ -111,6 +28,19 @@ SELECT
   i.primary_email AS identity_email,
   i.display_name AS identity_display_name,
   (auth_i.identity_id IS NOT NULL)::boolean AS identity_managed,
+  CASE
+    WHEN i.kind IN ('service', 'bot') THEN 'non_human'
+    WHEN auth_i.identity_id IS NOT NULL THEN 'managed'
+    ELSE 'unmanaged'
+  END AS identity_posture,
+  CASE
+    WHEN i.kind IN ('service', 'bot') THEN 'not_applicable'
+    WHEN auth_i.identity_id IS NOT NULL THEN 'anchored'
+    ELSE 'missing_anchor'
+  END AS identity_anchor_state,
+  COALESCE(auth_account.source_kind, '') AS authoritative_source_kind,
+  COALESCE(auth_account.source_name, '') AS authoritative_source_name,
+  COALESCE(auth_account.external_id, '') AS authoritative_external_id,
   au.source_kind AS account_source_kind,
   au.source_name AS account_source_name,
   au.external_id AS account_external_id,
@@ -122,6 +52,20 @@ JOIN accounts au ON au.id = e.app_user_id
 JOIN identity_accounts ia ON ia.account_id = au.id
 JOIN identities i ON i.id = ia.identity_id
 LEFT JOIN authoritative_identities auth_i ON auth_i.identity_id = i.id
+LEFT JOIN LATERAL (
+  SELECT a.source_kind, a.source_name, a.external_id
+  FROM identity_accounts ia2
+  JOIN accounts a ON a.id = ia2.account_id
+  JOIN identity_source_settings iss
+    ON iss.source_kind = a.source_kind
+   AND iss.source_name = a.source_name
+   AND iss.is_authoritative
+  WHERE ia2.identity_id = i.id
+    AND a.expired_at IS NULL
+    AND a.last_observed_run_id IS NOT NULL
+  ORDER BY a.id ASC
+  LIMIT 1
+) auth_account ON TRUE
 WHERE
   e.expired_at IS NULL
   AND e.last_observed_run_id IS NOT NULL
@@ -130,30 +74,35 @@ WHERE
 ORDER BY i.id, au.id, e.id
 `
 
-type ListNormalizedEntitlementAssignmentsV2Row struct {
-	EntitlementID         int64  `json:"entitlement_id"`
-	IdentityID            int64  `json:"identity_id"`
-	IdentityKind          string `json:"identity_kind"`
-	IdentityEmail         string `json:"identity_email"`
-	IdentityDisplayName   string `json:"identity_display_name"`
-	IdentityManaged       bool   `json:"identity_managed"`
-	AccountSourceKind     string `json:"account_source_kind"`
-	AccountSourceName     string `json:"account_source_name"`
-	AccountExternalID     string `json:"account_external_id"`
-	EntitlementKind       string `json:"entitlement_kind"`
-	EntitlementResource   string `json:"entitlement_resource"`
-	EntitlementPermission string `json:"entitlement_permission"`
+type ListNormalizedEntitlementAssignmentsRow struct {
+	EntitlementID           int64  `json:"entitlement_id"`
+	IdentityID              int64  `json:"identity_id"`
+	IdentityKind            string `json:"identity_kind"`
+	IdentityEmail           string `json:"identity_email"`
+	IdentityDisplayName     string `json:"identity_display_name"`
+	IdentityManaged         bool   `json:"identity_managed"`
+	IdentityPosture         string `json:"identity_posture"`
+	IdentityAnchorState     string `json:"identity_anchor_state"`
+	AuthoritativeSourceKind string `json:"authoritative_source_kind"`
+	AuthoritativeSourceName string `json:"authoritative_source_name"`
+	AuthoritativeExternalID string `json:"authoritative_external_id"`
+	AccountSourceKind       string `json:"account_source_kind"`
+	AccountSourceName       string `json:"account_source_name"`
+	AccountExternalID       string `json:"account_external_id"`
+	EntitlementKind         string `json:"entitlement_kind"`
+	EntitlementResource     string `json:"entitlement_resource"`
+	EntitlementPermission   string `json:"entitlement_permission"`
 }
 
-func (q *Queries) ListNormalizedEntitlementAssignmentsV2(ctx context.Context) ([]ListNormalizedEntitlementAssignmentsV2Row, error) {
-	rows, err := q.db.Query(ctx, listNormalizedEntitlementAssignmentsV2)
+func (q *Queries) ListNormalizedEntitlementAssignments(ctx context.Context) ([]ListNormalizedEntitlementAssignmentsRow, error) {
+	rows, err := q.db.Query(ctx, listNormalizedEntitlementAssignments)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListNormalizedEntitlementAssignmentsV2Row
+	var items []ListNormalizedEntitlementAssignmentsRow
 	for rows.Next() {
-		var i ListNormalizedEntitlementAssignmentsV2Row
+		var i ListNormalizedEntitlementAssignmentsRow
 		if err := rows.Scan(
 			&i.EntitlementID,
 			&i.IdentityID,
@@ -161,6 +110,11 @@ func (q *Queries) ListNormalizedEntitlementAssignmentsV2(ctx context.Context) ([
 			&i.IdentityEmail,
 			&i.IdentityDisplayName,
 			&i.IdentityManaged,
+			&i.IdentityPosture,
+			&i.IdentityAnchorState,
+			&i.AuthoritativeSourceKind,
+			&i.AuthoritativeSourceName,
+			&i.AuthoritativeExternalID,
 			&i.AccountSourceKind,
 			&i.AccountSourceName,
 			&i.AccountExternalID,
@@ -178,78 +132,7 @@ func (q *Queries) ListNormalizedEntitlementAssignmentsV2(ctx context.Context) ([
 	return items, nil
 }
 
-const listNormalizedIdentitiesV1 = `-- name: ListNormalizedIdentitiesV1 :many
-WITH authoritative_identities AS (
-  SELECT DISTINCT ia.identity_id
-  FROM identity_accounts ia
-  JOIN accounts anchor ON anchor.id = ia.account_id
-  JOIN identity_source_settings iss
-    ON iss.source_kind = anchor.source_kind
-   AND iss.source_name = anchor.source_name
-   AND iss.is_authoritative
-  WHERE anchor.expired_at IS NULL
-    AND anchor.last_observed_run_id IS NOT NULL
-)
-SELECT
-  i.id AS identity_id,
-  COALESCE(auth_account.external_id, '') AS identity_external_id,
-  i.primary_email AS identity_email,
-  i.display_name AS identity_display_name,
-  COALESCE(NULLIF(auth_account.status, ''), i.kind) AS identity_status
-FROM identities i
-JOIN authoritative_identities ai ON ai.identity_id = i.id
-LEFT JOIN LATERAL (
-  SELECT a.external_id, a.status
-  FROM identity_accounts ia
-  JOIN accounts a ON a.id = ia.account_id
-  JOIN identity_source_settings iss
-    ON iss.source_kind = a.source_kind
-   AND iss.source_name = a.source_name
-   AND iss.is_authoritative
-  WHERE ia.identity_id = i.id
-    AND a.expired_at IS NULL
-    AND a.last_observed_run_id IS NOT NULL
-  ORDER BY a.id ASC
-  LIMIT 1
-) auth_account ON TRUE
-ORDER BY i.id
-`
-
-type ListNormalizedIdentitiesV1Row struct {
-	IdentityID          int64  `json:"identity_id"`
-	IdentityExternalID  string `json:"identity_external_id"`
-	IdentityEmail       string `json:"identity_email"`
-	IdentityDisplayName string `json:"identity_display_name"`
-	IdentityStatus      string `json:"identity_status"`
-}
-
-func (q *Queries) ListNormalizedIdentitiesV1(ctx context.Context) ([]ListNormalizedIdentitiesV1Row, error) {
-	rows, err := q.db.Query(ctx, listNormalizedIdentitiesV1)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListNormalizedIdentitiesV1Row
-	for rows.Next() {
-		var i ListNormalizedIdentitiesV1Row
-		if err := rows.Scan(
-			&i.IdentityID,
-			&i.IdentityExternalID,
-			&i.IdentityEmail,
-			&i.IdentityDisplayName,
-			&i.IdentityStatus,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listNormalizedIdentitiesV2 = `-- name: ListNormalizedIdentitiesV2 :many
+const listNormalizedIdentities = `-- name: ListNormalizedIdentities :many
 WITH authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
   FROM identity_accounts ia
@@ -267,6 +150,16 @@ SELECT
   i.primary_email AS identity_email,
   i.display_name AS identity_display_name,
   (ai.identity_id IS NOT NULL)::boolean AS identity_managed,
+  CASE
+    WHEN i.kind IN ('service', 'bot') THEN 'non_human'
+    WHEN ai.identity_id IS NOT NULL THEN 'managed'
+    ELSE 'unmanaged'
+  END AS identity_posture,
+  CASE
+    WHEN i.kind IN ('service', 'bot') THEN 'not_applicable'
+    WHEN ai.identity_id IS NOT NULL THEN 'anchored'
+    ELSE 'missing_anchor'
+  END AS identity_anchor_state,
   COALESCE(auth_account.source_kind, '') AS authoritative_source_kind,
   COALESCE(auth_account.source_name, '') AS authoritative_source_name,
   COALESCE(auth_account.external_id, '') AS authoritative_external_id
@@ -289,32 +182,36 @@ LEFT JOIN LATERAL (
 ORDER BY i.id
 `
 
-type ListNormalizedIdentitiesV2Row struct {
+type ListNormalizedIdentitiesRow struct {
 	IdentityID              int64  `json:"identity_id"`
 	IdentityKind            string `json:"identity_kind"`
 	IdentityEmail           string `json:"identity_email"`
 	IdentityDisplayName     string `json:"identity_display_name"`
 	IdentityManaged         bool   `json:"identity_managed"`
+	IdentityPosture         string `json:"identity_posture"`
+	IdentityAnchorState     string `json:"identity_anchor_state"`
 	AuthoritativeSourceKind string `json:"authoritative_source_kind"`
 	AuthoritativeSourceName string `json:"authoritative_source_name"`
 	AuthoritativeExternalID string `json:"authoritative_external_id"`
 }
 
-func (q *Queries) ListNormalizedIdentitiesV2(ctx context.Context) ([]ListNormalizedIdentitiesV2Row, error) {
-	rows, err := q.db.Query(ctx, listNormalizedIdentitiesV2)
+func (q *Queries) ListNormalizedIdentities(ctx context.Context) ([]ListNormalizedIdentitiesRow, error) {
+	rows, err := q.db.Query(ctx, listNormalizedIdentities)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListNormalizedIdentitiesV2Row
+	var items []ListNormalizedIdentitiesRow
 	for rows.Next() {
-		var i ListNormalizedIdentitiesV2Row
+		var i ListNormalizedIdentitiesRow
 		if err := rows.Scan(
 			&i.IdentityID,
 			&i.IdentityKind,
 			&i.IdentityEmail,
 			&i.IdentityDisplayName,
 			&i.IdentityManaged,
+			&i.IdentityPosture,
+			&i.IdentityAnchorState,
 			&i.AuthoritativeSourceKind,
 			&i.AuthoritativeSourceName,
 			&i.AuthoritativeExternalID,

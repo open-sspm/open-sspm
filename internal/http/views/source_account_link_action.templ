@@ -1,0 +1,17 @@
+package views
+
+templ sourceAccountNeedsAnchorLinkAction(isAdmin bool, csrfToken string, accountID int64, inputClass string) {
+	if isAdmin {
+		<form method="post" action="/links" class="flex flex-col gap-2 sm:flex-row sm:items-end">
+			@CSRFInput(csrfToken)
+			<input type="hidden" name="account_id" value={ FormatInt64(accountID) }/>
+			<label class="field w-full sm:w-32">
+				<span class="label sr-only">Identity ID</span>
+				<input type="text" name="identity_id" placeholder="Identity ID" required class={ inputClass }/>
+			</label>
+			<button type="submit" class="btn-sm-primary w-full sm:w-auto">Link</button>
+		</form>
+	} else {
+		<span class="text-sm text-muted-foreground">Admin required</span>
+	}
+}

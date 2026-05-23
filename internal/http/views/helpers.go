@@ -1024,11 +1024,28 @@ func HumanizeIdentityRowState(state string) string {
 	}
 }
 
-func IdentityManagedBadgeClass(managed bool) string {
-	if managed {
-		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+func HumanizeIdentityAnchorState(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "anchored":
+		return "Anchored"
+	case "missing_anchor":
+		return "Needs anchor"
+	case "not_applicable":
+		return "No anchor needed"
+	default:
+		return fallbackHumanized(state)
 	}
-	return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+}
+
+func IdentityAnchorTextClass(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "anchored":
+		return "text-sm text-muted-foreground"
+	case "missing_anchor":
+		return "text-sm font-medium text-amber-800 dark:text-amber-300"
+	default:
+		return "text-sm text-muted-foreground"
+	}
 }
 
 func IdentityStatusBadgeClass(status string) string {

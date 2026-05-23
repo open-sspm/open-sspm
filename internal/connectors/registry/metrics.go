@@ -15,9 +15,9 @@ type MetricsProvider interface {
 
 // ConnectorMetrics holds the counts for a connector.
 type ConnectorMetrics struct {
-	Total     int64
-	Matched   int64
-	Unmatched int64
+	Total       int64
+	Anchored    int64
+	NeedsAnchor int64
 
 	// Connector-specific extras (e.g., Okta apps count)
 	Extras map[string]int64
@@ -39,14 +39,14 @@ func (m sourceMetricsProvider) FetchMetrics(ctx context.Context, q *gen.Queries,
 	if err != nil {
 		return ConnectorMetrics{}, err
 	}
-	matched, err := q.CountLinkedSourceAccountsBySource(ctx, gen.CountLinkedSourceAccountsBySourceParams{
+	anchored, err := q.CountAnchoredSourceAccountsBySource(ctx, gen.CountAnchoredSourceAccountsBySourceParams{
 		SourceKind: m.sourceKind,
 		SourceName: sourceName,
 	})
 	if err != nil {
 		return ConnectorMetrics{}, err
 	}
-	unmatched, err := q.CountUnlinkedSourceAccountsBySource(ctx, gen.CountUnlinkedSourceAccountsBySourceParams{
+	needsAnchor, err := q.CountSourceAccountsNeedingAnchorBySource(ctx, gen.CountSourceAccountsNeedingAnchorBySourceParams{
 		SourceKind: m.sourceKind,
 		SourceName: sourceName,
 	})
@@ -54,8 +54,8 @@ func (m sourceMetricsProvider) FetchMetrics(ctx context.Context, q *gen.Queries,
 		return ConnectorMetrics{}, err
 	}
 	return ConnectorMetrics{
-		Total:     total,
-		Matched:   matched,
-		Unmatched: unmatched,
+		Total:       total,
+		Anchored:    anchored,
+		NeedsAnchor: needsAnchor,
 	}, nil
 }

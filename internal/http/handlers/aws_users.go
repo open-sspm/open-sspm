@@ -56,17 +56,17 @@ func (h *Handlers) HandleAWSUsers(c *echo.Context) error {
 	return h.renderListWithHX(c, "aws-users-results", views.AWSUsersPageResults(data), views.AWSUsersPage(data))
 }
 
-func (h *Handlers) HandleUnmatchedAWS(c *echo.Context) error {
-	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
-		Title:              "Unlinked AWS Identity Center Users",
-		BasePath:           "/accounts/unlinked/aws",
+func (h *Handlers) HandleAWSAccountsNeedingAnchor(c *echo.Context) error {
+	needsAnchor, err := h.buildSourceAccountsNeedingAnchorPage(c, sourceAccountsNeedingAnchorOptions{
+		Title:              "AWS Identity Center Users Needing Anchor",
+		BasePath:           "/accounts/needs-anchor/aws",
 		ConnectorName:      "AWS Identity Center",
 		ConnectorKind:      "aws_identity_center",
 		SourceKind:         "aws",
 		EntityCategory:     registry.EntityCategoryUser,
 		EmptyStateHref:     "/settings/connectors?open=aws_identity_center",
-		SyncedEmptyState:   "No unlinked AWS Identity Center users.",
-		FilteredEmptyState: "No unlinked AWS Identity Center users match the current search.",
+		SyncedEmptyState:   "No AWS Identity Center users need an anchor.",
+		FilteredEmptyState: "No AWS Identity Center users needing an anchor match the current search.",
 		UnavailableMessageFn: func(configured, enabled bool) string {
 			if configured && !enabled {
 				return "AWS Identity Center sync is disabled. Enable it in Connectors."
@@ -78,12 +78,12 @@ func (h *Handlers) HandleUnmatchedAWS(c *echo.Context) error {
 		},
 	})
 	if err != nil {
-		return h.renderUnmatchedSourceAccountsError(c, err)
+		return h.renderSourceAccountsNeedingAnchorError(c, err)
 	}
 
-	data := viewmodels.UnmatchedAWSViewData{
-		UnmatchedSourceAccountsPageData: unmatched.PageData,
+	data := viewmodels.AWSAccountsNeedingAnchorViewData{
+		SourceAccountsNeedingAnchorPageData: needsAnchor.PageData,
 	}
 
-	return h.renderListWithHX(c, "unmatched-aws-results", views.UnmatchedAWSPageResults(data), views.UnmatchedAWSPage(data))
+	return h.renderListWithHX(c, "aws-needs-anchor-results", views.AWSAccountsNeedingAnchorPageResults(data), views.AWSAccountsNeedingAnchorPage(data))
 }

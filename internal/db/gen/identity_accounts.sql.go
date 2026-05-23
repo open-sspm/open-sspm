@@ -9,7 +9,7 @@ import (
 	"context"
 )
 
-const countUnlinkedAccounts = `-- name: CountUnlinkedAccounts :one
+const countAccountsMissingIdentityLink = `-- name: CountAccountsMissingIdentityLink :one
 SELECT count(*)
 FROM accounts a
 LEFT JOIN identity_accounts ia ON ia.account_id = a.id
@@ -18,8 +18,8 @@ WHERE ia.id IS NULL
   AND a.last_observed_run_id IS NOT NULL
 `
 
-func (q *Queries) CountUnlinkedAccounts(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, countUnlinkedAccounts)
+func (q *Queries) CountAccountsMissingIdentityLink(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countAccountsMissingIdentityLink)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -78,6 +78,65 @@ func (q *Queries) GetIdentityBySourceAndExternalID(ctx context.Context, arg GetI
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listAccountsMissingIdentityLinkPage = `-- name: ListAccountsMissingIdentityLinkPage :many
+SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status, a.account_kind, a.entity_category
+FROM accounts a
+LEFT JOIN identity_accounts ia ON ia.account_id = a.id
+WHERE ia.id IS NULL
+  AND a.expired_at IS NULL
+  AND a.last_observed_run_id IS NOT NULL
+ORDER BY a.id ASC
+LIMIT $2::int
+OFFSET $1::int
+`
+
+type ListAccountsMissingIdentityLinkPageParams struct {
+	PageOffset int32 `json:"page_offset"`
+	PageLimit  int32 `json:"page_limit"`
+}
+
+func (q *Queries) ListAccountsMissingIdentityLinkPage(ctx context.Context, arg ListAccountsMissingIdentityLinkPageParams) ([]Account, error) {
+	rows, err := q.db.Query(ctx, listAccountsMissingIdentityLinkPage, arg.PageOffset, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Account
+	for rows.Next() {
+		var i Account
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.ExternalID,
+			&i.Email,
+			&i.DisplayName,
+			&i.RawJson,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LastLoginAt,
+			&i.LastLoginIp,
+			&i.LastLoginRegion,
+			&i.SeenInRunID,
+			&i.SeenAt,
+			&i.LastObservedRunID,
+			&i.LastObservedAt,
+			&i.ExpiredAt,
+			&i.ExpiredRunID,
+			&i.Status,
+			&i.AccountKind,
+			&i.EntityCategory,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listIdentityAccountAttributes = `-- name: ListIdentityAccountAttributes :many
@@ -153,65 +212,6 @@ ORDER BY a.source_kind, a.source_name, a.external_id
 
 func (q *Queries) ListLinkedAccountsForIdentity(ctx context.Context, identityID int64) ([]Account, error) {
 	rows, err := q.db.Query(ctx, listLinkedAccountsForIdentity, identityID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Account
-	for rows.Next() {
-		var i Account
-		if err := rows.Scan(
-			&i.ID,
-			&i.SourceKind,
-			&i.SourceName,
-			&i.ExternalID,
-			&i.Email,
-			&i.DisplayName,
-			&i.RawJson,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.LastLoginAt,
-			&i.LastLoginIp,
-			&i.LastLoginRegion,
-			&i.SeenInRunID,
-			&i.SeenAt,
-			&i.LastObservedRunID,
-			&i.LastObservedAt,
-			&i.ExpiredAt,
-			&i.ExpiredRunID,
-			&i.Status,
-			&i.AccountKind,
-			&i.EntityCategory,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listUnlinkedAccountsPage = `-- name: ListUnlinkedAccountsPage :many
-SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status, a.account_kind, a.entity_category
-FROM accounts a
-LEFT JOIN identity_accounts ia ON ia.account_id = a.id
-WHERE ia.id IS NULL
-  AND a.expired_at IS NULL
-  AND a.last_observed_run_id IS NOT NULL
-ORDER BY a.id ASC
-LIMIT $2::int
-OFFSET $1::int
-`
-
-type ListUnlinkedAccountsPageParams struct {
-	PageOffset int32 `json:"page_offset"`
-	PageLimit  int32 `json:"page_limit"`
-}
-
-func (q *Queries) ListUnlinkedAccountsPage(ctx context.Context, arg ListUnlinkedAccountsPageParams) ([]Account, error) {
-	rows, err := q.db.Query(ctx, listUnlinkedAccountsPage, arg.PageOffset, arg.PageLimit)
 	if err != nil {
 		return nil, err
 	}

@@ -16,6 +16,6 @@ type AWSUsersViewData struct {
 	HasUsers bool
 }
 
-type UnmatchedAWSViewData struct {
-	UnmatchedSourceAccountsPageData
+type AWSAccountsNeedingAnchorViewData struct {
+	SourceAccountsNeedingAnchorPageData
 }

@@ -162,28 +162,28 @@ func (h *Handlers) HandleGoogleWorkspaceGroups(c *echo.Context) error {
 	return h.renderListWithHX(c, "google-workspace-groups-results", views.GoogleWorkspaceGroupsPageResults(data), views.GoogleWorkspaceGroupsPage(data))
 }
 
-func (h *Handlers) HandleUnmatchedGoogleWorkspace(c *echo.Context) error {
-	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
-		Title:              "Unlinked Google Workspace Users",
-		BasePath:           "/accounts/unlinked/google-workspace",
+func (h *Handlers) HandleGoogleWorkspaceAccountsNeedingAnchor(c *echo.Context) error {
+	needsAnchor, err := h.buildSourceAccountsNeedingAnchorPage(c, sourceAccountsNeedingAnchorOptions{
+		Title:              "Google Workspace Users Needing Anchor",
+		BasePath:           "/accounts/needs-anchor/google-workspace",
 		ConnectorName:      "Google Workspace",
 		ConnectorKind:      configstore.KindGoogleWorkspace,
 		SourceKind:         configstore.KindGoogleWorkspace,
 		EntityCategory:     registry.EntityCategoryUser,
 		EmptyStateHref:     "/settings/connectors?open=google_workspace",
-		SyncedEmptyState:   "No unlinked Google Workspace users.",
-		FilteredEmptyState: "No unlinked Google Workspace users match the current search.",
+		SyncedEmptyState:   "No Google Workspace users need an anchor.",
+		FilteredEmptyState: "No Google Workspace users needing an anchor match the current search.",
 		ResolveSourceName: func(_ *echo.Context, configuredSourceName string) (string, error) {
 			return configuredSourceName, nil
 		},
 	})
 	if err != nil {
-		return h.renderUnmatchedSourceAccountsError(c, err)
+		return h.renderSourceAccountsNeedingAnchorError(c, err)
 	}
 
-	data := viewmodels.UnmatchedGoogleWorkspaceViewData{
-		UnmatchedSourceAccountsPageData: unmatched.PageData,
+	data := viewmodels.GoogleWorkspaceAccountsNeedingAnchorViewData{
+		SourceAccountsNeedingAnchorPageData: needsAnchor.PageData,
 	}
 
-	return h.renderListWithHX(c, "unmatched-google-workspace-results", views.UnmatchedGoogleWorkspacePageResults(data), views.UnmatchedGoogleWorkspacePage(data))
+	return h.renderListWithHX(c, "google-workspace-needs-anchor-results", views.GoogleWorkspaceAccountsNeedingAnchorPageResults(data), views.GoogleWorkspaceAccountsNeedingAnchorPage(data))
 }

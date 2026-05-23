@@ -72,7 +72,7 @@ func (s *ConnectorState) CoverageScore() int {
 	if s.Metrics.Total <= 0 {
 		return 0
 	}
-	score := int((s.Metrics.Matched * 100) / s.Metrics.Total)
+	score := int((s.Metrics.Anchored * 100) / s.Metrics.Total)
 	if score < 0 {
 		return 0
 	}
@@ -104,7 +104,7 @@ func (s *ConnectorState) MetricsKV() []viewmodels.GlobalViewKV {
 		return []viewmodels.GlobalViewKV{
 			{Label: "Status", Value: s.StatusLabel()},
 			{Label: "Accounts", Value: "—"},
-			{Label: "Unmanaged", Value: "—"},
+			{Label: "Needs anchor", Value: "—"},
 		}
 	}
 
@@ -118,8 +118,8 @@ func (s *ConnectorState) MetricsKV() []viewmodels.GlobalViewKV {
 
 	return []viewmodels.GlobalViewKV{
 		{Label: "Accounts", Value: views.FormatInt64(s.Metrics.Total)},
-		{Label: "Managed", Value: views.FormatInt64(s.Metrics.Matched)},
-		{Label: "Unmanaged", Value: views.FormatInt64(s.Metrics.Unmatched)},
+		{Label: "Anchored", Value: views.FormatInt64(s.Metrics.Anchored)},
+		{Label: "Needs anchor", Value: views.FormatInt64(s.Metrics.NeedsAnchor)},
 	}
 }
 
@@ -146,8 +146,8 @@ func (s *ConnectorState) HighlightsKV() []viewmodels.GlobalViewKV {
 
 	return []viewmodels.GlobalViewKV{
 		{Label: "Coverage", Value: fmt.Sprintf("%d%%", s.CoverageScore())},
-		{Label: "Managed", Value: views.FormatInt64(s.Metrics.Matched)},
-		{Label: "Unmanaged", Value: views.FormatInt64(s.Metrics.Unmatched)},
+		{Label: "Anchored", Value: views.FormatInt64(s.Metrics.Anchored)},
+		{Label: "Needs anchor", Value: views.FormatInt64(s.Metrics.NeedsAnchor)},
 	}
 }
 
@@ -172,7 +172,7 @@ func (s *ConnectorState) PrimaryLabel() string {
 // SecondaryHref returns the secondary action link.
 func (s *ConnectorState) SecondaryHref() string {
 	if s.Configured && s.Enabled {
-		return connectorUnmanagedHref(s.Definition.Kind(), s.SourceName)
+		return connectorNeedsAnchorHref(s.Definition.Kind(), s.SourceName)
 	}
 	return ""
 }
@@ -204,21 +204,21 @@ func connectorBrowseUsersHref(kind string) string {
 	}
 }
 
-func connectorUnmanagedHref(kind, sourceName string) string {
+func connectorNeedsAnchorHref(kind, sourceName string) string {
 	switch strings.TrimSpace(kind) {
 	case "okta":
 		return "/assigned-apps"
 	case "entra":
-		return "/accounts/unlinked/entra"
+		return "/accounts/needs-anchor/entra"
 	case "google_workspace":
-		return "/accounts/unlinked/google-workspace"
+		return "/accounts/needs-anchor/google-workspace"
 	case "github", "datadog":
 		sourceName = strings.TrimSpace(sourceName)
 		if sourceName != "" {
-			return fmt.Sprintf("/accounts/unlinked/%s/%s", kind, sourceName)
+			return fmt.Sprintf("/accounts/needs-anchor/%s/%s", kind, sourceName)
 		}
 	case "aws_identity_center":
-		return "/accounts/unlinked/aws"
+		return "/accounts/needs-anchor/aws"
 	}
 	return ""
 }
@@ -228,7 +228,7 @@ func connectorSecondaryLabel(kind string) string {
 	case "okta":
 		return "Browse apps"
 	case "entra", "google_workspace", "github", "datadog", "aws_identity_center":
-		return "Unlinked"
+		return "Needs anchor"
 	default:
 		return ""
 	}

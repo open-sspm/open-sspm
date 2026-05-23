@@ -39,22 +39,22 @@ templ AWSUserMobileRow(user viewmodels.AWSUserListItem) {
 
 templ AWSUsersPage(data viewmodels.AWSUsersViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("") {
-			if data.Layout.AWSIdentityCenterConfigured && data.Layout.AWSIdentityCenterEnabled {
-				<a class="btn-sm-outline" href="/accounts/unlinked/aws">Unlinked</a>
-			} else {
-				<a class="btn-sm-outline" href="/settings/connectors?open=aws_identity_center">Configure</a>
+			@PageHeader("") {
+				if data.Layout.AWSIdentityCenterConfigured && data.Layout.AWSIdentityCenterEnabled {
+					<a class="btn-sm-outline" href="/accounts/needs-anchor/aws">Needs anchor</a>
+				} else {
+					<a class="btn-sm-outline" href="/settings/connectors?open=aws_identity_center">Configure</a>
+				}
 			}
-		}
 
 		if data.Layout.AWSIdentityCenterConfigured && data.Layout.AWSIdentityCenterEnabled {
-			@Alert("Linking", false) {
-				<p>
-					Linked users let you jump straight to their identity page. Unlinked users show “—”. Use
-					<a class="btn-sm-link px-1" href="/accounts/unlinked/aws">Unlinked</a>
-					to link.
-				</p>
-			}
+				@Alert("Linking", false) {
+					<p>
+						Anchored users let you jump straight to their identity page. Users without an anchor show “—”. Use
+						<a class="btn-sm-link px-1" href="/accounts/needs-anchor/aws">Needs anchor</a>
+						to resolve them.
+					</p>
+				}
 		} else {
 			@Alert("AWS Identity Center sync disabled", true) {
 				<p>

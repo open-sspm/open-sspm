@@ -56,17 +56,17 @@ func (h *Handlers) HandleEntraUsers(c *echo.Context) error {
 	return h.renderListWithHX(c, "entra-users-results", views.EntraUsersPageResults(data), views.EntraUsersPage(data))
 }
 
-func (h *Handlers) HandleUnmatchedEntra(c *echo.Context) error {
-	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
-		Title:              "Unlinked Microsoft Entra ID Users",
-		BasePath:           "/accounts/unlinked/entra",
+func (h *Handlers) HandleEntraAccountsNeedingAnchor(c *echo.Context) error {
+	needsAnchor, err := h.buildSourceAccountsNeedingAnchorPage(c, sourceAccountsNeedingAnchorOptions{
+		Title:              "Microsoft Entra ID Users Needing Anchor",
+		BasePath:           "/accounts/needs-anchor/entra",
 		ConnectorName:      "Microsoft Entra ID",
 		ConnectorKind:      "entra",
 		SourceKind:         "entra",
 		EntityCategory:     registry.EntityCategoryUser,
 		EmptyStateHref:     "/settings/connectors?open=entra",
-		SyncedEmptyState:   "No unlinked Microsoft Entra ID users.",
-		FilteredEmptyState: "No unlinked Microsoft Entra ID users match the current search.",
+		SyncedEmptyState:   "No Microsoft Entra ID users need an anchor.",
+		FilteredEmptyState: "No Microsoft Entra ID users needing an anchor match the current search.",
 		UnavailableMessageFn: func(configured, enabled bool) string {
 			if configured && !enabled {
 				return "Microsoft Entra ID sync is disabled. Enable it in Connectors."
@@ -78,12 +78,12 @@ func (h *Handlers) HandleUnmatchedEntra(c *echo.Context) error {
 		},
 	})
 	if err != nil {
-		return h.renderUnmatchedSourceAccountsError(c, err)
+		return h.renderSourceAccountsNeedingAnchorError(c, err)
 	}
 
-	data := viewmodels.UnmatchedEntraViewData{
-		UnmatchedSourceAccountsPageData: unmatched.PageData,
+	data := viewmodels.EntraAccountsNeedingAnchorViewData{
+		SourceAccountsNeedingAnchorPageData: needsAnchor.PageData,
 	}
 
-	return h.renderListWithHX(c, "unmatched-entra-results", views.UnmatchedEntraPageResults(data), views.UnmatchedEntraPage(data))
+	return h.renderListWithHX(c, "entra-needs-anchor-results", views.EntraAccountsNeedingAnchorPageResults(data), views.EntraAccountsNeedingAnchorPage(data))
 }

@@ -86,9 +86,9 @@ func IdentitiesTableQueryBar(data viewmodels.IdentitiesViewData) viewmodels.Tabl
 		}),
 		tableQueryField("source_kind", "Source", viewmodels.TableFilterFieldKindSingleSelect, []string{"source_kind"}, query.Source.Kind, query.Source.Kind == "", sourceOptions),
 		tableQueryField("source_name", "Source name", viewmodels.TableFilterFieldKindSingleSelect, []string{"source_name"}, query.Source.Name, query.Source.Name == "", sourceNameOptions),
-		tableQueryField("managed_state", "Managed", viewmodels.TableFilterFieldKindSingleSelect, []string{"managed_state"}, query.ManagedState, query.ManagedState == "", []viewmodels.TableFilterOption{
-			tableQueryOption("managed", "Managed", tableQueryControl("managed_state", "managed")),
-			tableQueryOption("unmanaged", "Unmanaged", tableQueryControl("managed_state", "unmanaged")),
+		tableQueryField("anchor_state", "Anchor", viewmodels.TableFilterFieldKindSingleSelect, []string{"anchor_state"}, query.AnchorState, query.AnchorState == "", []viewmodels.TableFilterOption{
+			tableQueryOption("anchored", "Anchored", tableQueryControl("anchor_state", "anchored")),
+			tableQueryOption("missing_anchor", "Needs anchor", tableQueryControl("anchor_state", "missing_anchor")),
 		}),
 		tableQueryField("sort", "Sort", viewmodels.TableFilterFieldKindSort, []string{"sort_by", "sort_dir"}, identitySortValue(query.SortBy, query.SortDir), query.SortBy == "", identitySortOptions()),
 	}
@@ -110,7 +110,7 @@ func IdentitiesTableQueryBar(data viewmodels.IdentitiesViewData) viewmodels.Tabl
 			controlIfNotEmpty("row_state", query.RowState),
 			controlIfNotEmpty("source_kind", query.Source.Kind),
 			controlIfNotEmpty("source_name", query.Source.Name),
-			controlIfNotEmpty("managed_state", query.ManagedState),
+			controlIfNotEmpty("anchor_state", query.AnchorState),
 			controlIfTrue("privileged", query.PrivilegedOnly),
 			controlIfNotEmpty("status", query.Status),
 			controlIfNotEmpty("activity_state", query.ActivityState),
@@ -640,8 +640,8 @@ func identitySortOptions() []viewmodels.TableFilterOption {
 	return []viewmodels.TableFilterOption{
 		tableQueryOption("identity_asc", "Identity (A-Z)", tableQueryControl("sort_by", "identity"), tableQueryControl("sort_dir", "asc")),
 		tableQueryOption("identity_desc", "Identity (Z-A)", tableQueryControl("sort_by", "identity"), tableQueryControl("sort_dir", "desc")),
-		tableQueryOption("managed_desc", "Managed first", tableQueryControl("sort_by", "managed"), tableQueryControl("sort_dir", "desc")),
-		tableQueryOption("managed_asc", "Managed last", tableQueryControl("sort_by", "managed"), tableQueryControl("sort_dir", "asc")),
+		tableQueryOption("anchor_asc", "Anchored first", tableQueryControl("sort_by", "anchor"), tableQueryControl("sort_dir", "asc")),
+		tableQueryOption("anchor_desc", "Needs anchor first", tableQueryControl("sort_by", "anchor"), tableQueryControl("sort_dir", "desc")),
 		tableQueryOption("source_type_asc", "Source (A-Z)", tableQueryControl("sort_by", "source_type"), tableQueryControl("sort_dir", "asc")),
 		tableQueryOption("source_type_desc", "Source (Z-A)", tableQueryControl("sort_by", "source_type"), tableQueryControl("sort_dir", "desc")),
 		tableQueryOption("linked_sources_desc", "More linked sources", tableQueryControl("sort_by", "linked_sources"), tableQueryControl("sort_dir", "desc")),

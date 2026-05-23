@@ -222,8 +222,8 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 					return nil
 				}
 				metrics.ResourcesTotal.WithLabelValues(kind, name, "total").Set(float64(m.Total))
-				metrics.ResourcesTotal.WithLabelValues(kind, name, "matched").Set(float64(m.Matched))
-				metrics.ResourcesTotal.WithLabelValues(kind, name, "unmatched").Set(float64(m.Unmatched))
+				metrics.ResourcesTotal.WithLabelValues(kind, name, "anchored").Set(float64(m.Anchored))
+				metrics.ResourcesTotal.WithLabelValues(kind, name, "needs_anchor").Set(float64(m.NeedsAnchor))
 			}
 			return nil
 		})
@@ -251,15 +251,15 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 		slog.Error("identity resolution failed", "err", resolveErr)
 		o.report(registry.Event{Source: "identity", Stage: "resolve", Current: 1, Total: 1, Message: resolveErr.Error(), Err: resolveErr})
 	} else {
-		if resolveStats.AutoLinked > 0 {
-			metrics.AutoLinksTotal.WithLabelValues("identity", "resolver").Add(float64(resolveStats.AutoLinked))
+		if resolveStats.EmailMatchedLinks > 0 {
+			metrics.AutoLinksTotal.WithLabelValues("identity", "resolver").Add(float64(resolveStats.EmailMatchedLinks))
 		}
 		o.report(registry.Event{
 			Source:  "identity",
 			Stage:   "resolve",
 			Current: 1,
 			Total:   1,
-			Message: fmt.Sprintf("identity resolution: linked=%d created=%d updated=%d", resolveStats.AutoLinked, resolveStats.NewIdentities, resolveStats.UpdatedIdentites),
+			Message: fmt.Sprintf("identity resolution: email_matched=%d provisional=%d updated=%d", resolveStats.EmailMatchedLinks, resolveStats.ProvisionalIdentities, resolveStats.UpdatedIdentities),
 		})
 	}
 

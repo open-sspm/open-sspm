@@ -58,7 +58,7 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 						<col class="osspm-col-type"/>
 						<col class="osspm-col-source"/>
 						<col class="osspm-col-num"/>
-						<col class="osspm-col-managed"/>
+						<col class="osspm-col-anchor"/>
 						<col class="osspm-col-state"/>
 						<col class="osspm-col-lastseen"/>
 					</colgroup>
@@ -68,7 +68,7 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 							<th>Type</th>
 							<th>Source</th>
 							<th class="osspm-num">Privileged</th>
-							<th>Managed</th>
+							<th>Anchor</th>
 							<th>State</th>
 							<th>Last seen</th>
 						</tr>
@@ -115,9 +115,9 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 templ identitiesStatStrip(data viewmodels.IdentitiesViewData) {
 	<section class="osspm-stat-strip" aria-label="Identity inventory summary">
 		@identityStat(FormatInt64(data.Summary.Total), "identities in scope", "")
-		@identityStat(FormatInt64(data.Summary.ActionRequired), "need action", identityStatTone(data.Summary.ActionRequired, "danger"))
-		@identityStat(FormatInt64(data.Summary.Privileged), "privileged", identityStatTone(data.Summary.Privileged, "warn"))
-		@identityStat(FormatInt64(data.Summary.Unmanaged), "unmanaged", "")
+			@identityStat(FormatInt64(data.Summary.ActionRequired), "need action", identityStatTone(data.Summary.ActionRequired, "danger"))
+			@identityStat(FormatInt64(data.Summary.Privileged), "privileged", identityStatTone(data.Summary.Privileged, "warn"))
+			@identityStat(FormatInt64(data.Summary.MissingAnchor), "need anchor", "")
 		@identityStat(FormatInt64(data.Summary.Suspended), "suspended", "")
 	</section>
 }
@@ -207,13 +207,7 @@ templ identityRowDesktop(item viewmodels.IdentityListItem) {
 			}
 		</td>
 		<td class={ "osspm-num " + IdentityPrivilegedRoleClass(item.PrivilegedRoles) }>{ FormatInt64(item.PrivilegedRoles) }</td>
-		<td>
-			if item.Managed {
-				<span class="text-sm text-muted-foreground">Managed</span>
-			} else {
-				<span class="text-sm font-medium text-amber-800 dark:text-amber-300">Unmanaged</span>
-			}
-		</td>
+		<td><span class={ IdentityAnchorTextClass(item.AnchorState) }>{ HumanizeIdentityAnchorState(item.AnchorState) }</span></td>
 		<td><span class={ IdentityRowStateBadgeClass(item.RowState) }>{ HumanizeIdentityRowState(item.RowState) }</span></td>
 		<td>
 			if item.LastSeen.Relative != "" {

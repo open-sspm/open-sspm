@@ -9,7 +9,7 @@ type IdentitiesQuery struct {
 	Source         SourceSelection
 	Q              string
 	IdentityType   string
-	ManagedState   string
+	AnchorState    string
 	PrivilegedOnly bool
 	Status         string
 	ActivityState  string
@@ -26,7 +26,7 @@ func ParseIdentitiesQuery(values url.Values, sources []SourceSelection) Identiti
 		Source:         source,
 		Q:              strings.TrimSpace(values.Get("q")),
 		IdentityType:   normalizeIdentityType(values.Get("identity_type")),
-		ManagedState:   normalizeIdentityManagedState(values.Get("managed_state")),
+		AnchorState:    normalizeIdentityAnchorState(values.Get("anchor_state")),
 		PrivilegedOnly: parseBool(values.Get("privileged")),
 		Status:         normalizeIdentityStatus(values.Get("status")),
 		ActivityState:  normalizeIdentityActivityState(values.Get("activity_state")),
@@ -43,7 +43,7 @@ func (q IdentitiesQuery) Values() url.Values {
 	setIfNotEmpty(values, "source_name", q.Source.Name)
 	setIfNotEmpty(values, "q", q.Q)
 	setIfNotEmpty(values, "identity_type", q.IdentityType)
-	setIfNotEmpty(values, "managed_state", q.ManagedState)
+	setIfNotEmpty(values, "anchor_state", q.AnchorState)
 	setIfTrue(values, "privileged", q.PrivilegedOnly)
 	setIfNotEmpty(values, "status", q.Status)
 	setIfNotEmpty(values, "activity_state", q.ActivityState)
@@ -86,8 +86,8 @@ func (q IdentitiesQuery) WithStatus(status string) IdentitiesQuery {
 	return q
 }
 
-func (q IdentitiesQuery) WithManagedState(state string) IdentitiesQuery {
-	q.ManagedState = normalizeIdentityManagedState(state)
+func (q IdentitiesQuery) WithAnchorState(state string) IdentitiesQuery {
+	q.AnchorState = normalizeIdentityAnchorState(state)
 	q.Page = 1
 	return q
 }
@@ -103,7 +103,7 @@ func (q IdentitiesQuery) WithRowState(state string) IdentitiesQuery {
 func (q IdentitiesQuery) ClearSegments() IdentitiesQuery {
 	q.ActivityState = ""
 	q.Status = ""
-	q.ManagedState = ""
+	q.AnchorState = ""
 	q.PrivilegedOnly = false
 	q.RowState = ""
 	q.Page = 1
@@ -122,10 +122,10 @@ func (q IdentitiesQuery) SegmentReview() IdentitiesQuery {
 	return q
 }
 
-func (q IdentitiesQuery) SegmentPrivilegedUnmanaged() IdentitiesQuery {
+func (q IdentitiesQuery) SegmentPrivilegedMissingAnchor() IdentitiesQuery {
 	q = q.ClearSegments()
 	q.PrivilegedOnly = true
-	q.ManagedState = "unmanaged"
+	q.AnchorState = "missing_anchor"
 	return q
 }
 
@@ -139,7 +139,7 @@ func (q IdentitiesQuery) SegmentStalePrivileged() IdentitiesQuery {
 // HasSegment reports whether any segment-style filter is currently active.
 // Used to highlight the "All" chip when no segment is selected.
 func (q IdentitiesQuery) HasSegment() bool {
-	return q.ActivityState != "" || q.Status != "" || q.ManagedState != "" || q.PrivilegedOnly || q.RowState != ""
+	return q.ActivityState != "" || q.Status != "" || q.AnchorState != "" || q.PrivilegedOnly || q.RowState != ""
 }
 
 func (q IdentitiesQuery) TogglePrivilegedOnly() IdentitiesQuery {
@@ -157,7 +157,7 @@ func (q IdentitiesQuery) WithPrivilegedOnly(enabled bool) IdentitiesQuery {
 func (q IdentitiesQuery) ClearFilters() IdentitiesQuery {
 	q.Source = SourceSelection{}
 	q.IdentityType = ""
-	q.ManagedState = ""
+	q.AnchorState = ""
 	q.PrivilegedOnly = false
 	q.Status = ""
 	q.ActivityState = ""
@@ -171,7 +171,7 @@ func (q IdentitiesQuery) ClearFilters() IdentitiesQuery {
 func (q IdentitiesQuery) HasFilters() bool {
 	return strings.TrimSpace(q.Q) != "" ||
 		q.IdentityType != "" ||
-		q.ManagedState != "" ||
+		q.AnchorState != "" ||
 		q.PrivilegedOnly ||
 		q.Status != "" ||
 		q.ActivityState != "" ||
@@ -203,7 +203,7 @@ func (q IdentitiesQuery) FilterCount() int {
 	if q.IdentityType != "" {
 		count++
 	}
-	if q.ManagedState != "" {
+	if q.AnchorState != "" {
 		count++
 	}
 	if q.SortBy != "" {
@@ -312,12 +312,12 @@ func normalizeIdentityType(raw string) string {
 	}
 }
 
-func normalizeIdentityManagedState(raw string) string {
+func normalizeIdentityAnchorState(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "managed":
-		return "managed"
-	case "unmanaged":
-		return "unmanaged"
+	case "anchored":
+		return "anchored"
+	case "missing_anchor":
+		return "missing_anchor"
 	default:
 		return ""
 	}
@@ -374,8 +374,8 @@ func normalizeIdentitySortBy(raw string) string {
 		return "identity"
 	case "identity_type":
 		return "identity_type"
-	case "managed":
-		return "managed"
+	case "anchor":
+		return "anchor"
 	case "source_type":
 		return "source_type"
 	case "linked_sources":

@@ -39,22 +39,22 @@ templ EntraUserMobileRow(user viewmodels.EntraUserListItem) {
 
 templ EntraUsersPage(data viewmodels.EntraUsersViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("") {
-			if data.Layout.EntraConfigured && data.Layout.EntraEnabled {
-				<a class="btn-sm-outline" href="/accounts/unlinked/entra">Unlinked</a>
-			} else {
-				<a class="btn-sm-outline" href="/settings/connectors?open=entra">Configure</a>
+			@PageHeader("") {
+				if data.Layout.EntraConfigured && data.Layout.EntraEnabled {
+					<a class="btn-sm-outline" href="/accounts/needs-anchor/entra">Needs anchor</a>
+				} else {
+					<a class="btn-sm-outline" href="/settings/connectors?open=entra">Configure</a>
+				}
 			}
-		}
 
 		if data.Layout.EntraConfigured && data.Layout.EntraEnabled {
-			@Alert("Linking", false) {
-				<p>
-					Linked users let you jump straight to their identity page. Unlinked users show “—”. Use
-					<a class="btn-sm-link px-1" href="/accounts/unlinked/entra">Unlinked</a>
-					to link.
-				</p>
-			}
+				@Alert("Linking", false) {
+					<p>
+						Anchored users let you jump straight to their identity page. Users without an anchor show “—”. Use
+						<a class="btn-sm-link px-1" href="/accounts/needs-anchor/entra">Needs anchor</a>
+						to resolve them.
+					</p>
+				}
 		} else {
 			@Alert("Microsoft Entra ID sync disabled", true) {
 				<p>

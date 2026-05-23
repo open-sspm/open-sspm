@@ -18,14 +18,14 @@ var (
 		"okta:policies/sign-on",
 	}
 
-	normalizedCapabilitiesV2 = []string{
+	normalizedCapabilities = []string{
 		"normalized:entitlement_assignments",
 		"normalized:identities",
 	}
 )
 
 func RuntimeCapabilities(p RouterProvider) []runtimev2.DatasetRef {
-	out := make([]runtimev2.DatasetRef, 0, len(oktaCapabilitiesV2)+len(normalizedCapabilitiesV2))
+	out := make([]runtimev2.DatasetRef, 0, len(oktaCapabilitiesV2)+len(normalizedCapabilities))
 
 	if p.Okta != nil {
 		for _, ds := range oktaCapabilitiesV2 {
@@ -33,9 +33,8 @@ func RuntimeCapabilities(p RouterProvider) []runtimev2.DatasetRef {
 		}
 	}
 	if p.Normalized != nil {
-		for _, ds := range normalizedCapabilitiesV2 {
+		for _, ds := range normalizedCapabilities {
 			out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: 1})
-			out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: 2})
 		}
 	}
 

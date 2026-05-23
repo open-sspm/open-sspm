@@ -45,7 +45,7 @@ func (s *resolverStub) putLink(link gen.IdentityAccount) {
 	}
 }
 
-func (s *resolverStub) CountUnlinkedAccounts(context.Context) (int64, error) {
+func (s *resolverStub) CountAccountsMissingIdentityLink(context.Context) (int64, error) {
 	var count int64
 	for _, account := range s.accounts {
 		if !isActiveAccount(account) {
@@ -59,7 +59,7 @@ func (s *resolverStub) CountUnlinkedAccounts(context.Context) (int64, error) {
 	return count, nil
 }
 
-func (s *resolverStub) ListUnlinkedAccountsPage(_ context.Context, params gen.ListUnlinkedAccountsPageParams) ([]gen.Account, error) {
+func (s *resolverStub) ListAccountsMissingIdentityLinkPage(_ context.Context, params gen.ListAccountsMissingIdentityLinkPageParams) ([]gen.Account, error) {
 	rows := make([]gen.Account, 0)
 	for _, account := range s.accounts {
 		if !isActiveAccount(account) {
@@ -256,11 +256,11 @@ func TestResolverResolveExactEmailLink(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
-	if stats.AutoLinked != 1 {
-		t.Fatalf("AutoLinked = %d, want 1", stats.AutoLinked)
+	if stats.EmailMatchedLinks != 1 {
+		t.Fatalf("EmailMatchedLinks = %d, want 1", stats.EmailMatchedLinks)
 	}
-	if stats.NewIdentities != 0 {
-		t.Fatalf("NewIdentities = %d, want 0", stats.NewIdentities)
+	if stats.ProvisionalIdentities != 0 {
+		t.Fatalf("ProvisionalIdentities = %d, want 0", stats.ProvisionalIdentities)
 	}
 
 	link, ok := stub.linksByAccount[10]
@@ -275,7 +275,7 @@ func TestResolverResolveExactEmailLink(t *testing.T) {
 	}
 }
 
-func TestResolverResolveSkipsEmailAutoLinkForNonHumanAccountKinds(t *testing.T) {
+func TestResolverResolveSkipsEmailMatchedAnchorForNonHumanAccountKinds(t *testing.T) {
 	t.Parallel()
 
 	stub := newResolverStub()
@@ -289,16 +289,16 @@ func TestResolverResolveSkipsEmailAutoLinkForNonHumanAccountKinds(t *testing.T) 
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
-	if stats.NewIdentities != 1 {
-		t.Fatalf("NewIdentities = %d, want 1", stats.NewIdentities)
+	if stats.ProvisionalIdentities != 1 {
+		t.Fatalf("ProvisionalIdentities = %d, want 1", stats.ProvisionalIdentities)
 	}
 
 	link := stub.linksByAccount[20]
 	if link.IdentityID == 1 {
-		t.Fatalf("expected non-human account not to auto-link by email")
+		t.Fatalf("expected non-human account not to anchor by email match")
 	}
-	if link.LinkReason != linkReasonAutoCreate {
-		t.Fatalf("link reason = %q, want %q", link.LinkReason, linkReasonAutoCreate)
+	if link.LinkReason != linkReasonAutoProvisionalIdentity {
+		t.Fatalf("link reason = %q, want %q", link.LinkReason, linkReasonAutoProvisionalIdentity)
 	}
 }
 
@@ -314,8 +314,8 @@ func TestResolverResolveNewIdentityKindInitializedFromAccountKind(t *testing.T) 
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
-	if stats.NewIdentities != 1 {
-		t.Fatalf("NewIdentities = %d, want 1", stats.NewIdentities)
+	if stats.ProvisionalIdentities != 1 {
+		t.Fatalf("ProvisionalIdentities = %d, want 1", stats.ProvisionalIdentities)
 	}
 
 	link := stub.linksByAccount[10]
@@ -343,8 +343,8 @@ func TestResolverResolveAuthoritativeAccountUsesExistingIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
-	if stats.NewIdentities != 0 {
-		t.Fatalf("NewIdentities = %d, want 0", stats.NewIdentities)
+	if stats.ProvisionalIdentities != 0 {
+		t.Fatalf("ProvisionalIdentities = %d, want 0", stats.ProvisionalIdentities)
 	}
 
 	link := stub.linksByAccount[20]
@@ -394,8 +394,8 @@ func TestResolverResolveEmptyEmailCreatesUniqueIdentities(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
-	if stats.NewIdentities != 2 {
-		t.Fatalf("NewIdentities = %d, want 2", stats.NewIdentities)
+	if stats.ProvisionalIdentities != 2 {
+		t.Fatalf("ProvisionalIdentities = %d, want 2", stats.ProvisionalIdentities)
 	}
 
 	linkA := stub.linksByAccount[1]

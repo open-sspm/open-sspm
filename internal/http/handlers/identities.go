@@ -76,20 +76,19 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 	data.Summary = viewmodels.IdentitiesSummary{
-		Total:               summaryRow.TotalCount,
-		ActionRequired:      summaryRow.ActionRequiredCount,
-		Review:              summaryRow.ReviewCount,
-		Privileged:          summaryRow.PrivilegedCount,
-		PrivilegedUnmanaged: summaryRow.PrivilegedUnmanagedCount,
-		StalePrivileged:     summaryRow.StalePrivilegedCount,
-		Unmanaged:           summaryRow.UnmanagedCount,
-		Suspended:           summaryRow.SuspendedCount,
-		Stale:               summaryRow.StaleCount,
+		Total:           summaryRow.TotalCount,
+		ActionRequired:  summaryRow.ActionRequiredCount,
+		Review:          summaryRow.ReviewCount,
+		Privileged:      summaryRow.PrivilegedCount,
+		StalePrivileged: summaryRow.StalePrivilegedCount,
+		MissingAnchor:   summaryRow.MissingAnchorCount,
+		Suspended:       summaryRow.SuspendedCount,
+		Stale:           summaryRow.StaleCount,
 	}
 
 	listParams := func(offset int32) gen.ListIdentitiesInventoryPageByFiltersParams {
 		return gen.ListIdentitiesInventoryPageByFiltersParams{
-			ManagedState:          queryState.ManagedState,
+			AnchorState:           queryState.AnchorState,
 			PrivilegedOnly:        queryState.PrivilegedOnly,
 			Status:                queryState.Status,
 			ActivityState:         queryState.ActivityState,
@@ -107,7 +106,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 		}
 	}
 	countParams := gen.CountIdentitiesInventoryByFiltersParams{
-		ManagedState:          queryState.ManagedState,
+		AnchorState:           queryState.AnchorState,
 		PrivilegedOnly:        queryState.PrivilegedOnly,
 		Status:                queryState.Status,
 		ActivityState:         queryState.ActivityState,
@@ -163,7 +162,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 			NamePrimary:       identityNamePrimary(row.DisplayName, row.PrimaryEmail, row.ID),
 			NameSecondary:     identityNameSecondary(row.DisplayName, row.PrimaryEmail),
 			IdentityType:      strings.TrimSpace(row.IdentityType),
-			Managed:           row.Managed,
+			AnchorState:       strings.TrimSpace(row.AnchorState),
 			SourceKind:        strings.TrimSpace(row.SourceKind),
 			SourceName:        strings.TrimSpace(row.SourceName),
 			IntegrationsCount: row.IntegrationCount,
@@ -530,7 +529,7 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 	profileHints := identityProfileHints(accounts)
 	lastActive := relativeWithTitleDisplay(now, maxIdentityActivity(accounts), "—", "No activity observed")
 	profileFacts := identityProfileFacts(summary, profileHints, lastActive)
-	reviewSummary := identityReviewSummary(summary.Managed, totalEntitlements, adminCount, dormantAccountCount, lastActive)
+	reviewSummary := identityReviewSummary(summary.AnchorState, totalEntitlements, adminCount, dormantAccountCount, lastActive)
 
 	summaryTiles := identitydomain.BuildSummaryTiles(
 		len(linkedAccounts),
@@ -726,7 +725,7 @@ func identityProfileFacts(summary gen.GetIdentitySummaryByIDRow, hints identityP
 	return facts
 }
 
-func identityReviewSummary(managed bool, totalEntitlements, adminCount, dormantAccountCount int, lastActive viewmodels.TimeDisplay) viewmodels.IdentityReviewSummary {
+func identityReviewSummary(anchorState string, totalEntitlements, adminCount, dormantAccountCount int, lastActive viewmodels.TimeDisplay) viewmodels.IdentityReviewSummary {
 	lastActiveLabel := strings.TrimSpace(lastActive.Label)
 	if lastActiveLabel == "" || lastActiveLabel == "—" {
 		lastActiveLabel = "no activity observed"
@@ -748,10 +747,10 @@ func identityReviewSummary(managed bool, totalEntitlements, adminCount, dormantA
 			Detail: countNoun(dormantAccountCount, "dormant account", "dormant accounts") + " · " + grantLabel + " · " + lastActiveLabel,
 			Tone:   "warn",
 		}
-	case !managed:
+	case strings.EqualFold(strings.TrimSpace(anchorState), "missing_anchor"):
 		return viewmodels.IdentityReviewSummary{
-			Label:  "Ownership check",
-			Detail: "unmanaged identity · " + grantLabel + " · " + lastActiveLabel,
+			Label:  "Anchor missing",
+			Detail: "needs authoritative identity anchor · " + grantLabel + " · " + lastActiveLabel,
 			Tone:   "warn",
 		}
 	default:

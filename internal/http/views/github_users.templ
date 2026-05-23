@@ -29,22 +29,22 @@ templ GitHubUserMobileRow(user viewmodels.GitHubUserListItem) {
 
 templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("") {
-			if data.Layout.GitHubConfigured && data.Layout.GitHubEnabled {
-				<a class="btn-sm-outline" href={ "/accounts/unlinked/github/" + data.Layout.GitHubOrg }>Unlinked</a>
-			} else {
-				<a class="btn-sm-outline" href="/settings/connectors?open=github">Configure</a>
+			@PageHeader("") {
+				if data.Layout.GitHubConfigured && data.Layout.GitHubEnabled {
+					<a class="btn-sm-outline" href={ "/accounts/needs-anchor/github/" + data.Layout.GitHubOrg }>Needs anchor</a>
+				} else {
+					<a class="btn-sm-outline" href="/settings/connectors?open=github">Configure</a>
+				}
 			}
-		}
 
 		if data.Layout.GitHubConfigured && data.Layout.GitHubEnabled {
-			@Alert("Linking", false) {
-				<p>
-					When a GitHub account is linked, you can jump straight to the identity page. Unlinked accounts show “—”. Use
-					<a class="btn-sm-link px-1" href={ "/accounts/unlinked/github/" + data.Layout.GitHubOrg }>Unlinked</a>
-					to link.
-				</p>
-			}
+				@Alert("Linking", false) {
+					<p>
+						When a GitHub account is anchored, you can jump straight to the identity page. Accounts without an anchor show “—”. Use
+						<a class="btn-sm-link px-1" href={ "/accounts/needs-anchor/github/" + data.Layout.GitHubOrg }>Needs anchor</a>
+						to resolve them.
+					</p>
+				}
 		} else {
 			@Alert("GitHub sync disabled", true) {
 				<p>

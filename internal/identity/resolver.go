@@ -12,13 +12,13 @@ import (
 )
 
 const (
-	linkReasonAutoEmail  = "auto_email"
-	linkReasonAutoCreate = "auto_create"
+	linkReasonAutoEmail               = "auto_email"
+	linkReasonAutoProvisionalIdentity = "auto_provisional_identity"
 )
 
 type queryRunner interface {
-	CountUnlinkedAccounts(context.Context) (int64, error)
-	ListUnlinkedAccountsPage(context.Context, gen.ListUnlinkedAccountsPageParams) ([]gen.Account, error)
+	CountAccountsMissingIdentityLink(context.Context) (int64, error)
+	ListAccountsMissingIdentityLinkPage(context.Context, gen.ListAccountsMissingIdentityLinkPageParams) ([]gen.Account, error)
 	GetPreferredIdentityByPrimaryEmail(context.Context, string) (gen.Identity, error)
 	CreateIdentity(context.Context, gen.CreateIdentityParams) (gen.Identity, error)
 	UpsertIdentityAccountLink(context.Context, gen.UpsertIdentityAccountLinkParams) (gen.IdentityAccount, error)
@@ -33,11 +33,11 @@ type Resolver struct {
 }
 
 type Stats struct {
-	UnlinkedBefore   int64
-	NewIdentities    int64
-	AutoLinked       int64
-	AutoCreatedLinks int64
-	UpdatedIdentites int64
+	MissingIdentityLinksBefore int64
+	ProvisionalIdentities      int64
+	EmailMatchedLinks          int64
+	ProvisionalLinks           int64
+	UpdatedIdentities          int64
 }
 
 func Resolve(ctx context.Context, q *gen.Queries) (Stats, error) {
@@ -52,14 +52,14 @@ func (r Resolver) Resolve(ctx context.Context) (Stats, error) {
 
 	var out Stats
 
-	count, err := r.Q.CountUnlinkedAccounts(ctx)
+	count, err := r.Q.CountAccountsMissingIdentityLink(ctx)
 	if err != nil {
 		return out, err
 	}
-	out.UnlinkedBefore = count
+	out.MissingIdentityLinksBefore = count
 
 	for {
-		accounts, err := r.Q.ListUnlinkedAccountsPage(ctx, gen.ListUnlinkedAccountsPageParams{
+		accounts, err := r.Q.ListAccountsMissingIdentityLinkPage(ctx, gen.ListAccountsMissingIdentityLinkPageParams{
 			PageLimit:  500,
 			PageOffset: 0,
 		})
@@ -76,7 +76,7 @@ func (r Resolver) Resolve(ctx context.Context) (Stats, error) {
 				return out, err
 			}
 			if createdIdentity {
-				out.NewIdentities++
+				out.ProvisionalIdentities++
 			}
 
 			_, err = r.Q.UpsertIdentityAccountLink(ctx, gen.UpsertIdentityAccountLinkParams{
@@ -90,9 +90,9 @@ func (r Resolver) Resolve(ctx context.Context) (Stats, error) {
 			}
 
 			if reason == linkReasonAutoEmail {
-				out.AutoLinked++
+				out.EmailMatchedLinks++
 			} else {
-				out.AutoCreatedLinks++
+				out.ProvisionalLinks++
 			}
 		}
 	}
@@ -101,7 +101,7 @@ func (r Resolver) Resolve(ctx context.Context) (Stats, error) {
 	if err != nil {
 		return out, err
 	}
-	out.UpdatedIdentites = updated
+	out.UpdatedIdentities = updated
 
 	return out, nil
 }
@@ -138,7 +138,7 @@ func (r Resolver) resolveIdentityIDForAccount(ctx context.Context, account gen.A
 	if err != nil {
 		return 0, "", false, err
 	}
-	return identity.ID, linkReasonAutoCreate, true, nil
+	return identity.ID, linkReasonAutoProvisionalIdentity, true, nil
 }
 
 func (r Resolver) refreshIdentityAttributes(ctx context.Context) (int64, error) {

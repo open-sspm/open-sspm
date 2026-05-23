@@ -53,13 +53,9 @@ templ identityShowHeader(data viewmodels.IdentityShowViewData) {
 					</div>
 					if data.Profile.NameSecondary != "" {
 						<p class="text-sm text-muted-foreground break-all">{ data.Profile.NameSecondary }</p>
-					}
-					<div class="flex flex-wrap items-center gap-2 pt-1">
-						if data.Profile.Identity.Managed {
-							<span class="badge-outline">Managed</span>
-						} else {
-							<span class="badge-outline">Unmanaged</span>
 						}
+						<div class="flex flex-wrap items-center gap-2 pt-1">
+							<span class="badge-outline">{ HumanizeIdentityAnchorState(data.Profile.Identity.AnchorState) }</span>
 						if data.Profile.IdentityTypeLabel != "" && data.Profile.IdentityTypeLabel != "Unknown" {
 							<span class="badge-outline">{ data.Profile.IdentityTypeLabel }</span>
 						}

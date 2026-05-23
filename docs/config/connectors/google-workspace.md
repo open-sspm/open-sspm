@@ -172,4 +172,4 @@ After configuring Google Workspace:
 1. Run initial sync
 2. Review users and groups in Identities
 3. Check OAuth grants for third-party apps
-4. Link any unmatched accounts to identities
+4. Link any accounts needing an authoritative identity anchor

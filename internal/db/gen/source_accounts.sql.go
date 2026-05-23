@@ -11,6 +11,40 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countAnchoredSourceAccountsBySource = `-- name: CountAnchoredSourceAccountsBySource :one
+WITH authoritative_identities AS (
+  SELECT DISTINCT ia.identity_id
+  FROM identity_accounts ia
+  JOIN accounts anchor ON anchor.id = ia.account_id
+  JOIN identity_source_settings iss
+    ON iss.source_kind = anchor.source_kind
+   AND iss.source_name = anchor.source_name
+   AND iss.is_authoritative
+  WHERE anchor.expired_at IS NULL
+    AND anchor.last_observed_run_id IS NOT NULL
+)
+SELECT count(*)
+FROM accounts au
+JOIN identity_accounts ia ON ia.account_id = au.id
+JOIN authoritative_identities ai ON ai.identity_id = ia.identity_id
+WHERE au.source_kind = $1
+  AND au.source_name = $2
+  AND au.expired_at IS NULL
+  AND au.last_observed_run_id IS NOT NULL
+`
+
+type CountAnchoredSourceAccountsBySourceParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+}
+
+func (q *Queries) CountAnchoredSourceAccountsBySource(ctx context.Context, arg CountAnchoredSourceAccountsBySourceParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAnchoredSourceAccountsBySource, arg.SourceKind, arg.SourceName)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countGitHubUsersBySourceAndQuery = `-- name: CountGitHubUsersBySourceAndQuery :one
 SELECT count(*)
 FROM accounts au
@@ -42,40 +76,6 @@ type CountGitHubUsersBySourceAndQueryParams struct {
 
 func (q *Queries) CountGitHubUsersBySourceAndQuery(ctx context.Context, arg CountGitHubUsersBySourceAndQueryParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countGitHubUsersBySourceAndQuery, arg.SourceKind, arg.SourceName, arg.Query)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countLinkedSourceAccountsBySource = `-- name: CountLinkedSourceAccountsBySource :one
-WITH authoritative_identities AS (
-  SELECT DISTINCT ia.identity_id
-  FROM identity_accounts ia
-  JOIN accounts anchor ON anchor.id = ia.account_id
-  JOIN identity_source_settings iss
-    ON iss.source_kind = anchor.source_kind
-   AND iss.source_name = anchor.source_name
-   AND iss.is_authoritative
-  WHERE anchor.expired_at IS NULL
-    AND anchor.last_observed_run_id IS NOT NULL
-)
-SELECT count(*)
-FROM accounts au
-JOIN identity_accounts ia ON ia.account_id = au.id
-JOIN authoritative_identities ai ON ai.identity_id = ia.identity_id
-WHERE au.source_kind = $1
-  AND au.source_name = $2
-  AND au.expired_at IS NULL
-  AND au.last_observed_run_id IS NOT NULL
-`
-
-type CountLinkedSourceAccountsBySourceParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
-}
-
-func (q *Queries) CountLinkedSourceAccountsBySource(ctx context.Context, arg CountLinkedSourceAccountsBySourceParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countLinkedSourceAccountsBySource, arg.SourceKind, arg.SourceName)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -193,7 +193,7 @@ func (q *Queries) CountSourceAccountsBySourceAndQueryAndState(ctx context.Contex
 	return count, err
 }
 
-const countUnlinkedSourceAccountsBySource = `-- name: CountUnlinkedSourceAccountsBySource :one
+const countSourceAccountsNeedingAnchorBySource = `-- name: CountSourceAccountsNeedingAnchorBySource :one
 WITH authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
   FROM identity_accounts ia
@@ -219,19 +219,19 @@ WHERE au.source_kind = $1
   )
 `
 
-type CountUnlinkedSourceAccountsBySourceParams struct {
+type CountSourceAccountsNeedingAnchorBySourceParams struct {
 	SourceKind string `json:"source_kind"`
 	SourceName string `json:"source_name"`
 }
 
-func (q *Queries) CountUnlinkedSourceAccountsBySource(ctx context.Context, arg CountUnlinkedSourceAccountsBySourceParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countUnlinkedSourceAccountsBySource, arg.SourceKind, arg.SourceName)
+func (q *Queries) CountSourceAccountsNeedingAnchorBySource(ctx context.Context, arg CountSourceAccountsNeedingAnchorBySourceParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countSourceAccountsNeedingAnchorBySource, arg.SourceKind, arg.SourceName)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
-const countUnlinkedSourceAccountsBySourceAndQuery = `-- name: CountUnlinkedSourceAccountsBySourceAndQuery :one
+const countSourceAccountsNeedingAnchorBySourceAndQuery = `-- name: CountSourceAccountsNeedingAnchorBySourceAndQuery :one
 WITH authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
   FROM identity_accounts ia
@@ -268,15 +268,15 @@ WHERE
   )
 `
 
-type CountUnlinkedSourceAccountsBySourceAndQueryParams struct {
+type CountSourceAccountsNeedingAnchorBySourceAndQueryParams struct {
 	SourceKind     string `json:"source_kind"`
 	SourceName     string `json:"source_name"`
 	EntityCategory string `json:"entity_category"`
 	Query          string `json:"query"`
 }
 
-func (q *Queries) CountUnlinkedSourceAccountsBySourceAndQuery(ctx context.Context, arg CountUnlinkedSourceAccountsBySourceAndQueryParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countUnlinkedSourceAccountsBySourceAndQuery,
+func (q *Queries) CountSourceAccountsNeedingAnchorBySourceAndQuery(ctx context.Context, arg CountSourceAccountsNeedingAnchorBySourceAndQueryParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countSourceAccountsNeedingAnchorBySourceAndQuery,
 		arg.SourceKind,
 		arg.SourceName,
 		arg.EntityCategory,
@@ -424,6 +424,104 @@ func (q *Queries) ListGitHubUsersPageBySourceAndQuery(ctx context.Context, arg L
 			&i.AccountKind,
 			&i.EntityCategory,
 			&i.IdentityID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSourceAccountsNeedingAnchorPageBySourceAndQuery = `-- name: ListSourceAccountsNeedingAnchorPageBySourceAndQuery :many
+WITH authoritative_identities AS (
+  SELECT DISTINCT ia.identity_id
+  FROM identity_accounts ia
+  JOIN accounts anchor ON anchor.id = ia.account_id
+  JOIN identity_source_settings iss
+    ON iss.source_kind = anchor.source_kind
+   AND iss.source_name = anchor.source_name
+   AND iss.is_authoritative
+  WHERE anchor.expired_at IS NULL
+    AND anchor.last_observed_run_id IS NOT NULL
+)
+SELECT au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind, au.entity_category
+FROM accounts au
+LEFT JOIN identity_accounts ia ON ia.account_id = au.id
+LEFT JOIN authoritative_identities ai ON ai.identity_id = ia.identity_id
+WHERE
+  au.source_kind = $1
+  AND au.source_name = $2
+  AND au.expired_at IS NULL
+  AND au.last_observed_run_id IS NOT NULL
+  AND (
+    $3::text = ''
+    OR au.entity_category = $3::text
+  )
+  AND (
+    ia.identity_id IS NULL
+    OR ai.identity_id IS NULL
+  )
+  AND (
+    $4::text = ''
+    OR au.external_id ILIKE ('%' || $4::text || '%')
+    OR au.email ILIKE ('%' || $4::text || '%')
+    OR au.display_name ILIKE ('%' || $4::text || '%')
+  )
+ORDER BY au.display_name, au.email, au.external_id
+LIMIT $6::int
+OFFSET $5::int
+`
+
+type ListSourceAccountsNeedingAnchorPageBySourceAndQueryParams struct {
+	SourceKind     string `json:"source_kind"`
+	SourceName     string `json:"source_name"`
+	EntityCategory string `json:"entity_category"`
+	Query          string `json:"query"`
+	PageOffset     int32  `json:"page_offset"`
+	PageLimit      int32  `json:"page_limit"`
+}
+
+func (q *Queries) ListSourceAccountsNeedingAnchorPageBySourceAndQuery(ctx context.Context, arg ListSourceAccountsNeedingAnchorPageBySourceAndQueryParams) ([]Account, error) {
+	rows, err := q.db.Query(ctx, listSourceAccountsNeedingAnchorPageBySourceAndQuery,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.EntityCategory,
+		arg.Query,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Account
+	for rows.Next() {
+		var i Account
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.ExternalID,
+			&i.Email,
+			&i.DisplayName,
+			&i.RawJson,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LastLoginAt,
+			&i.LastLoginIp,
+			&i.LastLoginRegion,
+			&i.SeenInRunID,
+			&i.SeenAt,
+			&i.LastObservedRunID,
+			&i.LastObservedAt,
+			&i.ExpiredAt,
+			&i.ExpiredRunID,
+			&i.Status,
+			&i.AccountKind,
+			&i.EntityCategory,
 		); err != nil {
 			return nil, err
 		}
@@ -786,104 +884,6 @@ func (q *Queries) ListSourceAccountsPageBySourceAndQueryWithEntitlementCounts(ct
 			&i.DistinctResourceCount1,
 			&i.DistinctResourceCount2,
 			&i.EntitlementCount1,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listUnlinkedSourceAccountsPageBySourceAndQuery = `-- name: ListUnlinkedSourceAccountsPageBySourceAndQuery :many
-WITH authoritative_identities AS (
-  SELECT DISTINCT ia.identity_id
-  FROM identity_accounts ia
-  JOIN accounts anchor ON anchor.id = ia.account_id
-  JOIN identity_source_settings iss
-    ON iss.source_kind = anchor.source_kind
-   AND iss.source_name = anchor.source_name
-   AND iss.is_authoritative
-  WHERE anchor.expired_at IS NULL
-    AND anchor.last_observed_run_id IS NOT NULL
-)
-SELECT au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind, au.entity_category
-FROM accounts au
-LEFT JOIN identity_accounts ia ON ia.account_id = au.id
-LEFT JOIN authoritative_identities ai ON ai.identity_id = ia.identity_id
-WHERE
-  au.source_kind = $1
-  AND au.source_name = $2
-  AND au.expired_at IS NULL
-  AND au.last_observed_run_id IS NOT NULL
-  AND (
-    $3::text = ''
-    OR au.entity_category = $3::text
-  )
-  AND (
-    ia.identity_id IS NULL
-    OR ai.identity_id IS NULL
-  )
-  AND (
-    $4::text = ''
-    OR au.external_id ILIKE ('%' || $4::text || '%')
-    OR au.email ILIKE ('%' || $4::text || '%')
-    OR au.display_name ILIKE ('%' || $4::text || '%')
-  )
-ORDER BY au.display_name, au.email, au.external_id
-LIMIT $6::int
-OFFSET $5::int
-`
-
-type ListUnlinkedSourceAccountsPageBySourceAndQueryParams struct {
-	SourceKind     string `json:"source_kind"`
-	SourceName     string `json:"source_name"`
-	EntityCategory string `json:"entity_category"`
-	Query          string `json:"query"`
-	PageOffset     int32  `json:"page_offset"`
-	PageLimit      int32  `json:"page_limit"`
-}
-
-func (q *Queries) ListUnlinkedSourceAccountsPageBySourceAndQuery(ctx context.Context, arg ListUnlinkedSourceAccountsPageBySourceAndQueryParams) ([]Account, error) {
-	rows, err := q.db.Query(ctx, listUnlinkedSourceAccountsPageBySourceAndQuery,
-		arg.SourceKind,
-		arg.SourceName,
-		arg.EntityCategory,
-		arg.Query,
-		arg.PageOffset,
-		arg.PageLimit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Account
-	for rows.Next() {
-		var i Account
-		if err := rows.Scan(
-			&i.ID,
-			&i.SourceKind,
-			&i.SourceName,
-			&i.ExternalID,
-			&i.Email,
-			&i.DisplayName,
-			&i.RawJson,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.LastLoginAt,
-			&i.LastLoginIp,
-			&i.LastLoginRegion,
-			&i.SeenInRunID,
-			&i.SeenAt,
-			&i.LastObservedRunID,
-			&i.LastObservedAt,
-			&i.ExpiredAt,
-			&i.ExpiredRunID,
-			&i.Status,
-			&i.AccountKind,
-			&i.EntityCategory,
 		); err != nil {
 			return nil, err
 		}

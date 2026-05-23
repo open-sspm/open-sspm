@@ -10,7 +10,7 @@ import (
 // active chips, parser vocabulary, hidden form bank, and saved-query pills.
 func IdentitiesAskBar(q querystate.IdentitiesQuery) AskBarConfig {
 	return AskBarConfig{
-		Placeholder:     "try: priv unmanaged · source:github · stale privileged · or just type a name",
+		Placeholder:     "try: priv needs-anchor · source:github · stale privileged · or just type a name",
 		AriaLabel:       "Filter identities",
 		Chips:           identitiesAskBarChips(q),
 		Hidden:          identitiesAskBarHidden(q),
@@ -52,18 +52,18 @@ func identitiesAskBarChips(q querystate.IdentitiesQuery) []AskBarChip {
 			Label:    strings.ToLower(HumanizeIdentityType(q.IdentityType)),
 		})
 	}
-	switch q.ManagedState {
-	case "managed":
+	switch q.AnchorState {
+	case "anchored":
 		chips = append(chips, AskBarChip{
-			Field: "managed",
-			Value: "managed",
-			Label: "managed",
+			Field: "anchor",
+			Value: "anchored",
+			Label: "anchored",
 		})
-	case "unmanaged":
+	case "missing_anchor":
 		chips = append(chips, AskBarChip{
-			Field: "managed",
-			Value: "unmanaged",
-			Label: "unmanaged",
+			Field: "anchor",
+			Value: "missing_anchor",
+			Label: "needs anchor",
 			Tone:  "warn",
 		})
 	}
@@ -134,8 +134,8 @@ func identitiesAskBarHidden(q querystate.IdentitiesQuery) []AskBarHidden {
 	if q.IdentityType != "" {
 		hidden = append(hidden, AskBarHidden{Name: "identity_type", Value: q.IdentityType})
 	}
-	if q.ManagedState != "" {
-		hidden = append(hidden, AskBarHidden{Name: "managed_state", Value: q.ManagedState})
+	if q.AnchorState != "" {
+		hidden = append(hidden, AskBarHidden{Name: "anchor_state", Value: q.AnchorState})
 	}
 	if q.PrivilegedOnly {
 		hidden = append(hidden, AskBarHidden{Name: "privileged", Value: "1"})
@@ -163,7 +163,7 @@ func identitiesFieldParam() map[string]string {
 		"search":          "q",
 		"source_kind":     "source_kind",
 		"identity_type":   "identity_type",
-		"managed":         "managed_state",
+		"anchor":          "anchor_state",
 		"privileged_only": "privileged",
 		"status":          "status",
 		"activity_state":  "activity_state",
@@ -179,7 +179,7 @@ func identitiesKeyLabel() map[string]string {
 		"status":          "status",
 		"activity_state":  "seen",
 		"row_state":       "state",
-		"managed":         "",
+		"anchor":          "",
 		"privileged_only": "",
 	}
 }
@@ -192,7 +192,7 @@ func identitiesFieldLabel() map[string]string {
 		"status":          "Status",
 		"activity_state":  "Activity",
 		"row_state":       "State",
-		"managed":         "Managed",
+		"anchor":          "Anchor",
 		"privileged_only": "Access",
 	}
 }
@@ -222,15 +222,15 @@ func identitiesKeywordTokens() map[string]AskBarKeyword {
 		"human":  {Field: "identity_type", Value: "human", Label: "humans"},
 		"humans": {Field: "identity_type", Value: "human", Label: "humans"},
 
-		"managed":   {Field: "managed", Value: "managed", Label: "managed"},
-		"unmanaged": {Field: "managed", Value: "unmanaged", Label: "unmanaged", Tone: "warn"},
+		"anchored":     {Field: "anchor", Value: "anchored", Label: "anchored"},
+		"needs-anchor": {Field: "anchor", Value: "missing_anchor", Label: "needs anchor", Tone: "warn"},
 
-		"stale":       {Field: "activity_state", Value: "stale", Label: "stale (90d+)"},
-		"aging":       {Field: "activity_state", Value: "aging", Label: "30-89d"},
-		"recent":      {Field: "activity_state", Value: "recent", Label: "<30d"},
-		"never-seen":  {Field: "activity_state", Value: "never_seen", Label: "never seen"},
-		"30d":         {Field: "activity_state", Value: "aging", Label: "30-89d"},
-		"90d":         {Field: "activity_state", Value: "stale", Label: "90d+"},
+		"stale":      {Field: "activity_state", Value: "stale", Label: "stale (90d+)"},
+		"aging":      {Field: "activity_state", Value: "aging", Label: "30-89d"},
+		"recent":     {Field: "activity_state", Value: "recent", Label: "<30d"},
+		"never-seen": {Field: "activity_state", Value: "never_seen", Label: "never seen"},
+		"30d":        {Field: "activity_state", Value: "aging", Label: "30-89d"},
+		"90d":        {Field: "activity_state", Value: "stale", Label: "90d+"},
 
 		"priv":       {Field: "privileged_only", Value: "1", Label: "privileged", Tone: "warn"},
 		"privileged": {Field: "privileged_only", Value: "1", Label: "privileged", Tone: "warn"},
@@ -252,8 +252,8 @@ func identitiesFieldAliases() map[string]string {
 		"type":            "identity_type",
 		"kind":            "identity_type",
 		"identity_type":   "identity_type",
-		"managed":         "managed",
-		"managed_state":   "managed",
+		"anchor":          "anchor",
+		"anchor_state":    "anchor",
 		"priv":            "privileged_only",
 		"privileged":      "privileged_only",
 		"privileged_only": "privileged_only",
@@ -265,20 +265,20 @@ func identitiesStopwords() []string {
 }
 
 func identitiesSingletonFields() []string {
-	return []string{"source_kind", "identity_type", "managed", "privileged_only", "status", "activity_state", "row_state"}
+	return []string{"source_kind", "identity_type", "anchor", "privileged_only", "status", "activity_state", "row_state"}
 }
 
 func identitiesSavedQueries(q querystate.IdentitiesQuery) []AskBarSavedQuery {
 	return []AskBarSavedQuery{
 		{
-			Href:   q.SegmentPrivilegedUnmanaged().Href(),
-			Label:  "Privileged unmanaged",
-			Active: q.PrivilegedOnly && q.ManagedState == "unmanaged" && q.ActivityState == "" && q.Status == "" && q.RowState == "",
+			Href:   q.SegmentPrivilegedMissingAnchor().Href(),
+			Label:  "Privileged needs anchor",
+			Active: q.PrivilegedOnly && q.AnchorState == "missing_anchor" && q.ActivityState == "" && q.Status == "" && q.RowState == "",
 		},
 		{
 			Href:   q.SegmentStalePrivileged().Href(),
 			Label:  "Stale privileged",
-			Active: q.PrivilegedOnly && q.ActivityState == "stale" && q.ManagedState == "" && q.Status == "" && q.RowState == "",
+			Active: q.PrivilegedOnly && q.ActivityState == "stale" && q.AnchorState == "" && q.Status == "" && q.RowState == "",
 		},
 		{
 			Href:   q.SegmentNeedsAction().Href(),
