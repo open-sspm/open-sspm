@@ -1,41 +1,16 @@
 # Normalized Datasets Contract
 
-This document describes the versioned `normalized:*` datasets emitted by the
-rules engine dataset provider. Datasets are returned as arrays of JSON objects
-and are intended to be accessed through JSON Pointer paths.
+This document describes the `normalized:*` datasets emitted by the rules
+engine dataset provider. Datasets are returned as arrays of JSON objects and
+are intended to be accessed through JSON Pointer paths.
 
-## Versions
-
-- `dataset_version: 1` is the legacy identity/account status contract.
-- `dataset_version: 2` is the managed identity contract with
-  `authoritative_account`.
-- `dataset_version: 3` adds posture and anchor state. New rules should target
-  this version.
+All normalized datasets are advertised at `dataset_version: 1`. The schema is
+single-versioned and forward-only: when fields evolve, the schema is mutated
+in place rather than forked into a new version.
 
 ## `normalized:identities`
 
-### Version 1
-
 - `/id` (string) - internal `identities.id`
-- `/external_id` (string) - authoritative account external ID
-- `/email` (string)
-- `/display_name` (string)
-- `/status` (string) - normalized legacy account status
-
-### Version 2
-
-- `/id` (string)
-- `/kind` (string) - one of `human|service|bot|unknown`
-- `/email` (string)
-- `/display_name` (string)
-- `/managed` (boolean)
-- `/authoritative_account/source_kind` (string)
-- `/authoritative_account/source_name` (string)
-- `/authoritative_account/external_id` (string)
-
-### Version 3
-
-- `/id` (string)
 - `/kind` (string) - one of `human|service|bot|unknown`
 - `/email` (string)
 - `/display_name` (string)
@@ -51,40 +26,7 @@ have an authoritative identity anchor.
 
 ## `normalized:entitlement_assignments`
 
-### Version 1
-
 - `/resource_id` (string) - `entitlement:<entitlements.id>`
-- `/identity/id` (string)
-- `/identity/email` (string)
-- `/identity/display_name` (string)
-- `/identity/status` (string)
-- `/account/source_kind` (string)
-- `/account/source_name` (string)
-- `/account/external_id` (string)
-- `/entitlement/kind` (string)
-- `/entitlement/resource` (string)
-- `/entitlement/permission` (string)
-- `/entitlement/tags` (array of strings)
-
-### Version 2
-
-- `/resource_id` (string)
-- `/identity/id` (string)
-- `/identity/kind` (string)
-- `/identity/email` (string)
-- `/identity/display_name` (string)
-- `/identity/managed` (boolean)
-- `/account/source_kind` (string)
-- `/account/source_name` (string)
-- `/account/external_id` (string)
-- `/entitlement/kind` (string)
-- `/entitlement/resource` (string)
-- `/entitlement/permission` (string)
-- `/entitlement/tags` (array of strings)
-
-### Version 3
-
-- `/resource_id` (string)
 - `/identity/id` (string)
 - `/identity/kind` (string)
 - `/identity/email` (string)

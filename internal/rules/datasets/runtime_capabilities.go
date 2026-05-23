@@ -6,6 +6,8 @@ import (
 	runtimev2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v2"
 )
 
+const normalizedDatasetVersion = 1
+
 var (
 	oktaCapabilitiesV2 = []string{
 		"okta:apps",
@@ -22,12 +24,10 @@ var (
 		"normalized:entitlement_assignments",
 		"normalized:identities",
 	}
-
-	normalizedDatasetVersions = []int{1, 2, 3}
 )
 
 func RuntimeCapabilities(p RouterProvider) []runtimev2.DatasetRef {
-	out := make([]runtimev2.DatasetRef, 0, len(oktaCapabilitiesV2)+len(normalizedCapabilities)*len(normalizedDatasetVersions))
+	out := make([]runtimev2.DatasetRef, 0, len(oktaCapabilitiesV2)+len(normalizedCapabilities))
 
 	if p.Okta != nil {
 		for _, ds := range oktaCapabilitiesV2 {
@@ -36,9 +36,7 @@ func RuntimeCapabilities(p RouterProvider) []runtimev2.DatasetRef {
 	}
 	if p.Normalized != nil {
 		for _, ds := range normalizedCapabilities {
-			for _, version := range normalizedDatasetVersions {
-				out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: version})
-			}
+			out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: normalizedDatasetVersion})
 		}
 	}
 
