@@ -209,7 +209,7 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 
 // identityBacklinkForAccount resolves the identity that owns the given source
 // account so the inspector page can offer a "Part of identity X" upward link.
-// Returns empty strings if the account is unlinked or the lookup fails — the
+// Returns empty strings if the account is not linked or the lookup fails — the
 // caller renders nothing in that case rather than surfacing an error.
 func (h *Handlers) identityBacklinkForAccount(ctx context.Context, accountID int64) (string, string) {
 	link, err := h.Q.GetIdentityAccountLinkByAccountID(ctx, accountID)
@@ -406,70 +406,70 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 	return h.renderListWithHX(c, "datadog-users-results", views.DatadogUsersPageResults(data), views.DatadogUsersPage(data))
 }
 
-// HandleUnmatchedGitHub renders the unlinked GitHub accounts page.
-func (h *Handlers) HandleUnmatchedGitHub(c *echo.Context) error {
-	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
-		Title:              "Unlinked GitHub Accounts",
-		BasePath:           "/accounts/unlinked/github/" + routeParamOrWildcard(c, "org"),
+// HandleGitHubAccountsNeedingAnchor renders the GitHub accounts that still need an authoritative identity anchor.
+func (h *Handlers) HandleGitHubAccountsNeedingAnchor(c *echo.Context) error {
+	needsAnchor, err := h.buildSourceAccountsNeedingAnchorPage(c, sourceAccountsNeedingAnchorOptions{
+		Title:              "GitHub Accounts Needing Anchor",
+		BasePath:           "/accounts/needs-anchor/github/" + routeParamOrWildcard(c, "org"),
 		ConnectorName:      "GitHub",
 		ConnectorKind:      "github",
 		SourceKind:         "github",
 		EmptyStateHref:     "/settings/connectors?open=github",
-		SyncedEmptyState:   "No unlinked GitHub accounts.",
-		FilteredEmptyState: "No unlinked GitHub accounts match the current search.",
+		SyncedEmptyState:   "No GitHub accounts need an anchor.",
+		FilteredEmptyState: "No GitHub accounts needing an anchor match the current search.",
 		ResolveSourceName: func(c *echo.Context, configuredSourceName string) (string, error) {
 			org := routeParamOrWildcard(c, "org")
 			if org == "" {
-				return "", errUnmatchedSourceAccountNotFound
+				return "", errSourceAccountNeedsAnchorNotFound
 			}
 			if org != configuredSourceName {
-				return "", unmatchedSourceNameError("unknown org")
+				return "", sourceAccountNeedsAnchorNameError("unknown org")
 			}
 			return org, nil
 		},
 	})
 	if err != nil {
-		return h.renderUnmatchedSourceAccountsError(c, err)
+		return h.renderSourceAccountsNeedingAnchorError(c, err)
 	}
 
-	data := viewmodels.UnmatchedGitHubViewData{
-		UnmatchedSourceAccountsPageData: unmatched.PageData,
+	data := viewmodels.GitHubAccountsNeedingAnchorViewData{
+		SourceAccountsNeedingAnchorPageData: needsAnchor.PageData,
 	}
 
-	return h.renderListWithHX(c, "unmatched-github-results", views.UnmatchedGitHubPageResults(data), views.UnmatchedGitHubPage(data))
+	return h.renderListWithHX(c, "github-needs-anchor-results", views.GitHubAccountsNeedingAnchorPageResults(data), views.GitHubAccountsNeedingAnchorPage(data))
 }
 
-// HandleUnmatchedDatadog renders the unlinked Datadog accounts page.
-func (h *Handlers) HandleUnmatchedDatadog(c *echo.Context) error {
-	unmatched, err := h.buildUnmatchedSourceAccountsPage(c, unmatchedSourceAccountOptions{
-		Title:              "Unlinked Datadog Accounts",
-		BasePath:           "/accounts/unlinked/datadog/" + routeParamOrWildcard(c, "site"),
+// HandleDatadogAccountsNeedingAnchor renders the Datadog accounts that still need an authoritative identity anchor.
+func (h *Handlers) HandleDatadogAccountsNeedingAnchor(c *echo.Context) error {
+	needsAnchor, err := h.buildSourceAccountsNeedingAnchorPage(c, sourceAccountsNeedingAnchorOptions{
+		Title:              "Datadog Accounts Needing Anchor",
+		BasePath:           "/accounts/needs-anchor/datadog/" + routeParamOrWildcard(c, "site"),
 		ConnectorName:      "Datadog",
 		ConnectorKind:      "datadog",
 		SourceKind:         "datadog",
 		EmptyStateHref:     "/settings/connectors?open=datadog",
-		SyncedEmptyState:   "No unlinked Datadog accounts.",
-		FilteredEmptyState: "No unlinked Datadog accounts match the current search.",
+		SyncedEmptyState:   "No Datadog accounts need an anchor.",
+		FilteredEmptyState: "No Datadog accounts needing an anchor match the current search.",
 		ResolveSourceName: func(c *echo.Context, configuredSourceName string) (string, error) {
 			site := routeParamOrWildcard(c, "site")
 			if site == "" {
-				return "", errUnmatchedSourceAccountNotFound
+				return "", errSourceAccountNeedsAnchorNotFound
 			}
 			if site != configuredSourceName {
-				return "", unmatchedSourceNameError("unknown site")
+				return "", sourceAccountNeedsAnchorNameError("unknown site")
 			}
 			return site, nil
 		},
 	})
 	if err != nil {
-		return h.renderUnmatchedSourceAccountsError(c, err)
+		return h.renderSourceAccountsNeedingAnchorError(c, err)
 	}
 
-	data := viewmodels.UnmatchedDatadogViewData{
-		UnmatchedSourceAccountsPageData: unmatched.PageData,
+	data := viewmodels.DatadogAccountsNeedingAnchorViewData{
+		SourceAccountsNeedingAnchorPageData: needsAnchor.PageData,
 	}
 
-	return h.renderListWithHX(c, "unmatched-datadog-results", views.UnmatchedDatadogPageResults(data), views.UnmatchedDatadogPage(data))
+	return h.renderListWithHX(c, "datadog-needs-anchor-results", views.DatadogAccountsNeedingAnchorPageResults(data), views.DatadogAccountsNeedingAnchorPage(data))
 }
 
 func connectorUnavailableMessage(connectorName string, configured, enabled bool) string {
@@ -506,7 +506,7 @@ func (h *Handlers) HandleCreateLink(c *echo.Context) error {
 	if redirect == "" {
 		stateView, err := h.LoadConnectorStateView(c.Request().Context())
 		if err == nil && stateView.SourceName("github") != "" {
-			redirect = fmt.Sprintf("/accounts/unlinked/github/%s", stateView.SourceName("github"))
+			redirect = fmt.Sprintf("/accounts/needs-anchor/github/%s", stateView.SourceName("github"))
 		} else {
 			redirect = "/settings/connectors?open=github"
 		}

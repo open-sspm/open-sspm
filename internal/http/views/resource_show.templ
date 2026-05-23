@@ -79,7 +79,7 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 													<div class="text-xs text-muted-foreground break-all">{ row.IdentityEmail }</div>
 												}
 											} else {
-												<span class="text-muted-foreground">Unlinked</span>
+													<span class="text-muted-foreground">Needs anchor</span>
 											}
 											if row.IdentityStatus != "" {
 												<div class="pt-1">

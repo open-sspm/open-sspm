@@ -41,7 +41,7 @@ WHERE ia.identity_id = $1
   AND a.last_observed_run_id IS NOT NULL
 ORDER BY a.source_kind, a.source_name, a.external_id;
 
--- name: ListUnlinkedAccountsPage :many
+-- name: ListAccountsMissingIdentityLinkPage :many
 SELECT a.*
 FROM accounts a
 LEFT JOIN identity_accounts ia ON ia.account_id = a.id
@@ -52,7 +52,7 @@ ORDER BY a.id ASC
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
--- name: CountUnlinkedAccounts :one
+-- name: CountAccountsMissingIdentityLink :one
 SELECT count(*)
 FROM accounts a
 LEFT JOIN identity_accounts ia ON ia.account_id = a.id

@@ -10,80 +10,32 @@ import (
 )
 
 type normalizedQueryStub struct {
-	identitiesV1             []gen.ListNormalizedIdentitiesV1Row
-	identitiesV2             []gen.ListNormalizedIdentitiesV2Row
-	entitlementAssignmentsV1 []gen.ListNormalizedEntitlementAssignmentsV1Row
-	entitlementAssignmentsV2 []gen.ListNormalizedEntitlementAssignmentsV2Row
+	identities             []gen.ListNormalizedIdentitiesRow
+	entitlementAssignments []gen.ListNormalizedEntitlementAssignmentsRow
 }
 
-func (s normalizedQueryStub) ListNormalizedIdentitiesV1(context.Context) ([]gen.ListNormalizedIdentitiesV1Row, error) {
-	return s.identitiesV1, nil
+func (s normalizedQueryStub) ListNormalizedIdentities(context.Context) ([]gen.ListNormalizedIdentitiesRow, error) {
+	return s.identities, nil
 }
 
-func (s normalizedQueryStub) ListNormalizedIdentitiesV2(context.Context) ([]gen.ListNormalizedIdentitiesV2Row, error) {
-	return s.identitiesV2, nil
+func (s normalizedQueryStub) ListNormalizedEntitlementAssignments(context.Context) ([]gen.ListNormalizedEntitlementAssignmentsRow, error) {
+	return s.entitlementAssignments, nil
 }
 
-func (s normalizedQueryStub) ListNormalizedEntitlementAssignmentsV1(context.Context) ([]gen.ListNormalizedEntitlementAssignmentsV1Row, error) {
-	return s.entitlementAssignmentsV1, nil
-}
-
-func (s normalizedQueryStub) ListNormalizedEntitlementAssignmentsV2(context.Context) ([]gen.ListNormalizedEntitlementAssignmentsV2Row, error) {
-	return s.entitlementAssignmentsV2, nil
-}
-
-func TestNormalizedProviderIdentitiesV1RemainsAvailable(t *testing.T) {
+func TestNormalizedProviderIdentitiesExposePostureAndAnchor(t *testing.T) {
 	t.Parallel()
 
 	provider := &NormalizedProvider{
 		Q: normalizedQueryStub{
-			identitiesV1: []gen.ListNormalizedIdentitiesV1Row{
-				{
-					IdentityID:          42,
-					IdentityExternalID:  "00u42",
-					IdentityEmail:       "alice@example.com",
-					IdentityDisplayName: "Alice",
-					IdentityStatus:      "ACTIVE",
-				},
-			},
-		},
-	}
-
-	res := provider.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{
-		Dataset: "normalized:identities",
-		Version: 1,
-	})
-	if res.Error != nil {
-		t.Fatalf("GetDataset() error = %v", res.Error)
-	}
-	if len(res.Rows) != 1 {
-		t.Fatalf("rows = %d, want 1", len(res.Rows))
-	}
-
-	row := decodeRow(t, res.Rows[0])
-	if got := row["id"]; got != "42" {
-		t.Fatalf("row.id = %#v, want %q", got, "42")
-	}
-	if got := row["external_id"]; got != "00u42" {
-		t.Fatalf("row.external_id = %#v, want %q", got, "00u42")
-	}
-	if got := row["status"]; got != "active" {
-		t.Fatalf("row.status = %#v, want %q", got, "active")
-	}
-}
-
-func TestNormalizedProviderIdentitiesV2IncludesManagedAndUnmanaged(t *testing.T) {
-	t.Parallel()
-
-	provider := &NormalizedProvider{
-		Q: normalizedQueryStub{
-			identitiesV2: []gen.ListNormalizedIdentitiesV2Row{
+			identities: []gen.ListNormalizedIdentitiesRow{
 				{
 					IdentityID:              1,
 					IdentityKind:            "human",
 					IdentityEmail:           "managed@example.com",
 					IdentityDisplayName:     "Managed Person",
 					IdentityManaged:         true,
+					IdentityPosture:         "managed",
+					IdentityAnchorState:     "anchored",
 					AuthoritativeSourceKind: "okta",
 					AuthoritativeSourceName: "example.okta.com",
 					AuthoritativeExternalID: "00u123",
@@ -94,6 +46,8 @@ func TestNormalizedProviderIdentitiesV2IncludesManagedAndUnmanaged(t *testing.T)
 					IdentityEmail:       "shadow@example.com",
 					IdentityDisplayName: "Shadow User",
 					IdentityManaged:     false,
+					IdentityPosture:     "unmanaged",
+					IdentityAnchorState: "missing_anchor",
 				},
 			},
 		},
@@ -101,7 +55,7 @@ func TestNormalizedProviderIdentitiesV2IncludesManagedAndUnmanaged(t *testing.T)
 
 	res := provider.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{
 		Dataset: "normalized:identities",
-		Version: 2,
+		Version: 1,
 	})
 	if res.Error != nil {
 		t.Fatalf("GetDataset() error = %v", res.Error)
@@ -113,43 +67,41 @@ func TestNormalizedProviderIdentitiesV2IncludesManagedAndUnmanaged(t *testing.T)
 	managed := decodeRow(t, res.Rows[0])
 	unmanaged := decodeRow(t, res.Rows[1])
 
-	if got := managed["managed"]; got != true {
-		t.Fatalf("managed row managed = %#v, want true", got)
+	if got := managed["posture"]; got != "managed" {
+		t.Fatalf("managed row posture = %#v, want %q", got, "managed")
 	}
+	managedAnchor, ok := managed["anchor"].(map[string]any)
+	if !ok {
+		t.Fatalf("managed.anchor = %#v, want map", managed["anchor"])
+	}
+	if got := managedAnchor["state"]; got != "anchored" {
+		t.Fatalf("managed.anchor.state = %#v, want %q", got, "anchored")
+	}
+	if got := managedAnchor["source_kind"]; got != "okta" {
+		t.Fatalf("managed.anchor.source_kind = %#v, want %q", got, "okta")
+	}
+
 	if got := unmanaged["managed"]; got != false {
 		t.Fatalf("unmanaged row managed = %#v, want false", got)
 	}
-
-	authAccount, ok := managed["authoritative_account"].(map[string]any)
-	if !ok {
-		t.Fatalf("managed.authoritative_account = %#v, want map", managed["authoritative_account"])
+	if got := unmanaged["posture"]; got != "unmanaged" {
+		t.Fatalf("unmanaged row posture = %#v, want %q", got, "unmanaged")
 	}
-	if got := authAccount["source_kind"]; got != "okta" {
-		t.Fatalf("managed.authoritative_account.source_kind = %#v, want %q", got, "okta")
+	unmanagedAnchor, ok := unmanaged["anchor"].(map[string]any)
+	if !ok {
+		t.Fatalf("unmanaged.anchor = %#v, want map", unmanaged["anchor"])
+	}
+	if got := unmanagedAnchor["state"]; got != "missing_anchor" {
+		t.Fatalf("unmanaged.anchor.state = %#v, want %q", got, "missing_anchor")
 	}
 }
 
-func TestNormalizedProviderEntitlementAssignmentsV1AndV2(t *testing.T) {
+func TestNormalizedProviderEntitlementAssignmentsExposeIdentityPosture(t *testing.T) {
 	t.Parallel()
 
 	provider := &NormalizedProvider{
 		Q: normalizedQueryStub{
-			entitlementAssignmentsV1: []gen.ListNormalizedEntitlementAssignmentsV1Row{
-				{
-					EntitlementID:         100,
-					IdentityID:            7,
-					IdentityEmail:         "reference@example.com",
-					IdentityDisplayName:   "Reference User",
-					IdentityStatus:        "DEPROVISIONED",
-					AccountSourceKind:     "github",
-					AccountSourceName:     "acme",
-					AccountExternalID:     "reference-gh",
-					EntitlementKind:       "repo_role",
-					EntitlementResource:   "repo:acme/private",
-					EntitlementPermission: "maintain",
-				},
-			},
-			entitlementAssignmentsV2: []gen.ListNormalizedEntitlementAssignmentsV2Row{
+			entitlementAssignments: []gen.ListNormalizedEntitlementAssignmentsRow{
 				{
 					EntitlementID:         101,
 					IdentityID:            8,
@@ -157,6 +109,8 @@ func TestNormalizedProviderEntitlementAssignmentsV1AndV2(t *testing.T) {
 					IdentityEmail:         "shadow@example.com",
 					IdentityDisplayName:   "Shadow User",
 					IdentityManaged:       false,
+					IdentityPosture:       "unmanaged",
+					IdentityAnchorState:   "missing_anchor",
 					AccountSourceKind:     "github",
 					AccountSourceName:     "acme",
 					AccountExternalID:     "shadow-gh",
@@ -168,56 +122,39 @@ func TestNormalizedProviderEntitlementAssignmentsV1AndV2(t *testing.T) {
 		},
 	}
 
-	resV1 := provider.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{
+	res := provider.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{
 		Dataset: "normalized:entitlement_assignments",
 		Version: 1,
 	})
-	if resV1.Error != nil {
-		t.Fatalf("GetDataset(v1) error = %v", resV1.Error)
+	if res.Error != nil {
+		t.Fatalf("GetDataset() error = %v", res.Error)
 	}
-	if len(resV1.Rows) != 1 {
-		t.Fatalf("v1 rows = %d, want 1", len(resV1.Rows))
-	}
-	v1Row := decodeRow(t, resV1.Rows[0])
-	identityV1, ok := v1Row["identity"].(map[string]any)
-	if !ok {
-		t.Fatalf("v1 identity = %#v, want map", v1Row["identity"])
-	}
-	if got := identityV1["status"]; got != "deprovisioned" {
-		t.Fatalf("v1 identity.status = %#v, want %q", got, "deprovisioned")
-	}
-	accountV1, ok := v1Row["account"].(map[string]any)
-	if !ok {
-		t.Fatalf("v1 account = %#v, want map", v1Row["account"])
-	}
-	if got := accountV1["external_id"]; got != "reference-gh" {
-		t.Fatalf("v1 account.external_id = %#v, want %q", got, "reference-gh")
+	if len(res.Rows) != 1 {
+		t.Fatalf("rows = %d, want 1", len(res.Rows))
 	}
 
-	resV2 := provider.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{
-		Dataset: "normalized:entitlement_assignments",
-		Version: 2,
-	})
-	if resV2.Error != nil {
-		t.Fatalf("GetDataset(v2) error = %v", resV2.Error)
-	}
-	if len(resV2.Rows) != 1 {
-		t.Fatalf("v2 rows = %d, want 1", len(resV2.Rows))
-	}
-	v2Row := decodeRow(t, resV2.Rows[0])
-	identityV2, ok := v2Row["identity"].(map[string]any)
+	row := decodeRow(t, res.Rows[0])
+	identity, ok := row["identity"].(map[string]any)
 	if !ok {
-		t.Fatalf("v2 identity = %#v, want map", v2Row["identity"])
+		t.Fatalf("identity = %#v, want map", row["identity"])
 	}
-	if got := identityV2["managed"]; got != false {
-		t.Fatalf("v2 identity.managed = %#v, want false", got)
+	if got := identity["posture"]; got != "unmanaged" {
+		t.Fatalf("identity.posture = %#v, want %q", got, "unmanaged")
 	}
-	accountV2, ok := v2Row["account"].(map[string]any)
+	anchor, ok := identity["anchor"].(map[string]any)
 	if !ok {
-		t.Fatalf("v2 account = %#v, want map", v2Row["account"])
+		t.Fatalf("identity.anchor = %#v, want map", identity["anchor"])
 	}
-	if got := accountV2["external_id"]; got != "shadow-gh" {
-		t.Fatalf("v2 account.external_id = %#v, want %q", got, "shadow-gh")
+	if got := anchor["state"]; got != "missing_anchor" {
+		t.Fatalf("identity.anchor.state = %#v, want %q", got, "missing_anchor")
+	}
+
+	account, ok := row["account"].(map[string]any)
+	if !ok {
+		t.Fatalf("account = %#v, want map", row["account"])
+	}
+	if got := account["external_id"]; got != "shadow-gh" {
+		t.Fatalf("account.external_id = %#v, want %q", got, "shadow-gh")
 	}
 }
 

@@ -224,7 +224,7 @@ func TestRegisterRoutesKeepsCapabilityFirstSurface(t *testing.T) {
 		"/oauth-apps",
 		"/non-human-identities",
 		"/accounts/okta",
-		"/accounts/unlinked/github/:org",
+		"/accounts/needs-anchor/github/:org",
 		"/app-assets/:id/governance",
 	} {
 		if _, ok := paths[want]; !ok {
@@ -237,7 +237,6 @@ func TestRegisterRoutesKeepsCapabilityFirstSurface(t *testing.T) {
 		"/connected-apps",
 		"/okta-accounts",
 		"/github-users",
-		"/unmatched/github/*",
 	} {
 		if _, ok := paths[removedRoute]; ok {
 			t.Fatalf("removed route %q still registered", removedRoute)

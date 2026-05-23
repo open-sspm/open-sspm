@@ -15,6 +15,6 @@ type DatadogUsersViewData struct {
 	HasUsers bool
 }
 
-type UnmatchedDatadogViewData struct {
-	UnmatchedSourceAccountsPageData
+type DatadogAccountsNeedingAnchorViewData struct {
+	SourceAccountsNeedingAnchorPageData
 }

@@ -17,10 +17,8 @@ type NormalizedProvider struct {
 }
 
 type normalizedQueryRunner interface {
-	ListNormalizedIdentitiesV1(context.Context) ([]gen.ListNormalizedIdentitiesV1Row, error)
-	ListNormalizedIdentitiesV2(context.Context) ([]gen.ListNormalizedIdentitiesV2Row, error)
-	ListNormalizedEntitlementAssignmentsV1(context.Context) ([]gen.ListNormalizedEntitlementAssignmentsV1Row, error)
-	ListNormalizedEntitlementAssignmentsV2(context.Context) ([]gen.ListNormalizedEntitlementAssignmentsV2Row, error)
+	ListNormalizedIdentities(context.Context) ([]gen.ListNormalizedIdentitiesRow, error)
+	ListNormalizedEntitlementAssignments(context.Context) ([]gen.ListNormalizedEntitlementAssignmentsRow, error)
 }
 
 func (p *NormalizedProvider) Capabilities(ctx context.Context) []runtimev2.DatasetRef {
@@ -28,10 +26,9 @@ func (p *NormalizedProvider) Capabilities(ctx context.Context) []runtimev2.Datas
 	if p == nil {
 		return nil
 	}
-	out := make([]runtimev2.DatasetRef, 0, len(normalizedCapabilitiesV2)*2)
-	for _, ds := range normalizedCapabilitiesV2 {
-		out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: 1})
-		out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: 2})
+	out := make([]runtimev2.DatasetRef, 0, len(normalizedCapabilities))
+	for _, ds := range normalizedCapabilities {
+		out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: normalizedDatasetVersion})
 	}
 	return out
 }
@@ -39,100 +36,46 @@ func (p *NormalizedProvider) Capabilities(ctx context.Context) []runtimev2.Datas
 func (p *NormalizedProvider) GetDataset(ctx context.Context, eval runtimev2.EvalContext, ref runtimev2.DatasetRef) runtimev2.DatasetResult {
 	_ = eval
 
-	if p == nil {
-		return runtimev2.DatasetResult{
-			Error: &runtimev2.DatasetError{
-				Kind:    runtimev2.DatasetErrorKind_MISSING_DATASET,
-				Message: "normalized dataset provider is nil",
-			},
-		}
-	}
-
-	datasetKey := strings.TrimSpace(ref.Dataset)
-	if datasetKey == "" {
-		return runtimev2.DatasetResult{
-			Error: &runtimev2.DatasetError{
-				Kind:    runtimev2.DatasetErrorKind_MISSING_DATASET,
-				Message: "dataset ref is missing dataset key",
-			},
-		}
-	}
-
-	version := ref.Version
-	var versionPtr *int
-	if version > 0 {
-		versionPtr = &version
-	}
-
-	rows, err := p.getDatasetRows(ctx, datasetKey, versionPtr)
+	rows, err := p.getDatasetRows(ctx, strings.TrimSpace(ref.Dataset), ref.Version)
 	return runtimeResultFromRowsOrError(rows, err)
 }
 
-func (p *NormalizedProvider) getDatasetRows(ctx context.Context, datasetKey string, datasetVersion *int) ([]any, error) {
+func (p *NormalizedProvider) getDatasetRows(ctx context.Context, datasetKey string, version int) ([]any, error) {
 	if p == nil {
 		return nil, engine.DatasetError{Kind: engine.DatasetErrorMissingDataset, Err: errors.New("normalized dataset provider is nil")}
 	}
-
-	key := strings.TrimSpace(datasetKey)
-	v, err := requireDatasetVersion(key, datasetVersion)
-	if err != nil {
+	if datasetKey == "" {
+		return nil, engine.DatasetError{Kind: engine.DatasetErrorMissingDataset, Err: errors.New("dataset ref is missing dataset key")}
+	}
+	if err := requireNormalizedDatasetVersion(datasetKey, version); err != nil {
 		return nil, err
 	}
 	if p.Q == nil {
 		return nil, engine.DatasetError{Kind: engine.DatasetErrorSyncFailed, Err: errors.New("db queries is nil")}
 	}
 
-	switch key {
+	switch datasetKey {
 	case "normalized:identities":
-		if v == 2 {
-			return p.loadIdentitiesV2(ctx)
-		}
-		return p.loadIdentitiesV1(ctx)
+		return p.loadIdentities(ctx)
 	case "normalized:entitlement_assignments":
-		if v == 2 {
-			return p.loadEntitlementAssignmentsV2(ctx)
-		}
-		return p.loadEntitlementAssignmentsV1(ctx)
+		return p.loadEntitlementAssignments(ctx)
 	default:
-		return nil, engine.DatasetError{Kind: engine.DatasetErrorMissingDataset, Err: fmt.Errorf("unsupported dataset key %q", key)}
+		return nil, engine.DatasetError{Kind: engine.DatasetErrorMissingDataset, Err: fmt.Errorf("unsupported dataset key %q", datasetKey)}
 	}
 }
 
-func requireDatasetVersion(datasetKey string, datasetVersion *int) (int, error) {
-	v := 1
-	if datasetVersion != nil {
-		v = *datasetVersion
+func requireNormalizedDatasetVersion(datasetKey string, version int) error {
+	if version == 0 || version == normalizedDatasetVersion {
+		return nil
 	}
-	if v == 1 || v == 2 {
-		return v, nil
-	}
-	return 0, engine.DatasetError{
+	return engine.DatasetError{
 		Kind: engine.DatasetErrorMissingDataset,
-		Err:  fmt.Errorf("%s: unsupported dataset_version %d", strings.TrimSpace(datasetKey), v),
+		Err:  fmt.Errorf("%s: unsupported dataset_version %d", strings.TrimSpace(datasetKey), version),
 	}
 }
 
-func (p *NormalizedProvider) loadIdentitiesV1(ctx context.Context) ([]any, error) {
-	rows, err := p.Q.ListNormalizedIdentitiesV1(ctx)
-	if err != nil {
-		return nil, engine.DatasetError{Kind: engine.DatasetErrorSyncFailed, Err: err}
-	}
-
-	out := make([]any, 0, len(rows))
-	for _, row := range rows {
-		out = append(out, map[string]any{
-			"id":           strconv.FormatInt(row.IdentityID, 10),
-			"external_id":  strings.TrimSpace(row.IdentityExternalID),
-			"email":        strings.TrimSpace(row.IdentityEmail),
-			"display_name": strings.TrimSpace(row.IdentityDisplayName),
-			"status":       normalizeIdentityStatus(strings.TrimSpace(row.IdentityStatus)),
-		})
-	}
-	return out, nil
-}
-
-func (p *NormalizedProvider) loadIdentitiesV2(ctx context.Context) ([]any, error) {
-	rows, err := p.Q.ListNormalizedIdentitiesV2(ctx)
+func (p *NormalizedProvider) loadIdentities(ctx context.Context) ([]any, error) {
+	rows, err := p.Q.ListNormalizedIdentities(ctx)
 	if err != nil {
 		return nil, engine.DatasetError{Kind: engine.DatasetErrorSyncFailed, Err: err}
 	}
@@ -145,7 +88,9 @@ func (p *NormalizedProvider) loadIdentitiesV2(ctx context.Context) ([]any, error
 			"email":        strings.TrimSpace(row.IdentityEmail),
 			"display_name": strings.TrimSpace(row.IdentityDisplayName),
 			"managed":      row.IdentityManaged,
-			"authoritative_account": map[string]any{
+			"posture":      strings.TrimSpace(row.IdentityPosture),
+			"anchor": map[string]any{
+				"state":       strings.TrimSpace(row.IdentityAnchorState),
 				"source_kind": strings.TrimSpace(row.AuthoritativeSourceKind),
 				"source_name": strings.TrimSpace(row.AuthoritativeSourceName),
 				"external_id": strings.TrimSpace(row.AuthoritativeExternalID),
@@ -155,61 +100,8 @@ func (p *NormalizedProvider) loadIdentitiesV2(ctx context.Context) ([]any, error
 	return out, nil
 }
 
-func normalizeIdentityStatus(status string) string {
-	s := strings.TrimSpace(status)
-	switch {
-	case strings.EqualFold(s, "ACTIVE"):
-		return "active"
-	case strings.EqualFold(s, "DEPROVISIONED"):
-		return "deprovisioned"
-	case strings.EqualFold(s, "inactive"):
-		return "inactive"
-	case strings.EqualFold(s, "service"):
-		return "inactive"
-	case strings.EqualFold(s, "bot"):
-		return "inactive"
-	case s == "":
-		return ""
-	default:
-		return "inactive"
-	}
-}
-
-func (p *NormalizedProvider) loadEntitlementAssignmentsV1(ctx context.Context) ([]any, error) {
-	rows, err := p.Q.ListNormalizedEntitlementAssignmentsV1(ctx)
-	if err != nil {
-		return nil, engine.DatasetError{Kind: engine.DatasetErrorSyncFailed, Err: err}
-	}
-
-	out := make([]any, 0, len(rows))
-	for _, row := range rows {
-		tags := entitlementTags(strings.TrimSpace(row.EntitlementKind), strings.TrimSpace(row.EntitlementPermission))
-		out = append(out, map[string]any{
-			"resource_id": fmt.Sprintf("entitlement:%d", row.EntitlementID),
-			"identity": map[string]any{
-				"id":           strconv.FormatInt(row.IdentityID, 10),
-				"email":        strings.TrimSpace(row.IdentityEmail),
-				"display_name": strings.TrimSpace(row.IdentityDisplayName),
-				"status":       normalizeIdentityStatus(strings.TrimSpace(row.IdentityStatus)),
-			},
-			"account": map[string]any{
-				"source_kind": strings.TrimSpace(row.AccountSourceKind),
-				"source_name": strings.TrimSpace(row.AccountSourceName),
-				"external_id": strings.TrimSpace(row.AccountExternalID),
-			},
-			"entitlement": map[string]any{
-				"kind":       strings.TrimSpace(row.EntitlementKind),
-				"resource":   strings.TrimSpace(row.EntitlementResource),
-				"permission": strings.TrimSpace(row.EntitlementPermission),
-				"tags":       tags,
-			},
-		})
-	}
-	return out, nil
-}
-
-func (p *NormalizedProvider) loadEntitlementAssignmentsV2(ctx context.Context) ([]any, error) {
-	rows, err := p.Q.ListNormalizedEntitlementAssignmentsV2(ctx)
+func (p *NormalizedProvider) loadEntitlementAssignments(ctx context.Context) ([]any, error) {
+	rows, err := p.Q.ListNormalizedEntitlementAssignments(ctx)
 	if err != nil {
 		return nil, engine.DatasetError{Kind: engine.DatasetErrorSyncFailed, Err: err}
 	}
@@ -225,6 +117,13 @@ func (p *NormalizedProvider) loadEntitlementAssignmentsV2(ctx context.Context) (
 				"email":        strings.TrimSpace(row.IdentityEmail),
 				"display_name": strings.TrimSpace(row.IdentityDisplayName),
 				"managed":      row.IdentityManaged,
+				"posture":      strings.TrimSpace(row.IdentityPosture),
+				"anchor": map[string]any{
+					"state":       strings.TrimSpace(row.IdentityAnchorState),
+					"source_kind": strings.TrimSpace(row.AuthoritativeSourceKind),
+					"source_name": strings.TrimSpace(row.AuthoritativeSourceName),
+					"external_id": strings.TrimSpace(row.AuthoritativeExternalID),
+				},
 			},
 			"account": map[string]any{
 				"source_kind": strings.TrimSpace(row.AccountSourceKind),
@@ -243,7 +142,7 @@ func (p *NormalizedProvider) loadEntitlementAssignmentsV2(ctx context.Context) (
 }
 
 func entitlementTags(kind, permission string) []string {
-	var tags []string
+	tags := []string{}
 	if kind != "" {
 		tags = append(tags, kind)
 	}

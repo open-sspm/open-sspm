@@ -16,6 +16,6 @@ type EntraUsersViewData struct {
 	HasUsers bool
 }
 
-type UnmatchedEntraViewData struct {
-	UnmatchedSourceAccountsPageData
+type EntraAccountsNeedingAnchorViewData struct {
+	SourceAccountsNeedingAnchorPageData
 }

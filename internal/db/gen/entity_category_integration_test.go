@@ -88,29 +88,82 @@ func TestGenericAccountQueriesFilterEntityCategory(t *testing.T) {
 			t.Fatalf("CountSourceAccountsBySourceAndQuery(all datadog)=%d want 4", allDatadogCount)
 		}
 
-		unmatchedCount, err := q.CountUnlinkedSourceAccountsBySourceAndQuery(ctx, CountUnlinkedSourceAccountsBySourceAndQueryParams{
+		needsAnchorCount, err := q.CountSourceAccountsNeedingAnchorBySourceAndQuery(ctx, CountSourceAccountsNeedingAnchorBySourceAndQueryParams{
 			SourceKind:     "datadog",
 			SourceName:     "datadoghq.com",
 			EntityCategory: "user",
 		})
 		if err != nil {
-			t.Fatalf("CountUnlinkedSourceAccountsBySourceAndQuery(user): %v", err)
+			t.Fatalf("CountSourceAccountsNeedingAnchorBySourceAndQuery(user): %v", err)
 		}
-		if unmatchedCount != 1 {
-			t.Fatalf("CountUnlinkedSourceAccountsBySourceAndQuery(user)=%d want 1", unmatchedCount)
+		if needsAnchorCount != 1 {
+			t.Fatalf("CountSourceAccountsNeedingAnchorBySourceAndQuery(user)=%d want 1", needsAnchorCount)
 		}
 
-		unmatchedRows, err := q.ListUnlinkedSourceAccountsPageBySourceAndQuery(ctx, ListUnlinkedSourceAccountsPageBySourceAndQueryParams{
+		needsAnchorRows, err := q.ListSourceAccountsNeedingAnchorPageBySourceAndQuery(ctx, ListSourceAccountsNeedingAnchorPageBySourceAndQueryParams{
 			SourceKind:     "datadog",
 			SourceName:     "datadoghq.com",
 			EntityCategory: "user",
 			PageLimit:      20,
 		})
 		if err != nil {
-			t.Fatalf("ListUnlinkedSourceAccountsPageBySourceAndQuery(user): %v", err)
+			t.Fatalf("ListSourceAccountsNeedingAnchorPageBySourceAndQuery(user): %v", err)
 		}
-		if len(unmatchedRows) != 1 || unmatchedRows[0].ExternalID != "dd-user-2" {
-			t.Fatalf("ListUnlinkedSourceAccountsPageBySourceAndQuery(user)=%v want [dd-user-2]", accountExternalIDs(unmatchedRows))
+		if len(needsAnchorRows) != 1 || needsAnchorRows[0].ExternalID != "dd-user-2" {
+			t.Fatalf("ListSourceAccountsNeedingAnchorPageBySourceAndQuery(user)=%v want [dd-user-2]", accountExternalIDs(needsAnchorRows))
+		}
+
+		githubProvisionalID := insertAccount(t, ctx, pool, runID, accountSeed{
+			SourceKind:     "github",
+			SourceName:     "acme",
+			ExternalID:     "github-provisional",
+			Email:          "provisional@example.com",
+			DisplayName:    "GitHub Provisional",
+			Status:         "active",
+			AccountKind:    "human",
+			EntityCategory: "user",
+			RawJSON:        `{"status":"active"}`,
+		})
+		provisionalIdentityID := insertIdentity(t, ctx, pool, "human", "provisional@example.com", "GitHub Provisional")
+		insertIdentityAccountLink(t, ctx, pool, provisionalIdentityID, githubProvisionalID)
+
+		provisionalCount, err := q.CountSourceAccountsNeedingAnchorBySourceAndQuery(ctx, CountSourceAccountsNeedingAnchorBySourceAndQueryParams{
+			SourceKind: "github",
+			SourceName: "acme",
+			Query:      "github-provisional",
+		})
+		if err != nil {
+			t.Fatalf("CountSourceAccountsNeedingAnchorBySourceAndQuery(provisional github): %v", err)
+		}
+		if provisionalCount != 1 {
+			t.Fatalf("CountSourceAccountsNeedingAnchorBySourceAndQuery(provisional github)=%d want 1", provisionalCount)
+		}
+
+		oktaRunID := insertSyncRun(t, ctx, pool, "okta", "acme.okta.com")
+		oktaAnchorID := insertAccount(t, ctx, pool, oktaRunID, accountSeed{
+			SourceKind:     "okta",
+			SourceName:     "acme.okta.com",
+			ExternalID:     "okta-anchor",
+			Email:          "provisional@example.com",
+			DisplayName:    "GitHub Provisional",
+			Status:         "active",
+			AccountKind:    "human",
+			EntityCategory: "user",
+			RawJSON:        `{"status":"active"}`,
+		})
+		insertIdentitySourceSetting(t, ctx, pool, "okta", "acme.okta.com", true)
+		insertIdentityAccountLink(t, ctx, pool, provisionalIdentityID, oktaAnchorID)
+
+		anchoredProvisionalCount, err := q.CountSourceAccountsNeedingAnchorBySourceAndQuery(ctx, CountSourceAccountsNeedingAnchorBySourceAndQueryParams{
+			SourceKind: "github",
+			SourceName: "acme",
+			Query:      "github-provisional",
+		})
+		if err != nil {
+			t.Fatalf("CountSourceAccountsNeedingAnchorBySourceAndQuery(anchored github): %v", err)
+		}
+		if anchoredProvisionalCount != 0 {
+			t.Fatalf("CountSourceAccountsNeedingAnchorBySourceAndQuery(anchored github)=%d want 0", anchoredProvisionalCount)
 		}
 
 		activeUserCount, err := q.CountSourceAccountsBySourceAndQueryAndState(ctx, CountSourceAccountsBySourceAndQueryAndStateParams{
@@ -242,29 +295,29 @@ func TestGoogleWorkspaceQueriesUseEntityCategoryColumn(t *testing.T) {
 			t.Fatalf("google workspace group row entity_category=%q want group", groupRows[0].EntityCategory)
 		}
 
-		unmatchedCount, err := q.CountUnlinkedSourceAccountsBySourceAndQuery(ctx, CountUnlinkedSourceAccountsBySourceAndQueryParams{
+		needsAnchorCount, err := q.CountSourceAccountsNeedingAnchorBySourceAndQuery(ctx, CountSourceAccountsNeedingAnchorBySourceAndQueryParams{
 			SourceKind:     "google_workspace",
 			SourceName:     "C0123",
 			EntityCategory: "user",
 		})
 		if err != nil {
-			t.Fatalf("CountUnlinkedSourceAccountsBySourceAndQuery(google workspace users): %v", err)
+			t.Fatalf("CountSourceAccountsNeedingAnchorBySourceAndQuery(google workspace users): %v", err)
 		}
-		if unmatchedCount != 0 {
-			t.Fatalf("CountUnlinkedSourceAccountsBySourceAndQuery(google workspace users)=%d want 0", unmatchedCount)
+		if needsAnchorCount != 0 {
+			t.Fatalf("CountSourceAccountsNeedingAnchorBySourceAndQuery(google workspace users)=%d want 0", needsAnchorCount)
 		}
 
-		unmatchedRows, err := q.ListUnlinkedSourceAccountsPageBySourceAndQuery(ctx, ListUnlinkedSourceAccountsPageBySourceAndQueryParams{
+		needsAnchorRows, err := q.ListSourceAccountsNeedingAnchorPageBySourceAndQuery(ctx, ListSourceAccountsNeedingAnchorPageBySourceAndQueryParams{
 			SourceKind:     "google_workspace",
 			SourceName:     "C0123",
 			EntityCategory: "user",
 			PageLimit:      20,
 		})
 		if err != nil {
-			t.Fatalf("ListUnlinkedSourceAccountsPageBySourceAndQuery(google workspace users): %v", err)
+			t.Fatalf("ListSourceAccountsNeedingAnchorPageBySourceAndQuery(google workspace users): %v", err)
 		}
-		if len(unmatchedRows) != 0 {
-			t.Fatalf("ListUnlinkedSourceAccountsPageBySourceAndQuery(google workspace users)=%v want []", accountExternalIDs(unmatchedRows))
+		if len(needsAnchorRows) != 0 {
+			t.Fatalf("ListSourceAccountsNeedingAnchorPageBySourceAndQuery(google workspace users)=%v want []", accountExternalIDs(needsAnchorRows))
 		}
 	})
 }

@@ -133,7 +133,7 @@ GitHub has strict rate limits (5,000 requests/hour for classic tokens). If you h
 
 - GitHub users may not have public emails
 - Enable SCIM lookup if your org uses SCIM provisioning
-- Manually link unmatched accounts in the UI
+- Manually anchor accounts that automatic matching cannot resolve
 
 ## Data Retention
 
@@ -166,4 +166,4 @@ After configuring GitHub:
 1. Run initial sync
 2. Review organization members in Identities
 3. Check which users have access to which repositories
-4. Link any unmatched GitHub accounts to identities
+4. Link any GitHub accounts needing an authoritative identity anchor

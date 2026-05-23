@@ -1,0 +1,109 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ GitHubAccountsNeedingAnchorPage(data viewmodels.GitHubAccountsNeedingAnchorViewData) {
+	@Layout(data.Layout) {
+		@PageHeader("") {
+			if data.Layout.GitHubConfigured {
+				<span class="badge-outline">{ data.Layout.GitHubOrg }</span>
+			} else {
+				<span class="badge-outline">Not configured</span>
+			}
+			<a class="btn-sm-outline" href="/identities">Identities</a>
+		}
+		if data.Layout.GitHubConfigured && data.Layout.GitHubEnabled {
+			@Alert("Manual anchoring", false) {
+				<p>
+					Use identity IDs from the Identities list. GitHub doesn't reliably expose emails; Open-SSPM will try to populate them via SAML (and optional SCIM) to enable auto-anchoring, but some rows may still be missing an email.
+				</p>
+			}
+		} else {
+			@Alert("GitHub sync disabled", true) {
+				<p>
+					{ data.EmptyStateMsg } <a class="btn-sm-link px-1" href={ data.EmptyStateHref }>Configure GitHub</a>.
+				</p>
+			}
+		}
+		@GitHubAccountsNeedingAnchorPageFilters(data)
+		@GitHubAccountsNeedingAnchorPageResults(data)
+	}
+}
+
+templ GitHubAccountsNeedingAnchorPageFilters(data viewmodels.GitHubAccountsNeedingAnchorViewData) {
+	<form
+		method="get"
+		action={ "/accounts/needs-anchor/github/" + data.Layout.GitHubOrg }
+		data-enter-only-query="q"
+		hx-get={ "/accounts/needs-anchor/github/" + data.Layout.GitHubOrg }
+		hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+		hx-target="#github-needs-anchor-results"
+		hx-swap="outerHTML"
+		hx-push-url="true"
+		class="osspm-list-form"
+	>
+		<div class="osspm-list-toolbar">
+			<div class="min-w-0 flex-1">
+				@AskBar(SearchOnlyAskBar(data.Query, "Search login, email, or name", "#github-needs-anchor-results"))
+			</div>
+		</div>
+		<button class="sr-only" type="submit">Apply filters</button>
+	</form>
+}
+
+templ GitHubAccountsNeedingAnchorPageResults(data viewmodels.GitHubAccountsNeedingAnchorViewData) {
+	<div id="github-needs-anchor-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
+		<section class="space-y-3">
+			@ListSectionHeader("GitHub users needing anchor", "GitHub users awaiting an authoritative identity anchor.")
+			@ColumnsTable("") {
+				<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					<caption class="sr-only">GitHub users needing anchors and actions to link each account to an identity.</caption>
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">GitHub login</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Link</th>
+						</tr>
+					</thead>
+					<tbody>
+						if data.HasUsers {
+							for _, u := range data.Users {
+								<tr>
+									<td class="font-medium">{ u.ExternalID }</td>
+									<td>
+										if u.Email != "" {
+											{ u.Email }
+										} else {
+											<span class="text-muted-foreground">&mdash;</span>
+										}
+									</td>
+									<td class="text-muted-foreground">{ u.DisplayName }</td>
+									<td>
+										@sourceAccountNeedsAnchorLinkAction(data.Layout.IsAdmin, data.Layout.CSRFToken, u.ID, "input w-full")
+									</td>
+								</tr>
+							}
+						} else if data.Layout.GitHubConfigured && data.Layout.GitHubEnabled && data.Query.Q == "" {
+							<tr>
+								<td colspan="4">
+									@EmptyState("All caught up", "No GitHub users need an anchor. All detected accounts belong to an anchored identity.")
+								</td>
+							</tr>
+						} else {
+							<tr>
+								<td colspan="4">
+									@EmptyState("No users need an anchor", data.EmptyStateMsg)
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+			if data.TotalPages > 1 {
+				@ListPagination("github-needs-anchor-results", data.Page, data.TotalPages, BasicListPageHref(data.Query))
+			}
+		</section>
+	</div>
+}

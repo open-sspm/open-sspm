@@ -1679,7 +1679,7 @@
   .osspm-identities-table col.osspm-col-type      { width: 8%;  }
   .osspm-identities-table col.osspm-col-source    { width: 18%; }
   .osspm-identities-table col.osspm-col-num       { width: 9%;  }
-  .osspm-identities-table col.osspm-col-managed   { width: 10%; }
+  .osspm-identities-table col.osspm-col-anchor    { width: 10%; }
   .osspm-identities-table col.osspm-col-state     { width: 12%; }
   .osspm-identities-table col.osspm-col-lastseen  { width: 9%;  }
 

@@ -18,7 +18,7 @@ type PaginatedListPageData struct {
 	EmptyStateHref string
 }
 
-type UnmatchedSourceAccountsPageData struct {
+type SourceAccountsNeedingAnchorPageData struct {
 	PaginatedListPageData
 	Users    []gen.Account
 	Query    querystate.BasicListQuery

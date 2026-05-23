@@ -14,7 +14,7 @@ type IdentityListItem struct {
 	NamePrimary       string
 	NameSecondary     string
 	IdentityType      string
-	Managed           bool
+	AnchorState       string
 	SourceKind        string
 	SourceName        string
 	IntegrationsCount int64
@@ -28,19 +28,18 @@ type IdentityListItem struct {
 
 // IdentitiesSummary holds pre-filter bucketed counts for the identity
 // inventory. It is scoped to the user's source, search, and type filters but
-// ignores segment-like filters (managed/status/activity/privileged) so the
+// ignores segment-like filters (anchor/status/activity/privileged) so the
 // stat strip and segment chips can show the shape of the population a user is
 // actually looking at, independent of which segment they have clicked.
 type IdentitiesSummary struct {
-	Total               int64
-	ActionRequired      int64
-	Review              int64
-	Privileged          int64
-	PrivilegedUnmanaged int64
-	StalePrivileged     int64
-	Unmanaged           int64
-	Suspended           int64
-	Stale               int64
+	Total           int64
+	ActionRequired  int64
+	Review          int64
+	Privileged      int64
+	StalePrivileged int64
+	MissingAnchor   int64
+	Suspended       int64
+	Stale           int64
 }
 
 type IdentitiesViewData struct {

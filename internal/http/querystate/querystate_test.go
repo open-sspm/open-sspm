@@ -87,10 +87,10 @@ func TestIdentitiesQueryMutations(t *testing.T) {
 	if got := query.SegmentNeedsAction(); got.RowState != "action_required" || got.ActivityState != "" || got.Page != 1 {
 		t.Fatalf("SegmentNeedsAction() = %#v", got)
 	}
-	if got := query.SegmentPrivilegedUnmanaged(); !got.PrivilegedOnly || got.ManagedState != "unmanaged" || got.ActivityState != "" || got.RowState != "" || got.Page != 1 {
-		t.Fatalf("SegmentPrivilegedUnmanaged() = %#v", got)
+	if got := query.SegmentPrivilegedMissingAnchor(); !got.PrivilegedOnly || got.AnchorState != "missing_anchor" || got.ActivityState != "" || got.RowState != "" || got.Page != 1 {
+		t.Fatalf("SegmentPrivilegedMissingAnchor() = %#v", got)
 	}
-	if got := query.SegmentStalePrivileged(); !got.PrivilegedOnly || got.ActivityState != "stale" || got.ManagedState != "" || got.RowState != "" || got.Page != 1 {
+	if got := query.SegmentStalePrivileged(); !got.PrivilegedOnly || got.ActivityState != "stale" || got.AnchorState != "" || got.RowState != "" || got.Page != 1 {
 		t.Fatalf("SegmentStalePrivileged() = %#v", got)
 	}
 	if got := query.TogglePrivilegedOnly(); got.PrivilegedOnly || got.Page != 1 {

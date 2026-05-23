@@ -35,6 +35,6 @@ type GoogleWorkspaceGroupsViewData struct {
 	HasGroups bool
 }
 
-type UnmatchedGoogleWorkspaceViewData struct {
-	UnmatchedSourceAccountsPageData
+type GoogleWorkspaceAccountsNeedingAnchorViewData struct {
+	SourceAccountsNeedingAnchorPageData
 }

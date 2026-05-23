@@ -389,7 +389,7 @@ ORDER BY au.id DESC
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
--- name: CountUnlinkedSourceAccountsBySourceAndQuery :one
+-- name: CountSourceAccountsNeedingAnchorBySourceAndQuery :one
 WITH authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
   FROM identity_accounts ia
@@ -425,7 +425,7 @@ WHERE
     OR au.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
   );
 
--- name: ListUnlinkedSourceAccountsPageBySourceAndQuery :many
+-- name: ListSourceAccountsNeedingAnchorPageBySourceAndQuery :many
 WITH authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
   FROM identity_accounts ia
@@ -479,7 +479,7 @@ WHERE source_kind = $1
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL;
 
--- name: CountLinkedSourceAccountsBySource :one
+-- name: CountAnchoredSourceAccountsBySource :one
 WITH authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
   FROM identity_accounts ia
@@ -500,7 +500,7 @@ WHERE au.source_kind = $1
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL;
 
--- name: CountUnlinkedSourceAccountsBySource :one
+-- name: CountSourceAccountsNeedingAnchorBySource :one
 WITH authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
   FROM identity_accounts ia

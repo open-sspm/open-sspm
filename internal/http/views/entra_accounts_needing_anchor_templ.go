@@ -10,7 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
-func UnmatchedGoogleWorkspacePage(data viewmodels.UnmatchedGoogleWorkspaceViewData) templ.Component {
+func EntraAccountsNeedingAnchorPage(data viewmodels.EntraAccountsNeedingAnchorViewData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -55,21 +55,21 @@ func UnmatchedGoogleWorkspacePage(data viewmodels.UnmatchedGoogleWorkspaceViewDa
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				if data.Layout.GoogleWorkspaceConfigured {
+				if data.Layout.EntraConfigured {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<span class=\"badge-outline cursor-help\" title=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var4 string
-					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue("Customer ID: " + data.Layout.GoogleWorkspaceCustomerID)
+					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue("Tenant ID: " + data.Layout.EntraTenantID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_google_workspace.templ`, Line: 9, Col: 107}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_accounts_needing_anchor.templ`, Line: 9, Col: 93}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\">Google customer</span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\">Entra tenant ID</span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -93,7 +93,7 @@ func UnmatchedGoogleWorkspacePage(data viewmodels.UnmatchedGoogleWorkspaceViewDa
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if data.Layout.GoogleWorkspaceConfigured && data.Layout.GoogleWorkspaceEnabled {
+			if data.Layout.EntraConfigured && data.Layout.EntraEnabled {
 				templ_7745c5c3_Var5 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
@@ -106,13 +106,13 @@ func UnmatchedGoogleWorkspacePage(data viewmodels.UnmatchedGoogleWorkspaceViewDa
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<p>Use this list to link users when automatic email matching cannot infer identity ownership.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<p>Open-SSPM will anchor identities by authoritative source and email when possible. Use this list to link users with missing or mismatched emails.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = Alert("Manual linking", false).Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = Alert("Manual anchoring", false).Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -136,7 +136,7 @@ func UnmatchedGoogleWorkspacePage(data viewmodels.UnmatchedGoogleWorkspaceViewDa
 					var templ_7745c5c3_Var7 string
 					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(data.EmptyStateMsg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_google_workspace.templ`, Line: 23, Col: 25}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_accounts_needing_anchor.templ`, Line: 24, Col: 25}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 					if templ_7745c5c3_Err != nil {
@@ -149,19 +149,19 @@ func UnmatchedGoogleWorkspacePage(data viewmodels.UnmatchedGoogleWorkspaceViewDa
 					var templ_7745c5c3_Var8 templ.SafeURL
 					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(data.EmptyStateHref)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_google_workspace.templ`, Line: 23, Col: 82}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_accounts_needing_anchor.templ`, Line: 24, Col: 82}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\">Configure Google Workspace</a>.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\">Configure Microsoft Entra ID</a>.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = Alert("Google Workspace sync disabled", true).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = Alert("Microsoft Entra ID sync disabled", true).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -170,7 +170,7 @@ func UnmatchedGoogleWorkspacePage(data viewmodels.UnmatchedGoogleWorkspaceViewDa
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = UnmatchedGoogleWorkspacePageFilters(data).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = EntraAccountsNeedingAnchorPageFilters(data).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -178,7 +178,7 @@ func UnmatchedGoogleWorkspacePage(data viewmodels.UnmatchedGoogleWorkspaceViewDa
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = UnmatchedGoogleWorkspacePageResults(data).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = EntraAccountsNeedingAnchorPageResults(data).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -192,7 +192,7 @@ func UnmatchedGoogleWorkspacePage(data viewmodels.UnmatchedGoogleWorkspaceViewDa
 	})
 }
 
-func UnmatchedGoogleWorkspacePageFilters(data viewmodels.UnmatchedGoogleWorkspaceViewData) templ.Component {
+func EntraAccountsNeedingAnchorPageFilters(data viewmodels.EntraAccountsNeedingAnchorViewData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -213,11 +213,11 @@ func UnmatchedGoogleWorkspacePageFilters(data viewmodels.UnmatchedGoogleWorkspac
 			templ_7745c5c3_Var9 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<form method=\"get\" action=\"/accounts/unlinked/google-workspace\" data-enter-only-query=\"q\" hx-get=\"/accounts/unlinked/google-workspace\" hx-trigger=\"change delay:150ms from:[data-table-query-trigger], submit\" hx-target=\"#unmatched-google-workspace-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" class=\"osspm-list-form\"><div class=\"osspm-list-toolbar\"><div class=\"min-w-0 flex-1\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<form method=\"get\" action=\"/accounts/needs-anchor/entra\" data-enter-only-query=\"q\" hx-get=\"/accounts/needs-anchor/entra\" hx-trigger=\"change delay:150ms from:[data-table-query-trigger], submit\" hx-target=\"#entra-needs-anchor-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" class=\"osspm-list-form\"><div class=\"osspm-list-toolbar\"><div class=\"min-w-0 flex-1\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = AskBar(SearchOnlyAskBar(data.Query, "Search email, name, or Google user ID", "#unmatched-google-workspace-results")).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = AskBar(SearchOnlyAskBar(data.Query, "Search email, name, or user ID", "#entra-needs-anchor-results")).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -229,7 +229,7 @@ func UnmatchedGoogleWorkspacePageFilters(data viewmodels.UnmatchedGoogleWorkspac
 	})
 }
 
-func UnmatchedGoogleWorkspacePageResults(data viewmodels.UnmatchedGoogleWorkspaceViewData) templ.Component {
+func EntraAccountsNeedingAnchorPageResults(data viewmodels.EntraAccountsNeedingAnchorViewData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -250,7 +250,7 @@ func UnmatchedGoogleWorkspacePageResults(data viewmodels.UnmatchedGoogleWorkspac
 			templ_7745c5c3_Var10 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<div id=\"unmatched-google-workspace-results\" class=\"space-y-5\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<div id=\"entra-needs-anchor-results\" class=\"space-y-5\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -262,7 +262,7 @@ func UnmatchedGoogleWorkspacePageResults(data viewmodels.UnmatchedGoogleWorkspac
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = ListSectionHeader("Unlinked Google Workspace users", "Unlinked Google Workspace users awaiting identity linking.").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ListSectionHeader("Microsoft Entra ID users needing anchor", "Microsoft Entra ID users awaiting an authoritative identity anchor.").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -278,7 +278,7 @@ func UnmatchedGoogleWorkspacePageResults(data viewmodels.UnmatchedGoogleWorkspac
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><caption class=\"sr-only\">Unlinked Google Workspace users with linking actions.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">User</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Email</th><th class=\"osspm-col-id-wide text-xs font-medium uppercase tracking-wide text-muted-foreground\">User ID</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Link</th></tr></thead> <tbody>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><caption class=\"sr-only\">Microsoft Entra ID users needing anchors and actions to link each user to an identity.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">User</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Email</th><th class=\"osspm-col-id-wide text-xs font-medium uppercase tracking-wide text-muted-foreground\">User ID</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Link</th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -291,7 +291,7 @@ func UnmatchedGoogleWorkspacePageResults(data viewmodels.UnmatchedGoogleWorkspac
 					var templ_7745c5c3_Var12 string
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(u.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_google_workspace.templ`, Line: 74, Col: 102}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_accounts_needing_anchor.templ`, Line: 75, Col: 79}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 					if templ_7745c5c3_Err != nil {
@@ -304,7 +304,7 @@ func UnmatchedGoogleWorkspacePageResults(data viewmodels.UnmatchedGoogleWorkspac
 					var templ_7745c5c3_Var13 string
 					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(u.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_google_workspace.templ`, Line: 74, Col: 120}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_accounts_needing_anchor.templ`, Line: 75, Col: 97}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {
@@ -322,7 +322,7 @@ func UnmatchedGoogleWorkspacePageResults(data viewmodels.UnmatchedGoogleWorkspac
 						var templ_7745c5c3_Var14 string
 						templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(u.Email)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_google_workspace.templ`, Line: 77, Col: 74}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_accounts_needing_anchor.templ`, Line: 79, Col: 74}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 						if templ_7745c5c3_Err != nil {
@@ -335,7 +335,7 @@ func UnmatchedGoogleWorkspacePageResults(data viewmodels.UnmatchedGoogleWorkspac
 						var templ_7745c5c3_Var15 string
 						templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(u.Email)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_google_workspace.templ`, Line: 77, Col: 86}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_accounts_needing_anchor.templ`, Line: 79, Col: 86}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 						if templ_7745c5c3_Err != nil {
@@ -358,7 +358,7 @@ func UnmatchedGoogleWorkspacePageResults(data viewmodels.UnmatchedGoogleWorkspac
 					var templ_7745c5c3_Var16 string
 					templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(u.ExternalID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_google_workspace.templ`, Line: 82, Col: 107}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_accounts_needing_anchor.templ`, Line: 85, Col: 56}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
 					if templ_7745c5c3_Err != nil {
@@ -371,7 +371,7 @@ func UnmatchedGoogleWorkspacePageResults(data viewmodels.UnmatchedGoogleWorkspac
 					var templ_7745c5c3_Var17 string
 					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(u.ExternalID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_google_workspace.templ`, Line: 82, Col: 124}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_accounts_needing_anchor.templ`, Line: 85, Col: 73}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 					if templ_7745c5c3_Err != nil {
@@ -381,71 +381,43 @@ func UnmatchedGoogleWorkspacePageResults(data viewmodels.UnmatchedGoogleWorkspac
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					if data.Layout.IsAdmin {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<form method=\"post\" action=\"/links\" class=\"flex flex-col gap-2 sm:flex-row sm:items-end\">")
-						if templ_7745c5c3_Err != nil {
-							return templ_7745c5c3_Err
-						}
-						templ_7745c5c3_Err = CSRFInput(data.Layout.CSRFToken).Render(ctx, templ_7745c5c3_Buffer)
-						if templ_7745c5c3_Err != nil {
-							return templ_7745c5c3_Err
-						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<input type=\"hidden\" name=\"account_id\" value=\"")
-						if templ_7745c5c3_Err != nil {
-							return templ_7745c5c3_Err
-						}
-						var templ_7745c5c3_Var18 string
-						templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue(FormatInt64(u.ID))
-						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/unmatched_google_workspace.templ`, Line: 87, Col: 76}
-						}
-						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
-						if templ_7745c5c3_Err != nil {
-							return templ_7745c5c3_Err
-						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\"> <label class=\"field w-full sm:w-32\"><span class=\"label sr-only\">Identity ID</span> <input type=\"text\" name=\"identity_id\" placeholder=\"Identity ID\" required class=\"input w-full osspm-token\"></label> <button type=\"submit\" class=\"btn-sm-primary w-full sm:w-auto\">Link</button></form>")
-						if templ_7745c5c3_Err != nil {
-							return templ_7745c5c3_Err
-						}
-					} else {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<span class=\"text-sm text-muted-foreground\">Admin required</span>")
-						if templ_7745c5c3_Err != nil {
-							return templ_7745c5c3_Err
-						}
+					templ_7745c5c3_Err = sourceAccountNeedsAnchorLinkAction(data.Layout.IsAdmin, data.Layout.CSRFToken, u.ID, "input w-full osspm-token").Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</td></tr>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</td></tr>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-			} else if data.Layout.GoogleWorkspaceConfigured && data.Layout.GoogleWorkspaceEnabled && data.Query.Q == "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<tr><td colspan=\"4\">")
+			} else if data.Layout.EntraConfigured && data.Layout.EntraEnabled && data.Query.Q == "" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<tr><td colspan=\"4\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = EmptyState("All caught up", "No unlinked Google Workspace users found. All detected identities are linked.").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = EmptyState("All caught up", "No Microsoft Entra ID users need an anchor. All detected accounts belong to an anchored identity.").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</td></tr>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</td></tr>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<tr><td colspan=\"4\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<tr><td colspan=\"4\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = EmptyState("No unlinked users", data.EmptyStateMsg).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = EmptyState("No users need an anchor", data.EmptyStateMsg).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</td></tr>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</td></tr>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</tbody></table>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</tbody></table>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -456,12 +428,12 @@ func UnmatchedGoogleWorkspacePageResults(data viewmodels.UnmatchedGoogleWorkspac
 			return templ_7745c5c3_Err
 		}
 		if data.TotalPages > 1 {
-			templ_7745c5c3_Err = ListPagination("unmatched-google-workspace-results", data.Page, data.TotalPages, BasicListPageHref(data.Query)).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ListPagination("entra-needs-anchor-results", data.Page, data.TotalPages, BasicListPageHref(data.Query)).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</section></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</section></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

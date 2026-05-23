@@ -51,13 +51,13 @@ See [Real-Time Synchronization](/run/real-time-synchronization) for the current 
 
 Open-SSPM automatically links accounts by matching email addresses case-insensitively.
 
-When an account cannot be linked automatically, use the connector-specific **Unlinked** views exposed from the relevant account pages, such as:
+When an account cannot be anchored automatically, use the connector-specific **Needs anchor** views exposed from the relevant account pages, such as:
 
-- GitHub unlinked accounts
-- Microsoft Entra ID unlinked users
-- Google Workspace unlinked users
-- AWS Identity Center unlinked users
-- Datadog unlinked users
+- GitHub accounts needing anchor
+- Microsoft Entra ID users needing anchor
+- Google Workspace users needing anchor
+- AWS Identity Center users needing anchor
+- Datadog users needing anchor
 
 Manual links persist across syncs.
 

@@ -9,8 +9,8 @@ Goals:
   - GitHub users + entitlements
   - Datadog users + roles
   - SaaS discovery list / hotspots / detail pages
-  - Google Workspace users, groups, unlinked users, and OAuth clients
-  - AWS Identity Center users and unlinked users
+  - Google Workspace users, groups, users needing anchors, and OAuth clients
+  - AWS Identity Center users and users needing anchors
   - Vault principals, entitlements, mounts, and auth roles
   - Programmatic access governance (app assets, owners, credentials, audit events)
   - Some Findings (pass/fail, with `schema_version=1` evidence envelope)

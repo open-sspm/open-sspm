@@ -50,8 +50,9 @@ filtered_source_accounts AS (
     )
 ),
 filtered_identities AS (
-  SELECT
-    i.id
+	SELECT
+	  i.id,
+	  COALESCE(NULLIF(trim(i.kind), ''), 'unknown') AS identity_type
   FROM identities i
   WHERE
     (
@@ -72,7 +73,7 @@ filtered_identities AS (
     )
 ),
 candidate_identities AS (
-  SELECT fi.id
+  SELECT fi.id, fi.identity_type
   FROM filtered_identities fi
   WHERE EXISTS (
     SELECT 1
@@ -88,7 +89,7 @@ account_rollups AS (
     BOOL_OR(aa.normalized_status IN ('active', 'enabled')) AS has_active,
     BOOL_OR(aa.normalized_status IN ('suspended', 'disabled', 'inactive', 'locked')) AS has_suspended,
     BOOL_AND(aa.normalized_status IN ('deleted', 'deprovisioned', 'terminated')) AS all_deleted,
-    BOOL_OR(COALESCE(iss.is_authoritative, FALSE)) AS managed
+    BOOL_OR(COALESCE(iss.is_authoritative, FALSE)) AS has_authoritative_anchor
   FROM all_active_accounts aa
   LEFT JOIN identity_source_settings iss
     ON iss.source_kind = aa.source_kind
@@ -131,9 +132,10 @@ privileged_counts AS (
   GROUP BY aa.identity_id
 ),
 base_metrics AS (
-  SELECT
-    ci.id,
-    COALESCE(ar.managed, FALSE)::boolean AS managed,
+	SELECT
+	  ci.id,
+	  ci.identity_type,
+	  COALESCE(ar.has_authoritative_anchor, FALSE)::boolean AS has_authoritative_anchor,
     COALESCE(pc.privileged_roles, 0)::bigint AS privileged_roles,
     ar.last_seen_at::timestamptz AS last_seen_at,
     CASE
@@ -155,11 +157,19 @@ base_metrics AS (
 ),
 base AS (
   SELECT
-    bm.id, bm.managed, bm.privileged_roles, bm.last_seen_at, bm.status, bm.activity_state,
+    bm.id, bm.identity_type, bm.has_authoritative_anchor, bm.privileged_roles, bm.last_seen_at, bm.status, bm.activity_state,
     CASE
-      WHEN (NOT bm.managed) AND bm.privileged_roles > 0 THEN 'action_required'
+      WHEN bm.identity_type IN ('service', 'bot') THEN 'not_applicable'
+      WHEN bm.has_authoritative_anchor THEN 'anchored'
+      ELSE 'missing_anchor'
+    END AS anchor_state,
+    CASE
+      WHEN bm.identity_type NOT IN ('service', 'bot')
+           AND NOT bm.has_authoritative_anchor
+           AND bm.privileged_roles > 0 THEN 'action_required'
       WHEN bm.privileged_roles > 0 AND bm.activity_state IN ('stale', 'never_seen') THEN 'action_required'
-      WHEN NOT bm.managed THEN 'review'
+      WHEN bm.identity_type NOT IN ('service', 'bot')
+           AND NOT bm.has_authoritative_anchor THEN 'review'
       WHEN bm.activity_state IN ('aging', 'stale', 'never_seen') THEN 'review'
       ELSE 'healthy'
     END AS row_state
@@ -170,14 +180,7 @@ FROM base b
 WHERE
   (
     $1::text = ''
-    OR (
-      $1::text = 'managed'
-      AND b.managed
-    )
-    OR (
-      $1::text = 'unmanaged'
-      AND NOT b.managed
-    )
+    OR b.anchor_state = $1::text
   )
   AND (
     $2::bool = FALSE
@@ -198,7 +201,7 @@ WHERE
 `
 
 type CountIdentitiesInventoryByFiltersParams struct {
-	ManagedState          string   `json:"managed_state"`
+	AnchorState           string   `json:"anchor_state"`
 	PrivilegedOnly        bool     `json:"privileged_only"`
 	Status                string   `json:"status"`
 	ActivityState         string   `json:"activity_state"`
@@ -213,7 +216,7 @@ type CountIdentitiesInventoryByFiltersParams struct {
 
 func (q *Queries) CountIdentitiesInventoryByFilters(ctx context.Context, arg CountIdentitiesInventoryByFiltersParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countIdentitiesInventoryByFilters,
-		arg.ManagedState,
+		arg.AnchorState,
 		arg.PrivilegedOnly,
 		arg.Status,
 		arg.ActivityState,
@@ -274,7 +277,11 @@ WITH authoritative_identities AS (
 )
 SELECT
   i.id, i.kind, i.display_name, i.primary_email, i.created_at, i.updated_at,
-  (ai.identity_id IS NOT NULL)::boolean AS managed,
+  CASE
+    WHEN i.kind IN ('service', 'bot') THEN 'not_applicable'
+    WHEN ai.identity_id IS NOT NULL THEN 'anchored'
+    ELSE 'missing_anchor'
+  END AS anchor_state,
   COUNT(ia.account_id) AS linked_accounts
 FROM identities i
 LEFT JOIN identity_accounts ia ON ia.identity_id = i.id
@@ -290,7 +297,7 @@ type GetIdentitySummaryByIDRow struct {
 	PrimaryEmail   string             `json:"primary_email"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	Managed        bool               `json:"managed"`
+	AnchorState    string             `json:"anchor_state"`
 	LinkedAccounts int64              `json:"linked_accounts"`
 }
 
@@ -304,7 +311,7 @@ func (q *Queries) GetIdentitySummaryByID(ctx context.Context, id int64) (GetIden
 		&i.PrimaryEmail,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Managed,
+		&i.AnchorState,
 		&i.LinkedAccounts,
 	)
 	return i, err
@@ -427,7 +434,7 @@ account_rollups AS (
     BOOL_OR(aa.normalized_status IN ('active', 'enabled')) AS has_active,
     BOOL_OR(aa.normalized_status IN ('suspended', 'disabled', 'inactive', 'locked')) AS has_suspended,
     BOOL_AND(aa.normalized_status IN ('deleted', 'deprovisioned', 'terminated')) AS all_deleted,
-    BOOL_OR(COALESCE(iss.is_authoritative, FALSE)) AS managed
+    BOOL_OR(COALESCE(iss.is_authoritative, FALSE)) AS has_authoritative_anchor
   FROM all_active_accounts aa
   LEFT JOIN identity_source_settings iss
     ON iss.source_kind = aa.source_kind
@@ -487,7 +494,7 @@ base_metrics AS (
     ci.display_name,
     ci.primary_email,
     ci.identity_type,
-    COALESCE(ar.managed, FALSE)::boolean AS managed,
+    COALESCE(ar.has_authoritative_anchor, FALSE)::boolean AS has_authoritative_anchor,
     COALESCE(ps.source_kind, '') AS source_kind,
     COALESCE(ps.source_name, '') AS source_name,
     COALESCE(ar.integration_count, 0)::bigint AS integration_count,
@@ -514,11 +521,19 @@ base_metrics AS (
 ),
 base AS (
   SELECT
-    bm.id, bm.display_name, bm.primary_email, bm.identity_type, bm.managed, bm.source_kind, bm.source_name, bm.integration_count, bm.privileged_roles, bm.last_seen_at, bm.first_seen_at, bm.status, bm.activity_state,
+    bm.id, bm.display_name, bm.primary_email, bm.identity_type, bm.has_authoritative_anchor, bm.source_kind, bm.source_name, bm.integration_count, bm.privileged_roles, bm.last_seen_at, bm.first_seen_at, bm.status, bm.activity_state,
     CASE
-      WHEN (NOT bm.managed) AND bm.privileged_roles > 0 THEN 'action_required'
+      WHEN bm.identity_type IN ('service', 'bot') THEN 'not_applicable'
+      WHEN bm.has_authoritative_anchor THEN 'anchored'
+      ELSE 'missing_anchor'
+    END AS anchor_state,
+    CASE
+      WHEN bm.identity_type NOT IN ('service', 'bot')
+           AND NOT bm.has_authoritative_anchor
+           AND bm.privileged_roles > 0 THEN 'action_required'
       WHEN bm.privileged_roles > 0 AND bm.activity_state IN ('stale', 'never_seen') THEN 'action_required'
-      WHEN NOT bm.managed THEN 'review'
+      WHEN bm.identity_type NOT IN ('service', 'bot')
+           AND NOT bm.has_authoritative_anchor THEN 'review'
       WHEN bm.activity_state IN ('aging', 'stale', 'never_seen') THEN 'review'
       ELSE 'healthy'
     END AS row_state
@@ -529,7 +544,7 @@ SELECT
   b.display_name,
   b.primary_email,
   b.identity_type,
-  b.managed,
+  b.anchor_state,
   b.source_kind,
   b.source_name,
   b.integration_count,
@@ -544,14 +559,7 @@ FROM base b
 WHERE
   (
     $1::text = ''
-    OR (
-      $1::text = 'managed'
-      AND b.managed
-    )
-    OR (
-      $1::text = 'unmanaged'
-      AND NOT b.managed
-    )
+    OR b.anchor_state = $1::text
   )
   AND (
     $2::bool = FALSE
@@ -605,14 +613,14 @@ ORDER BY
   END DESC,
 
   CASE
-    WHEN $6::text = 'managed'
+    WHEN $6::text = 'anchor'
       AND $7::text = 'asc'
-    THEN CASE WHEN b.managed THEN 1 ELSE 0 END
+    THEN CASE b.anchor_state WHEN 'anchored' THEN 0 WHEN 'missing_anchor' THEN 1 ELSE 2 END
   END ASC,
   CASE
-    WHEN $6::text = 'managed'
+    WHEN $6::text = 'anchor'
       AND $7::text = 'desc'
-    THEN CASE WHEN b.managed THEN 1 ELSE 0 END
+    THEN CASE b.anchor_state WHEN 'missing_anchor' THEN 2 WHEN 'anchored' THEN 1 ELSE 0 END
   END DESC,
 
   CASE
@@ -689,7 +697,7 @@ OFFSET $8::int
 `
 
 type ListIdentitiesInventoryPageByFiltersParams struct {
-	ManagedState          string   `json:"managed_state"`
+	AnchorState           string   `json:"anchor_state"`
 	PrivilegedOnly        bool     `json:"privileged_only"`
 	Status                string   `json:"status"`
 	ActivityState         string   `json:"activity_state"`
@@ -711,7 +719,7 @@ type ListIdentitiesInventoryPageByFiltersRow struct {
 	DisplayName      string             `json:"display_name"`
 	PrimaryEmail     string             `json:"primary_email"`
 	IdentityType     string             `json:"identity_type"`
-	Managed          bool               `json:"managed"`
+	AnchorState      string             `json:"anchor_state"`
 	SourceKind       string             `json:"source_kind"`
 	SourceName       string             `json:"source_name"`
 	IntegrationCount int64              `json:"integration_count"`
@@ -726,7 +734,7 @@ type ListIdentitiesInventoryPageByFiltersRow struct {
 
 func (q *Queries) ListIdentitiesInventoryPageByFilters(ctx context.Context, arg ListIdentitiesInventoryPageByFiltersParams) ([]ListIdentitiesInventoryPageByFiltersRow, error) {
 	rows, err := q.db.Query(ctx, listIdentitiesInventoryPageByFilters,
-		arg.ManagedState,
+		arg.AnchorState,
 		arg.PrivilegedOnly,
 		arg.Status,
 		arg.ActivityState,
@@ -754,7 +762,7 @@ func (q *Queries) ListIdentitiesInventoryPageByFilters(ctx context.Context, arg 
 			&i.DisplayName,
 			&i.PrimaryEmail,
 			&i.IdentityType,
-			&i.Managed,
+			&i.AnchorState,
 			&i.SourceKind,
 			&i.SourceName,
 			&i.IntegrationCount,
@@ -815,7 +823,9 @@ filtered_source_accounts AS (
     )
 ),
 filtered_identities AS (
-  SELECT i.id
+  SELECT
+    i.id,
+    i.kind AS identity_type
   FROM identities i
   WHERE
     (
@@ -836,7 +846,7 @@ filtered_identities AS (
     )
 ),
 candidate_identities AS (
-  SELECT fi.id
+  SELECT fi.id, fi.identity_type
   FROM filtered_identities fi
   WHERE EXISTS (
     SELECT 1
@@ -852,7 +862,7 @@ account_rollups AS (
     BOOL_OR(aa.normalized_status IN ('active', 'enabled')) AS has_active,
     BOOL_OR(aa.normalized_status IN ('suspended', 'disabled', 'inactive', 'locked')) AS has_suspended,
     BOOL_AND(aa.normalized_status IN ('deleted', 'deprovisioned', 'terminated')) AS all_deleted,
-    BOOL_OR(COALESCE(iss.is_authoritative, FALSE)) AS managed
+    BOOL_OR(COALESCE(iss.is_authoritative, FALSE)) AS has_authoritative_anchor
   FROM all_active_accounts aa
   LEFT JOIN identity_source_settings iss
     ON iss.source_kind = aa.source_kind
@@ -897,7 +907,8 @@ privileged_counts AS (
 base_metrics AS (
   SELECT
     ci.id,
-    COALESCE(ar.managed, FALSE)::boolean AS managed,
+    ci.identity_type,
+    COALESCE(ar.has_authoritative_anchor, FALSE)::boolean AS has_authoritative_anchor,
     COALESCE(pc.privileged_roles, 0)::bigint AS privileged_roles,
     CASE
       WHEN COALESCE(ar.account_count, 0) = 0 THEN 'orphaned'
@@ -918,11 +929,19 @@ base_metrics AS (
 ),
 base AS (
   SELECT
-    bm.id, bm.managed, bm.privileged_roles, bm.status, bm.activity_state,
+    bm.id, bm.identity_type, bm.has_authoritative_anchor, bm.privileged_roles, bm.status, bm.activity_state,
     CASE
-      WHEN (NOT bm.managed) AND bm.privileged_roles > 0 THEN 'action_required'
+      WHEN bm.identity_type IN ('service', 'bot') THEN 'not_applicable'
+      WHEN bm.has_authoritative_anchor THEN 'anchored'
+      ELSE 'missing_anchor'
+    END AS anchor_state,
+    CASE
+      WHEN bm.identity_type NOT IN ('service', 'bot')
+           AND NOT bm.has_authoritative_anchor
+           AND bm.privileged_roles > 0 THEN 'action_required'
       WHEN bm.privileged_roles > 0 AND bm.activity_state IN ('stale', 'never_seen') THEN 'action_required'
-      WHEN NOT bm.managed THEN 'review'
+      WHEN bm.identity_type NOT IN ('service', 'bot')
+           AND NOT bm.has_authoritative_anchor THEN 'review'
       WHEN bm.activity_state IN ('aging', 'stale', 'never_seen') THEN 'review'
       ELSE 'healthy'
     END AS row_state
@@ -933,12 +952,11 @@ SELECT
   COUNT(*) FILTER (WHERE row_state = 'action_required')::bigint             AS action_required_count,
   COUNT(*) FILTER (WHERE row_state = 'review')::bigint                      AS review_count,
   COUNT(*) FILTER (WHERE privileged_roles > 0)::bigint                      AS privileged_count,
-  COUNT(*) FILTER (WHERE privileged_roles > 0 AND NOT managed)::bigint       AS privileged_unmanaged_count,
   COUNT(*) FILTER (
     WHERE privileged_roles > 0
       AND activity_state = 'stale'
   )::bigint                                                                 AS stale_privileged_count,
-  COUNT(*) FILTER (WHERE NOT managed)::bigint                               AS unmanaged_count,
+  COUNT(*) FILTER (WHERE anchor_state = 'missing_anchor')::bigint            AS missing_anchor_count,
   COUNT(*) FILTER (WHERE status = 'suspended')::bigint                      AS suspended_count,
   COUNT(*) FILTER (WHERE activity_state = 'stale')::bigint                   AS stale_count
 FROM base
@@ -954,25 +972,24 @@ type SummarizeIdentitiesInventoryByFiltersParams struct {
 }
 
 type SummarizeIdentitiesInventoryByFiltersRow struct {
-	TotalCount               int64 `json:"total_count"`
-	ActionRequiredCount      int64 `json:"action_required_count"`
-	ReviewCount              int64 `json:"review_count"`
-	PrivilegedCount          int64 `json:"privileged_count"`
-	PrivilegedUnmanagedCount int64 `json:"privileged_unmanaged_count"`
-	StalePrivilegedCount     int64 `json:"stale_privileged_count"`
-	UnmanagedCount           int64 `json:"unmanaged_count"`
-	SuspendedCount           int64 `json:"suspended_count"`
-	StaleCount               int64 `json:"stale_count"`
+	TotalCount           int64 `json:"total_count"`
+	ActionRequiredCount  int64 `json:"action_required_count"`
+	ReviewCount          int64 `json:"review_count"`
+	PrivilegedCount      int64 `json:"privileged_count"`
+	StalePrivilegedCount int64 `json:"stale_privileged_count"`
+	MissingAnchorCount   int64 `json:"missing_anchor_count"`
+	SuspendedCount       int64 `json:"suspended_count"`
+	StaleCount           int64 `json:"stale_count"`
 }
 
 // Returns bucketed counts for the identity inventory, scoped to the
 // user-applied source, search, and identity_type filters but ignoring
-// segment-like filters (managed_state, privileged, status, activity_state).
+// segment-like filters (anchor, privileged, status, activity_state).
 // The result is used to drive the operator stat strip and segment chips on
 // the identities list: it tells the user the shape of the population they
 // are currently looking at, independent of any segment they have already
 // applied. Buckets are counts, not exclusive categories (an identity can be
-// both privileged and unmanaged).
+// both privileged and missing an authoritative anchor).
 func (q *Queries) SummarizeIdentitiesInventoryByFilters(ctx context.Context, arg SummarizeIdentitiesInventoryByFiltersParams) (SummarizeIdentitiesInventoryByFiltersRow, error) {
 	row := q.db.QueryRow(ctx, summarizeIdentitiesInventoryByFilters,
 		arg.ConfiguredSourceKinds,
@@ -988,9 +1005,8 @@ func (q *Queries) SummarizeIdentitiesInventoryByFilters(ctx context.Context, arg
 		&i.ActionRequiredCount,
 		&i.ReviewCount,
 		&i.PrivilegedCount,
-		&i.PrivilegedUnmanagedCount,
 		&i.StalePrivilegedCount,
-		&i.UnmanagedCount,
+		&i.MissingAnchorCount,
 		&i.SuspendedCount,
 		&i.StaleCount,
 	)

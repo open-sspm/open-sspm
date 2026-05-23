@@ -13,6 +13,6 @@ type GitHubUsersViewData struct {
 	HasUsers bool
 }
 
-type UnmatchedGitHubViewData struct {
-	UnmatchedSourceAccountsPageData
+type GitHubAccountsNeedingAnchorViewData struct {
+	SourceAccountsNeedingAnchorPageData
 }

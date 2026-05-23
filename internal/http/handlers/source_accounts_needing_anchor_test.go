@@ -13,15 +13,15 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
-func TestBuildUnmatchedSourceAccountsPageUnavailable(t *testing.T) {
+func TestBuildSourceAccountsNeedingAnchorPageUnavailable(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(_ context.Context, _ *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
-		c, _ := newTestContext(http.MethodGet, "http://example.com/accounts/unlinked/github/acme?q=alice")
-		(*c).SetPath("/accounts/unlinked/github/:org")
+		c, _ := newTestContext(http.MethodGet, "http://example.com/accounts/needs-anchor/github/acme?q=alice")
+		(*c).SetPath("/accounts/needs-anchor/github/:org")
 		(*c).SetPathValues(echo.PathValues{{Name: "org", Value: "acme"}})
 
-		result, err := h.buildUnmatchedSourceAccountsPage(c, githubUnmatchedOptions())
+		result, err := h.buildSourceAccountsNeedingAnchorPage(c, githubNeedsAnchorOptions())
 		if err != nil {
-			t.Fatalf("buildUnmatchedSourceAccountsPage(): %v", err)
+			t.Fatalf("buildSourceAccountsNeedingAnchorPage(): %v", err)
 		}
 
 		if result.PageData.Query.Q != "alice" {
@@ -42,7 +42,7 @@ func TestBuildUnmatchedSourceAccountsPageUnavailable(t *testing.T) {
 	})
 }
 
-func TestBuildUnmatchedSourceAccountsPageEmptyStateMessages(t *testing.T) {
+func TestBuildSourceAccountsNeedingAnchorPageEmptyStateMessages(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{
 			TenantID:     "tenant-1",
@@ -51,30 +51,30 @@ func TestBuildUnmatchedSourceAccountsPageEmptyStateMessages(t *testing.T) {
 		})
 
 		t.Run("uses synced empty state when query is blank", func(t *testing.T) {
-			c, _ := newTestContext(http.MethodGet, "http://example.com/accounts/unlinked/entra")
-			result, err := h.buildUnmatchedSourceAccountsPage(c, entraUnmatchedOptions())
+			c, _ := newTestContext(http.MethodGet, "http://example.com/accounts/needs-anchor/entra")
+			result, err := h.buildSourceAccountsNeedingAnchorPage(c, entraNeedsAnchorOptions())
 			if err != nil {
-				t.Fatalf("buildUnmatchedSourceAccountsPage(): %v", err)
+				t.Fatalf("buildSourceAccountsNeedingAnchorPage(): %v", err)
 			}
-			if result.PageData.EmptyStateMsg != "No unlinked Microsoft Entra ID users." {
+			if result.PageData.EmptyStateMsg != "No Microsoft Entra ID users need an anchor." {
 				t.Fatalf("EmptyStateMsg = %q", result.PageData.EmptyStateMsg)
 			}
 		})
 
 		t.Run("uses filtered empty state when query is present", func(t *testing.T) {
-			c, _ := newTestContext(http.MethodGet, "http://example.com/accounts/unlinked/entra?q=alice")
-			result, err := h.buildUnmatchedSourceAccountsPage(c, entraUnmatchedOptions())
+			c, _ := newTestContext(http.MethodGet, "http://example.com/accounts/needs-anchor/entra?q=alice")
+			result, err := h.buildSourceAccountsNeedingAnchorPage(c, entraNeedsAnchorOptions())
 			if err != nil {
-				t.Fatalf("buildUnmatchedSourceAccountsPage(): %v", err)
+				t.Fatalf("buildSourceAccountsNeedingAnchorPage(): %v", err)
 			}
-			if result.PageData.EmptyStateMsg != "No unlinked Microsoft Entra ID users match the current search." {
+			if result.PageData.EmptyStateMsg != "No Microsoft Entra ID users needing an anchor match the current search." {
 				t.Fatalf("EmptyStateMsg = %q", result.PageData.EmptyStateMsg)
 			}
 		})
 	})
 }
 
-func TestBuildUnmatchedSourceAccountsPageValidatesRouteParams(t *testing.T) {
+func TestBuildSourceAccountsNeedingAnchorPageValidatesRouteParams(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
 			Org:   "acme",
@@ -87,40 +87,40 @@ func TestBuildUnmatchedSourceAccountsPageValidatesRouteParams(t *testing.T) {
 		})
 
 		t.Run("missing github org returns not found", func(t *testing.T) {
-			c, _ := newTestContext(http.MethodGet, "http://example.com/accounts/unlinked/github")
-			_, err := h.buildUnmatchedSourceAccountsPage(c, githubUnmatchedOptions())
-			if !errors.Is(err, errUnmatchedSourceAccountNotFound) {
-				t.Fatalf("error = %v, want errUnmatchedSourceAccountNotFound", err)
+			c, _ := newTestContext(http.MethodGet, "http://example.com/accounts/needs-anchor/github")
+			_, err := h.buildSourceAccountsNeedingAnchorPage(c, githubNeedsAnchorOptions())
+			if !errors.Is(err, errSourceAccountNeedsAnchorNotFound) {
+				t.Fatalf("error = %v, want errSourceAccountNeedsAnchorNotFound", err)
 			}
 		})
 
 		t.Run("unknown github org returns source validation error", func(t *testing.T) {
-			c, _ := newTestContext(http.MethodGet, "http://example.com/accounts/unlinked/github/other")
-			(*c).SetPath("/accounts/unlinked/github/:org")
+			c, _ := newTestContext(http.MethodGet, "http://example.com/accounts/needs-anchor/github/other")
+			(*c).SetPath("/accounts/needs-anchor/github/:org")
 			(*c).SetPathValues(echo.PathValues{{Name: "org", Value: "other"}})
 
-			_, err := h.buildUnmatchedSourceAccountsPage(c, githubUnmatchedOptions())
-			var sourceErr unmatchedSourceNameError
-			if !errors.As(err, &sourceErr) || sourceErr != unmatchedSourceNameError("unknown org") {
+			_, err := h.buildSourceAccountsNeedingAnchorPage(c, githubNeedsAnchorOptions())
+			var sourceErr sourceAccountNeedsAnchorNameError
+			if !errors.As(err, &sourceErr) || sourceErr != sourceAccountNeedsAnchorNameError("unknown org") {
 				t.Fatalf("error = %v, want unknown org validation error", err)
 			}
 		})
 
 		t.Run("unknown datadog site returns source validation error", func(t *testing.T) {
-			c, _ := newTestContext(http.MethodGet, "http://example.com/accounts/unlinked/datadog/us5.datadoghq.com")
-			(*c).SetPath("/accounts/unlinked/datadog/:site")
+			c, _ := newTestContext(http.MethodGet, "http://example.com/accounts/needs-anchor/datadog/us5.datadoghq.com")
+			(*c).SetPath("/accounts/needs-anchor/datadog/:site")
 			(*c).SetPathValues(echo.PathValues{{Name: "site", Value: "us5.datadoghq.com"}})
 
-			_, err := h.buildUnmatchedSourceAccountsPage(c, datadogUnmatchedOptions())
-			var sourceErr unmatchedSourceNameError
-			if !errors.As(err, &sourceErr) || sourceErr != unmatchedSourceNameError("unknown site") {
+			_, err := h.buildSourceAccountsNeedingAnchorPage(c, datadogNeedsAnchorOptions())
+			var sourceErr sourceAccountNeedsAnchorNameError
+			if !errors.As(err, &sourceErr) || sourceErr != sourceAccountNeedsAnchorNameError("unknown site") {
 				t.Fatalf("error = %v, want unknown site validation error", err)
 			}
 		})
 	})
 }
 
-func TestHandleUnmatchedGitHubRendersUnlinkedAccounts(t *testing.T) {
+func TestHandleGitHubAccountsNeedingAnchorRendersAccounts(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
 			Org:   "acme",
@@ -140,12 +140,12 @@ func TestHandleUnmatchedGitHubRendersUnlinkedAccounts(t *testing.T) {
 			RawJSON:        `{"login":"octocat"}`,
 		})
 
-		c, rec := newTestContext(http.MethodGet, "http://example.com/accounts/unlinked/github/acme")
-		(*c).SetPath("/accounts/unlinked/github/:org")
+		c, rec := newTestContext(http.MethodGet, "http://example.com/accounts/needs-anchor/github/acme")
+		(*c).SetPath("/accounts/needs-anchor/github/:org")
 		(*c).SetPathValues(echo.PathValues{{Name: "org", Value: "acme"}})
 
-		if err := h.HandleUnmatchedGitHub(c); err != nil {
-			t.Fatalf("HandleUnmatchedGitHub(): %v", err)
+		if err := h.HandleGitHubAccountsNeedingAnchor(c); err != nil {
+			t.Fatalf("HandleGitHubAccountsNeedingAnchor(): %v", err)
 		}
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
@@ -154,42 +154,42 @@ func TestHandleUnmatchedGitHubRendersUnlinkedAccounts(t *testing.T) {
 		body := rec.Body.String()
 		assertContains(t, body, "octocat")
 		assertContains(t, body, "Showing 1-1 of 1")
-		assertNotContains(t, body, "No unlinked GitHub accounts.")
+		assertNotContains(t, body, "No GitHub accounts need an anchor.")
 	})
 }
 
-func githubUnmatchedOptions() unmatchedSourceAccountOptions {
-	return unmatchedSourceAccountOptions{
-		Title:              "Unlinked GitHub Accounts",
+func githubNeedsAnchorOptions() sourceAccountsNeedingAnchorOptions {
+	return sourceAccountsNeedingAnchorOptions{
+		Title:              "GitHub Accounts Needing Anchor",
 		ConnectorName:      "GitHub",
 		ConnectorKind:      "github",
 		SourceKind:         "github",
 		EmptyStateHref:     "/settings/connectors?open=github",
-		SyncedEmptyState:   "No unlinked GitHub accounts.",
-		FilteredEmptyState: "No unlinked GitHub accounts match the current search.",
+		SyncedEmptyState:   "No GitHub accounts need an anchor.",
+		FilteredEmptyState: "No GitHub accounts needing an anchor match the current search.",
 		ResolveSourceName: func(c *echo.Context, configuredSourceName string) (string, error) {
 			org := routeParamOrWildcard(c, "org")
 			if org == "" {
-				return "", errUnmatchedSourceAccountNotFound
+				return "", errSourceAccountNeedsAnchorNotFound
 			}
 			if org != configuredSourceName {
-				return "", unmatchedSourceNameError("unknown org")
+				return "", sourceAccountNeedsAnchorNameError("unknown org")
 			}
 			return org, nil
 		},
 	}
 }
 
-func entraUnmatchedOptions() unmatchedSourceAccountOptions {
-	return unmatchedSourceAccountOptions{
-		Title:              "Unlinked Microsoft Entra ID Users",
+func entraNeedsAnchorOptions() sourceAccountsNeedingAnchorOptions {
+	return sourceAccountsNeedingAnchorOptions{
+		Title:              "Microsoft Entra ID Users Needing Anchor",
 		ConnectorName:      "Microsoft Entra ID",
 		ConnectorKind:      "entra",
 		SourceKind:         "entra",
 		EntityCategory:     registry.EntityCategoryUser,
 		EmptyStateHref:     "/settings/connectors?open=entra",
-		SyncedEmptyState:   "No unlinked Microsoft Entra ID users.",
-		FilteredEmptyState: "No unlinked Microsoft Entra ID users match the current search.",
+		SyncedEmptyState:   "No Microsoft Entra ID users need an anchor.",
+		FilteredEmptyState: "No Microsoft Entra ID users needing an anchor match the current search.",
 		UnavailableMessageFn: func(configured, enabled bool) string {
 			if configured && !enabled {
 				return "Microsoft Entra ID sync is disabled. Enable it in Connectors."
@@ -202,22 +202,22 @@ func entraUnmatchedOptions() unmatchedSourceAccountOptions {
 	}
 }
 
-func datadogUnmatchedOptions() unmatchedSourceAccountOptions {
-	return unmatchedSourceAccountOptions{
-		Title:              "Unlinked Datadog Accounts",
+func datadogNeedsAnchorOptions() sourceAccountsNeedingAnchorOptions {
+	return sourceAccountsNeedingAnchorOptions{
+		Title:              "Datadog Accounts Needing Anchor",
 		ConnectorName:      "Datadog",
 		ConnectorKind:      "datadog",
 		SourceKind:         "datadog",
 		EmptyStateHref:     "/settings/connectors?open=datadog",
-		SyncedEmptyState:   "No unlinked Datadog accounts.",
-		FilteredEmptyState: "No unlinked Datadog accounts match the current search.",
+		SyncedEmptyState:   "No Datadog accounts need an anchor.",
+		FilteredEmptyState: "No Datadog accounts needing an anchor match the current search.",
 		ResolveSourceName: func(c *echo.Context, configuredSourceName string) (string, error) {
 			site := routeParamOrWildcard(c, "site")
 			if site == "" {
-				return "", errUnmatchedSourceAccountNotFound
+				return "", errSourceAccountNeedsAnchorNotFound
 			}
 			if site != configuredSourceName {
-				return "", unmatchedSourceNameError("unknown site")
+				return "", sourceAccountNeedsAnchorNameError("unknown site")
 			}
 			return site, nil
 		},

@@ -1,0 +1,107 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ GoogleWorkspaceAccountsNeedingAnchorPage(data viewmodels.GoogleWorkspaceAccountsNeedingAnchorViewData) {
+	@Layout(data.Layout) {
+		@PageHeader("") {
+			if data.Layout.GoogleWorkspaceConfigured {
+				<span class="badge-outline cursor-help" title={ "Customer ID: " + data.Layout.GoogleWorkspaceCustomerID }>Google customer</span>
+			} else {
+				<span class="badge-outline">Not configured</span>
+			}
+			<a class="btn-sm-outline" href="/identities">Identities</a>
+		}
+		if data.Layout.GoogleWorkspaceConfigured && data.Layout.GoogleWorkspaceEnabled {
+			@Alert("Manual anchoring", false) {
+				<p>Use this list to link users when automatic email matching cannot infer an authoritative identity anchor.</p>
+			}
+		} else {
+			@Alert("Google Workspace sync disabled", true) {
+				<p>
+					{ data.EmptyStateMsg } <a class="btn-sm-link px-1" href={ data.EmptyStateHref }>Configure Google Workspace</a>.
+				</p>
+			}
+		}
+		@GoogleWorkspaceAccountsNeedingAnchorPageFilters(data)
+		@GoogleWorkspaceAccountsNeedingAnchorPageResults(data)
+	}
+}
+
+templ GoogleWorkspaceAccountsNeedingAnchorPageFilters(data viewmodels.GoogleWorkspaceAccountsNeedingAnchorViewData) {
+	<form
+		method="get"
+		action="/accounts/needs-anchor/google-workspace"
+		data-enter-only-query="q"
+		hx-get="/accounts/needs-anchor/google-workspace"
+		hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+		hx-target="#google-workspace-needs-anchor-results"
+		hx-swap="outerHTML"
+		hx-push-url="true"
+		class="osspm-list-form"
+	>
+		<div class="osspm-list-toolbar">
+			<div class="min-w-0 flex-1">
+				@AskBar(SearchOnlyAskBar(data.Query, "Search email, name, or Google user ID", "#google-workspace-needs-anchor-results"))
+			</div>
+		</div>
+		<button class="sr-only" type="submit">Apply filters</button>
+	</form>
+}
+
+templ GoogleWorkspaceAccountsNeedingAnchorPageResults(data viewmodels.GoogleWorkspaceAccountsNeedingAnchorViewData) {
+	<div id="google-workspace-needs-anchor-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
+		<section class="space-y-3">
+			@ListSectionHeader("Google Workspace users needing anchor", "Google Workspace users awaiting an authoritative identity anchor.")
+			@ColumnsTable("") {
+				<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					<caption class="sr-only">Google Workspace users needing anchors with linking actions.</caption>
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">User</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
+							<th class="osspm-col-id-wide text-xs font-medium uppercase tracking-wide text-muted-foreground">User ID</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Link</th>
+						</tr>
+					</thead>
+					<tbody>
+						if data.HasUsers {
+							for _, u := range data.Users {
+								<tr>
+									<td class="font-medium"><span class="osspm-cell-primary osspm-truncate" title={ u.DisplayName }>{ u.DisplayName }</span></td>
+									<td>
+										if u.Email != "" {
+											<span class="osspm-cell-primary osspm-truncate" title={ u.Email }>{ u.Email }</span>
+										} else {
+											<span class="text-muted-foreground">&mdash;</span>
+										}
+									</td>
+									<td class="osspm-col-id-wide text-muted-foreground"><code class="osspm-token" title={ u.ExternalID }>{ u.ExternalID }</code></td>
+									<td>
+										@sourceAccountNeedsAnchorLinkAction(data.Layout.IsAdmin, data.Layout.CSRFToken, u.ID, "input w-full osspm-token")
+									</td>
+								</tr>
+							}
+						} else if data.Layout.GoogleWorkspaceConfigured && data.Layout.GoogleWorkspaceEnabled && data.Query.Q == "" {
+							<tr>
+								<td colspan="4">
+									@EmptyState("All caught up", "No Google Workspace users need an anchor. All detected accounts belong to an anchored identity.")
+								</td>
+							</tr>
+						} else {
+							<tr>
+								<td colspan="4">
+									@EmptyState("No users need an anchor", data.EmptyStateMsg)
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+			if data.TotalPages > 1 {
+				@ListPagination("google-workspace-needs-anchor-results", data.Page, data.TotalPages, BasicListPageHref(data.Query))
+			}
+		</section>
+	</div>
+}

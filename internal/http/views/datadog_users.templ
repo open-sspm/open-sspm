@@ -22,12 +22,12 @@ templ DatadogUserMobileRow(user viewmodels.DatadogUserListItem) {
 
 templ DatadogUsersPage(data viewmodels.DatadogUsersViewData) {
 	@Layout(data.Layout) {
-		@PageHeader("") {
-			if data.Layout.DatadogConfigured && data.Layout.DatadogEnabled {
-				<a class="btn-sm-outline" href={ "/accounts/unlinked/datadog/" + data.Layout.DatadogSite }>Unlinked</a>
-			} else {
-				<a class="btn-sm-outline" href="/settings/connectors?open=datadog">Configure</a>
-			}
+			@PageHeader("") {
+				if data.Layout.DatadogConfigured && data.Layout.DatadogEnabled {
+					<a class="btn-sm-outline" href={ "/accounts/needs-anchor/datadog/" + data.Layout.DatadogSite }>Needs anchor</a>
+				} else {
+					<a class="btn-sm-outline" href="/settings/connectors?open=datadog">Configure</a>
+				}
 		}
 
 		if !data.Layout.DatadogConfigured || !data.Layout.DatadogEnabled {

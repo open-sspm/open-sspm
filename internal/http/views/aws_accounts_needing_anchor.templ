@@ -1,0 +1,109 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ AWSAccountsNeedingAnchorPage(data viewmodels.AWSAccountsNeedingAnchorViewData) {
+	@Layout(data.Layout) {
+		@PageHeader("") {
+			if data.Layout.AWSIdentityCenterConfigured {
+				<span class="badge-outline">{ data.Layout.AWSIdentityCenterName }</span>
+			} else {
+				<span class="badge-outline">Not configured</span>
+			}
+			<a class="btn-sm-outline" href="/identities">Identities</a>
+		}
+		if data.Layout.AWSIdentityCenterConfigured && data.Layout.AWSIdentityCenterEnabled {
+			@Alert("Manual anchoring", false) {
+				<p>
+					Open-SSPM will anchor identities by authoritative source and email when possible. Use this list to link users with missing or mismatched emails.
+				</p>
+			}
+		} else {
+			@Alert("AWS Identity Center sync disabled", true) {
+				<p>
+					{ data.EmptyStateMsg } <a class="btn-sm-link px-1" href={ data.EmptyStateHref }>Configure AWS Identity Center</a>.
+				</p>
+			}
+		}
+		@AWSAccountsNeedingAnchorPageFilters(data)
+		@AWSAccountsNeedingAnchorPageResults(data)
+	}
+}
+
+templ AWSAccountsNeedingAnchorPageFilters(data viewmodels.AWSAccountsNeedingAnchorViewData) {
+	<form
+		method="get"
+		action="/accounts/needs-anchor/aws"
+		data-enter-only-query="q"
+		hx-get="/accounts/needs-anchor/aws"
+		hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+		hx-target="#aws-needs-anchor-results"
+		hx-swap="outerHTML"
+		hx-push-url="true"
+		class="osspm-list-form"
+	>
+		<div class="osspm-list-toolbar">
+			<div class="min-w-0 flex-1">
+				@AskBar(SearchOnlyAskBar(data.Query, "Search email, name, or user ID", "#aws-needs-anchor-results"))
+			</div>
+		</div>
+		<button class="sr-only" type="submit">Apply filters</button>
+	</form>
+}
+
+templ AWSAccountsNeedingAnchorPageResults(data viewmodels.AWSAccountsNeedingAnchorViewData) {
+	<div id="aws-needs-anchor-results" class="space-y-5">
+		@BusyInlineIndicator("Updating results...", false)
+		<section class="space-y-3">
+			@ListSectionHeader("AWS Identity Center users needing anchor", "AWS Identity Center users awaiting an authoritative identity anchor.")
+			@ColumnsTable("") {
+				<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
+					<caption class="sr-only">AWS Identity Center users needing anchors and actions to link each user to an identity.</caption>
+					<thead>
+						<tr>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">User</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">User ID</th>
+							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Link</th>
+						</tr>
+					</thead>
+					<tbody>
+						if data.HasUsers {
+							for _, u := range data.Users {
+								<tr>
+									<td class="font-medium">{ u.DisplayName }</td>
+									<td>
+										if u.Email != "" {
+											{ u.Email }
+										} else {
+											<span class="text-muted-foreground">&mdash;</span>
+										}
+									</td>
+									<td class="text-muted-foreground">{ u.ExternalID }</td>
+									<td>
+										@sourceAccountNeedsAnchorLinkAction(data.Layout.IsAdmin, data.Layout.CSRFToken, u.ID, "input w-full")
+									</td>
+								</tr>
+							}
+						} else if data.Layout.AWSIdentityCenterConfigured && data.Layout.AWSIdentityCenterEnabled && data.Query.Q == "" {
+							<tr>
+								<td colspan="4">
+									@EmptyState("All caught up", "No AWS Identity Center users need an anchor. All detected accounts belong to an anchored identity.")
+								</td>
+							</tr>
+						} else {
+							<tr>
+								<td colspan="4">
+									@EmptyState("No users need an anchor", data.EmptyStateMsg)
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+			if data.TotalPages > 1 {
+				@ListPagination("aws-needs-anchor-results", data.Page, data.TotalPages, BasicListPageHref(data.Query))
+			}
+		</section>
+	</div>
+}
