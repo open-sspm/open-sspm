@@ -620,7 +620,7 @@ ORDER BY
   CASE
     WHEN $6::text = 'anchor'
       AND $7::text = 'desc'
-    THEN CASE b.anchor_state WHEN 'missing_anchor' THEN 0 WHEN 'anchored' THEN 1 ELSE 2 END
+    THEN CASE b.anchor_state WHEN 'missing_anchor' THEN 2 WHEN 'anchored' THEN 1 ELSE 0 END
   END DESC,
 
   CASE

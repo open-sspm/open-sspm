@@ -492,7 +492,7 @@ ORDER BY
   CASE
     WHEN sqlc.arg(sort_by)::text = 'anchor'
       AND sqlc.arg(sort_dir)::text = 'desc'
-    THEN CASE b.anchor_state WHEN 'missing_anchor' THEN 0 WHEN 'anchored' THEN 1 ELSE 2 END
+    THEN CASE b.anchor_state WHEN 'missing_anchor' THEN 2 WHEN 'anchored' THEN 1 ELSE 0 END
   END DESC,
 
   CASE
