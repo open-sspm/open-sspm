@@ -7,7 +7,11 @@ VALUES (
 )
 RETURNING *;
 
--- name: GetPreferredIdentityByPrimaryEmail :one
+-- name: GetAnyIdentityByPrimaryEmail :one
+-- Returns *some* identity matching the email (authoritative-anchored first, then
+-- lowest id). Result is deterministic but arbitrary when two identities tie at
+-- the top tier; callers that need correctness in the face of duplicates should
+-- use FindUnambiguousIdentityByPrimaryEmail instead.
 WITH authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
   FROM identity_accounts ia
@@ -25,6 +29,46 @@ LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
 WHERE lower(trim(i.primary_email)) = lower(trim(sqlc.arg(primary_email)::text))
 ORDER BY (ai.identity_id IS NOT NULL) DESC, i.id ASC
 LIMIT 1;
+
+-- name: FindUnambiguousIdentityByPrimaryEmail :one
+-- Returns the single identity matching the email iff there is a strict winner
+-- at the top tier (authoritative-anchored beats non-authoritative). Returns no
+-- row when the email matches zero identities, or when two or more identities
+-- tie at the top tier (the resolver should treat that as ambiguous rather than
+-- picking arbitrarily).
+WITH authoritative_identities AS (
+  SELECT DISTINCT ia.identity_id
+  FROM identity_accounts ia
+  JOIN accounts anchor ON anchor.id = ia.account_id
+  JOIN identity_source_settings iss
+    ON iss.source_kind = anchor.source_kind
+   AND iss.source_name = anchor.source_name
+   AND iss.is_authoritative
+  WHERE anchor.expired_at IS NULL
+    AND anchor.last_observed_run_id IS NOT NULL
+),
+candidates AS (
+  SELECT
+    i.id,
+    (ai.identity_id IS NOT NULL) AS is_authoritative
+  FROM identities i
+  LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
+  WHERE lower(trim(i.primary_email)) = lower(trim(sqlc.arg(primary_email)::text))
+),
+top_tier AS (
+  SELECT id
+  FROM candidates
+  WHERE is_authoritative = (SELECT bool_or(is_authoritative) FROM candidates)
+)
+SELECT i.*
+FROM identities i
+JOIN top_tier t ON t.id = i.id
+WHERE (SELECT count(*) FROM top_tier) = 1;
+
+-- name: CountIdentitiesByPrimaryEmail :one
+SELECT count(*)
+FROM identities
+WHERE lower(trim(primary_email)) = lower(trim(sqlc.arg(primary_email)::text));
 
 -- name: UpdateIdentityAttributes :exec
 UPDATE identities

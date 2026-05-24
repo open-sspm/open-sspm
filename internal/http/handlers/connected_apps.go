@@ -102,22 +102,38 @@ func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 	ownerEmailInput := auth.NormalizeEmail(c.FormValue("owner_email"))
 	var ownerIdentityID pgtype.Int8
 	if ownerEmailInput != "" {
-		ownerIdentity, err := h.Q.GetPreferredIdentityByPrimaryEmail(ctx, ownerEmailInput)
+		ownerIdentity, err := h.Q.FindUnambiguousIdentityByPrimaryEmail(ctx, ownerEmailInput)
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-					alert: &viewmodels.AlertViewData{
-						Title:       "Owner not found",
-						Message:     "Assign an owner using an existing identity email address.",
-						Destructive: true,
-					},
-					ownerEmailInput:      ownerEmailInput,
-					governanceStateInput: governanceState,
-					ticketRefInput:       strings.TrimSpace(c.FormValue("ticket_ref")),
-					notesInput:           strings.TrimSpace(c.FormValue("notes")),
-				})
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return h.RenderError(c, err)
 			}
-			return h.RenderError(c, err)
+			// No strict winner. Distinguish "nobody owns this email" from
+			// "two or more identities tie" so the operator sees the right
+			// remediation prompt instead of being told to pick an email that
+			// is already taken multiple times.
+			count, countErr := h.Q.CountIdentitiesByPrimaryEmail(ctx, ownerEmailInput)
+			if countErr != nil {
+				return h.RenderError(c, countErr)
+			}
+			alert := &viewmodels.AlertViewData{
+				Title:       "Owner not found",
+				Message:     "Assign an owner using an existing identity email address.",
+				Destructive: true,
+			}
+			if count > 1 {
+				alert = &viewmodels.AlertViewData{
+					Title:       "Owner email is ambiguous",
+					Message:     "More than one identity claims this email. Resolve the conflict before assigning this owner.",
+					Destructive: true,
+				}
+			}
+			return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
+				alert:                alert,
+				ownerEmailInput:      ownerEmailInput,
+				governanceStateInput: governanceState,
+				ticketRefInput:       strings.TrimSpace(c.FormValue("ticket_ref")),
+				notesInput:           strings.TrimSpace(c.FormValue("notes")),
+			})
 		}
 		ownerIdentityID = pgtype.Int8{Int64: ownerIdentity.ID, Valid: true}
 	}

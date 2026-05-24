@@ -12,14 +12,16 @@ import (
 )
 
 const (
-	linkReasonAutoEmail               = "auto_email"
-	linkReasonAutoProvisionalIdentity = "auto_provisional_identity"
+	linkReasonAutoEmail                     = "auto_email"
+	linkReasonAutoProvisionalIdentity       = "auto_provisional_identity"
+	linkReasonAutoProvisionalAmbiguousEmail = "auto_provisional_ambiguous_email"
 )
 
 type queryRunner interface {
 	CountAccountsMissingIdentityLink(context.Context) (int64, error)
 	ListAccountsMissingIdentityLinkPage(context.Context, gen.ListAccountsMissingIdentityLinkPageParams) ([]gen.Account, error)
-	GetPreferredIdentityByPrimaryEmail(context.Context, string) (gen.Identity, error)
+	FindUnambiguousIdentityByPrimaryEmail(context.Context, string) (gen.Identity, error)
+	GetAnyIdentityByPrimaryEmail(context.Context, string) (gen.Identity, error)
 	CreateIdentity(context.Context, gen.CreateIdentityParams) (gen.Identity, error)
 	UpsertIdentityAccountLink(context.Context, gen.UpsertIdentityAccountLinkParams) (gen.IdentityAccount, error)
 	GetIdentityAccountLinkByAccountID(context.Context, int64) (gen.IdentityAccount, error)
@@ -114,19 +116,32 @@ func (r Resolver) resolveIdentityIDForAccount(ctx context.Context, account gen.A
 		}
 		return existing.IdentityID, strings.TrimSpace(existing.LinkReason), false, nil
 	}
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	if !errors.Is(err, pgx.ErrNoRows) {
 		return 0, "", false, err
 	}
 
 	email := normalizeEmail(account.Email)
 	accountKind := registry.NormalizeAccountKind(account.AccountKind)
 	if email != "" && accountKind != registry.AccountKindService && accountKind != registry.AccountKindBot {
-		identity, findErr := r.Q.GetPreferredIdentityByPrimaryEmail(ctx, email)
+		identity, findErr := r.Q.FindUnambiguousIdentityByPrimaryEmail(ctx, email)
 		if findErr == nil {
 			return identity.ID, linkReasonAutoEmail, false, nil
 		}
 		if !errors.Is(findErr, pgx.ErrNoRows) {
 			return 0, "", false, findErr
+		}
+		// No strict winner. Either there is no identity for this email at all,
+		// or two or more identities tie at the top tier. Disambiguate by
+		// asking for *some* deterministic identity at this email: if one
+		// exists, link to it with the ambiguous reason rather than minting a
+		// new identity (which would compound the duplicate problem). Only fall
+		// through to CreateIdentity when no identity owns this email yet.
+		anchor, anchorErr := r.Q.GetAnyIdentityByPrimaryEmail(ctx, email)
+		if anchorErr == nil {
+			return anchor.ID, linkReasonAutoProvisionalAmbiguousEmail, false, nil
+		}
+		if !errors.Is(anchorErr, pgx.ErrNoRows) {
+			return 0, "", false, anchorErr
 		}
 	}
 

@@ -83,7 +83,59 @@ func (s *resolverStub) ListAccountsMissingIdentityLinkPage(_ context.Context, pa
 	return rows[start:end], nil
 }
 
-func (s *resolverStub) GetPreferredIdentityByPrimaryEmail(_ context.Context, email string) (gen.Identity, error) {
+func (s *resolverStub) FindUnambiguousIdentityByPrimaryEmail(_ context.Context, email string) (gen.Identity, error) {
+	target := normalizeTestEmail(email)
+	if target == "" {
+		return gen.Identity{}, pgx.ErrNoRows
+	}
+
+	authoritativeByIdentity := make(map[int64]struct{})
+	authoritativeSources := make(map[string]struct{}, len(s.sources))
+	for _, source := range s.sources {
+		if !source.IsAuthoritative {
+			continue
+		}
+		authoritativeSources[sourceKey(source.SourceKind, source.SourceName)] = struct{}{}
+	}
+	for _, link := range s.linksByAccount {
+		account, ok := s.accounts[link.AccountID]
+		if !ok || !isActiveAccount(account) {
+			continue
+		}
+		if _, ok := authoritativeSources[sourceKey(account.SourceKind, account.SourceName)]; ok {
+			authoritativeByIdentity[link.IdentityID] = struct{}{}
+		}
+	}
+
+	candidates := make([]gen.Identity, 0)
+	anyAuthoritative := false
+	for _, identity := range s.identities {
+		if normalizeTestEmail(identity.PrimaryEmail) != target {
+			continue
+		}
+		candidates = append(candidates, identity)
+		if _, ok := authoritativeByIdentity[identity.ID]; ok {
+			anyAuthoritative = true
+		}
+	}
+	if len(candidates) == 0 {
+		return gen.Identity{}, pgx.ErrNoRows
+	}
+
+	topTier := make([]gen.Identity, 0, len(candidates))
+	for _, identity := range candidates {
+		_, isAuth := authoritativeByIdentity[identity.ID]
+		if isAuth == anyAuthoritative {
+			topTier = append(topTier, identity)
+		}
+	}
+	if len(topTier) != 1 {
+		return gen.Identity{}, pgx.ErrNoRows
+	}
+	return topTier[0], nil
+}
+
+func (s *resolverStub) GetAnyIdentityByPrimaryEmail(_ context.Context, email string) (gen.Identity, error) {
 	target := normalizeTestEmail(email)
 	if target == "" {
 		return gen.Identity{}, pgx.ErrNoRows
@@ -109,9 +161,10 @@ func (s *resolverStub) GetPreferredIdentityByPrimaryEmail(_ context.Context, ema
 
 	candidates := make([]gen.Identity, 0)
 	for _, identity := range s.identities {
-		if normalizeTestEmail(identity.PrimaryEmail) == target {
-			candidates = append(candidates, identity)
+		if normalizeTestEmail(identity.PrimaryEmail) != target {
+			continue
 		}
+		candidates = append(candidates, identity)
 	}
 	if len(candidates) == 0 {
 		return gen.Identity{}, pgx.ErrNoRows
@@ -405,7 +458,7 @@ func TestResolverResolveEmptyEmailCreatesUniqueIdentities(t *testing.T) {
 	}
 }
 
-func TestResolverResolveDuplicateEmailChoosesAuthoritativeThenLowestID(t *testing.T) {
+func TestResolverResolveDuplicateEmailRequiresUnambiguousWinner(t *testing.T) {
 	t.Parallel()
 
 	t.Run("authoritative preferred", func(t *testing.T) {
@@ -428,17 +481,67 @@ func TestResolverResolveDuplicateEmailChoosesAuthoritativeThenLowestID(t *testin
 		}
 	})
 
-	t.Run("lowest id when no authoritative", func(t *testing.T) {
+	t.Run("ambiguous when no authoritative winner", func(t *testing.T) {
+		// Two existing identities share an email and neither has an
+		// authoritative anchor. The new GitHub account should link to the
+		// lowest-id existing identity with the ambiguous reason rather than
+		// mint a third identity (which would compound the duplicate).
 		stub := newResolverStub()
 		stub.putIdentity(gen.Identity{ID: 2, PrimaryEmail: "team@example.com"})
 		stub.putIdentity(gen.Identity{ID: 5, PrimaryEmail: "team@example.com"})
 		stub.accounts[201] = makeActiveAccount(201, "github", "acme", "team@example.com", "GitHub")
 
+		stats, err := (Resolver{Q: stub}).Resolve(context.Background())
+		if err != nil {
+			t.Fatalf("Resolve() error = %v", err)
+		}
+		if stats.ProvisionalIdentities != 0 {
+			t.Fatalf("ProvisionalIdentities = %d, want 0 (link should reuse existing identity, not create one)", stats.ProvisionalIdentities)
+		}
+		if len(stub.identities) != 2 {
+			t.Fatalf("identities count = %d, want 2 (no new identity should be minted)", len(stub.identities))
+		}
+		link := stub.linksByAccount[201]
+		if link.IdentityID != 2 {
+			t.Fatalf("link.IdentityID = %d, want 2 (lowest-id existing identity)", link.IdentityID)
+		}
+		if link.LinkReason != linkReasonAutoProvisionalAmbiguousEmail {
+			t.Fatalf("link reason = %q, want %q", link.LinkReason, linkReasonAutoProvisionalAmbiguousEmail)
+		}
+	})
+
+	t.Run("ambiguous when two authoritative anchors tie", func(t *testing.T) {
+		// Two existing identities are each anchored by a different
+		// authoritative source. The GitHub account should link to the
+		// (deterministic) lowest-id authoritative-anchored identity with the
+		// ambiguous reason — no new identity should be created.
+		stub := newResolverStub()
+		stub.sources = []gen.IdentitySourceSetting{
+			{SourceKind: "okta", SourceName: "example.okta.com", IsAuthoritative: true},
+			{SourceKind: "entra", SourceName: "tenant", IsAuthoritative: true},
+		}
+
+		stub.putIdentity(gen.Identity{ID: 1, PrimaryEmail: "team@example.com"})
+		stub.putIdentity(gen.Identity{ID: 2, PrimaryEmail: "team@example.com"})
+		stub.accounts[100] = makeActiveAccount(100, "okta", "example.okta.com", "team@example.com", "Okta")
+		stub.putLink(gen.IdentityAccount{ID: 1, IdentityID: 1, AccountID: 100, LinkReason: "seed_migration", Confidence: 1})
+		stub.accounts[101] = makeActiveAccount(101, "entra", "tenant", "team@example.com", "Entra")
+		stub.putLink(gen.IdentityAccount{ID: 2, IdentityID: 2, AccountID: 101, LinkReason: "seed_migration", Confidence: 1})
+		stub.accounts[202] = makeActiveAccount(202, "github", "acme", "team@example.com", "GitHub")
+
+		identitiesBefore := len(stub.identities)
 		if _, err := (Resolver{Q: stub}).Resolve(context.Background()); err != nil {
 			t.Fatalf("Resolve() error = %v", err)
 		}
-		if got := stub.linksByAccount[201].IdentityID; got != 2 {
-			t.Fatalf("identity = %d, want lowest identity 2", got)
+		if len(stub.identities) != identitiesBefore {
+			t.Fatalf("identities count = %d, want %d (no new identity should be minted)", len(stub.identities), identitiesBefore)
+		}
+		link := stub.linksByAccount[202]
+		if link.IdentityID != 1 {
+			t.Fatalf("link.IdentityID = %d, want 1 (lowest-id authoritative-anchored identity)", link.IdentityID)
+		}
+		if link.LinkReason != linkReasonAutoProvisionalAmbiguousEmail {
+			t.Fatalf("link reason = %q, want %q", link.LinkReason, linkReasonAutoProvisionalAmbiguousEmail)
 		}
 	})
 }

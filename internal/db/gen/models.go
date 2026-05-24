@@ -10,10 +10,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// Concrete source account or principal observed from a connector. Entitlements attach to accounts and roll up to identities through identity_accounts.
 type Account struct {
-	ID                int64              `json:"id"`
-	SourceKind        string             `json:"source_kind"`
-	SourceName        string             `json:"source_name"`
+	ID int64 `json:"id"`
+	// Connector kind that produced this source account, such as okta, entra, github, datadog, google_workspace, or aws.
+	SourceKind string `json:"source_kind"`
+	// Connector instance identifier scoped with source_kind.
+	SourceName string `json:"source_name"`
+	// Provider-native stable account identifier within source_kind and source_name.
 	ExternalID        string             `json:"external_id"`
 	Email             string             `json:"email"`
 	DisplayName       string             `json:"display_name"`
@@ -30,8 +34,10 @@ type Account struct {
 	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
 	Status            string             `json:"status"`
-	AccountKind       string             `json:"account_kind"`
-	EntityCategory    string             `json:"entity_category"`
+	// High-level identity classification for this account: human, service, bot, or unknown.
+	AccountKind string `json:"account_kind"`
+	// Provider entity category used to separate users from groups, roles, teams, service principals, and other principal-like objects.
+	EntityCategory string `json:"entity_category"`
 }
 
 type AppAsset struct {
@@ -522,28 +528,38 @@ type GovernanceSubjectOverride struct {
 	ReplacementSaasAppID  pgtype.Int8        `json:"replacement_saas_app_id"`
 }
 
+// Normalized identity rollup. Human identities may be managed by an authoritative source anchor or provisional until anchored; non-human identities represent service and bot principals.
 type Identity struct {
-	ID           int64              `json:"id"`
-	Kind         string             `json:"kind"`
-	DisplayName  string             `json:"display_name"`
+	ID int64 `json:"id"`
+	// Normalized identity classification: human, service, bot, or unknown.
+	Kind        string `json:"kind"`
+	DisplayName string `json:"display_name"`
+	// Preferred normalized email for display and deterministic matching. Alias history belongs in a separate future table.
 	PrimaryEmail string             `json:"primary_email"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+// Exclusive mapping from source accounts to normalized identities. One identity can have many accounts, but each account belongs to exactly one identity.
 type IdentityAccount struct {
-	ID         int64              `json:"id"`
-	IdentityID int64              `json:"identity_id"`
-	AccountID  int64              `json:"account_id"`
-	LinkReason string             `json:"link_reason"`
+	ID int64 `json:"id"`
+	// Normalized identity that owns this source account membership.
+	IdentityID int64 `json:"identity_id"`
+	// Source account membership. This column is intentionally unique and must not be relaxed to model shared-account ownership.
+	AccountID int64 `json:"account_id"`
+	// Reason this account was linked to the identity, such as manual, auto_email, seed_migration, or auto_provisional_identity.
+	LinkReason string `json:"link_reason"`
+	// Confidence for the accepted account-to-identity link. Detailed evidence belongs in a separate future evidence table.
 	Confidence float32            `json:"confidence"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }
 
+// Per-source identity settings. Authoritative sources provide identity anchors for managed human posture and attribute preference.
 type IdentitySourceSetting struct {
-	SourceKind      string             `json:"source_kind"`
-	SourceName      string             `json:"source_name"`
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+	// When true, active accounts from this source make linked human identities anchored/managed and are preferred for identity attributes.
 	IsAuthoritative bool               `json:"is_authoritative"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
