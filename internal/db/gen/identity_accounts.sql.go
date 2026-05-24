@@ -57,7 +57,7 @@ func (q *Queries) CountAccountsMissingIdentityLinkByConfiguredSources(ctx contex
 }
 
 const getIdentityAccountLinkByAccountID = `-- name: GetIdentityAccountLinkByAccountID :one
-SELECT id, identity_id, account_id, link_reason, confidence, created_at, updated_at
+SELECT id, identity_id, account_id, link_reason, confidence, created_at, updated_at, link_state, resolver_version, linked_at, reviewed_by, reviewed_at
 FROM identity_accounts
 WHERE account_id = $1
 `
@@ -73,12 +73,44 @@ func (q *Queries) GetIdentityAccountLinkByAccountID(ctx context.Context, account
 		&i.Confidence,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LinkState,
+		&i.ResolverVersion,
+		&i.LinkedAt,
+		&i.ReviewedBy,
+		&i.ReviewedAt,
+	)
+	return i, err
+}
+
+const getIdentityAccountLinkByAccountIDForUpdate = `-- name: GetIdentityAccountLinkByAccountIDForUpdate :one
+SELECT id, identity_id, account_id, link_reason, confidence, created_at, updated_at, link_state, resolver_version, linked_at, reviewed_by, reviewed_at
+FROM identity_accounts
+WHERE account_id = $1
+FOR UPDATE
+`
+
+func (q *Queries) GetIdentityAccountLinkByAccountIDForUpdate(ctx context.Context, accountID int64) (IdentityAccount, error) {
+	row := q.db.QueryRow(ctx, getIdentityAccountLinkByAccountIDForUpdate, accountID)
+	var i IdentityAccount
+	err := row.Scan(
+		&i.ID,
+		&i.IdentityID,
+		&i.AccountID,
+		&i.LinkReason,
+		&i.Confidence,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LinkState,
+		&i.ResolverVersion,
+		&i.LinkedAt,
+		&i.ReviewedBy,
+		&i.ReviewedAt,
 	)
 	return i, err
 }
 
 const getIdentityBySourceAndExternalID = `-- name: GetIdentityBySourceAndExternalID :one
-SELECT i.id, i.kind, i.display_name, i.primary_email, i.created_at, i.updated_at
+SELECT i.id, i.kind, i.display_name, i.primary_email, i.created_at, i.updated_at, i.resolution_state, i.identity_kind, i.primary_email_id
 FROM identities i
 JOIN identity_accounts ia ON ia.identity_id = i.id
 JOIN accounts a ON a.id = ia.account_id
@@ -107,6 +139,9 @@ func (q *Queries) GetIdentityBySourceAndExternalID(ctx context.Context, arg GetI
 		&i.PrimaryEmail,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ResolutionState,
+		&i.IdentityKind,
+		&i.PrimaryEmailID,
 	)
 	return i, err
 }
@@ -187,21 +222,24 @@ LEFT JOIN identity_accounts ia ON ia.account_id = a.id
 WHERE ia.id IS NULL
   AND a.expired_at IS NULL
   AND a.last_observed_run_id IS NOT NULL
+  AND a.id > $1::bigint
 ORDER BY a.id ASC
 LIMIT $2::int
-OFFSET $1::int
 `
 
 type ListAccountsMissingIdentityLinkPageByConfiguredSourcesParams struct {
-	PageOffset            int32    `json:"page_offset"`
+	CursorAccountID       int64    `json:"cursor_account_id"`
 	PageLimit             int32    `json:"page_limit"`
 	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
 	ConfiguredSourceNames []string `json:"configured_source_names"`
 }
 
+// Cursor-paginated. Pass 0 for the first page; subsequent calls pass the max
+// a.id from the previous page so the loop makes forward progress even if a
+// fetched account does not end up linked.
 func (q *Queries) ListAccountsMissingIdentityLinkPageByConfiguredSources(ctx context.Context, arg ListAccountsMissingIdentityLinkPageByConfiguredSourcesParams) ([]Account, error) {
 	rows, err := q.db.Query(ctx, listAccountsMissingIdentityLinkPageByConfiguredSources,
-		arg.PageOffset,
+		arg.CursorAccountID,
 		arg.PageLimit,
 		arg.ConfiguredSourceKinds,
 		arg.ConfiguredSourceNames,
@@ -249,14 +287,18 @@ func (q *Queries) ListAccountsMissingIdentityLinkPageByConfiguredSources(ctx con
 const listIdentityAccountAttributes = `-- name: ListIdentityAccountAttributes :many
 SELECT
   ia.identity_id,
+  ia.link_state,
+  ia.link_reason,
   i.kind AS identity_kind,
   a.id AS account_id,
   a.source_kind,
   a.source_name,
   a.external_id,
   a.account_kind,
+  a.entity_category,
   a.email,
-  a.display_name
+  a.display_name,
+  a.raw_json
 FROM identity_accounts ia
 JOIN identities i ON i.id = ia.identity_id
 JOIN accounts a ON a.id = ia.account_id
@@ -266,15 +308,19 @@ ORDER BY ia.identity_id, a.id
 `
 
 type ListIdentityAccountAttributesRow struct {
-	IdentityID   int64  `json:"identity_id"`
-	IdentityKind string `json:"identity_kind"`
-	AccountID    int64  `json:"account_id"`
-	SourceKind   string `json:"source_kind"`
-	SourceName   string `json:"source_name"`
-	ExternalID   string `json:"external_id"`
-	AccountKind  string `json:"account_kind"`
-	Email        string `json:"email"`
-	DisplayName  string `json:"display_name"`
+	IdentityID     int64  `json:"identity_id"`
+	LinkState      string `json:"link_state"`
+	LinkReason     string `json:"link_reason"`
+	IdentityKind   string `json:"identity_kind"`
+	AccountID      int64  `json:"account_id"`
+	SourceKind     string `json:"source_kind"`
+	SourceName     string `json:"source_name"`
+	ExternalID     string `json:"external_id"`
+	AccountKind    string `json:"account_kind"`
+	EntityCategory string `json:"entity_category"`
+	Email          string `json:"email"`
+	DisplayName    string `json:"display_name"`
+	RawJson        []byte `json:"raw_json"`
 }
 
 func (q *Queries) ListIdentityAccountAttributes(ctx context.Context) ([]ListIdentityAccountAttributesRow, error) {
@@ -288,14 +334,18 @@ func (q *Queries) ListIdentityAccountAttributes(ctx context.Context) ([]ListIden
 		var i ListIdentityAccountAttributesRow
 		if err := rows.Scan(
 			&i.IdentityID,
+			&i.LinkState,
+			&i.LinkReason,
 			&i.IdentityKind,
 			&i.AccountID,
 			&i.SourceKind,
 			&i.SourceName,
 			&i.ExternalID,
 			&i.AccountKind,
+			&i.EntityCategory,
 			&i.Email,
 			&i.DisplayName,
+			&i.RawJson,
 		); err != nil {
 			return nil, err
 		}
@@ -317,14 +367,18 @@ WITH configured_sources AS (
 )
 SELECT
   ia.identity_id,
+  ia.link_state,
+  ia.link_reason,
   i.kind AS identity_kind,
   a.id AS account_id,
   a.source_kind,
   a.source_name,
   a.external_id,
   a.account_kind,
+  a.entity_category,
   a.email,
-  a.display_name
+  a.display_name,
+  a.raw_json
 FROM identity_accounts ia
 JOIN identities i ON i.id = ia.identity_id
 JOIN accounts a ON a.id = ia.account_id
@@ -342,15 +396,19 @@ type ListIdentityAccountAttributesByConfiguredSourcesParams struct {
 }
 
 type ListIdentityAccountAttributesByConfiguredSourcesRow struct {
-	IdentityID   int64  `json:"identity_id"`
-	IdentityKind string `json:"identity_kind"`
-	AccountID    int64  `json:"account_id"`
-	SourceKind   string `json:"source_kind"`
-	SourceName   string `json:"source_name"`
-	ExternalID   string `json:"external_id"`
-	AccountKind  string `json:"account_kind"`
-	Email        string `json:"email"`
-	DisplayName  string `json:"display_name"`
+	IdentityID     int64  `json:"identity_id"`
+	LinkState      string `json:"link_state"`
+	LinkReason     string `json:"link_reason"`
+	IdentityKind   string `json:"identity_kind"`
+	AccountID      int64  `json:"account_id"`
+	SourceKind     string `json:"source_kind"`
+	SourceName     string `json:"source_name"`
+	ExternalID     string `json:"external_id"`
+	AccountKind    string `json:"account_kind"`
+	EntityCategory string `json:"entity_category"`
+	Email          string `json:"email"`
+	DisplayName    string `json:"display_name"`
+	RawJson        []byte `json:"raw_json"`
 }
 
 func (q *Queries) ListIdentityAccountAttributesByConfiguredSources(ctx context.Context, arg ListIdentityAccountAttributesByConfiguredSourcesParams) ([]ListIdentityAccountAttributesByConfiguredSourcesRow, error) {
@@ -364,14 +422,18 @@ func (q *Queries) ListIdentityAccountAttributesByConfiguredSources(ctx context.C
 		var i ListIdentityAccountAttributesByConfiguredSourcesRow
 		if err := rows.Scan(
 			&i.IdentityID,
+			&i.LinkState,
+			&i.LinkReason,
 			&i.IdentityKind,
 			&i.AccountID,
 			&i.SourceKind,
 			&i.SourceName,
 			&i.ExternalID,
 			&i.AccountKind,
+			&i.EntityCategory,
 			&i.Email,
 			&i.DisplayName,
+			&i.RawJson,
 		); err != nil {
 			return nil, err
 		}
@@ -435,21 +497,116 @@ func (q *Queries) ListLinkedAccountsForIdentity(ctx context.Context, identityID 
 	return items, nil
 }
 
+const listProvisionalIdentityLinkAccountsPageByConfiguredSources = `-- name: ListProvisionalIdentityLinkAccountsPageByConfiguredSources :many
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($3::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($4::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+)
+SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status, a.account_kind, a.entity_category
+FROM accounts a
+JOIN configured_sources cs
+  ON cs.source_kind = a.source_kind
+ AND cs.source_name = a.source_name
+JOIN identity_accounts ia ON ia.account_id = a.id
+WHERE ia.link_state IN ('provisional', 'needs_review')
+  AND lower(trim(ia.link_reason)) IN (
+    'auto_provisional_identity',
+    'auto_provisional_ambiguous_email',
+    'auto_provisional_conflicting_anchor',
+    'seed_orphan'
+  )
+  AND a.expired_at IS NULL
+  AND a.last_observed_run_id IS NOT NULL
+  AND a.id > $1::bigint
+ORDER BY a.id ASC
+LIMIT $2::int
+`
+
+type ListProvisionalIdentityLinkAccountsPageByConfiguredSourcesParams struct {
+	CursorAccountID       int64    `json:"cursor_account_id"`
+	PageLimit             int32    `json:"page_limit"`
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+}
+
+// Cursor-paginated; see ListAccountsMissingIdentityLinkPageByConfiguredSources.
+func (q *Queries) ListProvisionalIdentityLinkAccountsPageByConfiguredSources(ctx context.Context, arg ListProvisionalIdentityLinkAccountsPageByConfiguredSourcesParams) ([]Account, error) {
+	rows, err := q.db.Query(ctx, listProvisionalIdentityLinkAccountsPageByConfiguredSources,
+		arg.CursorAccountID,
+		arg.PageLimit,
+		arg.ConfiguredSourceKinds,
+		arg.ConfiguredSourceNames,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Account
+	for rows.Next() {
+		var i Account
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.ExternalID,
+			&i.Email,
+			&i.DisplayName,
+			&i.RawJson,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LastLoginAt,
+			&i.LastLoginIp,
+			&i.LastLoginRegion,
+			&i.SeenInRunID,
+			&i.SeenAt,
+			&i.LastObservedRunID,
+			&i.LastObservedAt,
+			&i.ExpiredAt,
+			&i.ExpiredRunID,
+			&i.Status,
+			&i.AccountKind,
+			&i.EntityCategory,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertIdentityAccountLink = `-- name: UpsertIdentityAccountLink :one
-INSERT INTO identity_accounts (identity_id, account_id, link_reason, confidence, updated_at)
+INSERT INTO identity_accounts (identity_id, account_id, link_reason, confidence, link_state, updated_at)
 VALUES (
   $1::bigint,
   $2::bigint,
   $3::text,
   $4::real,
+  CASE
+    WHEN lower(trim($3::text)) IN ('manual', 'manual_merge', 'manual_service', 'manual_shared') THEN 'manual_confirmed'
+    WHEN lower(trim($3::text)) IN ('auto_provisional_ambiguous_email', 'auto_provisional_conflicting_anchor') THEN 'needs_review'
+    WHEN lower(trim($3::text)) IN ('auto_provisional_identity', 'seed_orphan') THEN 'provisional'
+    ELSE 'accepted'
+  END,
   now()
 )
 ON CONFLICT (account_id) DO UPDATE SET
   identity_id = EXCLUDED.identity_id,
   link_reason = EXCLUDED.link_reason,
   confidence = EXCLUDED.confidence,
+  link_state = CASE
+    WHEN lower(trim(EXCLUDED.link_reason)) IN ('manual', 'manual_merge', 'manual_service', 'manual_shared') THEN 'manual_confirmed'
+    WHEN lower(trim(EXCLUDED.link_reason)) IN ('auto_provisional_ambiguous_email', 'auto_provisional_conflicting_anchor') THEN 'needs_review'
+    WHEN lower(trim(EXCLUDED.link_reason)) IN ('auto_provisional_identity', 'seed_orphan') THEN 'provisional'
+    ELSE 'accepted'
+  END,
   updated_at = EXCLUDED.updated_at
-RETURNING id, identity_id, account_id, link_reason, confidence, created_at, updated_at
+RETURNING id, identity_id, account_id, link_reason, confidence, created_at, updated_at, link_state, resolver_version, linked_at, reviewed_by, reviewed_at
 `
 
 type UpsertIdentityAccountLinkParams struct {
@@ -475,6 +632,11 @@ func (q *Queries) UpsertIdentityAccountLink(ctx context.Context, arg UpsertIdent
 		&i.Confidence,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LinkState,
+		&i.ResolverVersion,
+		&i.LinkedAt,
+		&i.ReviewedBy,
+		&i.ReviewedAt,
 	)
 	return i, err
 }

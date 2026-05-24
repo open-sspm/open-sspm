@@ -1202,7 +1202,7 @@ func (r *identityLinkResolver) resolveByEmail(candidate string) string {
 	}
 
 	// FindUnambiguous returns ErrNoRows for both "nobody owns this email" and
-	// "two identities tie at the top tier". Either case is a non-link for
+	// "two identities claim this email". Either case is a non-link for
 	// rendering purposes — the badge collapses to a non-clickable label rather
 	// than risk routing the operator to an arbitrary identity.
 	identity, err := r.h.Q.FindUnambiguousIdentityByPrimaryEmail(r.ctx, gen.FindUnambiguousIdentityByPrimaryEmailParams{

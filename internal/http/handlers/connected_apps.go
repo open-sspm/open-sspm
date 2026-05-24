@@ -106,44 +106,20 @@ func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 		if err != nil {
 			return h.RenderError(c, err)
 		}
-		ownerIdentity, err := h.Q.FindUnambiguousIdentityByPrimaryEmail(ctx, gen.FindUnambiguousIdentityByPrimaryEmailParams{
-			ConfiguredSourceKinds: configuredSourceKinds,
-			ConfiguredSourceNames: configuredSourceNames,
-			PrimaryEmail:          ownerEmailInput,
-		})
+		result, err := h.resolveStrictOwnerByEmail(ctx, "Owner", ownerEmailInput, configuredSourceKinds, configuredSourceNames)
 		if err != nil {
-			if !errors.Is(err, pgx.ErrNoRows) {
-				return h.RenderError(c, err)
-			}
-			// No strict winner. Distinguish "nobody owns this email" from
-			// "two or more identities tie" so the operator sees the right
-			// remediation prompt instead of being told to pick an email that
-			// is already taken multiple times.
-			count, countErr := h.Q.CountIdentitiesByPrimaryEmail(ctx, ownerEmailInput)
-			if countErr != nil {
-				return h.RenderError(c, countErr)
-			}
-			alert := &viewmodels.AlertViewData{
-				Title:       "Owner not found",
-				Message:     "Assign an owner using an existing identity email address.",
-				Destructive: true,
-			}
-			if count > 1 {
-				alert = &viewmodels.AlertViewData{
-					Title:       "Owner email is ambiguous",
-					Message:     "More than one identity claims this email. Resolve the conflict before assigning this owner.",
-					Destructive: true,
-				}
-			}
+			return h.RenderError(c, err)
+		}
+		if result.Alert != nil {
 			return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
-				alert:                alert,
+				alert:                result.Alert,
 				ownerEmailInput:      ownerEmailInput,
 				governanceStateInput: governanceState,
 				ticketRefInput:       strings.TrimSpace(c.FormValue("ticket_ref")),
 				notesInput:           strings.TrimSpace(c.FormValue("notes")),
 			})
 		}
-		ownerIdentityID = pgtype.Int8{Int64: ownerIdentity.ID, Valid: true}
+		ownerIdentityID = pgtype.Int8{Int64: result.Identity.ID, Valid: true}
 	}
 
 	ticketRef := strings.TrimSpace(c.FormValue("ticket_ref"))

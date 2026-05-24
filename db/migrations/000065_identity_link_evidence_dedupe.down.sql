@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS identity_link_evidence_identity_unique;
+DROP INDEX IF EXISTS identity_link_evidence_candidate_unique;

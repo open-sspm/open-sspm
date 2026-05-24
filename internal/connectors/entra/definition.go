@@ -53,7 +53,7 @@ func (d *Definition) SettingsHref() string {
 }
 
 func (d *Definition) MetricsProvider() registry.MetricsProvider {
-	return registry.NewSourceMetricsProvider(configstore.KindEntra)
+	return registry.NewUserSourceMetricsProvider(configstore.KindEntra)
 }
 
 func (d *Definition) NewIntegration(cfg any) (registry.Integration, error) {

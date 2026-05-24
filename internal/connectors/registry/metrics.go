@@ -27,28 +27,39 @@ func NewSourceMetricsProvider(sourceKind string) MetricsProvider {
 	return sourceMetricsProvider{sourceKind: strings.TrimSpace(sourceKind)}
 }
 
+func NewUserSourceMetricsProvider(sourceKind string) MetricsProvider {
+	return sourceMetricsProvider{
+		sourceKind:     strings.TrimSpace(sourceKind),
+		entityCategory: EntityCategoryUser,
+	}
+}
+
 type sourceMetricsProvider struct {
-	sourceKind string
+	sourceKind     string
+	entityCategory string
 }
 
 func (m sourceMetricsProvider) FetchMetrics(ctx context.Context, q *gen.Queries, sourceName string) (ConnectorMetrics, error) {
 	total, err := q.CountSourceAccountsBySource(ctx, gen.CountSourceAccountsBySourceParams{
-		SourceKind: m.sourceKind,
-		SourceName: sourceName,
+		SourceKind:     m.sourceKind,
+		SourceName:     sourceName,
+		EntityCategory: m.entityCategory,
 	})
 	if err != nil {
 		return ConnectorMetrics{}, err
 	}
 	anchored, err := q.CountAnchoredSourceAccountsBySource(ctx, gen.CountAnchoredSourceAccountsBySourceParams{
-		SourceKind: m.sourceKind,
-		SourceName: sourceName,
+		SourceKind:     m.sourceKind,
+		SourceName:     sourceName,
+		EntityCategory: m.entityCategory,
 	})
 	if err != nil {
 		return ConnectorMetrics{}, err
 	}
 	needsAnchor, err := q.CountSourceAccountsNeedingAnchorBySource(ctx, gen.CountSourceAccountsNeedingAnchorBySourceParams{
-		SourceKind: m.sourceKind,
-		SourceName: sourceName,
+		SourceKind:     m.sourceKind,
+		SourceName:     sourceName,
+		EntityCategory: m.entityCategory,
 	})
 	if err != nil {
 		return ConnectorMetrics{}, err

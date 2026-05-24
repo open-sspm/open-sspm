@@ -1,6 +1,7 @@
 package views
 
 import (
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -1386,6 +1387,67 @@ func HumanizeAuthUserRole(role string) string {
 		}
 		return role
 	}
+}
+
+func HumanizeIdentityResolutionToken(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "—"
+	}
+	words := strings.Fields(strings.ReplaceAll(strings.ReplaceAll(value, "_", " "), "-", " "))
+	if len(words) == 0 {
+		return "—"
+	}
+	for i, word := range words {
+		if word == "" {
+			continue
+		}
+		runes := []rune(strings.ToLower(word))
+		runes[0] = unicode.ToUpper(runes[0])
+		words[i] = string(runes)
+	}
+	return strings.Join(words, " ")
+}
+
+func identityResolutionBandBadgeClass(band string) string {
+	switch strings.ToLower(strings.TrimSpace(band)) {
+	case "exact":
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	case "high":
+		return "badge bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-100"
+	case "medium":
+		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+	case "conflict":
+		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+	default:
+		return "badge-outline"
+	}
+}
+
+func identityResolutionEvidenceBadgeClass(positive bool) string {
+	if positive {
+		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+	}
+	return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+}
+
+func identityResolutionPageHref(page int, status string, group string) string {
+	values := make([]string, 0, 3)
+	status = strings.TrimSpace(status)
+	group = strings.TrimSpace(group)
+	if status != "" && status != "pending" {
+		values = append(values, "status="+url.QueryEscape(status))
+	}
+	if group != "" {
+		values = append(values, "group="+url.QueryEscape(group))
+	}
+	if page > 1 {
+		values = append(values, "page="+strconv.Itoa(page))
+	}
+	if len(values) == 0 {
+		return "/identity-resolution"
+	}
+	return "/identity-resolution?" + strings.Join(values, "&")
 }
 
 func AuthUserRoleBadgeClass(role string) string {

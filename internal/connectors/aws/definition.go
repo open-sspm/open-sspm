@@ -74,7 +74,7 @@ func (d *Definition) SettingsHref() string {
 }
 
 func (d *Definition) MetricsProvider() registry.MetricsProvider {
-	return registry.NewSourceMetricsProvider("aws")
+	return registry.NewUserSourceMetricsProvider("aws")
 }
 
 func (d *Definition) NewIntegration(cfg any) (registry.Integration, error) {

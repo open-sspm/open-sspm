@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
@@ -287,6 +288,214 @@ func TestHandleNonHumanIdentityShowRendersDetailLinksAndRiskReasons(t *testing.T
 		assertContains(t, body, "/identities/"+fmt.Sprint(serviceIdentityID))
 		assertContains(t, body, "/app-assets/"+fmt.Sprint(serviceAssetID))
 		assertContains(t, body, "/credentials/"+fmt.Sprint(credentialID))
+	})
+}
+
+func TestHandleNonHumanIdentityShowRendersAccountRelationships(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{
+			TenantID:     "tenant-1",
+			ClientID:     "client-1",
+			ClientSecret: "secret-1",
+		})
+
+		ownerID := insertCommandSearchIdentity(t, ctx, pool, "human", "owner@example.com", "Service Owner")
+		entraRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindEntra, "tenant-1")
+		insertCommandSearchIdentitySourceSetting(t, ctx, pool, configstore.KindEntra, "tenant-1", true)
+
+		serviceAccountID := insertCommandSearchAccount(t, ctx, pool, entraRunID, commandSearchAccountSeed{
+			SourceKind:     configstore.KindEntra,
+			SourceName:     "tenant-1",
+			ExternalID:     "sp:svc-123",
+			Email:          "service.principal@example.com",
+			DisplayName:    "Azure Service Principal",
+			Status:         "active",
+			AccountKind:    "service",
+			EntityCategory: "service_principal",
+			RawJSON:        `{"status":"active"}`,
+		})
+		serviceIdentityID := insertCommandSearchIdentity(t, ctx, pool, "service", "service.principal@example.com", "Azure Service Principal")
+		insertCommandSearchIdentityAccountLink(t, ctx, pool, serviceIdentityID, serviceAccountID)
+
+		insertCommandSearchAppAsset(t, ctx, q, entraRunID, configstore.KindEntra, "tenant-1", "entra_service_principal", "svc-123", "azure-enterprise-app", "Azure Service Principal", "active")
+		refreshCommandSearchSourceReadModels(t, ctx, q, configstore.KindEntra, "tenant-1")
+
+		if _, err := q.UpsertAccountIdentityRelationship(ctx, gen.UpsertAccountIdentityRelationshipParams{
+			AccountID:        serviceAccountID,
+			IdentityID:       ownerID,
+			RelationshipType: "custodian",
+			SourceKind:       pgtype.Text{String: configstore.KindEntra, Valid: true},
+			SourceName:       pgtype.Text{String: "tenant-1", Valid: true},
+			Confidence:       70,
+			LifecycleState:   "active",
+		}); err != nil {
+			t.Fatalf("UpsertAccountIdentityRelationship(): %v", err)
+		}
+
+		adminUserID := insertDiscoveryAuthUser(t, ctx, pool, "admin@example.com", "admin")
+		c, rec := newTestContext(http.MethodGet, "http://example.com/non-human-identities/identity-"+fmt.Sprint(serviceIdentityID))
+		(*c).SetPath("/non-human-identities/:ref")
+		(*c).SetPathValues(echo.PathValues{{Name: "ref", Value: "identity-" + fmt.Sprint(serviceIdentityID)}})
+		(*c).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: adminUserID, Email: "admin@example.com", Role: "admin"})
+
+		if err := h.HandleNonHumanIdentityShow(c); err != nil {
+			t.Fatalf("HandleNonHumanIdentityShow(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		body := rec.Body.String()
+		assertContains(t, body, "Account relationships")
+		assertContains(t, body, "Service Owner")
+		assertContains(t, body, "owner@example.com")
+		assertContains(t, body, "Custodian")
+		assertContains(t, body, "Identity email")
+		assertContains(t, body, "/non-human-identities/identity-"+fmt.Sprint(serviceIdentityID)+"/relationships")
+	})
+}
+
+func TestHandleNonHumanIdentityRelationshipCreateStoresAccountScopedRelationship(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{
+			TenantID:     "tenant-1",
+			ClientID:     "client-1",
+			ClientSecret: "secret-1",
+		})
+
+		ownerID := insertCommandSearchIdentity(t, ctx, pool, "human", "owner@example.com", "Service Owner")
+		entraRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindEntra, "tenant-1")
+		insertCommandSearchIdentitySourceSetting(t, ctx, pool, configstore.KindEntra, "tenant-1", true)
+
+		serviceAccountID := insertCommandSearchAccount(t, ctx, pool, entraRunID, commandSearchAccountSeed{
+			SourceKind:     configstore.KindEntra,
+			SourceName:     "tenant-1",
+			ExternalID:     "sp:svc-123",
+			Email:          "service.principal@example.com",
+			DisplayName:    "Azure Service Principal",
+			Status:         "active",
+			AccountKind:    "service",
+			EntityCategory: "service_principal",
+			RawJSON:        `{"status":"active"}`,
+		})
+		serviceIdentityID := insertCommandSearchIdentity(t, ctx, pool, "service", "service.principal@example.com", "Azure Service Principal")
+		insertCommandSearchIdentityAccountLink(t, ctx, pool, serviceIdentityID, serviceAccountID)
+		insertCommandSearchAppAsset(t, ctx, q, entraRunID, configstore.KindEntra, "tenant-1", "entra_service_principal", "svc-123", "azure-enterprise-app", "Azure Service Principal", "active")
+		refreshCommandSearchSourceReadModels(t, ctx, q, configstore.KindEntra, "tenant-1")
+
+		form := url.Values{"identity_email": {"owner@example.com"}, "relationship_type": {"owner"}}
+		c, rec := newFormTestContext(http.MethodPost, "http://example.com/non-human-identities/identity-"+fmt.Sprint(serviceIdentityID)+"/relationships", form)
+		(*c).SetPath("/non-human-identities/:ref/relationships")
+		(*c).SetPathValues(echo.PathValues{{Name: "ref", Value: "identity-" + fmt.Sprint(serviceIdentityID)}})
+
+		if err := h.HandleNonHumanIdentityRelationshipCreate(c); err != nil {
+			t.Fatalf("HandleNonHumanIdentityRelationshipCreate(): %v", err)
+		}
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusSeeOther, rec.Body.String())
+		}
+
+		relationships, err := q.ListIdentityScopedAccountRelationships(ctx, gen.ListIdentityScopedAccountRelationshipsParams{
+			IdentityID:     serviceIdentityID,
+			LifecycleState: "active",
+		})
+		if err != nil {
+			t.Fatalf("ListIdentityScopedAccountRelationships(): %v", err)
+		}
+		if len(relationships) != 1 {
+			t.Fatalf("relationships len = %d, want 1 (%+v)", len(relationships), relationships)
+		}
+		if relationships[0].AccountID != serviceAccountID || relationships[0].IdentityID != ownerID || relationships[0].RelationshipType != "owner" {
+			t.Fatalf("relationship = %+v", relationships[0])
+		}
+
+		ownedRows, err := q.ListNonHumanPrincipalsPageByFilters(ctx, gen.ListNonHumanPrincipalsPageByFiltersParams{
+			PageLimit:             20,
+			OwnerPresence:         "owned",
+			ConfiguredSourceKinds: []string{configstore.KindEntra},
+			ConfiguredSourceNames: []string{"tenant-1"},
+		})
+		if err != nil {
+			t.Fatalf("ListNonHumanPrincipalsPageByFilters(owned): %v", err)
+		}
+		if len(ownedRows) != 1 {
+			t.Fatalf("owned rows len = %d, want 1 (%+v)", len(ownedRows), ownedRows)
+		}
+		if ownedRows[0].AccountableOwnerIdentityID != ownerID || ownedRows[0].AccountableOwnerDisplayName != "Service Owner" || ownedRows[0].OwnerPresence != "owned" {
+			t.Fatalf("owned row = %+v", ownedRows[0])
+		}
+		unknownCount, err := q.CountNonHumanPrincipalsByFilters(ctx, gen.CountNonHumanPrincipalsByFiltersParams{
+			OwnerPresence:         "unknown",
+			ConfiguredSourceKinds: []string{configstore.KindEntra},
+			ConfiguredSourceNames: []string{"tenant-1"},
+		})
+		if err != nil {
+			t.Fatalf("CountNonHumanPrincipalsByFilters(unknown): %v", err)
+		}
+		if unknownCount != 0 {
+			t.Fatalf("unknown count = %d, want 0", unknownCount)
+		}
+		coverage, err := q.CountConfiguredNonHumanPrincipalOwnerCoverage(ctx)
+		if err != nil {
+			t.Fatalf("CountConfiguredNonHumanPrincipalOwnerCoverage(): %v", err)
+		}
+		if coverage.PrincipalCount != 1 || coverage.WithOwnerCount != 1 {
+			t.Fatalf("coverage = %+v, want 1/1", coverage)
+		}
+	})
+}
+
+func TestHandleNonHumanIdentityRelationshipCreateRejectsAmbiguousEmail(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{
+			TenantID:     "tenant-1",
+			ClientID:     "client-1",
+			ClientSecret: "secret-1",
+		})
+
+		insertCommandSearchIdentity(t, ctx, pool, "human", "owner@example.com", "Owner A")
+		insertCommandSearchIdentity(t, ctx, pool, "human", "owner@example.com", "Owner B")
+		entraRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindEntra, "tenant-1")
+		insertCommandSearchIdentitySourceSetting(t, ctx, pool, configstore.KindEntra, "tenant-1", true)
+
+		serviceAccountID := insertCommandSearchAccount(t, ctx, pool, entraRunID, commandSearchAccountSeed{
+			SourceKind:     configstore.KindEntra,
+			SourceName:     "tenant-1",
+			ExternalID:     "sp:svc-123",
+			Email:          "service.principal@example.com",
+			DisplayName:    "Azure Service Principal",
+			Status:         "active",
+			AccountKind:    "service",
+			EntityCategory: "service_principal",
+			RawJSON:        `{"status":"active"}`,
+		})
+		serviceIdentityID := insertCommandSearchIdentity(t, ctx, pool, "service", "service.principal@example.com", "Azure Service Principal")
+		insertCommandSearchIdentityAccountLink(t, ctx, pool, serviceIdentityID, serviceAccountID)
+		insertCommandSearchAppAsset(t, ctx, q, entraRunID, configstore.KindEntra, "tenant-1", "entra_service_principal", "svc-123", "azure-enterprise-app", "Azure Service Principal", "active")
+		refreshCommandSearchSourceReadModels(t, ctx, q, configstore.KindEntra, "tenant-1")
+
+		form := url.Values{"identity_email": {"owner@example.com"}, "relationship_type": {"owner"}}
+		c, rec := newFormTestContext(http.MethodPost, "http://example.com/non-human-identities/identity-"+fmt.Sprint(serviceIdentityID)+"/relationships", form)
+		(*c).SetPath("/non-human-identities/:ref/relationships")
+		(*c).SetPathValues(echo.PathValues{{Name: "ref", Value: "identity-" + fmt.Sprint(serviceIdentityID)}})
+
+		if err := h.HandleNonHumanIdentityRelationshipCreate(c); err != nil {
+			t.Fatalf("HandleNonHumanIdentityRelationshipCreate(): %v", err)
+		}
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusSeeOther, rec.Body.String())
+		}
+
+		relationships, err := q.ListIdentityScopedAccountRelationships(ctx, gen.ListIdentityScopedAccountRelationshipsParams{
+			IdentityID:     serviceIdentityID,
+			LifecycleState: "active",
+		})
+		if err != nil {
+			t.Fatalf("ListIdentityScopedAccountRelationships(): %v", err)
+		}
+		if len(relationships) != 0 {
+			t.Fatalf("relationships len = %d, want 0 (%+v)", len(relationships), relationships)
+		}
 	})
 }
 

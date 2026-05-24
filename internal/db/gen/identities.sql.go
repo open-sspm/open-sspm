@@ -12,9 +12,21 @@ import (
 )
 
 const countIdentitiesByPrimaryEmail = `-- name: CountIdentitiesByPrimaryEmail :one
+WITH email_claims AS (
+  SELECT DISTINCT ie.identity_id
+  FROM identity_emails ie
+  JOIN identities owner ON owner.id = ie.identity_id
+  WHERE ie.normalized_email = lower(trim($1::text))
+    AND ie.lifecycle_state = 'active'
+    AND owner.resolution_state NOT IN ('merged', 'disabled')
+  UNION
+  SELECT i.id
+  FROM identities i
+  WHERE lower(trim(i.primary_email)) = lower(trim($1::text))
+    AND i.resolution_state NOT IN ('merged', 'disabled')
+)
 SELECT count(*)
-FROM identities
-WHERE lower(trim(primary_email)) = lower(trim($1::text))
+FROM email_claims
 `
 
 func (q *Queries) CountIdentitiesByPrimaryEmail(ctx context.Context, primaryEmail string) (int64, error) {
@@ -247,23 +259,33 @@ func (q *Queries) CountIdentitiesInventoryByFilters(ctx context.Context, arg Cou
 }
 
 const createIdentity = `-- name: CreateIdentity :one
-INSERT INTO identities (kind, display_name, primary_email)
+INSERT INTO identities (kind, display_name, primary_email, resolution_state, identity_kind)
 VALUES (
   COALESCE(NULLIF(trim($1::text), ''), 'unknown'),
   COALESCE($2::text, ''),
-  lower(trim(COALESCE($3::text, '')))
+  lower(trim(COALESCE($3::text, ''))),
+  COALESCE(NULLIF(trim($4::text), ''), 'confirmed'),
+  COALESCE(NULLIF(trim($5::text), ''), COALESCE(NULLIF(trim($1::text), ''), 'unknown'))
 )
-RETURNING id, kind, display_name, primary_email, created_at, updated_at
+RETURNING id, kind, display_name, primary_email, created_at, updated_at, resolution_state, identity_kind, primary_email_id
 `
 
 type CreateIdentityParams struct {
-	Kind         string `json:"kind"`
-	DisplayName  string `json:"display_name"`
-	PrimaryEmail string `json:"primary_email"`
+	Kind            string `json:"kind"`
+	DisplayName     string `json:"display_name"`
+	PrimaryEmail    string `json:"primary_email"`
+	ResolutionState string `json:"resolution_state"`
+	IdentityKind    string `json:"identity_kind"`
 }
 
 func (q *Queries) CreateIdentity(ctx context.Context, arg CreateIdentityParams) (Identity, error) {
-	row := q.db.QueryRow(ctx, createIdentity, arg.Kind, arg.DisplayName, arg.PrimaryEmail)
+	row := q.db.QueryRow(ctx, createIdentity,
+		arg.Kind,
+		arg.DisplayName,
+		arg.PrimaryEmail,
+		arg.ResolutionState,
+		arg.IdentityKind,
+	)
 	var i Identity
 	err := row.Scan(
 		&i.ID,
@@ -272,6 +294,9 @@ func (q *Queries) CreateIdentity(ctx context.Context, arg CreateIdentityParams) 
 		&i.PrimaryEmail,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ResolutionState,
+		&i.IdentityKind,
+		&i.PrimaryEmailID,
 	)
 	return i, err
 }
@@ -302,23 +327,37 @@ authoritative_identities AS (
    AND iss.source_name = ca.source_name
    AND iss.is_authoritative
 ),
+email_claims AS (
+  SELECT DISTINCT ie.identity_id
+  FROM identity_emails ie
+  JOIN identities owner ON owner.id = ie.identity_id
+  WHERE ie.normalized_email = lower(trim($3::text))
+    AND ie.lifecycle_state = 'active'
+    AND owner.resolution_state NOT IN ('merged', 'disabled')
+  UNION
+  SELECT i.id
+  FROM identities i
+  WHERE lower(trim(i.primary_email)) = lower(trim($3::text))
+    AND i.resolution_state NOT IN ('merged', 'disabled')
+),
 candidates AS (
   SELECT
     i.id,
     (ai.identity_id IS NOT NULL) AS is_authoritative
   FROM identities i
+  JOIN email_claims ec ON ec.identity_id = i.id
   LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
-  WHERE lower(trim(i.primary_email)) = lower(trim($3::text))
 ),
 top_tier AS (
   SELECT id
   FROM candidates
   WHERE is_authoritative = (SELECT bool_or(is_authoritative) FROM candidates)
 )
-SELECT i.id, i.kind, i.display_name, i.primary_email, i.created_at, i.updated_at
+SELECT i.id, i.kind, i.display_name, i.primary_email, i.created_at, i.updated_at, i.resolution_state, i.identity_kind, i.primary_email_id
 FROM identities i
 JOIN top_tier t ON t.id = i.id
-WHERE (SELECT count(*) FROM top_tier) = 1
+WHERE (SELECT count(*) FROM candidates) = 1
+  AND i.resolution_state = 'confirmed'
 `
 
 type FindUnambiguousIdentityByPrimaryEmailParams struct {
@@ -327,12 +366,12 @@ type FindUnambiguousIdentityByPrimaryEmailParams struct {
 	PrimaryEmail          string   `json:"primary_email"`
 }
 
-// Returns the single identity matching the email iff there is a strict winner
-// at the top tier. Only configured sources can grant authoritative tie-break
-// status; every existing identity with the email remains a duplicate candidate
-// so retired rows do not cause duplicate identity creation.
-// Returns no row when the email matches zero identities, or when two or more
-// identities tie at the top tier.
+// Returns the single confirmed identity matching the email iff exactly one
+// identity claims the email at all. This strict lookup is used by owner write
+// paths and read-only navigation helpers; it intentionally rejects duplicate
+// email claims even when one claimant has authoritative source evidence.
+// Resolver write paths that can safely produce candidates/provisional links use
+// ResolveIdentityByPrimaryEmail instead.
 func (q *Queries) FindUnambiguousIdentityByPrimaryEmail(ctx context.Context, arg FindUnambiguousIdentityByPrimaryEmailParams) (Identity, error) {
 	row := q.db.QueryRow(ctx, findUnambiguousIdentityByPrimaryEmail, arg.ConfiguredSourceKinds, arg.ConfiguredSourceNames, arg.PrimaryEmail)
 	var i Identity
@@ -343,6 +382,9 @@ func (q *Queries) FindUnambiguousIdentityByPrimaryEmail(ctx context.Context, arg
 		&i.PrimaryEmail,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ResolutionState,
+		&i.IdentityKind,
+		&i.PrimaryEmailID,
 	)
 	return i, err
 }
@@ -370,7 +412,7 @@ authoritative_identities AS (
     AND anchor.last_observed_run_id IS NOT NULL
 )
 SELECT
-  i.id, i.kind, i.display_name, i.primary_email, i.created_at, i.updated_at,
+  i.id, i.kind, i.display_name, i.primary_email, i.created_at, i.updated_at, i.resolution_state, i.identity_kind, i.primary_email_id,
   CASE
     WHEN i.kind IN ('service', 'bot') THEN 'not_applicable'
     WHEN ai.identity_id IS NOT NULL THEN 'anchored'
@@ -391,14 +433,17 @@ type GetIdentitySummaryByIDParams struct {
 }
 
 type GetIdentitySummaryByIDRow struct {
-	ID             int64              `json:"id"`
-	Kind           string             `json:"kind"`
-	DisplayName    string             `json:"display_name"`
-	PrimaryEmail   string             `json:"primary_email"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	AnchorState    string             `json:"anchor_state"`
-	LinkedAccounts int64              `json:"linked_accounts"`
+	ID              int64              `json:"id"`
+	Kind            string             `json:"kind"`
+	DisplayName     string             `json:"display_name"`
+	PrimaryEmail    string             `json:"primary_email"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ResolutionState string             `json:"resolution_state"`
+	IdentityKind    string             `json:"identity_kind"`
+	PrimaryEmailID  pgtype.Int8        `json:"primary_email_id"`
+	AnchorState     string             `json:"anchor_state"`
+	LinkedAccounts  int64              `json:"linked_accounts"`
 }
 
 func (q *Queries) GetIdentitySummaryByID(ctx context.Context, arg GetIdentitySummaryByIDParams) (GetIdentitySummaryByIDRow, error) {
@@ -411,6 +456,9 @@ func (q *Queries) GetIdentitySummaryByID(ctx context.Context, arg GetIdentitySum
 		&i.PrimaryEmail,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ResolutionState,
+		&i.IdentityKind,
+		&i.PrimaryEmailID,
 		&i.AnchorState,
 		&i.LinkedAccounts,
 	)
@@ -850,6 +898,89 @@ func (q *Queries) ListIdentitiesInventoryPageByFilters(ctx context.Context, arg 
 	return items, nil
 }
 
+const listIdentityCandidatesByPrimaryEmail = `-- name: ListIdentityCandidatesByPrimaryEmail :many
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($1::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($2::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+configured_accounts AS (
+  SELECT DISTINCT ia.identity_id, a.source_kind, a.source_name
+  FROM identity_accounts ia
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN configured_sources cs
+    ON cs.source_kind = a.source_kind
+   AND cs.source_name = a.source_name
+  WHERE a.expired_at IS NULL
+    AND a.last_observed_run_id IS NOT NULL
+),
+authoritative_identities AS (
+  SELECT DISTINCT ca.identity_id
+  FROM configured_accounts ca
+  JOIN identity_source_settings iss
+    ON iss.source_kind = ca.source_kind
+   AND iss.source_name = ca.source_name
+   AND iss.is_authoritative
+),
+email_claims AS (
+  SELECT DISTINCT ie.identity_id
+  FROM identity_emails ie
+  JOIN identities owner ON owner.id = ie.identity_id
+  WHERE ie.normalized_email = lower(trim($3::text))
+    AND ie.lifecycle_state = 'active'
+    AND owner.resolution_state NOT IN ('merged', 'disabled')
+  UNION
+  SELECT i.id
+  FROM identities i
+  WHERE lower(trim(i.primary_email)) = lower(trim($3::text))
+    AND i.resolution_state NOT IN ('merged', 'disabled')
+)
+SELECT
+  i.id AS identity_id,
+  (ai.identity_id IS NOT NULL)::boolean AS is_authoritative,
+  i.primary_email
+FROM identities i
+JOIN email_claims ec ON ec.identity_id = i.id
+LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
+ORDER BY (ai.identity_id IS NOT NULL) DESC, i.id ASC
+`
+
+type ListIdentityCandidatesByPrimaryEmailParams struct {
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+	PrimaryEmail          string   `json:"primary_email"`
+}
+
+type ListIdentityCandidatesByPrimaryEmailRow struct {
+	IdentityID      int64  `json:"identity_id"`
+	IsAuthoritative bool   `json:"is_authoritative"`
+	PrimaryEmail    string `json:"primary_email"`
+}
+
+// Returns existing identities that share an email so ambiguous resolver runs can
+// persist review candidates without attaching the account to one of them.
+func (q *Queries) ListIdentityCandidatesByPrimaryEmail(ctx context.Context, arg ListIdentityCandidatesByPrimaryEmailParams) ([]ListIdentityCandidatesByPrimaryEmailRow, error) {
+	rows, err := q.db.Query(ctx, listIdentityCandidatesByPrimaryEmail, arg.ConfiguredSourceKinds, arg.ConfiguredSourceNames, arg.PrimaryEmail)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIdentityCandidatesByPrimaryEmailRow
+	for rows.Next() {
+		var i ListIdentityCandidatesByPrimaryEmailRow
+		if err := rows.Scan(&i.IdentityID, &i.IsAuthoritative, &i.PrimaryEmail); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const resolveIdentityByPrimaryEmail = `-- name: ResolveIdentityByPrimaryEmail :one
 WITH configured_sources AS (
   SELECT
@@ -876,13 +1007,27 @@ authoritative_identities AS (
    AND iss.source_name = ca.source_name
    AND iss.is_authoritative
 ),
+email_claims AS (
+  SELECT DISTINCT ie.identity_id
+  FROM identity_emails ie
+  JOIN identities owner ON owner.id = ie.identity_id
+  WHERE ie.normalized_email = lower(trim($3::text))
+    AND ie.lifecycle_state = 'active'
+    AND owner.resolution_state NOT IN ('merged', 'disabled')
+  UNION
+  SELECT i.id
+  FROM identities i
+  WHERE lower(trim(i.primary_email)) = lower(trim($3::text))
+    AND i.resolution_state NOT IN ('merged', 'disabled')
+),
 candidates AS (
   SELECT
     i.id,
     (ai.identity_id IS NOT NULL) AS is_authoritative
   FROM identities i
+  JOIN email_claims ec ON ec.identity_id = i.id
   LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
-  WHERE lower(trim(i.primary_email)) = lower(trim($3::text))
+  WHERE i.resolution_state = 'confirmed'
 ),
 top_tier AS (
   SELECT
@@ -893,11 +1038,9 @@ top_tier AS (
 )
 SELECT
   id AS identity_id,
-  CASE
-    WHEN top_tier_count = 1 THEN 'auto_email'::text
-    ELSE 'auto_provisional_ambiguous_email'::text
-  END AS link_reason
+  'auto_email'::text AS link_reason
 FROM top_tier
+WHERE top_tier_count = 1
 ORDER BY id ASC
 LIMIT 1
 `
@@ -913,8 +1056,10 @@ type ResolveIdentityByPrimaryEmailRow struct {
 	LinkReason string `json:"link_reason"`
 }
 
-// Returns a deterministic existing identity and the link reason to use for an
-// email match in one statement, so the resolver observes a single snapshot.
+// Returns an existing identity only when the email has one strict top-tier
+// winner. Ambiguous email matches intentionally return no row so the resolver
+// can create a safe provisional identity and queue/review candidates instead
+// of attaching the account to a deterministic low-id identity.
 func (q *Queries) ResolveIdentityByPrimaryEmail(ctx context.Context, arg ResolveIdentityByPrimaryEmailParams) (ResolveIdentityByPrimaryEmailRow, error) {
 	row := q.db.QueryRow(ctx, resolveIdentityByPrimaryEmail, arg.ConfiguredSourceKinds, arg.ConfiguredSourceNames, arg.PrimaryEmail)
 	var i ResolveIdentityByPrimaryEmailRow
@@ -1151,11 +1296,57 @@ func (q *Queries) SummarizeIdentitiesInventoryByFilters(ctx context.Context, arg
 	return i, err
 }
 
+const summarizeIdentityClaimantsByPrimaryEmail = `-- name: SummarizeIdentityClaimantsByPrimaryEmail :one
+WITH email_claims AS (
+  SELECT DISTINCT ie.identity_id, owner.resolution_state
+  FROM identity_emails ie
+  JOIN identities owner ON owner.id = ie.identity_id
+  WHERE ie.normalized_email = lower(trim($1::text))
+    AND ie.lifecycle_state = 'active'
+    AND owner.resolution_state NOT IN ('merged', 'disabled')
+  UNION
+  SELECT i.id, i.resolution_state
+  FROM identities i
+  WHERE lower(trim(i.primary_email)) = lower(trim($1::text))
+    AND i.resolution_state NOT IN ('merged', 'disabled')
+)
+SELECT
+  count(*)::bigint                                                  AS total_count,
+  count(*) FILTER (WHERE resolution_state = 'confirmed')::bigint    AS confirmed_count,
+  count(*) FILTER (WHERE resolution_state = 'provisional')::bigint  AS provisional_count,
+  count(*) FILTER (WHERE resolution_state = 'needs_review')::bigint AS needs_review_count
+FROM email_claims
+`
+
+type SummarizeIdentityClaimantsByPrimaryEmailRow struct {
+	TotalCount       int64 `json:"total_count"`
+	ConfirmedCount   int64 `json:"confirmed_count"`
+	ProvisionalCount int64 `json:"provisional_count"`
+	NeedsReviewCount int64 `json:"needs_review_count"`
+}
+
+// Returns counts grouped by resolution_state for identities that claim the
+// normalized email through either an active identity_emails row or the legacy
+// identities.primary_email field. Owner write paths use this to distinguish
+// "no identity owns this email" from "the only claimant is provisional and
+// needs to be reviewed first" from "multiple identities claim this email".
+func (q *Queries) SummarizeIdentityClaimantsByPrimaryEmail(ctx context.Context, primaryEmail string) (SummarizeIdentityClaimantsByPrimaryEmailRow, error) {
+	row := q.db.QueryRow(ctx, summarizeIdentityClaimantsByPrimaryEmail, primaryEmail)
+	var i SummarizeIdentityClaimantsByPrimaryEmailRow
+	err := row.Scan(
+		&i.TotalCount,
+		&i.ConfirmedCount,
+		&i.ProvisionalCount,
+		&i.NeedsReviewCount,
+	)
+	return i, err
+}
+
 const updateIdentityAttributes = `-- name: UpdateIdentityAttributes :exec
 UPDATE identities
 SET
-  display_name = COALESCE($1::text, identities.display_name),
-  primary_email = lower(trim(COALESCE($2::text, identities.primary_email))),
+  display_name = COALESCE(NULLIF(trim($1::text), ''), identities.display_name),
+  primary_email = lower(trim(COALESCE(NULLIF(trim($2::text), ''), identities.primary_email))),
   kind = COALESCE(NULLIF(trim($3::text), ''), identities.kind),
   updated_at = now()
 WHERE id = $4::bigint

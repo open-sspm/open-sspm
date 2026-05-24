@@ -67,7 +67,6 @@ func NewOrchestrator(pool *pgxpool.Pool, reg *registry.ConnectorRegistry) *Orche
 		keys:                 make(map[integrationKey]struct{}),
 		globalEvalMode:       globalEvalModeBestEffort,
 		mode:                 registry.RunModeFull,
-		identityFn:           identity.ResolveWithConfiguredSources,
 		globalEvalFn:         runGlobalComplianceEvaluations,
 		timeoutRetryAttempts: defaultTimeoutRetryAttempts,
 		timeoutRetryDelay:    defaultTimeoutRetryDelay,
@@ -272,29 +271,34 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 		return err
 	}
 
-	identityFn := o.identityFn
-	if identityFn == nil {
-		identityFn = identity.ResolveWithConfiguredSources
-	}
-
 	o.report(registry.Event{Source: "identity", Stage: "resolve", Current: 0, Total: 1, Message: "resolving identity graph"})
 	configuredSourceKinds, configuredSourceNames := configuredSourcePairsFromIntegrations(integrations)
-	resolveStats, resolveErr := identityFn(ctx, o.q, configuredSourceKinds, configuredSourceNames)
+	var resolveStats identity.Stats
+	var resolveErr error
+	if o.identityFn != nil {
+		resolveStats, resolveErr = o.identityFn(ctx, o.q, configuredSourceKinds, configuredSourceNames)
+	} else {
+		resolveStats, resolveErr = identity.ResolveWithConfiguredSourcesTx(ctx, o.pool, configuredSourceKinds, configuredSourceNames)
+	}
 	if resolveErr != nil {
 		resolveErr = fmt.Errorf("identity resolve: %w", resolveErr)
 		errs = append(errs, resolveErr)
 		slog.Error("identity resolution failed", "err", resolveErr)
 		o.report(registry.Event{Source: "identity", Stage: "resolve", Current: 1, Total: 1, Message: resolveErr.Error(), Err: resolveErr})
 	} else {
+		if resolveStats.AnchorMatchedLinks > 0 {
+			metrics.AutoLinksTotal.WithLabelValues("identity", "resolver_anchor").Add(float64(resolveStats.AnchorMatchedLinks))
+		}
 		if resolveStats.EmailMatchedLinks > 0 {
 			metrics.AutoLinksTotal.WithLabelValues("identity", "resolver").Add(float64(resolveStats.EmailMatchedLinks))
+			metrics.AutoLinksTotal.WithLabelValues("identity", "resolver_email").Add(float64(resolveStats.EmailMatchedLinks))
 		}
 		o.report(registry.Event{
 			Source:  "identity",
 			Stage:   "resolve",
 			Current: 1,
 			Total:   1,
-			Message: fmt.Sprintf("identity resolution: email_matched=%d provisional=%d updated=%d", resolveStats.EmailMatchedLinks, resolveStats.ProvisionalIdentities, resolveStats.UpdatedIdentities),
+			Message: fmt.Sprintf("identity resolution: anchor_matched=%d email_matched=%d provisional=%d upgraded_provisional=%d updated_identities=%d updated_emails=%d updated_anchors=%d", resolveStats.AnchorMatchedLinks, resolveStats.EmailMatchedLinks, resolveStats.ProvisionalIdentities, resolveStats.UpgradedProvisionalLinks, resolveStats.UpdatedIdentities, resolveStats.UpdatedIdentityEmails, resolveStats.UpdatedIdentityAnchors),
 		})
 	}
 

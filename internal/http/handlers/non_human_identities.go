@@ -4,15 +4,19 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
+	"github.com/open-sspm/open-sspm/internal/normalize"
 )
 
 const nonHumanIdentitiesPerPage = 20
@@ -162,6 +166,13 @@ func (h *Handlers) HandleNonHumanIdentityShow(c *echo.Context) error {
 	if principalRef == "" {
 		return RenderNotFound(c)
 	}
+	if identityID, ok := nonHumanIdentityIDFromRef(principalRef); ok {
+		if redirect, err := h.Q.GetIdentityMergeRedirect(ctx, identityID); err == nil {
+			return c.Redirect(http.StatusSeeOther, "/non-human-identities/identity-"+strconv.FormatInt(redirect.TargetIdentityID, 10))
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return h.RenderError(c, err)
+		}
+	}
 
 	principal, err := h.Q.GetNonHumanPrincipalByRef(ctx, principalRef)
 	if err != nil {
@@ -182,6 +193,25 @@ func (h *Handlers) HandleNonHumanIdentityShow(c *echo.Context) error {
 
 	linkResolver := newIdentityLinkResolver(h, ctx, stateView)
 	summary := nonHumanIdentitiesSummaryFromRow(linkResolver, principal)
+	relationshipRows := []gen.ListIdentityScopedAccountRelationshipsRow(nil)
+	if principal.IdentityID > 0 {
+		relationshipRows, err = h.Q.ListIdentityScopedAccountRelationships(ctx, gen.ListIdentityScopedAccountRelationshipsParams{
+			IdentityID:     principal.IdentityID,
+			LifecycleState: "active",
+		})
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+	}
+	relationships := make([]viewmodels.NonHumanIdentityRelationshipItem, 0, len(relationshipRows))
+	for _, row := range relationshipRows {
+		relationships = append(relationships, nonHumanIdentityRelationshipItemFromRow(row))
+	}
+	if owner := preferredNonHumanRelationshipOwner(relationships); owner != nil && summary.OwnerPresence == "unknown" {
+		summary.OwnerPresence = "owned"
+		summary.AccountableOwner = nonHumanRelationshipIdentityLabel(*owner)
+		summary.AccountableOwnerHref = owner.IdentityHref
+	}
 
 	assets := make([]viewmodels.NonHumanIdentitiesRelatedAssetItem, 0, len(assetRows))
 	for _, row := range assetRows {
@@ -201,18 +231,123 @@ func (h *Handlers) HandleNonHumanIdentityShow(c *echo.Context) error {
 
 	signals := nonHumanPrincipalRiskSignals(principal)
 	data := viewmodels.NonHumanIdentitiesShowViewData{
-		Layout:         layout,
-		Principal:      summary,
-		RiskSignals:    signals,
-		HasRiskSignals: len(signals) > 0,
-		RelatedAssets:  assets,
-		Credentials:    credentials,
-		HasAssets:      len(assets) > 0,
-		HasCredentials: len(credentials) > 0,
+		Layout:                 layout,
+		Principal:              summary,
+		RiskSignals:            signals,
+		HasRiskSignals:         len(signals) > 0,
+		Relationships:          relationships,
+		HasRelationships:       len(relationships) > 0,
+		CanAssignRelationships: principal.IdentityID > 0,
+		RelationshipAction:     nonHumanRelationshipActionPath(principalRef),
+		RelatedAssets:          assets,
+		Credentials:            credentials,
+		HasAssets:              len(assets) > 0,
+		HasCredentials:         len(credentials) > 0,
 	}
 
 	h.trackNonHumanIdentityDetailOpen(c, principalRef)
 	return h.RenderComponent(c, views.NonHumanIdentityShowPage(data))
+}
+
+func (h *Handlers) HandleNonHumanIdentityRelationshipCreate(c *echo.Context) error {
+	ctx := c.Request().Context()
+	principalRef := strings.TrimSpace(c.Param("ref"))
+	if principalRef == "" {
+		return RenderNotFound(c)
+	}
+	redirectPath := nonHumanRelationshipRedirectPath(principalRef)
+
+	principal, err := h.Q.GetNonHumanPrincipalByRef(ctx, principalRef)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return RenderNotFound(c)
+		}
+		return h.RenderError(c, err)
+	}
+	if principal.IdentityID <= 0 {
+		return redirectWithFlash(c, redirectPath, viewmodels.ToastViewData{
+			Category:    "error",
+			Title:       "Relationship not saved",
+			Description: "Only identity-backed non-human principals can store account ownership relationships.",
+		})
+	}
+
+	relationshipType := identityResolutionRelationshipTypeInput(c)
+	if relationshipType == "" {
+		relationshipType = "custodian"
+	}
+	identityEmail := normalize.Email(c.FormValue("identity_email"))
+	if identityEmail == "" {
+		return redirectWithFlash(c, redirectPath, viewmodels.ToastViewData{
+			Category:    "error",
+			Title:       "Identity email required",
+			Description: "Enter an existing identity email for the owner or custodian.",
+		})
+	}
+
+	configuredSourceKinds, configuredSourceNames, err := h.loadConfiguredIdentitySourcePairs(ctx)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	result, err := h.resolveStrictOwnerByEmail(ctx, "Identity", identityEmail, configuredSourceKinds, configuredSourceNames)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	if result.Alert != nil {
+		return redirectWithFlash(c, redirectPath, viewmodels.ToastViewData{
+			Category:    "error",
+			Title:       result.Alert.Title,
+			Description: result.Alert.Message,
+		})
+	}
+	ownerIdentity := result.Identity
+	if nonHumanRelationshipTargetIsNonHuman(ownerIdentity) {
+		return redirectWithFlash(c, redirectPath, viewmodels.ToastViewData{
+			Category:    "error",
+			Title:       "Choose a human identity",
+			Description: "Service-account relationships should point to the human owner or custodian, not another service identity.",
+		})
+	}
+
+	err = h.WithTx(ctx, func(qtx *gen.Queries) error {
+		accounts, err := qtx.ListLinkedAccountsForIdentity(ctx, principal.IdentityID)
+		if err != nil {
+			return err
+		}
+		if len(accounts) == 0 {
+			return pgx.ErrNoRows
+		}
+		for _, account := range accounts {
+			if _, err := qtx.UpsertAccountIdentityRelationship(ctx, gen.UpsertAccountIdentityRelationshipParams{
+				AccountID:        account.ID,
+				IdentityID:       ownerIdentity.ID,
+				RelationshipType: relationshipType,
+				SourceKind:       pgtype.Text{String: account.SourceKind, Valid: strings.TrimSpace(account.SourceKind) != ""},
+				SourceName:       pgtype.Text{String: account.SourceName, Valid: strings.TrimSpace(account.SourceName) != ""},
+				Confidence:       identityResolutionRelationshipConfidence(relationshipType),
+				LifecycleState:   "active",
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return redirectWithFlash(c, redirectPath, viewmodels.ToastViewData{
+				Category:    "error",
+				Title:       "Relationship not saved",
+				Description: "No active source accounts are linked to this non-human identity.",
+			})
+		}
+		return h.RenderError(c, err)
+	}
+
+	return redirectWithFlash(c, redirectPath, viewmodels.ToastViewData{
+		Category:    "success",
+		Title:       "Relationship saved",
+		Description: "The non-human account now has an account-scoped owner or custodian relationship.",
+	})
 }
 
 func nonHumanIdentitiesListItemFromRow(linkResolver *identityLinkResolver, row gen.ListNonHumanPrincipalsPageByFiltersRow) viewmodels.NonHumanIdentitiesListItem {
@@ -324,6 +459,103 @@ func nonHumanIdentitiesRelatedCredentialItemFromRow(linkResolver *identityLinkRe
 		AppAssetID:      row.AppAssetID,
 		AppAssetDisplay: fallbackDash(strings.TrimSpace(row.AppAssetDisplayName)),
 		AppAssetHref:    nonHumanAppAssetHref(row.AppAssetID),
+	}
+}
+
+func nonHumanIdentityRelationshipItemFromRow(row gen.ListIdentityScopedAccountRelationshipsRow) viewmodels.NonHumanIdentityRelationshipItem {
+	return viewmodels.NonHumanIdentityRelationshipItem{
+		ID:                          row.ID,
+		AccountID:                   row.AccountID,
+		AccountDisplayName:          fallbackNonEmpty(row.AccountDisplayName, row.AccountExternalID),
+		AccountExternalID:           strings.TrimSpace(row.AccountExternalID),
+		AccountSourceKind:           strings.TrimSpace(row.AccountSourceKind),
+		AccountSourceName:           strings.TrimSpace(row.AccountSourceName),
+		IdentityID:                  row.IdentityID,
+		IdentityHref:                nonHumanIdentityHref(row.IdentityID),
+		IdentityDisplayName:         fallbackNonEmpty(row.RelationshipDisplayName, row.RelationshipPrimaryEmail, views.FormatInt64(row.IdentityID)),
+		IdentityPrimaryEmail:        strings.TrimSpace(row.RelationshipPrimaryEmail),
+		RelationshipType:            strings.TrimSpace(row.RelationshipType),
+		RelationshipIdentityKind:    strings.TrimSpace(row.RelationshipIdentityKind),
+		RelationshipResolutionState: strings.TrimSpace(row.RelationshipResolutionState),
+		Confidence:                  row.Confidence,
+		LastSeen:                    calendarDateWithRelativeDisplay(row.LastSeenAt),
+	}
+}
+
+func preferredNonHumanRelationshipOwner(items []viewmodels.NonHumanIdentityRelationshipItem) *viewmodels.NonHumanIdentityRelationshipItem {
+	preferredRank := func(relationshipType string) int {
+		switch strings.TrimSpace(relationshipType) {
+		case "owner":
+			return 0
+		case "custodian":
+			return 1
+		case "approver":
+			return 2
+		case "attributed_user":
+			return 3
+		case "last_observed_user":
+			return 4
+		default:
+			return 5
+		}
+	}
+	var best *viewmodels.NonHumanIdentityRelationshipItem
+	bestRank := 100
+	for i := range items {
+		rank := preferredRank(items[i].RelationshipType)
+		if best == nil || rank < bestRank {
+			best = &items[i]
+			bestRank = rank
+		}
+	}
+	return best
+}
+
+func nonHumanRelationshipIdentityLabel(item viewmodels.NonHumanIdentityRelationshipItem) string {
+	if label := strings.TrimSpace(item.IdentityDisplayName); label != "" {
+		return label
+	}
+	if email := strings.TrimSpace(item.IdentityPrimaryEmail); email != "" {
+		return email
+	}
+	return "Identity #" + views.FormatInt64(item.IdentityID)
+}
+
+func nonHumanRelationshipActionPath(principalRef string) string {
+	principalRef = strings.TrimSpace(principalRef)
+	if principalRef == "" {
+		return ""
+	}
+	return "/non-human-identities/" + url.PathEscape(principalRef) + "/relationships"
+}
+
+func nonHumanRelationshipRedirectPath(principalRef string) string {
+	principalRef = strings.TrimSpace(principalRef)
+	if principalRef == "" {
+		return "/non-human-identities"
+	}
+	return "/non-human-identities/" + url.PathEscape(principalRef)
+}
+
+func nonHumanIdentityIDFromRef(principalRef string) (int64, bool) {
+	raw := strings.TrimPrefix(strings.TrimSpace(principalRef), "identity-")
+	if raw == strings.TrimSpace(principalRef) {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(raw, 10, 64)
+	return id, err == nil && id > 0
+}
+
+func nonHumanRelationshipTargetIsNonHuman(identity gen.Identity) bool {
+	switch strings.ToLower(strings.TrimSpace(identity.Kind)) {
+	case "service", "bot":
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(identity.IdentityKind)) {
+	case "service", "shared", "application":
+		return true
+	default:
+		return false
 	}
 }
 

@@ -258,6 +258,91 @@ func TestHandleIdentityShowRedirectsServiceIdentitiesToNonHumanRoute(t *testing.
 	})
 }
 
+func TestHandleIdentityShowRedirectsMergedIdentities(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		sourceIdentityID := insertCommandSearchIdentity(t, ctx, pool, "human", "old@example.com", "Old Identity")
+		targetIdentityID := insertCommandSearchIdentity(t, ctx, pool, "human", "new@example.com", "New Identity")
+		mergeEvent, err := q.CreateIdentityMergeEvent(ctx, gen.CreateIdentityMergeEventParams{
+			SourceIdentityID: sourceIdentityID,
+			TargetIdentityID: targetIdentityID,
+			Status:           "pending",
+			Reason:           "manual_review",
+		})
+		if err != nil {
+			t.Fatalf("CreateIdentityMergeEvent(): %v", err)
+		}
+		if _, err := q.UpsertIdentityMergeRedirect(ctx, gen.UpsertIdentityMergeRedirectParams{
+			SourceIdentityID: sourceIdentityID,
+			TargetIdentityID: targetIdentityID,
+			MergeEventID:     mergeEvent.ID,
+		}); err != nil {
+			t.Fatalf("UpsertIdentityMergeRedirect(): %v", err)
+		}
+
+		target := "http://example.com/identities/" + strconv.FormatInt(sourceIdentityID, 10)
+		c, rec := newTestContext(http.MethodGet, target)
+		(*c).SetPath("/identities/:id")
+		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(sourceIdentityID, 10)}})
+
+		if err := h.HandleIdentityShow(c); err != nil {
+			t.Fatalf("HandleIdentityShow(%s): %v", target, err)
+		}
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+		}
+		if got, want := rec.Header().Get("Location"), "/identities/"+strconv.FormatInt(targetIdentityID, 10); got != want {
+			t.Fatalf("Location = %q, want %q", got, want)
+		}
+	})
+}
+
+func TestHandleIdentityShowRendersIdentityGraphFacts(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindOkta, "acme")
+		accountID := insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
+			SourceKind:     configstore.KindOkta,
+			SourceName:     "acme",
+			ExternalID:     "00u123",
+			Email:          "person@example.com",
+			DisplayName:    "Person",
+			Status:         "active",
+			AccountKind:    "human",
+			EntityCategory: "user",
+			RawJSON:        `{"id":"00u123"}`,
+		})
+		identityID := insertCommandSearchIdentity(t, ctx, pool, "human", "person@example.com", "Person")
+		insertCommandSearchIdentityAccountLink(t, ctx, pool, identityID, accountID)
+		if _, err := q.UpsertIdentityEmail(ctx, gen.UpsertIdentityEmailParams{
+			IdentityID:        identityID,
+			Email:             "alias@example.com",
+			NormalizedEmail:   "alias@example.com",
+			EmailKind:         "alias",
+			VerificationState: "manual",
+			LifecycleState:    "active",
+			IsPrimary:         false,
+		}); err != nil {
+			t.Fatalf("UpsertIdentityEmail(): %v", err)
+		}
+		if _, err := q.UpsertIdentityAnchor(ctx, gen.UpsertIdentityAnchorParams{
+			IdentityID:            identityID,
+			AnchorKind:            "okta_user_id",
+			Issuer:                "okta:acme",
+			AnchorValue:           "00u123",
+			NormalizedAnchorValue: "00u123",
+			TrustLevel:            "manual",
+			LifecycleState:        "active",
+		}); err != nil {
+			t.Fatalf("UpsertIdentityAnchor(): %v", err)
+		}
+
+		body := renderIdentityShow(t, h, identityID)
+		assertContains(t, body, "Identity graph facts")
+		assertContains(t, body, "alias@example.com")
+		assertContains(t, body, "Okta User Id")
+		assertContains(t, body, "okta:acme")
+	})
+}
+
 func renderIdentityShow(t *testing.T, h *Handlers, identityID int64) string {
 	t.Helper()
 

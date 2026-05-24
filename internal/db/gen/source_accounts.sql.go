@@ -31,15 +31,21 @@ WHERE au.source_kind = $1
   AND au.source_name = $2
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
+  AND (
+    $3::text = ''
+    OR au.entity_category = $3::text
+    OR ($3::text = 'user' AND au.entity_category = 'unknown')
+  )
 `
 
 type CountAnchoredSourceAccountsBySourceParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
+	SourceKind     string `json:"source_kind"`
+	SourceName     string `json:"source_name"`
+	EntityCategory string `json:"entity_category"`
 }
 
 func (q *Queries) CountAnchoredSourceAccountsBySource(ctx context.Context, arg CountAnchoredSourceAccountsBySourceParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countAnchoredSourceAccountsBySource, arg.SourceKind, arg.SourceName)
+	row := q.db.QueryRow(ctx, countAnchoredSourceAccountsBySource, arg.SourceKind, arg.SourceName, arg.EntityCategory)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -88,15 +94,21 @@ WHERE source_kind = $1
   AND source_name = $2
   AND expired_at IS NULL
   AND last_observed_run_id IS NOT NULL
+  AND (
+    $3::text = ''
+    OR entity_category = $3::text
+    OR ($3::text = 'user' AND entity_category = 'unknown')
+  )
 `
 
 type CountSourceAccountsBySourceParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
+	SourceKind     string `json:"source_kind"`
+	SourceName     string `json:"source_name"`
+	EntityCategory string `json:"entity_category"`
 }
 
 func (q *Queries) CountSourceAccountsBySource(ctx context.Context, arg CountSourceAccountsBySourceParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countSourceAccountsBySource, arg.SourceKind, arg.SourceName)
+	row := q.db.QueryRow(ctx, countSourceAccountsBySource, arg.SourceKind, arg.SourceName, arg.EntityCategory)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -214,18 +226,24 @@ WHERE au.source_kind = $1
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
   AND (
+    $3::text = ''
+    OR au.entity_category = $3::text
+    OR ($3::text = 'user' AND au.entity_category = 'unknown')
+  )
+  AND (
     ia.identity_id IS NULL
     OR ai.identity_id IS NULL
   )
 `
 
 type CountSourceAccountsNeedingAnchorBySourceParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
+	SourceKind     string `json:"source_kind"`
+	SourceName     string `json:"source_name"`
+	EntityCategory string `json:"entity_category"`
 }
 
 func (q *Queries) CountSourceAccountsNeedingAnchorBySource(ctx context.Context, arg CountSourceAccountsNeedingAnchorBySourceParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countSourceAccountsNeedingAnchorBySource, arg.SourceKind, arg.SourceName)
+	row := q.db.QueryRow(ctx, countSourceAccountsNeedingAnchorBySource, arg.SourceKind, arg.SourceName, arg.EntityCategory)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

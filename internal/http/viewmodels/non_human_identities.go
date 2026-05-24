@@ -107,13 +107,37 @@ type NonHumanIdentitiesRiskSignal struct {
 	Evidence string
 }
 
+type NonHumanIdentityRelationshipItem struct {
+	ID                          int64
+	AccountID                   int64
+	AccountDisplayName          string
+	AccountExternalID           string
+	AccountSourceKind           string
+	AccountSourceName           string
+	IdentityID                  int64
+	IdentityHref                string
+	IdentityDisplayName         string
+	IdentityPrimaryEmail        string
+	RelationshipType            string
+	RelationshipIdentityKind    string
+	RelationshipResolutionState string
+	Confidence                  int32
+	LastSeen                    TimeDisplay
+}
+
 type NonHumanIdentitiesShowViewData struct {
-	Layout         LayoutData
-	Principal      NonHumanIdentitiesSummaryView
-	RiskSignals    []NonHumanIdentitiesRiskSignal
-	HasRiskSignals bool
-	RelatedAssets  []NonHumanIdentitiesRelatedAssetItem
-	Credentials    []NonHumanIdentitiesRelatedCredentialItem
-	HasAssets      bool
-	HasCredentials bool
+	Layout                    LayoutData
+	Principal                 NonHumanIdentitiesSummaryView
+	RiskSignals               []NonHumanIdentitiesRiskSignal
+	HasRiskSignals            bool
+	Relationships             []NonHumanIdentityRelationshipItem
+	HasRelationships          bool
+	CanAssignRelationships    bool
+	RelationshipAction        string
+	RelationshipIdentityEmail string
+	RelationshipTypeInput     string
+	RelatedAssets             []NonHumanIdentitiesRelatedAssetItem
+	Credentials               []NonHumanIdentitiesRelatedCredentialItem
+	HasAssets                 bool
+	HasCredentials            bool
 }

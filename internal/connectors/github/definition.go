@@ -59,7 +59,7 @@ func (d *Definition) SettingsHref() string {
 }
 
 func (d *Definition) MetricsProvider() registry.MetricsProvider {
-	return registry.NewSourceMetricsProvider(configstore.KindGitHub)
+	return registry.NewUserSourceMetricsProvider(configstore.KindGitHub)
 }
 
 func (d *Definition) NewIntegration(cfg any) (registry.Integration, error) {

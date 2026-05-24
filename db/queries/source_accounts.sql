@@ -484,10 +484,15 @@ WHERE id = $1
 -- name: CountSourceAccountsBySource :one
 SELECT count(*)
 FROM accounts
-WHERE source_kind = $1
-  AND source_name = $2
+WHERE source_kind = sqlc.arg(source_kind)
+  AND source_name = sqlc.arg(source_name)
   AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL;
+  AND last_observed_run_id IS NOT NULL
+  AND (
+    sqlc.arg(entity_category)::text = ''
+    OR entity_category = sqlc.arg(entity_category)::text
+    OR (sqlc.arg(entity_category)::text = 'user' AND entity_category = 'unknown')
+  );
 
 -- name: CountAnchoredSourceAccountsBySource :one
 WITH authoritative_identities AS (
@@ -505,10 +510,15 @@ SELECT count(*)
 FROM accounts au
 JOIN identity_accounts ia ON ia.account_id = au.id
 JOIN authoritative_identities ai ON ai.identity_id = ia.identity_id
-WHERE au.source_kind = $1
-  AND au.source_name = $2
+WHERE au.source_kind = sqlc.arg(source_kind)
+  AND au.source_name = sqlc.arg(source_name)
   AND au.expired_at IS NULL
-  AND au.last_observed_run_id IS NOT NULL;
+  AND au.last_observed_run_id IS NOT NULL
+  AND (
+    sqlc.arg(entity_category)::text = ''
+    OR au.entity_category = sqlc.arg(entity_category)::text
+    OR (sqlc.arg(entity_category)::text = 'user' AND au.entity_category = 'unknown')
+  );
 
 -- name: CountSourceAccountsNeedingAnchorBySource :one
 WITH authoritative_identities AS (
@@ -526,10 +536,15 @@ SELECT count(*)
 FROM accounts au
 LEFT JOIN identity_accounts ia ON ia.account_id = au.id
 LEFT JOIN authoritative_identities ai ON ai.identity_id = ia.identity_id
-WHERE au.source_kind = $1
-  AND au.source_name = $2
+WHERE au.source_kind = sqlc.arg(source_kind)
+  AND au.source_name = sqlc.arg(source_name)
   AND au.expired_at IS NULL
   AND au.last_observed_run_id IS NOT NULL
+  AND (
+    sqlc.arg(entity_category)::text = ''
+    OR au.entity_category = sqlc.arg(entity_category)::text
+    OR (sqlc.arg(entity_category)::text = 'user' AND au.entity_category = 'unknown')
+  )
   AND (
     ia.identity_id IS NULL
     OR ai.identity_id IS NULL
