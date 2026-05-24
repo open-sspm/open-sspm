@@ -291,7 +291,6 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 		}
 		if resolveStats.EmailMatchedLinks > 0 {
 			metrics.AutoLinksTotal.WithLabelValues("identity", "resolver").Add(float64(resolveStats.EmailMatchedLinks))
-			metrics.AutoLinksTotal.WithLabelValues("identity", "resolver_email").Add(float64(resolveStats.EmailMatchedLinks))
 		}
 		o.report(registry.Event{
 			Source:  "identity",

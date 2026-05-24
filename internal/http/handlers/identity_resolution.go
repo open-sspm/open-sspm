@@ -1121,10 +1121,6 @@ func identityResolutionEvidenceItem(now time.Time, row gen.IdentityLinkEvidence)
 }
 
 func identityResolutionReviewedBy(c *echo.Context) string {
-	reviewedBy := strings.TrimSpace(c.FormValue("reviewed_by"))
-	if reviewedBy != "" {
-		return reviewedBy
-	}
 	if principal, ok := authn.PrincipalFromContext(c); ok {
 		return strings.TrimSpace(principal.Email)
 	}

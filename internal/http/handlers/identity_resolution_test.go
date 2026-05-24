@@ -739,3 +739,53 @@ func TestHandleIdentityResolutionCandidateRejectMarksPendingCandidateRejected(t 
 		}
 	})
 }
+
+func TestHandleIdentityResolutionCandidateRejectIgnoresReviewedByFormValue(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
+		accountID := insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
+			SourceKind:     configstore.KindGitHub,
+			SourceName:     "acme",
+			ExternalID:     "ambiguous-user",
+			Email:          "ambiguous@example.com",
+			DisplayName:    "Ambiguous User",
+			Status:         "active",
+			AccountKind:    "human",
+			EntityCategory: "user",
+			RawJSON:        `{}`,
+		})
+		candidateIdentity := insertCommandSearchIdentity(t, ctx, pool, "human", "ambiguous@example.com", "Candidate")
+		candidate, err := q.UpsertIdentityMatchCandidate(ctx, gen.UpsertIdentityMatchCandidateParams{
+			AccountID:           accountID,
+			CandidateIdentityID: candidateIdentity,
+			ConfidenceBand:      "conflict",
+			Score:               40,
+			MatchReason:         "ambiguous_primary_email",
+			ResolverVersion:     "test",
+			ResolverFingerprint: "candidate",
+		})
+		if err != nil {
+			t.Fatalf("UpsertIdentityMatchCandidate(): %v", err)
+		}
+
+		c, rec := newTestContext(http.MethodPost, "http://example.com/api/identity-resolution/candidates/"+strconv.FormatInt(candidate.ID, 10)+"/reject?reviewed_by=spoof@example.com")
+		(*c).SetPath("/api/identity-resolution/candidates/:id/reject")
+		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(candidate.ID, 10)}})
+		(*c).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: 1, Email: "admin@example.com", Role: "admin"})
+
+		if err := h.HandleIdentityResolutionCandidateReject(c); err != nil {
+			t.Fatalf("HandleIdentityResolutionCandidateReject(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		after, err := q.GetIdentityMatchCandidate(ctx, candidate.ID)
+		if err != nil {
+			t.Fatalf("GetIdentityMatchCandidate(): %v", err)
+		}
+		if !after.ReviewedBy.Valid || after.ReviewedBy.String != "admin@example.com" {
+			t.Fatalf("reviewed_by = %+v, want authenticated principal", after.ReviewedBy)
+		}
+	})
+}

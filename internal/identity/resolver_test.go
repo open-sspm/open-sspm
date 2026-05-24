@@ -501,6 +501,11 @@ func (s *resolverStub) GetIdentityAccountLinkByAccountID(_ context.Context, acco
 	return row, nil
 }
 
+func (s *resolverStub) ListIdentityEmails(_ context.Context, identityID int64) ([]gen.IdentityEmail, error) {
+	rows := append([]gen.IdentityEmail(nil), s.identityEmails[identityID]...)
+	return rows, nil
+}
+
 func (s *resolverStub) UpsertIdentityEmail(_ context.Context, params gen.UpsertIdentityEmailParams) (gen.IdentityEmail, error) {
 	normalized := normalizeTestEmail(params.NormalizedEmail)
 	for i, row := range s.identityEmails[params.IdentityID] {
@@ -824,6 +829,38 @@ func makeActiveAccount(id int64, sourceKind, sourceName, email, displayName stri
 		Email:             email,
 		DisplayName:       displayName,
 		LastObservedRunID: pgtype.Int8{Int64: 1, Valid: true},
+	}
+}
+
+func TestResolverPersistIdentityEmailReportsOnlySemanticChanges(t *testing.T) {
+	t.Parallel()
+
+	stub := newResolverStub()
+	resolver := resolverForStub(stub)
+	account := makeActiveAccount(10, "github", "acme", "alice@example.com", "Alice")
+
+	updated, err := resolver.persistIdentityEmailForAccount(context.Background(), 1, account, "observed")
+	if err != nil {
+		t.Fatalf("persistIdentityEmailForAccount(insert): %v", err)
+	}
+	if !updated {
+		t.Fatalf("updated = false, want true for initial insert")
+	}
+
+	updated, err = resolver.persistIdentityEmailForAccount(context.Background(), 1, account, "observed")
+	if err != nil {
+		t.Fatalf("persistIdentityEmailForAccount(no-op): %v", err)
+	}
+	if updated {
+		t.Fatalf("updated = true, want false for no-op replay")
+	}
+
+	updated, err = resolver.persistIdentityEmailForAccount(context.Background(), 1, account, "verified_authoritative")
+	if err != nil {
+		t.Fatalf("persistIdentityEmailForAccount(trust upgrade): %v", err)
+	}
+	if !updated {
+		t.Fatalf("updated = false, want true for verification upgrade")
 	}
 }
 

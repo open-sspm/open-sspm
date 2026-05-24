@@ -36,6 +36,7 @@ type queryRunner interface {
 	CreateIdentity(context.Context, gen.CreateIdentityParams) (gen.Identity, error)
 	UpsertIdentityAccountLink(context.Context, gen.UpsertIdentityAccountLinkParams) (gen.IdentityAccount, error)
 	GetIdentityAccountLinkByAccountID(context.Context, int64) (gen.IdentityAccount, error)
+	ListIdentityEmails(context.Context, int64) ([]gen.IdentityEmail, error)
 	UpsertIdentityEmail(context.Context, gen.UpsertIdentityEmailParams) (gen.IdentityEmail, error)
 	UpsertAccountAnchor(context.Context, gen.UpsertAccountAnchorParams) (gen.AccountAnchor, error)
 	ListIdentityAnchorMatchesForAccount(context.Context, int64) ([]gen.ListIdentityAnchorMatchesForAccountRow, error)
@@ -61,6 +62,7 @@ type queryRunner interface {
 
 type Resolver struct {
 	Q                     queryRunner
+	Pool                  *pgxpool.Pool
 	ConfiguredSourceKinds []string
 	ConfiguredSourceNames []string
 }
@@ -92,20 +94,41 @@ func ResolveWithConfiguredSourcesTx(ctx context.Context, pool *pgxpool.Pool, con
 	if pool == nil {
 		return Stats{}, errors.New("identity resolver database pool is nil")
 	}
-	tx, err := pool.Begin(ctx)
+	r := Resolver{Q: gen.New(pool), Pool: pool}
+	r.ConfiguredSourceKinds = append([]string(nil), configuredSourceKinds...)
+	r.ConfiguredSourceNames = append([]string(nil), configuredSourceNames...)
+	return r.Resolve(ctx)
+}
+
+func (s *Stats) add(other Stats) {
+	s.MissingIdentityLinksBefore += other.MissingIdentityLinksBefore
+	s.ProvisionalIdentities += other.ProvisionalIdentities
+	s.AnchorMatchedLinks += other.AnchorMatchedLinks
+	s.EmailMatchedLinks += other.EmailMatchedLinks
+	s.ProvisionalLinks += other.ProvisionalLinks
+	s.UpgradedProvisionalLinks += other.UpgradedProvisionalLinks
+	s.UpdatedIdentityEmails += other.UpdatedIdentityEmails
+	s.UpdatedIdentityAnchors += other.UpdatedIdentityAnchors
+	s.UpdatedIdentities += other.UpdatedIdentities
+}
+
+func (r Resolver) withShortTransaction(ctx context.Context, fn func(Resolver) error) error {
+	if r.Pool == nil {
+		return fn(r)
+	}
+	tx, err := r.Pool.Begin(ctx)
 	if err != nil {
-		return Stats{}, err
+		return err
 	}
 	defer tx.Rollback(ctx)
 
-	stats, err := ResolveWithConfiguredSources(ctx, gen.New(tx), configuredSourceKinds, configuredSourceNames)
-	if err != nil {
-		return stats, err
+	txResolver := r
+	txResolver.Pool = nil
+	txResolver.Q = gen.New(tx)
+	if err := fn(txResolver); err != nil {
+		return err
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return stats, err
-	}
-	return stats, nil
+	return tx.Commit(ctx)
 }
 
 func (r Resolver) Resolve(ctx context.Context) (Stats, error) {
@@ -160,64 +183,24 @@ func (r Resolver) Resolve(ctx context.Context) (Stats, error) {
 			if account.ID > cursor {
 				cursor = account.ID
 			}
-
-			identityID, reason, createdIdentity, err := r.resolveIdentityIDForAccount(ctx, account)
-			if err != nil {
-				return out, err
-			}
-			if createdIdentity {
-				out.ProvisionalIdentities++
-			}
-
-			_, err = r.Q.UpsertIdentityAccountLink(ctx, gen.UpsertIdentityAccountLinkParams{
-				IdentityID: identityID,
-				AccountID:  account.ID,
-				LinkReason: reason,
-				Confidence: 1.0,
+			var accountStats Stats
+			err := r.withShortTransaction(ctx, func(txResolver Resolver) error {
+				var err error
+				accountStats, err = txResolver.resolveMissingIdentityLinkForAccount(ctx, account, authoritativeSources)
+				return err
 			})
 			if err != nil {
 				return out, err
 			}
-
-			_, isAuthoritativeSource := authoritativeSources[sourceKey(account.SourceKind, account.SourceName)]
-			emailVerification := "observed"
-			if isAuthoritativeSource {
-				emailVerification = "verified_authoritative"
-			}
-			updatedEmail, err := r.persistIdentityEmailForAccount(ctx, identityID, account, emailVerification)
-			if err != nil {
-				return out, err
-			}
-			if updatedEmail {
-				out.UpdatedIdentityEmails++
-			}
-
-			if isAuthoritativeSource {
-				updated, err := r.persistIdentityAnchorsForAccount(ctx, identityID, account, "authoritative")
-				if err != nil {
-					return out, err
-				}
-				out.UpdatedIdentityAnchors += updated
-			}
-
-			if reason == linkReasonAutoEmail {
-				out.EmailMatchedLinks++
-			} else if reason == linkReasonAutoAnchor {
-				out.AnchorMatchedLinks++
-			} else {
-				out.ProvisionalLinks++
-			}
+			out.add(accountStats)
 		}
 	}
 
-	upgradedLinks, updatedEmails, updatedAnchors, err := r.upgradeProvisionalLinksByAnchors(ctx, authoritativeSources)
+	upgradeStats, err := r.upgradeProvisionalLinksByAnchors(ctx, authoritativeSources)
 	if err != nil {
 		return out, err
 	}
-	out.UpgradedProvisionalLinks += upgradedLinks
-	out.AnchorMatchedLinks += upgradedLinks
-	out.UpdatedIdentityEmails += updatedEmails
-	out.UpdatedIdentityAnchors += updatedAnchors
+	out.add(upgradeStats)
 
 	updated, err := r.refreshIdentityAttributes(ctx)
 	if err != nil {
@@ -228,10 +211,59 @@ func (r Resolver) Resolve(ctx context.Context) (Stats, error) {
 	return out, nil
 }
 
-func (r Resolver) upgradeProvisionalLinksByAnchors(ctx context.Context, authoritativeSources map[string]struct{}) (int64, int64, int64, error) {
-	var upgradedLinks int64
-	var updatedEmails int64
-	var updatedAnchors int64
+func (r Resolver) resolveMissingIdentityLinkForAccount(ctx context.Context, account gen.Account, authoritativeSources map[string]struct{}) (Stats, error) {
+	var out Stats
+	identityID, reason, createdIdentity, err := r.resolveIdentityIDForAccount(ctx, account)
+	if err != nil {
+		return out, err
+	}
+	if createdIdentity {
+		out.ProvisionalIdentities++
+	}
+
+	_, err = r.Q.UpsertIdentityAccountLink(ctx, gen.UpsertIdentityAccountLinkParams{
+		IdentityID: identityID,
+		AccountID:  account.ID,
+		LinkReason: reason,
+		Confidence: 1.0,
+	})
+	if err != nil {
+		return out, err
+	}
+
+	_, isAuthoritativeSource := authoritativeSources[sourceKey(account.SourceKind, account.SourceName)]
+	emailVerification := "observed"
+	if isAuthoritativeSource {
+		emailVerification = "verified_authoritative"
+	}
+	updatedEmail, err := r.persistIdentityEmailForAccount(ctx, identityID, account, emailVerification)
+	if err != nil {
+		return out, err
+	}
+	if updatedEmail {
+		out.UpdatedIdentityEmails++
+	}
+
+	if isAuthoritativeSource {
+		updated, err := r.persistIdentityAnchorsForAccount(ctx, identityID, account, "authoritative")
+		if err != nil {
+			return out, err
+		}
+		out.UpdatedIdentityAnchors += updated
+	}
+
+	if reason == linkReasonAutoEmail {
+		out.EmailMatchedLinks++
+	} else if reason == linkReasonAutoAnchor {
+		out.AnchorMatchedLinks++
+	} else {
+		out.ProvisionalLinks++
+	}
+	return out, nil
+}
+
+func (r Resolver) upgradeProvisionalLinksByAnchors(ctx context.Context, authoritativeSources map[string]struct{}) (Stats, error) {
+	var out Stats
 	cursor := int64(0)
 	for {
 		accounts, err := r.Q.ListProvisionalIdentityLinkAccountsPageByConfiguredSources(ctx, gen.ListProvisionalIdentityLinkAccountsPageByConfiguredSourcesParams{
@@ -241,7 +273,7 @@ func (r Resolver) upgradeProvisionalLinksByAnchors(ctx context.Context, authorit
 			ConfiguredSourceNames: r.ConfiguredSourceNames,
 		})
 		if err != nil {
-			return upgradedLinks, updatedEmails, updatedAnchors, err
+			return out, err
 		}
 		if len(accounts) == 0 {
 			break
@@ -251,85 +283,100 @@ func (r Resolver) upgradeProvisionalLinksByAnchors(ctx context.Context, authorit
 			if account.ID > cursor {
 				cursor = account.ID
 			}
-
-			existing, err := r.Q.GetIdentityAccountLinkByAccountID(ctx, account.ID)
+			var accountStats Stats
+			err := r.withShortTransaction(ctx, func(txResolver Resolver) error {
+				var err error
+				accountStats, err = txResolver.upgradeProvisionalLinkByAnchors(ctx, account, authoritativeSources)
+				return err
+			})
 			if err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					continue
-				}
-				return upgradedLinks, updatedEmails, updatedAnchors, err
+				return out, err
 			}
-			if !isResolverProvisionalReason(existing.LinkReason) {
-				continue
-			}
-
-			anchors, err := r.persistAccountAnchors(ctx, account)
-			if err != nil {
-				return upgradedLinks, updatedEmails, updatedAnchors, err
-			}
-			if len(anchors) == 0 {
-				continue
-			}
-
-			anchorMatches, err := r.Q.ListIdentityAnchorMatchesForAccount(ctx, account.ID)
-			if err != nil {
-				return upgradedLinks, updatedEmails, updatedAnchors, err
-			}
-			if identityID, ok := uniqueAnchorIdentity(anchorMatches); ok {
-				if err := r.persistAutoAnchorEvidence(ctx, account, identityID, anchorMatches); err != nil {
-					return upgradedLinks, updatedEmails, updatedAnchors, err
-				}
-				if _, err := r.Q.UpsertIdentityAccountLink(ctx, gen.UpsertIdentityAccountLinkParams{
-					IdentityID: identityID,
-					AccountID:  account.ID,
-					LinkReason: linkReasonAutoAnchor,
-					Confidence: 1.0,
-				}); err != nil {
-					return upgradedLinks, updatedEmails, updatedAnchors, err
-				}
-				if _, err := r.mergeEmptyProvisionalIdentity(ctx, existing.IdentityID, identityID, "resolver_anchor_upgrade"); err != nil {
-					return upgradedLinks, updatedEmails, updatedAnchors, err
-				}
-				_, isAuthoritativeSource := authoritativeSources[sourceKey(account.SourceKind, account.SourceName)]
-				emailVerification := "observed"
-				if isAuthoritativeSource {
-					emailVerification = "verified_authoritative"
-				}
-				updatedEmail, err := r.persistIdentityEmailForAccount(ctx, identityID, account, emailVerification)
-				if err != nil {
-					return upgradedLinks, updatedEmails, updatedAnchors, err
-				}
-				if updatedEmail {
-					updatedEmails++
-				}
-				if isAuthoritativeSource {
-					updated, err := r.persistIdentityAnchorsForAccount(ctx, identityID, account, "authoritative")
-					if err != nil {
-						return upgradedLinks, updatedEmails, updatedAnchors, err
-					}
-					updatedAnchors += updated
-				}
-				upgradedLinks++
-				continue
-			}
-
-			if len(anchorMatchIdentitySet(anchorMatches)) > 1 {
-				if err := r.persistAnchorConflictCandidates(ctx, account, existing.IdentityID, anchorMatches); err != nil {
-					return upgradedLinks, updatedEmails, updatedAnchors, err
-				}
-				if _, err := r.Q.UpsertIdentityAccountLink(ctx, gen.UpsertIdentityAccountLinkParams{
-					IdentityID: existing.IdentityID,
-					AccountID:  account.ID,
-					LinkReason: linkReasonAutoProvisionalAnchorConflict,
-					Confidence: 1.0,
-				}); err != nil {
-					return upgradedLinks, updatedEmails, updatedAnchors, err
-				}
-			}
+			out.add(accountStats)
 		}
 	}
 
-	return upgradedLinks, updatedEmails, updatedAnchors, nil
+	return out, nil
+}
+
+func (r Resolver) upgradeProvisionalLinkByAnchors(ctx context.Context, account gen.Account, authoritativeSources map[string]struct{}) (Stats, error) {
+	var out Stats
+	existing, err := r.Q.GetIdentityAccountLinkByAccountID(ctx, account.ID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return out, nil
+		}
+		return out, err
+	}
+	if !isResolverProvisionalReason(existing.LinkReason) {
+		return out, nil
+	}
+
+	anchors, err := r.persistAccountAnchors(ctx, account)
+	if err != nil {
+		return out, err
+	}
+	if len(anchors) == 0 {
+		return out, nil
+	}
+
+	anchorMatches, err := r.Q.ListIdentityAnchorMatchesForAccount(ctx, account.ID)
+	if err != nil {
+		return out, err
+	}
+	if identityID, ok := uniqueAnchorIdentity(anchorMatches); ok {
+		if err := r.persistAutoAnchorEvidence(ctx, account, identityID, anchorMatches); err != nil {
+			return out, err
+		}
+		if _, err := r.Q.UpsertIdentityAccountLink(ctx, gen.UpsertIdentityAccountLinkParams{
+			IdentityID: identityID,
+			AccountID:  account.ID,
+			LinkReason: linkReasonAutoAnchor,
+			Confidence: 1.0,
+		}); err != nil {
+			return out, err
+		}
+		if _, err := r.mergeEmptyProvisionalIdentity(ctx, existing.IdentityID, identityID, "resolver_anchor_upgrade"); err != nil {
+			return out, err
+		}
+		_, isAuthoritativeSource := authoritativeSources[sourceKey(account.SourceKind, account.SourceName)]
+		emailVerification := "observed"
+		if isAuthoritativeSource {
+			emailVerification = "verified_authoritative"
+		}
+		updatedEmail, err := r.persistIdentityEmailForAccount(ctx, identityID, account, emailVerification)
+		if err != nil {
+			return out, err
+		}
+		if updatedEmail {
+			out.UpdatedIdentityEmails++
+		}
+		if isAuthoritativeSource {
+			updated, err := r.persistIdentityAnchorsForAccount(ctx, identityID, account, "authoritative")
+			if err != nil {
+				return out, err
+			}
+			out.UpdatedIdentityAnchors += updated
+		}
+		out.UpgradedProvisionalLinks++
+		out.AnchorMatchedLinks++
+		return out, nil
+	}
+
+	if len(anchorMatchIdentitySet(anchorMatches)) > 1 {
+		if err := r.persistAnchorConflictCandidates(ctx, account, existing.IdentityID, anchorMatches); err != nil {
+			return out, err
+		}
+		if _, err := r.Q.UpsertIdentityAccountLink(ctx, gen.UpsertIdentityAccountLinkParams{
+			IdentityID: existing.IdentityID,
+			AccountID:  account.ID,
+			LinkReason: linkReasonAutoProvisionalAnchorConflict,
+			Confidence: 1.0,
+		}); err != nil {
+			return out, err
+		}
+	}
+	return out, nil
 }
 
 func (r Resolver) mergeEmptyProvisionalIdentity(ctx context.Context, sourceIdentityID, targetIdentityID int64, reason string) (bool, error) {
@@ -591,7 +638,7 @@ func (r Resolver) persistIdentityEmailForAccount(ctx context.Context, identityID
 	if verificationState == "" {
 		verificationState = "observed"
 	}
-	_, err := r.Q.UpsertIdentityEmail(ctx, gen.UpsertIdentityEmailParams{
+	params := gen.UpsertIdentityEmailParams{
 		IdentityID:        identityID,
 		Email:             strings.TrimSpace(account.Email),
 		NormalizedEmail:   email,
@@ -602,11 +649,128 @@ func (r Resolver) persistIdentityEmailForAccount(ctx context.Context, identityID
 		SourceKind:        pgtype.Text{String: strings.TrimSpace(account.SourceKind), Valid: strings.TrimSpace(account.SourceKind) != ""},
 		SourceName:        pgtype.Text{String: strings.TrimSpace(account.SourceName), Valid: strings.TrimSpace(account.SourceName) != ""},
 		SourceAccountID:   pgtype.Int8{Int64: account.ID, Valid: account.ID > 0},
-	})
+	}
+	existingEmails, err := r.Q.ListIdentityEmails(ctx, identityID)
 	if err != nil {
 		return false, err
 	}
-	return true, nil
+	updated := identityEmailWouldChange(existingEmails, params)
+	_, err = r.Q.UpsertIdentityEmail(ctx, params)
+	if err != nil {
+		return false, err
+	}
+	return updated, nil
+}
+
+func identityEmailWouldChange(existingEmails []gen.IdentityEmail, params gen.UpsertIdentityEmailParams) bool {
+	normalized := normalizeEmail(params.NormalizedEmail)
+	for _, existing := range existingEmails {
+		if existing.NormalizedEmail != normalized || existing.LifecycleState != "active" {
+			continue
+		}
+		return identityEmailRowWouldChange(existing, params)
+	}
+	return true
+}
+
+func identityEmailRowWouldChange(existing gen.IdentityEmail, params gen.UpsertIdentityEmailParams) bool {
+	if existing.Email != params.Email {
+		return true
+	}
+	if mergeIdentityEmailKind(existing.EmailKind, params.EmailKind) != existing.EmailKind {
+		return true
+	}
+	if strongerIdentityEmailVerification(existing.VerificationState, params.VerificationState) != existing.VerificationState {
+		return true
+	}
+	if !existing.IsPrimary && params.IsPrimary {
+		return true
+	}
+	if !nullableTextEqual(coalesceText(params.SourceKind, existing.SourceKind), existing.SourceKind) {
+		return true
+	}
+	if !nullableTextEqual(coalesceText(params.SourceName, existing.SourceName), existing.SourceName) {
+		return true
+	}
+	return !nullableInt8Equal(coalesceInt8(params.SourceAccountID, existing.SourceAccountID), existing.SourceAccountID)
+}
+
+func mergeIdentityEmailKind(current, incoming string) string {
+	current = strings.TrimSpace(current)
+	incoming = strings.TrimSpace(incoming)
+	if incoming == "" {
+		incoming = "alias"
+	}
+	switch {
+	case current == "primary":
+		return current
+	case incoming == "primary":
+		return incoming
+	case current == "login" && incoming == "alias":
+		return current
+	default:
+		return incoming
+	}
+}
+
+func strongerIdentityEmailVerification(current, incoming string) string {
+	current = strings.TrimSpace(current)
+	incoming = strings.TrimSpace(incoming)
+	if current == "" {
+		current = "observed"
+	}
+	if incoming == "" {
+		incoming = "observed"
+	}
+	if identityEmailVerificationRank(current) <= identityEmailVerificationRank(incoming) {
+		return current
+	}
+	return incoming
+}
+
+func identityEmailVerificationRank(value string) int {
+	switch strings.TrimSpace(value) {
+	case "verified_authoritative":
+		return 0
+	case "verified_source":
+		return 1
+	case "manual":
+		return 2
+	case "observed":
+		return 3
+	case "inferred_legacy":
+		return 4
+	default:
+		return 5
+	}
+}
+
+func coalesceText(first, fallback pgtype.Text) pgtype.Text {
+	if first.Valid {
+		return first
+	}
+	return fallback
+}
+
+func coalesceInt8(first, fallback pgtype.Int8) pgtype.Int8 {
+	if first.Valid {
+		return first
+	}
+	return fallback
+}
+
+func nullableTextEqual(left, right pgtype.Text) bool {
+	if left.Valid != right.Valid {
+		return false
+	}
+	return !left.Valid || left.String == right.String
+}
+
+func nullableInt8Equal(left, right pgtype.Int8) bool {
+	if left.Valid != right.Valid {
+		return false
+	}
+	return !left.Valid || left.Int64 == right.Int64
 }
 
 func (r Resolver) persistIdentityAnchorsForAccount(ctx context.Context, identityID int64, account gen.Account, trustLevel string) (int64, error) {
