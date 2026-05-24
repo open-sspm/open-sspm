@@ -646,6 +646,26 @@ func TestHandleDiscoveryAppGovernanceUpdateValidation(t *testing.T) {
 
 		adminUserID := insertDiscoveryAuthUser(t, ctx, pool, "admin@example.com", "admin")
 		insertCommandSearchIdentity(t, ctx, pool, "human", "owner@example.com", "Owner User")
+		authoritativeDuplicateOwnerID := insertCommandSearchIdentity(t, ctx, pool, "human", "ambiguous-owner@example.com", "Authoritative Duplicate Owner")
+		insertCommandSearchIdentity(t, ctx, pool, "human", "ambiguous-owner@example.com", "Other Duplicate Owner")
+		authoritativeDuplicateAccountID := insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
+			SourceKind:     configstore.KindGitHub,
+			SourceName:     "acme",
+			ExternalID:     "ambiguous-owner-gh",
+			Email:          "ambiguous-owner@example.com",
+			DisplayName:    "Authoritative Duplicate Owner",
+			Status:         "active",
+			AccountKind:    "human",
+			EntityCategory: "user",
+			RawJSON:        `{"status":"active"}`,
+		})
+		insertCommandSearchIdentityAccountLink(t, ctx, pool, authoritativeDuplicateOwnerID, authoritativeDuplicateAccountID)
+		insertCommandSearchIdentitySourceSetting(t, ctx, pool, configstore.KindGitHub, "acme", true)
+
+		provisionalOwnerID := insertCommandSearchIdentity(t, ctx, pool, "human", "provisional-owner@example.com", "Provisional Owner")
+		if _, err := pool.Exec(ctx, `UPDATE identities SET resolution_state = 'provisional' WHERE id = $1`, provisionalOwnerID); err != nil {
+			t.Fatalf("mark provisional owner identity: %v", err)
+		}
 
 		tests := []struct {
 			name     string
@@ -670,6 +690,30 @@ func TestHandleDiscoveryAppGovernanceUpdateValidation(t *testing.T) {
 					`value="2026-04-22"`,
 					`value="SEC-404"`,
 					"Keep this note",
+				},
+			},
+			{
+				name: "owner ambiguous despite authoritative source",
+				form: url.Values{
+					"owner_email":        []string{"ambiguous-owner@example.com"},
+					"review_disposition": []string{"under_review"},
+					"follow_up_due_date": []string{"2026-04-22"},
+				},
+				want: "Accountable owner email is ambiguous",
+				wantBody: []string{
+					`value="ambiguous-owner@example.com"`,
+				},
+			},
+			{
+				name: "owner email belongs only to a provisional identity",
+				form: url.Values{
+					"owner_email":        []string{"provisional-owner@example.com"},
+					"review_disposition": []string{"under_review"},
+					"follow_up_due_date": []string{"2026-04-22"},
+				},
+				want: "Accountable owner is provisional",
+				wantBody: []string{
+					`value="provisional-owner@example.com"`,
 				},
 			},
 			{

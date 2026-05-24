@@ -12,12 +12,22 @@ func HumanLinkReason(reason string) string {
 		return ""
 	case "manual":
 		return "Manual"
+	case "manual_merge":
+		return "Manual merge"
+	case "manual_service":
+		return "Marked service"
+	case "manual_shared":
+		return "Marked shared"
+	case "auto_anchor":
+		return "Anchor match"
 	case "auto_email":
 		return "Email match"
 	case "auto_provisional_identity":
 		return "Provisional"
 	case "auto_provisional_ambiguous_email":
 		return "Ambiguous email"
+	case "auto_provisional_conflicting_anchor":
+		return "Anchor conflict"
 	case "seed_migration":
 		return "Seeded"
 	case "seed_orphan":

@@ -317,66 +317,25 @@ func (h *Handlers) resolveDiscoveryGovernanceIdentities(ctx context.Context, for
 	}
 
 	if form.accountableOwnerEmailInput != "" {
-		ownerIdentity, err := h.Q.FindUnambiguousIdentityByPrimaryEmail(ctx, gen.FindUnambiguousIdentityByPrimaryEmailParams{
-			ConfiguredSourceKinds: configuredSourceKinds,
-			ConfiguredSourceNames: configuredSourceNames,
-			PrimaryEmail:          form.accountableOwnerEmailInput,
-		})
+		result, err := h.resolveStrictOwnerByEmail(ctx, "Accountable owner", form.accountableOwnerEmailInput, configuredSourceKinds, configuredSourceNames)
 		if err != nil {
-			if !errors.Is(err, pgx.ErrNoRows) {
-				return refs, nil, err
-			}
-			// No strict winner — either no identity owns this email, or two or
-			// more identities tie at the top tier. Distinguish the two so the
-			// operator gets an actionable message.
-			count, countErr := h.Q.CountIdentitiesByPrimaryEmail(ctx, form.accountableOwnerEmailInput)
-			if countErr != nil {
-				return refs, nil, countErr
-			}
-			if count > 1 {
-				return refs, &viewmodels.AlertViewData{
-					Title:       "Accountable owner email is ambiguous",
-					Message:     "More than one identity claims this email. Resolve the conflict before assigning this owner.",
-					Destructive: true,
-				}, nil
-			}
-			return refs, &viewmodels.AlertViewData{
-				Title:       "Owner not found",
-				Message:     "Assign an accountable owner using an existing identity email address.",
-				Destructive: true,
-			}, nil
+			return refs, nil, err
 		}
-		refs.ownerIdentityID = pgtype.Int8{Int64: ownerIdentity.ID, Valid: true}
+		if result.Alert != nil {
+			return refs, result.Alert, nil
+		}
+		refs.ownerIdentityID = pgtype.Int8{Int64: result.Identity.ID, Valid: true}
 	}
 
 	if form.reviewOwnerEmailInput != "" {
-		reviewOwner, err := h.Q.FindUnambiguousIdentityByPrimaryEmail(ctx, gen.FindUnambiguousIdentityByPrimaryEmailParams{
-			ConfiguredSourceKinds: configuredSourceKinds,
-			ConfiguredSourceNames: configuredSourceNames,
-			PrimaryEmail:          form.reviewOwnerEmailInput,
-		})
+		result, err := h.resolveStrictOwnerByEmail(ctx, "Review owner", form.reviewOwnerEmailInput, configuredSourceKinds, configuredSourceNames)
 		if err != nil {
-			if !errors.Is(err, pgx.ErrNoRows) {
-				return refs, nil, err
-			}
-			count, countErr := h.Q.CountIdentitiesByPrimaryEmail(ctx, form.reviewOwnerEmailInput)
-			if countErr != nil {
-				return refs, nil, countErr
-			}
-			if count > 1 {
-				return refs, &viewmodels.AlertViewData{
-					Title:       "Review owner email is ambiguous",
-					Message:     "More than one identity claims this email. Resolve the conflict before assigning this owner.",
-					Destructive: true,
-				}, nil
-			}
-			return refs, &viewmodels.AlertViewData{
-				Title:       "Review owner not found",
-				Message:     "Assign a review owner using an existing identity email address.",
-				Destructive: true,
-			}, nil
+			return refs, nil, err
 		}
-		refs.reviewOwnerIdentityID = pgtype.Int8{Int64: reviewOwner.ID, Valid: true}
+		if result.Alert != nil {
+			return refs, result.Alert, nil
+		}
+		refs.reviewOwnerIdentityID = pgtype.Int8{Int64: result.Identity.ID, Valid: true}
 	}
 
 	return refs, nil, nil

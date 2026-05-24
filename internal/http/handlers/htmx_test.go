@@ -118,6 +118,22 @@ func TestRenderListWithHXRejectsMismatchedTarget(t *testing.T) {
 	}
 }
 
+func TestRenderListWithHXReturnsFullPageForBoostedRequest(t *testing.T) {
+	c, rec := newTestContext(http.MethodGet, "http://example.com/identity-resolution")
+	c.Request().Header.Set("HX-Request", "true")
+	c.Request().Header.Set("HX-Boosted", "true")
+	h := &Handlers{}
+
+	err := h.renderListWithHX(c, "identity-resolution-results", staticTestComponent("fragment"), staticTestComponent("full"))
+	if err != nil {
+		t.Fatalf("renderListWithHX() error = %v", err)
+	}
+
+	if got := rec.Body.String(); got != "full" {
+		t.Fatalf("body = %q, want full", got)
+	}
+}
+
 func TestHandleFindingsRulesetAddsVaryForHTMXVariants(t *testing.T) {
 	c, rec := newTestContext(http.MethodGet, "http://example.com/findings/rulesets/")
 	c.SetPathValues(echo.PathValues{{Name: "rulesetKey", Value: ""}})

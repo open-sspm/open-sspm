@@ -137,7 +137,7 @@ func TestIdentityAuthoritativePostureUsesConfiguredSourceScope(t *testing.T) {
 	})
 }
 
-func TestFindUnambiguousIdentityByPrimaryEmailScopesAuthoritativeTieBreaker(t *testing.T) {
+func TestFindUnambiguousIdentityByPrimaryEmailRejectsDuplicateClaims(t *testing.T) {
 	t.Parallel()
 
 	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
@@ -181,16 +181,99 @@ func TestFindUnambiguousIdentityByPrimaryEmailScopesAuthoritativeTieBreaker(t *t
 			t.Fatalf("FindUnambiguousIdentityByPrimaryEmail(github scope) err = %v, want ErrNoRows", err)
 		}
 
-		identity, err := q.FindUnambiguousIdentityByPrimaryEmail(ctx, FindUnambiguousIdentityByPrimaryEmailParams{
+		_, err = q.FindUnambiguousIdentityByPrimaryEmail(ctx, FindUnambiguousIdentityByPrimaryEmailParams{
+			ConfiguredSourceKinds: []string{"github", "okta"},
+			ConfiguredSourceNames: []string{"acme", "retired.okta.com"},
+			PrimaryEmail:          "team@example.com",
+		})
+		if !errors.Is(err, pgx.ErrNoRows) {
+			t.Fatalf("FindUnambiguousIdentityByPrimaryEmail(github+okta scope) err = %v, want ErrNoRows", err)
+		}
+
+		resolved, err := q.ResolveIdentityByPrimaryEmail(ctx, ResolveIdentityByPrimaryEmailParams{
 			ConfiguredSourceKinds: []string{"github", "okta"},
 			ConfiguredSourceNames: []string{"acme", "retired.okta.com"},
 			PrimaryEmail:          "team@example.com",
 		})
 		if err != nil {
-			t.Fatalf("FindUnambiguousIdentityByPrimaryEmail(github+okta scope): %v", err)
+			t.Fatalf("ResolveIdentityByPrimaryEmail(github+okta scope): %v", err)
 		}
-		if identity.ID != retiredIdentityID {
-			t.Fatalf("identity ID = %d, want retired authoritative identity %d", identity.ID, retiredIdentityID)
+		if resolved.IdentityID != retiredIdentityID {
+			t.Fatalf("resolved identity ID = %d, want retired authoritative identity %d", resolved.IdentityID, retiredIdentityID)
+		}
+	})
+}
+
+func TestFindUnambiguousIdentityByPrimaryEmailUsesIdentityEmailAliases(t *testing.T) {
+	t.Parallel()
+
+	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
+		migrateUp(t, migrator)
+
+		identityID := insertIdentity(t, ctx, pool, "human", "primary@example.com", "Alias Owner")
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO identity_emails (
+				identity_id,
+				email,
+				normalized_email,
+				email_kind,
+				verification_state,
+				lifecycle_state,
+				is_primary
+			)
+			VALUES ($1, 'alias@example.com', 'alias@example.com', 'alias', 'manual', 'active', false)
+		`, identityID); err != nil {
+			t.Fatalf("insert identity alias: %v", err)
+		}
+
+		resolved, err := q.FindUnambiguousIdentityByPrimaryEmail(ctx, FindUnambiguousIdentityByPrimaryEmailParams{
+			ConfiguredSourceKinds: []string{},
+			ConfiguredSourceNames: []string{},
+			PrimaryEmail:          "ALIAS@example.com",
+		})
+		if err != nil {
+			t.Fatalf("FindUnambiguousIdentityByPrimaryEmail(alias): %v", err)
+		}
+		if resolved.ID != identityID {
+			t.Fatalf("resolved identity ID = %d, want %d", resolved.ID, identityID)
+		}
+
+		match, err := q.ResolveIdentityByPrimaryEmail(ctx, ResolveIdentityByPrimaryEmailParams{
+			ConfiguredSourceKinds: []string{},
+			ConfiguredSourceNames: []string{},
+			PrimaryEmail:          "alias@example.com",
+		})
+		if err != nil {
+			t.Fatalf("ResolveIdentityByPrimaryEmail(alias): %v", err)
+		}
+		if match.IdentityID != identityID {
+			t.Fatalf("resolver identity ID = %d, want %d", match.IdentityID, identityID)
+		}
+	})
+}
+
+func TestFindUnambiguousIdentityByPrimaryEmailRejectsUnconfirmedIdentity(t *testing.T) {
+	t.Parallel()
+
+	withEntityCategoryTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *Queries, migrator *migrate.Migrate) {
+		migrateUp(t, migrator)
+
+		identityID := insertIdentity(t, ctx, pool, "human", "provisional@example.com", "Provisional Identity")
+		if _, err := pool.Exec(ctx, `
+			UPDATE identities
+			SET resolution_state = 'provisional'
+			WHERE id = $1
+		`, identityID); err != nil {
+			t.Fatalf("mark identity provisional: %v", err)
+		}
+
+		_, err := q.FindUnambiguousIdentityByPrimaryEmail(ctx, FindUnambiguousIdentityByPrimaryEmailParams{
+			ConfiguredSourceKinds: []string{},
+			ConfiguredSourceNames: []string{},
+			PrimaryEmail:          "provisional@example.com",
+		})
+		if !errors.Is(err, pgx.ErrNoRows) {
+			t.Fatalf("FindUnambiguousIdentityByPrimaryEmail(provisional) err = %v, want ErrNoRows", err)
 		}
 	})
 }

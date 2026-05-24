@@ -23,6 +23,13 @@ func isHXTarget(c *echo.Context, target string) bool {
 	return strings.EqualFold(strings.TrimSpace(c.Request().Header.Get("HX-Target")), strings.TrimSpace(target))
 }
 
+func isHXBoosted(c *echo.Context) bool {
+	if c == nil || c.Request() == nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(c.Request().Header.Get("HX-Boosted")), "true")
+}
+
 func setHXRedirect(c *echo.Context, url string) {
 	if c == nil {
 		return
@@ -32,10 +39,11 @@ func setHXRedirect(c *echo.Context, url string) {
 
 // renderListWithHX renders the partial fragment when the request is an HTMX
 // swap targeting targetID, and the full page otherwise. It also sets the Vary
-// headers needed for safe caching across HX vs. non-HX responses.
+// headers needed for safe caching across HX vs. non-HX responses. Boosted
+// requests get the full page so htmx can swap the body itself.
 func (h *Handlers) renderListWithHX(c *echo.Context, targetID string, fragment, full templ.Component) error {
 	addVary(c, "HX-Request", "HX-Target")
-	if !isHX(c) {
+	if !isHX(c) || isHXBoosted(c) {
 		return h.RenderComponent(c, full)
 	}
 	if isHXTarget(c, targetID) {

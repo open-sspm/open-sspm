@@ -40,6 +40,37 @@ type Account struct {
 	EntityCategory string `json:"entity_category"`
 }
 
+type AccountAnchor struct {
+	ID                    int64              `json:"id"`
+	AccountID             int64              `json:"account_id"`
+	SourceKind            string             `json:"source_kind"`
+	SourceName            string             `json:"source_name"`
+	AnchorKind            string             `json:"anchor_kind"`
+	Issuer                string             `json:"issuer"`
+	AnchorValue           string             `json:"anchor_value"`
+	NormalizedAnchorValue string             `json:"normalized_anchor_value"`
+	ExtractionMethod      string             `json:"extraction_method"`
+	FirstSeenAt           pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt            pgtype.Timestamptz `json:"last_seen_at"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AccountIdentityRelationship struct {
+	ID               int64              `json:"id"`
+	AccountID        int64              `json:"account_id"`
+	IdentityID       int64              `json:"identity_id"`
+	RelationshipType string             `json:"relationship_type"`
+	SourceKind       pgtype.Text        `json:"source_kind"`
+	SourceName       pgtype.Text        `json:"source_name"`
+	Confidence       int32              `json:"confidence"`
+	LifecycleState   string             `json:"lifecycle_state"`
+	FirstSeenAt      pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt       pgtype.Timestamptz `json:"last_seen_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type AppAsset struct {
 	ID                     int64              `json:"id"`
 	SourceKind             string             `json:"source_kind"`
@@ -534,10 +565,13 @@ type Identity struct {
 	// Normalized identity classification: human, service, bot, or unknown.
 	Kind        string `json:"kind"`
 	DisplayName string `json:"display_name"`
-	// Preferred normalized email for display and deterministic matching. Alias history belongs in a separate future table.
-	PrimaryEmail string             `json:"primary_email"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	// Preferred normalized email for display and compatibility. Resolver logic should use identity_emails when available.
+	PrimaryEmail    string             `json:"primary_email"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ResolutionState string             `json:"resolution_state"`
+	IdentityKind    string             `json:"identity_kind"`
+	PrimaryEmailID  pgtype.Int8        `json:"primary_email_id"`
 }
 
 // Exclusive mapping from source accounts to normalized identities. One identity can have many accounts, but each account belongs to exactly one identity.
@@ -547,12 +581,116 @@ type IdentityAccount struct {
 	IdentityID int64 `json:"identity_id"`
 	// Source account membership. This column is intentionally unique and must not be relaxed to model shared-account ownership.
 	AccountID int64 `json:"account_id"`
-	// Reason this account was linked to the identity, such as manual, auto_email, seed_migration, auto_provisional_identity, or auto_provisional_ambiguous_email (link to an existing identity whose email match was not unambiguous).
+	// Reason this account was linked to the identity, such as manual, manual_merge, manual_service, manual_shared, auto_anchor, auto_email, seed_migration, auto_provisional_identity, auto_provisional_ambiguous_email, or auto_provisional_conflicting_anchor.
 	LinkReason string `json:"link_reason"`
-	// Confidence for the accepted account-to-identity link. Detailed evidence belongs in a separate future evidence table.
-	Confidence float32            `json:"confidence"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	// Confidence for the current account-to-identity link. Detailed accepted and candidate evidence belongs in identity_link_evidence.
+	Confidence      float32            `json:"confidence"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	LinkState       string             `json:"link_state"`
+	ResolverVersion pgtype.Text        `json:"resolver_version"`
+	LinkedAt        pgtype.Timestamptz `json:"linked_at"`
+	ReviewedBy      pgtype.Text        `json:"reviewed_by"`
+	ReviewedAt      pgtype.Timestamptz `json:"reviewed_at"`
+}
+
+type IdentityAnchor struct {
+	ID                    int64              `json:"id"`
+	IdentityID            int64              `json:"identity_id"`
+	AnchorKind            string             `json:"anchor_kind"`
+	Issuer                string             `json:"issuer"`
+	AnchorValue           string             `json:"anchor_value"`
+	NormalizedAnchorValue string             `json:"normalized_anchor_value"`
+	SourceKind            pgtype.Text        `json:"source_kind"`
+	SourceName            pgtype.Text        `json:"source_name"`
+	SourceAccountID       pgtype.Int8        `json:"source_account_id"`
+	TrustLevel            string             `json:"trust_level"`
+	LifecycleState        string             `json:"lifecycle_state"`
+	FirstSeenAt           pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt            pgtype.Timestamptz `json:"last_seen_at"`
+	ReviewedBy            pgtype.Text        `json:"reviewed_by"`
+	ReviewedAt            pgtype.Timestamptz `json:"reviewed_at"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+type IdentityEmail struct {
+	ID                int64              `json:"id"`
+	IdentityID        int64              `json:"identity_id"`
+	Email             string             `json:"email"`
+	NormalizedEmail   string             `json:"normalized_email"`
+	EmailKind         string             `json:"email_kind"`
+	VerificationState string             `json:"verification_state"`
+	LifecycleState    string             `json:"lifecycle_state"`
+	IsPrimary         bool               `json:"is_primary"`
+	SourceKind        pgtype.Text        `json:"source_kind"`
+	SourceName        pgtype.Text        `json:"source_name"`
+	SourceAccountID   pgtype.Int8        `json:"source_account_id"`
+	FirstSeenAt       pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt        pgtype.Timestamptz `json:"last_seen_at"`
+	ValidFrom         pgtype.Timestamptz `json:"valid_from"`
+	ValidUntil        pgtype.Timestamptz `json:"valid_until"`
+	ReviewedBy        pgtype.Text        `json:"reviewed_by"`
+	ReviewedAt        pgtype.Timestamptz `json:"reviewed_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type IdentityLinkEvidence struct {
+	ID            int64              `json:"id"`
+	AccountID     int64              `json:"account_id"`
+	IdentityID    pgtype.Int8        `json:"identity_id"`
+	CandidateID   pgtype.Int8        `json:"candidate_id"`
+	EvidenceType  string             `json:"evidence_type"`
+	EvidenceKey   string             `json:"evidence_key"`
+	AccountValue  pgtype.Text        `json:"account_value"`
+	IdentityValue pgtype.Text        `json:"identity_value"`
+	SourceKind    pgtype.Text        `json:"source_kind"`
+	SourceName    pgtype.Text        `json:"source_name"`
+	Strength      int32              `json:"strength"`
+	IsPositive    bool               `json:"is_positive"`
+	ObservedAt    pgtype.Timestamptz `json:"observed_at"`
+	Metadata      []byte             `json:"metadata"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type IdentityMatchCandidate struct {
+	ID                    int64              `json:"id"`
+	AccountID             int64              `json:"account_id"`
+	CandidateIdentityID   int64              `json:"candidate_identity_id"`
+	ProvisionalIdentityID pgtype.Int8        `json:"provisional_identity_id"`
+	Status                string             `json:"status"`
+	ConfidenceBand        string             `json:"confidence_band"`
+	Score                 int32              `json:"score"`
+	MatchReason           string             `json:"match_reason"`
+	AmbiguityKey          pgtype.Text        `json:"ambiguity_key"`
+	ResolverVersion       string             `json:"resolver_version"`
+	ResolverFingerprint   string             `json:"resolver_fingerprint"`
+	ReviewedBy            pgtype.Text        `json:"reviewed_by"`
+	ReviewedAt            pgtype.Timestamptz `json:"reviewed_at"`
+	ReviewNote            pgtype.Text        `json:"review_note"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+type IdentityMergeEvent struct {
+	ID               int64              `json:"id"`
+	SourceIdentityID int64              `json:"source_identity_id"`
+	TargetIdentityID int64              `json:"target_identity_id"`
+	Status           string             `json:"status"`
+	Reason           string             `json:"reason"`
+	RequestedBy      pgtype.Text        `json:"requested_by"`
+	ReviewedBy       pgtype.Text        `json:"reviewed_by"`
+	Metadata         []byte             `json:"metadata"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	AppliedAt        pgtype.Timestamptz `json:"applied_at"`
+}
+
+type IdentityMergeRedirect struct {
+	SourceIdentityID int64              `json:"source_identity_id"`
+	TargetIdentityID int64              `json:"target_identity_id"`
+	MergeEventID     int64              `json:"merge_event_id"`
+	MergedAt         pgtype.Timestamptz `json:"merged_at"`
 }
 
 // Per-source identity settings. Authoritative sources provide identity anchors for managed human posture and attribute preference.

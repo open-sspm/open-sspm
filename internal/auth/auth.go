@@ -1,6 +1,6 @@
 package auth
 
-import "strings"
+import "github.com/open-sspm/open-sspm/internal/normalize"
 
 const (
 	RoleAdmin  = "admin"
@@ -21,5 +21,5 @@ func (p Principal) IsAdmin() bool {
 }
 
 func NormalizeEmail(email string) string {
-	return strings.ToLower(strings.TrimSpace(email))
+	return normalize.Email(email)
 }

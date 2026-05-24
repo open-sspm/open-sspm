@@ -52,9 +52,95 @@ effective_configured_sources AS (
     WHERE ecs.source_kind = cs.source_kind
       AND ecs.source_name = cs.source_name
   )
+),
+relationship_owner_candidates AS (
+  SELECT
+    'identity-' || ia.identity_id::text AS principal_ref,
+    rel.identity_id::bigint AS owner_identity_id,
+    COALESCE(NULLIF(trim(owner.display_name), ''), NULLIF(trim(owner.primary_email), ''), '')::text AS owner_display_name,
+    COALESCE(NULLIF(trim(owner.primary_email), ''), '')::text AS owner_primary_email,
+    row_number() OVER (
+      PARTITION BY ia.identity_id
+      ORDER BY
+        CASE rel.relationship_type
+          WHEN 'owner' THEN 0
+          WHEN 'custodian' THEN 1
+          WHEN 'approver' THEN 2
+          WHEN 'attributed_user' THEN 3
+          WHEN 'last_observed_user' THEN 4
+          ELSE 5
+        END,
+        lower(COALESCE(NULLIF(trim(owner.display_name), ''), NULLIF(trim(owner.primary_email), ''), owner.id::text)),
+        rel.id
+    ) AS row_num
+  FROM identity_accounts ia
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN effective_configured_sources cs
+    ON cs.source_kind = a.source_kind
+   AND cs.source_name = a.source_name
+  JOIN account_identity_relationships rel
+    ON rel.account_id = ia.account_id
+   AND rel.lifecycle_state = 'active'
+  JOIN identities owner ON owner.id = rel.identity_id
+  WHERE a.expired_at IS NULL
+    AND a.last_observed_run_id IS NOT NULL
+    AND owner.resolution_state NOT IN ('merged', 'disabled')
+),
+relationship_owner_choice AS (
+  SELECT
+    principal_ref,
+    owner_identity_id,
+    owner_display_name,
+    owner_primary_email
+  FROM relationship_owner_candidates
+  WHERE row_num = 1
+),
+effective_principals AS (
+  SELECT
+    pr.principal_ref,
+    pr.identity_id,
+    pr.app_asset_id,
+    pr.principal_type,
+    pr.source_kind,
+    pr.source_name,
+    pr.display_name,
+    pr.secondary_name,
+    pr.linked_assets_count,
+    pr.linked_credentials_count,
+    pr.last_seen_at,
+    pr.activity_state,
+    pr.freshness_state,
+    pr.governance_state,
+    CASE
+      WHEN pr.owner_presence = 'owned' THEN pr.accountable_owner_identity_id
+      ELSE COALESCE(roc.owner_identity_id, 0)
+    END::bigint AS accountable_owner_identity_id,
+    CASE
+      WHEN pr.owner_presence = 'owned' THEN pr.accountable_owner_display_name
+      ELSE COALESCE(NULLIF(trim(roc.owner_display_name), ''), '')
+    END::text AS accountable_owner_display_name,
+    CASE
+      WHEN pr.owner_presence = 'owned' THEN pr.accountable_owner_primary_email
+      ELSE COALESCE(NULLIF(trim(roc.owner_primary_email), ''), '')
+    END::text AS accountable_owner_primary_email,
+    CASE
+      WHEN pr.owner_presence = 'owned' OR roc.owner_identity_id IS NOT NULL THEN 'owned'
+      ELSE pr.owner_presence
+    END::text AS owner_presence,
+    pr.has_critical_credential,
+    pr.has_high_risk_credential,
+    pr.has_expired_credential,
+    pr.has_expiring_credential,
+    pr.has_unused_credential,
+    pr.has_stale_evidence,
+    pr.risk_reason_count,
+    pr.risk_level
+  FROM non_human_principal_read_models_v pr
+  LEFT JOIN relationship_owner_choice roc
+    ON roc.principal_ref = pr.principal_ref
 )
 SELECT count(*)
-FROM non_human_principal_read_models_v pr
+FROM effective_principals pr
 JOIN effective_configured_sources cs
   ON cs.source_kind = pr.source_kind
  AND cs.source_name = pr.source_name
@@ -463,9 +549,95 @@ effective_configured_sources AS (
       AND ecs.source_name = cs.source_name
   )
 ),
-base AS (
-  SELECT pr.principal_ref, pr.identity_id, pr.app_asset_id, pr.principal_type, pr.source_kind, pr.source_name, pr.display_name, pr.secondary_name, pr.linked_assets_count, pr.linked_credentials_count, pr.last_seen_at, pr.activity_state, pr.freshness_state, pr.governance_state, pr.accountable_owner_identity_id, pr.accountable_owner_display_name, pr.accountable_owner_primary_email, pr.owner_presence, pr.has_critical_credential, pr.has_high_risk_credential, pr.has_expired_credential, pr.has_expiring_credential, pr.has_unused_credential, pr.has_stale_evidence, pr.risk_reason_count, pr.risk_level, pr.risk_signals_json, pr.policy_packs_json
+relationship_owner_candidates AS (
+  SELECT
+    'identity-' || ia.identity_id::text AS principal_ref,
+    rel.identity_id::bigint AS owner_identity_id,
+    COALESCE(NULLIF(trim(owner.display_name), ''), NULLIF(trim(owner.primary_email), ''), '')::text AS owner_display_name,
+    COALESCE(NULLIF(trim(owner.primary_email), ''), '')::text AS owner_primary_email,
+    row_number() OVER (
+      PARTITION BY ia.identity_id
+      ORDER BY
+        CASE rel.relationship_type
+          WHEN 'owner' THEN 0
+          WHEN 'custodian' THEN 1
+          WHEN 'approver' THEN 2
+          WHEN 'attributed_user' THEN 3
+          WHEN 'last_observed_user' THEN 4
+          ELSE 5
+        END,
+        lower(COALESCE(NULLIF(trim(owner.display_name), ''), NULLIF(trim(owner.primary_email), ''), owner.id::text)),
+        rel.id
+    ) AS row_num
+  FROM identity_accounts ia
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN effective_configured_sources cs
+    ON cs.source_kind = a.source_kind
+   AND cs.source_name = a.source_name
+  JOIN account_identity_relationships rel
+    ON rel.account_id = ia.account_id
+   AND rel.lifecycle_state = 'active'
+  JOIN identities owner ON owner.id = rel.identity_id
+  WHERE a.expired_at IS NULL
+    AND a.last_observed_run_id IS NOT NULL
+    AND owner.resolution_state NOT IN ('merged', 'disabled')
+),
+relationship_owner_choice AS (
+  SELECT
+    principal_ref,
+    owner_identity_id,
+    owner_display_name,
+    owner_primary_email
+  FROM relationship_owner_candidates
+  WHERE row_num = 1
+),
+effective_principals AS (
+  SELECT
+    pr.principal_ref,
+    pr.identity_id,
+    pr.app_asset_id,
+    pr.principal_type,
+    pr.source_kind,
+    pr.source_name,
+    pr.display_name,
+    pr.secondary_name,
+    pr.linked_assets_count,
+    pr.linked_credentials_count,
+    pr.last_seen_at,
+    pr.activity_state,
+    pr.freshness_state,
+    pr.governance_state,
+    CASE
+      WHEN pr.owner_presence = 'owned' THEN pr.accountable_owner_identity_id
+      ELSE COALESCE(roc.owner_identity_id, 0)
+    END::bigint AS accountable_owner_identity_id,
+    CASE
+      WHEN pr.owner_presence = 'owned' THEN pr.accountable_owner_display_name
+      ELSE COALESCE(NULLIF(trim(roc.owner_display_name), ''), '')
+    END::text AS accountable_owner_display_name,
+    CASE
+      WHEN pr.owner_presence = 'owned' THEN pr.accountable_owner_primary_email
+      ELSE COALESCE(NULLIF(trim(roc.owner_primary_email), ''), '')
+    END::text AS accountable_owner_primary_email,
+    CASE
+      WHEN pr.owner_presence = 'owned' OR roc.owner_identity_id IS NOT NULL THEN 'owned'
+      ELSE pr.owner_presence
+    END::text AS owner_presence,
+    pr.has_critical_credential,
+    pr.has_high_risk_credential,
+    pr.has_expired_credential,
+    pr.has_expiring_credential,
+    pr.has_unused_credential,
+    pr.has_stale_evidence,
+    pr.risk_reason_count,
+    pr.risk_level
   FROM non_human_principal_read_models_v pr
+  LEFT JOIN relationship_owner_choice roc
+    ON roc.principal_ref = pr.principal_ref
+),
+base AS (
+  SELECT pr.principal_ref, pr.identity_id, pr.app_asset_id, pr.principal_type, pr.source_kind, pr.source_name, pr.display_name, pr.secondary_name, pr.linked_assets_count, pr.linked_credentials_count, pr.last_seen_at, pr.activity_state, pr.freshness_state, pr.governance_state, pr.accountable_owner_identity_id, pr.accountable_owner_display_name, pr.accountable_owner_primary_email, pr.owner_presence, pr.has_critical_credential, pr.has_high_risk_credential, pr.has_expired_credential, pr.has_expiring_credential, pr.has_unused_credential, pr.has_stale_evidence, pr.risk_reason_count, pr.risk_level
+  FROM effective_principals pr
   JOIN effective_configured_sources cs
     ON cs.source_kind = pr.source_kind
    AND cs.source_name = pr.source_name

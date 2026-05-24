@@ -16,7 +16,7 @@ COMMENT ON TABLE identities IS
 COMMENT ON COLUMN identities.kind IS
   'Normalized identity classification: human, service, bot, or unknown.';
 COMMENT ON COLUMN identities.primary_email IS
-  'Preferred normalized email for display and deterministic matching. Alias history belongs in a separate future table.';
+  'Preferred normalized email for display and compatibility. Resolver logic should use identity_emails when available.';
 
 COMMENT ON TABLE identity_accounts IS
   'Exclusive mapping from source accounts to normalized identities. One identity can have many accounts, but each account belongs to exactly one identity.';
@@ -25,9 +25,9 @@ COMMENT ON COLUMN identity_accounts.identity_id IS
 COMMENT ON COLUMN identity_accounts.account_id IS
   'Source account membership. This column is intentionally unique and must not be relaxed to model shared-account ownership.';
 COMMENT ON COLUMN identity_accounts.link_reason IS
-  'Reason this account was linked to the identity, such as manual, auto_email, seed_migration, auto_provisional_identity, or auto_provisional_ambiguous_email (link to an existing identity whose email match was not unambiguous).';
+  'Reason this account was linked to the identity, such as manual, manual_merge, manual_service, manual_shared, auto_anchor, auto_email, seed_migration, auto_provisional_identity, auto_provisional_ambiguous_email, or auto_provisional_conflicting_anchor.';
 COMMENT ON COLUMN identity_accounts.confidence IS
-  'Confidence for the accepted account-to-identity link. Detailed evidence belongs in a separate future evidence table.';
+  'Confidence for the current account-to-identity link. Detailed accepted and candidate evidence belongs in identity_link_evidence.';
 
 COMMENT ON TABLE identity_source_settings IS
   'Per-source identity settings. Authoritative sources provide identity anchors for managed human posture and attribute preference.';

@@ -342,6 +342,90 @@ func (h *Handlers) loadConfiguredIdentitySourcePairs(ctx context.Context) ([]str
 	return kinds, names, nil
 }
 
+// strictOwnerLookupResult carries either the resolved identity or an alert
+// explaining why no strict owner could be assigned. Exactly one of Identity.ID
+// and Alert is populated on a non-error return.
+type strictOwnerLookupResult struct {
+	Identity gen.Identity
+	Alert    *viewmodels.AlertViewData
+}
+
+// resolveStrictOwnerByEmail looks up the single confirmed identity that owns
+// the given normalized email scoped to configured sources. It returns:
+//   - Identity populated when there is exactly one confirmed claimant.
+//   - Alert populated when no row qualifies for a strict write, distinguishing
+//     "not found", "exists but is provisional" (claimant exists but has no
+//     confirmed identity), and "ambiguous" (two or more claimants) so the
+//     operator gets a remediation prompt that matches the actual state.
+//
+// `role` is the human-readable noun used in the alert title (e.g. "Owner",
+// "Accountable owner", "Review owner", "Identity").
+func (h *Handlers) resolveStrictOwnerByEmail(ctx context.Context, role, normalizedEmail string, configuredSourceKinds, configuredSourceNames []string) (strictOwnerLookupResult, error) {
+	identity, err := h.Q.FindUnambiguousIdentityByPrimaryEmail(ctx, gen.FindUnambiguousIdentityByPrimaryEmailParams{
+		ConfiguredSourceKinds: configuredSourceKinds,
+		ConfiguredSourceNames: configuredSourceNames,
+		PrimaryEmail:          normalizedEmail,
+	})
+	if err == nil {
+		return strictOwnerLookupResult{Identity: identity}, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return strictOwnerLookupResult{}, err
+	}
+
+	summary, summaryErr := h.Q.SummarizeIdentityClaimantsByPrimaryEmail(ctx, normalizedEmail)
+	if summaryErr != nil {
+		return strictOwnerLookupResult{}, summaryErr
+	}
+
+	switch {
+	case summary.TotalCount >= 2:
+		return strictOwnerLookupResult{Alert: &viewmodels.AlertViewData{
+			Title:       role + " email is ambiguous",
+			Message:     "More than one identity claims this email. Resolve the conflict before assigning this " + strings.ToLower(role) + ".",
+			Destructive: true,
+		}}, nil
+	case summary.TotalCount == 1 && summary.ConfirmedCount == 1:
+		identity, err := h.Q.FindUnambiguousIdentityByPrimaryEmail(ctx, gen.FindUnambiguousIdentityByPrimaryEmailParams{
+			ConfiguredSourceKinds: configuredSourceKinds,
+			ConfiguredSourceNames: configuredSourceNames,
+			PrimaryEmail:          normalizedEmail,
+		})
+		if err == nil {
+			return strictOwnerLookupResult{Identity: identity}, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return strictOwnerLookupResult{}, err
+		}
+		return strictOwnerLookupResult{Alert: &viewmodels.AlertViewData{
+			Title:       role + " not found",
+			Message:     "Assign " + roleArticle(role) + " " + strings.ToLower(role) + " using an existing identity email address.",
+			Destructive: true,
+		}}, nil
+	case summary.TotalCount == 1 && summary.ConfirmedCount == 0:
+		return strictOwnerLookupResult{Alert: &viewmodels.AlertViewData{
+			Title:       role + " is provisional",
+			Message:     "An identity claims this email but has not been confirmed yet. Resolve it in Identity Resolution before assigning this " + strings.ToLower(role) + ".",
+			Destructive: true,
+		}}, nil
+	default:
+		return strictOwnerLookupResult{Alert: &viewmodels.AlertViewData{
+			Title:       role + " not found",
+			Message:     "Assign " + roleArticle(role) + " " + strings.ToLower(role) + " using an existing identity email address.",
+			Destructive: true,
+		}}, nil
+	}
+}
+
+func roleArticle(role string) string {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "owner", "accountable owner", "identity":
+		return "an"
+	default:
+		return "a"
+	}
+}
+
 func identityNamePrimary(displayName, primaryEmail string, id int64) string {
 	displayName = strings.TrimSpace(displayName)
 	if displayName != "" {
@@ -412,6 +496,11 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 	id, err := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
 	if err != nil || id <= 0 {
 		return c.String(http.StatusBadRequest, "invalid identity id")
+	}
+	if redirect, err := h.Q.GetIdentityMergeRedirect(ctx, id); err == nil {
+		return c.Redirect(http.StatusSeeOther, "/identities/"+strconv.FormatInt(redirect.TargetIdentityID, 10))
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return h.RenderError(c, err)
 	}
 
 	configuredSourceKinds, configuredSourceNames := configuredIdentitySourcePairsFromView(stateView)
@@ -563,6 +652,14 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 	filteredLinkedAccounts := filterLinkedAccounts(linkedAccounts, accountQuery)
 	filteredEntitlements := filterIdentityEntitlements(entitlementViews, entitlementQuery, entitlementAdminOnly, entitlementDormantOnly, entitlementSourceFilter)
 	adminScopeSummary := identitydomain.SummarizeAdminByKind(adminByKind)
+	identityEmails, err := h.Q.ListIdentityEmails(ctx, id)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	identityAnchors, err := h.Q.ListIdentityAnchors(ctx, id)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
 
 	entitlementSourceOptions := buildEntitlementSourceOptions(distinctSourceKinds, entitlementSourceFilter)
 	entitlementFilterCount := 0
@@ -651,6 +748,12 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		Summary: viewmodels.IdentityShowSummary{
 			Tiles: summaryTiles,
 		},
+		GraphFacts: viewmodels.IdentityShowGraphFactsPanel{
+			Emails:     identityGraphEmailViews(now, identityEmails),
+			Anchors:    identityGraphAnchorViews(now, identityAnchors),
+			HasEmails:  len(identityEmails) > 0,
+			HasAnchors: len(identityAnchors) > 0,
+		},
 		LinkedAccounts: viewmodels.IdentityShowLinkedAccountsPanel{
 			Total:          len(linkedAccounts),
 			Active:         activeAccountCount,
@@ -703,6 +806,44 @@ func identityStatusFromAccounts(accounts []gen.Account) (string, string) {
 	default:
 		return "", ""
 	}
+}
+
+func identityGraphEmailViews(now time.Time, rows []gen.IdentityEmail) []viewmodels.IdentityGraphEmailView {
+	out := make([]viewmodels.IdentityGraphEmailView, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, viewmodels.IdentityGraphEmailView{
+			ID:                row.ID,
+			Email:             strings.TrimSpace(row.Email),
+			NormalizedEmail:   strings.TrimSpace(row.NormalizedEmail),
+			EmailKind:         strings.TrimSpace(row.EmailKind),
+			VerificationState: strings.TrimSpace(row.VerificationState),
+			LifecycleState:    strings.TrimSpace(row.LifecycleState),
+			IsPrimary:         row.IsPrimary,
+			SourceKind:        strings.TrimSpace(row.SourceKind.String),
+			SourceName:        strings.TrimSpace(row.SourceName.String),
+			LastSeen:          relativeWithTitleDisplay(now, row.LastSeenAt, "—", ""),
+		})
+	}
+	return out
+}
+
+func identityGraphAnchorViews(now time.Time, rows []gen.IdentityAnchor) []viewmodels.IdentityGraphAnchorView {
+	out := make([]viewmodels.IdentityGraphAnchorView, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, viewmodels.IdentityGraphAnchorView{
+			ID:                    row.ID,
+			AnchorKind:            strings.TrimSpace(row.AnchorKind),
+			Issuer:                strings.TrimSpace(row.Issuer),
+			AnchorValue:           strings.TrimSpace(row.AnchorValue),
+			NormalizedAnchorValue: strings.TrimSpace(row.NormalizedAnchorValue),
+			TrustLevel:            strings.TrimSpace(row.TrustLevel),
+			LifecycleState:        strings.TrimSpace(row.LifecycleState),
+			SourceKind:            strings.TrimSpace(row.SourceKind.String),
+			SourceName:            strings.TrimSpace(row.SourceName.String),
+			LastSeen:              relativeWithTitleDisplay(now, row.LastSeenAt, "—", ""),
+		})
+	}
+	return out
 }
 
 func identityBreadcrumbKind(kind string) (rootLabel, rootHref, kindLabel, kindHref string) {

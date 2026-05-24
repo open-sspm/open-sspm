@@ -147,6 +147,7 @@ type IdentityShowViewData struct {
 	Breadcrumb     IdentityShowBreadcrumb
 	Profile        IdentityShowProfile
 	Summary        IdentityShowSummary
+	GraphFacts     IdentityShowGraphFactsPanel
 	LinkedAccounts IdentityShowLinkedAccountsPanel
 	Entitlements   IdentityShowEntitlementsPanel
 }
@@ -179,6 +180,39 @@ type IdentityShowProfile struct {
 
 type IdentityShowSummary struct {
 	Tiles []IdentitySummaryTile
+}
+
+type IdentityShowGraphFactsPanel struct {
+	Emails     []IdentityGraphEmailView
+	Anchors    []IdentityGraphAnchorView
+	HasEmails  bool
+	HasAnchors bool
+}
+
+type IdentityGraphEmailView struct {
+	ID                int64
+	Email             string
+	NormalizedEmail   string
+	EmailKind         string
+	VerificationState string
+	LifecycleState    string
+	IsPrimary         bool
+	SourceKind        string
+	SourceName        string
+	LastSeen          TimeDisplay
+}
+
+type IdentityGraphAnchorView struct {
+	ID                    int64
+	AnchorKind            string
+	Issuer                string
+	AnchorValue           string
+	NormalizedAnchorValue string
+	TrustLevel            string
+	LifecycleState        string
+	SourceKind            string
+	SourceName            string
+	LastSeen              TimeDisplay
 }
 
 type IdentityShowLinkedAccountsPanel struct {

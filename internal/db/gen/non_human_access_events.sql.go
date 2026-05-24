@@ -12,12 +12,27 @@ import (
 )
 
 const countConfiguredNonHumanHighRiskCredentialAttribution = `-- name: CountConfiguredNonHumanHighRiskCredentialAttribution :one
-WITH linked_credentials AS (
+WITH relationship_owned_principals AS (
+  SELECT DISTINCT 'identity-' || ia.identity_id::text AS principal_ref
+  FROM identity_accounts ia
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN connector_source_state css
+    ON css.source_kind = a.source_kind
+   AND lower(trim(css.source_name)) = lower(trim(a.source_name))
+   AND css.configured = true
+  JOIN account_identity_relationships rel
+    ON rel.account_id = ia.account_id
+   AND rel.lifecycle_state = 'active'
+  WHERE a.expired_at IS NULL
+    AND a.last_observed_run_id IS NOT NULL
+),
+linked_credentials AS (
   SELECT
     ca.id::bigint AS credential_id,
     COALESCE(risk.risk_rank, 1)::int AS risk_rank,
     (
       pr.owner_presence = 'owned'
+      OR rop.principal_ref IS NOT NULL
       OR NULLIF(trim(ca.created_by_display_name), '') IS NOT NULL
       OR NULLIF(trim(ca.created_by_external_id), '') IS NOT NULL
       OR NULLIF(trim(ca.approved_by_display_name), '') IS NOT NULL
@@ -30,6 +45,8 @@ WITH linked_credentials AS (
     ON css.source_kind = pr.source_kind
    AND lower(trim(css.source_name)) = lower(trim(pr.source_name))
    AND css.configured = true
+  LEFT JOIN relationship_owned_principals rop
+    ON rop.principal_ref = pr.principal_ref
   JOIN app_assets aa
     ON aa.id = nhpal.app_asset_id
   JOIN non_human_app_asset_credential_refs_v nhac
@@ -71,13 +88,32 @@ func (q *Queries) CountConfiguredNonHumanHighRiskCredentialAttribution(ctx conte
 }
 
 const countConfiguredNonHumanPrincipalOwnerCoverage = `-- name: CountConfiguredNonHumanPrincipalOwnerCoverage :one
+WITH relationship_owned_principals AS (
+  SELECT DISTINCT 'identity-' || ia.identity_id::text AS principal_ref
+  FROM identity_accounts ia
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN connector_source_state css
+    ON css.source_kind = a.source_kind
+   AND lower(trim(css.source_name)) = lower(trim(a.source_name))
+   AND css.configured = true
+  JOIN account_identity_relationships rel
+    ON rel.account_id = ia.account_id
+   AND rel.lifecycle_state = 'active'
+  WHERE a.expired_at IS NULL
+    AND a.last_observed_run_id IS NOT NULL
+)
 SELECT
   count(*)::bigint AS principal_count,
-  count(*) FILTER (WHERE pr.owner_presence = 'owned')::bigint AS with_owner_count
+  count(*) FILTER (
+    WHERE pr.owner_presence = 'owned'
+       OR rop.principal_ref IS NOT NULL
+  )::bigint AS with_owner_count
 FROM non_human_principal_read_models_v pr
 JOIN connector_source_state css
   ON css.source_kind = pr.source_kind
  AND lower(trim(css.source_name)) = lower(trim(pr.source_name))
+LEFT JOIN relationship_owned_principals rop
+  ON rop.principal_ref = pr.principal_ref
 WHERE css.configured = true
 `
 

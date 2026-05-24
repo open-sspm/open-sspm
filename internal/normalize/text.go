@@ -10,6 +10,10 @@ func Lower(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
 }
 
+func Email(value string) string {
+	return Lower(value)
+}
+
 func EqualFoldTrimmed(a, b string) bool {
 	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
 }

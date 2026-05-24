@@ -88,6 +88,53 @@ func TestGenericAccountQueriesFilterEntityCategory(t *testing.T) {
 			t.Fatalf("CountSourceAccountsBySourceAndQuery(all datadog)=%d want 4", allDatadogCount)
 		}
 
+		metricUserTotal, err := q.CountSourceAccountsBySource(ctx, CountSourceAccountsBySourceParams{
+			SourceKind:     "datadog",
+			SourceName:     "datadoghq.com",
+			EntityCategory: "user",
+		})
+		if err != nil {
+			t.Fatalf("CountSourceAccountsBySource(datadog user metrics): %v", err)
+		}
+		if metricUserTotal != 2 {
+			t.Fatalf("CountSourceAccountsBySource(datadog user metrics)=%d want 2", metricUserTotal)
+		}
+
+		metricUserAnchored, err := q.CountAnchoredSourceAccountsBySource(ctx, CountAnchoredSourceAccountsBySourceParams{
+			SourceKind:     "datadog",
+			SourceName:     "datadoghq.com",
+			EntityCategory: "user",
+		})
+		if err != nil {
+			t.Fatalf("CountAnchoredSourceAccountsBySource(datadog user metrics): %v", err)
+		}
+		if metricUserAnchored != 1 {
+			t.Fatalf("CountAnchoredSourceAccountsBySource(datadog user metrics)=%d want 1", metricUserAnchored)
+		}
+
+		metricUserNeedsAnchor, err := q.CountSourceAccountsNeedingAnchorBySource(ctx, CountSourceAccountsNeedingAnchorBySourceParams{
+			SourceKind:     "datadog",
+			SourceName:     "datadoghq.com",
+			EntityCategory: "user",
+		})
+		if err != nil {
+			t.Fatalf("CountSourceAccountsNeedingAnchorBySource(datadog user metrics): %v", err)
+		}
+		if metricUserNeedsAnchor != 1 {
+			t.Fatalf("CountSourceAccountsNeedingAnchorBySource(datadog user metrics)=%d want 1", metricUserNeedsAnchor)
+		}
+
+		metricAllNeedsAnchor, err := q.CountSourceAccountsNeedingAnchorBySource(ctx, CountSourceAccountsNeedingAnchorBySourceParams{
+			SourceKind: "datadog",
+			SourceName: "datadoghq.com",
+		})
+		if err != nil {
+			t.Fatalf("CountSourceAccountsNeedingAnchorBySource(datadog all metrics): %v", err)
+		}
+		if metricAllNeedsAnchor != 3 {
+			t.Fatalf("CountSourceAccountsNeedingAnchorBySource(datadog all metrics)=%d want 3", metricAllNeedsAnchor)
+		}
+
 		needsAnchorCount, err := q.CountSourceAccountsNeedingAnchorBySourceAndQuery(ctx, CountSourceAccountsNeedingAnchorBySourceAndQueryParams{
 			SourceKind:     "datadog",
 			SourceName:     "datadoghq.com",

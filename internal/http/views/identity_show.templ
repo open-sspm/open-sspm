@@ -9,6 +9,7 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 			@identityShowBreadcrumb(data)
 			@identityShowHeader(data)
 			@identityShowSummaryTiles(data.Summary.Tiles)
+			@identityShowGraphFacts(data)
 			@identityShowEntitlements(data)
 			@identityShowLinkedAccounts(data)
 		</div>
@@ -119,6 +120,102 @@ templ identitySummaryTile(tile viewmodels.IdentitySummaryTile) {
 			<div class="osspm-summary-tile-sublabel">{ tile.Sublabel }</div>
 		}
 	</div>
+}
+
+templ identityShowGraphFacts(data viewmodels.IdentityShowViewData) {
+	if data.GraphFacts.HasEmails || data.GraphFacts.HasAnchors {
+		<section class="osspm-data-section">
+			<div class="osspm-data-section-header">
+				<div class="space-y-1">
+					<h2 class="text-base font-semibold">Identity graph facts</h2>
+					<p class="text-sm text-muted-foreground">Emails and deterministic anchors used by resolution.</p>
+				</div>
+			</div>
+			<div class="grid gap-4 lg:grid-cols-2">
+				<section class="rounded-md border border-border/70">
+					<div class="border-b border-border/70 px-4 py-3">
+						<h3 class="text-sm font-semibold">{ "Emails " }<span class="font-normal text-muted-foreground">{ FormatInt(len(data.GraphFacts.Emails)) }</span></h3>
+					</div>
+					if data.GraphFacts.HasEmails {
+						<div class="divide-y divide-border/70">
+							for _, email := range data.GraphFacts.Emails {
+								<div class="px-4 py-3">
+									<div class="flex min-w-0 items-start justify-between gap-3">
+										<div class="min-w-0">
+											<div class="truncate font-medium">{ email.Email }</div>
+											if email.NormalizedEmail != "" && email.NormalizedEmail != email.Email {
+												<div class="truncate text-xs text-muted-foreground">{ email.NormalizedEmail }</div>
+											}
+										</div>
+										if email.IsPrimary {
+											<span class="badge bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-100">Primary</span>
+										}
+									</div>
+									<div class="mt-2 flex flex-wrap gap-2">
+										<span class="badge-outline">{ HumanizeIdentityResolutionToken(email.EmailKind) }</span>
+										<span class="badge-outline">{ HumanizeIdentityResolutionToken(email.VerificationState) }</span>
+										<span class="badge-outline">{ HumanizeIdentityResolutionToken(email.LifecycleState) }</span>
+									</div>
+									if email.SourceKind != "" || email.LastSeen.Label != "" {
+										<div class="mt-2 text-xs text-muted-foreground">
+											if email.SourceKind != "" {
+												<span>{ HumanizeConnectorKind(email.SourceKind) }</span>
+												if email.SourceName != "" {
+													<span>{ " / " }{ email.SourceName }</span>
+												}
+											}
+											if email.LastSeen.Label != "" {
+												<span>{ " · last seen " }{ email.LastSeen.Label }</span>
+											}
+										</div>
+									}
+								</div>
+							}
+						</div>
+					} else {
+						@EmptyState("No emails", "No identity emails have been recorded.")
+					}
+				</section>
+				<section class="rounded-md border border-border/70">
+					<div class="border-b border-border/70 px-4 py-3">
+						<h3 class="text-sm font-semibold">{ "Anchors " }<span class="font-normal text-muted-foreground">{ FormatInt(len(data.GraphFacts.Anchors)) }</span></h3>
+					</div>
+					if data.GraphFacts.HasAnchors {
+						<div class="divide-y divide-border/70">
+							for _, anchor := range data.GraphFacts.Anchors {
+								<div class="px-4 py-3">
+									<div class="min-w-0">
+										<div class="truncate font-medium">{ HumanizeIdentityResolutionToken(anchor.AnchorKind) }</div>
+										<div class="truncate text-xs text-muted-foreground">{ anchor.Issuer }</div>
+										<div class="mt-1 break-all font-mono text-xs">{ anchor.NormalizedAnchorValue }</div>
+									</div>
+									<div class="mt-2 flex flex-wrap gap-2">
+										<span class="badge-outline">{ HumanizeIdentityResolutionToken(anchor.TrustLevel) }</span>
+										<span class="badge-outline">{ HumanizeIdentityResolutionToken(anchor.LifecycleState) }</span>
+									</div>
+									if anchor.SourceKind != "" || anchor.LastSeen.Label != "" {
+										<div class="mt-2 text-xs text-muted-foreground">
+											if anchor.SourceKind != "" {
+												<span>{ HumanizeConnectorKind(anchor.SourceKind) }</span>
+												if anchor.SourceName != "" {
+													<span>{ " / " }{ anchor.SourceName }</span>
+												}
+											}
+											if anchor.LastSeen.Label != "" {
+												<span>{ " · last seen " }{ anchor.LastSeen.Label }</span>
+											}
+										</div>
+									}
+								</div>
+							}
+						</div>
+					} else {
+						@EmptyState("No anchors", "No deterministic anchors have been accepted.")
+					}
+				</section>
+			</div>
+		</section>
+	}
 }
 
 templ identityShowLinkedAccounts(data viewmodels.IdentityShowViewData) {

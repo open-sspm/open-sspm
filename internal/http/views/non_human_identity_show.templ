@@ -8,6 +8,7 @@ templ NonHumanIdentityShowPage(data viewmodels.NonHumanIdentitiesShowViewData) {
 		<div class="mx-auto w-full min-w-0 max-w-6xl space-y-10 py-2">
 			@nonHumanIdentityShowHeader(data.Principal)
 			@nonHumanIdentityShowMetadata(data.Principal)
+			@nonHumanIdentityShowRelationships(data)
 			@nonHumanIdentityShowSignals(data)
 			@nonHumanIdentityShowRelatedAssets(data)
 			@nonHumanIdentityShowCredentials(data)
@@ -146,6 +147,87 @@ templ nonHumanIdentityShowAttributionField(p viewmodels.NonHumanIdentitiesSummar
 		}
 		<dd class="text-xs text-muted-foreground">Secondary context. Not counted as accountable owner.</dd>
 	</div>
+}
+
+templ nonHumanIdentityShowRelationships(data viewmodels.NonHumanIdentitiesShowViewData) {
+	<section aria-label="Account relationships" class="space-y-4">
+		<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+			<div class="space-y-1">
+				<h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Account relationships</h2>
+				if data.HasRelationships {
+					<p class="text-xs text-muted-foreground">{ FormatInt(len(data.Relationships)) }{ pluralizeSuffix(len(data.Relationships), " active relationship", " active relationships") }</p>
+				}
+			</div>
+			if data.Layout.IsAdmin && data.CanAssignRelationships && data.RelationshipAction != "" {
+				<form method="post" action={ data.RelationshipAction } class="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[420px] sm:flex-row sm:items-end">
+					@CSRFInput(data.Layout.CSRFToken)
+					<label class="min-w-0 flex-1 space-y-1">
+						<span class="label">Identity email</span>
+						<input class="input w-full" type="email" name="identity_email" value={ data.RelationshipIdentityEmail } placeholder="owner@example.com" autocomplete="email"/>
+					</label>
+					<label class="space-y-1 sm:w-40">
+						<span class="label">Relationship</span>
+						<select class="input w-full" name="relationship_type">
+							<option value="custodian" selected?={ data.RelationshipTypeInput == "" || data.RelationshipTypeInput == "custodian" }>Custodian</option>
+							<option value="owner" selected?={ data.RelationshipTypeInput == "owner" }>Owner</option>
+							<option value="approver" selected?={ data.RelationshipTypeInput == "approver" }>Approver</option>
+							<option value="attributed_user" selected?={ data.RelationshipTypeInput == "attributed_user" }>Attributed user</option>
+							<option value="last_observed_user" selected?={ data.RelationshipTypeInput == "last_observed_user" }>Last observed user</option>
+						</select>
+					</label>
+					<button type="submit" class="btn-sm-primary sm:mb-0.5">Save</button>
+				</form>
+			}
+		</div>
+		if data.HasRelationships {
+			<div class="overflow-x-auto border-t border-border/60">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="border-b border-border/60 text-left">
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Identity</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Relationship</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Source account</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Confidence</th>
+							<th class="py-2 pr-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Seen</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, item := range data.Relationships {
+							<tr class="border-b border-border/40 last:border-0 align-top">
+								<td class="py-3 pr-4">
+									if item.IdentityHref != "" {
+										<a class="btn-sm-link px-0 font-medium break-words" href={ item.IdentityHref }>{ item.IdentityDisplayName }</a>
+									} else {
+										<span class="font-medium break-words">{ item.IdentityDisplayName }</span>
+									}
+									if item.IdentityPrimaryEmail != "" {
+										<div class="text-xs text-muted-foreground break-all">{ item.IdentityPrimaryEmail }</div>
+									}
+									<div class="text-xs text-muted-foreground">{ fallbackHumanized(item.RelationshipIdentityKind) }</div>
+								</td>
+								<td class="py-3 pr-4">
+									<span class="badge-outline">{ fallbackHumanized(item.RelationshipType) }</span>
+								</td>
+								<td class="py-3 pr-4">
+									<div class="font-medium break-words">{ item.AccountDisplayName }</div>
+									<div class="text-xs text-muted-foreground">{ HumanizeConnectorKind(item.AccountSourceKind) }</div>
+									if item.AccountExternalID != "" {
+										<div class="font-mono text-[11px] text-muted-foreground break-all">{ item.AccountExternalID }</div>
+									}
+								</td>
+								<td class="py-3 pr-4 tabular-nums">{ FormatInt(int(item.Confidence)) }{ "%" }</td>
+								<td class="py-3 pr-4 tabular-nums text-muted-foreground">{ item.LastSeen.Label }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		} else {
+			<div class="border-t border-border/60">
+				@EmptyState("No account relationships", "No owners or custodians are recorded for the linked source accounts.")
+			</div>
+		}
+	</section>
 }
 
 templ nonHumanIdentityShowSignals(data viewmodels.NonHumanIdentitiesShowViewData) {
