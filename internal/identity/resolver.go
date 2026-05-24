@@ -18,20 +18,21 @@ const (
 )
 
 type queryRunner interface {
-	CountAccountsMissingIdentityLink(context.Context) (int64, error)
-	ListAccountsMissingIdentityLinkPage(context.Context, gen.ListAccountsMissingIdentityLinkPageParams) ([]gen.Account, error)
-	FindUnambiguousIdentityByPrimaryEmail(context.Context, string) (gen.Identity, error)
-	GetAnyIdentityByPrimaryEmail(context.Context, string) (gen.Identity, error)
+	CountAccountsMissingIdentityLinkByConfiguredSources(context.Context, gen.CountAccountsMissingIdentityLinkByConfiguredSourcesParams) (int64, error)
+	ListAccountsMissingIdentityLinkPageByConfiguredSources(context.Context, gen.ListAccountsMissingIdentityLinkPageByConfiguredSourcesParams) ([]gen.Account, error)
+	ResolveIdentityByPrimaryEmail(context.Context, gen.ResolveIdentityByPrimaryEmailParams) (gen.ResolveIdentityByPrimaryEmailRow, error)
 	CreateIdentity(context.Context, gen.CreateIdentityParams) (gen.Identity, error)
 	UpsertIdentityAccountLink(context.Context, gen.UpsertIdentityAccountLinkParams) (gen.IdentityAccount, error)
 	GetIdentityAccountLinkByAccountID(context.Context, int64) (gen.IdentityAccount, error)
-	ListAuthoritativeSources(context.Context) ([]gen.IdentitySourceSetting, error)
-	ListIdentityAccountAttributes(context.Context) ([]gen.ListIdentityAccountAttributesRow, error)
+	ListAuthoritativeSourcesByConfiguredSources(context.Context, gen.ListAuthoritativeSourcesByConfiguredSourcesParams) ([]gen.IdentitySourceSetting, error)
+	ListIdentityAccountAttributesByConfiguredSources(context.Context, gen.ListIdentityAccountAttributesByConfiguredSourcesParams) ([]gen.ListIdentityAccountAttributesByConfiguredSourcesRow, error)
 	UpdateIdentityAttributes(context.Context, gen.UpdateIdentityAttributesParams) error
 }
 
 type Resolver struct {
-	Q queryRunner
+	Q                     queryRunner
+	ConfiguredSourceKinds []string
+	ConfiguredSourceNames []string
 }
 
 type Stats struct {
@@ -43,7 +44,13 @@ type Stats struct {
 }
 
 func Resolve(ctx context.Context, q *gen.Queries) (Stats, error) {
+	return ResolveWithConfiguredSources(ctx, q, nil, nil)
+}
+
+func ResolveWithConfiguredSources(ctx context.Context, q *gen.Queries, configuredSourceKinds, configuredSourceNames []string) (Stats, error) {
 	r := Resolver{Q: q}
+	r.ConfiguredSourceKinds = append([]string(nil), configuredSourceKinds...)
+	r.ConfiguredSourceNames = append([]string(nil), configuredSourceNames...)
 	return r.Resolve(ctx)
 }
 
@@ -51,19 +58,31 @@ func (r Resolver) Resolve(ctx context.Context) (Stats, error) {
 	if r.Q == nil {
 		return Stats{}, errors.New("identity resolver query runner is nil")
 	}
+	if len(r.ConfiguredSourceKinds) != len(r.ConfiguredSourceNames) {
+		return Stats{}, errors.New("identity resolver configured source scope is malformed")
+	}
 
 	var out Stats
+	if len(r.ConfiguredSourceKinds) == 0 {
+		return out, nil
+	}
 
-	count, err := r.Q.CountAccountsMissingIdentityLink(ctx)
+	sourceScope := gen.CountAccountsMissingIdentityLinkByConfiguredSourcesParams{
+		ConfiguredSourceKinds: r.ConfiguredSourceKinds,
+		ConfiguredSourceNames: r.ConfiguredSourceNames,
+	}
+	count, err := r.Q.CountAccountsMissingIdentityLinkByConfiguredSources(ctx, sourceScope)
 	if err != nil {
 		return out, err
 	}
 	out.MissingIdentityLinksBefore = count
 
 	for {
-		accounts, err := r.Q.ListAccountsMissingIdentityLinkPage(ctx, gen.ListAccountsMissingIdentityLinkPageParams{
-			PageLimit:  500,
-			PageOffset: 0,
+		accounts, err := r.Q.ListAccountsMissingIdentityLinkPageByConfiguredSources(ctx, gen.ListAccountsMissingIdentityLinkPageByConfiguredSourcesParams{
+			PageLimit:             500,
+			PageOffset:            0,
+			ConfiguredSourceKinds: r.ConfiguredSourceKinds,
+			ConfiguredSourceNames: r.ConfiguredSourceNames,
 		})
 		if err != nil {
 			return out, err
@@ -123,25 +142,16 @@ func (r Resolver) resolveIdentityIDForAccount(ctx context.Context, account gen.A
 	email := normalizeEmail(account.Email)
 	accountKind := registry.NormalizeAccountKind(account.AccountKind)
 	if email != "" && accountKind != registry.AccountKindService && accountKind != registry.AccountKindBot {
-		identity, findErr := r.Q.FindUnambiguousIdentityByPrimaryEmail(ctx, email)
-		if findErr == nil {
-			return identity.ID, linkReasonAutoEmail, false, nil
+		match, matchErr := r.Q.ResolveIdentityByPrimaryEmail(ctx, gen.ResolveIdentityByPrimaryEmailParams{
+			ConfiguredSourceKinds: r.ConfiguredSourceKinds,
+			ConfiguredSourceNames: r.ConfiguredSourceNames,
+			PrimaryEmail:          email,
+		})
+		if matchErr == nil {
+			return match.IdentityID, strings.TrimSpace(match.LinkReason), false, nil
 		}
-		if !errors.Is(findErr, pgx.ErrNoRows) {
-			return 0, "", false, findErr
-		}
-		// No strict winner. Either there is no identity for this email at all,
-		// or two or more identities tie at the top tier. Disambiguate by
-		// asking for *some* deterministic identity at this email: if one
-		// exists, link to it with the ambiguous reason rather than minting a
-		// new identity (which would compound the duplicate problem). Only fall
-		// through to CreateIdentity when no identity owns this email yet.
-		anchor, anchorErr := r.Q.GetAnyIdentityByPrimaryEmail(ctx, email)
-		if anchorErr == nil {
-			return anchor.ID, linkReasonAutoProvisionalAmbiguousEmail, false, nil
-		}
-		if !errors.Is(anchorErr, pgx.ErrNoRows) {
-			return 0, "", false, anchorErr
+		if !errors.Is(matchErr, pgx.ErrNoRows) {
+			return 0, "", false, matchErr
 		}
 	}
 
@@ -157,7 +167,11 @@ func (r Resolver) resolveIdentityIDForAccount(ctx context.Context, account gen.A
 }
 
 func (r Resolver) refreshIdentityAttributes(ctx context.Context) (int64, error) {
-	sources, err := r.Q.ListAuthoritativeSources(ctx)
+	sourceScope := gen.ListAuthoritativeSourcesByConfiguredSourcesParams{
+		ConfiguredSourceKinds: r.ConfiguredSourceKinds,
+		ConfiguredSourceNames: r.ConfiguredSourceNames,
+	}
+	sources, err := r.Q.ListAuthoritativeSourcesByConfiguredSources(ctx, sourceScope)
 	if err != nil {
 		return 0, err
 	}
@@ -167,7 +181,10 @@ func (r Resolver) refreshIdentityAttributes(ctx context.Context) (int64, error) 
 		authoritative[key] = struct{}{}
 	}
 
-	rows, err := r.Q.ListIdentityAccountAttributes(ctx)
+	rows, err := r.Q.ListIdentityAccountAttributesByConfiguredSources(ctx, gen.ListIdentityAccountAttributesByConfiguredSourcesParams{
+		ConfiguredSourceKinds: r.ConfiguredSourceKinds,
+		ConfiguredSourceNames: r.ConfiguredSourceNames,
+	})
 	if err != nil {
 		return 0, err
 	}
@@ -175,7 +192,7 @@ func (r Resolver) refreshIdentityAttributes(ctx context.Context) (int64, error) 
 		return 0, nil
 	}
 
-	byIdentity := make(map[int64][]gen.ListIdentityAccountAttributesRow)
+	byIdentity := make(map[int64][]gen.ListIdentityAccountAttributesByConfiguredSourcesRow)
 	for _, row := range rows {
 		byIdentity[row.IdentityID] = append(byIdentity[row.IdentityID], row)
 	}
@@ -201,12 +218,12 @@ func (r Resolver) refreshIdentityAttributes(ctx context.Context) (int64, error) 
 	return updated, nil
 }
 
-func chooseIdentityAttributes(candidates []gen.ListIdentityAccountAttributesRow, authoritative map[string]struct{}) (email string, displayName string) {
+func chooseIdentityAttributes(candidates []gen.ListIdentityAccountAttributesByConfiguredSourcesRow, authoritative map[string]struct{}) (email string, displayName string) {
 	if len(candidates) == 0 {
 		return "", ""
 	}
 
-	sorted := append([]gen.ListIdentityAccountAttributesRow(nil), candidates...)
+	sorted := append([]gen.ListIdentityAccountAttributesByConfiguredSourcesRow(nil), candidates...)
 	sort.Slice(sorted, func(i, j int) bool {
 		left := sorted[i]
 		right := sorted[j]
@@ -238,7 +255,7 @@ func chooseIdentityAttributes(candidates []gen.ListIdentityAccountAttributesRow,
 	return email, displayName
 }
 
-func firstNonEmptyEmail(candidates []gen.ListIdentityAccountAttributesRow) (string, bool) {
+func firstNonEmptyEmail(candidates []gen.ListIdentityAccountAttributesByConfiguredSourcesRow) (string, bool) {
 	for _, candidate := range candidates {
 		email := normalizeEmail(candidate.Email)
 		if email != "" {
@@ -248,7 +265,7 @@ func firstNonEmptyEmail(candidates []gen.ListIdentityAccountAttributesRow) (stri
 	return "", false
 }
 
-func chooseIdentityKind(candidates []gen.ListIdentityAccountAttributesRow) string {
+func chooseIdentityKind(candidates []gen.ListIdentityAccountAttributesByConfiguredSourcesRow) string {
 	if len(candidates) == 0 {
 		return registry.AccountKindUnknown
 	}
@@ -265,7 +282,7 @@ func chooseIdentityKind(candidates []gen.ListIdentityAccountAttributesRow) strin
 	return chooseIdentityKindByHeuristic(candidates)
 }
 
-func chooseIdentityKindByHeuristic(candidates []gen.ListIdentityAccountAttributesRow) string {
+func chooseIdentityKindByHeuristic(candidates []gen.ListIdentityAccountAttributesByConfiguredSourcesRow) string {
 	hasEmail := false
 	hasServiceSignal := false
 	for _, candidate := range candidates {
@@ -295,7 +312,7 @@ func chooseIdentityKindByHeuristic(candidates []gen.ListIdentityAccountAttribute
 	return registry.AccountKindUnknown
 }
 
-func buildIdentityClassifierText(candidate gen.ListIdentityAccountAttributesRow, normalizedEmail string) string {
+func buildIdentityClassifierText(candidate gen.ListIdentityAccountAttributesByConfiguredSourcesRow, normalizedEmail string) string {
 	parts := []string{
 		strings.TrimSpace(candidate.DisplayName),
 		strings.TrimSpace(candidate.ExternalID),

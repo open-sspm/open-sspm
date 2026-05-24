@@ -31,6 +31,64 @@ func newResolverStub() *resolverStub {
 	}
 }
 
+func resolverForStub(stub *resolverStub) Resolver {
+	kinds, names := stub.configuredSourcePairs()
+	return Resolver{
+		Q:                     stub,
+		ConfiguredSourceKinds: kinds,
+		ConfiguredSourceNames: names,
+	}
+}
+
+func (s *resolverStub) configuredSourcePairs() ([]string, []string) {
+	type pair struct {
+		kind string
+		name string
+	}
+	seen := map[pair]struct{}{}
+	pairs := make([]pair, 0)
+	for _, account := range s.accounts {
+		kind := strings.TrimSpace(account.SourceKind)
+		name := strings.TrimSpace(account.SourceName)
+		if kind == "" || name == "" {
+			continue
+		}
+		p := pair{kind: kind, name: name}
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		pairs = append(pairs, p)
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		if pairs[i].kind != pairs[j].kind {
+			return pairs[i].kind < pairs[j].kind
+		}
+		return pairs[i].name < pairs[j].name
+	})
+	kinds := make([]string, 0, len(pairs))
+	names := make([]string, 0, len(pairs))
+	for _, p := range pairs {
+		kinds = append(kinds, p.kind)
+		names = append(names, p.name)
+	}
+	return kinds, names
+}
+
+func sourceInScope(kind, name string, configuredSourceKinds, configuredSourceNames []string) bool {
+	kind = strings.TrimSpace(kind)
+	name = strings.TrimSpace(name)
+	for i := range configuredSourceKinds {
+		if i >= len(configuredSourceNames) {
+			break
+		}
+		if strings.TrimSpace(configuredSourceKinds[i]) == kind && strings.TrimSpace(configuredSourceNames[i]) == name {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *resolverStub) putIdentity(identity gen.Identity) {
 	s.identities[identity.ID] = identity
 	if identity.ID >= s.nextIdentityID {
@@ -45,10 +103,13 @@ func (s *resolverStub) putLink(link gen.IdentityAccount) {
 	}
 }
 
-func (s *resolverStub) CountAccountsMissingIdentityLink(context.Context) (int64, error) {
+func (s *resolverStub) CountAccountsMissingIdentityLinkByConfiguredSources(_ context.Context, params gen.CountAccountsMissingIdentityLinkByConfiguredSourcesParams) (int64, error) {
 	var count int64
 	for _, account := range s.accounts {
 		if !isActiveAccount(account) {
+			continue
+		}
+		if !sourceInScope(account.SourceKind, account.SourceName, params.ConfiguredSourceKinds, params.ConfiguredSourceNames) {
 			continue
 		}
 		if _, linked := s.linksByAccount[account.ID]; linked {
@@ -59,10 +120,13 @@ func (s *resolverStub) CountAccountsMissingIdentityLink(context.Context) (int64,
 	return count, nil
 }
 
-func (s *resolverStub) ListAccountsMissingIdentityLinkPage(_ context.Context, params gen.ListAccountsMissingIdentityLinkPageParams) ([]gen.Account, error) {
+func (s *resolverStub) ListAccountsMissingIdentityLinkPageByConfiguredSources(_ context.Context, params gen.ListAccountsMissingIdentityLinkPageByConfiguredSourcesParams) ([]gen.Account, error) {
 	rows := make([]gen.Account, 0)
 	for _, account := range s.accounts {
 		if !isActiveAccount(account) {
+			continue
+		}
+		if !sourceInScope(account.SourceKind, account.SourceName, params.ConfiguredSourceKinds, params.ConfiguredSourceNames) {
 			continue
 		}
 		if _, linked := s.linksByAccount[account.ID]; linked {
@@ -83,10 +147,10 @@ func (s *resolverStub) ListAccountsMissingIdentityLinkPage(_ context.Context, pa
 	return rows[start:end], nil
 }
 
-func (s *resolverStub) FindUnambiguousIdentityByPrimaryEmail(_ context.Context, email string) (gen.Identity, error) {
-	target := normalizeTestEmail(email)
+func (s *resolverStub) ResolveIdentityByPrimaryEmail(_ context.Context, params gen.ResolveIdentityByPrimaryEmailParams) (gen.ResolveIdentityByPrimaryEmailRow, error) {
+	target := normalizeTestEmail(params.PrimaryEmail)
 	if target == "" {
-		return gen.Identity{}, pgx.ErrNoRows
+		return gen.ResolveIdentityByPrimaryEmailRow{}, pgx.ErrNoRows
 	}
 
 	authoritativeByIdentity := make(map[int64]struct{})
@@ -95,11 +159,17 @@ func (s *resolverStub) FindUnambiguousIdentityByPrimaryEmail(_ context.Context, 
 		if !source.IsAuthoritative {
 			continue
 		}
+		if !sourceInScope(source.SourceKind, source.SourceName, params.ConfiguredSourceKinds, params.ConfiguredSourceNames) {
+			continue
+		}
 		authoritativeSources[sourceKey(source.SourceKind, source.SourceName)] = struct{}{}
 	}
 	for _, link := range s.linksByAccount {
 		account, ok := s.accounts[link.AccountID]
 		if !ok || !isActiveAccount(account) {
+			continue
+		}
+		if !sourceInScope(account.SourceKind, account.SourceName, params.ConfiguredSourceKinds, params.ConfiguredSourceNames) {
 			continue
 		}
 		if _, ok := authoritativeSources[sourceKey(account.SourceKind, account.SourceName)]; ok {
@@ -119,7 +189,7 @@ func (s *resolverStub) FindUnambiguousIdentityByPrimaryEmail(_ context.Context, 
 		}
 	}
 	if len(candidates) == 0 {
-		return gen.Identity{}, pgx.ErrNoRows
+		return gen.ResolveIdentityByPrimaryEmailRow{}, pgx.ErrNoRows
 	}
 
 	topTier := make([]gen.Identity, 0, len(candidates))
@@ -129,56 +199,18 @@ func (s *resolverStub) FindUnambiguousIdentityByPrimaryEmail(_ context.Context, 
 			topTier = append(topTier, identity)
 		}
 	}
-	if len(topTier) != 1 {
-		return gen.Identity{}, pgx.ErrNoRows
-	}
-	return topTier[0], nil
-}
 
-func (s *resolverStub) GetAnyIdentityByPrimaryEmail(_ context.Context, email string) (gen.Identity, error) {
-	target := normalizeTestEmail(email)
-	if target == "" {
-		return gen.Identity{}, pgx.ErrNoRows
-	}
-
-	authoritativeByIdentity := make(map[int64]struct{})
-	authoritativeSources := make(map[string]struct{}, len(s.sources))
-	for _, source := range s.sources {
-		if !source.IsAuthoritative {
-			continue
-		}
-		authoritativeSources[sourceKey(source.SourceKind, source.SourceName)] = struct{}{}
-	}
-	for _, link := range s.linksByAccount {
-		account, ok := s.accounts[link.AccountID]
-		if !ok || !isActiveAccount(account) {
-			continue
-		}
-		if _, ok := authoritativeSources[sourceKey(account.SourceKind, account.SourceName)]; ok {
-			authoritativeByIdentity[link.IdentityID] = struct{}{}
-		}
-	}
-
-	candidates := make([]gen.Identity, 0)
-	for _, identity := range s.identities {
-		if normalizeTestEmail(identity.PrimaryEmail) != target {
-			continue
-		}
-		candidates = append(candidates, identity)
-	}
-	if len(candidates) == 0 {
-		return gen.Identity{}, pgx.ErrNoRows
-	}
-
-	sort.Slice(candidates, func(i, j int) bool {
-		_, leftAuth := authoritativeByIdentity[candidates[i].ID]
-		_, rightAuth := authoritativeByIdentity[candidates[j].ID]
-		if leftAuth != rightAuth {
-			return leftAuth
-		}
-		return candidates[i].ID < candidates[j].ID
+	sort.Slice(topTier, func(i, j int) bool {
+		return topTier[i].ID < topTier[j].ID
 	})
-	return candidates[0], nil
+	reason := linkReasonAutoEmail
+	if len(topTier) != 1 {
+		reason = linkReasonAutoProvisionalAmbiguousEmail
+	}
+	return gen.ResolveIdentityByPrimaryEmailRow{
+		IdentityID: topTier[0].ID,
+		LinkReason: reason,
+	}, nil
 }
 
 func (s *resolverStub) CreateIdentity(_ context.Context, params gen.CreateIdentityParams) (gen.Identity, error) {
@@ -224,25 +256,32 @@ func (s *resolverStub) GetIdentityAccountLinkByAccountID(_ context.Context, acco
 	return row, nil
 }
 
-func (s *resolverStub) ListAuthoritativeSources(context.Context) ([]gen.IdentitySourceSetting, error) {
+func (s *resolverStub) ListAuthoritativeSourcesByConfiguredSources(_ context.Context, params gen.ListAuthoritativeSourcesByConfiguredSourcesParams) ([]gen.IdentitySourceSetting, error) {
 	out := make([]gen.IdentitySourceSetting, 0, len(s.sources))
 	for _, source := range s.sources {
-		if source.IsAuthoritative {
-			out = append(out, source)
+		if !source.IsAuthoritative {
+			continue
 		}
+		if !sourceInScope(source.SourceKind, source.SourceName, params.ConfiguredSourceKinds, params.ConfiguredSourceNames) {
+			continue
+		}
+		out = append(out, source)
 	}
 	return out, nil
 }
 
-func (s *resolverStub) ListIdentityAccountAttributes(context.Context) ([]gen.ListIdentityAccountAttributesRow, error) {
-	out := make([]gen.ListIdentityAccountAttributesRow, 0, len(s.linksByAccount))
+func (s *resolverStub) ListIdentityAccountAttributesByConfiguredSources(_ context.Context, params gen.ListIdentityAccountAttributesByConfiguredSourcesParams) ([]gen.ListIdentityAccountAttributesByConfiguredSourcesRow, error) {
+	out := make([]gen.ListIdentityAccountAttributesByConfiguredSourcesRow, 0, len(s.linksByAccount))
 	for accountID, link := range s.linksByAccount {
 		account, ok := s.accounts[accountID]
 		if !ok || !isActiveAccount(account) {
 			continue
 		}
+		if !sourceInScope(account.SourceKind, account.SourceName, params.ConfiguredSourceKinds, params.ConfiguredSourceNames) {
+			continue
+		}
 		identity := s.identities[link.IdentityID]
-		out = append(out, gen.ListIdentityAccountAttributesRow{
+		out = append(out, gen.ListIdentityAccountAttributesByConfiguredSourcesRow{
 			IdentityID:   link.IdentityID,
 			IdentityKind: identity.Kind,
 			AccountID:    account.ID,
@@ -305,7 +344,7 @@ func TestResolverResolveExactEmailLink(t *testing.T) {
 	stub.putIdentity(gen.Identity{ID: 1, PrimaryEmail: "alice@example.com", DisplayName: "Alice"})
 	stub.accounts[10] = makeActiveAccount(10, "github", "acme", "ALICE@example.com", "Alice GH")
 
-	stats, err := Resolver{Q: stub}.Resolve(context.Background())
+	stats, err := resolverForStub(stub).Resolve(context.Background())
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
@@ -338,7 +377,7 @@ func TestResolverResolveSkipsEmailMatchedAnchorForNonHumanAccountKinds(t *testin
 	account.AccountKind = "service"
 	stub.accounts[20] = account
 
-	stats, err := Resolver{Q: stub}.Resolve(context.Background())
+	stats, err := resolverForStub(stub).Resolve(context.Background())
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
@@ -363,7 +402,7 @@ func TestResolverResolveNewIdentityKindInitializedFromAccountKind(t *testing.T) 
 	account.AccountKind = "service"
 	stub.accounts[10] = account
 
-	stats, err := Resolver{Q: stub}.Resolve(context.Background())
+	stats, err := resolverForStub(stub).Resolve(context.Background())
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
@@ -392,7 +431,7 @@ func TestResolverResolveAuthoritativeAccountUsesExistingIdentity(t *testing.T) {
 
 	stub.accounts[20] = makeActiveAccount(20, "okta", "example.okta.com", "person@example.com", "Person Okta")
 
-	stats, err := Resolver{Q: stub}.Resolve(context.Background())
+	stats, err := resolverForStub(stub).Resolve(context.Background())
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
@@ -421,7 +460,7 @@ func TestResolverResolveManualLinkIsNotOverridden(t *testing.T) {
 		Confidence: 1,
 	})
 
-	identityID, reason, created, err := (Resolver{Q: stub}).resolveIdentityIDForAccount(context.Background(), account)
+	identityID, reason, created, err := (resolverForStub(stub)).resolveIdentityIDForAccount(context.Background(), account)
 	if err != nil {
 		t.Fatalf("resolveIdentityIDForAccount() error = %v", err)
 	}
@@ -443,7 +482,7 @@ func TestResolverResolveEmptyEmailCreatesUniqueIdentities(t *testing.T) {
 	stub.accounts[1] = makeActiveAccount(1, "github", "acme", "", "Bot A")
 	stub.accounts[2] = makeActiveAccount(2, "datadog", "datadoghq.com", " ", "Bot B")
 
-	stats, err := Resolver{Q: stub}.Resolve(context.Background())
+	stats, err := resolverForStub(stub).Resolve(context.Background())
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
@@ -473,7 +512,7 @@ func TestResolverResolveDuplicateEmailRequiresUnambiguousWinner(t *testing.T) {
 		stub.putLink(gen.IdentityAccount{ID: 1, IdentityID: 2, AccountID: 100, LinkReason: "seed_migration", Confidence: 1})
 		stub.accounts[200] = makeActiveAccount(200, "github", "acme", "team@example.com", "GitHub")
 
-		if _, err := (Resolver{Q: stub}).Resolve(context.Background()); err != nil {
+		if _, err := (resolverForStub(stub)).Resolve(context.Background()); err != nil {
 			t.Fatalf("Resolve() error = %v", err)
 		}
 		if got := stub.linksByAccount[200].IdentityID; got != 2 {
@@ -491,7 +530,7 @@ func TestResolverResolveDuplicateEmailRequiresUnambiguousWinner(t *testing.T) {
 		stub.putIdentity(gen.Identity{ID: 5, PrimaryEmail: "team@example.com"})
 		stub.accounts[201] = makeActiveAccount(201, "github", "acme", "team@example.com", "GitHub")
 
-		stats, err := (Resolver{Q: stub}).Resolve(context.Background())
+		stats, err := (resolverForStub(stub)).Resolve(context.Background())
 		if err != nil {
 			t.Fatalf("Resolve() error = %v", err)
 		}
@@ -530,7 +569,7 @@ func TestResolverResolveDuplicateEmailRequiresUnambiguousWinner(t *testing.T) {
 		stub.accounts[202] = makeActiveAccount(202, "github", "acme", "team@example.com", "GitHub")
 
 		identitiesBefore := len(stub.identities)
-		if _, err := (Resolver{Q: stub}).Resolve(context.Background()); err != nil {
+		if _, err := (resolverForStub(stub)).Resolve(context.Background()); err != nil {
 			t.Fatalf("Resolve() error = %v", err)
 		}
 		if len(stub.identities) != identitiesBefore {
@@ -546,6 +585,66 @@ func TestResolverResolveDuplicateEmailRequiresUnambiguousWinner(t *testing.T) {
 	})
 }
 
+func TestResolverResolveScopesAuthoritativeSources(t *testing.T) {
+	t.Parallel()
+
+	stub := newResolverStub()
+	stub.sources = []gen.IdentitySourceSetting{
+		{SourceKind: "okta", SourceName: "retired.okta.com", IsAuthoritative: true},
+	}
+	stub.putIdentity(gen.Identity{ID: 1, Kind: "human", PrimaryEmail: "team@example.com", DisplayName: "Retired Anchor"})
+	stub.putIdentity(gen.Identity{ID: 2, Kind: "human", PrimaryEmail: "team@example.com", DisplayName: "Current Identity"})
+	stub.accounts[100] = makeActiveAccount(100, "okta", "retired.okta.com", "team@example.com", "Okta")
+	stub.putLink(gen.IdentityAccount{ID: 1, IdentityID: 1, AccountID: 100, LinkReason: "seed_migration", Confidence: 1})
+	stub.accounts[101] = makeActiveAccount(101, "github", "acme", "team@example.com", "GitHub Existing")
+	stub.putLink(gen.IdentityAccount{ID: 2, IdentityID: 2, AccountID: 101, LinkReason: "seed_migration", Confidence: 1})
+	stub.accounts[102] = makeActiveAccount(102, "github", "acme", "team@example.com", "GitHub New")
+
+	resolver := Resolver{
+		Q:                     stub,
+		ConfiguredSourceKinds: []string{"github"},
+		ConfiguredSourceNames: []string{"acme"},
+	}
+	if _, err := resolver.Resolve(context.Background()); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	link := stub.linksByAccount[102]
+	if link.LinkReason != linkReasonAutoProvisionalAmbiguousEmail {
+		t.Fatalf("link reason = %q, want %q", link.LinkReason, linkReasonAutoProvisionalAmbiguousEmail)
+	}
+}
+
+func TestResolverRefreshAttributesIgnoresRetiredAuthoritativeSource(t *testing.T) {
+	t.Parallel()
+
+	stub := newResolverStub()
+	stub.sources = []gen.IdentitySourceSetting{
+		{SourceKind: "okta", SourceName: "retired.okta.com", IsAuthoritative: true},
+	}
+	stub.putIdentity(gen.Identity{ID: 1, Kind: "unknown", PrimaryEmail: "old@example.com", DisplayName: "Old Name"})
+	stub.accounts[10] = makeActiveAccount(10, "okta", "retired.okta.com", "old@example.com", "Retired Okta")
+	stub.putLink(gen.IdentityAccount{ID: 1, IdentityID: 1, AccountID: 10, LinkReason: "seed_migration", Confidence: 1})
+	stub.accounts[20] = makeActiveAccount(20, "github", "acme", "current@example.com", "Current GitHub")
+	stub.putLink(gen.IdentityAccount{ID: 2, IdentityID: 1, AccountID: 20, LinkReason: "seed_migration", Confidence: 1})
+
+	resolver := Resolver{
+		Q:                     stub,
+		ConfiguredSourceKinds: []string{"github"},
+		ConfiguredSourceNames: []string{"acme"},
+	}
+	if _, err := resolver.Resolve(context.Background()); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+
+	identity := stub.identities[1]
+	if identity.PrimaryEmail != "current@example.com" {
+		t.Fatalf("primary email = %q, want current@example.com", identity.PrimaryEmail)
+	}
+	if identity.DisplayName != "Current GitHub" {
+		t.Fatalf("display name = %q, want Current GitHub", identity.DisplayName)
+	}
+}
+
 func TestResolverRefreshIdentityKindClassifiesHuman(t *testing.T) {
 	t.Parallel()
 
@@ -554,7 +653,7 @@ func TestResolverRefreshIdentityKindClassifiesHuman(t *testing.T) {
 	stub.accounts[10] = makeActiveAccount(10, "okta", "example.okta.com", "alice@example.com", "Alice Admin")
 	stub.putLink(gen.IdentityAccount{ID: 1, IdentityID: 1, AccountID: 10, LinkReason: "seed_migration", Confidence: 1})
 
-	if _, err := (Resolver{Q: stub}).Resolve(context.Background()); err != nil {
+	if _, err := (resolverForStub(stub)).Resolve(context.Background()); err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
 	if got := stub.identities[1].Kind; got != "human" {
@@ -570,7 +669,7 @@ func TestResolverRefreshIdentityKindClassifiesBot(t *testing.T) {
 	stub.accounts[10] = makeActiveAccount(10, "github", "acme", "", "Dependabot")
 	stub.putLink(gen.IdentityAccount{ID: 1, IdentityID: 1, AccountID: 10, LinkReason: "seed_migration", Confidence: 1})
 
-	if _, err := (Resolver{Q: stub}).Resolve(context.Background()); err != nil {
+	if _, err := (resolverForStub(stub)).Resolve(context.Background()); err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
 	if got := stub.identities[1].Kind; got != "bot" {
@@ -586,7 +685,7 @@ func TestResolverRefreshIdentityKindClassifiesService(t *testing.T) {
 	stub.accounts[10] = makeActiveAccount(10, "entra", "tenant", "", "Build Service Account")
 	stub.putLink(gen.IdentityAccount{ID: 1, IdentityID: 1, AccountID: 10, LinkReason: "seed_migration", Confidence: 1})
 
-	if _, err := (Resolver{Q: stub}).Resolve(context.Background()); err != nil {
+	if _, err := (resolverForStub(stub)).Resolve(context.Background()); err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
 	if got := stub.identities[1].Kind; got != "service" {
@@ -615,7 +714,7 @@ func TestResolverRefreshIdentityKindUsesAccountKindPrecedence(t *testing.T) {
 	stub.accounts[12] = bot
 	stub.putLink(gen.IdentityAccount{ID: 3, IdentityID: 1, AccountID: 12, LinkReason: "seed_migration", Confidence: 1})
 
-	if _, err := (Resolver{Q: stub}).Resolve(context.Background()); err != nil {
+	if _, err := (resolverForStub(stub)).Resolve(context.Background()); err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
 	if got := stub.identities[1].Kind; got != "bot" {
@@ -634,7 +733,7 @@ func TestResolverRefreshIdentityKindFallbackOnlyWhenAllAccountKindsUnknown(t *te
 		stub.accounts[10] = account
 		stub.putLink(gen.IdentityAccount{ID: 1, IdentityID: 1, AccountID: 10, LinkReason: "seed_migration", Confidence: 1})
 
-		if _, err := (Resolver{Q: stub}).Resolve(context.Background()); err != nil {
+		if _, err := (resolverForStub(stub)).Resolve(context.Background()); err != nil {
 			t.Fatalf("Resolve() error = %v", err)
 		}
 		if got := stub.identities[1].Kind; got != "human" {
@@ -648,7 +747,7 @@ func TestResolverRefreshIdentityKindFallbackOnlyWhenAllAccountKindsUnknown(t *te
 		stub.accounts[10] = makeActiveAccount(10, "github", "acme", "", "Dependabot")
 		stub.putLink(gen.IdentityAccount{ID: 1, IdentityID: 1, AccountID: 10, LinkReason: "seed_migration", Confidence: 1})
 
-		if _, err := (Resolver{Q: stub}).Resolve(context.Background()); err != nil {
+		if _, err := (resolverForStub(stub)).Resolve(context.Background()); err != nil {
 			t.Fatalf("Resolve() error = %v", err)
 		}
 		if got := stub.identities[1].Kind; got != "bot" {

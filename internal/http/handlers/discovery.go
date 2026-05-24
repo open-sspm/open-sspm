@@ -307,9 +307,21 @@ func (h *Handlers) renderDiscoveryGovernanceValidationError(c *echo.Context, app
 
 func (h *Handlers) resolveDiscoveryGovernanceIdentities(ctx context.Context, form discoveryGovernanceFormInput) (discoveryGovernanceIdentityRefs, *viewmodels.AlertViewData, error) {
 	refs := discoveryGovernanceIdentityRefs{}
+	configuredSourceKinds, configuredSourceNames := []string(nil), []string(nil)
+	if form.accountableOwnerEmailInput != "" || form.reviewOwnerEmailInput != "" {
+		var err error
+		configuredSourceKinds, configuredSourceNames, err = h.loadConfiguredIdentitySourcePairs(ctx)
+		if err != nil {
+			return refs, nil, err
+		}
+	}
 
 	if form.accountableOwnerEmailInput != "" {
-		ownerIdentity, err := h.Q.FindUnambiguousIdentityByPrimaryEmail(ctx, form.accountableOwnerEmailInput)
+		ownerIdentity, err := h.Q.FindUnambiguousIdentityByPrimaryEmail(ctx, gen.FindUnambiguousIdentityByPrimaryEmailParams{
+			ConfiguredSourceKinds: configuredSourceKinds,
+			ConfiguredSourceNames: configuredSourceNames,
+			PrimaryEmail:          form.accountableOwnerEmailInput,
+		})
 		if err != nil {
 			if !errors.Is(err, pgx.ErrNoRows) {
 				return refs, nil, err
@@ -338,7 +350,11 @@ func (h *Handlers) resolveDiscoveryGovernanceIdentities(ctx context.Context, for
 	}
 
 	if form.reviewOwnerEmailInput != "" {
-		reviewOwner, err := h.Q.FindUnambiguousIdentityByPrimaryEmail(ctx, form.reviewOwnerEmailInput)
+		reviewOwner, err := h.Q.FindUnambiguousIdentityByPrimaryEmail(ctx, gen.FindUnambiguousIdentityByPrimaryEmailParams{
+			ConfiguredSourceKinds: configuredSourceKinds,
+			ConfiguredSourceNames: configuredSourceNames,
+			PrimaryEmail:          form.reviewOwnerEmailInput,
+		})
 		if err != nil {
 			if !errors.Is(err, pgx.ErrNoRows) {
 				return refs, nil, err

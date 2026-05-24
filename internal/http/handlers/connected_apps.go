@@ -102,7 +102,15 @@ func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 	ownerEmailInput := auth.NormalizeEmail(c.FormValue("owner_email"))
 	var ownerIdentityID pgtype.Int8
 	if ownerEmailInput != "" {
-		ownerIdentity, err := h.Q.FindUnambiguousIdentityByPrimaryEmail(ctx, ownerEmailInput)
+		configuredSourceKinds, configuredSourceNames, err := h.loadConfiguredIdentitySourcePairs(ctx)
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		ownerIdentity, err := h.Q.FindUnambiguousIdentityByPrimaryEmail(ctx, gen.FindUnambiguousIdentityByPrimaryEmailParams{
+			ConfiguredSourceKinds: configuredSourceKinds,
+			ConfiguredSourceNames: configuredSourceNames,
+			PrimaryEmail:          ownerEmailInput,
+		})
 		if err != nil {
 			if !errors.Is(err, pgx.ErrNoRows) {
 				return h.RenderError(c, err)
@@ -544,7 +552,7 @@ func (h *Handlers) buildConnectedAppsViewData(ctx context.Context, layout viewmo
 	return data, nil
 }
 
-func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout viewmodels.LayoutData, appID int64, opts connectedAppShowOptions) (viewmodels.ConnectedAppShowViewData, error) {
+func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout viewmodels.LayoutData, stateView connectorStateView, appID int64, opts connectedAppShowOptions) (viewmodels.ConnectedAppShowViewData, error) {
 	data := viewmodels.ConnectedAppShowViewData{}
 
 	summary, err := h.Q.GetAppAssetPostureByID(ctx, appID)
@@ -555,7 +563,7 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 		return data, pgx.ErrNoRows
 	}
 
-	linkResolver := newIdentityLinkResolver(h, ctx)
+	linkResolver := newIdentityLinkResolver(h, ctx, stateView)
 
 	owners, err := h.Q.ListAppAssetOwnersByAssetID(ctx, appID)
 	if err != nil {
@@ -746,12 +754,12 @@ func (h *Handlers) buildConnectedAppShowViewData(ctx context.Context, layout vie
 func (h *Handlers) renderAppAssetShow(c *echo.Context, appID int64, opts connectedAppShowOptions) error {
 	addVary(c, "HX-Request", "HX-Target")
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "App Asset")
+	layout, stateView, err := h.LayoutData(ctx, c, "App Asset")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
-	oauthData, err := h.buildConnectedAppShowViewData(ctx, layout, appID, opts)
+	oauthData, err := h.buildConnectedAppShowViewData(ctx, layout, stateView, appID, opts)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)

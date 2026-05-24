@@ -85,7 +85,7 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 		return RenderNotFound(c)
 	}
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Okta Account")
+	layout, stateView, err := h.LayoutData(ctx, c, "Okta Account")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -188,7 +188,8 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 		})
 	}
 
-	identityHref, identityName := h.identityBacklinkForAccount(ctx, user.ID)
+	configuredSourceKinds, configuredSourceNames := configuredIdentitySourcePairsFromView(stateView)
+	identityHref, identityName := h.identityBacklinkForAccount(ctx, user.ID, configuredSourceKinds, configuredSourceNames)
 
 	data := viewmodels.SourceAccountShowViewData{
 		Layout:         layout,
@@ -211,7 +212,7 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 // account so the inspector page can offer a "Part of identity X" upward link.
 // Returns empty strings if the account is not linked or the lookup fails — the
 // caller renders nothing in that case rather than surfacing an error.
-func (h *Handlers) identityBacklinkForAccount(ctx context.Context, accountID int64) (string, string) {
+func (h *Handlers) identityBacklinkForAccount(ctx context.Context, accountID int64, configuredSourceKinds, configuredSourceNames []string) (string, string) {
 	link, err := h.Q.GetIdentityAccountLinkByAccountID(ctx, accountID)
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
@@ -219,7 +220,11 @@ func (h *Handlers) identityBacklinkForAccount(ctx context.Context, accountID int
 		}
 		return "", ""
 	}
-	summary, err := h.Q.GetIdentitySummaryByID(ctx, link.IdentityID)
+	summary, err := h.Q.GetIdentitySummaryByID(ctx, gen.GetIdentitySummaryByIDParams{
+		ID:                    link.IdentityID,
+		ConfiguredSourceKinds: configuredSourceKinds,
+		ConfiguredSourceNames: configuredSourceNames,
+	})
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			slog.Warn("identity backlink summary lookup failed", "account_id", accountID, "identity_id", link.IdentityID, "err", err)

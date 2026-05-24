@@ -35,7 +35,7 @@ type Orchestrator struct {
 	globalEvalMode  string
 	locks           LockManager
 	mode            registry.RunMode
-	identityFn      func(context.Context, *gen.Queries) (identity.Stats, error)
+	identityFn      func(context.Context, *gen.Queries, []string, []string) (identity.Stats, error)
 	globalEvalFn    func(context.Context, *gen.Queries, string, bool, func(registry.Event)) error
 	readModelConfig readmodels.RefreshConfig
 	hasReadModelCfg bool
@@ -67,7 +67,7 @@ func NewOrchestrator(pool *pgxpool.Pool, reg *registry.ConnectorRegistry) *Orche
 		keys:                 make(map[integrationKey]struct{}),
 		globalEvalMode:       globalEvalModeBestEffort,
 		mode:                 registry.RunModeFull,
-		identityFn:           identity.Resolve,
+		identityFn:           identity.ResolveWithConfiguredSources,
 		globalEvalFn:         runGlobalComplianceEvaluations,
 		timeoutRetryAttempts: defaultTimeoutRetryAttempts,
 		timeoutRetryDelay:    defaultTimeoutRetryDelay,
@@ -116,6 +116,40 @@ func (o *Orchestrator) AddIntegration(i registry.Integration) error {
 	o.keys[key] = struct{}{}
 	o.integrations = append(o.integrations, i)
 	return nil
+}
+
+func configuredSourcePairsFromIntegrations(integrations []registry.Integration) ([]string, []string) {
+	type pair struct {
+		kind string
+		name string
+	}
+
+	seen := map[pair]struct{}{}
+	pairs := make([]pair, 0, len(integrations))
+	for _, i := range integrations {
+		if i == nil {
+			continue
+		}
+		kind := strings.TrimSpace(i.Kind())
+		name := strings.TrimSpace(i.Name())
+		if kind == "" || name == "" {
+			continue
+		}
+		p := pair{kind: kind, name: name}
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		pairs = append(pairs, p)
+	}
+
+	kinds := make([]string, 0, len(pairs))
+	names := make([]string, 0, len(pairs))
+	for _, p := range pairs {
+		kinds = append(kinds, p.kind)
+		names = append(names, p.name)
+	}
+	return kinds, names
 }
 
 func (o *Orchestrator) SetReporter(r registry.Reporter) {
@@ -240,11 +274,12 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 
 	identityFn := o.identityFn
 	if identityFn == nil {
-		identityFn = identity.Resolve
+		identityFn = identity.ResolveWithConfiguredSources
 	}
 
 	o.report(registry.Event{Source: "identity", Stage: "resolve", Current: 0, Total: 1, Message: "resolving identity graph"})
-	resolveStats, resolveErr := identityFn(ctx, o.q)
+	configuredSourceKinds, configuredSourceNames := configuredSourcePairsFromIntegrations(integrations)
+	resolveStats, resolveErr := identityFn(ctx, o.q, configuredSourceKinds, configuredSourceNames)
 	if resolveErr != nil {
 		resolveErr = fmt.Errorf("identity resolve: %w", resolveErr)
 		errs = append(errs, resolveErr)

@@ -25,6 +25,37 @@ func (q *Queries) CountAccountsMissingIdentityLink(ctx context.Context) (int64, 
 	return count, err
 }
 
+const countAccountsMissingIdentityLinkByConfiguredSources = `-- name: CountAccountsMissingIdentityLinkByConfiguredSources :one
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($1::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($2::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+)
+SELECT count(*)
+FROM accounts a
+JOIN configured_sources cs
+  ON cs.source_kind = a.source_kind
+ AND cs.source_name = a.source_name
+LEFT JOIN identity_accounts ia ON ia.account_id = a.id
+WHERE ia.id IS NULL
+  AND a.expired_at IS NULL
+  AND a.last_observed_run_id IS NOT NULL
+`
+
+type CountAccountsMissingIdentityLinkByConfiguredSourcesParams struct {
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+}
+
+func (q *Queries) CountAccountsMissingIdentityLinkByConfiguredSources(ctx context.Context, arg CountAccountsMissingIdentityLinkByConfiguredSourcesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAccountsMissingIdentityLinkByConfiguredSources, arg.ConfiguredSourceKinds, arg.ConfiguredSourceNames)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getIdentityAccountLinkByAccountID = `-- name: GetIdentityAccountLinkByAccountID :one
 SELECT id, identity_id, account_id, link_reason, confidence, created_at, updated_at
 FROM identity_accounts
@@ -139,6 +170,82 @@ func (q *Queries) ListAccountsMissingIdentityLinkPage(ctx context.Context, arg L
 	return items, nil
 }
 
+const listAccountsMissingIdentityLinkPageByConfiguredSources = `-- name: ListAccountsMissingIdentityLinkPageByConfiguredSources :many
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($3::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($4::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+)
+SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status, a.account_kind, a.entity_category
+FROM accounts a
+JOIN configured_sources cs
+  ON cs.source_kind = a.source_kind
+ AND cs.source_name = a.source_name
+LEFT JOIN identity_accounts ia ON ia.account_id = a.id
+WHERE ia.id IS NULL
+  AND a.expired_at IS NULL
+  AND a.last_observed_run_id IS NOT NULL
+ORDER BY a.id ASC
+LIMIT $2::int
+OFFSET $1::int
+`
+
+type ListAccountsMissingIdentityLinkPageByConfiguredSourcesParams struct {
+	PageOffset            int32    `json:"page_offset"`
+	PageLimit             int32    `json:"page_limit"`
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+}
+
+func (q *Queries) ListAccountsMissingIdentityLinkPageByConfiguredSources(ctx context.Context, arg ListAccountsMissingIdentityLinkPageByConfiguredSourcesParams) ([]Account, error) {
+	rows, err := q.db.Query(ctx, listAccountsMissingIdentityLinkPageByConfiguredSources,
+		arg.PageOffset,
+		arg.PageLimit,
+		arg.ConfiguredSourceKinds,
+		arg.ConfiguredSourceNames,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Account
+	for rows.Next() {
+		var i Account
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.ExternalID,
+			&i.Email,
+			&i.DisplayName,
+			&i.RawJson,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LastLoginAt,
+			&i.LastLoginIp,
+			&i.LastLoginRegion,
+			&i.SeenInRunID,
+			&i.SeenAt,
+			&i.LastObservedRunID,
+			&i.LastObservedAt,
+			&i.ExpiredAt,
+			&i.ExpiredRunID,
+			&i.Status,
+			&i.AccountKind,
+			&i.EntityCategory,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIdentityAccountAttributes = `-- name: ListIdentityAccountAttributes :many
 SELECT
   ia.identity_id,
@@ -179,6 +286,82 @@ func (q *Queries) ListIdentityAccountAttributes(ctx context.Context) ([]ListIden
 	var items []ListIdentityAccountAttributesRow
 	for rows.Next() {
 		var i ListIdentityAccountAttributesRow
+		if err := rows.Scan(
+			&i.IdentityID,
+			&i.IdentityKind,
+			&i.AccountID,
+			&i.SourceKind,
+			&i.SourceName,
+			&i.ExternalID,
+			&i.AccountKind,
+			&i.Email,
+			&i.DisplayName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listIdentityAccountAttributesByConfiguredSources = `-- name: ListIdentityAccountAttributesByConfiguredSources :many
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($1::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($2::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+)
+SELECT
+  ia.identity_id,
+  i.kind AS identity_kind,
+  a.id AS account_id,
+  a.source_kind,
+  a.source_name,
+  a.external_id,
+  a.account_kind,
+  a.email,
+  a.display_name
+FROM identity_accounts ia
+JOIN identities i ON i.id = ia.identity_id
+JOIN accounts a ON a.id = ia.account_id
+JOIN configured_sources cs
+  ON cs.source_kind = a.source_kind
+ AND cs.source_name = a.source_name
+WHERE a.expired_at IS NULL
+  AND a.last_observed_run_id IS NOT NULL
+ORDER BY ia.identity_id, a.id
+`
+
+type ListIdentityAccountAttributesByConfiguredSourcesParams struct {
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+}
+
+type ListIdentityAccountAttributesByConfiguredSourcesRow struct {
+	IdentityID   int64  `json:"identity_id"`
+	IdentityKind string `json:"identity_kind"`
+	AccountID    int64  `json:"account_id"`
+	SourceKind   string `json:"source_kind"`
+	SourceName   string `json:"source_name"`
+	ExternalID   string `json:"external_id"`
+	AccountKind  string `json:"account_kind"`
+	Email        string `json:"email"`
+	DisplayName  string `json:"display_name"`
+}
+
+func (q *Queries) ListIdentityAccountAttributesByConfiguredSources(ctx context.Context, arg ListIdentityAccountAttributesByConfiguredSourcesParams) ([]ListIdentityAccountAttributesByConfiguredSourcesRow, error) {
+	rows, err := q.db.Query(ctx, listIdentityAccountAttributesByConfiguredSources, arg.ConfiguredSourceKinds, arg.ConfiguredSourceNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIdentityAccountAttributesByConfiguredSourcesRow
+	for rows.Next() {
+		var i ListIdentityAccountAttributesByConfiguredSourcesRow
 		if err := rows.Scan(
 			&i.IdentityID,
 			&i.IdentityKind,

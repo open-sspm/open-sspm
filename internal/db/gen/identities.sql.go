@@ -277,16 +277,30 @@ func (q *Queries) CreateIdentity(ctx context.Context, arg CreateIdentityParams) 
 }
 
 const findUnambiguousIdentityByPrimaryEmail = `-- name: FindUnambiguousIdentityByPrimaryEmail :one
-WITH authoritative_identities AS (
-  SELECT DISTINCT ia.identity_id
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($1::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($2::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+configured_accounts AS (
+  SELECT DISTINCT ia.identity_id, a.source_kind, a.source_name
   FROM identity_accounts ia
-  JOIN accounts anchor ON anchor.id = ia.account_id
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN configured_sources cs
+    ON cs.source_kind = a.source_kind
+   AND cs.source_name = a.source_name
+  WHERE a.expired_at IS NULL
+    AND a.last_observed_run_id IS NOT NULL
+),
+authoritative_identities AS (
+  SELECT DISTINCT ca.identity_id
+  FROM configured_accounts ca
   JOIN identity_source_settings iss
-    ON iss.source_kind = anchor.source_kind
-   AND iss.source_name = anchor.source_name
+    ON iss.source_kind = ca.source_kind
+   AND iss.source_name = ca.source_name
    AND iss.is_authoritative
-  WHERE anchor.expired_at IS NULL
-    AND anchor.last_observed_run_id IS NOT NULL
 ),
 candidates AS (
   SELECT
@@ -294,7 +308,7 @@ candidates AS (
     (ai.identity_id IS NOT NULL) AS is_authoritative
   FROM identities i
   LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
-  WHERE lower(trim(i.primary_email)) = lower(trim($1::text))
+  WHERE lower(trim(i.primary_email)) = lower(trim($3::text))
 ),
 top_tier AS (
   SELECT id
@@ -307,51 +321,20 @@ JOIN top_tier t ON t.id = i.id
 WHERE (SELECT count(*) FROM top_tier) = 1
 `
 
-// Returns the single identity matching the email iff there is a strict winner
-// at the top tier (authoritative-anchored beats non-authoritative). Returns no
-// row when the email matches zero identities, or when two or more identities
-// tie at the top tier (the resolver should treat that as ambiguous rather than
-// picking arbitrarily).
-func (q *Queries) FindUnambiguousIdentityByPrimaryEmail(ctx context.Context, primaryEmail string) (Identity, error) {
-	row := q.db.QueryRow(ctx, findUnambiguousIdentityByPrimaryEmail, primaryEmail)
-	var i Identity
-	err := row.Scan(
-		&i.ID,
-		&i.Kind,
-		&i.DisplayName,
-		&i.PrimaryEmail,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
+type FindUnambiguousIdentityByPrimaryEmailParams struct {
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+	PrimaryEmail          string   `json:"primary_email"`
 }
 
-const getAnyIdentityByPrimaryEmail = `-- name: GetAnyIdentityByPrimaryEmail :one
-WITH authoritative_identities AS (
-  SELECT DISTINCT ia.identity_id
-  FROM identity_accounts ia
-  JOIN accounts anchor ON anchor.id = ia.account_id
-  JOIN identity_source_settings iss
-    ON iss.source_kind = anchor.source_kind
-   AND iss.source_name = anchor.source_name
-   AND iss.is_authoritative
-  WHERE anchor.expired_at IS NULL
-    AND anchor.last_observed_run_id IS NOT NULL
-)
-SELECT i.id, i.kind, i.display_name, i.primary_email, i.created_at, i.updated_at
-FROM identities i
-LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
-WHERE lower(trim(i.primary_email)) = lower(trim($1::text))
-ORDER BY (ai.identity_id IS NOT NULL) DESC, i.id ASC
-LIMIT 1
-`
-
-// Returns *some* identity matching the email (authoritative-anchored first, then
-// lowest id). Result is deterministic but arbitrary when two identities tie at
-// the top tier; callers that need correctness in the face of duplicates should
-// use FindUnambiguousIdentityByPrimaryEmail instead.
-func (q *Queries) GetAnyIdentityByPrimaryEmail(ctx context.Context, primaryEmail string) (Identity, error) {
-	row := q.db.QueryRow(ctx, getAnyIdentityByPrimaryEmail, primaryEmail)
+// Returns the single identity matching the email iff there is a strict winner
+// at the top tier. Only configured sources can grant authoritative tie-break
+// status; every existing identity with the email remains a duplicate candidate
+// so retired rows do not cause duplicate identity creation.
+// Returns no row when the email matches zero identities, or when two or more
+// identities tie at the top tier.
+func (q *Queries) FindUnambiguousIdentityByPrimaryEmail(ctx context.Context, arg FindUnambiguousIdentityByPrimaryEmailParams) (Identity, error) {
+	row := q.db.QueryRow(ctx, findUnambiguousIdentityByPrimaryEmail, arg.ConfiguredSourceKinds, arg.ConfiguredSourceNames, arg.PrimaryEmail)
 	var i Identity
 	err := row.Scan(
 		&i.ID,
@@ -365,10 +348,20 @@ func (q *Queries) GetAnyIdentityByPrimaryEmail(ctx context.Context, primaryEmail
 }
 
 const getIdentitySummaryByID = `-- name: GetIdentitySummaryByID :one
-WITH authoritative_identities AS (
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($2::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($3::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
   FROM identity_accounts ia
   JOIN accounts anchor ON anchor.id = ia.account_id
+  JOIN configured_sources cs
+    ON cs.source_kind = anchor.source_kind
+   AND cs.source_name = anchor.source_name
   JOIN identity_source_settings iss
     ON iss.source_kind = anchor.source_kind
    AND iss.source_name = anchor.source_name
@@ -391,6 +384,12 @@ WHERE i.id = $1
 GROUP BY i.id, ai.identity_id
 `
 
+type GetIdentitySummaryByIDParams struct {
+	ID                    int64    `json:"id"`
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+}
+
 type GetIdentitySummaryByIDRow struct {
 	ID             int64              `json:"id"`
 	Kind           string             `json:"kind"`
@@ -402,8 +401,8 @@ type GetIdentitySummaryByIDRow struct {
 	LinkedAccounts int64              `json:"linked_accounts"`
 }
 
-func (q *Queries) GetIdentitySummaryByID(ctx context.Context, id int64) (GetIdentitySummaryByIDRow, error) {
-	row := q.db.QueryRow(ctx, getIdentitySummaryByID, id)
+func (q *Queries) GetIdentitySummaryByID(ctx context.Context, arg GetIdentitySummaryByIDParams) (GetIdentitySummaryByIDRow, error) {
+	row := q.db.QueryRow(ctx, getIdentitySummaryByID, arg.ID, arg.ConfiguredSourceKinds, arg.ConfiguredSourceNames)
 	var i GetIdentitySummaryByIDRow
 	err := row.Scan(
 		&i.ID,
@@ -849,6 +848,78 @@ func (q *Queries) ListIdentitiesInventoryPageByFilters(ctx context.Context, arg 
 		return nil, err
 	}
 	return items, nil
+}
+
+const resolveIdentityByPrimaryEmail = `-- name: ResolveIdentityByPrimaryEmail :one
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($1::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($2::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+configured_accounts AS (
+  SELECT DISTINCT ia.identity_id, a.source_kind, a.source_name
+  FROM identity_accounts ia
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN configured_sources cs
+    ON cs.source_kind = a.source_kind
+   AND cs.source_name = a.source_name
+  WHERE a.expired_at IS NULL
+    AND a.last_observed_run_id IS NOT NULL
+),
+authoritative_identities AS (
+  SELECT DISTINCT ca.identity_id
+  FROM configured_accounts ca
+  JOIN identity_source_settings iss
+    ON iss.source_kind = ca.source_kind
+   AND iss.source_name = ca.source_name
+   AND iss.is_authoritative
+),
+candidates AS (
+  SELECT
+    i.id,
+    (ai.identity_id IS NOT NULL) AS is_authoritative
+  FROM identities i
+  LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
+  WHERE lower(trim(i.primary_email)) = lower(trim($3::text))
+),
+top_tier AS (
+  SELECT
+    id,
+    count(*) OVER () AS top_tier_count
+  FROM candidates
+  WHERE is_authoritative = (SELECT bool_or(is_authoritative) FROM candidates)
+)
+SELECT
+  id AS identity_id,
+  CASE
+    WHEN top_tier_count = 1 THEN 'auto_email'::text
+    ELSE 'auto_provisional_ambiguous_email'::text
+  END AS link_reason
+FROM top_tier
+ORDER BY id ASC
+LIMIT 1
+`
+
+type ResolveIdentityByPrimaryEmailParams struct {
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+	PrimaryEmail          string   `json:"primary_email"`
+}
+
+type ResolveIdentityByPrimaryEmailRow struct {
+	IdentityID int64  `json:"identity_id"`
+	LinkReason string `json:"link_reason"`
+}
+
+// Returns a deterministic existing identity and the link reason to use for an
+// email match in one statement, so the resolver observes a single snapshot.
+func (q *Queries) ResolveIdentityByPrimaryEmail(ctx context.Context, arg ResolveIdentityByPrimaryEmailParams) (ResolveIdentityByPrimaryEmailRow, error) {
+	row := q.db.QueryRow(ctx, resolveIdentityByPrimaryEmail, arg.ConfiguredSourceKinds, arg.ConfiguredSourceNames, arg.PrimaryEmail)
+	var i ResolveIdentityByPrimaryEmailRow
+	err := row.Scan(&i.IdentityID, &i.LinkReason)
+	return i, err
 }
 
 const summarizeIdentitiesInventoryByFilters = `-- name: SummarizeIdentitiesInventoryByFilters :one

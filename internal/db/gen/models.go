@@ -547,7 +547,7 @@ type IdentityAccount struct {
 	IdentityID int64 `json:"identity_id"`
 	// Source account membership. This column is intentionally unique and must not be relaxed to model shared-account ownership.
 	AccountID int64 `json:"account_id"`
-	// Reason this account was linked to the identity, such as manual, auto_email, seed_migration, or auto_provisional_identity.
+	// Reason this account was linked to the identity, such as manual, auto_email, seed_migration, auto_provisional_identity, or auto_provisional_ambiguous_email (link to an existing identity whose email match was not unambiguous).
 	LinkReason string `json:"link_reason"`
 	// Confidence for the accepted account-to-identity link. Detailed evidence belongs in a separate future evidence table.
 	Confidence float32            `json:"confidence"`
