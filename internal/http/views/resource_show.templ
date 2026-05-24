@@ -112,8 +112,8 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 										</td>
 										<td><span class="badge-outline">{ row.EntitlementKind }</span></td>
 										<td>
-											if row.LinkReason != "" {
-												<span class="badge-outline">{ row.LinkReason }</span>
+											if label := viewmodels.HumanLinkReason(row.LinkReason); label != "" {
+												<span class="badge-outline">{ label }</span>
 											} else {
 												<span class="text-muted-foreground">&mdash;</span>
 											}

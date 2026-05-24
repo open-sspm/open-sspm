@@ -428,7 +428,11 @@ func (h *Handlers) handleConnectorAuthoritativeToggle(c *echo.Context, kind stri
 		return h.RenderError(c, err)
 	}
 
-	if _, err := identity.Resolve(ctx, h.Q); err != nil {
+	configuredSourceKinds, configuredSourceNames, err := h.loadConfiguredIdentitySourcePairs(ctx)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	if _, err := identity.ResolveWithConfiguredSources(ctx, h.Q, configuredSourceKinds, configuredSourceNames); err != nil {
 		return h.RenderError(c, err)
 	}
 

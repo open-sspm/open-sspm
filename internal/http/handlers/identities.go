@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -328,6 +329,19 @@ func identityConfiguredSourcePairs(sourcePairs []viewmodels.ProgrammaticSourceOp
 	return kinds, names
 }
 
+func configuredIdentitySourcePairsFromView(stateView connectorStateView) ([]string, []string) {
+	return identityConfiguredSourcePairs(availableIdentitySourcePairs(stateView))
+}
+
+func (h *Handlers) loadConfiguredIdentitySourcePairs(ctx context.Context) ([]string, []string, error) {
+	stateView, err := h.LoadConnectorStateView(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	kinds, names := configuredIdentitySourcePairsFromView(stateView)
+	return kinds, names, nil
+}
+
 func identityNamePrimary(displayName, primaryEmail string, id int64) string {
 	displayName = strings.TrimSpace(displayName)
 	if displayName != "" {
@@ -390,7 +404,7 @@ func firstInitialRune(word string) (rune, bool) {
 
 func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Identity")
+	layout, stateView, err := h.LayoutData(ctx, c, "Identity")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -400,7 +414,12 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		return c.String(http.StatusBadRequest, "invalid identity id")
 	}
 
-	summary, err := h.Q.GetIdentitySummaryByID(ctx, id)
+	configuredSourceKinds, configuredSourceNames := configuredIdentitySourcePairsFromView(stateView)
+	summary, err := h.Q.GetIdentitySummaryByID(ctx, gen.GetIdentitySummaryByIDParams{
+		ID:                    id,
+		ConfiguredSourceKinds: configuredSourceKinds,
+		ConfiguredSourceNames: configuredSourceNames,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return c.String(http.StatusNotFound, "identity not found")

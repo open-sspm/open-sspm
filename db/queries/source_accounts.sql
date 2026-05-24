@@ -413,6 +413,11 @@ WHERE
   AND (
     sqlc.arg(entity_category)::text = ''
     OR au.entity_category = sqlc.arg(entity_category)::text
+    -- Pre-classifier rows default to entity_category='unknown' (see migration
+    -- 000029). Only GitHub has a follow-up backfill (000030). For all other
+    -- connectors, callers asking for 'user' should still see rows that were
+    -- ingested before the per-connector classifier ran.
+    OR (sqlc.arg(entity_category)::text = 'user' AND au.entity_category = 'unknown')
   )
   AND (
     ia.identity_id IS NULL
@@ -449,6 +454,11 @@ WHERE
   AND (
     sqlc.arg(entity_category)::text = ''
     OR au.entity_category = sqlc.arg(entity_category)::text
+    -- Pre-classifier rows default to entity_category='unknown' (see migration
+    -- 000029). Only GitHub has a follow-up backfill (000030). For all other
+    -- connectors, callers asking for 'user' should still see rows that were
+    -- ingested before the per-connector classifier ran.
+    OR (sqlc.arg(entity_category)::text = 'user' AND au.entity_category = 'unknown')
   )
   AND (
     ia.identity_id IS NULL

@@ -125,7 +125,7 @@ func (h *Handlers) HandleNonHumanIdentities(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	linkResolver := newIdentityLinkResolver(h, ctx)
+	linkResolver := newIdentityLinkResolver(h, ctx, stateView)
 	items := make([]viewmodels.NonHumanIdentitiesListItem, 0, len(rows))
 	for _, row := range rows {
 		items = append(items, nonHumanIdentitiesListItemFromRow(linkResolver, row))
@@ -153,7 +153,7 @@ func isNonHumanIdentitiesResultsTarget(c *echo.Context) bool {
 
 func (h *Handlers) HandleNonHumanIdentityShow(c *echo.Context) error {
 	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Non-Human Identity")
+	layout, stateView, err := h.LayoutData(ctx, c, "Non-Human Identity")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -180,7 +180,7 @@ func (h *Handlers) HandleNonHumanIdentityShow(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	linkResolver := newIdentityLinkResolver(h, ctx)
+	linkResolver := newIdentityLinkResolver(h, ctx, stateView)
 	summary := nonHumanIdentitiesSummaryFromRow(linkResolver, principal)
 
 	assets := make([]viewmodels.NonHumanIdentitiesRelatedAssetItem, 0, len(assetRows))

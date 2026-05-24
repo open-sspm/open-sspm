@@ -7,24 +7,113 @@ VALUES (
 )
 RETURNING *;
 
--- name: GetPreferredIdentityByPrimaryEmail :one
-WITH authoritative_identities AS (
-  SELECT DISTINCT ia.identity_id
+-- name: FindUnambiguousIdentityByPrimaryEmail :one
+-- Returns the single identity matching the email iff there is a strict winner
+-- at the top tier. Only configured sources can grant authoritative tie-break
+-- status; every existing identity with the email remains a duplicate candidate
+-- so retired rows do not cause duplicate identity creation.
+-- Returns no row when the email matches zero identities, or when two or more
+-- identities tie at the top tier.
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+configured_accounts AS (
+  SELECT DISTINCT ia.identity_id, a.source_kind, a.source_name
   FROM identity_accounts ia
-  JOIN accounts anchor ON anchor.id = ia.account_id
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN configured_sources cs
+    ON cs.source_kind = a.source_kind
+   AND cs.source_name = a.source_name
+  WHERE a.expired_at IS NULL
+    AND a.last_observed_run_id IS NOT NULL
+),
+authoritative_identities AS (
+  SELECT DISTINCT ca.identity_id
+  FROM configured_accounts ca
   JOIN identity_source_settings iss
-    ON iss.source_kind = anchor.source_kind
-   AND iss.source_name = anchor.source_name
+    ON iss.source_kind = ca.source_kind
+   AND iss.source_name = ca.source_name
    AND iss.is_authoritative
-  WHERE anchor.expired_at IS NULL
-    AND anchor.last_observed_run_id IS NOT NULL
+),
+candidates AS (
+  SELECT
+    i.id,
+    (ai.identity_id IS NOT NULL) AS is_authoritative
+  FROM identities i
+  LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
+  WHERE lower(trim(i.primary_email)) = lower(trim(sqlc.arg(primary_email)::text))
+),
+top_tier AS (
+  SELECT id
+  FROM candidates
+  WHERE is_authoritative = (SELECT bool_or(is_authoritative) FROM candidates)
 )
 SELECT i.*
 FROM identities i
-LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
-WHERE lower(trim(i.primary_email)) = lower(trim(sqlc.arg(primary_email)::text))
-ORDER BY (ai.identity_id IS NOT NULL) DESC, i.id ASC
+JOIN top_tier t ON t.id = i.id
+WHERE (SELECT count(*) FROM top_tier) = 1;
+
+-- name: ResolveIdentityByPrimaryEmail :one
+-- Returns a deterministic existing identity and the link reason to use for an
+-- email match in one statement, so the resolver observes a single snapshot.
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+configured_accounts AS (
+  SELECT DISTINCT ia.identity_id, a.source_kind, a.source_name
+  FROM identity_accounts ia
+  JOIN accounts a ON a.id = ia.account_id
+  JOIN configured_sources cs
+    ON cs.source_kind = a.source_kind
+   AND cs.source_name = a.source_name
+  WHERE a.expired_at IS NULL
+    AND a.last_observed_run_id IS NOT NULL
+),
+authoritative_identities AS (
+  SELECT DISTINCT ca.identity_id
+  FROM configured_accounts ca
+  JOIN identity_source_settings iss
+    ON iss.source_kind = ca.source_kind
+   AND iss.source_name = ca.source_name
+   AND iss.is_authoritative
+),
+candidates AS (
+  SELECT
+    i.id,
+    (ai.identity_id IS NOT NULL) AS is_authoritative
+  FROM identities i
+  LEFT JOIN authoritative_identities ai ON ai.identity_id = i.id
+  WHERE lower(trim(i.primary_email)) = lower(trim(sqlc.arg(primary_email)::text))
+),
+top_tier AS (
+  SELECT
+    id,
+    count(*) OVER () AS top_tier_count
+  FROM candidates
+  WHERE is_authoritative = (SELECT bool_or(is_authoritative) FROM candidates)
+)
+SELECT
+  id AS identity_id,
+  CASE
+    WHEN top_tier_count = 1 THEN 'auto_email'::text
+    ELSE 'auto_provisional_ambiguous_email'::text
+  END AS link_reason
+FROM top_tier
+ORDER BY id ASC
 LIMIT 1;
+
+-- name: CountIdentitiesByPrimaryEmail :one
+SELECT count(*)
+FROM identities
+WHERE lower(trim(primary_email)) = lower(trim(sqlc.arg(primary_email)::text));
 
 -- name: UpdateIdentityAttributes :exec
 UPDATE identities
@@ -753,10 +842,20 @@ SELECT
 FROM base;
 
 -- name: GetIdentitySummaryByID :one
-WITH authoritative_identities AS (
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+),
+authoritative_identities AS (
   SELECT DISTINCT ia.identity_id
   FROM identity_accounts ia
   JOIN accounts anchor ON anchor.id = ia.account_id
+  JOIN configured_sources cs
+    ON cs.source_kind = anchor.source_kind
+   AND cs.source_name = anchor.source_name
   JOIN identity_source_settings iss
     ON iss.source_kind = anchor.source_kind
    AND iss.source_name = anchor.source_name

@@ -136,7 +136,7 @@ func TestHandleGitHubAccountsNeedingAnchorRendersAccounts(t *testing.T) {
 			DisplayName:    "Octocat",
 			Status:         "active",
 			AccountKind:    "human",
-			EntityCategory: "unknown",
+			EntityCategory: registry.EntityCategoryUser,
 			RawJSON:        `{"login":"octocat"}`,
 		})
 
@@ -158,12 +158,74 @@ func TestHandleGitHubAccountsNeedingAnchorRendersAccounts(t *testing.T) {
 	})
 }
 
+func TestHandleDatadogAccountsNeedingAnchorOnlyIncludesUsers(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindDatadog, true, configstore.DatadogConfig{
+			Site:   "datadoghq.com",
+			APIKey: "api-key",
+			AppKey: "app-key",
+		})
+
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindDatadog, "datadoghq.com")
+		insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
+			SourceKind:     configstore.KindDatadog,
+			SourceName:     "datadoghq.com",
+			ExternalID:     "user-1",
+			Email:          "alice@example.com",
+			DisplayName:    "Alice",
+			Status:         "active",
+			AccountKind:    "human",
+			EntityCategory: registry.EntityCategoryUser,
+			RawJSON:        `{}`,
+		})
+		insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
+			SourceKind:     configstore.KindDatadog,
+			SourceName:     "datadoghq.com",
+			ExternalID:     "service_account:sa-1",
+			Email:          "deploy-bot@example.com",
+			DisplayName:    "Deploy Bot",
+			Status:         "active",
+			AccountKind:    "service",
+			EntityCategory: registry.EntityCategoryServiceAccount,
+			RawJSON:        `{}`,
+		})
+		insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
+			SourceKind:     configstore.KindDatadog,
+			SourceName:     "datadoghq.com",
+			ExternalID:     "role:admin",
+			DisplayName:    "Datadog Admin",
+			Status:         "active",
+			AccountKind:    "service",
+			EntityCategory: registry.EntityCategoryRole,
+			RawJSON:        `{}`,
+		})
+
+		c, rec := newTestContext(http.MethodGet, "http://example.com/accounts/needs-anchor/datadog/datadoghq.com")
+		(*c).SetPath("/accounts/needs-anchor/datadog/:site")
+		(*c).SetPathValues(echo.PathValues{{Name: "site", Value: "datadoghq.com"}})
+
+		if err := h.HandleDatadogAccountsNeedingAnchor(c); err != nil {
+			t.Fatalf("HandleDatadogAccountsNeedingAnchor(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		body := rec.Body.String()
+		assertContains(t, body, "Alice")
+		assertContains(t, body, "Showing 1-1 of 1")
+		assertNotContains(t, body, "Deploy Bot")
+		assertNotContains(t, body, "Datadog Admin")
+	})
+}
+
 func githubNeedsAnchorOptions() sourceAccountsNeedingAnchorOptions {
 	return sourceAccountsNeedingAnchorOptions{
 		Title:              "GitHub Accounts Needing Anchor",
 		ConnectorName:      "GitHub",
 		ConnectorKind:      "github",
 		SourceKind:         "github",
+		EntityCategory:     registry.EntityCategoryUser,
 		EmptyStateHref:     "/settings/connectors?open=github",
 		SyncedEmptyState:   "No GitHub accounts need an anchor.",
 		FilteredEmptyState: "No GitHub accounts needing an anchor match the current search.",
@@ -208,6 +270,7 @@ func datadogNeedsAnchorOptions() sourceAccountsNeedingAnchorOptions {
 		ConnectorName:      "Datadog",
 		ConnectorKind:      "datadog",
 		SourceKind:         "datadog",
+		EntityCategory:     registry.EntityCategoryUser,
 		EmptyStateHref:     "/settings/connectors?open=datadog",
 		SyncedEmptyState:   "No Datadog accounts need an anchor.",
 		FilteredEmptyState: "No Datadog accounts needing an anchor match the current search.",

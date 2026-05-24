@@ -245,7 +245,7 @@ func (h *Handlers) HandleAppAssetShow(c *echo.Context) error {
 		return h.renderAppAssetShow(c, assetID, connectedAppShowOptions{})
 	}
 
-	layout, _, err := h.LayoutData(ctx, c, "App Asset")
+	layout, stateView, err := h.LayoutData(ctx, c, "App Asset")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -255,7 +255,7 @@ func (h *Handlers) HandleAppAssetShow(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	linkResolver := newIdentityLinkResolver(h, ctx)
+	linkResolver := newIdentityLinkResolver(h, ctx, stateView)
 
 	ownerItems := make([]viewmodels.AppAssetOwnerItem, 0, len(owners))
 	for _, owner := range owners {
@@ -406,7 +406,7 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 	now := time.Now().UTC()
 	evaluatedAt := pgTimestamptz(now)
 	ownerFilter := credentialOwnerFilter(queryState.Owner, layout.UserEmail)
-	linkResolver := newIdentityLinkResolver(h, ctx)
+	linkResolver := newIdentityLinkResolver(h, ctx, stateView)
 	var totalCount int64
 	var items []viewmodels.CredentialArtifactListItem
 
@@ -857,7 +857,7 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	layout, _, err := h.LayoutData(ctx, c, "Credential")
+	layout, stateView, err := h.LayoutData(ctx, c, "Credential")
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -892,7 +892,7 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 	}
 	riskLevel := strings.TrimSpace(credential.RiskLevel)
 	riskFindings := credentialRiskFindingsFromSignals(credentialRiskSignalsFromStoredJSON(credential.RiskSignalsJson), credential.ExpiresAtSource, credential.LastUsedAtSource, now)
-	linkResolver := newIdentityLinkResolver(h, ctx)
+	linkResolver := newIdentityLinkResolver(h, ctx, stateView)
 
 	data := viewmodels.CredentialShowViewData{
 		Layout: layout,
@@ -1116,14 +1116,19 @@ func credentialSignalEvidence(signal riskpolicy.RiskSignal, expiresAt, lastUsedA
 type identityLinkResolver struct {
 	h                    *Handlers
 	ctx                  context.Context
+	configuredKinds      []string
+	configuredNames      []string
 	emailHrefByCandidate map[string]string
 	actorHrefByKey       map[string]string
 }
 
-func newIdentityLinkResolver(h *Handlers, ctx context.Context) *identityLinkResolver {
+func newIdentityLinkResolver(h *Handlers, ctx context.Context, stateView connectorStateView) *identityLinkResolver {
+	configuredKinds, configuredNames := configuredIdentitySourcePairsFromView(stateView)
 	return &identityLinkResolver{
 		h:                    h,
 		ctx:                  ctx,
+		configuredKinds:      configuredKinds,
+		configuredNames:      configuredNames,
 		emailHrefByCandidate: map[string]string{},
 		actorHrefByKey:       map[string]string{},
 	}
@@ -1196,7 +1201,15 @@ func (r *identityLinkResolver) resolveByEmail(candidate string) string {
 		return href
 	}
 
-	identity, err := r.h.Q.GetPreferredIdentityByPrimaryEmail(r.ctx, candidate)
+	// FindUnambiguous returns ErrNoRows for both "nobody owns this email" and
+	// "two identities tie at the top tier". Either case is a non-link for
+	// rendering purposes — the badge collapses to a non-clickable label rather
+	// than risk routing the operator to an arbitrary identity.
+	identity, err := r.h.Q.FindUnambiguousIdentityByPrimaryEmail(r.ctx, gen.FindUnambiguousIdentityByPrimaryEmailParams{
+		ConfiguredSourceKinds: r.configuredKinds,
+		ConfiguredSourceNames: r.configuredNames,
+		PrimaryEmail:          candidate,
+	})
 	if err != nil {
 		r.emailHrefByCandidate[candidate] = ""
 		return ""

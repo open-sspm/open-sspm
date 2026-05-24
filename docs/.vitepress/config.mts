@@ -26,6 +26,7 @@ export default defineConfig({
     nav: [
       {text: "Installation", link: "/install/"},
       {text: "Configuration", link: "/config/"},
+      {text: "Architecture", link: "/architecture/"},
       {text: "Connectors", link: "/config/connectors/"},
       {text: "Running", link: "/run/"},
       {text: "GitHub", link: "https://github.com/open-sspm/open-sspm"},
@@ -102,6 +103,15 @@ export default defineConfig({
             {text: "GitHub", link: "/config/connectors/github"},
             {text: "Datadog", link: "/config/connectors/datadog"},
             {text: "AWS Identity Center", link: "/config/connectors/aws"},
+          ],
+        },
+      ],
+      "/architecture/": [
+        {
+          text: "Architecture",
+          items: [
+            {text: "Overview", link: "/architecture/"},
+            {text: "Identity Graph", link: "/architecture/identity-graph"},
           ],
         },
       ],

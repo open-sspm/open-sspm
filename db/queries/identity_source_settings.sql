@@ -4,6 +4,22 @@ FROM identity_source_settings
 WHERE is_authoritative = TRUE
 ORDER BY source_kind, source_name;
 
+-- name: ListAuthoritativeSourcesByConfiguredSources :many
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest(sqlc.arg(configured_source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest(sqlc.arg(configured_source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+)
+SELECT iss.*
+FROM identity_source_settings iss
+JOIN configured_sources cs
+  ON cs.source_kind = iss.source_kind
+ AND cs.source_name = iss.source_name
+WHERE iss.is_authoritative = TRUE
+ORDER BY iss.source_kind, iss.source_name;
+
 -- name: ListIdentitySourceSettings :many
 SELECT *
 FROM identity_source_settings

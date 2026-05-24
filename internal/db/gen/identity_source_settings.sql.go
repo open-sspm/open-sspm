@@ -42,6 +42,54 @@ func (q *Queries) ListAuthoritativeSources(ctx context.Context) ([]IdentitySourc
 	return items, nil
 }
 
+const listAuthoritativeSourcesByConfiguredSources = `-- name: ListAuthoritativeSourcesByConfiguredSources :many
+WITH configured_sources AS (
+  SELECT
+    k.kind AS source_kind,
+    n.name AS source_name
+  FROM unnest($1::text[]) WITH ORDINALITY AS k(kind, ord)
+  JOIN unnest($2::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+)
+SELECT iss.source_kind, iss.source_name, iss.is_authoritative, iss.created_at, iss.updated_at
+FROM identity_source_settings iss
+JOIN configured_sources cs
+  ON cs.source_kind = iss.source_kind
+ AND cs.source_name = iss.source_name
+WHERE iss.is_authoritative = TRUE
+ORDER BY iss.source_kind, iss.source_name
+`
+
+type ListAuthoritativeSourcesByConfiguredSourcesParams struct {
+	ConfiguredSourceKinds []string `json:"configured_source_kinds"`
+	ConfiguredSourceNames []string `json:"configured_source_names"`
+}
+
+func (q *Queries) ListAuthoritativeSourcesByConfiguredSources(ctx context.Context, arg ListAuthoritativeSourcesByConfiguredSourcesParams) ([]IdentitySourceSetting, error) {
+	rows, err := q.db.Query(ctx, listAuthoritativeSourcesByConfiguredSources, arg.ConfiguredSourceKinds, arg.ConfiguredSourceNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IdentitySourceSetting
+	for rows.Next() {
+		var i IdentitySourceSetting
+		if err := rows.Scan(
+			&i.SourceKind,
+			&i.SourceName,
+			&i.IsAuthoritative,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIdentitySourceSettings = `-- name: ListIdentitySourceSettings :many
 SELECT source_kind, source_name, is_authoritative, created_at, updated_at
 FROM identity_source_settings

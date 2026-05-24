@@ -84,7 +84,7 @@ func TestOrchestrator_DiscoveryModeSkipsPostProcessing(t *testing.T) {
 	orch.SetRunMode(registry.RunModeDiscovery)
 
 	var identityCalled bool
-	orch.identityFn = func(context.Context, *gen.Queries) (identity.Stats, error) {
+	orch.identityFn = func(context.Context, *gen.Queries, []string, []string) (identity.Stats, error) {
 		identityCalled = true
 		return identity.Stats{}, nil
 	}
@@ -125,7 +125,7 @@ func TestOrchestrator_TailModeSkipsPostProcessing(t *testing.T) {
 	orch.SetRunMode(registry.RunModeTail)
 
 	var identityCalled bool
-	orch.identityFn = func(context.Context, *gen.Queries) (identity.Stats, error) {
+	orch.identityFn = func(context.Context, *gen.Queries, []string, []string) (identity.Stats, error) {
 		identityCalled = true
 		return identity.Stats{}, nil
 	}
@@ -166,7 +166,7 @@ func TestOrchestrator_FullModeRunsPostProcessing(t *testing.T) {
 	orch.SetRunMode(registry.RunModeFull)
 
 	var identityCalled bool
-	orch.identityFn = func(context.Context, *gen.Queries) (identity.Stats, error) {
+	orch.identityFn = func(context.Context, *gen.Queries, []string, []string) (identity.Stats, error) {
 		identityCalled = true
 		return identity.Stats{}, nil
 	}
@@ -235,7 +235,7 @@ func TestOrchestrator_StrictModeSkipsGlobalComplianceWhenIdentityResolutionFails
 	orch.SetGlobalEvalMode(globalEvalModeStrict)
 
 	identityErr := errors.New("identity exploded")
-	orch.identityFn = func(context.Context, *gen.Queries) (identity.Stats, error) {
+	orch.identityFn = func(context.Context, *gen.Queries, []string, []string) (identity.Stats, error) {
 		return identity.Stats{}, identityErr
 	}
 
@@ -279,7 +279,7 @@ func TestOrchestrator_BestEffortModeRunsGlobalComplianceWhenIdentityResolutionFa
 	orch.SetGlobalEvalMode(globalEvalModeBestEffort)
 
 	identityErr := errors.New("identity exploded")
-	orch.identityFn = func(context.Context, *gen.Queries) (identity.Stats, error) {
+	orch.identityFn = func(context.Context, *gen.Queries, []string, []string) (identity.Stats, error) {
 		return identity.Stats{}, identityErr
 	}
 
