@@ -48,6 +48,39 @@
    ============================================================================ */
 
 /* ---------------------------------------------------------------------------
+   Scroll padding
+   ---------------------------------------------------------------------------
+   The app uses a sticky header (h-14 = 3.5rem). Without scroll-padding-top
+   any scrollIntoView call (htmx hx-swap="… show:top", anchor links, browser
+   focus) lands content under the header. Bump 4rem for a touch of breathing
+   room above the swapped element. */
+
+html {
+  scroll-padding-top: 4rem;
+}
+
+/* ---------------------------------------------------------------------------
+   View Transitions
+   --------------------------------------------------------------------------- */
+
+/* Honors prefers-reduced-motion; htmx 2.x reads globalViewTransitions:true from
+   the htmx-config meta and wires every swap through the View Transitions API. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: osspm-fade-out 140ms ease-in both;
+  }
+  ::view-transition-new(root) {
+    animation: osspm-fade-in 180ms ease-out both;
+  }
+  @keyframes osspm-fade-out {
+    to { opacity: 0; }
+  }
+  @keyframes osspm-fade-in {
+    from { opacity: 0; }
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Theme Tokens
    --------------------------------------------------------------------------- */
 
@@ -684,20 +717,28 @@
     }
     &::backdrop { @apply bg-black/50 opacity-0 transition-all transition-discrete; }
     > * {
-      @apply bg-background fixed top-[50%] left-[50%] z-50 flex flex-col w-full max-w-[calc(100%_-_2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border p-6 shadow-lg sm:max-w-lg max-h-[calc(100%_-_2rem)] transition-all scale-95;
+      @apply bg-background fixed top-[50%] left-[50%] z-50 flex flex-col w-full max-w-[calc(100%_-_2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-hidden rounded-lg border p-6 shadow-lg sm:max-w-lg transition-all scale-95;
+      max-height: min(calc(100dvh - 2rem), calc(100% - 2rem));
 
       > header {
-        @apply flex flex-col gap-2 text-center sm:text-left;
+        @apply flex shrink-0 flex-col gap-2 text-center sm:text-left;
         > h2 { @apply text-lg leading-none font-semibold; }
         > p { @apply text-muted-foreground text-sm; }
       }
-      > section { @apply flex-1 -mx-6 px-6; }
-      > footer { @apply flex flex-col-reverse gap-2 sm:flex-row sm:justify-end; }
+      > section {
+        @apply -mx-6 flex-1 overflow-y-auto overflow-x-hidden px-6 min-h-0 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent;
+        overscroll-behavior: contain;
+      }
+      > footer {
+        @apply border-border/60 flex shrink-0 flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end;
+      }
       > button, > form[method='dialog'] { @apply absolute top-4 right-4; }
       > button, > form[method='dialog'] > button {
         @apply ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4;
       }
     }
+    &.max-w-2xl > * { @apply sm:max-w-2xl; }
+    &.max-w-6xl > * { @apply sm:max-w-6xl; }
   }
 }
 
@@ -1649,6 +1690,10 @@
 
   .osspm-askbar-suggest-val {
     @apply text-foreground;
+  }
+
+  .osspm-askbar-suggest-error {
+    @apply px-2.5 py-1.5 text-[13px] text-destructive;
   }
 
   .osspm-saved-queries {

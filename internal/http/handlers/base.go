@@ -21,6 +21,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/authn"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
+	"github.com/open-sspm/open-sspm/internal/http/views"
 	"github.com/open-sspm/open-sspm/internal/mailer"
 	"github.com/open-sspm/open-sspm/internal/riskpolicy"
 )
@@ -140,6 +141,19 @@ func (h *Handlers) RenderComponent(c *echo.Context, component templ.Component) e
 	return nil
 }
 
+// RenderComponentStatus renders a templ component with an explicit HTTP status.
+func (h *Handlers) RenderComponentStatus(c *echo.Context, status int, component templ.Component) error {
+	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
+	c.Response().WriteHeader(status)
+	if err := component.Render(c.Request().Context(), c.Response()); err != nil {
+		if IsClientCanceled(c, err) {
+			return nil
+		}
+		return h.RenderError(c, err)
+	}
+	return nil
+}
+
 // RenderError returns a plain text error response.
 func (h *Handlers) RenderError(c *echo.Context, err error) error {
 	if IsClientCanceled(c, err) || responseCommitted(c) {
@@ -196,6 +210,38 @@ func responseCommitted(c *echo.Context) bool {
 func RenderNotFound(c *echo.Context) error {
 	c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextPlainCharsetUTF8)
 	return c.String(http.StatusNotFound, "404 page not found")
+}
+
+// RenderNotFoundPage returns a 404 with the full HTML layout when the caller is
+// a logged-in user reaching the app through a browser. Falls back to the plain
+// text RenderNotFound for non-HTML clients and when layout data is unavailable.
+func (h *Handlers) RenderNotFoundPage(c *echo.Context) error {
+	if c == nil || c.Request() == nil || !wantsHTML(c) {
+		return RenderNotFound(c)
+	}
+	layout, _, err := h.LayoutData(c.Request().Context(), c, "Not found")
+	if err != nil {
+		return RenderNotFound(c)
+	}
+	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
+	c.Response().WriteHeader(http.StatusNotFound)
+	if err := views.NotFoundPage(layout).Render(c.Request().Context(), c.Response()); err != nil {
+		if IsClientCanceled(c, err) {
+			return nil
+		}
+		return h.RenderError(c, err)
+	}
+	return nil
+}
+
+func wantsHTML(c *echo.Context) bool {
+	accept := c.Request().Header.Get(echo.HeaderAccept)
+	if accept == "" {
+		// Browsers always send Accept; absent header is likely a tool — keep
+		// the plain-text body.
+		return false
+	}
+	return strings.Contains(accept, "text/html") || strings.Contains(accept, "*/*")
 }
 
 // NormalizeConnectorKind normalizes connector kind strings.

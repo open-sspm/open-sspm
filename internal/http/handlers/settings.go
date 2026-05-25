@@ -3,16 +3,20 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/a-h/templ"
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/events"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 	"github.com/open-sspm/open-sspm/internal/identity"
@@ -117,6 +121,18 @@ func (h *Handlers) HandleConnectors(c *echo.Context) error {
 	}
 	savedKind := NormalizeConnectorKind(c.QueryParam("saved"))
 	return h.renderConnectorsPage(c, openKind, savedKind, nil)
+}
+
+// HandleConnectorDialog renders a lazy-loaded connector configuration dialog.
+func (h *Handlers) HandleConnectorDialog(c *echo.Context) error {
+	if c.Request().Method != http.MethodGet {
+		return c.NoContent(http.StatusMethodNotAllowed)
+	}
+	kind := NormalizeConnectorKind(c.Param("kind"))
+	if !IsKnownConnectorKind(kind) {
+		return RenderNotFound(c)
+	}
+	return h.renderConnectorDialog(c, kind, nil, http.StatusOK)
 }
 
 // HandleConnectorAction routes connector save and toggle actions.
@@ -237,13 +253,16 @@ func (h *Handlers) handleConnectorToggle(c *echo.Context, kind string) error {
 	if enabled {
 		if err := validateConnectorConfig(kind, cfg.ResolvedConfig); err != nil {
 			if isHX(c) {
-				setFlashToast(c, viewmodels.ToastViewData{
+				setHXToast(c, viewmodels.ToastViewData{
 					Category:    "error",
 					Title:       ConnectorDisplayName(kind) + " not enabled",
 					Description: err.Error(),
 				})
-				setHXRedirect(c, "/settings/connectors?open="+kind)
-				return c.NoContent(http.StatusOK)
+				data, dataErr := h.buildConnectorsViewData(ctx, c, "", "", nil)
+				if dataErr != nil {
+					return h.RenderError(c, dataErr)
+				}
+				return h.renderConnectorRowStatus(c, kind, data, http.StatusUnprocessableEntity)
 			}
 			alert := &viewmodels.ConnectorAlert{
 				Class:   "alert-error",
@@ -293,6 +312,9 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 	}
 	if cfgRow.Row.Enabled {
 		if err := definition.validateConfig(mergedConfig); err != nil {
+			if isHX(c) {
+				return h.renderConnectorDialog(c, kind, connectorAlert(err), http.StatusUnprocessableEntity)
+			}
 			return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
 		}
 	}
@@ -308,9 +330,15 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 		return projector.RefreshAllSaaSAppRiskReadModels(ctx)
 	}); err != nil {
 		if errors.Is(err, configstore.ErrConnectorSecretKeyRequired) {
+			if isHX(c) {
+				return h.renderConnectorDialog(c, kind, connectorAlert(err), http.StatusUnprocessableEntity)
+			}
 			return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
 		}
 		return h.RenderError(c, err)
+	}
+	if isHX(c) {
+		return h.connectorMutationSuccess(c, kind)
 	}
 	return c.Redirect(http.StatusSeeOther, "/settings/connectors?saved="+kind)
 }
@@ -408,13 +436,16 @@ func (h *Handlers) handleConnectorAuthoritativeToggle(c *echo.Context, kind stri
 	sourceName, err := h.authoritativeSourceName(ctx, kind)
 	if err != nil {
 		if isHX(c) {
-			setFlashToast(c, viewmodels.ToastViewData{
+			setHXToast(c, viewmodels.ToastViewData{
 				Category:    "error",
 				Title:       "Authoritative source unavailable",
-				Description: err.Error(),
+				Description: "Check the connector configuration and try again.",
 			})
-			setHXRedirect(c, "/settings/connectors?open="+kind)
-			return c.NoContent(http.StatusOK)
+			data, dataErr := h.buildConnectorsViewData(ctx, c, "", "", nil)
+			if dataErr != nil {
+				return h.RenderError(c, dataErr)
+			}
+			return h.renderConnectorRowStatus(c, kind, data, http.StatusUnprocessableEntity)
 		}
 		return h.renderConnectorsPage(c, kind, "", connectorAlert(err))
 	}
@@ -447,29 +478,75 @@ func (h *Handlers) handleConnectorAuthoritativeToggle(c *echo.Context, kind stri
 }
 
 func (h *Handlers) renderConnectorsPage(c *echo.Context, openKind, savedKind string, alert *viewmodels.ConnectorAlert) error {
+	addVary(c, "HX-Request", "HX-Target")
 	data, err := h.buildConnectorsViewData(c.Request().Context(), c, openKind, savedKind, alert)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
+	if isHX(c) && !isHXBoosted(c) && isHXTarget(c, "connectors-panel") {
+		return h.RenderComponent(c, views.ConnectorsPanel(data))
+	}
 	return h.RenderComponent(c, views.ConnectorsPage(data))
 }
 
+func (h *Handlers) renderConnectorDialog(c *echo.Context, kind string, alert *viewmodels.ConnectorAlert, status int) error {
+	data, err := h.buildConnectorsViewData(c.Request().Context(), c, kind, "", alert)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	addVary(c, "HX-Request")
+	if status != 0 && status != http.StatusOK {
+		return h.RenderComponentStatus(c, status, views.ConnectorDialog(data, kind, true, alert))
+	}
+	return h.RenderComponent(c, views.ConnectorDialog(data, kind, true, alert))
+}
+
+func (h *Handlers) renderConnectorDialogAppend(c *echo.Context, kind string, alert *viewmodels.ConnectorAlert, status int) error {
+	c.Response().Header().Set("HX-Retarget", "body")
+	c.Response().Header().Set("HX-Reswap", "beforeend")
+	return h.renderConnectorDialog(c, kind, alert, status)
+}
+
+func (h *Handlers) connectorMutationSuccess(c *echo.Context, kind string) error {
+	data, err := h.buildConnectorsViewData(c.Request().Context(), c, "", "", nil)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	setHXToast(c, viewmodels.ToastViewData{
+		Category:    "success",
+		Title:       ConnectorDisplayName(kind) + " saved",
+		Description: "Connector settings updated.",
+	})
+	addHXTrigger(c, events.ConnectorsChanged, map[string]string{"kind": kind})
+	return h.RenderComponent(c, views.ConnectorsPanelOOB(data))
+}
+
 func (h *Handlers) renderConnectorRow(c *echo.Context, kind string, data viewmodels.ConnectorsViewData) error {
+	return h.renderConnectorRowStatus(c, kind, data, http.StatusOK)
+}
+
+func (h *Handlers) renderConnectorRowStatus(c *echo.Context, kind string, data viewmodels.ConnectorsViewData, status int) error {
+	render := h.RenderComponent
+	if status != 0 && status != http.StatusOK {
+		render = func(c *echo.Context, component templ.Component) error {
+			return h.RenderComponentStatus(c, status, component)
+		}
+	}
 	switch NormalizeConnectorKind(kind) {
 	case configstore.KindOkta:
-		return h.RenderComponent(c, views.OktaConnectorRow(data))
+		return render(c, views.OktaConnectorRow(data))
 	case configstore.KindGoogleWorkspace:
-		return h.RenderComponent(c, views.GoogleWorkspaceConnectorRow(data))
+		return render(c, views.GoogleWorkspaceConnectorRow(data))
 	case configstore.KindEntra:
-		return h.RenderComponent(c, views.EntraConnectorRow(data))
+		return render(c, views.EntraConnectorRow(data))
 	case configstore.KindGitHub:
-		return h.RenderComponent(c, views.GitHubConnectorRow(data))
+		return render(c, views.GitHubConnectorRow(data))
 	case configstore.KindDatadog:
-		return h.RenderComponent(c, views.DatadogConnectorRow(data))
+		return render(c, views.DatadogConnectorRow(data))
 	case configstore.KindAWSIdentityCenter:
-		return h.RenderComponent(c, views.AWSIdentityCenterConnectorRow(data))
+		return render(c, views.AWSIdentityCenterConnectorRow(data))
 	case configstore.KindVault:
-		return h.RenderComponent(c, views.VaultConnectorRow(data))
+		return render(c, views.VaultConnectorRow(data))
 	default:
 		return RenderNotFound(c)
 	}
@@ -782,20 +859,215 @@ func (h *Handlers) HandleResync(c *echo.Context) error {
 		return c.NoContent(http.StatusMethodNotAllowed)
 	}
 	if h.Syncer == nil {
+		if isHX(c) {
+			setHXToast(c, viewmodels.ToastViewData{Category: "warning", Title: "Resync unavailable", Description: "Sync is not configured on this server."})
+			return h.RenderComponent(c, views.SettingsSyncStatus("disabled", "Sync unavailable", false, h.csrfToken(c), false))
+		}
 		return c.Redirect(http.StatusSeeOther, "/settings?resync=disabled")
 	}
 	triggerCtx := sync.WithForcedSync(c.Request().Context())
 	if err := h.Syncer.RunOnce(triggerCtx); err != nil {
 		if errors.Is(err, sync.ErrSyncQueued) {
+			if isHX(c) {
+				setHXToast(c, viewmodels.ToastViewData{Category: "success", Title: "Resync queued", Description: "A worker will pick up the sync shortly."})
+				addHXTrigger(c, events.DataSyncChanged, map[string]string{"status": "queued"})
+				return h.RenderComponent(c, views.SettingsSyncStatus("queued", "Sync queued", true, h.csrfToken(c), true))
+			}
 			return c.Redirect(http.StatusSeeOther, "/settings?resync=queued")
 		}
 		if errors.Is(err, sync.ErrSyncAlreadyRunning) {
+			if isHX(c) {
+				setHXToast(c, viewmodels.ToastViewData{Category: "warning", Title: "Resync already running", Description: "Status will refresh automatically."})
+				addHXTrigger(c, events.DataSyncChanged, map[string]string{"status": "running"})
+				return h.RenderComponent(c, views.SettingsSyncStatus("running", "Sync running", true, h.csrfToken(c), true))
+			}
 			return c.Redirect(http.StatusSeeOther, "/settings?resync=busy")
 		}
 		if errors.Is(err, sync.ErrNoEnabledConnectors) {
+			if isHX(c) {
+				setHXToast(c, viewmodels.ToastViewData{Category: "warning", Title: "Resync unavailable", Description: "No connectors are enabled."})
+				return h.RenderComponent(c, views.SettingsSyncStatus("disabled", "No connectors enabled", false, h.csrfToken(c), true))
+			}
 			return c.Redirect(http.StatusSeeOther, "/settings?resync=disabled")
+		}
+		if isHX(c) {
+			setHXToast(c, viewmodels.ToastViewData{Category: "error", Title: "Resync failed", Description: "Check server logs for details."})
+			return h.RenderComponent(c, views.SettingsSyncStatus("error", "Sync failed", false, h.csrfToken(c), true))
 		}
 		return c.Redirect(http.StatusSeeOther, "/settings?resync=error")
 	}
+	if isHX(c) {
+		setHXToast(c, viewmodels.ToastViewData{Category: "success", Title: "Resync complete", Description: "The data sync finished successfully."})
+		addHXTrigger(c, events.DataSyncChanged, map[string]string{"status": "success"})
+		return h.RenderComponent(c, views.SettingsSyncStatus("success", "Sync complete", false, h.csrfToken(c), true))
+	}
 	return c.Redirect(http.StatusSeeOther, "/settings?resync=success")
+}
+
+func (h *Handlers) HandleResyncStatus(c *echo.Context) error {
+	if c.Request().Method != http.MethodGet {
+		return c.NoContent(http.StatusMethodNotAllowed)
+	}
+	active, err := h.activeManualSyncJobs(c.Request().Context())
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	if active > 0 {
+		return h.RenderComponent(c, views.SettingsSyncStatus("running", "Sync running", true, h.csrfToken(c), h.Syncer != nil))
+	}
+	status, label, err := h.latestManualSyncTerminalStatus(c.Request().Context())
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	if isHX(c) {
+		addHXTrigger(c, events.DataSyncChanged, map[string]string{"status": status})
+	}
+	return h.RenderComponent(c, views.SettingsSyncStatus(status, label, false, h.csrfToken(c), h.Syncer != nil))
+}
+
+// HandleResyncStream is an SSE endpoint that streams sync-status fragments to
+// the settings page. The connection stays open while a manual sync is active
+// and emits one `status` event per state change. When sync completes we send
+// the final fragment and close.
+//
+// The backend still polls the DB internally (every two seconds) because the
+// sync workers don't publish change notifications today. Compared to the
+// previous client-side hx-trigger="every 2s", this:
+//   - keeps a single long-lived TCP connection per active sync,
+//   - sends only the diff'd fragment (no cookie/CSRF roundtrip per tick),
+//   - converges immediately on terminal state without one extra cycle.
+func (h *Handlers) HandleResyncStream(c *echo.Context) error {
+	w := c.Response()
+	resp, err := echo.UnwrapResponse(w)
+	if err != nil || resp == nil {
+		return h.HandleResyncStatus(c)
+	}
+	header := w.Header()
+	header.Set("Content-Type", "text/event-stream")
+	header.Set("Cache-Control", "no-cache")
+	header.Set("Connection", "keep-alive")
+	header.Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+	resp.Flush()
+
+	ctx := c.Request().Context()
+	const tickInterval = 2 * time.Second
+
+	emit := func(status, label string, poll bool) error {
+		buf := &strings.Builder{}
+		if err := views.SettingsSyncStatusContent(status, label, poll, h.csrfToken(c), h.Syncer != nil).Render(ctx, buf); err != nil {
+			return err
+		}
+		payload := strings.ReplaceAll(buf.String(), "\n", "")
+		if _, err := fmt.Fprintf(w, "event: status\ndata: %s\n\n", payload); err != nil {
+			return err
+		}
+		resp.Flush()
+		return nil
+	}
+
+	emitDone := func() error {
+		if _, err := fmt.Fprint(w, "event: done\ndata: done\n\n"); err != nil {
+			return err
+		}
+		resp.Flush()
+		return nil
+	}
+
+	lastActive := int64(-1)
+	tick := func() (terminal bool, _ error) {
+		active, err := h.activeManualSyncJobs(ctx)
+		if err != nil {
+			return true, err
+		}
+		if active == lastActive {
+			return false, nil
+		}
+		lastActive = active
+		if active > 0 {
+			return false, emit("running", "Sync running", true)
+		}
+		status, label, err := h.latestManualSyncTerminalStatus(ctx)
+		if err != nil {
+			return true, err
+		}
+		if err := emit(status, label, false); err != nil {
+			return true, err
+		}
+		return true, emitDone()
+	}
+
+	if done, err := tick(); err != nil || done {
+		return err
+	}
+
+	ticker := time.NewTicker(tickInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			done, err := tick()
+			if err != nil {
+				return err
+			}
+			if done {
+				return nil
+			}
+		}
+	}
+}
+
+func (h *Handlers) activeManualSyncJobs(ctx context.Context) (int64, error) {
+	if h.Pool == nil {
+		return 0, nil
+	}
+	var count int64
+	err := h.Pool.QueryRow(ctx, `
+		SELECT count(*)
+		FROM sync_jobs
+		WHERE trigger_kind = 'manual'
+		  AND status IN ('pending', 'claimed', 'running')
+	`).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (h *Handlers) latestManualSyncTerminalStatus(ctx context.Context) (string, string, error) {
+	if h.Pool == nil {
+		return "success", "Sync complete", nil
+	}
+	var jobStatus string
+	err := h.Pool.QueryRow(ctx, `
+		SELECT status
+		FROM sync_jobs
+		WHERE trigger_kind = 'manual'
+		  AND status IN ('succeeded', 'failed')
+		ORDER BY COALESCE(finished_at, updated_at, created_at) DESC, created_at DESC, id DESC
+		LIMIT 1
+	`).Scan(&jobStatus)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "success", "Sync complete", nil
+		}
+		return "", "", err
+	}
+	switch strings.ToLower(strings.TrimSpace(jobStatus)) {
+	case "failed":
+		return "error", "Sync failed", nil
+	default:
+		return "success", "Sync complete", nil
+	}
+}
+
+func (h *Handlers) csrfToken(c *echo.Context) string {
+	if c == nil {
+		return ""
+	}
+	token, _ := c.Get(middleware.DefaultCSRFConfig.ContextKey).(string)
+	return token
 }

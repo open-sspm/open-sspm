@@ -10,13 +10,13 @@ templ GoogleWorkspaceUserMobileRow(user viewmodels.GoogleWorkspaceUserListItem) 
 		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0">
 				<div class="font-medium" title={ user.DisplayName }>
-					<span class="osspm-truncate">{ user.DisplayName }</span>
+						<span class="osspm-truncate" hx-disable>{ user.DisplayName }</span>
 				</div>
 				if user.Email != "" {
-					<div class="text-sm text-muted-foreground break-all">{ user.Email }</div>
-				} else if user.ExternalID != "" {
-					<div class="text-sm text-muted-foreground break-all">{ user.ExternalID }</div>
-				}
+						<div class="text-sm text-muted-foreground break-all" hx-disable>{ user.Email }</div>
+					} else if user.ExternalID != "" {
+						<div class="text-sm text-muted-foreground break-all" hx-disable>{ user.ExternalID }</div>
+					}
 			</div>
 		</div>
 		<div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
@@ -48,7 +48,9 @@ templ GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) {
 					<a class="btn-sm-outline" href={ querystate.ConnectedAppsQuery{}.Href() }>OAuth Apps</a>
 					<a class="btn-sm-outline" href="/accounts/needs-anchor/google-workspace">Needs anchor</a>
 				} else {
-					<a class="btn-sm-outline" href="/settings/connectors?open=google_workspace">Configure</a>
+					@ConnectorConfigureLink("/settings/connectors?open=google_workspace", "btn-sm-outline") {
+						Configure
+					}
 				}
 		}
 
@@ -63,7 +65,9 @@ templ GoogleWorkspaceUsersPage(data viewmodels.GoogleWorkspaceUsersViewData) {
 		} else {
 			@Alert("Google Workspace sync disabled", true) {
 				<p>
-					{ data.EmptyStateMsg } <a class="btn-sm-link px-1" href={ data.EmptyStateHref }>Configure Google Workspace</a>.
+					{ data.EmptyStateMsg } @ConnectorConfigureLink(data.EmptyStateHref, "btn-sm-link px-1") {
+						Configure Google Workspace
+					}.
 				</p>
 			}
 		}
@@ -80,8 +84,8 @@ templ GoogleWorkspaceUsersPageFilters(data viewmodels.GoogleWorkspaceUsersViewDa
 			data-enter-only-query="q"
 			hx-get="/accounts/google-workspace"
 			hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+			hx-sync="this:replace"
 			hx-target="#google-workspace-users-results"
-			hx-swap="outerHTML"
 			hx-push-url="true"
 			class="osspm-list-form"
 		>
@@ -128,16 +132,16 @@ templ GoogleWorkspaceUsersPageResults(data viewmodels.GoogleWorkspaceUsersViewDa
 								<tr>
 									<td>
 										<div class="space-y-1">
-											<div class="font-medium">{ u.DisplayName }</div>
-											if u.ExternalID != "" {
-												<div class="text-xs text-muted-foreground">{ u.ExternalID }</div>
-											}
+												<div class="font-medium" hx-disable>{ u.DisplayName }</div>
+												if u.ExternalID != "" {
+													<div class="text-xs text-muted-foreground" hx-disable>{ u.ExternalID }</div>
+												}
 										</div>
 									</td>
 									<td>
-										if u.Email != "" {
-											{ u.Email }
-										} else {
+											if u.Email != "" {
+												<span hx-disable>{ u.Email }</span>
+											} else {
 											<span class="text-muted-foreground">&mdash;</span>
 										}
 									</td>

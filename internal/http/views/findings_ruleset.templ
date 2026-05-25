@@ -8,14 +8,40 @@ import (
 
 templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 	@Layout(data.Layout) {
+		@FindingsRulesetShell(data)
+	}
+}
+
+templ FindingsRulesetMutationResponse(data viewmodels.FindingsRulesetViewData) {
+	@FindingsRulesetShell(data)
+	@SidebarFindingsRulesetsOOB(data.Layout)
+}
+
+templ FindingsRulesetShell(data viewmodels.FindingsRulesetViewData) {
+	<div id="findings-ruleset-shell" class="min-w-0 space-y-6">
 		@PageHeader("") {
 			if data.Layout.IsAdmin {
-				<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" } class="flex items-center gap-2">
-					@CSRFInput(data.Layout.CSRFToken)
-					if data.OverrideEnabled {
-						<input type="hidden" name="enabled" value="false"/>
-						<button type="submit" class="btn-outline">Disable ruleset</button>
-					} else {
+				<form
+					method="post"
+					action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" }
+					hx-post={ "/findings/rulesets/" + data.Ruleset.Key + "/override" }
+					hx-target="#findings-ruleset-shell"
+					hx-disabled-elt="this"
+					class="flex items-center gap-2"
+				>
+						@CSRFInput(data.Layout.CSRFToken)
+						if data.OverrideEnabled {
+							<input type="hidden" name="enabled" value="false"/>
+							<button
+								type="submit"
+								class="btn-outline"
+								data-osspm-confirm-title="Disable ruleset?"
+								data-osspm-confirm-body="Disabling forces every rule in this ruleset to report not-applicable."
+								data-osspm-confirm-accept-label="Disable"
+								data-osspm-confirm-tone="warning"
+								hx-confirm=" "
+							>Disable ruleset</button>
+						} else {
 						<input type="hidden" name="enabled" value="true"/>
 						<button type="submit" class="btn-primary">Enable ruleset</button>
 					}
@@ -33,7 +59,7 @@ templ FindingsRulesetPage(data viewmodels.FindingsRulesetViewData) {
 			@FindingsRulesetRulesCard(data)
 		</div>
 
-	}
+	</div>
 }
 
 templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
@@ -44,7 +70,7 @@ templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 						<h2 class="text-base font-semibold">Rules</h2>
 						<p class="text-sm text-muted-foreground">Filter and review the current results for this ruleset.</p>
 					</div>
-						<form method="get" action={ "/findings/rulesets/" + data.Ruleset.Key } hx-get={ "/findings/rulesets/" + data.Ruleset.Key } hx-trigger="change delay:150ms from:select, submit" hx-target="#rules-card" hx-swap="outerHTML" hx-push-url="true" class="min-w-0">
+						<form method="get" action={ "/findings/rulesets/" + data.Ruleset.Key } hx-get={ "/findings/rulesets/" + data.Ruleset.Key } hx-trigger="change delay:150ms from:select, submit" hx-sync="this:replace" hx-target="#rules-card" hx-push-url="true" class="min-w-0">
 							@FilterPopover("Filters", FindingsRulesetFilterCount(data), FindingsRulesetFilterCount(data) > 0, "left-auto right-0 w-[min(92vw,32rem)] space-y-4 sm:left-auto sm:right-0") {
 							<div class="grid gap-4 sm:grid-cols-2">
 								<label class="field">
@@ -82,7 +108,7 @@ templ FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) {
 							</div>
 							if FindingsRulesetFilterCount(data) > 0 {
 								<div class="border-t border-border/60 pt-3">
-									<a class="text-xs text-muted-foreground no-underline hover:text-foreground" href={ FindingsRulesetClearFiltersHref(data) } hx-get={ FindingsRulesetClearFiltersHref(data) } hx-target="#rules-card" hx-swap="outerHTML" hx-push-url="true">Clear all filters</a>
+									<a class="text-xs text-muted-foreground no-underline hover:text-foreground" href={ FindingsRulesetClearFiltersHref(data) } hx-get={ FindingsRulesetClearFiltersHref(data) } hx-target="#rules-card" hx-swap="outerHTML show:top" hx-push-url="true">Clear all filters</a>
 								</div>
 							}
 						}

@@ -80,7 +80,7 @@ func TestHandleIdentityShowRendersEntitlementDetails(t *testing.T) {
 			Status:         "active",
 			AccountKind:    "human",
 			EntityCategory: "user",
-			RawJSON:        `{"status":"active"}`,
+			RawJSON:        `{"status":"active","manager":"Jane Manager","department":"Engineering","title":"Admin","mfa":true,"location":"Paris"}`,
 		})
 		insertCommandSearchIdentityAccountLink(t, ctx, pool, identityID, accountID)
 		insertDashboardEntitlement(t, ctx, pool, runID, accountID, "github_team_repo_permission", "github_repo:acme/private-repo", "admin", `{}`)
@@ -88,17 +88,49 @@ func TestHandleIdentityShowRendersEntitlementDetails(t *testing.T) {
 		body := renderIdentityShow(t, h, identityID)
 		for _, want := range []string{
 			"Access grants",
-			"github_team_repo_permission",
-			"acme/private-repo",
-			"admin",
+			`id="identity-entitlements-section"`,
+			`hx-trigger="intersect once, oss-panel-visible"`,
+			`hx-get="/identities/`,
 			"person@example.com",
 			`href="/non-human-identities?q=person%40example.com"`,
 			"Search non-human identities",
+			"Active",
+			"Privileged access",
+			"Jane Manager",
+			"Engineering · Admin",
+			"Enabled",
+			"Paris",
 		} {
 			if !strings.Contains(body, want) {
 				t.Fatalf("identity show missing %q: %s", want, body)
 			}
 		}
+		assertNotContains(t, body, "github_team_repo_permission")
+
+		entitlements := renderIdentityShowFragment(t, h, identityID, "identity-entitlements-section")
+		assertContains(t, entitlements, `id="identity-entitlements-section"`)
+		assertContains(t, entitlements, "github_team_repo_permission")
+		assertContains(t, entitlements, "acme/private-repo")
+		assertContains(t, entitlements, "admin")
+		assertNotContains(t, entitlements, "<!doctype html>")
+
+		linkedAccounts := renderIdentityShowFragment(t, h, identityID, "identity-linked-accounts-section")
+		assertContains(t, linkedAccounts, `id="identity-linked-accounts-section"`)
+		assertContains(t, linkedAccounts, "github-user-1")
+		assertContains(t, linkedAccounts, "1</td>")
+		assertNotContains(t, linkedAccounts, "<!doctype html>")
+	})
+}
+
+func TestHandleIdentityShowSummaryFragmentKeepsEmptyTarget(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, _ *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		identityID := insertCommandSearchIdentity(t, ctx, h.Pool, "human", "empty@example.com", "Empty Identity")
+
+		summary := renderIdentityShowFragment(t, h, identityID, "identity-summary-section")
+
+		assertContains(t, summary, `id="identity-summary-section"`)
+		assertContains(t, summary, "No linked accounts")
+		assertNotContains(t, summary, "<!doctype html>")
 	})
 }
 
@@ -352,6 +384,24 @@ func renderIdentityShow(t *testing.T, h *Handlers, identityID int64) string {
 	(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(identityID, 10)}})
 	if err := h.HandleIdentityShow(c); err != nil {
 		t.Fatalf("HandleIdentityShow(%s): %v", target, err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	return rec.Body.String()
+}
+
+func renderIdentityShowFragment(t *testing.T, h *Handlers, identityID int64, hxTarget string) string {
+	t.Helper()
+
+	target := "http://example.com/identities/" + strconv.FormatInt(identityID, 10)
+	c, rec := newTestContext(http.MethodGet, target)
+	(*c).SetPath("/identities/:id")
+	(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(identityID, 10)}})
+	(*c).Request().Header.Set("HX-Request", "true")
+	(*c).Request().Header.Set("HX-Target", hxTarget)
+	if err := h.HandleIdentityShow(c); err != nil {
+		t.Fatalf("HandleIdentityShow(%s, target %s): %v", target, hxTarget, err)
 	}
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())

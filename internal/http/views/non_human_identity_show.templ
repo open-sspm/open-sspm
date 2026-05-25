@@ -26,17 +26,17 @@ templ nonHumanIdentityShowHeader(p viewmodels.NonHumanIdentitiesSummaryView) {
 				<p class="text-xs uppercase tracking-wide text-muted-foreground">
 					<span>{ HumanizeNonHumanPrincipalType(p.PrincipalType) }</span>
 					<span class="px-1.5 text-muted-foreground/50">·</span>
-					<span>{ HumanizeConnectorKind(p.SourceKind) }</span>
-					if p.SourceName != "" {
-						<span class="text-muted-foreground/70">{ " (" }{ p.SourceName }{ ")" }</span>
+						<span>{ HumanizeConnectorKind(p.SourceKind) }</span>
+						if p.SourceName != "" {
+							<span class="text-muted-foreground/70" hx-disable>{ " (" }{ p.SourceName }{ ")" }</span>
+						}
+					</p>
+					<h1 class="text-2xl font-semibold leading-tight tracking-tight break-words md:text-3xl" hx-disable>{ p.DisplayName }</h1>
+					if p.SecondaryName != "" {
+						<p class="text-sm text-muted-foreground break-all" hx-disable>{ p.SecondaryName }</p>
 					}
-				</p>
-				<h1 class="text-2xl font-semibold leading-tight tracking-tight break-words md:text-3xl">{ p.DisplayName }</h1>
-				if p.SecondaryName != "" {
-					<p class="text-sm text-muted-foreground break-all">{ p.SecondaryName }</p>
-				}
-				<div class="flex min-w-0 items-center gap-2">
-					<p class="font-mono text-xs text-muted-foreground break-all">{ p.PrincipalRef }</p>
+					<div class="flex min-w-0 items-center gap-2">
+						<p class="font-mono text-xs text-muted-foreground break-all" hx-disable>{ p.PrincipalRef }</p>
 					@CopyTextButton(p.PrincipalRef, "Copy principal reference")
 				</div>
 			</div>
@@ -71,12 +71,12 @@ templ nonHumanIdentityShowMetadata(p viewmodels.NonHumanIdentitiesSummaryView) {
 templ nonHumanIdentityShowOwnerField(p viewmodels.NonHumanIdentitiesSummaryView) {
 	<div class="min-w-0 space-y-1">
 		<dt class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Accountable owner</dt>
-		if p.AccountableOwnerHref != "" {
-			<dd class="min-w-0"><a class="btn-sm-link px-0 text-sm font-medium break-words" href={ p.AccountableOwnerHref }>{ p.AccountableOwner }</a></dd>
+	if p.AccountableOwnerHref != "" {
+		<dd class="min-w-0"><a class="btn-sm-link px-0 text-sm font-medium break-words" href={ p.AccountableOwnerHref }><span hx-disable>{ p.AccountableOwner }</span></a></dd>
 		} else if p.OwnerPresence == "unknown" {
 			<dd class={ "text-sm font-medium", CredentialRiskTextClass("high") }>Unassigned</dd>
 		} else {
-			<dd class="text-sm font-medium break-words">{ p.AccountableOwner }</dd>
+		<dd class="text-sm font-medium break-words" hx-disable>{ p.AccountableOwner }</dd>
 		}
 	</div>
 }
@@ -194,26 +194,26 @@ templ nonHumanIdentityShowRelationships(data viewmodels.NonHumanIdentitiesShowVi
 					<tbody>
 						for _, item := range data.Relationships {
 							<tr class="border-b border-border/40 last:border-0 align-top">
-								<td class="py-3 pr-4">
-									if item.IdentityHref != "" {
-										<a class="btn-sm-link px-0 font-medium break-words" href={ item.IdentityHref }>{ item.IdentityDisplayName }</a>
-									} else {
-										<span class="font-medium break-words">{ item.IdentityDisplayName }</span>
-									}
-									if item.IdentityPrimaryEmail != "" {
-										<div class="text-xs text-muted-foreground break-all">{ item.IdentityPrimaryEmail }</div>
-									}
+									<td class="py-3 pr-4">
+										if item.IdentityHref != "" {
+											<a class="btn-sm-link px-0 font-medium break-words" href={ item.IdentityHref }><span hx-disable>{ item.IdentityDisplayName }</span></a>
+										} else {
+											<span class="font-medium break-words" hx-disable>{ item.IdentityDisplayName }</span>
+										}
+										if item.IdentityPrimaryEmail != "" {
+											<div class="text-xs text-muted-foreground break-all" hx-disable>{ item.IdentityPrimaryEmail }</div>
+										}
 									<div class="text-xs text-muted-foreground">{ fallbackHumanized(item.RelationshipIdentityKind) }</div>
 								</td>
 								<td class="py-3 pr-4">
 									<span class="badge-outline">{ fallbackHumanized(item.RelationshipType) }</span>
 								</td>
 								<td class="py-3 pr-4">
-									<div class="font-medium break-words">{ item.AccountDisplayName }</div>
+										<div class="font-medium break-words" hx-disable>{ item.AccountDisplayName }</div>
 									<div class="text-xs text-muted-foreground">{ HumanizeConnectorKind(item.AccountSourceKind) }</div>
-									if item.AccountExternalID != "" {
-										<div class="font-mono text-[11px] text-muted-foreground break-all">{ item.AccountExternalID }</div>
-									}
+										if item.AccountExternalID != "" {
+											<div class="font-mono text-[11px] text-muted-foreground break-all" hx-disable>{ item.AccountExternalID }</div>
+										}
 								</td>
 								<td class="py-3 pr-4 tabular-nums">{ FormatInt(int(item.Confidence)) }{ "%" }</td>
 								<td class="py-3 pr-4 tabular-nums text-muted-foreground">{ item.LastSeen.Label }</td>
@@ -286,22 +286,22 @@ templ nonHumanIdentityShowRelatedAssets(data viewmodels.NonHumanIdentitiesShowVi
 						for _, item := range data.RelatedAssets {
 							<tr class="border-b border-border/40 last:border-0 align-top">
 								<td class="py-3 pr-4">
-									<a class="btn-sm-link px-0 font-medium break-words" href={ item.Href }>{ item.DisplayName }</a>
+										<a class="btn-sm-link px-0 font-medium break-words" href={ item.Href }><span hx-disable>{ item.DisplayName }</span></a>
 									<div class="text-xs text-muted-foreground">{ HumanizeProgrammaticKind(item.AssetKind) }{ " · " }{ HumanizeConnectorKind(item.SourceKind) }</div>
-									if item.ExternalID != "" {
-										<div class="font-mono text-[11px] text-muted-foreground break-all">{ item.ExternalID }</div>
-									}
+										if item.ExternalID != "" {
+											<div class="font-mono text-[11px] text-muted-foreground break-all" hx-disable>{ item.ExternalID }</div>
+										}
 								</td>
 								<td class="py-3 pr-4">
 									<div class={ "text-sm font-medium", AppAssetGovernanceStateTextClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</div>
 									<div class="text-xs text-muted-foreground">{ fallbackHumanized(item.Status) }</div>
 								</td>
 								<td class="py-3 pr-4">
-									if item.GovernanceOwnerHref != "" {
-										<a class="btn-sm-link px-0" href={ item.GovernanceOwnerHref }>{ item.GovernanceOwner }</a>
-									} else {
-										<span class="text-sm">{ item.GovernanceOwner }</span>
-									}
+										if item.GovernanceOwnerHref != "" {
+											<a class="btn-sm-link px-0" href={ item.GovernanceOwnerHref }><span hx-disable>{ item.GovernanceOwner }</span></a>
+										} else {
+											<span class="text-sm" hx-disable>{ item.GovernanceOwner }</span>
+										}
 								</td>
 								<td class="py-3 pr-4 tabular-nums">{ FormatInt64(item.LinkedCredentials) }</td>
 								<td class="py-3 pr-4">
@@ -367,9 +367,9 @@ templ nonHumanIdentityShowCredentials(data viewmodels.NonHumanIdentitiesShowView
 											{ " · " }{ fallbackHumanized(item.Status) }
 										}
 									</div>
-									if item.ExternalID != "" {
-										<div class="font-mono text-[11px] text-muted-foreground break-all">{ item.ExternalID }</div>
-									}
+										if item.ExternalID != "" {
+											<div class="font-mono text-[11px] text-muted-foreground break-all" hx-disable>{ item.ExternalID }</div>
+										}
 								</td>
 								<td class="py-3 pr-4">
 									<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>

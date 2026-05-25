@@ -15,9 +15,9 @@ templ DiscoveryAppMobileRow(item viewmodels.DiscoveryAppListItem) {
 			<div class="flex min-w-0 items-start gap-3">
 				@ProductIcon(item.DisplayName, item.VendorName, item.Domain, "size-8")
 				<div class="min-w-0">
-					<div class="font-medium truncate">{ item.DisplayName }</div>
-					if item.Domain != "" {
-						<div class="osspm-token text-sm text-muted-foreground break-all">{ item.Domain }</div>
+						<div class="font-medium truncate" hx-disable>{ item.DisplayName }</div>
+						if item.Domain != "" {
+							<div class="osspm-token text-sm text-muted-foreground break-all" hx-disable>{ item.Domain }</div>
 					}
 					<div class="mt-1 flex flex-wrap items-center gap-2 text-xs">
 						if item.ManagedState == "unmanaged" {
@@ -40,9 +40,9 @@ templ DiscoveryAppMobileRow(item viewmodels.DiscoveryAppListItem) {
 		<dl class="mt-3 grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
 			<div>
 				<dt class="osspm-stat-label">Owner</dt>
-				<dd class="truncate">
-					if item.Owner != "" {
-						{ item.Owner }
+					<dd class="truncate">
+						if item.Owner != "" {
+							<span hx-disable>{ item.Owner }</span>
 					} else {
 						<span class="text-muted-foreground">—</span>
 					}
@@ -67,8 +67,8 @@ templ DiscoveryAppsPageFilters(data viewmodels.DiscoveryAppsViewData) {
 			data-enter-only-query="q"
 			hx-get="/discovery/apps"
 			hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+			hx-sync="this:replace"
 			hx-target="#discovery-apps-results"
-			hx-swap="outerHTML"
 			hx-push-url="true"
 				class="osspm-list-form"
 			>
@@ -119,13 +119,13 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 												<span class="flex min-w-0 items-center gap-3">
 													@ProductIcon(item.DisplayName, item.VendorName, item.Domain, "size-8")
 													<span class="min-w-0 flex-1">
-														<span class="osspm-identity-name">{ item.DisplayName }</span>
-														<span class="osspm-identity-meta">
-															if item.Domain != "" {
-																<span class="osspm-token truncate">{ item.Domain }</span>
-															} else if item.VendorName != "" {
-																<span class="truncate">{ item.VendorName }</span>
-															}
+															<span class="osspm-identity-name" hx-disable>{ item.DisplayName }</span>
+															<span class="osspm-identity-meta">
+																if item.Domain != "" {
+																	<span class="osspm-token truncate" hx-disable>{ item.Domain }</span>
+																} else if item.VendorName != "" {
+																	<span class="truncate" hx-disable>{ item.VendorName }</span>
+																}
 														</span>
 													</span>
 												</span>
@@ -147,18 +147,18 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 												title={ "Score " + FormatInt(int(item.RiskScore)) }
 											>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
 										</td>
-										<td>
-											if item.Owner != "" {
-												<span class="osspm-cell-primary font-normal truncate" title={ item.Owner }>{ item.Owner }</span>
-											} else {
-												<span class="text-muted-foreground">—</span>
-											}
-										</td>
+											<td>
+												if item.Owner != "" {
+													<span class="osspm-cell-primary font-normal truncate" title={ item.Owner } hx-disable>{ item.Owner }</span>
+												} else {
+													<span class="text-muted-foreground">—</span>
+												}
+											</td>
 										<td class="whitespace-normal">
 											<span class={ templ.Classes("text-sm font-medium", DiscoveryReviewDispositionTextClass(item.ReviewDisposition)) }>{ HumanizeDiscoveryReviewDisposition(item.ReviewDisposition) }</span>
 											if item.FollowUpDueDate.Label != "" || item.TicketRef != "" || (item.ReviewOwner != "" && item.ReviewOwner != "—") || item.ReplacementDisplayName != "" {
-												<span class="osspm-cell-secondary">
-													if item.FollowUpDueDate.Label != "" {
+													<span class="osspm-cell-secondary" hx-disable>
+														if item.FollowUpDueDate.Label != "" {
 														if item.IsFollowUpOverdue {
 															<span class="text-rose-700 dark:text-rose-400">{ "Due " }{ item.FollowUpDueDate.Label }</span>
 														} else {
@@ -193,12 +193,12 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
 						<div class="button-group ml-auto">
 							if data.Page > 1 {
-								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#discovery-apps-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
+								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#discovery-apps-results" hx-swap="outerHTML show:top" hx-push-url="true">Previous</a>
 							} else {
 								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
 							}
 							if data.Page < data.TotalPages {
-								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#discovery-apps-results" hx-swap="outerHTML" hx-push-url="true">Next</a>
+								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#discovery-apps-results" hx-swap="outerHTML show:top" hx-push-url="true">Next</a>
 							} else {
 								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
 							}

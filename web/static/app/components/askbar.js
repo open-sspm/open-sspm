@@ -29,6 +29,7 @@ import { register } from "./registry.js";
 //     "singletonFields": [ "<field>", ... ],
 //     "freeTextFields":  [ "<field>", ... ],
 //     "staticHidden":    [ { name, value }, ... ],
+//     "suggestEndpoint": "/askbar/suggestions?scope=...",
 //   }
 //
 // Chip values are always strings; the URL canonicalization happens server-side.
@@ -43,6 +44,7 @@ const DEFAULTS = {
   singletonFields: [],
   freeTextFields: [],
   staticHidden: [],
+  suggestEndpoint: "",
 };
 
 const readConfig = (el) => {
@@ -86,6 +88,7 @@ export const initAskbar = (el) => {
   const SINGLETON_FIELDS = new Set(cfg.singletonFields);
   const FREE_TEXT_FIELDS = new Set(cfg.freeTextFields);
   const STATIC_HIDDEN = Array.isArray(cfg.staticHidden) ? cfg.staticHidden : [];
+  const SUGGEST_ENDPOINT = String(cfg.suggestEndpoint || "");
 
   const doc = el.ownerDocument;
   const bar = el.querySelector("[data-osspm-askbar-bar]");
@@ -184,6 +187,9 @@ export const initAskbar = (el) => {
     insertionIndex: 0,
     extraHidden: [],
   };
+  let serverSuggestTimer = 0;
+  let serverSuggestController = null;
+  let serverSuggestSeq = 0;
   state.insertionIndex = state.chips.length;
   state.extraHidden = extraHiddenFromEntries(hiddenEntriesFromBank(), state.chips);
 
@@ -344,6 +350,55 @@ export const initAskbar = (el) => {
 
   const hideSuggest = () => {
     if (suggest instanceof HTMLElement) suggest.hidden = true;
+  };
+
+  const serverSuggestEnabled = () =>
+    SUGGEST_ENDPOINT !== "" &&
+    suggest instanceof HTMLElement &&
+    typeof win.fetch === "function" &&
+    typeof win.AbortController === "function";
+
+  const showServerSuggest = (displayText, force) => {
+    if (!(suggest instanceof HTMLElement)) return;
+    win.clearTimeout(serverSuggestTimer);
+    if (serverSuggestController) {
+      serverSuggestController.abort();
+      serverSuggestController = null;
+    }
+    serverSuggestTimer = win.setTimeout(() => {
+      const endpoint = new URL(SUGGEST_ENDPOINT, win.location.href);
+      endpoint.searchParams.set("q", displayText);
+      if (force) endpoint.searchParams.set("force", "1");
+      const seq = ++serverSuggestSeq;
+      const controller = new win.AbortController();
+      serverSuggestController = controller;
+      suggest.hidden = false;
+      win
+        .fetch(`${endpoint.pathname}${endpoint.search}`, {
+          headers: { "HX-Request": "true", "Accept": "text/html" },
+          signal: controller.signal,
+        })
+        .then((response) => {
+          if (!response.ok) throw new Error(`suggestions failed: ${response.status}`);
+          return response.text();
+        })
+        .then((html) => {
+          if (seq !== serverSuggestSeq) return;
+          suggest.innerHTML = html;
+          onSuggestAfterSwap({ target: suggest });
+        })
+        .catch((error) => {
+          if (error?.name === "AbortError") return;
+          if (seq !== serverSuggestSeq) return;
+          suggest.innerHTML = `<div class="osspm-askbar-suggest-label">Check syntax</div><div class="osspm-askbar-suggest-error" role="status">Suggestions unavailable.</div>`;
+          suggest.hidden = false;
+        })
+        .finally(() => {
+          if (serverSuggestController === controller) {
+            serverSuggestController = null;
+          }
+        });
+    }, 80);
   };
 
   const buildChipHtml = (c, idx) => {
@@ -612,6 +667,10 @@ export const initAskbar = (el) => {
       hideSuggest();
       return;
     }
+    if (serverSuggestEnabled()) {
+      showServerSuggest(displayText, force);
+      return;
+    }
 
     const colonIdx = t.indexOf(":");
     const fieldPart = colonIdx >= 0 ? t.slice(0, colonIdx) : t;
@@ -675,6 +734,10 @@ export const initAskbar = (el) => {
           (it, i) => `
         <div class="osspm-askbar-suggest-item ${i === 0 ? "is-hl" : ""}" data-kw="${escapeHtml(
           it.kw,
+        )}" data-field="${escapeHtml(it.tok.field)}" data-value="${escapeHtml(
+          it.tok.value,
+        )}" data-label="${escapeHtml(it.tok.label)}" data-tone="${escapeHtml(
+          it.tok.tone || "",
         )}">
           <span class="osspm-askbar-suggest-key">${escapeHtml(
             FIELD_LABEL[it.tok.field] || it.tok.field,
@@ -685,14 +748,18 @@ export const initAskbar = (el) => {
         .join("");
       if (displayText) {
         html += `<div class="osspm-askbar-suggest-label">Or</div>
-          <div class="osspm-askbar-suggest-item" data-action="freetext">
+          <div class="osspm-askbar-suggest-item" data-action="freetext" data-value="${escapeHtml(
+            displayText,
+          )}">
             <span class="osspm-askbar-suggest-key">Search</span>
             <span class="osspm-askbar-suggest-val">"${escapeHtml(displayText)}"</span>
           </div>`;
       }
     } else {
       html = `<div class="osspm-askbar-suggest-label">Free text</div>
-        <div class="osspm-askbar-suggest-item is-hl" data-action="freetext">
+        <div class="osspm-askbar-suggest-item is-hl" data-action="freetext" data-value="${escapeHtml(
+          displayText,
+        )}">
           <span class="osspm-askbar-suggest-val">Add "${escapeHtml(
             displayText,
           )}" as text search</span>
@@ -700,25 +767,37 @@ export const initAskbar = (el) => {
     }
     suggest.innerHTML = html;
     suggest.hidden = false;
-    bindSuggest(displayText);
   };
 
-  const bindSuggest = (text) => {
+  const onSuggestClick = (event) => {
     if (!(suggest instanceof HTMLElement)) return;
-    suggest.querySelectorAll(".osspm-askbar-suggest-item").forEach((node) => {
-      node.addEventListener("click", () => {
-        if (node.dataset.action === "freetext") {
-          addChip({ field: "search", value: text, label: `"${text}"` });
-        } else {
-          const tok = KEYWORD_TOKENS[node.dataset.kw];
-          if (tok) addChip({ ...tok });
-        }
-        input.value = "";
-        updateInputCursorWidth();
-        hideSuggest();
-        focusInputEnd();
+    if (!(event.target instanceof Element)) return;
+    const node = event.target.closest(".osspm-askbar-suggest-item");
+    if (!(node instanceof HTMLElement) || !suggest.contains(node)) return;
+
+    if (node.dataset.action === "freetext") {
+      const text = String(node.dataset.value || input.value || "").trim();
+      if (text) addChip({ field: "search", value: text, label: `"${text}"` });
+    } else if (node.dataset.field && node.dataset.value) {
+      addChip({
+        field: node.dataset.field,
+        value: node.dataset.value,
+        label: node.dataset.label || node.dataset.value,
+        tone: node.dataset.tone || "",
       });
-    });
+    } else {
+      const tok = KEYWORD_TOKENS[node.dataset.kw];
+      if (tok) addChip({ ...tok });
+    }
+    input.value = "";
+    updateInputCursorWidth();
+    hideSuggest();
+    focusInputEnd();
+  };
+
+  const onSuggestAfterSwap = (event) => {
+    if (event.target !== suggest) return;
+    suggest.hidden = suggest.textContent.trim() === "";
   };
 
   const suggestVisible = () =>
@@ -848,6 +927,10 @@ export const initAskbar = (el) => {
   if (addFilterButton instanceof HTMLElement) {
     addFilterButton.addEventListener("click", onAddFilterClick);
   }
+  if (suggest instanceof HTMLElement) {
+    suggest.addEventListener("click", onSuggestClick);
+    suggest.addEventListener("htmx:afterSwap", onSuggestAfterSwap);
+  }
   doc.addEventListener("click", onDocClick);
   doc.addEventListener("htmx:pushedIntoHistory", onHistoryURLChange);
   doc.addEventListener("htmx:replacedInHistory", onHistoryURLChange);
@@ -856,6 +939,15 @@ export const initAskbar = (el) => {
   return () => {
     if (addFilterButton instanceof HTMLElement) {
       addFilterButton.removeEventListener("click", onAddFilterClick);
+    }
+    win.clearTimeout(serverSuggestTimer);
+    if (serverSuggestController) {
+      serverSuggestController.abort();
+      serverSuggestController = null;
+    }
+    if (suggest instanceof HTMLElement) {
+      suggest.removeEventListener("click", onSuggestClick);
+      suggest.removeEventListener("htmx:afterSwap", onSuggestAfterSwap);
     }
     doc.removeEventListener("click", onDocClick);
     doc.removeEventListener("htmx:pushedIntoHistory", onHistoryURLChange);

@@ -62,10 +62,10 @@ templ Sidebar(data viewmodels.LayoutData) {
 						@IconFileWarning("sidebar-icon")
 						<span>Findings</span>
 					</summary>
-					<ul>
-						<li><a href="/findings" aria-current={ AriaCurrentExact(data.ActivePath, "/findings") }><span>Overview</span></a></li>
-						for _, ruleset := range data.FindingsRulesets {
-							<li><a href={ ruleset.Href } aria-current={ AriaCurrent(data.ActivePath, ruleset.Href) }><span class="truncate" title={ ruleset.Name }>{ ruleset.Name }</span></a></li>
+						<ul id="sidebar-findings-rulesets">
+							<li><a href="/findings" aria-current={ AriaCurrentExact(data.ActivePath, "/findings") }><span>Overview</span></a></li>
+							for _, ruleset := range data.FindingsRulesets {
+								<li><a href={ ruleset.Href } aria-current={ AriaCurrent(data.ActivePath, ruleset.Href) }><span class="truncate" title={ ruleset.Name }>{ ruleset.Name }</span></a></li>
 						}
 					</ul>
 				</details>
@@ -88,5 +88,14 @@ templ Sidebar(data viewmodels.LayoutData) {
 				</li>
 			}
 		</ul>
-	</div>
+		</div>
+	}
+
+templ SidebarFindingsRulesetsOOB(data viewmodels.LayoutData) {
+	<ul id="sidebar-findings-rulesets" hx-swap-oob="morph:outerHTML">
+		<li><a href="/findings" aria-current={ AriaCurrentExact(data.ActivePath, "/findings") }><span>Overview</span></a></li>
+		for _, ruleset := range data.FindingsRulesets {
+			<li><a href={ ruleset.Href } aria-current={ AriaCurrent(data.ActivePath, ruleset.Href) }><span class="truncate" title={ ruleset.Name }>{ ruleset.Name }</span></a></li>
+		}
+	</ul>
 }

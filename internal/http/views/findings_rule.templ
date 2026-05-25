@@ -8,6 +8,17 @@ import (
 
 templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 	@Layout(data.Layout) {
+		@FindingsRuleShell(data)
+	}
+}
+
+templ FindingsRuleMutationResponse(data viewmodels.FindingsRuleViewData) {
+	@FindingsRuleShell(data)
+	@SidebarFindingsRulesetsOOB(data.Layout)
+}
+
+templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
+	<div id="findings-rule-shell" class="min-w-0 space-y-6">
 		if data.Alert != nil {
 			@Alert(data.Alert.Title, data.Alert.Destructive) {
 				<p>{ data.Alert.Message }</p>
@@ -38,11 +49,11 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 						<p class="text-sm text-muted-foreground">{ data.MonitoringReason }</p>
 					}
 
-					if data.SourceName != "" {
-						<div class="text-sm text-muted-foreground">
-							<span class="font-medium text-foreground">Source:</span> { data.SourceName }
-						</div>
-					}
+						if data.SourceName != "" {
+							<div class="text-sm text-muted-foreground">
+								<span class="font-medium text-foreground">Source:</span> <span hx-disable>{ data.SourceName }</span>
+							</div>
+						}
 				</section>
 			</article>
 
@@ -132,22 +143,45 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 				</header>
 				<section class="space-y-6">
 					if data.Layout.IsAdmin {
-						<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" } class="flex items-center justify-between gap-3">
+						<form
+							method="post"
+							action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" }
+							hx-post={ "/findings/rulesets/" + data.Ruleset.Key + "/override" }
+							hx-target="#findings-rule-shell"
+							hx-disabled-elt="this"
+							class="flex items-center justify-between gap-3"
+						>
 							@CSRFInput(data.Layout.CSRFToken)
+							<input type="hidden" name="return_rule_key" value={ data.RuleKey }/>
 							<div>
 								<div class="text-sm font-medium">Ruleset enabled</div>
 								<div class="text-xs text-muted-foreground">A disabled ruleset forces rules to not_applicable.</div>
 							</div>
-							if data.RulesetOverrideEnabled {
-								<input type="hidden" name="enabled" value="false"/>
-								<button type="submit" class="btn-outline">Disable</button>
-							} else {
+								if data.RulesetOverrideEnabled {
+									<input type="hidden" name="enabled" value="false"/>
+									<button
+											type="submit"
+											class="btn-outline"
+											data-osspm-confirm-title="Disable ruleset?"
+											data-osspm-confirm-body="Disabling forces every rule in this ruleset to report not-applicable."
+											data-osspm-confirm-accept-label="Disable"
+											data-osspm-confirm-tone="warning"
+											hx-confirm=" "
+									>Disable</button>
+								} else {
 								<input type="hidden" name="enabled" value="true"/>
 								<button type="submit" class="btn-primary">Enable</button>
 							}
 						</form>
 
-						<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/override" } class="space-y-4">
+						<form
+							method="post"
+							action={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/override" }
+							hx-post={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/override" }
+							hx-target="#findings-rule-shell"
+							hx-disabled-elt="this"
+							class="space-y-4"
+						>
 							@CSRFInput(data.Layout.CSRFToken)
 							<div class="flex items-center justify-between gap-3">
 								<div>
@@ -224,7 +258,14 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 				</header>
 				<section class="space-y-4">
 					if data.Layout.IsAdmin {
-						<form method="post" action={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/attestation" } class="space-y-4">
+						<form
+							method="post"
+							action={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/attestation" }
+							hx-post={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/attestation" }
+							hx-target="#findings-rule-shell"
+							hx-disabled-elt="this"
+							class="space-y-4"
+						>
 							@CSRFInput(data.Layout.CSRFToken)
 
 							<label class="space-y-1 block">
@@ -260,11 +301,11 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 											<span class="font-medium text-foreground">Expires at:</span> { data.Attestation.ExpiresAt.Label }
 										</div>
 									}
-								if data.Attestation.Notes != "" {
-									<div>
-										<span class="font-medium text-foreground">Notes:</span> { data.Attestation.Notes }
-									</div>
-								}
+									if data.Attestation.Notes != "" {
+										<div>
+											<span class="font-medium text-foreground">Notes:</span> <span hx-disable>{ data.Attestation.Notes }</span>
+										</div>
+									}
 							} else {
 								<div>No attestation recorded.</div>
 							}
@@ -291,5 +332,5 @@ templ FindingsRulePage(data viewmodels.FindingsRuleViewData) {
 				</section>
 			</article>
 		}
-	}
+	</div>
 }

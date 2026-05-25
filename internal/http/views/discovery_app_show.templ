@@ -12,7 +12,7 @@ templ discoveryAppShowFact(label, value string) {
 	if value != "" {
 		<div>
 			<p class="text-xs uppercase tracking-wide text-muted-foreground">{ label }</p>
-			<p class="font-medium">{ value }</p>
+			<p class="font-medium" hx-disable>{ value }</p>
 		</div>
 	}
 }
@@ -46,9 +46,9 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 					<div class="flex min-w-0 items-start gap-4">
 						@ProductIcon(data.App.DisplayName, data.App.VendorName, data.App.PrimaryDomain, "size-12")
 						<div class="min-w-0 space-y-3">
-							<h2 class="text-2xl font-semibold leading-tight">{ data.App.DisplayName }</h2>
-							<p class="flex items-center gap-1.5 text-sm text-muted-foreground">
-								<span class="break-all">{ data.App.CanonicalKey }</span>
+							<h2 class="text-2xl font-semibold leading-tight" hx-disable>{ data.App.DisplayName }</h2>
+								<p class="flex items-center gap-1.5 text-sm text-muted-foreground">
+									<span class="break-all" hx-disable>{ data.App.CanonicalKey }</span>
 								@CopyTextButton(data.App.CanonicalKey, "Copy canonical key")
 							</p>
 						</div>
@@ -78,7 +78,7 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 					</dl>
 				}
 				if data.App.Notes != "" {
-					<p class="text-sm text-muted-foreground">{ data.App.Notes }</p>
+					<p class="text-sm text-muted-foreground" hx-disable>{ data.App.Notes }</p>
 				}
 				<p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
 					<span>{ HumanizeDiscoveryManagedReason(data.App.ManagedReason) }</span>
@@ -115,13 +115,13 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 									for _, item := range data.DecisionHistory {
 										<tr>
 											<td class="whitespace-nowrap">{ item.ChangedAt.Label }</td>
-											<td class="break-all">{ item.ChangedBy }</td>
+												<td class="break-all" hx-disable>{ item.ChangedBy }</td>
 											<td>
 												<span class={ DiscoveryReviewDispositionBadgeClass(item.ReviewDisposition) }>{ HumanizeDiscoveryReviewDisposition(item.ReviewDisposition) }</span>
 											</td>
 											<td class="whitespace-normal">
-												<div>{ item.Owner }</div>
-												<div class="text-xs text-muted-foreground">{ item.ReviewOwner }</div>
+													<div hx-disable>{ item.Owner }</div>
+													<div class="text-xs text-muted-foreground" hx-disable>{ item.ReviewOwner }</div>
 											</td>
 											<td class="whitespace-normal">
 												if item.FollowUpDueDate.Label != "" {
@@ -132,21 +132,21 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 													<span class="text-muted-foreground">—</span>
 												}
 											</td>
-											<td class="whitespace-normal">
-												if item.TicketRef != "" {
-													<div class="text-sm">{ item.TicketRef }</div>
-												}
-												if item.ReplacementDisplayName != "" {
-													<div class="text-xs text-muted-foreground">
-														{ "Replace with " }{ item.ReplacementDisplayName }
-														if item.ReplacementPrimaryDomain != "" {
-															{ " (" }{ item.ReplacementPrimaryDomain }{ ")" }
-														}
-													</div>
-												}
-												if item.Notes != "" {
-													<div class="text-xs text-muted-foreground">{ item.Notes }</div>
-												}
+												<td class="whitespace-normal">
+													if item.TicketRef != "" {
+														<div class="text-sm" hx-disable>{ item.TicketRef }</div>
+													}
+													if item.ReplacementDisplayName != "" {
+														<div class="text-xs text-muted-foreground" hx-disable>
+															{ "Replace with " }{ item.ReplacementDisplayName }
+															if item.ReplacementPrimaryDomain != "" {
+																{ " (" }{ item.ReplacementPrimaryDomain }{ ")" }
+															}
+														</div>
+													}
+													if item.Notes != "" {
+														<div class="text-xs text-muted-foreground" hx-disable>{ item.Notes }</div>
+													}
 												if item.TicketRef == "" && item.ReplacementDisplayName == "" && item.Notes == "" {
 													<span class="text-muted-foreground">—</span>
 												}
@@ -183,14 +183,14 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 									for _, source := range data.Sources {
 										<tr>
 											<td>
-												<div class="break-words">{ source.SourceKind }</div>
-												<div class="text-xs text-muted-foreground break-all">{ source.SourceName }</div>
-											</td>
-											<td>
-												<div class="break-words">{ source.SourceAppName }</div>
-												<div class="text-xs text-muted-foreground break-all">{ source.SourceAppID }</div>
-											</td>
-											<td class="break-all">{ source.SourceAppDomain }</td>
+													<div class="break-words">{ source.SourceKind }</div>
+													<div class="text-xs text-muted-foreground break-all" hx-disable>{ source.SourceName }</div>
+												</td>
+												<td>
+													<div class="break-words" hx-disable>{ source.SourceAppName }</div>
+													<div class="text-xs text-muted-foreground break-all" hx-disable>{ source.SourceAppID }</div>
+												</td>
+												<td class="break-all" hx-disable>{ source.SourceAppDomain }</td>
 											<td class="whitespace-nowrap">{ source.LastObservedAt.Label }</td>
 										</tr>
 									}
@@ -224,9 +224,9 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 								<tbody>
 									for _, actor := range data.TopActors {
 										<tr>
-											<td class="break-words">{ actor.ActorLabel }</td>
-											<td class="break-all">{ actor.ActorEmail }</td>
-											<td class="break-all">{ actor.ActorExternalID }</td>
+											<td class="break-words" hx-disable>{ actor.ActorLabel }</td>
+											<td class="break-all" hx-disable>{ actor.ActorEmail }</td>
+											<td class="break-all" hx-disable>{ actor.ActorExternalID }</td>
 											<td class="whitespace-nowrap"><span class="badge-outline">{ FormatInt64(actor.EventCount) }</span></td>
 											<td class="whitespace-nowrap">{ actor.LastObservedAt.Label }</td>
 										</tr>
@@ -337,8 +337,8 @@ templ discoveryAppShowGovernanceFormFields(data viewmodels.DiscoveryAppShowViewD
 				autocomplete="off"
 				hx-get="/discovery/apps/replacement-candidates"
 				hx-trigger="input changed delay:150ms, search"
+				hx-sync="this:replace"
 				hx-target="#discovery-replacement-candidates"
-				hx-swap="outerHTML"
 				hx-include="closest form"
 			/>
 		</label>
@@ -360,15 +360,15 @@ templ discoveryAppShowGovernanceSummary(data viewmodels.DiscoveryAppShowViewData
 		}
 		<div>
 			<p class="text-xs uppercase tracking-wide text-muted-foreground">Accountable owner</p>
-			<p class="mt-1 font-medium">{ data.App.Owner }</p>
+				<p class="mt-1 font-medium" hx-disable>{ data.App.Owner }</p>
 		</div>
 		<div>
 			<p class="text-xs uppercase tracking-wide text-muted-foreground">Review owner</p>
-			<p class="mt-1 font-medium">{ data.App.ReviewOwner }</p>
+				<p class="mt-1 font-medium" hx-disable>{ data.App.ReviewOwner }</p>
 		</div>
 		<div>
 			<p class="text-xs uppercase tracking-wide text-muted-foreground">Ticket reference</p>
-			<p class="mt-1 font-medium">
+				<p class="mt-1 font-medium" hx-disable>
 				if data.App.TicketRef != "" {
 					{ data.App.TicketRef }
 				} else {
@@ -379,10 +379,10 @@ templ discoveryAppShowGovernanceSummary(data viewmodels.DiscoveryAppShowViewData
 		if data.App.ReplacementDisplayName != "" {
 			<div>
 				<p class="text-xs uppercase tracking-wide text-muted-foreground">Replacement</p>
-				<p class="mt-1 font-medium">
-					{ data.App.ReplacementDisplayName }
-					if data.App.ReplacementPrimaryDomain != "" {
-						<span class="text-muted-foreground">{ " (" }{ data.App.ReplacementPrimaryDomain }{ ")" }</span>
+					<p class="mt-1 font-medium" hx-disable>
+						{ data.App.ReplacementDisplayName }
+						if data.App.ReplacementPrimaryDomain != "" {
+							<span class="text-muted-foreground">{ " (" }{ data.App.ReplacementPrimaryDomain }{ ")" }</span>
 					}
 				</p>
 			</div>
@@ -391,7 +391,7 @@ templ discoveryAppShowGovernanceSummary(data viewmodels.DiscoveryAppShowViewData
 	if data.App.Notes != "" {
 		<div class="space-y-2">
 			<p class="text-xs uppercase tracking-wide text-muted-foreground">Notes</p>
-			<p class="text-sm text-muted-foreground">{ data.App.Notes }</p>
+			<p class="text-sm text-muted-foreground" hx-disable>{ data.App.Notes }</p>
 		</div>
 	}
 	<p class="text-xs text-muted-foreground">Governance changes require an admin account.</p>
@@ -411,7 +411,6 @@ templ DiscoveryAppShowGovernanceDialog(data viewmodels.DiscoveryAppShowViewData)
 				action={ "/discovery/apps/" + FormatInt64(data.App.ID) + "/governance" }
 				hx-post={ "/discovery/apps/" + FormatInt64(data.App.ID) + "/governance" }
 				hx-target="#discovery-app-show-shell"
-				hx-swap="outerHTML"
 				hx-disabled-elt="this"
 			>
 				@CSRFInput(data.Layout.CSRFToken)
@@ -457,11 +456,11 @@ templ DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementC
 				<label class="flex cursor-pointer items-start gap-3">
 					<input class="mt-1" type="radio" name="replacement_saas_app_id" value={ FormatInt64(data.SelectedCandidate.ID) } checked/>
 					<div class="min-w-0">
-						<div class="font-medium">{ data.SelectedCandidate.DisplayName }</div>
-						<div class="text-xs text-muted-foreground">
-							if data.SelectedCandidate.Domain != "" {
-								<span>{ data.SelectedCandidate.Domain }</span>
-							}
+							<div class="font-medium" hx-disable>{ data.SelectedCandidate.DisplayName }</div>
+							<div class="text-xs text-muted-foreground" hx-disable>
+								if data.SelectedCandidate.Domain != "" {
+									<span>{ data.SelectedCandidate.Domain }</span>
+								}
 							if data.SelectedCandidate.VendorName != "" {
 								<span>{ " · " }{ data.SelectedCandidate.VendorName }</span>
 							}
@@ -483,11 +482,11 @@ templ DiscoveryReplacementCandidateResults(data viewmodels.DiscoveryReplacementC
 						<label class="flex cursor-pointer items-start gap-3 rounded-lg border border-border/70 bg-card/80 p-3">
 							<input class="mt-1" type="radio" name="replacement_saas_app_id" value={ FormatInt64(item.ID) } checked?={ item.IsSelected }/>
 							<div class="min-w-0">
-								<div class="font-medium">{ item.DisplayName }</div>
-								<div class="text-xs text-muted-foreground">
-									if item.Domain != "" {
-										<span>{ item.Domain }</span>
-									}
+									<div class="font-medium" hx-disable>{ item.DisplayName }</div>
+									<div class="text-xs text-muted-foreground" hx-disable>
+										if item.Domain != "" {
+											<span>{ item.Domain }</span>
+										}
 									if item.VendorName != "" {
 										<span>{ " · " }{ item.VendorName }</span>
 									}

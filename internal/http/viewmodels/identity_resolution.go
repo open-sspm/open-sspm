@@ -57,12 +57,20 @@ type IdentityResolutionCandidateItem struct {
 	HasEvidence                 bool
 	AcceptHref                  string
 	AcceptMergeHref             string
-	CanMergeProvisional         bool
 	RejectHref                  string
 	MarkServiceHref             string
 	MarkServiceCustodianHref    string
 	MarkSharedHref              string
-	RelationshipCount           int64
+	// Can* flags drive which action buttons render. The server is the
+	// source of truth for available transitions so authorization and UI
+	// stay in lock-step.
+	CanAccept               bool
+	CanMergeProvisional     bool
+	CanReject               bool
+	CanMarkService          bool
+	CanMarkServiceCustodian bool
+	CanMarkShared           bool
+	RelationshipCount       int64
 }
 
 type IdentityResolutionEvidenceItem struct {

@@ -1,0 +1,11 @@
+package views
+
+import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+
+templ NotFoundPage(layout viewmodels.LayoutData) {
+	@Layout(layout) {
+		@EmptyState("Page not found", "The page you tried to open doesn't exist or has moved.") {
+			<a class="btn-outline" href="/">Go to dashboard</a>
+		}
+	}
+}

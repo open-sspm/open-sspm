@@ -19,7 +19,9 @@ templ GoogleWorkspaceAccountsNeedingAnchorPage(data viewmodels.GoogleWorkspaceAc
 		} else {
 			@Alert("Google Workspace sync disabled", true) {
 				<p>
-					{ data.EmptyStateMsg } <a class="btn-sm-link px-1" href={ data.EmptyStateHref }>Configure Google Workspace</a>.
+					{ data.EmptyStateMsg } @ConnectorConfigureLink(data.EmptyStateHref, "btn-sm-link px-1") {
+						Configure Google Workspace
+					}.
 				</p>
 			}
 		}
@@ -35,8 +37,8 @@ templ GoogleWorkspaceAccountsNeedingAnchorPageFilters(data viewmodels.GoogleWork
 		data-enter-only-query="q"
 		hx-get="/accounts/needs-anchor/google-workspace"
 		hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+		hx-sync="this:replace"
 		hx-target="#google-workspace-needs-anchor-results"
-		hx-swap="outerHTML"
 		hx-push-url="true"
 		class="osspm-list-form"
 	>
@@ -69,15 +71,15 @@ templ GoogleWorkspaceAccountsNeedingAnchorPageResults(data viewmodels.GoogleWork
 						if data.HasUsers {
 							for _, u := range data.Users {
 								<tr>
-									<td class="font-medium"><span class="osspm-cell-primary osspm-truncate" title={ u.DisplayName }>{ u.DisplayName }</span></td>
+										<td class="font-medium"><span class="osspm-cell-primary osspm-truncate" title={ u.DisplayName } hx-disable>{ u.DisplayName }</span></td>
 									<td>
-										if u.Email != "" {
-											<span class="osspm-cell-primary osspm-truncate" title={ u.Email }>{ u.Email }</span>
-										} else {
+											if u.Email != "" {
+												<span class="osspm-cell-primary osspm-truncate" title={ u.Email } hx-disable>{ u.Email }</span>
+											} else {
 											<span class="text-muted-foreground">&mdash;</span>
 										}
 									</td>
-									<td class="osspm-col-id-wide text-muted-foreground"><code class="osspm-token" title={ u.ExternalID }>{ u.ExternalID }</code></td>
+										<td class="osspm-col-id-wide text-muted-foreground"><code class="osspm-token" title={ u.ExternalID } hx-disable>{ u.ExternalID }</code></td>
 									<td>
 										@sourceAccountNeedsAnchorLinkAction(data.Layout.IsAdmin, data.Layout.CSRFToken, u.ID, "input w-full osspm-token")
 									</td>

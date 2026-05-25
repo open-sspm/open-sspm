@@ -1,6 +1,9 @@
 package views
 
-import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+import (
+	"github.com/open-sspm/open-sspm/internal/http/events"
+	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
+)
 
 templ IdentityResolutionPage(data viewmodels.IdentityResolutionViewData) {
 	@Layout(data.Layout) {
@@ -9,7 +12,14 @@ templ IdentityResolutionPage(data viewmodels.IdentityResolutionViewData) {
 }
 
 templ IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) {
-	<div id="identity-resolution-results" class="space-y-6">
+		<div
+			id="identity-resolution-results"
+			class="space-y-6"
+			hx-get={ identityResolutionPageHref(data.Page, data.Status, data.Group) }
+			hx-trigger={ events.BusTrigger(events.IdentityResolutionChanged) }
+			hx-target="this"
+			hx-sync="this:replace"
+		>
 		<section class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
 			<div class="min-w-0">
 				<h2 class="text-lg font-semibold tracking-tight">{ data.StatusLabel }</h2>
@@ -23,7 +33,7 @@ templ IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) 
 					if option.Selected {
 						<span class="btn-sm-primary">{ option.Label }</span>
 					} else {
-						<a class="btn-sm-outline" href={ option.Href } hx-get={ option.Href } hx-target="#identity-resolution-results" hx-swap="outerHTML" hx-push-url="true">{ option.Label }</a>
+						<a class="btn-sm-outline" href={ option.Href } hx-get={ option.Href } hx-target="#identity-resolution-results" hx-swap="outerHTML show:top" hx-push-url="true">{ option.Label }</a>
 					}
 				}
 			</div>
@@ -32,7 +42,7 @@ templ IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) 
 					if option.Selected {
 						<span class="badge bg-primary text-primary-foreground">{ option.Label }</span>
 					} else {
-						<a class="badge-outline no-underline hover:bg-muted" href={ option.Href } hx-get={ option.Href } hx-target="#identity-resolution-results" hx-swap="outerHTML" hx-push-url="true">{ option.Label }</a>
+						<a class="badge-outline no-underline hover:bg-muted" href={ option.Href } hx-get={ option.Href } hx-target="#identity-resolution-results" hx-swap="outerHTML show:top" hx-push-url="true">{ option.Label }</a>
 					}
 				}
 			</div>
@@ -41,7 +51,7 @@ templ IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) 
 		if data.HasItems {
 			<section class="space-y-3">
 				for _, item := range data.Items {
-					<article class="rounded-md border border-border bg-background p-4 shadow-sm">
+						<article id={ "identity-resolution-candidate-" + FormatInt64(item.ID) } class="rounded-md border border-border bg-background p-4 shadow-sm">
 						<div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
 							<div class="min-w-0 flex-1 space-y-4">
 								<div class="flex flex-wrap items-center gap-2">
@@ -61,19 +71,19 @@ templ IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) 
 									<section class="min-w-0 space-y-2">
 										<div class="text-xs font-medium uppercase text-muted-foreground">Source Account</div>
 										<div class="min-w-0">
-											<div class="truncate font-medium">{ item.AccountDisplayName }</div>
-											if item.AccountEmail != "" {
-												<div class="truncate text-sm text-muted-foreground">{ item.AccountEmail }</div>
-											}
+												<div class="truncate font-medium" hx-disable>{ item.AccountDisplayName }</div>
+												if item.AccountEmail != "" {
+													<div class="truncate text-sm text-muted-foreground" hx-disable>{ item.AccountEmail }</div>
+												}
 										</div>
 										<div class="flex flex-wrap gap-2 text-xs text-muted-foreground">
 											<span>{ HumanizeConnectorKind(item.AccountSourceKind) }</span>
-											if item.AccountSourceName != "" {
-												<span>{ item.AccountSourceName }</span>
-											}
-											if item.AccountExternalID != "" {
-												<span class="truncate">{ item.AccountExternalID }</span>
-											}
+												if item.AccountSourceName != "" {
+													<span hx-disable>{ item.AccountSourceName }</span>
+												}
+												if item.AccountExternalID != "" {
+													<span class="truncate" hx-disable>{ item.AccountExternalID }</span>
+												}
 										</div>
 										<div class="flex flex-wrap gap-2">
 											if item.AccountKind != "" {
@@ -86,12 +96,12 @@ templ IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) 
 									</section>
 
 									<section class="min-w-0 space-y-2">
-										<div class="text-xs font-medium uppercase text-muted-foreground">Candidate Identity</div>
-										<a class="block min-w-0 no-underline hover:underline" href={ item.CandidateHref }>
-											<div class="truncate font-medium">{ item.CandidateDisplayName }</div>
-											if item.CandidatePrimaryEmail != "" {
-												<div class="truncate text-sm text-muted-foreground">{ item.CandidatePrimaryEmail }</div>
-											}
+											<div class="text-xs font-medium uppercase text-muted-foreground">Candidate Identity</div>
+											<a class="block min-w-0 no-underline hover:underline" href={ item.CandidateHref }>
+												<div class="truncate font-medium" hx-disable>{ item.CandidateDisplayName }</div>
+												if item.CandidatePrimaryEmail != "" {
+													<div class="truncate text-sm text-muted-foreground" hx-disable>{ item.CandidatePrimaryEmail }</div>
+												}
 										</a>
 										<div class="flex flex-wrap gap-2">
 											if item.CandidateResolutionState != "" {
@@ -106,12 +116,12 @@ templ IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) 
 
 								<div class="grid gap-3 md:grid-cols-2">
 									<section class="rounded-md border border-border/70 p-3">
-										<div class="text-xs font-medium uppercase text-muted-foreground">Current Rollup</div>
-										if item.CurrentIdentityID > 0 {
-											<a href={ item.CurrentIdentityHref } class="mt-1 block truncate font-medium no-underline hover:underline">{ item.CurrentIdentityDisplayName }</a>
-											if item.CurrentIdentityPrimaryEmail != "" {
-												<div class="truncate text-sm text-muted-foreground">{ item.CurrentIdentityPrimaryEmail }</div>
-											}
+											<div class="text-xs font-medium uppercase text-muted-foreground">Current Rollup</div>
+											if item.CurrentIdentityID > 0 {
+												<a href={ item.CurrentIdentityHref } class="mt-1 block truncate font-medium no-underline hover:underline"><span hx-disable>{ item.CurrentIdentityDisplayName }</span></a>
+												if item.CurrentIdentityPrimaryEmail != "" {
+													<div class="truncate text-sm text-muted-foreground" hx-disable>{ item.CurrentIdentityPrimaryEmail }</div>
+												}
 											<div class="mt-2 flex flex-wrap gap-2">
 												if item.CurrentLinkState != "" {
 													<span class="badge-outline">{ HumanizeIdentityResolutionToken(item.CurrentLinkState) }</span>
@@ -125,12 +135,12 @@ templ IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) 
 										}
 									</section>
 									<section class="rounded-md border border-border/70 p-3">
-										<div class="text-xs font-medium uppercase text-muted-foreground">Provisional Identity</div>
-										if item.ProvisionalIdentityID > 0 {
-											<a href={ item.ProvisionalHref } class="mt-1 block truncate font-medium no-underline hover:underline">{ item.ProvisionalDisplayName }</a>
-											if item.ProvisionalPrimaryEmail != "" {
-												<div class="truncate text-sm text-muted-foreground">{ item.ProvisionalPrimaryEmail }</div>
-											}
+											<div class="text-xs font-medium uppercase text-muted-foreground">Provisional Identity</div>
+											if item.ProvisionalIdentityID > 0 {
+												<a href={ item.ProvisionalHref } class="mt-1 block truncate font-medium no-underline hover:underline"><span hx-disable>{ item.ProvisionalDisplayName }</span></a>
+												if item.ProvisionalPrimaryEmail != "" {
+													<div class="truncate text-sm text-muted-foreground" hx-disable>{ item.ProvisionalPrimaryEmail }</div>
+												}
 										} else {
 											<div class="mt-1 text-sm text-muted-foreground">—</div>
 										}
@@ -160,14 +170,14 @@ templ IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) 
 																	<span class="osspm-cell-secondary">{ HumanizeIdentityResolutionToken(evidence.EvidenceKey) }</span>
 																}
 															</td>
-															<td class="max-w-[16rem] truncate">{ evidence.AccountValue }</td>
-															<td class="max-w-[16rem] truncate">{ evidence.IdentityValue }</td>
+																<td class="max-w-[16rem] truncate" hx-disable>{ evidence.AccountValue }</td>
+																<td class="max-w-[16rem] truncate" hx-disable>{ evidence.IdentityValue }</td>
 															<td>
 																if evidence.SourceKind != "" {
 																	<span>{ HumanizeConnectorKind(evidence.SourceKind) }</span>
-																	if evidence.SourceName != "" {
-																		<span class="osspm-cell-secondary">{ evidence.SourceName }</span>
-																	}
+																		if evidence.SourceName != "" {
+																			<span class="osspm-cell-secondary" hx-disable>{ evidence.SourceName }</span>
+																		}
 																} else {
 																	<span class="text-muted-foreground">—</span>
 																}
@@ -184,34 +194,7 @@ templ IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) 
 
 							<div class="flex shrink-0 flex-col gap-2 xl:w-44">
 								if data.Layout.IsAdmin {
-									<form method="post" action={ item.AcceptHref }>
-										@CSRFInput(data.Layout.CSRFToken)
-										<button type="submit" class="btn-sm-primary w-full">Accept</button>
-									</form>
-									if item.CanMergeProvisional {
-										<form method="post" action={ item.AcceptMergeHref }>
-											@CSRFInput(data.Layout.CSRFToken)
-											<input type="hidden" name="merge_provisional" value="true"/>
-											<button type="submit" class="btn-sm-outline w-full">Accept + merge</button>
-										</form>
-									}
-									<form method="post" action={ item.RejectHref }>
-										@CSRFInput(data.Layout.CSRFToken)
-										<button type="submit" class="btn-sm-outline w-full">Reject</button>
-									</form>
-									<form method="post" action={ item.MarkServiceHref }>
-										@CSRFInput(data.Layout.CSRFToken)
-										<button type="submit" class="btn-sm-outline w-full">Mark service</button>
-									</form>
-									<form method="post" action={ item.MarkServiceCustodianHref }>
-										@CSRFInput(data.Layout.CSRFToken)
-										<input type="hidden" name="relationship_type" value="custodian"/>
-										<button type="submit" class="btn-sm-outline w-full">Service custodian</button>
-									</form>
-									<form method="post" action={ item.MarkSharedHref }>
-										@CSRFInput(data.Layout.CSRFToken)
-										<button type="submit" class="btn-sm-outline w-full">Mark shared</button>
-									</form>
+									@identityResolutionActions(data.Layout.CSRFToken, item)
 								} else {
 									<span class="text-sm text-muted-foreground">Admin required</span>
 								}
@@ -226,12 +209,12 @@ templ IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) 
 					<p class="text-sm text-muted-foreground">Page { FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</p>
 					<div class="flex items-center gap-2">
 						if data.Page > 1 {
-							<a class="btn-sm-outline" href={ identityResolutionPageHref(data.Page - 1, data.Status, data.Group) } hx-get={ identityResolutionPageHref(data.Page - 1, data.Status, data.Group) } hx-target="#identity-resolution-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
+							<a class="btn-sm-outline" href={ identityResolutionPageHref(data.Page - 1, data.Status, data.Group) } hx-get={ identityResolutionPageHref(data.Page - 1, data.Status, data.Group) } hx-target="#identity-resolution-results" hx-swap="outerHTML show:top" hx-push-url="true">Previous</a>
 						} else {
 							<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
 						}
 						if data.Page < data.TotalPages {
-							<a class="btn-sm-outline" href={ identityResolutionPageHref(data.Page + 1, data.Status, data.Group) } hx-get={ identityResolutionPageHref(data.Page + 1, data.Status, data.Group) } hx-target="#identity-resolution-results" hx-swap="outerHTML" hx-push-url="true">Next</a>
+							<a class="btn-sm-outline" href={ identityResolutionPageHref(data.Page + 1, data.Status, data.Group) } hx-get={ identityResolutionPageHref(data.Page + 1, data.Status, data.Group) } hx-target="#identity-resolution-results" hx-swap="outerHTML show:top" hx-push-url="true">Next</a>
 						} else {
 							<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
 						}
@@ -242,4 +225,91 @@ templ IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) 
 			@EmptyState("No pending candidates", data.EmptyStateMsg)
 		}
 	</div>
+}
+
+// identityResolutionActions consolidates the six per-candidate decision forms
+// into one form whose buttons each carry their own hx-post + structured
+// confirm metadata. The styled confirm modal (confirm.js) picks up the
+// data-osspm-confirm-* attributes and presents a real dialog instead of a
+// browser confirm/prompt.
+templ identityResolutionActions(csrfToken string, item viewmodels.IdentityResolutionCandidateItem) {
+	<form
+		method="post"
+		action={ item.AcceptHref }
+		hx-target={ "#identity-resolution-candidate-" + FormatInt64(item.ID) }
+		hx-swap="swap:200ms"
+		hx-disabled-elt="this"
+		class="flex flex-col gap-2"
+	>
+		@CSRFInput(csrfToken)
+		if item.CanAccept {
+			<button
+				type="submit"
+				class="btn-sm-primary w-full"
+				hx-post={ item.AcceptHref }
+			>Accept</button>
+		}
+		if item.CanMergeProvisional {
+			<button
+				type="submit"
+				class="btn-sm-outline w-full"
+				hx-post={ item.AcceptMergeHref }
+				name="merge_provisional"
+				value="true"
+				data-osspm-confirm-title="Accept and merge?"
+				data-osspm-confirm-body="Accepts the match and merges the provisional identity into the candidate."
+				data-osspm-confirm-accept-label="Accept + merge"
+				hx-confirm=" "
+			>Accept + merge</button>
+		}
+		if item.CanReject {
+			<button
+				type="submit"
+				class="btn-sm-outline w-full"
+				hx-post={ item.RejectHref }
+				data-osspm-confirm-title="Reject candidate?"
+				data-osspm-confirm-body="The candidate stays suppressed until its evidence changes."
+				data-osspm-confirm-accept-label="Reject"
+				data-osspm-confirm-tone="warning"
+				data-osspm-confirm-reason="Optional reason"
+				data-osspm-confirm-reason-name="review_note"
+				hx-confirm=" "
+			>Reject</button>
+		}
+		if item.CanMarkService {
+			<button
+				type="submit"
+				class="btn-sm-outline w-full"
+				hx-post={ item.MarkServiceHref }
+				data-osspm-confirm-title="Classify as service account?"
+				data-osspm-confirm-body="Marks the source account as a service identity and rejects the candidate."
+				data-osspm-confirm-accept-label="Mark service"
+				hx-confirm=" "
+			>Mark service</button>
+		}
+		if item.CanMarkServiceCustodian {
+			<button
+				type="submit"
+				class="btn-sm-outline w-full"
+				hx-post={ item.MarkServiceCustodianHref }
+				name="relationship_type"
+				value="custodian"
+				data-osspm-confirm-title="Classify as service custodian?"
+				data-osspm-confirm-body="Records the source account as a service custodian, not a primary owner."
+				data-osspm-confirm-accept-label="Mark custodian"
+				hx-confirm=" "
+			>Service custodian</button>
+		}
+		if item.CanMarkShared {
+			<button
+				type="submit"
+				class="btn-sm-outline w-full"
+				hx-post={ item.MarkSharedHref }
+				data-osspm-confirm-title="Classify as shared account?"
+				data-osspm-confirm-body="Marks the source account as shared and rejects the candidate."
+				data-osspm-confirm-accept-label="Mark shared"
+				hx-confirm=" "
+			>Mark shared</button>
+		}
+	</form>
 }

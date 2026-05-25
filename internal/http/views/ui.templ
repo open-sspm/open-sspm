@@ -48,6 +48,14 @@ templ EmptyState(title, description string) {
 	</div>
 }
 
+templ ConnectorConfigureLink(href string, class string) {
+	if dialogHref := ConnectorDialogHref(href); dialogHref != "" {
+		<a class={ class } href={ href } hx-get={ dialogHref } hx-target="body" hx-swap="beforeend" hx-push-url="false">{ children... }</a>
+	} else {
+		<a class={ class } href={ href }>{ children... }</a>
+	}
+}
+
 templ BusyInlineIndicator(label string, initiallyVisible bool) {
 	<div
 		data-busy-inline-indicator
@@ -80,20 +88,22 @@ templ ListPagination(targetID string, page, totalPages int, hrefForPage func(int
 	<div class="osspm-list-pagination">
 		<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(page) }{ " of " }{ FormatInt(totalPages) }</div>
 		<div class="button-group ml-auto">
-			if page > 1 {
-				{{ prevHref := hrefForPage(page - 1) }}
-				<a class="btn-sm-outline" href={ prevHref } hx-get={ prevHref } hx-target={ "#" + targetID } hx-swap="outerHTML" hx-push-url="true">Previous</a>
-			} else {
-				<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
-			}
-			if page < totalPages {
-				{{ nextHref := hrefForPage(page + 1) }}
-				<a class="btn-sm-outline" href={ nextHref } hx-get={ nextHref } hx-target={ "#" + targetID } hx-swap="outerHTML" hx-push-url="true">Next</a>
-			} else {
-				<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
-			}
+			@paginationButton(targetID, hrefForPage, page-1, page > 1, "Previous")
+			@paginationButton(targetID, hrefForPage, page+1, page < totalPages, "Next")
 		</div>
 	</div>
+}
+
+// paginationButton renders either an active anchor (with htmx swap) or a
+// disabled <a> element. Disabled state uses aria-disabled and tabindex=-1 so
+// keyboard users skip past it; styling is via .btn-sm-outline + opacity-50.
+templ paginationButton(targetID string, hrefForPage func(int) string, targetPage int, enabled bool, label string) {
+	if enabled {
+		{{ href := hrefForPage(targetPage) }}
+		<a class="btn-sm-outline" href={ href } hx-get={ href } hx-target={ "#" + targetID } hx-swap="outerHTML show:top" hx-push-url="true">{ label }</a>
+	} else {
+		<a class="btn-sm-outline opacity-50" aria-disabled="true" tabindex="-1" role="link">{ label }</a>
+	}
 }
 
 templ TableCard(title, description string) {
@@ -279,6 +289,45 @@ templ CSRFInput(token string) {
 	<input type="hidden" name="csrf" value={ token }/>
 }
 
+// UntrustedText renders a string from an external system (connector display
+// name, identity name, oauth app title, etc.) inside an hx-disable wrapper so
+// htmx will not interpret any hx-* attributes the upstream might have smuggled
+// into the value. Use everywhere strings flow from connectors into a view.
+templ UntrustedText(value string) {
+	<span hx-disable>{ value }</span>
+}
+
+// ConfirmDialogShell renders the always-present <dialog> that the confirm.js
+// listener populates when htmx:confirm fires. Lives once in the layout; the
+// JS sets the title/body/buttons at confirm time, then issues the original
+// htmx request when accepted.
+templ ConfirmDialogShell() {
+	<dialog id="osspm-confirm-dialog" class="dialog" data-osspm-confirm-dialog aria-labelledby="osspm-confirm-title" aria-describedby="osspm-confirm-description">
+		<form method="dialog" data-osspm-confirm-form>
+			<button type="button" class="btn-icon-ghost" aria-label="Close" data-dialog-close data-osspm-confirm-cancel>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+					<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"/>
+				</svg>
+			</button>
+			<header>
+				<h2 id="osspm-confirm-title" data-osspm-confirm-title>Confirm</h2>
+				<p id="osspm-confirm-description" data-osspm-confirm-description class="sr-only"></p>
+			</header>
+			<section class="space-y-3">
+				<p class="text-sm" data-osspm-confirm-body></p>
+				<label class="block text-sm" data-osspm-confirm-reason hidden>
+					<span class="mb-1 block text-sm font-medium" data-osspm-confirm-reason-label>Reason</span>
+					<textarea data-osspm-confirm-reason-input name="reason" rows="3" class="w-full rounded-md border border-border bg-background p-2 text-sm"></textarea>
+				</label>
+			</section>
+			<footer>
+				<button type="button" class="btn-ghost" data-dialog-close data-osspm-confirm-cancel>Cancel</button>
+				<button type="button" class="btn-primary" data-osspm-confirm-accept>Confirm</button>
+			</footer>
+		</form>
+	</dialog>
+}
+
 templ CopyTextButton(value string, label string) {
 	if CopyableValue(value) {
 		<button
@@ -297,6 +346,30 @@ templ CopyTextButton(value string, label string) {
 templ FormDialog(id string, open bool, title string, description string, closeHref string, formAction string, submitLabel string, csrfToken string) {
 	<dialog id={ id } class="dialog" data-open?={ open } data-close-href={ closeHref } aria-labelledby={ id + "-title" } aria-describedby={ id + "-description" }>
 		<form method="post" action={ formAction }>
+			@CSRFInput(csrfToken)
+			<button type="button" class="btn-icon-ghost" aria-label="Close" data-dialog-close>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+					<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"/>
+				</svg>
+			</button>
+			<header>
+				<h2 id={ id + "-title" }>{ title }</h2>
+				<p id={ id + "-description" } class={ templ.Classes(templ.KV("sr-only", description == "")) }>{ description }</p>
+			</header>
+			<section class="space-y-4">
+				{ children... }
+			</section>
+			<footer>
+				<button type="button" class="btn-ghost" data-dialog-close>Cancel</button>
+				<button type="submit" class="btn-primary">{ submitLabel }</button>
+			</footer>
+		</form>
+	</dialog>
+}
+
+templ HtmxFormDialog(id string, open bool, title string, description string, formAction string, submitLabel string, csrfToken string) {
+	<dialog id={ id } class="dialog" data-open?={ open } data-remove-on-close aria-labelledby={ id + "-title" } aria-describedby={ id + "-description" }>
+		<form method="post" action={ formAction } hx-post={ formAction } hx-target="closest dialog" hx-disabled-elt="find button[type='submit']">
 			@CSRFInput(csrfToken)
 			<button type="button" class="btn-icon-ghost" aria-label="Close" data-dialog-close>
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

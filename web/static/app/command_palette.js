@@ -105,6 +105,14 @@ const handleDialogClick = (e) => {
   }
 };
 
+const handleDialogKeydown = (e) => {
+  if (e.key !== "Escape") return;
+
+  e.preventDefault();
+  e.stopPropagation();
+  close();
+};
+
 export const wireCommandPalette = () => {
   if (document.documentElement.dataset[DOCUMENT_BOUND_ATTR] !== "true") {
     document.addEventListener("keydown", handleShortcutKeydown);
@@ -117,5 +125,6 @@ export const wireCommandPalette = () => {
   if (dialog.dataset[DIALOG_BOUND_ATTR] === "true") return;
 
   dialog.addEventListener("click", handleDialogClick);
+  dialog.addEventListener("keydown", handleDialogKeydown);
   dialog.dataset[DIALOG_BOUND_ATTR] = "true";
 };

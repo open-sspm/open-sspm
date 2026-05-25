@@ -101,7 +101,39 @@ func handleUnauth(c *echo.Context) error {
 			location = "/login?next=" + url.QueryEscape(next)
 		}
 	}
+	if isHXRequest(c) {
+		addVary(c, "HX-Request")
+		c.Response().Header().Set("HX-Redirect", location)
+		return c.NoContent(http.StatusOK)
+	}
 	return c.Redirect(http.StatusSeeOther, location)
+}
+
+func isHXRequest(c *echo.Context) bool {
+	if c == nil || c.Request() == nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(c.Request().Header.Get("HX-Request")), "true")
+}
+
+func addVary(c *echo.Context, value string) {
+	if c == nil {
+		return
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return
+	}
+
+	header := c.Response().Header()
+	for _, line := range header.Values(echo.HeaderVary) {
+		for _, existing := range strings.Split(line, ",") {
+			if strings.EqualFold(strings.TrimSpace(existing), value) {
+				return
+			}
+		}
+	}
+	header.Add(echo.HeaderVary, value)
 }
 
 func SanitizeNext(next string) string {

@@ -39,4 +39,29 @@ describe("toaster component", () => {
     expect(oldToaster.querySelectorAll(".toast")).toHaveLength(0);
     expect(newToaster.querySelectorAll(".toast")).toHaveLength(1);
   });
+
+  it("renders direct HTMX trigger toast payloads", () => {
+    document.body.innerHTML = `<section id="toaster" class="toaster"></section>`;
+    start();
+
+    document.dispatchEvent(
+      new CustomEvent("osspm:toast", {
+        detail: { category: "success", title: "Saved", description: "Done" },
+      }),
+    );
+
+    const toast = document.querySelector("#toaster .toast");
+    expect(toast?.getAttribute("data-category")).toBe("success");
+    expect(toast?.querySelector("h2")?.textContent).toBe("Saved");
+    expect(toast?.querySelector("p")?.textContent).toBe("Done");
+  });
+
+  it("ignores empty toast events", () => {
+    document.body.innerHTML = `<section id="toaster" class="toaster"></section>`;
+    start();
+
+    document.dispatchEvent(new CustomEvent("osspm:toast", { detail: {} }));
+
+    expect(document.querySelector("#toaster .toast")).toBeNull();
+  });
 });

@@ -1,9 +1,19 @@
 package views
 
-import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+import (
+	"github.com/open-sspm/open-sspm/internal/http/events"
+	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
+)
 
 templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 	@Layout(data.Layout) {
+		@SettingsConnectorHealthPanel(data)
+		<div id="connector-health-error-details-host"></div>
+	}
+}
+
+templ SettingsConnectorHealthPanel(data viewmodels.ConnectorHealthViewData) {
+	<div id="connector-health-panel" class="space-y-3" hx-get="/settings/connector-health" hx-trigger={ events.BusTrigger(events.ConnectorHealthChanged) } hx-target="this" hx-sync="this:replace">
 		if data.ShowWarning && data.WarningMessage != "" {
 			@Alert("Attention required", data.WarningDestructive) {
 				<p>{ data.WarningMessage }</p>
@@ -126,7 +136,7 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 													</div>
 												}
 												if item.CanTriggerSync {
-													<form method="post" action="/settings/connector-health/sync">
+													<form method="post" action="/settings/connector-health/sync" hx-post="/settings/connector-health/sync" hx-target="#connector-health-panel" hx-disabled-elt="closest tr">
 														@CSRFInput(data.Layout.CSRFToken)
 														<input type="hidden" name="connector_kind" value={ item.Kind }/>
 														<input type="hidden" name="source_name" value={ item.SourceName }/>
@@ -151,9 +161,7 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 			</table>
 			}
 			</section>
-
-		<div id="connector-health-error-details-host"></div>
-	}
+	</div>
 }
 
 templ ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDetailsDialogViewData) {
@@ -172,9 +180,9 @@ templ ConnectorHealthErrorDetailsDialog(data viewmodels.ConnectorHealthErrorDeta
 			</button>
 			<header>
 				<h2 id={ data.DialogID + "-title" }>{ data.ConnectorName }{ " errors" }</h2>
-				<p id={ data.DialogID + "-description" } class="text-sm text-muted-foreground break-words">
-					Latest non-success runs for { data.ConnectorName }{ " · " }{ data.SourceName }.
-				</p>
+					<p id={ data.DialogID + "-description" } class="text-sm text-muted-foreground break-words" hx-disable>
+						Latest non-success runs for { data.ConnectorName }{ " · " }{ data.SourceName }.
+					</p>
 			</header>
 			<section class="space-y-4">
 				@ColumnsTable("") {

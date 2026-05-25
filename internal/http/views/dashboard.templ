@@ -1,9 +1,25 @@
 package views
 
-import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
+import (
+	"github.com/open-sspm/open-sspm/internal/http/events"
+	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
+)
 
 templ DashboardPage(data viewmodels.DashboardViewData) {
 	@Layout(data.Layout) {
+		@DashboardContent(data)
+	}
+}
+
+templ DashboardContent(data viewmodels.DashboardViewData) {
+	<div
+		id="dashboard-content"
+		class="space-y-6"
+		hx-get="/"
+		hx-trigger={ events.BusTriggers(events.DataSyncChanged, events.ConnectorsChanged, events.IdentityResolutionChanged, events.FindingsRulesetChanged, events.FindingsRuleChanged) }
+		hx-target="this"
+		hx-sync="this:replace"
+	>
 		<section class="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-3" aria-label="Key metrics">
 			<a href="/identities" class="dashboard-kpi group block space-y-1 no-underline">
 				<p class="text-4xl font-semibold tracking-tight tabular-nums">{ FormatInt64(data.IdentityCount) }</p>
@@ -62,5 +78,5 @@ templ DashboardPage(data viewmodels.DashboardViewData) {
 				</div>
 			}
 		</section>
-	}
-	}
+	</div>
+}

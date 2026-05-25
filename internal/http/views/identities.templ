@@ -19,8 +19,8 @@ templ IdentitiesPageFilters(data viewmodels.IdentitiesViewData) {
 		action="/identities"
 		hx-get="/identities"
 		hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+		hx-sync="this:replace"
 		hx-target="#identities-results"
-		hx-swap="outerHTML"
 		hx-push-url="true"
 		class="osspm-list-form-tight"
 	>
@@ -93,12 +93,12 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 					<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
 					<div class="button-group ml-auto">
 						if data.Page > 1 {
-							<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#identities-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
+							<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#identities-results" hx-swap="outerHTML show:top" hx-push-url="true">Previous</a>
 						} else {
 							<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
 						}
 						if data.Page < data.TotalPages {
-							<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#identities-results" hx-swap="outerHTML" hx-push-url="true">Next</a>
+							<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#identities-results" hx-swap="outerHTML show:top" hx-push-url="true">Next</a>
 						} else {
 							<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
 						}
@@ -113,11 +113,26 @@ templ IdentitiesPageResults(data viewmodels.IdentitiesViewData) {
 // numbers. Uses typographic hierarchy only — no cards, no tiles, no borders
 // between stats. Each number is tabular so they align vertically across syncs.
 templ identitiesStatStrip(data viewmodels.IdentitiesViewData) {
-	<section class="osspm-stat-strip" aria-label="Identity inventory summary">
+	@identitiesStatStripWithOOB(data, false)
+}
+
+templ IdentitiesStatStripOOB(data viewmodels.IdentitiesViewData) {
+	@identitiesStatStripWithOOB(data, true)
+}
+
+templ identitiesStatStripWithOOB(data viewmodels.IdentitiesViewData, oob bool) {
+	<section
+		id="identities-stats"
+		class="osspm-stat-strip"
+		aria-label="Identity inventory summary"
+		if oob {
+			hx-swap-oob="morph:outerHTML"
+		}
+	>
 		@identityStat(FormatInt64(data.Summary.Total), "identities in scope", "")
-			@identityStat(FormatInt64(data.Summary.ActionRequired), "need action", identityStatTone(data.Summary.ActionRequired, "danger"))
-			@identityStat(FormatInt64(data.Summary.Privileged), "privileged", identityStatTone(data.Summary.Privileged, "warn"))
-			@identityStat(FormatInt64(data.Summary.MissingAnchor), "need anchor", "")
+		@identityStat(FormatInt64(data.Summary.ActionRequired), "need action", identityStatTone(data.Summary.ActionRequired, "danger"))
+		@identityStat(FormatInt64(data.Summary.Privileged), "privileged", identityStatTone(data.Summary.Privileged, "warn"))
+		@identityStat(FormatInt64(data.Summary.MissingAnchor), "need anchor", "")
 		@identityStat(FormatInt64(data.Summary.Suspended), "suspended", "")
 	</section>
 }

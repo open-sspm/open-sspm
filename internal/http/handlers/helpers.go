@@ -19,7 +19,15 @@ func destructiveAlert(title, message string) *viewmodels.AlertViewData {
 }
 
 func redirectWithFlash(c *echo.Context, path string, toast viewmodels.ToastViewData) error {
-	setFlashToast(c, toast)
+	setResponseToast(c, toast)
+	if isHX(c) {
+		if isHXBoosted(c) {
+			setHXLocation(c, path)
+			return c.NoContent(http.StatusOK)
+		}
+		setHXRedirect(c, path)
+		return c.NoContent(http.StatusOK)
+	}
 	return c.Redirect(http.StatusSeeOther, path)
 }
 

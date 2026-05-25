@@ -21,8 +21,8 @@ templ AppsPageFilters(data viewmodels.AppsViewData) {
 			data-enter-only-query="q"
 			hx-get="/assigned-apps"
 			hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+			hx-sync="this:replace"
 			hx-target="#apps-results"
-			hx-swap="outerHTML"
 			hx-push-url="true"
 			class="osspm-list-form"
 		>
@@ -82,12 +82,12 @@ templ AppsPageResults(data viewmodels.AppsViewData) {
 				</p>
 				<div class="button-group">
 					if data.Page > 1 {
-						<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#apps-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
+						<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#apps-results" hx-swap="outerHTML show:top" hx-push-url="true">Previous</a>
 					} else {
 						<span class="btn-sm-outline opacity-40" aria-disabled="true">Previous</span>
 					}
 					if data.Page < data.TotalPages {
-						<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#apps-results" hx-swap="outerHTML" hx-push-url="true">Next</a>
+						<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#apps-results" hx-swap="outerHTML show:top" hx-push-url="true">Next</a>
 					} else {
 						<span class="btn-sm-outline opacity-40" aria-disabled="true">Next</span>
 					}

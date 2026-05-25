@@ -73,8 +73,19 @@ export const closeDialog = (dialog) => {
   }
 };
 
+const removeOlderDialogWithSameID = (dialog) => {
+  if (!(dialog instanceof HTMLElement)) return;
+  const id = (dialog.id || "").trim();
+  if (!id || typeof CSS === "undefined" || typeof CSS.escape !== "function") return;
+
+  document.querySelectorAll(`dialog#${CSS.escape(id)}[data-remove-on-close]`).forEach((existing) => {
+    if (existing !== dialog) existing.remove();
+  });
+};
+
 export const openServerDialogs = (root = document) => {
   root.querySelectorAll("dialog[data-open]").forEach((dialog) => {
+    removeOlderDialogWithSameID(dialog);
     openDialog(dialog);
     dialog.removeAttribute("data-open");
   });
@@ -158,5 +169,20 @@ export const wireDialogCloseNavigation = (root = document) => {
     });
 
     dialog.dataset.closeNavBound = "true";
+  });
+};
+
+export const wireDialogRemoveOnClose = (root = document) => {
+  root.querySelectorAll("dialog[data-remove-on-close]").forEach((dialog) => {
+    if (!(dialog instanceof HTMLElement)) return;
+    if (dialog.dataset.removeOnCloseBound === "true") return;
+
+    dialog.addEventListener("close", () => {
+      scheduleSoon(() => {
+        if (!isDialogOpen(dialog)) dialog.remove();
+      });
+    });
+
+    dialog.dataset.removeOnCloseBound = "true";
   });
 };

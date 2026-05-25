@@ -158,6 +158,69 @@ func TestHandleIdentityResolutionCandidateDetailReturnsEvidence(t *testing.T) {
 	})
 }
 
+func TestHandleIdentityResolutionCandidateAcceptHTMXConflictUsesTriggerNoRedirect(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
+		accountID := insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
+			SourceKind:     configstore.KindGitHub,
+			SourceName:     "acme",
+			ExternalID:     "already-reviewed-user",
+			Email:          "reviewed@example.com",
+			DisplayName:    "Already Reviewed User",
+			Status:         "active",
+			AccountKind:    "human",
+			EntityCategory: "user",
+			RawJSON:        `{}`,
+		})
+		candidateIdentity := insertCommandSearchIdentity(t, ctx, pool, "human", "reviewed@example.com", "Reviewed Candidate")
+		candidate, err := q.UpsertIdentityMatchCandidate(ctx, gen.UpsertIdentityMatchCandidateParams{
+			AccountID:           accountID,
+			CandidateIdentityID: candidateIdentity,
+			ConfidenceBand:      "conflict",
+			Score:               40,
+			MatchReason:         "ambiguous_primary_email",
+			ResolverVersion:     "test",
+			ResolverFingerprint: "reviewed-candidate",
+		})
+		if err != nil {
+			t.Fatalf("UpsertIdentityMatchCandidate(): %v", err)
+		}
+		if err := q.RejectIdentityMatchCandidate(ctx, gen.RejectIdentityMatchCandidateParams{
+			ReviewedBy: pgtype.Text{String: "admin@example.com", Valid: true},
+			ReviewNote: pgtype.Text{String: "stale", Valid: true},
+			ID:         candidate.ID,
+		}); err != nil {
+			t.Fatalf("RejectIdentityMatchCandidate(): %v", err)
+		}
+
+		target := "http://example.com/identity-resolution/candidates/" + strconv.FormatInt(candidate.ID, 10) + "/accept"
+		c, rec := newTestContext(http.MethodPost, target)
+		(*c).SetPath("/identity-resolution/candidates/:id/accept")
+		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(candidate.ID, 10)}})
+		(*c).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: 1, Email: "admin@example.com", Role: "admin"})
+		(*c).Request().Header.Set("HX-Request", "true")
+
+		if err := h.HandleIdentityResolutionCandidateAccept(c); err != nil {
+			t.Fatalf("HandleIdentityResolutionCandidateAccept(): %v", err)
+		}
+		if rec.Code != http.StatusConflict {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusConflict, rec.Body.String())
+		}
+		if rec.Body.String() != "" {
+			t.Fatalf("body = %q, want empty HTMX conflict response", rec.Body.String())
+		}
+		trigger := rec.Header().Get("HX-Trigger")
+		for _, want := range []string{`"osspm:toast"`, `"osspm:identity-resolution-changed"`, `"status":"conflict"`} {
+			if !strings.Contains(trigger, want) {
+				t.Fatalf("HX-Trigger = %q, missing %s", trigger, want)
+			}
+		}
+		if got := rec.Header().Get("HX-Redirect"); got != "" {
+			t.Fatalf("HX-Redirect = %q, want empty", got)
+		}
+	})
+}
+
 func TestHandleIdentityResolutionCandidatesFiltersStatusAndGroup(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")

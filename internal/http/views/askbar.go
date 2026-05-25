@@ -2,6 +2,7 @@ package views
 
 import (
 	"encoding/json"
+	"net/url"
 	"strings"
 )
 
@@ -31,6 +32,22 @@ type AskBarKeyword struct {
 type AskBarHidden struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
+}
+
+type AskBarSuggestionItem struct {
+	Field      string
+	Value      string
+	Label      string
+	Tone       string
+	FieldLabel string
+	Active     bool
+}
+
+type AskBarSuggestionsViewData struct {
+	Items        []AskBarSuggestionItem
+	DisplayText  string
+	Error        string
+	ShowFreeText bool
 }
 
 // AskBarSavedQuery is one pill rendered below the bar. Pills are plain anchors
@@ -72,6 +89,7 @@ type AskBarConfig struct {
 	GrammarHints    []AskBarGrammarHint
 	HasRightActions bool
 	HxTarget        string
+	SuggestionScope string
 }
 
 // AskBarChipClass returns the CSS class for a chip given its tone.
@@ -102,6 +120,7 @@ func AskBarConfigJSON(cfg AskBarConfig) string {
 		"singletonFields": ensureSlice(cfg.SingletonFields),
 		"freeTextFields":  ensureSlice(cfg.FreeTextFields),
 		"staticHidden":    ensureHiddenSlice(cfg.StaticHidden),
+		"suggestEndpoint": askBarSuggestEndpoint(cfg.SuggestionScope),
 	}
 	b, err := json.Marshal(payload)
 	if err != nil {
@@ -131,6 +150,14 @@ func AskBarHiddenInputs(cfg AskBarConfig) []AskBarHidden {
 	hidden = append(hidden, cfg.StaticHidden...)
 	hidden = append(hidden, cfg.Hidden...)
 	return hidden
+}
+
+func askBarSuggestEndpoint(scope string) string {
+	scope = strings.TrimSpace(scope)
+	if scope == "" {
+		return ""
+	}
+	return "/askbar/suggestions?scope=" + url.QueryEscape(scope)
 }
 
 func ensureMapString(m map[string]string) map[string]string {

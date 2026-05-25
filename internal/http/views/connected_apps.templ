@@ -16,8 +16,8 @@ templ ConnectedAppsPageFilters(data viewmodels.ConnectedAppsViewData) {
 			data-enter-only-query="q"
 			hx-get="/app-assets"
 			hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+			hx-sync="this:replace"
 			hx-target="#app-assets-results"
-			hx-swap="outerHTML"
 			hx-push-url="true"
 			class="osspm-list-form"
 		>
@@ -48,26 +48,26 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 								<div class="flex min-w-0 items-start gap-3">
 									@ProductIcon(item.DisplayName, item.ExternalID, "", "size-8")
 									<div class="min-w-0 space-y-1">
-										<a class="text-base font-semibold hover:underline" href={ "/app-assets/" + FormatInt64(item.ID) }>{ item.DisplayName }</a>
-										<div class="text-sm text-muted-foreground">{ item.Status }</div>
-										<div class="text-xs text-muted-foreground break-all">{ item.ExternalID }</div>
+											<a class="text-base font-semibold hover:underline" href={ "/app-assets/" + FormatInt64(item.ID) }><span hx-disable>{ item.DisplayName }</span></a>
+											<div class="text-sm text-muted-foreground">{ item.Status }</div>
+											<div class="text-xs text-muted-foreground break-all" hx-disable>{ item.ExternalID }</div>
 									</div>
 								</div>
 								<div class="flex flex-wrap items-center gap-2">
 									<span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span>
-									if item.TicketRef != "" {
-										<span class="badge-outline">{ item.TicketRef }</span>
-									}
+										if item.TicketRef != "" {
+											<span class="badge-outline" hx-disable>{ item.TicketRef }</span>
+										}
 									<span class={ AppAssetEvidenceConfidenceBadgeClass(item.EvidenceConfidence) }>{ HumanizeAppAssetEvidenceConfidence(item.EvidenceConfidence) }</span>
 									<span class={ AppAssetEvidenceFreshnessBadgeClass(item.EvidenceFreshness) }>{ HumanizeAppAssetEvidenceFreshness(item.EvidenceFreshness) }</span>
 								</div>
 								<div class="grid gap-3 sm:grid-cols-2">
 									<div>
-										<p class="text-xs uppercase tracking-wide text-muted-foreground">Owner</p>
-										<p class="mt-1 text-sm">{ item.GovernanceOwner }</p>
-										if item.GovernanceOwnerEmail != "" && item.GovernanceOwnerEmail != item.GovernanceOwner {
-											<p class="text-xs text-muted-foreground break-all">{ item.GovernanceOwnerEmail }</p>
-										}
+											<p class="text-xs uppercase tracking-wide text-muted-foreground">Owner</p>
+											<p class="mt-1 text-sm" hx-disable>{ item.GovernanceOwner }</p>
+											if item.GovernanceOwnerEmail != "" && item.GovernanceOwnerEmail != item.GovernanceOwner {
+												<p class="text-xs text-muted-foreground break-all" hx-disable>{ item.GovernanceOwnerEmail }</p>
+											}
 										<p class="text-xs text-muted-foreground">{ FormatInt(item.LikelyOwnerCount) }{ " likely owner(s)" }</p>
 									</div>
 									<div>
@@ -106,25 +106,25 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 											<div class="flex min-w-0 items-center gap-3">
 												@ProductIcon(item.DisplayName, item.ExternalID, "", "size-8")
 												<div class="min-w-0 flex-1">
-													<a class="btn-sm-link px-0 font-medium" href={ "/app-assets/" + FormatInt64(item.ID) } title={ item.DisplayName }>{ item.DisplayName }</a>
-													<div class="text-sm text-muted-foreground">{ item.Status }</div>
-													<div class="text-xs text-muted-foreground break-all">{ item.ExternalID }</div>
+														<a class="btn-sm-link px-0 font-medium" href={ "/app-assets/" + FormatInt64(item.ID) } title={ item.DisplayName }><span hx-disable>{ item.DisplayName }</span></a>
+														<div class="text-sm text-muted-foreground">{ item.Status }</div>
+														<div class="text-xs text-muted-foreground break-all" hx-disable>{ item.ExternalID }</div>
 												</div>
 											</div>
 										</td>
 										<td>
 											<div class="flex flex-wrap items-center gap-2">
 												<span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span>
-												if item.TicketRef != "" {
-													<span class="badge-outline">{ item.TicketRef }</span>
-												}
+													if item.TicketRef != "" {
+														<span class="badge-outline" hx-disable>{ item.TicketRef }</span>
+													}
 											</div>
 										</td>
 										<td>
-											<div class="text-sm">{ item.GovernanceOwner }</div>
-											if item.GovernanceOwnerEmail != "" && item.GovernanceOwnerEmail != item.GovernanceOwner {
-												<div class="text-xs text-muted-foreground break-all">{ item.GovernanceOwnerEmail }</div>
-											}
+												<div class="text-sm" hx-disable>{ item.GovernanceOwner }</div>
+												if item.GovernanceOwnerEmail != "" && item.GovernanceOwnerEmail != item.GovernanceOwner {
+													<div class="text-xs text-muted-foreground break-all" hx-disable>{ item.GovernanceOwnerEmail }</div>
+												}
 											<div class="text-xs text-muted-foreground">{ FormatInt(item.LikelyOwnerCount) }{ " likely owner(s)" }</div>
 										</td>
 										<td class="whitespace-normal">
@@ -148,7 +148,9 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 			} else {
 				@EmptyState("No OAuth apps found", data.EmptyStateMsg) {
 					if data.Layout.IsAdmin {
-						<a class="btn-sm-outline" href="/settings/connectors?open=google_workspace">Configure Google Workspace</a>
+						@ConnectorConfigureLink("/settings/connectors?open=google_workspace", "btn-sm-outline") {
+							Configure Google Workspace
+						}
 					}
 				}
 			}
@@ -157,12 +159,12 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
 						<div class="button-group ml-auto">
 							if data.Page > 1 {
-								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#app-assets-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
+								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#app-assets-results" hx-swap="outerHTML show:top" hx-push-url="true">Previous</a>
 							} else {
 								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
 							}
 							if data.Page < data.TotalPages {
-								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#app-assets-results" hx-swap="outerHTML" hx-push-url="true">Next</a>
+								<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#app-assets-results" hx-swap="outerHTML show:top" hx-push-url="true">Next</a>
 							} else {
 								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
 							}
@@ -200,31 +202,31 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 					<header>
 						<div class="flex min-w-0 items-center gap-3">
 							@ProductIcon(data.App.DisplayName, data.App.ExternalID, data.App.SourceKind, "size-10")
-							<h2>{ data.App.DisplayName }</h2>
+								<h2 hx-disable>{ data.App.DisplayName }</h2>
 						</div>
 						<div data-slot="card-action" class="flex flex-wrap items-center gap-2">
 							<span class={ AppAssetGovernanceStateBadgeClass(data.App.GovernanceState) }>{ HumanizeAppAssetGovernanceState(data.App.GovernanceState) }</span>
 							<span class={ AppAssetEvidenceConfidenceBadgeClass(data.App.EvidenceConfidence) }>{ HumanizeAppAssetEvidenceConfidence(data.App.EvidenceConfidence) }</span>
 							<span class={ AppAssetEvidenceFreshnessBadgeClass(data.App.EvidenceFreshness) }>{ HumanizeAppAssetEvidenceFreshness(data.App.EvidenceFreshness) }</span>
 						</div>
-						<p class="text-sm text-muted-foreground">{ data.App.SourceKind }{ " (" }{ data.App.SourceName }{ ")" }</p>
+							<p class="text-sm text-muted-foreground" hx-disable>{ data.App.SourceKind }{ " (" }{ data.App.SourceName }{ ")" }</p>
 					</header>
 					<section class="space-y-4">
 						<div class="grid gap-3 md:grid-cols-3">
+								<div>
+									<p class="text-xs uppercase tracking-wide text-muted-foreground">Client ID</p>
+									<p class="font-medium break-all" hx-disable>{ data.App.ExternalID }</p>
+								</div>
+								<div>
+									<p class="text-xs uppercase tracking-wide text-muted-foreground">Governance owner</p>
+									<p class="font-medium" hx-disable>{ data.App.GovernanceOwner }</p>
+									<p class="text-xs text-muted-foreground" hx-disable>{ data.App.GovernanceOwnerEmail }</p>
+								</div>
 							<div>
-								<p class="text-xs uppercase tracking-wide text-muted-foreground">Client ID</p>
-								<p class="font-medium break-all">{ data.App.ExternalID }</p>
-							</div>
-							<div>
-								<p class="text-xs uppercase tracking-wide text-muted-foreground">Governance owner</p>
-								<p class="font-medium">{ data.App.GovernanceOwner }</p>
-								<p class="text-xs text-muted-foreground">{ data.App.GovernanceOwnerEmail }</p>
-							</div>
-							<div>
-								<p class="text-xs uppercase tracking-wide text-muted-foreground">Ticket</p>
-								if data.App.TicketRef != "" {
-									<p class="font-medium">{ data.App.TicketRef }</p>
-								} else {
+									<p class="text-xs uppercase tracking-wide text-muted-foreground">Ticket</p>
+									if data.App.TicketRef != "" {
+										<p class="font-medium" hx-disable>{ data.App.TicketRef }</p>
+									} else {
 									<p class="font-medium">—</p>
 								}
 							</div>
@@ -256,7 +258,7 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 						if data.App.Notes != "" {
 							<div class="rounded-lg border border-border/70 bg-muted/20 p-4">
 								<p class="text-xs uppercase tracking-wide text-muted-foreground">Governance notes</p>
-								<p class="mt-2 text-sm">{ data.App.Notes }</p>
+									<p class="mt-2 text-sm" hx-disable>{ data.App.Notes }</p>
 							</div>
 						}
 					</section>
@@ -284,18 +286,18 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 										for _, grant := range data.Grants {
 											<tr>
 												<td>
-													if grant.UserHref != "" {
-														<a class="btn-sm-link px-0 font-medium" href={ grant.UserHref }>{ grant.UserLabel }</a>
-													} else {
-														<div class="font-medium">{ grant.UserLabel }</div>
-													}
-													<div class="text-xs text-muted-foreground">{ grant.UserEmail }</div>
-													<div class="text-xs text-muted-foreground">{ grant.UserExternalID }</div>
-												</td>
-												<td>
-													<div class="text-sm">{ grant.ScopeSummary }</div>
-													<div class="text-xs text-muted-foreground">{ FormatInt(grant.ScopeCount) }{ " scope(s)" }</div>
-												</td>
+															if grant.UserHref != "" {
+																<a class="btn-sm-link px-0 font-medium" href={ grant.UserHref }><span hx-disable>{ grant.UserLabel }</span></a>
+															} else {
+															<div class="font-medium" hx-disable>{ grant.UserLabel }</div>
+														}
+														<div class="text-xs text-muted-foreground" hx-disable>{ grant.UserEmail }</div>
+														<div class="text-xs text-muted-foreground" hx-disable>{ grant.UserExternalID }</div>
+													</td>
+													<td>
+														<div class="text-sm" hx-disable>{ grant.ScopeSummary }</div>
+														<div class="text-xs text-muted-foreground">{ FormatInt(grant.ScopeCount) }{ " scope(s)" }</div>
+													</td>
 												<td>
 													<div class="flex flex-wrap items-center gap-2">
 														<span class="badge-outline">{ grant.Status }</span>
@@ -309,11 +311,15 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 															method="post"
 															action={ "/app-assets/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke" }
 															hx-post={ "/app-assets/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke" }
-															hx-target="#connected-app-show-shell"
-															hx-swap="outerHTML"
-															hx-disabled-elt="this"
-															class="inline-flex"
-														>
+																hx-target="#connected-app-show-shell"
+																hx-disabled-elt="this"
+																data-osspm-confirm-title="Revoke grant?"
+																data-osspm-confirm-body="Revoking removes this credential's access to the app. The credential record stays for audit history."
+																data-osspm-confirm-accept-label="Revoke"
+																data-osspm-confirm-tone="danger"
+																hx-confirm=" "
+																class="inline-flex"
+															>
 															@CSRFInput(data.Layout.CSRFToken)
 															<button type="submit" class="btn-sm-outline transition-colors duration-150">Revoke</button>
 														</form>
@@ -353,14 +359,14 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 									if data.HasLikelyOwners {
 										for _, owner := range data.LikelyOwners {
 											<tr>
-												<td>
-													if owner.OwnerIdentityHref != "" {
-														<a class="btn-sm-link px-0 font-medium" href={ owner.OwnerIdentityHref }>{ owner.OwnerDisplayName }</a>
-													} else {
-														{ owner.OwnerDisplayName }
-													}
-												</td>
-												<td>{ owner.OwnerEmail }</td>
+													<td>
+														if owner.OwnerIdentityHref != "" {
+															<a class="btn-sm-link px-0 font-medium" href={ owner.OwnerIdentityHref }><span hx-disable>{ owner.OwnerDisplayName }</span></a>
+														} else {
+															<span hx-disable>{ owner.OwnerDisplayName }</span>
+														}
+													</td>
+													<td hx-disable>{ owner.OwnerEmail }</td>
 												<td><span class="badge-outline">{ owner.OwnerKind }</span></td>
 											</tr>
 										}
@@ -397,12 +403,12 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 										for _, source := range data.DiscoverySources {
 											<tr>
 												<td>
-													<div class="font-medium">{ source.DiscoveryDisplayName }</div>
-													<div class="text-xs text-muted-foreground">{ source.CanonicalKey }</div>
+													<div class="font-medium" hx-disable>{ source.DiscoveryDisplayName }</div>
+													<div class="text-xs text-muted-foreground" hx-disable>{ source.CanonicalKey }</div>
 												</td>
 												<td>
-													<div>{ source.Domain }</div>
-													<div class="text-xs text-muted-foreground">{ source.VendorName }</div>
+													<div hx-disable>{ source.Domain }</div>
+													<div class="text-xs text-muted-foreground" hx-disable>{ source.VendorName }</div>
 												</td>
 												<td><span class={ DiscoveryManagedBadgeClass(source.ManagedState) }>{ HumanizeDiscoveryManagedState(source.ManagedState) }</span></td>
 												<td><span class={ CredentialRiskBadgeClass(source.RiskLevel) }>{ HumanizeCredentialRisk(source.RiskLevel) }</span></td>
@@ -471,7 +477,6 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 								action={ "/app-assets/" + FormatInt64(data.App.ID) + "/governance" }
 								hx-post={ "/app-assets/" + FormatInt64(data.App.ID) + "/governance" }
 								hx-target="#connected-app-show-shell"
-								hx-swap="outerHTML"
 								hx-disabled-elt="this"
 								class="space-y-4"
 							>
@@ -513,8 +518,8 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 								</div>
 								<div class="rounded-lg border border-border/70 bg-muted/15 p-4">
 									<p class="text-xs uppercase tracking-wide text-muted-foreground">Owner</p>
-									<p class="mt-2 font-medium">{ data.App.GovernanceOwner }</p>
-									<p class="text-xs text-muted-foreground">{ data.App.GovernanceOwnerEmail }</p>
+									<p class="mt-2 font-medium" hx-disable>{ data.App.GovernanceOwner }</p>
+									<p class="text-xs text-muted-foreground" hx-disable>{ data.App.GovernanceOwnerEmail }</p>
 								</div>
 								<p class="text-xs text-muted-foreground">Governance changes require an admin account.</p>
 							</div>

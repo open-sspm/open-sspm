@@ -1,6 +1,13 @@
 package authn
 
-import "testing"
+import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/labstack/echo/v5"
+)
 
 func TestSanitizeNext(t *testing.T) {
 	t.Parallel()
@@ -34,5 +41,27 @@ func TestSanitizeNext(t *testing.T) {
 				t.Fatalf("SanitizeNext(%q)=%q; want %q", tt.in, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestHandleUnauthUsesHXRedirectForHTMXRequests(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/settings/users", nil)
+	req.Header.Set("HX-Request", "true")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := handleUnauth(c); err != nil {
+		t.Fatalf("handleUnauth() error = %v", err)
+	}
+
+	if got := rec.Header().Get("HX-Redirect"); got != "/login?next=%2Fsettings%2Fusers" {
+		t.Fatalf("HX-Redirect = %q", got)
+	}
+	if got := rec.Code; got != http.StatusOK {
+		t.Fatalf("status = %d, want %d", got, http.StatusOK)
+	}
+	if !strings.Contains(strings.ToLower(rec.Header().Get(echo.HeaderVary)), "hx-request") {
+		t.Fatalf("Vary missing HX-Request: %q", rec.Header().Get(echo.HeaderVary))
 	}
 }

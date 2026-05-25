@@ -47,12 +47,12 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 						<li class="py-3">
 							<div class="flex items-start justify-between gap-3">
 								<div class="min-w-0 space-y-0.5">
-									<a class="btn-sm-link px-0 font-medium" href={ account.AccountHref }>{ account.AccountDisplayName }</a>
-									if account.AccountEmail != "" {
-										<div class="text-sm text-muted-foreground break-all">{ account.AccountEmail }</div>
-									} else if account.OktaAccountExternalID != "" {
-										<div class="text-sm text-muted-foreground break-all">{ account.OktaAccountExternalID }</div>
-									}
+										<a class="btn-sm-link px-0 font-medium" href={ account.AccountHref }><span hx-disable>{ account.AccountDisplayName }</span></a>
+										if account.AccountEmail != "" {
+											<div class="text-sm text-muted-foreground break-all" hx-disable>{ account.AccountEmail }</div>
+										} else if account.OktaAccountExternalID != "" {
+											<div class="text-sm text-muted-foreground break-all" hx-disable>{ account.OktaAccountExternalID }</div>
+										}
 								</div>
 								<span class={ StatusBadgeClass(account.OktaAccountStatus) }>{ account.OktaAccountStatus }</span>
 							</div>
@@ -116,12 +116,12 @@ templ OktaAppShowPage(data viewmodels.OktaAppShowViewData) {
 								for _, account := range data.Accounts {
 									<tr>
 										<td>
-											<a class="btn-sm-link px-0 font-medium" href={ account.AccountHref }>{ account.AccountDisplayName }</a>
-											if account.AccountEmail != "" {
-												<div class="text-xs text-muted-foreground break-all">{ account.AccountEmail }</div>
-											} else if account.OktaAccountExternalID != "" {
-												<div class="text-xs text-muted-foreground break-all">{ account.OktaAccountExternalID }</div>
-											}
+												<a class="btn-sm-link px-0 font-medium" href={ account.AccountHref }><span hx-disable>{ account.AccountDisplayName }</span></a>
+												if account.AccountEmail != "" {
+													<div class="text-xs text-muted-foreground break-all" hx-disable>{ account.AccountEmail }</div>
+												} else if account.OktaAccountExternalID != "" {
+													<div class="text-xs text-muted-foreground break-all" hx-disable>{ account.OktaAccountExternalID }</div>
+												}
 										</td>
 										<td><span class={ StatusBadgeClass(account.OktaAccountStatus) }>{ account.OktaAccountStatus }</span></td>
 										if !data.Summary.UniformAssignedVia {

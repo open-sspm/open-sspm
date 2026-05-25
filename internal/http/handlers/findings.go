@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v5"
 	osspecv2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v2"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/events"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
@@ -109,19 +110,31 @@ func (h *Handlers) HandleFindingsRuleset(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	layout, _, err := h.LayoutData(ctx, c, strings.TrimSpace(rs.Name))
+	data, err := h.buildFindingsRulesetViewData(ctx, c, rs, nil)
 	if err != nil {
 		return h.RenderError(c, err)
+	}
+
+	if isHX(c) && isHXTarget(c, "rules-card") {
+		return h.RenderComponent(c, views.FindingsRulesetRulesCard(data))
+	}
+	return h.RenderComponent(c, views.FindingsRulesetPage(data))
+}
+
+func (h *Handlers) buildFindingsRulesetViewData(ctx context.Context, c *echo.Context, rs gen.Ruleset, alert *viewmodels.AlertViewData) (viewmodels.FindingsRulesetViewData, error) {
+	layout, _, err := h.LayoutData(ctx, c, strings.TrimSpace(rs.Name))
+	if err != nil {
+		return viewmodels.FindingsRulesetViewData{}, err
 	}
 
 	scope, err := h.findingsScopeForRuleset(ctx, rs)
 	if err != nil {
-		return h.RenderError(c, err)
+		return viewmodels.FindingsRulesetViewData{}, err
 	}
 
 	overrideEnabled, overrideExists, err := h.getRulesetOverride(ctx, rs.ID, scope)
 	if err != nil {
-		return h.RenderError(c, err)
+		return viewmodels.FindingsRulesetViewData{}, err
 	}
 
 	statusFilter := normalizeRuleStatusFilter(c.QueryParam("status"))
@@ -135,7 +148,7 @@ func (h *Handlers) HandleFindingsRuleset(c *echo.Context) error {
 		SourceName: scope.SourceName,
 	})
 	if err != nil {
-		return h.RenderError(c, err)
+		return viewmodels.FindingsRulesetViewData{}, err
 	}
 
 	items := make([]viewmodels.FindingsRuleItem, 0, len(ruleRows))
@@ -152,7 +165,7 @@ func (h *Handlers) HandleFindingsRuleset(c *echo.Context) error {
 			EvaluatedAt:      evaluatedAt,
 			EvidenceSummary:  strings.TrimSpace(row.CurrentEvidenceSummary),
 			ErrorKind:        strings.TrimSpace(row.CurrentErrorKind),
-			Href:             "/findings/rulesets/" + rulesetKey + "/rules/" + strings.TrimSpace(row.Key),
+			Href:             "/findings/rulesets/" + strings.TrimSpace(rs.Key) + "/rules/" + strings.TrimSpace(row.Key),
 		}
 
 		if statusFilter != "" && strings.ToLower(strings.TrimSpace(item.Status)) != statusFilter {
@@ -210,12 +223,9 @@ func (h *Handlers) HandleFindingsRuleset(c *echo.Context) error {
 		MonitoringFilter:  monitoringFilter,
 		Rules:             items,
 		HasRules:          len(items) > 0,
+		Alert:             alert,
 	}
-
-	if isHX(c) && isHXTarget(c, "rules-card") {
-		return h.RenderComponent(c, views.FindingsRulesetRulesCard(data))
-	}
-	return h.RenderComponent(c, views.FindingsRulesetPage(data))
+	return data, nil
 }
 
 type findingsScope struct {
@@ -316,7 +326,27 @@ func (h *Handlers) HandleFindingsRulesetOverride(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	return c.Redirect(http.StatusSeeOther, "/findings/rulesets/"+rulesetKey)
+	toast := viewmodels.ToastViewData{
+		Category:    "success",
+		Title:       "Ruleset updated",
+		Description: "Ruleset override saved.",
+	}
+	if isHX(c) {
+		setResponseToast(c, toast)
+		addHXTrigger(c, events.FindingsRulesetChanged, map[string]string{"ruleset": rulesetKey})
+
+		if returnRuleKey := strings.TrimSpace(c.FormValue("return_rule_key")); returnRuleKey != "" {
+			return h.renderFindingsRuleMutationResponse(c, rs, scope, returnRuleKey, nil)
+		}
+
+		data, err := h.buildFindingsRulesetViewData(ctx, c, rs, nil)
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		return h.RenderComponent(c, views.FindingsRulesetMutationResponse(data))
+	}
+
+	return redirectWithFlash(c, "/findings/rulesets/"+rulesetKey, toast)
 }
 
 func (h *Handlers) HandleFindingsRule(c *echo.Context) error {
@@ -360,6 +390,35 @@ func (h *Handlers) HandleFindingsRule(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 	return h.RenderComponent(c, views.FindingsRulePage(data))
+}
+
+func (h *Handlers) renderFindingsRuleMutationResponse(c *echo.Context, rs gen.Ruleset, scope findingsScope, ruleKey string, alert *viewmodels.AlertViewData) error {
+	ctx := c.Request().Context()
+	rulesetKey := strings.TrimSpace(rs.Key)
+	ruleKey = strings.TrimSpace(ruleKey)
+	if rulesetKey == "" || ruleKey == "" {
+		return RenderNotFound(c)
+	}
+
+	r, err := h.Q.GetRuleWithCurrentResultByRulesetKeyAndRuleKey(ctx, gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyParams{
+		Key:        rulesetKey,
+		Key_2:      ruleKey,
+		ScopeKind:  scope.ScopeKind,
+		SourceKind: scope.SourceKind,
+		SourceName: scope.SourceName,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return RenderNotFound(c)
+		}
+		return h.RenderError(c, err)
+	}
+
+	data, err := h.buildFindingsRuleViewData(ctx, c, rs, r, scope, alert)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+	return h.RenderComponent(c, views.FindingsRuleMutationResponse(data))
 }
 
 func (h *Handlers) HandleFindingsRuleOverride(c *echo.Context) error {
@@ -427,7 +486,18 @@ func (h *Handlers) HandleFindingsRuleOverride(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	return c.Redirect(http.StatusSeeOther, "/findings/rulesets/"+rulesetKey+"/rules/"+ruleKey)
+	toast := viewmodels.ToastViewData{
+		Category:    "success",
+		Title:       "Rule override saved",
+		Description: "The rule override was updated.",
+	}
+	if isHX(c) {
+		setResponseToast(c, toast)
+		addHXTrigger(c, events.FindingsRuleChanged, map[string]string{"ruleset": rulesetKey, "rule": ruleKey})
+		return h.renderFindingsRuleMutationResponse(c, rs, scope, ruleKey, nil)
+	}
+
+	return redirectWithFlash(c, "/findings/rulesets/"+rulesetKey+"/rules/"+ruleKey, toast)
 }
 
 func (h *Handlers) HandleFindingsRuleAttestation(c *echo.Context) error {
@@ -492,13 +562,18 @@ func (h *Handlers) HandleFindingsRuleAttestation(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	setFlashToast(c, viewmodels.ToastViewData{
+	toast := viewmodels.ToastViewData{
 		Category:    "success",
 		Title:       "Attestation saved",
 		Description: "Manual attestation updated.",
-	})
+	}
+	if isHX(c) {
+		setResponseToast(c, toast)
+		addHXTrigger(c, events.FindingsRuleChanged, map[string]string{"ruleset": rulesetKey, "rule": ruleKey})
+		return h.renderFindingsRuleMutationResponse(c, rs, scope, ruleKey, nil)
+	}
 
-	return c.Redirect(http.StatusSeeOther, "/findings/rulesets/"+rulesetKey+"/rules/"+ruleKey)
+	return redirectWithFlash(c, "/findings/rulesets/"+rulesetKey+"/rules/"+ruleKey, toast)
 }
 
 func (h *Handlers) getRuleOverride(ctx context.Context, ruleID int64, scope findingsScope) (*gen.RuleOverride, error) {
@@ -934,6 +1009,9 @@ func (h *Handlers) renderRuleWithAlert(c *echo.Context, rs gen.Ruleset, r gen.Ge
 	data, err := h.buildFindingsRuleViewData(ctx, c, rs, r, scope, &alert)
 	if err != nil {
 		return h.RenderError(c, err)
+	}
+	if isHX(c) {
+		return h.RenderComponentStatus(c, http.StatusUnprocessableEntity, views.FindingsRuleMutationResponse(data))
 	}
 	return h.RenderComponent(c, views.FindingsRulePage(data))
 }

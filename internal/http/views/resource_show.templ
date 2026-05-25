@@ -16,10 +16,10 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 			}
 		}
 
-		<article class="card">
-			<header>
-				<h2>{ data.DisplayName }</h2>
-				<p>{ data.SourceLabel }{ " resource details." }</p>
+			<article class="card">
+				<header>
+					<h2 hx-disable>{ data.DisplayName }</h2>
+					<p>{ data.SourceLabel }{ " resource details." }</p>
 				<div data-slot="card-action">
 					<span class="badge">{ data.SourceLabel }</span>
 				</div>
@@ -28,7 +28,7 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 				<dl class="grid gap-4 md:grid-cols-2">
 					<div class="space-y-1">
 						<dt class="text-xs font-medium text-muted-foreground">Source</dt>
-						<dd class="font-medium break-words">{ data.SourceLabel }{ " · " }{ data.SourceName }</dd>
+							<dd class="font-medium break-words"><span>{ data.SourceLabel }{ " · " }</span><span hx-disable>{ data.SourceName }</span></dd>
 					</div>
 					<div class="space-y-1">
 						<dt class="text-xs font-medium text-muted-foreground">Type</dt>
@@ -36,7 +36,7 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 					</div>
 					<div class="space-y-1">
 						<dt class="text-xs font-medium text-muted-foreground">External ID</dt>
-						<dd class="text-sm text-muted-foreground break-all">{ data.ExternalID }</dd>
+							<dd class="text-sm text-muted-foreground break-all" hx-disable>{ data.ExternalID }</dd>
 					</div>
 				</dl>
 			</section>
@@ -65,19 +65,21 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 								for _, row := range data.Rows {
 									<tr class="align-top">
 										<td>
-											if row.IdentityHref != "" {
-												<a class="btn-sm-link px-0 font-medium" href={ row.IdentityHref }>
-													if row.IdentityDisplayName != "" {
-														{ row.IdentityDisplayName }
-													} else if row.IdentityEmail != "" {
-														{ row.IdentityEmail }
-													} else {
-														{ "Identity " }{ FormatInt64(row.IdentityID) }
+												if row.IdentityHref != "" {
+													<a class="btn-sm-link px-0 font-medium" href={ row.IdentityHref }>
+														<span hx-disable>
+														if row.IdentityDisplayName != "" {
+															{ row.IdentityDisplayName }
+														} else if row.IdentityEmail != "" {
+															{ row.IdentityEmail }
+														} else {
+															{ "Identity " }{ FormatInt64(row.IdentityID) }
+														}
+														</span>
+													</a>
+													if row.IdentityEmail != "" && row.IdentityDisplayName != "" {
+														<div class="text-xs text-muted-foreground break-all" hx-disable>{ row.IdentityEmail }</div>
 													}
-												</a>
-												if row.IdentityEmail != "" && row.IdentityDisplayName != "" {
-													<div class="text-xs text-muted-foreground break-all">{ row.IdentityEmail }</div>
-												}
 											} else {
 													<span class="text-muted-foreground">Needs anchor</span>
 											}
@@ -88,20 +90,20 @@ templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 											}
 										</td>
 										<td>
-											<div class="font-medium break-words">
-												if row.AccountDisplayName != "" {
-													{ row.AccountDisplayName }
+												<div class="font-medium break-words" hx-disable>
+													if row.AccountDisplayName != "" {
+														{ row.AccountDisplayName }
 												} else if row.AccountEmail != "" {
 													{ row.AccountEmail }
 												} else {
 													{ row.AccountExternalID }
 												}
-											</div>
-											if row.AccountEmail != "" {
-												<div class="text-xs text-muted-foreground break-all">{ row.AccountEmail }</div>
-											} else if row.AccountExternalID != "" {
-												<div class="text-xs text-muted-foreground break-all">{ row.AccountExternalID }</div>
-											}
+												</div>
+												if row.AccountEmail != "" {
+													<div class="text-xs text-muted-foreground break-all" hx-disable>{ row.AccountEmail }</div>
+												} else if row.AccountExternalID != "" {
+													<div class="text-xs text-muted-foreground break-all" hx-disable>{ row.AccountExternalID }</div>
+												}
 										</td>
 										<td>
 											if row.EntitlementPermission != "" {

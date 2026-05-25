@@ -8,15 +8,15 @@ templ AppAssetMobileRow(item viewmodels.AppAssetListItem) {
 			<div class="flex min-w-0 items-start gap-3">
 				@ProductIcon(item.DisplayName, item.SourceKind, item.AssetKind, "size-8")
 				<div class="min-w-0">
-					<a class="block font-medium no-underline hover:underline" href={ "/app-assets/" + FormatInt64(item.ID) } title={ item.DisplayName }>
-						<span class="osspm-truncate">{ item.DisplayName }</span>
+						<a class="block font-medium no-underline hover:underline" href={ "/app-assets/" + FormatInt64(item.ID) } title={ item.DisplayName }>
+							<span class="osspm-truncate" hx-disable>{ item.DisplayName }</span>
 					</a>
 					<div class="mt-1 text-sm text-muted-foreground">
 						{ HumanizeProgrammaticKind(item.SourceKind) }{ " · " }{ HumanizeProgrammaticKind(item.AssetKind) }
 					</div>
 					<div class="mt-2 text-sm text-muted-foreground">{ item.Status }</div>
 					<div class="text-sm text-muted-foreground break-all">
-						<code class="osspm-token">{ item.ExternalID }</code>
+							<code class="osspm-token" hx-disable>{ item.ExternalID }</code>
 					</div>
 				</div>
 			</div>
@@ -57,8 +57,8 @@ templ AppAssetsPageFilters(data viewmodels.AppAssetsViewData) {
 				data-enter-only-query="q"
 				hx-get="/app-assets"
 				hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+				hx-sync="this:replace"
 				hx-target="#app-assets-results"
-				hx-swap="outerHTML"
 				hx-push-url="true"
 					class="osspm-list-form"
 				>
@@ -149,12 +149,12 @@ templ AppAssetsPageResults(data viewmodels.AppAssetsViewData) {
 						<div class="text-sm text-muted-foreground">{ "Page " }{ FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</div>
 						<div class="button-group ml-auto">
 							if data.Page > 1 {
-									<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#app-assets-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
+									<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#app-assets-results" hx-swap="outerHTML show:top" hx-push-url="true">Previous</a>
 							} else {
 								<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
 							}
 							if data.Page < data.TotalPages {
-									<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#app-assets-results" hx-swap="outerHTML" hx-push-url="true">Next</a>
+									<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#app-assets-results" hx-swap="outerHTML show:top" hx-push-url="true">Next</a>
 							} else {
 								<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
 							}

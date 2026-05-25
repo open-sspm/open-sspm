@@ -71,6 +71,7 @@ func StateAskBar(q querystate.BasicListQuery, placeholder, hxTarget string) AskB
 		},
 		SingletonFields: []string{"state"},
 		HxTarget:        hxTarget,
+		SuggestionScope: "state",
 	}
 }
 
@@ -147,6 +148,7 @@ func AppsAskBar(data viewmodels.AppsViewData) AskBarConfig {
 		},
 		SingletonFields: []string{"integration", "status"},
 		HxTarget:        "#apps-results",
+		SuggestionScope: "apps",
 	}
 }
 
@@ -386,6 +388,7 @@ func CredentialsAskBar(data viewmodels.CredentialsViewData) AskBarConfig {
 		GrammarHints:    hints,
 		HasRightActions: true,
 		HxTarget:        "#credentials-results",
+		SuggestionScope: "credentials",
 	}
 }
 
@@ -509,6 +512,7 @@ func ConnectedAppsAskBar(data viewmodels.ConnectedAppsViewData) AskBarConfig {
 		},
 		SingletonFields: []string{"governance_state"},
 		HxTarget:        "#app-assets-results",
+		SuggestionScope: "connected-apps",
 	}
 }
 
@@ -589,6 +593,7 @@ func AppAssetsAskBar(data viewmodels.AppAssetsViewData) AskBarConfig {
 		},
 		SingletonFields: []string{"source_kind", "asset_kind"},
 		HxTarget:        "#app-assets-results",
+		SuggestionScope: "app-assets",
 	}
 }
 
@@ -756,6 +761,7 @@ func DiscoveryAppsAskBar(data viewmodels.DiscoveryAppsViewData) AskBarConfig {
 		},
 		SingletonFields: []string{"source_kind", "managed_state", "risk_level"},
 		HxTarget:        "#discovery-apps-results",
+		SuggestionScope: "discovery-apps",
 	}
 }
 
@@ -961,5 +967,6 @@ func NonHumanIdentitiesAskBar(data viewmodels.NonHumanIdentitiesViewData) AskBar
 		},
 		SingletonFields: []string{"source_kind", "principal_type", "owner_presence", "governance_state", "risk_level", "activity_state", "freshness_state"},
 		HxTarget:        "#non-human-identities-inventory",
+		SuggestionScope: "non-human-identities",
 	}
 }

@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   initFragment,
+  markLazyHxLoaded,
+  markLazyHxPending,
   triggerVisibleLazyHx,
   wireAutosubmit,
   wireDiscoveryGovernanceDisposition,
@@ -81,44 +83,6 @@ describe("fragment", () => {
     disposition.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(replacementFields.hidden).toBe(false);
-  });
-
-  it("triggers visible lazy panels only when they are idle", () => {
-    document.body.innerHTML = `
-      <button id="a" data-hx-lazy-load data-hx-lazy-panel="panel-a"></button>
-      <section id="panel-a"></section>
-      <button id="b" data-hx-lazy-load data-hx-lazy-panel="panel-b"></button>
-      <section id="panel-b" hidden></section>
-      <button id="c" data-hx-lazy-load data-hx-lazy-panel="panel-c" data-hx-lazy-state="pending"></button>
-      <section id="panel-c"></section>
-      <button id="d" data-hx-lazy-load data-hx-lazy-panel="panel-d" data-hx-lazy-state="loaded"></button>
-      <section id="panel-d"></section>
-    `;
-
-    const triggerSpy = vi.fn();
-    window.htmx = { trigger: triggerSpy };
-
-    triggerVisibleLazyHx(document);
-
-    expect(triggerSpy).toHaveBeenCalledTimes(1);
-    expect(triggerSpy).toHaveBeenCalledWith(document.getElementById("a"), "oss-panel-visible");
-  });
-
-  it("ignores panels that are not managed lazy HTMX elements", () => {
-    document.body.innerHTML = `
-      <button id="managed" data-hx-lazy-load data-hx-lazy-panel="panel-managed"></button>
-      <section id="panel-managed"></section>
-      <button id="unmanaged" data-hx-lazy-panel="panel-unmanaged" data-hx-lazy-state="loaded"></button>
-      <section id="panel-unmanaged"></section>
-    `;
-
-    const triggerSpy = vi.fn();
-    window.htmx = { trigger: triggerSpy };
-
-    triggerVisibleLazyHx(document);
-
-    expect(triggerSpy).toHaveBeenCalledTimes(1);
-    expect(triggerSpy).toHaveBeenCalledWith(document.getElementById("managed"), "oss-panel-visible");
   });
 
   it("adds keyboard semantics and supports modifier-click row navigation", () => {
@@ -208,5 +172,40 @@ describe("fragment", () => {
 
     expect(showModalSpy).toHaveBeenCalledTimes(1);
     expect(dialog.hasAttribute("data-open")).toBe(false);
+  });
+
+  it("triggers visible lazy HTMX panels and skips pending or loaded panels", () => {
+    document.body.innerHTML = `
+      <section id="visible" data-hx-lazy-load data-hx-lazy-panel="visible"></section>
+      <section id="pending" data-hx-lazy-load data-hx-lazy-panel="pending"></section>
+      <section id="loaded" data-hx-lazy-load data-hx-lazy-panel="loaded"></section>
+    `;
+    const visible = document.getElementById("visible");
+    const pending = document.getElementById("pending");
+    const loaded = document.getElementById("loaded");
+    const trigger = vi.fn();
+    window.htmx = { trigger };
+
+    markLazyHxPending(pending);
+    markLazyHxLoaded(loaded);
+    triggerVisibleLazyHx(document);
+
+    expect(trigger).toHaveBeenCalledTimes(1);
+    expect(trigger).toHaveBeenCalledWith(visible, "oss-panel-visible");
+  });
+
+  it("does not trigger open-only lazy panels inside closed details", () => {
+    document.body.innerHTML = `
+      <details>
+        <summary>More</summary>
+        <section id="lazy" data-hx-lazy-load data-hx-lazy-open-only="true" data-hx-lazy-panel="lazy"></section>
+      </details>
+    `;
+    const trigger = vi.fn();
+    window.htmx = { trigger };
+
+    triggerVisibleLazyHx(document);
+
+    expect(trigger).not.toHaveBeenCalled();
   });
 });

@@ -21,7 +21,9 @@ templ AWSAccountsNeedingAnchorPage(data viewmodels.AWSAccountsNeedingAnchorViewD
 		} else {
 			@Alert("AWS Identity Center sync disabled", true) {
 				<p>
-					{ data.EmptyStateMsg } <a class="btn-sm-link px-1" href={ data.EmptyStateHref }>Configure AWS Identity Center</a>.
+					{ data.EmptyStateMsg } @ConnectorConfigureLink(data.EmptyStateHref, "btn-sm-link px-1") {
+						Configure AWS Identity Center
+					}.
 				</p>
 			}
 		}
@@ -37,8 +39,8 @@ templ AWSAccountsNeedingAnchorPageFilters(data viewmodels.AWSAccountsNeedingAnch
 		data-enter-only-query="q"
 		hx-get="/accounts/needs-anchor/aws"
 		hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+		hx-sync="this:replace"
 		hx-target="#aws-needs-anchor-results"
-		hx-swap="outerHTML"
 		hx-push-url="true"
 		class="osspm-list-form"
 	>
@@ -71,15 +73,15 @@ templ AWSAccountsNeedingAnchorPageResults(data viewmodels.AWSAccountsNeedingAnch
 						if data.HasUsers {
 							for _, u := range data.Users {
 								<tr>
-									<td class="font-medium">{ u.DisplayName }</td>
+										<td class="font-medium" hx-disable>{ u.DisplayName }</td>
 									<td>
-										if u.Email != "" {
-											{ u.Email }
-										} else {
+											if u.Email != "" {
+												<span hx-disable>{ u.Email }</span>
+											} else {
 											<span class="text-muted-foreground">&mdash;</span>
 										}
 									</td>
-									<td class="text-muted-foreground">{ u.ExternalID }</td>
+										<td class="text-muted-foreground" hx-disable>{ u.ExternalID }</td>
 									<td>
 										@sourceAccountNeedsAnchorLinkAction(data.Layout.IsAdmin, data.Layout.CSRFToken, u.ID, "input w-full")
 									</td>

@@ -21,7 +21,9 @@ templ DatadogAccountsNeedingAnchorPage(data viewmodels.DatadogAccountsNeedingAnc
 		} else {
 			@Alert("Datadog sync disabled", true) {
 				<p>
-					{ data.EmptyStateMsg } <a class="btn-sm-link px-1" href={ data.EmptyStateHref }>Configure Datadog</a>.
+					{ data.EmptyStateMsg } @ConnectorConfigureLink(data.EmptyStateHref, "btn-sm-link px-1") {
+						Configure Datadog
+					}.
 				</p>
 			}
 		}
@@ -37,8 +39,8 @@ templ DatadogAccountsNeedingAnchorPageFilters(data viewmodels.DatadogAccountsNee
 		data-enter-only-query="q"
 		hx-get={ "/accounts/needs-anchor/datadog/" + data.Layout.DatadogSite }
 		hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+		hx-sync="this:replace"
 		hx-target="#datadog-needs-anchor-results"
-		hx-swap="outerHTML"
 		hx-push-url="true"
 		class="osspm-list-form"
 	>
@@ -72,14 +74,14 @@ templ DatadogAccountsNeedingAnchorPageResults(data viewmodels.DatadogAccountsNee
 							for _, u := range data.Users {
 								<tr>
 									<td class="font-medium">
-										if u.Email != "" {
-											{ u.Email }
-										} else {
+											if u.Email != "" {
+												<span hx-disable>{ u.Email }</span>
+											} else {
 											<span class="text-muted-foreground">&mdash;</span>
 										}
 									</td>
-									<td class="text-muted-foreground">{ u.DisplayName }</td>
-									<td class="text-xs font-mono text-muted-foreground">{ u.ExternalID }</td>
+										<td class="text-muted-foreground" hx-disable>{ u.DisplayName }</td>
+										<td class="text-xs font-mono text-muted-foreground" hx-disable>{ u.ExternalID }</td>
 									<td>
 										@sourceAccountNeedsAnchorLinkAction(data.Layout.IsAdmin, data.Layout.CSRFToken, u.ID, "input w-full")
 									</td>

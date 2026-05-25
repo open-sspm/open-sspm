@@ -21,9 +21,9 @@ templ CommandSearch(data viewmodels.CommandSearchViewData) {
 					hx-get="/command/search"
 					hx-trigger="input changed delay:150ms, search"
 					hx-target="closest [data-command-root]"
-					hx-swap="outerHTML"
 					hx-push-url="false"
 					hx-sync="this:replace"
+					hx-preserve="true"
 				/>
 			</header>
 			if len(data.Notices) > 0 || len(data.Sections) > 0 {
