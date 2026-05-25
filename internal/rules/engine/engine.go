@@ -424,7 +424,7 @@ func ruleFindingResult(ruleset gen.Ruleset, rule gen.Rule, evalCtx Context, ev E
 			"sync_run_id":           syncRunValue,
 		},
 	}
-	if evidence := jsonObject(ev.EvidenceJSON); len(evidence) > 0 {
+	if evidence := findings.JSONObject(ev.EvidenceJSON); len(evidence) > 0 {
 		output["evidence"] = evidence
 	}
 
@@ -466,17 +466,6 @@ func ruleFindingResult(ruleset gen.Ruleset, rule gen.Rule, evalCtx Context, ev E
 	}
 	result.Key = findings.BuildKey(result)
 	return result
-}
-
-func jsonObject(raw []byte) map[string]any {
-	if len(raw) == 0 {
-		return nil
-	}
-	var out map[string]any
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil
-	}
-	return out
 }
 
 func (e *Engine) getActiveAttestation(ctx context.Context, ruleID int64, scopeKind, sourceKind, sourceName string, now time.Time) (*gen.RuleAttestation, error) {

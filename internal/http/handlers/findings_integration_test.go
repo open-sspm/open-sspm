@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -138,6 +139,160 @@ func TestHandleFindingsRulesetAggregatesAllConfiguredSources(t *testing.T) {
 		}
 		if got := data.Rules[0].EvidenceSummary; got != "1 fail, 0 error, 0 unknown, 0 not applicable, 1 pass" {
 			t.Fatalf("evidence summary = %q", got)
+		}
+	})
+}
+
+func TestHandleFindingsRuleUsesConcreteConnectorSourceScope(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindOkta, true, configstore.OktaConfig{
+			Domain: "example.okta.com",
+			Token:  "okta-token",
+		})
+
+		ruleset := seedRulesetForFindingsHandler(t, ctx, q)
+		rule := seedRuleForFindingsHandler(t, ctx, q, ruleset.ID, "001-detail")
+
+		evaluatedAt := time.Date(2026, time.May, 21, 9, 0, 0, 0, time.UTC)
+		if _, err := q.UpsertRuleResultCurrent(ctx, gen.UpsertRuleResultCurrentParams{
+			RuleID:              rule.ID,
+			ScopeKind:           "connector_instance",
+			SourceKind:          "okta",
+			SourceName:          "example.okta.com",
+			Status:              "fail",
+			EvaluatedAt:         pgtype.Timestamptz{Time: evaluatedAt, Valid: true},
+			EvidenceSummary:     "source-specific current result",
+			EvidenceJson:        []byte(`{"schema_version":1,"check":{"type":"manual"}}`),
+			AffectedResourceIds: []string{},
+		}); err != nil {
+			t.Fatalf("UpsertRuleResultCurrent() err = %v", err)
+		}
+		if _, err := q.UpsertRuleOverride(ctx, gen.UpsertRuleOverrideParams{
+			RuleID:     rule.ID,
+			ScopeKind:  "connector_instance",
+			SourceKind: "okta",
+			SourceName: "example.okta.com",
+			Params:     []byte(`{"source":"exact"}`),
+			Enabled:    false,
+		}); err != nil {
+			t.Fatalf("UpsertRuleOverride() err = %v", err)
+		}
+		if _, err := q.UpsertRuleAttestation(ctx, gen.UpsertRuleAttestationParams{
+			RuleID:     rule.ID,
+			ScopeKind:  "connector_instance",
+			SourceKind: "okta",
+			SourceName: "example.okta.com",
+			Status:     "not_applicable",
+			Notes:      "source-specific attestation",
+			ExpiresAt:  pgtype.Timestamptz{Time: evaluatedAt.Add(24 * time.Hour), Valid: true},
+		}); err != nil {
+			t.Fatalf("UpsertRuleAttestation() err = %v", err)
+		}
+
+		c, rec := newTestContext(http.MethodGet, "http://example.com/findings/rulesets/"+ruleset.Key+"/rules/"+rule.Key)
+		c.SetPathValues(echo.PathValues{
+			{Name: "rulesetKey", Value: ruleset.Key},
+			{Name: "ruleKey", Value: rule.Key},
+		})
+
+		if err := h.HandleFindingsRule(c); err != nil {
+			t.Fatalf("HandleFindingsRule() err = %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		body := rec.Body.String()
+		for _, want := range []string{"example.okta.com", "source-specific current result", "source-specific attestation"} {
+			if !strings.Contains(body, want) {
+				t.Fatalf("body missing %q:\n%s", want, body)
+			}
+		}
+		if strings.Contains(body, "Unknown") {
+			t.Fatalf("rule detail fell back to unknown status:\n%s", body)
+		}
+
+		scope, err := h.findingsConcreteScopeForRuleset(ctx, ruleset)
+		if err != nil {
+			t.Fatalf("findingsConcreteScopeForRuleset() err = %v", err)
+		}
+		if scope.SourceName != "example.okta.com" {
+			t.Fatalf("concrete SourceName = %q, want example.okta.com", scope.SourceName)
+		}
+
+		row, err := q.GetRuleWithCurrentResultByRulesetKeyAndRuleKey(ctx, gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyParams{
+			Key:        ruleset.Key,
+			Key_2:      rule.Key,
+			ScopeKind:  scope.ScopeKind,
+			SourceKind: scope.SourceKind,
+			SourceName: scope.SourceName,
+		})
+		if err != nil {
+			t.Fatalf("GetRuleWithCurrentResultByRulesetKeyAndRuleKey() err = %v", err)
+		}
+		data, err := h.buildFindingsRuleViewData(ctx, c, ruleset, row, scope, nil)
+		if err != nil {
+			t.Fatalf("buildFindingsRuleViewData() err = %v", err)
+		}
+		if data.CurrentStatus != "fail" {
+			t.Fatalf("CurrentStatus = %q, want fail", data.CurrentStatus)
+		}
+		if data.RuleOverride.Enabled {
+			t.Fatalf("RuleOverride.Enabled = true, want false")
+		}
+		if !strings.Contains(data.RuleOverride.CurrentParamsPretty, `"source": "exact"`) {
+			t.Fatalf("CurrentParamsPretty = %q, want exact override", data.RuleOverride.CurrentParamsPretty)
+		}
+		if data.Attestation.Notes != "source-specific attestation" {
+			t.Fatalf("Attestation.Notes = %q", data.Attestation.Notes)
+		}
+	})
+}
+
+func TestHandleFindingsRuleAttestationWritesConcreteConnectorSource(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindOkta, true, configstore.OktaConfig{
+			Domain: "example.okta.com",
+			Token:  "okta-token",
+		})
+
+		ruleset := seedRulesetForFindingsHandler(t, ctx, q)
+		rule := seedRuleForFindingsHandler(t, ctx, q, ruleset.ID, "001-attestation")
+
+		c, rec := newTestContext(http.MethodPost, "http://example.com/findings/rulesets/"+ruleset.Key+"/rules/"+rule.Key+"/attestation")
+		c.Request().Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+		c.Request().Body = http.NoBody
+		c.Request().PostForm = url.Values{
+			"status":     {"fail"},
+			"expires_at": {""},
+			"notes":      {"saved under concrete source"},
+		}
+		c.SetPathValues(echo.PathValues{
+			{Name: "rulesetKey", Value: ruleset.Key},
+			{Name: "ruleKey", Value: rule.Key},
+		})
+
+		if err := h.HandleFindingsRuleAttestation(c); err != nil {
+			t.Fatalf("HandleFindingsRuleAttestation() err = %v", err)
+		}
+		if rec.Code < 300 || rec.Code > 399 {
+			t.Fatalf("status = %d, want redirect; body=%s", rec.Code, rec.Body.String())
+		}
+
+		var concreteCount, emptyCount int
+		if err := pool.QueryRow(ctx, `
+			SELECT
+			  count(*) FILTER (WHERE source_name = 'example.okta.com')::int,
+			  count(*) FILTER (WHERE source_name = '')::int
+			FROM rule_attestations
+			WHERE rule_id = $1
+			  AND scope_kind = 'connector_instance'
+			  AND source_kind = 'okta'
+		`, rule.ID).Scan(&concreteCount, &emptyCount); err != nil {
+			t.Fatalf("count attestations: %v", err)
+		}
+		if concreteCount != 1 || emptyCount != 0 {
+			t.Fatalf("attestation counts concrete=%d empty=%d, want concrete=1 empty=0", concreteCount, emptyCount)
 		}
 	})
 }

@@ -8,34 +8,6 @@ ALTER TABLE okta_apps
 ALTER TABLE okta_groups
   DROP CONSTRAINT IF EXISTS okta_groups_source_external_id_key;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'okta_apps_external_id_key'
-  ) THEN
-    ALTER TABLE okta_apps
-      ADD CONSTRAINT okta_apps_external_id_key
-      UNIQUE (external_id);
-  END IF;
-END
-$$;
-
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'okta_groups_external_id_key'
-  ) THEN
-    ALTER TABLE okta_groups
-      ADD CONSTRAINT okta_groups_external_id_key
-      UNIQUE (external_id);
-  END IF;
-END
-$$;
-
 ALTER TABLE okta_app_group_assignments
   DROP COLUMN IF EXISTS source_name,
   DROP COLUMN IF EXISTS source_kind;

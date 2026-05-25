@@ -809,7 +809,7 @@ SELECT
   now(),
   now()
 FROM dedup input
-ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
+ON CONFLICT (external_id) DO UPDATE SET
   source_kind = EXCLUDED.source_kind,
   source_name = EXCLUDED.source_name,
   label = CASE
@@ -970,7 +970,7 @@ SELECT
   now(),
   now()
 FROM dedup input
-ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
+ON CONFLICT (external_id) DO UPDATE SET
   source_kind = EXCLUDED.source_kind,
   source_name = EXCLUDED.source_name,
   name = CASE

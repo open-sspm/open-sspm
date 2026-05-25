@@ -10,39 +10,40 @@ ALTER TABLE okta_app_group_assignments
   ADD COLUMN IF NOT EXISTS source_kind TEXT NOT NULL DEFAULT 'okta',
   ADD COLUMN IF NOT EXISTS source_name TEXT NOT NULL DEFAULT '';
 
-ALTER TABLE okta_groups
-  DROP CONSTRAINT IF EXISTS okta_groups_external_id_key;
+-- Keep legacy external_id uniqueness until every Okta app/group lookup and mapping is source-scoped.
+-- Backfill existing rows to the configured Okta source so source-filtered writes continue to find them.
+WITH okta_source AS (
+  SELECT lower(trim(regexp_replace(regexp_replace(config ->> 'domain', '^https?://', '', 'i'), '/.*$', ''))) AS source_name
+  FROM connector_configs
+  WHERE kind = 'okta'
+)
+UPDATE okta_groups
+SET source_kind = 'okta',
+    source_name = (SELECT source_name FROM okta_source)
+WHERE source_name = ''
+  AND EXISTS (SELECT 1 FROM okta_source WHERE source_name <> '');
 
-ALTER TABLE okta_apps
-  DROP CONSTRAINT IF EXISTS okta_apps_external_id_key;
+WITH okta_source AS (
+  SELECT lower(trim(regexp_replace(regexp_replace(config ->> 'domain', '^https?://', '', 'i'), '/.*$', ''))) AS source_name
+  FROM connector_configs
+  WHERE kind = 'okta'
+)
+UPDATE okta_apps
+SET source_kind = 'okta',
+    source_name = (SELECT source_name FROM okta_source)
+WHERE source_name = ''
+  AND EXISTS (SELECT 1 FROM okta_source WHERE source_name <> '');
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'okta_groups_source_external_id_key'
-  ) THEN
-    ALTER TABLE okta_groups
-      ADD CONSTRAINT okta_groups_source_external_id_key
-      UNIQUE (source_kind, source_name, external_id);
-  END IF;
-END
-$$;
-
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'okta_apps_source_external_id_key'
-  ) THEN
-    ALTER TABLE okta_apps
-      ADD CONSTRAINT okta_apps_source_external_id_key
-      UNIQUE (source_kind, source_name, external_id);
-  END IF;
-END
-$$;
+WITH okta_source AS (
+  SELECT lower(trim(regexp_replace(regexp_replace(config ->> 'domain', '^https?://', '', 'i'), '/.*$', ''))) AS source_name
+  FROM connector_configs
+  WHERE kind = 'okta'
+)
+UPDATE okta_app_group_assignments
+SET source_kind = 'okta',
+    source_name = (SELECT source_name FROM okta_source)
+WHERE source_name = ''
+  AND EXISTS (SELECT 1 FROM okta_source WHERE source_name <> '');
 
 CREATE INDEX IF NOT EXISTS idx_okta_groups_source
   ON okta_groups (source_kind, source_name);

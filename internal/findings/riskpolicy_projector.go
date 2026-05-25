@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -93,7 +92,7 @@ func (p *RiskpolicyProjector) ProjectEventShadowFindings(ctx context.Context, pa
 func riskpolicyFindingResult(row gen.ListRiskpolicyEventShadowSignalsForFindingProjectionRow) FindingResult {
 	output := map[string]any{
 		"legacy_signal_id":  strings.TrimSpace(row.SignalID),
-		"riskpolicy_output": jsonObject(row.Output),
+		"riskpolicy_output": JSONObject(row.Output),
 	}
 	eventID := row.EventID.Bytes
 	return FindingResult{
@@ -123,17 +122,6 @@ func riskpolicyFindingResult(row gen.ListRiskpolicyEventShadowSignalsForFindingP
 		Output:      output,
 		EvaluatedAt: row.EventReceivedAt.Time,
 	}
-}
-
-func jsonObject(raw []byte) map[string]any {
-	if len(raw) == 0 {
-		return map[string]any{}
-	}
-	var out map[string]any
-	if err := json.Unmarshal(raw, &out); err != nil || out == nil {
-		return map[string]any{}
-	}
-	return out
 }
 
 func eventShadowFindingKey(row gen.ListRiskpolicyEventShadowSignalsForFindingProjectionRow) string {

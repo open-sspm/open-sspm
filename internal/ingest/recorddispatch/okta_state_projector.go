@@ -217,6 +217,21 @@ func (p *OktaStateProjector) CompleteSnapshot(ctx context.Context, record record
 		}); err != nil {
 			return err
 		}
+		if record.ExpireAbsent {
+			if _, err := p.q.ExpireSaaSAppSourcesNotSeenInRunBySource(ctx, gen.ExpireSaaSAppSourcesNotSeenInRunBySourceParams{
+				ExpiredRunID: p.runID,
+				SourceKind:   "okta",
+				SourceName:   record.SourceName(),
+			}); err != nil {
+				return err
+			}
+			_, err := p.q.ExpireSaaSAppEventsNotSeenInRunBySource(ctx, gen.ExpireSaaSAppEventsNotSeenInRunBySourceParams{
+				ExpiredRunID: p.runID,
+				SourceKind:   "okta",
+				SourceName:   record.SourceName(),
+			})
+			return err
+		}
 	default:
 		return fmt.Errorf("unsupported okta snapshot resource %s", record.Resource)
 	}

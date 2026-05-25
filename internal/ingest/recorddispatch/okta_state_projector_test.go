@@ -247,6 +247,123 @@ func TestOktaStateProjectorSnapshotExpirationRequiresCompleteExpireAbsent(t *tes
 	})
 }
 
+func TestOktaStateProjectorExpiresStaleDiscoveryEvidenceOnCompleteExpireAbsent(t *testing.T) {
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "okta_discovery_expire"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+		testdb.MigrateUp(t, migrator)
+		q := gen.New(pool)
+		source := records.SourceRef{Kind: "okta", Name: "example.okta.com"}
+		staleObservedAt := time.Now().Add(-45 * 24 * time.Hour).UTC()
+
+		runID1, err := registry.StartSyncRun(ctx, q, "okta", source.Name)
+		if err != nil {
+			t.Fatalf("StartSyncRun(run1) err = %v", err)
+		}
+		dispatcher1 := NewDispatcher(nil, NewOktaStateProjector(q, runID1))
+		if err := dispatcher1.UpsertState(ctx, records.StateUpsert{
+			Source:         source,
+			Resource:       records.ResourceDiscoveryEvidence,
+			Key:            "source:0oa-stale",
+			DedupeKeyValue: "state:discovery:source:0oa-stale",
+			ObservedAt:     staleObservedAt,
+			Payload: records.DiscoveryEvidencePayload{
+				ExternalID:      "source:0oa-stale",
+				Kind:            records.DiscoveryEvidenceKindSource,
+				CanonicalKey:    "okta_app:example.okta.com:0oa-stale",
+				SourceAppID:     "0oa-stale",
+				SourceAppName:   "Stale app",
+				SourceAppDomain: "stale.example.com",
+				ObservedAt:      staleObservedAt,
+			},
+		}); err != nil {
+			t.Fatalf("source discovery UpsertState() err = %v", err)
+		}
+		if err := dispatcher1.UpsertState(ctx, records.StateUpsert{
+			Source:         source,
+			Resource:       records.ResourceDiscoveryEvidence,
+			Key:            "event:idp_sso:evt-stale",
+			DedupeKeyValue: "state:discovery:event:evt-stale",
+			ObservedAt:     staleObservedAt,
+			Payload: records.DiscoveryEvidencePayload{
+				ExternalID:      "event:idp_sso:evt-stale",
+				Kind:            records.DiscoveryEvidenceKindEvent,
+				CanonicalKey:    "okta_app:example.okta.com:0oa-stale",
+				SignalKind:      "idp_sso",
+				EventExternalID: "evt-stale",
+				SourceAppID:     "0oa-stale",
+				SourceAppName:   "Stale app",
+				ObservedAt:      staleObservedAt,
+			},
+		}); err != nil {
+			t.Fatalf("event discovery UpsertState() err = %v", err)
+		}
+		if err := dispatcher1.CompleteSnapshot(ctx, records.SnapshotComplete{
+			Source:         source,
+			Resource:       records.ResourceDiscoveryEvidence,
+			Scope:          records.FullScope{Resource: records.ResourceDiscoveryEvidence},
+			Complete:       true,
+			ExpireAbsent:   false,
+			DedupeKeyValue: "snapshot_complete:discovery:seed",
+		}); err != nil {
+			t.Fatalf("seed discovery CompleteSnapshot() err = %v", err)
+		}
+		if _, err := pool.Exec(ctx, `
+			UPDATE saas_app_sources
+			SET last_observed_at = $1
+			WHERE source_kind = 'okta' AND source_name = $2
+		`, staleObservedAt, source.Name); err != nil {
+			t.Fatalf("age saas_app_sources err = %v", err)
+		}
+		assertCount(t, ctx, pool, "active discovery sources before expiration", `
+			SELECT count(*)
+			FROM saas_app_sources
+			WHERE source_kind = 'okta'
+			  AND source_name = $1
+			  AND expired_at IS NULL
+			  AND last_observed_run_id IS NOT NULL
+		`, 1, source.Name)
+		assertCount(t, ctx, pool, "active discovery events before expiration", `
+			SELECT count(*)
+			FROM saas_app_events
+			WHERE source_kind = 'okta'
+			  AND source_name = $1
+			  AND expired_at IS NULL
+			  AND last_observed_run_id IS NOT NULL
+		`, 1, source.Name)
+
+		runID2, err := registry.StartSyncRun(ctx, q, "okta", source.Name)
+		if err != nil {
+			t.Fatalf("StartSyncRun(run2) err = %v", err)
+		}
+		dispatcher2 := NewDispatcher(nil, NewOktaStateProjector(q, runID2))
+		if err := dispatcher2.CompleteSnapshot(ctx, records.SnapshotComplete{
+			Source:         source,
+			Resource:       records.ResourceDiscoveryEvidence,
+			Scope:          records.FullScope{Resource: records.ResourceDiscoveryEvidence},
+			Complete:       true,
+			ExpireAbsent:   true,
+			DedupeKeyValue: "snapshot_complete:discovery:expire",
+		}); err != nil {
+			t.Fatalf("expire discovery CompleteSnapshot() err = %v", err)
+		}
+		assertCount(t, ctx, pool, "active discovery sources after expiration", `
+			SELECT count(*)
+			FROM saas_app_sources
+			WHERE source_kind = 'okta'
+			  AND source_name = $1
+			  AND expired_at IS NULL
+			  AND last_observed_run_id IS NOT NULL
+		`, 0, source.Name)
+		assertCount(t, ctx, pool, "active discovery events after expiration", `
+			SELECT count(*)
+			FROM saas_app_events
+			WHERE source_kind = 'okta'
+			  AND source_name = $1
+			  AND expired_at IS NULL
+			  AND last_observed_run_id IS NOT NULL
+		`, 0, source.Name)
+	})
+}
+
 func TestOktaStateProjectorSnapshotExpirationIsScopedToSource(t *testing.T) {
 	testdb.WithDatabase(t, testdb.Options{NamePrefix: "okta_snapshot_source_scope"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
 		testdb.MigrateUp(t, migrator)
@@ -321,7 +438,7 @@ func TestOktaStateProjectorSnapshotExpirationIsScopedToSource(t *testing.T) {
 	})
 }
 
-func TestOktaStateProjectorKeepsLegacyGroupsAndAppsSourceScoped(t *testing.T) {
+func TestOktaStateProjectorKeepsLegacyGroupsAndAppsGloballyUnique(t *testing.T) {
 	testdb.WithDatabase(t, testdb.Options{NamePrefix: "okta_legacy_source_scope"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
 		testdb.MigrateUp(t, migrator)
 		q := gen.New(pool)
@@ -337,7 +454,7 @@ func TestOktaStateProjectorKeepsLegacyGroupsAndAppsSourceScoped(t *testing.T) {
 			WHERE external_id = 'shared-app'
 			  AND expired_at IS NULL
 			  AND last_observed_run_id IS NOT NULL
-		`, 2)
+		`, 1)
 		assertCount(t, ctx, pool, "source A shared app", `
 			SELECT count(*)
 			FROM okta_apps
@@ -346,7 +463,7 @@ func TestOktaStateProjectorKeepsLegacyGroupsAndAppsSourceScoped(t *testing.T) {
 			  AND external_id = 'shared-app'
 			  AND expired_at IS NULL
 			  AND last_observed_run_id IS NOT NULL
-		`, 1, sourceA.Name)
+		`, 0, sourceA.Name)
 		assertCount(t, ctx, pool, "source B shared app", `
 			SELECT count(*)
 			FROM okta_apps
