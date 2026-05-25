@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/http/handlers"
@@ -264,6 +265,70 @@ func TestRegisterRoutesKeepsCapabilityFirstSurface(t *testing.T) {
 			t.Fatalf("removed route %q still registered", removedRoute)
 		}
 	}
+}
+
+func TestRouteSurfacesOwnBrowserMiddleware(t *testing.T) {
+	e := echo.New()
+	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	es := &EchoServer{h: &handlers.Handlers{Sessions: scs.New()}, e: e}
+	es.registerRoutes()
+
+	t.Run("ingest has no browser csrf session or redirect", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "http://example.com/ingest/okta/events", strings.NewReader(`{"data":{"events":[]}}`))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+
+		e.ServeHTTP(rec, req)
+
+		if rec.Code == http.StatusForbidden {
+			t.Fatalf("ingest POST was blocked by browser CSRF")
+		}
+		if rec.Code >= 300 && rec.Code < 400 {
+			t.Fatalf("ingest POST redirected to %q", rec.Header().Get(echo.HeaderLocation))
+		}
+		if got := rec.Header().Get(echo.HeaderSetCookie); strings.Contains(got, "oss_session") || strings.Contains(strings.ToLower(got), "csrf") {
+			t.Fatalf("ingest POST received browser cookies: %q", got)
+		}
+	})
+
+	t.Run("api has explicit unauthenticated json behavior", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "http://example.com/api/identity-resolution/candidates", nil)
+		rec := httptest.NewRecorder()
+
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("api status = %d, want %d", rec.Code, http.StatusUnauthorized)
+		}
+		if !strings.Contains(rec.Header().Get(echo.HeaderContentType), echo.MIMEApplicationJSON) {
+			t.Fatalf("api content-type = %q, want JSON", rec.Header().Get(echo.HeaderContentType))
+		}
+	})
+
+	t.Run("web gets browser login redirect", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "http://example.com/global-view", nil)
+		rec := httptest.NewRecorder()
+
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("web status = %d, want %d", rec.Code, http.StatusSeeOther)
+		}
+		if got := rec.Header().Get(echo.HeaderLocation); got != "/login?next=%2Fglobal-view" {
+			t.Fatalf("web redirect = %q", got)
+		}
+	})
+
+	t.Run("web mutations keep csrf protection", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "http://example.com/settings/resync", nil)
+		rec := httptest.NewRecorder()
+
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest && rec.Code != http.StatusForbidden {
+			t.Fatalf("web mutation status = %d, want CSRF rejection", rec.Code)
+		}
+	})
 }
 
 func TestHTTPErrorHandlerBadRequestUsesStatusText(t *testing.T) {

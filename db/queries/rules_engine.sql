@@ -118,6 +118,7 @@ FROM rules
 WHERE ruleset_id = $1 AND is_active = true
 ORDER BY key;
 
+-- PHASE-TWO-DELETE: selected ruleset summary reads canonical findings via findings.sql; this rule_results_current query remains for parity/legacy consumers.
 -- name: ListActiveRulesWithCurrentResultsByRulesetKey :many
 SELECT
   r.id,
@@ -152,6 +153,7 @@ WHERE rs.key = $1
   AND r.is_active = true
 ORDER BY r.key;
 
+-- PHASE-TWO-DELETE: rule detail still reads rule_results_current until its finding readmodel is cut over in Phase Two.
 -- name: GetRuleWithCurrentResultByRulesetKeyAndRuleKey :one
 SELECT
   r.*,
@@ -171,6 +173,7 @@ LEFT JOIN rule_results_current rrc
 WHERE rs.key = $1
   AND r.key = $2;
 
+-- PHASE-TWO-DELETE: rules engine keeps writing rule_results_current as a parity baseline while canonical findings become the UI source of truth.
 -- name: UpsertRuleResultCurrent :one
 INSERT INTO rule_results_current (
   rule_id,
@@ -228,7 +231,12 @@ FROM ruleset_overrides
 WHERE ruleset_id = $1
   AND scope_kind = $2
   AND source_kind = $3
-  AND source_name = $4;
+  AND (
+    source_name = $4
+    OR ($4 <> '' AND source_name = '')
+  )
+ORDER BY CASE WHEN source_name = $4 THEN 0 ELSE 1 END
+LIMIT 1;
 
 -- name: UpsertRuleOverride :one
 INSERT INTO rule_overrides (rule_id, scope_kind, source_kind, source_name, params, enabled)
@@ -245,7 +253,12 @@ FROM rule_overrides
 WHERE rule_id = $1
   AND scope_kind = $2
   AND source_kind = $3
-  AND source_name = $4;
+  AND (
+    source_name = $4
+    OR ($4 <> '' AND source_name = '')
+  )
+ORDER BY CASE WHEN source_name = $4 THEN 0 ELSE 1 END
+LIMIT 1;
 
 -- name: UpsertRuleAttestation :one
 INSERT INTO rule_attestations (rule_id, scope_kind, source_kind, source_name, status, notes, expires_at)
@@ -263,4 +276,9 @@ FROM rule_attestations
 WHERE rule_id = $1
   AND scope_kind = $2
   AND source_kind = $3
-  AND source_name = $4;
+  AND (
+    source_name = $4
+    OR ($4 <> '' AND source_name = '')
+  )
+ORDER BY CASE WHEN source_name = $4 THEN 0 ELSE 1 END
+LIMIT 1;

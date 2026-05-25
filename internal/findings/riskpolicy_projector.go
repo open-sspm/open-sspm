@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -22,11 +23,12 @@ type RiskpolicyProjectionParams struct {
 	Since  time.Time
 	Until  time.Time
 	Limit  int32
-	Shadow bool
+	Shadow *bool
 }
 
 type RiskpolicyProjectionResult struct {
 	Projected int
+	Skipped   int
 }
 
 func NewRiskpolicyProjector(q *gen.Queries) *RiskpolicyProjector {
@@ -48,12 +50,13 @@ func (p *RiskpolicyProjector) ProjectEventShadowFindings(ctx context.Context, pa
 	if err != nil {
 		return RiskpolicyProjectionResult{}, err
 	}
-	shadow := params.Shadow
-	if !params.Shadow {
-		shadow = true
+	shadow := true
+	if params.Shadow != nil {
+		shadow = *params.Shadow
 	}
 	result := RiskpolicyProjectionResult{}
 	for _, row := range rows {
+		// PHASE-TWO-DELETE: keep writing riskpolicy_findings for shadow/parity comparison until generic findings fully own riskpolicy output.
 		if err := p.q.UpsertRiskpolicyFinding(ctx, gen.UpsertRiskpolicyFindingParams{
 			FindingKey:        eventShadowFindingKey(row),
 			Source:            RiskpolicyEventShadowSource,
@@ -75,9 +78,62 @@ func (p *RiskpolicyProjector) ProjectEventShadowFindings(ctx context.Context, pa
 		}); err != nil {
 			return result, err
 		}
+		if err := NewWriter(p.q).Write(ctx, riskpolicyFindingResult(row)); err != nil {
+			if errors.Is(err, ErrInvalidResult) {
+				result.Skipped++
+				continue
+			}
+			return result, err
+		}
 		result.Projected++
 	}
 	return result, nil
+}
+
+func riskpolicyFindingResult(row gen.ListRiskpolicyEventShadowSignalsForFindingProjectionRow) FindingResult {
+	output := map[string]any{
+		"legacy_signal_id":  strings.TrimSpace(row.SignalID),
+		"riskpolicy_output": jsonObject(row.Output),
+	}
+	eventID := row.EventID.Bytes
+	return FindingResult{
+		Key:               eventShadowFindingKey(row),
+		Status:            StatusOpen,
+		BaseSeverity:      strings.TrimSpace(row.Severity),
+		EffectiveSeverity: strings.TrimSpace(row.Severity),
+		SeveritySource:    SeveritySourcePolicy,
+		Title:             strings.TrimSpace(row.Title),
+		Summary:           strings.TrimSpace(row.Evidence),
+		Evidence:          strings.TrimSpace(row.Evidence),
+		Source:            SourceRef{Kind: strings.ToLower(strings.TrimSpace(row.SourceKind)), Name: strings.TrimSpace(row.SourceName)},
+		Scope:             ScopeRef{Kind: "event", SourceKind: strings.ToLower(strings.TrimSpace(row.SourceKind)), SourceName: strings.TrimSpace(row.SourceName)},
+		Entity:            EntityRef{Kind: strings.TrimSpace(row.EntityKind), ID: strings.TrimSpace(row.EntityID), Name: strings.TrimSpace(row.EntityName)},
+		Resource:          ResourceRef{Kind: "event", ID: uuidString(row.EventID), Name: strings.TrimSpace(row.Title)},
+		Policy: PolicyRef{
+			BundleID:      strings.TrimSpace(row.PolicyPackID),
+			BundleVersion: strings.TrimSpace(row.PolicyPackVersion),
+			ID:            strings.TrimSpace(row.SignalID),
+			Title:         strings.TrimSpace(row.Title),
+		},
+		EventRef: &EventRef{
+			ReceivedAt: row.EventReceivedAt.Time,
+			ID:         eventID,
+			Valid:      row.EventID.Valid && row.EventReceivedAt.Valid,
+		},
+		Output:      output,
+		EvaluatedAt: row.EventReceivedAt.Time,
+	}
+}
+
+func jsonObject(raw []byte) map[string]any {
+	if len(raw) == 0 {
+		return map[string]any{}
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil || out == nil {
+		return map[string]any{}
+	}
+	return out
 }
 
 func eventShadowFindingKey(row gen.ListRiskpolicyEventShadowSignalsForFindingProjectionRow) string {

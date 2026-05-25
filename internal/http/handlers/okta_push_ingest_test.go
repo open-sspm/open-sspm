@@ -94,15 +94,15 @@ func TestHandleOktaEventHookPostQueuesEvents(t *testing.T) {
 			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusNoContent, rec.Body.String())
 		}
 
-		assertOktaPushInboxRow(t, ctx, pool, "acme.okta.com", "event_hook", "delivery-1", "evt-hook-1", "user.authentication.sso")
+		assertNoOktaPushInboxRow(t, ctx, pool, "evt-hook-1")
 		assertGenericEventInboxRow(t, ctx, pool, "okta", "acme.okta.com", "event_hook", "provider:evt-hook-1")
-		if len(queue.ids) != 1 || queue.ids[0] <= 0 {
-			t.Fatalf("queued redis ids = %#v, want one persisted row id", queue.ids)
+		if len(queue.ids) != 0 {
+			t.Fatalf("queued legacy redis ids = %#v, want none for generic inbox delivery", queue.ids)
 		}
 	})
 }
 
-func TestHandleOktaEventHookPostIgnoresQueueEnqueueFailure(t *testing.T) {
+func TestHandleOktaEventHookPostDoesNotUseLegacyQueueWhenGenericInboxPersists(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		upsertOktaPushIngestConfig(t, ctx, pool)
 		queue := &stubOktaPushInboxQueue{err: errors.New("redis unavailable")}
@@ -129,9 +129,10 @@ func TestHandleOktaEventHookPostIgnoresQueueEnqueueFailure(t *testing.T) {
 		if rec.Code != http.StatusNoContent {
 			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusNoContent, rec.Body.String())
 		}
-		assertOktaPushInboxRow(t, ctx, pool, "acme.okta.com", "event_hook", "delivery-enqueue-error", "evt-enqueue-error", "user.authentication.sso")
-		if len(queue.ids) != 1 || queue.ids[0] <= 0 {
-			t.Fatalf("queued redis ids = %#v, want one persisted row id", queue.ids)
+		assertNoOktaPushInboxRow(t, ctx, pool, "evt-enqueue-error")
+		assertGenericEventInboxRow(t, ctx, pool, "okta", "acme.okta.com", "event_hook", "provider:evt-enqueue-error")
+		if len(queue.ids) != 0 {
+			t.Fatalf("queued legacy redis ids = %#v, want none for generic inbox delivery", queue.ids)
 		}
 	})
 }
@@ -213,7 +214,7 @@ func TestHandleOktaEventHookPostQueuesStateRefreshEvents(t *testing.T) {
 			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusNoContent, rec.Body.String())
 		}
 
-		assertOktaPushInboxRow(t, ctx, pool, "acme.okta.com", "event_hook", "delivery-user-refresh", "evt-user-refresh-1", "user.lifecycle.deactivate")
+		assertNoOktaPushInboxRow(t, ctx, pool, "evt-user-refresh-1")
 		assertGenericEventInboxRow(t, ctx, pool, "okta", "acme.okta.com", "event_hook", "provider:evt-user-refresh-1")
 	})
 }
@@ -323,7 +324,8 @@ func TestHandleOktaEventBridgePostQueuesEvent(t *testing.T) {
 			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusNoContent, rec.Body.String())
 		}
 
-		assertOktaPushInboxRow(t, ctx, pool, "acme.okta.com", "eventbridge", "eventbridge-delivery-1", "evt-eventbridge-1", "app.oauth2.signon")
+		assertNoOktaPushInboxRow(t, ctx, pool, "evt-eventbridge-1")
+		assertGenericEventInboxRow(t, ctx, pool, "okta", "acme.okta.com", "eventbridge", "provider:evt-eventbridge-1")
 	})
 }
 
@@ -456,32 +458,6 @@ func newOktaIngestContext(method, target, body string) (*echo.Context, *httptest
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	return e.NewContext(req, rec), rec
-}
-
-func assertOktaPushInboxRow(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceName, channel, deliveryExternalID, eventExternalID, eventType string) {
-	t.Helper()
-
-	var gotChannel, gotDeliveryExternalID, gotEventType, gotStatus string
-	if err := pool.QueryRow(ctx, `
-		SELECT channel, delivery_external_id, event_type, status
-		FROM okta_push_inbox
-		WHERE source_name = $1
-		  AND event_external_id = $2
-	`, sourceName, eventExternalID).Scan(&gotChannel, &gotDeliveryExternalID, &gotEventType, &gotStatus); err != nil {
-		t.Fatalf("select okta_push_inbox row: %v", err)
-	}
-	if gotChannel != channel {
-		t.Fatalf("channel = %q, want %q", gotChannel, channel)
-	}
-	if gotDeliveryExternalID != deliveryExternalID {
-		t.Fatalf("delivery_external_id = %q, want %q", gotDeliveryExternalID, deliveryExternalID)
-	}
-	if gotEventType != eventType {
-		t.Fatalf("event_type = %q, want %q", gotEventType, eventType)
-	}
-	if gotStatus != "queued" {
-		t.Fatalf("status = %q, want queued", gotStatus)
-	}
 }
 
 func assertNoOktaPushInboxRow(t *testing.T, ctx context.Context, pool *pgxpool.Pool, eventExternalID string) {

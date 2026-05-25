@@ -515,7 +515,7 @@ func (q *Queries) ListOktaAppsPageFiltered(ctx context.Context, arg ListOktaApps
 }
 
 const listOktaGroupsForOktaAccount = `-- name: ListOktaGroupsForOktaAccount :many
-SELECT og.id, og.external_id, og.name, og.type, og.raw_json, og.created_at, og.updated_at, og.seen_in_run_id, og.seen_at, og.last_observed_run_id, og.last_observed_at, og.expired_at, og.expired_run_id
+SELECT og.id, og.external_id, og.name, og.type, og.raw_json, og.created_at, og.updated_at, og.seen_in_run_id, og.seen_at, og.last_observed_run_id, og.last_observed_at, og.expired_at, og.expired_run_id, og.source_kind, og.source_name
 FROM okta_groups og
 JOIN okta_user_groups ug ON ug.okta_group_id = og.id
 WHERE ug.okta_user_account_id = $1
@@ -549,6 +549,8 @@ func (q *Queries) ListOktaGroupsForOktaAccount(ctx context.Context, oktaUserAcco
 			&i.LastObservedAt,
 			&i.ExpiredAt,
 			&i.ExpiredRunID,
+			&i.SourceKind,
+			&i.SourceName,
 		); err != nil {
 			return nil, err
 		}
@@ -618,6 +620,8 @@ JOIN accounts iu
     OR iu.seen_in_run_id = $1::bigint
   )
 JOIN okta_apps oa ON oa.external_id = input.okta_app_external_id
+  AND oa.source_kind = 'okta'
+  AND oa.source_name = rs.source_name
   AND (oa.expired_at IS NULL OR oa.seen_in_run_id = $1::bigint)
   AND (
     oa.last_observed_run_id IS NOT NULL
@@ -660,12 +664,12 @@ const upsertOktaAppGroupAssignmentsBulkByExternalIDs = `-- name: UpsertOktaAppGr
 WITH input AS (
   SELECT
     i,
-    ($2::text[])[i] AS okta_app_external_id,
-    ($3::text[])[i] AS okta_group_external_id,
-    ($4::int[])[i] AS priority,
-    ($5::jsonb[])[i] AS profile_json,
-    ($6::jsonb[])[i] AS raw_json
-  FROM generate_subscripts($2::text[], 1) AS s(i)
+    ($4::text[])[i] AS okta_app_external_id,
+    ($5::text[])[i] AS okta_group_external_id,
+    ($6::int[])[i] AS priority,
+    ($7::jsonb[])[i] AS profile_json,
+    ($8::jsonb[])[i] AS raw_json
+  FROM generate_subscripts($4::text[], 1) AS s(i)
 ),
 dedup AS (
   SELECT DISTINCT ON (okta_app_external_id, okta_group_external_id)
@@ -678,6 +682,8 @@ dedup AS (
   ORDER BY okta_app_external_id, okta_group_external_id, i DESC
 )
 INSERT INTO okta_app_group_assignments (
+  source_kind,
+  source_name,
   okta_app_id,
   okta_group_id,
   priority,
@@ -688,28 +694,36 @@ INSERT INTO okta_app_group_assignments (
   updated_at
 )
 SELECT
+  $1::text,
+  $2::text,
   oa.id,
   og.id,
   input.priority,
   input.profile_json,
   input.raw_json,
-  $1::bigint,
+  $3::bigint,
   now(),
   now()
 FROM dedup input
 JOIN okta_apps oa ON oa.external_id = input.okta_app_external_id
-  AND (oa.expired_at IS NULL OR oa.seen_in_run_id = $1::bigint)
+  AND oa.source_kind = $1::text
+  AND oa.source_name = $2::text
+  AND (oa.expired_at IS NULL OR oa.seen_in_run_id = $3::bigint)
   AND (
     oa.last_observed_run_id IS NOT NULL
-    OR oa.seen_in_run_id = $1::bigint
+    OR oa.seen_in_run_id = $3::bigint
   )
 JOIN okta_groups og ON og.external_id = input.okta_group_external_id
-  AND (og.expired_at IS NULL OR og.seen_in_run_id = $1::bigint)
+  AND og.source_kind = $1::text
+  AND og.source_name = $2::text
+  AND (og.expired_at IS NULL OR og.seen_in_run_id = $3::bigint)
   AND (
     og.last_observed_run_id IS NOT NULL
-    OR og.seen_in_run_id = $1::bigint
+    OR og.seen_in_run_id = $3::bigint
   )
 ON CONFLICT (okta_app_id, okta_group_id) DO UPDATE SET
+  source_kind = EXCLUDED.source_kind,
+  source_name = EXCLUDED.source_name,
   priority = EXCLUDED.priority,
   profile_json = EXCLUDED.profile_json,
   raw_json = EXCLUDED.raw_json,
@@ -719,6 +733,8 @@ ON CONFLICT (okta_app_id, okta_group_id) DO UPDATE SET
 `
 
 type UpsertOktaAppGroupAssignmentsBulkByExternalIDsParams struct {
+	SourceKind           string   `json:"source_kind"`
+	SourceName           string   `json:"source_name"`
 	SeenInRunID          int64    `json:"seen_in_run_id"`
 	OktaAppExternalIds   []string `json:"okta_app_external_ids"`
 	OktaGroupExternalIds []string `json:"okta_group_external_ids"`
@@ -729,6 +745,8 @@ type UpsertOktaAppGroupAssignmentsBulkByExternalIDsParams struct {
 
 func (q *Queries) UpsertOktaAppGroupAssignmentsBulkByExternalIDs(ctx context.Context, arg UpsertOktaAppGroupAssignmentsBulkByExternalIDsParams) (int64, error) {
 	result, err := q.db.Exec(ctx, upsertOktaAppGroupAssignmentsBulkByExternalIDs,
+		arg.SourceKind,
+		arg.SourceName,
 		arg.SeenInRunID,
 		arg.OktaAppExternalIds,
 		arg.OktaGroupExternalIds,
@@ -746,13 +764,13 @@ const upsertOktaAppsBulk = `-- name: UpsertOktaAppsBulk :execrows
 WITH input AS (
   SELECT
     i,
-    ($2::text[])[i] AS external_id,
-    ($3::text[])[i] AS label,
-    ($4::text[])[i] AS name,
-    ($5::text[])[i] AS status,
-    ($6::text[])[i] AS sign_on_mode,
-    ($7::jsonb[])[i] AS raw_json
-  FROM generate_subscripts($2::text[], 1) AS s(i)
+    ($4::text[])[i] AS external_id,
+    ($5::text[])[i] AS label,
+    ($6::text[])[i] AS name,
+    ($7::text[])[i] AS status,
+    ($8::text[])[i] AS sign_on_mode,
+    ($9::jsonb[])[i] AS raw_json
+  FROM generate_subscripts($4::text[], 1) AS s(i)
 ),
 dedup AS (
   SELECT DISTINCT ON (external_id)
@@ -766,6 +784,8 @@ dedup AS (
   ORDER BY external_id, i DESC
 )
 INSERT INTO okta_apps (
+  source_kind,
+  source_name,
   external_id,
   label,
   name,
@@ -777,17 +797,21 @@ INSERT INTO okta_apps (
   updated_at
 )
 SELECT
+  $1::text,
+  $2::text,
   input.external_id,
   input.label,
   input.name,
   input.status,
   input.sign_on_mode,
   input.raw_json,
-  $1::bigint,
+  $3::bigint,
   now(),
   now()
 FROM dedup input
-ON CONFLICT (external_id) DO UPDATE SET
+ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
+  source_kind = EXCLUDED.source_kind,
+  source_name = EXCLUDED.source_name,
   label = CASE
     WHEN trim(EXCLUDED.label) <> '' THEN EXCLUDED.label
     ELSE okta_apps.label
@@ -811,6 +835,8 @@ ON CONFLICT (external_id) DO UPDATE SET
 `
 
 type UpsertOktaAppsBulkParams struct {
+	SourceKind  string   `json:"source_kind"`
+	SourceName  string   `json:"source_name"`
 	SeenInRunID int64    `json:"seen_in_run_id"`
 	ExternalIds []string `json:"external_ids"`
 	Labels      []string `json:"labels"`
@@ -822,6 +848,8 @@ type UpsertOktaAppsBulkParams struct {
 
 func (q *Queries) UpsertOktaAppsBulk(ctx context.Context, arg UpsertOktaAppsBulkParams) (int64, error) {
 	result, err := q.db.Exec(ctx, upsertOktaAppsBulk,
+		arg.SourceKind,
+		arg.SourceName,
 		arg.SeenInRunID,
 		arg.ExternalIds,
 		arg.Labels,
@@ -875,6 +903,8 @@ JOIN accounts iu
     OR iu.seen_in_run_id = $1::bigint
   )
 JOIN okta_groups og ON og.external_id = d.okta_group_external_id
+  AND og.source_kind = 'okta'
+  AND og.source_name = rs.source_name
   AND (og.expired_at IS NULL OR og.seen_in_run_id = $1::bigint)
   AND (
     og.last_observed_run_id IS NOT NULL
@@ -903,11 +933,11 @@ const upsertOktaGroupsBulk = `-- name: UpsertOktaGroupsBulk :execrows
 WITH input AS (
   SELECT
     i,
-    ($2::text[])[i] AS external_id,
-    ($3::text[])[i] AS name,
-    ($4::text[])[i] AS type,
-    ($5::jsonb[])[i] AS raw_json
-  FROM generate_subscripts($2::text[], 1) AS s(i)
+    ($4::text[])[i] AS external_id,
+    ($5::text[])[i] AS name,
+    ($6::text[])[i] AS type,
+    ($7::jsonb[])[i] AS raw_json
+  FROM generate_subscripts($4::text[], 1) AS s(i)
 ),
 dedup AS (
   SELECT DISTINCT ON (external_id)
@@ -919,6 +949,8 @@ dedup AS (
   ORDER BY external_id, i DESC
 )
 INSERT INTO okta_groups (
+  source_kind,
+  source_name,
   external_id,
   name,
   type,
@@ -928,15 +960,19 @@ INSERT INTO okta_groups (
   updated_at
 )
 SELECT
+  $1::text,
+  $2::text,
   input.external_id,
   input.name,
   input.type,
   input.raw_json,
-  $1::bigint,
+  $3::bigint,
   now(),
   now()
 FROM dedup input
-ON CONFLICT (external_id) DO UPDATE SET
+ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
+  source_kind = EXCLUDED.source_kind,
+  source_name = EXCLUDED.source_name,
   name = CASE
     WHEN trim(EXCLUDED.name) <> '' THEN EXCLUDED.name
     ELSE okta_groups.name
@@ -952,6 +988,8 @@ ON CONFLICT (external_id) DO UPDATE SET
 `
 
 type UpsertOktaGroupsBulkParams struct {
+	SourceKind  string   `json:"source_kind"`
+	SourceName  string   `json:"source_name"`
 	SeenInRunID int64    `json:"seen_in_run_id"`
 	ExternalIds []string `json:"external_ids"`
 	Names       []string `json:"names"`
@@ -961,6 +999,8 @@ type UpsertOktaGroupsBulkParams struct {
 
 func (q *Queries) UpsertOktaGroupsBulk(ctx context.Context, arg UpsertOktaGroupsBulkParams) (int64, error) {
 	result, err := q.db.Exec(ctx, upsertOktaGroupsBulk,
+		arg.SourceKind,
+		arg.SourceName,
 		arg.SeenInRunID,
 		arg.ExternalIds,
 		arg.Names,

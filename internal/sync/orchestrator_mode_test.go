@@ -71,7 +71,7 @@ func (i *orchestratorCountingIntegration) Run(ctx context.Context, q *gen.Querie
 	}
 	return i.runErr
 }
-func (i *orchestratorCountingIntegration) EvaluateCompliance(context.Context, *gen.Queries, func(registry.Event)) error {
+func (i *orchestratorCountingIntegration) EvaluateCompliance(context.Context, *gen.Queries, *pgxpool.Pool, func(registry.Event)) error {
 	i.complianceCount++
 	return nil
 }
@@ -90,7 +90,7 @@ func TestOrchestrator_DiscoveryModeSkipsPostProcessing(t *testing.T) {
 	}
 
 	var globalCalled bool
-	orch.globalEvalFn = func(context.Context, *gen.Queries, string, bool, func(registry.Event)) error {
+	orch.globalEvalFn = func(context.Context, *gen.Queries, *pgxpool.Pool, string, bool, func(registry.Event)) error {
 		globalCalled = true
 		return nil
 	}
@@ -131,7 +131,7 @@ func TestOrchestrator_TailModeSkipsPostProcessing(t *testing.T) {
 	}
 
 	var globalCalled bool
-	orch.globalEvalFn = func(context.Context, *gen.Queries, string, bool, func(registry.Event)) error {
+	orch.globalEvalFn = func(context.Context, *gen.Queries, *pgxpool.Pool, string, bool, func(registry.Event)) error {
 		globalCalled = true
 		return nil
 	}
@@ -172,7 +172,7 @@ func TestOrchestrator_FullModeRunsPostProcessing(t *testing.T) {
 	}
 
 	var globalCalled bool
-	orch.globalEvalFn = func(context.Context, *gen.Queries, string, bool, func(registry.Event)) error {
+	orch.globalEvalFn = func(context.Context, *gen.Queries, *pgxpool.Pool, string, bool, func(registry.Event)) error {
 		globalCalled = true
 		return nil
 	}
@@ -241,7 +241,7 @@ func TestOrchestrator_StrictModeSkipsGlobalComplianceWhenIdentityResolutionFails
 
 	var globalRan bool
 	var globalSkipped bool
-	orch.globalEvalFn = func(_ context.Context, _ *gen.Queries, mode string, hasPrerequisiteErrors bool, _ func(registry.Event)) error {
+	orch.globalEvalFn = func(_ context.Context, _ *gen.Queries, _ *pgxpool.Pool, mode string, hasPrerequisiteErrors bool, _ func(registry.Event)) error {
 		if mode == globalEvalModeStrict && hasPrerequisiteErrors {
 			globalSkipped = true
 			return nil
@@ -285,7 +285,7 @@ func TestOrchestrator_BestEffortModeRunsGlobalComplianceWhenIdentityResolutionFa
 
 	var globalRan bool
 	var receivedPrereqErrors bool
-	orch.globalEvalFn = func(_ context.Context, _ *gen.Queries, mode string, hasPrerequisiteErrors bool, _ func(registry.Event)) error {
+	orch.globalEvalFn = func(_ context.Context, _ *gen.Queries, _ *pgxpool.Pool, mode string, hasPrerequisiteErrors bool, _ func(registry.Event)) error {
 		if mode != globalEvalModeBestEffort {
 			t.Fatalf("mode = %q, want %q", mode, globalEvalModeBestEffort)
 		}

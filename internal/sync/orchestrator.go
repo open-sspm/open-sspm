@@ -36,7 +36,7 @@ type Orchestrator struct {
 	locks           LockManager
 	mode            registry.RunMode
 	identityFn      func(context.Context, *gen.Queries, []string, []string) (identity.Stats, error)
-	globalEvalFn    func(context.Context, *gen.Queries, string, bool, func(registry.Event)) error
+	globalEvalFn    func(context.Context, *gen.Queries, *pgxpool.Pool, string, bool, func(registry.Event)) error
 	readModelConfig readmodels.RefreshConfig
 	hasReadModelCfg bool
 
@@ -316,7 +316,7 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 		}
 
 		err := o.withConnectorLock(ctx, kind, name, func(lockCtx context.Context) error {
-			return eval.EvaluateCompliance(lockCtx, o.q, o.report)
+			return eval.EvaluateCompliance(lockCtx, o.q, o.pool, o.report)
 		})
 		if err != nil {
 			wrapped := fmt.Errorf("%s compliance: %w", kind, err)
@@ -339,7 +339,7 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 	if globalEvalFn == nil {
 		globalEvalFn = runGlobalComplianceEvaluations
 	}
-	if err := globalEvalFn(ctx, o.q, o.globalEvalMode, hasPrerequisiteErrors, o.report); err != nil {
+	if err := globalEvalFn(ctx, o.q, o.pool, o.globalEvalMode, hasPrerequisiteErrors, o.report); err != nil {
 		wrapped := fmt.Errorf("global compliance: %w", err)
 		slog.Error("global compliance evaluation failed", "err", err)
 		errs = append(errs, wrapped)
@@ -350,7 +350,7 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 	return err
 }
 
-func runGlobalComplianceEvaluations(ctx context.Context, q *gen.Queries, mode string, hasPrerequisiteErrors bool, report func(registry.Event)) error {
+func runGlobalComplianceEvaluations(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, mode string, hasPrerequisiteErrors bool, report func(registry.Event)) error {
 	if mode == globalEvalModeStrict && hasPrerequisiteErrors {
 		slog.Info("skipping global compliance evaluation due to prerequisite errors")
 		if report != nil {
@@ -364,6 +364,7 @@ func runGlobalComplianceEvaluations(ctx context.Context, q *gen.Queries, mode st
 	}
 	globalEngine := engine.Engine{
 		Q:        q,
+		DB:       pool,
 		Datasets: router,
 		Now:      time.Now,
 	}

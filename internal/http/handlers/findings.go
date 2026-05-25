@@ -141,11 +141,11 @@ func (h *Handlers) buildFindingsRulesetViewData(ctx context.Context, c *echo.Con
 	severityFilter := normalizeSeverityFilter(c.QueryParam("severity"))
 	monitoringFilter := normalizeMonitoringFilter(c.QueryParam("monitoring"))
 
-	ruleRows, err := h.Q.ListActiveRulesWithCurrentResultsByRulesetKey(ctx, gen.ListActiveRulesWithCurrentResultsByRulesetKeyParams{
-		Key:        strings.TrimSpace(rs.Key),
+	ruleRows, err := h.Q.ListFindingRulesetCurrentByRulesetKey(ctx, gen.ListFindingRulesetCurrentByRulesetKeyParams{
 		ScopeKind:  scope.ScopeKind,
 		SourceKind: scope.SourceKind,
 		SourceName: scope.SourceName,
+		Key:        strings.TrimSpace(rs.Key),
 	})
 	if err != nil {
 		return viewmodels.FindingsRulesetViewData{}, err
@@ -249,10 +249,7 @@ func (h *Handlers) findingsScopeForRuleset(ctx context.Context, rs gen.Ruleset) 
 			return findingsScope{ScopeKind: "connector_instance"}, nil
 		}
 
-		var (
-			sourceName string
-			hintHref   string
-		)
+		hintHref := ""
 
 		if h.Registry != nil {
 			states, err := h.Registry.LoadStates(ctx, h.Q)
@@ -261,7 +258,6 @@ func (h *Handlers) findingsScopeForRuleset(ctx context.Context, rs gen.Ruleset) 
 			}
 			for _, st := range states {
 				if strings.EqualFold(strings.TrimSpace(st.Definition.Kind()), connectorKind) {
-					sourceName = strings.TrimSpace(st.SourceName)
 					hintHref = strings.TrimSpace(st.Definition.SettingsHref())
 					break
 				}
@@ -271,7 +267,7 @@ func (h *Handlers) findingsScopeForRuleset(ctx context.Context, rs gen.Ruleset) 
 		return findingsScope{
 			ScopeKind:         "connector_instance",
 			SourceKind:        connectorKind,
-			SourceName:        sourceName,
+			SourceName:        "",
 			ConnectorHintHref: hintHref,
 		}, nil
 	default:

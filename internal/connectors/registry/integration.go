@@ -26,7 +26,7 @@ type Integration interface {
 // ComplianceEvaluator is an optional interface that integrations can implement
 // to run compliance ruleset evaluations after all connectors have synced.
 type ComplianceEvaluator interface {
-	EvaluateCompliance(context.Context, *gen.Queries, func(Event)) error
+	EvaluateCompliance(context.Context, *gen.Queries, *pgxpool.Pool, func(Event)) error
 }
 
 // ModeAwareIntegration is an optional interface that integrations can implement

@@ -50,6 +50,7 @@ WHERE source_kind = 'okta'
   AND (seen_in_run_id <> $1 OR seen_in_run_id IS NULL)
 `
 
+// PHASE-TWO-DELETE: unscoped Okta freshness helper retained for legacy direct-write compatibility; record projection uses source-scoped expiration.
 func (q *Queries) ExpireOktaAccountsNotSeenInRun(ctx context.Context, expiredRunID pgtype.Int8) (int64, error) {
 	result, err := q.db.Exec(ctx, expireOktaAccountsNotSeenInRun, expiredRunID)
 	if err != nil {
@@ -68,8 +69,40 @@ WHERE expired_at IS NULL
   AND (seen_in_run_id <> $1 OR seen_in_run_id IS NULL)
 `
 
+// PHASE-TWO-DELETE: unscoped Okta app assignment expiration retained for legacy direct-write compatibility; record projection uses source-scoped expiration.
 func (q *Queries) ExpireOktaAppAssignmentsNotSeenInRun(ctx context.Context, expiredRunID pgtype.Int8) (int64, error) {
 	result, err := q.db.Exec(ctx, expireOktaAppAssignmentsNotSeenInRun, expiredRunID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const expireOktaAppAssignmentsNotSeenInRunBySource = `-- name: ExpireOktaAppAssignmentsNotSeenInRunBySource :execrows
+UPDATE okta_user_app_assignments ua
+SET
+  expired_at = now(),
+  expired_run_id = $1::bigint
+FROM accounts au
+WHERE au.id = ua.okta_user_account_id
+  AND au.source_kind = $2::text
+  AND au.source_name = $3::text
+  AND ua.expired_at IS NULL
+  AND ua.last_observed_run_id IS NOT NULL
+  AND (
+    ua.seen_in_run_id <> $1::bigint
+    OR ua.seen_in_run_id IS NULL
+  )
+`
+
+type ExpireOktaAppAssignmentsNotSeenInRunBySourceParams struct {
+	ExpiredRunID int64  `json:"expired_run_id"`
+	SourceKind   string `json:"source_kind"`
+	SourceName   string `json:"source_name"`
+}
+
+func (q *Queries) ExpireOktaAppAssignmentsNotSeenInRunBySource(ctx context.Context, arg ExpireOktaAppAssignmentsNotSeenInRunBySourceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, expireOktaAppAssignmentsNotSeenInRunBySource, arg.ExpiredRunID, arg.SourceKind, arg.SourceName)
 	if err != nil {
 		return 0, err
 	}
@@ -86,8 +119,38 @@ WHERE expired_at IS NULL
   AND (seen_in_run_id <> $1 OR seen_in_run_id IS NULL)
 `
 
+// PHASE-TWO-DELETE: unscoped Okta app group assignment expiration retained for legacy direct-write compatibility; record projection uses source-scoped expiration.
 func (q *Queries) ExpireOktaAppGroupAssignmentsNotSeenInRun(ctx context.Context, expiredRunID pgtype.Int8) (int64, error) {
 	result, err := q.db.Exec(ctx, expireOktaAppGroupAssignmentsNotSeenInRun, expiredRunID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const expireOktaAppGroupAssignmentsNotSeenInRunBySource = `-- name: ExpireOktaAppGroupAssignmentsNotSeenInRunBySource :execrows
+UPDATE okta_app_group_assignments
+SET
+  expired_at = now(),
+  expired_run_id = $1::bigint
+WHERE source_kind = $2::text
+  AND source_name = $3::text
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND (
+    seen_in_run_id <> $1::bigint
+    OR seen_in_run_id IS NULL
+  )
+`
+
+type ExpireOktaAppGroupAssignmentsNotSeenInRunBySourceParams struct {
+	ExpiredRunID int64  `json:"expired_run_id"`
+	SourceKind   string `json:"source_kind"`
+	SourceName   string `json:"source_name"`
+}
+
+func (q *Queries) ExpireOktaAppGroupAssignmentsNotSeenInRunBySource(ctx context.Context, arg ExpireOktaAppGroupAssignmentsNotSeenInRunBySourceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, expireOktaAppGroupAssignmentsNotSeenInRunBySource, arg.ExpiredRunID, arg.SourceKind, arg.SourceName)
 	if err != nil {
 		return 0, err
 	}
@@ -104,8 +167,38 @@ WHERE expired_at IS NULL
   AND (seen_in_run_id <> $1 OR seen_in_run_id IS NULL)
 `
 
+// PHASE-TWO-DELETE: unscoped Okta app expiration retained for legacy direct-write compatibility; record projection uses source-scoped expiration.
 func (q *Queries) ExpireOktaAppsNotSeenInRun(ctx context.Context, expiredRunID pgtype.Int8) (int64, error) {
 	result, err := q.db.Exec(ctx, expireOktaAppsNotSeenInRun, expiredRunID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const expireOktaAppsNotSeenInRunBySource = `-- name: ExpireOktaAppsNotSeenInRunBySource :execrows
+UPDATE okta_apps
+SET
+  expired_at = now(),
+  expired_run_id = $1::bigint
+WHERE source_kind = $2::text
+  AND source_name = $3::text
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND (
+    seen_in_run_id <> $1::bigint
+    OR seen_in_run_id IS NULL
+  )
+`
+
+type ExpireOktaAppsNotSeenInRunBySourceParams struct {
+	ExpiredRunID int64  `json:"expired_run_id"`
+	SourceKind   string `json:"source_kind"`
+	SourceName   string `json:"source_name"`
+}
+
+func (q *Queries) ExpireOktaAppsNotSeenInRunBySource(ctx context.Context, arg ExpireOktaAppsNotSeenInRunBySourceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, expireOktaAppsNotSeenInRunBySource, arg.ExpiredRunID, arg.SourceKind, arg.SourceName)
 	if err != nil {
 		return 0, err
 	}
@@ -122,8 +215,40 @@ WHERE expired_at IS NULL
   AND (seen_in_run_id <> $1 OR seen_in_run_id IS NULL)
 `
 
+// PHASE-TWO-DELETE: unscoped Okta membership expiration retained for legacy direct-write compatibility; record projection uses source-scoped expiration.
 func (q *Queries) ExpireOktaGroupMembershipsNotSeenInRun(ctx context.Context, expiredRunID pgtype.Int8) (int64, error) {
 	result, err := q.db.Exec(ctx, expireOktaGroupMembershipsNotSeenInRun, expiredRunID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const expireOktaGroupMembershipsNotSeenInRunBySource = `-- name: ExpireOktaGroupMembershipsNotSeenInRunBySource :execrows
+UPDATE okta_user_groups ug
+SET
+  expired_at = now(),
+  expired_run_id = $1::bigint
+FROM accounts au
+WHERE au.id = ug.okta_user_account_id
+  AND au.source_kind = $2::text
+  AND au.source_name = $3::text
+  AND ug.expired_at IS NULL
+  AND ug.last_observed_run_id IS NOT NULL
+  AND (
+    ug.seen_in_run_id <> $1::bigint
+    OR ug.seen_in_run_id IS NULL
+  )
+`
+
+type ExpireOktaGroupMembershipsNotSeenInRunBySourceParams struct {
+	ExpiredRunID int64  `json:"expired_run_id"`
+	SourceKind   string `json:"source_kind"`
+	SourceName   string `json:"source_name"`
+}
+
+func (q *Queries) ExpireOktaGroupMembershipsNotSeenInRunBySource(ctx context.Context, arg ExpireOktaGroupMembershipsNotSeenInRunBySourceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, expireOktaGroupMembershipsNotSeenInRunBySource, arg.ExpiredRunID, arg.SourceKind, arg.SourceName)
 	if err != nil {
 		return 0, err
 	}
@@ -140,8 +265,38 @@ WHERE expired_at IS NULL
   AND (seen_in_run_id <> $1 OR seen_in_run_id IS NULL)
 `
 
+// PHASE-TWO-DELETE: unscoped Okta group expiration retained for legacy direct-write compatibility; record projection uses source-scoped expiration.
 func (q *Queries) ExpireOktaGroupsNotSeenInRun(ctx context.Context, expiredRunID pgtype.Int8) (int64, error) {
 	result, err := q.db.Exec(ctx, expireOktaGroupsNotSeenInRun, expiredRunID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const expireOktaGroupsNotSeenInRunBySource = `-- name: ExpireOktaGroupsNotSeenInRunBySource :execrows
+UPDATE okta_groups
+SET
+  expired_at = now(),
+  expired_run_id = $1::bigint
+WHERE source_kind = $2::text
+  AND source_name = $3::text
+  AND expired_at IS NULL
+  AND last_observed_run_id IS NOT NULL
+  AND (
+    seen_in_run_id <> $1::bigint
+    OR seen_in_run_id IS NULL
+  )
+`
+
+type ExpireOktaGroupsNotSeenInRunBySourceParams struct {
+	ExpiredRunID int64  `json:"expired_run_id"`
+	SourceKind   string `json:"source_kind"`
+	SourceName   string `json:"source_name"`
+}
+
+func (q *Queries) ExpireOktaGroupsNotSeenInRunBySource(ctx context.Context, arg ExpireOktaGroupsNotSeenInRunBySourceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, expireOktaGroupsNotSeenInRunBySource, arg.ExpiredRunID, arg.SourceKind, arg.SourceName)
 	if err != nil {
 		return 0, err
 	}
@@ -271,6 +426,34 @@ func (q *Queries) PromoteOktaAppAssignmentsSeenInRun(ctx context.Context, lastOb
 	return result.RowsAffected(), nil
 }
 
+const promoteOktaAppAssignmentsSeenInRunBySource = `-- name: PromoteOktaAppAssignmentsSeenInRunBySource :execrows
+UPDATE okta_user_app_assignments ua
+SET
+  last_observed_run_id = $1::bigint,
+  last_observed_at = now(),
+  expired_at = NULL,
+  expired_run_id = NULL
+FROM accounts au
+WHERE au.id = ua.okta_user_account_id
+  AND au.source_kind = $2::text
+  AND au.source_name = $3::text
+  AND ua.seen_in_run_id = $1::bigint
+`
+
+type PromoteOktaAppAssignmentsSeenInRunBySourceParams struct {
+	LastObservedRunID int64  `json:"last_observed_run_id"`
+	SourceKind        string `json:"source_kind"`
+	SourceName        string `json:"source_name"`
+}
+
+func (q *Queries) PromoteOktaAppAssignmentsSeenInRunBySource(ctx context.Context, arg PromoteOktaAppAssignmentsSeenInRunBySourceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, promoteOktaAppAssignmentsSeenInRunBySource, arg.LastObservedRunID, arg.SourceKind, arg.SourceName)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const promoteOktaAppGroupAssignmentsSeenInRun = `-- name: PromoteOktaAppGroupAssignmentsSeenInRun :execrows
 UPDATE okta_app_group_assignments
 SET
@@ -283,6 +466,32 @@ WHERE seen_in_run_id = $1
 
 func (q *Queries) PromoteOktaAppGroupAssignmentsSeenInRun(ctx context.Context, lastObservedRunID pgtype.Int8) (int64, error) {
 	result, err := q.db.Exec(ctx, promoteOktaAppGroupAssignmentsSeenInRun, lastObservedRunID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const promoteOktaAppGroupAssignmentsSeenInRunBySource = `-- name: PromoteOktaAppGroupAssignmentsSeenInRunBySource :execrows
+UPDATE okta_app_group_assignments
+SET
+  last_observed_run_id = $1::bigint,
+  last_observed_at = now(),
+  expired_at = NULL,
+  expired_run_id = NULL
+WHERE source_kind = $2::text
+  AND source_name = $3::text
+  AND seen_in_run_id = $1::bigint
+`
+
+type PromoteOktaAppGroupAssignmentsSeenInRunBySourceParams struct {
+	LastObservedRunID int64  `json:"last_observed_run_id"`
+	SourceKind        string `json:"source_kind"`
+	SourceName        string `json:"source_name"`
+}
+
+func (q *Queries) PromoteOktaAppGroupAssignmentsSeenInRunBySource(ctx context.Context, arg PromoteOktaAppGroupAssignmentsSeenInRunBySourceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, promoteOktaAppGroupAssignmentsSeenInRunBySource, arg.LastObservedRunID, arg.SourceKind, arg.SourceName)
 	if err != nil {
 		return 0, err
 	}
@@ -307,6 +516,32 @@ func (q *Queries) PromoteOktaAppsSeenInRun(ctx context.Context, lastObservedRunI
 	return result.RowsAffected(), nil
 }
 
+const promoteOktaAppsSeenInRunBySource = `-- name: PromoteOktaAppsSeenInRunBySource :execrows
+UPDATE okta_apps
+SET
+  last_observed_run_id = $1::bigint,
+  last_observed_at = now(),
+  expired_at = NULL,
+  expired_run_id = NULL
+WHERE source_kind = $2::text
+  AND source_name = $3::text
+  AND seen_in_run_id = $1::bigint
+`
+
+type PromoteOktaAppsSeenInRunBySourceParams struct {
+	LastObservedRunID int64  `json:"last_observed_run_id"`
+	SourceKind        string `json:"source_kind"`
+	SourceName        string `json:"source_name"`
+}
+
+func (q *Queries) PromoteOktaAppsSeenInRunBySource(ctx context.Context, arg PromoteOktaAppsSeenInRunBySourceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, promoteOktaAppsSeenInRunBySource, arg.LastObservedRunID, arg.SourceKind, arg.SourceName)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const promoteOktaGroupMembershipsSeenInRun = `-- name: PromoteOktaGroupMembershipsSeenInRun :execrows
 UPDATE okta_user_groups
 SET
@@ -325,6 +560,34 @@ func (q *Queries) PromoteOktaGroupMembershipsSeenInRun(ctx context.Context, last
 	return result.RowsAffected(), nil
 }
 
+const promoteOktaGroupMembershipsSeenInRunBySource = `-- name: PromoteOktaGroupMembershipsSeenInRunBySource :execrows
+UPDATE okta_user_groups ug
+SET
+  last_observed_run_id = $1::bigint,
+  last_observed_at = now(),
+  expired_at = NULL,
+  expired_run_id = NULL
+FROM accounts au
+WHERE au.id = ug.okta_user_account_id
+  AND au.source_kind = $2::text
+  AND au.source_name = $3::text
+  AND ug.seen_in_run_id = $1::bigint
+`
+
+type PromoteOktaGroupMembershipsSeenInRunBySourceParams struct {
+	LastObservedRunID int64  `json:"last_observed_run_id"`
+	SourceKind        string `json:"source_kind"`
+	SourceName        string `json:"source_name"`
+}
+
+func (q *Queries) PromoteOktaGroupMembershipsSeenInRunBySource(ctx context.Context, arg PromoteOktaGroupMembershipsSeenInRunBySourceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, promoteOktaGroupMembershipsSeenInRunBySource, arg.LastObservedRunID, arg.SourceKind, arg.SourceName)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const promoteOktaGroupsSeenInRun = `-- name: PromoteOktaGroupsSeenInRun :execrows
 UPDATE okta_groups
 SET
@@ -337,6 +600,32 @@ WHERE seen_in_run_id = $1
 
 func (q *Queries) PromoteOktaGroupsSeenInRun(ctx context.Context, lastObservedRunID pgtype.Int8) (int64, error) {
 	result, err := q.db.Exec(ctx, promoteOktaGroupsSeenInRun, lastObservedRunID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const promoteOktaGroupsSeenInRunBySource = `-- name: PromoteOktaGroupsSeenInRunBySource :execrows
+UPDATE okta_groups
+SET
+  last_observed_run_id = $1::bigint,
+  last_observed_at = now(),
+  expired_at = NULL,
+  expired_run_id = NULL
+WHERE source_kind = $2::text
+  AND source_name = $3::text
+  AND seen_in_run_id = $1::bigint
+`
+
+type PromoteOktaGroupsSeenInRunBySourceParams struct {
+	LastObservedRunID int64  `json:"last_observed_run_id"`
+	SourceKind        string `json:"source_kind"`
+	SourceName        string `json:"source_name"`
+}
+
+func (q *Queries) PromoteOktaGroupsSeenInRunBySource(ctx context.Context, arg PromoteOktaGroupsSeenInRunBySourceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, promoteOktaGroupsSeenInRunBySource, arg.LastObservedRunID, arg.SourceKind, arg.SourceName)
 	if err != nil {
 		return 0, err
 	}
