@@ -245,7 +245,7 @@ func (q *Queries) GetAppAssetPostureByID(ctx context.Context, id int64) (GetAppA
 }
 
 const listAppAssetDiscoveryEventsBySourceAppID = `-- name: ListAppAssetDiscoveryEventsBySourceAppID :many
-SELECT id, saas_app_id, source_kind, source_name, signal_kind, event_external_id, source_app_id, source_app_name, source_app_domain, actor_external_id, actor_email, actor_display_name, observed_at, scopes_json, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at
+SELECT id, saas_app_id, source_kind, source_name, signal_kind, event_external_id, source_app_id, source_app_name, source_app_domain, actor_external_id, actor_email, actor_display_name, observed_at, scopes_json, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, has_privileged_scope, has_confidential_scope
 FROM saas_app_events e
 WHERE e.source_kind = $1::text
   AND e.source_name = $2::text
@@ -301,6 +301,8 @@ func (q *Queries) ListAppAssetDiscoveryEventsBySourceAppID(ctx context.Context, 
 			&i.ExpiredRunID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.HasPrivilegedScope,
+			&i.HasConfidentialScope,
 		); err != nil {
 			return nil, err
 		}

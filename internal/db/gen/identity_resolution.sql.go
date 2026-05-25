@@ -1539,6 +1539,8 @@ WITH existing_rejected AS (
     AND candidate_identity_id = $2::bigint
     AND resolver_fingerprint = $3::text
     AND status = 'rejected'
+  ORDER BY updated_at DESC, id DESC
+  LIMIT 1
 ),
 upserted AS (
 INSERT INTO identity_match_candidates (

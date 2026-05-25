@@ -87,6 +87,40 @@ func (q *Queries) GetIdentityMergeRedirect(ctx context.Context, sourceIdentityID
 	return i, err
 }
 
+const identityMergeWouldCreateCycle = `-- name: IdentityMergeWouldCreateCycle :one
+WITH RECURSIVE redirect_chain AS (
+  SELECT
+    source_identity_id,
+    target_identity_id
+  FROM identity_merge_redirects
+  WHERE source_identity_id = $2::bigint
+  UNION
+  SELECT
+    r.source_identity_id,
+    r.target_identity_id
+  FROM identity_merge_redirects r
+  JOIN redirect_chain c
+    ON r.source_identity_id = c.target_identity_id
+)
+SELECT EXISTS (
+  SELECT 1
+  FROM redirect_chain
+  WHERE target_identity_id = $1::bigint
+)::bool AS would_create_cycle
+`
+
+type IdentityMergeWouldCreateCycleParams struct {
+	SourceIdentityID int64 `json:"source_identity_id"`
+	TargetIdentityID int64 `json:"target_identity_id"`
+}
+
+func (q *Queries) IdentityMergeWouldCreateCycle(ctx context.Context, arg IdentityMergeWouldCreateCycleParams) (bool, error) {
+	row := q.db.QueryRow(ctx, identityMergeWouldCreateCycle, arg.SourceIdentityID, arg.TargetIdentityID)
+	var would_create_cycle bool
+	err := row.Scan(&would_create_cycle)
+	return would_create_cycle, err
+}
+
 const listAccountIdentityRelationships = `-- name: ListAccountIdentityRelationships :many
 SELECT id, account_id, identity_id, relationship_type, source_kind, source_name, confidence, lifecycle_state, first_seen_at, last_seen_at, created_at, updated_at
 FROM account_identity_relationships

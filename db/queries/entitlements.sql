@@ -43,6 +43,11 @@ JOIN accounts au
   ON au.source_kind = sqlc.arg(source_kind)::text
   AND au.source_name = sqlc.arg(source_name)::text
   AND au.external_id = input.account_external_id
+  AND (au.expired_at IS NULL OR au.seen_in_run_id = sqlc.arg(seen_in_run_id)::bigint)
+  AND (
+    au.last_observed_run_id IS NOT NULL
+    OR au.seen_in_run_id = sqlc.arg(seen_in_run_id)::bigint
+  )
 ON CONFLICT (app_user_id, kind, resource, permission) DO UPDATE SET
   raw_json = EXCLUDED.raw_json,
   seen_in_run_id = EXCLUDED.seen_in_run_id,

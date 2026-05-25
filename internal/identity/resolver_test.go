@@ -791,6 +791,20 @@ func (s *resolverStub) MarkIdentityMerged(_ context.Context, sourceIdentityID in
 	return nil
 }
 
+func (s *resolverStub) IdentityMergeWouldCreateCycle(_ context.Context, params gen.IdentityMergeWouldCreateCycleParams) (bool, error) {
+	for current := params.TargetIdentityID; current != 0; {
+		redirect, ok := s.mergeRedirects[current]
+		if !ok {
+			return false, nil
+		}
+		if redirect.TargetIdentityID == params.SourceIdentityID {
+			return true, nil
+		}
+		current = redirect.TargetIdentityID
+	}
+	return false, nil
+}
+
 func (s *resolverStub) UpsertIdentityMergeRedirect(_ context.Context, params gen.UpsertIdentityMergeRedirectParams) (gen.IdentityMergeRedirect, error) {
 	row := gen.IdentityMergeRedirect{
 		SourceIdentityID: params.SourceIdentityID,

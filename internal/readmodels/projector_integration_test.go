@@ -412,6 +412,27 @@ func TestProjectorNonHumanPolicyRiskFeedsFiltersSortAndMetrics(t *testing.T) {
 		if _, err := q.RefreshAllAppAssetReadModels(ctx); err != nil {
 			t.Fatalf("RefreshAllAppAssetReadModels(): %v", err)
 		}
+		for _, fixture := range []struct {
+			name           string
+			appAssetID     int64
+			wantGrantCount int64
+			wantActorCount int64
+		}{
+			{name: "github app_asset ref", appAssetID: criticalAssetID, wantGrantCount: 1, wantActorCount: 1},
+			{name: "entra app_asset ref", appAssetID: mediumAssetID, wantGrantCount: 1, wantActorCount: 1},
+		} {
+			var grantCount, actorCount int64
+			if err := pool.QueryRow(ctx, `
+				SELECT grant_count, actor_count
+				FROM app_assets
+				WHERE id = $1
+			`, fixture.appAssetID).Scan(&grantCount, &actorCount); err != nil {
+				t.Fatalf("select app asset counts %s: %v", fixture.name, err)
+			}
+			if grantCount != fixture.wantGrantCount || actorCount != fixture.wantActorCount {
+				t.Fatalf("app asset counts %s = %d/%d, want %d/%d", fixture.name, grantCount, actorCount, fixture.wantGrantCount, fixture.wantActorCount)
+			}
+		}
 
 		projector := NewProjector(pool, nil, RefreshConfig{})
 		if err := projector.RefreshAllCredentialArtifactRiskReadModels(ctx); err != nil {
@@ -817,6 +838,7 @@ func insertReadModelsCredentialArtifact(t *testing.T, ctx context.Context, pool 
 			display_name,
 			scope_json,
 			raw_json,
+			lineage_key,
 			status,
 			seen_in_run_id,
 			seen_at,
@@ -832,7 +854,23 @@ func insertReadModelsCredentialArtifact(t *testing.T, ctx context.Context, pool 
 			approved_by_display_name,
 			updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, '{}'::jsonb, '{}'::jsonb, $8, $9, now(), $9, now(), $10, $11, 'user', $12, $13, 'user', $14, $15, now())
+		VALUES (
+			$1, $2, $3, $4, $5, $6, $7, '{}'::jsonb, '{}'::jsonb,
+			md5(
+				coalesce($1, '') || '|' ||
+				coalesce($2, '') || '|' ||
+				coalesce($3, '') || '|' ||
+				coalesce($4, '') || '|' ||
+				coalesce($5, '') || '|' ||
+				CASE
+					WHEN coalesce($7, '') ~ '\s*\[\d{4}\]\s*$' THEN
+						'cohort:' || lower(trim(regexp_replace(coalesce($7, ''), '\s*\[\d{4}\]\s*$', '')))
+					ELSE
+						'id:' || coalesce($6, '') || '|' || lower(trim(coalesce($7, '')))
+				END
+			),
+			$8, $9, now(), $9, now(), $10, $11, 'user', $12, $13, 'user', $14, $15, now()
+		)
 		RETURNING id
 	`, seed.SourceKind, seed.SourceName, seed.AssetRefKind, seed.AssetRefExternalID, seed.CredentialKind, seed.ExternalID, seed.DisplayName, seed.Status, runID, readModelsNullableTime(seed.ExpiresAtSource), readModelsNullableTime(seed.LastUsedAtSource), seed.CreatedByExternalID, seed.CreatedByDisplayName, seed.ApprovedByExternalID, seed.ApprovedByDisplayName).Scan(&id)
 	if err != nil {

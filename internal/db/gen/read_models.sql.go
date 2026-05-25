@@ -952,8 +952,16 @@ grant_counts AS (
   LEFT JOIN credential_artifacts ca
     ON ca.source_kind = aa.source_kind
    AND ca.source_name = aa.source_name
-   AND ca.asset_ref_kind = aa.asset_kind
-   AND ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+   AND (
+        (
+          ca.asset_ref_kind = 'app_asset'
+          AND ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+        )
+        OR (
+          ca.asset_ref_kind = aa.asset_kind
+          AND ca.asset_ref_external_id IN ((aa.asset_kind || ':' || aa.external_id), aa.external_id)
+        )
+   )
    AND ca.expired_at IS NULL
    AND ca.last_observed_run_id IS NOT NULL
   GROUP BY aa.id
@@ -1135,25 +1143,8 @@ WITH actor_stats AS (
 scope_flags AS (
   SELECT
     e.saas_app_id AS saas_app_id,
-    bool_or(
-      lower(e.scopes_json::text) LIKE '%directory.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%application.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%rolemanagement.readwrite.directory%'
-      OR lower(e.scopes_json::text) LIKE '%mailboxsettings.readwrite%'
-      OR lower(e.scopes_json::text) LIKE '%full_access_as_app%'
-      OR lower(e.scopes_json::text) LIKE '%files.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%files.readwrite%'
-      OR lower(e.scopes_json::text) LIKE '%sites.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%user.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%offline_access%'
-    ) FILTER (WHERE e.signal_kind = 'oauth_grant') AS has_privileged_scope,
-    bool_or(
-      lower(e.scopes_json::text) LIKE '%mail.%'
-      OR lower(e.scopes_json::text) LIKE '%files.%'
-      OR lower(e.scopes_json::text) LIKE '%calendar.%'
-      OR lower(e.scopes_json::text) LIKE '%readwrite%'
-      OR lower(e.scopes_json::text) LIKE '%sites.read%'
-    ) FILTER (WHERE e.signal_kind = 'oauth_grant') AS has_confidential_scope
+    bool_or(e.has_privileged_scope) FILTER (WHERE e.signal_kind = 'oauth_grant') AS has_privileged_scope,
+    bool_or(e.has_confidential_scope) FILTER (WHERE e.signal_kind = 'oauth_grant') AS has_confidential_scope
   FROM saas_app_events e
   WHERE e.expired_at IS NULL
     AND e.last_observed_run_id IS NOT NULL
@@ -1227,8 +1218,16 @@ grant_counts AS (
   LEFT JOIN credential_artifacts ca
     ON ca.source_kind = aa.source_kind
    AND ca.source_name = aa.source_name
-   AND ca.asset_ref_kind = aa.asset_kind
-   AND ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+   AND (
+        (
+          ca.asset_ref_kind = 'app_asset'
+          AND ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
+        )
+        OR (
+          ca.asset_ref_kind = aa.asset_kind
+          AND ca.asset_ref_external_id IN ((aa.asset_kind || ':' || aa.external_id), aa.external_id)
+        )
+   )
    AND ca.expired_at IS NULL
    AND ca.last_observed_run_id IS NOT NULL
   GROUP BY aa.id
@@ -1483,25 +1482,8 @@ actor_stats AS (
 scope_flags AS (
   SELECT
     e.saas_app_id AS saas_app_id,
-    bool_or(
-      lower(e.scopes_json::text) LIKE '%directory.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%application.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%rolemanagement.readwrite.directory%'
-      OR lower(e.scopes_json::text) LIKE '%mailboxsettings.readwrite%'
-      OR lower(e.scopes_json::text) LIKE '%full_access_as_app%'
-      OR lower(e.scopes_json::text) LIKE '%files.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%files.readwrite%'
-      OR lower(e.scopes_json::text) LIKE '%sites.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%user.readwrite.all%'
-      OR lower(e.scopes_json::text) LIKE '%offline_access%'
-    ) FILTER (WHERE e.signal_kind = 'oauth_grant') AS has_privileged_scope,
-    bool_or(
-      lower(e.scopes_json::text) LIKE '%mail.%'
-      OR lower(e.scopes_json::text) LIKE '%files.%'
-      OR lower(e.scopes_json::text) LIKE '%calendar.%'
-      OR lower(e.scopes_json::text) LIKE '%readwrite%'
-      OR lower(e.scopes_json::text) LIKE '%sites.read%'
-    ) FILTER (WHERE e.signal_kind = 'oauth_grant') AS has_confidential_scope
+    bool_or(e.has_privileged_scope) FILTER (WHERE e.signal_kind = 'oauth_grant') AS has_privileged_scope,
+    bool_or(e.has_confidential_scope) FILTER (WHERE e.signal_kind = 'oauth_grant') AS has_confidential_scope
   FROM saas_app_events e
   JOIN affected_apps aa
     ON aa.id = e.saas_app_id

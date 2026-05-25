@@ -260,6 +260,8 @@ WITH existing_rejected AS (
     AND candidate_identity_id = sqlc.arg(candidate_identity_id)::bigint
     AND resolver_fingerprint = sqlc.arg(resolver_fingerprint)::text
     AND status = 'rejected'
+  ORDER BY updated_at DESC, id DESC
+  LIMIT 1
 ),
 upserted AS (
 INSERT INTO identity_match_candidates (

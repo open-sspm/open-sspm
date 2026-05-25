@@ -276,7 +276,6 @@ SET lease_until = now() + ($1::bigint * interval '1 second')
 WHERE id = ANY($2::bigint[])
   AND status = 'processing'
   AND lease_owner = $3::text
-  AND lease_until > now()
 `
 
 type RenewEventInboxLeaseParams struct {

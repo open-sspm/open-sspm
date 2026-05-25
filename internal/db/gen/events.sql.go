@@ -12,6 +12,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const deleteEventDedupeKeysBefore = `-- name: DeleteEventDedupeKeysBefore :execrows
+DELETE FROM event_dedupe_keys
+WHERE event_received_at < $1::timestamptz
+`
+
+func (q *Queries) DeleteEventDedupeKeysBefore(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteEventDedupeKeysBefore, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const insertEvent = `-- name: InsertEvent :exec
 INSERT INTO events (
   id,

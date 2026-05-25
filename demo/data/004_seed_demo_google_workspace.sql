@@ -644,6 +644,7 @@ INSERT INTO credential_artifacts (
   approved_by_external_id,
   approved_by_display_name,
   raw_json,
+  lineage_key,
   seen_in_run_id,
   seen_at,
   last_observed_run_id,
@@ -688,6 +689,15 @@ SELECT
     'client_id', grants.client_external_id,
     'actor_email', grants.actor_email
   ),
+  md5(
+    'google_workspace' || '|' ||
+    ctx.google_customer_id || '|' ||
+    'google_oauth_client' || '|' ||
+    format('google_oauth_client:%s', grants.client_external_id) || '|' ||
+    'google_oauth_grant' || '|' ||
+    'id:' || format('gw-grant-%s-%s', lpad(grants.app_ord::text, 2, '0'), lpad(grants.grant_ord::text, 2, '0')) || '|' ||
+    lower(trim(format('%s grant %s', grants.client_display_name, grants.grant_ord)))
+  ),
   ctx.google_run_id,
   ctx.now_ts,
   ctx.google_run_id,
@@ -712,6 +722,7 @@ ON CONFLICT (source_kind, source_name, credential_kind, external_id, asset_ref_k
   approved_by_external_id = EXCLUDED.approved_by_external_id,
   approved_by_display_name = EXCLUDED.approved_by_display_name,
   raw_json = EXCLUDED.raw_json,
+  lineage_key = EXCLUDED.lineage_key,
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
   last_observed_run_id = EXCLUDED.last_observed_run_id,

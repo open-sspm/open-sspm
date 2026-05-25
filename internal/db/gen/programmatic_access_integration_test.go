@@ -243,7 +243,7 @@ func TestCredentialArtifactCountUsesSameLineageRepresentativeAsList(t *testing.T
 			EvaluatedAt: evaluatedAt,
 			SourceKind:  "entra",
 			SourceName:  "tenant-1",
-			RiskLevel:   "critical",
+			RiskLevels:  []string{"critical"},
 		})
 		if err != nil {
 			t.Fatalf("CountCredentialArtifactsBySourceAndQueryAndFilters(critical): %v", err)
@@ -256,7 +256,7 @@ func TestCredentialArtifactCountUsesSameLineageRepresentativeAsList(t *testing.T
 			EvaluatedAt: evaluatedAt,
 			SourceKind:  "entra",
 			SourceName:  "tenant-1",
-			RiskLevel:   "low",
+			RiskLevels:  []string{"low"},
 		})
 		if err != nil {
 			t.Fatalf("CountCredentialArtifactsBySourceAndQueryAndFilters(low): %v", err)
@@ -269,7 +269,7 @@ func TestCredentialArtifactCountUsesSameLineageRepresentativeAsList(t *testing.T
 			EvaluatedAt: evaluatedAt,
 			SourceKind:  "entra",
 			SourceName:  "tenant-1",
-			RiskLevel:   "critical",
+			RiskLevels:  []string{"critical"},
 			PageLimit:   10,
 		})
 		if err != nil {
@@ -283,7 +283,7 @@ func TestCredentialArtifactCountUsesSameLineageRepresentativeAsList(t *testing.T
 			EvaluatedAt:           evaluatedAt,
 			ConfiguredSourceKinds: []string{"entra"},
 			ConfiguredSourceNames: []string{"tenant-1"},
-			RiskLevel:             "critical",
+			RiskLevels:            []string{"critical"},
 		})
 		if err != nil {
 			t.Fatalf("CountCredentialArtifactsBySourcesAndQueryAndFilters(critical): %v", err)
@@ -296,7 +296,7 @@ func TestCredentialArtifactCountUsesSameLineageRepresentativeAsList(t *testing.T
 			EvaluatedAt:           evaluatedAt,
 			ConfiguredSourceKinds: []string{"entra"},
 			ConfiguredSourceNames: []string{"tenant-1"},
-			RiskLevel:             "low",
+			RiskLevels:            []string{"low"},
 		})
 		if err != nil {
 			t.Fatalf("CountCredentialArtifactsBySourcesAndQueryAndFilters(low): %v", err)
@@ -309,7 +309,7 @@ func TestCredentialArtifactCountUsesSameLineageRepresentativeAsList(t *testing.T
 			EvaluatedAt:           evaluatedAt,
 			ConfiguredSourceKinds: []string{"entra"},
 			ConfiguredSourceNames: []string{"tenant-1"},
-			RiskLevel:             "critical",
+			RiskLevels:            []string{"critical"},
 			PageLimit:             10,
 		})
 		if err != nil {
@@ -474,7 +474,7 @@ func TestCredentialArtifactStoredRiskLevelConsistentAcrossQueries(t *testing.T) 
 				EvaluatedAt: evaluatedAt,
 				SourceKind:  "github",
 				SourceName:  sourceName,
-				RiskLevel:   tc.want,
+				RiskLevels:  []string{tc.want},
 			})
 			if err != nil {
 				t.Fatalf("%s: CountCredentialArtifactsBySourceAndQueryAndFilters(): %v", tc.name, err)
@@ -487,7 +487,7 @@ func TestCredentialArtifactStoredRiskLevelConsistentAcrossQueries(t *testing.T) 
 				EvaluatedAt: evaluatedAt,
 				SourceKind:  "github",
 				SourceName:  sourceName,
-				RiskLevel:   tc.want,
+				RiskLevels:  []string{tc.want},
 				PageLimit:   10,
 			})
 			if err != nil {
@@ -504,7 +504,7 @@ func TestCredentialArtifactStoredRiskLevelConsistentAcrossQueries(t *testing.T) 
 				EvaluatedAt:           evaluatedAt,
 				ConfiguredSourceKinds: []string{"github"},
 				ConfiguredSourceNames: []string{sourceName},
-				RiskLevel:             tc.want,
+				RiskLevels:            []string{tc.want},
 			})
 			if err != nil {
 				t.Fatalf("%s: CountCredentialArtifactsBySourcesAndQueryAndFilters(): %v", tc.name, err)
@@ -517,7 +517,7 @@ func TestCredentialArtifactStoredRiskLevelConsistentAcrossQueries(t *testing.T) 
 				EvaluatedAt:           evaluatedAt,
 				ConfiguredSourceKinds: []string{"github"},
 				ConfiguredSourceNames: []string{sourceName},
-				RiskLevel:             tc.want,
+				RiskLevels:            []string{tc.want},
 				PageLimit:             10,
 			})
 			if err != nil {
@@ -1277,6 +1277,7 @@ func insertCredentialArtifact(t *testing.T, ctx context.Context, pool *pgxpool.P
 			display_name,
 			scope_json,
 			raw_json,
+			lineage_key,
 			status,
 			seen_in_run_id,
 			seen_at,
@@ -1288,9 +1289,25 @@ func insertCredentialArtifact(t *testing.T, ctx context.Context, pool *pgxpool.P
 			approved_by_external_id,
 			updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, '{}'::jsonb, '{}'::jsonb, $8, $9, now(), $9, now(), $10, $11, $12, $13, now())
-		RETURNING id
-	`, seed.SourceKind, seed.SourceName, seed.AssetRefKind, seed.AssetRefExternalID, seed.CredentialKind, seed.ExternalID, seed.DisplayName, seed.Status, runID, nullableTime(seed.ExpiresAtSource), nullableTime(seed.LastUsedAtSource), seed.CreatedByExternalID, seed.ApprovedByExternalID).Scan(&id)
+		VALUES (
+			$1, $2, $3, $4, $5, $6, $7, '{}'::jsonb, '{}'::jsonb,
+			md5(
+				coalesce($1, '') || '|' ||
+				coalesce($2, '') || '|' ||
+				coalesce($3, '') || '|' ||
+				coalesce($4, '') || '|' ||
+				coalesce($5, '') || '|' ||
+				CASE
+					WHEN coalesce($7, '') ~ '\s*\[\d{4}\]\s*$' THEN
+						'cohort:' || lower(trim(regexp_replace(coalesce($7, ''), '\s*\[\d{4}\]\s*$', '')))
+					ELSE
+						'id:' || coalesce($6, '') || '|' || lower(trim(coalesce($7, '')))
+				END
+			),
+			$8, $9, now(), $9, now(), $10, $11, $12, $13, now()
+		)
+			RETURNING id
+		`, seed.SourceKind, seed.SourceName, seed.AssetRefKind, seed.AssetRefExternalID, seed.CredentialKind, seed.ExternalID, seed.DisplayName, seed.Status, runID, nullableTime(seed.ExpiresAtSource), nullableTime(seed.LastUsedAtSource), seed.CreatedByExternalID, seed.ApprovedByExternalID).Scan(&id)
 	if err != nil {
 		t.Fatalf("insert credential artifact %s/%s: %v", seed.SourceKind, seed.ExternalID, err)
 	}

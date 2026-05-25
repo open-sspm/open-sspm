@@ -671,6 +671,7 @@ func insertNonHumanCredentialArtifact(t *testing.T, ctx context.Context, pool *p
 			display_name,
 			scope_json,
 			raw_json,
+			lineage_key,
 			status,
 			seen_in_run_id,
 			seen_at,
@@ -686,7 +687,23 @@ func insertNonHumanCredentialArtifact(t *testing.T, ctx context.Context, pool *p
 			approved_by_display_name,
 			updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, '{}'::jsonb, '{}'::jsonb, $8, $9, now(), $9, now(), $10, $11, 'user', $12, $13, 'user', $14, $15, now())
+		VALUES (
+			$1, $2, $3, $4, $5, $6, $7, '{}'::jsonb, '{}'::jsonb,
+			md5(
+				coalesce($1, '') || '|' ||
+				coalesce($2, '') || '|' ||
+				coalesce($3, '') || '|' ||
+				coalesce($4, '') || '|' ||
+				coalesce($5, '') || '|' ||
+				CASE
+					WHEN coalesce($7, '') ~ '\s*\[\d{4}\]\s*$' THEN
+						'cohort:' || lower(trim(regexp_replace(coalesce($7, ''), '\s*\[\d{4}\]\s*$', '')))
+					ELSE
+						'id:' || coalesce($6, '') || '|' || lower(trim(coalesce($7, '')))
+				END
+			),
+			$8, $9, now(), $9, now(), $10, $11, 'user', $12, $13, 'user', $14, $15, now()
+		)
 		RETURNING id
 	`, seed.SourceKind, seed.SourceName, seed.AssetRefKind, seed.AssetRefExternalID, seed.CredentialKind, seed.ExternalID, seed.DisplayName, seed.Status, runID, nonHumanNullableTime(seed.ExpiresAtSource), nonHumanNullableTime(seed.LastUsedAtSource), seed.CreatedByExternalID, seed.CreatedByDisplayName, seed.ApprovedByExternalID, seed.ApprovedByDisplayName).Scan(&id)
 	if err != nil {

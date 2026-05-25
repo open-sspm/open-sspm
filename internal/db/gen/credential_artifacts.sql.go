@@ -14,25 +14,9 @@ import (
 const countCredentialArtifactsBySourceAndQueryAndFilters = `-- name: CountCredentialArtifactsBySourceAndQueryAndFilters :one
 WITH rated_credentials AS (
   SELECT
-    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at, ca.lineage_key,
     COALESCE(risk.risk_level, 'low')::text AS risk_level,
-    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
-    -- lineage_key collapses re-issued credentials into a single row. The
-    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
-    -- stripped so a credential renewed each year groups under one lineage.
-    -- This assumes the naming convention; if other sources start emitting
-    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
-    md5(
-      coalesce(ca.source_kind, '') || '|' ||
-      coalesce(ca.asset_ref_external_id, '') || '|' ||
-      coalesce(ca.credential_kind, '') || '|' ||
-      CASE
-        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
-          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
-        ELSE
-          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
-      END
-    ) AS lineage_key
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
@@ -40,18 +24,22 @@ WITH rated_credentials AS (
     ON aa.source_kind = ca.source_kind
    AND aa.source_name = ca.source_name
    AND aa.expired_at IS NULL
+   AND aa.external_id = CASE
+        WHEN strpos(ca.asset_ref_external_id, ':') > 0 THEN substr(ca.asset_ref_external_id, strpos(ca.asset_ref_external_id, ':') + 1)
+        ELSE ca.asset_ref_external_id
+      END
    AND (
-        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-     OR ca.asset_ref_external_id = aa.external_id
-   )
+        strpos(ca.asset_ref_external_id, ':') = 0
+        OR aa.asset_kind = split_part(ca.asset_ref_external_id, ':', 1)
+      )
   WHERE
     ca.source_kind = $6::text
     AND ca.source_name = $7::text
     AND ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
-      $8::text = ''
-      OR ca.credential_kind = ANY(regexp_split_to_array($8::text, '\s*,\s*'))
+      cardinality($8::text[]) = 0
+      OR ca.credential_kind = ANY($8::text[])
     )
     AND (
       $9::text = ''
@@ -79,7 +67,7 @@ WITH rated_credentials AS (
     )
 ),
 ranked AS (
-  SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key,
+  SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.lineage_key, rc.risk_level, rc.asset_name,
     ROW_NUMBER() OVER (
       PARTITION BY rc.lineage_key
       ORDER BY
@@ -97,14 +85,14 @@ ranked AS (
   FROM rated_credentials rc
 ),
 latest AS (
-  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, risk_level, asset_name, lineage_key, lineage_rank FROM ranked WHERE lineage_rank = 1
+  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, lineage_key, risk_level, asset_name, lineage_rank FROM ranked WHERE lineage_rank = 1
 )
 SELECT count(*)::bigint
 FROM latest rc
 WHERE
   (
-    $1::text = ''
-    OR rc.risk_level = ANY(regexp_split_to_array(lower($1::text), '\s*,\s*'))
+    cardinality($1::text[]) = 0
+    OR rc.risk_level = ANY($1::text[])
   )
   AND (
     $2::text = ''
@@ -138,30 +126,30 @@ WHERE
 `
 
 type CountCredentialArtifactsBySourceAndQueryAndFiltersParams struct {
-	RiskLevel      string             `json:"risk_level"`
-	ExpiryState    string             `json:"expiry_state"`
-	EvaluatedAt    pgtype.Timestamptz `json:"evaluated_at"`
-	ExpiresInDays  int32              `json:"expires_in_days"`
-	Query          string             `json:"query"`
-	SourceKind     string             `json:"source_kind"`
-	SourceName     string             `json:"source_name"`
-	CredentialKind string             `json:"credential_kind"`
-	Status         string             `json:"status"`
-	Owner          string             `json:"owner"`
-	Asset          string             `json:"asset"`
-	NewerDays      int32              `json:"newer_days"`
+	RiskLevels      []string           `json:"risk_levels"`
+	ExpiryState     string             `json:"expiry_state"`
+	EvaluatedAt     pgtype.Timestamptz `json:"evaluated_at"`
+	ExpiresInDays   int32              `json:"expires_in_days"`
+	Query           string             `json:"query"`
+	SourceKind      string             `json:"source_kind"`
+	SourceName      string             `json:"source_name"`
+	CredentialKinds []string           `json:"credential_kinds"`
+	Status          string             `json:"status"`
+	Owner           string             `json:"owner"`
+	Asset           string             `json:"asset"`
+	NewerDays       int32              `json:"newer_days"`
 }
 
 func (q *Queries) CountCredentialArtifactsBySourceAndQueryAndFilters(ctx context.Context, arg CountCredentialArtifactsBySourceAndQueryAndFiltersParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countCredentialArtifactsBySourceAndQueryAndFilters,
-		arg.RiskLevel,
+		arg.RiskLevels,
 		arg.ExpiryState,
 		arg.EvaluatedAt,
 		arg.ExpiresInDays,
 		arg.Query,
 		arg.SourceKind,
 		arg.SourceName,
-		arg.CredentialKind,
+		arg.CredentialKinds,
 		arg.Status,
 		arg.Owner,
 		arg.Asset,
@@ -182,25 +170,9 @@ WITH configured_sources AS (
 ),
 rated_credentials AS (
   SELECT
-    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at, ca.lineage_key,
     COALESCE(risk.risk_level, 'low')::text AS risk_level,
-    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
-    -- lineage_key collapses re-issued credentials into a single row. The
-    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
-    -- stripped so a credential renewed each year groups under one lineage.
-    -- This assumes the naming convention; if other sources start emitting
-    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
-    md5(
-      coalesce(ca.source_kind, '') || '|' ||
-      coalesce(ca.asset_ref_external_id, '') || '|' ||
-      coalesce(ca.credential_kind, '') || '|' ||
-      CASE
-        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
-          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
-        ELSE
-          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
-      END
-    ) AS lineage_key
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
@@ -211,16 +183,20 @@ rated_credentials AS (
     ON aa.source_kind = ca.source_kind
    AND aa.source_name = ca.source_name
    AND aa.expired_at IS NULL
+   AND aa.external_id = CASE
+        WHEN strpos(ca.asset_ref_external_id, ':') > 0 THEN substr(ca.asset_ref_external_id, strpos(ca.asset_ref_external_id, ':') + 1)
+        ELSE ca.asset_ref_external_id
+      END
    AND (
-        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-     OR ca.asset_ref_external_id = aa.external_id
-   )
+        strpos(ca.asset_ref_external_id, ':') = 0
+        OR aa.asset_kind = split_part(ca.asset_ref_external_id, ':', 1)
+      )
   WHERE
     ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
-      $8::text = ''
-      OR ca.credential_kind = ANY(regexp_split_to_array($8::text, '\s*,\s*'))
+      cardinality($8::text[]) = 0
+      OR ca.credential_kind = ANY($8::text[])
     )
     AND (
       $9::text = ''
@@ -248,7 +224,7 @@ rated_credentials AS (
     )
 ),
 ranked AS (
-  SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key,
+  SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.lineage_key, rc.risk_level, rc.asset_name,
     ROW_NUMBER() OVER (
       PARTITION BY rc.lineage_key
       ORDER BY
@@ -266,14 +242,14 @@ ranked AS (
   FROM rated_credentials rc
 ),
 latest AS (
-  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, risk_level, asset_name, lineage_key, lineage_rank FROM ranked WHERE lineage_rank = 1
+  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, lineage_key, risk_level, asset_name, lineage_rank FROM ranked WHERE lineage_rank = 1
 )
 SELECT count(*)::bigint
 FROM latest rc
 WHERE
   (
-    $1::text = ''
-    OR rc.risk_level = ANY(regexp_split_to_array(lower($1::text), '\s*,\s*'))
+    cardinality($1::text[]) = 0
+    OR rc.risk_level = ANY($1::text[])
   )
   AND (
     $2::text = ''
@@ -307,14 +283,14 @@ WHERE
 `
 
 type CountCredentialArtifactsBySourcesAndQueryAndFiltersParams struct {
-	RiskLevel             string             `json:"risk_level"`
+	RiskLevels            []string           `json:"risk_levels"`
 	ExpiryState           string             `json:"expiry_state"`
 	EvaluatedAt           pgtype.Timestamptz `json:"evaluated_at"`
 	ExpiresInDays         int32              `json:"expires_in_days"`
 	Query                 string             `json:"query"`
 	ConfiguredSourceKinds []string           `json:"configured_source_kinds"`
 	ConfiguredSourceNames []string           `json:"configured_source_names"`
-	CredentialKind        string             `json:"credential_kind"`
+	CredentialKinds       []string           `json:"credential_kinds"`
 	Status                string             `json:"status"`
 	Owner                 string             `json:"owner"`
 	Asset                 string             `json:"asset"`
@@ -323,14 +299,14 @@ type CountCredentialArtifactsBySourcesAndQueryAndFiltersParams struct {
 
 func (q *Queries) CountCredentialArtifactsBySourcesAndQueryAndFilters(ctx context.Context, arg CountCredentialArtifactsBySourcesAndQueryAndFiltersParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countCredentialArtifactsBySourcesAndQueryAndFilters,
-		arg.RiskLevel,
+		arg.RiskLevels,
 		arg.ExpiryState,
 		arg.EvaluatedAt,
 		arg.ExpiresInDays,
 		arg.Query,
 		arg.ConfiguredSourceKinds,
 		arg.ConfiguredSourceNames,
-		arg.CredentialKind,
+		arg.CredentialKinds,
 		arg.Status,
 		arg.Owner,
 		arg.Asset,
@@ -409,7 +385,7 @@ func (q *Queries) ExpireCredentialArtifactsNotSeenInRunBySource(ctx context.Cont
 
 const getCredentialArtifactByID = `-- name: GetCredentialArtifactByID :one
 SELECT
-  ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+  ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at, ca.lineage_key,
   COALESCE(risk.risk_level, 'low')::text AS risk_level,
   COALESCE(risk.risk_signals_json, '[]'::jsonb)::jsonb AS risk_signals_json,
   COALESCE(risk.policy_packs_json, '[]'::jsonb)::jsonb AS policy_packs_json
@@ -451,6 +427,7 @@ type GetCredentialArtifactByIDRow struct {
 	ExpiredRunID          pgtype.Int8        `json:"expired_run_id"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	LineageKey            string             `json:"lineage_key"`
 	RiskLevel             string             `json:"risk_level"`
 	RiskSignalsJson       []byte             `json:"risk_signals_json"`
 	PolicyPacksJson       []byte             `json:"policy_packs_json"`
@@ -489,6 +466,7 @@ func (q *Queries) GetCredentialArtifactByID(ctx context.Context, id int64) (GetC
 		&i.ExpiredRunID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LineageKey,
 		&i.RiskLevel,
 		&i.RiskSignalsJson,
 		&i.PolicyPacksJson,
@@ -561,7 +539,7 @@ func (q *Queries) ListCredentialArtifactCountsByAssetRef(ctx context.Context, ar
 
 const listCredentialArtifactsForAssetRef = `-- name: ListCredentialArtifactsForAssetRef :many
 SELECT
-  ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+  ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at, ca.lineage_key,
   COALESCE(risk.risk_level, 'low')::text AS risk_level
 FROM credential_artifacts ca
 LEFT JOIN credential_artifact_risk_read_models risk
@@ -614,6 +592,7 @@ type ListCredentialArtifactsForAssetRefRow struct {
 	ExpiredRunID          pgtype.Int8        `json:"expired_run_id"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	LineageKey            string             `json:"lineage_key"`
 	RiskLevel             string             `json:"risk_level"`
 }
 
@@ -661,6 +640,7 @@ func (q *Queries) ListCredentialArtifactsForAssetRef(ctx context.Context, arg Li
 			&i.ExpiredRunID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.LineageKey,
 			&i.RiskLevel,
 		); err != nil {
 			return nil, err
@@ -683,20 +663,9 @@ WITH configured_sources AS (
 ),
 rated_credentials AS (
   SELECT
-    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at, ca.lineage_key,
     COALESCE(risk.risk_level, 'low')::text AS risk_level,
-    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
-    md5(
-      coalesce(ca.source_kind, '') || '|' ||
-      coalesce(ca.asset_ref_external_id, '') || '|' ||
-      coalesce(ca.credential_kind, '') || '|' ||
-      CASE
-        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
-          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
-        ELSE
-          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
-      END
-    ) AS lineage_key
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
@@ -707,16 +676,20 @@ rated_credentials AS (
     ON aa.source_kind = ca.source_kind
    AND aa.source_name = ca.source_name
    AND aa.expired_at IS NULL
+   AND aa.external_id = CASE
+        WHEN strpos(ca.asset_ref_external_id, ':') > 0 THEN substr(ca.asset_ref_external_id, strpos(ca.asset_ref_external_id, ':') + 1)
+        ELSE ca.asset_ref_external_id
+      END
    AND (
-        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-     OR ca.asset_ref_external_id = aa.external_id
-   )
+        strpos(ca.asset_ref_external_id, ':') = 0
+        OR aa.asset_kind = split_part(ca.asset_ref_external_id, ':', 1)
+      )
   WHERE
     ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
-      $10::text = ''
-      OR ca.credential_kind = ANY(regexp_split_to_array($10::text, '\s*,\s*'))
+      cardinality($10::text[]) = 0
+      OR ca.credential_kind = ANY($10::text[])
     )
     AND (
       $11::text = ''
@@ -744,18 +717,18 @@ rated_credentials AS (
     )
 ),
 versioned AS (
-  SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key,
+  SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.lineage_key, rc.risk_level, rc.asset_name,
     COUNT(*) OVER (PARTITION BY rc.lineage_key) AS lineage_version_count
   FROM rated_credentials rc
 )
 SELECT
-  rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key, rc.lineage_version_count,
+  rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.lineage_key, rc.risk_level, rc.asset_name, rc.lineage_version_count,
   rc.lineage_version_count::bigint AS version_count
 FROM versioned rc
 WHERE
   (
-    $1::text = ''
-    OR rc.risk_level = ANY(regexp_split_to_array(lower($1::text), '\s*,\s*'))
+    cardinality($1::text[]) = 0
+    OR rc.risk_level = ANY($1::text[])
   )
   AND (
     $2::text = ''
@@ -807,7 +780,7 @@ LIMIT $7::int
 `
 
 type ListCredentialArtifactsForExportBySourcesAndQueryAndFiltersParams struct {
-	RiskLevel             string             `json:"risk_level"`
+	RiskLevels            []string           `json:"risk_levels"`
 	ExpiryState           string             `json:"expiry_state"`
 	EvaluatedAt           pgtype.Timestamptz `json:"evaluated_at"`
 	ExpiresInDays         int32              `json:"expires_in_days"`
@@ -816,7 +789,7 @@ type ListCredentialArtifactsForExportBySourcesAndQueryAndFiltersParams struct {
 	PageLimit             int32              `json:"page_limit"`
 	ConfiguredSourceKinds []string           `json:"configured_source_kinds"`
 	ConfiguredSourceNames []string           `json:"configured_source_names"`
-	CredentialKind        string             `json:"credential_kind"`
+	CredentialKinds       []string           `json:"credential_kinds"`
 	Status                string             `json:"status"`
 	Owner                 string             `json:"owner"`
 	Asset                 string             `json:"asset"`
@@ -853,9 +826,9 @@ type ListCredentialArtifactsForExportBySourcesAndQueryAndFiltersRow struct {
 	ExpiredRunID          pgtype.Int8        `json:"expired_run_id"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	LineageKey            string             `json:"lineage_key"`
 	RiskLevel             string             `json:"risk_level"`
 	AssetName             string             `json:"asset_name"`
-	LineageKey            string             `json:"lineage_key"`
 	LineageVersionCount   int64              `json:"lineage_version_count"`
 	VersionCount          int64              `json:"version_count"`
 }
@@ -867,7 +840,7 @@ type ListCredentialArtifactsForExportBySourcesAndQueryAndFiltersRow struct {
 // a "this credential is part of an N-version lineage" hint for triage.
 func (q *Queries) ListCredentialArtifactsForExportBySourcesAndQueryAndFilters(ctx context.Context, arg ListCredentialArtifactsForExportBySourcesAndQueryAndFiltersParams) ([]ListCredentialArtifactsForExportBySourcesAndQueryAndFiltersRow, error) {
 	rows, err := q.db.Query(ctx, listCredentialArtifactsForExportBySourcesAndQueryAndFilters,
-		arg.RiskLevel,
+		arg.RiskLevels,
 		arg.ExpiryState,
 		arg.EvaluatedAt,
 		arg.ExpiresInDays,
@@ -876,7 +849,7 @@ func (q *Queries) ListCredentialArtifactsForExportBySourcesAndQueryAndFilters(ct
 		arg.PageLimit,
 		arg.ConfiguredSourceKinds,
 		arg.ConfiguredSourceNames,
-		arg.CredentialKind,
+		arg.CredentialKinds,
 		arg.Status,
 		arg.Owner,
 		arg.Asset,
@@ -919,9 +892,9 @@ func (q *Queries) ListCredentialArtifactsForExportBySourcesAndQueryAndFilters(ct
 			&i.ExpiredRunID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.LineageKey,
 			&i.RiskLevel,
 			&i.AssetName,
-			&i.LineageKey,
 			&i.LineageVersionCount,
 			&i.VersionCount,
 		); err != nil {
@@ -938,25 +911,9 @@ func (q *Queries) ListCredentialArtifactsForExportBySourcesAndQueryAndFilters(ct
 const listCredentialArtifactsPageBySourceAndQueryAndFilters = `-- name: ListCredentialArtifactsPageBySourceAndQueryAndFilters :many
 WITH rated_credentials AS (
   SELECT
-    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at, ca.lineage_key,
     COALESCE(risk.risk_level, 'low')::text AS risk_level,
-    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
-    -- lineage_key collapses re-issued credentials into a single row. The
-    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
-    -- stripped so a credential renewed each year groups under one lineage.
-    -- This assumes the naming convention; if other sources start emitting
-    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
-    md5(
-      coalesce(ca.source_kind, '') || '|' ||
-      coalesce(ca.asset_ref_external_id, '') || '|' ||
-      coalesce(ca.credential_kind, '') || '|' ||
-      CASE
-        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
-          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
-        ELSE
-          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
-      END
-    ) AS lineage_key
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
@@ -964,18 +921,22 @@ WITH rated_credentials AS (
     ON aa.source_kind = ca.source_kind
    AND aa.source_name = ca.source_name
    AND aa.expired_at IS NULL
+   AND aa.external_id = CASE
+        WHEN strpos(ca.asset_ref_external_id, ':') > 0 THEN substr(ca.asset_ref_external_id, strpos(ca.asset_ref_external_id, ':') + 1)
+        ELSE ca.asset_ref_external_id
+      END
    AND (
-        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-     OR ca.asset_ref_external_id = aa.external_id
-   )
+        strpos(ca.asset_ref_external_id, ':') = 0
+        OR aa.asset_kind = split_part(ca.asset_ref_external_id, ':', 1)
+      )
   WHERE
     ca.source_kind = $9::text
     AND ca.source_name = $10::text
     AND ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
-      $11::text = ''
-      OR ca.credential_kind = ANY(regexp_split_to_array($11::text, '\s*,\s*'))
+      cardinality($11::text[]) = 0
+      OR ca.credential_kind = ANY($11::text[])
     )
     AND (
       $12::text = ''
@@ -1003,7 +964,7 @@ WITH rated_credentials AS (
     )
 ),
 ranked AS (
-  SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key,
+  SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.lineage_key, rc.risk_level, rc.asset_name,
     ROW_NUMBER() OVER (
       PARTITION BY rc.lineage_key
       ORDER BY
@@ -1022,16 +983,16 @@ ranked AS (
   FROM rated_credentials rc
 ),
 latest AS (
-  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, risk_level, asset_name, lineage_key, lineage_rank, lineage_version_count FROM ranked WHERE lineage_rank = 1
+  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, lineage_key, risk_level, asset_name, lineage_rank, lineage_version_count FROM ranked WHERE lineage_rank = 1
 )
 SELECT
-  rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key, rc.lineage_rank, rc.lineage_version_count,
+  rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.lineage_key, rc.risk_level, rc.asset_name, rc.lineage_rank, rc.lineage_version_count,
   rc.lineage_version_count::bigint AS version_count
 FROM latest rc
 WHERE
   (
-    $1::text = ''
-    OR rc.risk_level = ANY(regexp_split_to_array(lower($1::text), '\s*,\s*'))
+    cardinality($1::text[]) = 0
+    OR rc.risk_level = ANY($1::text[])
   )
   AND (
     $2::text = ''
@@ -1082,21 +1043,21 @@ OFFSET $7::int
 `
 
 type ListCredentialArtifactsPageBySourceAndQueryAndFiltersParams struct {
-	RiskLevel      string             `json:"risk_level"`
-	ExpiryState    string             `json:"expiry_state"`
-	EvaluatedAt    pgtype.Timestamptz `json:"evaluated_at"`
-	ExpiresInDays  int32              `json:"expires_in_days"`
-	Query          string             `json:"query"`
-	SortBy         string             `json:"sort_by"`
-	PageOffset     int32              `json:"page_offset"`
-	PageLimit      int32              `json:"page_limit"`
-	SourceKind     string             `json:"source_kind"`
-	SourceName     string             `json:"source_name"`
-	CredentialKind string             `json:"credential_kind"`
-	Status         string             `json:"status"`
-	Owner          string             `json:"owner"`
-	Asset          string             `json:"asset"`
-	NewerDays      int32              `json:"newer_days"`
+	RiskLevels      []string           `json:"risk_levels"`
+	ExpiryState     string             `json:"expiry_state"`
+	EvaluatedAt     pgtype.Timestamptz `json:"evaluated_at"`
+	ExpiresInDays   int32              `json:"expires_in_days"`
+	Query           string             `json:"query"`
+	SortBy          string             `json:"sort_by"`
+	PageOffset      int32              `json:"page_offset"`
+	PageLimit       int32              `json:"page_limit"`
+	SourceKind      string             `json:"source_kind"`
+	SourceName      string             `json:"source_name"`
+	CredentialKinds []string           `json:"credential_kinds"`
+	Status          string             `json:"status"`
+	Owner           string             `json:"owner"`
+	Asset           string             `json:"asset"`
+	NewerDays       int32              `json:"newer_days"`
 }
 
 type ListCredentialArtifactsPageBySourceAndQueryAndFiltersRow struct {
@@ -1129,9 +1090,9 @@ type ListCredentialArtifactsPageBySourceAndQueryAndFiltersRow struct {
 	ExpiredRunID          pgtype.Int8        `json:"expired_run_id"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	LineageKey            string             `json:"lineage_key"`
 	RiskLevel             string             `json:"risk_level"`
 	AssetName             string             `json:"asset_name"`
-	LineageKey            string             `json:"lineage_key"`
 	LineageRank           int64              `json:"lineage_rank"`
 	LineageVersionCount   int64              `json:"lineage_version_count"`
 	VersionCount          int64              `json:"version_count"`
@@ -1139,7 +1100,7 @@ type ListCredentialArtifactsPageBySourceAndQueryAndFiltersRow struct {
 
 func (q *Queries) ListCredentialArtifactsPageBySourceAndQueryAndFilters(ctx context.Context, arg ListCredentialArtifactsPageBySourceAndQueryAndFiltersParams) ([]ListCredentialArtifactsPageBySourceAndQueryAndFiltersRow, error) {
 	rows, err := q.db.Query(ctx, listCredentialArtifactsPageBySourceAndQueryAndFilters,
-		arg.RiskLevel,
+		arg.RiskLevels,
 		arg.ExpiryState,
 		arg.EvaluatedAt,
 		arg.ExpiresInDays,
@@ -1149,7 +1110,7 @@ func (q *Queries) ListCredentialArtifactsPageBySourceAndQueryAndFilters(ctx cont
 		arg.PageLimit,
 		arg.SourceKind,
 		arg.SourceName,
-		arg.CredentialKind,
+		arg.CredentialKinds,
 		arg.Status,
 		arg.Owner,
 		arg.Asset,
@@ -1192,9 +1153,9 @@ func (q *Queries) ListCredentialArtifactsPageBySourceAndQueryAndFilters(ctx cont
 			&i.ExpiredRunID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.LineageKey,
 			&i.RiskLevel,
 			&i.AssetName,
-			&i.LineageKey,
 			&i.LineageRank,
 			&i.LineageVersionCount,
 			&i.VersionCount,
@@ -1219,25 +1180,9 @@ WITH configured_sources AS (
 ),
 rated_credentials AS (
   SELECT
-    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at, ca.lineage_key,
     COALESCE(risk.risk_level, 'low')::text AS risk_level,
-    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
-    -- lineage_key collapses re-issued credentials into a single row. The
-    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
-    -- stripped so a credential renewed each year groups under one lineage.
-    -- This assumes the naming convention; if other sources start emitting
-    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
-    md5(
-      coalesce(ca.source_kind, '') || '|' ||
-      coalesce(ca.asset_ref_external_id, '') || '|' ||
-      coalesce(ca.credential_kind, '') || '|' ||
-      CASE
-        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
-          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
-        ELSE
-          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
-      END
-    ) AS lineage_key
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
@@ -1248,16 +1193,20 @@ rated_credentials AS (
     ON aa.source_kind = ca.source_kind
    AND aa.source_name = ca.source_name
    AND aa.expired_at IS NULL
+   AND aa.external_id = CASE
+        WHEN strpos(ca.asset_ref_external_id, ':') > 0 THEN substr(ca.asset_ref_external_id, strpos(ca.asset_ref_external_id, ':') + 1)
+        ELSE ca.asset_ref_external_id
+      END
    AND (
-        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-     OR ca.asset_ref_external_id = aa.external_id
-   )
+        strpos(ca.asset_ref_external_id, ':') = 0
+        OR aa.asset_kind = split_part(ca.asset_ref_external_id, ':', 1)
+      )
   WHERE
     ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
-      $11::text = ''
-      OR ca.credential_kind = ANY(regexp_split_to_array($11::text, '\s*,\s*'))
+      cardinality($11::text[]) = 0
+      OR ca.credential_kind = ANY($11::text[])
     )
     AND (
       $12::text = ''
@@ -1285,7 +1234,7 @@ rated_credentials AS (
     )
 ),
 ranked AS (
-  SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key,
+  SELECT rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.lineage_key, rc.risk_level, rc.asset_name,
     ROW_NUMBER() OVER (
       PARTITION BY rc.lineage_key
       ORDER BY
@@ -1304,16 +1253,16 @@ ranked AS (
   FROM rated_credentials rc
 ),
 latest AS (
-  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, risk_level, asset_name, lineage_key, lineage_rank, lineage_version_count FROM ranked WHERE lineage_rank = 1
+  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, lineage_key, risk_level, asset_name, lineage_rank, lineage_version_count FROM ranked WHERE lineage_rank = 1
 )
 SELECT
-  rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.risk_level, rc.asset_name, rc.lineage_key, rc.lineage_rank, rc.lineage_version_count,
+  rc.id, rc.source_kind, rc.source_name, rc.asset_ref_kind, rc.asset_ref_external_id, rc.credential_kind, rc.external_id, rc.display_name, rc.fingerprint, rc.scope_json, rc.status, rc.created_at_source, rc.expires_at_source, rc.last_used_at_source, rc.created_by_kind, rc.created_by_external_id, rc.created_by_display_name, rc.approved_by_kind, rc.approved_by_external_id, rc.approved_by_display_name, rc.raw_json, rc.seen_in_run_id, rc.seen_at, rc.last_observed_run_id, rc.last_observed_at, rc.expired_at, rc.expired_run_id, rc.created_at, rc.updated_at, rc.lineage_key, rc.risk_level, rc.asset_name, rc.lineage_rank, rc.lineage_version_count,
   rc.lineage_version_count::bigint AS version_count
 FROM latest rc
 WHERE
   (
-    $1::text = ''
-    OR rc.risk_level = ANY(regexp_split_to_array(lower($1::text), '\s*,\s*'))
+    cardinality($1::text[]) = 0
+    OR rc.risk_level = ANY($1::text[])
   )
   AND (
     $2::text = ''
@@ -1366,7 +1315,7 @@ OFFSET $7::int
 `
 
 type ListCredentialArtifactsPageBySourcesAndQueryAndFiltersParams struct {
-	RiskLevel             string             `json:"risk_level"`
+	RiskLevels            []string           `json:"risk_levels"`
 	ExpiryState           string             `json:"expiry_state"`
 	EvaluatedAt           pgtype.Timestamptz `json:"evaluated_at"`
 	ExpiresInDays         int32              `json:"expires_in_days"`
@@ -1376,7 +1325,7 @@ type ListCredentialArtifactsPageBySourcesAndQueryAndFiltersParams struct {
 	PageLimit             int32              `json:"page_limit"`
 	ConfiguredSourceKinds []string           `json:"configured_source_kinds"`
 	ConfiguredSourceNames []string           `json:"configured_source_names"`
-	CredentialKind        string             `json:"credential_kind"`
+	CredentialKinds       []string           `json:"credential_kinds"`
 	Status                string             `json:"status"`
 	Owner                 string             `json:"owner"`
 	Asset                 string             `json:"asset"`
@@ -1413,9 +1362,9 @@ type ListCredentialArtifactsPageBySourcesAndQueryAndFiltersRow struct {
 	ExpiredRunID          pgtype.Int8        `json:"expired_run_id"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	LineageKey            string             `json:"lineage_key"`
 	RiskLevel             string             `json:"risk_level"`
 	AssetName             string             `json:"asset_name"`
-	LineageKey            string             `json:"lineage_key"`
 	LineageRank           int64              `json:"lineage_rank"`
 	LineageVersionCount   int64              `json:"lineage_version_count"`
 	VersionCount          int64              `json:"version_count"`
@@ -1423,7 +1372,7 @@ type ListCredentialArtifactsPageBySourcesAndQueryAndFiltersRow struct {
 
 func (q *Queries) ListCredentialArtifactsPageBySourcesAndQueryAndFilters(ctx context.Context, arg ListCredentialArtifactsPageBySourcesAndQueryAndFiltersParams) ([]ListCredentialArtifactsPageBySourcesAndQueryAndFiltersRow, error) {
 	rows, err := q.db.Query(ctx, listCredentialArtifactsPageBySourcesAndQueryAndFilters,
-		arg.RiskLevel,
+		arg.RiskLevels,
 		arg.ExpiryState,
 		arg.EvaluatedAt,
 		arg.ExpiresInDays,
@@ -1433,7 +1382,7 @@ func (q *Queries) ListCredentialArtifactsPageBySourcesAndQueryAndFilters(ctx con
 		arg.PageLimit,
 		arg.ConfiguredSourceKinds,
 		arg.ConfiguredSourceNames,
-		arg.CredentialKind,
+		arg.CredentialKinds,
 		arg.Status,
 		arg.Owner,
 		arg.Asset,
@@ -1476,9 +1425,9 @@ func (q *Queries) ListCredentialArtifactsPageBySourcesAndQueryAndFilters(ctx con
 			&i.ExpiredRunID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.LineageKey,
 			&i.RiskLevel,
 			&i.AssetName,
-			&i.LineageKey,
 			&i.LineageRank,
 			&i.LineageVersionCount,
 			&i.VersionCount,
@@ -1559,25 +1508,9 @@ func (q *Queries) RefreshCredentialArtifactLifecycleStatusesBySource(ctx context
 const summarizeCredentialsBySourceAndQuery = `-- name: SummarizeCredentialsBySourceAndQuery :one
 WITH rated_credentials AS (
   SELECT
-    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at, ca.lineage_key,
     COALESCE(risk.risk_level, 'low')::text AS risk_level,
-    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
-    -- lineage_key collapses re-issued credentials into a single row. The
-    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
-    -- stripped so a credential renewed each year groups under one lineage.
-    -- This assumes the naming convention; if other sources start emitting
-    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
-    md5(
-      coalesce(ca.source_kind, '') || '|' ||
-      coalesce(ca.asset_ref_external_id, '') || '|' ||
-      coalesce(ca.credential_kind, '') || '|' ||
-      CASE
-        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
-          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
-        ELSE
-          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
-      END
-    ) AS lineage_key
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
@@ -1585,18 +1518,22 @@ WITH rated_credentials AS (
     ON aa.source_kind = ca.source_kind
    AND aa.source_name = ca.source_name
    AND aa.expired_at IS NULL
+   AND aa.external_id = CASE
+        WHEN strpos(ca.asset_ref_external_id, ':') > 0 THEN substr(ca.asset_ref_external_id, strpos(ca.asset_ref_external_id, ':') + 1)
+        ELSE ca.asset_ref_external_id
+      END
    AND (
-        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-     OR ca.asset_ref_external_id = aa.external_id
-   )
+        strpos(ca.asset_ref_external_id, ':') = 0
+        OR aa.asset_kind = split_part(ca.asset_ref_external_id, ':', 1)
+      )
   WHERE
     ca.source_kind = $2::text
     AND ca.source_name = $3::text
     AND ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
-      $4::text = ''
-      OR ca.credential_kind = ANY(regexp_split_to_array($4::text, '\s*,\s*'))
+      cardinality($4::text[]) = 0
+      OR ca.credential_kind = ANY($4::text[])
     )
     AND (
       $5::text = ''
@@ -1620,7 +1557,7 @@ WITH rated_credentials AS (
     )
 ),
 matched AS (
-  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, risk_level, asset_name, lineage_key
+  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, lineage_key, risk_level, asset_name
   FROM rated_credentials rc
   WHERE
     $8::text = ''
@@ -1668,14 +1605,14 @@ FROM matched m
 `
 
 type SummarizeCredentialsBySourceAndQueryParams struct {
-	EvaluatedAt    pgtype.Timestamptz `json:"evaluated_at"`
-	SourceKind     string             `json:"source_kind"`
-	SourceName     string             `json:"source_name"`
-	CredentialKind string             `json:"credential_kind"`
-	Owner          string             `json:"owner"`
-	Asset          string             `json:"asset"`
-	NewerDays      int32              `json:"newer_days"`
-	Query          string             `json:"query"`
+	EvaluatedAt     pgtype.Timestamptz `json:"evaluated_at"`
+	SourceKind      string             `json:"source_kind"`
+	SourceName      string             `json:"source_name"`
+	CredentialKinds []string           `json:"credential_kinds"`
+	Owner           string             `json:"owner"`
+	Asset           string             `json:"asset"`
+	NewerDays       int32              `json:"newer_days"`
+	Query           string             `json:"query"`
 }
 
 type SummarizeCredentialsBySourceAndQueryRow struct {
@@ -1703,7 +1640,7 @@ func (q *Queries) SummarizeCredentialsBySourceAndQuery(ctx context.Context, arg 
 		arg.EvaluatedAt,
 		arg.SourceKind,
 		arg.SourceName,
-		arg.CredentialKind,
+		arg.CredentialKinds,
 		arg.Owner,
 		arg.Asset,
 		arg.NewerDays,
@@ -1735,25 +1672,9 @@ WITH configured_sources AS (
 ),
 rated_credentials AS (
   SELECT
-    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at,
+    ca.id, ca.source_kind, ca.source_name, ca.asset_ref_kind, ca.asset_ref_external_id, ca.credential_kind, ca.external_id, ca.display_name, ca.fingerprint, ca.scope_json, ca.status, ca.created_at_source, ca.expires_at_source, ca.last_used_at_source, ca.created_by_kind, ca.created_by_external_id, ca.created_by_display_name, ca.approved_by_kind, ca.approved_by_external_id, ca.approved_by_display_name, ca.raw_json, ca.seen_in_run_id, ca.seen_at, ca.last_observed_run_id, ca.last_observed_at, ca.expired_at, ca.expired_run_id, ca.created_at, ca.updated_at, ca.lineage_key,
     COALESCE(risk.risk_level, 'low')::text AS risk_level,
-    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
-    -- lineage_key collapses re-issued credentials into a single row. The
-    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
-    -- stripped so a credential renewed each year groups under one lineage.
-    -- This assumes the naming convention; if other sources start emitting
-    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
-    md5(
-      coalesce(ca.source_kind, '') || '|' ||
-      coalesce(ca.asset_ref_external_id, '') || '|' ||
-      coalesce(ca.credential_kind, '') || '|' ||
-      CASE
-        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
-          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
-        ELSE
-          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
-      END
-    ) AS lineage_key
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
@@ -1764,16 +1685,20 @@ rated_credentials AS (
     ON aa.source_kind = ca.source_kind
    AND aa.source_name = ca.source_name
    AND aa.expired_at IS NULL
+   AND aa.external_id = CASE
+        WHEN strpos(ca.asset_ref_external_id, ':') > 0 THEN substr(ca.asset_ref_external_id, strpos(ca.asset_ref_external_id, ':') + 1)
+        ELSE ca.asset_ref_external_id
+      END
    AND (
-        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-     OR ca.asset_ref_external_id = aa.external_id
-   )
+        strpos(ca.asset_ref_external_id, ':') = 0
+        OR aa.asset_kind = split_part(ca.asset_ref_external_id, ':', 1)
+      )
   WHERE
     ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
-      $4::text = ''
-      OR ca.credential_kind = ANY(regexp_split_to_array($4::text, '\s*,\s*'))
+      cardinality($4::text[]) = 0
+      OR ca.credential_kind = ANY($4::text[])
     )
     AND (
       $5::text = ''
@@ -1797,7 +1722,7 @@ rated_credentials AS (
     )
 ),
 matched AS (
-  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, risk_level, asset_name, lineage_key
+  SELECT id, source_kind, source_name, asset_ref_kind, asset_ref_external_id, credential_kind, external_id, display_name, fingerprint, scope_json, status, created_at_source, expires_at_source, last_used_at_source, created_by_kind, created_by_external_id, created_by_display_name, approved_by_kind, approved_by_external_id, approved_by_display_name, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, lineage_key, risk_level, asset_name
   FROM rated_credentials rc
   WHERE
     $8::text = ''
@@ -1844,7 +1769,7 @@ type SummarizeCredentialsBySourcesAndQueryParams struct {
 	EvaluatedAt           pgtype.Timestamptz `json:"evaluated_at"`
 	ConfiguredSourceKinds []string           `json:"configured_source_kinds"`
 	ConfiguredSourceNames []string           `json:"configured_source_names"`
-	CredentialKind        string             `json:"credential_kind"`
+	CredentialKinds       []string           `json:"credential_kinds"`
 	Owner                 string             `json:"owner"`
 	Asset                 string             `json:"asset"`
 	NewerDays             int32              `json:"newer_days"`
@@ -1869,7 +1794,7 @@ func (q *Queries) SummarizeCredentialsBySourcesAndQuery(ctx context.Context, arg
 		arg.EvaluatedAt,
 		arg.ConfiguredSourceKinds,
 		arg.ConfiguredSourceNames,
-		arg.CredentialKind,
+		arg.CredentialKinds,
 		arg.Owner,
 		arg.Asset,
 		arg.NewerDays,
@@ -1959,6 +1884,7 @@ INSERT INTO credential_artifacts (
   approved_by_external_id,
   approved_by_display_name,
   raw_json,
+  lineage_key,
   seen_in_run_id,
   seen_at,
   updated_at
@@ -1984,6 +1910,19 @@ SELECT
   input.approved_by_external_id,
   input.approved_by_display_name,
   input.raw_json,
+  md5(
+    coalesce($1::text, '') || '|' ||
+    coalesce($2::text, '') || '|' ||
+    coalesce(input.asset_ref_kind, '') || '|' ||
+    coalesce(input.asset_ref_external_id, '') || '|' ||
+    coalesce(input.credential_kind, '') || '|' ||
+    CASE
+      WHEN coalesce(input.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+        'cohort:' || lower(trim(regexp_replace(coalesce(input.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+      ELSE
+        'id:' || coalesce(input.external_id, '') || '|' || lower(trim(coalesce(input.display_name, '')))
+    END
+  ),
   $3::bigint,
   now(),
   now()
@@ -2003,6 +1942,7 @@ ON CONFLICT (source_kind, source_name, credential_kind, external_id, asset_ref_k
   approved_by_external_id = COALESCE(NULLIF(EXCLUDED.approved_by_external_id, ''), credential_artifacts.approved_by_external_id),
   approved_by_display_name = COALESCE(NULLIF(EXCLUDED.approved_by_display_name, ''), credential_artifacts.approved_by_display_name),
   raw_json = EXCLUDED.raw_json,
+  lineage_key = EXCLUDED.lineage_key,
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
   updated_at = now()

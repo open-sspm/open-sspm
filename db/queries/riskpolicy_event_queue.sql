@@ -129,3 +129,12 @@ ON CONFLICT (event_received_at, event_id, signal_id) DO UPDATE SET
   evidence = EXCLUDED.evidence,
   output = EXCLUDED.output,
   evaluated_at = now();
+
+-- name: DeleteFinishedRiskpolicyEventQueueBefore :execrows
+DELETE FROM riskpolicy_event_queue
+WHERE status IN ('processed', 'dead')
+  AND updated_at < sqlc.arg(cutoff)::timestamptz;
+
+-- name: DeleteRiskpolicyEventShadowSignalsBefore :execrows
+DELETE FROM riskpolicy_event_shadow_signals
+WHERE evaluated_at < sqlc.arg(cutoff)::timestamptz;

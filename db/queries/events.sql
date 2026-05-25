@@ -119,3 +119,7 @@ VALUES (
   sqlc.narg(saas_app_id)::bigint,
   sqlc.arg(envelope)::jsonb
 );
+
+-- name: DeleteEventDedupeKeysBefore :execrows
+DELETE FROM event_dedupe_keys
+WHERE event_received_at < sqlc.arg(cutoff)::timestamptz;

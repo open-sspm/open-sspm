@@ -62,6 +62,61 @@ func TestStoreEnqueueClaimAndProcessor(t *testing.T) {
 	})
 }
 
+func TestRenewEventInboxLeaseCanBeatExpiredRequeue(t *testing.T) {
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "event_inbox"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+		testdb.MigrateUp(t, migrator)
+		q := gen.New(pool)
+		store := NewStore(q)
+
+		if _, err := store.Enqueue(ctx, Delivery{
+			Source:    records.SourceRef{Kind: "okta", Name: "example.okta.com"},
+			Channel:   "event_hook",
+			DedupeKey: "delivery:evt-renew",
+			RawBody:   []byte(`{"eventId":"evt-renew"}`),
+		}); err != nil {
+			t.Fatalf("enqueue delivery: %v", err)
+		}
+		claimed, err := store.ClaimQueued(ctx, 1, "worker-1", 1)
+		if err != nil {
+			t.Fatalf("claim delivery: %v", err)
+		}
+		if len(claimed) != 1 {
+			t.Fatalf("claimed rows = %d, want 1", len(claimed))
+		}
+		if _, err := pool.Exec(ctx, `
+			UPDATE event_inbox
+			SET lease_until = now() - interval '1 second'
+			WHERE id = $1
+		`, claimed[0].ID); err != nil {
+			t.Fatalf("expire lease: %v", err)
+		}
+
+		renewed, err := q.RenewEventInboxLease(ctx, gen.RenewEventInboxLeaseParams{
+			Ids:          []int64{claimed[0].ID},
+			LeaseOwner:   "worker-1",
+			LeaseSeconds: 60,
+		})
+		if err != nil {
+			t.Fatalf("RenewEventInboxLease(): %v", err)
+		}
+		if renewed != 1 {
+			t.Fatalf("renewed rows = %d, want 1", renewed)
+		}
+
+		var leaseActive bool
+		if err := pool.QueryRow(ctx, `
+			SELECT status = 'processing' AND lease_owner = 'worker-1' AND lease_until > now()
+			FROM event_inbox
+			WHERE id = $1
+		`, claimed[0].ID).Scan(&leaseActive); err != nil {
+			t.Fatalf("select renewed lease: %v", err)
+		}
+		if !leaseActive {
+			t.Fatal("expected expired processing lease to be renewed before requeue")
+		}
+	})
+}
+
 type testHandler struct{}
 
 func (testHandler) ProcessInboxDelivery(context.Context, Delivery) (ProcessResult, error) {

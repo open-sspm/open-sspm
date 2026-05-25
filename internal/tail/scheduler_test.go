@@ -3,8 +3,10 @@ package tail
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/testdb"
@@ -56,6 +58,71 @@ func TestSchedulerCoalescesTailWakeupsBySourceResource(t *testing.T) {
 		}
 		if count != 1 {
 			t.Fatalf("tail jobs = %d, want 1", count)
+		}
+	})
+}
+
+func TestUpsertConnectorCursorStatePreservesSuccessfulRunOnHeartbeat(t *testing.T) {
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "tail_cursor"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+		testdb.MigrateUp(t, migrator)
+
+		q := gen.New(pool)
+		now := time.Now().UTC().Truncate(time.Second)
+		var runID int64
+		if err := pool.QueryRow(ctx, `
+			INSERT INTO sync_runs (source_kind, source_name, status, started_at, finished_at, message)
+			VALUES ('okta', 'example.okta.com', 'success', $1, $2, '')
+			RETURNING id
+		`, now.Add(-time.Minute), now).Scan(&runID); err != nil {
+			t.Fatalf("insert sync run: %v", err)
+		}
+
+		if err := q.UpsertConnectorCursorState(ctx, gen.UpsertConnectorCursorStateParams{
+			SourceKind:          "okta",
+			SourceName:          "example.okta.com",
+			Resource:            "system_log",
+			CursorKind:          "log_cursor",
+			CursorJson:          []byte(`{"phase":"success"}`),
+			LastSuccessAt:       pgtype.Timestamptz{Time: now, Valid: true},
+			LastAttemptAt:       pgtype.Timestamptz{Time: now, Valid: true},
+			LastRunID:           pgtype.Int8{Int64: runID, Valid: true},
+			LastProviderEventID: "evt-1",
+			NeedsFullResync:     false,
+		}); err != nil {
+			t.Fatalf("initial UpsertConnectorCursorState(): %v", err)
+		}
+
+		heartbeatAt := now.Add(30 * time.Second)
+		if err := q.UpsertConnectorCursorState(ctx, gen.UpsertConnectorCursorStateParams{
+			SourceKind:          "okta",
+			SourceName:          "example.okta.com",
+			Resource:            "system_log",
+			CursorKind:          "log_cursor",
+			CursorJson:          []byte(`{"phase":"heartbeat"}`),
+			LastAttemptAt:       pgtype.Timestamptz{Time: heartbeatAt, Valid: true},
+			LastError:           "",
+			LastProviderEventID: "evt-1",
+			NeedsFullResync:     false,
+		}); err != nil {
+			t.Fatalf("heartbeat UpsertConnectorCursorState(): %v", err)
+		}
+
+		state, err := q.GetConnectorCursorState(ctx, gen.GetConnectorCursorStateParams{
+			SourceKind: "okta",
+			SourceName: "example.okta.com",
+			Resource:   "system_log",
+		})
+		if err != nil {
+			t.Fatalf("GetConnectorCursorState(): %v", err)
+		}
+		if !state.LastSuccessAt.Valid || !state.LastSuccessAt.Time.Equal(now) {
+			t.Fatalf("last_success_at = %+v, want %s", state.LastSuccessAt, now)
+		}
+		if !state.LastRunID.Valid || state.LastRunID.Int64 != runID {
+			t.Fatalf("last_run_id = %+v, want %d", state.LastRunID, runID)
+		}
+		if !state.LastAttemptAt.Valid || !state.LastAttemptAt.Time.Equal(heartbeatAt) {
+			t.Fatalf("last_attempt_at = %+v, want %s", state.LastAttemptAt, heartbeatAt)
 		}
 	})
 }

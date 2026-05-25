@@ -166,6 +166,27 @@ SELECT *
 FROM identity_merge_redirects
 WHERE source_identity_id = $1;
 
+-- name: IdentityMergeWouldCreateCycle :one
+WITH RECURSIVE redirect_chain AS (
+  SELECT
+    source_identity_id,
+    target_identity_id
+  FROM identity_merge_redirects
+  WHERE source_identity_id = sqlc.arg(target_identity_id)::bigint
+  UNION
+  SELECT
+    r.source_identity_id,
+    r.target_identity_id
+  FROM identity_merge_redirects r
+  JOIN redirect_chain c
+    ON r.source_identity_id = c.target_identity_id
+)
+SELECT EXISTS (
+  SELECT 1
+  FROM redirect_chain
+  WHERE target_identity_id = sqlc.arg(source_identity_id)::bigint
+)::bool AS would_create_cycle;
+
 -- name: UpsertAccountIdentityRelationship :one
 INSERT INTO account_identity_relationships (
   account_id,

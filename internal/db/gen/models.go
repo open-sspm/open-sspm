@@ -263,6 +263,7 @@ type CredentialArtifact struct {
 	ExpiredRunID          pgtype.Int8        `json:"expired_run_id"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	LineageKey            string             `json:"lineage_key"`
 }
 
 type CredentialArtifactRiskReadModel struct {
@@ -1125,29 +1126,31 @@ type SaasAppBinding struct {
 }
 
 type SaasAppEvent struct {
-	ID                int64              `json:"id"`
-	SaasAppID         int64              `json:"saas_app_id"`
-	SourceKind        string             `json:"source_kind"`
-	SourceName        string             `json:"source_name"`
-	SignalKind        string             `json:"signal_kind"`
-	EventExternalID   string             `json:"event_external_id"`
-	SourceAppID       string             `json:"source_app_id"`
-	SourceAppName     string             `json:"source_app_name"`
-	SourceAppDomain   string             `json:"source_app_domain"`
-	ActorExternalID   string             `json:"actor_external_id"`
-	ActorEmail        string             `json:"actor_email"`
-	ActorDisplayName  string             `json:"actor_display_name"`
-	ObservedAt        pgtype.Timestamptz `json:"observed_at"`
-	ScopesJson        []byte             `json:"scopes_json"`
-	RawJson           []byte             `json:"raw_json"`
-	SeenInRunID       pgtype.Int8        `json:"seen_in_run_id"`
-	SeenAt            pgtype.Timestamptz `json:"seen_at"`
-	LastObservedRunID pgtype.Int8        `json:"last_observed_run_id"`
-	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
-	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
-	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	ID                   int64              `json:"id"`
+	SaasAppID            int64              `json:"saas_app_id"`
+	SourceKind           string             `json:"source_kind"`
+	SourceName           string             `json:"source_name"`
+	SignalKind           string             `json:"signal_kind"`
+	EventExternalID      string             `json:"event_external_id"`
+	SourceAppID          string             `json:"source_app_id"`
+	SourceAppName        string             `json:"source_app_name"`
+	SourceAppDomain      string             `json:"source_app_domain"`
+	ActorExternalID      string             `json:"actor_external_id"`
+	ActorEmail           string             `json:"actor_email"`
+	ActorDisplayName     string             `json:"actor_display_name"`
+	ObservedAt           pgtype.Timestamptz `json:"observed_at"`
+	ScopesJson           []byte             `json:"scopes_json"`
+	RawJson              []byte             `json:"raw_json"`
+	SeenInRunID          pgtype.Int8        `json:"seen_in_run_id"`
+	SeenAt               pgtype.Timestamptz `json:"seen_at"`
+	LastObservedRunID    pgtype.Int8        `json:"last_observed_run_id"`
+	LastObservedAt       pgtype.Timestamptz `json:"last_observed_at"`
+	ExpiredAt            pgtype.Timestamptz `json:"expired_at"`
+	ExpiredRunID         pgtype.Int8        `json:"expired_run_id"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	HasPrivilegedScope   bool               `json:"has_privileged_scope"`
+	HasConfidentialScope bool               `json:"has_confidential_scope"`
 }
 
 type SaasAppReviewDecision struct {

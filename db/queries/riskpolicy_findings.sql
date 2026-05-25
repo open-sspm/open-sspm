@@ -96,7 +96,6 @@ ON CONFLICT (finding_key) DO UPDATE SET
   evidence = EXCLUDED.evidence,
   output = EXCLUDED.output,
   last_seen_at = now(),
-  resolved_at = NULL,
   updated_at = now();
 
 -- name: CountRiskpolicyFindingsByShadowStatus :one

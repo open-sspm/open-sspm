@@ -400,7 +400,7 @@ const reclaimRunningSyncRunsBySource = `-- name: ReclaimRunningSyncRunsBySource 
 UPDATE sync_runs
 SET
   status = 'canceled',
-  finished_at = started_at,
+  finished_at = now(),
   message = $1::text,
   error_kind = $2::text
 WHERE source_kind = ANY($3::text[])

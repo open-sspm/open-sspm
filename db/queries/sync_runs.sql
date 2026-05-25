@@ -7,7 +7,7 @@ RETURNING id;
 UPDATE sync_runs
 SET
   status = 'canceled',
-  finished_at = started_at,
+  finished_at = now(),
   message = sqlc.arg(message)::text,
   error_kind = sqlc.arg(error_kind)::text
 WHERE source_kind = ANY(sqlc.arg(source_kinds)::text[])

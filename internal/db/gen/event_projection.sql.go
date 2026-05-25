@@ -87,6 +87,19 @@ func (q *Queries) CreateEventProjectionDiffRun(ctx context.Context, arg CreateEv
 	return i, err
 }
 
+const deleteEventProjectionDiffRunsBefore = `-- name: DeleteEventProjectionDiffRunsBefore :execrows
+DELETE FROM event_projection_diff_runs
+WHERE created_at < $1::timestamptz
+`
+
+func (q *Queries) DeleteEventProjectionDiffRunsBefore(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteEventProjectionDiffRunsBefore, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getEventProjectionCheckpoint = `-- name: GetEventProjectionCheckpoint :one
 SELECT projection_name, source_kind, source_name, last_event_received_at, last_event_id, last_projected_at, stats, updated_at
 FROM event_projection_checkpoints
@@ -183,7 +196,7 @@ SELECT
   e.id AS event_id,
   e.source_kind::text AS source_kind,
   e.source_name::text AS source_name,
-  replace(e.category, 'discovery.', '')::text AS signal_kind,
+  substring(e.category from length('discovery.') + 1)::text AS signal_kind,
   e.provider_event_id::text AS event_external_id,
   COALESCE(NULLIF(trim(et.target_id), ''), e.target_id, '')::text AS source_app_id,
   COALESCE(NULLIF(trim(et.target_name), ''), e.target_name, '')::text AS source_app_name,

@@ -606,6 +606,16 @@ func (h *Handlers) applyProvisionalIdentityMerge(ctx context.Context, qtx *gen.Q
 	if strings.TrimSpace(targetIdentity.ResolutionState) == "merged" || strings.TrimSpace(targetIdentity.ResolutionState) == "disabled" {
 		return errors.New("target identity is not active")
 	}
+	wouldCreateCycle, err := qtx.IdentityMergeWouldCreateCycle(ctx, gen.IdentityMergeWouldCreateCycleParams{
+		SourceIdentityID: sourceIdentityID,
+		TargetIdentityID: targetIdentityID,
+	})
+	if err != nil {
+		return err
+	}
+	if wouldCreateCycle {
+		return errors.New("identity merge would create a redirect cycle")
+	}
 
 	metadata := identityResolutionJSONMetadata(map[string]any{
 		"action":       "accept_and_merge_provisional",
