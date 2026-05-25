@@ -46,6 +46,17 @@ describe("boost link scope", () => {
     expect(link.getAttribute("hx-swap")).toBe(null);
   });
 
+  it("does not decorate links that already have their own hx-select", () => {
+    document.body.innerHTML = `<a id="link" href="/x" hx-select="#panel">x</a>`;
+    const link = document.getElementById("link");
+
+    fireClick(link);
+
+    expect(link.getAttribute("hx-select")).toBe("#panel");
+    expect(link.getAttribute("hx-target")).toBe(null);
+    expect(link.getAttribute("hx-swap")).toBe(null);
+  });
+
   it("does not decorate hash links, non-http links, or external links", () => {
     document.body.innerHTML = `
       <a id="hash" href="#section">hash</a>

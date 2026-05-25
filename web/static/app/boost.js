@@ -28,6 +28,7 @@ const BOOST_SWAP = "outerHTML show:window:top";
 
 const HX_OWN_ATTRS = [
   "hx-target",
+  "hx-select",
   "hx-get",
   "hx-post",
   "hx-put",

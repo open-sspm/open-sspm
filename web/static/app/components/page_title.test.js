@@ -30,7 +30,7 @@ describe("page_title component", () => {
     expect(document.getElementById("page-title").textContent).toBe("Non-Human Identities");
   });
 
-  it("leaves h1 untouched when document.title lacks the site suffix", () => {
+  it("uses the full document.title as-is when the site suffix is absent", () => {
     document.body.innerHTML = `<h1 id="page-title">Apps</h1>`;
     start();
 
