@@ -1,11 +1,7 @@
 package registry
 
 import (
-	"fmt"
 	"strings"
-
-	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
-	"github.com/open-sspm/open-sspm/internal/http/views"
 )
 
 // ConnectorState represents the runtime state of a connector.
@@ -31,20 +27,6 @@ func (s *ConnectorState) StatusLabel() string {
 		return "Disabled"
 	}
 	return "Enabled"
-}
-
-// StatusClass returns the CSS class for the status badge.
-func (s *ConnectorState) StatusClass() string {
-	if strings.TrimSpace(s.ConfigError) != "" {
-		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
-	}
-	if !s.Configured {
-		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
-	}
-	if !s.Enabled {
-		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
-	}
-	return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
 }
 
 // CoverageScore calculates the sync/coverage score (0-100).
@@ -88,148 +70,4 @@ func (s *ConnectorState) ScoreLabel() string {
 		return "Sync score"
 	}
 	return "Identity coverage"
-}
-
-// Subtitle returns the appropriate subtitle based on configuration.
-func (s *ConnectorState) Subtitle() string {
-	if s.Configured {
-		return s.Definition.ConfiguredSubtitle(s.Config)
-	}
-	return s.Definition.DefaultSubtitle()
-}
-
-// MetricsKV returns key-value pairs for the metrics section.
-func (s *ConnectorState) MetricsKV() []viewmodels.GlobalViewKV {
-	if s.Metrics == nil {
-		return []viewmodels.GlobalViewKV{
-			{Label: "Status", Value: s.StatusLabel()},
-			{Label: "Accounts", Value: "—"},
-			{Label: "Needs anchor", Value: "—"},
-		}
-	}
-
-	if s.Definition.Role() == RoleIdP {
-		return []viewmodels.GlobalViewKV{
-			{Label: "Users", Value: views.FormatInt64(s.Metrics.Total)},
-			{Label: "Apps", Value: views.FormatInt64(s.Metrics.Extras["apps"])},
-			{Label: "Status", Value: s.StatusLabel()},
-		}
-	}
-
-	return []viewmodels.GlobalViewKV{
-		{Label: "Accounts", Value: views.FormatInt64(s.Metrics.Total)},
-		{Label: "Anchored", Value: views.FormatInt64(s.Metrics.Anchored)},
-		{Label: "Needs anchor", Value: views.FormatInt64(s.Metrics.NeedsAnchor)},
-	}
-}
-
-// HighlightsKV returns key-value pairs for the highlights section.
-func (s *ConnectorState) HighlightsKV() []viewmodels.GlobalViewKV {
-	if s.Metrics == nil {
-		return []viewmodels.GlobalViewKV{
-			{Label: "Connector", Value: s.StatusLabel()},
-			{Label: "Explore", Value: "—"},
-		}
-	}
-
-	if s.Definition.Role() == RoleIdP {
-		domain := s.SourceName
-		if domain == "" {
-			domain = "—"
-		}
-		return []viewmodels.GlobalViewKV{
-			{Label: "Connector", Value: s.StatusLabel()},
-			{Label: "Domain", Value: domain},
-			{Label: "Explore", Value: "Users + Apps"},
-		}
-	}
-
-	return []viewmodels.GlobalViewKV{
-		{Label: "Coverage", Value: fmt.Sprintf("%d%%", s.CoverageScore())},
-		{Label: "Anchored", Value: views.FormatInt64(s.Metrics.Anchored)},
-		{Label: "Needs anchor", Value: views.FormatInt64(s.Metrics.NeedsAnchor)},
-	}
-}
-
-// PrimaryHref returns the primary action link.
-func (s *ConnectorState) PrimaryHref() string {
-	if s.Configured && s.Enabled {
-		if href := connectorBrowseUsersHref(s.Definition.Kind()); href != "" {
-			return href
-		}
-	}
-	return s.Definition.SettingsHref()
-}
-
-// PrimaryLabel returns the primary action label.
-func (s *ConnectorState) PrimaryLabel() string {
-	if s.Configured && s.Enabled {
-		return "Browse users"
-	}
-	return "Configure"
-}
-
-// SecondaryHref returns the secondary action link.
-func (s *ConnectorState) SecondaryHref() string {
-	if s.Configured && s.Enabled {
-		return connectorNeedsAnchorHref(s.Definition.Kind(), s.SourceName)
-	}
-	return ""
-}
-
-// SecondaryLabel returns the secondary action label.
-func (s *ConnectorState) SecondaryLabel() string {
-	if s.Configured && s.Enabled {
-		return connectorSecondaryLabel(s.Definition.Kind())
-	}
-	return ""
-}
-
-func connectorBrowseUsersHref(kind string) string {
-	switch strings.TrimSpace(kind) {
-	case "okta":
-		return "/accounts/okta"
-	case "entra":
-		return "/accounts/entra"
-	case "google_workspace":
-		return "/accounts/google-workspace"
-	case "github":
-		return "/accounts/github"
-	case "datadog":
-		return "/accounts/datadog"
-	case "aws_identity_center":
-		return "/accounts/aws"
-	default:
-		return ""
-	}
-}
-
-func connectorNeedsAnchorHref(kind, sourceName string) string {
-	switch strings.TrimSpace(kind) {
-	case "okta":
-		return "/assigned-apps"
-	case "entra":
-		return "/accounts/needs-anchor/entra"
-	case "google_workspace":
-		return "/accounts/needs-anchor/google-workspace"
-	case "github", "datadog":
-		sourceName = strings.TrimSpace(sourceName)
-		if sourceName != "" {
-			return fmt.Sprintf("/accounts/needs-anchor/%s/%s", kind, sourceName)
-		}
-	case "aws_identity_center":
-		return "/accounts/needs-anchor/aws"
-	}
-	return ""
-}
-
-func connectorSecondaryLabel(kind string) string {
-	switch strings.TrimSpace(kind) {
-	case "okta":
-		return "Browse apps"
-	case "entra", "google_workspace", "github", "datadog", "aws_identity_center":
-		return "Needs anchor"
-	default:
-		return ""
-	}
 }

@@ -1,3 +1,4 @@
+-- PHASE-TWO-DELETE: riskpolicy_findings is a compatibility/parity table; canonical findings are written through internal/findings.Writer.
 -- name: ListRiskpolicyEventShadowSignalsForFindingProjection :many
 SELECT
   s.event_received_at,

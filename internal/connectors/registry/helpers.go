@@ -150,73 +150,123 @@ func FinalizeOktaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, ru
 
 	counts := map[string]int64{}
 
-	observed, err := qtx.PromoteOktaAccountsSeenInRun(ctx, PgInt8(runID))
+	runIDKey := PgInt8(runID)
+
+	observed, err := qtx.PromoteSourceAccountsSeenInRun(ctx, gen.PromoteSourceAccountsSeenInRunParams{
+		LastObservedRunID: runIDKey,
+		SourceKind:        "okta",
+		SourceName:        sourceName,
+	})
 	if err != nil {
 		return err
 	}
 	counts["okta_accounts_observed"] = observed
 
-	expired, err := qtx.ExpireOktaAccountsNotSeenInRun(ctx, PgInt8(runID))
+	expired, err := qtx.ExpireSourceAccountsNotSeenInRun(ctx, gen.ExpireSourceAccountsNotSeenInRunParams{
+		ExpiredRunID: runIDKey,
+		SourceKind:   "okta",
+		SourceName:   sourceName,
+	})
 	if err != nil {
 		return err
 	}
 	counts["okta_accounts_expired"] = expired
 
-	observed, err = qtx.PromoteOktaGroupsSeenInRun(ctx, PgInt8(runID))
+	observed, err = qtx.PromoteOktaGroupsSeenInRunBySource(ctx, gen.PromoteOktaGroupsSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        "okta",
+		SourceName:        sourceName,
+	})
 	if err != nil {
 		return err
 	}
 	counts["okta_groups_observed"] = observed
 
-	expired, err = qtx.ExpireOktaGroupsNotSeenInRun(ctx, PgInt8(runID))
+	expired, err = qtx.ExpireOktaGroupsNotSeenInRunBySource(ctx, gen.ExpireOktaGroupsNotSeenInRunBySourceParams{
+		ExpiredRunID: runID,
+		SourceKind:   "okta",
+		SourceName:   sourceName,
+	})
 	if err != nil {
 		return err
 	}
 	counts["okta_groups_expired"] = expired
 
-	observed, err = qtx.PromoteOktaGroupMembershipsSeenInRun(ctx, PgInt8(runID))
+	observed, err = qtx.PromoteOktaGroupMembershipsSeenInRunBySource(ctx, gen.PromoteOktaGroupMembershipsSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        "okta",
+		SourceName:        sourceName,
+	})
 	if err != nil {
 		return err
 	}
 	counts["okta_group_memberships_observed"] = observed
 
-	expired, err = qtx.ExpireOktaGroupMembershipsNotSeenInRun(ctx, PgInt8(runID))
+	expired, err = qtx.ExpireOktaGroupMembershipsNotSeenInRunBySource(ctx, gen.ExpireOktaGroupMembershipsNotSeenInRunBySourceParams{
+		ExpiredRunID: runID,
+		SourceKind:   "okta",
+		SourceName:   sourceName,
+	})
 	if err != nil {
 		return err
 	}
 	counts["okta_group_memberships_expired"] = expired
 
-	observed, err = qtx.PromoteOktaAppsSeenInRun(ctx, PgInt8(runID))
+	observed, err = qtx.PromoteOktaAppsSeenInRunBySource(ctx, gen.PromoteOktaAppsSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        "okta",
+		SourceName:        sourceName,
+	})
 	if err != nil {
 		return err
 	}
 	counts["okta_apps_observed"] = observed
 
-	expired, err = qtx.ExpireOktaAppsNotSeenInRun(ctx, PgInt8(runID))
+	expired, err = qtx.ExpireOktaAppsNotSeenInRunBySource(ctx, gen.ExpireOktaAppsNotSeenInRunBySourceParams{
+		ExpiredRunID: runID,
+		SourceKind:   "okta",
+		SourceName:   sourceName,
+	})
 	if err != nil {
 		return err
 	}
 	counts["okta_apps_expired"] = expired
 
-	observed, err = qtx.PromoteOktaAppAssignmentsSeenInRun(ctx, PgInt8(runID))
+	observed, err = qtx.PromoteOktaAppAssignmentsSeenInRunBySource(ctx, gen.PromoteOktaAppAssignmentsSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        "okta",
+		SourceName:        sourceName,
+	})
 	if err != nil {
 		return err
 	}
 	counts["okta_app_assignments_observed"] = observed
 
-	expired, err = qtx.ExpireOktaAppAssignmentsNotSeenInRun(ctx, PgInt8(runID))
+	expired, err = qtx.ExpireOktaAppAssignmentsNotSeenInRunBySource(ctx, gen.ExpireOktaAppAssignmentsNotSeenInRunBySourceParams{
+		ExpiredRunID: runID,
+		SourceKind:   "okta",
+		SourceName:   sourceName,
+	})
 	if err != nil {
 		return err
 	}
 	counts["okta_app_assignments_expired"] = expired
 
-	observed, err = qtx.PromoteOktaAppGroupAssignmentsSeenInRun(ctx, PgInt8(runID))
+	observed, err = qtx.PromoteOktaAppGroupAssignmentsSeenInRunBySource(ctx, gen.PromoteOktaAppGroupAssignmentsSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        "okta",
+		SourceName:        sourceName,
+	})
 	if err != nil {
 		return err
 	}
 	counts["okta_app_group_assignments_observed"] = observed
 
-	expired, err = qtx.ExpireOktaAppGroupAssignmentsNotSeenInRun(ctx, PgInt8(runID))
+	expired, err = qtx.ExpireOktaAppGroupAssignmentsNotSeenInRunBySource(ctx, gen.ExpireOktaAppGroupAssignmentsNotSeenInRunBySourceParams{
+		ExpiredRunID: runID,
+		SourceKind:   "okta",
+		SourceName:   sourceName,
+	})
 	if err != nil {
 		return err
 	}

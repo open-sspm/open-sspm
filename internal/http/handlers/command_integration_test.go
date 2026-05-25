@@ -768,6 +768,8 @@ func insertCommandSearchOktaApp(t *testing.T, ctx context.Context, q *gen.Querie
 
 	if _, err := q.UpsertOktaAppsBulk(ctx, gen.UpsertOktaAppsBulkParams{
 		SeenInRunID: runID,
+		SourceKind:  "okta",
+		SourceName:  "example.okta.com",
 		ExternalIds: []string{externalID},
 		Labels:      []string{label},
 		Names:       []string{name},

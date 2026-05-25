@@ -88,6 +88,7 @@ type ListRiskpolicyEventShadowSignalsForFindingProjectionRow struct {
 	Output            []byte             `json:"output"`
 }
 
+// PHASE-TWO-DELETE: riskpolicy_findings is a compatibility/parity table; canonical findings are written through internal/findings.Writer.
 func (q *Queries) ListRiskpolicyEventShadowSignalsForFindingProjection(ctx context.Context, arg ListRiskpolicyEventShadowSignalsForFindingProjectionParams) ([]ListRiskpolicyEventShadowSignalsForFindingProjectionRow, error) {
 	rows, err := q.db.Query(ctx, listRiskpolicyEventShadowSignalsForFindingProjection, arg.Since, arg.Until, arg.LimitRows)
 	if err != nil {

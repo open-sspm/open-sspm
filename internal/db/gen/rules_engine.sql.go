@@ -35,7 +35,12 @@ FROM rule_attestations
 WHERE rule_id = $1
   AND scope_kind = $2
   AND source_kind = $3
-  AND source_name = $4
+  AND (
+    source_name = $4
+    OR ($4 <> '' AND source_name = '')
+  )
+ORDER BY CASE WHEN source_name = $4 THEN 0 ELSE 1 END
+LIMIT 1
 `
 
 type GetRuleAttestationParams struct {
@@ -74,7 +79,12 @@ FROM rule_overrides
 WHERE rule_id = $1
   AND scope_kind = $2
   AND source_kind = $3
-  AND source_name = $4
+  AND (
+    source_name = $4
+    OR ($4 <> '' AND source_name = '')
+  )
+ORDER BY CASE WHEN source_name = $4 THEN 0 ELSE 1 END
+LIMIT 1
 `
 
 type GetRuleOverrideParams struct {
@@ -159,6 +169,7 @@ type GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow struct {
 	CurrentErrorKind       string             `json:"current_error_kind"`
 }
 
+// PHASE-TWO-DELETE: rule detail still reads rule_results_current until its finding readmodel is cut over in Phase Two.
 func (q *Queries) GetRuleWithCurrentResultByRulesetKeyAndRuleKey(ctx context.Context, arg GetRuleWithCurrentResultByRulesetKeyAndRuleKeyParams) (GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow, error) {
 	row := q.db.QueryRow(ctx, getRuleWithCurrentResultByRulesetKeyAndRuleKey,
 		arg.Key,
@@ -229,7 +240,12 @@ FROM ruleset_overrides
 WHERE ruleset_id = $1
   AND scope_kind = $2
   AND source_kind = $3
-  AND source_name = $4
+  AND (
+    source_name = $4
+    OR ($4 <> '' AND source_name = '')
+  )
+ORDER BY CASE WHEN source_name = $4 THEN 0 ELSE 1 END
+LIMIT 1
 `
 
 type GetRulesetOverrideParams struct {
@@ -474,6 +490,7 @@ type ListActiveRulesWithCurrentResultsByRulesetKeyRow struct {
 	CurrentErrorKind       string             `json:"current_error_kind"`
 }
 
+// PHASE-TWO-DELETE: selected ruleset summary reads canonical findings via findings.sql; this rule_results_current query remains for parity/legacy consumers.
 func (q *Queries) ListActiveRulesWithCurrentResultsByRulesetKey(ctx context.Context, arg ListActiveRulesWithCurrentResultsByRulesetKeyParams) ([]ListActiveRulesWithCurrentResultsByRulesetKeyRow, error) {
 	rows, err := q.db.Query(ctx, listActiveRulesWithCurrentResultsByRulesetKey,
 		arg.Key,
@@ -785,6 +802,7 @@ type UpsertRuleResultCurrentParams struct {
 	ErrorKind           string             `json:"error_kind"`
 }
 
+// PHASE-TWO-DELETE: rules engine keeps writing rule_results_current as a parity baseline while canonical findings become the UI source of truth.
 func (q *Queries) UpsertRuleResultCurrent(ctx context.Context, arg UpsertRuleResultCurrentParams) (RuleResultsCurrent, error) {
 	row := q.db.QueryRow(ctx, upsertRuleResultCurrent,
 		arg.RuleID,

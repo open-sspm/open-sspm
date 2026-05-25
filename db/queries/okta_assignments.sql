@@ -18,6 +18,8 @@ dedup AS (
   ORDER BY external_id, i DESC
 )
 INSERT INTO okta_groups (
+  source_kind,
+  source_name,
   external_id,
   name,
   type,
@@ -27,6 +29,8 @@ INSERT INTO okta_groups (
   updated_at
 )
 SELECT
+  sqlc.arg(source_kind)::text,
+  sqlc.arg(source_name)::text,
   input.external_id,
   input.name,
   input.type,
@@ -36,6 +40,8 @@ SELECT
   now()
 FROM dedup input
 ON CONFLICT (external_id) DO UPDATE SET
+  source_kind = EXCLUDED.source_kind,
+  source_name = EXCLUDED.source_name,
   name = CASE
     WHEN trim(EXCLUDED.name) <> '' THEN EXCLUDED.name
     ELSE okta_groups.name
@@ -74,6 +80,8 @@ dedup AS (
   ORDER BY external_id, i DESC
 )
 INSERT INTO okta_apps (
+  source_kind,
+  source_name,
   external_id,
   label,
   name,
@@ -85,6 +93,8 @@ INSERT INTO okta_apps (
   updated_at
 )
 SELECT
+  sqlc.arg(source_kind)::text,
+  sqlc.arg(source_name)::text,
   input.external_id,
   input.label,
   input.name,
@@ -96,6 +106,8 @@ SELECT
   now()
 FROM dedup input
 ON CONFLICT (external_id) DO UPDATE SET
+  source_kind = EXCLUDED.source_kind,
+  source_name = EXCLUDED.source_name,
   label = CASE
     WHEN trim(EXCLUDED.label) <> '' THEN EXCLUDED.label
     ELSE okta_apps.label
@@ -157,6 +169,8 @@ JOIN accounts iu
     OR iu.seen_in_run_id = sqlc.arg(seen_in_run_id)::bigint
   )
 JOIN okta_groups og ON og.external_id = d.okta_group_external_id
+  AND og.source_kind = 'okta'
+  AND og.source_name = rs.source_name
   AND (og.expired_at IS NULL OR og.seen_in_run_id = sqlc.arg(seen_in_run_id)::bigint)
   AND (
     og.last_observed_run_id IS NOT NULL
@@ -225,6 +239,8 @@ JOIN accounts iu
     OR iu.seen_in_run_id = sqlc.arg(seen_in_run_id)::bigint
   )
 JOIN okta_apps oa ON oa.external_id = input.okta_app_external_id
+  AND oa.source_kind = 'okta'
+  AND oa.source_name = rs.source_name
   AND (oa.expired_at IS NULL OR oa.seen_in_run_id = sqlc.arg(seen_in_run_id)::bigint)
   AND (
     oa.last_observed_run_id IS NOT NULL
@@ -261,6 +277,8 @@ dedup AS (
   ORDER BY okta_app_external_id, okta_group_external_id, i DESC
 )
 INSERT INTO okta_app_group_assignments (
+  source_kind,
+  source_name,
   okta_app_id,
   okta_group_id,
   priority,
@@ -271,6 +289,8 @@ INSERT INTO okta_app_group_assignments (
   updated_at
 )
 SELECT
+  sqlc.arg(source_kind)::text,
+  sqlc.arg(source_name)::text,
   oa.id,
   og.id,
   input.priority,
@@ -281,18 +301,24 @@ SELECT
   now()
 FROM dedup input
 JOIN okta_apps oa ON oa.external_id = input.okta_app_external_id
+  AND oa.source_kind = sqlc.arg(source_kind)::text
+  AND oa.source_name = sqlc.arg(source_name)::text
   AND (oa.expired_at IS NULL OR oa.seen_in_run_id = sqlc.arg(seen_in_run_id)::bigint)
   AND (
     oa.last_observed_run_id IS NOT NULL
     OR oa.seen_in_run_id = sqlc.arg(seen_in_run_id)::bigint
   )
 JOIN okta_groups og ON og.external_id = input.okta_group_external_id
+  AND og.source_kind = sqlc.arg(source_kind)::text
+  AND og.source_name = sqlc.arg(source_name)::text
   AND (og.expired_at IS NULL OR og.seen_in_run_id = sqlc.arg(seen_in_run_id)::bigint)
   AND (
     og.last_observed_run_id IS NOT NULL
     OR og.seen_in_run_id = sqlc.arg(seen_in_run_id)::bigint
   )
 ON CONFLICT (okta_app_id, okta_group_id) DO UPDATE SET
+  source_kind = EXCLUDED.source_kind,
+  source_name = EXCLUDED.source_name,
   priority = EXCLUDED.priority,
   profile_json = EXCLUDED.profile_json,
   raw_json = EXCLUDED.raw_json,

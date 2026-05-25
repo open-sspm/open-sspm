@@ -543,6 +543,69 @@ type EventsDefault struct {
 	TraceID          string             `json:"trace_id"`
 }
 
+type Finding struct {
+	FindingKey          string             `json:"finding_key"`
+	Status              string             `json:"status"`
+	BaseSeverity        string             `json:"base_severity"`
+	EffectiveSeverity   string             `json:"effective_severity"`
+	SeveritySource      string             `json:"severity_source"`
+	Title               string             `json:"title"`
+	Summary             string             `json:"summary"`
+	Evidence            string             `json:"evidence"`
+	Remediation         string             `json:"remediation"`
+	SourceKind          string             `json:"source_kind"`
+	SourceName          string             `json:"source_name"`
+	ScopeKind           string             `json:"scope_kind"`
+	ScopeSourceKind     string             `json:"scope_source_kind"`
+	ScopeSourceName     string             `json:"scope_source_name"`
+	EntityKind          string             `json:"entity_kind"`
+	EntityID            string             `json:"entity_id"`
+	EntityName          string             `json:"entity_name"`
+	ResourceKind        string             `json:"resource_kind"`
+	ResourceID          string             `json:"resource_id"`
+	ResourceName        string             `json:"resource_name"`
+	PolicyBundleID      string             `json:"policy_bundle_id"`
+	PolicyBundleVersion string             `json:"policy_bundle_version"`
+	PolicyID            string             `json:"policy_id"`
+	PolicyTitle         string             `json:"policy_title"`
+	RuleID              pgtype.Text        `json:"rule_id"`
+	RulesetID           pgtype.Text        `json:"ruleset_id"`
+	EventReceivedAt     pgtype.Timestamptz `json:"event_received_at"`
+	EventID             pgtype.UUID        `json:"event_id"`
+	FirstSeenAt         pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt          pgtype.Timestamptz `json:"last_seen_at"`
+	ResolvedAt          pgtype.Timestamptz `json:"resolved_at"`
+	SuppressedUntil     pgtype.Timestamptz `json:"suppressed_until"`
+	SuppressionReason   string             `json:"suppression_reason"`
+	SuppressedBy        string             `json:"suppressed_by"`
+	SuppressedAt        pgtype.Timestamptz `json:"suppressed_at"`
+	Output              []byte             `json:"output"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type FindingEvent struct {
+	ID                    int64              `json:"id"`
+	FindingKey            string             `json:"finding_key"`
+	EventKey              string             `json:"event_key"`
+	EventType             string             `json:"event_type"`
+	OccurredAt            pgtype.Timestamptz `json:"occurred_at"`
+	ActorKind             string             `json:"actor_kind"`
+	ActorID               string             `json:"actor_id"`
+	Message               string             `json:"message"`
+	OldStatus             string             `json:"old_status"`
+	NewStatus             string             `json:"new_status"`
+	OldSeverity           string             `json:"old_severity"`
+	NewSeverity           string             `json:"new_severity"`
+	SourceEventReceivedAt pgtype.Timestamptz `json:"source_event_received_at"`
+	SourceEventID         pgtype.UUID        `json:"source_event_id"`
+	EvaluationRunID       pgtype.Int8        `json:"evaluation_run_id"`
+	SyncRunID             pgtype.Int8        `json:"sync_run_id"`
+	PolicyControlID       pgtype.Int8        `json:"policy_control_id"`
+	Payload               []byte             `json:"payload"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+}
+
 type GovernanceSubjectOverride struct {
 	SubjectKind           string             `json:"subject_kind"`
 	SubjectID             int64              `json:"subject_id"`
@@ -848,6 +911,8 @@ type OktaApp struct {
 	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
 	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
+	SourceKind        string             `json:"source_kind"`
+	SourceName        string             `json:"source_name"`
 }
 
 type OktaAppGroupAssignment struct {
@@ -865,6 +930,8 @@ type OktaAppGroupAssignment struct {
 	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
 	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
+	SourceKind        string             `json:"source_kind"`
+	SourceName        string             `json:"source_name"`
 }
 
 type OktaGroup struct {
@@ -881,6 +948,8 @@ type OktaGroup struct {
 	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
 	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
+	SourceKind        string             `json:"source_kind"`
+	SourceName        string             `json:"source_name"`
 }
 
 type OktaPushInbox struct {

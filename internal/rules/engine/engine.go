@@ -14,6 +14,7 @@ import (
 	runtimev2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/runtime/v2"
 	osspecv2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v2"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/findings"
 	"github.com/open-sspm/open-sspm/internal/metrics"
 )
 
@@ -86,7 +87,7 @@ func (e *Engine) Run(ctx context.Context, evalCtx Context) error {
 			if ev == nil {
 				continue
 			}
-			if err := e.writeEvaluation(ctx, rule.ID, evalCtx, *ev); err != nil {
+			if err := e.writeEvaluation(ctx, rs, rule, evalCtx, *ev); err != nil {
 				errs = append(errs, fmt.Errorf("%s/%s: write evaluation: %w", strings.TrimSpace(rs.Key), strings.TrimSpace(rule.Key), err))
 				continue
 			}
@@ -293,14 +294,29 @@ func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, 
 	return out, nil
 }
 
-func (e *Engine) writeEvaluation(ctx context.Context, ruleID int64, evalCtx Context, ev Evaluation) error {
+func (e *Engine) writeEvaluation(ctx context.Context, ruleset gen.Ruleset, rule gen.Rule, evalCtx Context, ev Evaluation) error {
+	if evalCtx.EvaluatedAt.IsZero() && e.Now != nil {
+		evalCtx.EvaluatedAt = e.Now()
+	}
+	if e.DB != nil {
+		tx, err := e.DB.Begin(ctx)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback(ctx)
+
+		if err := writeEvaluation(ctx, e.Q.WithTx(tx), ruleset, rule, evalCtx, ev); err != nil {
+			return err
+		}
+		return tx.Commit(ctx)
+	}
+	return writeEvaluation(ctx, e.Q, ruleset, rule, evalCtx, ev)
+}
+
+func writeEvaluation(ctx context.Context, q *gen.Queries, ruleset gen.Ruleset, rule gen.Rule, evalCtx Context, ev Evaluation) error {
 	now := evalCtx.EvaluatedAt
 	if now.IsZero() {
-		if e.Now != nil {
-			now = e.Now()
-		} else {
-			now = time.Now()
-		}
+		now = time.Now()
 	}
 
 	evaluatedAt := pgtype.Timestamptz{Time: now, Valid: true}
@@ -314,8 +330,8 @@ func (e *Engine) writeEvaluation(ctx context.Context, ruleID int64, evalCtx Cont
 		affected = []string{}
 	}
 
-	if _, err := e.Q.InsertRuleEvaluation(ctx, gen.InsertRuleEvaluationParams{
-		RuleID:              ruleID,
+	if _, err := q.InsertRuleEvaluation(ctx, gen.InsertRuleEvaluationParams{
+		RuleID:              rule.ID,
 		ScopeKind:           strings.TrimSpace(evalCtx.ScopeKind),
 		SourceKind:          strings.TrimSpace(evalCtx.SourceKind),
 		SourceName:          strings.TrimSpace(evalCtx.SourceName),
@@ -330,8 +346,8 @@ func (e *Engine) writeEvaluation(ctx context.Context, ruleID int64, evalCtx Cont
 		return err
 	}
 
-	_, err := e.Q.UpsertRuleResultCurrent(ctx, gen.UpsertRuleResultCurrentParams{
-		RuleID:              ruleID,
+	if _, err := q.UpsertRuleResultCurrent(ctx, gen.UpsertRuleResultCurrentParams{
+		RuleID:              rule.ID,
 		ScopeKind:           strings.TrimSpace(evalCtx.ScopeKind),
 		SourceKind:          strings.TrimSpace(evalCtx.SourceKind),
 		SourceName:          strings.TrimSpace(evalCtx.SourceName),
@@ -342,8 +358,11 @@ func (e *Engine) writeEvaluation(ctx context.Context, ruleID int64, evalCtx Cont
 		EvidenceJson:        ev.EvidenceJSON,
 		AffectedResourceIds: affected,
 		ErrorKind:           strings.TrimSpace(ev.ErrorKind),
-	})
-	return err
+	}); err != nil {
+		return err
+	}
+
+	return findings.NewWriter(q).Write(ctx, ruleFindingResult(ruleset, rule, evalCtx, ev, affected, now))
 }
 
 func (e *Engine) isRulesetDisabled(ctx context.Context, rulesetID int64, scopeKind, sourceKind, sourceName string) (bool, error) {
@@ -376,6 +395,77 @@ func (e *Engine) getRuleOverride(ctx context.Context, ruleID int64, scopeKind, s
 		return nil, err
 	}
 	return &row, nil
+}
+
+func ruleFindingResult(ruleset gen.Ruleset, rule gen.Rule, evalCtx Context, ev Evaluation, affected []string, evaluatedAt time.Time) findings.FindingResult {
+	status := findings.StatusResolved
+	switch strings.TrimSpace(ev.Status) {
+	case "fail", "error", "unknown":
+		status = findings.StatusOpen
+	}
+	sourceKind := strings.TrimSpace(evalCtx.SourceKind)
+	sourceName := strings.TrimSpace(evalCtx.SourceName)
+	if sourceKind == "" {
+		sourceKind = "global"
+	}
+	if sourceName == "" {
+		sourceName = "default"
+	}
+	syncRunValue := ""
+	if evalCtx.SyncRunID != nil && *evalCtx.SyncRunID > 0 {
+		syncRunValue = fmt.Sprintf("%d", *evalCtx.SyncRunID)
+	}
+
+	output := map[string]any{
+		"rule_result": map[string]any{
+			"status":                strings.TrimSpace(ev.Status),
+			"error_kind":            strings.TrimSpace(ev.ErrorKind),
+			"affected_resource_ids": affected,
+			"sync_run_id":           syncRunValue,
+		},
+	}
+	if evidence := findings.JSONObject(ev.EvidenceJSON); len(evidence) > 0 {
+		output["evidence"] = evidence
+	}
+
+	result := findings.FindingResult{
+		Status:            status,
+		BaseSeverity:      strings.TrimSpace(rule.Severity),
+		EffectiveSeverity: strings.TrimSpace(rule.Severity),
+		SeveritySource:    findings.SeveritySourcePolicy,
+		Title:             strings.TrimSpace(rule.Title),
+		Summary:           strings.TrimSpace(ev.EvidenceSummary),
+		Evidence:          strings.TrimSpace(ev.EvidenceSummary),
+		Source:            findings.SourceRef{Kind: sourceKind, Name: sourceName},
+		Scope: findings.ScopeRef{
+			Kind:       strings.TrimSpace(evalCtx.ScopeKind),
+			SourceKind: strings.TrimSpace(evalCtx.SourceKind),
+			SourceName: strings.TrimSpace(evalCtx.SourceName),
+		},
+		Entity: findings.EntityRef{
+			Kind: "ruleset_scope",
+			ID:   strings.Join([]string{strings.TrimSpace(evalCtx.ScopeKind), strings.TrimSpace(evalCtx.SourceKind), strings.TrimSpace(evalCtx.SourceName)}, ":"),
+			Name: strings.TrimSpace(evalCtx.SourceName),
+		},
+		Resource: findings.ResourceRef{
+			Kind: "rule",
+			ID:   strings.TrimSpace(rule.Key),
+			Name: strings.TrimSpace(rule.Title),
+		},
+		Policy: findings.PolicyRef{
+			BundleID:      strings.TrimSpace(ruleset.Key),
+			BundleVersion: strings.TrimSpace(ruleset.SourceVersion),
+			ID:            strings.TrimSpace(rule.Key),
+			Title:         strings.TrimSpace(rule.Title),
+			RuleID:        strings.TrimSpace(rule.Key),
+			RulesetID:     strings.TrimSpace(ruleset.Key),
+		},
+		Output:      output,
+		EvaluatedAt: evaluatedAt,
+		SyncRunID:   evalCtx.SyncRunID,
+	}
+	result.Key = findings.BuildKey(result)
+	return result
 }
 
 func (e *Engine) getActiveAttestation(ctx context.Context, ruleID int64, scopeKind, sourceKind, sourceName string, now time.Time) (*gen.RuleAttestation, error) {

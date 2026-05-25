@@ -16,9 +16,10 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
-	canonevents "github.com/open-sspm/open-sspm/internal/events"
+	"github.com/open-sspm/open-sspm/internal/ingest/recorddispatch"
 	"github.com/open-sspm/open-sspm/internal/matching"
 	"github.com/open-sspm/open-sspm/internal/metrics"
+	"github.com/open-sspm/open-sspm/internal/records"
 	"github.com/open-sspm/open-sspm/internal/rules/datasets"
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
 	"github.com/open-sspm/open-sspm/internal/tail"
@@ -113,6 +114,10 @@ func (i *OktaIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pgx
 	}
 	i.lastRunID = runID
 
+	emitter := recorddispatch.NewDispatcher(nil, recorddispatch.NewOktaStateProjector(q, runID))
+	if err := beginOktaSnapshot(ctx, emitter, i.sourceName, records.ResourceIdentity, runID); err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+	}
 	users, err := i.client.ListUsers(ctx)
 	if err != nil {
 		err = fmt.Errorf("okta list users (/api/v1/users): %w", err)
@@ -122,23 +127,32 @@ func (i *OktaIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pgx
 	report(registry.Event{Source: "okta", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
 	report(registry.Event{Source: "okta", Stage: "sync-users", Current: 0, Total: int64(len(users)), Message: fmt.Sprintf("syncing %d users", len(users))})
 
-	if err := i.syncOktaAccounts(ctx, q, report, runID, users); err != nil {
+	if err := i.syncOktaAccountsRecords(ctx, emitter, report, runID, users); err != nil {
 		report(registry.Event{Source: "okta", Stage: "sync-users", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 
-	if err := i.syncOktaGroups(ctx, q, report, runID); err != nil {
+	if err := beginOktaSnapshot(ctx, emitter, i.sourceName, records.ResourceGroup, runID); err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+	}
+	if err := i.syncOktaGroupsRecords(ctx, emitter, report, runID); err != nil {
 		report(registry.Event{Source: "okta", Stage: "sync-groups", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 
-	appIDs, err := i.syncOktaAppAssignments(ctx, q, report, runID)
+	if err := beginOktaSnapshot(ctx, emitter, i.sourceName, records.ResourceApplication, runID); err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+	}
+	if err := beginOktaSnapshot(ctx, emitter, i.sourceName, records.ResourceEntitlement, runID); err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+	}
+	appIDs, err := i.syncOktaAppAssignmentsRecords(ctx, emitter, report, runID)
 	if err != nil {
 		report(registry.Event{Source: "okta", Stage: "sync-app-assignments", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 
-	if err := i.syncOktaAppGroupAssignments(ctx, q, report, runID, appIDs); err != nil {
+	if err := i.syncOktaAppGroupAssignmentsRecords(ctx, emitter, report, runID, appIDs); err != nil {
 		report(registry.Event{Source: "okta", Stage: "sync-app-group-assignments", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
@@ -160,11 +174,15 @@ func (i *OktaIntegration) runDiscovery(ctx context.Context, q *gen.Queries, pool
 	if err != nil {
 		return err
 	}
-	if err := i.syncDiscovery(ctx, q, report, runID); err != nil {
+	emitter := recorddispatch.NewDispatcher(nil, recorddispatch.NewOktaStateProjector(q, runID))
+	if err := i.syncDiscoveryRecords(ctx, q, emitter, report, runID); err != nil {
 		report(registry.Event{Source: "okta", Stage: "write-discovery", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindUnknown)
 	}
 	if err := registry.FinalizeDiscoveryRun(ctx, q, pool, runID, "okta", i.sourceName, time.Since(started)); err != nil {
+		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
+	}
+	if err := i.seedOktaAutoBindings(ctx, q); err != nil {
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 	slog.Info("okta discovery sync complete", "source", i.sourceName)
@@ -270,7 +288,7 @@ func (i *OktaIntegration) tailSystemLogWithCursor(ctx context.Context, pool *pgx
 			return updateOktaTailCursorError(lockCtx, qtx, state, runID, attemptedAt, tailErr)
 		}
 
-		writer := canonevents.NewWriter(pool)
+		dispatcher := recorddispatch.NewEventDispatcher(pool)
 		stats.Fetched = len(events)
 		watermark := maxOktaSystemLogWatermark(events)
 		if watermark.IsZero() {
@@ -287,7 +305,7 @@ func (i *OktaIntegration) tailSystemLogWithCursor(ctx context.Context, pool *pgx
 				tailErr = err
 				return updateOktaTailCursorError(lockCtx, qtx, state, runID, attemptedAt, tailErr)
 			}
-			result, err := writer.WriteEvent(lockCtx, record, canonevents.WriteOptions{})
+			result, err := dispatcher.DispatchEvent(lockCtx, record)
 			if err != nil {
 				tailErr = fmt.Errorf("write canonical Okta tail event %s: %w", event.ID, err)
 				return updateOktaTailCursorError(lockCtx, qtx, state, runID, attemptedAt, tailErr)
@@ -447,7 +465,7 @@ func truncateSyncMessage(err error) string {
 	return msg[:limit]
 }
 
-func (i *OktaIntegration) EvaluateCompliance(ctx context.Context, q *gen.Queries, report func(registry.Event)) error {
+func (i *OktaIntegration) EvaluateCompliance(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
 	if i == nil {
 		return nil
 	}
@@ -467,6 +485,7 @@ func (i *OktaIntegration) EvaluateCompliance(ctx context.Context, q *gen.Queries
 	}
 	e := engine.Engine{
 		Q:        q,
+		DB:       pool,
 		Datasets: router,
 		Now:      time.Now,
 	}
@@ -487,6 +506,7 @@ func (i *OktaIntegration) EvaluateCompliance(ctx context.Context, q *gen.Queries
 	return nil
 }
 
+// PHASE-TWO-DELETE: legacy direct Okta account writer kept only as a parity fallback; runFull now emits identity records through recorddispatch.
 func (i *OktaIntegration) syncOktaAccounts(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, users []User) error {
 	if len(users) == 0 {
 		report(registry.Event{Source: "okta", Stage: "sync-users", Current: 0, Total: 0, Message: "no users to sync"})
@@ -558,6 +578,7 @@ func (i *OktaIntegration) syncOktaAccounts(ctx context.Context, q *gen.Queries, 
 	return nil
 }
 
+// PHASE-TWO-DELETE: legacy direct Okta group writer kept only as a parity fallback; runFull now emits group and membership records through recorddispatch.
 func (i *OktaIntegration) syncOktaGroups(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64) error {
 	groups, err := i.client.ListGroups(ctx)
 	if err != nil {
@@ -620,6 +641,8 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, q *gen.Queries, re
 		}
 		if _, err := q.UpsertOktaGroupsBulk(ctx, gen.UpsertOktaGroupsBulkParams{
 			SeenInRunID: runID,
+			SourceKind:  "okta",
+			SourceName:  i.sourceName,
 			ExternalIds: externalIDs,
 			Names:       names,
 			Types:       types,
@@ -731,6 +754,7 @@ func (i *OktaIntegration) syncOktaGroups(ctx context.Context, q *gen.Queries, re
 	return firstErr
 }
 
+// PHASE-TWO-DELETE: legacy direct Okta app/user assignment writer kept only as a parity fallback; runFull now emits application and entitlement records through recorddispatch.
 func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64) ([]string, error) {
 	apps, err := i.client.ListApps(ctx)
 	if err != nil {
@@ -780,6 +804,8 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, q *gen.Que
 		}
 		if _, err := q.UpsertOktaAppsBulk(ctx, gen.UpsertOktaAppsBulkParams{
 			SeenInRunID: runID,
+			SourceKind:  "okta",
+			SourceName:  i.sourceName,
 			ExternalIds: externalIDs,
 			Labels:      labels,
 			Names:       names,
@@ -894,6 +920,7 @@ func (i *OktaIntegration) syncOktaAppAssignments(ctx context.Context, q *gen.Que
 	return appExternalIDs, firstErr
 }
 
+// PHASE-TWO-DELETE: legacy direct Okta app/group assignment writer kept only as a parity fallback; runFull now emits group and entitlement records through recorddispatch.
 func (i *OktaIntegration) syncOktaAppGroupAssignments(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, appExternalIDs []string) error {
 	if len(appExternalIDs) == 0 {
 		report(registry.Event{Source: "okta", Stage: "sync-app-group-assignments", Current: 0, Total: 0, Message: "no apps to sync"})
@@ -948,6 +975,8 @@ func (i *OktaIntegration) syncOktaAppGroupAssignments(ctx context.Context, q *ge
 				if len(externalIDs) > 0 {
 					if _, err := q.UpsertOktaGroupsBulk(jobCtx, gen.UpsertOktaGroupsBulkParams{
 						SeenInRunID: runID,
+						SourceKind:  "okta",
+						SourceName:  i.sourceName,
 						ExternalIds: externalIDs,
 						Names:       names,
 						Types:       types,
@@ -985,6 +1014,8 @@ func (i *OktaIntegration) syncOktaAppGroupAssignments(ctx context.Context, q *ge
 					}
 					if _, err := q.UpsertOktaAppGroupAssignmentsBulkByExternalIDs(jobCtx, gen.UpsertOktaAppGroupAssignmentsBulkByExternalIDsParams{
 						SeenInRunID:          runID,
+						SourceKind:           "okta",
+						SourceName:           i.sourceName,
 						OktaAppExternalIds:   oktaAppExternalIDs,
 						OktaGroupExternalIds: groupExternalIDs,
 						Priorities:           priorities,
@@ -1028,6 +1059,7 @@ func (i *OktaIntegration) syncOktaAppGroupAssignments(ctx context.Context, q *ge
 	return firstErr
 }
 
+// PHASE-TWO-DELETE: legacy direct Okta discovery writer kept only as a parity fallback; discovery polling now emits discovery evidence records through recorddispatch.
 func (i *OktaIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64) error {
 	report(registry.Event{Source: "okta", Stage: "list-discovery-events", Current: 0, Total: 1, Message: "listing discovery events"})
 
@@ -1235,6 +1267,7 @@ func isGroupMembershipEvent(eventType string) bool {
 	}
 }
 
+// PHASE-TWO-DELETE: legacy helper for direct discovery writes; the active Okta discovery path projects records.DiscoveryEvidencePayload.
 func (i *OktaIntegration) writeDiscoveryRows(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, sources []discovery.SourceRow, events []discovery.EventRow) error {
 	return discovery.WriteRows(ctx, q, discovery.WriteRowsParams{
 		SourceKind: "okta",

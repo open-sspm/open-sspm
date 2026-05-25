@@ -9,15 +9,16 @@ import (
 type ResourceName string
 
 const (
-	ResourceIdentity         ResourceName = "identity"
-	ResourceGroup            ResourceName = "group"
-	ResourceApplication      ResourceName = "application"
-	ResourceServicePrincipal ResourceName = "service_principal"
-	ResourceAppAsset         ResourceName = "app_asset"
-	ResourceCredential       ResourceName = "credential"
-	ResourceEntitlement      ResourceName = "entitlement"
-	ResourcePolicy           ResourceName = "policy"
-	ResourceAuditEvent       ResourceName = "audit_event"
+	ResourceIdentity          ResourceName = "identity"
+	ResourceGroup             ResourceName = "group"
+	ResourceApplication       ResourceName = "application"
+	ResourceServicePrincipal  ResourceName = "service_principal"
+	ResourceAppAsset          ResourceName = "app_asset"
+	ResourceCredential        ResourceName = "credential"
+	ResourceEntitlement       ResourceName = "entitlement"
+	ResourceDiscoveryEvidence ResourceName = "discovery_evidence"
+	ResourcePolicy            ResourceName = "policy"
+	ResourceAuditEvent        ResourceName = "audit_event"
 )
 
 type RecordKind string
@@ -27,7 +28,6 @@ const (
 	RecordKindStateUpsert      RecordKind = "state_upsert"
 	RecordKindStateDelete      RecordKind = "state_delete"
 	RecordKindSnapshotBoundary RecordKind = "snapshot_boundary"
-	RecordKindWakeup           RecordKind = "wakeup"
 )
 
 type SourceRef struct {

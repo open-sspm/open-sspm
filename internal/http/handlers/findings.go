@@ -132,7 +132,12 @@ func (h *Handlers) buildFindingsRulesetViewData(ctx context.Context, c *echo.Con
 		return viewmodels.FindingsRulesetViewData{}, err
 	}
 
-	overrideEnabled, overrideExists, err := h.getRulesetOverride(ctx, rs.ID, scope)
+	overrideScope, err := h.findingsConcreteScopeForRuleset(ctx, rs)
+	if err != nil {
+		return viewmodels.FindingsRulesetViewData{}, err
+	}
+
+	overrideEnabled, overrideExists, err := h.getRulesetOverride(ctx, rs.ID, overrideScope)
 	if err != nil {
 		return viewmodels.FindingsRulesetViewData{}, err
 	}
@@ -141,11 +146,11 @@ func (h *Handlers) buildFindingsRulesetViewData(ctx context.Context, c *echo.Con
 	severityFilter := normalizeSeverityFilter(c.QueryParam("severity"))
 	monitoringFilter := normalizeMonitoringFilter(c.QueryParam("monitoring"))
 
-	ruleRows, err := h.Q.ListActiveRulesWithCurrentResultsByRulesetKey(ctx, gen.ListActiveRulesWithCurrentResultsByRulesetKeyParams{
-		Key:        strings.TrimSpace(rs.Key),
+	ruleRows, err := h.Q.ListFindingRulesetCurrentByRulesetKey(ctx, gen.ListFindingRulesetCurrentByRulesetKeyParams{
 		ScopeKind:  scope.ScopeKind,
 		SourceKind: scope.SourceKind,
 		SourceName: scope.SourceName,
+		Key:        strings.TrimSpace(rs.Key),
 	})
 	if err != nil {
 		return viewmodels.FindingsRulesetViewData{}, err
@@ -236,6 +241,14 @@ type findingsScope struct {
 }
 
 func (h *Handlers) findingsScopeForRuleset(ctx context.Context, rs gen.Ruleset) (findingsScope, error) {
+	return h.findingsScopeForRulesetMode(ctx, rs, false)
+}
+
+func (h *Handlers) findingsConcreteScopeForRuleset(ctx context.Context, rs gen.Ruleset) (findingsScope, error) {
+	return h.findingsScopeForRulesetMode(ctx, rs, true)
+}
+
+func (h *Handlers) findingsScopeForRulesetMode(ctx context.Context, rs gen.Ruleset, concreteSource bool) (findingsScope, error) {
 	scopeKind := strings.TrimSpace(rs.ScopeKind)
 	switch scopeKind {
 	case "global":
@@ -249,10 +262,8 @@ func (h *Handlers) findingsScopeForRuleset(ctx context.Context, rs gen.Ruleset) 
 			return findingsScope{ScopeKind: "connector_instance"}, nil
 		}
 
-		var (
-			sourceName string
-			hintHref   string
-		)
+		hintHref := ""
+		sourceName := ""
 
 		if h.Registry != nil {
 			states, err := h.Registry.LoadStates(ctx, h.Q)
@@ -261,11 +272,30 @@ func (h *Handlers) findingsScopeForRuleset(ctx context.Context, rs gen.Ruleset) 
 			}
 			for _, st := range states {
 				if strings.EqualFold(strings.TrimSpace(st.Definition.Kind()), connectorKind) {
-					sourceName = strings.TrimSpace(st.SourceName)
 					hintHref = strings.TrimSpace(st.Definition.SettingsHref())
+					if concreteSource {
+						sourceName = strings.TrimSpace(st.SourceName)
+					}
 					break
 				}
 			}
+		}
+		if concreteSource && sourceName == "" && h.Pool != nil {
+			err := h.Pool.QueryRow(ctx, `
+				WITH configured_sources AS (
+				  SELECT source_name, count(*) OVER () AS source_count
+				  FROM connector_source_state
+				  WHERE configured
+				    AND source_kind = $1
+				)
+				SELECT source_name
+				FROM configured_sources
+				WHERE source_count = 1
+			`, connectorKind).Scan(&sourceName)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return findingsScope{}, err
+			}
+			sourceName = strings.TrimSpace(sourceName)
 		}
 
 		return findingsScope{
@@ -310,7 +340,7 @@ func (h *Handlers) HandleFindingsRulesetOverride(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	scope, err := h.findingsScopeForRuleset(ctx, rs)
+	scope, err := h.findingsConcreteScopeForRuleset(ctx, rs)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -366,7 +396,7 @@ func (h *Handlers) HandleFindingsRule(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	scope, err := h.findingsScopeForRuleset(ctx, rs)
+	scope, err := h.findingsConcreteScopeForRuleset(ctx, rs)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -438,7 +468,7 @@ func (h *Handlers) HandleFindingsRuleOverride(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	scope, err := h.findingsScopeForRuleset(ctx, rs)
+	scope, err := h.findingsConcreteScopeForRuleset(ctx, rs)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
@@ -517,7 +547,7 @@ func (h *Handlers) HandleFindingsRuleAttestation(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	scope, err := h.findingsScopeForRuleset(ctx, rs)
+	scope, err := h.findingsConcreteScopeForRuleset(ctx, rs)
 	if err != nil {
 		return h.RenderError(c, err)
 	}

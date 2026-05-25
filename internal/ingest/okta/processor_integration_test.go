@@ -13,7 +13,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
+	genericinbox "github.com/open-sspm/open-sspm/internal/ingest/inbox"
 	"github.com/open-sspm/open-sspm/internal/metrics"
+	"github.com/open-sspm/open-sspm/internal/records"
 	"github.com/open-sspm/open-sspm/internal/testdb"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 )
@@ -94,6 +96,96 @@ func TestProcessQueuedWritesDiscoveryRows(t *testing.T) {
 			  AND status = 'pending'
 		`).Scan(&tailJobs); err != nil {
 			t.Fatalf("count queued tail jobs: %v", err)
+		}
+		if tailJobs != 1 {
+			t.Fatalf("tail jobs = %d, want 1", tailJobs)
+		}
+	})
+}
+
+func TestProcessGenericQueuedDispatchesOktaDelivery(t *testing.T) {
+	withOktaIngestTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries) {
+		raw := []byte(`{
+			"uuid": "evt-generic-sso-1",
+			"eventType": "user.authentication.sso",
+			"published": "2026-01-01T12:00:00Z",
+			"actor": {"id": "00u1", "alternateId": "alice@example.com", "displayName": "Alice"},
+			"target": [{"id": "0oa1", "type": "AppInstance", "alternateId": "https://app.example.com", "displayName": "Example App"}]
+		}`)
+		store := genericinbox.NewStore(q)
+		if _, err := store.Enqueue(ctx, genericinbox.Delivery{
+			Source:          records.SourceRef{Kind: "okta", Name: "acme.okta.com"},
+			Channel:         "event_hook",
+			ExternalEventID: "evt-generic-sso-1",
+			DedupeKey:       "provider:evt-generic-sso-1",
+			RawBody:         raw,
+		}); err != nil {
+			t.Fatalf("enqueue generic event inbox delivery: %v", err)
+		}
+
+		result, err := ProcessGenericQueued(ctx, q, pool, 100)
+		if err != nil {
+			t.Fatalf("ProcessGenericQueued(): %v", err)
+		}
+		if result.Claimed != 1 || result.Processed != 1 {
+			t.Fatalf("result = %+v, want claimed=1 processed=1", result)
+		}
+
+		var inboxStatus string
+		if err := pool.QueryRow(ctx, `
+			SELECT status::text
+			FROM event_inbox
+			WHERE dedupe_key = 'provider:evt-generic-sso-1'
+		`).Scan(&inboxStatus); err != nil {
+			t.Fatalf("select generic inbox status: %v", err)
+		}
+		if inboxStatus != "processed" {
+			t.Fatalf("generic inbox status = %q, want processed", inboxStatus)
+		}
+
+		var signalKind string
+		if err := pool.QueryRow(ctx, `
+			SELECT signal_kind
+			FROM saas_app_events
+			WHERE source_kind = 'okta'
+			  AND source_name = 'acme.okta.com'
+			  AND event_external_id = 'evt-generic-sso-1'
+		`).Scan(&signalKind); err != nil {
+			t.Fatalf("select generic discovery event: %v", err)
+		}
+		if signalKind != discovery.SignalKindIDPSSO {
+			t.Fatalf("signal_kind = %q, want %q", signalKind, discovery.SignalKindIDPSSO)
+		}
+
+		var canonicalEvents, legacyInboxRows, tailJobs int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM events
+			WHERE source_kind = 'okta'
+			  AND source_name = 'acme.okta.com'
+			  AND provider_event_id = 'evt-generic-sso-1'
+		`).Scan(&canonicalEvents); err != nil {
+			t.Fatalf("count generic canonical events: %v", err)
+		}
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM okta_push_inbox WHERE event_external_id = 'evt-generic-sso-1'`).Scan(&legacyInboxRows); err != nil {
+			t.Fatalf("count legacy okta inbox rows: %v", err)
+		}
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM sync_jobs
+			WHERE lane = 'tail'
+			  AND connector_kind = 'okta'
+			  AND source_name = 'acme.okta.com'
+			  AND resource = 'system_log'
+			  AND status = 'pending'
+		`).Scan(&tailJobs); err != nil {
+			t.Fatalf("count generic tail jobs: %v", err)
+		}
+		if canonicalEvents != 1 {
+			t.Fatalf("canonical events = %d, want 1", canonicalEvents)
+		}
+		if legacyInboxRows != 0 {
+			t.Fatalf("legacy okta inbox rows = %d, want 0", legacyInboxRows)
 		}
 		if tailJobs != 1 {
 			t.Fatalf("tail jobs = %d, want 1", tailJobs)

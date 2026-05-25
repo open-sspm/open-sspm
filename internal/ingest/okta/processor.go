@@ -17,7 +17,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
-	canonevents "github.com/open-sspm/open-sspm/internal/events"
+	"github.com/open-sspm/open-sspm/internal/ingest/recorddispatch"
 	"github.com/open-sspm/open-sspm/internal/metrics"
 	osspmsync "github.com/open-sspm/open-sspm/internal/sync"
 	"github.com/open-sspm/open-sspm/internal/tail"
@@ -25,6 +25,8 @@ import (
 )
 
 const (
+	// PHASE-TWO-DELETE: legacy Okta-specific push inbox/source kind retained as
+	// a fallback while the generic event_inbox worker becomes the primary path.
 	SourceKindOktaPush = "okta_push"
 
 	statusProcessed  = "processed"
@@ -101,6 +103,7 @@ func RunLoopWithQueue(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, c
 	}
 	slog.Info("starting Okta push inbox processor", "interval", cfg.PollInterval, "batch_size", cfg.BatchSize, "queue_backend", queueBackend)
 
+	runGenericEventInboxIteration(ctx, q, pool, cfg)
 	runProcessorIteration(ctx, q, pool, cfg)
 
 	ticker := time.NewTicker(cfg.PollInterval)
@@ -130,12 +133,17 @@ func RunLoopWithQueue(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, c
 				queueCh = nil
 				continue
 			}
+			runGenericEventInboxIteration(ctx, q, pool, cfg)
 			runProcessorIDIteration(ctx, q, pool, ids, cfg)
 			refreshInboxQueueDepth(ctx, inboxQueue)
 		case <-ticker.C:
+			runGenericEventInboxIteration(ctx, q, pool, cfg)
 			runProcessorIteration(ctx, q, pool, cfg)
 			refreshInboxQueueDepth(ctx, inboxQueue)
 		case <-staleTicker.C:
+			if err := requeueExpiredEventInboxLeases(ctx, q); err != nil {
+				slog.Warn("generic event inbox stale-row recovery failed", "error", err)
+			}
 			if err := requeueStaleProcessingRows(ctx, q, cfg); err != nil {
 				slog.Warn("Okta push inbox stale-row recovery failed", "error", err)
 			}
@@ -319,7 +327,7 @@ func processSourceRows(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, 
 		return result, err
 	}
 
-	if err := writeOktaCanonicalEvents(ctx, pool, sourceName, parsed); err != nil {
+	if err := dispatchOktaPushRecords(ctx, pool, sourceName, parsed); err != nil {
 		_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 		_ = retryOrDeadLetterRows(ctx, sourceName, inboxRowsFromParsed(parsed), err, cfg, claim)
 		return result, err
@@ -336,13 +344,7 @@ func processSourceRows(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, 
 			_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 			return result, err
 		}
-		if err := discovery.WriteRows(ctx, q, discovery.WriteRowsParams{
-			SourceKind: "okta",
-			SourceName: sourceName,
-			RunID:      runID,
-			Sources:    sources,
-			Events:     normalizedEvents,
-		}); err != nil {
+		if err := dispatchOktaDiscoveryEvidenceRecords(ctx, q, sourceName, runID, sources, normalizedEvents); err != nil {
 			_ = registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 			_ = retryOrDeadLetterRows(ctx, sourceName, inboxRowsFromParsed(parsed), err, cfg, claim)
 			return result, err
@@ -421,18 +423,28 @@ func oktaStateRefreshRunCounts(refreshCounts map[string]int64) map[string]int64 
 	return counts
 }
 
-func writeOktaCanonicalEvents(ctx context.Context, pool *pgxpool.Pool, sourceName string, parsed []parsedInboxEvent) error {
+func dispatchOktaPushRecords(ctx context.Context, pool *pgxpool.Pool, sourceName string, parsed []parsedInboxEvent) error {
 	if len(parsed) == 0 {
 		return nil
 	}
-	writer := canonevents.NewWriter(pool)
+	dispatcher := recorddispatch.NewEventDispatcher(pool)
 	for _, item := range parsed {
 		record, err := oktaconnector.CanonicalEventRecord(sourceName, item.row.Channel, item.event)
 		if err != nil {
 			return err
 		}
-		if _, err := writer.WriteEvent(ctx, record, canonevents.WriteOptions{}); err != nil {
-			return fmt.Errorf("write canonical Okta event %s: %w", item.event.ID, err)
+		if _, err := dispatcher.DispatchEvent(ctx, record); err != nil {
+			return fmt.Errorf("dispatch canonical Okta push event %s: %w", item.event.ID, err)
+		}
+	}
+	return nil
+}
+
+func dispatchOktaDiscoveryEvidenceRecords(ctx context.Context, q *gen.Queries, sourceName string, runID int64, sources []discovery.SourceRow, events []discovery.EventRow) error {
+	dispatcher := recorddispatch.NewDispatcher(nil, recorddispatch.NewOktaStateProjector(q, runID))
+	for _, record := range oktaconnector.DiscoveryEvidenceRecordsFromRows(sourceName, sources, events) {
+		if err := dispatcher.UpsertState(ctx, record); err != nil {
+			return fmt.Errorf("dispatch okta discovery evidence %s: %w", record.Key, err)
 		}
 	}
 	return nil

@@ -65,6 +65,54 @@ func TestRiskpolicyProjectorProjectsEventShadowSignalsToFindings(t *testing.T) {
 	})
 }
 
+func TestRiskpolicyProjectorHonorsExplicitNonShadowMode(t *testing.T) {
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "riskpolicy_findings_nonshadow"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+		testdb.MigrateUp(t, migrator)
+
+		writer := canonevents.NewWriter(pool)
+		writeRiskpolicyProjectionEvent(t, ctx, writer, "evt-nonshadow", time.Date(2026, time.May, 16, 13, 0, 0, 0, time.UTC))
+
+		q := gen.New(pool)
+		processor, err := riskpolicy.NewEventQueueProcessor(q, riskpolicy.EventQueueProcessorConfig{ClaimedBy: "test"})
+		if err != nil {
+			t.Fatalf("NewEventQueueProcessor() err = %v", err)
+		}
+		if _, err := processor.ProcessQueued(ctx, 10); err != nil {
+			t.Fatalf("ProcessQueued() err = %v", err)
+		}
+
+		projector := NewRiskpolicyProjector(q)
+		result, err := projector.ProjectEventShadowFindings(ctx, RiskpolicyProjectionParams{Shadow: boolPtr(false)})
+		if err != nil {
+			t.Fatalf("ProjectEventShadowFindings() err = %v", err)
+		}
+		if result.Projected != 1 {
+			t.Fatalf("projected = %d, want 1", result.Projected)
+		}
+
+		openNonShadow, err := q.CountRiskpolicyFindingsByShadowStatus(ctx, gen.CountRiskpolicyFindingsByShadowStatusParams{
+			Shadow: false,
+			Status: "open",
+		})
+		if err != nil {
+			t.Fatalf("CountRiskpolicyFindingsByShadowStatus(false) err = %v", err)
+		}
+		if openNonShadow != 1 {
+			t.Fatalf("non-shadow open findings = %d, want 1", openNonShadow)
+		}
+		openShadow, err := q.CountRiskpolicyFindingsByShadowStatus(ctx, gen.CountRiskpolicyFindingsByShadowStatusParams{
+			Shadow: true,
+			Status: "open",
+		})
+		if err != nil {
+			t.Fatalf("CountRiskpolicyFindingsByShadowStatus(true) err = %v", err)
+		}
+		if openShadow != 0 {
+			t.Fatalf("shadow open findings = %d, want 0", openShadow)
+		}
+	})
+}
+
 func TestRiskpolicyProjectorBoundedProjectionSkipsCurrentFindings(t *testing.T) {
 	testdb.WithDatabase(t, testdb.Options{NamePrefix: "riskpolicy_findings_limit"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
 		testdb.MigrateUp(t, migrator)
@@ -119,6 +167,82 @@ func TestRiskpolicyProjectorBoundedProjectionSkipsCurrentFindings(t *testing.T) 
 	})
 }
 
+func TestRiskpolicyProjectorSkipsInvalidCanonicalFindingRows(t *testing.T) {
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "riskpolicy_findings_skip_invalid"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+		testdb.MigrateUp(t, migrator)
+
+		receivedAt := time.Date(2026, time.May, 16, 14, 0, 0, 0, time.UTC)
+		eventID := "00000000-0000-4000-8000-000000000001"
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO events (
+			  id,
+			  received_at,
+			  occurred_at,
+			  source_kind,
+			  source_name,
+			  channel,
+			  provider_event_id,
+			  dedupe_key,
+			  dedupe_hash,
+			  event_type,
+			  category,
+			  raw
+			) VALUES (
+			  $1::uuid,
+			  $2::timestamptz,
+			  $2::timestamptz,
+			  'okta',
+			  '',
+			  'event_hook',
+			  'evt-poison',
+			  'provider:evt-poison',
+			  decode('01', 'hex'),
+			  'user.lifecycle.deactivate',
+			  'state_refresh.user',
+			  '{}'::jsonb
+			)
+		`, eventID, receivedAt); err != nil {
+			t.Fatalf("insert poison event err = %v", err)
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO riskpolicy_event_shadow_signals (
+			  event_received_at,
+			  event_id,
+			  signal_id,
+			  policy_pack_id,
+			  policy_pack_version,
+			  severity,
+			  title,
+			  evidence,
+			  output,
+			  evaluated_at
+			) VALUES (
+			  $1::timestamptz,
+			  $2::uuid,
+			  'sig-poison',
+			  'pack',
+			  'v1',
+			  'high',
+			  'Poison signal',
+			  'missing source name',
+			  '{}'::jsonb,
+			  $1::timestamptz
+			)
+		`, receivedAt, eventID); err != nil {
+			t.Fatalf("insert poison signal err = %v", err)
+		}
+
+		projector := NewRiskpolicyProjector(gen.New(pool))
+		result, err := projector.ProjectEventShadowFindings(ctx, RiskpolicyProjectionParams{})
+		if err != nil {
+			t.Fatalf("ProjectEventShadowFindings() err = %v", err)
+		}
+		if result.Projected != 0 || result.Skipped != 1 {
+			t.Fatalf("projection result = %+v, want projected 0 skipped 1", result)
+		}
+	})
+}
+
 func writeRiskpolicyProjectionEvent(t *testing.T, ctx context.Context, writer *canonevents.Writer, providerEventID string, occurredAt time.Time) {
 	t.Helper()
 	if _, err := writer.WriteEvent(ctx, records.EventRecord{
@@ -135,4 +259,8 @@ func writeRiskpolicyProjectionEvent(t *testing.T, ctx context.Context, writer *c
 	}, canonevents.WriteOptions{}); err != nil {
 		t.Fatalf("WriteEvent(%s) err = %v", providerEventID, err)
 	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }

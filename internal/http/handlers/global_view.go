@@ -5,6 +5,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
+	"github.com/open-sspm/open-sspm/internal/http/connectorui"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
@@ -36,6 +37,7 @@ func (h *Handlers) HandleGlobalView(c *echo.Context) error {
 
 func (h *Handlers) buildGlobalViewCard(state registry.ConnectorState) viewmodels.GlobalViewAppCard {
 	def := state.Definition
+	presenter := connectorui.NewStatePresenter(state)
 
 	active := state.Configured && state.Enabled && strings.TrimSpace(state.ConfigError) == ""
 
@@ -43,19 +45,19 @@ func (h *Handlers) buildGlobalViewCard(state registry.ConnectorState) viewmodels
 		Kind:           def.Kind(),
 		Name:           def.DisplayName(),
 		CategoryLabel:  globalViewCategoryLabel(def.Role()),
-		Subtitle:       state.Subtitle(),
+		Subtitle:       presenter.Subtitle(),
 		StatusLabel:    state.StatusLabel(),
-		StatusClass:    state.StatusClass(),
+		StatusClass:    presenter.StatusClass(),
 		IsActive:       active,
 		ShowScore:      active,
 		ScoreLabel:     state.ScoreLabel(),
 		ScoreValue:     state.CoverageScore(),
-		Metrics:        filterStatusKV(state.MetricsKV()),
-		Highlights:     filterStatusKV(state.HighlightsKV()),
-		PrimaryHref:    state.PrimaryHref(),
-		PrimaryLabel:   state.PrimaryLabel(),
-		SecondaryHref:  state.SecondaryHref(),
-		SecondaryLabel: state.SecondaryLabel(),
+		Metrics:        filterStatusKV(presenter.MetricsKV()),
+		Highlights:     filterStatusKV(presenter.HighlightsKV()),
+		PrimaryHref:    presenter.PrimaryHref(),
+		PrimaryLabel:   presenter.PrimaryLabel(),
+		SecondaryHref:  presenter.SecondaryHref(),
+		SecondaryLabel: presenter.SecondaryLabel(),
 	}
 }
 

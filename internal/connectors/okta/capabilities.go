@@ -23,6 +23,8 @@ func (i *OktaIntegration) Descriptor() capabilities.Descriptor {
 			records.ResourceIdentity,
 			records.ResourceGroup,
 			records.ResourceApplication,
+			records.ResourceEntitlement,
+			records.ResourceDiscoveryEvidence,
 			records.ResourceAuditEvent,
 		},
 		EventTypes: []string{
