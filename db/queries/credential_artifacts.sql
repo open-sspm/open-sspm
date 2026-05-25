@@ -66,6 +66,7 @@ INSERT INTO credential_artifacts (
   approved_by_external_id,
   approved_by_display_name,
   raw_json,
+  lineage_key,
   seen_in_run_id,
   seen_at,
   updated_at
@@ -91,6 +92,19 @@ SELECT
   input.approved_by_external_id,
   input.approved_by_display_name,
   input.raw_json,
+  md5(
+    coalesce(sqlc.arg(source_kind)::text, '') || '|' ||
+    coalesce(sqlc.arg(source_name)::text, '') || '|' ||
+    coalesce(input.asset_ref_kind, '') || '|' ||
+    coalesce(input.asset_ref_external_id, '') || '|' ||
+    coalesce(input.credential_kind, '') || '|' ||
+    CASE
+      WHEN coalesce(input.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+        'cohort:' || lower(trim(regexp_replace(coalesce(input.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+      ELSE
+        'id:' || coalesce(input.external_id, '') || '|' || lower(trim(coalesce(input.display_name, '')))
+    END
+  ),
   sqlc.arg(seen_in_run_id)::bigint,
   now(),
   now()
@@ -110,6 +124,7 @@ ON CONFLICT (source_kind, source_name, credential_kind, external_id, asset_ref_k
   approved_by_external_id = COALESCE(NULLIF(EXCLUDED.approved_by_external_id, ''), credential_artifacts.approved_by_external_id),
   approved_by_display_name = COALESCE(NULLIF(EXCLUDED.approved_by_display_name, ''), credential_artifacts.approved_by_display_name),
   raw_json = EXCLUDED.raw_json,
+  lineage_key = EXCLUDED.lineage_key,
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
   updated_at = now();
@@ -119,23 +134,7 @@ WITH rated_credentials AS (
   SELECT
     ca.*,
     COALESCE(risk.risk_level, 'low')::text AS risk_level,
-    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
-    -- lineage_key collapses re-issued credentials into a single row. The
-    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
-    -- stripped so a credential renewed each year groups under one lineage.
-    -- This assumes the naming convention; if other sources start emitting
-    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
-    md5(
-      coalesce(ca.source_kind, '') || '|' ||
-      coalesce(ca.asset_ref_external_id, '') || '|' ||
-      coalesce(ca.credential_kind, '') || '|' ||
-      CASE
-        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
-          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
-        ELSE
-          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
-      END
-    ) AS lineage_key
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
@@ -143,18 +142,22 @@ WITH rated_credentials AS (
     ON aa.source_kind = ca.source_kind
    AND aa.source_name = ca.source_name
    AND aa.expired_at IS NULL
+   AND aa.external_id = CASE
+        WHEN strpos(ca.asset_ref_external_id, ':') > 0 THEN substr(ca.asset_ref_external_id, strpos(ca.asset_ref_external_id, ':') + 1)
+        ELSE ca.asset_ref_external_id
+      END
    AND (
-        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-     OR ca.asset_ref_external_id = aa.external_id
-   )
+        strpos(ca.asset_ref_external_id, ':') = 0
+        OR aa.asset_kind = split_part(ca.asset_ref_external_id, ':', 1)
+      )
   WHERE
     ca.source_kind = sqlc.arg(source_kind)::text
     AND ca.source_name = sqlc.arg(source_name)::text
     AND ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
-      sqlc.arg(credential_kind)::text = ''
-      OR ca.credential_kind = ANY(regexp_split_to_array(sqlc.arg(credential_kind)::text, '\s*,\s*'))
+      cardinality(sqlc.arg(credential_kinds)::text[]) = 0
+      OR ca.credential_kind = ANY(sqlc.arg(credential_kinds)::text[])
     )
     AND (
       sqlc.arg(status)::text = ''
@@ -206,8 +209,8 @@ SELECT count(*)::bigint
 FROM latest rc
 WHERE
   (
-    sqlc.arg(risk_level)::text = ''
-    OR rc.risk_level = ANY(regexp_split_to_array(lower(sqlc.arg(risk_level)::text), '\s*,\s*'))
+    cardinality(sqlc.arg(risk_levels)::text[]) = 0
+    OR rc.risk_level = ANY(sqlc.arg(risk_levels)::text[])
   )
   AND (
     sqlc.arg(expiry_state)::text = ''
@@ -244,23 +247,7 @@ WITH rated_credentials AS (
   SELECT
     ca.*,
     COALESCE(risk.risk_level, 'low')::text AS risk_level,
-    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
-    -- lineage_key collapses re-issued credentials into a single row. The
-    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
-    -- stripped so a credential renewed each year groups under one lineage.
-    -- This assumes the naming convention; if other sources start emitting
-    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
-    md5(
-      coalesce(ca.source_kind, '') || '|' ||
-      coalesce(ca.asset_ref_external_id, '') || '|' ||
-      coalesce(ca.credential_kind, '') || '|' ||
-      CASE
-        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
-          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
-        ELSE
-          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
-      END
-    ) AS lineage_key
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
@@ -268,18 +255,22 @@ WITH rated_credentials AS (
     ON aa.source_kind = ca.source_kind
    AND aa.source_name = ca.source_name
    AND aa.expired_at IS NULL
+   AND aa.external_id = CASE
+        WHEN strpos(ca.asset_ref_external_id, ':') > 0 THEN substr(ca.asset_ref_external_id, strpos(ca.asset_ref_external_id, ':') + 1)
+        ELSE ca.asset_ref_external_id
+      END
    AND (
-        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-     OR ca.asset_ref_external_id = aa.external_id
-   )
+        strpos(ca.asset_ref_external_id, ':') = 0
+        OR aa.asset_kind = split_part(ca.asset_ref_external_id, ':', 1)
+      )
   WHERE
     ca.source_kind = sqlc.arg(source_kind)::text
     AND ca.source_name = sqlc.arg(source_name)::text
     AND ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
-      sqlc.arg(credential_kind)::text = ''
-      OR ca.credential_kind = ANY(regexp_split_to_array(sqlc.arg(credential_kind)::text, '\s*,\s*'))
+      cardinality(sqlc.arg(credential_kinds)::text[]) = 0
+      OR ca.credential_kind = ANY(sqlc.arg(credential_kinds)::text[])
     )
     AND (
       sqlc.arg(status)::text = ''
@@ -334,8 +325,8 @@ SELECT
 FROM latest rc
 WHERE
   (
-    sqlc.arg(risk_level)::text = ''
-    OR rc.risk_level = ANY(regexp_split_to_array(lower(sqlc.arg(risk_level)::text), '\s*,\s*'))
+    cardinality(sqlc.arg(risk_levels)::text[]) = 0
+    OR rc.risk_level = ANY(sqlc.arg(risk_levels)::text[])
   )
   AND (
     sqlc.arg(expiry_state)::text = ''
@@ -396,23 +387,7 @@ rated_credentials AS (
   SELECT
     ca.*,
     COALESCE(risk.risk_level, 'low')::text AS risk_level,
-    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
-    -- lineage_key collapses re-issued credentials into a single row. The
-    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
-    -- stripped so a credential renewed each year groups under one lineage.
-    -- This assumes the naming convention; if other sources start emitting
-    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
-    md5(
-      coalesce(ca.source_kind, '') || '|' ||
-      coalesce(ca.asset_ref_external_id, '') || '|' ||
-      coalesce(ca.credential_kind, '') || '|' ||
-      CASE
-        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
-          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
-        ELSE
-          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
-      END
-    ) AS lineage_key
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
@@ -423,16 +398,20 @@ rated_credentials AS (
     ON aa.source_kind = ca.source_kind
    AND aa.source_name = ca.source_name
    AND aa.expired_at IS NULL
+   AND aa.external_id = CASE
+        WHEN strpos(ca.asset_ref_external_id, ':') > 0 THEN substr(ca.asset_ref_external_id, strpos(ca.asset_ref_external_id, ':') + 1)
+        ELSE ca.asset_ref_external_id
+      END
    AND (
-        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-     OR ca.asset_ref_external_id = aa.external_id
-   )
+        strpos(ca.asset_ref_external_id, ':') = 0
+        OR aa.asset_kind = split_part(ca.asset_ref_external_id, ':', 1)
+      )
   WHERE
     ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
-      sqlc.arg(credential_kind)::text = ''
-      OR ca.credential_kind = ANY(regexp_split_to_array(sqlc.arg(credential_kind)::text, '\s*,\s*'))
+      cardinality(sqlc.arg(credential_kinds)::text[]) = 0
+      OR ca.credential_kind = ANY(sqlc.arg(credential_kinds)::text[])
     )
     AND (
       sqlc.arg(status)::text = ''
@@ -484,8 +463,8 @@ SELECT count(*)::bigint
 FROM latest rc
 WHERE
   (
-    sqlc.arg(risk_level)::text = ''
-    OR rc.risk_level = ANY(regexp_split_to_array(lower(sqlc.arg(risk_level)::text), '\s*,\s*'))
+    cardinality(sqlc.arg(risk_levels)::text[]) = 0
+    OR rc.risk_level = ANY(sqlc.arg(risk_levels)::text[])
   )
   AND (
     sqlc.arg(expiry_state)::text = ''
@@ -529,23 +508,7 @@ rated_credentials AS (
   SELECT
     ca.*,
     COALESCE(risk.risk_level, 'low')::text AS risk_level,
-    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
-    -- lineage_key collapses re-issued credentials into a single row. The
-    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
-    -- stripped so a credential renewed each year groups under one lineage.
-    -- This assumes the naming convention; if other sources start emitting
-    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
-    md5(
-      coalesce(ca.source_kind, '') || '|' ||
-      coalesce(ca.asset_ref_external_id, '') || '|' ||
-      coalesce(ca.credential_kind, '') || '|' ||
-      CASE
-        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
-          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
-        ELSE
-          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
-      END
-    ) AS lineage_key
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
@@ -556,16 +519,20 @@ rated_credentials AS (
     ON aa.source_kind = ca.source_kind
    AND aa.source_name = ca.source_name
    AND aa.expired_at IS NULL
+   AND aa.external_id = CASE
+        WHEN strpos(ca.asset_ref_external_id, ':') > 0 THEN substr(ca.asset_ref_external_id, strpos(ca.asset_ref_external_id, ':') + 1)
+        ELSE ca.asset_ref_external_id
+      END
    AND (
-        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-     OR ca.asset_ref_external_id = aa.external_id
-   )
+        strpos(ca.asset_ref_external_id, ':') = 0
+        OR aa.asset_kind = split_part(ca.asset_ref_external_id, ':', 1)
+      )
   WHERE
     ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
-      sqlc.arg(credential_kind)::text = ''
-      OR ca.credential_kind = ANY(regexp_split_to_array(sqlc.arg(credential_kind)::text, '\s*,\s*'))
+      cardinality(sqlc.arg(credential_kinds)::text[]) = 0
+      OR ca.credential_kind = ANY(sqlc.arg(credential_kinds)::text[])
     )
     AND (
       sqlc.arg(status)::text = ''
@@ -620,8 +587,8 @@ SELECT
 FROM latest rc
 WHERE
   (
-    sqlc.arg(risk_level)::text = ''
-    OR rc.risk_level = ANY(regexp_split_to_array(lower(sqlc.arg(risk_level)::text), '\s*,\s*'))
+    cardinality(sqlc.arg(risk_levels)::text[]) = 0
+    OR rc.risk_level = ANY(sqlc.arg(risk_levels)::text[])
   )
   AND (
     sqlc.arg(expiry_state)::text = ''
@@ -689,18 +656,7 @@ rated_credentials AS (
   SELECT
     ca.*,
     COALESCE(risk.risk_level, 'low')::text AS risk_level,
-    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
-    md5(
-      coalesce(ca.source_kind, '') || '|' ||
-      coalesce(ca.asset_ref_external_id, '') || '|' ||
-      coalesce(ca.credential_kind, '') || '|' ||
-      CASE
-        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
-          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
-        ELSE
-          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
-      END
-    ) AS lineage_key
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
@@ -711,16 +667,20 @@ rated_credentials AS (
     ON aa.source_kind = ca.source_kind
    AND aa.source_name = ca.source_name
    AND aa.expired_at IS NULL
+   AND aa.external_id = CASE
+        WHEN strpos(ca.asset_ref_external_id, ':') > 0 THEN substr(ca.asset_ref_external_id, strpos(ca.asset_ref_external_id, ':') + 1)
+        ELSE ca.asset_ref_external_id
+      END
    AND (
-        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-     OR ca.asset_ref_external_id = aa.external_id
-   )
+        strpos(ca.asset_ref_external_id, ':') = 0
+        OR aa.asset_kind = split_part(ca.asset_ref_external_id, ':', 1)
+      )
   WHERE
     ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
-      sqlc.arg(credential_kind)::text = ''
-      OR ca.credential_kind = ANY(regexp_split_to_array(sqlc.arg(credential_kind)::text, '\s*,\s*'))
+      cardinality(sqlc.arg(credential_kinds)::text[]) = 0
+      OR ca.credential_kind = ANY(sqlc.arg(credential_kinds)::text[])
     )
     AND (
       sqlc.arg(status)::text = ''
@@ -758,8 +718,8 @@ SELECT
 FROM versioned rc
 WHERE
   (
-    sqlc.arg(risk_level)::text = ''
-    OR rc.risk_level = ANY(regexp_split_to_array(lower(sqlc.arg(risk_level)::text), '\s*,\s*'))
+    cardinality(sqlc.arg(risk_levels)::text[]) = 0
+    OR rc.risk_level = ANY(sqlc.arg(risk_levels)::text[])
   )
   AND (
     sqlc.arg(expiry_state)::text = ''
@@ -821,23 +781,7 @@ WITH rated_credentials AS (
   SELECT
     ca.*,
     COALESCE(risk.risk_level, 'low')::text AS risk_level,
-    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
-    -- lineage_key collapses re-issued credentials into a single row. The
-    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
-    -- stripped so a credential renewed each year groups under one lineage.
-    -- This assumes the naming convention; if other sources start emitting
-    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
-    md5(
-      coalesce(ca.source_kind, '') || '|' ||
-      coalesce(ca.asset_ref_external_id, '') || '|' ||
-      coalesce(ca.credential_kind, '') || '|' ||
-      CASE
-        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
-          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
-        ELSE
-          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
-      END
-    ) AS lineage_key
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
@@ -845,18 +789,22 @@ WITH rated_credentials AS (
     ON aa.source_kind = ca.source_kind
    AND aa.source_name = ca.source_name
    AND aa.expired_at IS NULL
+   AND aa.external_id = CASE
+        WHEN strpos(ca.asset_ref_external_id, ':') > 0 THEN substr(ca.asset_ref_external_id, strpos(ca.asset_ref_external_id, ':') + 1)
+        ELSE ca.asset_ref_external_id
+      END
    AND (
-        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-     OR ca.asset_ref_external_id = aa.external_id
-   )
+        strpos(ca.asset_ref_external_id, ':') = 0
+        OR aa.asset_kind = split_part(ca.asset_ref_external_id, ':', 1)
+      )
   WHERE
     ca.source_kind = sqlc.arg(source_kind)::text
     AND ca.source_name = sqlc.arg(source_name)::text
     AND ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
-      sqlc.arg(credential_kind)::text = ''
-      OR ca.credential_kind = ANY(regexp_split_to_array(sqlc.arg(credential_kind)::text, '\s*,\s*'))
+      cardinality(sqlc.arg(credential_kinds)::text[]) = 0
+      OR ca.credential_kind = ANY(sqlc.arg(credential_kinds)::text[])
     )
     AND (
       sqlc.arg(owner)::text = ''
@@ -938,23 +886,7 @@ rated_credentials AS (
   SELECT
     ca.*,
     COALESCE(risk.risk_level, 'low')::text AS risk_level,
-    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name,
-    -- lineage_key collapses re-issued credentials into a single row. The
-    -- trailing "[YYYY]" cohort suffix written by Entra/Microsoft rotations is
-    -- stripped so a credential renewed each year groups under one lineage.
-    -- This assumes the naming convention; if other sources start emitting
-    -- bracketed numeric suffixes that should NOT be grouped, narrow the regex.
-    md5(
-      coalesce(ca.source_kind, '') || '|' ||
-      coalesce(ca.asset_ref_external_id, '') || '|' ||
-      coalesce(ca.credential_kind, '') || '|' ||
-      CASE
-        WHEN coalesce(ca.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
-          'cohort:' || lower(trim(regexp_replace(coalesce(ca.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
-        ELSE
-          'id:' || coalesce(ca.external_id, '') || '|' || lower(trim(coalesce(ca.display_name, '')))
-      END
-    ) AS lineage_key
+    COALESCE(NULLIF(trim(aa.display_name), ''), '')::text AS asset_name
   FROM credential_artifacts ca
   LEFT JOIN credential_artifact_risk_read_models risk
     ON risk.credential_artifact_id = ca.id
@@ -965,16 +897,20 @@ rated_credentials AS (
     ON aa.source_kind = ca.source_kind
    AND aa.source_name = ca.source_name
    AND aa.expired_at IS NULL
+   AND aa.external_id = CASE
+        WHEN strpos(ca.asset_ref_external_id, ':') > 0 THEN substr(ca.asset_ref_external_id, strpos(ca.asset_ref_external_id, ':') + 1)
+        ELSE ca.asset_ref_external_id
+      END
    AND (
-        ca.asset_ref_external_id = (aa.asset_kind || ':' || aa.external_id)
-     OR ca.asset_ref_external_id = aa.external_id
-   )
+        strpos(ca.asset_ref_external_id, ':') = 0
+        OR aa.asset_kind = split_part(ca.asset_ref_external_id, ':', 1)
+      )
   WHERE
     ca.expired_at IS NULL
     AND ca.last_observed_run_id IS NOT NULL
     AND (
-      sqlc.arg(credential_kind)::text = ''
-      OR ca.credential_kind = ANY(regexp_split_to_array(sqlc.arg(credential_kind)::text, '\s*,\s*'))
+      cardinality(sqlc.arg(credential_kinds)::text[]) = 0
+      OR ca.credential_kind = ANY(sqlc.arg(credential_kinds)::text[])
     )
     AND (
       sqlc.arg(owner)::text = ''

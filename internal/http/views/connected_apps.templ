@@ -2,13 +2,6 @@ package views
 
 import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
-templ ConnectedAppsPage(data viewmodels.ConnectedAppsViewData) {
-	@Layout(data.Layout) {
-		@ConnectedAppsPageFilters(data)
-		@ConnectedAppsPageResults(data)
-	}
-}
-
 templ ConnectedAppsPageFilters(data viewmodels.ConnectedAppsViewData) {
 		<form
 			method="get"
@@ -173,19 +166,6 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 			}
 		</section>
 	</div>
-}
-
-templ ConnectedAppShowPage(data viewmodels.ConnectedAppShowViewData) {
-	@Layout(data.Layout) {
-		@PageHeader("Inspect governance, grant scope, evidence, and containment actions for a Google Workspace OAuth app.") {
-			<a class="btn-sm-outline osspm-export-button" href={ data.App.ExportHref } hx-boost="false" download="connected-app-export.json">
-				@IconDownload("h-3.5 w-3.5")
-				<span>Export JSON</span>
-			</a>
-		}
-
-		@ConnectedAppShowBody(data)
-	}
 }
 
 templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {

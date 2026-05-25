@@ -554,10 +554,9 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 
 	h.trackNonHumanIdentitiesOutboundClick(c, "identity", summary.ID)
 
-	summaryTarget := isHX(c) && isHXTarget(c, "identity-summary-section")
 	entitlementsTarget := isHX(c) && isHXTarget(c, "identity-entitlements-section")
 	linkedAccountsTarget := isHX(c) && isHXTarget(c, "identity-linked-accounts-section")
-	sectionTarget := summaryTarget || entitlementsTarget || linkedAccountsTarget
+	sectionTarget := entitlementsTarget || linkedAccountsTarget
 
 	var identityEmails []gen.IdentityEmail
 	var identityAnchors []gen.IdentityAnchor
@@ -592,9 +591,6 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 			CreatedOn:              calendarDateDisplay(summary.CreatedAt),
 			UpdatedOn:              calendarDateDisplay(summary.UpdatedAt),
 			NonHumanIdentitiesHref: nonHumanIdentitiesHref,
-		},
-		Summary: viewmodels.IdentityShowSummary{
-			LoadHref: loadHref,
 		},
 		GraphFacts: viewmodels.IdentityShowGraphFactsPanel{
 			Emails:     identityGraphEmailViews(now, identityEmails),
@@ -785,9 +781,7 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		data.Profile.ReviewSummary = reviewSummary
 		data.Profile.Facts = identityProfileFacts(summary, profileHints, lastActive)
 		data.Summary = viewmodels.IdentityShowSummary{
-			Tiles:    summaryTiles,
-			Loaded:   true,
-			LoadHref: loadHref,
+			Tiles: summaryTiles,
 		}
 		data.LinkedAccounts = viewmodels.IdentityShowLinkedAccountsPanel{
 			Total:          len(linkedAccounts),
@@ -840,8 +834,6 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 
 	if isHX(c) {
 		switch {
-		case summaryTarget:
-			return h.RenderComponent(c, views.IdentityShowSummarySection(data))
 		case isHXTarget(c, "identity-entitlements-section"):
 			return h.RenderComponent(c, views.IdentityShowEntitlementsSection(data))
 		case isHXTarget(c, "identity-linked-accounts-section"):

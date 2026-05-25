@@ -116,19 +116,6 @@ ORDER BY
   END,
   i.id;
 
--- name: FindUnambiguousIdentityByNormalizedEmail :one
-WITH candidates AS (
-  SELECT DISTINCT i.*
-  FROM identity_emails ie
-  JOIN identities i ON i.id = ie.identity_id
-  WHERE ie.normalized_email = lower(trim(sqlc.arg(normalized_email)::text))
-    AND ie.lifecycle_state = 'active'
-    AND i.resolution_state NOT IN ('merged', 'disabled')
-)
-SELECT *
-FROM candidates
-WHERE (SELECT count(*) FROM candidates) = 1;
-
 -- name: UpsertAccountAnchor :one
 INSERT INTO account_anchors (
   account_id,
@@ -265,36 +252,6 @@ ORDER BY
   END,
   ia.identity_id;
 
--- name: EnsureProvisionalIdentityForAccount :one
-WITH existing AS (
-  SELECT i.*
-  FROM identity_accounts ia
-  JOIN identities i ON i.id = ia.identity_id
-  WHERE ia.account_id = sqlc.arg(account_id)::bigint
-),
-created AS (
-  INSERT INTO identities (kind, display_name, primary_email, resolution_state, identity_kind)
-  SELECT
-    COALESCE(NULLIF(trim(a.account_kind), ''), 'unknown'),
-    COALESCE(a.display_name, ''),
-    lower(trim(COALESCE(a.email, ''))),
-    'provisional',
-    CASE
-      WHEN a.account_kind IN ('human', 'service', 'bot') THEN a.account_kind
-      ELSE 'unknown'
-    END
-  FROM accounts a
-  WHERE a.id = sqlc.arg(account_id)::bigint
-    AND NOT EXISTS (SELECT 1 FROM existing)
-  RETURNING *
-)
-SELECT *
-FROM created
-UNION ALL
-SELECT *
-FROM existing
-LIMIT 1;
-
 -- name: UpsertIdentityMatchCandidate :one
 WITH existing_rejected AS (
   SELECT *
@@ -303,6 +260,8 @@ WITH existing_rejected AS (
     AND candidate_identity_id = sqlc.arg(candidate_identity_id)::bigint
     AND resolver_fingerprint = sqlc.arg(resolver_fingerprint)::text
     AND status = 'rejected'
+  ORDER BY updated_at DESC, id DESC
+  LIMIT 1
 ),
 upserted AS (
 INSERT INTO identity_match_candidates (
@@ -350,11 +309,6 @@ SELECT *
 FROM existing_rejected
 LIMIT 1;
 
--- name: CountIdentityMatchCandidatesByStatus :one
-SELECT count(*)
-FROM identity_match_candidates
-WHERE status = COALESCE(NULLIF(trim(sqlc.arg(status)::text), ''), 'pending');
-
 -- name: CountIdentityMatchCandidatesByFilters :one
 SELECT count(*)
 FROM identity_match_candidates
@@ -367,57 +321,6 @@ WHERE status = COALESCE(NULLIF(trim(sqlc.arg(status)::text), ''), 'pending')
     COALESCE(NULLIF(trim(sqlc.arg(match_reason)::text), ''), '') = ''
     OR match_reason = trim(sqlc.arg(match_reason)::text)
   );
-
--- name: ListIdentityMatchCandidateDetailsByStatus :many
-SELECT
-  imc.id,
-  imc.account_id,
-  imc.candidate_identity_id,
-  imc.provisional_identity_id,
-  imc.status,
-  imc.confidence_band,
-  imc.score,
-  imc.match_reason,
-  imc.ambiguity_key,
-  imc.resolver_version,
-  imc.resolver_fingerprint,
-  imc.created_at,
-  imc.updated_at,
-  a.source_kind AS account_source_kind,
-  a.source_name AS account_source_name,
-  a.external_id AS account_external_id,
-  a.email AS account_email,
-  a.display_name AS account_display_name,
-  a.account_kind,
-  a.entity_category,
-  link.identity_id AS current_identity_id,
-  link.link_state AS current_link_state,
-  link.link_reason AS current_link_reason,
-  current_identity.display_name AS current_identity_display_name,
-  current_identity.primary_email AS current_identity_primary_email,
-  candidate.display_name AS candidate_display_name,
-  candidate.primary_email AS candidate_primary_email,
-  candidate.kind AS candidate_kind,
-  candidate.resolution_state AS candidate_resolution_state,
-  candidate.identity_kind AS candidate_identity_kind,
-  provisional.display_name AS provisional_display_name,
-  provisional.primary_email AS provisional_primary_email,
-  provisional.resolution_state AS provisional_resolution_state,
-  (
-    SELECT count(*)::bigint
-    FROM identity_link_evidence evidence
-    WHERE evidence.candidate_id = imc.id
-  ) AS evidence_count
-FROM identity_match_candidates imc
-JOIN accounts a ON a.id = imc.account_id
-JOIN identities candidate ON candidate.id = imc.candidate_identity_id
-LEFT JOIN identity_accounts link ON link.account_id = imc.account_id
-LEFT JOIN identities current_identity ON current_identity.id = link.identity_id
-LEFT JOIN identities provisional ON provisional.id = imc.provisional_identity_id
-WHERE imc.status = COALESCE(NULLIF(trim(sqlc.arg(status)::text), ''), 'pending')
-ORDER BY imc.created_at ASC, imc.id ASC
-LIMIT sqlc.arg(page_limit)::int
-OFFSET sqlc.arg(page_offset)::int;
 
 -- name: ListIdentityMatchCandidateDetailsByFilters :many
 SELECT
@@ -531,14 +434,6 @@ LEFT JOIN identity_accounts link ON link.account_id = imc.account_id
 LEFT JOIN identities current_identity ON current_identity.id = link.identity_id
 LEFT JOIN identities provisional ON provisional.id = imc.provisional_identity_id
 WHERE imc.id = $1;
-
--- name: ListPendingIdentityMatchCandidates :many
-SELECT *
-FROM identity_match_candidates
-WHERE status = 'pending'
-ORDER BY created_at ASC, id ASC
-LIMIT sqlc.arg(page_limit)::int
-OFFSET sqlc.arg(page_offset)::int;
 
 -- name: GetIdentityMatchCandidate :one
 SELECT *

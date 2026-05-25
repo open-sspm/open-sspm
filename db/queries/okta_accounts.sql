@@ -55,20 +55,3 @@ WHERE
 ORDER BY id ASC
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
-
--- name: ListOktaAccountsForCommand :many
-SELECT
-  id,
-  email,
-  display_name,
-  status
-FROM accounts
-WHERE source_kind = 'okta'
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-ORDER BY
-  (lower(status) = 'active') DESC,
-  lower(COALESCE(NULLIF(trim(display_name), ''), email)) ASC,
-  lower(email) ASC,
-  id ASC
-LIMIT 200;

@@ -22,15 +22,6 @@ ON CONFLICT (source_kind, source_name, dedupe_hash) DO UPDATE SET
   duplicate_count = event_dedupe_keys.duplicate_count + 1
 RETURNING event_id = sqlc.arg(event_id)::uuid AS inserted, event_id, event_received_at;
 
--- name: TouchEventDedupeKey :exec
-UPDATE event_dedupe_keys
-SET
-  last_seen_at = now(),
-  duplicate_count = duplicate_count + 1
-WHERE source_kind = sqlc.arg(source_kind)::text
-  AND source_name = sqlc.arg(source_name)::text
-  AND dedupe_hash = sqlc.arg(dedupe_hash)::bytea;
-
 -- name: InsertEvent :exec
 INSERT INTO events (
   id,
@@ -128,3 +119,7 @@ VALUES (
   sqlc.narg(saas_app_id)::bigint,
   sqlc.arg(envelope)::jsonb
 );
+
+-- name: DeleteEventDedupeKeysBefore :execrows
+DELETE FROM event_dedupe_keys
+WHERE event_received_at < sqlc.arg(cutoff)::timestamptz;

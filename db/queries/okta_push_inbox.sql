@@ -245,12 +245,6 @@ FROM okta_push_inbox
 WHERE source_name = sqlc.arg(source_name)::text
 GROUP BY source_name;
 
--- name: CountOktaPushInboxByStatus :many
-SELECT source_name, channel, status, count(*)::bigint AS row_count
-FROM okta_push_inbox
-GROUP BY source_name, channel, status
-ORDER BY source_name, channel, status;
-
 -- name: ListOktaPushInboxMetricsBySourceChannel :many
 SELECT
   source_name,

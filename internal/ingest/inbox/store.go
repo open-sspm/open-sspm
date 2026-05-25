@@ -161,22 +161,6 @@ func (s *Store) MarkDead(ctx context.Context, leaseOwner string, ids []int64, la
 	return expectMarkedRows("mark event inbox dead", rows, len(ids), err)
 }
 
-func (s *Store) RenewLease(ctx context.Context, leaseOwner string, ids []int64, leaseTTL time.Duration) error {
-	rows, err := s.q.RenewEventInboxLease(ctx, gen.RenewEventInboxLeaseParams{
-		LeaseSeconds: durationSecondsCeil(leaseTTL),
-		Ids:          ids,
-		LeaseOwner:   strings.TrimSpace(leaseOwner),
-	})
-	return expectMarkedRows("renew event inbox lease", rows, len(ids), err)
-}
-
-func (s *Store) RequeueExpiredLeases(ctx context.Context) (int64, error) {
-	if s == nil || s.q == nil {
-		return 0, errors.New("event inbox store is not configured")
-	}
-	return s.q.RequeueExpiredEventInboxLeases(ctx)
-}
-
 func DeliveryDedupeHash(source records.SourceRef, channel, dedupeKey string) []byte {
 	sourceKind := strings.ToLower(strings.TrimSpace(source.Kind))
 	sourceIdentity := strings.TrimSpace(source.Name)

@@ -86,8 +86,7 @@ UPDATE event_inbox
 SET lease_until = now() + (sqlc.arg(lease_seconds)::bigint * interval '1 second')
 WHERE id = ANY(sqlc.arg(ids)::bigint[])
   AND status = 'processing'
-  AND lease_owner = sqlc.arg(lease_owner)::text
-  AND lease_until > now();
+  AND lease_owner = sqlc.arg(lease_owner)::text;
 
 -- name: MarkEventInboxProcessed :execrows
 UPDATE event_inbox
@@ -158,14 +157,3 @@ SET status = 'queued',
     END
 WHERE status = 'processing'
   AND lease_until < now();
-
--- name: DeleteOldEventInboxDeliveries :execrows
-DELETE FROM event_inbox
-WHERE (
-    status IN ('processed', 'ignored')
-    AND processed_at < now() - make_interval(days => sqlc.arg(processed_retention_days)::int)
-  )
-  OR (
-    status = 'dead'
-    AND processed_at < now() - make_interval(days => sqlc.arg(dead_retention_days)::int)
-  );

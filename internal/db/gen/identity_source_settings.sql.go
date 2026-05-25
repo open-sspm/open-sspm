@@ -9,39 +9,6 @@ import (
 	"context"
 )
 
-const listAuthoritativeSources = `-- name: ListAuthoritativeSources :many
-SELECT source_kind, source_name, is_authoritative, created_at, updated_at
-FROM identity_source_settings
-WHERE is_authoritative = TRUE
-ORDER BY source_kind, source_name
-`
-
-func (q *Queries) ListAuthoritativeSources(ctx context.Context) ([]IdentitySourceSetting, error) {
-	rows, err := q.db.Query(ctx, listAuthoritativeSources)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []IdentitySourceSetting
-	for rows.Next() {
-		var i IdentitySourceSetting
-		if err := rows.Scan(
-			&i.SourceKind,
-			&i.SourceName,
-			&i.IsAuthoritative,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listAuthoritativeSourcesByConfiguredSources = `-- name: ListAuthoritativeSourcesByConfiguredSources :many
 WITH configured_sources AS (
   SELECT

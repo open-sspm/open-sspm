@@ -418,19 +418,6 @@ const handleShortcutKeydown = (event) => {
   event.preventDefault();
 };
 
-const handleTabClick = (event) => {
-  if (!(event.target instanceof Element)) return;
-  if (!event.target.closest('[role="tab"]')) return;
-  scheduleVisibleLazyHx(document);
-};
-
-const handleTabKeydown = (event) => {
-  if (!(event.target instanceof Element)) return;
-  if (!event.target.closest('[role="tab"]')) return;
-  if (event.key !== "Enter" && event.key !== " ") return;
-  scheduleVisibleLazyHx(document);
-};
-
 const handleDetailsToggle = (event) => {
   const details = event.target;
   if (!(details instanceof HTMLDetailsElement) || !details.open) return;
@@ -459,7 +446,5 @@ export const bindGlobalListenersOnce = (options = {}) => {
   document.addEventListener("htmx:swapError", handleFailedRequest);
   document.addEventListener("htmx:load", handleHtmxLoad);
   document.addEventListener("keydown", handleShortcutKeydown);
-  document.addEventListener("click", handleTabClick);
-  document.addEventListener("keydown", handleTabKeydown);
   document.addEventListener("toggle", handleDetailsToggle, true);
 };

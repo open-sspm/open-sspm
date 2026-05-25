@@ -147,10 +147,6 @@ func NewWithConfig(cfg aws.Config, opts Options) (*Client, error) {
 	return NewWithClientsAndCloudTrail(opts, ssoadmin.NewFromConfig(cfg), identitystore.NewFromConfig(cfg), cloudtrail.NewFromConfig(cfg))
 }
 
-func NewWithClients(opts Options, sso ssoAdminAPI, identity identityStoreAPI) (*Client, error) {
-	return NewWithClientsAndCloudTrail(opts, sso, identity, nil)
-}
-
 func NewWithClientsAndCloudTrail(opts Options, sso ssoAdminAPI, identity identityStoreAPI, trail cloudTrailAPI) (*Client, error) {
 	region := strings.TrimSpace(opts.Region)
 	if region == "" {

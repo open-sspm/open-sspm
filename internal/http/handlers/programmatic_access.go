@@ -406,6 +406,8 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 	now := time.Now().UTC()
 	evaluatedAt := pgTimestamptz(now)
 	ownerFilter := credentialOwnerFilter(queryState.Owner, layout.UserEmail)
+	credentialKinds := credentialFilterValues(queryState.CredentialKind)
+	riskLevels := credentialFilterValues(queryState.RiskLevel)
 	linkResolver := newIdentityLinkResolver(h, ctx, stateView)
 	var totalCount int64
 	var items []viewmodels.CredentialArtifactListItem
@@ -413,18 +415,18 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 	if len(activeSources) == 1 {
 		source := activeSources[0]
 		totalCount, err = h.Q.CountCredentialArtifactsBySourceAndQueryAndFilters(ctx, gen.CountCredentialArtifactsBySourceAndQueryAndFiltersParams{
-			EvaluatedAt:    evaluatedAt,
-			SourceKind:     source.SourceKind,
-			SourceName:     source.SourceName,
-			CredentialKind: queryState.CredentialKind,
-			Status:         queryState.Status,
-			RiskLevel:      queryState.RiskLevel,
-			ExpiryState:    queryState.ExpiryState,
-			ExpiresInDays:  int32(queryState.ExpiresInDays),
-			Owner:          ownerFilter,
-			Asset:          queryState.Asset,
-			NewerDays:      int32(queryState.NewerThanDays),
-			Query:          queryState.Q,
+			EvaluatedAt:     evaluatedAt,
+			SourceKind:      source.SourceKind,
+			SourceName:      source.SourceName,
+			CredentialKinds: credentialKinds,
+			Status:          queryState.Status,
+			RiskLevels:      riskLevels,
+			ExpiryState:     queryState.ExpiryState,
+			ExpiresInDays:   int32(queryState.ExpiresInDays),
+			Owner:           ownerFilter,
+			Asset:           queryState.Asset,
+			NewerDays:       int32(queryState.NewerThanDays),
+			Query:           queryState.Q,
 		})
 		if err != nil {
 			return h.RenderError(c, err)
@@ -432,21 +434,21 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 
 		pagination = newPaginatedListState(totalCount, page, perPage)
 		rows, err := h.Q.ListCredentialArtifactsPageBySourceAndQueryAndFilters(ctx, gen.ListCredentialArtifactsPageBySourceAndQueryAndFiltersParams{
-			EvaluatedAt:    evaluatedAt,
-			SourceKind:     source.SourceKind,
-			SourceName:     source.SourceName,
-			CredentialKind: queryState.CredentialKind,
-			Status:         queryState.Status,
-			RiskLevel:      queryState.RiskLevel,
-			ExpiryState:    queryState.ExpiryState,
-			ExpiresInDays:  int32(queryState.ExpiresInDays),
-			Owner:          ownerFilter,
-			Asset:          queryState.Asset,
-			NewerDays:      int32(queryState.NewerThanDays),
-			SortBy:         queryState.SortBy,
-			Query:          queryState.Q,
-			PageLimit:      int32(perPage),
-			PageOffset:     int32(pagination.Offset()),
+			EvaluatedAt:     evaluatedAt,
+			SourceKind:      source.SourceKind,
+			SourceName:      source.SourceName,
+			CredentialKinds: credentialKinds,
+			Status:          queryState.Status,
+			RiskLevels:      riskLevels,
+			ExpiryState:     queryState.ExpiryState,
+			ExpiresInDays:   int32(queryState.ExpiresInDays),
+			Owner:           ownerFilter,
+			Asset:           queryState.Asset,
+			NewerDays:       int32(queryState.NewerThanDays),
+			SortBy:          queryState.SortBy,
+			Query:           queryState.Q,
+			PageLimit:       int32(perPage),
+			PageOffset:      int32(pagination.Offset()),
 		})
 		if err != nil {
 			return h.RenderError(c, err)
@@ -458,14 +460,14 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 		}
 
 		summary, err := h.Q.SummarizeCredentialsBySourceAndQuery(ctx, gen.SummarizeCredentialsBySourceAndQueryParams{
-			EvaluatedAt:    evaluatedAt,
-			SourceKind:     source.SourceKind,
-			SourceName:     source.SourceName,
-			CredentialKind: queryState.CredentialKind,
-			Owner:          ownerFilter,
-			Asset:          queryState.Asset,
-			NewerDays:      int32(queryState.NewerThanDays),
-			Query:          queryState.Q,
+			EvaluatedAt:     evaluatedAt,
+			SourceKind:      source.SourceKind,
+			SourceName:      source.SourceName,
+			CredentialKinds: credentialKinds,
+			Owner:           ownerFilter,
+			Asset:           queryState.Asset,
+			NewerDays:       int32(queryState.NewerThanDays),
+			Query:           queryState.Q,
 		})
 		if err != nil {
 			return h.RenderError(c, err)
@@ -488,9 +490,9 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 			EvaluatedAt:           evaluatedAt,
 			ConfiguredSourceKinds: sourceKinds,
 			ConfiguredSourceNames: sourceNames,
-			CredentialKind:        queryState.CredentialKind,
+			CredentialKinds:       credentialKinds,
 			Status:                queryState.Status,
-			RiskLevel:             queryState.RiskLevel,
+			RiskLevels:            riskLevels,
 			ExpiryState:           queryState.ExpiryState,
 			ExpiresInDays:         int32(queryState.ExpiresInDays),
 			Owner:                 ownerFilter,
@@ -506,9 +508,9 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 			EvaluatedAt:           evaluatedAt,
 			ConfiguredSourceKinds: sourceKinds,
 			ConfiguredSourceNames: sourceNames,
-			CredentialKind:        queryState.CredentialKind,
+			CredentialKinds:       credentialKinds,
 			Status:                queryState.Status,
-			RiskLevel:             queryState.RiskLevel,
+			RiskLevels:            riskLevels,
 			ExpiryState:           queryState.ExpiryState,
 			ExpiresInDays:         int32(queryState.ExpiresInDays),
 			Owner:                 ownerFilter,
@@ -532,7 +534,7 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 			EvaluatedAt:           evaluatedAt,
 			ConfiguredSourceKinds: sourceKinds,
 			ConfiguredSourceNames: sourceNames,
-			CredentialKind:        queryState.CredentialKind,
+			CredentialKinds:       credentialKinds,
 			Owner:                 ownerFilter,
 			Asset:                 queryState.Asset,
 			NewerDays:             int32(queryState.NewerThanDays),
@@ -693,6 +695,8 @@ func (h *Handlers) HandleCredentialsExport(c *echo.Context) error {
 	now := time.Now().UTC()
 	evaluatedAt := pgTimestamptz(now)
 	ownerFilter := credentialOwnerFilter(queryState.Owner, layout.UserEmail)
+	credentialKinds := credentialFilterValues(queryState.CredentialKind)
+	riskLevels := credentialFilterValues(queryState.RiskLevel)
 	const exportLimit = 5000
 
 	sourceKinds, sourceNames := programmaticConfiguredSourcePairs(activeSources)
@@ -700,9 +704,9 @@ func (h *Handlers) HandleCredentialsExport(c *echo.Context) error {
 		EvaluatedAt:           evaluatedAt,
 		ConfiguredSourceKinds: sourceKinds,
 		ConfiguredSourceNames: sourceNames,
-		CredentialKind:        queryState.CredentialKind,
+		CredentialKinds:       credentialKinds,
 		Status:                queryState.Status,
-		RiskLevel:             queryState.RiskLevel,
+		RiskLevels:            riskLevels,
 		ExpiryState:           queryState.ExpiryState,
 		ExpiresInDays:         int32(queryState.ExpiresInDays),
 		Owner:                 ownerFilter,
@@ -776,6 +780,18 @@ func credentialOwnerFilter(owner, userEmail string) string {
 		return strings.TrimSpace(userEmail)
 	}
 	return owner
+}
+
+func credentialFilterValues(filter string) []string {
+	parts := strings.Split(filter, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 func buildCredentialListItem(now time.Time, row credentialListRow, linkResolver *identityLinkResolver) viewmodels.CredentialArtifactListItem {

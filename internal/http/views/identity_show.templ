@@ -103,35 +103,19 @@ templ identityReviewSummary(summary viewmodels.IdentityReviewSummary) {
 }
 
 templ IdentityShowSummarySection(data viewmodels.IdentityShowViewData) {
-	if !data.Summary.Loaded {
-		<section id="identity-summary-section" class="osspm-summary-tiles" hx-get={ data.Summary.LoadHref } hx-trigger="load" hx-target="this">
-			@identitySummaryPlaceholder("Linked accounts")
-			@identitySummaryPlaceholder("Access grants")
-			@identitySummaryPlaceholder("Admin grants")
-			@identitySummaryPlaceholder("Dormant")
-		</section>
-	} else {
-		<section id="identity-summary-section" class="osspm-summary-tiles">
-			if len(data.Summary.Tiles) > 0 {
-				for _, tile := range data.Summary.Tiles {
-					@identitySummaryTile(tile)
-				}
-			} else {
-				<div class="osspm-summary-tile">
-					<div class="osspm-summary-tile-label">Source accounts</div>
-					<div class="osspm-summary-tile-value text-muted-foreground">0</div>
-					<div class="osspm-summary-tile-sublabel">No linked accounts</div>
-				</div>
+	<section id="identity-summary-section" class="osspm-summary-tiles">
+		if len(data.Summary.Tiles) > 0 {
+			for _, tile := range data.Summary.Tiles {
+				@identitySummaryTile(tile)
 			}
-		</section>
-	}
-}
-
-templ identitySummaryPlaceholder(label string) {
-	<div class="osspm-summary-tile" aria-busy="true">
-		<div class="osspm-summary-tile-label">{ label }</div>
-		<div class="osspm-summary-tile-value text-muted-foreground">...</div>
-	</div>
+		} else {
+			<div class="osspm-summary-tile">
+				<div class="osspm-summary-tile-label">Source accounts</div>
+				<div class="osspm-summary-tile-value text-muted-foreground">0</div>
+				<div class="osspm-summary-tile-sublabel">No linked accounts</div>
+			</div>
+		}
+	</section>
 }
 
 templ identitySummaryTile(tile viewmodels.IdentitySummaryTile) {
@@ -690,17 +674,6 @@ templ identityPermissionBadge(ent viewmodels.IdentityEntitlementView) {
 	}
 }
 
-templ identityUnavailableButton(label, tooltip, sizeClass string) {
-	<span
-		class={ templ.Classes(sizeClass, "opacity-50 cursor-not-allowed select-none") }
-		role="button"
-		aria-disabled="true"
-		tabindex="-1"
-		data-tooltip={ tooltip }
-		data-side="top"
-	>{ label }</span>
-}
-
 templ IdentityLinkedAccountPrimary(linked viewmodels.IdentityLinkedAccountView) {
 	if linked.Account.Email != "" {
 		if linked.DetailHref != "" {
@@ -726,32 +699,5 @@ templ IdentityLinkedAccountPrimary(linked viewmodels.IdentityLinkedAccountView) 
 		} else {
 			<div class="osspm-cell-primary">{ "Account " }{ FormatInt64(linked.Account.ID) }</div>
 		}
-	}
-}
-
-templ IdentityEntitlementAccount(ent viewmodels.IdentityEntitlementView) {
-	<div class="min-w-0 space-y-0.5">
-		<div class="text-xs text-muted-foreground">
-			{ HumanizeConnectorKind(ent.AccountSourceKind) }
-			if ent.AccountSourceName != "" {
-				<span hx-disable>{ " · " }{ ConnectorScopeLabel(ent.AccountSourceKind) }{ ": " }{ ent.AccountSourceName }</span>
-			}
-		</div>
-		if ent.AccountHref != "" {
-			<a class="btn-sm-link px-0 osspm-cell-primary break-all" href={ templ.SafeURL(ent.AccountHref) }>{ ent.AccountLabel }</a>
-		} else {
-			<div class="osspm-cell-primary break-all" hx-disable>{ ent.AccountLabel }</div>
-		}
-	</div>
-}
-
-templ IdentityEntitlementResource(ent viewmodels.IdentityEntitlementView) {
-	if ent.ResourceHref != "" {
-		<a class="btn-sm-link px-0 osspm-cell-primary break-words" href={ templ.SafeURL(ent.ResourceHref) }>{ ent.ResourceLabel }</a>
-	} else {
-		<div class="osspm-cell-primary break-words">{ ent.ResourceLabel }</div>
-	}
-	if ent.ResourceID != "" && ent.ResourceID != ent.ResourceLabel {
-		<div class="text-xs text-muted-foreground break-all">{ ent.ResourceID }</div>
 	}
 }

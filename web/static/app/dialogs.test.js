@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  closeDialog,
-  openDialog,
   openServerDialogs,
   wireDialogCloseButtons,
   wireDialogCloseNavigation,
@@ -22,6 +20,7 @@ describe("dialogs", () => {
 
   it("falls back to the open attribute when showModal throws", () => {
     const dialog = document.createElement("dialog");
+    dialog.setAttribute("data-open", "");
     const showModal = vi.fn(() => {
       throw new Error("boom");
     });
@@ -29,7 +28,7 @@ describe("dialogs", () => {
 
     document.body.appendChild(dialog);
 
-    openDialog(dialog);
+    openServerDialogs(document);
 
     expect(showModal).toHaveBeenCalledTimes(1);
     expect(dialog.hasAttribute("open")).toBe(true);
@@ -40,20 +39,30 @@ describe("dialogs", () => {
     trigger.type = "button";
     document.body.appendChild(trigger);
 
-    const dialog = document.createElement("dialog");
+    const root = document.createElement("div");
+    root.innerHTML = `
+      <button type="button" data-dialog-open="#focus-dialog">Open</button>
+      <dialog id="focus-dialog">
+        <button type="button" data-dialog-close>Close</button>
+      </dialog>
+    `;
+    document.body.appendChild(root);
+
+    const dialog = root.querySelector("dialog");
     Object.defineProperty(dialog, "close", {
       value: function closeStub() {
         this.removeAttribute("open");
       },
       configurable: true,
     });
-    document.body.appendChild(dialog);
 
     trigger.focus();
-    openDialog(dialog);
+    wireDialogOpenTriggers(root);
+    root.querySelector("[data-dialog-open]").click();
 
     const focusSpy = vi.spyOn(trigger, "focus");
-    closeDialog(dialog);
+    wireDialogCloseButtons(root);
+    root.querySelector("[data-dialog-close]").click();
     await waitForAsyncWork();
 
     expect(focusSpy).toHaveBeenCalled();
@@ -64,21 +73,30 @@ describe("dialogs", () => {
     trigger.type = "button";
     document.body.appendChild(trigger);
 
-    const dialog = document.createElement("dialog");
-    dialog.setAttribute("data-close-href", "/settings/connectors");
+    const root = document.createElement("div");
+    root.innerHTML = `
+      <button type="button" data-dialog-open="#nav-dialog">Open</button>
+      <dialog id="nav-dialog" data-close-href="/settings/connectors">
+        <button type="button" data-dialog-close>Close</button>
+      </dialog>
+    `;
+    document.body.appendChild(root);
+
+    const dialog = root.querySelector("dialog");
     Object.defineProperty(dialog, "close", {
       value: function closeStub() {
         this.removeAttribute("open");
       },
       configurable: true,
     });
-    document.body.appendChild(dialog);
 
     trigger.focus();
-    openDialog(dialog);
+    wireDialogOpenTriggers(root);
+    root.querySelector("[data-dialog-open]").click();
 
     const focusSpy = vi.spyOn(trigger, "focus");
-    closeDialog(dialog);
+    wireDialogCloseButtons(root);
+    root.querySelector("[data-dialog-close]").click();
     await waitForAsyncWork();
 
     expect(focusSpy).not.toHaveBeenCalled();

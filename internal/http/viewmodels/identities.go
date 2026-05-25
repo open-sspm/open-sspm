@@ -179,9 +179,7 @@ type IdentityShowProfile struct {
 }
 
 type IdentityShowSummary struct {
-	Tiles    []IdentitySummaryTile
-	Loaded   bool
-	LoadHref string
+	Tiles []IdentitySummaryTile
 }
 
 type IdentityShowGraphFactsPanel struct {

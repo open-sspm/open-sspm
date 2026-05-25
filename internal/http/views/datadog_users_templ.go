@@ -38,7 +38,7 @@ func DatadogUserMobileRow(user viewmodels.DatadogUserListItem) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(user.UserName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `datadog_users.templ`, Line: 9, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/datadog_users.templ`, Line: 9, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -56,7 +56,7 @@ func DatadogUserMobileRow(user viewmodels.DatadogUserListItem) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(user.RolesDisplay)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `datadog_users.templ`, Line: 11, Col: 72}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/datadog_users.templ`, Line: 11, Col: 72}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -84,7 +84,7 @@ func DatadogUserMobileRow(user viewmodels.DatadogUserListItem) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var4).String())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `datadog_users.templ`, Line: 1, Col: 0}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/datadog_users.templ`, Line: 1, Col: 0}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 			if templ_7745c5c3_Err != nil {
@@ -97,7 +97,7 @@ func DatadogUserMobileRow(user viewmodels.DatadogUserListItem) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(user.Status)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `datadog_users.templ`, Line: 15, Col: 63}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/datadog_users.templ`, Line: 15, Col: 63}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -174,7 +174,7 @@ func DatadogUsersPage(data viewmodels.DatadogUsersViewData) templ.Component {
 					var templ_7745c5c3_Var10 templ.SafeURL
 					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinURLErrs("/accounts/needs-anchor/datadog/" + data.Layout.DatadogSite)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `datadog_users.templ`, Line: 27, Col: 97}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/datadog_users.templ`, Line: 27, Col: 97}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 					if templ_7745c5c3_Err != nil {
@@ -238,7 +238,7 @@ func DatadogUsersPage(data viewmodels.DatadogUsersViewData) templ.Component {
 					var templ_7745c5c3_Var13 string
 					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(data.EmptyStateMsg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `datadog_users.templ`, Line: 38, Col: 25}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/datadog_users.templ`, Line: 38, Col: 25}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {
@@ -431,7 +431,7 @@ func DatadogUsersPageResults(data viewmodels.DatadogUsersViewData) templ.Compone
 					var templ_7745c5c3_Var18 string
 					templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(u.UserName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `datadog_users.templ`, Line: 101, Col: 45}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/datadog_users.templ`, Line: 101, Col: 45}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 					if templ_7745c5c3_Err != nil {
@@ -454,7 +454,7 @@ func DatadogUsersPageResults(data viewmodels.DatadogUsersViewData) templ.Compone
 						var templ_7745c5c3_Var20 string
 						templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var19).String())
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `datadog_users.templ`, Line: 1, Col: 0}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/datadog_users.templ`, Line: 1, Col: 0}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
 						if templ_7745c5c3_Err != nil {
@@ -467,7 +467,7 @@ func DatadogUsersPageResults(data viewmodels.DatadogUsersViewData) templ.Compone
 						var templ_7745c5c3_Var21 string
 						templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(u.Status)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `datadog_users.templ`, Line: 104, Col: 64}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/datadog_users.templ`, Line: 104, Col: 64}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 						if templ_7745c5c3_Err != nil {
@@ -491,7 +491,7 @@ func DatadogUsersPageResults(data viewmodels.DatadogUsersViewData) templ.Compone
 						var templ_7745c5c3_Var22 string
 						templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(u.RolesDisplay)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `datadog_users.templ`, Line: 111, Col: 27}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/datadog_users.templ`, Line: 111, Col: 27}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 						if templ_7745c5c3_Err != nil {

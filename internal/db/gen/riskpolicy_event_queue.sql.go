@@ -73,6 +73,33 @@ func (q *Queries) ClaimRiskpolicyEventEvaluations(ctx context.Context, arg Claim
 	return items, nil
 }
 
+const deleteFinishedRiskpolicyEventQueueBefore = `-- name: DeleteFinishedRiskpolicyEventQueueBefore :execrows
+DELETE FROM riskpolicy_event_queue
+WHERE status IN ('processed', 'dead')
+  AND updated_at < $1::timestamptz
+`
+
+func (q *Queries) DeleteFinishedRiskpolicyEventQueueBefore(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteFinishedRiskpolicyEventQueueBefore, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteRiskpolicyEventShadowSignalsBefore = `-- name: DeleteRiskpolicyEventShadowSignalsBefore :execrows
+DELETE FROM riskpolicy_event_shadow_signals
+WHERE evaluated_at < $1::timestamptz
+`
+
+func (q *Queries) DeleteRiskpolicyEventShadowSignalsBefore(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteRiskpolicyEventShadowSignalsBefore, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const enqueueRiskpolicyEventEvaluation = `-- name: EnqueueRiskpolicyEventEvaluation :exec
 INSERT INTO riskpolicy_event_queue (
   event_received_at,

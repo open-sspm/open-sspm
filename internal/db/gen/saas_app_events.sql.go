@@ -59,7 +59,7 @@ func (q *Queries) GetLatestSaaSDiscoveryObservedAtBySource(ctx context.Context, 
 }
 
 const listSaaSAppEventsBySaaSAppID = `-- name: ListSaaSAppEventsBySaaSAppID :many
-SELECT id, saas_app_id, source_kind, source_name, signal_kind, event_external_id, source_app_id, source_app_name, source_app_domain, actor_external_id, actor_email, actor_display_name, observed_at, scopes_json, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at
+SELECT id, saas_app_id, source_kind, source_name, signal_kind, event_external_id, source_app_id, source_app_name, source_app_domain, actor_external_id, actor_email, actor_display_name, observed_at, scopes_json, raw_json, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, created_at, updated_at, has_privileged_scope, has_confidential_scope
 FROM saas_app_events
 WHERE saas_app_id = $1::bigint
   AND expired_at IS NULL
@@ -106,6 +106,8 @@ func (q *Queries) ListSaaSAppEventsBySaaSAppID(ctx context.Context, arg ListSaaS
 			&i.ExpiredRunID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.HasPrivilegedScope,
+			&i.HasConfidentialScope,
 		); err != nil {
 			return nil, err
 		}
@@ -123,6 +125,11 @@ WITH normalized_events AS (
     NULLIF(trim(actor_display_name), '') AS actor_display_name,
     NULLIF(trim(actor_email), '') AS actor_email,
     NULLIF(trim(actor_external_id), '') AS actor_external_id,
+    COALESCE(
+      NULLIF(trim(actor_external_id), ''),
+      NULLIF(trim(actor_email), ''),
+      NULLIF(trim(actor_display_name), '')
+    ) AS actor_key,
     observed_at
   FROM saas_app_events
   WHERE saas_app_id = $2::bigint
@@ -130,24 +137,34 @@ WITH normalized_events AS (
     AND last_observed_run_id IS NOT NULL
     AND observed_at >= now() - interval '30 days'
 ),
-grouped_actors AS (
+actor_counts AS (
   SELECT
-    (array_agg(actor_display_name ORDER BY observed_at DESC) FILTER (WHERE actor_display_name IS NOT NULL))[1] AS actor_display_name,
-    (array_agg(actor_email ORDER BY observed_at DESC) FILTER (WHERE actor_email IS NOT NULL))[1] AS actor_email,
-    (array_agg(actor_external_id ORDER BY observed_at DESC) FILTER (WHERE actor_external_id IS NOT NULL))[1] AS actor_external_id,
+    actor_key,
     count(*) AS event_count,
     max(observed_at)::timestamptz AS last_observed_at
   FROM normalized_events
-  GROUP BY COALESCE(actor_external_id, actor_email, actor_display_name, '')
+  WHERE actor_key IS NOT NULL
+  GROUP BY actor_key
+),
+latest_actor AS (
+  SELECT DISTINCT ON (actor_key)
+    actor_key,
+    actor_display_name,
+    actor_email,
+    actor_external_id
+  FROM normalized_events
+  WHERE actor_key IS NOT NULL
+  ORDER BY actor_key, observed_at DESC
 )
 SELECT
-  COALESCE(actor_display_name, actor_email, actor_external_id, '')::text AS actor_label,
-  COALESCE(actor_email, '')::text AS actor_email,
-  COALESCE(actor_external_id, '')::text AS actor_external_id,
-  event_count,
-  last_observed_at
-FROM grouped_actors
-ORDER BY event_count DESC, last_observed_at DESC
+  COALESCE(latest_actor.actor_display_name, latest_actor.actor_email, latest_actor.actor_external_id, '')::text AS actor_label,
+  COALESCE(latest_actor.actor_email, '')::text AS actor_email,
+  COALESCE(latest_actor.actor_external_id, '')::text AS actor_external_id,
+  actor_counts.event_count,
+  actor_counts.last_observed_at
+FROM actor_counts
+JOIN latest_actor ON latest_actor.actor_key = actor_counts.actor_key
+ORDER BY actor_counts.event_count DESC, actor_counts.last_observed_at DESC
 LIMIT $1::int
 `
 
@@ -270,6 +287,8 @@ INSERT INTO saas_app_events (
   actor_display_name,
   observed_at,
   scopes_json,
+  has_privileged_scope,
+  has_confidential_scope,
   raw_json,
   seen_in_run_id,
   seen_at,
@@ -289,6 +308,25 @@ SELECT
   d.actor_display_name,
   d.observed_at,
   COALESCE(d.scopes_json, '[]'::jsonb),
+  (
+    lower(COALESCE(d.scopes_json, '[]'::jsonb)::text) LIKE '%directory.readwrite.all%'
+    OR lower(COALESCE(d.scopes_json, '[]'::jsonb)::text) LIKE '%application.readwrite.all%'
+    OR lower(COALESCE(d.scopes_json, '[]'::jsonb)::text) LIKE '%rolemanagement.readwrite.directory%'
+    OR lower(COALESCE(d.scopes_json, '[]'::jsonb)::text) LIKE '%mailboxsettings.readwrite%'
+    OR lower(COALESCE(d.scopes_json, '[]'::jsonb)::text) LIKE '%full_access_as_app%'
+    OR lower(COALESCE(d.scopes_json, '[]'::jsonb)::text) LIKE '%files.readwrite.all%'
+    OR lower(COALESCE(d.scopes_json, '[]'::jsonb)::text) LIKE '%files.readwrite%'
+    OR lower(COALESCE(d.scopes_json, '[]'::jsonb)::text) LIKE '%sites.readwrite.all%'
+    OR lower(COALESCE(d.scopes_json, '[]'::jsonb)::text) LIKE '%user.readwrite.all%'
+    OR lower(COALESCE(d.scopes_json, '[]'::jsonb)::text) LIKE '%offline_access%'
+  ),
+  (
+    lower(COALESCE(d.scopes_json, '[]'::jsonb)::text) LIKE '%mail.%'
+    OR lower(COALESCE(d.scopes_json, '[]'::jsonb)::text) LIKE '%files.%'
+    OR lower(COALESCE(d.scopes_json, '[]'::jsonb)::text) LIKE '%calendar.%'
+    OR lower(COALESCE(d.scopes_json, '[]'::jsonb)::text) LIKE '%readwrite%'
+    OR lower(COALESCE(d.scopes_json, '[]'::jsonb)::text) LIKE '%sites.read%'
+  ),
   COALESCE(d.raw_json, '{}'::jsonb),
   $1::bigint,
   now(),
@@ -305,6 +343,8 @@ ON CONFLICT (source_kind, source_name, signal_kind, event_external_id) DO UPDATE
   actor_display_name = EXCLUDED.actor_display_name,
   observed_at = EXCLUDED.observed_at,
   scopes_json = EXCLUDED.scopes_json,
+  has_privileged_scope = EXCLUDED.has_privileged_scope,
+  has_confidential_scope = EXCLUDED.has_confidential_scope,
   raw_json = EXCLUDED.raw_json,
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,

@@ -1,9 +1,3 @@
--- name: ListAuthoritativeSources :many
-SELECT *
-FROM identity_source_settings
-WHERE is_authoritative = TRUE
-ORDER BY source_kind, source_name;
-
 -- name: ListAuthoritativeSourcesByConfiguredSources :many
 WITH configured_sources AS (
   SELECT

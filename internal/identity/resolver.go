@@ -53,6 +53,7 @@ type queryRunner interface {
 	MoveAccountIdentityRelationshipsToIdentity(context.Context, gen.MoveAccountIdentityRelationshipsToIdentityParams) error
 	RetireRemainingAccountIdentityRelationships(context.Context, gen.RetireRemainingAccountIdentityRelationshipsParams) error
 	MarkIdentityMerged(context.Context, int64) error
+	IdentityMergeWouldCreateCycle(context.Context, gen.IdentityMergeWouldCreateCycleParams) (bool, error)
 	UpsertIdentityMergeRedirect(context.Context, gen.UpsertIdentityMergeRedirectParams) (gen.IdentityMergeRedirect, error)
 	MarkIdentityMergeEventApplied(context.Context, int64) (gen.IdentityMergeEvent, error)
 	ListAuthoritativeSourcesByConfiguredSources(context.Context, gen.ListAuthoritativeSourcesByConfiguredSourcesParams) ([]gen.IdentitySourceSetting, error)
@@ -77,17 +78,6 @@ type Stats struct {
 	UpdatedIdentityEmails      int64
 	UpdatedIdentityAnchors     int64
 	UpdatedIdentities          int64
-}
-
-func Resolve(ctx context.Context, q *gen.Queries) (Stats, error) {
-	return ResolveWithConfiguredSources(ctx, q, nil, nil)
-}
-
-func ResolveWithConfiguredSources(ctx context.Context, q *gen.Queries, configuredSourceKinds, configuredSourceNames []string) (Stats, error) {
-	r := Resolver{Q: q}
-	r.ConfiguredSourceKinds = append([]string(nil), configuredSourceKinds...)
-	r.ConfiguredSourceNames = append([]string(nil), configuredSourceNames...)
-	return r.Resolve(ctx)
 }
 
 func ResolveWithConfiguredSourcesTx(ctx context.Context, pool *pgxpool.Pool, configuredSourceKinds, configuredSourceNames []string) (Stats, error) {
@@ -399,6 +389,16 @@ func (r Resolver) mergeEmptyProvisionalIdentity(ctx context.Context, sourceIdent
 		return false, err
 	}
 	if remaining != 0 {
+		return false, nil
+	}
+	wouldCreateCycle, err := r.Q.IdentityMergeWouldCreateCycle(ctx, gen.IdentityMergeWouldCreateCycleParams{
+		SourceIdentityID: sourceIdentityID,
+		TargetIdentityID: targetIdentityID,
+	})
+	if err != nil {
+		return false, err
+	}
+	if wouldCreateCycle {
 		return false, nil
 	}
 

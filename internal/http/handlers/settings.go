@@ -501,12 +501,6 @@ func (h *Handlers) renderConnectorDialog(c *echo.Context, kind string, alert *vi
 	return h.RenderComponent(c, views.ConnectorDialog(data, kind, true, alert))
 }
 
-func (h *Handlers) renderConnectorDialogAppend(c *echo.Context, kind string, alert *viewmodels.ConnectorAlert, status int) error {
-	c.Response().Header().Set("HX-Retarget", "body")
-	c.Response().Header().Set("HX-Reswap", "beforeend")
-	return h.renderConnectorDialog(c, kind, alert, status)
-}
-
 func (h *Handlers) connectorMutationSuccess(c *echo.Context, kind string) error {
 	data, err := h.buildConnectorsViewData(c.Request().Context(), c, "", "", nil)
 	if err != nil {

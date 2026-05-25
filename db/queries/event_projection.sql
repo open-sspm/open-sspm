@@ -4,7 +4,7 @@ SELECT
   e.id AS event_id,
   e.source_kind::text AS source_kind,
   e.source_name::text AS source_name,
-  replace(e.category, 'discovery.', '')::text AS signal_kind,
+  substring(e.category from length('discovery.') + 1)::text AS signal_kind,
   e.provider_event_id::text AS event_external_id,
   COALESCE(NULLIF(trim(et.target_id), ''), e.target_id, '')::text AS source_app_id,
   COALESCE(NULLIF(trim(et.target_name), ''), e.target_name, '')::text AS source_app_name,
@@ -178,3 +178,7 @@ INSERT INTO event_projection_diff_runs (
   sqlc.arg(sample)::jsonb
 )
 RETURNING *;
+
+-- name: DeleteEventProjectionDiffRunsBefore :execrows
+DELETE FROM event_projection_diff_runs
+WHERE created_at < sqlc.arg(cutoff)::timestamptz;

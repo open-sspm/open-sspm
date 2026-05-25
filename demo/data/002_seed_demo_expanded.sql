@@ -1663,6 +1663,7 @@ INSERT INTO credential_artifacts (
   approved_by_external_id,
   approved_by_display_name,
   raw_json,
+  lineage_key,
   seen_in_run_id,
   seen_at,
   last_observed_run_id,
@@ -1692,6 +1693,19 @@ SELECT
   rows.approved_by_external_id,
   rows.approved_by_display_name,
   rows.raw_json,
+  md5(
+    coalesce(rows.source_kind, '') || '|' ||
+    coalesce(rows.source_name, '') || '|' ||
+    coalesce(rows.asset_ref_kind, '') || '|' ||
+    coalesce(rows.asset_ref_external_id, '') || '|' ||
+    coalesce(rows.credential_kind, '') || '|' ||
+    CASE
+      WHEN coalesce(rows.display_name, '') ~ '\s*\[\d{4}\]\s*$' THEN
+        'cohort:' || lower(trim(regexp_replace(coalesce(rows.display_name, ''), '\s*\[\d{4}\]\s*$', '')))
+      ELSE
+        'id:' || coalesce(rows.external_id, '') || '|' || lower(trim(coalesce(rows.display_name, '')))
+    END
+  ),
   ctx.run_id,
   ctx.now_ts,
   ctx.run_id,
@@ -1716,6 +1730,7 @@ ON CONFLICT (source_kind, source_name, credential_kind, external_id, asset_ref_k
   approved_by_external_id = EXCLUDED.approved_by_external_id,
   approved_by_display_name = EXCLUDED.approved_by_display_name,
   raw_json = EXCLUDED.raw_json,
+  lineage_key = EXCLUDED.lineage_key,
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
   last_observed_run_id = EXCLUDED.last_observed_run_id,

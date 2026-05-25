@@ -38,7 +38,7 @@ func PublicLayout(title string, csrfToken string, toast *viewmodels.ToastViewDat
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrfToken)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `public_layout.templ`, Line: 11, Col: 46}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/public_layout.templ`, Line: 11, Col: 46}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 		if templ_7745c5c3_Err != nil {
@@ -51,7 +51,7 @@ func PublicLayout(title string, csrfToken string, toast *viewmodels.ToastViewDat
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(`{"allowEval":false,"allowScriptTags":false,"defaultSwapStyle":"outerHTML","historyCacheSize":10,"historyRestoreAsHxRequest":false,"selfRequestsOnly":true,"globalViewTransitions":true}`)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `public_layout.templ`, Line: 12, Col: 223}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/public_layout.templ`, Line: 12, Col: 223}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 		if templ_7745c5c3_Err != nil {
@@ -64,7 +64,7 @@ func PublicLayout(title string, csrfToken string, toast *viewmodels.ToastViewDat
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `public_layout.templ`, Line: 13, Col: 17}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/public_layout.templ`, Line: 13, Col: 17}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -73,7 +73,7 @@ func PublicLayout(title string, csrfToken string, toast *viewmodels.ToastViewDat
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(" · Open-SSPM")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `public_layout.templ`, Line: 13, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/public_layout.templ`, Line: 13, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -107,7 +107,7 @@ func PublicLayout(title string, csrfToken string, toast *viewmodels.ToastViewDat
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(toast.Category)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `public_layout.templ`, Line: 83, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/public_layout.templ`, Line: 83, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 			if templ_7745c5c3_Err != nil {
@@ -120,7 +120,7 @@ func PublicLayout(title string, csrfToken string, toast *viewmodels.ToastViewDat
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(toast.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `public_layout.templ`, Line: 83, Col: 98}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/public_layout.templ`, Line: 83, Col: 98}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 			if templ_7745c5c3_Err != nil {
@@ -133,7 +133,7 @@ func PublicLayout(title string, csrfToken string, toast *viewmodels.ToastViewDat
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(toast.Description)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `public_layout.templ`, Line: 83, Col: 137}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/public_layout.templ`, Line: 83, Col: 137}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 			if templ_7745c5c3_Err != nil {

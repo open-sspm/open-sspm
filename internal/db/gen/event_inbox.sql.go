@@ -142,31 +142,6 @@ func (q *Queries) ClaimQueuedEventInboxDeliveries(ctx context.Context, arg Claim
 	return items, nil
 }
 
-const deleteOldEventInboxDeliveries = `-- name: DeleteOldEventInboxDeliveries :execrows
-DELETE FROM event_inbox
-WHERE (
-    status IN ('processed', 'ignored')
-    AND processed_at < now() - make_interval(days => $1::int)
-  )
-  OR (
-    status = 'dead'
-    AND processed_at < now() - make_interval(days => $2::int)
-  )
-`
-
-type DeleteOldEventInboxDeliveriesParams struct {
-	ProcessedRetentionDays int32 `json:"processed_retention_days"`
-	DeadRetentionDays      int32 `json:"dead_retention_days"`
-}
-
-func (q *Queries) DeleteOldEventInboxDeliveries(ctx context.Context, arg DeleteOldEventInboxDeliveriesParams) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteOldEventInboxDeliveries, arg.ProcessedRetentionDays, arg.DeadRetentionDays)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
 const markEventInboxDead = `-- name: MarkEventInboxDead :execrows
 UPDATE event_inbox
 SET status = 'dead',
@@ -301,7 +276,6 @@ SET lease_until = now() + ($1::bigint * interval '1 second')
 WHERE id = ANY($2::bigint[])
   AND status = 'processing'
   AND lease_owner = $3::text
-  AND lease_until > now()
 `
 
 type RenewEventInboxLeaseParams struct {
