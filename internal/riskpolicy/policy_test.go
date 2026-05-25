@@ -3,7 +3,13 @@ package riskpolicy
 import (
 	"strings"
 	"testing"
+
+	osspecv2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v2"
 )
+
+const testEntityPolicyRego = `package opensspm.entity.test
+
+result := {"risk_level": "low", "signals": []}`
 
 func TestLoadBuiltinPolicies(t *testing.T) {
 	t.Parallel()
@@ -15,8 +21,8 @@ func TestLoadBuiltinPolicies(t *testing.T) {
 	if got, want := registry.PackCount(), 4; got != want {
 		t.Fatalf("PackCount() = %d, want %d", got, want)
 	}
-	if got := registry.CompiledExpressionCount(); got == 0 {
-		t.Fatal("CompiledExpressionCount() = 0, want compiled expressions")
+	if got, want := registry.RegoPolicyCount(), registry.PackCount(); got != want {
+		t.Fatalf("RegoPolicyCount() = %d, want %d", got, want)
 	}
 
 	byID := make(map[string]PolicyPack)
@@ -33,11 +39,15 @@ func TestLoadBuiltinPolicies(t *testing.T) {
 		"builtin.identity.risk",
 		"builtin.saas.app_overrides",
 	} {
-		if _, ok := byID[id]; !ok {
+		pack, ok := byID[id]
+		if !ok {
 			t.Fatalf("missing built-in policy pack %q", id)
 		}
 		if metadata := metadataByID[id]; metadata.ID == "" || metadata.Version == "" || metadata.Domain == "" {
 			t.Fatalf("missing built-in policy metadata %q: %+v", id, metadata)
+		}
+		if pack.Policy.Engine != osspecv2.CheckEngine_REGO || pack.Policy.Query == "" || pack.Policy.Rego == "" {
+			t.Fatalf("built-in policy %q is not a compiled Rego policy: %+v", id, pack.Policy)
 		}
 	}
 }
@@ -45,22 +55,7 @@ func TestLoadBuiltinPolicies(t *testing.T) {
 func TestLoadPolicyPacksRejectsDuplicateNormalizedIDs(t *testing.T) {
 	t.Parallel()
 
-	pack := PolicyPack{
-		Metadata: PolicyMetadata{
-			ID:      "duplicate",
-			Version: "1.0.0",
-			Domain:  DomainCredential,
-		},
-		Spec: PolicySpec{
-			Inputs: Inputs{Schema: "credential_risk_input.v1"},
-			Rules: []Rule{{
-				ID:       "always",
-				Severity: "low",
-				When:     "true",
-				Title:    "Always",
-			}},
-		},
-	}
+	pack := testPolicyPack("duplicate", DomainCredential, "credential_risk_input.v1")
 	duplicate := pack
 	duplicate.Metadata.ID = " duplicate "
 
@@ -88,18 +83,17 @@ entity_policy_pack:
   spec:
     inputs:
       schema: credential_risk_input.v1
-    unexpected: true
 `),
 	})
 	if err == nil {
 		t.Fatal("LoadDocuments() error = nil, want unknown field error")
 	}
-	if !strings.Contains(err.Error(), "field unexpected not found") {
-		t.Fatalf("LoadDocuments() error = %v, want unknown field error", err)
+	if !strings.Contains(err.Error(), "field spec not found") {
+		t.Fatalf("LoadDocuments() error = %v, want unknown spec field error", err)
 	}
 }
 
-func TestLoadDocumentsRejectsInvalidSeverity(t *testing.T) {
+func TestLoadDocumentsRejectsMissingRego(t *testing.T) {
 	t.Parallel()
 
 	_, err := LoadDocuments(map[string][]byte{
@@ -111,243 +105,34 @@ entity_policy_pack:
     id: bad
     version: 1.0.0
     domain: credential
-  spec:
-    inputs:
-      schema: credential_risk_input.v1
-    rules:
-      - id: invalid_severity
-        severity: urgent
-        when: "true"
-        title: Invalid severity
+  inputs:
+    schema: credential_risk_input.v1
+  policy:
+    engine: rego
+    package: opensspm.entity.bad
+    query: data.opensspm.entity.bad.result
 `),
 	})
 	if err == nil {
-		t.Fatal("LoadDocuments() error = nil, want invalid severity error")
+		t.Fatal("LoadDocuments() error = nil, want missing rego error")
 	}
-	if !strings.Contains(err.Error(), "severity") {
-		t.Fatalf("LoadDocuments() error = %v, want severity error", err)
+	if !strings.Contains(err.Error(), "policy.rego is required") {
+		t.Fatalf("LoadDocuments() error = %v, want missing rego error", err)
 	}
 }
 
-func TestLoadDocumentsRejectsInvalidCEL(t *testing.T) {
+func TestLoadDocumentsRejectsNonRegoPolicy(t *testing.T) {
 	t.Parallel()
 
-	_, err := LoadDocuments(map[string][]byte{
-		"bad.yaml": []byte(`
-kind: opensspm.entity_policy_pack
-schema_version: 2
-entity_policy_pack:
-  metadata:
-    id: bad
-    version: 1.0.0
-    domain: credential
-  spec:
-    inputs:
-      schema: credential_risk_input.v1
-    rules:
-      - id: invalid_cel
-        severity: high
-        when: unknown_field == "x"
-        title: Invalid CEL
-`),
-	})
+	pack := testPolicyPack("bad", DomainCredential, "credential_risk_input.v1")
+	pack.Policy.Engine = osspecv2.CheckEngine("unsupported")
+
+	_, err := LoadPolicyPacks([]PolicyPack{pack})
 	if err == nil {
-		t.Fatal("LoadDocuments() error = nil, want CEL compile error")
+		t.Fatal("LoadPolicyPacks() error = nil, want unsupported engine error")
 	}
-	if !strings.Contains(err.Error(), "invalid_cel") {
-		t.Fatalf("LoadDocuments() error = %v, want rule id in error", err)
-	}
-}
-
-func TestLoadDocumentsRejectsNonBooleanCEL(t *testing.T) {
-	t.Parallel()
-
-	_, err := LoadDocuments(map[string][]byte{
-		"bad.yaml": []byte(`
-kind: opensspm.entity_policy_pack
-schema_version: 2
-entity_policy_pack:
-  metadata:
-    id: bad
-    version: 1.0.0
-    domain: saas
-  spec:
-    inputs:
-      schema: saas_app_risk_input.v1
-    suggestions:
-      business_criticality:
-        - id: non_bool
-          level: high
-          when: actors_30d
-        - id: default_low
-          level: low
-          when: "true"
-`),
-	})
-	if err == nil {
-		t.Fatal("LoadDocuments() error = nil, want non-boolean CEL error")
-	}
-	if !strings.Contains(err.Error(), "must return bool") {
-		t.Fatalf("LoadDocuments() error = %v, want bool type error", err)
-	}
-}
-
-func TestLoadDocumentsRejectsInvalidSuggestionLevels(t *testing.T) {
-	t.Parallel()
-
-	_, err := LoadDocuments(map[string][]byte{
-		"bad.yaml": []byte(`
-kind: opensspm.entity_policy_pack
-schema_version: 2
-entity_policy_pack:
-  metadata:
-    id: bad
-    version: 1.0.0
-    domain: saas
-  spec:
-    inputs:
-      schema: saas_app_risk_input.v1
-    suggestions:
-      business_criticality:
-        - id: invalid_business_criticality
-          level: severe
-          when: "true"
-`),
-	})
-	if err == nil {
-		t.Fatal("LoadDocuments() error = nil, want invalid suggestion level error")
-	}
-	if !strings.Contains(err.Error(), "severe") {
-		t.Fatalf("LoadDocuments() error = %v, want invalid level in error", err)
-	}
-}
-
-func TestLoadDocumentsRejectsUnknownSuggestionLevels(t *testing.T) {
-	t.Parallel()
-
-	_, err := LoadDocuments(map[string][]byte{
-		"bad.yaml": []byte(`
-kind: opensspm.entity_policy_pack
-schema_version: 2
-entity_policy_pack:
-  metadata:
-    id: bad
-    version: 1.0.0
-    domain: saas
-  spec:
-    inputs:
-      schema: saas_app_risk_input.v1
-    suggestions:
-      data_classification:
-        - id: invalid_unknown_data_classification
-          level: unknown
-          when: "true"
-`),
-	})
-	if err == nil {
-		t.Fatal("LoadDocuments() error = nil, want unknown suggestion level error")
-	}
-	if !strings.Contains(err.Error(), "unknown") {
-		t.Fatalf("LoadDocuments() error = %v, want unknown level in error", err)
-	}
-}
-
-func TestLoadDocumentsRejectsSuggestionRulesWithoutFallback(t *testing.T) {
-	t.Parallel()
-
-	_, err := LoadDocuments(map[string][]byte{
-		"bad.yaml": []byte(`
-kind: opensspm.entity_policy_pack
-schema_version: 2
-entity_policy_pack:
-  metadata:
-    id: bad
-    version: 1.0.0
-    domain: saas
-  spec:
-    inputs:
-      schema: saas_app_risk_input.v1
-    suggestions:
-      business_criticality:
-        - id: high_usage
-          level: high
-          when: actors_30d >= 50
-`),
-	})
-	if err == nil {
-		t.Fatal("LoadDocuments() error = nil, want deterministic fallback error")
-	}
-	if !strings.Contains(err.Error(), "deterministic fallback") {
-		t.Fatalf("LoadDocuments() error = %v, want deterministic fallback error", err)
-	}
-}
-
-func TestLoadDocumentsRejectsInvalidScopedSuggestionLevels(t *testing.T) {
-	t.Parallel()
-
-	_, err := LoadDocuments(map[string][]byte{
-		"bad.yaml": []byte(`
-kind: opensspm.entity_policy_pack
-schema_version: 2
-entity_policy_pack:
-  metadata:
-    id: bad
-    version: 1.0.0
-    domain: saas
-  spec:
-    scoped_rules:
-      - id: invalid_scoped_suggestion
-        scope:
-          app:
-            canonical_key: github
-        suggestions:
-          data_classification: restriced
-`),
-	})
-	if err == nil {
-		t.Fatal("LoadDocuments() error = nil, want invalid scoped suggestion level error")
-	}
-	if !strings.Contains(err.Error(), "restriced") {
-		t.Fatalf("LoadDocuments() error = %v, want invalid scoped suggestion in error", err)
-	}
-}
-
-func TestLoadDocumentsAllowsScopedRulesToReuseInnerRuleIDs(t *testing.T) {
-	t.Parallel()
-
-	_, err := LoadDocuments(map[string][]byte{
-		"ok.yaml": []byte(`
-kind: opensspm.entity_policy_pack
-schema_version: 2
-entity_policy_pack:
-  metadata:
-    id: ok
-    version: 1.0.0
-    domain: saas
-  spec:
-    scoped_rules:
-      - id: github_policy
-        scope:
-          app:
-            canonical_key: github
-        rules:
-          - id: missing_owner
-            severity: high
-            when: owner_identity_id == 0
-            title: GitHub app has no accountable owner
-      - id: finance_policy
-        scope:
-          app:
-            category: finance
-        rules:
-          - id: missing_owner
-            severity: high
-            when: owner_identity_id == 0
-            title: Finance app has no accountable owner
-`),
-	})
-	if err != nil {
-		t.Fatalf("LoadDocuments() error = %v, want nil", err)
+	if !strings.Contains(err.Error(), "policy.engine") {
+		t.Fatalf("LoadPolicyPacks() error = %v, want policy.engine error", err)
 	}
 }
 
@@ -371,5 +156,22 @@ func TestSeverityOrdering(t *testing.T) {
 	}
 	if got := SeverityRank("HIGH"); got != 3 {
 		t.Fatalf("SeverityRank(\"HIGH\") = %d, want 3", got)
+	}
+}
+
+func testPolicyPack(id string, domain Domain, schema string) PolicyPack {
+	return PolicyPack{
+		Metadata: PolicyMetadata{
+			ID:      id,
+			Version: "1.0.0",
+			Domain:  domain,
+		},
+		Inputs: Inputs{Schema: schema},
+		Policy: RegoPolicy{
+			Engine:  osspecv2.CheckEngine_REGO,
+			Package: "opensspm.entity.test",
+			Query:   "data.opensspm.entity.test.result",
+			Rego:    testEntityPolicyRego,
+		},
 	}
 }

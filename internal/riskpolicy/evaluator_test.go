@@ -65,6 +65,31 @@ func TestEvaluateCredentialRejectsMalformedScopeJSON(t *testing.T) {
 	}
 }
 
+func TestEvaluateCredentialIgnoresRegoOutOfRangeTimes(t *testing.T) {
+	t.Parallel()
+
+	registry, err := LoadBuiltin()
+	if err != nil {
+		t.Fatalf("LoadBuiltin() error = %v", err)
+	}
+
+	result, err := registry.EvaluateCredential(CredentialInput{
+		CredentialKind:      "vault_token",
+		Status:              "active",
+		CreatedByExternalID: "alice",
+		ExpiresAt:           timePtr(time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)),
+		LastUsedAt:          timePtr(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)),
+		CreatedAt:           timePtr(time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)),
+		EvaluatedAt:         time.Date(2026, 2, 7, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("EvaluateCredential() error = %v", err)
+	}
+	if result.RiskLevel != SeverityLow {
+		t.Fatalf("RiskLevel = %q, want %q; signals=%+v", result.RiskLevel, SeverityLow, result.Signals)
+	}
+}
+
 type credentialGoldenCase struct {
 	name          string
 	input         CredentialInput

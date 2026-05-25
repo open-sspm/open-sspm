@@ -17,7 +17,7 @@ var validateRiskPoliciesCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("validated %d risk policy packs (%d CEL expressions)\n", registry.PackCount(), registry.CompiledExpressionCount())
+		fmt.Printf("validated %d risk policy packs (%d Rego policies)\n", registry.PackCount(), registry.RegoPolicyCount())
 		return nil
 	},
 }

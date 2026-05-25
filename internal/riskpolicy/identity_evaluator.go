@@ -50,59 +50,31 @@ func (r *Registry) EvaluateIdentity(input IdentityInput) (IdentityResult, error)
 	}
 
 	input = normalizeIdentityInput(input)
-	result := IdentityResult{
-		Signals: make([]RiskSignal, 0, 6),
-	}
-	defaultLevel := SeverityLow
-	var matchedPack *CompiledPack
-	for i := range r.packs {
-		if r.packs[i].Policy.Metadata.Domain != DomainIdentity || r.packs[i].Policy.Spec.Inputs.Schema != "identity_risk_input.v1" {
-			continue
-		}
-		if matchedPack != nil {
-			return IdentityResult{}, errors.New("multiple identity risk policy packs found for identity_risk_input.v1")
-		}
-		matchedPack = &r.packs[i]
-	}
-	if matchedPack == nil {
+	packs := r.packsFor(DomainIdentity, "identity_risk_input.v1")
+	if len(packs) == 0 {
 		return IdentityResult{}, errors.New("identity risk policy pack not found")
 	}
 
-	pack := *matchedPack
-	result.PolicyPacks = appendPolicyPackRef(result.PolicyPacks, pack.Policy.Metadata)
-	if pack.Policy.Spec.Aggregation.RiskLevel.Default != "" {
-		defaultLevel = pack.Policy.Spec.Aggregation.RiskLevel.Default
+	entity := identityEntityInput(input)
+	result := IdentityResult{
+		RiskLevel: SeverityLow,
+		Signals:   make([]RiskSignal, 0, 6),
 	}
-
-	activation := identityActivation(input, pack.Policy.Spec.Constants)
-	for _, rule := range pack.Policy.Spec.Rules {
-		matched, err := pack.evaluateBool(rule.ID, activation)
+	for _, pack := range packs {
+		evaluated, err := evaluateEntityPolicyPack(pack, entity)
 		if err != nil {
 			return IdentityResult{}, err
 		}
-		if !matched {
-			continue
+		result.PolicyPacks = appendPolicyPackRef(result.PolicyPacks, pack.Policy.Metadata)
+		result.Signals = appendEntitySignals(result.Signals, DomainIdentity, pack.Policy.Metadata, evaluated.Signals)
+		if level := NormalizeSeverity(evaluated.RiskLevel); level != "" {
+			result.RiskLevel = MaxSeverity(result.RiskLevel, level)
 		}
-
-		result.Signals = append(result.Signals, RiskSignal{
-			ID:                rule.ID,
-			Domain:            DomainIdentity,
-			Severity:          rule.Severity,
-			ScoreDelta:        rule.ScoreDelta,
-			Title:             rule.Title,
-			Evidence:          rule.Evidence,
-			PolicyPackID:      pack.Policy.Metadata.ID,
-			PolicyPackVersion: pack.Policy.Metadata.Version,
-		})
-		result.RiskLevel = MaxSeverity(result.RiskLevel, rule.Severity)
 	}
-
-	if result.RiskLevel == "" {
-		result.RiskLevel = defaultLevel
+	if fromSignals := maxSignalSeverity(result.Signals); fromSignals != "" {
+		result.RiskLevel = MaxSeverity(result.RiskLevel, fromSignals)
 	}
-	if pack.Policy.Spec.Aggregation.RiskReasonCount.Strategy == "count_matching_rules" {
-		result.RiskReasonCount = len(result.Signals)
-	}
+	result.RiskReasonCount = len(result.Signals)
 	result.RiskRank = SeverityRank(result.RiskLevel)
 	return result, nil
 }
@@ -129,8 +101,8 @@ func normalizeIdentityInput(input IdentityInput) IdentityInput {
 	return input
 }
 
-func identityActivation(input IdentityInput, constants map[string][]string) map[string]any {
-	activation := map[string]any{
+func identityEntityInput(input IdentityInput) map[string]any {
+	return map[string]any{
 		"identity_id":              input.IdentityID,
 		"principal_ref":            input.PrincipalRef,
 		"principal_type":           input.PrincipalType,
@@ -138,12 +110,12 @@ func identityActivation(input IdentityInput, constants map[string][]string) map[
 		"source_name":              input.SourceName,
 		"display_name":             input.DisplayName,
 		"primary_email":            input.PrimaryEmail,
-		"last_seen_at":             nullableTime(input.LastSeenAt),
+		"last_seen_at":             nullableTimeString(input.LastSeenAt),
 		"owner_presence":           input.OwnerPresence,
 		"governance_state":         input.GovernanceState,
 		"linked_assets_count":      input.LinkedAssetsCount,
 		"linked_credentials_count": input.LinkedCredentialsCount,
-		"credential_signals":       cloneSlice(input.CredentialSignals),
+		"credential_signals":       append([]string(nil), input.CredentialSignals...),
 		"has_critical_credential":  input.HasCriticalCredential,
 		"has_high_risk_credential": input.HasHighRiskCredential,
 		"has_expired_credential":   input.HasExpiredCredential,
@@ -151,8 +123,4 @@ func identityActivation(input IdentityInput, constants map[string][]string) map[
 		"has_unused_credential":    input.HasUnusedCredential,
 		"has_stale_evidence":       input.HasStaleEvidence,
 	}
-	for name, values := range constants {
-		activation[name] = cloneSlice(values)
-	}
-	return activation
 }

@@ -116,7 +116,7 @@ func TestEvaluateSaaSStoredRiskMatchesDiscoveryReadModelView(t *testing.T) {
 	})
 }
 
-func TestEvaluateSaaSRejectsDuplicateGlobalPacks(t *testing.T) {
+func TestEvaluateSaaSAggregatesMultipleRegoPacks(t *testing.T) {
 	t.Parallel()
 
 	registry, err := LoadDocuments(map[string][]byte{
@@ -128,12 +128,24 @@ entity_policy_pack:
     id: a
     version: 1.0.0
     domain: saas
-  spec:
-    inputs:
-      schema: saas_app_risk_input.v1
-    levels:
-      - level: low
-        when: "true"
+  inputs:
+    schema: saas_app_risk_input.v1
+  policy:
+    engine: rego
+    package: opensspm.entity.test_a
+    query: data.opensspm.entity.test_a.result
+    rego: |
+      package opensspm.entity.test_a
+
+      result := {
+        "risk_level": "low",
+        "risk_score": 5,
+        "signals": [{"id": "owner_a", "severity": "medium", "title": "Owner signal A"}],
+      } if { input.entity.owner_identity_id == 0 }
+
+      result := {"risk_level": "low", "risk_score": 0, "signals": []} if {
+        input.entity.owner_identity_id != 0
+      }
 `),
 		"b.yaml": []byte(`
 kind: opensspm.entity_policy_pack
@@ -143,86 +155,31 @@ entity_policy_pack:
     id: b
     version: 1.0.0
     domain: saas
-  spec:
-    inputs:
-      schema: saas_app_risk_input.v1
-    levels:
-      - level: low
-        when: "true"
+  inputs:
+    schema: saas_app_risk_input.v1
+  policy:
+    engine: rego
+    package: opensspm.entity.test_b
+    query: data.opensspm.entity.test_b.result
+    rego: |
+      package opensspm.entity.test_b
+
+      result := {
+        "risk_level": "low",
+        "risk_score": 7,
+        "signals": [{"id": "owner_b", "severity": "medium", "title": "Owner signal B"}],
+      } if { input.entity.owner_identity_id == 0 }
+
+      result := {"risk_level": "low", "risk_score": 0, "signals": []} if {
+        input.entity.owner_identity_id != 0
+      }
 `),
 	})
 	if err != nil {
 		t.Fatalf("LoadDocuments() error = %v", err)
 	}
 
-	_, err = registry.EvaluateSaaS(SaaSInput{})
-	if err == nil {
-		t.Fatal("EvaluateSaaS() error = nil, want duplicate pack error")
-	}
-	if !strings.Contains(err.Error(), "multiple saas risk policy packs") {
-		t.Fatalf("EvaluateSaaS() error = %v, want duplicate pack error", err)
-	}
-}
-
-func TestEvaluateSaaSAllowsDifferentScopedSignalsWithSameInnerRuleID(t *testing.T) {
-	t.Parallel()
-
-	registry, err := LoadDocuments(map[string][]byte{
-		"global.yaml": []byte(`
-kind: opensspm.entity_policy_pack
-schema_version: 2
-entity_policy_pack:
-  metadata:
-    id: global
-    version: 1.0.0
-    domain: saas
-  spec:
-    inputs:
-      schema: saas_app_risk_input.v1
-    levels:
-      - level: low
-        when: "true"
-`),
-		"scoped.yaml": []byte(`
-kind: opensspm.entity_policy_pack
-schema_version: 2
-entity_policy_pack:
-  metadata:
-    id: scoped
-    version: 1.0.0
-    domain: saas
-  spec:
-    scoped_rules:
-      - id: github_owner_policy
-        scope:
-          app:
-            canonical_key: github
-        rules:
-          - id: missing_owner
-            severity: high
-            score_delta: 5
-            when: owner_identity_id == 0
-            title: GitHub app has no owner
-      - id: github_security_policy
-        scope:
-          app:
-            canonical_key: github
-        rules:
-          - id: missing_owner
-            severity: medium
-            score_delta: 7
-            when: owner_identity_id == 0
-            title: GitHub security review owner is missing
-`),
-	})
-	if err != nil {
-		t.Fatalf("LoadDocuments() error = %v", err)
-	}
-
-	result, err := registry.EvaluateSaaS(SaaSInput{
-		CanonicalKey:    "github",
-		OwnerIdentityID: 0,
-	})
+	result, err := registry.EvaluateSaaS(SaaSInput{OwnerIdentityID: 0})
 	if err != nil {
 		t.Fatalf("EvaluateSaaS() error = %v", err)
 	}
@@ -232,17 +189,12 @@ entity_policy_pack:
 	if len(result.Signals) != 2 {
 		t.Fatalf("len(Signals) = %d, want 2; signals=%+v", len(result.Signals), result.Signals)
 	}
-	gotTitles := []string{result.Signals[0].Title, result.Signals[1].Title}
-	wantTitles := []string{
-		"GitHub app has no owner",
-		"GitHub security review owner is missing",
-	}
-	if !sameStringSet(gotTitles, wantTitles) {
-		t.Fatalf("signal titles = %v, want %v", gotTitles, wantTitles)
+	if !sameStringSet(signalIDs(result.Signals), []string{"owner_a", "owner_b"}) {
+		t.Fatalf("signal IDs = %v, want owner_a and owner_b", signalIDs(result.Signals))
 	}
 }
 
-func TestEvaluateSaaSExposesCatalogAndConfiguredFieldsToCEL(t *testing.T) {
+func TestEvaluateSaaSUsesCatalogAndConfiguredFields(t *testing.T) {
 	t.Parallel()
 
 	registry, err := LoadDocuments(map[string][]byte{
@@ -254,23 +206,30 @@ entity_policy_pack:
     id: global
     version: 1.0.0
     domain: saas
-  spec:
-    inputs:
-      schema: saas_app_risk_input.v1
-    scoring:
-      max: 100
-      rules:
-        - id: configured_high_finance
-          points: 35
-          when: category == "finance" && configured_business_criticality == "high" && configured_data_classification == "restricted"
-          signal:
-            severity: high
-            title: Finance app has configured high criticality and restricted data
-    levels:
-      - level: high
-        when: score >= 30
-      - level: low
-        when: "true"
+  inputs:
+    schema: saas_app_risk_input.v1
+  policy:
+    engine: rego
+    package: opensspm.entity.configured_fields
+    query: data.opensspm.entity.configured_fields.result
+    rego: |
+      package opensspm.entity.configured_fields
+
+      configured_high_finance if {
+        input.entity.category == "finance"
+        input.entity.configured_business_criticality == "high"
+        input.entity.configured_data_classification == "restricted"
+      }
+
+      result := {
+        "risk_level": "medium",
+        "risk_score": 35,
+        "signals": [{"id": "configured_high_finance", "severity": "high", "title": "Finance app has configured high criticality and restricted data"}],
+      } if { configured_high_finance }
+
+      result := {"risk_level": "low", "risk_score": 0, "signals": []} if {
+        not configured_high_finance
+      }
 `),
 	})
 	if err != nil {
@@ -285,15 +244,15 @@ entity_policy_pack:
 	if err != nil {
 		t.Fatalf("EvaluateSaaS() error = %v", err)
 	}
-	if result.RiskScore != 35 || result.RiskLevel != SeverityHigh {
-		t.Fatalf("result = %+v, want score 35 and high risk", result)
+	if result.RiskScore != 35 || result.RiskLevel != SeverityMedium {
+		t.Fatalf("result = %+v, want score 35 and medium risk", result)
 	}
 	if !sameStringSet(signalIDs(result.Signals), []string{"configured_high_finance"}) {
 		t.Fatalf("signal IDs = %v, want configured_high_finance", signalIDs(result.Signals))
 	}
 }
 
-func TestEvaluateSaaSNormalizesAWSIdentityCenterSourceKindForScopedRules(t *testing.T) {
+func TestEvaluateSaaSNormalizesAWSIdentityCenterSourceKindForPolicies(t *testing.T) {
 	t.Parallel()
 
 	registry, err := LoadDocuments(map[string][]byte{
@@ -305,33 +264,24 @@ entity_policy_pack:
     id: global
     version: 1.0.0
     domain: saas
-  spec:
-    inputs:
-      schema: saas_app_risk_input.v1
-    levels:
-      - level: low
-        when: "true"
-`),
-		"scoped.yaml": []byte(`
-kind: opensspm.entity_policy_pack
-schema_version: 2
-entity_policy_pack:
-  metadata:
-    id: scoped
-    version: 1.0.0
-    domain: saas
-  spec:
-    scoped_rules:
-      - id: aws_policy
-        scope:
-          app:
-            source_kind: aws
-        rules:
-          - id: aws_scoped_signal
-            severity: medium
-            score_delta: 11
-            when: "true"
-            title: AWS app matched scoped source policy
+  inputs:
+    schema: saas_app_risk_input.v1
+  policy:
+    engine: rego
+    package: opensspm.entity.aws_source
+    query: data.opensspm.entity.aws_source.result
+    rego: |
+      package opensspm.entity.aws_source
+
+      result := {
+        "risk_level": "low",
+        "risk_score": 11,
+        "signals": [{"id": "aws_source_signal", "severity": "medium", "title": "AWS app matched source policy"}],
+      } if { input.entity.source_kind == "aws" }
+
+      result := {"risk_level": "low", "risk_score": 0, "signals": []} if {
+        input.entity.source_kind != "aws"
+      }
 `),
 	})
 	if err != nil {
@@ -347,8 +297,8 @@ entity_policy_pack:
 	if result.RiskScore != 11 {
 		t.Fatalf("RiskScore = %d, want 11; result=%+v", result.RiskScore, result)
 	}
-	if len(result.Signals) != 1 || result.Signals[0].ID != "aws_scoped_signal" {
-		t.Fatalf("signals = %+v, want aws scoped signal", result.Signals)
+	if len(result.Signals) != 1 || result.Signals[0].ID != "aws_source_signal" {
+		t.Fatalf("signals = %+v, want aws source signal", result.Signals)
 	}
 }
 
@@ -457,7 +407,7 @@ func saasGoldenCases() []saasGoldenCase {
 			wantSignalIDs:                    []string{"privileged_scopes"},
 		},
 		{
-			name: "github missing owner matches scoped policy by domain",
+			name: "github missing owner matches app override by domain",
 			input: SaaSInput{
 				CanonicalKey:    "domain:github.com",
 				PrimaryDomain:   "github.com",
@@ -466,9 +416,9 @@ func saasGoldenCases() []saasGoldenCase {
 			},
 			wantScore:                        35,
 			wantLevel:                        SeverityMedium,
-			wantBusinessCriticality:          "high",
+			wantBusinessCriticality:          "low",
 			wantDataClassification:           "internal",
-			wantEffectiveBusinessCriticality: "high",
+			wantEffectiveBusinessCriticality: "low",
 			wantEffectiveDataClassification:  "internal",
 			wantSignalIDs: []string{
 				"missing_owner",
@@ -476,7 +426,7 @@ func saasGoldenCases() []saasGoldenCase {
 			},
 		},
 		{
-			name: "github missing owner matches scoped policy by vendor",
+			name: "github missing owner matches app override by vendor",
 			input: SaaSInput{
 				CanonicalKey:    "okta_app:acme.okta.com:00ogithub",
 				VendorName:      "GitHub",
@@ -485,9 +435,9 @@ func saasGoldenCases() []saasGoldenCase {
 			},
 			wantScore:                        35,
 			wantLevel:                        SeverityMedium,
-			wantBusinessCriticality:          "high",
+			wantBusinessCriticality:          "low",
 			wantDataClassification:           "internal",
-			wantEffectiveBusinessCriticality: "high",
+			wantEffectiveBusinessCriticality: "low",
 			wantEffectiveDataClassification:  "internal",
 			wantSignalIDs: []string{
 				"missing_owner",
@@ -495,7 +445,7 @@ func saasGoldenCases() []saasGoldenCase {
 			},
 		},
 		{
-			name: "github domain and vendor do not double score scoped policy",
+			name: "github domain and vendor do not double score app override",
 			input: SaaSInput{
 				CanonicalKey:    "domain:github.com",
 				PrimaryDomain:   "github.com",
@@ -505,9 +455,9 @@ func saasGoldenCases() []saasGoldenCase {
 			},
 			wantScore:                        35,
 			wantLevel:                        SeverityMedium,
-			wantBusinessCriticality:          "high",
+			wantBusinessCriticality:          "low",
 			wantDataClassification:           "internal",
-			wantEffectiveBusinessCriticality: "high",
+			wantEffectiveBusinessCriticality: "low",
 			wantEffectiveDataClassification:  "internal",
 			wantSignalIDs: []string{
 				"missing_owner",

@@ -13,12 +13,12 @@ type RiskPolicyPackSummary struct {
 }
 
 type SettingsViewData struct {
-	Layout                LayoutData
-	SyncInterval          string
-	SyncDiscoveryInterval string
-	SyncDiscoveryEnabled  bool
-	ResyncEnabled         bool
-	ResyncBanner          *ResyncBanner
-	RiskPolicyPacks       []RiskPolicyPackSummary
-	RiskPolicyExpressions int
+	Layout                 LayoutData
+	SyncInterval           string
+	SyncDiscoveryInterval  string
+	SyncDiscoveryEnabled   bool
+	ResyncEnabled          bool
+	ResyncBanner           *ResyncBanner
+	RiskPolicyPacks        []RiskPolicyPackSummary
+	RiskPolicyRegoPolicies int
 }

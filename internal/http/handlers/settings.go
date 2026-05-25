@@ -68,14 +68,14 @@ func (h *Handlers) HandleSettings(c *echo.Context) error {
 	}
 
 	data := viewmodels.SettingsViewData{
-		Layout:                layout,
-		SyncInterval:          h.Cfg.SyncInterval.String(),
-		SyncDiscoveryInterval: h.Cfg.SyncDiscoveryInterval.String(),
-		SyncDiscoveryEnabled:  h.Cfg.SyncDiscoveryEnabled,
-		ResyncEnabled:         h.Syncer != nil,
-		ResyncBanner:          banner,
-		RiskPolicyPacks:       riskPolicyPackSummaries(h.RiskPolicies),
-		RiskPolicyExpressions: riskPolicyExpressionCount(h.RiskPolicies),
+		Layout:                 layout,
+		SyncInterval:           h.Cfg.SyncInterval.String(),
+		SyncDiscoveryInterval:  h.Cfg.SyncDiscoveryInterval.String(),
+		SyncDiscoveryEnabled:   h.Cfg.SyncDiscoveryEnabled,
+		ResyncEnabled:          h.Syncer != nil,
+		ResyncBanner:           banner,
+		RiskPolicyPacks:        riskPolicyPackSummaries(h.RiskPolicies),
+		RiskPolicyRegoPolicies: riskPolicyRegoPolicyCount(h.RiskPolicies),
 	}
 
 	return h.RenderComponent(c, views.SettingsPage(data))
@@ -103,11 +103,11 @@ func riskPolicyPackSummaries(registry *riskpolicy.Registry) []viewmodels.RiskPol
 	return summaries
 }
 
-func riskPolicyExpressionCount(registry *riskpolicy.Registry) int {
+func riskPolicyRegoPolicyCount(registry *riskpolicy.Registry) int {
 	if registry == nil {
 		return 0
 	}
-	return registry.CompiledExpressionCount()
+	return registry.RegoPolicyCount()
 }
 
 // HandleConnectors renders the connectors page.
