@@ -139,6 +139,8 @@ func ReportAndFailSyncRun(ctx context.Context, q *gen.Queries, runID int64, repo
 	return FailSyncRun(ctx, q, runID, err, errorKind)
 }
 
+// PHASE-TWO-DELETE: retained for legacy direct finalization callers; Okta full
+// sync finalizes production state through records.SnapshotComplete.
 func FinalizeOktaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceName string, duration time.Duration, finalizeDiscovery bool) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -811,6 +813,10 @@ func finalizeRunCountsInTx(ctx context.Context, q *gen.Queries, runID int64, cou
 		"duration_ms": duration.Milliseconds(),
 	})
 	return finalizeSuccessfulRunInTx(ctx, q, runID, stats, sourceKind, sourceName)
+}
+
+func FinalizeRunCountsInTx(ctx context.Context, q *gen.Queries, runID int64, counts map[string]int64, duration time.Duration, sourceKind, sourceName string) error {
+	return finalizeRunCountsInTx(ctx, q, runID, counts, duration, sourceKind, sourceName)
 }
 
 func finalizeSuccessfulRunInTx(ctx context.Context, q *gen.Queries, runID int64, stats []byte, sourceKind, sourceName string) error {

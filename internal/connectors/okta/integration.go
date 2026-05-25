@@ -157,7 +157,7 @@ func (i *OktaIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pgx
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 
-	if err := registry.FinalizeOktaRun(ctx, q, pool, runID, i.sourceName, time.Since(started), false); err != nil {
+	if err := finalizeOktaRecordSnapshots(ctx, q, pool, runID, i.sourceName, time.Since(started)); err != nil {
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 

@@ -54,12 +54,6 @@ func (d testConnectorDefinition) IsConfigured(any) bool { return false }
 
 func (d testConnectorDefinition) SourceName(any) string { return "" }
 
-func (d testConnectorDefinition) DefaultSubtitle() string { return "" }
-
-func (d testConnectorDefinition) ConfiguredSubtitle(any) string { return "" }
-
-func (d testConnectorDefinition) SettingsHref() string { return "" }
-
 func (d testConnectorDefinition) MetricsProvider() registry.MetricsProvider { return nil }
 
 func (d testConnectorDefinition) NewIntegration(any) (registry.Integration, error) { return nil, nil }

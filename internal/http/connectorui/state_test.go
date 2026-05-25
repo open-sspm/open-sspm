@@ -3,6 +3,7 @@ package connectorui
 import (
 	"testing"
 
+	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 )
 
@@ -18,9 +19,6 @@ func (d testDefinition) DecodeConfig([]byte) (any, error)                 { retu
 func (d testDefinition) ValidateConfig(any) error                         { return nil }
 func (d testDefinition) IsConfigured(any) bool                            { return false }
 func (d testDefinition) SourceName(any) string                            { return "" }
-func (d testDefinition) DefaultSubtitle() string                          { return "default subtitle" }
-func (d testDefinition) ConfiguredSubtitle(any) string                    { return "configured subtitle" }
-func (d testDefinition) SettingsHref() string                             { return "/settings/connectors/" + d.kind + "/dialog" }
 func (d testDefinition) MetricsProvider() registry.MetricsProvider        { return nil }
 func (d testDefinition) NewIntegration(any) (registry.Integration, error) { return nil, nil }
 
@@ -29,6 +27,7 @@ func TestStatePresenterActionsForConfiguredOkta(t *testing.T) {
 		Definition: testDefinition{kind: "okta", role: registry.RoleIdP},
 		Configured: true,
 		Enabled:    true,
+		Config:     configstore.OktaConfig{Domain: "example.okta.com"},
 		SourceName: "example.okta.com",
 		Metrics: &registry.ConnectorMetrics{
 			Total: 42,
@@ -47,13 +46,26 @@ func TestStatePresenterActionsForConfiguredOkta(t *testing.T) {
 	if got := p.SecondaryLabel(); got != "Browse apps" {
 		t.Fatalf("SecondaryLabel() = %q, want Browse apps", got)
 	}
-	if got := p.Subtitle(); got != "configured subtitle" {
-		t.Fatalf("Subtitle() = %q, want configured subtitle", got)
+	if got := p.Subtitle(); got != "Domain example.okta.com" {
+		t.Fatalf("Subtitle() = %q, want Domain example.okta.com", got)
 	}
 
 	metrics := p.MetricsKV()
 	if len(metrics) != 3 || metrics[0].Label != "Users" || metrics[0].Value != "42" || metrics[1].Label != "Apps" || metrics[1].Value != "7" {
 		t.Fatalf("MetricsKV() = %+v", metrics)
+	}
+}
+
+func TestStatePresenterSettingsHrefForUnconfiguredConnector(t *testing.T) {
+	p := NewStatePresenter(registry.ConnectorState{
+		Definition: testDefinition{kind: "google_workspace", role: registry.RoleApp},
+	})
+
+	if got := p.PrimaryHref(); got != "/settings/connectors?open=google_workspace" {
+		t.Fatalf("PrimaryHref() = %q, want settings connector href", got)
+	}
+	if got := p.Subtitle(); got != "Users, groups, OAuth grants, and token audits from Google Workspace." {
+		t.Fatalf("Subtitle() = %q, want Google Workspace default subtitle", got)
 	}
 }
 

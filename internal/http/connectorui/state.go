@@ -2,8 +2,10 @@ package connectorui
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
+	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
@@ -18,10 +20,7 @@ func NewStatePresenter(state registry.ConnectorState) StatePresenter {
 }
 
 func (p StatePresenter) Subtitle() string {
-	if p.state.Configured {
-		return p.state.Definition.ConfiguredSubtitle(p.state.Config)
-	}
-	return p.state.Definition.DefaultSubtitle()
+	return connectorSubtitle(p.kind(), p.state.Config, p.state.Configured)
 }
 
 func (p StatePresenter) StatusClass() string {
@@ -46,7 +45,7 @@ func (p StatePresenter) MetricsKV() []viewmodels.GlobalViewKV {
 		}
 	}
 
-	if p.state.Definition.Role() == registry.RoleIdP {
+	if p.role() == registry.RoleIdP {
 		return []viewmodels.GlobalViewKV{
 			{Label: "Users", Value: views.FormatInt64(p.state.Metrics.Total)},
 			{Label: "Apps", Value: views.FormatInt64(p.state.Metrics.Extras["apps"])},
@@ -69,7 +68,7 @@ func (p StatePresenter) HighlightsKV() []viewmodels.GlobalViewKV {
 		}
 	}
 
-	if p.state.Definition.Role() == registry.RoleIdP {
+	if p.role() == registry.RoleIdP {
 		domain := strings.TrimSpace(p.state.SourceName)
 		if domain == "" {
 			domain = "—"
@@ -90,11 +89,11 @@ func (p StatePresenter) HighlightsKV() []viewmodels.GlobalViewKV {
 
 func (p StatePresenter) PrimaryHref() string {
 	if p.state.Configured && p.state.Enabled {
-		if href := connectorBrowseUsersHref(p.state.Definition.Kind()); href != "" {
+		if href := connectorBrowseUsersHref(p.kind()); href != "" {
 			return href
 		}
 	}
-	return p.state.Definition.SettingsHref()
+	return SettingsHrefForKind(p.kind())
 }
 
 func (p StatePresenter) PrimaryLabel() string {
@@ -106,16 +105,116 @@ func (p StatePresenter) PrimaryLabel() string {
 
 func (p StatePresenter) SecondaryHref() string {
 	if p.state.Configured && p.state.Enabled {
-		return connectorNeedsAnchorHref(p.state.Definition.Kind(), p.state.SourceName)
+		return connectorNeedsAnchorHref(p.kind(), p.state.SourceName)
 	}
 	return ""
 }
 
 func (p StatePresenter) SecondaryLabel() string {
 	if p.state.Configured && p.state.Enabled {
-		return connectorSecondaryLabel(p.state.Definition.Kind())
+		return connectorSecondaryLabel(p.kind())
 	}
 	return ""
+}
+
+func (p StatePresenter) kind() string {
+	if p.state.Definition == nil {
+		return ""
+	}
+	return strings.TrimSpace(p.state.Definition.Kind())
+}
+
+func (p StatePresenter) role() registry.IntegrationRole {
+	if p.state.Definition == nil {
+		return ""
+	}
+	return p.state.Definition.Role()
+}
+
+func SettingsHrefForKind(kind string) string {
+	kind = strings.TrimSpace(kind)
+	if kind == "" {
+		return "/settings/connectors"
+	}
+	return "/settings/connectors?open=" + url.QueryEscape(kind)
+}
+
+func connectorSubtitle(kind string, cfg any, configured bool) string {
+	if configured {
+		if subtitle := configuredSubtitle(kind, cfg); subtitle != "" {
+			return subtitle
+		}
+	}
+	return defaultSubtitle(kind)
+}
+
+func configuredSubtitle(kind string, cfg any) string {
+	switch strings.TrimSpace(kind) {
+	case configstore.KindOkta:
+		if c, ok := cfg.(configstore.OktaConfig); ok && strings.TrimSpace(c.Domain) != "" {
+			return "Domain " + strings.TrimSpace(c.Domain)
+		}
+	case configstore.KindGoogleWorkspace:
+		if c, ok := cfg.(configstore.GoogleWorkspaceConfig); ok {
+			if strings.TrimSpace(c.PrimaryDomain) != "" {
+				return "Domain " + strings.TrimSpace(c.PrimaryDomain)
+			}
+			if strings.TrimSpace(c.CustomerID) != "" {
+				return "Customer " + strings.TrimSpace(c.CustomerID)
+			}
+		}
+	case configstore.KindEntra:
+		if c, ok := cfg.(configstore.EntraConfig); ok && strings.TrimSpace(c.TenantID) != "" {
+			return "Tenant " + strings.TrimSpace(c.TenantID)
+		}
+	case configstore.KindGitHub:
+		if c, ok := cfg.(configstore.GitHubConfig); ok && strings.TrimSpace(c.Org) != "" {
+			return "Org " + strings.TrimSpace(c.Org)
+		}
+	case configstore.KindDatadog:
+		if c, ok := cfg.(configstore.DatadogConfig); ok && strings.TrimSpace(c.Site) != "" {
+			return "Site " + strings.TrimSpace(c.Site)
+		}
+	case configstore.KindAWSIdentityCenter:
+		if c, ok := cfg.(configstore.AWSIdentityCenterConfig); ok {
+			name := strings.TrimSpace(c.Name)
+			if name == "" {
+				name = strings.TrimSpace(c.Region)
+			}
+			if name != "" {
+				return "Instance " + name
+			}
+		}
+	case configstore.KindVault:
+		if c, ok := cfg.(configstore.VaultConfig); ok {
+			source := strings.TrimSpace(c.Normalized().SourceName())
+			if source != "" {
+				return "Source " + source
+			}
+		}
+	}
+	return ""
+}
+
+func defaultSubtitle(kind string) string {
+	switch strings.TrimSpace(kind) {
+	case configstore.KindOkta:
+		return "Syncs Okta users and app assignments."
+	case configstore.KindGoogleWorkspace:
+		return "Users, groups, OAuth grants, and token audits from Google Workspace."
+	case configstore.KindEntra:
+		return "Users and access via Microsoft Graph."
+	case configstore.KindGitHub:
+		return "Organization members and permissions."
+	case configstore.KindDatadog:
+		return "Users and roles."
+	case configstore.KindAWSIdentityCenter:
+		return "Account assignments via permission sets."
+	case configstore.KindVault:
+		return "Identity entities, policies, mounts, and auth roles."
+	default:
+		return "Configure connector."
+	}
 }
 
 func connectorBrowseUsersHref(kind string) string {

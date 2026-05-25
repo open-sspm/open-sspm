@@ -153,7 +153,7 @@ WHERE rs.key = $1
   AND r.is_active = true
 ORDER BY r.key;
 
--- PHASE-TWO-DELETE: rule detail still reads rule_results_current until its finding readmodel is cut over in Phase Two.
+-- PHASE-TWO-DELETE: retained for legacy/parity consumers; findings rule detail reads canonical findings via findings.sql.
 -- name: GetRuleWithCurrentResultByRulesetKeyAndRuleKey :one
 SELECT
   r.*,

@@ -17,12 +17,31 @@ import (
 )
 
 type OktaStateProjector struct {
-	q     *gen.Queries
-	runID int64
+	q      *gen.Queries
+	runID  int64
+	counts map[string]int64
 }
 
 func NewOktaStateProjector(q *gen.Queries, runID int64) *OktaStateProjector {
-	return &OktaStateProjector{q: q, runID: runID}
+	return &OktaStateProjector{q: q, runID: runID, counts: make(map[string]int64)}
+}
+
+func (p *OktaStateProjector) Counts() map[string]int64 {
+	out := make(map[string]int64)
+	if p == nil {
+		return out
+	}
+	for key, value := range p.counts {
+		out[key] = value
+	}
+	return out
+}
+
+func (p *OktaStateProjector) addCount(key string, value int64) {
+	if p.counts == nil {
+		p.counts = make(map[string]int64)
+	}
+	p.counts[key] += value
 }
 
 func (p *OktaStateProjector) UpsertState(ctx context.Context, record records.StateUpsert) error {
@@ -97,139 +116,170 @@ func (p *OktaStateProjector) CompleteSnapshot(ctx context.Context, record record
 	runID := registry.PgInt8(p.runID)
 	switch record.Resource {
 	case records.ResourceIdentity:
-		if _, err := p.q.PromoteSourceAccountsSeenInRun(ctx, gen.PromoteSourceAccountsSeenInRunParams{
+		observed, err := p.q.PromoteSourceAccountsSeenInRun(ctx, gen.PromoteSourceAccountsSeenInRunParams{
 			LastObservedRunID: runID,
 			SourceKind:        "okta",
 			SourceName:        record.SourceName(),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
+		p.addCount("okta_accounts_observed", observed)
 		if record.ExpireAbsent {
-			_, err := p.q.ExpireSourceAccountsNotSeenInRun(ctx, gen.ExpireSourceAccountsNotSeenInRunParams{
+			expired, err := p.q.ExpireSourceAccountsNotSeenInRun(ctx, gen.ExpireSourceAccountsNotSeenInRunParams{
 				ExpiredRunID: runID,
 				SourceKind:   "okta",
 				SourceName:   record.SourceName(),
 			})
+			p.addCount("okta_accounts_expired", expired)
 			return err
 		}
 	case records.ResourceGroup:
-		if _, err := p.q.PromoteOktaGroupsSeenInRunBySource(ctx, gen.PromoteOktaGroupsSeenInRunBySourceParams{
+		observed, err := p.q.PromoteOktaGroupsSeenInRunBySource(ctx, gen.PromoteOktaGroupsSeenInRunBySourceParams{
 			LastObservedRunID: p.runID,
 			SourceKind:        "okta",
 			SourceName:        record.SourceName(),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
-		if _, err := p.q.PromoteOktaGroupMembershipsSeenInRunBySource(ctx, gen.PromoteOktaGroupMembershipsSeenInRunBySourceParams{
+		p.addCount("okta_groups_observed", observed)
+		observed, err = p.q.PromoteOktaGroupMembershipsSeenInRunBySource(ctx, gen.PromoteOktaGroupMembershipsSeenInRunBySourceParams{
 			LastObservedRunID: p.runID,
 			SourceKind:        "okta",
 			SourceName:        record.SourceName(),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
+		p.addCount("okta_group_memberships_observed", observed)
 		if record.ExpireAbsent {
-			if _, err := p.q.ExpireOktaGroupsNotSeenInRunBySource(ctx, gen.ExpireOktaGroupsNotSeenInRunBySourceParams{
-				ExpiredRunID: p.runID,
-				SourceKind:   "okta",
-				SourceName:   record.SourceName(),
-			}); err != nil {
-				return err
-			}
-			_, err := p.q.ExpireOktaGroupMembershipsNotSeenInRunBySource(ctx, gen.ExpireOktaGroupMembershipsNotSeenInRunBySourceParams{
+			expired, err := p.q.ExpireOktaGroupsNotSeenInRunBySource(ctx, gen.ExpireOktaGroupsNotSeenInRunBySourceParams{
 				ExpiredRunID: p.runID,
 				SourceKind:   "okta",
 				SourceName:   record.SourceName(),
 			})
+			if err != nil {
+				return err
+			}
+			p.addCount("okta_groups_expired", expired)
+			expired, err = p.q.ExpireOktaGroupMembershipsNotSeenInRunBySource(ctx, gen.ExpireOktaGroupMembershipsNotSeenInRunBySourceParams{
+				ExpiredRunID: p.runID,
+				SourceKind:   "okta",
+				SourceName:   record.SourceName(),
+			})
+			p.addCount("okta_group_memberships_expired", expired)
 			return err
 		}
 	case records.ResourceApplication:
-		if _, err := p.q.PromoteOktaAppsSeenInRunBySource(ctx, gen.PromoteOktaAppsSeenInRunBySourceParams{
+		observed, err := p.q.PromoteOktaAppsSeenInRunBySource(ctx, gen.PromoteOktaAppsSeenInRunBySourceParams{
 			LastObservedRunID: p.runID,
 			SourceKind:        "okta",
 			SourceName:        record.SourceName(),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
+		p.addCount("okta_apps_observed", observed)
 		if record.ExpireAbsent {
-			_, err := p.q.ExpireOktaAppsNotSeenInRunBySource(ctx, gen.ExpireOktaAppsNotSeenInRunBySourceParams{
+			expired, err := p.q.ExpireOktaAppsNotSeenInRunBySource(ctx, gen.ExpireOktaAppsNotSeenInRunBySourceParams{
 				ExpiredRunID: p.runID,
 				SourceKind:   "okta",
 				SourceName:   record.SourceName(),
 			})
+			p.addCount("okta_apps_expired", expired)
 			return err
 		}
 	case records.ResourceEntitlement:
-		if _, err := p.q.PromoteOktaAppAssignmentsSeenInRunBySource(ctx, gen.PromoteOktaAppAssignmentsSeenInRunBySourceParams{
+		observed, err := p.q.PromoteOktaAppAssignmentsSeenInRunBySource(ctx, gen.PromoteOktaAppAssignmentsSeenInRunBySourceParams{
 			LastObservedRunID: p.runID,
 			SourceKind:        "okta",
 			SourceName:        record.SourceName(),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
-		if _, err := p.q.PromoteOktaAppGroupAssignmentsSeenInRunBySource(ctx, gen.PromoteOktaAppGroupAssignmentsSeenInRunBySourceParams{
+		p.addCount("okta_app_assignments_observed", observed)
+		observed, err = p.q.PromoteOktaAppGroupAssignmentsSeenInRunBySource(ctx, gen.PromoteOktaAppGroupAssignmentsSeenInRunBySourceParams{
 			LastObservedRunID: p.runID,
 			SourceKind:        "okta",
 			SourceName:        record.SourceName(),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
-		if _, err := p.q.PromoteEntitlementsSeenInRunBySource(ctx, gen.PromoteEntitlementsSeenInRunBySourceParams{
+		p.addCount("okta_app_group_assignments_observed", observed)
+		observed, err = p.q.PromoteEntitlementsSeenInRunBySource(ctx, gen.PromoteEntitlementsSeenInRunBySourceParams{
 			LastObservedRunID: runID,
 			SourceKind:        "okta",
 			SourceName:        record.SourceName(),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
+		p.addCount("entitlements_observed", observed)
 		if record.ExpireAbsent {
-			if _, err := p.q.ExpireOktaAppAssignmentsNotSeenInRunBySource(ctx, gen.ExpireOktaAppAssignmentsNotSeenInRunBySourceParams{
+			expired, err := p.q.ExpireOktaAppAssignmentsNotSeenInRunBySource(ctx, gen.ExpireOktaAppAssignmentsNotSeenInRunBySourceParams{
 				ExpiredRunID: p.runID,
 				SourceKind:   "okta",
 				SourceName:   record.SourceName(),
-			}); err != nil {
+			})
+			if err != nil {
 				return err
 			}
-			if _, err := p.q.ExpireOktaAppGroupAssignmentsNotSeenInRunBySource(ctx, gen.ExpireOktaAppGroupAssignmentsNotSeenInRunBySourceParams{
+			p.addCount("okta_app_assignments_expired", expired)
+			expired, err = p.q.ExpireOktaAppGroupAssignmentsNotSeenInRunBySource(ctx, gen.ExpireOktaAppGroupAssignmentsNotSeenInRunBySourceParams{
 				ExpiredRunID: p.runID,
 				SourceKind:   "okta",
 				SourceName:   record.SourceName(),
-			}); err != nil {
+			})
+			if err != nil {
 				return err
 			}
-			_, err := p.q.ExpireEntitlementsNotSeenInRunBySource(ctx, gen.ExpireEntitlementsNotSeenInRunBySourceParams{
+			p.addCount("okta_app_group_assignments_expired", expired)
+			expired, err = p.q.ExpireEntitlementsNotSeenInRunBySource(ctx, gen.ExpireEntitlementsNotSeenInRunBySourceParams{
 				ExpiredRunID: runID,
 				SourceKind:   "okta",
 				SourceName:   record.SourceName(),
 			})
+			p.addCount("entitlements_expired", expired)
 			return err
 		}
 	case records.ResourceDiscoveryEvidence:
-		if _, err := p.q.PromoteSaaSAppSourcesSeenInRunBySource(ctx, gen.PromoteSaaSAppSourcesSeenInRunBySourceParams{
+		observed, err := p.q.PromoteSaaSAppSourcesSeenInRunBySource(ctx, gen.PromoteSaaSAppSourcesSeenInRunBySourceParams{
 			LastObservedRunID: p.runID,
 			SourceKind:        "okta",
 			SourceName:        record.SourceName(),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
-		if _, err := p.q.PromoteSaaSAppEventsSeenInRunBySource(ctx, gen.PromoteSaaSAppEventsSeenInRunBySourceParams{
+		p.addCount("saas_app_sources_observed", observed)
+		observed, err = p.q.PromoteSaaSAppEventsSeenInRunBySource(ctx, gen.PromoteSaaSAppEventsSeenInRunBySourceParams{
 			LastObservedRunID: p.runID,
 			SourceKind:        "okta",
 			SourceName:        record.SourceName(),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
+		p.addCount("saas_app_events_observed", observed)
 		if record.ExpireAbsent {
-			if _, err := p.q.ExpireSaaSAppSourcesNotSeenInRunBySource(ctx, gen.ExpireSaaSAppSourcesNotSeenInRunBySourceParams{
-				ExpiredRunID: p.runID,
-				SourceKind:   "okta",
-				SourceName:   record.SourceName(),
-			}); err != nil {
-				return err
-			}
-			_, err := p.q.ExpireSaaSAppEventsNotSeenInRunBySource(ctx, gen.ExpireSaaSAppEventsNotSeenInRunBySourceParams{
+			expired, err := p.q.ExpireSaaSAppSourcesNotSeenInRunBySource(ctx, gen.ExpireSaaSAppSourcesNotSeenInRunBySourceParams{
 				ExpiredRunID: p.runID,
 				SourceKind:   "okta",
 				SourceName:   record.SourceName(),
 			})
+			if err != nil {
+				return err
+			}
+			p.addCount("saas_app_sources_expired", expired)
+			expired, err = p.q.ExpireSaaSAppEventsNotSeenInRunBySource(ctx, gen.ExpireSaaSAppEventsNotSeenInRunBySourceParams{
+				ExpiredRunID: p.runID,
+				SourceKind:   "okta",
+				SourceName:   record.SourceName(),
+			})
+			p.addCount("saas_app_events_expired", expired)
 			return err
 		}
 	default:

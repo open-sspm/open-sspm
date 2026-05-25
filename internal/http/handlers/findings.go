@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v5"
 	osspecv2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v2"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/connectorui"
 	"github.com/open-sspm/open-sspm/internal/http/events"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
@@ -262,7 +263,7 @@ func (h *Handlers) findingsScopeForRulesetMode(ctx context.Context, rs gen.Rules
 			return findingsScope{ScopeKind: "connector_instance"}, nil
 		}
 
-		hintHref := ""
+		hintHref := connectorui.SettingsHrefForKind(connectorKind)
 		sourceName := ""
 
 		if h.Registry != nil {
@@ -272,7 +273,6 @@ func (h *Handlers) findingsScopeForRulesetMode(ctx context.Context, rs gen.Rules
 			}
 			for _, st := range states {
 				if strings.EqualFold(strings.TrimSpace(st.Definition.Kind()), connectorKind) {
-					hintHref = strings.TrimSpace(st.Definition.SettingsHref())
 					if concreteSource {
 						sourceName = strings.TrimSpace(st.SourceName)
 					}
@@ -401,9 +401,9 @@ func (h *Handlers) HandleFindingsRule(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	r, err := h.Q.GetRuleWithCurrentResultByRulesetKeyAndRuleKey(ctx, gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyParams{
-		Key:        rulesetKey,
-		Key_2:      ruleKey,
+	r, err := h.Q.GetFindingRuleCurrentByRulesetKeyAndRuleKey(ctx, gen.GetFindingRuleCurrentByRulesetKeyAndRuleKeyParams{
+		RulesetKey: rulesetKey,
+		RuleKey:    ruleKey,
 		ScopeKind:  scope.ScopeKind,
 		SourceKind: scope.SourceKind,
 		SourceName: scope.SourceName,
@@ -430,9 +430,9 @@ func (h *Handlers) renderFindingsRuleMutationResponse(c *echo.Context, rs gen.Ru
 		return RenderNotFound(c)
 	}
 
-	r, err := h.Q.GetRuleWithCurrentResultByRulesetKeyAndRuleKey(ctx, gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyParams{
-		Key:        rulesetKey,
-		Key_2:      ruleKey,
+	r, err := h.Q.GetFindingRuleCurrentByRulesetKeyAndRuleKey(ctx, gen.GetFindingRuleCurrentByRulesetKeyAndRuleKeyParams{
+		RulesetKey: rulesetKey,
+		RuleKey:    ruleKey,
 		ScopeKind:  scope.ScopeKind,
 		SourceKind: scope.SourceKind,
 		SourceName: scope.SourceName,
@@ -473,9 +473,9 @@ func (h *Handlers) HandleFindingsRuleOverride(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	r, err := h.Q.GetRuleWithCurrentResultByRulesetKeyAndRuleKey(ctx, gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyParams{
-		Key:        rulesetKey,
-		Key_2:      ruleKey,
+	r, err := h.Q.GetFindingRuleCurrentByRulesetKeyAndRuleKey(ctx, gen.GetFindingRuleCurrentByRulesetKeyAndRuleKeyParams{
+		RulesetKey: rulesetKey,
+		RuleKey:    ruleKey,
 		ScopeKind:  scope.ScopeKind,
 		SourceKind: scope.SourceKind,
 		SourceName: scope.SourceName,
@@ -552,9 +552,9 @@ func (h *Handlers) HandleFindingsRuleAttestation(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	r, err := h.Q.GetRuleWithCurrentResultByRulesetKeyAndRuleKey(ctx, gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyParams{
-		Key:        rulesetKey,
-		Key_2:      ruleKey,
+	r, err := h.Q.GetFindingRuleCurrentByRulesetKeyAndRuleKey(ctx, gen.GetFindingRuleCurrentByRulesetKeyAndRuleKeyParams{
+		RulesetKey: rulesetKey,
+		RuleKey:    ruleKey,
 		ScopeKind:  scope.ScopeKind,
 		SourceKind: scope.SourceKind,
 		SourceName: scope.SourceName,
@@ -969,7 +969,7 @@ func parseDatetimeLocal(v string) (pgtype.Timestamptz, error) {
 	return pgtype.Timestamptz{Time: t, Valid: true}, nil
 }
 
-func (h *Handlers) buildFindingsRuleViewData(ctx context.Context, c *echo.Context, rs gen.Ruleset, r gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow, scope findingsScope, alert *viewmodels.AlertViewData) (viewmodels.FindingsRuleViewData, error) {
+func (h *Handlers) buildFindingsRuleViewData(ctx context.Context, c *echo.Context, rs gen.Ruleset, r gen.GetFindingRuleCurrentByRulesetKeyAndRuleKeyRow, scope findingsScope, alert *viewmodels.AlertViewData) (viewmodels.FindingsRuleViewData, error) {
 	layout, _, err := h.LayoutData(ctx, c, strings.TrimSpace(rs.Name))
 	if err != nil {
 		return viewmodels.FindingsRuleViewData{}, err
@@ -1033,7 +1033,7 @@ func (h *Handlers) buildFindingsRuleViewData(ctx context.Context, c *echo.Contex
 	}, nil
 }
 
-func (h *Handlers) renderRuleWithAlert(c *echo.Context, rs gen.Ruleset, r gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow, scope findingsScope, alert viewmodels.AlertViewData) error {
+func (h *Handlers) renderRuleWithAlert(c *echo.Context, rs gen.Ruleset, r gen.GetFindingRuleCurrentByRulesetKeyAndRuleKeyRow, scope findingsScope, alert viewmodels.AlertViewData) error {
 	ctx := c.Request().Context()
 
 	data, err := h.buildFindingsRuleViewData(ctx, c, rs, r, scope, &alert)

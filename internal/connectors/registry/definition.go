@@ -13,11 +13,6 @@ type ConnectorDefinition interface {
 	IsConfigured(cfg any) bool
 	SourceName(cfg any) string // e.g., org name, domain
 
-	// UI Metadata
-	DefaultSubtitle() string
-	ConfiguredSubtitle(cfg any) string
-	SettingsHref() string
-
 	// Metrics (optional - returns nil if not applicable)
 	MetricsProvider() MetricsProvider
 

@@ -42,22 +42,6 @@ func (d *Definition) SourceName(cfg any) string {
 	return cfg.(configstore.GitHubConfig).Org
 }
 
-func (d *Definition) DefaultSubtitle() string {
-	return "Organization members and permissions."
-}
-
-func (d *Definition) ConfiguredSubtitle(cfg any) string {
-	org := cfg.(configstore.GitHubConfig).Org
-	if org != "" {
-		return "Org " + org
-	}
-	return d.DefaultSubtitle()
-}
-
-func (d *Definition) SettingsHref() string {
-	return "/settings/connectors?open=github"
-}
-
 func (d *Definition) MetricsProvider() registry.MetricsProvider {
 	return registry.NewUserSourceMetricsProvider(configstore.KindGitHub)
 }

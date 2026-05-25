@@ -41,9 +41,6 @@ func (d commandSearchTestDefinition) Kind() string                       { retur
 func (d commandSearchTestDefinition) DisplayName() string                { return d.displayName }
 func (d commandSearchTestDefinition) Role() connregistry.IntegrationRole { return d.role }
 func (d commandSearchTestDefinition) ValidateConfig(any) error           { return nil }
-func (d commandSearchTestDefinition) DefaultSubtitle() string            { return "" }
-func (d commandSearchTestDefinition) ConfiguredSubtitle(any) string      { return "" }
-func (d commandSearchTestDefinition) SettingsHref() string               { return "/settings/connectors" }
 func (d commandSearchTestDefinition) MetricsProvider() connregistry.MetricsProvider {
 	return nil
 }

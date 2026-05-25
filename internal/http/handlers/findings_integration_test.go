@@ -154,15 +154,25 @@ func TestHandleFindingsRuleUsesConcreteConnectorSourceScope(t *testing.T) {
 		rule := seedRuleForFindingsHandler(t, ctx, q, ruleset.ID, "001-detail")
 
 		evaluatedAt := time.Date(2026, time.May, 21, 9, 0, 0, 0, time.UTC)
+		canonical := canonicalRuleFindingForHandler(ruleset.Key, rule, "fail", findings.StatusOpen, evaluatedAt)
+		canonical.Output["evidence"] = map[string]any{
+			"schema_version": 1,
+			"check": map[string]any{
+				"type": "manual",
+			},
+		}
+		if err := findings.NewWriter(q).Write(ctx, canonical); err != nil {
+			t.Fatalf("Write(canonical detail) err = %v", err)
+		}
 		if _, err := q.UpsertRuleResultCurrent(ctx, gen.UpsertRuleResultCurrentParams{
 			RuleID:              rule.ID,
 			ScopeKind:           "connector_instance",
 			SourceKind:          "okta",
 			SourceName:          "example.okta.com",
-			Status:              "fail",
-			EvaluatedAt:         pgtype.Timestamptz{Time: evaluatedAt, Valid: true},
-			EvidenceSummary:     "source-specific current result",
-			EvidenceJson:        []byte(`{"schema_version":1,"check":{"type":"manual"}}`),
+			Status:              "pass",
+			EvaluatedAt:         pgtype.Timestamptz{Time: evaluatedAt.Add(time.Hour), Valid: true},
+			EvidenceSummary:     "legacy current result should be ignored",
+			EvidenceJson:        []byte(`{"legacy":true}`),
 			AffectedResourceIds: []string{},
 		}); err != nil {
 			t.Fatalf("UpsertRuleResultCurrent() err = %v", err)
@@ -203,10 +213,13 @@ func TestHandleFindingsRuleUsesConcreteConnectorSourceScope(t *testing.T) {
 		}
 
 		body := rec.Body.String()
-		for _, want := range []string{"example.okta.com", "source-specific current result", "source-specific attestation"} {
+		for _, want := range []string{"example.okta.com", "canonical fail", "source-specific attestation"} {
 			if !strings.Contains(body, want) {
 				t.Fatalf("body missing %q:\n%s", want, body)
 			}
+		}
+		if strings.Contains(body, "legacy current result should be ignored") {
+			t.Fatalf("rule detail used rule_results_current evidence:\n%s", body)
 		}
 		if strings.Contains(body, "Unknown") {
 			t.Fatalf("rule detail fell back to unknown status:\n%s", body)
@@ -220,15 +233,15 @@ func TestHandleFindingsRuleUsesConcreteConnectorSourceScope(t *testing.T) {
 			t.Fatalf("concrete SourceName = %q, want example.okta.com", scope.SourceName)
 		}
 
-		row, err := q.GetRuleWithCurrentResultByRulesetKeyAndRuleKey(ctx, gen.GetRuleWithCurrentResultByRulesetKeyAndRuleKeyParams{
-			Key:        ruleset.Key,
-			Key_2:      rule.Key,
+		row, err := q.GetFindingRuleCurrentByRulesetKeyAndRuleKey(ctx, gen.GetFindingRuleCurrentByRulesetKeyAndRuleKeyParams{
+			RulesetKey: ruleset.Key,
+			RuleKey:    rule.Key,
 			ScopeKind:  scope.ScopeKind,
 			SourceKind: scope.SourceKind,
 			SourceName: scope.SourceName,
 		})
 		if err != nil {
-			t.Fatalf("GetRuleWithCurrentResultByRulesetKeyAndRuleKey() err = %v", err)
+			t.Fatalf("GetFindingRuleCurrentByRulesetKeyAndRuleKey() err = %v", err)
 		}
 		data, err := h.buildFindingsRuleViewData(ctx, c, ruleset, row, scope, nil)
 		if err != nil {
@@ -236,6 +249,9 @@ func TestHandleFindingsRuleUsesConcreteConnectorSourceScope(t *testing.T) {
 		}
 		if data.CurrentStatus != "fail" {
 			t.Fatalf("CurrentStatus = %q, want fail", data.CurrentStatus)
+		}
+		if data.Evidence.CheckType != "manual" {
+			t.Fatalf("Evidence.CheckType = %q, want manual", data.Evidence.CheckType)
 		}
 		if data.RuleOverride.Enabled {
 			t.Fatalf("RuleOverride.Enabled = true, want false")

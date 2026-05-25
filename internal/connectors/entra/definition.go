@@ -36,22 +36,6 @@ func (d *Definition) SourceName(cfg any) string {
 	return cfg.(configstore.EntraConfig).TenantID
 }
 
-func (d *Definition) DefaultSubtitle() string {
-	return "Users and access via Microsoft Graph."
-}
-
-func (d *Definition) ConfiguredSubtitle(cfg any) string {
-	tenantID := cfg.(configstore.EntraConfig).TenantID
-	if tenantID != "" {
-		return "Tenant " + tenantID
-	}
-	return d.DefaultSubtitle()
-}
-
-func (d *Definition) SettingsHref() string {
-	return "/settings/connectors?open=entra"
-}
-
 func (d *Definition) MetricsProvider() registry.MetricsProvider {
 	return registry.NewUserSourceMetricsProvider(configstore.KindEntra)
 }

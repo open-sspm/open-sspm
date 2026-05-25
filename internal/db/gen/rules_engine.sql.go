@@ -169,7 +169,7 @@ type GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow struct {
 	CurrentErrorKind       string             `json:"current_error_kind"`
 }
 
-// PHASE-TWO-DELETE: rule detail still reads rule_results_current until its finding readmodel is cut over in Phase Two.
+// PHASE-TWO-DELETE: retained for legacy/parity consumers; findings rule detail reads canonical findings via findings.sql.
 func (q *Queries) GetRuleWithCurrentResultByRulesetKeyAndRuleKey(ctx context.Context, arg GetRuleWithCurrentResultByRulesetKeyAndRuleKeyParams) (GetRuleWithCurrentResultByRulesetKeyAndRuleKeyRow, error) {
 	row := q.db.QueryRow(ctx, getRuleWithCurrentResultByRulesetKeyAndRuleKey,
 		arg.Key,

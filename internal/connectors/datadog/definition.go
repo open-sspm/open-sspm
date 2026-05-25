@@ -42,22 +42,6 @@ func (d *Definition) SourceName(cfg any) string {
 	return cfg.(configstore.DatadogConfig).Site
 }
 
-func (d *Definition) DefaultSubtitle() string {
-	return "Users and roles."
-}
-
-func (d *Definition) ConfiguredSubtitle(cfg any) string {
-	site := cfg.(configstore.DatadogConfig).Site
-	if site != "" {
-		return "Site " + site
-	}
-	return d.DefaultSubtitle()
-}
-
-func (d *Definition) SettingsHref() string {
-	return "/settings/connectors?open=datadog"
-}
-
 func (d *Definition) MetricsProvider() registry.MetricsProvider {
 	return registry.NewUserSourceMetricsProvider(configstore.KindDatadog)
 }

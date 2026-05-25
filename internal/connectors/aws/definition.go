@@ -53,26 +53,6 @@ func (d *Definition) SourceName(cfg any) string {
 	return c.Region
 }
 
-func (d *Definition) DefaultSubtitle() string {
-	return "Account assignments via permission sets."
-}
-
-func (d *Definition) ConfiguredSubtitle(cfg any) string {
-	c := cfg.(configstore.AWSIdentityCenterConfig)
-	name := c.Name
-	if name == "" {
-		name = c.Region
-	}
-	if name != "" {
-		return "Instance " + name
-	}
-	return d.DefaultSubtitle()
-}
-
-func (d *Definition) SettingsHref() string {
-	return "/settings/connectors?open=aws_identity_center"
-}
-
 func (d *Definition) MetricsProvider() registry.MetricsProvider {
 	return registry.NewUserSourceMetricsProvider("aws")
 }
