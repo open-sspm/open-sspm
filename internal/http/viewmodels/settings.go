@@ -20,5 +20,4 @@ type SettingsViewData struct {
 	ResyncEnabled         bool
 	ResyncBanner          *ResyncBanner
 	RiskPolicyPacks       []RiskPolicyPackSummary
-	RiskPolicyExpressions int
 }

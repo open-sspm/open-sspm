@@ -75,7 +75,6 @@ func (h *Handlers) HandleSettings(c *echo.Context) error {
 		ResyncEnabled:         h.Syncer != nil,
 		ResyncBanner:          banner,
 		RiskPolicyPacks:       riskPolicyPackSummaries(h.RiskPolicies),
-		RiskPolicyExpressions: riskPolicyExpressionCount(h.RiskPolicies),
 	}
 
 	return h.RenderComponent(c, views.SettingsPage(data))
@@ -101,13 +100,6 @@ func riskPolicyPackSummaries(registry *riskpolicy.Registry) []viewmodels.RiskPol
 		return summaries[i].ID < summaries[j].ID
 	})
 	return summaries
-}
-
-func riskPolicyExpressionCount(registry *riskpolicy.Registry) int {
-	if registry == nil {
-		return 0
-	}
-	return registry.CompiledExpressionCount()
 }
 
 // HandleConnectors renders the connectors page.

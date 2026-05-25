@@ -517,9 +517,6 @@ func requiredDatasetsForRule(rule osspecv2.Rule) []string {
 	for _, dataset := range rule.RequiredData {
 		add(dataset)
 	}
-	if rule.Check != nil && rule.Check.Plan != nil {
-		add(rule.Check.Plan.Dataset)
-	}
 
 	out := make([]string, 0, len(seen))
 	for key := range seen {
@@ -599,58 +596,17 @@ func checkSummary(check *osspecv2.Check) map[string]any {
 	if engine != "" {
 		out["engine"] = engine
 	}
-	if expr := strings.TrimSpace(check.Expression); expr != "" {
-		out["expression"] = expr
+	if pkg := strings.TrimSpace(check.Package); pkg != "" {
+		out["package"] = pkg
 	}
-
-	if check.Plan != nil {
-		plan := map[string]any{}
-		if t := strings.TrimSpace(check.Plan.Type); t != "" {
-			plan["type"] = t
-			out["type"] = t
-		}
-		if dataset := strings.TrimSpace(check.Plan.Dataset); dataset != "" {
-			plan["dataset"] = dataset
-			out["dataset"] = dataset
-		}
-		if expr := strings.TrimSpace(check.Plan.WhereExpression); expr != "" {
-			plan["where_expression"] = expr
-		}
-		if expr := strings.TrimSpace(check.Plan.AssertExpression); expr != "" {
-			plan["assert_expression"] = expr
-		}
-		if check.Plan.Expect != nil {
-			plan["expect"] = map[string]any{
-				"match":        strings.TrimSpace(check.Plan.Expect.Match),
-				"min_selected": check.Plan.Expect.MinSelected,
-				"on_empty":     strings.TrimSpace(check.Plan.Expect.OnEmpty),
-			}
-		}
-		if check.Plan.Compare != nil {
-			plan["compare"] = map[string]any{
-				"op":    strings.TrimSpace(check.Plan.Compare.Op),
-				"value": check.Plan.Compare.Value,
-			}
-		}
-		if v := strings.TrimSpace(check.Plan.OnMissingDataset); v != "" {
-			plan["on_missing_dataset"] = v
-		}
-		if v := strings.TrimSpace(check.Plan.OnPermissionDenied); v != "" {
-			plan["on_permission_denied"] = v
-		}
-		if v := strings.TrimSpace(check.Plan.OnSyncError); v != "" {
-			plan["on_sync_error"] = v
-		}
-		out["plan"] = plan
+	if query := strings.TrimSpace(check.Query); query != "" {
+		out["query"] = query
 	}
-
-	if _, ok := out["type"]; !ok {
-		switch engine {
-		case string(osspecv2.CheckEngine_CEL):
-			out["type"] = "cel.expression"
-		case string(osspecv2.CheckEngine_CEL_PLAN):
-			out["type"] = "cel.plan"
-		}
+	if path := strings.TrimSpace(check.RegoPath); path != "" {
+		out["rego_path"] = path
+	}
+	if engine == string(osspecv2.CheckEngine_REGO) {
+		out["type"] = "rego"
 	}
 
 	return out

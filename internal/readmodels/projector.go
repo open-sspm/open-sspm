@@ -658,7 +658,7 @@ func datePtr(value pgtype.Date) *time.Time {
 }
 
 func timestamptzPtr(value pgtype.Timestamptz) *time.Time {
-	if !value.Valid {
+	if !value.Valid || value.InfinityModifier != pgtype.Finite {
 		return nil
 	}
 	t := value.Time.UTC()

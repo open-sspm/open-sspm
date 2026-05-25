@@ -23,9 +23,6 @@ func TestRiskPolicyPackSummariesAreSortedForSettings(t *testing.T) {
 	if len(summaries) != registry.PackCount() {
 		t.Fatalf("summaries len = %d, want %d", len(summaries), registry.PackCount())
 	}
-	if got := riskPolicyExpressionCount(registry); got != registry.CompiledExpressionCount() || got == 0 {
-		t.Fatalf("riskPolicyExpressionCount() = %d, want %d", got, registry.CompiledExpressionCount())
-	}
 
 	for i := 1; i < len(summaries); i++ {
 		previous := summaries[i-1]

@@ -1,7 +1,6 @@
 package riskpolicy
 
 import (
-	"strings"
 	"testing"
 	"time"
 )
@@ -52,7 +51,7 @@ func TestEvaluateIdentityGoldenCases(t *testing.T) {
 	}
 }
 
-func TestEvaluateIdentityRejectsDuplicateGlobalPacks(t *testing.T) {
+func TestEvaluateIdentityAggregatesMultipleRegoPacks(t *testing.T) {
 	t.Parallel()
 
 	registry, err := LoadDocuments(map[string][]byte{
@@ -64,14 +63,19 @@ entity_policy_pack:
     id: a
     version: 1.0.0
     domain: identity
-  spec:
-    inputs:
-      schema: identity_risk_input.v1
-    rules:
-      - id: low
-        severity: low
-        when: "true"
-        title: Low risk
+  inputs:
+    schema: identity_risk_input.v1
+  policy:
+    engine: rego
+    package: opensspm.entity.identity_a
+    query: data.opensspm.entity.identity_a.result
+    rego: |
+      package opensspm.entity.identity_a
+
+      result := {
+        "risk_level": "high",
+        "signals": [{"id": "owner_a", "severity": "high", "title": "Owner signal A"}],
+      }
 `),
 		"b.yaml": []byte(`
 kind: opensspm.entity_policy_pack
@@ -81,26 +85,34 @@ entity_policy_pack:
     id: b
     version: 1.0.0
     domain: identity
-  spec:
-    inputs:
-      schema: identity_risk_input.v1
-    rules:
-      - id: low
-        severity: low
-        when: "true"
-        title: Low risk
+  inputs:
+    schema: identity_risk_input.v1
+  policy:
+    engine: rego
+    package: opensspm.entity.identity_b
+    query: data.opensspm.entity.identity_b.result
+    rego: |
+      package opensspm.entity.identity_b
+
+      result := {
+        "risk_level": "medium",
+        "signals": [{"id": "owner_b", "severity": "medium", "title": "Owner signal B"}],
+      }
 `),
 	})
 	if err != nil {
 		t.Fatalf("LoadDocuments() error = %v", err)
 	}
 
-	_, err = registry.EvaluateIdentity(IdentityInput{})
-	if err == nil {
-		t.Fatal("EvaluateIdentity() error = nil, want duplicate pack error")
+	result, err := registry.EvaluateIdentity(IdentityInput{})
+	if err != nil {
+		t.Fatalf("EvaluateIdentity() error = %v", err)
 	}
-	if !strings.Contains(err.Error(), "multiple identity risk policy packs") {
-		t.Fatalf("EvaluateIdentity() error = %v, want duplicate pack error", err)
+	if result.RiskLevel != SeverityHigh || result.RiskReasonCount != 2 {
+		t.Fatalf("result = %+v, want high with two reasons", result)
+	}
+	if !sameStringSet(signalIDs(result.Signals), []string{"owner_a", "owner_b"}) {
+		t.Fatalf("signal IDs = %v, want owner_a and owner_b", signalIDs(result.Signals))
 	}
 }
 

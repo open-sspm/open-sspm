@@ -108,9 +108,11 @@ func TestEventQueueProcessorDeadLettersAfterMaxAttempts(t *testing.T) {
 		evaluator, err := NewEventEvaluator([]EventRule{
 			{
 				ID:       "event.poison",
-				When:     "1 / severity > 0",
 				Severity: SeverityLow,
 				Title:    "Poison event",
+				Match: func(EventInput) (bool, error) {
+					return false, errors.New("poison event")
+				},
 			},
 		})
 		if err != nil {
