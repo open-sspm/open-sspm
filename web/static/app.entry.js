@@ -1,4 +1,6 @@
 import "open-sspm-app/components/sidebar.js";
+import "open-sspm-app/components/sidebar_nav.js";
+import "open-sspm-app/components/page_title.js";
 import "open-sspm-app/components/popover.js";
 import "open-sspm-app/components/command.js";
 import "open-sspm-app/components/toast.js";

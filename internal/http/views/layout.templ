@@ -8,7 +8,7 @@ templ Layout(data viewmodels.LayoutData) {
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<meta name="htmx-config" content={ `{"allowEval":false,"allowScriptTags":false,"defaultSwapStyle":"outerHTML","historyCacheSize":10,"historyRestoreAsHxRequest":false,"selfRequestsOnly":true,"globalViewTransitions":true}` }/>
+			<meta name="htmx-config" content={ `{"allowEval":false,"allowScriptTags":false,"defaultSwapStyle":"outerHTML","historyCacheSize":10,"historyRestoreAsHxRequest":false,"selfRequestsOnly":true}` }/>
 			<meta name="csrf-token" content={ data.CSRFToken }/>
 			<title>{ data.Title }{ " · Open-SSPM" }</title>
 			<link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
@@ -74,7 +74,7 @@ templ Layout(data viewmodels.LayoutData) {
 								<path fill-rule="evenodd" d="M3 5.25A.75.75 0 0 1 3.75 4.5h12.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 5.25ZM3 10a.75.75 0 0 1 .75-.75h12.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 10Zm0 4.75a.75.75 0 0 1 .75-.75h12.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75Z" clip-rule="evenodd"/>
 							</svg>
 						</button>
-						<h1 class="min-w-0 truncate text-sm font-semibold tracking-tight">{ data.Title }</h1>
+						<h1 id="page-title" class="min-w-0 truncate text-sm font-semibold tracking-tight">{ data.Title }</h1>
 						<div class="flex-1"></div>
 						<div class="flex items-center gap-2">
 							@CommandPaletteTrigger()
@@ -101,7 +101,7 @@ templ Layout(data viewmodels.LayoutData) {
 							</button>
 						</div>
 					</header>
-					<main id="main" role="main" tabindex="-1" data-main-content data-busy-region class="flex-1 focus:outline-none">
+					<main id="main" hx-history-elt role="main" tabindex="-1" data-main-content data-busy-region class="flex-1 focus:outline-none">
 						<div class="w-full px-4 py-6 lg:px-10 lg:py-10 2xl:mx-auto 2xl:max-w-[clamp(72rem,94vw,120rem)]">
 							<section class="space-y-6">
 								{ children... }
