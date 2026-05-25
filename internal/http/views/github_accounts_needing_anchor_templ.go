@@ -63,7 +63,7 @@ func GitHubAccountsNeedingAnchorPage(data viewmodels.GitHubAccountsNeedingAnchor
 					var templ_7745c5c3_Var4 string
 					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.Layout.GitHubOrg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_accounts_needing_anchor.templ`, Line: 9, Col: 55}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_accounts_needing_anchor.templ`, Line: 9, Col: 55}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 					if templ_7745c5c3_Err != nil {
@@ -136,7 +136,7 @@ func GitHubAccountsNeedingAnchorPage(data viewmodels.GitHubAccountsNeedingAnchor
 					var templ_7745c5c3_Var7 string
 					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(data.EmptyStateMsg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_accounts_needing_anchor.templ`, Line: 24, Col: 25}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_accounts_needing_anchor.templ`, Line: 24, Col: 25}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 					if templ_7745c5c3_Err != nil {
@@ -229,7 +229,7 @@ func GitHubAccountsNeedingAnchorPageFilters(data viewmodels.GitHubAccountsNeedin
 		var templ_7745c5c3_Var10 templ.SafeURL
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinURLErrs("/accounts/needs-anchor/github/" + data.Layout.GitHubOrg)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_accounts_needing_anchor.templ`, Line: 38, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_accounts_needing_anchor.templ`, Line: 38, Col: 67}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -242,7 +242,7 @@ func GitHubAccountsNeedingAnchorPageFilters(data viewmodels.GitHubAccountsNeedin
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue("/accounts/needs-anchor/github/" + data.Layout.GitHubOrg)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_accounts_needing_anchor.templ`, Line: 40, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_accounts_needing_anchor.templ`, Line: 40, Col: 67}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 		if templ_7745c5c3_Err != nil {
@@ -326,7 +326,7 @@ func GitHubAccountsNeedingAnchorPageResults(data viewmodels.GitHubAccountsNeedin
 					var templ_7745c5c3_Var14 string
 					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(u.ExternalID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_accounts_needing_anchor.templ`, Line: 76, Col: 59}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_accounts_needing_anchor.templ`, Line: 76, Col: 59}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 					if templ_7745c5c3_Err != nil {
@@ -344,7 +344,7 @@ func GitHubAccountsNeedingAnchorPageResults(data viewmodels.GitHubAccountsNeedin
 						var templ_7745c5c3_Var15 string
 						templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(u.Email)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_accounts_needing_anchor.templ`, Line: 79, Col: 38}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_accounts_needing_anchor.templ`, Line: 79, Col: 38}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 						if templ_7745c5c3_Err != nil {
@@ -367,7 +367,7 @@ func GitHubAccountsNeedingAnchorPageResults(data viewmodels.GitHubAccountsNeedin
 					var templ_7745c5c3_Var16 string
 					templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(u.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_accounts_needing_anchor.templ`, Line: 84, Col: 70}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_accounts_needing_anchor.templ`, Line: 84, Col: 70}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 					if templ_7745c5c3_Err != nil {

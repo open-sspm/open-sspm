@@ -49,28 +49,6 @@ ON CONFLICT (app_user_id, kind, resource, permission) DO UPDATE SET
   seen_at = EXCLUDED.seen_at,
   updated_at = now();
 
--- name: ListEntitlementsForAccount :many
-SELECT
-  id,
-  app_user_id AS account_id,
-  kind,
-  resource,
-  permission,
-  raw_json,
-  created_at,
-  seen_in_run_id,
-  seen_at,
-  last_observed_run_id,
-  last_observed_at,
-  expired_at,
-  expired_run_id,
-  updated_at
-FROM entitlements
-WHERE app_user_id = $1
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-ORDER BY id;
-
 -- name: ListEntitlementsForAccountIDs :many
 SELECT
   id,

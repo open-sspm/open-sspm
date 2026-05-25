@@ -89,10 +89,6 @@ func DefaultConfig() Config {
 	}
 }
 
-func RunLoop(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, cfg Config) error {
-	return RunLoopWithQueue(ctx, q, pool, cfg, nil)
-}
-
 type inboxQueueDepthReporter interface {
 	Depth(context.Context) (int64, error)
 }

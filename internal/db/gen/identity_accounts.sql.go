@@ -9,22 +9,6 @@ import (
 	"context"
 )
 
-const countAccountsMissingIdentityLink = `-- name: CountAccountsMissingIdentityLink :one
-SELECT count(*)
-FROM accounts a
-LEFT JOIN identity_accounts ia ON ia.account_id = a.id
-WHERE ia.id IS NULL
-  AND a.expired_at IS NULL
-  AND a.last_observed_run_id IS NOT NULL
-`
-
-func (q *Queries) CountAccountsMissingIdentityLink(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, countAccountsMissingIdentityLink)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countAccountsMissingIdentityLinkByConfiguredSources = `-- name: CountAccountsMissingIdentityLinkByConfiguredSources :one
 WITH configured_sources AS (
   SELECT
@@ -146,65 +130,6 @@ func (q *Queries) GetIdentityBySourceAndExternalID(ctx context.Context, arg GetI
 	return i, err
 }
 
-const listAccountsMissingIdentityLinkPage = `-- name: ListAccountsMissingIdentityLinkPage :many
-SELECT a.id, a.source_kind, a.source_name, a.external_id, a.email, a.display_name, a.raw_json, a.created_at, a.updated_at, a.last_login_at, a.last_login_ip, a.last_login_region, a.seen_in_run_id, a.seen_at, a.last_observed_run_id, a.last_observed_at, a.expired_at, a.expired_run_id, a.status, a.account_kind, a.entity_category
-FROM accounts a
-LEFT JOIN identity_accounts ia ON ia.account_id = a.id
-WHERE ia.id IS NULL
-  AND a.expired_at IS NULL
-  AND a.last_observed_run_id IS NOT NULL
-ORDER BY a.id ASC
-LIMIT $2::int
-OFFSET $1::int
-`
-
-type ListAccountsMissingIdentityLinkPageParams struct {
-	PageOffset int32 `json:"page_offset"`
-	PageLimit  int32 `json:"page_limit"`
-}
-
-func (q *Queries) ListAccountsMissingIdentityLinkPage(ctx context.Context, arg ListAccountsMissingIdentityLinkPageParams) ([]Account, error) {
-	rows, err := q.db.Query(ctx, listAccountsMissingIdentityLinkPage, arg.PageOffset, arg.PageLimit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Account
-	for rows.Next() {
-		var i Account
-		if err := rows.Scan(
-			&i.ID,
-			&i.SourceKind,
-			&i.SourceName,
-			&i.ExternalID,
-			&i.Email,
-			&i.DisplayName,
-			&i.RawJson,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.LastLoginAt,
-			&i.LastLoginIp,
-			&i.LastLoginRegion,
-			&i.SeenInRunID,
-			&i.SeenAt,
-			&i.LastObservedRunID,
-			&i.LastObservedAt,
-			&i.ExpiredAt,
-			&i.ExpiredRunID,
-			&i.Status,
-			&i.AccountKind,
-			&i.EntityCategory,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listAccountsMissingIdentityLinkPageByConfiguredSources = `-- name: ListAccountsMissingIdentityLinkPageByConfiguredSources :many
 WITH configured_sources AS (
   SELECT
@@ -273,79 +198,6 @@ func (q *Queries) ListAccountsMissingIdentityLinkPageByConfiguredSources(ctx con
 			&i.Status,
 			&i.AccountKind,
 			&i.EntityCategory,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listIdentityAccountAttributes = `-- name: ListIdentityAccountAttributes :many
-SELECT
-  ia.identity_id,
-  ia.link_state,
-  ia.link_reason,
-  i.kind AS identity_kind,
-  a.id AS account_id,
-  a.source_kind,
-  a.source_name,
-  a.external_id,
-  a.account_kind,
-  a.entity_category,
-  a.email,
-  a.display_name,
-  a.raw_json
-FROM identity_accounts ia
-JOIN identities i ON i.id = ia.identity_id
-JOIN accounts a ON a.id = ia.account_id
-WHERE a.expired_at IS NULL
-  AND a.last_observed_run_id IS NOT NULL
-ORDER BY ia.identity_id, a.id
-`
-
-type ListIdentityAccountAttributesRow struct {
-	IdentityID     int64  `json:"identity_id"`
-	LinkState      string `json:"link_state"`
-	LinkReason     string `json:"link_reason"`
-	IdentityKind   string `json:"identity_kind"`
-	AccountID      int64  `json:"account_id"`
-	SourceKind     string `json:"source_kind"`
-	SourceName     string `json:"source_name"`
-	ExternalID     string `json:"external_id"`
-	AccountKind    string `json:"account_kind"`
-	EntityCategory string `json:"entity_category"`
-	Email          string `json:"email"`
-	DisplayName    string `json:"display_name"`
-	RawJson        []byte `json:"raw_json"`
-}
-
-func (q *Queries) ListIdentityAccountAttributes(ctx context.Context) ([]ListIdentityAccountAttributesRow, error) {
-	rows, err := q.db.Query(ctx, listIdentityAccountAttributes)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListIdentityAccountAttributesRow
-	for rows.Next() {
-		var i ListIdentityAccountAttributesRow
-		if err := rows.Scan(
-			&i.IdentityID,
-			&i.LinkState,
-			&i.LinkReason,
-			&i.IdentityKind,
-			&i.AccountID,
-			&i.SourceKind,
-			&i.SourceName,
-			&i.ExternalID,
-			&i.AccountKind,
-			&i.EntityCategory,
-			&i.Email,
-			&i.DisplayName,
-			&i.RawJson,
 		); err != nil {
 			return nil, err
 		}

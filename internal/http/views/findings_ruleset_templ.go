@@ -139,7 +139,7 @@ func FindingsRulesetShell(data viewmodels.FindingsRulesetViewData) templ.Compone
 				var templ_7745c5c3_Var6 templ.SafeURL
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs("/findings/rulesets/" + data.Ruleset.Key + "/override")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 26, Col: 68}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 26, Col: 68}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -152,7 +152,7 @@ func FindingsRulesetShell(data viewmodels.FindingsRulesetViewData) templ.Compone
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue("/findings/rulesets/" + data.Ruleset.Key + "/override")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 27, Col: 69}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 27, Col: 69}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 				if templ_7745c5c3_Err != nil {
@@ -208,7 +208,7 @@ func FindingsRulesetShell(data viewmodels.FindingsRulesetViewData) templ.Compone
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(data.Alert.Message)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 54, Col: 27}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 54, Col: 27}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
@@ -277,7 +277,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 		var templ_7745c5c3_Var11 templ.SafeURL
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinURLErrs("/findings/rulesets/" + data.Ruleset.Key)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 73, Col: 74}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 73, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -290,7 +290,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue("/findings/rulesets/" + data.Ruleset.Key)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 73, Col: 126}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 73, Col: 126}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 		if templ_7745c5c3_Err != nil {
@@ -494,7 +494,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 				var templ_7745c5c3_Var14 templ.SafeURL
 				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinURLErrs(FindingsRulesetClearFiltersHref(data))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 111, Col: 129}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 111, Col: 129}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
@@ -507,7 +507,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue(FindingsRulesetClearFiltersHref(data))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 111, Col: 178}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 111, Col: 178}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
 				if templ_7745c5c3_Err != nil {
@@ -553,7 +553,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 					var templ_7745c5c3_Var17 string
 					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(r.Href)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 133, Col: 34}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 133, Col: 34}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 					if templ_7745c5c3_Err != nil {
@@ -566,7 +566,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 					var templ_7745c5c3_Var18 templ.SafeURL
 					templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinURLErrs(r.Href)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 135, Col: 82}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 135, Col: 82}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 					if templ_7745c5c3_Err != nil {
@@ -579,7 +579,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 					var templ_7745c5c3_Var19 string
 					templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(r.Key)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 135, Col: 98}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 135, Col: 98}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
 					if templ_7745c5c3_Err != nil {
@@ -592,7 +592,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 					var templ_7745c5c3_Var20 string
 					templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(r.Key)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 135, Col: 108}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 135, Col: 108}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 					if templ_7745c5c3_Err != nil {
@@ -610,7 +610,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 						var templ_7745c5c3_Var21 string
 						templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(r.Title)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 137, Col: 55}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 137, Col: 55}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 						if templ_7745c5c3_Err != nil {
@@ -628,7 +628,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 						var templ_7745c5c3_Var22 string
 						templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(r.Summary)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 139, Col: 57}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 139, Col: 57}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 						if templ_7745c5c3_Err != nil {
@@ -647,7 +647,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 						var templ_7745c5c3_Var23 string
 						templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(r.EvidenceSummary)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 142, Col: 65}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 142, Col: 65}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 						if templ_7745c5c3_Err != nil {
@@ -674,7 +674,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 					var templ_7745c5c3_Var25 string
 					templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var24).String())
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 1, Col: 0}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 1, Col: 0}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
 					if templ_7745c5c3_Err != nil {
@@ -687,7 +687,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 					var templ_7745c5c3_Var26 string
 					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(r.Severity)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 145, Col: 113}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 145, Col: 113}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 					if templ_7745c5c3_Err != nil {
@@ -709,7 +709,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 					var templ_7745c5c3_Var28 string
 					templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var27).String())
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 1, Col: 0}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 1, Col: 0}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var28)
 					if templ_7745c5c3_Err != nil {
@@ -722,7 +722,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 					var templ_7745c5c3_Var29 string
 					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(r.MonitoringStatus)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 146, Col: 131}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 146, Col: 131}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 					if templ_7745c5c3_Err != nil {
@@ -744,7 +744,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 					var templ_7745c5c3_Var31 string
 					templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var30).String())
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 1, Col: 0}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 1, Col: 0}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var31)
 					if templ_7745c5c3_Err != nil {
@@ -757,7 +757,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 					var templ_7745c5c3_Var32 string
 					templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeRuleStatus(r.Status))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 149, Col: 124}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 149, Col: 124}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 					if templ_7745c5c3_Err != nil {
@@ -775,7 +775,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 						var templ_7745c5c3_Var33 string
 						templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(r.ErrorKind)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 151, Col: 59}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 151, Col: 59}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 						if templ_7745c5c3_Err != nil {
@@ -794,7 +794,7 @@ func FindingsRulesetRulesCard(data viewmodels.FindingsRulesetViewData) templ.Com
 						var templ_7745c5c3_Var34 string
 						templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(r.EvaluatedAt.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `findings_ruleset.templ`, Line: 154, Col: 67}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/findings_ruleset.templ`, Line: 154, Col: 67}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 						if templ_7745c5c3_Err != nil {

@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -106,13 +105,9 @@ func TestIdentityResolutionCoreSchemaAllowsAmbiguousEmailsButExclusiveAnchors(t 
 		if len(matches) != 2 {
 			t.Fatalf("email match count = %d, want 2", len(matches))
 		}
-		if _, err := q.FindUnambiguousIdentityByNormalizedEmail(ctx, "shared@example.com"); !errors.Is(err, pgx.ErrNoRows) {
-			t.Fatalf("FindUnambiguousIdentityByNormalizedEmail() err = %v, want pgx.ErrNoRows", err)
-		}
-
 		_, primaryErr := pool.Exec(ctx, `
-			INSERT INTO identity_emails (identity_id, email, normalized_email, email_kind, verification_state, lifecycle_state, is_primary)
-			VALUES ($1, 'other@example.com', 'other@example.com', 'primary', 'manual', 'active', true)
+				INSERT INTO identity_emails (identity_id, email, normalized_email, email_kind, verification_state, lifecycle_state, is_primary)
+				VALUES ($1, 'other@example.com', 'other@example.com', 'primary', 'manual', 'active', true)
 		`, identityA)
 		assertUniqueViolation(t, primaryErr, "second active primary email")
 
@@ -192,18 +187,12 @@ func TestIdentityResolutionCandidatesAndEvidenceAreIdempotent(t *testing.T) {
 			RawJSON:        `{"login":"ambiguous"}`,
 		})
 		candidateIdentityID := insertIdentity(t, ctx, pool, "human", "ambiguous@example.com", "Candidate")
-		provisional, err := q.EnsureProvisionalIdentityForAccount(ctx, accountID)
-		if err != nil {
-			t.Fatalf("EnsureProvisionalIdentityForAccount(): %v", err)
-		}
-		if provisional.ResolutionState != "provisional" {
-			t.Fatalf("provisional resolution_state = %q, want provisional", provisional.ResolutionState)
-		}
+		provisionalIdentityID := insertIdentity(t, ctx, pool, "human", "ambiguous@example.com", "Ambiguous GitHub")
 
 		params := UpsertIdentityMatchCandidateParams{
 			AccountID:             accountID,
 			CandidateIdentityID:   candidateIdentityID,
-			ProvisionalIdentityID: pgtype.Int8{Int64: provisional.ID, Valid: true},
+			ProvisionalIdentityID: pgtype.Int8{Int64: provisionalIdentityID, Valid: true},
 			ConfidenceBand:        "conflict",
 			Score:                 40,
 			MatchReason:           "ambiguous_email",
@@ -289,9 +278,11 @@ func TestIdentityResolutionCandidatesAndEvidenceAreIdempotent(t *testing.T) {
 		if rejected.ID != first.ID || rejected.Status != "rejected" {
 			t.Fatalf("rejected fingerprint returned id/status = %d/%q, want %d/rejected", rejected.ID, rejected.Status, first.ID)
 		}
-		pendingCount, err := q.CountIdentityMatchCandidatesByStatus(ctx, "pending")
+		pendingCount, err := q.CountIdentityMatchCandidatesByFilters(ctx, CountIdentityMatchCandidatesByFiltersParams{
+			Status: "pending",
+		})
 		if err != nil {
-			t.Fatalf("CountIdentityMatchCandidatesByStatus(pending): %v", err)
+			t.Fatalf("CountIdentityMatchCandidatesByFilters(pending): %v", err)
 		}
 		if pendingCount != 0 {
 			t.Fatalf("pending candidate count after rejected replay = %d, want 0", pendingCount)

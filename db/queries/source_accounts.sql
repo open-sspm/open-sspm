@@ -474,13 +474,6 @@ ORDER BY au.display_name, au.email, au.external_id
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
 
--- name: GetSourceAccount :one
-SELECT *
-FROM accounts
-WHERE id = $1
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL;
-
 -- name: CountSourceAccountsBySource :one
 SELECT count(*)
 FROM accounts

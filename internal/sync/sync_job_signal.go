@@ -14,10 +14,6 @@ import (
 
 const syncJobSignalRetryDelay = 2 * time.Second
 
-func ListenForSyncJobSignals(ctx context.Context, pool *pgxpool.Pool, channel string, out chan<- struct{}) error {
-	return ListenForSyncJobSignalsWithObserver(ctx, pool, channel, out, nil)
-}
-
 func ListenForSyncJobSignalsWithObserver(ctx context.Context, pool *pgxpool.Pool, channel string, out chan<- struct{}, onConnect func(channel string)) error {
 	if pool == nil {
 		return errors.New("sync pool is nil")

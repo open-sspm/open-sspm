@@ -158,14 +158,3 @@ SET status = 'queued',
     END
 WHERE status = 'processing'
   AND lease_until < now();
-
--- name: DeleteOldEventInboxDeliveries :execrows
-DELETE FROM event_inbox
-WHERE (
-    status IN ('processed', 'ignored')
-    AND processed_at < now() - make_interval(days => sqlc.arg(processed_retention_days)::int)
-  )
-  OR (
-    status = 'dead'
-    AND processed_at < now() - make_interval(days => sqlc.arg(dead_retention_days)::int)
-  );

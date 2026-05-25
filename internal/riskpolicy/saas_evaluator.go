@@ -43,14 +43,6 @@ type SaaSResult struct {
 	Signals                      []RiskSignal
 }
 
-func EvaluateSaaS(input SaaSInput) (SaaSResult, error) {
-	registry, err := BuiltinRegistry()
-	if err != nil {
-		return SaaSResult{}, err
-	}
-	return registry.EvaluateSaaS(input)
-}
-
 func (r *Registry) EvaluateSaaS(input SaaSInput) (SaaSResult, error) {
 	if r == nil {
 		return SaaSResult{}, errors.New("risk policy registry is nil")

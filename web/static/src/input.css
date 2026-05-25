@@ -64,14 +64,32 @@ html {
    --------------------------------------------------------------------------- */
 
 /* Honors prefers-reduced-motion; htmx 2.x reads globalViewTransitions:true from
-   the htmx-config meta and wires every swap through the View Transitions API. */
+   the htmx-config meta and wires every swap through the View Transitions API.
+   Chrome (sidebar, header) holds static; only main crossfades. */
 @media (prefers-reduced-motion: no-preference) {
-  ::view-transition-old(root) {
+  aside#app-sidebar { view-transition-name: app-sidebar; }
+  header.app-header { view-transition-name: app-header; }
+  main#main         { view-transition-name: app-main; }
+
+  ::view-transition-old(app-sidebar),
+  ::view-transition-new(app-sidebar),
+  ::view-transition-old(app-header),
+  ::view-transition-new(app-header) {
+    animation: none;
+  }
+
+  ::view-transition-old(app-main) {
     animation: osspm-fade-out 140ms ease-in both;
   }
-  ::view-transition-new(root) {
+  ::view-transition-new(app-main) {
     animation: osspm-fade-in 180ms ease-out both;
   }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+
   @keyframes osspm-fade-out {
     to { opacity: 0; }
   }
@@ -877,7 +895,7 @@ html {
 }
 
 /* ---------------------------------------------------------------------------
-   Select (native + custom)
+   Select
    --------------------------------------------------------------------------- */
 
 @layer components {
@@ -887,55 +905,12 @@ html {
     @apply bg-[image:var(--chevron-down-icon-50)] bg-no-repeat bg-position-[center_right_0.75rem] bg-size-[1rem];
     option, optgroup { @apply bg-popover text-popover-foreground; }
   }
-  *:not(select).select {
-    @apply relative inline-flex;
-    & > button {
-      @apply justify-between font-normal;
-      &[aria-invalid='true'] { @apply ring-destructive/20 dark:ring-destructive/40 border-destructive; }
-    }
-    [data-popover] {
-      @apply p-1;
-      [role='option'] {
-        @apply aria-hidden:hidden [&_svg]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm pl-2 py-1.5 pr-7.5 text-sm outline-hidden select-none [&_svg]:shrink-0 [&_svg]:size-4 aria-disabled:opacity-50 aria-disabled:pointer-events-none disabled:opacity-50 disabled:pointer-events-none w-full truncate;
-        &[aria-selected='true'] { @apply bg-[image:var(--check-icon)] bg-no-repeat bg-position-[center_right_0.5rem] bg-size-[0.875rem]; }
-        &.active, &:focus-visible { @apply bg-accent text-accent-foreground; }
-      }
-      [role='listbox'] [role='heading'] { @apply flex text-muted-foreground px-2 py-1.5 text-xs; }
-      [role='listbox'] [role='group']:not(:has([role='option']:not([aria-hidden='true']))) { @apply hidden; }
-      [role='separator'] { @apply border-border -mx-1 my-1; }
-      > header {
-        @apply flex h-9 items-center gap-2 border-b px-3 -mx-1 -mt-1 mb-1;
-        svg { @apply size-4 shrink-0 opacity-50; }
-        input[role='combobox'] { @apply placeholder:text-muted-foreground flex h-10 flex-1 w-full rounded-md bg-transparent py-3 text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50 min-w-0; }
-      }
-      [role='listbox']:not(:has([data-value]:not([aria-hidden='true'])))::before {
-        @apply flex items-center justify-center p-6 text-sm truncate;
-      }
-      [role='listbox'][data-empty]:not(:has([data-value]:not([aria-hidden='true'])))::before { @apply content-[attr(data-empty)]; }
-      [role='listbox']:not([data-empty]):not(:has([data-value]:not([aria-hidden='true'])))::before { @apply content-['No_results_found']; }
-    }
-    [data-popover]:has(> header input:not(:placeholder-shown)) [role='separator'] { @apply hidden; }
-    &:not([data-select-initialized]) [data-popover] [role='option'] { @apply hover:bg-accent hover:text-accent-foreground; }
-  }
-
   /* App-specific: full-width selects in forms */
   :is(.form, .field) select,
   select.select {
     width: 100%;
     min-width: 0;
     max-width: 100%;
-  }
-  *:not(select).select,
-  *:not(select).select > button {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-  }
-  *:not(select).select > button > span:first-child {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 }
 
@@ -1764,154 +1739,6 @@ html {
     @apply absolute right-0 top-full z-20 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-popover p-4 shadow-lg sm:left-0 sm:right-auto;
   }
 
-  .osspm-table-query-bar {
-    @apply flex min-w-0 flex-1 flex-col gap-2;
-  }
-
-  .osspm-table-query-bar-row {
-    @apply flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center;
-  }
-
-  .osspm-table-query-bar-search {
-    @apply min-w-0 flex-1;
-  }
-
-  .osspm-table-query-actions {
-    @apply flex shrink-0 flex-wrap items-center gap-2;
-  }
-
-  .osspm-table-query-clear {
-    @apply text-muted-foreground hover:text-foreground;
-  }
-
-  .osspm-table-query-add {
-    @apply whitespace-nowrap;
-  }
-
-  .osspm-table-query-chip-list {
-    @apply flex flex-wrap items-center gap-2;
-  }
-
-  .osspm-table-query-chip {
-    @apply inline-flex max-w-full cursor-pointer items-center overflow-hidden rounded-full border border-border/85 bg-background shadow-xs;
-  }
-
-  .osspm-table-query-chip[data-table-query-draft-chip] {
-    @apply border-dashed border-border/70 bg-muted/20 shadow-none;
-  }
-
-  .osspm-table-query-chip-trigger {
-    @apply min-w-0 cursor-pointer rounded-full px-4 py-2 text-sm text-foreground outline-none transition-colors hover:bg-muted/35 focus-visible:ring-2 focus-visible:ring-ring/40;
-    span {
-      @apply block max-w-full truncate;
-    }
-  }
-
-  .osspm-table-query-chip[data-table-query-draft-chip] .osspm-table-query-chip-trigger {
-    @apply text-muted-foreground hover:bg-muted/55;
-  }
-
-  .osspm-table-query-chip-remove {
-    @apply mr-2 inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40;
-  }
-
-  .osspm-table-query-chip[data-table-query-draft-chip] .osspm-table-query-chip-remove {
-    @apply text-muted-foreground/90 hover:bg-muted/65;
-  }
-
-  .osspm-table-query-floating {
-    @apply fixed z-50 w-[min(18rem,calc(100vw-1rem))] rounded-2xl border border-border/85 bg-background shadow-[0_16px_40px_rgb(15_23_42_/_0.12)] outline-none;
-    opacity: 0;
-    transform: translateY(4px) scale(0.985);
-    transition: opacity 120ms ease, transform 120ms ease;
-    pointer-events: none;
-  }
-
-  .osspm-table-query-floating[data-state="open"] {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    pointer-events: auto;
-  }
-
-  .osspm-table-query-picker {
-    @apply p-2;
-  }
-
-  .osspm-table-query-picker-search {
-    @apply flex items-center gap-2 border-b border-border/60 px-2 py-2;
-    input {
-      @apply h-auto min-w-0 flex-1 border-0 bg-transparent p-0 text-sm text-foreground shadow-none outline-none ring-0 placeholder:text-muted-foreground;
-    }
-  }
-
-  .osspm-table-query-picker-list {
-    @apply mt-1 max-h-72 overflow-y-auto py-1;
-  }
-
-  .osspm-table-query-picker-item {
-    @apply flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl px-2.5 py-1.5 text-left outline-none transition-colors hover:bg-muted/45 focus-visible:bg-muted/45;
-  }
-
-  .osspm-table-query-picker-item[hidden] {
-    display: none;
-  }
-
-  .osspm-table-query-picker-item-label {
-    @apply text-[0.8125rem] font-normal text-foreground;
-  }
-
-  .osspm-table-query-picker-item-action {
-    @apply text-[0.6875rem] font-normal uppercase tracking-[0.08em] text-muted-foreground;
-  }
-
-  .osspm-table-query-editor {
-    @apply p-3;
-  }
-
-  .osspm-table-query-editor-header {
-    @apply mb-2 flex items-center justify-between gap-3;
-  }
-
-  .osspm-table-query-editor-title {
-    @apply m-0 text-sm font-semibold tracking-tight text-foreground;
-  }
-
-  .osspm-table-query-editor-close {
-    @apply h-7 w-7 shrink-0;
-  }
-
-  .osspm-table-query-editor .field {
-    @apply gap-0;
-  }
-
-  .osspm-table-query-editor .select {
-    @apply h-10 rounded-xl text-sm;
-  }
-
-  @media (max-width: 767px) {
-    .osspm-table-query-editor {
-      @apply left-2 right-2 w-auto max-w-none rounded-[1.25rem] border-border/90 p-4;
-      top: auto !important;
-      bottom: max(0.5rem, env(safe-area-inset-bottom));
-      transform: translateY(14px);
-    }
-
-    .osspm-table-query-editor[data-state="open"] {
-      transform: translateY(0);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .osspm-table-query-floating {
-      transition: none;
-      transform: none;
-    }
-
-    .osspm-table-query-floating[data-state="open"] {
-      transform: none;
-    }
-  }
-
   .table {
     @apply w-full caption-bottom text-sm;
     thead { @apply [&_tr]:border-b [&_tr]:border-border/60; }
@@ -1920,24 +1747,6 @@ html {
     th { @apply text-foreground h-10 px-3 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]; }
     td { @apply px-3 py-3 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]; }
     caption { @apply text-muted-foreground mt-4 text-sm; }
-  }
-}
-
-/* ---------------------------------------------------------------------------
-   Tabs
-   --------------------------------------------------------------------------- */
-
-@layer components {
-  .tabs {
-    @apply flex flex-col gap-2;
-    [role='tablist'] {
-      @apply bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px];
-      [role='tab'] {
-        @apply focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring text-foreground dark:text-muted-foreground inline-flex h-[calc(100%_-_1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4;
-        &[aria-selected='true'] { @apply bg-background dark:text-foreground dark:border-input dark:bg-input/30 shadow-sm; }
-      }
-    }
-    [role='tabpanel'] { @apply flex-1 outline-none; }
   }
 }
 

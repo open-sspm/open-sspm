@@ -63,7 +63,7 @@ func GoogleWorkspaceAccountsNeedingAnchorPage(data viewmodels.GoogleWorkspaceAcc
 					var templ_7745c5c3_Var4 string
 					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue("Customer ID: " + data.Layout.GoogleWorkspaceCustomerID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_accounts_needing_anchor.templ`, Line: 9, Col: 107}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_accounts_needing_anchor.templ`, Line: 9, Col: 107}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 					if templ_7745c5c3_Err != nil {
@@ -136,7 +136,7 @@ func GoogleWorkspaceAccountsNeedingAnchorPage(data viewmodels.GoogleWorkspaceAcc
 					var templ_7745c5c3_Var7 string
 					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(data.EmptyStateMsg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_accounts_needing_anchor.templ`, Line: 22, Col: 25}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_accounts_needing_anchor.templ`, Line: 22, Col: 25}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 					if templ_7745c5c3_Err != nil {
@@ -300,7 +300,7 @@ func GoogleWorkspaceAccountsNeedingAnchorPageResults(data viewmodels.GoogleWorks
 					var templ_7745c5c3_Var12 string
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(u.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_accounts_needing_anchor.templ`, Line: 74, Col: 103}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_accounts_needing_anchor.templ`, Line: 74, Col: 103}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 					if templ_7745c5c3_Err != nil {
@@ -313,7 +313,7 @@ func GoogleWorkspaceAccountsNeedingAnchorPageResults(data viewmodels.GoogleWorks
 					var templ_7745c5c3_Var13 string
 					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(u.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_accounts_needing_anchor.templ`, Line: 74, Col: 132}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_accounts_needing_anchor.templ`, Line: 74, Col: 132}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {
@@ -331,7 +331,7 @@ func GoogleWorkspaceAccountsNeedingAnchorPageResults(data viewmodels.GoogleWorks
 						var templ_7745c5c3_Var14 string
 						templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(u.Email)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_accounts_needing_anchor.templ`, Line: 77, Col: 75}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_accounts_needing_anchor.templ`, Line: 77, Col: 75}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 						if templ_7745c5c3_Err != nil {
@@ -344,7 +344,7 @@ func GoogleWorkspaceAccountsNeedingAnchorPageResults(data viewmodels.GoogleWorks
 						var templ_7745c5c3_Var15 string
 						templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(u.Email)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_accounts_needing_anchor.templ`, Line: 77, Col: 98}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_accounts_needing_anchor.templ`, Line: 77, Col: 98}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 						if templ_7745c5c3_Err != nil {
@@ -367,7 +367,7 @@ func GoogleWorkspaceAccountsNeedingAnchorPageResults(data viewmodels.GoogleWorks
 					var templ_7745c5c3_Var16 string
 					templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(u.ExternalID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_accounts_needing_anchor.templ`, Line: 82, Col: 108}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_accounts_needing_anchor.templ`, Line: 82, Col: 108}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
 					if templ_7745c5c3_Err != nil {
@@ -380,7 +380,7 @@ func GoogleWorkspaceAccountsNeedingAnchorPageResults(data viewmodels.GoogleWorks
 					var templ_7745c5c3_Var17 string
 					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(u.ExternalID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `google_workspace_accounts_needing_anchor.templ`, Line: 82, Col: 136}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/google_workspace_accounts_needing_anchor.templ`, Line: 82, Col: 136}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 					if templ_7745c5c3_Err != nil {

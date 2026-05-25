@@ -59,25 +59,6 @@ WHERE ia.identity_id = $1
   AND a.last_observed_run_id IS NOT NULL
 ORDER BY a.source_kind, a.source_name, a.external_id;
 
--- name: ListAccountsMissingIdentityLinkPage :many
-SELECT a.*
-FROM accounts a
-LEFT JOIN identity_accounts ia ON ia.account_id = a.id
-WHERE ia.id IS NULL
-  AND a.expired_at IS NULL
-  AND a.last_observed_run_id IS NOT NULL
-ORDER BY a.id ASC
-LIMIT sqlc.arg(page_limit)::int
-OFFSET sqlc.arg(page_offset)::int;
-
--- name: CountAccountsMissingIdentityLink :one
-SELECT count(*)
-FROM accounts a
-LEFT JOIN identity_accounts ia ON ia.account_id = a.id
-WHERE ia.id IS NULL
-  AND a.expired_at IS NULL
-  AND a.last_observed_run_id IS NOT NULL;
-
 -- name: ListAccountsMissingIdentityLinkPageByConfiguredSources :many
 -- Cursor-paginated. Pass 0 for the first page; subsequent calls pass the max
 -- a.id from the previous page so the loop makes forward progress even if a
@@ -147,28 +128,6 @@ LEFT JOIN identity_accounts ia ON ia.account_id = a.id
 WHERE ia.id IS NULL
   AND a.expired_at IS NULL
   AND a.last_observed_run_id IS NOT NULL;
-
--- name: ListIdentityAccountAttributes :many
-SELECT
-  ia.identity_id,
-  ia.link_state,
-  ia.link_reason,
-  i.kind AS identity_kind,
-  a.id AS account_id,
-  a.source_kind,
-  a.source_name,
-  a.external_id,
-  a.account_kind,
-  a.entity_category,
-  a.email,
-  a.display_name,
-  a.raw_json
-FROM identity_accounts ia
-JOIN identities i ON i.id = ia.identity_id
-JOIN accounts a ON a.id = ia.account_id
-WHERE a.expired_at IS NULL
-  AND a.last_observed_run_id IS NOT NULL
-ORDER BY ia.identity_id, a.id;
 
 -- name: ListIdentityAccountAttributesByConfiguredSources :many
 WITH configured_sources AS (

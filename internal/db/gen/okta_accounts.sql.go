@@ -96,56 +96,6 @@ func (q *Queries) GetOktaAccount(ctx context.Context, id int64) (Account, error)
 	return i, err
 }
 
-const listOktaAccountsForCommand = `-- name: ListOktaAccountsForCommand :many
-SELECT
-  id,
-  email,
-  display_name,
-  status
-FROM accounts
-WHERE source_kind = 'okta'
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-ORDER BY
-  (lower(status) = 'active') DESC,
-  lower(COALESCE(NULLIF(trim(display_name), ''), email)) ASC,
-  lower(email) ASC,
-  id ASC
-LIMIT 200
-`
-
-type ListOktaAccountsForCommandRow struct {
-	ID          int64  `json:"id"`
-	Email       string `json:"email"`
-	DisplayName string `json:"display_name"`
-	Status      string `json:"status"`
-}
-
-func (q *Queries) ListOktaAccountsForCommand(ctx context.Context) ([]ListOktaAccountsForCommandRow, error) {
-	rows, err := q.db.Query(ctx, listOktaAccountsForCommand)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListOktaAccountsForCommandRow
-	for rows.Next() {
-		var i ListOktaAccountsForCommandRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Email,
-			&i.DisplayName,
-			&i.Status,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listOktaAccountsPageByQueryAndState = `-- name: ListOktaAccountsPageByQueryAndState :many
 SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status, account_kind, entity_category
 FROM accounts

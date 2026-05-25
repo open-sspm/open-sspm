@@ -13,13 +13,6 @@ WHERE source_kind = sqlc.arg(source_kind)::text
   AND resource = sqlc.arg(resource)::text
 FOR UPDATE;
 
--- name: ListConnectorCursorStatesBySource :many
-SELECT *
-FROM connector_cursor_state
-WHERE source_kind = sqlc.arg(source_kind)::text
-  AND source_name = sqlc.arg(source_name)::text
-ORDER BY resource ASC;
-
 -- name: UpsertConnectorCursorState :exec
 INSERT INTO connector_cursor_state (
   source_kind,
@@ -74,17 +67,6 @@ ON CONFLICT (source_kind, source_name, resource) DO UPDATE SET
   needs_full_resync = EXCLUDED.needs_full_resync,
   version = connector_cursor_state.version + 1,
   updated_at = now();
-
--- name: RecordConnectorCursorAttempt :exec
-UPDATE connector_cursor_state
-SET
-  last_attempt_at = now(),
-  last_error_at = NULL,
-  last_error = '',
-  updated_at = now()
-WHERE source_kind = sqlc.arg(source_kind)::text
-  AND source_name = sqlc.arg(source_name)::text
-  AND resource = sqlc.arg(resource)::text;
 
 -- name: MarkConnectorCursorNeedsFullResync :exec
 UPDATE connector_cursor_state

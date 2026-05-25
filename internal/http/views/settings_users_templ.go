@@ -92,7 +92,7 @@ func SettingsUsersPage(data viewmodels.SettingsUsersViewData) templ.Component {
 					var templ_7745c5c3_Var5 string
 					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.Alert.Message)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 16, Col: 27}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 16, Col: 27}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 					if templ_7745c5c3_Err != nil {
@@ -243,7 +243,7 @@ func settingsUsersPanel(data viewmodels.SettingsUsersViewData, oob bool) templ.C
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(events.BusTrigger(events.SettingsUsersChanged))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 46, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 46, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 		if templ_7745c5c3_Err != nil {
@@ -321,7 +321,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var12 string
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(u.Email)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 74, Col: 82}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 74, Col: 82}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
@@ -343,7 +343,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var14 string
 					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var13).String())
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 1, Col: 0}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 1, Col: 0}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 					if templ_7745c5c3_Err != nil {
@@ -356,7 +356,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var15 string
 					templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeAuthUserRole(u.Role))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 76, Col: 86}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 76, Col: 86}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 					if templ_7745c5c3_Err != nil {
@@ -378,7 +378,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var17 string
 					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var16).String())
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 1, Col: 0}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 1, Col: 0}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 					if templ_7745c5c3_Err != nil {
@@ -391,7 +391,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var18 string
 					templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(AuthUserStatusLabel(u.IsActive))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 79, Col: 95}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 79, Col: 95}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 					if templ_7745c5c3_Err != nil {
@@ -404,7 +404,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var19 string
 					templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(u.LastLogin.Title)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 81, Col: 85}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 81, Col: 85}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
 					if templ_7745c5c3_Err != nil {
@@ -417,7 +417,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var20 string
 					templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(u.LastLogin.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 81, Col: 107}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 81, Col: 107}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 					if templ_7745c5c3_Err != nil {
@@ -430,7 +430,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var21 string
 					templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.ResolveAttributeValue("settings-users-actions-" + FormatInt64(u.ID) + "-trigger")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 84, Col: 95}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 84, Col: 95}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
 					if templ_7745c5c3_Err != nil {
@@ -443,7 +443,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var22 string
 					templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue("settings-users-actions-" + FormatInt64(u.ID) + "-menu")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 84, Col: 190}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 84, Col: 190}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
 					if templ_7745c5c3_Err != nil {
@@ -456,7 +456,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var23 string
 					templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.ResolveAttributeValue("Actions for " + u.Email)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 84, Col: 290}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 84, Col: 290}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var23)
 					if templ_7745c5c3_Err != nil {
@@ -477,7 +477,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var24 string
 					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.ResolveAttributeValue("settings-users-actions-" + FormatInt64(u.ID) + "-menu")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 88, Col: 88}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 88, Col: 88}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
 					if templ_7745c5c3_Err != nil {
@@ -490,7 +490,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var25 string
 					templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue("settings-users-actions-" + FormatInt64(u.ID) + "-trigger")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 88, Col: 167}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 88, Col: 167}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
 					if templ_7745c5c3_Err != nil {
@@ -503,7 +503,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var26 string
 					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.ResolveAttributeValue("settings-users-edit-trigger-" + FormatInt64(u.ID))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 89, Col: 70}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 89, Col: 70}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var26)
 					if templ_7745c5c3_Err != nil {
@@ -516,7 +516,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var27 templ.SafeURL
 					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinURLErrs("/settings/users?open=edit&id=" + FormatInt64(u.ID))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 89, Col: 170}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 89, Col: 170}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 					if templ_7745c5c3_Err != nil {
@@ -529,7 +529,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var28 string
 					templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.ResolveAttributeValue("/settings/users/" + FormatInt64(u.ID) + "/edit")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 89, Col: 230}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 89, Col: 230}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var28)
 					if templ_7745c5c3_Err != nil {
@@ -555,7 +555,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 						var templ_7745c5c3_Var29 string
 						templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.ResolveAttributeValue("settings-users-delete-trigger-" + FormatInt64(u.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 94, Col: 73}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 94, Col: 73}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var29)
 						if templ_7745c5c3_Err != nil {
@@ -568,7 +568,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 						var templ_7745c5c3_Var30 templ.SafeURL
 						templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinURLErrs("/settings/users?open=delete&id=" + FormatInt64(u.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 94, Col: 192}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 94, Col: 192}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 						if templ_7745c5c3_Err != nil {
@@ -581,7 +581,7 @@ func settingsUsersPanelContent(data viewmodels.SettingsUsersViewData) templ.Comp
 						var templ_7745c5c3_Var31 string
 						templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.ResolveAttributeValue("/settings/users/" + FormatInt64(u.ID) + "/delete")
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 94, Col: 254}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 94, Col: 254}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var31)
 						if templ_7745c5c3_Err != nil {
@@ -717,7 +717,7 @@ func SettingsUsersAddDialog(data viewmodels.SettingsUsersViewData) templ.Compone
 					var templ_7745c5c3_Var36 string
 					templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(data.Alert.Message)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 128, Col: 27}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 128, Col: 27}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 					if templ_7745c5c3_Err != nil {
@@ -741,7 +741,7 @@ func SettingsUsersAddDialog(data viewmodels.SettingsUsersViewData) templ.Compone
 			var templ_7745c5c3_Var37 string
 			templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.ResolveAttributeValue(data.Form.Email)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 133, Col: 80}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 133, Col: 80}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var37)
 			if templ_7745c5c3_Err != nil {
@@ -834,7 +834,7 @@ func SettingsUsersEditDialog(data viewmodels.SettingsUsersViewData) templ.Compon
 					var templ_7745c5c3_Var41 string
 					templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(data.Alert.Message)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 159, Col: 27}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 159, Col: 27}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 					if templ_7745c5c3_Err != nil {
@@ -858,7 +858,7 @@ func SettingsUsersEditDialog(data viewmodels.SettingsUsersViewData) templ.Compon
 			var templ_7745c5c3_Var42 string
 			templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.ResolveAttributeValue(data.EditForm.Email)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 164, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 164, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var42)
 			if templ_7745c5c3_Err != nil {
@@ -906,7 +906,7 @@ func SettingsUsersEditDialog(data viewmodels.SettingsUsersViewData) templ.Compon
 				var templ_7745c5c3_Var43 string
 				templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(data.EditForm.RoleDisabledReason)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 173, Col: 79}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 173, Col: 79}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 				if templ_7745c5c3_Err != nil {
@@ -984,7 +984,7 @@ func SettingsUsersDeleteDialog(data viewmodels.SettingsUsersViewData) templ.Comp
 					var templ_7745c5c3_Var47 string
 					templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(data.Alert.Message)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 192, Col: 27}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 192, Col: 27}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 					if templ_7745c5c3_Err != nil {
@@ -1008,7 +1008,7 @@ func SettingsUsersDeleteDialog(data viewmodels.SettingsUsersViewData) templ.Comp
 			var templ_7745c5c3_Var48 string
 			templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(data.Delete.Email)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings_users.templ`, Line: 197, Col: 76}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/settings_users.templ`, Line: 197, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 			if templ_7745c5c3_Err != nil {

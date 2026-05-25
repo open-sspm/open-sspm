@@ -47,34 +47,6 @@ func (q DiscoveryAppsQuery) WithPage(page int) DiscoveryAppsQuery {
 	return q
 }
 
-func (q DiscoveryAppsQuery) ClearQuery() DiscoveryAppsQuery {
-	q.Q = ""
-	q.Page = 1
-	return q
-}
-
-func (q DiscoveryAppsQuery) ClearFilters() DiscoveryAppsQuery {
-	q.Source = SourceSelection{}
-	q.ManagedState = ""
-	q.RiskLevel = ""
-	q.Page = 1
-	return q
-}
-
-func (q DiscoveryAppsQuery) FilterCount() int {
-	count := 0
-	if q.Source.Kind != "" {
-		count++
-	}
-	if q.ManagedState != "" {
-		count++
-	}
-	if q.RiskLevel != "" {
-		count++
-	}
-	return count
-}
-
 type DiscoveryHotspotsQuery struct {
 	Source SourceSelection
 	Page   int

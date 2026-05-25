@@ -91,19 +91,6 @@ func (q ConnectedAppsQuery) WithGovernanceState(governanceState string) Connecte
 	return q
 }
 
-func (q ConnectedAppsQuery) ClearFilters() ConnectedAppsQuery {
-	q.GovernanceState = ""
-	q.Page = 1
-	return q
-}
-
 func (q ConnectedAppsQuery) HasFilters() bool {
 	return strings.TrimSpace(q.Q) != "" || strings.TrimSpace(q.GovernanceState) != ""
-}
-
-func (q ConnectedAppsQuery) FilterCount() int {
-	if strings.TrimSpace(q.GovernanceState) != "" {
-		return 1
-	}
-	return 0
 }

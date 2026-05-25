@@ -29,7 +29,7 @@ const isDialogOpen = (dialog) => {
   return dialog.open === true;
 };
 
-export const openDialog = (dialog) => {
+const openDialog = (dialog) => {
   if (!(dialog instanceof HTMLElement)) return;
   if (isDialogOpen(dialog)) return;
 
@@ -48,7 +48,7 @@ export const openDialog = (dialog) => {
   dialog.setAttribute("open", "");
 };
 
-export const closeDialog = (dialog) => {
+const closeDialog = (dialog) => {
   if (!(dialog instanceof HTMLElement)) return;
   if (!isDialogOpen(dialog)) return;
 

@@ -310,43 +310,6 @@ func (q *Queries) CountSourceAccountsNeedingAnchorBySourceAndQuery(ctx context.C
 	return count, err
 }
 
-const getSourceAccount = `-- name: GetSourceAccount :one
-SELECT id, source_kind, source_name, external_id, email, display_name, raw_json, created_at, updated_at, last_login_at, last_login_ip, last_login_region, seen_in_run_id, seen_at, last_observed_run_id, last_observed_at, expired_at, expired_run_id, status, account_kind, entity_category
-FROM accounts
-WHERE id = $1
-  AND expired_at IS NULL
-  AND last_observed_run_id IS NOT NULL
-`
-
-func (q *Queries) GetSourceAccount(ctx context.Context, id int64) (Account, error) {
-	row := q.db.QueryRow(ctx, getSourceAccount, id)
-	var i Account
-	err := row.Scan(
-		&i.ID,
-		&i.SourceKind,
-		&i.SourceName,
-		&i.ExternalID,
-		&i.Email,
-		&i.DisplayName,
-		&i.RawJson,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.LastLoginAt,
-		&i.LastLoginIp,
-		&i.LastLoginRegion,
-		&i.SeenInRunID,
-		&i.SeenAt,
-		&i.LastObservedRunID,
-		&i.LastObservedAt,
-		&i.ExpiredAt,
-		&i.ExpiredRunID,
-		&i.Status,
-		&i.AccountKind,
-		&i.EntityCategory,
-	)
-	return i, err
-}
-
 const listGitHubUsersPageBySourceAndQuery = `-- name: ListGitHubUsersPageBySourceAndQuery :many
 SELECT
   au.id, au.source_kind, au.source_name, au.external_id, au.email, au.display_name, au.raw_json, au.created_at, au.updated_at, au.last_login_at, au.last_login_ip, au.last_login_region, au.seen_in_run_id, au.seen_at, au.last_observed_run_id, au.last_observed_at, au.expired_at, au.expired_run_id, au.status, au.account_kind, au.entity_category,

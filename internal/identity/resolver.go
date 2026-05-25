@@ -79,17 +79,6 @@ type Stats struct {
 	UpdatedIdentities          int64
 }
 
-func Resolve(ctx context.Context, q *gen.Queries) (Stats, error) {
-	return ResolveWithConfiguredSources(ctx, q, nil, nil)
-}
-
-func ResolveWithConfiguredSources(ctx context.Context, q *gen.Queries, configuredSourceKinds, configuredSourceNames []string) (Stats, error) {
-	r := Resolver{Q: q}
-	r.ConfiguredSourceKinds = append([]string(nil), configuredSourceKinds...)
-	r.ConfiguredSourceNames = append([]string(nil), configuredSourceNames...)
-	return r.Resolve(ctx)
-}
-
 func ResolveWithConfiguredSourcesTx(ctx context.Context, pool *pgxpool.Pool, configuredSourceKinds, configuredSourceNames []string) (Stats, error) {
 	if pool == nil {
 		return Stats{}, errors.New("identity resolver database pool is nil")

@@ -122,18 +122,6 @@ func TestHandleIdentityShowRendersEntitlementDetails(t *testing.T) {
 	})
 }
 
-func TestHandleIdentityShowSummaryFragmentKeepsEmptyTarget(t *testing.T) {
-	withCommandSearchTestDatabase(t, func(ctx context.Context, _ *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
-		identityID := insertCommandSearchIdentity(t, ctx, h.Pool, "human", "empty@example.com", "Empty Identity")
-
-		summary := renderIdentityShowFragment(t, h, identityID, "identity-summary-section")
-
-		assertContains(t, summary, `id="identity-summary-section"`)
-		assertContains(t, summary, "No linked accounts")
-		assertNotContains(t, summary, "<!doctype html>")
-	})
-}
-
 func TestHandleIdentitiesPinsToHumanKindOnly(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{

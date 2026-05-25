@@ -271,24 +271,3 @@ func (q *Queries) InsertEventTarget(ctx context.Context, arg InsertEventTargetPa
 	)
 	return err
 }
-
-const touchEventDedupeKey = `-- name: TouchEventDedupeKey :exec
-UPDATE event_dedupe_keys
-SET
-  last_seen_at = now(),
-  duplicate_count = duplicate_count + 1
-WHERE source_kind = $1::text
-  AND source_name = $2::text
-  AND dedupe_hash = $3::bytea
-`
-
-type TouchEventDedupeKeyParams struct {
-	SourceKind string `json:"source_kind"`
-	SourceName string `json:"source_name"`
-	DedupeHash []byte `json:"dedupe_hash"`
-}
-
-func (q *Queries) TouchEventDedupeKey(ctx context.Context, arg TouchEventDedupeKeyParams) error {
-	_, err := q.db.Exec(ctx, touchEventDedupeKey, arg.SourceKind, arg.SourceName, arg.DedupeHash)
-	return err
-}

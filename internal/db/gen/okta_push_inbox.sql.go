@@ -173,45 +173,6 @@ func (q *Queries) ClaimQueuedOktaPushInboxEventsByIDs(ctx context.Context, arg C
 	return items, nil
 }
 
-const countOktaPushInboxByStatus = `-- name: CountOktaPushInboxByStatus :many
-SELECT source_name, channel, status, count(*)::bigint AS row_count
-FROM okta_push_inbox
-GROUP BY source_name, channel, status
-ORDER BY source_name, channel, status
-`
-
-type CountOktaPushInboxByStatusRow struct {
-	SourceName string `json:"source_name"`
-	Channel    string `json:"channel"`
-	Status     string `json:"status"`
-	RowCount   int64  `json:"row_count"`
-}
-
-func (q *Queries) CountOktaPushInboxByStatus(ctx context.Context) ([]CountOktaPushInboxByStatusRow, error) {
-	rows, err := q.db.Query(ctx, countOktaPushInboxByStatus)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []CountOktaPushInboxByStatusRow
-	for rows.Next() {
-		var i CountOktaPushInboxByStatusRow
-		if err := rows.Scan(
-			&i.SourceName,
-			&i.Channel,
-			&i.Status,
-			&i.RowCount,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const deleteOldOktaPushInboxRows = `-- name: DeleteOldOktaPushInboxRows :execrows
 DELETE FROM okta_push_inbox
 WHERE (

@@ -213,13 +213,6 @@ func FormatInt64(v int64) string {
 	return strconv.FormatInt(v, 10)
 }
 
-func FilterPillClass(active bool) string {
-	if active {
-		return "inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-foreground no-underline"
-	}
-	return "inline-flex items-center rounded-md px-2.5 py-1 text-xs text-muted-foreground no-underline hover:bg-muted/60 hover:text-foreground"
-}
-
 func FindingsRulesetFilterCount(data viewmodels.FindingsRulesetViewData) int {
 	count := 0
 	if strings.TrimSpace(data.StatusFilter) != "" {
@@ -348,20 +341,6 @@ func appsHasAnyIntegration(apps []viewmodels.AppListItem) bool {
 		}
 	}
 	return false
-}
-
-func AssignedAppIntegrationBadgeClass(integrated bool) string {
-	if integrated {
-		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
-	}
-	return "badge-outline"
-}
-
-func AssignedAppIntegrationLabel(integrated bool) string {
-	if integrated {
-		return "Integrated"
-	}
-	return "Unmapped"
 }
 
 func AppInitial(label string) string {
@@ -876,17 +855,6 @@ func HumanizeNonHumanPrincipalType(value string) string {
 	}
 }
 
-func NonHumanOwnerPresenceBadgeClass(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "owned":
-		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
-	case "unknown":
-		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
-	default:
-		return "badge-outline"
-	}
-}
-
 func HumanizeNonHumanOwnerPresence(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "owned":
@@ -895,19 +863,6 @@ func HumanizeNonHumanOwnerPresence(value string) string {
 		return "Unknown"
 	default:
 		return fallbackHumanized(value)
-	}
-}
-
-func NonHumanActivityStateBadgeClass(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "recent":
-		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
-	case "aging":
-		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
-	case "stale", "never_seen":
-		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
-	default:
-		return "badge-outline"
 	}
 }
 
@@ -923,19 +878,6 @@ func HumanizeNonHumanActivityState(value string) string {
 		return "Never seen"
 	default:
 		return fallbackHumanized(value)
-	}
-}
-
-func NonHumanFreshnessStateBadgeClass(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "current":
-		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
-	case "stale":
-		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
-	case "unknown":
-		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
-	default:
-		return "badge-outline"
 	}
 }
 
@@ -1046,21 +988,6 @@ func IdentityAnchorTextClass(state string) string {
 		return "text-sm font-medium text-amber-800 dark:text-amber-300"
 	default:
 		return "text-sm text-muted-foreground"
-	}
-}
-
-func IdentityStatusBadgeClass(status string) string {
-	switch strings.ToLower(strings.TrimSpace(status)) {
-	case "active":
-		return "badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
-	case "suspended":
-		return "badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
-	case "deleted":
-		return "badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
-	case "orphaned":
-		return "badge bg-slate-100 text-slate-800 dark:bg-slate-900/50 dark:text-slate-100"
-	default:
-		return "badge-outline"
 	}
 }
 
