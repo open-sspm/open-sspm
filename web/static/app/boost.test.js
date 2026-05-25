@@ -46,18 +46,22 @@ describe("boost link scope", () => {
     expect(link.getAttribute("hx-swap")).toBe(null);
   });
 
-  it("does not decorate hash links, mailto links, or external links", () => {
+  it("does not decorate hash links, non-http links, or external links", () => {
     document.body.innerHTML = `
       <a id="hash" href="#section">hash</a>
       <a id="mail" href="mailto:a@b.c">mail</a>
+      <a id="data" href="data:text/html,hello">data</a>
+      <a id="vbscript" href="vbscript:msgbox(1)">vbscript</a>
       <a id="ext" href="https://other.example.com/foo">ext</a>
     `;
 
     fireClick(document.getElementById("hash"));
     fireClick(document.getElementById("mail"));
+    fireClick(document.getElementById("data"));
+    fireClick(document.getElementById("vbscript"));
     fireClick(document.getElementById("ext"));
 
-    for (const id of ["hash", "mail", "ext"]) {
+    for (const id of ["hash", "mail", "data", "vbscript", "ext"]) {
       const link = document.getElementById(id);
       expect(link.getAttribute("hx-target")).toBe(null);
       expect(link.getAttribute("hx-select")).toBe(null);

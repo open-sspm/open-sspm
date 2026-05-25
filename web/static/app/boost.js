@@ -48,17 +48,11 @@ const isBoostEligible = (link, event) => {
 
   const href = link.getAttribute("href") || "";
   if (!href) return false;
-  if (
-    href.startsWith("#") ||
-    href.startsWith("mailto:") ||
-    href.startsWith("tel:") ||
-    href.startsWith("javascript:")
-  ) {
-    return false;
-  }
+  if (href.startsWith("#")) return false;
 
   try {
     const url = new URL(href, location.href);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
     if (url.origin !== location.origin) return false;
   } catch (_) {
     return false;
