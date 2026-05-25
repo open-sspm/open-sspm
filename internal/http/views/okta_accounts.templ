@@ -9,20 +9,22 @@ templ OktaAccountMobileRow(account gen.Account) {
 	<article class="rounded-lg border border-border/70 bg-card p-4">
 		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0">
-				<a class="block font-medium no-underline hover:underline break-all" href={ "/accounts/okta/" + FormatInt64(account.ID) }>
-					if account.Email != "" {
-						{ account.Email }
-					} else if account.DisplayName != "" {
-						{ account.DisplayName }
-					} else {
-						{ "Account #" }{ FormatInt64(account.ID) }
+					<a class="block font-medium no-underline hover:underline break-all" href={ "/accounts/okta/" + FormatInt64(account.ID) }>
+						<span hx-disable>
+						if account.Email != "" {
+							{ account.Email }
+						} else if account.DisplayName != "" {
+							{ account.DisplayName }
+						} else {
+							{ "Account #" }{ FormatInt64(account.ID) }
+						}
+						</span>
+					</a>
+					if account.DisplayName != "" {
+						<div class="text-sm text-muted-foreground" title={ account.DisplayName }>
+							<span class="osspm-truncate" hx-disable>{ account.DisplayName }</span>
+						</div>
 					}
-				</a>
-				if account.DisplayName != "" {
-					<div class="text-sm text-muted-foreground" title={ account.DisplayName }>
-						<span class="osspm-truncate">{ account.DisplayName }</span>
-					</div>
-				}
 			</div>
 			<span class={ StatusBadgeClass(account.Status) }>{ account.Status }</span>
 		</div>
@@ -46,8 +48,8 @@ templ OktaAccountsPageFilters(data viewmodels.OktaAccountsViewData) {
 			data-enter-only-query="q"
 			hx-get="/accounts/okta"
 			hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+			hx-sync="this:replace"
 			hx-target="#okta-accounts-results"
-			hx-swap="outerHTML"
 			hx-push-url="true"
 			class="osspm-list-form"
 		>
@@ -91,9 +93,9 @@ templ OktaAccountsPageResults(data viewmodels.OktaAccountsViewData) {
 							for _, u := range data.Users {
 								<tr>
 									<td class="font-medium">
-										<a class="btn-sm-link" href={ "/accounts/okta/" + FormatInt64(u.ID) }>{ u.Email }</a>
-									</td>
-									<td class="text-muted-foreground">{ u.DisplayName }</td>
+											<a class="btn-sm-link" href={ "/accounts/okta/" + FormatInt64(u.ID) }><span hx-disable>{ u.Email }</span></a>
+										</td>
+										<td class="text-muted-foreground" hx-disable>{ u.DisplayName }</td>
 									<td>
 										<span class={ StatusBadgeClass(u.Status) }>{ u.Status }</span>
 									</td>

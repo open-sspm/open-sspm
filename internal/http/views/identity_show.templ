@@ -8,10 +8,10 @@ templ IdentityShowPage(data viewmodels.IdentityShowViewData) {
 		<div class="mx-auto w-full min-w-0 max-w-7xl">
 			@identityShowBreadcrumb(data)
 			@identityShowHeader(data)
-			@identityShowSummaryTiles(data.Summary.Tiles)
+			@IdentityShowSummarySection(data)
 			@identityShowGraphFacts(data)
-			@identityShowEntitlements(data)
-			@identityShowLinkedAccounts(data)
+			@IdentityShowEntitlementsSection(data)
+			@IdentityShowLinkedAccountsSection(data)
 		</div>
 	}
 }
@@ -63,9 +63,9 @@ templ identityShowHeader(data viewmodels.IdentityShowViewData) {
 						for _, tag := range data.Profile.Tags {
 							<span class="badge-outline">{ tag }</span>
 						}
-						if data.Profile.AdminScopeSummary != "" {
-							<span class="badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100">{ "Admin · " }{ data.Profile.AdminScopeSummary }</span>
-						}
+							if data.Profile.AdminScopeSummary != "" {
+								<span class="badge bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100" hx-disable>{ "Admin · " }{ data.Profile.AdminScopeSummary }</span>
+							}
 						<span class="osspm-id-pill">{ "ID " }{ FormatInt64(data.Profile.Identity.ID) }</span>
 						if data.Profile.NonHumanIdentitiesHref != "" {
 							<a class="btn-sm-link px-0" href={ templ.SafeURL(data.Profile.NonHumanIdentitiesHref) }>Search non-human identities</a>
@@ -102,14 +102,36 @@ templ identityReviewSummary(summary viewmodels.IdentityReviewSummary) {
 	</div>
 }
 
-templ identityShowSummaryTiles(tiles []viewmodels.IdentitySummaryTile) {
-	if len(tiles) > 0 {
-		<section class="osspm-summary-tiles">
-			for _, tile := range tiles {
-				@identitySummaryTile(tile)
+templ IdentityShowSummarySection(data viewmodels.IdentityShowViewData) {
+	if !data.Summary.Loaded {
+		<section id="identity-summary-section" class="osspm-summary-tiles" hx-get={ data.Summary.LoadHref } hx-trigger="load" hx-target="this">
+			@identitySummaryPlaceholder("Linked accounts")
+			@identitySummaryPlaceholder("Access grants")
+			@identitySummaryPlaceholder("Admin grants")
+			@identitySummaryPlaceholder("Dormant")
+		</section>
+	} else {
+		<section id="identity-summary-section" class="osspm-summary-tiles">
+			if len(data.Summary.Tiles) > 0 {
+				for _, tile := range data.Summary.Tiles {
+					@identitySummaryTile(tile)
+				}
+			} else {
+				<div class="osspm-summary-tile">
+					<div class="osspm-summary-tile-label">Source accounts</div>
+					<div class="osspm-summary-tile-value text-muted-foreground">0</div>
+					<div class="osspm-summary-tile-sublabel">No linked accounts</div>
+				</div>
 			}
 		</section>
 	}
+}
+
+templ identitySummaryPlaceholder(label string) {
+	<div class="osspm-summary-tile" aria-busy="true">
+		<div class="osspm-summary-tile-label">{ label }</div>
+		<div class="osspm-summary-tile-value text-muted-foreground">...</div>
+	</div>
 }
 
 templ identitySummaryTile(tile viewmodels.IdentitySummaryTile) {
@@ -142,9 +164,9 @@ templ identityShowGraphFacts(data viewmodels.IdentityShowViewData) {
 								<div class="px-4 py-3">
 									<div class="flex min-w-0 items-start justify-between gap-3">
 										<div class="min-w-0">
-											<div class="truncate font-medium">{ email.Email }</div>
+											<div class="truncate font-medium" hx-disable>{ email.Email }</div>
 											if email.NormalizedEmail != "" && email.NormalizedEmail != email.Email {
-												<div class="truncate text-xs text-muted-foreground">{ email.NormalizedEmail }</div>
+												<div class="truncate text-xs text-muted-foreground" hx-disable>{ email.NormalizedEmail }</div>
 											}
 										</div>
 										if email.IsPrimary {
@@ -161,7 +183,7 @@ templ identityShowGraphFacts(data viewmodels.IdentityShowViewData) {
 											if email.SourceKind != "" {
 												<span>{ HumanizeConnectorKind(email.SourceKind) }</span>
 												if email.SourceName != "" {
-													<span>{ " / " }{ email.SourceName }</span>
+														<span hx-disable>{ " / " }{ email.SourceName }</span>
 												}
 											}
 											if email.LastSeen.Label != "" {
@@ -186,8 +208,8 @@ templ identityShowGraphFacts(data viewmodels.IdentityShowViewData) {
 								<div class="px-4 py-3">
 									<div class="min-w-0">
 										<div class="truncate font-medium">{ HumanizeIdentityResolutionToken(anchor.AnchorKind) }</div>
-										<div class="truncate text-xs text-muted-foreground">{ anchor.Issuer }</div>
-										<div class="mt-1 break-all font-mono text-xs">{ anchor.NormalizedAnchorValue }</div>
+										<div class="truncate text-xs text-muted-foreground" hx-disable>{ anchor.Issuer }</div>
+										<div class="mt-1 break-all font-mono text-xs" hx-disable>{ anchor.NormalizedAnchorValue }</div>
 									</div>
 									<div class="mt-2 flex flex-wrap gap-2">
 										<span class="badge-outline">{ HumanizeIdentityResolutionToken(anchor.TrustLevel) }</span>
@@ -198,7 +220,7 @@ templ identityShowGraphFacts(data viewmodels.IdentityShowViewData) {
 											if anchor.SourceKind != "" {
 												<span>{ HumanizeConnectorKind(anchor.SourceKind) }</span>
 												if anchor.SourceName != "" {
-													<span>{ " / " }{ anchor.SourceName }</span>
+													<span hx-disable>{ " / " }{ anchor.SourceName }</span>
 												}
 											}
 											if anchor.LastSeen.Label != "" {
@@ -218,8 +240,13 @@ templ identityShowGraphFacts(data viewmodels.IdentityShowViewData) {
 	}
 }
 
-templ identityShowLinkedAccounts(data viewmodels.IdentityShowViewData) {
-	<section class="osspm-data-section">
+templ IdentityShowLinkedAccountsSection(data viewmodels.IdentityShowViewData) {
+	if !data.LinkedAccounts.Loaded {
+		<section id="identity-linked-accounts-section" class="osspm-data-section" hx-get={ data.LinkedAccounts.LoadHref } hx-trigger="intersect once, oss-panel-visible" hx-target="this" data-hx-lazy-load data-hx-lazy-panel="identity-linked-accounts-section">
+			@identitySectionLoading("Source accounts")
+		</section>
+	} else {
+	<section id="identity-linked-accounts-section" class="osspm-data-section">
 		<div class="osspm-data-section-header">
 			<div class="space-y-1">
 				<h2 class="text-base font-semibold">{ "Source accounts " }<span class="text-sm font-normal text-muted-foreground">{ FormatInt(data.LinkedAccounts.Total) }{ " total" }</span></h2>
@@ -257,7 +284,7 @@ templ identityShowLinkedAccounts(data viewmodels.IdentityShowViewData) {
 							<div class="min-w-0 flex-1 space-y-0.5">
 								<div class="font-medium">{ HumanizeConnectorKind(linked.Account.SourceKind) }</div>
 									if linked.Account.SourceName != "" {
-										<div class="text-sm text-muted-foreground break-all">{ ConnectorScopeLabel(linked.Account.SourceKind) }{ ": " }{ linked.Account.SourceName }</div>
+										<div class="text-sm text-muted-foreground break-all" hx-disable>{ ConnectorScopeLabel(linked.Account.SourceKind) }{ ": " }{ linked.Account.SourceName }</div>
 									}
 								</div>
 							if linked.Account.Status != "" {
@@ -267,7 +294,7 @@ templ identityShowLinkedAccounts(data viewmodels.IdentityShowViewData) {
 						<div class="mt-3 space-y-1">
 							@IdentityLinkedAccountPrimary(linked)
 							if linked.Account.ExternalID != "" && linked.Account.ExternalID != linked.Account.Email {
-								<div class="text-xs text-muted-foreground break-all font-mono">{ linked.Account.ExternalID }</div>
+								<div class="text-xs text-muted-foreground break-all font-mono" hx-disable>{ linked.Account.ExternalID }</div>
 							}
 						</div>
 						<div class="mt-3 flex items-center justify-between gap-3 text-sm">
@@ -314,7 +341,7 @@ templ identityShowLinkedAccounts(data viewmodels.IdentityShowViewData) {
 										<div class="min-w-0 space-y-0.5">
 											<div class="font-medium">{ HumanizeConnectorKind(linked.Account.SourceKind) }</div>
 											if linked.Account.SourceName != "" {
-												<div class="truncate text-sm text-muted-foreground" title={ ConnectorScopeLabel(linked.Account.SourceKind) + ": " + linked.Account.SourceName }>{ ConnectorScopeLabel(linked.Account.SourceKind) }{ ": " }{ linked.Account.SourceName }</div>
+												<div class="truncate text-sm text-muted-foreground" title={ ConnectorScopeLabel(linked.Account.SourceKind) + ": " + linked.Account.SourceName } hx-disable>{ ConnectorScopeLabel(linked.Account.SourceKind) }{ ": " }{ linked.Account.SourceName }</div>
 											}
 										</div>
 									</div>
@@ -325,7 +352,7 @@ templ identityShowLinkedAccounts(data viewmodels.IdentityShowViewData) {
 											if linked.DetailHref != "" {
 												<a class="btn-sm-link min-w-0 px-0 font-mono text-xs break-all" href={ templ.SafeURL(linked.DetailHref) }>{ linked.Account.ExternalID }</a>
 											} else {
-												<span class="min-w-0 font-mono text-xs break-all">{ linked.Account.ExternalID }</span>
+												<span class="min-w-0 font-mono text-xs break-all" hx-disable>{ linked.Account.ExternalID }</span>
 											}
 											@CopyTextButton(linked.Account.ExternalID, "Copy external ID")
 										</div>
@@ -358,6 +385,19 @@ templ identityShowLinkedAccounts(data viewmodels.IdentityShowViewData) {
 			</div>
 		}
 	</section>
+	}
+}
+
+templ identitySectionLoading(title string) {
+	<div class="osspm-data-section-header">
+		<div class="space-y-1">
+			<h2 class="text-base font-semibold">{ title }</h2>
+			<p class="text-sm text-muted-foreground">Loading...</p>
+		</div>
+	</div>
+	<div class="border-t border-border/60 py-6">
+		@BusyInlineIndicator("Loading...", true)
+	</div>
 }
 
 templ identitySingleLinkedAccount(linked viewmodels.IdentityLinkedAccountView) {
@@ -372,13 +412,13 @@ templ identitySingleLinkedAccount(linked viewmodels.IdentityLinkedAccountView) {
 					}
 				</div>
 				if linked.Account.SourceName != "" {
-					<p class="mt-0.5 text-sm text-muted-foreground break-all">{ ConnectorScopeLabel(linked.Account.SourceKind) }{ ": " }{ linked.Account.SourceName }</p>
+					<p class="mt-0.5 text-sm text-muted-foreground break-all" hx-disable>{ ConnectorScopeLabel(linked.Account.SourceKind) }{ ": " }{ linked.Account.SourceName }</p>
 				}
 				<div class="mt-3 min-w-0">
 					@IdentityLinkedAccountPrimary(linked)
 					if linked.Account.ExternalID != "" && linked.Account.ExternalID != linked.Account.Email {
 						<div class="mt-1 flex min-w-0 items-center gap-2">
-							<span class="min-w-0 truncate font-mono text-xs text-muted-foreground" title={ linked.Account.ExternalID }>{ linked.Account.ExternalID }</span>
+							<span class="min-w-0 truncate font-mono text-xs text-muted-foreground" title={ linked.Account.ExternalID } hx-disable>{ linked.Account.ExternalID }</span>
 							@CopyTextButton(linked.Account.ExternalID, "Copy external ID")
 						</div>
 					}
@@ -405,7 +445,15 @@ templ identitySingleLinkedAccount(linked viewmodels.IdentityLinkedAccountView) {
 }
 
 templ identityLinkedAccountsToolbar(data viewmodels.IdentityShowViewData) {
-	<form method="get" class="osspm-data-toolbar">
+	<form
+		method="get"
+		action={ "/identities/" + FormatInt64(data.Profile.Identity.ID) }
+		hx-get={ "/identities/" + FormatInt64(data.Profile.Identity.ID) }
+		hx-target="#identity-linked-accounts-section"
+		hx-push-url="true"
+		hx-sync="this:replace"
+		class="osspm-data-toolbar"
+	>
 		if data.Entitlements.Query != "" {
 			<input type="hidden" name="entitlement_q" value={ data.Entitlements.Query }/>
 		}
@@ -432,7 +480,7 @@ templ identityLinkedAccountsToolbar(data viewmodels.IdentityShowViewData) {
 				class="input pl-9 pr-10"
 			/>
 			if data.LinkedAccounts.Query != "" {
-				<a class="btn-sm-icon-ghost absolute right-1 top-1/2 -translate-y-1/2" href={ templ.SafeURL(data.LinkedAccounts.QueryClearHref) } aria-label="Clear account search">
+				<a class="btn-sm-icon-ghost absolute right-1 top-1/2 -translate-y-1/2" href={ templ.SafeURL(data.LinkedAccounts.QueryClearHref) } hx-get={ data.LinkedAccounts.QueryClearHref } hx-target="#identity-linked-accounts-section" hx-swap="outerHTML show:top" hx-push-url="true" aria-label="Clear account search">
 					@IconX("size-4")
 				</a>
 			}
@@ -449,8 +497,13 @@ templ identityLinkedAccountsToolbar(data viewmodels.IdentityShowViewData) {
 	</form>
 }
 
-templ identityShowEntitlements(data viewmodels.IdentityShowViewData) {
-	<section class="osspm-data-section">
+templ IdentityShowEntitlementsSection(data viewmodels.IdentityShowViewData) {
+	if !data.Entitlements.Loaded {
+		<section id="identity-entitlements-section" class="osspm-data-section" hx-get={ data.Entitlements.LoadHref } hx-trigger="intersect once, oss-panel-visible" hx-target="this" data-hx-lazy-load data-hx-lazy-panel="identity-entitlements-section">
+			@identitySectionLoading("Access grants")
+		</section>
+	} else {
+	<section id="identity-entitlements-section" class="osspm-data-section">
 		<div class="space-y-4">
 			<div class="osspm-data-section-header pb-0">
 				<div class="space-y-1">
@@ -481,10 +534,19 @@ templ identityShowEntitlements(data viewmodels.IdentityShowViewData) {
 			</div>
 		}
 	</section>
+	}
 }
 
 templ identityEntitlementsToolbar(data viewmodels.IdentityShowViewData) {
-	<form method="get" class="osspm-data-toolbar">
+	<form
+		method="get"
+		action={ "/identities/" + FormatInt64(data.Profile.Identity.ID) }
+		hx-get={ "/identities/" + FormatInt64(data.Profile.Identity.ID) }
+		hx-target="#identity-entitlements-section"
+		hx-push-url="true"
+		hx-sync="this:replace"
+		class="osspm-data-toolbar"
+	>
 		for _, hidden := range data.Entitlements.FormHiddenInputs {
 			<input type="hidden" name={ hidden.Name } value={ hidden.Value }/>
 		}
@@ -502,7 +564,7 @@ templ identityEntitlementsToolbar(data viewmodels.IdentityShowViewData) {
 				aria-label="Search access grants"
 			/>
 			if data.Entitlements.Query != "" {
-				<a class="btn-sm-icon-ghost absolute right-1 top-1/2 -translate-y-1/2" href={ templ.SafeURL(data.Entitlements.QueryClearHref) } aria-label="Clear entitlement search">
+				<a class="btn-sm-icon-ghost absolute right-1 top-1/2 -translate-y-1/2" href={ templ.SafeURL(data.Entitlements.QueryClearHref) } hx-get={ data.Entitlements.QueryClearHref } hx-target="#identity-entitlements-section" hx-swap="outerHTML show:top" hx-push-url="true" aria-label="Clear entitlement search">
 					@IconX("size-4")
 				</a>
 			}
@@ -530,7 +592,7 @@ templ identityEntitlementsToolbar(data viewmodels.IdentityShowViewData) {
 			}
 			<div class="flex items-center justify-between gap-2 border-t border-border/60 pt-3">
 				if data.Entitlements.FilterCount > 0 {
-					<a class="text-xs text-muted-foreground hover:text-foreground" href={ templ.SafeURL(data.Entitlements.ClearFiltersHref) }>Clear filters</a>
+					<a class="text-xs text-muted-foreground hover:text-foreground" href={ templ.SafeURL(data.Entitlements.ClearFiltersHref) } hx-get={ data.Entitlements.ClearFiltersHref } hx-target="#identity-entitlements-section" hx-swap="outerHTML show:top" hx-push-url="true">Clear filters</a>
 				} else {
 					<span></span>
 				}
@@ -544,13 +606,13 @@ templ identityEntitlementFilterChips(data viewmodels.IdentityShowViewData) {
 	if len(data.Entitlements.FilterChips) > 0 {
 		<div class="osspm-active-filter-chips" aria-label="Active access grant filters">
 			for _, chip := range data.Entitlements.FilterChips {
-				<a class="osspm-active-filter-chip" href={ templ.SafeURL(chip.ClearHref) }>
+				<a class="osspm-active-filter-chip" href={ templ.SafeURL(chip.ClearHref) } hx-get={ chip.ClearHref } hx-target="#identity-entitlements-section" hx-swap="outerHTML show:top" hx-push-url="true">
 					<span>{ chip.Label }</span>
 					@IconX("size-3")
 				</a>
 			}
 			if len(data.Entitlements.FilterChips) > 1 {
-				<a class="osspm-active-filter-clear" href={ templ.SafeURL(data.Entitlements.ClearFiltersHref) }>Clear all</a>
+				<a class="osspm-active-filter-clear" href={ templ.SafeURL(data.Entitlements.ClearFiltersHref) } hx-get={ data.Entitlements.ClearFiltersHref } hx-target="#identity-entitlements-section" hx-swap="outerHTML show:top" hx-push-url="true">Clear all</a>
 			}
 		</div>
 	}
@@ -606,9 +668,9 @@ templ identityEntitlementRows(data viewmodels.IdentityShowViewData, items []view
 							if ent.AccountSourceKind != "" {
 								<span>{ HumanizeConnectorKind(ent.AccountSourceKind) }</span>
 							}
-							if data.LinkedAccounts.Total > 1 && ent.AccountSourceName != "" {
-								<span>{ ConnectorScopeLabel(ent.AccountSourceKind) }{ ": " }{ ent.AccountSourceName }</span>
-							}
+								if data.LinkedAccounts.Total > 1 && ent.AccountSourceName != "" {
+									<span hx-disable>{ ConnectorScopeLabel(ent.AccountSourceKind) }{ ": " }{ ent.AccountSourceName }</span>
+								}
 						</div>
 					</div>
 				</div>
@@ -644,19 +706,19 @@ templ IdentityLinkedAccountPrimary(linked viewmodels.IdentityLinkedAccountView) 
 		if linked.DetailHref != "" {
 			<a class="btn-sm-link px-0 osspm-cell-primary break-all" href={ templ.SafeURL(linked.DetailHref) }>{ linked.Account.Email }</a>
 		} else {
-			<div class="osspm-cell-primary break-all">{ linked.Account.Email }</div>
+				<div class="osspm-cell-primary break-all" hx-disable>{ linked.Account.Email }</div>
 		}
 	} else if linked.Account.ExternalID != "" {
 		if linked.DetailHref != "" {
 			<a class="btn-sm-link px-0 osspm-cell-primary break-all" href={ templ.SafeURL(linked.DetailHref) }>{ linked.Account.ExternalID }</a>
 		} else {
-			<div class="osspm-cell-primary break-all">{ linked.Account.ExternalID }</div>
+				<div class="osspm-cell-primary break-all" hx-disable>{ linked.Account.ExternalID }</div>
 		}
 	} else if linked.Account.DisplayName != "" {
 		if linked.DetailHref != "" {
 			<a class="btn-sm-link px-0 osspm-cell-primary break-words" href={ templ.SafeURL(linked.DetailHref) }>{ linked.Account.DisplayName }</a>
 		} else {
-			<div class="osspm-cell-primary break-words">{ linked.Account.DisplayName }</div>
+				<div class="osspm-cell-primary break-words" hx-disable>{ linked.Account.DisplayName }</div>
 		}
 	} else {
 		if linked.DetailHref != "" {
@@ -672,13 +734,13 @@ templ IdentityEntitlementAccount(ent viewmodels.IdentityEntitlementView) {
 		<div class="text-xs text-muted-foreground">
 			{ HumanizeConnectorKind(ent.AccountSourceKind) }
 			if ent.AccountSourceName != "" {
-				{ " · " }{ ConnectorScopeLabel(ent.AccountSourceKind) }{ ": " }{ ent.AccountSourceName }
+				<span hx-disable>{ " · " }{ ConnectorScopeLabel(ent.AccountSourceKind) }{ ": " }{ ent.AccountSourceName }</span>
 			}
 		</div>
 		if ent.AccountHref != "" {
 			<a class="btn-sm-link px-0 osspm-cell-primary break-all" href={ templ.SafeURL(ent.AccountHref) }>{ ent.AccountLabel }</a>
 		} else {
-			<div class="osspm-cell-primary break-all">{ ent.AccountLabel }</div>
+			<div class="osspm-cell-primary break-all" hx-disable>{ ent.AccountLabel }</div>
 		}
 	</div>
 }

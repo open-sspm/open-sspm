@@ -453,7 +453,7 @@ func (h *Handlers) persistDiscoveryGovernanceUpdate(ctx context.Context, appID i
 }
 
 func (h *Handlers) renderDiscoveryGovernanceSuccess(c *echo.Context, appID int64) error {
-	setFlashToast(c, viewmodels.ToastViewData{
+	setResponseToast(c, viewmodels.ToastViewData{
 		Category:    "success",
 		Title:       "Discovery governance saved",
 		Description: "The discovery disposition and review details were updated.",

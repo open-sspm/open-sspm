@@ -1,14 +1,21 @@
 package handlers
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
 	"unicode/utf8"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	connregistry "github.com/open-sspm/open-sspm/internal/connectors/registry"
+	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
 type connectorHealthTestDefinition struct {
@@ -184,4 +191,60 @@ func TestConnectorHealthRequestedRollupKeys_IncludeVault(t *testing.T) {
 	if len(want) != 0 {
 		t.Fatalf("missing keys = %#v", want)
 	}
+}
+
+type stubConnectorHealthSyncRunner struct {
+	err error
+}
+
+func (r stubConnectorHealthSyncRunner) RunOnce(context.Context) error {
+	return r.err
+}
+
+func TestHandleConnectorHealthSyncHTMXReturnsPanelFragment(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, _ *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, h.Pool, configstore.KindGitHub, true, configstore.GitHubConfig{
+			Org:   "acme",
+			Token: "github-token",
+		})
+		h.Syncer = stubConnectorHealthSyncRunner{}
+
+		c, rec := newConnectorHealthSyncFormContext(url.Values{
+			"connector_kind": {configstore.KindGitHub},
+			"source_name":    {"acme"},
+		})
+		c.Request().Header.Set("HX-Request", "true")
+		c.Request().Header.Set("HX-Target", "connector-health-panel")
+
+		if err := h.HandleConnectorHealthSync(c); err != nil {
+			t.Fatalf("HandleConnectorHealthSync(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		if got := rec.Header().Get("HX-Redirect"); got != "" {
+			t.Fatalf("HX-Redirect = %q, want empty", got)
+		}
+		trigger := rec.Header().Get("HX-Trigger")
+		if !strings.Contains(trigger, `"osspm:toast"`) || !strings.Contains(trigger, `"osspm:connector-health-changed"`) {
+			t.Fatalf("HX-Trigger = %q, want toast and connector-health event", trigger)
+		}
+		body := rec.Body.String()
+		if !strings.Contains(body, `id="connector-health-panel"`) {
+			t.Fatalf("body missing connector-health panel: %s", body)
+		}
+		if strings.Contains(body, `<body`) {
+			t.Fatalf("body rendered full page instead of panel fragment")
+		}
+	})
+}
+
+func newConnectorHealthSyncFormContext(values url.Values) (*echo.Context, *httptest.ResponseRecorder) {
+	req := httptest.NewRequest(http.MethodPost, "http://example.com/settings/connector-health/sync", strings.NewReader(values.Encode()))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	rec := httptest.NewRecorder()
+	e := echo.New()
+	c := e.NewContext(req, rec)
+	c.SetPath("/settings/connector-health/sync")
+	return c, rec
 }

@@ -7,6 +7,16 @@
       "destination": "web/static/vendor/htmx.min.js"
     },
     {
+      "package": "idiomorph",
+      "source": "dist/idiomorph-ext.min.js",
+      "destination": "web/static/vendor/idiomorph-ext.min.js"
+    },
+    {
+      "package": "htmx-ext-sse",
+      "source": "dist/sse.min.js",
+      "destination": "web/static/vendor/htmx-ext-sse.min.js"
+    },
+    {
       "package": "simple-icons",
       "source": "data/simple-icons.json",
       "destination": "web/static/vendor/simple-icons/simple-icons.json"

@@ -1,0 +1,35 @@
+package views
+
+templ AskBarSuggestions(data AskBarSuggestionsViewData) {
+	if data.Error != "" {
+		<div class="osspm-askbar-suggest-label">Check syntax</div>
+		<div class="osspm-askbar-suggest-error" role="status">{ data.Error }</div>
+	}
+	if len(data.Items) > 0 {
+		<div class="osspm-askbar-suggest-label">Suggestions</div>
+		for i, item := range data.Items {
+			<div
+				class={ templ.Classes("osspm-askbar-suggest-item", templ.KV("is-hl", item.Active || i == 0)) }
+				data-field={ item.Field }
+				data-value={ item.Value }
+				data-label={ item.Label }
+				data-tone={ item.Tone }
+			>
+				<span class="osspm-askbar-suggest-key">{ item.FieldLabel }</span>
+				<span class="osspm-askbar-suggest-val">{ item.Label }</span>
+			</div>
+		}
+		if data.ShowFreeText {
+			<div class="osspm-askbar-suggest-label">Or</div>
+			<div class="osspm-askbar-suggest-item" data-action="freetext" data-value={ data.DisplayText }>
+				<span class="osspm-askbar-suggest-key">Search</span>
+				<span class="osspm-askbar-suggest-val">{ "\"" }{ data.DisplayText }{ "\"" }</span>
+			</div>
+		}
+	} else if data.ShowFreeText {
+		<div class="osspm-askbar-suggest-label">Free text</div>
+		<div class="osspm-askbar-suggest-item is-hl" data-action="freetext" data-value={ data.DisplayText }>
+			<span class="osspm-askbar-suggest-val">{ "Add \"" }{ data.DisplayText }{ "\" as text search" }</span>
+		</div>
+	}
+}

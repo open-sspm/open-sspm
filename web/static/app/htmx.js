@@ -9,7 +9,6 @@ import {
   markLazyHxLoaded,
   markLazyHxPending,
   scheduleVisibleLazyHx,
-  triggerVisibleLazyHx,
 } from "open-sspm-app/fragment.js";
 import { showFlashToast } from "open-sspm-app/toast.js";
 
@@ -166,6 +165,18 @@ const finalizeRequestBusyState = (xhr) => {
   return state;
 };
 
+const readCSRFToken = () => {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  if (!(meta instanceof HTMLMetaElement)) return "";
+  return (meta.content || "").trim();
+};
+
+const applyCSRFHeader = (detail) => {
+  const token = readCSRFToken();
+  if (!token || !detail?.headers) return;
+  detail.headers["X-CSRF-Token"] = token;
+};
+
 const clearPendingLazyState = (state) => {
   if (state?.lazyElement) {
     clearLazyHxPending(state.lazyElement);
@@ -231,14 +242,15 @@ const createRequestState = (detail, lazyElement) => {
   return state;
 };
 
-const finalizeManagedLazySwap = (target) => {
-  if (!isManagedLazyHx(target)) return false;
+const finalizeManagedLazySwap = (target, requestState) => {
+  const lazyElement = isManagedLazyHx(target) ? target : requestState?.lazyElement;
+  if (!isManagedLazyHx(lazyElement)) return false;
   if (hasLazyHxError(target)) {
-    clearLazyHxPending(target);
+    clearLazyHxPending(lazyElement);
     return true;
   }
 
-  markLazyHxLoaded(target);
+  markLazyHxLoaded(lazyElement);
   return false;
 };
 
@@ -269,7 +281,23 @@ const initializeSwapTarget = (target, initGlobal) => {
 };
 
 const handleConfigRequest = (event) => {
+  applyCSRFHeader(event.detail);
   syncEnterOnlyQueryParameter(event.detail);
+};
+
+const handleBeforeSwap = (event) => {
+  const detail = event.detail;
+  const status = Number(detail?.xhr?.status || 0);
+  const hasFragment = typeof detail?.xhr?.responseText === "string" && detail.xhr.responseText.trim() !== "";
+  const contentType =
+    typeof detail?.xhr?.getResponseHeader === "function"
+      ? detail.xhr.getResponseHeader("Content-Type") || ""
+      : detail?.xhr?.contentType || "";
+  const isHTML = contentType.toLowerCase().includes("text/html");
+  if ((status === 400 || status === 401 || status === 409 || status === 422) && hasFragment && isHTML) {
+    detail.shouldSwap = true;
+    detail.isError = false;
+  }
 };
 
 const handleBeforeRequest = (event) => {
@@ -310,14 +338,8 @@ const handleAfterSwap = (event, initGlobal) => {
     if (!(target instanceof HTMLElement)) return;
 
     initializeSwapTarget(target, initGlobal);
-
-    const managedLazySwapErrored = finalizeManagedLazySwap(target);
+    finalizeManagedLazySwap(target, requestState);
     restoreSwapFocus(target, requestState);
-
-    // Avoid immediately re-triggering a lazy panel that just swapped an error fragment.
-    if (!managedLazySwapErrored) {
-      triggerVisibleLazyHx(document);
-    }
   } finally {
     clearStaleBusyState(target instanceof HTMLElement ? target : undefined);
     if (xhr) {
@@ -328,6 +350,24 @@ const handleAfterSwap = (event, initGlobal) => {
   }
 };
 
+// Statuses we explicitly swap as content (see handleBeforeSwap). For those, the
+// response body already carries the user-facing error and the generic "Request
+// failed" toast would be a duplicate.
+const swapAllowedErrorStatuses = new Set([400, 401, 409, 422]);
+
+const hxTriggerHasEvent = (triggerHeader, eventName) => {
+  const header = (triggerHeader || "").trim();
+  if (!header) return false;
+  if (header.startsWith("{")) {
+    try {
+      return Object.prototype.hasOwnProperty.call(JSON.parse(header), eventName);
+    } catch (_) {
+      return false;
+    }
+  }
+  return header.split(",").some((name) => name.trim() === eventName);
+};
+
 const handleFailedRequest = (event) => {
   const xhr = event.detail?.xhr;
   if (!isRequestHandle(xhr)) return;
@@ -335,6 +375,24 @@ const handleFailedRequest = (event) => {
   const state = finalizeRequestBusyState(xhr);
   clearPendingLazyState(state);
   htmxRequestState.delete(xhr);
+  if (state?.lazyElement) scheduleVisibleLazyHx(document);
+
+  const status = Number(xhr.status || 0);
+  if (swapAllowedErrorStatuses.has(status)) return;
+  const triggerHeader = typeof xhr.getResponseHeader === "function" ? xhr.getResponseHeader("HX-Trigger") || "" : "";
+  if (status > 0 && !hxTriggerHasEvent(triggerHeader, "osspm:toast")) {
+    document.dispatchEvent(
+      new CustomEvent("osspm:toast", {
+        detail: {
+          config: {
+            category: "error",
+            title: "Request failed",
+            description: status >= 500 ? "The server could not complete that request." : "Refresh the page and try again.",
+          },
+        },
+      }),
+    );
+  }
 };
 
 const handleHtmxLoad = (event) => {
@@ -370,8 +428,14 @@ const handleTabClick = (event) => {
 const handleTabKeydown = (event) => {
   if (!(event.target instanceof Element)) return;
   if (!event.target.closest('[role="tab"]')) return;
-  if (!["ArrowRight", "ArrowLeft", "Home", "End", "Enter", " "].includes(event.key)) return;
+  if (event.key !== "Enter" && event.key !== " ") return;
   scheduleVisibleLazyHx(document);
+};
+
+const handleDetailsToggle = (event) => {
+  const details = event.target;
+  if (!(details instanceof HTMLDetailsElement) || !details.open) return;
+  scheduleVisibleLazyHx(details);
 };
 
 export const bindGlobalListenersOnce = (options = {}) => {
@@ -383,6 +447,7 @@ export const bindGlobalListenersOnce = (options = {}) => {
 
   document.addEventListener("htmx:configRequest", handleConfigRequest);
   document.addEventListener("htmx:beforeRequest", handleBeforeRequest);
+  document.addEventListener("htmx:beforeSwap", handleBeforeSwap);
   document.addEventListener("htmx:afterRequest", handleAfterRequest);
   document.addEventListener("htmx:afterSwap", (event) => {
     handleAfterSwap(event, initGlobal);
@@ -394,7 +459,8 @@ export const bindGlobalListenersOnce = (options = {}) => {
   document.addEventListener("htmx:onLoadError", handleFailedRequest);
   document.addEventListener("htmx:swapError", handleFailedRequest);
   document.addEventListener("htmx:load", handleHtmxLoad);
-  document.addEventListener("click", handleTabClick);
   document.addEventListener("keydown", handleShortcutKeydown);
+  document.addEventListener("click", handleTabClick);
   document.addEventListener("keydown", handleTabKeydown);
+  document.addEventListener("toggle", handleDetailsToggle, true);
 };

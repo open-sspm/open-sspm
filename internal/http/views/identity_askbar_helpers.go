@@ -23,6 +23,7 @@ func IdentitiesAskBar(q querystate.IdentitiesQuery) AskBarConfig {
 		SingletonFields: identitiesSingletonFields(),
 		SavedQueries:    identitiesSavedQueries(q),
 		HxTarget:        "#identities-results",
+		SuggestionScope: "identities",
 	}
 }
 

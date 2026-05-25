@@ -111,6 +111,28 @@ func TestHTTPErrorHandlerInternalErrorIsGeneric(t *testing.T) {
 	}
 }
 
+func TestSecurityHeadersScriptCSPDoesNotAllowUnsafeInline(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := securityHeadersMiddleware(func(c *echo.Context) error {
+		return c.String(http.StatusOK, "ok")
+	})(c)
+	if err != nil {
+		t.Fatalf("securityHeadersMiddleware() error = %v", err)
+	}
+
+	csp := rec.Header().Get("Content-Security-Policy")
+	if !strings.Contains(csp, "script-src 'self' 'sha256-qgfGDKq/rijkXxRFr/5N/gmWkvAuA8vY4XTEtgdMC9w='") {
+		t.Fatalf("CSP missing script-src hash: %q", csp)
+	}
+	if strings.Contains(csp, "script-src 'self' 'unsafe-inline'") {
+		t.Fatalf("CSP still allows unsafe inline scripts: %q", csp)
+	}
+}
+
 func TestHTTPErrorHandlerIgnoresRequestCanceled(t *testing.T) {
 	e := echo.New()
 	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))

@@ -92,7 +92,7 @@ templ askBarGrammarHint(hint AskBarGrammarHint, hxTarget string) {
 		href={ templ.SafeURL(hint.Href) }
 		hx-get={ hint.Href }
 		hx-target={ hxTarget }
-		hx-swap="outerHTML"
+		hx-swap="outerHTML show:top"
 		hx-push-url="true"
 		class="osspm-askbar-hint"
 		aria-current={ AriaCurrentBool(hint.Active) }
@@ -118,7 +118,7 @@ templ askBarSavedQueryPill(pill AskBarSavedQuery, hxTarget string) {
 		href={ templ.SafeURL(pill.Href) }
 		hx-get={ pill.Href }
 		hx-target={ hxTarget }
-		hx-swap="outerHTML"
+		hx-swap="outerHTML show:top"
 		hx-push-url="true"
 		class="osspm-saved-queries-pill"
 		aria-current={ AriaCurrentBool(pill.Active) }

@@ -38,15 +38,15 @@ templ appAssetShowHeader(a viewmodels.AppAssetSummaryView) {
 					<p class="text-xs uppercase tracking-wide text-muted-foreground">
 						<span>{ HumanizeProgrammaticKind(a.AssetKind) }</span>
 						<span class="px-1.5 text-muted-foreground/50">·</span>
-						<span>{ HumanizeConnectorKind(a.SourceKind) }</span>
-						if a.SourceName != "" {
-							<span class="text-muted-foreground/70">{ " (" }{ a.SourceName }{ ")" }</span>
-						}
-					</p>
-					<h1 class="text-2xl font-semibold leading-tight tracking-tight break-words md:text-3xl">{ a.DisplayName }</h1>
-					if a.ExternalID != "" {
-						<div class="flex min-w-0 items-center gap-2">
-							<p class="font-mono text-xs text-muted-foreground break-all">{ a.ExternalID }</p>
+							<span>{ HumanizeConnectorKind(a.SourceKind) }</span>
+							if a.SourceName != "" {
+								<span class="text-muted-foreground/70" hx-disable>{ " (" }{ a.SourceName }{ ")" }</span>
+							}
+						</p>
+						<h1 class="text-2xl font-semibold leading-tight tracking-tight break-words md:text-3xl" hx-disable>{ a.DisplayName }</h1>
+						if a.ExternalID != "" {
+							<div class="flex min-w-0 items-center gap-2">
+								<p class="font-mono text-xs text-muted-foreground break-all" hx-disable>{ a.ExternalID }</p>
 							@CopyTextButton(a.ExternalID, "Copy external ID")
 						</div>
 					}
@@ -72,7 +72,7 @@ templ appAssetShowMetadata(a viewmodels.AppAssetSummaryView) {
 				if a.ParentExternalID == "" {
 					<dd class="text-sm text-muted-foreground/60">—</dd>
 				} else {
-					<dd class="font-mono text-xs break-all">{ a.ParentExternalID }</dd>
+						<dd class="font-mono text-xs break-all" hx-disable>{ a.ParentExternalID }</dd>
 				}
 			</div>
 			@appAssetShowDateField("Created at source", a.CreatedAtSource)
@@ -118,28 +118,28 @@ templ appAssetShowOwners(data viewmodels.AppAssetShowViewData) {
 					<tbody>
 						for _, owner := range data.Owners {
 							<tr class="border-b border-border/40 last:border-0 align-top">
-								<td class="py-3 pr-4">
-									if owner.OwnerIdentityHref != "" {
-										<a class="btn-sm-link px-0 font-medium break-words" href={ owner.OwnerIdentityHref }>{ owner.OwnerDisplayName }</a>
-									} else {
-										<span class="font-medium break-words">{ owner.OwnerDisplayName }</span>
-									}
-								</td>
+									<td class="py-3 pr-4">
+										if owner.OwnerIdentityHref != "" {
+											<a class="btn-sm-link px-0 font-medium break-words" href={ owner.OwnerIdentityHref }><span hx-disable>{ owner.OwnerDisplayName }</span></a>
+										} else {
+											<span class="font-medium break-words" hx-disable>{ owner.OwnerDisplayName }</span>
+										}
+									</td>
 								<td class="py-3 pr-4 break-all">
-									if owner.OwnerEmail == "" {
-										<span class="text-muted-foreground/60">—</span>
-									} else {
-										{ owner.OwnerEmail }
-									}
-								</td>
+										if owner.OwnerEmail == "" {
+											<span class="text-muted-foreground/60">—</span>
+										} else {
+											<span hx-disable>{ owner.OwnerEmail }</span>
+										}
+									</td>
 								<td class="py-3 pr-4 text-muted-foreground">{ fallbackHumanized(owner.OwnerKind) }</td>
 								<td class="py-3 pr-4 font-mono text-[11px] text-muted-foreground break-all">
-									if owner.OwnerExternalID == "" {
-										<span class="text-muted-foreground/60">—</span>
-									} else {
-										{ owner.OwnerExternalID }
-									}
-								</td>
+										if owner.OwnerExternalID == "" {
+											<span class="text-muted-foreground/60">—</span>
+										} else {
+											<span hx-disable>{ owner.OwnerExternalID }</span>
+										}
+									</td>
 							</tr>
 						}
 					</tbody>
@@ -233,19 +233,19 @@ templ appAssetShowAuditEvents(data viewmodels.AppAssetShowViewData) {
 							<tr class="border-b border-border/40 last:border-0 align-top">
 								<td class="py-3 pr-4 tabular-nums text-muted-foreground">{ event.EventTime.Label }</td>
 								<td class="py-3 pr-4 font-medium">{ fallbackHumanized(event.EventType) }</td>
-								<td class="py-3 pr-4 break-words">{ event.Actor }</td>
-								<td class="py-3 pr-4">
-									<div class="text-sm break-words">{ event.CredentialDisplayName }</div>
-									if event.CredentialKind != "" || event.CredentialExternalID != "" {
-										<div class="text-xs text-muted-foreground break-all">
-											{ HumanizeCredentialKind(event.CredentialKind) }
-											if event.CredentialExternalID != "" {
-												{ " · " }{ event.CredentialExternalID }
-											}
-										</div>
-									}
-								</td>
-								<td class="py-3 pr-4 break-words">{ event.Target }</td>
+									<td class="py-3 pr-4 break-words" hx-disable>{ event.Actor }</td>
+									<td class="py-3 pr-4">
+										<div class="text-sm break-words" hx-disable>{ event.CredentialDisplayName }</div>
+										if event.CredentialKind != "" || event.CredentialExternalID != "" {
+											<div class="text-xs text-muted-foreground break-all">
+												{ HumanizeCredentialKind(event.CredentialKind) }
+												if event.CredentialExternalID != "" {
+													<span hx-disable>{ " · " }{ event.CredentialExternalID }</span>
+												}
+											</div>
+										}
+									</td>
+									<td class="py-3 pr-4 break-words" hx-disable>{ event.Target }</td>
 							</tr>
 						}
 					</tbody>

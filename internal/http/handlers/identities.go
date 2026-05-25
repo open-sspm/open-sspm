@@ -487,6 +487,8 @@ func firstInitialRune(word string) (rune, bool) {
 }
 
 func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
+	addVary(c, "HX-Request", "HX-Target")
+
 	ctx := c.Request().Context()
 	layout, stateView, err := h.LayoutData(ctx, c, "Identity")
 	if err != nil {
@@ -521,106 +523,17 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		return c.Redirect(http.StatusSeeOther, "/non-human-identities/identity-"+strconv.FormatInt(summary.ID, 10))
 	}
 
-	accounts, err := h.Q.ListLinkedAccountsForIdentity(ctx, id)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
 	now := time.Now().UTC()
-
-	accountByID := make(map[int64]gen.Account, len(accounts))
-	accountDormantByID := make(map[int64]bool, len(accounts))
-	accountLastSignInByID := make(map[int64]viewmodels.TimeDisplay, len(accounts))
-	accountLastSignInUnixByID := make(map[int64]int64, len(accounts))
-	for _, account := range accounts {
-		accountByID[account.ID] = account
-		accountDormantByID[account.ID] = isDormantAt(now, account.LastLoginAt, 60*24*time.Hour)
-		accountLastSignInByID[account.ID] = relativeWithTitleDisplay(now, account.LastLoginAt, "—", "No account sign-in observed")
-		accountLastSignInUnixByID[account.ID] = timestamptzUnix(account.LastLoginAt)
-	}
-
-	entitlementsByAccountID := make(map[int64]int, len(accounts))
-	entitlementViews := []viewmodels.IdentityEntitlementView{}
-	adminCount := 0
-	adminByKind := map[string]int{}
-	if len(accounts) > 0 {
-		accountIDs := make([]int64, 0, len(accounts))
-		for _, account := range accounts {
-			accountIDs = append(accountIDs, account.ID)
-		}
-		entitlements, err := h.Q.ListEntitlementsForAccountIDs(ctx, accountIDs)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
-		for _, entitlement := range entitlements {
-			entitlementsByAccountID[entitlement.AccountID]++
-			account, ok := accountByID[entitlement.AccountID]
-			if !ok {
-				continue
-			}
-			view := identityEntitlementView(account, entitlement, now)
-			if view.IsAdmin {
-				adminCount++
-				adminByKind[view.Kind]++
-			}
-			entitlementViews = append(entitlementViews, view)
-		}
-	}
-
-	linkedAccounts := make([]viewmodels.IdentityLinkedAccountView, 0, len(accounts))
-	totalEntitlements := 0
-	activeAccountCount := 0
-	dormantAccountCount := 0
-	distinctSourceKinds := make([]string, 0, len(accounts))
-	seenSourceKinds := map[string]struct{}{}
-	for _, account := range accounts {
-		totalEntitlements += entitlementsByAccountID[account.ID]
-		isActive := strings.EqualFold(strings.TrimSpace(account.Status), "ACTIVE")
-		if isActive {
-			activeAccountCount++
-		}
-		lastSignIn := accountLastSignInByID[account.ID]
-		dormant := accountDormantByID[account.ID]
-		if dormant {
-			dormantAccountCount++
-		}
-		linkedAccounts = append(linkedAccounts, viewmodels.IdentityLinkedAccountView{
-			Account:          account,
-			EntitlementCount: entitlementsByAccountID[account.ID],
-			DetailHref:       linkedAccountDetailHref(account),
-			StatusActive:     isActive,
-			LastSignIn:       lastSignIn,
-			LastSignInUnix:   accountLastSignInUnixByID[account.ID],
-			Dormant:          dormant,
-		})
-
-		kindKey := strings.ToLower(strings.TrimSpace(account.SourceKind))
-		if kindKey == "" {
-			continue
-		}
-		if _, ok := seenSourceKinds[kindKey]; ok {
-			continue
-		}
-		seenSourceKinds[kindKey] = struct{}{}
-		distinctSourceKinds = append(distinctSourceKinds, strings.TrimSpace(account.SourceKind))
-	}
-
-	nonHumanIdentitiesHref := ""
-	if email := strings.TrimSpace(summary.PrimaryEmail); email != "" {
-		nonHumanIdentitiesHref = "/non-human-identities?q=" + url.QueryEscape(email)
-	}
-
-	h.trackNonHumanIdentitiesOutboundClick(c, "identity", summary.ID)
-
 	namePrimary := identityNamePrimary(summary.DisplayName, summary.PrimaryEmail, summary.ID)
-	statusLabel, statusTone := identityStatusFromAccounts(accounts)
 	groupMode := viewmodels.IdentityEntitlementGroupResource
 	accountSortMode := viewmodels.ParseLinkedAccountSortMode(c.QueryParam("account_sort"))
 	accountQuery := strings.TrimSpace(c.QueryParam("account_q"))
 	entitlementQuery := strings.TrimSpace(c.QueryParam("entitlement_q"))
 	entitlementAdminOnly := isTruthyParam(c.QueryParam("admin"))
 	entitlementDormantOnly := isTruthyParam(c.QueryParam("dormant"))
-	entitlementSourceFilter := normalizeSourceKindFilter(c.QueryParam("source_kind"), distinctSourceKinds)
+	rawEntitlementSourceFilter := strings.TrimSpace(c.QueryParam("source_kind"))
 	basePath := "/identities/" + strconv.FormatInt(summary.ID, 10)
+	loadHref := identityShowLoadHref(c, basePath)
 
 	query := viewmodels.IdentityShowQuery{
 		Group:              groupMode,
@@ -629,97 +542,37 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		AccountSort:        accountSortMode,
 		EntitlementAdmin:   entitlementAdminOnly,
 		EntitlementDormant: entitlementDormantOnly,
-		EntitlementSource:  entitlementSourceFilter,
+		EntitlementSource:  rawEntitlementSourceFilter,
 	}
 
 	identityTypeLabel := views.HumanizeIdentityType(summary.Kind)
 	breadcrumbRootLabel, breadcrumbRootHref, breadcrumbKindLabel, breadcrumbKindHref := identityBreadcrumbKind(summary.Kind)
-	profileHints := identityProfileHints(accounts)
-	lastActive := relativeWithTitleDisplay(now, maxIdentityActivity(accounts), "—", "No activity observed")
-	profileFacts := identityProfileFacts(summary, profileHints, lastActive)
-	reviewSummary := identityReviewSummary(summary.AnchorState, totalEntitlements, adminCount, dormantAccountCount, lastActive)
-
-	summaryTiles := identitydomain.BuildSummaryTiles(
-		len(linkedAccounts),
-		totalEntitlements,
-		adminCount,
-		dormantAccountCount,
-		distinctSourceKinds,
-		len(distinctSourceKinds),
-		adminByKind,
-	)
-	sortLinkedAccounts(linkedAccounts, accountSortMode)
-	filteredLinkedAccounts := filterLinkedAccounts(linkedAccounts, accountQuery)
-	filteredEntitlements := filterIdentityEntitlements(entitlementViews, entitlementQuery, entitlementAdminOnly, entitlementDormantOnly, entitlementSourceFilter)
-	adminScopeSummary := identitydomain.SummarizeAdminByKind(adminByKind)
-	identityEmails, err := h.Q.ListIdentityEmails(ctx, id)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-	identityAnchors, err := h.Q.ListIdentityAnchors(ctx, id)
-	if err != nil {
-		return h.RenderError(c, err)
+	nonHumanIdentitiesHref := ""
+	if email := strings.TrimSpace(summary.PrimaryEmail); email != "" {
+		nonHumanIdentitiesHref = "/non-human-identities?q=" + url.QueryEscape(email)
 	}
 
-	entitlementSourceOptions := buildEntitlementSourceOptions(distinctSourceKinds, entitlementSourceFilter)
-	entitlementFilterCount := 0
-	if entitlementAdminOnly {
-		entitlementFilterCount++
-	}
-	if entitlementDormantOnly {
-		entitlementFilterCount++
-	}
-	if entitlementSourceFilter != "" {
-		entitlementFilterCount++
-	}
-	entitlementFilterChips := []viewmodels.IdentityFilterChip{}
-	if entitlementAdminOnly {
-		withoutAdmin := query
-		withoutAdmin.EntitlementAdmin = false
-		entitlementFilterChips = append(entitlementFilterChips, viewmodels.IdentityFilterChip{
-			Label:     "Admin only",
-			ClearHref: viewmodels.BuildIdentityShowHref(basePath, withoutAdmin),
-		})
-	}
-	if entitlementDormantOnly {
-		withoutDormant := query
-		withoutDormant.EntitlementDormant = false
-		entitlementFilterChips = append(entitlementFilterChips, viewmodels.IdentityFilterChip{
-			Label:     "Dormant account grants",
-			ClearHref: viewmodels.BuildIdentityShowHref(basePath, withoutDormant),
-		})
-	}
-	if entitlementSourceFilter != "" {
-		withoutSource := query
-		withoutSource.EntitlementSource = ""
-		entitlementFilterChips = append(entitlementFilterChips, viewmodels.IdentityFilterChip{
-			Label:     "Source: " + entitlementSourceFilterLabel(entitlementSourceOptions, entitlementSourceFilter),
-			ClearHref: viewmodels.BuildIdentityShowHref(basePath, withoutSource),
-		})
+	h.trackNonHumanIdentitiesOutboundClick(c, "identity", summary.ID)
+
+	summaryTarget := isHX(c) && isHXTarget(c, "identity-summary-section")
+	entitlementsTarget := isHX(c) && isHXTarget(c, "identity-entitlements-section")
+	linkedAccountsTarget := isHX(c) && isHXTarget(c, "identity-linked-accounts-section")
+	sectionTarget := summaryTarget || entitlementsTarget || linkedAccountsTarget
+
+	var identityEmails []gen.IdentityEmail
+	var identityAnchors []gen.IdentityAnchor
+	if !sectionTarget {
+		identityEmails, err = h.Q.ListIdentityEmails(ctx, id)
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		identityAnchors, err = h.Q.ListIdentityAnchors(ctx, id)
+		if err != nil {
+			return h.RenderError(c, err)
+		}
 	}
 
-	clearSearchQuery := query
-	clearSearchQuery.EntitlementQuery = ""
-
-	clearFiltersQuery := query
-	clearFiltersQuery.EntitlementAdmin = false
-	clearFiltersQuery.EntitlementDormant = false
-	clearFiltersQuery.EntitlementSource = ""
-
-	clearAccountSearchQuery := query
-	clearAccountSearchQuery.AccountQuery = ""
-
-	entitlementFormHiddenInputs := []viewmodels.IdentityFormHiddenInput{}
-	if accountQuery != "" {
-		entitlementFormHiddenInputs = append(entitlementFormHiddenInputs, viewmodels.IdentityFormHiddenInput{Name: "account_q", Value: accountQuery})
-	}
-	if accountSortMode != viewmodels.IdentityLinkedAccountSortGrants {
-		entitlementFormHiddenInputs = append(entitlementFormHiddenInputs, viewmodels.IdentityFormHiddenInput{Name: "account_sort", Value: string(accountSortMode)})
-	}
-
-	hasEntitlementFilter := entitlementQuery != "" || entitlementFilterCount > 0
-
-	return h.RenderComponent(c, views.IdentityShowPage(viewmodels.IdentityShowViewData{
+	data := viewmodels.IdentityShowViewData{
 		Layout: layout,
 		Breadcrumb: viewmodels.IdentityShowBreadcrumb{
 			RootLabel: breadcrumbRootLabel,
@@ -734,19 +587,14 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 			NameSecondary:          identityNameSecondary(summary.DisplayName, summary.PrimaryEmail),
 			Initials:               identityInitials(summary.DisplayName, summary.PrimaryEmail),
 			AvatarClass:            views.AppAvatarClass(namePrimary),
-			StatusLabel:            statusLabel,
-			StatusTone:             statusTone,
 			IdentityTypeLabel:      identityTypeLabel,
-			Tags:                   profileHints.Tags,
-			AdminScopeSummary:      adminScopeSummary,
-			ReviewSummary:          reviewSummary,
-			Facts:                  profileFacts,
+			Facts:                  identityProfileFacts(summary, identityProfileHintSet{}, viewmodels.TimeDisplay{}),
 			CreatedOn:              calendarDateDisplay(summary.CreatedAt),
 			UpdatedOn:              calendarDateDisplay(summary.UpdatedAt),
 			NonHumanIdentitiesHref: nonHumanIdentitiesHref,
 		},
 		Summary: viewmodels.IdentityShowSummary{
-			Tiles: summaryTiles,
+			LoadHref: loadHref,
 		},
 		GraphFacts: viewmodels.IdentityShowGraphFactsPanel{
 			Emails:     identityGraphEmailViews(now, identityEmails),
@@ -755,6 +603,193 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 			HasAnchors: len(identityAnchors) > 0,
 		},
 		LinkedAccounts: viewmodels.IdentityShowLinkedAccountsPanel{
+			Query:    accountQuery,
+			SortMode: accountSortMode,
+			LoadHref: loadHref,
+		},
+		Entitlements: viewmodels.IdentityShowEntitlementsPanel{
+			Query:        entitlementQuery,
+			AdminOnly:    entitlementAdminOnly,
+			DormantOnly:  entitlementDormantOnly,
+			SourceFilter: rawEntitlementSourceFilter,
+			LoadHref:     loadHref,
+		},
+	}
+
+	loadDetailSections := func() error {
+		accounts, err := h.Q.ListLinkedAccountsForIdentity(ctx, id)
+		if err != nil {
+			return err
+		}
+
+		accountByID := make(map[int64]gen.Account, len(accounts))
+		accountDormantByID := make(map[int64]bool, len(accounts))
+		accountLastSignInByID := make(map[int64]viewmodels.TimeDisplay, len(accounts))
+		accountLastSignInUnixByID := make(map[int64]int64, len(accounts))
+		for _, account := range accounts {
+			accountByID[account.ID] = account
+			accountDormantByID[account.ID] = isDormantAt(now, account.LastLoginAt, 60*24*time.Hour)
+			accountLastSignInByID[account.ID] = relativeWithTitleDisplay(now, account.LastLoginAt, "—", "No account sign-in observed")
+			accountLastSignInUnixByID[account.ID] = timestamptzUnix(account.LastLoginAt)
+		}
+
+		entitlementsByAccountID := make(map[int64]int, len(accounts))
+		entitlementViews := []viewmodels.IdentityEntitlementView{}
+		adminCount := 0
+		adminByKind := map[string]int{}
+		if len(accounts) > 0 {
+			accountIDs := make([]int64, 0, len(accounts))
+			for _, account := range accounts {
+				accountIDs = append(accountIDs, account.ID)
+			}
+			entitlements, err := h.Q.ListEntitlementsForAccountIDs(ctx, accountIDs)
+			if err != nil {
+				return err
+			}
+			for _, entitlement := range entitlements {
+				entitlementsByAccountID[entitlement.AccountID]++
+				account, ok := accountByID[entitlement.AccountID]
+				if !ok {
+					continue
+				}
+				view := identityEntitlementView(account, entitlement, now)
+				if view.IsAdmin {
+					adminCount++
+					adminByKind[view.Kind]++
+				}
+				entitlementViews = append(entitlementViews, view)
+			}
+		}
+
+		linkedAccounts := make([]viewmodels.IdentityLinkedAccountView, 0, len(accounts))
+		totalEntitlements := 0
+		activeAccountCount := 0
+		dormantAccountCount := 0
+		distinctSourceKinds := make([]string, 0, len(accounts))
+		seenSourceKinds := map[string]struct{}{}
+		for _, account := range accounts {
+			totalEntitlements += entitlementsByAccountID[account.ID]
+			isActive := strings.EqualFold(strings.TrimSpace(account.Status), "ACTIVE")
+			if isActive {
+				activeAccountCount++
+			}
+			lastSignIn := accountLastSignInByID[account.ID]
+			dormant := accountDormantByID[account.ID]
+			if dormant {
+				dormantAccountCount++
+			}
+			linkedAccounts = append(linkedAccounts, viewmodels.IdentityLinkedAccountView{
+				Account:          account,
+				EntitlementCount: entitlementsByAccountID[account.ID],
+				DetailHref:       linkedAccountDetailHref(account),
+				StatusActive:     isActive,
+				LastSignIn:       lastSignIn,
+				LastSignInUnix:   accountLastSignInUnixByID[account.ID],
+				Dormant:          dormant,
+			})
+
+			kindKey := strings.ToLower(strings.TrimSpace(account.SourceKind))
+			if kindKey == "" {
+				continue
+			}
+			if _, ok := seenSourceKinds[kindKey]; ok {
+				continue
+			}
+			seenSourceKinds[kindKey] = struct{}{}
+			distinctSourceKinds = append(distinctSourceKinds, strings.TrimSpace(account.SourceKind))
+		}
+
+		entitlementSourceFilter := normalizeSourceKindFilter(rawEntitlementSourceFilter, distinctSourceKinds)
+		query.EntitlementSource = entitlementSourceFilter
+
+		statusLabel, statusTone := identityStatusFromAccounts(accounts)
+		profileHints := identityProfileHints(accounts)
+		lastActive := relativeWithTitleDisplay(now, maxIdentityActivity(accounts), "—", "No activity observed")
+		reviewSummary := identityReviewSummary(summary.AnchorState, totalEntitlements, adminCount, dormantAccountCount, lastActive)
+		summaryTiles := identitydomain.BuildSummaryTiles(
+			len(linkedAccounts),
+			totalEntitlements,
+			adminCount,
+			dormantAccountCount,
+			distinctSourceKinds,
+			len(distinctSourceKinds),
+			adminByKind,
+		)
+		sortLinkedAccounts(linkedAccounts, accountSortMode)
+		filteredLinkedAccounts := filterLinkedAccounts(linkedAccounts, accountQuery)
+		filteredEntitlements := filterIdentityEntitlements(entitlementViews, entitlementQuery, entitlementAdminOnly, entitlementDormantOnly, entitlementSourceFilter)
+		adminScopeSummary := identitydomain.SummarizeAdminByKind(adminByKind)
+
+		entitlementSourceOptions := buildEntitlementSourceOptions(distinctSourceKinds, entitlementSourceFilter)
+		entitlementFilterCount := 0
+		if entitlementAdminOnly {
+			entitlementFilterCount++
+		}
+		if entitlementDormantOnly {
+			entitlementFilterCount++
+		}
+		if entitlementSourceFilter != "" {
+			entitlementFilterCount++
+		}
+		entitlementFilterChips := []viewmodels.IdentityFilterChip{}
+		if entitlementAdminOnly {
+			withoutAdmin := query
+			withoutAdmin.EntitlementAdmin = false
+			entitlementFilterChips = append(entitlementFilterChips, viewmodels.IdentityFilterChip{
+				Label:     "Admin only",
+				ClearHref: viewmodels.BuildIdentityShowHref(basePath, withoutAdmin),
+			})
+		}
+		if entitlementDormantOnly {
+			withoutDormant := query
+			withoutDormant.EntitlementDormant = false
+			entitlementFilterChips = append(entitlementFilterChips, viewmodels.IdentityFilterChip{
+				Label:     "Dormant account grants",
+				ClearHref: viewmodels.BuildIdentityShowHref(basePath, withoutDormant),
+			})
+		}
+		if entitlementSourceFilter != "" {
+			withoutSource := query
+			withoutSource.EntitlementSource = ""
+			entitlementFilterChips = append(entitlementFilterChips, viewmodels.IdentityFilterChip{
+				Label:     "Source: " + entitlementSourceFilterLabel(entitlementSourceOptions, entitlementSourceFilter),
+				ClearHref: viewmodels.BuildIdentityShowHref(basePath, withoutSource),
+			})
+		}
+
+		clearSearchQuery := query
+		clearSearchQuery.EntitlementQuery = ""
+
+		clearFiltersQuery := query
+		clearFiltersQuery.EntitlementAdmin = false
+		clearFiltersQuery.EntitlementDormant = false
+		clearFiltersQuery.EntitlementSource = ""
+
+		clearAccountSearchQuery := query
+		clearAccountSearchQuery.AccountQuery = ""
+
+		entitlementFormHiddenInputs := []viewmodels.IdentityFormHiddenInput{}
+		if accountQuery != "" {
+			entitlementFormHiddenInputs = append(entitlementFormHiddenInputs, viewmodels.IdentityFormHiddenInput{Name: "account_q", Value: accountQuery})
+		}
+		if accountSortMode != viewmodels.IdentityLinkedAccountSortGrants {
+			entitlementFormHiddenInputs = append(entitlementFormHiddenInputs, viewmodels.IdentityFormHiddenInput{Name: "account_sort", Value: string(accountSortMode)})
+		}
+
+		hasEntitlementFilter := entitlementQuery != "" || entitlementFilterCount > 0
+
+		data.Profile.StatusLabel = statusLabel
+		data.Profile.StatusTone = statusTone
+		data.Profile.Tags = profileHints.Tags
+		data.Profile.AdminScopeSummary = adminScopeSummary
+		data.Profile.ReviewSummary = reviewSummary
+		data.Profile.Facts = identityProfileFacts(summary, profileHints, lastActive)
+		data.Summary = viewmodels.IdentityShowSummary{
+			Tiles:    summaryTiles,
+			Loaded:   true,
+			LoadHref: loadHref,
+		}
+		data.LinkedAccounts = viewmodels.IdentityShowLinkedAccountsPanel{
 			Total:          len(linkedAccounts),
 			Active:         activeAccountCount,
 			Dormant:        dormantAccountCount,
@@ -765,8 +800,10 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 			SortMode:       accountSortMode,
 			HasItems:       len(filteredLinkedAccounts) > 0,
 			HasFilter:      accountQuery != "",
-		},
-		Entitlements: viewmodels.IdentityShowEntitlementsPanel{
+			Loaded:         true,
+			LoadHref:       loadHref,
+		}
+		data.Entitlements = viewmodels.IdentityShowEntitlementsPanel{
 			Total:            totalEntitlements,
 			Visible:          len(filteredEntitlements),
 			Items:            filteredEntitlements,
@@ -783,8 +820,48 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 			Groups:           identitydomain.BuildEntitlementGroups(filteredEntitlements, groupMode),
 			HasItems:         len(filteredEntitlements) > 0,
 			HasFilter:        hasEntitlementFilter,
-		},
-	}))
+			Loaded:           true,
+			LoadHref:         loadHref,
+		}
+		return nil
+	}
+
+	if sectionTarget || !isHX(c) || isHXBoosted(c) {
+		lazyLinkedAccounts := data.LinkedAccounts
+		lazyEntitlements := data.Entitlements
+		if err := loadDetailSections(); err != nil {
+			return h.RenderError(c, err)
+		}
+		if !sectionTarget {
+			data.LinkedAccounts = lazyLinkedAccounts
+			data.Entitlements = lazyEntitlements
+		}
+	}
+
+	if isHX(c) {
+		switch {
+		case summaryTarget:
+			return h.RenderComponent(c, views.IdentityShowSummarySection(data))
+		case isHXTarget(c, "identity-entitlements-section"):
+			return h.RenderComponent(c, views.IdentityShowEntitlementsSection(data))
+		case isHXTarget(c, "identity-linked-accounts-section"):
+			return h.RenderComponent(c, views.IdentityShowLinkedAccountsSection(data))
+		}
+	}
+	return h.RenderComponent(c, views.IdentityShowPage(data))
+}
+
+func identityShowLoadHref(c *echo.Context, basePath string) string {
+	if c == nil || c.Request() == nil || c.Request().URL == nil {
+		return basePath
+	}
+	if uri := strings.TrimSpace(c.Request().URL.RequestURI()); strings.HasPrefix(uri, "/") {
+		return uri
+	}
+	if rawQuery := strings.TrimSpace(c.Request().URL.RawQuery); rawQuery != "" {
+		return basePath + "?" + rawQuery
+	}
+	return basePath
 }
 
 func identityStatusFromAccounts(accounts []gen.Account) (string, string) {

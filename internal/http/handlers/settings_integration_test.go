@@ -5,13 +5,17 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v5"
+	"github.com/open-sspm/open-sspm/internal/auth"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/authn"
+	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
 func TestHandleConnectorSaveRefreshesSourceStateAndDiscoveryVisibility(t *testing.T) {
@@ -62,6 +66,134 @@ func TestHandleConnectorSaveRefreshesSourceStateAndDiscoveryVisibility(t *testin
 
 		body = renderDiscoveryApps(t, h, "http://example.com/discovery/apps")
 		assertContains(t, body, "Visible After Save")
+	})
+}
+
+func TestHandleConnectorDialogRendersLazyHTMXDialog(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(_ context.Context, _ *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		req := httptest.NewRequest(http.MethodGet, "http://example.com/settings/connectors/okta/dialog", nil)
+		req.Header.Set("HX-Request", "true")
+		rec := httptest.NewRecorder()
+		e := echo.New()
+		c := e.NewContext(req, rec)
+		c.SetPath("/settings/connectors/:kind/dialog")
+		c.SetPathValues(echo.PathValues{{Name: "kind", Value: "okta"}})
+
+		if err := h.HandleConnectorDialog(c); err != nil {
+			t.Fatalf("HandleConnectorDialog(): %v", err)
+		}
+		body := rec.Body.String()
+		assertContains(t, body, `id="connector-okta-modal"`)
+		assertContains(t, body, `data-remove-on-close`)
+		assertContains(t, body, `hx-post="/settings/connectors/okta"`)
+		assertNotContains(t, body, `<body`)
+	})
+}
+
+func TestHandleConnectorSaveHTMXReturnsToastAndOOBPanel(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(_ context.Context, _ *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		c, rec := newConnectorActionFormContext(http.MethodPost, "http://example.com/settings/connectors/okta", "okta", url.Values{
+			"domain":            {"acme.okta.com"},
+			"token":             {"token-1"},
+			"discovery_enabled": {"true"},
+		})
+		c.Request().Header.Set("HX-Request", "true")
+
+		if err := h.HandleConnectorAction(c); err != nil {
+			t.Fatalf("HandleConnectorAction(save okta htmx): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		trigger := rec.Header().Get("HX-Trigger")
+		if !strings.Contains(trigger, `"osspm:toast"`) || !strings.Contains(trigger, `"osspm:connectors-changed"`) {
+			t.Fatalf("HX-Trigger = %q, want toast and connectors-changed", trigger)
+		}
+		body := rec.Body.String()
+		assertContains(t, body, `id="connectors-panel"`)
+		assertContains(t, body, `hx-swap-oob="outerHTML"`)
+		assertNotContains(t, body, `<body`)
+	})
+}
+
+func TestRenderConnectorsPanelTargetIncludesAlerts(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(_ context.Context, _ *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		c, rec := newTestContext(http.MethodGet, "http://example.com/settings/connectors")
+		c.Request().Header.Set("HX-Request", "true")
+		c.Request().Header.Set("HX-Target", "connectors-panel")
+
+		err := h.renderConnectorsPage(c, "", "", &viewmodels.ConnectorAlert{
+			Class:   "alert-error",
+			Title:   "Connector problem",
+			Message: "Credentials need attention.",
+		})
+		if err != nil {
+			t.Fatalf("renderConnectorsPage(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		body := rec.Body.String()
+		assertContains(t, body, `id="connectors-panel"`)
+		assertContains(t, body, "Connector problem")
+		assertContains(t, body, "Credentials need attention.")
+		assertNotContains(t, body, "<!doctype html>")
+	})
+}
+
+func TestHandleConnectorToggleHTMXInvalidConfigRerendersRow(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(_ context.Context, _ *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		c, rec := newConnectorActionFormContext(http.MethodPost, "http://example.com/settings/connectors/okta/toggle", "okta/toggle", url.Values{
+			"enabled": {"true"},
+		})
+		c.Request().Header.Set("HX-Request", "true")
+		c.Request().Header.Set("HX-Target", "connector-row-okta")
+
+		if err := h.HandleConnectorAction(c); err != nil {
+			t.Fatalf("HandleConnectorAction(toggle invalid okta htmx): %v", err)
+		}
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusUnprocessableEntity, rec.Body.String())
+		}
+		if got := rec.Header().Get("HX-Retarget"); got != "" {
+			t.Fatalf("HX-Retarget = %q, want empty", got)
+		}
+		if got := rec.Header().Get("HX-Reswap"); got != "" {
+			t.Fatalf("HX-Reswap = %q, want empty", got)
+		}
+		trigger := rec.Header().Get("HX-Trigger")
+		if !strings.Contains(trigger, `"osspm:toast"`) {
+			t.Fatalf("HX-Trigger = %q, want toast", trigger)
+		}
+		body := rec.Body.String()
+		assertContains(t, body, `id="connector-row-okta"`)
+		assertNotContains(t, body, `id="connector-okta-modal"`)
+		assertNotContains(t, body, `HX-Redirect`)
+	})
+}
+
+func TestHandleConnectorAuthoritativeToggleHTMXErrorRerendersRow(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(_ context.Context, _ *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		c, rec := newConnectorActionFormContext(http.MethodPost, "http://example.com/settings/connectors/okta/authoritative", "okta/authoritative", url.Values{
+			"authoritative": {"true"},
+		})
+		c.Request().Header.Set("HX-Request", "true")
+		c.Request().Header.Set("HX-Target", "connector-row-okta")
+
+		if err := h.HandleConnectorAction(c); err != nil {
+			t.Fatalf("HandleConnectorAction(authoritative invalid okta htmx): %v", err)
+		}
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusUnprocessableEntity, rec.Body.String())
+		}
+		trigger := rec.Header().Get("HX-Trigger")
+		if !strings.Contains(trigger, `"osspm:toast"`) {
+			t.Fatalf("HX-Trigger = %q, want toast", trigger)
+		}
+		body := rec.Body.String()
+		assertContains(t, body, `id="connector-row-okta"`)
+		assertNotContains(t, body, `id="connector-okta-modal"`)
+		assertNotContains(t, body, `hx-post="/settings/connectors/okta"`)
 	})
 }
 
@@ -128,6 +260,39 @@ func TestHandleConnectorToggleRefreshesManagedStateThroughSourceState(t *testing
 		if after.ManagedState != "unmanaged" || after.ManagedReason != "connector_disabled" {
 			t.Fatalf("after toggle posture = (%q, %q)", after.ManagedState, after.ManagedReason)
 		}
+	})
+}
+
+func TestHandleSettingsUserDeleteDialogDoesNotOpenWhenForbidden(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, _ *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		user, err := q.CreateAuthUser(ctx, gen.CreateAuthUserParams{
+			Email:        "admin@example.com",
+			PasswordHash: "test-password-hash",
+			Role:         auth.RoleAdmin,
+			IsActive:     true,
+		})
+		if err != nil {
+			t.Fatalf("CreateAuthUser(): %v", err)
+		}
+
+		target := "http://example.com/settings/users/" + strconv.FormatInt(user.ID, 10) + "/delete"
+		c, rec := newTestContext(http.MethodGet, target)
+		c.SetPath("/settings/users/:id/delete")
+		c.SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(user.ID, 10)}})
+		c.Set(authn.ContextKeyPrincipal, auth.Principal{UserID: user.ID, Email: user.Email, Role: user.Role})
+		c.Request().Header.Set("HX-Request", "true")
+
+		if err := h.HandleSettingsUserDeleteDialog(c); err != nil {
+			t.Fatalf("HandleSettingsUserDeleteDialog(): %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		body := rec.Body.String()
+		assertContains(t, body, "Delete not allowed")
+		assertContains(t, body, "You cannot delete your own user.")
+		assertNotContains(t, body, `id="settings-users-delete-modal"`)
+		assertNotContains(t, body, "Delete user</button>")
 	})
 }
 

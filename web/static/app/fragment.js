@@ -1,6 +1,12 @@
-import { scheduleSoon } from "open-sspm-app/dom_focus.js";
-import { openServerDialogs, wireDialogCloseButtons, wireDialogCloseNavigation, wireDialogOpenTriggers } from "open-sspm-app/dialogs.js";
+import {
+  openServerDialogs,
+  wireDialogCloseButtons,
+  wireDialogCloseNavigation,
+  wireDialogOpenTriggers,
+  wireDialogRemoveOnClose,
+} from "open-sspm-app/dialogs.js";
 import { wireCopyButtons } from "open-sspm-app/copy.js";
+import { scheduleSoon } from "open-sspm-app/dom_focus.js";
 
 const INTERACTIVE_ROW_SELECTOR = [
   "a[href]",
@@ -104,6 +110,11 @@ export const triggerVisibleLazyHx = (root = document) => {
   root.querySelectorAll("[data-hx-lazy-load][data-hx-lazy-panel]").forEach((element) => {
     if (!(element instanceof HTMLElement)) return;
     if (isLazyHxPending(element) || isLazyHxLoaded(element)) return;
+
+    if (element.dataset.hxLazyOpenOnly === "true") {
+      const details = element.closest("details");
+      if (details instanceof HTMLDetailsElement && !details.open) return;
+    }
 
     const panelID = (element.dataset.hxLazyPanel || "").trim();
     if (!panelID) return;
@@ -212,9 +223,9 @@ export const initFragment = (root = document) => {
   wireDialogOpenTriggers(root);
   wireDialogCloseNavigation(root);
   wireDialogCloseButtons(root);
+  wireDialogRemoveOnClose(root);
   wireCopyButtons(root);
   wireAutosubmit(root);
   wireDiscoveryGovernanceDisposition(root);
   wireRowLinks(root);
-  triggerVisibleLazyHx(root);
 };

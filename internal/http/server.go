@@ -76,6 +76,7 @@ func NewEchoServer(
 		RiskPolicies:       riskPolicies,
 	}
 	es := &EchoServer{h: h, e: newEcho(cfg)}
+	es.e.Use(securityHeadersMiddleware)
 	es.e.Use(middleware.RequestIDWithConfig(middleware.RequestIDConfig{
 		RequestIDHandler: func(c *echo.Context, id string) {
 			id = normalizeRequestID(id)
@@ -100,6 +101,38 @@ func NewEchoServer(
 	es.e.HTTPErrorHandler = es.httpErrorHandler
 	es.registerRoutes()
 	return es, nil
+}
+
+// securityHeadersMiddleware emits the security-related response headers that
+// every page should carry. The CSP is tuned to match the htmx-config settings
+// in views/layout.templ (allowEval:false, allowScriptTags:false, selfRequestsOnly:true)
+// and our local-only asset pipeline.
+func securityHeadersMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		h := c.Response().Header()
+		if h.Get("Content-Security-Policy") == "" {
+			h.Set("Content-Security-Policy",
+				"default-src 'self'; "+
+					"script-src 'self' 'sha256-qgfGDKq/rijkXxRFr/5N/gmWkvAuA8vY4XTEtgdMC9w='; "+
+					"style-src 'self' 'unsafe-inline'; "+
+					"img-src 'self' data:; "+
+					"font-src 'self' data:; "+
+					"connect-src 'self'; "+
+					"frame-ancestors 'none'; "+
+					"base-uri 'self'; "+
+					"form-action 'self'")
+		}
+		if h.Get("Referrer-Policy") == "" {
+			h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		}
+		if h.Get("X-Content-Type-Options") == "" {
+			h.Set("X-Content-Type-Options", "nosniff")
+		}
+		if h.Get("Permissions-Policy") == "" {
+			h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+		}
+		return next(c)
+	}
 }
 
 func newEcho(cfg config.Config) *echo.Echo {
@@ -220,7 +253,7 @@ func (es *EchoServer) httpErrorHandler(c *echo.Context, err error) {
 		return
 	}
 	if status == http.StatusNotFound {
-		_ = handlers.RenderNotFound(c)
+		_ = es.h.RenderNotFoundPage(c)
 		return
 	}
 	if status == http.StatusForbidden {
@@ -282,6 +315,7 @@ func (es *EchoServer) registerRoutes() {
 	authed.GET("/global-view", es.h.HandleGlobalView)
 	authed.GET("/assigned-apps", es.h.HandleApps)
 	authed.GET("/assigned-apps/:externalID", es.h.HandleOktaAppShow)
+	authed.GET("/askbar/suggestions", es.h.HandleAskBarSuggestions)
 	authed.GET("/command/search", es.h.HandleCommandSearch)
 	authed.GET("/oauth-apps", es.h.HandleConnectedApps)
 	authed.GET("/oauth-apps/:id", es.h.HandleConnectedAppShow)
@@ -348,14 +382,20 @@ func (es *EchoServer) registerRoutes() {
 	admin.POST("/findings/rulesets/:rulesetKey/rules/:ruleKey/attestation", es.h.HandleFindingsRuleAttestation)
 	admin.GET("/settings", es.h.HandleSettings)
 	admin.GET("/settings/connectors", es.h.HandleConnectors)
+	admin.GET("/settings/connectors/:kind/dialog", es.h.HandleConnectorDialog)
 	admin.GET("/settings/connector-health", es.h.HandleConnectorHealth)
 	admin.GET("/settings/connector-health/errors", es.h.HandleConnectorHealthErrorDetails)
 	admin.POST("/settings/connector-health/sync", es.h.HandleConnectorHealthSync)
 	admin.POST("/settings/connectors/*", es.h.HandleConnectorAction)
 	admin.GET("/settings/users", es.h.HandleSettingsUsers)
+	admin.GET("/settings/users/new", es.h.HandleSettingsUsersNewDialog)
+	admin.GET("/settings/users/:id/edit", es.h.HandleSettingsUserEditDialog)
+	admin.GET("/settings/users/:id/delete", es.h.HandleSettingsUserDeleteDialog)
 	admin.POST("/settings/users", es.h.HandleSettingsUsersCreate)
 	admin.POST("/settings/users/:id", es.h.HandleSettingsUserUpdate)
 	admin.POST("/settings/users/:id/delete", es.h.HandleSettingsUserDelete)
+	admin.GET("/settings/resync/status", es.h.HandleResyncStatus)
+	admin.GET("/settings/resync/stream", es.h.HandleResyncStream)
 	admin.POST("/settings/resync", es.h.HandleResync)
 
 	staticDir, ok := resolveStaticDir(es.h.Cfg.StaticDir)

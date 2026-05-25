@@ -20,7 +20,6 @@ templ kpiCard(card KPICard) {
 			href={ templ.SafeURL(card.Href) }
 			hx-get={ card.Href }
 			hx-target={ card.HxTarget }
-			hx-swap="outerHTML"
 			hx-push-url="true"
 			aria-pressed={ AriaCurrentBool(card.Active) }
 		>

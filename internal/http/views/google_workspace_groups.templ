@@ -9,13 +9,13 @@ templ GoogleWorkspaceGroupMobileRow(group viewmodels.GoogleWorkspaceGroupListIte
 	<article class="rounded-lg border border-border/70 bg-card p-4">
 		<div class="min-w-0">
 			<div class="font-medium" title={ group.DisplayName }>
-				<span class="osspm-truncate">{ group.DisplayName }</span>
+					<span class="osspm-truncate" hx-disable>{ group.DisplayName }</span>
 			</div>
 			if group.Email != "" {
-				<div class="text-sm text-muted-foreground break-all">{ group.Email }</div>
-			} else if group.ExternalID != "" {
-				<div class="text-sm text-muted-foreground break-all">{ group.ExternalID }</div>
-			}
+					<div class="text-sm text-muted-foreground break-all" hx-disable>{ group.Email }</div>
+				} else if group.ExternalID != "" {
+					<div class="text-sm text-muted-foreground break-all" hx-disable>{ group.ExternalID }</div>
+				}
 		</div>
 		<div class="mt-3 grid grid-cols-3 gap-x-4 gap-y-3 text-sm">
 			<div>
@@ -44,7 +44,9 @@ templ GoogleWorkspaceGroupsPage(data viewmodels.GoogleWorkspaceGroupsViewData) {
 		if !data.Layout.GoogleWorkspaceConfigured || !data.Layout.GoogleWorkspaceEnabled {
 			@Alert("Google Workspace sync disabled", true) {
 				<p>
-					{ data.EmptyStateMsg } <a class="btn-sm-link px-1" href={ data.EmptyStateHref }>Configure Google Workspace</a>.
+					{ data.EmptyStateMsg } @ConnectorConfigureLink(data.EmptyStateHref, "btn-sm-link px-1") {
+						Configure Google Workspace
+					}.
 				</p>
 			}
 		}
@@ -61,8 +63,8 @@ templ GoogleWorkspaceGroupsPageFilters(data viewmodels.GoogleWorkspaceGroupsView
 			data-enter-only-query="q"
 			hx-get="/accounts/google-workspace/groups"
 			hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+			hx-sync="this:replace"
 			hx-target="#google-workspace-groups-results"
-			hx-swap="outerHTML"
 			hx-push-url="true"
 			class="osspm-list-form"
 		>
@@ -109,16 +111,16 @@ templ GoogleWorkspaceGroupsPageResults(data viewmodels.GoogleWorkspaceGroupsView
 								<tr>
 									<td>
 										<div class="space-y-1">
-											<div class="font-medium">{ g.DisplayName }</div>
-											if g.ExternalID != "" {
-												<div class="text-xs text-muted-foreground">{ g.ExternalID }</div>
-											}
+												<div class="font-medium" hx-disable>{ g.DisplayName }</div>
+												if g.ExternalID != "" {
+													<div class="text-xs text-muted-foreground" hx-disable>{ g.ExternalID }</div>
+												}
 										</div>
 									</td>
 									<td>
-										if g.Email != "" {
-											{ g.Email }
-										} else {
+											if g.Email != "" {
+												<span hx-disable>{ g.Email }</span>
+											} else {
 											<span class="text-muted-foreground">&mdash;</span>
 										}
 									</td>

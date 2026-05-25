@@ -13,6 +13,8 @@ import (
 
 // HandleDashboard renders the dashboard page.
 func (h *Handlers) HandleDashboard(c *echo.Context) error {
+	addVary(c, "HX-Request", "HX-Target")
+
 	ctx := c.Request().Context()
 	layout, stateView, err := h.LayoutData(ctx, c, "Posture")
 	if err != nil {
@@ -122,6 +124,9 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 		FrameworkPosture:  frameworkPosture,
 	}
 
+	if isHX(c) && isHXTarget(c, "dashboard-content") {
+		return h.RenderComponent(c, views.DashboardContent(data))
+	}
 	return h.RenderComponent(c, views.DashboardPage(data))
 }
 

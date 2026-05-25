@@ -26,14 +26,18 @@ templ DatadogUsersPage(data viewmodels.DatadogUsersViewData) {
 				if data.Layout.DatadogConfigured && data.Layout.DatadogEnabled {
 					<a class="btn-sm-outline" href={ "/accounts/needs-anchor/datadog/" + data.Layout.DatadogSite }>Needs anchor</a>
 				} else {
-					<a class="btn-sm-outline" href="/settings/connectors?open=datadog">Configure</a>
+					@ConnectorConfigureLink("/settings/connectors?open=datadog", "btn-sm-outline") {
+						Configure
+					}
 				}
 		}
 
 		if !data.Layout.DatadogConfigured || !data.Layout.DatadogEnabled {
 			@Alert("Datadog sync disabled", true) {
 				<p>
-					{ data.EmptyStateMsg } <a class="btn-sm-link px-1" href={ data.EmptyStateHref }>Configure Datadog</a>.
+					{ data.EmptyStateMsg } @ConnectorConfigureLink(data.EmptyStateHref, "btn-sm-link px-1") {
+						Configure Datadog
+					}.
 				</p>
 			}
 		}
@@ -50,8 +54,8 @@ templ DatadogUsersPageFilters(data viewmodels.DatadogUsersViewData) {
 			data-enter-only-query="q"
 			hx-get="/accounts/datadog"
 			hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+			hx-sync="this:replace"
 			hx-target="#datadog-users-results"
-			hx-swap="outerHTML"
 			hx-push-url="true"
 			class="osspm-list-form"
 		>

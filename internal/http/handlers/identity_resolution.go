@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/authn"
+	"github.com/open-sspm/open-sspm/internal/http/events"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 	"github.com/open-sspm/open-sspm/internal/normalize"
@@ -460,7 +461,7 @@ func (h *Handlers) HandleIdentityResolutionCandidateAccept(c *echo.Context) erro
 	}
 	ctx := c.Request().Context()
 	reviewedBy := identityResolutionReviewedBy(c)
-	reviewNote := strings.TrimSpace(c.FormValue("review_note"))
+	reviewNote := identityResolutionReviewNote(c)
 	mergeProvisional := identityResolutionBoolInput(c, "merge_provisional")
 
 	tx, err := h.Pool.Begin(ctx)
@@ -571,12 +572,11 @@ func (h *Handlers) HandleIdentityResolutionCandidateAccept(c *echo.Context) erro
 	}
 
 	if !identityResolutionWantsJSON(c) {
-		setFlashToast(c, viewmodels.ToastViewData{
+		return h.identityResolutionHTMLMutationSuccess(c, "accepted", viewmodels.ToastViewData{
 			Category:    "success",
 			Title:       "Candidate accepted",
 			Description: "The source account is now linked to the selected identity.",
 		})
-		return c.Redirect(http.StatusSeeOther, "/identity-resolution")
 	}
 	return c.JSON(http.StatusOK, map[string]any{
 		"status":               "accepted",
@@ -699,7 +699,7 @@ func (h *Handlers) HandleIdentityResolutionCandidateReject(c *echo.Context) erro
 	}
 
 	reviewedBy := identityResolutionReviewedBy(c)
-	reviewNote := strings.TrimSpace(c.FormValue("review_note"))
+	reviewNote := identityResolutionReviewNote(c)
 	if err := qtx.RejectIdentityMatchCandidate(ctx, gen.RejectIdentityMatchCandidateParams{
 		ID:         candidateID,
 		ReviewedBy: nullableText(reviewedBy),
@@ -711,12 +711,11 @@ func (h *Handlers) HandleIdentityResolutionCandidateReject(c *echo.Context) erro
 		return h.RenderError(c, err)
 	}
 	if !identityResolutionWantsJSON(c) {
-		setFlashToast(c, viewmodels.ToastViewData{
+		return h.identityResolutionHTMLMutationSuccess(c, "rejected", viewmodels.ToastViewData{
 			Category:    "success",
 			Title:       "Candidate rejected",
 			Description: "The candidate will stay suppressed until its evidence changes.",
 		})
-		return c.Redirect(http.StatusSeeOther, "/identity-resolution")
 	}
 	return c.JSON(http.StatusOK, map[string]any{
 		"status":       "rejected",
@@ -745,7 +744,7 @@ func (h *Handlers) handleIdentityResolutionCandidateMarkServiceLike(c *echo.Cont
 
 	ctx := c.Request().Context()
 	reviewedBy := identityResolutionReviewedBy(c)
-	reviewNote := strings.TrimSpace(c.FormValue("review_note"))
+	reviewNote := identityResolutionReviewNote(c)
 
 	tx, err := h.Pool.Begin(ctx)
 	if err != nil {
@@ -856,12 +855,11 @@ func (h *Handlers) handleIdentityResolutionCandidateMarkServiceLike(c *echo.Cont
 	}
 
 	if !identityResolutionWantsJSON(c) {
-		setFlashToast(c, viewmodels.ToastViewData{
+		return h.identityResolutionHTMLMutationSuccess(c, "classified", viewmodels.ToastViewData{
 			Category:    "success",
 			Title:       "Account classified",
 			Description: "The source account is now excluded from human identity matching.",
 		})
-		return c.Redirect(http.StatusSeeOther, "/identity-resolution")
 	}
 	return c.JSON(http.StatusOK, map[string]any{
 		"status":            "classified",
@@ -1071,11 +1069,16 @@ func identityResolutionCandidateItem(now time.Time, row gen.ListIdentityMatchCan
 		HasEvidence:                 len(evidence) > 0,
 		AcceptHref:                  "/identity-resolution/candidates/" + strconv.FormatInt(row.ID, 10) + "/accept",
 		AcceptMergeHref:             "/identity-resolution/candidates/" + strconv.FormatInt(row.ID, 10) + "/accept",
-		CanMergeProvisional:         row.ProvisionalIdentityID.Valid && row.ProvisionalIdentityID.Int64 != row.CandidateIdentityID && canMergeResolutionState(row.ProvisionalResolutionState.String),
 		RejectHref:                  "/identity-resolution/candidates/" + strconv.FormatInt(row.ID, 10) + "/reject",
 		MarkServiceHref:             "/identity-resolution/candidates/" + strconv.FormatInt(row.ID, 10) + "/mark-service",
 		MarkServiceCustodianHref:    "/identity-resolution/candidates/" + strconv.FormatInt(row.ID, 10) + "/mark-service",
 		MarkSharedHref:              "/identity-resolution/candidates/" + strconv.FormatInt(row.ID, 10) + "/mark-shared",
+		CanAccept:                   strings.TrimSpace(row.Status) == "pending",
+		CanReject:                   strings.TrimSpace(row.Status) == "pending",
+		CanMarkService:              strings.TrimSpace(row.Status) == "pending",
+		CanMarkServiceCustodian:     strings.TrimSpace(row.Status) == "pending",
+		CanMarkShared:               strings.TrimSpace(row.Status) == "pending",
+		CanMergeProvisional:         strings.TrimSpace(row.Status) == "pending" && row.ProvisionalIdentityID.Valid && row.ProvisionalIdentityID.Int64 != row.CandidateIdentityID && canMergeResolutionState(row.ProvisionalResolutionState.String),
 		RelationshipCount:           row.RelationshipCount,
 		CurrentIdentityDisplayName:  fallbackNonEmpty(row.CurrentIdentityDisplayName.String, row.CurrentIdentityPrimaryEmail.String),
 		CurrentIdentityPrimaryEmail: strings.TrimSpace(row.CurrentIdentityPrimaryEmail.String),
@@ -1238,6 +1241,25 @@ func identityResolutionWantsJSON(c *echo.Context) bool {
 	return strings.HasPrefix(c.Request().URL.Path, "/api/")
 }
 
+func identityResolutionReviewNote(c *echo.Context) string {
+	if c == nil || c.Request() == nil {
+		return ""
+	}
+	if note := strings.TrimSpace(c.FormValue("review_note")); note != "" {
+		return note
+	}
+	return strings.TrimSpace(c.Request().Header.Get("HX-Prompt"))
+}
+
+func (h *Handlers) identityResolutionHTMLMutationSuccess(c *echo.Context, status string, toast viewmodels.ToastViewData) error {
+	setResponseToast(c, toast)
+	if isHX(c) {
+		addHXTrigger(c, events.IdentityResolutionChanged, map[string]string{"status": strings.TrimSpace(status)})
+		return c.NoContent(http.StatusOK)
+	}
+	return c.Redirect(http.StatusSeeOther, "/identity-resolution")
+}
+
 func identityResolutionBoolInput(c *echo.Context, key string) bool {
 	if c == nil || c.Request() == nil {
 		return false
@@ -1356,11 +1378,16 @@ func (h *Handlers) identityResolutionConflict(c *echo.Context, message string) e
 	if identityResolutionWantsJSON(c) {
 		return c.JSON(http.StatusConflict, map[string]string{"error": message})
 	}
-	setFlashToast(c, viewmodels.ToastViewData{
+	toast := viewmodels.ToastViewData{
 		Category:    "error",
 		Title:       "Candidate changed",
 		Description: "Refresh the queue before reviewing this candidate.",
-	})
+	}
+	setResponseToast(c, toast)
+	if isHX(c) {
+		addHXTrigger(c, events.IdentityResolutionChanged, map[string]string{"status": "conflict"})
+		return c.NoContent(http.StatusConflict)
+	}
 	return c.Redirect(http.StatusSeeOther, "/identity-resolution")
 }
 

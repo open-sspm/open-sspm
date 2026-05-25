@@ -16,8 +16,8 @@ templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
 			action="/discovery/hotspots"
 			hx-get="/discovery/hotspots"
 			hx-trigger="change delay:150ms from:select, submit"
+			hx-sync="this:replace"
 			hx-target="#discovery-hotspots-results"
-			hx-swap="outerHTML"
 			hx-push-url="true"
 				class="osspm-list-form"
 			>
@@ -34,7 +34,7 @@ templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
 							</label>
 							if data.Query.FilterCount() > 0 {
 								<div class="border-t border-border/60 pt-3">
-									<a class="text-xs text-muted-foreground no-underline hover:text-foreground" href={ data.Query.ClearFilters().Href() } hx-get={ data.Query.ClearFilters().Href() } hx-target="#discovery-hotspots-results" hx-swap="outerHTML" hx-push-url="true">Clear all filters</a>
+									<a class="text-xs text-muted-foreground no-underline hover:text-foreground" href={ data.Query.ClearFilters().Href() } hx-get={ data.Query.ClearFilters().Href() } hx-target="#discovery-hotspots-results" hx-swap="outerHTML show:top" hx-push-url="true">Clear all filters</a>
 								</div>
 							}
 						}
@@ -61,16 +61,16 @@ templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
 								for _, item := range data.Items {
 									<tr data-row-href={ "/discovery/apps/" + FormatInt64(item.ID) } class="cursor-pointer hover:bg-muted/50">
 										<td class="whitespace-normal">
-											<a class="btn-sm-link px-0 font-medium" href={ "/discovery/apps/" + FormatInt64(item.ID) }>{ item.DisplayName }</a>
-											if item.Domain != "" {
-												<div class="text-sm text-muted-foreground">{ item.Domain }</div>
-											}
+												<a class="btn-sm-link px-0 font-medium" href={ "/discovery/apps/" + FormatInt64(item.ID) }><span hx-disable>{ item.DisplayName }</span></a>
+												if item.Domain != "" {
+													<div class="text-sm text-muted-foreground" hx-disable>{ item.Domain }</div>
+												}
 										</td>
 										<td>
 											<span class={ CredentialRiskBadgeClass(item.RiskLevel) }>{ HumanizeCredentialRisk(item.RiskLevel) }</span>
 										</td>
 										<td><span class={ DiscoveryManagedBadgeClass(item.ManagedState) }>{ HumanizeDiscoveryManagedState(item.ManagedState) }</span></td>
-										<td>{ item.Owner }</td>
+											<td hx-disable>{ item.Owner }</td>
 										<td class="whitespace-normal">
 											<div class="flex flex-wrap items-center gap-2">
 												<span class={ DiscoveryReviewDispositionBadgeClass(item.ReviewDisposition) }>{ HumanizeDiscoveryReviewDisposition(item.ReviewDisposition) }</span>
@@ -78,11 +78,11 @@ templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
 													<span class={ DiscoveryFollowUpBadgeClass(item.IsFollowUpOverdue) }>{ DiscoveryFollowUpLabel(item.FollowUpDueDate.Label, item.IsFollowUpOverdue) }</span>
 												}
 											</div>
-											if item.ReplacementDisplayName != "" {
-												<div class="text-xs text-muted-foreground">{ "Replace with " }{ item.ReplacementDisplayName }</div>
-											} else if item.ReviewOwner != "—" {
-												<div class="text-xs text-muted-foreground">{ "Review: " }{ item.ReviewOwner }</div>
-											}
+												if item.ReplacementDisplayName != "" {
+													<div class="text-xs text-muted-foreground" hx-disable>{ "Replace with " }{ item.ReplacementDisplayName }</div>
+												} else if item.ReviewOwner != "—" {
+													<div class="text-xs text-muted-foreground" hx-disable>{ "Review: " }{ item.ReviewOwner }</div>
+												}
 										</td>
 										<td><span class="badge-outline">{ FormatInt64(item.Actors30d) }</span></td>
 									</tr>

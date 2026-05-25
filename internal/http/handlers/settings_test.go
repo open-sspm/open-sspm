@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/open-sspm/open-sspm/internal/riskpolicy"
@@ -38,5 +40,24 @@ func TestRiskPolicyPackSummariesAreSortedForSettings(t *testing.T) {
 	}
 	if !foundCredential {
 		t.Fatalf("summaries missing built-in credential policy: %+v", summaries)
+	}
+}
+
+func TestHandleResyncStreamEmitsInnerStatusAndDone(t *testing.T) {
+	c, rec := newTestContext(http.MethodGet, "http://example.com/settings/resync/stream")
+	h := &Handlers{}
+
+	if err := h.HandleResyncStream(c); err != nil {
+		t.Fatalf("HandleResyncStream() error = %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	body := rec.Body.String()
+	assertContains(t, body, "event: status")
+	assertContains(t, body, "event: done")
+	assertContains(t, body, "Sync complete")
+	if strings.Contains(body, "sse-connect") || strings.Contains(body, `id="settings-sync-status"`) {
+		t.Fatalf("SSE payload included reconnect wrapper: %s", body)
 	}
 }

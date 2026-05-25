@@ -22,22 +22,24 @@ templ oktaAccountShowHeader(data viewmodels.SourceAccountShowViewData) {
 			<a class="text-xs text-muted-foreground hover:text-foreground" href="/accounts/okta">← Okta accounts</a>
 		</div>
 		<div class="space-y-3">
-			<h1 class="text-3xl font-semibold leading-tight tracking-tight break-words md:text-4xl">
-				if data.Account.Email != "" {
-					{ data.Account.Email }
-				} else {
-					{ data.Account.DisplayName }
-				}
-			</h1>
+				<h1 class="text-3xl font-semibold leading-tight tracking-tight break-words md:text-4xl">
+					<span hx-disable>
+					if data.Account.Email != "" {
+						{ data.Account.Email }
+					} else {
+						{ data.Account.DisplayName }
+					}
+					</span>
+				</h1>
 			<p class="text-sm text-muted-foreground break-words">
 				@oktaAccountShowMetaLine(data)
 			</p>
-			if data.Account.ExternalID != "" {
-				<div class="flex min-w-0 items-center gap-2">
-					<span class="font-mono text-xs text-muted-foreground/80 break-all">{ data.Account.ExternalID }</span>
-					@CopyTextButton(data.Account.ExternalID, "Copy external ID")
-				</div>
-			}
+				if data.Account.ExternalID != "" {
+					<div class="flex min-w-0 items-center gap-2">
+						<span class="font-mono text-xs text-muted-foreground/80 break-all" hx-disable>{ data.Account.ExternalID }</span>
+						@CopyTextButton(data.Account.ExternalID, "Copy external ID")
+					</div>
+				}
 		</div>
 	</header>
 }
@@ -47,11 +49,11 @@ templ oktaAccountShowMetaLine(data viewmodels.SourceAccountShowViewData) {
 	{{ source := data.Account.SourceName }}
 	if source != "" {
 		<span class="px-1.5 text-muted-foreground/50">·</span>
-		<span>{ source }</span>
+		<span hx-disable>{ source }</span>
 	}
 	if data.Account.DisplayName != "" && data.Account.DisplayName != data.Account.Email {
 		<span class="px-1.5 text-muted-foreground/50">·</span>
-		<span>{ data.Account.DisplayName }</span>
+		<span hx-disable>{ data.Account.DisplayName }</span>
 	}
 	if data.LastLoginAt.Relative != "" && data.LastLoginAt.Relative != "—" {
 		<span class="px-1.5 text-muted-foreground/50">·</span>

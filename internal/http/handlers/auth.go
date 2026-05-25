@@ -66,22 +66,30 @@ func (h *Handlers) HandleLoginPost(c *echo.Context) error {
 		Next:      next,
 	}
 
+	addVary(c, "HX-Request")
+
 	if count == 0 {
 		data.SetupRequired = true
 		return h.RenderComponent(c, views.LoginPage(data))
 	}
 
-	if email == "" || strings.TrimSpace(password) == "" {
+	renderInvalid := func() error {
 		data.ErrorMessage = "Invalid email or password."
-		return h.RenderComponent(c, views.LoginPage(data))
+		if isHX(c) {
+			return h.RenderComponentStatus(c, http.StatusUnauthorized, views.LoginForm(data))
+		}
+		return h.RenderComponentStatus(c, http.StatusUnauthorized, views.LoginPage(data))
+	}
+
+	if email == "" || strings.TrimSpace(password) == "" {
+		return renderInvalid()
 	}
 
 	passwordProvider := providers.NewPasswordProvider(h.Q)
 	principal, err := passwordProvider.Authenticate(ctx, email, password)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
-			data.ErrorMessage = "Invalid email or password."
-			return h.RenderComponent(c, views.LoginPage(data))
+			return renderInvalid()
 		}
 		return err
 	}
@@ -97,10 +105,15 @@ func (h *Handlers) HandleLoginPost(c *echo.Context) error {
 		LastLoginIp: strings.TrimSpace(c.RealIP()),
 	})
 
-	if next != "" {
-		return c.Redirect(http.StatusSeeOther, next)
+	target := next
+	if target == "" {
+		target = "/"
 	}
-	return c.Redirect(http.StatusSeeOther, "/")
+	if isHX(c) {
+		setHXRedirect(c, target)
+		return c.NoContent(http.StatusOK)
+	}
+	return c.Redirect(http.StatusSeeOther, target)
 }
 
 func (h *Handlers) HandleLogoutPost(c *echo.Context) error {
@@ -112,13 +125,19 @@ func (h *Handlers) HandleLogoutPost(c *echo.Context) error {
 	if err := h.Sessions.Destroy(c.Request().Context()); err != nil {
 		return err
 	}
-	setFlashToast(c, viewmodels.ToastViewData{
+	toast := viewmodels.ToastViewData{
 		Category: "success",
 		Title:    "Signed out",
-	})
+	}
 	if isHX(c) {
+		setFlashToast(c, toast)
+		if isHXBoosted(c) {
+			setHXLocation(c, "/login")
+			return c.NoContent(http.StatusOK)
+		}
 		setHXRedirect(c, "/login")
 		return c.NoContent(http.StatusOK)
 	}
+	setFlashToast(c, toast)
 	return c.Redirect(http.StatusSeeOther, "/login")
 }

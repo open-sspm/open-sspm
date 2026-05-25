@@ -15,6 +15,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	connregistry "github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/events"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 	"github.com/open-sspm/open-sspm/internal/sync"
@@ -28,25 +29,15 @@ const (
 
 // HandleConnectorHealth renders connector health under Settings.
 func (h *Handlers) HandleConnectorHealth(c *echo.Context) error {
-	ctx := c.Request().Context()
-	layout, _, err := h.LayoutData(ctx, c, "Connector Health")
+	addVary(c, "HX-Request", "HX-Target")
+
+	data, err := h.buildConnectorHealthViewDataForRequest(c)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
-
-	var states []connregistry.ConnectorState
-	if h.Registry != nil {
-		states, err = h.Registry.LoadStates(ctx, h.Q)
-		if err != nil {
-			return h.RenderError(c, err)
-		}
+	if isHX(c) && !isHXBoosted(c) && isHXTarget(c, "connector-health-panel") {
+		return h.RenderComponent(c, views.SettingsConnectorHealthPanel(data))
 	}
-
-	data, err := buildConnectorHealthViewData(h.Cfg, h.Q, ctx, states, h.Syncer != nil)
-	if err != nil {
-		return h.RenderError(c, err)
-	}
-	data.Layout = layout
 	return h.RenderComponent(c, views.SettingsConnectorHealthPage(data))
 }
 
@@ -143,13 +134,40 @@ func (h *Handlers) HandleConnectorHealthSync(c *echo.Context) error {
 }
 
 func (h *Handlers) redirectConnectorHealthWithToast(c *echo.Context, toast viewmodels.ToastViewData) error {
-	setFlashToast(c, toast)
+	setResponseToast(c, toast)
 	redirectURL := "/settings/connector-health"
 	if isHX(c) {
-		setHXRedirect(c, redirectURL)
-		return c.NoContent(http.StatusOK)
+		addHXTrigger(c, events.ConnectorHealthChanged, map[string]string{"status": normalizeToastCategory(toast.Category)})
+		data, err := h.buildConnectorHealthViewDataForRequest(c)
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		return h.RenderComponent(c, views.SettingsConnectorHealthPanel(data))
 	}
 	return c.Redirect(http.StatusSeeOther, redirectURL)
+}
+
+func (h *Handlers) buildConnectorHealthViewDataForRequest(c *echo.Context) (viewmodels.ConnectorHealthViewData, error) {
+	ctx := c.Request().Context()
+	layout, _, err := h.LayoutData(ctx, c, "Connector Health")
+	if err != nil {
+		return viewmodels.ConnectorHealthViewData{}, err
+	}
+
+	var states []connregistry.ConnectorState
+	if h.Registry != nil {
+		states, err = h.Registry.LoadStates(ctx, h.Q)
+		if err != nil {
+			return viewmodels.ConnectorHealthViewData{}, err
+		}
+	}
+
+	data, err := buildConnectorHealthViewData(h.Cfg, h.Q, ctx, states, h.Syncer != nil)
+	if err != nil {
+		return viewmodels.ConnectorHealthViewData{}, err
+	}
+	data.Layout = layout
+	return data, nil
 }
 
 // HandleConnectorHealthErrorDetails renders the latest non-success sync runs for a connector source.

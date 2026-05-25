@@ -14,6 +14,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/auth"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/authn"
+	"github.com/open-sspm/open-sspm/internal/http/events"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 )
@@ -46,6 +47,35 @@ func (h *Handlers) HandleSettingsUsers(c *echo.Context) error {
 	return h.renderSettingsUsersPage(c, opts)
 }
 
+func (h *Handlers) HandleSettingsUsersNewDialog(c *echo.Context) error {
+	if c.Request().Method != http.MethodGet {
+		return c.NoContent(http.StatusMethodNotAllowed)
+	}
+	return h.renderSettingsUsersPage(c, settingsUsersPageOptions{openAdd: true})
+}
+
+func (h *Handlers) HandleSettingsUserEditDialog(c *echo.Context) error {
+	if c.Request().Method != http.MethodGet {
+		return c.NoContent(http.StatusMethodNotAllowed)
+	}
+	userID, ok := parseInt64(c.Param("id"))
+	if !ok || userID <= 0 {
+		return RenderNotFound(c)
+	}
+	return h.renderSettingsUsersPage(c, settingsUsersPageOptions{openEdit: true, editUserID: userID})
+}
+
+func (h *Handlers) HandleSettingsUserDeleteDialog(c *echo.Context) error {
+	if c.Request().Method != http.MethodGet {
+		return c.NoContent(http.StatusMethodNotAllowed)
+	}
+	userID, ok := parseInt64(c.Param("id"))
+	if !ok || userID <= 0 {
+		return RenderNotFound(c)
+	}
+	return h.renderSettingsUsersPage(c, settingsUsersPageOptions{openDelete: true, editUserID: userID})
+}
+
 func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 	if c.Request().Method != http.MethodPost {
 		return c.NoContent(http.StatusMethodNotAllowed)
@@ -66,6 +96,14 @@ func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 			openAdd: true,
 			addForm: form,
 			alert:   destructiveAlert("Email required", "Provide an email address for the user."),
+		})
+	}
+
+	if !auth.IsValidEmail(form.Email) {
+		return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
+			openAdd: true,
+			addForm: form,
+			alert:   destructiveAlert("Invalid email", "Provide a valid email address (e.g. name@example.com)."),
 		})
 	}
 
@@ -135,7 +173,7 @@ func (h *Handlers) HandleSettingsUsersCreate(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	return redirectWithFlash(c, "/settings/users", viewmodels.ToastViewData{
+	return h.settingsUsersMutationSuccess(c, viewmodels.ToastViewData{
 		Category:    "success",
 		Title:       "User created",
 		Description: form.Email,
@@ -328,13 +366,13 @@ func (h *Handlers) HandleSettingsUserUpdate(c *echo.Context) error {
 	}
 
 	if !changeRole && !changePassword {
-		return redirectWithFlash(c, "/settings/users", viewmodels.ToastViewData{
+		return h.settingsUsersMutationSuccess(c, viewmodels.ToastViewData{
 			Category: "info",
 			Title:    "No changes",
 		})
 	}
 
-	return redirectWithFlash(c, "/settings/users", viewmodels.ToastViewData{
+	return h.settingsUsersMutationSuccess(c, viewmodels.ToastViewData{
 		Category:    "success",
 		Title:       settingsUserUpdateSuccessTitle(changeRole, changePassword),
 		Description: strings.TrimSpace(user.Email),
@@ -380,12 +418,20 @@ func (h *Handlers) HandleSettingsUserDelete(c *echo.Context) error {
 	}
 
 	if principal.UserID == user.ID {
-		setFlashToast(c, viewmodels.ToastViewData{
+		toast := viewmodels.ToastViewData{
 			Category:    "error",
 			Title:       "Delete not allowed",
 			Description: "You cannot delete your own user.",
-		})
-		return c.Redirect(http.StatusSeeOther, "/settings/users")
+		}
+		if isHX(c) {
+			setResponseToast(c, toast)
+			return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
+				openDelete: true,
+				editUserID: userID,
+				alert:      destructiveAlert(toast.Title, toast.Description),
+			})
+		}
+		return redirectWithFlash(c, "/settings/users", toast)
 	}
 
 	if h.Pool == nil {
@@ -413,12 +459,20 @@ func (h *Handlers) HandleSettingsUserDelete(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 	if currentUser.IsActive && strings.ToLower(strings.TrimSpace(currentUser.Role)) == auth.RoleAdmin && len(adminIDs) == 1 {
-		setFlashToast(c, viewmodels.ToastViewData{
+		toast := viewmodels.ToastViewData{
 			Category:    "error",
 			Title:       "Delete not allowed",
 			Description: "You cannot delete the last active admin.",
-		})
-		return c.Redirect(http.StatusSeeOther, "/settings/users")
+		}
+		if isHX(c) {
+			setResponseToast(c, toast)
+			return h.renderSettingsUsersPage(c, settingsUsersPageOptions{
+				openDelete: true,
+				editUserID: userID,
+				alert:      destructiveAlert(toast.Title, toast.Description),
+			})
+		}
+		return redirectWithFlash(c, "/settings/users", toast)
 	}
 
 	if err := qtx.DeleteAuthUser(ctx, userID); err != nil {
@@ -429,12 +483,11 @@ func (h *Handlers) HandleSettingsUserDelete(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	setFlashToast(c, viewmodels.ToastViewData{
+	return h.settingsUsersMutationSuccess(c, viewmodels.ToastViewData{
 		Category:    "success",
 		Title:       "User deleted",
 		Description: strings.TrimSpace(currentUser.Email),
 	})
-	return c.Redirect(http.StatusSeeOther, "/settings/users")
 }
 
 func (h *Handlers) renderSettingsUsersPage(c *echo.Context, opts settingsUsersPageOptions) error {
@@ -442,7 +495,32 @@ func (h *Handlers) renderSettingsUsersPage(c *echo.Context, opts settingsUsersPa
 	if err != nil {
 		return h.RenderError(c, err)
 	}
+	if isHX(c) {
+		switch {
+		case opts.openAdd:
+			return h.RenderComponent(c, views.SettingsUsersAddDialog(data))
+		case opts.openEdit:
+			return h.RenderComponent(c, views.SettingsUsersEditDialog(data))
+		case opts.openDelete:
+			return h.RenderComponent(c, views.SettingsUsersDeleteDialog(data))
+		case isHXTarget(c, "settings-users-panel"):
+			return h.RenderComponent(c, views.SettingsUsersPanel(data))
+		}
+	}
 	return h.RenderComponent(c, views.SettingsUsersPage(data))
+}
+
+func (h *Handlers) settingsUsersMutationSuccess(c *echo.Context, toast viewmodels.ToastViewData) error {
+	setResponseToast(c, toast)
+	if isHX(c) {
+		addHXTrigger(c, events.SettingsUsersChanged, map[string]string{"status": normalizeToastCategory(toast.Category)})
+		data, err := h.buildSettingsUsersViewData(c.Request().Context(), c, settingsUsersPageOptions{})
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		return h.RenderComponent(c, views.SettingsUsersPanelOOB(data))
+	}
+	return c.Redirect(http.StatusSeeOther, "/settings/users")
 }
 
 func (h *Handlers) buildSettingsUsersViewData(ctx context.Context, c *echo.Context, opts settingsUsersPageOptions) (viewmodels.SettingsUsersViewData, error) {
@@ -572,9 +650,7 @@ func (h *Handlers) buildSettingsUsersViewData(ctx context.Context, c *echo.Conte
 				return viewmodels.SettingsUsersViewData{}, err
 			}
 		} else {
-			canDelete := true
 			if principal.UserID == user.ID {
-				canDelete = false
 				if data.Alert == nil {
 					data.Alert = &viewmodels.AlertViewData{
 						Title:       "Delete not allowed",
@@ -583,7 +659,6 @@ func (h *Handlers) buildSettingsUsersViewData(ctx context.Context, c *echo.Conte
 					}
 				}
 			} else if user.IsActive && strings.ToLower(strings.TrimSpace(user.Role)) == auth.RoleAdmin && adminCount == 1 {
-				canDelete = false
 				if data.Alert == nil {
 					data.Alert = &viewmodels.AlertViewData{
 						Title:       "Delete not allowed",
@@ -591,9 +666,7 @@ func (h *Handlers) buildSettingsUsersViewData(ctx context.Context, c *echo.Conte
 						Destructive: true,
 					}
 				}
-			}
-
-			if canDelete {
+			} else {
 				data.Delete = viewmodels.SettingsUsersDeleteViewData{
 					ID:    user.ID,
 					Email: strings.TrimSpace(user.Email),

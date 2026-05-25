@@ -6,10 +6,10 @@ templ GitHubUserMobileRow(user viewmodels.GitHubUserListItem) {
 	<article class="rounded-lg border border-border/70 bg-card p-4">
 		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0">
-				<div class="font-medium break-all">{ user.ExternalID }</div>
+					<div class="font-medium break-all" hx-disable>{ user.ExternalID }</div>
 				if user.DisplayName != "" {
 					<div class="text-sm text-muted-foreground" title={ user.DisplayName }>
-						<span class="osspm-truncate">{ user.DisplayName }</span>
+							<span class="osspm-truncate" hx-disable>{ user.DisplayName }</span>
 					</div>
 				}
 			</div>
@@ -33,7 +33,9 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 				if data.Layout.GitHubConfigured && data.Layout.GitHubEnabled {
 					<a class="btn-sm-outline" href={ "/accounts/needs-anchor/github/" + data.Layout.GitHubOrg }>Needs anchor</a>
 				} else {
-					<a class="btn-sm-outline" href="/settings/connectors?open=github">Configure</a>
+					@ConnectorConfigureLink("/settings/connectors?open=github", "btn-sm-outline") {
+						Configure
+					}
 				}
 			}
 
@@ -48,7 +50,9 @@ templ GitHubUsersPage(data viewmodels.GitHubUsersViewData) {
 		} else {
 			@Alert("GitHub sync disabled", true) {
 				<p>
-					{ data.EmptyStateMsg } <a class="btn-sm-link px-1" href={ data.EmptyStateHref }>Configure GitHub</a>.
+					{ data.EmptyStateMsg } @ConnectorConfigureLink(data.EmptyStateHref, "btn-sm-link px-1") {
+						Configure GitHub
+					}.
 				</p>
 			}
 		}
@@ -65,8 +69,8 @@ templ GitHubUsersPageFilters(data viewmodels.GitHubUsersViewData) {
 			data-enter-only-query="q"
 			hx-get="/accounts/github"
 			hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
+			hx-sync="this:replace"
 			hx-target="#github-users-results"
-			hx-swap="outerHTML"
 			hx-push-url="true"
 			class="osspm-list-form"
 		>
@@ -109,8 +113,8 @@ templ GitHubUsersPageResults(data viewmodels.GitHubUsersViewData) {
 						if data.HasUsers {
 							for _, u := range data.Users {
 								<tr>
-									<td class="font-medium">{ u.ExternalID }</td>
-									<td class="text-muted-foreground">{ u.DisplayName }</td>
+										<td class="font-medium" hx-disable>{ u.ExternalID }</td>
+										<td class="text-muted-foreground" hx-disable>{ u.DisplayName }</td>
 									<td>
 										if u.IdentityID > 0 {
 											<a class="btn-sm-link" href={ "/identities/" + FormatInt64(u.IdentityID) }>{ "Identity #" }{ FormatInt64(u.IdentityID) }</a>

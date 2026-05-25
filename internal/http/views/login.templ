@@ -5,7 +5,7 @@ import (
 )
 
 templ LoginPage(data viewmodels.LoginViewData) {
-	@PublicLayout("Sign in", data.Toast) {
+	@PublicLayout("Sign in", data.CSRFToken, data.Toast) {
 		<div class="-mx-4 -my-8 lg:-mx-10 lg:-my-12">
 			<div class="mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-sm flex-col justify-center px-6 py-16">
 				<div class="mb-8 inline-flex w-fit items-center gap-3 self-start rounded-full border border-border bg-background/90 px-3 py-2 shadow-sm sm:mb-10">
@@ -25,31 +25,47 @@ templ LoginPage(data viewmodels.LoginViewData) {
 						<p class="text-sm text-muted-foreground">For local development you can also set <span class="font-mono">DEV_SEED_ADMIN=1</span>.</p>
 					}
 				} else {
-					if data.ErrorMessage != "" {
-						<div class="mb-5">
-							@Alert("Sign in failed", true) {
-								<p>{ data.ErrorMessage }</p>
-							}
-						</div>
-					}
-					<form method="post" action="/login" class="space-y-5">
-						@CSRFInput(data.CSRFToken)
-						<input type="hidden" name="next" value={ data.Next }/>
-
-						<label class="field">
-							<span class="label">Email</span>
-							<input type="email" name="email" class="input" autocomplete="username" required value={ data.Email } autofocus/>
-						</label>
-
-						<label class="field">
-							<span class="label">Password</span>
-							<input type="password" name="password" class="input" autocomplete="current-password" required/>
-						</label>
-
-						<button type="submit" class="btn-primary w-full">Sign in</button>
-					</form>
+					@LoginForm(data)
 				}
 			</div>
 		</div>
 	}
+}
+
+// LoginForm is rendered both as the full page (initial GET) and as the
+// htmx swap target on a failed POST. The form posts via htmx and replaces
+// itself with this fragment on error; on success the handler emits
+// HX-Redirect to bounce the user. Without JS, the form still works as
+// a normal POST that returns the full page (progressive enhancement).
+templ LoginForm(data viewmodels.LoginViewData) {
+	<div id="login-form-shell" class="space-y-5">
+		if data.ErrorMessage != "" {
+			@Alert("Sign in failed", true) {
+				<p>{ data.ErrorMessage }</p>
+			}
+		}
+		<form
+			method="post"
+			action="/login"
+			hx-post="/login"
+			hx-target="#login-form-shell"
+			hx-disabled-elt="find button[type='submit']"
+			class="space-y-5"
+		>
+			@CSRFInput(data.CSRFToken)
+			<input type="hidden" name="next" value={ data.Next }/>
+
+			<label class="field">
+				<span class="label">Email</span>
+				<input type="email" name="email" class="input" autocomplete="username" required value={ data.Email } autofocus/>
+			</label>
+
+			<label class="field">
+				<span class="label">Password</span>
+				<input type="password" name="password" class="input" autocomplete="current-password" required/>
+			</label>
+
+			<button type="submit" class="btn-primary w-full">Sign in</button>
+		</form>
+	</div>
 }

@@ -109,9 +109,14 @@ const init = (el) => {
 
   // Listen for programmatic toast events
   const onToast = (event) => {
-    const config = event.detail?.config;
-    if (!config) return;
-    const toast = buildToast(config);
+    const detail = event.detail || {};
+    const config = detail.config || detail.value || detail;
+    if (!config || (!config.title && !config.Title && !config.description && !config.Description)) return;
+    const toast = buildToast({
+      category: config.category || config.Category || "info",
+      title: config.title || config.Title || "",
+      description: config.description || config.Description || "",
+    });
     el.append(toast);
   };
   doc.addEventListener("osspm:toast", onToast);

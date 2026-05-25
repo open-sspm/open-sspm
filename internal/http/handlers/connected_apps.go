@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -168,7 +169,7 @@ func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	setFlashToast(c, viewmodels.ToastViewData{
+	setResponseToast(c, viewmodels.ToastViewData{
 		Category:    "success",
 		Title:       "OAuth app governance saved",
 		Description: "Owner assignment and governance state updated.",
@@ -349,7 +350,7 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 				},
 			})
 		}
-		setFlashToast(c, viewmodels.ToastViewData{
+		setResponseToast(c, viewmodels.ToastViewData{
 			Category:    "error",
 			Title:       "Unable to revoke grant",
 			Description: "The synced grant record is missing the Google user or client identifier.",
@@ -372,7 +373,7 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 				},
 			})
 		}
-		setFlashToast(c, viewmodels.ToastViewData{
+		setResponseToast(c, viewmodels.ToastViewData{
 			Category:    "error",
 			Title:       "Google Workspace unavailable",
 			Description: "Enable the Google Workspace connector before revoking grants.",
@@ -385,24 +386,26 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 	if err := client.DeleteOAuthTokenGrant(ctx, raw.UserKey, raw.ClientID); err != nil {
+		slog.Warn("google workspace grant revoke failed", "error", err, "app_id", appID)
+		userMessage := "Google Workspace could not revoke the grant. Check connector permissions and try again."
 		if isHX(c) {
 			return h.renderAppAssetShow(c, appID, connectedAppShowOptions{
 				alert: &viewmodels.AlertViewData{
 					Title:       "Grant revoke failed",
-					Message:     err.Error(),
+					Message:     userMessage,
 					Destructive: true,
 				},
 			})
 		}
-		setFlashToast(c, viewmodels.ToastViewData{
+		setResponseToast(c, viewmodels.ToastViewData{
 			Category:    "error",
 			Title:       "Grant revoke failed",
-			Description: err.Error(),
+			Description: userMessage,
 		})
 		return c.Redirect(http.StatusSeeOther, canonicalAppAssetDetailURL(appID))
 	}
 
-	setFlashToast(c, viewmodels.ToastViewData{
+	setResponseToast(c, viewmodels.ToastViewData{
 		Category:    "success",
 		Title:       "Grant revoked",
 		Description: "The Google Workspace token grant was revoked. Run sync to refresh inventory state.",

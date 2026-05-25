@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"slices"
 	"strings"
 
 	"github.com/a-h/templ"
 	"github.com/labstack/echo/v5"
+	"github.com/open-sspm/open-sspm/internal/http/events"
+	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
 func isHX(c *echo.Context) bool {
@@ -34,7 +37,79 @@ func setHXRedirect(c *echo.Context, url string) {
 	if c == nil {
 		return
 	}
+	addVary(c, "HX-Request")
 	c.Response().Header().Set("HX-Redirect", url)
+}
+
+func setHXLocation(c *echo.Context, url string) {
+	if c == nil {
+		return
+	}
+	addVary(c, "HX-Request")
+	c.Response().Header().Set("HX-Location", url)
+}
+
+func addHXTrigger(c *echo.Context, eventName string, detail any) {
+	if c == nil {
+		return
+	}
+	eventName = strings.TrimSpace(eventName)
+	if eventName == "" {
+		return
+	}
+
+	header := c.Response().Header()
+	triggers := map[string]any{}
+	if existing := strings.TrimSpace(header.Get("HX-Trigger")); existing != "" {
+		if strings.HasPrefix(existing, "{") {
+			_ = json.Unmarshal([]byte(existing), &triggers)
+		} else {
+			for _, name := range strings.Split(existing, ",") {
+				name = strings.TrimSpace(name)
+				if name != "" {
+					triggers[name] = struct{}{}
+				}
+			}
+		}
+	}
+	triggers[eventName] = detail
+
+	payload, err := json.Marshal(triggers)
+	if err != nil {
+		return
+	}
+	header.Set("HX-Trigger", string(payload))
+}
+
+// ToastPayload is the typed shape of an osspm:toast event. Kept narrow but
+// distinct from the templ-side view model so we can grow it (actions, undo,
+// icon override) without touching every call site.
+type ToastPayload struct {
+	Category    string `json:"category"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+func setHXToast(c *echo.Context, toast viewmodels.ToastViewData) {
+	toast.Category = normalizeToastCategory(toast.Category)
+	toast.Title = strings.TrimSpace(toast.Title)
+	toast.Description = strings.TrimSpace(toast.Description)
+	if toast.Title == "" && toast.Description == "" {
+		return
+	}
+	addHXTrigger(c, events.Toast, ToastPayload{
+		Category:    toast.Category,
+		Title:       toast.Title,
+		Description: toast.Description,
+	})
+}
+
+func setResponseToast(c *echo.Context, toast viewmodels.ToastViewData) {
+	if isHX(c) {
+		setHXToast(c, toast)
+		return
+	}
+	setFlashToast(c, toast)
 }
 
 // renderListWithHX renders the partial fragment when the request is an HTMX

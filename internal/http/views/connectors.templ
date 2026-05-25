@@ -2,385 +2,469 @@ package views
 
 import (
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
+	"github.com/open-sspm/open-sspm/internal/http/events"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
 templ ConnectorsPage(data viewmodels.ConnectorsViewData) {
 	@Layout(data.Layout) {
+		@ConnectorsPanel(data)
+
+		if data.OpenKind != "" {
+			@ConnectorDialog(data, data.OpenKind, false, data.Alert)
+		}
+	}
+}
+
+templ ConnectorsPanel(data viewmodels.ConnectorsViewData) {
+	@connectorsPanel(data, false)
+}
+
+templ ConnectorsPanelOOB(data viewmodels.ConnectorsViewData) {
+	@connectorsPanel(data, true)
+}
+
+templ connectorsPanel(data viewmodels.ConnectorsViewData, oob bool) {
+	<div
+		id="connectors-panel"
+		hx-get="/settings/connectors"
+		hx-trigger={ events.BusTrigger(events.ConnectorsChanged) }
+		hx-target="this"
+		hx-sync="this:replace"
+		if oob {
+			hx-swap-oob="outerHTML"
+		}
+	>
 		if data.Alert != nil {
 			@Alert(data.Alert.Title, IsAlertDestructive(data.Alert.Class)) {
 				<p>{ data.Alert.Message }</p>
 			}
 		}
-
 		if data.SavedName != "" {
 			@Alert(data.SavedName+" saved", false) {
 				<p>Connector settings updated.</p>
 			}
 		}
+		@connectorsTable(data)
+	</div>
+}
 
-		<div class="overflow-x-auto">
-			<table class="table osspm-table-fixed osspm-table-compact osspm-table-list align-top">
-				<thead>
-					<tr>
-						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Connector</th>
-						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Configured</th>
-						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Enabled</th>
-						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Identity source</th>
-						<th class="text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Actions</th>
-					</tr>
-				</thead>
-					<tbody>
-						@OktaConnectorRow(data)
-						@GoogleWorkspaceConnectorRow(data)
-						@EntraConnectorRow(data)
-						@GitHubConnectorRow(data)
-						@DatadogConnectorRow(data)
-						@AWSIdentityCenterConnectorRow(data)
-						@VaultConnectorRow(data)
-					</tbody>
-				</table>
-		</div>
+templ connectorsTable(data viewmodels.ConnectorsViewData) {
+	<div class="overflow-x-auto">
+		<table class="table osspm-table-fixed osspm-table-compact osspm-table-list align-top">
+			<thead>
+				<tr>
+					<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Connector</th>
+					<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Configured</th>
+					<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Enabled</th>
+					<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Identity source</th>
+					<th class="text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				@OktaConnectorRow(data)
+				@GoogleWorkspaceConnectorRow(data)
+				@EntraConnectorRow(data)
+				@GitHubConnectorRow(data)
+				@DatadogConnectorRow(data)
+				@AWSIdentityCenterConnectorRow(data)
+				@VaultConnectorRow(data)
+			</tbody>
+		</table>
+	</div>
+}
 
-		@FormDialog("connector-okta-modal", data.OpenKind == "okta", "Okta configuration", "Identity provider source for users and groups.", "/settings/connectors#connector-okta-configure", "/settings/connectors/okta", "Save", data.Layout.CSRFToken) {
-			<label class="field">
-				<span class="label">Okta domain</span>
-				<input type="text" name="domain" class="input w-full" value={ data.Okta.Domain } placeholder="dev-123456.okta.com"/>
-			</label>
-			<label class="field">
-				<span class="label">API token</span>
-				<input type="password" name="token" class="input w-full" placeholder="Leave blank to keep"/>
-				if data.Okta.HasToken {
-					<p class="text-xs text-muted-foreground">Current: { data.Okta.TokenMasked }</p>
-				}
-			</label>
-			<label class="field">
-				<span class="label">SaaS discovery</span>
-				<div class="flex items-center gap-3">
-					<input type="checkbox" role="switch" aria-label="Okta SaaS discovery" name="discovery_enabled" value="true" checked?={ data.Okta.DiscoveryEnabled } class="input"/>
-					<input type="hidden" name="discovery_enabled" value="false"/>
-					<span class="text-sm text-muted-foreground">Ingest Okta System Log SSO and OAuth grant signals for discovery.</span>
-				</div>
-				<p class="text-xs text-muted-foreground">Requires API token permissions for System Log access.</p>
-			</label>
-			<label class="field">
-				<span class="label">Discovery ingest mode</span>
-				<select name="discovery_ingest_mode" class="input w-full">
-					<option value={ configstore.OktaDiscoveryIngestModePolling } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModePolling }>Polling</option>
-					<option value={ configstore.OktaDiscoveryIngestModeEventHook } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModeEventHook }>Event Hook</option>
-					<option value={ configstore.OktaDiscoveryIngestModeEventBridge } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModeEventBridge }>EventBridge</option>
-					<option value={ configstore.OktaDiscoveryIngestModeHybrid } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModeHybrid }>Hybrid</option>
-				</select>
-				<p class="text-xs text-muted-foreground">Polling remains the backfill and recovery path; EventBridge is optional for AWS customers.</p>
-			</label>
-			<label class="field">
-				<span class="label">Event Hook receiver</span>
-				<div class="flex items-center gap-3">
-					<input type="checkbox" role="switch" aria-label="Okta Event Hook receiver" name="event_hook_enabled" value="true" checked?={ data.Okta.EventHookEnabled } class="input"/>
-					<input type="hidden" name="event_hook_enabled" value="false"/>
-					<span class="text-sm text-muted-foreground">Accept selected Okta push events without AWS.</span>
-				</div>
-				<p class="text-xs text-muted-foreground">Endpoint: <code>/ingest/okta/events</code>. Recommended events: SSO, OAuth consent, and application user membership.</p>
-			</label>
-			<label class="field">
-				<span class="label">Event Hook secret</span>
-				<input type="password" name="event_hook_secret" class="input w-full" placeholder="Leave blank to keep"/>
-				if data.Okta.HasEventHookSecret {
-					<p class="text-xs text-muted-foreground">Current: { data.Okta.EventHookMasked }</p>
-				}
-			</label>
-			<label class="field">
-				<span class="label">EventBridge receiver</span>
-				<div class="flex items-center gap-3">
-					<input type="checkbox" role="switch" aria-label="Okta EventBridge receiver" name="eventbridge_enabled" value="true" checked?={ data.Okta.EventBridgeEnabled } class="input"/>
-					<input type="hidden" name="eventbridge_enabled" value="false"/>
-					<span class="text-sm text-muted-foreground">Accept full System Log push from AWS EventBridge relay paths.</span>
-				</div>
-				<p class="text-xs text-muted-foreground">Endpoint: <code>/ingest/okta/eventbridge</code>. Use this for full System Log push when AWS is available.</p>
-			</label>
-			<label class="field">
-				<span class="label">EventBridge secret</span>
-				<input type="password" name="eventbridge_secret" class="input w-full" placeholder="Leave blank to keep"/>
-				if data.Okta.HasEventBridgeSecret {
-					<p class="text-xs text-muted-foreground">Current: { data.Okta.EventBridgeMasked }</p>
-				}
-			</label>
-			if data.Okta.PushCompletenessNote != "" {
-				<p class="text-xs text-amber-700 dark:text-amber-300">{ data.Okta.PushCompletenessNote }</p>
-			}
-			if data.Okta.PushStatusVisible {
-				<div class="space-y-2 border-t border-border pt-4">
-					<div class="flex items-center justify-between gap-3">
-						<span class="label">Push ingest</span>
-						<span class="badge">{ data.Okta.PushStatusLabel }</span>
-					</div>
-					<div class="grid gap-2 text-sm sm:grid-cols-2">
-						<div class="flex items-center justify-between gap-3">
-							<span class="text-muted-foreground">Last received</span>
-							<span>{ data.Okta.PushLastReceived }</span>
-						</div>
-						<div class="flex items-center justify-between gap-3">
-							<span class="text-muted-foreground">Last processed</span>
-							<span>{ data.Okta.PushLastProcessed }</span>
-						</div>
-						<div class="flex items-center justify-between gap-3">
-							<span class="text-muted-foreground">Queue</span>
-							<span>{ data.Okta.PushQueueLabel }</span>
-						</div>
-						<div class="flex items-center justify-between gap-3">
-							<span class="text-muted-foreground">Dead letter</span>
-							<span>{ data.Okta.PushDeadLetterLabel }</span>
-						</div>
-					</div>
-					if data.Okta.PushLastError != "" {
-						<p class="text-xs text-muted-foreground break-words">{ data.Okta.PushLastError }</p>
-					}
-				</div>
-			}
+templ ConnectorDialog(data viewmodels.ConnectorsViewData, kind string, htmx bool, alert *viewmodels.ConnectorAlert) {
+	if kind == configstore.KindOkta {
+		@connectorDialogFrame("connector-okta-modal", htmx, "Okta configuration", "Identity provider source for users and groups.", "/settings/connectors#connector-okta-configure", "/settings/connectors/okta", "Save", data.Layout.CSRFToken, alert) {
+			@OktaConnectorFields(data)
 		}
-
-		@FormDialog("connector-google-workspace-modal", data.OpenKind == "google_workspace", "Google Workspace configuration", "Users, groups, OAuth grants, and audit signals from Google Workspace.", "/settings/connectors#connector-google-workspace-configure", "/settings/connectors/google_workspace", "Save", data.Layout.CSRFToken) {
-			<label class="field">
-				<span class="label">Customer ID</span>
-				<input type="text" name="customer_id" class="input w-full" value={ data.GoogleWorkspace.CustomerID } placeholder="C0123abc"/>
-				<p class="text-xs text-muted-foreground">Primary source identifier used as source_name.</p>
-			</label>
-			<label class="field">
-				<span class="label">Primary domain (optional)</span>
-				<input type="text" name="primary_domain" class="input w-full" value={ data.GoogleWorkspace.PrimaryDomain } placeholder="example.com"/>
-			</label>
-			<label class="field">
-				<span class="label">Delegated admin email</span>
-				<input type="text" name="delegated_admin_email" class="input w-full" value={ data.GoogleWorkspace.DelegatedAdminEmail } placeholder="admin@example.com"/>
-				<p class="text-xs text-muted-foreground">Admin user to impersonate via domain-wide delegation.</p>
-			</label>
-			<label class="field">
-				<span class="label">Authentication mode</span>
-				<select name="auth_type" class="input w-full">
-					<option value="service_account_json" selected?={ data.GoogleWorkspace.AuthType == "service_account_json" }>Service account JSON</option>
-					<option value="adc" selected?={ data.GoogleWorkspace.AuthType == "adc" }>ADC / Workload Identity</option>
-				</select>
-			</label>
-			<label class="field">
-				<span class="label">Service account JSON (for JSON auth mode)</span>
-				<textarea name="service_account_json" class="input w-full h-32" placeholder="Leave blank to keep existing service account JSON"></textarea>
-				if data.GoogleWorkspace.HasServiceAccountJSON {
-					<p class="text-xs text-muted-foreground">Current: { data.GoogleWorkspace.ServiceAccountMask }</p>
-				}
-			</label>
-			<label class="field">
-				<span class="label">Service account email (for ADC auth mode)</span>
-				<input type="text" name="service_account_email" class="input w-full" value={ data.GoogleWorkspace.ServiceAccountEmail } placeholder="svc@example.iam.gserviceaccount.com"/>
-			</label>
-			<label class="field">
-				<span class="label">SaaS discovery</span>
-				<div class="flex items-center gap-3">
-					<input type="checkbox" role="switch" aria-label="Google Workspace SaaS discovery" name="discovery_enabled" value="true" checked?={ data.GoogleWorkspace.DiscoveryEnabled } class="input"/>
-					<input type="hidden" name="discovery_enabled" value="false"/>
-					<span class="text-sm text-muted-foreground">Collect login/token evidence for discovery inventory.</span>
-				</div>
-			</label>
+	} else if kind == configstore.KindGoogleWorkspace {
+		@connectorDialogFrame("connector-google-workspace-modal", htmx, "Google Workspace configuration", "Users, groups, OAuth grants, and audit signals from Google Workspace.", "/settings/connectors#connector-google-workspace-configure", "/settings/connectors/google_workspace", "Save", data.Layout.CSRFToken, alert) {
+			@GoogleWorkspaceConnectorFields(data)
 		}
-
-		@FormDialog("connector-entra-modal", data.OpenKind == "entra", "Microsoft Entra ID configuration", "Users and access via Microsoft Graph.", "/settings/connectors#connector-entra-configure", "/settings/connectors/entra", "Save", data.Layout.CSRFToken) {
-			<label class="field">
-				<span class="label">Tenant ID</span>
-				<input type="text" name="tenant_id" class="input w-full" value={ data.Entra.TenantID } placeholder="00000000-0000-0000-0000-000000000000"/>
-			</label>
-			<label class="field">
-				<span class="label">Client ID</span>
-				<input type="text" name="client_id" class="input w-full" value={ data.Entra.ClientID } placeholder="00000000-0000-0000-0000-000000000000"/>
-			</label>
-			<label class="field">
-				<span class="label">Client secret</span>
-				<input type="password" name="client_secret" class="input w-full" placeholder="Leave blank to keep"/>
-				if data.Entra.HasClientSecret {
-					<p class="text-xs text-muted-foreground">Current: { data.Entra.ClientSecretMasked }</p>
-				}
-				<p class="text-xs text-muted-foreground">Requires Graph application permissions: User.Read.All, Group.Read.All, Application.Read.All, AppRoleAssignment.Read.All, RoleManagement.Read.Directory.</p>
-			</label>
-			<label class="field">
-				<span class="label">SaaS discovery</span>
-				<div class="flex items-center gap-3">
-					<input type="checkbox" role="switch" aria-label="Entra SaaS discovery" name="discovery_enabled" value="true" checked?={ data.Entra.DiscoveryEnabled } class="input"/>
-					<input type="hidden" name="discovery_enabled" value="false"/>
-					<span class="text-sm text-muted-foreground">Collect sign-in and OAuth grant evidence for discovery inventory.</span>
-				</div>
-				<p class="text-xs text-muted-foreground">Requires Graph permissions: AuditLog.Read.All, Directory.Read.All, DelegatedPermissionGrant.Read.All.</p>
-			</label>
+	} else if kind == configstore.KindEntra {
+		@connectorDialogFrame("connector-entra-modal", htmx, "Microsoft Entra ID configuration", "Users and access via Microsoft Graph.", "/settings/connectors#connector-entra-configure", "/settings/connectors/entra", "Save", data.Layout.CSRFToken, alert) {
+			@EntraConnectorFields(data)
 		}
-
-		@FormDialog("connector-github-modal", data.OpenKind == "github", "GitHub configuration", "Organization membership, teams, and repo permissions.", "/settings/connectors#connector-github-configure", "/settings/connectors/github", "Save", data.Layout.CSRFToken) {
-			<label class="field">
-				<span class="label">Organization</span>
-				<input type="text" name="org" class="input w-full" value={ data.GitHub.Org } placeholder="example-org"/>
-			</label>
-			<label class="field">
-				<span class="label">API base URL</span>
-				<input type="text" name="api_base" class="input w-full" value={ data.GitHub.APIBase } placeholder="https://api.github.com"/>
-			</label>
-			<label class="field">
-				<span class="label">Enterprise slug (optional)</span>
-				<input type="text" name="enterprise" class="input w-full" value={ data.GitHub.Enterprise } placeholder="example-enterprise"/>
-				<p class="text-xs text-muted-foreground">Required if SAML SSO is configured at the enterprise level (enables email resolution via enterprise external identities).</p>
-			</label>
-			<label class="field">
-				<span class="label">Personal access token</span>
-				<input type="password" name="token" class="input w-full" placeholder="Leave blank to keep"/>
-				if data.GitHub.HasToken {
-					<p class="text-xs text-muted-foreground">Current: { data.GitHub.TokenMasked }</p>
-				}
-			</label>
-			<label class="field">
-				<span class="label">SCIM provisioning</span>
-				<div class="flex items-center gap-3">
-					<input type="checkbox" role="switch" aria-label="SCIM provisioning" name="scim_enabled" value="true" checked?={ data.GitHub.SCIMEnabled } class="input"/>
-					<input type="hidden" name="scim_enabled" value="false"/>
-					<span class="text-sm text-muted-foreground">Prefer SCIM users to populate emails for auto-linking (requires org admin access + SSO-authorized token).</span>
-				</div>
-			</label>
+	} else if kind == configstore.KindGitHub {
+		@connectorDialogFrame("connector-github-modal", htmx, "GitHub configuration", "Organization membership, teams, and repo permissions.", "/settings/connectors#connector-github-configure", "/settings/connectors/github", "Save", data.Layout.CSRFToken, alert) {
+			@GitHubConnectorFields(data)
 		}
-
-		@FormDialog("connector-datadog-modal", data.OpenKind == "datadog", "Datadog configuration", "Datadog users and roles for entitlement visibility.", "/settings/connectors#connector-datadog-configure", "/settings/connectors/datadog", "Save", data.Layout.CSRFToken) {
-			<label class="field">
-				<span class="label">Site</span>
-				<input type="text" name="site" class="input w-full" value={ data.Datadog.Site } placeholder="datadoghq.com"/>
-			</label>
-			<label class="field">
-				<span class="label">API key</span>
-				<input type="password" name="api_key" class="input w-full" placeholder="Leave blank to keep"/>
-				if data.Datadog.HasAPIKey {
-					<p class="text-xs text-muted-foreground">Current: { data.Datadog.APIKeyMasked }</p>
-				}
-			</label>
-			<label class="field">
-				<span class="label">Application key</span>
-				<input type="password" name="app_key" class="input w-full" placeholder="Leave blank to keep"/>
-				if data.Datadog.HasAppKey {
-					<p class="text-xs text-muted-foreground">Current: { data.Datadog.AppKeyMasked }</p>
-				}
-			</label>
+	} else if kind == configstore.KindDatadog {
+		@connectorDialogFrame("connector-datadog-modal", htmx, "Datadog configuration", "Datadog users and roles for entitlement visibility.", "/settings/connectors#connector-datadog-configure", "/settings/connectors/datadog", "Save", data.Layout.CSRFToken, alert) {
+			@DatadogConnectorFields(data)
 		}
-
-		@FormDialog("connector-aws-modal", data.OpenKind == "aws_identity_center", "AWS Identity Center configuration", "AWS SSO users and account assignments.", "/settings/connectors#connector-aws-configure", "/settings/connectors/aws_identity_center", "Save", data.Layout.CSRFToken) {
-			<label class="field">
-				<span class="label">Region</span>
-				<input type="text" name="region" class="input w-full" value={ data.AWSIdentityCenter.Region } placeholder="us-east-1"/>
-			</label>
-			<label class="field">
-				<span class="label">Display name</span>
-				<input type="text" name="name" class="input w-full" value={ data.AWSIdentityCenter.Name } placeholder="prod"/>
-			</label>
-			<label class="field">
-				<span class="label">Credentials</span>
-				<select name="auth_type" class="input w-full">
-					<option value="default_chain" selected?={ data.AWSIdentityCenter.AuthType == "default_chain" }>Use runtime credentials (recommended)</option>
-					<option value="access_key" selected?={ data.AWSIdentityCenter.AuthType == "access_key" }>Use access keys</option>
-				</select>
-				<p class="text-xs text-muted-foreground">Runtime credentials use the AWS SDK default chain (IAM role/IRSA/OIDC/env). Selecting runtime clears stored access keys on save.</p>
-			</label>
-			<label class="field">
-				<span class="label">Access key ID</span>
-				<input type="text" name="access_key_id" class="input w-full" placeholder="Leave blank to keep"/>
-				if data.AWSIdentityCenter.HasAccessKeyID {
-					<p class="text-xs text-muted-foreground">Current: { data.AWSIdentityCenter.AccessKeyIDMask }</p>
-				}
-			</label>
-			<label class="field">
-				<span class="label">Secret access key</span>
-				<input type="password" name="secret_access_key" class="input w-full" placeholder="Leave blank to keep"/>
-				if data.AWSIdentityCenter.HasSecretKey {
-					<p class="text-xs text-muted-foreground">Current: { data.AWSIdentityCenter.SecretKeyMask }</p>
-				}
-			</label>
-			<label class="field">
-				<span class="label">Session token (optional)</span>
-				<input type="password" name="session_token" class="input w-full" placeholder="Leave blank to keep"/>
-				if data.AWSIdentityCenter.HasSessionToken {
-					<p class="text-xs text-muted-foreground">Current: { data.AWSIdentityCenter.SessionTokenMask }</p>
-				}
-			</label>
-			<label class="field">
-				<span class="label">Instance ARN</span>
-				<input type="text" name="instance_arn" class="input w-full" value={ data.AWSIdentityCenter.InstanceARN } placeholder="arn:aws:sso:::instance/..."/>
-			</label>
-			<label class="field">
-				<span class="label">Identity store ID</span>
-				<input type="text" name="identity_store_id" class="input w-full" value={ data.AWSIdentityCenter.IdentityStoreID } placeholder="d-1234567890"/>
-			</label>
+	} else if kind == configstore.KindAWSIdentityCenter {
+		@connectorDialogFrame("connector-aws-modal", htmx, "AWS Identity Center configuration", "AWS SSO users and account assignments.", "/settings/connectors#connector-aws-configure", "/settings/connectors/aws_identity_center", "Save", data.Layout.CSRFToken, alert) {
+			@AWSIdentityCenterConnectorFields(data)
 		}
-
-		@FormDialog("connector-vault-modal", data.OpenKind == "vault", "Vault configuration", "Vault identity, policies, mounts, and auth roles.", "/settings/connectors#connector-vault-configure", "/settings/connectors/vault", "Save", data.Layout.CSRFToken) {
-			<label class="field">
-				<span class="label">Vault address</span>
-				<input type="text" name="address" class="input w-full" value={ data.Vault.Address } placeholder="https://vault.example.com"/>
-			</label>
-			<label class="field">
-				<span class="label">Source display name (optional)</span>
-				<input type="text" name="name" class="input w-full" value={ data.Vault.Name } placeholder="prod-vault"/>
-			</label>
-			<label class="field">
-				<span class="label">Namespace (optional)</span>
-				<input type="text" name="namespace" class="input w-full" value={ data.Vault.Namespace } placeholder="admin"/>
-				<p class="text-xs text-muted-foreground">Leave blank for OSS or root namespace deployments. For HCP Vault Dedicated, this is usually <code>admin</code>.</p>
-			</label>
-			<label class="field">
-				<span class="label">Authentication</span>
-				<select name="auth_type" class="input w-full">
-					<option value="token" selected?={ data.Vault.AuthType == "token" }>Token</option>
-					<option value="approle" selected?={ data.Vault.AuthType == "approle" }>AppRole</option>
-				</select>
-			</label>
-			<label class="field">
-				<span class="label">Token (used when Token auth is selected)</span>
-				<input type="password" name="token" class="input w-full" placeholder="Leave blank to keep"/>
-				if data.Vault.HasToken {
-					<p class="text-xs text-muted-foreground">Current: { data.Vault.TokenMasked }</p>
-				}
-			</label>
-			<label class="field">
-				<span class="label">AppRole mount path (used when AppRole auth is selected)</span>
-				<input type="text" name="approle_mount_path" class="input w-full" value={ data.Vault.AppRoleMountPath } placeholder="approle"/>
-			</label>
-			<label class="field">
-				<span class="label">AppRole role ID (used when AppRole auth is selected)</span>
-				<input type="text" name="approle_role_id" class="input w-full" value={ data.Vault.AppRoleRoleID } placeholder="Leave blank to keep"/>
-				if data.Vault.HasAppRoleRoleID {
-					<p class="text-xs text-muted-foreground">Current value is configured.</p>
-				}
-			</label>
-			<label class="field">
-				<span class="label">AppRole secret ID (used when AppRole auth is selected)</span>
-				<input type="password" name="approle_secret_id" class="input w-full" placeholder="Leave blank to keep"/>
-				if data.Vault.HasAppRoleSecretID {
-					<p class="text-xs text-muted-foreground">Current: { data.Vault.AppRoleSecretMasked }</p>
-				}
-			</label>
-			<label class="field">
-				<span class="label">Auth role inventory</span>
-				<div class="flex items-center gap-3">
-					<input type="checkbox" role="switch" aria-label="Vault auth role inventory" name="scan_auth_roles" value="true" checked?={ data.Vault.ScanAuthRoles } class="input"/>
-					<input type="hidden" name="scan_auth_roles" value="false"/>
-					<span class="text-sm text-muted-foreground">Collect auth roles from AppRole/Kubernetes/JWT/OIDC mounts.</span>
-				</div>
-			</label>
-			<label class="field">
-				<span class="label">TLS verification</span>
-				<div class="flex items-center gap-3">
-					<input type="checkbox" role="switch" aria-label="Vault TLS skip verification" name="tls_skip_verify" value="true" checked?={ data.Vault.TLSSkipVerify } class="input"/>
-					<input type="hidden" name="tls_skip_verify" value="false"/>
-					<span class="text-sm text-muted-foreground">Skip TLS certificate verification (use only for trusted/self-hosted environments).</span>
-				</div>
-			</label>
-			<label class="field">
-				<span class="label">Custom CA certificate PEM (optional)</span>
-				<textarea name="tls_ca_cert_pem" class="input w-full h-32" placeholder="Leave blank to keep existing custom CA cert"></textarea>
-				if data.Vault.HasTLSCACert {
-					<p class="text-xs text-muted-foreground">Custom CA certificate is configured.</p>
-				}
-			</label>
+	} else if kind == configstore.KindVault {
+		@connectorDialogFrame("connector-vault-modal", htmx, "Vault configuration", "Vault identity, policies, mounts, and auth roles.", "/settings/connectors#connector-vault-configure", "/settings/connectors/vault", "Save", data.Layout.CSRFToken, alert) {
+			@VaultConnectorFields(data)
 		}
 	}
+}
+
+templ connectorDialogFrame(id string, htmx bool, title string, description string, closeHref string, formAction string, submitLabel string, csrfToken string, alert *viewmodels.ConnectorAlert) {
+	if htmx {
+		@HtmxFormDialog(id, true, title, description, formAction, submitLabel, csrfToken) {
+			@connectorDialogAlert(alert)
+			{ children... }
+		}
+	} else {
+		@FormDialog(id, true, title, description, closeHref, formAction, submitLabel, csrfToken) {
+			@connectorDialogAlert(alert)
+			{ children... }
+		}
+	}
+}
+
+templ connectorDialogAlert(alert *viewmodels.ConnectorAlert) {
+	if alert != nil {
+		@Alert(alert.Title, IsAlertDestructive(alert.Class)) {
+			<p>{ alert.Message }</p>
+		}
+	}
+}
+
+templ OktaConnectorFields(data viewmodels.ConnectorsViewData) {
+	<label class="field">
+		<span class="label">Okta domain</span>
+		<input type="text" name="domain" class="input w-full" value={ data.Okta.Domain } placeholder="dev-123456.okta.com"/>
+	</label>
+	<label class="field">
+		<span class="label">API token</span>
+		<input type="password" name="token" class="input w-full" placeholder="Leave blank to keep"/>
+		if data.Okta.HasToken {
+			<p class="text-xs text-muted-foreground">Current: { data.Okta.TokenMasked }</p>
+		}
+	</label>
+	<label class="field">
+		<span class="label">SaaS discovery</span>
+		<div class="flex items-center gap-3">
+			<input type="checkbox" role="switch" aria-label="Okta SaaS discovery" name="discovery_enabled" value="true" checked?={ data.Okta.DiscoveryEnabled } class="input"/>
+			<input type="hidden" name="discovery_enabled" value="false"/>
+			<span class="text-sm text-muted-foreground">Ingest Okta System Log SSO and OAuth grant signals for discovery.</span>
+		</div>
+		<p class="text-xs text-muted-foreground">Requires API token permissions for System Log access.</p>
+	</label>
+	<label class="field">
+		<span class="label">Discovery ingest mode</span>
+		<select name="discovery_ingest_mode" class="input w-full">
+			<option value={ configstore.OktaDiscoveryIngestModePolling } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModePolling }>Polling</option>
+			<option value={ configstore.OktaDiscoveryIngestModeEventHook } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModeEventHook }>Event Hook</option>
+			<option value={ configstore.OktaDiscoveryIngestModeEventBridge } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModeEventBridge }>EventBridge</option>
+			<option value={ configstore.OktaDiscoveryIngestModeHybrid } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModeHybrid }>Hybrid</option>
+		</select>
+		<p class="text-xs text-muted-foreground">Polling remains the backfill and recovery path; EventBridge is optional for AWS customers.</p>
+	</label>
+	<label class="field">
+		<span class="label">Event Hook receiver</span>
+		<div class="flex items-center gap-3">
+			<input type="checkbox" role="switch" aria-label="Okta Event Hook receiver" name="event_hook_enabled" value="true" checked?={ data.Okta.EventHookEnabled } class="input"/>
+			<input type="hidden" name="event_hook_enabled" value="false"/>
+			<span class="text-sm text-muted-foreground">Accept selected Okta push events without AWS.</span>
+		</div>
+		<p class="text-xs text-muted-foreground">Endpoint: <code>/ingest/okta/events</code>. Recommended events: SSO, OAuth consent, and application user membership.</p>
+	</label>
+	<label class="field">
+		<span class="label">Event Hook secret</span>
+		<input type="password" name="event_hook_secret" class="input w-full" placeholder="Leave blank to keep"/>
+		if data.Okta.HasEventHookSecret {
+			<p class="text-xs text-muted-foreground">Current: { data.Okta.EventHookMasked }</p>
+		}
+	</label>
+	<label class="field">
+		<span class="label">EventBridge receiver</span>
+		<div class="flex items-center gap-3">
+			<input type="checkbox" role="switch" aria-label="Okta EventBridge receiver" name="eventbridge_enabled" value="true" checked?={ data.Okta.EventBridgeEnabled } class="input"/>
+			<input type="hidden" name="eventbridge_enabled" value="false"/>
+			<span class="text-sm text-muted-foreground">Accept full System Log push from AWS EventBridge relay paths.</span>
+		</div>
+		<p class="text-xs text-muted-foreground">Endpoint: <code>/ingest/okta/eventbridge</code>. Use this for full System Log push when AWS is available.</p>
+	</label>
+	<label class="field">
+		<span class="label">EventBridge secret</span>
+		<input type="password" name="eventbridge_secret" class="input w-full" placeholder="Leave blank to keep"/>
+		if data.Okta.HasEventBridgeSecret {
+			<p class="text-xs text-muted-foreground">Current: { data.Okta.EventBridgeMasked }</p>
+		}
+	</label>
+	if data.Okta.PushCompletenessNote != "" {
+		<p class="text-xs text-amber-700 dark:text-amber-300">{ data.Okta.PushCompletenessNote }</p>
+	}
+	if data.Okta.PushStatusVisible {
+		<div class="space-y-2 border-t border-border pt-4">
+			<div class="flex items-center justify-between gap-3">
+				<span class="label">Push ingest</span>
+				<span class="badge">{ data.Okta.PushStatusLabel }</span>
+			</div>
+			<div class="grid gap-2 text-sm sm:grid-cols-2">
+				<div class="flex items-center justify-between gap-3">
+					<span class="text-muted-foreground">Last received</span>
+					<span>{ data.Okta.PushLastReceived }</span>
+				</div>
+				<div class="flex items-center justify-between gap-3">
+					<span class="text-muted-foreground">Last processed</span>
+					<span>{ data.Okta.PushLastProcessed }</span>
+				</div>
+				<div class="flex items-center justify-between gap-3">
+					<span class="text-muted-foreground">Queue</span>
+					<span>{ data.Okta.PushQueueLabel }</span>
+				</div>
+				<div class="flex items-center justify-between gap-3">
+					<span class="text-muted-foreground">Dead letter</span>
+					<span>{ data.Okta.PushDeadLetterLabel }</span>
+				</div>
+			</div>
+			if data.Okta.PushLastError != "" {
+				<p class="text-xs text-muted-foreground break-words">{ data.Okta.PushLastError }</p>
+			}
+		</div>
+	}
+}
+
+templ GoogleWorkspaceConnectorFields(data viewmodels.ConnectorsViewData) {
+	<label class="field">
+		<span class="label">Customer ID</span>
+		<input type="text" name="customer_id" class="input w-full" value={ data.GoogleWorkspace.CustomerID } placeholder="C0123abc"/>
+		<p class="text-xs text-muted-foreground">Primary source identifier used as source_name.</p>
+	</label>
+	<label class="field">
+		<span class="label">Primary domain (optional)</span>
+		<input type="text" name="primary_domain" class="input w-full" value={ data.GoogleWorkspace.PrimaryDomain } placeholder="example.com"/>
+	</label>
+	<label class="field">
+		<span class="label">Delegated admin email</span>
+		<input type="text" name="delegated_admin_email" class="input w-full" value={ data.GoogleWorkspace.DelegatedAdminEmail } placeholder="admin@example.com"/>
+		<p class="text-xs text-muted-foreground">Admin user to impersonate via domain-wide delegation.</p>
+	</label>
+	<label class="field">
+		<span class="label">Authentication mode</span>
+		<select name="auth_type" class="input w-full">
+			<option value="service_account_json" selected?={ data.GoogleWorkspace.AuthType == "service_account_json" }>Service account JSON</option>
+			<option value="adc" selected?={ data.GoogleWorkspace.AuthType == "adc" }>ADC / Workload Identity</option>
+		</select>
+	</label>
+	<label class="field">
+		<span class="label">Service account JSON (for JSON auth mode)</span>
+		<textarea name="service_account_json" class="input w-full h-32" placeholder="Leave blank to keep existing service account JSON"></textarea>
+		if data.GoogleWorkspace.HasServiceAccountJSON {
+			<p class="text-xs text-muted-foreground">Current: { data.GoogleWorkspace.ServiceAccountMask }</p>
+		}
+	</label>
+	<label class="field">
+		<span class="label">Service account email (for ADC auth mode)</span>
+		<input type="text" name="service_account_email" class="input w-full" value={ data.GoogleWorkspace.ServiceAccountEmail } placeholder="svc@example.iam.gserviceaccount.com"/>
+	</label>
+	<label class="field">
+		<span class="label">SaaS discovery</span>
+		<div class="flex items-center gap-3">
+			<input type="checkbox" role="switch" aria-label="Google Workspace SaaS discovery" name="discovery_enabled" value="true" checked?={ data.GoogleWorkspace.DiscoveryEnabled } class="input"/>
+			<input type="hidden" name="discovery_enabled" value="false"/>
+			<span class="text-sm text-muted-foreground">Collect login/token evidence for discovery inventory.</span>
+		</div>
+	</label>
+}
+
+templ EntraConnectorFields(data viewmodels.ConnectorsViewData) {
+	<label class="field">
+		<span class="label">Tenant ID</span>
+		<input type="text" name="tenant_id" class="input w-full" value={ data.Entra.TenantID } placeholder="00000000-0000-0000-0000-000000000000"/>
+	</label>
+	<label class="field">
+		<span class="label">Client ID</span>
+		<input type="text" name="client_id" class="input w-full" value={ data.Entra.ClientID } placeholder="00000000-0000-0000-0000-000000000000"/>
+	</label>
+	<label class="field">
+		<span class="label">Client secret</span>
+		<input type="password" name="client_secret" class="input w-full" placeholder="Leave blank to keep"/>
+		if data.Entra.HasClientSecret {
+			<p class="text-xs text-muted-foreground">Current: { data.Entra.ClientSecretMasked }</p>
+		}
+		<p class="text-xs text-muted-foreground">Requires Graph application permissions: User.Read.All, Group.Read.All, Application.Read.All, AppRoleAssignment.Read.All, RoleManagement.Read.Directory.</p>
+	</label>
+	<label class="field">
+		<span class="label">SaaS discovery</span>
+		<div class="flex items-center gap-3">
+			<input type="checkbox" role="switch" aria-label="Entra SaaS discovery" name="discovery_enabled" value="true" checked?={ data.Entra.DiscoveryEnabled } class="input"/>
+			<input type="hidden" name="discovery_enabled" value="false"/>
+			<span class="text-sm text-muted-foreground">Collect sign-in and OAuth grant evidence for discovery inventory.</span>
+		</div>
+		<p class="text-xs text-muted-foreground">Requires Graph permissions: AuditLog.Read.All, Directory.Read.All, DelegatedPermissionGrant.Read.All.</p>
+	</label>
+}
+
+templ GitHubConnectorFields(data viewmodels.ConnectorsViewData) {
+	<label class="field">
+		<span class="label">Organization</span>
+		<input type="text" name="org" class="input w-full" value={ data.GitHub.Org } placeholder="example-org"/>
+	</label>
+	<label class="field">
+		<span class="label">API base URL</span>
+		<input type="text" name="api_base" class="input w-full" value={ data.GitHub.APIBase } placeholder="https://api.github.com"/>
+	</label>
+	<label class="field">
+		<span class="label">Enterprise slug (optional)</span>
+		<input type="text" name="enterprise" class="input w-full" value={ data.GitHub.Enterprise } placeholder="example-enterprise"/>
+		<p class="text-xs text-muted-foreground">Required if SAML SSO is configured at the enterprise level (enables email resolution via enterprise external identities).</p>
+	</label>
+	<label class="field">
+		<span class="label">Personal access token</span>
+		<input type="password" name="token" class="input w-full" placeholder="Leave blank to keep"/>
+		if data.GitHub.HasToken {
+			<p class="text-xs text-muted-foreground">Current: { data.GitHub.TokenMasked }</p>
+		}
+	</label>
+	<label class="field">
+		<span class="label">SCIM provisioning</span>
+		<div class="flex items-center gap-3">
+			<input type="checkbox" role="switch" aria-label="SCIM provisioning" name="scim_enabled" value="true" checked?={ data.GitHub.SCIMEnabled } class="input"/>
+			<input type="hidden" name="scim_enabled" value="false"/>
+			<span class="text-sm text-muted-foreground">Prefer SCIM users to populate emails for auto-linking (requires org admin access + SSO-authorized token).</span>
+		</div>
+	</label>
+}
+
+templ DatadogConnectorFields(data viewmodels.ConnectorsViewData) {
+	<label class="field">
+		<span class="label">Site</span>
+		<input type="text" name="site" class="input w-full" value={ data.Datadog.Site } placeholder="datadoghq.com"/>
+	</label>
+	<label class="field">
+		<span class="label">API key</span>
+		<input type="password" name="api_key" class="input w-full" placeholder="Leave blank to keep"/>
+		if data.Datadog.HasAPIKey {
+			<p class="text-xs text-muted-foreground">Current: { data.Datadog.APIKeyMasked }</p>
+		}
+	</label>
+	<label class="field">
+		<span class="label">Application key</span>
+		<input type="password" name="app_key" class="input w-full" placeholder="Leave blank to keep"/>
+		if data.Datadog.HasAppKey {
+			<p class="text-xs text-muted-foreground">Current: { data.Datadog.AppKeyMasked }</p>
+		}
+	</label>
+}
+
+templ AWSIdentityCenterConnectorFields(data viewmodels.ConnectorsViewData) {
+	<label class="field">
+		<span class="label">Region</span>
+		<input type="text" name="region" class="input w-full" value={ data.AWSIdentityCenter.Region } placeholder="us-east-1"/>
+	</label>
+	<label class="field">
+		<span class="label">Display name</span>
+		<input type="text" name="name" class="input w-full" value={ data.AWSIdentityCenter.Name } placeholder="prod"/>
+	</label>
+	<label class="field">
+		<span class="label">Credentials</span>
+		<select name="auth_type" class="input w-full">
+			<option value="default_chain" selected?={ data.AWSIdentityCenter.AuthType == "default_chain" }>Use runtime credentials (recommended)</option>
+			<option value="access_key" selected?={ data.AWSIdentityCenter.AuthType == "access_key" }>Use access keys</option>
+		</select>
+		<p class="text-xs text-muted-foreground">Runtime credentials use the AWS SDK default chain (IAM role/IRSA/OIDC/env). Selecting runtime clears stored access keys on save.</p>
+	</label>
+	<label class="field">
+		<span class="label">Access key ID</span>
+		<input type="text" name="access_key_id" class="input w-full" placeholder="Leave blank to keep"/>
+		if data.AWSIdentityCenter.HasAccessKeyID {
+			<p class="text-xs text-muted-foreground">Current: { data.AWSIdentityCenter.AccessKeyIDMask }</p>
+		}
+	</label>
+	<label class="field">
+		<span class="label">Secret access key</span>
+		<input type="password" name="secret_access_key" class="input w-full" placeholder="Leave blank to keep"/>
+		if data.AWSIdentityCenter.HasSecretKey {
+			<p class="text-xs text-muted-foreground">Current: { data.AWSIdentityCenter.SecretKeyMask }</p>
+		}
+	</label>
+	<label class="field">
+		<span class="label">Session token (optional)</span>
+		<input type="password" name="session_token" class="input w-full" placeholder="Leave blank to keep"/>
+		if data.AWSIdentityCenter.HasSessionToken {
+			<p class="text-xs text-muted-foreground">Current: { data.AWSIdentityCenter.SessionTokenMask }</p>
+		}
+	</label>
+	<label class="field">
+		<span class="label">Instance ARN</span>
+		<input type="text" name="instance_arn" class="input w-full" value={ data.AWSIdentityCenter.InstanceARN } placeholder="arn:aws:sso:::instance/..."/>
+	</label>
+	<label class="field">
+		<span class="label">Identity store ID</span>
+		<input type="text" name="identity_store_id" class="input w-full" value={ data.AWSIdentityCenter.IdentityStoreID } placeholder="d-1234567890"/>
+	</label>
+}
+
+templ VaultConnectorFields(data viewmodels.ConnectorsViewData) {
+	<label class="field">
+		<span class="label">Vault address</span>
+		<input type="text" name="address" class="input w-full" value={ data.Vault.Address } placeholder="https://vault.example.com"/>
+	</label>
+	<label class="field">
+		<span class="label">Source display name (optional)</span>
+		<input type="text" name="name" class="input w-full" value={ data.Vault.Name } placeholder="prod-vault"/>
+	</label>
+	<label class="field">
+		<span class="label">Namespace (optional)</span>
+		<input type="text" name="namespace" class="input w-full" value={ data.Vault.Namespace } placeholder="admin"/>
+		<p class="text-xs text-muted-foreground">Leave blank for OSS or root namespace deployments. For HCP Vault Dedicated, this is usually <code>admin</code>.</p>
+	</label>
+	<label class="field">
+		<span class="label">Authentication</span>
+		<select name="auth_type" class="input w-full">
+			<option value="token" selected?={ data.Vault.AuthType == "token" }>Token</option>
+			<option value="approle" selected?={ data.Vault.AuthType == "approle" }>AppRole</option>
+		</select>
+	</label>
+	<label class="field">
+		<span class="label">Token (used when Token auth is selected)</span>
+		<input type="password" name="token" class="input w-full" placeholder="Leave blank to keep"/>
+		if data.Vault.HasToken {
+			<p class="text-xs text-muted-foreground">Current: { data.Vault.TokenMasked }</p>
+		}
+	</label>
+	<label class="field">
+		<span class="label">AppRole mount path (used when AppRole auth is selected)</span>
+		<input type="text" name="approle_mount_path" class="input w-full" value={ data.Vault.AppRoleMountPath } placeholder="approle"/>
+	</label>
+	<label class="field">
+		<span class="label">AppRole role ID (used when AppRole auth is selected)</span>
+		<input type="text" name="approle_role_id" class="input w-full" value={ data.Vault.AppRoleRoleID } placeholder="Leave blank to keep"/>
+		if data.Vault.HasAppRoleRoleID {
+			<p class="text-xs text-muted-foreground">Current value is configured.</p>
+		}
+	</label>
+	<label class="field">
+		<span class="label">AppRole secret ID (used when AppRole auth is selected)</span>
+		<input type="password" name="approle_secret_id" class="input w-full" placeholder="Leave blank to keep"/>
+		if data.Vault.HasAppRoleSecretID {
+			<p class="text-xs text-muted-foreground">Current: { data.Vault.AppRoleSecretMasked }</p>
+		}
+	</label>
+	<label class="field">
+		<span class="label">Auth role inventory</span>
+		<div class="flex items-center gap-3">
+			<input type="checkbox" role="switch" aria-label="Vault auth role inventory" name="scan_auth_roles" value="true" checked?={ data.Vault.ScanAuthRoles } class="input"/>
+			<input type="hidden" name="scan_auth_roles" value="false"/>
+			<span class="text-sm text-muted-foreground">Collect auth roles from AppRole/Kubernetes/JWT/OIDC mounts.</span>
+		</div>
+	</label>
+	<label class="field">
+		<span class="label">TLS verification</span>
+		<div class="flex items-center gap-3">
+			<input type="checkbox" role="switch" aria-label="Vault TLS skip verification" name="tls_skip_verify" value="true" checked?={ data.Vault.TLSSkipVerify } class="input"/>
+			<input type="hidden" name="tls_skip_verify" value="false"/>
+			<span class="text-sm text-muted-foreground">Skip TLS certificate verification (use only for trusted/self-hosted environments).</span>
+		</div>
+	</label>
+	<label class="field">
+		<span class="label">Custom CA certificate PEM (optional)</span>
+		<textarea name="tls_ca_cert_pem" class="input w-full h-32" placeholder="Leave blank to keep existing custom CA cert"></textarea>
+		if data.Vault.HasTLSCACert {
+			<p class="text-xs text-muted-foreground">Custom CA certificate is configured.</p>
+		}
+	</label>
 }
 
 templ ConfiguredBadge(configured bool) {
@@ -410,10 +494,10 @@ templ OktaConnectorRow(data viewmodels.ConnectorsViewData) {
 		</td>
 		<td>@ConfiguredBadge(data.Okta.Configured)</td>
 		<td>
-			<form method="post" action="/settings/connectors/okta/toggle" hx-post="/settings/connectors/okta/toggle" hx-target="closest tr" hx-swap="outerHTML" hx-disabled-elt="closest tr">
+			<form method="post" action="/settings/connectors/okta/toggle" hx-post="/settings/connectors/okta/toggle" hx-target="closest tr" hx-disabled-elt="closest tr">
 				@CSRFInput(data.Layout.CSRFToken)
 				<label class="flex items-center gap-2 whitespace-nowrap">
-					<input type="checkbox" role="switch" aria-label="Okta connector" name="enabled" value="true" checked?={ data.Okta.Enabled } data-autosubmit="true" class="input"/>
+					<input type="checkbox" role="switch" aria-label="Okta connector" name="enabled" value="true" checked?={ data.Okta.Enabled } data-autosubmit="true" data-focus-key="connector-okta-enabled" class="input"/>
 					<input type="hidden" name="enabled" value="false"/>
 				</label>
 			</form>
@@ -421,17 +505,17 @@ templ OktaConnectorRow(data viewmodels.ConnectorsViewData) {
 		<td>
 			<div class="flex items-center justify-between gap-3">
 				<span class="text-xs text-muted-foreground">Authoritative IdP</span>
-				<form method="post" action="/settings/connectors/okta/authoritative" hx-post="/settings/connectors/okta/authoritative" hx-target="closest tr" hx-swap="outerHTML" hx-disabled-elt="closest tr">
+				<form method="post" action="/settings/connectors/okta/authoritative" hx-post="/settings/connectors/okta/authoritative" hx-target="closest tr" hx-disabled-elt="closest tr">
 					@CSRFInput(data.Layout.CSRFToken)
 					<label class="flex items-center gap-2 whitespace-nowrap">
-						<input type="checkbox" role="switch" aria-label="Okta authoritative identity source" name="authoritative" value="true" checked?={ data.Okta.Authoritative } data-autosubmit="true" class="input"/>
+						<input type="checkbox" role="switch" aria-label="Okta authoritative identity source" name="authoritative" value="true" checked?={ data.Okta.Authoritative } data-autosubmit="true" data-focus-key="connector-okta-authoritative" class="input"/>
 						<input type="hidden" name="authoritative" value="false"/>
 					</label>
 				</form>
 			</div>
 		</td>
 		<td class="text-right">
-			<a id="connector-okta-configure" href="/settings/connectors?open=okta" class="btn-sm-outline">Configure</a>
+			<a id="connector-okta-configure" href="/settings/connectors?open=okta" hx-get="/settings/connectors/okta/dialog" hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline">Configure</a>
 		</td>
 	</tr>
 }
@@ -446,10 +530,10 @@ templ EntraConnectorRow(data viewmodels.ConnectorsViewData) {
 		</td>
 		<td>@ConfiguredBadge(data.Entra.Configured)</td>
 		<td>
-			<form method="post" action="/settings/connectors/entra/toggle" hx-post="/settings/connectors/entra/toggle" hx-target="closest tr" hx-swap="outerHTML" hx-disabled-elt="closest tr">
+			<form method="post" action="/settings/connectors/entra/toggle" hx-post="/settings/connectors/entra/toggle" hx-target="closest tr" hx-disabled-elt="closest tr">
 				@CSRFInput(data.Layout.CSRFToken)
 				<label class="flex items-center gap-2 whitespace-nowrap">
-					<input type="checkbox" role="switch" aria-label="Microsoft Entra ID connector" name="enabled" value="true" checked?={ data.Entra.Enabled } data-autosubmit="true" class="input"/>
+					<input type="checkbox" role="switch" aria-label="Microsoft Entra ID connector" name="enabled" value="true" checked?={ data.Entra.Enabled } data-autosubmit="true" data-focus-key="connector-entra-enabled" class="input"/>
 					<input type="hidden" name="enabled" value="false"/>
 				</label>
 			</form>
@@ -457,17 +541,17 @@ templ EntraConnectorRow(data viewmodels.ConnectorsViewData) {
 		<td>
 			<div class="flex items-center justify-between gap-3">
 				<span class="text-xs text-muted-foreground">Authoritative IdP</span>
-				<form method="post" action="/settings/connectors/entra/authoritative" hx-post="/settings/connectors/entra/authoritative" hx-target="closest tr" hx-swap="outerHTML" hx-disabled-elt="closest tr">
+				<form method="post" action="/settings/connectors/entra/authoritative" hx-post="/settings/connectors/entra/authoritative" hx-target="closest tr" hx-disabled-elt="closest tr">
 					@CSRFInput(data.Layout.CSRFToken)
 					<label class="flex items-center gap-2 whitespace-nowrap">
-						<input type="checkbox" role="switch" aria-label="Entra authoritative identity source" name="authoritative" value="true" checked?={ data.Entra.Authoritative } data-autosubmit="true" class="input"/>
+						<input type="checkbox" role="switch" aria-label="Entra authoritative identity source" name="authoritative" value="true" checked?={ data.Entra.Authoritative } data-autosubmit="true" data-focus-key="connector-entra-authoritative" class="input"/>
 						<input type="hidden" name="authoritative" value="false"/>
 					</label>
 				</form>
 			</div>
 		</td>
 		<td class="text-right">
-			<a id="connector-entra-configure" href="/settings/connectors?open=entra" class="btn-sm-outline">Configure</a>
+			<a id="connector-entra-configure" href="/settings/connectors?open=entra" hx-get="/settings/connectors/entra/dialog" hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline">Configure</a>
 		</td>
 	</tr>
 }
@@ -482,17 +566,17 @@ templ GoogleWorkspaceConnectorRow(data viewmodels.ConnectorsViewData) {
 		</td>
 		<td>@ConfiguredBadge(data.GoogleWorkspace.Configured)</td>
 		<td>
-			<form method="post" action="/settings/connectors/google_workspace/toggle" hx-post="/settings/connectors/google_workspace/toggle" hx-target="closest tr" hx-swap="outerHTML" hx-disabled-elt="closest tr">
+			<form method="post" action="/settings/connectors/google_workspace/toggle" hx-post="/settings/connectors/google_workspace/toggle" hx-target="closest tr" hx-disabled-elt="closest tr">
 				@CSRFInput(data.Layout.CSRFToken)
 				<label class="flex items-center gap-2 whitespace-nowrap">
-					<input type="checkbox" role="switch" aria-label="Google Workspace connector" name="enabled" value="true" checked?={ data.GoogleWorkspace.Enabled } data-autosubmit="true" class="input"/>
+					<input type="checkbox" role="switch" aria-label="Google Workspace connector" name="enabled" value="true" checked?={ data.GoogleWorkspace.Enabled } data-autosubmit="true" data-focus-key="connector-google-workspace-enabled" class="input"/>
 					<input type="hidden" name="enabled" value="false"/>
 				</label>
 			</form>
 		</td>
 		<td><span class="text-muted-foreground">&mdash;</span></td>
 		<td class="text-right">
-			<a id="connector-google-workspace-configure" href="/settings/connectors?open=google_workspace" class="btn-sm-outline">Configure</a>
+			<a id="connector-google-workspace-configure" href="/settings/connectors?open=google_workspace" hx-get="/settings/connectors/google_workspace/dialog" hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline">Configure</a>
 		</td>
 	</tr>
 }
@@ -507,17 +591,17 @@ templ GitHubConnectorRow(data viewmodels.ConnectorsViewData) {
 		</td>
 		<td>@ConfiguredBadge(data.GitHub.Configured)</td>
 		<td>
-			<form method="post" action="/settings/connectors/github/toggle" hx-post="/settings/connectors/github/toggle" hx-target="closest tr" hx-swap="outerHTML" hx-disabled-elt="closest tr">
+			<form method="post" action="/settings/connectors/github/toggle" hx-post="/settings/connectors/github/toggle" hx-target="closest tr" hx-disabled-elt="closest tr">
 				@CSRFInput(data.Layout.CSRFToken)
 				<label class="flex items-center gap-2 whitespace-nowrap">
-					<input type="checkbox" role="switch" aria-label="GitHub connector" name="enabled" value="true" checked?={ data.GitHub.Enabled } data-autosubmit="true" class="input"/>
+					<input type="checkbox" role="switch" aria-label="GitHub connector" name="enabled" value="true" checked?={ data.GitHub.Enabled } data-autosubmit="true" data-focus-key="connector-github-enabled" class="input"/>
 					<input type="hidden" name="enabled" value="false"/>
 				</label>
 			</form>
 		</td>
 		<td><span class="text-muted-foreground">&mdash;</span></td>
 		<td class="text-right">
-			<a id="connector-github-configure" href="/settings/connectors?open=github" class="btn-sm-outline">Configure</a>
+			<a id="connector-github-configure" href="/settings/connectors?open=github" hx-get="/settings/connectors/github/dialog" hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline">Configure</a>
 		</td>
 	</tr>
 }
@@ -532,17 +616,17 @@ templ DatadogConnectorRow(data viewmodels.ConnectorsViewData) {
 		</td>
 		<td>@ConfiguredBadge(data.Datadog.Configured)</td>
 		<td>
-			<form method="post" action="/settings/connectors/datadog/toggle" hx-post="/settings/connectors/datadog/toggle" hx-target="closest tr" hx-swap="outerHTML" hx-disabled-elt="closest tr">
+			<form method="post" action="/settings/connectors/datadog/toggle" hx-post="/settings/connectors/datadog/toggle" hx-target="closest tr" hx-disabled-elt="closest tr">
 				@CSRFInput(data.Layout.CSRFToken)
 				<label class="flex items-center gap-2 whitespace-nowrap">
-					<input type="checkbox" role="switch" aria-label="Datadog connector" name="enabled" value="true" checked?={ data.Datadog.Enabled } data-autosubmit="true" class="input"/>
+					<input type="checkbox" role="switch" aria-label="Datadog connector" name="enabled" value="true" checked?={ data.Datadog.Enabled } data-autosubmit="true" data-focus-key="connector-datadog-enabled" class="input"/>
 					<input type="hidden" name="enabled" value="false"/>
 				</label>
 			</form>
 		</td>
 		<td><span class="text-muted-foreground">&mdash;</span></td>
 		<td class="text-right">
-			<a id="connector-datadog-configure" href="/settings/connectors?open=datadog" class="btn-sm-outline">Configure</a>
+			<a id="connector-datadog-configure" href="/settings/connectors?open=datadog" hx-get="/settings/connectors/datadog/dialog" hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline">Configure</a>
 		</td>
 	</tr>
 }
@@ -557,17 +641,17 @@ templ AWSIdentityCenterConnectorRow(data viewmodels.ConnectorsViewData) {
 		</td>
 		<td>@ConfiguredBadge(data.AWSIdentityCenter.Configured)</td>
 		<td>
-			<form method="post" action="/settings/connectors/aws_identity_center/toggle" hx-post="/settings/connectors/aws_identity_center/toggle" hx-target="closest tr" hx-swap="outerHTML" hx-disabled-elt="closest tr">
+			<form method="post" action="/settings/connectors/aws_identity_center/toggle" hx-post="/settings/connectors/aws_identity_center/toggle" hx-target="closest tr" hx-disabled-elt="closest tr">
 				@CSRFInput(data.Layout.CSRFToken)
 				<label class="flex items-center gap-2 whitespace-nowrap">
-					<input type="checkbox" role="switch" aria-label="AWS Identity Center connector" name="enabled" value="true" checked?={ data.AWSIdentityCenter.Enabled } data-autosubmit="true" class="input"/>
+					<input type="checkbox" role="switch" aria-label="AWS Identity Center connector" name="enabled" value="true" checked?={ data.AWSIdentityCenter.Enabled } data-autosubmit="true" data-focus-key="connector-aws-identity-center-enabled" class="input"/>
 					<input type="hidden" name="enabled" value="false"/>
 				</label>
 			</form>
 		</td>
 		<td><span class="text-muted-foreground">&mdash;</span></td>
 		<td class="text-right">
-			<a id="connector-aws-configure" href="/settings/connectors?open=aws_identity_center" class="btn-sm-outline">Configure</a>
+			<a id="connector-aws-configure" href="/settings/connectors?open=aws_identity_center" hx-get="/settings/connectors/aws_identity_center/dialog" hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline">Configure</a>
 		</td>
 	</tr>
 }
@@ -582,17 +666,17 @@ templ VaultConnectorRow(data viewmodels.ConnectorsViewData) {
 		</td>
 		<td>@ConfiguredBadge(data.Vault.Configured)</td>
 		<td>
-			<form method="post" action="/settings/connectors/vault/toggle" hx-post="/settings/connectors/vault/toggle" hx-target="closest tr" hx-swap="outerHTML" hx-disabled-elt="closest tr">
+			<form method="post" action="/settings/connectors/vault/toggle" hx-post="/settings/connectors/vault/toggle" hx-target="closest tr" hx-disabled-elt="closest tr">
 				@CSRFInput(data.Layout.CSRFToken)
 				<label class="flex items-center gap-2 whitespace-nowrap">
-					<input type="checkbox" role="switch" aria-label="Vault connector" name="enabled" value="true" checked?={ data.Vault.Enabled } data-autosubmit="true" class="input"/>
+					<input type="checkbox" role="switch" aria-label="Vault connector" name="enabled" value="true" checked?={ data.Vault.Enabled } data-autosubmit="true" data-focus-key="connector-vault-enabled" class="input"/>
 					<input type="hidden" name="enabled" value="false"/>
 				</label>
 			</form>
 		</td>
 		<td><span class="text-muted-foreground">&mdash;</span></td>
 		<td class="text-right">
-			<a id="connector-vault-configure" href="/settings/connectors?open=vault" class="btn-sm-outline">Configure</a>
+			<a id="connector-vault-configure" href="/settings/connectors?open=vault" hx-get="/settings/connectors/vault/dialog" hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline">Configure</a>
 		</td>
 	</tr>
 }

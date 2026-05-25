@@ -66,9 +66,16 @@ func TestHandleDashboardUsesGenericInventoryMetrics(t *testing.T) {
 		}
 
 		body := renderDashboard(t, h, "http://example.com/")
+		assertContains(t, body, `id="dashboard-content"`)
+		assertContains(t, body, `osspm:data-sync-changed from:body`)
 		assertDashboardMetric(t, body, "Identities", 2)
 		assertDashboardMetric(t, body, "Discovered SaaS apps", 1)
 		assertDashboardMetric(t, body, "App assets", 2)
+
+		fragment := renderDashboardFragment(t, h, "http://example.com/")
+		assertContains(t, fragment, `id="dashboard-content"`)
+		assertDashboardMetric(t, fragment, "Identities", 2)
+		assertNotContains(t, fragment, "<!doctype html>")
 	})
 }
 
@@ -147,6 +154,22 @@ func renderDashboard(t *testing.T, h *Handlers, target string) string {
 	refreshHandlerReadModels(t, h)
 
 	c, rec := newTestContext(http.MethodGet, target)
+	if err := h.HandleDashboard(c); err != nil {
+		t.Fatalf("HandleDashboard(%s): %v", target, err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	return rec.Body.String()
+}
+
+func renderDashboardFragment(t *testing.T, h *Handlers, target string) string {
+	t.Helper()
+	refreshHandlerReadModels(t, h)
+
+	c, rec := newTestContext(http.MethodGet, target)
+	(*c).Request().Header.Set("HX-Request", "true")
+	(*c).Request().Header.Set("HX-Target", "dashboard-content")
 	if err := h.HandleDashboard(c); err != nil {
 		t.Fatalf("HandleDashboard(%s): %v", target, err)
 	}

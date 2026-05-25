@@ -179,7 +179,9 @@ type IdentityShowProfile struct {
 }
 
 type IdentityShowSummary struct {
-	Tiles []IdentitySummaryTile
+	Tiles    []IdentitySummaryTile
+	Loaded   bool
+	LoadHref string
 }
 
 type IdentityShowGraphFactsPanel struct {
@@ -226,6 +228,8 @@ type IdentityShowLinkedAccountsPanel struct {
 	SortMode       IdentityLinkedAccountSortMode
 	HasItems       bool
 	HasFilter      bool
+	Loaded         bool
+	LoadHref       string
 }
 
 type IdentityShowEntitlementsPanel struct {
@@ -245,6 +249,8 @@ type IdentityShowEntitlementsPanel struct {
 	Groups           []IdentityEntitlementGroup
 	HasItems         bool
 	HasFilter        bool
+	Loaded           bool
+	LoadHref         string
 }
 
 // IdentitySourceFilterOption represents one entry in the source-kind select

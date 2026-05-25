@@ -100,10 +100,11 @@ const config = {
   ],
 };
 
-const renderAskbar = ({ htmx = true, extraControls = "" } = {}) => {
+const renderAskbar = ({ htmx = true, extraControls = "", configOverrides = {} } = {}) => {
+  const askbarConfig = { ...config, ...configOverrides };
   document.body.innerHTML = `
     <form ${htmx ? 'hx-get="/items"' : ""}>
-      <div data-osspm-askbar data-osspm-askbar-config='${JSON.stringify(config)}'>
+      <div data-osspm-askbar data-osspm-askbar-config='${JSON.stringify(askbarConfig)}'>
         <label data-osspm-askbar-bar>
           <span data-osspm-askbar-chips></span>
           <input data-osspm-askbar-input placeholder="Search" />
@@ -146,6 +147,7 @@ describe("askbar", () => {
     document.body.innerHTML = "";
     window.history.replaceState({}, "", "/");
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it("parses field grammar into canonical filter inputs", () => {
@@ -231,6 +233,42 @@ describe("askbar", () => {
     expect(suggest.hidden).toBe(false);
     expect(suggest.textContent).toContain("Suggestions");
     expect(suggest.textContent).toContain("< 30d");
+  });
+
+  it("aborts in-flight server suggestion requests when typing continues", () => {
+    vi.useFakeTimers();
+    const fetchSpy = vi.fn((_url, options) => new Promise(() => options.signal.addEventListener("abort", () => {})));
+    Object.defineProperty(window, "fetch", { value: fetchSpy, configurable: true });
+
+    const root = renderAskbar({
+      configOverrides: {
+        suggestEndpoint: "/askbar/suggestions?scope=credentials",
+      },
+    });
+    const cleanup = initAskbar(root);
+    const input = root.querySelector("[data-osspm-askbar-input]");
+
+    input.value = "a";
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    vi.advanceTimersByTime(80);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const firstSignal = fetchSpy.mock.calls[0][1].signal;
+    expect(firstSignal.aborted).toBe(false);
+
+    input.value = "ab";
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+
+    expect(firstSignal.aborted).toBe(true);
+
+    vi.advanceTimersByTime(80);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls[1][0]).toBe("/askbar/suggestions?scope=credentials&q=ab");
+
+    const secondSignal = fetchSpy.mock.calls[1][1].signal;
+    cleanup();
+    expect(secondSignal.aborted).toBe(true);
   });
 
   it("keeps static scope inputs when chips are rewritten", () => {

@@ -35,11 +35,11 @@ templ SettingsPage(data viewmodels.SettingsViewData) {
 							<p class="mt-1 text-sm text-muted-foreground">Refresh identities and app access.</p>
 						}
 					</div>
-					<div class="shrink-0">
-						<form method="post" action="/settings/resync">
-							@CSRFInput(data.Layout.CSRFToken)
-							<button type="submit" class="btn-sm-primary" disabled?={ !data.ResyncEnabled }>Resync now</button>
-						</form>
+						<div id="settings-sync-status" class="shrink-0">
+							<form method="post" action="/settings/resync" hx-post="/settings/resync" hx-target="#settings-sync-status" hx-disabled-elt="find button[type='submit']">
+								@CSRFInput(data.Layout.CSRFToken)
+								<button type="submit" class="btn-sm-primary" disabled?={ !data.ResyncEnabled }>Resync now</button>
+							</form>
 					</div>
 				</div>
 			</section>
@@ -68,7 +68,7 @@ templ SettingsPage(data viewmodels.SettingsViewData) {
 							<tbody>
 								for _, pack := range data.RiskPolicyPacks {
 									<tr>
-										<td class="text-muted-foreground whitespace-nowrap">{ pack.Domain }</td>
+										<td class="text-muted-foreground whitespace-nowrap" hx-disable>{ pack.Domain }</td>
 										<td class="font-medium">{ pack.ID }</td>
 										<td class="text-muted-foreground whitespace-nowrap">{ pack.Version }</td>
 									</tr>
@@ -83,4 +83,42 @@ templ SettingsPage(data viewmodels.SettingsViewData) {
 
 		</section>
 	}
+}
+
+// SettingsSyncStatus binds to /settings/resync/stream as an SSE channel when
+// a sync is active. The server pushes a `status` event whenever the sync's
+// phase changes; htmx swaps this element's inner content with the event payload.
+// When no sync is running, no connection is opened and the element just
+// renders its terminal state.
+templ SettingsSyncStatus(status string, label string, poll bool, csrfToken string, enabled bool) {
+	if poll {
+		<div
+			id="settings-sync-status"
+			class="shrink-0"
+			sse-connect="/settings/resync/stream"
+			sse-close="done"
+			sse-swap="status"
+			hx-swap="innerHTML"
+		>
+			@SettingsSyncStatusContent(status, label, poll, csrfToken, enabled)
+		</div>
+	} else {
+		<div id="settings-sync-status" class="shrink-0">
+			@SettingsSyncStatusContent(status, label, poll, csrfToken, enabled)
+		</div>
+	}
+}
+
+templ SettingsSyncStatusContent(status string, label string, poll bool, csrfToken string, enabled bool) {
+	<div class="flex flex-wrap items-center justify-end gap-2">
+		if status != "" {
+			<span class="badge-outline">{ label }</span>
+		}
+		if !poll {
+			<form method="post" action="/settings/resync" hx-post="/settings/resync" hx-target="#settings-sync-status" hx-disabled-elt="find button[type='submit']">
+				@CSRFInput(csrfToken)
+				<button type="submit" class="btn-sm-primary" disabled?={ !enabled }>Resync now</button>
+			</form>
+		}
+	</div>
 }
