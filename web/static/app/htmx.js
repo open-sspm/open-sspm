@@ -375,7 +375,6 @@ const handleFailedRequest = (event) => {
   const state = finalizeRequestBusyState(xhr);
   clearPendingLazyState(state);
   htmxRequestState.delete(xhr);
-  if (state?.lazyElement) scheduleVisibleLazyHx(document);
 
   const status = Number(xhr.status || 0);
   if (swapAllowedErrorStatuses.has(status)) return;

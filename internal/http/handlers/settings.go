@@ -915,10 +915,14 @@ func (h *Handlers) HandleResyncStatus(c *echo.Context) error {
 	if active > 0 {
 		return h.RenderComponent(c, views.SettingsSyncStatus("running", "Sync running", true, h.csrfToken(c), h.Syncer != nil))
 	}
-	if isHX(c) {
-		addHXTrigger(c, events.DataSyncChanged, map[string]string{"status": "success"})
+	status, label, err := h.latestManualSyncTerminalStatus(c.Request().Context())
+	if err != nil {
+		return h.RenderError(c, err)
 	}
-	return h.RenderComponent(c, views.SettingsSyncStatus("success", "Sync complete", false, h.csrfToken(c), h.Syncer != nil))
+	if isHX(c) {
+		addHXTrigger(c, events.DataSyncChanged, map[string]string{"status": status})
+	}
+	return h.RenderComponent(c, views.SettingsSyncStatus(status, label, false, h.csrfToken(c), h.Syncer != nil))
 }
 
 // HandleResyncStream is an SSE endpoint that streams sync-status fragments to
@@ -983,7 +987,11 @@ func (h *Handlers) HandleResyncStream(c *echo.Context) error {
 		if active > 0 {
 			return false, emit("running", "Sync running", true)
 		}
-		if err := emit("success", "Sync complete", false); err != nil {
+		status, label, err := h.latestManualSyncTerminalStatus(ctx)
+		if err != nil {
+			return true, err
+		}
+		if err := emit(status, label, false); err != nil {
 			return true, err
 		}
 		return true, emitDone()
@@ -1027,6 +1035,33 @@ func (h *Handlers) activeManualSyncJobs(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+func (h *Handlers) latestManualSyncTerminalStatus(ctx context.Context) (string, string, error) {
+	if h.Pool == nil {
+		return "success", "Sync complete", nil
+	}
+	var jobStatus string
+	err := h.Pool.QueryRow(ctx, `
+		SELECT status
+		FROM sync_jobs
+		WHERE trigger_kind = 'manual'
+		  AND status IN ('succeeded', 'failed')
+		ORDER BY COALESCE(finished_at, updated_at, created_at) DESC, created_at DESC, id DESC
+		LIMIT 1
+	`).Scan(&jobStatus)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "success", "Sync complete", nil
+		}
+		return "", "", err
+	}
+	switch strings.ToLower(strings.TrimSpace(jobStatus)) {
+	case "failed":
+		return "error", "Sync failed", nil
+	default:
+		return "success", "Sync complete", nil
+	}
 }
 
 func (h *Handlers) csrfToken(c *echo.Context) string {

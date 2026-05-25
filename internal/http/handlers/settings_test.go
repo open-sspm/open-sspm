@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/riskpolicy"
 )
 
@@ -60,4 +63,51 @@ func TestHandleResyncStreamEmitsInnerStatusAndDone(t *testing.T) {
 	if strings.Contains(body, "sse-connect") || strings.Contains(body, `id="settings-sync-status"`) {
 		t.Fatalf("SSE payload included reconnect wrapper: %s", body)
 	}
+}
+
+func TestHandleResyncStreamEmitsFailureForFailedManualJob(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO sync_jobs (id, lane, trigger_kind, status, attempt_count, available_at, finished_at, last_error)
+			VALUES ('00000000-0000-0000-0000-000000000001', 'full', 'manual', 'failed', 1, now(), now(), 'boom')
+		`); err != nil {
+			t.Fatalf("insert failed sync job: %v", err)
+		}
+
+		c, rec := newTestContext(http.MethodGet, "http://example.com/settings/resync/stream")
+		if err := h.HandleResyncStream(c); err != nil {
+			t.Fatalf("HandleResyncStream() error = %v", err)
+		}
+
+		body := rec.Body.String()
+		assertContains(t, body, "event: status")
+		assertContains(t, body, "event: done")
+		assertContains(t, body, "Sync failed")
+		if strings.Contains(body, "Sync complete") {
+			t.Fatalf("failed stream reported success: %s", body)
+		}
+	})
+}
+
+func TestHandleResyncStatusTriggersFailureForFailedManualJob(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO sync_jobs (id, lane, trigger_kind, status, attempt_count, available_at, finished_at, last_error)
+			VALUES ('00000000-0000-0000-0000-000000000002', 'full', 'manual', 'failed', 1, now(), now(), 'boom')
+		`); err != nil {
+			t.Fatalf("insert failed sync job: %v", err)
+		}
+
+		c, rec := newTestContext(http.MethodGet, "http://example.com/settings/resync/status")
+		c.Request().Header.Set("HX-Request", "true")
+		if err := h.HandleResyncStatus(c); err != nil {
+			t.Fatalf("HandleResyncStatus() error = %v", err)
+		}
+
+		body := rec.Body.String()
+		assertContains(t, body, "Sync failed")
+		trigger := rec.Header().Get("HX-Trigger")
+		assertContains(t, trigger, "osspm:data-sync-changed")
+		assertContains(t, trigger, `"status":"error"`)
+	})
 }

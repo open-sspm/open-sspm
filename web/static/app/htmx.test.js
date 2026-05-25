@@ -558,7 +558,7 @@ describe("htmx integration wiring", () => {
     expect(duplicate.defaultPrevented).toBe(true);
   });
 
-  it("re-arms failed managed lazy requests", async () => {
+  it("does not immediately retry failed managed lazy requests", async () => {
     document.body.innerHTML = `<section id="lazy" data-hx-lazy-load data-hx-lazy-panel="lazy"></section>`;
     const lazy = document.getElementById("lazy");
     const trigger = vi.fn();
@@ -586,7 +586,7 @@ describe("htmx integration wiring", () => {
     await waitForAsyncWork();
 
     expect(lazy.dataset.hxLazyState).toBeUndefined();
-    expect(trigger).toHaveBeenCalledWith(lazy, "oss-panel-visible");
+    expect(trigger).not.toHaveBeenCalledWith(lazy, "oss-panel-visible");
     delete window.htmx;
   });
 
