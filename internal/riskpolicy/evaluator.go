@@ -15,7 +15,6 @@ type RiskSignal struct {
 	ID                string `json:"id"`
 	Domain            Domain `json:"domain"`
 	Severity          string `json:"severity"`
-	ScoreDelta        int    `json:"score_delta,omitempty"`
 	Title             string `json:"title"`
 	Evidence          string `json:"evidence,omitempty"`
 	PolicyPackID      string `json:"policy_pack_id"`
@@ -168,7 +167,7 @@ func (r *Registry) packsFor(domain Domain, schema string) []CompiledPack {
 }
 
 func evaluateEntityPolicyPack(pack CompiledPack, entity map[string]any) (osspecv2.EntityPolicyEvaluateResult, error) {
-	result, err := osspecv2.EvaluateEntityPolicyPack(&pack.Policy, entity)
+	result, err := pack.evaluator.Evaluate(pack.Policy, entity)
 	if err != nil {
 		return osspecv2.EntityPolicyEvaluateResult{}, fmt.Errorf("%s: evaluate Rego policy: %w", pack.Policy.Metadata.ID, err)
 	}
@@ -176,6 +175,7 @@ func evaluateEntityPolicyPack(pack CompiledPack, entity map[string]any) (osspecv
 }
 
 func appendEntitySignals(out []RiskSignal, domain Domain, metadata PolicyMetadata, signals []osspecv2.EntityPolicyTestSignal) []RiskSignal {
+	// Entity policy signals mirror the Open SSPM spec shape; event signals may add evidence.
 	for _, signal := range signals {
 		out = append(out, RiskSignal{
 			ID:                strings.TrimSpace(signal.ID),

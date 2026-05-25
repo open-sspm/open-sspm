@@ -51,7 +51,7 @@ templ SettingsPage(data viewmodels.SettingsViewData) {
 						<p class="text-sm text-muted-foreground">Built-in policy packs loaded by this server.</p>
 					</div>
 					<div class="text-xs text-muted-foreground">
-						{ FormatInt(len(data.RiskPolicyPacks)) }{ pluralizeSuffix(len(data.RiskPolicyPacks), " pack", " packs") }{ " · " }{ FormatInt(data.RiskPolicyRegoPolicies) }{ pluralizeSuffix(data.RiskPolicyRegoPolicies, " Rego policy", " Rego policies") }
+						{ FormatInt(len(data.RiskPolicyPacks)) }{ pluralizeSuffix(len(data.RiskPolicyPacks), " pack", " packs") }
 					</div>
 				</div>
 				if len(data.RiskPolicyPacks) > 0 {

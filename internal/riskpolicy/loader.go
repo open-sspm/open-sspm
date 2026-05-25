@@ -24,7 +24,8 @@ type Registry struct {
 }
 
 type CompiledPack struct {
-	Policy PolicyPack
+	Policy    PolicyPack
+	evaluator entityPolicyEvaluator
 }
 
 func LoadBuiltin() (*Registry, error) {
@@ -113,13 +114,6 @@ func (r *Registry) PackMetadatas() []PolicyMetadata {
 }
 
 func (r *Registry) PackCount() int {
-	if r == nil {
-		return 0
-	}
-	return len(r.packs)
-}
-
-func (r *Registry) RegoPolicyCount() int {
 	if r == nil {
 		return 0
 	}
@@ -245,5 +239,9 @@ func compilePack(name string, pack PolicyPack) (CompiledPack, error) {
 	if err := validatePolicyPack(name, pack); err != nil {
 		return CompiledPack{}, err
 	}
-	return CompiledPack{Policy: pack}, nil
+	evaluator, err := prepareEntityPolicyEvaluator(name, pack)
+	if err != nil {
+		return CompiledPack{}, err
+	}
+	return CompiledPack{Policy: pack, evaluator: evaluator}, nil
 }

@@ -21,9 +21,6 @@ func TestLoadBuiltinPolicies(t *testing.T) {
 	if got, want := registry.PackCount(), 4; got != want {
 		t.Fatalf("PackCount() = %d, want %d", got, want)
 	}
-	if got, want := registry.RegoPolicyCount(), registry.PackCount(); got != want {
-		t.Fatalf("RegoPolicyCount() = %d, want %d", got, want)
-	}
 
 	byID := make(map[string]PolicyPack)
 	for _, pack := range registry.Packs() {
@@ -118,6 +115,38 @@ entity_policy_pack:
 	}
 	if !strings.Contains(err.Error(), "policy.rego is required") {
 		t.Fatalf("LoadDocuments() error = %v, want missing rego error", err)
+	}
+}
+
+func TestLoadDocumentsRejectsInvalidRego(t *testing.T) {
+	t.Parallel()
+
+	_, err := LoadDocuments(map[string][]byte{
+		"bad.yaml": []byte(`
+kind: opensspm.entity_policy_pack
+schema_version: 2
+entity_policy_pack:
+  metadata:
+    id: bad
+    version: 1.0.0
+    domain: credential
+  inputs:
+    schema: credential_risk_input.v1
+  policy:
+    engine: rego
+    package: opensspm.entity.bad
+    query: data.opensspm.entity.bad.result
+    rego: |
+      package opensspm.entity.bad
+
+      result := {"risk_level": "low", "signals": [
+`),
+	})
+	if err == nil {
+		t.Fatal("LoadDocuments() error = nil, want invalid rego error")
+	}
+	if !strings.Contains(err.Error(), "prepare Rego policy") {
+		t.Fatalf("LoadDocuments() error = %v, want prepare Rego policy error", err)
 	}
 }
 
