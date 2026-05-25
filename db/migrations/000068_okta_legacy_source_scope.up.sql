@@ -16,34 +16,43 @@ WITH okta_source AS (
   SELECT lower(trim(regexp_replace(regexp_replace(config ->> 'domain', '^https?://', '', 'i'), '/.*$', ''))) AS source_name
   FROM connector_configs
   WHERE kind = 'okta'
+    AND trim(regexp_replace(regexp_replace(config ->> 'domain', '^https?://', '', 'i'), '/.*$', '')) <> ''
+  ORDER BY updated_at DESC, created_at DESC
+  LIMIT 1
 )
 UPDATE okta_groups
 SET source_kind = 'okta',
     source_name = (SELECT source_name FROM okta_source)
 WHERE source_name = ''
-  AND EXISTS (SELECT 1 FROM okta_source WHERE source_name <> '');
+  AND EXISTS (SELECT 1 FROM okta_source);
 
 WITH okta_source AS (
   SELECT lower(trim(regexp_replace(regexp_replace(config ->> 'domain', '^https?://', '', 'i'), '/.*$', ''))) AS source_name
   FROM connector_configs
   WHERE kind = 'okta'
+    AND trim(regexp_replace(regexp_replace(config ->> 'domain', '^https?://', '', 'i'), '/.*$', '')) <> ''
+  ORDER BY updated_at DESC, created_at DESC
+  LIMIT 1
 )
 UPDATE okta_apps
 SET source_kind = 'okta',
     source_name = (SELECT source_name FROM okta_source)
 WHERE source_name = ''
-  AND EXISTS (SELECT 1 FROM okta_source WHERE source_name <> '');
+  AND EXISTS (SELECT 1 FROM okta_source);
 
 WITH okta_source AS (
   SELECT lower(trim(regexp_replace(regexp_replace(config ->> 'domain', '^https?://', '', 'i'), '/.*$', ''))) AS source_name
   FROM connector_configs
   WHERE kind = 'okta'
+    AND trim(regexp_replace(regexp_replace(config ->> 'domain', '^https?://', '', 'i'), '/.*$', '')) <> ''
+  ORDER BY updated_at DESC, created_at DESC
+  LIMIT 1
 )
 UPDATE okta_app_group_assignments
 SET source_kind = 'okta',
     source_name = (SELECT source_name FROM okta_source)
 WHERE source_name = ''
-  AND EXISTS (SELECT 1 FROM okta_source WHERE source_name <> '');
+  AND EXISTS (SELECT 1 FROM okta_source);
 
 CREATE INDEX IF NOT EXISTS idx_okta_groups_source
   ON okta_groups (source_kind, source_name);
