@@ -65,6 +65,10 @@ func finalizeOktaRecordSnapshots(ctx context.Context, q *gen.Queries, pool *pgxp
 	qtx := q.WithTx(tx)
 	projector := recorddispatch.NewOktaStateProjector(qtx, runID)
 	emitter := recorddispatch.NewDispatcher(nil, projector)
+
+	// ResourceEntitlement finalizes Okta assignment tables and the canonical
+	// entitlements derived from them. Expiry queries only touch active rows, so
+	// a prior completion for this run is idempotent.
 	for _, resource := range []records.ResourceName{
 		records.ResourceIdentity,
 		records.ResourceGroup,

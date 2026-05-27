@@ -93,9 +93,10 @@ func TestFinalizeOktaRecordSnapshotsCompletesAndExpiresThroughProjector(t *testi
 		if status != "success" {
 			t.Fatalf("sync run status = %q, want success", status)
 		}
-		var payload struct {
+		type statsPayload struct {
 			Counts map[string]int64 `json:"counts"`
 		}
+		var payload statsPayload
 		if err := json.Unmarshal(stats, &payload); err != nil {
 			t.Fatalf("unmarshal sync run stats err = %v", err)
 		}
@@ -113,6 +114,27 @@ func TestFinalizeOktaRecordSnapshotsCompletesAndExpiresThroughProjector(t *testi
 			t.Fatalf("finalizeOktaRecordSnapshots(run2 repeat) err = %v", err)
 		}
 		assertRecordFinalizeCounts(t, ctx, pool, sourceName, 1, 0, 0, 0, 0)
+		if err := pool.QueryRow(ctx, `SELECT status, stats FROM sync_runs WHERE id = $1`, runID2).Scan(&status, &stats); err != nil {
+			t.Fatalf("query repeated sync run err = %v", err)
+		}
+		if status != "success" {
+			t.Fatalf("repeated sync run status = %q, want success", status)
+		}
+		payload = statsPayload{}
+		if err := json.Unmarshal(stats, &payload); err != nil {
+			t.Fatalf("unmarshal repeated sync run stats err = %v", err)
+		}
+		for _, key := range []string{
+			"okta_accounts_expired",
+			"okta_groups_expired",
+			"okta_apps_expired",
+			"okta_app_assignments_expired",
+			"entitlements_expired",
+		} {
+			if payload.Counts[key] != 0 {
+				t.Fatalf("repeated finalization count %s = %d, want 0; counts = %+v", key, payload.Counts[key], payload.Counts)
+			}
+		}
 	})
 }
 
