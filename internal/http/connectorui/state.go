@@ -213,7 +213,7 @@ func defaultSubtitle(kind string) string {
 	case configstore.KindVault:
 		return "Identity entities, policies, mounts, and auth roles."
 	default:
-		return "Configure connector."
+		return ""
 	}
 }
 

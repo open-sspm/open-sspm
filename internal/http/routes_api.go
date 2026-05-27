@@ -7,7 +7,7 @@ import (
 
 func (es *EchoServer) registerAPIRoutes() {
 	api := es.e.Group("/api")
-	api.Use(es.sessionMiddleware()...)
+	api.Use(es.browserMiddleware()...)
 	api.Use(authn.RequireAuth(es.h.Sessions, es.h.Q))
 	api.Use(authn.RequireRole(auth.RoleAdmin))
 
