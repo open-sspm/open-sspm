@@ -63,6 +63,215 @@ func (q *Queries) GetFindingByKey(ctx context.Context, findingKey string) (Findi
 	return i, err
 }
 
+const getFindingRuleCurrentByRulesetKeyAndRuleKey = `-- name: GetFindingRuleCurrentByRulesetKeyAndRuleKey :one
+WITH selected_sources AS (
+  SELECT
+    css.source_kind,
+    css.source_name
+  FROM connector_source_state css
+  WHERE css.configured
+    AND css.source_kind = $2::text
+    AND (
+      $3::text = ''
+      OR css.source_name = $3::text
+    )
+),
+rule_current AS (
+  SELECT
+    r.id AS rule_id,
+    count(ss.source_name)::bigint AS source_count,
+    count(*) FILTER (WHERE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown') = 'fail')::bigint AS fail_count,
+    count(*) FILTER (WHERE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown') = 'error')::bigint AS error_count,
+    count(*) FILTER (WHERE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown') = 'unknown')::bigint AS unknown_count,
+    count(*) FILTER (WHERE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown') = 'not_applicable')::bigint AS not_applicable_count,
+    count(*) FILTER (WHERE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown') = 'pass')::bigint AS pass_count,
+    max(f.last_seen_at) AS current_evaluated_at,
+    max(COALESCE(NULLIF(f.output #>> '{rule_result,sync_run_id}', '')::bigint, 0))::bigint AS current_sync_run_id,
+    (array_remove(array_agg(NULLIF(f.summary, '') ORDER BY
+      CASE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown')
+        WHEN 'fail' THEN 1
+        WHEN 'error' THEN 2
+        WHEN 'unknown' THEN 3
+        WHEN 'not_applicable' THEN 4
+        WHEN 'pass' THEN 5
+        ELSE 6
+      END,
+      f.last_seen_at DESC NULLS LAST
+    ), NULL))[1]::text AS first_evidence_summary,
+    (array_remove(array_agg(NULLIF(f.output #>> '{rule_result,error_kind}', '') ORDER BY f.last_seen_at DESC NULLS LAST), NULL))[1]::text AS first_error_kind,
+    (jsonb_agg(f.output -> 'evidence' ORDER BY
+      CASE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown')
+        WHEN 'fail' THEN 1
+        WHEN 'error' THEN 2
+        WHEN 'unknown' THEN 3
+        WHEN 'not_applicable' THEN 4
+        WHEN 'pass' THEN 5
+        ELSE 6
+      END,
+      f.last_seen_at DESC NULLS LAST
+    ) FILTER (WHERE f.output ? 'evidence'))->0 AS first_evidence_json
+  FROM rules r
+  JOIN rulesets rs ON rs.id = r.ruleset_id
+  LEFT JOIN selected_sources ss ON TRUE
+  LEFT JOIN findings f
+    ON f.ruleset_id = rs.key
+    AND f.rule_id = r.key
+    AND f.scope_kind = $1::text
+    AND f.scope_source_kind = ss.source_kind
+    AND f.scope_source_name = ss.source_name
+  WHERE rs.key = $4::text
+    AND r.key = $5::text
+    AND r.is_active = true
+  GROUP BY r.id
+)
+SELECT
+  r.id,
+  r.ruleset_id,
+  r.key,
+  r.title,
+  r.summary,
+  r.category,
+  r.severity,
+  r.monitoring_status,
+  r.monitoring_reason,
+  r.required_data,
+  r.expected_params,
+  r.rule_version,
+  r.is_active,
+  r.definition_json,
+  r.created_at,
+  r.updated_at,
+  CASE
+    WHEN $1::text = 'connector_instance' THEN
+      CASE
+        WHEN COALESCE(rc.source_count, 0) = 0 THEN 'unknown'
+        WHEN COALESCE(rc.fail_count, 0) > 0 THEN 'fail'
+        WHEN COALESCE(rc.error_count, 0) > 0 THEN 'error'
+        WHEN COALESCE(rc.unknown_count, 0) > 0 THEN 'unknown'
+        WHEN COALESCE(rc.not_applicable_count, 0) = rc.source_count THEN 'not_applicable'
+        WHEN COALESCE(rc.pass_count, 0) = rc.source_count THEN 'pass'
+        ELSE 'unknown'
+      END
+    ELSE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown')
+  END::text AS current_status,
+  CASE
+    WHEN $1::text = 'connector_instance' THEN rc.current_evaluated_at
+    ELSE f.last_seen_at
+  END::timestamptz AS current_evaluated_at,
+  CASE
+    WHEN $1::text = 'connector_instance' THEN COALESCE(rc.current_sync_run_id, 0)
+    ELSE COALESCE(NULLIF(f.output #>> '{rule_result,sync_run_id}', '')::bigint, 0)
+  END::bigint AS current_sync_run_id,
+  CASE
+    WHEN $1::text = 'connector_instance' THEN
+      CASE
+        WHEN COALESCE(rc.source_count, 0) = 0 THEN ''
+        WHEN rc.source_count = 1 THEN COALESCE(rc.first_evidence_summary, '')
+        ELSE concat(
+          rc.fail_count, ' fail, ',
+          rc.error_count, ' error, ',
+          rc.unknown_count, ' unknown, ',
+          rc.not_applicable_count, ' not applicable, ',
+          rc.pass_count, ' pass'
+        )
+      END
+    ELSE COALESCE(f.summary, '')
+  END::text AS current_evidence_summary,
+  CASE
+    WHEN $1::text = 'connector_instance' THEN
+      CASE
+        WHEN COALESCE(rc.source_count, 0) = 1 THEN COALESCE(rc.first_evidence_json, '{}'::jsonb)
+        ELSE '{}'::jsonb
+      END
+    ELSE COALESCE(f.output -> 'evidence', '{}'::jsonb)
+  END::jsonb AS current_evidence_json,
+  CASE
+    WHEN $1::text = 'connector_instance' THEN COALESCE(rc.first_error_kind, '')
+    ELSE COALESCE(f.output #>> '{rule_result,error_kind}', '')
+  END::text AS current_error_kind
+FROM rules r
+JOIN rulesets rs ON rs.id = r.ruleset_id
+LEFT JOIN rule_current rc ON rc.rule_id = r.id
+LEFT JOIN findings f
+  ON f.ruleset_id = rs.key
+  AND f.rule_id = r.key
+  AND f.scope_kind = $1::text
+  AND f.scope_source_kind = $2::text
+  AND f.scope_source_name = $3::text
+WHERE rs.key = $4::text
+  AND r.key = $5::text
+  AND r.is_active = true
+`
+
+type GetFindingRuleCurrentByRulesetKeyAndRuleKeyParams struct {
+	ScopeKind  string `json:"scope_kind"`
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+	RulesetKey string `json:"ruleset_key"`
+	RuleKey    string `json:"rule_key"`
+}
+
+type GetFindingRuleCurrentByRulesetKeyAndRuleKeyRow struct {
+	ID                     int64              `json:"id"`
+	RulesetID              int64              `json:"ruleset_id"`
+	Key                    string             `json:"key"`
+	Title                  string             `json:"title"`
+	Summary                string             `json:"summary"`
+	Category               string             `json:"category"`
+	Severity               string             `json:"severity"`
+	MonitoringStatus       string             `json:"monitoring_status"`
+	MonitoringReason       string             `json:"monitoring_reason"`
+	RequiredData           []byte             `json:"required_data"`
+	ExpectedParams         []byte             `json:"expected_params"`
+	RuleVersion            string             `json:"rule_version"`
+	IsActive               bool               `json:"is_active"`
+	DefinitionJson         []byte             `json:"definition_json"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	CurrentStatus          string             `json:"current_status"`
+	CurrentEvaluatedAt     pgtype.Timestamptz `json:"current_evaluated_at"`
+	CurrentSyncRunID       int64              `json:"current_sync_run_id"`
+	CurrentEvidenceSummary string             `json:"current_evidence_summary"`
+	CurrentEvidenceJson    []byte             `json:"current_evidence_json"`
+	CurrentErrorKind       string             `json:"current_error_kind"`
+}
+
+func (q *Queries) GetFindingRuleCurrentByRulesetKeyAndRuleKey(ctx context.Context, arg GetFindingRuleCurrentByRulesetKeyAndRuleKeyParams) (GetFindingRuleCurrentByRulesetKeyAndRuleKeyRow, error) {
+	row := q.db.QueryRow(ctx, getFindingRuleCurrentByRulesetKeyAndRuleKey,
+		arg.ScopeKind,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.RulesetKey,
+		arg.RuleKey,
+	)
+	var i GetFindingRuleCurrentByRulesetKeyAndRuleKeyRow
+	err := row.Scan(
+		&i.ID,
+		&i.RulesetID,
+		&i.Key,
+		&i.Title,
+		&i.Summary,
+		&i.Category,
+		&i.Severity,
+		&i.MonitoringStatus,
+		&i.MonitoringReason,
+		&i.RequiredData,
+		&i.ExpectedParams,
+		&i.RuleVersion,
+		&i.IsActive,
+		&i.DefinitionJson,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CurrentStatus,
+		&i.CurrentEvaluatedAt,
+		&i.CurrentSyncRunID,
+		&i.CurrentEvidenceSummary,
+		&i.CurrentEvidenceJson,
+		&i.CurrentErrorKind,
+	)
+	return i, err
+}
+
 const insertFindingEvent = `-- name: InsertFindingEvent :exec
 INSERT INTO finding_events (
   finding_key,

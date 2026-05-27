@@ -305,6 +305,17 @@ func TestRouteSurfacesOwnBrowserMiddleware(t *testing.T) {
 		}
 	})
 
+	t.Run("api post keeps browser csrf protection", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "http://example.com/api/identity-resolution/candidates/123/accept", nil)
+		rec := httptest.NewRecorder()
+
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest && rec.Code != http.StatusForbidden {
+			t.Fatalf("api POST status = %d, want CSRF rejection", rec.Code)
+		}
+	})
+
 	t.Run("web gets browser login redirect", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "http://example.com/global-view", nil)
 		rec := httptest.NewRecorder()

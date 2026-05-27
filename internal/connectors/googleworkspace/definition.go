@@ -46,25 +46,6 @@ func (d *Definition) SourceName(cfg any) string {
 	return cfg.(configstore.GoogleWorkspaceConfig).CustomerID
 }
 
-func (d *Definition) DefaultSubtitle() string {
-	return "Users, groups, OAuth grants, and token audits from Google Workspace."
-}
-
-func (d *Definition) ConfiguredSubtitle(cfg any) string {
-	googleCfg := cfg.(configstore.GoogleWorkspaceConfig)
-	if googleCfg.PrimaryDomain != "" {
-		return "Domain " + googleCfg.PrimaryDomain
-	}
-	if googleCfg.CustomerID != "" {
-		return "Customer " + googleCfg.CustomerID
-	}
-	return d.DefaultSubtitle()
-}
-
-func (d *Definition) SettingsHref() string {
-	return "/settings/connectors?open=google_workspace"
-}
-
 func (d *Definition) MetricsProvider() registry.MetricsProvider {
 	return registry.NewUserSourceMetricsProvider(configstore.KindGoogleWorkspace)
 }

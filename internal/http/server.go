@@ -281,6 +281,12 @@ func (es *EchoServer) browserMiddleware() []echo.MiddlewareFunc {
 	}
 }
 
+func (es *EchoServer) sessionMiddleware() []echo.MiddlewareFunc {
+	return []echo.MiddlewareFunc{
+		echo.WrapMiddleware(es.h.Sessions.LoadAndSave),
+	}
+}
+
 func (es *EchoServer) browserCSRFMiddleware() echo.MiddlewareFunc {
 	return middleware.CSRFWithConfig(middleware.CSRFConfig{
 		TokenLookup:    "header:" + echo.HeaderXCSRFToken + ",form:csrf",

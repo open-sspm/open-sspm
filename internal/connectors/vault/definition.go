@@ -1,8 +1,6 @@
 package vault
 
 import (
-	"strings"
-
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 )
@@ -46,23 +44,6 @@ func (d *Definition) IsConfigured(cfg any) bool {
 
 func (d *Definition) SourceName(cfg any) string {
 	return cfg.(configstore.VaultConfig).SourceName()
-}
-
-func (d *Definition) DefaultSubtitle() string {
-	return "Identity entities, policies, mounts, and auth roles."
-}
-
-func (d *Definition) ConfiguredSubtitle(cfg any) string {
-	c := cfg.(configstore.VaultConfig).Normalized()
-	source := strings.TrimSpace(c.SourceName())
-	if source == "" {
-		return d.DefaultSubtitle()
-	}
-	return "Source " + source
-}
-
-func (d *Definition) SettingsHref() string {
-	return "/settings/connectors?open=vault"
 }
 
 func (d *Definition) MetricsProvider() registry.MetricsProvider {

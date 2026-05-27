@@ -9,10 +9,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/capabilities"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
+	"github.com/open-sspm/open-sspm/internal/ingest/recorddispatch"
 	"github.com/open-sspm/open-sspm/internal/metrics"
 	"github.com/open-sspm/open-sspm/internal/records"
 )
@@ -44,6 +46,44 @@ func completeOktaSnapshot(ctx context.Context, emitter capabilities.RecordEmitte
 		FinishedAt:     time.Now().UTC(),
 		DedupeKeyValue: fmt.Sprintf("okta:%s:snapshot:%s:complete:%d", strings.TrimSpace(sourceName), resource, runID),
 	})
+}
+
+func finalizeOktaRecordSnapshots(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceName string, duration time.Duration) error {
+	if q == nil {
+		return fmt.Errorf("okta snapshot finalization requires queries")
+	}
+	if pool == nil {
+		return fmt.Errorf("okta snapshot finalization requires database pool")
+	}
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := q.WithTx(tx)
+	projector := recorddispatch.NewOktaStateProjector(qtx, runID)
+	emitter := recorddispatch.NewDispatcher(nil, projector)
+
+	// ResourceEntitlement finalizes Okta assignment tables and the canonical
+	// entitlements derived from them. Expiry queries only touch active rows, so
+	// a prior completion for this run is idempotent.
+	for _, resource := range []records.ResourceName{
+		records.ResourceIdentity,
+		records.ResourceGroup,
+		records.ResourceApplication,
+		records.ResourceEntitlement,
+	} {
+		if err := completeOktaSnapshot(ctx, emitter, sourceName, resource, runID, true); err != nil {
+			return err
+		}
+	}
+
+	if err := registry.FinalizeRunCountsInTx(ctx, qtx, runID, projector.Counts(), duration, "okta", sourceName); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (i *OktaIntegration) syncOktaAccountsRecords(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, users []User) error {

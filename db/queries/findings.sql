@@ -340,3 +340,142 @@ LEFT JOIN findings f
 WHERE rs.key = sqlc.arg(key)::text
   AND r.is_active = true
 ORDER BY r.key;
+
+-- name: GetFindingRuleCurrentByRulesetKeyAndRuleKey :one
+WITH selected_sources AS (
+  SELECT
+    css.source_kind,
+    css.source_name
+  FROM connector_source_state css
+  WHERE css.configured
+    AND css.source_kind = sqlc.arg(source_kind)::text
+    AND (
+      sqlc.arg(source_name)::text = ''
+      OR css.source_name = sqlc.arg(source_name)::text
+    )
+),
+rule_current AS (
+  SELECT
+    r.id AS rule_id,
+    count(ss.source_name)::bigint AS source_count,
+    count(*) FILTER (WHERE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown') = 'fail')::bigint AS fail_count,
+    count(*) FILTER (WHERE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown') = 'error')::bigint AS error_count,
+    count(*) FILTER (WHERE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown') = 'unknown')::bigint AS unknown_count,
+    count(*) FILTER (WHERE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown') = 'not_applicable')::bigint AS not_applicable_count,
+    count(*) FILTER (WHERE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown') = 'pass')::bigint AS pass_count,
+    max(f.last_seen_at) AS current_evaluated_at,
+    max(COALESCE(NULLIF(f.output #>> '{rule_result,sync_run_id}', '')::bigint, 0))::bigint AS current_sync_run_id,
+    (array_remove(array_agg(NULLIF(f.summary, '') ORDER BY
+      CASE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown')
+        WHEN 'fail' THEN 1
+        WHEN 'error' THEN 2
+        WHEN 'unknown' THEN 3
+        WHEN 'not_applicable' THEN 4
+        WHEN 'pass' THEN 5
+        ELSE 6
+      END,
+      f.last_seen_at DESC NULLS LAST
+    ), NULL))[1]::text AS first_evidence_summary,
+    (array_remove(array_agg(NULLIF(f.output #>> '{rule_result,error_kind}', '') ORDER BY f.last_seen_at DESC NULLS LAST), NULL))[1]::text AS first_error_kind,
+    (jsonb_agg(f.output -> 'evidence' ORDER BY
+      CASE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown')
+        WHEN 'fail' THEN 1
+        WHEN 'error' THEN 2
+        WHEN 'unknown' THEN 3
+        WHEN 'not_applicable' THEN 4
+        WHEN 'pass' THEN 5
+        ELSE 6
+      END,
+      f.last_seen_at DESC NULLS LAST
+    ) FILTER (WHERE f.output ? 'evidence'))->0 AS first_evidence_json
+  FROM rules r
+  JOIN rulesets rs ON rs.id = r.ruleset_id
+  LEFT JOIN selected_sources ss ON TRUE
+  LEFT JOIN findings f
+    ON f.ruleset_id = rs.key
+    AND f.rule_id = r.key
+    AND f.scope_kind = sqlc.arg(scope_kind)::text
+    AND f.scope_source_kind = ss.source_kind
+    AND f.scope_source_name = ss.source_name
+  WHERE rs.key = sqlc.arg(ruleset_key)::text
+    AND r.key = sqlc.arg(rule_key)::text
+    AND r.is_active = true
+  GROUP BY r.id
+)
+SELECT
+  r.id,
+  r.ruleset_id,
+  r.key,
+  r.title,
+  r.summary,
+  r.category,
+  r.severity,
+  r.monitoring_status,
+  r.monitoring_reason,
+  r.required_data,
+  r.expected_params,
+  r.rule_version,
+  r.is_active,
+  r.definition_json,
+  r.created_at,
+  r.updated_at,
+  CASE
+    WHEN sqlc.arg(scope_kind)::text = 'connector_instance' THEN
+      CASE
+        WHEN COALESCE(rc.source_count, 0) = 0 THEN 'unknown'
+        WHEN COALESCE(rc.fail_count, 0) > 0 THEN 'fail'
+        WHEN COALESCE(rc.error_count, 0) > 0 THEN 'error'
+        WHEN COALESCE(rc.unknown_count, 0) > 0 THEN 'unknown'
+        WHEN COALESCE(rc.not_applicable_count, 0) = rc.source_count THEN 'not_applicable'
+        WHEN COALESCE(rc.pass_count, 0) = rc.source_count THEN 'pass'
+        ELSE 'unknown'
+      END
+    ELSE COALESCE(NULLIF(f.output #>> '{rule_result,status}', ''), 'unknown')
+  END::text AS current_status,
+  CASE
+    WHEN sqlc.arg(scope_kind)::text = 'connector_instance' THEN rc.current_evaluated_at
+    ELSE f.last_seen_at
+  END::timestamptz AS current_evaluated_at,
+  CASE
+    WHEN sqlc.arg(scope_kind)::text = 'connector_instance' THEN COALESCE(rc.current_sync_run_id, 0)
+    ELSE COALESCE(NULLIF(f.output #>> '{rule_result,sync_run_id}', '')::bigint, 0)
+  END::bigint AS current_sync_run_id,
+  CASE
+    WHEN sqlc.arg(scope_kind)::text = 'connector_instance' THEN
+      CASE
+        WHEN COALESCE(rc.source_count, 0) = 0 THEN ''
+        WHEN rc.source_count = 1 THEN COALESCE(rc.first_evidence_summary, '')
+        ELSE concat(
+          rc.fail_count, ' fail, ',
+          rc.error_count, ' error, ',
+          rc.unknown_count, ' unknown, ',
+          rc.not_applicable_count, ' not applicable, ',
+          rc.pass_count, ' pass'
+        )
+      END
+    ELSE COALESCE(f.summary, '')
+  END::text AS current_evidence_summary,
+  CASE
+    WHEN sqlc.arg(scope_kind)::text = 'connector_instance' THEN
+      CASE
+        WHEN COALESCE(rc.source_count, 0) = 1 THEN COALESCE(rc.first_evidence_json, '{}'::jsonb)
+        ELSE '{}'::jsonb
+      END
+    ELSE COALESCE(f.output -> 'evidence', '{}'::jsonb)
+  END::jsonb AS current_evidence_json,
+  CASE
+    WHEN sqlc.arg(scope_kind)::text = 'connector_instance' THEN COALESCE(rc.first_error_kind, '')
+    ELSE COALESCE(f.output #>> '{rule_result,error_kind}', '')
+  END::text AS current_error_kind
+FROM rules r
+JOIN rulesets rs ON rs.id = r.ruleset_id
+LEFT JOIN rule_current rc ON rc.rule_id = r.id
+LEFT JOIN findings f
+  ON f.ruleset_id = rs.key
+  AND f.rule_id = r.key
+  AND f.scope_kind = sqlc.arg(scope_kind)::text
+  AND f.scope_source_kind = sqlc.arg(source_kind)::text
+  AND f.scope_source_name = sqlc.arg(source_name)::text
+WHERE rs.key = sqlc.arg(ruleset_key)::text
+  AND r.key = sqlc.arg(rule_key)::text
+  AND r.is_active = true;

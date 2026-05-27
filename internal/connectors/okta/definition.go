@@ -45,22 +45,6 @@ func (d *Definition) SourceName(cfg any) string {
 	return cfg.(configstore.OktaConfig).Domain
 }
 
-func (d *Definition) DefaultSubtitle() string {
-	return "Syncs Okta users and app assignments."
-}
-
-func (d *Definition) ConfiguredSubtitle(cfg any) string {
-	domain := cfg.(configstore.OktaConfig).Domain
-	if domain != "" {
-		return "Domain " + domain
-	}
-	return d.DefaultSubtitle()
-}
-
-func (d *Definition) SettingsHref() string {
-	return "/settings/connectors?open=okta"
-}
-
 func (d *Definition) MetricsProvider() registry.MetricsProvider {
 	return &oktaMetrics{}
 }

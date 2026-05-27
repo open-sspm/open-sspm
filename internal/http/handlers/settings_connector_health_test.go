@@ -32,9 +32,6 @@ func (d connectorHealthTestDefinition) DecodeConfig([]byte) (any, error)        
 func (d connectorHealthTestDefinition) ValidateConfig(any) error                      { return nil }
 func (d connectorHealthTestDefinition) IsConfigured(any) bool                         { return true }
 func (d connectorHealthTestDefinition) SourceName(any) string                         { return "" }
-func (d connectorHealthTestDefinition) DefaultSubtitle() string                       { return "" }
-func (d connectorHealthTestDefinition) ConfiguredSubtitle(any) string                 { return "" }
-func (d connectorHealthTestDefinition) SettingsHref() string                          { return "/settings/connectors" }
 func (d connectorHealthTestDefinition) MetricsProvider() connregistry.MetricsProvider { return nil }
 func (d connectorHealthTestDefinition) NewIntegration(any) (connregistry.Integration, error) {
 	return nil, nil
