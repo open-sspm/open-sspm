@@ -116,20 +116,10 @@ func TestLoadWithOptions_RejectsInvalidStartupReadModelRebuildMode(t *testing.T)
 	}
 }
 
-func TestLoadWithOptions_RejectsInvalidQueueBackend(t *testing.T) {
-	t.Setenv("DATABASE_URL", "")
-	t.Setenv("QUEUE_BACKEND", "kafka")
-
-	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
-	if err == nil {
-		t.Fatalf("expected invalid queue backend error")
-	}
-}
-
-func TestLoadWithOptions_OktaPushIngestDefaultsFollowDiscoveryFlag(t *testing.T) {
+func TestLoadWithOptions_EventInboxDefaultsToEnabled(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("SYNC_DISCOVERY_ENABLED", "0")
-	t.Setenv("OKTA_PUSH_INGEST_ENABLED", "")
+	t.Setenv("EVENT_INBOX_ENABLED", "")
 
 	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
 	if err != nil {
@@ -138,67 +128,60 @@ func TestLoadWithOptions_OktaPushIngestDefaultsFollowDiscoveryFlag(t *testing.T)
 	if cfg.SyncDiscoveryEnabled {
 		t.Fatalf("SyncDiscoveryEnabled = true, want false")
 	}
-	if cfg.OktaPushIngestEnabled {
-		t.Fatalf("OktaPushIngestEnabled = true, want false when unset and discovery disabled")
-	}
-	if cfg.OktaPushIngestEnabledSet {
-		t.Fatalf("OktaPushIngestEnabledSet = true, want false")
+	if !cfg.EventInboxEnabled {
+		t.Fatalf("EventInboxEnabled = false, want true by default")
 	}
 }
 
-func TestLoadWithOptions_OktaPushIngestFlagCanOverrideDiscoveryFlag(t *testing.T) {
+func TestLoadWithOptions_EventInboxFlagCanDisableIngest(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
-	t.Setenv("SYNC_DISCOVERY_ENABLED", "0")
-	t.Setenv("OKTA_PUSH_INGEST_ENABLED", "1")
+	t.Setenv("EVENT_INBOX_ENABLED", "0")
 
 	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
 	if err != nil {
 		t.Fatalf("LoadWithOptions() error = %v", err)
 	}
-	if !cfg.OktaPushIngestEnabled {
-		t.Fatalf("OktaPushIngestEnabled = false, want explicit true")
-	}
-	if !cfg.OktaPushIngestEnabledSet {
-		t.Fatalf("OktaPushIngestEnabledSet = false, want true")
+	if cfg.EventInboxEnabled {
+		t.Fatalf("EventInboxEnabled = true, want explicit false")
 	}
 }
 
-func TestLoadWithOptions_RejectsInvalidOktaPushIngestEnabledFlag(t *testing.T) {
+func TestLoadWithOptions_RejectsInvalidEventInboxEnabledFlag(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
-	t.Setenv("OKTA_PUSH_INGEST_ENABLED", "true")
+	t.Setenv("EVENT_INBOX_ENABLED", "true")
 
 	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
 	if err == nil {
-		t.Fatal("expected invalid OKTA_PUSH_INGEST_ENABLED error")
+		t.Fatal("expected invalid EVENT_INBOX_ENABLED error")
 	}
-	if !strings.Contains(err.Error(), "OKTA_PUSH_INGEST_ENABLED must be 0 or 1") {
-		t.Fatalf("error = %v, want OKTA_PUSH_INGEST_ENABLED guidance", err)
+	if !strings.Contains(err.Error(), "EVENT_INBOX_ENABLED must be 0 or 1") {
+		t.Fatalf("error = %v, want EVENT_INBOX_ENABLED guidance", err)
 	}
 }
 
-func TestLoadWithOptions_LoadsOktaPushIngestConfig(t *testing.T) {
+func TestLoadWithOptions_LoadsEventInboxConfig(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
-	t.Setenv("OKTA_PUSH_INGEST_BATCH_SIZE", "42")
-	t.Setenv("OKTA_PUSH_INGEST_POLL_INTERVAL", "3s")
-	t.Setenv("OKTA_PUSH_INGEST_CLEANUP_INTERVAL", "4m")
-	t.Setenv("OKTA_PUSH_INGEST_RETRY_DELAY", "5s")
-	t.Setenv("OKTA_PUSH_INGEST_RETRY_MAX_DELAY", "30s")
-	t.Setenv("OKTA_PUSH_INGEST_STALE_PROCESSING_TIMEOUT", "6m")
-	t.Setenv("OKTA_PUSH_INGEST_MAX_ATTEMPTS", "7")
-	t.Setenv("OKTA_PUSH_INGEST_PROCESSED_RETENTION_DAYS", "8")
-	t.Setenv("OKTA_PUSH_INGEST_DEAD_LETTER_RETENTION_DAYS", "9")
+	t.Setenv("EVENT_INBOX_BATCH_SIZE", "42")
+	t.Setenv("EVENT_INBOX_POLL_INTERVAL", "3s")
+	t.Setenv("EVENT_INBOX_CLEANUP_INTERVAL", "4m")
+	t.Setenv("EVENT_INBOX_RETRY_DELAY", "5s")
+	t.Setenv("EVENT_INBOX_RETRY_MAX_DELAY", "30s")
+	t.Setenv("EVENT_INBOX_STALE_PROCESSING_TIMEOUT", "6m")
+	t.Setenv("EVENT_INBOX_MAX_ATTEMPTS", "7")
+	t.Setenv("EVENT_INBOX_PROCESSED_RETENTION_DAYS", "8")
+	t.Setenv("EVENT_INBOX_DEAD_LETTER_RETENTION_DAYS", "9")
 
 	cfg, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
 	if err != nil {
 		t.Fatalf("LoadWithOptions() error = %v", err)
 	}
-	if got, want := cfg.OktaPushIngest.BatchSize, int32(42); got != want {
+	if got, want := cfg.EventInbox.BatchSize, int32(42); got != want {
 		t.Fatalf("BatchSize = %d, want %d", got, want)
 	}
-	if got, want := cfg.OktaPushIngest.MaxAttempts, int32(7); got != want {
+	if got, want := cfg.EventInbox.MaxAttempts, int32(7); got != want {
 		t.Fatalf("MaxAttempts = %d, want %d", got, want)
 	}
-	if got, want := cfg.OktaPushIngest.DeadLetterRetentionDays, int32(9); got != want {
+	if got, want := cfg.EventInbox.DeadLetterRetentionDays, int32(9); got != want {
 		t.Fatalf("DeadLetterRetentionDays = %d, want %d", got, want)
 	}
 }
@@ -206,9 +189,9 @@ func TestLoadWithOptions_LoadsOktaPushIngestConfig(t *testing.T) {
 func TestLoadWithOptions_LoadsRealtimeWorkerConfig(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("SYNC_TAIL_INTERVAL", "45s")
-	t.Setenv("RISKPOLICY_EVENT_WORKER_POLL_INTERVAL", "2s")
-	t.Setenv("RISKPOLICY_EVENT_WORKER_BATCH_SIZE", "37")
-	t.Setenv("RISKPOLICY_EVENT_WORKER_MAX_ATTEMPTS", "9")
+	t.Setenv("EVENT_EVALUATOR_WORKER_POLL_INTERVAL", "2s")
+	t.Setenv("EVENT_EVALUATOR_WORKER_BATCH_SIZE", "37")
+	t.Setenv("EVENT_EVALUATOR_WORKER_MAX_ATTEMPTS", "9")
 	t.Setenv("EVENT_PARTITION_MAINTENANCE_INTERVAL", "6h")
 	t.Setenv("EVENT_PARTITION_FUTURE_DAYS", "5")
 	t.Setenv("EVENT_RETENTION_DAYS", "120")
@@ -220,14 +203,14 @@ func TestLoadWithOptions_LoadsRealtimeWorkerConfig(t *testing.T) {
 	if got, want := cfg.SyncTailInterval, 45*time.Second; got != want {
 		t.Fatalf("SyncTailInterval = %s, want %s", got, want)
 	}
-	if got, want := cfg.RiskpolicyEventWorker.PollInterval, 2*time.Second; got != want {
-		t.Fatalf("RiskpolicyEventWorker.PollInterval = %s, want %s", got, want)
+	if got, want := cfg.EventEvaluatorWorker.PollInterval, 2*time.Second; got != want {
+		t.Fatalf("EventEvaluatorWorker.PollInterval = %s, want %s", got, want)
 	}
-	if got, want := cfg.RiskpolicyEventWorker.BatchSize, int32(37); got != want {
-		t.Fatalf("RiskpolicyEventWorker.BatchSize = %d, want %d", got, want)
+	if got, want := cfg.EventEvaluatorWorker.BatchSize, int32(37); got != want {
+		t.Fatalf("EventEvaluatorWorker.BatchSize = %d, want %d", got, want)
 	}
-	if got, want := cfg.RiskpolicyEventWorker.MaxAttempts, int32(9); got != want {
-		t.Fatalf("RiskpolicyEventWorker.MaxAttempts = %d, want %d", got, want)
+	if got, want := cfg.EventEvaluatorWorker.MaxAttempts, int32(9); got != want {
+		t.Fatalf("EventEvaluatorWorker.MaxAttempts = %d, want %d", got, want)
 	}
 	if got, want := cfg.EventPartitions.MaintenanceInterval, 6*time.Hour; got != want {
 		t.Fatalf("EventPartitions.MaintenanceInterval = %s, want %s", got, want)
@@ -242,14 +225,14 @@ func TestLoadWithOptions_LoadsRealtimeWorkerConfig(t *testing.T) {
 
 func TestLoadWithOptions_RejectsInvalidRealtimeWorkerConfig(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
-	t.Setenv("RISKPOLICY_EVENT_WORKER_BATCH_SIZE", "0")
+	t.Setenv("EVENT_EVALUATOR_WORKER_BATCH_SIZE", "0")
 
 	_, err := LoadWithOptions(LoadOptions{RequireDatabaseURL: false})
 	if err == nil {
-		t.Fatalf("expected invalid riskpolicy worker batch size error")
+		t.Fatalf("expected invalid evaluator worker batch size error")
 	}
-	if !strings.Contains(err.Error(), "RISKPOLICY_EVENT_WORKER_BATCH_SIZE") {
-		t.Fatalf("error = %v, want riskpolicy batch size guidance", err)
+	if !strings.Contains(err.Error(), "EVENT_EVALUATOR_WORKER_BATCH_SIZE") {
+		t.Fatalf("error = %v, want evaluator batch size guidance", err)
 	}
 }
 

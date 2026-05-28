@@ -5,7 +5,7 @@ import (
 
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/querystate"
-	identitydomain "github.com/open-sspm/open-sspm/internal/identitydetail"
+	identitydomain "github.com/open-sspm/open-sspm/internal/identity"
 )
 
 type IdentityListItem struct {

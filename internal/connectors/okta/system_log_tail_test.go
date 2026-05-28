@@ -13,12 +13,12 @@ import (
 )
 
 func TestOktaSystemLogTailWritesCanonicalEventsAndAdvancesCursor(t *testing.T) {
-	testdb.WithDatabase(t, testdb.Options{NamePrefix: "okta_tail"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "okta_system_log_tail"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
 		testdb.MigrateUp(t, migrator)
 
 		q := gen.New(pool)
 		sourceName := "example.okta.com"
-		runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("okta", registry.RunModeTail), sourceName)
+		runID, err := registry.StartSyncRunWithMode(ctx, q, "okta", sourceName, registry.RunModeTail)
 		if err != nil {
 			t.Fatalf("StartSyncRun() err = %v", err)
 		}

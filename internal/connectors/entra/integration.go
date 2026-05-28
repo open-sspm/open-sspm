@@ -119,7 +119,7 @@ func (i *EntraIntegration) Role() registry.IntegrationRole {
 }
 
 func (i *EntraIntegration) SupportsRunMode(mode registry.RunMode) bool {
-	if i == nil {
+	if i == nil || i.client == nil {
 		return false
 	}
 	switch mode.Normalize() {
@@ -154,6 +154,9 @@ func (i *EntraIntegration) InitEvents() []registry.Event {
 }
 
 func (i *EntraIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event), mode registry.RunMode) error {
+	if i == nil || i.client == nil {
+		return fmt.Errorf("entra API client is required for %s sync", mode.Normalize())
+	}
 	switch mode.Normalize() {
 	case registry.RunModeDiscovery:
 		if !i.SupportsRunMode(registry.RunModeDiscovery) {
@@ -176,7 +179,7 @@ func (i *EntraIntegration) runDiscovery(ctx context.Context, q *gen.Queries, poo
 	started := time.Now()
 	slog.Info("syncing Microsoft Entra ID discovery")
 
-	runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("entra", registry.RunModeDiscovery), i.tenantID)
+	runID, err := registry.StartSyncRunWithMode(ctx, q, "entra", i.tenantID, registry.RunModeDiscovery)
 	if err != nil {
 		return err
 	}

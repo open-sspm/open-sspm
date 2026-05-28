@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v5"
+	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
 
 func TestParseCreateLinkFormSupportsIdentityPayload(t *testing.T) {
@@ -43,6 +44,41 @@ func TestParseCreateLinkFormRejectsInvalidValues(t *testing.T) {
 
 	if _, _, _, err := parseCreateLinkForm(ctx); err == nil {
 		t.Fatalf("parseCreateLinkForm() error = nil, want invalid identity_id")
+	}
+}
+
+func TestOktaGroupBadgesFromEntitlementsUsesGenericMemberships(t *testing.T) {
+	t.Parallel()
+
+	entitlements := []gen.ListEntitlementsForAccountIDsRow{
+		{
+			Kind:     "group_membership",
+			Resource: "group:00g-eng",
+			RawJson:  []byte(`{"attributes":{"target":{"external_id":"00g-eng","display_name":"Engineering"}}}`),
+		},
+		{
+			Kind:     "application_assignment",
+			Resource: "0oa-payroll",
+		},
+		{
+			Kind:     "group_membership",
+			Resource: "group:00g-it",
+			RawJson:  []byte(`{"id":"00g-it","profile":{"name":"IT Admins"}}`),
+		},
+	}
+
+	badges, names := oktaGroupBadgesFromEntitlements(entitlements)
+	if len(badges) != 2 {
+		t.Fatalf("badges len = %d, want 2: %+v", len(badges), badges)
+	}
+	if badges[0].Name != "Engineering" || badges[0].ExternalID != "00g-eng" {
+		t.Fatalf("first badge = %+v, want Engineering/00g-eng", badges[0])
+	}
+	if badges[1].Name != "IT Admins" || badges[1].ExternalID != "00g-it" {
+		t.Fatalf("second badge = %+v, want IT Admins/00g-it", badges[1])
+	}
+	if names["00g-eng"] != "Engineering" || names["00g-it"] != "IT Admins" {
+		t.Fatalf("names = %+v, want generic group membership names", names)
 	}
 }
 

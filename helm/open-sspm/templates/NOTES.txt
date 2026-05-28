@@ -25,7 +25,7 @@
 
    {{- else }}
    No admin bootstrap is configured. After install, open `/login` and follow the setup instructions,
-   or run `open-sspm users bootstrap-admin` inside the cluster.
+   or run `open-sspm admin users bootstrap-admin` inside the cluster.
    {{- end }}
 
 5) Access the service

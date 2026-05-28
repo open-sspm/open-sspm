@@ -10,10 +10,10 @@ For the realtime architecture and provider matrix, see [Real-Time Synchronizatio
 |---------|---------|-------------------|
 | `open-sspm api` | Web UI and API | Yes |
 | `open-sspm worker` | Background full sync loop | Yes |
-| `open-sspm worker-discovery` | Background discovery sync loop | Optional |
-| `open-sspm worker-ingest` | Background push ingest queue processing | Optional |
-| `open-sspm worker-tail` | Background incremental audit/delta tail loop | Yes for realtime sync |
-| `open-sspm worker-riskpolicy` | Background shadow canonical-event riskpolicy loop | Yes for event shadow evaluation |
+| `open-sspm worker --lane discovery` | Background discovery sync loop | Optional |
+| `open-sspm worker --lane event-inbox` | Background event inbox processing | Optional |
+| `open-sspm worker --lane tail` | Background incremental audit/delta tail loop | Yes for realtime sync |
+| `open-sspm worker --lane evaluator` | Background canonical-event evaluator loop | Yes for event evaluation |
 
 ## Starting the Application
 
@@ -36,22 +36,22 @@ just worker
 ```
 
 ```bash
-just worker-discovery
+just worker discovery
 ```
 
 ```bash
-just worker-ingest
+just worker event-inbox
 ```
 
 ```bash
-just worker-tail
+just worker tail
 ```
 
 ```bash
-just worker-riskpolicy
+just worker evaluator
 ```
 
-The discovery worker is only needed when `SYNC_DISCOVERY_ENABLED=1` and you want polling-based discovery data. The ingest worker is needed when you enable push ingest such as Okta Event Hooks or EventBridge. The tail worker keeps cursor-based providers caught up, and the riskpolicy worker evaluates canonical events in shadow mode.
+The discovery worker is only needed when `SYNC_DISCOVERY_ENABLED=1` and you want polling-based discovery data. The event inbox worker is needed when you enable the event inbox for sources such as Okta Event Hooks or EventBridge. The tail worker keeps cursor-based providers caught up, and the evaluator worker evaluates canonical events.
 
 ### Kubernetes
 
@@ -66,11 +66,11 @@ Scale a component:
 
 ```bash
 kubectl scale deployment open-sspm-api --replicas=2
-kubectl scale deployment open-sspm-worker --replicas=1
-kubectl scale deployment open-sspm-worker-discovery --replicas=1
-kubectl scale deployment open-sspm-worker-ingest --replicas=1
-kubectl scale deployment open-sspm-worker-tail --replicas=1
-kubectl scale deployment open-sspm-worker-riskpolicy --replicas=1
+kubectl scale deployment open-sspm-worker-lane-full --replicas=1
+kubectl scale deployment open-sspm-worker-lane-discovery --replicas=1
+kubectl scale deployment open-sspm-worker-lane-event-inbox --replicas=1
+kubectl scale deployment open-sspm-worker-lane-tail --replicas=1
+kubectl scale deployment open-sspm-worker-lane-evaluator --replicas=1
 ```
 
 ## Stopping the Application
@@ -90,18 +90,18 @@ Scale Deployments to zero:
 
 ```bash
 kubectl scale deployment open-sspm-api --replicas=0
-kubectl scale deployment open-sspm-worker --replicas=0
-kubectl scale deployment open-sspm-worker-discovery --replicas=0
-kubectl scale deployment open-sspm-worker-ingest --replicas=0
-kubectl scale deployment open-sspm-worker-tail --replicas=0
-kubectl scale deployment open-sspm-worker-riskpolicy --replicas=0
+kubectl scale deployment open-sspm-worker-lane-full --replicas=0
+kubectl scale deployment open-sspm-worker-lane-discovery --replicas=0
+kubectl scale deployment open-sspm-worker-lane-event-inbox --replicas=0
+kubectl scale deployment open-sspm-worker-lane-tail --replicas=0
+kubectl scale deployment open-sspm-worker-lane-evaluator --replicas=0
 ```
 
 ## Viewing Logs
 
 ### Repo-Local Workflow
 
-`just run`, `just worker`, `just worker-discovery`, `just worker-ingest`, `just worker-tail`, and `just worker-riskpolicy` log directly to their terminal sessions.
+`just run`, `just worker`, `just worker discovery`, `just worker event-inbox`, `just worker tail`, and `just worker evaluator` log directly to their terminal sessions.
 
 For the local Postgres container:
 
@@ -113,11 +113,11 @@ docker compose logs db
 
 ```bash
 kubectl logs -l app.kubernetes.io/component=api -f
-kubectl logs -l app.kubernetes.io/component=worker -f
-kubectl logs -l app.kubernetes.io/component=worker-discovery -f
-kubectl logs -l app.kubernetes.io/component=worker-ingest -f
-kubectl logs -l app.kubernetes.io/component=worker-tail -f
-kubectl logs -l app.kubernetes.io/component=worker-riskpolicy -f
+kubectl logs -l app.kubernetes.io/component=worker,open-sspm.io/worker-lane=full -f
+kubectl logs -l app.kubernetes.io/component=worker,open-sspm.io/worker-lane=discovery -f
+kubectl logs -l app.kubernetes.io/component=worker,open-sspm.io/worker-lane=event-inbox -f
+kubectl logs -l app.kubernetes.io/component=worker,open-sspm.io/worker-lane=tail -f
+kubectl logs -l app.kubernetes.io/component=worker,open-sspm.io/worker-lane=evaluator -f
 ```
 
 ## Manual Sync Operations
@@ -133,24 +133,19 @@ kubectl logs -l app.kubernetes.io/component=worker-riskpolicy -f
 just sync
 ```
 
-`open-sspm sync` runs the full sync lane and then runs discovery if `SYNC_DISCOVERY_ENABLED=1`.
+`open-sspm admin sync` runs the full sync lane and then runs discovery if `SYNC_DISCOVERY_ENABLED=1`. Use `open-sspm admin sync --lane full` to run only full reconciliation.
 
 To run only the discovery lane:
 
 ```bash
-just sync-discovery
+just sync discovery
 ```
 
-### Shadow Event Projection
-
-Canonical events can be replayed into the shadow discovery projection and compared against baseline discovery event rows:
+Direct command:
 
 ```bash
-just event-projection -- --source-kind okta --source-name your-org.okta.com
+open-sspm admin sync --lane discovery
 ```
-
-This command records parity diff rows and does not cut the UI over to the shadow read model.
-When `--since` is omitted, projection resumes from the last stored checkpoint for that source.
 
 ### Manual Resync Mode
 
@@ -264,33 +259,38 @@ Check:
 
 Check:
 
-1. `just worker-tail` is running.
+1. `just worker tail` is running.
+   Direct command: `open-sspm worker --lane tail`.
 2. `SYNC_TAIL_INTERVAL` is a positive duration.
 3. The connector declares an executable tail capability. Current executable tails include Okta System Log, Google Workspace Reports activities, Datadog Audit Logs, and AWS CloudTrail when the provider client is configured.
 
-### Shadow event findings are not updating
+### Event findings are not updating
 
 Check:
 
-1. `just worker-riskpolicy` is running.
+1. `just worker evaluator` is running.
+   Direct command: `open-sspm worker --lane evaluator`.
 2. Canonical events are being written for the source.
-3. `riskpolicy_event_queue` rows are not stuck in `processing`; stale rows are requeued by the worker.
+3. Event evaluator queue rows (`event_evaluation_queue`) are not stuck in `processing`; stale rows are requeued by the worker.
 
 ### Discovery data is missing
 
 Check:
 
 1. `SYNC_DISCOVERY_ENABLED=1`
-2. `just worker-discovery` is running
+2. `just worker discovery` is running
+   Direct command: `open-sspm worker --lane discovery`.
 3. Discovery is enabled on the relevant IdP connector
 
-### Okta push ingest is not processing
+### Event inbox is not processing
 
 Check:
 
-1. `just worker-ingest` is running.
-2. The Okta Event Hook or EventBridge endpoint reaches the API process.
-3. The connector ingest mode and shared secret match the delivery channel.
+1. `EVENT_INBOX_ENABLED=1`.
+2. `just worker event-inbox` is running.
+   Direct command: `open-sspm worker --lane event-inbox`.
+3. The Okta Event Hook or EventBridge endpoint reaches the API process.
+4. The connector event inbox mode and shared secret match the delivery channel.
 
 ### Event partitions are not advancing
 

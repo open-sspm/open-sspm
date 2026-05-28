@@ -63,8 +63,8 @@ func (d *Definition) NewIntegration(cfg any) (registry.Integration, error) {
 }
 
 func oktaDiscoveryPollingEnabled(c configstore.OktaConfig) bool {
-	switch c.Normalized().DiscoveryIngestMode {
-	case configstore.OktaDiscoveryIngestModePolling, configstore.OktaDiscoveryIngestModeHybrid:
+	switch c.Normalized().EventInboxMode {
+	case configstore.OktaEventInboxModePolling, configstore.OktaEventInboxModeHybrid:
 		return true
 	default:
 		return false

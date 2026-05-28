@@ -298,9 +298,9 @@ func commandOktaAppItems(rows []gen.SearchOktaAppsForCommandRow) []viewmodels.Co
 			secondary = strings.TrimSpace(row.ExternalID)
 		}
 		items = append(items, viewmodels.CommandItemView{
-			ID:         "cmd-okta-app-" + strings.TrimSpace(row.ExternalID),
+			ID:         "cmd-okta-app-" + strings.TrimSpace(row.SourceName) + "-" + strings.TrimSpace(row.ExternalID),
 			Kind:       "okta_app",
-			Href:       views.AppDetailURL(IntegratedAppHref(row.IntegrationKind), row.ExternalID),
+			Href:       views.AppDetailURL(IntegratedAppHref(row.IntegrationKind), row.SourceName, row.ExternalID),
 			Primary:    displayName,
 			Secondary:  fallbackDash(secondary),
 			FilterText: strings.TrimSpace(displayName + " " + row.Name + " " + row.ExternalID),

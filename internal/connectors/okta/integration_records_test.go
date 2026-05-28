@@ -55,7 +55,7 @@ func TestFinalizeOktaRecordSnapshotsCompletesAndExpiresThroughProjector(t *testi
 		if err := finalizeOktaRecordSnapshots(ctx, q, pool, runID1, sourceName, time.Second); err != nil {
 			t.Fatalf("finalizeOktaRecordSnapshots(run1) err = %v", err)
 		}
-		assertRecordFinalizeCounts(t, ctx, pool, sourceName, 2, 1, 1, 1, 1)
+		assertRecordFinalizeCounts(t, ctx, pool, sourceName, 2, 1, 1, 1)
 
 		runID2, err := registry.StartSyncRun(ctx, q, "okta", sourceName)
 		if err != nil {
@@ -83,7 +83,7 @@ func TestFinalizeOktaRecordSnapshotsCompletesAndExpiresThroughProjector(t *testi
 		if err := finalizeOktaRecordSnapshots(ctx, q, pool, runID2, sourceName, time.Second); err != nil {
 			t.Fatalf("finalizeOktaRecordSnapshots(run2) err = %v", err)
 		}
-		assertRecordFinalizeCounts(t, ctx, pool, sourceName, 1, 0, 0, 0, 0)
+		assertRecordFinalizeCounts(t, ctx, pool, sourceName, 1, 0, 0, 0)
 
 		var status string
 		var stats []byte
@@ -100,11 +100,11 @@ func TestFinalizeOktaRecordSnapshotsCompletesAndExpiresThroughProjector(t *testi
 		if err := json.Unmarshal(stats, &payload); err != nil {
 			t.Fatalf("unmarshal sync run stats err = %v", err)
 		}
-		if payload.Counts["okta_accounts_observed"] != 1 || payload.Counts["okta_accounts_expired"] != 2 {
+		if payload.Counts["source_accounts_observed"] != 1 || payload.Counts["source_accounts_expired"] != 2 {
 			t.Fatalf("account counts = %+v, want observed=1 expired=2", payload.Counts)
 		}
-		if payload.Counts["okta_groups_expired"] != 1 || payload.Counts["okta_apps_expired"] != 1 || payload.Counts["okta_app_assignments_expired"] != 1 {
-			t.Fatalf("expiration counts = %+v, want group/app/assignment expiration through snapshot complete", payload.Counts)
+		if payload.Counts["okta_groups_expired"] != 1 || payload.Counts["okta_apps_expired"] != 1 {
+			t.Fatalf("expiration counts = %+v, want group/app expiration through snapshot complete", payload.Counts)
 		}
 		if payload.Counts["entitlements_observed"] != 0 || payload.Counts["entitlements_expired"] != 1 {
 			t.Fatalf("entitlement counts = %+v, want observed=0 expired=1", payload.Counts)
@@ -113,7 +113,7 @@ func TestFinalizeOktaRecordSnapshotsCompletesAndExpiresThroughProjector(t *testi
 		if err := finalizeOktaRecordSnapshots(ctx, q, pool, runID2, sourceName, time.Second); err != nil {
 			t.Fatalf("finalizeOktaRecordSnapshots(run2 repeat) err = %v", err)
 		}
-		assertRecordFinalizeCounts(t, ctx, pool, sourceName, 1, 0, 0, 0, 0)
+		assertRecordFinalizeCounts(t, ctx, pool, sourceName, 1, 0, 0, 0)
 		if err := pool.QueryRow(ctx, `SELECT status, stats FROM sync_runs WHERE id = $1`, runID2).Scan(&status, &stats); err != nil {
 			t.Fatalf("query repeated sync run err = %v", err)
 		}
@@ -125,10 +125,9 @@ func TestFinalizeOktaRecordSnapshotsCompletesAndExpiresThroughProjector(t *testi
 			t.Fatalf("unmarshal repeated sync run stats err = %v", err)
 		}
 		for _, key := range []string{
-			"okta_accounts_expired",
+			"source_accounts_expired",
 			"okta_groups_expired",
 			"okta_apps_expired",
-			"okta_app_assignments_expired",
 			"entitlements_expired",
 		} {
 			if payload.Counts[key] != 0 {
@@ -138,7 +137,7 @@ func TestFinalizeOktaRecordSnapshotsCompletesAndExpiresThroughProjector(t *testi
 	})
 }
 
-func assertRecordFinalizeCounts(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceName string, accounts, groups, apps, assignments, entitlements int) {
+func assertRecordFinalizeCounts(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceName string, accounts, groups, apps, entitlements int) {
 	t.Helper()
 	assertRecordFinalizeCount(t, ctx, pool, "active okta accounts", `
 		SELECT count(*)
@@ -164,15 +163,6 @@ func assertRecordFinalizeCounts(t *testing.T, ctx context.Context, pool *pgxpool
 		  AND expired_at IS NULL
 		  AND last_observed_run_id IS NOT NULL
 	`, apps, sourceName)
-	assertRecordFinalizeCount(t, ctx, pool, "active okta app assignments", `
-		SELECT count(*)
-		FROM okta_user_app_assignments ua
-		JOIN accounts a ON a.id = ua.okta_user_account_id
-		WHERE a.source_kind = 'okta'
-		  AND a.source_name = $1
-		  AND ua.expired_at IS NULL
-		  AND ua.last_observed_run_id IS NOT NULL
-	`, assignments, sourceName)
 	assertRecordFinalizeCount(t, ctx, pool, "active entitlements", `
 		SELECT count(*)
 		FROM entitlements e

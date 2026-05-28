@@ -1,6 +1,7 @@
 package httpapp
 
 import (
+	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/auth"
 	"github.com/open-sspm/open-sspm/internal/http/authn"
 )
@@ -10,35 +11,64 @@ func (es *EchoServer) registerWebRoutes() {
 	authed.Use(es.browserMiddleware()...)
 	authed.Use(authn.RequireAuth(es.h.Sessions, es.h.Q))
 
+	es.registerOverviewRoutes(authed)
+	es.registerAccessRoutes(authed)
+	es.registerDiscoveryRoutes(authed)
+	es.registerIdentityRoutes(authed)
+	es.registerFindingsRoutes(authed)
+	es.registerAccountRoutes(authed)
+	authed.POST("/logout", es.h.HandleLogoutPost)
+
+	admin := authed.Group("")
+	admin.Use(authn.RequireRole(auth.RoleAdmin))
+	es.registerAdminRoutes(admin)
+}
+
+func (es *EchoServer) registerOverviewRoutes(authed *echo.Group) {
 	authed.GET("/", es.h.HandleDashboard)
 	authed.GET("/global-view", es.h.HandleGlobalView)
-	authed.GET("/assigned-apps", es.h.HandleApps)
-	authed.GET("/assigned-apps/:externalID", es.h.HandleOktaAppShow)
 	authed.GET("/askbar/suggestions", es.h.HandleAskBarSuggestions)
 	authed.GET("/command/search", es.h.HandleCommandSearch)
+}
+
+func (es *EchoServer) registerAccessRoutes(authed *echo.Group) {
+	authed.GET("/assigned-apps", es.h.HandleApps)
+	authed.GET("/assigned-apps/:sourceName/:externalID", es.h.HandleOktaAppShow)
 	authed.GET("/oauth-apps", es.h.HandleConnectedApps)
 	authed.GET("/oauth-apps/:id", es.h.HandleConnectedAppShow)
 	authed.GET("/oauth-apps/:id/export", es.h.HandleConnectedAppExport)
+	authed.GET("/app-assets", es.h.HandleAppAssets)
+	authed.GET("/app-assets/:id", es.h.HandleAppAssetShow)
+	authed.GET("/app-assets/:id/export", es.h.HandleAppAssetExport)
+	authed.GET("/credentials", es.h.HandleCredentials)
+	authed.GET("/credentials/export", es.h.HandleCredentialsExport)
+	authed.GET("/credentials/:id", es.h.HandleCredentialShow)
+	authed.GET("/resources/:sourceKind/:sourceName/:resourceKind/*", es.h.HandleResourceShow)
+}
+
+func (es *EchoServer) registerDiscoveryRoutes(authed *echo.Group) {
 	authed.GET("/discovery/apps", es.h.HandleDiscoveryApps)
 	authed.GET("/discovery/apps/replacement-candidates", es.h.HandleDiscoveryReplacementCandidates)
 	authed.GET("/discovery/apps/:id", es.h.HandleDiscoveryAppShow)
 	authed.GET("/discovery/hotspots", es.h.HandleDiscoveryHotspots)
-	authed.GET("/app-assets", es.h.HandleAppAssets)
-	authed.GET("/app-assets/:id", es.h.HandleAppAssetShow)
-	authed.GET("/app-assets/:id/export", es.h.HandleAppAssetExport)
+}
+
+func (es *EchoServer) registerIdentityRoutes(authed *echo.Group) {
 	authed.GET("/identities", es.h.HandleIdentities)
 	authed.GET("/identities/:id", es.h.HandleIdentityShow)
 	authed.GET("/non-human-identities", es.h.HandleNonHumanIdentities)
 	authed.GET("/non-human-identities/:ref", es.h.HandleNonHumanIdentityShow)
-	authed.GET("/credentials", es.h.HandleCredentials)
-	authed.GET("/credentials/export", es.h.HandleCredentialsExport)
-	authed.GET("/credentials/:id", es.h.HandleCredentialShow)
-	authed.GET("/accounts/okta", es.h.HandleOktaAccounts)
-	authed.GET("/accounts/okta/:id", es.h.HandleOktaAccountShow)
-	authed.GET("/resources/:sourceKind/:sourceName/:resourceKind/*", es.h.HandleResourceShow)
+}
+
+func (es *EchoServer) registerFindingsRoutes(authed *echo.Group) {
 	authed.GET("/findings", es.h.HandleFindings)
 	authed.GET("/findings/rulesets/:rulesetKey", es.h.HandleFindingsRuleset)
 	authed.GET("/findings/rulesets/:rulesetKey/rules/:ruleKey", es.h.HandleFindingsRule)
+}
+
+func (es *EchoServer) registerAccountRoutes(authed *echo.Group) {
+	authed.GET("/accounts/okta", es.h.HandleOktaAccounts)
+	authed.GET("/accounts/okta/:id", es.h.HandleOktaAccountShow)
 	authed.GET("/accounts/github", es.h.HandleGitHubUsers)
 	authed.GET("/accounts/entra", es.h.HandleEntraUsers)
 	authed.GET("/accounts/google-workspace", es.h.HandleGoogleWorkspaceUsers)
@@ -50,10 +80,9 @@ func (es *EchoServer) registerWebRoutes() {
 	authed.GET("/accounts/needs-anchor/google-workspace", es.h.HandleGoogleWorkspaceAccountsNeedingAnchor)
 	authed.GET("/accounts/needs-anchor/aws", es.h.HandleAWSAccountsNeedingAnchor)
 	authed.GET("/accounts/needs-anchor/datadog/:site", es.h.HandleDatadogAccountsNeedingAnchor)
-	authed.POST("/logout", es.h.HandleLogoutPost)
+}
 
-	admin := authed.Group("")
-	admin.Use(authn.RequireRole(auth.RoleAdmin))
+func (es *EchoServer) registerAdminRoutes(admin *echo.Group) {
 	admin.GET("/identity-resolution", es.h.HandleIdentityResolutionReview)
 	admin.POST("/assigned-apps/map", es.h.HandleAppsMap)
 	admin.POST("/app-assets/:id/governance", es.h.HandleAppAssetGovernanceUpdate)

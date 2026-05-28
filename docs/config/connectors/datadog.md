@@ -2,7 +2,7 @@
 
 The Datadog connector syncs users and role assignments from your Datadog organization.
 
-When `worker-tail` is running, Open-SSPM tails Datadog Audit Logs through the Audit Logs API. Datadog Audit Event Forwarding is not enabled as a push capability because it is treated as preview/optional; full sync remains the inventory repair path.
+When `open-sspm worker --lane tail` is running, Open-SSPM tails Datadog Audit Logs through the Audit Logs API. Datadog Audit Event Forwarding is not enabled as a push capability because it is treated as preview/optional; full sync remains the inventory repair path.
 
 ## What Gets Synced
 
@@ -89,5 +89,5 @@ SYNC_TAIL_INTERVAL=5m
 
 ### Audit Events Are Not Fresh
 
-- Confirm `open-sspm worker-tail` is running.
+- Confirm `open-sspm worker --lane tail` is running.
 - Verify the application key owner can read Datadog audit logs.

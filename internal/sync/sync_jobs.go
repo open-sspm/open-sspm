@@ -13,7 +13,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	"github.com/open-sspm/open-sspm/internal/normalize"
 )
 
 var (
@@ -137,7 +136,7 @@ func (s *dbSyncJobStore) RequeueStaleSyncJobsByLane(ctx context.Context, lane st
 	if s == nil || s.q == nil {
 		return 0, errors.New("sync job store is not configured")
 	}
-	return s.q.RequeueStaleSyncJobsByLane(ctx, normalize.Lower(lane))
+	return s.q.RequeueStaleSyncJobsByLane(ctx, strings.ToLower(strings.TrimSpace(lane)))
 }
 
 func (s *dbSyncJobStore) ClaimNextSyncJobByLane(ctx context.Context, lane, claimedBy string, leaseSeconds int64) (syncJobRecord, bool, error) {
@@ -147,7 +146,7 @@ func (s *dbSyncJobStore) ClaimNextSyncJobByLane(ctx context.Context, lane, claim
 	row, err := s.q.ClaimNextSyncJobByLane(ctx, gen.ClaimNextSyncJobByLaneParams{
 		ClaimedBy:    nullableText(claimedBy),
 		LeaseSeconds: leaseSeconds,
-		Lane:         normalize.Lower(lane),
+		Lane:         strings.ToLower(strings.TrimSpace(lane)),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -281,7 +280,7 @@ func (s *dbSyncJobStore) notifyLane(ctx context.Context, lane string) {
 		return
 	}
 	channel := syncJobNotifyChannelFull
-	switch normalize.Lower(lane) {
+	switch strings.ToLower(strings.TrimSpace(lane)) {
 	case syncJobLaneDiscovery:
 		channel = syncJobNotifyChannelDiscovery
 	case syncJobLaneFull:
@@ -310,7 +309,7 @@ func syncJobRecordFromRow(row gen.SyncJob) syncJobRecord {
 }
 
 func normalizedSyncJobScope(lane, connectorKind, sourceName string) (string, string, string) {
-	return normalize.Lower(lane), normalize.Lower(connectorKind), strings.TrimSpace(sourceName)
+	return strings.ToLower(strings.TrimSpace(lane)), strings.ToLower(strings.TrimSpace(connectorKind)), strings.TrimSpace(sourceName)
 }
 
 func isUniqueViolation(err error) bool {
@@ -322,7 +321,7 @@ func normalizedNullableText(value pgtype.Text) string {
 	if !value.Valid {
 		return ""
 	}
-	return normalize.Trim(value.String)
+	return strings.TrimSpace(value.String)
 }
 
 func normalizedSourceName(value pgtype.Text) string {

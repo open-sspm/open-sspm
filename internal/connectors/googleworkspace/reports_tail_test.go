@@ -20,7 +20,7 @@ func TestGoogleWorkspaceReportsTailWritesCanonicalEventsAndAdvancesCursor(t *tes
 
 		q := gen.New(pool)
 		sourceName := "C0123"
-		runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind(configstore.KindGoogleWorkspace, registry.RunModeTail), sourceName)
+		runID, err := registry.StartSyncRunWithMode(ctx, q, configstore.KindGoogleWorkspace, sourceName, registry.RunModeTail)
 		if err != nil {
 			t.Fatalf("StartSyncRun() err = %v", err)
 		}
@@ -54,8 +54,8 @@ func TestGoogleWorkspaceReportsTailWritesCanonicalEventsAndAdvancesCursor(t *tes
 		if err := pool.QueryRow(ctx, `SELECT count(*) FROM event_targets`).Scan(&targetCount); err != nil {
 			t.Fatalf("count event targets: %v", err)
 		}
-		if err := pool.QueryRow(ctx, `SELECT count(*) FROM riskpolicy_event_queue`).Scan(&queueCount); err != nil {
-			t.Fatalf("count riskpolicy queue rows: %v", err)
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM event_evaluation_queue`).Scan(&queueCount); err != nil {
+			t.Fatalf("count event evaluation queue rows: %v", err)
 		}
 		if eventCount != 1 {
 			t.Fatalf("event count = %d, want 1", eventCount)
@@ -64,7 +64,7 @@ func TestGoogleWorkspaceReportsTailWritesCanonicalEventsAndAdvancesCursor(t *tes
 			t.Fatalf("target count = %d, want 2", targetCount)
 		}
 		if queueCount != 1 {
-			t.Fatalf("riskpolicy queue count = %d, want 1", queueCount)
+			t.Fatalf("event evaluation queue count = %d, want 1", queueCount)
 		}
 
 		cursor, err := q.GetConnectorCursorState(ctx, gen.GetConnectorCursorStateParams{
@@ -93,7 +93,7 @@ func TestGoogleWorkspaceReportsTailDoesNotAdvanceCursorAfterPartialWriteFailure(
 
 		q := gen.New(pool)
 		sourceName := "C0123"
-		runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind(configstore.KindGoogleWorkspace, registry.RunModeTail), sourceName)
+		runID, err := registry.StartSyncRunWithMode(ctx, q, configstore.KindGoogleWorkspace, sourceName, registry.RunModeTail)
 		if err != nil {
 			t.Fatalf("StartSyncRun() err = %v", err)
 		}

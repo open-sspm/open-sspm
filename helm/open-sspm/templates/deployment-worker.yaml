@@ -1,115 +1,173 @@
-{{- if .Values.config.syncFullEnabled }}
+{{- define "open-sspm.workerLaneDeployment" -}}
+{{- $root := .root -}}
+{{- $lane := .lane -}}
+{{- $laneValues := .values }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ printf "%s-worker" (include "open-sspm.fullname" .) | trunc 63 | trimSuffix "-" }}
+  name: {{ printf "%s-worker-lane-%s" (include "open-sspm.fullname" $root) $lane | trunc 63 | trimSuffix "-" }}
   labels:
-    {{- include "open-sspm.labels" . | nindent 4 }}
+    {{- include "open-sspm.labels" $root | nindent 4 }}
     app.kubernetes.io/component: worker
+    open-sspm.io/worker-lane: {{ $lane }}
 spec:
-  replicas: {{ .Values.worker.replicaCount }}
+  replicas: {{ $laneValues.replicaCount }}
   selector:
     matchLabels:
-      {{- include "open-sspm.selectorLabels" . | nindent 6 }}
+      {{- include "open-sspm.selectorLabels" $root | nindent 6 }}
       app.kubernetes.io/component: worker
+      open-sspm.io/worker-lane: {{ $lane }}
   template:
     metadata:
-      {{- with .Values.worker.podAnnotations }}
+      {{- with $laneValues.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "open-sspm.selectorLabels" . | nindent 8 }}
+        {{- include "open-sspm.selectorLabels" $root | nindent 8 }}
         app.kubernetes.io/component: worker
-        {{- with .Values.worker.podLabels }}
+        open-sspm.io/worker-lane: {{ $lane }}
+        {{- with $laneValues.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: {{ include "open-sspm.serviceAccountName" . }}
-      {{- with .Values.imagePullSecrets }}
+      serviceAccountName: {{ include "open-sspm.serviceAccountName" $root }}
+      {{- with $root.Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.podSecurityContext }}
+      {{- with $root.Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: open-sspm
-          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: "{{ $root.Values.image.repository }}:{{ default $root.Chart.AppVersion $root.Values.image.tag }}"
+          imagePullPolicy: {{ $root.Values.image.pullPolicy }}
           args:
             - worker
+            - --lane={{ $lane }}
           ports:
             - name: metrics
-              containerPort: {{ .Values.metrics.port }}
+              containerPort: {{ $root.Values.metrics.port }}
               protocol: TCP
-          {{- include "open-sspm.workerProbes" . | nindent 10 }}
+          {{- include "open-sspm.workerProbes" $root | nindent 10 }}
           env:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ required "database.existingSecret.name is required" .Values.database.existingSecret.name }}
-                  key: {{ required "database.existingSecret.key is required" .Values.database.existingSecret.key }}
-            {{- if .Values.connectorSecret.existingSecret.name }}
+                  name: {{ required "database.existingSecret.name is required" $root.Values.database.existingSecret.name }}
+                  key: {{ required "database.existingSecret.key is required" $root.Values.database.existingSecret.key }}
+            {{- if $root.Values.connectorSecret.existingSecret.name }}
             - name: CONNECTOR_SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.connectorSecret.existingSecret.name }}
-                  key: {{ .Values.connectorSecret.existingSecret.key | quote }}
+                  name: {{ $root.Values.connectorSecret.existingSecret.name }}
+                  key: {{ $root.Values.connectorSecret.existingSecret.key | quote }}
             {{- end }}
+            {{- if or (eq $lane "full") (eq $lane "discovery") }}
             - name: HTTP_ADDR
-              value: {{ .Values.config.httpAddr | quote }}
+              value: {{ $root.Values.config.httpAddr | quote }}
+            {{- end }}
             - name: METRICS_ADDR
-              value: {{ .Values.config.metricsAddr | quote }}
+              value: {{ $root.Values.config.metricsAddr | quote }}
             - name: LOG_FORMAT
-              value: {{ .Values.config.logFormat | quote }}
+              value: {{ $root.Values.config.logFormat | quote }}
             - name: LOG_LEVEL
-              value: {{ .Values.config.logLevel | quote }}
+              value: {{ $root.Values.config.logLevel | quote }}
+            {{- if or (eq $lane "full") (eq $lane "discovery") }}
             - name: AUTH_COOKIE_SECURE
-              value: {{ ternary "1" "0" .Values.config.authCookieSecure | quote }}
+              value: {{ ternary "1" "0" $root.Values.config.authCookieSecure | quote }}
             - name: DEV_SEED_ADMIN
-              value: {{ ternary "1" "0" .Values.config.devSeedAdmin | quote }}
+              value: {{ ternary "1" "0" $root.Values.config.devSeedAdmin | quote }}
             - name: RESYNC_ENABLED
-              value: {{ ternary "1" "0" .Values.config.resyncEnabled | quote }}
+              value: {{ ternary "1" "0" $root.Values.config.resyncEnabled | quote }}
+            {{- end }}
+            {{- if or (eq $lane "full") (eq $lane "discovery") (eq $lane "event-inbox") }}
             - name: SYNC_DISCOVERY_ENABLED
-              value: {{ ternary "1" "0" (and .Values.config.syncDiscoveryEnabled .Values.discoveryWorker.enabled) | quote }}
-            {{- include "open-sspm.fullSyncEnv" . | nindent 12 }}
+              value: {{ ternary "1" "0" (and $root.Values.config.syncDiscoveryEnabled $root.Values.worker.lanes.discovery.enabled) | quote }}
+            {{- end }}
+            {{- if eq $lane "full" }}
+            {{- include "open-sspm.fullSyncEnv" $root | nindent 12 }}
             - name: SYNC_DISCOVERY_INTERVAL
-              value: {{ .Values.config.syncDiscoveryInterval | quote }}
+              value: {{ $root.Values.config.syncDiscoveryInterval | quote }}
             - name: SYNC_OKTA_WORKERS
-              value: {{ .Values.config.syncOktaWorkers | quote }}
+              value: {{ $root.Values.config.syncOktaWorkers | quote }}
             - name: SYNC_GITHUB_WORKERS
-              value: {{ .Values.config.syncGithubWorkers | quote }}
+              value: {{ $root.Values.config.syncGithubWorkers | quote }}
             - name: SYNC_DATADOG_WORKERS
-              value: {{ .Values.config.syncDatadogWorkers | quote }}
-            {{- include "open-sspm.eventPartitionEnv" . | nindent 12 }}
-            {{- include "open-sspm.smtpEnv" . | nindent 12 }}
-            {{- with .Values.worker.extraEnv }}
+              value: {{ $root.Values.config.syncDatadogWorkers | quote }}
+            {{- else if eq $lane "discovery" }}
+            - name: SYNC_DISCOVERY_INTERVAL
+              value: {{ $root.Values.config.syncDiscoveryInterval | quote }}
+            {{- if $root.Values.config.syncFailureBackoffMax }}
+            - name: SYNC_FAILURE_BACKOFF_MAX
+              value: {{ $root.Values.config.syncFailureBackoffMax | quote }}
+            {{- end }}
+            - name: SYNC_OKTA_WORKERS
+              value: {{ $root.Values.config.syncOktaWorkers | quote }}
+            - name: SYNC_GITHUB_WORKERS
+              value: {{ $root.Values.config.syncGithubWorkers | quote }}
+            - name: SYNC_DATADOG_WORKERS
+              value: {{ $root.Values.config.syncDatadogWorkers | quote }}
+            {{- else if eq $lane "event-inbox" }}
+            {{- include "open-sspm.eventInboxEnv" $root | nindent 12 }}
+            {{- else if eq $lane "tail" }}
+            {{- include "open-sspm.tailSyncEnv" $root | nindent 12 }}
+            {{- if $root.Values.config.syncFailureBackoffMax }}
+            - name: SYNC_FAILURE_BACKOFF_MAX
+              value: {{ $root.Values.config.syncFailureBackoffMax | quote }}
+            {{- end }}
+            {{- else if eq $lane "evaluator" }}
+            {{- include "open-sspm.eventEvaluatorWorkerEnv" $root | nindent 12 }}
+            {{- end }}
+            {{- include "open-sspm.eventPartitionEnv" $root | nindent 12 }}
+            {{- include "open-sspm.smtpEnv" $root | nindent 12 }}
+            {{- with $laneValues.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- with .Values.worker.extraEnvFrom }}
+          {{- with $laneValues.extraEnvFrom }}
           envFrom:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.securityContext }}
+          {{- with $root.Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.worker.resources }}
+          {{- with $laneValues.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .Values.worker.nodeSelector }}
+      {{- with $laneValues.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.worker.tolerations }}
+      {{- with $laneValues.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.worker.affinity }}
+      {{- with $laneValues.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}
+
+{{- $root := . -}}
+{{- $lanes := .Values.worker.lanes -}}
+{{- $eventInboxEnabled := eq (include "open-sspm.eventInboxEnabled" .) "1" -}}
+{{- if and .Values.config.syncFullEnabled $lanes.full.enabled }}
+{{- include "open-sspm.workerLaneDeployment" (dict "root" $root "lane" "full" "values" $lanes.full) }}
+{{- end }}
+{{- if and .Values.config.syncDiscoveryEnabled $lanes.discovery.enabled }}
+{{- include "open-sspm.workerLaneDeployment" (dict "root" $root "lane" "discovery" "values" $lanes.discovery) }}
+{{- end }}
+{{- if and $eventInboxEnabled $lanes.eventInbox.enabled }}
+{{- include "open-sspm.workerLaneDeployment" (dict "root" $root "lane" "event-inbox" "values" $lanes.eventInbox) }}
+{{- end }}
+{{- if $lanes.tail.enabled }}
+{{- include "open-sspm.workerLaneDeployment" (dict "root" $root "lane" "tail" "values" $lanes.tail) }}
+{{- end }}
+{{- if $lanes.evaluator.enabled }}
+{{- include "open-sspm.workerLaneDeployment" (dict "root" $root "lane" "evaluator" "values" $lanes.evaluator) }}
 {{- end }}

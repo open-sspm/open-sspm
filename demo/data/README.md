@@ -26,7 +26,7 @@ Do not seed or expect persisted discovery posture columns on `saas_apps`; manage
 
 ## Apply (locally)
 
-After running migrations and `open-sspm seed-rules`, apply:
+After running migrations and `open-sspm admin seed-rules`, apply:
 
 ```bash
 while IFS= read -r seed_file; do

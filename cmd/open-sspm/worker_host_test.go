@@ -112,13 +112,13 @@ func TestWorkerHostRunCleanupUsesFreshTimeoutPerHandler(t *testing.T) {
 func TestWorkerClaimedByIncludesRuntimeIdentity(t *testing.T) {
 	t.Setenv("HOSTNAME", "pod-1")
 
-	got := workerClaimedBy(config.Config{}, "riskpolicy-event")
-	wantSuffix := fmt.Sprintf("/riskpolicy-event/%d", os.Getpid())
+	got := workerClaimedBy(config.Config{}, "evaluator")
+	wantSuffix := fmt.Sprintf("/evaluator/%d", os.Getpid())
 	if !strings.HasPrefix(got, "pod-1/") || !strings.HasSuffix(got, wantSuffix) {
 		t.Fatalf("claimed by = %q, want hostname/lane/pid", got)
 	}
 
-	got = workerClaimedBy(config.Config{SyncLockInstanceID: "instance-1"}, "riskpolicy-event")
+	got = workerClaimedBy(config.Config{SyncLockInstanceID: "instance-1"}, "evaluator")
 	if !strings.HasPrefix(got, "instance-1/") || !strings.HasSuffix(got, wantSuffix) {
 		t.Fatalf("claimed by with configured instance = %q, want configured instance/lane/pid", got)
 	}

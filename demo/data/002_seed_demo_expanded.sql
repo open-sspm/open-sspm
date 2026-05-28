@@ -217,6 +217,8 @@ WITH
       ('00g_demo_hr', 'Human Resources', 'OKTA_GROUP')
   )
 INSERT INTO okta_groups (
+  source_kind,
+  source_name,
   external_id,
   name,
   type,
@@ -230,6 +232,8 @@ INSERT INTO okta_groups (
   updated_at
 )
 SELECT
+  'okta',
+  ctx.okta_domain,
   g.external_id,
   g.name,
   g.type,
@@ -247,9 +251,78 @@ SELECT
   ctx.now_ts
 FROM groups g
 CROSS JOIN ctx
-ON CONFLICT (external_id) DO UPDATE SET
+ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
   name = EXCLUDED.name,
   type = EXCLUDED.type,
+  raw_json = EXCLUDED.raw_json,
+  seen_in_run_id = EXCLUDED.seen_in_run_id,
+  seen_at = EXCLUDED.seen_at,
+  last_observed_run_id = EXCLUDED.last_observed_run_id,
+  last_observed_at = EXCLUDED.last_observed_at,
+  expired_at = NULL,
+  expired_run_id = NULL,
+  updated_at = EXCLUDED.updated_at
+;
+
+-- Mirror newly-added Okta groups into generic source accounts for entitlement grants.
+WITH
+  ctx AS (SELECT * FROM demo_seed_ctx_v2),
+  groups AS (
+    SELECT external_id, name, raw_json
+    FROM okta_groups
+    WHERE source_kind = 'okta'
+      AND source_name = (SELECT okta_domain FROM ctx)
+      AND external_id LIKE '00g_demo_%'
+      AND expired_at IS NULL
+  )
+INSERT INTO accounts (
+  source_kind,
+  source_name,
+  external_id,
+  email,
+  display_name,
+  status,
+  account_kind,
+  entity_category,
+  raw_json,
+  last_login_at,
+  last_login_ip,
+  last_login_region,
+  seen_in_run_id,
+  seen_at,
+  last_observed_run_id,
+  last_observed_at,
+  expired_at,
+  expired_run_id,
+  updated_at
+)
+SELECT
+  'okta',
+  ctx.okta_domain,
+  'group:' || groups.external_id,
+  '',
+  groups.name,
+  'ACTIVE',
+  'service',
+  'group',
+  groups.raw_json || jsonb_build_object('entity_category', 'group'),
+  NULL::timestamptz,
+  ''::text,
+  ''::text,
+  ctx.run_id,
+  ctx.now_ts,
+  ctx.run_id,
+  ctx.now_ts,
+  NULL::timestamptz,
+  NULL::bigint,
+  ctx.now_ts
+FROM groups
+CROSS JOIN ctx
+ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  status = EXCLUDED.status,
+  account_kind = EXCLUDED.account_kind,
+  entity_category = EXCLUDED.entity_category,
   raw_json = EXCLUDED.raw_json,
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
@@ -276,7 +349,7 @@ WITH
       AND expired_at IS NULL
   ),
   groups AS (
-    SELECT id, external_id
+    SELECT external_id, name
     FROM okta_groups
     WHERE external_id IN (
       '00g_demo_eng',
@@ -291,10 +364,15 @@ WITH
       '00g_demo_support',
       '00g_demo_hr'
     )
+      AND source_kind = 'okta'
+      AND source_name = (SELECT okta_domain FROM ctx)
       AND expired_at IS NULL
   ),
   pairs AS (
-    SELECT users.id AS okta_user_account_id, groups.id AS okta_group_id
+    SELECT
+      users.id AS okta_user_account_id,
+      groups.external_id AS okta_group_external_id,
+      groups.name AS okta_group_name
     FROM users
     JOIN groups ON (
       (groups.external_id = '00g_demo_eng' AND users.n BETWEEN 1 AND 120)
@@ -310,34 +388,52 @@ WITH
       OR (groups.external_id = '00g_demo_hr' AND users.n BETWEEN 216 AND 220)
     )
   )
-INSERT INTO okta_user_groups (
-  okta_user_account_id,
-  okta_group_id,
+INSERT INTO entitlements (
+  app_user_id,
+  kind,
+  resource,
+  permission,
+  raw_json,
   seen_in_run_id,
   seen_at,
   last_observed_run_id,
   last_observed_at,
   expired_at,
-  expired_run_id
+  expired_run_id,
+  updated_at
 )
 SELECT
   pairs.okta_user_account_id,
-  pairs.okta_group_id,
+  'group_membership',
+  'group:' || pairs.okta_group_external_id,
+  'member',
+  jsonb_build_object(
+    'attributes', jsonb_build_object(
+      'target', jsonb_build_object(
+        'external_id', pairs.okta_group_external_id,
+        'display_name', pairs.okta_group_name
+      )
+    ),
+    'expansion', true
+  ) AS raw_json,
   ctx.run_id,
   ctx.now_ts,
   ctx.run_id,
   ctx.now_ts,
   NULL::timestamptz,
-  NULL::bigint
+  NULL::bigint,
+  ctx.now_ts
 FROM pairs
 CROSS JOIN ctx
-ON CONFLICT (okta_user_account_id, okta_group_id) DO UPDATE SET
+ON CONFLICT (app_user_id, kind, resource, permission) DO UPDATE SET
+  raw_json = EXCLUDED.raw_json,
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
   last_observed_run_id = EXCLUDED.last_observed_run_id,
   last_observed_at = EXCLUDED.last_observed_at,
   expired_at = NULL,
-  expired_run_id = NULL
+  expired_run_id = NULL,
+  updated_at = EXCLUDED.updated_at
 ;
 
 -- ------------------------------------------------------------
@@ -356,6 +452,8 @@ WITH
       ('0oa_demo_pagerduty', 'PagerDuty', 'pagerduty', 'ACTIVE', 'SAML_2_0')
   )
 INSERT INTO okta_apps (
+  source_kind,
+  source_name,
   external_id,
   label,
   name,
@@ -371,6 +469,8 @@ INSERT INTO okta_apps (
   updated_at
 )
 SELECT
+  'okta',
+  ctx.okta_domain,
   apps.external_id,
   apps.label,
   apps.name,
@@ -392,7 +492,7 @@ SELECT
   ctx.now_ts
 FROM apps
 CROSS JOIN ctx
-ON CONFLICT (external_id) DO UPDATE SET
+ON CONFLICT (source_kind, source_name, external_id) DO UPDATE SET
   label = EXCLUDED.label,
   name = EXCLUDED.name,
   status = EXCLUDED.status,
@@ -431,11 +531,11 @@ WITH
       ('0oa_demo_github', '00g_demo_platform', 20),
       ('0oa_demo_datadog', '00g_demo_reliability', 20)
   )
-INSERT INTO okta_app_group_assignments (
-  okta_app_id,
-  okta_group_id,
-  priority,
-  profile_json,
+INSERT INTO entitlements (
+  app_user_id,
+  kind,
+  resource,
+  permission,
   raw_json,
   seen_in_run_id,
   seen_at,
@@ -446,11 +546,18 @@ INSERT INTO okta_app_group_assignments (
   updated_at
 )
 SELECT
-  apps.id,
-  groups.id,
-  pairs.priority,
-  jsonb_build_object('assignment', 'group') AS profile_json,
-  jsonb_build_object('app', pairs.app_external_id, 'group', pairs.group_external_id) AS raw_json,
+  group_account.id,
+  'application_assignment',
+  pairs.app_external_id,
+  pairs.priority::text,
+  jsonb_build_object(
+    'attributes', jsonb_build_object(
+      'target', jsonb_build_object('external_id', pairs.app_external_id, 'display_name', apps.label),
+      'priority', pairs.priority,
+      'profile', jsonb_build_object('assignment', 'group')
+    ),
+    'expansion', true
+  ) AS raw_json,
   ctx.run_id,
   ctx.now_ts,
   ctx.run_id,
@@ -460,11 +567,16 @@ SELECT
   ctx.now_ts
 FROM pairs
 JOIN okta_apps apps ON apps.external_id = pairs.app_external_id
+  AND apps.source_kind = 'okta'
+  AND apps.source_name = (SELECT okta_domain FROM ctx)
 JOIN okta_groups groups ON groups.external_id = pairs.group_external_id
+  AND groups.source_kind = 'okta'
+  AND groups.source_name = (SELECT okta_domain FROM ctx)
+JOIN accounts group_account ON group_account.external_id = 'group:' || pairs.group_external_id
+  AND group_account.source_kind = 'okta'
+  AND group_account.source_name = (SELECT okta_domain FROM ctx)
 CROSS JOIN ctx
-ON CONFLICT (okta_app_id, okta_group_id) DO UPDATE SET
-  priority = EXCLUDED.priority,
-  profile_json = EXCLUDED.profile_json,
+ON CONFLICT (app_user_id, kind, resource, permission) DO UPDATE SET
   raw_json = EXCLUDED.raw_json,
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
@@ -558,11 +670,11 @@ WITH
     FROM users
     WHERE users.n BETWEEN 30 AND 170
   )
-INSERT INTO okta_user_app_assignments (
-  okta_user_account_id,
-  okta_app_id,
-  scope,
-  profile_json,
+INSERT INTO entitlements (
+  app_user_id,
+  kind,
+  resource,
+  permission,
   raw_json,
   seen_in_run_id,
   seen_at,
@@ -574,10 +686,17 @@ INSERT INTO okta_user_app_assignments (
 )
 SELECT
   users.id,
-  apps.id,
+  'application_assignment',
+  assignments.app_external_id,
   assignments.scope,
-  assignments.profile_json,
-  jsonb_build_object('demo', true, 'expansion', true) AS raw_json,
+  jsonb_build_object(
+    'attributes', jsonb_build_object(
+      'target', jsonb_build_object('external_id', assignments.app_external_id, 'display_name', apps.label),
+      'profile', assignments.profile_json
+    ),
+    'demo', true,
+    'expansion', true
+  ) AS raw_json,
   ctx.run_id,
   ctx.now_ts,
   ctx.run_id,
@@ -590,10 +709,10 @@ JOIN accounts users ON users.external_id = assignments.user_external_id
   AND users.source_kind = 'okta'
   AND users.source_name = (SELECT okta_domain FROM ctx)
 JOIN okta_apps apps ON apps.external_id = assignments.app_external_id
+  AND apps.source_kind = 'okta'
+  AND apps.source_name = (SELECT okta_domain FROM ctx)
 CROSS JOIN ctx
-ON CONFLICT (okta_user_account_id, okta_app_id) DO UPDATE SET
-  scope = EXCLUDED.scope,
-  profile_json = EXCLUDED.profile_json,
+ON CONFLICT (app_user_id, kind, resource, permission) DO UPDATE SET
   raw_json = EXCLUDED.raw_json,
   seen_in_run_id = EXCLUDED.seen_in_run_id,
   seen_at = EXCLUDED.seen_at,
@@ -1060,7 +1179,7 @@ ON CONFLICT (app_user_id, kind, resource, permission) DO UPDATE SET
 -- ------------------------------------------------------------
 WITH
   ctx AS (SELECT * FROM demo_seed_ctx_v2),
-  okta_accounts AS (
+  okta_source_accounts AS (
     SELECT
       a.id AS account_id,
       lower(a.email) AS email,
@@ -1078,7 +1197,7 @@ WITH
       'human',
       oa.display_name,
       oa.email
-    FROM okta_accounts oa
+    FROM okta_source_accounts oa
     LEFT JOIN identity_accounts ia ON ia.account_id = oa.account_id
     WHERE ia.account_id IS NULL
     RETURNING id
@@ -1087,7 +1206,7 @@ WITH
     SELECT
       oa.account_id,
       i.id AS identity_id
-    FROM okta_accounts oa
+    FROM okta_source_accounts oa
     JOIN LATERAL (
       SELECT id
       FROM identities
@@ -1122,7 +1241,7 @@ WITH
       okta_link.identity_id
     FROM accounts app
     JOIN seed_guard ON TRUE
-    JOIN okta_accounts oa ON lower(app.email) = oa.email
+    JOIN okta_source_accounts oa ON lower(app.email) = oa.email
     JOIN okta_identity_links okta_link ON okta_link.account_id = oa.account_id
     WHERE app.source_kind IN ('github', 'datadog', 'entra')
       AND app.email <> ''
@@ -1920,7 +2039,7 @@ ON CONFLICT (source_kind, source_name, event_external_id) DO UPDATE SET
 WITH
   ctx AS (SELECT * FROM demo_seed_ctx_v2),
   rs AS (
-    SELECT id
+    SELECT id, key, source_version
     FROM rulesets
     WHERE key = 'cis.okta.idaas_stig.v2'
     LIMIT 1
@@ -1929,85 +2048,156 @@ WITH
     SELECT
       rules.id AS rule_id,
       rules.key AS rule_key,
+      rules.title AS rule_title,
+      rules.severity AS rule_severity,
+      rs.key AS ruleset_key,
+      rs.source_version AS ruleset_version,
       row_number() OVER (ORDER BY rules.key) AS rn
     FROM rules
     JOIN rs ON rs.id = rules.ruleset_id
     WHERE rules.is_active = true
     ORDER BY rules.key
     LIMIT 80
-  )
-INSERT INTO rule_results_current (
-  rule_id,
-  scope_kind,
-  source_kind,
-  source_name,
-  status,
-  evaluated_at,
-  sync_run_id,
-  evidence_summary,
-  evidence_json,
-  affected_resource_ids,
-  error_kind
-)
-SELECT
-  picked.rule_id,
-  'connector_instance',
-  'okta',
-  ctx.okta_domain,
-  CASE
-    WHEN (picked.rn % 7) = 0 THEN 'error'
-    WHEN (picked.rn % 2) = 0 THEN 'fail'
-    ELSE 'pass'
-  END,
-  ctx.now_ts,
-  ctx.run_id,
-  CASE
-    WHEN (picked.rn % 7) = 0 THEN 'Demo seeded: evaluation error (expanded)'
-    WHEN (picked.rn % 2) = 0 THEN 'Demo seeded: failing control (expanded)'
-    ELSE 'Demo seeded: passing control (expanded)'
-  END,
-  jsonb_build_object(
-    'schema_version', 1,
-    'rule', jsonb_build_object(
-      'ruleset_key', 'cis.okta.idaas_stig.v2',
-      'rule_key', picked.rule_key
-    ),
-    'check', jsonb_build_object('type', 'demo.seed.expanded'),
-    'result', jsonb_build_object(
-      'status', CASE
+  ),
+  evaluated AS (
+    SELECT
+      picked.*,
+      ctx.okta_domain,
+      ctx.run_id,
+      ctx.now_ts,
+      CASE
         WHEN (picked.rn % 7) = 0 THEN 'error'
         WHEN (picked.rn % 2) = 0 THEN 'fail'
         ELSE 'pass'
-      END
+      END AS rule_status,
+      CASE
+        WHEN (picked.rn % 7) = 0 THEN 'open'
+        WHEN (picked.rn % 2) = 0 THEN 'open'
+        ELSE 'resolved'
+      END AS finding_status,
+      CASE
+        WHEN (picked.rn % 7) = 0 THEN 'Demo seeded: evaluation error (expanded)'
+        WHEN (picked.rn % 2) = 0 THEN 'Demo seeded: failing control (expanded)'
+        ELSE 'Demo seeded: passing control (expanded)'
+      END AS evidence_summary,
+      CASE WHEN (picked.rn % 7) = 0 THEN 'upstream_api' ELSE '' END AS error_kind,
+      CASE
+        WHEN (picked.rn % 2) = 0 THEN jsonb_build_array(format('demo:resource/%s', picked.rn))
+        ELSE '[]'::jsonb
+      END AS affected_resource_ids,
+      jsonb_build_object(
+        'schema_version', 1,
+        'rule', jsonb_build_object(
+          'ruleset_key', 'cis.okta.idaas_stig.v2',
+          'rule_key', picked.rule_key
+        ),
+        'check', jsonb_build_object('type', 'demo.seed.expanded'),
+        'result', jsonb_build_object(
+          'status', CASE
+            WHEN (picked.rn % 7) = 0 THEN 'error'
+            WHEN (picked.rn % 2) = 0 THEN 'fail'
+            ELSE 'pass'
+          END
+        ),
+        'selection', jsonb_build_object(
+          'total', 220,
+          'selected', CASE WHEN (picked.rn % 2) = 0 THEN 35 ELSE 220 END
+        ),
+        'violations', CASE
+          WHEN (picked.rn % 2) = 0 THEN jsonb_build_array(
+            jsonb_build_object('resource_id', format('demo:resource/%s', picked.rn), 'display', format('Expanded demo violation #%s', picked.rn)),
+            jsonb_build_object('resource_id', format('demo:resource/%s', picked.rn + 1000), 'display', format('Expanded demo violation #%s', picked.rn + 1000))
+          )
+          ELSE '[]'::jsonb
+        END,
+        'violations_truncated', false,
+        'demo', true,
+        'expanded', true,
+        'seeded_at', ctx.now_ts
+      ) AS evidence_json
+    FROM picked
+    CROSS JOIN ctx
+  )
+INSERT INTO findings (
+  finding_key,
+  status,
+  base_severity,
+  effective_severity,
+  severity_source,
+  title,
+  summary,
+  evidence,
+  source_kind,
+  source_name,
+  scope_kind,
+  scope_source_kind,
+  scope_source_name,
+  entity_kind,
+  entity_id,
+  entity_name,
+  resource_kind,
+  resource_id,
+  resource_name,
+  policy_bundle_id,
+  policy_bundle_version,
+  policy_id,
+  policy_title,
+  rule_id,
+  ruleset_id,
+  first_seen_at,
+  last_seen_at,
+  resolved_at,
+  output
+)
+SELECT
+  format('demo:rule:%s:%s:%s', e.ruleset_key, e.okta_domain, e.rule_key),
+  e.finding_status,
+  e.rule_severity,
+  e.rule_severity,
+  'policy',
+  e.rule_title,
+  e.evidence_summary,
+  e.evidence_summary,
+  'okta',
+  e.okta_domain,
+  'connector_instance',
+  'okta',
+  e.okta_domain,
+  'ruleset_scope',
+  format('connector_instance:okta:%s', e.okta_domain),
+  e.okta_domain,
+  'rule',
+  e.rule_key,
+  e.rule_title,
+  e.ruleset_key,
+  e.ruleset_version,
+  e.rule_key,
+  e.rule_title,
+  e.rule_key,
+  e.ruleset_key,
+  e.now_ts,
+  e.now_ts,
+  CASE WHEN e.finding_status = 'resolved' THEN e.now_ts ELSE NULL END,
+  jsonb_build_object(
+    'rule_result', jsonb_build_object(
+      'status', e.rule_status,
+      'error_kind', e.error_kind,
+      'affected_resource_ids', e.affected_resource_ids,
+      'sync_run_id', e.run_id::text
     ),
-    'selection', jsonb_build_object(
-      'total', 220,
-      'selected', CASE WHEN (picked.rn % 2) = 0 THEN 35 ELSE 220 END
-    ),
-    'violations', CASE
-      WHEN (picked.rn % 2) = 0 THEN jsonb_build_array(
-        jsonb_build_object('resource_id', format('demo:resource/%s', picked.rn), 'display', format('Expanded demo violation #%s', picked.rn)),
-        jsonb_build_object('resource_id', format('demo:resource/%s', picked.rn + 1000), 'display', format('Expanded demo violation #%s', picked.rn + 1000))
-      )
-      ELSE '[]'::jsonb
-    END,
-    'violations_truncated', false,
-    'demo', true,
-    'expanded', true,
-    'seeded_at', ctx.now_ts
-  ),
-  CASE WHEN (picked.rn % 2) = 0 THEN ARRAY[format('demo:resource/%s', picked.rn)]::text[] ELSE '{}'::text[] END,
-  CASE WHEN (picked.rn % 7) = 0 THEN 'upstream_api' ELSE '' END
-FROM picked
-CROSS JOIN ctx
-ON CONFLICT (rule_id, scope_kind, source_kind, source_name) DO UPDATE SET
+    'evidence', e.evidence_json
+  )
+FROM evaluated e
+ON CONFLICT (finding_key) DO UPDATE SET
   status = EXCLUDED.status,
-  evaluated_at = EXCLUDED.evaluated_at,
-  sync_run_id = EXCLUDED.sync_run_id,
-  evidence_summary = EXCLUDED.evidence_summary,
-  evidence_json = EXCLUDED.evidence_json,
-  affected_resource_ids = EXCLUDED.affected_resource_ids,
-  error_kind = EXCLUDED.error_kind,
+  base_severity = EXCLUDED.base_severity,
+  effective_severity = EXCLUDED.effective_severity,
+  title = EXCLUDED.title,
+  summary = EXCLUDED.summary,
+  evidence = EXCLUDED.evidence,
+  last_seen_at = EXCLUDED.last_seen_at,
+  resolved_at = EXCLUDED.resolved_at,
+  output = EXCLUDED.output,
   updated_at = now()
 ;
 

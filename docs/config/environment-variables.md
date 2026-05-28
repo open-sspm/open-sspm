@@ -77,38 +77,6 @@ Absolute path to static assets. If unset, Open-SSPM searches common `web/static`
 STATIC_DIR=/opt/open-sspm/web/static
 ```
 
-## Queue Configuration
-
-### QUEUE_BACKEND
-
-Backend used for push ingest dispatch. Postgres remains the durable inbox and source of truth.
-
-- **Values:** `postgres`, `redis`
-- **Default:** `postgres`
-
-```bash
-QUEUE_BACKEND=redis
-```
-
-### REDIS_URL
-
-Redis connection URL. Required by the `api` and `worker-ingest` processes when `QUEUE_BACKEND=redis`.
-Use `rediss://` for TLS-enabled Redis endpoints. If Redis is unavailable, push processing falls back to Postgres inbox polling.
-
-```bash
-REDIS_URL=redis://localhost:6379/0
-```
-
-### REDIS_KEY_PREFIX
-
-Prefix for Open-SSPM Redis keys.
-
-- **Default:** `open-sspm`
-
-```bash
-REDIS_KEY_PREFIX=open-sspm
-```
-
 ## Logging
 
 ### LOG_FORMAT
@@ -269,7 +237,7 @@ SYNC_DISCOVERY_INTERVAL=15m
 
 ### SYNC_TAIL_INTERVAL
 
-Cadence for the incremental tail worker. Tail jobs are also woken by push ingest when a provider event should trigger a scoped catch-up.
+Cadence for the incremental tail worker. Tail jobs are also woken by the event inbox when a provider event should trigger a scoped catch-up.
 
 - **Default:** `5m`
 
@@ -286,15 +254,15 @@ SYNC_TAIL_INTERVAL=5m
 SYNC_DISCOVERY_ENABLED=1
 ```
 
-### OKTA_PUSH_INGEST_ENABLED
+### EVENT_INBOX_ENABLED
 
-Controls the Okta push ingest lane. If unset, it follows `SYNC_DISCOVERY_ENABLED` for backward compatibility.
+Controls event inbox receivers and the worker lane that drains `event_inbox`.
 
 - **Values:** `0`, `1`
-- **Default:** inherited from `SYNC_DISCOVERY_ENABLED`
+- **Default:** `1`
 
 ```bash
-OKTA_PUSH_INGEST_ENABLED=1
+EVENT_INBOX_ENABLED=1
 ```
 
 ### RESYNC_ENABLED
@@ -395,30 +363,30 @@ If unset, the workers derive it from the active lane interval:
 SYNC_FAILURE_BACKOFF_MAX=2h
 ```
 
-## Okta Push Ingest
+## Event Inbox
 
-These settings tune the `worker-ingest` Okta push inbox processor.
+These settings tune the `open-sspm worker --lane event-inbox` event inbox processor.
 
 ```bash
-OKTA_PUSH_INGEST_BATCH_SIZE=500
-OKTA_PUSH_INGEST_POLL_INTERVAL=5s
-OKTA_PUSH_INGEST_CLEANUP_INTERVAL=1h
-OKTA_PUSH_INGEST_RETRY_DELAY=30s
-OKTA_PUSH_INGEST_RETRY_MAX_DELAY=15m
-OKTA_PUSH_INGEST_STALE_PROCESSING_TIMEOUT=5m
-OKTA_PUSH_INGEST_MAX_ATTEMPTS=10
-OKTA_PUSH_INGEST_PROCESSED_RETENTION_DAYS=30
-OKTA_PUSH_INGEST_DEAD_LETTER_RETENTION_DAYS=90
+EVENT_INBOX_BATCH_SIZE=500
+EVENT_INBOX_POLL_INTERVAL=5s
+EVENT_INBOX_CLEANUP_INTERVAL=1h
+EVENT_INBOX_RETRY_DELAY=30s
+EVENT_INBOX_RETRY_MAX_DELAY=15m
+EVENT_INBOX_STALE_PROCESSING_TIMEOUT=5m
+EVENT_INBOX_MAX_ATTEMPTS=10
+EVENT_INBOX_PROCESSED_RETENTION_DAYS=30
+EVENT_INBOX_DEAD_LETTER_RETENTION_DAYS=90
 ```
 
-## Riskpolicy Event Worker
+## Event Evaluator Worker
 
-These settings tune `worker-riskpolicy`, which evaluates canonical provider events in shadow mode and projects shadow findings. It does not replace the user-facing current rules/finding behavior by itself.
+These settings tune `open-sspm worker --lane evaluator`, which evaluates canonical provider events and projects canonical findings.
 
 ```bash
-RISKPOLICY_EVENT_WORKER_POLL_INTERVAL=5s
-RISKPOLICY_EVENT_WORKER_BATCH_SIZE=100
-RISKPOLICY_EVENT_WORKER_MAX_ATTEMPTS=10
+EVENT_EVALUATOR_WORKER_POLL_INTERVAL=5s
+EVENT_EVALUATOR_WORKER_BATCH_SIZE=100
+EVENT_EVALUATOR_WORKER_MAX_ATTEMPTS=10
 ```
 
 ## Event Storage Maintenance
@@ -475,8 +443,8 @@ SYNC_DISCOVERY_ENABLED=1
 RESYNC_MODE=signal
 
 EVENT_RETENTION_DAYS=90
-RISKPOLICY_EVENT_WORKER_BATCH_SIZE=100
-RISKPOLICY_EVENT_WORKER_MAX_ATTEMPTS=10
+EVENT_EVALUATOR_WORKER_BATCH_SIZE=100
+EVENT_EVALUATOR_WORKER_MAX_ATTEMPTS=10
 
 SYNC_OKTA_WORKERS=3
 SYNC_GITHUB_WORKERS=6

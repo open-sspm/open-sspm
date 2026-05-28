@@ -38,7 +38,7 @@ npm install
 just dev-up
 just ui
 just migrate
-printf '%s\n' 'change-me-now' | go run ./cmd/open-sspm users bootstrap-admin \
+printf '%s\n' 'change-me-now' | go run ./cmd/open-sspm admin users bootstrap-admin \
   --email admin@example.com \
   --password-stdin
 just run
@@ -46,7 +46,7 @@ just run
 # Open http://localhost:8080
 ```
 
-Run `just worker-discovery` in a third terminal if you want discovery syncs and `SYNC_DISCOVERY_ENABLED=1`. Run `just worker-ingest` as well if you enable push ingest such as Okta Event Hooks or EventBridge.
+Run `just worker discovery` in a third terminal if you want discovery syncs and `SYNC_DISCOVERY_ENABLED=1`. Run `just worker event-inbox` as well if you enable the event inbox for sources such as Okta Event Hooks or EventBridge.
 
 See the [Installation Guide](/install/) for production deployment options and the full Docker-backed local setup.
 

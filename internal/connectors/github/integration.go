@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	"github.com/open-sspm/open-sspm/internal/matching"
+	"github.com/open-sspm/open-sspm/internal/identity"
 )
 
 const (
@@ -437,7 +437,7 @@ func (i *GitHubIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpo
 			display = externalID
 		}
 		externalIDs = append(externalIDs, externalID)
-		emails = append(emails, matching.NormalizeEmail(member.Email))
+		emails = append(emails, identity.NormalizeEmail(member.Email))
 		displayNames = append(displayNames, display)
 		accountKinds = append(accountKinds, githubMemberAccountKind(member))
 		entityCategories = append(entityCategories, registry.EntityCategoryUser)

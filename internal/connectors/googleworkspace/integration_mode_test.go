@@ -11,15 +11,23 @@ import (
 func TestGoogleWorkspaceIntegrationSupportsRunMode(t *testing.T) {
 	t.Parallel()
 
-	full := NewGoogleWorkspaceIntegration(nil, "C0123", "", false)
+	unconfigured := NewGoogleWorkspaceIntegration(nil, "C0123", "", false)
+	if unconfigured.SupportsRunMode(registry.RunModeFull) {
+		t.Fatalf("full mode should require an API client")
+	}
+	if unconfigured.SupportsRunMode(registry.RunModeTail) {
+		t.Fatalf("tail mode should require a Reports API client or test lister")
+	}
+
+	full := NewGoogleWorkspaceIntegration(&Client{}, "C0123", "", false)
 	if !full.SupportsRunMode(registry.RunModeFull) {
-		t.Fatalf("full mode should always be supported")
+		t.Fatalf("full mode should be supported when an API client is configured")
 	}
 	if full.SupportsRunMode(registry.RunModeDiscovery) {
 		t.Fatalf("discovery mode should be disabled when discovery is not configured")
 	}
-	if full.SupportsRunMode(registry.RunModeTail) {
-		t.Fatalf("tail mode should require a Reports API client or test lister")
+	if !full.SupportsRunMode(registry.RunModeTail) {
+		t.Fatalf("tail mode should be supported when a Reports API client is configured")
 	}
 
 	tail := NewGoogleWorkspaceIntegration(nil, "C0123", "", false)
@@ -30,7 +38,7 @@ func TestGoogleWorkspaceIntegrationSupportsRunMode(t *testing.T) {
 		t.Fatalf("tail mode should be supported when a Reports activity lister is configured")
 	}
 
-	discovery := NewGoogleWorkspaceIntegration(nil, "C0123", "", true)
+	discovery := NewGoogleWorkspaceIntegration(&Client{}, "C0123", "", true)
 	if !discovery.SupportsRunMode(registry.RunModeDiscovery) {
 		t.Fatalf("discovery mode should be supported when discovery is enabled")
 	}

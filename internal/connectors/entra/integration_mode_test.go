@@ -9,9 +9,14 @@ import (
 func TestEntraIntegration_SupportsRunMode(t *testing.T) {
 	t.Parallel()
 
-	full := NewEntraIntegration(nil, "tenant", false)
+	unconfigured := NewEntraIntegration(nil, "tenant", false)
+	if unconfigured.SupportsRunMode(registry.RunModeFull) {
+		t.Fatalf("full mode should require an API client")
+	}
+
+	full := NewEntraIntegration(stubEntraClient{}, "tenant", false)
 	if !full.SupportsRunMode(registry.RunModeFull) {
-		t.Fatalf("full mode should always be supported")
+		t.Fatalf("full mode should be supported when an API client is configured")
 	}
 	if full.SupportsRunMode(registry.RunModeDiscovery) {
 		t.Fatalf("discovery mode should be disabled when discovery is not configured")
@@ -20,7 +25,7 @@ func TestEntraIntegration_SupportsRunMode(t *testing.T) {
 		t.Fatalf("tail mode should be disabled until Entra tail is implemented")
 	}
 
-	discovery := NewEntraIntegration(nil, "tenant", true)
+	discovery := NewEntraIntegration(stubEntraClient{}, "tenant", true)
 	if !discovery.SupportsRunMode(registry.RunModeDiscovery) {
 		t.Fatalf("discovery mode should be supported when discovery is enabled")
 	}

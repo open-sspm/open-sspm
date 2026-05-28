@@ -54,8 +54,7 @@ func (i *AWSIntegration) runCloudTrailTail(ctx context.Context, q *gen.Queries, 
 	}
 
 	started := time.Now()
-	runKind := registry.SyncRunSourceKind("aws", registry.RunModeTail)
-	runID, err := registry.StartSyncRun(ctx, q, runKind, i.sourceName)
+	runID, err := registry.StartSyncRunWithMode(ctx, q, "aws", i.sourceName, registry.RunModeTail)
 	if err != nil {
 		return err
 	}

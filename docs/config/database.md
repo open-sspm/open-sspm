@@ -73,14 +73,14 @@ just migrate
 Direct CLI:
 
 ```bash
-open-sspm migrate
+open-sspm admin migrate
 ```
 
 Kubernetes:
 
 - The Helm chart runs migrations automatically with a pre-install and pre-upgrade hook Job.
 
-There is no separate `open-sspm migrate status` subcommand in the current CLI.
+There is no separate `open-sspm admin migrate status` subcommand in the current CLI.
 
 ## Backup and Restore
 

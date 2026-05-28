@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v5"
-	"github.com/open-sspm/open-sspm/internal/accessgraph"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
+	identitydomain "github.com/open-sspm/open-sspm/internal/identity"
 )
 
 func (h *Handlers) HandleResourceShow(c *echo.Context) error {
@@ -50,7 +50,7 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 
 	displayName := externalID
 	if len(rows) > 0 {
-		displayName = accessgraph.DisplayResourceLabel(resourceRef, rows[0].EntitlementRawJson)
+		displayName = identitydomain.DisplayResourceLabel(resourceRef, rows[0].EntitlementRawJson)
 	}
 
 	title := ConnectorDisplayName(sourceKind) + " resource"
@@ -109,7 +109,7 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 			AccountEmail:          strings.TrimSpace(row.AccountEmail),
 			AccountDisplayName:    strings.TrimSpace(row.AccountDisplayName),
 			EntitlementKind:       strings.TrimSpace(row.EntitlementKind),
-			EntitlementPermission: accessgraph.DisplayEntitlementPermission(row.EntitlementKind, row.EntitlementPermission, row.EntitlementRawJson),
+			EntitlementPermission: identitydomain.DisplayEntitlementPermission(row.EntitlementKind, row.EntitlementPermission, row.EntitlementRawJson),
 			LinkReason:            linkReason,
 		})
 	}
@@ -124,7 +124,7 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 		ResourceKindLabel:   resourceKindLabel,
 		ExternalID:          externalID,
 		DisplayName:         displayName,
-		ExternalConsoleHref: accessgraph.ExternalConsoleHref(sourceKind, sourceName, resourceKind, externalID),
+		ExternalConsoleHref: identitydomain.ExternalConsoleHref(sourceKind, sourceName, resourceKind, externalID),
 		EntitlementCount:    len(rows),
 		AccountCount:        len(seenAccounts),
 		LinkedIdentityCount: len(seenIdentities),
@@ -137,27 +137,27 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 
 func humanizeResourceKind(resourceKind string) string {
 	switch strings.ToLower(strings.TrimSpace(resourceKind)) {
-	case accessgraph.ResourceKindGitHubOrg:
+	case identitydomain.ResourceKindGitHubOrg:
 		return "Organization"
-	case accessgraph.ResourceKindGitHubTeam:
+	case identitydomain.ResourceKindGitHubTeam:
 		return "Team"
-	case accessgraph.ResourceKindGitHubRepo:
+	case identitydomain.ResourceKindGitHubRepo:
 		return "Repository"
-	case accessgraph.ResourceKindDatadogRole:
+	case identitydomain.ResourceKindDatadogRole:
 		return "Role"
-	case accessgraph.ResourceKindAWSAccount:
+	case identitydomain.ResourceKindAWSAccount:
 		return "AWS account"
-	case accessgraph.ResourceKindEntraServicePrincipal:
+	case identitydomain.ResourceKindEntraServicePrincipal:
 		return "Enterprise app"
-	case accessgraph.ResourceKindEntraDirectoryRole:
+	case identitydomain.ResourceKindEntraDirectoryRole:
 		return "Directory role"
-	case accessgraph.ResourceKindVaultPolicy:
+	case identitydomain.ResourceKindVaultPolicy:
 		return "Vault policy"
-	case accessgraph.ResourceKindVaultGroup:
+	case identitydomain.ResourceKindVaultGroup:
 		return "Vault group"
-	case accessgraph.ResourceKindVaultAuthMount:
+	case identitydomain.ResourceKindVaultAuthMount:
 		return "Vault auth mount"
-	case accessgraph.ResourceKindVaultSecretsMount:
+	case identitydomain.ResourceKindVaultSecretsMount:
 		return "Vault secrets mount"
 	default:
 		return ""

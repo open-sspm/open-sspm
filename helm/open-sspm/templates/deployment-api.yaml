@@ -1,5 +1,4 @@
 {{- $api := .Values.api | default dict -}}
-{{- $serve := .Values.serve | default dict -}}
 {{- $replicaCount := 1 -}}
 {{- $podAnnotations := dict -}}
 {{- $podLabels := dict -}}
@@ -9,15 +8,6 @@
 {{- $nodeSelector := dict -}}
 {{- $tolerations := list -}}
 {{- $affinity := dict -}}
-{{- if hasKey $serve "replicaCount" }}{{- $replicaCount = $serve.replicaCount }}{{- end -}}
-{{- if hasKey $serve "podAnnotations" }}{{- $podAnnotations = $serve.podAnnotations }}{{- end -}}
-{{- if hasKey $serve "podLabels" }}{{- $podLabels = $serve.podLabels }}{{- end -}}
-{{- if hasKey $serve "extraEnv" }}{{- $extraEnv = $serve.extraEnv }}{{- end -}}
-{{- if hasKey $serve "extraEnvFrom" }}{{- $extraEnvFrom = $serve.extraEnvFrom }}{{- end -}}
-{{- if hasKey $serve "resources" }}{{- $resources = $serve.resources }}{{- end -}}
-{{- if hasKey $serve "nodeSelector" }}{{- $nodeSelector = $serve.nodeSelector }}{{- end -}}
-{{- if hasKey $serve "tolerations" }}{{- $tolerations = $serve.tolerations }}{{- end -}}
-{{- if hasKey $serve "affinity" }}{{- $affinity = $serve.affinity }}{{- end -}}
 {{- if hasKey $api "replicaCount" }}{{- $replicaCount = $api.replicaCount }}{{- end -}}
 {{- if hasKey $api "podAnnotations" }}{{- $podAnnotations = $api.podAnnotations }}{{- end -}}
 {{- if hasKey $api "podLabels" }}{{- $podLabels = $api.podLabels }}{{- end -}}
@@ -110,13 +100,12 @@ spec:
               value: {{ ternary "1" "0" .Values.config.devSeedAdmin | quote }}
             - name: RESYNC_ENABLED
               value: {{ ternary "1" "0" .Values.config.resyncEnabled | quote }}
-            {{- include "open-sspm.queueEnv" . | nindent 12 }}
             - name: SYNC_DISCOVERY_ENABLED
-              value: {{ ternary "1" "0" (and .Values.config.syncDiscoveryEnabled .Values.discoveryWorker.enabled) | quote }}
+              value: {{ ternary "1" "0" (and .Values.config.syncDiscoveryEnabled .Values.worker.lanes.discovery.enabled) | quote }}
             {{- include "open-sspm.fullSyncEnv" . | nindent 12 }}
             - name: SYNC_DISCOVERY_INTERVAL
               value: {{ .Values.config.syncDiscoveryInterval | quote }}
-            {{- include "open-sspm.oktaPushIngestEnv" . | nindent 12 }}
+            {{- include "open-sspm.eventInboxEnv" . | nindent 12 }}
             - name: SYNC_OKTA_WORKERS
               value: {{ .Values.config.syncOktaWorkers | quote }}
             - name: SYNC_GITHUB_WORKERS

@@ -188,35 +188,6 @@ func TestListFindingRulesetCurrentByRulesetKeyReadsCanonicalFindings(t *testing.
 			}
 		}
 
-		_, err := q.UpsertRuleResultCurrent(ctx, gen.UpsertRuleResultCurrentParams{
-			RuleID:              rules["001-pass"].ID,
-			ScopeKind:           "connector_instance",
-			SourceKind:          "okta",
-			SourceName:          "example.okta.com",
-			Status:              "fail",
-			EvaluatedAt:         pgtype.Timestamptz{Time: evaluatedAt.Add(time.Hour), Valid: true},
-			EvidenceSummary:     "legacy current table should be ignored",
-			EvidenceJson:        []byte(`{"legacy":true}`),
-			AffectedResourceIds: []string{},
-		})
-		if err != nil {
-			t.Fatalf("UpsertRuleResultCurrent(conflicting pass) err = %v", err)
-		}
-		_, err = q.UpsertRuleResultCurrent(ctx, gen.UpsertRuleResultCurrentParams{
-			RuleID:              rules["005-no-finding"].ID,
-			ScopeKind:           "connector_instance",
-			SourceKind:          "okta",
-			SourceName:          "example.okta.com",
-			Status:              "pass",
-			EvaluatedAt:         pgtype.Timestamptz{Time: evaluatedAt.Add(time.Hour), Valid: true},
-			EvidenceSummary:     "legacy current table should not fill missing canonical rows",
-			EvidenceJson:        []byte(`{"legacy":true}`),
-			AffectedResourceIds: []string{},
-		})
-		if err != nil {
-			t.Fatalf("UpsertRuleResultCurrent(conflicting missing) err = %v", err)
-		}
-
 		rows, err := q.ListFindingRulesetCurrentByRulesetKey(ctx, gen.ListFindingRulesetCurrentByRulesetKeyParams{
 			ScopeKind:  "connector_instance",
 			SourceKind: "okta",
@@ -254,8 +225,8 @@ func TestListFindingRulesetCurrentByRulesetKeyReadsCanonicalFindings(t *testing.
 		if got := errorKindByRule["003-error"]; got != "engine_error" {
 			t.Fatalf("error kind = %q, want engine_error", got)
 		}
-		if got := summaryByRule["001-pass"]; got == "legacy current table should be ignored" {
-			t.Fatalf("readmodel used rule_results_current evidence summary")
+		if got := summaryByRule["001-pass"]; got == "" {
+			t.Fatalf("summary[001-pass] is empty, want canonical evidence summary")
 		}
 	})
 }

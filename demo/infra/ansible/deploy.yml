@@ -9,6 +9,12 @@
     opensspm_static_dest: /opt/open-sspm/web/static
     opensspm_migrations_src: "{{ opensspm_repo_root }}/db/migrations"
     opensspm_migrations_dest: /opt/open-sspm/db/migrations
+    opensspm_worker_lanes:
+      - full
+      - discovery
+      - event-inbox
+      - tail
+      - evaluator
 
   pre_tasks:
     - name: Verify built CSS exists on control machine
@@ -46,20 +52,33 @@
         - { key: "CONNECTOR_SECRET_KEY", value: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=" }
         - { key: "LOG_FORMAT", value: "json" }
         - { key: "LOG_LEVEL", value: "info" }
-        - { key: "QUEUE_BACKEND", value: "postgres" }
         - { key: "SYNC_INTERVAL", value: "0s" }
         - { key: "SYNC_DISCOVERY_INTERVAL", value: "0s" }
         - { key: "RESYNC_ENABLED", value: "0" }
 
-    - name: Stop open-sspm services before deployment
+    - name: Ensure open-sspm worker systemd template exists
+      ansible.builtin.template:
+        src: open-sspm-worker@.service.j2
+        dest: /etc/systemd/system/open-sspm-worker@.service
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Reload systemd after worker unit update
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Stop open-sspm API before deployment
       ansible.builtin.service:
-        name: "{{ item }}"
+        name: open-sspm
         state: stopped
-      loop:
-        - open-sspm
-        - open-sspm-worker
-        - open-sspm-discovery-worker
-        - open-sspm-ingest-worker
+      failed_when: false
+
+    - name: Stop open-sspm worker lanes before deployment
+      ansible.builtin.service:
+        name: "open-sspm-worker@{{ item }}"
+        state: stopped
+      loop: "{{ opensspm_worker_lanes }}"
       failed_when: false
 
     - name: Reset static assets directory

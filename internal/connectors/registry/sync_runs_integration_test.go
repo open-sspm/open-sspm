@@ -73,6 +73,7 @@ func TestReclaimRunningSyncRunsBySourcePreservesLatestFinishedRun(t *testing.T) 
 		rollups, err := q.GetSyncRunRollupsForSources(ctx, gen.GetSyncRunRollupsForSourcesParams{
 			SourceKinds: []string{"okta"},
 			SourceNames: []string{"acme"},
+			RunModes:    []string{string(RunModeFull)},
 		})
 		if err != nil {
 			t.Fatalf("GetSyncRunRollupsForSources() err = %v", err)
@@ -209,31 +210,41 @@ func TestStartSyncRunReclaimsCrossLaneRunningRows(t *testing.T) {
 	tests := []struct {
 		name         string
 		existingKind string
+		existingMode RunMode
 		startSource  string
+		startMode    RunMode
 		sourceName   string
 	}{
 		{
 			name:         "starting full reclaims discovery",
-			existingKind: "okta_discovery",
+			existingKind: "okta",
+			existingMode: RunModeDiscovery,
 			startSource:  "okta",
+			startMode:    RunModeFull,
 			sourceName:   "acme",
 		},
 		{
 			name:         "starting discovery reclaims full",
 			existingKind: "okta",
-			startSource:  "okta_discovery",
+			existingMode: RunModeFull,
+			startSource:  "okta",
+			startMode:    RunModeDiscovery,
 			sourceName:   "acme",
 		},
 		{
 			name:         "starting tail reclaims full",
 			existingKind: "okta",
-			startSource:  "okta_tail",
+			existingMode: RunModeFull,
+			startSource:  "okta",
+			startMode:    RunModeTail,
 			sourceName:   "acme",
 		},
 		{
 			name:         "starting full reclaims tail",
-			existingKind: "okta_tail",
+			existingKind: "okta",
+			existingMode: RunModeTail,
 			startSource:  "okta",
+			startMode:    RunModeFull,
 			sourceName:   "acme",
 		},
 	}
@@ -248,11 +259,12 @@ func TestStartSyncRunReclaimsCrossLaneRunningRows(t *testing.T) {
 				oldRunID := insertSyncRunRow(t, ctx, pool, syncRunSeed{
 					SourceKind: tt.existingKind,
 					SourceName: tt.sourceName,
+					RunMode:    tt.existingMode,
 					Status:     "running",
 					StartedAt:  time.Now().Add(-2 * time.Hour).UTC().Truncate(time.Microsecond),
 				})
 
-				newRunID, err := StartSyncRun(ctx, q, tt.startSource, tt.sourceName)
+				newRunID, err := StartSyncRunWithMode(ctx, q, tt.startSource, tt.sourceName, tt.startMode)
 				if err != nil {
 					t.Fatalf("StartSyncRun() err = %v", err)
 				}
@@ -270,7 +282,7 @@ func TestStartSyncRunReclaimsCrossLaneRunningRows(t *testing.T) {
 					t.Fatalf("new run status = %q, want running", newState.Status)
 				}
 
-				scopeKinds := SyncRunScopeKinds(tt.startSource)
+				scopeKinds := []string{strings.ToLower(strings.TrimSpace(tt.startSource))}
 				var runningCount int
 				if err := pool.QueryRow(ctx, `
 					SELECT count(*)
@@ -374,6 +386,7 @@ func TestFinalizeAppRunRefreshesNonHumanFreshnessFromCurrentSuccess(t *testing.T
 type syncRunSeed struct {
 	SourceKind string
 	SourceName string
+	RunMode    RunMode
 	Status     string
 	StartedAt  time.Time
 	FinishedAt *time.Time
@@ -408,6 +421,7 @@ func insertSyncRunRow(t *testing.T, ctx context.Context, pool *pgxpool.Pool, see
 
 	seed.SourceKind = strings.TrimSpace(seed.SourceKind)
 	seed.SourceName = strings.TrimSpace(seed.SourceName)
+	seed.RunMode = seed.RunMode.Normalize()
 	seed.Status = strings.TrimSpace(seed.Status)
 	seed.Message = strings.TrimSpace(seed.Message)
 	seed.ErrorKind = strings.TrimSpace(seed.ErrorKind)
@@ -421,10 +435,10 @@ func insertSyncRunRow(t *testing.T, ctx context.Context, pool *pgxpool.Pool, see
 	}
 
 	err := pool.QueryRow(ctx, `
-		INSERT INTO sync_runs (source_kind, source_name, status, started_at, finished_at, message, stats, error_kind)
-		VALUES ($1, $2, $3, $4, $5, $6, '{}'::jsonb, $7)
+		INSERT INTO sync_runs (source_kind, source_name, run_mode, status, started_at, finished_at, message, stats, error_kind)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, '{}'::jsonb, $8)
 		RETURNING id
-	`, seed.SourceKind, seed.SourceName, seed.Status, seed.StartedAt.UTC(), finishedAt, seed.Message, seed.ErrorKind).Scan(&id)
+	`, seed.SourceKind, seed.SourceName, string(seed.RunMode), seed.Status, seed.StartedAt.UTC(), finishedAt, seed.Message, seed.ErrorKind).Scan(&id)
 	if err != nil {
 		t.Fatalf("insert sync run %s/%s: %v", seed.SourceKind, seed.SourceName, err)
 	}

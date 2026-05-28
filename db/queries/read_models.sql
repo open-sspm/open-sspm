@@ -41,9 +41,8 @@ WITH normalized AS (
     r.finished_at
   FROM sync_runs r
   WHERE r.status = 'success'
+    AND r.run_mode = 'full'
     AND r.finished_at IS NOT NULL
-    AND lower(trim(r.source_kind)) NOT IN ('okta_discovery', 'entra_discovery', 'google_workspace_discovery', 'okta_push')
-    AND lower(trim(r.source_kind)) NOT LIKE '%\_tail' ESCAPE '\'
 )
 SELECT source_kind, source_name, finished_at::timestamptz AS last_success_at
 FROM (

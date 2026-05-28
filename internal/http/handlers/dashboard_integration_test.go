@@ -6,10 +6,12 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/findings"
 )
 
 func TestHandleDashboardUsesGenericInventoryMetrics(t *testing.T) {
@@ -60,6 +62,8 @@ func TestHandleDashboardUsesGenericInventoryMetrics(t *testing.T) {
 		insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "reference-app-3", "Reference App 3", "reference-app-3", "active")
 		if err := q.UpsertIntegrationOktaAppMap(ctx, gen.UpsertIntegrationOktaAppMapParams{
 			IntegrationKind:   configstore.KindGitHub,
+			OktaSourceKind:    configstore.KindOkta,
+			OktaSourceName:    "example.okta.com",
 			OktaAppExternalID: "reference-app-1",
 		}); err != nil {
 			t.Fatalf("UpsertIntegrationOktaAppMap: %v", err)
@@ -76,6 +80,32 @@ func TestHandleDashboardUsesGenericInventoryMetrics(t *testing.T) {
 		assertContains(t, fragment, `id="dashboard-content"`)
 		assertDashboardMetric(t, fragment, "Identities", 2)
 		assertNotContains(t, fragment, "<!doctype html>")
+	})
+}
+
+func TestHandleDashboardUsesCanonicalFindingsForFrameworkPosture(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindOkta, true, configstore.OktaConfig{
+			Domain: "acme.okta.com",
+			Token:  "okta-token",
+		})
+
+		ruleset := seedRulesetForFindingsHandler(t, ctx, q)
+		passRule := seedRuleForFindingsHandler(t, ctx, q, ruleset.ID, "001-pass")
+		failRule := seedRuleForFindingsHandler(t, ctx, q, ruleset.ID, "002-fail")
+		evaluatedAt := time.Date(2026, time.May, 22, 9, 0, 0, 0, time.UTC)
+		writer := findings.NewWriter(q)
+		if err := writer.Write(ctx, canonicalRuleFindingForHandlerSource(ruleset.Key, passRule, "acme.okta.com", "pass", findings.StatusResolved, evaluatedAt)); err != nil {
+			t.Fatalf("Write(pass) err = %v", err)
+		}
+		if err := writer.Write(ctx, canonicalRuleFindingForHandlerSource(ruleset.Key, failRule, "acme.okta.com", "fail", findings.StatusOpen, evaluatedAt.Add(time.Minute))); err != nil {
+			t.Fatalf("Write(fail) err = %v", err)
+		}
+
+		body := renderDashboard(t, h, "http://example.com/")
+		assertContains(t, body, "CIS Okta")
+		assertContains(t, body, "1/2")
+		assertContains(t, body, "50%")
 	})
 }
 

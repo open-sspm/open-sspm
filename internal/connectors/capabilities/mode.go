@@ -16,6 +16,8 @@ func SupportsRunMode(integration any, mode registry.RunMode) (bool, bool) {
 	switch mode.Normalize() {
 	case registry.RunModeFull:
 		return caps.Full != nil, true
+	case registry.RunModeDiscovery:
+		return caps.Discovery != nil, true
 	case registry.RunModeTail:
 		return caps.Tail != nil, true
 	default:

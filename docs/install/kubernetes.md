@@ -20,10 +20,10 @@ The chart creates:
 
 - **API Deployment** - `open-sspm api`
 - **Worker Deployment** - `open-sspm worker`
-- **Discovery Worker Deployment** - `open-sspm worker-discovery` (enabled by default)
-- **Ingest Worker Deployment** - `open-sspm worker-ingest` (enabled by default when discovery is enabled)
-- **Tail Worker Deployment** - `open-sspm worker-tail` (enabled by default)
-- **Riskpolicy Worker Deployment** - `open-sspm worker-riskpolicy` (enabled by default for shadow event evaluation)
+- **Discovery Worker Deployment** - `open-sspm worker --lane discovery` (enabled by default)
+- **Event Inbox Worker Deployment** - `open-sspm worker --lane event-inbox` (enabled by default when event inbox is enabled)
+- **Tail Worker Deployment** - `open-sspm worker --lane tail` (enabled by default)
+- **Evaluator Worker Deployment** - `open-sspm worker --lane evaluator` (enabled by default for event evaluation)
 - **Service** - Network access for the web UI
 - **Ingress** (optional)
 - **Hook Jobs** - Migrations, optional rule seeding, and optional admin bootstrap
@@ -126,43 +126,41 @@ api:
       memory: 128Mi
 
 worker:
-  replicaCount: 1
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-
-discoveryWorker:
-  enabled: true
-  replicaCount: 1
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-
-ingestWorker:
-  enabled: true
-  replicaCount: 1
-  resources:
-    limits:
-      cpu: 250m
-      memory: 256Mi
-
-tailWorker:
-  enabled: true
-  replicaCount: 1
-  resources:
-    limits:
-      cpu: 250m
-      memory: 256Mi
-
-riskpolicyWorker:
-  enabled: true
-  replicaCount: 1
-  resources:
-    limits:
-      cpu: 250m
-      memory: 256Mi
+  lanes:
+    full:
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+    discovery:
+      enabled: true
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+    eventInbox:
+      enabled: true
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 250m
+          memory: 256Mi
+    tail:
+      enabled: true
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 250m
+          memory: 256Mi
+    evaluator:
+      enabled: true
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 250m
+          memory: 256Mi
 
 ingress:
   enabled: true
@@ -258,9 +256,9 @@ api:
 
 The chart includes hook Jobs for:
 
-- **Migrations** - `open-sspm migrate` on install and upgrade
-- **Rule seeding** - `open-sspm seed-rules` on install by default
-- **Admin bootstrap** - `open-sspm users bootstrap-admin` when enabled
+- **Migrations** - `open-sspm admin migrate` on install and upgrade
+- **Rule seeding** - `open-sspm admin seed-rules` on install by default
+- **Admin bootstrap** - `open-sspm admin users bootstrap-admin` when enabled
 
 Enable rule seeding on upgrades:
 
@@ -298,11 +296,11 @@ kubectl get pods -l app.kubernetes.io/name=open-sspm
 
 ```bash
 kubectl logs -l app.kubernetes.io/component=api
-kubectl logs -l app.kubernetes.io/component=worker
-kubectl logs -l app.kubernetes.io/component=worker-discovery
-kubectl logs -l app.kubernetes.io/component=worker-ingest
-kubectl logs -l app.kubernetes.io/component=worker-tail
-kubectl logs -l app.kubernetes.io/component=worker-riskpolicy
+kubectl logs -l app.kubernetes.io/component=worker,open-sspm.io/worker-lane=full
+kubectl logs -l app.kubernetes.io/component=worker,open-sspm.io/worker-lane=discovery
+kubectl logs -l app.kubernetes.io/component=worker,open-sspm.io/worker-lane=event-inbox
+kubectl logs -l app.kubernetes.io/component=worker,open-sspm.io/worker-lane=tail
+kubectl logs -l app.kubernetes.io/component=worker,open-sspm.io/worker-lane=evaluator
 ```
 
 ### Database Connection Issues

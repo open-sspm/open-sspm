@@ -107,15 +107,23 @@ func TestSizeConnectorHealthErrorMessage(t *testing.T) {
 }
 
 func TestConnectorHealthErrorDetailsURL(t *testing.T) {
-	url := connectorHealthErrorDetailsURL([]string{"github", "github_discovery", "github"}, "acme org", "GitHub")
+	url := connectorHealthErrorDetailsURL(
+		[]string{"github", "github"},
+		[]connregistry.RunMode{connregistry.RunModeFull, connregistry.RunModeDiscovery},
+		"acme org",
+		"GitHub",
+	)
 	if !strings.HasPrefix(url, "/settings/connector-health/errors?") {
 		t.Fatalf("unexpected url prefix: %q", url)
 	}
 	if !strings.Contains(url, "source_kind=github") {
 		t.Fatalf("url missing source_kind: %q", url)
 	}
-	if !strings.Contains(url, "source_kind=github_discovery") {
-		t.Fatalf("url missing discovery source_kind: %q", url)
+	if !strings.Contains(url, "run_mode=full") {
+		t.Fatalf("url missing full run_mode: %q", url)
+	}
+	if !strings.Contains(url, "run_mode=discovery") {
+		t.Fatalf("url missing discovery run_mode: %q", url)
 	}
 	if !strings.Contains(url, "source_name=acme+org") {
 		t.Fatalf("url missing encoded source_name: %q", url)
@@ -142,7 +150,8 @@ func TestConnectorHealthLanes_IncludeDiscoveryWhenEnabled(t *testing.T) {
 	if len(lanes) != 2 {
 		t.Fatalf("lane count = %d, want 2", len(lanes))
 	}
-	if lanes[0].syncKind != "google_workspace" || lanes[1].syncKind != "google_workspace_discovery" {
+	if lanes[0].syncKind != "google_workspace" || lanes[0].runMode != connregistry.RunModeFull ||
+		lanes[1].syncKind != "google_workspace" || lanes[1].runMode != connregistry.RunModeDiscovery {
 		t.Fatalf("lanes = %#v", lanes)
 	}
 }
@@ -175,9 +184,9 @@ func TestConnectorHealthRequestedRollupKeys_IncludeVault(t *testing.T) {
 	}
 
 	want := map[syncRollupKey]struct{}{
-		{kind: configstore.KindVault, name: "prod-vault"}:                     {},
-		{kind: configstore.KindGoogleWorkspace, name: "C0123"}:                {},
-		{kind: configstore.KindGoogleWorkspace + "_discovery", name: "C0123"}: {},
+		{kind: configstore.KindVault, name: "prod-vault", mode: string(connregistry.RunModeFull)}:           {},
+		{kind: configstore.KindGoogleWorkspace, name: "C0123", mode: string(connregistry.RunModeFull)}:      {},
+		{kind: configstore.KindGoogleWorkspace, name: "C0123", mode: string(connregistry.RunModeDiscovery)}: {},
 	}
 	for _, key := range keys {
 		if _, ok := want[key]; !ok {

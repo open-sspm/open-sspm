@@ -1,0 +1,1 @@
+-- Irreversible: rule result parity tables were replaced by canonical findings and finding_events.

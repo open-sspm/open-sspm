@@ -55,7 +55,7 @@ The API token is required for normal identity syncs and for polling-based discov
 2. Open the Okta connector.
 3. Enter the Okta domain and API token.
 4. Enable **SaaS discovery** if you want discovery evidence.
-5. Choose the discovery ingest mode.
+5. Choose the event inbox mode.
 6. Configure Event Hook or EventBridge secrets if a push mode is enabled.
 7. Save the configuration and trigger a sync.
 
@@ -113,14 +113,14 @@ EventBridge is optional. Customers who do not use AWS should use polling, Event 
 |---------|----------|-------------|
 | Domain | Yes | Okta host, for example `yourcompany.okta.com`. |
 | API Token | Required for polling/full sync | Okta API token. Keep configured for backfill and recovery. |
-| Discovery enabled | No | Enable discovery evidence ingestion. |
-| Discovery ingest mode | No | `polling`, `event_hook`, `eventbridge`, or `hybrid`. |
+| Discovery enabled | No | Enable polling-based discovery evidence ingestion. Push delivery can still enter the event inbox when a push channel is configured. |
+| Event inbox mode | No | `polling`, `event_hook`, `eventbridge`, or `hybrid`. |
 | Event Hook receiver | Required for Event Hook mode | Enables `/ingest/okta/events`. |
 | Event Hook secret | Required for Event Hook mode | Shared secret expected in the `Authorization` header. |
 | EventBridge receiver | Required for EventBridge mode | Enables `/ingest/okta/eventbridge`. |
 | EventBridge secret | Required for EventBridge mode | Shared secret expected in the `Authorization` header. |
 
-Push endpoints only accept deliveries when global discovery is enabled, the Okta connector is enabled, Okta discovery is enabled, and the configured ingest mode includes the delivery channel. For example, an Event Hook secret configured while the mode is `polling` is stored but not accepted by `/ingest/okta/events`.
+Push endpoints accept deliveries when the event inbox is enabled, the Okta connector is enabled, and the configured event inbox mode includes the delivery channel. For example, an Event Hook secret configured while the mode is `polling` is stored but not accepted by `/ingest/okta/events`.
 
 ## Sync Tuning
 
@@ -129,11 +129,11 @@ SYNC_OKTA_INTERVAL=15m
 SYNC_OKTA_WORKERS=3
 ```
 
-Push delivery is received by the `api` process and persisted in the Postgres inbox. With the default `QUEUE_BACKEND=postgres`, push processing runs from that inbox in the `worker-ingest` process. With `QUEUE_BACKEND=redis`, the `api` process also enqueues persisted inbox row IDs in Redis so `worker-ingest` can wake immediately; Postgres remains the durable ledger and fallback poller. If Redis is unavailable, startup and enqueue failures fall back to Postgres polling. If an HTTP request is canceled after the Postgres write, Redis enqueue uses a short independent timeout, and the Postgres poller still recovers any missed wake-up. The Redis wake-up list depth is exposed as `opensspm_okta_push_redis_queue_depth`. The inbox processor polls queued rows every five seconds, writes discovery evidence when present, and queues a scoped Okta full sync for user, group, application, or membership change events. It reclaims stuck `processing` rows after five minutes, retries transient failures with exponential backoff (up to 10 attempts), then deletes processed and ignored rows after 30 days and dead-letter rows after 90 days.
+Push delivery is received by the `api` process and persisted in the generic Postgres `event_inbox`. The `open-sspm worker --lane event-inbox` process drains that inbox, writes discovery evidence when present, and queues a scoped Okta full sync for user, group, application, or membership change events. It reclaims expired `processing` leases after five minutes, retries transient failures with exponential backoff (up to 10 attempts), then deletes processed and ignored deliveries after 30 days and dead-letter deliveries after 90 days.
 
-The `worker-tail` process tails the Okta System Log with a cursor-locked watermark overlap. Push deliveries enqueue scoped tail wake-ups so Okta Event Hooks improve latency without becoming the only correctness source.
+The `open-sspm worker --lane tail` process tails the Okta System Log with a cursor-locked watermark overlap. Push deliveries enqueue scoped tail wake-ups so Okta Event Hooks improve latency without becoming the only correctness source.
 
-After enabling a push channel, run an Okta discovery sync from **Settings → Connector Health**. That backfills recent history through the System Log API and keeps the source from looking healthy on push delivery alone.
+After enabling a push channel, run an Okta full sync from **Settings → Connector Health**. If polling discovery is enabled, also run discovery once to backfill recent System Log history; push delivery is intentionally a freshness path, not the only correctness source.
 
 ## Troubleshooting
 
@@ -154,10 +154,11 @@ After enabling a push channel, run an Okta discovery sync from **Settings → Co
 
 ### Push Events Are Not Processed
 
-- Check the connector configuration card for push ingest status, queue depth, and dead-letter count.
+- Check the connector configuration card for event inbox status, queue depth, and dead-letter count.
 - Confirm the request path is `/ingest/okta/events` for Event Hooks or `/ingest/okta/eventbridge` for EventBridge.
 - Confirm the `Authorization` header exactly matches the configured secret.
-- Make sure `open-sspm worker-ingest` is running.
+- Make sure `EVENT_INBOX_ENABLED=1`.
+- Make sure `open-sspm worker --lane event-inbox` is running.
 - For EventBridge, confirm the envelope has `detail-type: "SystemLog"` and an Okta partner `source`.
 
 ### Discovery Data Missing

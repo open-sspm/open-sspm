@@ -33,17 +33,17 @@ Discovery uses activity evidence from supported identity providers to identify:
 Discovery requires:
 
 - `SYNC_DISCOVERY_ENABLED=1`
-- The discovery worker running
+- The discovery worker lane running
 - Discovery enabled on the relevant IdP connector
 
 ## Realtime Sync
 
 Realtime and near-realtime support is capability-driven:
 
-- Push deliveries enter the generic inbox and are processed by `worker-ingest`.
-- Cursor-based provider tails run in `worker-tail`.
+- Push deliveries enter the generic inbox and are processed by `open-sspm worker --lane event-inbox`.
+- Cursor-based provider tails run in `open-sspm worker --lane tail`.
 - Canonical event evidence is stored in `events` and `event_targets`.
-- Event policy evaluation runs in shadow mode through `worker-riskpolicy`.
+- Event policy evaluation runs through `open-sspm worker --lane evaluator`.
 
 See [Real-Time Synchronization](/run/real-time-synchronization) for the current provider matrix.
 
@@ -98,7 +98,7 @@ Check:
 
 1. The connector is configured and enabled
 2. A sync has completed successfully
-3. The relevant lane is running (full, discovery, ingest, tail, or riskpolicy)
+3. The relevant lane is running (full, discovery, event-inbox, tail, or evaluator)
 
 ## Next Steps
 

@@ -1,0 +1,1 @@
+-- Irreversible: Okta app/group identity and integration mappings are source-scoped.

@@ -2,10 +2,10 @@
 
 Bootstraps the Scaleway VM for the demo:
 - installs Postgres locally
-- prepares an `open-sspm` system user and service scaffolding (`open-sspm`, `open-sspm-worker`, `open-sspm-discovery-worker`, `open-sspm-ingest-worker`)
+- prepares an `open-sspm` system user and service scaffolding (`open-sspm` plus the lane-based `open-sspm-worker@.service` template)
 
 This is intentionally minimal; the application binary/container is expected to be deployed by GitHub Actions.
-Worker services are provisioned but kept disabled/stopped by default.
+Worker lane instances (`full`, `discovery`, `event-inbox`, `tail`, `evaluator`) are kept disabled/stopped by default.
 
 ## Usage
 
@@ -34,7 +34,7 @@ ansible-playbook -i inventory.ini add-keys.yml \
 
 The GitHub Actions demo deploy workflow already resets the demo database and applies all demo seed SQL files from `demo/data/` in lexical order.
 
-If you want to re-seed without redeploying, after the app has been deployed (migrations + `open-sspm seed-rules`), run:
+If you want to re-seed without redeploying, after the app has been deployed (migrations + `open-sspm admin seed-rules`), run:
 
 ```bash
 ansible-playbook -i inventory.ini seed-demo.yml
@@ -45,7 +45,7 @@ ansible-playbook -i inventory.ini seed-demo.yml
 Build CSS on the control machine first:
 
 ```bash
-make ui
+just ui
 ```
 
 Then sync runtime assets:

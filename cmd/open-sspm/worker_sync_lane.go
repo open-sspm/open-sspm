@@ -69,9 +69,9 @@ func discoverySyncLane() syncWorkerLane {
 		enableDiscoveryMetrics: true,
 		intervalByKind: func(cfg config.Config) map[string]time.Duration {
 			return map[string]time.Duration{
-				"okta_discovery":             cfg.SyncDiscoveryInterval,
-				"entra_discovery":            cfg.SyncDiscoveryInterval,
-				"google_workspace_discovery": cfg.SyncDiscoveryInterval,
+				"okta":             cfg.SyncDiscoveryInterval,
+				"entra":            cfg.SyncDiscoveryInterval,
+				"google_workspace": cfg.SyncDiscoveryInterval,
 			}
 		},
 		notifyChannel: sync.SyncJobNotifyChannelForMode(registry.RunModeDiscovery),
@@ -96,10 +96,10 @@ func tailSyncLane() syncWorkerLane {
 		consumerPollInterval: defaultSyncWorkerConsumerPollInterval,
 		intervalByKind: func(cfg config.Config) map[string]time.Duration {
 			return map[string]time.Duration{
-				"okta_tail":             cfg.SyncTailInterval,
-				"google_workspace_tail": cfg.SyncTailInterval,
-				"datadog_tail":          cfg.SyncTailInterval,
-				"aws_tail":              cfg.SyncTailInterval,
+				"okta":             cfg.SyncTailInterval,
+				"google_workspace": cfg.SyncTailInterval,
+				"datadog":          cfg.SyncTailInterval,
+				"aws":              cfg.SyncTailInterval,
 			}
 		},
 		notifyChannel: sync.SyncJobNotifyChannelForMode(registry.RunModeTail),

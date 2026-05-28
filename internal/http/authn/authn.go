@@ -76,9 +76,6 @@ func RequireRole(role string) echo.MiddlewareFunc {
 				return handleUnauth(c)
 			}
 			if strings.ToLower(strings.TrimSpace(p.Role)) != role {
-				if isAPIRequest(c) {
-					return c.JSON(http.StatusForbidden, map[string]string{"error": "forbidden"})
-				}
 				return echo.NewHTTPError(http.StatusForbidden, http.StatusText(http.StatusForbidden))
 			}
 			return next(c)
@@ -86,15 +83,7 @@ func RequireRole(role string) echo.MiddlewareFunc {
 	}
 }
 
-func isAPIRequest(c *echo.Context) bool {
-	return strings.HasPrefix(c.Path(), "/api/") || strings.HasPrefix(c.Request().URL.Path, "/api/")
-}
-
 func handleUnauth(c *echo.Context) error {
-	if isAPIRequest(c) {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-	}
-
 	location := "/login"
 	if c.Request().Method == http.MethodGet {
 		if next := SanitizeNext(c.Request().URL.RequestURI()); next != "" {

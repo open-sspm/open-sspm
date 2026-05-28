@@ -19,8 +19,9 @@ func TestSupportsRunModeFromCapabilities(t *testing.T) {
 
 	provider := modeSupportProvider{
 		caps: Capabilities{
-			Full: &FullCapability{},
-			Tail: &TailCapability{},
+			Full:      &FullCapability{},
+			Discovery: &DiscoveryCapability{},
+			Tail:      &TailCapability{},
 		},
 	}
 	if supported, declared := SupportsRunMode(provider, registry.RunModeFull); !declared || !supported {
@@ -29,8 +30,11 @@ func TestSupportsRunModeFromCapabilities(t *testing.T) {
 	if supported, declared := SupportsRunMode(provider, registry.RunModeTail); !declared || !supported {
 		t.Fatalf("tail support = %v/%v, want declared supported", supported, declared)
 	}
-	if supported, declared := SupportsRunMode(provider, registry.RunModeDiscovery); declared || supported {
-		t.Fatalf("discovery support = %v/%v, want not declared", supported, declared)
+	if supported, declared := SupportsRunMode(provider, registry.RunModeDiscovery); !declared || !supported {
+		t.Fatalf("discovery support = %v/%v, want declared supported", supported, declared)
+	}
+	if supported, declared := SupportsRunMode(provider, registry.RunModeEventInbox); declared || supported {
+		t.Fatalf("event inbox support = %v/%v, want not declared", supported, declared)
 	}
 }
 
@@ -40,5 +44,8 @@ func TestSupportsRunModeReportsDeclaredUnsupported(t *testing.T) {
 	provider := modeSupportProvider{caps: Capabilities{Full: &FullCapability{}}}
 	if supported, declared := SupportsRunMode(provider, registry.RunModeTail); !declared || supported {
 		t.Fatalf("tail support = %v/%v, want declared unsupported", supported, declared)
+	}
+	if supported, declared := SupportsRunMode(provider, registry.RunModeDiscovery); !declared || supported {
+		t.Fatalf("discovery support = %v/%v, want declared unsupported", supported, declared)
 	}
 }

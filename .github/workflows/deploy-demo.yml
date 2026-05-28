@@ -134,10 +134,30 @@ jobs:
 
           cd /opt/open-sspm
 
+          cat >/etc/systemd/system/open-sspm-worker@.service <<'UNIT'
+          [Unit]
+          Description=Open-SSPM Worker (%i lane)
+          After=network-online.target postgresql.service
+          Wants=network-online.target
+
+          [Service]
+          User=open-sspm
+          Group=open-sspm
+          WorkingDirectory=/opt/open-sspm
+          EnvironmentFile=/etc/open-sspm.env
+          ExecStart=/usr/local/bin/open-sspm worker --lane %i
+          Restart=on-failure
+          RestartSec=2
+
+          [Install]
+          WantedBy=multi-user.target
+          UNIT
+          systemctl daemon-reload
+
           systemctl stop open-sspm || true
-          systemctl stop open-sspm-worker || true
-          systemctl stop open-sspm-discovery-worker || true
-          systemctl stop open-sspm-ingest-worker || true
+          for lane in full discovery event-inbox tail evaluator; do
+            systemctl stop "open-sspm-worker@${lane}.service" || true
+          done
 
           if [ -z "${DATABASE_URL:-}" ]; then
             echo "DATABASE_URL is not set (expected in /etc/open-sspm.env)" >&2
@@ -157,8 +177,8 @@ jobs:
           sudo -u postgres dropdb --if-exists --force "${db_name}"
           sudo -u postgres createdb -O "${db_user}" "${db_name}"
 
-          /usr/local/bin/open-sspm migrate
-          /usr/local/bin/open-sspm seed-rules
+          /usr/local/bin/open-sspm admin migrate
+          /usr/local/bin/open-sspm admin seed-rules
 
           mapfile -t seed_files < <(find /opt/open-sspm/demo -maxdepth 1 -type f -name '*.sql' | sort)
           if [ "${#seed_files[@]}" -eq 0 ]; then
@@ -169,11 +189,11 @@ jobs:
             psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${seed_file}"
           done
 
-          printf '%s' "admin" | /usr/local/bin/open-sspm users bootstrap-admin --email "admin@admin.com" --password-stdin
+          printf '%s' "admin" | /usr/local/bin/open-sspm admin users bootstrap-admin --email "admin@admin.com" --password-stdin
 
-          systemctl disable open-sspm-worker || true
-          systemctl disable open-sspm-discovery-worker || true
-          systemctl disable open-sspm-ingest-worker || true
+          for lane in full discovery event-inbox tail evaluator; do
+            systemctl disable "open-sspm-worker@${lane}.service" || true
+          done
           systemctl enable open-sspm
           systemctl restart open-sspm
           systemctl status open-sspm --no-pager -l || true

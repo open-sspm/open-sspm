@@ -26,10 +26,10 @@ const (
 const (
 	AWSIdentityCenterAuthTypeDefaultChain     = "default_chain"
 	AWSIdentityCenterAuthTypeAccessKey        = "access_key"
-	OktaDiscoveryIngestModePolling            = "polling"
-	OktaDiscoveryIngestModeEventHook          = "event_hook"
-	OktaDiscoveryIngestModeEventBridge        = "eventbridge"
-	OktaDiscoveryIngestModeHybrid             = "hybrid"
+	OktaEventInboxModePolling                 = "polling"
+	OktaEventInboxModeEventHook               = "event_hook"
+	OktaEventInboxModeEventBridge             = "eventbridge"
+	OktaEventInboxModeHybrid                  = "hybrid"
 	VaultAuthTypeToken                        = "token"
 	VaultAuthTypeAppRole                      = "approle"
 	GoogleWorkspaceAuthTypeServiceAccountJSON = "service_account_json"
@@ -37,23 +37,23 @@ const (
 )
 
 type OktaConfig struct {
-	Domain              string `json:"domain"`
-	Token               string `json:"token"`
-	DiscoveryEnabled    bool   `json:"discovery_enabled"`
-	DiscoveryIngestMode string `json:"discovery_ingest_mode"`
-	EventHookEnabled    bool   `json:"event_hook_enabled"`
-	EventHookSecret     string `json:"event_hook_secret"`
-	EventBridgeEnabled  bool   `json:"eventbridge_enabled"`
-	EventBridgeSecret   string `json:"eventbridge_secret"`
+	Domain             string `json:"domain"`
+	Token              string `json:"token"`
+	DiscoveryEnabled   bool   `json:"discovery_enabled"`
+	EventInboxMode     string `json:"event_inbox_mode"`
+	EventHookEnabled   bool   `json:"event_hook_enabled"`
+	EventHookSecret    string `json:"event_hook_secret"`
+	EventBridgeEnabled bool   `json:"eventbridge_enabled"`
+	EventBridgeSecret  string `json:"eventbridge_secret"`
 }
 
 func (c OktaConfig) Normalized() OktaConfig {
 	out := c
 	out.Domain = NormalizeOktaDomain(out.Domain)
 	out.Token = strings.TrimSpace(out.Token)
-	out.DiscoveryIngestMode = strings.ToLower(strings.TrimSpace(out.DiscoveryIngestMode))
-	if out.DiscoveryIngestMode == "" {
-		out.DiscoveryIngestMode = OktaDiscoveryIngestModePolling
+	out.EventInboxMode = strings.ToLower(strings.TrimSpace(out.EventInboxMode))
+	if out.EventInboxMode == "" {
+		out.EventInboxMode = OktaEventInboxModePolling
 	}
 	out.EventHookSecret = strings.TrimSpace(out.EventHookSecret)
 	out.EventBridgeSecret = strings.TrimSpace(out.EventBridgeSecret)
@@ -82,20 +82,20 @@ func (c OktaConfig) Validate() error {
 	if c.EventBridgeEnabled && c.EventBridgeSecret == "" {
 		return errors.New("okta eventbridge secret is required")
 	}
-	switch c.DiscoveryIngestMode {
-	case OktaDiscoveryIngestModePolling:
+	switch c.EventInboxMode {
+	case OktaEventInboxModePolling:
 		if c.Token == "" {
 			return errors.New("okta token is required")
 		}
-	case OktaDiscoveryIngestModeEventHook:
+	case OktaEventInboxModeEventHook:
 		if !c.EventHookEnabled {
 			return errors.New("okta event hook receiver must be enabled")
 		}
-	case OktaDiscoveryIngestModeEventBridge:
+	case OktaEventInboxModeEventBridge:
 		if !c.EventBridgeEnabled {
 			return errors.New("okta eventbridge receiver must be enabled")
 		}
-	case OktaDiscoveryIngestModeHybrid:
+	case OktaEventInboxModeHybrid:
 		if c.Token == "" {
 			return errors.New("okta token is required for hybrid ingestion")
 		}
@@ -103,7 +103,7 @@ func (c OktaConfig) Validate() error {
 			return errors.New("at least one Okta push channel is required for hybrid ingestion")
 		}
 	default:
-		return errors.New("okta discovery ingest mode is invalid")
+		return errors.New("okta event inbox mode is invalid")
 	}
 	return nil
 }
@@ -473,7 +473,7 @@ func MergeOktaConfig(existing OktaConfig, update OktaConfig) OktaConfig {
 	merged := existing
 	replaceTrimmed(&merged.Domain, update.Domain)
 	merged.DiscoveryEnabled = update.DiscoveryEnabled
-	replaceIfNonEmptyTrimmed(&merged.DiscoveryIngestMode, update.DiscoveryIngestMode)
+	replaceIfNonEmptyTrimmed(&merged.EventInboxMode, update.EventInboxMode)
 	merged.EventHookEnabled = update.EventHookEnabled
 	merged.EventBridgeEnabled = update.EventBridgeEnabled
 	replaceIfNonEmptyTrimmed(&merged.Token, update.Token)

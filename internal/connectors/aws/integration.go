@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	"github.com/open-sspm/open-sspm/internal/matching"
+	"github.com/open-sspm/open-sspm/internal/identity"
 )
 
 type AWSIntegration struct {
@@ -88,7 +88,7 @@ func (i *AWSIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.
 		if externalID == "" {
 			continue
 		}
-		email := matching.NormalizeEmail(user.Email)
+		email := identity.NormalizeEmail(user.Email)
 		display := strings.TrimSpace(user.DisplayName)
 		if display == "" {
 			display = email

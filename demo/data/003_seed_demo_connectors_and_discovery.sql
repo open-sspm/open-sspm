@@ -15,11 +15,11 @@ CREATE TEMP TABLE demo_seed_ctx_v3 (
   vault_source_name TEXT NOT NULL,
   vault_address TEXT NOT NULL,
   okta_run_id BIGINT NOT NULL,
-  okta_discovery_run_id BIGINT NOT NULL,
+  discovery_okta_run_id BIGINT NOT NULL,
   entra_run_id BIGINT NOT NULL,
-  entra_discovery_run_id BIGINT NOT NULL,
+  discovery_entra_run_id BIGINT NOT NULL,
   google_run_id BIGINT NOT NULL,
-  google_discovery_run_id BIGINT NOT NULL,
+  discovery_google_run_id BIGINT NOT NULL,
   github_run_id BIGINT NOT NULL,
   datadog_run_id BIGINT NOT NULL,
   aws_run_id BIGINT NOT NULL,
@@ -46,11 +46,12 @@ WITH
     FROM now_ctx
     RETURNING id
   ),
-  okta_discovery_run AS (
-    INSERT INTO sync_runs (source_kind, source_name, status, started_at, finished_at, message, stats, error_kind)
+  discovery_okta_run AS (
+    INSERT INTO sync_runs (source_kind, source_name, run_mode, status, started_at, finished_at, message, stats, error_kind)
     SELECT
-      'okta_discovery',
+      'okta',
       'demo.okta.example.com',
+      'discovery',
       'success',
       now_ts - interval '8 minutes',
       now_ts - interval '3 minutes',
@@ -74,11 +75,12 @@ WITH
     FROM now_ctx
     RETURNING id
   ),
-  entra_discovery_run AS (
-    INSERT INTO sync_runs (source_kind, source_name, status, started_at, finished_at, message, stats, error_kind)
+  discovery_entra_run AS (
+    INSERT INTO sync_runs (source_kind, source_name, run_mode, status, started_at, finished_at, message, stats, error_kind)
     SELECT
-      'entra_discovery',
+      'entra',
       '00000000-0000-4000-8000-000000000001',
+      'discovery',
       'success',
       now_ts - interval '3 days 8 minutes',
       now_ts - interval '3 days 2 minutes',
@@ -102,11 +104,12 @@ WITH
     FROM now_ctx
     RETURNING id
   ),
-  google_discovery_run AS (
-    INSERT INTO sync_runs (source_kind, source_name, status, started_at, finished_at, message, stats, error_kind)
+  discovery_google_run AS (
+    INSERT INTO sync_runs (source_kind, source_name, run_mode, status, started_at, finished_at, message, stats, error_kind)
     SELECT
-      'google_workspace_discovery',
+      'google_workspace',
       'C0123',
+      'discovery',
       'success',
       now_ts - interval '7 minutes',
       now_ts - interval '2 minutes',
@@ -185,11 +188,11 @@ INSERT INTO demo_seed_ctx_v3 (
   vault_source_name,
   vault_address,
   okta_run_id,
-  okta_discovery_run_id,
+  discovery_okta_run_id,
   entra_run_id,
-  entra_discovery_run_id,
+  discovery_entra_run_id,
   google_run_id,
-  google_discovery_run_id,
+  discovery_google_run_id,
   github_run_id,
   datadog_run_id,
   aws_run_id,
@@ -208,11 +211,11 @@ SELECT
   'demo-vault',
   'https://demo-vault.example.com',
   (SELECT id FROM okta_run),
-  (SELECT id FROM okta_discovery_run),
+  (SELECT id FROM discovery_okta_run),
   (SELECT id FROM entra_run),
-  (SELECT id FROM entra_discovery_run),
+  (SELECT id FROM discovery_entra_run),
   (SELECT id FROM google_run),
-  (SELECT id FROM google_discovery_run),
+  (SELECT id FROM discovery_google_run),
   (SELECT id FROM github_run),
   (SELECT id FROM datadog_run),
   (SELECT id FROM aws_run),
@@ -466,10 +469,10 @@ WITH
       app_defs.source_app_name,
       app_defs.source_app_domain,
       CASE app_defs.discovery_source_kind
-        WHEN 'okta' THEN ctx.okta_discovery_run_id
-        WHEN 'entra' THEN ctx.entra_discovery_run_id
-        WHEN 'google_workspace' THEN ctx.google_discovery_run_id
-        ELSE ctx.okta_discovery_run_id
+        WHEN 'okta' THEN ctx.discovery_okta_run_id
+        WHEN 'entra' THEN ctx.discovery_entra_run_id
+        WHEN 'google_workspace' THEN ctx.discovery_google_run_id
+        ELSE ctx.discovery_okta_run_id
       END AS run_id,
       CASE app_defs.discovery_source_kind
         WHEN 'entra' THEN ctx.now_ts - interval '3 days'
@@ -592,10 +595,10 @@ WITH
       app_defs.actor_count,
       app_defs.privileged_scope,
       CASE app_defs.discovery_source_kind
-        WHEN 'okta' THEN ctx.okta_discovery_run_id
-        WHEN 'entra' THEN ctx.entra_discovery_run_id
-        WHEN 'google_workspace' THEN ctx.google_discovery_run_id
-        ELSE ctx.okta_discovery_run_id
+        WHEN 'okta' THEN ctx.discovery_okta_run_id
+        WHEN 'entra' THEN ctx.discovery_entra_run_id
+        WHEN 'google_workspace' THEN ctx.discovery_google_run_id
+        ELSE ctx.discovery_okta_run_id
       END AS run_id
     FROM app_defs
     JOIN saas_apps sa ON sa.canonical_key = app_defs.canonical_key

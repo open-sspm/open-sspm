@@ -1,0 +1,1 @@
+-- Irreversible: legacy Okta push inbox was replaced by the generic event_inbox.

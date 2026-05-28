@@ -10,7 +10,7 @@ import {
   markLazyHxPending,
   scheduleVisibleLazyHx,
 } from "open-sspm-app/fragment.js";
-import { showFlashToast } from "open-sspm-app/toast.js";
+import { showFlashToast } from "open-sspm-app/components/toast.js";
 
 const htmxRequestState = new WeakMap();
 const busyElementCounts = new WeakMap();

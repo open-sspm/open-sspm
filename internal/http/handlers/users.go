@@ -14,12 +14,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v5"
-	"github.com/open-sspm/open-sspm/internal/accessgraph"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
+	identitydomain "github.com/open-sspm/open-sspm/internal/identity"
 )
 
 // HandleOktaAccounts renders the Okta accounts list page.
@@ -94,55 +94,54 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 		return RenderNotFound(c)
 	}
 
-	assignments, err := h.Q.ListOktaAppAssignmentsForOktaAccount(ctx, user.ID)
+	entitlements, err := h.Q.ListEntitlementsForAccountIDs(ctx, []int64{user.ID})
 	if err != nil {
 		return h.RenderError(c, err)
 	}
-	userGroups, err := h.Q.ListOktaGroupsForOktaAccount(ctx, user.ID)
+	groupBadges, groupNamesByExternalID := oktaGroupBadgesFromEntitlements(entitlements)
+
+	assignments, err := h.Q.ListOktaAppAssignmentsFromEntitlementsForAccount(ctx, user.ID)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
-	groupNames := make(map[int64]string)
-	groupBadges := make([]viewmodels.OktaGroupBadge, 0, len(userGroups))
-	for _, group := range userGroups {
-		name := strings.TrimSpace(group.Name)
-		if name == "" {
-			name = strings.TrimSpace(group.ExternalID)
-		}
-		if name == "" {
-			continue
-		}
-		groupNames[group.ID] = name
-		groupBadges = append(groupBadges, viewmodels.OktaGroupBadge{
-			Name:       name,
-			ExternalID: strings.TrimSpace(group.ExternalID),
-		})
-	}
-	sort.Slice(groupBadges, func(i, j int) bool {
-		return strings.ToLower(groupBadges[i].Name) < strings.ToLower(groupBadges[j].Name)
-	})
-
-	appIDSet := make(map[int64]struct{})
+	groupAssignedAppSet := make(map[string]struct{})
 	for _, assignment := range assignments {
-		appIDSet[assignment.OktaAppID] = struct{}{}
-	}
-	appIDs := make([]int64, 0, len(appIDSet))
-	for appID := range appIDSet {
-		appIDs = append(appIDs, appID)
+		if strings.EqualFold(strings.TrimSpace(assignment.Scope), "GROUP") {
+			if externalID := strings.TrimSpace(assignment.OktaAppExternalID); externalID != "" {
+				groupAssignedAppSet[externalID] = struct{}{}
+			}
+		}
 	}
 
-	appGroupAssignments := []gen.ListOktaAppGroupAssignmentsByAppIDsRow{}
-	if len(appIDs) > 0 {
-		appGroupAssignments, err = h.Q.ListOktaAppGroupAssignmentsByAppIDs(ctx, appIDs)
+	groupAssignedAppExternalIDs := make([]string, 0, len(groupAssignedAppSet))
+	for externalID := range groupAssignedAppSet {
+		groupAssignedAppExternalIDs = append(groupAssignedAppExternalIDs, externalID)
+	}
+	sort.Strings(groupAssignedAppExternalIDs)
+
+	appGroupAssignments := []gen.ListOktaAppGrantingGroupsFromEntitlementsForAccountAppsRow{}
+	if len(groupAssignedAppExternalIDs) > 0 {
+		appGroupAssignments, err = h.Q.ListOktaAppGrantingGroupsFromEntitlementsForAccountApps(ctx, gen.ListOktaAppGrantingGroupsFromEntitlementsForAccountAppsParams{
+			OktaAccountID:      user.ID,
+			OktaAppExternalIds: groupAssignedAppExternalIDs,
+		})
 		if err != nil {
 			return h.RenderError(c, err)
 		}
 	}
 
-	appGroupIDs := make(map[int64][]int64)
+	appGroupExternalIDs := make(map[string][]string)
 	for _, row := range appGroupAssignments {
-		appGroupIDs[row.OktaAppID] = append(appGroupIDs[row.OktaAppID], row.OktaGroupID)
+		externalID := strings.TrimSpace(row.OktaGroupExternalID)
+		if externalID == "" {
+			continue
+		}
+		appExternalID := strings.TrimSpace(row.OktaAppExternalID)
+		if appExternalID == "" {
+			continue
+		}
+		appGroupExternalIDs[appExternalID] = append(appGroupExternalIDs[appExternalID], externalID)
 	}
 
 	oktaAssignments := make([]viewmodels.OktaAssignmentView, 0, len(assignments))
@@ -160,8 +159,8 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 		}
 		var groups []string
 		if scope == "GROUP" {
-			for _, groupID := range appGroupIDs[assignment.OktaAppID] {
-				if name, ok := groupNames[groupID]; ok && name != "" {
+			for _, externalID := range appGroupExternalIDs[assignment.OktaAppExternalID] {
+				if name, ok := groupNamesByExternalID[externalID]; ok && name != "" {
 					groups = append(groups, name)
 				}
 			}
@@ -177,14 +176,14 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 				href := IntegratedAppHref(assignment.IntegrationKind)
 				if href == "" {
 					if externalID := strings.TrimSpace(assignment.OktaAppExternalID); externalID != "" {
-						href = "/assigned-apps/" + externalID
+						href = oktaAppDetailPath(assignment.OktaAppSourceName, externalID)
 					}
 				}
 				return href
 			}(),
 			AssignedVia: assignedVia,
 			Groups:      groups,
-			Attributes:  SummarizeProfileAttributes(assignment.ProfileJson),
+			Attributes:  SummarizeProfileAttributes(profileJSONBytes(assignment.ProfileJson)),
 		})
 	}
 
@@ -206,6 +205,93 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 	}
 
 	return h.RenderComponent(c, views.OktaAccountShowPage(data))
+}
+
+func oktaGroupBadgesFromEntitlements(entitlements []gen.ListEntitlementsForAccountIDsRow) ([]viewmodels.OktaGroupBadge, map[string]string) {
+	groupNames := make(map[string]string)
+	for _, entitlement := range entitlements {
+		badge, ok := oktaGroupBadgeFromEntitlement(entitlement)
+		if !ok {
+			continue
+		}
+		groupNames[badge.ExternalID] = badge.Name
+	}
+
+	badges := make([]viewmodels.OktaGroupBadge, 0, len(groupNames))
+	for externalID, name := range groupNames {
+		badges = append(badges, viewmodels.OktaGroupBadge{
+			Name:       name,
+			ExternalID: externalID,
+		})
+	}
+	sort.Slice(badges, func(i, j int) bool {
+		return strings.ToLower(badges[i].Name) < strings.ToLower(badges[j].Name)
+	})
+	return badges, groupNames
+}
+
+func oktaGroupBadgeFromEntitlement(entitlement gen.ListEntitlementsForAccountIDsRow) (viewmodels.OktaGroupBadge, bool) {
+	if strings.TrimSpace(entitlement.Kind) != "group_membership" {
+		return viewmodels.OktaGroupBadge{}, false
+	}
+	externalID := oktaGroupExternalIDFromEntitlementResource(entitlement.Resource)
+	rawName, rawExternalID := oktaGroupDetailsFromEntitlementRaw(entitlement.RawJson)
+	if externalID == "" {
+		externalID = rawExternalID
+	}
+	if externalID == "" {
+		return viewmodels.OktaGroupBadge{}, false
+	}
+	name := rawName
+	if name == "" {
+		name = externalID
+	}
+	return viewmodels.OktaGroupBadge{Name: name, ExternalID: externalID}, true
+}
+
+func oktaGroupExternalIDFromEntitlementResource(resource string) string {
+	resource = strings.TrimSpace(resource)
+	if strings.HasPrefix(resource, "group:") {
+		return strings.TrimSpace(strings.TrimPrefix(resource, "group:"))
+	}
+	return resource
+}
+
+func oktaGroupDetailsFromEntitlementRaw(raw []byte) (string, string) {
+	if len(raw) == 0 {
+		return "", ""
+	}
+	var envelope struct {
+		Attributes struct {
+			Target struct {
+				ExternalID  string `json:"external_id"`
+				DisplayName string `json:"display_name"`
+			} `json:"target"`
+		} `json:"attributes"`
+	}
+	if err := json.Unmarshal(raw, &envelope); err == nil {
+		name := strings.TrimSpace(envelope.Attributes.Target.DisplayName)
+		externalID := strings.TrimSpace(envelope.Attributes.Target.ExternalID)
+		if name != "" || externalID != "" {
+			return name, externalID
+		}
+	}
+
+	var oktaGroup struct {
+		ID      string `json:"id"`
+		Name    string `json:"name"`
+		Profile struct {
+			Name string `json:"name"`
+		} `json:"profile"`
+	}
+	if err := json.Unmarshal(raw, &oktaGroup); err != nil {
+		return "", ""
+	}
+	name := strings.TrimSpace(oktaGroup.Profile.Name)
+	if name == "" {
+		name = strings.TrimSpace(oktaGroup.Name)
+	}
+	return name, strings.TrimSpace(oktaGroup.ID)
 }
 
 // identityBacklinkForAccount resolves the identity that owns the given source
@@ -366,7 +452,7 @@ func (h *Handlers) HandleDatadogUsers(c *echo.Context) error {
 			if strings.TrimSpace(ent.Kind) != "datadog_role" {
 				continue
 			}
-			label := strings.TrimSpace(accessgraph.DisplayResourceLabel(ent.Resource, ent.RawJson))
+			label := strings.TrimSpace(identitydomain.DisplayResourceLabel(ent.Resource, ent.RawJson))
 			if label == "" {
 				continue
 			}

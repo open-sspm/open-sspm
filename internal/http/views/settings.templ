@@ -47,17 +47,17 @@ templ SettingsPage(data viewmodels.SettingsViewData) {
 			<section class="space-y-3">
 				<div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
 					<div>
-						<h2 class="text-base font-semibold">Risk policies</h2>
-						<p class="text-sm text-muted-foreground">Built-in policy packs loaded by this server.</p>
+						<h2 class="text-base font-semibold">Policy packs</h2>
+						<p class="text-sm text-muted-foreground">Built-in evaluator policies loaded by this server.</p>
 					</div>
 					<div class="text-xs text-muted-foreground">
-						{ FormatInt(len(data.RiskPolicyPacks)) }{ pluralizeSuffix(len(data.RiskPolicyPacks), " pack", " packs") }
+						{ FormatInt(len(data.PolicyPacks)) }{ pluralizeSuffix(len(data.PolicyPacks), " pack", " packs") }
 					</div>
 				</div>
-				if len(data.RiskPolicyPacks) > 0 {
+				if len(data.PolicyPacks) > 0 {
 					@ColumnsTable("") {
 						<table class="table osspm-table-fixed osspm-table-compact osspm-table-list align-top">
-							<caption class="sr-only">Active risk policy packs loaded by this server.</caption>
+							<caption class="sr-only">Active evaluator policy packs loaded by this server.</caption>
 							<thead>
 								<tr>
 									<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Domain</th>
@@ -66,7 +66,7 @@ templ SettingsPage(data viewmodels.SettingsViewData) {
 								</tr>
 							</thead>
 							<tbody>
-								for _, pack := range data.RiskPolicyPacks {
+								for _, pack := range data.PolicyPacks {
 									<tr>
 										<td class="text-muted-foreground whitespace-nowrap" hx-disable>{ pack.Domain }</td>
 										<td class="font-medium">{ pack.ID }</td>

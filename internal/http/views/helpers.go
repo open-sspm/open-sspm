@@ -231,12 +231,14 @@ func FindingsRulesetClearFiltersHref(data viewmodels.FindingsRulesetViewData) st
 	return "/findings/rulesets/" + strings.TrimSpace(data.Ruleset.Key)
 }
 
-func AppDetailURL(integratedHref, externalID string) string {
+func AppDetailURL(integratedHref, sourceName, externalID string) string {
 	if integratedHref = strings.TrimSpace(integratedHref); integratedHref != "" {
 		return integratedHref
 	}
-	if externalID = strings.TrimSpace(externalID); externalID != "" {
-		return "/assigned-apps/" + externalID
+	sourceName = strings.TrimSpace(sourceName)
+	externalID = strings.TrimSpace(externalID)
+	if sourceName != "" && externalID != "" {
+		return "/assigned-apps/" + url.PathEscape(sourceName) + "/" + url.PathEscape(externalID)
 	}
 	return "/assigned-apps"
 }
@@ -1439,7 +1441,10 @@ type MetaPart struct {
 // OktaAppMetaParts assembles the secondary identity line for an Okta app.
 // Empty or placeholder fields are skipped so the line stays tight.
 func OktaAppMetaParts(app viewmodels.OktaAppSummaryView) []MetaPart {
-	parts := make([]MetaPart, 0, 3)
+	parts := make([]MetaPart, 0, 4)
+	if s := strings.TrimSpace(app.SourceName); s != "" {
+		parts = append(parts, MetaPart{Text: s})
+	}
 	if s := strings.TrimSpace(app.Name); s != "" && s != "—" {
 		parts = append(parts, MetaPart{Text: s})
 	}

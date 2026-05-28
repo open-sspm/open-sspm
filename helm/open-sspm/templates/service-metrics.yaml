@@ -1,5 +1,6 @@
 {{- if .Values.metrics.service.enabled -}}
 {{- $component := default "worker" .Values.metrics.service.component -}}
+{{- $workerLane := default "" .Values.metrics.service.workerLane -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -7,6 +8,9 @@ metadata:
   labels:
     {{- include "open-sspm.labels" . | nindent 4 }}
     app.kubernetes.io/component: {{ $component }}
+    {{- if and (eq $component "worker") $workerLane }}
+    open-sspm.io/worker-lane: {{ $workerLane }}
+    {{- end }}
   {{- with .Values.metrics.service.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -21,4 +25,7 @@ spec:
   selector:
     {{- include "open-sspm.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: {{ $component }}
+    {{- if and (eq $component "worker") $workerLane }}
+    open-sspm.io/worker-lane: {{ $workerLane }}
+    {{- end }}
 {{- end }}

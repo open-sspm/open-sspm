@@ -13,6 +13,14 @@ WHERE source_kind = sqlc.arg(source_kind)::text
   AND resource = sqlc.arg(resource)::text
 FOR UPDATE;
 
+-- name: ListConnectorCursorStatesBySourceAndKind :many
+SELECT *
+FROM connector_cursor_state
+WHERE source_kind = sqlc.arg(source_kind)::text
+  AND source_name = sqlc.arg(source_name)::text
+  AND cursor_kind = sqlc.arg(cursor_kind)::text
+ORDER BY resource ASC;
+
 -- name: UpsertConnectorCursorState :exec
 INSERT INTO connector_cursor_state (
   source_kind,
@@ -78,3 +86,9 @@ SET
 WHERE source_kind = sqlc.arg(source_kind)::text
   AND source_name = sqlc.arg(source_name)::text
   AND resource = sqlc.arg(resource)::text;
+
+-- name: DeleteConnectorCursorStatesBySourceAndKind :exec
+DELETE FROM connector_cursor_state
+WHERE source_kind = sqlc.arg(source_kind)::text
+  AND source_name = sqlc.arg(source_name)::text
+  AND cursor_kind = sqlc.arg(cursor_kind)::text;

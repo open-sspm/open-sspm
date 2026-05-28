@@ -57,8 +57,7 @@ func (i *GoogleWorkspaceIntegration) runReportsTail(ctx context.Context, q *gen.
 	}
 
 	started := time.Now()
-	runKind := registry.SyncRunSourceKind(configstore.KindGoogleWorkspace, registry.RunModeTail)
-	runID, err := registry.StartSyncRun(ctx, q, runKind, i.customerID)
+	runID, err := registry.StartSyncRunWithMode(ctx, q, configstore.KindGoogleWorkspace, i.customerID, registry.RunModeTail)
 	if err != nil {
 		return err
 	}

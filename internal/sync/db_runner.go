@@ -13,7 +13,6 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
-	"github.com/open-sspm/open-sspm/internal/normalize"
 	"github.com/open-sspm/open-sspm/internal/readmodels"
 )
 
@@ -42,6 +41,7 @@ type integrationCandidate struct {
 type syncRunHistoryKey struct {
 	kind string
 	name string
+	mode string
 }
 
 type syncRunHistory struct {
@@ -266,7 +266,7 @@ func (r *DBRunner) prepareRun(ctx context.Context) (*preparedDBRun, error) {
 			if candidate.runKind == "" || candidate.runName == "" {
 				continue
 			}
-			keys = append(keys, syncRunHistoryKey{kind: candidate.runKind, name: candidate.runName})
+			keys = append(keys, syncRunHistoryKey{kind: candidate.runKind, name: candidate.runName, mode: string(r.runMode())})
 		}
 		if len(keys) > 0 {
 			var historyErr error
@@ -289,7 +289,7 @@ func (r *DBRunner) prepareRun(ctx context.Context) (*preparedDBRun, error) {
 				err       error
 			)
 			if historyBySource != nil {
-				history := historyBySource[syncRunHistoryKey{kind: candidate.runKind, name: candidate.runName}]
+				history := historyBySource[syncRunHistoryKey{kind: candidate.runKind, name: candidate.runName, mode: string(r.runMode())}]
 				shouldRun, reason, err = r.shouldRunIntegrationFromHistory(candidate.runKind, candidate.runName, history)
 			} else {
 				shouldRun, reason, err = r.shouldRunIntegration(ctx, candidate.runKind, candidate.runName)
@@ -351,7 +351,7 @@ func (r *DBRunner) integrationRunSourceKind(integration registry.Integration) st
 	if integration == nil {
 		return ""
 	}
-	return registry.SyncRunSourceKind(integration.Kind(), r.runMode())
+	return strings.ToLower(strings.TrimSpace(integration.Kind()))
 }
 
 func (r *DBRunner) integrationSupportsRunMode(integration registry.Integration) bool {
@@ -374,22 +374,22 @@ func (r *DBRunner) integrationSupportsRunMode(integration registry.Integration) 
 }
 
 func matchesRequestedConnectorScope(kind, sourceName, requestedKind, requestedSourceName string) bool {
-	kind = normalize.Lower(kind)
-	sourceName = normalize.Trim(sourceName)
-	requestedKind = normalize.Lower(requestedKind)
-	requestedSourceName = normalize.Trim(requestedSourceName)
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	sourceName = strings.TrimSpace(sourceName)
+	requestedKind = strings.ToLower(strings.TrimSpace(requestedKind))
+	requestedSourceName = strings.TrimSpace(requestedSourceName)
 	if kind == "" || sourceName == "" || requestedKind == "" || requestedSourceName == "" {
 		return false
 	}
-	return kind == requestedKind && normalize.EqualFoldTrimmed(sourceName, requestedSourceName)
+	return kind == requestedKind && strings.EqualFold(strings.TrimSpace(sourceName), strings.TrimSpace(requestedSourceName))
 }
 
 func connectorKindMatchesRequestedScope(kind, requestedKind string, hasRequestedScope bool) bool {
 	if !hasRequestedScope {
 		return true
 	}
-	kind = normalize.Lower(kind)
-	requestedKind = normalize.Lower(requestedKind)
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	requestedKind = strings.ToLower(strings.TrimSpace(requestedKind))
 	if kind == "" || requestedKind == "" {
 		return false
 	}
@@ -414,8 +414,8 @@ func (r *DBRunner) shouldRunIntegration(ctx context.Context, kind, name string) 
 		return true, "", nil
 	}
 
-	kind = normalize.Lower(kind)
-	name = normalize.Trim(name)
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	name = strings.TrimSpace(name)
 	if kind == "" || name == "" {
 		return true, "", nil
 	}
@@ -423,6 +423,7 @@ func (r *DBRunner) shouldRunIntegration(ctx context.Context, kind, name string) 
 	history, err := r.q.ListRecentFinishedSyncRunsBySource(ctx, gen.ListRecentFinishedSyncRunsBySourceParams{
 		SourceKind: kind,
 		SourceName: name,
+		RunMode:    string(r.runMode()),
 		Limit:      r.policy.recentCap(),
 	})
 	if err != nil {
@@ -447,12 +448,16 @@ func (r *DBRunner) listRecentFinishedSyncRunsForSources(ctx context.Context, sou
 
 	unique := make(map[syncRunHistoryKey]struct{}, len(sources))
 	for _, source := range sources {
-		kind := normalize.Lower(source.kind)
-		name := normalize.Trim(source.name)
+		kind := strings.ToLower(strings.TrimSpace(source.kind))
+		name := strings.TrimSpace(source.name)
 		if kind == "" || name == "" {
 			continue
 		}
-		unique[syncRunHistoryKey{kind: kind, name: name}] = struct{}{}
+		mode := strings.ToLower(strings.TrimSpace(source.mode))
+		if mode == "" {
+			mode = string(registry.RunModeFull)
+		}
+		unique[syncRunHistoryKey{kind: kind, name: name, mode: mode}] = struct{}{}
 	}
 	if len(unique) == 0 {
 		return map[syncRunHistoryKey][]syncRunHistory{}, nil
@@ -460,15 +465,18 @@ func (r *DBRunner) listRecentFinishedSyncRunsForSources(ctx context.Context, sou
 
 	sourceKinds := make([]string, 0, len(unique))
 	sourceNames := make([]string, 0, len(unique))
+	runModes := make([]string, 0, len(unique))
 	for key := range unique {
 		sourceKinds = append(sourceKinds, key.kind)
 		sourceNames = append(sourceNames, key.name)
+		runModes = append(runModes, key.mode)
 	}
 
 	rows, err := r.q.ListRecentFinishedSyncRunsForSources(ctx, gen.ListRecentFinishedSyncRunsForSourcesParams{
 		LimitRows:   r.policy.recentCap(),
 		SourceKinds: sourceKinds,
 		SourceNames: sourceNames,
+		RunModes:    runModes,
 	})
 	if err != nil {
 		return nil, err
@@ -476,7 +484,7 @@ func (r *DBRunner) listRecentFinishedSyncRunsForSources(ctx context.Context, sou
 
 	historyBySource := make(map[syncRunHistoryKey][]syncRunHistory, len(unique))
 	for _, row := range rows {
-		key := syncRunHistoryKey{kind: row.SourceKind, name: row.SourceName}
+		key := syncRunHistoryKey{kind: row.SourceKind, name: row.SourceName, mode: row.RunMode}
 		historyBySource[key] = append(historyBySource[key], syncRunHistory{
 			status:          row.Status,
 			finishedAt:      row.FinishedAt.Time,
@@ -490,8 +498,8 @@ func (r *DBRunner) shouldRunIntegrationFromHistory(kind, name string, history []
 	if r.policy == nil {
 		return true, "", nil
 	}
-	kind = normalize.Lower(kind)
-	name = normalize.Trim(name)
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	name = strings.TrimSpace(name)
 	if kind == "" || name == "" {
 		return true, "", nil
 	}

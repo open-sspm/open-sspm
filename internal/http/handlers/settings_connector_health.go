@@ -178,11 +178,15 @@ func (h *Handlers) HandleConnectorHealthErrorDetails(c *echo.Context) error {
 	addVary(c, "HX-Request", "HX-Target")
 
 	sourceKinds := normalizeConnectorHealthSourceKinds(c.QueryParams()["source_kind"])
+	runModes := normalizeConnectorHealthRunModes(c.QueryParams()["run_mode"])
 	sourceName := strings.TrimSpace(c.QueryParam("source_name"))
 	connectorName := strings.TrimSpace(c.QueryParam("connector_name"))
 
 	if len(sourceKinds) == 0 || sourceName == "" {
-		return c.String(http.StatusBadRequest, "source_kind and source_name are required")
+		return c.String(http.StatusBadRequest, "source_kind, run_mode, and source_name are required")
+	}
+	if len(runModes) != len(sourceKinds) {
+		return c.String(http.StatusBadRequest, "source_kind and run_mode counts must match")
 	}
 	if h.Q == nil {
 		return c.String(http.StatusServiceUnavailable, "connector health unavailable")
@@ -193,14 +197,17 @@ func (h *Handlers) HandleConnectorHealthErrorDetails(c *echo.Context) error {
 
 	type connectorHealthErrorRun struct {
 		sourceKind string
+		runMode    string
 		row        gen.ListRecentNonSuccessSyncRunsBySourceRow
 	}
 
 	allRows := make([]connectorHealthErrorRun, 0, len(sourceKinds)*int(connectorHealthDetailsRunLimit))
-	for _, sourceKind := range sourceKinds {
+	for idx, sourceKind := range sourceKinds {
+		runMode := runModes[idx]
 		rows, err := h.Q.ListRecentNonSuccessSyncRunsBySource(c.Request().Context(), gen.ListRecentNonSuccessSyncRunsBySourceParams{
 			SourceKind: sourceKind,
 			SourceName: sourceName,
+			RunMode:    runMode,
 			Limit:      connectorHealthDetailsRunLimit,
 		})
 		if err != nil {
@@ -209,6 +216,7 @@ func (h *Handlers) HandleConnectorHealthErrorDetails(c *echo.Context) error {
 		for _, row := range rows {
 			allRows = append(allRows, connectorHealthErrorRun{
 				sourceKind: sourceKind,
+				runMode:    runMode,
 				row:        row,
 			})
 		}
@@ -231,7 +239,7 @@ func (h *Handlers) HandleConnectorHealthErrorDetails(c *echo.Context) error {
 		viewRows = append(viewRows, viewmodels.ConnectorHealthErrorDetailsRow{
 			RowID:             runKey,
 			RunID:             row.ID,
-			LaneLabel:         connectorHealthLaneLabel(run.sourceKind),
+			LaneLabel:         connectorHealthLaneLabel(run.runMode),
 			StatusLabel:       connectorHealthRunStatusLabel(row.Status),
 			StatusClass:       connectorHealthRunStatusClass(row.Status),
 			FinishedAt:        relativeWithTitleDisplay(now, row.FinishedAt, "", ""),
@@ -261,11 +269,13 @@ func (h *Handlers) HandleConnectorHealthErrorDetails(c *echo.Context) error {
 type syncRollupKey struct {
 	kind string
 	name string
+	mode string
 }
 
 type connectorHealthLane struct {
 	label            string
 	syncKind         string
+	runMode          connregistry.RunMode
 	expectedInterval time.Duration
 }
 
@@ -290,20 +300,23 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 	if len(requested) > 0 {
 		sourceKinds := make([]string, 0, len(requested))
 		sourceNames := make([]string, 0, len(requested))
+		runModes := make([]string, 0, len(requested))
 		for _, key := range requested {
 			sourceKinds = append(sourceKinds, key.kind)
 			sourceNames = append(sourceNames, key.name)
+			runModes = append(runModes, key.mode)
 		}
 
 		rows, err := q.GetSyncRunRollupsForSources(ctx, gen.GetSyncRunRollupsForSourcesParams{
 			SourceKinds: sourceKinds,
 			SourceNames: sourceNames,
+			RunModes:    runModes,
 		})
 		if err != nil {
 			return viewmodels.ConnectorHealthViewData{}, err
 		}
 		for _, row := range rows {
-			key := syncRollupKey{kind: row.SourceKind, name: row.SourceName}
+			key := syncRollupKey{kind: row.SourceKind, name: row.SourceName, mode: row.RunMode}
 			rollupByKey[key] = syncRunRollupFromRow(row)
 		}
 	}
@@ -338,8 +351,9 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 			lanes := connectorHealthLanes(cfg, st)
 			laneResults = make([]connectorHealthLaneResult, 0, len(lanes))
 			sourceKinds := make([]string, 0, len(lanes))
+			runModes := make([]connregistry.RunMode, 0, len(lanes))
 			for _, lane := range lanes {
-				rollup := rollupByKey[syncRollupKey{kind: lane.syncKind, name: sourceName}]
+				rollup := rollupByKey[syncRollupKey{kind: lane.syncKind, name: sourceName, mode: string(lane.runMode)}]
 				laneResults = append(laneResults, connectorHealthLaneResult{
 					lane: lane,
 					result: connectorHealth(connectorHealthInput{
@@ -352,11 +366,12 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 					}),
 				})
 				sourceKinds = append(sourceKinds, lane.syncKind)
+				runModes = append(runModes, lane.runMode)
 			}
 			if len(laneResults) > 0 {
 				res = combineConnectorHealthLaneResults(laneResults)
 				canViewDetails = true
-				detailsURL = connectorHealthErrorDetailsURL(sourceKinds, sourceName, displayName)
+				detailsURL = connectorHealthErrorDetailsURL(sourceKinds, runModes, sourceName, displayName)
 			}
 		}
 		if !canViewDetails {
@@ -519,12 +534,14 @@ func connectorHealthLanes(cfg config.Config, st connregistry.ConnectorState) []c
 	lanes := []connectorHealthLane{{
 		label:            "Full",
 		syncKind:         fullSyncKind,
+		runMode:          connregistry.RunModeFull,
 		expectedInterval: expectedIntervalForSyncKind(cfg, fullSyncKind),
 	}}
 	if discoverySyncKind := connectorDiscoverySyncKind(cfg, st); discoverySyncKind != "" {
 		lanes = append(lanes, connectorHealthLane{
 			label:            "Discovery",
 			syncKind:         discoverySyncKind,
+			runMode:          connregistry.RunModeDiscovery,
 			expectedInterval: expectedIntervalForDiscoverySync(cfg),
 		})
 	}
@@ -546,6 +563,7 @@ func connectorHealthRequestedRollupKeys(cfg config.Config, states []connregistry
 
 		for _, lane := range connectorHealthLanes(cfg, st) {
 			key := syncRollupKey{kind: lane.syncKind, name: sourceName}
+			key.mode = string(lane.runMode)
 			if _, exists := requestedSet[key]; exists {
 				continue
 			}
@@ -565,15 +583,15 @@ func connectorDiscoverySyncKind(cfg config.Config, st connregistry.ConnectorStat
 	switch cfg := st.Config.(type) {
 	case configstore.OktaConfig:
 		if cfg.DiscoveryEnabled {
-			return connregistry.SyncRunSourceKind(kind, connregistry.RunModeDiscovery)
+			return kind
 		}
 	case configstore.EntraConfig:
 		if cfg.DiscoveryEnabled {
-			return connregistry.SyncRunSourceKind(kind, connregistry.RunModeDiscovery)
+			return kind
 		}
 	case configstore.GoogleWorkspaceConfig:
 		if cfg.DiscoveryEnabled {
-			return connregistry.SyncRunSourceKind(kind, connregistry.RunModeDiscovery)
+			return kind
 		}
 	}
 	return ""
@@ -682,10 +700,16 @@ func connectorHealthSeverity(status connectorHealthStatus) int {
 	}
 }
 
-func connectorHealthErrorDetailsURL(sourceKinds []string, sourceName, connectorName string) string {
+func connectorHealthErrorDetailsURL(sourceKinds []string, runModes []connregistry.RunMode, sourceName, connectorName string) string {
 	values := url.Values{}
-	for _, sourceKind := range normalizeConnectorHealthSourceKinds(sourceKinds) {
+	normalizedKinds := normalizeConnectorHealthSourceKinds(sourceKinds)
+	for idx, sourceKind := range normalizedKinds {
 		values.Add("source_kind", sourceKind)
+		mode := connregistry.RunModeFull
+		if idx < len(runModes) {
+			mode = runModes[idx].Normalize()
+		}
+		values.Add("run_mode", string(mode))
 	}
 	values.Set("source_name", strings.TrimSpace(sourceName))
 	if connectorName = strings.TrimSpace(connectorName); connectorName != "" {
@@ -696,27 +720,36 @@ func connectorHealthErrorDetailsURL(sourceKinds []string, sourceName, connectorN
 
 func normalizeConnectorHealthSourceKinds(sourceKinds []string) []string {
 	normalized := make([]string, 0, len(sourceKinds))
-	seen := make(map[string]struct{}, len(sourceKinds))
 	for _, sourceKind := range sourceKinds {
 		sourceKind = strings.ToLower(strings.TrimSpace(sourceKind))
 		if sourceKind == "" {
 			continue
 		}
-		if _, exists := seen[sourceKind]; exists {
-			continue
-		}
-		seen[sourceKind] = struct{}{}
 		normalized = append(normalized, sourceKind)
 	}
 	return normalized
 }
 
-func connectorHealthLaneLabel(sourceKind string) string {
-	sourceKind = strings.ToLower(strings.TrimSpace(sourceKind))
-	if strings.HasSuffix(sourceKind, "_discovery") {
-		return "Discovery"
+func normalizeConnectorHealthRunModes(runModes []string) []string {
+	normalized := make([]string, 0, len(runModes))
+	for _, runMode := range runModes {
+		mode := connregistry.RunMode(strings.ToLower(strings.TrimSpace(runMode))).Normalize()
+		normalized = append(normalized, string(mode))
 	}
-	return "Full"
+	return normalized
+}
+
+func connectorHealthLaneLabel(runMode string) string {
+	switch connregistry.RunMode(strings.ToLower(strings.TrimSpace(runMode))).Normalize() {
+	case connregistry.RunModeDiscovery:
+		return "Discovery"
+	case connregistry.RunModeTail:
+		return "Tail"
+	case connregistry.RunModeEventInbox:
+		return "Event inbox"
+	default:
+		return "Full"
+	}
 }
 
 func connectorHealthRunStatusLabel(status string) string {

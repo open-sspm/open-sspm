@@ -275,8 +275,8 @@ func TestHandleCommandSearchCrossInventoryResults(t *testing.T) {
 
 		t.Run("okta app rows link to direct destinations", func(t *testing.T) {
 			referenceBody := renderCommandSearch(t, h, "http://example.com/command/search?q=reference")
-			if !strings.Contains(referenceBody, `href="/assigned-apps/reference-app"`) {
-				t.Fatalf("current okta body missing /assigned-apps/{external_id} link: %s", referenceBody)
+			if !strings.Contains(referenceBody, `href="/assigned-apps/example.okta.com/reference-app"`) {
+				t.Fatalf("current okta body missing source-scoped assigned app link: %s", referenceBody)
 			}
 
 			mappedBody := renderCommandSearch(t, h, "http://example.com/command/search?q=mapped")
@@ -359,6 +359,7 @@ func withCommandSearchTestDatabase(t *testing.T, fn func(context.Context, *pgxpo
 			Cfg: config.Config{
 				ConnectorSecretKey:   []byte(commandSearchTestConnectorSecretKey),
 				SyncDiscoveryEnabled: true,
+				EventInboxEnabled:    true,
 			},
 			Q:        q,
 			Pool:     pool,
@@ -519,6 +520,8 @@ func seedCommandSearchFixture(t *testing.T, ctx context.Context, pool *pgxpool.P
 	insertCommandSearchOktaApp(t, ctx, q, oktaRunID, "mapped-okta-app", "Mapped Directory App", "mapped-directory", "active")
 	if err := q.UpsertIntegrationOktaAppMap(ctx, gen.UpsertIntegrationOktaAppMapParams{
 		IntegrationKind:   configstore.KindGitHub,
+		OktaSourceKind:    configstore.KindOkta,
+		OktaSourceName:    "example.okta.com",
 		OktaAppExternalID: "mapped-okta-app",
 	}); err != nil {
 		t.Fatalf("UpsertIntegrationOktaAppMap: %v", err)
@@ -549,12 +552,18 @@ type commandSearchAccountSeed struct {
 func insertCommandSearchSyncRun(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceKind, sourceName string) int64 {
 	t.Helper()
 
+	return insertCommandSearchSyncRunWithMode(t, ctx, pool, sourceKind, sourceName, connregistry.RunModeFull)
+}
+
+func insertCommandSearchSyncRunWithMode(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceKind, sourceName string, runMode connregistry.RunMode) int64 {
+	t.Helper()
+
 	var id int64
 	err := pool.QueryRow(ctx, `
-		INSERT INTO sync_runs (source_kind, source_name, status, started_at, finished_at, message)
-		VALUES ($1, $2, 'success', now(), now(), '')
+		INSERT INTO sync_runs (source_kind, source_name, run_mode, status, started_at, finished_at, message)
+		VALUES ($1, $2, $3, 'success', now(), now(), '')
 		RETURNING id
-	`, sourceKind, sourceName).Scan(&id)
+	`, strings.ToLower(strings.TrimSpace(sourceKind)), sourceName, string(runMode.Normalize())).Scan(&id)
 	if err != nil {
 		t.Fatalf("insert sync run %s/%s: %v", sourceKind, sourceName, err)
 	}
@@ -587,6 +596,27 @@ func insertCommandSearchIdentity(t *testing.T, ctx context.Context, pool *pgxpoo
 	`, kind, displayName, email).Scan(&id)
 	if err != nil {
 		t.Fatalf("insert identity %s: %v", displayName, err)
+	}
+	if strings.TrimSpace(email) != "" {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO identity_emails (
+				identity_id,
+				email,
+				normalized_email,
+				email_kind,
+				verification_state,
+				lifecycle_state,
+				is_primary,
+				last_seen_at,
+				updated_at
+			)
+			VALUES ($1, $2, lower(trim($2)), 'primary', 'manual', 'active', true, now(), now())
+			ON CONFLICT (identity_id, normalized_email)
+			WHERE lifecycle_state = 'active'
+			DO NOTHING
+		`, id, email); err != nil {
+			t.Fatalf("insert identity email %s: %v", displayName, err)
+		}
 	}
 	return id
 }
@@ -776,7 +806,11 @@ func insertCommandSearchOktaApp(t *testing.T, ctx context.Context, q *gen.Querie
 	}); err != nil {
 		t.Fatalf("UpsertOktaAppsBulk %s: %v", externalID, err)
 	}
-	if _, err := q.PromoteOktaAppsSeenInRun(ctx, pgtype.Int8{Int64: runID, Valid: true}); err != nil {
-		t.Fatalf("PromoteOktaAppsSeenInRun %s: %v", externalID, err)
+	if _, err := q.PromoteOktaAppsSeenInRunBySource(ctx, gen.PromoteOktaAppsSeenInRunBySourceParams{
+		LastObservedRunID: runID,
+		SourceKind:        "okta",
+		SourceName:        "example.okta.com",
+	}); err != nil {
+		t.Fatalf("PromoteOktaAppsSeenInRunBySource %s: %v", externalID, err)
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/auth"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
+	connregistry "github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/authn"
 	"github.com/open-sspm/open-sspm/internal/readmodels"
@@ -147,7 +148,7 @@ func TestHandleDiscoveryAppShowManagedBindingsAcrossConnectorKinds(t *testing.T)
 				ClientSecret: "secret-1",
 			})
 
-			discoveryRunID := insertCommandSearchSyncRun(t, ctx, pool, "entra_discovery", "tenant-1")
+			discoveryRunID := insertCommandSearchSyncRunWithMode(t, ctx, pool, configstore.KindEntra, "tenant-1", connregistry.RunModeDiscovery)
 			appID := insertCommandSearchDiscoveryApp(
 				t,
 				ctx,

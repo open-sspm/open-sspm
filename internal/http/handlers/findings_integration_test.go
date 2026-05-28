@@ -24,38 +24,11 @@ func TestHandleFindingsRulesetUsesCanonicalFindingsReadmodel(t *testing.T) {
 		})
 		ruleset := seedRulesetForFindingsHandler(t, ctx, q)
 		passRule := seedRuleForFindingsHandler(t, ctx, q, ruleset.ID, "001-pass")
-		missingRule := seedRuleForFindingsHandler(t, ctx, q, ruleset.ID, "002-no-finding")
+		seedRuleForFindingsHandler(t, ctx, q, ruleset.ID, "002-no-finding")
 
 		evaluatedAt := time.Date(2026, time.May, 21, 9, 0, 0, 0, time.UTC)
 		if err := findings.NewWriter(q).Write(ctx, canonicalRuleFindingForHandler(ruleset.Key, passRule, "pass", findings.StatusResolved, evaluatedAt)); err != nil {
 			t.Fatalf("Write(canonical pass) err = %v", err)
-		}
-
-		if _, err := q.UpsertRuleResultCurrent(ctx, gen.UpsertRuleResultCurrentParams{
-			RuleID:              passRule.ID,
-			ScopeKind:           "connector_instance",
-			SourceKind:          "okta",
-			SourceName:          "example.okta.com",
-			Status:              "fail",
-			EvaluatedAt:         pgtype.Timestamptz{Time: evaluatedAt.Add(time.Hour), Valid: true},
-			EvidenceSummary:     "legacy current table should be ignored",
-			EvidenceJson:        []byte(`{"legacy":true}`),
-			AffectedResourceIds: []string{},
-		}); err != nil {
-			t.Fatalf("UpsertRuleResultCurrent(pass conflict) err = %v", err)
-		}
-		if _, err := q.UpsertRuleResultCurrent(ctx, gen.UpsertRuleResultCurrentParams{
-			RuleID:              missingRule.ID,
-			ScopeKind:           "connector_instance",
-			SourceKind:          "okta",
-			SourceName:          "example.okta.com",
-			Status:              "pass",
-			EvaluatedAt:         pgtype.Timestamptz{Time: evaluatedAt.Add(time.Hour), Valid: true},
-			EvidenceSummary:     "legacy missing canonical row should be ignored",
-			EvidenceJson:        []byte(`{"legacy":true}`),
-			AffectedResourceIds: []string{},
-		}); err != nil {
-			t.Fatalf("UpsertRuleResultCurrent(missing conflict) err = %v", err)
 		}
 
 		c, rec := newTestContext(http.MethodGet, "http://example.com/findings/rulesets/"+ruleset.Key)
@@ -76,12 +49,6 @@ func TestHandleFindingsRulesetUsesCanonicalFindingsReadmodel(t *testing.T) {
 				t.Fatalf("body missing %q:\n%s", want, body)
 			}
 		}
-		for _, legacy := range []string{"legacy current table should be ignored", "legacy missing canonical row should be ignored"} {
-			if strings.Contains(body, legacy) {
-				t.Fatalf("body used legacy rule_results_current data %q:\n%s", legacy, body)
-			}
-		}
-
 		data, err := h.buildFindingsRulesetViewData(ctx, c, ruleset, nil)
 		if err != nil {
 			t.Fatalf("buildFindingsRulesetViewData() err = %v", err)
@@ -164,19 +131,6 @@ func TestHandleFindingsRuleUsesConcreteConnectorSourceScope(t *testing.T) {
 		if err := findings.NewWriter(q).Write(ctx, canonical); err != nil {
 			t.Fatalf("Write(canonical detail) err = %v", err)
 		}
-		if _, err := q.UpsertRuleResultCurrent(ctx, gen.UpsertRuleResultCurrentParams{
-			RuleID:              rule.ID,
-			ScopeKind:           "connector_instance",
-			SourceKind:          "okta",
-			SourceName:          "example.okta.com",
-			Status:              "pass",
-			EvaluatedAt:         pgtype.Timestamptz{Time: evaluatedAt.Add(time.Hour), Valid: true},
-			EvidenceSummary:     "legacy current result should be ignored",
-			EvidenceJson:        []byte(`{"legacy":true}`),
-			AffectedResourceIds: []string{},
-		}); err != nil {
-			t.Fatalf("UpsertRuleResultCurrent() err = %v", err)
-		}
 		if _, err := q.UpsertRuleOverride(ctx, gen.UpsertRuleOverrideParams{
 			RuleID:     rule.ID,
 			ScopeKind:  "connector_instance",
@@ -217,9 +171,6 @@ func TestHandleFindingsRuleUsesConcreteConnectorSourceScope(t *testing.T) {
 			if !strings.Contains(body, want) {
 				t.Fatalf("body missing %q:\n%s", want, body)
 			}
-		}
-		if strings.Contains(body, "legacy current result should be ignored") {
-			t.Fatalf("rule detail used rule_results_current evidence:\n%s", body)
 		}
 		if strings.Contains(body, "Unknown") {
 			t.Fatalf("rule detail fell back to unknown status:\n%s", body)

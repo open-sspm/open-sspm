@@ -20,9 +20,9 @@ questions can be answered consistently across connectors.
   Anchors decide whether a human identity is managed and which source attributes
   win during identity refresh.
 - `identity_emails` stores active, historical, observed, and verified emails for
-  an identity. `identities.primary_email` remains a display/preferred cache and
-  compatibility field; resolver and owner-write email lookups read
-  `identity_emails` first with a legacy primary-email fallback.
+  an identity. `identities.primary_email` remains a display/preferred cache;
+  resolver and owner-write email lookups use `identity_emails` as the canonical
+  claim table.
 - `account_anchors` stores deterministic provider anchor observations extracted
   from source accounts.
 - `identity_anchors` stores accepted canonical anchors for identities. An active
@@ -87,21 +87,9 @@ questions can be answered consistently across connectors.
 
 Candidates are reviewable in the admin UI at `/identity-resolution`, with
 status tabs and grouping filters for ambiguous email, anchor conflict,
-service/shared warnings, and confidence bands. Candidates can also be listed
-through `GET /api/identity-resolution/candidates`; `status` and `group` query
-parameters use the same filtering model as the UI. Structured candidate
-details, evidence, and active account-to-identity relationships are exposed
-through `GET /api/identity-resolution/candidates/:id`. Admin review actions can
-accept, reject, classify, or merge a candidate through:
+service/shared warnings, and confidence bands. Admin review actions accept,
+reject, classify, or merge a candidate through HTMX browser posts:
 
-- `POST /api/identity-resolution/candidates/:id/accept`
-- `POST /api/identity-resolution/candidates/:id/reject`
-- `POST /api/identity-resolution/candidates/:id/mark-service`
-- `POST /api/identity-resolution/candidates/:id/mark-shared`
-- `GET /api/identities/:id/emails`
-- `POST /api/identities/:id/emails`
-- `GET /api/identities/:id/anchors`
-- `POST /api/identities/:id/anchors`
 - `POST /identity-resolution/candidates/:id/accept`
 - `POST /identity-resolution/candidates/:id/reject`
 - `POST /identity-resolution/candidates/:id/mark-service`

@@ -23,6 +23,8 @@ const (
 	StatusDead       = "dead"
 )
 
+var ErrLeaseLost = errors.New("event inbox lease lost")
+
 type Store struct {
 	q *gen.Queries
 }
@@ -121,6 +123,25 @@ func (s *Store) ClaimQueued(ctx context.Context, limit int32, leaseOwner string,
 		deliveries = append(deliveries, deliveryFromClaimRow(row))
 	}
 	return deliveries, nil
+}
+
+func (s *Store) RenewLease(ctx context.Context, leaseOwner string, ids []int64, leaseTTL time.Duration) error {
+	if s == nil || s.q == nil {
+		return errors.New("event inbox store is not configured")
+	}
+	ids = uniquePositiveIDs(ids)
+	if len(ids) == 0 {
+		return nil
+	}
+	if leaseTTL <= 0 {
+		leaseTTL = 5 * time.Minute
+	}
+	rows, err := s.q.RenewEventInboxLease(ctx, gen.RenewEventInboxLeaseParams{
+		Ids:          ids,
+		LeaseOwner:   strings.TrimSpace(leaseOwner),
+		LeaseSeconds: durationSecondsCeil(leaseTTL),
+	})
+	return expectMarkedRows("renew event inbox lease", rows, len(ids), err)
 }
 
 func (s *Store) MarkProcessed(ctx context.Context, leaseOwner string, ids []int64, summary map[string]any) error {
@@ -244,9 +265,28 @@ func expectMarkedRows(action string, rows int64, want int, err error) error {
 		return fmt.Errorf("%s: %w", action, err)
 	}
 	if rows != int64(want) {
-		return fmt.Errorf("%s: lease lost for %d of %d rows", action, want-int(rows), want)
+		return fmt.Errorf("%s: %w for %d of %d rows", action, ErrLeaseLost, want-int(rows), want)
 	}
 	return nil
+}
+
+func uniquePositiveIDs(ids []int64) []int64 {
+	if len(ids) == 0 {
+		return nil
+	}
+	seen := make(map[int64]struct{}, len(ids))
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
 }
 
 func durationSecondsCeil(d time.Duration) int64 {

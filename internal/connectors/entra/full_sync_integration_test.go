@@ -699,17 +699,7 @@ func TestEntraRunFullDeltaIncrementalKeepsUnchangedAccounts(t *testing.T) {
 			t.Fatalf("bobActive=%d want 1", bobActive)
 		}
 
-		states, err := q.ListConnectorDeltaStatesBySource(ctx, gen.ListConnectorDeltaStatesBySourceParams{
-			SourceKind: "entra",
-			SourceName: fullSyncTenantID,
-		})
-		if err != nil {
-			t.Fatalf("ListConnectorDeltaStatesBySource(): %v", err)
-		}
-		links := make(map[string]string, len(states))
-		for _, state := range states {
-			links[state.Resource] = state.DeltaLink
-		}
+		links := entraDeltaCursorLinks(t, ctx, q)
 		if links[entraDeltaResourceUsers] != "delta://users-2" {
 			t.Fatalf("users delta link=%q want delta://users-2", links[entraDeltaResourceUsers])
 		}
@@ -809,17 +799,7 @@ func TestEntraRunFullDeltaExpiredCursorKeepsOldCursorsWhenRetryFails(t *testing.
 			t.Fatalf("DeltaUsers calls=%d want 2", userDeltaCalls)
 		}
 
-		states, err := q.ListConnectorDeltaStatesBySource(ctx, gen.ListConnectorDeltaStatesBySourceParams{
-			SourceKind: "entra",
-			SourceName: fullSyncTenantID,
-		})
-		if err != nil {
-			t.Fatalf("ListConnectorDeltaStatesBySource(): %v", err)
-		}
-		links := make(map[string]string, len(states))
-		for _, state := range states {
-			links[state.Resource] = state.DeltaLink
-		}
+		links := entraDeltaCursorLinks(t, ctx, q)
 		want := map[string]string{
 			entraDeltaResourceUsers:             "delta://users",
 			entraDeltaResourceGroups:            "delta://groups",
@@ -1075,21 +1055,33 @@ func TestEntraRunFullDeltaDoesNotAdvanceCursorOnFailure(t *testing.T) {
 			t.Fatalf("incremental runFull() error = nil, want error")
 		}
 
-		states, err := q.ListConnectorDeltaStatesBySource(ctx, gen.ListConnectorDeltaStatesBySourceParams{
-			SourceKind: "entra",
-			SourceName: fullSyncTenantID,
-		})
-		if err != nil {
-			t.Fatalf("ListConnectorDeltaStatesBySource(): %v", err)
-		}
-		links := make(map[string]string, len(states))
-		for _, state := range states {
-			links[state.Resource] = state.DeltaLink
-		}
+		links := entraDeltaCursorLinks(t, ctx, q)
 		if links[entraDeltaResourceUsers] != "delta://users" {
 			t.Fatalf("users delta link=%q want original delta://users", links[entraDeltaResourceUsers])
 		}
 	})
+}
+
+func entraDeltaCursorLinks(t *testing.T, ctx context.Context, q *gen.Queries) map[string]string {
+	t.Helper()
+
+	states, err := q.ListConnectorCursorStatesBySourceAndKind(ctx, gen.ListConnectorCursorStatesBySourceAndKindParams{
+		SourceKind: "entra",
+		SourceName: fullSyncTenantID,
+		CursorKind: registry.ConnectorCursorKindGraphDelta,
+	})
+	if err != nil {
+		t.Fatalf("ListConnectorCursorStatesBySourceAndKind(): %v", err)
+	}
+	links := make(map[string]string, len(states))
+	for _, state := range states {
+		deltaLink, err := registry.ConnectorGraphDeltaLinkFromCursorState(state)
+		if err != nil {
+			t.Fatalf("ConnectorGraphDeltaLinkFromCursorState(): %v", err)
+		}
+		links[state.Resource] = deltaLink
+	}
+	return links
 }
 
 func TestEntraRunDiscoveryPersistsSourcesAndEvents(t *testing.T) {

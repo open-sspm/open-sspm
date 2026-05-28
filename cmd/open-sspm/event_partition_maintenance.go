@@ -63,14 +63,8 @@ func runEventRetentionCleanup(ctx context.Context, q *gen.Queries, cfg config.Co
 	if _, err := q.DeleteEventDedupeKeysBefore(ctx, cutoffValue); err != nil {
 		slog.Warn("event dedupe retention cleanup failed", "err", err)
 	}
-	if _, err := q.DeleteEventProjectionDiffRunsBefore(ctx, cutoffValue); err != nil {
-		slog.Warn("event projection diff retention cleanup failed", "err", err)
-	}
-	if _, err := q.DeleteFinishedRiskpolicyEventQueueBefore(ctx, cutoffValue); err != nil {
-		slog.Warn("riskpolicy event queue retention cleanup failed", "err", err)
-	}
-	if _, err := q.DeleteRiskpolicyEventShadowSignalsBefore(ctx, cutoffValue); err != nil {
-		slog.Warn("riskpolicy shadow signal retention cleanup failed", "err", err)
+	if _, err := q.DeleteFinishedEventEvaluationQueueBefore(ctx, cutoffValue); err != nil {
+		slog.Warn("event evaluator queue retention cleanup failed", "err", err)
 	}
 }
 

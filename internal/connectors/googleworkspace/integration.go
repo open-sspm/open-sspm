@@ -136,11 +136,11 @@ func (i *GoogleWorkspaceIntegration) SupportsRunMode(mode registry.RunMode) bool
 	}
 	switch mode.Normalize() {
 	case registry.RunModeDiscovery:
-		return i.discoveryEnabled
+		return i.client != nil && i.discoveryEnabled
 	case registry.RunModeTail:
 		return i.client != nil || i.reportsActivityLister != nil
 	default:
-		return true
+		return i.client != nil
 	}
 }
 
@@ -165,6 +165,9 @@ func (i *GoogleWorkspaceIntegration) InitEvents() []registry.Event {
 }
 
 func (i *GoogleWorkspaceIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event), mode registry.RunMode) error {
+	if i == nil {
+		return fmt.Errorf("google workspace integration is not configured")
+	}
 	switch mode.Normalize() {
 	case registry.RunModeDiscovery:
 		if !i.SupportsRunMode(registry.RunModeDiscovery) {
@@ -177,13 +180,16 @@ func (i *GoogleWorkspaceIntegration) Run(ctx context.Context, q *gen.Queries, po
 		}
 		return i.runReportsTail(ctx, q, pool, report)
 	default:
+		if i.client == nil {
+			return fmt.Errorf("google workspace API client is required for full sync")
+		}
 		return i.runFull(ctx, q, pool, report)
 	}
 }
 
 func (i *GoogleWorkspaceIntegration) runFull(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
 	started := time.Now()
-	runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind(configstore.KindGoogleWorkspace, registry.RunModeFull), i.customerID)
+	runID, err := registry.StartSyncRun(ctx, q, configstore.KindGoogleWorkspace, i.customerID)
 	if err != nil {
 		return err
 	}
@@ -292,7 +298,7 @@ func (i *GoogleWorkspaceIntegration) runFull(ctx context.Context, q *gen.Queries
 
 func (i *GoogleWorkspaceIntegration) runDiscovery(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
 	started := time.Now()
-	runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind(configstore.KindGoogleWorkspace, registry.RunModeDiscovery), i.customerID)
+	runID, err := registry.StartSyncRunWithMode(ctx, q, configstore.KindGoogleWorkspace, i.customerID, registry.RunModeDiscovery)
 	if err != nil {
 		return err
 	}

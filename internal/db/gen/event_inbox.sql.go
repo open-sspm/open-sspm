@@ -142,6 +142,148 @@ func (q *Queries) ClaimQueuedEventInboxDeliveries(ctx context.Context, arg Claim
 	return items, nil
 }
 
+const deleteOldEventInboxDeliveries = `-- name: DeleteOldEventInboxDeliveries :execrows
+DELETE FROM event_inbox
+WHERE (
+    (
+      status IN ('processed', 'ignored')
+      AND processed_at < now() - make_interval(days => $1::int)
+    )
+    OR (
+      status = 'dead'
+      AND updated_at < now() - make_interval(days => $2::int)
+    )
+  )
+`
+
+type DeleteOldEventInboxDeliveriesParams struct {
+	ProcessedRetentionDays  int32 `json:"processed_retention_days"`
+	DeadLetterRetentionDays int32 `json:"dead_letter_retention_days"`
+}
+
+func (q *Queries) DeleteOldEventInboxDeliveries(ctx context.Context, arg DeleteOldEventInboxDeliveriesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteOldEventInboxDeliveries, arg.ProcessedRetentionDays, arg.DeadLetterRetentionDays)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const getEventInboxStatusBySource = `-- name: GetEventInboxStatusBySource :one
+SELECT
+  source_kind,
+  source_name,
+  count(*) FILTER (WHERE status = 'queued')::bigint AS queued_count,
+  count(*) FILTER (WHERE status = 'processing')::bigint AS processing_count,
+  count(*) FILTER (WHERE status = 'dead')::bigint AS dead_letter_count,
+  max(received_at)::timestamptz AS last_received_at,
+  max(processed_at)::timestamptz AS last_processed_at,
+  COALESCE(
+    (
+      SELECT last_error
+      FROM event_inbox latest_error
+      WHERE latest_error.source_kind = $1::text
+        AND latest_error.source_name = $2::text
+        AND latest_error.status = 'dead'
+        AND trim(latest_error.last_error) <> ''
+      ORDER BY latest_error.updated_at DESC, latest_error.id DESC
+      LIMIT 1
+    ),
+    ''
+  )::text AS last_dead_letter_error
+FROM event_inbox
+WHERE source_kind = $1::text
+  AND source_name = $2::text
+GROUP BY source_kind, source_name
+`
+
+type GetEventInboxStatusBySourceParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+}
+
+type GetEventInboxStatusBySourceRow struct {
+	SourceKind          string             `json:"source_kind"`
+	SourceName          string             `json:"source_name"`
+	QueuedCount         int64              `json:"queued_count"`
+	ProcessingCount     int64              `json:"processing_count"`
+	DeadLetterCount     int64              `json:"dead_letter_count"`
+	LastReceivedAt      pgtype.Timestamptz `json:"last_received_at"`
+	LastProcessedAt     pgtype.Timestamptz `json:"last_processed_at"`
+	LastDeadLetterError string             `json:"last_dead_letter_error"`
+}
+
+func (q *Queries) GetEventInboxStatusBySource(ctx context.Context, arg GetEventInboxStatusBySourceParams) (GetEventInboxStatusBySourceRow, error) {
+	row := q.db.QueryRow(ctx, getEventInboxStatusBySource, arg.SourceKind, arg.SourceName)
+	var i GetEventInboxStatusBySourceRow
+	err := row.Scan(
+		&i.SourceKind,
+		&i.SourceName,
+		&i.QueuedCount,
+		&i.ProcessingCount,
+		&i.DeadLetterCount,
+		&i.LastReceivedAt,
+		&i.LastProcessedAt,
+		&i.LastDeadLetterError,
+	)
+	return i, err
+}
+
+const listEventInboxMetricsBySourceChannel = `-- name: ListEventInboxMetricsBySourceChannel :many
+SELECT
+  source_kind,
+  source_name,
+  channel,
+  count(*) FILTER (WHERE status = 'queued')::bigint AS queued_count,
+  count(*) FILTER (WHERE status = 'processing')::bigint AS processing_count,
+  count(*) FILTER (WHERE status = 'dead')::bigint AS dead_letter_count,
+  max(received_at)::timestamptz AS last_received_at,
+  max(processed_at)::timestamptz AS last_processed_at
+FROM event_inbox
+GROUP BY source_kind, source_name, channel
+ORDER BY source_kind, source_name, channel
+`
+
+type ListEventInboxMetricsBySourceChannelRow struct {
+	SourceKind      string             `json:"source_kind"`
+	SourceName      string             `json:"source_name"`
+	Channel         string             `json:"channel"`
+	QueuedCount     int64              `json:"queued_count"`
+	ProcessingCount int64              `json:"processing_count"`
+	DeadLetterCount int64              `json:"dead_letter_count"`
+	LastReceivedAt  pgtype.Timestamptz `json:"last_received_at"`
+	LastProcessedAt pgtype.Timestamptz `json:"last_processed_at"`
+}
+
+func (q *Queries) ListEventInboxMetricsBySourceChannel(ctx context.Context) ([]ListEventInboxMetricsBySourceChannelRow, error) {
+	rows, err := q.db.Query(ctx, listEventInboxMetricsBySourceChannel)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEventInboxMetricsBySourceChannelRow
+	for rows.Next() {
+		var i ListEventInboxMetricsBySourceChannelRow
+		if err := rows.Scan(
+			&i.SourceKind,
+			&i.SourceName,
+			&i.Channel,
+			&i.QueuedCount,
+			&i.ProcessingCount,
+			&i.DeadLetterCount,
+			&i.LastReceivedAt,
+			&i.LastProcessedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markEventInboxDead = `-- name: MarkEventInboxDead :execrows
 UPDATE event_inbox
 SET status = 'dead',

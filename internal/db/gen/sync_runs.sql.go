@@ -21,18 +21,19 @@ func (q *Queries) AcquireAdvisoryLock(ctx context.Context, dollar_1 int64) error
 }
 
 const createSyncRun = `-- name: CreateSyncRun :one
-INSERT INTO sync_runs (source_kind, source_name, status, started_at)
-VALUES ($1, $2, 'running', now())
+INSERT INTO sync_runs (source_kind, source_name, run_mode, status, started_at)
+VALUES ($1, $2, $3, 'running', now())
 RETURNING id
 `
 
 type CreateSyncRunParams struct {
 	SourceKind string `json:"source_kind"`
 	SourceName string `json:"source_name"`
+	RunMode    string `json:"run_mode"`
 }
 
 func (q *Queries) CreateSyncRun(ctx context.Context, arg CreateSyncRunParams) (int64, error) {
-	row := q.db.QueryRow(ctx, createSyncRun, arg.SourceKind, arg.SourceName)
+	row := q.db.QueryRow(ctx, createSyncRun, arg.SourceKind, arg.SourceName, arg.RunMode)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
@@ -64,14 +65,16 @@ func (q *Queries) FailSyncRun(ctx context.Context, arg FailSyncRunParams) error 
 
 const getSyncRunRollupsForSources = `-- name: GetSyncRunRollupsForSources :many
 WITH requested AS (
-  SELECT k.kind AS source_kind, n.name AS source_name
+  SELECT k.kind AS source_kind, n.name AS source_name, m.mode AS run_mode
   FROM unnest($1::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest($2::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+  JOIN unnest($3::text[]) WITH ORDINALITY AS m(mode, ord) USING (ord)
 ),
 last_run AS (
-  SELECT DISTINCT ON (r.source_kind, r.source_name)
+  SELECT DISTINCT ON (r.source_kind, r.source_name, r.run_mode)
     r.source_kind,
     r.source_name,
+    r.run_mode,
     r.id AS last_run_id,
     r.status AS last_run_status,
     r.started_at AS last_run_started_at,
@@ -81,39 +84,45 @@ last_run AS (
   JOIN requested q
     ON r.source_kind = q.source_kind
    AND r.source_name = q.source_name
+   AND r.run_mode = q.run_mode
   WHERE r.finished_at IS NOT NULL
-  ORDER BY r.source_kind, r.source_name, r.finished_at DESC
+  ORDER BY r.source_kind, r.source_name, r.run_mode, r.finished_at DESC
 ),
 last_success AS (
   SELECT
     r.source_kind,
     r.source_name,
+    r.run_mode,
     max(r.finished_at) AS last_success_at
   FROM sync_runs r
   JOIN requested q
     ON r.source_kind = q.source_kind
    AND r.source_name = q.source_name
+   AND r.run_mode = q.run_mode
   WHERE r.finished_at IS NOT NULL
     AND r.status = 'success'
-  GROUP BY r.source_kind, r.source_name
+  GROUP BY r.source_kind, r.source_name, r.run_mode
 ),
 running_stats AS (
   SELECT
     r.source_kind,
     r.source_name,
+    r.run_mode,
     count(*) AS running_count,
     min(r.started_at) AS oldest_running_started_at
   FROM sync_runs r
   JOIN requested q
     ON r.source_kind = q.source_kind
    AND r.source_name = q.source_name
+   AND r.run_mode = q.run_mode
   WHERE r.status = 'running'
-  GROUP BY r.source_kind, r.source_name
+  GROUP BY r.source_kind, r.source_name, r.run_mode
 ),
 stats_7d AS (
   SELECT
     r.source_kind,
     r.source_name,
+    r.run_mode,
     count(*) FILTER (WHERE r.finished_at >= now() - interval '7 days') AS finished_count_7d,
     count(*) FILTER (WHERE r.finished_at >= now() - interval '7 days' AND r.status = 'success') AS success_count_7d,
     avg(EXTRACT(EPOCH FROM (r.finished_at - r.started_at)) * 1000.0)
@@ -122,13 +131,15 @@ stats_7d AS (
   JOIN requested q
     ON r.source_kind = q.source_kind
    AND r.source_name = q.source_name
+   AND r.run_mode = q.run_mode
   WHERE r.finished_at IS NOT NULL
     AND r.finished_at >= now() - interval '7 days'
-  GROUP BY r.source_kind, r.source_name
+  GROUP BY r.source_kind, r.source_name, r.run_mode
 )
 SELECT
   q.source_kind::text AS source_kind,
   q.source_name::text AS source_name,
+  q.run_mode::text AS run_mode,
   lr.last_run_id,
   lr.last_run_status,
   lr.last_run_started_at,
@@ -144,26 +155,32 @@ FROM requested q
 LEFT JOIN last_run lr
   ON lr.source_kind = q.source_kind
  AND lr.source_name = q.source_name
+ AND lr.run_mode = q.run_mode
 LEFT JOIN last_success ls
   ON ls.source_kind = q.source_kind
  AND ls.source_name = q.source_name
+ AND ls.run_mode = q.run_mode
 LEFT JOIN running_stats rs
   ON rs.source_kind = q.source_kind
  AND rs.source_name = q.source_name
+ AND rs.run_mode = q.run_mode
 LEFT JOIN stats_7d s
   ON s.source_kind = q.source_kind
  AND s.source_name = q.source_name
-ORDER BY q.source_kind, q.source_name
+ AND s.run_mode = q.run_mode
+ORDER BY q.source_kind, q.source_name, q.run_mode
 `
 
 type GetSyncRunRollupsForSourcesParams struct {
 	SourceKinds []string `json:"source_kinds"`
 	SourceNames []string `json:"source_names"`
+	RunModes    []string `json:"run_modes"`
 }
 
 type GetSyncRunRollupsForSourcesRow struct {
 	SourceKind             string             `json:"source_kind"`
 	SourceName             string             `json:"source_name"`
+	RunMode                string             `json:"run_mode"`
 	LastRunID              pgtype.Int8        `json:"last_run_id"`
 	LastRunStatus          pgtype.Text        `json:"last_run_status"`
 	LastRunStartedAt       pgtype.Timestamptz `json:"last_run_started_at"`
@@ -178,7 +195,7 @@ type GetSyncRunRollupsForSourcesRow struct {
 }
 
 func (q *Queries) GetSyncRunRollupsForSources(ctx context.Context, arg GetSyncRunRollupsForSourcesParams) ([]GetSyncRunRollupsForSourcesRow, error) {
-	rows, err := q.db.Query(ctx, getSyncRunRollupsForSources, arg.SourceKinds, arg.SourceNames)
+	rows, err := q.db.Query(ctx, getSyncRunRollupsForSources, arg.SourceKinds, arg.SourceNames, arg.RunModes)
 	if err != nil {
 		return nil, err
 	}
@@ -189,6 +206,7 @@ func (q *Queries) GetSyncRunRollupsForSources(ctx context.Context, arg GetSyncRu
 		if err := rows.Scan(
 			&i.SourceKind,
 			&i.SourceName,
+			&i.RunMode,
 			&i.LastRunID,
 			&i.LastRunStatus,
 			&i.LastRunStartedAt,
@@ -216,14 +234,16 @@ SELECT id, status, finished_at, error_kind
 FROM sync_runs
 WHERE source_kind = $1
   AND source_name = $2
+  AND run_mode = $3
   AND finished_at IS NOT NULL
 ORDER BY finished_at DESC
-LIMIT $3
+LIMIT $4
 `
 
 type ListRecentFinishedSyncRunsBySourceParams struct {
 	SourceKind string `json:"source_kind"`
 	SourceName string `json:"source_name"`
+	RunMode    string `json:"run_mode"`
 	Limit      int32  `json:"limit"`
 }
 
@@ -235,7 +255,12 @@ type ListRecentFinishedSyncRunsBySourceRow struct {
 }
 
 func (q *Queries) ListRecentFinishedSyncRunsBySource(ctx context.Context, arg ListRecentFinishedSyncRunsBySourceParams) ([]ListRecentFinishedSyncRunsBySourceRow, error) {
-	rows, err := q.db.Query(ctx, listRecentFinishedSyncRunsBySource, arg.SourceKind, arg.SourceName, arg.Limit)
+	rows, err := q.db.Query(ctx, listRecentFinishedSyncRunsBySource,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.RunMode,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -261,40 +286,45 @@ func (q *Queries) ListRecentFinishedSyncRunsBySource(ctx context.Context, arg Li
 
 const listRecentFinishedSyncRunsForSources = `-- name: ListRecentFinishedSyncRunsForSources :many
 WITH requested AS (
-  SELECT k.kind AS source_kind, n.name AS source_name
+  SELECT k.kind AS source_kind, n.name AS source_name, m.mode AS run_mode
   FROM unnest($2::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest($3::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+  JOIN unnest($4::text[]) WITH ORDINALITY AS m(mode, ord) USING (ord)
 ),
 ranked AS (
   SELECT
     r.source_kind,
     r.source_name,
+    r.run_mode,
     r.id,
     r.status,
     r.finished_at,
     r.error_kind,
-    row_number() OVER (PARTITION BY r.source_kind, r.source_name ORDER BY r.finished_at DESC) AS rn
+    row_number() OVER (PARTITION BY r.source_kind, r.source_name, r.run_mode ORDER BY r.finished_at DESC) AS rn
   FROM sync_runs r
   JOIN requested q
     ON r.source_kind = q.source_kind
    AND r.source_name = q.source_name
+   AND r.run_mode = q.run_mode
   WHERE r.finished_at IS NOT NULL
 )
-SELECT source_kind, source_name, id, status, finished_at, error_kind
+SELECT source_kind, source_name, run_mode, id, status, finished_at, error_kind
 FROM ranked
 WHERE rn <= $1::int
-ORDER BY source_kind, source_name, finished_at DESC
+ORDER BY source_kind, source_name, run_mode, finished_at DESC
 `
 
 type ListRecentFinishedSyncRunsForSourcesParams struct {
 	LimitRows   int32    `json:"limit_rows"`
 	SourceKinds []string `json:"source_kinds"`
 	SourceNames []string `json:"source_names"`
+	RunModes    []string `json:"run_modes"`
 }
 
 type ListRecentFinishedSyncRunsForSourcesRow struct {
 	SourceKind string             `json:"source_kind"`
 	SourceName string             `json:"source_name"`
+	RunMode    string             `json:"run_mode"`
 	ID         int64              `json:"id"`
 	Status     string             `json:"status"`
 	FinishedAt pgtype.Timestamptz `json:"finished_at"`
@@ -302,7 +332,12 @@ type ListRecentFinishedSyncRunsForSourcesRow struct {
 }
 
 func (q *Queries) ListRecentFinishedSyncRunsForSources(ctx context.Context, arg ListRecentFinishedSyncRunsForSourcesParams) ([]ListRecentFinishedSyncRunsForSourcesRow, error) {
-	rows, err := q.db.Query(ctx, listRecentFinishedSyncRunsForSources, arg.LimitRows, arg.SourceKinds, arg.SourceNames)
+	rows, err := q.db.Query(ctx, listRecentFinishedSyncRunsForSources,
+		arg.LimitRows,
+		arg.SourceKinds,
+		arg.SourceNames,
+		arg.RunModes,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -313,6 +348,7 @@ func (q *Queries) ListRecentFinishedSyncRunsForSources(ctx context.Context, arg 
 		if err := rows.Scan(
 			&i.SourceKind,
 			&i.SourceName,
+			&i.RunMode,
 			&i.ID,
 			&i.Status,
 			&i.FinishedAt,
@@ -333,15 +369,17 @@ SELECT id, status, finished_at, error_kind, message
 FROM sync_runs
 WHERE source_kind = $1
   AND source_name = $2
+  AND run_mode = $3
   AND finished_at IS NOT NULL
   AND status <> 'success'
 ORDER BY finished_at DESC
-LIMIT $3
+LIMIT $4
 `
 
 type ListRecentNonSuccessSyncRunsBySourceParams struct {
 	SourceKind string `json:"source_kind"`
 	SourceName string `json:"source_name"`
+	RunMode    string `json:"run_mode"`
 	Limit      int32  `json:"limit"`
 }
 
@@ -354,7 +392,12 @@ type ListRecentNonSuccessSyncRunsBySourceRow struct {
 }
 
 func (q *Queries) ListRecentNonSuccessSyncRunsBySource(ctx context.Context, arg ListRecentNonSuccessSyncRunsBySourceParams) ([]ListRecentNonSuccessSyncRunsBySourceRow, error) {
-	rows, err := q.db.Query(ctx, listRecentNonSuccessSyncRunsBySource, arg.SourceKind, arg.SourceName, arg.Limit)
+	rows, err := q.db.Query(ctx, listRecentNonSuccessSyncRunsBySource,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.RunMode,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}

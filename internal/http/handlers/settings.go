@@ -16,12 +16,12 @@ import (
 	"github.com/labstack/echo/v5/middleware"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/evaluator"
 	"github.com/open-sspm/open-sspm/internal/http/events"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 	"github.com/open-sspm/open-sspm/internal/identity"
 	"github.com/open-sspm/open-sspm/internal/readmodels"
-	"github.com/open-sspm/open-sspm/internal/riskpolicy"
 	"github.com/open-sspm/open-sspm/internal/sync"
 )
 
@@ -74,20 +74,20 @@ func (h *Handlers) HandleSettings(c *echo.Context) error {
 		SyncDiscoveryEnabled:  h.Cfg.SyncDiscoveryEnabled,
 		ResyncEnabled:         h.Syncer != nil,
 		ResyncBanner:          banner,
-		RiskPolicyPacks:       riskPolicyPackSummaries(h.RiskPolicies),
+		PolicyPacks:           policyPackSummaries(h.PolicyRegistry),
 	}
 
 	return h.RenderComponent(c, views.SettingsPage(data))
 }
 
-func riskPolicyPackSummaries(registry *riskpolicy.Registry) []viewmodels.RiskPolicyPackSummary {
+func policyPackSummaries(registry *evaluator.Registry) []viewmodels.PolicyPackSummary {
 	if registry == nil {
 		return nil
 	}
 	metadatas := registry.PackMetadatas()
-	summaries := make([]viewmodels.RiskPolicyPackSummary, 0, len(metadatas))
+	summaries := make([]viewmodels.PolicyPackSummary, 0, len(metadatas))
 	for _, metadata := range metadatas {
-		summaries = append(summaries, viewmodels.RiskPolicyPackSummary{
+		summaries = append(summaries, viewmodels.PolicyPackSummary{
 			Domain:  string(metadata.Domain),
 			ID:      metadata.ID,
 			Version: metadata.Version,
@@ -337,14 +337,14 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 
 func readOktaConfigUpdate(c *echo.Context) configstore.OktaConfig {
 	return configstore.OktaConfig{
-		Domain:              c.FormValue("domain"),
-		Token:               c.FormValue("token"),
-		DiscoveryEnabled:    ParseBoolForm(c.FormValue("discovery_enabled")),
-		DiscoveryIngestMode: c.FormValue("discovery_ingest_mode"),
-		EventHookEnabled:    ParseBoolForm(c.FormValue("event_hook_enabled")),
-		EventHookSecret:     c.FormValue("event_hook_secret"),
-		EventBridgeEnabled:  ParseBoolForm(c.FormValue("eventbridge_enabled")),
-		EventBridgeSecret:   c.FormValue("eventbridge_secret"),
+		Domain:             c.FormValue("domain"),
+		Token:              c.FormValue("token"),
+		DiscoveryEnabled:   ParseBoolForm(c.FormValue("discovery_enabled")),
+		EventInboxMode:     c.FormValue("event_inbox_mode"),
+		EventHookEnabled:   ParseBoolForm(c.FormValue("event_hook_enabled")),
+		EventHookSecret:    c.FormValue("event_hook_secret"),
+		EventBridgeEnabled: ParseBoolForm(c.FormValue("eventbridge_enabled")),
+		EventBridgeSecret:  c.FormValue("eventbridge_secret"),
 	}
 }
 
@@ -571,7 +571,7 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context,
 					Enabled:              state.Enabled,
 					Configured:           state.Configured,
 					Domain:               cfg.Domain,
-					DiscoveryIngestMode:  cfg.DiscoveryIngestMode,
+					EventInboxMode:       cfg.EventInboxMode,
 					TokenMasked:          configstore.MaskSecret(cfg.Token),
 					HasToken:             cfg.Token != "",
 					DiscoveryEnabled:     cfg.DiscoveryEnabled,
@@ -583,39 +583,42 @@ func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context,
 					HasEventBridgeSecret: cfg.EventBridgeSecret != "",
 					Authoritative:        authoritative,
 				}
-				switch cfg.DiscoveryIngestMode {
-				case configstore.OktaDiscoveryIngestModeEventHook, configstore.OktaDiscoveryIngestModeEventBridge:
+				switch cfg.EventInboxMode {
+				case configstore.OktaEventInboxModeEventHook, configstore.OktaEventInboxModeEventBridge:
 					if cfg.Token == "" {
-						oktaData.PushCompletenessNote = "Push-only discovery is degraded for completeness and backfill until an Okta API token is configured."
+						oktaData.EventInboxCompletenessNote = "Event-only discovery is degraded for completeness and backfill until an Okta API token is configured."
 					}
 				}
 				if sourceName != "" && (cfg.EventHookEnabled || cfg.EventBridgeEnabled) {
-					status, err := h.Q.GetOktaPushIngestStatusBySource(ctx, sourceName)
+					status, err := h.Q.GetEventInboxStatusBySource(ctx, gen.GetEventInboxStatusBySourceParams{
+						SourceKind: configstore.KindOkta,
+						SourceName: sourceName,
+					})
 					if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 						return viewmodels.ConnectorsViewData{}, err
 					}
-					oktaData.PushStatusVisible = true
-					oktaData.PushStatusLabel = "Waiting for events"
-					oktaData.PushLastReceived = "—"
-					oktaData.PushLastProcessed = "—"
-					oktaData.PushQueueLabel = "0 queued"
-					oktaData.PushDeadLetterLabel = "0 dead-letter"
+					oktaData.EventInboxStatusVisible = true
+					oktaData.EventInboxStatusLabel = "Waiting for events"
+					oktaData.EventInboxLastReceived = "—"
+					oktaData.EventInboxLastProcessed = "—"
+					oktaData.EventInboxQueueLabel = "0 queued"
+					oktaData.EventInboxDeadLetterLabel = "0 dead-letter"
 					if err == nil {
-						oktaData.PushLastReceived = relativeWithTitleDisplay(now, status.LastReceivedAt, "—", "").Label
-						oktaData.PushLastProcessed = relativeWithTitleDisplay(now, status.LastProcessedAt, "—", "").Label
-						oktaData.PushQueueLabel = formatCountLabel(status.QueuedCount+status.ProcessingCount, "pending")
-						oktaData.PushDeadLetterLabel = formatCountLabel(status.DeadLetterCount, "dead-letter")
+						oktaData.EventInboxLastReceived = relativeWithTitleDisplay(now, status.LastReceivedAt, "—", "").Label
+						oktaData.EventInboxLastProcessed = relativeWithTitleDisplay(now, status.LastProcessedAt, "—", "").Label
+						oktaData.EventInboxQueueLabel = formatCountLabel(status.QueuedCount+status.ProcessingCount, "pending")
+						oktaData.EventInboxDeadLetterLabel = formatCountLabel(status.DeadLetterCount, "dead-letter")
 						switch {
 						case status.DeadLetterCount > 0:
-							oktaData.PushStatusLabel = "Needs attention"
+							oktaData.EventInboxStatusLabel = "Needs attention"
 						case status.QueuedCount+status.ProcessingCount > 0:
-							oktaData.PushStatusLabel = "Processing"
+							oktaData.EventInboxStatusLabel = "Processing"
 						case status.LastProcessedAt.Valid:
-							oktaData.PushStatusLabel = "Processing normally"
+							oktaData.EventInboxStatusLabel = "Processing normally"
 						case status.LastReceivedAt.Valid:
-							oktaData.PushStatusLabel = "Received"
+							oktaData.EventInboxStatusLabel = "Received"
 						}
-						oktaData.PushLastError = strings.TrimSpace(status.LastDeadLetterError)
+						oktaData.EventInboxLastError = strings.TrimSpace(status.LastDeadLetterError)
 					}
 				}
 				data.Okta = oktaData

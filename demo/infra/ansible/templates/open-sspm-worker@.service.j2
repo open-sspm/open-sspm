@@ -1,0 +1,16 @@
+[Unit]
+Description=Open-SSPM Worker (%i lane)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=open-sspm
+Group=open-sspm
+WorkingDirectory=/opt/open-sspm
+EnvironmentFile=/etc/open-sspm.env
+ExecStart=/usr/local/bin/open-sspm worker --lane %i
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

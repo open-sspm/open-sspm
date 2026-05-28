@@ -50,7 +50,7 @@ By default, private, link-local, and loopback ranges are trusted.
 Repo-local example:
 
 ```bash
-printf '%s\n' 'change-me-now' | go run ./cmd/open-sspm users bootstrap-admin \
+printf '%s\n' 'change-me-now' | go run ./cmd/open-sspm admin users bootstrap-admin \
   --email admin@example.com \
   --password-stdin
 ```

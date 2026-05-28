@@ -157,3 +157,57 @@ SET status = 'queued',
     END
 WHERE status = 'processing'
   AND lease_until < now();
+
+-- name: DeleteOldEventInboxDeliveries :execrows
+DELETE FROM event_inbox
+WHERE (
+    (
+      status IN ('processed', 'ignored')
+      AND processed_at < now() - make_interval(days => sqlc.arg(processed_retention_days)::int)
+    )
+    OR (
+      status = 'dead'
+      AND updated_at < now() - make_interval(days => sqlc.arg(dead_letter_retention_days)::int)
+    )
+  );
+
+-- name: GetEventInboxStatusBySource :one
+SELECT
+  source_kind,
+  source_name,
+  count(*) FILTER (WHERE status = 'queued')::bigint AS queued_count,
+  count(*) FILTER (WHERE status = 'processing')::bigint AS processing_count,
+  count(*) FILTER (WHERE status = 'dead')::bigint AS dead_letter_count,
+  max(received_at)::timestamptz AS last_received_at,
+  max(processed_at)::timestamptz AS last_processed_at,
+  COALESCE(
+    (
+      SELECT last_error
+      FROM event_inbox latest_error
+      WHERE latest_error.source_kind = sqlc.arg(source_kind)::text
+        AND latest_error.source_name = sqlc.arg(source_name)::text
+        AND latest_error.status = 'dead'
+        AND trim(latest_error.last_error) <> ''
+      ORDER BY latest_error.updated_at DESC, latest_error.id DESC
+      LIMIT 1
+    ),
+    ''
+  )::text AS last_dead_letter_error
+FROM event_inbox
+WHERE source_kind = sqlc.arg(source_kind)::text
+  AND source_name = sqlc.arg(source_name)::text
+GROUP BY source_kind, source_name;
+
+-- name: ListEventInboxMetricsBySourceChannel :many
+SELECT
+  source_kind,
+  source_name,
+  channel,
+  count(*) FILTER (WHERE status = 'queued')::bigint AS queued_count,
+  count(*) FILTER (WHERE status = 'processing')::bigint AS processing_count,
+  count(*) FILTER (WHERE status = 'dead')::bigint AS dead_letter_count,
+  max(received_at)::timestamptz AS last_received_at,
+  max(processed_at)::timestamptz AS last_processed_at
+FROM event_inbox
+GROUP BY source_kind, source_name, channel
+ORDER BY source_kind, source_name, channel;

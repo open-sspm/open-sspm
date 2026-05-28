@@ -2,8 +2,7 @@ package auth
 
 import (
 	"net/mail"
-
-	"github.com/open-sspm/open-sspm/internal/normalize"
+	"strings"
 )
 
 const (
@@ -25,7 +24,7 @@ func (p Principal) IsAdmin() bool {
 }
 
 func NormalizeEmail(email string) string {
-	return normalize.Email(email)
+	return strings.ToLower(strings.TrimSpace(email))
 }
 
 // IsValidEmail reports whether email parses as a single RFC 5322 address with a

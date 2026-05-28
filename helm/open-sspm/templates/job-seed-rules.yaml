@@ -44,6 +44,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
+            - admin
             - seed-rules
           env:
             - name: DATABASE_URL

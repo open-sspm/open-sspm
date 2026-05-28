@@ -106,7 +106,6 @@ ORDER BY
     WHEN 'verified_source' THEN 1
     WHEN 'manual' THEN 2
     WHEN 'observed' THEN 3
-    WHEN 'inferred_legacy' THEN 4
     ELSE 5
   END,
   i.id
@@ -1362,14 +1361,12 @@ DO UPDATE SET
       WHEN 'verified_source' THEN 1
       WHEN 'manual' THEN 2
       WHEN 'observed' THEN 3
-      WHEN 'inferred_legacy' THEN 4
       ELSE 5
     END <= CASE EXCLUDED.verification_state
       WHEN 'verified_authoritative' THEN 0
       WHEN 'verified_source' THEN 1
       WHEN 'manual' THEN 2
       WHEN 'observed' THEN 3
-      WHEN 'inferred_legacy' THEN 4
       ELSE 5
     END THEN identity_emails.verification_state
     ELSE EXCLUDED.verification_state

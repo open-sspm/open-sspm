@@ -347,13 +347,17 @@ func (q *Queries) SearchIdentitiesForCommand(ctx context.Context, arg SearchIden
 
 const searchOktaAppsForCommand = `-- name: SearchOktaAppsForCommand :many
 SELECT
+  oa.source_name,
   oa.external_id,
   COALESCE(NULLIF(trim(oa.label), ''), oa.external_id)::text AS label,
   COALESCE(oa.name, '')::text AS name,
   COALESCE(oa.status, '')::text AS status,
   COALESCE(m.integration_kind, '')::text AS integration_kind
 FROM okta_apps oa
-LEFT JOIN integration_okta_app_map m ON m.okta_app_external_id = oa.external_id
+LEFT JOIN integration_okta_app_map m
+  ON m.okta_source_kind = oa.source_kind
+ AND m.okta_source_name = oa.source_name
+ AND m.okta_app_external_id = oa.external_id
 WHERE oa.expired_at IS NULL
   AND oa.last_observed_run_id IS NOT NULL
   AND (
@@ -376,6 +380,7 @@ ORDER BY
   (NULLIF(trim(m.integration_kind), '') IS NULL) ASC,
   lower(COALESCE(NULLIF(trim(oa.label), ''), NULLIF(trim(oa.name), ''), oa.external_id)) ASC,
   lower(COALESCE(NULLIF(trim(oa.name), ''), oa.external_id)) ASC,
+  oa.source_name ASC,
   oa.external_id ASC
 LIMIT $2::int
 `
@@ -386,6 +391,7 @@ type SearchOktaAppsForCommandParams struct {
 }
 
 type SearchOktaAppsForCommandRow struct {
+	SourceName      string `json:"source_name"`
 	ExternalID      string `json:"external_id"`
 	Label           string `json:"label"`
 	Name            string `json:"name"`
@@ -403,6 +409,7 @@ func (q *Queries) SearchOktaAppsForCommand(ctx context.Context, arg SearchOktaAp
 	for rows.Next() {
 		var i SearchOktaAppsForCommandRow
 		if err := rows.Scan(
+			&i.SourceName,
 			&i.ExternalID,
 			&i.Label,
 			&i.Name,

@@ -100,7 +100,7 @@ func (e *Engine) Run(ctx context.Context, evalCtx Context) error {
 func (e *Engine) EvaluateRule(ctx context.Context, ruleset gen.Ruleset, rule gen.Rule, evalCtx Context) (*Evaluation, error) {
 	start := time.Now()
 	ev, err := e.evaluateRuleInternal(ctx, ruleset, rule, evalCtx)
-	metrics.RuleEvaluationDuration.WithLabelValues(ruleset.Key).Observe(time.Since(start).Seconds())
+	metrics.PolicyCheckDuration.WithLabelValues(ruleset.Key).Observe(time.Since(start).Seconds())
 
 	status := "error"
 	if err == nil && ev != nil {
@@ -108,7 +108,7 @@ func (e *Engine) EvaluateRule(ctx context.Context, ruleset gen.Ruleset, rule gen
 	} else if err == nil && ev == nil {
 		status = "skipped"
 	}
-	metrics.RuleEvaluationsTotal.WithLabelValues(ruleset.Key, status).Inc()
+	metrics.PolicyChecksTotal.WithLabelValues(ruleset.Key, status).Inc()
 
 	return ev, err
 }
@@ -319,47 +319,9 @@ func writeEvaluation(ctx context.Context, q *gen.Queries, ruleset gen.Ruleset, r
 		now = time.Now()
 	}
 
-	evaluatedAt := pgtype.Timestamptz{Time: now, Valid: true}
-	var syncRunID pgtype.Int8
-	if evalCtx.SyncRunID != nil && *evalCtx.SyncRunID > 0 {
-		syncRunID = pgtype.Int8{Int64: *evalCtx.SyncRunID, Valid: true}
-	}
-
 	affected := ev.AffectedResourceIDs
 	if affected == nil {
 		affected = []string{}
-	}
-
-	if _, err := q.InsertRuleEvaluation(ctx, gen.InsertRuleEvaluationParams{
-		RuleID:              rule.ID,
-		ScopeKind:           strings.TrimSpace(evalCtx.ScopeKind),
-		SourceKind:          strings.TrimSpace(evalCtx.SourceKind),
-		SourceName:          strings.TrimSpace(evalCtx.SourceName),
-		Status:              strings.TrimSpace(ev.Status),
-		SyncRunID:           syncRunID,
-		EvaluatedAt:         evaluatedAt,
-		EvidenceSummary:     strings.TrimSpace(ev.EvidenceSummary),
-		EvidenceJson:        ev.EvidenceJSON,
-		AffectedResourceIds: affected,
-		ErrorKind:           strings.TrimSpace(ev.ErrorKind),
-	}); err != nil {
-		return err
-	}
-
-	if _, err := q.UpsertRuleResultCurrent(ctx, gen.UpsertRuleResultCurrentParams{
-		RuleID:              rule.ID,
-		ScopeKind:           strings.TrimSpace(evalCtx.ScopeKind),
-		SourceKind:          strings.TrimSpace(evalCtx.SourceKind),
-		SourceName:          strings.TrimSpace(evalCtx.SourceName),
-		Status:              strings.TrimSpace(ev.Status),
-		EvaluatedAt:         evaluatedAt,
-		SyncRunID:           syncRunID,
-		EvidenceSummary:     strings.TrimSpace(ev.EvidenceSummary),
-		EvidenceJson:        ev.EvidenceJSON,
-		AffectedResourceIds: affected,
-		ErrorKind:           strings.TrimSpace(ev.ErrorKind),
-	}); err != nil {
-		return err
 	}
 
 	return findings.NewWriter(q).Write(ctx, ruleFindingResult(ruleset, rule, evalCtx, ev, affected, now))

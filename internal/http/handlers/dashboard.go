@@ -74,15 +74,16 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 			continue
 		}
 
-		counts, err := h.Q.GetRulesetPostureCounts(ctx, gen.GetRulesetPostureCountsParams{
-			RulesetID:  rs.ID,
+		rows, err := h.Q.ListFindingRulesetCurrentByRulesetKey(ctx, gen.ListFindingRulesetCurrentByRulesetKeyParams{
 			ScopeKind:  scopeKind,
 			SourceKind: sourceKind,
 			SourceName: sourceName,
+			Key:        strings.TrimSpace(rs.Key),
 		})
 		if err != nil {
 			return h.RenderError(c, err)
 		}
+		counts := dashboardFrameworkPostureCounts(rows)
 		if counts.TotalRules == 0 || counts.EvaluatedRules == 0 {
 			continue
 		}
@@ -128,6 +129,26 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 		return h.RenderComponent(c, views.DashboardContent(data))
 	}
 	return h.RenderComponent(c, views.DashboardPage(data))
+}
+
+type dashboardPostureCounts struct {
+	TotalRules     int64
+	PassedRules    int64
+	EvaluatedRules int64
+}
+
+func dashboardFrameworkPostureCounts(rows []gen.ListFindingRulesetCurrentByRulesetKeyRow) dashboardPostureCounts {
+	counts := dashboardPostureCounts{TotalRules: int64(len(rows))}
+	for _, row := range rows {
+		if !row.CurrentEvaluatedAt.Valid {
+			continue
+		}
+		counts.EvaluatedRules++
+		if strings.TrimSpace(row.CurrentStatus) == "pass" {
+			counts.PassedRules++
+		}
+	}
+	return counts
 }
 
 func (h *Handlers) dashboardIdentityCount(ctx context.Context, stateView connectorStateView) (int64, error) {

@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	"github.com/open-sspm/open-sspm/internal/riskpolicy"
+	"github.com/open-sspm/open-sspm/internal/evaluator"
 	"github.com/open-sspm/open-sspm/internal/testdb"
 )
 
@@ -36,7 +36,7 @@ func TestProjectorRefreshConnectorSourceStateUsesLatestFullRunForFreshness(t *te
 		discoveryFinishedAt := now.Add(-5 * time.Minute)
 
 		insertReadModelsSyncRun(t, ctx, pool, "entra", "11111111-1111-1111-1111-111111111111", fullFinishedAt)
-		insertReadModelsSyncRun(t, ctx, pool, "entra_discovery", "11111111-1111-1111-1111-111111111111", discoveryFinishedAt)
+		insertReadModelsSyncRunWithMode(t, ctx, pool, "entra", "11111111-1111-1111-1111-111111111111", "discovery", discoveryFinishedAt)
 
 		projector := NewProjector(pool, nil, RefreshConfig{SyncEntraInterval: time.Hour})
 		if err := projector.RefreshConnectorSourceState(ctx); err != nil {
@@ -55,7 +55,7 @@ func TestProjectorRefreshConnectorSourceStateUsesLatestFullRunForFreshness(t *te
 	})
 }
 
-func TestProjectorRefreshConnectorSourceStateIgnoresOktaPushRuns(t *testing.T) {
+func TestProjectorRefreshConnectorSourceStateIgnoresOktaEventInboxRuns(t *testing.T) {
 	t.Parallel()
 
 	withReadModelsTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, migrator *migrate.Migrate) {
@@ -70,9 +70,9 @@ func TestProjectorRefreshConnectorSourceStateIgnoresOktaPushRuns(t *testing.T) {
 
 		now := time.Now().UTC().Truncate(time.Second)
 		fullFinishedAt := now.Add(-3 * time.Hour)
-		pushFinishedAt := now.Add(-5 * time.Minute)
+		eventInboxFinishedAt := now.Add(-5 * time.Minute)
 		insertReadModelsSyncRun(t, ctx, pool, "okta", sourceName, fullFinishedAt)
-		insertReadModelsSyncRun(t, ctx, pool, "okta_push", sourceName, pushFinishedAt)
+		insertReadModelsSyncRunWithMode(t, ctx, pool, "okta", sourceName, "event_inbox", eventInboxFinishedAt)
 
 		projector := NewProjector(pool, nil, RefreshConfig{SyncOktaInterval: time.Hour})
 		if err := projector.RefreshConnectorSourceState(ctx); err != nil {
@@ -108,7 +108,7 @@ func TestProjectorRefreshConnectorSourceStateKeepsCurrentFullRunCurrent(t *testi
 		discoveryFinishedAt := now.Add(-5 * time.Minute)
 
 		insertReadModelsSyncRun(t, ctx, pool, "entra", "11111111-1111-1111-1111-111111111111", fullFinishedAt)
-		insertReadModelsSyncRun(t, ctx, pool, "entra_discovery", "11111111-1111-1111-1111-111111111111", discoveryFinishedAt)
+		insertReadModelsSyncRunWithMode(t, ctx, pool, "entra", "11111111-1111-1111-1111-111111111111", "discovery", discoveryFinishedAt)
 
 		projector := NewProjector(pool, nil, RefreshConfig{SyncEntraInterval: time.Hour})
 		if err := projector.RefreshConnectorSourceState(ctx); err != nil {
@@ -143,7 +143,7 @@ func TestProjectorRefreshConnectorSourceStateDoesNotLetDiscoveryFreshnessKeepNon
 		fullFinishedAt := now.Add(-4 * time.Hour)
 		discoveryFinishedAt := now.Add(-5 * time.Minute)
 		fullRunID := insertReadModelsSyncRun(t, ctx, pool, "entra", sourceName, fullFinishedAt)
-		insertReadModelsSyncRun(t, ctx, pool, "entra_discovery", sourceName, discoveryFinishedAt)
+		insertReadModelsSyncRunWithMode(t, ctx, pool, "entra", sourceName, "discovery", discoveryFinishedAt)
 
 		appAssetID := upsertReadModelsAppAsset(t, ctx, q, fullRunID, "entra", sourceName, "entra_service_principal", "svc-123", "Azure Service Principal")
 
@@ -203,7 +203,7 @@ func TestProjectorRefreshAllNonHumanPrincipalReadModelsEvaluatesAndStoresPolicy(
 		if err != nil {
 			t.Fatalf("GetNonHumanPrincipalByRef(): %v", err)
 		}
-		expected, err := riskpolicy.EvaluateIdentity(riskpolicy.IdentityInput{
+		expected, err := evaluator.EvaluateIdentity(evaluator.IdentityInput{
 			IdentityID:             principal.IdentityID,
 			PrincipalRef:           principal.PrincipalRef,
 			PrincipalType:          principal.PrincipalType,
@@ -236,14 +236,14 @@ func TestProjectorRefreshAllNonHumanPrincipalReadModelsEvaluatesAndStoresPolicy(
 			t.Fatalf("stored policy risk = %q/%d, want high/3", principal.RiskLevel, principal.RiskReasonCount)
 		}
 
-		var signals []riskpolicy.RiskSignal
+		var signals []evaluator.RiskSignal
 		if err := json.Unmarshal(principal.RiskSignalsJson, &signals); err != nil {
 			t.Fatalf("unmarshal risk_signals_json: %v", err)
 		}
 		if len(signals) != expected.RiskReasonCount {
 			t.Fatalf("risk_signals_json length = %d, want %d", len(signals), expected.RiskReasonCount)
 		}
-		var packs []riskpolicy.PolicyPackRef
+		var packs []evaluator.PolicyPackRef
 		if err := json.Unmarshal(principal.PolicyPacksJson, &packs); err != nil {
 			t.Fatalf("unmarshal policy_packs_json: %v", err)
 		}
@@ -566,8 +566,8 @@ func TestProjectorRefreshCredentialArtifactRiskReadModelsBySourceEvaluatesAndSto
 		`, credentialID).Scan(&riskLevel, &riskRank, &signalCount, &policyPackCount); err != nil {
 			t.Fatalf("select credential_artifact_risk_read_models: %v", err)
 		}
-		if riskLevel != "high" || riskRank != riskpolicy.SeverityRank(riskpolicy.SeverityHigh) {
-			t.Fatalf("stored credential risk = %q/%d, want high/%d", riskLevel, riskRank, riskpolicy.SeverityRank(riskpolicy.SeverityHigh))
+		if riskLevel != "high" || riskRank != evaluator.SeverityRank(evaluator.SeverityHigh) {
+			t.Fatalf("stored credential risk = %q/%d, want high/%d", riskLevel, riskRank, evaluator.SeverityRank(evaluator.SeverityHigh))
 		}
 		if signalCount == 0 || policyPackCount == 0 {
 			t.Fatalf("stored credential policy output has signals=%d packs=%d, want both present", signalCount, policyPackCount)
@@ -747,12 +747,18 @@ func insertReadModelsConnectorConfig(t *testing.T, ctx context.Context, pool *pg
 func insertReadModelsSyncRun(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceKind, sourceName string, finishedAt time.Time) int64 {
 	t.Helper()
 
+	return insertReadModelsSyncRunWithMode(t, ctx, pool, sourceKind, sourceName, "full", finishedAt)
+}
+
+func insertReadModelsSyncRunWithMode(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sourceKind, sourceName, runMode string, finishedAt time.Time) int64 {
+	t.Helper()
+
 	var id int64
 	err := pool.QueryRow(ctx, `
-		INSERT INTO sync_runs (source_kind, source_name, status, started_at, finished_at, message)
-		VALUES ($1, $2, 'success', $3, $4, '')
+		INSERT INTO sync_runs (source_kind, source_name, run_mode, status, started_at, finished_at, message)
+		VALUES ($1, $2, $3, 'success', $4, $5, '')
 		RETURNING id
-	`, sourceKind, sourceName, finishedAt.Add(-time.Minute), finishedAt).Scan(&id)
+	`, sourceKind, sourceName, runMode, finishedAt.Add(-time.Minute), finishedAt).Scan(&id)
 	if err != nil {
 		t.Fatalf("insert sync run %s/%s: %v", sourceKind, sourceName, err)
 	}
@@ -896,11 +902,11 @@ func expectedHighRiskCredentialAttributionFromPolicy(t *testing.T, evaluatedAt t
 
 	var highRiskCount, highRiskWithAttributionCount int64
 	for _, tc := range cases {
-		result, err := riskpolicy.EvaluateCredential(readModelsCredentialPolicyInput(tc.seed, evaluatedAt))
+		result, err := evaluator.EvaluateCredential(readModelsCredentialPolicyInput(tc.seed, evaluatedAt))
 		if err != nil {
 			t.Fatalf("EvaluateCredential(%s): %v", tc.seed.ExternalID, err)
 		}
-		if result.RiskRank < riskpolicy.SeverityRank(riskpolicy.SeverityHigh) {
+		if result.RiskRank < evaluator.SeverityRank(evaluator.SeverityHigh) {
 			continue
 		}
 		highRiskCount++
@@ -911,8 +917,8 @@ func expectedHighRiskCredentialAttributionFromPolicy(t *testing.T, evaluatedAt t
 	return highRiskCount, highRiskWithAttributionCount
 }
 
-func readModelsCredentialPolicyInput(seed readModelsCredentialArtifactSeed, evaluatedAt time.Time) riskpolicy.CredentialInput {
-	return riskpolicy.CredentialInput{
+func readModelsCredentialPolicyInput(seed readModelsCredentialArtifactSeed, evaluatedAt time.Time) evaluator.CredentialInput {
+	return evaluator.CredentialInput{
 		SourceKind:            seed.SourceKind,
 		SourceName:            seed.SourceName,
 		CredentialKind:        seed.CredentialKind,

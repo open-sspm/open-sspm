@@ -16,7 +16,6 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
-	"github.com/open-sspm/open-sspm/internal/normalize"
 )
 
 const nonHumanIdentitiesPerPage = 20
@@ -276,7 +275,7 @@ func (h *Handlers) HandleNonHumanIdentityRelationshipCreate(c *echo.Context) err
 	if relationshipType == "" {
 		relationshipType = "custodian"
 	}
-	identityEmail := normalize.Email(c.FormValue("identity_email"))
+	identityEmail := strings.ToLower(strings.TrimSpace(c.FormValue("identity_email")))
 	if identityEmail == "" {
 		return redirectWithFlash(c, redirectPath, viewmodels.ToastViewData{
 			Category:    "error",

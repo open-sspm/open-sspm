@@ -24,7 +24,7 @@ func TestNewEchoUsesDefaultLogger(t *testing.T) {
 	var out bytes.Buffer
 	oldDefault := slog.Default()
 	t.Cleanup(func() { slog.SetDefault(oldDefault) })
-	slog.SetDefault(slog.New(slog.NewJSONHandler(&out, nil)).With("app", "open-sspm", "command", "open-sspm serve"))
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&out, nil)).With("app", "open-sspm", "command", "open-sspm api"))
 
 	e := newEcho(config.Config{})
 	e.Logger.Info("logger wiring check")
@@ -40,8 +40,8 @@ func TestNewEchoUsesDefaultLogger(t *testing.T) {
 	if got := payload["app"]; got != "open-sspm" {
 		t.Fatalf("app = %v, want %q", got, "open-sspm")
 	}
-	if got := payload["command"]; got != "open-sspm serve" {
-		t.Fatalf("command = %v, want %q", got, "open-sspm serve")
+	if got := payload["command"]; got != "open-sspm api" {
+		t.Fatalf("command = %v, want %q", got, "open-sspm api")
 	}
 	if got := payload["component"]; got != "http" {
 		t.Fatalf("component = %v, want %q", got, "http")
@@ -254,17 +254,6 @@ func TestRegisterRoutesKeepsCapabilityFirstSurface(t *testing.T) {
 			t.Fatalf("capability-first route %q not registered", want)
 		}
 	}
-
-	for _, removedRoute := range []string{
-		"/apps",
-		"/connected-apps",
-		"/okta-accounts",
-		"/github-users",
-	} {
-		if _, ok := paths[removedRoute]; ok {
-			t.Fatalf("removed route %q still registered", removedRoute)
-		}
-	}
 }
 
 func TestRouteSurfacesOwnBrowserMiddleware(t *testing.T) {
@@ -291,28 +280,14 @@ func TestRouteSurfacesOwnBrowserMiddleware(t *testing.T) {
 		}
 	})
 
-	t.Run("api has explicit unauthenticated json behavior", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "http://example.com/api/identity-resolution/candidates", nil)
-		rec := httptest.NewRecorder()
-
-		e.ServeHTTP(rec, req)
-
-		if rec.Code != http.StatusUnauthorized {
-			t.Fatalf("api status = %d, want %d", rec.Code, http.StatusUnauthorized)
-		}
-		if !strings.Contains(rec.Header().Get(echo.HeaderContentType), echo.MIMEApplicationJSON) {
-			t.Fatalf("api content-type = %q, want JSON", rec.Header().Get(echo.HeaderContentType))
-		}
-	})
-
-	t.Run("api post keeps browser csrf protection", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "http://example.com/api/identity-resolution/candidates/123/accept", nil)
+	t.Run("identity review posts keep browser csrf protection", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "http://example.com/identity-resolution/candidates/123/accept", nil)
 		rec := httptest.NewRecorder()
 
 		e.ServeHTTP(rec, req)
 
 		if rec.Code != http.StatusBadRequest && rec.Code != http.StatusForbidden {
-			t.Fatalf("api POST status = %d, want CSRF rejection", rec.Code)
+			t.Fatalf("identity review POST status = %d, want CSRF rejection", rec.Code)
 		}
 	})
 
