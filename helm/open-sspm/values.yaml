@@ -24,13 +24,6 @@ connectorSecret:
     name: ""
     key: CONNECTOR_SECRET_KEY
 
-redis:
-  # Set true only when REDIS_URL is injected through component extraEnv/extraEnvFrom.
-  allowExternalUrlEnv: false
-  existingSecret:
-    name: ""
-    urlKey: REDIS_URL
-
 smtp:
   enabled: false
   host: ""
@@ -59,19 +52,11 @@ config:
   devSeedAdmin: false
   resyncEnabled: true
   syncFullEnabled: true
-  # Queue backend for push ingest dispatch. Postgres remains the durable ledger.
-  # Set to "redis" to enqueue persisted push inbox row IDs through Redis.
-  queueBackend: postgres
-  # Plain-value convenience for non-secret REDIS_URL values. Credentialed URLs
-  # must use redis.existingSecret to avoid exposing secrets in rendered manifests.
-  redisUrl: ""
-  redisKeyPrefix: open-sspm
   # Enables the discovery lane system-wide. When false, api does not queue
-  # discovery work and discovery/ingest worker Deployments are omitted.
+  # discovery work and discovery worker Deployments are omitted.
   syncDiscoveryEnabled: true
-  # Optional override for Okta push ingest. Empty inherits syncDiscoveryEnabled
-  # for backward compatibility.
-  oktaPushIngestEnabled: ""
+  # Enables event inbox receivers and the worker Deployment.
+  eventInboxEnabled: true
   syncInterval: 15m
   syncDiscoveryInterval: 15m
   syncTailInterval: 5m
@@ -91,7 +76,7 @@ config:
   eventPartitionMaintenanceInterval: 12h
   eventPartitionFutureDays: 7
   eventRetentionDays: 90
-  oktaPushIngest:
+  eventInbox:
     batchSize: 500
     pollInterval: 5s
     cleanupInterval: 1h
@@ -101,7 +86,7 @@ config:
     maxAttempts: 10
     processedRetentionDays: 30
     deadLetterRetentionDays: 90
-  riskpolicyEventWorker:
+  eventEvaluatorWorker:
     pollInterval: 5s
     batchSize: 100
     maxAttempts: 10
@@ -111,9 +96,11 @@ metrics:
   service:
     enabled: false
     port: 9090
-    # Which component to expose metrics for: api, worker, worker-discovery,
-    # worker-ingest, worker-tail, or worker-riskpolicy.
+    # Which deployment component to expose metrics for: api or worker.
     component: worker
+    # Optional worker lane selector: full, discovery, event-inbox, tail, or evaluator.
+    # Empty selects every worker lane.
+    workerLane: ""
     annotations: {}
 
 podSecurityContext: {}
@@ -135,80 +122,66 @@ ingress:
           pathType: Prefix
   tls: []
 
-# Preferred API deployment settings for new installs. When unset, the chart
-# falls back to the deprecated serve.* block below for upgrade compatibility.
+# API deployment settings.
 api: {}
 
-# Deprecated alias for API deployment settings. Use api.* for new values files.
-serve:
-  replicaCount: 1
-  podAnnotations: {}
-  podLabels: {}
-  extraEnv: []
-  extraEnvFrom: []
-  resources: {}
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
-
 worker:
-  replicaCount: 1
-  podAnnotations: {}
-  podLabels: {}
-  extraEnv: []
-  extraEnvFrom: []
-  resources: {}
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
-
-discoveryWorker:
-  enabled: true
-  replicaCount: 1
-  podAnnotations: {}
-  podLabels: {}
-  extraEnv: []
-  extraEnvFrom: []
-  resources: {}
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
-
-ingestWorker:
-  enabled: true
-  replicaCount: 1
-  podAnnotations: {}
-  podLabels: {}
-  extraEnv: []
-  extraEnvFrom: []
-  resources: {}
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
-
-tailWorker:
-  enabled: true
-  replicaCount: 1
-  podAnnotations: {}
-  podLabels: {}
-  extraEnv: []
-  extraEnvFrom: []
-  resources: {}
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
-
-riskpolicyWorker:
-  enabled: true
-  replicaCount: 1
-  podAnnotations: {}
-  podLabels: {}
-  extraEnv: []
-  extraEnvFrom: []
-  resources: {}
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
+  lanes:
+    full:
+      enabled: true
+      replicaCount: 1
+      podAnnotations: {}
+      podLabels: {}
+      extraEnv: []
+      extraEnvFrom: []
+      resources: {}
+      nodeSelector: {}
+      tolerations: []
+      affinity: {}
+    discovery:
+      enabled: true
+      replicaCount: 1
+      podAnnotations: {}
+      podLabels: {}
+      extraEnv: []
+      extraEnvFrom: []
+      resources: {}
+      nodeSelector: {}
+      tolerations: []
+      affinity: {}
+    eventInbox:
+      enabled: true
+      replicaCount: 1
+      podAnnotations: {}
+      podLabels: {}
+      extraEnv: []
+      extraEnvFrom: []
+      resources: {}
+      nodeSelector: {}
+      tolerations: []
+      affinity: {}
+    tail:
+      enabled: true
+      replicaCount: 1
+      podAnnotations: {}
+      podLabels: {}
+      extraEnv: []
+      extraEnvFrom: []
+      resources: {}
+      nodeSelector: {}
+      tolerations: []
+      affinity: {}
+    evaluator:
+      enabled: true
+      replicaCount: 1
+      podAnnotations: {}
+      podLabels: {}
+      extraEnv: []
+      extraEnvFrom: []
+      resources: {}
+      nodeSelector: {}
+      tolerations: []
+      affinity: {}
 
 migrations:
   enabled: true

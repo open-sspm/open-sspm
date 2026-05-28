@@ -20,29 +20,29 @@ func TestOktaConfigValidate(t *testing.T) {
 		{
 			name: "event hook push only valid",
 			config: OktaConfig{
-				Domain:              "acme.okta.com",
-				DiscoveryIngestMode: OktaDiscoveryIngestModeEventHook,
-				EventHookEnabled:    true,
-				EventHookSecret:     "hook-secret",
+				Domain:           "acme.okta.com",
+				EventInboxMode:   OktaEventInboxModeEventHook,
+				EventHookEnabled: true,
+				EventHookSecret:  "hook-secret",
 			},
 		},
 		{
 			name: "eventbridge push only valid",
 			config: OktaConfig{
-				Domain:              "acme.okta.com",
-				DiscoveryIngestMode: OktaDiscoveryIngestModeEventBridge,
-				EventBridgeEnabled:  true,
-				EventBridgeSecret:   "eventbridge-secret",
+				Domain:             "acme.okta.com",
+				EventInboxMode:     OktaEventInboxModeEventBridge,
+				EventBridgeEnabled: true,
+				EventBridgeSecret:  "eventbridge-secret",
 			},
 		},
 		{
 			name: "hybrid valid",
 			config: OktaConfig{
-				Domain:              "acme.okta.com",
-				Token:               "token",
-				DiscoveryIngestMode: OktaDiscoveryIngestModeHybrid,
-				EventHookEnabled:    true,
-				EventHookSecret:     "hook-secret",
+				Domain:           "acme.okta.com",
+				Token:            "token",
+				EventInboxMode:   OktaEventInboxModeHybrid,
+				EventHookEnabled: true,
+				EventHookSecret:  "hook-secret",
 			},
 		},
 		{
@@ -71,36 +71,36 @@ func TestOktaConfigValidate(t *testing.T) {
 		{
 			name: "event hook missing secret",
 			config: OktaConfig{
-				Domain:              "acme.okta.com",
-				DiscoveryIngestMode: OktaDiscoveryIngestModeEventHook,
-				EventHookEnabled:    true,
+				Domain:           "acme.okta.com",
+				EventInboxMode:   OktaEventInboxModeEventHook,
+				EventHookEnabled: true,
 			},
 			wantErr: true,
 		},
 		{
 			name: "event hook receiver disabled",
 			config: OktaConfig{
-				Domain:              "acme.okta.com",
-				DiscoveryIngestMode: OktaDiscoveryIngestModeEventHook,
-				EventHookSecret:     "hook-secret",
+				Domain:          "acme.okta.com",
+				EventInboxMode:  OktaEventInboxModeEventHook,
+				EventHookSecret: "hook-secret",
 			},
 			wantErr: true,
 		},
 		{
 			name: "hybrid missing push channel",
 			config: OktaConfig{
-				Domain:              "acme.okta.com",
-				Token:               "token",
-				DiscoveryIngestMode: OktaDiscoveryIngestModeHybrid,
+				Domain:         "acme.okta.com",
+				Token:          "token",
+				EventInboxMode: OktaEventInboxModeHybrid,
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid mode",
 			config: OktaConfig{
-				Domain:              "acme.okta.com",
-				Token:               "token",
-				DiscoveryIngestMode: "fast",
+				Domain:         "acme.okta.com",
+				Token:          "token",
+				EventInboxMode: "fast",
 			},
 			wantErr: true,
 		},
@@ -145,22 +145,22 @@ func TestMergeOktaConfig(t *testing.T) {
 	t.Parallel()
 
 	existing := OktaConfig{
-		Domain:              "old.okta.com",
-		Token:               "old-token",
-		DiscoveryEnabled:    true,
-		DiscoveryIngestMode: OktaDiscoveryIngestModeHybrid,
-		EventHookEnabled:    true,
-		EventHookSecret:     "old-hook",
-		EventBridgeEnabled:  true,
-		EventBridgeSecret:   "old-eventbridge",
+		Domain:             "old.okta.com",
+		Token:              "old-token",
+		DiscoveryEnabled:   true,
+		EventInboxMode:     OktaEventInboxModeHybrid,
+		EventHookEnabled:   true,
+		EventHookSecret:    "old-hook",
+		EventBridgeEnabled: true,
+		EventBridgeSecret:  "old-eventbridge",
 	}
 
 	merged := MergeOktaConfig(existing, OktaConfig{
-		Domain:              "new.okta.com",
-		DiscoveryEnabled:    false,
-		DiscoveryIngestMode: OktaDiscoveryIngestModeEventHook,
-		EventHookEnabled:    true,
-		EventBridgeEnabled:  false,
+		Domain:             "new.okta.com",
+		DiscoveryEnabled:   false,
+		EventInboxMode:     OktaEventInboxModeEventHook,
+		EventHookEnabled:   true,
+		EventBridgeEnabled: false,
 	})
 
 	if merged.Domain != "new.okta.com" {
@@ -178,24 +178,24 @@ func TestMergeOktaConfig(t *testing.T) {
 	if merged.DiscoveryEnabled {
 		t.Fatalf("DiscoveryEnabled = true, want false")
 	}
-	if merged.DiscoveryIngestMode != OktaDiscoveryIngestModeEventHook {
-		t.Fatalf("DiscoveryIngestMode = %q, want %q", merged.DiscoveryIngestMode, OktaDiscoveryIngestModeEventHook)
+	if merged.EventInboxMode != OktaEventInboxModeEventHook {
+		t.Fatalf("EventInboxMode = %q, want %q", merged.EventInboxMode, OktaEventInboxModeEventHook)
 	}
 	if !merged.EventHookEnabled || merged.EventBridgeEnabled {
 		t.Fatalf("push flags = hook:%v eventbridge:%v, want hook true eventbridge false", merged.EventHookEnabled, merged.EventBridgeEnabled)
 	}
 }
 
-func TestMergeOktaConfigPreservesDiscoveryModeWhenOmitted(t *testing.T) {
+func TestMergeOktaConfigPreservesEventInboxModeWhenOmitted(t *testing.T) {
 	t.Parallel()
 
 	existing := OktaConfig{
-		Domain:              "old.okta.com",
-		Token:               "old-token",
-		DiscoveryEnabled:    true,
-		DiscoveryIngestMode: OktaDiscoveryIngestModeHybrid,
-		EventHookEnabled:    true,
-		EventHookSecret:     "old-hook",
+		Domain:           "old.okta.com",
+		Token:            "old-token",
+		DiscoveryEnabled: true,
+		EventInboxMode:   OktaEventInboxModeHybrid,
+		EventHookEnabled: true,
+		EventHookSecret:  "old-hook",
 	}
 
 	merged := MergeOktaConfig(existing, OktaConfig{
@@ -204,8 +204,8 @@ func TestMergeOktaConfigPreservesDiscoveryModeWhenOmitted(t *testing.T) {
 		EventHookEnabled: true,
 	})
 
-	if merged.DiscoveryIngestMode != OktaDiscoveryIngestModeHybrid {
-		t.Fatalf("DiscoveryIngestMode = %q, want preserved hybrid", merged.DiscoveryIngestMode)
+	if merged.EventInboxMode != OktaEventInboxModeHybrid {
+		t.Fatalf("EventInboxMode = %q, want preserved hybrid", merged.EventInboxMode)
 	}
 }
 

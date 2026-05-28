@@ -1,16 +1,48 @@
 package main
 
-import "github.com/spf13/cobra"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/spf13/cobra"
+)
+
+var workerLaneFlag string
 
 var workerCmd = &cobra.Command{
 	Use:   "worker",
-	Short: "Run the background full sync loop.",
+	Short: "Run a background worker lane.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runWorker()
+		return runWorker(workerLaneFlag)
 	},
 }
 
-func runWorker() error {
-	return runWorkerHost(fullSyncLane())
+func init() {
+	workerCmd.Flags().StringVar(&workerLaneFlag, "lane", "full", "worker lane to run: full, discovery, event-inbox, tail, evaluator")
+}
+
+func runWorker(laneName string) error {
+	lane, err := workerLaneByName(laneName)
+	if err != nil {
+		return err
+	}
+	return runWorkerHost(lane)
+}
+
+func workerLaneByName(name string) (workerLane, error) {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "", "full":
+		return fullSyncLane(), nil
+	case "discovery":
+		return discoverySyncLane(), nil
+	case "event-inbox":
+		return eventInboxLane{}, nil
+	case "tail":
+		return tailSyncLane(), nil
+	case "evaluator":
+		return eventEvaluatorLane{}, nil
+	default:
+		return nil, fmt.Errorf("unknown worker lane %q", name)
+	}
 }

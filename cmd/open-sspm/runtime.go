@@ -2,15 +2,11 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	oktaingest "github.com/open-sspm/open-sspm/internal/ingest/okta"
 	"github.com/open-sspm/open-sspm/internal/mailer"
 )
 
@@ -56,27 +52,4 @@ func openMailer(cfg config.Config) (mailer.Mailer, error) {
 		FromName:    cfg.SMTP.FromName,
 		TLSMode:     cfg.SMTP.TLSMode,
 	})
-}
-
-func openOktaPushInboxQueue(ctx context.Context, cfg config.Config) (oktaingest.InboxQueue, error) {
-	switch cfg.QueueBackend {
-	case "", config.QueueBackendPostgres:
-		return nil, nil
-	case config.QueueBackendRedis:
-		if cfg.RedisURL == "" {
-			return nil, errors.New("REDIS_URL is required when QUEUE_BACKEND=redis")
-		}
-		q, err := oktaingest.NewRedisInboxQueue(cfg.RedisURL, cfg.RedisKeyPrefix)
-		if err != nil {
-			return nil, err
-		}
-		if err := q.Ping(ctx); err != nil {
-			_ = q.Close()
-			slog.Warn("Redis queue unavailable; falling back to Postgres inbox polling", "err", err)
-			return nil, nil
-		}
-		return q, nil
-	default:
-		return nil, fmt.Errorf("unsupported QUEUE_BACKEND %q", cfg.QueueBackend)
-	}
 }

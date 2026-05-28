@@ -7,6 +7,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/capabilities"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
+	"github.com/open-sspm/open-sspm/internal/discovery"
 	"github.com/open-sspm/open-sspm/internal/records"
 )
 
@@ -26,6 +27,7 @@ func (i *GoogleWorkspaceIntegration) Descriptor() capabilities.Descriptor {
 			records.ResourceAppAsset,
 			records.ResourceCredential,
 			records.ResourceEntitlement,
+			records.ResourceDiscoveryEvidence,
 			records.ResourceAuditEvent,
 		},
 		EventTypes: []string{
@@ -39,6 +41,21 @@ func (i *GoogleWorkspaceIntegration) Capabilities() capabilities.Capabilities {
 	caps := capabilities.Capabilities{}
 	if i == nil {
 		return caps
+	}
+	if i.client != nil && i.discoveryEnabled {
+		caps.Discovery = &capabilities.DiscoveryCapability{
+			Resources: []capabilities.DiscoveryResource{
+				{
+					Name: records.ResourceDiscoveryEvidence,
+					SignalKinds: []string{
+						discovery.SignalKindIDPSSO,
+						discovery.SignalKindOAuth,
+					},
+				},
+			},
+			RecommendedInterval: 15 * time.Minute,
+			Incremental:         true,
+		}
 	}
 	if i.client != nil || i.reportsActivityLister != nil {
 		caps.Tail = &capabilities.TailCapability{

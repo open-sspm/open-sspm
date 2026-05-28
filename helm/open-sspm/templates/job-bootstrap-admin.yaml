@@ -57,7 +57,7 @@ spec:
                 echo "ADMIN_PASSWORD is not set" >&2
                 exit 1
               fi
-              printf '%s' "$ADMIN_PASSWORD" | open-sspm users bootstrap-admin --email "$ADMIN_EMAIL" --password-stdin
+              printf '%s' "$ADMIN_PASSWORD" | open-sspm admin users bootstrap-admin --email "$ADMIN_EMAIL" --password-stdin
           env:
             - name: DATABASE_URL
               valueFrom:

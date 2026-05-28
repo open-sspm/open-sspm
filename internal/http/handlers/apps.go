@@ -2,9 +2,11 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"path"
 	"sort"
 	"strings"
@@ -111,7 +113,7 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 
 	items := make([]viewmodels.AppListItem, 0, len(apps))
 	for _, app := range apps {
-		items = append(items, oktaAppListItem(app.ExternalID, app.Label, app.Name, app.Status, app.SignOnMode, app.IntegrationKind))
+		items = append(items, oktaAppListItem(app.SourceName, app.ExternalID, app.Label, app.Name, app.Status, app.SignOnMode, app.IntegrationKind))
 	}
 
 	statusOptions, err := h.listOktaAppStatuses(ctx)
@@ -140,6 +142,11 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 
 // HandleOktaAppShow renders the Okta app detail page.
 func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
+	sourceName := strings.TrimSpace(c.Param("sourceName"))
+	if sourceName == "" {
+		return RenderNotFound(c)
+	}
+
 	oktaAppExternalID := strings.TrimSpace(c.Param("externalID"))
 	if oktaAppExternalID == "" {
 		oktaAppExternalID = strings.Trim(c.Param("*"), "/")
@@ -153,7 +160,10 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	app, err := h.Q.GetOktaAppByExternalIDWithIntegration(ctx, oktaAppExternalID)
+	app, err := h.Q.GetOktaAppBySourceAndExternalIDWithIntegration(ctx, gen.GetOktaAppBySourceAndExternalIDWithIntegrationParams{
+		SourceName: sourceName,
+		ExternalID: oktaAppExternalID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
@@ -172,27 +182,29 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 	}
 
 	const perPage = 20
-	queryState := querystate.ParseBasicListQuery("/assigned-apps/"+strings.TrimSpace(app.ExternalID), c.Request().URL.Query(), querystate.BasicListOptions{
+	queryState := querystate.ParseBasicListQuery(oktaAppDetailPath(app.SourceName, app.ExternalID), c.Request().URL.Query(), querystate.BasicListOptions{
 		NormalizeState: normalizeActiveInactiveState,
 	})
 	page := queryState.Page
 
-	totalCount, err := h.Q.CountOktaAppAssignedAccountsByQuery(ctx, gen.CountOktaAppAssignedAccountsByQueryParams{
-		OktaAppID: app.ID,
-		State:     queryState.State,
-		Query:     queryState.Q,
+	totalCount, err := h.Q.CountOktaAppAssignedAccountsFromEntitlementsByQuery(ctx, gen.CountOktaAppAssignedAccountsFromEntitlementsByQueryParams{
+		SourceName:    app.SourceName,
+		AppExternalID: app.ExternalID,
+		State:         queryState.State,
+		Query:         queryState.Q,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
 	}
 
 	pagination := newPaginatedListState(totalCount, page, perPage)
-	assignments, err := h.Q.ListOktaAppAssignedAccountsPageByQuery(ctx, gen.ListOktaAppAssignedAccountsPageByQueryParams{
-		OktaAppID:  app.ID,
-		State:      queryState.State,
-		Query:      queryState.Q,
-		PageOffset: int32(pagination.Offset()),
-		PageLimit:  int32(perPage),
+	assignments, err := h.Q.ListOktaAppAssignedAccountsFromEntitlementsPageByQuery(ctx, gen.ListOktaAppAssignedAccountsFromEntitlementsPageByQueryParams{
+		SourceName:    app.SourceName,
+		AppExternalID: app.ExternalID,
+		State:         queryState.State,
+		Query:         queryState.Q,
+		PageOffset:    int32(pagination.Offset()),
+		PageLimit:     int32(perPage),
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -205,8 +217,9 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 
 	grantingGroups := make(map[int64][]string)
 	if len(oktaAccountIDs) > 0 {
-		rows, err := h.Q.ListOktaAppGrantingGroupsForOktaAccounts(ctx, gen.ListOktaAppGrantingGroupsForOktaAccountsParams{
-			OktaAppID:      app.ID,
+		rows, err := h.Q.ListOktaAppGrantingGroupsFromEntitlementsForAccounts(ctx, gen.ListOktaAppGrantingGroupsFromEntitlementsForAccountsParams{
+			SourceName:     app.SourceName,
+			AppExternalID:  app.ExternalID,
 			OktaAccountIds: oktaAccountIDs,
 		})
 		if err != nil {
@@ -246,7 +259,7 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 	return h.RenderComponent(c, views.OktaAppShowPage(data))
 }
 
-func oktaAppListItem(externalID, label, name, status, signOnMode, integrationKind string) viewmodels.AppListItem {
+func oktaAppListItem(sourceName, externalID, label, name, status, signOnMode, integrationKind string) viewmodels.AppListItem {
 	label = strings.TrimSpace(label)
 	if label == "" {
 		label = strings.TrimSpace(externalID)
@@ -254,6 +267,7 @@ func oktaAppListItem(externalID, label, name, status, signOnMode, integrationKin
 
 	integratedHref := IntegratedAppHref(integrationKind)
 	return viewmodels.AppListItem{
+		SourceName:     strings.TrimSpace(sourceName),
 		ExternalID:     strings.TrimSpace(externalID),
 		Label:          label,
 		Name:           strings.TrimSpace(name),
@@ -281,8 +295,9 @@ func oktaAppSuggestedIntegrationKind(label, name, integratedHref string) string 
 	}
 }
 
-func oktaAppSummaryView(app gen.GetOktaAppByExternalIDWithIntegrationRow) viewmodels.OktaAppSummaryView {
+func oktaAppSummaryView(app gen.GetOktaAppBySourceAndExternalIDWithIntegrationRow) viewmodels.OktaAppSummaryView {
 	return viewmodels.OktaAppSummaryView{
+		SourceName: strings.TrimSpace(app.SourceName),
 		ExternalID: strings.TrimSpace(app.ExternalID),
 		Label:      firstNonEmpty(app.Label, app.ExternalID),
 		Name:       strings.TrimSpace(app.Name),
@@ -291,7 +306,16 @@ func oktaAppSummaryView(app gen.GetOktaAppByExternalIDWithIntegrationRow) viewmo
 	}
 }
 
-func oktaAppAssignedAccountView(assignment gen.ListOktaAppAssignedAccountsPageByQueryRow, grantingGroups []string) viewmodels.OktaAppAssignedAccountView {
+func oktaAppDetailPath(sourceName, externalID string) string {
+	sourceName = strings.TrimSpace(sourceName)
+	externalID = strings.TrimSpace(externalID)
+	if sourceName == "" || externalID == "" {
+		return "/assigned-apps"
+	}
+	return "/assigned-apps/" + url.PathEscape(sourceName) + "/" + url.PathEscape(externalID)
+}
+
+func oktaAppAssignedAccountView(assignment gen.ListOktaAppAssignedAccountsFromEntitlementsPageByQueryRow, grantingGroups []string) viewmodels.OktaAppAssignedAccountView {
 	return viewmodels.OktaAppAssignedAccountView{
 		OktaAccountID:         assignment.OktaAccountID,
 		AccountHref:           fmt.Sprintf("/accounts/okta/%d", assignment.OktaAccountID),
@@ -301,7 +325,24 @@ func oktaAppAssignedAccountView(assignment gen.ListOktaAppAssignedAccountsPageBy
 		OktaAccountStatus:     fallbackDisplayValue(assignment.OktaAccountStatus),
 		AssignedVia:           oktaAssignedVia(assignment.Scope),
 		Groups:                oktaAssignmentGroups(assignment.Scope, grantingGroups),
-		Attributes:            SummarizeProfileAttributes(assignment.ProfileJson),
+		Attributes:            SummarizeProfileAttributes(profileJSONBytes(assignment.ProfileJson)),
+	}
+}
+
+func profileJSONBytes(value any) []byte {
+	switch v := value.(type) {
+	case nil:
+		return nil
+	case []byte:
+		return v
+	case string:
+		return []byte(v)
+	default:
+		b, err := json.Marshal(v)
+		if err != nil {
+			return nil
+		}
+		return b
 	}
 }
 
@@ -390,6 +431,7 @@ func firstNonEmpty(values ...string) string {
 func (h *Handlers) HandleAppsMap(c *echo.Context) error {
 	ctx := c.Request().Context()
 	kind := NormalizeConnectorKind(c.FormValue("integration_kind"))
+	oktaSourceName := strings.TrimSpace(c.FormValue("okta_source_name"))
 	oktaAppExternalID := strings.TrimSpace(c.FormValue("okta_app_external_id"))
 
 	switch kind {
@@ -404,9 +446,14 @@ func (h *Handlers) HandleAppsMap(c *echo.Context) error {
 		}
 		return c.Redirect(http.StatusSeeOther, "/assigned-apps")
 	}
+	if oktaSourceName == "" {
+		return RenderNotFound(c)
+	}
 
 	if err := h.Q.UpsertIntegrationOktaAppMap(ctx, gen.UpsertIntegrationOktaAppMapParams{
 		IntegrationKind:   kind,
+		OktaSourceKind:    configstore.KindOkta,
+		OktaSourceName:    oktaSourceName,
 		OktaAppExternalID: oktaAppExternalID,
 	}); err != nil {
 		return h.RenderError(c, err)

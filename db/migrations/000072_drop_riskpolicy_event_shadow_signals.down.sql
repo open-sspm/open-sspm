@@ -1,0 +1,1 @@
+-- Irreversible: riskpolicy event signals now project directly into canonical findings.

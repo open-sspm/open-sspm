@@ -111,54 +111,48 @@ var (
 		Help:      "Number of discovery ingestion failures.",
 	}, []string{"source_kind", "signal_kind", "error_kind"})
 
-	OktaPushEventsReceivedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	EventInboxDeliveriesReceivedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
-		Name:      "okta_push_events_received_total",
-		Help:      "Number of Okta push events received by the ingest endpoint.",
-	}, []string{"source_name", "channel", "status"})
+		Name:      "event_inbox_deliveries_received_total",
+		Help:      "Number of event inbox deliveries received by ingest endpoints.",
+	}, []string{"source_kind", "source_name", "channel", "status"})
 
-	OktaPushEventsProcessedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	EventInboxDeliveriesProcessedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
-		Name:      "okta_push_events_processed_total",
-		Help:      "Number of Okta push inbox events processed by final status.",
-	}, []string{"source_name", "channel", "status"})
+		Name:      "event_inbox_deliveries_processed_total",
+		Help:      "Number of event inbox deliveries processed by final status.",
+	}, []string{"source_kind", "source_name", "channel", "status"})
 
-	OktaPushProcessingDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	EventInboxProcessingDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: namespace,
-		Name:      "okta_push_processing_duration_seconds",
-		Help:      "Time spent processing a batch of Okta push inbox events.",
+		Name:      "event_inbox_processing_duration_seconds",
+		Help:      "Time spent processing an event inbox delivery.",
 		Buckets:   prometheus.DefBuckets,
-	}, []string{"source_name", "channel"})
+	}, []string{"source_kind", "source_name", "channel"})
 
-	OktaPushQueueDepth = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	EventInboxQueueDepth = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
-		Name:      "okta_push_queue_depth",
-		Help:      "Current number of queued Okta push inbox events.",
-	}, []string{"source_name", "channel"})
+		Name:      "event_inbox_queue_depth",
+		Help:      "Current number of queued event inbox deliveries.",
+	}, []string{"source_kind", "source_name", "channel"})
 
-	OktaPushRedisQueueDepth = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	EventInboxDeadLetterRows = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
-		Name:      "okta_push_redis_queue_depth",
-		Help:      "Current number of queued Okta push Redis wake-up IDs.",
-	}, []string{"queue"})
+		Name:      "event_inbox_dead_letter_rows",
+		Help:      "Current number of event inbox deliveries in dead-letter status.",
+	}, []string{"source_kind", "source_name", "channel"})
 
-	OktaPushDeadLetterRows = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	EventInboxLastReceivedTimestamp = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
-		Name:      "okta_push_dead_letter_rows",
-		Help:      "Current number of Okta push inbox rows in dead letter status.",
-	}, []string{"source_name", "channel"})
+		Name:      "event_inbox_last_received_timestamp_seconds",
+		Help:      "Unix timestamp of the last event inbox delivery received.",
+	}, []string{"source_kind", "source_name", "channel"})
 
-	OktaPushLastReceivedTimestamp = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	EventInboxLastProcessedTimestamp = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
-		Name:      "okta_push_last_received_timestamp_seconds",
-		Help:      "Unix timestamp of the last Okta push event received.",
-	}, []string{"source_name", "channel"})
-
-	OktaPushLastProcessedTimestamp = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: namespace,
-		Name:      "okta_push_last_processed_timestamp_seconds",
-		Help:      "Unix timestamp of the last Okta push inbox event processed.",
-	}, []string{"source_name", "channel"})
+		Name:      "event_inbox_last_processed_timestamp_seconds",
+		Help:      "Unix timestamp of the last event inbox delivery processed.",
+	}, []string{"source_kind", "source_name", "channel"})
 
 	DiscoveryAppsTotal = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
@@ -209,17 +203,17 @@ var (
 		Help:      "Number of identities automatically linked by email.",
 	}, []string{"connector_kind", "connector_name"})
 
-	// Rules Engine Metrics
-	RuleEvaluationsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	// Evaluator metrics
+	PolicyChecksTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
-		Name:      "rule_evaluations_total",
-		Help:      "Number of individual rule checks performed.",
+		Name:      "policy_checks_total",
+		Help:      "Number of individual policy checks performed.",
 	}, []string{"ruleset_key", "status"})
 
-	RuleEvaluationDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	PolicyCheckDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: namespace,
-		Name:      "rule_evaluation_duration_seconds",
-		Help:      "Time taken for rule evaluation logic.",
+		Name:      "policy_check_duration_seconds",
+		Help:      "Time taken for policy check logic.",
 		Buckets:   prometheus.DefBuckets,
 	}, []string{"ruleset_key"})
 )

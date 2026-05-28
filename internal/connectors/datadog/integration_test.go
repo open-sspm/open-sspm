@@ -156,6 +156,7 @@ func TestDatadogIntegrationRunWritesAccountsAndEntitlements(t *testing.T) {
 		recentRuns, err := q.ListRecentFinishedSyncRunsBySource(ctx, gen.ListRecentFinishedSyncRunsBySourceParams{
 			SourceKind: "datadog",
 			SourceName: "datadoghq.com",
+			RunMode:    string(registry.RunModeFull),
 			Limit:      1,
 		})
 		if err != nil {
@@ -412,6 +413,7 @@ func TestDatadogIntegrationRunFailsWhenRoleMemberFetchFails(t *testing.T) {
 		recentRuns, err := q.ListRecentFinishedSyncRunsBySource(ctx, gen.ListRecentFinishedSyncRunsBySourceParams{
 			SourceKind: "datadog",
 			SourceName: "datadoghq.com",
+			RunMode:    string(registry.RunModeFull),
 			Limit:      1,
 		})
 		if err != nil {
@@ -434,7 +436,7 @@ func TestDatadogAuditTailWritesCanonicalEventsAndAdvancesCursor(t *testing.T) {
 		migrateDatadogUp(t, migrator)
 
 		sourceName := "datadoghq.com"
-		runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("datadog", registry.RunModeTail), sourceName)
+		runID, err := registry.StartSyncRunWithMode(ctx, q, "datadog", sourceName, registry.RunModeTail)
 		if err != nil {
 			t.Fatalf("StartSyncRun() err = %v", err)
 		}
@@ -504,7 +506,7 @@ func TestDatadogAuditTailDoesNotAdvanceCursorAfterPartialWriteFailure(t *testing
 		migrateDatadogUp(t, migrator)
 
 		sourceName := "datadoghq.com"
-		runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("datadog", registry.RunModeTail), sourceName)
+		runID, err := registry.StartSyncRunWithMode(ctx, q, "datadog", sourceName, registry.RunModeTail)
 		if err != nil {
 			t.Fatalf("StartSyncRun() err = %v", err)
 		}

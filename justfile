@@ -36,7 +36,7 @@ dev:
 
 # Run database migrations
 migrate:
-    go run ./cmd/open-sspm migrate
+    go run ./cmd/open-sspm admin migrate
 
 #
 # Code Generation
@@ -78,45 +78,21 @@ run:
 api:
     go run ./cmd/open-sspm api
 
-# Run the background worker
-worker:
-    go run ./cmd/open-sspm worker
+# Run a background worker lane: full, discovery, event-inbox, tail, or evaluator
+worker lane="full":
+    go run ./cmd/open-sspm worker --lane={{lane}}
 
-# Run the background discovery worker
-worker-discovery:
-    go run ./cmd/open-sspm worker-discovery
-
-# Run background ingest queue processors
-worker-ingest:
-    go run ./cmd/open-sspm worker-ingest
-
-# Run the background incremental tail worker
-worker-tail:
-    go run ./cmd/open-sspm worker-tail
-
-# Run the background shadow riskpolicy event worker
-worker-riskpolicy:
-    go run ./cmd/open-sspm worker-riskpolicy
-
-# Run a one-off sync
-sync:
-    go run ./cmd/open-sspm sync
-
-# Run a one-off discovery-only sync
-sync-discovery:
-    go run ./cmd/open-sspm sync-discovery
-
-# Run shadow canonical event projection and baseline parity diffing
-event-projection *args:
-    go run ./cmd/open-sspm event-projection {{args}}
+# Run one-off sync lanes: all, full, or discovery
+sync lane="all":
+    go run ./cmd/open-sspm admin sync --lane={{lane}}
 
 # Validate security rules
 validate-rules:
-    go run ./cmd/open-sspm validate-rules
+    go run ./cmd/open-sspm admin validate-rules
 
-# Validate risk policy packs
-validate-risk-policies:
-    go run ./cmd/open-sspm validate-risk-policies
+# Validate evaluator policy packs
+validate-policy-packs:
+    go run ./cmd/open-sspm admin validate-policy-packs
 
 #
 # UI / CSS

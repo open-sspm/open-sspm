@@ -2,7 +2,7 @@
 
 The Google Workspace connector syncs users, groups, admin roles, and OAuth grants from your Google Workspace organization.
 
-When `worker-tail` is running, Open-SSPM also tails Google Workspace Reports activities with a cursor-locked watermark overlap. This improves freshness for token/login audit evidence, but full reconciliation remains the repair path for current inventory.
+When `open-sspm worker --lane tail` is running, Open-SSPM also tails Google Workspace Reports activities with a cursor-locked watermark overlap. This improves freshness for token/login audit evidence, but full reconciliation remains the repair path for current inventory.
 
 ## What Gets Synced
 
@@ -134,7 +134,7 @@ SYNC_TAIL_INTERVAL=5m
 - Discovery must be enabled to sync OAuth grants
 - Reports API must be enabled in Google Cloud
 - Token activity may have a 24-48 hour delay
-- Make sure `open-sspm worker-tail` is running for incremental Reports activity catch-up
+- Make sure `open-sspm worker --lane tail` is running for incremental Reports activity catch-up
 
 ### Service account issues
 

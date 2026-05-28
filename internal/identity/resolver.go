@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	"github.com/open-sspm/open-sspm/internal/normalize"
 )
 
 const (
@@ -738,8 +737,6 @@ func identityEmailVerificationRank(value string) int {
 		return 2
 	case "observed":
 		return 3
-	case "inferred_legacy":
-		return 4
 	default:
 		return 5
 	}
@@ -1319,5 +1316,5 @@ func sourceKey(kind, name string) string {
 }
 
 func normalizeEmail(email string) string {
-	return normalize.Email(email)
+	return strings.ToLower(strings.TrimSpace(email))
 }

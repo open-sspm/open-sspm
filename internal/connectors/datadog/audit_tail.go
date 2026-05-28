@@ -55,8 +55,7 @@ func (i *DatadogIntegration) runAuditTail(ctx context.Context, q *gen.Queries, p
 	}
 
 	started := time.Now()
-	runKind := registry.SyncRunSourceKind(configstore.KindDatadog, registry.RunModeTail)
-	runID, err := registry.StartSyncRun(ctx, q, runKind, i.site)
+	runID, err := registry.StartSyncRunWithMode(ctx, q, configstore.KindDatadog, i.site, registry.RunModeTail)
 	if err != nil {
 		return err
 	}

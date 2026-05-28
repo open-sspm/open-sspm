@@ -47,14 +47,14 @@ type entraInventoryDelta struct {
 	DeletedApplications       []string
 	DeletedServicePrincipals  []string
 	CredentialAssetRefs       []string
-	Cursors                   []registry.ConnectorDeltaCursorUpdate
+	GraphDeltaCursors         []registry.ConnectorGraphDeltaCursorUpdate
 }
 
 func (i *EntraIntegration) runDeltaFull(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, report func(registry.Event)) error {
 	started := time.Now()
 	slog.Info("syncing Microsoft Entra ID with delta", "tenant", i.tenantID)
 
-	runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("entra", registry.RunModeFull), i.tenantID)
+	runID, err := registry.StartSyncRun(ctx, q, "entra", i.tenantID)
 	if err != nil {
 		return err
 	}
@@ -150,7 +150,7 @@ func (i *EntraIntegration) runDeltaFull(ctx context.Context, q *gen.Queries, poo
 		DeletedAccountExternalIDs:     delta.DeletedAccountExternalIDs,
 		DeletedAppAssets:              delta.deletedAppAssetOptions(),
 		CredentialAssetRefExternalIDs: delta.CredentialAssetRefs,
-		DeltaCursors:                  delta.Cursors,
+		GraphDeltaCursors:             delta.GraphDeltaCursors,
 	}); err != nil {
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
@@ -172,16 +172,21 @@ func (i *EntraIntegration) runDeltaFull(ctx context.Context, q *gen.Queries, poo
 }
 
 func (i *EntraIntegration) deltaStatesByResource(ctx context.Context, q *gen.Queries) (map[string]string, error) {
-	rows, err := q.ListConnectorDeltaStatesBySource(ctx, gen.ListConnectorDeltaStatesBySourceParams{
+	rows, err := q.ListConnectorCursorStatesBySourceAndKind(ctx, gen.ListConnectorCursorStatesBySourceAndKindParams{
 		SourceKind: "entra",
 		SourceName: i.tenantID,
+		CursorKind: registry.ConnectorCursorKindGraphDelta,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list entra delta states: %w", err)
 	}
 	states := make(map[string]string, len(rows))
 	for _, row := range rows {
-		states[strings.TrimSpace(row.Resource)] = strings.TrimSpace(row.DeltaLink)
+		deltaLink, err := registry.ConnectorGraphDeltaLinkFromCursorState(row)
+		if err != nil {
+			return nil, err
+		}
+		states[strings.TrimSpace(row.Resource)] = deltaLink
 	}
 	return states, nil
 }
@@ -206,7 +211,7 @@ func (i *EntraIntegration) fetchInventoryDelta(ctx context.Context, report func(
 	}
 	out.Users = users.Items
 	out.DeletedAccountExternalIDs = append(out.DeletedAccountExternalIDs, users.RemovedIDs...)
-	out.Cursors = append(out.Cursors, registry.ConnectorDeltaCursorUpdate{Resource: entraDeltaResourceUsers, DeltaLink: users.DeltaLink})
+	out.GraphDeltaCursors = append(out.GraphDeltaCursors, registry.ConnectorGraphDeltaCursorUpdate{Resource: entraDeltaResourceUsers, DeltaLink: users.DeltaLink})
 
 	report(registry.Event{Source: "entra", Stage: "list-groups", Current: 0, Total: 1, Message: entraDeltaListMessage("groups", bootstrap)})
 	groups, err := client.DeltaGroups(ctx, entraDeltaCursor(states, entraDeltaResourceGroups, bootstrap))
@@ -218,7 +223,7 @@ func (i *EntraIntegration) fetchInventoryDelta(ctx context.Context, report func(
 	for _, id := range groups.RemovedIDs {
 		out.DeletedAccountExternalIDs = append(out.DeletedAccountExternalIDs, entraGroupExternalID(id))
 	}
-	out.Cursors = append(out.Cursors, registry.ConnectorDeltaCursorUpdate{Resource: entraDeltaResourceGroups, DeltaLink: groups.DeltaLink})
+	out.GraphDeltaCursors = append(out.GraphDeltaCursors, registry.ConnectorGraphDeltaCursorUpdate{Resource: entraDeltaResourceGroups, DeltaLink: groups.DeltaLink})
 
 	report(registry.Event{Source: "entra", Stage: "list-app-assets", Current: 0, Total: 1, Message: entraDeltaListMessage("applications and service principals", bootstrap)})
 	applications, err := client.DeltaApplications(ctx, entraDeltaCursor(states, entraDeltaResourceApplications, bootstrap))
@@ -228,7 +233,7 @@ func (i *EntraIntegration) fetchInventoryDelta(ctx context.Context, report func(
 	}
 	out.Applications = applications.Items
 	out.DeletedApplications = applications.RemovedIDs
-	out.Cursors = append(out.Cursors, registry.ConnectorDeltaCursorUpdate{Resource: entraDeltaResourceApplications, DeltaLink: applications.DeltaLink})
+	out.GraphDeltaCursors = append(out.GraphDeltaCursors, registry.ConnectorGraphDeltaCursorUpdate{Resource: entraDeltaResourceApplications, DeltaLink: applications.DeltaLink})
 
 	servicePrincipals, err := client.DeltaServicePrincipals(ctx, entraDeltaCursor(states, entraDeltaResourceServicePrincipals, bootstrap))
 	if err != nil {
@@ -240,7 +245,7 @@ func (i *EntraIntegration) fetchInventoryDelta(ctx context.Context, report func(
 	for _, id := range servicePrincipals.RemovedIDs {
 		out.DeletedAccountExternalIDs = append(out.DeletedAccountExternalIDs, entraServicePrincipalExternalID(id))
 	}
-	out.Cursors = append(out.Cursors, registry.ConnectorDeltaCursorUpdate{Resource: entraDeltaResourceServicePrincipals, DeltaLink: servicePrincipals.DeltaLink})
+	out.GraphDeltaCursors = append(out.GraphDeltaCursors, registry.ConnectorGraphDeltaCursorUpdate{Resource: entraDeltaResourceServicePrincipals, DeltaLink: servicePrincipals.DeltaLink})
 	out.CredentialAssetRefs = out.changedCredentialAssetRefs()
 
 	report(registry.Event{
@@ -251,7 +256,7 @@ func (i *EntraIntegration) fetchInventoryDelta(ctx context.Context, report func(
 		Message: fmt.Sprintf("found %d application changes and %d service principal changes", len(out.Applications), len(out.ServicePrincipals)),
 	})
 
-	if err := validateDeltaCursors(out.Cursors); err != nil {
+	if err := validateDeltaCursors(out.GraphDeltaCursors); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -271,7 +276,7 @@ func entraDeltaCursor(states map[string]string, resource string, bootstrap bool)
 	return strings.TrimSpace(states[resource])
 }
 
-func validateDeltaCursors(cursors []registry.ConnectorDeltaCursorUpdate) error {
+func validateDeltaCursors(cursors []registry.ConnectorGraphDeltaCursorUpdate) error {
 	for _, cursor := range cursors {
 		if strings.TrimSpace(cursor.Resource) == "" {
 			return errors.New("entra delta cursor resource is empty")

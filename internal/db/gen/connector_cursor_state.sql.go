@@ -11,6 +11,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const deleteConnectorCursorStatesBySourceAndKind = `-- name: DeleteConnectorCursorStatesBySourceAndKind :exec
+DELETE FROM connector_cursor_state
+WHERE source_kind = $1::text
+  AND source_name = $2::text
+  AND cursor_kind = $3::text
+`
+
+type DeleteConnectorCursorStatesBySourceAndKindParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+	CursorKind string `json:"cursor_kind"`
+}
+
+func (q *Queries) DeleteConnectorCursorStatesBySourceAndKind(ctx context.Context, arg DeleteConnectorCursorStatesBySourceAndKindParams) error {
+	_, err := q.db.Exec(ctx, deleteConnectorCursorStatesBySourceAndKind, arg.SourceKind, arg.SourceName, arg.CursorKind)
+	return err
+}
+
 const getConnectorCursorState = `-- name: GetConnectorCursorState :one
 SELECT source_kind, source_id, source_name, resource, cursor_kind, cursor_json, watermark, cursor_expires_at, last_success_at, last_attempt_at, last_error_at, last_error, last_run_id, last_provider_event_id, needs_full_resync, version, updated_at
 FROM connector_cursor_state
@@ -88,6 +106,59 @@ func (q *Queries) GetConnectorCursorStateForUpdate(ctx context.Context, arg GetC
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listConnectorCursorStatesBySourceAndKind = `-- name: ListConnectorCursorStatesBySourceAndKind :many
+SELECT source_kind, source_id, source_name, resource, cursor_kind, cursor_json, watermark, cursor_expires_at, last_success_at, last_attempt_at, last_error_at, last_error, last_run_id, last_provider_event_id, needs_full_resync, version, updated_at
+FROM connector_cursor_state
+WHERE source_kind = $1::text
+  AND source_name = $2::text
+  AND cursor_kind = $3::text
+ORDER BY resource ASC
+`
+
+type ListConnectorCursorStatesBySourceAndKindParams struct {
+	SourceKind string `json:"source_kind"`
+	SourceName string `json:"source_name"`
+	CursorKind string `json:"cursor_kind"`
+}
+
+func (q *Queries) ListConnectorCursorStatesBySourceAndKind(ctx context.Context, arg ListConnectorCursorStatesBySourceAndKindParams) ([]ConnectorCursorState, error) {
+	rows, err := q.db.Query(ctx, listConnectorCursorStatesBySourceAndKind, arg.SourceKind, arg.SourceName, arg.CursorKind)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ConnectorCursorState
+	for rows.Next() {
+		var i ConnectorCursorState
+		if err := rows.Scan(
+			&i.SourceKind,
+			&i.SourceID,
+			&i.SourceName,
+			&i.Resource,
+			&i.CursorKind,
+			&i.CursorJson,
+			&i.Watermark,
+			&i.CursorExpiresAt,
+			&i.LastSuccessAt,
+			&i.LastAttemptAt,
+			&i.LastErrorAt,
+			&i.LastError,
+			&i.LastRunID,
+			&i.LastProviderEventID,
+			&i.NeedsFullResync,
+			&i.Version,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const markConnectorCursorNeedsFullResync = `-- name: MarkConnectorCursorNeedsFullResync :exec

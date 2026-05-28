@@ -1,0 +1,1 @@
+-- Irreversible: shadow event projection parity tables were removed.

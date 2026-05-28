@@ -19,11 +19,11 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/evaluator"
 	"github.com/open-sspm/open-sspm/internal/http/authn"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 	"github.com/open-sspm/open-sspm/internal/mailer"
-	"github.com/open-sspm/open-sspm/internal/riskpolicy"
 )
 
 const (
@@ -39,22 +39,17 @@ type SyncRunner interface {
 	RunOnce(context.Context) error
 }
 
-type OktaPushInboxQueue interface {
-	Enqueue(context.Context, []int64) error
-}
-
 // Handlers groups all HTTP handlers and shared dependencies.
 type Handlers struct {
-	Cfg                config.Config
-	Q                  *gen.Queries
-	Pool               *pgxpool.Pool
-	Sessions           *scs.SessionManager
-	Syncer             SyncRunner
-	OktaPushInboxQueue OktaPushInboxQueue
-	Registry           *registry.ConnectorRegistry
-	Mailer             mailer.Mailer
+	Cfg      config.Config
+	Q        *gen.Queries
+	Pool     *pgxpool.Pool
+	Sessions *scs.SessionManager
+	Syncer   SyncRunner
+	Registry *registry.ConnectorRegistry
+	Mailer   mailer.Mailer
 
-	RiskPolicies *riskpolicy.Registry
+	PolicyRegistry *evaluator.Registry
 
 	oktaAppStatusesCache oktaAppStatusesCache
 }

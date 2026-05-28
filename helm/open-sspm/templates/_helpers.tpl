@@ -72,46 +72,10 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 {{- end -}}
 
-{{- define "open-sspm.queueEnv" -}}
-{{- $queueBackend := default "postgres" .Values.config.queueBackend | lower -}}
-{{- $redisValues := default dict .Values.redis -}}
-{{- $redisSecret := default dict $redisValues.existingSecret -}}
-{{- $redisSecretName := default "" $redisSecret.name -}}
-{{- $redisSecretURLKey := default "REDIS_URL" $redisSecret.urlKey -}}
-{{- $allowExternalRedisURL := default false $redisValues.allowExternalUrlEnv -}}
-- name: QUEUE_BACKEND
-  value: {{ $queueBackend | quote }}
-{{- if eq $queueBackend "redis" }}
-{{- if not (or $redisSecretName .Values.config.redisUrl $allowExternalRedisURL) }}
-{{- fail "REDIS_URL is required when config.queueBackend=redis; set redis.existingSecret.name, config.redisUrl, or redis.allowExternalUrlEnv=true when REDIS_URL is supplied through extraEnv/extraEnvFrom" }}
-{{- end }}
-{{- if and .Values.config.redisUrl (contains "@" .Values.config.redisUrl) }}
-{{- fail "config.redisUrl appears to contain credentials; store credentialed Redis URLs in a Kubernetes Secret with redis.existingSecret.name instead" }}
-{{- end }}
-{{- if $redisSecretName }}
-- name: REDIS_URL
-  valueFrom:
-    secretKeyRef:
-      name: {{ $redisSecretName | quote }}
-      key: {{ $redisSecretURLKey | quote }}
-      optional: false
-{{- else if .Values.config.redisUrl }}
-- name: REDIS_URL
-  value: {{ .Values.config.redisUrl | quote }}
-{{- end }}
-- name: REDIS_KEY_PREFIX
-  value: {{ default "open-sspm" .Values.config.redisKeyPrefix | quote }}
-{{- end }}
-{{- end -}}
-
-{{- define "open-sspm.oktaPushIngestEnabled" -}}
-{{- $value := .Values.config.oktaPushIngestEnabled -}}
-{{- if or (eq (toString $value) "") (eq (toString $value) "<nil>") -}}
-{{- ternary "1" "0" .Values.config.syncDiscoveryEnabled -}}
-{{- else -}}
+{{- define "open-sspm.eventInboxEnabled" -}}
+{{- $value := .Values.config.eventInboxEnabled -}}
 {{- $normalized := lower (toString $value) -}}
 {{- if or (eq $normalized "true") (eq $normalized "1") -}}1{{- else -}}0{{- end -}}
-{{- end -}}
 {{- end -}}
 
 {{- define "open-sspm.fullSyncEnv" -}}
@@ -149,27 +113,27 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 {{- end -}}
 
-{{- define "open-sspm.oktaPushIngestEnv" -}}
-- name: OKTA_PUSH_INGEST_ENABLED
-  value: {{ include "open-sspm.oktaPushIngestEnabled" . | quote }}
-- name: OKTA_PUSH_INGEST_BATCH_SIZE
-  value: {{ .Values.config.oktaPushIngest.batchSize | quote }}
-- name: OKTA_PUSH_INGEST_POLL_INTERVAL
-  value: {{ .Values.config.oktaPushIngest.pollInterval | quote }}
-- name: OKTA_PUSH_INGEST_CLEANUP_INTERVAL
-  value: {{ .Values.config.oktaPushIngest.cleanupInterval | quote }}
-- name: OKTA_PUSH_INGEST_RETRY_DELAY
-  value: {{ .Values.config.oktaPushIngest.retryDelay | quote }}
-- name: OKTA_PUSH_INGEST_RETRY_MAX_DELAY
-  value: {{ .Values.config.oktaPushIngest.retryMaxDelay | quote }}
-- name: OKTA_PUSH_INGEST_STALE_PROCESSING_TIMEOUT
-  value: {{ .Values.config.oktaPushIngest.staleProcessingTimeout | quote }}
-- name: OKTA_PUSH_INGEST_MAX_ATTEMPTS
-  value: {{ .Values.config.oktaPushIngest.maxAttempts | quote }}
-- name: OKTA_PUSH_INGEST_PROCESSED_RETENTION_DAYS
-  value: {{ .Values.config.oktaPushIngest.processedRetentionDays | quote }}
-- name: OKTA_PUSH_INGEST_DEAD_LETTER_RETENTION_DAYS
-  value: {{ .Values.config.oktaPushIngest.deadLetterRetentionDays | quote }}
+{{- define "open-sspm.eventInboxEnv" -}}
+- name: EVENT_INBOX_ENABLED
+  value: {{ include "open-sspm.eventInboxEnabled" . | quote }}
+- name: EVENT_INBOX_BATCH_SIZE
+  value: {{ .Values.config.eventInbox.batchSize | quote }}
+- name: EVENT_INBOX_POLL_INTERVAL
+  value: {{ .Values.config.eventInbox.pollInterval | quote }}
+- name: EVENT_INBOX_CLEANUP_INTERVAL
+  value: {{ .Values.config.eventInbox.cleanupInterval | quote }}
+- name: EVENT_INBOX_RETRY_DELAY
+  value: {{ .Values.config.eventInbox.retryDelay | quote }}
+- name: EVENT_INBOX_RETRY_MAX_DELAY
+  value: {{ .Values.config.eventInbox.retryMaxDelay | quote }}
+- name: EVENT_INBOX_STALE_PROCESSING_TIMEOUT
+  value: {{ .Values.config.eventInbox.staleProcessingTimeout | quote }}
+- name: EVENT_INBOX_MAX_ATTEMPTS
+  value: {{ .Values.config.eventInbox.maxAttempts | quote }}
+- name: EVENT_INBOX_PROCESSED_RETENTION_DAYS
+  value: {{ .Values.config.eventInbox.processedRetentionDays | quote }}
+- name: EVENT_INBOX_DEAD_LETTER_RETENTION_DAYS
+  value: {{ .Values.config.eventInbox.deadLetterRetentionDays | quote }}
 {{- end -}}
 
 {{- define "open-sspm.tailSyncEnv" -}}
@@ -177,13 +141,13 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   value: {{ .Values.config.syncTailInterval | quote }}
 {{- end -}}
 
-{{- define "open-sspm.riskpolicyEventWorkerEnv" -}}
-- name: RISKPOLICY_EVENT_WORKER_POLL_INTERVAL
-  value: {{ .Values.config.riskpolicyEventWorker.pollInterval | quote }}
-- name: RISKPOLICY_EVENT_WORKER_BATCH_SIZE
-  value: {{ .Values.config.riskpolicyEventWorker.batchSize | quote }}
-- name: RISKPOLICY_EVENT_WORKER_MAX_ATTEMPTS
-  value: {{ .Values.config.riskpolicyEventWorker.maxAttempts | quote }}
+{{- define "open-sspm.eventEvaluatorWorkerEnv" -}}
+- name: EVENT_EVALUATOR_WORKER_POLL_INTERVAL
+  value: {{ .Values.config.eventEvaluatorWorker.pollInterval | quote }}
+- name: EVENT_EVALUATOR_WORKER_BATCH_SIZE
+  value: {{ .Values.config.eventEvaluatorWorker.batchSize | quote }}
+- name: EVENT_EVALUATOR_WORKER_MAX_ATTEMPTS
+  value: {{ .Values.config.eventEvaluatorWorker.maxAttempts | quote }}
 {{- end -}}
 
 {{- define "open-sspm.eventPartitionEnv" -}}

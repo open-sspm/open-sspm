@@ -9,14 +9,14 @@ Location: `helm/open-sspm`
 Deploys:
 - `open-sspm api` (HTTP/UI/API) as a Deployment + Service (+ optional Ingress)
 - `open-sspm worker` (background full sync loop) as a Deployment
-- `open-sspm worker-discovery` (background SaaS discovery sync loop) as a Deployment (enabled by default)
-- `open-sspm worker-ingest` (background push ingest queue processing) as a Deployment (enabled by default when discovery is enabled)
-- `open-sspm worker-tail` (background incremental audit/delta tail loop) as a Deployment (enabled by default)
-- `open-sspm worker-riskpolicy` (background shadow canonical-event riskpolicy loop) as a Deployment (enabled by default)
+- `open-sspm worker --lane discovery` (background SaaS discovery sync loop) as a Deployment (enabled by default)
+- `open-sspm worker --lane event-inbox` (background event inbox processing) as a Deployment (enabled by default when event inbox is enabled)
+- `open-sspm worker --lane tail` (background incremental audit/delta tail loop) as a Deployment (enabled by default)
+- `open-sspm worker --lane evaluator` (background canonical-event evaluator loop) as a Deployment (enabled by default)
 - Helm hook Jobs:
-  - `open-sspm migrate` as a pre-install/pre-upgrade Job
-  - `open-sspm seed-rules` as a pre-install Job (optionally also pre-upgrade)
-  - `open-sspm users bootstrap-admin` as a pre-install Job (optionally also pre-upgrade; disabled by default)
+  - `open-sspm admin migrate` as a pre-install/pre-upgrade Job
+  - `open-sspm admin seed-rules` as a pre-install Job (optionally also pre-upgrade)
+  - `open-sspm admin users bootstrap-admin` as a pre-install Job (optionally also pre-upgrade; disabled by default)
   - Hook Jobs disable Istio sidecar injection to avoid hangs in Istio-injection-enabled namespaces.
 
 This chart assumes a **managed Postgres** (RDS, Cloud SQL, etc). It does **not** deploy Postgres.
@@ -108,7 +108,7 @@ Notes:
 
 ### Seed rules (benchmark rulesets)
 
-The chart can run `open-sspm seed-rules` as a Helm hook Job.
+The chart can run `open-sspm admin seed-rules` as a Helm hook Job.
 
 Default behavior:
 - Runs on **install only** (`pre-install`)
@@ -170,21 +170,21 @@ kubectl port-forward svc/<service-name> 8080:80
 
 ### Worker lanes
 
-- API Deployment settings use `api.*`. The chart still accepts `serve.*` as a deprecated alias so existing values files keep working during upgrade.
+- API Deployment settings use `api.*`.
 - Full sync worker interval is configured with `config.syncInterval`.
 - Discovery sync worker interval is configured with `config.syncDiscoveryInterval`.
 - Tail sync worker interval is configured with `config.syncTailInterval`.
 - Set `config.syncDiscoveryEnabled=false` to disable the discovery lane system-wide.
-- Set `discoveryWorker.enabled=false` to omit only the discovery worker Deployment. The chart also disables discovery queuing on `api` when this is false so manual resyncs do not strand discovery jobs.
-- Set `ingestWorker.enabled=false` to omit push ingest queue processing.
-- Set `tailWorker.enabled=false` to omit incremental tail processing. Full reconciliation still runs if `config.syncFullEnabled=true`, but realtime catch-up will stop.
-- Set `riskpolicyWorker.enabled=false` to omit shadow event riskpolicy evaluation and shadow finding projection.
-- Set `config.queueBackend=redis` to dispatch persisted push inbox rows through Redis. Provide `REDIS_URL` with `redis.existingSecret.name` / `redis.existingSecret.urlKey`, `config.redisUrl`, or component `extraEnv` / `extraEnvFrom` plus `redis.allowExternalUrlEnv=true`. Use `redis.existingSecret` for credentialed Redis URLs; `config.redisUrl` is rendered as plain Deployment env and is rejected when it appears to contain credentials. Postgres remains the durable inbox and fallback poller.
+- Set `worker.lanes.discovery.enabled=false` to omit only the discovery worker Deployment. The chart also disables discovery queuing on `api` when this is false so manual resyncs do not strand discovery jobs.
+- Set `config.eventInboxEnabled=false` to disable event inbox receivers and omit the event inbox worker Deployment.
+- Set `worker.lanes.eventInbox.enabled=false` to omit event inbox processing.
+- Set `worker.lanes.tail.enabled=false` to omit incremental tail processing. Full reconciliation still runs if `config.syncFullEnabled=true`, but realtime catch-up will stop.
+- Set `worker.lanes.evaluator.enabled=false` to omit event evaluation and canonical finding projection.
 - Worker processes maintain canonical event partitions with:
   - `config.eventPartitionMaintenanceInterval` (default `12h`)
   - `config.eventPartitionFutureDays` (default `7`)
   - `config.eventRetentionDays` (default `90`)
-- Shadow event riskpolicy processing is tuned with `config.riskpolicyEventWorker.pollInterval`, `config.riskpolicyEventWorker.batchSize`, and `config.riskpolicyEventWorker.maxAttempts`.
+- Event evaluator processing is tuned with `config.eventEvaluatorWorker.pollInterval`, `config.eventEvaluatorWorker.batchSize`, and `config.eventEvaluatorWorker.maxAttempts`.
 
 ### Structured logging
 
@@ -199,15 +199,20 @@ kubectl port-forward svc/<service-name> 8080:80
 - `smtp.existingSecret.name` injects `SMTP_USERNAME` / `SMTP_PASSWORD` credentials from a Secret when configured
 - The chart passes SMTP env vars to the Deployments and hook Jobs so `migrate`, `seed-rules`, and `bootstrap-admin` all see the same config contract
 
-### Metrics service component selector
+### Metrics service selector
 
-If `metrics.service.enabled=true`, choose which pod to target with `metrics.service.component`:
+If `metrics.service.enabled=true`, choose which deployment component to target with `metrics.service.component`:
 - `api`
 - `worker`
-- `worker-discovery`
-- `worker-ingest`
-- `worker-tail`
-- `worker-riskpolicy`
+
+When `metrics.service.component=worker`, set `metrics.service.workerLane` to narrow the Service to one lane:
+- `full`
+- `discovery`
+- `event-inbox`
+- `tail`
+- `evaluator`
+
+Leave `metrics.service.workerLane` empty to select every worker lane.
 
 ### UI authentication
 
@@ -233,7 +238,7 @@ helm upgrade --install open-sspm ./helm/open-sspm \
 ```
 
 Notes:
-- The bootstrap runs `open-sspm users bootstrap-admin` and is **idempotent** (it exits successfully if an admin already exists).
+- The bootstrap runs `open-sspm admin users bootstrap-admin` and is **idempotent** (it exits successfully if an admin already exists).
 - Avoid putting passwords directly in Helm values (`--set`), since Helm stores release values.
 - Losing `CONNECTOR_SECRET_KEY` means stored connector secrets can no longer be decrypted and must be re-entered.
 

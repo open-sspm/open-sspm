@@ -99,7 +99,9 @@ SELECT DISTINCT
   m.integration_kind
 FROM saas_app_sources sas
 JOIN integration_okta_app_map m
-  ON m.okta_app_external_id = sas.source_app_id
+  ON m.okta_source_kind = sas.source_kind
+ AND m.okta_source_name = sas.source_name
+ AND m.okta_app_external_id = sas.source_app_id
 WHERE sas.source_kind = 'okta'
   AND sas.source_name = sqlc.arg(source_name)::text
   AND sas.expired_at IS NULL

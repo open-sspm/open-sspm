@@ -323,7 +323,7 @@ func TestRuleFindingResultKeepsActionableNonPassStatusesOpen(t *testing.T) {
 	}
 }
 
-func TestWriteEvaluationRollsBackRuleRowsWhenFindingWriteFails(t *testing.T) {
+func TestWriteEvaluationRejectsInvalidCanonicalFinding(t *testing.T) {
 	testdb.WithDatabase(t, testdb.Options{NamePrefix: "rules_engine_tx"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
 		testdb.MigrateUp(t, migrator)
 
@@ -353,8 +353,7 @@ func TestWriteEvaluationRollsBackRuleRowsWhenFindingWriteFails(t *testing.T) {
 			t.Fatalf("writeEvaluation() err = nil, want invalid finding error")
 		}
 
-		assertEngineCount(t, ctx, pool, `SELECT count(*) FROM rule_evaluations WHERE rule_id = $1`, 0, rule.ID)
-		assertEngineCount(t, ctx, pool, `SELECT count(*) FROM rule_results_current WHERE rule_id = $1`, 0, rule.ID)
+		assertEngineCount(t, ctx, pool, `SELECT count(*) FROM findings WHERE ruleset_id = $1`, 0, ruleset.Key)
 	})
 }
 

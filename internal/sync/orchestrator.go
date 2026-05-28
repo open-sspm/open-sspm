@@ -206,7 +206,7 @@ func (o *Orchestrator) RunOnce(ctx context.Context) error {
 		g.Go(func() error {
 			kind := strings.TrimSpace(i.Kind())
 			name := strings.TrimSpace(i.Name())
-			runKind := registry.SyncRunSourceKind(kind, o.mode)
+			runKind := strings.ToLower(strings.TrimSpace(kind))
 			start := time.Now()
 
 			lockErr := o.runIntegrationWithRetry(ctx, i)

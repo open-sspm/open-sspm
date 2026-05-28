@@ -7,7 +7,13 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/capabilities"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
+	"github.com/open-sspm/open-sspm/internal/discovery"
 	"github.com/open-sspm/open-sspm/internal/records"
+)
+
+const (
+	PushChannelEventHook   = "event_hook"
+	PushChannelEventBridge = "eventbridge"
 )
 
 func (i *OktaIntegration) Descriptor() capabilities.Descriptor {
@@ -50,12 +56,12 @@ func (i *OktaIntegration) Capabilities() capabilities.Capabilities {
 		Push: &capabilities.PushCapability{
 			Channels: []capabilities.PushChannel{
 				{
-					Name:      "event_hook",
+					Name:      PushChannelEventHook,
 					Kind:      capabilities.PushKindEventPayload,
 					BodyLimit: 2 << 20,
 				},
 				{
-					Name:      "eventbridge",
+					Name:      PushChannelEventBridge,
 					Kind:      capabilities.PushKindExternalBus,
 					BodyLimit: 2 << 20,
 				},
@@ -92,6 +98,31 @@ func (i *OktaIntegration) Capabilities() capabilities.Capabilities {
 			RecommendedInterval:     time.Hour,
 			SupportsScopedReconcile: false,
 		}
+		if i.discoveryEnabled && i.discoveryPollerEnabled {
+			caps.Discovery = &capabilities.DiscoveryCapability{
+				Resources: []capabilities.DiscoveryResource{
+					{
+						Name: records.ResourceDiscoveryEvidence,
+						SignalKinds: []string{
+							discovery.SignalKindIDPSSO,
+							discovery.SignalKindOAuth,
+							discovery.SignalKindAssignment,
+						},
+					},
+				},
+				RecommendedInterval: 15 * time.Minute,
+				Incremental:         true,
+			}
+		}
 	}
 	return caps
+}
+
+func IsPushChannel(channel string) bool {
+	switch strings.TrimSpace(channel) {
+	case PushChannelEventHook, PushChannelEventBridge:
+		return true
+	default:
+		return false
+	}
 }

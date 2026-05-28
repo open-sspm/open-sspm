@@ -101,16 +101,19 @@ templ AppRowDesktop(app viewmodels.AppListItem, isAdmin bool, csrfToken string, 
 	<tr
 		class="app-row group cursor-pointer"
 		style={ "animation-delay:" + strconv.Itoa(index*25) + "ms" }
-		data-row-href={ AppDetailURL(app.IntegratedHref, app.ExternalID) }
+		data-row-href={ AppDetailURL(app.IntegratedHref, app.SourceName, app.ExternalID) }
 	>
 		<!-- App -->
 		<td class="py-3 pr-3">
-			<a href={ AppDetailURL(app.IntegratedHref, app.ExternalID) } class="flex min-w-0 items-center gap-3 no-underline">
+			<a href={ AppDetailURL(app.IntegratedHref, app.SourceName, app.ExternalID) } class="flex min-w-0 items-center gap-3 no-underline">
 				@ProductIcon(app.Label, app.Name, "", "size-8")
 				<span class="min-w-0 flex-1">
 					<span class="osspm-truncate font-medium text-foreground">{ app.Label }</span>
 					if app.Name != "" {
 						<span class="osspm-truncate text-xs text-muted-foreground/70">{ app.Name }</span>
+					}
+					if app.SourceName != "" {
+						<span class="osspm-truncate text-xs text-muted-foreground/70">{ app.SourceName }</span>
 					}
 				</span>
 			</a>
@@ -140,6 +143,7 @@ templ AppRowDesktop(app viewmodels.AppListItem, isAdmin bool, csrfToken string, 
 					<form method="post" action="/assigned-apps/map" class="inline-flex">
 						@CSRFInput(csrfToken)
 						<input type="hidden" name="integration_kind" value={ app.SuggestedKind }/>
+						<input type="hidden" name="okta_source_name" value={ app.SourceName }/>
 						<input type="hidden" name="okta_app_external_id" value={ app.ExternalID }/>
 						<button class="btn-sm-ghost h-7 px-2 text-xs opacity-0 transition-opacity group-hover:opacity-100" type="submit">
 							{ SuggestedIntegrationActionLabel(app.SuggestedKind) }
@@ -159,7 +163,7 @@ templ AppRowDesktop(app viewmodels.AppListItem, isAdmin bool, csrfToken string, 
 
 templ AppRowMobile(app viewmodels.AppListItem, isAdmin bool, csrfToken string, index int) {
 	<a
-		href={ AppDetailURL(app.IntegratedHref, app.ExternalID) }
+		href={ AppDetailURL(app.IntegratedHref, app.SourceName, app.ExternalID) }
 		class="app-row flex items-center gap-3 py-3.5 no-underline transition-colors hover:bg-muted/30"
 		style={ "animation-delay:" + strconv.Itoa(index*25) + "ms" }
 	>
@@ -174,6 +178,10 @@ templ AppRowMobile(app viewmodels.AppListItem, isAdmin bool, csrfToken string, i
 			</span>
 			<span class="flex items-center gap-2 text-xs text-muted-foreground">
 				<span>{ HumanizeSignOnMode(app.SignOnMode) }</span>
+				if app.SourceName != "" {
+					<span class="text-border/60" aria-hidden="true">·</span>
+					<span>{ app.SourceName }</span>
+				}
 				if app.IntegratedHref != "" {
 					<span class="text-border/60" aria-hidden="true">·</span>
 					<span class="text-emerald-700 dark:text-emerald-400">Connected</span>

@@ -8,18 +8,18 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	"github.com/open-sspm/open-sspm/internal/riskpolicy"
+	"github.com/open-sspm/open-sspm/internal/evaluator"
 )
 
-func TestRiskPolicyPackSummariesAreSortedForSettings(t *testing.T) {
+func TestPolicyPackSummariesAreSortedForSettings(t *testing.T) {
 	t.Parallel()
 
-	registry, err := riskpolicy.LoadBuiltin()
+	registry, err := evaluator.LoadBuiltin()
 	if err != nil {
 		t.Fatalf("LoadBuiltin() error = %v", err)
 	}
 
-	summaries := riskPolicyPackSummaries(registry)
+	summaries := policyPackSummaries(registry)
 	if len(summaries) != registry.PackCount() {
 		t.Fatalf("summaries len = %d, want %d", len(summaries), registry.PackCount())
 	}

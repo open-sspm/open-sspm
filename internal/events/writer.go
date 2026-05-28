@@ -92,11 +92,11 @@ func (w *Writer) WriteEvent(ctx context.Context, record records.EventRecord, opt
 			return WriteResult{}, fmt.Errorf("insert event target %d: %w", idx, err)
 		}
 	}
-	if err := q.EnqueueRiskpolicyEventEvaluation(ctx, gen.EnqueueRiskpolicyEventEvaluationParams{
+	if err := q.EnqueueEventEvaluation(ctx, gen.EnqueueEventEvaluationParams{
 		EventReceivedAt: pgTimestamptz(normalized.ReceivedAt),
 		EventID:         pgUUID(eventID),
 	}); err != nil {
-		return WriteResult{}, fmt.Errorf("enqueue riskpolicy event evaluation: %w", err)
+		return WriteResult{}, fmt.Errorf("enqueue event evaluation: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return WriteResult{}, fmt.Errorf("commit event write: %w", err)

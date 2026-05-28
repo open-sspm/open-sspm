@@ -11,6 +11,57 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countOktaAppAssignedAccountsFromEntitlementsByQuery = `-- name: CountOktaAppAssignedAccountsFromEntitlementsByQuery :one
+SELECT count(DISTINCT au.id)
+FROM entitlements e
+JOIN accounts au ON au.id = e.app_user_id
+WHERE au.source_kind = 'okta'
+  AND au.source_name = $1::text
+  AND (
+    au.entity_category = 'user'
+    OR (
+      au.entity_category = 'unknown'
+      AND lower(trim(au.external_id)) NOT LIKE 'group:%'
+    )
+  )
+  AND e.kind = 'application_assignment'
+  AND e.resource = $2::text
+  AND au.expired_at IS NULL
+  AND au.last_observed_run_id IS NOT NULL
+  AND e.expired_at IS NULL
+  AND e.last_observed_run_id IS NOT NULL
+  AND (
+    $3::text = ''
+    OR ($3::text = 'active' AND au.status = 'ACTIVE')
+    OR ($3::text = 'inactive' AND au.status <> 'ACTIVE')
+  )
+  AND (
+    $4::text = ''
+    OR au.email ILIKE ('%' || $4::text || '%')
+    OR au.display_name ILIKE ('%' || $4::text || '%')
+    OR au.external_id ILIKE ('%' || $4::text || '%')
+  )
+`
+
+type CountOktaAppAssignedAccountsFromEntitlementsByQueryParams struct {
+	SourceName    string `json:"source_name"`
+	AppExternalID string `json:"app_external_id"`
+	State         string `json:"state"`
+	Query         string `json:"query"`
+}
+
+func (q *Queries) CountOktaAppAssignedAccountsFromEntitlementsByQuery(ctx context.Context, arg CountOktaAppAssignedAccountsFromEntitlementsByQueryParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOktaAppAssignedAccountsFromEntitlementsByQuery,
+		arg.SourceName,
+		arg.AppExternalID,
+		arg.State,
+		arg.Query,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const listEntitlementAccessBySourceAndResourceRef = `-- name: ListEntitlementAccessBySourceAndResourceRef :many
 SELECT
   e.id AS entitlement_id,
@@ -179,6 +230,341 @@ func (q *Queries) ListEntitlementsForAccountIDs(ctx context.Context, accountIds 
 			&i.ExpiredRunID,
 			&i.UpdatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOktaAppAssignedAccountsFromEntitlementsPageByQuery = `-- name: ListOktaAppAssignedAccountsFromEntitlementsPageByQuery :many
+WITH ranked AS (
+  SELECT
+    au.id AS okta_account_id,
+    au.external_id AS okta_account_external_id,
+    au.email AS okta_account_email,
+    au.display_name AS okta_account_display_name,
+    au.status AS okta_account_status,
+    e.permission AS scope,
+    COALESCE((e.raw_json #> '{attributes,profile}')::text, (e.raw_json -> 'profile')::text, '{}'::text) AS profile_json,
+    row_number() OVER (
+      PARTITION BY au.id
+      ORDER BY
+        CASE UPPER(TRIM(e.permission))
+          WHEN 'USER' THEN 0
+          WHEN 'GROUP' THEN 1
+          ELSE 2
+        END,
+        e.id
+    ) AS assignment_rank
+  FROM entitlements e
+  JOIN accounts au ON au.id = e.app_user_id
+  WHERE au.source_kind = 'okta'
+    AND au.source_name = $3::text
+    AND (
+      au.entity_category = 'user'
+      OR (
+        au.entity_category = 'unknown'
+        AND lower(trim(au.external_id)) NOT LIKE 'group:%'
+      )
+    )
+    AND e.kind = 'application_assignment'
+    AND e.resource = $4::text
+    AND au.expired_at IS NULL
+    AND au.last_observed_run_id IS NOT NULL
+    AND e.expired_at IS NULL
+    AND e.last_observed_run_id IS NOT NULL
+    AND (
+      $5::text = ''
+      OR ($5::text = 'active' AND au.status = 'ACTIVE')
+      OR ($5::text = 'inactive' AND au.status <> 'ACTIVE')
+    )
+    AND (
+      $6::text = ''
+      OR au.email ILIKE ('%' || $6::text || '%')
+      OR au.display_name ILIKE ('%' || $6::text || '%')
+      OR au.external_id ILIKE ('%' || $6::text || '%')
+    )
+)
+SELECT
+  okta_account_id,
+  okta_account_external_id,
+  okta_account_email,
+  okta_account_display_name,
+  okta_account_status,
+  scope,
+  profile_json
+FROM ranked
+WHERE assignment_rank = 1
+ORDER BY (okta_account_display_name = ''), okta_account_display_name, okta_account_email, okta_account_external_id
+LIMIT $2::int
+OFFSET $1::int
+`
+
+type ListOktaAppAssignedAccountsFromEntitlementsPageByQueryParams struct {
+	PageOffset    int32  `json:"page_offset"`
+	PageLimit     int32  `json:"page_limit"`
+	SourceName    string `json:"source_name"`
+	AppExternalID string `json:"app_external_id"`
+	State         string `json:"state"`
+	Query         string `json:"query"`
+}
+
+type ListOktaAppAssignedAccountsFromEntitlementsPageByQueryRow struct {
+	OktaAccountID          int64       `json:"okta_account_id"`
+	OktaAccountExternalID  string      `json:"okta_account_external_id"`
+	OktaAccountEmail       string      `json:"okta_account_email"`
+	OktaAccountDisplayName string      `json:"okta_account_display_name"`
+	OktaAccountStatus      string      `json:"okta_account_status"`
+	Scope                  string      `json:"scope"`
+	ProfileJson            interface{} `json:"profile_json"`
+}
+
+func (q *Queries) ListOktaAppAssignedAccountsFromEntitlementsPageByQuery(ctx context.Context, arg ListOktaAppAssignedAccountsFromEntitlementsPageByQueryParams) ([]ListOktaAppAssignedAccountsFromEntitlementsPageByQueryRow, error) {
+	rows, err := q.db.Query(ctx, listOktaAppAssignedAccountsFromEntitlementsPageByQuery,
+		arg.PageOffset,
+		arg.PageLimit,
+		arg.SourceName,
+		arg.AppExternalID,
+		arg.State,
+		arg.Query,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOktaAppAssignedAccountsFromEntitlementsPageByQueryRow
+	for rows.Next() {
+		var i ListOktaAppAssignedAccountsFromEntitlementsPageByQueryRow
+		if err := rows.Scan(
+			&i.OktaAccountID,
+			&i.OktaAccountExternalID,
+			&i.OktaAccountEmail,
+			&i.OktaAccountDisplayName,
+			&i.OktaAccountStatus,
+			&i.Scope,
+			&i.ProfileJson,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOktaAppAssignmentsFromEntitlementsForAccount = `-- name: ListOktaAppAssignmentsFromEntitlementsForAccount :many
+WITH ranked AS (
+  SELECT
+    e.id AS entitlement_id,
+    e.resource AS okta_app_external_id,
+    e.permission AS scope,
+    COALESCE((e.raw_json #> '{attributes,profile}')::text, (e.raw_json -> 'profile')::text, '{}'::text) AS profile_json,
+    oa.source_name AS okta_app_source_name,
+    oa.label AS app_label,
+    oa.name AS app_name,
+    COALESCE(m.integration_kind, '') AS integration_kind,
+    row_number() OVER (
+      PARTITION BY e.resource
+      ORDER BY
+        CASE UPPER(TRIM(e.permission))
+          WHEN 'USER' THEN 0
+          WHEN 'GROUP' THEN 1
+          ELSE 2
+        END,
+        e.id
+    ) AS assignment_rank
+  FROM entitlements e
+  JOIN accounts au ON au.id = e.app_user_id
+  JOIN okta_apps oa
+    ON oa.source_kind = au.source_kind
+   AND oa.source_name = au.source_name
+   AND oa.external_id = e.resource
+  LEFT JOIN integration_okta_app_map m
+    ON m.okta_source_kind = oa.source_kind
+   AND m.okta_source_name = oa.source_name
+   AND m.okta_app_external_id = oa.external_id
+  WHERE e.app_user_id = $1
+    AND au.source_kind = 'okta'
+    AND e.kind = 'application_assignment'
+    AND au.expired_at IS NULL
+    AND au.last_observed_run_id IS NOT NULL
+    AND e.expired_at IS NULL
+    AND e.last_observed_run_id IS NOT NULL
+    AND oa.expired_at IS NULL
+    AND oa.last_observed_run_id IS NOT NULL
+)
+SELECT
+  entitlement_id,
+  okta_app_external_id,
+  scope,
+  profile_json,
+  okta_app_source_name,
+  app_label,
+  app_name,
+  integration_kind
+FROM ranked
+WHERE assignment_rank = 1
+ORDER BY app_label, app_name, okta_app_external_id
+`
+
+type ListOktaAppAssignmentsFromEntitlementsForAccountRow struct {
+	EntitlementID     int64       `json:"entitlement_id"`
+	OktaAppExternalID string      `json:"okta_app_external_id"`
+	Scope             string      `json:"scope"`
+	ProfileJson       interface{} `json:"profile_json"`
+	OktaAppSourceName string      `json:"okta_app_source_name"`
+	AppLabel          string      `json:"app_label"`
+	AppName           string      `json:"app_name"`
+	IntegrationKind   string      `json:"integration_kind"`
+}
+
+func (q *Queries) ListOktaAppAssignmentsFromEntitlementsForAccount(ctx context.Context, appUserID int64) ([]ListOktaAppAssignmentsFromEntitlementsForAccountRow, error) {
+	rows, err := q.db.Query(ctx, listOktaAppAssignmentsFromEntitlementsForAccount, appUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOktaAppAssignmentsFromEntitlementsForAccountRow
+	for rows.Next() {
+		var i ListOktaAppAssignmentsFromEntitlementsForAccountRow
+		if err := rows.Scan(
+			&i.EntitlementID,
+			&i.OktaAppExternalID,
+			&i.Scope,
+			&i.ProfileJson,
+			&i.OktaAppSourceName,
+			&i.AppLabel,
+			&i.AppName,
+			&i.IntegrationKind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOktaAppGrantingGroupsFromEntitlementsForAccountApps = `-- name: ListOktaAppGrantingGroupsFromEntitlementsForAccountApps :many
+SELECT DISTINCT
+  app_group.resource AS okta_app_external_id,
+  COALESCE(NULLIF(trim(group_account.display_name), ''), NULLIF(trim(gm.raw_json #>> '{attributes,target,display_name}'), ''), NULLIF(trim(gm.raw_json #>> '{profile,name}'), ''), regexp_replace(gm.resource, '^group:', ''))::text AS okta_group_name,
+  regexp_replace(gm.resource, '^group:', '') AS okta_group_external_id
+FROM entitlements gm
+JOIN accounts user_account ON user_account.id = gm.app_user_id
+JOIN accounts group_account
+  ON group_account.source_kind = user_account.source_kind
+ AND group_account.source_name = user_account.source_name
+ AND group_account.external_id = gm.resource
+JOIN entitlements app_group
+  ON app_group.app_user_id = group_account.id
+WHERE gm.app_user_id = $1::bigint
+  AND app_group.resource = ANY($2::text[])
+  AND user_account.source_kind = 'okta'
+  AND gm.kind = 'group_membership'
+  AND app_group.kind = 'application_assignment'
+  AND user_account.expired_at IS NULL
+  AND user_account.last_observed_run_id IS NOT NULL
+  AND group_account.expired_at IS NULL
+  AND group_account.last_observed_run_id IS NOT NULL
+  AND gm.expired_at IS NULL
+  AND gm.last_observed_run_id IS NOT NULL
+  AND app_group.expired_at IS NULL
+  AND app_group.last_observed_run_id IS NOT NULL
+ORDER BY okta_app_external_id, okta_group_name, okta_group_external_id
+`
+
+type ListOktaAppGrantingGroupsFromEntitlementsForAccountAppsParams struct {
+	OktaAccountID      int64    `json:"okta_account_id"`
+	OktaAppExternalIds []string `json:"okta_app_external_ids"`
+}
+
+type ListOktaAppGrantingGroupsFromEntitlementsForAccountAppsRow struct {
+	OktaAppExternalID   string `json:"okta_app_external_id"`
+	OktaGroupName       string `json:"okta_group_name"`
+	OktaGroupExternalID string `json:"okta_group_external_id"`
+}
+
+func (q *Queries) ListOktaAppGrantingGroupsFromEntitlementsForAccountApps(ctx context.Context, arg ListOktaAppGrantingGroupsFromEntitlementsForAccountAppsParams) ([]ListOktaAppGrantingGroupsFromEntitlementsForAccountAppsRow, error) {
+	rows, err := q.db.Query(ctx, listOktaAppGrantingGroupsFromEntitlementsForAccountApps, arg.OktaAccountID, arg.OktaAppExternalIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOktaAppGrantingGroupsFromEntitlementsForAccountAppsRow
+	for rows.Next() {
+		var i ListOktaAppGrantingGroupsFromEntitlementsForAccountAppsRow
+		if err := rows.Scan(&i.OktaAppExternalID, &i.OktaGroupName, &i.OktaGroupExternalID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOktaAppGrantingGroupsFromEntitlementsForAccounts = `-- name: ListOktaAppGrantingGroupsFromEntitlementsForAccounts :many
+SELECT DISTINCT
+  gm.app_user_id AS okta_account_id,
+  COALESCE(NULLIF(trim(group_account.display_name), ''), NULLIF(trim(gm.raw_json #>> '{attributes,target,display_name}'), ''), NULLIF(trim(gm.raw_json #>> '{profile,name}'), ''), regexp_replace(gm.resource, '^group:', ''))::text AS okta_group_name,
+  regexp_replace(gm.resource, '^group:', '') AS okta_group_external_id
+FROM entitlements gm
+JOIN accounts user_account ON user_account.id = gm.app_user_id
+JOIN accounts group_account
+  ON group_account.source_kind = user_account.source_kind
+ AND group_account.source_name = user_account.source_name
+ AND group_account.external_id = gm.resource
+JOIN entitlements app_group
+  ON app_group.app_user_id = group_account.id
+WHERE user_account.source_kind = 'okta'
+  AND user_account.source_name = $1::text
+  AND gm.app_user_id = ANY($2::bigint[])
+  AND gm.kind = 'group_membership'
+  AND app_group.kind = 'application_assignment'
+  AND app_group.resource = $3::text
+  AND user_account.expired_at IS NULL
+  AND user_account.last_observed_run_id IS NOT NULL
+  AND group_account.expired_at IS NULL
+  AND group_account.last_observed_run_id IS NOT NULL
+  AND gm.expired_at IS NULL
+  AND gm.last_observed_run_id IS NOT NULL
+  AND app_group.expired_at IS NULL
+  AND app_group.last_observed_run_id IS NOT NULL
+ORDER BY gm.app_user_id, okta_group_name, okta_group_external_id
+`
+
+type ListOktaAppGrantingGroupsFromEntitlementsForAccountsParams struct {
+	SourceName     string  `json:"source_name"`
+	OktaAccountIds []int64 `json:"okta_account_ids"`
+	AppExternalID  string  `json:"app_external_id"`
+}
+
+type ListOktaAppGrantingGroupsFromEntitlementsForAccountsRow struct {
+	OktaAccountID       int64  `json:"okta_account_id"`
+	OktaGroupName       string `json:"okta_group_name"`
+	OktaGroupExternalID string `json:"okta_group_external_id"`
+}
+
+func (q *Queries) ListOktaAppGrantingGroupsFromEntitlementsForAccounts(ctx context.Context, arg ListOktaAppGrantingGroupsFromEntitlementsForAccountsParams) ([]ListOktaAppGrantingGroupsFromEntitlementsForAccountsRow, error) {
+	rows, err := q.db.Query(ctx, listOktaAppGrantingGroupsFromEntitlementsForAccounts, arg.SourceName, arg.OktaAccountIds, arg.AppExternalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOktaAppGrantingGroupsFromEntitlementsForAccountsRow
+	for rows.Next() {
+		var i ListOktaAppGrantingGroupsFromEntitlementsForAccountsRow
+		if err := rows.Scan(&i.OktaAccountID, &i.OktaGroupName, &i.OktaGroupExternalID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

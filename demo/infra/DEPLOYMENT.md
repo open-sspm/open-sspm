@@ -3,12 +3,12 @@
 Target:
 - a single Scaleway VM (Ubuntu 24.04) with local Postgres
 - `open-sspm` runs `open-sspm api` as a systemd service and serves HTTP on `127.0.0.1:8080`
-- optional `open-sspm-worker`, `open-sspm-discovery-worker`, and `open-sspm-ingest-worker` systemd services are provisioned but disabled by default
+- optional worker lanes use the `open-sspm-worker@<lane>` systemd template and remain disabled by default
 - nginx listens on `:80` and reverse-proxies to `open-sspm`
 
 This repo expects **runtime files** to exist on disk:
 - static assets: `web/static/` (CSS build output must be present)
-- migrations: `db/migrations/` (used by `open-sspm migrate`)
+- migrations: `db/migrations/` (used by `open-sspm admin migrate`)
 
 By default the server serves static assets from `web/static` relative to its working directory, or you can set `STATIC_DIR` (recommended for systemd installs).
 
@@ -40,10 +40,10 @@ Extract it on the server into `/opt/open-sspm/`.
    - `demo/data/`
 4) Copy to the server over SSH (GitHub Actions secret key).
 5) Run on the server:
-   - stop `open-sspm`, `open-sspm-worker`, `open-sspm-discovery-worker`, and `open-sspm-ingest-worker` (if running)
+   - stop `open-sspm` and any `open-sspm-worker@<lane>` instances (if running)
    - reset the demo database (drop + recreate)
-   - `open-sspm migrate`
-   - `open-sspm seed-rules`
+   - `open-sspm admin migrate`
+   - `open-sspm admin seed-rules`
    - apply demo seed SQL files (`demo/data/*.sql` in lexical order)
    - restart `open-sspm` via systemd (workers remain disabled unless explicitly enabled)
 
@@ -52,7 +52,7 @@ Extract it on the server into `/opt/open-sspm/`.
 If you deploy via Ansible, you still must build CSS on the control machine so `web/static/app.css` exists.
 
 ```bash
-make ui
+just ui
 cd demo/infra/ansible
 ansible-playbook -i inventory.ini deploy.yml
 ```
@@ -98,6 +98,5 @@ ansible-playbook -i inventory.ini seed-demo.yml
 Runtime config is loaded from `/etc/open-sspm.env` on the VM.
 
 - Set `CONNECTOR_SECRET_KEY` to `MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=` for the seeded demo connector secrets.
-- The demo uses `QUEUE_BACKEND=postgres`; Redis is not required for demo deployments.
 - `SYNC_INTERVAL` and `SYNC_DISCOVERY_INTERVAL` control base worker cadence.
 - Optional per-connector overrides can be set there as needed (for example `SYNC_GOOGLE_WORKSPACE_INTERVAL`, which must be a duration greater than `0` when set).

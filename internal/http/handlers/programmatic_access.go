@@ -17,10 +17,10 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/evaluator"
 	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
-	"github.com/open-sspm/open-sspm/internal/riskpolicy"
 )
 
 func (h *Handlers) HandleAppAssets(c *echo.Context) error {
@@ -1078,7 +1078,7 @@ func pgTimestamptz(ts time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: ts.UTC(), Valid: true}
 }
 
-func credentialRiskFindingsFromSignals(signals []riskpolicy.RiskSignal, expiresAt, lastUsedAt pgtype.Timestamptz, now time.Time) []viewmodels.CredentialRiskFinding {
+func credentialRiskFindingsFromSignals(signals []evaluator.RiskSignal, expiresAt, lastUsedAt pgtype.Timestamptz, now time.Time) []viewmodels.CredentialRiskFinding {
 	findings := make([]viewmodels.CredentialRiskFinding, 0, len(signals))
 	for _, signal := range signals {
 		findings = append(findings, viewmodels.CredentialRiskFinding{
@@ -1090,15 +1090,15 @@ func credentialRiskFindingsFromSignals(signals []riskpolicy.RiskSignal, expiresA
 	return findings
 }
 
-func credentialRiskSignalsFromStoredJSON(raw []byte) []riskpolicy.RiskSignal {
+func credentialRiskSignalsFromStoredJSON(raw []byte) []evaluator.RiskSignal {
 	if len(raw) == 0 {
 		return nil
 	}
-	var signals []riskpolicy.RiskSignal
+	var signals []evaluator.RiskSignal
 	if err := json.Unmarshal(raw, &signals); err != nil {
 		return nil
 	}
-	out := make([]riskpolicy.RiskSignal, 0, len(signals))
+	out := make([]evaluator.RiskSignal, 0, len(signals))
 	for _, signal := range signals {
 		signal.Severity = strings.TrimSpace(signal.Severity)
 		signal.Title = strings.TrimSpace(signal.Title)
@@ -1111,7 +1111,7 @@ func credentialRiskSignalsFromStoredJSON(raw []byte) []riskpolicy.RiskSignal {
 	return out
 }
 
-func credentialSignalEvidence(signal riskpolicy.RiskSignal, expiresAt, lastUsedAt pgtype.Timestamptz, now time.Time) string {
+func credentialSignalEvidence(signal evaluator.RiskSignal, expiresAt, lastUsedAt pgtype.Timestamptz, now time.Time) string {
 	switch signal.ID {
 	case "expired_active", "expired_inactive":
 		if expiresAt.Valid {

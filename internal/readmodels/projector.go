@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	"github.com/open-sspm/open-sspm/internal/riskpolicy"
+	"github.com/open-sspm/open-sspm/internal/evaluator"
 )
 
 type Projector struct {
@@ -440,7 +440,7 @@ func refreshSaaSAppRiskReadModels(ctx context.Context, q *gen.Queries, rows []sa
 	if len(rows) == 0 {
 		return nil
 	}
-	registry, err := riskpolicy.BuiltinRegistry()
+	registry, err := evaluator.BuiltinRegistry()
 	if err != nil {
 		return err
 	}
@@ -481,8 +481,8 @@ func refreshSaaSAppRiskReadModels(ctx context.Context, q *gen.Queries, rows []sa
 	return err
 }
 
-func saasPolicyInput(row saasAppRiskInputRow) riskpolicy.SaaSInput {
-	return riskpolicy.SaaSInput{
+func saasPolicyInput(row saasAppRiskInputRow) evaluator.SaaSInput {
+	return evaluator.SaaSInput{
 		CanonicalKey:                  row.canonicalKey,
 		DisplayName:                   row.displayName,
 		PrimaryDomain:                 row.primaryDomain,
@@ -551,7 +551,7 @@ func refreshCredentialArtifactRiskReadModels(ctx context.Context, q *gen.Queries
 	if len(rows) == 0 {
 		return nil
 	}
-	registry, err := riskpolicy.BuiltinRegistry()
+	registry, err := evaluator.BuiltinRegistry()
 	if err != nil {
 		return err
 	}
@@ -589,8 +589,8 @@ func refreshCredentialArtifactRiskReadModels(ctx context.Context, q *gen.Queries
 	return err
 }
 
-func credentialArtifactPolicyInput(row credentialArtifactRiskInputRow, evaluatedAt time.Time) riskpolicy.CredentialInput {
-	return riskpolicy.CredentialInput{
+func credentialArtifactPolicyInput(row credentialArtifactRiskInputRow, evaluatedAt time.Time) evaluator.CredentialInput {
+	return evaluator.CredentialInput{
 		SourceKind:            row.sourceKind,
 		SourceName:            row.sourceName,
 		CredentialKind:        row.credentialKind,
@@ -721,7 +721,7 @@ func refreshNonHumanPrincipalReadModels(ctx context.Context, q *gen.Queries, row
 	if len(rows) == 0 {
 		return nil
 	}
-	registry, err := riskpolicy.BuiltinRegistry()
+	registry, err := evaluator.BuiltinRegistry()
 	if err != nil {
 		return err
 	}
@@ -804,8 +804,8 @@ func refreshNonHumanPrincipalReadModels(ctx context.Context, q *gen.Queries, row
 	return err
 }
 
-func nonHumanPrincipalPolicyInput(row nonHumanPrincipalRiskInputRow) riskpolicy.IdentityInput {
-	return riskpolicy.IdentityInput{
+func nonHumanPrincipalPolicyInput(row nonHumanPrincipalRiskInputRow) evaluator.IdentityInput {
+	return evaluator.IdentityInput{
 		IdentityID:             row.identityID,
 		PrincipalRef:           row.principalRef,
 		PrincipalType:          row.principalType,

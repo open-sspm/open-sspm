@@ -2,7 +2,7 @@
 
 The AWS Identity Center connector syncs users, groups, permission sets, and account assignments.
 
-When CloudTrail access is configured and `worker-tail` is running, Open-SSPM tails IAM Identity Center, Identity Store, and SSO Admin CloudTrail events with conservative time-window overlap. Customer-managed EventBridge/Lambda relays are not enabled by default.
+When `open-sspm worker --lane tail` is running and CloudTrail access is configured, Open-SSPM tails IAM Identity Center, Identity Store, and SSO Admin CloudTrail events with conservative time-window overlap. Customer-managed EventBridge/Lambda relays are not enabled by default.
 
 ## What Gets Synced
 
@@ -129,6 +129,6 @@ SYNC_TAIL_INTERVAL=5m
 
 ### CloudTrail Tail Is Not Running
 
-- Confirm `open-sspm worker-tail` is running.
+- Confirm `open-sspm worker --lane tail` is running.
 - Add `cloudtrail:LookupEvents` permission if you want audit-event tailing.
 - Use the Region where the relevant Identity Center CloudTrail events are available.

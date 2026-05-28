@@ -1,0 +1,1 @@
+-- Irreversible: riskpolicy_findings was a compatibility/parity table replaced by canonical findings.

@@ -6,8 +6,8 @@ import (
 
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
-	oktaingest "github.com/open-sspm/open-sspm/internal/ingest/okta"
-	"github.com/open-sspm/open-sspm/internal/nonhumanaccess"
+	"github.com/open-sspm/open-sspm/internal/identity"
+	"github.com/open-sspm/open-sspm/internal/ingest/inbox"
 )
 
 func backgroundMetricsRefresh(q *gen.Queries) func(context.Context) error {
@@ -16,12 +16,12 @@ func backgroundMetricsRefresh(q *gen.Queries) func(context.Context) error {
 		if err := discovery.RefreshMetrics(ctx, q, now); err != nil {
 			return err
 		}
-		return nonhumanaccess.RefreshMetrics(ctx, q, now)
+		return identity.RefreshMetrics(ctx, q, now)
 	}
 }
 
-func oktaPushMetricsRefresh(q *gen.Queries) func(context.Context) error {
+func eventInboxMetricsRefresh(q *gen.Queries) func(context.Context) error {
 	return func(ctx context.Context) error {
-		return oktaingest.RefreshMetrics(ctx, q)
+		return inbox.RefreshMetrics(ctx, q)
 	}
 }

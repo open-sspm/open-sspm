@@ -16,7 +16,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	"github.com/open-sspm/open-sspm/internal/normalize"
 )
 
 const (
@@ -101,8 +100,8 @@ func NewLockManager(pool *pgxpool.Pool, cfg LockManagerConfig) (LockManager, err
 }
 
 func normalizeScope(kind, name string) (string, string, error) {
-	kind = normalize.Lower(kind)
-	name = normalize.Lower(name)
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	name = strings.ToLower(strings.TrimSpace(name))
 	if kind == "" {
 		return "", "", errors.New("scope kind is required")
 	}

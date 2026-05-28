@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
@@ -15,6 +16,26 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/authn"
 )
+
+func setIdentityResolutionHXRequest(c *echo.Context) {
+	(*c).Request().Header.Set("HX-Request", "true")
+}
+
+func assertIdentityResolutionHXSuccess(t *testing.T, rec *httptest.ResponseRecorder, status string) {
+	t.Helper()
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if body := rec.Body.String(); body != "" {
+		t.Fatalf("body = %q, want empty HTMX mutation response", body)
+	}
+	trigger := rec.Header().Get("HX-Trigger")
+	for _, want := range []string{`"osspm:toast"`, `"osspm:identity-resolution-changed"`, `"status":"` + status + `"`} {
+		if !strings.Contains(trigger, want) {
+			t.Fatalf("HX-Trigger missing %s: %s", want, trigger)
+		}
+	}
+}
 
 func TestHandleIdentityResolutionReviewRendersPendingCandidateEvidenceAndActions(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
@@ -95,69 +116,6 @@ func TestHandleIdentityResolutionReviewRendersPendingCandidateEvidenceAndActions
 	})
 }
 
-func TestHandleIdentityResolutionCandidateDetailReturnsEvidence(t *testing.T) {
-	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
-		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
-		accountID := insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
-			SourceKind:     configstore.KindGitHub,
-			SourceName:     "acme",
-			ExternalID:     "ambiguous-user",
-			Email:          "ambiguous@example.com",
-			DisplayName:    "Ambiguous User",
-			Status:         "active",
-			AccountKind:    "human",
-			EntityCategory: "user",
-			RawJSON:        `{}`,
-		})
-		candidateIdentity := insertCommandSearchIdentity(t, ctx, pool, "human", "ambiguous@example.com", "Candidate User")
-		candidate, err := q.UpsertIdentityMatchCandidate(ctx, gen.UpsertIdentityMatchCandidateParams{
-			AccountID:           accountID,
-			CandidateIdentityID: candidateIdentity,
-			ConfidenceBand:      "conflict",
-			Score:               40,
-			MatchReason:         "ambiguous_primary_email",
-			ResolverVersion:     "test",
-			ResolverFingerprint: "candidate",
-		})
-		if err != nil {
-			t.Fatalf("UpsertIdentityMatchCandidate(): %v", err)
-		}
-		if _, err := q.UpsertCandidateLinkEvidence(ctx, gen.UpsertCandidateLinkEvidenceParams{
-			AccountID:     accountID,
-			CandidateID:   candidate.ID,
-			EvidenceType:  "negative_ambiguous_email",
-			EvidenceKey:   "primary_email",
-			AccountValue:  pgtype.Text{String: "ambiguous@example.com", Valid: true},
-			IdentityValue: pgtype.Text{String: "ambiguous@example.com", Valid: true},
-			Strength:      -50,
-			IsPositive:    false,
-		}); err != nil {
-			t.Fatalf("UpsertCandidateLinkEvidence(): %v", err)
-		}
-
-		c, rec := newTestContext(http.MethodGet, "http://example.com/api/identity-resolution/candidates/"+strconv.FormatInt(candidate.ID, 10))
-		(*c).SetPath("/api/identity-resolution/candidates/:id")
-		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(candidate.ID, 10)}})
-
-		if err := h.HandleIdentityResolutionCandidateDetail(c); err != nil {
-			t.Fatalf("HandleIdentityResolutionCandidateDetail(): %v", err)
-		}
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
-		}
-		body := rec.Body.String()
-		for _, want := range []string{
-			`"id":` + strconv.FormatInt(candidate.ID, 10),
-			`"display_name":"Ambiguous User"`,
-			`"display_name":"Candidate User"`,
-			`"evidence_type":"negative_ambiguous_email"`,
-			`"strength":-50`,
-		} {
-			assertContains(t, body, want)
-		}
-	})
-}
-
 func TestHandleIdentityResolutionCandidateAcceptHTMXConflictUsesTriggerNoRedirect(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
@@ -221,132 +179,6 @@ func TestHandleIdentityResolutionCandidateAcceptHTMXConflictUsesTriggerNoRedirec
 	})
 }
 
-func TestHandleIdentityResolutionCandidatesFiltersStatusAndGroup(t *testing.T) {
-	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
-		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
-		accountID := insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
-			SourceKind:     configstore.KindGitHub,
-			SourceName:     "acme",
-			ExternalID:     "anchor-conflict",
-			Email:          "anchor@example.com",
-			DisplayName:    "Anchor Conflict",
-			Status:         "active",
-			AccountKind:    "human",
-			EntityCategory: "user",
-			RawJSON:        `{}`,
-		})
-		emailAccountID := insertCommandSearchAccount(t, ctx, pool, runID, commandSearchAccountSeed{
-			SourceKind:     configstore.KindGitHub,
-			SourceName:     "acme",
-			ExternalID:     "ambiguous-email",
-			Email:          "email@example.com",
-			DisplayName:    "Ambiguous Email",
-			Status:         "active",
-			AccountKind:    "human",
-			EntityCategory: "user",
-			RawJSON:        `{}`,
-		})
-		candidateIdentity := insertCommandSearchIdentity(t, ctx, pool, "human", "candidate@example.com", "Candidate")
-		anchorCandidate, err := q.UpsertIdentityMatchCandidate(ctx, gen.UpsertIdentityMatchCandidateParams{
-			AccountID:           accountID,
-			CandidateIdentityID: candidateIdentity,
-			ConfidenceBand:      "conflict",
-			Score:               100,
-			MatchReason:         "conflicting_anchors",
-			ResolverVersion:     "test",
-			ResolverFingerprint: "anchor",
-		})
-		if err != nil {
-			t.Fatalf("UpsertIdentityMatchCandidate(anchor): %v", err)
-		}
-		emailCandidate, err := q.UpsertIdentityMatchCandidate(ctx, gen.UpsertIdentityMatchCandidateParams{
-			AccountID:           emailAccountID,
-			CandidateIdentityID: candidateIdentity,
-			ConfidenceBand:      "conflict",
-			Score:               40,
-			MatchReason:         "ambiguous_primary_email",
-			ResolverVersion:     "test",
-			ResolverFingerprint: "email",
-		})
-		if err != nil {
-			t.Fatalf("UpsertIdentityMatchCandidate(email): %v", err)
-		}
-		if err := q.RejectIdentityMatchCandidate(ctx, gen.RejectIdentityMatchCandidateParams{ID: emailCandidate.ID}); err != nil {
-			t.Fatalf("RejectIdentityMatchCandidate(email): %v", err)
-		}
-
-		c, rec := newTestContext(http.MethodGet, "http://example.com/api/identity-resolution/candidates?status=pending&group=anchor_conflict")
-		(*c).SetPath("/api/identity-resolution/candidates")
-		if err := h.HandleIdentityResolutionCandidates(c); err != nil {
-			t.Fatalf("HandleIdentityResolutionCandidates(): %v", err)
-		}
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
-		}
-		body := rec.Body.String()
-		assertContains(t, body, `"id":`+strconv.FormatInt(anchorCandidate.ID, 10))
-		assertContains(t, body, `"group":"anchor_conflict"`)
-		assertNotContains(t, body, `"id":`+strconv.FormatInt(emailCandidate.ID, 10))
-	})
-}
-
-func TestHandleIdentityEmailAndAnchorAPIs(t *testing.T) {
-	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
-		identityID := insertCommandSearchIdentity(t, ctx, pool, "human", "person@example.com", "Person")
-
-		emailURL := "http://example.com/api/identities/" + strconv.FormatInt(identityID, 10) + "/emails?email=Alias%40Example.com&email_kind=alias&verification_state=manual&is_primary=1"
-		emailCtx, emailRec := newTestContext(http.MethodPost, emailURL)
-		(*emailCtx).SetPath("/api/identities/:id/emails")
-		(*emailCtx).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(identityID, 10)}})
-		if err := h.HandleIdentityEmailUpsert(emailCtx); err != nil {
-			t.Fatalf("HandleIdentityEmailUpsert(): %v", err)
-		}
-		if emailRec.Code != http.StatusOK {
-			t.Fatalf("email status = %d, want %d; body=%s", emailRec.Code, http.StatusOK, emailRec.Body.String())
-		}
-		assertContains(t, emailRec.Body.String(), `"normalized_email":"alias@example.com"`)
-		assertContains(t, emailRec.Body.String(), `"is_primary":true`)
-
-		anchorURL := "http://example.com/api/identities/" + strconv.FormatInt(identityID, 10) + "/anchors?anchor_kind=okta_user_id&issuer=okta%3Aacme&anchor_value=00U123&trust_level=manual"
-		anchorCtx, anchorRec := newTestContext(http.MethodPost, anchorURL)
-		(*anchorCtx).SetPath("/api/identities/:id/anchors")
-		(*anchorCtx).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(identityID, 10)}})
-		if err := h.HandleIdentityAnchorUpsert(anchorCtx); err != nil {
-			t.Fatalf("HandleIdentityAnchorUpsert(): %v", err)
-		}
-		if anchorRec.Code != http.StatusOK {
-			t.Fatalf("anchor status = %d, want %d; body=%s", anchorRec.Code, http.StatusOK, anchorRec.Body.String())
-		}
-		assertContains(t, anchorRec.Body.String(), `"normalized_anchor_value":"00u123"`)
-
-		listEmailCtx, listEmailRec := newTestContext(http.MethodGet, "http://example.com/api/identities/"+strconv.FormatInt(identityID, 10)+"/emails")
-		(*listEmailCtx).SetPath("/api/identities/:id/emails")
-		(*listEmailCtx).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(identityID, 10)}})
-		if err := h.HandleIdentityEmails(listEmailCtx); err != nil {
-			t.Fatalf("HandleIdentityEmails(): %v", err)
-		}
-		assertContains(t, listEmailRec.Body.String(), `"emails":[`)
-		assertContains(t, listEmailRec.Body.String(), `"alias@example.com"`)
-
-		listAnchorCtx, listAnchorRec := newTestContext(http.MethodGet, "http://example.com/api/identities/"+strconv.FormatInt(identityID, 10)+"/anchors")
-		(*listAnchorCtx).SetPath("/api/identities/:id/anchors")
-		(*listAnchorCtx).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(identityID, 10)}})
-		if err := h.HandleIdentityAnchors(listAnchorCtx); err != nil {
-			t.Fatalf("HandleIdentityAnchors(): %v", err)
-		}
-		assertContains(t, listAnchorRec.Body.String(), `"anchors":[`)
-		assertContains(t, listAnchorRec.Body.String(), `"okta_user_id"`)
-
-		emails, err := q.ListIdentityEmails(ctx, identityID)
-		if err != nil {
-			t.Fatalf("ListIdentityEmails(): %v", err)
-		}
-		if len(emails) == 0 {
-			t.Fatalf("identity emails not persisted")
-		}
-	})
-}
-
 func TestHandleIdentityResolutionCandidateAcceptLinksAccountAndSupersedesCompetingCandidates(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
@@ -394,19 +226,15 @@ func TestHandleIdentityResolutionCandidateAcceptLinksAccountAndSupersedesCompeti
 			t.Fatalf("UpsertIdentityMatchCandidate(competing): %v", err)
 		}
 
-		c, rec := newTestContext(http.MethodPost, "http://example.com/api/identity-resolution/candidates/"+strconv.FormatInt(accepted.ID, 10)+"/accept")
-		(*c).SetPath("/api/identity-resolution/candidates/:id/accept")
+		c, rec := newTestContext(http.MethodPost, "http://example.com/identity-resolution/candidates/"+strconv.FormatInt(accepted.ID, 10)+"/accept")
+		(*c).SetPath("/identity-resolution/candidates/:id/accept")
 		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(accepted.ID, 10)}})
+		setIdentityResolutionHXRequest(c)
 
 		if err := h.HandleIdentityResolutionCandidateAccept(c); err != nil {
 			t.Fatalf("HandleIdentityResolutionCandidateAccept(): %v", err)
 		}
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
-		}
-		if !strings.Contains(rec.Body.String(), `"status":"accepted"`) {
-			t.Fatalf("response missing accepted status: %s", rec.Body.String())
-		}
+		assertIdentityResolutionHXSuccess(t, rec, "accepted")
 
 		link, err := q.GetIdentityAccountLinkByAccountID(ctx, accountID)
 		if err != nil {
@@ -482,18 +310,16 @@ func TestHandleIdentityResolutionCandidateAcceptCanMergeProvisionalIdentity(t *t
 			t.Fatalf("UpsertIdentityMatchCandidate(): %v", err)
 		}
 
-		c, rec := newTestContext(http.MethodPost, "http://example.com/api/identity-resolution/candidates/"+strconv.FormatInt(candidate.ID, 10)+"/accept?merge_provisional=true")
-		(*c).SetPath("/api/identity-resolution/candidates/:id/accept")
+		c, rec := newTestContext(http.MethodPost, "http://example.com/identity-resolution/candidates/"+strconv.FormatInt(candidate.ID, 10)+"/accept?merge_provisional=true")
+		(*c).SetPath("/identity-resolution/candidates/:id/accept")
 		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(candidate.ID, 10)}})
 		(*c).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: 1, Email: "admin@example.com", Role: "admin"})
+		setIdentityResolutionHXRequest(c)
 
 		if err := h.HandleIdentityResolutionCandidateAccept(c); err != nil {
 			t.Fatalf("HandleIdentityResolutionCandidateAccept(): %v", err)
 		}
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
-		}
-		assertContains(t, rec.Body.String(), `"merged_identity_id":`+strconv.FormatInt(provisionalIdentity, 10))
+		assertIdentityResolutionHXSuccess(t, rec, "accepted")
 
 		redirect, err := q.GetIdentityMergeRedirect(ctx, provisionalIdentity)
 		if err != nil {
@@ -525,7 +351,7 @@ func TestHandleIdentityResolutionCandidateAcceptCanMergeProvisionalIdentity(t *t
 			PrimaryEmail:          "ambiguous@example.com",
 		})
 		if err != nil {
-			t.Fatalf("FindUnambiguousIdentityByPrimaryEmail(merged source legacy email): %v", err)
+			t.Fatalf("FindUnambiguousIdentityByPrimaryEmail(merged identity email): %v", err)
 		}
 		if resolved.ID != targetIdentity {
 			t.Fatalf("resolved identity ID = %d, want target %d", resolved.ID, targetIdentity)
@@ -570,20 +396,16 @@ func TestHandleIdentityResolutionCandidateAcceptDoesNotAutoMergeEmptyProvisional
 
 		// Note: no merge_provisional query param. Accept should only relink the
 		// account; merging the provisional shell is an explicit operator action.
-		c, rec := newTestContext(http.MethodPost, "http://example.com/api/identity-resolution/candidates/"+strconv.FormatInt(candidate.ID, 10)+"/accept")
-		(*c).SetPath("/api/identity-resolution/candidates/:id/accept")
+		c, rec := newTestContext(http.MethodPost, "http://example.com/identity-resolution/candidates/"+strconv.FormatInt(candidate.ID, 10)+"/accept")
+		(*c).SetPath("/identity-resolution/candidates/:id/accept")
 		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(candidate.ID, 10)}})
 		(*c).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: 1, Email: "admin@example.com", Role: "admin"})
+		setIdentityResolutionHXRequest(c)
 
 		if err := h.HandleIdentityResolutionCandidateAccept(c); err != nil {
 			t.Fatalf("HandleIdentityResolutionCandidateAccept(): %v", err)
 		}
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
-		}
-		body := rec.Body.String()
-		assertContains(t, body, `"merged_identity_id":0`)
-		assertContains(t, body, `"merged_automatically":false`)
+		assertIdentityResolutionHXSuccess(t, rec, "accepted")
 
 		source, err := q.GetIdentityForIdentityResolutionUpdate(ctx, provisionalIdentity)
 		if err != nil {
@@ -634,19 +456,16 @@ func TestHandleIdentityResolutionCandidateAcceptSkipsAutoMergeWhenProvisionalSti
 			t.Fatalf("UpsertIdentityMatchCandidate(): %v", err)
 		}
 
-		c, rec := newTestContext(http.MethodPost, "http://example.com/api/identity-resolution/candidates/"+strconv.FormatInt(candidate.ID, 10)+"/accept")
-		(*c).SetPath("/api/identity-resolution/candidates/:id/accept")
+		c, rec := newTestContext(http.MethodPost, "http://example.com/identity-resolution/candidates/"+strconv.FormatInt(candidate.ID, 10)+"/accept")
+		(*c).SetPath("/identity-resolution/candidates/:id/accept")
 		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(candidate.ID, 10)}})
 		(*c).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: 1, Email: "admin@example.com", Role: "admin"})
+		setIdentityResolutionHXRequest(c)
 
 		if err := h.HandleIdentityResolutionCandidateAccept(c); err != nil {
 			t.Fatalf("HandleIdentityResolutionCandidateAccept(): %v", err)
 		}
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
-		}
-		assertContains(t, rec.Body.String(), `"merged_identity_id":0`)
-		assertContains(t, rec.Body.String(), `"merged_automatically":false`)
+		assertIdentityResolutionHXSuccess(t, rec, "accepted")
 
 		source, err := q.GetIdentityForIdentityResolutionUpdate(ctx, provisionalIdentity)
 		if err != nil {
@@ -688,16 +507,15 @@ func TestHandleIdentityResolutionCandidateMarkServiceClassifiesCurrentRollupAndR
 			t.Fatalf("UpsertIdentityMatchCandidate(): %v", err)
 		}
 
-		c, rec := newTestContext(http.MethodPost, "http://example.com/api/identity-resolution/candidates/"+strconv.FormatInt(candidate.ID, 10)+"/mark-service?relationship_type=custodian")
-		(*c).SetPath("/api/identity-resolution/candidates/:id/mark-service")
+		c, rec := newTestContext(http.MethodPost, "http://example.com/identity-resolution/candidates/"+strconv.FormatInt(candidate.ID, 10)+"/mark-service?relationship_type=custodian")
+		(*c).SetPath("/identity-resolution/candidates/:id/mark-service")
 		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(candidate.ID, 10)}})
+		setIdentityResolutionHXRequest(c)
 
 		if err := h.HandleIdentityResolutionCandidateMarkService(c); err != nil {
 			t.Fatalf("HandleIdentityResolutionCandidateMarkService(): %v", err)
 		}
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
-		}
+		assertIdentityResolutionHXSuccess(t, rec, "classified")
 
 		account, err := q.GetAccountForIdentityResolutionUpdate(ctx, accountID)
 		if err != nil {
@@ -741,16 +559,6 @@ func TestHandleIdentityResolutionCandidateMarkServiceClassifiesCurrentRollupAndR
 			t.Fatalf("relationship = %+v, want candidate custodian", relationships[0])
 		}
 
-		detailCtx, detailRec := newTestContext(http.MethodGet, "http://example.com/api/identity-resolution/candidates/"+strconv.FormatInt(candidate.ID, 10))
-		(*detailCtx).SetPath("/api/identity-resolution/candidates/:id")
-		(*detailCtx).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(candidate.ID, 10)}})
-		if err := h.HandleIdentityResolutionCandidateDetail(detailCtx); err != nil {
-			t.Fatalf("HandleIdentityResolutionCandidateDetail(): %v", err)
-		}
-		if detailRec.Code != http.StatusOK {
-			t.Fatalf("detail status = %d, want %d; body=%s", detailRec.Code, http.StatusOK, detailRec.Body.String())
-		}
-		assertContains(t, detailRec.Body.String(), `"relationship_type":"custodian"`)
 	})
 }
 
@@ -782,16 +590,15 @@ func TestHandleIdentityResolutionCandidateRejectMarksPendingCandidateRejected(t 
 			t.Fatalf("UpsertIdentityMatchCandidate(): %v", err)
 		}
 
-		c, rec := newTestContext(http.MethodPost, "http://example.com/api/identity-resolution/candidates/"+strconv.FormatInt(candidate.ID, 10)+"/reject")
-		(*c).SetPath("/api/identity-resolution/candidates/:id/reject")
+		c, rec := newTestContext(http.MethodPost, "http://example.com/identity-resolution/candidates/"+strconv.FormatInt(candidate.ID, 10)+"/reject")
+		(*c).SetPath("/identity-resolution/candidates/:id/reject")
 		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(candidate.ID, 10)}})
+		setIdentityResolutionHXRequest(c)
 
 		if err := h.HandleIdentityResolutionCandidateReject(c); err != nil {
 			t.Fatalf("HandleIdentityResolutionCandidateReject(): %v", err)
 		}
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
-		}
+		assertIdentityResolutionHXSuccess(t, rec, "rejected")
 
 		after, err := q.GetIdentityMatchCandidate(ctx, candidate.ID)
 		if err != nil {
@@ -831,17 +638,16 @@ func TestHandleIdentityResolutionCandidateRejectIgnoresReviewedByFormValue(t *te
 			t.Fatalf("UpsertIdentityMatchCandidate(): %v", err)
 		}
 
-		c, rec := newTestContext(http.MethodPost, "http://example.com/api/identity-resolution/candidates/"+strconv.FormatInt(candidate.ID, 10)+"/reject?reviewed_by=spoof@example.com")
-		(*c).SetPath("/api/identity-resolution/candidates/:id/reject")
+		c, rec := newTestContext(http.MethodPost, "http://example.com/identity-resolution/candidates/"+strconv.FormatInt(candidate.ID, 10)+"/reject?reviewed_by=spoof@example.com")
+		(*c).SetPath("/identity-resolution/candidates/:id/reject")
 		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(candidate.ID, 10)}})
 		(*c).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: 1, Email: "admin@example.com", Role: "admin"})
+		setIdentityResolutionHXRequest(c)
 
 		if err := h.HandleIdentityResolutionCandidateReject(c); err != nil {
 			t.Fatalf("HandleIdentityResolutionCandidateReject(): %v", err)
 		}
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
-		}
+		assertIdentityResolutionHXSuccess(t, rec, "rejected")
 
 		after, err := q.GetIdentityMatchCandidate(ctx, candidate.ID)
 		if err != nil {

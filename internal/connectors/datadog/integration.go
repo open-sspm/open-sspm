@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	"github.com/open-sspm/open-sspm/internal/matching"
+	"github.com/open-sspm/open-sspm/internal/identity"
 )
 
 type DatadogIntegration struct {
@@ -189,7 +189,7 @@ func (i *DatadogIntegration) Run(ctx context.Context, q *gen.Queries, pool *pgxp
 		}
 		accountRows = append(accountRows, registry.SourceAccountRow{
 			ExternalID:     externalID,
-			Email:          matching.NormalizeEmail(account.Email),
+			Email:          identity.NormalizeEmail(account.Email),
 			DisplayName:    display,
 			AccountKind:    account.AccountKind,
 			EntityCategory: account.EntityCategory,

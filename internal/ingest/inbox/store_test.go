@@ -2,7 +2,9 @@ package inbox
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -62,6 +64,49 @@ func TestStoreEnqueueClaimAndProcessor(t *testing.T) {
 	})
 }
 
+func TestProcessorCountsDeadLetterAfterMaxAttempts(t *testing.T) {
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "event_inbox"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+		testdb.MigrateUp(t, migrator)
+		store := NewStore(gen.New(pool))
+
+		if _, err := store.Enqueue(ctx, Delivery{
+			Source:    records.SourceRef{Kind: "okta", Name: "example.okta.com"},
+			Channel:   "event_hook",
+			DedupeKey: "delivery:evt-dead",
+			RawBody:   []byte(`{"eventId":"evt-dead"}`),
+		}); err != nil {
+			t.Fatalf("enqueue delivery: %v", err)
+		}
+
+		processor := NewProcessor(store, failingHandler{}, ProcessorConfig{
+			LeaseOwner:  "test-worker",
+			MaxAttempts: 1,
+		})
+		result, err := processor.RunOnce(ctx)
+		if err != nil {
+			t.Fatalf("processor run once: %v", err)
+		}
+		if result.Claimed != 1 || result.Dead != 1 || result.Retried != 0 {
+			t.Fatalf("result = %s, want one dead-lettered delivery", result.String())
+		}
+
+		var status, lastError string
+		if err := pool.QueryRow(ctx, `
+			SELECT status::text, last_error
+			FROM event_inbox
+			WHERE dedupe_key = 'delivery:evt-dead'
+		`).Scan(&status, &lastError); err != nil {
+			t.Fatalf("select dead-lettered inbox row: %v", err)
+		}
+		if status != StatusDead {
+			t.Fatalf("status = %q, want %q", status, StatusDead)
+		}
+		if lastError != "processor failed" {
+			t.Fatalf("last_error = %q, want processor failed", lastError)
+		}
+	})
+}
+
 func TestRenewEventInboxLeaseCanBeatExpiredRequeue(t *testing.T) {
 	testdb.WithDatabase(t, testdb.Options{NamePrefix: "event_inbox"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
 		testdb.MigrateUp(t, migrator)
@@ -117,6 +162,34 @@ func TestRenewEventInboxLeaseCanBeatExpiredRequeue(t *testing.T) {
 	})
 }
 
+func TestProcessorRenewsLeaseWhileProcessingSlowDelivery(t *testing.T) {
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "event_inbox_heartbeat"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+		testdb.MigrateUp(t, migrator)
+		store := NewStore(gen.New(pool))
+
+		if _, err := store.Enqueue(ctx, Delivery{
+			Source:    records.SourceRef{Kind: "okta", Name: "example.okta.com"},
+			Channel:   "event_hook",
+			DedupeKey: "delivery:evt-slow",
+			RawBody:   []byte(`{"eventId":"evt-slow"}`),
+		}); err != nil {
+			t.Fatalf("enqueue delivery: %v", err)
+		}
+
+		processor := NewProcessor(store, slowHandler{delay: 1500 * time.Millisecond}, ProcessorConfig{
+			LeaseOwner: "test-worker",
+			LeaseTTL:   time.Second,
+		})
+		result, err := processor.RunOnce(ctx)
+		if err != nil {
+			t.Fatalf("processor run once: %v", err)
+		}
+		if result.Claimed != 1 || result.Processed != 1 {
+			t.Fatalf("result = %s, want one processed delivery", result.String())
+		}
+	})
+}
+
 type testHandler struct{}
 
 func (testHandler) ProcessInboxDelivery(context.Context, Delivery) (ProcessResult, error) {
@@ -124,4 +197,28 @@ func (testHandler) ProcessInboxDelivery(context.Context, Delivery) (ProcessResul
 		Status:         ProcessStatusProcessed,
 		DecodedSummary: map[string]any{"processed": true},
 	}, nil
+}
+
+type failingHandler struct{}
+
+func (failingHandler) ProcessInboxDelivery(context.Context, Delivery) (ProcessResult, error) {
+	return ProcessResult{}, errors.New("processor failed")
+}
+
+type slowHandler struct {
+	delay time.Duration
+}
+
+func (h slowHandler) ProcessInboxDelivery(ctx context.Context, _ Delivery) (ProcessResult, error) {
+	timer := time.NewTimer(h.delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ProcessResult{}, ctx.Err()
+	case <-timer.C:
+		return ProcessResult{
+			Status:         ProcessStatusProcessed,
+			DecodedSummary: map[string]any{"processed": true},
+		}, nil
+	}
 }

@@ -199,23 +199,23 @@ func SettingsPage(data viewmodels.SettingsViewData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, ">Resync now</button></form></div></div></section><section class=\"space-y-3\"><div class=\"flex flex-col gap-2 md:flex-row md:items-end md:justify-between\"><div><h2 class=\"text-base font-semibold\">Risk policies</h2><p class=\"text-sm text-muted-foreground\">Built-in policy packs loaded by this server.</p></div><div class=\"text-xs text-muted-foreground\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, ">Resync now</button></form></div></div></section><section class=\"space-y-3\"><div class=\"flex flex-col gap-2 md:flex-row md:items-end md:justify-between\"><div><h2 class=\"text-base font-semibold\">Policy packs</h2><p class=\"text-sm text-muted-foreground\">Built-in evaluator policies loaded by this server.</p></div><div class=\"text-xs text-muted-foreground\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var12 string
-			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(len(data.RiskPolicyPacks)))
+			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(len(data.PolicyPacks)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 54, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 54, Col: 40}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var13 string
-			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(pluralizeSuffix(len(data.RiskPolicyPacks), " pack", " packs"))
+			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(pluralizeSuffix(len(data.PolicyPacks), " pack", " packs"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 54, Col: 109}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 54, Col: 101}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -225,7 +225,7 @@ func SettingsPage(data viewmodels.SettingsViewData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if len(data.RiskPolicyPacks) > 0 {
+			if len(data.PolicyPacks) > 0 {
 				templ_7745c5c3_Var14 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
@@ -238,11 +238,11 @@ func SettingsPage(data viewmodels.SettingsViewData) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list align-top\"><caption class=\"sr-only\">Active risk policy packs loaded by this server.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Domain</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Policy pack</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Version</th></tr></thead> <tbody>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list align-top\"><caption class=\"sr-only\">Active evaluator policy packs loaded by this server.</caption> <thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Domain</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Policy pack</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Version</th></tr></thead> <tbody>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					for _, pack := range data.RiskPolicyPacks {
+					for _, pack := range data.PolicyPacks {
 						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<tr><td class=\"text-muted-foreground whitespace-nowrap\" hx-disable>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err

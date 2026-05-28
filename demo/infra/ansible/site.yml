@@ -8,6 +8,12 @@
     opensspm_db_user: opensspm
     opensspm_db_password: "change-me"
     opensspm_server_name: "demo.opensspm.com"
+    opensspm_worker_lanes:
+      - full
+      - discovery
+      - event-inbox
+      - tail
+      - evaluator
 
   tasks:
     - name: Install system packages
@@ -91,7 +97,6 @@
           CONNECTOR_SECRET_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
           LOG_FORMAT=json
           LOG_LEVEL=info
-          QUEUE_BACKEND=postgres
           SYNC_INTERVAL=0s
           SYNC_DISCOVERY_INTERVAL=0s
           # Optional per-connector full-sync interval (must be >0 when set)
@@ -161,77 +166,13 @@
           [Install]
           WantedBy=multi-user.target
 
-    - name: Install open-sspm full worker systemd unit (placeholder)
-      ansible.builtin.copy:
-        dest: /etc/systemd/system/open-sspm-worker.service
+    - name: Install open-sspm worker systemd template (placeholder)
+      ansible.builtin.template:
+        src: open-sspm-worker@.service.j2
+        dest: /etc/systemd/system/open-sspm-worker@.service
         owner: root
         group: root
         mode: "0644"
-        content: |
-          [Unit]
-          Description=Open-SSPM Full Sync Worker
-          After=network-online.target postgresql.service
-          Wants=network-online.target
-
-          [Service]
-          User=open-sspm
-          Group=open-sspm
-          WorkingDirectory=/opt/open-sspm
-          EnvironmentFile=/etc/open-sspm.env
-          ExecStart=/usr/local/bin/open-sspm worker
-          Restart=on-failure
-          RestartSec=2
-
-          [Install]
-          WantedBy=multi-user.target
-
-    - name: Install open-sspm discovery worker systemd unit (placeholder)
-      ansible.builtin.copy:
-        dest: /etc/systemd/system/open-sspm-discovery-worker.service
-        owner: root
-        group: root
-        mode: "0644"
-        content: |
-          [Unit]
-          Description=Open-SSPM Discovery Worker
-          After=network-online.target postgresql.service
-          Wants=network-online.target
-
-          [Service]
-          User=open-sspm
-          Group=open-sspm
-          WorkingDirectory=/opt/open-sspm
-          EnvironmentFile=/etc/open-sspm.env
-          ExecStart=/usr/local/bin/open-sspm worker-discovery
-          Restart=on-failure
-          RestartSec=2
-
-          [Install]
-          WantedBy=multi-user.target
-
-    - name: Install open-sspm ingest worker systemd unit (placeholder)
-      ansible.builtin.copy:
-        dest: /etc/systemd/system/open-sspm-ingest-worker.service
-        owner: root
-        group: root
-        mode: "0644"
-        content: |
-          [Unit]
-          Description=Open-SSPM Ingest Worker
-          After=network-online.target postgresql.service
-          Wants=network-online.target
-
-          [Service]
-          User=open-sspm
-          Group=open-sspm
-          WorkingDirectory=/opt/open-sspm
-          EnvironmentFile=/etc/open-sspm.env
-          ExecStart=/usr/local/bin/open-sspm worker-ingest
-          Restart=on-failure
-          RestartSec=2
-
-          [Install]
-          WantedBy=multi-user.target
 
     - name: Reload systemd
       ansible.builtin.systemd:
@@ -239,11 +180,13 @@
 
     - name: Ensure open-sspm services are disabled until first deploy
       ansible.builtin.service:
-        name: "{{ item }}"
+        name: "open-sspm-worker@{{ item }}"
         enabled: false
         state: stopped
-      loop:
-        - open-sspm
-        - open-sspm-worker
-        - open-sspm-discovery-worker
-        - open-sspm-ingest-worker
+      loop: "{{ opensspm_worker_lanes }}"
+
+    - name: Ensure open-sspm API service is disabled until first deploy
+      ansible.builtin.service:
+        name: open-sspm
+        enabled: false
+        state: stopped

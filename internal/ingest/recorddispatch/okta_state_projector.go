@@ -124,14 +124,14 @@ func (p *OktaStateProjector) CompleteSnapshot(ctx context.Context, record record
 		if err != nil {
 			return err
 		}
-		p.addCount("okta_accounts_observed", observed)
+		p.addCount("source_accounts_observed", observed)
 		if record.ExpireAbsent {
 			expired, err := p.q.ExpireSourceAccountsNotSeenInRun(ctx, gen.ExpireSourceAccountsNotSeenInRunParams{
 				ExpiredRunID: runID,
 				SourceKind:   "okta",
 				SourceName:   record.SourceName(),
 			})
-			p.addCount("okta_accounts_expired", expired)
+			p.addCount("source_accounts_expired", expired)
 			return err
 		}
 	case records.ResourceGroup:
@@ -144,15 +144,6 @@ func (p *OktaStateProjector) CompleteSnapshot(ctx context.Context, record record
 			return err
 		}
 		p.addCount("okta_groups_observed", observed)
-		observed, err = p.q.PromoteOktaGroupMembershipsSeenInRunBySource(ctx, gen.PromoteOktaGroupMembershipsSeenInRunBySourceParams{
-			LastObservedRunID: p.runID,
-			SourceKind:        "okta",
-			SourceName:        record.SourceName(),
-		})
-		if err != nil {
-			return err
-		}
-		p.addCount("okta_group_memberships_observed", observed)
 		if record.ExpireAbsent {
 			expired, err := p.q.ExpireOktaGroupsNotSeenInRunBySource(ctx, gen.ExpireOktaGroupsNotSeenInRunBySourceParams{
 				ExpiredRunID: p.runID,
@@ -163,13 +154,6 @@ func (p *OktaStateProjector) CompleteSnapshot(ctx context.Context, record record
 				return err
 			}
 			p.addCount("okta_groups_expired", expired)
-			expired, err = p.q.ExpireOktaGroupMembershipsNotSeenInRunBySource(ctx, gen.ExpireOktaGroupMembershipsNotSeenInRunBySourceParams{
-				ExpiredRunID: p.runID,
-				SourceKind:   "okta",
-				SourceName:   record.SourceName(),
-			})
-			p.addCount("okta_group_memberships_expired", expired)
-			return err
 		}
 	case records.ResourceApplication:
 		observed, err := p.q.PromoteOktaAppsSeenInRunBySource(ctx, gen.PromoteOktaAppsSeenInRunBySourceParams{
@@ -191,25 +175,7 @@ func (p *OktaStateProjector) CompleteSnapshot(ctx context.Context, record record
 			return err
 		}
 	case records.ResourceEntitlement:
-		observed, err := p.q.PromoteOktaAppAssignmentsSeenInRunBySource(ctx, gen.PromoteOktaAppAssignmentsSeenInRunBySourceParams{
-			LastObservedRunID: p.runID,
-			SourceKind:        "okta",
-			SourceName:        record.SourceName(),
-		})
-		if err != nil {
-			return err
-		}
-		p.addCount("okta_app_assignments_observed", observed)
-		observed, err = p.q.PromoteOktaAppGroupAssignmentsSeenInRunBySource(ctx, gen.PromoteOktaAppGroupAssignmentsSeenInRunBySourceParams{
-			LastObservedRunID: p.runID,
-			SourceKind:        "okta",
-			SourceName:        record.SourceName(),
-		})
-		if err != nil {
-			return err
-		}
-		p.addCount("okta_app_group_assignments_observed", observed)
-		observed, err = p.q.PromoteEntitlementsSeenInRunBySource(ctx, gen.PromoteEntitlementsSeenInRunBySourceParams{
+		observed, err := p.q.PromoteEntitlementsSeenInRunBySource(ctx, gen.PromoteEntitlementsSeenInRunBySourceParams{
 			LastObservedRunID: runID,
 			SourceKind:        "okta",
 			SourceName:        record.SourceName(),
@@ -219,25 +185,7 @@ func (p *OktaStateProjector) CompleteSnapshot(ctx context.Context, record record
 		}
 		p.addCount("entitlements_observed", observed)
 		if record.ExpireAbsent {
-			expired, err := p.q.ExpireOktaAppAssignmentsNotSeenInRunBySource(ctx, gen.ExpireOktaAppAssignmentsNotSeenInRunBySourceParams{
-				ExpiredRunID: p.runID,
-				SourceKind:   "okta",
-				SourceName:   record.SourceName(),
-			})
-			if err != nil {
-				return err
-			}
-			p.addCount("okta_app_assignments_expired", expired)
-			expired, err = p.q.ExpireOktaAppGroupAssignmentsNotSeenInRunBySource(ctx, gen.ExpireOktaAppGroupAssignmentsNotSeenInRunBySourceParams{
-				ExpiredRunID: p.runID,
-				SourceKind:   "okta",
-				SourceName:   record.SourceName(),
-			})
-			if err != nil {
-				return err
-			}
-			p.addCount("okta_app_group_assignments_expired", expired)
-			expired, err = p.q.ExpireEntitlementsNotSeenInRunBySource(ctx, gen.ExpireEntitlementsNotSeenInRunBySourceParams{
+			expired, err := p.q.ExpireEntitlementsNotSeenInRunBySource(ctx, gen.ExpireEntitlementsNotSeenInRunBySourceParams{
 				ExpiredRunID: runID,
 				SourceKind:   "okta",
 				SourceName:   record.SourceName(),
@@ -336,7 +284,7 @@ func (p *OktaStateProjector) upsertApplication(ctx context.Context, record recor
 func (p *OktaStateProjector) upsertEntitlement(ctx context.Context, record records.StateUpsert, payload records.EntitlementPayload) error {
 	switch strings.TrimSpace(payload.Kind) {
 	case records.EntitlementKindOktaGroupMembership:
-		return p.upsertGroupMembership(ctx, payload)
+		return p.upsertGroupMembership(ctx, record.SourceName(), payload)
 	case records.EntitlementKindOktaAppUserAssignment:
 		return p.upsertAppUserAssignment(ctx, record.SourceName(), payload)
 	case records.EntitlementKindOktaAppGroupAssignment:
@@ -396,26 +344,27 @@ func observedAt(fallback, preferred time.Time) time.Time {
 	return time.Now().UTC()
 }
 
-func (p *OktaStateProjector) upsertGroupMembership(ctx context.Context, payload records.EntitlementPayload) error {
-	_, err := p.q.UpsertOktaGroupMembershipsBulkByOktaAccountExternalIDs(ctx, gen.UpsertOktaGroupMembershipsBulkByOktaAccountExternalIDsParams{
-		SeenInRunID:            p.runID,
-		OktaAccountExternalIds: []string{strings.TrimSpace(payload.Subject.ExternalID)},
-		OktaGroupExternalIds:   []string{strings.TrimSpace(payload.Target.ExternalID)},
+func (p *OktaStateProjector) upsertGroupMembership(ctx context.Context, sourceName string, payload records.EntitlementPayload) error {
+	permission := strings.TrimSpace(payload.Permission)
+	if permission == "" {
+		permission = "member"
+	}
+	_, err := registry.WriteEntitlementRows(ctx, p.q, registry.WriteEntitlementRowsParams{
+		SourceKind: "okta",
+		SourceName: sourceName,
+		RunID:      p.runID,
+		Rows: []registry.EntitlementRow{{
+			AccountExternalID: strings.TrimSpace(payload.Subject.ExternalID),
+			Kind:              "group_membership",
+			Resource:          oktaGroupAccountExternalID(payload.Target.ExternalID),
+			Permission:        permission,
+			RawJSON:           jsonBytes(payload.ToEnvelope()),
+		}},
 	})
 	return err
 }
 
 func (p *OktaStateProjector) upsertAppUserAssignment(ctx context.Context, sourceName string, payload records.EntitlementPayload) error {
-	if _, err := p.q.UpsertOktaAppAssignmentsBulkByOktaAccountExternalIDs(ctx, gen.UpsertOktaAppAssignmentsBulkByOktaAccountExternalIDsParams{
-		SeenInRunID:            p.runID,
-		OktaAccountExternalIds: []string{strings.TrimSpace(payload.Subject.ExternalID)},
-		OktaAppExternalIds:     []string{strings.TrimSpace(payload.Target.ExternalID)},
-		Scopes:                 []string{strings.TrimSpace(payload.Scope)},
-		ProfileJsons:           [][]byte{jsonBytes(payload.Profile)},
-		RawJsons:               [][]byte{payloadRaw(payload.ToEnvelope())},
-	}); err != nil {
-		return err
-	}
 	_, err := registry.WriteEntitlementRows(ctx, p.q, registry.WriteEntitlementRowsParams{
 		SourceKind: "okta",
 		SourceName: sourceName,
@@ -425,30 +374,14 @@ func (p *OktaStateProjector) upsertAppUserAssignment(ctx context.Context, source
 			Kind:              "application_assignment",
 			Resource:          strings.TrimSpace(payload.Target.ExternalID),
 			Permission:        strings.TrimSpace(payload.Scope),
-			RawJSON:           payloadRaw(payload.ToEnvelope()),
+			RawJSON:           jsonBytes(payload.ToEnvelope()),
 		}},
 	})
 	return err
 }
 
 func (p *OktaStateProjector) upsertAppGroupAssignment(ctx context.Context, sourceName string, payload records.EntitlementPayload) error {
-	priority, err := int32Priority(payload.Priority)
-	if err != nil {
-		return err
-	}
-	if _, err := p.q.UpsertOktaAppGroupAssignmentsBulkByExternalIDs(ctx, gen.UpsertOktaAppGroupAssignmentsBulkByExternalIDsParams{
-		SeenInRunID:          p.runID,
-		SourceKind:           "okta",
-		SourceName:           sourceName,
-		OktaAppExternalIds:   []string{strings.TrimSpace(payload.Target.ExternalID)},
-		OktaGroupExternalIds: []string{strings.TrimSpace(payload.Subject.ExternalID)},
-		Priorities:           []int32{priority},
-		ProfileJsons:         [][]byte{jsonBytes(payload.Profile)},
-		RawJsons:             [][]byte{payloadRaw(payload.ToEnvelope())},
-	}); err != nil {
-		return err
-	}
-	_, err = registry.WriteEntitlementRows(ctx, p.q, registry.WriteEntitlementRowsParams{
+	_, err := registry.WriteEntitlementRows(ctx, p.q, registry.WriteEntitlementRowsParams{
 		SourceKind: "okta",
 		SourceName: sourceName,
 		RunID:      p.runID,
@@ -457,7 +390,7 @@ func (p *OktaStateProjector) upsertAppGroupAssignment(ctx context.Context, sourc
 			Kind:              "application_assignment",
 			Resource:          strings.TrimSpace(payload.Target.ExternalID),
 			Permission:        strconv.Itoa(payload.Priority),
-			RawJSON:           payloadRaw(payload.ToEnvelope()),
+			RawJSON:           jsonBytes(payload.ToEnvelope()),
 		}},
 	})
 	return err
@@ -545,15 +478,4 @@ func oktaGroupAccountExternalID(groupID string) string {
 		return groupID
 	}
 	return "group:" + groupID
-}
-
-func int32Priority(priority int) (int32, error) {
-	const (
-		minInt32 = -1 << 31
-		maxInt32 = 1<<31 - 1
-	)
-	if priority < minInt32 || priority > maxInt32 {
-		return 0, fmt.Errorf("okta app group assignment priority %d overflows int32", priority)
-	}
-	return int32(priority), nil
 }

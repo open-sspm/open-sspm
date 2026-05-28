@@ -7,6 +7,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/capabilities"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
+	"github.com/open-sspm/open-sspm/internal/discovery"
 	"github.com/open-sspm/open-sspm/internal/records"
 )
 
@@ -27,6 +28,7 @@ func (i *EntraIntegration) Descriptor() capabilities.Descriptor {
 			records.ResourceAppAsset,
 			records.ResourceCredential,
 			records.ResourceEntitlement,
+			records.ResourceDiscoveryEvidence,
 			records.ResourceAuditEvent,
 		},
 		EventTypes: []string{
@@ -37,11 +39,27 @@ func (i *EntraIntegration) Descriptor() capabilities.Descriptor {
 }
 
 func (i *EntraIntegration) Capabilities() capabilities.Capabilities {
-	if i == nil || i.client == nil {
-		return capabilities.Capabilities{}
+	caps := capabilities.Capabilities{}
+	if i == nil {
+		return caps
 	}
-	return capabilities.Capabilities{
-		Full: &capabilities.FullCapability{
+	if i.client != nil && i.discoveryEnabled {
+		caps.Discovery = &capabilities.DiscoveryCapability{
+			Resources: []capabilities.DiscoveryResource{
+				{
+					Name: records.ResourceDiscoveryEvidence,
+					SignalKinds: []string{
+						discovery.SignalKindIDPSSO,
+						discovery.SignalKindOAuth,
+					},
+				},
+			},
+			RecommendedInterval: 15 * time.Minute,
+			Incremental:         true,
+		}
+	}
+	if i.client != nil {
+		caps.Full = &capabilities.FullCapability{
 			Resources: []capabilities.FullResource{
 				{Name: records.ResourceIdentity, SnapshotCompleteness: capabilities.SnapshotBootstrap},
 				{Name: records.ResourceGroup, SnapshotCompleteness: capabilities.SnapshotBootstrap},
@@ -54,6 +72,7 @@ func (i *EntraIntegration) Capabilities() capabilities.Capabilities {
 			},
 			RecommendedInterval:     time.Hour,
 			SupportsScopedReconcile: false,
-		},
+		}
 	}
+	return caps
 }

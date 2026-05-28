@@ -17,13 +17,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
-	"github.com/open-sspm/open-sspm/internal/accessgraph"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
-	identitydomain "github.com/open-sspm/open-sspm/internal/identitydetail"
+	identitydomain "github.com/open-sspm/open-sspm/internal/identity"
 )
 
 func (h *Handlers) HandleIdentities(c *echo.Context) error {
@@ -1365,17 +1364,17 @@ func linkedAccountDetailHref(account gen.Account) string {
 }
 
 func identityEntitlementView(account gen.Account, ent gen.ListEntitlementsForAccountIDsRow, now time.Time) viewmodels.IdentityEntitlementView {
-	resourceKind, resourceID, ok := accessgraph.ParseCanonicalResourceRef(ent.Resource)
+	resourceKind, resourceID, ok := identitydomain.ParseCanonicalResourceRef(ent.Resource)
 	if !ok {
 		resourceID = strings.TrimSpace(ent.Resource)
 	}
 
 	resourceHref := ""
 	if ok {
-		resourceHref = accessgraph.BuildResourceHref(account.SourceKind, account.SourceName, resourceKind, resourceID)
+		resourceHref = identitydomain.BuildResourceHref(account.SourceKind, account.SourceName, resourceKind, resourceID)
 	}
 
-	resourceLabel := strings.TrimSpace(accessgraph.DisplayResourceLabel(ent.Resource, ent.RawJson))
+	resourceLabel := strings.TrimSpace(identitydomain.DisplayResourceLabel(ent.Resource, ent.RawJson))
 	if resourceLabel == "" {
 		resourceLabel = resourceID
 	}
@@ -1393,7 +1392,7 @@ func identityEntitlementView(account gen.Account, ent gen.ListEntitlementsForAcc
 		ResourceID:          resourceID,
 		ResourceLabel:       resourceLabel,
 		ResourceHref:        resourceHref,
-		Permission:          accessgraph.DisplayEntitlementPermission(ent.Kind, ent.Permission, ent.RawJson),
+		Permission:          identitydomain.DisplayEntitlementPermission(ent.Kind, ent.Permission, ent.RawJson),
 		IsAdmin:             identityEntitlementIsAdmin(ent),
 		AccountLastSignIn:   relativeWithTitleDisplay(now, account.LastLoginAt, "—", "No account sign-in observed"),
 		AccountActivityUnix: timestamptzUnix(account.LastLoginAt),

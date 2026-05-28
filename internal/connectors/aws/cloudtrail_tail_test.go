@@ -36,7 +36,7 @@ func TestAWSCloudTrailTailWritesCanonicalEventsAndAdvancesCursor(t *testing.T) {
 		q := gen.New(pool)
 
 		sourceName := "prod"
-		runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("aws", registry.RunModeTail), sourceName)
+		runID, err := registry.StartSyncRunWithMode(ctx, q, "aws", sourceName, registry.RunModeTail)
 		if err != nil {
 			t.Fatalf("StartSyncRun() err = %v", err)
 		}
@@ -105,7 +105,7 @@ func TestAWSCloudTrailTailDoesNotAdvanceCursorAfterPartialWriteFailure(t *testin
 		q := gen.New(pool)
 
 		sourceName := "prod"
-		runID, err := registry.StartSyncRun(ctx, q, registry.SyncRunSourceKind("aws", registry.RunModeTail), sourceName)
+		runID, err := registry.StartSyncRunWithMode(ctx, q, "aws", sourceName, registry.RunModeTail)
 		if err != nil {
 			t.Fatalf("StartSyncRun() err = %v", err)
 		}

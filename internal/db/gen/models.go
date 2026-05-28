@@ -201,17 +201,6 @@ type ConnectorCursorState struct {
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
-type ConnectorDeltaState struct {
-	SourceKind       string             `json:"source_kind"`
-	SourceName       string             `json:"source_name"`
-	Resource         string             `json:"resource"`
-	DeltaLink        string             `json:"delta_link"`
-	LastSuccessRunID pgtype.Int8        `json:"last_success_run_id"`
-	LastFinishedAt   pgtype.Timestamptz `json:"last_finished_at"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-}
-
 type ConnectorSecret struct {
 	Kind       string             `json:"kind"`
 	SecretName string             `json:"secret_name"`
@@ -405,6 +394,21 @@ type EventDedupeKey struct {
 	DuplicateCount  int64              `json:"duplicate_count"`
 }
 
+type EventEvaluationQueue struct {
+	ID              int64              `json:"id"`
+	EventReceivedAt pgtype.Timestamptz `json:"event_received_at"`
+	EventID         pgtype.UUID        `json:"event_id"`
+	Status          string             `json:"status"`
+	Attempts        int32              `json:"attempts"`
+	AvailableAt     pgtype.Timestamptz `json:"available_at"`
+	ClaimedBy       pgtype.Text        `json:"claimed_by"`
+	ClaimedAt       pgtype.Timestamptz `json:"claimed_at"`
+	LeaseUntil      pgtype.Timestamptz `json:"lease_until"`
+	LastError       string             `json:"last_error"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type EventInbox struct {
 	ID                  int64              `json:"id"`
 	SourceKind          string             `json:"source_kind"`
@@ -432,51 +436,6 @@ type EventInbox struct {
 	IgnoreReason        string             `json:"ignore_reason"`
 	LastError           string             `json:"last_error"`
 	TraceID             string             `json:"trace_id"`
-}
-
-type EventProjectionCheckpoint struct {
-	ProjectionName      string             `json:"projection_name"`
-	SourceKind          string             `json:"source_kind"`
-	SourceName          string             `json:"source_name"`
-	LastEventReceivedAt pgtype.Timestamptz `json:"last_event_received_at"`
-	LastEventID         pgtype.UUID        `json:"last_event_id"`
-	LastProjectedAt     pgtype.Timestamptz `json:"last_projected_at"`
-	Stats               []byte             `json:"stats"`
-	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
-}
-
-type EventProjectionDiffRun struct {
-	ID                       int64              `json:"id"`
-	ProjectionName           string             `json:"projection_name"`
-	SourceKind               string             `json:"source_kind"`
-	SourceName               string             `json:"source_name"`
-	WindowStart              pgtype.Timestamptz `json:"window_start"`
-	WindowEnd                pgtype.Timestamptz `json:"window_end"`
-	BaselineCount            int64              `json:"baseline_count"`
-	ProjectedCount           int64              `json:"projected_count"`
-	MatchingCount            int64              `json:"matching_count"`
-	MissingInProjectionCount int64              `json:"missing_in_projection_count"`
-	MissingInBaselineCount   int64              `json:"missing_in_baseline_count"`
-	Sample                   []byte             `json:"sample"`
-	CreatedAt                pgtype.Timestamptz `json:"created_at"`
-}
-
-type EventProjectionShadowDiscoveryEvent struct {
-	ProjectionName   string             `json:"projection_name"`
-	SourceKind       string             `json:"source_kind"`
-	SourceName       string             `json:"source_name"`
-	SignalKind       string             `json:"signal_kind"`
-	EventExternalID  string             `json:"event_external_id"`
-	SourceAppID      string             `json:"source_app_id"`
-	SourceAppName    string             `json:"source_app_name"`
-	SourceAppDomain  string             `json:"source_app_domain"`
-	ActorExternalID  string             `json:"actor_external_id"`
-	ActorEmail       string             `json:"actor_email"`
-	ActorDisplayName string             `json:"actor_display_name"`
-	ObservedAt       pgtype.Timestamptz `json:"observed_at"`
-	EventReceivedAt  pgtype.Timestamptz `json:"event_received_at"`
-	EventID          pgtype.UUID        `json:"event_id"`
-	ProjectedAt      pgtype.Timestamptz `json:"projected_at"`
 }
 
 type EventTarget struct {
@@ -772,6 +731,8 @@ type IntegrationOktaAppMap struct {
 	OktaAppExternalID string             `json:"okta_app_external_id"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	OktaSourceKind    string             `json:"okta_source_kind"`
+	OktaSourceName    string             `json:"okta_source_name"`
 }
 
 type NonHumanAccessEvent struct {
@@ -915,25 +876,6 @@ type OktaApp struct {
 	SourceName        string             `json:"source_name"`
 }
 
-type OktaAppGroupAssignment struct {
-	ID                int64              `json:"id"`
-	OktaAppID         int64              `json:"okta_app_id"`
-	OktaGroupID       int64              `json:"okta_group_id"`
-	Priority          int32              `json:"priority"`
-	ProfileJson       []byte             `json:"profile_json"`
-	RawJson           []byte             `json:"raw_json"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
-	SeenInRunID       pgtype.Int8        `json:"seen_in_run_id"`
-	SeenAt            pgtype.Timestamptz `json:"seen_at"`
-	LastObservedRunID pgtype.Int8        `json:"last_observed_run_id"`
-	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
-	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
-	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
-	SourceKind        string             `json:"source_kind"`
-	SourceName        string             `json:"source_name"`
-}
-
 type OktaGroup struct {
 	ID                int64              `json:"id"`
 	ExternalID        string             `json:"external_id"`
@@ -950,114 +892,6 @@ type OktaGroup struct {
 	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
 	SourceKind        string             `json:"source_kind"`
 	SourceName        string             `json:"source_name"`
-}
-
-type OktaPushInbox struct {
-	ID                 int64              `json:"id"`
-	SourceName         string             `json:"source_name"`
-	Channel            string             `json:"channel"`
-	DeliveryExternalID string             `json:"delivery_external_id"`
-	EventExternalID    string             `json:"event_external_id"`
-	EventType          string             `json:"event_type"`
-	EventIndex         int32              `json:"event_index"`
-	PublishedAt        pgtype.Timestamptz `json:"published_at"`
-	Status             string             `json:"status"`
-	RawJson            []byte             `json:"raw_json"`
-	Attempts           int32              `json:"attempts"`
-	NextAttemptAt      pgtype.Timestamptz `json:"next_attempt_at"`
-	ProcessedRunID     pgtype.Int8        `json:"processed_run_id"`
-	ProcessedAt        pgtype.Timestamptz `json:"processed_at"`
-	LastReceivedAt     pgtype.Timestamptz `json:"last_received_at"`
-	ErrorMessage       string             `json:"error_message"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
-	ClaimedBy          pgtype.Text        `json:"claimed_by"`
-	ClaimedAt          pgtype.Timestamptz `json:"claimed_at"`
-	LeaseExpiresAt     pgtype.Timestamptz `json:"lease_expires_at"`
-	ClaimToken         pgtype.Text        `json:"claim_token"`
-}
-
-type OktaUserAppAssignment struct {
-	ID                int64              `json:"id"`
-	OktaAppID         int64              `json:"okta_app_id"`
-	Scope             string             `json:"scope"`
-	ProfileJson       []byte             `json:"profile_json"`
-	RawJson           []byte             `json:"raw_json"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
-	SeenInRunID       pgtype.Int8        `json:"seen_in_run_id"`
-	SeenAt            pgtype.Timestamptz `json:"seen_at"`
-	LastObservedRunID pgtype.Int8        `json:"last_observed_run_id"`
-	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
-	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
-	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
-	OktaUserAccountID int64              `json:"okta_user_account_id"`
-}
-
-type OktaUserGroup struct {
-	ID                int64              `json:"id"`
-	OktaGroupID       int64              `json:"okta_group_id"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	SeenInRunID       pgtype.Int8        `json:"seen_in_run_id"`
-	SeenAt            pgtype.Timestamptz `json:"seen_at"`
-	LastObservedRunID pgtype.Int8        `json:"last_observed_run_id"`
-	LastObservedAt    pgtype.Timestamptz `json:"last_observed_at"`
-	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
-	ExpiredRunID      pgtype.Int8        `json:"expired_run_id"`
-	OktaUserAccountID int64              `json:"okta_user_account_id"`
-}
-
-type RiskpolicyEventQueue struct {
-	ID              int64              `json:"id"`
-	EventReceivedAt pgtype.Timestamptz `json:"event_received_at"`
-	EventID         pgtype.UUID        `json:"event_id"`
-	Status          string             `json:"status"`
-	Attempts        int32              `json:"attempts"`
-	AvailableAt     pgtype.Timestamptz `json:"available_at"`
-	ClaimedBy       pgtype.Text        `json:"claimed_by"`
-	ClaimedAt       pgtype.Timestamptz `json:"claimed_at"`
-	LeaseUntil      pgtype.Timestamptz `json:"lease_until"`
-	LastError       string             `json:"last_error"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-}
-
-type RiskpolicyEventShadowSignal struct {
-	EventReceivedAt   pgtype.Timestamptz `json:"event_received_at"`
-	EventID           pgtype.UUID        `json:"event_id"`
-	SignalID          string             `json:"signal_id"`
-	PolicyPackID      string             `json:"policy_pack_id"`
-	PolicyPackVersion string             `json:"policy_pack_version"`
-	Severity          string             `json:"severity"`
-	Title             string             `json:"title"`
-	Evidence          string             `json:"evidence"`
-	Output            []byte             `json:"output"`
-	EvaluatedAt       pgtype.Timestamptz `json:"evaluated_at"`
-}
-
-type RiskpolicyFinding struct {
-	FindingKey        string             `json:"finding_key"`
-	Source            string             `json:"source"`
-	Shadow            bool               `json:"shadow"`
-	Status            string             `json:"status"`
-	SourceKind        string             `json:"source_kind"`
-	SourceName        string             `json:"source_name"`
-	EntityKind        string             `json:"entity_kind"`
-	EntityID          string             `json:"entity_id"`
-	EntityName        string             `json:"entity_name"`
-	EventReceivedAt   pgtype.Timestamptz `json:"event_received_at"`
-	EventID           pgtype.UUID        `json:"event_id"`
-	SignalID          string             `json:"signal_id"`
-	PolicyPackID      string             `json:"policy_pack_id"`
-	PolicyPackVersion string             `json:"policy_pack_version"`
-	Severity          string             `json:"severity"`
-	Title             string             `json:"title"`
-	Evidence          string             `json:"evidence"`
-	Output            []byte             `json:"output"`
-	FirstSeenAt       pgtype.Timestamptz `json:"first_seen_at"`
-	LastSeenAt        pgtype.Timestamptz `json:"last_seen_at"`
-	ResolvedAt        pgtype.Timestamptz `json:"resolved_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Rule struct {
@@ -1092,21 +926,6 @@ type RuleAttestation struct {
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }
 
-type RuleEvaluation struct {
-	ID                  int64              `json:"id"`
-	RuleID              int64              `json:"rule_id"`
-	ScopeKind           string             `json:"scope_kind"`
-	SourceKind          string             `json:"source_kind"`
-	SourceName          string             `json:"source_name"`
-	Status              string             `json:"status"`
-	SyncRunID           pgtype.Int8        `json:"sync_run_id"`
-	EvaluatedAt         pgtype.Timestamptz `json:"evaluated_at"`
-	EvidenceSummary     string             `json:"evidence_summary"`
-	EvidenceJson        []byte             `json:"evidence_json"`
-	AffectedResourceIds []string           `json:"affected_resource_ids"`
-	ErrorKind           string             `json:"error_kind"`
-}
-
 type RuleOverride struct {
 	ID         int64              `json:"id"`
 	RuleID     int64              `json:"rule_id"`
@@ -1117,23 +936,6 @@ type RuleOverride struct {
 	Enabled    bool               `json:"enabled"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
-}
-
-type RuleResultsCurrent struct {
-	ID                  int64              `json:"id"`
-	RuleID              int64              `json:"rule_id"`
-	ScopeKind           string             `json:"scope_kind"`
-	SourceKind          string             `json:"source_kind"`
-	SourceName          string             `json:"source_name"`
-	Status              string             `json:"status"`
-	EvaluatedAt         pgtype.Timestamptz `json:"evaluated_at"`
-	SyncRunID           pgtype.Int8        `json:"sync_run_id"`
-	EvidenceSummary     string             `json:"evidence_summary"`
-	EvidenceJson        []byte             `json:"evidence_json"`
-	AffectedResourceIds []string           `json:"affected_resource_ids"`
-	ErrorKind           string             `json:"error_kind"`
-	CreatedAt           pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Ruleset struct {
@@ -1318,4 +1120,5 @@ type SyncRun struct {
 	Message    string             `json:"message"`
 	Stats      []byte             `json:"stats"`
 	ErrorKind  string             `json:"error_kind"`
+	RunMode    string             `json:"run_mode"`
 }

@@ -19,11 +19,6 @@ WITH email_claims AS (
   WHERE ie.normalized_email = lower(trim($1::text))
     AND ie.lifecycle_state = 'active'
     AND owner.resolution_state NOT IN ('merged', 'disabled')
-  UNION
-  SELECT i.id
-  FROM identities i
-  WHERE lower(trim(i.primary_email)) = lower(trim($1::text))
-    AND i.resolution_state NOT IN ('merged', 'disabled')
 )
 SELECT count(*)
 FROM email_claims
@@ -334,11 +329,6 @@ email_claims AS (
   WHERE ie.normalized_email = lower(trim($3::text))
     AND ie.lifecycle_state = 'active'
     AND owner.resolution_state NOT IN ('merged', 'disabled')
-  UNION
-  SELECT i.id
-  FROM identities i
-  WHERE lower(trim(i.primary_email)) = lower(trim($3::text))
-    AND i.resolution_state NOT IN ('merged', 'disabled')
 ),
 candidates AS (
   SELECT
@@ -931,11 +921,6 @@ email_claims AS (
   WHERE ie.normalized_email = lower(trim($3::text))
     AND ie.lifecycle_state = 'active'
     AND owner.resolution_state NOT IN ('merged', 'disabled')
-  UNION
-  SELECT i.id
-  FROM identities i
-  WHERE lower(trim(i.primary_email)) = lower(trim($3::text))
-    AND i.resolution_state NOT IN ('merged', 'disabled')
 )
 SELECT
   i.id AS identity_id,
@@ -1014,11 +999,6 @@ email_claims AS (
   WHERE ie.normalized_email = lower(trim($3::text))
     AND ie.lifecycle_state = 'active'
     AND owner.resolution_state NOT IN ('merged', 'disabled')
-  UNION
-  SELECT i.id
-  FROM identities i
-  WHERE lower(trim(i.primary_email)) = lower(trim($3::text))
-    AND i.resolution_state NOT IN ('merged', 'disabled')
 ),
 candidates AS (
   SELECT
@@ -1304,11 +1284,6 @@ WITH email_claims AS (
   WHERE ie.normalized_email = lower(trim($1::text))
     AND ie.lifecycle_state = 'active'
     AND owner.resolution_state NOT IN ('merged', 'disabled')
-  UNION
-  SELECT i.id, i.resolution_state
-  FROM identities i
-  WHERE lower(trim(i.primary_email)) = lower(trim($1::text))
-    AND i.resolution_state NOT IN ('merged', 'disabled')
 )
 SELECT
   count(*)::bigint                                                  AS total_count,
@@ -1326,10 +1301,10 @@ type SummarizeIdentityClaimantsByPrimaryEmailRow struct {
 }
 
 // Returns counts grouped by resolution_state for identities that claim the
-// normalized email through either an active identity_emails row or the legacy
-// identities.primary_email field. Owner write paths use this to distinguish
-// "no identity owns this email" from "the only claimant is provisional and
-// needs to be reviewed first" from "multiple identities claim this email".
+// normalized email through an active identity_emails row. Owner write paths use
+// this to distinguish "no identity owns this email" from "the only claimant is
+// provisional and needs to be reviewed first" from "multiple identities claim
+// this email".
 func (q *Queries) SummarizeIdentityClaimantsByPrimaryEmail(ctx context.Context, primaryEmail string) (SummarizeIdentityClaimantsByPrimaryEmailRow, error) {
 	row := q.db.QueryRow(ctx, summarizeIdentityClaimantsByPrimaryEmail, primaryEmail)
 	var i SummarizeIdentityClaimantsByPrimaryEmailRow

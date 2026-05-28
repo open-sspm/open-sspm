@@ -22,9 +22,9 @@ import (
 	"github.com/open-sspm/open-sspm/internal/config"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/evaluator"
 	"github.com/open-sspm/open-sspm/internal/http/handlers"
 	"github.com/open-sspm/open-sspm/internal/mailer"
-	"github.com/open-sspm/open-sspm/internal/riskpolicy"
 )
 
 // EchoServer is the HTTP server wrapper.
@@ -42,7 +42,6 @@ func NewEchoServer(
 	pool *pgxpool.Pool,
 	q *gen.Queries,
 	syncer handlers.SyncRunner,
-	oktaPushInboxQueue handlers.OktaPushInboxQueue,
 	reg *registry.ConnectorRegistry,
 	mailAdapter mailer.Mailer,
 ) (*EchoServer, error) {
@@ -57,21 +56,20 @@ func NewEchoServer(
 	sessions.Cookie.SameSite = http.SameSiteLaxMode
 	sessions.Cookie.Secure = cfg.AuthCookieSecure
 
-	riskPolicies, err := riskpolicy.BuiltinRegistry()
+	policyRegistry, err := evaluator.BuiltinRegistry()
 	if err != nil {
 		return nil, err
 	}
 
 	h := &handlers.Handlers{
-		Cfg:                cfg,
-		Q:                  q,
-		Pool:               pool,
-		Sessions:           sessions,
-		Syncer:             syncer,
-		OktaPushInboxQueue: oktaPushInboxQueue,
-		Registry:           reg,
-		Mailer:             mailAdapter,
-		RiskPolicies:       riskPolicies,
+		Cfg:            cfg,
+		Q:              q,
+		Pool:           pool,
+		Sessions:       sessions,
+		Syncer:         syncer,
+		Registry:       reg,
+		Mailer:         mailAdapter,
+		PolicyRegistry: policyRegistry,
 	}
 	es := &EchoServer{h: h, e: newEcho(cfg)}
 	es.e.Use(securityHeadersMiddleware)
@@ -270,7 +268,6 @@ func (es *EchoServer) registerRoutes() {
 	es.registerPlatformRoutes()
 	es.registerPublicRoutes()
 	es.registerIngestRoutes()
-	es.registerAPIRoutes()
 	es.registerWebRoutes()
 }
 

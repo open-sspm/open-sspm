@@ -60,19 +60,19 @@ func TestDBRunner_IntegrationRunSourceKindByMode(t *testing.T) {
 	}
 
 	discoveryRunner := &DBRunner{mode: registry.RunModeDiscovery}
-	if got := discoveryRunner.integrationRunSourceKind(oktaIntegration); got != "okta_discovery" {
-		t.Fatalf("discovery okta run kind = %q, want okta_discovery", got)
+	if got := discoveryRunner.integrationRunSourceKind(oktaIntegration); got != "okta" {
+		t.Fatalf("discovery okta run kind = %q, want okta", got)
 	}
-	if got := discoveryRunner.integrationRunSourceKind(entraIntegration); got != "entra_discovery" {
-		t.Fatalf("discovery entra run kind = %q, want entra_discovery", got)
+	if got := discoveryRunner.integrationRunSourceKind(entraIntegration); got != "entra" {
+		t.Fatalf("discovery entra run kind = %q, want entra", got)
 	}
 
 	tailRunner := &DBRunner{mode: registry.RunModeTail}
-	if got := tailRunner.integrationRunSourceKind(oktaIntegration); got != "okta_tail" {
-		t.Fatalf("tail okta run kind = %q, want okta_tail", got)
+	if got := tailRunner.integrationRunSourceKind(oktaIntegration); got != "okta" {
+		t.Fatalf("tail okta run kind = %q, want okta", got)
 	}
-	if got := tailRunner.integrationRunSourceKind(entraIntegration); got != "entra_tail" {
-		t.Fatalf("tail entra run kind = %q, want entra_tail", got)
+	if got := tailRunner.integrationRunSourceKind(entraIntegration); got != "entra" {
+		t.Fatalf("tail entra run kind = %q, want entra", got)
 	}
 }
 
@@ -94,6 +94,18 @@ func TestDBRunner_IntegrationSupportsRunModeFromCapabilities(t *testing.T) {
 	}
 	if tailRunner.integrationSupportsRunMode(fullOnly) {
 		t.Fatalf("capability integration without tail should be skipped in tail mode")
+	}
+
+	discoveryRunner := &DBRunner{mode: registry.RunModeDiscovery}
+	discoveryIntegration := stubCapabilityIntegration{
+		stubIntegration: stubIntegration{kind: "okta", name: "example.okta.com", role: registry.RoleIdP},
+		caps:            capabilities.Capabilities{Discovery: &capabilities.DiscoveryCapability{}},
+	}
+	if !discoveryRunner.integrationSupportsRunMode(discoveryIntegration) {
+		t.Fatalf("capability integration should run in discovery mode when discovery is declared")
+	}
+	if discoveryRunner.integrationSupportsRunMode(fullOnly) {
+		t.Fatalf("capability integration without discovery should be skipped in discovery mode")
 	}
 }
 

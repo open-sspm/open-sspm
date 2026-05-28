@@ -1,0 +1,1 @@
+-- Irreversible: Okta group/app assignment projections were replaced by generic entitlements.

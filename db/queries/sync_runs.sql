@@ -1,6 +1,6 @@
 -- name: CreateSyncRun :one
-INSERT INTO sync_runs (source_kind, source_name, status, started_at)
-VALUES ($1, $2, 'running', now())
+INSERT INTO sync_runs (source_kind, source_name, run_mode, status, started_at)
+VALUES ($1, $2, $3, 'running', now())
 RETURNING id;
 
 -- name: ReclaimRunningSyncRunsBySource :execrows
@@ -19,56 +19,63 @@ SELECT id, status, finished_at, error_kind
 FROM sync_runs
 WHERE source_kind = $1
   AND source_name = $2
+  AND run_mode = $3
   AND finished_at IS NOT NULL
 ORDER BY finished_at DESC
-LIMIT $3;
+LIMIT $4;
 
 -- name: ListRecentNonSuccessSyncRunsBySource :many
 SELECT id, status, finished_at, error_kind, message
 FROM sync_runs
 WHERE source_kind = $1
   AND source_name = $2
+  AND run_mode = $3
   AND finished_at IS NOT NULL
   AND status <> 'success'
 ORDER BY finished_at DESC
-LIMIT $3;
+LIMIT $4;
 
 -- name: ListRecentFinishedSyncRunsForSources :many
 WITH requested AS (
-  SELECT k.kind AS source_kind, n.name AS source_name
+  SELECT k.kind AS source_kind, n.name AS source_name, m.mode AS run_mode
   FROM unnest(sqlc.arg(source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest(sqlc.arg(source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+  JOIN unnest(sqlc.arg(run_modes)::text[]) WITH ORDINALITY AS m(mode, ord) USING (ord)
 ),
 ranked AS (
   SELECT
     r.source_kind,
     r.source_name,
+    r.run_mode,
     r.id,
     r.status,
     r.finished_at,
     r.error_kind,
-    row_number() OVER (PARTITION BY r.source_kind, r.source_name ORDER BY r.finished_at DESC) AS rn
+    row_number() OVER (PARTITION BY r.source_kind, r.source_name, r.run_mode ORDER BY r.finished_at DESC) AS rn
   FROM sync_runs r
   JOIN requested q
     ON r.source_kind = q.source_kind
    AND r.source_name = q.source_name
+   AND r.run_mode = q.run_mode
   WHERE r.finished_at IS NOT NULL
 )
-SELECT source_kind, source_name, id, status, finished_at, error_kind
+SELECT source_kind, source_name, run_mode, id, status, finished_at, error_kind
 FROM ranked
 WHERE rn <= sqlc.arg(limit_rows)::int
-ORDER BY source_kind, source_name, finished_at DESC;
+ORDER BY source_kind, source_name, run_mode, finished_at DESC;
 
 -- name: GetSyncRunRollupsForSources :many
 WITH requested AS (
-  SELECT k.kind AS source_kind, n.name AS source_name
+  SELECT k.kind AS source_kind, n.name AS source_name, m.mode AS run_mode
   FROM unnest(sqlc.arg(source_kinds)::text[]) WITH ORDINALITY AS k(kind, ord)
   JOIN unnest(sqlc.arg(source_names)::text[]) WITH ORDINALITY AS n(name, ord) USING (ord)
+  JOIN unnest(sqlc.arg(run_modes)::text[]) WITH ORDINALITY AS m(mode, ord) USING (ord)
 ),
 last_run AS (
-  SELECT DISTINCT ON (r.source_kind, r.source_name)
+  SELECT DISTINCT ON (r.source_kind, r.source_name, r.run_mode)
     r.source_kind,
     r.source_name,
+    r.run_mode,
     r.id AS last_run_id,
     r.status AS last_run_status,
     r.started_at AS last_run_started_at,
@@ -78,39 +85,45 @@ last_run AS (
   JOIN requested q
     ON r.source_kind = q.source_kind
    AND r.source_name = q.source_name
+   AND r.run_mode = q.run_mode
   WHERE r.finished_at IS NOT NULL
-  ORDER BY r.source_kind, r.source_name, r.finished_at DESC
+  ORDER BY r.source_kind, r.source_name, r.run_mode, r.finished_at DESC
 ),
 last_success AS (
   SELECT
     r.source_kind,
     r.source_name,
+    r.run_mode,
     max(r.finished_at) AS last_success_at
   FROM sync_runs r
   JOIN requested q
     ON r.source_kind = q.source_kind
    AND r.source_name = q.source_name
+   AND r.run_mode = q.run_mode
   WHERE r.finished_at IS NOT NULL
     AND r.status = 'success'
-  GROUP BY r.source_kind, r.source_name
+  GROUP BY r.source_kind, r.source_name, r.run_mode
 ),
 running_stats AS (
   SELECT
     r.source_kind,
     r.source_name,
+    r.run_mode,
     count(*) AS running_count,
     min(r.started_at) AS oldest_running_started_at
   FROM sync_runs r
   JOIN requested q
     ON r.source_kind = q.source_kind
    AND r.source_name = q.source_name
+   AND r.run_mode = q.run_mode
   WHERE r.status = 'running'
-  GROUP BY r.source_kind, r.source_name
+  GROUP BY r.source_kind, r.source_name, r.run_mode
 ),
 stats_7d AS (
   SELECT
     r.source_kind,
     r.source_name,
+    r.run_mode,
     count(*) FILTER (WHERE r.finished_at >= now() - interval '7 days') AS finished_count_7d,
     count(*) FILTER (WHERE r.finished_at >= now() - interval '7 days' AND r.status = 'success') AS success_count_7d,
     avg(EXTRACT(EPOCH FROM (r.finished_at - r.started_at)) * 1000.0)
@@ -119,13 +132,15 @@ stats_7d AS (
   JOIN requested q
     ON r.source_kind = q.source_kind
    AND r.source_name = q.source_name
+   AND r.run_mode = q.run_mode
   WHERE r.finished_at IS NOT NULL
     AND r.finished_at >= now() - interval '7 days'
-  GROUP BY r.source_kind, r.source_name
+  GROUP BY r.source_kind, r.source_name, r.run_mode
 )
 SELECT
   q.source_kind::text AS source_kind,
   q.source_name::text AS source_name,
+  q.run_mode::text AS run_mode,
   lr.last_run_id,
   lr.last_run_status,
   lr.last_run_started_at,
@@ -141,16 +156,20 @@ FROM requested q
 LEFT JOIN last_run lr
   ON lr.source_kind = q.source_kind
  AND lr.source_name = q.source_name
+ AND lr.run_mode = q.run_mode
 LEFT JOIN last_success ls
   ON ls.source_kind = q.source_kind
  AND ls.source_name = q.source_name
+ AND ls.run_mode = q.run_mode
 LEFT JOIN running_stats rs
   ON rs.source_kind = q.source_kind
  AND rs.source_name = q.source_name
+ AND rs.run_mode = q.run_mode
 LEFT JOIN stats_7d s
   ON s.source_kind = q.source_kind
  AND s.source_name = q.source_name
-ORDER BY q.source_kind, q.source_name;
+ AND s.run_mode = q.run_mode
+ORDER BY q.source_kind, q.source_name, q.run_mode;
 
 -- name: FailSyncRun :exec
 UPDATE sync_runs

@@ -41,15 +41,20 @@ func ConnectorLockKey(kind, name string) int64 {
 }
 
 func StartSyncRun(ctx context.Context, q *gen.Queries, sourceKind, sourceName string) (int64, error) {
+	return StartSyncRunWithMode(ctx, q, sourceKind, sourceName, RunModeFull)
+}
+
+func StartSyncRunWithMode(ctx context.Context, q *gen.Queries, sourceKind, sourceName string, mode RunMode) (int64, error) {
 	if q == nil {
 		return 0, errors.New("sync run start could not be persisted: queries is nil")
 	}
 
-	sourceKind = strings.TrimSpace(sourceKind)
+	sourceKind = strings.ToLower(strings.TrimSpace(sourceKind))
 	sourceName = strings.TrimSpace(sourceName)
 	if sourceKind == "" || sourceName == "" {
 		return 0, fmt.Errorf("sync run start requires source kind and source name, got %q/%q", sourceKind, sourceName)
 	}
+	mode = mode.Normalize()
 
 	if ctx == nil {
 		ctx = context.Background()
@@ -58,7 +63,7 @@ func StartSyncRun(ctx context.Context, q *gen.Queries, sourceKind, sourceName st
 	// Connector locks and sync jobs serialize runs per scope, so any existing
 	// running row for the same scope is orphaned and can be reclaimed.
 	if _, err := q.ReclaimRunningSyncRunsBySource(ctx, gen.ReclaimRunningSyncRunsBySourceParams{
-		SourceKinds: SyncRunScopeKinds(sourceKind),
+		SourceKinds: []string{sourceKind},
 		SourceName:  sourceName,
 		Message:     syncRunReclaimedMessage,
 		ErrorKind:   SyncErrorKindStaleReclaimed,
@@ -69,6 +74,7 @@ func StartSyncRun(ctx context.Context, q *gen.Queries, sourceKind, sourceName st
 	runID, err := q.CreateSyncRun(ctx, gen.CreateSyncRunParams{
 		SourceKind: sourceKind,
 		SourceName: sourceName,
+		RunMode:    string(mode),
 	})
 	if err != nil {
 		return 0, fmt.Errorf("create sync run for %s/%s: %w", sourceKind, sourceName, err)
@@ -137,193 +143,6 @@ func ReportAndFailSyncRun(ctx context.Context, q *gen.Queries, runID int64, repo
 		report(event)
 	}
 	return FailSyncRun(ctx, q, runID, err, errorKind)
-}
-
-// PHASE-TWO-DELETE: retained for legacy direct finalization callers; Okta full
-// sync finalizes production state through records.SnapshotComplete.
-func FinalizeOktaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceName string, duration time.Duration, finalizeDiscovery bool) error {
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	qtx := q.WithTx(tx)
-
-	counts := map[string]int64{}
-
-	runIDKey := PgInt8(runID)
-
-	observed, err := qtx.PromoteSourceAccountsSeenInRun(ctx, gen.PromoteSourceAccountsSeenInRunParams{
-		LastObservedRunID: runIDKey,
-		SourceKind:        "okta",
-		SourceName:        sourceName,
-	})
-	if err != nil {
-		return err
-	}
-	counts["okta_accounts_observed"] = observed
-
-	expired, err := qtx.ExpireSourceAccountsNotSeenInRun(ctx, gen.ExpireSourceAccountsNotSeenInRunParams{
-		ExpiredRunID: runIDKey,
-		SourceKind:   "okta",
-		SourceName:   sourceName,
-	})
-	if err != nil {
-		return err
-	}
-	counts["okta_accounts_expired"] = expired
-
-	observed, err = qtx.PromoteOktaGroupsSeenInRunBySource(ctx, gen.PromoteOktaGroupsSeenInRunBySourceParams{
-		LastObservedRunID: runID,
-		SourceKind:        "okta",
-		SourceName:        sourceName,
-	})
-	if err != nil {
-		return err
-	}
-	counts["okta_groups_observed"] = observed
-
-	expired, err = qtx.ExpireOktaGroupsNotSeenInRunBySource(ctx, gen.ExpireOktaGroupsNotSeenInRunBySourceParams{
-		ExpiredRunID: runID,
-		SourceKind:   "okta",
-		SourceName:   sourceName,
-	})
-	if err != nil {
-		return err
-	}
-	counts["okta_groups_expired"] = expired
-
-	observed, err = qtx.PromoteOktaGroupMembershipsSeenInRunBySource(ctx, gen.PromoteOktaGroupMembershipsSeenInRunBySourceParams{
-		LastObservedRunID: runID,
-		SourceKind:        "okta",
-		SourceName:        sourceName,
-	})
-	if err != nil {
-		return err
-	}
-	counts["okta_group_memberships_observed"] = observed
-
-	expired, err = qtx.ExpireOktaGroupMembershipsNotSeenInRunBySource(ctx, gen.ExpireOktaGroupMembershipsNotSeenInRunBySourceParams{
-		ExpiredRunID: runID,
-		SourceKind:   "okta",
-		SourceName:   sourceName,
-	})
-	if err != nil {
-		return err
-	}
-	counts["okta_group_memberships_expired"] = expired
-
-	observed, err = qtx.PromoteOktaAppsSeenInRunBySource(ctx, gen.PromoteOktaAppsSeenInRunBySourceParams{
-		LastObservedRunID: runID,
-		SourceKind:        "okta",
-		SourceName:        sourceName,
-	})
-	if err != nil {
-		return err
-	}
-	counts["okta_apps_observed"] = observed
-
-	expired, err = qtx.ExpireOktaAppsNotSeenInRunBySource(ctx, gen.ExpireOktaAppsNotSeenInRunBySourceParams{
-		ExpiredRunID: runID,
-		SourceKind:   "okta",
-		SourceName:   sourceName,
-	})
-	if err != nil {
-		return err
-	}
-	counts["okta_apps_expired"] = expired
-
-	observed, err = qtx.PromoteOktaAppAssignmentsSeenInRunBySource(ctx, gen.PromoteOktaAppAssignmentsSeenInRunBySourceParams{
-		LastObservedRunID: runID,
-		SourceKind:        "okta",
-		SourceName:        sourceName,
-	})
-	if err != nil {
-		return err
-	}
-	counts["okta_app_assignments_observed"] = observed
-
-	expired, err = qtx.ExpireOktaAppAssignmentsNotSeenInRunBySource(ctx, gen.ExpireOktaAppAssignmentsNotSeenInRunBySourceParams{
-		ExpiredRunID: runID,
-		SourceKind:   "okta",
-		SourceName:   sourceName,
-	})
-	if err != nil {
-		return err
-	}
-	counts["okta_app_assignments_expired"] = expired
-
-	observed, err = qtx.PromoteOktaAppGroupAssignmentsSeenInRunBySource(ctx, gen.PromoteOktaAppGroupAssignmentsSeenInRunBySourceParams{
-		LastObservedRunID: runID,
-		SourceKind:        "okta",
-		SourceName:        sourceName,
-	})
-	if err != nil {
-		return err
-	}
-	counts["okta_app_group_assignments_observed"] = observed
-
-	expired, err = qtx.ExpireOktaAppGroupAssignmentsNotSeenInRunBySource(ctx, gen.ExpireOktaAppGroupAssignmentsNotSeenInRunBySourceParams{
-		ExpiredRunID: runID,
-		SourceKind:   "okta",
-		SourceName:   sourceName,
-	})
-	if err != nil {
-		return err
-	}
-	counts["okta_app_group_assignments_expired"] = expired
-
-	if finalizeDiscovery {
-		observed, err = qtx.PromoteSaaSAppSourcesSeenInRunBySource(ctx, gen.PromoteSaaSAppSourcesSeenInRunBySourceParams{
-			LastObservedRunID: runID,
-			SourceKind:        "okta",
-			SourceName:        sourceName,
-		})
-		if err != nil {
-			return err
-		}
-		counts["saas_app_sources_observed"] = observed
-
-		expired, err = qtx.ExpireSaaSAppSourcesNotSeenInRunBySource(ctx, gen.ExpireSaaSAppSourcesNotSeenInRunBySourceParams{
-			ExpiredRunID: runID,
-			SourceKind:   "okta",
-			SourceName:   sourceName,
-		})
-		if err != nil {
-			return err
-		}
-		counts["saas_app_sources_expired"] = expired
-
-		observed, err = qtx.PromoteSaaSAppEventsSeenInRunBySource(ctx, gen.PromoteSaaSAppEventsSeenInRunBySourceParams{
-			LastObservedRunID: runID,
-			SourceKind:        "okta",
-			SourceName:        sourceName,
-		})
-		if err != nil {
-			return err
-		}
-		counts["saas_app_events_observed"] = observed
-
-		expired, err = qtx.ExpireSaaSAppEventsNotSeenInRunBySource(ctx, gen.ExpireSaaSAppEventsNotSeenInRunBySourceParams{
-			ExpiredRunID: runID,
-			SourceKind:   "okta",
-			SourceName:   sourceName,
-		})
-		if err != nil {
-			return err
-		}
-		counts["saas_app_events_expired"] = expired
-	}
-
-	if err := finalizeRunCountsInTx(ctx, qtx, runID, counts, duration, "okta", sourceName); err != nil {
-		return err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return err
-	}
-	return nil
 }
 
 func FinalizeAppRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceKind, sourceName string, duration time.Duration, finalizeDiscovery bool) error {
@@ -496,9 +315,27 @@ type AppAssetDeltaDelete struct {
 	ExternalIDs []string
 }
 
-type ConnectorDeltaCursorUpdate struct {
+type ConnectorGraphDeltaCursorUpdate struct {
 	Resource  string
 	DeltaLink string
+}
+
+const ConnectorCursorKindGraphDelta = "graph_delta"
+
+type connectorGraphDeltaCursorPayload struct {
+	DeltaLink string `json:"delta_link"`
+}
+
+func ConnectorGraphDeltaCursorJSON(deltaLink string) []byte {
+	return MarshalJSON(connectorGraphDeltaCursorPayload{DeltaLink: strings.TrimSpace(deltaLink)})
+}
+
+func ConnectorGraphDeltaLinkFromCursorState(state gen.ConnectorCursorState) (string, error) {
+	var payload connectorGraphDeltaCursorPayload
+	if err := json.Unmarshal(state.CursorJson, &payload); err != nil {
+		return "", fmt.Errorf("decode connector graph delta cursor %s/%s/%s: %w", state.SourceKind, state.SourceName, state.Resource, err)
+	}
+	return strings.TrimSpace(payload.DeltaLink), nil
 }
 
 type AppDeltaFinalizeOptions struct {
@@ -507,7 +344,7 @@ type AppDeltaFinalizeOptions struct {
 	DeletedAccountExternalIDs     []string
 	DeletedAppAssets              []AppAssetDeltaDelete
 	CredentialAssetRefExternalIDs []string
-	DeltaCursors                  []ConnectorDeltaCursorUpdate
+	GraphDeltaCursors             []ConnectorGraphDeltaCursorUpdate
 }
 
 func FinalizeAppDeltaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool, runID int64, sourceKind, sourceName string, duration time.Duration, opts AppDeltaFinalizeOptions) error {
@@ -685,26 +522,34 @@ func FinalizeAppDeltaRun(ctx context.Context, q *gen.Queries, pool *pgxpool.Pool
 	counts["credential_artifact_statuses_refreshed"] = refreshed
 
 	if opts.ResetDeltaCursors {
-		if err := qtx.DeleteConnectorDeltaStatesBySource(ctx, gen.DeleteConnectorDeltaStatesBySourceParams{
+		if err := qtx.DeleteConnectorCursorStatesBySourceAndKind(ctx, gen.DeleteConnectorCursorStatesBySourceAndKindParams{
 			SourceKind: sourceKind,
 			SourceName: sourceName,
+			CursorKind: ConnectorCursorKindGraphDelta,
 		}); err != nil {
 			return err
 		}
 	}
 
-	for _, cursor := range opts.DeltaCursors {
+	finishedAt := time.Now()
+	for _, cursor := range opts.GraphDeltaCursors {
 		resource := strings.TrimSpace(cursor.Resource)
 		deltaLink := strings.TrimSpace(cursor.DeltaLink)
 		if resource == "" || deltaLink == "" {
 			continue
 		}
-		if err := qtx.UpsertConnectorDeltaState(ctx, gen.UpsertConnectorDeltaStateParams{
-			SourceKind:       sourceKind,
-			SourceName:       sourceName,
-			Resource:         resource,
-			DeltaLink:        deltaLink,
-			LastSuccessRunID: PgInt8(runID),
+		if err := qtx.UpsertConnectorCursorState(ctx, gen.UpsertConnectorCursorStateParams{
+			SourceKind:          sourceKind,
+			SourceName:          sourceName,
+			Resource:            resource,
+			CursorKind:          ConnectorCursorKindGraphDelta,
+			CursorJson:          ConnectorGraphDeltaCursorJSON(deltaLink),
+			LastSuccessAt:       PgTimestamptzPtr(&finishedAt),
+			LastAttemptAt:       PgTimestamptzPtr(&finishedAt),
+			LastError:           "",
+			LastRunID:           PgInt8(runID),
+			LastProviderEventID: "",
+			NeedsFullResync:     false,
 		}); err != nil {
 			return err
 		}

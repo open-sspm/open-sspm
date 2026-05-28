@@ -2,7 +2,6 @@ package recorddispatch
 
 import (
 	"context"
-	"strconv"
 	"testing"
 	"time"
 
@@ -74,6 +73,21 @@ func TestOktaStateProjectorProjectsNamedOktaTargets(t *testing.T) {
 		if err := dispatcher.UpsertState(ctx, records.StateUpsert{
 			Source:         source,
 			Resource:       records.ResourceEntitlement,
+			Key:            "group_membership:00u1:00g1",
+			DedupeKeyValue: "state:entitlement:group_membership:00u1:00g1",
+			Payload: records.EntitlementPayload{
+				ExternalID: "group_membership:00u1:00g1",
+				Kind:       records.EntitlementKindOktaGroupMembership,
+				Subject:    records.ResourceRef{Resource: records.ResourceIdentity, ExternalID: "00u1"},
+				Target:     records.ResourceRef{Resource: records.ResourceGroup, ExternalID: "00g1", DisplayName: "Engineering"},
+				Permission: "member",
+			},
+		}); err != nil {
+			t.Fatalf("group membership UpsertState() err = %v", err)
+		}
+		if err := dispatcher.UpsertState(ctx, records.StateUpsert{
+			Source:         source,
+			Resource:       records.ResourceEntitlement,
 			Key:            "00u1:0oa1",
 			DedupeKeyValue: "state:entitlement:00u1:0oa1",
 			Payload: records.EntitlementPayload{
@@ -82,6 +96,7 @@ func TestOktaStateProjectorProjectsNamedOktaTargets(t *testing.T) {
 				Subject:    records.ResourceRef{Resource: records.ResourceIdentity, ExternalID: "00u1"},
 				Target:     records.ResourceRef{Resource: records.ResourceApplication, ExternalID: "0oa1", DisplayName: "Payroll"},
 				Scope:      "USER",
+				Profile:    map[string]any{"appUserName": "alice.payroll"},
 			},
 		}); err != nil {
 			t.Fatalf("entitlement UpsertState() err = %v", err)
@@ -154,8 +169,35 @@ func TestOktaStateProjectorProjectsNamedOktaTargets(t *testing.T) {
 		assertCount(t, ctx, pool, "accounts", `SELECT count(*) FROM accounts WHERE source_kind = 'okta' AND source_name = $1 AND expired_at IS NULL AND last_observed_run_id IS NOT NULL`, 2, source.Name)
 		assertCount(t, ctx, pool, "okta_groups", `SELECT count(*) FROM okta_groups WHERE expired_at IS NULL AND last_observed_run_id IS NOT NULL`, 1)
 		assertCount(t, ctx, pool, "okta_apps", `SELECT count(*) FROM okta_apps WHERE expired_at IS NULL AND last_observed_run_id IS NOT NULL`, 1)
-		assertCount(t, ctx, pool, "okta_user_app_assignments", `SELECT count(*) FROM okta_user_app_assignments WHERE expired_at IS NULL AND last_observed_run_id IS NOT NULL`, 1)
-		assertCount(t, ctx, pool, "entitlements", `SELECT count(*) FROM entitlements e JOIN accounts a ON a.id = e.app_user_id WHERE a.source_kind = 'okta' AND a.source_name = $1 AND e.expired_at IS NULL AND e.last_observed_run_id IS NOT NULL`, 1, source.Name)
+		assertCount(t, ctx, pool, "entitlements", `SELECT count(*) FROM entitlements e JOIN accounts a ON a.id = e.app_user_id WHERE a.source_kind = 'okta' AND a.source_name = $1 AND e.expired_at IS NULL AND e.last_observed_run_id IS NOT NULL`, 2, source.Name)
+		assertCount(t, ctx, pool, "group membership entitlements", `
+			SELECT count(*)
+			FROM entitlements e
+			JOIN accounts a ON a.id = e.app_user_id
+			WHERE a.source_kind = 'okta'
+			  AND a.source_name = $1
+			  AND a.external_id = '00u1'
+			  AND e.kind = 'group_membership'
+			  AND e.resource = 'group:00g1'
+			  AND e.permission = 'member'
+			  AND e.expired_at IS NULL
+			  AND e.last_observed_run_id IS NOT NULL
+		`, 1, source.Name)
+		assertCount(t, ctx, pool, "app assignment entitlements", `
+			SELECT count(*)
+			FROM entitlements e
+			JOIN accounts a ON a.id = e.app_user_id
+			WHERE a.source_kind = 'okta'
+			  AND a.source_name = $1
+			  AND a.external_id = '00u1'
+			  AND e.kind = 'application_assignment'
+			  AND e.resource = '0oa1'
+			  AND e.permission = 'USER'
+			  AND e.raw_json #>> '{attributes,target,display_name}' = 'Payroll'
+			  AND e.raw_json #>> '{attributes,profile,appUserName}' = 'alice.payroll'
+			  AND e.expired_at IS NULL
+			  AND e.last_observed_run_id IS NOT NULL
+		`, 1, source.Name)
 		assertCount(t, ctx, pool, "saas_app_sources", `SELECT count(*) FROM saas_app_sources WHERE source_kind = 'okta' AND source_name = $1 AND expired_at IS NULL AND last_observed_run_id IS NOT NULL`, 1, source.Name)
 		assertCount(t, ctx, pool, "saas_app_events", `SELECT count(*) FROM saas_app_events WHERE source_kind = 'okta' AND source_name = $1 AND expired_at IS NULL AND last_observed_run_id IS NOT NULL`, 1, source.Name)
 	})
@@ -248,7 +290,7 @@ func TestOktaStateProjectorSnapshotExpirationRequiresCompleteExpireAbsent(t *tes
 }
 
 func TestOktaStateProjectorExpiresStaleDiscoveryEvidenceOnCompleteExpireAbsent(t *testing.T) {
-	testdb.WithDatabase(t, testdb.Options{NamePrefix: "okta_discovery_expire"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "okta_state_expire"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
 		testdb.MigrateUp(t, migrator)
 		q := gen.New(pool)
 		source := records.SourceRef{Kind: "okta", Name: "example.okta.com"}
@@ -402,22 +444,6 @@ func TestOktaStateProjectorSnapshotExpirationIsScopedToSource(t *testing.T) {
 
 		assertActiveOktaAccounts(t, ctx, pool, sourceA.Name, 1)
 		assertActiveOktaAccounts(t, ctx, pool, sourceB.Name, 2)
-		assertCount(t, ctx, pool, "sourceA app assignments", `
-			SELECT count(*)
-			FROM okta_user_app_assignments ua
-			JOIN accounts a ON a.id = ua.okta_user_account_id
-			WHERE a.source_kind = 'okta'
-			  AND a.source_name = $1
-			  AND ua.expired_at IS NULL
-		`, 0, sourceA.Name)
-		assertCount(t, ctx, pool, "sourceB app assignments", `
-			SELECT count(*)
-			FROM okta_user_app_assignments ua
-			JOIN accounts a ON a.id = ua.okta_user_account_id
-			WHERE a.source_kind = 'okta'
-			  AND a.source_name = $1
-			  AND ua.expired_at IS NULL
-		`, 1, sourceB.Name)
 		assertCount(t, ctx, pool, "sourceA generic entitlements", `
 			SELECT count(*)
 			FROM entitlements e
@@ -438,8 +464,8 @@ func TestOktaStateProjectorSnapshotExpirationIsScopedToSource(t *testing.T) {
 	})
 }
 
-func TestOktaStateProjectorKeepsLegacyGroupsAndAppsGloballyUnique(t *testing.T) {
-	testdb.WithDatabase(t, testdb.Options{NamePrefix: "okta_legacy_source_scope"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
+func TestOktaStateProjectorScopesGroupsAndAppsBySource(t *testing.T) {
+	testdb.WithDatabase(t, testdb.Options{NamePrefix: "okta_source_scope"}, func(ctx context.Context, pool *pgxpool.Pool, migrator *migrate.Migrate) {
 		testdb.MigrateUp(t, migrator)
 		q := gen.New(pool)
 		sourceA := records.SourceRef{Kind: "okta", Name: "a.okta.com"}
@@ -454,7 +480,7 @@ func TestOktaStateProjectorKeepsLegacyGroupsAndAppsGloballyUnique(t *testing.T) 
 			WHERE external_id = 'shared-app'
 			  AND expired_at IS NULL
 			  AND last_observed_run_id IS NOT NULL
-		`, 1)
+		`, 2)
 		assertCount(t, ctx, pool, "source A shared app", `
 			SELECT count(*)
 			FROM okta_apps
@@ -463,7 +489,7 @@ func TestOktaStateProjectorKeepsLegacyGroupsAndAppsGloballyUnique(t *testing.T) 
 			  AND external_id = 'shared-app'
 			  AND expired_at IS NULL
 			  AND last_observed_run_id IS NOT NULL
-		`, 0, sourceA.Name)
+		`, 1, sourceA.Name)
 		assertCount(t, ctx, pool, "source B shared app", `
 			SELECT count(*)
 			FROM okta_apps
@@ -565,15 +591,6 @@ func TestOktaStateProjectorDeleteStateRequiresIdentifier(t *testing.T) {
 			t.Fatalf("DeleteState() err = nil, want missing identifier error")
 		}
 	})
-}
-
-func TestInt32PriorityRejectsOverflow(t *testing.T) {
-	if strconv.IntSize < 64 {
-		t.Skip("overflow value does not fit in int on 32-bit platforms")
-	}
-	if _, err := int32Priority(int(int64(1) << 31)); err == nil {
-		t.Fatalf("int32Priority() err = nil, want overflow error")
-	}
 }
 
 func seedOktaStateSlice(t *testing.T, ctx context.Context, q *gen.Queries, source records.SourceRef, suffix string) {

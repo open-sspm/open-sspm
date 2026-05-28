@@ -54,7 +54,7 @@ just migrate
 ### 6. Create the First Admin User
 
 ```bash
-printf '%s\n' 'change-me-now' | go run ./cmd/open-sspm users bootstrap-admin \
+printf '%s\n' 'change-me-now' | go run ./cmd/open-sspm admin users bootstrap-admin \
   --email admin@example.com \
   --password-stdin
 ```
@@ -74,14 +74,14 @@ just worker
 ```
 
 ```bash
-just worker-discovery
+just worker discovery
 ```
 
 ```bash
-just worker-ingest
+just worker event-inbox
 ```
 
-The discovery worker is optional, but it must be running if you want polling-based SaaS discovery syncs and `SYNC_DISCOVERY_ENABLED=1`. The ingest worker is optional unless you enable push ingest such as Okta Event Hooks or EventBridge.
+The discovery worker is optional, but it must be running if you want polling-based SaaS discovery syncs and `SYNC_DISCOVERY_ENABLED=1`. The event inbox worker is optional unless you enable the event inbox for sources such as Okta Event Hooks or EventBridge.
 
 ### 8. Access the Web UI
 
@@ -93,7 +93,7 @@ The repository compose file currently defines:
 
 - `db` - PostgreSQL with a persisted local data volume
 
-That is why repo-local commands use `just run`, `just worker`, `just worker-discovery`, and `just worker-ingest` instead of `docker compose exec web ...`.
+That is why repo-local commands use `just run`, `just worker`, `just worker discovery`, and `just worker event-inbox` instead of `docker compose exec web ...`.
 
 ## Optional: Fully Containerized Compose Example
 
@@ -123,27 +123,27 @@ services:
     ports:
       - "8080:8080"
 
-  worker:
+  worker-full:
     image: ghcr.io/open-sspm/open-sspm:latest
-    command: ["worker"]
+    command: ["worker", "--lane=full"]
     depends_on:
       - db
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/opensspm?sslmode=disable
       CONNECTOR_SECRET_KEY: ${CONNECTOR_SECRET_KEY}
 
-  worker-discovery:
+  worker-lane-discovery:
     image: ghcr.io/open-sspm/open-sspm:latest
-    command: ["worker-discovery"]
+    command: ["worker", "--lane=discovery"]
     depends_on:
       - db
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/opensspm?sslmode=disable
       CONNECTOR_SECRET_KEY: ${CONNECTOR_SECRET_KEY}
 
-  worker-ingest:
+  worker-lane-event-inbox:
     image: ghcr.io/open-sspm/open-sspm:latest
-    command: ["worker-ingest"]
+    command: ["worker", "--lane=event-inbox"]
     depends_on:
       - db
     environment:
@@ -157,8 +157,8 @@ volumes:
 For that sample file:
 
 ```bash
-docker compose run --rm api migrate
-printf '%s\n' 'change-me-now' | docker compose run --rm -T api users bootstrap-admin \
+docker compose run --rm api admin migrate
+printf '%s\n' 'change-me-now' | docker compose run --rm -T api admin users bootstrap-admin \
   --email admin@example.com \
   --password-stdin
 docker compose up -d
@@ -194,11 +194,11 @@ just worker
 For discovery syncs, also run:
 
 ```bash
-just worker-discovery
+just worker discovery
 ```
 
-For Okta push ingest, also run:
+For event inbox processing, also run:
 
 ```bash
-just worker-ingest
+just worker event-inbox
 ```

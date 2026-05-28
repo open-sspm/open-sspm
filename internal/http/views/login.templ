@@ -21,7 +21,7 @@ templ LoginPage(data viewmodels.LoginViewData) {
 					@Alert("Setup required", false) {
 						<p>No login users exist yet.</p>
 						<p class="text-sm text-muted-foreground">Run this on the server to create the first admin user:</p>
-						<pre class="text-xs whitespace-pre-wrap rounded-md border border-border bg-muted p-3"><code>open-sspm users bootstrap-admin --email you@example.com</code></pre>
+						<pre class="text-xs whitespace-pre-wrap rounded-md border border-border bg-muted p-3"><code>open-sspm admin users bootstrap-admin --email you@example.com</code></pre>
 						<p class="text-sm text-muted-foreground">For local development you can also set <span class="font-mono">DEV_SEED_ADMIN=1</span>.</p>
 					}
 				} else {

@@ -150,12 +150,12 @@ templ OktaConnectorFields(data viewmodels.ConnectorsViewData) {
 		<p class="text-xs text-muted-foreground">Requires API token permissions for System Log access.</p>
 	</label>
 	<label class="field">
-		<span class="label">Discovery ingest mode</span>
-		<select name="discovery_ingest_mode" class="input w-full">
-			<option value={ configstore.OktaDiscoveryIngestModePolling } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModePolling }>Polling</option>
-			<option value={ configstore.OktaDiscoveryIngestModeEventHook } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModeEventHook }>Event Hook</option>
-			<option value={ configstore.OktaDiscoveryIngestModeEventBridge } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModeEventBridge }>EventBridge</option>
-			<option value={ configstore.OktaDiscoveryIngestModeHybrid } selected?={ data.Okta.DiscoveryIngestMode == configstore.OktaDiscoveryIngestModeHybrid }>Hybrid</option>
+		<span class="label">Event inbox mode</span>
+		<select name="event_inbox_mode" class="input w-full">
+			<option value={ configstore.OktaEventInboxModePolling } selected?={ data.Okta.EventInboxMode == configstore.OktaEventInboxModePolling }>Polling</option>
+			<option value={ configstore.OktaEventInboxModeEventHook } selected?={ data.Okta.EventInboxMode == configstore.OktaEventInboxModeEventHook }>Event Hook</option>
+			<option value={ configstore.OktaEventInboxModeEventBridge } selected?={ data.Okta.EventInboxMode == configstore.OktaEventInboxModeEventBridge }>EventBridge</option>
+			<option value={ configstore.OktaEventInboxModeHybrid } selected?={ data.Okta.EventInboxMode == configstore.OktaEventInboxModeHybrid }>Hybrid</option>
 		</select>
 		<p class="text-xs text-muted-foreground">Polling remains the backfill and recovery path; EventBridge is optional for AWS customers.</p>
 	</label>
@@ -191,35 +191,35 @@ templ OktaConnectorFields(data viewmodels.ConnectorsViewData) {
 			<p class="text-xs text-muted-foreground">Current: { data.Okta.EventBridgeMasked }</p>
 		}
 	</label>
-	if data.Okta.PushCompletenessNote != "" {
-		<p class="text-xs text-amber-700 dark:text-amber-300">{ data.Okta.PushCompletenessNote }</p>
+	if data.Okta.EventInboxCompletenessNote != "" {
+		<p class="text-xs text-amber-700 dark:text-amber-300">{ data.Okta.EventInboxCompletenessNote }</p>
 	}
-	if data.Okta.PushStatusVisible {
+	if data.Okta.EventInboxStatusVisible {
 		<div class="space-y-2 border-t border-border pt-4">
 			<div class="flex items-center justify-between gap-3">
-				<span class="label">Push ingest</span>
-				<span class="badge">{ data.Okta.PushStatusLabel }</span>
+				<span class="label">Event inbox</span>
+				<span class="badge">{ data.Okta.EventInboxStatusLabel }</span>
 			</div>
 			<div class="grid gap-2 text-sm sm:grid-cols-2">
 				<div class="flex items-center justify-between gap-3">
 					<span class="text-muted-foreground">Last received</span>
-					<span>{ data.Okta.PushLastReceived }</span>
+					<span>{ data.Okta.EventInboxLastReceived }</span>
 				</div>
 				<div class="flex items-center justify-between gap-3">
 					<span class="text-muted-foreground">Last processed</span>
-					<span>{ data.Okta.PushLastProcessed }</span>
+					<span>{ data.Okta.EventInboxLastProcessed }</span>
 				</div>
 				<div class="flex items-center justify-between gap-3">
 					<span class="text-muted-foreground">Queue</span>
-					<span>{ data.Okta.PushQueueLabel }</span>
+					<span>{ data.Okta.EventInboxQueueLabel }</span>
 				</div>
 				<div class="flex items-center justify-between gap-3">
 					<span class="text-muted-foreground">Dead letter</span>
-					<span>{ data.Okta.PushDeadLetterLabel }</span>
+					<span>{ data.Okta.EventInboxDeadLetterLabel }</span>
 				</div>
 			</div>
-			if data.Okta.PushLastError != "" {
-				<p class="text-xs text-muted-foreground break-words">{ data.Okta.PushLastError }</p>
+			if data.Okta.EventInboxLastError != "" {
+				<p class="text-xs text-muted-foreground break-words">{ data.Okta.EventInboxLastError }</p>
 			}
 		</div>
 	}
@@ -487,8 +487,8 @@ templ OktaConnectorRow(data viewmodels.ConnectorsViewData) {
 			<div class="space-y-1">
 				<div class="font-medium">Okta</div>
 				<div class="text-xs text-muted-foreground">Identity provider source for users and groups.</div>
-				if data.Okta.PushStatusVisible {
-					<div class="text-xs text-muted-foreground">Push: { data.Okta.PushStatusLabel }</div>
+				if data.Okta.EventInboxStatusVisible {
+					<div class="text-xs text-muted-foreground">Inbox: { data.Okta.EventInboxStatusLabel }</div>
 				}
 			</div>
 		</td>

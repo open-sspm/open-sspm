@@ -62,7 +62,7 @@ func LoginPage(data viewmodels.LoginViewData) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<p>No login users exist yet.</p><p class=\"text-sm text-muted-foreground\">Run this on the server to create the first admin user:</p><pre class=\"text-xs whitespace-pre-wrap rounded-md border border-border bg-muted p-3\"><code>open-sspm users bootstrap-admin --email you@example.com</code></pre><p class=\"text-sm text-muted-foreground\">For local development you can also set <span class=\"font-mono\">DEV_SEED_ADMIN=1</span>.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<p>No login users exist yet.</p><p class=\"text-sm text-muted-foreground\">Run this on the server to create the first admin user:</p><pre class=\"text-xs whitespace-pre-wrap rounded-md border border-border bg-muted p-3\"><code>open-sspm admin users bootstrap-admin --email you@example.com</code></pre><p class=\"text-sm text-muted-foreground\">For local development you can also set <span class=\"font-mono\">DEV_SEED_ADMIN=1</span>.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -142,7 +142,7 @@ func LoginForm(data viewmodels.LoginViewData) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(data.ErrorMessage)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/login.templ`, Line: 44, Col: 26}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `login.templ`, Line: 44, Col: 26}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -174,7 +174,7 @@ func LoginForm(data viewmodels.LoginViewData) templ.Component {
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(data.Next)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/login.templ`, Line: 56, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `login.templ`, Line: 56, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 		if templ_7745c5c3_Err != nil {
@@ -187,7 +187,7 @@ func LoginForm(data viewmodels.LoginViewData) templ.Component {
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(data.Email)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/login.templ`, Line: 60, Col: 102}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `login.templ`, Line: 60, Col: 102}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 		if templ_7745c5c3_Err != nil {

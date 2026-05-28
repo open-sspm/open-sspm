@@ -3,6 +3,7 @@ package viewmodels
 import "github.com/open-sspm/open-sspm/internal/http/querystate"
 
 type OktaAppSummaryView struct {
+	SourceName string
 	ExternalID string
 	Label      string
 	Name       string

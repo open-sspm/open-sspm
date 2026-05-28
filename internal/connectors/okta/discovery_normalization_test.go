@@ -367,16 +367,16 @@ func TestOktaStateRefreshSignalKinds(t *testing.T) {
 	}
 }
 
-func TestShouldIngestOktaPushEventIncludesStateRefreshOnlyEvents(t *testing.T) {
+func TestShouldIngestOktaEventInboxEventIncludesStateRefreshOnlyEvents(t *testing.T) {
 	t.Parallel()
 
-	if !ShouldIngestPushEvent(SystemLogEvent{EventType: "user.authentication.sso", AppID: "0oa1"}) {
+	if !ShouldIngestEventInboxEvent(SystemLogEvent{EventType: "user.authentication.sso", AppID: "0oa1"}) {
 		t.Fatalf("SSO event with app target should be ingested")
 	}
-	if !ShouldIngestPushEvent(SystemLogEvent{EventType: "user.lifecycle.deactivate"}) {
+	if !ShouldIngestEventInboxEvent(SystemLogEvent{EventType: "user.lifecycle.deactivate"}) {
 		t.Fatalf("state-refresh event should be ingested")
 	}
-	if ShouldIngestPushEvent(SystemLogEvent{EventType: "policy.lifecycle.update", AppID: "0oa1"}) {
+	if ShouldIngestEventInboxEvent(SystemLogEvent{EventType: "policy.lifecycle.update", AppID: "0oa1"}) {
 		t.Fatalf("policy lifecycle event should not be ingested")
 	}
 }

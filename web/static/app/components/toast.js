@@ -13,6 +13,8 @@ const DURATIONS = {
   info: 3000,
 };
 
+const VALID_TOAST_CATEGORIES = new Set(["success", "error", "warning", "info"]);
+
 const TOAST_ICON_SVG = {
   success:
     '<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>',
@@ -24,7 +26,29 @@ const TOAST_ICON_SVG = {
     '<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>',
 };
 
+const normalizeToastCategory = (category) => {
+  const normalized = (category || "").trim().toLowerCase();
+  if (VALID_TOAST_CATEGORIES.has(normalized)) return normalized;
+  return "info";
+};
+
+const dispatchToastEvent = ({ category, title, description }) => {
+  document.dispatchEvent(
+    new CustomEvent("osspm:toast", {
+      detail: {
+        config: {
+          category,
+          title,
+          description,
+        },
+      },
+    }),
+  );
+};
+
 const buildToast = ({ category, title, description }) => {
+  category = normalizeToastCategory(category);
+
   const toast = document.createElement("div");
   toast.className = "toast";
   toast.setAttribute("role", category === "error" ? "alert" : "status");
@@ -55,6 +79,32 @@ const buildToast = ({ category, title, description }) => {
   toast.append(content);
 
   return toast;
+};
+
+export const showFlashToast = () => {
+  const flashToast = document.getElementById("flash-toast");
+  if (!(flashToast instanceof HTMLElement)) return;
+  if (flashToast.dataset.processed === "true") return;
+  flashToast.dataset.processed = "true";
+
+  const category = normalizeToastCategory(flashToast.dataset.category);
+  const title = (flashToast.dataset.title || "").trim();
+  const description = (flashToast.dataset.description || "").trim();
+  if (!title && !description) {
+    flashToast.remove();
+    return;
+  }
+
+  const payload = { category, title, description };
+  const toaster = document.getElementById("toaster");
+  if (toaster instanceof HTMLElement) {
+    toaster.append(buildToast(payload));
+    flashToast.remove();
+    return;
+  }
+
+  dispatchToastEvent(payload);
+  flashToast.remove();
 };
 
 const manageToast = (toast) => {

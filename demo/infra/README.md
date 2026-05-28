@@ -47,7 +47,7 @@ This applies all `demo/data/*.sql` seed files in lexical order.
 ## Deploy runtime assets via Ansible
 
 ```bash
-make ui
+just ui
 cd demo/infra/ansible
 ansible-playbook -i inventory.ini deploy.yml
 ```

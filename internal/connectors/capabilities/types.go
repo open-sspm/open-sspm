@@ -23,9 +23,10 @@ type Descriptor struct {
 }
 
 type Capabilities struct {
-	Push *PushCapability
-	Tail *TailCapability
-	Full *FullCapability
+	Push      *PushCapability
+	Tail      *TailCapability
+	Full      *FullCapability
+	Discovery *DiscoveryCapability
 }
 
 type PushCapability struct {
@@ -177,6 +178,17 @@ type FullContext interface {
 type FullResult struct {
 	Records  []records.InboundRecord
 	Complete bool
+}
+
+type DiscoveryCapability struct {
+	Resources           []DiscoveryResource
+	RecommendedInterval time.Duration
+	Incremental         bool
+}
+
+type DiscoveryResource struct {
+	Name        records.ResourceName
+	SignalKinds []string
 }
 
 type RecordEmitter interface {
