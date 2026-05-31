@@ -12,11 +12,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-sspm/open-sspm/internal/connectors/capabilities"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
+	"github.com/open-sspm/open-sspm/internal/ingest/recorddispatch"
 	"github.com/open-sspm/open-sspm/internal/metrics"
+	"github.com/open-sspm/open-sspm/internal/records"
 )
 
 const (
@@ -193,6 +196,7 @@ func (i *GoogleWorkspaceIntegration) runFull(ctx context.Context, q *gen.Queries
 	if err != nil {
 		return err
 	}
+	emitter := recorddispatch.NewDispatcher(nil, recorddispatch.NewSQLStateProjector(q, runID))
 
 	report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "list-users", Current: 0, Total: 1, Message: "listing users"})
 	users, err := i.client.ListUsers(ctx, i.customerID)
@@ -211,7 +215,7 @@ func (i *GoogleWorkspaceIntegration) runFull(ctx context.Context, q *gen.Queries
 	report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "list-groups", Current: 1, Total: 1, Message: fmt.Sprintf("found %d groups", len(groups))})
 
 	accounts := buildGoogleWorkspaceAccountRows(users, groups)
-	if err := i.upsertAccounts(ctx, q, report, runID, accounts); err != nil {
+	if err := i.upsertAccounts(ctx, emitter, report, runID, accounts); err != nil {
 		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-users", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
@@ -239,7 +243,7 @@ func (i *GoogleWorkspaceIntegration) runFull(ctx context.Context, q *gen.Queries
 	allEntitlements := make([]googleWorkspaceEntitlementRow, 0, len(groupEntitlements)+len(adminEntitlements))
 	allEntitlements = append(allEntitlements, groupEntitlements...)
 	allEntitlements = append(allEntitlements, adminEntitlements...)
-	if err := i.upsertEntitlements(ctx, q, report, runID, allEntitlements); err != nil {
+	if err := i.upsertEntitlements(ctx, emitter, report, runID, allEntitlements); err != nil {
 		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-entitlements", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
@@ -253,15 +257,15 @@ func (i *GoogleWorkspaceIntegration) runFull(ctx context.Context, q *gen.Queries
 	report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "list-oauth-grants", Current: 1, Total: 1, Message: fmt.Sprintf("found %d OAuth grants", len(grants))})
 
 	assets, owners, credentials := i.buildOAuthInventoryRows(grants, users)
-	if err := i.upsertAppAssets(ctx, q, report, runID, assets); err != nil {
+	if err := i.upsertAppAssets(ctx, emitter, report, runID, assets); err != nil {
 		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-app-assets", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
-	if err := i.upsertAppAssetOwners(ctx, q, report, runID, owners); err != nil {
+	if err := i.upsertAppAssetOwners(ctx, emitter, report, runID, owners); err != nil {
 		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-owners", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
-	if err := i.upsertCredentialArtifacts(ctx, q, report, runID, credentials); err != nil {
+	if err := i.upsertCredentialArtifacts(ctx, emitter, report, runID, credentials); err != nil {
 		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-credentials", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
@@ -275,7 +279,7 @@ func (i *GoogleWorkspaceIntegration) runFull(ctx context.Context, q *gen.Queries
 	report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "list-token-audit", Current: 1, Total: 1, Message: fmt.Sprintf("found %d token audit activities", len(tokenActivities))})
 
 	auditRows := buildGoogleWorkspaceAuditEventRows(tokenActivities)
-	if err := i.upsertCredentialAuditEvents(ctx, q, report, auditRows); err != nil {
+	if err := i.upsertCredentialAuditEvents(ctx, emitter, report, auditRows); err != nil {
 		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-audit-events", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
@@ -303,7 +307,8 @@ func (i *GoogleWorkspaceIntegration) runDiscovery(ctx context.Context, q *gen.Qu
 		return err
 	}
 
-	if err := i.syncDiscovery(ctx, q, report, runID); err != nil {
+	emitter := recorddispatch.NewDispatcher(nil, recorddispatch.NewSQLStateProjector(q, runID))
+	if err := i.syncDiscovery(ctx, q, emitter, report, runID); err != nil {
 		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-discovery", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindUnknown)
 	}
@@ -402,7 +407,7 @@ func googleWorkspaceUserAccountKind(user WorkspaceUser) string {
 	return registry.AccountKindUnknown
 }
 
-func (i *GoogleWorkspaceIntegration) upsertAccounts(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []googleWorkspaceAccountRow) error {
+func (i *GoogleWorkspaceIntegration) upsertAccounts(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, rows []googleWorkspaceAccountRow) error {
 	report(registry.Event{
 		Source:  configstore.KindGoogleWorkspace,
 		Stage:   "write-users",
@@ -414,55 +419,53 @@ func (i *GoogleWorkspaceIntegration) upsertAccounts(ctx context.Context, q *gen.
 		return nil
 	}
 
-	for start := 0; start < len(rows); start += googleWorkspaceAccountBatchSize {
-		end := min(start+googleWorkspaceAccountBatchSize, len(rows))
-		batch := rows[start:end]
-
-		externalIDs := make([]string, 0, len(batch))
-		emails := make([]string, 0, len(batch))
-		displayNames := make([]string, 0, len(batch))
-		accountKinds := make([]string, 0, len(batch))
-		entityCategories := make([]string, 0, len(batch))
-		rawJSONs := make([][]byte, 0, len(batch))
-		lastLoginAts := make([]pgtype.Timestamptz, 0, len(batch))
-		lastLoginIPs := make([]string, 0, len(batch))
-		lastLoginRegions := make([]string, 0, len(batch))
-		for _, row := range batch {
-			externalIDs = append(externalIDs, row.ExternalID)
-			emails = append(emails, row.Email)
-			displayNames = append(displayNames, row.DisplayName)
-			accountKinds = append(accountKinds, row.AccountKind)
-			entityCategories = append(entityCategories, row.EntityCategory)
-			rawJSONs = append(rawJSONs, row.RawJSON)
-			lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
-			lastLoginIPs = append(lastLoginIPs, "")
-			lastLoginRegions = append(lastLoginRegions, "")
-		}
-
-		if _, err := q.UpsertSourceAccountsBulkBySource(ctx, gen.UpsertSourceAccountsBulkBySourceParams{
-			SourceKind:       configstore.KindGoogleWorkspace,
-			SourceName:       i.customerID,
-			SeenInRunID:      runID,
-			ExternalIds:      externalIDs,
-			Emails:           emails,
-			DisplayNames:     displayNames,
-			AccountKinds:     accountKinds,
-			EntityCategories: entityCategories,
-			RawJsons:         rawJSONs,
-			LastLoginAts:     lastLoginAts,
-			LastLoginIps:     lastLoginIPs,
-			LastLoginRegions: lastLoginRegions,
-		}); err != nil {
-			return fmt.Errorf("upsert google workspace accounts: %w", err)
-		}
-
-		report(registry.Event{
-			Source:  configstore.KindGoogleWorkspace,
-			Stage:   "write-users",
-			Current: int64(end),
-			Total:   int64(len(rows)),
-			Message: fmt.Sprintf("accounts %d/%d", end, len(rows)),
+	for idx, row := range rows {
+		resource := records.ResourceIdentity
+		payload := records.ResourcePayload(records.IdentityPayload{
+			ExternalID:  row.ExternalID,
+			Email:       row.Email,
+			DisplayName: row.DisplayName,
+			Status:      row.Status,
+			ProviderAttrs: map[string]any{
+				"account_kind":    row.AccountKind,
+				"entity_category": row.EntityCategory,
+			},
+			Raw: records.MapFromJSON(row.RawJSON),
 		})
+		if row.EntityCategory == registry.EntityCategoryGroup {
+			resource = records.ResourceGroup
+			payload = records.GroupPayload{
+				ExternalID:  row.ExternalID,
+				DisplayName: row.DisplayName,
+				ProviderAttrs: map[string]any{
+					"email":           row.Email,
+					"account_kind":    row.AccountKind,
+					"entity_category": row.EntityCategory,
+				},
+				Raw: records.MapFromJSON(row.RawJSON),
+			}
+		}
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: configstore.KindGoogleWorkspace, Name: i.customerID},
+			Resource:       resource,
+			Key:            row.ExternalID,
+			ProviderID:     row.ExternalID,
+			ObservedAt:     time.Now().UTC(),
+			DedupeKeyValue: fmt.Sprintf("%s:%s:account:%s", configstore.KindGoogleWorkspace, i.customerID, row.ExternalID),
+			Payload:        payload,
+		}); err != nil {
+			return fmt.Errorf("emit google workspace account %s state: %w", row.ExternalID, err)
+		}
+		current := idx + 1
+		if current%googleWorkspaceAccountBatchSize == 0 || current == len(rows) {
+			report(registry.Event{
+				Source:  configstore.KindGoogleWorkspace,
+				Stage:   "write-users",
+				Current: int64(current),
+				Total:   int64(len(rows)),
+				Message: fmt.Sprintf("accounts %d/%d", current, len(rows)),
+			})
+		}
 	}
 	return nil
 }
@@ -563,49 +566,41 @@ func buildGoogleWorkspaceAdminRoleEntitlements(roles []WorkspaceAdminRole, assig
 	return rows
 }
 
-func (i *GoogleWorkspaceIntegration) upsertEntitlements(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []googleWorkspaceEntitlementRow) error {
+func (i *GoogleWorkspaceIntegration) upsertEntitlements(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, rows []googleWorkspaceEntitlementRow) error {
 	report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-entitlements", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d entitlements", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
 
-	for start := 0; start < len(rows); start += googleWorkspaceEntitlementBatchSize {
-		end := min(start+googleWorkspaceEntitlementBatchSize, len(rows))
-		batch := rows[start:end]
-
-		accountExternalIDs := make([]string, 0, len(batch))
-		kinds := make([]string, 0, len(batch))
-		resources := make([]string, 0, len(batch))
-		permissions := make([]string, 0, len(batch))
-		rawJSONs := make([][]byte, 0, len(batch))
-		for _, row := range batch {
-			accountExternalIDs = append(accountExternalIDs, row.AccountExternalID)
-			kinds = append(kinds, row.Kind)
-			resources = append(resources, row.Resource)
-			permissions = append(permissions, row.Permission)
-			rawJSONs = append(rawJSONs, row.RawJSON)
-		}
-
-		if _, err := q.UpsertEntitlementsBulkBySource(ctx, gen.UpsertEntitlementsBulkBySourceParams{
-			SourceKind:         configstore.KindGoogleWorkspace,
-			SourceName:         i.customerID,
-			SeenInRunID:        runID,
-			AccountExternalIds: accountExternalIDs,
-			Kinds:              kinds,
-			Resources:          resources,
-			Permissions:        permissions,
-			RawJsons:           rawJSONs,
+	for idx, row := range rows {
+		key := googleWorkspaceEntitlementKey(row.AccountExternalID, row.Kind, row.Resource, row.Permission)
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: configstore.KindGoogleWorkspace, Name: i.customerID},
+			Resource:       records.ResourceEntitlement,
+			Key:            key,
+			ProviderID:     key,
+			DedupeKeyValue: fmt.Sprintf("%s:%s:entitlement:%s", configstore.KindGoogleWorkspace, i.customerID, key),
+			Payload: records.EntitlementPayload{
+				ExternalID: key,
+				Kind:       row.Kind,
+				Subject:    records.ResourceRef{Resource: records.ResourceIdentity, ExternalID: row.AccountExternalID},
+				Target:     records.ResourceRef{Resource: records.ResourceGroup, ExternalID: row.Resource},
+				Permission: row.Permission,
+				Raw:        records.MapFromJSON(row.RawJSON),
+			},
 		}); err != nil {
-			return fmt.Errorf("upsert google workspace entitlements: %w", err)
+			return fmt.Errorf("emit google workspace entitlement %s state: %w", row.AccountExternalID, err)
 		}
-
-		report(registry.Event{
-			Source:  configstore.KindGoogleWorkspace,
-			Stage:   "write-entitlements",
-			Current: int64(end),
-			Total:   int64(len(rows)),
-			Message: fmt.Sprintf("entitlements %d/%d", end, len(rows)),
-		})
+		current := idx + 1
+		if current%googleWorkspaceEntitlementBatchSize == 0 || current == len(rows) {
+			report(registry.Event{
+				Source:  configstore.KindGoogleWorkspace,
+				Stage:   "write-entitlements",
+				Current: int64(current),
+				Total:   int64(len(rows)),
+				Message: fmt.Sprintf("entitlements %d/%d", current, len(rows)),
+			})
+		}
 	}
 	return nil
 }
@@ -758,176 +753,133 @@ func appAssetRefExternalID(assetKind, externalID string) string {
 	return assetKind + ":" + externalID
 }
 
-func (i *GoogleWorkspaceIntegration) upsertAppAssets(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []googleWorkspaceAppAssetRow) error {
+func pgTime(value pgtype.Timestamptz) time.Time {
+	if !value.Valid || value.Time.IsZero() {
+		return time.Time{}
+	}
+	return value.Time.UTC()
+}
+
+func googleWorkspaceEntitlementKey(accountExternalID, kind, resource, permission string) string {
+	return strings.Join([]string{
+		strings.TrimSpace(accountExternalID),
+		strings.TrimSpace(kind),
+		strings.TrimSpace(resource),
+		strings.TrimSpace(permission),
+	}, "|")
+}
+
+func (i *GoogleWorkspaceIntegration) upsertAppAssets(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, rows []googleWorkspaceAppAssetRow) error {
 	report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-app-assets", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d app assets", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
-	for start := 0; start < len(rows); start += googleWorkspaceAssetBatchSize {
-		end := min(start+googleWorkspaceAssetBatchSize, len(rows))
-		batch := rows[start:end]
-
-		assetKinds := make([]string, 0, len(batch))
-		externalIDs := make([]string, 0, len(batch))
-		parentExternalIDs := make([]string, 0, len(batch))
-		displayNames := make([]string, 0, len(batch))
-		statuses := make([]string, 0, len(batch))
-		createdAtSources := make([]pgtype.Timestamptz, 0, len(batch))
-		updatedAtSources := make([]pgtype.Timestamptz, 0, len(batch))
-		rawJSONs := make([][]byte, 0, len(batch))
-		for _, row := range batch {
-			assetKinds = append(assetKinds, row.AssetKind)
-			externalIDs = append(externalIDs, row.ExternalID)
-			parentExternalIDs = append(parentExternalIDs, row.ParentExternalID)
-			displayNames = append(displayNames, row.DisplayName)
-			statuses = append(statuses, row.Status)
-			createdAtSources = append(createdAtSources, row.CreatedAtSource)
-			updatedAtSources = append(updatedAtSources, row.UpdatedAtSource)
-			rawJSONs = append(rawJSONs, row.RawJSON)
-		}
-
-		if _, err := q.UpsertAppAssetsBulkBySource(ctx, gen.UpsertAppAssetsBulkBySourceParams{
-			SourceKind:        configstore.KindGoogleWorkspace,
-			SourceName:        i.customerID,
-			SeenInRunID:       runID,
-			AssetKinds:        assetKinds,
-			ExternalIds:       externalIDs,
-			ParentExternalIds: parentExternalIDs,
-			DisplayNames:      displayNames,
-			Statuses:          statuses,
-			CreatedAtSources:  createdAtSources,
-			UpdatedAtSources:  updatedAtSources,
-			RawJsons:          rawJSONs,
+	for idx, row := range rows {
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: configstore.KindGoogleWorkspace, Name: i.customerID},
+			Resource:       records.ResourceAppAsset,
+			Key:            appAssetRefExternalID(row.AssetKind, row.ExternalID),
+			ProviderID:     row.ExternalID,
+			ObservedAt:     time.Now().UTC(),
+			DedupeKeyValue: fmt.Sprintf("%s:%s:app_asset:%s:%s", configstore.KindGoogleWorkspace, i.customerID, row.AssetKind, row.ExternalID),
+			Payload: records.AppAssetPayload{
+				AssetKind:        row.AssetKind,
+				ExternalID:       row.ExternalID,
+				ParentExternalID: row.ParentExternalID,
+				DisplayName:      row.DisplayName,
+				Status:           row.Status,
+				CreatedAtSource:  pgTime(row.CreatedAtSource),
+				UpdatedAtSource:  pgTime(row.UpdatedAtSource),
+				Raw:              records.MapFromJSON(row.RawJSON),
+			},
 		}); err != nil {
-			return fmt.Errorf("upsert google app assets: %w", err)
+			return fmt.Errorf("emit google app asset %s/%s state: %w", row.AssetKind, row.ExternalID, err)
 		}
-
-		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-app-assets", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("app assets %d/%d", end, len(rows))})
+		current := idx + 1
+		if current%googleWorkspaceAssetBatchSize == 0 || current == len(rows) {
+			report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-app-assets", Current: int64(current), Total: int64(len(rows)), Message: fmt.Sprintf("app assets %d/%d", current, len(rows))})
+		}
 	}
 	return nil
 }
 
-func (i *GoogleWorkspaceIntegration) upsertAppAssetOwners(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []googleWorkspaceAppAssetOwnerRow) error {
+func (i *GoogleWorkspaceIntegration) upsertAppAssetOwners(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, rows []googleWorkspaceAppAssetOwnerRow) error {
 	report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-owners", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d owners", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
-	for start := 0; start < len(rows); start += googleWorkspaceOwnerBatchSize {
-		end := min(start+googleWorkspaceOwnerBatchSize, len(rows))
-		batch := rows[start:end]
-
-		assetKinds := make([]string, 0, len(batch))
-		assetExternalIDs := make([]string, 0, len(batch))
-		ownerKinds := make([]string, 0, len(batch))
-		ownerExternalIDs := make([]string, 0, len(batch))
-		ownerDisplayNames := make([]string, 0, len(batch))
-		ownerEmails := make([]string, 0, len(batch))
-		rawJSONs := make([][]byte, 0, len(batch))
-		for _, row := range batch {
-			assetKinds = append(assetKinds, row.AssetKind)
-			assetExternalIDs = append(assetExternalIDs, row.AssetExternalID)
-			ownerKinds = append(ownerKinds, row.OwnerKind)
-			ownerExternalIDs = append(ownerExternalIDs, row.OwnerExternalID)
-			ownerDisplayNames = append(ownerDisplayNames, row.OwnerDisplayName)
-			ownerEmails = append(ownerEmails, row.OwnerEmail)
-			rawJSONs = append(rawJSONs, row.RawJSON)
-		}
-
-		if _, err := q.UpsertAppAssetOwnersBulkBySource(ctx, gen.UpsertAppAssetOwnersBulkBySourceParams{
-			SourceKind:        configstore.KindGoogleWorkspace,
-			SourceName:        i.customerID,
-			SeenInRunID:       runID,
-			AssetKinds:        assetKinds,
-			AssetExternalIds:  assetExternalIDs,
-			OwnerKinds:        ownerKinds,
-			OwnerExternalIds:  ownerExternalIDs,
-			OwnerDisplayNames: ownerDisplayNames,
-			OwnerEmails:       ownerEmails,
-			RawJsons:          rawJSONs,
+	for idx, row := range rows {
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: configstore.KindGoogleWorkspace, Name: i.customerID},
+			Resource:       records.ResourceAppAssetOwner,
+			Key:            appAssetRefExternalID(row.AssetKind, row.AssetExternalID) + ":" + row.OwnerKind + ":" + row.OwnerExternalID,
+			ProviderID:     row.OwnerExternalID,
+			ObservedAt:     time.Now().UTC(),
+			DedupeKeyValue: fmt.Sprintf("%s:%s:app_asset_owner:%s:%s:%s:%s", configstore.KindGoogleWorkspace, i.customerID, row.AssetKind, row.AssetExternalID, row.OwnerKind, row.OwnerExternalID),
+			Payload: records.AppAssetOwnerPayload{
+				AssetKind:        row.AssetKind,
+				AssetExternalID:  row.AssetExternalID,
+				OwnerKind:        row.OwnerKind,
+				OwnerExternalID:  row.OwnerExternalID,
+				OwnerDisplayName: row.OwnerDisplayName,
+				OwnerEmail:       row.OwnerEmail,
+				Raw:              records.MapFromJSON(row.RawJSON),
+			},
 		}); err != nil {
-			return fmt.Errorf("upsert google app owners: %w", err)
+			return fmt.Errorf("emit google app owner %s/%s/%s state: %w", row.AssetKind, row.AssetExternalID, row.OwnerExternalID, err)
 		}
-
-		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-owners", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("owners %d/%d", end, len(rows))})
+		current := idx + 1
+		if current%googleWorkspaceOwnerBatchSize == 0 || current == len(rows) {
+			report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-owners", Current: int64(current), Total: int64(len(rows)), Message: fmt.Sprintf("owners %d/%d", current, len(rows))})
+		}
 	}
 	return nil
 }
 
-func (i *GoogleWorkspaceIntegration) upsertCredentialArtifacts(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []googleWorkspaceCredentialArtifactRow) error {
+func (i *GoogleWorkspaceIntegration) upsertCredentialArtifacts(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, rows []googleWorkspaceCredentialArtifactRow) error {
 	report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-credentials", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d credentials", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
-	for start := 0; start < len(rows); start += googleWorkspaceCredentialBatchSize {
-		end := min(start+googleWorkspaceCredentialBatchSize, len(rows))
-		batch := rows[start:end]
-
-		assetRefKinds := make([]string, 0, len(batch))
-		assetRefExternalIDs := make([]string, 0, len(batch))
-		credentialKinds := make([]string, 0, len(batch))
-		externalIDs := make([]string, 0, len(batch))
-		displayNames := make([]string, 0, len(batch))
-		fingerprints := make([]string, 0, len(batch))
-		scopeJSONs := make([][]byte, 0, len(batch))
-		statuses := make([]string, 0, len(batch))
-		createdAtSources := make([]pgtype.Timestamptz, 0, len(batch))
-		expiresAtSources := make([]pgtype.Timestamptz, 0, len(batch))
-		lastUsedAtSources := make([]pgtype.Timestamptz, 0, len(batch))
-		createdByKinds := make([]string, 0, len(batch))
-		createdByExternalIDs := make([]string, 0, len(batch))
-		createdByDisplayNames := make([]string, 0, len(batch))
-		approvedByKinds := make([]string, 0, len(batch))
-		approvedByExternalIDs := make([]string, 0, len(batch))
-		approvedByDisplayNames := make([]string, 0, len(batch))
-		rawJSONs := make([][]byte, 0, len(batch))
-		for _, row := range batch {
-			assetRefKinds = append(assetRefKinds, row.AssetRefKind)
-			assetRefExternalIDs = append(assetRefExternalIDs, row.AssetRefExternalID)
-			credentialKinds = append(credentialKinds, row.CredentialKind)
-			externalIDs = append(externalIDs, row.ExternalID)
-			displayNames = append(displayNames, row.DisplayName)
-			fingerprints = append(fingerprints, row.Fingerprint)
-			scopeJSONs = append(scopeJSONs, row.ScopeJSON)
-			statuses = append(statuses, row.Status)
-			createdAtSources = append(createdAtSources, row.CreatedAtSource)
-			expiresAtSources = append(expiresAtSources, row.ExpiresAtSource)
-			lastUsedAtSources = append(lastUsedAtSources, row.LastUsedAtSource)
-			createdByKinds = append(createdByKinds, row.CreatedByKind)
-			createdByExternalIDs = append(createdByExternalIDs, row.CreatedByExternalID)
-			createdByDisplayNames = append(createdByDisplayNames, row.CreatedByDisplayName)
-			approvedByKinds = append(approvedByKinds, row.ApprovedByKind)
-			approvedByExternalIDs = append(approvedByExternalIDs, row.ApprovedByExternalID)
-			approvedByDisplayNames = append(approvedByDisplayNames, row.ApprovedByDisplayName)
-			rawJSONs = append(rawJSONs, row.RawJSON)
-		}
-
-		if _, err := q.UpsertCredentialArtifactsBulkBySource(ctx, gen.UpsertCredentialArtifactsBulkBySourceParams{
-			SourceKind:             configstore.KindGoogleWorkspace,
-			SourceName:             i.customerID,
-			SeenInRunID:            runID,
-			AssetRefKinds:          assetRefKinds,
-			AssetRefExternalIds:    assetRefExternalIDs,
-			CredentialKinds:        credentialKinds,
-			ExternalIds:            externalIDs,
-			DisplayNames:           displayNames,
-			Fingerprints:           fingerprints,
-			ScopeJsons:             scopeJSONs,
-			Statuses:               statuses,
-			CreatedAtSources:       createdAtSources,
-			ExpiresAtSources:       expiresAtSources,
-			LastUsedAtSources:      lastUsedAtSources,
-			CreatedByKinds:         createdByKinds,
-			CreatedByExternalIds:   createdByExternalIDs,
-			CreatedByDisplayNames:  createdByDisplayNames,
-			ApprovedByKinds:        approvedByKinds,
-			ApprovedByExternalIds:  approvedByExternalIDs,
-			ApprovedByDisplayNames: approvedByDisplayNames,
-			RawJsons:               rawJSONs,
+	for idx, row := range rows {
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: configstore.KindGoogleWorkspace, Name: i.customerID},
+			Resource:       records.ResourceCredential,
+			Key:            row.AssetRefKind + ":" + row.AssetRefExternalID + ":" + row.CredentialKind + ":" + row.ExternalID,
+			ProviderID:     row.ExternalID,
+			ObservedAt:     time.Now().UTC(),
+			DedupeKeyValue: fmt.Sprintf("%s:%s:credential:%s:%s:%s:%s", configstore.KindGoogleWorkspace, i.customerID, row.AssetRefKind, row.AssetRefExternalID, row.CredentialKind, row.ExternalID),
+			Payload: records.CredentialPayload{
+				AssetRefKind:       row.AssetRefKind,
+				AssetRefExternalID: row.AssetRefExternalID,
+				CredentialKind:     row.CredentialKind,
+				ExternalID:         row.ExternalID,
+				DisplayName:        row.DisplayName,
+				Fingerprint:        row.Fingerprint,
+				ScopeJSON:          row.ScopeJSON,
+				Status:             row.Status,
+				CreatedAtSource:    pgTime(row.CreatedAtSource),
+				ExpiresAtSource:    pgTime(row.ExpiresAtSource),
+				LastUsedAtSource:   pgTime(row.LastUsedAtSource),
+				CreatedBy: records.PrincipalRef{
+					Kind:        row.CreatedByKind,
+					ExternalID:  row.CreatedByExternalID,
+					DisplayName: row.CreatedByDisplayName,
+				},
+				ApprovedBy: records.PrincipalRef{
+					Kind:        row.ApprovedByKind,
+					ExternalID:  row.ApprovedByExternalID,
+					DisplayName: row.ApprovedByDisplayName,
+				},
+				Raw: records.MapFromJSON(row.RawJSON),
+			},
 		}); err != nil {
-			return fmt.Errorf("upsert google credentials: %w", err)
+			return fmt.Errorf("emit google credential %s/%s state: %w", row.CredentialKind, row.ExternalID, err)
 		}
-
-		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-credentials", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("credentials %d/%d", end, len(rows))})
+		current := idx + 1
+		if current%googleWorkspaceCredentialBatchSize == 0 || current == len(rows) {
+			report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-credentials", Current: int64(current), Total: int64(len(rows)), Message: fmt.Sprintf("credentials %d/%d", current, len(rows))})
+		}
 	}
 	return nil
 }
@@ -995,67 +947,45 @@ func buildGoogleWorkspaceAuditEventRows(activities []WorkspaceActivity) []google
 	return rows
 }
 
-func (i *GoogleWorkspaceIntegration) upsertCredentialAuditEvents(ctx context.Context, q *gen.Queries, report func(registry.Event), rows []googleWorkspaceCredentialAuditEventRow) error {
+func (i *GoogleWorkspaceIntegration) upsertCredentialAuditEvents(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), rows []googleWorkspaceCredentialAuditEventRow) error {
 	report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-audit-events", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d audit events", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
-	for start := 0; start < len(rows); start += googleWorkspaceAuditEventBatchSize {
-		end := min(start+googleWorkspaceAuditEventBatchSize, len(rows))
-		batch := rows[start:end]
-
-		eventExternalIDs := make([]string, 0, len(batch))
-		eventTypes := make([]string, 0, len(batch))
-		eventTimes := make([]pgtype.Timestamptz, 0, len(batch))
-		actorKinds := make([]string, 0, len(batch))
-		actorExternalIDs := make([]string, 0, len(batch))
-		actorDisplayNames := make([]string, 0, len(batch))
-		targetKinds := make([]string, 0, len(batch))
-		targetExternalIDs := make([]string, 0, len(batch))
-		targetDisplayNames := make([]string, 0, len(batch))
-		credentialKinds := make([]string, 0, len(batch))
-		credentialExternalIDs := make([]string, 0, len(batch))
-		rawJSONs := make([][]byte, 0, len(batch))
-		for _, row := range batch {
-			eventExternalIDs = append(eventExternalIDs, row.EventExternalID)
-			eventTypes = append(eventTypes, row.EventType)
-			eventTimes = append(eventTimes, row.EventTime)
-			actorKinds = append(actorKinds, row.ActorKind)
-			actorExternalIDs = append(actorExternalIDs, row.ActorExternalID)
-			actorDisplayNames = append(actorDisplayNames, row.ActorDisplayName)
-			targetKinds = append(targetKinds, row.TargetKind)
-			targetExternalIDs = append(targetExternalIDs, row.TargetExternalID)
-			targetDisplayNames = append(targetDisplayNames, row.TargetDisplayName)
-			credentialKinds = append(credentialKinds, row.CredentialKind)
-			credentialExternalIDs = append(credentialExternalIDs, row.CredentialExternalID)
-			rawJSONs = append(rawJSONs, row.RawJSON)
-		}
-
-		if _, err := q.UpsertCredentialAuditEventsBulkBySource(ctx, gen.UpsertCredentialAuditEventsBulkBySourceParams{
-			SourceKind:            configstore.KindGoogleWorkspace,
-			SourceName:            i.customerID,
-			EventExternalIds:      eventExternalIDs,
-			EventTypes:            eventTypes,
-			EventTimes:            eventTimes,
-			ActorKinds:            actorKinds,
-			ActorExternalIds:      actorExternalIDs,
-			ActorDisplayNames:     actorDisplayNames,
-			TargetKinds:           targetKinds,
-			TargetExternalIds:     targetExternalIDs,
-			TargetDisplayNames:    targetDisplayNames,
-			CredentialKinds:       credentialKinds,
-			CredentialExternalIds: credentialExternalIDs,
-			RawJsons:              rawJSONs,
+	for idx, row := range rows {
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: configstore.KindGoogleWorkspace, Name: i.customerID},
+			Resource:       records.ResourceAuditEvent,
+			Key:            row.EventExternalID,
+			ProviderID:     row.EventExternalID,
+			ObservedAt:     pgTime(row.EventTime),
+			DedupeKeyValue: fmt.Sprintf("%s:%s:credential_audit_event:%s", configstore.KindGoogleWorkspace, i.customerID, row.EventExternalID),
+			Payload: records.CredentialAuditEventPayload{
+				EventExternalID:      row.EventExternalID,
+				EventType:            row.EventType,
+				EventTime:            pgTime(row.EventTime),
+				ActorKind:            row.ActorKind,
+				ActorExternalID:      row.ActorExternalID,
+				ActorDisplayName:     row.ActorDisplayName,
+				TargetKind:           row.TargetKind,
+				TargetExternalID:     row.TargetExternalID,
+				TargetDisplayName:    row.TargetDisplayName,
+				CredentialKind:       row.CredentialKind,
+				CredentialExternalID: row.CredentialExternalID,
+				Raw:                  records.MapFromJSON(row.RawJSON),
+			},
 		}); err != nil {
-			return fmt.Errorf("upsert google audit events: %w", err)
+			return fmt.Errorf("emit google audit event %s state: %w", row.EventExternalID, err)
 		}
-
-		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-audit-events", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("audit events %d/%d", end, len(rows))})
+		current := idx + 1
+		if current%googleWorkspaceAuditEventBatchSize == 0 || current == len(rows) {
+			report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-audit-events", Current: int64(current), Total: int64(len(rows)), Message: fmt.Sprintf("audit events %d/%d", current, len(rows))})
+		}
 	}
 	return nil
 }
 
-func (i *GoogleWorkspaceIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64) error {
+func (i *GoogleWorkspaceIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64) error {
 	now := time.Now().UTC()
 	report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "list-discovery-events", Current: 0, Total: 1, Message: "listing login and token activities"})
 
@@ -1096,7 +1026,7 @@ func (i *GoogleWorkspaceIntegration) syncDiscovery(ctx context.Context, q *gen.Q
 	sources, events := i.normalizeDiscovery(loginActivities, tokenActivities, tokenGrants, now)
 	report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "normalize-discovery", Current: 1, Total: 1, Message: fmt.Sprintf("normalized %d source rows and %d events", len(sources), len(events))})
 
-	if err := i.writeDiscoveryRows(ctx, q, report, runID, sources, events); err != nil {
+	if err := i.writeDiscoveryRows(ctx, emitter, report, runID, sources, events); err != nil {
 		metrics.DiscoveryIngestFailuresTotal.WithLabelValues(configstore.KindGoogleWorkspace, discovery.SignalKindIDPSSO, "db_error").Inc()
 		return err
 	}
@@ -1354,15 +1284,68 @@ func activityEventExternalID(prefix string, activity WorkspaceActivity, idx int)
 	return fmt.Sprintf("%s:%x", prefix, h.Sum64())
 }
 
-func (i *GoogleWorkspaceIntegration) writeDiscoveryRows(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, sources []discovery.SourceRow, events []discovery.EventRow) error {
-	return discovery.WriteRows(ctx, q, discovery.WriteRowsParams{
-		SourceKind: configstore.KindGoogleWorkspace,
-		SourceName: i.customerID,
-		RunID:      runID,
-		Sources:    sources,
-		Events:     events,
-		Report:     registry.DiscoveryProgressReporter(report),
-	})
+func (i *GoogleWorkspaceIntegration) writeDiscoveryRows(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, sources []discovery.SourceRow, events []discovery.EventRow) error {
+	total := len(sources) + len(events)
+	report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-discovery", Current: 0, Total: int64(total), Message: fmt.Sprintf("writing %d discovery records", total)})
+	current := 0
+	for _, row := range sources {
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: configstore.KindGoogleWorkspace, Name: i.customerID},
+			Resource:       records.ResourceDiscoveryEvidence,
+			Key:            "source:" + row.SourceAppID,
+			ProviderID:     row.SourceAppID,
+			ObservedAt:     row.SeenAt,
+			DedupeKeyValue: fmt.Sprintf("%s:%s:discovery_source:%s", configstore.KindGoogleWorkspace, i.customerID, row.SourceAppID),
+			Payload: records.DiscoveryEvidencePayload{
+				ExternalID:       "source:" + row.SourceAppID,
+				Kind:             records.DiscoveryEvidenceKindSource,
+				CanonicalKey:     row.CanonicalKey,
+				SourceAppID:      row.SourceAppID,
+				SourceAppName:    row.SourceAppName,
+				SourceAppDomain:  row.SourceAppDomain,
+				SourceVendorName: row.SourceVendorName,
+				SourceCategory:   row.SourceCategory,
+				ObservedAt:       row.SeenAt,
+			},
+		}); err != nil {
+			return fmt.Errorf("emit google discovery source %s state: %w", row.SourceAppID, err)
+		}
+		current++
+		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-discovery", Current: int64(current), Total: int64(total), Message: fmt.Sprintf("discovery records %d/%d", current, total)})
+	}
+	for _, row := range events {
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: configstore.KindGoogleWorkspace, Name: i.customerID},
+			Resource:       records.ResourceDiscoveryEvidence,
+			Key:            "event:" + row.EventExternalID,
+			ProviderID:     row.EventExternalID,
+			ObservedAt:     row.ObservedAt,
+			DedupeKeyValue: fmt.Sprintf("%s:%s:discovery_event:%s", configstore.KindGoogleWorkspace, i.customerID, row.EventExternalID),
+			Payload: records.DiscoveryEvidencePayload{
+				ExternalID:       "event:" + row.EventExternalID,
+				Kind:             records.DiscoveryEvidenceKindEvent,
+				CanonicalKey:     row.CanonicalKey,
+				SignalKind:       row.SignalKind,
+				EventExternalID:  row.EventExternalID,
+				SourceAppID:      row.SourceAppID,
+				SourceAppName:    row.SourceAppName,
+				SourceAppDomain:  row.SourceAppDomain,
+				SourceVendorName: row.SourceVendorName,
+				SourceCategory:   row.SourceCategory,
+				ActorExternalID:  row.ActorExternalID,
+				ActorEmail:       row.ActorEmail,
+				ActorDisplayName: row.ActorDisplayName,
+				ObservedAt:       row.ObservedAt,
+				Scopes:           row.Scopes,
+				Raw:              records.MapFromJSON(row.RawJSON),
+			},
+		}); err != nil {
+			return fmt.Errorf("emit google discovery event %s state: %w", row.EventExternalID, err)
+		}
+		current++
+		report(registry.Event{Source: configstore.KindGoogleWorkspace, Stage: "write-discovery", Current: int64(current), Total: int64(total), Message: fmt.Sprintf("discovery records %d/%d", current, total)})
+	}
+	return nil
 }
 
 func (i *GoogleWorkspaceIntegration) seedGoogleWorkspaceAutoBindings(ctx context.Context, q *gen.Queries, runID int64) error {

@@ -14,6 +14,7 @@ const (
 	ResourceApplication       ResourceName = "application"
 	ResourceServicePrincipal  ResourceName = "service_principal"
 	ResourceAppAsset          ResourceName = "app_asset"
+	ResourceAppAssetOwner     ResourceName = "app_asset_owner"
 	ResourceCredential        ResourceName = "credential"
 	ResourceEntitlement       ResourceName = "entitlement"
 	ResourceDiscoveryEvidence ResourceName = "discovery_evidence"

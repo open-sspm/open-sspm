@@ -9,6 +9,9 @@ evaluation engine, and the UI can evolve independently.
 - [Identity Graph](/architecture/identity-graph) — How source accounts roll up
   into normalized identities, what link reasons mean, and which invariants
   must not be relaxed.
+- [Phase Three Connector Records Audit](/architecture/connector-records-phase-three)
+  — Current connector migration status for records-first state projection and
+  canonical event dispatch.
 
 ## Reading Order
 

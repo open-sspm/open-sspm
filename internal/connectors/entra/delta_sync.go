@@ -11,8 +11,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	absser "github.com/microsoft/kiota-abstractions-go/serialization"
 	msgraphmodels "github.com/microsoftgraph/msgraph-sdk-go/models"
+	"github.com/open-sspm/open-sspm/internal/connectors/capabilities"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/ingest/recorddispatch"
 )
 
 const (
@@ -84,15 +86,17 @@ func (i *EntraIntegration) runDeltaFull(ctx context.Context, q *gen.Queries, poo
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
 
-	usersWritten, err := i.writeUsers(ctx, q, report, runID, delta.Users)
+	emitter := recorddispatch.NewDispatcher(nil, recorddispatch.NewSQLStateProjector(q, runID))
+
+	usersWritten, err := i.writeUsers(ctx, emitter, report, runID, delta.Users)
 	if err != nil {
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
-	groupsWritten, err := i.writeGroups(ctx, q, report, runID, delta.Groups)
+	groupsWritten, err := i.writeGroups(ctx, emitter, report, runID, delta.Groups)
 	if err != nil {
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
-	servicePrincipalsWritten, err := i.writeServicePrincipalAccounts(ctx, q, report, runID, delta.ServicePrincipals)
+	servicePrincipalsWritten, err := i.writeServicePrincipalAccounts(ctx, emitter, report, runID, delta.ServicePrincipals)
 	if err != nil {
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
@@ -101,11 +105,11 @@ func (i *EntraIntegration) runDeltaFull(ctx context.Context, q *gen.Queries, poo
 	if err != nil {
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindUnknown)
 	}
-	if err := i.upsertAppAssets(ctx, q, report, runID, assetRows); err != nil {
+	if err := i.upsertAppAssets(ctx, emitter, report, runID, assetRows); err != nil {
 		report(registry.Event{Source: "entra", Stage: "write-app-assets", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
-	if err := i.upsertCredentialArtifacts(ctx, q, report, runID, credentialRows); err != nil {
+	if err := i.upsertCredentialArtifacts(ctx, emitter, report, runID, credentialRows); err != nil {
 		report(registry.Event{Source: "entra", Stage: "write-credentials", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
@@ -124,7 +128,7 @@ func (i *EntraIntegration) runDeltaFull(ctx context.Context, q *gen.Queries, poo
 		report(registry.Event{Source: "entra", Stage: "list-owners", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
-	if err := i.upsertAppAssetOwners(ctx, q, report, runID, ownerRows); err != nil {
+	if err := i.upsertAppAssetOwners(ctx, emitter, report, runID, ownerRows); err != nil {
 		report(registry.Event{Source: "entra", Stage: "write-owners", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
@@ -134,12 +138,12 @@ func (i *EntraIntegration) runDeltaFull(ctx context.Context, q *gen.Queries, poo
 		report(registry.Event{Source: "entra", Stage: "list-entitlements", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
-	if err := i.upsertEntraEntitlements(ctx, q, report, runID, entitlementRows); err != nil {
+	if err := i.upsertEntraEntitlements(ctx, emitter, report, runID, entitlementRows); err != nil {
 		report(registry.Event{Source: "entra", Stage: "write-entitlements", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindDB)
 	}
 
-	auditEventRows, err := i.syncCredentialAuditEvents(ctx, q, report)
+	auditEventRows, err := i.syncCredentialAuditEvents(ctx, q, emitter, report)
 	if err != nil {
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
@@ -383,7 +387,7 @@ func deserializeGraphModel[T any](raw []byte, factory absser.ParsableFactory) (T
 	return typed, nil
 }
 
-func (i *EntraIntegration) syncCredentialAuditEvents(ctx context.Context, q *gen.Queries, report func(registry.Event)) ([]credentialAuditEventUpsertRow, error) {
+func (i *EntraIntegration) syncCredentialAuditEvents(ctx context.Context, q *gen.Queries, emitter capabilities.RecordEmitter, report func(registry.Event)) ([]credentialAuditEventUpsertRow, error) {
 	report(registry.Event{Source: "entra", Stage: "list-audit-events", Current: 0, Total: 1, Message: "listing directory audit events"})
 	since, err := i.latestCredentialAuditSince(ctx, q)
 	if err != nil {
@@ -406,7 +410,7 @@ func (i *EntraIntegration) syncCredentialAuditEvents(ctx context.Context, q *gen
 	if err != nil {
 		return nil, err
 	}
-	if err := i.upsertCredentialAuditEvents(ctx, q, report, rows); err != nil {
+	if err := i.upsertCredentialAuditEvents(ctx, emitter, report, rows); err != nil {
 		report(registry.Event{Source: "entra", Stage: "write-audit-events", Message: err.Error(), Err: err})
 		return nil, err
 	}

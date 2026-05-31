@@ -1,6 +1,7 @@
 package records
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -133,6 +134,257 @@ func (p ApplicationPayload) ToEnvelope() ResourceEnvelope {
 		SchemaVersion: p.SchemaVersion(),
 		ExternalID:    strings.TrimSpace(p.ExternalID),
 		DisplayName:   strings.TrimSpace(p.DisplayName),
+		Provider:      ProviderFields{},
+		Attributes:    attrs,
+		Raw:           copyMap(p.Raw),
+	}
+}
+
+type ServicePrincipalPayload struct {
+	ExternalID    string
+	Email         string
+	DisplayName   string
+	Status        string
+	ProviderAttrs map[string]any
+	Raw           map[string]any
+}
+
+func (p ServicePrincipalPayload) ResourceName() ResourceName { return ResourceServicePrincipal }
+func (p ServicePrincipalPayload) SchemaVersion() int         { return 1 }
+
+func (p ServicePrincipalPayload) Validate() error {
+	if strings.TrimSpace(p.ExternalID) == "" {
+		return errors.New("service principal external_id is required")
+	}
+	return nil
+}
+
+func (p ServicePrincipalPayload) ToEnvelope() ResourceEnvelope {
+	attrs := copyMap(p.ProviderAttrs)
+	attrs["email"] = strings.TrimSpace(p.Email)
+	attrs["status"] = strings.TrimSpace(p.Status)
+	return ResourceEnvelope{
+		Resource:      p.ResourceName(),
+		SchemaVersion: p.SchemaVersion(),
+		ExternalID:    strings.TrimSpace(p.ExternalID),
+		DisplayName:   strings.TrimSpace(p.DisplayName),
+		Provider:      ProviderFields{},
+		Attributes:    attrs,
+		Raw:           copyMap(p.Raw),
+	}
+}
+
+type AppAssetPayload struct {
+	AssetKind        string
+	ExternalID       string
+	ParentExternalID string
+	DisplayName      string
+	Status           string
+	CreatedAtSource  time.Time
+	UpdatedAtSource  time.Time
+	ProviderAttrs    map[string]any
+	Raw              map[string]any
+}
+
+func (p AppAssetPayload) ResourceName() ResourceName { return ResourceAppAsset }
+func (p AppAssetPayload) SchemaVersion() int         { return 1 }
+
+func (p AppAssetPayload) Validate() error {
+	if strings.TrimSpace(p.AssetKind) == "" {
+		return errors.New("app asset kind is required")
+	}
+	if strings.TrimSpace(p.ExternalID) == "" {
+		return errors.New("app asset external_id is required")
+	}
+	return nil
+}
+
+func (p AppAssetPayload) ToEnvelope() ResourceEnvelope {
+	attrs := copyMap(p.ProviderAttrs)
+	attrs["asset_kind"] = strings.TrimSpace(p.AssetKind)
+	attrs["parent_external_id"] = strings.TrimSpace(p.ParentExternalID)
+	attrs["status"] = strings.TrimSpace(p.Status)
+	if !p.CreatedAtSource.IsZero() {
+		attrs["created_at_source"] = p.CreatedAtSource.UTC()
+	}
+	if !p.UpdatedAtSource.IsZero() {
+		attrs["updated_at_source"] = p.UpdatedAtSource.UTC()
+	}
+	return ResourceEnvelope{
+		Resource:      p.ResourceName(),
+		SchemaVersion: p.SchemaVersion(),
+		ExternalID:    strings.TrimSpace(p.ExternalID),
+		DisplayName:   strings.TrimSpace(p.DisplayName),
+		Provider:      ProviderFields{},
+		Attributes:    attrs,
+		Raw:           copyMap(p.Raw),
+	}
+}
+
+type AppAssetOwnerPayload struct {
+	AssetKind        string
+	AssetExternalID  string
+	OwnerKind        string
+	OwnerExternalID  string
+	OwnerDisplayName string
+	OwnerEmail       string
+	ProviderAttrs    map[string]any
+	Raw              map[string]any
+}
+
+func (p AppAssetOwnerPayload) ResourceName() ResourceName { return ResourceAppAssetOwner }
+func (p AppAssetOwnerPayload) SchemaVersion() int         { return 1 }
+
+func (p AppAssetOwnerPayload) Validate() error {
+	if strings.TrimSpace(p.AssetKind) == "" || strings.TrimSpace(p.AssetExternalID) == "" {
+		return errors.New("app asset owner asset ref is required")
+	}
+	if strings.TrimSpace(p.OwnerKind) == "" || strings.TrimSpace(p.OwnerExternalID) == "" {
+		return errors.New("app asset owner ref is required")
+	}
+	return nil
+}
+
+func (p AppAssetOwnerPayload) ToEnvelope() ResourceEnvelope {
+	attrs := copyMap(p.ProviderAttrs)
+	attrs["asset_kind"] = strings.TrimSpace(p.AssetKind)
+	attrs["asset_external_id"] = strings.TrimSpace(p.AssetExternalID)
+	attrs["owner_kind"] = strings.TrimSpace(p.OwnerKind)
+	attrs["owner_external_id"] = strings.TrimSpace(p.OwnerExternalID)
+	attrs["owner_email"] = strings.TrimSpace(p.OwnerEmail)
+	return ResourceEnvelope{
+		Resource:      p.ResourceName(),
+		SchemaVersion: p.SchemaVersion(),
+		ExternalID:    strings.TrimSpace(p.AssetKind) + ":" + strings.TrimSpace(p.AssetExternalID) + ":" + strings.TrimSpace(p.OwnerKind) + ":" + strings.TrimSpace(p.OwnerExternalID),
+		DisplayName:   strings.TrimSpace(p.OwnerDisplayName),
+		Provider:      ProviderFields{},
+		Attributes:    attrs,
+		Raw:           copyMap(p.Raw),
+	}
+}
+
+type PrincipalRef struct {
+	Kind        string `json:"kind,omitempty"`
+	ExternalID  string `json:"external_id,omitempty"`
+	DisplayName string `json:"display_name,omitempty"`
+}
+
+type CredentialPayload struct {
+	AssetRefKind       string
+	AssetRefExternalID string
+	CredentialKind     string
+	ExternalID         string
+	DisplayName        string
+	Fingerprint        string
+	ScopeJSON          []byte
+	Status             string
+	CreatedAtSource    time.Time
+	ExpiresAtSource    time.Time
+	LastUsedAtSource   time.Time
+	CreatedBy          PrincipalRef
+	ApprovedBy         PrincipalRef
+	ProviderAttrs      map[string]any
+	Raw                map[string]any
+}
+
+func (p CredentialPayload) ResourceName() ResourceName { return ResourceCredential }
+func (p CredentialPayload) SchemaVersion() int         { return 1 }
+
+func (p CredentialPayload) Validate() error {
+	if strings.TrimSpace(p.AssetRefKind) == "" || strings.TrimSpace(p.AssetRefExternalID) == "" {
+		return errors.New("credential asset ref is required")
+	}
+	if strings.TrimSpace(p.CredentialKind) == "" {
+		return errors.New("credential kind is required")
+	}
+	if strings.TrimSpace(p.ExternalID) == "" {
+		return errors.New("credential external_id is required")
+	}
+	return nil
+}
+
+func (p CredentialPayload) ToEnvelope() ResourceEnvelope {
+	attrs := copyMap(p.ProviderAttrs)
+	attrs["asset_ref_kind"] = strings.TrimSpace(p.AssetRefKind)
+	attrs["asset_ref_external_id"] = strings.TrimSpace(p.AssetRefExternalID)
+	attrs["credential_kind"] = strings.TrimSpace(p.CredentialKind)
+	attrs["fingerprint"] = strings.TrimSpace(p.Fingerprint)
+	attrs["status"] = strings.TrimSpace(p.Status)
+	if len(p.ScopeJSON) > 0 {
+		attrs["scope"] = json.RawMessage(p.ScopeJSON)
+	}
+	if !p.CreatedAtSource.IsZero() {
+		attrs["created_at_source"] = p.CreatedAtSource.UTC()
+	}
+	if !p.ExpiresAtSource.IsZero() {
+		attrs["expires_at_source"] = p.ExpiresAtSource.UTC()
+	}
+	if !p.LastUsedAtSource.IsZero() {
+		attrs["last_used_at_source"] = p.LastUsedAtSource.UTC()
+	}
+	if p.CreatedBy != (PrincipalRef{}) {
+		attrs["created_by"] = p.CreatedBy
+	}
+	if p.ApprovedBy != (PrincipalRef{}) {
+		attrs["approved_by"] = p.ApprovedBy
+	}
+	return ResourceEnvelope{
+		Resource:      p.ResourceName(),
+		SchemaVersion: p.SchemaVersion(),
+		ExternalID:    strings.TrimSpace(p.ExternalID),
+		DisplayName:   strings.TrimSpace(p.DisplayName),
+		Provider:      ProviderFields{},
+		Attributes:    attrs,
+		Raw:           copyMap(p.Raw),
+	}
+}
+
+type CredentialAuditEventPayload struct {
+	EventExternalID      string
+	EventType            string
+	EventTime            time.Time
+	ActorKind            string
+	ActorExternalID      string
+	ActorDisplayName     string
+	TargetKind           string
+	TargetExternalID     string
+	TargetDisplayName    string
+	CredentialKind       string
+	CredentialExternalID string
+	ProviderAttrs        map[string]any
+	Raw                  map[string]any
+}
+
+func (p CredentialAuditEventPayload) ResourceName() ResourceName { return ResourceAuditEvent }
+func (p CredentialAuditEventPayload) SchemaVersion() int         { return 1 }
+
+func (p CredentialAuditEventPayload) Validate() error {
+	if strings.TrimSpace(p.EventExternalID) == "" {
+		return errors.New("credential audit event external_id is required")
+	}
+	if p.EventTime.IsZero() {
+		return errors.New("credential audit event time is required")
+	}
+	return nil
+}
+
+func (p CredentialAuditEventPayload) ToEnvelope() ResourceEnvelope {
+	attrs := copyMap(p.ProviderAttrs)
+	attrs["event_type"] = strings.TrimSpace(p.EventType)
+	attrs["event_time"] = p.EventTime.UTC()
+	attrs["actor_kind"] = strings.TrimSpace(p.ActorKind)
+	attrs["actor_external_id"] = strings.TrimSpace(p.ActorExternalID)
+	attrs["actor_display_name"] = strings.TrimSpace(p.ActorDisplayName)
+	attrs["target_kind"] = strings.TrimSpace(p.TargetKind)
+	attrs["target_external_id"] = strings.TrimSpace(p.TargetExternalID)
+	attrs["target_display_name"] = strings.TrimSpace(p.TargetDisplayName)
+	attrs["credential_kind"] = strings.TrimSpace(p.CredentialKind)
+	attrs["credential_external_id"] = strings.TrimSpace(p.CredentialExternalID)
+	return ResourceEnvelope{
+		Resource:      p.ResourceName(),
+		SchemaVersion: p.SchemaVersion(),
+		ExternalID:    strings.TrimSpace(p.EventExternalID),
+		DisplayName:   strings.TrimSpace(p.EventType),
 		Provider:      ProviderFields{},
 		Attributes:    attrs,
 		Raw:           copyMap(p.Raw),
@@ -287,6 +539,17 @@ func copyMap(in map[string]any) map[string]any {
 			continue
 		}
 		out[k] = v
+	}
+	return out
+}
+
+func MapFromJSON(raw []byte) map[string]any {
+	out := map[string]any{}
+	if len(raw) == 0 {
+		return out
+	}
+	if err := json.Unmarshal(raw, &out); err != nil || out == nil {
+		return map[string]any{}
 	}
 	return out
 }

@@ -9,8 +9,9 @@ import (
 	"sync/atomic"
 
 	msgraphmodels "github.com/microsoftgraph/msgraph-sdk-go/models"
+	"github.com/open-sspm/open-sspm/internal/connectors/capabilities"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
-	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/records"
 )
 
 const (
@@ -552,7 +553,7 @@ func normalizeAppRoleAssignmentPrincipalType(value string) string {
 	}
 }
 
-func (i *EntraIntegration) upsertEntraEntitlements(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []entraEntitlementUpsertRow) error {
+func (i *EntraIntegration) upsertEntraEntitlements(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, rows []entraEntitlementUpsertRow) error {
 	report(registry.Event{
 		Source:  "entra",
 		Stage:   "write-entitlements",
@@ -564,43 +565,34 @@ func (i *EntraIntegration) upsertEntraEntitlements(ctx context.Context, q *gen.Q
 		return nil
 	}
 
-	for start := 0; start < len(rows); start += entraEntitlementBatchSize {
-		end := min(start+entraEntitlementBatchSize, len(rows))
-		batch := rows[start:end]
-
-		accountExternalIDs := make([]string, 0, len(batch))
-		kinds := make([]string, 0, len(batch))
-		resources := make([]string, 0, len(batch))
-		permissions := make([]string, 0, len(batch))
-		rawJSONs := make([][]byte, 0, len(batch))
-		for _, row := range batch {
-			accountExternalIDs = append(accountExternalIDs, row.AccountExternalID)
-			kinds = append(kinds, row.Kind)
-			resources = append(resources, row.Resource)
-			permissions = append(permissions, row.Permission)
-			rawJSONs = append(rawJSONs, row.RawJSON)
-		}
-
-		if _, err := q.UpsertEntitlementsBulkBySource(ctx, gen.UpsertEntitlementsBulkBySourceParams{
-			SourceKind:         "entra",
-			SourceName:         i.tenantID,
-			SeenInRunID:        runID,
-			AccountExternalIds: accountExternalIDs,
-			Kinds:              kinds,
-			Resources:          resources,
-			Permissions:        permissions,
-			RawJsons:           rawJSONs,
+	for idx, row := range rows {
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: "entra", Name: i.tenantID},
+			Resource:       records.ResourceEntitlement,
+			Key:            entraEntitlementKey(row.AccountExternalID, row.Kind, row.Resource, row.Permission),
+			ProviderID:     entraEntitlementKey(row.AccountExternalID, row.Kind, row.Resource, row.Permission),
+			DedupeKeyValue: fmt.Sprintf("entra:%s:entitlement:%s", i.tenantID, entraEntitlementKey(row.AccountExternalID, row.Kind, row.Resource, row.Permission)),
+			Payload: records.EntitlementPayload{
+				ExternalID: entraEntitlementKey(row.AccountExternalID, row.Kind, row.Resource, row.Permission),
+				Kind:       row.Kind,
+				Subject:    records.ResourceRef{Resource: records.ResourceIdentity, ExternalID: row.AccountExternalID},
+				Target:     records.ResourceRef{Resource: records.ResourceAppAsset, ExternalID: row.Resource},
+				Permission: row.Permission,
+				Raw:        records.MapFromJSON(row.RawJSON),
+			},
 		}); err != nil {
-			return fmt.Errorf("upsert entra entitlements: %w", err)
+			return fmt.Errorf("emit entra entitlement %s state: %w", row.AccountExternalID, err)
 		}
-
-		report(registry.Event{
-			Source:  "entra",
-			Stage:   "write-entitlements",
-			Current: int64(end),
-			Total:   int64(len(rows)),
-			Message: fmt.Sprintf("entitlements %d/%d", end, len(rows)),
-		})
+		current := idx + 1
+		if current%entraEntitlementBatchSize == 0 || current == len(rows) {
+			report(registry.Event{
+				Source:  "entra",
+				Stage:   "write-entitlements",
+				Current: int64(current),
+				Total:   int64(len(rows)),
+				Message: fmt.Sprintf("entitlements %d/%d", current, len(rows)),
+			})
+		}
 	}
 
 	return nil

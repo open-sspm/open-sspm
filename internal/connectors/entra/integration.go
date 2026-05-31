@@ -13,10 +13,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	msgraphmodels "github.com/microsoftgraph/msgraph-sdk-go/models"
+	"github.com/open-sspm/open-sspm/internal/connectors/capabilities"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/discovery"
+	"github.com/open-sspm/open-sspm/internal/ingest/recorddispatch"
 	"github.com/open-sspm/open-sspm/internal/metrics"
+	"github.com/open-sspm/open-sspm/internal/records"
 )
 
 const (
@@ -195,7 +198,8 @@ func (i *EntraIntegration) runDiscovery(ctx context.Context, q *gen.Queries, poo
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindAPI)
 	}
 
-	if err := i.syncDiscovery(ctx, q, report, runID, applications, servicePrincipals); err != nil {
+	emitter := recorddispatch.NewDispatcher(nil, recorddispatch.NewSQLStateProjector(q, runID))
+	if err := i.syncDiscovery(ctx, q, emitter, report, runID, applications, servicePrincipals); err != nil {
 		report(registry.Event{Source: "entra", Stage: "write-discovery", Message: err.Error(), Err: err})
 		return registry.FailSyncRun(ctx, q, runID, err, registry.SyncErrorKindUnknown)
 	}
@@ -206,20 +210,11 @@ func (i *EntraIntegration) runDiscovery(ctx context.Context, q *gen.Queries, poo
 	return nil
 }
 
-func (i *EntraIntegration) writeUsers(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, users []User) (int, error) {
+func (i *EntraIntegration) writeUsers(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, users []User) (int, error) {
 	report(registry.Event{Source: "entra", Stage: "list-users", Current: 1, Total: 1, Message: fmt.Sprintf("found %d users", len(users))})
 	report(registry.Event{Source: "entra", Stage: "write-users", Current: 0, Total: int64(len(users)), Message: fmt.Sprintf("writing %d users", len(users))})
 
-	externalIDs := make([]string, 0, len(users))
-	emails := make([]string, 0, len(users))
-	displayNames := make([]string, 0, len(users))
-	accountKinds := make([]string, 0, len(users))
-	entityCategories := make([]string, 0, len(users))
-	rawJSONs := make([][]byte, 0, len(users))
-	lastLoginAts := make([]pgtype.Timestamptz, 0, len(users))
-	lastLoginIps := make([]string, 0, len(users))
-	lastLoginRegions := make([]string, 0, len(users))
-
+	written := 0
 	for _, user := range users {
 		externalID := entityID(user)
 		if externalID == "" {
@@ -243,51 +238,45 @@ func (i *EntraIntegration) writeUsers(ctx context.Context, q *gen.Queries, repor
 			return 0, fmt.Errorf("serialize entra user %s: %w", externalID, err)
 		}
 
-		externalIDs = append(externalIDs, externalID)
-		emails = append(emails, email)
-		displayNames = append(displayNames, display)
-		accountKinds = append(accountKinds, entraUserAccountKind(user))
-		entityCategories = append(entityCategories, registry.EntityCategoryUser)
-		rawJSONs = append(rawJSONs, registry.WithEntityCategory(raw, registry.EntityCategoryUser))
-		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
-		lastLoginIps = append(lastLoginIps, "")
-		lastLoginRegions = append(lastLoginRegions, "")
-	}
-
-	for start := 0; start < len(externalIDs); start += entraUserBatchSize {
-		end := min(start+entraUserBatchSize, len(externalIDs))
-
-		_, err := q.UpsertSourceAccountsBulkBySource(ctx, gen.UpsertSourceAccountsBulkBySourceParams{
-			SourceKind:       "entra",
-			SourceName:       i.tenantID,
-			SeenInRunID:      runID,
-			ExternalIds:      externalIDs[start:end],
-			Emails:           emails[start:end],
-			DisplayNames:     displayNames[start:end],
-			AccountKinds:     accountKinds[start:end],
-			EntityCategories: entityCategories[start:end],
-			RawJsons:         rawJSONs[start:end],
-			LastLoginAts:     lastLoginAts[start:end],
-			LastLoginIps:     lastLoginIps[start:end],
-			LastLoginRegions: lastLoginRegions[start:end],
-		})
-		if err != nil {
-			return 0, err
+		raw = registry.WithEntityCategory(raw, registry.EntityCategoryUser)
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: "entra", Name: i.tenantID},
+			Resource:       records.ResourceIdentity,
+			Key:            externalID,
+			ProviderID:     externalID,
+			ObservedAt:     time.Now().UTC(),
+			DedupeKeyValue: fmt.Sprintf("entra:%s:identity:%s", i.tenantID, externalID),
+			Payload: records.IdentityPayload{
+				ExternalID:  externalID,
+				Email:       email,
+				DisplayName: display,
+				Status:      entraAccountStatus(user.GetAccountEnabled()),
+				ProviderAttrs: map[string]any{
+					"account_kind":    entraUserAccountKind(user),
+					"entity_category": registry.EntityCategoryUser,
+				},
+				Raw: records.MapFromJSON(raw),
+			},
+		}); err != nil {
+			return 0, fmt.Errorf("emit entra user %s state: %w", externalID, err)
 		}
+		written++
 
-		report(registry.Event{
-			Source:  "entra",
-			Stage:   "write-users",
-			Current: int64(end),
-			Total:   int64(len(externalIDs)),
-			Message: fmt.Sprintf("users %d/%d", end, len(externalIDs)),
-		})
+		if written%entraUserBatchSize == 0 || written == len(users) {
+			report(registry.Event{
+				Source:  "entra",
+				Stage:   "write-users",
+				Current: int64(written),
+				Total:   int64(len(users)),
+				Message: fmt.Sprintf("users %d/%d", written, len(users)),
+			})
+		}
 	}
 
-	return len(externalIDs), nil
+	return written, nil
 }
 
-func (i *EntraIntegration) writeGroups(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, groups []Group) (int, error) {
+func (i *EntraIntegration) writeGroups(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, groups []Group) (int, error) {
 	report(registry.Event{Source: "entra", Stage: "list-groups", Current: 1, Total: 1, Message: fmt.Sprintf("found %d groups", len(groups))})
 	if len(groups) == 0 {
 		return 0, nil
@@ -295,16 +284,7 @@ func (i *EntraIntegration) writeGroups(ctx context.Context, q *gen.Queries, repo
 
 	report(registry.Event{Source: "entra", Stage: "write-users", Current: 0, Total: int64(len(groups)), Message: fmt.Sprintf("writing %d groups", len(groups))})
 
-	externalIDs := make([]string, 0, len(groups))
-	emails := make([]string, 0, len(groups))
-	displayNames := make([]string, 0, len(groups))
-	accountKinds := make([]string, 0, len(groups))
-	entityCategories := make([]string, 0, len(groups))
-	rawJSONs := make([][]byte, 0, len(groups))
-	lastLoginAts := make([]pgtype.Timestamptz, 0, len(groups))
-	lastLoginIps := make([]string, 0, len(groups))
-	lastLoginRegions := make([]string, 0, len(groups))
-
+	written := 0
 	for _, group := range groups {
 		externalID := entraGroupExternalID(entityID(group))
 		if externalID == "" {
@@ -316,57 +296,50 @@ func (i *EntraIntegration) writeGroups(ctx context.Context, q *gen.Queries, repo
 			display = externalID
 		}
 
-		externalIDs = append(externalIDs, externalID)
-		emails = append(emails, normalizeEmail(stringValue(group.GetMail())))
-		displayNames = append(displayNames, display)
-		accountKinds = append(accountKinds, entraGroupAccountKind(group))
-		entityCategories = append(entityCategories, registry.EntityCategoryGroup)
 		raw, err := mergeSerializedSDKModel(group, map[string]any{
 			"status": "",
 		})
 		if err != nil {
 			return 0, fmt.Errorf("serialize entra group %s: %w", externalID, err)
 		}
-		rawJSONs = append(rawJSONs, registry.WithEntityCategory(raw, registry.EntityCategoryGroup))
-		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
-		lastLoginIps = append(lastLoginIps, "")
-		lastLoginRegions = append(lastLoginRegions, "")
-	}
-
-	for start := 0; start < len(externalIDs); start += entraUserBatchSize {
-		end := min(start+entraUserBatchSize, len(externalIDs))
-
-		_, err := q.UpsertSourceAccountsBulkBySource(ctx, gen.UpsertSourceAccountsBulkBySourceParams{
-			SourceKind:       "entra",
-			SourceName:       i.tenantID,
-			SeenInRunID:      runID,
-			ExternalIds:      externalIDs[start:end],
-			Emails:           emails[start:end],
-			DisplayNames:     displayNames[start:end],
-			AccountKinds:     accountKinds[start:end],
-			EntityCategories: entityCategories[start:end],
-			RawJsons:         rawJSONs[start:end],
-			LastLoginAts:     lastLoginAts[start:end],
-			LastLoginIps:     lastLoginIps[start:end],
-			LastLoginRegions: lastLoginRegions[start:end],
-		})
-		if err != nil {
-			return 0, err
+		raw = registry.WithEntityCategory(raw, registry.EntityCategoryGroup)
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: "entra", Name: i.tenantID},
+			Resource:       records.ResourceGroup,
+			Key:            externalID,
+			ProviderID:     externalID,
+			ObservedAt:     time.Now().UTC(),
+			DedupeKeyValue: fmt.Sprintf("entra:%s:group:%s", i.tenantID, externalID),
+			Payload: records.GroupPayload{
+				ExternalID:  externalID,
+				DisplayName: display,
+				ProviderAttrs: map[string]any{
+					"email":           normalizeEmail(stringValue(group.GetMail())),
+					"account_kind":    entraGroupAccountKind(group),
+					"entity_category": registry.EntityCategoryGroup,
+				},
+				Raw: records.MapFromJSON(raw),
+			},
+		}); err != nil {
+			return 0, fmt.Errorf("emit entra group %s state: %w", externalID, err)
 		}
+		written++
 
-		report(registry.Event{
-			Source:  "entra",
-			Stage:   "write-users",
-			Current: int64(end),
-			Total:   int64(len(externalIDs)),
-			Message: fmt.Sprintf("groups %d/%d", end, len(externalIDs)),
-		})
+		if written%entraUserBatchSize == 0 || written == len(groups) {
+			report(registry.Event{
+				Source:  "entra",
+				Stage:   "write-users",
+				Current: int64(written),
+				Total:   int64(len(groups)),
+				Message: fmt.Sprintf("groups %d/%d", written, len(groups)),
+			})
+		}
 	}
 
-	return len(externalIDs), nil
+	return written, nil
 }
 
-func (i *EntraIntegration) writeServicePrincipalAccounts(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, servicePrincipals []ServicePrincipal) (int, error) {
+func (i *EntraIntegration) writeServicePrincipalAccounts(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, servicePrincipals []ServicePrincipal) (int, error) {
 	if len(servicePrincipals) == 0 {
 		return 0, nil
 	}
@@ -379,16 +352,7 @@ func (i *EntraIntegration) writeServicePrincipalAccounts(ctx context.Context, q 
 		Message: fmt.Sprintf("writing %d service principals", len(servicePrincipals)),
 	})
 
-	externalIDs := make([]string, 0, len(servicePrincipals))
-	emails := make([]string, 0, len(servicePrincipals))
-	displayNames := make([]string, 0, len(servicePrincipals))
-	accountKinds := make([]string, 0, len(servicePrincipals))
-	entityCategories := make([]string, 0, len(servicePrincipals))
-	rawJSONs := make([][]byte, 0, len(servicePrincipals))
-	lastLoginAts := make([]pgtype.Timestamptz, 0, len(servicePrincipals))
-	lastLoginIps := make([]string, 0, len(servicePrincipals))
-	lastLoginRegions := make([]string, 0, len(servicePrincipals))
-
+	written := 0
 	for _, sp := range servicePrincipals {
 		externalID := entraServicePrincipalExternalID(entityID(sp))
 		if externalID == "" {
@@ -403,54 +367,47 @@ func (i *EntraIntegration) writeServicePrincipalAccounts(ctx context.Context, q 
 			display = externalID
 		}
 
-		externalIDs = append(externalIDs, externalID)
-		emails = append(emails, "")
-		displayNames = append(displayNames, display)
-		accountKinds = append(accountKinds, entraServicePrincipalAccountKind(sp))
-		entityCategories = append(entityCategories, registry.EntityCategoryServicePrincipal)
 		raw, err := mergeSerializedSDKModel(sp, map[string]any{
 			"status": entraAccountStatus(sp.GetAccountEnabled()),
 		})
 		if err != nil {
 			return 0, fmt.Errorf("serialize entra service principal %s: %w", externalID, err)
 		}
-		rawJSONs = append(rawJSONs, registry.WithEntityCategory(raw, registry.EntityCategoryServicePrincipal))
-		lastLoginAts = append(lastLoginAts, pgtype.Timestamptz{})
-		lastLoginIps = append(lastLoginIps, "")
-		lastLoginRegions = append(lastLoginRegions, "")
-	}
-
-	for start := 0; start < len(externalIDs); start += entraUserBatchSize {
-		end := min(start+entraUserBatchSize, len(externalIDs))
-
-		_, err := q.UpsertSourceAccountsBulkBySource(ctx, gen.UpsertSourceAccountsBulkBySourceParams{
-			SourceKind:       "entra",
-			SourceName:       i.tenantID,
-			SeenInRunID:      runID,
-			ExternalIds:      externalIDs[start:end],
-			Emails:           emails[start:end],
-			DisplayNames:     displayNames[start:end],
-			AccountKinds:     accountKinds[start:end],
-			EntityCategories: entityCategories[start:end],
-			RawJsons:         rawJSONs[start:end],
-			LastLoginAts:     lastLoginAts[start:end],
-			LastLoginIps:     lastLoginIps[start:end],
-			LastLoginRegions: lastLoginRegions[start:end],
-		})
-		if err != nil {
-			return 0, err
+		raw = registry.WithEntityCategory(raw, registry.EntityCategoryServicePrincipal)
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: "entra", Name: i.tenantID},
+			Resource:       records.ResourceServicePrincipal,
+			Key:            externalID,
+			ProviderID:     externalID,
+			ObservedAt:     time.Now().UTC(),
+			DedupeKeyValue: fmt.Sprintf("entra:%s:service_principal:%s", i.tenantID, externalID),
+			Payload: records.ServicePrincipalPayload{
+				ExternalID:  externalID,
+				DisplayName: display,
+				Status:      entraAccountStatus(sp.GetAccountEnabled()),
+				ProviderAttrs: map[string]any{
+					"account_kind":    entraServicePrincipalAccountKind(sp),
+					"entity_category": registry.EntityCategoryServicePrincipal,
+				},
+				Raw: records.MapFromJSON(raw),
+			},
+		}); err != nil {
+			return 0, fmt.Errorf("emit entra service principal %s state: %w", externalID, err)
 		}
+		written++
 
-		report(registry.Event{
-			Source:  "entra",
-			Stage:   "write-users",
-			Current: int64(end),
-			Total:   int64(len(externalIDs)),
-			Message: fmt.Sprintf("service principals %d/%d", end, len(externalIDs)),
-		})
+		if written%entraUserBatchSize == 0 || written == len(servicePrincipals) {
+			report(registry.Event{
+				Source:  "entra",
+				Stage:   "write-users",
+				Current: int64(written),
+				Total:   int64(len(servicePrincipals)),
+				Message: fmt.Sprintf("service principals %d/%d", written, len(servicePrincipals)),
+			})
+		}
 	}
 
-	return len(externalIDs), nil
+	return written, nil
 }
 
 func buildEntraAssetAndCredentialRows(applications []Application, servicePrincipals []ServicePrincipal) ([]appAssetUpsertRow, []credentialArtifactUpsertRow, error) {
@@ -721,181 +678,112 @@ func buildOwnerRows(assetKind, assetExternalID string, owners []DirectoryOwner) 
 	return rows, nil
 }
 
-func (i *EntraIntegration) upsertAppAssets(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []appAssetUpsertRow) error {
+func (i *EntraIntegration) upsertAppAssets(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, rows []appAssetUpsertRow) error {
 	report(registry.Event{Source: "entra", Stage: "write-app-assets", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d app assets", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
 
-	for start := 0; start < len(rows); start += entraAppAssetBatchSize {
-		end := min(start+entraAppAssetBatchSize, len(rows))
-		batch := rows[start:end]
-
-		assetKinds := make([]string, 0, len(batch))
-		externalIDs := make([]string, 0, len(batch))
-		parentExternalIDs := make([]string, 0, len(batch))
-		displayNames := make([]string, 0, len(batch))
-		statuses := make([]string, 0, len(batch))
-		createdAtSources := make([]pgtype.Timestamptz, 0, len(batch))
-		updatedAtSources := make([]pgtype.Timestamptz, 0, len(batch))
-		rawJSONs := make([][]byte, 0, len(batch))
-		for _, row := range batch {
-			assetKinds = append(assetKinds, row.AssetKind)
-			externalIDs = append(externalIDs, row.ExternalID)
-			parentExternalIDs = append(parentExternalIDs, row.ParentExternalID)
-			displayNames = append(displayNames, row.DisplayName)
-			statuses = append(statuses, row.Status)
-			createdAtSources = append(createdAtSources, row.CreatedAtSource)
-			updatedAtSources = append(updatedAtSources, row.UpdatedAtSource)
-			rawJSONs = append(rawJSONs, row.RawJSON)
-		}
-
-		if _, err := q.UpsertAppAssetsBulkBySource(ctx, gen.UpsertAppAssetsBulkBySourceParams{
-			SourceKind:        "entra",
-			SourceName:        i.tenantID,
-			SeenInRunID:       runID,
-			AssetKinds:        assetKinds,
-			ExternalIds:       externalIDs,
-			ParentExternalIds: parentExternalIDs,
-			DisplayNames:      displayNames,
-			Statuses:          statuses,
-			CreatedAtSources:  createdAtSources,
-			UpdatedAtSources:  updatedAtSources,
-			RawJsons:          rawJSONs,
+	for idx, row := range rows {
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: "entra", Name: i.tenantID},
+			Resource:       records.ResourceAppAsset,
+			Key:            appAssetRefExternalID(row.AssetKind, row.ExternalID),
+			ProviderID:     row.ExternalID,
+			ObservedAt:     time.Now().UTC(),
+			DedupeKeyValue: fmt.Sprintf("entra:%s:app_asset:%s:%s", i.tenantID, row.AssetKind, row.ExternalID),
+			Payload: records.AppAssetPayload{
+				AssetKind:        row.AssetKind,
+				ExternalID:       row.ExternalID,
+				ParentExternalID: row.ParentExternalID,
+				DisplayName:      row.DisplayName,
+				Status:           row.Status,
+				CreatedAtSource:  pgTime(row.CreatedAtSource),
+				UpdatedAtSource:  pgTime(row.UpdatedAtSource),
+				Raw:              records.MapFromJSON(row.RawJSON),
+			},
 		}); err != nil {
-			return err
+			return fmt.Errorf("emit entra app asset %s/%s state: %w", row.AssetKind, row.ExternalID, err)
 		}
-
-		report(registry.Event{Source: "entra", Stage: "write-app-assets", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("app assets %d/%d", end, len(rows))})
+		current := idx + 1
+		if current%entraAppAssetBatchSize == 0 || current == len(rows) {
+			report(registry.Event{Source: "entra", Stage: "write-app-assets", Current: int64(current), Total: int64(len(rows)), Message: fmt.Sprintf("app assets %d/%d", current, len(rows))})
+		}
 	}
 
 	return nil
 }
 
-func (i *EntraIntegration) upsertAppAssetOwners(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []appAssetOwnerUpsertRow) error {
+func (i *EntraIntegration) upsertAppAssetOwners(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, rows []appAssetOwnerUpsertRow) error {
 	report(registry.Event{Source: "entra", Stage: "write-owners", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d owner rows", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
 
-	for start := 0; start < len(rows); start += entraOwnerBatchSize {
-		end := min(start+entraOwnerBatchSize, len(rows))
-		batch := rows[start:end]
-
-		assetKinds := make([]string, 0, len(batch))
-		assetExternalIDs := make([]string, 0, len(batch))
-		ownerKinds := make([]string, 0, len(batch))
-		ownerExternalIDs := make([]string, 0, len(batch))
-		ownerDisplayNames := make([]string, 0, len(batch))
-		ownerEmails := make([]string, 0, len(batch))
-		rawJSONs := make([][]byte, 0, len(batch))
-		for _, row := range batch {
-			assetKinds = append(assetKinds, row.AssetKind)
-			assetExternalIDs = append(assetExternalIDs, row.AssetExternalID)
-			ownerKinds = append(ownerKinds, row.OwnerKind)
-			ownerExternalIDs = append(ownerExternalIDs, row.OwnerExternalID)
-			ownerDisplayNames = append(ownerDisplayNames, row.OwnerDisplayName)
-			ownerEmails = append(ownerEmails, row.OwnerEmail)
-			rawJSONs = append(rawJSONs, row.RawJSON)
-		}
-
-		if _, err := q.UpsertAppAssetOwnersBulkBySource(ctx, gen.UpsertAppAssetOwnersBulkBySourceParams{
-			SeenInRunID:       runID,
-			SourceKind:        "entra",
-			SourceName:        i.tenantID,
-			AssetKinds:        assetKinds,
-			AssetExternalIds:  assetExternalIDs,
-			OwnerKinds:        ownerKinds,
-			OwnerExternalIds:  ownerExternalIDs,
-			OwnerDisplayNames: ownerDisplayNames,
-			OwnerEmails:       ownerEmails,
-			RawJsons:          rawJSONs,
+	for idx, row := range rows {
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: "entra", Name: i.tenantID},
+			Resource:       records.ResourceAppAssetOwner,
+			Key:            appAssetRefExternalID(row.AssetKind, row.AssetExternalID) + ":" + row.OwnerKind + ":" + row.OwnerExternalID,
+			ProviderID:     row.OwnerExternalID,
+			ObservedAt:     time.Now().UTC(),
+			DedupeKeyValue: fmt.Sprintf("entra:%s:app_asset_owner:%s:%s:%s:%s", i.tenantID, row.AssetKind, row.AssetExternalID, row.OwnerKind, row.OwnerExternalID),
+			Payload: records.AppAssetOwnerPayload{
+				AssetKind:        row.AssetKind,
+				AssetExternalID:  row.AssetExternalID,
+				OwnerKind:        row.OwnerKind,
+				OwnerExternalID:  row.OwnerExternalID,
+				OwnerDisplayName: row.OwnerDisplayName,
+				OwnerEmail:       row.OwnerEmail,
+				Raw:              records.MapFromJSON(row.RawJSON),
+			},
 		}); err != nil {
-			return err
+			return fmt.Errorf("emit entra app asset owner %s/%s/%s state: %w", row.AssetKind, row.AssetExternalID, row.OwnerExternalID, err)
 		}
-
-		report(registry.Event{Source: "entra", Stage: "write-owners", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("owners %d/%d", end, len(rows))})
+		current := idx + 1
+		if current%entraOwnerBatchSize == 0 || current == len(rows) {
+			report(registry.Event{Source: "entra", Stage: "write-owners", Current: int64(current), Total: int64(len(rows)), Message: fmt.Sprintf("owners %d/%d", current, len(rows))})
+		}
 	}
 
 	return nil
 }
 
-func (i *EntraIntegration) upsertCredentialArtifacts(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, rows []credentialArtifactUpsertRow) error {
+func (i *EntraIntegration) upsertCredentialArtifacts(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, rows []credentialArtifactUpsertRow) error {
 	report(registry.Event{Source: "entra", Stage: "write-credentials", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d credential rows", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
 
-	for start := 0; start < len(rows); start += entraCredentialBatchSize {
-		end := min(start+entraCredentialBatchSize, len(rows))
-		batch := rows[start:end]
-
-		assetRefKinds := make([]string, 0, len(batch))
-		assetRefExternalIDs := make([]string, 0, len(batch))
-		credentialKinds := make([]string, 0, len(batch))
-		externalIDs := make([]string, 0, len(batch))
-		displayNames := make([]string, 0, len(batch))
-		fingerprints := make([]string, 0, len(batch))
-		scopeJSONs := make([][]byte, 0, len(batch))
-		statuses := make([]string, 0, len(batch))
-		createdAtSources := make([]pgtype.Timestamptz, 0, len(batch))
-		expiresAtSources := make([]pgtype.Timestamptz, 0, len(batch))
-		lastUsedAtSources := make([]pgtype.Timestamptz, 0, len(batch))
-		createdByKinds := make([]string, 0, len(batch))
-		createdByExternalIDs := make([]string, 0, len(batch))
-		createdByDisplayNames := make([]string, 0, len(batch))
-		approvedByKinds := make([]string, 0, len(batch))
-		approvedByExternalIDs := make([]string, 0, len(batch))
-		approvedByDisplayNames := make([]string, 0, len(batch))
-		rawJSONs := make([][]byte, 0, len(batch))
-		for _, row := range batch {
-			assetRefKinds = append(assetRefKinds, row.AssetRefKind)
-			assetRefExternalIDs = append(assetRefExternalIDs, row.AssetRefExternalID)
-			credentialKinds = append(credentialKinds, row.CredentialKind)
-			externalIDs = append(externalIDs, row.ExternalID)
-			displayNames = append(displayNames, row.DisplayName)
-			fingerprints = append(fingerprints, row.Fingerprint)
-			scopeJSONs = append(scopeJSONs, row.ScopeJSON)
-			statuses = append(statuses, row.Status)
-			createdAtSources = append(createdAtSources, row.CreatedAtSource)
-			expiresAtSources = append(expiresAtSources, row.ExpiresAtSource)
-			lastUsedAtSources = append(lastUsedAtSources, row.LastUsedAtSource)
-			createdByKinds = append(createdByKinds, "")
-			createdByExternalIDs = append(createdByExternalIDs, "")
-			createdByDisplayNames = append(createdByDisplayNames, "")
-			approvedByKinds = append(approvedByKinds, "")
-			approvedByExternalIDs = append(approvedByExternalIDs, "")
-			approvedByDisplayNames = append(approvedByDisplayNames, "")
-			rawJSONs = append(rawJSONs, row.RawJSON)
-		}
-
-		if _, err := q.UpsertCredentialArtifactsBulkBySource(ctx, gen.UpsertCredentialArtifactsBulkBySourceParams{
-			SourceKind:             "entra",
-			SourceName:             i.tenantID,
-			SeenInRunID:            runID,
-			AssetRefKinds:          assetRefKinds,
-			AssetRefExternalIds:    assetRefExternalIDs,
-			CredentialKinds:        credentialKinds,
-			ExternalIds:            externalIDs,
-			DisplayNames:           displayNames,
-			Fingerprints:           fingerprints,
-			ScopeJsons:             scopeJSONs,
-			Statuses:               statuses,
-			CreatedAtSources:       createdAtSources,
-			ExpiresAtSources:       expiresAtSources,
-			LastUsedAtSources:      lastUsedAtSources,
-			CreatedByKinds:         createdByKinds,
-			CreatedByExternalIds:   createdByExternalIDs,
-			CreatedByDisplayNames:  createdByDisplayNames,
-			ApprovedByKinds:        approvedByKinds,
-			ApprovedByExternalIds:  approvedByExternalIDs,
-			ApprovedByDisplayNames: approvedByDisplayNames,
-			RawJsons:               rawJSONs,
+	for idx, row := range rows {
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: "entra", Name: i.tenantID},
+			Resource:       records.ResourceCredential,
+			Key:            row.AssetRefKind + ":" + row.AssetRefExternalID + ":" + row.CredentialKind + ":" + row.ExternalID,
+			ProviderID:     row.ExternalID,
+			ObservedAt:     time.Now().UTC(),
+			DedupeKeyValue: fmt.Sprintf("entra:%s:credential:%s:%s:%s:%s", i.tenantID, row.AssetRefKind, row.AssetRefExternalID, row.CredentialKind, row.ExternalID),
+			Payload: records.CredentialPayload{
+				AssetRefKind:       row.AssetRefKind,
+				AssetRefExternalID: row.AssetRefExternalID,
+				CredentialKind:     row.CredentialKind,
+				ExternalID:         row.ExternalID,
+				DisplayName:        row.DisplayName,
+				Fingerprint:        row.Fingerprint,
+				ScopeJSON:          row.ScopeJSON,
+				Status:             row.Status,
+				CreatedAtSource:    pgTime(row.CreatedAtSource),
+				ExpiresAtSource:    pgTime(row.ExpiresAtSource),
+				LastUsedAtSource:   pgTime(row.LastUsedAtSource),
+				Raw:                records.MapFromJSON(row.RawJSON),
+			},
 		}); err != nil {
-			return err
+			return fmt.Errorf("emit entra credential %s/%s state: %w", row.CredentialKind, row.ExternalID, err)
 		}
-
-		report(registry.Event{Source: "entra", Stage: "write-credentials", Current: int64(end), Total: int64(len(rows)), Message: fmt.Sprintf("credentials %d/%d", end, len(rows))})
+		current := idx + 1
+		if current%entraCredentialBatchSize == 0 || current == len(rows) {
+			report(registry.Event{Source: "entra", Stage: "write-credentials", Current: int64(current), Total: int64(len(rows)), Message: fmt.Sprintf("credentials %d/%d", current, len(rows))})
+		}
 	}
 
 	return nil
@@ -1139,76 +1027,53 @@ func extractCredentialExternalIDFromValue(v any) string {
 	return ""
 }
 
-func (i *EntraIntegration) upsertCredentialAuditEvents(ctx context.Context, q *gen.Queries, report func(registry.Event), rows []credentialAuditEventUpsertRow) error {
+func (i *EntraIntegration) upsertCredentialAuditEvents(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), rows []credentialAuditEventUpsertRow) error {
 	report(registry.Event{Source: "entra", Stage: "write-audit-events", Current: 0, Total: int64(len(rows)), Message: fmt.Sprintf("writing %d credential audit events", len(rows))})
 	if len(rows) == 0 {
 		return nil
 	}
 
-	for start := 0; start < len(rows); start += entraAuditEventBatchSize {
-		end := min(start+entraAuditEventBatchSize, len(rows))
-		batch := rows[start:end]
-
-		eventExternalIDs := make([]string, 0, len(batch))
-		eventTypes := make([]string, 0, len(batch))
-		eventTimes := make([]pgtype.Timestamptz, 0, len(batch))
-		actorKinds := make([]string, 0, len(batch))
-		actorExternalIDs := make([]string, 0, len(batch))
-		actorDisplayNames := make([]string, 0, len(batch))
-		targetKinds := make([]string, 0, len(batch))
-		targetExternalIDs := make([]string, 0, len(batch))
-		targetDisplayNames := make([]string, 0, len(batch))
-		credentialKinds := make([]string, 0, len(batch))
-		credentialExternalIDs := make([]string, 0, len(batch))
-		rawJSONs := make([][]byte, 0, len(batch))
-
-		for _, row := range batch {
-			eventExternalIDs = append(eventExternalIDs, row.EventExternalID)
-			eventTypes = append(eventTypes, row.EventType)
-			eventTimes = append(eventTimes, row.EventTime)
-			actorKinds = append(actorKinds, row.ActorKind)
-			actorExternalIDs = append(actorExternalIDs, row.ActorExternalID)
-			actorDisplayNames = append(actorDisplayNames, row.ActorDisplayName)
-			targetKinds = append(targetKinds, row.TargetKind)
-			targetExternalIDs = append(targetExternalIDs, row.TargetExternalID)
-			targetDisplayNames = append(targetDisplayNames, row.TargetDisplayName)
-			credentialKinds = append(credentialKinds, row.CredentialKind)
-			credentialExternalIDs = append(credentialExternalIDs, row.CredentialExternalID)
-			rawJSONs = append(rawJSONs, row.RawJSON)
-		}
-
-		if _, err := q.UpsertCredentialAuditEventsBulkBySource(ctx, gen.UpsertCredentialAuditEventsBulkBySourceParams{
-			SourceKind:            "entra",
-			SourceName:            i.tenantID,
-			EventExternalIds:      eventExternalIDs,
-			EventTypes:            eventTypes,
-			EventTimes:            eventTimes,
-			ActorKinds:            actorKinds,
-			ActorExternalIds:      actorExternalIDs,
-			ActorDisplayNames:     actorDisplayNames,
-			TargetKinds:           targetKinds,
-			TargetExternalIds:     targetExternalIDs,
-			TargetDisplayNames:    targetDisplayNames,
-			CredentialKinds:       credentialKinds,
-			CredentialExternalIds: credentialExternalIDs,
-			RawJsons:              rawJSONs,
+	for idx, row := range rows {
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: "entra", Name: i.tenantID},
+			Resource:       records.ResourceAuditEvent,
+			Key:            row.EventExternalID,
+			ProviderID:     row.EventExternalID,
+			ObservedAt:     pgTime(row.EventTime),
+			DedupeKeyValue: fmt.Sprintf("entra:%s:credential_audit_event:%s", i.tenantID, row.EventExternalID),
+			Payload: records.CredentialAuditEventPayload{
+				EventExternalID:      row.EventExternalID,
+				EventType:            row.EventType,
+				EventTime:            pgTime(row.EventTime),
+				ActorKind:            row.ActorKind,
+				ActorExternalID:      row.ActorExternalID,
+				ActorDisplayName:     row.ActorDisplayName,
+				TargetKind:           row.TargetKind,
+				TargetExternalID:     row.TargetExternalID,
+				TargetDisplayName:    row.TargetDisplayName,
+				CredentialKind:       row.CredentialKind,
+				CredentialExternalID: row.CredentialExternalID,
+				Raw:                  records.MapFromJSON(row.RawJSON),
+			},
 		}); err != nil {
-			return err
+			return fmt.Errorf("emit entra credential audit event %s state: %w", row.EventExternalID, err)
 		}
-
-		report(registry.Event{
-			Source:  "entra",
-			Stage:   "write-audit-events",
-			Current: int64(end),
-			Total:   int64(len(rows)),
-			Message: fmt.Sprintf("audit events %d/%d", end, len(rows)),
-		})
+		current := idx + 1
+		if current%entraAuditEventBatchSize == 0 || current == len(rows) {
+			report(registry.Event{
+				Source:  "entra",
+				Stage:   "write-audit-events",
+				Current: int64(current),
+				Total:   int64(len(rows)),
+				Message: fmt.Sprintf("audit events %d/%d", current, len(rows)),
+			})
+		}
 	}
 
 	return nil
 }
 
-func (i *EntraIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, applications []Application, servicePrincipals []ServicePrincipal) error {
+func (i *EntraIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, applications []Application, servicePrincipals []ServicePrincipal) error {
 	now := time.Now().UTC()
 
 	report(registry.Event{Source: "entra", Stage: "list-discovery-events", Current: 0, Total: 1, Message: "listing sign-ins and oauth grants"})
@@ -1260,7 +1125,7 @@ func (i *EntraIntegration) syncDiscovery(ctx context.Context, q *gen.Queries, re
 		Message: fmt.Sprintf("normalized %d source rows and %d events", len(sources), len(events)),
 	})
 
-	if err := i.writeDiscoveryRows(ctx, q, report, runID, sources, events); err != nil {
+	if err := i.writeDiscoveryRows(ctx, emitter, report, runID, sources, events); err != nil {
 		metrics.DiscoveryIngestFailuresTotal.WithLabelValues("entra", "idp_sso", "db_error").Inc()
 		return err
 	}
@@ -1558,15 +1423,68 @@ func normalizeEntraDiscovery(signIns []SignInEvent, grants []OAuth2PermissionGra
 	return sourceRows, events, nil
 }
 
-func (i *EntraIntegration) writeDiscoveryRows(ctx context.Context, q *gen.Queries, report func(registry.Event), runID int64, sources []discovery.SourceRow, events []discovery.EventRow) error {
-	return discovery.WriteRows(ctx, q, discovery.WriteRowsParams{
-		SourceKind: "entra",
-		SourceName: i.tenantID,
-		RunID:      runID,
-		Sources:    sources,
-		Events:     events,
-		Report:     registry.DiscoveryProgressReporter(report),
-	})
+func (i *EntraIntegration) writeDiscoveryRows(ctx context.Context, emitter capabilities.RecordEmitter, report func(registry.Event), runID int64, sources []discovery.SourceRow, events []discovery.EventRow) error {
+	total := len(sources) + len(events)
+	report(registry.Event{Source: "entra", Stage: "write-discovery", Current: 0, Total: int64(total), Message: fmt.Sprintf("writing %d discovery records", total)})
+	current := 0
+	for _, row := range sources {
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: "entra", Name: i.tenantID},
+			Resource:       records.ResourceDiscoveryEvidence,
+			Key:            "source:" + row.SourceAppID,
+			ProviderID:     row.SourceAppID,
+			ObservedAt:     row.SeenAt,
+			DedupeKeyValue: fmt.Sprintf("entra:%s:discovery_source:%s", i.tenantID, row.SourceAppID),
+			Payload: records.DiscoveryEvidencePayload{
+				ExternalID:       "source:" + row.SourceAppID,
+				Kind:             records.DiscoveryEvidenceKindSource,
+				CanonicalKey:     row.CanonicalKey,
+				SourceAppID:      row.SourceAppID,
+				SourceAppName:    row.SourceAppName,
+				SourceAppDomain:  row.SourceAppDomain,
+				SourceVendorName: row.SourceVendorName,
+				SourceCategory:   row.SourceCategory,
+				ObservedAt:       row.SeenAt,
+			},
+		}); err != nil {
+			return fmt.Errorf("emit entra discovery source %s state: %w", row.SourceAppID, err)
+		}
+		current++
+		report(registry.Event{Source: "entra", Stage: "write-discovery", Current: int64(current), Total: int64(total), Message: fmt.Sprintf("discovery records %d/%d", current, total)})
+	}
+	for _, row := range events {
+		if err := emitter.UpsertState(ctx, records.StateUpsert{
+			Source:         records.SourceRef{Kind: "entra", Name: i.tenantID},
+			Resource:       records.ResourceDiscoveryEvidence,
+			Key:            "event:" + row.EventExternalID,
+			ProviderID:     row.EventExternalID,
+			ObservedAt:     row.ObservedAt,
+			DedupeKeyValue: fmt.Sprintf("entra:%s:discovery_event:%s", i.tenantID, row.EventExternalID),
+			Payload: records.DiscoveryEvidencePayload{
+				ExternalID:       "event:" + row.EventExternalID,
+				Kind:             records.DiscoveryEvidenceKindEvent,
+				CanonicalKey:     row.CanonicalKey,
+				SignalKind:       row.SignalKind,
+				EventExternalID:  row.EventExternalID,
+				SourceAppID:      row.SourceAppID,
+				SourceAppName:    row.SourceAppName,
+				SourceAppDomain:  row.SourceAppDomain,
+				SourceVendorName: row.SourceVendorName,
+				SourceCategory:   row.SourceCategory,
+				ActorExternalID:  row.ActorExternalID,
+				ActorEmail:       row.ActorEmail,
+				ActorDisplayName: row.ActorDisplayName,
+				ObservedAt:       row.ObservedAt,
+				Scopes:           row.Scopes,
+				Raw:              records.MapFromJSON(row.RawJSON),
+			},
+		}); err != nil {
+			return fmt.Errorf("emit entra discovery event %s state: %w", row.EventExternalID, err)
+		}
+		current++
+		report(registry.Event{Source: "entra", Stage: "write-discovery", Current: int64(current), Total: int64(total), Message: fmt.Sprintf("discovery records %d/%d", current, total)})
+	}
+	return nil
 }
 
 func (i *EntraIntegration) seedEntraAutoBindings(ctx context.Context, q *gen.Queries) error {
@@ -1605,6 +1523,13 @@ func appAssetRefExternalID(assetKind, externalID string) string {
 		return assetKind
 	}
 	return assetKind + ":" + externalID
+}
+
+func pgTime(value pgtype.Timestamptz) time.Time {
+	if !value.Valid || value.Time.IsZero() {
+		return time.Time{}
+	}
+	return value.Time.UTC()
 }
 
 func directoryAuditResultString(event DirectoryAuditEvent) string {

@@ -14,7 +14,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	canonevents "github.com/open-sspm/open-sspm/internal/events"
+	"github.com/open-sspm/open-sspm/internal/ingest/recorddispatch"
 	"github.com/open-sspm/open-sspm/internal/records"
 	"github.com/open-sspm/open-sspm/internal/tail"
 )
@@ -115,7 +115,7 @@ func (i *DatadogIntegration) tailAuditEventsWithCursor(ctx context.Context, pool
 			return updateDatadogAuditTailCursorError(lockCtx, qtx, state, runID, attemptedAt, tailErr)
 		}
 
-		writer := canonevents.NewWriter(pool)
+		dispatcher := recorddispatch.NewEventDispatcher(pool)
 		stats.Fetched = len(events)
 		watermark := attemptedAt
 		for _, event := range events {
@@ -132,7 +132,7 @@ func (i *DatadogIntegration) tailAuditEventsWithCursor(ctx context.Context, pool
 				tailErr = err
 				return updateDatadogAuditTailCursorError(lockCtx, qtx, state, runID, attemptedAt, tailErr)
 			}
-			result, err := writer.WriteEvent(lockCtx, record, canonevents.WriteOptions{})
+			result, err := dispatcher.DispatchEvent(lockCtx, record)
 			if err != nil {
 				tailErr = fmt.Errorf("write canonical Datadog audit event %s: %w", event.ID, err)
 				return updateDatadogAuditTailCursorError(lockCtx, qtx, state, runID, attemptedAt, tailErr)

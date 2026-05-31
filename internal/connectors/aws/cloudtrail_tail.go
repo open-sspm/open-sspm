@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	canonevents "github.com/open-sspm/open-sspm/internal/events"
+	"github.com/open-sspm/open-sspm/internal/ingest/recorddispatch"
 	"github.com/open-sspm/open-sspm/internal/records"
 	"github.com/open-sspm/open-sspm/internal/tail"
 )
@@ -114,7 +114,7 @@ func (i *AWSIntegration) tailCloudTrailWithCursor(ctx context.Context, pool *pgx
 			return updateAWSCloudTrailTailCursorError(lockCtx, qtx, state, runID, attemptedAt, tailErr)
 		}
 
-		writer := canonevents.NewWriter(pool)
+		dispatcher := recorddispatch.NewEventDispatcher(pool)
 		stats.Fetched = len(events)
 		watermark := attemptedAt
 		for _, event := range events {
@@ -131,7 +131,7 @@ func (i *AWSIntegration) tailCloudTrailWithCursor(ctx context.Context, pool *pgx
 				tailErr = err
 				return updateAWSCloudTrailTailCursorError(lockCtx, qtx, state, runID, attemptedAt, tailErr)
 			}
-			result, err := writer.WriteEvent(lockCtx, record, canonevents.WriteOptions{})
+			result, err := dispatcher.DispatchEvent(lockCtx, record)
 			if err != nil {
 				tailErr = fmt.Errorf("write canonical AWS CloudTrail event %s: %w", event.ID, err)
 				return updateAWSCloudTrailTailCursorError(lockCtx, qtx, state, runID, attemptedAt, tailErr)

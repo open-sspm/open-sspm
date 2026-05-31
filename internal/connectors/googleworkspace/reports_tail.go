@@ -16,7 +16,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
-	canonevents "github.com/open-sspm/open-sspm/internal/events"
+	"github.com/open-sspm/open-sspm/internal/ingest/recorddispatch"
 	"github.com/open-sspm/open-sspm/internal/records"
 	"github.com/open-sspm/open-sspm/internal/tail"
 )
@@ -117,7 +117,7 @@ func (i *GoogleWorkspaceIntegration) tailReportsWithCursor(ctx context.Context, 
 			return updateGoogleWorkspaceReportsTailCursorError(lockCtx, qtx, state, runID, attemptedAt, tailErr)
 		}
 
-		writer := canonevents.NewWriter(pool)
+		dispatcher := recorddispatch.NewEventDispatcher(pool)
 		stats.Fetched = len(activities)
 		watermark := attemptedAt
 		for _, activity := range activities {
@@ -134,7 +134,7 @@ func (i *GoogleWorkspaceIntegration) tailReportsWithCursor(ctx context.Context, 
 				tailErr = err
 				return updateGoogleWorkspaceReportsTailCursorError(lockCtx, qtx, state, runID, attemptedAt, tailErr)
 			}
-			result, err := writer.WriteEvent(lockCtx, record, canonevents.WriteOptions{})
+			result, err := dispatcher.DispatchEvent(lockCtx, record)
 			if err != nil {
 				tailErr = fmt.Errorf("write canonical Google Workspace Reports event %s: %w", record.ProviderEventID, err)
 				return updateGoogleWorkspaceReportsTailCursorError(lockCtx, qtx, state, runID, attemptedAt, tailErr)
