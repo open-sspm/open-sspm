@@ -23,5 +23,5 @@ Examples:
 - `docs: clarify managed Postgres requirement`
 - `chore: update demo deployment docs`
 - `ci: tighten Helm validation job`
-- `refactor: simplify SMTP config loading`
+- `refactor: simplify sync scheduler`
 - `perf: reduce sync query overhead`

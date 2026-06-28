@@ -64,7 +64,6 @@ spec:
                 secretKeyRef:
                   name: {{ required "database.existingSecret.name is required" .Values.database.existingSecret.name }}
                   key: {{ required "database.existingSecret.key is required" .Values.database.existingSecret.key }}
-            {{- include "open-sspm.smtpEnv" . | nindent 12 }}
             - name: ADMIN_EMAIL
               valueFrom:
                 secretKeyRef:

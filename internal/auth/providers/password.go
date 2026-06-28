@@ -46,6 +46,5 @@ func (p *PasswordProvider) Authenticate(ctx context.Context, email, password str
 		UserID: user.ID,
 		Email:  user.Email,
 		Role:   user.Role,
-		Method: auth.MethodPassword,
 	}, nil
 }

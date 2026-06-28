@@ -47,7 +47,6 @@ func LoadPrincipal(ctx *echo.Context, sessions *scs.SessionManager, q *gen.Queri
 		UserID: user.ID,
 		Email:  user.Email,
 		Role:   user.Role,
-		Method: auth.MethodPassword,
 	}, true, nil
 }
 

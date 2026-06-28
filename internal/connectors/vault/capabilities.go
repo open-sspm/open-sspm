@@ -45,8 +45,7 @@ func (i *VaultIntegration) Capabilities() capabilities.Capabilities {
 				{Name: records.ResourceAppAsset, SnapshotCompleteness: capabilities.SnapshotBestEffort},
 				{Name: records.ResourceEntitlement, SnapshotCompleteness: capabilities.SnapshotBestEffort},
 			},
-			RecommendedInterval:     4 * time.Hour,
-			SupportsScopedReconcile: false,
+			RecommendedInterval: 4 * time.Hour,
 		},
 	}
 }

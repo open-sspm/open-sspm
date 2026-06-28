@@ -59,17 +59,6 @@ kubectl create secret generic open-sspm-app \
   --from-literal=CONNECTOR_SECRET_KEY="$(openssl rand -base64 32)"
 ```
 
-### SMTP relay credentials (`SMTP_USERNAME` / `SMTP_PASSWORD`)
-
-If you want Open-SSPM to send email through an SMTP relay, configure the `smtp.*` values and optionally provide SMTP credentials via an existing Secret.
-
-Example:
-```bash
-kubectl create secret generic open-sspm-smtp \
-  --from-literal=SMTP_USERNAME='mailer' \
-  --from-literal=SMTP_PASSWORD='change-me'
-```
-
 ### Install / upgrade
 
 Minimal install:
@@ -79,22 +68,6 @@ helm upgrade --install open-sspm ./helm/open-sspm \
   --set image.tag=<tag> \
   --set database.existingSecret.name=open-sspm-db \
   --set connectorSecret.existingSecret.name=open-sspm-app
-```
-
-Example with SMTP enabled:
-```bash
-helm upgrade --install open-sspm ./helm/open-sspm \
-  --set image.repository=ghcr.io/<org>/<repo> \
-  --set image.tag=<tag> \
-  --set database.existingSecret.name=open-sspm-db \
-  --set connectorSecret.existingSecret.name=open-sspm-app \
-  --set smtp.enabled=true \
-  --set smtp.host=smtp.example.com \
-  --set smtp.port=587 \
-  --set smtp.tlsMode=starttls \
-  --set smtp.fromAddress=noreply@example.com \
-  --set smtp.fromName="Open SSPM" \
-  --set smtp.existingSecret.name=open-sspm-smtp
 ```
 
 ### Migrations (pre-install/pre-upgrade Job)
@@ -191,13 +164,6 @@ kubectl port-forward svc/<service-name> 8080:80
 - `config.logFormat` controls `LOG_FORMAT` (default: `json`; allowed: `json`, `text`)
 - `config.logLevel` controls `LOG_LEVEL` (default: `info`; allowed: `debug`, `info`, `warn`, `error`)
 - Invalid values fail fast during command startup.
-
-### SMTP
-
-- `smtp.enabled` controls `SMTP_ENABLED`
-- `smtp.host`, `smtp.port`, `smtp.tlsMode`, `smtp.fromAddress`, and `smtp.fromName` configure the relay
-- `smtp.existingSecret.name` injects `SMTP_USERNAME` / `SMTP_PASSWORD` credentials from a Secret when configured
-- The chart passes SMTP env vars to the Deployments and hook Jobs so `migrate`, `seed-rules`, and `bootstrap-admin` all see the same config contract
 
 ### Metrics service selector
 

@@ -52,8 +52,7 @@ func (i *GitHubIntegration) Capabilities() capabilities.Capabilities {
 				{Name: records.ResourceEntitlement, SnapshotCompleteness: capabilities.SnapshotBestEffort},
 				{Name: records.ResourceAuditEvent, SnapshotCompleteness: capabilities.SnapshotBestEffort},
 			},
-			RecommendedInterval:     time.Hour,
-			SupportsScopedReconcile: false,
+			RecommendedInterval: time.Hour,
 		},
 	}
 }

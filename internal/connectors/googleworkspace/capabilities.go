@@ -82,8 +82,7 @@ func (i *GoogleWorkspaceIntegration) Capabilities() capabilities.Capabilities {
 				{Name: records.ResourceCredential, SnapshotCompleteness: capabilities.SnapshotBestEffort},
 				{Name: records.ResourceAuditEvent, SnapshotCompleteness: capabilities.SnapshotBestEffort},
 			},
-			RecommendedInterval:     time.Hour,
-			SupportsScopedReconcile: false,
+			RecommendedInterval: time.Hour,
 		}
 	}
 	return caps
