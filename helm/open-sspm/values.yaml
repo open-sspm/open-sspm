@@ -24,18 +24,6 @@ connectorSecret:
     name: ""
     key: CONNECTOR_SECRET_KEY
 
-smtp:
-  enabled: false
-  host: ""
-  port: 587
-  tlsMode: "starttls"
-  fromAddress: ""
-  fromName: ""
-  existingSecret:
-    name: ""
-    usernameKey: SMTP_USERNAME
-    passwordKey: SMTP_PASSWORD
-
 config:
   httpAddr: ":8080"
   # Metrics listener (set to "off" to disable).

@@ -95,8 +95,7 @@ func (i *OktaIntegration) Capabilities() capabilities.Capabilities {
 				{Name: records.ResourceApplication, SnapshotCompleteness: capabilities.SnapshotComplete, ExpireAbsentAllowed: true},
 				{Name: records.ResourceEntitlement, SnapshotCompleteness: capabilities.SnapshotComplete, ExpireAbsentAllowed: true},
 			},
-			RecommendedInterval:     time.Hour,
-			SupportsScopedReconcile: false,
+			RecommendedInterval: time.Hour,
 		}
 		if i.discoveryEnabled && i.discoveryPollerEnabled {
 			caps.Discovery = &capabilities.DiscoveryCapability{

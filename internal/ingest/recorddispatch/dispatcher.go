@@ -42,10 +42,6 @@ func (d *Dispatcher) EmitEvent(ctx context.Context, record records.EventRecord) 
 	return err
 }
 
-func (d *Dispatcher) EmitInternalEvent(ctx context.Context, record records.EventRecord) error {
-	return d.EmitEvent(ctx, record)
-}
-
 func (d *Dispatcher) DispatchEvent(ctx context.Context, record records.EventRecord) (canonevents.WriteResult, error) {
 	if d == nil || d.eventWriter == nil {
 		return canonevents.WriteResult{}, errors.New("record dispatcher event writer is not configured")

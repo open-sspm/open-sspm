@@ -112,7 +112,6 @@ spec:
               value: {{ .Values.config.syncGithubWorkers | quote }}
             - name: SYNC_DATADOG_WORKERS
               value: {{ .Values.config.syncDatadogWorkers | quote }}
-            {{- include "open-sspm.smtpEnv" . | nindent 12 }}
             {{- with $extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

@@ -74,10 +74,6 @@ lint:
 run:
     go run ./cmd/open-sspm api
 
-# Start the API and web UI HTTP server
-api:
-    go run ./cmd/open-sspm api
-
 # Run a background worker lane: full, discovery, event-inbox, tail, or evaluator
 worker lane="full":
     go run ./cmd/open-sspm worker --lane={{lane}}

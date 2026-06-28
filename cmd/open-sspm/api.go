@@ -118,7 +118,7 @@ func runAPI() error {
 		syncer = nil
 	}
 
-	srv, err := httpapp.NewEchoServer(cfg, runtimeDeps.pool, queries, syncer, reg, runtimeDeps.mailer)
+	srv, err := httpapp.NewEchoServer(cfg, runtimeDeps.pool, queries, syncer, reg)
 	if err != nil {
 		return err
 	}

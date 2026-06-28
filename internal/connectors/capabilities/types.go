@@ -9,11 +9,6 @@ import (
 	"github.com/open-sspm/open-sspm/internal/records"
 )
 
-type Integration interface {
-	Descriptor() Descriptor
-	Capabilities() Capabilities
-}
-
 type Descriptor struct {
 	Kind        string
 	DisplayName string
@@ -43,7 +38,6 @@ type PushCapability struct {
 type DeliverySemantics string
 
 const (
-	DeliveryBestEffort  DeliverySemantics = "best_effort"
 	DeliveryAtLeastOnce DeliverySemantics = "at_least_once"
 )
 
@@ -51,9 +45,7 @@ type PushKind string
 
 const (
 	PushKindEventPayload PushKind = "event_payload"
-	PushKindChangeHint   PushKind = "change_hint"
 	PushKindExternalBus  PushKind = "external_bus"
-	PushKindPreview      PushKind = "preview_push"
 )
 
 type PushChannel struct {
@@ -98,10 +90,7 @@ type TailCapability struct {
 type CursorKind string
 
 const (
-	CursorKindDeltaToken       CursorKind = "delta_token"
-	CursorKindLogCursor        CursorKind = "log_cursor"
 	CursorKindWatermarkOverlap CursorKind = "watermark_overlap"
-	CursorKindPageCursor       CursorKind = "page_cursor"
 )
 
 type TailResource struct {
@@ -146,10 +135,9 @@ type TailContext interface {
 }
 
 type FullCapability struct {
-	Resources               []FullResource
-	RecommendedInterval     time.Duration
-	SupportsScopedReconcile bool
-	Run                     func(context.Context, FullContext) (*FullResult, error)
+	Resources           []FullResource
+	RecommendedInterval time.Duration
+	Run                 func(context.Context, FullContext) (*FullResult, error)
 }
 
 type FullResource struct {
@@ -162,7 +150,6 @@ type SnapshotCompleteness string
 
 const (
 	SnapshotComplete   SnapshotCompleteness = "complete_snapshot"
-	SnapshotScoped     SnapshotCompleteness = "scoped_snapshot"
 	SnapshotBestEffort SnapshotCompleteness = "best_effort_snapshot"
 	SnapshotBootstrap  SnapshotCompleteness = "bootstrap_snapshot"
 )
@@ -197,5 +184,4 @@ type RecordEmitter interface {
 	DeleteState(context.Context, records.StateDelete) error
 	BeginSnapshot(context.Context, records.SnapshotBegin) error
 	CompleteSnapshot(context.Context, records.SnapshotComplete) error
-	EmitInternalEvent(context.Context, records.EventRecord) error
 }

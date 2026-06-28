@@ -40,8 +40,7 @@ func (i *AWSIntegration) Capabilities() capabilities.Capabilities {
 				{Name: records.ResourceGroup, SnapshotCompleteness: capabilities.SnapshotBestEffort},
 				{Name: records.ResourceEntitlement, SnapshotCompleteness: capabilities.SnapshotBestEffort},
 			},
-			RecommendedInterval:     4 * time.Hour,
-			SupportsScopedReconcile: false,
+			RecommendedInterval: 4 * time.Hour,
 		},
 	}
 	if i.client.cloudtrail != nil {

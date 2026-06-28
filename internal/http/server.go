@@ -24,7 +24,6 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/evaluator"
 	"github.com/open-sspm/open-sspm/internal/http/handlers"
-	"github.com/open-sspm/open-sspm/internal/mailer"
 )
 
 // EchoServer is the HTTP server wrapper.
@@ -43,7 +42,6 @@ func NewEchoServer(
 	q *gen.Queries,
 	syncer handlers.SyncRunner,
 	reg *registry.ConnectorRegistry,
-	mailAdapter mailer.Mailer,
 ) (*EchoServer, error) {
 	sessions := scs.New()
 	sessions.Store = pgxstore.New(pool)
@@ -68,7 +66,6 @@ func NewEchoServer(
 		Sessions:       sessions,
 		Syncer:         syncer,
 		Registry:       reg,
-		Mailer:         mailAdapter,
 		PolicyRegistry: policyRegistry,
 	}
 	es := &EchoServer{h: h, e: newEcho(cfg)}
@@ -275,12 +272,6 @@ func (es *EchoServer) browserMiddleware() []echo.MiddlewareFunc {
 	return []echo.MiddlewareFunc{
 		echo.WrapMiddleware(es.h.Sessions.LoadAndSave),
 		es.browserCSRFMiddleware(),
-	}
-}
-
-func (es *EchoServer) sessionMiddleware() []echo.MiddlewareFunc {
-	return []echo.MiddlewareFunc{
-		echo.WrapMiddleware(es.h.Sessions.LoadAndSave),
 	}
 }
 

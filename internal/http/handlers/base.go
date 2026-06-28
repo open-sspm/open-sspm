@@ -23,7 +23,6 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/authn"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
-	"github.com/open-sspm/open-sspm/internal/mailer"
 )
 
 const (
@@ -47,7 +46,6 @@ type Handlers struct {
 	Sessions *scs.SessionManager
 	Syncer   SyncRunner
 	Registry *registry.ConnectorRegistry
-	Mailer   mailer.Mailer
 
 	PolicyRegistry *evaluator.Registry
 

@@ -123,7 +123,6 @@ spec:
             {{- include "open-sspm.eventEvaluatorWorkerEnv" $root | nindent 12 }}
             {{- end }}
             {{- include "open-sspm.eventPartitionEnv" $root | nindent 12 }}
-            {{- include "open-sspm.smtpEnv" $root | nindent 12 }}
             {{- with $laneValues.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

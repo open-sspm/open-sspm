@@ -54,8 +54,7 @@ func (i *DatadogIntegration) Capabilities() capabilities.Capabilities {
 				{Name: records.ResourceGroup, SnapshotCompleteness: capabilities.SnapshotBestEffort},
 				{Name: records.ResourceEntitlement, SnapshotCompleteness: capabilities.SnapshotBestEffort},
 			},
-			RecommendedInterval:     time.Hour,
-			SupportsScopedReconcile: false,
+			RecommendedInterval: time.Hour,
 		},
 	}
 }

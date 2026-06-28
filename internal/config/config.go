@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/mail"
 	"os"
 	"strconv"
 	"strings"
@@ -21,8 +20,6 @@ const (
 	defaultSyncDiscoveryInterval = 15 * time.Minute
 	defaultSyncTailInterval      = 5 * time.Minute
 	defaultStartupReadModelMode  = StartupReadModelRebuildAuto
-	defaultSMTPPort              = 587
-	defaultSMTPTLSMode           = SMTPTLSModeStartTLS
 
 	defaultSyncOktaWorkers    = 3
 	defaultSyncGitHubWorkers  = 6
@@ -55,16 +52,11 @@ const (
 const (
 	StartupReadModelRebuildAuto   = "auto"
 	StartupReadModelRebuildAlways = "always"
-
-	SMTPTLSModeStartTLS = "starttls"
-	SMTPTLSModeTLS      = "tls"
-	SMTPTLSModePlain    = "plain"
 )
 
 type Config struct {
 	DatabaseURL                 string
 	ConnectorSecretKey          []byte
-	SMTP                        SMTPConfig
 	HTTPAddr                    string
 	MetricsAddr                 string
 	StaticDir                   string
@@ -99,17 +91,6 @@ type Config struct {
 	EventInbox                  EventInboxConfig
 	EventEvaluatorWorker        EventEvaluatorWorkerConfig
 	EventPartitions             EventPartitionConfig
-}
-
-type SMTPConfig struct {
-	Enabled     bool
-	Host        string
-	Port        int
-	Username    string
-	Password    string
-	FromAddress string
-	FromName    string
-	TLSMode     string
 }
 
 type EventInboxConfig struct {
@@ -206,11 +187,6 @@ func LoadWithOptions(opts LoadOptions) (Config, error) {
 	if err != nil {
 		return cfg, err
 	}
-	smtpConfig, err := loadSMTPConfig()
-	if err != nil {
-		return cfg, err
-	}
-	cfg.SMTP = smtpConfig
 
 	cfg.MetricsAddr = loadMetricsAddr(cfg.MetricsAddr)
 	if err := applyDurationEnvOverrides(&cfg); err != nil {
@@ -367,78 +343,6 @@ func validate(cfg Config, opts LoadOptions) error {
 	}
 
 	return nil
-}
-
-func loadSMTPConfig() (SMTPConfig, error) {
-	cfg := SMTPConfig{
-		Enabled: getenvBoolDefault("SMTP_ENABLED", false),
-		Port:    defaultSMTPPort,
-		TLSMode: defaultSMTPTLSMode,
-	}
-	if !cfg.Enabled {
-		return cfg, nil
-	}
-
-	cfg.Host = strings.TrimSpace(os.Getenv("SMTP_HOST"))
-	cfg.Username = strings.TrimSpace(os.Getenv("SMTP_USERNAME"))
-	cfg.Password = os.Getenv("SMTP_PASSWORD")
-	cfg.FromAddress = strings.TrimSpace(os.Getenv("SMTP_FROM_ADDRESS"))
-	cfg.FromName = strings.TrimSpace(os.Getenv("SMTP_FROM_NAME"))
-	cfg.TLSMode = strings.ToLower(strings.TrimSpace(getenvDefault("SMTP_TLS_MODE", defaultSMTPTLSMode)))
-
-	port, err := getenvRequiredPositiveIntDefault("SMTP_PORT", defaultSMTPPort)
-	if err != nil {
-		return cfg, err
-	}
-	cfg.Port = port
-
-	if cfg.Host == "" {
-		return cfg, errors.New("SMTP_HOST is required when SMTP_ENABLED=1")
-	}
-	if cfg.FromAddress == "" {
-		return cfg, errors.New("SMTP_FROM_ADDRESS is required when SMTP_ENABLED=1")
-	}
-	if cfg.Port > 65535 {
-		return cfg, errors.New("SMTP_PORT must be between 1 and 65535")
-	}
-	switch cfg.TLSMode {
-	case SMTPTLSModeStartTLS, SMTPTLSModeTLS, SMTPTLSModePlain:
-	default:
-		return cfg, fmt.Errorf(
-			"SMTP_TLS_MODE must be one of: %s, %s, %s",
-			SMTPTLSModeStartTLS,
-			SMTPTLSModeTLS,
-			SMTPTLSModePlain,
-		)
-	}
-	addr, err := mail.ParseAddress(cfg.FromAddress)
-	if err != nil {
-		return cfg, fmt.Errorf("SMTP_FROM_ADDRESS must be a valid email address: %w", err)
-	}
-	cfg.FromAddress = addr.Address
-	if cfg.FromName == "" && strings.TrimSpace(addr.Name) != "" {
-		cfg.FromName = addr.Name
-	}
-	if strings.ContainsAny(cfg.FromName, "\r\n") {
-		return cfg, errors.New("SMTP_FROM_NAME must not contain carriage returns or line feeds")
-	}
-	if (cfg.Username == "") != (cfg.Password == "") {
-		return cfg, errors.New("SMTP_USERNAME and SMTP_PASSWORD must either both be set or both be empty")
-	}
-	if cfg.Username != "" && cfg.TLSMode == SMTPTLSModePlain && !smtpPlainAuthAllowsInsecureHost(cfg.Host) {
-		return cfg, errors.New("SMTP_TLS_MODE=plain only supports SMTP authentication on localhost")
-	}
-
-	return cfg, nil
-}
-
-func smtpPlainAuthAllowsInsecureHost(host string) bool {
-	switch host {
-	case "localhost", "127.0.0.1", "::1":
-		return true
-	default:
-		return false
-	}
 }
 
 func loadConnectorSecretKey() ([]byte, error) {
