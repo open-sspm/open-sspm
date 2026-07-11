@@ -30,16 +30,3 @@ type FindingsRuleItem struct {
 	ErrorKind        string
 	Href             string
 }
-
-type FindingsReferenceItem struct {
-	Title string
-	URL   string
-	Type  string
-}
-
-type FindingsFrameworkMappingItem struct {
-	Framework        string
-	FrameworkVersion string
-	Control          string
-	Coverage         string
-}

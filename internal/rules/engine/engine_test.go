@@ -409,9 +409,6 @@ func seedEngineRule(t *testing.T, ctx context.Context, q *gen.Queries) (gen.Rule
 		Category:         "identity",
 		Severity:         "high",
 		MonitoringStatus: "monitored",
-		RequiredData:     []byte(`[]`),
-		ExpectedParams:   []byte(`{}`),
-		RuleVersion:      "v1",
 		IsActive:         true,
 		DefinitionJson:   []byte(`{"check":{"type":"manual"}}`),
 	})
@@ -446,7 +443,7 @@ func regoRule(title string, requiredData []string, rego string, defaults map[str
 		},
 	}
 	if defaults != nil {
-		rule.Parameters = &osspecv2.Parameters{Defaults: defaults}
+		rule.Parameters = defaults
 	}
 	return rule
 }

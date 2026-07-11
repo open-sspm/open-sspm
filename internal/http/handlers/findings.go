@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -196,8 +195,6 @@ func (h *Handlers) buildFindingsRulesetViewData(ctx context.Context, c *echo.Con
 		return items[i].Key < items[j].Key
 	})
 
-	meta := parseRulesetMetadata(rs.DefinitionJson)
-
 	connectorKind := ""
 	if rs.ConnectorKind.Valid {
 		connectorKind = strings.TrimSpace(rs.ConnectorKind.String)
@@ -218,10 +215,6 @@ func (h *Handlers) buildFindingsRulesetViewData(ctx context.Context, c *echo.Con
 		},
 		SourceName:        scope.SourceName,
 		ConnectorHintHref: scope.ConnectorHintHref,
-		Tags:              meta.Tags,
-		References:        meta.References,
-		FrameworkMappings: meta.FrameworkMappings,
-		HasMetadata:       meta.HasMetadata,
 		OverrideExists:    overrideExists,
 		OverrideEnabled:   overrideEnabled,
 		StatusFilter:      statusFilter,
@@ -487,16 +480,14 @@ func (h *Handlers) HandleFindingsRuleOverride(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
-	def := parseRuleDefinition(r.DefinitionJson)
-	params, err := parseOverrideParamsFromForm(c, def.ParamSchema)
+	defaults := parseRuleParameters(r.DefinitionJson)
+	params, err := parseOverrideParamsFromForm(c, defaults)
 	if err != nil {
 		return h.renderRuleWithAlert(c, rs, r, scope, viewmodels.AlertViewData{Title: "Invalid override params", Message: err.Error(), Destructive: true})
 	}
 
-	if len(def.ParamSchema) > 0 {
-		if err := engine.ValidateParams(params, def.ParamSchema); err != nil {
-			return h.renderRuleWithAlert(c, rs, r, scope, viewmodels.AlertViewData{Title: "Invalid parameters", Message: err.Error(), Destructive: true})
-		}
+	if err := engine.ValidateParamOverrides(defaults, params); err != nil {
+		return h.renderRuleWithAlert(c, rs, r, scope, viewmodels.AlertViewData{Title: "Invalid parameters", Message: err.Error(), Destructive: true})
 	}
 
 	paramsJSON, err := json.Marshal(params)
@@ -688,84 +679,12 @@ func normalizeMonitoringFilter(v string) string {
 	}
 }
 
-type rulesetMeta struct {
-	Tags              []string
-	References        []viewmodels.FindingsReferenceItem
-	FrameworkMappings []viewmodels.FindingsFrameworkMappingItem
-	HasMetadata       bool
-}
-
-func parseRulesetMetadata(definitionJSON []byte) rulesetMeta {
-	var doc osspecv2.RulesetDoc
-	if err := json.Unmarshal(definitionJSON, &doc); err != nil {
-		return rulesetMeta{}
-	}
-
-	rs := doc.Ruleset
-	meta := rulesetMeta{}
-
-	if len(rs.Tags) > 0 {
-		meta.Tags = append([]string(nil), rs.Tags...)
-		meta.HasMetadata = true
-	}
-	if len(rs.References) > 0 {
-		meta.HasMetadata = true
-		meta.References = make([]viewmodels.FindingsReferenceItem, 0, len(rs.References))
-		for _, r := range rs.References {
-			meta.References = append(meta.References, viewmodels.FindingsReferenceItem{
-				Title: strings.TrimSpace(r.Title),
-				URL:   strings.TrimSpace(r.URL),
-				Type:  strings.TrimSpace(string(r.Type)),
-			})
-		}
-	}
-	if len(rs.FrameworkMappings) > 0 {
-		meta.HasMetadata = true
-		meta.FrameworkMappings = make([]viewmodels.FindingsFrameworkMappingItem, 0, len(rs.FrameworkMappings))
-		for _, m := range rs.FrameworkMappings {
-			meta.FrameworkMappings = append(meta.FrameworkMappings, viewmodels.FindingsFrameworkMappingItem{
-				Framework: strings.TrimSpace(m.Framework),
-				Control:   strings.TrimSpace(m.Control),
-				Coverage:  strings.TrimSpace(string(m.Coverage)),
-			})
-		}
-	}
-
-	return meta
-}
-
-type ruleMeta struct {
-	RemediationInstructions string
-	RemediationRisks        string
-	RemediationEffort       string
-	ParamSchema             map[string]osspecv2.ParameterSchema
-	ParamDefaults           map[string]any
-}
-
-func parseRuleDefinition(definitionJSON []byte) ruleMeta {
+func parseRuleParameters(definitionJSON []byte) map[string]any {
 	var r osspecv2.Rule
 	if err := json.Unmarshal(definitionJSON, &r); err != nil {
-		return ruleMeta{}
+		return nil
 	}
-
-	out := ruleMeta{}
-
-	if r.Remediation != nil {
-		out.RemediationInstructions = strings.TrimSpace(r.Remediation.Instructions)
-		out.RemediationRisks = strings.TrimSpace(r.Remediation.Risks)
-		out.RemediationEffort = strings.TrimSpace(string(r.Remediation.Effort))
-	}
-
-	if r.Parameters != nil {
-		if r.Parameters.Schema != nil {
-			out.ParamSchema = r.Parameters.Schema
-		}
-		if r.Parameters.Defaults != nil {
-			out.ParamDefaults = r.Parameters.Defaults
-		}
-	}
-
-	return out
+	return r.Parameters
 }
 
 func parseEvidence(evidenceJSON []byte) viewmodels.FindingsEvidenceViewData {
@@ -859,30 +778,24 @@ func intFromAny(v any) int {
 	}
 }
 
-func parseOverrideParamsFromForm(c *echo.Context, schema map[string]osspecv2.ParameterSchema) (map[string]any, error) {
+func parseOverrideParamsFromForm(c *echo.Context, defaults map[string]any) (map[string]any, error) {
 	params := make(map[string]any)
-	for key, sch := range schema {
+	for key, defaultValue := range defaults {
 		formKey := "param_" + key
 		raw := strings.TrimSpace(c.FormValue(formKey))
 		if raw == "" {
 			continue
 		}
 
-		switch strings.TrimSpace(sch.Type) {
+		switch parameterType(defaultValue) {
 		case "string":
 			params[key] = raw
-		case "integer":
-			n, err := strconv.Atoi(raw)
-			if err != nil {
-				return nil, fmt.Errorf("%s must be integer", key)
-			}
-			params[key] = n
 		case "number":
-			f, err := strconv.ParseFloat(raw, 64)
-			if err != nil {
+			var value any
+			if err := json.Unmarshal([]byte(raw), &value); err != nil {
 				return nil, fmt.Errorf("%s must be number", key)
 			}
-			params[key] = f
+			params[key] = value
 		case "boolean":
 			switch strings.ToLower(raw) {
 			case "true":
@@ -892,15 +805,19 @@ func parseOverrideParamsFromForm(c *echo.Context, schema map[string]osspecv2.Par
 			default:
 				return nil, fmt.Errorf("%s must be true/false", key)
 			}
-		default:
-			return nil, fmt.Errorf("%s has unsupported type %q", key, sch.Type)
+		case "json":
+			var value any
+			if err := json.Unmarshal([]byte(raw), &value); err != nil {
+				return nil, fmt.Errorf("%s must be valid JSON", key)
+			}
+			params[key] = value
 		}
 	}
 
 	return params, nil
 }
 
-func buildRuleOverrideView(schema map[string]osspecv2.ParameterSchema, defaults map[string]any, override *gen.RuleOverride) viewmodels.FindingsRuleOverrideViewData {
+func buildRuleOverrideView(defaults map[string]any, override *gen.RuleOverride) viewmodels.FindingsRuleOverrideViewData {
 	out := viewmodels.FindingsRuleOverrideViewData{
 		Enabled: true,
 	}
@@ -912,25 +829,23 @@ func buildRuleOverrideView(schema map[string]osspecv2.ParameterSchema, defaults 
 		_ = json.Unmarshal(override.Params, &overrideParams)
 	}
 
-	if len(schema) == 0 {
+	if len(defaults) == 0 {
 		return out
 	}
 
-	out.HasSchema = true
-	keys := make([]string, 0, len(schema))
-	for k := range schema {
+	out.HasParameters = true
+	keys := make([]string, 0, len(defaults))
+	for k := range defaults {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 
 	out.Fields = make([]viewmodels.FindingsParamField, 0, len(keys))
 	for _, key := range keys {
-		sch := schema[key]
 		field := viewmodels.FindingsParamField{
 			Key:           key,
-			Type:          strings.TrimSpace(sch.Type),
-			Description:   strings.TrimSpace(sch.Description),
-			DefaultValue:  fmt.Sprintf("%v", defaults[key]),
+			Type:          parameterType(defaults[key]),
+			DefaultValue:  formatParameterValue(defaults[key]),
 			OverrideValue: "",
 		}
 
@@ -943,7 +858,7 @@ func buildRuleOverrideView(schema map[string]osspecv2.ParameterSchema, defaults 
 					field.OverrideValue = "false"
 				}
 			default:
-				field.OverrideValue = fmt.Sprintf("%v", vv)
+				field.OverrideValue = formatParameterValue(vv)
 			}
 		}
 
@@ -955,6 +870,30 @@ func buildRuleOverrideView(schema map[string]osspecv2.ParameterSchema, defaults 
 	}
 
 	return out
+}
+
+func parameterType(value any) string {
+	switch value.(type) {
+	case string:
+		return "string"
+	case bool:
+		return "boolean"
+	case float64, float32, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, json.Number:
+		return "number"
+	default:
+		return "json"
+	}
+}
+
+func formatParameterValue(value any) string {
+	if text, ok := value.(string); ok {
+		return text
+	}
+	b, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Sprintf("%v", value)
+	}
+	return string(b)
 }
 
 func parseDatetimeLocal(v string) (pgtype.Timestamptz, error) {
@@ -990,7 +929,7 @@ func (h *Handlers) buildFindingsRuleViewData(ctx context.Context, c *echo.Contex
 		return viewmodels.FindingsRuleViewData{}, err
 	}
 
-	def := parseRuleDefinition(r.DefinitionJson)
+	defaults := parseRuleParameters(r.DefinitionJson)
 	evidence := parseEvidence(r.CurrentEvidenceJson)
 
 	connectorKind := ""
@@ -1011,25 +950,22 @@ func (h *Handlers) buildFindingsRuleViewData(ctx context.Context, c *echo.Contex
 			SourceVersion: strings.TrimSpace(rs.SourceVersion),
 			Href:          "/findings/rulesets/" + strings.TrimSpace(rs.Key),
 		},
-		SourceName:              scope.SourceName,
-		RuleKey:                 strings.TrimSpace(r.Key),
-		RuleTitle:               strings.TrimSpace(r.Title),
-		RuleSummary:             strings.TrimSpace(r.Summary),
-		RuleSeverity:            strings.TrimSpace(r.Severity),
-		MonitoringStatus:        strings.TrimSpace(r.MonitoringStatus),
-		MonitoringReason:        strings.TrimSpace(r.MonitoringReason),
-		RemediationInstructions: strings.TrimSpace(def.RemediationInstructions),
-		RemediationRisks:        strings.TrimSpace(def.RemediationRisks),
-		RemediationEffort:       strings.TrimSpace(def.RemediationEffort),
-		CurrentStatus:           strings.TrimSpace(r.CurrentStatus),
-		CurrentErrorKind:        strings.TrimSpace(r.CurrentErrorKind),
-		EvidenceSummary:         strings.TrimSpace(r.CurrentEvidenceSummary),
-		Evidence:                evidence,
-		CurrentEvaluatedAt:      formatTimeTable(r.CurrentEvaluatedAt),
-		RulesetOverrideEnabled:  rulesetOverrideEnabled,
-		RuleOverride:            buildRuleOverrideView(def.ParamSchema, def.ParamDefaults, ruleOverride),
-		Attestation:             attestation,
-		Alert:                   alert,
+		SourceName:             scope.SourceName,
+		RuleKey:                strings.TrimSpace(r.Key),
+		RuleTitle:              strings.TrimSpace(r.Title),
+		RuleSummary:            strings.TrimSpace(r.Summary),
+		RuleSeverity:           strings.TrimSpace(r.Severity),
+		MonitoringStatus:       strings.TrimSpace(r.MonitoringStatus),
+		MonitoringReason:       strings.TrimSpace(r.MonitoringReason),
+		CurrentStatus:          strings.TrimSpace(r.CurrentStatus),
+		CurrentErrorKind:       strings.TrimSpace(r.CurrentErrorKind),
+		EvidenceSummary:        strings.TrimSpace(r.CurrentEvidenceSummary),
+		Evidence:               evidence,
+		CurrentEvaluatedAt:     formatTimeTable(r.CurrentEvaluatedAt),
+		RulesetOverrideEnabled: rulesetOverrideEnabled,
+		RuleOverride:           buildRuleOverrideView(defaults, ruleOverride),
+		Attestation:            attestation,
+		Alert:                  alert,
 	}, nil
 }
 

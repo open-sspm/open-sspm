@@ -211,10 +211,7 @@ func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, 
 		}, nil
 	}
 
-	defaultParams := map[string]any{}
-	if def.Parameters != nil && def.Parameters.Defaults != nil {
-		defaultParams = def.Parameters.Defaults
-	}
+	defaultParams := def.Parameters
 
 	overrideParams := map[string]any{}
 	if override != nil && len(override.Params) > 0 {
@@ -242,29 +239,27 @@ func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, 
 	}
 
 	effectiveParams := deepMerge(defaultParams, overrideParams)
-	if def.Parameters != nil && def.Parameters.Schema != nil {
-		if err := validateParams(effectiveParams, def.Parameters.Schema); err != nil {
-			return &Evaluation{
-				Status:          "error",
-				ErrorKind:       "invalid_params",
-				EvidenceSummary: "Invalid parameters",
-				EvidenceJSON: mustJSON(map[string]any{
-					"schema_version": 1,
-					"rule": map[string]any{
-						"ruleset_key": strings.TrimSpace(ruleset.Key),
-						"rule_key":    strings.TrimSpace(rule.Key),
-					},
-					"check":  checkSummary(def.Check),
-					"params": effectiveParams,
-					"result": map[string]any{
-						"status":     "error",
-						"error_kind": "invalid_params",
-					},
-					"error": err.Error(),
-				}),
-				AffectedResourceIDs: []string{},
-			}, nil
-		}
+	if err := ValidateParamOverrides(defaultParams, overrideParams); err != nil {
+		return &Evaluation{
+			Status:          "error",
+			ErrorKind:       "invalid_params",
+			EvidenceSummary: "Invalid parameters",
+			EvidenceJSON: mustJSON(map[string]any{
+				"schema_version": 1,
+				"rule": map[string]any{
+					"ruleset_key": strings.TrimSpace(ruleset.Key),
+					"rule_key":    strings.TrimSpace(rule.Key),
+				},
+				"check":  checkSummary(def.Check),
+				"params": effectiveParams,
+				"result": map[string]any{
+					"status":     "error",
+					"error_kind": "invalid_params",
+				},
+				"error": err.Error(),
+			}),
+			AffectedResourceIDs: []string{},
+		}, nil
 	}
 
 	out, err := e.evalCheck(ctx, ruleset.DefinitionJson, strings.TrimSpace(ruleset.Key), strings.TrimSpace(rule.Key), def, effectiveParams)

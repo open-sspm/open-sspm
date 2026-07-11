@@ -134,9 +134,6 @@ SELECT
   r.severity,
   r.monitoring_status,
   r.monitoring_reason,
-  r.required_data,
-  r.expected_params,
-  r.rule_version,
   r.is_active,
   r.definition_json,
   r.created_at,
@@ -221,9 +218,6 @@ type GetFindingRuleCurrentByRulesetKeyAndRuleKeyRow struct {
 	Severity               string             `json:"severity"`
 	MonitoringStatus       string             `json:"monitoring_status"`
 	MonitoringReason       string             `json:"monitoring_reason"`
-	RequiredData           []byte             `json:"required_data"`
-	ExpectedParams         []byte             `json:"expected_params"`
-	RuleVersion            string             `json:"rule_version"`
 	IsActive               bool               `json:"is_active"`
 	DefinitionJson         []byte             `json:"definition_json"`
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
@@ -255,9 +249,6 @@ func (q *Queries) GetFindingRuleCurrentByRulesetKeyAndRuleKey(ctx context.Contex
 		&i.Severity,
 		&i.MonitoringStatus,
 		&i.MonitoringReason,
-		&i.RequiredData,
-		&i.ExpectedParams,
-		&i.RuleVersion,
 		&i.IsActive,
 		&i.DefinitionJson,
 		&i.CreatedAt,
@@ -416,9 +407,6 @@ SELECT
   r.severity,
   r.monitoring_status,
   r.monitoring_reason,
-  r.required_data,
-  r.expected_params,
-  r.rule_version,
   r.is_active,
   r.definition_json,
   r.created_at,
@@ -494,9 +482,6 @@ type ListFindingRulesetCurrentByRulesetKeyRow struct {
 	Severity               string             `json:"severity"`
 	MonitoringStatus       string             `json:"monitoring_status"`
 	MonitoringReason       string             `json:"monitoring_reason"`
-	RequiredData           []byte             `json:"required_data"`
-	ExpectedParams         []byte             `json:"expected_params"`
-	RuleVersion            string             `json:"rule_version"`
 	IsActive               bool               `json:"is_active"`
 	DefinitionJson         []byte             `json:"definition_json"`
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
@@ -532,9 +517,6 @@ func (q *Queries) ListFindingRulesetCurrentByRulesetKey(ctx context.Context, arg
 			&i.Severity,
 			&i.MonitoringStatus,
 			&i.MonitoringReason,
-			&i.RequiredData,
-			&i.ExpectedParams,
-			&i.RuleVersion,
 			&i.IsActive,
 			&i.DefinitionJson,
 			&i.CreatedAt,

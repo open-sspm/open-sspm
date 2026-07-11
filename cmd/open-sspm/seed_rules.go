@@ -137,32 +137,6 @@ func loadRulesFromOpenSSPMDescriptor() ([]LoadedRuleset, error) {
 				return nil, fmt.Errorf("%s/%s: marshal rule definition_json: %w", rulesetKey, strings.TrimSpace(r.Key), err)
 			}
 
-			requiredData := r.RequiredData
-			if requiredData == nil {
-				requiredData = []string{}
-			}
-			requiredDataJSON, err := json.Marshal(requiredData)
-			if err != nil {
-				return nil, fmt.Errorf("%s/%s: marshal required_data: %w", rulesetKey, strings.TrimSpace(r.Key), err)
-			}
-
-			expectedParamsJSON := []byte("{}")
-			if r.Parameters != nil && r.Parameters.Defaults != nil {
-				expectedParamsJSON, err = json.Marshal(r.Parameters.Defaults)
-				if err != nil {
-					return nil, fmt.Errorf("%s/%s: marshal expected_params: %w", rulesetKey, strings.TrimSpace(r.Key), err)
-				}
-			}
-
-			ruleVersion := ""
-			isActive := true
-			if r.Lifecycle != nil {
-				ruleVersion = strings.TrimSpace(r.Lifecycle.RuleVersion)
-				if r.Lifecycle.IsActive != nil {
-					isActive = *r.Lifecycle.IsActive
-				}
-			}
-
 			seedRules = append(seedRules, SeedRule{
 				Key:              strings.TrimSpace(r.Key),
 				Title:            strings.TrimSpace(r.Title),
@@ -171,10 +145,6 @@ func loadRulesFromOpenSSPMDescriptor() ([]LoadedRuleset, error) {
 				Severity:         strings.TrimSpace(string(r.Severity)),
 				MonitoringStatus: strings.TrimSpace(string(r.Monitoring.Status)),
 				MonitoringReason: strings.TrimSpace(r.Monitoring.Reason),
-				RequiredData:     requiredDataJSON,
-				ExpectedParams:   expectedParamsJSON,
-				RuleVersion:      ruleVersion,
-				IsActive:         isActive,
 				DefinitionJson:   ruleJSON,
 			})
 		}
@@ -241,10 +211,7 @@ func seedRuleset(ctx context.Context, q *gen.Queries, ls LoadedRuleset) error {
 			Severity:         r.Severity,
 			MonitoringStatus: r.MonitoringStatus,
 			MonitoringReason: r.MonitoringReason,
-			RequiredData:     r.RequiredData,
-			ExpectedParams:   r.ExpectedParams,
-			RuleVersion:      r.RuleVersion,
-			IsActive:         r.IsActive,
+			IsActive:         true,
 			DefinitionJson:   r.DefinitionJson,
 		}); err != nil {
 			return fmt.Errorf("upsert rule %s: %w", r.Key, err)
@@ -299,10 +266,6 @@ type SeedRule struct {
 	Severity         string
 	MonitoringStatus string
 	MonitoringReason string
-	RequiredData     []byte
-	ExpectedParams   []byte
-	RuleVersion      string
-	IsActive         bool
 	DefinitionJson   []byte
 }
 

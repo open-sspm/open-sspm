@@ -187,7 +187,7 @@ func (q *Queries) GetRulesetOverride(ctx context.Context, arg GetRulesetOverride
 }
 
 const listActiveRulesByRulesetID = `-- name: ListActiveRulesByRulesetID :many
-SELECT id, ruleset_id, key, title, summary, category, severity, monitoring_status, monitoring_reason, required_data, expected_params, rule_version, is_active, created_at, updated_at, definition_json
+SELECT id, ruleset_id, key, title, summary, category, severity, monitoring_status, monitoring_reason, is_active, created_at, updated_at, definition_json
 FROM rules
 WHERE ruleset_id = $1 AND is_active = true
 ORDER BY key
@@ -212,9 +212,6 @@ func (q *Queries) ListActiveRulesByRulesetID(ctx context.Context, rulesetID int6
 			&i.Severity,
 			&i.MonitoringStatus,
 			&i.MonitoringReason,
-			&i.RequiredData,
-			&i.ExpectedParams,
-			&i.RuleVersion,
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -281,13 +278,10 @@ INSERT INTO rules (
   severity,
   monitoring_status,
   monitoring_reason,
-  required_data,
-  expected_params,
-  rule_version,
   is_active,
   definition_json
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 ON CONFLICT (ruleset_id, key) DO UPDATE SET
   title = EXCLUDED.title,
   summary = EXCLUDED.summary,
@@ -295,9 +289,6 @@ ON CONFLICT (ruleset_id, key) DO UPDATE SET
   severity = EXCLUDED.severity,
   monitoring_status = EXCLUDED.monitoring_status,
   monitoring_reason = EXCLUDED.monitoring_reason,
-  required_data = EXCLUDED.required_data,
-  expected_params = EXCLUDED.expected_params,
-  rule_version = EXCLUDED.rule_version,
   is_active = EXCLUDED.is_active,
   definition_json = EXCLUDED.definition_json,
   updated_at = CASE
@@ -306,7 +297,7 @@ ON CONFLICT (ruleset_id, key) DO UPDATE SET
       THEN now()
     ELSE rules.updated_at
   END
-RETURNING id, ruleset_id, key, title, summary, category, severity, monitoring_status, monitoring_reason, required_data, expected_params, rule_version, is_active, created_at, updated_at, definition_json
+RETURNING id, ruleset_id, key, title, summary, category, severity, monitoring_status, monitoring_reason, is_active, created_at, updated_at, definition_json
 `
 
 type UpsertRuleParams struct {
@@ -318,9 +309,6 @@ type UpsertRuleParams struct {
 	Severity         string `json:"severity"`
 	MonitoringStatus string `json:"monitoring_status"`
 	MonitoringReason string `json:"monitoring_reason"`
-	RequiredData     []byte `json:"required_data"`
-	ExpectedParams   []byte `json:"expected_params"`
-	RuleVersion      string `json:"rule_version"`
 	IsActive         bool   `json:"is_active"`
 	DefinitionJson   []byte `json:"definition_json"`
 }
@@ -335,9 +323,6 @@ func (q *Queries) UpsertRule(ctx context.Context, arg UpsertRuleParams) (Rule, e
 		arg.Severity,
 		arg.MonitoringStatus,
 		arg.MonitoringReason,
-		arg.RequiredData,
-		arg.ExpectedParams,
-		arg.RuleVersion,
 		arg.IsActive,
 		arg.DefinitionJson,
 	)
@@ -352,9 +337,6 @@ func (q *Queries) UpsertRule(ctx context.Context, arg UpsertRuleParams) (Rule, e
 		&i.Severity,
 		&i.MonitoringStatus,
 		&i.MonitoringReason,
-		&i.RequiredData,
-		&i.ExpectedParams,
-		&i.RuleVersion,
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,

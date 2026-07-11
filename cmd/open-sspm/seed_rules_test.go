@@ -46,12 +46,6 @@ func TestLoadRulesFromOpenSSPMDescriptor_SaneAndDeterministic(t *testing.T) {
 			}
 			ruleKeys[ruleKey] = struct{}{}
 
-			if !json.Valid(r.RequiredData) {
-				t.Fatalf("%s/%s: required_data is invalid JSON", key, ruleKey)
-			}
-			if !json.Valid(r.ExpectedParams) {
-				t.Fatalf("%s/%s: expected_params is invalid JSON", key, ruleKey)
-			}
 			if !json.Valid(r.DefinitionJson) {
 				t.Fatalf("%s/%s: rule definition_json is invalid JSON", key, ruleKey)
 			}
@@ -102,15 +96,6 @@ func TestLoadRulesFromOpenSSPMDescriptor_SaneAndDeterministic(t *testing.T) {
 			prev, ok := aRules[r.Key]
 			if !ok {
 				t.Fatalf("%s: rule missing on first load: %s", key, r.Key)
-			}
-			if prev.IsActive != r.IsActive {
-				t.Fatalf("%s/%s: is_active changed between loads", key, r.Key)
-			}
-			if !bytes.Equal(prev.RequiredData, r.RequiredData) {
-				t.Fatalf("%s/%s: required_data changed between loads", key, r.Key)
-			}
-			if !bytes.Equal(prev.ExpectedParams, r.ExpectedParams) {
-				t.Fatalf("%s/%s: expected_params changed between loads", key, r.Key)
 			}
 			if !bytes.Equal(prev.DefinitionJson, r.DefinitionJson) {
 				t.Fatalf("%s/%s: definition_json changed between loads", key, r.Key)

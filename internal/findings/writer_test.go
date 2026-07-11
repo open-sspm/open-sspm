@@ -383,9 +383,6 @@ func seedFindingRule(t *testing.T, ctx context.Context, q *gen.Queries, rulesetI
 		Category:         "identity",
 		Severity:         "medium",
 		MonitoringStatus: "monitored",
-		RequiredData:     []byte(`[]`),
-		ExpectedParams:   []byte(`{}`),
-		RuleVersion:      "v1",
 		IsActive:         true,
 		DefinitionJson:   []byte(`{"check":{"type":"manual"}}`),
 	})

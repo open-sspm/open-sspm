@@ -4,10 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
-	"reflect"
-
-	osspecv2 "github.com/open-sspm/open-sspm-spec/gen/go/opensspm/spec/v2"
 )
 
 func parseJSONObject(b []byte) (map[string]any, error) {
@@ -66,96 +62,60 @@ func deepCopyJSONValue(v any) any {
 	}
 }
 
-func validateParams(params map[string]any, schema map[string]osspecv2.ParameterSchema) error {
+// ValidateParamOverrides verifies that overrides only target parameters declared
+// by the rule and preserve the JSON type of each default value.
+func ValidateParamOverrides(defaults, overrides map[string]any) error {
 	var errs []error
-	for key, sch := range schema {
-		val, ok := params[key]
+	for key, override := range overrides {
+		defaultValue, ok := defaults[key]
 		if !ok {
+			errs = append(errs, fmt.Errorf("%s: unknown parameter", key))
 			continue
 		}
-		if err := validateParamValue(val, sch); err != nil {
+		if err := validateParamOverrideType(defaultValue, override); err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", key, err))
 		}
 	}
 	return errors.Join(errs...)
 }
 
-func ValidateParams(params map[string]any, schema map[string]osspecv2.ParameterSchema) error {
-	return validateParams(params, schema)
-}
+func validateParamOverrideType(defaultValue, override any) error {
+	if defaultValue == nil || override == nil {
+		return nil
+	}
 
-func validateParamValue(val any, sch osspecv2.ParameterSchema) error {
-	switch sch.Type {
-	case "string":
-		if _, ok := val.(string); !ok {
-			return fmt.Errorf("expected string, got %T", val)
+	switch defaultValue.(type) {
+	case string:
+		if _, ok := override.(string); !ok {
+			return fmt.Errorf("expected string, got %T", override)
 		}
-	case "boolean":
-		if _, ok := val.(bool); !ok {
-			return fmt.Errorf("expected boolean, got %T", val)
+	case bool:
+		if _, ok := override.(bool); !ok {
+			return fmt.Errorf("expected boolean, got %T", override)
 		}
-	case "integer":
-		n, ok := asFloat(val)
-		if !ok {
-			return fmt.Errorf("expected integer, got %T", val)
+	case float64, float32, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, json.Number:
+		if !isJSONNumber(override) {
+			return fmt.Errorf("expected number, got %T", override)
 		}
-		if math.Trunc(n) != n {
-			return fmt.Errorf("expected integer, got %v", n)
+	case []any:
+		if _, ok := override.([]any); !ok {
+			return fmt.Errorf("expected array, got %T", override)
 		}
-		if sch.Minimum != nil && n < *sch.Minimum {
-			return fmt.Errorf("must be >= %v", *sch.Minimum)
-		}
-		if sch.Maximum != nil && n > *sch.Maximum {
-			return fmt.Errorf("must be <= %v", *sch.Maximum)
-		}
-	case "number":
-		n, ok := asFloat(val)
-		if !ok {
-			return fmt.Errorf("expected number, got %T", val)
-		}
-		if sch.Minimum != nil && n < *sch.Minimum {
-			return fmt.Errorf("must be >= %v", *sch.Minimum)
-		}
-		if sch.Maximum != nil && n > *sch.Maximum {
-			return fmt.Errorf("must be <= %v", *sch.Maximum)
-		}
-	case "array":
-		if _, ok := val.([]any); !ok {
-			return fmt.Errorf("expected array, got %T", val)
-		}
-	case "object":
-		if _, ok := val.(map[string]any); !ok {
-			return fmt.Errorf("expected object, got %T", val)
+	case map[string]any:
+		if _, ok := override.(map[string]any); !ok {
+			return fmt.Errorf("expected object, got %T", override)
 		}
 	default:
-		return fmt.Errorf("unsupported schema type %q", sch.Type)
+		return fmt.Errorf("unsupported default value type %T", defaultValue)
 	}
-
-	if len(sch.Enum) > 0 {
-		var ok bool
-		for _, allowed := range sch.Enum {
-			if reflect.DeepEqual(val, allowed) {
-				ok = true
-				break
-			}
-		}
-		if !ok {
-			return fmt.Errorf("must be one of %v", sch.Enum)
-		}
-	}
-
 	return nil
 }
 
-func asFloat(v any) (float64, bool) {
-	switch t := v.(type) {
-	case float64:
-		return t, true
-	case int:
-		return float64(t), true
-	case int64:
-		return float64(t), true
+func isJSONNumber(v any) bool {
+	switch v.(type) {
+	case float64, float32, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, json.Number:
+		return true
 	default:
-		return 0, false
+		return false
 	}
 }
