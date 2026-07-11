@@ -12,6 +12,7 @@ func IdentitiesAskBar(q querystate.IdentitiesQuery) AskBarConfig {
 	return AskBarConfig{
 		Placeholder:     "try: priv needs-anchor · source:github · stale privileged · or just type a name",
 		AriaLabel:       "Filter identities",
+		SearchValue:     strings.TrimSpace(q.Q),
 		Chips:           identitiesAskBarChips(q),
 		Hidden:          identitiesAskBarHidden(q),
 		FieldParam:      identitiesFieldParam(),
@@ -30,13 +31,6 @@ func IdentitiesAskBar(q querystate.IdentitiesQuery) AskBarConfig {
 func identitiesAskBarChips(q querystate.IdentitiesQuery) []AskBarChip {
 	chips := make([]AskBarChip, 0, 8)
 
-	if v := strings.TrimSpace(q.Q); v != "" {
-		chips = append(chips, AskBarChip{
-			Field: "search",
-			Value: v,
-			Label: `"` + v + `"`,
-		})
-	}
 	if q.Source.Kind != "" {
 		chips = append(chips, AskBarChip{
 			Field:    "source_kind",
@@ -123,9 +117,6 @@ func identitiesAskBarChips(q querystate.IdentitiesQuery) []AskBarChip {
 
 func identitiesAskBarHidden(q querystate.IdentitiesQuery) []AskBarHidden {
 	hidden := make([]AskBarHidden, 0, 8)
-	if v := strings.TrimSpace(q.Q); v != "" {
-		hidden = append(hidden, AskBarHidden{Name: "q", Value: v})
-	}
 	if q.Source.Kind != "" {
 		hidden = append(hidden, AskBarHidden{Name: "source_kind", Value: q.Source.Kind})
 	}

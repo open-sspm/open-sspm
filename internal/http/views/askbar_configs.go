@@ -8,20 +8,13 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
-// SearchOnlyAskBar returns a minimal askbar with one free-text search chip and
-// no field vocabulary. Suitable for pages whose only filter is `q`.
+// SearchOnlyAskBar returns a minimal native search control with no structured
+// filter vocabulary. Suitable for pages whose only filter is `q`.
 func SearchOnlyAskBar(q querystate.BasicListQuery, placeholder, hxTarget string) AskBarConfig {
-	chips := []AskBarChip{}
-	hidden := []AskBarHidden{}
-	if v := strings.TrimSpace(q.Q); v != "" {
-		chips = append(chips, AskBarChip{Field: "search", Value: v, Label: `"` + v + `"`})
-		hidden = append(hidden, AskBarHidden{Name: "q", Value: v})
-	}
 	return AskBarConfig{
 		Placeholder: placeholder,
 		AriaLabel:   "Filter results",
-		Chips:       chips,
-		Hidden:      hidden,
+		SearchValue: strings.TrimSpace(q.Q),
 		HxTarget:    hxTarget,
 	}
 }
@@ -31,10 +24,6 @@ func SearchOnlyAskBar(q querystate.BasicListQuery, placeholder, hxTarget string)
 func StateAskBar(q querystate.BasicListQuery, placeholder, hxTarget string) AskBarConfig {
 	chips := []AskBarChip{}
 	hidden := []AskBarHidden{}
-	if v := strings.TrimSpace(q.Q); v != "" {
-		chips = append(chips, AskBarChip{Field: "search", Value: v, Label: `"` + v + `"`})
-		hidden = append(hidden, AskBarHidden{Name: "q", Value: v})
-	}
 	if v := strings.TrimSpace(q.State); v != "" {
 		chips = append(chips, AskBarChip{
 			Field:    "state",
@@ -47,6 +36,7 @@ func StateAskBar(q querystate.BasicListQuery, placeholder, hxTarget string) AskB
 	return AskBarConfig{
 		Placeholder: placeholder,
 		AriaLabel:   "Filter results",
+		SearchValue: strings.TrimSpace(q.Q),
 		Chips:       chips,
 		Hidden:      hidden,
 		FieldParam: map[string]string{
@@ -81,10 +71,6 @@ func AppsAskBar(data viewmodels.AppsViewData) AskBarConfig {
 
 	chips := []AskBarChip{}
 	hidden := []AskBarHidden{}
-	if v := strings.TrimSpace(q.Q); v != "" {
-		chips = append(chips, AskBarChip{Field: "search", Value: v, Label: `"` + v + `"`})
-		hidden = append(hidden, AskBarHidden{Name: "q", Value: v})
-	}
 	if q.Integration != "" {
 		chips = append(chips, AskBarChip{
 			Field:    "integration",
@@ -124,6 +110,7 @@ func AppsAskBar(data viewmodels.AppsViewData) AskBarConfig {
 	return AskBarConfig{
 		Placeholder: "Search apps · connected · status:active",
 		AriaLabel:   "Filter apps",
+		SearchValue: strings.TrimSpace(q.Q),
 		Chips:       chips,
 		Hidden:      hidden,
 		FieldParam: map[string]string{
@@ -158,10 +145,6 @@ func CredentialsAskBar(data viewmodels.CredentialsViewData) AskBarConfig {
 
 	chips := []AskBarChip{}
 	hidden := []AskBarHidden{}
-	if v := strings.TrimSpace(q.Q); v != "" {
-		chips = append(chips, AskBarChip{Field: "search", Value: v, Label: `"` + v + `"`})
-		hidden = append(hidden, AskBarHidden{Name: "q", Value: v})
-	}
 	if q.Source.Kind != "" {
 		chips = append(chips, AskBarChip{
 			Field:    "source_kind",
@@ -325,6 +308,7 @@ func CredentialsAskBar(data viewmodels.CredentialsViewData) AskBarConfig {
 	return AskBarConfig{
 		Placeholder: "Search",
 		AriaLabel:   "Filter credentials",
+		SearchValue: strings.TrimSpace(q.Q),
 		Chips:       chips,
 		Hidden:      hidden,
 		FieldParam: map[string]string{
@@ -454,10 +438,6 @@ func ConnectedAppsAskBar(data viewmodels.ConnectedAppsViewData) AskBarConfig {
 
 	chips := []AskBarChip{}
 	hidden := []AskBarHidden{}
-	if v := strings.TrimSpace(q.Q); v != "" {
-		chips = append(chips, AskBarChip{Field: "search", Value: v, Label: `"` + v + `"`})
-		hidden = append(hidden, AskBarHidden{Name: "q", Value: v})
-	}
 	if q.GovernanceState != "" {
 		tone := ""
 		switch q.GovernanceState {
@@ -481,6 +461,7 @@ func ConnectedAppsAskBar(data viewmodels.ConnectedAppsViewData) AskBarConfig {
 	return AskBarConfig{
 		Placeholder: "try: unreviewed · approved · action-required · or type an app name",
 		AriaLabel:   "Filter OAuth apps",
+		SearchValue: strings.TrimSpace(q.Q),
 		Chips:       chips,
 		Hidden:      hidden,
 		StaticHidden: []AskBarHidden{
@@ -522,10 +503,6 @@ func AppAssetsAskBar(data viewmodels.AppAssetsViewData) AskBarConfig {
 
 	chips := []AskBarChip{}
 	hidden := []AskBarHidden{}
-	if v := strings.TrimSpace(q.Q); v != "" {
-		chips = append(chips, AskBarChip{Field: "search", Value: v, Label: `"` + v + `"`})
-		hidden = append(hidden, AskBarHidden{Name: "q", Value: v})
-	}
 	if q.Source.Kind != "" {
 		chips = append(chips, AskBarChip{
 			Field:    "source_kind",
@@ -565,6 +542,7 @@ func AppAssetsAskBar(data viewmodels.AppAssetsViewData) AskBarConfig {
 	return AskBarConfig{
 		Placeholder: "try: github · entra · oauth · or type a name",
 		AriaLabel:   "Filter app assets",
+		SearchValue: strings.TrimSpace(q.Q),
 		Chips:       chips,
 		Hidden:      hidden,
 		FieldParam: map[string]string{
@@ -658,10 +636,6 @@ func DiscoveryAppsAskBar(data viewmodels.DiscoveryAppsViewData) AskBarConfig {
 
 	chips := []AskBarChip{}
 	hidden := []AskBarHidden{}
-	if v := strings.TrimSpace(q.Q); v != "" {
-		chips = append(chips, AskBarChip{Field: "search", Value: v, Label: `"` + v + `"`})
-		hidden = append(hidden, AskBarHidden{Name: "q", Value: v})
-	}
 	if q.Source.Kind != "" {
 		chips = append(chips, AskBarChip{
 			Field:    "source_kind",
@@ -729,6 +703,7 @@ func DiscoveryAppsAskBar(data viewmodels.DiscoveryAppsViewData) AskBarConfig {
 	return AskBarConfig{
 		Placeholder: "try: unmanaged · critical · github · or type a name",
 		AriaLabel:   "Filter discovered apps",
+		SearchValue: strings.TrimSpace(q.Q),
 		Chips:       chips,
 		Hidden:      hidden,
 		FieldParam: map[string]string{
@@ -772,10 +747,6 @@ func NonHumanIdentitiesAskBar(data viewmodels.NonHumanIdentitiesViewData) AskBar
 
 	chips := []AskBarChip{}
 	hidden := []AskBarHidden{}
-	if v := strings.TrimSpace(q.Q); v != "" {
-		chips = append(chips, AskBarChip{Field: "search", Value: v, Label: `"` + v + `"`})
-		hidden = append(hidden, AskBarHidden{Name: "q", Value: v})
-	}
 	if q.Source.Kind != "" {
 		chips = append(chips, AskBarChip{
 			Field:    "source_kind",
@@ -913,6 +884,7 @@ func NonHumanIdentitiesAskBar(data viewmodels.NonHumanIdentitiesViewData) AskBar
 	return AskBarConfig{
 		Placeholder: "try: bots · unowned · critical · github · stale · or type a principal",
 		AriaLabel:   "Filter non-human identities",
+		SearchValue: strings.TrimSpace(q.Q),
 		Chips:       chips,
 		Hidden:      hidden,
 		FieldParam: map[string]string{
