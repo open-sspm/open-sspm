@@ -169,6 +169,7 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 }
 
 templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
+	{{ mutationAttrs := MutationFormAttrs() }}
 	{{ revokeConfirmation := ConfirmAttrs(ConfirmConfig{
 		Title: "Revoke grant?",
 		Body: "Revoking removes this credential's access to the app. The credential record stays for audit history.",
@@ -296,9 +297,9 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 														<form
 															method="post"
 															action={ "/app-assets/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke" }
-															hx-post={ "/app-assets/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke" }
-																hx-target="#connected-app-show-shell"
-																hx-disabled-elt="this"
+													hx-post={ "/app-assets/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke" }
+														hx-target="#connected-app-show-shell"
+														{ mutationAttrs... }
 																{ revokeConfirmation... }
 																class="inline-flex"
 															>
@@ -459,7 +460,7 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 								action={ "/app-assets/" + FormatInt64(data.App.ID) + "/governance" }
 								hx-post={ "/app-assets/" + FormatInt64(data.App.ID) + "/governance" }
 								hx-target="#connected-app-show-shell"
-								hx-disabled-elt="this"
+								{ mutationAttrs... }
 								class="space-y-4"
 							>
 								@CSRFInput(data.Layout.CSRFToken)

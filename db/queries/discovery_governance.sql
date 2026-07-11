@@ -72,6 +72,57 @@ VALUES (
   now()
 );
 
+-- name: InsertSaaSAppReviewDecisionIfChanged :execrows
+INSERT INTO saas_app_review_decisions (
+  saas_app_id,
+  owner_identity_id,
+  review_owner_identity_id,
+  review_disposition,
+  ticket_ref,
+  notes,
+  follow_up_due_date,
+  replacement_saas_app_id,
+  changed_by_auth_user_id,
+  changed_at
+)
+SELECT
+  sqlc.arg(saas_app_id)::bigint,
+  sqlc.narg(owner_identity_id)::bigint,
+  sqlc.narg(review_owner_identity_id)::bigint,
+  sqlc.arg(review_disposition)::text,
+  sqlc.arg(ticket_ref)::text,
+  sqlc.arg(notes)::text,
+  sqlc.narg(follow_up_due_date)::date,
+  sqlc.narg(replacement_saas_app_id)::bigint,
+  sqlc.narg(changed_by_auth_user_id)::bigint,
+  now()
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM (
+    SELECT
+      d.owner_identity_id,
+      d.review_owner_identity_id,
+      d.review_disposition,
+      d.ticket_ref,
+      d.notes,
+      d.follow_up_due_date,
+      d.replacement_saas_app_id,
+      d.changed_by_auth_user_id
+    FROM saas_app_review_decisions d
+    WHERE d.saas_app_id = sqlc.arg(saas_app_id)::bigint
+    ORDER BY d.changed_at DESC, d.id DESC
+    LIMIT 1
+  ) latest
+  WHERE latest.owner_identity_id IS NOT DISTINCT FROM sqlc.narg(owner_identity_id)::bigint
+    AND latest.review_owner_identity_id IS NOT DISTINCT FROM sqlc.narg(review_owner_identity_id)::bigint
+    AND latest.review_disposition = sqlc.arg(review_disposition)::text
+    AND latest.ticket_ref = sqlc.arg(ticket_ref)::text
+    AND latest.notes = sqlc.arg(notes)::text
+    AND latest.follow_up_due_date IS NOT DISTINCT FROM sqlc.narg(follow_up_due_date)::date
+    AND latest.replacement_saas_app_id IS NOT DISTINCT FROM sqlc.narg(replacement_saas_app_id)::bigint
+    AND latest.changed_by_auth_user_id IS NOT DISTINCT FROM sqlc.narg(changed_by_auth_user_id)::bigint
+);
+
 -- name: ListSaaSAppReviewDecisionsBySaaSAppID :many
 SELECT
   d.id::bigint AS id,

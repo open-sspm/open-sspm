@@ -233,6 +233,8 @@ templ IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) 
 // data-osspm-confirm-* attributes and presents a real dialog instead of a
 // browser confirm/prompt.
 templ identityResolutionActions(csrfToken string, item viewmodels.IdentityResolutionCandidateItem) {
+	{{ actionFormID := "identity-resolution-actions-" + FormatInt64(item.ID) }}
+	{{ mutationAttrs := ScopedMutationAttrs(actionFormID, "button[type='submit']") }}
 	{{ acceptMergeConfirmation := ConfirmAttrs(ConfirmConfig{
 		Title: "Accept and merge?",
 		Body: "Accepts the match and merges the provisional identity into the candidate.",
@@ -262,11 +264,12 @@ templ identityResolutionActions(csrfToken string, item viewmodels.IdentityResolu
 		AcceptLabel: "Mark shared",
 	}) }}
 	<form
+		id={ actionFormID }
 		method="post"
 		action={ item.AcceptHref }
 		hx-target={ "#identity-resolution-candidate-" + FormatInt64(item.ID) }
 		hx-swap="swap:200ms"
-		hx-disabled-elt="this"
+		{ mutationAttrs... }
 		class="flex flex-col gap-2"
 	>
 		@CSRFInput(csrfToken)

@@ -569,17 +569,25 @@ func TestHandleDiscoveryAppGovernanceUpdatePersistsDecisionHistory(t *testing.T)
 			"notes":                   []string{"Needs migration"},
 			"replacement_saas_app_id": []string{strconv.FormatInt(replacementID, 10)},
 		}
-		c, rec := newFormTestContext(http.MethodPost, "http://example.com/discovery/apps/"+strconv.FormatInt(currentID, 10)+"/governance", form)
-		(*c).SetPath("/discovery/apps/:id/governance")
-		(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(currentID, 10)}})
-		(*c).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: adminUserID, Email: "admin@example.com", Role: "admin"})
+		submit := func(values url.Values) {
+			t.Helper()
+			c, rec := newFormTestContext(http.MethodPost, "http://example.com/discovery/apps/"+strconv.FormatInt(currentID, 10)+"/governance", values)
+			(*c).SetPath("/discovery/apps/:id/governance")
+			(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(currentID, 10)}})
+			(*c).Set(authn.ContextKeyPrincipal, auth.Principal{UserID: adminUserID, Email: "admin@example.com", Role: "admin"})
 
-		if err := h.HandleDiscoveryAppGovernanceUpdate(c); err != nil {
-			t.Fatalf("HandleDiscoveryAppGovernanceUpdate(): %v", err)
+			if err := h.HandleDiscoveryAppGovernanceUpdate(c); err != nil {
+				t.Fatalf("HandleDiscoveryAppGovernanceUpdate(): %v", err)
+			}
+			if rec.Code != http.StatusSeeOther {
+				t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusSeeOther, rec.Body.String())
+			}
 		}
-		if rec.Code != http.StatusSeeOther {
-			t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusSeeOther, rec.Body.String())
-		}
+
+		submit(form)
+		// A browser retry or duplicate non-HTMX POST must not append the same
+		// audit decision a second time.
+		submit(form)
 
 		row := getDiscoveryAppByIDForTest(t, ctx, q, h, currentID)
 		if row.ReviewDisposition != "replace" {
@@ -613,6 +621,23 @@ func TestHandleDiscoveryAppGovernanceUpdatePersistsDecisionHistory(t *testing.T)
 		}
 		if history[0].ChangedByAuthUserEmail != "admin@example.com" || history[0].ReviewDisposition != "replace" {
 			t.Fatalf("history row = %+v", history[0])
+		}
+
+		changedForm := url.Values{}
+		for key, values := range form {
+			changedForm[key] = append([]string(nil), values...)
+		}
+		changedForm.Set("notes", "Migration approved")
+		submit(changedForm)
+		history, err = q.ListSaaSAppReviewDecisionsBySaaSAppID(ctx, gen.ListSaaSAppReviewDecisionsBySaaSAppIDParams{
+			SaasAppID: currentID,
+			LimitRows: 10,
+		})
+		if err != nil {
+			t.Fatalf("ListSaaSAppReviewDecisionsBySaaSAppID() after change: %v", err)
+		}
+		if len(history) != 2 || history[0].Notes != "Migration approved" {
+			t.Fatalf("changed history = %+v, want a second decision", history)
 		}
 	})
 }

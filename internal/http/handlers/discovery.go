@@ -435,7 +435,7 @@ func (h *Handlers) persistDiscoveryGovernanceUpdate(ctx context.Context, appID i
 			return err
 		}
 
-		if err := qtx.InsertSaaSAppReviewDecision(ctx, gen.InsertSaaSAppReviewDecisionParams{
+		if _, err := qtx.InsertSaaSAppReviewDecisionIfChanged(ctx, gen.InsertSaaSAppReviewDecisionIfChangedParams{
 			SaasAppID:             appID,
 			OwnerIdentityID:       identityRefs.ownerIdentityID,
 			ReviewOwnerIdentityID: identityRefs.reviewOwnerIdentityID,

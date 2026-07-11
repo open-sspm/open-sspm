@@ -204,8 +204,9 @@ templ FormDialog(id string, open bool, title string, description string, closeHr
 }
 
 templ HtmxFormDialog(id string, open bool, title string, description string, formAction string, submitLabel string, csrfToken string) {
+	{{ mutationAttrs := MutationFormAttrs() }}
 	<dialog id={ id } class="dialog" data-open?={ open } data-remove-on-close aria-labelledby={ id + "-title" } aria-describedby={ id + "-description" }>
-		<form method="post" action={ formAction } hx-post={ formAction } hx-target="closest dialog" hx-disabled-elt="find button[type='submit']">
+		<form method="post" action={ formAction } hx-post={ formAction } hx-target="closest dialog" { mutationAttrs... }>
 			@CSRFInput(csrfToken)
 			<button type="button" class="btn-icon-ghost" aria-label="Close" data-dialog-close>
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

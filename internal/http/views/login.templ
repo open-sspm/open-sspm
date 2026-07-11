@@ -38,6 +38,7 @@ templ LoginPage(data viewmodels.LoginViewData) {
 // HX-Redirect to bounce the user. Without JS, the form still works as
 // a normal POST that returns the full page (progressive enhancement).
 templ LoginForm(data viewmodels.LoginViewData) {
+	{{ mutationAttrs := MutationFormAttrs() }}
 	<div id="login-form-shell" class="space-y-5">
 		if data.ErrorMessage != "" {
 			@Alert("Sign in failed", true) {
@@ -49,7 +50,7 @@ templ LoginForm(data viewmodels.LoginViewData) {
 			action="/login"
 			hx-post="/login"
 			hx-target="#login-form-shell"
-			hx-disabled-elt="find button[type='submit']"
+			{ mutationAttrs... }
 			class="space-y-5"
 		>
 			@CSRFInput(data.CSRFToken)

@@ -18,6 +18,7 @@ templ FindingsRuleMutationResponse(data viewmodels.FindingsRuleViewData) {
 }
 
 templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
+	{{ mutationAttrs := MutationFormAttrs() }}
 	{{ disableConfirmation := ConfirmAttrs(ConfirmConfig{
 		Title: "Disable ruleset?",
 		Body: "Disabling forces every rule in this ruleset to report not-applicable.",
@@ -154,7 +155,7 @@ templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
 							action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" }
 							hx-post={ "/findings/rulesets/" + data.Ruleset.Key + "/override" }
 							hx-target="#findings-rule-shell"
-							hx-disabled-elt="this"
+							{ mutationAttrs... }
 							class="flex items-center justify-between gap-3"
 						>
 							@CSRFInput(data.Layout.CSRFToken)
@@ -181,7 +182,7 @@ templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
 							action={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/override" }
 							hx-post={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/override" }
 							hx-target="#findings-rule-shell"
-							hx-disabled-elt="this"
+							{ mutationAttrs... }
 							class="space-y-4"
 						>
 							@CSRFInput(data.Layout.CSRFToken)
@@ -265,7 +266,7 @@ templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
 							action={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/attestation" }
 							hx-post={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/attestation" }
 							hx-target="#findings-rule-shell"
-							hx-disabled-elt="this"
+							{ mutationAttrs... }
 							class="space-y-4"
 						>
 							@CSRFInput(data.Layout.CSRFToken)
