@@ -267,7 +267,7 @@ func (e *Engine) evaluateRuleInternal(ctx context.Context, ruleset gen.Ruleset, 
 		}
 	}
 
-	out, err := e.evalCheck(ctx, strings.TrimSpace(ruleset.Key), strings.TrimSpace(rule.Key), evalCtx, def, effectiveParams)
+	out, err := e.evalCheck(ctx, ruleset.DefinitionJson, strings.TrimSpace(ruleset.Key), strings.TrimSpace(rule.Key), def, effectiveParams)
 	if err != nil {
 		return &Evaluation{
 			Status:          "error",
@@ -455,13 +455,22 @@ type selectionCounts struct {
 	Passed   int `json:"passed"`
 }
 
-func (e *Engine) evalCheck(ctx context.Context, rulesetKey, ruleKey string, evalCtx Context, rule osspecv2.Rule, params map[string]any) (*Evaluation, error) {
-	datasets, err := e.buildEvaluateDatasets(ctx, evalCtx, rule)
+func (e *Engine) evalCheck(ctx context.Context, rulesetDefinition []byte, rulesetKey, ruleKey string, rule osspecv2.Rule, params map[string]any) (*Evaluation, error) {
+	datasets, err := e.buildEvaluateDatasets(ctx, rule)
 	if err != nil {
 		return nil, err
 	}
 
-	result, evalErr := osspecv2.EvaluateRule(&rule, osspecv2.EvaluateInput{
+	var specRuleset *osspecv2.Ruleset
+	if len(rulesetDefinition) > 0 {
+		var doc osspecv2.RulesetDoc
+		if err := json.Unmarshal(rulesetDefinition, &doc); err != nil {
+			return nil, fmt.Errorf("decode ruleset definition_json: %w", err)
+		}
+		specRuleset = &doc.Ruleset
+	}
+
+	result, evalErr := osspecv2.EvaluateRule(specRuleset, &rule, osspecv2.EvaluateInput{
 		Datasets: datasets,
 		Params:   params,
 	})
@@ -509,7 +518,7 @@ func (e *Engine) evalCheck(ctx context.Context, rulesetKey, ruleKey string, eval
 	}, nil
 }
 
-func (e *Engine) buildEvaluateDatasets(ctx context.Context, evalCtx Context, rule osspecv2.Rule) (map[string]osspecv2.DatasetInput, error) {
+func (e *Engine) buildEvaluateDatasets(ctx context.Context, rule osspecv2.Rule) (map[string]osspecv2.DatasetInput, error) {
 	keys := requiredDatasetsForRule(rule)
 	if len(keys) == 0 {
 		return map[string]osspecv2.DatasetInput{}, nil
@@ -518,17 +527,9 @@ func (e *Engine) buildEvaluateDatasets(ctx context.Context, evalCtx Context, rul
 		return nil, errors.New("engine: missing dataset provider")
 	}
 
-	runtimeEval := runtimev2.EvalContext{
-		ScopeKind: runtimev2.ScopeKind(strings.TrimSpace(evalCtx.ScopeKind)),
-	}
-	if runtimeEval.ScopeKind == runtimev2.ScopeKind_CONNECTOR_INSTANCE {
-		runtimeEval.ConnectorKind = strings.TrimSpace(evalCtx.SourceKind)
-		runtimeEval.ConnectorInstance = strings.TrimSpace(evalCtx.SourceName)
-	}
-
 	out := make(map[string]osspecv2.DatasetInput, len(keys))
 	for _, key := range keys {
-		res := e.Datasets.GetDataset(ctx, runtimeEval, runtimev2.DatasetRef{Dataset: key, Version: 1})
+		res := e.Datasets.GetDataset(ctx, runtimev2.DatasetRef{Dataset: key, Version: 1})
 		if res.Error != nil {
 			out[key] = osspecv2.DatasetInput{
 				Error: &osspecv2.DatasetInputError{

@@ -919,37 +919,44 @@ html {
    --------------------------------------------------------------------------- */
 
 @layer components {
+  html[data-mobile-sidebar-open="true"],
+  html[data-mobile-sidebar-open="true"] body {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   .sidebar {
     &:not([data-sidebar-initialized]) {
-      @apply max-md:hidden;
+      @apply max-lg:hidden;
       nav, & + * { transition: none; }
     }
     &:not([aria-hidden]), &[aria-hidden=false] {
-      @apply max-md:bg-black/50 max-md:fixed max-md:inset-0 max-md:z-40;
+      @apply max-lg:bg-black/50 max-lg:fixed max-lg:inset-0 max-lg:z-40;
     }
     nav {
-      @apply bg-sidebar text-sidebar-foreground flex flex-col w-(--sidebar-mobile-width) md:w-(--sidebar-width) fixed inset-y-0 z-50 transition-transform ease-in-out duration-300;
+      @apply bg-sidebar text-sidebar-foreground flex flex-col w-(--sidebar-mobile-width) lg:w-(--sidebar-width) fixed inset-y-0 z-50 transition-transform ease-in-out duration-300;
     }
     & + * { @apply transition-[margin] ease-in-out duration-300; }
 
     &:not([data-side]), &[data-side=left] {
       nav { @apply left-0 border-r; }
-      & + * { @apply relative md:ml-(--sidebar-width); }
+      & + * { @apply relative lg:ml-(--sidebar-width); }
       &[aria-hidden=true] {
         nav { @apply -translate-x-full; }
-        & + * { @apply md:ml-0; }
+        & + * { @apply lg:ml-0; }
       }
     }
     &[data-side=right] {
       nav { @apply right-0 border-l; }
-      & + * { @apply relative md:mr-(--sidebar-width); }
+      & + * { @apply relative lg:mr-(--sidebar-width); }
       &[aria-hidden=true] {
         nav { @apply translate-x-full; }
-        & + * { @apply md:mr-0; }
+        & + * { @apply lg:mr-0; }
       }
     }
     nav {
-      > header, > footer { @apply flex flex-col gap-2 p-2; }
+      > header { @apply flex flex-row items-center gap-2 p-2; }
+      > footer { @apply flex flex-col gap-2 p-2; }
       [role=separator] { @apply border-sidebar-border mx-2 w-auto; }
       > section {
         @apply flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto;
@@ -983,7 +990,7 @@ html {
   }
 
   html[data-sidebar-pref="closed"] .sidebar:not([data-sidebar-initialized]) nav { @apply -translate-x-full; }
-  html[data-sidebar-pref="closed"] .sidebar:not([data-sidebar-initialized]) + * { @apply md:ml-0; }
+  html[data-sidebar-pref="closed"] .sidebar:not([data-sidebar-initialized]) + * { @apply lg:ml-0; }
 
   /* App-specific sidebar overrides */
   .sidebar nav > section ul li > details::details-content { padding-inline: 0; }

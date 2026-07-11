@@ -12,14 +12,7 @@ type RouterProvider struct {
 	Normalized runtimev2.DatasetProvider
 }
 
-func (p RouterProvider) Capabilities(ctx context.Context) []runtimev2.DatasetRef {
-	_ = ctx
-	return RuntimeCapabilities(p)
-}
-
-func (p RouterProvider) GetDataset(ctx context.Context, eval runtimev2.EvalContext, ref runtimev2.DatasetRef) runtimev2.DatasetResult {
-	_ = eval
-
+func (p RouterProvider) GetDataset(ctx context.Context, ref runtimev2.DatasetRef) runtimev2.DatasetResult {
 	key := strings.TrimSpace(ref.Dataset)
 	if key == "" {
 		return runtimev2.DatasetResult{
@@ -40,7 +33,7 @@ func (p RouterProvider) GetDataset(ctx context.Context, eval runtimev2.EvalConte
 				},
 			}
 		}
-		return p.Okta.GetDataset(ctx, eval, ref)
+		return p.Okta.GetDataset(ctx, ref)
 	case strings.HasPrefix(key, "normalized:"):
 		if p.Normalized == nil {
 			return runtimev2.DatasetResult{
@@ -50,7 +43,7 @@ func (p RouterProvider) GetDataset(ctx context.Context, eval runtimev2.EvalConte
 				},
 			}
 		}
-		return p.Normalized.GetDataset(ctx, eval, ref)
+		return p.Normalized.GetDataset(ctx, ref)
 	default:
 		return runtimev2.DatasetResult{
 			Error: &runtimev2.DatasetError{

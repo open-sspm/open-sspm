@@ -37,7 +37,7 @@ func (s stubOktaClient) GetAdminConsoleSettings(ctx context.Context) (oktaapi.Ad
 
 func TestRouterProviderMissingProvider(t *testing.T) {
 	p := RouterProvider{}
-	res := p.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{Dataset: "okta:apps", Version: 1})
+	res := p.GetDataset(context.Background(), runtimev2.DatasetRef{Dataset: "okta:apps", Version: 1})
 	if res.Error == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -50,7 +50,7 @@ func TestOktaProviderPermissionDeniedIsCategorized(t *testing.T) {
 	p := &OktaProvider{
 		Client: stubOktaClient{listPoliciesErr: &oktaapi.APIError{StatusCode: 403, Status: "403 Forbidden", Summary: "nope"}},
 	}
-	res := p.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{Dataset: "okta:policies/sign-on", Version: 1})
+	res := p.GetDataset(context.Background(), runtimev2.DatasetRef{Dataset: "okta:policies/sign-on", Version: 1})
 	if res.Error == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -61,7 +61,7 @@ func TestOktaProviderPermissionDeniedIsCategorized(t *testing.T) {
 
 func TestNormalizedProviderRejectsUnsupportedVersion(t *testing.T) {
 	p := &NormalizedProvider{}
-	res := p.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{Dataset: "normalized:identities", Version: 9999})
+	res := p.GetDataset(context.Background(), runtimev2.DatasetRef{Dataset: "normalized:identities", Version: 9999})
 	if res.Error == nil {
 		t.Fatalf("expected error, got nil")
 	}

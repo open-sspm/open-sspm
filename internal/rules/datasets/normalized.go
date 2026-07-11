@@ -16,26 +16,14 @@ type NormalizedProvider struct {
 	Q normalizedQueryRunner
 }
 
+const normalizedDatasetVersion = 1
+
 type normalizedQueryRunner interface {
 	ListNormalizedIdentities(context.Context) ([]gen.ListNormalizedIdentitiesRow, error)
 	ListNormalizedEntitlementAssignments(context.Context) ([]gen.ListNormalizedEntitlementAssignmentsRow, error)
 }
 
-func (p *NormalizedProvider) Capabilities(ctx context.Context) []runtimev2.DatasetRef {
-	_ = ctx
-	if p == nil {
-		return nil
-	}
-	out := make([]runtimev2.DatasetRef, 0, len(normalizedCapabilities))
-	for _, ds := range normalizedCapabilities {
-		out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: normalizedDatasetVersion})
-	}
-	return out
-}
-
-func (p *NormalizedProvider) GetDataset(ctx context.Context, eval runtimev2.EvalContext, ref runtimev2.DatasetRef) runtimev2.DatasetResult {
-	_ = eval
-
+func (p *NormalizedProvider) GetDataset(ctx context.Context, ref runtimev2.DatasetRef) runtimev2.DatasetResult {
 	rows, err := p.getDatasetRows(ctx, strings.TrimSpace(ref.Dataset), ref.Version)
 	return runtimeResultFromRowsOrError(rows, err)
 }

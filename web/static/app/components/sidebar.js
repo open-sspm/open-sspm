@@ -8,12 +8,14 @@ import { findFirstFocusable, focusElement, scheduleSoon } from "../dom_focus.js"
 import { register } from "./registry.js";
 
 const SIDEBAR_ID = "app-sidebar";
+const DEFAULT_SIDEBAR_BREAKPOINT = 1024;
 const DESKTOP_SIDEBAR_STATE_KEY = "openSspm.sidebar.desktopOpen";
 
 let sidebarStateObserver = null;
 let sidebarEscapeHandler = null;
 let sidebarResizeHandler = null;
 let sidebarBackdropHandler = null;
+let sidebarModalCleanup = null;
 
 const readDesktopSidebarPreference = () => {
   try {
@@ -63,17 +65,47 @@ export const wireSidebarToggle = (root = document) => {
   if (sidebarBackdropHandler?.element instanceof HTMLElement && typeof sidebarBackdropHandler.handler === "function") {
     sidebarBackdropHandler.element.removeEventListener("click", sidebarBackdropHandler.handler, true);
   }
+  if (typeof sidebarModalCleanup === "function") {
+    sidebarModalCleanup();
+    sidebarModalCleanup = null;
+  }
 
   let moveFocusToSidebarOnOpen = false;
   let returnFocusToToggleOnClose = false;
+  let moveFocusToMainOnClose = false;
   let desktopPersistenceReady = false;
   let desktopOpenPreference = readDesktopSidebarPreference();
-  const mobileBreakpoint = Number.parseInt(sidebar.dataset.breakpoint || "", 10) || 768;
+  const mobileBreakpoint =
+    Number.parseInt(sidebar.dataset.breakpoint || "", 10) || DEFAULT_SIDEBAR_BREAKPOINT;
+  const mobileCloseControl = sidebar.querySelector("[data-sidebar-mobile-close]");
+  const adjacentContent = sidebar.nextElementSibling;
+  const appContent =
+    root.querySelector("[data-sidebar-content]") ||
+    (adjacentContent instanceof HTMLElement ? adjacentContent : null);
+  const mainContent = root.querySelector("[data-main-content], main");
   let wasMobileViewport = window.innerWidth < mobileBreakpoint;
 
   const isMobileViewport = () => window.innerWidth < mobileBreakpoint;
   const isSidebarOpen = () => sidebar.getAttribute("aria-hidden") !== "true";
   const isSidebarComponentReady = () => sidebar.dataset.sidebarInitialized === "true";
+
+  const syncMobileModalState = (active) => {
+    if (appContent instanceof HTMLElement) {
+      appContent.inert = active;
+    }
+    if (active) {
+      document.documentElement.setAttribute("data-mobile-sidebar-open", "true");
+    } else {
+      document.documentElement.removeAttribute("data-mobile-sidebar-open");
+    }
+  };
+
+  sidebarModalCleanup = () => {
+    if (appContent instanceof HTMLElement) {
+      appContent.inert = false;
+    }
+    document.documentElement.removeAttribute("data-mobile-sidebar-open");
+  };
 
   const persistDesktopPreference = (open) => {
     if (!desktopPersistenceReady) return;
@@ -108,32 +140,44 @@ export const wireSidebarToggle = (root = document) => {
 
   const syncSidebarState = () => {
     const open = isSidebarOpen();
+    const mobile = isMobileViewport();
     sidebarToggle.setAttribute("aria-expanded", String(open));
     sidebarToggle.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
+    syncMobileModalState(mobile && open);
 
     const wasOpen = sidebar.dataset.lastKnownOpen === "true";
     sidebar.dataset.lastKnownOpen = String(open);
 
-    if (!isMobileViewport()) {
+    if (!mobile) {
       persistDesktopPreference(open);
       moveFocusToSidebarOnOpen = false;
       returnFocusToToggleOnClose = false;
+      moveFocusToMainOnClose = false;
       return;
     }
 
     if (open && !wasOpen && moveFocusToSidebarOnOpen) {
-      const firstFocusable = findFirstFocusable(sidebar);
-      if (firstFocusable) {
-        focusElement(firstFocusable);
+      let movedFocus = false;
+      if (mobileCloseControl instanceof HTMLElement) {
+        movedFocus = focusElement(mobileCloseControl);
+      }
+      if (!movedFocus) {
+        const firstFocusable = findFirstFocusable(sidebar);
+        if (firstFocusable) {
+          focusElement(firstFocusable);
+        }
       }
     }
 
     if (!open && wasOpen && returnFocusToToggleOnClose) {
       focusElement(sidebarToggle);
+    } else if (!open && wasOpen && moveFocusToMainOnClose && mainContent instanceof HTMLElement) {
+      focusElement(mainContent, { allowProgrammatic: true });
     }
 
     moveFocusToSidebarOnOpen = false;
     returnFocusToToggleOnClose = false;
+    moveFocusToMainOnClose = false;
   };
 
   sidebarStateObserver = new MutationObserver(() => {
@@ -157,10 +201,20 @@ export const wireSidebarToggle = (root = document) => {
 
     const clickedOutsideNav = event.target === sidebar;
     const clickedAction = Boolean(event.target.closest("a, button"));
+    const clickedCloseControl = Boolean(event.target.closest("[data-sidebar-mobile-close]"));
     const keepSidebarOpen = Boolean(event.target.closest("[data-keep-mobile-sidebar-open]"));
 
-    if (clickedOutsideNav || (clickedAction && !keepSidebarOpen)) {
+    if (clickedOutsideNav) {
       returnFocusToToggleOnClose = true;
+      moveFocusToMainOnClose = false;
+      dispatchSidebarEvent({ action: "close" });
+      return;
+    }
+
+    if (clickedAction && !keepSidebarOpen) {
+      returnFocusToToggleOnClose = clickedCloseControl;
+      moveFocusToMainOnClose = !clickedCloseControl;
+      dispatchSidebarEvent({ action: "close" });
     }
   };
   sidebar.addEventListener("click", onSidebarClick, true);
@@ -180,7 +234,12 @@ export const wireSidebarToggle = (root = document) => {
 
   sidebarResizeHandler = () => {
     const isMobile = isMobileViewport();
-    if (wasMobileViewport && !isMobile) {
+    if (!wasMobileViewport && isMobile && isSidebarOpen()) {
+      moveFocusToSidebarOnOpen = false;
+      returnFocusToToggleOnClose = false;
+      moveFocusToMainOnClose = sidebar.contains(document.activeElement);
+      dispatchSidebarEvent({ action: "close" });
+    } else if (wasMobileViewport && !isMobile) {
       if (desktopPersistenceReady) {
         applyDesktopPreference();
       } else {
@@ -216,7 +275,8 @@ const init = (el) => {
   const nav = el.querySelector("nav");
   if (!nav) return;
 
-  const breakpoint = Number.parseInt(el.dataset.breakpoint || "", 10) || 768;
+  const breakpoint =
+    Number.parseInt(el.dataset.breakpoint || "", 10) || DEFAULT_SIDEBAR_BREAKPOINT;
   const isMobile = () =>
     (typeof resizeTarget?.innerWidth === "number"
       ? resizeTarget.innerWidth
