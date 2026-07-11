@@ -85,7 +85,7 @@ describe("fragment", () => {
     expect(replacementFields.hidden).toBe(false);
   });
 
-  it("adds keyboard semantics and supports modifier-click row navigation", () => {
+  it("adds fallback keyboard semantics to anchorless rows", () => {
     document.body.innerHTML = `
       <table>
         <tbody>
@@ -104,6 +104,32 @@ describe("fragment", () => {
     expect(row.getAttribute("role")).toBe("link");
     expect(row.getAttribute("tabindex")).toBe("0");
     expect(openSpy).toHaveBeenCalledWith("/credentials/42", "_blank", "noopener");
+  });
+
+  it("leaves keyboard and link semantics to a row's primary anchor", () => {
+    document.body.innerHTML = `
+      <table>
+        <tbody>
+          <tr id="row" data-row-href="/credentials/42">
+            <td><a id="primary" href="/credentials/42">Credential 42</a></td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+
+    wireRowLinks(document);
+
+    const row = document.getElementById("row");
+    const primary = document.getElementById("primary");
+    const clickSpy = vi.fn();
+    Object.defineProperty(primary, "click", { value: clickSpy, configurable: true });
+
+    expect(row.hasAttribute("role")).toBe(false);
+    expect(row.hasAttribute("tabindex")).toBe(false);
+    expect(document.querySelectorAll("a[href], [tabindex='0']")).toHaveLength(1);
+
+    row.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    expect(clickSpy).not.toHaveBeenCalled();
   });
 
   it("uses the primary row anchor for normal row navigation", () => {

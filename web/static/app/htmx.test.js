@@ -928,6 +928,53 @@ describe("htmx integration wiring", () => {
     expect(document.activeElement).toBe(document.getElementById("new"));
   });
 
+  it("restores focus to the selected saved query after its results swap", async () => {
+    document.body.innerHTML = `
+      <main data-main-content data-busy-region>
+        <section id="identities-results">
+          <nav aria-label="Saved queries">
+            <a href="/identities?privileged=true" data-focus-key="saved-query:/identities?privileged=true">Privileged</a>
+            <a id="selected" href="/identities?row_state=review" data-focus-key="saved-query:/identities?row_state=review">Review</a>
+          </nav>
+        </section>
+      </main>
+    `;
+
+    const target = document.getElementById("identities-results");
+    const selected = document.getElementById("selected");
+    const xhr = new XMLHttpRequest();
+    selected.focus();
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        detail: {
+          xhr,
+          target,
+          elt: selected,
+          requestConfig: {},
+        },
+      }),
+    );
+
+    target.innerHTML = `
+      <nav aria-label="Saved queries">
+        <a href="/identities?privileged=true" data-focus-key="saved-query:/identities?privileged=true">Privileged</a>
+        <a id="restored-selected" href="/identities?row_state=review" data-focus-key="saved-query:/identities?row_state=review">Review</a>
+      </nav>
+    `;
+
+    target.dispatchEvent(
+      new CustomEvent("htmx:afterSwap", {
+        bubbles: true,
+        detail: { xhr },
+      }),
+    );
+
+    await waitForAsyncWork();
+
+    expect(document.activeElement).toBe(document.getElementById("restored-selected"));
+  });
+
   it("restores focus to the command search input after command fragment swap", async () => {
     document.body.innerHTML = `
       <main data-main-content data-busy-region>

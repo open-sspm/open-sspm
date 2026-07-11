@@ -338,7 +338,7 @@ func appsHasAnyIntegration(apps []viewmodels.AppListItem) bool {
 			return true
 		}
 		if app.SuggestedKind != "" {
-			// Retain the column so the suggested action surfaces on hover.
+			// Retain the column so the suggested action remains visible.
 			return true
 		}
 	}

@@ -148,9 +148,10 @@ templ AskBarSavedQueries(cfg AskBarConfig) {
 templ askBarSavedQueryPill(pill AskBarSavedQuery, hxTarget string) {
 	<a
 		href={ templ.SafeURL(pill.Href) }
+		data-focus-key={ "saved-query:" + pill.Href }
 		hx-get={ pill.Href }
 		hx-target={ hxTarget }
-		hx-swap="outerHTML show:top"
+		hx-swap="outerHTML"
 		hx-push-url="true"
 		class="osspm-saved-queries-pill"
 		aria-current={ AriaCurrentBool(pill.Active) }
