@@ -233,6 +233,34 @@ templ IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) 
 // data-osspm-confirm-* attributes and presents a real dialog instead of a
 // browser confirm/prompt.
 templ identityResolutionActions(csrfToken string, item viewmodels.IdentityResolutionCandidateItem) {
+	{{ acceptMergeConfirmation := ConfirmAttrs(ConfirmConfig{
+		Title: "Accept and merge?",
+		Body: "Accepts the match and merges the provisional identity into the candidate.",
+		AcceptLabel: "Accept + merge",
+	}) }}
+	{{ rejectConfirmation := ConfirmAttrs(ConfirmConfig{
+		Title: "Reject candidate?",
+		Body: "The candidate stays suppressed until its evidence changes.",
+		AcceptLabel: "Reject",
+		Tone: ConfirmToneWarning,
+		ReasonLabel: "Optional reason",
+		ReasonName: "review_note",
+	}) }}
+	{{ markServiceConfirmation := ConfirmAttrs(ConfirmConfig{
+		Title: "Classify as service account?",
+		Body: "Marks the source account as a service identity and rejects the candidate.",
+		AcceptLabel: "Mark service",
+	}) }}
+	{{ markCustodianConfirmation := ConfirmAttrs(ConfirmConfig{
+		Title: "Classify as service custodian?",
+		Body: "Records the source account as a service custodian, not a primary owner.",
+		AcceptLabel: "Mark custodian",
+	}) }}
+	{{ markSharedConfirmation := ConfirmAttrs(ConfirmConfig{
+		Title: "Classify as shared account?",
+		Body: "Marks the source account as shared and rejects the candidate.",
+		AcceptLabel: "Mark shared",
+	}) }}
 	<form
 		method="post"
 		action={ item.AcceptHref }
@@ -256,10 +284,7 @@ templ identityResolutionActions(csrfToken string, item viewmodels.IdentityResolu
 				hx-post={ item.AcceptMergeHref }
 				name="merge_provisional"
 				value="true"
-				data-osspm-confirm-title="Accept and merge?"
-				data-osspm-confirm-body="Accepts the match and merges the provisional identity into the candidate."
-				data-osspm-confirm-accept-label="Accept + merge"
-				hx-confirm=" "
+				{ acceptMergeConfirmation... }
 			>Accept + merge</button>
 		}
 		if item.CanReject {
@@ -267,13 +292,7 @@ templ identityResolutionActions(csrfToken string, item viewmodels.IdentityResolu
 				type="submit"
 				class="btn-sm-outline w-full"
 				hx-post={ item.RejectHref }
-				data-osspm-confirm-title="Reject candidate?"
-				data-osspm-confirm-body="The candidate stays suppressed until its evidence changes."
-				data-osspm-confirm-accept-label="Reject"
-				data-osspm-confirm-tone="warning"
-				data-osspm-confirm-reason="Optional reason"
-				data-osspm-confirm-reason-name="review_note"
-				hx-confirm=" "
+				{ rejectConfirmation... }
 			>Reject</button>
 		}
 		if item.CanMarkService {
@@ -281,10 +300,7 @@ templ identityResolutionActions(csrfToken string, item viewmodels.IdentityResolu
 				type="submit"
 				class="btn-sm-outline w-full"
 				hx-post={ item.MarkServiceHref }
-				data-osspm-confirm-title="Classify as service account?"
-				data-osspm-confirm-body="Marks the source account as a service identity and rejects the candidate."
-				data-osspm-confirm-accept-label="Mark service"
-				hx-confirm=" "
+				{ markServiceConfirmation... }
 			>Mark service</button>
 		}
 		if item.CanMarkServiceCustodian {
@@ -294,10 +310,7 @@ templ identityResolutionActions(csrfToken string, item viewmodels.IdentityResolu
 				hx-post={ item.MarkServiceCustodianHref }
 				name="relationship_type"
 				value="custodian"
-				data-osspm-confirm-title="Classify as service custodian?"
-				data-osspm-confirm-body="Records the source account as a service custodian, not a primary owner."
-				data-osspm-confirm-accept-label="Mark custodian"
-				hx-confirm=" "
+				{ markCustodianConfirmation... }
 			>Service custodian</button>
 		}
 		if item.CanMarkShared {
@@ -305,10 +318,7 @@ templ identityResolutionActions(csrfToken string, item viewmodels.IdentityResolu
 				type="submit"
 				class="btn-sm-outline w-full"
 				hx-post={ item.MarkSharedHref }
-				data-osspm-confirm-title="Classify as shared account?"
-				data-osspm-confirm-body="Marks the source account as shared and rejects the candidate."
-				data-osspm-confirm-accept-label="Mark shared"
-				hx-confirm=" "
+				{ markSharedConfirmation... }
 			>Mark shared</button>
 		}
 	</form>

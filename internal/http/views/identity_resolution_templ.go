@@ -88,7 +88,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(identityResolutionPageHref(data.Page, data.Status, data.Group))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 18, Col: 74}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 18, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 		if templ_7745c5c3_Err != nil {
@@ -101,7 +101,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(events.BusTrigger(events.IdentityResolutionChanged))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 19, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 19, Col: 67}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 		if templ_7745c5c3_Err != nil {
@@ -114,7 +114,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(data.StatusLabel)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 25, Col: 71}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 25, Col: 71}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -127,7 +127,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(data.TotalCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 26, Col: 75}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 26, Col: 75}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -136,7 +136,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 26, Col: 82}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 26, Col: 82}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -145,7 +145,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(pluralizeSuffix(int(data.TotalCount), "candidate", "candidates"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 26, Col: 150}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 26, Col: 150}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -164,7 +164,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(option.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 34, Col: 49}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 34, Col: 49}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
@@ -182,7 +182,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var11 templ.SafeURL
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinURLErrs(option.Href)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 36, Col: 50}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 36, Col: 50}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -195,7 +195,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var12 string
 				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(option.Href)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 36, Col: 73}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 36, Col: 73}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 				if templ_7745c5c3_Err != nil {
@@ -208,7 +208,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var13 string
 				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(option.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 36, Col: 179}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 36, Col: 179}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 				if templ_7745c5c3_Err != nil {
@@ -233,7 +233,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var14 string
 				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(option.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 43, Col: 75}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 43, Col: 75}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
@@ -251,7 +251,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var15 templ.SafeURL
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinURLErrs(option.Href)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 45, Col: 77}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 45, Col: 77}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -264,7 +264,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(option.Href)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 45, Col: 100}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 45, Col: 100}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
 				if templ_7745c5c3_Err != nil {
@@ -277,7 +277,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(option.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 45, Col: 206}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 45, Col: 206}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
@@ -306,7 +306,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var18 string
 				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue("identity-resolution-candidate-" + FormatInt64(item.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 54, Col: 75}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 54, Col: 75}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
 				if templ_7745c5c3_Err != nil {
@@ -328,7 +328,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var19).String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 1, Col: 0}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 1, Col: 0}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
 				if templ_7745c5c3_Err != nil {
@@ -341,7 +341,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var21 string
 				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeIdentityResolutionToken(item.ConfidenceBand))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 58, Col: 133}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 58, Col: 133}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 				if templ_7745c5c3_Err != nil {
@@ -354,7 +354,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var22 string
 				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeIdentityResolutionToken(item.Status))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 59, Col: 83}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 59, Col: 83}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 				if templ_7745c5c3_Err != nil {
@@ -367,7 +367,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var23 string
 				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeIdentityResolutionToken(item.MatchReason))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 60, Col: 88}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 60, Col: 88}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
@@ -380,7 +380,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var24 string
 				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(int(item.Score)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 61, Col: 87}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 61, Col: 87}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
@@ -398,7 +398,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var25 string
 					templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(item.RelationshipCount))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 63, Col: 91}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 63, Col: 91}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 					if templ_7745c5c3_Err != nil {
@@ -407,7 +407,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var26 string
 					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 63, Col: 98}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 63, Col: 98}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 					if templ_7745c5c3_Err != nil {
@@ -416,7 +416,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var27 string
 					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(pluralizeSuffix(int(item.RelationshipCount), "relationship", "relationships"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 63, Col: 179}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 63, Col: 179}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 					if templ_7745c5c3_Err != nil {
@@ -435,7 +435,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var28 string
 					templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.ResolveAttributeValue(item.CreatedAt.Title)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 66, Col: 82}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 66, Col: 82}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var28)
 					if templ_7745c5c3_Err != nil {
@@ -448,7 +448,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var29 string
 					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(item.CreatedAt.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 66, Col: 107}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 66, Col: 107}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 					if templ_7745c5c3_Err != nil {
@@ -466,7 +466,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var30 string
 				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(item.AccountDisplayName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 74, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 74, Col: 82}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 				if templ_7745c5c3_Err != nil {
@@ -484,7 +484,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var31 string
 					templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(item.AccountEmail)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 76, Col: 95}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 76, Col: 95}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 					if templ_7745c5c3_Err != nil {
@@ -502,7 +502,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var32 string
 				templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeConnectorKind(item.AccountSourceKind))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 80, Col: 64}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 80, Col: 64}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 				if templ_7745c5c3_Err != nil {
@@ -520,7 +520,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var33 string
 					templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(item.AccountSourceName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 82, Col: 54}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 82, Col: 54}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 					if templ_7745c5c3_Err != nil {
@@ -539,7 +539,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var34 string
 					templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(item.AccountExternalID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 85, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 85, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 					if templ_7745c5c3_Err != nil {
@@ -562,7 +562,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var35 string
 					templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeIdentityResolutionToken(item.AccountKind))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 90, Col: 91}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 90, Col: 91}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 					if templ_7745c5c3_Err != nil {
@@ -581,7 +581,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var36 string
 					templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeIdentityResolutionToken(item.EntityCategory))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 93, Col: 94}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 93, Col: 94}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 					if templ_7745c5c3_Err != nil {
@@ -599,7 +599,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var37 templ.SafeURL
 				templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinURLErrs(item.CandidateHref)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 100, Col: 90}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 100, Col: 90}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 				if templ_7745c5c3_Err != nil {
@@ -612,7 +612,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var38 string
 				templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(item.CandidateDisplayName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 101, Col: 84}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 101, Col: 84}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 				if templ_7745c5c3_Err != nil {
@@ -630,7 +630,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var39 string
 					templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(item.CandidatePrimaryEmail)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 103, Col: 104}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 103, Col: 104}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 					if templ_7745c5c3_Err != nil {
@@ -653,7 +653,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var40 string
 					templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeIdentityResolutionToken(item.CandidateResolutionState))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 108, Col: 104}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 108, Col: 104}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 					if templ_7745c5c3_Err != nil {
@@ -672,7 +672,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var41 string
 					templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeIdentityResolutionToken(item.CandidateIdentityKind))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 111, Col: 101}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 111, Col: 101}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 					if templ_7745c5c3_Err != nil {
@@ -695,7 +695,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var42 templ.SafeURL
 					templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinURLErrs(item.CurrentIdentityHref)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 121, Col: 46}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 121, Col: 46}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 					if templ_7745c5c3_Err != nil {
@@ -708,7 +708,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var43 string
 					templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(item.CurrentIdentityDisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 121, Col: 168}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 121, Col: 168}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 					if templ_7745c5c3_Err != nil {
@@ -726,7 +726,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 						var templ_7745c5c3_Var44 string
 						templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(item.CurrentIdentityPrimaryEmail)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 123, Col: 110}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 123, Col: 110}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 						if templ_7745c5c3_Err != nil {
@@ -749,7 +749,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 						var templ_7745c5c3_Var45 string
 						templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeIdentityResolutionToken(item.CurrentLinkState))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 127, Col: 97}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 127, Col: 97}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 						if templ_7745c5c3_Err != nil {
@@ -768,7 +768,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 						var templ_7745c5c3_Var46 string
 						templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(viewmodels.HumanLinkReason(item.CurrentLinkReason))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 130, Col: 93}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 130, Col: 93}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 						if templ_7745c5c3_Err != nil {
@@ -801,7 +801,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var47 templ.SafeURL
 					templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinURLErrs(item.ProvisionalHref)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 140, Col: 42}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 140, Col: 42}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 					if templ_7745c5c3_Err != nil {
@@ -814,7 +814,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var48 string
 					templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(item.ProvisionalDisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 140, Col: 160}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 140, Col: 160}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 					if templ_7745c5c3_Err != nil {
@@ -832,7 +832,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 						var templ_7745c5c3_Var49 string
 						templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(item.ProvisionalPrimaryEmail)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 142, Col: 106}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 142, Col: 106}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 						if templ_7745c5c3_Err != nil {
@@ -875,7 +875,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 						var templ_7745c5c3_Var51 string
 						templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var50).String())
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 1, Col: 0}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 1, Col: 0}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var51)
 						if templ_7745c5c3_Err != nil {
@@ -888,7 +888,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 						var templ_7745c5c3_Var52 string
 						templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeIdentityResolutionToken(evidence.EvidenceType))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 168, Col: 146}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 168, Col: 146}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 						if templ_7745c5c3_Err != nil {
@@ -906,7 +906,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 							var templ_7745c5c3_Var53 string
 							templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeIdentityResolutionToken(evidence.EvidenceKey))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 170, Col: 107}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 170, Col: 107}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 							if templ_7745c5c3_Err != nil {
@@ -924,7 +924,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 						var templ_7745c5c3_Var54 string
 						templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(evidence.AccountValue)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 173, Col: 85}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 173, Col: 85}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
 						if templ_7745c5c3_Err != nil {
@@ -937,7 +937,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 						var templ_7745c5c3_Var55 string
 						templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(evidence.IdentityValue)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 174, Col: 86}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 174, Col: 86}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 						if templ_7745c5c3_Err != nil {
@@ -955,7 +955,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 							var templ_7745c5c3_Var56 string
 							templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeConnectorKind(evidence.SourceKind))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 177, Col: 67}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 177, Col: 67}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
 							if templ_7745c5c3_Err != nil {
@@ -973,7 +973,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 								var templ_7745c5c3_Var57 string
 								templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(evidence.SourceName)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 179, Col: 86}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 179, Col: 86}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
 								if templ_7745c5c3_Err != nil {
@@ -997,7 +997,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 						var templ_7745c5c3_Var58 string
 						templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(int(evidence.Strength)))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 185, Col: 72}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 185, Col: 72}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 						if templ_7745c5c3_Err != nil {
@@ -1045,7 +1045,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var59 string
 				templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.Page))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 209, Col: 73}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 209, Col: 73}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
 				if templ_7745c5c3_Err != nil {
@@ -1054,7 +1054,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var60 string
 				templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(" of ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 209, Col: 83}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 209, Col: 83}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
 				if templ_7745c5c3_Err != nil {
@@ -1063,7 +1063,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 				var templ_7745c5c3_Var61 string
 				templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.TotalPages))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 209, Col: 113}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 209, Col: 113}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
 				if templ_7745c5c3_Err != nil {
@@ -1081,7 +1081,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var62 templ.SafeURL
 					templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinURLErrs(identityResolutionPageHref(data.Page-1, data.Status, data.Group))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 212, Col: 106}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 212, Col: 106}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
 					if templ_7745c5c3_Err != nil {
@@ -1094,7 +1094,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var63 string
 					templ_7745c5c3_Var63, templ_7745c5c3_Err = templ.ResolveAttributeValue(identityResolutionPageHref(data.Page-1, data.Status, data.Group))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 212, Col: 184}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 212, Col: 184}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var63)
 					if templ_7745c5c3_Err != nil {
@@ -1118,7 +1118,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var64 templ.SafeURL
 					templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinURLErrs(identityResolutionPageHref(data.Page+1, data.Status, data.Group))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 217, Col: 106}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 217, Col: 106}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
 					if templ_7745c5c3_Err != nil {
@@ -1131,7 +1131,7 @@ func IdentityResolutionPageResults(data viewmodels.IdentityResolutionViewData) t
 					var templ_7745c5c3_Var65 string
 					templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.ResolveAttributeValue(identityResolutionPageHref(data.Page+1, data.Status, data.Group))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 217, Col: 184}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 217, Col: 184}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var65)
 					if templ_7745c5c3_Err != nil {
@@ -1192,6 +1192,34 @@ func identityResolutionActions(csrfToken string, item viewmodels.IdentityResolut
 			templ_7745c5c3_Var66 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
+		acceptMergeConfirmation := ConfirmAttrs(ConfirmConfig{
+			Title:       "Accept and merge?",
+			Body:        "Accepts the match and merges the provisional identity into the candidate.",
+			AcceptLabel: "Accept + merge",
+		})
+		rejectConfirmation := ConfirmAttrs(ConfirmConfig{
+			Title:       "Reject candidate?",
+			Body:        "The candidate stays suppressed until its evidence changes.",
+			AcceptLabel: "Reject",
+			Tone:        ConfirmToneWarning,
+			ReasonLabel: "Optional reason",
+			ReasonName:  "review_note",
+		})
+		markServiceConfirmation := ConfirmAttrs(ConfirmConfig{
+			Title:       "Classify as service account?",
+			Body:        "Marks the source account as a service identity and rejects the candidate.",
+			AcceptLabel: "Mark service",
+		})
+		markCustodianConfirmation := ConfirmAttrs(ConfirmConfig{
+			Title:       "Classify as service custodian?",
+			Body:        "Records the source account as a service custodian, not a primary owner.",
+			AcceptLabel: "Mark custodian",
+		})
+		markSharedConfirmation := ConfirmAttrs(ConfirmConfig{
+			Title:       "Classify as shared account?",
+			Body:        "Marks the source account as shared and rejects the candidate.",
+			AcceptLabel: "Mark shared",
+		})
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, "<form method=\"post\" action=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -1199,7 +1227,7 @@ func identityResolutionActions(csrfToken string, item viewmodels.IdentityResolut
 		var templ_7745c5c3_Var67 templ.SafeURL
 		templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinURLErrs(item.AcceptHref)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 238, Col: 26}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 266, Col: 26}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var67))
 		if templ_7745c5c3_Err != nil {
@@ -1212,7 +1240,7 @@ func identityResolutionActions(csrfToken string, item viewmodels.IdentityResolut
 		var templ_7745c5c3_Var68 string
 		templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.ResolveAttributeValue("#identity-resolution-candidate-" + FormatInt64(item.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 239, Col: 70}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 267, Col: 70}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var68)
 		if templ_7745c5c3_Err != nil {
@@ -1234,7 +1262,7 @@ func identityResolutionActions(csrfToken string, item viewmodels.IdentityResolut
 			var templ_7745c5c3_Var69 string
 			templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.ResolveAttributeValue(item.AcceptHref)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 249, Col: 29}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 277, Col: 29}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var69)
 			if templ_7745c5c3_Err != nil {
@@ -1253,94 +1281,134 @@ func identityResolutionActions(csrfToken string, item viewmodels.IdentityResolut
 			var templ_7745c5c3_Var70 string
 			templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.ResolveAttributeValue(item.AcceptMergeHref)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 256, Col: 34}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 284, Col: 34}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var70)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, "\" name=\"merge_provisional\" value=\"true\" data-osspm-confirm-title=\"Accept and merge?\" data-osspm-confirm-body=\"Accepts the match and merges the provisional identity into the candidate.\" data-osspm-confirm-accept-label=\"Accept + merge\" hx-confirm=\" \">Accept + merge</button> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, "\" name=\"merge_provisional\" value=\"true\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, acceptMergeConfirmation)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, ">Accept + merge</button> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if item.CanReject {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "<button type=\"submit\" class=\"btn-sm-outline w-full\" hx-post=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, "<button type=\"submit\" class=\"btn-sm-outline w-full\" hx-post=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var71 string
 			templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.ResolveAttributeValue(item.RejectHref)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 269, Col: 29}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 294, Col: 29}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var71)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, "\" data-osspm-confirm-title=\"Reject candidate?\" data-osspm-confirm-body=\"The candidate stays suppressed until its evidence changes.\" data-osspm-confirm-accept-label=\"Reject\" data-osspm-confirm-tone=\"warning\" data-osspm-confirm-reason=\"Optional reason\" data-osspm-confirm-reason-name=\"review_note\" hx-confirm=\" \">Reject</button> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, "\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, rejectConfirmation)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, ">Reject</button> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if item.CanMarkService {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, "<button type=\"submit\" class=\"btn-sm-outline w-full\" hx-post=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "<button type=\"submit\" class=\"btn-sm-outline w-full\" hx-post=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var72 string
 			templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.ResolveAttributeValue(item.MarkServiceHref)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 283, Col: 34}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 302, Col: 34}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var72)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, "\" data-osspm-confirm-title=\"Classify as service account?\" data-osspm-confirm-body=\"Marks the source account as a service identity and rejects the candidate.\" data-osspm-confirm-accept-label=\"Mark service\" hx-confirm=\" \">Mark service</button> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, "\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, markServiceConfirmation)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, ">Mark service</button> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if item.CanMarkServiceCustodian {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "<button type=\"submit\" class=\"btn-sm-outline w-full\" hx-post=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, "<button type=\"submit\" class=\"btn-sm-outline w-full\" hx-post=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var73 string
 			templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.ResolveAttributeValue(item.MarkServiceCustodianHref)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 294, Col: 43}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 310, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var73)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, "\" name=\"relationship_type\" value=\"custodian\" data-osspm-confirm-title=\"Classify as service custodian?\" data-osspm-confirm-body=\"Records the source account as a service custodian, not a primary owner.\" data-osspm-confirm-accept-label=\"Mark custodian\" hx-confirm=\" \">Service custodian</button> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, "\" name=\"relationship_type\" value=\"custodian\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, markCustodianConfirmation)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, ">Service custodian</button> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if item.CanMarkShared {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, "<button type=\"submit\" class=\"btn-sm-outline w-full\" hx-post=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 131, "<button type=\"submit\" class=\"btn-sm-outline w-full\" hx-post=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var74 string
 			templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.ResolveAttributeValue(item.MarkSharedHref)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/identity_resolution.templ`, Line: 307, Col: 33}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_resolution.templ`, Line: 320, Col: 33}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var74)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, "\" data-osspm-confirm-title=\"Classify as shared account?\" data-osspm-confirm-body=\"Marks the source account as shared and rejects the candidate.\" data-osspm-confirm-accept-label=\"Mark shared\" hx-confirm=\" \">Mark shared</button>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, markSharedConfirmation)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, ">Mark shared</button>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, "</form>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "</form>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

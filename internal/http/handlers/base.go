@@ -153,6 +153,18 @@ func (h *Handlers) RenderError(c *echo.Context, err error) error {
 		return nil
 	}
 
+	requestID := h.logHTTPError(c, err)
+
+	msg := "Internal server error."
+	if requestID != "" {
+		msg = fmt.Sprintf("%s Reference: %s.", msg, requestID)
+	}
+	msg = fmt.Sprintf("%s Code: %s.", msg, InternalErrorCode)
+	c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextPlainCharsetUTF8)
+	return c.String(http.StatusInternalServerError, msg)
+}
+
+func (h *Handlers) logHTTPError(c *echo.Context, err error) string {
 	requestID, _ := c.Get(ContextKeyRequestID).(string)
 	path := ""
 	if req := c.Request(); req != nil && req.URL != nil {
@@ -169,14 +181,7 @@ func (h *Handlers) RenderError(c *echo.Context, err error) error {
 		"ip", c.RealIP(),
 		"error", err,
 	)
-
-	msg := "Internal server error."
-	if requestID != "" {
-		msg = fmt.Sprintf("%s Reference: %s.", msg, requestID)
-	}
-	msg = fmt.Sprintf("%s Code: %s.", msg, InternalErrorCode)
-	c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextPlainCharsetUTF8)
-	return c.String(http.StatusInternalServerError, msg)
+	return requestID
 }
 
 // IsClientCanceled reports whether a request failure came from client disconnect or timeout.

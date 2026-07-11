@@ -18,6 +18,12 @@ templ FindingsRuleMutationResponse(data viewmodels.FindingsRuleViewData) {
 }
 
 templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
+	{{ disableConfirmation := ConfirmAttrs(ConfirmConfig{
+		Title: "Disable ruleset?",
+		Body: "Disabling forces every rule in this ruleset to report not-applicable.",
+		AcceptLabel: "Disable",
+		Tone: ConfirmToneWarning,
+	}) }}
 	<div id="findings-rule-shell" class="min-w-0 space-y-6">
 		if data.Alert != nil {
 			@Alert(data.Alert.Title, data.Alert.Destructive) {
@@ -162,11 +168,7 @@ templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
 									<button
 											type="submit"
 											class="btn-outline"
-											data-osspm-confirm-title="Disable ruleset?"
-											data-osspm-confirm-body="Disabling forces every rule in this ruleset to report not-applicable."
-											data-osspm-confirm-accept-label="Disable"
-											data-osspm-confirm-tone="warning"
-											hx-confirm=" "
+											{ disableConfirmation... }
 									>Disable</button>
 								} else {
 								<input type="hidden" name="enabled" value="true"/>

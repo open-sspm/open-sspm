@@ -823,9 +823,15 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		lazyLinkedAccounts := data.LinkedAccounts
 		lazyEntitlements := data.Entitlements
 		if err := loadDetailSections(); err != nil {
+			if entitlementsTarget {
+				return h.renderIdentityShowSectionError(c, err, "identity-entitlements-section", "Access grants", loadHref)
+			}
+			if linkedAccountsTarget {
+				return h.renderIdentityShowSectionError(c, err, "identity-linked-accounts-section", "Source accounts", loadHref)
+			}
 			return h.RenderError(c, err)
 		}
-		if !sectionTarget {
+		if isHXBoosted(c) {
 			data.LinkedAccounts = lazyLinkedAccounts
 			data.Entitlements = lazyEntitlements
 		}
@@ -840,6 +846,24 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 		}
 	}
 	return h.RenderComponent(c, views.IdentityShowPage(data))
+}
+
+func (h *Handlers) renderIdentityShowSectionError(c *echo.Context, err error, sectionID, title, retryHref string) error {
+	if IsClientCanceled(c, err) || responseCommitted(c) {
+		return nil
+	}
+	reference := h.logHTTPError(c, err)
+	return h.RenderComponentStatus(
+		c,
+		http.StatusInternalServerError,
+		views.IdentityShowLazySectionError(
+			sectionID,
+			title,
+			retryHref,
+			"The server couldn't load this section. Try again in a moment.",
+			reference,
+		),
+	)
 }
 
 func identityShowLoadHref(c *echo.Context, basePath string) string {

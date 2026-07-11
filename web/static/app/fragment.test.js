@@ -179,6 +179,7 @@ describe("fragment", () => {
       <section id="visible" data-hx-lazy-load data-hx-lazy-panel="visible"></section>
       <section id="pending" data-hx-lazy-load data-hx-lazy-panel="pending"></section>
       <section id="loaded" data-hx-lazy-load data-hx-lazy-panel="loaded"></section>
+      <section id="failed" data-hx-lazy-load data-hx-lazy-panel="failed" data-hx-lazy-error></section>
     `;
     const visible = document.getElementById("visible");
     const pending = document.getElementById("pending");

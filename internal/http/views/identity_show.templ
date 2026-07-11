@@ -226,8 +226,8 @@ templ identityShowGraphFacts(data viewmodels.IdentityShowViewData) {
 
 templ IdentityShowLinkedAccountsSection(data viewmodels.IdentityShowViewData) {
 	if !data.LinkedAccounts.Loaded {
-		<section id="identity-linked-accounts-section" class="osspm-data-section" hx-get={ data.LinkedAccounts.LoadHref } hx-trigger="intersect once, oss-panel-visible" hx-target="this" data-hx-lazy-load data-hx-lazy-panel="identity-linked-accounts-section">
-			@identitySectionLoading("Source accounts")
+		<section id="identity-linked-accounts-section" class="osspm-data-section" hx-get={ data.LinkedAccounts.LoadHref } hx-trigger="intersect once, oss-panel-visible" hx-target="this" hx-swap="outerHTML" hx-sync="this:drop" hx-request='{"timeout":15000}' data-hx-lazy-load data-hx-lazy-panel="identity-linked-accounts-section">
+			@identitySectionLoading("identity-linked-accounts-section", "Source accounts", data.LinkedAccounts.LoadHref)
 		</section>
 	} else {
 	<section id="identity-linked-accounts-section" class="osspm-data-section">
@@ -372,7 +372,7 @@ templ IdentityShowLinkedAccountsSection(data viewmodels.IdentityShowViewData) {
 	}
 }
 
-templ identitySectionLoading(title string) {
+templ identitySectionLoading(sectionID string, title string, retryHref string) {
 	<div class="osspm-data-section-header">
 		<div class="space-y-1">
 			<h2 class="text-base font-semibold">{ title }</h2>
@@ -382,6 +382,36 @@ templ identitySectionLoading(title string) {
 	<div class="border-t border-border/60 py-6">
 		@BusyInlineIndicator("Loading...", true)
 	</div>
+	<template data-hx-lazy-error-template>
+		@IdentityShowLazySectionError(sectionID, title, retryHref, "We couldn't load this section. Check your connection and try again.", "")
+	</template>
+}
+
+templ IdentityShowLazySectionError(sectionID string, title string, retryHref string, description string, reference string) {
+	<section id={ sectionID } class="osspm-data-section" data-hx-lazy-load data-hx-lazy-panel={ sectionID } data-hx-lazy-error role="alert">
+		<div class="osspm-data-section-header">
+			<div class="space-y-1">
+				<h2 class="text-base font-semibold">{ title }</h2>
+				<p class="text-sm text-destructive" data-hx-lazy-error-description>{ description }</p>
+				if reference != "" {
+					<p class="text-xs text-muted-foreground">{ "Reference: " }<span class="font-mono" hx-disable>{ reference }</span></p>
+				}
+			</div>
+			<a
+				class="btn-sm-outline shrink-0"
+				href={ templ.SafeURL(retryHref) }
+				hx-get={ retryHref }
+				hx-target="closest section"
+				hx-swap="outerHTML"
+				hx-sync="closest section:drop"
+				hx-request='{"timeout":15000}'
+				data-hx-lazy-retry
+			>
+				@IconRefreshCw("size-4")
+				<span>Retry</span>
+			</a>
+		</div>
+	</section>
 }
 
 templ identitySingleLinkedAccount(linked viewmodels.IdentityLinkedAccountView) {
@@ -483,8 +513,8 @@ templ identityLinkedAccountsToolbar(data viewmodels.IdentityShowViewData) {
 
 templ IdentityShowEntitlementsSection(data viewmodels.IdentityShowViewData) {
 	if !data.Entitlements.Loaded {
-		<section id="identity-entitlements-section" class="osspm-data-section" hx-get={ data.Entitlements.LoadHref } hx-trigger="intersect once, oss-panel-visible" hx-target="this" data-hx-lazy-load data-hx-lazy-panel="identity-entitlements-section">
-			@identitySectionLoading("Access grants")
+		<section id="identity-entitlements-section" class="osspm-data-section" hx-get={ data.Entitlements.LoadHref } hx-trigger="intersect once, oss-panel-visible" hx-target="this" hx-swap="outerHTML" hx-sync="this:drop" hx-request='{"timeout":15000}' data-hx-lazy-load data-hx-lazy-panel="identity-entitlements-section">
+			@identitySectionLoading("identity-entitlements-section", "Access grants", data.Entitlements.LoadHref)
 		</section>
 	} else {
 	<section id="identity-entitlements-section" class="osspm-data-section">

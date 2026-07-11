@@ -339,7 +339,7 @@ html {
    --------------------------------------------------------------------------- */
 
 @layer components {
-  .btn, .btn-primary, .btn-outline, .btn-ghost,
+  .btn, .btn-primary, .btn-danger, .btn-warning, .btn-outline, .btn-ghost,
   .btn-sm, .btn-sm-primary, .btn-sm-outline, .btn-sm-ghost, .btn-sm-link,
   .btn-icon-outline, .btn-icon-ghost,
   .btn-sm-icon-ghost {
@@ -347,7 +347,7 @@ html {
   }
 
   /* Size: default */
-  .btn, .btn-primary, .btn-outline, .btn-ghost {
+  .btn, .btn-primary, .btn-danger, .btn-warning, .btn-outline, .btn-ghost {
     @apply gap-2 h-9 px-4 py-2 has-[>svg]:px-3;
   }
   .btn-icon-outline, .btn-icon-ghost {
@@ -366,6 +366,16 @@ html {
   .btn, .btn-primary, .btn-sm, .btn-sm-primary {
     @apply bg-primary text-primary-foreground shadow-xs hover:bg-primary/90;
     &[aria-pressed='true'] { @apply bg-primary/90; }
+  }
+
+  /* Variant: danger */
+  .btn-danger {
+    @apply bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:border-destructive focus-visible:ring-destructive/30 dark:text-black;
+  }
+
+  /* Variant: warning */
+  .btn-warning {
+    @apply bg-amber-500 text-amber-950 shadow-xs hover:bg-amber-400 focus-visible:border-amber-600 focus-visible:ring-amber-500/30 dark:bg-amber-400 dark:hover:bg-amber-300;
   }
 
   /* Variant: outline */

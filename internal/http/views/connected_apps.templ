@@ -169,6 +169,12 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 }
 
 templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
+	{{ revokeConfirmation := ConfirmAttrs(ConfirmConfig{
+		Title: "Revoke grant?",
+		Body: "Revoking removes this credential's access to the app. The credential record stays for audit history.",
+		AcceptLabel: "Revoke",
+		Tone: ConfirmToneDanger,
+	}) }}
 	<div id="connected-app-show-shell" class="space-y-6">
 		if data.Alert != nil {
 			@Alert(data.Alert.Title, data.Alert.Destructive) {
@@ -293,11 +299,7 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 															hx-post={ "/app-assets/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke" }
 																hx-target="#connected-app-show-shell"
 																hx-disabled-elt="this"
-																data-osspm-confirm-title="Revoke grant?"
-																data-osspm-confirm-body="Revoking removes this credential's access to the app. The credential record stays for audit history."
-																data-osspm-confirm-accept-label="Revoke"
-																data-osspm-confirm-tone="danger"
-																hx-confirm=" "
+																{ revokeConfirmation... }
 																class="inline-flex"
 															>
 															@CSRFInput(data.Layout.CSRFToken)

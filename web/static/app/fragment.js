@@ -109,7 +109,7 @@ export const triggerVisibleLazyHx = (root = document) => {
 
   root.querySelectorAll("[data-hx-lazy-load][data-hx-lazy-panel]").forEach((element) => {
     if (!(element instanceof HTMLElement)) return;
-    if (isLazyHxPending(element) || isLazyHxLoaded(element)) return;
+    if (isLazyHxPending(element) || isLazyHxLoaded(element) || hasLazyHxError(element)) return;
 
     if (element.dataset.hxLazyOpenOnly === "true") {
       const details = element.closest("details");
