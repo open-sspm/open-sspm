@@ -28,6 +28,9 @@ func (h *Handlers) HandleAskBarSuggestions(c *echo.Context) error {
 	}
 
 	data := buildAskBarSuggestions(cfg, c.QueryParam("q"), isTruthyParam(c.QueryParam("force")))
+	if isTruthyParam(c.QueryParam("filters_only")) {
+		data.ShowFreeText = false
+	}
 	if len(data.Items) == 0 && data.Error == "" && !data.ShowFreeText {
 		return c.NoContent(http.StatusNoContent)
 	}

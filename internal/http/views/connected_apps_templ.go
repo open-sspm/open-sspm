@@ -1036,6 +1036,13 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 			templ_7745c5c3_Var70 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
+		mutationAttrs := MutationFormAttrs()
+		revokeConfirmation := ConfirmAttrs(ConfirmConfig{
+			Title:       "Revoke grant?",
+			Body:        "Revoking removes this credential's access to the app. The credential record stays for audit history.",
+			AcceptLabel: "Revoke",
+			Tone:        ConfirmToneDanger,
+		})
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "<div id=\"connected-app-show-shell\" class=\"space-y-6\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -1060,7 +1067,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 				var templ_7745c5c3_Var72 string
 				templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.JoinStringErrs(data.Alert.Message)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 175, Col: 27}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 182, Col: 27}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var72))
 				if templ_7745c5c3_Err != nil {
@@ -1092,7 +1099,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var73 string
 		templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.DisplayName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 185, Col: 45}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 192, Col: 45}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var73))
 		if templ_7745c5c3_Err != nil {
@@ -1127,7 +1134,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var76 string
 		templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeAppAssetGovernanceState(data.App.GovernanceState))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 188, Col: 142}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 195, Col: 142}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
 		if templ_7745c5c3_Err != nil {
@@ -1162,7 +1169,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var79 string
 		templ_7745c5c3_Var79, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeAppAssetEvidenceConfidence(data.App.EvidenceConfidence))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 189, Col: 154}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 196, Col: 154}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var79))
 		if templ_7745c5c3_Err != nil {
@@ -1197,7 +1204,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var82 string
 		templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeAppAssetEvidenceFreshness(data.App.EvidenceFreshness))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 190, Col: 150}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 197, Col: 150}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var82))
 		if templ_7745c5c3_Err != nil {
@@ -1210,7 +1217,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var83 string
 		templ_7745c5c3_Var83, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.SourceKind)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 192, Col: 80}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 199, Col: 80}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var83))
 		if templ_7745c5c3_Err != nil {
@@ -1219,7 +1226,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var84 string
 		templ_7745c5c3_Var84, templ_7745c5c3_Err = templ.JoinStringErrs(" (")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 192, Col: 88}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 199, Col: 88}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var84))
 		if templ_7745c5c3_Err != nil {
@@ -1228,7 +1235,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var85 string
 		templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.SourceName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 192, Col: 111}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 199, Col: 111}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var85))
 		if templ_7745c5c3_Err != nil {
@@ -1237,7 +1244,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var86 string
 		templ_7745c5c3_Var86, templ_7745c5c3_Err = templ.JoinStringErrs(")")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 192, Col: 118}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 199, Col: 118}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var86))
 		if templ_7745c5c3_Err != nil {
@@ -1250,7 +1257,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var87 string
 		templ_7745c5c3_Var87, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.ExternalID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 198, Col: 74}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 205, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var87))
 		if templ_7745c5c3_Err != nil {
@@ -1263,7 +1270,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var88 string
 		templ_7745c5c3_Var88, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.GovernanceOwner)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 202, Col: 69}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 209, Col: 69}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var88))
 		if templ_7745c5c3_Err != nil {
@@ -1276,7 +1283,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var89 string
 		templ_7745c5c3_Var89, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.GovernanceOwnerEmail)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 203, Col: 92}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 210, Col: 92}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var89))
 		if templ_7745c5c3_Err != nil {
@@ -1294,7 +1301,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 			var templ_7745c5c3_Var90 string
 			templ_7745c5c3_Var90, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.TicketRef)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 208, Col: 64}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 215, Col: 64}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var90))
 			if templ_7745c5c3_Err != nil {
@@ -1317,7 +1324,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var91 string
 		templ_7745c5c3_Var91, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.App.LikelyOwnerCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 215, Col: 69}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 222, Col: 69}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var91))
 		if templ_7745c5c3_Err != nil {
@@ -1330,7 +1337,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var92 string
 		templ_7745c5c3_Var92, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(data.App.GrantCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 219, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 226, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var92))
 		if templ_7745c5c3_Err != nil {
@@ -1343,7 +1350,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var93 string
 		templ_7745c5c3_Var93, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(data.App.ActorCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 223, Col: 65}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 230, Col: 65}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var93))
 		if templ_7745c5c3_Err != nil {
@@ -1356,7 +1363,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var94 string
 		templ_7745c5c3_Var94, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(data.App.DiscoverySourceCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 227, Col: 75}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 234, Col: 75}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var94))
 		if templ_7745c5c3_Err != nil {
@@ -1369,7 +1376,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var95 string
 		templ_7745c5c3_Var95, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(data.App.DiscoveryEventCount30d))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 231, Col: 77}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 238, Col: 77}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var95))
 		if templ_7745c5c3_Err != nil {
@@ -1382,7 +1389,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var96 string
 		templ_7745c5c3_Var96, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.LastSeen.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 235, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 242, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var96))
 		if templ_7745c5c3_Err != nil {
@@ -1400,7 +1407,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 			var templ_7745c5c3_Var97 string
 			templ_7745c5c3_Var97, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.Notes)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 241, Col: 60}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 248, Col: 60}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var97))
 			if templ_7745c5c3_Err != nil {
@@ -1418,7 +1425,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		var templ_7745c5c3_Var98 string
 		templ_7745c5c3_Var98, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(len(data.Grants)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 250, Col: 87}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 257, Col: 87}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var98))
 		if templ_7745c5c3_Err != nil {
@@ -1458,7 +1465,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 						var templ_7745c5c3_Var100 templ.SafeURL
 						templ_7745c5c3_Var100, templ_7745c5c3_Err = templ.JoinURLErrs(grant.UserHref)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 270, Col: 77}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 277, Col: 77}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var100))
 						if templ_7745c5c3_Err != nil {
@@ -1471,7 +1478,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 						var templ_7745c5c3_Var101 string
 						templ_7745c5c3_Var101, templ_7745c5c3_Err = templ.JoinStringErrs(grant.UserLabel)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 270, Col: 114}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 277, Col: 114}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var101))
 						if templ_7745c5c3_Err != nil {
@@ -1489,7 +1496,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 						var templ_7745c5c3_Var102 string
 						templ_7745c5c3_Var102, templ_7745c5c3_Err = templ.JoinStringErrs(grant.UserLabel)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 272, Col: 68}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 279, Col: 68}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var102))
 						if templ_7745c5c3_Err != nil {
@@ -1507,7 +1514,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 					var templ_7745c5c3_Var103 string
 					templ_7745c5c3_Var103, templ_7745c5c3_Err = templ.JoinStringErrs(grant.UserEmail)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 274, Col: 85}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 281, Col: 85}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var103))
 					if templ_7745c5c3_Err != nil {
@@ -1520,7 +1527,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 					var templ_7745c5c3_Var104 string
 					templ_7745c5c3_Var104, templ_7745c5c3_Err = templ.JoinStringErrs(grant.UserExternalID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 275, Col: 90}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 282, Col: 90}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var104))
 					if templ_7745c5c3_Err != nil {
@@ -1533,7 +1540,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 					var templ_7745c5c3_Var105 string
 					templ_7745c5c3_Var105, templ_7745c5c3_Err = templ.JoinStringErrs(grant.ScopeSummary)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 278, Col: 66}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 285, Col: 66}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var105))
 					if templ_7745c5c3_Err != nil {
@@ -1546,7 +1553,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 					var templ_7745c5c3_Var106 string
 					templ_7745c5c3_Var106, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(grant.ScopeCount))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 279, Col: 86}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 286, Col: 86}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var106))
 					if templ_7745c5c3_Err != nil {
@@ -1555,7 +1562,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 					var templ_7745c5c3_Var107 string
 					templ_7745c5c3_Var107, templ_7745c5c3_Err = templ.JoinStringErrs(" scope(s)")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 279, Col: 101}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 286, Col: 101}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var107))
 					if templ_7745c5c3_Err != nil {
@@ -1568,7 +1575,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 					var templ_7745c5c3_Var108 string
 					templ_7745c5c3_Var108, templ_7745c5c3_Err = templ.JoinStringErrs(grant.Status)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 283, Col: 56}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 290, Col: 56}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var108))
 					if templ_7745c5c3_Err != nil {
@@ -1603,7 +1610,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 					var templ_7745c5c3_Var111 string
 					templ_7745c5c3_Var111, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeCredentialRisk(grant.RiskLevel))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 284, Col: 113}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 291, Col: 113}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var111))
 					if templ_7745c5c3_Err != nil {
@@ -1616,7 +1623,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 					var templ_7745c5c3_Var112 string
 					templ_7745c5c3_Var112, templ_7745c5c3_Err = templ.JoinStringErrs(grant.LastUsedAt.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 287, Col: 70}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 294, Col: 70}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var112))
 					if templ_7745c5c3_Err != nil {
@@ -1634,7 +1641,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 						var templ_7745c5c3_Var113 templ.SafeURL
 						templ_7745c5c3_Var113, templ_7745c5c3_Err = templ.JoinURLErrs("/app-assets/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke")
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 292, Col: 124}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 299, Col: 124}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var113))
 						if templ_7745c5c3_Err != nil {
@@ -1647,13 +1654,25 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 						var templ_7745c5c3_Var114 string
 						templ_7745c5c3_Var114, templ_7745c5c3_Err = templ.ResolveAttributeValue("/app-assets/" + FormatInt64(data.App.ID) + "/grants/" + FormatInt64(grant.CredentialID) + "/revoke")
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 293, Col: 125}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 300, Col: 123}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var114)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, "\" hx-target=\"#connected-app-show-shell\" hx-disabled-elt=\"this\" data-osspm-confirm-title=\"Revoke grant?\" data-osspm-confirm-body=\"Revoking removes this credential's access to the app. The credential record stays for audit history.\" data-osspm-confirm-accept-label=\"Revoke\" data-osspm-confirm-tone=\"danger\" hx-confirm=\" \" class=\"inline-flex\">")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, "\" hx-target=\"#connected-app-show-shell\"")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, mutationAttrs)
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, revokeConfirmation)
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 131, " class=\"inline-flex\">")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -1661,23 +1680,23 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 131, "<button type=\"submit\" class=\"btn-sm-outline transition-colors duration-150\">Revoke</button></form>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "<button type=\"submit\" class=\"btn-sm-outline transition-colors duration-150\">Revoke</button></form>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					} else {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "<span class=\"text-xs text-muted-foreground\">Read only</span>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "<span class=\"text-xs text-muted-foreground\">Read only</span>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "</td></tr>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "</td></tr>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "<tr><td colspan=\"5\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 135, "<tr><td colspan=\"5\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1685,12 +1704,12 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 135, "</td></tr>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 136, "</td></tr>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 136, "</tbody></table>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "</tbody></table>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1700,20 +1719,20 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "</section></article><article class=\"card\"><header><h2>Likely Owners</h2><span data-slot=\"card-action\" class=\"badge-outline\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 138, "</section></article><article class=\"card\"><header><h2>Likely Owners</h2><span data-slot=\"card-action\" class=\"badge-outline\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var115 string
 		templ_7745c5c3_Var115, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(len(data.LikelyOwners)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 326, Col: 93}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 329, Col: 93}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var115))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 138, "</span></header><section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 139, "</span></header><section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1729,99 +1748,99 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 139, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owner</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Email</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th></tr></thead> <tbody>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 140, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Owner</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Email</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Kind</th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if data.HasLikelyOwners {
 				for _, owner := range data.LikelyOwners {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 140, "<tr><td>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 141, "<tr><td>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if owner.OwnerIdentityHref != "" {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 141, "<a class=\"btn-sm-link px-0 font-medium\" href=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 142, "<a class=\"btn-sm-link px-0 font-medium\" href=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var117 templ.SafeURL
 						templ_7745c5c3_Var117, templ_7745c5c3_Err = templ.JoinURLErrs(owner.OwnerIdentityHref)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 344, Col: 85}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 347, Col: 85}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var117))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 142, "\"><span hx-disable>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 143, "\"><span hx-disable>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var118 string
 						templ_7745c5c3_Var118, templ_7745c5c3_Err = templ.JoinStringErrs(owner.OwnerDisplayName)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 344, Col: 129}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 347, Col: 129}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var118))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 143, "</span></a>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 144, "</span></a>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					} else {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 144, "<span hx-disable>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, "<span hx-disable>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var119 string
 						templ_7745c5c3_Var119, templ_7745c5c3_Err = templ.JoinStringErrs(owner.OwnerDisplayName)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 346, Col: 56}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 349, Col: 56}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var119))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, "</span>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 146, "</span>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 146, "</td><td hx-disable>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 147, "</td><td hx-disable>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var120 string
 					templ_7745c5c3_Var120, templ_7745c5c3_Err = templ.JoinStringErrs(owner.OwnerEmail)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 349, Col: 46}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 352, Col: 46}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var120))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 147, "</td><td><span class=\"badge-outline\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 148, "</td><td><span class=\"badge-outline\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var121 string
 					templ_7745c5c3_Var121, templ_7745c5c3_Err = templ.JoinStringErrs(owner.OwnerKind)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 350, Col: 61}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 353, Col: 61}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var121))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 148, "</span></td></tr>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 149, "</span></td></tr>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 149, "<tr><td colspan=\"3\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 150, "<tr><td colspan=\"3\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1829,12 +1848,12 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 150, "</td></tr>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 151, "</td></tr>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 151, "</tbody></table>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 152, "</tbody></table>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1844,20 +1863,20 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 152, "</section></article><article class=\"card\"><header><h2>Discovery Evidence</h2><span data-slot=\"card-action\" class=\"badge-outline\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 153, "</section></article><article class=\"card\"><header><h2>Discovery Evidence</h2><span data-slot=\"card-action\" class=\"badge-outline\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var122 string
 		templ_7745c5c3_Var122, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(len(data.DiscoverySources)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 367, Col: 97}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 370, Col: 97}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var122))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 153, "</span></header><section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 154, "</span></header><section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1873,65 +1892,65 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 154, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">App</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Domain</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Managed</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Risk</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last observed</th></tr></thead> <tbody>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">App</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Domain</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Managed</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Risk</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Last observed</th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if data.HasEvidence {
 				for _, source := range data.DiscoverySources {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, "<tr><td><div class=\"font-medium\" hx-disable>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 156, "<tr><td><div class=\"font-medium\" hx-disable>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var124 string
 					templ_7745c5c3_Var124, templ_7745c5c3_Err = templ.JoinStringErrs(source.DiscoveryDisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 386, Col: 78}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 389, Col: 78}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var124))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 156, "</div><div class=\"text-xs text-muted-foreground\" hx-disable>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 157, "</div><div class=\"text-xs text-muted-foreground\" hx-disable>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var125 string
 					templ_7745c5c3_Var125, templ_7745c5c3_Err = templ.JoinStringErrs(source.CanonicalKey)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 387, Col: 88}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 390, Col: 88}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var125))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 157, "</div></td><td><div hx-disable>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 158, "</div></td><td><div hx-disable>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var126 string
 					templ_7745c5c3_Var126, templ_7745c5c3_Err = templ.JoinStringErrs(source.Domain)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 390, Col: 44}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 393, Col: 44}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var126))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 158, "</div><div class=\"text-xs text-muted-foreground\" hx-disable>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 159, "</div><div class=\"text-xs text-muted-foreground\" hx-disable>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var127 string
 					templ_7745c5c3_Var127, templ_7745c5c3_Err = templ.JoinStringErrs(source.VendorName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 391, Col: 86}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 394, Col: 86}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var127))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 159, "</div></td><td>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 160, "</div></td><td>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1940,7 +1959,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 160, "<span class=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 161, "<span class=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1953,20 +1972,20 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 161, "\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 162, "\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var130 string
 					templ_7745c5c3_Var130, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeDiscoveryManagedState(source.ManagedState))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 393, Col: 132}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 396, Col: 132}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var130))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 162, "</span></td><td>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 163, "</span></td><td>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1975,7 +1994,7 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 163, "<span class=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 164, "<span class=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1988,39 +2007,39 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 164, "\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, "\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var133 string
 					templ_7745c5c3_Var133, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeCredentialRisk(source.RiskLevel))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 394, Col: 117}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 397, Col: 117}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var133))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, "</span></td><td class=\"text-muted-foreground\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 166, "</span></td><td class=\"text-muted-foreground\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var134 string
 					templ_7745c5c3_Var134, templ_7745c5c3_Err = templ.JoinStringErrs(source.LastObservedAt.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 395, Col: 75}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 398, Col: 75}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var134))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 166, "</td></tr>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 167, "</td></tr>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 167, "<tr><td colspan=\"5\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 168, "<tr><td colspan=\"5\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2028,12 +2047,12 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 168, "</td></tr>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 169, "</td></tr>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 169, "</tbody></table>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 170, "</tbody></table>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2043,20 +2062,20 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 170, "</section></article><article class=\"card\"><header><h2>Recent Activity</h2><span data-slot=\"card-action\" class=\"badge-outline\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 171, "</section></article><article class=\"card\"><header><h2>Recent Activity</h2><span data-slot=\"card-action\" class=\"badge-outline\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var135 string
 		templ_7745c5c3_Var135, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(len(data.Events)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 412, Col: 87}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 415, Col: 87}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var135))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 171, "</span></header><section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 172, "</span></header><section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2072,71 +2091,71 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 172, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Observed</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Signal</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Actor</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Scopes</th></tr></thead> <tbody>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 173, "<table class=\"table osspm-table-fixed osspm-table-compact osspm-table-list\"><thead><tr><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Observed</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Signal</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Actor</th><th class=\"text-xs font-medium uppercase tracking-wide text-muted-foreground\">Scopes</th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if data.HasEvents {
 				for _, event := range data.Events {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 173, "<tr><td>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 174, "<tr><td>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var137 string
 					templ_7745c5c3_Var137, templ_7745c5c3_Err = templ.JoinStringErrs(event.ObservedAt.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 429, Col: 40}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 432, Col: 40}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var137))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 174, "</td><td><span class=\"badge-outline\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 175, "</td><td><span class=\"badge-outline\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var138 string
 					templ_7745c5c3_Var138, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeDiscoverySignalKind(event.SignalKind))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 430, Col: 91}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 433, Col: 91}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var138))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 175, "</span></td><td>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 176, "</span></td><td>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var139 string
 					templ_7745c5c3_Var139, templ_7745c5c3_Err = templ.JoinStringErrs(event.Actor)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 431, Col: 29}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 434, Col: 29}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var139))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 176, "</td><td class=\"text-muted-foreground\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 177, "</td><td class=\"text-muted-foreground\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var140 string
 					templ_7745c5c3_Var140, templ_7745c5c3_Err = templ.JoinStringErrs(event.ScopesSummary)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 432, Col: 67}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 435, Col: 67}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var140))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 177, "</td></tr>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 178, "</td></tr>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 178, "<tr><td colspan=\"4\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 179, "<tr><td colspan=\"4\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2144,12 +2163,12 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 179, "</td></tr>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 180, "</td></tr>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 180, "</tbody></table>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 181, "</tbody></table>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2159,38 +2178,46 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 181, "</section></article></div><aside class=\"self-start xl:sticky xl:top-6\"><article class=\"card\"><header><h2>Governance</h2><p class=\"text-sm text-muted-foreground\">Assign an accountable owner and capture the current governance state.</p></header><section class=\"space-y-4\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 182, "</section></article></div><aside class=\"self-start xl:sticky xl:top-6\"><article class=\"card\"><header><h2>Governance</h2><p class=\"text-sm text-muted-foreground\">Assign an accountable owner and capture the current governance state.</p></header><section class=\"space-y-4\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.Layout.IsAdmin {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 182, "<form method=\"post\" action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 183, "<form method=\"post\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var141 templ.SafeURL
 			templ_7745c5c3_Var141, templ_7745c5c3_Err = templ.JoinURLErrs("/app-assets/" + FormatInt64(data.App.ID) + "/governance")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 457, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 460, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var141))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 183, "\" hx-post=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 184, "\" hx-post=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var142 string
 			templ_7745c5c3_Var142, templ_7745c5c3_Err = templ.ResolveAttributeValue("/app-assets/" + FormatInt64(data.App.ID) + "/governance")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 458, Col: 75}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 461, Col: 75}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var142)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 184, "\" hx-target=\"#connected-app-show-shell\" hx-disabled-elt=\"this\" class=\"space-y-4\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 185, "\" hx-target=\"#connected-app-show-shell\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, mutationAttrs)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 186, " class=\"space-y-4\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2198,145 +2225,145 @@ func ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) templ.Compon
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 185, "<label class=\"field\"><span class=\"label\">Owner email</span> <input class=\"input\" type=\"email\" name=\"owner_email\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 187, "<label class=\"field\"><span class=\"label\">Owner email</span> <input class=\"input\" type=\"email\" name=\"owner_email\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var143 string
 			templ_7745c5c3_Var143, templ_7745c5c3_Err = templ.ResolveAttributeValue(data.OwnerEmailInput)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 466, Col: 90}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 469, Col: 90}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var143)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 186, "\" placeholder=\"owner@example.com\"> <span class=\"text-xs text-muted-foreground\">Must match an existing linked identity email.</span></label> <label class=\"field\"><span class=\"label\">State</span> <select class=\"select\" name=\"governance_state\"><option value=\"unreviewed\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 188, "\" placeholder=\"owner@example.com\"> <span class=\"text-xs text-muted-foreground\">Must match an existing linked identity email.</span></label> <label class=\"field\"><span class=\"label\">State</span> <select class=\"select\" name=\"governance_state\"><option value=\"unreviewed\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if data.GovernanceStateInput == "unreviewed" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 187, " selected")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 188, ">Unreviewed</option> <option value=\"in_review\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if data.GovernanceStateInput == "in_review" {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 189, " selected")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 190, ">In review</option> <option value=\"approved\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 190, ">Unreviewed</option> <option value=\"in_review\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if data.GovernanceStateInput == "approved" {
+			if data.GovernanceStateInput == "in_review" {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 191, " selected")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 192, ">Approved</option> <option value=\"action_required\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 192, ">In review</option> <option value=\"approved\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if data.GovernanceStateInput == "action_required" {
+			if data.GovernanceStateInput == "approved" {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 193, " selected")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 194, ">Action required</option> <option value=\"ticketed\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 194, ">Approved</option> <option value=\"action_required\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if data.GovernanceStateInput == "ticketed" {
+			if data.GovernanceStateInput == "action_required" {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 195, " selected")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 196, ">Ticketed</option></select></label> <label class=\"field\"><span class=\"label\">Ticket reference</span> <input class=\"input\" type=\"text\" name=\"ticket_ref\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 196, ">Action required</option> <option value=\"ticketed\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.GovernanceStateInput == "ticketed" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 197, " selected")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 198, ">Ticketed</option></select></label> <label class=\"field\"><span class=\"label\">Ticket reference</span> <input class=\"input\" type=\"text\" name=\"ticket_ref\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var144 string
 			templ_7745c5c3_Var144, templ_7745c5c3_Err = templ.ResolveAttributeValue(data.TicketRefInput)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 483, Col: 87}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 486, Col: 87}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var144)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 197, "\" placeholder=\"SEC-123\"></label> <label class=\"field\"><span class=\"label\">Notes</span> <textarea class=\"textarea min-h-32\" name=\"notes\" placeholder=\"Capture rationale, follow-up, or containment context.\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 199, "\" placeholder=\"SEC-123\"></label> <label class=\"field\"><span class=\"label\">Notes</span> <textarea class=\"textarea min-h-32\" name=\"notes\" placeholder=\"Capture rationale, follow-up, or containment context.\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var145 string
 			templ_7745c5c3_Var145, templ_7745c5c3_Err = templ.JoinStringErrs(data.NotesInput)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 488, Col: 143}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 491, Col: 143}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var145))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 198, "</textarea></label> <button type=\"submit\" class=\"btn-primary w-full transition-colors duration-150\">Save governance</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 200, "</textarea></label> <button type=\"submit\" class=\"btn-primary w-full transition-colors duration-150\">Save governance</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 199, "<div class=\"space-y-3 text-sm\"><div class=\"rounded-lg border border-border/70 bg-muted/15 p-4\"><p class=\"text-xs uppercase tracking-wide text-muted-foreground\">State</p><p class=\"mt-2 font-medium\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 201, "<div class=\"space-y-3 text-sm\"><div class=\"rounded-lg border border-border/70 bg-muted/15 p-4\"><p class=\"text-xs uppercase tracking-wide text-muted-foreground\">State</p><p class=\"mt-2 font-medium\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var146 string
 			templ_7745c5c3_Var146, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeAppAssetGovernanceState(data.App.GovernanceState))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 497, Col: 96}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 500, Col: 96}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var146))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 200, "</p></div><div class=\"rounded-lg border border-border/70 bg-muted/15 p-4\"><p class=\"text-xs uppercase tracking-wide text-muted-foreground\">Owner</p><p class=\"mt-2 font-medium\" hx-disable>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 202, "</p></div><div class=\"rounded-lg border border-border/70 bg-muted/15 p-4\"><p class=\"text-xs uppercase tracking-wide text-muted-foreground\">Owner</p><p class=\"mt-2 font-medium\" hx-disable>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var147 string
 			templ_7745c5c3_Var147, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.GovernanceOwner)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 501, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 504, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var147))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 201, "</p><p class=\"text-xs text-muted-foreground\" hx-disable>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 203, "</p><p class=\"text-xs text-muted-foreground\" hx-disable>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var148 string
 			templ_7745c5c3_Var148, templ_7745c5c3_Err = templ.JoinStringErrs(data.App.GovernanceOwnerEmail)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 502, Col: 92}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connected_apps.templ`, Line: 505, Col: 92}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var148))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 202, "</p></div><p class=\"text-xs text-muted-foreground\">Governance changes require an admin account.</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 204, "</p></div><p class=\"text-xs text-muted-foreground\">Governance changes require an admin account.</p></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 203, "</section></article></aside></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 205, "</section></article></aside></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,6 +13,36 @@ import (
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 )
+
+func TestRenderIdentityShowSectionErrorReturnsRetryableHTML(t *testing.T) {
+	c, rec := newTestContext(http.MethodGet, "http://example.com/identities/42")
+	(*c).Set(ContextKeyRequestID, "request-123")
+	h := &Handlers{}
+
+	if err := h.renderIdentityShowSectionError(
+		c,
+		errors.New("database unavailable"),
+		"identity-entitlements-section",
+		"Access grants",
+		"/identities/42",
+	); err != nil {
+		t.Fatalf("renderIdentityShowSectionError(): %v", err)
+	}
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusInternalServerError, rec.Body.String())
+	}
+	if contentType := rec.Header().Get("Content-Type"); !strings.HasPrefix(contentType, "text/html") {
+		t.Fatalf("Content-Type = %q, want HTML", contentType)
+	}
+	if got := rec.Header().Get("X-Lazy-Error"); got != "1" {
+		t.Fatalf("X-Lazy-Error = %q, want 1", got)
+	}
+	for _, want := range []string{`data-hx-lazy-error`, `data-hx-lazy-retry`, "request-123"} {
+		assertContains(t, rec.Body.String(), want)
+	}
+	assertNotContains(t, rec.Body.String(), "database unavailable")
+}
 
 func TestHandleIdentitiesClampsOutOfRangePage(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
@@ -89,8 +120,6 @@ func TestHandleIdentityShowRendersEntitlementDetails(t *testing.T) {
 		for _, want := range []string{
 			"Access grants",
 			`id="identity-entitlements-section"`,
-			`hx-trigger="intersect once, oss-panel-visible"`,
-			`hx-get="/identities/`,
 			"person@example.com",
 			`href="/non-human-identities?q=person%40example.com"`,
 			"Search non-human identities",
@@ -105,7 +134,15 @@ func TestHandleIdentityShowRendersEntitlementDetails(t *testing.T) {
 				t.Fatalf("identity show missing %q: %s", want, body)
 			}
 		}
-		assertNotContains(t, body, "github_team_repo_permission")
+		assertContains(t, body, "github_team_repo_permission")
+		assertNotContains(t, body, `hx-trigger="intersect once, oss-panel-visible"`)
+
+		boosted := renderIdentityShowBoosted(t, h, identityID)
+		assertContains(t, boosted, `hx-trigger="intersect once, oss-panel-visible"`)
+		assertContains(t, boosted, `hx-request=`)
+		assertContains(t, boosted, `timeout`)
+		assertContains(t, boosted, `data-hx-lazy-error-template`)
+		assertNotContains(t, boosted, "github_team_repo_permission")
 
 		entitlements := renderIdentityShowFragment(t, h, identityID, "identity-entitlements-section")
 		assertContains(t, entitlements, `id="identity-entitlements-section"`)
@@ -390,6 +427,24 @@ func renderIdentityShowFragment(t *testing.T, h *Handlers, identityID int64, hxT
 	(*c).Request().Header.Set("HX-Target", hxTarget)
 	if err := h.HandleIdentityShow(c); err != nil {
 		t.Fatalf("HandleIdentityShow(%s, target %s): %v", target, hxTarget, err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	return rec.Body.String()
+}
+
+func renderIdentityShowBoosted(t *testing.T, h *Handlers, identityID int64) string {
+	t.Helper()
+
+	target := "http://example.com/identities/" + strconv.FormatInt(identityID, 10)
+	c, rec := newTestContext(http.MethodGet, target)
+	(*c).SetPath("/identities/:id")
+	(*c).SetPathValues(echo.PathValues{{Name: "id", Value: strconv.FormatInt(identityID, 10)}})
+	(*c).Request().Header.Set("HX-Request", "true")
+	(*c).Request().Header.Set("HX-Boosted", "true")
+	if err := h.HandleIdentityShow(c); err != nil {
+		t.Fatalf("HandleIdentityShow(%s, boosted): %v", target, err)
 	}
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())

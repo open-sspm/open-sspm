@@ -13,6 +13,7 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 }
 
 templ SettingsConnectorHealthPanel(data viewmodels.ConnectorHealthViewData) {
+	{{ mutationAttrs := MutationFormAttrs() }}
 	<div id="connector-health-panel" class="space-y-3" hx-get="/settings/connector-health" hx-trigger={ events.BusTrigger(events.ConnectorHealthChanged) } hx-target="this" hx-sync="this:replace">
 		if data.ShowWarning && data.WarningMessage != "" {
 			@Alert("Attention required", data.WarningDestructive) {
@@ -136,7 +137,7 @@ templ SettingsConnectorHealthPanel(data viewmodels.ConnectorHealthViewData) {
 													</div>
 												}
 												if item.CanTriggerSync {
-													<form method="post" action="/settings/connector-health/sync" hx-post="/settings/connector-health/sync" hx-target="#connector-health-panel" hx-disabled-elt="closest tr">
+											<form method="post" action="/settings/connector-health/sync" hx-post="/settings/connector-health/sync" hx-target="#connector-health-panel" { mutationAttrs... }>
 														@CSRFInput(data.Layout.CSRFToken)
 														<input type="hidden" name="connector_kind" value={ item.Kind }/>
 														<input type="hidden" name="source_name" value={ item.SourceName }/>

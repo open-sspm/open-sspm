@@ -159,6 +159,68 @@ describe("htmx integration wiring", () => {
     expect(detail.isError).toBe(false);
   });
 
+  it("swaps marked server errors into managed lazy sections", () => {
+    document.body.innerHTML = `
+      <section id="lazy" data-hx-lazy-load data-hx-lazy-panel="lazy"></section>
+    `;
+    const lazy = document.getElementById("lazy");
+    const xhr = {
+      status: 500,
+      responseText: `<section id="lazy" data-hx-lazy-load data-hx-lazy-panel="lazy" data-hx-lazy-error role="alert">Try again</section>`,
+      getResponseHeader: (name) => {
+        if (name === "Content-Type") return "text/html; charset=utf-8";
+        if (name === "X-Lazy-Error") return "1";
+        return "";
+      },
+    };
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        detail: { xhr, target: lazy, elt: lazy, requestConfig: {} },
+      }),
+    );
+    const detail = { shouldSwap: false, isError: true, xhr };
+    document.dispatchEvent(new CustomEvent("htmx:beforeSwap", { detail }));
+
+    expect(detail.shouldSwap).toBe(true);
+    expect(detail.isError).toBe(false);
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:afterRequest", {
+        detail: { xhr, failed: false },
+      }),
+    );
+  });
+
+  it("does not infer lazy errors from response text", () => {
+    document.body.innerHTML = `
+      <section id="lazy" data-hx-lazy-load data-hx-lazy-panel="lazy"></section>
+    `;
+    const lazy = document.getElementById("lazy");
+    const xhr = {
+      status: 500,
+      responseText: `<template data-hx-lazy-error-template></template>`,
+      getResponseHeader: (name) => (name === "Content-Type" ? "text/html; charset=utf-8" : ""),
+    };
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        detail: { xhr, target: lazy, elt: lazy, requestConfig: {} },
+      }),
+    );
+    const detail = { shouldSwap: false, isError: true, xhr };
+    document.dispatchEvent(new CustomEvent("htmx:beforeSwap", { detail }));
+
+    expect(detail.shouldSwap).toBe(false);
+    expect(detail.isError).toBe(true);
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:afterRequest", {
+        detail: { xhr, failed: true },
+      }),
+    );
+  });
+
   it("removes empty committed queries from change-triggered enter-only forms", () => {
     document.body.innerHTML = `
       <form id="filters" data-enter-only-query="q">
@@ -496,6 +558,44 @@ describe("htmx integration wiring", () => {
     });
   });
 
+  it("keeps intentional aborts silent", () => {
+    const listener = vi.fn();
+    document.addEventListener("osspm:toast", listener);
+    const xhr = new XMLHttpRequest();
+
+    document.dispatchEvent(new CustomEvent("htmx:sendAbort", { detail: { xhr } }));
+
+    expect(listener).not.toHaveBeenCalled();
+    document.removeEventListener("osspm:toast", listener);
+  });
+
+  it("reports status-0 network failures instead of silently clearing them", () => {
+    const listener = vi.fn();
+    document.addEventListener("osspm:toast", listener);
+    const xhr = new XMLHttpRequest();
+
+    document.dispatchEvent(new CustomEvent("htmx:sendError", { detail: { xhr } }));
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener.mock.calls[0][0].detail.config).toMatchObject({
+      category: "error",
+      title: "Connection problem",
+    });
+    document.removeEventListener("osspm:toast", listener);
+  });
+
+  it("deduplicates multiple failure events for the same request", () => {
+    const listener = vi.fn();
+    document.addEventListener("osspm:toast", listener);
+    const xhr = new XMLHttpRequest();
+
+    document.dispatchEvent(new CustomEvent("htmx:sendError", { detail: { xhr } }));
+    document.dispatchEvent(new CustomEvent("htmx:timeout", { detail: { xhr } }));
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    document.removeEventListener("osspm:toast", listener);
+  });
+
   it("falls back to a generic failure toast only when the exact toast trigger is absent", () => {
     const listener = vi.fn();
     document.addEventListener("osspm:toast", listener);
@@ -558,11 +658,22 @@ describe("htmx integration wiring", () => {
     expect(duplicate.defaultPrevented).toBe(true);
   });
 
-  it("does not immediately retry failed managed lazy requests", async () => {
-    document.body.innerHTML = `<section id="lazy" data-hx-lazy-load data-hx-lazy-panel="lazy"></section>`;
+  it("replaces a failed managed lazy request with an inline retry state", async () => {
+    document.body.innerHTML = `
+      <section id="lazy" data-hx-lazy-load data-hx-lazy-panel="lazy">
+        <p>Loading...</p>
+        <template data-hx-lazy-error-template>
+          <section id="lazy" data-hx-lazy-load data-hx-lazy-panel="lazy" data-hx-lazy-error role="alert">
+            <p data-hx-lazy-error-description>Fallback error</p>
+            <a href="/lazy" hx-get="/lazy" hx-target="closest section" hx-swap="outerHTML" data-hx-lazy-retry>Retry</a>
+          </section>
+        </template>
+      </section>
+    `;
     const lazy = document.getElementById("lazy");
     const trigger = vi.fn();
-    window.htmx = { trigger };
+    const process = vi.fn();
+    window.htmx = { trigger, process };
     const xhr = new XMLHttpRequest();
 
     document.dispatchEvent(
@@ -576,7 +687,7 @@ describe("htmx integration wiring", () => {
       }),
     );
     document.dispatchEvent(
-      new CustomEvent("htmx:responseError", {
+      new CustomEvent("htmx:sendError", {
         detail: {
           xhr,
         },
@@ -585,9 +696,38 @@ describe("htmx integration wiring", () => {
 
     await waitForAsyncWork();
 
-    expect(lazy.dataset.hxLazyState).toBeUndefined();
-    expect(trigger).not.toHaveBeenCalledWith(lazy, "oss-panel-visible");
+    const failed = document.getElementById("lazy");
+    expect(failed).not.toBe(lazy);
+    expect(failed.hasAttribute("data-hx-lazy-error")).toBe(true);
+    expect(failed.textContent).toContain("Open SSPM couldn't be reached");
+    expect(failed.querySelector("[data-hx-lazy-retry]")).not.toBeNull();
+    expect(process).toHaveBeenCalledWith(failed);
+    expect(trigger).not.toHaveBeenCalledWith(failed, "oss-panel-visible");
     delete window.htmx;
+  });
+
+  it("keeps the inline retry state when a retry times out", () => {
+    document.body.innerHTML = `
+      <section id="lazy" data-hx-lazy-load data-hx-lazy-panel="lazy" data-hx-lazy-error role="alert">
+        <p data-hx-lazy-error-description>Previous error</p>
+        <a id="retry" href="/lazy" data-hx-lazy-retry>Retry</a>
+      </section>
+    `;
+    const lazy = document.getElementById("lazy");
+    const retry = document.getElementById("retry");
+    const xhr = new XMLHttpRequest();
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        detail: { xhr, target: lazy, elt: retry, requestConfig: {} },
+      }),
+    );
+    document.dispatchEvent(new CustomEvent("htmx:timeout", { detail: { xhr } }));
+
+    expect(document.getElementById("lazy")).toBe(lazy);
+    expect(lazy.textContent).toContain("taking longer than expected");
+    expect(lazy.querySelector("[data-hx-lazy-retry]")).not.toBeNull();
+    expect(lazy.dataset.hxLazyState).toBeUndefined();
   });
 
   it("keeps open-only lazy panels dormant until their details panel opens", async () => {
@@ -819,6 +959,53 @@ describe("htmx integration wiring", () => {
     await waitForAsyncWork();
 
     expect(document.activeElement).toBe(document.getElementById("new"));
+  });
+
+  it("restores focus to the selected saved query after its results swap", async () => {
+    document.body.innerHTML = `
+      <main data-main-content data-busy-region>
+        <section id="identities-results">
+          <nav aria-label="Saved queries">
+            <a href="/identities?privileged=true" data-focus-key="saved-query:/identities?privileged=true">Privileged</a>
+            <a id="selected" href="/identities?row_state=review" data-focus-key="saved-query:/identities?row_state=review">Review</a>
+          </nav>
+        </section>
+      </main>
+    `;
+
+    const target = document.getElementById("identities-results");
+    const selected = document.getElementById("selected");
+    const xhr = new XMLHttpRequest();
+    selected.focus();
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        detail: {
+          xhr,
+          target,
+          elt: selected,
+          requestConfig: {},
+        },
+      }),
+    );
+
+    target.innerHTML = `
+      <nav aria-label="Saved queries">
+        <a href="/identities?privileged=true" data-focus-key="saved-query:/identities?privileged=true">Privileged</a>
+        <a id="restored-selected" href="/identities?row_state=review" data-focus-key="saved-query:/identities?row_state=review">Review</a>
+      </nav>
+    `;
+
+    target.dispatchEvent(
+      new CustomEvent("htmx:afterSwap", {
+        bubbles: true,
+        detail: { xhr },
+      }),
+    );
+
+    await waitForAsyncWork();
+
+    expect(document.activeElement).toBe(document.getElementById("restored-selected"));
   });
 
   it("restores focus to the command search input after command fragment swap", async () => {

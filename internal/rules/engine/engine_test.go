@@ -21,13 +21,8 @@ type fakeDatasets struct {
 	errs map[string]runtimev2.DatasetErrorKind
 }
 
-func (f *fakeDatasets) Capabilities(ctx context.Context) []runtimev2.DatasetRef {
+func (f *fakeDatasets) GetDataset(ctx context.Context, ref runtimev2.DatasetRef) runtimev2.DatasetResult {
 	_ = ctx
-	return nil
-}
-
-func (f *fakeDatasets) GetDataset(ctx context.Context, eval runtimev2.EvalContext, ref runtimev2.DatasetRef) runtimev2.DatasetResult {
-	_, _ = ctx, eval
 
 	key := ref.Dataset
 	if f.errs != nil {
@@ -66,7 +61,7 @@ func TestEvalCheck_RegoPass(t *testing.T) {
 
 	rule := regoRule("Idle timeout", []string{"okta:policies/sign-on"}, idleTimeoutRego, map[string]any{"max_idle_minutes": float64(15)})
 
-	ev, err := e.evalCheck(context.Background(), "rs", "rule", Context{}, rule, map[string]any{})
+	ev, err := e.evalCheck(context.Background(), nil, "rs", "rule", rule, map[string]any{})
 	if err != nil {
 		t.Fatalf("evalCheck error: %v", err)
 	}
@@ -75,6 +70,37 @@ func TestEvalCheck_RegoPass(t *testing.T) {
 	}
 	if ev.Status != "pass" {
 		t.Fatalf("expected pass, got %q", ev.Status)
+	}
+}
+
+func TestEvalCheck_UsesRulesetPolicy(t *testing.T) {
+	e := &Engine{
+		Datasets: &fakeDatasets{
+			data: map[string][]any{
+				"okta:policies/sign-on": {
+					map[string]any{"id": "a", "session": map[string]any{"max_idle_minutes": float64(15)}},
+				},
+			},
+		},
+	}
+
+	rule := regoRule("Idle timeout", []string{"okta:policies/sign-on"}, "", map[string]any{"max_idle_minutes": float64(15)})
+	doc := osspecv2.RulesetDoc{
+		Ruleset: osspecv2.Ruleset{
+			Policy: &osspecv2.RegoPolicy{Rego: idleTimeoutRego},
+		},
+	}
+	rulesetDefinition, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatalf("marshal ruleset definition: %v", err)
+	}
+
+	ev, err := e.evalCheck(context.Background(), rulesetDefinition, "rs", "rule", rule, map[string]any{})
+	if err != nil {
+		t.Fatalf("evalCheck error: %v", err)
+	}
+	if ev == nil || ev.Status != "pass" {
+		t.Fatalf("expected pass from shared ruleset policy, got %+v", ev)
 	}
 }
 
@@ -91,7 +117,7 @@ func TestEvalCheck_RegoFail(t *testing.T) {
 
 	rule := regoRule("Idle timeout", []string{"okta:policies/sign-on"}, idleTimeoutRego, map[string]any{"max_idle_minutes": float64(15)})
 
-	ev, err := e.evalCheck(context.Background(), "rs", "rule", Context{}, rule, map[string]any{})
+	ev, err := e.evalCheck(context.Background(), nil, "rs", "rule", rule, map[string]any{})
 	if err != nil {
 		t.Fatalf("evalCheck error: %v", err)
 	}
@@ -118,7 +144,7 @@ func TestEvalCheck_RegoCountComparePass(t *testing.T) {
 
 	rule := regoRule("Count active apps", []string{"okta:apps"}, activeAppsRego, nil)
 
-	ev, err := e.evalCheck(context.Background(), "rs", "rule", Context{}, rule, map[string]any{})
+	ev, err := e.evalCheck(context.Background(), nil, "rs", "rule", rule, map[string]any{})
 	if err != nil {
 		t.Fatalf("evalCheck error: %v", err)
 	}
@@ -142,7 +168,7 @@ func TestEvalCheck_MissingDatasetIsPolicyUnknown(t *testing.T) {
 
 	rule := regoRule("Missing dataset", []string{"missing"}, datasetErrorRego, nil)
 
-	ev, err := e.evalCheck(context.Background(), "rs", "rule", Context{}, rule, map[string]any{})
+	ev, err := e.evalCheck(context.Background(), nil, "rs", "rule", rule, map[string]any{})
 	if err != nil {
 		t.Fatalf("evalCheck error: %v", err)
 	}
@@ -162,7 +188,7 @@ func TestEvalCheck_ManualRuleUnknown(t *testing.T) {
 		Monitoring: osspecv2.Monitoring{Status: osspecv2.MonitoringStatus_MANUAL},
 	}
 
-	ev, err := e.evalCheck(context.Background(), "rs", "rule", Context{}, rule, map[string]any{})
+	ev, err := e.evalCheck(context.Background(), nil, "rs", "rule", rule, map[string]any{})
 	if err != nil {
 		t.Fatalf("evalCheck error: %v", err)
 	}
@@ -383,9 +409,6 @@ func seedEngineRule(t *testing.T, ctx context.Context, q *gen.Queries) (gen.Rule
 		Category:         "identity",
 		Severity:         "high",
 		MonitoringStatus: "monitored",
-		RequiredData:     []byte(`[]`),
-		ExpectedParams:   []byte(`{}`),
-		RuleVersion:      "v1",
 		IsActive:         true,
 		DefinitionJson:   []byte(`{"check":{"type":"manual"}}`),
 	})
@@ -420,7 +443,7 @@ func regoRule(title string, requiredData []string, rego string, defaults map[str
 		},
 	}
 	if defaults != nil {
-		rule.Parameters = &osspecv2.Parameters{Defaults: defaults}
+		rule.Parameters = defaults
 	}
 	return rule
 }

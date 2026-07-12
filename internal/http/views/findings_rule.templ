@@ -18,6 +18,13 @@ templ FindingsRuleMutationResponse(data viewmodels.FindingsRuleViewData) {
 }
 
 templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
+	{{ mutationAttrs := MutationFormAttrs() }}
+	{{ disableConfirmation := ConfirmAttrs(ConfirmConfig{
+		Title: "Disable ruleset?",
+		Body: "Disabling forces every rule in this ruleset to report not-applicable.",
+		AcceptLabel: "Disable",
+		Tone: ConfirmToneWarning,
+	}) }}
 	<div id="findings-rule-shell" class="min-w-0 space-y-6">
 		if data.Alert != nil {
 			@Alert(data.Alert.Title, data.Alert.Destructive) {
@@ -148,7 +155,7 @@ templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
 							action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" }
 							hx-post={ "/findings/rulesets/" + data.Ruleset.Key + "/override" }
 							hx-target="#findings-rule-shell"
-							hx-disabled-elt="this"
+							{ mutationAttrs... }
 							class="flex items-center justify-between gap-3"
 						>
 							@CSRFInput(data.Layout.CSRFToken)
@@ -162,11 +169,7 @@ templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
 									<button
 											type="submit"
 											class="btn-outline"
-											data-osspm-confirm-title="Disable ruleset?"
-											data-osspm-confirm-body="Disabling forces every rule in this ruleset to report not-applicable."
-											data-osspm-confirm-accept-label="Disable"
-											data-osspm-confirm-tone="warning"
-											hx-confirm=" "
+											{ disableConfirmation... }
 									>Disable</button>
 								} else {
 								<input type="hidden" name="enabled" value="true"/>
@@ -179,7 +182,7 @@ templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
 							action={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/override" }
 							hx-post={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/override" }
 							hx-target="#findings-rule-shell"
-							hx-disabled-elt="this"
+							{ mutationAttrs... }
 							class="space-y-4"
 						>
 							@CSRFInput(data.Layout.CSRFToken)
@@ -194,16 +197,13 @@ templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
 								</label>
 							</div>
 
-							if data.RuleOverride.HasSchema {
+							if data.RuleOverride.HasParameters {
 								<div class="space-y-3">
 									<div class="text-sm font-medium">Parameters</div>
 									<div class="space-y-3">
 										for _, f := range data.RuleOverride.Fields {
 											<div class="grid gap-2">
 												<label class="text-sm font-medium" for={ "param_" + f.Key }>{ f.Key }</label>
-												if f.Description != "" {
-													<div class="text-xs text-muted-foreground">{ f.Description }</div>
-												}
 												if f.Type == "boolean" {
 													<select id={ "param_" + f.Key } name={ "param_" + f.Key } class="select">
 														<option value="" selected?={ f.OverrideValue == "" }>Inherit</option>
@@ -263,7 +263,7 @@ templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
 							action={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/attestation" }
 							hx-post={ "/findings/rulesets/" + data.Ruleset.Key + "/rules/" + data.RuleKey + "/attestation" }
 							hx-target="#findings-rule-shell"
-							hx-disabled-elt="this"
+							{ mutationAttrs... }
 							class="space-y-4"
 						>
 							@CSRFInput(data.Layout.CSRFToken)
@@ -315,22 +315,5 @@ templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
 			</article>
 		</div>
 
-		if data.RemediationInstructions != "" {
-			<article class="card">
-				<header>
-					<h2>Remediation</h2>
-					<p class="text-muted-foreground">Steps to remediate this finding.</p>
-				</header>
-				<section class="space-y-4">
-					<div class="text-sm whitespace-pre-wrap">{ data.RemediationInstructions }</div>
-					if data.RemediationRisks != "" {
-						<div class="text-sm text-muted-foreground whitespace-pre-wrap">{ data.RemediationRisks }</div>
-					}
-					if data.RemediationEffort != "" {
-						<div class="text-sm text-muted-foreground">Effort: { data.RemediationEffort }</div>
-					}
-				</section>
-			</article>
-		}
 	</div>
 }

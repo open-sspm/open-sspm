@@ -15,10 +15,6 @@ type FindingsRuleViewData struct {
 	MonitoringStatus string
 	MonitoringReason string
 
-	RemediationInstructions string
-	RemediationRisks        string
-	RemediationEffort       string
-
 	CurrentStatus      string
 	CurrentEvaluatedAt TimeDisplay
 	CurrentErrorKind   string
@@ -58,16 +54,15 @@ type FindingsEvidenceViolation struct {
 type FindingsRuleOverrideViewData struct {
 	Enabled bool
 
-	HasSchema bool
-	Fields    []FindingsParamField
+	HasParameters bool
+	Fields        []FindingsParamField
 
 	CurrentParamsPretty string
 }
 
 type FindingsParamField struct {
-	Key         string
-	Type        string
-	Description string
+	Key  string
+	Type string
 
 	DefaultValue  string
 	OverrideValue string

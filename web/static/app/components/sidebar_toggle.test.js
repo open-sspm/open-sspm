@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { wireSidebarToggle } from "open-sspm-app/components/sidebar.js";
+import { start, stop } from "open-sspm-app/components/registry.js";
 
 const DESKTOP_SIDEBAR_STATE_KEY = "openSspm.sidebar.desktopOpen";
 
@@ -35,12 +36,146 @@ const createLocalStorageMock = () => {
 
 describe("sidebar", () => {
   beforeEach(() => {
+    stop();
     document.body.innerHTML = "";
+    document.documentElement.removeAttribute("data-mobile-sidebar-open");
     const localStorageMock = createLocalStorageMock();
     Object.defineProperty(window, "localStorage", { value: localStorageMock, configurable: true });
     Object.defineProperty(globalThis, "localStorage", { value: localStorageMock, configurable: true });
     localStorage.clear();
     vi.restoreAllMocks();
+  });
+
+  const renderIntegratedMobileSidebar = () => {
+    Object.defineProperty(window, "innerWidth", { value: 500, configurable: true, writable: true });
+    document.body.innerHTML = `
+      <aside
+        id="app-sidebar"
+        class="sidebar"
+        data-breakpoint="1024"
+        data-initial-mobile-open="false"
+      >
+        <nav>
+          <button type="button" data-sidebar-mobile-close>Close</button>
+          <a id="mobile-destination" href="/identities">Identities</a>
+        </nav>
+      </aside>
+      <div data-sidebar-content>
+        <button id="sidebar-toggle" type="button">Navigation</button>
+        <main id="main" tabindex="-1" data-main-content><a href="/background">Background</a></main>
+      </div>
+    `;
+
+    document.getElementById("mobile-destination").addEventListener("click", (event) => {
+      event.preventDefault();
+    });
+    start();
+    wireSidebarToggle(document);
+
+    const toggle = document.getElementById("sidebar-toggle");
+    toggle.click();
+
+    return {
+      sidebar: document.getElementById("app-sidebar"),
+      content: document.querySelector("[data-sidebar-content]"),
+      close: document.querySelector("[data-sidebar-mobile-close]"),
+      destination: document.getElementById("mobile-destination"),
+      main: document.getElementById("main"),
+      toggle,
+    };
+  };
+
+  it("treats an open mobile sidebar as a modal surface", async () => {
+    const { content, close } = renderIntegratedMobileSidebar();
+    await waitForAsyncWork();
+
+    expect(content.inert).toBe(true);
+    expect(document.documentElement.getAttribute("data-mobile-sidebar-open")).toBe("true");
+    expect(document.activeElement).toBe(close);
+  });
+
+  it("closes after mobile navigation and moves focus to main content", async () => {
+    const { sidebar, content, destination, main, toggle } = renderIntegratedMobileSidebar();
+    await waitForAsyncWork();
+
+    destination.click();
+    await waitForAsyncWork();
+
+    expect(sidebar.getAttribute("aria-hidden")).toBe("true");
+    expect(content.inert).toBe(false);
+    expect(document.documentElement.hasAttribute("data-mobile-sidebar-open")).toBe(false);
+    expect(document.activeElement).toBe(main);
+    expect(document.activeElement).not.toBe(toggle);
+  });
+
+  it("closes on backdrop click and returns focus to the toggle", async () => {
+    const { sidebar, content, toggle } = renderIntegratedMobileSidebar();
+    await waitForAsyncWork();
+
+    sidebar.click();
+    await waitForAsyncWork();
+
+    expect(sidebar.getAttribute("aria-hidden")).toBe("true");
+    expect(content.inert).toBe(false);
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it("closes from the mobile close control and returns focus to the toggle", async () => {
+    const { sidebar, close, toggle } = renderIntegratedMobileSidebar();
+    await waitForAsyncWork();
+
+    close.click();
+    await waitForAsyncWork();
+
+    expect(sidebar.getAttribute("aria-hidden")).toBe("true");
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it("closes on Escape and returns focus to the toggle", async () => {
+    const { sidebar, toggle } = renderIntegratedMobileSidebar();
+    await waitForAsyncWork();
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await waitForAsyncWork();
+
+    expect(sidebar.getAttribute("aria-hidden")).toBe("true");
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it("closes an open desktop sidebar when the viewport crosses into mobile", async () => {
+    Object.defineProperty(window, "innerWidth", { value: 1280, configurable: true, writable: true });
+    document.body.innerHTML = `
+      <aside
+        id="app-sidebar"
+        class="sidebar"
+        data-breakpoint="1024"
+        data-initial-open="true"
+        data-initial-mobile-open="false"
+      >
+        <nav><a href="#">Link</a></nav>
+      </aside>
+      <div data-sidebar-content>
+        <button id="sidebar-toggle" type="button">Navigation</button>
+        <main></main>
+      </div>
+    `;
+
+    start();
+    wireSidebarToggle(document);
+    await waitForAsyncWork();
+
+    const sidebar = document.getElementById("app-sidebar");
+    const content = document.querySelector("[data-sidebar-content]");
+    expect(sidebar.getAttribute("aria-hidden")).toBe("false");
+
+    window.innerWidth = 900;
+    window.dispatchEvent(new Event("resize"));
+    await waitForAsyncWork();
+
+    expect(sidebar.getAttribute("aria-hidden")).toBe("true");
+    expect(content.inert).toBe(false);
+    expect(document.documentElement.hasAttribute("data-mobile-sidebar-open")).toBe(false);
+    expect(localStorage.getItem(DESKTOP_SIDEBAR_STATE_KEY)).toBe("true");
   });
 
   it("syncs toggle aria state and label with sidebar visibility", async () => {

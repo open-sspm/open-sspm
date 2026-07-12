@@ -8,7 +8,8 @@ templ AskBarSuggestions(data AskBarSuggestionsViewData) {
 	if len(data.Items) > 0 {
 		<div class="osspm-askbar-suggest-label">Suggestions</div>
 		for i, item := range data.Items {
-			<div
+			<button
+				type="button"
 				class={ templ.Classes("osspm-askbar-suggest-item", templ.KV("is-hl", item.Active || i == 0)) }
 				data-field={ item.Field }
 				data-value={ item.Value }
@@ -17,19 +18,19 @@ templ AskBarSuggestions(data AskBarSuggestionsViewData) {
 			>
 				<span class="osspm-askbar-suggest-key">{ item.FieldLabel }</span>
 				<span class="osspm-askbar-suggest-val">{ item.Label }</span>
-			</div>
+			</button>
 		}
 		if data.ShowFreeText {
 			<div class="osspm-askbar-suggest-label">Or</div>
-			<div class="osspm-askbar-suggest-item" data-action="freetext" data-value={ data.DisplayText }>
+			<button type="button" class="osspm-askbar-suggest-item" data-action="freetext" data-value={ data.DisplayText }>
 				<span class="osspm-askbar-suggest-key">Search</span>
 				<span class="osspm-askbar-suggest-val">{ "\"" }{ data.DisplayText }{ "\"" }</span>
-			</div>
+			</button>
 		}
 	} else if data.ShowFreeText {
 		<div class="osspm-askbar-suggest-label">Free text</div>
-		<div class="osspm-askbar-suggest-item is-hl" data-action="freetext" data-value={ data.DisplayText }>
+		<button type="button" class="osspm-askbar-suggest-item is-hl" data-action="freetext" data-value={ data.DisplayText }>
 			<span class="osspm-askbar-suggest-val">{ "Add \"" }{ data.DisplayText }{ "\" as text search" }</span>
-		</div>
+		</button>
 	}
 }

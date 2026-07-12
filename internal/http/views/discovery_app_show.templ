@@ -398,6 +398,7 @@ templ discoveryAppShowGovernanceSummary(data viewmodels.DiscoveryAppShowViewData
 }
 
 templ DiscoveryAppShowGovernanceDialog(data viewmodels.DiscoveryAppShowViewData) {
+	{{ mutationAttrs := MutationFormAttrs() }}
 	<dialog
 		id="discovery-governance-dialog"
 		class="dialog w-full max-w-2xl"
@@ -411,7 +412,7 @@ templ DiscoveryAppShowGovernanceDialog(data viewmodels.DiscoveryAppShowViewData)
 				action={ "/discovery/apps/" + FormatInt64(data.App.ID) + "/governance" }
 				hx-post={ "/discovery/apps/" + FormatInt64(data.App.ID) + "/governance" }
 				hx-target="#discovery-app-show-shell"
-				hx-disabled-elt="this"
+				{ mutationAttrs... }
 			>
 				@CSRFInput(data.Layout.CSRFToken)
 				<button type="button" class="btn-icon-ghost" aria-label="Close" data-dialog-close>

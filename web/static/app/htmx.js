@@ -15,6 +15,7 @@ import { showFlashToast } from "open-sspm-app/components/toast.js";
 const htmxRequestState = new WeakMap();
 const busyElementCounts = new WeakMap();
 const activeRequests = new Set();
+const reportedFailures = new WeakSet();
 
 const isRequestHandle = (value) => value !== null && (typeof value === "object" || typeof value === "function");
 
@@ -228,6 +229,7 @@ const createRequestState = (detail, lazyElement) => {
     focusStrategy: null,
     focusDescriptor: null,
     busyFinalized: false,
+    failureReported: false,
     lazyElement,
   };
 
@@ -293,8 +295,26 @@ const handleBeforeSwap = (event) => {
     typeof detail?.xhr?.getResponseHeader === "function"
       ? detail.xhr.getResponseHeader("Content-Type") || ""
       : detail?.xhr?.contentType || "";
+  const lazyErrorHeader =
+    typeof detail?.xhr?.getResponseHeader === "function"
+      ? detail.xhr.getResponseHeader("X-Lazy-Error") || ""
+      : "";
   const isHTML = contentType.toLowerCase().includes("text/html");
   if ((status === 400 || status === 401 || status === 409 || status === 422) && hasFragment && isHTML) {
+    detail.shouldSwap = true;
+    detail.isError = false;
+    return;
+  }
+
+  const state = isRequestHandle(detail?.xhr) ? htmxRequestState.get(detail.xhr) : null;
+  const isLazyErrorFragment =
+    status >= 400 &&
+    status <= 599 &&
+    hasFragment &&
+    isHTML &&
+    Boolean(state?.lazyElement) &&
+    lazyErrorHeader === "1";
+  if (isLazyErrorFragment) {
     detail.shouldSwap = true;
     detail.isError = false;
   }
@@ -324,6 +344,10 @@ const handleAfterRequest = (event) => {
   if (noSwapExpected) {
     clearPendingLazyState(state);
   }
+  // HTMX emits sendError/sendAbort/timeout immediately after afterRequest for
+  // status-0 requests. Keep the state until that more specific event reports
+  // the correct outcome.
+  if (detail.xhr.status === 0) return;
   if (noSwapExpected || !state.focusStrategy) {
     htmxRequestState.delete(detail.xhr);
   }
@@ -368,30 +392,115 @@ const hxTriggerHasEvent = (triggerHeader, eventName) => {
   return header.split(",").some((name) => name.trim() === eventName);
 };
 
+const failureKindForEvent = (eventName) => {
+  switch (eventName) {
+    case "htmx:sendAbort":
+      return "abort";
+    case "htmx:sendError":
+      return "network";
+    case "htmx:timeout":
+      return "timeout";
+    case "htmx:onLoadError":
+    case "htmx:swapError":
+      return "display";
+    default:
+      return "response";
+  }
+};
+
+const failureMessage = (kind, status) => {
+  switch (kind) {
+    case "network":
+      return {
+        title: "Connection problem",
+        description: "Open SSPM couldn't be reached. Check your connection and try again.",
+      };
+    case "timeout":
+      return {
+        title: "Request timed out",
+        description: "This is taking longer than expected. Try again.",
+      };
+    case "display":
+      return {
+        title: "Couldn't display the response",
+        description: "The response couldn't be displayed. Refresh the page and try again.",
+      };
+    default:
+      return {
+        title: "Request failed",
+        description: status >= 500 ? "The server could not complete that request." : "Refresh the page and try again.",
+      };
+  }
+};
+
+const activateLazyFailure = (lazyElement, message) => {
+  if (!(lazyElement instanceof HTMLElement)) return false;
+
+  if (hasLazyHxError(lazyElement)) {
+    const description = lazyElement.querySelector("[data-hx-lazy-error-description]");
+    if (description instanceof HTMLElement) description.textContent = message.description;
+    return true;
+  }
+
+  const template = lazyElement.querySelector("template[data-hx-lazy-error-template]");
+  if (!(template instanceof HTMLTemplateElement)) return false;
+
+  const fragment = template.content.cloneNode(true);
+  const replacement = fragment.querySelector("[data-hx-lazy-error]");
+  if (!(replacement instanceof HTMLElement)) return false;
+
+  const description = replacement.querySelector("[data-hx-lazy-error-description]");
+  if (description instanceof HTMLElement) description.textContent = message.description;
+  lazyElement.replaceWith(replacement);
+  if (typeof window.htmx?.process === "function") {
+    window.htmx.process(replacement);
+  }
+  return true;
+};
+
+const dispatchFailureToast = (message) => {
+  document.dispatchEvent(
+    new CustomEvent("osspm:toast", {
+      detail: {
+        config: {
+          category: "error",
+          title: message.title,
+          description: message.description,
+        },
+      },
+    }),
+  );
+};
+
 const handleFailedRequest = (event) => {
   const xhr = event.detail?.xhr;
   if (!isRequestHandle(xhr)) return;
 
   const state = finalizeRequestBusyState(xhr);
   clearPendingLazyState(state);
+
+  const kind = failureKindForEvent(event.type);
+  if (kind === "abort") {
+    htmxRequestState.delete(xhr);
+    return;
+  }
+  if (reportedFailures.has(xhr) || state?.failureReported) {
+    htmxRequestState.delete(xhr);
+    return;
+  }
+
+  reportedFailures.add(xhr);
+  if (state) state.failureReported = true;
   htmxRequestState.delete(xhr);
 
   const status = Number(xhr.status || 0);
   if (swapAllowedErrorStatuses.has(status)) return;
   const triggerHeader = typeof xhr.getResponseHeader === "function" ? xhr.getResponseHeader("HX-Trigger") || "" : "";
-  if (status > 0 && !hxTriggerHasEvent(triggerHeader, "osspm:toast")) {
-    document.dispatchEvent(
-      new CustomEvent("osspm:toast", {
-        detail: {
-          config: {
-            category: "error",
-            title: "Request failed",
-            description: status >= 500 ? "The server could not complete that request." : "Refresh the page and try again.",
-          },
-        },
-      }),
-    );
-  }
+  if (hxTriggerHasEvent(triggerHeader, "osspm:toast")) return;
+
+  const message = failureMessage(kind, status);
+  if (activateLazyFailure(state?.lazyElement, message)) return;
+  dispatchFailureToast(message);
 };
 
 const handleHtmxLoad = (event) => {

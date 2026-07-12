@@ -295,9 +295,6 @@ func seedRuleForFindingsHandler(t *testing.T, ctx context.Context, q *gen.Querie
 		Category:         "identity",
 		Severity:         "medium",
 		MonitoringStatus: "monitored",
-		RequiredData:     []byte(`[]`),
-		ExpectedParams:   []byte(`{}`),
-		RuleVersion:      "v1",
 		IsActive:         true,
 		DefinitionJson:   []byte(`{"check":{"type":"manual"}}`),
 	})

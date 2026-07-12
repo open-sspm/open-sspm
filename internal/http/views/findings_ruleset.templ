@@ -18,6 +18,13 @@ templ FindingsRulesetMutationResponse(data viewmodels.FindingsRulesetViewData) {
 }
 
 templ FindingsRulesetShell(data viewmodels.FindingsRulesetViewData) {
+	{{ mutationAttrs := MutationFormAttrs() }}
+	{{ disableConfirmation := ConfirmAttrs(ConfirmConfig{
+		Title: "Disable ruleset?",
+		Body: "Disabling forces every rule in this ruleset to report not-applicable.",
+		AcceptLabel: "Disable",
+		Tone: ConfirmToneWarning,
+	}) }}
 	<div id="findings-ruleset-shell" class="min-w-0 space-y-6">
 		@PageHeader("") {
 			if data.Layout.IsAdmin {
@@ -26,7 +33,7 @@ templ FindingsRulesetShell(data viewmodels.FindingsRulesetViewData) {
 					action={ "/findings/rulesets/" + data.Ruleset.Key + "/override" }
 					hx-post={ "/findings/rulesets/" + data.Ruleset.Key + "/override" }
 					hx-target="#findings-ruleset-shell"
-					hx-disabled-elt="this"
+					{ mutationAttrs... }
 					class="flex items-center gap-2"
 				>
 						@CSRFInput(data.Layout.CSRFToken)
@@ -35,11 +42,7 @@ templ FindingsRulesetShell(data viewmodels.FindingsRulesetViewData) {
 							<button
 								type="submit"
 								class="btn-outline"
-								data-osspm-confirm-title="Disable ruleset?"
-								data-osspm-confirm-body="Disabling forces every rule in this ruleset to report not-applicable."
-								data-osspm-confirm-accept-label="Disable"
-								data-osspm-confirm-tone="warning"
-								hx-confirm=" "
+								{ disableConfirmation... }
 							>Disable ruleset</button>
 						} else {
 						<input type="hidden" name="enabled" value="true"/>

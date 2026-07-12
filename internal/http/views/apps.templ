@@ -140,15 +140,7 @@ templ AppRowDesktop(app viewmodels.AppListItem, isAdmin bool, csrfToken string, 
 						Connected
 					</span>
 				} else if isAdmin && app.SuggestedKind != "" {
-					<form method="post" action="/assigned-apps/map" class="inline-flex">
-						@CSRFInput(csrfToken)
-						<input type="hidden" name="integration_kind" value={ app.SuggestedKind }/>
-						<input type="hidden" name="okta_source_name" value={ app.SourceName }/>
-						<input type="hidden" name="okta_app_external_id" value={ app.ExternalID }/>
-						<button class="btn-sm-ghost h-7 px-2 text-xs opacity-0 transition-opacity group-hover:opacity-100" type="submit">
-							{ SuggestedIntegrationActionLabel(app.SuggestedKind) }
-						</button>
-					</form>
+					@AppMappingAction(app, csrfToken, "inline-flex", "btn-sm-ghost h-7 px-2 text-xs")
 				} else {
 					<span class="text-xs text-muted-foreground/40">—</span>
 				}
@@ -162,32 +154,52 @@ templ AppRowDesktop(app viewmodels.AppListItem, isAdmin bool, csrfToken string, 
 }
 
 templ AppRowMobile(app viewmodels.AppListItem, isAdmin bool, csrfToken string, index int) {
-	<a
-		href={ AppDetailURL(app.IntegratedHref, app.SourceName, app.ExternalID) }
-		class="app-row flex items-center gap-3 py-3.5 no-underline transition-colors hover:bg-muted/30"
-		style={ "animation-delay:" + strconv.Itoa(index*25) + "ms" }
-	>
-		@ProductIcon(app.Label, app.Name, "", "size-8")
-		<span class="min-w-0 flex-1">
-			<span class="flex items-center gap-2">
-				<span class="truncate text-sm font-medium text-foreground">{ app.Label }</span>
-				<span class={ "ml-auto inline-flex shrink-0 items-center gap-1 text-xs", StatusTextClass(app.Status) }>
-					<span class={ "h-1.5 w-1.5 rounded-full", AppStatusDotClass(app.Status) }></span>
-					{ fallbackHumanized(app.Status) }
+	<div class="app-row py-3.5" style={ "animation-delay:" + strconv.Itoa(index*25) + "ms" }>
+		<a
+			href={ AppDetailURL(app.IntegratedHref, app.SourceName, app.ExternalID) }
+			class="flex items-center gap-3 rounded-sm no-underline transition-colors hover:bg-muted/30"
+		>
+			@ProductIcon(app.Label, app.Name, "", "size-8")
+			<span class="min-w-0 flex-1">
+				<span class="flex items-center gap-2">
+					<span class="truncate text-sm font-medium text-foreground">{ app.Label }</span>
+					<span class={ "ml-auto inline-flex shrink-0 items-center gap-1 text-xs", StatusTextClass(app.Status) }>
+						<span class={ "h-1.5 w-1.5 rounded-full", AppStatusDotClass(app.Status) }></span>
+						{ fallbackHumanized(app.Status) }
+					</span>
+				</span>
+				<span class="flex items-center gap-2 text-xs text-muted-foreground">
+					<span>{ HumanizeSignOnMode(app.SignOnMode) }</span>
+					if app.SourceName != "" {
+						<span class="text-border/60" aria-hidden="true">·</span>
+						<span>{ app.SourceName }</span>
+					}
+					if app.IntegratedHref != "" {
+						<span class="text-border/60" aria-hidden="true">·</span>
+						<span class="text-emerald-700 dark:text-emerald-400">Connected</span>
+					}
 				</span>
 			</span>
-			<span class="flex items-center gap-2 text-xs text-muted-foreground">
-				<span>{ HumanizeSignOnMode(app.SignOnMode) }</span>
-				if app.SourceName != "" {
-					<span class="text-border/60" aria-hidden="true">·</span>
-					<span>{ app.SourceName }</span>
-				}
-				if app.IntegratedHref != "" {
-					<span class="text-border/60" aria-hidden="true">·</span>
-					<span class="text-emerald-700 dark:text-emerald-400">Connected</span>
-				}
-			</span>
-		</span>
-		@IconChevronRight("h-4 w-4 shrink-0 text-muted-foreground/30")
-	</a>
+			@IconChevronRight("h-4 w-4 shrink-0 text-muted-foreground/30")
+		</a>
+		if isAdmin && app.IntegratedHref == "" && app.SuggestedKind != "" {
+			@AppMappingAction(app, csrfToken, "mt-2 block pl-11", "btn-sm-outline h-8 w-full text-xs")
+		}
+	</div>
+}
+
+templ AppMappingAction(app viewmodels.AppListItem, csrfToken, formClass, buttonClass string) {
+	<form method="post" action="/assigned-apps/map" class={ formClass }>
+		@CSRFInput(csrfToken)
+		<input type="hidden" name="integration_kind" value={ app.SuggestedKind }/>
+		<input type="hidden" name="okta_source_name" value={ app.SourceName }/>
+		<input type="hidden" name="okta_app_external_id" value={ app.ExternalID }/>
+		<button
+			class={ buttonClass }
+			type="submit"
+			aria-label={ SuggestedIntegrationActionLabel(app.SuggestedKind) + " for " + app.Label }
+		>
+			{ SuggestedIntegrationActionLabel(app.SuggestedKind) }
+		</button>
+	</form>
 }

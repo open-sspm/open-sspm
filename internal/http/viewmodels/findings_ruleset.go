@@ -8,11 +8,6 @@ type FindingsRulesetViewData struct {
 	SourceName        string
 	ConnectorHintHref string
 
-	Tags              []string
-	References        []FindingsReferenceItem
-	FrameworkMappings []FindingsFrameworkMappingItem
-	HasMetadata       bool
-
 	OverrideExists  bool
 	OverrideEnabled bool
 

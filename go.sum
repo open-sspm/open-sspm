@@ -254,8 +254,8 @@ github.com/okta/okta-sdk-golang/v6 v6.0.2 h1:eaKjSSjlS5YnuG7jX4P4BFZLfIriZuq4ro/
 github.com/okta/okta-sdk-golang/v6 v6.0.2/go.mod h1:EzV8yrIDarJfL8lAwUmfcuVQmaXe7gbhWyzKoCSb/WU=
 github.com/open-policy-agent/opa v1.16.2 h1:5gzbXeioG9TCguGOI9EKigeBP/1ZoD8VH/ca50ihGxI=
 github.com/open-policy-agent/opa v1.16.2/go.mod h1:21uy+TcBM9muN9DvE9B6lcnovwTIBcE2Y9DRscar/uM=
-github.com/open-sspm/open-sspm-spec v0.0.0-20260516090957-28ca483d9456 h1:csUtOQ8fvyMtD23I6hMUu8qh9awox9zg543BQ4UvOP4=
-github.com/open-sspm/open-sspm-spec v0.0.0-20260516090957-28ca483d9456/go.mod h1:hOgCOmuRmgLmfc6ESJyNrcaqEolpbx0tSvOIhNkeZuM=
+github.com/open-sspm/open-sspm-spec v0.0.0-20260711200210-2566bf77b07c h1:AMQ/lB879OrHkEPQ1AomAta6cjuFlDbHckN9VNF1nwc=
+github.com/open-sspm/open-sspm-spec v0.0.0-20260711200210-2566bf77b07c/go.mod h1:7rVRaeAeIdr5DP5nlSg8g+Ku1JU2UOoWEwXMin5V0X8=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJwooC2xJA040=

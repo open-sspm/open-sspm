@@ -77,21 +77,7 @@ type oktaBrandSignInPageCache struct {
 	err  error
 }
 
-func (p *OktaProvider) Capabilities(ctx context.Context) []runtimev2.DatasetRef {
-	_ = ctx
-	if p == nil {
-		return nil
-	}
-	out := make([]runtimev2.DatasetRef, 0, len(oktaCapabilitiesV2))
-	for _, ds := range oktaCapabilitiesV2 {
-		out = append(out, runtimev2.DatasetRef{Dataset: ds, Version: 1})
-	}
-	return out
-}
-
-func (p *OktaProvider) GetDataset(ctx context.Context, eval runtimev2.EvalContext, ref runtimev2.DatasetRef) runtimev2.DatasetResult {
-	_ = eval
-
+func (p *OktaProvider) GetDataset(ctx context.Context, ref runtimev2.DatasetRef) runtimev2.DatasetResult {
 	if p == nil {
 		return runtimev2.DatasetResult{
 			Error: &runtimev2.DatasetError{

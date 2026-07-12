@@ -64,13 +64,10 @@ INSERT INTO rules (
   severity,
   monitoring_status,
   monitoring_reason,
-  required_data,
-  expected_params,
-  rule_version,
   is_active,
   definition_json
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 ON CONFLICT (ruleset_id, key) DO UPDATE SET
   title = EXCLUDED.title,
   summary = EXCLUDED.summary,
@@ -78,9 +75,6 @@ ON CONFLICT (ruleset_id, key) DO UPDATE SET
   severity = EXCLUDED.severity,
   monitoring_status = EXCLUDED.monitoring_status,
   monitoring_reason = EXCLUDED.monitoring_reason,
-  required_data = EXCLUDED.required_data,
-  expected_params = EXCLUDED.expected_params,
-  rule_version = EXCLUDED.rule_version,
   is_active = EXCLUDED.is_active,
   definition_json = EXCLUDED.definition_json,
   updated_at = CASE

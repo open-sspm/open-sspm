@@ -904,9 +904,6 @@ type Rule struct {
 	Severity         string             `json:"severity"`
 	MonitoringStatus string             `json:"monitoring_status"`
 	MonitoringReason string             `json:"monitoring_reason"`
-	RequiredData     []byte             `json:"required_data"`
-	ExpectedParams   []byte             `json:"expected_params"`
-	RuleVersion      string             `json:"rule_version"`
 	IsActive         bool               `json:"is_active"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`

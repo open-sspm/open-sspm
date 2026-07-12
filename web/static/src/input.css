@@ -339,7 +339,7 @@ html {
    --------------------------------------------------------------------------- */
 
 @layer components {
-  .btn, .btn-primary, .btn-outline, .btn-ghost,
+  .btn, .btn-primary, .btn-danger, .btn-warning, .btn-outline, .btn-ghost,
   .btn-sm, .btn-sm-primary, .btn-sm-outline, .btn-sm-ghost, .btn-sm-link,
   .btn-icon-outline, .btn-icon-ghost,
   .btn-sm-icon-ghost {
@@ -347,7 +347,7 @@ html {
   }
 
   /* Size: default */
-  .btn, .btn-primary, .btn-outline, .btn-ghost {
+  .btn, .btn-primary, .btn-danger, .btn-warning, .btn-outline, .btn-ghost {
     @apply gap-2 h-9 px-4 py-2 has-[>svg]:px-3;
   }
   .btn-icon-outline, .btn-icon-ghost {
@@ -366,6 +366,16 @@ html {
   .btn, .btn-primary, .btn-sm, .btn-sm-primary {
     @apply bg-primary text-primary-foreground shadow-xs hover:bg-primary/90;
     &[aria-pressed='true'] { @apply bg-primary/90; }
+  }
+
+  /* Variant: danger */
+  .btn-danger {
+    @apply bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:border-destructive focus-visible:ring-destructive/30 dark:text-black;
+  }
+
+  /* Variant: warning */
+  .btn-warning {
+    @apply bg-amber-500 text-amber-950 shadow-xs hover:bg-amber-400 focus-visible:border-amber-600 focus-visible:ring-amber-500/30 dark:bg-amber-400 dark:hover:bg-amber-300;
   }
 
   /* Variant: outline */
@@ -919,37 +929,44 @@ html {
    --------------------------------------------------------------------------- */
 
 @layer components {
+  html[data-mobile-sidebar-open="true"],
+  html[data-mobile-sidebar-open="true"] body {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   .sidebar {
     &:not([data-sidebar-initialized]) {
-      @apply max-md:hidden;
+      @apply max-lg:hidden;
       nav, & + * { transition: none; }
     }
     &:not([aria-hidden]), &[aria-hidden=false] {
-      @apply max-md:bg-black/50 max-md:fixed max-md:inset-0 max-md:z-40;
+      @apply max-lg:bg-black/50 max-lg:fixed max-lg:inset-0 max-lg:z-40;
     }
     nav {
-      @apply bg-sidebar text-sidebar-foreground flex flex-col w-(--sidebar-mobile-width) md:w-(--sidebar-width) fixed inset-y-0 z-50 transition-transform ease-in-out duration-300;
+      @apply bg-sidebar text-sidebar-foreground flex flex-col w-(--sidebar-mobile-width) lg:w-(--sidebar-width) fixed inset-y-0 z-50 transition-transform ease-in-out duration-300;
     }
     & + * { @apply transition-[margin] ease-in-out duration-300; }
 
     &:not([data-side]), &[data-side=left] {
       nav { @apply left-0 border-r; }
-      & + * { @apply relative md:ml-(--sidebar-width); }
+      & + * { @apply relative lg:ml-(--sidebar-width); }
       &[aria-hidden=true] {
         nav { @apply -translate-x-full; }
-        & + * { @apply md:ml-0; }
+        & + * { @apply lg:ml-0; }
       }
     }
     &[data-side=right] {
       nav { @apply right-0 border-l; }
-      & + * { @apply relative md:mr-(--sidebar-width); }
+      & + * { @apply relative lg:mr-(--sidebar-width); }
       &[aria-hidden=true] {
         nav { @apply translate-x-full; }
-        & + * { @apply md:mr-0; }
+        & + * { @apply lg:mr-0; }
       }
     }
     nav {
-      > header, > footer { @apply flex flex-col gap-2 p-2; }
+      > header { @apply flex flex-row items-center gap-2 p-2; }
+      > footer { @apply flex flex-col gap-2 p-2; }
       [role=separator] { @apply border-sidebar-border mx-2 w-auto; }
       > section {
         @apply flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto;
@@ -983,7 +1000,7 @@ html {
   }
 
   html[data-sidebar-pref="closed"] .sidebar:not([data-sidebar-initialized]) nav { @apply -translate-x-full; }
-  html[data-sidebar-pref="closed"] .sidebar:not([data-sidebar-initialized]) + * { @apply md:ml-0; }
+  html[data-sidebar-pref="closed"] .sidebar:not([data-sidebar-initialized]) + * { @apply lg:ml-0; }
 
   /* App-specific sidebar overrides */
   .sidebar nav > section ul li > details::details-content { padding-inline: 0; }
@@ -1492,11 +1509,9 @@ html {
   }
 
   /* ---------------------------------------------------------------------------
-     Identities — ask bar
-     Single composite filter input where chips live inline with the typed text.
-     Inspired by the `prototype/ask.html` exploration: the bar IS the filter
-     language. Chips for status / source / etc. flow with the cursor; pressing
-     Enter promotes typed keywords into chips and fires the existing htmx form.
+     Shared search and filter bar
+     Free text stays in a native search input. Structured filters are presented
+     as removable chips and added through a separate keyboard-friendly chooser.
      --------------------------------------------------------------------------- */
 
   .osspm-askbar-container {
@@ -1529,15 +1544,6 @@ html {
   .osspm-askbar-input {
     @apply min-w-[10rem] flex-1 border-0 bg-transparent text-sm text-foreground outline-none ring-0 placeholder:text-muted-foreground;
     padding: 0.25rem 0.125rem;
-  }
-
-  .osspm-askbar-input[data-inline-cursor="true"] {
-    @apply min-w-0 flex-none;
-    width: var(--cursor-width, 1.25ch);
-  }
-
-  .osspm-askbar-input[data-inline-cursor="true"]::placeholder {
-    color: transparent;
   }
 
   .osspm-askbar-filter-add {
@@ -1646,16 +1652,25 @@ html {
     display: none;
   }
 
+  .osspm-askbar-suggest-title {
+    @apply px-2.5 pb-1 pt-1 text-sm font-semibold text-foreground;
+  }
+
+  .osspm-askbar-filter-search {
+    @apply mb-1.5 w-full rounded-md border border-border bg-background px-2.5 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/20;
+  }
+
   .osspm-askbar-suggest-label {
     @apply px-2.5 pb-1 pt-1.5 text-[11px] uppercase tracking-wider text-muted-foreground;
   }
 
   .osspm-askbar-suggest-item {
-    @apply flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5;
+    @apply flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left;
   }
 
   .osspm-askbar-suggest-item.is-hl,
-  .osspm-askbar-suggest-item:hover {
+  .osspm-askbar-suggest-item:hover,
+  .osspm-askbar-suggest-item:focus-visible {
     @apply bg-muted;
   }
 

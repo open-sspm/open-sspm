@@ -3,467 +3,188 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initAskbar } from "open-sspm-app/components/askbar.js";
 
 const config = {
-  fieldParam: {
-    search: "q",
-    credential_kind: "credential_kind",
-    expiry_state: "expiry_state",
-    expires_in_days: "expires_in_days",
-    owner: "owner",
-    asset: "asset",
-    newer_days: "newer_days",
-    status: "status",
-    row_state: "row_state",
-  },
-  keyLabel: {
-    search: "",
-    credential_kind: "kind",
-    expiry_state: "expiry",
-    expires_in_days: "expires",
-    owner: "owner",
-    asset: "asset",
-    newer_days: "newer",
-    status: "status",
-    row_state: "state",
-  },
-  fieldLabel: {
-    credential_kind: "Credential kind",
-    expiry_state: "Expiry",
-    expires_in_days: "Expires in",
-    owner: "Owner",
-    asset: "Asset",
-    newer_days: "Newer than",
-    status: "Status",
-    row_state: "State",
-  },
+  fieldParam: { search: "q", status: "status", owner: "owner" },
+  keyLabel: { status: "status", owner: "owner" },
+  fieldLabel: { status: "Status", owner: "Owner" },
   keywordTokens: {
-    pat: {
-      field: "credential_kind",
-      value: "github_pat_request,github_pat_fine_grained",
-      label: "PAT",
-    },
-    "30d": {
-      field: "expires_in_days",
-      value: "30",
-      label: "< 30d",
-      tone: "warn",
-    },
-    "newer-7d": {
-      field: "newer_days",
-      value: "7",
-      label: "7d",
-    },
-    revoked: {
-      field: "status",
-      value: "revoked",
-      label: "revoked",
-      tone: "danger",
-    },
-    expired: {
-      field: "expiry_state",
-      value: "expired",
-      label: "expired",
-      tone: "danger",
-    },
-    "action-required": {
-      field: "row_state",
-      value: "action_required",
-      label: "needs action",
-      tone: "danger",
-    },
+    active: { field: "status", value: "active", label: "active", tone: "ok" },
+    revoked: { field: "status", value: "revoked", label: "revoked", tone: "danger" },
   },
-  fieldAliases: {
-    kind: "credential_kind",
-    expiry: "expiry_state",
-    expires: "expires_in_days",
-    owner: "owner",
-    asset: "asset",
-    newer: "newer_days",
-    status: "status",
-    row: "row_state",
-    state: "row_state",
-  },
-  stopwords: [],
-  singletonFields: [
-    "credential_kind",
-    "expiry_state",
-    "expires_in_days",
-    "owner",
-    "asset",
-    "newer_days",
-    "status",
-    "row_state",
-  ],
-  freeTextFields: ["owner", "asset"],
-  staticHidden: [
-    { name: "source_kind", value: "google_workspace" },
-    { name: "asset_kind", value: "google_oauth_client" },
-  ],
+  fieldAliases: { status: "status", owner: "owner" },
+  singletonFields: ["status", "owner"],
+  freeTextFields: ["owner"],
+  staticHidden: [{ name: "source_kind", value: "github" }],
 };
 
-const renderAskbar = ({ htmx = true, extraControls = "", configOverrides = {} } = {}) => {
-  const askbarConfig = { ...config, ...configOverrides };
+const renderAskbar = ({ search = "", chips = "", hidden = "", overrides = {}, htmx = true } = {}) => {
+  const askbarConfig = { ...config, ...overrides };
   document.body.innerHTML = `
-    <form ${htmx ? 'hx-get="/items"' : ""}>
+    <form method="get" action="/items" ${htmx ? 'hx-get="/items"' : ""}>
       <div data-osspm-askbar data-osspm-askbar-config='${JSON.stringify(askbarConfig)}'>
-        <label data-osspm-askbar-bar>
-          <span data-osspm-askbar-chips></span>
-          <input data-osspm-askbar-input placeholder="Search" />
-          <button type="button" data-osspm-askbar-add-filter>Filter</button>
-        </label>
-        <div data-osspm-askbar-suggest hidden></div>
-        <div data-osspm-askbar-bank data-table-query-trigger></div>
+        <div data-osspm-askbar-bar>
+          <label for="search">Filter items</label>
+          <span data-osspm-askbar-chips>${chips}</span>
+          <input id="search" type="search" name="q" value="${search}" data-osspm-askbar-input />
+          <button type="button" data-osspm-askbar-add-filter aria-expanded="false">Filter</button>
+        </div>
+        <div data-osspm-askbar-filter-panel hidden role="dialog">
+          <input type="search" data-osspm-askbar-filter-input />
+          <div data-osspm-askbar-suggest></div>
+        </div>
+        <div data-osspm-askbar-bank>${hidden}</div>
       </div>
-      ${extraControls}
-    </form>
-  `;
-  return document.querySelector("[data-osspm-askbar]");
+    </form>`;
+  const root = document.querySelector("[data-osspm-askbar]");
+  const form = root.closest("form");
+  form.addEventListener("submit", (event) => event.preventDefault());
+  return root;
 };
 
 const bankValues = (root) =>
   Object.fromEntries(
-    Array.from(root.querySelectorAll("[data-osspm-askbar-bank] input")).map(
-      (input) => [input.name, input.value],
-    ),
-  );
-
-const bankDefaultValues = (root) =>
-  Object.fromEntries(
-    Array.from(root.querySelectorAll("[data-osspm-askbar-bank] input")).map(
-      (input) => [input.name, input.defaultValue],
-    ),
-  );
-
-const chipLabels = (root) =>
-  Array.from(root.querySelectorAll(".osspm-askbar-chip-label"), (node) =>
-    node.textContent.trim(),
+    Array.from(root.querySelectorAll("[data-osspm-askbar-bank] input"), (input) => [
+      input.name,
+      input.value,
+    ]),
   );
 
 describe("askbar", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
+    window.history.replaceState({}, "", "/items");
   });
 
   afterEach(() => {
-    document.body.innerHTML = "";
-    window.history.replaceState({}, "", "/");
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
-  it("parses field grammar into canonical filter inputs", () => {
-    const root = renderAskbar();
-    initAskbar(root);
+  it("submits free text as a native named GET control without JavaScript", () => {
+    const root = renderAskbar({ search: "alice" });
+    const data = new FormData(root.closest("form"));
 
-    const input = root.querySelector("[data-osspm-askbar-input]");
-    input.value = "expires:<30d owner:me kind:PAT asset:GitHub newer:7d";
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-
-    expect(bankValues(root)).toEqual({
-      source_kind: "google_workspace",
-      asset_kind: "google_oauth_client",
-      expires_in_days: "30",
-      owner: "me",
-      credential_kind: "github_pat_request,github_pat_fine_grained",
-      asset: "github",
-      newer_days: "7",
-    });
+    expect(data.get("q")).toBe("alice");
+    expect(root.querySelector('[data-osspm-askbar-input][name="q"]')).not.toBeNull();
   });
 
-  it("parses multi-token grammar on Enter even when suggestions are open", () => {
-    const root = renderAskbar();
-    initAskbar(root);
-
-    const input = root.querySelector("[data-osspm-askbar-input]");
-    input.value = "expires:<30d owner:me kind:PAT asset:GitHub newer:7d";
-    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-
-    expect(bankValues(root)).toEqual({
-      source_kind: "google_workspace",
-      asset_kind: "google_oauth_client",
-      expires_in_days: "30",
-      owner: "me",
-      credential_kind: "github_pat_request,github_pat_fine_grained",
-      asset: "github",
-      newer_days: "7",
-    });
-  });
-
-  it("parses field grammar on Enter instead of treating it as text search", () => {
-    const root = renderAskbar();
-    initAskbar(root);
-
-    const input = root.querySelector("[data-osspm-askbar-input]");
-    input.value = "expires:<30d";
-    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-
-    expect(bankValues(root)).toMatchObject({
-      source_kind: "google_workspace",
-      asset_kind: "google_oauth_client",
-      expires_in_days: "30",
-    });
-    expect(bankValues(root)).not.toHaveProperty("q");
-  });
-
-  it("parses free-text field grammar on Enter", () => {
-    const root = renderAskbar();
-    initAskbar(root);
-
-    const input = root.querySelector("[data-osspm-askbar-input]");
-    input.value = "asset:GitHub";
-    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-
-    expect(bankValues(root)).toMatchObject({
-      source_kind: "google_workspace",
-      asset_kind: "google_oauth_client",
-      asset: "github",
-    });
-    expect(bankValues(root)).not.toHaveProperty("q");
-  });
-
-  it("opens suggestions from the add filter button with an empty input", () => {
-    const root = renderAskbar();
-    initAskbar(root);
-
-    root.querySelector("[data-osspm-askbar-add-filter]").click();
-
-    const suggest = root.querySelector("[data-osspm-askbar-suggest]");
-    expect(suggest.hidden).toBe(false);
-    expect(suggest.textContent).toContain("Suggestions");
-    expect(suggest.textContent).toContain("< 30d");
-  });
-
-  it("aborts in-flight server suggestion requests when typing continues", () => {
-    vi.useFakeTimers();
-    const fetchSpy = vi.fn((_url, options) => new Promise(() => options.signal.addEventListener("abort", () => {})));
-    Object.defineProperty(window, "fetch", { value: fetchSpy, configurable: true });
-
+  it("never duplicates q in the enhanced hidden-input bank", () => {
     const root = renderAskbar({
-      configOverrides: {
-        suggestEndpoint: "/askbar/suggestions?scope=credentials",
-      },
-    });
-    const cleanup = initAskbar(root);
-    const input = root.querySelector("[data-osspm-askbar-input]");
-
-    input.value = "a";
-    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
-    vi.advanceTimersByTime(80);
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const firstSignal = fetchSpy.mock.calls[0][1].signal;
-    expect(firstSignal.aborted).toBe(false);
-
-    input.value = "ab";
-    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
-
-    expect(firstSignal.aborted).toBe(true);
-
-    vi.advanceTimersByTime(80);
-
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
-    expect(fetchSpy.mock.calls[1][0]).toBe("/askbar/suggestions?scope=credentials&q=ab");
-
-    const secondSignal = fetchSpy.mock.calls[1][1].signal;
-    cleanup();
-    expect(secondSignal.aborted).toBe(true);
-  });
-
-  it("keeps static scope inputs when chips are rewritten", () => {
-    const root = renderAskbar();
-    initAskbar(root);
-
-    const input = root.querySelector("[data-osspm-askbar-input]");
-    input.value = "kind:PAT";
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-
-    expect(bankValues(root)).toMatchObject({
-      source_kind: "google_workspace",
-      asset_kind: "google_oauth_client",
-      credential_kind: "github_pat_request,github_pat_fine_grained",
-    });
-  });
-
-  it("writes dynamic hidden values as defaults for htmx query preservation", () => {
-    const root = renderAskbar();
-    initAskbar(root);
-
-    const input = root.querySelector("[data-osspm-askbar-input]");
-    input.value = "notakey";
-    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-
-    expect(bankValues(root)).toMatchObject({ q: "notakey" });
-    expect(bankDefaultValues(root)).toMatchObject({ q: "notakey" });
-  });
-
-  it("matches field:value where the canonical value uses underscores against the hyphenated keyword form", () => {
-    const root = renderAskbar();
-    initAskbar(root);
-
-    const input = root.querySelector("[data-osspm-askbar-input]");
-    input.value = "state:action-required";
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-
-    expect(bankValues(root)).toMatchObject({ row_state: "action_required" });
-    expect(bankValues(root)).not.toHaveProperty("q");
-  });
-
-  it("does not strip a trailing 'd' from non-numeric field:value input", () => {
-    const root = renderAskbar();
-    initAskbar(root);
-
-    const input = root.querySelector("[data-osspm-askbar-input]");
-    input.value = "status:revoked";
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-
-    expect(bankValues(root)).toMatchObject({ status: "revoked" });
-    expect(bankValues(root)).not.toHaveProperty("q");
-  });
-
-  it("drops field:value silently when the field is recognized but the value is unknown", () => {
-    const root = renderAskbar();
-    initAskbar(root);
-
-    const input = root.querySelector("[data-osspm-askbar-input]");
-    input.value = "kind:bogusvalue";
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-
-    const values = bankValues(root);
-    expect(values).not.toHaveProperty("credential_kind");
-    expect(values).not.toHaveProperty("q");
-  });
-
-  it("writes the chip label on the remove button aria-label for screen readers", () => {
-    const root = renderAskbar();
-    initAskbar(root);
-
-    const input = root.querySelector("[data-osspm-askbar-input]");
-    input.value = "kind:PAT";
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-
-    const removeBtn = root.querySelector("[data-osspm-askbar-chip-remove]");
-    expect(removeBtn?.getAttribute("aria-label")).toBe("Remove PAT");
-  });
-
-  it("reconciles chips and hidden inputs when htmx pushes a new URL", () => {
-    const root = renderAskbar();
-    initAskbar(root);
-    const bank = root.querySelector("[data-osspm-askbar-bank]");
-    const changeSpy = vi.fn();
-    bank.addEventListener("change", changeSpy);
-
-    window.history.pushState({}, "", "/items?q=alice&credential_kind=github_pat_request%2Cgithub_pat_fine_grained&status=revoked");
-    document.dispatchEvent(new CustomEvent("htmx:pushedIntoHistory", { bubbles: true }));
-
-    expect(chipLabels(root)).toEqual(['"alice"', "PAT", "revoked"]);
-    expect(bankValues(root)).toMatchObject({
-      source_kind: "google_workspace",
-      asset_kind: "google_oauth_client",
-      q: "alice",
-      credential_kind: "github_pat_request,github_pat_fine_grained",
-      status: "revoked",
-    });
-    expect(changeSpy).not.toHaveBeenCalled();
-  });
-
-  it("reconciles chips on browser history navigation without submitting", () => {
-    const root = renderAskbar();
-    initAskbar(root);
-    const bank = root.querySelector("[data-osspm-askbar-bank]");
-    const changeSpy = vi.fn();
-    bank.addEventListener("change", changeSpy);
-
-    window.history.pushState({}, "", "/items?status=revoked");
-    window.dispatchEvent(new PopStateEvent("popstate"));
-
-    expect(chipLabels(root)).toEqual(["revoked"]);
-    expect(bankValues(root)).toMatchObject({
-      source_kind: "google_workspace",
-      asset_kind: "google_oauth_client",
-      status: "revoked",
-    });
-    expect(changeSpy).not.toHaveBeenCalled();
-  });
-
-  it("does not rewrite existing chips for an idempotent history event", () => {
-    const root = renderAskbar();
-    initAskbar(root);
-
-    const input = root.querySelector("[data-osspm-askbar-input]");
-    input.value = "status:revoked";
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    const firstChip = root.querySelector("[data-osspm-askbar-chip]");
-
-    window.history.pushState({}, "", "/items?status=revoked");
-    document.dispatchEvent(new CustomEvent("htmx:pushedIntoHistory", { bubbles: true }));
-
-    expect(root.querySelector("[data-osspm-askbar-chip]")).toBe(firstChip);
-    expect(chipLabels(root)).toEqual(["revoked"]);
-  });
-
-  it("suppresses implicit active expiry chips when expires_in_days is in the URL", () => {
-    const root = renderAskbar();
-    initAskbar(root);
-
-    window.history.pushState({}, "", "/items?expiry_state=active&expires_in_days=30");
-    document.dispatchEvent(new CustomEvent("htmx:pushedIntoHistory", { bubbles: true }));
-
-    expect(chipLabels(root)).toEqual(["< 30d"]);
-    expect(bankValues(root)).toMatchObject({
-      source_kind: "google_workspace",
-      asset_kind: "google_oauth_client",
-      expiry_state: "active",
-      expires_in_days: "30",
-    });
-  });
-
-  it("syncs ordinary form controls from htmx history without duplicating hidden params", () => {
-    const root = renderAskbar({
-      extraControls: `
-        <select name="sort_by" aria-label="Sort credentials">
-          <option value="expires_soonest" selected>Expires soonest</option>
-          <option value="highest_risk">Highest risk</option>
-        </select>
-      `,
+      search: "alice",
+      hidden: '<input type="hidden" name="q" value="legacy"><input type="hidden" name="source_name" value="primary">',
     });
     initAskbar(root);
-    const form = root.closest("form");
-    const sort = form.querySelector("[name=sort_by]");
 
-    window.history.pushState({}, "", "/items?q=alice&sort_by=highest_risk");
-    document.dispatchEvent(new CustomEvent("htmx:pushedIntoHistory", { bubbles: true }));
-
-    expect(sort.value).toBe("highest_risk");
-    expect(chipLabels(root)).toEqual(['"alice"']);
-    expect(bankValues(root)).not.toHaveProperty("sort_by");
-    expect(new FormData(form).getAll("sort_by")).toEqual(["highest_risk"]);
-
-    window.history.pushState({}, "", "/items?q=alice");
-    document.dispatchEvent(new CustomEvent("htmx:pushedIntoHistory", { bubbles: true }));
-
-    expect(sort.value).toBe("expires_soonest");
-    expect(bankValues(root)).not.toHaveProperty("sort_by");
-    expect(new FormData(form).getAll("sort_by")).toEqual(["expires_soonest"]);
+    expect(root.querySelector('[data-osspm-askbar-bank] input[name="q"]')).toBeNull();
+    expect(bankValues(root)).toEqual({ source_kind: "github", source_name: "primary" });
   });
 
-  it("submits a non-htmx form after a filter change", () => {
+  it("opens a separate filter dialog and focuses its search field", () => {
+    const root = renderAskbar();
+    initAskbar(root);
+
+    const button = root.querySelector("[data-osspm-askbar-add-filter]");
+    button.click();
+
+    expect(root.querySelector("[data-osspm-askbar-filter-panel]").hidden).toBe(false);
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(root.querySelector("[data-osspm-askbar-filter-input]"));
+    expect(root.querySelectorAll("[data-osspm-askbar-suggest] button").length).toBe(2);
+  });
+
+  it("leaves Tab native and closes the filter dialog on Escape", () => {
+    const root = renderAskbar();
+    initAskbar(root);
+    const button = root.querySelector("[data-osspm-askbar-add-filter]");
+    const input = root.querySelector("[data-osspm-askbar-filter-input]");
+    button.click();
+
+    const tab = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    expect(input.dispatchEvent(tab)).toBe(true);
+
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect(root.querySelector("[data-osspm-askbar-filter-panel]").hidden).toBe(true);
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(button);
+  });
+
+  it("adds a structured filter, writes its canonical param, and submits", () => {
     const root = renderAskbar({ htmx: false });
     const form = root.closest("form");
-    const submitSpy = vi.fn((event) => event.preventDefault());
-    const requestSubmitSpy = vi.spyOn(form, "requestSubmit").mockImplementation(() => {
-      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    const submitted = vi.fn();
+    form.addEventListener("submit", submitted);
+    initAskbar(root);
+    root.querySelector("[data-osspm-askbar-add-filter]").click();
+
+    root.querySelector('[data-osspm-askbar-suggest] [data-value="revoked"]').click();
+
+    expect(bankValues(root)).toEqual({ source_kind: "github", status: "revoked" });
+    expect(root.querySelector(".osspm-askbar-chip-label").textContent).toBe("revoked");
+    expect(submitted).toHaveBeenCalledOnce();
+  });
+
+  it("emits one HTMX change trigger without also submitting the form", () => {
+    const root = renderAskbar();
+    const changed = vi.fn();
+    const submitted = vi.fn();
+    root.querySelector("[data-osspm-askbar-bank]").addEventListener("change", changed);
+    root.closest("form").addEventListener("submit", submitted);
+    initAskbar(root);
+    root.querySelector("[data-osspm-askbar-add-filter]").click();
+
+    root.querySelector('[data-osspm-askbar-suggest] [data-value="active"]').click();
+
+    expect(changed).toHaveBeenCalledOnce();
+    expect(submitted).not.toHaveBeenCalled();
+  });
+
+  it("removes a filter and keeps focus on native search", () => {
+    const root = renderAskbar({
+      chips: '<span data-osspm-askbar-chip data-chip-field="status" data-chip-value="active" data-chip-label="active" data-chip-tone="ok"></span>',
+      hidden: '<input type="hidden" name="status" value="active">',
     });
-    form.addEventListener("submit", submitSpy);
     initAskbar(root);
 
-    const input = root.querySelector("[data-osspm-askbar-input]");
-    input.value = "notakey";
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    root.querySelector("[data-osspm-askbar-chip-remove]").click();
 
-    expect(requestSubmitSpy).toHaveBeenCalledOnce();
-    expect(submitSpy).toHaveBeenCalledOnce();
+    expect(root.querySelector("[data-osspm-askbar-chip]")).toBeNull();
+    expect(bankValues(root)).toEqual({ source_kind: "github" });
+    expect(document.activeElement).toBe(root.querySelector("[data-osspm-askbar-input]"));
+  });
+
+  it("restores search and structured filters from browser history", () => {
+    const root = renderAskbar();
+    initAskbar(root);
+    window.history.pushState({}, "", "/items?q=bob&status=active");
+
+    window.dispatchEvent(new PopStateEvent("popstate"));
+
+    expect(root.querySelector("[data-osspm-askbar-input]").value).toBe("bob");
+    expect(root.querySelector(".osspm-askbar-chip-label").textContent).toBe("active");
+    expect(bankValues(root)).toEqual({ source_kind: "github", status: "active" });
+  });
+
+  it("requests filter-only server suggestions and cancels stale requests", async () => {
+    vi.useFakeTimers();
+    const signals = [];
+    const fetchSpy = vi.fn((_url, options) => {
+      signals.push(options.signal);
+      return new Promise(() => {});
+    });
+    Object.defineProperty(window, "fetch", { value: fetchSpy, configurable: true });
+    const root = renderAskbar({ overrides: { suggestEndpoint: "/askbar/suggestions?scope=state" } });
+    initAskbar(root);
+    const input = root.querySelector("[data-osspm-askbar-filter-input]");
+
+    root.querySelector("[data-osspm-askbar-add-filter]").click();
+    await vi.advanceTimersByTimeAsync(80);
+    input.value = "rev";
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(80);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(signals[0].aborted).toBe(true);
+    const requested = new URL(fetchSpy.mock.calls[1][0]);
+    expect(requested.searchParams.get("filters_only")).toBe("1");
+    expect(requested.searchParams.get("q")).toBe("rev");
   });
 });

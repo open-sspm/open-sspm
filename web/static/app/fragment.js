@@ -109,7 +109,7 @@ export const triggerVisibleLazyHx = (root = document) => {
 
   root.querySelectorAll("[data-hx-lazy-load][data-hx-lazy-panel]").forEach((element) => {
     if (!(element instanceof HTMLElement)) return;
-    if (isLazyHxPending(element) || isLazyHxLoaded(element)) return;
+    if (isLazyHxPending(element) || isLazyHxLoaded(element) || hasLazyHxError(element)) return;
 
     if (element.dataset.hxLazyOpenOnly === "true") {
       const details = element.closest("details");
@@ -183,11 +183,17 @@ export const wireRowLinks = (root = document) => {
     if (row.dataset.rowLinkBound === "true") return;
     if (!rowHref(row)) return;
 
-    if (!row.hasAttribute("tabindex")) {
-      row.setAttribute("tabindex", "0");
-    }
-    if (!row.hasAttribute("role")) {
-      row.setAttribute("role", "link");
+    const hasPrimaryAnchor = primaryRowAnchor(row) instanceof HTMLAnchorElement;
+
+    // The anchor remains the row's only keyboard and accessibility target.
+    // Add synthetic link semantics only for the anchorless fallback case.
+    if (!hasPrimaryAnchor) {
+      if (!row.hasAttribute("tabindex")) {
+        row.setAttribute("tabindex", "0");
+      }
+      if (!row.hasAttribute("role")) {
+        row.setAttribute("role", "link");
+      }
     }
 
     row.addEventListener("click", (event) => {
@@ -206,13 +212,15 @@ export const wireRowLinks = (root = document) => {
       navigateToRowHref(row, true);
     });
 
-    row.addEventListener("keydown", (event) => {
-      if (event.defaultPrevented) return;
-      if (event.key !== "Enter" && event.key !== " ") return;
-      if (isInteractiveRowTarget(event.target, row)) return;
-      event.preventDefault();
-      navigateToRowHref(row);
-    });
+    if (!hasPrimaryAnchor) {
+      row.addEventListener("keydown", (event) => {
+        if (event.defaultPrevented) return;
+        if (event.key !== "Enter" && event.key !== " ") return;
+        if (isInteractiveRowTarget(event.target, row)) return;
+        event.preventDefault();
+        navigateToRowHref(row);
+      });
+    }
 
     row.dataset.rowLinkBound = "true";
   });

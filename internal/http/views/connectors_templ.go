@@ -1832,6 +1832,7 @@ func OktaConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 			templ_7745c5c3_Var77 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
+		mutationAttrs := ScopedMutationAttrs("connector-row-okta", "input[type='checkbox']")
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 139, "<tr id=\"connector-row-okta\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Okta</div><div class=\"text-xs text-muted-foreground\">Identity provider source for users and groups.</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -1844,7 +1845,7 @@ func OktaConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 			var templ_7745c5c3_Var78 string
 			templ_7745c5c3_Var78, templ_7745c5c3_Err = templ.JoinStringErrs(data.Okta.EventInboxStatusLabel)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 491, Col: 88}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `connectors.templ`, Line: 492, Col: 88}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var78))
 			if templ_7745c5c3_Err != nil {
@@ -1863,7 +1864,15 @@ func OktaConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 143, "</td><td><form method=\"post\" action=\"/settings/connectors/okta/toggle\" hx-post=\"/settings/connectors/okta/toggle\" hx-target=\"closest tr\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 143, "</td><td><form method=\"post\" action=\"/settings/connectors/okta/toggle\" hx-post=\"/settings/connectors/okta/toggle\" hx-target=\"closest tr\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, mutationAttrs)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 144, ">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1871,17 +1880,25 @@ func OktaConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 144, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Okta connector\" name=\"enabled\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Okta connector\" name=\"enabled\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.Okta.Enabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 146, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 146, " data-autosubmit=\"true\" data-focus-key=\"connector-okta-enabled\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><div class=\"flex items-center justify-between gap-3\"><span class=\"text-xs text-muted-foreground\">Authoritative IdP</span><form method=\"post\" action=\"/settings/connectors/okta/authoritative\" hx-post=\"/settings/connectors/okta/authoritative\" hx-target=\"closest tr\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 147, " data-autosubmit=\"true\" data-focus-key=\"connector-okta-enabled\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><div class=\"flex items-center justify-between gap-3\"><span class=\"text-xs text-muted-foreground\">Authoritative IdP</span><form method=\"post\" action=\"/settings/connectors/okta/authoritative\" hx-post=\"/settings/connectors/okta/authoritative\" hx-target=\"closest tr\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, mutationAttrs)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 148, ">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1889,17 +1906,17 @@ func OktaConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 147, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Okta authoritative identity source\" name=\"authoritative\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 149, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Okta authoritative identity source\" name=\"authoritative\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.Okta.Authoritative {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 148, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 150, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 149, " data-autosubmit=\"true\" data-focus-key=\"connector-okta-authoritative\" class=\"input\"> <input type=\"hidden\" name=\"authoritative\" value=\"false\"></label></form></div></td><td class=\"text-right\"><a id=\"connector-okta-configure\" href=\"/settings/connectors?open=okta\" hx-get=\"/settings/connectors/okta/dialog\" hx-target=\"body\" hx-swap=\"beforeend\" hx-push-url=\"false\" class=\"btn-sm-outline\">Configure</a></td></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 151, " data-autosubmit=\"true\" data-focus-key=\"connector-okta-authoritative\" class=\"input\"> <input type=\"hidden\" name=\"authoritative\" value=\"false\"></label></form></div></td><td class=\"text-right\"><a id=\"connector-okta-configure\" href=\"/settings/connectors?open=okta\" hx-get=\"/settings/connectors/okta/dialog\" hx-target=\"body\" hx-swap=\"beforeend\" hx-push-url=\"false\" class=\"btn-sm-outline\">Configure</a></td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1928,7 +1945,8 @@ func EntraConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 			templ_7745c5c3_Var79 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 150, "<tr id=\"connector-row-entra\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Microsoft Entra ID</div><div class=\"text-xs text-muted-foreground\">Users and access via Microsoft Graph.</div></div></td><td>")
+		mutationAttrs := ScopedMutationAttrs("connector-row-entra", "input[type='checkbox']")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 152, "<tr id=\"connector-row-entra\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Microsoft Entra ID</div><div class=\"text-xs text-muted-foreground\">Users and access via Microsoft Graph.</div></div></td><td>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1936,7 +1954,15 @@ func EntraConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 151, "</td><td><form method=\"post\" action=\"/settings/connectors/entra/toggle\" hx-post=\"/settings/connectors/entra/toggle\" hx-target=\"closest tr\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 153, "</td><td><form method=\"post\" action=\"/settings/connectors/entra/toggle\" hx-post=\"/settings/connectors/entra/toggle\" hx-target=\"closest tr\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, mutationAttrs)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 154, ">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1944,35 +1970,43 @@ func EntraConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 152, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Microsoft Entra ID connector\" name=\"enabled\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Microsoft Entra ID connector\" name=\"enabled\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.Entra.Enabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 153, " checked")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 154, " data-autosubmit=\"true\" data-focus-key=\"connector-entra-enabled\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><div class=\"flex items-center justify-between gap-3\"><span class=\"text-xs text-muted-foreground\">Authoritative IdP</span><form method=\"post\" action=\"/settings/connectors/entra/authoritative\" hx-post=\"/settings/connectors/entra/authoritative\" hx-target=\"closest tr\" hx-disabled-elt=\"closest tr\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = CSRFInput(data.Layout.CSRFToken).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Entra authoritative identity source\" name=\"authoritative\" value=\"true\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if data.Entra.Authoritative {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 156, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 157, " data-autosubmit=\"true\" data-focus-key=\"connector-entra-authoritative\" class=\"input\"> <input type=\"hidden\" name=\"authoritative\" value=\"false\"></label></form></div></td><td class=\"text-right\"><a id=\"connector-entra-configure\" href=\"/settings/connectors?open=entra\" hx-get=\"/settings/connectors/entra/dialog\" hx-target=\"body\" hx-swap=\"beforeend\" hx-push-url=\"false\" class=\"btn-sm-outline\">Configure</a></td></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 157, " data-autosubmit=\"true\" data-focus-key=\"connector-entra-enabled\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><div class=\"flex items-center justify-between gap-3\"><span class=\"text-xs text-muted-foreground\">Authoritative IdP</span><form method=\"post\" action=\"/settings/connectors/entra/authoritative\" hx-post=\"/settings/connectors/entra/authoritative\" hx-target=\"closest tr\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, mutationAttrs)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 158, ">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = CSRFInput(data.Layout.CSRFToken).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 159, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Entra authoritative identity source\" name=\"authoritative\" value=\"true\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if data.Entra.Authoritative {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 160, " checked")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 161, " data-autosubmit=\"true\" data-focus-key=\"connector-entra-authoritative\" class=\"input\"> <input type=\"hidden\" name=\"authoritative\" value=\"false\"></label></form></div></td><td class=\"text-right\"><a id=\"connector-entra-configure\" href=\"/settings/connectors?open=entra\" hx-get=\"/settings/connectors/entra/dialog\" hx-target=\"body\" hx-swap=\"beforeend\" hx-push-url=\"false\" class=\"btn-sm-outline\">Configure</a></td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2001,7 +2035,8 @@ func GoogleWorkspaceConnectorRow(data viewmodels.ConnectorsViewData) templ.Compo
 			templ_7745c5c3_Var80 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 158, "<tr id=\"connector-row-google-workspace\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Google Workspace</div><div class=\"text-xs text-muted-foreground\">Users, groups, OAuth grants, and token audits.</div></div></td><td>")
+		mutationAttrs := ScopedMutationAttrs("connector-row-google-workspace", "input[type='checkbox']")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 162, "<tr id=\"connector-row-google-workspace\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Google Workspace</div><div class=\"text-xs text-muted-foreground\">Users, groups, OAuth grants, and token audits.</div></div></td><td>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2009,7 +2044,15 @@ func GoogleWorkspaceConnectorRow(data viewmodels.ConnectorsViewData) templ.Compo
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 159, "</td><td><form method=\"post\" action=\"/settings/connectors/google_workspace/toggle\" hx-post=\"/settings/connectors/google_workspace/toggle\" hx-target=\"closest tr\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 163, "</td><td><form method=\"post\" action=\"/settings/connectors/google_workspace/toggle\" hx-post=\"/settings/connectors/google_workspace/toggle\" hx-target=\"closest tr\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, mutationAttrs)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 164, ">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2017,17 +2060,17 @@ func GoogleWorkspaceConnectorRow(data viewmodels.ConnectorsViewData) templ.Compo
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 160, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Google Workspace connector\" name=\"enabled\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Google Workspace connector\" name=\"enabled\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.GoogleWorkspace.Enabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 161, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 166, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 162, " data-autosubmit=\"true\" data-focus-key=\"connector-google-workspace-enabled\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-google-workspace-configure\" href=\"/settings/connectors?open=google_workspace\" hx-get=\"/settings/connectors/google_workspace/dialog\" hx-target=\"body\" hx-swap=\"beforeend\" hx-push-url=\"false\" class=\"btn-sm-outline\">Configure</a></td></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 167, " data-autosubmit=\"true\" data-focus-key=\"connector-google-workspace-enabled\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-google-workspace-configure\" href=\"/settings/connectors?open=google_workspace\" hx-get=\"/settings/connectors/google_workspace/dialog\" hx-target=\"body\" hx-swap=\"beforeend\" hx-push-url=\"false\" class=\"btn-sm-outline\">Configure</a></td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2056,7 +2099,8 @@ func GitHubConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 			templ_7745c5c3_Var81 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 163, "<tr id=\"connector-row-github\"><td><div class=\"space-y-1\"><div class=\"font-medium\">GitHub</div><div class=\"text-xs text-muted-foreground\">Organization membership, teams, and repo permissions.</div></div></td><td>")
+		mutationAttrs := ScopedMutationAttrs("connector-row-github", "input[type='checkbox']")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 168, "<tr id=\"connector-row-github\"><td><div class=\"space-y-1\"><div class=\"font-medium\">GitHub</div><div class=\"text-xs text-muted-foreground\">Organization membership, teams, and repo permissions.</div></div></td><td>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2064,7 +2108,15 @@ func GitHubConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 164, "</td><td><form method=\"post\" action=\"/settings/connectors/github/toggle\" hx-post=\"/settings/connectors/github/toggle\" hx-target=\"closest tr\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 169, "</td><td><form method=\"post\" action=\"/settings/connectors/github/toggle\" hx-post=\"/settings/connectors/github/toggle\" hx-target=\"closest tr\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, mutationAttrs)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 170, ">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2072,17 +2124,17 @@ func GitHubConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"GitHub connector\" name=\"enabled\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 171, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"GitHub connector\" name=\"enabled\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.GitHub.Enabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 166, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 172, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 167, " data-autosubmit=\"true\" data-focus-key=\"connector-github-enabled\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-github-configure\" href=\"/settings/connectors?open=github\" hx-get=\"/settings/connectors/github/dialog\" hx-target=\"body\" hx-swap=\"beforeend\" hx-push-url=\"false\" class=\"btn-sm-outline\">Configure</a></td></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 173, " data-autosubmit=\"true\" data-focus-key=\"connector-github-enabled\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-github-configure\" href=\"/settings/connectors?open=github\" hx-get=\"/settings/connectors/github/dialog\" hx-target=\"body\" hx-swap=\"beforeend\" hx-push-url=\"false\" class=\"btn-sm-outline\">Configure</a></td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2111,7 +2163,8 @@ func DatadogConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 			templ_7745c5c3_Var82 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 168, "<tr id=\"connector-row-datadog\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Datadog</div><div class=\"text-xs text-muted-foreground\">Datadog users and roles for entitlement visibility.</div></div></td><td>")
+		mutationAttrs := ScopedMutationAttrs("connector-row-datadog", "input[type='checkbox']")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 174, "<tr id=\"connector-row-datadog\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Datadog</div><div class=\"text-xs text-muted-foreground\">Datadog users and roles for entitlement visibility.</div></div></td><td>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2119,7 +2172,15 @@ func DatadogConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 169, "</td><td><form method=\"post\" action=\"/settings/connectors/datadog/toggle\" hx-post=\"/settings/connectors/datadog/toggle\" hx-target=\"closest tr\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 175, "</td><td><form method=\"post\" action=\"/settings/connectors/datadog/toggle\" hx-post=\"/settings/connectors/datadog/toggle\" hx-target=\"closest tr\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, mutationAttrs)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 176, ">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2127,17 +2188,17 @@ func DatadogConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 170, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Datadog connector\" name=\"enabled\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 177, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Datadog connector\" name=\"enabled\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.Datadog.Enabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 171, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 178, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 172, " data-autosubmit=\"true\" data-focus-key=\"connector-datadog-enabled\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-datadog-configure\" href=\"/settings/connectors?open=datadog\" hx-get=\"/settings/connectors/datadog/dialog\" hx-target=\"body\" hx-swap=\"beforeend\" hx-push-url=\"false\" class=\"btn-sm-outline\">Configure</a></td></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 179, " data-autosubmit=\"true\" data-focus-key=\"connector-datadog-enabled\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-datadog-configure\" href=\"/settings/connectors?open=datadog\" hx-get=\"/settings/connectors/datadog/dialog\" hx-target=\"body\" hx-swap=\"beforeend\" hx-push-url=\"false\" class=\"btn-sm-outline\">Configure</a></td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2166,7 +2227,8 @@ func AWSIdentityCenterConnectorRow(data viewmodels.ConnectorsViewData) templ.Com
 			templ_7745c5c3_Var83 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 173, "<tr id=\"connector-row-aws-identity-center\"><td><div class=\"space-y-1\"><div class=\"font-medium\">AWS Identity Center</div><div class=\"text-xs text-muted-foreground\">AWS SSO users and account assignments.</div></div></td><td>")
+		mutationAttrs := ScopedMutationAttrs("connector-row-aws-identity-center", "input[type='checkbox']")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 180, "<tr id=\"connector-row-aws-identity-center\"><td><div class=\"space-y-1\"><div class=\"font-medium\">AWS Identity Center</div><div class=\"text-xs text-muted-foreground\">AWS SSO users and account assignments.</div></div></td><td>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2174,7 +2236,15 @@ func AWSIdentityCenterConnectorRow(data viewmodels.ConnectorsViewData) templ.Com
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 174, "</td><td><form method=\"post\" action=\"/settings/connectors/aws_identity_center/toggle\" hx-post=\"/settings/connectors/aws_identity_center/toggle\" hx-target=\"closest tr\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 181, "</td><td><form method=\"post\" action=\"/settings/connectors/aws_identity_center/toggle\" hx-post=\"/settings/connectors/aws_identity_center/toggle\" hx-target=\"closest tr\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, mutationAttrs)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 182, ">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2182,17 +2252,17 @@ func AWSIdentityCenterConnectorRow(data viewmodels.ConnectorsViewData) templ.Com
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 175, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"AWS Identity Center connector\" name=\"enabled\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 183, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"AWS Identity Center connector\" name=\"enabled\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.AWSIdentityCenter.Enabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 176, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 184, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 177, " data-autosubmit=\"true\" data-focus-key=\"connector-aws-identity-center-enabled\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-aws-configure\" href=\"/settings/connectors?open=aws_identity_center\" hx-get=\"/settings/connectors/aws_identity_center/dialog\" hx-target=\"body\" hx-swap=\"beforeend\" hx-push-url=\"false\" class=\"btn-sm-outline\">Configure</a></td></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 185, " data-autosubmit=\"true\" data-focus-key=\"connector-aws-identity-center-enabled\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-aws-configure\" href=\"/settings/connectors?open=aws_identity_center\" hx-get=\"/settings/connectors/aws_identity_center/dialog\" hx-target=\"body\" hx-swap=\"beforeend\" hx-push-url=\"false\" class=\"btn-sm-outline\">Configure</a></td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2221,7 +2291,8 @@ func VaultConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 			templ_7745c5c3_Var84 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 178, "<tr id=\"connector-row-vault\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Vault</div><div class=\"text-xs text-muted-foreground\">Identity entities, policies, mounts, and auth roles.</div></div></td><td>")
+		mutationAttrs := ScopedMutationAttrs("connector-row-vault", "input[type='checkbox']")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 186, "<tr id=\"connector-row-vault\"><td><div class=\"space-y-1\"><div class=\"font-medium\">Vault</div><div class=\"text-xs text-muted-foreground\">Identity entities, policies, mounts, and auth roles.</div></div></td><td>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2229,7 +2300,15 @@ func VaultConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 179, "</td><td><form method=\"post\" action=\"/settings/connectors/vault/toggle\" hx-post=\"/settings/connectors/vault/toggle\" hx-target=\"closest tr\" hx-disabled-elt=\"closest tr\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 187, "</td><td><form method=\"post\" action=\"/settings/connectors/vault/toggle\" hx-post=\"/settings/connectors/vault/toggle\" hx-target=\"closest tr\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, mutationAttrs)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 188, ">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2237,17 +2316,17 @@ func VaultConnectorRow(data viewmodels.ConnectorsViewData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 180, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Vault connector\" name=\"enabled\" value=\"true\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 189, "<label class=\"flex items-center gap-2 whitespace-nowrap\"><input type=\"checkbox\" role=\"switch\" aria-label=\"Vault connector\" name=\"enabled\" value=\"true\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.Vault.Enabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 181, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 190, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 182, " data-autosubmit=\"true\" data-focus-key=\"connector-vault-enabled\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-vault-configure\" href=\"/settings/connectors?open=vault\" hx-get=\"/settings/connectors/vault/dialog\" hx-target=\"body\" hx-swap=\"beforeend\" hx-push-url=\"false\" class=\"btn-sm-outline\">Configure</a></td></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 191, " data-autosubmit=\"true\" data-focus-key=\"connector-vault-enabled\" class=\"input\"> <input type=\"hidden\" name=\"enabled\" value=\"false\"></label></form></td><td><span class=\"text-muted-foreground\">&mdash;</span></td><td class=\"text-right\"><a id=\"connector-vault-configure\" href=\"/settings/connectors?open=vault\" hx-get=\"/settings/connectors/vault/dialog\" hx-target=\"body\" hx-swap=\"beforeend\" hx-push-url=\"false\" class=\"btn-sm-outline\">Configure</a></td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

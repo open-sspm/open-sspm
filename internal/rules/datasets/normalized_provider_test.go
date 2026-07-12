@@ -53,7 +53,7 @@ func TestNormalizedProviderIdentitiesExposePostureAndAnchor(t *testing.T) {
 		},
 	}
 
-	res := provider.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{
+	res := provider.GetDataset(context.Background(), runtimev2.DatasetRef{
 		Dataset: "normalized:identities",
 		Version: 1,
 	})
@@ -122,7 +122,7 @@ func TestNormalizedProviderEntitlementAssignmentsExposeIdentityPosture(t *testin
 		},
 	}
 
-	res := provider.GetDataset(context.Background(), runtimev2.EvalContext{}, runtimev2.DatasetRef{
+	res := provider.GetDataset(context.Background(), runtimev2.DatasetRef{
 		Dataset: "normalized:entitlement_assignments",
 		Version: 1,
 	})

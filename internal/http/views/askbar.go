@@ -74,6 +74,7 @@ type AskBarGrammarHint struct {
 type AskBarConfig struct {
 	Placeholder     string
 	AriaLabel       string
+	SearchValue     string
 	Chips           []AskBarChip
 	Hidden          []AskBarHidden
 	StaticHidden    []AskBarHidden
@@ -147,9 +148,58 @@ func AskBarAriaLabel(cfg AskBarConfig) string {
 
 func AskBarHiddenInputs(cfg AskBarConfig) []AskBarHidden {
 	hidden := make([]AskBarHidden, 0, len(cfg.StaticHidden)+len(cfg.Hidden))
-	hidden = append(hidden, cfg.StaticHidden...)
-	hidden = append(hidden, cfg.Hidden...)
+	for _, item := range append(append([]AskBarHidden{}, cfg.StaticHidden...), cfg.Hidden...) {
+		if strings.EqualFold(strings.TrimSpace(item.Name), "q") {
+			continue
+		}
+		hidden = append(hidden, item)
+	}
 	return hidden
+}
+
+func AskBarHasStructuredFilters(cfg AskBarConfig) bool {
+	return len(cfg.KeywordTokens) > 0 || len(cfg.FieldAliases) > 0
+}
+
+func AskBarDOMKey(cfg AskBarConfig) string {
+	raw := strings.TrimSpace(cfg.SuggestionScope)
+	if raw == "" {
+		raw = strings.Trim(strings.TrimSpace(cfg.HxTarget), "#")
+	}
+	if raw == "" {
+		raw = "results"
+	}
+
+	var out strings.Builder
+	lastDash := false
+	for _, r := range strings.ToLower(raw) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			out.WriteRune(r)
+			lastDash = false
+			continue
+		}
+		if out.Len() > 0 && !lastDash {
+			out.WriteByte('-')
+			lastDash = true
+		}
+	}
+	key := strings.Trim(out.String(), "-")
+	if key == "" {
+		return "results"
+	}
+	return key
+}
+
+func AskBarSearchInputID(cfg AskBarConfig) string {
+	return "askbar-" + AskBarDOMKey(cfg) + "-search"
+}
+
+func AskBarFilterPanelID(cfg AskBarConfig) string {
+	return "askbar-" + AskBarDOMKey(cfg) + "-filters"
+}
+
+func AskBarFilterInputID(cfg AskBarConfig) string {
+	return AskBarFilterPanelID(cfg) + "-search"
 }
 
 func askBarSuggestEndpoint(scope string) string {

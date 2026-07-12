@@ -19,22 +19,19 @@ templ Layout(data viewmodels.LayoutData) {
 			<link rel="stylesheet" href="/static/app.css"/>
 		</head>
 		<body class="min-h-screen bg-background text-foreground" hx-boost="true" hx-ext="morph, sse">
-			<a
-				href="#main"
-				class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:border focus:border-border focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:no-underline focus:ring-2 focus:ring-ring"
-			>
-				Skip to main content
-			</a>
 			<div class="min-h-screen">
 				<aside id="app-sidebar" class="sidebar" data-breakpoint="1024" data-initial-open="true" data-initial-mobile-open="false">
 					<nav aria-label="Primary">
 						<header>
-							<a href="/" class="flex items-center gap-3 rounded-md p-2 outline-none ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2">
+							<a href="/" class="flex min-w-0 flex-1 items-center gap-3 rounded-md p-2 outline-none ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2">
 								<div class="grid h-9 w-9 place-items-center rounded-lg bg-background ring-1 ring-border">
 									<img src="/static/brand/shield.png" alt="Open-SSPM" class="h-6 w-6"/>
 								</div>
-								<span class="font-semibold tracking-tight">Open-SSPM</span>
+								<span class="truncate font-semibold tracking-tight">Open-SSPM</span>
 							</a>
+							<button type="button" class="btn-icon-ghost size-9 shrink-0 lg:hidden" data-sidebar-mobile-close aria-label="Close navigation">
+								@IconX("h-5 w-5")
+							</button>
 						</header>
 						<section class="scrollbar">
 							@Sidebar(data)
@@ -67,7 +64,13 @@ templ Layout(data viewmodels.LayoutData) {
 					</nav>
 				</aside>
 
-				<div class="flex min-h-screen flex-col">
+				<div class="flex min-h-screen flex-col" data-sidebar-content>
+					<a
+						href="#main"
+						class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:border focus:border-border focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:no-underline focus:ring-2 focus:ring-ring"
+					>
+						Skip to main content
+					</a>
 					<header class="app-header sticky top-0 z-10 flex h-14 items-center gap-4 bg-background/80 px-4 backdrop-blur-xl lg:px-8">
 						<button id="sidebar-toggle" type="button" class="btn-icon-ghost" aria-label="Open navigation" aria-controls="app-sidebar" aria-expanded="false">
 							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5" aria-hidden="true">

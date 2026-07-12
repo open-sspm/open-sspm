@@ -113,6 +113,90 @@ func (q *Queries) InsertSaaSAppReviewDecision(ctx context.Context, arg InsertSaa
 	return err
 }
 
+const insertSaaSAppReviewDecisionIfChanged = `-- name: InsertSaaSAppReviewDecisionIfChanged :execrows
+INSERT INTO saas_app_review_decisions (
+  saas_app_id,
+  owner_identity_id,
+  review_owner_identity_id,
+  review_disposition,
+  ticket_ref,
+  notes,
+  follow_up_due_date,
+  replacement_saas_app_id,
+  changed_by_auth_user_id,
+  changed_at
+)
+SELECT
+  $1::bigint,
+  $2::bigint,
+  $3::bigint,
+  $4::text,
+  $5::text,
+  $6::text,
+  $7::date,
+  $8::bigint,
+  $9::bigint,
+  now()
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM (
+    SELECT
+      d.owner_identity_id,
+      d.review_owner_identity_id,
+      d.review_disposition,
+      d.ticket_ref,
+      d.notes,
+      d.follow_up_due_date,
+      d.replacement_saas_app_id,
+      d.changed_by_auth_user_id
+    FROM saas_app_review_decisions d
+    WHERE d.saas_app_id = $1::bigint
+    ORDER BY d.changed_at DESC, d.id DESC
+    LIMIT 1
+  ) latest
+  WHERE latest.owner_identity_id IS NOT DISTINCT FROM $2::bigint
+    AND latest.review_owner_identity_id IS NOT DISTINCT FROM $3::bigint
+    AND latest.review_disposition = $4::text
+    AND latest.ticket_ref = $5::text
+    AND latest.notes = $6::text
+    AND latest.follow_up_due_date IS NOT DISTINCT FROM $7::date
+    AND latest.replacement_saas_app_id IS NOT DISTINCT FROM $8::bigint
+    AND latest.changed_by_auth_user_id IS NOT DISTINCT FROM $9::bigint
+)
+`
+
+type InsertSaaSAppReviewDecisionIfChangedParams struct {
+	SaasAppID             int64       `json:"saas_app_id"`
+	OwnerIdentityID       pgtype.Int8 `json:"owner_identity_id"`
+	ReviewOwnerIdentityID pgtype.Int8 `json:"review_owner_identity_id"`
+	ReviewDisposition     string      `json:"review_disposition"`
+	TicketRef             string      `json:"ticket_ref"`
+	Notes                 string      `json:"notes"`
+	FollowUpDueDate       pgtype.Date `json:"follow_up_due_date"`
+	ReplacementSaasAppID  pgtype.Int8 `json:"replacement_saas_app_id"`
+	ChangedByAuthUserID   pgtype.Int8 `json:"changed_by_auth_user_id"`
+}
+
+// Call after LockSaaSAppForGovernanceUpdate in the same transaction. The
+// per-app row lock serializes this latest-decision comparison.
+func (q *Queries) InsertSaaSAppReviewDecisionIfChanged(ctx context.Context, arg InsertSaaSAppReviewDecisionIfChangedParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertSaaSAppReviewDecisionIfChanged,
+		arg.SaasAppID,
+		arg.OwnerIdentityID,
+		arg.ReviewOwnerIdentityID,
+		arg.ReviewDisposition,
+		arg.TicketRef,
+		arg.Notes,
+		arg.FollowUpDueDate,
+		arg.ReplacementSaasAppID,
+		arg.ChangedByAuthUserID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const listSaaSAppReviewDecisionsBySaaSAppID = `-- name: ListSaaSAppReviewDecisionsBySaaSAppID :many
 SELECT
   d.id::bigint AS id,
@@ -198,6 +282,20 @@ func (q *Queries) ListSaaSAppReviewDecisionsBySaaSAppID(ctx context.Context, arg
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockSaaSAppForGovernanceUpdate = `-- name: LockSaaSAppForGovernanceUpdate :one
+SELECT id
+FROM saas_apps
+WHERE id = $1::bigint
+FOR UPDATE
+`
+
+func (q *Queries) LockSaaSAppForGovernanceUpdate(ctx context.Context, saasAppID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, lockSaaSAppForGovernanceUpdate, saasAppID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }
 
 const searchManagedReplacementSaaSApps = `-- name: SearchManagedReplacementSaaSApps :many

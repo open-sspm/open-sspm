@@ -1,43 +1,75 @@
 package views
 
-// AskBar is the shared chip-in-input filter bar used by every list page.
-// Active chips render server-side from the page's query state; the JS layer
-// hydrates from the chip DOM attributes and the config JSON so the bar stays
-// driven by canonical URL params even when JS is slow to boot. The children
-// slot is rendered as the right-hand action group (sort, save view, etc.).
+// AskBar is the shared search and structured-filter control used by every list
+// page. Search remains a native named GET input; active filters render as
+// removable chips and are mirrored into hidden inputs by the JS enhancement.
+// The children slot is rendered as the right-hand action group.
 templ AskBar(cfg AskBarConfig) {
 	<div class="osspm-askbar-container" data-osspm-askbar data-osspm-askbar-config={ AskBarConfigJSON(cfg) }>
 		<div class="osspm-askbar-row">
-			<label class="osspm-askbar" data-osspm-askbar-bar>
-				<span class="sr-only">{ AskBarAriaLabel(cfg) }</span>
+			<div class="osspm-askbar" data-osspm-askbar-bar>
+				<label class="sr-only" for={ AskBarSearchInputID(cfg) }>{ AskBarAriaLabel(cfg) }</label>
 				<span class="osspm-askbar-leading" aria-hidden="true">
 					@IconSearch("h-4 w-4")
 				</span>
 				<span class="osspm-askbar-chips" data-osspm-askbar-chips>
 					for _, chip := range cfg.Chips {
-						@askBarChip(chip)
+						if chip.Field != "search" {
+							@askBarChip(chip)
+						}
 					}
 				</span>
 				<input
-					type="text"
+					id={ AskBarSearchInputID(cfg) }
+					type="search"
+					name="q"
+					value={ cfg.SearchValue }
 					class="osspm-askbar-input"
 					data-osspm-askbar-input
-					autocomplete="off"
-					spellcheck="false"
 					placeholder={ AskBarPlaceholder(cfg) }
 				/>
-				<button type="button" class="osspm-askbar-filter-add" data-osspm-askbar-add-filter aria-label="Add filter">
-					@IconPlus("h-3.5 w-3.5")
-					<span>Filter</span>
-				</button>
-			</label>
+				if AskBarHasStructuredFilters(cfg) {
+					<button
+						type="button"
+						class="osspm-askbar-filter-add"
+						data-osspm-askbar-add-filter
+						aria-haspopup="dialog"
+						aria-expanded="false"
+						aria-controls={ AskBarFilterPanelID(cfg) }
+					>
+						@IconPlus("h-3.5 w-3.5")
+						<span>Filter</span>
+					</button>
+				}
+			</div>
 			if cfg.HasRightActions {
 				<div class="osspm-askbar-actions">
 					{ children... }
 				</div>
 			}
 		</div>
-		<div class="osspm-askbar-suggest" data-osspm-askbar-suggest hidden></div>
+		if AskBarHasStructuredFilters(cfg) {
+			<div
+				id={ AskBarFilterPanelID(cfg) }
+				class="osspm-askbar-suggest"
+				data-osspm-askbar-filter-panel
+				hidden
+				role="dialog"
+				aria-labelledby={ AskBarFilterPanelID(cfg) + "-title" }
+			>
+				<div id={ AskBarFilterPanelID(cfg) + "-title" } class="osspm-askbar-suggest-title">Add filter</div>
+				<label class="sr-only" for={ AskBarFilterInputID(cfg) }>Find a filter</label>
+				<input
+					id={ AskBarFilterInputID(cfg) }
+					type="search"
+					class="osspm-askbar-filter-search"
+					data-osspm-askbar-filter-input
+					autocomplete="off"
+					placeholder="Find a filter…"
+				/>
+				<div data-osspm-askbar-suggest aria-live="polite"></div>
+			</div>
+		}
 		<div class="hidden" aria-hidden="true" data-osspm-askbar-bank data-table-query-trigger>
 			for _, h := range AskBarHiddenInputs(cfg) {
 				<input type="hidden" name={ h.Name } value={ h.Value }/>
@@ -116,9 +148,10 @@ templ AskBarSavedQueries(cfg AskBarConfig) {
 templ askBarSavedQueryPill(pill AskBarSavedQuery, hxTarget string) {
 	<a
 		href={ templ.SafeURL(pill.Href) }
+		data-focus-key={ "saved-query:" + pill.Href }
 		hx-get={ pill.Href }
 		hx-target={ hxTarget }
-		hx-swap="outerHTML show:top"
+		hx-swap="outerHTML"
 		hx-push-url="true"
 		class="osspm-saved-queries-pill"
 		aria-current={ AriaCurrentBool(pill.Active) }
