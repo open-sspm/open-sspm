@@ -419,6 +419,33 @@ func TestHandleDiscoveryAppsFiltersManagedState(t *testing.T) {
 	})
 }
 
+func TestHandleDiscoveryAppsFiltersReviewDisposition(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindOkta, true, configstore.OktaConfig{
+			Domain: "acme.okta.com",
+			Token:  "token-1",
+		})
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindOkta, "acme.okta.com")
+
+		unreviewedID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindOkta, "acme.okta.com", "unreviewed-app", "Unreviewed App", "unreviewed.example.com", "Example", "unreviewed-app")
+		reviewedID := insertCommandSearchDiscoveryApp(t, ctx, pool, q, runID, configstore.KindOkta, "acme.okta.com", "reviewed-app", "Reviewed App", "reviewed.example.com", "Example", "reviewed-app")
+		if unreviewedID == reviewedID {
+			t.Fatal("expected distinct discovery apps")
+		}
+		if _, err := q.UpsertSaaSAppReviewGovernance(ctx, gen.UpsertSaaSAppReviewGovernanceParams{
+			SaasAppID:         reviewedID,
+			ReviewDisposition: "under_review",
+		}); err != nil {
+			t.Fatalf("UpsertSaaSAppReviewGovernance(): %v", err)
+		}
+
+		body := renderDiscoveryApps(t, h, "http://example.com/discovery/apps?review_state=unreviewed")
+		assertContains(t, body, "Unreviewed App")
+		assertNotContains(t, body, "Reviewed App")
+		assertContains(t, body, `review<span aria-hidden="true">:</span>`)
+	})
+}
+
 func TestHandleDiscoveryAppsHTMXReturnsResultsShellOnly(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindOkta, true, configstore.OktaConfig{

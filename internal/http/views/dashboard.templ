@@ -20,21 +20,37 @@ templ DashboardContent(data viewmodels.DashboardViewData) {
 		hx-target="this"
 		hx-sync="this:replace"
 	>
-		<section class="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-3" aria-label="Key metrics">
-			<a href="/identities" class="dashboard-kpi group block space-y-1 no-underline">
-				<p class="text-4xl font-semibold tracking-tight tabular-nums">{ FormatInt64(data.IdentityCount) }</p>
-				<p class="text-sm text-muted-foreground transition-colors group-hover:text-foreground">Identities</p>
+		<section class="space-y-4" aria-labelledby="dashboard-attention-title">
+			<div class="space-y-1">
+				<h2 id="dashboard-attention-title" class="text-lg font-semibold tracking-tight">Needs attention</h2>
+				<p class="text-sm text-muted-foreground">Prioritized queues across credentials, discovery, identities, and data freshness.</p>
+			</div>
+			<div class="dashboard-attention-grid">
+				for i, card := range DashboardAttentionCards(data) {
+					<a
+						class={ templ.Classes(KPICardClass(card), "dashboard-kpi") }
+						href={ templ.SafeURL(card.Href) }
+						style={ "--stagger: " + FormatInt(i) }
+					>
+						@kpiCardBody(card)
+					</a>
+				}
+			</div>
+		</section>
+		<section class="grid grid-cols-1 gap-x-8 gap-y-4 border-y border-border py-4 sm:grid-cols-3" aria-label="Inventory coverage">
+			<a href="/identities" class="group block space-y-0.5 no-underline">
+				<p class="text-2xl font-semibold tracking-tight tabular-nums">{ FormatInt64(data.IdentityCount) }</p>
+				<p class="text-xs text-muted-foreground transition-colors group-hover:text-foreground">Identities in inventory</p>
 			</a>
-			<a href="/discovery/apps" class="dashboard-kpi group block space-y-1 no-underline" style="--stagger: 1">
-				<p class="text-4xl font-semibold tracking-tight tabular-nums">{ FormatInt64(data.DiscoveryAppCount) }</p>
-				<p class="text-sm text-muted-foreground transition-colors group-hover:text-foreground">Discovered SaaS apps</p>
+			<a href="/discovery/apps" class="group block space-y-0.5 no-underline">
+				<p class="text-2xl font-semibold tracking-tight tabular-nums">{ FormatInt64(data.DiscoveryAppCount) }</p>
+				<p class="text-xs text-muted-foreground transition-colors group-hover:text-foreground">Discovered SaaS apps</p>
 			</a>
-			<a href="/app-assets" class="dashboard-kpi group block space-y-1 no-underline" style="--stagger: 2">
-				<p class="text-4xl font-semibold tracking-tight tabular-nums">{ FormatInt64(data.AppAssetCount) }</p>
-				<p class="text-sm text-muted-foreground transition-colors group-hover:text-foreground">App assets</p>
+			<a href="/app-assets" class="group block space-y-0.5 no-underline">
+				<p class="text-2xl font-semibold tracking-tight tabular-nums">{ FormatInt64(data.AppAssetCount) }</p>
+				<p class="text-xs text-muted-foreground transition-colors group-hover:text-foreground">App assets in inventory</p>
 			</a>
 		</section>
-		<hr class="border-border"/>
 		<section aria-label="Compliance posture">
 			<div class="flex items-baseline justify-between gap-4">
 				<div class="space-y-1">
@@ -45,6 +61,24 @@ templ DashboardContent(data viewmodels.DashboardViewData) {
 					<a href="/findings" class="shrink-0 text-sm text-muted-foreground no-underline transition-colors hover:text-foreground">All findings <span aria-hidden="true">→</span></a>
 				}
 			</div>
+			if data.FindingSeverity.Evaluated > 0 {
+				<a href="/findings" class="mt-5 block rounded-lg border border-border/70 bg-card px-4 py-3 no-underline transition-colors hover:border-border hover:bg-muted/30">
+					<div class="flex flex-wrap items-baseline justify-between gap-2">
+						<div>
+							<p class="text-sm font-medium">Open findings by severity</p>
+							<p class="text-xs text-muted-foreground">{ FormatInt64(data.FindingSeverity.Open) } failing controls across { FormatInt64(data.FindingSeverity.Evaluated) } evaluated controls</p>
+						</div>
+						<span class="text-xs text-muted-foreground">Browse findings <span aria-hidden="true">→</span></span>
+					</div>
+					<dl class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+						@dashboardSeverityStat("Critical", data.FindingSeverity.Critical, "danger")
+						@dashboardSeverityStat("High", data.FindingSeverity.High, "warn")
+						@dashboardSeverityStat("Medium", data.FindingSeverity.Medium, "")
+						@dashboardSeverityStat("Low", data.FindingSeverity.Low, "")
+						@dashboardSeverityStat("Info", data.FindingSeverity.Informational, "")
+					</dl>
+				</a>
+			}
 			if len(data.FrameworkPosture) == 0 {
 				@EmptyState("No findings yet", "Run a sync to evaluate compliance frameworks and populate posture data.") {
 					<a class="btn-sm-outline" href="/findings">Browse findings</a>
@@ -78,5 +112,12 @@ templ DashboardContent(data viewmodels.DashboardViewData) {
 				</div>
 			}
 		</section>
+	</div>
+}
+
+templ dashboardSeverityStat(label string, count int64, tone string) {
+	<div class="space-y-0.5">
+		<dt class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{ label }</dt>
+		<dd class={ templ.Classes(KPIMetricClass(tone), "text-xl") }>{ FormatInt64(count) }</dd>
 	</div>
 }

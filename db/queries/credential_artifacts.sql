@@ -874,6 +874,24 @@ SELECT
   count(DISTINCT COALESCE(NULLIF(trim(m.asset_name), ''), m.asset_ref_kind || ':' || m.asset_ref_external_id))::bigint AS asset_count
 FROM matched m;
 
+-- name: SummarizeCredentialAttentionForEnabledSources :one
+-- Dashboard rollup matching the default /credentials population. Connector
+-- state is joined directly so the card and its destination stay aligned even
+-- when disabled connector configurations still exist.
+SELECT
+  count(*) FILTER (WHERE COALESCE(risk.risk_level, 'low') = 'critical')::bigint AS critical,
+  count(*) FILTER (WHERE COALESCE(risk.risk_level, 'low') = 'high')::bigint AS high
+FROM credential_artifacts ca
+JOIN connector_source_state css
+  ON lower(trim(css.source_kind)) = lower(trim(ca.source_kind))
+ AND lower(trim(css.source_name)) = lower(trim(ca.source_name))
+ AND css.configured
+ AND css.enabled
+LEFT JOIN credential_artifact_risk_read_models risk
+  ON risk.credential_artifact_id = ca.id
+WHERE ca.expired_at IS NULL
+  AND ca.last_observed_run_id IS NOT NULL;
+
 -- name: SummarizeCredentialsBySourcesAndQuery :one
 WITH configured_sources AS (
   SELECT

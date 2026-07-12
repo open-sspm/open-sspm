@@ -1,13 +1,14 @@
 package viewmodels
 
 type ConnectorHealthViewData struct {
-	Layout             LayoutData
-	LookbackLabel      string
-	SummaryLabel       string
-	WarningMessage     string
-	WarningDestructive bool
-	ShowWarning        bool
-	Items              []ConnectorHealthItem
+	Layout              LayoutData
+	LookbackLabel       string
+	SummaryLabel        string
+	NeedsAttentionCount int
+	WarningMessage      string
+	WarningDestructive  bool
+	ShowWarning         bool
+	Items               []ConnectorHealthItem
 }
 
 type ConnectorHealthItem struct {

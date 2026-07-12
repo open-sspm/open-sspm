@@ -72,11 +72,12 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 	page := queryState.Page
 
 	totalCount, err := h.Q.CountSaaSAppsByFilters(ctx, gen.CountSaaSAppsByFiltersParams{
-		ManagedState: queryState.ManagedState,
-		RiskLevel:    queryState.RiskLevel,
-		SourceKind:   queryState.Source.Kind,
-		SourceName:   queryState.Source.Name,
-		Query:        queryState.Q,
+		ManagedState:      queryState.ManagedState,
+		RiskLevel:         queryState.RiskLevel,
+		ReviewDisposition: queryState.ReviewDisposition,
+		SourceKind:        queryState.Source.Kind,
+		SourceName:        queryState.Source.Name,
+		Query:             queryState.Q,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -84,13 +85,14 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 
 	pagination := newPaginatedListState(totalCount, page, discoveryAppsPerPage)
 	rows, err := h.Q.ListSaaSAppsPageByFilters(ctx, gen.ListSaaSAppsPageByFiltersParams{
-		ManagedState: queryState.ManagedState,
-		RiskLevel:    queryState.RiskLevel,
-		PageOffset:   int32(pagination.Offset()),
-		PageLimit:    int32(discoveryAppsPerPage),
-		SourceKind:   queryState.Source.Kind,
-		SourceName:   queryState.Source.Name,
-		Query:        queryState.Q,
+		ManagedState:      queryState.ManagedState,
+		RiskLevel:         queryState.RiskLevel,
+		ReviewDisposition: queryState.ReviewDisposition,
+		PageOffset:        int32(pagination.Offset()),
+		PageLimit:         int32(discoveryAppsPerPage),
+		SourceKind:        queryState.Source.Kind,
+		SourceName:        queryState.Source.Name,
+		Query:             queryState.Q,
 	})
 	if err != nil {
 		return h.RenderError(c, err)

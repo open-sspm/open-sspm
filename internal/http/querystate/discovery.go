@@ -8,20 +8,22 @@ import (
 )
 
 type DiscoveryAppsQuery struct {
-	Source       SourceSelection
-	Q            string
-	ManagedState string
-	RiskLevel    string
-	Page         int
+	Source            SourceSelection
+	Q                 string
+	ManagedState      string
+	RiskLevel         string
+	ReviewDisposition string
+	Page              int
 }
 
 func ParseDiscoveryAppsQuery(values url.Values, sources []SourceSelection) DiscoveryAppsQuery {
 	return DiscoveryAppsQuery{
-		Source:       canonicalSourceSelection(values, sources),
-		Q:            strings.TrimSpace(values.Get("q")),
-		ManagedState: normalizeDiscoveryManagedState(values.Get("managed_state")),
-		RiskLevel:    normalizeDiscoveryRiskLevel(values.Get("risk_level")),
-		Page:         parsePage(values.Get("page")),
+		Source:            canonicalSourceSelection(values, sources),
+		Q:                 strings.TrimSpace(values.Get("q")),
+		ManagedState:      normalizeDiscoveryManagedState(values.Get("managed_state")),
+		RiskLevel:         normalizeDiscoveryRiskLevel(values.Get("risk_level")),
+		ReviewDisposition: normalizeDiscoveryReviewDisposition(values.Get("review_state")),
+		Page:              parsePage(values.Get("page")),
 	}
 }
 
@@ -31,6 +33,7 @@ func (q DiscoveryAppsQuery) Values() url.Values {
 	setIfNotEmpty(values, "q", q.Q)
 	setIfNotEmpty(values, "managed_state", q.ManagedState)
 	setIfNotEmpty(values, "risk_level", q.RiskLevel)
+	setIfNotEmpty(values, "review_state", q.ReviewDisposition)
 	setIfPage(values, q.Page)
 	return values
 }
@@ -105,6 +108,23 @@ func normalizeDiscoveryRiskLevel(raw string) string {
 		return "high"
 	case "critical":
 		return "critical"
+	default:
+		return ""
+	}
+}
+
+func normalizeDiscoveryReviewDisposition(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "unreviewed":
+		return "unreviewed"
+	case "under_review":
+		return "under_review"
+	case "sanctioned":
+		return "sanctioned"
+	case "tolerated":
+		return "tolerated"
+	case "replace":
+		return "replace"
 	default:
 		return ""
 	}

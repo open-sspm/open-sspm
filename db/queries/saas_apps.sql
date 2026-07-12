@@ -101,6 +101,10 @@ WHERE EXISTS (
   AND (
     sqlc.arg(risk_level)::text = ''
     OR pr.risk_level = sqlc.arg(risk_level)::text
+  )
+  AND (
+    sqlc.arg(review_disposition)::text = ''
+    OR pr.review_disposition = sqlc.arg(review_disposition)::text
   );
 
 -- name: ListSaaSAppsPageByFilters :many
@@ -168,6 +172,10 @@ WHERE EXISTS (
   AND (
     sqlc.arg(risk_level)::text = ''
     OR pr.risk_level = sqlc.arg(risk_level)::text
+  )
+  AND (
+    sqlc.arg(review_disposition)::text = ''
+    OR pr.review_disposition = sqlc.arg(review_disposition)::text
   )
 ORDER BY
   pr.risk_score DESC,

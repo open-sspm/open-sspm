@@ -676,14 +676,33 @@ func DiscoveryAppsAskBar(data viewmodels.DiscoveryAppsViewData) AskBarConfig {
 		})
 		hidden = append(hidden, AskBarHidden{Name: "risk_level", Value: q.RiskLevel})
 	}
+	if q.ReviewDisposition != "" {
+		tone := ""
+		if q.ReviewDisposition == "unreviewed" || q.ReviewDisposition == "replace" {
+			tone = "warn"
+		}
+		chips = append(chips, AskBarChip{
+			Field:    "review_state",
+			Value:    q.ReviewDisposition,
+			KeyLabel: "review",
+			Label:    strings.ReplaceAll(q.ReviewDisposition, "_", " "),
+			Tone:     tone,
+		})
+		hidden = append(hidden, AskBarHidden{Name: "review_state", Value: q.ReviewDisposition})
+	}
 
 	keywords := map[string]AskBarKeyword{
-		"managed":   {Field: "managed_state", Value: "managed", Label: "managed"},
-		"unmanaged": {Field: "managed_state", Value: "unmanaged", Label: "unmanaged", Tone: "warn"},
-		"critical":  {Field: "risk_level", Value: "critical", Label: "critical", Tone: "danger"},
-		"high":      {Field: "risk_level", Value: "high", Label: "high", Tone: "danger"},
-		"medium":    {Field: "risk_level", Value: "medium", Label: "medium", Tone: "warn"},
-		"low":       {Field: "risk_level", Value: "low", Label: "low"},
+		"managed":    {Field: "managed_state", Value: "managed", Label: "managed"},
+		"unmanaged":  {Field: "managed_state", Value: "unmanaged", Label: "unmanaged", Tone: "warn"},
+		"critical":   {Field: "risk_level", Value: "critical", Label: "critical", Tone: "danger"},
+		"high":       {Field: "risk_level", Value: "high", Label: "high", Tone: "danger"},
+		"medium":     {Field: "risk_level", Value: "medium", Label: "medium", Tone: "warn"},
+		"low":        {Field: "risk_level", Value: "low", Label: "low"},
+		"unreviewed": {Field: "review_state", Value: "unreviewed", Label: "unreviewed", Tone: "warn"},
+		"reviewing":  {Field: "review_state", Value: "under_review", Label: "under review"},
+		"sanctioned": {Field: "review_state", Value: "sanctioned", Label: "sanctioned"},
+		"tolerated":  {Field: "review_state", Value: "tolerated", Label: "tolerated"},
+		"replace":    {Field: "review_state", Value: "replace", Label: "replace", Tone: "warn"},
 	}
 	for _, src := range data.SourceOptions {
 		key := strings.ToLower(src.SourceKind)
@@ -701,7 +720,7 @@ func DiscoveryAppsAskBar(data viewmodels.DiscoveryAppsViewData) AskBarConfig {
 	}
 
 	return AskBarConfig{
-		Placeholder: "try: unmanaged · critical · github · or type a name",
+		Placeholder: "try: unreviewed · unmanaged · critical · github · or type a name",
 		AriaLabel:   "Filter discovered apps",
 		SearchValue: strings.TrimSpace(q.Q),
 		Chips:       chips,
@@ -711,18 +730,21 @@ func DiscoveryAppsAskBar(data viewmodels.DiscoveryAppsViewData) AskBarConfig {
 			"source_kind":   "source_kind",
 			"managed_state": "managed_state",
 			"risk_level":    "risk_level",
+			"review_state":  "review_state",
 		},
 		KeyLabel: map[string]string{
 			"search":        "",
 			"source_kind":   "source",
 			"managed_state": "managed",
 			"risk_level":    "risk",
+			"review_state":  "review",
 		},
 		FieldLabel: map[string]string{
 			"search":        "Search",
 			"source_kind":   "Source",
 			"managed_state": "Managed",
 			"risk_level":    "Risk",
+			"review_state":  "Review",
 		},
 		KeywordTokens: keywords,
 		FieldAliases: map[string]string{
@@ -733,8 +755,10 @@ func DiscoveryAppsAskBar(data viewmodels.DiscoveryAppsViewData) AskBarConfig {
 			"managed_state": "managed_state",
 			"risk":          "risk_level",
 			"risk_level":    "risk_level",
+			"review":        "review_state",
+			"review_state":  "review_state",
 		},
-		SingletonFields: []string{"source_kind", "managed_state", "risk_level"},
+		SingletonFields: []string{"source_kind", "managed_state", "risk_level", "review_state"},
 		HxTarget:        "#discovery-apps-results",
 		SuggestionScope: "discovery-apps",
 	}

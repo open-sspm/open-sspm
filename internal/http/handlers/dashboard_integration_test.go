@@ -8,10 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-sspm/open-sspm/internal/connectors/configstore"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/findings"
+	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
 func TestHandleDashboardUsesGenericInventoryMetrics(t *testing.T) {
@@ -75,6 +77,11 @@ func TestHandleDashboardUsesGenericInventoryMetrics(t *testing.T) {
 		assertDashboardMetric(t, body, "Identities", 2)
 		assertDashboardMetric(t, body, "Discovered SaaS apps", 1)
 		assertDashboardMetric(t, body, "App assets", 2)
+		assertContains(t, body, "Needs attention")
+		assertContains(t, body, "Credentials to rotate")
+		assertContains(t, body, "/discovery/apps?review_state=unreviewed")
+		assertContains(t, body, "/identities?identity_type=human&amp;status=suspended")
+		assertContains(t, body, "/settings/connector-health")
 
 		fragment := renderDashboardFragment(t, h, "http://example.com/")
 		assertContains(t, fragment, `id="dashboard-content"`)
@@ -106,6 +113,64 @@ func TestHandleDashboardUsesCanonicalFindingsForFrameworkPosture(t *testing.T) {
 		assertContains(t, body, "CIS Okta")
 		assertContains(t, body, "1/2")
 		assertContains(t, body, "50%")
+		assertContains(t, body, "Open findings by severity")
+	})
+}
+
+func TestDashboardAccumulateFindingSeverityCountsOnlyEvaluatedFailures(t *testing.T) {
+	evaluatedAt := pgtype.Timestamptz{Time: time.Now(), Valid: true}
+	rows := []gen.ListFindingRulesetCurrentByRulesetKeyRow{
+		{Severity: "critical", CurrentStatus: "fail", CurrentEvaluatedAt: evaluatedAt},
+		{Severity: "CAT II", CurrentStatus: "fail", CurrentEvaluatedAt: evaluatedAt},
+		{Severity: "medium", CurrentStatus: "pass", CurrentEvaluatedAt: evaluatedAt},
+		{Severity: "low", CurrentStatus: "fail"},
+	}
+
+	var got viewmodels.DashboardFindingSeverity
+	dashboardAccumulateFindingSeverity(&got, rows)
+	if got.Evaluated != 3 || got.Open != 2 || got.Critical != 1 || got.High != 1 || got.Medium != 0 {
+		t.Fatalf("severity summary = %+v", got)
+	}
+}
+
+func TestDashboardCredentialsAttentionMatchesEnabledSources(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{TenantID: "tenant-1"})
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, false, configstore.GitHubConfig{Org: "acme"})
+		entraRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindEntra, "tenant-1")
+		githubRunID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindGitHub, "acme")
+
+		criticalID := insertNonHumanCredentialArtifact(t, ctx, pool, entraRunID, nonHumanCredentialArtifactSeed{
+			SourceKind: configstore.KindEntra, SourceName: "tenant-1", AssetRefKind: "app_asset", AssetRefExternalID: "app-1", CredentialKind: "entra_client_secret", ExternalID: "critical-1", DisplayName: "Critical secret", Status: "active",
+		})
+		highID := insertNonHumanCredentialArtifact(t, ctx, pool, entraRunID, nonHumanCredentialArtifactSeed{
+			SourceKind: configstore.KindEntra, SourceName: "tenant-1", AssetRefKind: "app_asset", AssetRefExternalID: "app-2", CredentialKind: "entra_certificate", ExternalID: "high-1", DisplayName: "High certificate", Status: "active",
+		})
+		disabledID := insertNonHumanCredentialArtifact(t, ctx, pool, githubRunID, nonHumanCredentialArtifactSeed{
+			SourceKind: configstore.KindGitHub, SourceName: "acme", AssetRefKind: "repository", AssetRefExternalID: "repo-1", CredentialKind: "github_pat", ExternalID: "disabled-critical", DisplayName: "Disabled source token", Status: "active",
+		})
+
+		for _, row := range []struct {
+			id    int64
+			level string
+			rank  int
+		}{{criticalID, "critical", 4}, {highID, "high", 3}, {disabledID, "critical", 4}} {
+			if _, err := pool.Exec(ctx, `
+				INSERT INTO credential_artifact_risk_read_models (
+					credential_artifact_id, risk_level, risk_rank, risk_signals_json, policy_packs_json, projection_refreshed_at
+				) VALUES ($1, $2, $3, '[]'::jsonb, '[]'::jsonb, now())
+			`, row.id, row.level, row.rank); err != nil {
+				t.Fatalf("insert credential risk read model: %v", err)
+			}
+		}
+
+		got, err := h.dashboardCredentialsAttention(ctx)
+		if err != nil {
+			t.Fatalf("dashboardCredentialsAttention(): %v", err)
+		}
+		if got.Total != 2 || got.Critical != 1 || got.High != 1 {
+			t.Fatalf("credential attention = %+v", got)
+		}
 	})
 }
 

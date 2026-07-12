@@ -1989,6 +1989,26 @@ html {
   }
   /* Dashboard ------------------------------------------------------------ */
 
+  .dashboard-attention-grid {
+    @apply grid grid-cols-1 gap-3;
+  }
+
+  @media (min-width: 640px) {
+    .dashboard-attention-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .dashboard-attention-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  .dashboard-attention-grid .osspm-kpi-card {
+    min-height: 10.25rem;
+  }
+
   .dashboard-kpi {
     animation: dashboard-fade-in 0.4s ease-out both;
     animation-delay: calc(var(--stagger, 0) * 80ms);

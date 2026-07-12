@@ -1505,6 +1505,37 @@ func (q *Queries) RefreshCredentialArtifactLifecycleStatusesBySource(ctx context
 	return result.RowsAffected(), nil
 }
 
+const summarizeCredentialAttentionForEnabledSources = `-- name: SummarizeCredentialAttentionForEnabledSources :one
+SELECT
+  count(*) FILTER (WHERE COALESCE(risk.risk_level, 'low') = 'critical')::bigint AS critical,
+  count(*) FILTER (WHERE COALESCE(risk.risk_level, 'low') = 'high')::bigint AS high
+FROM credential_artifacts ca
+JOIN connector_source_state css
+  ON lower(trim(css.source_kind)) = lower(trim(ca.source_kind))
+ AND lower(trim(css.source_name)) = lower(trim(ca.source_name))
+ AND css.configured
+ AND css.enabled
+LEFT JOIN credential_artifact_risk_read_models risk
+  ON risk.credential_artifact_id = ca.id
+WHERE ca.expired_at IS NULL
+  AND ca.last_observed_run_id IS NOT NULL
+`
+
+type SummarizeCredentialAttentionForEnabledSourcesRow struct {
+	Critical int64 `json:"critical"`
+	High     int64 `json:"high"`
+}
+
+// Dashboard rollup matching the default /credentials population. Connector
+// state is joined directly so the card and its destination stay aligned even
+// when disabled connector configurations still exist.
+func (q *Queries) SummarizeCredentialAttentionForEnabledSources(ctx context.Context) (SummarizeCredentialAttentionForEnabledSourcesRow, error) {
+	row := q.db.QueryRow(ctx, summarizeCredentialAttentionForEnabledSources)
+	var i SummarizeCredentialAttentionForEnabledSourcesRow
+	err := row.Scan(&i.Critical, &i.High)
+	return i, err
+}
+
 const summarizeCredentialsBySourceAndQuery = `-- name: SummarizeCredentialsBySourceAndQuery :one
 WITH rated_credentials AS (
   SELECT

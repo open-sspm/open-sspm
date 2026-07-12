@@ -49,14 +49,19 @@ WHERE EXISTS (
     $5::text = ''
     OR pr.risk_level = $5::text
   )
+  AND (
+    $6::text = ''
+    OR pr.review_disposition = $6::text
+  )
 `
 
 type CountSaaSAppsByFiltersParams struct {
-	SourceKind   string `json:"source_kind"`
-	SourceName   string `json:"source_name"`
-	Query        string `json:"query"`
-	ManagedState string `json:"managed_state"`
-	RiskLevel    string `json:"risk_level"`
+	SourceKind        string `json:"source_kind"`
+	SourceName        string `json:"source_name"`
+	Query             string `json:"query"`
+	ManagedState      string `json:"managed_state"`
+	RiskLevel         string `json:"risk_level"`
+	ReviewDisposition string `json:"review_disposition"`
 }
 
 func (q *Queries) CountSaaSAppsByFilters(ctx context.Context, arg CountSaaSAppsByFiltersParams) (int64, error) {
@@ -66,6 +71,7 @@ func (q *Queries) CountSaaSAppsByFilters(ctx context.Context, arg CountSaaSAppsB
 		arg.Query,
 		arg.ManagedState,
 		arg.RiskLevel,
+		arg.ReviewDisposition,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -482,23 +488,28 @@ WHERE EXISTS (
     $5::text = ''
     OR pr.risk_level = $5::text
   )
+  AND (
+    $6::text = ''
+    OR pr.review_disposition = $6::text
+  )
 ORDER BY
   pr.risk_score DESC,
   pr.last_seen_at DESC,
   lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) ASC,
   pr.id ASC
-LIMIT $7::int
-OFFSET $6::int
+LIMIT $8::int
+OFFSET $7::int
 `
 
 type ListSaaSAppsPageByFiltersParams struct {
-	SourceKind   string `json:"source_kind"`
-	SourceName   string `json:"source_name"`
-	Query        string `json:"query"`
-	ManagedState string `json:"managed_state"`
-	RiskLevel    string `json:"risk_level"`
-	PageOffset   int32  `json:"page_offset"`
-	PageLimit    int32  `json:"page_limit"`
+	SourceKind        string `json:"source_kind"`
+	SourceName        string `json:"source_name"`
+	Query             string `json:"query"`
+	ManagedState      string `json:"managed_state"`
+	RiskLevel         string `json:"risk_level"`
+	ReviewDisposition string `json:"review_disposition"`
+	PageOffset        int32  `json:"page_offset"`
+	PageLimit         int32  `json:"page_limit"`
 }
 
 type ListSaaSAppsPageByFiltersRow struct {
@@ -539,6 +550,7 @@ func (q *Queries) ListSaaSAppsPageByFilters(ctx context.Context, arg ListSaaSApp
 		arg.Query,
 		arg.ManagedState,
 		arg.RiskLevel,
+		arg.ReviewDisposition,
 		arg.PageOffset,
 		arg.PageLimit,
 	)

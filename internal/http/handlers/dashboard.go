@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v5"
+	connregistry "github.com/open-sspm/open-sspm/internal/connectors/registry"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
@@ -36,15 +37,36 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 		return h.RenderError(c, err)
 	}
 
+	credentialsAttention, err := h.dashboardCredentialsAttention(ctx)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+
+	unreviewedDiscoveryApps, err := h.dashboardUnreviewedDiscoveryAppCount(ctx, stateView)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+
+	suspendedHumanIdentities, err := h.dashboardSuspendedHumanIdentityCount(ctx, stateView)
+	if err != nil {
+		return h.RenderError(c, err)
+	}
+
 	sourceNameByKind := map[string]string{}
+	var connectorStates []connregistry.ConnectorState
 	if h.Registry != nil {
-		states, err := h.Registry.LoadStates(ctx, h.Q)
+		connectorStates, err = h.Registry.LoadStates(ctx, h.Q)
 		if err != nil {
 			return h.RenderError(c, err)
 		}
-		for _, st := range states {
+		for _, st := range connectorStates {
 			sourceNameByKind[strings.ToLower(strings.TrimSpace(st.Definition.Kind()))] = strings.TrimSpace(st.SourceName)
 		}
+	}
+
+	connectorHealth, err := buildConnectorHealthViewData(h.Cfg, h.Q, ctx, connectorStates, h.Syncer != nil)
+	if err != nil {
+		return h.RenderError(c, err)
 	}
 
 	rulesets, err := h.Q.ListRulesets(ctx)
@@ -53,6 +75,7 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 	}
 
 	frameworkPosture := make([]viewmodels.DashboardFrameworkPostureItem, 0, 5)
+	findingSeverity := viewmodels.DashboardFindingSeverity{}
 	for _, rs := range rulesets {
 		if strings.TrimSpace(rs.Status) != "active" {
 			continue
@@ -84,6 +107,7 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 			return h.RenderError(c, err)
 		}
 		counts := dashboardFrameworkPostureCounts(rows)
+		dashboardAccumulateFindingSeverity(&findingSeverity, rows)
 		if counts.TotalRules == 0 || counts.EvaluatedRules == 0 {
 			continue
 		}
@@ -118,17 +142,47 @@ func (h *Handlers) HandleDashboard(c *echo.Context) error {
 	}
 
 	data := viewmodels.DashboardViewData{
-		Layout:            layout,
-		IdentityCount:     identityCount,
-		DiscoveryAppCount: discoveryAppCount,
-		AppAssetCount:     appAssetCount,
-		FrameworkPosture:  frameworkPosture,
+		Layout:                     layout,
+		IdentityCount:              identityCount,
+		DiscoveryAppCount:          discoveryAppCount,
+		AppAssetCount:              appAssetCount,
+		CredentialsAttention:       credentialsAttention,
+		UnreviewedDiscoveryApps:    unreviewedDiscoveryApps,
+		SuspendedHumanIdentities:   suspendedHumanIdentities,
+		ConnectorsNeedingAttention: int64(connectorHealth.NeedsAttentionCount),
+		FindingSeverity:            findingSeverity,
+		FrameworkPosture:           frameworkPosture,
 	}
 
 	if isHX(c) && isHXTarget(c, "dashboard-content") {
 		return h.RenderComponent(c, views.DashboardContent(data))
 	}
 	return h.RenderComponent(c, views.DashboardPage(data))
+}
+
+func dashboardAccumulateFindingSeverity(summary *viewmodels.DashboardFindingSeverity, rows []gen.ListFindingRulesetCurrentByRulesetKeyRow) {
+	for _, row := range rows {
+		if !row.CurrentEvaluatedAt.Valid {
+			continue
+		}
+		summary.Evaluated++
+		if strings.TrimSpace(row.CurrentStatus) != "fail" {
+			continue
+		}
+		summary.Open++
+		switch strings.ToUpper(strings.TrimSpace(row.Severity)) {
+		case "CRITICAL", "CAT I", "CAT 1":
+			summary.Critical++
+		case "HIGH", "CAT II", "CAT 2":
+			summary.High++
+		case "MEDIUM", "CAT III", "CAT 3":
+			summary.Medium++
+		case "LOW":
+			summary.Low++
+		default:
+			summary.Informational++
+		}
+	}
 }
 
 type dashboardPostureCounts struct {
@@ -171,6 +225,48 @@ func (h *Handlers) dashboardDiscoveryAppCount(ctx context.Context, stateView con
 	}
 
 	return h.Q.CountSaaSAppsByFilters(ctx, gen.CountSaaSAppsByFiltersParams{})
+}
+
+func (h *Handlers) dashboardUnreviewedDiscoveryAppCount(ctx context.Context, stateView connectorStateView) (int64, error) {
+	sourceOptions := discoverySourceOptions(stateView)
+	if len(sourceOptions) == 0 {
+		return 0, nil
+	}
+
+	return h.Q.CountSaaSAppsByFilters(ctx, gen.CountSaaSAppsByFiltersParams{
+		ReviewDisposition: "unreviewed",
+	})
+}
+
+func (h *Handlers) dashboardCredentialsAttention(ctx context.Context) (viewmodels.DashboardCredentialsAttention, error) {
+	summary, err := h.Q.SummarizeCredentialAttentionForEnabledSources(ctx)
+	if err != nil {
+		return viewmodels.DashboardCredentialsAttention{}, err
+	}
+
+	return viewmodels.DashboardCredentialsAttention{
+		Total:    summary.Critical + summary.High,
+		Critical: summary.Critical,
+		High:     summary.High,
+	}, nil
+}
+
+func (h *Handlers) dashboardSuspendedHumanIdentityCount(ctx context.Context, stateView connectorStateView) (int64, error) {
+	sourcePairs := availableIdentitySourcePairs(stateView)
+	if len(sourcePairs) == 0 {
+		return 0, nil
+	}
+
+	configuredKinds, configuredNames := identityConfiguredSourcePairs(sourcePairs)
+	summary, err := h.Q.SummarizeIdentitiesInventoryByFilters(ctx, gen.SummarizeIdentitiesInventoryByFiltersParams{
+		ConfiguredSourceKinds: configuredKinds,
+		ConfiguredSourceNames: configuredNames,
+		IdentityType:          "human",
+	})
+	if err != nil {
+		return 0, err
+	}
+	return summary.SuspendedCount, nil
 }
 
 func (h *Handlers) dashboardAppAssetCount(ctx context.Context, stateView connectorStateView) (int64, error) {
