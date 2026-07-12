@@ -263,6 +263,26 @@ func TestHandleConnectorToggleRefreshesManagedStateThroughSourceState(t *testing
 	})
 }
 
+func TestHandleSettingsUsersAddsVaryForHTMXVariants(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(_ context.Context, _ *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		c, rec := newTestContext(http.MethodGet, "http://example.com/settings/users")
+		c.Request().Header.Set("HX-Request", "true")
+		c.Request().Header.Set("HX-Target", "settings-users-panel")
+
+		if err := h.HandleSettingsUsers(c); err != nil {
+			t.Fatalf("HandleSettingsUsers(): %v", err)
+		}
+
+		vary := parseVaryHeader(rec.Header().Get(echo.HeaderVary))
+		if vary["hx-request"] != 1 {
+			t.Fatalf("Vary header missing hx-request: %v", vary)
+		}
+		if vary["hx-target"] != 1 {
+			t.Fatalf("Vary header missing hx-target: %v", vary)
+		}
+	})
+}
+
 func TestHandleSettingsUserDeleteDialogDoesNotOpenWhenForbidden(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, _ *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		user, err := q.CreateAuthUser(ctx, gen.CreateAuthUserParams{

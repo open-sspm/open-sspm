@@ -491,6 +491,7 @@ func (h *Handlers) HandleSettingsUserDelete(c *echo.Context) error {
 }
 
 func (h *Handlers) renderSettingsUsersPage(c *echo.Context, opts settingsUsersPageOptions) error {
+	addVary(c, "HX-Request", "HX-Target")
 	data, err := h.buildSettingsUsersViewData(c.Request().Context(), c, opts)
 	if err != nil {
 		return h.RenderError(c, err)
