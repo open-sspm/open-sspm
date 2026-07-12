@@ -190,6 +190,7 @@ SELECT
   pr.bound_connector_source_name::text AS bound_connector_source_name,
   pr.risk_score::int AS risk_score,
   pr.risk_level::text AS risk_level,
+  COALESCE(risk.risk_signals_json, '[]'::jsonb)::jsonb AS risk_signals_json,
   pr.suggested_business_criticality::text AS suggested_business_criticality,
   pr.suggested_data_classification::text AS suggested_data_classification,
   pr.first_seen_at::timestamptz AS first_seen_at,
@@ -211,6 +212,7 @@ SELECT
   pr.replacement_display_name::text AS replacement_display_name,
   pr.replacement_primary_domain::text AS replacement_primary_domain
 FROM discovery_app_read_models_v pr
+LEFT JOIN saas_app_risk_read_models risk ON risk.saas_app_id = pr.id
 WHERE pr.id = sqlc.arg(id)::bigint;
 
 -- name: ListSaaSAppHotspots :many

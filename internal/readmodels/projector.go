@@ -454,10 +454,15 @@ func refreshSaaSAppRiskReadModels(ctx context.Context, q *gen.Queries, rows []sa
 		SuggestedDataClassifications:   make([]string, 0, len(rows)),
 		EffectiveBusinessCriticalities: make([]string, 0, len(rows)),
 		EffectiveDataClassifications:   make([]string, 0, len(rows)),
+		RiskSignalsJsons:               make([][]byte, 0, len(rows)),
 		PolicyPacksJsons:               make([][]byte, 0, len(rows)),
 	}
 	for _, row := range rows {
 		result, err := registry.EvaluateSaaS(saasPolicyInput(row))
+		if err != nil {
+			return err
+		}
+		riskSignalsJSON, err := json.Marshal(result.Signals)
 		if err != nil {
 			return err
 		}
@@ -474,6 +479,7 @@ func refreshSaaSAppRiskReadModels(ctx context.Context, q *gen.Queries, rows []sa
 		params.SuggestedDataClassifications = append(params.SuggestedDataClassifications, result.SuggestedDataClassification)
 		params.EffectiveBusinessCriticalities = append(params.EffectiveBusinessCriticalities, result.EffectiveBusinessCriticality)
 		params.EffectiveDataClassifications = append(params.EffectiveDataClassifications, result.EffectiveDataClassification)
+		params.RiskSignalsJsons = append(params.RiskSignalsJsons, riskSignalsJSON)
 		params.PolicyPacksJsons = append(params.PolicyPacksJsons, policyPacksJSON)
 	}
 

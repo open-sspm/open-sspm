@@ -528,6 +528,14 @@ func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout vie
 		displayName = strings.TrimSpace(app.CanonicalKey)
 	}
 	domainLabel, vendorLabel := discoveryAppSecondaryLabels(displayName, app.PrimaryDomain, app.VendorName)
+	riskSignals := riskSignalsFromStoredJSON(app.RiskSignalsJson)
+	riskSignalItems := make([]viewmodels.DiscoveryRiskSignalItem, 0, len(riskSignals))
+	for _, signal := range riskSignals {
+		riskSignalItems = append(riskSignalItems, viewmodels.DiscoveryRiskSignalItem{
+			Severity: signal.Severity,
+			Title:    signal.Title,
+		})
+	}
 
 	sources, err := h.Q.ListSaaSAppSourcesBySaaSAppID(ctx, appID)
 	if err != nil {
@@ -680,6 +688,7 @@ func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout vie
 		Sources:                    sourceItems,
 		TopActors:                  actorItems,
 		Events:                     eventItems,
+		RiskSignals:                riskSignalItems,
 		DecisionHistory:            historyItems,
 		Alert:                      opts.alert,
 		AccountableOwnerEmailInput: accountableOwnerEmailInput,
@@ -694,6 +703,7 @@ func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout vie
 		HasSources:                 len(sourceItems) > 0,
 		HasTopActors:               len(actorItems) > 0,
 		HasEvents:                  len(eventItems) > 0,
+		HasRiskSignals:             len(riskSignalItems) > 0,
 		HasDecisionHistory:         len(historyItems) > 0,
 	}
 	return data, nil

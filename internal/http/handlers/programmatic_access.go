@@ -907,7 +907,7 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 		displayName = strings.TrimSpace(credential.ExternalID)
 	}
 	riskLevel := strings.TrimSpace(credential.RiskLevel)
-	riskFindings := credentialRiskFindingsFromSignals(credentialRiskSignalsFromStoredJSON(credential.RiskSignalsJson), credential.ExpiresAtSource, credential.LastUsedAtSource, now)
+	riskFindings := credentialRiskFindingsFromSignals(riskSignalsFromStoredJSON(credential.RiskSignalsJson), credential.ExpiresAtSource, credential.LastUsedAtSource, now)
 	linkResolver := newIdentityLinkResolver(h, ctx, stateView)
 
 	data := viewmodels.CredentialShowViewData{
@@ -1090,7 +1090,7 @@ func credentialRiskFindingsFromSignals(signals []evaluator.RiskSignal, expiresAt
 	return findings
 }
 
-func credentialRiskSignalsFromStoredJSON(raw []byte) []evaluator.RiskSignal {
+func riskSignalsFromStoredJSON(raw []byte) []evaluator.RiskSignal {
 	if len(raw) == 0 {
 		return nil
 	}

@@ -173,6 +173,7 @@ SELECT
   pr.bound_connector_source_name::text AS bound_connector_source_name,
   pr.risk_score::int AS risk_score,
   pr.risk_level::text AS risk_level,
+  COALESCE(risk.risk_signals_json, '[]'::jsonb)::jsonb AS risk_signals_json,
   pr.suggested_business_criticality::text AS suggested_business_criticality,
   pr.suggested_data_classification::text AS suggested_data_classification,
   pr.first_seen_at::timestamptz AS first_seen_at,
@@ -194,6 +195,7 @@ SELECT
   pr.replacement_display_name::text AS replacement_display_name,
   pr.replacement_primary_domain::text AS replacement_primary_domain
 FROM discovery_app_read_models_v pr
+LEFT JOIN saas_app_risk_read_models risk ON risk.saas_app_id = pr.id
 WHERE pr.id = $1::bigint
 `
 
@@ -209,6 +211,7 @@ type GetSaaSAppByIDRow struct {
 	BoundConnectorSourceName     string             `json:"bound_connector_source_name"`
 	RiskScore                    int32              `json:"risk_score"`
 	RiskLevel                    string             `json:"risk_level"`
+	RiskSignalsJson              []byte             `json:"risk_signals_json"`
 	SuggestedBusinessCriticality string             `json:"suggested_business_criticality"`
 	SuggestedDataClassification  string             `json:"suggested_data_classification"`
 	FirstSeenAt                  pgtype.Timestamptz `json:"first_seen_at"`
@@ -246,6 +249,7 @@ func (q *Queries) GetSaaSAppByID(ctx context.Context, id int64) (GetSaaSAppByIDR
 		&i.BoundConnectorSourceName,
 		&i.RiskScore,
 		&i.RiskLevel,
+		&i.RiskSignalsJson,
 		&i.SuggestedBusinessCriticality,
 		&i.SuggestedDataClassification,
 		&i.FirstSeenAt,

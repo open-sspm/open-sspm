@@ -89,6 +89,11 @@ type DiscoveryEventItem struct {
 	ScopesSummary string
 }
 
+type DiscoveryRiskSignalItem struct {
+	Severity string
+	Title    string
+}
+
 type DiscoveryAppSummaryView struct {
 	ID                           int64
 	DisplayName                  string
@@ -151,6 +156,7 @@ type DiscoveryAppShowViewData struct {
 	Sources                    []DiscoverySourceEvidenceItem
 	TopActors                  []DiscoveryActorItem
 	Events                     []DiscoveryEventItem
+	RiskSignals                []DiscoveryRiskSignalItem
 	DecisionHistory            []DiscoveryReviewDecisionItem
 	Alert                      *AlertViewData
 	AccountableOwnerEmailInput string
@@ -165,5 +171,6 @@ type DiscoveryAppShowViewData struct {
 	HasSources                 bool
 	HasTopActors               bool
 	HasEvents                  bool
+	HasRiskSignals             bool
 	HasDecisionHistory         bool
 }

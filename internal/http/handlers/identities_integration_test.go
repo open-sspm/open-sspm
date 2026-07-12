@@ -199,6 +199,7 @@ func TestHandleIdentityShowRendersEntitlementDetails(t *testing.T) {
 				t.Fatalf("identity show missing %q: %s", want, body)
 			}
 		}
+		assertContains(t, body, "github-user-1")
 		assertContains(t, body, "github_team_repo_permission")
 		assertNotContains(t, body, `hx-trigger="intersect once, oss-panel-visible"`)
 

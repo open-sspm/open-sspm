@@ -244,6 +244,47 @@ func TestHandleDiscoveryAppShowDisabledConnectorIsUnmanaged(t *testing.T) {
 	})
 }
 
+func TestHandleDiscoveryAppShowExplainsCriticalRiskSeparatelyFromBusinessCriticality(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{
+			TenantID:     "tenant-1",
+			ClientID:     "client-1",
+			ClientSecret: "secret-1",
+		})
+		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
+			Org: "acme-unconfigured",
+		})
+
+		runID := insertCommandSearchSyncRun(t, ctx, pool, configstore.KindEntra, "tenant-1")
+		appID := insertCommandSearchDiscoveryApp(
+			t,
+			ctx,
+			pool,
+			q,
+			runID,
+			configstore.KindEntra,
+			"tenant-1",
+			"github-copilot-enterprise",
+			"GitHub Copilot Enterprise",
+			"copilot.demo.example.com",
+			"GitHub",
+			"github-copilot-enterprise",
+		)
+		upsertDiscoveryPrimaryBinding(t, ctx, q, appID, configstore.KindGitHub, "acme-unconfigured")
+
+		body := renderDiscoveryAppShow(t, h, appID)
+		assertContains(t, body, "copilot.demo.example.com")
+		assertContains(t, body, "Risk: Critical")
+		assertContains(t, body, "Review: Unreviewed")
+		assertContains(t, body, "Suggested business criticality")
+		assertContains(t, body, "80/100")
+		assertContains(t, body, "App is not managed by a fresh connector binding")
+		assertContains(t, body, "App has no accountable owner")
+		assertContains(t, body, "GitHub app has no accountable owner")
+		assertNotContains(t, body, "Score 80")
+	})
+}
+
 func TestListTopActorsForSaaSAppByIDPrefersDisplayNameForMixedActorEvidence(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, q *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{

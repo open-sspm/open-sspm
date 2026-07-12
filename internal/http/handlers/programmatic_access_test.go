@@ -45,7 +45,7 @@ func TestCredentialRiskReasons(t *testing.T) {
 	now := time.Date(2026, 2, 7, 12, 0, 0, 0, time.UTC)
 	expiresAt := timestamptz(now.Add(2 * 24 * time.Hour))
 	lastUsedAt := timestamptz(now.Add(-120 * 24 * time.Hour))
-	signals := credentialRiskSignalsFromStoredJSON([]byte(`[
+	signals := riskSignalsFromStoredJSON([]byte(`[
 		{"id":"expiring_within_7_days","severity":"high","title":"Credential expires within 7 days"},
 		{"id":"unused_over_90_days","severity":"high","title":"Credential has not been used in over 90 days"},
 		{"id":"missing_creator","severity":"high","title":"Creator attribution is missing"}
@@ -67,7 +67,7 @@ func TestCredentialRiskReasonsUseFutureAwareExpiryLabel(t *testing.T) {
 	now := time.Date(2026, 2, 7, 12, 0, 0, 0, time.UTC)
 
 	expiresAt := timestamptz(now.Add(4 * 24 * time.Hour))
-	signals := credentialRiskSignalsFromStoredJSON([]byte(`[
+	signals := riskSignalsFromStoredJSON([]byte(`[
 		{"id":"expiring_within_7_days","severity":"high","title":"Credential expires within 7 days"}
 	]`))
 	findings := credentialRiskFindingsFromSignals(signals, expiresAt, pgtype.Timestamptz{}, now)
