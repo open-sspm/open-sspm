@@ -421,6 +421,10 @@ func (h *Handlers) validateDiscoveryGovernanceUpdate(ctx context.Context, summar
 func (h *Handlers) persistDiscoveryGovernanceUpdate(ctx context.Context, appID int64, form discoveryGovernanceFormInput, identityRefs discoveryGovernanceIdentityRefs, validated discoveryGovernanceValidatedInput, principal auth.Principal) error {
 	authUserID := pgtype.Int8{Int64: principal.UserID, Valid: principal.UserID > 0}
 	return h.WithTx(ctx, func(qtx *gen.Queries) error {
+		if _, err := qtx.LockSaaSAppForGovernanceUpdate(ctx, appID); err != nil {
+			return err
+		}
+
 		if _, err := qtx.UpsertSaaSAppReviewGovernance(ctx, gen.UpsertSaaSAppReviewGovernanceParams{
 			SaasAppID:             appID,
 			OwnerIdentityID:       identityRefs.ownerIdentityID,

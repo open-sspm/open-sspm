@@ -853,6 +853,7 @@ func (h *Handlers) renderIdentityShowSectionError(c *echo.Context, err error, se
 		return nil
 	}
 	reference := h.logHTTPError(c, err)
+	c.Response().Header().Set("X-Lazy-Error", "1")
 	return h.RenderComponentStatus(
 		c,
 		http.StatusInternalServerError,

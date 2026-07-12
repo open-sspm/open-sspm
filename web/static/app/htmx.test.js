@@ -167,7 +167,11 @@ describe("htmx integration wiring", () => {
     const xhr = {
       status: 500,
       responseText: `<section id="lazy" data-hx-lazy-load data-hx-lazy-panel="lazy" data-hx-lazy-error role="alert">Try again</section>`,
-      getResponseHeader: (name) => (name === "Content-Type" ? "text/html; charset=utf-8" : ""),
+      getResponseHeader: (name) => {
+        if (name === "Content-Type") return "text/html; charset=utf-8";
+        if (name === "X-Lazy-Error") return "1";
+        return "";
+      },
     };
 
     document.dispatchEvent(
@@ -184,6 +188,35 @@ describe("htmx integration wiring", () => {
     document.dispatchEvent(
       new CustomEvent("htmx:afterRequest", {
         detail: { xhr, failed: false },
+      }),
+    );
+  });
+
+  it("does not infer lazy errors from response text", () => {
+    document.body.innerHTML = `
+      <section id="lazy" data-hx-lazy-load data-hx-lazy-panel="lazy"></section>
+    `;
+    const lazy = document.getElementById("lazy");
+    const xhr = {
+      status: 500,
+      responseText: `<template data-hx-lazy-error-template></template>`,
+      getResponseHeader: (name) => (name === "Content-Type" ? "text/html; charset=utf-8" : ""),
+    };
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        detail: { xhr, target: lazy, elt: lazy, requestConfig: {} },
+      }),
+    );
+    const detail = { shouldSwap: false, isError: true, xhr };
+    document.dispatchEvent(new CustomEvent("htmx:beforeSwap", { detail }));
+
+    expect(detail.shouldSwap).toBe(false);
+    expect(detail.isError).toBe(true);
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:afterRequest", {
+        detail: { xhr, failed: true },
       }),
     );
   });

@@ -295,6 +295,10 @@ const handleBeforeSwap = (event) => {
     typeof detail?.xhr?.getResponseHeader === "function"
       ? detail.xhr.getResponseHeader("Content-Type") || ""
       : detail?.xhr?.contentType || "";
+  const lazyErrorHeader =
+    typeof detail?.xhr?.getResponseHeader === "function"
+      ? detail.xhr.getResponseHeader("X-Lazy-Error") || ""
+      : "";
   const isHTML = contentType.toLowerCase().includes("text/html");
   if ((status === 400 || status === 401 || status === 409 || status === 422) && hasFragment && isHTML) {
     detail.shouldSwap = true;
@@ -309,7 +313,7 @@ const handleBeforeSwap = (event) => {
     hasFragment &&
     isHTML &&
     Boolean(state?.lazyElement) &&
-    detail.xhr.responseText.includes("data-hx-lazy-error");
+    lazyErrorHeader === "1";
   if (isLazyErrorFragment) {
     detail.shouldSwap = true;
     detail.isError = false;

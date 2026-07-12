@@ -35,6 +35,9 @@ func TestRenderIdentityShowSectionErrorReturnsRetryableHTML(t *testing.T) {
 	if contentType := rec.Header().Get("Content-Type"); !strings.HasPrefix(contentType, "text/html") {
 		t.Fatalf("Content-Type = %q, want HTML", contentType)
 	}
+	if got := rec.Header().Get("X-Lazy-Error"); got != "1" {
+		t.Fatalf("X-Lazy-Error = %q, want 1", got)
+	}
 	for _, want := range []string{`data-hx-lazy-error`, `data-hx-lazy-retry`, "request-123"} {
 		assertContains(t, rec.Body.String(), want)
 	}

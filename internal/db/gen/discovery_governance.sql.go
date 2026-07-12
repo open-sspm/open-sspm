@@ -177,6 +177,8 @@ type InsertSaaSAppReviewDecisionIfChangedParams struct {
 	ChangedByAuthUserID   pgtype.Int8 `json:"changed_by_auth_user_id"`
 }
 
+// Call after LockSaaSAppForGovernanceUpdate in the same transaction. The
+// per-app row lock serializes this latest-decision comparison.
 func (q *Queries) InsertSaaSAppReviewDecisionIfChanged(ctx context.Context, arg InsertSaaSAppReviewDecisionIfChangedParams) (int64, error) {
 	result, err := q.db.Exec(ctx, insertSaaSAppReviewDecisionIfChanged,
 		arg.SaasAppID,
@@ -280,6 +282,20 @@ func (q *Queries) ListSaaSAppReviewDecisionsBySaaSAppID(ctx context.Context, arg
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockSaaSAppForGovernanceUpdate = `-- name: LockSaaSAppForGovernanceUpdate :one
+SELECT id
+FROM saas_apps
+WHERE id = $1::bigint
+FOR UPDATE
+`
+
+func (q *Queries) LockSaaSAppForGovernanceUpdate(ctx context.Context, saasAppID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, lockSaaSAppForGovernanceUpdate, saasAppID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }
 
 const searchManagedReplacementSaaSApps = `-- name: SearchManagedReplacementSaaSApps :many

@@ -72,7 +72,15 @@ VALUES (
   now()
 );
 
+-- name: LockSaaSAppForGovernanceUpdate :one
+SELECT id
+FROM saas_apps
+WHERE id = sqlc.arg(saas_app_id)::bigint
+FOR UPDATE;
+
 -- name: InsertSaaSAppReviewDecisionIfChanged :execrows
+-- Call after LockSaaSAppForGovernanceUpdate in the same transaction. The
+-- per-app row lock serializes this latest-decision comparison.
 INSERT INTO saas_app_review_decisions (
   saas_app_id,
   owner_identity_id,
