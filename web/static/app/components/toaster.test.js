@@ -56,6 +56,27 @@ describe("toaster component", () => {
     expect(toast?.querySelector("p")?.textContent).toBe("Done");
   });
 
+  it("dismisses a toast from its status icon button", async () => {
+    document.body.innerHTML = `<section id="toaster" class="toaster"></section>`;
+    start();
+
+    document.dispatchEvent(
+      new CustomEvent("osspm:toast", {
+        detail: { category: "error", title: "Connection problem", description: "Try again" },
+      }),
+    );
+
+    const toast = document.querySelector("#toaster .toast");
+    const dismissButton = toast?.querySelector("[data-toast-dismiss]");
+    expect(dismissButton?.getAttribute("aria-label")).toBe("Dismiss notification");
+
+    dismissButton?.click();
+    expect(toast?.getAttribute("aria-hidden")).toBe("true");
+
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    expect(document.querySelector("#toaster .toast")).toBeNull();
+  });
+
   it("ignores empty toast events", () => {
     document.body.innerHTML = `<section id="toaster" class="toaster"></section>`;
     start();

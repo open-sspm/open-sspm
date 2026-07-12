@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { bindGlobalListenersOnce } from "open-sspm-app/htmx.js";
 
@@ -18,7 +18,12 @@ describe("htmx integration wiring", () => {
     vi.restoreAllMocks();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("increments and decrements busy state around request lifecycle", () => {
+    vi.useFakeTimers();
     document.body.innerHTML = `
       <main id="main" data-main-content data-busy-region>
         <div id="target"></div>
@@ -45,6 +50,11 @@ describe("htmx integration wiring", () => {
     expect(target.getAttribute("aria-busy")).toBe("true");
     expect(region.getAttribute("aria-busy")).toBe("true");
     expect(document.documentElement.dataset.htmxBusy).toBe("true");
+    expect(indicator.hidden).toBe(true);
+    expect(indicator.getAttribute("aria-hidden")).toBe("true");
+
+    vi.advanceTimersByTime(150);
+
     expect(indicator.hidden).toBe(false);
     expect(indicator.getAttribute("aria-hidden")).toBe("false");
 
@@ -59,6 +69,36 @@ describe("htmx integration wiring", () => {
 
     expect(target.getAttribute("aria-busy")).toBe("false");
     expect(region.getAttribute("aria-busy")).toBe("false");
+    expect(document.documentElement.dataset.htmxBusy).toBe("false");
+    expect(indicator.hidden).toBe(true);
+    expect(indicator.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("does not flash the global indicator for fast requests", () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = `
+      <main id="main" data-main-content data-busy-region>
+        <div id="target"></div>
+      </main>
+      <div id="busy-indicator" data-htmx-busy-indicator hidden aria-hidden="true"></div>
+    `;
+
+    const target = document.getElementById("target");
+    const indicator = document.getElementById("busy-indicator");
+    const xhr = new XMLHttpRequest();
+
+    document.dispatchEvent(
+      new CustomEvent("htmx:beforeRequest", {
+        detail: { xhr, target, elt: target, requestConfig: {} },
+      }),
+    );
+    document.dispatchEvent(
+      new CustomEvent("htmx:afterRequest", {
+        detail: { xhr, failed: true },
+      }),
+    );
+    vi.advanceTimersByTime(150);
+
     expect(document.documentElement.dataset.htmxBusy).toBe("false");
     expect(indicator.hidden).toBe(true);
     expect(indicator.getAttribute("aria-hidden")).toBe("true");
