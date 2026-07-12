@@ -35,3 +35,42 @@ func TestLayoutRendersResponsiveSidebarContract(t *testing.T) {
 		t.Fatal("skip link should render inside the inert sidebar content subtree")
 	}
 }
+
+func TestLayoutsDisableGlobalViewTransitions(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		render func(*bytes.Buffer) error
+	}{
+		{
+			name: "authenticated",
+			render: func(body *bytes.Buffer) error {
+				return Layout(viewmodels.LayoutData{Title: "Test"}).Render(context.Background(), body)
+			},
+		},
+		{
+			name: "public",
+			render: func(body *bytes.Buffer) error {
+				return PublicLayout("Test", "", nil).Render(context.Background(), body)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var body bytes.Buffer
+			if err := tt.render(&body); err != nil {
+				t.Fatalf("render layout: %v", err)
+			}
+
+			html := body.String()
+			if !strings.Contains(html, `globalViewTransitions&#34;:false`) {
+				t.Fatal("layout should disable global HTMX view transitions")
+			}
+			if strings.Contains(html, `globalViewTransitions&#34;:true`) {
+				t.Fatal("layout should not enable global HTMX view transitions")
+			}
+		})
+	}
+}

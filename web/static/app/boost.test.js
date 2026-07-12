@@ -32,7 +32,7 @@ describe("boost link scope", () => {
 
     expect(link.getAttribute("hx-target")).toBe("#main");
     expect(link.getAttribute("hx-select")).toBe("#main");
-    expect(link.getAttribute("hx-swap")).toBe("outerHTML show:window:top");
+    expect(link.getAttribute("hx-swap")).toBe("outerHTML show:window:top transition:true");
   });
 
   it("does not decorate links that already have their own hx-target", () => {

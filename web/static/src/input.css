@@ -63,9 +63,9 @@ html {
    View Transitions
    --------------------------------------------------------------------------- */
 
-/* Honors prefers-reduced-motion; htmx 2.x reads globalViewTransitions:true from
-   the htmx-config meta and wires every swap through the View Transitions API.
-   Chrome (sidebar, header) holds static; only main crossfades. */
+/* boost.js opts app-shell navigation swaps into the View Transitions API.
+   The client policy disables them for reduced-motion users. Chrome (sidebar,
+   header) holds static; only main crossfades. */
 @media (prefers-reduced-motion: no-preference) {
   aside#app-sidebar { view-transition-name: app-sidebar; }
   header.app-header { view-transition-name: app-header; }

@@ -1,5 +1,6 @@
 import { bindGlobalListenersOnce } from "open-sspm-app/htmx.js";
 import { bindBoostScopeOnce } from "open-sspm-app/boost.js";
+import { bindViewTransitionPolicyOnce } from "open-sspm-app/view_transitions.js";
 import { openServerDialogs, wireDialogCloseNavigation } from "open-sspm-app/dialogs.js";
 import { initFragment } from "open-sspm-app/fragment.js";
 import { wireSidebarToggle } from "open-sspm-app/components/sidebar.js";
@@ -26,6 +27,7 @@ export const bootOpenSspmApp = () => {
   document.documentElement.dataset.openSspmAppBootstrapped = "true";
 
   bindBoostScopeOnce();
+  bindViewTransitionPolicyOnce();
   bindGlobalListenersOnce({ initGlobal });
 
   if (document.readyState === "loading") {

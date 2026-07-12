@@ -36,9 +36,9 @@ func Layout(data viewmodels.LayoutData) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
-		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(`{"allowEval":false,"allowScriptTags":false,"defaultSwapStyle":"outerHTML","historyCacheSize":10,"historyRestoreAsHxRequest":false,"selfRequestsOnly":true}`)
+		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(`{"allowEval":false,"allowScriptTags":false,"defaultSwapStyle":"outerHTML","historyCacheSize":10,"historyRestoreAsHxRequest":false,"selfRequestsOnly":true,"globalViewTransitions":false}`)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 11, Col: 194}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 11, Col: 224}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 		if templ_7745c5c3_Err != nil {
