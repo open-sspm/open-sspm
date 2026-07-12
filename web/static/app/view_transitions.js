@@ -17,9 +17,9 @@ const handleBeforeTransition = (event) => {
 };
 
 export const bindViewTransitionPolicyOnce = (root = document) => {
-  const html = root.documentElement || document.documentElement;
+  const html = root.documentElement;
   if (!html || html.dataset.openSspmViewTransitionPolicyBound === "true") return;
 
   html.dataset.openSspmViewTransitionPolicyBound = "true";
-  document.addEventListener("htmx:beforeTransition", handleBeforeTransition);
+  root.addEventListener("htmx:beforeTransition", handleBeforeTransition);
 };

@@ -68,4 +68,18 @@ describe("view transition policy", () => {
 
     expect(event.defaultPrevented).toBe(true);
   });
+
+  it("registers the policy on the supplied document", () => {
+    const root = document.implementation.createHTMLDocument();
+    bindViewTransitionPolicyOnce(root);
+
+    const event = new CustomEvent("htmx:beforeTransition", {
+      cancelable: true,
+      detail: { boosted: false },
+    });
+    root.dispatchEvent(event);
+
+    expect(root.documentElement.dataset.openSspmViewTransitionPolicyBound).toBe("true");
+    expect(event.defaultPrevented).toBe(true);
+  });
 });

@@ -224,6 +224,7 @@ func (h *Handlers) dashboardDiscoveryAppCount(ctx context.Context, stateView con
 		return 0, nil
 	}
 
+	// Empty source filters count across all configured, discovery-enabled sources; SQL enforces that scope.
 	return h.Q.CountSaaSAppsByFilters(ctx, gen.CountSaaSAppsByFiltersParams{})
 }
 
@@ -233,6 +234,7 @@ func (h *Handlers) dashboardUnreviewedDiscoveryAppCount(ctx context.Context, sta
 		return 0, nil
 	}
 
+	// Empty source filters count across all configured, discovery-enabled sources; SQL enforces that scope.
 	return h.Q.CountSaaSAppsByFilters(ctx, gen.CountSaaSAppsByFiltersParams{
 		ReviewDisposition: "unreviewed",
 	})
