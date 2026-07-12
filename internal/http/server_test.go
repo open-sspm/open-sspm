@@ -112,6 +112,24 @@ func TestHTTPErrorHandlerInternalErrorIsGeneric(t *testing.T) {
 	}
 }
 
+func TestBrowserMiddlewareMarksBrowserRequests(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/test", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := browserRequestMiddleware(func(c *echo.Context) error {
+		marked, _ := c.Get(handlers.ContextKeyBrowserRequest).(bool)
+		if !marked {
+			t.Fatal("browser request context marker was not set")
+		}
+		return nil
+	})(c)
+	if err != nil {
+		t.Fatalf("browser marker middleware: %v", err)
+	}
+}
+
 func TestSecurityHeadersScriptCSPDoesNotAllowUnsafeInline(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)

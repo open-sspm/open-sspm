@@ -210,7 +210,7 @@ func (h *Handlers) HandleDiscoveryHotspots(c *echo.Context) error {
 func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 	appID, err := parsePositiveInt64Param(c.Param("id"))
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	return h.renderDiscoveryAppShow(c, appID, discoveryAppShowOptions{})
@@ -219,14 +219,14 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 func (h *Handlers) HandleDiscoveryAppGovernanceUpdate(c *echo.Context) error {
 	appID, err := parsePositiveInt64Param(c.Param("id"))
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	ctx := c.Request().Context()
 	summary, err := h.Q.GetSaaSAppByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -504,7 +504,7 @@ func (h *Handlers) renderDiscoveryAppShow(c *echo.Context, appID int64, opts dis
 	data, err := h.buildDiscoveryAppShowViewData(ctx, layout, appID, opts)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}

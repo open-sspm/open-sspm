@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -28,9 +29,14 @@ import (
 const (
 	// ContextKeyRequestID stores the request id (X-Request-ID) for logging and client error references.
 	ContextKeyRequestID = "request_id"
+	// ContextKeyBrowserRequest marks routes served by the browser application.
+	ContextKeyBrowserRequest = "browser_request"
 
 	// InternalErrorCode is a stable error code safe to return to clients.
 	InternalErrorCode = "INTERNAL_ERROR"
+	// HeaderErrorPage marks full-document error responses that boosted HTMX
+	// navigation may safely swap into the page root.
+	HeaderErrorPage = "X-Open-SSPM-Error-Page"
 )
 
 // SyncRunner is the interface for triggering manual syncs.
@@ -147,14 +153,47 @@ func (h *Handlers) RenderComponentStatus(c *echo.Context, status int, component 
 	return nil
 }
 
-// RenderError returns a plain text error response.
+// RenderError returns a styled error document for browser page navigation and
+// a plain response for fragments, data endpoints, and non-browser clients.
 func (h *Handlers) RenderError(c *echo.Context, err error) error {
 	if IsClientCanceled(c, err) || responseCommitted(c) {
 		return nil
 	}
 
 	requestID := h.logHTTPError(c, err)
+	if shouldRenderPageError(c) {
+		return h.renderInternalErrorPage(c, requestID)
+	}
+	return renderPlainError(c, requestID)
+}
 
+// RenderRawError always returns the sanitized plain-text error contract. Use
+// it for downloads and other non-page resources exposed through browser routes.
+func (h *Handlers) RenderRawError(c *echo.Context, err error) error {
+	if IsClientCanceled(c, err) || responseCommitted(c) {
+		return nil
+	}
+	return renderPlainError(c, h.logHTTPError(c, err))
+}
+
+func (h *Handlers) renderInternalErrorPage(c *echo.Context, requestID string) error {
+	var body bytes.Buffer
+	if err := views.InternalErrorPage(requestID, InternalErrorCode).Render(c.Request().Context(), &body); err != nil {
+		if IsClientCanceled(c, err) {
+			return nil
+		}
+		return renderPlainError(c, requestID)
+	}
+
+	addVary(c, echo.HeaderAccept, "HX-Request", "HX-Boosted")
+	c.Response().Header().Set(HeaderErrorPage, "1")
+	c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
+	c.Response().WriteHeader(http.StatusInternalServerError)
+	_, err := c.Response().Write(body.Bytes())
+	return err
+}
+
+func renderPlainError(c *echo.Context, requestID string) error {
 	msg := "Internal server error."
 	if requestID != "" {
 		msg = fmt.Sprintf("%s Reference: %s.", msg, requestID)
@@ -162,6 +201,20 @@ func (h *Handlers) RenderError(c *echo.Context, err error) error {
 	msg = fmt.Sprintf("%s Code: %s.", msg, InternalErrorCode)
 	c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextPlainCharsetUTF8)
 	return c.String(http.StatusInternalServerError, msg)
+}
+
+func shouldRenderPageError(c *echo.Context) bool {
+	if c == nil || c.Request() == nil {
+		return false
+	}
+	isBrowser, _ := c.Get(ContextKeyBrowserRequest).(bool)
+	if !isBrowser {
+		return false
+	}
+	if isHX(c) {
+		return isHXBoosted(c)
+	}
+	return strings.Contains(c.Request().Header.Get(echo.HeaderAccept), echo.MIMETextHTML)
 }
 
 func (h *Handlers) logHTTPError(c *echo.Context, err error) string {
@@ -210,26 +263,58 @@ func RenderNotFound(c *echo.Context) error {
 	return c.String(http.StatusNotFound, "404 page not found")
 }
 
+// RenderPageNotFound renders a full page for normal and boosted GET
+// navigation while preserving the no-swap plain response for targeted HTMX
+// requests and non-GET actions.
+func (h *Handlers) RenderPageNotFound(c *echo.Context) error {
+	if c == nil {
+		return errors.New("render page not found: nil context")
+	}
+	if c.Request() == nil {
+		return RenderNotFound(c)
+	}
+	if isHX(c) {
+		if !isHXBoosted(c) {
+			return RenderNotFound(c)
+		}
+	} else if c.Request().Method != http.MethodGet {
+		return RenderNotFound(c)
+	}
+	return h.RenderNotFoundPage(c)
+}
+
 // RenderNotFoundPage returns a 404 with the full HTML layout when the caller is
 // a logged-in user reaching the app through a browser. Falls back to the plain
 // text RenderNotFound for non-HTML clients and when layout data is unavailable.
 func (h *Handlers) RenderNotFoundPage(c *echo.Context) error {
-	if c == nil || c.Request() == nil || !wantsHTML(c) {
+	if c == nil {
+		return errors.New("render not found page: nil context")
+	}
+	if c.Request() == nil || (!isHXBoosted(c) && !wantsHTML(c)) {
 		return RenderNotFound(c)
 	}
 	layout, _, err := h.LayoutData(c.Request().Context(), c, "Not found")
 	if err != nil {
 		return RenderNotFound(c)
 	}
-	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
-	c.Response().WriteHeader(http.StatusNotFound)
-	if err := views.NotFoundPage(layout).Render(c.Request().Context(), c.Response()); err != nil {
+	return h.renderNotFoundPage(c, layout)
+}
+
+func (h *Handlers) renderNotFoundPage(c *echo.Context, layout viewmodels.LayoutData) error {
+	var body bytes.Buffer
+	if err := views.NotFoundPage(layout).Render(c.Request().Context(), &body); err != nil {
 		if IsClientCanceled(c, err) {
 			return nil
 		}
 		return h.RenderError(c, err)
 	}
-	return nil
+
+	addVary(c, echo.HeaderAccept, "HX-Request", "HX-Boosted")
+	c.Response().Header().Set(HeaderErrorPage, "1")
+	c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
+	c.Response().WriteHeader(http.StatusNotFound)
+	_, err := c.Response().Write(body.Bytes())
+	return err
 }
 
 func wantsHTML(c *echo.Context) bool {

@@ -18,20 +18,20 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 	resourceKind := strings.TrimSpace(c.Param("resourceKind"))
 
 	if !IsKnownConnectorKind(sourceKind) || sourceName == "" || resourceKind == "" {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	rawExternalID := strings.Trim(c.Param("*"), "/")
 	if rawExternalID == "" {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	externalID := strings.TrimPrefix(path.Clean("/"+rawExternalID), "/")
 	if externalID == "" || externalID == "." {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	for seg := range strings.SplitSeq(externalID, "/") {
 		if seg == "" || seg == "." || seg == ".." {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 	}
 

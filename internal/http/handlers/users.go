@@ -78,11 +78,11 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 		idStr = strings.Trim(c.Param("*"), "/")
 	}
 	if idStr == "" {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	id, err := strconv.ParseInt(path.Clean("/" + idStr)[1:], 10, 64)
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	ctx := c.Request().Context()
 	layout, stateView, err := h.LayoutData(ctx, c, "Okta Account")
@@ -91,7 +91,7 @@ func (h *Handlers) HandleOktaAccountShow(c *echo.Context) error {
 	}
 	user, err := h.Q.GetOktaAccount(ctx, id)
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	entitlements, err := h.Q.ListEntitlementsForAccountIDs(ctx, []int64{user.ID})

@@ -144,7 +144,7 @@ func (h *Handlers) HandleApps(c *echo.Context) error {
 func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 	sourceName := strings.TrimSpace(c.Param("sourceName"))
 	if sourceName == "" {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	oktaAppExternalID := strings.TrimSpace(c.Param("externalID"))
@@ -152,11 +152,11 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 		oktaAppExternalID = strings.Trim(c.Param("*"), "/")
 	}
 	if oktaAppExternalID == "" {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	oktaAppExternalID = strings.TrimPrefix(path.Clean("/"+oktaAppExternalID), "/")
 	if oktaAppExternalID == "" || oktaAppExternalID == "." || strings.Contains(oktaAppExternalID, "/") {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	ctx := c.Request().Context()
@@ -166,7 +166,7 @@ func (h *Handlers) HandleOktaAppShow(c *echo.Context) error {
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -437,7 +437,7 @@ func (h *Handlers) HandleAppsMap(c *echo.Context) error {
 	switch kind {
 	case configstore.KindGitHub, configstore.KindDatadog:
 	default:
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	if oktaAppExternalID == "" {
@@ -447,7 +447,7 @@ func (h *Handlers) HandleAppsMap(c *echo.Context) error {
 		return c.Redirect(http.StatusSeeOther, "/assigned-apps")
 	}
 	if oktaSourceName == "" {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	if err := h.Q.UpsertIntegrationOktaAppMap(ctx, gen.UpsertIntegrationOktaAppMapParams{

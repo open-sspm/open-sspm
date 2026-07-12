@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"errors"
-	"net/http"
 	"strings"
 
 	"github.com/labstack/echo/v5"
@@ -115,12 +114,12 @@ func (h *Handlers) listSourceAccountsNeedingAnchor(ctx context.Context, opts sou
 
 func (h *Handlers) renderSourceAccountsNeedingAnchorError(c *echo.Context, err error) error {
 	if errors.Is(err, errSourceAccountNeedsAnchorNotFound) {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	var sourceErr sourceAccountNeedsAnchorNameError
 	if errors.As(err, &sourceErr) {
-		return c.String(http.StatusNotFound, sourceErr.Error())
+		return h.RenderPageNotFound(c)
 	}
 
 	return h.RenderError(c, err)

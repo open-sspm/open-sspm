@@ -270,8 +270,16 @@ func (es *EchoServer) registerRoutes() {
 
 func (es *EchoServer) browserMiddleware() []echo.MiddlewareFunc {
 	return []echo.MiddlewareFunc{
+		browserRequestMiddleware,
 		echo.WrapMiddleware(es.h.Sessions.LoadAndSave),
 		es.browserCSRFMiddleware(),
+	}
+}
+
+func browserRequestMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		c.Set(handlers.ContextKeyBrowserRequest, true)
+		return next(c)
 	}
 }
 

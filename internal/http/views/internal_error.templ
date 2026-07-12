@@ -1,0 +1,40 @@
+package views
+
+templ InternalErrorPage(requestID, errorCode string) {
+	<!doctype html>
+	<html lang="en" class="light">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>Something went wrong · Open-SSPM</title>
+			<link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
+			<link rel="stylesheet" href="/static/app.css"/>
+		</head>
+		<body class="min-h-screen bg-background text-foreground">
+			<main class="grid min-h-screen place-items-center px-4 py-10">
+				<section class="w-full max-w-xl space-y-6 rounded-xl border border-border bg-card p-8 text-center shadow-sm" role="alert">
+					<a href="/" class="mx-auto flex w-fit items-center gap-3 text-foreground no-underline">
+						<span class="grid h-10 w-10 place-items-center rounded-lg bg-background ring-1 ring-border">
+							<img src="/static/brand/shield.png" alt="" class="h-7 w-7"/>
+						</span>
+						<span class="font-semibold tracking-tight">Open-SSPM</span>
+					</a>
+					<div class="space-y-2">
+						<h1 class="text-2xl font-semibold tracking-tight">Something went wrong</h1>
+						<p class="text-sm text-muted-foreground">The server couldn't complete this request. Try again, or return to the dashboard.</p>
+					</div>
+					<div class="flex justify-center gap-3">
+						<a class="btn-outline" href="">Try again</a>
+						<a class="btn-primary" href="/">Go to dashboard</a>
+					</div>
+					<div class="space-y-1 text-xs text-muted-foreground">
+						if requestID != "" {
+							<p>Reference: <span class="font-mono">{ requestID }</span></p>
+						}
+						<p>Code: <span class="font-mono">{ errorCode }</span></p>
+					</div>
+				</section>
+			</main>
+		</body>
+	</html>
+}

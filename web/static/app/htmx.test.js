@@ -142,6 +142,68 @@ describe("htmx integration wiring", () => {
     expect(detail.isError).toBe(true);
   });
 
+  it("swaps marked error pages for boosted navigation", () => {
+    const detail = {
+      shouldSwap: false,
+      isError: true,
+      requestConfig: { boosted: true },
+      xhr: {
+        status: 404,
+        responseText: `<!doctype html><html><body><main>Page not found</main></body></html>`,
+        getResponseHeader: (name) => {
+          if (name === "Content-Type") return "text/html; charset=utf-8";
+          if (name === "X-Open-SSPM-Error-Page") return "1";
+          return "";
+        },
+      },
+    };
+
+    document.dispatchEvent(new CustomEvent("htmx:beforeSwap", { detail }));
+
+    expect(detail.shouldSwap).toBe(true);
+    expect(detail.isError).toBe(false);
+  });
+
+  it("does not swap marked error pages into targeted HTMX regions", () => {
+    const detail = {
+      shouldSwap: false,
+      isError: true,
+      requestConfig: { boosted: false },
+      xhr: {
+        status: 404,
+        responseText: `<!doctype html><html><body><main>Page not found</main></body></html>`,
+        getResponseHeader: (name) => {
+          if (name === "Content-Type") return "text/html; charset=utf-8";
+          if (name === "X-Open-SSPM-Error-Page") return "1";
+          return "";
+        },
+      },
+    };
+
+    document.dispatchEvent(new CustomEvent("htmx:beforeSwap", { detail }));
+
+    expect(detail.shouldSwap).toBe(false);
+    expect(detail.isError).toBe(true);
+  });
+
+  it("does not swap unmarked server errors for boosted navigation", () => {
+    const detail = {
+      shouldSwap: false,
+      isError: true,
+      requestConfig: { boosted: true },
+      xhr: {
+        status: 500,
+        responseText: `<section>Fragment failure</section>`,
+        getResponseHeader: (name) => (name === "Content-Type" ? "text/html; charset=utf-8" : ""),
+      },
+    };
+
+    document.dispatchEvent(new CustomEvent("htmx:beforeSwap", { detail }));
+
+    expect(detail.shouldSwap).toBe(false);
+    expect(detail.isError).toBe(true);
+  });
+
   it("still swaps invalid-login HTML fragments on 401 responses", () => {
     const detail = {
       shouldSwap: false,

@@ -49,19 +49,19 @@ func (h *Handlers) HandleConnectedApps(c *echo.Context) error {
 func (h *Handlers) HandleConnectedAppShow(c *echo.Context) error {
 	appID, err := parsePositiveInt64Param(c.Param("id"))
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	ctx := c.Request().Context()
 	summary, err := h.Q.GetAppAssetPostureByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
 	if !isGoogleConnectedApp(summary.SourceKind, summary.AssetKind) {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	return c.Redirect(http.StatusSeeOther, canonicalAppAssetDetailURL(appID))
@@ -70,19 +70,19 @@ func (h *Handlers) HandleConnectedAppShow(c *echo.Context) error {
 func (h *Handlers) HandleAppAssetGovernanceUpdate(c *echo.Context) error {
 	appID, err := parsePositiveInt64Param(c.Param("id"))
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	ctx := c.Request().Context()
 	summary, err := h.Q.GetAppAssetPostureByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
 	if !isGoogleConnectedApp(summary.SourceKind, summary.AssetKind) {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	governanceState := querystate.NormalizeConnectedAppGovernanceState(c.FormValue("governance_state"), false)
@@ -200,7 +200,7 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
 		}
-		return h.RenderError(c, err)
+		return h.RenderRawError(c, err)
 	}
 	if !isGoogleConnectedApp(summary.SourceKind, summary.AssetKind) {
 		return RenderNotFound(c)
@@ -208,7 +208,7 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 
 	owners, err := h.Q.ListAppAssetOwnersByAssetID(ctx, appID)
 	if err != nil {
-		return h.RenderError(c, err)
+		return h.RenderRawError(c, err)
 	}
 
 	grants, err := h.Q.ListCredentialArtifactsForAssetRef(ctx, gen.ListCredentialArtifactsForAssetRefParams{
@@ -218,7 +218,7 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 		AssetRefExternalID: strings.TrimSpace(summary.AssetKind) + ":" + strings.TrimSpace(summary.ExternalID),
 	})
 	if err != nil {
-		return h.RenderError(c, err)
+		return h.RenderRawError(c, err)
 	}
 
 	discoverySources, err := h.Q.ListAppAssetDiscoverySourcesBySourceAppID(ctx, gen.ListAppAssetDiscoverySourcesBySourceAppIDParams{
@@ -227,7 +227,7 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 		SourceAppID: strings.TrimSpace(summary.ExternalID),
 	})
 	if err != nil {
-		return h.RenderError(c, err)
+		return h.RenderRawError(c, err)
 	}
 
 	discoveryEvents, err := h.Q.ListAppAssetDiscoveryEventsBySourceAppID(ctx, gen.ListAppAssetDiscoveryEventsBySourceAppIDParams{
@@ -237,7 +237,7 @@ func (h *Handlers) HandleAppAssetExport(c *echo.Context) error {
 		LimitRows:   100,
 	})
 	if err != nil {
-		return h.RenderError(c, err)
+		return h.RenderRawError(c, err)
 	}
 
 	payload := map[string]any{
@@ -288,7 +288,7 @@ func (h *Handlers) HandleConnectedAppExport(c *echo.Context) error {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RenderNotFound(c)
 		}
-		return h.RenderError(c, err)
+		return h.RenderRawError(c, err)
 	}
 	if !isGoogleConnectedApp(summary.SourceKind, summary.AssetKind) {
 		return RenderNotFound(c)
@@ -300,29 +300,29 @@ func (h *Handlers) HandleConnectedAppExport(c *echo.Context) error {
 func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 	appID, err := parsePositiveInt64Param(c.Param("id"))
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	credentialID, err := parsePositiveInt64Param(c.Param("credentialID"))
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	ctx := c.Request().Context()
 	summary, err := h.Q.GetAppAssetPostureByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
 	if !isGoogleConnectedApp(summary.SourceKind, summary.AssetKind) {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	credential, err := h.Q.GetCredentialArtifactByID(ctx, credentialID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -331,7 +331,7 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 		strings.TrimSpace(credential.AssetRefKind) != strings.TrimSpace(summary.AssetKind) ||
 		strings.TrimSpace(credential.AssetRefExternalID) != strings.TrimSpace(summary.AssetKind)+":"+strings.TrimSpace(summary.ExternalID) ||
 		!strings.EqualFold(strings.TrimSpace(credential.CredentialKind), "google_oauth_grant") {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	var raw googleGrantRaw
@@ -426,11 +426,11 @@ func (h *Handlers) HandleAppAssetGrantRevoke(c *echo.Context) error {
 func (h *Handlers) HandleConnectedAppGrantRevoke(c *echo.Context) error {
 	appID, err := parsePositiveInt64Param(c.Param("id"))
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	credentialID, err := parsePositiveInt64Param(c.Param("credentialID"))
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	c.Request().URL.Path = canonicalAppAssetDetailURL(appID) + "/grants/" + strconv.FormatInt(credentialID, 10) + "/revoke"
@@ -741,7 +741,7 @@ func (h *Handlers) renderAppAssetShow(c *echo.Context, appID int64, opts connect
 	oauthData, err := h.buildConnectedAppShowViewData(ctx, layout, stateView, appID, opts)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}

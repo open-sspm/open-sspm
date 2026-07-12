@@ -163,7 +163,7 @@ func (h *Handlers) HandleNonHumanIdentityShow(c *echo.Context) error {
 
 	principalRef := strings.TrimSpace(c.Param("ref"))
 	if principalRef == "" {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	if identityID, ok := nonHumanIdentityIDFromRef(principalRef); ok {
 		if redirect, err := h.Q.GetIdentityMergeRedirect(ctx, identityID); err == nil {
@@ -176,7 +176,7 @@ func (h *Handlers) HandleNonHumanIdentityShow(c *echo.Context) error {
 	principal, err := h.Q.GetNonHumanPrincipalByRef(ctx, principalRef)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -252,14 +252,14 @@ func (h *Handlers) HandleNonHumanIdentityRelationshipCreate(c *echo.Context) err
 	ctx := c.Request().Context()
 	principalRef := strings.TrimSpace(c.Param("ref"))
 	if principalRef == "" {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	redirectPath := nonHumanRelationshipRedirectPath(principalRef)
 
 	principal, err := h.Q.GetNonHumanPrincipalByRef(ctx, principalRef)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}

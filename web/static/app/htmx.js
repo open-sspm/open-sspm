@@ -299,7 +299,23 @@ const handleBeforeSwap = (event) => {
     typeof detail?.xhr?.getResponseHeader === "function"
       ? detail.xhr.getResponseHeader("X-Lazy-Error") || ""
       : "";
+  const errorPageHeader =
+    typeof detail?.xhr?.getResponseHeader === "function"
+      ? detail.xhr.getResponseHeader("X-Open-SSPM-Error-Page") || ""
+      : "";
   const isHTML = contentType.toLowerCase().includes("text/html");
+  const isBoostedErrorPage =
+    status >= 400 &&
+    status <= 599 &&
+    hasFragment &&
+    isHTML &&
+    Boolean(detail?.requestConfig?.boosted) &&
+    errorPageHeader === "1";
+  if (isBoostedErrorPage) {
+    detail.shouldSwap = true;
+    detail.isError = false;
+    return;
+  }
   if ((status === 400 || status === 401 || status === 409 || status === 422) && hasFragment && isHTML) {
     detail.shouldSwap = true;
     detail.isError = false;

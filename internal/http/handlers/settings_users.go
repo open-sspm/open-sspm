@@ -60,7 +60,7 @@ func (h *Handlers) HandleSettingsUserEditDialog(c *echo.Context) error {
 	}
 	userID, ok := parseInt64(c.Param("id"))
 	if !ok || userID <= 0 {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	return h.renderSettingsUsersPage(c, settingsUsersPageOptions{openEdit: true, editUserID: userID})
 }
@@ -71,7 +71,7 @@ func (h *Handlers) HandleSettingsUserDeleteDialog(c *echo.Context) error {
 	}
 	userID, ok := parseInt64(c.Param("id"))
 	if !ok || userID <= 0 {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	return h.renderSettingsUsersPage(c, settingsUsersPageOptions{openDelete: true, editUserID: userID})
 }
@@ -187,7 +187,7 @@ func (h *Handlers) HandleSettingsUserUpdate(c *echo.Context) error {
 
 	userID, ok := parseInt64(c.Param("id"))
 	if !ok || userID <= 0 {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	principal, ok := authn.PrincipalFromContext(c)
@@ -200,7 +200,7 @@ func (h *Handlers) HandleSettingsUserUpdate(c *echo.Context) error {
 	user, err := h.Q.GetAuthUser(ctx, userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -320,7 +320,7 @@ func (h *Handlers) HandleSettingsUserUpdate(c *echo.Context) error {
 		currentUser, err := qtx.GetAuthUserForUpdate(ctx, userID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return RenderNotFound(c)
+				return h.RenderPageNotFound(c)
 			}
 			return h.RenderError(c, err)
 		}
@@ -399,7 +399,7 @@ func (h *Handlers) HandleSettingsUserDelete(c *echo.Context) error {
 
 	userID, ok := parseInt64(c.Param("id"))
 	if !ok || userID <= 0 {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	principal, ok := authn.PrincipalFromContext(c)
@@ -412,7 +412,7 @@ func (h *Handlers) HandleSettingsUserDelete(c *echo.Context) error {
 	user, err := h.Q.GetAuthUser(ctx, userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -449,7 +449,7 @@ func (h *Handlers) HandleSettingsUserDelete(c *echo.Context) error {
 	currentUser, err := qtx.GetAuthUserForUpdate(ctx, userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
