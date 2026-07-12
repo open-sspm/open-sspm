@@ -631,15 +631,16 @@ func TestProjectorRefreshSaaSAppRiskReadModelsBySourceEvaluatesAndStoresPolicy(t
 		}
 
 		var effectiveBusinessCriticality, effectiveDataClassification string
-		var policyPackCount int
+		var riskSignalCount, policyPackCount int
 		if err := pool.QueryRow(ctx, `
 			SELECT
 				effective_business_criticality,
 				effective_data_classification,
+				jsonb_array_length(risk_signals_json),
 				jsonb_array_length(policy_packs_json)
 			FROM saas_app_risk_read_models
 			WHERE saas_app_id = $1
-		`, appID).Scan(&effectiveBusinessCriticality, &effectiveDataClassification, &policyPackCount); err != nil {
+		`, appID).Scan(&effectiveBusinessCriticality, &effectiveDataClassification, &riskSignalCount, &policyPackCount); err != nil {
 			t.Fatalf("select saas_app_risk_read_models: %v", err)
 		}
 		if effectiveBusinessCriticality != "high" {
@@ -648,8 +649,8 @@ func TestProjectorRefreshSaaSAppRiskReadModelsBySourceEvaluatesAndStoresPolicy(t
 		if effectiveDataClassification != "restricted" {
 			t.Fatalf("effective_data_classification = %q, want restricted", effectiveDataClassification)
 		}
-		if policyPackCount == 0 {
-			t.Fatalf("policy_packs_json length = 0, want policy metadata")
+		if riskSignalCount == 0 || policyPackCount == 0 {
+			t.Fatalf("stored SaaS policy output has signals=%d packs=%d, want both present", riskSignalCount, policyPackCount)
 		}
 
 		var otherRiskRows int

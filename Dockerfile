@@ -19,7 +19,7 @@ RUN npm run build:css
 # ============================================
 # GO BUILDER STAGE
 # ============================================
-FROM golang:1.26-alpine AS builder
+FROM golang:1.26.5-alpine AS builder
 
 # Install git (required for fetching some go modules)
 RUN apk add --no-cache git
@@ -46,7 +46,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # ============================================
 # FINAL STAGE
 # ============================================
-FROM alpine:3.20 AS runner
+FROM alpine:3.24.1 AS runner
 
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates wget

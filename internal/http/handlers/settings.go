@@ -122,7 +122,7 @@ func (h *Handlers) HandleConnectorDialog(c *echo.Context) error {
 	}
 	kind := NormalizeConnectorKind(c.Param("kind"))
 	if !IsKnownConnectorKind(kind) {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	return h.renderConnectorDialog(c, kind, nil, http.StatusOK)
 }
@@ -134,12 +134,12 @@ func (h *Handlers) HandleConnectorAction(c *echo.Context) error {
 	}
 	suffix := strings.Trim(c.Param("*"), "/")
 	if suffix == "" {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	parts := strings.Split(suffix, "/")
 	kind := NormalizeConnectorKind(parts[0])
 	if !IsKnownConnectorKind(kind) {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	if len(parts) == 1 {
 		return h.handleConnectorSave(c, kind)
@@ -152,7 +152,7 @@ func (h *Handlers) HandleConnectorAction(c *echo.Context) error {
 			return h.handleConnectorAuthoritativeToggle(c, kind)
 		}
 	}
-	return RenderNotFound(c)
+	return h.RenderPageNotFound(c)
 }
 
 type connectorSaveDefinition struct {
@@ -296,7 +296,7 @@ func (h *Handlers) handleConnectorSave(c *echo.Context, kind string) error {
 
 	definition, ok := connectorSaveDefinitions[kind]
 	if !ok {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	mergedConfig, err := definition.buildMergedConfig(c, cfgRow.ResolvedConfig)
 	if err != nil {
@@ -421,7 +421,7 @@ func (h *Handlers) handleConnectorAuthoritativeToggle(c *echo.Context, kind stri
 
 	kind = NormalizeConnectorKind(kind)
 	if kind != configstore.KindOkta && kind != configstore.KindEntra {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	ctx := c.Request().Context()
@@ -534,7 +534,7 @@ func (h *Handlers) renderConnectorRowStatus(c *echo.Context, kind string, data v
 	case configstore.KindVault:
 		return render(c, views.VaultConnectorRow(data))
 	default:
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 }
 

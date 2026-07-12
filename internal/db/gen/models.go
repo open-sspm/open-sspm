@@ -1046,6 +1046,7 @@ type SaasAppRiskReadModel struct {
 	EffectiveDataClassification  string             `json:"effective_data_classification"`
 	PolicyPacksJson              []byte             `json:"policy_packs_json"`
 	ProjectionRefreshedAt        pgtype.Timestamptz `json:"projection_refreshed_at"`
+	RiskSignalsJson              []byte             `json:"risk_signals_json"`
 }
 
 type SaasAppSource struct {

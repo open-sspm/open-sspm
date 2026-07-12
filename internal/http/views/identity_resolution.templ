@@ -294,6 +294,7 @@ templ identityResolutionActions(csrfToken string, item viewmodels.IdentityResolu
 			<button
 				type="submit"
 				class="btn-sm-outline w-full"
+				formaction={ item.RejectHref }
 				hx-post={ item.RejectHref }
 				{ rejectConfirmation... }
 			>Reject</button>
@@ -302,6 +303,7 @@ templ identityResolutionActions(csrfToken string, item viewmodels.IdentityResolu
 			<button
 				type="submit"
 				class="btn-sm-outline w-full"
+				formaction={ item.MarkServiceHref }
 				hx-post={ item.MarkServiceHref }
 				{ markServiceConfirmation... }
 			>Mark service</button>
@@ -310,6 +312,7 @@ templ identityResolutionActions(csrfToken string, item viewmodels.IdentityResolu
 			<button
 				type="submit"
 				class="btn-sm-outline w-full"
+				formaction={ item.MarkServiceCustodianHref }
 				hx-post={ item.MarkServiceCustodianHref }
 				name="relationship_type"
 				value="custodian"
@@ -320,6 +323,7 @@ templ identityResolutionActions(csrfToken string, item viewmodels.IdentityResolu
 			<button
 				type="submit"
 				class="btn-sm-outline w-full"
+				formaction={ item.MarkSharedHref }
 				hx-post={ item.MarkSharedHref }
 				{ markSharedConfirmation... }
 			>Mark shared</button>

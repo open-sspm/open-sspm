@@ -24,7 +24,7 @@
 
 const BOOST_TARGET = "#main";
 const BOOST_SELECT = "#main";
-const BOOST_SWAP = "outerHTML show:window:top";
+const BOOST_SWAP = "outerHTML show:window:top transition:true";
 
 const HX_OWN_ATTRS = [
   "hx-target",

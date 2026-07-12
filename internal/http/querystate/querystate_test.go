@@ -190,12 +190,13 @@ func TestParseDiscoveryQueries(t *testing.T) {
 		"source_name":   []string{"tenant-1"},
 		"managed_state": []string{"managed"},
 		"risk_level":    []string{"critical"},
+		"review_state":  []string{"unreviewed"},
 		"page":          []string{"2"},
 	}, sources)
 	if apps.Source.Kind != "entra" || apps.Source.Name != "" {
 		t.Fatalf("source = %#v", apps.Source)
 	}
-	wantApps := "/discovery/apps?managed_state=managed&page=2&risk_level=critical&source_kind=entra"
+	wantApps := "/discovery/apps?managed_state=managed&page=2&review_state=unreviewed&risk_level=critical&source_kind=entra"
 	if apps.Href() != wantApps {
 		t.Fatalf("href = %q, want %q", apps.Href(), wantApps)
 	}

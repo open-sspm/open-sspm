@@ -62,7 +62,14 @@ const buildToast = ({ category, title, description }) => {
   const tpl = document.createElement("template");
   tpl.innerHTML = svg;
   const icon = tpl.content.firstElementChild;
-  if (icon) content.append(icon);
+  if (icon) {
+    const dismissButton = document.createElement("button");
+    dismissButton.type = "button";
+    dismissButton.dataset.toastDismiss = "";
+    dismissButton.setAttribute("aria-label", "Dismiss notification");
+    dismissButton.append(icon);
+    content.append(dismissButton);
+  }
 
   const section = document.createElement("section");
   if (title) {
@@ -107,6 +114,12 @@ export const showFlashToast = () => {
   flashToast.remove();
 };
 
+const dismissToast = (toast) => {
+  if (!(toast instanceof HTMLElement) || toast.getAttribute("aria-hidden") === "true") return;
+  toast.setAttribute("aria-hidden", "true");
+  setTimeout(() => toast.remove(), 350);
+};
+
 const manageToast = (toast) => {
   const category = toast.dataset.category || "info";
   const duration = DURATIONS[category] || DURATIONS.info;
@@ -114,13 +127,17 @@ const manageToast = (toast) => {
   let timer = null;
   let remaining = duration;
   let startTime = Date.now();
+  let dismissed = false;
 
   const dismiss = () => {
-    toast.setAttribute("aria-hidden", "true");
-    setTimeout(() => toast.remove(), 350);
+    if (dismissed) return;
+    dismissed = true;
+    if (timer) clearTimeout(timer);
+    dismissToast(toast);
   };
 
   const startTimer = () => {
+    if (dismissed) return;
     startTime = Date.now();
     timer = setTimeout(dismiss, remaining);
   };
@@ -171,9 +188,18 @@ const init = (el) => {
   };
   doc.addEventListener("osspm:toast", onToast);
 
+  const onClick = (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const dismissButton = target?.closest("[data-toast-dismiss]");
+    if (!dismissButton || !el.contains(dismissButton)) return;
+    dismissToast(dismissButton.closest(".toast"));
+  };
+  el.addEventListener("click", onClick);
+
   return () => {
     observer.disconnect();
     doc.removeEventListener("osspm:toast", onToast);
+    el.removeEventListener("click", onClick);
   };
 };
 

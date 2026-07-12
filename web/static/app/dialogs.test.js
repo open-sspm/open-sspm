@@ -182,7 +182,7 @@ describe("dialogs", () => {
     expect(insideDialog.hasAttribute("data-open")).toBe(false);
   });
 
-  it("binds close-navigation handlers only within the provided root", () => {
+  it("binds close-navigation cancel handlers only within the provided root", () => {
     const root = document.createElement("div");
     root.innerHTML = `<dialog id="inside" data-close-href="/settings/connector-health"></dialog>`;
     document.body.appendChild(root);
@@ -193,14 +193,15 @@ describe("dialogs", () => {
     document.body.appendChild(outside);
 
     const insideDialog = root.querySelector("#inside");
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     wireDialogCloseNavigation(root);
 
-    insideDialog.dispatchEvent(new Event("close"));
-    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    const insideCancel = new Event("cancel", { cancelable: true });
+    insideDialog.dispatchEvent(insideCancel);
+    expect(insideCancel.defaultPrevented).toBe(true);
 
-    outside.dispatchEvent(new Event("close"));
-    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    const outsideCancel = new Event("cancel", { cancelable: true });
+    outside.dispatchEvent(outsideCancel);
+    expect(outsideCancel.defaultPrevented).toBe(false);
   });
 
   it("ignores cross-origin close-href navigation targets", () => {

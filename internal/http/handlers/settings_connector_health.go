@@ -423,6 +423,7 @@ func buildConnectorHealthViewData(cfg config.Config, q *gen.Queries, ctx context
 	}
 
 	data.Items = items
+	data.NeedsAttentionCount = needsAttentionCount
 
 	if enabledTotal == 0 {
 		data.SummaryLabel = "0 enabled"

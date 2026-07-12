@@ -8,11 +8,11 @@ templ DiscoveryAppShowPage(data viewmodels.DiscoveryAppShowViewData) {
 	}
 }
 
-templ discoveryAppShowFact(label, value string) {
+templ discoveryAppShowFact(label, value, columnClass, valueClass string) {
 	if value != "" {
-		<div>
-			<p class="text-xs uppercase tracking-wide text-muted-foreground">{ label }</p>
-			<p class="font-medium" hx-disable>{ value }</p>
+		<div class={ templ.Classes("min-w-0", columnClass) }>
+			<dt class="text-xs uppercase tracking-wide text-muted-foreground">{ label }</dt>
+			<dd class={ templ.Classes("font-medium", valueClass) } hx-disable>{ value }</dd>
 		</div>
 	}
 }
@@ -56,8 +56,8 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 					<div class="flex flex-col items-start gap-3 sm:items-end">
 						<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
 							@discoveryAppShowManagedState(data.App.ManagedState)
-							<span class={ templ.Classes("text-sm font-medium", CredentialRiskTextClass(data.App.RiskLevel)) } title={ "Score " + FormatInt(int(data.App.RiskScore)) }>{ HumanizeCredentialRisk(data.App.RiskLevel) }</span>
-							<span class={ templ.Classes("text-sm font-medium", DiscoveryReviewDispositionTextClass(data.App.ReviewDisposition)) }>{ HumanizeDiscoveryReviewDisposition(data.App.ReviewDisposition) }</span>
+							<span class={ templ.Classes("text-sm font-medium", CredentialRiskTextClass(data.App.RiskLevel)) }>{ "Risk: " }{ HumanizeCredentialRisk(data.App.RiskLevel) }</span>
+							<span class={ templ.Classes("text-sm font-medium", DiscoveryReviewDispositionTextClass(data.App.ReviewDisposition)) }>{ "Review: " }{ HumanizeDiscoveryReviewDisposition(data.App.ReviewDisposition) }</span>
 						</div>
 						<button id="discovery-app-governance-trigger" type="button" class="btn-sm-ghost" data-dialog-open="#discovery-governance-dialog">
 							@IconSettings("size-4 text-muted-foreground")
@@ -70,11 +70,11 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 					</div>
 				</div>
 				if data.App.PrimaryDomain != "" || data.App.VendorName != "" || data.App.SuggestedBusinessCriticality != "" || data.App.SuggestedDataClassification != "" {
-					<dl class="grid gap-x-6 gap-y-3 pt-2 sm:grid-cols-2 md:grid-cols-4">
-						@discoveryAppShowFact("Domain", data.App.PrimaryDomain)
-						@discoveryAppShowFact("Vendor", data.App.VendorName)
-						@discoveryAppShowFact("Suggested criticality", HumanizeBusinessCriticality(data.App.SuggestedBusinessCriticality))
-						@discoveryAppShowFact("Suggested data class", HumanizeDataClassification(data.App.SuggestedDataClassification))
+					<dl class="grid gap-x-6 gap-y-3 pt-2 sm:grid-cols-2 lg:grid-cols-6">
+						@discoveryAppShowFact("Domain", data.App.PrimaryDomain, "lg:col-span-2", "break-all")
+						@discoveryAppShowFact("Vendor", data.App.VendorName, "lg:col-span-1", "break-words")
+						@discoveryAppShowFact("Suggested business criticality", HumanizeBusinessCriticality(data.App.SuggestedBusinessCriticality), "lg:col-span-2", "break-words")
+						@discoveryAppShowFact("Suggested data class", HumanizeDataClassification(data.App.SuggestedDataClassification), "lg:col-span-1", "break-words")
 					</dl>
 				}
 				if data.App.Notes != "" {
@@ -83,12 +83,40 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 				<p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
 					<span>{ HumanizeDiscoveryManagedReason(data.App.ManagedReason) }</span>
 					<span aria-hidden="true">·</span>
-					<span class={ RiskScoreClass(data.App.RiskLevel) }>{ "Score " }{ FormatInt(int(data.App.RiskScore)) }</span>
-					<span aria-hidden="true">·</span>
 					<span>{ "First seen " }{ data.App.FirstSeen.Label }</span>
 					<span aria-hidden="true">·</span>
 					<span>{ "Last seen " }{ data.App.LastSeen.Label }</span>
 				</p>
+				<details class="rounded-lg border border-border/60 bg-muted/15">
+					<summary class="flex w-full list-none items-center justify-between gap-4 px-4 py-3 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+						<span class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+							<span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Risk score</span>
+							<span class={ templ.Classes("text-sm font-semibold tabular-nums", RiskScoreClass(data.App.RiskLevel)) }>{ FormatInt(int(data.App.RiskScore)) }{ "/100" }</span>
+						</span>
+						<span class="flex shrink-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
+							<span>Risk details</span>
+							@IconChevronRight("size-3.5")
+						</span>
+					</summary>
+					<div class="space-y-3 border-t border-border/60 px-4 py-3">
+						<p class="text-xs text-muted-foreground">The active SaaS policies map this total to { HumanizeCredentialRisk(data.App.RiskLevel) } risk.</p>
+						if data.HasRiskSignals {
+							<ul class="divide-y divide-border/50">
+								for _, signal := range data.RiskSignals {
+									<li class="flex flex-col gap-1.5 py-2 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:gap-4">
+										<div class="flex min-w-[7rem] items-center gap-2 pt-0.5">
+											<span aria-hidden="true" class={ "inline-block size-1.5 rounded-full", RiskSeverityDotClass(signal.Severity) }></span>
+											<span class={ "text-xs font-medium", CredentialRiskTextClass(signal.Severity) }>{ HumanizeRiskSeverity(signal.Severity) }</span>
+										</div>
+										<p class="text-sm font-medium">{ signal.Title }</p>
+									</li>
+								}
+							</ul>
+						} else {
+							<p class="text-sm text-muted-foreground">Detailed contributing signals are not available for this evaluation.</p>
+						}
+					</div>
+				</details>
 			</header>
 
 			<section class="space-y-3">

@@ -99,13 +99,13 @@ func (h *Handlers) HandleFindingsRuleset(c *echo.Context) error {
 
 	rulesetKey := strings.TrimSpace(c.Param("rulesetKey"))
 	if rulesetKey == "" {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	rs, err := h.Q.GetRulesetByKey(ctx, rulesetKey)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -322,13 +322,13 @@ func (h *Handlers) HandleFindingsRulesetOverride(c *echo.Context) error {
 	ctx := c.Request().Context()
 	rulesetKey := strings.TrimSpace(c.Param("rulesetKey"))
 	if rulesetKey == "" {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	rs, err := h.Q.GetRulesetByKey(ctx, rulesetKey)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -378,13 +378,13 @@ func (h *Handlers) HandleFindingsRule(c *echo.Context) error {
 	rulesetKey := strings.TrimSpace(c.Param("rulesetKey"))
 	ruleKey := strings.TrimSpace(c.Param("ruleKey"))
 	if rulesetKey == "" || ruleKey == "" {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	rs, err := h.Q.GetRulesetByKey(ctx, rulesetKey)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -403,7 +403,7 @@ func (h *Handlers) HandleFindingsRule(c *echo.Context) error {
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -420,7 +420,7 @@ func (h *Handlers) renderFindingsRuleMutationResponse(c *echo.Context, rs gen.Ru
 	rulesetKey := strings.TrimSpace(rs.Key)
 	ruleKey = strings.TrimSpace(ruleKey)
 	if rulesetKey == "" || ruleKey == "" {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	r, err := h.Q.GetFindingRuleCurrentByRulesetKeyAndRuleKey(ctx, gen.GetFindingRuleCurrentByRulesetKeyAndRuleKeyParams{
@@ -432,7 +432,7 @@ func (h *Handlers) renderFindingsRuleMutationResponse(c *echo.Context, rs gen.Ru
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -450,13 +450,13 @@ func (h *Handlers) HandleFindingsRuleOverride(c *echo.Context) error {
 	rulesetKey := strings.TrimSpace(c.Param("rulesetKey"))
 	ruleKey := strings.TrimSpace(c.Param("ruleKey"))
 	if rulesetKey == "" || ruleKey == "" {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	rs, err := h.Q.GetRulesetByKey(ctx, rulesetKey)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -475,7 +475,7 @@ func (h *Handlers) HandleFindingsRuleOverride(c *echo.Context) error {
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -527,13 +527,13 @@ func (h *Handlers) HandleFindingsRuleAttestation(c *echo.Context) error {
 	rulesetKey := strings.TrimSpace(c.Param("rulesetKey"))
 	ruleKey := strings.TrimSpace(c.Param("ruleKey"))
 	if rulesetKey == "" || ruleKey == "" {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	rs, err := h.Q.GetRulesetByKey(ctx, rulesetKey)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -552,7 +552,7 @@ func (h *Handlers) HandleFindingsRuleAttestation(c *echo.Context) error {
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}

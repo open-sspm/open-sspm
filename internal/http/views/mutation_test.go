@@ -102,3 +102,33 @@ func TestMutationGuardsRenderOnFormsRowsAndActionGroups(t *testing.T) {
 		})
 	}
 }
+
+func TestIdentityResolutionActionsRenderNativeActionEndpoints(t *testing.T) {
+	var body bytes.Buffer
+	err := identityResolutionActions("csrf", viewmodels.IdentityResolutionCandidateItem{
+		ID:                       42,
+		AcceptHref:               "/accept",
+		RejectHref:               "/reject",
+		MarkServiceHref:          "/mark-service",
+		MarkServiceCustodianHref: "/mark-service",
+		MarkSharedHref:           "/mark-shared",
+		CanReject:                true,
+		CanMarkService:           true,
+		CanMarkServiceCustodian:  true,
+		CanMarkShared:            true,
+	}).Render(context.Background(), &body)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+
+	html := body.String()
+	for endpoint, wantCount := range map[string]int{
+		`formaction="/reject"`:       1,
+		`formaction="/mark-service"`: 2,
+		`formaction="/mark-shared"`:  1,
+	} {
+		if got := strings.Count(html, endpoint); got != wantCount {
+			t.Errorf("rendered %q %d times, want %d: %s", endpoint, got, wantCount, html)
+		}
+	}
+}

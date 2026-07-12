@@ -512,7 +512,7 @@ func (h *Handlers) HandleIdentityShow(c *echo.Context) error {
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return c.String(http.StatusNotFound, "identity not found")
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}

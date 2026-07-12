@@ -339,6 +339,24 @@ func saasGoldenCases() []saasGoldenCase {
 			},
 		},
 		{
+			name: "unmanaged github app without owner",
+			input: SaaSInput{
+				VendorName:   "GitHub",
+				ManagedState: "unmanaged",
+			},
+			wantScore:                        80,
+			wantLevel:                        SeverityCritical,
+			wantBusinessCriticality:          "low",
+			wantDataClassification:           "internal",
+			wantEffectiveBusinessCriticality: "low",
+			wantEffectiveDataClassification:  "internal",
+			wantSignalIDs: []string{
+				"unmanaged_app",
+				"missing_owner",
+				"github_missing_owner",
+			},
+		},
+		{
 			name: "stale connector binding",
 			input: SaaSInput{
 				Actors30d:       3,

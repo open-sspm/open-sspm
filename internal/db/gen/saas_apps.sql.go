@@ -49,14 +49,19 @@ WHERE EXISTS (
     $5::text = ''
     OR pr.risk_level = $5::text
   )
+  AND (
+    $6::text = ''
+    OR pr.review_disposition = $6::text
+  )
 `
 
 type CountSaaSAppsByFiltersParams struct {
-	SourceKind   string `json:"source_kind"`
-	SourceName   string `json:"source_name"`
-	Query        string `json:"query"`
-	ManagedState string `json:"managed_state"`
-	RiskLevel    string `json:"risk_level"`
+	SourceKind        string `json:"source_kind"`
+	SourceName        string `json:"source_name"`
+	Query             string `json:"query"`
+	ManagedState      string `json:"managed_state"`
+	RiskLevel         string `json:"risk_level"`
+	ReviewDisposition string `json:"review_disposition"`
 }
 
 func (q *Queries) CountSaaSAppsByFilters(ctx context.Context, arg CountSaaSAppsByFiltersParams) (int64, error) {
@@ -66,6 +71,7 @@ func (q *Queries) CountSaaSAppsByFilters(ctx context.Context, arg CountSaaSAppsB
 		arg.Query,
 		arg.ManagedState,
 		arg.RiskLevel,
+		arg.ReviewDisposition,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -173,6 +179,7 @@ SELECT
   pr.bound_connector_source_name::text AS bound_connector_source_name,
   pr.risk_score::int AS risk_score,
   pr.risk_level::text AS risk_level,
+  COALESCE(risk.risk_signals_json, '[]'::jsonb)::jsonb AS risk_signals_json,
   pr.suggested_business_criticality::text AS suggested_business_criticality,
   pr.suggested_data_classification::text AS suggested_data_classification,
   pr.first_seen_at::timestamptz AS first_seen_at,
@@ -194,6 +201,7 @@ SELECT
   pr.replacement_display_name::text AS replacement_display_name,
   pr.replacement_primary_domain::text AS replacement_primary_domain
 FROM discovery_app_read_models_v pr
+LEFT JOIN saas_app_risk_read_models risk ON risk.saas_app_id = pr.id
 WHERE pr.id = $1::bigint
 `
 
@@ -209,6 +217,7 @@ type GetSaaSAppByIDRow struct {
 	BoundConnectorSourceName     string             `json:"bound_connector_source_name"`
 	RiskScore                    int32              `json:"risk_score"`
 	RiskLevel                    string             `json:"risk_level"`
+	RiskSignalsJson              []byte             `json:"risk_signals_json"`
 	SuggestedBusinessCriticality string             `json:"suggested_business_criticality"`
 	SuggestedDataClassification  string             `json:"suggested_data_classification"`
 	FirstSeenAt                  pgtype.Timestamptz `json:"first_seen_at"`
@@ -246,6 +255,7 @@ func (q *Queries) GetSaaSAppByID(ctx context.Context, id int64) (GetSaaSAppByIDR
 		&i.BoundConnectorSourceName,
 		&i.RiskScore,
 		&i.RiskLevel,
+		&i.RiskSignalsJson,
 		&i.SuggestedBusinessCriticality,
 		&i.SuggestedDataClassification,
 		&i.FirstSeenAt,
@@ -478,23 +488,28 @@ WHERE EXISTS (
     $5::text = ''
     OR pr.risk_level = $5::text
   )
+  AND (
+    $6::text = ''
+    OR pr.review_disposition = $6::text
+  )
 ORDER BY
   pr.risk_score DESC,
   pr.last_seen_at DESC,
   lower(COALESCE(NULLIF(trim(pr.display_name), ''), pr.canonical_key)) ASC,
   pr.id ASC
-LIMIT $7::int
-OFFSET $6::int
+LIMIT $8::int
+OFFSET $7::int
 `
 
 type ListSaaSAppsPageByFiltersParams struct {
-	SourceKind   string `json:"source_kind"`
-	SourceName   string `json:"source_name"`
-	Query        string `json:"query"`
-	ManagedState string `json:"managed_state"`
-	RiskLevel    string `json:"risk_level"`
-	PageOffset   int32  `json:"page_offset"`
-	PageLimit    int32  `json:"page_limit"`
+	SourceKind        string `json:"source_kind"`
+	SourceName        string `json:"source_name"`
+	Query             string `json:"query"`
+	ManagedState      string `json:"managed_state"`
+	RiskLevel         string `json:"risk_level"`
+	ReviewDisposition string `json:"review_disposition"`
+	PageOffset        int32  `json:"page_offset"`
+	PageLimit         int32  `json:"page_limit"`
 }
 
 type ListSaaSAppsPageByFiltersRow struct {
@@ -535,6 +550,7 @@ func (q *Queries) ListSaaSAppsPageByFilters(ctx context.Context, arg ListSaaSApp
 		arg.Query,
 		arg.ManagedState,
 		arg.RiskLevel,
+		arg.ReviewDisposition,
 		arg.PageOffset,
 		arg.PageLimit,
 	)

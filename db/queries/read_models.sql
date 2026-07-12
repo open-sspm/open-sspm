@@ -231,6 +231,7 @@ WITH input AS (
     (sqlc.arg(suggested_data_classifications)::text[])[i] AS suggested_data_classification,
     (sqlc.arg(effective_business_criticalities)::text[])[i] AS effective_business_criticality,
     (sqlc.arg(effective_data_classifications)::text[])[i] AS effective_data_classification,
+    (sqlc.arg(risk_signals_jsons)::jsonb[])[i] AS risk_signals_json,
     (sqlc.arg(policy_packs_jsons)::jsonb[])[i] AS policy_packs_json
   FROM generate_subscripts(sqlc.arg(saas_app_ids)::bigint[], 1) AS s(i)
 )
@@ -243,6 +244,7 @@ INSERT INTO saas_app_risk_read_models (
   suggested_data_classification,
   effective_business_criticality,
   effective_data_classification,
+  risk_signals_json,
   policy_packs_json,
   projection_refreshed_at
 )
@@ -255,6 +257,7 @@ SELECT
   input.suggested_data_classification,
   input.effective_business_criticality,
   input.effective_data_classification,
+  input.risk_signals_json,
   input.policy_packs_json,
   now()
 FROM input
@@ -266,6 +269,7 @@ ON CONFLICT (saas_app_id) DO UPDATE SET
   suggested_data_classification = EXCLUDED.suggested_data_classification,
   effective_business_criticality = EXCLUDED.effective_business_criticality,
   effective_data_classification = EXCLUDED.effective_data_classification,
+  risk_signals_json = EXCLUDED.risk_signals_json,
   policy_packs_json = EXCLUDED.policy_packs_json,
   projection_refreshed_at = now();
 

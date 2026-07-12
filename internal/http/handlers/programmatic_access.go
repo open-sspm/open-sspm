@@ -230,14 +230,14 @@ func (h *Handlers) HandleAppAssets(c *echo.Context) error {
 func (h *Handlers) HandleAppAssetShow(c *echo.Context) error {
 	assetID, err := parsePositiveInt64Param(c.Param("id"))
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	ctx := c.Request().Context()
 	asset, err := h.Q.GetAppAssetByID(ctx, assetID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -683,14 +683,14 @@ func (h *Handlers) HandleCredentialsExport(c *echo.Context) error {
 	ctx := c.Request().Context()
 	layout, stateView, err := h.LayoutData(ctx, c, "Credentials Export")
 	if err != nil {
-		return h.RenderError(c, err)
+		return h.RenderRawError(c, err)
 	}
 
 	sources := availableProgrammaticSources(stateView)
 	queryState := querystate.ParseCredentialsQuery(c.Request().URL.Query(), programmaticQuerySources(sources))
 	activeSources := effectiveProgrammaticSources(queryState.Source, sources)
 	if len(activeSources) == 0 {
-		return h.RenderError(c, errors.New("no credential sources configured for export"))
+		return h.RenderRawError(c, errors.New("no credential sources configured for export"))
 	}
 	now := time.Now().UTC()
 	evaluatedAt := pgTimestamptz(now)
@@ -717,7 +717,7 @@ func (h *Handlers) HandleCredentialsExport(c *echo.Context) error {
 		PageLimit:             exportLimit,
 	})
 	if err != nil {
-		return h.RenderError(c, err)
+		return h.RenderRawError(c, err)
 	}
 	records := make([]credentialExportRecord, 0, len(rows))
 	for _, row := range rows {
@@ -860,7 +860,7 @@ func expiresAtTime(value pgtype.Timestamptz) time.Time {
 func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 	credentialID, err := parsePositiveInt64Param(c.Param("id"))
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	ctx := c.Request().Context()
@@ -868,7 +868,7 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 	credential, err := h.Q.GetCredentialArtifactByID(ctx, credentialID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -907,7 +907,7 @@ func (h *Handlers) HandleCredentialShow(c *echo.Context) error {
 		displayName = strings.TrimSpace(credential.ExternalID)
 	}
 	riskLevel := strings.TrimSpace(credential.RiskLevel)
-	riskFindings := credentialRiskFindingsFromSignals(credentialRiskSignalsFromStoredJSON(credential.RiskSignalsJson), credential.ExpiresAtSource, credential.LastUsedAtSource, now)
+	riskFindings := credentialRiskFindingsFromSignals(riskSignalsFromStoredJSON(credential.RiskSignalsJson), credential.ExpiresAtSource, credential.LastUsedAtSource, now)
 	linkResolver := newIdentityLinkResolver(h, ctx, stateView)
 
 	data := viewmodels.CredentialShowViewData{
@@ -1090,7 +1090,7 @@ func credentialRiskFindingsFromSignals(signals []evaluator.RiskSignal, expiresAt
 	return findings
 }
 
-func credentialRiskSignalsFromStoredJSON(raw []byte) []evaluator.RiskSignal {
+func riskSignalsFromStoredJSON(raw []byte) []evaluator.RiskSignal {
 	if len(raw) == 0 {
 		return nil
 	}

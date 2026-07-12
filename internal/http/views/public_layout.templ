@@ -9,7 +9,7 @@ templ PublicLayout(title string, csrfToken string, toast *viewmodels.ToastViewDa
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="csrf-token" content={ csrfToken }/>
-			<meta name="htmx-config" content={ `{"allowEval":false,"allowScriptTags":false,"defaultSwapStyle":"outerHTML","historyCacheSize":10,"historyRestoreAsHxRequest":false,"selfRequestsOnly":true,"globalViewTransitions":true}` }/>
+			<meta name="htmx-config" content={ `{"allowEval":false,"allowScriptTags":false,"defaultSwapStyle":"outerHTML","historyCacheSize":10,"historyRestoreAsHxRequest":false,"selfRequestsOnly":true,"globalViewTransitions":false}` }/>
 			<title>{ title }{ " · Open-SSPM" }</title>
 			<link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
 			<script src="/static/vendor/htmx.min.js" defer></script>

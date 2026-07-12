@@ -15,16 +15,16 @@
     "test:js:watch": "vitest"
   },
   "devDependencies": {
-    "@tailwindcss/cli": "^4.3.0",
-    "jsdom": "^26.1.0",
-    "tailwindcss": "^4.3.0",
+    "@tailwindcss/cli": "^4.3.2",
+    "jsdom": "^29.1.1",
+    "tailwindcss": "^4.3.2",
     "vitepress": "^1.6.4",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "htmx-ext-sse": "^2.2.4",
-    "htmx.org": "2.0.8",
+    "htmx.org": "^2.0.10",
     "idiomorph": "^0.7.4",
-    "simple-icons": "16.17.0"
+    "simple-icons": "^16.26.0"
   }
 }

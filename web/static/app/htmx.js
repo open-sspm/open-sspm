@@ -16,6 +16,8 @@ const htmxRequestState = new WeakMap();
 const busyElementCounts = new WeakMap();
 const activeRequests = new Set();
 const reportedFailures = new WeakSet();
+const BUSY_INDICATOR_DELAY_MS = 150;
+let busyIndicatorTimer = null;
 
 const isRequestHandle = (value) => value !== null && (typeof value === "object" || typeof value === "function");
 
@@ -57,14 +59,34 @@ const shouldSkipLazyRequest = (element) => {
   return details instanceof HTMLDetailsElement && !details.open;
 };
 
+const setGlobalBusyIndicatorsVisible = (isVisible) => {
+  document.querySelectorAll("[data-htmx-busy-indicator]").forEach((indicator) => {
+    if (!(indicator instanceof HTMLElement)) return;
+    indicator.hidden = !isVisible;
+    indicator.setAttribute("aria-hidden", isVisible ? "false" : "true");
+  });
+};
+
 const syncGlobalBusyIndicators = () => {
   const isBusy = activeRequests.size > 0;
   document.documentElement.dataset.htmxBusy = isBusy ? "true" : "false";
-  document.querySelectorAll("[data-htmx-busy-indicator]").forEach((indicator) => {
-    if (!(indicator instanceof HTMLElement)) return;
-    indicator.hidden = !isBusy;
-    indicator.setAttribute("aria-hidden", isBusy ? "false" : "true");
-  });
+
+  if (!isBusy) {
+    if (busyIndicatorTimer !== null) {
+      window.clearTimeout(busyIndicatorTimer);
+      busyIndicatorTimer = null;
+    }
+    setGlobalBusyIndicatorsVisible(false);
+    return;
+  }
+
+  if (busyIndicatorTimer !== null) return;
+  busyIndicatorTimer = window.setTimeout(() => {
+    busyIndicatorTimer = null;
+    if (activeRequests.size > 0) {
+      setGlobalBusyIndicatorsVisible(true);
+    }
+  }, BUSY_INDICATOR_DELAY_MS);
 };
 
 const collectBusyElements = (detail) => {
@@ -299,7 +321,23 @@ const handleBeforeSwap = (event) => {
     typeof detail?.xhr?.getResponseHeader === "function"
       ? detail.xhr.getResponseHeader("X-Lazy-Error") || ""
       : "";
+  const errorPageHeader =
+    typeof detail?.xhr?.getResponseHeader === "function"
+      ? detail.xhr.getResponseHeader("X-Open-SSPM-Error-Page") || ""
+      : "";
   const isHTML = contentType.toLowerCase().includes("text/html");
+  const isBoostedErrorPage =
+    status >= 400 &&
+    status <= 599 &&
+    hasFragment &&
+    isHTML &&
+    Boolean(detail?.requestConfig?.boosted) &&
+    errorPageHeader === "1";
+  if (isBoostedErrorPage) {
+    detail.shouldSwap = true;
+    detail.isError = false;
+    return;
+  }
   if ((status === 400 || status === 401 || status === 409 || status === 422) && hasFragment && isHTML) {
     detail.shouldSwap = true;
     detail.isError = false;

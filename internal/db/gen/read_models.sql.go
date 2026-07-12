@@ -1908,7 +1908,8 @@ WITH input AS (
     ($6::text[])[i] AS suggested_data_classification,
     ($7::text[])[i] AS effective_business_criticality,
     ($8::text[])[i] AS effective_data_classification,
-    ($9::jsonb[])[i] AS policy_packs_json
+    ($9::jsonb[])[i] AS risk_signals_json,
+    ($10::jsonb[])[i] AS policy_packs_json
   FROM generate_subscripts($1::bigint[], 1) AS s(i)
 )
 INSERT INTO saas_app_risk_read_models (
@@ -1920,6 +1921,7 @@ INSERT INTO saas_app_risk_read_models (
   suggested_data_classification,
   effective_business_criticality,
   effective_data_classification,
+  risk_signals_json,
   policy_packs_json,
   projection_refreshed_at
 )
@@ -1932,6 +1934,7 @@ SELECT
   input.suggested_data_classification,
   input.effective_business_criticality,
   input.effective_data_classification,
+  input.risk_signals_json,
   input.policy_packs_json,
   now()
 FROM input
@@ -1943,6 +1946,7 @@ ON CONFLICT (saas_app_id) DO UPDATE SET
   suggested_data_classification = EXCLUDED.suggested_data_classification,
   effective_business_criticality = EXCLUDED.effective_business_criticality,
   effective_data_classification = EXCLUDED.effective_data_classification,
+  risk_signals_json = EXCLUDED.risk_signals_json,
   policy_packs_json = EXCLUDED.policy_packs_json,
   projection_refreshed_at = now()
 `
@@ -1956,6 +1960,7 @@ type UpsertSaaSAppRiskReadModelsBulkParams struct {
 	SuggestedDataClassifications   []string `json:"suggested_data_classifications"`
 	EffectiveBusinessCriticalities []string `json:"effective_business_criticalities"`
 	EffectiveDataClassifications   []string `json:"effective_data_classifications"`
+	RiskSignalsJsons               [][]byte `json:"risk_signals_jsons"`
 	PolicyPacksJsons               [][]byte `json:"policy_packs_jsons"`
 }
 
@@ -1969,6 +1974,7 @@ func (q *Queries) UpsertSaaSAppRiskReadModelsBulk(ctx context.Context, arg Upser
 		arg.SuggestedDataClassifications,
 		arg.EffectiveBusinessCriticalities,
 		arg.EffectiveDataClassifications,
+		arg.RiskSignalsJsons,
 		arg.PolicyPacksJsons,
 	)
 	if err != nil {

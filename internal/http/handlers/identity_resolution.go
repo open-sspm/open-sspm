@@ -117,7 +117,7 @@ func (h *Handlers) identityResolutionEvidenceByCandidateID(ctx context.Context, 
 func (h *Handlers) HandleIdentityResolutionCandidateAccept(c *echo.Context) error {
 	candidateID, err := parsePositiveInt64Param(c.Param("id"))
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	ctx := c.Request().Context()
 	reviewedBy := identityResolutionReviewedBy(c)
@@ -134,7 +134,7 @@ func (h *Handlers) HandleIdentityResolutionCandidateAccept(c *echo.Context) erro
 	candidate, err := qtx.GetIdentityMatchCandidateForUpdate(ctx, candidateID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -145,14 +145,14 @@ func (h *Handlers) HandleIdentityResolutionCandidateAccept(c *echo.Context) erro
 	account, err := qtx.GetAccountForIdentityResolutionUpdate(ctx, candidate.AccountID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
 	targetIdentity, err := qtx.GetIdentityForIdentityResolutionUpdate(ctx, candidate.CandidateIdentityID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -334,7 +334,7 @@ func (h *Handlers) applyProvisionalIdentityMerge(ctx context.Context, qtx *gen.Q
 func (h *Handlers) HandleIdentityResolutionCandidateReject(c *echo.Context) error {
 	candidateID, err := parsePositiveInt64Param(c.Param("id"))
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	ctx := c.Request().Context()
@@ -348,7 +348,7 @@ func (h *Handlers) HandleIdentityResolutionCandidateReject(c *echo.Context) erro
 	candidate, err := qtx.GetIdentityMatchCandidateForUpdate(ctx, candidateID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -386,7 +386,7 @@ func (h *Handlers) HandleIdentityResolutionCandidateMarkShared(c *echo.Context) 
 func (h *Handlers) handleIdentityResolutionCandidateMarkServiceLike(c *echo.Context, mode string) error {
 	candidateID, err := parsePositiveInt64Param(c.Param("id"))
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 	mode = strings.ToLower(strings.TrimSpace(mode))
 	if mode != "service" && mode != "shared" {
@@ -408,7 +408,7 @@ func (h *Handlers) handleIdentityResolutionCandidateMarkServiceLike(c *echo.Cont
 	candidate, err := qtx.GetIdentityMatchCandidateForUpdate(ctx, candidateID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -418,7 +418,7 @@ func (h *Handlers) handleIdentityResolutionCandidateMarkServiceLike(c *echo.Cont
 	account, err := qtx.GetAccountForIdentityResolutionUpdate(ctx, candidate.AccountID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}

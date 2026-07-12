@@ -44,6 +44,71 @@ func TestRenderIdentityShowSectionErrorReturnsRetryableHTML(t *testing.T) {
 	assertNotContains(t, rec.Body.String(), "database unavailable")
 }
 
+func TestHandleIdentityShowUsesNavigationAwareNotFoundResponses(t *testing.T) {
+	withCommandSearchTestDatabase(t, func(_ context.Context, _ *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
+		const missingID = "9223372036854775807"
+
+		t.Run("browser navigation", func(t *testing.T) {
+			c, rec := newTestContext(http.MethodGet, "http://example.com/identities/"+missingID)
+			(*c).SetPath("/identities/:id")
+			(*c).SetPathValues(echo.PathValues{{Name: "id", Value: missingID}})
+			(*c).Request().Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
+
+			if err := h.HandleIdentityShow(c); err != nil {
+				t.Fatalf("HandleIdentityShow(): %v", err)
+			}
+			if rec.Code != http.StatusNotFound {
+				t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusNotFound, rec.Body.String())
+			}
+			if got := rec.Header().Get(HeaderErrorPage); got != "1" {
+				t.Fatalf("%s = %q, want 1", HeaderErrorPage, got)
+			}
+			assertContains(t, rec.Body.String(), "Page not found")
+			assertContains(t, rec.Body.String(), "Go to dashboard")
+		})
+
+		t.Run("targeted HTMX request", func(t *testing.T) {
+			c, rec := newTestContext(http.MethodGet, "http://example.com/identities/"+missingID)
+			(*c).SetPath("/identities/:id")
+			(*c).SetPathValues(echo.PathValues{{Name: "id", Value: missingID}})
+			(*c).Request().Header.Set("HX-Request", "true")
+			(*c).Request().Header.Set("HX-Target", "identity-entitlements-section")
+
+			if err := h.HandleIdentityShow(c); err != nil {
+				t.Fatalf("HandleIdentityShow(): %v", err)
+			}
+			if rec.Code != http.StatusNotFound {
+				t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusNotFound, rec.Body.String())
+			}
+			if got := rec.Header().Get(HeaderErrorPage); got != "" {
+				t.Fatalf("%s = %q, want empty", HeaderErrorPage, got)
+			}
+			if got := rec.Header().Get(echo.HeaderContentType); got != echo.MIMETextPlainCharsetUTF8 {
+				t.Fatalf("Content-Type = %q, want %q", got, echo.MIMETextPlainCharsetUTF8)
+			}
+		})
+
+		t.Run("boosted navigation", func(t *testing.T) {
+			c, rec := newTestContext(http.MethodGet, "http://example.com/identities/"+missingID)
+			(*c).SetPath("/identities/:id")
+			(*c).SetPathValues(echo.PathValues{{Name: "id", Value: missingID}})
+			(*c).Request().Header.Set("HX-Request", "true")
+			(*c).Request().Header.Set("HX-Boosted", "true")
+
+			if err := h.HandleIdentityShow(c); err != nil {
+				t.Fatalf("HandleIdentityShow(): %v", err)
+			}
+			if rec.Code != http.StatusNotFound {
+				t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusNotFound, rec.Body.String())
+			}
+			if got := rec.Header().Get(HeaderErrorPage); got != "1" {
+				t.Fatalf("%s = %q, want 1", HeaderErrorPage, got)
+			}
+			assertContains(t, rec.Body.String(), "Page not found")
+		})
+	})
+}
+
 func TestHandleIdentitiesClampsOutOfRangePage(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{
@@ -134,6 +199,7 @@ func TestHandleIdentityShowRendersEntitlementDetails(t *testing.T) {
 				t.Fatalf("identity show missing %q: %s", want, body)
 			}
 		}
+		assertContains(t, body, "github-user-1")
 		assertContains(t, body, "github_team_repo_permission")
 		assertNotContains(t, body, `hx-trigger="intersect once, oss-panel-visible"`)
 

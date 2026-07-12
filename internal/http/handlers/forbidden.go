@@ -14,6 +14,7 @@ func (h *Handlers) RenderForbidden(c *echo.Context) error {
 	}
 
 	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
+	c.Response().Header().Set(HeaderErrorPage, "1")
 	c.Response().WriteHeader(http.StatusForbidden)
 	if err := views.ForbiddenPage(layout).Render(c.Request().Context(), c.Response()); err != nil {
 		return h.RenderError(c, err)

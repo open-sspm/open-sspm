@@ -72,11 +72,12 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 	page := queryState.Page
 
 	totalCount, err := h.Q.CountSaaSAppsByFilters(ctx, gen.CountSaaSAppsByFiltersParams{
-		ManagedState: queryState.ManagedState,
-		RiskLevel:    queryState.RiskLevel,
-		SourceKind:   queryState.Source.Kind,
-		SourceName:   queryState.Source.Name,
-		Query:        queryState.Q,
+		ManagedState:      queryState.ManagedState,
+		RiskLevel:         queryState.RiskLevel,
+		ReviewDisposition: queryState.ReviewDisposition,
+		SourceKind:        queryState.Source.Kind,
+		SourceName:        queryState.Source.Name,
+		Query:             queryState.Q,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -84,13 +85,14 @@ func (h *Handlers) HandleDiscoveryApps(c *echo.Context) error {
 
 	pagination := newPaginatedListState(totalCount, page, discoveryAppsPerPage)
 	rows, err := h.Q.ListSaaSAppsPageByFilters(ctx, gen.ListSaaSAppsPageByFiltersParams{
-		ManagedState: queryState.ManagedState,
-		RiskLevel:    queryState.RiskLevel,
-		PageOffset:   int32(pagination.Offset()),
-		PageLimit:    int32(discoveryAppsPerPage),
-		SourceKind:   queryState.Source.Kind,
-		SourceName:   queryState.Source.Name,
-		Query:        queryState.Q,
+		ManagedState:      queryState.ManagedState,
+		RiskLevel:         queryState.RiskLevel,
+		ReviewDisposition: queryState.ReviewDisposition,
+		PageOffset:        int32(pagination.Offset()),
+		PageLimit:         int32(discoveryAppsPerPage),
+		SourceKind:        queryState.Source.Kind,
+		SourceName:        queryState.Source.Name,
+		Query:             queryState.Q,
 	})
 	if err != nil {
 		return h.RenderError(c, err)
@@ -210,7 +212,7 @@ func (h *Handlers) HandleDiscoveryHotspots(c *echo.Context) error {
 func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 	appID, err := parsePositiveInt64Param(c.Param("id"))
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	return h.renderDiscoveryAppShow(c, appID, discoveryAppShowOptions{})
@@ -219,14 +221,14 @@ func (h *Handlers) HandleDiscoveryAppShow(c *echo.Context) error {
 func (h *Handlers) HandleDiscoveryAppGovernanceUpdate(c *echo.Context) error {
 	appID, err := parsePositiveInt64Param(c.Param("id"))
 	if err != nil {
-		return RenderNotFound(c)
+		return h.RenderPageNotFound(c)
 	}
 
 	ctx := c.Request().Context()
 	summary, err := h.Q.GetSaaSAppByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -504,7 +506,7 @@ func (h *Handlers) renderDiscoveryAppShow(c *echo.Context, appID int64, opts dis
 	data, err := h.buildDiscoveryAppShowViewData(ctx, layout, appID, opts)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return RenderNotFound(c)
+			return h.RenderPageNotFound(c)
 		}
 		return h.RenderError(c, err)
 	}
@@ -528,6 +530,14 @@ func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout vie
 		displayName = strings.TrimSpace(app.CanonicalKey)
 	}
 	domainLabel, vendorLabel := discoveryAppSecondaryLabels(displayName, app.PrimaryDomain, app.VendorName)
+	riskSignals := riskSignalsFromStoredJSON(app.RiskSignalsJson)
+	riskSignalItems := make([]viewmodels.DiscoveryRiskSignalItem, 0, len(riskSignals))
+	for _, signal := range riskSignals {
+		riskSignalItems = append(riskSignalItems, viewmodels.DiscoveryRiskSignalItem{
+			Severity: signal.Severity,
+			Title:    signal.Title,
+		})
+	}
 
 	sources, err := h.Q.ListSaaSAppSourcesBySaaSAppID(ctx, appID)
 	if err != nil {
@@ -680,6 +690,7 @@ func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout vie
 		Sources:                    sourceItems,
 		TopActors:                  actorItems,
 		Events:                     eventItems,
+		RiskSignals:                riskSignalItems,
 		DecisionHistory:            historyItems,
 		Alert:                      opts.alert,
 		AccountableOwnerEmailInput: accountableOwnerEmailInput,
@@ -694,6 +705,7 @@ func (h *Handlers) buildDiscoveryAppShowViewData(ctx context.Context, layout vie
 		HasSources:                 len(sourceItems) > 0,
 		HasTopActors:               len(actorItems) > 0,
 		HasEvents:                  len(eventItems) > 0,
+		HasRiskSignals:             len(riskSignalItems) > 0,
 		HasDecisionHistory:         len(historyItems) > 0,
 	}
 	return data, nil
