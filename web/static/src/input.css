@@ -1069,6 +1069,159 @@ html {
    --------------------------------------------------------------------------- */
 
 @layer components {
+  .osspm-resource-overview {
+    @apply min-w-0 pb-2;
+  }
+
+  .osspm-resource-heading {
+    @apply flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between;
+  }
+
+  .osspm-resource-context {
+    @apply mb-2 text-sm text-muted-foreground;
+  }
+
+  .osspm-resource-title {
+    @apply break-words text-2xl font-semibold tracking-tight md:text-3xl;
+    text-wrap: balance;
+  }
+
+  .osspm-resource-summary {
+    @apply mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border/70 pt-5 sm:grid-cols-3 xl:grid-cols-6;
+  }
+
+  .osspm-resource-summary > div {
+    @apply min-w-0;
+  }
+
+  .osspm-resource-summary dt {
+    @apply text-xs font-medium text-muted-foreground;
+  }
+
+  .osspm-resource-summary dd {
+    @apply mt-1 break-words text-sm font-medium;
+  }
+
+  .osspm-resource-summary [data-resource-metric] dd {
+    @apply font-mono text-lg font-semibold tabular-nums tracking-tight;
+  }
+
+  .osspm-table-frame {
+    @apply min-w-0 space-y-4;
+  }
+
+  .osspm-table-frame-detail {
+    @apply border-t border-border pt-6;
+  }
+
+  .osspm-table-frame-header {
+    @apply flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between;
+  }
+
+  .osspm-table-frame-actions {
+    @apply flex flex-wrap items-center gap-2 sm:ml-auto sm:justify-end;
+  }
+
+  .osspm-table-frame-body,
+  .osspm-table-results {
+    @apply min-w-0 space-y-3;
+  }
+
+  .card > .osspm-table-frame-body {
+    @apply px-6;
+  }
+
+  .osspm-table-toolbar {
+    @apply min-w-0;
+  }
+
+  .osspm-table-results-meta {
+    @apply flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground;
+  }
+
+  .osspm-mobile-list {
+    @apply divide-y divide-border/60;
+  }
+
+  .osspm-mobile-list-row {
+    @apply border-0 bg-transparent px-0 py-4 first:pt-0 last:pb-0;
+  }
+
+  .osspm-plain-value {
+    @apply font-medium tabular-nums text-foreground;
+  }
+
+  .osspm-section-count {
+    @apply text-sm font-medium tabular-nums text-muted-foreground;
+  }
+
+  .osspm-detail-section {
+    @apply flex min-w-0 flex-col gap-4 border-t border-border/70 pt-6;
+  }
+
+  .osspm-detail-section > header {
+    @apply grid min-w-0 auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 has-data-[slot=card-action]:grid-cols-[1fr_auto];
+  }
+
+  .osspm-detail-section > header h2 {
+    @apply font-semibold leading-none;
+  }
+
+  .osspm-detail-section > header p {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .osspm-table-sort-link {
+    @apply inline-flex items-center gap-1.5 text-inherit no-underline hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50;
+  }
+
+  .osspm-table-sort-indicator {
+    @apply inline-block size-3 text-muted-foreground;
+  }
+
+  .osspm-resource-access-value {
+    @apply text-sm text-foreground;
+  }
+
+  .osspm-resource-access-mobile-row {
+    @apply py-4 first:pt-0 last:pb-0;
+  }
+
+  .osspm-resource-access-mobile-meta {
+    @apply mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm;
+  }
+
+  .osspm-resource-access-mobile-meta > div {
+    @apply min-w-0;
+  }
+
+  .osspm-resource-access-mobile-meta dt {
+    @apply text-xs text-muted-foreground;
+  }
+
+  .osspm-resource-access-mobile-meta dd {
+    @apply mt-0.5 break-words font-medium;
+  }
+
+  th[aria-sort="ascending"] .osspm-table-sort-indicator::before {
+    content: "↑";
+  }
+
+  th[aria-sort="descending"] .osspm-table-sort-indicator::before {
+    content: "↓";
+  }
+
+  th[aria-sort="none"] .osspm-table-sort-indicator::before {
+    content: "↕";
+    opacity: 0.45;
+  }
+
+  @media (min-width: 1024px) and (max-width: 1279px) {
+    .osspm-table-column-optional {
+      display: none;
+    }
+  }
+
   .osspm-list-form {
     @apply space-y-3;
   }
@@ -1237,7 +1390,7 @@ html {
   }
 
   .osspm-source-account-strip {
-    @apply flex flex-col gap-4 rounded-md border border-border/60 bg-muted/10 px-4 py-3 sm:flex-row sm:items-start sm:justify-between dark:bg-muted/5;
+    @apply flex flex-col gap-4 border-t border-border/60 py-4 sm:flex-row sm:items-start sm:justify-between;
   }
 
   .osspm-source-account-strip-facts {
@@ -1269,15 +1422,15 @@ html {
   }
 
   .osspm-entitlement-groups {
-    @apply space-y-3 border-t border-border/50;
+    @apply divide-y divide-border/60 border-t border-border/60;
   }
 
   .osspm-entitlement-group {
-    @apply overflow-hidden rounded-md border border-border/60 bg-background dark:border-border/70;
+    @apply min-w-0;
   }
 
   .osspm-entitlement-group-header {
-    @apply flex items-center gap-3 bg-muted/25 px-3 py-2.5 dark:bg-muted/15;
+    @apply flex items-center gap-3 py-3;
   }
 
   .osspm-entitlement-group-header-title {
@@ -1293,7 +1446,7 @@ html {
   }
 
   .osspm-entitlement-group-header-count {
-    @apply ml-auto inline-flex shrink-0 items-center justify-center rounded-full bg-background/80 px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground;
+    @apply ml-auto shrink-0 text-xs font-medium tabular-nums text-muted-foreground;
   }
 
   .osspm-entitlement-rows {
@@ -1301,7 +1454,7 @@ html {
   }
 
   .osspm-entitlement-row {
-    @apply flex flex-col gap-2 px-3 py-3 text-sm transition-colors hover:bg-muted/20 sm:flex-row sm:items-center sm:justify-between dark:hover:bg-muted/10;
+    @apply flex flex-col gap-2 py-3 text-sm transition-colors hover:bg-muted/20 sm:flex-row sm:items-center sm:justify-between dark:hover:bg-muted/10;
   }
 
   .osspm-entitlement-row-main {
@@ -1329,11 +1482,11 @@ html {
   }
 
   .osspm-entitlement-more {
-    @apply border-t border-border/40 bg-muted/10;
+    @apply border-t border-border/40;
   }
 
   .osspm-entitlement-more > summary {
-    @apply cursor-pointer list-none px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground;
+    @apply cursor-pointer list-none py-2 text-xs font-medium text-muted-foreground hover:text-foreground;
   }
 
   .osspm-entitlement-more > summary::-webkit-details-marker {
@@ -1745,7 +1898,7 @@ html {
   }
 
   .osspm-identity-card {
-    @apply block rounded-lg border border-border/70 bg-card p-4 no-underline text-foreground transition-colors hover:border-border hover:bg-muted/20;
+    @apply block py-4 no-underline text-foreground transition-colors hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40;
   }
 
   .osspm-filter-summary {
@@ -1888,7 +2041,7 @@ html {
 
   .osspm-col-id-wide { width: 16rem; }
   .osspm-table-credentials { min-width: 0; }
-  .osspm-table-non-human-identities { min-width: 68rem; }
+  .osspm-table-non-human-identities { width: 100%; }
   .osspm-col-principal { width: 26rem; }
   .osspm-col-type { width: 8rem; }
   .osspm-col-owner { width: 10rem; }

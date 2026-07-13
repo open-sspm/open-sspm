@@ -512,13 +512,18 @@ func (h *Handlers) renderConnectorRow(c *echo.Context, kind string, data viewmod
 }
 
 func (h *Handlers) renderConnectorRowStatus(c *echo.Context, kind string, data viewmodels.ConnectorsViewData, status int) error {
+	kind = NormalizeConnectorKind(kind)
+	addVary(c, "HX-Target")
 	render := h.RenderComponent
 	if status != 0 && status != http.StatusOK {
 		render = func(c *echo.Context, component templ.Component) error {
 			return h.RenderComponentStatus(c, status, component)
 		}
 	}
-	switch NormalizeConnectorKind(kind) {
+	if isHXTarget(c, "connector-card-"+kind) {
+		return render(c, views.ConnectorMobileCardForKind(data, kind))
+	}
+	switch kind {
 	case configstore.KindOkta:
 		return render(c, views.OktaConnectorRow(data))
 	case configstore.KindGoogleWorkspace:

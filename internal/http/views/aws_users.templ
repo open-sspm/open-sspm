@@ -3,7 +3,7 @@ package views
 import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ AWSUserMobileRow(user viewmodels.AWSUserListItem) {
-	<article class="rounded-lg border border-border/70 bg-card p-4">
+	<article class="osspm-mobile-list-row">
 		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0">
 				<div class="font-medium" title={ user.DisplayName }>
@@ -19,7 +19,7 @@ templ AWSUserMobileRow(user viewmodels.AWSUserListItem) {
 		<div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
 			<div>
 				<div class="text-xs uppercase tracking-wide text-muted-foreground">AWS accounts</div>
-				<div><span class="badge-outline">{ FormatInt(user.AccountCount) }</span></div>
+				<div><span class="osspm-plain-value">{ FormatInt(user.AccountCount) }</span></div>
 			</div>
 			<div>
 				<div class="text-xs uppercase tracking-wide text-muted-foreground">Assignments</div>
@@ -99,7 +99,7 @@ templ AWSUsersPageResults(data viewmodels.AWSUsersViewData) {
 		<section class="space-y-3">
 			@ListSectionHeader("AWS Identity Center users", "AWS Identity Center users and their account assignments.")
 			if data.HasUsers {
-				<div class="space-y-3 lg:hidden">
+				<div class="osspm-mobile-list lg:hidden">
 					for _, u := range data.Users {
 						@AWSUserMobileRow(u)
 					}
@@ -141,7 +141,7 @@ templ AWSUsersPageResults(data viewmodels.AWSUsersViewData) {
 									</td>
 									<td>
 										<div class="space-y-1">
-											<span class="badge-outline">{ FormatInt(u.AccountCount) }</span>
+											<span class="osspm-plain-value">{ FormatInt(u.AccountCount) }</span>
 											<span class="block text-xs text-muted-foreground">{ FormatInt(u.AssignmentCount) }{ " assignments" }</span>
 										</div>
 									</td>

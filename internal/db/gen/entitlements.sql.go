@@ -11,6 +11,65 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countEntitlementAccessBySourceAndResourceRefQuery = `-- name: CountEntitlementAccessBySourceAndResourceRefQuery :one
+SELECT count(*)::bigint
+FROM entitlements e
+JOIN accounts au ON au.id = e.app_user_id
+LEFT JOIN identity_accounts ia ON ia.account_id = au.id
+LEFT JOIN identities i ON i.id = ia.identity_id
+WHERE au.source_kind = $1::text
+  AND au.source_name = $2::text
+  AND e.resource = $3::text
+  AND au.expired_at IS NULL
+  AND au.last_observed_run_id IS NOT NULL
+  AND e.expired_at IS NULL
+  AND e.last_observed_run_id IS NOT NULL
+  AND (
+    $4::text = ''
+    OR i.display_name ILIKE ('%' || $4::text || '%')
+    OR i.primary_email ILIKE ('%' || $4::text || '%')
+    OR au.display_name ILIKE ('%' || $4::text || '%')
+    OR au.email ILIKE ('%' || $4::text || '%')
+    OR au.external_id ILIKE ('%' || $4::text || '%')
+  )
+  AND ($5::text = '' OR lower(e.permission) = lower($5::text))
+  AND ($6::text = '' OR lower(e.kind) = lower($6::text))
+  AND (
+    $7::text = ''
+    OR ($7::text = 'anchored' AND i.id IS NOT NULL)
+    OR ($7::text = 'unlinked' AND i.id IS NULL)
+    OR lower(COALESCE(ia.link_reason, '')) = lower($7::text)
+  )
+  AND ($8::text = '' OR lower(COALESCE(i.identity_kind, '')) = lower($8::text))
+`
+
+type CountEntitlementAccessBySourceAndResourceRefQueryParams struct {
+	SourceKind   string `json:"source_kind"`
+	SourceName   string `json:"source_name"`
+	ResourceRef  string `json:"resource_ref"`
+	Query        string `json:"query"`
+	Permission   string `json:"permission"`
+	Kind         string `json:"kind"`
+	Link         string `json:"link"`
+	IdentityKind string `json:"identity_kind"`
+}
+
+func (q *Queries) CountEntitlementAccessBySourceAndResourceRefQuery(ctx context.Context, arg CountEntitlementAccessBySourceAndResourceRefQueryParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countEntitlementAccessBySourceAndResourceRefQuery,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.ResourceRef,
+		arg.Query,
+		arg.Permission,
+		arg.Kind,
+		arg.Link,
+		arg.IdentityKind,
+	)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countOktaAppAssignedAccountsFromEntitlementsByQuery = `-- name: CountOktaAppAssignedAccountsFromEntitlementsByQuery :one
 SELECT count(DISTINCT au.id)
 FROM entitlements e
@@ -62,7 +121,51 @@ func (q *Queries) CountOktaAppAssignedAccountsFromEntitlementsByQuery(ctx contex
 	return count, err
 }
 
-const listEntitlementAccessBySourceAndResourceRef = `-- name: ListEntitlementAccessBySourceAndResourceRef :many
+const getEntitlementAccessResourceSummary = `-- name: GetEntitlementAccessResourceSummary :one
+SELECT
+  count(*)::bigint AS entitlement_count,
+  count(DISTINCT au.id)::bigint AS account_count,
+  count(DISTINCT i.id)::bigint AS linked_identity_count,
+  COALESCE((array_agg(e.raw_json ORDER BY e.id))[1], '{}'::jsonb)::jsonb AS sample_entitlement_raw_json
+FROM entitlements e
+JOIN accounts au ON au.id = e.app_user_id
+LEFT JOIN identity_accounts ia ON ia.account_id = au.id
+LEFT JOIN identities i ON i.id = ia.identity_id
+WHERE au.source_kind = $1::text
+  AND au.source_name = $2::text
+  AND e.resource = $3::text
+  AND au.expired_at IS NULL
+  AND au.last_observed_run_id IS NOT NULL
+  AND e.expired_at IS NULL
+  AND e.last_observed_run_id IS NOT NULL
+`
+
+type GetEntitlementAccessResourceSummaryParams struct {
+	SourceKind  string `json:"source_kind"`
+	SourceName  string `json:"source_name"`
+	ResourceRef string `json:"resource_ref"`
+}
+
+type GetEntitlementAccessResourceSummaryRow struct {
+	EntitlementCount         int64  `json:"entitlement_count"`
+	AccountCount             int64  `json:"account_count"`
+	LinkedIdentityCount      int64  `json:"linked_identity_count"`
+	SampleEntitlementRawJson []byte `json:"sample_entitlement_raw_json"`
+}
+
+func (q *Queries) GetEntitlementAccessResourceSummary(ctx context.Context, arg GetEntitlementAccessResourceSummaryParams) (GetEntitlementAccessResourceSummaryRow, error) {
+	row := q.db.QueryRow(ctx, getEntitlementAccessResourceSummary, arg.SourceKind, arg.SourceName, arg.ResourceRef)
+	var i GetEntitlementAccessResourceSummaryRow
+	err := row.Scan(
+		&i.EntitlementCount,
+		&i.AccountCount,
+		&i.LinkedIdentityCount,
+		&i.SampleEntitlementRawJson,
+	)
+	return i, err
+}
+
+const listEntitlementAccessBySourceAndResourceRefPage = `-- name: ListEntitlementAccessBySourceAndResourceRefPage :many
 SELECT
   e.id AS entitlement_id,
   e.kind AS entitlement_kind,
@@ -82,7 +185,7 @@ SELECT
   i.id AS identity_id,
   i.primary_email AS identity_email,
   i.display_name AS identity_display_name,
-  i.kind AS identity_status
+  i.identity_kind AS identity_status
 FROM entitlements e
 JOIN accounts au ON au.id = e.app_user_id
 LEFT JOIN identity_accounts ia ON ia.account_id = au.id
@@ -94,16 +197,53 @@ WHERE au.source_kind = $1::text
   AND au.last_observed_run_id IS NOT NULL
   AND e.expired_at IS NULL
   AND e.last_observed_run_id IS NOT NULL
-ORDER BY i.primary_email, au.external_id, e.permission, e.id
+  AND (
+    $4::text = ''
+    OR i.display_name ILIKE ('%' || $4::text || '%')
+    OR i.primary_email ILIKE ('%' || $4::text || '%')
+    OR au.display_name ILIKE ('%' || $4::text || '%')
+    OR au.email ILIKE ('%' || $4::text || '%')
+    OR au.external_id ILIKE ('%' || $4::text || '%')
+  )
+  AND ($5::text = '' OR lower(e.permission) = lower($5::text))
+  AND ($6::text = '' OR lower(e.kind) = lower($6::text))
+  AND (
+    $7::text = ''
+    OR ($7::text = 'anchored' AND i.id IS NOT NULL)
+    OR ($7::text = 'unlinked' AND i.id IS NULL)
+    OR lower(COALESCE(ia.link_reason, '')) = lower($7::text)
+  )
+  AND ($8::text = '' OR lower(COALESCE(i.identity_kind, '')) = lower($8::text))
+ORDER BY
+  CASE WHEN $9::text = 'account' AND $10::text = 'asc' THEN lower(COALESCE(NULLIF(au.display_name, ''), NULLIF(au.email, ''), au.external_id)) END ASC,
+  CASE WHEN $9::text = 'account' AND $10::text = 'desc' THEN lower(COALESCE(NULLIF(au.display_name, ''), NULLIF(au.email, ''), au.external_id)) END DESC,
+  CASE WHEN $9::text = 'permission' AND $10::text = 'asc' THEN lower(e.permission) END ASC,
+  CASE WHEN $9::text = 'permission' AND $10::text = 'desc' THEN lower(e.permission) END DESC,
+  CASE WHEN $9::text = 'kind' AND $10::text = 'asc' THEN lower(e.kind) END ASC,
+  CASE WHEN $9::text = 'kind' AND $10::text = 'desc' THEN lower(e.kind) END DESC,
+  CASE WHEN $9::text = 'identity' AND $10::text = 'asc' THEN lower(COALESCE(NULLIF(i.display_name, ''), NULLIF(i.primary_email, ''), au.display_name, au.email, au.external_id)) END ASC,
+  CASE WHEN $9::text = 'identity' AND $10::text = 'desc' THEN lower(COALESCE(NULLIF(i.display_name, ''), NULLIF(i.primary_email, ''), au.display_name, au.email, au.external_id)) END DESC,
+  e.id
+LIMIT $12::int
+OFFSET $11::int
 `
 
-type ListEntitlementAccessBySourceAndResourceRefParams struct {
-	SourceKind  string `json:"source_kind"`
-	SourceName  string `json:"source_name"`
-	ResourceRef string `json:"resource_ref"`
+type ListEntitlementAccessBySourceAndResourceRefPageParams struct {
+	SourceKind   string `json:"source_kind"`
+	SourceName   string `json:"source_name"`
+	ResourceRef  string `json:"resource_ref"`
+	Query        string `json:"query"`
+	Permission   string `json:"permission"`
+	Kind         string `json:"kind"`
+	Link         string `json:"link"`
+	IdentityKind string `json:"identity_kind"`
+	SortBy       string `json:"sort_by"`
+	SortDir      string `json:"sort_dir"`
+	PageOffset   int32  `json:"page_offset"`
+	PageLimit    int32  `json:"page_limit"`
 }
 
-type ListEntitlementAccessBySourceAndResourceRefRow struct {
+type ListEntitlementAccessBySourceAndResourceRefPageRow struct {
 	EntitlementID         int64              `json:"entitlement_id"`
 	EntitlementKind       string             `json:"entitlement_kind"`
 	EntitlementResource   string             `json:"entitlement_resource"`
@@ -125,15 +265,28 @@ type ListEntitlementAccessBySourceAndResourceRefRow struct {
 	IdentityStatus        pgtype.Text        `json:"identity_status"`
 }
 
-func (q *Queries) ListEntitlementAccessBySourceAndResourceRef(ctx context.Context, arg ListEntitlementAccessBySourceAndResourceRefParams) ([]ListEntitlementAccessBySourceAndResourceRefRow, error) {
-	rows, err := q.db.Query(ctx, listEntitlementAccessBySourceAndResourceRef, arg.SourceKind, arg.SourceName, arg.ResourceRef)
+func (q *Queries) ListEntitlementAccessBySourceAndResourceRefPage(ctx context.Context, arg ListEntitlementAccessBySourceAndResourceRefPageParams) ([]ListEntitlementAccessBySourceAndResourceRefPageRow, error) {
+	rows, err := q.db.Query(ctx, listEntitlementAccessBySourceAndResourceRefPage,
+		arg.SourceKind,
+		arg.SourceName,
+		arg.ResourceRef,
+		arg.Query,
+		arg.Permission,
+		arg.Kind,
+		arg.Link,
+		arg.IdentityKind,
+		arg.SortBy,
+		arg.SortDir,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListEntitlementAccessBySourceAndResourceRefRow
+	var items []ListEntitlementAccessBySourceAndResourceRefPageRow
 	for rows.Next() {
-		var i ListEntitlementAccessBySourceAndResourceRefRow
+		var i ListEntitlementAccessBySourceAndResourceRefPageRow
 		if err := rows.Scan(
 			&i.EntitlementID,
 			&i.EntitlementKind,

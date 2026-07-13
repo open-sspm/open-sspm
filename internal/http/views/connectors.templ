@@ -50,15 +50,17 @@ templ connectorsPanel(data viewmodels.ConnectorsViewData, oob bool) {
 }
 
 templ connectorsTable(data viewmodels.ConnectorsViewData) {
+	{{ cfg := ConnectorsTableConfig() }}
+	@TableResults(cfg) {
+	@TableDesktop() {
 	<div class="overflow-x-auto">
 		<table class="table osspm-table-fixed osspm-table-compact osspm-table-list align-top">
+			@TableCaption(cfg.Caption)
 			<thead>
 				<tr>
-					<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Connector</th>
-					<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Configured</th>
-					<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Enabled</th>
-					<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Identity source</th>
-					<th class="text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Actions</th>
+					for _, column := range ConnectorsColumns() {
+						@TableColumnHeader(column, TableSortConfig{})
+					}
 				</tr>
 			</thead>
 			<tbody>
@@ -72,6 +74,76 @@ templ connectorsTable(data viewmodels.ConnectorsViewData) {
 			</tbody>
 		</table>
 	</div>
+	}
+	@TableMobile() {
+		<div class="space-y-3">
+		@ConnectorMobileCardForKind(data, "okta")
+		@ConnectorMobileCardForKind(data, "google_workspace")
+		@ConnectorMobileCardForKind(data, "entra")
+		@ConnectorMobileCardForKind(data, "github")
+		@ConnectorMobileCardForKind(data, "datadog")
+		@ConnectorMobileCardForKind(data, "aws_identity_center")
+		@ConnectorMobileCardForKind(data, "vault")
+		</div>
+	}
+	}
+}
+
+templ ConnectorMobileCardForKind(data viewmodels.ConnectorsViewData, kind string) {
+	if kind == configstore.KindOkta {
+		@ConnectorMobileCard(data, kind, "Okta", "Identity provider source for users and groups.", data.Okta.Configured, data.Okta.Enabled, true, data.Okta.Authoritative)
+	} else if kind == configstore.KindGoogleWorkspace {
+		@ConnectorMobileCard(data, kind, "Google Workspace", "Users, groups, OAuth grants, and token audits.", data.GoogleWorkspace.Configured, data.GoogleWorkspace.Enabled, false, false)
+	} else if kind == configstore.KindEntra {
+		@ConnectorMobileCard(data, kind, "Microsoft Entra ID", "Users and access via Microsoft Graph.", data.Entra.Configured, data.Entra.Enabled, true, data.Entra.Authoritative)
+	} else if kind == configstore.KindGitHub {
+		@ConnectorMobileCard(data, kind, "GitHub", "Organization membership, teams, and repo permissions.", data.GitHub.Configured, data.GitHub.Enabled, false, false)
+	} else if kind == configstore.KindDatadog {
+		@ConnectorMobileCard(data, kind, "Datadog", "Datadog users and roles for entitlement visibility.", data.Datadog.Configured, data.Datadog.Enabled, false, false)
+	} else if kind == configstore.KindAWSIdentityCenter {
+		@ConnectorMobileCard(data, kind, "AWS Identity Center", "AWS SSO users and account assignments.", data.AWSIdentityCenter.Configured, data.AWSIdentityCenter.Enabled, false, false)
+	} else if kind == configstore.KindVault {
+		@ConnectorMobileCard(data, kind, "Vault", "Identity entities, policies, mounts, and auth roles.", data.Vault.Configured, data.Vault.Enabled, false, false)
+	}
+}
+
+templ ConnectorMobileCard(data viewmodels.ConnectorsViewData, kind, name, description string, configured, enabled, authoritativeCapable, authoritative bool) {
+	{{ cardID := "connector-card-" + kind }}
+	{{ mutationAttrs := ScopedMutationAttrs(cardID, "input[type='checkbox']") }}
+	<article id={ cardID } class="rounded-lg border border-border/70 p-4">
+		<div class="flex items-start justify-between gap-3">
+			<div class="min-w-0">
+				<h3 class="font-medium">{ name }</h3>
+				<p class="mt-1 text-sm text-muted-foreground">{ description }</p>
+			</div>
+			if configured {
+				<span class="badge-outline">Configured</span>
+			} else {
+				<span class="badge-outline text-muted-foreground">Not configured</span>
+			}
+		</div>
+		<div class="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+			<form method="post" action={ "/settings/connectors/" + kind + "/toggle" } hx-post={ "/settings/connectors/" + kind + "/toggle" } hx-target="closest article" { mutationAttrs... }>
+				@CSRFInput(data.Layout.CSRFToken)
+				<label class="flex items-center gap-2 text-sm">
+					<input type="checkbox" role="switch" aria-label={ name + " connector" } name="enabled" value="true" checked?={ enabled } data-autosubmit="true" data-focus-key={ "connector-mobile-" + kind + "-enabled" } class="input"/>
+					<input type="hidden" name="enabled" value="false"/>
+					<span>Enabled</span>
+				</label>
+			</form>
+			if authoritativeCapable {
+				<form method="post" action={ "/settings/connectors/" + kind + "/authoritative" } hx-post={ "/settings/connectors/" + kind + "/authoritative" } hx-target="closest article" { mutationAttrs... }>
+					@CSRFInput(data.Layout.CSRFToken)
+					<label class="flex items-center gap-2 text-sm">
+						<input type="checkbox" role="switch" aria-label={ name + " authoritative identity source" } name="authoritative" value="true" checked?={ authoritative } data-autosubmit="true" data-focus-key={ "connector-mobile-" + kind + "-authoritative" } class="input"/>
+						<input type="hidden" name="authoritative" value="false"/>
+						<span>Authoritative IdP</span>
+					</label>
+				</form>
+			}
+			<a href={ "/settings/connectors?open=" + kind } hx-get={ "/settings/connectors/" + kind + "/dialog" } hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline ml-auto">Configure</a>
+		</div>
+	</article>
 }
 
 templ ConnectorDialog(data viewmodels.ConnectorsViewData, kind string, htmx bool, alert *viewmodels.ConnectorAlert) {

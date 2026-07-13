@@ -13,7 +13,6 @@ templ SettingsConnectorHealthPage(data viewmodels.ConnectorHealthViewData) {
 }
 
 templ SettingsConnectorHealthPanel(data viewmodels.ConnectorHealthViewData) {
-	{{ mutationAttrs := MutationFormAttrs() }}
 	<div id="connector-health-panel" class="space-y-3" hx-get="/settings/connector-health" hx-trigger={ events.BusTrigger(events.ConnectorHealthChanged) } hx-target="this" hx-sync="this:replace">
 		if data.ShowWarning && data.WarningMessage != "" {
 			@Alert("Attention required", data.WarningDestructive) {
@@ -21,24 +20,19 @@ templ SettingsConnectorHealthPanel(data viewmodels.ConnectorHealthViewData) {
 			}
 		}
 
-		<section class="space-y-3">
-			<div>
-				<h2 class="text-base font-semibold">Connector health</h2>
-				if data.SummaryLabel != "" {
-					<p class="text-sm text-muted-foreground">{ data.SummaryLabel }</p>
-				}
-			</div>
+		{{ cfg := ConnectorHealthTableConfig(data) }}
+		@TableFrame(cfg) {
+			@TableFrameBody() {
+			@TableResults(cfg) {
+			@TableDesktop() {
 			@ColumnsTable("") {
 			<table class="table osspm-table-compact osspm-table-list">
+				@TableCaption(cfg.Caption)
 				<thead>
 					<tr>
-						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Connector</th>
-						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Health</th>
-						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last success</th>
-						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last run</th>
-						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">{ data.LookbackLabel }{ " success" }</th>
-						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">{ data.LookbackLabel }{ " avg (success)" }</th>
-						<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground"></th>
+						for _, column := range ConnectorHealthColumns(data.LookbackLabel) {
+							@TableColumnHeader(column, TableSortConfig{})
+						}
 					</tr>
 				</thead>
 					<tbody>
@@ -74,7 +68,7 @@ templ SettingsConnectorHealthPanel(data viewmodels.ConnectorHealthViewData) {
 										{ item.LastRunLabel }
 									}
 								</td>
-								<td class="text-muted-foreground">
+								<td class="osspm-table-column-optional text-muted-foreground">
 									if len(item.Lanes) > 0 {
 										<div class="space-y-1">
 											for _, lane := range item.Lanes {
@@ -88,7 +82,7 @@ templ SettingsConnectorHealthPanel(data viewmodels.ConnectorHealthViewData) {
 										{ item.SuccessRate7d }
 									}
 								</td>
-								<td class="text-muted-foreground">
+								<td class="osspm-table-column-optional text-muted-foreground">
 									if len(item.Lanes) > 0 {
 										<div class="space-y-1">
 											for _, lane := range item.Lanes {
@@ -103,65 +97,65 @@ templ SettingsConnectorHealthPanel(data viewmodels.ConnectorHealthViewData) {
 									}
 								</td>
 								<td class="text-right">
-									<div class="dropdown-menu">
-										<button
-											type="button"
-											id={ "connector-health-actions-" + FormatInt(idx) + "-trigger" }
-											aria-haspopup="menu"
-											aria-controls={ "connector-health-actions-" + FormatInt(idx) + "-menu" }
-											aria-expanded="false"
-											class="btn-icon-ghost cursor-pointer"
-											aria-label={ "Actions for " + item.Name }
-											disabled?={ !item.CanViewDetails && !item.CanTriggerSync }
-										>
-											@IconEllipsis("size-4 text-muted-foreground")
-										</button>
-										<div data-popover data-side="bottom" data-align="end" aria-hidden="true" class="min-w-56">
-											<div role="menu" id={ "connector-health-actions-" + FormatInt(idx) + "-menu" } aria-labelledby={ "connector-health-actions-" + FormatInt(idx) + "-trigger" }>
-												if item.CanViewDetails {
-													<button
-														type="button"
-														role="menuitem"
-														class="cursor-pointer"
-														hx-get={ item.DetailsURL }
-														hx-target="#connector-health-error-details-host"
-														hx-swap="innerHTML"
-													>
-														@IconCircleAlert("size-4 text-muted-foreground")
-														View errors
-													</button>
-												} else {
-													<div role="menuitem" aria-disabled="true">
-														@IconCircleAlert("size-4 text-muted-foreground")
-														View errors
-													</div>
-												}
-												if item.CanTriggerSync {
-											<form method="post" action="/settings/connector-health/sync" hx-post="/settings/connector-health/sync" hx-target="#connector-health-panel" { mutationAttrs... }>
-														@CSRFInput(data.Layout.CSRFToken)
-														<input type="hidden" name="connector_kind" value={ item.Kind }/>
-														<input type="hidden" name="source_name" value={ item.SourceName }/>
-														<button type="submit" role="menuitem" class="cursor-pointer">
-															@IconRefreshCw("size-4 text-muted-foreground")
-															Trigger sync
-														</button>
-													</form>
-												} else {
-													<div role="menuitem" aria-disabled="true">
-														@IconRefreshCw("size-4 text-muted-foreground")
-														Trigger sync
-													</div>
-												}
-											</div>
-										</div>
-									</div>
+									@ConnectorHealthActions(data, item, idx, "desktop")
 								</td>
 							</tr>
 						}
 					</tbody>
 			</table>
 			}
-			</section>
+			}
+			@TableMobile() {
+				for idx, item := range data.Items {
+					<article class="osspm-mobile-list-row">
+						<div class="flex items-start justify-between gap-3">
+							<div><h3 class="font-medium">{ item.Name }</h3><span class={ item.StatusClass }>{ item.StatusLabel }</span></div>
+							@ConnectorHealthActions(data, item, idx, "mobile")
+						</div>
+						if len(item.Lanes) > 0 {
+							<div class="mt-4 space-y-3">
+								for _, lane := range item.Lanes {
+									<div class="border-l border-border/70 pl-3 text-sm">
+										<div class="font-medium">{ lane.Label }</div>
+										<dl class="mt-2 grid grid-cols-2 gap-2 text-muted-foreground"><div><dt class="text-xs">Last success</dt><dd>{ lane.LastSuccess }</dd></div><div><dt class="text-xs">Last run</dt><dd>{ lane.LastRun }</dd></div><div><dt class="text-xs">Success</dt><dd>{ lane.SuccessRate }</dd></div><div><dt class="text-xs">Average</dt><dd>{ lane.AvgDuration }</dd></div></dl>
+									</div>
+								}
+							</div>
+						} else {
+							<dl class="mt-4 grid grid-cols-2 gap-3 text-sm text-muted-foreground"><div><dt class="text-xs">Last success</dt><dd>{ item.LastSuccessLabel }</dd></div><div><dt class="text-xs">Last run</dt><dd>{ item.LastRunLabel }</dd></div><div><dt class="text-xs">{ data.LookbackLabel }{ " success" }</dt><dd>{ item.SuccessRate7d }</dd></div><div><dt class="text-xs">Average duration</dt><dd>{ item.AvgDuration7d }</dd></div></dl>
+						}
+					</article>
+				}
+			}
+			}
+			}
+		}
+	</div>
+}
+
+templ ConnectorHealthActions(data viewmodels.ConnectorHealthViewData, item viewmodels.ConnectorHealthItem, idx int, prefix string) {
+	{{ mutationAttrs := MutationFormAttrs() }}
+	{{ menuID := "connector-health-actions-" + prefix + "-" + FormatInt(idx) }}
+	<div class="dropdown-menu">
+		<button type="button" id={ menuID + "-trigger" } aria-haspopup="menu" aria-controls={ menuID + "-menu" } aria-expanded="false" class="btn-icon-ghost cursor-pointer" aria-label={ "Actions for " + item.Name } disabled?={ !item.CanViewDetails && !item.CanTriggerSync }>@IconEllipsis("size-4 text-muted-foreground")</button>
+		<div data-popover data-side="bottom" data-align="end" aria-hidden="true" class="min-w-56">
+			<div role="menu" id={ menuID + "-menu" } aria-labelledby={ menuID + "-trigger" }>
+				if item.CanViewDetails {
+					<button type="button" role="menuitem" class="cursor-pointer" hx-get={ item.DetailsURL } hx-target="#connector-health-error-details-host" hx-swap="innerHTML">@IconCircleAlert("size-4 text-muted-foreground") View errors</button>
+				} else {
+					<div role="menuitem" aria-disabled="true">@IconCircleAlert("size-4 text-muted-foreground") View errors</div>
+				}
+				if item.CanTriggerSync {
+					<form method="post" action="/settings/connector-health/sync" hx-post="/settings/connector-health/sync" hx-target="#connector-health-panel" { mutationAttrs... }>
+						@CSRFInput(data.Layout.CSRFToken)
+						<input type="hidden" name="connector_kind" value={ item.Kind }/><input type="hidden" name="source_name" value={ item.SourceName }/>
+						<button type="submit" role="menuitem" class="cursor-pointer">@IconRefreshCw("size-4 text-muted-foreground") Trigger sync</button>
+					</form>
+				} else {
+					<div role="menuitem" aria-disabled="true">@IconRefreshCw("size-4 text-muted-foreground") Trigger sync</div>
+				}
+			</div>
+		</div>
 	</div>
 }
 

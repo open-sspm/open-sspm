@@ -76,7 +76,56 @@ WHERE app_user_id = ANY(sqlc.arg(account_ids)::bigint[])
   AND last_observed_run_id IS NOT NULL
 ORDER BY app_user_id, id;
 
--- name: ListEntitlementAccessBySourceAndResourceRef :many
+-- name: GetEntitlementAccessResourceSummary :one
+SELECT
+  count(*)::bigint AS entitlement_count,
+  count(DISTINCT au.id)::bigint AS account_count,
+  count(DISTINCT i.id)::bigint AS linked_identity_count,
+  COALESCE((array_agg(e.raw_json ORDER BY e.id))[1], '{}'::jsonb)::jsonb AS sample_entitlement_raw_json
+FROM entitlements e
+JOIN accounts au ON au.id = e.app_user_id
+LEFT JOIN identity_accounts ia ON ia.account_id = au.id
+LEFT JOIN identities i ON i.id = ia.identity_id
+WHERE au.source_kind = sqlc.arg(source_kind)::text
+  AND au.source_name = sqlc.arg(source_name)::text
+  AND e.resource = sqlc.arg(resource_ref)::text
+  AND au.expired_at IS NULL
+  AND au.last_observed_run_id IS NOT NULL
+  AND e.expired_at IS NULL
+  AND e.last_observed_run_id IS NOT NULL;
+
+-- name: CountEntitlementAccessBySourceAndResourceRefQuery :one
+SELECT count(*)::bigint
+FROM entitlements e
+JOIN accounts au ON au.id = e.app_user_id
+LEFT JOIN identity_accounts ia ON ia.account_id = au.id
+LEFT JOIN identities i ON i.id = ia.identity_id
+WHERE au.source_kind = sqlc.arg(source_kind)::text
+  AND au.source_name = sqlc.arg(source_name)::text
+  AND e.resource = sqlc.arg(resource_ref)::text
+  AND au.expired_at IS NULL
+  AND au.last_observed_run_id IS NOT NULL
+  AND e.expired_at IS NULL
+  AND e.last_observed_run_id IS NOT NULL
+  AND (
+    sqlc.arg(query)::text = ''
+    OR i.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR i.primary_email ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR au.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR au.email ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR au.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+  )
+  AND (sqlc.arg(permission)::text = '' OR lower(e.permission) = lower(sqlc.arg(permission)::text))
+  AND (sqlc.arg(kind)::text = '' OR lower(e.kind) = lower(sqlc.arg(kind)::text))
+  AND (
+    sqlc.arg(link)::text = ''
+    OR (sqlc.arg(link)::text = 'anchored' AND i.id IS NOT NULL)
+    OR (sqlc.arg(link)::text = 'unlinked' AND i.id IS NULL)
+    OR lower(COALESCE(ia.link_reason, '')) = lower(sqlc.arg(link)::text)
+  )
+  AND (sqlc.arg(identity_kind)::text = '' OR lower(COALESCE(i.identity_kind, '')) = lower(sqlc.arg(identity_kind)::text));
+
+-- name: ListEntitlementAccessBySourceAndResourceRefPage :many
 SELECT
   e.id AS entitlement_id,
   e.kind AS entitlement_kind,
@@ -96,7 +145,7 @@ SELECT
   i.id AS identity_id,
   i.primary_email AS identity_email,
   i.display_name AS identity_display_name,
-  i.kind AS identity_status
+  i.identity_kind AS identity_status
 FROM entitlements e
 JOIN accounts au ON au.id = e.app_user_id
 LEFT JOIN identity_accounts ia ON ia.account_id = au.id
@@ -108,7 +157,35 @@ WHERE au.source_kind = sqlc.arg(source_kind)::text
   AND au.last_observed_run_id IS NOT NULL
   AND e.expired_at IS NULL
   AND e.last_observed_run_id IS NOT NULL
-ORDER BY i.primary_email, au.external_id, e.permission, e.id;
+  AND (
+    sqlc.arg(query)::text = ''
+    OR i.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR i.primary_email ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR au.display_name ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR au.email ILIKE ('%' || sqlc.arg(query)::text || '%')
+    OR au.external_id ILIKE ('%' || sqlc.arg(query)::text || '%')
+  )
+  AND (sqlc.arg(permission)::text = '' OR lower(e.permission) = lower(sqlc.arg(permission)::text))
+  AND (sqlc.arg(kind)::text = '' OR lower(e.kind) = lower(sqlc.arg(kind)::text))
+  AND (
+    sqlc.arg(link)::text = ''
+    OR (sqlc.arg(link)::text = 'anchored' AND i.id IS NOT NULL)
+    OR (sqlc.arg(link)::text = 'unlinked' AND i.id IS NULL)
+    OR lower(COALESCE(ia.link_reason, '')) = lower(sqlc.arg(link)::text)
+  )
+  AND (sqlc.arg(identity_kind)::text = '' OR lower(COALESCE(i.identity_kind, '')) = lower(sqlc.arg(identity_kind)::text))
+ORDER BY
+  CASE WHEN sqlc.arg(sort_by)::text = 'account' AND sqlc.arg(sort_dir)::text = 'asc' THEN lower(COALESCE(NULLIF(au.display_name, ''), NULLIF(au.email, ''), au.external_id)) END ASC,
+  CASE WHEN sqlc.arg(sort_by)::text = 'account' AND sqlc.arg(sort_dir)::text = 'desc' THEN lower(COALESCE(NULLIF(au.display_name, ''), NULLIF(au.email, ''), au.external_id)) END DESC,
+  CASE WHEN sqlc.arg(sort_by)::text = 'permission' AND sqlc.arg(sort_dir)::text = 'asc' THEN lower(e.permission) END ASC,
+  CASE WHEN sqlc.arg(sort_by)::text = 'permission' AND sqlc.arg(sort_dir)::text = 'desc' THEN lower(e.permission) END DESC,
+  CASE WHEN sqlc.arg(sort_by)::text = 'kind' AND sqlc.arg(sort_dir)::text = 'asc' THEN lower(e.kind) END ASC,
+  CASE WHEN sqlc.arg(sort_by)::text = 'kind' AND sqlc.arg(sort_dir)::text = 'desc' THEN lower(e.kind) END DESC,
+  CASE WHEN sqlc.arg(sort_by)::text = 'identity' AND sqlc.arg(sort_dir)::text = 'asc' THEN lower(COALESCE(NULLIF(i.display_name, ''), NULLIF(i.primary_email, ''), au.display_name, au.email, au.external_id)) END ASC,
+  CASE WHEN sqlc.arg(sort_by)::text = 'identity' AND sqlc.arg(sort_dir)::text = 'desc' THEN lower(COALESCE(NULLIF(i.display_name, ''), NULLIF(i.primary_email, ''), au.display_name, au.email, au.external_id)) END DESC,
+  e.id
+LIMIT sqlc.arg(page_limit)::int
+OFFSET sqlc.arg(page_offset)::int;
 
 -- name: CountOktaAppAssignedAccountsFromEntitlementsByQuery :one
 SELECT count(DISTINCT au.id)

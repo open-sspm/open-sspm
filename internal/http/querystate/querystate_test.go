@@ -70,6 +70,55 @@ func TestParseIdentitiesQuery(t *testing.T) {
 	})
 }
 
+func TestResourceAccessQuery(t *testing.T) {
+	query := ParseResourceAccessQuery("/resources/github/acme/repository/api", url.Values{
+		"q":             {"", " alice "},
+		"permission":    {"ADMIN"},
+		"kind":          {"repository_permission"},
+		"link":          {"needs_anchor"},
+		"identity_kind": {"HUMAN"},
+		"sort_by":       {"account"},
+		"page":          {"2"},
+	})
+
+	if query.Q != "alice" || query.Link != "unlinked" || query.IdentityKind != "human" || query.SortDir != "asc" || query.Page != 2 {
+		t.Fatalf("query = %#v", query)
+	}
+	want := "/resources/github/acme/repository/api?identity_kind=human&kind=repository_permission&link=unlinked&page=2&permission=ADMIN&q=alice&sort_by=account"
+	if query.Href() != want {
+		t.Fatalf("href = %q, want %q", query.Href(), want)
+	}
+	if got := query.WithPage(0); got.Page != 1 {
+		t.Fatalf("WithPage(0) = %#v", got)
+	}
+	if query.FilterCount() != 4 {
+		t.Fatalf("FilterCount() = %d", query.FilterCount())
+	}
+	if got := query.WithSort("permission", "desc"); got.SortBy != "permission" || got.SortDir != "desc" || got.Page != 1 {
+		t.Fatalf("WithSort() = %#v", got)
+	}
+}
+
+func TestFindingsRulesQuery(t *testing.T) {
+	query := ParseFindingsRulesQuery("/findings/rulesets/core", url.Values{
+		"q":          {" MFA "},
+		"status":     {"NOT-APPLICABLE"},
+		"severity":   {"HIGH"},
+		"monitoring": {"invalid"},
+	})
+
+	if query.Q != "MFA" || query.Status != "not_applicable" || query.Severity != "high" || query.Monitoring != "" {
+		t.Fatalf("query = %#v", query)
+	}
+	want := "/findings/rulesets/core?q=MFA&severity=high&status=not_applicable"
+	if query.Href() != want {
+		t.Fatalf("href = %q, want %q", query.Href(), want)
+	}
+	if query.FilterCount() != 2 {
+		t.Fatalf("FilterCount() = %d", query.FilterCount())
+	}
+}
+
 func TestIdentitiesQueryMutations(t *testing.T) {
 	query := IdentitiesQuery{
 		Q:              "alice",

@@ -47,11 +47,9 @@ templ NonHumanIdentitiesFiltersForm(data viewmodels.NonHumanIdentitiesViewData) 
 }
 
 templ NonHumanIdentitiesInventoryResults(data viewmodels.NonHumanIdentitiesViewData) {
-	<div id="non-human-identities-inventory" class="space-y-6">
-		@BusyInlineIndicator("Updating results...", false)
-		<section class="space-y-3">
-			if data.HasItems {
-				<div class="space-y-3 lg:hidden">
+	{{ cfg := NonHumanIdentitiesTableConfig(data) }}
+	@TableResults(cfg) {
+		@TableMobile() {
 					for _, item := range data.Items {
 						<a href={ templ.SafeURL("/non-human-identities/" + item.PrincipalRef) } class="osspm-identity-card">
 							<div class="flex items-start justify-between gap-3">
@@ -92,11 +90,12 @@ templ NonHumanIdentitiesInventoryResults(data viewmodels.NonHumanIdentitiesViewD
 							</dl>
 						</a>
 					}
-				</div>
+		}
 
-				@ColumnsTable("hidden lg:block") {
+		@TableDesktop() {
+			@ColumnsTable("") {
 					<table class="table osspm-table-fixed osspm-table-compact osspm-table-list osspm-table-non-human-identities">
-						<caption class="sr-only">Non-human principals with ownership, credential risk, and activity.</caption>
+						@TableCaption(cfg.Caption)
 						<colgroup>
 							<col class="osspm-col-principal"/>
 							<col class="osspm-col-owner"/>
@@ -106,11 +105,9 @@ templ NonHumanIdentitiesInventoryResults(data viewmodels.NonHumanIdentitiesViewD
 						</colgroup>
 						<thead>
 							<tr>
-								<th>Principal</th>
-								<th>Owner</th>
-								<th>Risk</th>
-								<th>Activity</th>
-								<th class="osspm-num">Links</th>
+								for _, column := range NonHumanIdentitiesColumns() {
+									@TableColumnHeader(column, TableSortConfig{})
+								}
 							</tr>
 						</thead>
 						<tbody>
@@ -159,7 +156,7 @@ templ NonHumanIdentitiesInventoryResults(data viewmodels.NonHumanIdentitiesViewD
 												</span>
 											}
 									</td>
-									<td class="osspm-num">
+									<td class="osspm-table-column-optional osspm-num">
 										<span class="font-medium tabular-nums">{ FormatInt64(item.LinkedAssetsCount) }</span>
 										<span class="osspm-cell-secondary">{ FormatInt64(item.LinkedCredentialsCount) }{ " creds" }</span>
 									</td>
@@ -168,27 +165,6 @@ templ NonHumanIdentitiesInventoryResults(data viewmodels.NonHumanIdentitiesViewD
 						</tbody>
 					</table>
 				}
-			} else {
-				@EmptyState("No non-human identities", data.EmptyStateMsg)
 			}
-		</section>
-
-			if data.TotalPages > 1 {
-					<div class="osspm-list-pagination-split">
-					<p class="text-sm text-muted-foreground">Page { FormatInt(data.Page) }{ " of " }{ FormatInt(data.TotalPages) }</p>
-					<div class="flex items-center gap-2">
-						if data.Page > 1 {
-							<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page-1).Href() } hx-get={ data.Query.WithPage(data.Page-1).Href() } hx-target="#non-human-identities-inventory" hx-swap="outerHTML show:top" hx-push-url="true">Previous</a>
-						} else {
-							<span class="btn-sm-outline opacity-50" aria-disabled="true">Previous</span>
-						}
-						if data.Page < data.TotalPages {
-							<a class="btn-sm-outline" href={ data.Query.WithPage(data.Page+1).Href() } hx-get={ data.Query.WithPage(data.Page+1).Href() } hx-target="#non-human-identities-inventory" hx-swap="outerHTML show:top" hx-push-url="true">Next</a>
-						} else {
-							<span class="btn-sm-outline opacity-50" aria-disabled="true">Next</span>
-						}
-					</div>
-			</div>
-		}
-	</div>
+}
 }

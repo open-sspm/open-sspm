@@ -3,7 +3,7 @@ package views
 import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ GitHubUserMobileRow(user viewmodels.GitHubUserListItem) {
-	<article class="rounded-lg border border-border/70 bg-card p-4">
+	<article class="osspm-mobile-list-row">
 		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0">
 					<div class="font-medium break-all" hx-disable>{ user.ExternalID }</div>
@@ -89,7 +89,7 @@ templ GitHubUsersPageResults(data viewmodels.GitHubUsersViewData) {
 		<section class="space-y-3">
 			@ListSectionHeader("GitHub users", "GitHub accounts synced from your organization.")
 			if data.HasUsers {
-				<div class="space-y-3 lg:hidden">
+				<div class="osspm-mobile-list lg:hidden">
 					for _, u := range data.Users {
 						@GitHubUserMobileRow(u)
 					}

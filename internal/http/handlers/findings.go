@@ -17,6 +17,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/connectorui"
 	"github.com/open-sspm/open-sspm/internal/http/events"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
@@ -116,6 +117,7 @@ func (h *Handlers) HandleFindingsRuleset(c *echo.Context) error {
 	}
 
 	if isHX(c) && isHXTarget(c, "rules-card") {
+		c.Response().Header().Set("HX-Replace-Url", data.Query.Href())
 		return h.RenderComponent(c, views.FindingsRulesetRulesCard(data))
 	}
 	return h.RenderComponent(c, views.FindingsRulesetPage(data))
@@ -142,9 +144,10 @@ func (h *Handlers) buildFindingsRulesetViewData(ctx context.Context, c *echo.Con
 		return viewmodels.FindingsRulesetViewData{}, err
 	}
 
-	statusFilter := normalizeRuleStatusFilter(c.QueryParam("status"))
-	severityFilter := normalizeSeverityFilter(c.QueryParam("severity"))
-	monitoringFilter := normalizeMonitoringFilter(c.QueryParam("monitoring"))
+	rulesQuery := querystate.ParseFindingsRulesQuery(c.Request().URL.Path, c.QueryParams())
+	statusFilter := rulesQuery.Status
+	severityFilter := rulesQuery.Severity
+	monitoringFilter := rulesQuery.Monitoring
 
 	ruleRows, err := h.Q.ListFindingRulesetCurrentByRulesetKey(ctx, gen.ListFindingRulesetCurrentByRulesetKeyParams{
 		ScopeKind:  scope.ScopeKind,
@@ -181,6 +184,12 @@ func (h *Handlers) buildFindingsRulesetViewData(ctx context.Context, c *echo.Con
 		}
 		if monitoringFilter != "" && strings.ToLower(strings.TrimSpace(item.MonitoringStatus)) != monitoringFilter {
 			continue
+		}
+		if needle := strings.ToLower(strings.TrimSpace(rulesQuery.Q)); needle != "" {
+			haystack := strings.ToLower(strings.Join([]string{item.Key, item.Title, item.Summary, item.EvidenceSummary}, " "))
+			if !strings.Contains(haystack, needle) {
+				continue
+			}
 		}
 
 		items = append(items, item)
@@ -220,6 +229,7 @@ func (h *Handlers) buildFindingsRulesetViewData(ctx context.Context, c *echo.Con
 		StatusFilter:      statusFilter,
 		SeverityFilter:    severityFilter,
 		MonitoringFilter:  monitoringFilter,
+		Query:             rulesQuery,
 		Rules:             items,
 		HasRules:          len(items) > 0,
 		Alert:             alert,

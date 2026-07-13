@@ -1,5 +1,7 @@
 package viewmodels
 
+import "github.com/open-sspm/open-sspm/internal/http/querystate"
+
 type FindingsRulesetViewData struct {
 	Layout LayoutData
 
@@ -14,6 +16,7 @@ type FindingsRulesetViewData struct {
 	StatusFilter     string
 	SeverityFilter   string
 	MonitoringFilter string
+	Query            querystate.FindingsRulesQuery
 
 	Rules    []FindingsRuleItem
 	HasRules bool

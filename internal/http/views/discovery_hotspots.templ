@@ -84,7 +84,7 @@ templ DiscoveryHotspotsPageResults(data viewmodels.DiscoveryHotspotsViewData) {
 													<div class="text-xs text-muted-foreground" hx-disable>{ "Review: " }{ item.ReviewOwner }</div>
 												}
 										</td>
-										<td><span class="badge-outline">{ FormatInt64(item.Actors30d) }</span></td>
+										<td><span class="osspm-plain-value">{ FormatInt64(item.Actors30d) }</span></td>
 									</tr>
 								}
 							} else {
