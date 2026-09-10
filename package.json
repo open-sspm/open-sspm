@@ -19,7 +19,7 @@
     "jsdom": "^29.1.1",
     "tailwindcss": "^4.3.2",
     "vitepress": "^1.6.4",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "dependencies": {
     "htmx-ext-sse": "^2.2.4",
