@@ -52,17 +52,29 @@ export const initAskbar = (el) => {
   const doc = el.ownerDocument;
   const win = doc.defaultView || window;
   const form = el.closest("form");
+  const bar = el.querySelector("[data-osspm-askbar-bar]");
   const chipHost = el.querySelector("[data-osspm-askbar-chips]");
   const searchInput = el.querySelector("[data-osspm-askbar-input]");
+  const clearSearch = el.querySelector("[data-osspm-askbar-clear]");
   const addFilter = el.querySelector("[data-osspm-askbar-add-filter]");
   const panel = el.querySelector("[data-osspm-askbar-filter-panel]");
   const filterInput = el.querySelector("[data-osspm-askbar-filter-input]");
+  const filterGroups = el.querySelector("[data-osspm-askbar-filter-groups]");
+  const filterSearchWrap = el.querySelector("[data-osspm-askbar-filter-search-wrap]");
+  const filterBack = el.querySelector("[data-osspm-askbar-filter-back]");
+  const filterClose = el.querySelector("[data-osspm-askbar-filter-close]");
+  const filterTitle = el.querySelector("[data-osspm-askbar-filter-title]");
   const suggestions = el.querySelector("[data-osspm-askbar-suggest]");
+  const chipRemoveTemplate = el.querySelector("[data-osspm-askbar-chip-remove-template]");
   const bank = el.querySelector("[data-osspm-askbar-bank]");
 
   if (!(chipHost instanceof HTMLElement)) return () => {};
   if (!(searchInput instanceof HTMLInputElement)) return () => {};
   if (!(bank instanceof HTMLElement)) return () => {};
+
+  if (form instanceof HTMLFormElement && searchInput.name && !form.dataset.enterOnlyQuery) {
+    form.dataset.enterOnlyQuery = searchInput.name;
+  }
 
   const singletonFields = new Set(cfg.singletonFields);
   const staticHidden = Array.isArray(cfg.staticHidden) ? cfg.staticHidden : [];
@@ -82,7 +94,13 @@ export const initAskbar = (el) => {
     name: node.name,
     value: node.value,
   }));
-  const state = { chips: readInitialChips(chipHost), extraHidden: [] };
+  const state = {
+    chips: readInitialChips(chipHost),
+    extraHidden: [],
+    activeOptionIndex: 0,
+    filterMode: filterGroups instanceof HTMLElement ? "groups" : "suggestions",
+    filterLabel: "",
+  };
   let requestTimer = 0;
   let requestController = null;
   let requestSequence = 0;
@@ -197,11 +215,22 @@ export const initAskbar = (el) => {
       remove.dataset.osspmAskbarChipRemove = "";
       remove.dataset.chipIndex = String(index);
       remove.setAttribute("aria-label", `Remove ${chip.label}`);
-      remove.textContent = "×";
+      if (chipRemoveTemplate instanceof HTMLTemplateElement) {
+        remove.append(chipRemoveTemplate.content.cloneNode(true));
+      }
       wrapper.append(remove);
       chipHost.append(wrapper);
     });
+    if (bar instanceof HTMLElement) {
+      bar.dataset.hasChips = state.chips.length > 0 ? "true" : "false";
+    }
     syncBank();
+  };
+
+  const syncSearchUI = () => {
+    if (clearSearch instanceof HTMLButtonElement) {
+      clearSearch.hidden = searchInput.value === "";
+    }
   };
 
   const submit = () => {
@@ -209,21 +238,103 @@ export const initAskbar = (el) => {
     if (form instanceof HTMLFormElement && !hasHtmxBehavior) form.requestSubmit();
   };
 
+  const cancelSuggestions = () => {
+    win.clearTimeout(requestTimer);
+    requestSequence++;
+    if (requestController) requestController.abort();
+    requestController = null;
+    suggestions?.removeAttribute("aria-busy");
+  };
+
   const closePanel = ({ restoreFocus = false } = {}) => {
     if (!(panel instanceof HTMLElement)) return;
     panel.hidden = true;
     addFilter?.setAttribute("aria-expanded", "false");
-    if (requestController) requestController.abort();
+    filterInput?.setAttribute("aria-expanded", "false");
+    filterInput?.removeAttribute("aria-activedescendant");
+    cancelSuggestions();
     if (restoreFocus && addFilter instanceof HTMLElement) addFilter.focus();
+  };
+
+  const filterOptions = () => {
+    const host = state.filterMode === "groups" ? filterGroups : suggestions;
+    if (!(host instanceof HTMLElement) || host.hidden) return [];
+    return Array.from(
+      host.querySelectorAll("[data-osspm-askbar-filter-group], [data-field][data-value]"),
+    ).filter((option) => option instanceof HTMLButtonElement && !option.disabled);
+  };
+
+  const setActiveOption = (index) => {
+    filterInput?.removeAttribute("aria-activedescendant");
+    const options = filterOptions();
+    if (options.length === 0) {
+      state.activeOptionIndex = 0;
+      return;
+    }
+    const nextIndex = ((index % options.length) + options.length) % options.length;
+    state.activeOptionIndex = nextIndex;
+    options.forEach((option, optionIndex) => {
+      const active = optionIndex === nextIndex;
+      option.classList.toggle("is-hl", active);
+      option.setAttribute("aria-selected", active ? "true" : "false");
+      option.tabIndex = state.filterMode === "groups" && active ? 0 : -1;
+      if (state.filterMode === "suggestions") {
+        option.id = `${suggestions.id}-option-${optionIndex}`;
+        if (active) filterInput?.setAttribute("aria-activedescendant", option.id);
+      }
+    });
+  };
+
+  const showFilterGroups = ({ clearInput = true } = {}) => {
+    if (!(filterGroups instanceof HTMLElement)) return false;
+    cancelSuggestions();
+    state.filterMode = "groups";
+    state.filterLabel = "";
+    filterInput?.setAttribute("aria-expanded", "false");
+    filterGroups.hidden = false;
+    if (suggestions instanceof HTMLElement) suggestions.hidden = true;
+    if (filterSearchWrap instanceof HTMLElement) filterSearchWrap.hidden = true;
+    if (filterBack instanceof HTMLButtonElement) filterBack.hidden = true;
+    if (filterTitle instanceof HTMLElement) {
+      filterTitle.textContent = filterTitle.dataset.defaultTitle || "Suggested filters";
+    }
+    if (clearInput && filterInput instanceof HTMLInputElement) filterInput.value = "";
+    setActiveOption(0);
+    filterOptions()[0]?.focus();
+    return true;
+  };
+
+  const showSuggestionResults = ({ label = "" } = {}) => {
+    state.filterMode = "suggestions";
+    state.filterLabel = label;
+    filterInput?.setAttribute("aria-expanded", "true");
+    if (filterGroups instanceof HTMLElement) filterGroups.hidden = true;
+    if (suggestions instanceof HTMLElement) suggestions.hidden = false;
+    if (filterSearchWrap instanceof HTMLElement) filterSearchWrap.hidden = false;
+    if (filterBack instanceof HTMLButtonElement) {
+      filterBack.hidden = !(filterGroups instanceof HTMLElement);
+    }
+    if (filterTitle instanceof HTMLElement) {
+      filterTitle.textContent = label ? `Choose ${label}` : "Filter results";
+    }
+    if (filterInput instanceof HTMLInputElement) {
+      filterInput.placeholder = label ? `Find a ${label.toLowerCase()} value…` : "Find a filter or value…";
+    }
+    state.activeOptionIndex = 0;
   };
 
   const localSuggestions = (query) => {
     if (!(suggestions instanceof HTMLElement)) return;
     const normalized = query.trim().toLowerCase();
+    const colonIndex = normalized.indexOf(":");
+    const alias = colonIndex >= 0 ? normalized.slice(0, colonIndex).trim() : "";
+    const scopedField = alias ? cfg.fieldAliases[alias] || "" : "";
+    const valueQuery = colonIndex >= 0 ? normalized.slice(colonIndex + 1).trim() : normalized;
     const unique = new Map();
     Object.values(cfg.keywordTokens).forEach((token) => {
+      if (scopedField && token.field !== scopedField) return;
       const haystack = `${token.label} ${cfg.fieldLabel[token.field] || ""}`.toLowerCase();
-      if (normalized && !haystack.includes(normalized)) return;
+      if (valueQuery && !haystack.includes(valueQuery)) return;
       unique.set(`${token.field}\u0000${token.value}`, token);
     });
     suggestions.replaceChildren();
@@ -235,36 +346,42 @@ export const initAskbar = (el) => {
       button.dataset.value = token.value;
       button.dataset.label = token.label;
       button.dataset.tone = token.tone || "";
+      button.setAttribute("role", "option");
+      button.setAttribute("aria-selected", "false");
       button.textContent = `${cfg.fieldLabel[token.field] || token.field} ${token.label}`;
       suggestions.append(button);
     });
+    setActiveOption(0);
   };
 
   const loadSuggestions = (query = "") => {
     if (!(suggestions instanceof HTMLElement)) return;
-    win.clearTimeout(requestTimer);
+    cancelSuggestions();
+    filterInput?.removeAttribute("aria-activedescendant");
+    suggestions.replaceChildren();
     if (!cfg.suggestEndpoint) {
       localSuggestions(query);
       return;
     }
+    const sequence = requestSequence;
+    suggestions.setAttribute("aria-busy", "true");
     requestTimer = win.setTimeout(async () => {
-      if (requestController) requestController.abort();
       requestController = new AbortController();
-      const sequence = ++requestSequence;
       const url = new URL(cfg.suggestEndpoint, win.location.href);
       url.searchParams.set("q", query);
       url.searchParams.set("force", "1");
       url.searchParams.set("filters_only", "1");
-      suggestions.setAttribute("aria-busy", "true");
       try {
         const response = await win.fetch(url, {
           headers: { "HX-Request": "true" },
           signal: requestController.signal,
         });
+        const html = response.ok ? await response.text() : "";
         if (sequence !== requestSequence) return;
-        suggestions.innerHTML = response.ok ? await response.text() : "";
+        suggestions.innerHTML = html;
+        setActiveOption(0);
       } catch (error) {
-        if (error.name !== "AbortError") localSuggestions(query);
+        if (sequence === requestSequence && error.name !== "AbortError") localSuggestions(query);
       } finally {
         if (sequence === requestSequence) suggestions.removeAttribute("aria-busy");
       }
@@ -276,8 +393,21 @@ export const initAskbar = (el) => {
     panel.hidden = false;
     addFilter?.setAttribute("aria-expanded", "true");
     filterInput.value = "";
-    filterInput.focus();
-    loadSuggestions();
+    if (!showFilterGroups()) {
+      showSuggestionResults();
+      filterInput.focus();
+      loadSuggestions();
+    }
+  };
+
+  const onAddFilterClick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (panel instanceof HTMLElement && !panel.hidden) {
+      closePanel({ restoreFocus: true });
+      return;
+    }
+    openPanel();
   };
 
   const addChip = ({ field, value, label, tone = "" }) => {
@@ -321,19 +451,96 @@ export const initAskbar = (el) => {
     });
   };
 
+  const onFilterGroupClick = (event) => {
+    const item = event.target.closest("[data-osspm-askbar-filter-group]");
+    if (!(item instanceof HTMLButtonElement) || !(filterInput instanceof HTMLInputElement)) return;
+    const query = item.dataset.query || "";
+    const label = item.dataset.label || "";
+    showSuggestionResults({ label });
+    filterInput.value = query;
+    filterInput.focus();
+    filterInput.setSelectionRange(query.length, query.length);
+    loadSuggestions(query);
+  };
+
+  const onFilterInput = (event) => {
+    const query = event.target.value;
+    if (query.trim() === "" && showFilterGroups()) return;
+    showSuggestionResults({ label: state.filterLabel });
+    loadSuggestions(query);
+  };
+
   const onFilterKeydown = (event) => {
+    if (event.isComposing) return;
     if (event.key === "Escape") {
       event.preventDefault();
+      if (state.filterMode !== "groups" && showFilterGroups()) return;
       closePanel({ restoreFocus: true });
       return;
     }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveOption(state.activeOptionIndex + (event.key === "ArrowDown" ? 1 : -1));
+      if (state.filterMode === "groups") filterOptions()[state.activeOptionIndex]?.focus();
+      return;
+    }
+    if (event.key === "Home" || event.key === "End") {
+      event.preventDefault();
+      const options = filterOptions();
+      setActiveOption(event.key === "Home" ? 0 : options.length - 1);
+      if (state.filterMode === "groups") filterOptions()[state.activeOptionIndex]?.focus();
+      return;
+    }
     if (event.key === "Enter") {
-      const first = suggestions?.querySelector("[data-field][data-value]");
-      if (first instanceof HTMLElement) {
-        event.preventDefault();
-        first.click();
+      if (event.target !== filterInput) return;
+      event.preventDefault();
+      const active = filterOptions()[state.activeOptionIndex];
+      if (active instanceof HTMLButtonElement) {
+        active.click();
       }
     }
+  };
+
+  const onFilterBack = (event) => {
+    event.preventDefault();
+    showFilterGroups();
+  };
+
+  const onFilterClose = (event) => {
+    event.preventDefault();
+    closePanel({ restoreFocus: true });
+  };
+
+  const submitSearch = () => {
+    searchInput.value = searchInput.value.trim();
+    syncSearchUI();
+    if (form instanceof HTMLFormElement) form.requestSubmit();
+  };
+
+  const onSearchInput = () => syncSearchUI();
+
+  const onSearchKeydown = (event) => {
+    if (event.key !== "Enter" || event.isComposing) return;
+    event.preventDefault();
+    submitSearch();
+  };
+
+  const onSearchEvent = () => {
+    if (searchInput.value === "") submitSearch();
+  };
+
+  const onClearSearch = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    searchInput.value = "";
+    syncSearchUI();
+    searchInput.focus();
+    submitSearch();
+  };
+
+  const onFormSubmit = () => {
+    searchInput.value = searchInput.value.trim();
+    syncSearchUI();
   };
 
   const chipsFromURL = (params) => {
@@ -391,7 +598,12 @@ export const initAskbar = (el) => {
 
   const onHistoryChange = () => {
     const params = new URL(win.location.href).searchParams;
-    searchInput.value = params.get("q") || "";
+    const nextSearch = params
+      .getAll("q")
+      .reduce((latest, value) => (value.trim() === "" ? latest : value), "");
+    searchInput.value = nextSearch;
+    searchInput.defaultValue = nextSearch;
+    syncSearchUI();
     syncControlsFromURL(params);
     state.chips = chipsFromURL(params);
     const known = new Set(["q", "page", ...Object.keys(fieldByParam), ...formControlNames()]);
@@ -410,31 +622,60 @@ export const initAskbar = (el) => {
   };
 
   const onDocumentClick = (event) => {
-    if (!el.contains(event.target)) closePanel();
+    const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+    const targetInside = path.includes(el) || (event.target instanceof Node && el.contains(event.target));
+    if (!targetInside) closePanel();
+  };
+
+  const onDocumentShortcut = (event) => {
+    if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+    const active = doc.activeElement;
+    if (
+      active instanceof HTMLElement &&
+      (active.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName))
+    ) return;
+    event.preventDefault();
+    searchInput.focus();
   };
 
   renderChips();
+  syncSearchUI();
   chipHost.addEventListener("click", onChipClick);
-  addFilter?.addEventListener("click", openPanel);
-  filterInput?.addEventListener("input", (event) => loadSuggestions(event.target.value));
-  filterInput?.addEventListener("keydown", onFilterKeydown);
+  addFilter?.addEventListener("click", onAddFilterClick);
+  filterInput?.addEventListener("input", onFilterInput);
+  panel?.addEventListener("keydown", onFilterKeydown);
+  filterGroups?.addEventListener("click", onFilterGroupClick);
+  filterBack?.addEventListener("click", onFilterBack);
+  filterClose?.addEventListener("click", onFilterClose);
   suggestions?.addEventListener("click", onSuggestionClick);
-  searchInput.addEventListener("search", () => {
-    if (searchInput.value === "") submit();
-  });
+  searchInput.addEventListener("input", onSearchInput);
+  searchInput.addEventListener("keydown", onSearchKeydown);
+  searchInput.addEventListener("search", onSearchEvent);
+  clearSearch?.addEventListener("click", onClearSearch);
+  form?.addEventListener("submit", onFormSubmit);
   doc.addEventListener("click", onDocumentClick);
+  doc.addEventListener("keydown", onDocumentShortcut);
   doc.addEventListener("htmx:pushedIntoHistory", onHistoryChange);
   doc.addEventListener("htmx:replacedInHistory", onHistoryChange);
   win.addEventListener("popstate", onHistoryChange);
 
   return () => {
-    win.clearTimeout(requestTimer);
-    if (requestController) requestController.abort();
+    cancelSuggestions();
     chipHost.removeEventListener("click", onChipClick);
-    addFilter?.removeEventListener("click", openPanel);
-    filterInput?.removeEventListener("keydown", onFilterKeydown);
+    addFilter?.removeEventListener("click", onAddFilterClick);
+    filterInput?.removeEventListener("input", onFilterInput);
+    panel?.removeEventListener("keydown", onFilterKeydown);
+    filterGroups?.removeEventListener("click", onFilterGroupClick);
+    filterBack?.removeEventListener("click", onFilterBack);
+    filterClose?.removeEventListener("click", onFilterClose);
     suggestions?.removeEventListener("click", onSuggestionClick);
+    searchInput.removeEventListener("input", onSearchInput);
+    searchInput.removeEventListener("keydown", onSearchKeydown);
+    searchInput.removeEventListener("search", onSearchEvent);
+    clearSearch?.removeEventListener("click", onClearSearch);
+    form?.removeEventListener("submit", onFormSubmit);
     doc.removeEventListener("click", onDocumentClick);
+    doc.removeEventListener("keydown", onDocumentShortcut);
     doc.removeEventListener("htmx:pushedIntoHistory", onHistoryChange);
     doc.removeEventListener("htmx:replacedInHistory", onHistoryChange);
     win.removeEventListener("popstate", onHistoryChange);
@@ -443,6 +684,6 @@ export const initAskbar = (el) => {
 
 register(
   "osspm_askbar",
-  "[data-osspm-askbar]:not([data-osspm_askbar-initialized])",
+  "[data-osspm-askbar]",
   initAskbar,
 );

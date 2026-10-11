@@ -1024,7 +1024,7 @@ func NonHumanIdentitiesAskBar(data viewmodels.NonHumanIdentitiesViewData) AskBar
 	}
 
 	return AskBarConfig{
-		Placeholder: "try: bots · unowned · critical · github · stale · or type a principal",
+		Placeholder: "Search principals…",
 		AriaLabel:   "Filter non-human identities",
 		SearchValue: strings.TrimSpace(q.Q),
 		Chips:       chips,

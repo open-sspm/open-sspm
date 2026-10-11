@@ -48,6 +48,23 @@ func TestNewEchoUsesDefaultLogger(t *testing.T) {
 	}
 }
 
+func TestRevalidateStaticAssetsDisablesFreshCacheReuse(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/static/app.entry.js", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := revalidateStaticAssets(func(c *echo.Context) error {
+		return c.NoContent(http.StatusOK)
+	})(c)
+	if err != nil {
+		t.Fatalf("revalidateStaticAssets() error = %v", err)
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "no-cache" {
+		t.Fatalf("Cache-Control = %q, want no-cache", got)
+	}
+}
+
 func TestNewEchoUsesTrustedXFFIPExtractor(t *testing.T) {
 	e := newEcho(config.Config{})
 

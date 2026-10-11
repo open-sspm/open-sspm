@@ -1,4 +1,4 @@
-import { bindGlobalListenersOnce } from "open-sspm-app/htmx.js";
+import { bindGlobalListenersOnce } from "/static/app/htmx.js?v=20260713-askbar";
 import { bindBoostScopeOnce } from "open-sspm-app/boost.js";
 import { bindViewTransitionPolicyOnce } from "open-sspm-app/view_transitions.js";
 import { openServerDialogs, wireDialogCloseNavigation } from "open-sspm-app/dialogs.js";

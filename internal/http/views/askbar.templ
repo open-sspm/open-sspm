@@ -5,42 +5,68 @@ package views
 // removable chips and are mirrored into hidden inputs by the JS enhancement.
 // The children slot is rendered as the right-hand action group.
 templ AskBar(cfg AskBarConfig) {
-	<div class="osspm-askbar-container" data-osspm-askbar data-osspm-askbar-config={ AskBarConfigJSON(cfg) }>
+	<div
+		class={ templ.Classes(
+			"osspm-askbar-container",
+			templ.KV("osspm-askbar-container-with-hints", len(cfg.GrammarHints) > 0),
+		) }
+		data-osspm-askbar
+		data-osspm-askbar-config={ AskBarConfigJSON(cfg) }
+	>
 		<div class="osspm-askbar-row">
-			<div class="osspm-askbar" data-osspm-askbar-bar>
-				<label class="sr-only" for={ AskBarSearchInputID(cfg) }>{ AskBarAriaLabel(cfg) }</label>
-				<span class="osspm-askbar-leading" aria-hidden="true">
-					@IconSearch("h-4 w-4")
-				</span>
-				<span class="osspm-askbar-chips" data-osspm-askbar-chips>
-					for _, chip := range cfg.Chips {
-						if chip.Field != "search" {
-							@askBarChip(chip)
+			<div class="osspm-askbar-stack">
+				<div class="osspm-askbar" data-osspm-askbar-bar data-has-chips={ AskBarHasChipsValue(cfg) }>
+					<div class="osspm-askbar-search-row">
+						<label class="sr-only" for={ AskBarSearchInputID(cfg) }>{ AskBarAriaLabel(cfg) }</label>
+						<span class="osspm-askbar-leading" aria-hidden="true">
+							@IconSearch("h-4 w-4")
+						</span>
+						<input
+							id={ AskBarSearchInputID(cfg) }
+							type="search"
+							name="q"
+							value={ cfg.SearchValue }
+							autocomplete="off"
+							class="osspm-askbar-input"
+							data-osspm-askbar-input
+							placeholder={ AskBarPlaceholder(cfg) }
+						/>
+						<span class="osspm-askbar-controls">
+							<button
+								type="button"
+								class="osspm-askbar-clear"
+								data-osspm-askbar-clear
+								hidden?={ cfg.SearchValue == "" }
+								aria-label="Clear search"
+								title="Clear search"
+							>
+								@IconX("h-3.5 w-3.5")
+							</button>
+							if AskBarHasStructuredFilters(cfg) {
+								<button
+									type="button"
+									class="osspm-askbar-filter-add"
+									data-osspm-askbar-add-filter
+									aria-haspopup="dialog"
+									aria-expanded="false"
+									aria-controls={ AskBarFilterPanelID(cfg) }
+								>
+									@IconPlus("h-3.5 w-3.5")
+									<span>Filter</span>
+								</button>
+							}
+							<kbd class="osspm-askbar-shortcut" title="Focus search">/</kbd>
+						</span>
+					</div>
+					<span class="osspm-askbar-chips" data-osspm-askbar-chips>
+						for _, chip := range cfg.Chips {
+							if chip.Field != "search" {
+								@askBarChip(chip)
+							}
 						}
-					}
-				</span>
-				<input
-					id={ AskBarSearchInputID(cfg) }
-					type="search"
-					name="q"
-					value={ cfg.SearchValue }
-					class="osspm-askbar-input"
-					data-osspm-askbar-input
-					placeholder={ AskBarPlaceholder(cfg) }
-				/>
-				if AskBarHasStructuredFilters(cfg) {
-					<button
-						type="button"
-						class="osspm-askbar-filter-add"
-						data-osspm-askbar-add-filter
-						aria-haspopup="dialog"
-						aria-expanded="false"
-						aria-controls={ AskBarFilterPanelID(cfg) }
-					>
-						@IconPlus("h-3.5 w-3.5")
-						<span>Filter</span>
-					</button>
-				}
+					</span>
+				</div>
+				@AskBarGrammarHints(cfg)
 			</div>
 			if cfg.HasRightActions {
 				<div class="osspm-askbar-actions">
@@ -57,19 +83,64 @@ templ AskBar(cfg AskBarConfig) {
 				role="dialog"
 				aria-labelledby={ AskBarFilterPanelID(cfg) + "-title" }
 			>
-				<div id={ AskBarFilterPanelID(cfg) + "-title" } class="osspm-askbar-suggest-title">Add filter</div>
+				<div class="osspm-askbar-suggest-header">
+					<button
+						type="button"
+						class="osspm-askbar-suggest-back"
+						data-osspm-askbar-filter-back
+						hidden
+						aria-label="Back to filter categories"
+					>
+						@IconChevronRight("h-4 w-4 rotate-180")
+					</button>
+					<div
+						id={ AskBarFilterPanelID(cfg) + "-title" }
+						class="osspm-askbar-suggest-title"
+						data-osspm-askbar-filter-title
+						data-default-title="Suggested filters"
+					>Suggested filters</div>
+					<button
+						type="button"
+						class="osspm-askbar-suggest-close"
+						data-osspm-askbar-filter-close
+						aria-label="Close filter chooser"
+					>
+						@IconX("h-4 w-4")
+					</button>
+				</div>
 				<label class="sr-only" for={ AskBarFilterInputID(cfg) }>Find a filter</label>
-				<input
-					id={ AskBarFilterInputID(cfg) }
-					type="search"
-					class="osspm-askbar-filter-search"
-					data-osspm-askbar-filter-input
-					autocomplete="off"
-					placeholder="Find a filter…"
-				/>
-				<div data-osspm-askbar-suggest aria-live="polite"></div>
+				<div
+					class="osspm-askbar-filter-search-wrap"
+					data-osspm-askbar-filter-search-wrap
+					hidden?={ len(cfg.FilterGroups) > 0 }
+				>
+					@IconSearch("h-4 w-4 shrink-0 text-muted-foreground")
+					<input
+						id={ AskBarFilterInputID(cfg) }
+						type="search"
+						role="combobox"
+						aria-autocomplete="list"
+						aria-controls={ AskBarFilterPanelID(cfg) + "-values" }
+						aria-expanded="false"
+						class="osspm-askbar-filter-search"
+						data-osspm-askbar-filter-input
+						autocomplete="off"
+						placeholder="Find a filter or value…"
+					/>
+				</div>
+				if len(cfg.FilterGroups) > 0 {
+					<div class="osspm-askbar-filter-groups" data-osspm-askbar-filter-groups role="listbox" aria-label="Filter categories">
+						for _, group := range cfg.FilterGroups {
+							@askBarFilterGroup(group)
+						}
+					</div>
+				}
+				<div id={ AskBarFilterPanelID(cfg) + "-values" } data-osspm-askbar-suggest aria-live="polite" role="listbox" aria-label="Filter values" hidden?={ len(cfg.FilterGroups) > 0 }></div>
 			</div>
 		}
+		<template data-osspm-askbar-chip-remove-template>
+			@IconX("h-3.5 w-3.5")
+		</template>
 		<div class="hidden" aria-hidden="true" data-osspm-askbar-bank data-table-query-trigger>
 			for _, h := range AskBarHiddenInputs(cfg) {
 				<input type="hidden" name={ h.Name } value={ h.Value }/>
@@ -100,8 +171,43 @@ templ askBarChip(chip AskBarChip) {
 			class="osspm-askbar-chip-remove"
 			data-osspm-askbar-chip-remove
 			aria-label={ "Remove " + chip.Label }
-		>&times;</button>
+		>
+			@IconX("h-3.5 w-3.5")
+		</button>
 	</span>
+}
+
+templ askBarFilterGroup(group AskBarFilterGroup) {
+	<button
+		type="button"
+		class="osspm-askbar-filter-group"
+		data-osspm-askbar-filter-group
+		data-field={ group.Field }
+		data-query={ group.Query }
+		data-label={ group.Label }
+		role="option"
+		aria-selected="false"
+	>
+		<span class="osspm-askbar-filter-group-icon" aria-hidden="true">
+			@askBarFilterGroupIcon(group.Icon)
+		</span>
+		<span class="osspm-askbar-filter-group-label">{ group.Label }</span>
+		<span class="osspm-askbar-filter-group-preview">{ group.Preview }</span>
+		@IconChevronRight("h-4 w-4 shrink-0 text-muted-foreground")
+	</button>
+}
+
+templ askBarFilterGroupIcon(icon string) {
+	switch icon {
+		case "source":
+			@IconGlobe("h-4 w-4")
+		case "privileged":
+			@IconFileWarning("h-4 w-4")
+		case "activity":
+			@IconInfo("h-4 w-4")
+		default:
+			@IconUsers("h-4 w-4")
+	}
 }
 
 // AskBarGrammarHints renders a code-token Try row beneath the bar. Each hint is
@@ -109,8 +215,23 @@ templ askBarChip(chip AskBarChip) {
 // the user learns the syntax by seeing it. Clicking a hint applies the same
 // canonical querystate as the matching saved query.
 templ AskBarGrammarHints(cfg AskBarConfig) {
+	@askBarGrammarHints(cfg, false)
+}
+
+templ AskBarGrammarHintsOOB(cfg AskBarConfig) {
+	@askBarGrammarHints(cfg, true)
+}
+
+templ askBarGrammarHints(cfg AskBarConfig, oob bool) {
 	if len(cfg.GrammarHints) > 0 {
-		<div class="osspm-askbar-hints" aria-label="Try suggestions">
+		<div
+			id={ "askbar-" + AskBarDOMKey(cfg) + "-hints" }
+			class="osspm-askbar-hints"
+			aria-label="Try suggestions"
+			if oob {
+				hx-swap-oob="outerHTML"
+			}
+		>
 			<span class="osspm-askbar-hints-label">Try</span>
 			for _, hint := range cfg.GrammarHints {
 				@askBarGrammarHint(hint, cfg.HxTarget)

@@ -15,6 +15,8 @@ templ AskBarSuggestions(data AskBarSuggestionsViewData) {
 				data-value={ item.Value }
 				data-label={ item.Label }
 				data-tone={ item.Tone }
+				role="option"
+				aria-selected={ AskBarSelectedValue(item.Active || i == 0) }
 			>
 				<span class="osspm-askbar-suggest-key">{ item.FieldLabel }</span>
 				<span class="osspm-askbar-suggest-val">{ item.Label }</span>
@@ -22,14 +24,14 @@ templ AskBarSuggestions(data AskBarSuggestionsViewData) {
 		}
 		if data.ShowFreeText {
 			<div class="osspm-askbar-suggest-label">Or</div>
-			<button type="button" class="osspm-askbar-suggest-item" data-action="freetext" data-value={ data.DisplayText }>
+			<button type="button" class="osspm-askbar-suggest-item" data-action="freetext" data-value={ data.DisplayText } role="option" aria-selected="false">
 				<span class="osspm-askbar-suggest-key">Search</span>
 				<span class="osspm-askbar-suggest-val">{ "\"" }{ data.DisplayText }{ "\"" }</span>
 			</button>
 		}
 	} else if data.ShowFreeText {
 		<div class="osspm-askbar-suggest-label">Free text</div>
-		<button type="button" class="osspm-askbar-suggest-item is-hl" data-action="freetext" data-value={ data.DisplayText }>
+		<button type="button" class="osspm-askbar-suggest-item is-hl" data-action="freetext" data-value={ data.DisplayText } role="option" aria-selected="true">
 			<span class="osspm-askbar-suggest-val">{ "Add \"" }{ data.DisplayText }{ "\" as text search" }</span>
 		</button>
 	}

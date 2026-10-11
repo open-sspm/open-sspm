@@ -24,7 +24,14 @@ func (es *EchoServer) registerPlatformRoutes() {
 		wd, _ := os.Getwd()
 		slog.Warn("static assets directory not found; /static may return 404s", "dir", staticDir, "cwd", wd)
 	}
-	es.e.Static("/static", staticDir)
+	es.e.Static("/static", staticDir, revalidateStaticAssets)
+}
+
+func revalidateStaticAssets(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		c.Response().Header().Set("Cache-Control", "no-cache")
+		return next(c)
+	}
 }
 
 func (es *EchoServer) registerPublicRoutes() {

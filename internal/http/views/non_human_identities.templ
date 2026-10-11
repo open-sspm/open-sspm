@@ -34,6 +34,7 @@ templ NonHumanIdentitiesFiltersForm(data viewmodels.NonHumanIdentitiesViewData) 
 			hx-trigger="change delay:150ms from:[data-table-query-trigger], submit"
 			hx-sync="this:replace"
 			hx-target="#non-human-identities-inventory"
+			hx-swap="outerHTML"
 			hx-push-url="true"
 				class="osspm-list-form"
 			>

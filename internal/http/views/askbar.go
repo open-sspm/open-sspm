@@ -69,6 +69,17 @@ type AskBarGrammarHint struct {
 	Active bool
 }
 
+// AskBarFilterGroup is one top-level category in the guided filter chooser.
+// Query is the parser prefix used to load that category's values (for example,
+// `state:`). Icon selects an icon from the product's existing icon set.
+type AskBarFilterGroup struct {
+	Field   string
+	Label   string
+	Preview string
+	Query   string
+	Icon    string
+}
+
 // AskBarConfig fully describes one page's ask bar — the active chips, the JS
 // vocabulary, the form bank, and the saved-query row.
 type AskBarConfig struct {
@@ -88,6 +99,7 @@ type AskBarConfig struct {
 	FreeTextFields  []string
 	SavedQueries    []AskBarSavedQuery
 	GrammarHints    []AskBarGrammarHint
+	FilterGroups    []AskBarFilterGroup
 	HasRightActions bool
 	HxTarget        string
 	SuggestionScope string
@@ -159,6 +171,22 @@ func AskBarHiddenInputs(cfg AskBarConfig) []AskBarHidden {
 
 func AskBarHasStructuredFilters(cfg AskBarConfig) bool {
 	return len(cfg.KeywordTokens) > 0 || len(cfg.FieldAliases) > 0
+}
+
+func AskBarHasChipsValue(cfg AskBarConfig) string {
+	for _, chip := range cfg.Chips {
+		if chip.Field != "search" {
+			return "true"
+		}
+	}
+	return "false"
+}
+
+func AskBarSelectedValue(selected bool) string {
+	if selected {
+		return "true"
+	}
+	return "false"
 }
 
 func AskBarDOMKey(cfg AskBarConfig) string {

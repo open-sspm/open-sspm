@@ -10,7 +10,7 @@ import (
 // active chips, parser vocabulary, hidden form bank, and saved-query pills.
 func IdentitiesAskBar(q querystate.IdentitiesQuery) AskBarConfig {
 	return AskBarConfig{
-		Placeholder:     "try: priv needs-anchor · source:github · stale privileged · or just type a name",
+		Placeholder:     "Search identities by name, email, or ID",
 		AriaLabel:       "Filter identities",
 		SearchValue:     strings.TrimSpace(q.Q),
 		Chips:           identitiesAskBarChips(q),
@@ -23,8 +23,31 @@ func IdentitiesAskBar(q querystate.IdentitiesQuery) AskBarConfig {
 		Stopwords:       identitiesStopwords(),
 		SingletonFields: identitiesSingletonFields(),
 		SavedQueries:    identitiesSavedQueries(q),
+		GrammarHints:    identitiesGrammarHints(q),
+		FilterGroups:    identitiesFilterGroups(),
 		HxTarget:        "#identities-results",
 		SuggestionScope: "identities",
+	}
+}
+
+func identitiesGrammarHints(q querystate.IdentitiesQuery) []AskBarGrammarHint {
+	privileged := q.ClearSegments().WithPrivilegedOnly(true)
+	stale := q.ClearSegments().WithActivityState("stale")
+	suspended := q.ClearSegments().WithStatus("suspended")
+
+	return []AskBarGrammarHint{
+		{Token: "privileged", Href: privileged.Href(), Active: q.PrivilegedOnly && q.AnchorState == "" && q.ActivityState == "" && q.Status == "" && q.RowState == ""},
+		{Token: "seen:stale", Href: stale.Href(), Active: q.ActivityState == "stale" && !q.PrivilegedOnly && q.AnchorState == "" && q.Status == "" && q.RowState == ""},
+		{Token: "status:suspended", Href: suspended.Href(), Active: q.Status == "suspended" && !q.PrivilegedOnly && q.AnchorState == "" && q.ActivityState == "" && q.RowState == ""},
+	}
+}
+
+func identitiesFilterGroups() []AskBarFilterGroup {
+	return []AskBarFilterGroup{
+		{Field: "row_state", Label: "State", Preview: "Review, Action required, Healthy", Query: "state:", Icon: "state"},
+		{Field: "source_kind", Label: "Source", Preview: "Okta, Entra ID, Datadog, GitHub", Query: "source:", Icon: "source"},
+		{Field: "privileged_only", Label: "Privileged", Preview: "Privileged access", Query: "privileged:", Icon: "privileged"},
+		{Field: "activity_state", Label: "Last seen", Preview: "<30d, 30-89d, 90d+, Never", Query: "seen:", Icon: "activity"},
 	}
 }
 

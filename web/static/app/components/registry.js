@@ -11,8 +11,9 @@ let observer = null;
 
 const initializedAttr = (name) => `data-${name}-initialized`;
 
+// History snapshots copy DOM markers without copying live event listeners.
 const isInitialized = (el, name) =>
-  el.getAttribute(initializedAttr(name)) === "true";
+  componentState.get(el)?.initialized.has(name) === true;
 
 const getComponentState = (el) => {
   let state = componentState.get(el);

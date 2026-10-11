@@ -89,6 +89,7 @@ func TestHandleNonHumanIdentitiesRendersUnifiedInventory(t *testing.T) {
 		assertContains(t, body, `id="non-human-identities-inventory"`)
 		assertContains(t, body, `data-enter-only-query="q"`)
 		assertContains(t, body, `hx-target="#non-human-identities-inventory"`)
+		assertContains(t, body, `hx-swap="outerHTML"`)
 		assertContains(t, body, `hx-get="/non-human-identities?owner_presence=unknown&amp;page=1"`)
 		assertContains(t, body, "/non-human-identities/app-asset-"+fmt.Sprint(githubAssetID))
 		assertContains(t, body, "GitHub Actions")

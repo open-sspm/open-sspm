@@ -14,8 +14,8 @@ templ PublicLayout(title string, csrfToken string, toast *viewmodels.ToastViewDa
 			<link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
 			<script src="/static/vendor/htmx.min.js" defer></script>
 			<script src="/static/vendor/idiomorph-ext.min.js" defer></script>
-			<script src="/static/app/bootstrap.js"></script>
-			<link rel="stylesheet" href="/static/app.css"/>
+			<script src={ StaticAssetURL("/static/app/bootstrap.js") }></script>
+			<link rel="stylesheet" href={ StaticAssetURL("/static/app.css") }/>
 		</head>
 		<body class="min-h-screen bg-background text-foreground" hx-ext="morph">
 			<a
@@ -83,7 +83,7 @@ templ PublicLayout(title string, csrfToken string, toast *viewmodels.ToastViewDa
 				<div id="flash-toast" class="hidden" data-category={ toast.Category } data-title={ toast.Title } data-description={ toast.Description }></div>
 			}
 			<script type="importmap">{"imports":{"open-sspm-app/":"/static/app/"}}</script>
-			<script type="module" src="/static/app.entry.js"></script>
+			<script type="module" src={ StaticAssetURL("/static/app.entry.js") }></script>
 		</body>
 	</html>
 }
