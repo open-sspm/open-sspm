@@ -82,7 +82,7 @@ templ PublicLayout(title string, csrfToken string, toast *viewmodels.ToastViewDa
 			if toast != nil {
 				<div id="flash-toast" class="hidden" data-category={ toast.Category } data-title={ toast.Title } data-description={ toast.Description }></div>
 			}
-			<script type="importmap">{"imports":{"open-sspm-app/":"/static/app/"}}</script>
+			@AppImportMapScript()
 			<script type="module" src={ StaticAssetURL("/static/app.entry.js") }></script>
 		</body>
 	</html>

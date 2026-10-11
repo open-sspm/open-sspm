@@ -135,7 +135,7 @@ templ Layout(data viewmodels.LayoutData) {
 			if data.Toast != nil {
 				<div id="flash-toast" class="hidden" data-category={ data.Toast.Category } data-title={ data.Toast.Title } data-description={ data.Toast.Description }></div>
 			}
-			<script type="importmap">{"imports":{"open-sspm-app/":"/static/app/"}}</script>
+			@AppImportMapScript()
 			<script type="module" src={ StaticAssetURL("/static/app.entry.js") }></script>
 		</body>
 	</html>

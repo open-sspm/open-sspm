@@ -15,7 +15,7 @@ templ AskBar(cfg AskBarConfig) {
 	>
 		<div class="osspm-askbar-row">
 			<div class="osspm-askbar-stack">
-				<div class="osspm-askbar" data-osspm-askbar-bar data-has-chips={ AskBarHasChipsValue(cfg) }>
+				<div class="osspm-askbar">
 					<div class="osspm-askbar-search-row">
 						<label class="sr-only" for={ AskBarSearchInputID(cfg) }>{ AskBarAriaLabel(cfg) }</label>
 						<span class="osspm-askbar-leading" aria-hidden="true">
@@ -250,31 +250,4 @@ templ askBarGrammarHint(hint AskBarGrammarHint, hxTarget string) {
 		class="osspm-askbar-hint"
 		aria-current={ AriaCurrentBool(hint.Active) }
 	>{ hint.Token }</a>
-}
-
-// AskBarSavedQueries renders the prototype-style saved-query pill row beneath
-// the bar. Each pill is a plain anchor that navigates to a canonical querystate
-// URL so back/forward, no-JS, and htmx all work.
-templ AskBarSavedQueries(cfg AskBarConfig) {
-	if len(cfg.SavedQueries) > 0 {
-		<nav class="osspm-saved-queries" aria-label="Saved queries">
-			<span class="osspm-saved-queries-label">Try:</span>
-			for _, pill := range cfg.SavedQueries {
-				@askBarSavedQueryPill(pill, cfg.HxTarget)
-			}
-		</nav>
-	}
-}
-
-templ askBarSavedQueryPill(pill AskBarSavedQuery, hxTarget string) {
-	<a
-		href={ templ.SafeURL(pill.Href) }
-		data-focus-key={ "saved-query:" + pill.Href }
-		hx-get={ pill.Href }
-		hx-target={ hxTarget }
-		hx-swap="outerHTML"
-		hx-push-url="true"
-		class="osspm-saved-queries-pill"
-		aria-current={ AriaCurrentBool(pill.Active) }
-	>{ pill.Label }</a>
 }

@@ -42,7 +42,7 @@ const renderAskbar = ({ search = "", chips = "", hidden = "", groups = "", overr
   document.body.innerHTML = `
     <form method="get" action="/items" ${htmx ? 'hx-get="/items"' : ""}>
       <div data-osspm-askbar data-osspm-askbar-config='${JSON.stringify(askbarConfig)}'>
-        <div data-osspm-askbar-bar>
+        <div>
           <label for="search">Filter items</label>
           <span data-osspm-askbar-chips>${chips}</span>
           <input id="search" type="search" name="q" value="${search}" data-osspm-askbar-input />

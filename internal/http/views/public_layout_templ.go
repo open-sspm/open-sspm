@@ -170,7 +170,11 @@ func PublicLayout(title string, csrfToken string, toast *viewmodels.ToastViewDat
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<script type=\"importmap\">{\"imports\":{\"open-sspm-app/\":\"/static/app/\"}}</script><script type=\"module\" src=\"")
+		templ_7745c5c3_Err = AppImportMapScript().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<script type=\"module\" src=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

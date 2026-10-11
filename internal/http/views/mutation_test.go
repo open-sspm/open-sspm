@@ -70,7 +70,8 @@ func TestMutationGuardsRenderOnFormsRowsAndActionGroups(t *testing.T) {
 		{
 			name: "shared connector row",
 			render: func(body *bytes.Buffer) error {
-				return OktaConnectorRow(viewmodels.ConnectorsViewData{}).Render(context.Background(), body)
+				item, _ := ConnectorListItemForKind(viewmodels.ConnectorsViewData{}, "okta")
+				return ConnectorRow(viewmodels.ConnectorsViewData{}, item).Render(context.Background(), body)
 			},
 			fragments: []string{`hx-sync="#connector-row-okta:drop"`, `#connector-row-okta input[type=&#39;checkbox&#39;]:not(:disabled)`},
 		},

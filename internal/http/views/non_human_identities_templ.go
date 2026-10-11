@@ -518,7 +518,7 @@ func NonHumanIdentitiesInventoryResults(data viewmodels.NonHumanIdentitiesViewDa
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<colgroup><col class=\"osspm-col-principal\"> <col class=\"osspm-col-owner\"> <col class=\"osspm-col-risk\"> <col class=\"osspm-col-activity\"> <col class=\"osspm-col-links\"></colgroup> <thead><tr>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<colgroup><col class=\"osspm-col-principal\"> <col class=\"osspm-col-owner\"> <col class=\"osspm-col-risk\"> <col class=\"osspm-col-activity\"> <col class=\"osspm-col-links osspm-table-column-optional\"></colgroup> <thead><tr>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

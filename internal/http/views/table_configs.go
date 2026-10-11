@@ -129,14 +129,14 @@ func NonHumanIdentitiesTableConfig(data viewmodels.NonHumanIdentitiesViewData) T
 	}
 }
 
-func ConnectorsTableConfig() TableFrameConfig {
+func ConnectorsTableConfig(total int) TableFrameConfig {
 	return TableFrameConfig{
 		ResultsID:        "connectors-table-results",
 		Variant:          TableVariantOperational,
 		Caption:          "Available connectors, configuration status, enabled state, and identity source settings.",
 		LoadingLabel:     "Updating connectors…",
 		ResultNoun:       "connectors",
-		Total:            7,
+		Total:            int64(total),
 		HasRows:          true,
 		EmptyKind:        TableEmptyInitial,
 		EmptyTitle:       "No connectors available",

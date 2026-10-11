@@ -3,6 +3,7 @@ package views
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -36,7 +37,6 @@ func TestAskBarRendersNativeSearchAndSeparateFilterDialog(t *testing.T) {
 		`role="dialog"`,
 		`data-osspm-askbar-filter-input`,
 		`data-osspm-askbar-chip-remove-template`,
-		`title="Focus search">/</kbd>`,
 	} {
 		if !strings.Contains(html, expected) {
 			t.Fatalf("AskBar missing %q: %s", expected, html)
@@ -72,7 +72,7 @@ func TestAskBarSuggestionsAreNativeButtons(t *testing.T) {
 	}
 }
 
-func TestIdentitiesAskBarFormUsesCanonicalOuterHTMLSwap(t *testing.T) {
+func TestIdentitiesAskBarFormOffersFilterGroupsAndHints(t *testing.T) {
 	t.Parallel()
 
 	var body bytes.Buffer
@@ -84,9 +84,7 @@ func TestIdentitiesAskBarFormUsesCanonicalOuterHTMLSwap(t *testing.T) {
 	for _, expected := range []string{
 		`data-enter-only-query="q"`,
 		`hx-target="#identities-results"`,
-		`hx-swap="outerHTML"`,
 		`placeholder="Search identities by name, email, or ID"`,
-		`data-osspm-askbar-filter-groups`,
 		`data-query="state:"`,
 		`>privileged</a>`,
 		`seen:stale`,
@@ -98,12 +96,21 @@ func TestIdentitiesAskBarFormUsesCanonicalOuterHTMLSwap(t *testing.T) {
 	}
 }
 
-func TestStaticAssetURLVersionsMutableFrontendAssets(t *testing.T) {
+func TestAppImportMapPinsEveryImportOfAVersionedModuleToOneURL(t *testing.T) {
 	t.Parallel()
 
-	got := StaticAssetURL("/static/app.entry.js")
-	want := "/static/app.entry.js?v=" + FrontendAssetVersion
-	if got != want {
-		t.Fatalf("StaticAssetURL() = %q, want %q", got, want)
+	var importMap struct {
+		Imports map[string]string `json:"imports"`
+	}
+	if err := json.Unmarshal([]byte(appImportMap()), &importMap); err != nil {
+		t.Fatalf("decode import map: %v", err)
+	}
+	for _, module := range versionedAppModules {
+		want := StaticAssetURL("/static/app/" + module)
+		for _, specifier := range []string{"open-sspm-app/" + module, "/static/app/" + module} {
+			if got := importMap.Imports[specifier]; got != want {
+				t.Fatalf("import map %q = %q, want %q", specifier, got, want)
+			}
+		}
 	}
 }

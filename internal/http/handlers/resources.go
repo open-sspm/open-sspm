@@ -39,21 +39,28 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 
 	resourceKind = strings.ToLower(strings.TrimSpace(resourceKind))
 	resourceRef := resourceKind + ":" + externalID
-	query := querystate.ParseResourceAccessQuery(c.Request().URL.Path, c.QueryParams())
+	query := querystate.ParseResourceAccessQuery(c.Request().URL.EscapedPath(), c.QueryParams())
 
 	ctx := c.Request().Context()
-	summary, err := h.Q.GetEntitlementAccessResourceSummary(ctx, gen.GetEntitlementAccessResourceSummaryParams{
-		SourceKind:  sourceKind,
-		SourceName:  sourceName,
-		ResourceRef: resourceRef,
-	})
-	if err != nil {
-		return h.RenderError(c, err)
-	}
+	renderFrame := isHX(c) && isHXTarget(c, "resource-access-frame")
+	renderResults := isHX(c) && isHXTarget(c, "resource-access-results")
 
+	// The summary only feeds the page header, which partial swaps never re-render.
+	var summary gen.GetEntitlementAccessResourceSummaryRow
 	displayName := externalID
-	if summary.EntitlementCount > 0 {
-		displayName = identitydomain.DisplayResourceLabel(resourceRef, summary.SampleEntitlementRawJson)
+	if !renderFrame && !renderResults {
+		var err error
+		summary, err = h.Q.GetEntitlementAccessResourceSummary(ctx, gen.GetEntitlementAccessResourceSummaryParams{
+			SourceKind:  sourceKind,
+			SourceName:  sourceName,
+			ResourceRef: resourceRef,
+		})
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		if summary.EntitlementCount > 0 {
+			displayName = identitydomain.DisplayResourceLabel(resourceRef, summary.SampleEntitlementRawJson)
+		}
 	}
 
 	filterParams := gen.CountEntitlementAccessBySourceAndResourceRefQueryParams{
@@ -170,12 +177,12 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 	}
 	data.ShowingFrom, data.ShowingTo = showingRange(matchingRows, offset, len(accessRows))
 
-	if isHX(c) && isHXTarget(c, "resource-access-frame") {
-		c.Response().Header().Set("HX-Replace-Url", query.Href())
+	if renderFrame {
+		c.Response().Header().Set("HX-Push-Url", query.Href())
 		return h.RenderComponent(c, views.ResourceAccessFrame(data))
 	}
-	if isHX(c) && isHXTarget(c, "resource-access-results") {
-		c.Response().Header().Set("HX-Replace-Url", query.Href())
+	if renderResults {
+		c.Response().Header().Set("HX-Push-Url", query.Href())
 		return h.RenderComponent(c, views.ResourceAccessResults(data))
 	}
 	return h.RenderComponent(c, views.ResourceShowPage(data))

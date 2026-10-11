@@ -133,15 +133,6 @@ func TestIdentitiesQueryMutations(t *testing.T) {
 	if got := query.WithActivityState("recent"); got.ActivityState != "recent" || got.Page != 1 {
 		t.Fatalf("WithActivityState() = %#v", got)
 	}
-	if got := query.SegmentNeedsAction(); got.RowState != "action_required" || got.ActivityState != "" || got.Page != 1 {
-		t.Fatalf("SegmentNeedsAction() = %#v", got)
-	}
-	if got := query.SegmentPrivilegedMissingAnchor(); !got.PrivilegedOnly || got.AnchorState != "missing_anchor" || got.ActivityState != "" || got.RowState != "" || got.Page != 1 {
-		t.Fatalf("SegmentPrivilegedMissingAnchor() = %#v", got)
-	}
-	if got := query.SegmentStalePrivileged(); !got.PrivilegedOnly || got.ActivityState != "stale" || got.AnchorState != "" || got.RowState != "" || got.Page != 1 {
-		t.Fatalf("SegmentStalePrivileged() = %#v", got)
-	}
 	if got := query.TogglePrivilegedOnly(); got.PrivilegedOnly || got.Page != 1 {
 		t.Fatalf("TogglePrivilegedOnly() = %#v", got)
 	}

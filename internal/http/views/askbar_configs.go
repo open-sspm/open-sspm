@@ -67,6 +67,10 @@ func StateAskBar(q querystate.BasicListQuery, placeholder, hxTarget string) AskB
 
 func ResourceAccessAskBar(data viewmodels.ResourceShowViewData) AskBarConfig {
 	q := data.Query
+	fieldParam := map[string]string{
+		"search": "q", "permission": "permission", "kind": "kind", "link": "link",
+		"identity": "identity_kind",
+	}
 	chips := []AskBarChip{}
 	hidden := []AskBarHidden{}
 	add := func(field, value, key, label, tone string) {
@@ -74,7 +78,7 @@ func ResourceAccessAskBar(data viewmodels.ResourceShowViewData) AskBarConfig {
 			return
 		}
 		chips = append(chips, AskBarChip{Field: field, Value: value, KeyLabel: key, Label: label, Tone: tone})
-		hidden = append(hidden, AskBarHidden{Name: field, Value: value})
+		hidden = append(hidden, AskBarHidden{Name: fieldParam[field], Value: value})
 	}
 	add("permission", q.Permission, "permission", q.Permission, "")
 	add("kind", q.Kind, "kind", q.Kind, "")
@@ -87,10 +91,7 @@ func ResourceAccessAskBar(data viewmodels.ResourceShowViewData) AskBarConfig {
 		SearchValue: q.Q,
 		Chips:       chips,
 		Hidden:      hidden,
-		FieldParam: map[string]string{
-			"search": "q", "permission": "permission", "kind": "kind", "link": "link",
-			"identity": "identity_kind",
-		},
+		FieldParam:  fieldParam,
 		KeyLabel: map[string]string{
 			"search": "", "permission": "permission", "kind": "kind", "link": "link",
 			"identity": "identity",
@@ -120,6 +121,7 @@ func ResourceAccessAskBar(data viewmodels.ResourceShowViewData) AskBarConfig {
 		FreeTextFields:  []string{"permission", "kind", "link"},
 		HasRightActions: true,
 		HxTarget:        "#resource-access-frame",
+		SuggestionScope: "resource-access",
 	}
 }
 

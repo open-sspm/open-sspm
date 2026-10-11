@@ -1,7 +1,7 @@
 package views
 
 templ TableFrame(cfg TableFrameConfig) {
-	<section id={ cfg.ID } class={ templ.Classes(TableFrameClass(cfg), templ.KV(cfg.Class, cfg.Class != "")) } data-table-frame data-table-variant={ string(cfg.Variant) }>
+	<section id={ cfg.ID } class={ TableFrameClass(cfg) } data-table-frame>
 		if cfg.Title != "" || cfg.Description != "" {
 			<header class="osspm-table-frame-header">
 				<div class="min-w-0">

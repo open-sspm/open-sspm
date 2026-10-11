@@ -13,10 +13,7 @@ type FindingsRulesetViewData struct {
 	OverrideExists  bool
 	OverrideEnabled bool
 
-	StatusFilter     string
-	SeverityFilter   string
-	MonitoringFilter string
-	Query            querystate.FindingsRulesQuery
+	Query querystate.FindingsRulesQuery
 
 	Rules    []FindingsRuleItem
 	HasRules bool

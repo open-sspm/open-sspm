@@ -52,7 +52,6 @@ export const initAskbar = (el) => {
   const doc = el.ownerDocument;
   const win = doc.defaultView || window;
   const form = el.closest("form");
-  const bar = el.querySelector("[data-osspm-askbar-bar]");
   const chipHost = el.querySelector("[data-osspm-askbar-chips]");
   const searchInput = el.querySelector("[data-osspm-askbar-input]");
   const clearSearch = el.querySelector("[data-osspm-askbar-clear]");
@@ -221,9 +220,6 @@ export const initAskbar = (el) => {
       wrapper.append(remove);
       chipHost.append(wrapper);
     });
-    if (bar instanceof HTMLElement) {
-      bar.dataset.hasChips = state.chips.length > 0 ? "true" : "false";
-    }
     syncBank();
   };
 

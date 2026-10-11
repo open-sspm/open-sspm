@@ -1118,10 +1118,6 @@ html {
     @apply flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between;
   }
 
-  .osspm-table-frame-actions {
-    @apply flex flex-wrap items-center gap-2 sm:ml-auto sm:justify-end;
-  }
-
   .osspm-table-frame-body,
   .osspm-table-results {
     @apply min-w-0 space-y-3;
@@ -1977,22 +1973,6 @@ html {
     }
   }
 
-  .osspm-saved-queries {
-    @apply flex flex-wrap items-center gap-2;
-  }
-
-  .osspm-saved-queries-label {
-    @apply text-xs text-muted-foreground;
-  }
-
-  .osspm-saved-queries-pill {
-    @apply inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground no-underline transition-colors hover:border-border hover:bg-muted/60 hover:text-foreground;
-  }
-
-  .osspm-saved-queries-pill[aria-current="true"] {
-    @apply border-foreground/20 bg-foreground text-background hover:bg-foreground/90 hover:text-background;
-  }
-
   /* ---------------------------------------------------------------------------
      Identities — table row
      Widens the identity column so names and emails stop truncating at the
@@ -2177,7 +2157,6 @@ html {
 
   .osspm-col-id-wide { width: 16rem; }
   .osspm-table-credentials { min-width: 0; }
-  .osspm-table-non-human-identities { width: 100%; }
   .osspm-col-principal { width: 26rem; }
   .osspm-col-type { width: 8rem; }
   .osspm-col-owner { width: 10rem; }
@@ -2194,6 +2173,12 @@ html {
   .osspm-table-credentials col.osspm-col-asset { width: 24%; }
   .osspm-table-credentials col.osspm-col-time { width: 14%; }
   .osspm-table-credentials col.osspm-col-risk { width: 12%; }
+
+  .osspm-table-non-human-identities col.osspm-col-principal { width: 38%; }
+  .osspm-table-non-human-identities col.osspm-col-owner { width: 18%; }
+  .osspm-table-non-human-identities col.osspm-col-risk { width: 12%; }
+  .osspm-table-non-human-identities col.osspm-col-activity { width: 18%; }
+  .osspm-table-non-human-identities col.osspm-col-links { width: 14%; }
 
   .osspm-credential-state-badge {
     @apply inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium;

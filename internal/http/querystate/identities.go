@@ -110,32 +110,6 @@ func (q IdentitiesQuery) ClearSegments() IdentitiesQuery {
 	return q
 }
 
-func (q IdentitiesQuery) SegmentNeedsAction() IdentitiesQuery {
-	q = q.ClearSegments()
-	q.RowState = "action_required"
-	return q
-}
-
-func (q IdentitiesQuery) SegmentReview() IdentitiesQuery {
-	q = q.ClearSegments()
-	q.RowState = "review"
-	return q
-}
-
-func (q IdentitiesQuery) SegmentPrivilegedMissingAnchor() IdentitiesQuery {
-	q = q.ClearSegments()
-	q.PrivilegedOnly = true
-	q.AnchorState = "missing_anchor"
-	return q
-}
-
-func (q IdentitiesQuery) SegmentStalePrivileged() IdentitiesQuery {
-	q = q.ClearSegments()
-	q.ActivityState = "stale"
-	q.PrivilegedOnly = true
-	return q
-}
-
 // HasSegment reports whether any segment-style filter is currently active.
 // Used to highlight the "All" chip when no segment is selected.
 func (q IdentitiesQuery) HasSegment() bool {

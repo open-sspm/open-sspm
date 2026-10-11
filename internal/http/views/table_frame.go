@@ -20,7 +20,6 @@ const (
 type TableFrameConfig struct {
 	ID          string
 	ResultsID   string
-	Class       string
 	Title       string
 	Description string
 	Variant     TableVariant

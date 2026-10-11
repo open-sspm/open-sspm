@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/url"
 	"testing"
 
@@ -57,5 +58,19 @@ func TestBuildAskBarSuggestionsReturnsFieldValueToken(t *testing.T) {
 	}
 	if got := data.Items[0].Value; got != "review" {
 		t.Fatalf("first value = %q, want review", got)
+	}
+}
+
+func TestResourceAccessSuggestionsAcceptUnlistedPermissions(t *testing.T) {
+	t.Parallel()
+
+	h := &Handlers{}
+	cfg, err := h.askBarConfigForSuggestionScope(context.Background(), "resource-access")
+	if err != nil {
+		t.Fatalf("resource-access scope: %v", err)
+	}
+	data := buildAskBarSuggestions(cfg, "permission:maintain", true)
+	if len(data.Items) != 1 || data.Items[0].Field != "permission" || data.Items[0].Value != "maintain" {
+		t.Fatalf("items = %+v, want permission=maintain", data.Items)
 	}
 }

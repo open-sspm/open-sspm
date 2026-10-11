@@ -7,7 +7,7 @@ import (
 )
 
 // IdentitiesAskBar returns the full askbar config for the identities page —
-// active chips, parser vocabulary, hidden form bank, and saved-query pills.
+// active chips, parser vocabulary, hidden form bank, and grammar hints.
 func IdentitiesAskBar(q querystate.IdentitiesQuery) AskBarConfig {
 	return AskBarConfig{
 		Placeholder:     "Search identities by name, email, or ID",
@@ -22,7 +22,6 @@ func IdentitiesAskBar(q querystate.IdentitiesQuery) AskBarConfig {
 		FieldAliases:    identitiesFieldAliases(),
 		Stopwords:       identitiesStopwords(),
 		SingletonFields: identitiesSingletonFields(),
-		SavedQueries:    identitiesSavedQueries(q),
 		GrammarHints:    identitiesGrammarHints(q),
 		FilterGroups:    identitiesFilterGroups(),
 		HxTarget:        "#identities-results",
@@ -281,36 +280,6 @@ func identitiesStopwords() []string {
 
 func identitiesSingletonFields() []string {
 	return []string{"source_kind", "identity_type", "anchor", "privileged_only", "status", "activity_state", "row_state"}
-}
-
-func identitiesSavedQueries(q querystate.IdentitiesQuery) []AskBarSavedQuery {
-	return []AskBarSavedQuery{
-		{
-			Href:   q.SegmentPrivilegedMissingAnchor().Href(),
-			Label:  "Privileged needs anchor",
-			Active: q.PrivilegedOnly && q.AnchorState == "missing_anchor" && q.ActivityState == "" && q.Status == "" && q.RowState == "",
-		},
-		{
-			Href:   q.SegmentStalePrivileged().Href(),
-			Label:  "Stale privileged",
-			Active: q.PrivilegedOnly && q.ActivityState == "stale" && q.AnchorState == "" && q.Status == "" && q.RowState == "",
-		},
-		{
-			Href:   q.SegmentNeedsAction().Href(),
-			Label:  "Needs action",
-			Active: q.RowState == "action_required",
-		},
-		{
-			Href:   q.ClearSegments().WithStatus("suspended").Href(),
-			Label:  "Suspended",
-			Active: q.Status == "suspended",
-		},
-		{
-			Href:   q.SegmentReview().Href(),
-			Label:  "Review",
-			Active: q.RowState == "review",
-		},
-	}
 }
 
 func humanizeIdentityActivityState(state string) string {

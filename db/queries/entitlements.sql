@@ -81,7 +81,20 @@ SELECT
   count(*)::bigint AS entitlement_count,
   count(DISTINCT au.id)::bigint AS account_count,
   count(DISTINCT i.id)::bigint AS linked_identity_count,
-  COALESCE((array_agg(e.raw_json ORDER BY e.id))[1], '{}'::jsonb)::jsonb AS sample_entitlement_raw_json
+  COALESCE((
+    SELECT se.raw_json
+    FROM entitlements se
+    JOIN accounts sau ON sau.id = se.app_user_id
+    WHERE sau.source_kind = sqlc.arg(source_kind)::text
+      AND sau.source_name = sqlc.arg(source_name)::text
+      AND se.resource = sqlc.arg(resource_ref)::text
+      AND sau.expired_at IS NULL
+      AND sau.last_observed_run_id IS NOT NULL
+      AND se.expired_at IS NULL
+      AND se.last_observed_run_id IS NOT NULL
+    ORDER BY se.id
+    LIMIT 1
+  ), '{}'::jsonb)::jsonb AS sample_entitlement_raw_json
 FROM entitlements e
 JOIN accounts au ON au.id = e.app_user_id
 LEFT JOIN identity_accounts ia ON ia.account_id = au.id
@@ -181,8 +194,8 @@ ORDER BY
   CASE WHEN sqlc.arg(sort_by)::text = 'permission' AND sqlc.arg(sort_dir)::text = 'desc' THEN lower(e.permission) END DESC,
   CASE WHEN sqlc.arg(sort_by)::text = 'kind' AND sqlc.arg(sort_dir)::text = 'asc' THEN lower(e.kind) END ASC,
   CASE WHEN sqlc.arg(sort_by)::text = 'kind' AND sqlc.arg(sort_dir)::text = 'desc' THEN lower(e.kind) END DESC,
-  CASE WHEN sqlc.arg(sort_by)::text = 'identity' AND sqlc.arg(sort_dir)::text = 'asc' THEN lower(COALESCE(NULLIF(i.display_name, ''), NULLIF(i.primary_email, ''), au.display_name, au.email, au.external_id)) END ASC,
-  CASE WHEN sqlc.arg(sort_by)::text = 'identity' AND sqlc.arg(sort_dir)::text = 'desc' THEN lower(COALESCE(NULLIF(i.display_name, ''), NULLIF(i.primary_email, ''), au.display_name, au.email, au.external_id)) END DESC,
+  CASE WHEN sqlc.arg(sort_by)::text = 'identity' AND sqlc.arg(sort_dir)::text = 'asc' THEN lower(COALESCE(NULLIF(i.display_name, ''), NULLIF(i.primary_email, ''), NULLIF(au.display_name, ''), NULLIF(au.email, ''), au.external_id)) END ASC,
+  CASE WHEN sqlc.arg(sort_by)::text = 'identity' AND sqlc.arg(sort_dir)::text = 'desc' THEN lower(COALESCE(NULLIF(i.display_name, ''), NULLIF(i.primary_email, ''), NULLIF(au.display_name, ''), NULLIF(au.email, ''), au.external_id)) END DESC,
   e.id
 LIMIT sqlc.arg(page_limit)::int
 OFFSET sqlc.arg(page_offset)::int;
