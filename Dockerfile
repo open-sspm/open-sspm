@@ -7,6 +7,7 @@ FROM node:22-alpine AS frontend
 WORKDIR /app
 
 # Install dependencies
+RUN npm install --global npm@11.20.0
 COPY package.json package-lock.json ./
 COPY scripts/vendor-sync.mjs ./scripts/vendor-sync.mjs
 RUN npm ci

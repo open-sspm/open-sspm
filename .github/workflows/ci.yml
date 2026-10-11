@@ -22,6 +22,9 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Setup npm
+        run: npm install --global npm@11.20.0
+
       - name: Install frontend dependencies
         run: npm ci
 
@@ -42,6 +45,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Setup npm
+        run: npm install --global npm@11.20.0
 
       - name: Install frontend dependencies
         run: npm ci

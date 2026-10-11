@@ -1,6 +1,7 @@
 {
   "name": "open-sspm-ui",
   "private": true,
+  "packageManager": "npm@11.20.0",
   "scripts": {
     "vendor:sync": "node ./scripts/vendor-sync.mjs",
     "vendor:check": "node ./scripts/vendor-check.mjs",
