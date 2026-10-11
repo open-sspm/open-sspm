@@ -34,6 +34,9 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Setup npm
+        run: npm install --global npm@11.20.0
+
       - name: Configure GitHub Pages
         id: pages
         uses: actions/configure-pages@v5
