@@ -15,8 +15,8 @@ templ Layout(data viewmodels.LayoutData) {
 			<script src="/static/vendor/htmx.min.js" defer></script>
 			<script src="/static/vendor/idiomorph-ext.min.js" defer></script>
 			<script src="/static/vendor/htmx-ext-sse.min.js" defer></script>
-			<script src="/static/app/bootstrap.js"></script>
-			<link rel="stylesheet" href="/static/app.css"/>
+			<script src={ StaticAssetURL("/static/app/bootstrap.js") }></script>
+			<link rel="stylesheet" href={ StaticAssetURL("/static/app.css") }/>
 		</head>
 		<body class="min-h-screen bg-background text-foreground" hx-boost="true" hx-ext="morph, sse">
 			<div class="min-h-screen">
@@ -135,8 +135,8 @@ templ Layout(data viewmodels.LayoutData) {
 			if data.Toast != nil {
 				<div id="flash-toast" class="hidden" data-category={ data.Toast.Category } data-title={ data.Toast.Title } data-description={ data.Toast.Description }></div>
 			}
-			<script type="importmap">{"imports":{"open-sspm-app/":"/static/app/"}}</script>
-			<script type="module" src="/static/app.entry.js"></script>
+			@AppImportMapScript()
+			<script type="module" src={ StaticAssetURL("/static/app.entry.js") }></script>
 		</body>
 	</html>
 }

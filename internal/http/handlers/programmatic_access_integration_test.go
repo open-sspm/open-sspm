@@ -197,14 +197,14 @@ func TestHandleCredentialsUsesSubmitOnlySearchTrigger(t *testing.T) {
 	})
 }
 
-func TestHandleCredentialsHTMXReturnsResultsShellOnly(t *testing.T) {
+func TestHandleCredentialsHTMXReturnsResultsAndHintState(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindGitHub, true, configstore.GitHubConfig{
 			Org:   "acme",
 			Token: "token-1",
 		})
 
-		c, rec := newTestContext(http.MethodGet, "http://example.com/credentials")
+		c, rec := newTestContext(http.MethodGet, "http://example.com/credentials?owner=me&q=alice&source_kind=github")
 		(*c).Request().Header.Set("HX-Request", "true")
 		(*c).Request().Header.Set("HX-Target", "credentials-results")
 
@@ -217,6 +217,10 @@ func TestHandleCredentialsHTMXReturnsResultsShellOnly(t *testing.T) {
 
 		body := rec.Body.String()
 		assertContains(t, body, `id="credentials-results"`)
+		assertContains(t, body, `id="askbar-credentials-hints"`)
+		assertContains(t, body, `hx-swap-oob="outerHTML"`)
+		assertContains(t, body, `q=alice&amp;source_kind=github`)
+		assertContains(t, body, `aria-current="page">owner:me`)
 		assertNotContains(t, body, `data-osspm-askbar`)
 		assertNotContains(t, body, "<!doctype html>")
 	})

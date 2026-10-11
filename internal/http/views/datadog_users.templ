@@ -3,7 +3,7 @@ package views
 import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ DatadogUserMobileRow(user viewmodels.DatadogUserListItem) {
-	<article class="rounded-lg border border-border/70 bg-card p-4">
+	<article class="osspm-mobile-list-row">
 		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0">
 				<div class="font-medium break-all">{ user.UserName }</div>
@@ -74,7 +74,7 @@ templ DatadogUsersPageResults(data viewmodels.DatadogUsersViewData) {
 		<section class="space-y-3">
 			@ListSectionHeader("Datadog users", "Datadog users and their role assignments.")
 			if data.HasUsers {
-				<div class="space-y-3 lg:hidden">
+				<div class="osspm-mobile-list lg:hidden">
 					for _, u := range data.Users {
 						@DatadogUserMobileRow(u)
 					}

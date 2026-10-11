@@ -57,6 +57,8 @@ func (h *Handlers) askBarConfigForSuggestionScope(ctx context.Context, scope str
 			return views.AskBarConfig{}, err
 		}
 		return views.CredentialsAskBar(viewmodels.CredentialsViewData{Sources: availableProgrammaticSources(stateView)}), nil
+	case "resource-access":
+		return views.ResourceAccessAskBar(viewmodels.ResourceShowViewData{}), nil
 	case "connected-apps":
 		return views.ConnectedAppsAskBar(viewmodels.ConnectedAppsViewData{}), nil
 	case "app-assets":

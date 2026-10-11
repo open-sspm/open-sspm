@@ -793,7 +793,7 @@ func identityShowGraphFacts(data viewmodels.IdentityShowViewData) templ.Componen
 		}
 		ctx = templ.ClearChildren(ctx)
 		if data.GraphFacts.HasEmails || data.GraphFacts.HasAnchors {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "<section class=\"osspm-data-section\"><div class=\"osspm-data-section-header\"><div class=\"space-y-1\"><h2 class=\"text-base font-semibold\">Identity graph facts</h2><p class=\"text-sm text-muted-foreground\">Emails and deterministic anchors used by resolution.</p></div></div><div class=\"grid gap-4 lg:grid-cols-2\"><section class=\"rounded-md border border-border/70\"><div class=\"border-b border-border/70 px-4 py-3\"><h3 class=\"text-sm font-semibold\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "<section class=\"osspm-data-section\"><div class=\"osspm-data-section-header\"><div class=\"space-y-1\"><h2 class=\"text-base font-semibold\">Identity graph facts</h2><p class=\"text-sm text-muted-foreground\">Emails and deterministic anchors used by resolution.</p></div></div><div class=\"grid gap-x-8 gap-y-6 lg:grid-cols-2\"><section class=\"min-w-0 border-t border-border/70\"><div class=\"border-b border-border/50 py-3\"><h3 class=\"text-sm font-semibold\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -829,7 +829,7 @@ func identityShowGraphFacts(data viewmodels.IdentityShowViewData) templ.Componen
 					return templ_7745c5c3_Err
 				}
 				for _, email := range data.GraphFacts.Emails {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "<div class=\"px-4 py-3\"><div class=\"flex min-w-0 items-start justify-between gap-3\"><div class=\"min-w-0\"><div class=\"truncate font-medium\" hx-disable>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "<div class=\"py-3\"><div class=\"flex min-w-0 items-start justify-between gap-3\"><div class=\"min-w-0\"><div class=\"truncate font-medium\" hx-disable>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -875,40 +875,40 @@ func identityShowGraphFacts(data viewmodels.IdentityShowViewData) templ.Componen
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "</div><div class=\"mt-2 flex flex-wrap gap-2\"><span class=\"badge-outline\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "</div><div class=\"mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground\"><span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var45 string
 					templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeIdentityResolutionToken(email.EmailKind))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_show.templ`, Line: 161, Col: 88}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_show.templ`, Line: 161, Col: 66}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</span> <span class=\"badge-outline\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</span> <span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var46 string
 					templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeIdentityResolutionToken(email.VerificationState))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_show.templ`, Line: 162, Col: 96}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_show.templ`, Line: 162, Col: 74}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "</span> <span class=\"badge-outline\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "</span> <span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var47 string
 					templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeIdentityResolutionToken(email.LifecycleState))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_show.templ`, Line: 163, Col: 93}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_show.templ`, Line: 163, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 					if templ_7745c5c3_Err != nil {
@@ -1018,7 +1018,7 @@ func identityShowGraphFacts(data viewmodels.IdentityShowViewData) templ.Componen
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "</section><section class=\"rounded-md border border-border/70\"><div class=\"border-b border-border/70 px-4 py-3\"><h3 class=\"text-sm font-semibold\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "</section><section class=\"min-w-0 border-t border-border/70\"><div class=\"border-b border-border/50 py-3\"><h3 class=\"text-sm font-semibold\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1054,7 +1054,7 @@ func identityShowGraphFacts(data viewmodels.IdentityShowViewData) templ.Componen
 					return templ_7745c5c3_Err
 				}
 				for _, anchor := range data.GraphFacts.Anchors {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "<div class=\"px-4 py-3\"><div class=\"min-w-0\"><div class=\"truncate font-medium\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "<div class=\"py-3\"><div class=\"min-w-0\"><div class=\"truncate font-medium\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1093,27 +1093,27 @@ func identityShowGraphFacts(data viewmodels.IdentityShowViewData) templ.Componen
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "</div></div><div class=\"mt-2 flex flex-wrap gap-2\"><span class=\"badge-outline\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "</div></div><div class=\"mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground\"><span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var58 string
 					templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeIdentityResolutionToken(anchor.TrustLevel))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_show.templ`, Line: 199, Col: 90}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_show.templ`, Line: 199, Col: 68}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "</span> <span class=\"badge-outline\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "</span> <span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var59 string
 					templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(HumanizeIdentityResolutionToken(anchor.LifecycleState))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_show.templ`, Line: 200, Col: 94}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_show.templ`, Line: 200, Col: 72}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
 					if templ_7745c5c3_Err != nil {
@@ -3689,14 +3689,14 @@ func identityPermissionBadge(ent viewmodels.IdentityEntitlementView) templ.Compo
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 338, "<span class=\"badge-outline\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 338, "<span class=\"text-sm font-medium\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var190 string
 			templ_7745c5c3_Var190, templ_7745c5c3_Err = templ.JoinStringErrs(ent.Permission)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_show.templ`, Line: 703, Col: 46}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `identity_show.templ`, Line: 703, Col: 52}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var190))
 			if templ_7745c5c3_Err != nil {

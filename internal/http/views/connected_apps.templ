@@ -34,9 +34,9 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 				</div>
 			</div>
 			if data.HasItems {
-				<div class="space-y-3 lg:hidden">
+				<div class="osspm-mobile-list lg:hidden">
 					for _, item := range data.Items {
-						<article class="rounded-xl border border-border/70 bg-card/80 p-4 shadow-sm">
+						<article class="osspm-mobile-list-row">
 							<div class="space-y-3">
 								<div class="flex min-w-0 items-start gap-3">
 									@ProductIcon(item.DisplayName, item.ExternalID, "", "size-8")
@@ -49,7 +49,7 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 								<div class="flex flex-wrap items-center gap-2">
 									<span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span>
 										if item.TicketRef != "" {
-											<span class="badge-outline" hx-disable>{ item.TicketRef }</span>
+											<span class="osspm-token text-muted-foreground" hx-disable>{ item.TicketRef }</span>
 										}
 									<span class={ AppAssetEvidenceConfidenceBadgeClass(item.EvidenceConfidence) }>{ HumanizeAppAssetEvidenceConfidence(item.EvidenceConfidence) }</span>
 									<span class={ AppAssetEvidenceFreshnessBadgeClass(item.EvidenceFreshness) }>{ HumanizeAppAssetEvidenceFreshness(item.EvidenceFreshness) }</span>
@@ -109,7 +109,7 @@ templ ConnectedAppsPageResults(data viewmodels.ConnectedAppsViewData) {
 											<div class="flex flex-wrap items-center gap-2">
 												<span class={ AppAssetGovernanceStateBadgeClass(item.GovernanceState) }>{ HumanizeAppAssetGovernanceState(item.GovernanceState) }</span>
 													if item.TicketRef != "" {
-														<span class="badge-outline" hx-disable>{ item.TicketRef }</span>
+																<span class="osspm-token text-muted-foreground" hx-disable>{ item.TicketRef }</span>
 													}
 											</div>
 										</td>
@@ -185,7 +185,7 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 
 		<div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
 			<div class="space-y-6">
-				<article class="card">
+				<article class="osspm-detail-section">
 					<header>
 						<div class="flex min-w-0 items-center gap-3">
 							@ProductIcon(data.App.DisplayName, data.App.ExternalID, data.App.SourceKind, "size-10")
@@ -251,10 +251,10 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 					</section>
 				</article>
 
-				<article class="card">
+				<article class="osspm-detail-section">
 					<header>
 						<h2>Grant Inventory</h2>
-						<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Grants)) }</span>
+						<span data-slot="card-action" class="osspm-section-count">{ FormatInt(len(data.Grants)) }</span>
 					</header>
 					<section>
 						@ColumnsTable("") {
@@ -323,10 +323,10 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 					</section>
 				</article>
 
-				<article class="card">
+				<article class="osspm-detail-section">
 					<header>
 						<h2>Likely Owners</h2>
-						<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.LikelyOwners)) }</span>
+						<span data-slot="card-action" class="osspm-section-count">{ FormatInt(len(data.LikelyOwners)) }</span>
 					</header>
 					<section>
 						@ColumnsTable("") {
@@ -350,7 +350,7 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 														}
 													</td>
 													<td hx-disable>{ owner.OwnerEmail }</td>
-												<td><span class="badge-outline">{ owner.OwnerKind }</span></td>
+												<td><span class="text-sm font-medium">{ owner.OwnerKind }</span></td>
 											</tr>
 										}
 									} else {
@@ -364,10 +364,10 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 					</section>
 				</article>
 
-				<article class="card">
+				<article class="osspm-detail-section">
 					<header>
 						<h2>Discovery Evidence</h2>
-						<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.DiscoverySources)) }</span>
+						<span data-slot="card-action" class="osspm-section-count">{ FormatInt(len(data.DiscoverySources)) }</span>
 					</header>
 					<section>
 						@ColumnsTable("") {
@@ -409,10 +409,10 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 					</section>
 				</article>
 
-				<article class="card">
+				<article class="osspm-detail-section">
 					<header>
 						<h2>Recent Activity</h2>
-						<span data-slot="card-action" class="badge-outline">{ FormatInt(len(data.Events)) }</span>
+						<span data-slot="card-action" class="osspm-section-count">{ FormatInt(len(data.Events)) }</span>
 					</header>
 					<section>
 						@ColumnsTable("") {
@@ -430,7 +430,7 @@ templ ConnectedAppShowBody(data viewmodels.ConnectedAppShowViewData) {
 										for _, event := range data.Events {
 											<tr>
 												<td>{ event.ObservedAt.Label }</td>
-												<td><span class="badge-outline">{ HumanizeDiscoverySignalKind(event.SignalKind) }</span></td>
+												<td><span class="text-sm font-medium">{ HumanizeDiscoverySignalKind(event.SignalKind) }</span></td>
 												<td>{ event.Actor }</td>
 												<td class="text-muted-foreground">{ event.ScopesSummary }</td>
 											</tr>

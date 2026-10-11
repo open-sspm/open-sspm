@@ -31,14 +31,14 @@ func EntraUserMobileRow(user viewmodels.EntraUserListItem) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<article class=\"rounded-lg border border-border/70 bg-card p-4\"><div class=\"flex items-start justify-between gap-3\"><div class=\"min-w-0\"><div class=\"font-medium\" title=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<article class=\"osspm-mobile-list-row\"><div class=\"flex items-start justify-between gap-3\"><div class=\"min-w-0\"><div class=\"font-medium\" title=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(user.DisplayName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 9, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 9, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 		if templ_7745c5c3_Err != nil {
@@ -51,7 +51,7 @@ func EntraUserMobileRow(user viewmodels.EntraUserListItem) templ.Component {
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(user.DisplayName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 10, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 10, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -69,7 +69,7 @@ func EntraUserMobileRow(user viewmodels.EntraUserListItem) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(user.Email)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 13, Col: 82}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 13, Col: 82}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -87,7 +87,7 @@ func EntraUserMobileRow(user viewmodels.EntraUserListItem) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(user.ExternalID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 15, Col: 87}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 15, Col: 87}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -98,27 +98,27 @@ func EntraUserMobileRow(user viewmodels.EntraUserListItem) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div></div><div class=\"mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm\"><div><div class=\"text-xs uppercase tracking-wide text-muted-foreground\">Directory roles</div><div><span class=\"badge-outline\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div></div><div class=\"mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm\"><div><div class=\"text-xs uppercase tracking-wide text-muted-foreground\">Directory roles</div><div><span class=\"osspm-plain-value\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(user.DirectoryRoleCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 22, Col: 73}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 22, Col: 77}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</span></div></div><div><div class=\"text-xs uppercase tracking-wide text-muted-foreground\">Enterprise apps</div><div><span class=\"badge-outline\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</span></div></div><div><div class=\"text-xs uppercase tracking-wide text-muted-foreground\">Enterprise apps</div><div><span class=\"osspm-plain-value\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(user.EnterpriseAppCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 26, Col: 73}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 26, Col: 77}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -136,7 +136,7 @@ func EntraUserMobileRow(user viewmodels.EntraUserListItem) templ.Component {
 			var templ_7745c5c3_Var8 templ.SafeURL
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs("/identities/" + FormatInt64(user.IdentityID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 31, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 31, Col: 85}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -149,7 +149,7 @@ func EntraUserMobileRow(user viewmodels.EntraUserListItem) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs("Identity #")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 31, Col: 102}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 31, Col: 102}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -158,7 +158,7 @@ func EntraUserMobileRow(user viewmodels.EntraUserListItem) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(user.IdentityID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 31, Col: 134}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 31, Col: 134}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -309,7 +309,7 @@ func EntraUsersPage(data viewmodels.EntraUsersViewData) templ.Component {
 					var templ_7745c5c3_Var17 string
 					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(data.EmptyStateMsg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 63, Col: 25}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 63, Col: 25}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 					if templ_7745c5c3_Err != nil {
@@ -449,7 +449,7 @@ func EntraUsersPageResults(data viewmodels.EntraUsersViewData) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if data.HasUsers {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<div class=\"space-y-3 lg:hidden\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<div class=\"osspm-mobile-list lg:hidden\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -502,7 +502,7 @@ func EntraUsersPageResults(data viewmodels.EntraUsersViewData) templ.Component {
 					var templ_7745c5c3_Var22 string
 					templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(u.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 130, Col: 63}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 130, Col: 63}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 					if templ_7745c5c3_Err != nil {
@@ -520,7 +520,7 @@ func EntraUsersPageResults(data viewmodels.EntraUsersViewData) templ.Component {
 						var templ_7745c5c3_Var23 string
 						templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(u.ExternalID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 132, Col: 81}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 132, Col: 81}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 						if templ_7745c5c3_Err != nil {
@@ -543,7 +543,7 @@ func EntraUsersPageResults(data viewmodels.EntraUsersViewData) templ.Component {
 						var templ_7745c5c3_Var24 string
 						templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(u.Email)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 138, Col: 38}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 138, Col: 38}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 						if templ_7745c5c3_Err != nil {
@@ -559,27 +559,27 @@ func EntraUsersPageResults(data viewmodels.EntraUsersViewData) templ.Component {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</td><td><span class=\"badge-outline\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</td><td><span class=\"osspm-plain-value\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var25 string
 					templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(u.DirectoryRoleCount))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 144, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 144, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</span></td><td><span class=\"badge-outline\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</span></td><td><span class=\"osspm-plain-value\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var26 string
 					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt(u.EnterpriseAppCount))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 147, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 147, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 					if templ_7745c5c3_Err != nil {
@@ -597,7 +597,7 @@ func EntraUsersPageResults(data viewmodels.EntraUsersViewData) templ.Component {
 						var templ_7745c5c3_Var27 templ.SafeURL
 						templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinURLErrs("/identities/" + FormatInt64(u.IdentityID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 151, Col: 83}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 151, Col: 83}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 						if templ_7745c5c3_Err != nil {
@@ -610,7 +610,7 @@ func EntraUsersPageResults(data viewmodels.EntraUsersViewData) templ.Component {
 						var templ_7745c5c3_Var28 string
 						templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs("Identity #")
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 151, Col: 100}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 151, Col: 100}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 						if templ_7745c5c3_Err != nil {
@@ -619,7 +619,7 @@ func EntraUsersPageResults(data viewmodels.EntraUsersViewData) templ.Component {
 						var templ_7745c5c3_Var29 string
 						templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(u.IdentityID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/entra_users.templ`, Line: 151, Col: 129}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `entra_users.templ`, Line: 151, Col: 129}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 						if templ_7745c5c3_Err != nil {

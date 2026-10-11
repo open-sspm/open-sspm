@@ -4,135 +4,213 @@ import "github.com/open-sspm/open-sspm/internal/http/viewmodels"
 
 templ ResourceShowPage(data viewmodels.ResourceShowViewData) {
 	@Layout(data.Layout) {
-		@PageHeader(data.SourceName) {
-			<span class="badge-outline">{ FormatInt(data.LinkedIdentityCount) }{ " identities" }</span>
-			<span class="badge-outline">{ FormatInt(data.AccountCount) }{ " accounts" }</span>
-			<span class="badge-outline">{ FormatInt(data.EntitlementCount) }{ " entitlements" }</span>
-			if data.ExternalConsoleHref != "" {
-				<a class="btn-sm-outline" href={ data.ExternalConsoleHref } target="_blank" rel="noopener noreferrer">
-					Open in console
-					<span class="sr-only"> (opens in new tab)</span>
-				</a>
-			}
-		}
-
-			<article class="card">
-				<header>
-					<h2 hx-disable>{ data.DisplayName }</h2>
-					<p>{ data.SourceLabel }{ " resource details." }</p>
-				<div data-slot="card-action">
-					<span class="badge">{ data.SourceLabel }</span>
+		<section class="osspm-resource-overview" aria-labelledby="resource-title">
+			<div class="osspm-resource-heading">
+				<div class="min-w-0">
+					<p class="osspm-resource-context" hx-disable>{ data.SourceName }</p>
+					<h2 id="resource-title" class="osspm-resource-title" hx-disable>{ data.DisplayName }</h2>
 				</div>
-			</header>
-			<section>
-				<dl class="grid gap-4 md:grid-cols-2">
-					<div class="space-y-1">
-						<dt class="text-xs font-medium text-muted-foreground">Source</dt>
-							<dd class="font-medium break-words"><span>{ data.SourceLabel }{ " · " }</span><span hx-disable>{ data.SourceName }</span></dd>
-					</div>
-					<div class="space-y-1">
-						<dt class="text-xs font-medium text-muted-foreground">Type</dt>
-						<dd class="font-medium break-words">{ data.ResourceKindLabel }</dd>
-					</div>
-					<div class="space-y-1">
-						<dt class="text-xs font-medium text-muted-foreground">External ID</dt>
-							<dd class="text-sm text-muted-foreground break-all" hx-disable>{ data.ExternalID }</dd>
-					</div>
-				</dl>
-			</section>
-		</article>
+				<div class="shrink-0">
+					if data.ExternalConsoleHref != "" {
+						<a class="btn-sm-ghost" href={ data.ExternalConsoleHref } target="_blank" rel="noopener noreferrer">
+							@IconExternalLink("size-3.5")
+							Open in console
+							<span class="sr-only">(opens in new tab)</span>
+						</a>
+					}
+				</div>
+			</div>
+			<dl class="osspm-resource-summary" aria-label="Resource summary">
+				<div>
+					<dt>Source</dt>
+					<dd>{ data.SourceLabel }</dd>
+				</div>
+				<div>
+					<dt>Type</dt>
+					<dd>{ data.ResourceKindLabel }</dd>
+				</div>
+				<div>
+					<dt>External ID</dt>
+					<dd class="break-all" hx-disable>{ data.ExternalID }</dd>
+				</div>
+				<div data-resource-metric>
+					<dt>Identities</dt>
+					<dd>{ FormatInt64(data.LinkedIdentityCount) }</dd>
+				</div>
+				<div data-resource-metric>
+					<dt>Accounts</dt>
+					<dd>{ FormatInt64(data.AccountCount) }</dd>
+				</div>
+				<div data-resource-metric>
+					<dt>Entitlements</dt>
+					<dd>{ FormatInt64(data.EntitlementCount) }</dd>
+				</div>
+			</dl>
+		</section>
+		@ResourceAccessFrame(data)
+	}
+}
 
-		<article class="card">
-			<header>
-				<h2>Who has access</h2>
-				<p>Identities and accounts with this entitlement.</p>
-			</header>
-			<section>
-				@ColumnsTable("") {
+templ ResourceAccessFrame(data viewmodels.ResourceShowViewData) {
+	{{ cfg := ResourceAccessTableConfig(data) }}
+	@TableFrame(cfg) {
+		@TableFrameBody() {
+			<form method="get" action={ data.Query.BasePath } hx-get={ data.Query.BasePath } hx-trigger="change delay:150ms from:[data-table-query-trigger], submit" hx-sync="this:replace" hx-target="#resource-access-frame" hx-swap="outerHTML" hx-push-url="true" class="min-w-0">
+				@TableToolbar() {
+					@AskBar(ResourceAccessAskBar(data)) {
+						<label class="flex items-center gap-2 text-sm text-muted-foreground lg:hidden">
+							<span class="sr-only sm:not-sr-only">Sort</span>
+							<select class="select w-auto min-w-32" name="sort_by" aria-label="Sort access rows" data-table-query-trigger>
+								<option value="identity" selected?={ data.Query.SortBy == "identity" }>Identity</option>
+								<option value="account" selected?={ data.Query.SortBy == "account" }>Account</option>
+								<option value="permission" selected?={ data.Query.SortBy == "permission" }>Permission</option>
+								<option value="kind" selected?={ data.Query.SortBy == "kind" }>Kind</option>
+							</select>
+							<select class="select w-auto min-w-32" name="sort_dir" aria-label="Sort direction" data-table-query-trigger>
+								<option value="asc" selected?={ data.Query.SortDir == "asc" }>Ascending</option>
+								<option value="desc" selected?={ data.Query.SortDir == "desc" }>Descending</option>
+							</select>
+						</label>
+					}
+				}
+				<button class="sr-only" type="submit">Apply access filters</button>
+			</form>
+			@ResourceAccessResults(data)
+		}
+	}
+}
+
+templ ResourceAccessResults(data viewmodels.ResourceShowViewData) {
+	{{ cfg := ResourceAccessTableConfig(data) }}
+	@TableResults(cfg) {
+		@TableDesktop() {
+			@ColumnsTable("") {
 				<table class="table osspm-table-fixed osspm-table-compact osspm-table-list">
-					<caption class="sr-only">People and accounts with access to this resource.</caption>
+					@TableCaption(cfg.Caption)
 					<thead>
 						<tr>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Identity</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Permission</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Kind</th>
-							<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Link</th>
+							for _, column := range ResourceAccessColumns() {
+								@TableColumnHeader(column, ResourceAccessSortConfig(data))
+							}
 						</tr>
 					</thead>
-						<tbody>
-							if data.HasRows {
-								for _, row := range data.Rows {
-									<tr class="align-top">
-										<td>
-												if row.IdentityHref != "" {
-													<a class="btn-sm-link px-0 font-medium" href={ row.IdentityHref }>
-														<span hx-disable>
-														if row.IdentityDisplayName != "" {
-															{ row.IdentityDisplayName }
-														} else if row.IdentityEmail != "" {
-															{ row.IdentityEmail }
-														} else {
-															{ "Identity " }{ FormatInt64(row.IdentityID) }
-														}
-														</span>
-													</a>
-													if row.IdentityEmail != "" && row.IdentityDisplayName != "" {
-														<div class="text-xs text-muted-foreground break-all" hx-disable>{ row.IdentityEmail }</div>
-													}
-											} else {
-													<span class="text-muted-foreground">Needs anchor</span>
-											}
-											if row.IdentityStatus != "" {
-												<div class="pt-1">
-													<span class={ StatusBadgeClass(row.IdentityStatus) }>{ row.IdentityStatus }</span>
-												</div>
-											}
-										</td>
-										<td>
-												<div class="font-medium break-words" hx-disable>
-													if row.AccountDisplayName != "" {
-														{ row.AccountDisplayName }
-												} else if row.AccountEmail != "" {
-													{ row.AccountEmail }
+					<tbody>
+						for _, row := range data.Rows {
+							<tr class="align-top">
+								<td>
+									if row.IdentityHref != "" {
+										<a class="btn-sm-link px-0 font-medium" href={ row.IdentityHref }>
+											<span hx-disable>
+												if row.IdentityDisplayName != "" {
+													{ row.IdentityDisplayName }
+												} else if row.IdentityEmail != "" {
+													{ row.IdentityEmail }
 												} else {
-													{ row.AccountExternalID }
+													{ "Identity " }{ FormatInt64(row.IdentityID) }
 												}
-												</div>
-												if row.AccountEmail != "" {
-													<div class="text-xs text-muted-foreground break-all" hx-disable>{ row.AccountEmail }</div>
-												} else if row.AccountExternalID != "" {
-													<div class="text-xs text-muted-foreground break-all" hx-disable>{ row.AccountExternalID }</div>
-												}
-										</td>
-										<td>
-											if row.EntitlementPermission != "" {
-												<span class="badge-outline">{ row.EntitlementPermission }</span>
-											} else {
-												<span class="text-muted-foreground">&mdash;</span>
-											}
-										</td>
-										<td><span class="badge-outline">{ row.EntitlementKind }</span></td>
-										<td>
-											if label := viewmodels.HumanLinkReason(row.LinkReason); label != "" {
-												<span class="badge-outline">{ label }</span>
-											} else {
-												<span class="text-muted-foreground">&mdash;</span>
-											}
-										</td>
-									</tr>
-								}
+											</span>
+										</a>
+										if row.IdentityEmail != "" && row.IdentityDisplayName != "" {
+											<div class="text-xs text-muted-foreground break-all" hx-disable>{ row.IdentityEmail }</div>
+										}
+									} else {
+										<span class="text-muted-foreground">Needs anchor</span>
+									}
+									if row.IdentityStatus != "" {
+										<div class="pt-0.5">
+											<span class={ templ.Classes("text-xs font-medium", StatusTextClass(row.IdentityStatus)) }>{ row.IdentityStatus }</span>
+										</div>
+									}
+								</td>
+								<td>
+									<div class="font-medium break-words" hx-disable>
+										if row.AccountDisplayName != "" {
+											{ row.AccountDisplayName }
+										} else if row.AccountEmail != "" {
+											{ row.AccountEmail }
+										} else {
+											{ row.AccountExternalID }
+										}
+									</div>
+									if row.AccountEmail != "" {
+										<div class="text-xs text-muted-foreground break-all" hx-disable>{ row.AccountEmail }</div>
+									} else if row.AccountExternalID != "" {
+										<div class="text-xs text-muted-foreground break-all" hx-disable>{ row.AccountExternalID }</div>
+									}
+								</td>
+								<td>
+									if row.EntitlementPermission != "" {
+										<span class="osspm-resource-access-value">{ row.EntitlementPermission }</span>
+									} else {
+										<span class="text-muted-foreground">&mdash;</span>
+									}
+								</td>
+								<td><span class="osspm-resource-access-value">{ row.EntitlementKind }</span></td>
+								<td class="osspm-table-column-optional">
+									if label := viewmodels.HumanLinkReason(row.LinkReason); label != "" {
+										<span class="osspm-resource-access-value">{ label }</span>
+									} else {
+										<span class="text-muted-foreground">&mdash;</span>
+									}
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		}
+		@TableMobile() {
+			for _, row := range data.Rows {
+				<article class="osspm-resource-access-mobile-row">
+					<div class="flex items-start justify-between gap-3">
+						<div class="min-w-0">
+							if row.IdentityHref != "" {
+								<a class="font-medium no-underline hover:underline" href={ row.IdentityHref } hx-disable>
+									if row.IdentityDisplayName != "" {
+										{ row.IdentityDisplayName }
+									} else if row.IdentityEmail != "" {
+										{ row.IdentityEmail }
+									} else {
+										{ "Identity " }{ FormatInt64(row.IdentityID) }
+									}
+								</a>
 							} else {
-								<tr>
-									<td colspan="5">
-										@EmptyState("No access found", "No entitlements match this resource yet.")
-									</td>
-								</tr>
+								<span class="font-medium text-muted-foreground">Needs anchor</span>
 							}
-						</tbody>
-					</table>
-				}
-			</section>
-		</article>
+							<p class="mt-1 break-all text-sm text-muted-foreground" hx-disable>
+								if row.AccountDisplayName != "" {
+									{ row.AccountDisplayName }
+								} else if row.AccountEmail != "" {
+									{ row.AccountEmail }
+								} else {
+									{ row.AccountExternalID }
+								}
+							</p>
+						</div>
+						if row.IdentityStatus != "" {
+							<span class={ templ.Classes("shrink-0 text-xs font-medium", StatusTextClass(row.IdentityStatus)) }>{ row.IdentityStatus }</span>
+						}
+					</div>
+					<dl class="osspm-resource-access-mobile-meta">
+						if row.EntitlementPermission != "" {
+							<div>
+								<dt>Permission</dt>
+								<dd>{ row.EntitlementPermission }</dd>
+							</div>
+						}
+						<div>
+							<dt>Kind</dt>
+							<dd>{ row.EntitlementKind }</dd>
+						</div>
+						if label := viewmodels.HumanLinkReason(row.LinkReason); label != "" {
+							<div>
+								<dt>Link</dt>
+								<dd>{ label }</dd>
+							</div>
+						}
+					</dl>
+				</article>
+			}
+		}
 	}
 }

@@ -50,28 +50,98 @@ templ connectorsPanel(data viewmodels.ConnectorsViewData, oob bool) {
 }
 
 templ connectorsTable(data viewmodels.ConnectorsViewData) {
-	<div class="overflow-x-auto">
-		<table class="table osspm-table-fixed osspm-table-compact osspm-table-list align-top">
-			<thead>
-				<tr>
-					<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Connector</th>
-					<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Configured</th>
-					<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Enabled</th>
-					<th class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Identity source</th>
-					<th class="text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Actions</th>
-				</tr>
-			</thead>
-			<tbody>
-				@OktaConnectorRow(data)
-				@GoogleWorkspaceConnectorRow(data)
-				@EntraConnectorRow(data)
-				@GitHubConnectorRow(data)
-				@DatadogConnectorRow(data)
-				@AWSIdentityCenterConnectorRow(data)
-				@VaultConnectorRow(data)
-			</tbody>
-		</table>
-	</div>
+	{{ items := ConnectorListItems(data) }}
+	{{ cfg := ConnectorsTableConfig(len(items)) }}
+	@TableResults(cfg) {
+		@TableDesktop() {
+			<div class="overflow-x-auto">
+				<table class="table osspm-table-fixed osspm-table-compact osspm-table-list align-top">
+					@TableCaption(cfg.Caption)
+					<thead>
+						<tr>
+							for _, column := range ConnectorsColumns() {
+								@TableColumnHeader(column, TableSortConfig{})
+							}
+						</tr>
+					</thead>
+					<tbody>
+						for _, item := range items {
+							@ConnectorRow(data, item)
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+		@TableMobile() {
+			<div class="space-y-3">
+				for _, item := range items {
+					@ConnectorMobileCard(data, item)
+				}
+			</div>
+		}
+	}
+}
+
+// ConnectorRowSwap re-renders the requested copy of a connector and swaps the
+// other layout's copy out of band so desktop and mobile never disagree.
+templ ConnectorRowSwap(data viewmodels.ConnectorsViewData, item ConnectorListItem, mobile bool) {
+	if mobile {
+		@ConnectorMobileCard(data, item)
+		<template>
+			@connectorRow(data, item, true)
+		</template>
+	} else {
+		@ConnectorRow(data, item)
+		@connectorMobileCard(data, item, true)
+	}
+}
+
+templ ConnectorMobileCard(data viewmodels.ConnectorsViewData, item ConnectorListItem) {
+	@connectorMobileCard(data, item, false)
+}
+
+templ connectorMobileCard(data viewmodels.ConnectorsViewData, item ConnectorListItem, oob bool) {
+	{{ mutationAttrs := ScopedMutationAttrs(item.CardID(), "input[type='checkbox']") }}
+	<article
+		id={ item.CardID() }
+		class="rounded-lg border border-border/70 p-4"
+		if oob {
+			hx-swap-oob="true"
+		}
+	>
+		<div class="flex items-start justify-between gap-3">
+			<div class="min-w-0">
+				<h3 class="font-medium">{ item.Name }</h3>
+				<p class="mt-1 text-sm text-muted-foreground">{ item.Description }</p>
+			</div>
+			if item.Configured {
+				<span class="badge-outline">Configured</span>
+			} else {
+				<span class="badge-outline text-muted-foreground">Not configured</span>
+			}
+		</div>
+		<div class="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+			<form method="post" action={ "/settings/connectors/" + item.Kind + "/toggle" } hx-post={ "/settings/connectors/" + item.Kind + "/toggle" } hx-target="closest article" { mutationAttrs... }>
+				@CSRFInput(data.Layout.CSRFToken)
+				<label class="flex items-center gap-2 text-sm">
+					<input type="checkbox" role="switch" aria-label={ item.Name + " connector" } name="enabled" value="true" checked?={ item.Enabled } data-autosubmit="true" data-focus-key={ "connector-mobile-" + item.Kind + "-enabled" } class="input"/>
+					<input type="hidden" name="enabled" value="false"/>
+					<span>Enabled</span>
+				</label>
+			</form>
+			if item.AuthoritativeCapable {
+				<form method="post" action={ "/settings/connectors/" + item.Kind + "/authoritative" } hx-post={ "/settings/connectors/" + item.Kind + "/authoritative" } hx-target="closest article" { mutationAttrs... }>
+					@CSRFInput(data.Layout.CSRFToken)
+					<label class="flex items-center gap-2 text-sm">
+						<input type="checkbox" role="switch" aria-label={ item.Name + " authoritative identity source" } name="authoritative" value="true" checked?={ item.Authoritative } data-autosubmit="true" data-focus-key={ "connector-mobile-" + item.Kind + "-authoritative" } class="input"/>
+						<input type="hidden" name="authoritative" value="false"/>
+						<span>Authoritative IdP</span>
+					</label>
+				</form>
+			}
+			<a href={ "/settings/connectors?open=" + item.Kind } hx-get={ "/settings/connectors/" + item.Kind + "/dialog" } hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline ml-auto">Configure</a>
+		</div>
+	</article>
 }
 
 templ ConnectorDialog(data viewmodels.ConnectorsViewData, kind string, htmx bool, alert *viewmodels.ConnectorAlert) {
@@ -481,209 +551,55 @@ templ ConfiguredBadge(configured bool) {
 	}
 }
 
-templ OktaConnectorRow(data viewmodels.ConnectorsViewData) {
-	{{ mutationAttrs := ScopedMutationAttrs("connector-row-okta", "input[type='checkbox']") }}
-	<tr id="connector-row-okta">
+templ ConnectorRow(data viewmodels.ConnectorsViewData, item ConnectorListItem) {
+	@connectorRow(data, item, false)
+}
+
+templ connectorRow(data viewmodels.ConnectorsViewData, item ConnectorListItem, oob bool) {
+	{{ mutationAttrs := ScopedMutationAttrs(item.RowID(), "input[type='checkbox']") }}
+	<tr
+		id={ item.RowID() }
+		if oob {
+			hx-swap-oob="true"
+		}
+	>
 		<td>
 			<div class="space-y-1">
-				<div class="font-medium">Okta</div>
-				<div class="text-xs text-muted-foreground">Identity provider source for users and groups.</div>
-				if data.Okta.EventInboxStatusVisible {
-					<div class="text-xs text-muted-foreground">Inbox: { data.Okta.EventInboxStatusLabel }</div>
+				<div class="font-medium">{ item.Name }</div>
+				<div class="text-xs text-muted-foreground">{ item.Description }</div>
+				if item.InboxStatus != "" {
+					<div class="text-xs text-muted-foreground">Inbox: { item.InboxStatus }</div>
 				}
 			</div>
 		</td>
-		<td>@ConfiguredBadge(data.Okta.Configured)</td>
+		<td>@ConfiguredBadge(item.Configured)</td>
 		<td>
-			<form method="post" action="/settings/connectors/okta/toggle" hx-post="/settings/connectors/okta/toggle" hx-target="closest tr" { mutationAttrs... }>
+			<form method="post" action={ "/settings/connectors/" + item.Kind + "/toggle" } hx-post={ "/settings/connectors/" + item.Kind + "/toggle" } hx-target="closest tr" { mutationAttrs... }>
 				@CSRFInput(data.Layout.CSRFToken)
 				<label class="flex items-center gap-2 whitespace-nowrap">
-					<input type="checkbox" role="switch" aria-label="Okta connector" name="enabled" value="true" checked?={ data.Okta.Enabled } data-autosubmit="true" data-focus-key="connector-okta-enabled" class="input"/>
+					<input type="checkbox" role="switch" aria-label={ item.Name + " connector" } name="enabled" value="true" checked?={ item.Enabled } data-autosubmit="true" data-focus-key={ "connector-" + item.domKey() + "-enabled" } class="input"/>
 					<input type="hidden" name="enabled" value="false"/>
 				</label>
 			</form>
 		</td>
-		<td>
-			<div class="flex items-center justify-between gap-3">
-				<span class="text-xs text-muted-foreground">Authoritative IdP</span>
-				<form method="post" action="/settings/connectors/okta/authoritative" hx-post="/settings/connectors/okta/authoritative" hx-target="closest tr" { mutationAttrs... }>
-					@CSRFInput(data.Layout.CSRFToken)
-					<label class="flex items-center gap-2 whitespace-nowrap">
-						<input type="checkbox" role="switch" aria-label="Okta authoritative identity source" name="authoritative" value="true" checked?={ data.Okta.Authoritative } data-autosubmit="true" data-focus-key="connector-okta-authoritative" class="input"/>
-						<input type="hidden" name="authoritative" value="false"/>
-					</label>
-				</form>
-			</div>
-		</td>
+		if item.AuthoritativeCapable {
+			<td>
+				<div class="flex items-center justify-between gap-3">
+					<span class="text-xs text-muted-foreground">Authoritative IdP</span>
+					<form method="post" action={ "/settings/connectors/" + item.Kind + "/authoritative" } hx-post={ "/settings/connectors/" + item.Kind + "/authoritative" } hx-target="closest tr" { mutationAttrs... }>
+						@CSRFInput(data.Layout.CSRFToken)
+						<label class="flex items-center gap-2 whitespace-nowrap">
+							<input type="checkbox" role="switch" aria-label={ item.Name + " authoritative identity source" } name="authoritative" value="true" checked?={ item.Authoritative } data-autosubmit="true" data-focus-key={ "connector-" + item.domKey() + "-authoritative" } class="input"/>
+							<input type="hidden" name="authoritative" value="false"/>
+						</label>
+					</form>
+				</div>
+			</td>
+		} else {
+			<td><span class="text-muted-foreground">&mdash;</span></td>
+		}
 		<td class="text-right">
-			<a id="connector-okta-configure" href="/settings/connectors?open=okta" hx-get="/settings/connectors/okta/dialog" hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline">Configure</a>
-		</td>
-	</tr>
-}
-
-templ EntraConnectorRow(data viewmodels.ConnectorsViewData) {
-	{{ mutationAttrs := ScopedMutationAttrs("connector-row-entra", "input[type='checkbox']") }}
-	<tr id="connector-row-entra">
-		<td>
-			<div class="space-y-1">
-				<div class="font-medium">Microsoft Entra ID</div>
-				<div class="text-xs text-muted-foreground">Users and access via Microsoft Graph.</div>
-			</div>
-		</td>
-		<td>@ConfiguredBadge(data.Entra.Configured)</td>
-		<td>
-			<form method="post" action="/settings/connectors/entra/toggle" hx-post="/settings/connectors/entra/toggle" hx-target="closest tr" { mutationAttrs... }>
-				@CSRFInput(data.Layout.CSRFToken)
-				<label class="flex items-center gap-2 whitespace-nowrap">
-					<input type="checkbox" role="switch" aria-label="Microsoft Entra ID connector" name="enabled" value="true" checked?={ data.Entra.Enabled } data-autosubmit="true" data-focus-key="connector-entra-enabled" class="input"/>
-					<input type="hidden" name="enabled" value="false"/>
-				</label>
-			</form>
-		</td>
-		<td>
-			<div class="flex items-center justify-between gap-3">
-				<span class="text-xs text-muted-foreground">Authoritative IdP</span>
-				<form method="post" action="/settings/connectors/entra/authoritative" hx-post="/settings/connectors/entra/authoritative" hx-target="closest tr" { mutationAttrs... }>
-					@CSRFInput(data.Layout.CSRFToken)
-					<label class="flex items-center gap-2 whitespace-nowrap">
-						<input type="checkbox" role="switch" aria-label="Entra authoritative identity source" name="authoritative" value="true" checked?={ data.Entra.Authoritative } data-autosubmit="true" data-focus-key="connector-entra-authoritative" class="input"/>
-						<input type="hidden" name="authoritative" value="false"/>
-					</label>
-				</form>
-			</div>
-		</td>
-		<td class="text-right">
-			<a id="connector-entra-configure" href="/settings/connectors?open=entra" hx-get="/settings/connectors/entra/dialog" hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline">Configure</a>
-		</td>
-	</tr>
-}
-
-templ GoogleWorkspaceConnectorRow(data viewmodels.ConnectorsViewData) {
-	{{ mutationAttrs := ScopedMutationAttrs("connector-row-google-workspace", "input[type='checkbox']") }}
-	<tr id="connector-row-google-workspace">
-		<td>
-			<div class="space-y-1">
-				<div class="font-medium">Google Workspace</div>
-				<div class="text-xs text-muted-foreground">Users, groups, OAuth grants, and token audits.</div>
-			</div>
-		</td>
-		<td>@ConfiguredBadge(data.GoogleWorkspace.Configured)</td>
-		<td>
-			<form method="post" action="/settings/connectors/google_workspace/toggle" hx-post="/settings/connectors/google_workspace/toggle" hx-target="closest tr" { mutationAttrs... }>
-				@CSRFInput(data.Layout.CSRFToken)
-				<label class="flex items-center gap-2 whitespace-nowrap">
-					<input type="checkbox" role="switch" aria-label="Google Workspace connector" name="enabled" value="true" checked?={ data.GoogleWorkspace.Enabled } data-autosubmit="true" data-focus-key="connector-google-workspace-enabled" class="input"/>
-					<input type="hidden" name="enabled" value="false"/>
-				</label>
-			</form>
-		</td>
-		<td><span class="text-muted-foreground">&mdash;</span></td>
-		<td class="text-right">
-			<a id="connector-google-workspace-configure" href="/settings/connectors?open=google_workspace" hx-get="/settings/connectors/google_workspace/dialog" hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline">Configure</a>
-		</td>
-	</tr>
-}
-
-templ GitHubConnectorRow(data viewmodels.ConnectorsViewData) {
-	{{ mutationAttrs := ScopedMutationAttrs("connector-row-github", "input[type='checkbox']") }}
-	<tr id="connector-row-github">
-		<td>
-			<div class="space-y-1">
-				<div class="font-medium">GitHub</div>
-				<div class="text-xs text-muted-foreground">Organization membership, teams, and repo permissions.</div>
-			</div>
-		</td>
-		<td>@ConfiguredBadge(data.GitHub.Configured)</td>
-		<td>
-			<form method="post" action="/settings/connectors/github/toggle" hx-post="/settings/connectors/github/toggle" hx-target="closest tr" { mutationAttrs... }>
-				@CSRFInput(data.Layout.CSRFToken)
-				<label class="flex items-center gap-2 whitespace-nowrap">
-					<input type="checkbox" role="switch" aria-label="GitHub connector" name="enabled" value="true" checked?={ data.GitHub.Enabled } data-autosubmit="true" data-focus-key="connector-github-enabled" class="input"/>
-					<input type="hidden" name="enabled" value="false"/>
-				</label>
-			</form>
-		</td>
-		<td><span class="text-muted-foreground">&mdash;</span></td>
-		<td class="text-right">
-			<a id="connector-github-configure" href="/settings/connectors?open=github" hx-get="/settings/connectors/github/dialog" hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline">Configure</a>
-		</td>
-	</tr>
-}
-
-templ DatadogConnectorRow(data viewmodels.ConnectorsViewData) {
-	{{ mutationAttrs := ScopedMutationAttrs("connector-row-datadog", "input[type='checkbox']") }}
-	<tr id="connector-row-datadog">
-		<td>
-			<div class="space-y-1">
-				<div class="font-medium">Datadog</div>
-				<div class="text-xs text-muted-foreground">Datadog users and roles for entitlement visibility.</div>
-			</div>
-		</td>
-		<td>@ConfiguredBadge(data.Datadog.Configured)</td>
-		<td>
-			<form method="post" action="/settings/connectors/datadog/toggle" hx-post="/settings/connectors/datadog/toggle" hx-target="closest tr" { mutationAttrs... }>
-				@CSRFInput(data.Layout.CSRFToken)
-				<label class="flex items-center gap-2 whitespace-nowrap">
-					<input type="checkbox" role="switch" aria-label="Datadog connector" name="enabled" value="true" checked?={ data.Datadog.Enabled } data-autosubmit="true" data-focus-key="connector-datadog-enabled" class="input"/>
-					<input type="hidden" name="enabled" value="false"/>
-				</label>
-			</form>
-		</td>
-		<td><span class="text-muted-foreground">&mdash;</span></td>
-		<td class="text-right">
-			<a id="connector-datadog-configure" href="/settings/connectors?open=datadog" hx-get="/settings/connectors/datadog/dialog" hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline">Configure</a>
-		</td>
-	</tr>
-}
-
-templ AWSIdentityCenterConnectorRow(data viewmodels.ConnectorsViewData) {
-	{{ mutationAttrs := ScopedMutationAttrs("connector-row-aws-identity-center", "input[type='checkbox']") }}
-	<tr id="connector-row-aws-identity-center">
-		<td>
-			<div class="space-y-1">
-				<div class="font-medium">AWS Identity Center</div>
-				<div class="text-xs text-muted-foreground">AWS SSO users and account assignments.</div>
-			</div>
-		</td>
-		<td>@ConfiguredBadge(data.AWSIdentityCenter.Configured)</td>
-		<td>
-			<form method="post" action="/settings/connectors/aws_identity_center/toggle" hx-post="/settings/connectors/aws_identity_center/toggle" hx-target="closest tr" { mutationAttrs... }>
-				@CSRFInput(data.Layout.CSRFToken)
-				<label class="flex items-center gap-2 whitespace-nowrap">
-					<input type="checkbox" role="switch" aria-label="AWS Identity Center connector" name="enabled" value="true" checked?={ data.AWSIdentityCenter.Enabled } data-autosubmit="true" data-focus-key="connector-aws-identity-center-enabled" class="input"/>
-					<input type="hidden" name="enabled" value="false"/>
-				</label>
-			</form>
-		</td>
-		<td><span class="text-muted-foreground">&mdash;</span></td>
-		<td class="text-right">
-			<a id="connector-aws-configure" href="/settings/connectors?open=aws_identity_center" hx-get="/settings/connectors/aws_identity_center/dialog" hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline">Configure</a>
-		</td>
-	</tr>
-}
-
-templ VaultConnectorRow(data viewmodels.ConnectorsViewData) {
-	{{ mutationAttrs := ScopedMutationAttrs("connector-row-vault", "input[type='checkbox']") }}
-	<tr id="connector-row-vault">
-		<td>
-			<div class="space-y-1">
-				<div class="font-medium">Vault</div>
-				<div class="text-xs text-muted-foreground">Identity entities, policies, mounts, and auth roles.</div>
-			</div>
-		</td>
-		<td>@ConfiguredBadge(data.Vault.Configured)</td>
-		<td>
-			<form method="post" action="/settings/connectors/vault/toggle" hx-post="/settings/connectors/vault/toggle" hx-target="closest tr" { mutationAttrs... }>
-				@CSRFInput(data.Layout.CSRFToken)
-				<label class="flex items-center gap-2 whitespace-nowrap">
-					<input type="checkbox" role="switch" aria-label="Vault connector" name="enabled" value="true" checked?={ data.Vault.Enabled } data-autosubmit="true" data-focus-key="connector-vault-enabled" class="input"/>
-					<input type="hidden" name="enabled" value="false"/>
-				</label>
-			</form>
-		</td>
-		<td><span class="text-muted-foreground">&mdash;</span></td>
-		<td class="text-right">
-			<a id="connector-vault-configure" href="/settings/connectors?open=vault" hx-get="/settings/connectors/vault/dialog" hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline">Configure</a>
+			<a id={ "connector-" + item.domKey() + "-configure" } href={ "/settings/connectors?open=" + item.Kind } hx-get={ "/settings/connectors/" + item.Kind + "/dialog" } hx-target="body" hx-swap="beforeend" hx-push-url="false" class="btn-sm-outline">Configure</a>
 		</td>
 	</tr>
 }

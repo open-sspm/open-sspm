@@ -387,7 +387,7 @@ func (h *Handlers) HandleCredentials(c *echo.Context) error {
 	}
 	renderCredentials := func() error {
 		if isHX(c) && isHXTarget(c, "credentials-results") {
-			return h.RenderComponent(c, views.CredentialsPageResults(data))
+			return h.RenderComponent(c, views.CredentialsPageResultsSwap(data))
 		}
 		return h.RenderComponent(c, views.CredentialsPage(data))
 	}

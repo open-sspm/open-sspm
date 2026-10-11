@@ -17,6 +17,7 @@ import (
 	"github.com/open-sspm/open-sspm/internal/db/gen"
 	"github.com/open-sspm/open-sspm/internal/http/connectorui"
 	"github.com/open-sspm/open-sspm/internal/http/events"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 	"github.com/open-sspm/open-sspm/internal/rules/engine"
@@ -116,6 +117,7 @@ func (h *Handlers) HandleFindingsRuleset(c *echo.Context) error {
 	}
 
 	if isHX(c) && isHXTarget(c, "rules-card") {
+		c.Response().Header().Set("HX-Push-Url", data.Query.Href())
 		return h.RenderComponent(c, views.FindingsRulesetRulesCard(data))
 	}
 	return h.RenderComponent(c, views.FindingsRulesetPage(data))
@@ -142,9 +144,7 @@ func (h *Handlers) buildFindingsRulesetViewData(ctx context.Context, c *echo.Con
 		return viewmodels.FindingsRulesetViewData{}, err
 	}
 
-	statusFilter := normalizeRuleStatusFilter(c.QueryParam("status"))
-	severityFilter := normalizeSeverityFilter(c.QueryParam("severity"))
-	monitoringFilter := normalizeMonitoringFilter(c.QueryParam("monitoring"))
+	rulesQuery := querystate.ParseFindingsRulesQuery("/findings/rulesets/"+strings.TrimSpace(rs.Key), c.QueryParams())
 
 	ruleRows, err := h.Q.ListFindingRulesetCurrentByRulesetKey(ctx, gen.ListFindingRulesetCurrentByRulesetKeyParams{
 		ScopeKind:  scope.ScopeKind,
@@ -173,14 +173,20 @@ func (h *Handlers) buildFindingsRulesetViewData(ctx context.Context, c *echo.Con
 			Href:             "/findings/rulesets/" + strings.TrimSpace(rs.Key) + "/rules/" + strings.TrimSpace(row.Key),
 		}
 
-		if statusFilter != "" && strings.ToLower(strings.TrimSpace(item.Status)) != statusFilter {
+		if rulesQuery.Status != "" && strings.ToLower(strings.TrimSpace(item.Status)) != rulesQuery.Status {
 			continue
 		}
-		if severityFilter != "" && strings.ToLower(strings.TrimSpace(item.Severity)) != severityFilter {
+		if rulesQuery.Severity != "" && strings.ToLower(strings.TrimSpace(item.Severity)) != rulesQuery.Severity {
 			continue
 		}
-		if monitoringFilter != "" && strings.ToLower(strings.TrimSpace(item.MonitoringStatus)) != monitoringFilter {
+		if rulesQuery.Monitoring != "" && strings.ToLower(strings.TrimSpace(item.MonitoringStatus)) != rulesQuery.Monitoring {
 			continue
+		}
+		if needle := strings.ToLower(strings.TrimSpace(rulesQuery.Q)); needle != "" {
+			haystack := strings.ToLower(strings.Join([]string{item.Key, item.Title, item.Summary, item.EvidenceSummary}, " "))
+			if !strings.Contains(haystack, needle) {
+				continue
+			}
 		}
 
 		items = append(items, item)
@@ -217,9 +223,7 @@ func (h *Handlers) buildFindingsRulesetViewData(ctx context.Context, c *echo.Con
 		ConnectorHintHref: scope.ConnectorHintHref,
 		OverrideExists:    overrideExists,
 		OverrideEnabled:   overrideEnabled,
-		StatusFilter:      statusFilter,
-		SeverityFilter:    severityFilter,
-		MonitoringFilter:  monitoringFilter,
+		Query:             rulesQuery,
 		Rules:             items,
 		HasRules:          len(items) > 0,
 		Alert:             alert,
@@ -644,39 +648,6 @@ func (h *Handlers) getRuleAttestation(ctx context.Context, ruleID int64, scope f
 
 func formatTimeTable(t pgtype.Timestamptz) viewmodels.TimeDisplay {
 	return calendarDateDisplayOrEmpty(t)
-}
-
-func normalizeRuleStatusFilter(v string) string {
-	switch strings.ToLower(strings.TrimSpace(v)) {
-	case "", "all":
-		return ""
-	case "pass", "fail", "unknown", "error", "not_applicable":
-		return strings.ToLower(strings.TrimSpace(v))
-	default:
-		return ""
-	}
-}
-
-func normalizeSeverityFilter(v string) string {
-	switch strings.ToLower(strings.TrimSpace(v)) {
-	case "", "all":
-		return ""
-	case "critical", "high", "medium", "low", "info":
-		return strings.ToLower(strings.TrimSpace(v))
-	default:
-		return ""
-	}
-}
-
-func normalizeMonitoringFilter(v string) string {
-	switch strings.ToLower(strings.TrimSpace(v)) {
-	case "", "all":
-		return ""
-	case "automated", "partial", "manual", "unsupported":
-		return strings.ToLower(strings.TrimSpace(v))
-	default:
-		return ""
-	}
 }
 
 func parseRuleParameters(definitionJSON []byte) map[string]any {

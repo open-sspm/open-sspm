@@ -512,30 +512,19 @@ func (h *Handlers) renderConnectorRow(c *echo.Context, kind string, data viewmod
 }
 
 func (h *Handlers) renderConnectorRowStatus(c *echo.Context, kind string, data viewmodels.ConnectorsViewData, status int) error {
+	kind = NormalizeConnectorKind(kind)
+	addVary(c, "HX-Target")
 	render := h.RenderComponent
 	if status != 0 && status != http.StatusOK {
 		render = func(c *echo.Context, component templ.Component) error {
 			return h.RenderComponentStatus(c, status, component)
 		}
 	}
-	switch NormalizeConnectorKind(kind) {
-	case configstore.KindOkta:
-		return render(c, views.OktaConnectorRow(data))
-	case configstore.KindGoogleWorkspace:
-		return render(c, views.GoogleWorkspaceConnectorRow(data))
-	case configstore.KindEntra:
-		return render(c, views.EntraConnectorRow(data))
-	case configstore.KindGitHub:
-		return render(c, views.GitHubConnectorRow(data))
-	case configstore.KindDatadog:
-		return render(c, views.DatadogConnectorRow(data))
-	case configstore.KindAWSIdentityCenter:
-		return render(c, views.AWSIdentityCenterConnectorRow(data))
-	case configstore.KindVault:
-		return render(c, views.VaultConnectorRow(data))
-	default:
+	item, ok := views.ConnectorListItemForKind(data, kind)
+	if !ok {
 		return h.RenderPageNotFound(c)
 	}
+	return render(c, views.ConnectorRowSwap(data, item, isHXTarget(c, item.CardID())))
 }
 
 func (h *Handlers) buildConnectorsViewData(ctx context.Context, c *echo.Context, openKind, savedKind string, alert *viewmodels.ConnectorAlert) (viewmodels.ConnectorsViewData, error) {

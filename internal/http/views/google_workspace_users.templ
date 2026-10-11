@@ -6,7 +6,7 @@ import (
 )
 
 templ GoogleWorkspaceUserMobileRow(user viewmodels.GoogleWorkspaceUserListItem) {
-	<article class="rounded-lg border border-border/70 bg-card p-4">
+	<article class="osspm-mobile-list-row">
 		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0">
 				<div class="font-medium" title={ user.DisplayName }>
@@ -22,11 +22,11 @@ templ GoogleWorkspaceUserMobileRow(user viewmodels.GoogleWorkspaceUserListItem) 
 		<div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
 			<div>
 				<div class="text-xs uppercase tracking-wide text-muted-foreground">Groups</div>
-				<div><span class="badge-outline">{ FormatInt(user.GroupCount) }</span></div>
+				<div><span class="osspm-plain-value">{ FormatInt(user.GroupCount) }</span></div>
 			</div>
 			<div>
 				<div class="text-xs uppercase tracking-wide text-muted-foreground">Admin roles</div>
-				<div><span class="badge-outline">{ FormatInt(user.AdminRoleCount) }</span></div>
+				<div><span class="osspm-plain-value">{ FormatInt(user.AdminRoleCount) }</span></div>
 			</div>
 			<div class="col-span-2">
 				<div class="text-xs uppercase tracking-wide text-muted-foreground">Identity</div>
@@ -104,7 +104,7 @@ templ GoogleWorkspaceUsersPageResults(data viewmodels.GoogleWorkspaceUsersViewDa
 		<section class="space-y-3">
 			@ListSectionHeader("Google Workspace users", "Google Workspace users with group and admin-role visibility.")
 			if data.HasUsers {
-				<div class="space-y-3 lg:hidden">
+				<div class="osspm-mobile-list lg:hidden">
 					for _, u := range data.Users {
 						@GoogleWorkspaceUserMobileRow(u)
 					}
@@ -145,8 +145,8 @@ templ GoogleWorkspaceUsersPageResults(data viewmodels.GoogleWorkspaceUsersViewDa
 											<span class="text-muted-foreground">&mdash;</span>
 										}
 									</td>
-									<td><span class="badge-outline">{ FormatInt(u.GroupCount) }</span></td>
-									<td><span class="badge-outline">{ FormatInt(u.AdminRoleCount) }</span></td>
+									<td><span class="osspm-plain-value">{ FormatInt(u.GroupCount) }</span></td>
+									<td><span class="osspm-plain-value">{ FormatInt(u.AdminRoleCount) }</span></td>
 									<td>
 										if u.IdentityID > 0 {
 											<a class="btn-sm-link" href={ "/identities/" + FormatInt64(u.IdentityID) }>{ "Identity #" }{ FormatInt64(u.IdentityID) }</a>

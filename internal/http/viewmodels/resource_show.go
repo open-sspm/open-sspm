@@ -1,5 +1,7 @@
 package viewmodels
 
+import "github.com/open-sspm/open-sspm/internal/http/querystate"
+
 type ResourceAccessRow struct {
 	IdentityID          int64
 	IdentityHref        string
@@ -31,9 +33,16 @@ type ResourceShowViewData struct {
 
 	ExternalConsoleHref string
 
-	EntitlementCount    int
-	AccountCount        int
-	LinkedIdentityCount int
+	EntitlementCount    int64
+	AccountCount        int64
+	LinkedIdentityCount int64
+
+	Query        querystate.ResourceAccessQuery
+	Page         int
+	TotalPages   int
+	ShowingFrom  int
+	ShowingTo    int
+	MatchingRows int64
 
 	Rows    []ResourceAccessRow
 	HasRows bool

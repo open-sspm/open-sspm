@@ -6,7 +6,7 @@ import (
 )
 
 templ OktaAccountMobileRow(account gen.Account) {
-	<article class="rounded-lg border border-border/70 bg-card p-4">
+	<article class="osspm-mobile-list-row">
 		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0">
 					<a class="block font-medium no-underline hover:underline break-all" href={ "/accounts/okta/" + FormatInt64(account.ID) }>
@@ -68,7 +68,7 @@ templ OktaAccountsPageResults(data viewmodels.OktaAccountsViewData) {
 		<section class="space-y-3">
 			@ListSectionHeader("Okta Accounts", "Okta accounts synced from your Okta source.")
 			if data.HasUsers {
-				<div class="space-y-3 lg:hidden">
+				<div class="osspm-mobile-list lg:hidden">
 					for _, u := range data.Users {
 						@OktaAccountMobileRow(u)
 					}

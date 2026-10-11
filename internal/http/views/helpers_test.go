@@ -9,30 +9,6 @@ import (
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 )
 
-func TestAskBarSavedQueryPillPreservesSelectedFocusAndViewport(t *testing.T) {
-	t.Parallel()
-
-	var body bytes.Buffer
-	pill := AskBarSavedQuery{Href: "/identities?row_state=review", Label: "Review", Active: true}
-	if err := askBarSavedQueryPill(pill, "#identities-results").Render(context.Background(), &body); err != nil {
-		t.Fatalf("render askBarSavedQueryPill: %v", err)
-	}
-
-	html := body.String()
-	if !strings.Contains(html, `aria-current="page"`) {
-		t.Fatalf("saved query pill should render aria-current: %s", html)
-	}
-	if strings.Contains(html, `aria-pressed=`) {
-		t.Fatalf("saved query pill should not render aria-pressed: %s", html)
-	}
-	if !strings.Contains(html, `data-focus-key="saved-query:/identities?row_state=review"`) {
-		t.Fatalf("saved query pill should have a stable focus key: %s", html)
-	}
-	if !strings.Contains(html, `hx-swap="outerHTML"`) || strings.Contains(html, `show:top`) {
-		t.Fatalf("saved query pill should preserve the current viewport: %s", html)
-	}
-}
-
 func TestProductIconForUsesVendoredSimpleIcons(t *testing.T) {
 	t.Parallel()
 

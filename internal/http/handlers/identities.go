@@ -52,7 +52,7 @@ func (h *Handlers) HandleIdentities(c *echo.Context) error {
 	}
 	renderIdentities := func() error {
 		if isHX(c) && isHXTarget(c, "identities-results") {
-			return h.RenderComponent(c, views.IdentitiesPageResults(data))
+			return h.RenderComponent(c, views.IdentitiesPageResultsSwap(data))
 		}
 		return h.RenderComponent(c, views.IdentitiesPage(data))
 	}

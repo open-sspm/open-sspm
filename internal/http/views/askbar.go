@@ -50,14 +50,6 @@ type AskBarSuggestionsViewData struct {
 	ShowFreeText bool
 }
 
-// AskBarSavedQuery is one pill rendered below the bar. Pills are plain anchors
-// with htmx attributes so they work with browser history and no JS.
-type AskBarSavedQuery struct {
-	Href   string
-	Label  string
-	Active bool
-}
-
 // AskBarGrammarHint is one code-token suggestion in the "Try" row below the
 // bar. Token is rendered in monospace so the operator can read the grammar
 // (e.g. `expires:<30d`). Clicking the hint navigates to the canonical
@@ -67,6 +59,17 @@ type AskBarGrammarHint struct {
 	Token  string
 	Href   string
 	Active bool
+}
+
+// AskBarFilterGroup is one top-level category in the guided filter chooser.
+// Query is the parser prefix used to load that category's values (for example,
+// `state:`). Icon selects an icon from the product's existing icon set.
+type AskBarFilterGroup struct {
+	Field   string
+	Label   string
+	Preview string
+	Query   string
+	Icon    string
 }
 
 // AskBarConfig fully describes one page's ask bar — the active chips, the JS
@@ -86,8 +89,8 @@ type AskBarConfig struct {
 	Stopwords       []string
 	SingletonFields []string
 	FreeTextFields  []string
-	SavedQueries    []AskBarSavedQuery
 	GrammarHints    []AskBarGrammarHint
+	FilterGroups    []AskBarFilterGroup
 	HasRightActions bool
 	HxTarget        string
 	SuggestionScope string
@@ -159,6 +162,13 @@ func AskBarHiddenInputs(cfg AskBarConfig) []AskBarHidden {
 
 func AskBarHasStructuredFilters(cfg AskBarConfig) bool {
 	return len(cfg.KeywordTokens) > 0 || len(cfg.FieldAliases) > 0
+}
+
+func AskBarSelectedValue(selected bool) string {
+	if selected {
+		return "true"
+	}
+	return "false"
 }
 
 func AskBarDOMKey(cfg AskBarConfig) string {

@@ -316,13 +316,13 @@ func TestHandleIdentitiesPinsToHumanKindOnly(t *testing.T) {
 	})
 }
 
-func TestHandleIdentitiesHTMXResultsIncludesSavedQueryState(t *testing.T) {
+func TestHandleIdentitiesHTMXResultsRefreshesHintState(t *testing.T) {
 	withCommandSearchTestDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, _ *gen.Queries, h *Handlers) {
 		upsertCommandSearchConnectorConfig(t, ctx, pool, configstore.KindEntra, true, configstore.EntraConfig{
 			TenantID: "tenant-1",
 		})
 
-		c, rec := newTestContext(http.MethodGet, "http://example.com/identities?row_state=action_required")
+		c, rec := newTestContext(http.MethodGet, "http://example.com/identities?activity_state=stale&q=alice&source_kind=entra&source_name=tenant-1")
 		(*c).Request().Header.Set("HX-Request", "true")
 		(*c).Request().Header.Set("HX-Target", "identities-results")
 		if err := h.HandleIdentities(c); err != nil {
@@ -334,8 +334,10 @@ func TestHandleIdentitiesHTMXResultsIncludesSavedQueryState(t *testing.T) {
 
 		body := rec.Body.String()
 		assertContains(t, body, `id="identities-results"`)
-		assertContains(t, body, `aria-label="Saved queries"`)
-		assertContains(t, body, `aria-current="page">Needs action`)
+		assertContains(t, body, `id="askbar-identities-hints"`)
+		assertContains(t, body, `hx-swap-oob="outerHTML"`)
+		assertContains(t, body, `q=alice&amp;source_kind=entra&amp;source_name=tenant-1`)
+		assertContains(t, body, `aria-current="page">seen:stale`)
 		assertNotContains(t, body, `data-osspm-askbar`)
 		assertNotContains(t, body, "<!doctype html>")
 	})

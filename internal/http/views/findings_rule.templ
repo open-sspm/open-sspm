@@ -33,7 +33,7 @@ templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
 		}
 
 		<div class="grid gap-6 lg:grid-cols-3">
-			<article class="card lg:col-span-1">
+			<article class="osspm-detail-section lg:col-span-1">
 				<header>
 					<h2>Rule</h2>
 					<p class="text-muted-foreground">{ data.RuleKey }</p>
@@ -47,7 +47,7 @@ templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
 					</div>
 
 					<div class="flex flex-wrap gap-2">
-						<span class="badge-outline">{ data.RuleSeverity }</span>
+						<span class={ templ.Classes("text-sm font-medium", RuleSeverityTextClass(data.RuleSeverity)) }>{ data.RuleSeverity }</span>
 						<span class={ RuleMonitoringBadgeClass(data.MonitoringStatus) }>{ data.MonitoringStatus }</span>
 						<span class={ RuleStatusBadgeClass(data.CurrentStatus) }>{ HumanizeRuleStatus(data.CurrentStatus) }</span>
 					</div>
@@ -64,7 +64,7 @@ templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
 				</section>
 			</article>
 
-			<article class="card lg:col-span-2">
+			<article class="osspm-detail-section lg:col-span-2">
 				<header>
 					<h2>Current result</h2>
 					<p class="text-muted-foreground">Latest evaluation stored in Postgres.</p>
@@ -73,7 +73,7 @@ templ FindingsRuleShell(data viewmodels.FindingsRuleViewData) {
 					<div class="flex flex-wrap items-center gap-2">
 						<span class={ RuleStatusBadgeClass(data.CurrentStatus) }>{ HumanizeRuleStatus(data.CurrentStatus) }</span>
 						if data.CurrentErrorKind != "" {
-							<span class="badge-outline">{ data.CurrentErrorKind }</span>
+							<span class="text-sm font-medium text-muted-foreground">{ data.CurrentErrorKind }</span>
 						}
 						if data.CurrentEvaluatedAt.Label != "" {
 							<span class="text-sm text-muted-foreground">Evaluated { data.CurrentEvaluatedAt.Label }</span>

@@ -377,6 +377,70 @@ describe("htmx integration wiring", () => {
     expect(detail.parameters.q).toBe("draft");
   });
 
+  it("preserves a filter hint's canonical query instead of applying draft text", () => {
+    document.body.innerHTML = `
+      <form data-enter-only-query="q">
+        <input id="query" type="search" name="q" value="applied" />
+        <a id="hint" href="/items?q=applied&amp;status=active" hx-get="/items?q=applied&amp;status=active">Active</a>
+      </form>
+    `;
+    document.getElementById("query").value = "draft";
+    const detail = {
+      elt: document.getElementById("hint"),
+      parameters: { q: "applied", status: "active" },
+      triggeringEvent: new MouseEvent("click"),
+    };
+
+    document.dispatchEvent(new CustomEvent("htmx:configRequest", { detail }));
+
+    expect(detail.parameters).toEqual({ q: "applied", status: "active" });
+  });
+
+  it("collapses duplicate query values to the one live submitted value", () => {
+    document.body.innerHTML = `
+      <form id="filters" data-enter-only-query="q">
+        <input id="query" type="search" name="q" value="" />
+      </form>
+    `;
+
+    const form = document.getElementById("filters");
+    const query = document.getElementById("query");
+    query.value = "Toni";
+    const detail = {
+      elt: form,
+      parameters: { q: ["", "Toni"] },
+      triggeringEvent: new Event("submit"),
+    };
+
+    document.dispatchEvent(new CustomEvent("htmx:configRequest", { detail }));
+
+    expect(detail.parameters.q).toBe("Toni");
+  });
+
+  it("normalizes submitted query values in FormData parameters", () => {
+    document.body.innerHTML = `
+      <form id="filters" data-enter-only-query="q">
+        <input id="query" type="search" name="q" value="" />
+      </form>
+    `;
+
+    const form = document.getElementById("filters");
+    const query = document.getElementById("query");
+    query.value = "Toni";
+    const parameters = new FormData();
+    parameters.append("q", "");
+    parameters.append("q", "Toni");
+    const detail = {
+      elt: form,
+      parameters,
+      triggeringEvent: new Event("submit"),
+    };
+
+    document.dispatchEvent(new CustomEvent("htmx:configRequest", { detail }));
+
+    expect(parameters.getAll("q")).toEqual(["Toni"]);
+  });
+
   it("does not change queries for forms without enter-only query handling", () => {
     document.body.innerHTML = `
       <form id="filters">

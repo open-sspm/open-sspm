@@ -7,12 +7,14 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/open-sspm/open-sspm/internal/db/gen"
+	"github.com/open-sspm/open-sspm/internal/http/querystate"
 	"github.com/open-sspm/open-sspm/internal/http/viewmodels"
 	"github.com/open-sspm/open-sspm/internal/http/views"
 	identitydomain "github.com/open-sspm/open-sspm/internal/identity"
 )
 
 func (h *Handlers) HandleResourceShow(c *echo.Context) error {
+	addVary(c, "HX-Request", "HX-Target")
 	sourceKind := strings.TrimSpace(c.Param("sourceKind"))
 	sourceName := strings.TrimSpace(c.Param("sourceName"))
 	resourceKind := strings.TrimSpace(c.Param("resourceKind"))
@@ -37,20 +39,63 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 
 	resourceKind = strings.ToLower(strings.TrimSpace(resourceKind))
 	resourceRef := resourceKind + ":" + externalID
+	query := querystate.ParseResourceAccessQuery(c.Request().URL.EscapedPath(), c.QueryParams())
 
 	ctx := c.Request().Context()
-	rows, err := h.Q.ListEntitlementAccessBySourceAndResourceRef(ctx, gen.ListEntitlementAccessBySourceAndResourceRefParams{
-		SourceKind:  sourceKind,
-		SourceName:  sourceName,
-		ResourceRef: resourceRef,
-	})
+	renderFrame := isHX(c) && isHXTarget(c, "resource-access-frame")
+	renderResults := isHX(c) && isHXTarget(c, "resource-access-results")
+
+	// The summary only feeds the page header, which partial swaps never re-render.
+	var summary gen.GetEntitlementAccessResourceSummaryRow
+	displayName := externalID
+	if !renderFrame && !renderResults {
+		var err error
+		summary, err = h.Q.GetEntitlementAccessResourceSummary(ctx, gen.GetEntitlementAccessResourceSummaryParams{
+			SourceKind:  sourceKind,
+			SourceName:  sourceName,
+			ResourceRef: resourceRef,
+		})
+		if err != nil {
+			return h.RenderError(c, err)
+		}
+		if summary.EntitlementCount > 0 {
+			displayName = identitydomain.DisplayResourceLabel(resourceRef, summary.SampleEntitlementRawJson)
+		}
+	}
+
+	filterParams := gen.CountEntitlementAccessBySourceAndResourceRefQueryParams{
+		SourceKind:   sourceKind,
+		SourceName:   sourceName,
+		ResourceRef:  resourceRef,
+		Query:        query.Q,
+		Permission:   query.Permission,
+		Kind:         query.Kind,
+		Link:         query.Link,
+		IdentityKind: query.IdentityKind,
+	}
+	matchingRows, err := h.Q.CountEntitlementAccessBySourceAndResourceRefQuery(ctx, filterParams)
 	if err != nil {
 		return h.RenderError(c, err)
 	}
-
-	displayName := externalID
-	if len(rows) > 0 {
-		displayName = identitydomain.DisplayResourceLabel(resourceRef, rows[0].EntitlementRawJson)
+	const perPage = 25
+	page, totalPages, offset := paginate(matchingRows, query.Page, perPage)
+	query.Page = page
+	rows, err := h.Q.ListEntitlementAccessBySourceAndResourceRefPage(ctx, gen.ListEntitlementAccessBySourceAndResourceRefPageParams{
+		SourceKind:   sourceKind,
+		SourceName:   sourceName,
+		ResourceRef:  resourceRef,
+		Query:        query.Q,
+		Permission:   query.Permission,
+		Kind:         query.Kind,
+		Link:         query.Link,
+		IdentityKind: query.IdentityKind,
+		SortBy:       query.SortBy,
+		SortDir:      query.SortDir,
+		PageLimit:    perPage,
+		PageOffset:   int32(offset),
+	})
+	if err != nil {
+		return h.RenderError(c, err)
 	}
 
 	title := ConnectorDisplayName(sourceKind) + " resource"
@@ -67,13 +112,9 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 		resourceKindLabel = resourceKind
 	}
 
-	seenAccounts := make(map[int64]struct{})
-	seenIdentities := make(map[int64]struct{})
 	accessRows := make([]viewmodels.ResourceAccessRow, 0, len(rows))
 
 	for _, row := range rows {
-		seenAccounts[row.AccountID] = struct{}{}
-
 		identityID := int64(0)
 		identityHref := ""
 		identityEmail := ""
@@ -82,7 +123,6 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 		if row.IdentityID.Valid {
 			identityID = row.IdentityID.Int64
 			identityHref = "/identities/" + strconv.FormatInt(identityID, 10)
-			seenIdentities[identityID] = struct{}{}
 		}
 		if row.IdentityEmail.Valid {
 			identityEmail = strings.TrimSpace(row.IdentityEmail.String)
@@ -125,13 +165,26 @@ func (h *Handlers) HandleResourceShow(c *echo.Context) error {
 		ExternalID:          externalID,
 		DisplayName:         displayName,
 		ExternalConsoleHref: identitydomain.ExternalConsoleHref(sourceKind, sourceName, resourceKind, externalID),
-		EntitlementCount:    len(rows),
-		AccountCount:        len(seenAccounts),
-		LinkedIdentityCount: len(seenIdentities),
+		EntitlementCount:    summary.EntitlementCount,
+		AccountCount:        summary.AccountCount,
+		LinkedIdentityCount: summary.LinkedIdentityCount,
+		Query:               query,
+		Page:                page,
+		TotalPages:          totalPages,
+		MatchingRows:        matchingRows,
 		Rows:                accessRows,
 		HasRows:             len(accessRows) > 0,
 	}
+	data.ShowingFrom, data.ShowingTo = showingRange(matchingRows, offset, len(accessRows))
 
+	if renderFrame {
+		c.Response().Header().Set("HX-Push-Url", query.Href())
+		return h.RenderComponent(c, views.ResourceAccessFrame(data))
+	}
+	if renderResults {
+		c.Response().Header().Set("HX-Push-Url", query.Href())
+		return h.RenderComponent(c, views.ResourceAccessResults(data))
+	}
 	return h.RenderComponent(c, views.ResourceShowPage(data))
 }
 

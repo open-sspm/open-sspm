@@ -31,14 +31,14 @@ func GitHubUserMobileRow(user viewmodels.GitHubUserListItem) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<article class=\"rounded-lg border border-border/70 bg-card p-4\"><div class=\"flex items-start justify-between gap-3\"><div class=\"min-w-0\"><div class=\"font-medium break-all\" hx-disable>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<article class=\"osspm-mobile-list-row\"><div class=\"flex items-start justify-between gap-3\"><div class=\"min-w-0\"><div class=\"font-medium break-all\" hx-disable>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(user.ExternalID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_users.templ`, Line: 9, Col: 68}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 9, Col: 68}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -56,7 +56,7 @@ func GitHubUserMobileRow(user viewmodels.GitHubUserListItem) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(user.DisplayName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_users.templ`, Line: 11, Col: 72}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 11, Col: 72}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 			if templ_7745c5c3_Err != nil {
@@ -69,7 +69,7 @@ func GitHubUserMobileRow(user viewmodels.GitHubUserListItem) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(user.DisplayName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_users.templ`, Line: 12, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 12, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -92,7 +92,7 @@ func GitHubUserMobileRow(user viewmodels.GitHubUserListItem) templ.Component {
 			var templ_7745c5c3_Var5 templ.SafeURL
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinURLErrs("/identities/" + FormatInt64(user.IdentityID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_users.templ`, Line: 21, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 21, Col: 85}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -105,7 +105,7 @@ func GitHubUserMobileRow(user viewmodels.GitHubUserListItem) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs("Identity #")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_users.templ`, Line: 21, Col: 102}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 21, Col: 102}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -114,7 +114,7 @@ func GitHubUserMobileRow(user viewmodels.GitHubUserListItem) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(user.IdentityID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_users.templ`, Line: 21, Col: 134}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 21, Col: 134}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -191,7 +191,7 @@ func GitHubUsersPage(data viewmodels.GitHubUsersViewData) templ.Component {
 					var templ_7745c5c3_Var11 templ.SafeURL
 					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinURLErrs("/accounts/needs-anchor/github/" + data.Layout.GitHubOrg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_users.templ`, Line: 34, Col: 94}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 34, Col: 94}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 					if templ_7745c5c3_Err != nil {
@@ -255,7 +255,7 @@ func GitHubUsersPage(data viewmodels.GitHubUsersViewData) templ.Component {
 					var templ_7745c5c3_Var14 templ.SafeURL
 					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinURLErrs("/accounts/needs-anchor/github/" + data.Layout.GitHubOrg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_users.templ`, Line: 46, Col: 97}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 46, Col: 97}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 					if templ_7745c5c3_Err != nil {
@@ -291,7 +291,7 @@ func GitHubUsersPage(data viewmodels.GitHubUsersViewData) templ.Component {
 					var templ_7745c5c3_Var16 string
 					templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(data.EmptyStateMsg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_users.templ`, Line: 53, Col: 25}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 53, Col: 25}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 					if templ_7745c5c3_Err != nil {
@@ -431,7 +431,7 @@ func GitHubUsersPageResults(data viewmodels.GitHubUsersViewData) templ.Component
 			return templ_7745c5c3_Err
 		}
 		if data.HasUsers {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<div class=\"space-y-3 lg:hidden\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<div class=\"osspm-mobile-list lg:hidden\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -484,7 +484,7 @@ func GitHubUsersPageResults(data viewmodels.GitHubUsersViewData) templ.Component
 					var templ_7745c5c3_Var21 string
 					templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(u.ExternalID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_users.templ`, Line: 116, Col: 59}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 116, Col: 59}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 					if templ_7745c5c3_Err != nil {
@@ -497,7 +497,7 @@ func GitHubUsersPageResults(data viewmodels.GitHubUsersViewData) templ.Component
 					var templ_7745c5c3_Var22 string
 					templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(u.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_users.templ`, Line: 117, Col: 70}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 117, Col: 70}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 					if templ_7745c5c3_Err != nil {
@@ -515,7 +515,7 @@ func GitHubUsersPageResults(data viewmodels.GitHubUsersViewData) templ.Component
 						var templ_7745c5c3_Var23 templ.SafeURL
 						templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinURLErrs("/identities/" + FormatInt64(u.IdentityID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_users.templ`, Line: 120, Col: 83}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 120, Col: 83}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 						if templ_7745c5c3_Err != nil {
@@ -528,7 +528,7 @@ func GitHubUsersPageResults(data viewmodels.GitHubUsersViewData) templ.Component
 						var templ_7745c5c3_Var24 string
 						templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs("Identity #")
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_users.templ`, Line: 120, Col: 100}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 120, Col: 100}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 						if templ_7745c5c3_Err != nil {
@@ -537,7 +537,7 @@ func GitHubUsersPageResults(data viewmodels.GitHubUsersViewData) templ.Component
 						var templ_7745c5c3_Var25 string
 						templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(FormatInt64(u.IdentityID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/views/github_users.templ`, Line: 120, Col: 129}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `github_users.templ`, Line: 120, Col: 129}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 						if templ_7745c5c3_Err != nil {

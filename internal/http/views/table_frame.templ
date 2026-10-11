@@ -1,0 +1,93 @@
+package views
+
+templ TableFrame(cfg TableFrameConfig) {
+	<section id={ cfg.ID } class={ TableFrameClass(cfg) } data-table-frame>
+		if cfg.Title != "" || cfg.Description != "" {
+			<header class="osspm-table-frame-header">
+				<div class="min-w-0">
+					if cfg.Title != "" {
+						<h2 class="text-base font-semibold">{ cfg.Title }</h2>
+					}
+					if cfg.Description != "" {
+						<p class="max-w-3xl text-sm text-muted-foreground">{ cfg.Description }</p>
+					}
+				</div>
+			</header>
+		}
+		{ children... }
+	</section>
+}
+
+templ TableFrameBody() {
+	<div class="osspm-table-frame-body">
+		{ children... }
+	</div>
+}
+
+templ TableToolbar() {
+	<div class="osspm-table-toolbar">
+		{ children... }
+	</div>
+}
+
+templ TableResults(cfg TableFrameConfig) {
+	<div id={ cfg.ResultsID } class="osspm-table-results" data-table-results aria-busy="false">
+		@BusyInlineIndicator(cfg.LoadingLabel, false)
+		<div class="osspm-table-results-meta" aria-live="polite" aria-atomic="true">
+			<p>{ TableResultSummary(cfg) }</p>
+			if cfg.HasFilters && cfg.ClearHref != "" {
+				<a class="text-xs no-underline hover:text-foreground" href={ cfg.ClearHref } hx-get={ cfg.ClearHref } hx-target={ "#" + cfg.ClearTarget } hx-swap="outerHTML" hx-push-url="true">
+					if cfg.ClearLabel != "" {
+						{ cfg.ClearLabel }
+					} else {
+						{ "Clear filters" }
+					}
+				</a>
+			}
+		</div>
+		if cfg.HasRows {
+			{ children... }
+			if cfg.TotalPages > 1 && cfg.PageHref != nil {
+				@ListPagination(cfg.ResultsID, cfg.Page, cfg.TotalPages, cfg.PageHref)
+			}
+		} else {
+			<div data-table-empty-kind={ string(cfg.EmptyKind) }>
+				@EmptyState(cfg.EmptyTitle, cfg.EmptyDescription) {
+					if cfg.EmptyActionHref != "" && cfg.EmptyActionLabel != "" {
+						<a class="btn-sm-outline" href={ cfg.EmptyActionHref }>{ cfg.EmptyActionLabel }</a>
+					}
+				}
+			</div>
+		}
+	</div>
+}
+
+templ TableDesktop() {
+	<div class="hidden lg:block" data-table-desktop>
+		{ children... }
+	</div>
+}
+
+templ TableMobile() {
+	<div class="osspm-mobile-list lg:hidden" data-table-mobile>
+		{ children... }
+	</div>
+}
+
+templ TableCaption(caption string) {
+	<caption class="sr-only">{ caption }</caption>
+}
+
+templ TableColumnHeader(column TableColumnConfig, sort TableSortConfig) {
+	if column.SortKey != "" && sort.HrefForSort != nil {
+		{{ href := TableSortHref(column, sort) }}
+		<th scope="col" class={ TableColumnClass(column) } aria-sort={ TableSortAria(column, sort) }>
+			<a class="osspm-table-sort-link" href={ href } hx-get={ href } hx-target={ "#" + sort.TargetID } hx-swap="outerHTML" hx-push-url="true">
+				<span>{ column.Label }</span>
+				<span class="osspm-table-sort-indicator" aria-hidden="true"></span>
+			</a>
+		</th>
+	} else {
+		<th scope="col" class={ TableColumnClass(column) }>{ column.Label }</th>
+	}
+}

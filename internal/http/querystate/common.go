@@ -20,6 +20,24 @@ func encodeURL(basePath string, values url.Values) string {
 	return basePath + "?" + values.Encode()
 }
 
+func lastValue(values url.Values, key string) string {
+	items := values[key]
+	if len(items) == 0 {
+		return ""
+	}
+	return items[len(items)-1]
+}
+
+func lastNonEmptyValue(values url.Values, key string) string {
+	items := values[key]
+	for index := len(items) - 1; index >= 0; index-- {
+		if strings.TrimSpace(items[index]) != "" {
+			return items[index]
+		}
+	}
+	return ""
+}
+
 func parsePage(raw string) int {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

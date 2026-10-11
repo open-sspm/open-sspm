@@ -255,7 +255,7 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 											<td class="break-words" hx-disable>{ actor.ActorLabel }</td>
 											<td class="break-all" hx-disable>{ actor.ActorEmail }</td>
 											<td class="break-all" hx-disable>{ actor.ActorExternalID }</td>
-											<td class="whitespace-nowrap"><span class="badge-outline">{ FormatInt64(actor.EventCount) }</span></td>
+											<td class="whitespace-nowrap"><span class="osspm-plain-value">{ FormatInt64(actor.EventCount) }</span></td>
 											<td class="whitespace-nowrap">{ actor.LastObservedAt.Label }</td>
 										</tr>
 									}
@@ -290,7 +290,7 @@ templ DiscoveryAppShowBody(data viewmodels.DiscoveryAppShowViewData) {
 									for _, event := range data.Events {
 										<tr>
 											<td class="whitespace-nowrap">{ event.ObservedAt.Label }</td>
-											<td class="whitespace-nowrap"><span class="badge-outline">{ HumanizeDiscoverySignalKind(event.SignalKind) }</span></td>
+											<td class="whitespace-nowrap"><span class="text-sm font-medium">{ HumanizeDiscoverySignalKind(event.SignalKind) }</span></td>
 											<td class="break-words">{ event.Actor }</td>
 											<td class="break-words">{ event.SourceApp }</td>
 											<td class="text-muted-foreground break-words">{ event.ScopesSummary }</td>

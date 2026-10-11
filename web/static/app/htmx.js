@@ -44,6 +44,19 @@ const resolveEnterOnlyQueryInput = (detail) => {
   return null;
 };
 
+const replaceRequestParameter = (parameters, name, value) => {
+  if (!parameters || !name) return;
+
+  if (typeof parameters.delete === "function" && typeof parameters.set === "function") {
+    parameters.delete(name);
+    if (value !== "") parameters.set(name, value);
+    return;
+  }
+
+  delete parameters[name];
+  if (value !== "") parameters[name] = value;
+};
+
 const resolveManagedLazyElement = (detail) => {
   if (isManagedLazyHx(detail?.elt)) return detail.elt;
   if (isManagedLazyHx(detail?.target)) return detail.target;
@@ -207,22 +220,16 @@ const clearPendingLazyState = (state) => {
 };
 
 const syncEnterOnlyQueryParameter = (detail) => {
-  if (detail?.triggeringEvent?.type !== "change") return;
-
   const queryInput = resolveEnterOnlyQueryInput(detail);
   if (!queryInput) return;
+  if (queryInput.form !== detail?.elt) return;
 
   const queryParam = (queryInput.getAttribute("name") || "").trim();
   if (!queryParam) return;
 
-  if (queryInput.defaultValue === "") {
-    if (detail.parameters) delete detail.parameters[queryParam];
-    return;
-  }
-
-  if (detail.parameters) {
-    detail.parameters[queryParam] = queryInput.defaultValue;
-  }
+  const eventType = detail?.triggeringEvent?.type || "";
+  const queryValue = eventType === "change" ? queryInput.defaultValue : queryInput.value;
+  replaceRequestParameter(detail.parameters, queryParam, queryValue.trim());
 };
 
 const prepareLazyRequest = (event) => {

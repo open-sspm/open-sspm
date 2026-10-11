@@ -65,6 +65,126 @@ func StateAskBar(q querystate.BasicListQuery, placeholder, hxTarget string) AskB
 	}
 }
 
+func ResourceAccessAskBar(data viewmodels.ResourceShowViewData) AskBarConfig {
+	q := data.Query
+	fieldParam := map[string]string{
+		"search": "q", "permission": "permission", "kind": "kind", "link": "link",
+		"identity": "identity_kind",
+	}
+	chips := []AskBarChip{}
+	hidden := []AskBarHidden{}
+	add := func(field, value, key, label, tone string) {
+		if strings.TrimSpace(value) == "" {
+			return
+		}
+		chips = append(chips, AskBarChip{Field: field, Value: value, KeyLabel: key, Label: label, Tone: tone})
+		hidden = append(hidden, AskBarHidden{Name: fieldParam[field], Value: value})
+	}
+	add("permission", q.Permission, "permission", q.Permission, "")
+	add("kind", q.Kind, "kind", q.Kind, "")
+	add("link", q.Link, "link", strings.ReplaceAll(q.Link, "_", " "), "")
+	add("identity", q.IdentityKind, "identity", q.IdentityKind, "")
+
+	return AskBarConfig{
+		Placeholder: "Search identity, email, or account",
+		AriaLabel:   "Filter resource access",
+		SearchValue: q.Q,
+		Chips:       chips,
+		Hidden:      hidden,
+		FieldParam:  fieldParam,
+		KeyLabel: map[string]string{
+			"search": "", "permission": "permission", "kind": "kind", "link": "link",
+			"identity": "identity",
+		},
+		FieldLabel: map[string]string{
+			"search": "Search", "permission": "Permission", "kind": "Kind", "link": "Link state",
+			"identity": "Identity type",
+		},
+		KeywordTokens: map[string]AskBarKeyword{
+			"human":                  {Field: "identity", Value: "human", Label: "human"},
+			"service":                {Field: "identity", Value: "service", Label: "service"},
+			"anchored":               {Field: "link", Value: "anchored", Label: "anchored", Tone: "ok"},
+			"unlinked":               {Field: "link", Value: "unlinked", Label: "unlinked", Tone: "warn"},
+			"admin":                  {Field: "permission", Value: "admin", Label: "admin"},
+			"member":                 {Field: "permission", Value: "member", Label: "member"},
+			"owner":                  {Field: "permission", Value: "owner", Label: "owner"},
+			"read":                   {Field: "permission", Value: "read", Label: "read"},
+			"write":                  {Field: "permission", Value: "write", Label: "write"},
+			"user":                   {Field: "permission", Value: "user", Label: "user"},
+			"group-membership":       {Field: "kind", Value: "group_membership", Label: "group membership"},
+			"application-assignment": {Field: "kind", Value: "application_assignment", Label: "application assignment"},
+		},
+		FieldAliases: map[string]string{
+			"permission": "permission", "kind": "kind", "link": "link", "identity": "identity",
+		},
+		SingletonFields: []string{"permission", "kind", "link", "identity"},
+		FreeTextFields:  []string{"permission", "kind", "link"},
+		HasRightActions: true,
+		HxTarget:        "#resource-access-frame",
+		SuggestionScope: "resource-access",
+	}
+}
+
+func FindingsRulesAskBar(data viewmodels.FindingsRulesetViewData) AskBarConfig {
+	q := data.Query
+	chips := []AskBarChip{}
+	hidden := []AskBarHidden{}
+	add := func(field, value, key, label, tone string) {
+		if value == "" {
+			return
+		}
+		chips = append(chips, AskBarChip{Field: field, Value: value, KeyLabel: key, Label: label, Tone: tone})
+		hidden = append(hidden, AskBarHidden{Name: field, Value: value})
+	}
+	statusTone := ""
+	if q.Status == "fail" || q.Status == "error" {
+		statusTone = "danger"
+	} else if q.Status == "pass" {
+		statusTone = "ok"
+	}
+	add("status", q.Status, "status", strings.ReplaceAll(q.Status, "_", " "), statusTone)
+	add("severity", q.Severity, "severity", q.Severity, severityFilterTone(q.Severity))
+	add("monitoring", q.Monitoring, "monitoring", q.Monitoring, "")
+
+	keywords := map[string]AskBarKeyword{}
+	for _, value := range []string{"pass", "fail", "unknown", "error", "not_applicable"} {
+		keywords[strings.ReplaceAll(value, "_", "-")] = AskBarKeyword{Field: "status", Value: value, Label: strings.ReplaceAll(value, "_", " ")}
+	}
+	for _, value := range []string{"critical", "high", "medium", "low", "info"} {
+		keywords[value] = AskBarKeyword{Field: "severity", Value: value, Label: value, Tone: severityFilterTone(value)}
+	}
+	for _, value := range []string{"automated", "partial", "manual", "unsupported"} {
+		keywords[value] = AskBarKeyword{Field: "monitoring", Value: value, Label: value}
+	}
+
+	return AskBarConfig{
+		Placeholder:     "Search rule ID or summary",
+		AriaLabel:       "Filter rules",
+		SearchValue:     q.Q,
+		Chips:           chips,
+		Hidden:          hidden,
+		FieldParam:      map[string]string{"search": "q", "status": "status", "severity": "severity", "monitoring": "monitoring"},
+		KeyLabel:        map[string]string{"search": "", "status": "status", "severity": "severity", "monitoring": "monitoring"},
+		FieldLabel:      map[string]string{"search": "Search", "status": "Status", "severity": "Severity", "monitoring": "Monitoring"},
+		KeywordTokens:   keywords,
+		FieldAliases:    map[string]string{"status": "status", "severity": "severity", "monitoring": "monitoring"},
+		SingletonFields: []string{"status", "severity", "monitoring"},
+		HasRightActions: false,
+		HxTarget:        "#rules-card",
+	}
+}
+
+func severityFilterTone(value string) string {
+	switch value {
+	case "critical", "high":
+		return "danger"
+	case "medium":
+		return "warn"
+	default:
+		return ""
+	}
+}
+
 // AppsAskBar is the askbar config for the assigned-apps page.
 func AppsAskBar(data viewmodels.AppsViewData) AskBarConfig {
 	q := data.Query
@@ -906,7 +1026,7 @@ func NonHumanIdentitiesAskBar(data viewmodels.NonHumanIdentitiesViewData) AskBar
 	}
 
 	return AskBarConfig{
-		Placeholder: "try: bots · unowned · critical · github · stale · or type a principal",
+		Placeholder: "Search principals…",
 		AriaLabel:   "Filter non-human identities",
 		SearchValue: strings.TrimSpace(q.Q),
 		Chips:       chips,

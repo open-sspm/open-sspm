@@ -86,7 +86,7 @@ templ DiscoveryAppsPageResults(data viewmodels.DiscoveryAppsViewData) {
 		@BusyInlineIndicator("Updating results...", false)
 			<section class="space-y-3">
 				if data.HasItems {
-					<div class="space-y-3 lg:hidden">
+					<div class="osspm-mobile-list lg:hidden">
 						for _, item := range data.Items {
 							@DiscoveryAppMobileRow(item)
 						}

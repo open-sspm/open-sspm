@@ -213,24 +213,6 @@ func FormatInt64(v int64) string {
 	return strconv.FormatInt(v, 10)
 }
 
-func FindingsRulesetFilterCount(data viewmodels.FindingsRulesetViewData) int {
-	count := 0
-	if strings.TrimSpace(data.StatusFilter) != "" {
-		count++
-	}
-	if strings.TrimSpace(data.SeverityFilter) != "" {
-		count++
-	}
-	if strings.TrimSpace(data.MonitoringFilter) != "" {
-		count++
-	}
-	return count
-}
-
-func FindingsRulesetClearFiltersHref(data viewmodels.FindingsRulesetViewData) string {
-	return "/findings/rulesets/" + strings.TrimSpace(data.Ruleset.Key)
-}
-
 func AppDetailURL(integratedHref, sourceName, externalID string) string {
 	if integratedHref = strings.TrimSpace(integratedHref); integratedHref != "" {
 		return integratedHref
